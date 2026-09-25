@@ -30,7 +30,7 @@ import java.util.Map;
  *                                 encode = ak_encode_* + ak_enc_take into the reused sink
  *   core-ffi-pull   drop          decode only: ak_parse_* + the drained replay
  *   host-gen        drop, retain  arm R (Codec / CodecRetain) + copy into the reused sink
- *   core-ffi        retain        PENDING the decision 11 port (see below): not run
+ *   core-ffi        retain        every position armed (decision 11), u-group encode
  * </pre>
  *
  * <p>Directions (req 9): {@code encode}, {@code decode} (the bare call) and
@@ -40,10 +40,9 @@ import java.util.Map;
  * the timed loop (a pool of {@code iters} objects per sample, untimed), so protobuf-java's
  * per-instance memoised size is never amortised. The facade arms get the same treatment.
  *
- * <p>Req 10: {@code core-ffi} in retain mode needs ABI v1 decision 11's mechanism (options
- * entries armed per position), which is being ported into poc/codec; the binding does not
- * render it yet. The hook is the {@code unknown_mode} of an arm: the run records
- * {@code core-ffi/retain} as pending in a meta line and produces no sample for it.
+ * <p>Req 10: {@code core-ffi} runs in drop and retain (ABI v1 decision 11, WP5 step 9: the
+ * binding arms every position with the shim's grow and re-encodes through the u-groups);
+ * host-gen in drop and retain; the incumbent in protobuf-java's default mode (it retains).
  *
  * <p><b>Timed by JMH</b> (req 22a, owner 2026-09-25): {@code src/jmh/ak/CodecJmh.java} runs
  * one cell per JMH benchmark (one fork per cell), using {@link #make}, {@link #canonical},
@@ -181,9 +180,11 @@ public final class CampaignCodec {
   static final class Ffi extends Fac {
     final Binding b = new Binding();
     final boolean pull;
-    Ffi(boolean pull) { this.pull = pull; }
+    final boolean retain;
+    Ffi(boolean pull) { this(pull, false); }
+    Ffi(boolean pull, boolean retain) { this.pull = pull; this.retain = retain; b.retain = retain; }
     public String name() { return pull ? "core-ffi-pull" : "core-ffi"; }
-    public String mode() { return "drop"; }
+    public String mode() { return retain ? "retain" : "drop"; }
     @Override public boolean encodes() { return !pull; }
     public void encode(String id, int n) {
       for (int i = 0; i < n; i++) {
@@ -212,16 +213,15 @@ public final class CampaignCodec {
   // the cells (arm|mode|payload|content|dir) the runner hands JMH as the `cell` parameter.
 
   static final String[] ARMS = {"incumbent-prod|default", "incumbent-best|default",
-      "core-ffi|drop", "core-ffi-pull|drop", "host-gen|drop", "host-gen|retain"};
+      "core-ffi|drop", "core-ffi|retain", "core-ffi-pull|drop", "host-gen|drop", "host-gen|retain"};
 
   static CArm make(String arm, String mode) {
     if (arm.equals("incumbent-prod")) return new Pbj(true);
     if (arm.equals("incumbent-best")) return new Pbj(false);
-    if (arm.equals("core-ffi") && mode.equals("drop")) return new Ffi(false);
-    if (arm.equals("core-ffi-pull")) return new Ffi(true);
+    if (arm.equals("core-ffi")) return new Ffi(false, mode.equals("retain"));
+    if (arm.equals("core-ffi-pull")) return new Ffi(true, mode.equals("retain"));
     if (arm.equals("host-gen")) return new HostGen(mode.equals("retain"));
-    // core-ffi/retain: ABI v1 decision 11's options are not rendered by the Java backend yet.
-    throw new IllegalArgumentException("no arm " + arm + "/" + mode + " (core-ffi/retain is pending decision 11)");
+    throw new IllegalArgumentException("no arm " + arm + "/" + mode);
   }
 
   /** The canonical wire of (payload, content): arm R's encoding, checked against the
@@ -351,8 +351,8 @@ public final class CampaignCodec {
     UArm(String arm, String mode, String root, byte[] row) throws Exception {
       this.arm = arm; this.mode = mode; this.root = root; this.row = row;
       if (arm.startsWith("core-ffi")) {
-        if (mode.equals("retain")) throw new IllegalArgumentException("core-ffi/retain pending decision 11");
         b = new ak.corpus.Binding();
+        b.retain = mode.equals("retain");   // decision 11 (WP5 step 9)
       } else if (arm.startsWith("incumbent")) {
         proto = (Message) Class.forName("ak.pb." + root).getMethod("getDefaultInstance").invoke(null);
         marsh = ProtoLiteUtils.marshaller(proto);

@@ -44,7 +44,7 @@ for arm in "a $J17 build/cls17" "b $J17 build/cls8" "c $J8 build/cls8"; do
   echo "### arm $1   runtime $2   classes $3   exit $rc"
   grep -E "^java.version|^NOTE" "$out" | sed 's/^/  /'
   echo "  rows per arm (a row is one line naming the arm: encode, pairwise, round trip):"
-  for a in R ffi ffi-nobatch ffi-zeroed ffi-nobatch-zeroed ffi-pull ffi-pull-walk ffi-borrow pbj; do
+  for a in R ffi ffi-nobatch ffi-zeroed ffi-nobatch-zeroed ffi-pull ffi-pull-walk ffi-retain ffi-pull-retain ffi-borrow pbj; do
     n=$(grep -cE "^  P[0-9.]+  ($a  |.* $a$|$a ==|.*== $a$)" "$out" || true)
     rt=$(grep -cE "^  P[0-9.]+  $a  round trip ok" "$out" || true)
     bad=$(grep -E "^  P[0-9.]+  " "$out" | grep -E "( |^)$a( |$)" | grep -ciE "fail|mismatch|differ|error" || true)

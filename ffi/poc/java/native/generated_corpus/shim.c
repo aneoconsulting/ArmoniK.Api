@@ -267,28 +267,15 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeTimestamp(JNIEnv *env, 
   return (jlong) rc;
 }
 
-JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeTimestamp(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeTimestamp(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
   (void) cls;
-  if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
+  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
-  int32_t rc = ak_decode_Timestamp((ak_dec_ctx *)(intptr_t) ctx, (void *)(intptr_t) 1,
-      (const uint8_t *)(intptr_t) buf, (size_t) len,
-      (const struct ak_dvt_Timestamp *)(intptr_t) vt);
+  intptr_t rc = ak_uencode_Timestamp((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_evt_Timestamp *)(intptr_t) vt,
+      (const struct ak_ufix_Timestamp *)(intptr_t) fix);
   ak_pop();
-  return (jint) rc;
-}
-
-/* PULL. `ak_parse_Timestamp` deposits records and calls nobody, so the wire is pinned
- * rather than copied; there is no ak_push frame to make an upcall from. */
-JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseTimestamp(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
-  (void) cls; (void) self;
-  AK_TAX();
-  void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
-  if (base == NULL) return (jint) AK_ERR_HOST;
-  int32_t rc = ak_parse_Timestamp((ak_dec_ctx *)(intptr_t) ctx,
-      (const uint8_t *) base + off, (size_t) len);
-  (*env)->ReleasePrimitiveArrayCritical(env, wire, base, JNI_ABORT);
-  return (jint) rc;
+  return (jlong) rc;
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeDuration(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
@@ -302,28 +289,15 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeDuration(JNIEnv *env, j
   return (jlong) rc;
 }
 
-JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeDuration(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeDuration(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
   (void) cls;
-  if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
+  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
-  int32_t rc = ak_decode_Duration((ak_dec_ctx *)(intptr_t) ctx, (void *)(intptr_t) 1,
-      (const uint8_t *)(intptr_t) buf, (size_t) len,
-      (const struct ak_dvt_Duration *)(intptr_t) vt);
+  intptr_t rc = ak_uencode_Duration((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_evt_Duration *)(intptr_t) vt,
+      (const struct ak_ufix_Duration *)(intptr_t) fix);
   ak_pop();
-  return (jint) rc;
-}
-
-/* PULL. `ak_parse_Duration` deposits records and calls nobody, so the wire is pinned
- * rather than copied; there is no ak_push frame to make an upcall from. */
-JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseDuration(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
-  (void) cls; (void) self;
-  AK_TAX();
-  void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
-  if (base == NULL) return (jint) AK_ERR_HOST;
-  int32_t rc = ak_parse_Duration((ak_dec_ctx *)(intptr_t) ctx,
-      (const uint8_t *) base + off, (size_t) len);
-  (*env)->ReleasePrimitiveArrayCritical(env, wire, base, JNI_ABORT);
-  return (jint) rc;
+  return (jlong) rc;
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeResultRaw(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
@@ -337,28 +311,15 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeResultRaw(JNIEnv *env, 
   return (jlong) rc;
 }
 
-JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeResultRaw(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeResultRaw(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
   (void) cls;
-  if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
+  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
-  int32_t rc = ak_decode_ResultRaw((ak_dec_ctx *)(intptr_t) ctx, (void *)(intptr_t) 1,
-      (const uint8_t *)(intptr_t) buf, (size_t) len,
-      (const struct ak_dvt_ResultRaw *)(intptr_t) vt);
+  intptr_t rc = ak_uencode_ResultRaw((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_evt_ResultRaw *)(intptr_t) vt,
+      (const struct ak_ufix_ResultRaw *)(intptr_t) fix);
   ak_pop();
-  return (jint) rc;
-}
-
-/* PULL. `ak_parse_ResultRaw` deposits records and calls nobody, so the wire is pinned
- * rather than copied; there is no ak_push frame to make an upcall from. */
-JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseResultRaw(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
-  (void) cls; (void) self;
-  AK_TAX();
-  void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
-  if (base == NULL) return (jint) AK_ERR_HOST;
-  int32_t rc = ak_parse_ResultRaw((ak_dec_ctx *)(intptr_t) ctx,
-      (const uint8_t *) base + off, (size_t) len);
-  (*env)->ReleasePrimitiveArrayCritical(env, wire, base, JNI_ABORT);
-  return (jint) rc;
+  return (jlong) rc;
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeTaskOptions(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
@@ -372,28 +333,15 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeTaskOptions(JNIEnv *env
   return (jlong) rc;
 }
 
-JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeTaskOptions(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeTaskOptions(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
   (void) cls;
-  if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
+  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
-  int32_t rc = ak_decode_TaskOptions((ak_dec_ctx *)(intptr_t) ctx, (void *)(intptr_t) 1,
-      (const uint8_t *)(intptr_t) buf, (size_t) len,
-      (const struct ak_dvt_TaskOptions *)(intptr_t) vt);
+  intptr_t rc = ak_uencode_TaskOptions((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_evt_TaskOptions *)(intptr_t) vt,
+      (const struct ak_ufix_TaskOptions *)(intptr_t) fix);
   ak_pop();
-  return (jint) rc;
-}
-
-/* PULL. `ak_parse_TaskOptions` deposits records and calls nobody, so the wire is pinned
- * rather than copied; there is no ak_push frame to make an upcall from. */
-JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseTaskOptions(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
-  (void) cls; (void) self;
-  AK_TAX();
-  void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
-  if (base == NULL) return (jint) AK_ERR_HOST;
-  int32_t rc = ak_parse_TaskOptions((ak_dec_ctx *)(intptr_t) ctx,
-      (const uint8_t *) base + off, (size_t) len);
-  (*env)->ReleasePrimitiveArrayCritical(env, wire, base, JNI_ABORT);
-  return (jint) rc;
+  return (jlong) rc;
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeTaskOutput(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
@@ -407,28 +355,15 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeTaskOutput(JNIEnv *env,
   return (jlong) rc;
 }
 
-JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeTaskOutput(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeTaskOutput(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
   (void) cls;
-  if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
+  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
-  int32_t rc = ak_decode_TaskOutput((ak_dec_ctx *)(intptr_t) ctx, (void *)(intptr_t) 1,
-      (const uint8_t *)(intptr_t) buf, (size_t) len,
-      (const struct ak_dvt_TaskOutput *)(intptr_t) vt);
+  intptr_t rc = ak_uencode_TaskOutput((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_evt_TaskOutput *)(intptr_t) vt,
+      (const struct ak_ufix_TaskOutput *)(intptr_t) fix);
   ak_pop();
-  return (jint) rc;
-}
-
-/* PULL. `ak_parse_TaskOutput` deposits records and calls nobody, so the wire is pinned
- * rather than copied; there is no ak_push frame to make an upcall from. */
-JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseTaskOutput(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
-  (void) cls; (void) self;
-  AK_TAX();
-  void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
-  if (base == NULL) return (jint) AK_ERR_HOST;
-  int32_t rc = ak_parse_TaskOutput((ak_dec_ctx *)(intptr_t) ctx,
-      (const uint8_t *) base + off, (size_t) len);
-  (*env)->ReleasePrimitiveArrayCritical(env, wire, base, JNI_ABORT);
-  return (jint) rc;
+  return (jlong) rc;
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeTaskDetailed(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
@@ -442,28 +377,15 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeTaskDetailed(JNIEnv *en
   return (jlong) rc;
 }
 
-JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeTaskDetailed(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeTaskDetailed(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
   (void) cls;
-  if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
+  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
-  int32_t rc = ak_decode_TaskDetailed((ak_dec_ctx *)(intptr_t) ctx, (void *)(intptr_t) 1,
-      (const uint8_t *)(intptr_t) buf, (size_t) len,
-      (const struct ak_dvt_TaskDetailed *)(intptr_t) vt);
+  intptr_t rc = ak_uencode_TaskDetailed((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_evt_TaskDetailed *)(intptr_t) vt,
+      (const struct ak_ufix_TaskDetailed *)(intptr_t) fix);
   ak_pop();
-  return (jint) rc;
-}
-
-/* PULL. `ak_parse_TaskDetailed` deposits records and calls nobody, so the wire is pinned
- * rather than copied; there is no ak_push frame to make an upcall from. */
-JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseTaskDetailed(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
-  (void) cls; (void) self;
-  AK_TAX();
-  void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
-  if (base == NULL) return (jint) AK_ERR_HOST;
-  int32_t rc = ak_parse_TaskDetailed((ak_dec_ctx *)(intptr_t) ctx,
-      (const uint8_t *) base + off, (size_t) len);
-  (*env)->ReleasePrimitiveArrayCritical(env, wire, base, JNI_ABORT);
-  return (jint) rc;
+  return (jlong) rc;
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeTaskSummary(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
@@ -477,28 +399,15 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeTaskSummary(JNIEnv *env
   return (jlong) rc;
 }
 
-JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeTaskSummary(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeTaskSummary(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
   (void) cls;
-  if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
+  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
-  int32_t rc = ak_decode_TaskSummary((ak_dec_ctx *)(intptr_t) ctx, (void *)(intptr_t) 1,
-      (const uint8_t *)(intptr_t) buf, (size_t) len,
-      (const struct ak_dvt_TaskSummary *)(intptr_t) vt);
+  intptr_t rc = ak_uencode_TaskSummary((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_evt_TaskSummary *)(intptr_t) vt,
+      (const struct ak_ufix_TaskSummary *)(intptr_t) fix);
   ak_pop();
-  return (jint) rc;
-}
-
-/* PULL. `ak_parse_TaskSummary` deposits records and calls nobody, so the wire is pinned
- * rather than copied; there is no ak_push frame to make an upcall from. */
-JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseTaskSummary(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
-  (void) cls; (void) self;
-  AK_TAX();
-  void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
-  if (base == NULL) return (jint) AK_ERR_HOST;
-  int32_t rc = ak_parse_TaskSummary((ak_dec_ctx *)(intptr_t) ctx,
-      (const uint8_t *) base + off, (size_t) len);
-  (*env)->ReleasePrimitiveArrayCritical(env, wire, base, JNI_ABORT);
-  return (jint) rc;
+  return (jlong) rc;
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeProbe(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
@@ -512,28 +421,15 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeProbe(JNIEnv *env, jcla
   return (jlong) rc;
 }
 
-JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeProbe(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeProbe(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
   (void) cls;
-  if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
+  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
-  int32_t rc = ak_decode_Probe((ak_dec_ctx *)(intptr_t) ctx, (void *)(intptr_t) 1,
-      (const uint8_t *)(intptr_t) buf, (size_t) len,
-      (const struct ak_dvt_Probe *)(intptr_t) vt);
+  intptr_t rc = ak_uencode_Probe((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_evt_Probe *)(intptr_t) vt,
+      (const struct ak_ufix_Probe *)(intptr_t) fix);
   ak_pop();
-  return (jint) rc;
-}
-
-/* PULL. `ak_parse_Probe` deposits records and calls nobody, so the wire is pinned
- * rather than copied; there is no ak_push frame to make an upcall from. */
-JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseProbe(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
-  (void) cls; (void) self;
-  AK_TAX();
-  void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
-  if (base == NULL) return (jint) AK_ERR_HOST;
-  int32_t rc = ak_parse_Probe((ak_dec_ctx *)(intptr_t) ctx,
-      (const uint8_t *) base + off, (size_t) len);
-  (*env)->ReleasePrimitiveArrayCritical(env, wire, base, JNI_ABORT);
-  return (jint) rc;
+  return (jlong) rc;
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeEmpty(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
@@ -547,28 +443,15 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeEmpty(JNIEnv *env, jcla
   return (jlong) rc;
 }
 
-JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeEmpty(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeEmpty(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
   (void) cls;
-  if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
+  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
-  int32_t rc = ak_decode_Empty((ak_dec_ctx *)(intptr_t) ctx, (void *)(intptr_t) 1,
-      (const uint8_t *)(intptr_t) buf, (size_t) len,
-      (const struct ak_dvt_Empty *)(intptr_t) vt);
+  intptr_t rc = ak_uencode_Empty((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_evt_Empty *)(intptr_t) vt,
+      (const struct ak_ufix_Empty *)(intptr_t) fix);
   ak_pop();
-  return (jint) rc;
-}
-
-/* PULL. `ak_parse_Empty` deposits records and calls nobody, so the wire is pinned
- * rather than copied; there is no ak_push frame to make an upcall from. */
-JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseEmpty(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
-  (void) cls; (void) self;
-  AK_TAX();
-  void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
-  if (base == NULL) return (jint) AK_ERR_HOST;
-  int32_t rc = ak_parse_Empty((ak_dec_ctx *)(intptr_t) ctx,
-      (const uint8_t *) base + off, (size_t) len);
-  (*env)->ReleasePrimitiveArrayCritical(env, wire, base, JNI_ABORT);
-  return (jint) rc;
+  return (jlong) rc;
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeUploadResultData(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
@@ -602,28 +485,35 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeDirectUploadResultData(
   return (jlong) rc;
 }
 
-JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeUploadResultData(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeUploadResultData(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
   (void) cls;
-  if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
+  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
-  int32_t rc = ak_decode_UploadResultData((ak_dec_ctx *)(intptr_t) ctx, (void *)(intptr_t) 1,
-      (const uint8_t *)(intptr_t) buf, (size_t) len,
-      (const struct ak_dvt_UploadResultData *)(intptr_t) vt);
+  intptr_t rc = ak_uencode_UploadResultData((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_evt_UploadResultData *)(intptr_t) vt,
+      (const struct ak_ufix_UploadResultData *)(intptr_t) fix, NULL, 0);
   ak_pop();
-  return (jint) rc;
+  return (jlong) rc;
 }
 
-/* PULL. `ak_parse_UploadResultData` deposits records and calls nobody, so the wire is pinned
- * rather than copied; there is no ak_push frame to make an upcall from. */
-JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseUploadResultData(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
-  (void) cls; (void) self;
+/* ABI v1 section 8: `data_chunk` is a DIRECT ARGUMENT, a `byte[]` pinned with
+ * GetPrimitiveArrayCritical for the call. The generator-time refusal
+ * (plan.check_direct) proved this tree makes no reverse call, which is what
+ * makes a critical section legal here. */
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeDirectUploadResultData(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix, jbyteArray data, jint dlen) {
+  (void) cls;
+  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
+  void *p = (*env)->GetPrimitiveArrayCritical(env, data, NULL);
+  /* R-D9: a NULL pin (the JVM threw OutOfMemoryError) is refused, never
+   * handed to the core as a NULL span with a nonzero length. */
+  if (p == NULL) { ak_pop(); return (jlong) AK_ERR_HOST; }
   AK_TAX();
-  void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
-  if (base == NULL) return (jint) AK_ERR_HOST;
-  int32_t rc = ak_parse_UploadResultData((ak_dec_ctx *)(intptr_t) ctx,
-      (const uint8_t *) base + off, (size_t) len);
-  (*env)->ReleasePrimitiveArrayCritical(env, wire, base, JNI_ABORT);
-  return (jint) rc;
+  intptr_t rc = ak_uencode_UploadResultData((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_evt_UploadResultData *)(intptr_t) vt,
+      (const struct ak_ufix_UploadResultData *)(intptr_t) fix, (const uint8_t *) p, (size_t) dlen);
+  (*env)->ReleasePrimitiveArrayCritical(env, data, p, JNI_ABORT);
+  ak_pop();
+  return (jlong) rc;
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeMetricsBatch(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
@@ -637,28 +527,15 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeMetricsBatch(JNIEnv *en
   return (jlong) rc;
 }
 
-JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeMetricsBatch(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeMetricsBatch(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
   (void) cls;
-  if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
+  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
-  int32_t rc = ak_decode_MetricsBatch((ak_dec_ctx *)(intptr_t) ctx, (void *)(intptr_t) 1,
-      (const uint8_t *)(intptr_t) buf, (size_t) len,
-      (const struct ak_dvt_MetricsBatch *)(intptr_t) vt);
+  intptr_t rc = ak_uencode_MetricsBatch((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_evt_MetricsBatch *)(intptr_t) vt,
+      (const struct ak_ufix_MetricsBatch *)(intptr_t) fix);
   ak_pop();
-  return (jint) rc;
-}
-
-/* PULL. `ak_parse_MetricsBatch` deposits records and calls nobody, so the wire is pinned
- * rather than copied; there is no ak_push frame to make an upcall from. */
-JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseMetricsBatch(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
-  (void) cls; (void) self;
-  AK_TAX();
-  void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
-  if (base == NULL) return (jint) AK_ERR_HOST;
-  int32_t rc = ak_parse_MetricsBatch((ak_dec_ctx *)(intptr_t) ctx,
-      (const uint8_t *) base + off, (size_t) len);
-  (*env)->ReleasePrimitiveArrayCritical(env, wire, base, JNI_ABORT);
-  return (jint) rc;
+  return (jlong) rc;
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodePair(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
@@ -672,28 +549,15 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodePair(JNIEnv *env, jclas
   return (jlong) rc;
 }
 
-JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodePair(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodePair(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
   (void) cls;
-  if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
+  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
-  int32_t rc = ak_decode_Pair((ak_dec_ctx *)(intptr_t) ctx, (void *)(intptr_t) 1,
-      (const uint8_t *)(intptr_t) buf, (size_t) len,
-      (const struct ak_dvt_Pair *)(intptr_t) vt);
+  intptr_t rc = ak_uencode_Pair((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_evt_Pair *)(intptr_t) vt,
+      (const struct ak_ufix_Pair *)(intptr_t) fix);
   ak_pop();
-  return (jint) rc;
-}
-
-/* PULL. `ak_parse_Pair` deposits records and calls nobody, so the wire is pinned
- * rather than copied; there is no ak_push frame to make an upcall from. */
-JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parsePair(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
-  (void) cls; (void) self;
-  AK_TAX();
-  void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
-  if (base == NULL) return (jint) AK_ERR_HOST;
-  int32_t rc = ak_parse_Pair((ak_dec_ctx *)(intptr_t) ctx,
-      (const uint8_t *) base + off, (size_t) len);
-  (*env)->ReleasePrimitiveArrayCritical(env, wire, base, JNI_ABORT);
-  return (jint) rc;
+  return (jlong) rc;
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeListResultsResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
@@ -707,28 +571,15 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeListResultsResponse(JNI
   return (jlong) rc;
 }
 
-JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeListResultsResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeListResultsResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
   (void) cls;
-  if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
+  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
-  int32_t rc = ak_decode_ListResultsResponse((ak_dec_ctx *)(intptr_t) ctx, (void *)(intptr_t) 1,
-      (const uint8_t *)(intptr_t) buf, (size_t) len,
-      (const struct ak_dvt_ListResultsResponse *)(intptr_t) vt);
+  intptr_t rc = ak_uencode_ListResultsResponse((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_evt_ListResultsResponse *)(intptr_t) vt,
+      (const struct ak_ufix_ListResultsResponse *)(intptr_t) fix);
   ak_pop();
-  return (jint) rc;
-}
-
-/* PULL. `ak_parse_ListResultsResponse` deposits records and calls nobody, so the wire is pinned
- * rather than copied; there is no ak_push frame to make an upcall from. */
-JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseListResultsResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
-  (void) cls; (void) self;
-  AK_TAX();
-  void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
-  if (base == NULL) return (jint) AK_ERR_HOST;
-  int32_t rc = ak_parse_ListResultsResponse((ak_dec_ctx *)(intptr_t) ctx,
-      (const uint8_t *) base + off, (size_t) len);
-  (*env)->ReleasePrimitiveArrayCritical(env, wire, base, JNI_ABORT);
-  return (jint) rc;
+  return (jlong) rc;
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeListTasksDetailedResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
@@ -742,28 +593,15 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeListTasksDetailedRespon
   return (jlong) rc;
 }
 
-JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeListTasksDetailedResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeListTasksDetailedResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
   (void) cls;
-  if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
+  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
-  int32_t rc = ak_decode_ListTasksDetailedResponse((ak_dec_ctx *)(intptr_t) ctx, (void *)(intptr_t) 1,
-      (const uint8_t *)(intptr_t) buf, (size_t) len,
-      (const struct ak_dvt_ListTasksDetailedResponse *)(intptr_t) vt);
+  intptr_t rc = ak_uencode_ListTasksDetailedResponse((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_evt_ListTasksDetailedResponse *)(intptr_t) vt,
+      (const struct ak_ufix_ListTasksDetailedResponse *)(intptr_t) fix);
   ak_pop();
-  return (jint) rc;
-}
-
-/* PULL. `ak_parse_ListTasksDetailedResponse` deposits records and calls nobody, so the wire is pinned
- * rather than copied; there is no ak_push frame to make an upcall from. */
-JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseListTasksDetailedResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
-  (void) cls; (void) self;
-  AK_TAX();
-  void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
-  if (base == NULL) return (jint) AK_ERR_HOST;
-  int32_t rc = ak_parse_ListTasksDetailedResponse((ak_dec_ctx *)(intptr_t) ctx,
-      (const uint8_t *) base + off, (size_t) len);
-  (*env)->ReleasePrimitiveArrayCritical(env, wire, base, JNI_ABORT);
-  return (jint) rc;
+  return (jlong) rc;
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeListTaskSummaryResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
@@ -777,28 +615,15 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeListTaskSummaryResponse
   return (jlong) rc;
 }
 
-JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeListTaskSummaryResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeListTaskSummaryResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
   (void) cls;
-  if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
+  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
-  int32_t rc = ak_decode_ListTaskSummaryResponse((ak_dec_ctx *)(intptr_t) ctx, (void *)(intptr_t) 1,
-      (const uint8_t *)(intptr_t) buf, (size_t) len,
-      (const struct ak_dvt_ListTaskSummaryResponse *)(intptr_t) vt);
+  intptr_t rc = ak_uencode_ListTaskSummaryResponse((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_evt_ListTaskSummaryResponse *)(intptr_t) vt,
+      (const struct ak_ufix_ListTaskSummaryResponse *)(intptr_t) fix);
   ak_pop();
-  return (jint) rc;
-}
-
-/* PULL. `ak_parse_ListTaskSummaryResponse` deposits records and calls nobody, so the wire is pinned
- * rather than copied; there is no ak_push frame to make an upcall from. */
-JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseListTaskSummaryResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
-  (void) cls; (void) self;
-  AK_TAX();
-  void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
-  if (base == NULL) return (jint) AK_ERR_HOST;
-  int32_t rc = ak_parse_ListTaskSummaryResponse((ak_dec_ctx *)(intptr_t) ctx,
-      (const uint8_t *) base + off, (size_t) len);
-  (*env)->ReleasePrimitiveArrayCritical(env, wire, base, JNI_ABORT);
-  return (jint) rc;
+  return (jlong) rc;
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeListProbeResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
@@ -812,28 +637,15 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeListProbeResponse(JNIEn
   return (jlong) rc;
 }
 
-JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeListProbeResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeListProbeResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
   (void) cls;
-  if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
+  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
-  int32_t rc = ak_decode_ListProbeResponse((ak_dec_ctx *)(intptr_t) ctx, (void *)(intptr_t) 1,
-      (const uint8_t *)(intptr_t) buf, (size_t) len,
-      (const struct ak_dvt_ListProbeResponse *)(intptr_t) vt);
+  intptr_t rc = ak_uencode_ListProbeResponse((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_evt_ListProbeResponse *)(intptr_t) vt,
+      (const struct ak_ufix_ListProbeResponse *)(intptr_t) fix);
   ak_pop();
-  return (jint) rc;
-}
-
-/* PULL. `ak_parse_ListProbeResponse` deposits records and calls nobody, so the wire is pinned
- * rather than copied; there is no ak_push frame to make an upcall from. */
-JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseListProbeResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
-  (void) cls; (void) self;
-  AK_TAX();
-  void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
-  if (base == NULL) return (jint) AK_ERR_HOST;
-  int32_t rc = ak_parse_ListProbeResponse((ak_dec_ctx *)(intptr_t) ctx,
-      (const uint8_t *) base + off, (size_t) len);
-  (*env)->ReleasePrimitiveArrayCritical(env, wire, base, JNI_ABORT);
-  return (jint) rc;
+  return (jlong) rc;
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeListMetricsResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
@@ -847,28 +659,15 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeListMetricsResponse(JNI
   return (jlong) rc;
 }
 
-JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeListMetricsResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeListMetricsResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
   (void) cls;
-  if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
+  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
-  int32_t rc = ak_decode_ListMetricsResponse((ak_dec_ctx *)(intptr_t) ctx, (void *)(intptr_t) 1,
-      (const uint8_t *)(intptr_t) buf, (size_t) len,
-      (const struct ak_dvt_ListMetricsResponse *)(intptr_t) vt);
+  intptr_t rc = ak_uencode_ListMetricsResponse((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_evt_ListMetricsResponse *)(intptr_t) vt,
+      (const struct ak_ufix_ListMetricsResponse *)(intptr_t) fix);
   ak_pop();
-  return (jint) rc;
-}
-
-/* PULL. `ak_parse_ListMetricsResponse` deposits records and calls nobody, so the wire is pinned
- * rather than copied; there is no ak_push frame to make an upcall from. */
-JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseListMetricsResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
-  (void) cls; (void) self;
-  AK_TAX();
-  void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
-  if (base == NULL) return (jint) AK_ERR_HOST;
-  int32_t rc = ak_parse_ListMetricsResponse((ak_dec_ctx *)(intptr_t) ctx,
-      (const uint8_t *) base + off, (size_t) len);
-  (*env)->ReleasePrimitiveArrayCritical(env, wire, base, JNI_ABORT);
-  return (jint) rc;
+  return (jlong) rc;
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeUploadResultDataMessage(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
@@ -902,6 +701,840 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeDirectUploadResultDataM
   return (jlong) rc;
 }
 
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeUploadResultDataMessage(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  (void) cls;
+  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
+  AK_TAX();
+  intptr_t rc = ak_uencode_UploadResultDataMessage((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_evt_UploadResultDataMessage *)(intptr_t) vt,
+      (const struct ak_ufix_UploadResultDataMessage *)(intptr_t) fix, NULL, 0);
+  ak_pop();
+  return (jlong) rc;
+}
+
+/* ABI v1 section 8: `upload.data_chunk` is a DIRECT ARGUMENT, a `byte[]` pinned with
+ * GetPrimitiveArrayCritical for the call. The generator-time refusal
+ * (plan.check_direct) proved this tree makes no reverse call, which is what
+ * makes a critical section legal here. */
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeDirectUploadResultDataMessage(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix, jbyteArray data, jint dlen) {
+  (void) cls;
+  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
+  void *p = (*env)->GetPrimitiveArrayCritical(env, data, NULL);
+  /* R-D9: a NULL pin (the JVM threw OutOfMemoryError) is refused, never
+   * handed to the core as a NULL span with a nonzero length. */
+  if (p == NULL) { ak_pop(); return (jlong) AK_ERR_HOST; }
+  AK_TAX();
+  intptr_t rc = ak_uencode_UploadResultDataMessage((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_evt_UploadResultDataMessage *)(intptr_t) vt,
+      (const struct ak_ufix_UploadResultDataMessage *)(intptr_t) fix, (const uint8_t *) p, (size_t) dlen);
+  (*env)->ReleasePrimitiveArrayCritical(env, data, p, JNI_ABORT);
+  ak_pop();
+  return (jlong) rc;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeDualResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  (void) cls;
+  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
+  AK_TAX();
+  intptr_t rc = ak_encode_DualResponse((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_evt_DualResponse *)(intptr_t) vt,
+      (const struct ak_efix_DualResponse *)(intptr_t) fix);
+  ak_pop();
+  return (jlong) rc;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeDualResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  (void) cls;
+  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
+  AK_TAX();
+  intptr_t rc = ak_uencode_DualResponse((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_evt_DualResponse *)(intptr_t) vt,
+      (const struct ak_ufix_DualResponse *)(intptr_t) fix);
+  ak_pop();
+  return (jlong) rc;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeChunkLeaf(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  (void) cls;
+  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
+  AK_TAX();
+  intptr_t rc = ak_encode_ChunkLeaf((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_evt_ChunkLeaf *)(intptr_t) vt,
+      (const struct ak_efix_ChunkLeaf *)(intptr_t) fix);
+  ak_pop();
+  return (jlong) rc;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeChunkLeaf(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  (void) cls;
+  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
+  AK_TAX();
+  intptr_t rc = ak_uencode_ChunkLeaf((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_evt_ChunkLeaf *)(intptr_t) vt,
+      (const struct ak_ufix_ChunkLeaf *)(intptr_t) fix);
+  ak_pop();
+  return (jlong) rc;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeChunkInner(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  (void) cls;
+  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
+  AK_TAX();
+  intptr_t rc = ak_encode_ChunkInner((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_evt_ChunkInner *)(intptr_t) vt,
+      (const struct ak_efix_ChunkInner *)(intptr_t) fix);
+  ak_pop();
+  return (jlong) rc;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeChunkInner(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  (void) cls;
+  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
+  AK_TAX();
+  intptr_t rc = ak_uencode_ChunkInner((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_evt_ChunkInner *)(intptr_t) vt,
+      (const struct ak_ufix_ChunkInner *)(intptr_t) fix);
+  ak_pop();
+  return (jlong) rc;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeChunkElement(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  (void) cls;
+  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
+  AK_TAX();
+  intptr_t rc = ak_encode_ChunkElement((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_evt_ChunkElement *)(intptr_t) vt,
+      (const struct ak_efix_ChunkElement *)(intptr_t) fix);
+  ak_pop();
+  return (jlong) rc;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeChunkElement(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  (void) cls;
+  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
+  AK_TAX();
+  intptr_t rc = ak_uencode_ChunkElement((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_evt_ChunkElement *)(intptr_t) vt,
+      (const struct ak_ufix_ChunkElement *)(intptr_t) fix);
+  ak_pop();
+  return (jlong) rc;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeChunkedResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  (void) cls;
+  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
+  AK_TAX();
+  intptr_t rc = ak_encode_ChunkedResponse((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_evt_ChunkedResponse *)(intptr_t) vt,
+      (const struct ak_efix_ChunkedResponse *)(intptr_t) fix);
+  ak_pop();
+  return (jlong) rc;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeChunkedResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  (void) cls;
+  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
+  AK_TAX();
+  intptr_t rc = ak_uencode_ChunkedResponse((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_evt_ChunkedResponse *)(intptr_t) vt,
+      (const struct ak_ufix_ChunkedResponse *)(intptr_t) fix);
+  ak_pop();
+  return (jlong) rc;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeChunkedResponseWide(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  (void) cls;
+  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
+  AK_TAX();
+  intptr_t rc = ak_encode_ChunkedResponseWide((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_evt_ChunkedResponseWide *)(intptr_t) vt,
+      (const struct ak_efix_ChunkedResponseWide *)(intptr_t) fix);
+  ak_pop();
+  return (jlong) rc;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeChunkedResponseWide(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  (void) cls;
+  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
+  AK_TAX();
+  intptr_t rc = ak_uencode_ChunkedResponseWide((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_evt_ChunkedResponseWide *)(intptr_t) vt,
+      (const struct ak_ufix_ChunkedResponseWide *)(intptr_t) fix);
+  ak_pop();
+  return (jlong) rc;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeLeafElement(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  (void) cls;
+  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
+  AK_TAX();
+  intptr_t rc = ak_encode_LeafElement((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_evt_LeafElement *)(intptr_t) vt,
+      (const struct ak_efix_LeafElement *)(intptr_t) fix);
+  ak_pop();
+  return (jlong) rc;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeLeafElement(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  (void) cls;
+  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
+  AK_TAX();
+  intptr_t rc = ak_uencode_LeafElement((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_evt_LeafElement *)(intptr_t) vt,
+      (const struct ak_ufix_LeafElement *)(intptr_t) fix);
+  ak_pop();
+  return (jlong) rc;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeLeafResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  (void) cls;
+  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
+  AK_TAX();
+  intptr_t rc = ak_encode_LeafResponse((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_evt_LeafResponse *)(intptr_t) vt,
+      (const struct ak_efix_LeafResponse *)(intptr_t) fix);
+  ak_pop();
+  return (jlong) rc;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeLeafResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  (void) cls;
+  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
+  AK_TAX();
+  intptr_t rc = ak_uencode_LeafResponse((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_evt_LeafResponse *)(intptr_t) vt,
+      (const struct ak_ufix_LeafResponse *)(intptr_t) fix);
+  ak_pop();
+  return (jlong) rc;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeSurrogate(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  (void) cls;
+  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
+  AK_TAX();
+  intptr_t rc = ak_encode_Surrogate((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_evt_Surrogate *)(intptr_t) vt,
+      (const struct ak_efix_Surrogate *)(intptr_t) fix);
+  ak_pop();
+  return (jlong) rc;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeSurrogate(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  (void) cls;
+  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
+  AK_TAX();
+  intptr_t rc = ak_uencode_Surrogate((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_evt_Surrogate *)(intptr_t) vt,
+      (const struct ak_ufix_Surrogate *)(intptr_t) fix);
+  ak_pop();
+  return (jlong) rc;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeSurrogateInner(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  (void) cls;
+  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
+  AK_TAX();
+  intptr_t rc = ak_encode_SurrogateInner((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_evt_SurrogateInner *)(intptr_t) vt,
+      (const struct ak_efix_SurrogateInner *)(intptr_t) fix);
+  ak_pop();
+  return (jlong) rc;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeSurrogateInner(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  (void) cls;
+  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
+  AK_TAX();
+  intptr_t rc = ak_uencode_SurrogateInner((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_evt_SurrogateInner *)(intptr_t) vt,
+      (const struct ak_ufix_SurrogateInner *)(intptr_t) fix);
+  ak_pop();
+  return (jlong) rc;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeWireZoo(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  (void) cls;
+  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
+  AK_TAX();
+  intptr_t rc = ak_encode_WireZoo((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_evt_WireZoo *)(intptr_t) vt,
+      (const struct ak_efix_WireZoo *)(intptr_t) fix);
+  ak_pop();
+  return (jlong) rc;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeWireZoo(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  (void) cls;
+  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
+  AK_TAX();
+  intptr_t rc = ak_uencode_WireZoo((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_evt_WireZoo *)(intptr_t) vt,
+      (const struct ak_ufix_WireZoo *)(intptr_t) fix);
+  ak_pop();
+  return (jlong) rc;
+}
+
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeTimestamp(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+  (void) cls;
+  if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
+  AK_TAX();
+  int32_t rc = ak_decode_Timestamp((ak_dec_ctx *)(intptr_t) ctx, (void *)(intptr_t) 1,
+      (const uint8_t *)(intptr_t) buf, (size_t) len,
+      (const struct ak_dvt_Timestamp *)(intptr_t) vt);
+  ak_pop();
+  return (jint) rc;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewTimestamp(JNIEnv *e, jclass c, jlong opts) {
+  (void) e; (void) c;
+  return (jlong)(intptr_t) ak_dec_ctx_new_Timestamp((struct ak_dec_Timestamp_opts *)(intptr_t) opts);
+}
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetTimestamp(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  (void) e; (void) c;
+  return (jint) ak_dec_reset_Timestamp((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_Timestamp_opts *)(intptr_t) opts);
+}
+
+/* PULL. `ak_parse_Timestamp` deposits records and calls nobody, so the wire is pinned
+ * rather than copied; there is no ak_push frame to make an upcall from. */
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseTimestamp(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  (void) cls; (void) self;
+  AK_TAX();
+  void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
+  if (base == NULL) return (jint) AK_ERR_HOST;
+  int32_t rc = ak_parse_Timestamp((ak_dec_ctx *)(intptr_t) ctx,
+      (const uint8_t *) base + off, (size_t) len);
+  (*env)->ReleasePrimitiveArrayCritical(env, wire, base, JNI_ABORT);
+  return (jint) rc;
+}
+
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeDuration(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+  (void) cls;
+  if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
+  AK_TAX();
+  int32_t rc = ak_decode_Duration((ak_dec_ctx *)(intptr_t) ctx, (void *)(intptr_t) 1,
+      (const uint8_t *)(intptr_t) buf, (size_t) len,
+      (const struct ak_dvt_Duration *)(intptr_t) vt);
+  ak_pop();
+  return (jint) rc;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewDuration(JNIEnv *e, jclass c, jlong opts) {
+  (void) e; (void) c;
+  return (jlong)(intptr_t) ak_dec_ctx_new_Duration((struct ak_dec_Duration_opts *)(intptr_t) opts);
+}
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetDuration(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  (void) e; (void) c;
+  return (jint) ak_dec_reset_Duration((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_Duration_opts *)(intptr_t) opts);
+}
+
+/* PULL. `ak_parse_Duration` deposits records and calls nobody, so the wire is pinned
+ * rather than copied; there is no ak_push frame to make an upcall from. */
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseDuration(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  (void) cls; (void) self;
+  AK_TAX();
+  void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
+  if (base == NULL) return (jint) AK_ERR_HOST;
+  int32_t rc = ak_parse_Duration((ak_dec_ctx *)(intptr_t) ctx,
+      (const uint8_t *) base + off, (size_t) len);
+  (*env)->ReleasePrimitiveArrayCritical(env, wire, base, JNI_ABORT);
+  return (jint) rc;
+}
+
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeResultRaw(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+  (void) cls;
+  if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
+  AK_TAX();
+  int32_t rc = ak_decode_ResultRaw((ak_dec_ctx *)(intptr_t) ctx, (void *)(intptr_t) 1,
+      (const uint8_t *)(intptr_t) buf, (size_t) len,
+      (const struct ak_dvt_ResultRaw *)(intptr_t) vt);
+  ak_pop();
+  return (jint) rc;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewResultRaw(JNIEnv *e, jclass c, jlong opts) {
+  (void) e; (void) c;
+  return (jlong)(intptr_t) ak_dec_ctx_new_ResultRaw((struct ak_dec_ResultRaw_opts *)(intptr_t) opts);
+}
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetResultRaw(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  (void) e; (void) c;
+  return (jint) ak_dec_reset_ResultRaw((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_ResultRaw_opts *)(intptr_t) opts);
+}
+
+/* PULL. `ak_parse_ResultRaw` deposits records and calls nobody, so the wire is pinned
+ * rather than copied; there is no ak_push frame to make an upcall from. */
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseResultRaw(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  (void) cls; (void) self;
+  AK_TAX();
+  void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
+  if (base == NULL) return (jint) AK_ERR_HOST;
+  int32_t rc = ak_parse_ResultRaw((ak_dec_ctx *)(intptr_t) ctx,
+      (const uint8_t *) base + off, (size_t) len);
+  (*env)->ReleasePrimitiveArrayCritical(env, wire, base, JNI_ABORT);
+  return (jint) rc;
+}
+
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeTaskOptions(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+  (void) cls;
+  if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
+  AK_TAX();
+  int32_t rc = ak_decode_TaskOptions((ak_dec_ctx *)(intptr_t) ctx, (void *)(intptr_t) 1,
+      (const uint8_t *)(intptr_t) buf, (size_t) len,
+      (const struct ak_dvt_TaskOptions *)(intptr_t) vt);
+  ak_pop();
+  return (jint) rc;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewTaskOptions(JNIEnv *e, jclass c, jlong opts) {
+  (void) e; (void) c;
+  return (jlong)(intptr_t) ak_dec_ctx_new_TaskOptions((struct ak_dec_TaskOptions_opts *)(intptr_t) opts);
+}
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetTaskOptions(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  (void) e; (void) c;
+  return (jint) ak_dec_reset_TaskOptions((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_TaskOptions_opts *)(intptr_t) opts);
+}
+
+/* PULL. `ak_parse_TaskOptions` deposits records and calls nobody, so the wire is pinned
+ * rather than copied; there is no ak_push frame to make an upcall from. */
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseTaskOptions(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  (void) cls; (void) self;
+  AK_TAX();
+  void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
+  if (base == NULL) return (jint) AK_ERR_HOST;
+  int32_t rc = ak_parse_TaskOptions((ak_dec_ctx *)(intptr_t) ctx,
+      (const uint8_t *) base + off, (size_t) len);
+  (*env)->ReleasePrimitiveArrayCritical(env, wire, base, JNI_ABORT);
+  return (jint) rc;
+}
+
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeTaskOutput(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+  (void) cls;
+  if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
+  AK_TAX();
+  int32_t rc = ak_decode_TaskOutput((ak_dec_ctx *)(intptr_t) ctx, (void *)(intptr_t) 1,
+      (const uint8_t *)(intptr_t) buf, (size_t) len,
+      (const struct ak_dvt_TaskOutput *)(intptr_t) vt);
+  ak_pop();
+  return (jint) rc;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewTaskOutput(JNIEnv *e, jclass c, jlong opts) {
+  (void) e; (void) c;
+  return (jlong)(intptr_t) ak_dec_ctx_new_TaskOutput((struct ak_dec_TaskOutput_opts *)(intptr_t) opts);
+}
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetTaskOutput(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  (void) e; (void) c;
+  return (jint) ak_dec_reset_TaskOutput((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_TaskOutput_opts *)(intptr_t) opts);
+}
+
+/* PULL. `ak_parse_TaskOutput` deposits records and calls nobody, so the wire is pinned
+ * rather than copied; there is no ak_push frame to make an upcall from. */
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseTaskOutput(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  (void) cls; (void) self;
+  AK_TAX();
+  void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
+  if (base == NULL) return (jint) AK_ERR_HOST;
+  int32_t rc = ak_parse_TaskOutput((ak_dec_ctx *)(intptr_t) ctx,
+      (const uint8_t *) base + off, (size_t) len);
+  (*env)->ReleasePrimitiveArrayCritical(env, wire, base, JNI_ABORT);
+  return (jint) rc;
+}
+
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeTaskDetailed(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+  (void) cls;
+  if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
+  AK_TAX();
+  int32_t rc = ak_decode_TaskDetailed((ak_dec_ctx *)(intptr_t) ctx, (void *)(intptr_t) 1,
+      (const uint8_t *)(intptr_t) buf, (size_t) len,
+      (const struct ak_dvt_TaskDetailed *)(intptr_t) vt);
+  ak_pop();
+  return (jint) rc;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewTaskDetailed(JNIEnv *e, jclass c, jlong opts) {
+  (void) e; (void) c;
+  return (jlong)(intptr_t) ak_dec_ctx_new_TaskDetailed((struct ak_dec_TaskDetailed_opts *)(intptr_t) opts);
+}
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetTaskDetailed(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  (void) e; (void) c;
+  return (jint) ak_dec_reset_TaskDetailed((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_TaskDetailed_opts *)(intptr_t) opts);
+}
+
+/* PULL. `ak_parse_TaskDetailed` deposits records and calls nobody, so the wire is pinned
+ * rather than copied; there is no ak_push frame to make an upcall from. */
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseTaskDetailed(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  (void) cls; (void) self;
+  AK_TAX();
+  void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
+  if (base == NULL) return (jint) AK_ERR_HOST;
+  int32_t rc = ak_parse_TaskDetailed((ak_dec_ctx *)(intptr_t) ctx,
+      (const uint8_t *) base + off, (size_t) len);
+  (*env)->ReleasePrimitiveArrayCritical(env, wire, base, JNI_ABORT);
+  return (jint) rc;
+}
+
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeTaskSummary(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+  (void) cls;
+  if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
+  AK_TAX();
+  int32_t rc = ak_decode_TaskSummary((ak_dec_ctx *)(intptr_t) ctx, (void *)(intptr_t) 1,
+      (const uint8_t *)(intptr_t) buf, (size_t) len,
+      (const struct ak_dvt_TaskSummary *)(intptr_t) vt);
+  ak_pop();
+  return (jint) rc;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewTaskSummary(JNIEnv *e, jclass c, jlong opts) {
+  (void) e; (void) c;
+  return (jlong)(intptr_t) ak_dec_ctx_new_TaskSummary((struct ak_dec_TaskSummary_opts *)(intptr_t) opts);
+}
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetTaskSummary(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  (void) e; (void) c;
+  return (jint) ak_dec_reset_TaskSummary((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_TaskSummary_opts *)(intptr_t) opts);
+}
+
+/* PULL. `ak_parse_TaskSummary` deposits records and calls nobody, so the wire is pinned
+ * rather than copied; there is no ak_push frame to make an upcall from. */
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseTaskSummary(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  (void) cls; (void) self;
+  AK_TAX();
+  void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
+  if (base == NULL) return (jint) AK_ERR_HOST;
+  int32_t rc = ak_parse_TaskSummary((ak_dec_ctx *)(intptr_t) ctx,
+      (const uint8_t *) base + off, (size_t) len);
+  (*env)->ReleasePrimitiveArrayCritical(env, wire, base, JNI_ABORT);
+  return (jint) rc;
+}
+
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeProbe(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+  (void) cls;
+  if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
+  AK_TAX();
+  int32_t rc = ak_decode_Probe((ak_dec_ctx *)(intptr_t) ctx, (void *)(intptr_t) 1,
+      (const uint8_t *)(intptr_t) buf, (size_t) len,
+      (const struct ak_dvt_Probe *)(intptr_t) vt);
+  ak_pop();
+  return (jint) rc;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewProbe(JNIEnv *e, jclass c, jlong opts) {
+  (void) e; (void) c;
+  return (jlong)(intptr_t) ak_dec_ctx_new_Probe((struct ak_dec_Probe_opts *)(intptr_t) opts);
+}
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetProbe(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  (void) e; (void) c;
+  return (jint) ak_dec_reset_Probe((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_Probe_opts *)(intptr_t) opts);
+}
+
+/* PULL. `ak_parse_Probe` deposits records and calls nobody, so the wire is pinned
+ * rather than copied; there is no ak_push frame to make an upcall from. */
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseProbe(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  (void) cls; (void) self;
+  AK_TAX();
+  void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
+  if (base == NULL) return (jint) AK_ERR_HOST;
+  int32_t rc = ak_parse_Probe((ak_dec_ctx *)(intptr_t) ctx,
+      (const uint8_t *) base + off, (size_t) len);
+  (*env)->ReleasePrimitiveArrayCritical(env, wire, base, JNI_ABORT);
+  return (jint) rc;
+}
+
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeEmpty(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+  (void) cls;
+  if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
+  AK_TAX();
+  int32_t rc = ak_decode_Empty((ak_dec_ctx *)(intptr_t) ctx, (void *)(intptr_t) 1,
+      (const uint8_t *)(intptr_t) buf, (size_t) len,
+      (const struct ak_dvt_Empty *)(intptr_t) vt);
+  ak_pop();
+  return (jint) rc;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewEmpty(JNIEnv *e, jclass c, jlong opts) {
+  (void) e; (void) c;
+  return (jlong)(intptr_t) ak_dec_ctx_new_Empty((struct ak_dec_Empty_opts *)(intptr_t) opts);
+}
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetEmpty(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  (void) e; (void) c;
+  return (jint) ak_dec_reset_Empty((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_Empty_opts *)(intptr_t) opts);
+}
+
+/* PULL. `ak_parse_Empty` deposits records and calls nobody, so the wire is pinned
+ * rather than copied; there is no ak_push frame to make an upcall from. */
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseEmpty(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  (void) cls; (void) self;
+  AK_TAX();
+  void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
+  if (base == NULL) return (jint) AK_ERR_HOST;
+  int32_t rc = ak_parse_Empty((ak_dec_ctx *)(intptr_t) ctx,
+      (const uint8_t *) base + off, (size_t) len);
+  (*env)->ReleasePrimitiveArrayCritical(env, wire, base, JNI_ABORT);
+  return (jint) rc;
+}
+
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeUploadResultData(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+  (void) cls;
+  if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
+  AK_TAX();
+  int32_t rc = ak_decode_UploadResultData((ak_dec_ctx *)(intptr_t) ctx, (void *)(intptr_t) 1,
+      (const uint8_t *)(intptr_t) buf, (size_t) len,
+      (const struct ak_dvt_UploadResultData *)(intptr_t) vt);
+  ak_pop();
+  return (jint) rc;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewUploadResultData(JNIEnv *e, jclass c, jlong opts) {
+  (void) e; (void) c;
+  return (jlong)(intptr_t) ak_dec_ctx_new_UploadResultData((struct ak_dec_UploadResultData_opts *)(intptr_t) opts);
+}
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetUploadResultData(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  (void) e; (void) c;
+  return (jint) ak_dec_reset_UploadResultData((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_UploadResultData_opts *)(intptr_t) opts);
+}
+
+/* PULL. `ak_parse_UploadResultData` deposits records and calls nobody, so the wire is pinned
+ * rather than copied; there is no ak_push frame to make an upcall from. */
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseUploadResultData(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  (void) cls; (void) self;
+  AK_TAX();
+  void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
+  if (base == NULL) return (jint) AK_ERR_HOST;
+  int32_t rc = ak_parse_UploadResultData((ak_dec_ctx *)(intptr_t) ctx,
+      (const uint8_t *) base + off, (size_t) len);
+  (*env)->ReleasePrimitiveArrayCritical(env, wire, base, JNI_ABORT);
+  return (jint) rc;
+}
+
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeMetricsBatch(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+  (void) cls;
+  if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
+  AK_TAX();
+  int32_t rc = ak_decode_MetricsBatch((ak_dec_ctx *)(intptr_t) ctx, (void *)(intptr_t) 1,
+      (const uint8_t *)(intptr_t) buf, (size_t) len,
+      (const struct ak_dvt_MetricsBatch *)(intptr_t) vt);
+  ak_pop();
+  return (jint) rc;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewMetricsBatch(JNIEnv *e, jclass c, jlong opts) {
+  (void) e; (void) c;
+  return (jlong)(intptr_t) ak_dec_ctx_new_MetricsBatch((struct ak_dec_MetricsBatch_opts *)(intptr_t) opts);
+}
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetMetricsBatch(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  (void) e; (void) c;
+  return (jint) ak_dec_reset_MetricsBatch((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_MetricsBatch_opts *)(intptr_t) opts);
+}
+
+/* PULL. `ak_parse_MetricsBatch` deposits records and calls nobody, so the wire is pinned
+ * rather than copied; there is no ak_push frame to make an upcall from. */
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseMetricsBatch(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  (void) cls; (void) self;
+  AK_TAX();
+  void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
+  if (base == NULL) return (jint) AK_ERR_HOST;
+  int32_t rc = ak_parse_MetricsBatch((ak_dec_ctx *)(intptr_t) ctx,
+      (const uint8_t *) base + off, (size_t) len);
+  (*env)->ReleasePrimitiveArrayCritical(env, wire, base, JNI_ABORT);
+  return (jint) rc;
+}
+
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodePair(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+  (void) cls;
+  if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
+  AK_TAX();
+  int32_t rc = ak_decode_Pair((ak_dec_ctx *)(intptr_t) ctx, (void *)(intptr_t) 1,
+      (const uint8_t *)(intptr_t) buf, (size_t) len,
+      (const struct ak_dvt_Pair *)(intptr_t) vt);
+  ak_pop();
+  return (jint) rc;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewPair(JNIEnv *e, jclass c, jlong opts) {
+  (void) e; (void) c;
+  return (jlong)(intptr_t) ak_dec_ctx_new_Pair((struct ak_dec_Pair_opts *)(intptr_t) opts);
+}
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetPair(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  (void) e; (void) c;
+  return (jint) ak_dec_reset_Pair((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_Pair_opts *)(intptr_t) opts);
+}
+
+/* PULL. `ak_parse_Pair` deposits records and calls nobody, so the wire is pinned
+ * rather than copied; there is no ak_push frame to make an upcall from. */
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parsePair(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  (void) cls; (void) self;
+  AK_TAX();
+  void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
+  if (base == NULL) return (jint) AK_ERR_HOST;
+  int32_t rc = ak_parse_Pair((ak_dec_ctx *)(intptr_t) ctx,
+      (const uint8_t *) base + off, (size_t) len);
+  (*env)->ReleasePrimitiveArrayCritical(env, wire, base, JNI_ABORT);
+  return (jint) rc;
+}
+
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeListResultsResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+  (void) cls;
+  if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
+  AK_TAX();
+  int32_t rc = ak_decode_ListResultsResponse((ak_dec_ctx *)(intptr_t) ctx, (void *)(intptr_t) 1,
+      (const uint8_t *)(intptr_t) buf, (size_t) len,
+      (const struct ak_dvt_ListResultsResponse *)(intptr_t) vt);
+  ak_pop();
+  return (jint) rc;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewListResultsResponse(JNIEnv *e, jclass c, jlong opts) {
+  (void) e; (void) c;
+  return (jlong)(intptr_t) ak_dec_ctx_new_ListResultsResponse((struct ak_dec_ListResultsResponse_opts *)(intptr_t) opts);
+}
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetListResultsResponse(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  (void) e; (void) c;
+  return (jint) ak_dec_reset_ListResultsResponse((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_ListResultsResponse_opts *)(intptr_t) opts);
+}
+
+/* PULL. `ak_parse_ListResultsResponse` deposits records and calls nobody, so the wire is pinned
+ * rather than copied; there is no ak_push frame to make an upcall from. */
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseListResultsResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  (void) cls; (void) self;
+  AK_TAX();
+  void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
+  if (base == NULL) return (jint) AK_ERR_HOST;
+  int32_t rc = ak_parse_ListResultsResponse((ak_dec_ctx *)(intptr_t) ctx,
+      (const uint8_t *) base + off, (size_t) len);
+  (*env)->ReleasePrimitiveArrayCritical(env, wire, base, JNI_ABORT);
+  return (jint) rc;
+}
+
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeListTasksDetailedResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+  (void) cls;
+  if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
+  AK_TAX();
+  int32_t rc = ak_decode_ListTasksDetailedResponse((ak_dec_ctx *)(intptr_t) ctx, (void *)(intptr_t) 1,
+      (const uint8_t *)(intptr_t) buf, (size_t) len,
+      (const struct ak_dvt_ListTasksDetailedResponse *)(intptr_t) vt);
+  ak_pop();
+  return (jint) rc;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewListTasksDetailedResponse(JNIEnv *e, jclass c, jlong opts) {
+  (void) e; (void) c;
+  return (jlong)(intptr_t) ak_dec_ctx_new_ListTasksDetailedResponse((struct ak_dec_ListTasksDetailedResponse_opts *)(intptr_t) opts);
+}
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetListTasksDetailedResponse(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  (void) e; (void) c;
+  return (jint) ak_dec_reset_ListTasksDetailedResponse((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_ListTasksDetailedResponse_opts *)(intptr_t) opts);
+}
+
+/* PULL. `ak_parse_ListTasksDetailedResponse` deposits records and calls nobody, so the wire is pinned
+ * rather than copied; there is no ak_push frame to make an upcall from. */
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseListTasksDetailedResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  (void) cls; (void) self;
+  AK_TAX();
+  void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
+  if (base == NULL) return (jint) AK_ERR_HOST;
+  int32_t rc = ak_parse_ListTasksDetailedResponse((ak_dec_ctx *)(intptr_t) ctx,
+      (const uint8_t *) base + off, (size_t) len);
+  (*env)->ReleasePrimitiveArrayCritical(env, wire, base, JNI_ABORT);
+  return (jint) rc;
+}
+
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeListTaskSummaryResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+  (void) cls;
+  if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
+  AK_TAX();
+  int32_t rc = ak_decode_ListTaskSummaryResponse((ak_dec_ctx *)(intptr_t) ctx, (void *)(intptr_t) 1,
+      (const uint8_t *)(intptr_t) buf, (size_t) len,
+      (const struct ak_dvt_ListTaskSummaryResponse *)(intptr_t) vt);
+  ak_pop();
+  return (jint) rc;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewListTaskSummaryResponse(JNIEnv *e, jclass c, jlong opts) {
+  (void) e; (void) c;
+  return (jlong)(intptr_t) ak_dec_ctx_new_ListTaskSummaryResponse((struct ak_dec_ListTaskSummaryResponse_opts *)(intptr_t) opts);
+}
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetListTaskSummaryResponse(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  (void) e; (void) c;
+  return (jint) ak_dec_reset_ListTaskSummaryResponse((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_ListTaskSummaryResponse_opts *)(intptr_t) opts);
+}
+
+/* PULL. `ak_parse_ListTaskSummaryResponse` deposits records and calls nobody, so the wire is pinned
+ * rather than copied; there is no ak_push frame to make an upcall from. */
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseListTaskSummaryResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  (void) cls; (void) self;
+  AK_TAX();
+  void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
+  if (base == NULL) return (jint) AK_ERR_HOST;
+  int32_t rc = ak_parse_ListTaskSummaryResponse((ak_dec_ctx *)(intptr_t) ctx,
+      (const uint8_t *) base + off, (size_t) len);
+  (*env)->ReleasePrimitiveArrayCritical(env, wire, base, JNI_ABORT);
+  return (jint) rc;
+}
+
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeListProbeResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+  (void) cls;
+  if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
+  AK_TAX();
+  int32_t rc = ak_decode_ListProbeResponse((ak_dec_ctx *)(intptr_t) ctx, (void *)(intptr_t) 1,
+      (const uint8_t *)(intptr_t) buf, (size_t) len,
+      (const struct ak_dvt_ListProbeResponse *)(intptr_t) vt);
+  ak_pop();
+  return (jint) rc;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewListProbeResponse(JNIEnv *e, jclass c, jlong opts) {
+  (void) e; (void) c;
+  return (jlong)(intptr_t) ak_dec_ctx_new_ListProbeResponse((struct ak_dec_ListProbeResponse_opts *)(intptr_t) opts);
+}
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetListProbeResponse(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  (void) e; (void) c;
+  return (jint) ak_dec_reset_ListProbeResponse((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_ListProbeResponse_opts *)(intptr_t) opts);
+}
+
+/* PULL. `ak_parse_ListProbeResponse` deposits records and calls nobody, so the wire is pinned
+ * rather than copied; there is no ak_push frame to make an upcall from. */
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseListProbeResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  (void) cls; (void) self;
+  AK_TAX();
+  void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
+  if (base == NULL) return (jint) AK_ERR_HOST;
+  int32_t rc = ak_parse_ListProbeResponse((ak_dec_ctx *)(intptr_t) ctx,
+      (const uint8_t *) base + off, (size_t) len);
+  (*env)->ReleasePrimitiveArrayCritical(env, wire, base, JNI_ABORT);
+  return (jint) rc;
+}
+
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeListMetricsResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+  (void) cls;
+  if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
+  AK_TAX();
+  int32_t rc = ak_decode_ListMetricsResponse((ak_dec_ctx *)(intptr_t) ctx, (void *)(intptr_t) 1,
+      (const uint8_t *)(intptr_t) buf, (size_t) len,
+      (const struct ak_dvt_ListMetricsResponse *)(intptr_t) vt);
+  ak_pop();
+  return (jint) rc;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewListMetricsResponse(JNIEnv *e, jclass c, jlong opts) {
+  (void) e; (void) c;
+  return (jlong)(intptr_t) ak_dec_ctx_new_ListMetricsResponse((struct ak_dec_ListMetricsResponse_opts *)(intptr_t) opts);
+}
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetListMetricsResponse(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  (void) e; (void) c;
+  return (jint) ak_dec_reset_ListMetricsResponse((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_ListMetricsResponse_opts *)(intptr_t) opts);
+}
+
+/* PULL. `ak_parse_ListMetricsResponse` deposits records and calls nobody, so the wire is pinned
+ * rather than copied; there is no ak_push frame to make an upcall from. */
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseListMetricsResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  (void) cls; (void) self;
+  AK_TAX();
+  void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
+  if (base == NULL) return (jint) AK_ERR_HOST;
+  int32_t rc = ak_parse_ListMetricsResponse((ak_dec_ctx *)(intptr_t) ctx,
+      (const uint8_t *) base + off, (size_t) len);
+  (*env)->ReleasePrimitiveArrayCritical(env, wire, base, JNI_ABORT);
+  return (jint) rc;
+}
+
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeUploadResultDataMessage(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
   (void) cls;
   if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
@@ -911,6 +1544,15 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeUploadResultDataMessage(
       (const struct ak_dvt_UploadResultDataMessage *)(intptr_t) vt);
   ak_pop();
   return (jint) rc;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewUploadResultDataMessage(JNIEnv *e, jclass c, jlong opts) {
+  (void) e; (void) c;
+  return (jlong)(intptr_t) ak_dec_ctx_new_UploadResultDataMessage((struct ak_dec_UploadResultDataMessage_opts *)(intptr_t) opts);
+}
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetUploadResultDataMessage(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  (void) e; (void) c;
+  return (jint) ak_dec_reset_UploadResultDataMessage((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_UploadResultDataMessage_opts *)(intptr_t) opts);
 }
 
 /* PULL. `ak_parse_UploadResultDataMessage` deposits records and calls nobody, so the wire is pinned
@@ -926,17 +1568,6 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseUploadResultDataMessage(J
   return (jint) rc;
 }
 
-JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeDualResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
-  (void) cls;
-  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
-  AK_TAX();
-  intptr_t rc = ak_encode_DualResponse((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
-      (const struct ak_evt_DualResponse *)(intptr_t) vt,
-      (const struct ak_efix_DualResponse *)(intptr_t) fix);
-  ak_pop();
-  return (jlong) rc;
-}
-
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeDualResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
   (void) cls;
   if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
@@ -946,6 +1577,15 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeDualResponse(JNIEnv *env
       (const struct ak_dvt_DualResponse *)(intptr_t) vt);
   ak_pop();
   return (jint) rc;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewDualResponse(JNIEnv *e, jclass c, jlong opts) {
+  (void) e; (void) c;
+  return (jlong)(intptr_t) ak_dec_ctx_new_DualResponse((struct ak_dec_DualResponse_opts *)(intptr_t) opts);
+}
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetDualResponse(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  (void) e; (void) c;
+  return (jint) ak_dec_reset_DualResponse((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_DualResponse_opts *)(intptr_t) opts);
 }
 
 /* PULL. `ak_parse_DualResponse` deposits records and calls nobody, so the wire is pinned
@@ -961,17 +1601,6 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseDualResponse(JNIEnv *env,
   return (jint) rc;
 }
 
-JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeChunkLeaf(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
-  (void) cls;
-  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
-  AK_TAX();
-  intptr_t rc = ak_encode_ChunkLeaf((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
-      (const struct ak_evt_ChunkLeaf *)(intptr_t) vt,
-      (const struct ak_efix_ChunkLeaf *)(intptr_t) fix);
-  ak_pop();
-  return (jlong) rc;
-}
-
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeChunkLeaf(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
   (void) cls;
   if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
@@ -981,6 +1610,15 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeChunkLeaf(JNIEnv *env, j
       (const struct ak_dvt_ChunkLeaf *)(intptr_t) vt);
   ak_pop();
   return (jint) rc;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewChunkLeaf(JNIEnv *e, jclass c, jlong opts) {
+  (void) e; (void) c;
+  return (jlong)(intptr_t) ak_dec_ctx_new_ChunkLeaf((struct ak_dec_ChunkLeaf_opts *)(intptr_t) opts);
+}
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetChunkLeaf(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  (void) e; (void) c;
+  return (jint) ak_dec_reset_ChunkLeaf((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_ChunkLeaf_opts *)(intptr_t) opts);
 }
 
 /* PULL. `ak_parse_ChunkLeaf` deposits records and calls nobody, so the wire is pinned
@@ -996,17 +1634,6 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseChunkLeaf(JNIEnv *env, jc
   return (jint) rc;
 }
 
-JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeChunkInner(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
-  (void) cls;
-  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
-  AK_TAX();
-  intptr_t rc = ak_encode_ChunkInner((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
-      (const struct ak_evt_ChunkInner *)(intptr_t) vt,
-      (const struct ak_efix_ChunkInner *)(intptr_t) fix);
-  ak_pop();
-  return (jlong) rc;
-}
-
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeChunkInner(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
   (void) cls;
   if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
@@ -1016,6 +1643,15 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeChunkInner(JNIEnv *env, 
       (const struct ak_dvt_ChunkInner *)(intptr_t) vt);
   ak_pop();
   return (jint) rc;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewChunkInner(JNIEnv *e, jclass c, jlong opts) {
+  (void) e; (void) c;
+  return (jlong)(intptr_t) ak_dec_ctx_new_ChunkInner((struct ak_dec_ChunkInner_opts *)(intptr_t) opts);
+}
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetChunkInner(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  (void) e; (void) c;
+  return (jint) ak_dec_reset_ChunkInner((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_ChunkInner_opts *)(intptr_t) opts);
 }
 
 /* PULL. `ak_parse_ChunkInner` deposits records and calls nobody, so the wire is pinned
@@ -1031,17 +1667,6 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseChunkInner(JNIEnv *env, j
   return (jint) rc;
 }
 
-JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeChunkElement(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
-  (void) cls;
-  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
-  AK_TAX();
-  intptr_t rc = ak_encode_ChunkElement((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
-      (const struct ak_evt_ChunkElement *)(intptr_t) vt,
-      (const struct ak_efix_ChunkElement *)(intptr_t) fix);
-  ak_pop();
-  return (jlong) rc;
-}
-
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeChunkElement(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
   (void) cls;
   if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
@@ -1051,6 +1676,15 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeChunkElement(JNIEnv *env
       (const struct ak_dvt_ChunkElement *)(intptr_t) vt);
   ak_pop();
   return (jint) rc;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewChunkElement(JNIEnv *e, jclass c, jlong opts) {
+  (void) e; (void) c;
+  return (jlong)(intptr_t) ak_dec_ctx_new_ChunkElement((struct ak_dec_ChunkElement_opts *)(intptr_t) opts);
+}
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetChunkElement(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  (void) e; (void) c;
+  return (jint) ak_dec_reset_ChunkElement((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_ChunkElement_opts *)(intptr_t) opts);
 }
 
 /* PULL. `ak_parse_ChunkElement` deposits records and calls nobody, so the wire is pinned
@@ -1066,17 +1700,6 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseChunkElement(JNIEnv *env,
   return (jint) rc;
 }
 
-JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeChunkedResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
-  (void) cls;
-  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
-  AK_TAX();
-  intptr_t rc = ak_encode_ChunkedResponse((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
-      (const struct ak_evt_ChunkedResponse *)(intptr_t) vt,
-      (const struct ak_efix_ChunkedResponse *)(intptr_t) fix);
-  ak_pop();
-  return (jlong) rc;
-}
-
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeChunkedResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
   (void) cls;
   if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
@@ -1086,6 +1709,15 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeChunkedResponse(JNIEnv *
       (const struct ak_dvt_ChunkedResponse *)(intptr_t) vt);
   ak_pop();
   return (jint) rc;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewChunkedResponse(JNIEnv *e, jclass c, jlong opts) {
+  (void) e; (void) c;
+  return (jlong)(intptr_t) ak_dec_ctx_new_ChunkedResponse((struct ak_dec_ChunkedResponse_opts *)(intptr_t) opts);
+}
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetChunkedResponse(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  (void) e; (void) c;
+  return (jint) ak_dec_reset_ChunkedResponse((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_ChunkedResponse_opts *)(intptr_t) opts);
 }
 
 /* PULL. `ak_parse_ChunkedResponse` deposits records and calls nobody, so the wire is pinned
@@ -1101,17 +1733,6 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseChunkedResponse(JNIEnv *e
   return (jint) rc;
 }
 
-JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeChunkedResponseWide(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
-  (void) cls;
-  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
-  AK_TAX();
-  intptr_t rc = ak_encode_ChunkedResponseWide((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
-      (const struct ak_evt_ChunkedResponseWide *)(intptr_t) vt,
-      (const struct ak_efix_ChunkedResponseWide *)(intptr_t) fix);
-  ak_pop();
-  return (jlong) rc;
-}
-
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeChunkedResponseWide(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
   (void) cls;
   if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
@@ -1121,6 +1742,15 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeChunkedResponseWide(JNIE
       (const struct ak_dvt_ChunkedResponseWide *)(intptr_t) vt);
   ak_pop();
   return (jint) rc;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewChunkedResponseWide(JNIEnv *e, jclass c, jlong opts) {
+  (void) e; (void) c;
+  return (jlong)(intptr_t) ak_dec_ctx_new_ChunkedResponseWide((struct ak_dec_ChunkedResponseWide_opts *)(intptr_t) opts);
+}
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetChunkedResponseWide(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  (void) e; (void) c;
+  return (jint) ak_dec_reset_ChunkedResponseWide((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_ChunkedResponseWide_opts *)(intptr_t) opts);
 }
 
 /* PULL. `ak_parse_ChunkedResponseWide` deposits records and calls nobody, so the wire is pinned
@@ -1136,17 +1766,6 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseChunkedResponseWide(JNIEn
   return (jint) rc;
 }
 
-JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeLeafElement(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
-  (void) cls;
-  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
-  AK_TAX();
-  intptr_t rc = ak_encode_LeafElement((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
-      (const struct ak_evt_LeafElement *)(intptr_t) vt,
-      (const struct ak_efix_LeafElement *)(intptr_t) fix);
-  ak_pop();
-  return (jlong) rc;
-}
-
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeLeafElement(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
   (void) cls;
   if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
@@ -1156,6 +1775,15 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeLeafElement(JNIEnv *env,
       (const struct ak_dvt_LeafElement *)(intptr_t) vt);
   ak_pop();
   return (jint) rc;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewLeafElement(JNIEnv *e, jclass c, jlong opts) {
+  (void) e; (void) c;
+  return (jlong)(intptr_t) ak_dec_ctx_new_LeafElement((struct ak_dec_LeafElement_opts *)(intptr_t) opts);
+}
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetLeafElement(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  (void) e; (void) c;
+  return (jint) ak_dec_reset_LeafElement((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_LeafElement_opts *)(intptr_t) opts);
 }
 
 /* PULL. `ak_parse_LeafElement` deposits records and calls nobody, so the wire is pinned
@@ -1171,17 +1799,6 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseLeafElement(JNIEnv *env, 
   return (jint) rc;
 }
 
-JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeLeafResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
-  (void) cls;
-  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
-  AK_TAX();
-  intptr_t rc = ak_encode_LeafResponse((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
-      (const struct ak_evt_LeafResponse *)(intptr_t) vt,
-      (const struct ak_efix_LeafResponse *)(intptr_t) fix);
-  ak_pop();
-  return (jlong) rc;
-}
-
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeLeafResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
   (void) cls;
   if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
@@ -1191,6 +1808,15 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeLeafResponse(JNIEnv *env
       (const struct ak_dvt_LeafResponse *)(intptr_t) vt);
   ak_pop();
   return (jint) rc;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewLeafResponse(JNIEnv *e, jclass c, jlong opts) {
+  (void) e; (void) c;
+  return (jlong)(intptr_t) ak_dec_ctx_new_LeafResponse((struct ak_dec_LeafResponse_opts *)(intptr_t) opts);
+}
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetLeafResponse(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  (void) e; (void) c;
+  return (jint) ak_dec_reset_LeafResponse((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_LeafResponse_opts *)(intptr_t) opts);
 }
 
 /* PULL. `ak_parse_LeafResponse` deposits records and calls nobody, so the wire is pinned
@@ -1206,17 +1832,6 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseLeafResponse(JNIEnv *env,
   return (jint) rc;
 }
 
-JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeSurrogate(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
-  (void) cls;
-  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
-  AK_TAX();
-  intptr_t rc = ak_encode_Surrogate((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
-      (const struct ak_evt_Surrogate *)(intptr_t) vt,
-      (const struct ak_efix_Surrogate *)(intptr_t) fix);
-  ak_pop();
-  return (jlong) rc;
-}
-
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeSurrogate(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
   (void) cls;
   if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
@@ -1226,6 +1841,15 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeSurrogate(JNIEnv *env, j
       (const struct ak_dvt_Surrogate *)(intptr_t) vt);
   ak_pop();
   return (jint) rc;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewSurrogate(JNIEnv *e, jclass c, jlong opts) {
+  (void) e; (void) c;
+  return (jlong)(intptr_t) ak_dec_ctx_new_Surrogate((struct ak_dec_Surrogate_opts *)(intptr_t) opts);
+}
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetSurrogate(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  (void) e; (void) c;
+  return (jint) ak_dec_reset_Surrogate((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_Surrogate_opts *)(intptr_t) opts);
 }
 
 /* PULL. `ak_parse_Surrogate` deposits records and calls nobody, so the wire is pinned
@@ -1241,17 +1865,6 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseSurrogate(JNIEnv *env, jc
   return (jint) rc;
 }
 
-JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeSurrogateInner(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
-  (void) cls;
-  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
-  AK_TAX();
-  intptr_t rc = ak_encode_SurrogateInner((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
-      (const struct ak_evt_SurrogateInner *)(intptr_t) vt,
-      (const struct ak_efix_SurrogateInner *)(intptr_t) fix);
-  ak_pop();
-  return (jlong) rc;
-}
-
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeSurrogateInner(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
   (void) cls;
   if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
@@ -1261,6 +1874,15 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeSurrogateInner(JNIEnv *e
       (const struct ak_dvt_SurrogateInner *)(intptr_t) vt);
   ak_pop();
   return (jint) rc;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewSurrogateInner(JNIEnv *e, jclass c, jlong opts) {
+  (void) e; (void) c;
+  return (jlong)(intptr_t) ak_dec_ctx_new_SurrogateInner((struct ak_dec_SurrogateInner_opts *)(intptr_t) opts);
+}
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetSurrogateInner(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  (void) e; (void) c;
+  return (jint) ak_dec_reset_SurrogateInner((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_SurrogateInner_opts *)(intptr_t) opts);
 }
 
 /* PULL. `ak_parse_SurrogateInner` deposits records and calls nobody, so the wire is pinned
@@ -1276,17 +1898,6 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseSurrogateInner(JNIEnv *en
   return (jint) rc;
 }
 
-JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeWireZoo(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
-  (void) cls;
-  if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
-  AK_TAX();
-  intptr_t rc = ak_encode_WireZoo((const void *)(intptr_t) 1, (ak_enc_ctx *)(intptr_t) ctx,
-      (const struct ak_evt_WireZoo *)(intptr_t) vt,
-      (const struct ak_efix_WireZoo *)(intptr_t) fix);
-  ak_pop();
-  return (jlong) rc;
-}
-
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeWireZoo(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
   (void) cls;
   if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
@@ -1296,6 +1907,15 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeWireZoo(JNIEnv *env, jcl
       (const struct ak_dvt_WireZoo *)(intptr_t) vt);
   ak_pop();
   return (jint) rc;
+}
+
+JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewWireZoo(JNIEnv *e, jclass c, jlong opts) {
+  (void) e; (void) c;
+  return (jlong)(intptr_t) ak_dec_ctx_new_WireZoo((struct ak_dec_WireZoo_opts *)(intptr_t) opts);
+}
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetWireZoo(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  (void) e; (void) c;
+  return (jint) ak_dec_reset_WireZoo((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_WireZoo_opts *)(intptr_t) opts);
 }
 
 /* PULL. `ak_parse_WireZoo` deposits records and calls nobody, so the wire is pinned
@@ -1318,11 +1938,25 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_elemuChunkElement(JNIEnv *env,
       (const struct ak_efix_ChunkElement *)(intptr_t) elems, (int32_t) n, (int64_t) tok0);
 }
 
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_uelemuChunkElement(JNIEnv *env, jclass cls, jlong ctx, jlong elems, jint n, jlong tok0) {
+  (void) env; (void) cls;
+  AK_TAX();
+  return (jint) ak_uelemu_ChunkElement((ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_ufix_ChunkElement *)(intptr_t) elems, (int32_t) n, (int64_t) tok0);
+}
+
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_elemChunkElementAttrsEntry(JNIEnv *env, jclass cls, jlong ctx, jlong elems, jint n) {
   (void) env; (void) cls;
   AK_TAX();
   return (jint) ak_elem_ChunkElementAttrsEntry((ak_enc_ctx *)(intptr_t) ctx,
       (const struct ak_efix_ChunkElementAttrsEntry *)(intptr_t) elems, (int32_t) n);
+}
+
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_uelemChunkElementAttrsEntry(JNIEnv *env, jclass cls, jlong ctx, jlong elems, jint n) {
+  (void) env; (void) cls;
+  AK_TAX();
+  return (jint) ak_uelem_ChunkElementAttrsEntry((ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_ufix_ChunkElementAttrsEntry *)(intptr_t) elems, (int32_t) n);
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_elemChunkLeaf(JNIEnv *env, jclass cls, jlong ctx, jlong elems, jint n) {
@@ -1332,11 +1966,25 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_elemChunkLeaf(JNIEnv *env, jcl
       (const struct ak_efix_ChunkLeaf *)(intptr_t) elems, (int32_t) n);
 }
 
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_uelemChunkLeaf(JNIEnv *env, jclass cls, jlong ctx, jlong elems, jint n) {
+  (void) env; (void) cls;
+  AK_TAX();
+  return (jint) ak_uelem_ChunkLeaf((ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_ufix_ChunkLeaf *)(intptr_t) elems, (int32_t) n);
+}
+
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_elemLeafElement(JNIEnv *env, jclass cls, jlong ctx, jlong elems, jint n) {
   (void) env; (void) cls;
   AK_TAX();
   return (jint) ak_elem_LeafElement((ak_enc_ctx *)(intptr_t) ctx,
       (const struct ak_efix_LeafElement *)(intptr_t) elems, (int32_t) n);
+}
+
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_uelemLeafElement(JNIEnv *env, jclass cls, jlong ctx, jlong elems, jint n) {
+  (void) env; (void) cls;
+  AK_TAX();
+  return (jint) ak_uelem_LeafElement((ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_ufix_LeafElement *)(intptr_t) elems, (int32_t) n);
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_elemuMetricsBatch(JNIEnv *env, jclass cls, jlong ctx, jlong elems, jint n, jlong tok0) {
@@ -1346,11 +1994,25 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_elemuMetricsBatch(JNIEnv *env,
       (const struct ak_efix_MetricsBatch *)(intptr_t) elems, (int32_t) n, (int64_t) tok0);
 }
 
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_uelemuMetricsBatch(JNIEnv *env, jclass cls, jlong ctx, jlong elems, jint n, jlong tok0) {
+  (void) env; (void) cls;
+  AK_TAX();
+  return (jint) ak_uelemu_MetricsBatch((ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_ufix_MetricsBatch *)(intptr_t) elems, (int32_t) n, (int64_t) tok0);
+}
+
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_elemPair(JNIEnv *env, jclass cls, jlong ctx, jlong elems, jint n) {
   (void) env; (void) cls;
   AK_TAX();
   return (jint) ak_elem_Pair((ak_enc_ctx *)(intptr_t) ctx,
       (const struct ak_efix_Pair *)(intptr_t) elems, (int32_t) n);
+}
+
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_uelemPair(JNIEnv *env, jclass cls, jlong ctx, jlong elems, jint n) {
+  (void) env; (void) cls;
+  AK_TAX();
+  return (jint) ak_uelem_Pair((ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_ufix_Pair *)(intptr_t) elems, (int32_t) n);
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_elemProbe(JNIEnv *env, jclass cls, jlong ctx, jlong elems, jint n) {
@@ -1360,11 +2022,25 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_elemProbe(JNIEnv *env, jclass 
       (const struct ak_efix_Probe *)(intptr_t) elems, (int32_t) n);
 }
 
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_uelemProbe(JNIEnv *env, jclass cls, jlong ctx, jlong elems, jint n) {
+  (void) env; (void) cls;
+  AK_TAX();
+  return (jint) ak_uelem_Probe((ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_ufix_Probe *)(intptr_t) elems, (int32_t) n);
+}
+
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_elemResultRaw(JNIEnv *env, jclass cls, jlong ctx, jlong elems, jint n) {
   (void) env; (void) cls;
   AK_TAX();
   return (jint) ak_elem_ResultRaw((ak_enc_ctx *)(intptr_t) ctx,
       (const struct ak_efix_ResultRaw *)(intptr_t) elems, (int32_t) n);
+}
+
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_uelemResultRaw(JNIEnv *env, jclass cls, jlong ctx, jlong elems, jint n) {
+  (void) env; (void) cls;
+  AK_TAX();
+  return (jint) ak_uelem_ResultRaw((ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_ufix_ResultRaw *)(intptr_t) elems, (int32_t) n);
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_elemSurrogateAttrsEntry(JNIEnv *env, jclass cls, jlong ctx, jlong elems, jint n) {
@@ -1374,11 +2050,25 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_elemSurrogateAttrsEntry(JNIEnv
       (const struct ak_efix_SurrogateAttrsEntry *)(intptr_t) elems, (int32_t) n);
 }
 
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_uelemSurrogateAttrsEntry(JNIEnv *env, jclass cls, jlong ctx, jlong elems, jint n) {
+  (void) env; (void) cls;
+  AK_TAX();
+  return (jint) ak_uelem_SurrogateAttrsEntry((ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_ufix_SurrogateAttrsEntry *)(intptr_t) elems, (int32_t) n);
+}
+
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_elemuTaskDetailed(JNIEnv *env, jclass cls, jlong ctx, jlong elems, jint n, jlong tok0) {
   (void) env; (void) cls;
   AK_TAX();
   return (jint) ak_elemu_TaskDetailed((ak_enc_ctx *)(intptr_t) ctx,
       (const struct ak_efix_TaskDetailed *)(intptr_t) elems, (int32_t) n, (int64_t) tok0);
+}
+
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_uelemuTaskDetailed(JNIEnv *env, jclass cls, jlong ctx, jlong elems, jint n, jlong tok0) {
+  (void) env; (void) cls;
+  AK_TAX();
+  return (jint) ak_uelemu_TaskDetailed((ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_ufix_TaskDetailed *)(intptr_t) elems, (int32_t) n, (int64_t) tok0);
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_elemTaskOptionsOptionsEntry(JNIEnv *env, jclass cls, jlong ctx, jlong elems, jint n) {
@@ -1388,11 +2078,25 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_elemTaskOptionsOptionsEntry(JN
       (const struct ak_efix_TaskOptionsOptionsEntry *)(intptr_t) elems, (int32_t) n);
 }
 
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_uelemTaskOptionsOptionsEntry(JNIEnv *env, jclass cls, jlong ctx, jlong elems, jint n) {
+  (void) env; (void) cls;
+  AK_TAX();
+  return (jint) ak_uelem_TaskOptionsOptionsEntry((ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_ufix_TaskOptionsOptionsEntry *)(intptr_t) elems, (int32_t) n);
+}
+
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_elemuTaskSummary(JNIEnv *env, jclass cls, jlong ctx, jlong elems, jint n, jlong tok0) {
   (void) env; (void) cls;
   AK_TAX();
   return (jint) ak_elemu_TaskSummary((ak_enc_ctx *)(intptr_t) ctx,
       (const struct ak_efix_TaskSummary *)(intptr_t) elems, (int32_t) n, (int64_t) tok0);
+}
+
+JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_uelemuTaskSummary(JNIEnv *env, jclass cls, jlong ctx, jlong elems, jint n, jlong tok0) {
+  (void) env; (void) cls;
+  AK_TAX();
+  return (jint) ak_uelemu_TaskSummary((ak_enc_ctx *)(intptr_t) ctx,
+      (const struct ak_ufix_TaskSummary *)(intptr_t) elems, (int32_t) n, (int64_t) tok0);
 }
 
 /* ---- the runs, and the fixed exports (sections 3, 4, 5): `ak.Native` ------------- */
@@ -1467,8 +2171,43 @@ JNIEXPORT jint JNICALL Java_ak_Native_encLen(JNIEnv *e, jclass c, jlong x) {
   int32_t rc = ak_enc_take((ak_enc_ctx *)(intptr_t) x, &p, &n);
   return rc != AK_OK ? (jint) rc : (jint) n;
 }
-JNIEXPORT jlong JNICALL Java_ak_Native_decCtxNew(JNIEnv *e, jclass c) {
-  (void) e; (void) c;  return (jlong)(intptr_t) ak_dec_ctx_new();
+/* ---- decision 11: the host side of the unknown-field buffers (WP5 step 9) ------------
+ *
+ * The binding arms every position with this grow and no pre-allocated buffer, so every
+ * message occurrence that meets an unknown run gets a fresh malloc (data NULL, cap 0) and
+ * a buffer that is too small is realloc'ed (its first cap bytes preserved). The buffers
+ * are the host's once delivered: `unkTake` copies one into a byte[] and frees it,
+ * `unkFree` frees one the facade has no place for (a map entry's, an inactive oneof
+ * member's). Plain C: no JVM upcall, so a grow is a reverse crossing into the shim only. */
+static int32_t ak_java_grow(void *sink, int32_t want, uint8_t **dst, int32_t *cap) {
+  (void) sink;
+  if (want < 0) return AK_ERR_LIMIT;
+  int64_t c = *dst == NULL ? 0 : (int64_t) *cap;
+  int64_t n = c * 2;
+  if (n < want) n = want;
+  if (n < 64) n = 64;
+  if (n > 0x7fffffff) n = want;
+  uint8_t *p = (uint8_t *) realloc(*dst, (size_t) n);
+  if (p == NULL) return AK_ERR_CAPACITY;
+  *dst = p;
+  *cap = (int32_t) n;
+  return AK_OK;
+}
+JNIEXPORT jlong JNICALL Java_ak_Native_unkGrow(JNIEnv *e, jclass c) {
+  (void) e; (void) c;  return (jlong)(intptr_t) ak_java_grow;
+}
+JNIEXPORT jbyteArray JNICALL Java_ak_Native_unkTake(JNIEnv *env, jclass c, jlong data, jint len) {
+  (void) c;
+  jbyteArray out = NULL;
+  if (len > 0) {
+    out = (*env)->NewByteArray(env, len);
+    if (out != NULL) (*env)->SetByteArrayRegion(env, out, 0, len, (const jbyte *)(intptr_t) data);
+  }
+  free((void *)(intptr_t) data);
+  return out;
+}
+JNIEXPORT void JNICALL Java_ak_Native_unkFree(JNIEnv *e, jclass c, jlong data) {
+  (void) e; (void) c;  free((void *)(intptr_t) data);
 }
 JNIEXPORT void JNICALL Java_ak_Native_decCtxFree(JNIEnv *e, jclass c, jlong x) {
   (void) e; (void) c;  ak_dec_ctx_free((ak_dec_ctx *)(intptr_t) x);

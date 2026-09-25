@@ -165,7 +165,7 @@ codec)
     UCELLS=$("$J17/bin/java" -cp "build/cls17:$CP" -Dak.camp.launch="$l" -Dak.camp.unknown=1 \
              ${AK_SMOKE_UROWS:+-Dak.camp.urows=$AK_SMOKE_UROWS} ak.CampaignCodec | tr '\n' ',' | sed 's/,$//')
     f="$OUT/codec-unknown-launch-$l.jsonl"; base="$OUT/codec-unknown-launch-$l"
-    header "$f" "engine=JMH 1.37 SingleShotTime, -f 1 per cell, warm-up $WARM + $ROUNDS iteration(s), corpus U-* rows (req 7), coder=compact launch=$l, $(echo "$UCELLS" | tr ',' '\n' | wc -l) cells; core-ffi retain pending decision 11"
+    header "$f" "engine=JMH 1.37 SingleShotTime, -f 1 per cell, warm-up $WARM + $ROUNDS iteration(s), corpus U-* rows (req 7), coder=compact launch=$l, $(echo "$UCELLS" | tr ',' '\n' | wc -l) cells"
     rm -f "$base.cpu.tsv"
     $PIN_C "$J17/bin/java" -cp "build/jmh17:build/cls17:$CP:$JMHCP" org.openjdk.jmh.Main 'ak.CodecJmh.sample' \
       -f 1 -wi "$WARM" -i "$ROUNDS" -foe true -p cell="$UCELLS" \

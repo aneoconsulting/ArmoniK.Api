@@ -59,7 +59,13 @@ public final class Native {
   public static native int encErr(long ctx);
   public static native int encTake(long ctx, byte[] dst);
   public static native int encLen(long ctx);
-  public static native long decCtxNew();
+  // No untyped `decCtxNew`: decision 11 rule 6 binds a context to its root
+  // (`<entry>.decCtxNew<Root>(opts)`, rendered per description).
+  /** Decision 11: the shim's grow (malloc/realloc), and a delivered buffer copied and freed,
+   *  or freed. */
+  public static native long unkGrow();
+  public static native byte[] unkTake(long data, int len);
+  public static native void unkFree(long data);
   public static native void decCtxFree(long ctx);
   public static native int decErr(long ctx);
   public static native void decErrReset(long ctx);

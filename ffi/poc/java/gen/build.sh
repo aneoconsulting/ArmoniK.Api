@@ -46,7 +46,7 @@ else
   TOP=$(git rev-parse --show-toplevel)
   ( cd "$TOP" && git archive "$REV" ffi/poc/codec ffi/schema ffi/corpus ) | tar -x -C "$SNAP"
   CODEC=$SNAP/ffi/poc/codec
-  export AK_CODECGEN=$CODEC/gen
+  export AK_CODECGEN=${AK_CODECGEN:-$CODEC/gen}   # a preset one (development) wins
   KEY=tree-$(cd "$TOP" && git rev-parse "$REV:ffi/poc/codec" | cut -c1-16)
   echo "   core snapshot: ffi/poc/codec at $(git rev-parse --short "$REV"), tree key $KEY" | tee build/core-rev.txt
 fi

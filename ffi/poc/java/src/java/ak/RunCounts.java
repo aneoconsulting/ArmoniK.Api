@@ -49,7 +49,7 @@ public final class RunCounts {
           if (wire == null) wire = b.take();
         }
         if (wire != null) {
-          Native.decCountersReset(b.decCtx);
+          Native.decCountersReset(b.contextOf(Arms.root(id)));
           FfiArms.decode(b, id, wire, 0, wire.length);
           Native.decCounters(b.decCtx, dec);
         }
@@ -87,7 +87,7 @@ public final class RunCounts {
       {
         Binding b = new Binding();
         long[] d = new long[6];
-        Native.decCountersReset(b.decCtx);
+        Native.decCountersReset(b.contextOf(Arms.root(id)));
         FfiArms.decode(b, id, wire, 0, wire.length);
         Native.decCounters(b.decCtx, d);
         pushRev = d[1];
@@ -97,7 +97,7 @@ public final class RunCounts {
         Binding b = new Binding();
         b.pullWalk = w == 1;
         long[] d = new long[6];
-        Native.decCountersReset(b.decCtx);
+        Native.decCountersReset(b.contextOf(Arms.root(id)));
         FfiArms.parse(b, id, wire, 0, wire.length);
         Native.decCounters(b.decCtx, d);
         long fp = b.bdrFootprint();
