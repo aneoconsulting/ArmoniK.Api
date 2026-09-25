@@ -1,23 +1,23 @@
 # csharp campaign runner, suite rpc
 # commit:        3a9b67c
 # SMOKE RUN (CAMPAIGN.md section 9) in a container: EVERY FIGURE BELOW IS INSTRUMENTATION, NOT A RESULT (README 1.1)
-# utc:           2026-09-25T23:49:05Z
+# utc:           2026-09-25T23:49:06Z
 # cpu:           Intel(R) Xeon(R) Processor @ 2.10GHz; 4 logical CPUs; kernel 6.18.44-fc-v37
 # smt:           0 (active); governor: n/a; turbo: no_turbo=n/a boost=n/a
 # isolation:     cmdline isolcpus/nohz_full: cpuset: n/a
 # cpu sets:      CLIENT=0 SERVER=1 (smoke defaults); pinning by taskset
 # runtime:       .NET 8.0.31 (SDK 8.0.131); target net8.0, Release; tiering and PGO at their net8.0 defaults unless DOTNET_* is set: TieredCompilation=default TieredPGO=default; workstation GC, concurrent (default)
-# core:          libak_core.so shared, cargo --release, features rpc,init-guard (init-guard ON, as in every gate), built from git archive HEAD ffi/poc/codec
+# core:          libak_core.so shared, cargo --release, features rpc,init-guard without unknown-fields (no-unknown build) (init-guard ON, as in every gate), built from git archive HEAD ffi/poc/codec
 # repeats:       1 launch(es) x 1 round(s); arms/cells interleaved per round, rotated
 # gate:          passed at 3a9b67c (/home/user/ArmoniK.Api/ffi/logs/csharp/campaign/gate-3a9b67c-20260925T233933Z-rpc-PLANT.log, copied to /home/user/ArmoniK.Api/ffi/logs/csharp/campaign/gate.log)
-# client build: full (WP5 step 10); builds in this launch's order: full nounk
+# client build: nounk (WP5 step 10); builds in this launch's order: full nounk
 # campaign suite rpc: raw samples, one JSON object per line; nothing summarised here
 # runtime:        .NET 8.0.31
 # incumbent:      Google.Protobuf 3.32.0; Grpc.Net.Client 2.71.0; Grpc.AspNetCore.Server 2.71.0
 # JIT:            TieredCompilation default(on), TieredPGO default(on), ReadyToRun default(on) (net8.0 defaults unless set)
 # GC:             server=False, concurrent=default(on), latency=Interactive
-# managed codec:  plan utf8=reject unknown=both limit=100
+# managed codec:  plan utf8=reject unknown=drop limit=100
 # process CPUs:   affinity mask 0x1 (1 logical CPUs visible)
-# build full (WP5 step 10); launch 1, rounds 1, 16 calls per sample, in flight 1/8/16; transport shipped (client: DisableDynamicWindowSizing, no window set; Kestrel defaults; core: ak_client_opts stream 0 connection 0 adaptive 0 nagle -1); Unix socket /tmp/ak-cs-campaign-5650.sock; the server is a separate process; B/C blocking delivery, .callback/.queue extra rows (C.* in drop mode); C and D in each unknown-field mode (req 12 amended): C-retain/D-retain = decision 11's options armed at every position and ak_uencode_*, C-drop/D-drop = reset with NULL and ak_encode_* (C-nounk/D-nounk: the no-unknown client, its own build and core; A and B are its in-process controls); a retained decode that leaves a grown buffer undelivered fails its call; direction a: empty request, P2.2 response (540423 B); b: P2.2 request decoded by the server, empty response; warm-up 32 calls per cell; every call checked (status and length)
+# build no-unknown (WP5 step 10); launch 1, rounds 1, 16 calls per sample, in flight 1/8/16; transport shipped (client: DisableDynamicWindowSizing, no window set; Kestrel defaults; core: ak_client_opts stream 0 connection 0 adaptive 0 nagle -1); Unix socket /tmp/ak-cs-campaign-5650.sock; the server is a separate process; B/C blocking delivery, .callback/.queue extra rows (C.* in drop mode); C and D in each unknown-field mode (req 12 amended): C-retain/D-retain = decision 11's options armed at every position and ak_uencode_*, C-drop/D-drop = reset with NULL and ak_encode_* (C-nounk/D-nounk: the no-unknown client, its own build and core; A and B are its in-process controls); a retained decode that leaves a grown buffer undelivered fails its call; direction a: empty request, P2.2 response (540423 B); b: P2.2 request decoded by the server, empty response; warm-up 32 calls per cell; every call checked (status and length)
 # ABORT: RpcException: Status(StatusCode="Internal", Detail="Error starting gRPC call. Abort: A: response length 540422, expected 540423", DebugException="Armonik.Ffi.Campaign.CampaignMain+Abort: A: response length 540422, expected 540423")
 # no samples written

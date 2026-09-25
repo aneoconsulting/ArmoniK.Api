@@ -4,11 +4,11 @@
 It says what exists and what was checked. It carries no recommendation (the
 decision is the owner's) and no timing presented as a result: in the setup and
 design phase every container timing is instrumentation (README 1.1). The
-reasoning behind each change is in `JOURNAL.md` (entry 52 for the decision 11 port; 50 and 51 for BDN; 49 for WP3).
+reasoning behind each change is in `JOURNAL.md` (55 for the no-unknown variant, 54 for the gate-failure reproduction, 52-53 for decision 11 and req 12, 50-51 for BDN, 49 for WP3).
 
 | | |
 |---|---|
-| **Status** | **WP5 step 9, decision 11 port (2026-09-25): D41 closed.** The C# backends render `ak_dec_<Root>_opts`, the root-bound contexts and a retained decode through one grow; `logs/csharp/wp5s9-gate.log` GATE PASSED at `8d2e7ac` (core `e897f57`), net8.0 and net6.0: ffi-retain keeps the retained form on every non-disputed unknown row (0 gaps; the 307-row regression gone, now a gate failure under `AK_CORPUS_RETAIN_STRICT`), per-position discard / pull == push / wrong-root controls pass with their plants failing, crossing counts unchanged. CAMPAIGN requirement 10 met in the BDN codec suite. Before it: **Unit 4 (2026-09-25): BenchmarkDotNet restored as the codec-suite engine (CAMPAIGN.md 22a, `src/BenchDotNet`), driven by `run_campaign.sh --suite codec`; the rpc and calib suites stay on `akrpc campaign` (reason in the checklist section). BDN smoke run executed (`logs/csharp/campaign/codec-launch1.*`, figures = instrumentation). Follow-up (JOURNAL 51): the per-case overhead traced to BDN's forced GCs over a live heap that grows with the cases in one process; a launch is now one process per arm:mode unit; the JIT tier of the measured code is read back per case (PASS on every case of the smoke).** WP3 harness conformance done before it. Campaign-readiness checklist below (requirements 1 to 32; unmet items listed with reasons). WP5 (the one generator) done earlier; regenerated at decision 11 (`29d515e`), where core-ffi retain is the backend's TRANSITIONAL drop mode until the decision 11 options are rendered in `cs_host`. |
+| **Status** | **WP5 step 10 (2026-09-25): the NO-UNKNOWN variant built, gated and in the campaign harness.** `/p:AkNounk=true` is its own build (GeneratedNounk/, rendered from the drop-relowered plans; bin-nounk/), against `target-core*-nounk` (ak-core `--no-default-features`); `logs/csharp/wp5s10-gate.log` GATE PASSED at `2410125`: 240/340 layout facts, byte identity, the loaded core is the variant, its own crossing counts (P1.2 decode reverse 8 -> 5 against the full build, the one difference), the corpus with every unknown row in the dropped form, rule 6, net8.0 and net6.0. BDN modes and RPC cells C-nounk/D-nounk added; smokes with figures stripped. The gate failure seen once at 253f487 did not reproduce in 6 runs (`logs/csharp/gate-repro/`), cause not found (JOURNAL 54). Before it: **WP5 step 9, decision 11 port (2026-09-25): D41 closed.** The C# backends render `ak_dec_<Root>_opts`, the root-bound contexts and a retained decode through one grow; `logs/csharp/wp5s9-gate.log` GATE PASSED at `8d2e7ac` (core `e897f57`), net8.0 and net6.0: ffi-retain keeps the retained form on every non-disputed unknown row (0 gaps; the 307-row regression gone, now a gate failure under `AK_CORPUS_RETAIN_STRICT`), per-position discard / pull == push / wrong-root controls pass with their plants failing, crossing counts unchanged. CAMPAIGN requirement 10 met in the BDN codec suite. Before it: **Unit 4 (2026-09-25): BenchmarkDotNet restored as the codec-suite engine (CAMPAIGN.md 22a, `src/BenchDotNet`), driven by `run_campaign.sh --suite codec`; the rpc and calib suites stay on `akrpc campaign` (reason in the checklist section). BDN smoke run executed (`logs/csharp/campaign/codec-launch1.*`, figures = instrumentation). Follow-up (JOURNAL 51): the per-case overhead traced to BDN's forced GCs over a live heap that grows with the cases in one process; a launch is now one process per arm:mode unit; the JIT tier of the measured code is read back per case (PASS on every case of the smoke).** WP3 harness conformance done before it. Campaign-readiness checklist below (requirements 1 to 32; unmet items listed with reasons). WP5 (the one generator) done earlier; regenerated at decision 11 (`29d515e`), where core-ffi retain is the backend's TRANSITIONAL drop mode until the decision 11 options are rendered in `cs_host`. |
 | **Owner's levels** (FIX-PLAN section 6, D2) | floors **net6.0** and **.NET Framework 4.8** (correctness only), target **net8.0** |
 | **Target** | net8.0 on .NET 8.0.31, SDK 8.0.131 (Ubuntu 24.04 `dotnet-sdk-8.0`). Everything below |
 | **net6.0 floor** | .NET 6.0.36 (runtime pack `Microsoft.NETCore.App.Runtime.linux-x64` 6.0.36 from NuGet, self-contained publish). **Builds and passes everything below, core-ffi included** (it did not build before this unit: `LibraryImport`) |
@@ -255,53 +255,50 @@ runner (which meets 13 to 18, 21, 23, 27, 28) is kept.
 | 7 | payloads | met: 16 payloads; content sets latin1/wide on P1.2 and P2.2 (SHAPES.md); every `U-*` corpus row with a shapes root, disputed excluded (92 rows) |
 | 8 | arms | met: incumbent-prod (Grpc.Tools marshaller shape: CalculateSize + WriteTo(IBufferWriter); ParseFrom(ReadOnlySequence)), incumbent-best (WriteTo(IBufferWriter) without the size pass; ParseFrom(ReadOnlySpan)), core-ffi (push; pull as `core-ffi-pull`), host-gen (managed codec); on the unknown rows: incumbent-prod, host-gen and core-ffi, each drop/retain where it has the mode |
 | 9 | directions | met: encode, decode, decode-read (a generated `Touch` visitor reads every field, both object models); decode-reencode on the unknown rows |
-| 10 | drop and retain | met: host-gen drop/retain, core-ffi drop/retain (decision 11: every position armed with grow; retain checked before timing: on every unknown row core-ffi retain and host-gen retain re-encode to the incumbent's bytes), core-ffi-pull drop; incumbent default (retains), stated. The one position the C# facade cannot hold is a map entry's bag (U-map-entry, disputed, not in the timed set) |
+| 10 | unknown fields, three modes (amended 85cb00f) | met: **retain** and **drop** in the full build (host-gen drop/retain, core-ffi drop/retain, decision 11 armed at every position for retain, checked before timing: retain re-encodes every unknown row to the incumbent's bytes), core-ffi-pull drop; **no-unknown** in its own build (`/p:AkNounk=true`, WP5 step 10): core-ffi and core-ffi-pull against `target-core-nounk` (ak-core `--no-default-features`), and **host-gen too, plan-generated** (the managed codec rendered from the drop plan has no capture code); every sample carries `unknown_mode`; incumbent default (retains), stated. The one position the C# facade cannot hold is a map entry's bag (U-map-entry, disputed) |
 | 11 | serialised once per iteration, no amortised memo | met: Google.Protobuf's C# messages keep no serialized-size memo (CalculateSize recomputes); core-ffi and host-gen reset their contexts per call; the graph is reused |
-| 12 | cells A-D; C and D per unknown-field mode (amended 85cb00f) | met for retain and drop: `A`, `B`, `C-retain`, `C-drop`, `D-retain`, `D-drop` in both directions, samples carry `unknown_mode` (retain = decision 11's options armed at every position and `ak_uencode_*`; drop = reset with NULL and `ak_encode_*`; the extra `C.callback`/`C.queue` rows decode in drop mode). `C-nounk`/`D-nounk`: not yet, they need the compiled-out build (the rust agent is adding it to poc/codec) |
+| 12 | cells A-D; C and D per unknown-field mode (amended 85cb00f) | met: the full client runs `A`, `B`, `C-retain`, `C-drop`, `D-retain`, `D-drop` (+ the B/C callback/queue extras, C.* in drop), the no-unknown client (`src/Rpc` built with `/p:AkNounk=true`, its core `target-core-nounk`) runs `A`, `B`, `C-nounk`, `D-nounk` with A and B as its in-process controls; both clients against the same server process per transport and launch, in an order alternated by launch; `unknown_mode` on every sample; each client checks at start that its core is its variant |
 | 13 | server separate process, pre-serialised | met: Kestrel in its own process on `AK_CPU_SERVER`, P2.2 bytes pre-serialised; direction b decoded by the incumbent in every cell |
 | 14 | directions a and b | met; the optional streamed upload is not built |
 | 15 | 1/8/16 in flight | met |
 | 16 | B/C blocking; callback/queue labelled | met (`B`, `C` blocking; `B.callback`, `B.queue`, `C.callback`, `C.queue` extra) |
 | 17 | shipped and pinned, B/C follow | met: shipped = packages/csharp's UDS config (DisableDynamicWindowSizing, no window) and Kestrel defaults, core client adaptive off with the stack's windows; pinned = 4 MiB stream and connection windows everywhere, adaptive off, Nagle off (UDS: Nagle has no effect) |
 | 18 | every call checked, abort | met: status and length on every call; an exception aborts with no sample; control `--plant` (wrong expected length) aborts, logged |
-| 19 | crossing counts gate | met: counting build vs `gen/crossings.txt` in the gate and before calib; it caught the decision 11 change (P1.2, re-baselined) |
+| 19 | crossing counts gate | met for both builds: the full build against `gen/crossings.txt`, the no-unknown build (counting core `target-core-count-nounk`) against its own `gen/crossings-nounk.txt`, in the gate and before calib. The two differ in one row: P1.2 push-decode reverse 8 (full) vs 5 (no-unknown), as in the rust slice |
 | 20 | crossing cost fwd/rev, perf stat | partly: `crossing-forward` (ak_noop) and `crossing-forward-reverse` (ak_noop_reverse) rows, the reverse cost is their difference; `perf stat` is run when installed, **not installed in this container** |
 | 21 | CPU clocks | met with the stated fallback. codec (BDN): **wall per iteration** (BDN Stopwatch, exported raw) plus **process CPU per case** (getrusage RUSAGE_SELF, a diagnoser on BDN's BeforeActualRun/AfterActualRun) across the **actual stage** (BDN signals it after the warm-up), which includes the 4 full GCs BDN forces per iteration: their pause time is recorded beside it (`gc_pause_ns`, `gc`); **per-iteration and thread CPU are not available** (no BDN diagnoser or column gives them), stated in every header. rpc: getrusage(RUSAGE_SELF) of the client beside wall per batch. calib: CLOCK_THREAD_CPUTIME_ID. No Process.TotalProcessorTime |
 | 22 | blocks, order rotated between launches | codec: met, one process per arm:mode unit, the unit order rotated by launch (arms rotated by launch - 1, the modes within an arm too; 5 arms, so launches 1 to 3 start with a different arm); rpc: cells interleaved per round, rotated |
 | 23 | 5 rounds x 3 launches, every round committed | met (defaults): codec = 5 BDN actual iterations per case x 3 launches, every iteration exported; rpc/calib = 5 rounds x 3 launches; the smoke run is 1 x 1 by requirement 32 |
 | 24 | warm-up stated, identical | met. codec: per process a pre-warm (rounds of 64 calls to every case of the unit, 0.5 s apart, until a round compiles nothing: 7 to 9 rounds in the smoke) and 2 unexported prime cases; per case BDN's jitting stage and pilot, then a FIXED warm-up count (10; smoke 1), every stage exported (`bdn_stages`). **Tier read back**: an in-process listener on the runtime's JIT events (MethodLoadVerbose, tier from MethodFlags) gives per case the compilations before and inside the actual stage by tier and `hot_tier0` (measured code still at tier 0 during the case and promoted later); every unit's header states `jit check: PASS/FAIL`. Smoke: PASS on all 1,780 cases. Tiered JIT and PGO at net8.0 defaults (stated). rpc: two passes of max(64 calls, 50 ms) per cell, then fixed iterations, tier not read back |
 | 25 | allocator/GC warm, GC stated | met: codec: pre-warm, BDN warm-up per case and its forced GCs between iterations (default, kept), GC counts, pause time and heap size recorded per case; rpc: warm-up for every arm, GC.Collect before every round; workstation concurrent GC stated |
-| 26 | correctness before timing | met: the runner requires `gen/gate.sh` passed at identical content (the gate builds BenchDotNet); the BDN process re-checks byte identity of every timed encode arm (incumbent-prod, incumbent-best, host-gen, core-ffi drop and retain) per payload and content set, and that every arm accepts every unknown row, before BDN runs (560 checks) |
+| 26 | correctness before timing | met: the runner requires `gen/gate.sh` passed at identical content (the gate builds BenchDotNet and gates the no-unknown build in its step 8: layout 240/340 facts, byte identity, the loaded core is the variant with a control on the full core, its crossing counts, the corpus with every unknown row in the dropped form, rule 6; net8.0 and net6.0); every BDN process re-checks byte identity of every timed encode arm and every arm on every unknown row before timing (full: retain = incumbent's bytes; no-unknown: host-gen and core-ffi agree on the dropped form), and refuses to run if its core is not its variant |
 | 27 | header | met: runner (commit, dirty tree refused unless AK_ALLOW_DIRTY, machine, flags, repeats, gate) + process (BDN version and toolchain, runtime, tiering, incumbent version, plan options, the job: iterations, warm-up, iteration time, strategy, EvaluateOverhead=false, clocks, arm order, checks, case count) |
 | 28 | JSON lines, raw | met: a BDN exporter writes one line per raw Workload/Actual measurement (no outlier removal, no overhead subtraction: EvaluateOverhead=false; BDN's outlier handling touches only its console summary), plus one round-0 CPU row per case; failed cases are written as `# FAILED CASE` and fail the process |
 | 29 | logs per suite and launch in ffi/logs/csharp/campaign/ | met |
 | 30 | summaries | none produced by this slice (optional) |
 | 31 | runner interface | met for the slice; the top-level `ffi/campaign.sh` is not this slice's file |
-| 32 | smoke run | met: `logs/csharp/campaign/`, marked instrumentation |
+| 32 | smoke run | met: `logs/csharp/campaign/`, codec (both builds) and rpc (both clients) smokes, marked instrumentation; the rpc figures stripped |
 
 D1 (`src/BenchDotNet`, retired at WP3) is **restored** as the codec-suite engine (req 22a) and builds in the gate; D1 is closed.
 
 **Smoke runs** (`logs/csharp/campaign/`, CLIENT=0 SERVER=1, 1 launch, every file headed
-"instrumentation, not a result"):
+"instrumentation, not a result"; **figures stripped** in the codec and rpc files):
 
-- **codec under BDN, units, after the decision 11 port** (`codec-launch1.jsonl` +
-  `codec-launch1.<unit>.bdn.log`, commit and gate in its header): commit `77b54c8`, gate PASSED
-  at `8d2e7ac`, identical content (`gate.log` = `wp5s9-gate.log`); 7 unit processes, each 744
-  pre-timing checks passed (now including: core-ffi retain and host-gen retain re-encode every
-  unknown row to the incumbent's bytes), JIT check PASS; 1,780 cases, 0 failed: 1,780 raw
-  iteration rows + 1,780 CPU rows; 276 of them core-ffi retain on the 92 unknown rows
-  (decode, decode-read, decode-reencode), now on a decoder that retains (requirement 10).
-- **rpc with C and D per unknown-field mode** (req 12 amended 85cb00f; commit `637e77d`, gate
-  PASSED at that commit, `gate.log`): 60 samples per transport, shipped and pinned (20
-  cell/direction rows x 3 in-flight levels: A, B, C-retain, C-drop, D-retain, D-drop and the
-  B/C callback/queue extras, directions a and b), every call checked, no call failed and no
-  retained decode left a buffer undelivered; **figures stripped** (cpu_ns, wall_ns null). The
-  requirement-18 control (`*.PLANT.jsonl`) aborted with 0 samples on both transports.
-- calib (WP3, commit `5d81225`): 2 samples after the crossing-count gate
-  (`calib-crossing-counts.log`).
+- **codec, both builds** (WP5 step 10; commit `42f5372`, gate PASSED at `2410125`, identical
+  content): 12 unit processes (7 full, 5 no-unknown), each checking its core is its variant;
+  2,888 cases, 0 failed, JIT check PASS in every unit; by mode: core-ffi retain/drop/no-unknown
+  336 each, host-gen retain/drop/no-unknown 336 each, core-ffi-pull drop and no-unknown 40 each,
+  incumbent-prod 672 and incumbent-best 120 (default: both builds carry them as controls).
+- **rpc, both clients** (commit `3a9b67c`, gate PASSED at that commit): full client 60 samples per
+  transport (A, B, C-retain, C-drop, D-retain, D-drop, the B/C extras; x 2 directions x 3
+  in-flight levels), no-unknown client 24 per transport (A, B, C-nounk, D-nounk); every call
+  checked, none failed; the requirement-18 control aborted with 0 samples for both clients on
+  both transports (`*.PLANT.jsonl`).
+- calib (WP3, commit `5d81225`): 2 samples after the crossing-count gate.
+- the gates each runner run took are kept by name (`gate-<commit>-<utc>-<suite>[-PLANT].log`).
 
-`gate.log` is now the gate the rpc smoke ran behind (at `637e77d`; the codec smoke ran behind
-`wp5s9-gate.log`, the same checks at `8d2e7ac`):
+`gate.log` is a copy of the last passed runner gate (the rpc smoke's, `3a9b67c`); the gate
+content, full and no-unknown:
 net8.0 and net6.0, conformance, core-ffi, crossing counts = `gen/crossings.txt`, corpus (managed
 and ffi arms, strict retain), decision 11's controls, probe rows, controls.
 
@@ -361,6 +358,8 @@ nothing is declared by hand any more.
 
 | Log | What it establishes |
 |---|---|
+| `wp5s10-gate.log` | the WP5 step 10 gate: as step 9's, plus step 8, the NO-UNKNOWN build (layout 240/340 facts, byte identity, variant check with its control, crossing counts = `gen/crossings-nounk.txt`, corpus with drop strict, rule 6), net8.0 and net6.0 |
+| `gate-repro/` | the gate at 253f487 and at ef00211, three runs each, each log under its own name with load and disk: 6 of 6 passed |
 | `wp5s9-gate.log` | the WP5 step 9 gate (decision 11 port), core `e897f57`, clean core builds: layout incl. the options structs, conformance, core-ffi, crossing counts, corpus with strict retain (0 gaps) and its unkdrop control, decision 11's controls (per-position discard, pull == push, wrong root) and their plant, net8.0 and net6.0 |
 | `bdn-default-job-unit/` | a TRIAL, not a campaign run: one unit (core-ffi:drop, 336 cases) at the default BDN job, for the JIT check (PASS) and the engine cost at that job |
 | `campaign/` | smoke runs of `run_campaign.sh`: `gate.log` + `codec-launch1.jsonl` and one `codec-launch1.<unit>.bdn.log` per process (BDN, units, JIT check; unit 4 follow-up); rpc shipped+pinned, the rpc abort control, calib (WP3). Every figure is container instrumentation |

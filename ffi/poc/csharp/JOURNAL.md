@@ -1657,3 +1657,69 @@ the samples discarded, the suite re-run at 637e77d behind a passing gate. The fa
 itself was overwritten by the plant run's gate before I read it, so why that gate failed is
 not established; the next two gates (on later HEADs, other slices committing meanwhile) passed.
 Smoke: 60 samples per transport, no call failed, the abort control 0 samples; figures stripped.
+
+### 54. The gate failure at 253f487: reproduced 0 of 6 times; cause not found
+
+Asked by the aggregating session to treat it as a finding. What is known: during the first
+req-12 rpc smoke, the runner's gate (gen/gate.sh, run by gate_first at 253f487) printed
+"the correctness gate FAILED" into rpc1.out. Its log (campaign/gate.log) was overwritten minutes
+later by the --plant run's gate before I read it, so which step failed is not known; the next
+two gates (9957fc9, 637e77d) passed, and 253f487 and 9957fc9 are identical in every path the
+gate reads (ffi/poc/csharp, poc/codec, schema, corpus).
+
+Reproduction: two worktrees (253f487 and ef00211, HEAD then), the committed gate.sh run three
+times in each, sequentially per worktree, the two sequences in parallel (load average 12 to 17
+during them, from these two plus the other slices' builds; disk 67 to 82 %). Each run's log
+under its own name, `logs/csharp/gate-repro/gate-<label>-run<N>.log`, with load and disk at start
+and end. Result: **253f487 3 of 3 passed; HEAD 3 of 3 passed; 0 failures in 6 runs.** The
+failure did not reproduce, and I have no evidence for its cause. Differences from the original
+run that I can name but not test after the fact: it ran in the main tree (the reproductions ran
+in worktrees), in the scratch directory later reused by the plant run, while the other slices
+were building their decision-11 ports.
+
+Fixed so it cannot be lost again: every runner gate run writes its own
+`gate-<commit>-<utc>-<suite>[-PLANT].log` and gate.log is only a copy of a passed one (ef00211).
+The runner no longer continues past a failed gate (637e77d). Both mechanisms ran in the smokes
+since (gate-3cf32ba-...-rpc.log, gate-837b738-...-rpc-PLANT.log, both passed).
+
+### 55. WP5 step 10: the NO-UNKNOWN variant (unknown fields compiled out)
+
+**Rendering** (my backends, poc/codec/gen, commit 0c77d01): cs_binding, cs_host and
+cs_layout_probe render from `plan.unknown_compiled_out` on a plan relowered with
+unknown="drop": no u-groups, no `ak_uencode_*`/`ak_uelem*_*`, no options, no reset,
+`ak_dec_ctx_new_<Root>()` without a parameter, no bag capture, no grow; `retain` = true is refused.
+Both import forms stay in the one generated file. An `AbiVariant` class checks at load time that
+the core is the same variant (the u-family export `ak_uencode_<first root>` present in the full
+core, absent in the variant): the harness, the corpus runner, every BDN process and the rpc client
+refuse to run on the wrong core, and the gate has a control that loads the full core under the
+variant binding (fails as required).
+
+**Build** (3b3fa36): `/p:AkNounk=true` is its own build configuration: GeneratedNounk/ replaces
+the variant files, AK_NO_UNKNOWN_FIELDS is defined, output in bin-nounk/ obj-nounk/, so both
+builds exist side by side. host-gen no-unknown IS plan-generated: the managed codec is rendered
+from the drop plan (no capture code); the facade types are identical in both plans (checked).
+Cores: target-core-nounk, target-core-count-nounk, target-core-corpus-nounk (ak-core
+`--no-default-features`, own target dirs): 96/96/171 ak_* exports against 117/117/241, 0
+`ak_uencode_*` against 7.
+
+**Gate** (wp5s10-gate.log, GATE PASSED at 2410125, net8.0 and net6.0): layout by name 78 structs /
+305 members and 240 section-10 facts (shapes), 340 facts (corpus); byte identity 152/152; the
+loaded core is the variant; its crossing counts equal `gen/crossings-nounk.txt`; the corpus with
+the two drop arms: managed 696 pass, ffi 680 pass, every unknown row in the dropped form (313 and
+307 rows dropped, 0 retained); rule 6 (decode and parse refused on another root's context, no
+reset exists). Crossing counts against the full build: **one row differs, P1.2 push-decode reverse
+8 -> 5**, as in the rust slice (the decode group without `ak_unk_buf` fits more elements per
+32 KB chunk).
+
+**Harness**: BDN units `host-gen:no-unknown`, `core-ffi:no-unknown`, `core-ffi-pull:no-unknown`
+(incumbents as in-process controls), pre-timing checks in the variant: byte identity and the
+dropped form agreed by host-gen and core-ffi on every unknown row (468). RPC: the no-unknown
+client runs A, B, C-nounk, D-nounk against the same server. run_campaign.sh builds both, runs both
+per launch in an order alternated by launch, and checks both crossing files before calib.
+
+**A defect of mine the smoke found:** the rpc edit described in 3b3fa36 had not reached
+Campaign.cs. The python script that made it aborted on an assertion (the header string I matched
+occurs twice), and its error output was suppressed; the build succeeded because nothing
+referenced the missing code. The no-unknown client ran the full cell list and aborted on its first
+retain call, no sample written. Fixed in 3a9b67c. I checked the other edits of this unit by their
+output (every one shows in a log); from here on no edit script runs with its errors hidden.

@@ -1,8 +1,8 @@
-# FIGURES STRIPPED (cpu_ns, wall_ns set to null): a container smoke whose purpose is the cell list and the checks, not a timing (README 1.1)
+# FIGURES STRIPPED (cpu_ns, wall_ns, gc_pause_ns, bdn_stages set to null): a container smoke whose purpose is the case list and the checks, not a timing (README 1.1)
 # csharp campaign runner, suite rpc
-# commit:        637e77d
+# commit:        3a9b67c
 # SMOKE RUN (CAMPAIGN.md section 9) in a container: EVERY FIGURE BELOW IS INSTRUMENTATION, NOT A RESULT (README 1.1)
-# utc:           2026-09-25T21:43:27Z
+# utc:           2026-09-25T23:39:04Z
 # cpu:           Intel(R) Xeon(R) Processor @ 2.10GHz; 4 logical CPUs; kernel 6.18.44-fc-v37
 # smt:           0 (active); governor: n/a; turbo: no_turbo=n/a boost=n/a
 # isolation:     cmdline isolcpus/nohz_full: cpuset: n/a
@@ -10,7 +10,8 @@
 # runtime:       .NET 8.0.31 (SDK 8.0.131); target net8.0, Release; tiering and PGO at their net8.0 defaults unless DOTNET_* is set: TieredCompilation=default TieredPGO=default; workstation GC, concurrent (default)
 # core:          libak_core.so shared, cargo --release, features rpc,init-guard (init-guard ON, as in every gate), built from git archive HEAD ffi/poc/codec
 # repeats:       1 launch(es) x 1 round(s); arms/cells interleaved per round, rotated
-# gate:          passed at 637e77d (/home/user/ArmoniK.Api/ffi/logs/csharp/campaign/gate.log)
+# gate:          passed at 3a9b67c (/home/user/ArmoniK.Api/ffi/logs/csharp/campaign/gate-3a9b67c-20260925T232716Z-rpc.log, copied to /home/user/ArmoniK.Api/ffi/logs/csharp/campaign/gate.log)
+# client build: full (WP5 step 10); builds in this launch's order: full nounk
 # campaign suite rpc: raw samples, one JSON object per line; nothing summarised here
 # runtime:        .NET 8.0.31
 # incumbent:      Google.Protobuf 3.32.0; Grpc.Net.Client 2.71.0; Grpc.AspNetCore.Server 2.71.0
@@ -18,7 +19,7 @@
 # GC:             server=False, concurrent=default(on), latency=Interactive
 # managed codec:  plan utf8=reject unknown=both limit=100
 # process CPUs:   affinity mask 0x1 (1 logical CPUs visible)
-# launch 1, rounds 1, 16 calls per sample, in flight 1/8/16; transport pinned (client: DisableDynamicWindowSizing + InitialHttp2StreamWindowSize 4 MiB; Kestrel stream/connection window 4 MiB; core: ak_client_opts stream 4194304 connection 4194304 adaptive 0 nagle 0); Unix socket /tmp/ak-cs-campaign-8481.sock; the server is a separate process; B/C blocking delivery, .callback/.queue extra rows (C.* in drop mode); C and D in each unknown-field mode (req 12 amended): C-retain/D-retain = decision 11's options armed at every position and ak_uencode_*, C-drop/D-drop = reset with NULL and ak_encode_* (C-nounk/D-nounk: the compiled-out build, not yet ported); a retained decode that leaves a grown buffer undelivered fails its call; direction a: empty request, P2.2 response (540422 B); b: P2.2 request decoded by the server, empty response; warm-up 32 calls per cell; every call checked (status and length)
+# build full (WP5 step 10); launch 1, rounds 1, 16 calls per sample, in flight 1/8/16; transport pinned (client: DisableDynamicWindowSizing + InitialHttp2StreamWindowSize 4 MiB; Kestrel stream/connection window 4 MiB; core: ak_client_opts stream 4194304 connection 4194304 adaptive 0 nagle 0); Unix socket /tmp/ak-cs-campaign-28740.sock; the server is a separate process; B/C blocking delivery, .callback/.queue extra rows (C.* in drop mode); C and D in each unknown-field mode (req 12 amended): C-retain/D-retain = decision 11's options armed at every position and ak_uencode_*, C-drop/D-drop = reset with NULL and ak_encode_* (C-nounk/D-nounk: the no-unknown client, its own build and core; A and B are its in-process controls); a retained decode that leaves a grown buffer undelivered fails its call; direction a: empty request, P2.2 response (540422 B); b: P2.2 request decoded by the server, empty response; warm-up 32 calls per cell; every call checked (status and length)
 {"slice":"csharp","suite":"rpc","cell":"A","payload":"P2.2","dir":"a","unknown_mode":"default","transport":"pinned","inflight":1,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
 {"slice":"csharp","suite":"rpc","cell":"A","payload":"P2.2","dir":"a","unknown_mode":"default","transport":"pinned","inflight":8,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
 {"slice":"csharp","suite":"rpc","cell":"A","payload":"P2.2","dir":"a","unknown_mode":"default","transport":"pinned","inflight":16,"launch":1,"round":1,"cpu_ns":null,"wall_ns":null,"iters":16}
