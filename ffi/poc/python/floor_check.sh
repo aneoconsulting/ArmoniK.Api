@@ -16,9 +16,16 @@ INC="$HERE/build/py37/root/usr/include"
 CF="-fsyntax-only -O2 -Wall -Wextra -Werror -Werror=implicit-function-declaration -Wno-unused-parameter -I$INC/python3.7m -I$INC"
 echo "# 3.7.5 headers: $INC/python3.7m ($(grep -m1 'define PY_VERSION ' "$INC/python3.7m/patchlevel.h"))"
 rc=0
+# The variants built: five of the full build, the per-thread reclaim control's twin, and
+# four of the no-unknown build (WP5 step 10).
+VARIANTS=("gen/out|" "gen/out|-DAK_COUNT" "gen/out|-DAK_RPC" "gen/out/corpus|-DAK_CORPUS"
+  "gen/out/corpus|-DAK_CORPUS -DAK_CHUNK_BYTES=256 -DAK_CHUNK_PACKED=3" "gen/out/corpus|-DAK_CORPUS -DAK_THREAD_LOCAL="
+  "gen/out/nounk|-DAK_NOUNK" "gen/out/nounk|-DAK_NOUNK -DAK_COUNT" "gen/out/nounk|-DAK_NOUNK -DAK_RPC"
+  "gen/out/corpus-nounk|-DAK_NOUNK -DAK_CORPUS")
+NV=${#VARIANTS[@]}
 echo
 echo "## this tree"
-for v in "gen/out|" "gen/out|-DAK_COUNT" "gen/out|-DAK_RPC" "gen/out/corpus|-DAK_CORPUS" "gen/out/corpus|-DAK_CORPUS -DAK_CHUNK_BYTES=256 -DAK_CHUNK_PACKED=3"; do
+for v in "${VARIANTS[@]}"; do
   d=${v%%|*}; f=${v#*|}
   if out=$(cc $CF -I"$d" $f -DAK_MODNAME_STR='"_akffi"' -DAK_INITFUNC=PyInit__akffi native/binding.c 2>&1); then
     echo "   ok    $d $f"
@@ -34,7 +41,7 @@ for n in Py_NewRef PyObject_CallNoArgs PyObject_CallOneArg PyModule_AddObjectRef
   echo "     $n: $(grep -c "\b$n\b" gen/out/binding.c) in gen/out/binding.c, $(grep -c "\b$n\b" gen/out/corpus/binding.c) in gen/out/corpus/binding.c, $(grep -c "\b$n\b" native/binding.c) in native/binding.c"
 done
 echo
-echo "## the same five variants against every other CPython header set reachable here"
+echo "## the same $NV variants against every other CPython header set reachable here"
 # 3.9 is the one level where the two conditionals split (PyObject_CallNoArgs exists,
 # Py_NewRef does not); its headers are focal's libpython3.9-dev (headers only, sha-pinned).
 P39="$HERE/build/py39"
@@ -55,12 +62,12 @@ while IFS= read -r lv; do
   [ -z "$lv" ] && continue
   ver=${lv%%|*}; inc=${lv#*|}
   bad=0
-  for v in "gen/out|" "gen/out|-DAK_COUNT" "gen/out|-DAK_RPC" "gen/out/corpus|-DAK_CORPUS" "gen/out/corpus|-DAK_CORPUS -DAK_CHUNK_BYTES=256 -DAK_CHUNK_PACKED=3"; do
+  for v in "${VARIANTS[@]}"; do
     d=${v%%|*}; f=${v#*|}
     cc -fsyntax-only -O2 -Wall -Wextra -Werror -Werror=implicit-function-declaration -Wno-unused-parameter $inc \
        -I"$d" $f -DAK_MODNAME_STR='"_akffi"' -DAK_INITFUNC=PyInit__akffi native/binding.c 2>/dev/null || bad=$((bad+1))
   done
-  if [ $bad -eq 0 ]; then echo "   ok    CPython $ver headers: 5 of 5 variants"; else echo "   FAIL  CPython $ver headers: $bad of 5 variants"; rc=1; fi
+  if [ $bad -eq 0 ]; then echo "   ok    CPython $ver headers: $NV of $NV variants"; else echo "   FAIL  CPython $ver headers: $bad of $NV variants"; rc=1; fi
 done <<< "$LEVELS"
 
 echo

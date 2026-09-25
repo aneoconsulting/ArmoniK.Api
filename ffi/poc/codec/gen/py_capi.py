@@ -25,17 +25,22 @@ plan): one C header renderer for both C-consuming hosts.
 through `AK_NEWREF` / `AK_CALL0` / `AK_CALL1`, defined under `#if PY_VERSION_HEX >=` with a
 3.7-compatible `#else`, so the floor and the target compile the same generated file.
 
-Unknown fields: DROPPED in this shim (the `ak_encode_*` family; no context is armed with
-`ak_dec_<Root>_opts`, so every decode is in drop mode -- decision 11, WP5 step 7).
-Retention through the C ABI is not rendered here; the pure-Python codec renders both modes.
+Unknown fields (decision 11, WP5 step 9): the full plan renders drop AND retain per call
+(`retain` and the `zero` mask); rendered from `relower(p, p.options.with_unknown("drop"))`
+(WP5 step 10, THE NO-UNKNOWN VARIANT) the shim has NO retain path: no `ak_ufix`, no
+`fillu_`/`loopu_`, no options, no `ak_dec_reset_<Root>`, no `ak_uencode_*`/`ak_uelem*`, no
+grow/reclaim, no `unknown` member read at delivery, and `ak_dec_ctx_new_<Root>(void)`. A
+call with `retain` set is refused. Which members exist comes from the plan
+(`unknown_compiled_out`); this backend never re-derives it.
 
 A backend: imports `plan` only.
 """
 from plan import (abi_order_topo, as_plan, direct_fields, elem_type, loop_slots, presence_bits,
-                  slot_name, unk_opts_layout, unk_opts_name, unk_positions)
+                  slot_name, unk_opts_layout, unk_opts_name, unk_positions, unknown_compiled_out)
 import cpp_layout
 
 CHUNK_BYTES = 32768   # ABI v1 sections 6 and 7.3: batched runs chunk at 32 KB.
+NOUNK = [False]       # set per emit(): the plan's unknown fields are compiled out
 
 GSCALAR = {"int32": "int32_t", "enum": "int32_t", "int64": "int64_t", "bool": "uint8_t",
            "double": "double", "fixed32": "uint32_t"}
@@ -624,6 +629,8 @@ def emit_encode_entry(p, root, b):
     """`retain` selects the family: `ak_encode_R` over `ak_efix` groups (unknown fields
     dropped) or `ak_uencode_R` over `ak_ufix` groups (each message's `_unknown` re-emitted)."""
     d = ", h->direct, h->direct_len" if direct_fields(p, root) else ""
+    if NOUNK[0]:
+        return _emit_encode_entry_nounk(p, root, b, d)
     L = ["static PyObject *encode_%s_%s(PyObject *rootobj, PyObject *acc, int retain) {" % (b, root),
          "  HostCtx hs; memset(&hs, 0, sizeof hs);",
          "  hs.root = rootobj; hs.acc = acc;",
@@ -649,6 +656,41 @@ def emit_encode_entry(p, root, b):
          "    if (fill_%s_%s(&fix, rootobj, h)) { ak_py_tls_enc_release(ctx, tmp_); return NULL; }" % (b, root),
          "    rc = ak_encode_%s(h, ctx, &VT, &fix%s);" % (root, d),
          "  }",
+         "  if (rc < 0) {",
+         "    ak_py_tls_enc_release(ctx, tmp_);",
+         "    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, \"ak_encode_%s returned %%ld\", (long)rc);" % root,
+         "    return NULL;",
+         "  }",
+         "#ifdef AK_COUNT",
+         "  { struct AkCounters c; ak_enc_counters(ctx, &c); CORE_ADD(CORE_ENC, c); }",
+         "#endif",
+         "  const uint8_t *pp = NULL; size_t len = 0;",
+         "  if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);",
+         "    PyErr_SetString(PyExc_RuntimeError, \"ak_enc_take\"); return NULL; }",
+         "  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);",
+         "  ak_py_tls_enc_release(ctx, tmp_);",
+         "  return out;\n}"]
+    return "\n".join(L)
+
+
+def _emit_encode_entry_nounk(p, root, b, d):
+    """The no-unknown variant's encode: `ak_encode_R` only; `retain` is refused."""
+    L = ["static PyObject *encode_%s_%s(PyObject *rootobj, PyObject *acc, int retain) {" % (b, root),
+         "  if (retain) { PyErr_SetString(PyExc_ValueError, \"unknown fields are compiled out of this build\"); return NULL; }",
+         "  HostCtx hs; memset(&hs, 0, sizeof hs);",
+         "  hs.root = rootobj; hs.acc = acc;",
+         "  HostCtx *h = &hs;",
+         "  static const struct ak_evt_%s VT = %s;" % (root, evt_init(p, root, "R", b, EVT_NAMES[b])),
+         "  int tmp_ = 0;",
+         "  ak_enc_ctx *ctx = ak_py_tls_enc_acquire(&tmp_);",
+         "  if (!ctx) return PyErr_NoMemory();",
+         "#ifdef AK_COUNT",
+         "  ak_enc_counters_reset(ctx);",
+         "#endif",
+         "  struct ak_efix_%s fix;" % root,
+         "  memset(&fix, 0, sizeof fix);",
+         "  if (fill_%s_%s(&fix, rootobj, h)) { ak_py_tls_enc_release(ctx, tmp_); return NULL; }" % (b, root),
+         "  intptr_t rc = ak_encode_%s(h, ctx, &VT, &fix%s);" % (root, d),
          "  if (rc < 0) {",
          "    ak_py_tls_enc_release(ctx, tmp_);",
          "    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, \"ak_encode_%s returned %%ld\", (long)rc);" % root,
@@ -747,9 +789,12 @@ def emit_setgroup(p, name, b):
             L.append(code)
             L.append("      if (setgroup_%s_%s(h, cur, &e->%s)) { Py_DECREF(cur); return -1; }" % (b, f.of, f.name))
             L.append("      Py_DECREF(cur);")
-            L.append("    } else {")
-            L.append("      dropgroup_%s(h, &e->%s);   /* decision 11: an absent child's slots are the host's too */" % (f.of, f.name))
-            L.append("    }")
+            if NOUNK[0]:
+                L.append("    }")
+            else:
+                L.append("    } else {")
+                L.append("      dropgroup_%s(h, &e->%s);   /* decision 11: an absent child's slots are the host's too */" % (f.of, f.name))
+                L.append("    }")
         else:
             L.append(write_field(b, name, a, sp, "    "))
         L.append("  }")
@@ -775,12 +820,12 @@ def emit_setgroup(p, name, b):
             # slot; every other member slot that is non-NULL (an emptied buffer left behind by
             # a switch) is delivered with the group and freed here.
             for g2 in members:
-                if g2.kind == "message" and g2 is not g:
+                if g2.kind == "message" and g2 is not g and not NOUNK[0]:
                     L.append("      dropgroup_%s(h, &e->%s_%s);" % (g2.of, oname, g2.name))
             L.append("      break; }")
         L.append("    default:")
         for g2 in members:
-            if g2.kind == "message":
+            if g2.kind == "message" and not NOUNK[0]:
                 L.append("      dropgroup_%s(h, &e->%s_%s);" % (g2.of, oname, g2.name))
         L.append("      break;")
         L.append("    }")
@@ -790,6 +835,9 @@ def emit_setgroup(p, name, b):
         L.append("  }")
     # Decision 11: this occurrence's own buffer passes to the host with the group; it becomes
     # the facade's `_unknown` and is freed. NULL in drop mode, so drop pays one test.
+    if NOUNK[0]:
+        L.append("  return 0;\n}")
+        return "\n".join(L)
     ua = Attr(name, "_unknown", "bytes")
     L.append("  if (e->unknown.data) {")
     L.append("    PyObject *ub_ = PyBytes_FromStringAndSize((const char *)e->unknown.data, (Py_ssize_t)e->unknown.len);")
@@ -830,7 +878,8 @@ def _append_run(p, f, b, owner_msg, ind, lstvar):
         entry = p.msg(f.entry)
         # Decision 11: a map entry is a message position, but the facade's dict has no bag for
         # it, so its buffer is freed at delivery (the U-map-entry retention gap, disputed).
-        L.append(p_ + "for (int32_t i = 0; i < n; i++) if (elems[i].unknown.data) ak_py_release(h, elems[i].unknown.data);")
+        if not NOUNK[0]:
+            L.append(p_ + "for (int32_t i = 0; i < n; i++) if (elems[i].unknown.data) ak_py_release(h, elems[i].unknown.data);")
         L.append(p_ + "for (int32_t i = 0; i < n; i++) {")
         L.append(p_ + "  BUMP(C_READ); BUMP(C_READ); BUMP(C_ITEM);")
         kv = {}
@@ -991,6 +1040,8 @@ def emit_root_decode(p, root, b):
               "  return 0;\n}"]
     lists = root_lists(p, root)
     free = " ".join("Py_DECREF(h.lists[%d]);" % i for i in range(len(lists)))
+    if NOUNK[0]:
+        return "\n".join(L + _decode_body_nounk(p, root, b, lists, free, vt, R))
     layout = unk_opts_layout(p, root)
     if len(layout) > 64:
         raise Unsupported("%s has %d unknown-field positions; the zero mask holds 64" % (root, len(layout)))
@@ -1051,6 +1102,51 @@ def emit_root_decode(p, root, b):
     return "\n".join(L)
 
 
+def _decode_body_nounk(p, root, b, lists, free, vt, R):
+    """The no-unknown variant's decode: the thread's context for the root, the decode. No
+    options, no reset (the core clears the context's error slot at every decode entry), no
+    reclaim (nothing is ever grown). `retain` is refused; `zero` is accepted and unused."""
+    L = ["static PyObject *decode_%s_%s(PyObject *buf, PyObject *acc, HostTypes *T, int retain,"
+         " unsigned long long zero) {" % (b, root),
+         "  (void)zero;",
+         "  if (retain) { PyErr_SetString(PyExc_ValueError, \"unknown fields are compiled out of this build\"); return NULL; }",
+         "  char *pp = NULL; Py_ssize_t blen = 0;",
+         "  if (PyBytes_AsStringAndSize(buf, &pp, &blen)) return NULL;",
+         "  PyObject *rootobj = AK_CALL0(T->ty_%s);" % root,
+         "  if (!rootobj) return NULL;",
+         "  HostCtx h;",
+         "  memset(&h, 0, sizeof h);",
+         "  h.root = rootobj; h.base = (const uint8_t *)pp; h.acc = acc;",
+         "  memcpy(&h.ty_%s, T, sizeof *T);" % FIRST_TYPE[0]]
+    for i in range(len(lists)):
+        prev = " ".join("Py_DECREF(h.lists[%d]);" % j for j in range(i))
+        L.append("  h.lists[%d] = PyList_New(0);" % i)
+        L.append("  if (!h.lists[%d]) { %s Py_DECREF(rootobj); return NULL; }" % (i, prev))
+    L += ["  static const struct ak_dvt_%s VT = {%s};" % (root, ", ".join(vt)),
+          "  int tmp_ = 0;",
+          "  ak_dec_ctx *ctx = ak_py_tls_acquire(%d, &tmp_);   /* bound to this root (rule 6) */" % p.roots.index(root),
+          "  if (!ctx) { %s Py_DECREF(rootobj); return PyErr_NoMemory(); }" % free,
+          "#ifdef AK_COUNT",
+          "  ak_dec_counters_reset(ctx);",
+          "#endif",
+          "  int32_t rc = ak_decode_%s(ctx, &h, (const uint8_t *)pp, (size_t)blen, &VT);" % root,
+          "#ifdef AK_COUNT",
+          "  { struct AkCounters c; ak_dec_counters(ctx, &c); CORE_ADD(CORE_DEC, c); }",
+          "#endif",
+          "  ak_py_tls_release(%d, ctx, tmp_);" % p.roots.index(root),
+          "  if (rc || h.failed) {",
+          "    %s Py_DECREF(rootobj);" % free,
+          "    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, \"ak_decode_%s returned %%d\", (int)rc);" % root,
+          "    return NULL;",
+          "  }"]
+    for i, (path, f) in enumerate(lists):
+        L.append("  if (setlist_%s_%s_%s(rootobj, h.lists[%d], &h)) { %s Py_DECREF(rootobj); return NULL; }"
+                 % (b, R, f.name, i, free))
+    L.append("  %s" % free)
+    L.append("  return rootobj;\n}")
+    return L
+
+
 FIRST_TYPE = [None]
 
 UNK_HELPERS = r'''/* ---- decision 11 (WP5 step 9): the host side of the unknown-field buffers --------------
@@ -1059,7 +1155,21 @@ UNK_HELPERS = r'''/* ---- decision 11 (WP5 step 9): the host side of the unknown
  * back as a delivered slot (a failed decode, rule 3) is still freed, by ak_py_reclaim at the
  * end of the decode. A delivered slot is released at delivery (ak_py_release). */
 struct ak_py_buf { struct ak_py_buf *prev, *next; };
-static unsigned long AK_LAST_RECLAIMED;
+/* Per THREAD: the count belongs to the decode that stored it. The GIL can pass to another
+ * thread between a decode's store and its caller's read (a facade attribute store at
+ * delivery may run Python code), so a process-wide slot could be overwritten by another
+ * thread's decode in between. A build may predefine AK_THREAD_LOCAL empty: the harness's
+ * must-fail control that shows the per-thread check can see a process-wide slot. */
+#ifndef AK_THREAD_LOCAL
+#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
+#define AK_THREAD_LOCAL _Thread_local
+#elif defined(__GNUC__)
+#define AK_THREAD_LOCAL __thread
+#else
+#error "no thread-local storage class for AK_LAST_RECLAIMED"
+#endif
+#endif
+static AK_THREAD_LOCAL unsigned long AK_LAST_RECLAIMED;
 
 static void ak_py_link(HostCtx *h, struct ak_py_buf *b) {
   b->prev = NULL; b->next = h->live;
@@ -1225,6 +1335,7 @@ static int ak_py_layout_check(void) {
 
 def emit(x, modname="_akffi", backends=("attr", "cext", "pyacc")):
     p = as_plan(x)
+    NOUNK[0] = unknown_compiled_out(p)
     lc = p.lifecycle
     names = real_messages(p)
     FIRST_TYPE[0] = names[0]
@@ -1244,7 +1355,7 @@ def emit(x, modname="_akffi", backends=("attr", "cext", "pyacc")):
     L.append(emit_ctypes(p, names, modname))
     groups = set(names) | {n for n in p.messages if p.msg(n).synthetic}
     for name in sorted(groups):
-        for u in (False, True):
+        for u in ((False,) if NOUNK[0] else (False, True)):
             g = "u" if u else "e"
             L.append("#define %s ((int32_t)(AK_CHUNK_BYTES / sizeof(struct ak_%sfix_%s)) > 0 ? \\" % (chunk_macro(name, u), g, name))
             L.append("                  (int32_t)(AK_CHUNK_BYTES / sizeof(struct ak_%sfix_%s)) : 1)" % (g, name))
@@ -1266,11 +1377,12 @@ def emit(x, modname="_akffi", backends=("attr", "cext", "pyacc")):
           "  PyObject *cur[1];    /* encode: the element list of the open non-leaf root slot */",
           "  int failed;",
           "  const uint8_t *direct;  /* ABI v1 section 8: the bulk field's bytes, */",
-          "  size_t direct_len;      /* passed BESIDE the group rather than in it. */",
-          "  struct ak_py_buf *live; /* decision 11: every unknown-field buffer ak_py_grow handed out */"]
+          "  size_t direct_len;      /* passed BESIDE the group rather than in it. */"]
+    if not NOUNK[0]:
+        L.append("  struct ak_py_buf *live; /* decision 11: every unknown-field buffer ak_py_grow handed out */")
     for n in names:
         L.append("  PyObject *ty_%s;" % n)
-    L += ["} HostCtx;", "", UNK_HELPERS, "",
+    L += ["} HostCtx;", "", "" if NOUNK[0] else UNK_HELPERS, "",
           "static ak_dec_ctx *ak_py_tls_acquire(int root, int *tmp);",
           "static void ak_py_tls_release(int root, ak_dec_ctx *c, int tmp);",
           "static ak_enc_ctx *ak_py_tls_enc_acquire(int *tmp);",
@@ -1278,7 +1390,7 @@ def emit(x, modname="_akffi", backends=("attr", "cext", "pyacc")):
     # Decision 11: the backend-independent release of a delivered group's slots that have no
     # facade object (an absent child, an inactive oneof member).
     for n in abi_order_topo(p):
-        if not p.msg(n).synthetic:
+        if not p.msg(n).synthetic and not NOUNK[0]:
             L.append(emit_dropgroup(p, n))
     L.append("")
     L.append("static int intern_keys(void) {")
@@ -1330,25 +1442,28 @@ def emit(x, modname="_akffi", backends=("attr", "cext", "pyacc")):
         for n in names:
             if n in fill_needed:
                 L.append("static int fill_%s_%s(struct ak_efix_%s *, PyObject *, HostCtx *);" % (b, n, n))
-                L.append("static int fillu_%s_%s(struct ak_ufix_%s *, PyObject *, HostCtx *);" % (b, n, n))
+                if not NOUNK[0]:
+                    L.append("static int fillu_%s_%s(struct ak_ufix_%s *, PyObject *, HostCtx *);" % (b, n, n))
             if n in setgroup_needed:
                 L.append("static int setgroup_%s_%s(HostCtx *, PyObject *, const struct ak_dfix_%s *);" % (b, n, n))
         L.append("")
         for n in names:
             if n in fill_needed:
                 L.append(emit_fill(p, n, b))
-                L.append(emit_fill(p, n, b, u=True))
+                if not NOUNK[0]:
+                    L.append(emit_fill(p, n, b, u=True))
         for et in elem_ctx:
             for path, f in loop_slots(p, et):
                 L.append(emit_loop(p, "E", et, path, f, b))
-                if has_groups(f):
+                if has_groups(f) and not NOUNK[0]:
                     L.append(emit_loop(p, "E", et, path, f, b, u=True))
             L.append("static const struct ak_evt_%s %s = %s;" % (et, EVT_NAMES[b][et], evt_init(p, et, "E", b, EVT_NAMES[b])))
-            L.append("static const struct ak_evt_%s %s = %s;" % (et, EVTU_NAMES[b][et], evt_init(p, et, "E", b, EVTU_NAMES[b], True)))
+            if not NOUNK[0]:
+                L.append("static const struct ak_evt_%s %s = %s;" % (et, EVTU_NAMES[b][et], evt_init(p, et, "E", b, EVTU_NAMES[b], True)))
         for r in p.roots:
             for path, f in loop_slots(p, r):
                 L.append(emit_loop(p, "R", r, path, f, b))
-                if has_groups(f):
+                if has_groups(f) and not NOUNK[0]:
                     L.append(emit_loop(p, "R", r, path, f, b, u=True))
             L.append(emit_encode_entry(p, r, b))
         for n in names:
@@ -1411,11 +1526,13 @@ def emit_unk_tables(p):
     `ak_decode_<b>` on it. Rule 6 says both are refused (AK_ERR_INVALID_STATE) and nothing
     is delivered; returns the two codes and whether the trap `apply` ran."""
     L = ["/* ---- decision 11: unknown-field positions, and the wrong-root control ---- */"]
+    if NOUNK[0]:
+        L.append("#define AK_NOUNK_SHIM 1   /* the no-unknown variant: no positions, no reset */")
     for r in p.roots:
         items = []
-        for (n, m, _t), (path, _mm) in zip(unk_opts_layout(p, r), unk_positions(p, r)):
+        for (n, m, _t), (path, _mm) in ([] if NOUNK[0] else zip(unk_opts_layout(p, r), unk_positions(p, r))):
             items.append('"%s|%s|%s"' % (n, "oneof" if m == "oneof" else "msg", ".".join(path)))
-        L.append("static const char *AK_UNKPOS_%s[] = {%s, NULL};" % (r, ", ".join(items)))
+        L.append("static const char *AK_UNKPOS_%s[] = {%s};" % (r, ", ".join(items + ["NULL"])))
     L.append("static const char *const *AK_UNKPOS[AK_NROOTS] = {%s};" % ", ".join("AK_UNKPOS_%s" % r for r in p.roots))
     L.append("static int AK_TRAP_DELIVERED;")
     for r in p.roots:
@@ -1424,7 +1541,7 @@ def emit_unk_tables(p):
     L.append("static ak_dec_ctx *ak_py_ctx_new(int a) {")
     L.append("  switch (a) {")
     for i, r in enumerate(p.roots):
-        L.append("  case %d: return ak_dec_ctx_new_%s(NULL);" % (i, r))
+        L.append("  case %d: return ak_dec_ctx_new_%s(%s);" % (i, r, "" if NOUNK[0] else "NULL"))
     L.append("  }")
     L.append("  return NULL;\n}")
     L.append("static void ak_py_wrong_root(int a, int b, int32_t *reset_rc, int32_t *decode_rc) {")
@@ -1437,7 +1554,8 @@ def emit_unk_tables(p):
     for i, r in enumerate(p.roots):
         L.append("  case %d: {" % i)
         L.append("    static const struct ak_dvt_%s VT = {.apply = trap_apply_%s};" % (r, r))
-        L.append("    *reset_rc = ak_dec_reset_%s(ctx, NULL);" % r)
+        if not NOUNK[0]:
+            L.append("    *reset_rc = ak_dec_reset_%s(ctx, NULL);" % r)
         L.append("    *decode_rc = ak_decode_%s(ctx, NULL, empty, 0, &VT);" % r)
         L.append("    break; }")
     L.append("  }")

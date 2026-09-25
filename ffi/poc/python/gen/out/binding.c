@@ -2399,7 +2399,21 @@ typedef struct {
  * back as a delivered slot (a failed decode, rule 3) is still freed, by ak_py_reclaim at the
  * end of the decode. A delivered slot is released at delivery (ak_py_release). */
 struct ak_py_buf { struct ak_py_buf *prev, *next; };
-static unsigned long AK_LAST_RECLAIMED;
+/* Per THREAD: the count belongs to the decode that stored it. The GIL can pass to another
+ * thread between a decode's store and its caller's read (a facade attribute store at
+ * delivery may run Python code), so a process-wide slot could be overwritten by another
+ * thread's decode in between. A build may predefine AK_THREAD_LOCAL empty: the harness's
+ * must-fail control that shows the per-thread check can see a process-wide slot. */
+#ifndef AK_THREAD_LOCAL
+#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
+#define AK_THREAD_LOCAL _Thread_local
+#elif defined(__GNUC__)
+#define AK_THREAD_LOCAL __thread
+#else
+#error "no thread-local storage class for AK_LAST_RECLAIMED"
+#endif
+#endif
+static AK_THREAD_LOCAL unsigned long AK_LAST_RECLAIMED;
 
 static void ak_py_link(HostCtx *h, struct ak_py_buf *b) {
   b->prev = NULL; b->next = h->live;

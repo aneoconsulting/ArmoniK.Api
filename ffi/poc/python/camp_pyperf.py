@@ -35,6 +35,14 @@ sys.path.insert(0, os.path.join(HERE, "build", "pyperf"))
 
 import pyperf  # noqa: E402
 
+# WP5 step 10: `--variant nounk` times the no-unknown build, a separately built extension
+# over ak-core without `unknown-fields`. The flag is passed on to every worker
+# (add_cmdline_args) and sets AK_VARIANT before any shim is imported, so a worker process
+# only ever loads one variant's libak_core.so (the two share a soname).
+if "--variant" in sys.argv and sys.argv[sys.argv.index("--variant") + 1] == "nounk":
+    os.environ["AK_VARIANT"] = "nounk"
+VARIANT = os.environ.get("AK_VARIANT", "full")
+
 ARMS = {
     "shapes": [("incumbent-prod", "incumbent-default"), ("incumbent-best", "incumbent-default"),
                ("core-ffi", "drop"), ("core-ffi", "retain"), ("core-ffi-attr", "drop"),
@@ -42,11 +50,17 @@ ARMS = {
     "unknown": [("incumbent-prod", "incumbent-default"), ("core-ffi", "drop"), ("core-ffi", "retain"),
                 ("host-gen", "drop"), ("host-gen", "retain")],
 }
+ARMS_NOUNK = {
+    "shapes": [("incumbent-prod", "incumbent-default"), ("incumbent-best", "incumbent-default"),
+               ("core-ffi", "no-unknown")],
+    "unknown": [("incumbent-prod", "incumbent-default"), ("core-ffi", "no-unknown")],
+}
 DIRS = ["encode", "decode", "decode+read"]
 
 
 def add_args(cmd, args):
-    cmd.extend(["--family", args.family, "--launch", str(args.launch), "--side", args.side])
+    cmd.extend(["--family", args.family, "--launch", str(args.launch), "--side", args.side,
+                "--variant", args.variant])
     if args.only:
         cmd.extend(["--only", args.only])
 
@@ -64,7 +78,7 @@ def payloads(family, only):
     else:
         tag = "py%d.%d" % sys.version_info[:2]
         sys.path.insert(0, os.path.join(HERE, "build", tag))
-        import _akffi_corpus as ffi
+        ffi = __import__("_akffi_corpus_nounk" if VARIANT == "nounk" else "_akffi_corpus")
         man = json.load(open(os.path.join(HERE, "..", "..", "corpus", "generated", "manifest.json")))["vectors"]
         roots = set(ffi.roots())
         out = [(k, "ascii") for k, r in sorted(man.items()) if k.startswith("U-") and r["expect"] == "accept"
@@ -113,12 +127,13 @@ def main():
     ap.add_argument("--launch", type=int, default=1)
     ap.add_argument("--side", required=True)
     ap.add_argument("--only", default="")
+    ap.add_argument("--variant", default="full", choices=["full", "nounk"])
     args = runner.parse_args()
     os.makedirs(args.side, exist_ok=True)
     names = []
     for pid, content in payloads(args.family, args.only):
         for d in DIRS:
-            for arm, mode in ARMS[args.family]:
+            for arm, mode in (ARMS_NOUNK if VARIANT == "nounk" else ARMS)[args.family]:
                 names.append((pid, content, d, arm, mode))
     # The order rotated between launches: launch l starts (l-1)/3 of the way through the list.
     k = ((args.launch - 1) * max(1, len(names) // 3)) % len(names) if names else 0

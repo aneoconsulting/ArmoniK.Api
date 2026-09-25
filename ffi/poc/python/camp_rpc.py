@@ -14,6 +14,10 @@ Cells (requirement 12), P2.2, loopback TCP:
   (decision 11, every position armed, on the per-thread contexts) and C-drop / D-drop (the
   same build, every entry zero). C-nounk / D-nounk wait for the compiled-out build. A and B
   run the incumbent in its default mode. The extra rows C-queue / C-callback are drop.
+  `--variant nounk` (WP5 step 10): the no-unknown build's client, `_akffi_rpc_nounk` over
+  ak-core without `unknown-fields` (a separately built module; it cannot share a process
+  with the full build's, both cores being `libak_core.so`): cells A, B (the in-process
+  controls), C-nounk and D-nounk in a, a+read and b.
   labelled extra rows (requirement 16): B-queue, C-queue, B-callback, C-callback
 Directions (14): (a) empty request, P2.2 response, reported bare (`a`) and followed by
 reading every field (`a+read`, R-C2; upb's FromString is lazy); (b) P2.2 request the server
@@ -42,6 +46,10 @@ AFFINITY = L.pin("AK_CPU_CLIENT")
 
 import allocator  # noqa: E402
 _WARM = allocator.warm_up()
+VARIANT = sys.argv[sys.argv.index("--variant") + 1] if "--variant" in sys.argv else "full"
+NOUNK = VARIANT == "nounk"
+if NOUNK:
+    os.environ["AK_FFI_MODULE"] = "_akffi_rpc_nounk"
 os.environ.setdefault("AK_FFI_MODULE", "_akffi_rpc")
 import arms  # noqa: E402
 import grpc  # noqa: E402
@@ -178,6 +186,21 @@ def cells(port, transport):
               ("D-retain", lambda: Dr_put(fc)),
               ("D-drop", lambda: D_put(fc))],
     }
+    if NOUNK:
+        out = {
+            "a": [("A", lambda: A_get(b"")),
+                  ("B", lambda: R.FromString(core_get())),
+                  ("C-nounk", lambda: core_dec(core_get())),
+                  ("D-nounk", lambda: D_get(b""))],
+            "a+read": [("A", lambda: read_pb(A_get(b""))),
+                       ("B", lambda: read_pb(R.FromString(core_get()))),
+                       ("C-nounk", lambda: read_fa(core_dec(core_get()))),
+                       ("D-nounk", lambda: read_fa(D_get(b"")))],
+            "b": [("A", lambda: A_put(msg)),
+                  ("B", lambda: core_put(R.SerializeToString(msg))),
+                  ("C-nounk", lambda: core_put(core_enc(fc))),
+                  ("D-nounk", lambda: D_put(fc))],
+        }
     keep = (ch, rt, cl)
     return out, keep
 
@@ -200,12 +223,39 @@ def gate(cs):
     fc = arms.build_facade(PID, arms.CT_CEXT)
     if R.FromString(msg.SerializeToString()) != R.FromString(ref) or arms._ffi.encode("cext", root, fc) != ref:
         raise CallFailed("gate: a (b) request is not P2.2")
+    if bool(arms._ffi.nounk()) != NOUNK:
+        raise CallFailed("gate: %s is not the %s build" % (arms._ffi.__name__, VARIANT))
+    if NOUNK:
+        return nounk_control()
     if arms._ffi.encode("cext", root, fc, None, True) != ref:
         raise CallFailed("gate: the retain encode of the P2.2 request is not P2.2")
     return retain_control()
 
 
 UNK = bytes([0xC0, 0x3E, 0x01])     # field 1000, varint 1: in no schema message
+
+
+def nounk_control():
+    """The no-unknown build: P2.2 with field 1000 appended decodes (the field skipped) and
+    re-encodes to P2.2; a retain call is refused; nothing is grown."""
+    ref = arms.reference(PID)
+    root = arms.ROOT_OF[PID]
+    buf = ref + UNK
+    t0 = arms._ffi.unk_totals()
+    lost = arms._ffi.encode("cext", root, arms._ffi.decode("cext", root, buf, arms.TY_CEXT, None, False), None, False)
+    t1 = arms._ffi.unk_totals()
+    if lost != ref:
+        raise CallFailed("control: the no-unknown build did not give P2.2 back")
+    try:
+        arms._ffi.decode("cext", root, buf, arms.TY_CEXT, None, True)
+        raise CallFailed("control: the no-unknown build accepted a retain decode")
+    except ValueError as e:
+        if "compiled out" not in str(e):
+            raise
+    if (t1[0] - t0[0], t1[1] - t0[1], t1[2] - t0[2]) != (1, 0, 0):
+        raise CallFailed("control: unk_totals moved by %r, want (1, 0, 0)" % ((t1[0] - t0[0], t1[1] - t0[1], t1[2] - t0[2]),))
+    return ("no-unknown control: %s; P2.2 + field 1000 decodes to P2.2 (%d bytes); a retain decode is refused"
+            % (arms._ffi.__name__, len(lost)))
 
 
 def retain_control():
@@ -234,6 +284,8 @@ threading_starts = [0]
 
 
 def unknown_mode(cell):
+    if cell.endswith("-nounk"):
+        return "no-unknown"
     if cell.endswith("-retain"):
         return "retain"
     if cell.endswith("-drop") or cell.startswith("C-"):
@@ -300,9 +352,12 @@ def main():
                gc="ON; gc.collect() before every sample", warmup="one sample's calls per cell before round 1",
                clock="CLOCK_PROCESS_CPUTIME_ID of the client (cpu_ns), perf_counter_ns (wall_ns)",
                delivery="B and C blocking; queue and callback are labelled extra cells, direction a only",
-               unknown_modes="C and D: retain (decision 11, every position armed, per-thread contexts) and "
-                             "drop (every entry zero); nounk not built yet; A and B: incumbent default; "
-                             "C-queue and C-callback: drop")
+               variant_build=("no-unknown variant (WP5 step 10): _akffi_rpc_nounk over ak-core --no-default-features "
+                      "--features rpc,init-guard; A and B are this process's controls" if NOUNK
+                      else "full build (unknown-fields on): _akffi_rpc"),
+               unknown_modes=("C-nounk and D-nounk: no-unknown (compiled out); A and B: incumbent default" if NOUNK else
+                              "C and D: retain (decision 11, every position armed, per-thread contexts) and "
+                              "drop (every entry zero); A and B: incumbent default; C-queue and C-callback: drop"))
     try:
         for transport in transports:
             srv, port, saff = start_server(transport)
@@ -330,7 +385,9 @@ def main():
                          "over %d threads started" % (transport, du[0], du[1], du[2], tl1 - tl0, th1 - th0))
                 if du[2] != 0:
                     raise CallFailed("leak: %d unknown-field buffer(s) reclaimed undelivered" % du[2])
-                if du[1] == 0 or du[0] == 0:
+                if NOUNK and (du[1] != 0 or du[0] == 0):
+                    raise CallFailed("the no-unknown build: drop %d, retain %d decodes" % du[:2])
+                if not NOUNK and (du[1] == 0 or du[0] == 0):
                     raise CallFailed("a mode did not run: drop %d, retain %d decodes" % du[:2])
                 if tl1 - tl0 > 2 * (th1 - th0) + 64:
                     raise CallFailed("contexts created %d for %d threads: not per thread" % (tl1 - tl0, th1 - th0))

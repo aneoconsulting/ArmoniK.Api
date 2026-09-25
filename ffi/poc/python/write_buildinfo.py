@@ -28,7 +28,12 @@ json.dump({
     "core_profile_release": prof or "cargo default",
     "rustc": run("rustc", "--version"),
     "core_features": {"_akffi": "init-guard", "_akffi_count": "count,init-guard",
-                      "_akffi_rpc": "rpc,init-guard", "_akffi_corpus": "corpus,init-guard"},
+                      "_akffi_rpc": "rpc,init-guard", "_akffi_corpus": "corpus,init-guard",
+                      # WP5 step 10: the no-unknown variant, --no-default-features (unknown-fields OFF)
+                      "_akffi_nounk": "--no-default-features init-guard",
+                      "_akffi_count_nounk": "--no-default-features count,init-guard",
+                      "_akffi_rpc_nounk": "--no-default-features rpc,init-guard",
+                      "_akffi_corpus_nounk": "--no-default-features corpus,init-guard"},
     "core_source": core,
     "snapshot": os.environ.get("AK_SNAPSHOT", "none (working tree)"),
 }, open(out, "w"), indent=1, sort_keys=True)

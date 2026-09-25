@@ -91,8 +91,10 @@ class W:
 # others' NEEDED entry by soname. So a process gets exactly one, chosen here rather than by
 # import order. `rpc.py` sets `_akffi_rpc`; everything else takes the default.
 if os.environ.get("AK_USE_COUNT") == "1":
-    _ffi = _try("the composed arm, counting build",
-                lambda: __import__("_akffi_count"))
+    # AK_COUNT_MODULE: the no-unknown variant's counting build is `_akffi_count_nounk`.
+    _CMOD = os.environ.get("AK_COUNT_MODULE", "_akffi_count")
+    _ffi = _try("the composed arm, counting build (%s)" % _CMOD,
+                lambda: __import__(_CMOD))
     _ffi_count = _ffi
     COUNTING = True
 else:

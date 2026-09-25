@@ -99,27 +99,45 @@ case "$SUITE" in
       PP="--processes 1 --values $ROUNDS --warmups 3 --min-time 0.1"
       ONLY_UNKNOWN=""
     fi
-    for l in $(seq 1 "$LAUNCHES"); do
+    # WP5 step 10: the full build (drop, retain) and the no-unknown build (a separately built
+    # extension over ak-core without unknown-fields) are separate pyperf invocations, in an
+    # order alternated by launch; each carries the incumbent as its in-process control.
+    codec_run() {  # codec_run <launch> <full|nounk>
+      local l=$1 v=$2 fam O1 ONLY sfx=""
+      [ "$v" = nounk ] && sfx="-nounk"
       for fam in shapes unknown; do
-        O1="$OUT/codec-$fam-launch$l"
+        O1="$OUT/codec-$fam$sfx-launch$l"
         rm -rf "$O1.side" "$O1.pyperf.json"
         ONLY=""; [ $fam = unknown ] && ONLY="$ONLY_UNKNOWN"
-        PYTHONPATH="$HERE/build/pyperf" "$PY" camp_pyperf.py --family $fam --launch "$l" $ONLY --side "$O1.side" \
+        PYTHONPATH="$HERE/build/pyperf" "$PY" camp_pyperf.py --family $fam --launch "$l" --variant "$v" $ONLY --side "$O1.side" \
           -o "$O1.pyperf.json" $PP --affinity "$AFF" --copy-env --quiet > "$O1.pyperf.out" 2>&1 \
-          || { tail -20 "$O1.pyperf.out"; echo "   pyperf failed: codec $fam launch $l"; exit 1; }
-        "$PY" camp_pyperf_export.py --json "$O1.pyperf.json" --side "$O1.side" --launch "$l" \
-          --pyperf-args "$PP --affinity $AFF --copy-env $ONLY" --out "$O1.jsonl" $SMOKE $DIRTY
+          || { tail -20 "$O1.pyperf.out"; echo "   pyperf failed: codec $fam ($v) launch $l"; exit 1; }
+        "$PY" camp_pyperf_export.py --json "$O1.pyperf.json" --side "$O1.side" --launch "$l" --variant "$v" \
+          --pyperf-args "$PP --affinity $AFF --copy-env --variant $v $ONLY" --out "$O1.jsonl" $SMOKE $DIRTY
         rm -rf "$O1.side"
-        echo "   codec $fam launch $l (pyperf): $(grep -c '"phase": "value"' "$O1.jsonl" || true) values, $(grep -c '^{' "$O1.jsonl" || true) raw measurements"
+        echo "   codec $fam ($v) launch $l (pyperf): $(grep -c '"phase": "value"' "$O1.jsonl" || true) values, $(grep -c '^{' "$O1.jsonl" || true) raw measurements"
       done
+    }
+    for l in $(seq 1 "$LAUNCHES"); do
+      if [ $((l % 2)) = 1 ]; then codec_run "$l" full; codec_run "$l" nounk
+      else codec_run "$l" nounk; codec_run "$l" full; fi
     done
     "$PY" camp_summary.py "$OUT" > "$OUT/summary.txt"
     ;;
   rpc)
     need_gate
+    # WP5 step 10: the full build's client (A B C-retain C-drop D-retain D-drop) and the
+    # no-unknown build's (A B C-nounk D-nounk; A and B are its in-process controls), one
+    # process each, in an order alternated by launch.
+    rpc_run() {  # rpc_run <launch> <full|nounk>
+      local l=$1 v=$2 F="$OUT/rpc-launch$1"
+      [ "$v" = nounk ] && F="$OUT/rpc-nounk-launch$1"
+      "$PY" camp_rpc.py --launch "$l" --rounds "$ROUNDS" --calls "$CALLS" --variant "$v" --out "$F.jsonl" $SMOKE $DIRTY 2>"$F.stderr"
+      echo "   rpc ($v) launch $l: $(grep -c '^{' "$F.jsonl" || true) samples$(grep -q '^# ABORTED' "$F.jsonl" && echo ", $(grep '^# ABORTED' "$F.jsonl")")"
+    }
     for l in $(seq 1 "$LAUNCHES"); do
-      "$PY" camp_rpc.py --launch "$l" --rounds "$ROUNDS" --calls "$CALLS" --out "$OUT/rpc-launch$l.jsonl" $SMOKE $DIRTY 2>"$OUT/rpc-launch$l.stderr"
-      echo "   rpc launch $l: $(grep -c '^{' "$OUT/rpc-launch$l.jsonl" || true) samples"
+      if [ $((l % 2)) = 1 ]; then rpc_run "$l" full; rpc_run "$l" nounk
+      else rpc_run "$l" nounk; rpc_run "$l" full; fi
     done
     "$PY" camp_summary.py "$OUT" > "$OUT/summary.txt"
     ;;

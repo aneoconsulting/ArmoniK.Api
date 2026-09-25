@@ -44,7 +44,7 @@ else
   echo "   commit:      $(git -C "$CORE" rev-parse --short HEAD)$(git -C "$CORE" diff --quiet HEAD -- . || echo ' + UNCOMMITTED CHANGES in poc/codec')$(git -C "$HERE" diff --quiet HEAD -- . || echo ' + uncommitted changes in poc/python')"
 fi
 echo "   core tree:   $( (cd "$CORE" && find crates gen -type f \( -name '*.rs' -o -name '*.toml' -o -name '*.py' \) | sort | xargs cat | sha256sum | cut -c1-16) )"
-echo "   targets:     $TBASE/{plain,count,rpc,corpus}"
+echo "   targets:     $TBASE/{plain,count,rpc,corpus} and the no-unknown variant's $TBASE/{plain,count,rpc,corpus}-nounk"
 
 echo "== 1. R0: one core, at poc/codec, reached by path =="
 if [ -n "${AK_SNAPSHOT:-}" ]; then
@@ -82,7 +82,26 @@ echo "   the rpc core: $(nm -D --defined-only "$RPCLIB/libak_core.so" | grep -cE
 cargo_q corpus --features corpus,init-guard
 CORPUSLIB="$TBASE/corpus/release"
 echo "   the corpus core: $(nm -D --defined-only "$CORPUSLIB/libak_core.so" | grep -c ' T ak_decode_WireZoo') ak_decode_WireZoo export(s)"
+# WP5 step 10, THE NO-UNKNOWN VARIANT: the same four cores with `unknown-fields` OFF
+# (--no-default-features), each in its OWN target directory (a variant build in a shared
+# target overwrites libak_core.so under the full binaries: found by the rust slice).
+cargo_q plain-nounk --no-default-features --features init-guard
+cargo_q count-nounk --no-default-features --features count,init-guard
+cargo_q rpc-nounk --no-default-features --features rpc,init-guard
+cargo_q corpus-nounk --no-default-features --features corpus,init-guard
+NCORELIB="$TBASE/plain-nounk/release"; NCOUNTLIB="$TBASE/count-nounk/release"
+NRPCLIB="$TBASE/rpc-nounk/release"; NCORPUSLIB="$TBASE/corpus-nounk/release"
+UFAM=' T ak_(uencode_|uelem|dec_reset_)'
 for lib in "$CORELIB" "$COUNTLIB" "$RPCLIB" "$CORPUSLIB"; do
+  n=$(nm -D --defined-only "$lib/libak_core.so" | grep -cE "$UFAM" || true)
+  [ "$n" -gt 0 ] || { echo "   FAIL: the full core $lib exports no u-family entry point"; exit 1; }
+done
+for lib in "$NCORELIB" "$NCOUNTLIB" "$NRPCLIB" "$NCORPUSLIB"; do
+  n=$(nm -D --defined-only "$lib/libak_core.so" | grep -cE "$UFAM" || true)
+  [ "$n" -eq 0 ] || { echo "   FAIL: the no-unknown core $lib exports $n u-family entry points"; exit 1; }
+done
+echo "   no-unknown cores: 0 u-family exports (ak_uencode_*, ak_uelem*, ak_dec_reset_*) in each of 4; the full cores export $(nm -D --defined-only "$CORELIB/libak_core.so" | grep -cE "$UFAM")"
+for lib in "$CORELIB" "$COUNTLIB" "$RPCLIB" "$CORPUSLIB" "$NCORELIB" "$NCOUNTLIB" "$NRPCLIB" "$NCORPUSLIB"; do
   # grep -c, not grep -q: -q exits at the first match and pipefail then reports nm's SIGPIPE.
   [ "$(nm -D --defined-only "$lib/libak_core.so" | grep -c ' T ak_init$' || true)" -ge 1 ] \
     || { echo "   FAIL: $lib exports no ak_init"; exit 1; }
@@ -122,10 +141,43 @@ for PY in "$@"; do
   # `chunking`: the default 32 KB puts C-elemu-512 in ONE chunk of 32-byte groups).
   shim _akffi_corpus_chunk gen/out/corpus "$CORPUSLIB" "$D" -DAK_CORPUS -DAK_CHUNK_BYTES=256 -DAK_CHUNK_PACKED=3
   echo "   built _akffi, _akffi_count, _akffi_rpc, _akffi_corpus, _akffi_corpus_chunk in $D; the noinit control in $D/ctl"
+  # The per-thread AK_LAST_RECLAIMED check's must-fail twin: one process-wide slot.
+  shim _akffi_corpus_globalreclaim gen/out/corpus "$CORPUSLIB" "$D/ctl" -DAK_CORPUS -DAK_THREAD_LOCAL=
+  # WP5 step 10: the no-unknown variant, separately built modules over the variant cores.
+  shim _akffi_nounk gen/out/nounk "$NCORELIB" "$D" -DAK_NOUNK
+  shim _akffi_count_nounk gen/out/nounk "$NCOUNTLIB" "$D" -DAK_NOUNK -DAK_COUNT
+  shim _akffi_rpc_nounk gen/out/nounk "$NRPCLIB" "$D" -DAK_NOUNK -DAK_RPC
+  shim _akffi_corpus_nounk gen/out/corpus-nounk "$NCORPUSLIB" "$D" -DAK_NOUNK -DAK_CORPUS
+  shim _akffi_corpus_chunk_nounk gen/out/corpus-nounk "$NCORPUSLIB" "$D" -DAK_NOUNK -DAK_CORPUS -DAK_CHUNK_BYTES=256 -DAK_CHUNK_PACKED=3
+  shim _akffi_corpus_noinit_nounk gen/out/corpus-nounk "$NCORPUSLIB" "$D/ctl" -DAK_NOUNK -DAK_CORPUS -DAK_SKIP_INIT
+  echo "   built the no-unknown variant: _akffi_nounk, _akffi_count_nounk, _akffi_rpc_nounk, _akffi_corpus_nounk, _akffi_corpus_chunk_nounk; its noinit control in $D/ctl"
+  for pair in "_akffi:$CORELIB:0" "_akffi_count:$COUNTLIB:0" "_akffi_rpc:$RPCLIB:0" "_akffi_corpus:$CORPUSLIB:0" \
+              "_akffi_nounk:$NCORELIB:1" "_akffi_count_nounk:$NCOUNTLIB:1" "_akffi_rpc_nounk:$NRPCLIB:1" \
+              "_akffi_corpus_nounk:$NCORPUSLIB:1" "_akffi_corpus_chunk_nounk:$NCORPUSLIB:1"; do
+    IFS=: read -r m lib v <<< "$pair"
+    so="$D/$m$SOABI"
+    rl=$(ldd "$so" | awk '/libak_core/ {print $3}')
+    [ "$(readlink -f "$rl")" = "$(readlink -f "$lib/libak_core.so")" ] || { echo "   FAIL: $m resolves libak_core.so to $rl, not $lib"; exit 1; }
+    u=$(nm -D --undefined-only "$so" | grep -cE ' U ak_(uencode_|uelem|dec_reset_)' || true)
+    if [ "$v" = 1 ]; then [ "$u" -eq 0 ] || { echo "   FAIL: $m (no-unknown) imports $u u-family entry points"; exit 1; }
+    else [ "$u" -gt 0 ] || { echo "   FAIL: $m (full) imports no u-family entry point"; exit 1; }; fi
+    f=$( (cd "$D" && "$PYABS" -c "import $m; print(len($m.layout_facts()), $m.nounk())") 2>&1) \
+      || { echo "   FAIL: $m does not import: $f"; exit 1; }
+    echo "   $m: libak_core.so is $(basename "$(dirname "$lib")"), $u u-family imports, layout facts and variant: $f"
+  done
+  # Must-fail: the no-unknown shim against the FULL core refuses to import at the layout check.
+  shim _akffi_nounk gen/out/nounk "$CORELIB" "$D/ctl" -DAK_NOUNK
+  if msg=$( (cd "$D/ctl" && "$PYABS" -c 'import _akffi_nounk') 2>&1); then
+    echo "   FAIL: the no-unknown shim imported against the full core"; exit 1
+  fi
+  case "$msg" in *"ImportError: layout:"*) ;; *) echo "   FAIL: the variant-mismatch control failed for another reason: $msg"; exit 1;; esac
+  echo "   must-fail control: the no-unknown shim over the full core refuses to import: $(echo "$msg" | tail -1 | cut -c1-100)"
+  rm -f "$D/ctl/_akffi_nounk$SOABI"
   python3.12 write_buildinfo.py "$D/buildinfo.json" "$CORE" "$CFLAGS_COMMON"
 
   # README R5: the boundary is proved from the built artifact, not claimed in a log.
-  for so in "$D/_akffi$SOABI" "$D/_akffi_count$SOABI" "$D/_akffi_rpc$SOABI" "$D/_akffi_corpus$SOABI" "$D/_akffi_corpus_chunk$SOABI"; do
+  for so in "$D/_akffi$SOABI" "$D/_akffi_count$SOABI" "$D/_akffi_rpc$SOABI" "$D/_akffi_corpus$SOABI" "$D/_akffi_corpus_chunk$SOABI" \
+            "$D/_akffi_nounk$SOABI" "$D/_akffi_count_nounk$SOABI" "$D/_akffi_rpc_nounk$SOABI" "$D/_akffi_corpus_nounk$SOABI" "$D/_akffi_corpus_chunk_nounk$SOABI"; do
     u=$(nm -D --undefined-only "$so" | grep -cE ' ak_' || true)
     [ "$u" -ge 8 ] || { echo "   FAIL: $so imports only $u ak_* symbols"; exit 1; }
     n=$(readelf -d "$so" | grep -c 'libak_core' || true)

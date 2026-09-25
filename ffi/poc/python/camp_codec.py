@@ -28,6 +28,13 @@ Arms (requirement 8) and unknown-field modes (requirement 10):
                    decode, the ak_uencode_* family on encode)
   core-ffi-attr    labelled extra: the same shim over the plain facade (GetAttr/SetAttr)
   host-gen         the pure-Python codec generated from the same plan: drop AND retain
+The no-unknown build (requirement 10's third mode, WP5 step 10): with AK_VARIANT=nounk the
+process imports the variant's shims (`_akffi_nounk`, and `_akffi_corpus_nounk` for the
+unknown family), a separately built module over ak-core without `unknown-fields`, and the
+arms are the incumbent (the in-process control) and core-ffi in mode `no-unknown`. host-gen
+has no third mode: `py_pure.emit_pycodec` renders the SAME text for drop from the full plan
+and from the relowered one (checked by `gen/generate.py`'s sibling check in STATE), so
+host-gen drop already is the compiled-out form.
 Directions (requirement 9): encode; decode (the bare call); decode+read (decode, then read
 every field through the same plan for every arm -- upb's FromString is lazy, so only this
 row is like for like).
@@ -66,6 +73,22 @@ def opt(name, default=None, conv=str):
 
 
 FAMILY = opt("--family", "shapes")
+VARIANT = os.environ.get("AK_VARIANT", "full")
+if VARIANT == "nounk":
+    os.environ["AK_FFI_MODULE"] = "_akffi_nounk"
+CORPUS_MOD = "_akffi_corpus_nounk" if VARIANT == "nounk" else "_akffi_corpus"
+
+
+def _variant(enc, dec, ffi_enc, ffi_dec):
+    """The no-unknown build keeps the incumbent arms and replaces every core/host arm by
+    core-ffi `no-unknown` (the variant's shim: no retain path exists in it)."""
+    if VARIANT != "nounk":
+        return enc, dec
+    keep = lambda d: {k: v for k, v in d.items() if k[0].startswith("incumbent")}  # noqa: E731
+    e, d = keep(enc), keep(dec)
+    e[("core-ffi", "no-unknown")] = ffi_enc
+    d[("core-ffi", "no-unknown")] = ffi_dec
+    return e, d
 CONTENT_PAYLOADS = ["P2.4"]
 TARGET_MS = opt("--target-ms", 50.0, float)
 
@@ -130,6 +153,8 @@ def shapes_cases(log, only=None):
     import arms
     fac = arms.facade
     cases, gates = [], []
+    if bool(arms._ffi.nounk()) != (VARIANT == "nounk"):
+        gates.append("%s is not the %s build" % (arms._ffi.__name__, VARIANT))
     R = None
     for pid in arms.PAYLOADS:
         if only is not None and pid != only:
@@ -159,6 +184,9 @@ def shapes_cases(log, only=None):
                 ("host-gen", "drop"): lambda _f=fp, _r=root: getattr(arms.pycodec, "encode_root_" + _r)(_f),
                 ("host-gen", "retain"): lambda _f=fp, _r=root: getattr(arms.pycodec_retain, "encode_root_" + _r)(_f),
             }
+            if VARIANT == "nounk":
+                enc = {k: v for k, v in enc.items() if k[0].startswith("incumbent")}
+                enc[("core-ffi", "no-unknown")] = lambda _f=fc, _r=root: arms._ffi.encode("cext", _r, _f)
             reuse = R()
 
             def best_dec(_b=ref, _m=reuse):
@@ -173,6 +201,9 @@ def shapes_cases(log, only=None):
                 ("host-gen", "drop"): lambda _b=ref, _r=root: getattr(arms.pycodec, "decode_root_" + _r)(_b, arms.CT_PLAIN),
                 ("host-gen", "retain"): lambda _b=ref, _r=root: getattr(arms.pycodec_retain, "decode_root_" + _r)(_b, arms.CT_PLAIN),
             }
+            if VARIANT == "nounk":
+                dec = {k: v for k, v in dec.items() if k[0].startswith("incumbent")}
+                dec[("core-ffi", "no-unknown")] = lambda _b=ref, _r=root: arms._ffi.decode("cext", _r, _b, arms.TY_CEXT)
             # Correctness before timing, per case (requirement 26, in process): every encode
             # equals the reference (the incumbent may write another legal form: map order),
             # every decode re-encodes to it.
@@ -217,7 +248,7 @@ def unknown_cases(log, only=None):
     import facade as fac          # noqa: E402  gen/out/corpus/facade.py
     import pycodec as pyd         # noqa: E402
     import pycodec_retain as pyr  # noqa: E402
-    import _akffi_corpus as ffi   # noqa: E402
+    ffi = __import__(CORPUS_MOD)   # the full or the no-unknown variant's corpus shim
     import corpus_pb2 as pb       # noqa: E402  from corpus/generated/corpus.proto (reader)
     import arms_plan
     names = [n[1:] for n in ffi.types()]
@@ -226,6 +257,8 @@ def unknown_cases(log, only=None):
     TC = tuple(CC[n] for n in names)
     man = json.load(open(os.path.join(L.FFI, "corpus", "generated", "manifest.json")))["vectors"]
     cases, gates = [], []
+    if bool(ffi.nounk()) != (VARIANT == "nounk"):
+        gates.append("%s is not the %s build" % (ffi.__name__, VARIANT))
     roots = set(ffi.roots())
     rows = sorted(k for k, r in man.items() if k.startswith("U-") and r["expect"] == "accept"
                   and r.get("verdict") != "disputed" and r["root"] in roots)
@@ -241,7 +274,7 @@ def unknown_cases(log, only=None):
         op = pyd.__dict__["decode_root_" + root](buf, CP)
         opr = pyr.__dict__["decode_root_" + root](buf, CP)
         oc = ffi.decode("cext", root, buf, TC)
-        ocr = ffi.decode("cext", root, buf, TC, None, True)
+        ocr = None if VARIANT == "nounk" else ffi.decode("cext", root, buf, TC, None, True)
         accepted = {a["sha256"] for a in r.get("accepted_encodings", [])}
         import hashlib
         enc = {
@@ -258,6 +291,8 @@ def unknown_cases(log, only=None):
             ("host-gen", "drop"): lambda _b=buf, _r=root: pyd.__dict__["decode_root_" + _r](_b, CP),
             ("host-gen", "retain"): lambda _b=buf, _r=root: pyr.__dict__["decode_root_" + _r](_b, CP),
         }
+        enc, dec = _variant(enc, dec, lambda _o=oc, _r=root: ffi.encode("cext", _r, _o),
+                            lambda _b=buf, _r=root: ffi.decode("cext", _r, _b, TC))
         for (arm, mode), f in enc.items():
             b = f()
             h = hashlib.sha256(b).hexdigest()
