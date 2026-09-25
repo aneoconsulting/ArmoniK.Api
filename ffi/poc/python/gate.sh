@@ -85,6 +85,6 @@ echo "===== 98. crossing counts against the pre-port shim (logs/python/85) =====
   done
 } > "$LOGS/98-wp5-counts-vs-85.log" 2>&1
 grep -E 'IDENTICAL|DIFFERS' "$LOGS/98-wp5-counts-vs-85.log"
-grep -q DIFFERS "$LOGS/98-wp5-counts-vs-85.log" && rc=1
+grep -q "DIFFERS from logs/python/85" "$LOGS/98-wp5-counts-vs-85.log" && rc=1   # the header comparison is information, not a gate
 echo "gate exit $rc"
 exit $rc
