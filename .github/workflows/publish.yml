@@ -13,7 +13,9 @@ name: Publish Packages
 # every package that owner has, so an owner can register one policy per file
 # (https://learn.microsoft.com/en-us/nuget/nuget-org/trusted-publishing); and
 # the C# job below does not use trusted publishing at all, it still pushes with
-# NUGET_API_KEY.
+# NUGET_API_KEY. crates.io also binds trusted publishing to the workflow file,
+# per crate (https://crates.io/docs/trusted-publishing): register `publish.yml`
+# with environment `crates-io-publish` on both `armonik` and `armonik-transport`.
 #
 # Four channels, resolved by the `context` job below:
 #
@@ -26,31 +28,38 @@ name: Publish Packages
 #
 # and the registry each one targets:
 #
-#   channel     npm     NuGet      PyPI             Maven            C++
-#   ----------  ------  ---------  ---------------  ---------------  ------------------
-#   release     latest  nuget.org  TestPyPI + PyPI  Central          artefact + release
-#   prerelease  next    nuget.org  artefact only    GH Pkg SNAPSHOT  artefact
-#   pr          pr      nuget.org  TestPyPI         GH Pkg SNAPSHOT  artefact
-#   manual      dev     nuget.org  TestPyPI         GH Pkg SNAPSHOT  artefact
+#   channel     npm     NuGet      PyPI             Maven            C++                 Rust
+#   ----------  ------  ---------  ---------------  ---------------  ------------------  ---------
+#   release     latest  nuget.org  TestPyPI + PyPI  Central          artefact + release  crates.io
+#   prerelease  next    nuget.org  artefact only    GH Pkg SNAPSHOT  artefact            -
+#   pr          pr      nuget.org  TestPyPI         GH Pkg SNAPSHOT  artefact            -
+#   manual      dev     nuget.org  TestPyPI         GH Pkg SNAPSHOT  artefact            crates.io
 #
 # Only `release` reaches a production registry. Everything else goes to the
-# pre-release one wherever the ecosystem has a distinct one; NuGet and the C++
-# artefacts have none, so they are the same target carrying a pre-release version.
-# Python on `prerelease` builds the wheel and publishes it nowhere, which is
-# inherited behaviour rather than a decision, see the job for the detail.
+# pre-release one wherever the ecosystem has a distinct one; NuGet, crates.io
+# and the C++ artefacts have none, so they are the same target carrying a
+# pre-release version. Python on `prerelease` builds the wheel and publishes it
+# nowhere, which is inherited behaviour rather than a decision, see the job for
+# the detail. Rust skips `prerelease` and `pr`: crates.io versions can be
+# yanked but never deleted, so publishing every merge would bury the releases.
 #
-# The version above is the one C#, Java and npm publish. Python and C++ derive
-# their own from the repository (setuptools_scm on the git history, and
-# packages/cpp/CMakeLists.txt), so a manual run does not rename their artefacts.
+# The version above is the one C#, Java and npm publish. Python, C++ and Rust
+# derive their own from the repository (setuptools_scm on the git history,
+# packages/cpp/CMakeLists.txt and packages/rust/Cargo.toml), so a manual run
+# does not rename their artefacts. The Rust version is the tag plus a `-beta-N`
+# suffix, checked by `verify-versions`; a new beta is a commit on `main`.
 #
 # `manual` is the "pre pre-release" path, and it is a dry run unless the
 # dispatcher unticks `dry_run`. It can only ever publish a pre-release: it
-# refuses anything but a SemVer pre-release version, so a manual run can never
-# take over `latest`, and it publishes nothing unless a package is ticked.
+# refuses anything but a SemVer pre-release version (for Rust, the committed
+# version, checked by the job), so a manual run can never take over
+# `latest`, and it publishes nothing unless a package is ticked. A dry run may
+# be dispatched from any branch, a real one only from `main`.
 # Restrict who may use it with an Actions ruleset actor rule (Settings >
 # Actions > Policies) limiting workflow_dispatch to Admin, and keep the
-# `npm-publish` environment restricted to `main` plus the release tag pattern so
-# a run dispatched from an arbitrary branch cannot obtain a publish token.
+# `npm-publish` and `crates-io-publish` environments restricted to `main` plus
+# the release tag pattern so a run dispatched from an arbitrary branch cannot
+# obtain a publish token.
 
 # Which packages each channel publishes. This is the knob to turn: everything
 # below reads these, nothing hardcodes a package list.
@@ -59,7 +68,7 @@ name: Publish Packages
 # currently match. Changing what a pull request publishes must not change what a
 # merge to main publishes.
 env:
-  RELEASE_PACKAGES: csharp python cpp java angular web
+  RELEASE_PACKAGES: csharp python cpp java angular web rust
   PRERELEASE_PACKAGES: csharp python cpp java angular web
   PR_PACKAGES: csharp python cpp java
 
@@ -78,7 +87,7 @@ env:
 
   # Every package that exists. Only used to iterate the manual dispatch inputs,
   # so a package missing here can never be published manually.
-  ALL_PACKAGES: csharp python cpp java angular web
+  ALL_PACKAGES: csharp python cpp java angular web rust
 
   # The npm packages, as `<package>:<folder to publish from>` pairs, where the
   # folder is relative to `packages/<package>`. They need a matrix rather than a
@@ -130,6 +139,10 @@ on:
         default: false
       web:
         description: Web (npm)
+        type: boolean
+        default: false
+      rust:
+        description: Rust (crates.io)
         type: boolean
         default: false
 
@@ -184,6 +197,7 @@ jobs:
       java: ${{ steps.resolve.outputs.java }}
       npm: ${{ steps.resolve.outputs.npm }}
       npm_matrix: ${{ steps.resolve.outputs.npm_matrix }}
+      rust: ${{ steps.resolve.outputs.rust }}
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
@@ -241,6 +255,7 @@ jobs:
           INPUT_JAVA: ${{ inputs.java }}
           INPUT_ANGULAR: ${{ inputs.angular }}
           INPUT_WEB: ${{ inputs.web }}
+          INPUT_RUST: ${{ inputs.rust }}
         run: |
           dispatch_flag() {
             case "$1" in
@@ -250,6 +265,7 @@ jobs:
               java)    echo "$INPUT_JAVA" ;;
               angular) echo "$INPUT_ANGULAR" ;;
               web)     echo "$INPUT_WEB" ;;
+              rust)    echo "$INPUT_RUST" ;;
             esac
           }
 
@@ -277,10 +293,10 @@ jobs:
               echo "::error::A manual publish needs a SemVer pre-release version such as 3.30.0-dev.1, got '$version'"
               exit 1
             fi
-            # The `npm-publish` environment already refuses to hand an OIDC
-            # token to any other ref, but the token-based registries have no
-            # such guard, so enforce it here for every ecosystem.
-            if [ "$GITHUB_REF_NAME" != main ]; then
+            # Real publishes only: the token-based registries have no environment
+            # guarding their secrets. A dry run skips every step using one, so it
+            # may run from any branch.
+            if [ "$dry_run" != true ] && [ "$GITHUB_REF_NAME" != main ]; then
               echo "::error::A manual publish must be dispatched from main, got '$GITHUB_REF_NAME'"
               exit 1
             fi
@@ -351,6 +367,7 @@ jobs:
           python=$(enabled python)
           cpp=$(enabled cpp)
           java=$(enabled java)
+          rust=$(enabled rust)
 
           # The npm packages run off a generated matrix because a job-level `if:`
           # cannot read the `matrix` context, so they cannot be filtered
@@ -391,6 +408,7 @@ jobs:
             echo "java=$java"
             echo "npm=$npm"
             echo "npm_matrix=$npm_matrix"
+            echo "rust=$rust"
             # What actually survived the channel list, the guards and the flags,
             # so a run says up front what it is about to publish.
             echo "packages=${selected:-none}"
@@ -403,7 +421,7 @@ jobs:
           NPM_TAG: ${{ steps.resolve.outputs.npm_tag }}
           PACKAGES: ${{ steps.resolve.outputs.packages }}
           DRY_RUN: ${{ steps.resolve.outputs.dry_run }}
-          OWN_VERSION: ${{ steps.resolve.outputs.python == 'true' || steps.resolve.outputs.cpp == 'true' }}
+          OWN_VERSION: ${{ steps.resolve.outputs.python == 'true' || steps.resolve.outputs.cpp == 'true' || steps.resolve.outputs.rust == 'true' }}
         run: |
           {
             echo "| | |"
@@ -418,7 +436,7 @@ jobs:
               echo "Dry run: every package is built and its version checked, nothing is pushed."
             fi
             if [ "$OWN_VERSION" = true ]; then
-              echo "Python and C++ derive their own version from the repository, so the"
+              echo "Python, C++ and Rust derive their own version from the repository, so the"
               echo "version above applies to C#, Java and npm only."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
@@ -686,10 +704,9 @@ jobs:
     runs-on: ubuntu-latest
     # Bound in each package's npm trusted publisher config. Restrict the
     # environment to `main` and the release tag pattern so the OIDC token cannot
-    # be obtained from a run dispatched off an arbitrary branch. A dry run goes
-    # through it too, which is deliberate: it then also proves the ref is one the
-    # environment accepts.
-    environment: npm-publish
+    # be obtained from a run dispatched off an arbitrary branch. Skipped on a dry
+    # run, which needs no token and may run from any branch.
+    environment: ${{ needs.context.outputs.dry_run != 'true' && 'npm-publish' || '' }}
     permissions:
       contents: read
       id-token: write # Required for OIDC
@@ -745,6 +762,60 @@ jobs:
           # literal from this file, never anything a caller supplies.
           DRY_RUN_FLAG: ${{ needs.context.outputs.dry_run == 'true' && '--dry-run' || '' }}
         run: nr ci:publish "$PACKAGE" "$DIST" "$NPM_TAG" $DRY_RUN_FLAG
+
+  rust:
+    name: Publish Rust Crates
+    needs: [context]
+    if: needs.context.outputs.rust == 'true'
+    runs-on: ubuntu-latest
+    # Named in both crates' trusted publisher config. Restrict it like
+    # `npm-publish`. Skipped on a dry run, as there.
+    environment: ${{ needs.context.outputs.dry_run != 'true' && 'crates-io-publish' || '' }}
+    permissions:
+      contents: read
+      id-token: write # Required for OIDC
+    defaults:
+      run:
+        working-directory: packages/rust
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          # The PR head, not the merge ref or the moving branch. Empty otherwise.
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      # Stable, not the MSRV: `cargo publish --workspace` needs Cargo 1.90.
+      - name: Install toolchain
+        uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # v1
+        with:
+          toolchain: stable
+
+      # Outside `release`, only a pre-release may go out. Build metadata is
+      # stripped first so a `-` in it does not count.
+      - name: Check for a pre-release
+        if: needs.context.outputs.channel != 'release'
+        run: |
+          for version in $(cargo metadata --no-deps --format-version 1 --locked | jq -r '.packages[].version'); do
+            case "${version%%+*}" in
+              *-*) ;;
+              *) echo "::error::Only a pre-release may be published outside a release, got $version"; exit 1 ;;
+            esac
+          done
+
+      # Real publishes only. The action's post step revokes the token.
+      - name: Authenticate with crates.io
+        id: auth
+        if: needs.context.outputs.dry_run != 'true'
+        uses: rust-lang/crates-io-auth-action@c6f97d42243bad5fab37ca0427f495c86d5b1a18 # v1.0.5
+
+      # Publishes packages/rust/Cargo.toml as committed, `armonik-transport` first,
+      # then `armonik`. Not atomic: if `armonik` fails, the `armonik-transport`
+      # version is burnt and the fix needs a new version.
+      - name: Publish
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+          # Unquoted below so it vanishes when empty. A literal, never caller input.
+          DRY_RUN_FLAG: ${{ needs.context.outputs.dry_run == 'true' && '--dry-run' || '' }}
+        run: cargo publish --workspace --locked $DRY_RUN_FLAG
 
   changelog:
     name: Update Changelog
