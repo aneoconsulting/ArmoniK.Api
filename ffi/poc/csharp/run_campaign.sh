@@ -91,9 +91,14 @@ gate_first() {  # requirement 26
       return
     fi
   fi
-  "$SLICE/gen/gate.sh" > "$OUT/gate.log" 2>&1
-  if ! grep -q "^GATE PASSED" "$OUT/gate.log"; then echo "the correctness gate FAILED ($OUT/gate.log): no figure is produced" >&2; exit 1; fi
-  echo "# gate:          passed at $COMMIT ($OUT/gate.log)"
+  # Every gate run writes its OWN log, named by commit, time, suite and plant, and is never
+  # overwritten (a failed gate at 253f487 was lost when the next run, the --plant control's,
+  # re-ran the gate into the same file). gate.log is only ever a copy of a PASSED run.
+  local lg; lg="$OUT/gate-$COMMIT-$(date -u +%Y%m%dT%H%M%SZ)-$SUITE$([ $PLANT = 1 ] && echo -PLANT).log"
+  "$SLICE/gen/gate.sh" > "$lg" 2>&1
+  if ! grep -q "^GATE PASSED" "$lg"; then echo "the correctness gate FAILED ($lg): no figure is produced" >&2; exit 1; fi
+  cp "$lg" "$OUT/gate.log"
+  echo "# gate:          passed at $COMMIT ($lg, copied to $OUT/gate.log)"
 }
 
 case "$SUITE" in
