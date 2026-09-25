@@ -630,3 +630,34 @@ iterations): gate passed, 777 cells per coder state, every raw iteration convert
 `logs/java/campaign-smoke/codec-*.jsonl` now hold the JMH run, figures stripped (JMH's own
 JSON, text and CPU side files are produced beside the lines in a real run and not committed
 from the smoke run, because they carry the figures).
+
+### J25. Decision 11 on the JVM (FIX-PLAN WP5 step 9, 2026-09-25)
+
+The Java backend (commit 95bdc4e) renders the owner's mechanism and the confirmed rules:
+- **Contexts are root-bound** (rule 6): the Binding creates one decode context per root on
+  first use, with NULL options (drop mode). The untyped `ak_dec_ctx_new` native is gone.
+- **Options in place** (rule 1): one `ak_dec_<Root>_opts` per root in native memory,
+  allocated once and kept for the Binding's life, every entry (`ak_unk_opts` or
+  `ak_unk_pool`) holding no buffer and the shim's grow (malloc/realloc, data NULL and cap 0
+  = fresh). Retain arms it: reset(ctx, &opts), decode (or parse and replay), reset(ctx,
+  NULL). Drop mode makes no reset, so the drop arms' crossing counts do not move (they
+  match gen/campaign/counts.ref).
+- **Delivery**: every generated `apply<M>` takes its own group's slot into the facade's
+  `unknownFields` (one JNI call that copies and frees, only when the data pointer is
+  non-NULL); `freeUnk<M>` frees what the facade has no place for: an absent child's
+  subtree, a oneof message member that is not active (rule 4's emptied buffer), a map entry
+  (the facade's TreeMap has no bag, which is the U-map-entry gap).
+- **Encode retain** goes through the u-groups: `fillU<M>` writes each message's bag as an
+  `ak_blob`, element runs through `ak_uelem*`, the root through `ak_uencode_*`.
+
+Not done: pre-allocated buffers and pools (every buffer comes from grow), and a failed
+decode's placed buffers are not recovered (rule 3 leaves them with the host; the binding
+does not track them, so a refused row leaks what the core had grown before the error).
+
+Controls (`ak.RunUnkControls`): per-position discard over 311 rows and 1,373 (row,
+position) pairs, 315 pairs in 307 rows changed by zeroing, 0 mismatches, pull == push under
+every mask (the rust slice's figures are 307 rows / 315 pairs changed); the planted
+mask-ignored control fails with 307 mismatches; a context bound to ListResultsResponse
+refuses ListTasksDetailedResponse's reset and parse with -8 and still parses its own root.
+The corpus: the four retain arms write the retained form on every unknown row (no retention
+gap; U-map-entry is disputed and excluded).
