@@ -11,10 +11,11 @@ facade object and read back into one, how a run is staged, how a callback is gua
 Per root `R`, one class `CoreFfi_R`:
   Encode / EncodeU     `ak_encode_R` (unknown fields dropped) / `ak_uencode_R` (the
                        facade's `UnknownFields` bag handed over in `ak_ufix_*` groups);
-  Decode / DecodeU     push family, `ak_decode_R`, without / with the `unknown` and
-                       `unk_<slot>` capture callbacks (ABI v1 decision 11 candidate);
+  Decode / DecodeU     push family, `ak_decode_R`, unknown fields dropped / retained
+                       (ABI v1 decision 11: the root-bound context is armed with
+                       `ak_dec_R_opts` for the one decode and disarmed after it);
   Pull                 ABI v1 7.1: `ak_parse_R`, then the record stream replayed with the
-                       same group readers the push callbacks use; no reverse call.
+                       same group readers the push callbacks use; no reverse call but grow.
   TryEncode/TryDecode  the same, returning the core's code rather than throwing (the corpus).
 
 Host rules stated where they are rendered: a string is staged (UTF-8 through `ak_tc_bytes`,
@@ -25,10 +26,15 @@ decode callback reports through `ak_fail`. The file is compiled only where
 `UnmanagedCallersOnly` exists (`NET5_0_OR_GREATER`): net8.0 and net6.0, not net48 (a net48
 host would need delegate thunks rooted for the vtable's lifetime; not built).
 
-Retention through the C ABI is what the ABI carries: the root's bag and each top-level
-slot element's bag (by token). An unknown field inside an inlined singular child, inside an
-inner run's element, or inside a map entry has no carrier and is dropped (the rust
-backends report the same: D34, U-map-entry).
+Retention through the C ABI (decision 11, WP5 steps 7-9): every message position's
+buffer arrives as DATA in its decode group (`unknown: ak_unk_buf`), host memory the core
+filled through the one grow callback (`UnkHost.Grow`, NativeMemory.Realloc; NULL/0 = a fresh
+buffer). The group reader that delivers a message takes its slot into the facade's
+`UnknownFields` and frees the native buffer; every other non-NULL slot of a delivered group
+(an absent child's, an inactive oneof member's, a map entry's: the facade map has no bag, so
+U-map-entry is the one position that drops) is freed. A retained decode tracks every buffer
+grow handed out and takes back; one left over after a successful decode is a host defect,
+reported as UNDELIVERED, and every one left after a failed decode is freed (rule 3).
 """
 from plan import (as_plan, direct_fields, elem_type, loop_slots, presence_bits, slot_elem,
                   slot_name)
@@ -125,6 +131,32 @@ def _emit_groups(o, p):
     o += "    [MethodImpl(MethodImplOptions.AggressiveInlining)]"
     o += '    internal static string Str(byte* b, ak_span s) => s.len == 0 || SkipStrings ? "" : Encoding.UTF8.GetString(b + s.off, (int)s.len);'
     o += ""
+    o += "    /// Decision 11: the buffers a RETAINED decode has been handed by grow and not yet taken"
+    o += "    /// back (null in drop mode). Thread-static: the core calls grow on the decoding thread."
+    o += "    [ThreadStatic] internal static HashSet<IntPtr> Live;"
+    o += ""
+    o += "    /// A delivered message's buffer into its facade bag (null when none or empty); the"
+    o += "    /// native buffer is freed and the slot cleared."
+    o += "    internal static byte[] Take(ref ak_unk_buf u)"
+    o += "    {"
+    o += "        if (u.data == IntPtr.Zero) return null;"
+    o += "        byte[] r = null;"
+    o += "        if (u.len != 0) { r = new byte[u.len]; new ReadOnlySpan<byte>((void*)u.data, (int)u.len).CopyTo(r); }"
+    o += "        Live?.Remove(u.data);"
+    o += "        NativeMemory.Free((void*)u.data);"
+    o += "        u = default;"
+    o += "        return r;"
+    o += "    }"
+    o += ""
+    o += "    /// A non-NULL slot the facade has no place for (inactive, absent, a map entry): freed."
+    o += "    internal static void Drop(ref ak_unk_buf u)"
+    o += "    {"
+    o += "        if (u.data == IntPtr.Zero) return;"
+    o += "        Live?.Remove(u.data);"
+    o += "        NativeMemory.Free((void*)u.data);"
+    o += "        u = default;"
+    o += "    }"
+    o += ""
     o += "    [MethodImpl(MethodImplOptions.AggressiveInlining)]"
     o += "    internal static byte[] Bytes(byte* b, ak_span s)"
     o += "    {"
@@ -141,6 +173,7 @@ def _emit_groups(o, p):
         for u in (False, True):
             _emit_fill(o, p, m, u)
         _emit_unfill(o, p, m)
+        _emit_free(o, p, m)
     o += "}"
     o += ""
 
@@ -214,8 +247,9 @@ def _emit_unfill(o, p, m):
         if f.name in bits:
             present = "(d.presence & AkPresent.%s_%s) != 0" % (m.name, f.name)
         if f.kind == "message":
-            # In place: a run for a slot on this child may already have created it.
-            o += "        if (%s) D_%s(ref %s, %s ??= new %s(), b);" % (present, f.of, mem, acc, f.of)
+            # In place: a run for a slot on this child may already have created it. An
+            # absent child's slots are freed (every non-NULL slot is the host's, rule 3).
+            o += "        if (%s) D_%s(ref %s, %s ??= new %s(), b); else F_%s(ref %s);" % (present, f.of, mem, acc, f.of, f.of, mem)
         elif f.explicit:
             val = ("Str(b, %s)" % mem if f.kind == "string" else "Bytes(b, %s)" % mem
                    if f.kind == "bytes" else _dec(f, mem))
@@ -228,6 +262,12 @@ def _emit_unfill(o, p, m):
             o += "        %s = %s;" % (acc, _dec(f, mem))
     for oname, members in m.oneofs.items():
         ct = N.oneof_case_type(m.name, oname)
+        # Decision 11 rule 4: the oneof's one buffer is in the ACTIVE message member's slot;
+        # after a switch to a scalar member it may stay, emptied, in the last message
+        # member's. Every slot but the active member's is freed.
+        for gm in members:
+            if gm.kind == "message":
+                o += "        if (d.%s_case != %d) F_%s(ref d.%s_%s);" % (oname, gm.tag, gm.of, oname, gm.name)
         o += "        t.%s = (%s)d.%s_case;" % (N.oneof_case_field(oname), ct, oname)
         o += "        switch (d.%s_case)" % oname
         o += "        {"
@@ -245,6 +285,23 @@ def _emit_unfill(o, p, m):
                 o += "                %s = %s; break;" % (acc, _dec(gm, mem))
         o += "            default: break;"
         o += "        }"
+    o += "        t.%s = Take(ref d.unknown);   // decision 11: this message's own buffer" % BAG
+    o += "    }"
+    o += ""
+
+
+def _emit_free(o, p, m):
+    """F_M: free every non-NULL unknown-field slot of a group the facade does not take."""
+    o += "    internal static void F_%s(ref ak_dfix_%s d)" % (m.name, m.name)
+    o += "    {"
+    o += "        Drop(ref d.unknown);"
+    for f in m.plain:
+        if f.card == "singular" and f.kind == "message":
+            o += "        F_%s(ref d.%s);" % (f.of, f.name)
+    for oname, members in m.oneofs.items():
+        for gm in members:
+            if gm.kind == "message":
+                o += "        F_%s(ref d.%s_%s);" % (gm.of, oname, gm.name)
     o += "    }"
     o += ""
 
@@ -349,6 +406,38 @@ public sealed unsafe class Stage : IDisposable
     }
 }
 
+/// Decision 11: the one grow callback every position of every root's options names
+/// (`ak_grow_fn`, i32 sizes). NativeMemory.Realloc: `*dst` NULL with `*cap` 0 is a fresh
+/// buffer, otherwise the first `*cap` bytes are preserved (realloc semantics; it may move).
+/// A retained decode tracks what it hands out (`G.Live`), so nothing leaks on failure.
+public static unsafe class UnkHost
+{
+    public static long Grows;
+
+    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static int Grow(IntPtr sink, int want, byte** dst, int* cap)
+    {
+        try
+        {
+            if (want < 0) return Abi.AK_ERR_LIMIT;
+            int c = *cap;
+            long nc = Math.Max((long)want, Math.Max(64L, 2L * c));
+            if (nc > int.MaxValue) nc = want;
+            void* old = *dst;
+            void* np = NativeMemory.Realloc(old, (nuint)nc);
+            var live = G.Live;
+            if (live != null) { if (old != null) live.Remove((IntPtr)old); live.Add((IntPtr)np); }
+            *dst = (byte*)np;
+            *cap = (int)nc;
+            Grows++;
+            return 0;
+        }
+        catch { return Abi.AK_ERR_HOST; }
+    }
+
+    public static IntPtr Fn => (IntPtr)(delegate* unmanaged[Cdecl]<IntPtr, int, byte**, int*, int>)&Grow;
+}
+
 /// A native array that only grows, re-allocated before any pointer into it is handed out.
 public static unsafe class Arr
 {
@@ -446,9 +535,10 @@ def _add_body(o, s, lst, xs, n, ind, var="i"):
     elif s.kind == "packed":
         o += "%sfor (int %s = 0; %s < %s; %s++) %s.Add(%s);" % (ind, var, var, n, var, lst, _dec(s.f, "%s[%s]" % (xs, var)))
     elif s.kind == "map":
-        o += "%s// plan: a duplicate key replaces the earlier value." % ind
-        o += "%sfor (int %s = 0; %s < %s; %s++) %s[G.Str(b, %s[%s].key)] = G.Str(b, %s[%s].value);" % (
-            ind, var, var, n, var, lst, xs, var, xs, var)
+        o += "%s// plan: a duplicate key replaces the earlier value. The facade map has no bag:" % ind
+        o += "%s// an entry's unknown-field buffer (decision 11) is freed (U-map-entry)." % ind
+        o += "%sfor (int %s = 0; %s < %s; %s++) { %s[G.Str(b, %s[%s].key)] = G.Str(b, %s[%s].value); G.Drop(ref %s[%s].unknown); }" % (
+            ind, var, var, n, var, lst, xs, var, xs, var, xs, var)
     else:
         o += "%sfor (int %s = 0; %s < %s; %s++) { var x = new %s(); G.D_%s(ref %s[%s], x, b); %s.Add(x); }" % (
             ind, var, var, n, var, s.et, s.et, xs, var, lst)
@@ -483,7 +573,7 @@ def _emit_root(o, p, root, facade_ns):
     o += "    private static long _fwd, _rev;"
     o += "    public long ForwardCalls => _fwd;"
     o += "    public long ReverseCalls => _rev;"
-    o += "    public void CallsReset() { _fwd = 0; _rev = 0; }"
+    o += "    public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }"
     for s in slots:
         o += "    private int _cap_%s;" % s.name
         for i in s.inner:
@@ -688,6 +778,7 @@ def _emit_root(o, p, root, facade_ns):
         if s.has_evt:
             o += "        if (_evt_%s != null) { NativeMemory.Free(_evt_%s); _evt_%s = null; }" % (s.name, s.name, s.name)
     o += "        if (_drun != null) { NativeMemory.Free(_drun); _drun = null; }"
+    o += "        if (_uo != null) { NativeMemory.Free(_uo); _uo = null; }"
     o += "    }"
     o += "}"
     o += ""
@@ -706,7 +797,7 @@ def _inline(fn, *args):
 
 def _emit_decode(o, p, root, slots):
     o += "    [StructLayout(LayoutKind.Sequential)]"
-    o += "    private struct DecRun { public IntPtr Target; public byte* Buf; public IntPtr Pending; }"
+    o += "    private struct DecRun { public IntPtr Target; public byte* Buf; }"
     o += ""
     o += "    private static %s Tgt(void* obj) => (%s)GCHandle.FromIntPtr(((DecRun*)obj)->Target).Target;" % (root, root)
     o += ""
@@ -718,10 +809,6 @@ def _emit_decode(o, p, root, slots):
     o += "        catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }"
     o += "    }"
     o += ""
-    # WP5 step 7 (decision 11): the `unknown` / `unk_<slot>` callbacks are gone from the
-    # ABI; unknown fields travel as data in the groups (`ak_dec_<Root>_opts`). This backend
-    # does not render the options yet, so DecodeU decodes in DROP mode (its context is never
-    # armed) and `pend` stays empty: transitional, until the C# slice renders them.
     for si, s in enumerate(slots, 1):
         lst = _make("Tgt(obj)", p, root, s.path)
         if s.leaf:
@@ -772,24 +859,27 @@ def _emit_decode(o, p, root, slots):
             o += ""
     o += "    private static readonly byte[] One = new byte[1];"
     o += ""
+    _emit_unk(o, p, root)
     o += "    public %s Decode(byte[] src, int len) { int rc = TryDecode(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($\"core decode failed: {rc}\"); return t; }" % root
     o += "    public %s DecodeU(byte[] src, int len) { int rc = TryDecode(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($\"core decode failed: {rc}\"); return t; }" % root
     o += ""
     o += "    /// The core's code (< 0) on failure; the output is then unspecified and discarded (R-G6)."
-    o += "    public int TryDecode(byte[] src, int len, bool retain, out %s result)" % root
+    o += "    public int TryDecode(byte[] src, int len, bool retain, out %s result) => DecodeArmed(src, len, retain ? -1 : -2, out result);" % root
+    o += ""
+    o += "    /// A control (decision 11 DISCARD): retain everywhere except `position` (an index into"
+    o += "    /// UnkPositionNames), whose entry is all zero when armed."
+    o += "    public int TryDecodeZeroing(byte[] src, int len, int position, out %s result) => DecodeArmed(src, len, position, out result);" % root
+    o += ""
+    o += "    private int DecodeArmed(byte[] src, int len, int mode, out %s result)" % root
     o += "    {"
     o += "        result = null;"
-    o += "        if (_dctx == IntPtr.Zero)"
-    o += "        {"
-    o += "            _dctx = Abi.ak_dec_ctx_new();"
-    o += "            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));"
-    o += "        }"
+    o += "        EnsureDec();"
     o += "        Abi.ak_dec_err_reset(_dctx);"
+    o += "        int ar = ArmFor(mode);"
+    o += "        if (ar != 0) { Disarm(ar); return ar; }"
     o += "        var target = new %s();" % root
-    o += "        var pend = retain ? new List<(int, long, byte[])>() : null;"
     o += "        var h = GCHandle.Alloc(target);"
-    o += "        var hp = retain ? GCHandle.Alloc(pend) : default;"
-    o += "        int rc;"
+    o += "        int rc = Abi.AK_ERR_HOST;"
     o += "        try"
     o += "        {"
     o += "            fixed (byte* b0 = src)"
@@ -799,7 +889,6 @@ def _emit_decode(o, p, root, slots):
     o += "                byte* b = len == 0 ? one : b0;"
     o += "                _drun->Target = GCHandle.ToIntPtr(h);"
     o += "                _drun->Buf = b;"
-    o += "                _drun->Pending = retain ? GCHandle.ToIntPtr(hp) : IntPtr.Zero;"
     o += "                var vt = new ak_dvt_%s" % root
     o += "                {"
     o += "                    apply = &ApplyRoot,"
@@ -817,56 +906,168 @@ def _emit_decode(o, p, root, slots):
     o += "                if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }"
     o += "            }"
     o += "        }"
-    o += "        finally { h.Free(); if (retain) hp.Free(); }"
+    o += "        finally { h.Free(); rc = Disarm(rc); }"
     o += "        if (rc < 0) return rc;"
-    o += "        if (retain)"
-    o += "        {"
-    o += "            // Applied after the decode: a capture may flush before the run that"
-    o += "            // carries the element it belongs to."
-    o += "            foreach (var (slot, token, bytes) in pend)"
-    o += "            {"
-    o += "                switch (slot)"
-    o += "                {"
-    o += "                    case 0: target.%s = W.Append(target.%s, bytes, 0, bytes.Length); break;" % (BAG, BAG)
-    for si, s in enumerate(slots, 1):
-        if s.kind == "msg":
-            o += "                    case %d: { var l = %s; if (l != null && token >= 0 && token < l.Count) { var e = l[(int)token]; e.%s = W.Append(e.%s, bytes, 0, bytes.Length); } break; }" % (
-                si, _get("target", p, root, s.path), BAG, BAG)
-    o += "                    default: break;   // a map entry has no bag"
-    o += "                }"
-    o += "            }"
-    o += "        }"
     o += "        result = target;"
     o += "        return 0;"
     o += "    }"
     o += ""
 
 
-def _emit_pull(o, p, root, slots):
-    o.doc("ABI v1 7.1's PULL family: parse into the context's record stream (no reverse call), "
-          "then replay it with the same group readers the push callbacks use.", "    ")
-    o += "    public %s Pull(byte[] src, int len)" % root
+def _clear(p, mname, path, x, ind, o, depth=0):
+    """C# statements clearing the facade bags at position `path` below facade object `x`
+    (of message `mname`): the zeroed-position control's expectation."""
+    from plan import _unk_child
+    if not path:
+        o += "%s%s.%s = null;" % (ind, x, BAG)
+        return
+    k = path[0]
+    m = p.msg(mname)
+    f = next(g for g in m.fields if (g.oneof or g.name) == k and _unk_child(g) is not None)
+    if f.oneof:
+        for gm in m.oneofs[f.oneof]:
+            if gm.kind == "message":
+                o += "%sif (%s.%s != null) %s.%s.%s = null;" % (ind, x, N.field(gm.name), x, N.field(gm.name), BAG)
+        return
+    acc = "%s.%s" % (x, N.field(f.name))
+    if f.card == "map":
+        o += "%s// a map entry: the facade map has no bag (U-map-entry), nothing to clear" % ind
+        return
+    v = "e%d" % depth
+    if f.card == "repeated":
+        o += "%sif (%s != null) foreach (var %s in %s)" % (ind, acc, v, acc)
+    else:
+        o += "%sif (%s != null) { var %s = %s;" % (ind, acc, v, acc)
+    o += "%s{" % ind if f.card == "repeated" else ""
+    _clear(p, _unk_child(f), path[1:], v, ind + "    ", o, depth + 1)
+    o += "%s}" % ind
+
+
+def _emit_unk(o, p, root):
+    """Decision 11 for this root: the options (native, unmoved while armed), arming and
+    disarming around one decode, and the controls' position helpers."""
+    from plan import unk_opts_layout, unk_opts_name, unk_positions
+    lay = unk_opts_layout(p, root)
+    pos = unk_positions(p, root)
+    on = unk_opts_name(root)
+    o.doc("Decision 11: every message position of this root, in plan.unk_positions order (the "
+          "options' member order).", "    ")
+    o += "    public static readonly string[] UnkPositionNames = { %s };" % ", ".join('"%s"' % n for n, _m, _t in lay)
+    o += ""
+    o += "    /// A retained decode ended with a buffer grow handed out that no delivered group"
+    o += "    /// carried back to the host: a host defect, never a core code."
+    o += "    public const int UNDELIVERED = -1001;"
+    o += "    public int Undelivered { get; private set; }"
+    o += "    private %s* _uo;" % on
+    o += "    private HashSet<IntPtr> _live;"
+    o += "    /// The resets that arm and disarm each decode (rule 7): forward crossings, counted"
+    o += "    /// apart from ForwardCalls because the core's R5 counters do not count them."
+    o += "    private static long _resets;"
+    o += "    public long ResetCalls => _resets;"
+    o += ""
+    o += "    private void EnsureDec()"
     o += "    {"
-    o += "        if (_dctx == IntPtr.Zero)"
+    o += "        if (_dctx != IntPtr.Zero) return;"
+    o += "        _dctx = Abi.ak_dec_ctx_new_%s(null);   // rule 6: bound to this root, drop mode" % root
+    o += "        if (_dctx == IntPtr.Zero) throw new InvalidOperationException(\"ak_dec_ctx_new_%s returned NULL\");" % root
+    o += "        _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));"
+    o += "    }"
+    o += ""
+    o += "    /// The options, rewritten before every retained decode: every entry names the one"
+    o += "    /// grow and holds no pre-allocated buffer (all from grow, so the core never needs"
+    o += "    /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD)."
+    o += "    private %s* Arm(int zero)" % on
+    o += "    {"
+    o += "        if (_uo == null) _uo = (%s*)NativeMemory.AllocZeroed((nuint)sizeof(%s));" % (on, on)
+    o += "        *_uo = default;"
+    o += "        var g = UnkHost.Fn;"
+    for i, (n, _m, _t) in enumerate(lay):
+        o += "        if (zero != %d) _uo->%s.grow = g;" % (i, n)
+    o += "        return _uo;"
+    o += "    }"
+    o += ""
+    o += "    /// mode -2: drop (reset with NULL); -1: retain everywhere; k >= 0: retain but k."
+    o += "    private int ArmFor(int mode)"
+    o += "    {"
+    o += "        Undelivered = 0;"
+    o += "        _resets++;"
+    o += "        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_%s(_dctx, null); }" % root
+    o += "        _live ??= new HashSet<IntPtr>();"
+    o += "        _live.Clear();"
+    o += "        G.Live = _live;"
+    o += "        return Abi.ak_dec_reset_%s(_dctx, Arm(mode));" % root
+    o += "    }"
+    o += ""
+    o += "    /// After every decode: the core forgets the options (reset with NULL), and a buffer"
+    o += "    /// still outstanding is freed; after a success that is UNDELIVERED."
+    o += "    private int Disarm(int rc)"
+    o += "    {"
+    o += "        _resets++;"
+    o += "        Abi.ak_dec_reset_%s(_dctx, null);" % root
+    o += "        var live = G.Live;"
+    o += "        G.Live = null;"
+    o += "        if (live == null || live.Count == 0) return rc;"
+    o += "        foreach (var q in live) NativeMemory.Free((void*)q);"
+    o += "        int left = live.Count;"
+    o += "        live.Clear();"
+    o += "        if (rc < 0) return rc;"
+    o += "        Undelivered = left;"
+    o += "        return UNDELIVERED;"
+    o += "    }"
+    o += ""
+    o += "    /// The zeroed-position control's expectation: the facade bags at `position` cleared."
+    o += "    public static void ClearPosition(%s t, int position)" % root
+    o += "    {"
+    o += "        switch (position)"
     o += "        {"
-    o += "            _dctx = Abi.ak_dec_ctx_new();"
-    o += "            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));"
+    for i, (path, _m) in enumerate(pos):
+        o += "            case %d:" % i
+        o += "            {"
+        _clear(p, root, path, "t", "                ", o)
+        o += "                break;"
+        o += "            }"
+    o += "            default: throw new ArgumentOutOfRangeException(nameof(position));"
     o += "        }"
+    o += "    }"
+    o += ""
+
+
+def _emit_pull(o, p, root, slots):
+    o.doc("ABI v1 7.1's PULL family: parse into the context's record stream (no reverse call "
+          "but grow), then replay it with the same group readers the push callbacks use. The "
+          "context is armed exactly as for push.", "    ")
+    o += "    public %s Pull(byte[] src, int len) { int rc = TryPull(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($\"core parse failed: {rc}\"); return t; }" % root
+    o += "    public %s PullU(byte[] src, int len) { int rc = TryPull(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($\"core parse failed: {rc}\"); return t; }" % root
+    o += ""
+    o += "    public int TryPull(byte[] src, int len, bool retain, out %s result)" % root
+    o += "    {"
+    o += "        result = null;"
+    o += "        EnsureDec();"
+    o += "        int ar = ArmFor(retain ? -1 : -2);"
+    o += "        if (ar != 0) { Disarm(ar); return ar; }"
     o += "        var t = new %s();" % root
-    o += "        fixed (byte* b0 = src)"
-    o += "        fixed (byte* one = One)"
+    o += "        int rc = Abi.AK_ERR_HOST;"
+    o += "        try"
     o += "        {"
-    o += "            byte* b = len == 0 ? one : b0;"
-    o += "            _fwd++;"
-    o += "            int rc = Abi.ak_parse_%s(_dctx, b, (nuint)len);" % root
-    o += "            if (rc < 0) throw new InvalidOperationException($\"core parse failed: {rc}\");"
-    o += "            byte* recs; nuint rlen;"
-    o += "            _fwd++;"
-    o += "            int pr = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);"
-    o += "            if (pr != 0) throw new InvalidOperationException($\"ak_bdr_ptr failed: {pr}\");"
-    o += "            Replay(t, b, recs, (int)rlen);"
+    o += "            fixed (byte* b0 = src)"
+    o += "            fixed (byte* one = One)"
+    o += "            {"
+    o += "                byte* b = len == 0 ? one : b0;"
+    o += "                _fwd++;"
+    o += "                rc = Abi.ak_parse_%s(_dctx, b, (nuint)len);" % root
+    o += "                if (rc >= 0)"
+    o += "                {"
+    o += "                    byte* recs; nuint rlen;"
+    o += "                    _fwd++;"
+    o += "                    rc = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);"
+    o += "                    if (rc == 0) Replay(t, b, recs, (int)rlen);"
+    o += "                }"
+    o += "            }"
     o += "        }"
-    o += "        return t;"
+    o += "        finally { rc = Disarm(rc); }"
+    o += "        if (rc < 0) return rc;"
+    o += "        result = t;"
+    o += "        return 0;"
     o += "    }"
     o += ""
     o += "    private const uint OP_APPLY = 1, OP_ADD = 2, OP_NEW = 3, OP_APPLY_ELEM = 4;   // ak_bdr_rec.op"

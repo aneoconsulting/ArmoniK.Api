@@ -70,6 +70,15 @@ fn fsz<F>(_: *const F) -> usize {
     size_of::<F>()
 }
 
+/// A member the Rust renderer escaped because its plan name is a Rust keyword (`self` ->
+/// `self_`) is printed under the PLAN name, which is what the C# declaration uses.
+fn plan_name(n: &str) -> &str {
+    match n {
+        "self_" | "type_" | "ref_" | "match_" | "mod_" | "move_" | "impl_" | "fn_" | "use_" | "crate_" => &n[..n.len() - 1],
+        _ => n,
+    }
+}
+
 macro_rules! lay {
     ($out:expr, $t:ident, [$($f:ident),* $(,)?]) => {{
         let u = MaybeUninit::<$t>::uninit();
@@ -77,7 +86,7 @@ macro_rules! lay {
         let mut fields: Vec<String> = Vec::new();
         $(
             fields.push(format!("{{\\"name\\": \\"{}\\", \\"offset\\": {}, \\"size\\": {}}}",
-                stringify!($f), offset_of!($t, $f), fsz(unsafe { core::ptr::addr_of!((*p).$f) })));
+                plan_name(stringify!($f)), offset_of!($t, $f), fsz(unsafe { core::ptr::addr_of!((*p).$f) })));
         )*
         $out.push(format!("  \\"{}\\": {{\\"size\\": {}, \\"align\\": {}, \\"fields\\": [{}]}}",
             stringify!($t), size_of::<$t>(), align_of::<$t>(), fields.join(", ")));
