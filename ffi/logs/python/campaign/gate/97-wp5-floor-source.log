@@ -1,6 +1,6 @@
 # python slice: the 3.7 source check, and every other CPython header set here
-# date:      2026-09-25T18:59:57Z
-# commit:    aed38df
+# date:      2026-09-25T19:11:54Z
+# commit:    24caa3e
 # phase:     correctness only; nothing here is a timing
 
 # 3.7.5 headers: /home/user/ArmoniK.Api/ffi/poc/python/build/py37/root/usr/include/python3.7m (#define PY_VERSION              "3.7.5")

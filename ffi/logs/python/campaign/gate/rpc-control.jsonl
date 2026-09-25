@@ -1,8 +1,8 @@
 # slice:           python
 # suite:           rpc
-# commit:          aed38df
-# date:            2026-09-25T19:00:37Z
-# snapshot:        aed38df (HEAD)
+# commit:          24caa3e
+# date:            2026-09-25T19:12:34Z
+# snapshot:        24caa3e (HEAD)
 # cpu_model:       Intel(R) Xeon(R) Processor @ 2.10GHz
 # cpus_online:     4
 # smt:             0
@@ -17,7 +17,7 @@
 # implementation:  CPython
 # protobuf:        7.36.2 (upb)
 # grpcio:          1.84.0
-# build:           {"cc": "cc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0", "cflags": "-O2 -fPIC -Wall -Wextra -Werror -Wno-unused-parameter -fvisibility=hidden", "core_features": {"_akffi": "init-guard", "_akffi_corpus": "corpus,init-guard", "_akffi_count": "count,init-guard", "_akffi_rpc": "rpc,init-guard"}, "core_linkage": "shared (libak_core.so through the dynamic linker)", "core_profile_release": "lto = false", "core_source": "/home/user/ArmoniK.Api/ffi/poc/python/build/snap/973e5ba/ffi/poc/codec", "rustc": "rustc 1.94.1 (e408947bf 2026-03-25)", "snapshot": "HEAD"}
+# build:           {"cc": "cc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0", "cflags": "-O2 -fPIC -Wall -Wextra -Werror -Wno-unused-parameter -fvisibility=hidden", "core_features": {"_akffi": "init-guard", "_akffi_corpus": "corpus,init-guard", "_akffi_count": "count,init-guard", "_akffi_rpc": "rpc,init-guard"}, "core_linkage": "shared (libak_core.so through the dynamic linker)", "core_profile_release": "lto = false", "core_source": "/home/user/ArmoniK.Api/ffi/poc/python/build/snap/24caa3e/ffi/poc/codec", "rustc": "rustc 1.94.1 (e408947bf 2026-03-25)", "snapshot": "HEAD"}
 # launch:          1
 # rounds:          1
 # calls_per_sample: 16
@@ -34,5 +34,5 @@
 # clock:           CLOCK_PROCESS_CPUTIME_ID of the client (cpu_ns), perf_counter_ns (wall_ns)
 # delivery:        B and C blocking; queue and callback are labelled extra cells, direction a only
 # INSTRUMENTATION: a container smoke run (CAMPAIGN.md requirement 32). No figure below is a result.
-# server (shipped): pid 28628, port 36717, affinity 0,1,2,3
+# server (shipped): pid 24736, port 38761, affinity 0,1,2,3
 # ABORTED, NO FIGURE: CallFailed: CallFailed: response is 540421 bytes, want 540422
