@@ -1,6 +1,6 @@
 # python slice: the 3.7 source check, and every other CPython header set here
-# date:      2026-09-25T22:22:15Z
-# commit:    2410125 + uncommitted changes in poc/python or poc/codec
+# date:      2026-09-25T23:08:45Z
+# commit:    4a1c09f + uncommitted changes in poc/python or poc/codec
 # phase:     correctness only; nothing here is a timing
 
 # 3.7.5 headers: /home/user/ArmoniK.Api/ffi/poc/python/build/py37/root/usr/include/python3.7m (#define PY_VERSION              "3.7.5")
@@ -22,7 +22,7 @@
    gen/out/binding.c:19:#if PY_VERSION_HEX >= 0x03090000
    native/binding.c:18: * and the two C-API calls newer than the 3.7 floor are under `PY_VERSION_HEX` (R-D4).
    native/binding.c:616:#if PY_VERSION_HEX >= 0x030A0000
-   native/binding.c:655:#if PY_VERSION_HEX < 0x03090000 && defined(__GNUC__)
+   native/binding.c:660:#if PY_VERSION_HEX < 0x03090000 && defined(__GNUC__)
    post-3.7 names reached only through them:
      Py_NewRef: 1 in gen/out/binding.c, 1 in gen/out/corpus/binding.c, 0 in native/binding.c
      PyObject_CallNoArgs: 1 in gen/out/binding.c, 1 in gen/out/corpus/binding.c, 0 in native/binding.c

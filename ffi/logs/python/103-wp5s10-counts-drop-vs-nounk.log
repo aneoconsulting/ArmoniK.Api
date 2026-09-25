@@ -1,6 +1,6 @@
 # python slice: crossing counts per call, full build (drop) and no-unknown build (WP5 step 10, requirement 19)
-# date:      2026-09-25T22:22:15Z
-# commit:    2410125 + uncommitted changes in poc/python or poc/codec
+# date:      2026-09-25T23:08:45Z
+# commit:    4a1c09f + uncommitted changes in poc/python or poc/codec
 # phase:     correctness only; nothing here is a timing
 
    py3.12 drop: 160 rows, IDENTICAL to counts/crossings-drop.txt

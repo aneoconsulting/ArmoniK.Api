@@ -1258,3 +1258,32 @@ separate host-gen no-unknown arm: it would be the same code.
 **Not measured.** The variant's facade still has an `_unknown` slot per object (the facade is
 one text for both plans). No pyacc or pull decode arm exists in the variant's campaign, as
 in the full build.
+
+### J46. The variant's facades without `_unknown` (correction to J45)
+
+J45 listed the variant facade's `_unknown` slot under "not measured". The aggregating session
+pointed out that it breaks CAMPAIGN req 10: the variant must carry no unknown-field state in
+the binding, and a per-object slot is exactly that. It would under-price retention, so it is
+removed, not measured.
+- **Backends.** `py_pure.emit_facade` omits the attribute, the `__slots__` entry and the
+  constructor argument when `unknown_compiled_out`, and `py_capi.attrs` drops the C member.
+- **Generated files.** The variant writes its own `facade.py` and `pycodec.py` (host-gen drop,
+  the same text as the full build's) into `gen/out/nounk` and `gen/out/corpus-nounk`. The full
+  build's text is unchanged (`generate.py --check`).
+- **Variant processes.** They import from those directories and load no retain codec. This
+  covers `arms.py` (a `_nounk` shim selected or `AK_VARIANT=nounk`), `corpus.py` under
+  `AK_NOUNK=1`, and `camp_codec.py` with the variant.
+
+Two first-run failures, both mine:
+- `-Werror` on an unused variable, and an empty `__init__` body. The corpus has an `Empty`
+  message, which now has no attribute at all. The C type and the Plain class needed a case for
+  that; the full build never hit it, because every class had `_unknown`.
+- `rpc_gate.py` segfaulted on 3.7, deterministically, and not under `-X faulthandler`. gdb put
+  it in `mod_traverse` called from `PyModule_FromDefAndSpec2`: a GC pass before exec, with a
+  NULL module state. The defect is pre-existing and latent; the variant's changed allocation
+  pattern exposed it. Guarded in `mod_traverse` and `mod_clear`.
+
+**Check.** `facts.unknown_slots` finds no `_unknown` on any Plain/Slots class, C type or
+decoded object of the variant: shapes 38 classes, 19 C types, 32 objects; corpus 60, 29, 622.
+The full corpus facade gives 150 findings, which is the must-fail twin. Counts are unchanged
+(step 103 identical). The campaign smoke was not rerun (disk).

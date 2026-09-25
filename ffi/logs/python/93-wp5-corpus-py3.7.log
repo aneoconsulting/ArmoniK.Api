@@ -1,6 +1,6 @@
 # python slice: the whole corpus, five arms, controls, py3.7
-# date:      2026-09-25T22:21:39Z
-# commit:    2410125 + uncommitted changes in poc/python or poc/codec
+# date:      2026-09-25T23:08:16Z
+# commit:    4a1c09f + uncommitted changes in poc/python or poc/codec
 # phase:     correctness only; nothing here is a timing
 
 # python slice: the conformance corpus, every row, every arm (FIX-PLAN WP5 item 6.1)

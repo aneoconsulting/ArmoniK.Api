@@ -90,8 +90,19 @@ Unknown-field support is **compiled out**, not disabled at run time.
     `ak_uencode_*`/`ak_uelem*`, grow/reclaim or `unknown` member reads.
   - It calls `ak_dec_ctx_new_<Root>(void)`. A `retain` argument is refused (ValueError).
   - The full build's generated text changed only by the thread-local `AK_LAST_RECLAIMED`.
-  - The facade keeps its `_unknown` slot: `py_pure.emit_facade` renders the same facade from
-    both plans, so the variant still carries that slot per object.
+  - The facade has no `_unknown` (work unit 8 follow-up, CAMPAIGN req 10):
+    - `py_pure.emit_facade` and `py_capi`'s C types omit it when `unknown_compiled_out`: no
+      attribute, no `__slots__` entry, no constructor argument, no C member.
+    - The variant writes its own `gen/out/nounk/facade.py` and `gen/out/corpus-nounk/facade.py`,
+      and host-gen drop beside each (`pycodec.py`, the same text as the full build's).
+    - A variant process (a `_nounk` shim, or `AK_VARIANT=nounk`) imports from there and has no
+      retain codec.
+    - The full build's generated text is unchanged (`generate.py --check`).
+    - Check (logs 100 and 101): no Plain/Slots class, no C type and no decoded object of the
+      variant has `_unknown`:
+      - shapes: 38 classes, 19 C types, 32 decoded objects;
+      - corpus: 60 classes, 29 C types, 622 decoded objects.
+    - Its must-fail twin: the full build's corpus facade shows 150 findings.
 - **Build** (`build.sh`): four more cores with `--no-default-features` (`init-guard`,
   `count,init-guard`, `rpc,init-guard`, `corpus,init-guard`), each in its own target
   directory (`build/cargo/*-nounk`). Separate modules are built from them: `_akffi_nounk`,
@@ -114,7 +125,7 @@ Unknown-field support is **compiled out**, not disabled at run time.
       0 differ;
     - the controls fail as required;
   - the variant's own controls: 0 positions; 622 of 622 retain calls refused; wrong root
-    refused with -8 on 812 pairs; per-thread contexts.
+    refused with -8 on 812 pairs; per-thread contexts; no `_unknown` on any facade.
 - **Crossing counts** (step 103, whole numbers per call, committed in
   `counts/crossings-{drop,nounk}.txt`):
   - only P1.2 decode moves, reverse **8 to 5**, on all 5 backends; 5 of 160 rows differ,
@@ -339,6 +350,14 @@ shim -> CPython (counted by the shim), core fwd and core rev (counted by the cor
 
 ## Open defects
 
+- (fixed in work unit 8, follow-up) **`mod_traverse`/`mod_clear` dereferenced a NULL module
+  state.** Under multi-phase init the state is NULL between creation and exec, and CPython
+  before 3.9 can run a GC pass in that window. It showed as a deterministic segfault of
+  `rpc_gate.py` on the 3.7 floor (gdb: `mod_traverse` from `PyModule_FromDefAndSpec2`), once
+  the variant changed allocation timing. Both now return 0 on a NULL state.
+- The campaign smoke logs in `logs/python/campaign/` (5652847) predate the variant's facade
+  without `_unknown`. The smoke was not rerun: a campaign run builds another snapshot target
+  directory, and the disk is short.
 - (fixed in work unit 8) **`AK_LAST_RECLAIMED` was process-global** in the py_capi render (`poc/codec/gen`, not
   mine to edit). With threads decoding, a GIL switch between its store and the read
   can misattribute a decode's figure. `unk_totals()` reads it in C immediately after the

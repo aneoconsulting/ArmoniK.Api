@@ -1,6 +1,6 @@
 # python slice: conformance on _akffi_rpc, py3.12
-# date:      2026-09-25T22:20:42Z
-# commit:    2410125 + uncommitted changes in poc/python or poc/codec
+# date:      2026-09-25T23:07:31Z
+# commit:    4a1c09f + uncommitted changes in poc/python or poc/codec
 # phase:     correctness only; nothing here is a timing
 
 # python slice, work unit 2: conformance on the COMPOSED arm (README R2)
@@ -13,7 +13,7 @@
 
 ## R1: the generated tree is current with shapes.json
    guard 2 python backend modules import plans only; a planted IR import is caught
-generated tree is current with the plans (14 files)
+generated tree is current with the plans (18 files)
 
 ## ABI v1 section 10: the core and the shim agree on the group layouts
    ak_abi_version() = 1, the shim was generated against 1
