@@ -52,6 +52,7 @@ import cpp_build             # noqa: E402  (glue)
 import cpp_pbbuild           # noqa: E402  (glue)
 import cpp_cases             # noqa: E402  (glue)
 import cpp_project           # noqa: E402  (glue)
+import cpp_touch             # noqa: E402  (glue: the campaign's read-every-field pass)
 
 ROOT = os.path.dirname(HERE)
 
@@ -73,7 +74,7 @@ CPP_BACKENDS = ["c_abi.py", "cpp_facade.py", "cpp_native.py", "cpp_binding.py",
                 "cpp_names.py"]
 FORBIDDEN = {"ir", "shapes", "spec", "values", "payloads", "encode", "walk", "json"}
 # This slice's glue must not reach for the IR either.
-GLUE = ["generate.py", "cpp_build.py", "cpp_pbbuild.py", "cpp_cases.py", "cpp_project.py",
+GLUE = ["generate.py", "cpp_touch.py", "campaign_summary.py", "cpp_build.py", "cpp_pbbuild.py", "cpp_cases.py", "cpp_project.py",
         "corpus_all.py", "refusal_test.py"]
 GLUE_FORBIDDEN = {"ir", "shapes", "spec", "rust_core", "cppnames", "cpp_core"}
 
@@ -207,6 +208,7 @@ def targets():
     codec = rust_abi.emit_codec(p)
     header, layout_h, layout_names_h = c_abi.emit(p)
     nat_h, nat_c = cpp_native.emit(p, "drop")
+    natr_h, natr_c = cpp_native.emit(p, "retain", stem="core_native_retain")
     out = {
         "include/ak_abi.h": header,
         "include/generated/ak_layout.h": layout_h,
@@ -222,6 +224,12 @@ def targets():
         "src/generated/pb_build.cpp": cpp_pbbuild.emit(p),
         "src/generated/core_native.h": nat_h,
         "src/generated/core_native.cpp": nat_c,
+        # design/CAMPAIGN.md requirement 10: host-gen in RETAIN mode as well as drop.
+        "src/generated/core_native_retain.h": natr_h,
+        "src/generated/core_native_retain.cpp": natr_c,
+        # Requirement 9: decode followed by reading every field, facade and protobuf.
+        "src/generated/touch.h": cpp_touch.emit_header(p),
+        "src/generated/touch.cpp": cpp_touch.emit(p),
         "src/generated/binding.h": cpp_binding.emit_header(p),
         "src/generated/binding.cpp": cpp_binding.emit(p),
         # The BORROWED facade and its binding: the same backends with `ak::StringView` in

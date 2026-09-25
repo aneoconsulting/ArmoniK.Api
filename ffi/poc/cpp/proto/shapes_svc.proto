@@ -17,4 +17,8 @@ service Shapes {
   // method with ~4,500 fields beside one with none is how that is COUNTED rather than
   // argued from reading `rpc.rs`.
   rpc Ping(Empty) returns (Empty);
+  // design/CAMPAIGN.md requirement 14, direction (b): a P2.2-sized REQUEST that the server
+  // decodes, and an empty response. The campaign server implements it (and Fetch) as raw
+  // byte methods, so its work is identical whichever client cell called.
+  rpc Push(ListTasksDetailedResponse) returns (Empty);
 }
