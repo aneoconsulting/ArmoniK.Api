@@ -1375,7 +1375,10 @@ Each blocks something. None is settled by a measurement that exists today.
      small; then one `grow`.
    - **Layout cost:** every decode group grows by one `ak_unk_buf` per message
      position it contains, even when unknowns are discarded; to be measured in the
-     campaign.
+     campaign. Observed consequence (java slice, 29d515e, a count, not a
+     timing): `ak_dfix_ResultRaw` grew from 128 to 200 bytes, so a 32 KB batched
+     decode chunk holds fewer elements and P1.2's decode reverse crossings went
+     from 5 to 8; encode counts are unchanged.
    - **Recursive messages stay refused** from the C ABI (owner, 2026-09-24).
 
 12. **The diagnostic contract**, and it is worse than "five failures render as

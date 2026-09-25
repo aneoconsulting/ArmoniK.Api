@@ -1,6 +1,6 @@
 # The measurement campaign: the contract every harness meets (W11)
 
-Status: **draft, 2026-09-25.** Written by the aggregating session from
+Status: **draft, 2026-09-25**, amended the same day after the java slice's first conformance report (req 7 row list, req 29 path). Written by the aggregating session from
 `design/FIX-PLAN.md` WP3 and the owner's decisions recorded there. It is the only
 definition of how performance is measured in this branch. A slice harness is
 **campaign-ready** when it meets every numbered requirement below and a smoke run
@@ -54,8 +54,9 @@ in its container shows it executes (section 9).
 ### 4.1 Codec benchmarks (one process, pinned to `CLIENT`, no server)
 
 7. **Payloads:** all 16 of `design/SHAPES.md`, the three content sets (ASCII,
-   Latin-1, wide) where SHAPES.md defines them, and the corpus's unknown-field rows
-   named in section 4.3.
+   Latin-1, wide) where SHAPES.md defines them, and every corpus row of class
+   `unknown` (the `U-*` rows of `corpus/generated/manifest.json`) whose root the
+   slice implements, excluding disputed rows.
 8. **Arms, per host:**
    - `incumbent-prod`: the production path (R14), i.e. what gRPC's generated
      marshaller calls in that language: grpc++ `SerializationTraits`, grpc-java's
@@ -149,7 +150,8 @@ in its container shows it executes (section 9).
     `{"slice","suite","arm","cell","payload","content","dir","unknown_mode","transport","inflight","launch","round","cpu_ns","wall_ns","iters"}`,
     fields not applicable left out. Raw runner output is committed; hand-written
     summaries are not a substitute.
-29. Logs go to `ffi/logs/campaign/<lang>/`, one file per suite and launch.
+29. Logs go to `ffi/logs/<lang>/campaign/`, one file per suite and launch (inside
+    the slice's own log directory, per `CLAUDE.md` ownership).
 
 ## 8. Summaries a slice may produce
 
