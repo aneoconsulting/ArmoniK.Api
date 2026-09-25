@@ -1,0 +1,15 @@
+# WP5 step 10: crossing counts, no-unknown build (gen/crossings-nounk.txt) vs the full
+# build's drop mode (gen/crossings.txt), per (input, direction). Counting builds:
+#   full:       target-count,       campaign --features count
+#   no-unknown: target-count-nounk, campaign --no-default-features --features count,init-guard
+# rows: drop 335, no-unknown 335, keys only in one: 0
+# rows that differ: 3
+# input                                    dir      drop fwd/rev       no-unknown fwd/rev
+  P1.2                                     decode   1/8                1/5               
+  P1.2/latin1                              decode   1/8                1/5               
+  P1.2/wide                                decode   1/8                1/5               
+
+# The pre-decision-11 value (WP5 step 6 gate, before the larger decode groups), logs/rust/wp5s6-gate.log line 118:
+#                      per elem                                  0.009                                
+#   P1.2    real     decode         1000        1        5          6       0                0      0
+# i.e. P1.2 decode reverse 5: the no-unknown build returns exactly to it; every other row was already unmoved.

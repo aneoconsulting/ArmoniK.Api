@@ -2242,3 +2242,51 @@ corpus's own merge (`spec.load()`), so `fixed32` and the corpus-only messages ex
   on a NULL context from the init-guarded constructor; context creation is now unguarded,
   like `ak_enc_ctx_new`. one_core.sh's decode sentinel moved to `ak_dec_ctx_free`.
 - Crossing counts: identical to gen/crossings.txt (no re-baseline).
+
+## 2026-09-25 -- FIX-PLAN WP5 step 10: the NO-UNKNOWN variant (unknown fields compiled out)
+
+- plan.py: `Options(unknown="drop")` on the C ABI is now a complete compile-time variant
+  (docstring section THE NO-UNKNOWN VARIANT): `MessagePlan.unk_slot` False, so
+  `group_fields` has no `unknown`; `unknown_compiled_out(p)`; `unk_entry_points` gives only
+  `ak_dec_ctx_new_<Root>()`. Choice stated: the constructor takes NO parameter (the options
+  type does not exist in the variant, so a "required NULL" parameter would name a type the
+  header does not declare); no `ak_dec_reset_<Root>` (nothing to reset). The fixed
+  vocabulary (`ak_unk_buf`, `ak_unk_opts`, `ak_unk_pool`) stays declared: plan.FIXED is one
+  table for both variants.
+- rust_abi: one traversal and one emitter for both variants; a zero-sized `UnkCx` stand-in
+  compiles the position cursor away; capture (`_cap`), the oneof buffer move, the u-group
+  walks' output (the walks still run so site numbering is identical) and the options
+  section are omitted. The full variant's generated text is byte-unchanged (checked:
+  generate.py --check against the committed files; one blank line the split first added
+  was removed).
+- rust_binding: the unknown-field prelude split out and re-inserted at its old place, so
+  the full binding.rs is byte-unchanged; the variant has no `_unk` encoders, options,
+  `decode_with_*`, controls.
+- c_abi: `emit` of the drop plan renders a second complete header: same file name and
+  guard, `#define AK_NO_UNKNOWN_FIELDS 1`, no u groups/opts/u-family/reset, 240 layout
+  facts (400 full). The full header is byte-unchanged for every slice. Selected per build
+  by include path. cpp_layout.facts per variant.
+- Cargo: `unknown-fields` on ak-abi/ak-core (default on), forwarded by harness, campaign
+  and the corpus harness; dependents use `default-features = false`. Found: a no-unknown
+  build in the shared target overwrote `libak_core.so` for the full binaries; every
+  no-unknown build now has its own target dir (target-nounk, target-count-nounk,
+  target-corpus-nounk) and the runner checks each binary's core by its u-family exports.
+- Gate: step 12 (byte identity + shapes + precheck + counts + c_variant.sh on the variant);
+  corpus.sh section 6. All pass. The C header check is new ground: the first C++ host that
+  compares the header's layout table with the core's export in this slice, and it was seen
+  failing on both mismatched pairs.
+- Counts: only P1.2 (all three content sets) decode reverse moves, 8 -> 5, back to the
+  pre-decision-11 value. So decision 11's larger decode groups cost P1.2 three reverse
+  crossings even in drop mode, and the no-unknown variant is where they come back.
+- Harness: codec suite MODES per build (full: drop, retain; no-unknown: no-unknown), a
+  separate binary; RPC client cells per build (full: A B C-retain C-drop D-retain D-drop;
+  no-unknown: A B C-nounk D-nounk, A and B as in-process controls). run_campaign.sh builds
+  both, alternates binary order by launch, runs the plant control per client, checks both
+  crossing-count files. Smoke run on f0c82bb: logs/rust/campaign-wp5s10/ (instrumentation).
+- For the other backends (cpp, java, csharp, python) to render the variant: relower the
+  plan with unknown="drop" and render from it (groups without `unknown`, no ak_ufix, no
+  opts, no reset, no u-family, `ak_dec_ctx_new_<Root>(void)`); C hosts take the second
+  header from c_abi.emit (a variant include dir); C# renders its declarations and layout
+  probe from the drop plan; the core for that build is ak-core `--no-default-features`
+  plus the features they need, in its own target dir; their bindings' retain paths are
+  omitted in the variant; each asserts its layout against the variant core's export.

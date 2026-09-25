@@ -1,0 +1,5 @@
+crossing counts: 671 rows identical to gen/crossings.txt
+crossing counts (no-unknown build): 336 rows identical to gen/crossings-nounk.txt
+codec launch 1 (full): 22960 sample rows -> /home/user/ArmoniK.Api/ffi/logs/rust/campaign-wp5s10/codec-launch1.jsonl
+codec launch 1 (nounk): 14020 sample rows -> /home/user/ArmoniK.Api/ffi/logs/rust/campaign-wp5s10/codec-nounk-launch1.jsonl
+codec exit 0

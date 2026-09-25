@@ -1,0 +1,9 @@
+rpc shipped (full client): control (planted wrong length) aborted with no output: ABORT (requirement 18): cell A dir a inflight 1 warm-up: cell A response 540422 B, expected 540423
+rpc shipped (nounk client): control (planted wrong length) aborted with no output: ABORT (requirement 18): cell A dir a inflight 1 warm-up: cell A response 540422 B, expected 540423
+rpc shipped launch 1 (full): 36 sample rows -> /home/user/ArmoniK.Api/ffi/logs/rust/campaign-wp5s10/rpc-shipped-launch1.jsonl
+rpc shipped launch 1 (nounk): 24 sample rows -> /home/user/ArmoniK.Api/ffi/logs/rust/campaign-wp5s10/rpc-shipped-nounk-launch1.jsonl
+rpc pinned (full client): control (planted wrong length) aborted with no output: ABORT (requirement 18): cell A dir a inflight 1 warm-up: cell A response 540422 B, expected 540423
+rpc pinned (nounk client): control (planted wrong length) aborted with no output: ABORT (requirement 18): cell A dir a inflight 1 warm-up: cell A response 540422 B, expected 540423
+rpc pinned launch 1 (full): 36 sample rows -> /home/user/ArmoniK.Api/ffi/logs/rust/campaign-wp5s10/rpc-pinned-launch1.jsonl
+rpc pinned launch 1 (nounk): 24 sample rows -> /home/user/ArmoniK.Api/ffi/logs/rust/campaign-wp5s10/rpc-pinned-nounk-launch1.jsonl
+rpc exit 0
