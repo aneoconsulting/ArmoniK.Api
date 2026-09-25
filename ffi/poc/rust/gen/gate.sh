@@ -71,12 +71,12 @@ if [ -x gen/corpus.sh ]; then
 fi
 
 step "11b. the campaign harness's in-process pre-check (CAMPAIGN.md 26): every timed arm, every input"
-( B=$(cargo bench -q -p campaign --bench codec --no-run --message-format=json 2>/dev/null \
+( B=$(cargo bench -q -p campaign --bench codec_suite --no-run --message-format=json 2>/dev/null \
       | python3 -S -c 'import sys,json
 for l in sys.stdin:
     try: m=json.loads(l)
     except Exception: continue
-    if m.get("reason")=="compiler-artifact" and m.get("target",{}).get("name")=="codec" and m.get("executable"): print(m["executable"])' | tail -1)
+    if m.get("reason")=="compiler-artifact" and m.get("target",{}).get("name")=="codec_suite" and m.get("executable"): print(m["executable"])' | tail -1)
   CRITERION_HOME="$(mktemp -d)" AK_PRECHECK_ONLY=1 "$B" 2>&1 | grep -E "^# precheck|PRECHECK" )
 
 step "11c. crossing counts of every timed core-ffi case vs gen/crossings.txt (CAMPAIGN.md 19)"

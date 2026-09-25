@@ -104,12 +104,12 @@ need_gate() {
 
 build() {
   cargo build --release -q -p campaign --bins 2>/dev/null
-  BENCH=$(cargo bench -q -p campaign --bench codec --no-run --message-format=json 2>/dev/null \
+  BENCH=$(cargo bench -q -p campaign --bench codec_suite --no-run --message-format=json 2>/dev/null \
     | python3 -S -c 'import sys,json
 for l in sys.stdin:
     try: m=json.loads(l)
     except Exception: continue
-    if m.get("reason")=="compiler-artifact" and m.get("target",{}).get("name")=="codec" and m.get("executable"): print(m["executable"])' | tail -1)
+    if m.get("reason")=="compiler-artifact" and m.get("target",{}).get("name")=="codec_suite" and m.get("executable"): print(m["executable"])' | tail -1)
   [ -x "$BENCH" ] || { echo "no codec bench executable" >&2; exit 1; }
 }
 
