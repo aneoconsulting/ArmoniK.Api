@@ -12,7 +12,9 @@
 #   wp5-corpus.log       the FULL corpus, four arms (ffi-drop, ffi-retain, native-drop,
 #                        native-retain), each row in its own process under a timeout, at
 #                        C++17, C++14, C++11 and static; the four builds' outcomes compared
-#                        byte for byte; controls proj/reenc/accept/noinit, each must FAIL
+#                        byte for byte; controls proj/reenc/accept/noinit, each must FAIL;
+#                        retain arms may write the dropped form only on U-map-entry; the
+#                        decision 11 controls (--unk-controls) at every level, and their plant
 #   wp5-bytes.log        the C++ arms before the port against after it, row by row
 #   wp5-boundary.log     boundary.sh (R5 from the artifact) and the corpus core's layout
 #                        facts against the corpus header (ABI v1 section 10)
@@ -157,11 +159,22 @@ fi
   hdr "cpp slice, WP5 step 2: the full conformance corpus, four arms"
   for b in corpus_all_a17 corpus_all_c14 corpus_all_c11 corpus_all_a17_static; do
     step "$b"
-    must "corpus $b" 0 py gen/corpus_all.py "$B/$b" --record "$S/$b.json"
+    must "corpus $b" 0 py gen/corpus_all.py "$B/$b" --record "$S/$b.json" --max-retain-gap U-map-entry
   done
   step "the four builds' outcomes, (row, arm) by (row, arm): identical across levels and linkages"
   must "compare" 0 py gen/corpus_all.py --compare "$S/corpus_all_a17.json" "$S/corpus_all_c14.json" \
        "$S/corpus_all_c11.json" "$S/corpus_all_a17_static.json"
+  # WP5 step 9 (decision 11): the armed decodes of the binding on every row the C ABI
+  # carries -- pool = retain, drop = retain with every bag cleared, each position zeroed
+  # drops exactly that position, map-entry bytes delivered unless that position is zeroed.
+  for b in corpus_all_a17 corpus_all_c14 corpus_all_c11 corpus_all_a17_static; do
+    step "decision 11 controls: $b --unk-controls"
+    must "unk controls $b" 0 py gen/corpus_all.py "$B/$b" --unk-controls
+  done
+  step "control: --unk-controls --plant clear (the expected clear skipped) -- must FAIL"
+  py gen/corpus_all.py "$B/corpus_all_a17" --unk-controls --plant clear > "$S/p.log" 2>&1; rc=$?
+  grep -E '^   (rows|positions)|^UNK' "$S/p.log"; grep -m3 'FAIL' "$S/p.log"
+  [ $rc -ne 0 ] && echo ">>> ok: control clear failed as required" || { echo ">>> FAIL: control clear passed"; FAILS=$((FAILS+1)); }
   SUB="S-Probe,U-root,X-lenwrap-lrr,E-map,T-dec-root,U-wire-MetricsBatch"
   for p in proj reenc accept; do
     step "control: AK_CORPUS_PLANT=$p on $SUB -- must FAIL"
@@ -240,8 +253,14 @@ fi
   step "contentsets_a17, AK_CS_GATE_ONLY=1"
   must "contentsets gate" 0 env AK_CS_GATE_ONLY=1 "$B/contentsets_a17" 0
   step "crossing counts (the COUNTING core, R5)"
-  (cd "$PAY" && must "counts shared" 0 "$OLDPWD/$B/counts_a17_shared")
+  (cd "$PAY" && must "counts shared" 0 "$OLDPWD/$B/counts_a17_shared") | tee "$S/counts.log"
   (cd "$PAY" && must "counts static" 0 "$OLDPWD/$B/counts_a17_static")
+  step "crossing counts against the committed baseline (logs/cpp/counts-baseline.log)"
+  grep -E '^  P' "$L/counts-baseline.log" > "$S/cwant"; grep -E '^  P' "$S/counts.log" > "$S/cgot"
+  if diff "$S/cwant" "$S/cgot" > "$S/cdiff"; then echo "  $(wc -l < "$S/cgot") count rows identical"; echo ">>> ok: counts unchanged"
+  else head -10 "$S/cdiff"; echo ">>> FAIL: crossing counts differ from the baseline"; FAILS=$((FAILS+1)); fi
+  step "crossing counts of the retain arms (AK_COUNTS_RETAIN=1: decode_with_*_unk and *_pool)"
+  (cd "$PAY" && must "counts retain" 0 env AK_COUNTS_RETAIN=1 "$OLDPWD/$B/counts_a17_shared") | grep -E 'decode|>>>' 
   if [ -x "$B/rpccounts" ]; then
     step "RPC crossing counts (the binding's ak_init_once before the first RPC)"
     must "rpccounts" 0 timeout 120 "$B/rpccounts" 5

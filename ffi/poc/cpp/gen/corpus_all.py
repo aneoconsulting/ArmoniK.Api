@@ -20,9 +20,17 @@ arms, by name.
 
   corpus_all.py BINARY [--manifest PATH] [--only P1,P2] [--timeout S] [--plant proj|reenc|accept]
                        [--expect-fail]   exit 0 iff the run FAILED (a control)
+                       [--max-retain-gap ID,...]  fail if a retain arm writes the dropped
+                                         form on any row not listed
                        [--record FILE]   write every (row, arm) outcome, so two builds (two
                                          standard levels, two linkages) can be compared
                                          byte for byte: `corpus_all.py --compare A B`
+  corpus_all.py BINARY --unk-controls [--manifest PATH] [--only ...] [--plant clear] [--expect-fail]
+                       decision 11's controls on every row the C ABI carries: pool decode
+                       equal to retain, drop decode equal to retain with every bag cleared,
+                       each position zeroed in turn dropping exactly that position, map-entry
+                       bytes delivered unless the entry position is zeroed. `--plant clear`
+                       skips the expected clear (the control seen failing).
 """
 import concurrent.futures as cf
 import hashlib
@@ -90,13 +98,15 @@ def records(b):
     return sorted(out)
 
 
-def run_child(binary, row, timeout, plant):
+def run_child(binary, row, timeout, plant, unk=False):
     env = dict(os.environ)
-    if plant:
+    if plant and not unk:
         env["AK_CORPUS_PLANT"] = plant
+    if plant == "clear" and unk:
+        env["AK_CORPUS_UNK_PLANT"] = "1"
     path = os.path.join(CORPUS, row["file"])
     try:
-        p = subprocess.run([binary, path, row["root"]], stdout=subprocess.PIPE,
+        p = subprocess.run([binary] + (["--unk"] if unk else []) + [path, row["root"]], stdout=subprocess.PIPE,
                            stderr=subprocess.PIPE, timeout=timeout, env=env)
     except subprocess.TimeoutExpired:
         return {"timeout": timeout}
@@ -189,16 +199,75 @@ def eval_arm(row, rid, arm, r, vec, t):
         t.fails.append("%s [%s]: %s" % (rid, arm, "; ".join(why)))
 
 
+def unk_controls(binary, ids, rows, timeout, plant, expect_fail):
+    """Decision 11's controls (see the module doc), one child per row."""
+    print("# decision 11 controls through the C ABI binding (corpus_all --unk), %d rows" % len(ids))
+    if plant:
+        print("#   PLANTED DEFECT: %s (a control run: it MUST fail)" % plant)
+    with cf.ThreadPoolExecutor(max_workers=4) as ex:
+        results = dict(zip(ids, ex.map(lambda i: run_child(binary, rows[i], timeout, plant, unk=True), ids)))
+    n = na = refused = with_unk = entry_rows = positions = changed = refills = 0
+    bad = []
+    for rid in ids:
+        r = results[rid]
+        if r.get("na"):
+            na += 1
+            continue
+        n += 1
+        if "timeout" in r or "crash" in r:
+            bad.append("%s: %s" % (rid, json.dumps(r)))
+            continue
+        if "err" in r:
+            refused += 1
+            if not (r["err"] == r["drop_err"] == r["pool_err"]):
+                bad.append("%s: refusal differs across modes %s" % (rid, json.dumps(r)))
+            continue
+        positions += r["positions"]
+        changed += r["changed"]
+        refills += r["refills"]
+        with_unk += 1 if r["changed"] else 0
+        entry_rows += 1 if r["entry_bytes"] else 0
+        why = []
+        if r["mismatched"]:
+            why.append("zeroed position(s) %s did not drop exactly that position" % r["mismatched"])
+        if r["entry_mismatch"]:
+            why.append("map-entry bytes wrong with position(s) %s zeroed" % r["entry_mismatch"])
+        if not r["pool_equal"]:
+            why.append("pool decode differs from retain")
+        if not r["drop_equal"]:
+            why.append("drop decode differs from retain with every bag cleared")
+        if r["leaked"]:
+            why.append("%d buffer(s) left live after the decodes" % r["leaked"])
+        if why:
+            bad.append("%s: %s" % (rid, "; ".join(why)))
+    print("   rows through the C ABI %d (not in the ABI %d); refused by every mode alike %d" % (n, na, refused - sum(1 for b in bad if "refusal differs" in b)))
+    print("   positions checked %d; position-rows where zeroing changes the value %d; rows with unknowns %d"
+          % (positions, changed, with_unk))
+    print("   rows whose map entries carried unknown bytes (delivered, freed: U-map-entry) %d" % entry_rows)
+    print("   pool buffers refilled in place across all rows %d" % refills)
+    for b in bad[:60]:
+        print("   FAIL %s" % b)
+    failed = bool(bad)
+    print("UNK CONTROLS %s: %d failing row(s)" % ("FAIL" if failed else "PASS", len(bad)))
+    if expect_fail:
+        return 0 if failed else 1
+    return 1 if failed else 0
+
+
 def main(argv):
     global CORPUS
     args = list(argv)
     if args and args[0] == "--compare":
         return compare(args[1:])
     binary = args.pop(0)
-    only, timeout, plant, expect_fail, record = [], 10.0, None, False, None
+    only, timeout, plant, expect_fail, record, unk, max_gap = [], 10.0, None, False, None, False, None
     while args:
         a = args.pop(0)
-        if a == "--manifest":
+        if a == "--unk-controls":
+            unk = True
+        elif a == "--max-retain-gap":
+            max_gap = set(args.pop(0).split(","))
+        elif a == "--manifest":
             CORPUS = os.path.dirname(os.path.abspath(args.pop(0)))
         elif a == "--only":
             only = args.pop(0).split(",")
@@ -214,6 +283,9 @@ def main(argv):
             raise SystemExit("unknown argument %s" % a)
     man = json.load(open(os.path.join(CORPUS, "manifest.json")))
     rows = man["vectors"]
+    if unk:
+        ids = [i for i in sorted(rows) if not only or any(i.startswith(p) for p in only)]
+        return unk_controls(binary, ids, rows, timeout, plant, expect_fail)
     info = json.loads(subprocess.run([binary, "--info"], stdout=subprocess.PIPE).stdout)
     print("# the conformance corpus, C ABI and core-native, unknown fields dropped and retained")
     print("#   binary     %s" % os.path.relpath(binary, SLICE))
@@ -278,6 +350,15 @@ def main(argv):
         if len(t.fails) > 60:
             print("   ... and %d more" % (len(t.fails) - 60))
         print()
+    if max_gap is not None:
+        # Decision 11 (WP5 step 9): the retain arms may write the dropped form only on the
+        # rows named here (the facade's map has no bag: U-map-entry).
+        for a in ("ffi-retain", "native-retain"):
+            extra = [g for g in tallies[a].retain_gap if g.split(" ")[0] not in max_gap]
+            print("## %s retention gaps outside {%s}: %d" % (a, ",".join(sorted(max_gap)), len(extra)))
+            for g in extra:
+                print("   FAIL retention gap %s" % g)
+            total += len(extra)
     print("# rows that hung or crashed a child: %d" % len(hard))
     for h in hard[:20]:
         print("!! %s" % h)

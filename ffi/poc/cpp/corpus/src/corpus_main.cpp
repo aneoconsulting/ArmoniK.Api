@@ -3,6 +3,7 @@
 // (a hang or an abort is a row result, not the end of the run) and takes the verdict.
 //
 //   corpus_all ROW-FILE ROOT     run the four arms on one vector
+//   corpus_all --unk ROW-FILE ROOT  decision 11's controls on one vector (one JSON line)
 //   corpus_all --info            the plan options the native codecs render, the build
 //   corpus_all --layout          ABI v1 section 10: the corpus core's layout facts against
 //                                this header's, fact by fact (exit 1 on a disagreement)
@@ -86,8 +87,16 @@ int main(int argc, char **argv) {
     return 0;
   }
   if (argc >= 2 && std::string(argv[1]) == "--layout") return layout();
+  // --unk ROW-FILE ROOT: decision 11's controls on the vector (AK_CORPUS_UNK_PLANT=1 skips
+  // the expected clear, so rows with unknowns must turn red).
+  bool unk = false;
+  if (argc >= 2 && std::string(argv[1]) == "--unk") {
+    unk = true;
+    ++argv;
+    --argc;
+  }
   if (argc < 3) {
-    std::fprintf(stderr, "usage: corpus_all ROW-FILE ROOT | --info | --layout\n");
+    std::fprintf(stderr, "usage: corpus_all [--unk] ROW-FILE ROOT | --info | --layout\n");
     return 2;
   }
   std::ifstream f(argv[1], std::ios::binary);
@@ -102,8 +111,14 @@ int main(int argc, char **argv) {
 
   corpus::Cx cx;
   cx.enc = ak_enc_ctx_new();
-  cx.dec = ak_dec_ctx_new();
   cx.tcs = corpus::ffi::tcs_core();
+  if (unk) {
+    std::string r = corpus::run_unk(root, (const uint8_t *)buf.data(), buf.size(), cx,
+                                    std::getenv("AK_CORPUS_UNK_PLANT") != NULL);
+    std::printf("%s\n", r.empty() ? "{\"na\":true}" : r.c_str());
+    ak_enc_ctx_free(cx.enc);
+    return 0;
+  }
   const corpus::Arm arms[] = {corpus::kFfiDrop, corpus::kFfiRetain, corpus::kNativeDrop,
                               corpus::kNativeRetain};
   std::string out = "{";
@@ -142,6 +157,5 @@ int main(int argc, char **argv) {
   out += "}";
   std::printf("%s\n", out.c_str());
   ak_enc_ctx_free(cx.enc);
-  ak_dec_ctx_free(cx.dec);
   return 0;
 }

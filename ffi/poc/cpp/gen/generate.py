@@ -194,6 +194,14 @@ def emit_dispatch(full, abi, refused):
     o.append("  return Outcome::unknown_root();")
     o.append("}")
     o.append("")
+    o.append("std::string run_unk(const std::string &root, const uint8_t *b, size_t n, Cx &cx, bool plant) {")
+    for name in abi.roots:
+        o.append('  if (root == "%s") return unk_controls<%s>(b, n, cx, ffi::encode_into_%s_unk, plant);'
+                 % (name, name, sn(name)))
+    o.append("  (void)b; (void)n; (void)cx; (void)plant;")
+    o.append('  return "";')
+    o.append("}")
+    o.append("")
     o.append("}  // namespace corpus")
     o.append("")
     return "\n".join(o)
@@ -230,8 +238,9 @@ def targets():
         # Requirement 9: decode followed by reading every field, facade and protobuf.
         "src/generated/touch.h": cpp_touch.emit_header(p),
         "src/generated/touch.cpp": cpp_touch.emit(p),
-        "src/generated/binding.h": cpp_binding.emit_header(p),
-        "src/generated/binding.cpp": cpp_binding.emit(p),
+        # design/CAMPAIGN.md requirement 10: core-ffi in RETAIN mode (encode_into_*_unk).
+        "src/generated/binding.h": cpp_binding.emit_header(p, retain=True),
+        "src/generated/binding.cpp": cpp_binding.emit(p, retain=True),
         # The BORROWED facade and its binding: the same backends with `ak::StringView` in
         # place of `std::string`. A measurement arm for `bench`, never the shipping facade.
         **_borrow(p),

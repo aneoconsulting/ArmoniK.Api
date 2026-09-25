@@ -3,7 +3,9 @@
 // Arm `core-ffi`: the generated C++ host binding over the C ABI.
 #include "generated/binding.h"
 
+#include <cstdlib>
 #include <cstring>
+#include <unordered_set>
 
 namespace shapes {
 namespace ffi {
@@ -120,6 +122,92 @@ static inline void b_of(const uint8_t *base, const struct ak_span &s, ak::String
   *out = ak::StringView((const char *)(base + s.off), s.len);
 }
 
+// ---- ABI v1 decision 11, the host side of the unknown-field buffers ------------------
+//
+// The core copies each message occurrence's unknown runs into a buffer slot of its group
+// (plan: UNKNOWN FIELDS ON DECODE). Every buffer this binding hands the core is malloc'd:
+// from `unk_grow` (realloc semantics, NULL/0 = fresh) or pre-allocated and registered with
+// `unk_track`. A buffer passes to the host when its group is delivered; `unk_take` appends
+// it to the facade bag and frees it, `unk_drop` frees one the facade has no bag for (a map
+// entry, an inactive oneof member). What was placed but never delivered (a failed decode)
+// and what a pool still holds after the decode are freed by `unk_reclaim`.
+static std::unordered_set<void *> &unk_live() {
+  static thread_local std::unordered_set<void *> live;
+  return live;
+}
+static thread_local size_t t_unk_entry_bytes = 0;
+
+int32_t unk_grow(void *host, int32_t want, uint8_t **dst, int32_t *cap) {
+  (void)host;
+  if (want <= 0) return AK_ERR_LIMIT;
+  void *old = *dst;
+  void *p = old ? std::realloc(old, (size_t)want) : std::malloc((size_t)want);
+  if (p == NULL) return AK_ERR_LIMIT;
+  std::unordered_set<void *> &l = unk_live();
+  if (old != NULL) l.erase(old);
+  l.insert(p);
+  *dst = (uint8_t *)p;
+  *cap = want;
+  return AK_OK;
+}
+
+void unk_track(void *p) {
+  if (p != NULL) unk_live().insert(p);
+}
+
+size_t unk_reclaim() {
+  std::unordered_set<void *> &l = unk_live();
+  size_t n = l.size();
+  for (std::unordered_set<void *>::iterator it = l.begin(); it != l.end(); ++it) std::free(*it);
+  l.clear();
+  return n;
+}
+
+size_t unk_entry_bytes() {
+  size_t r = t_unk_entry_bytes;
+  t_unk_entry_bytes = 0;
+  return r;
+}
+
+static inline void unk_free_buf(void *p) {
+  std::unordered_set<void *> &l = unk_live();
+  if (!l.empty()) l.erase(p);
+  std::free(p);
+}
+
+// Delivery: the slot's runs, in wire order, into the facade's bag.
+static inline void unk_take(const struct ak_unk_buf &b, std::string *bag) {
+  if (b.data == NULL) return;
+  bag->append((const char *)b.data, b.len);
+  unk_free_buf(b.data);
+}
+
+// Delivery where the facade keeps nothing (an inactive oneof member, an absent child).
+static inline void unk_drop(const struct ak_unk_buf &b) {
+  if (b.data != NULL) unk_free_buf(b.data);
+}
+
+// A map entry: the facade's map has no bag (the U-map-entry gap), so the bytes are counted
+// (the evidence that the core captured them) and freed.
+static inline void unk_drop_entry(const struct ak_unk_buf &b) {
+  if (b.data == NULL) return;
+  t_unk_entry_bytes += b.len;
+  unk_free_buf(b.data);
+}
+
+// A pre-allocated buffer written into an EMPTY entry of the host's options (rule 1: the
+// host refills in place, with no call); tracked, so an unconsumed one is reclaimed.
+static inline void unk_fill_buf(struct ak_unk_buf *e, uint32_t cap, uint64_t *count) {
+  if (e->data != NULL || cap == 0) return;
+  void *p = std::malloc(cap);
+  if (p == NULL) return;
+  unk_track(p);
+  e->data = p;
+  e->len = 0;
+  e->cap = cap;
+  ++*count;
+}
+
 // The host's own memcpy transcoder: the same bytes, written from the HOST side, so every
 // string costs one reverse crossing instead of none. It is the drafted ABI's string form
 // priced without building a second core.
@@ -188,6 +276,8 @@ int32_t ak_init_once() {
 #define AK_INIT_OR_RETURN() \
   do { int32_t irc_ = ak_init_once(); if (irc_ != AK_OK) return irc_; } while (0)
 
+#define AK_REFILL() do { if (s->refill) s->refill(s->hold); } while (0)
+
 static inline void fill_timestamp_sparse(struct ak_efix_Timestamp *d, const Timestamp &o, const Tcs &t);
 static inline void fill_duration_sparse(struct ak_efix_Duration *d, const Duration &o, const Tcs &t);
 static inline void fill_result_raw_sparse(struct ak_efix_ResultRaw *d, const ResultRaw &o, const Tcs &t);
@@ -207,6 +297,25 @@ static inline void fill_list_probe_response_sparse(struct ak_efix_ListProbeRespo
 static inline void fill_list_metrics_response_sparse(struct ak_efix_ListMetricsResponse *d, const ListMetricsResponse &o, const Tcs &t);
 static inline void fill_upload_result_data_message_sparse(struct ak_efix_UploadResultDataMessage *d, const UploadResultDataMessage &o, const Tcs &t);
 static inline void fill_dual_response_sparse(struct ak_efix_DualResponse *d, const DualResponse &o, const Tcs &t);
+static inline struct ak_ufix_Timestamp make_timestamp_unk(const Timestamp &o, const Tcs &t);
+static inline struct ak_ufix_Duration make_duration_unk(const Duration &o, const Tcs &t);
+static inline struct ak_ufix_ResultRaw make_result_raw_unk(const ResultRaw &o, const Tcs &t);
+static inline struct ak_ufix_TaskOptions make_task_options_unk(const TaskOptions &o, const Tcs &t);
+static inline struct ak_ufix_TaskOutput make_task_output_unk(const TaskOutput &o, const Tcs &t);
+static inline struct ak_ufix_TaskDetailed make_task_detailed_unk(const TaskDetailed &o, const Tcs &t);
+static inline struct ak_ufix_TaskSummary make_task_summary_unk(const TaskSummary &o, const Tcs &t);
+static inline struct ak_ufix_Empty make_empty_unk(const Empty &o, const Tcs &t);
+static inline struct ak_ufix_Probe make_probe_unk(const Probe &o, const Tcs &t);
+static inline struct ak_ufix_UploadResultData make_upload_result_data_unk(const UploadResultData &o, const Tcs &t);
+static inline struct ak_ufix_MetricsBatch make_metrics_batch_unk(const MetricsBatch &o, const Tcs &t);
+static inline struct ak_ufix_Pair make_pair_unk(const Pair &o, const Tcs &t);
+static inline struct ak_ufix_ListResultsResponse make_list_results_response_unk(const ListResultsResponse &o, const Tcs &t);
+static inline struct ak_ufix_ListTasksDetailedResponse make_list_tasks_detailed_response_unk(const ListTasksDetailedResponse &o, const Tcs &t);
+static inline struct ak_ufix_ListTaskSummaryResponse make_list_task_summary_response_unk(const ListTaskSummaryResponse &o, const Tcs &t);
+static inline struct ak_ufix_ListProbeResponse make_list_probe_response_unk(const ListProbeResponse &o, const Tcs &t);
+static inline struct ak_ufix_ListMetricsResponse make_list_metrics_response_unk(const ListMetricsResponse &o, const Tcs &t);
+static inline struct ak_ufix_UploadResultDataMessage make_upload_result_data_message_unk(const UploadResultDataMessage &o, const Tcs &t);
+static inline struct ak_ufix_DualResponse make_dual_response_unk(const DualResponse &o, const Tcs &t);
 static inline Timestamp from_timestamp(const struct ak_dfix_Timestamp &f, const uint8_t *base, ak_dec_ctx *ctx);
 static inline Duration from_duration(const struct ak_dfix_Duration &f, const uint8_t *base, ak_dec_ctx *ctx);
 static inline ResultRaw from_result_raw(const struct ak_dfix_ResultRaw &f, const uint8_t *base, ak_dec_ctx *ctx);
@@ -239,6 +348,19 @@ struct ak_efix_Timestamp make_timestamp(const Timestamp &o, const Tcs &t) {
   return g;
 }
 
+// The same total fill over the u-group: decision 11's bag, the object's
+// captured unknown runs, which the core writes after the known fields.
+static inline struct ak_ufix_Timestamp make_timestamp_unk(const Timestamp &o, const Tcs &t) {
+  (void)o; (void)t;
+  struct ak_ufix_Timestamp g;
+  g.seconds = o.seconds;
+  g.nanos = o.nanos;
+  g.unknown.data = o.unknown_fields.empty() ? NULL : o.unknown_fields.data();
+  g.unknown.len = o.unknown_fields.size();
+  g.presence = 0;
+  return g;
+}
+
 // Decision 9's candidate: the host bulk-clears the chunk once and assigns
 // only what differs from the default.
 static inline void fill_timestamp_sparse(struct ak_efix_Timestamp *d, const Timestamp &o, const Tcs &t) {
@@ -255,6 +377,19 @@ struct ak_efix_Duration make_duration(const Duration &o, const Tcs &t) {
   struct ak_efix_Duration g;
   g.seconds = o.seconds;
   g.nanos = o.nanos;
+  g.presence = 0;
+  return g;
+}
+
+// The same total fill over the u-group: decision 11's bag, the object's
+// captured unknown runs, which the core writes after the known fields.
+static inline struct ak_ufix_Duration make_duration_unk(const Duration &o, const Tcs &t) {
+  (void)o; (void)t;
+  struct ak_ufix_Duration g;
+  g.seconds = o.seconds;
+  g.nanos = o.nanos;
+  g.unknown.data = o.unknown_fields.empty() ? NULL : o.unknown_fields.data();
+  g.unknown.len = o.unknown_fields.size();
   g.presence = 0;
   return g;
 }
@@ -284,6 +419,28 @@ struct ak_efix_ResultRaw make_result_raw(const ResultRaw &o, const Tcs &t) {
   g.created_by = ak_str_of(o.created_by, t.utf8);
   g.opaque_id = ak_str_of(o.opaque_id, t.bytes);
   g.manual_deletion = (uint8_t)(o.manual_deletion ? 1 : 0);
+  g.presence = ((o.created_at.has_value() ? 1u : 0u) << 0) | ((o.completed_at.has_value() ? 1u : 0u) << 1);
+  return g;
+}
+
+// The same total fill over the u-group: decision 11's bag, the object's
+// captured unknown runs, which the core writes after the known fields.
+static inline struct ak_ufix_ResultRaw make_result_raw_unk(const ResultRaw &o, const Tcs &t) {
+  (void)o; (void)t;
+  struct ak_ufix_ResultRaw g;
+  g.session_id = ak_str_of(o.session_id, t.utf8);
+  g.name = ak_str_of(o.name, t.utf8);
+  g.owner_task_id = ak_str_of(o.owner_task_id, t.utf8);
+  g.status = o.status.v;
+  g.created_at = o.created_at.has_value() ? make_timestamp_unk(*o.created_at, t) : ak_ufix_Timestamp();
+  g.completed_at = o.completed_at.has_value() ? make_timestamp_unk(*o.completed_at, t) : ak_ufix_Timestamp();
+  g.result_id = ak_str_of(o.result_id, t.utf8);
+  g.size = o.size;
+  g.created_by = ak_str_of(o.created_by, t.utf8);
+  g.opaque_id = ak_str_of(o.opaque_id, t.bytes);
+  g.manual_deletion = (uint8_t)(o.manual_deletion ? 1 : 0);
+  g.unknown.data = o.unknown_fields.empty() ? NULL : o.unknown_fields.data();
+  g.unknown.len = o.unknown_fields.size();
   g.presence = ((o.created_at.has_value() ? 1u : 0u) << 0) | ((o.completed_at.has_value() ? 1u : 0u) << 1);
   return g;
 }
@@ -324,6 +481,26 @@ struct ak_efix_TaskOptions make_task_options(const TaskOptions &o, const Tcs &t)
   return g;
 }
 
+// The same total fill over the u-group: decision 11's bag, the object's
+// captured unknown runs, which the core writes after the known fields.
+static inline struct ak_ufix_TaskOptions make_task_options_unk(const TaskOptions &o, const Tcs &t) {
+  (void)o; (void)t;
+  struct ak_ufix_TaskOptions g;
+  g.max_duration = o.max_duration.has_value() ? make_duration_unk(*o.max_duration, t) : ak_ufix_Duration();
+  g.max_retries = o.max_retries;
+  g.priority = o.priority;
+  g.partition_id = ak_str_of(o.partition_id, t.utf8);
+  g.application_name = ak_str_of(o.application_name, t.utf8);
+  g.application_version = ak_str_of(o.application_version, t.utf8);
+  g.application_namespace = ak_str_of(o.application_namespace, t.utf8);
+  g.application_service = ak_str_of(o.application_service, t.utf8);
+  g.engine_type = ak_str_of(o.engine_type, t.utf8);
+  g.unknown.data = o.unknown_fields.empty() ? NULL : o.unknown_fields.data();
+  g.unknown.len = o.unknown_fields.size();
+  g.presence = ((o.max_duration.has_value() ? 1u : 0u) << 0);
+  return g;
+}
+
 // Decision 9's candidate: the host bulk-clears the chunk once and assigns
 // only what differs from the default.
 static inline void fill_task_options_sparse(struct ak_efix_TaskOptions *d, const TaskOptions &o, const Tcs &t) {
@@ -347,6 +524,19 @@ struct ak_efix_TaskOutput make_task_output(const TaskOutput &o, const Tcs &t) {
   struct ak_efix_TaskOutput g;
   g.success = (uint8_t)(o.success ? 1 : 0);
   g.error = ak_str_of(o.error, t.utf8);
+  g.presence = 0;
+  return g;
+}
+
+// The same total fill over the u-group: decision 11's bag, the object's
+// captured unknown runs, which the core writes after the known fields.
+static inline struct ak_ufix_TaskOutput make_task_output_unk(const TaskOutput &o, const Tcs &t) {
+  (void)o; (void)t;
+  struct ak_ufix_TaskOutput g;
+  g.success = (uint8_t)(o.success ? 1 : 0);
+  g.error = ak_str_of(o.error, t.utf8);
+  g.unknown.data = o.unknown_fields.empty() ? NULL : o.unknown_fields.data();
+  g.unknown.len = o.unknown_fields.size();
   g.presence = 0;
   return g;
 }
@@ -388,6 +578,40 @@ struct ak_efix_TaskDetailed make_task_detailed(const TaskDetailed &o, const Tcs 
   g.fetched_at = o.fetched_at.has_value() ? make_timestamp(*o.fetched_at, t) : ak_efix_Timestamp();
   g.payload_id = ak_str_of(o.payload_id, t.utf8);
   g.created_by = ak_str_of(o.created_by, t.utf8);
+  g.presence = ((o.options.has_value() ? 1u : 0u) << 0) | ((o.created_at.has_value() ? 1u : 0u) << 1) | ((o.submitted_at.has_value() ? 1u : 0u) << 2) | ((o.started_at.has_value() ? 1u : 0u) << 3) | ((o.ended_at.has_value() ? 1u : 0u) << 4) | ((o.pod_ttl.has_value() ? 1u : 0u) << 5) | ((o.output.has_value() ? 1u : 0u) << 6) | ((o.received_at.has_value() ? 1u : 0u) << 7) | ((o.acquired_at.has_value() ? 1u : 0u) << 8) | ((o.creation_to_end_duration.has_value() ? 1u : 0u) << 9) | ((o.processing_to_end_duration.has_value() ? 1u : 0u) << 10) | ((o.received_to_end_duration.has_value() ? 1u : 0u) << 11) | ((o.processed_at.has_value() ? 1u : 0u) << 12) | ((o.fetched_at.has_value() ? 1u : 0u) << 13);
+  return g;
+}
+
+// The same total fill over the u-group: decision 11's bag, the object's
+// captured unknown runs, which the core writes after the known fields.
+static inline struct ak_ufix_TaskDetailed make_task_detailed_unk(const TaskDetailed &o, const Tcs &t) {
+  (void)o; (void)t;
+  struct ak_ufix_TaskDetailed g;
+  g.id = ak_str_of(o.id, t.utf8);
+  g.session_id = ak_str_of(o.session_id, t.utf8);
+  g.owner_pod_id = ak_str_of(o.owner_pod_id, t.utf8);
+  g.status = o.status.v;
+  g.status_message = ak_str_of(o.status_message, t.utf8);
+  g.options = o.options.has_value() ? make_task_options_unk(*o.options, t) : ak_ufix_TaskOptions();
+  g.created_at = o.created_at.has_value() ? make_timestamp_unk(*o.created_at, t) : ak_ufix_Timestamp();
+  g.submitted_at = o.submitted_at.has_value() ? make_timestamp_unk(*o.submitted_at, t) : ak_ufix_Timestamp();
+  g.started_at = o.started_at.has_value() ? make_timestamp_unk(*o.started_at, t) : ak_ufix_Timestamp();
+  g.ended_at = o.ended_at.has_value() ? make_timestamp_unk(*o.ended_at, t) : ak_ufix_Timestamp();
+  g.pod_ttl = o.pod_ttl.has_value() ? make_timestamp_unk(*o.pod_ttl, t) : ak_ufix_Timestamp();
+  g.output = o.output.has_value() ? make_task_output_unk(*o.output, t) : ak_ufix_TaskOutput();
+  g.pod_hostname = ak_str_of(o.pod_hostname, t.utf8);
+  g.received_at = o.received_at.has_value() ? make_timestamp_unk(*o.received_at, t) : ak_ufix_Timestamp();
+  g.acquired_at = o.acquired_at.has_value() ? make_timestamp_unk(*o.acquired_at, t) : ak_ufix_Timestamp();
+  g.creation_to_end_duration = o.creation_to_end_duration.has_value() ? make_duration_unk(*o.creation_to_end_duration, t) : ak_ufix_Duration();
+  g.processing_to_end_duration = o.processing_to_end_duration.has_value() ? make_duration_unk(*o.processing_to_end_duration, t) : ak_ufix_Duration();
+  g.initial_task_id = ak_str_of(o.initial_task_id, t.utf8);
+  g.received_to_end_duration = o.received_to_end_duration.has_value() ? make_duration_unk(*o.received_to_end_duration, t) : ak_ufix_Duration();
+  g.processed_at = o.processed_at.has_value() ? make_timestamp_unk(*o.processed_at, t) : ak_ufix_Timestamp();
+  g.fetched_at = o.fetched_at.has_value() ? make_timestamp_unk(*o.fetched_at, t) : ak_ufix_Timestamp();
+  g.payload_id = ak_str_of(o.payload_id, t.utf8);
+  g.created_by = ak_str_of(o.created_by, t.utf8);
+  g.unknown.data = o.unknown_fields.empty() ? NULL : o.unknown_fields.data();
+  g.unknown.len = o.unknown_fields.size();
   g.presence = ((o.options.has_value() ? 1u : 0u) << 0) | ((o.created_at.has_value() ? 1u : 0u) << 1) | ((o.submitted_at.has_value() ? 1u : 0u) << 2) | ((o.started_at.has_value() ? 1u : 0u) << 3) | ((o.ended_at.has_value() ? 1u : 0u) << 4) | ((o.pod_ttl.has_value() ? 1u : 0u) << 5) | ((o.output.has_value() ? 1u : 0u) << 6) | ((o.received_at.has_value() ? 1u : 0u) << 7) | ((o.acquired_at.has_value() ? 1u : 0u) << 8) | ((o.creation_to_end_duration.has_value() ? 1u : 0u) << 9) | ((o.processing_to_end_duration.has_value() ? 1u : 0u) << 10) | ((o.received_to_end_duration.has_value() ? 1u : 0u) << 11) | ((o.processed_at.has_value() ? 1u : 0u) << 12) | ((o.fetched_at.has_value() ? 1u : 0u) << 13);
   return g;
 }
@@ -439,6 +663,25 @@ struct ak_efix_TaskSummary make_task_summary(const TaskSummary &o, const Tcs &t)
   return g;
 }
 
+// The same total fill over the u-group: decision 11's bag, the object's
+// captured unknown runs, which the core writes after the known fields.
+static inline struct ak_ufix_TaskSummary make_task_summary_unk(const TaskSummary &o, const Tcs &t) {
+  (void)o; (void)t;
+  struct ak_ufix_TaskSummary g;
+  g.id = ak_str_of(o.id, t.utf8);
+  g.session_id = ak_str_of(o.session_id, t.utf8);
+  g.options = o.options.has_value() ? make_task_options_unk(*o.options, t) : ak_ufix_TaskOptions();
+  g.status = o.status.v;
+  g.created_at = o.created_at.has_value() ? make_timestamp_unk(*o.created_at, t) : ak_ufix_Timestamp();
+  g.error = ak_str_of(o.error, t.utf8);
+  g.status_message = ak_str_of(o.status_message, t.utf8);
+  g.count_data_dependencies = o.count_data_dependencies;
+  g.unknown.data = o.unknown_fields.empty() ? NULL : o.unknown_fields.data();
+  g.unknown.len = o.unknown_fields.size();
+  g.presence = ((o.options.has_value() ? 1u : 0u) << 0) | ((o.created_at.has_value() ? 1u : 0u) << 1);
+  return g;
+}
+
 // Decision 9's candidate: the host bulk-clears the chunk once and assigns
 // only what differs from the default.
 static inline void fill_task_summary_sparse(struct ak_efix_TaskSummary *d, const TaskSummary &o, const Tcs &t) {
@@ -459,6 +702,17 @@ static inline void fill_task_summary_sparse(struct ak_efix_TaskSummary *d, const
 struct ak_efix_Empty make_empty(const Empty &o, const Tcs &t) {
   (void)o; (void)t;
   struct ak_efix_Empty g;
+  g.presence = 0;
+  return g;
+}
+
+// The same total fill over the u-group: decision 11's bag, the object's
+// captured unknown runs, which the core writes after the known fields.
+static inline struct ak_ufix_Empty make_empty_unk(const Empty &o, const Tcs &t) {
+  (void)o; (void)t;
+  struct ak_ufix_Empty g;
+  g.unknown.data = o.unknown_fields.empty() ? NULL : o.unknown_fields.data();
+  g.unknown.len = o.unknown_fields.size();
   g.presence = 0;
   return g;
 }
@@ -485,6 +739,27 @@ struct ak_efix_Probe make_probe(const Probe &o, const Tcs &t) {
   g.body_as_blob = o.body.which() == shapes::ProbeBody::kAsBlob ? ak_str_of(o.body.as_blob(), t.bytes) : ak_str_absent();
   g.body_as_stamp = o.body.which() == shapes::ProbeBody::kAsStamp ? make_timestamp(o.body.as_stamp(), t) : ak_efix_Timestamp();
   g.body_as_nothing = o.body.which() == shapes::ProbeBody::kAsNothing ? make_empty(o.body.as_nothing(), t) : ak_efix_Empty();
+  g.presence = ((o.opt_count.has_value() ? 1u : 0u) << 0) | ((o.opt_label.has_value() ? 1u : 0u) << 1) | ((o.opt_flag.has_value() ? 1u : 0u) << 2);
+  return g;
+}
+
+// The same total fill over the u-group: decision 11's bag, the object's
+// captured unknown runs, which the core writes after the known fields.
+static inline struct ak_ufix_Probe make_probe_unk(const Probe &o, const Tcs &t) {
+  (void)o; (void)t;
+  struct ak_ufix_Probe g;
+  g.id = ak_str_of(o.id, t.utf8);
+  g.opt_count = o.opt_count.has_value() ? *o.opt_count : 0;
+  g.opt_label = o.opt_label.has_value() ? ak_str_of(*o.opt_label, t.utf8) : ak_str_absent();
+  g.opt_flag = (uint8_t)(o.opt_flag.has_value() && *o.opt_flag);
+  g.body_case = (uint32_t)o.body.which();
+  g.body_as_int = o.body.which() == shapes::ProbeBody::kAsInt ? o.body.as_int() : 0;
+  g.body_as_text = o.body.which() == shapes::ProbeBody::kAsText ? ak_str_of(o.body.as_text(), t.utf8) : ak_str_absent();
+  g.body_as_blob = o.body.which() == shapes::ProbeBody::kAsBlob ? ak_str_of(o.body.as_blob(), t.bytes) : ak_str_absent();
+  g.body_as_stamp = o.body.which() == shapes::ProbeBody::kAsStamp ? make_timestamp_unk(o.body.as_stamp(), t) : ak_ufix_Timestamp();
+  g.body_as_nothing = o.body.which() == shapes::ProbeBody::kAsNothing ? make_empty_unk(o.body.as_nothing(), t) : ak_ufix_Empty();
+  g.unknown.data = o.unknown_fields.empty() ? NULL : o.unknown_fields.data();
+  g.unknown.len = o.unknown_fields.size();
   g.presence = ((o.opt_count.has_value() ? 1u : 0u) << 0) | ((o.opt_label.has_value() ? 1u : 0u) << 1) | ((o.opt_flag.has_value() ? 1u : 0u) << 2);
   return g;
 }
@@ -528,6 +803,20 @@ struct ak_efix_UploadResultData make_upload_result_data(const UploadResultData &
   return g;
 }
 
+// The same total fill over the u-group: decision 11's bag, the object's
+// captured unknown runs, which the core writes after the known fields.
+static inline struct ak_ufix_UploadResultData make_upload_result_data_unk(const UploadResultData &o, const Tcs &t) {
+  (void)o; (void)t;
+  struct ak_ufix_UploadResultData g;
+  g.session_id = ak_str_of(o.session_id, t.utf8);
+  g.result_id = ak_str_of(o.result_id, t.utf8);
+  g.data_chunk = ak_str_direct(o.data_chunk.size());
+  g.unknown.data = o.unknown_fields.empty() ? NULL : o.unknown_fields.data();
+  g.unknown.len = o.unknown_fields.size();
+  g.presence = 0;
+  return g;
+}
+
 // Decision 9's candidate: the host bulk-clears the chunk once and assigns
 // only what differs from the default.
 static inline void fill_upload_result_data_sparse(struct ak_efix_UploadResultData *d, const UploadResultData &o, const Tcs &t) {
@@ -548,6 +837,18 @@ struct ak_efix_MetricsBatch make_metrics_batch(const MetricsBatch &o, const Tcs 
   return g;
 }
 
+// The same total fill over the u-group: decision 11's bag, the object's
+// captured unknown runs, which the core writes after the known fields.
+static inline struct ak_ufix_MetricsBatch make_metrics_batch_unk(const MetricsBatch &o, const Tcs &t) {
+  (void)o; (void)t;
+  struct ak_ufix_MetricsBatch g;
+  g.id = ak_str_of(o.id, t.utf8);
+  g.unknown.data = o.unknown_fields.empty() ? NULL : o.unknown_fields.data();
+  g.unknown.len = o.unknown_fields.size();
+  g.presence = 0;
+  return g;
+}
+
 // Decision 9's candidate: the host bulk-clears the chunk once and assigns
 // only what differs from the default.
 static inline void fill_metrics_batch_sparse(struct ak_efix_MetricsBatch *d, const MetricsBatch &o, const Tcs &t) {
@@ -563,6 +864,19 @@ struct ak_efix_Pair make_pair(const Pair &o, const Tcs &t) {
   struct ak_efix_Pair g;
   g.key = ak_str_of(o.key, t.utf8);
   g.value = o.value;
+  g.presence = 0;
+  return g;
+}
+
+// The same total fill over the u-group: decision 11's bag, the object's
+// captured unknown runs, which the core writes after the known fields.
+static inline struct ak_ufix_Pair make_pair_unk(const Pair &o, const Tcs &t) {
+  (void)o; (void)t;
+  struct ak_ufix_Pair g;
+  g.key = ak_str_of(o.key, t.utf8);
+  g.value = o.value;
+  g.unknown.data = o.unknown_fields.empty() ? NULL : o.unknown_fields.data();
+  g.unknown.len = o.unknown_fields.size();
   g.presence = 0;
   return g;
 }
@@ -587,6 +901,19 @@ struct ak_efix_ListResultsResponse make_list_results_response(const ListResultsR
   return g;
 }
 
+// The same total fill over the u-group: decision 11's bag, the object's
+// captured unknown runs, which the core writes after the known fields.
+static inline struct ak_ufix_ListResultsResponse make_list_results_response_unk(const ListResultsResponse &o, const Tcs &t) {
+  (void)o; (void)t;
+  struct ak_ufix_ListResultsResponse g;
+  g.page = o.page;
+  g.total = o.total;
+  g.unknown.data = o.unknown_fields.empty() ? NULL : o.unknown_fields.data();
+  g.unknown.len = o.unknown_fields.size();
+  g.presence = 0;
+  return g;
+}
+
 // Decision 9's candidate: the host bulk-clears the chunk once and assigns
 // only what differs from the default.
 static inline void fill_list_results_response_sparse(struct ak_efix_ListResultsResponse *d, const ListResultsResponse &o, const Tcs &t) {
@@ -603,6 +930,19 @@ struct ak_efix_ListTasksDetailedResponse make_list_tasks_detailed_response(const
   struct ak_efix_ListTasksDetailedResponse g;
   g.page = o.page;
   g.total = o.total;
+  g.presence = 0;
+  return g;
+}
+
+// The same total fill over the u-group: decision 11's bag, the object's
+// captured unknown runs, which the core writes after the known fields.
+static inline struct ak_ufix_ListTasksDetailedResponse make_list_tasks_detailed_response_unk(const ListTasksDetailedResponse &o, const Tcs &t) {
+  (void)o; (void)t;
+  struct ak_ufix_ListTasksDetailedResponse g;
+  g.page = o.page;
+  g.total = o.total;
+  g.unknown.data = o.unknown_fields.empty() ? NULL : o.unknown_fields.data();
+  g.unknown.len = o.unknown_fields.size();
   g.presence = 0;
   return g;
 }
@@ -625,6 +965,17 @@ struct ak_efix_ListTaskSummaryResponse make_list_task_summary_response(const Lis
   return g;
 }
 
+// The same total fill over the u-group: decision 11's bag, the object's
+// captured unknown runs, which the core writes after the known fields.
+static inline struct ak_ufix_ListTaskSummaryResponse make_list_task_summary_response_unk(const ListTaskSummaryResponse &o, const Tcs &t) {
+  (void)o; (void)t;
+  struct ak_ufix_ListTaskSummaryResponse g;
+  g.unknown.data = o.unknown_fields.empty() ? NULL : o.unknown_fields.data();
+  g.unknown.len = o.unknown_fields.size();
+  g.presence = 0;
+  return g;
+}
+
 // Decision 9's candidate: the host bulk-clears the chunk once and assigns
 // only what differs from the default.
 static inline void fill_list_task_summary_response_sparse(struct ak_efix_ListTaskSummaryResponse *d, const ListTaskSummaryResponse &o, const Tcs &t) {
@@ -641,6 +992,17 @@ struct ak_efix_ListProbeResponse make_list_probe_response(const ListProbeRespons
   return g;
 }
 
+// The same total fill over the u-group: decision 11's bag, the object's
+// captured unknown runs, which the core writes after the known fields.
+static inline struct ak_ufix_ListProbeResponse make_list_probe_response_unk(const ListProbeResponse &o, const Tcs &t) {
+  (void)o; (void)t;
+  struct ak_ufix_ListProbeResponse g;
+  g.unknown.data = o.unknown_fields.empty() ? NULL : o.unknown_fields.data();
+  g.unknown.len = o.unknown_fields.size();
+  g.presence = 0;
+  return g;
+}
+
 // Decision 9's candidate: the host bulk-clears the chunk once and assigns
 // only what differs from the default.
 static inline void fill_list_probe_response_sparse(struct ak_efix_ListProbeResponse *d, const ListProbeResponse &o, const Tcs &t) {
@@ -653,6 +1015,17 @@ static inline void fill_list_probe_response_sparse(struct ak_efix_ListProbeRespo
 struct ak_efix_ListMetricsResponse make_list_metrics_response(const ListMetricsResponse &o, const Tcs &t) {
   (void)o; (void)t;
   struct ak_efix_ListMetricsResponse g;
+  g.presence = 0;
+  return g;
+}
+
+// The same total fill over the u-group: decision 11's bag, the object's
+// captured unknown runs, which the core writes after the known fields.
+static inline struct ak_ufix_ListMetricsResponse make_list_metrics_response_unk(const ListMetricsResponse &o, const Tcs &t) {
+  (void)o; (void)t;
+  struct ak_ufix_ListMetricsResponse g;
+  g.unknown.data = o.unknown_fields.empty() ? NULL : o.unknown_fields.data();
+  g.unknown.len = o.unknown_fields.size();
   g.presence = 0;
   return g;
 }
@@ -674,6 +1047,18 @@ struct ak_efix_UploadResultDataMessage make_upload_result_data_message(const Upl
   return g;
 }
 
+// The same total fill over the u-group: decision 11's bag, the object's
+// captured unknown runs, which the core writes after the known fields.
+static inline struct ak_ufix_UploadResultDataMessage make_upload_result_data_message_unk(const UploadResultDataMessage &o, const Tcs &t) {
+  (void)o; (void)t;
+  struct ak_ufix_UploadResultDataMessage g;
+  g.upload = o.upload.has_value() ? make_upload_result_data_unk(*o.upload, t) : ak_ufix_UploadResultData();
+  g.unknown.data = o.unknown_fields.empty() ? NULL : o.unknown_fields.data();
+  g.unknown.len = o.unknown_fields.size();
+  g.presence = ((o.upload.has_value() ? 1u : 0u) << 0);
+  return g;
+}
+
 // Decision 9's candidate: the host bulk-clears the chunk once and assigns
 // only what differs from the default.
 static inline void fill_upload_result_data_message_sparse(struct ak_efix_UploadResultDataMessage *d, const UploadResultDataMessage &o, const Tcs &t) {
@@ -691,6 +1076,17 @@ struct ak_efix_DualResponse make_dual_response(const DualResponse &o, const Tcs 
   return g;
 }
 
+// The same total fill over the u-group: decision 11's bag, the object's
+// captured unknown runs, which the core writes after the known fields.
+static inline struct ak_ufix_DualResponse make_dual_response_unk(const DualResponse &o, const Tcs &t) {
+  (void)o; (void)t;
+  struct ak_ufix_DualResponse g;
+  g.unknown.data = o.unknown_fields.empty() ? NULL : o.unknown_fields.data();
+  g.unknown.len = o.unknown_fields.size();
+  g.presence = 0;
+  return g;
+}
+
 // Decision 9's candidate: the host bulk-clears the chunk once and assigns
 // only what differs from the default.
 static inline void fill_dual_response_sparse(struct ak_efix_DualResponse *d, const DualResponse &o, const Tcs &t) {
@@ -702,6 +1098,7 @@ static inline Timestamp from_timestamp(const struct ak_dfix_Timestamp &f, const 
   Timestamp r;
   r.seconds = f.seconds;
   r.nanos = f.nanos;
+  unk_take(f.unknown, &r.unknown_fields);
   return r;
 }
 
@@ -710,6 +1107,7 @@ static inline Duration from_duration(const struct ak_dfix_Duration &f, const uin
   Duration r;
   r.seconds = f.seconds;
   r.nanos = f.nanos;
+  unk_take(f.unknown, &r.unknown_fields);
   return r;
 }
 
@@ -721,14 +1119,15 @@ static inline ResultRaw from_result_raw(const struct ak_dfix_ResultRaw &f, const
   s_of(base, f.owner_task_id, ctx, &r.owner_task_id);
   r.status = shapes::ResultStatus(f.status);
   if (f.presence & (1u << 0)) r.created_at.set(from_timestamp(f.created_at, base, ctx));
-  else r.created_at.reset();
+  else { r.created_at.reset(); unk_drop(f.created_at.unknown); }
   if (f.presence & (1u << 1)) r.completed_at.set(from_timestamp(f.completed_at, base, ctx));
-  else r.completed_at.reset();
+  else { r.completed_at.reset(); unk_drop(f.completed_at.unknown); }
   s_of(base, f.result_id, ctx, &r.result_id);
   r.size = f.size;
   s_of(base, f.created_by, ctx, &r.created_by);
   b_of(base, f.opaque_id, &r.opaque_id);
   r.manual_deletion = (f.manual_deletion != 0);
+  unk_take(f.unknown, &r.unknown_fields);
   return r;
 }
 
@@ -737,7 +1136,7 @@ static inline ResultRaw from_result_raw(const struct ak_dfix_ResultRaw &f, const
 static inline void fill_task_options(TaskOptions *dst, const struct ak_dfix_TaskOptions &f, const uint8_t *base, ak_dec_ctx *ctx) {
   (void)dst; (void)f; (void)base; (void)ctx;
   if (f.presence & (1u << 0)) dst->max_duration.set(from_duration(f.max_duration, base, ctx));
-  else dst->max_duration.reset();
+  else { dst->max_duration.reset(); unk_drop(f.max_duration.unknown); }
   dst->max_retries = f.max_retries;
   dst->priority = f.priority;
   s_of(base, f.partition_id, ctx, &dst->partition_id);
@@ -746,6 +1145,7 @@ static inline void fill_task_options(TaskOptions *dst, const struct ak_dfix_Task
   s_of(base, f.application_namespace, ctx, &dst->application_namespace);
   s_of(base, f.application_service, ctx, &dst->application_service);
   s_of(base, f.engine_type, ctx, &dst->engine_type);
+  unk_take(f.unknown, &dst->unknown_fields);
 }
 
 static inline TaskOutput from_task_output(const struct ak_dfix_TaskOutput &f, const uint8_t *base, ak_dec_ctx *ctx) {
@@ -753,6 +1153,7 @@ static inline TaskOutput from_task_output(const struct ak_dfix_TaskOutput &f, co
   TaskOutput r;
   r.success = (f.success != 0);
   s_of(base, f.error, ctx, &r.error);
+  unk_take(f.unknown, &r.unknown_fields);
   return r;
 }
 
@@ -766,37 +1167,38 @@ static inline void fill_task_detailed(TaskDetailed *dst, const struct ak_dfix_Ta
   dst->status = shapes::TaskStatus(f.status);
   s_of(base, f.status_message, ctx, &dst->status_message);
   if (f.presence & (1u << 0)) fill_task_options(&dst->options.get_or_insert(), f.options, base, ctx);
-  else dst->options.reset();
+  else { dst->options.reset(); unk_drop(f.options.unknown); }
   if (f.presence & (1u << 1)) dst->created_at.set(from_timestamp(f.created_at, base, ctx));
-  else dst->created_at.reset();
+  else { dst->created_at.reset(); unk_drop(f.created_at.unknown); }
   if (f.presence & (1u << 2)) dst->submitted_at.set(from_timestamp(f.submitted_at, base, ctx));
-  else dst->submitted_at.reset();
+  else { dst->submitted_at.reset(); unk_drop(f.submitted_at.unknown); }
   if (f.presence & (1u << 3)) dst->started_at.set(from_timestamp(f.started_at, base, ctx));
-  else dst->started_at.reset();
+  else { dst->started_at.reset(); unk_drop(f.started_at.unknown); }
   if (f.presence & (1u << 4)) dst->ended_at.set(from_timestamp(f.ended_at, base, ctx));
-  else dst->ended_at.reset();
+  else { dst->ended_at.reset(); unk_drop(f.ended_at.unknown); }
   if (f.presence & (1u << 5)) dst->pod_ttl.set(from_timestamp(f.pod_ttl, base, ctx));
-  else dst->pod_ttl.reset();
+  else { dst->pod_ttl.reset(); unk_drop(f.pod_ttl.unknown); }
   if (f.presence & (1u << 6)) dst->output.set(from_task_output(f.output, base, ctx));
-  else dst->output.reset();
+  else { dst->output.reset(); unk_drop(f.output.unknown); }
   s_of(base, f.pod_hostname, ctx, &dst->pod_hostname);
   if (f.presence & (1u << 7)) dst->received_at.set(from_timestamp(f.received_at, base, ctx));
-  else dst->received_at.reset();
+  else { dst->received_at.reset(); unk_drop(f.received_at.unknown); }
   if (f.presence & (1u << 8)) dst->acquired_at.set(from_timestamp(f.acquired_at, base, ctx));
-  else dst->acquired_at.reset();
+  else { dst->acquired_at.reset(); unk_drop(f.acquired_at.unknown); }
   if (f.presence & (1u << 9)) dst->creation_to_end_duration.set(from_duration(f.creation_to_end_duration, base, ctx));
-  else dst->creation_to_end_duration.reset();
+  else { dst->creation_to_end_duration.reset(); unk_drop(f.creation_to_end_duration.unknown); }
   if (f.presence & (1u << 10)) dst->processing_to_end_duration.set(from_duration(f.processing_to_end_duration, base, ctx));
-  else dst->processing_to_end_duration.reset();
+  else { dst->processing_to_end_duration.reset(); unk_drop(f.processing_to_end_duration.unknown); }
   s_of(base, f.initial_task_id, ctx, &dst->initial_task_id);
   if (f.presence & (1u << 11)) dst->received_to_end_duration.set(from_duration(f.received_to_end_duration, base, ctx));
-  else dst->received_to_end_duration.reset();
+  else { dst->received_to_end_duration.reset(); unk_drop(f.received_to_end_duration.unknown); }
   if (f.presence & (1u << 12)) dst->processed_at.set(from_timestamp(f.processed_at, base, ctx));
-  else dst->processed_at.reset();
+  else { dst->processed_at.reset(); unk_drop(f.processed_at.unknown); }
   if (f.presence & (1u << 13)) dst->fetched_at.set(from_timestamp(f.fetched_at, base, ctx));
-  else dst->fetched_at.reset();
+  else { dst->fetched_at.reset(); unk_drop(f.fetched_at.unknown); }
   s_of(base, f.payload_id, ctx, &dst->payload_id);
   s_of(base, f.created_by, ctx, &dst->created_by);
+  unk_take(f.unknown, &dst->unknown_fields);
 }
 
 // In place, never constructed: `TaskSummary` carries a repeated or map field,
@@ -806,18 +1208,20 @@ static inline void fill_task_summary(TaskSummary *dst, const struct ak_dfix_Task
   s_of(base, f.id, ctx, &dst->id);
   s_of(base, f.session_id, ctx, &dst->session_id);
   if (f.presence & (1u << 0)) fill_task_options(&dst->options.get_or_insert(), f.options, base, ctx);
-  else dst->options.reset();
+  else { dst->options.reset(); unk_drop(f.options.unknown); }
   dst->status = shapes::TaskStatus(f.status);
   if (f.presence & (1u << 1)) dst->created_at.set(from_timestamp(f.created_at, base, ctx));
-  else dst->created_at.reset();
+  else { dst->created_at.reset(); unk_drop(f.created_at.unknown); }
   s_of(base, f.error, ctx, &dst->error);
   s_of(base, f.status_message, ctx, &dst->status_message);
   dst->count_data_dependencies = f.count_data_dependencies;
+  unk_take(f.unknown, &dst->unknown_fields);
 }
 
 static inline Empty from_empty(const struct ak_dfix_Empty &f, const uint8_t *base, ak_dec_ctx *ctx) {
   (void)f; (void)base; (void)ctx;
   Empty r;
+  unk_take(f.unknown, &r.unknown_fields);
   return r;
 }
 
@@ -830,6 +1234,8 @@ static inline Probe from_probe(const struct ak_dfix_Probe &f, const uint8_t *bas
   if (f.presence & (1u << 1)) s_of(base, f.opt_label, ctx, &r.opt_label.emplace());
   if (f.presence & (1u << 2)) r.opt_flag.set((f.opt_flag != 0));
   else r.opt_flag.reset();
+  if (f.body_case != 13u) unk_drop(f.body_as_stamp.unknown);
+  if (f.body_case != 14u) unk_drop(f.body_as_nothing.unknown);
   switch (f.body_case) {
     case 10: {
       r.body.set_as_int() = f.body_as_int; break; }
@@ -843,6 +1249,7 @@ static inline Probe from_probe(const struct ak_dfix_Probe &f, const uint8_t *bas
       r.body.set_as_nothing() = from_empty(f.body_as_nothing, base, ctx); break; }
     default: r.body.clear(); break;
   }
+  unk_take(f.unknown, &r.unknown_fields);
   return r;
 }
 
@@ -852,6 +1259,7 @@ static inline UploadResultData from_upload_result_data(const struct ak_dfix_Uplo
   s_of(base, f.session_id, ctx, &r.session_id);
   s_of(base, f.result_id, ctx, &r.result_id);
   b_of(base, f.data_chunk, &r.data_chunk);
+  unk_take(f.unknown, &r.unknown_fields);
   return r;
 }
 
@@ -860,6 +1268,7 @@ static inline UploadResultData from_upload_result_data(const struct ak_dfix_Uplo
 static inline void fill_metrics_batch(MetricsBatch *dst, const struct ak_dfix_MetricsBatch &f, const uint8_t *base, ak_dec_ctx *ctx) {
   (void)dst; (void)f; (void)base; (void)ctx;
   s_of(base, f.id, ctx, &dst->id);
+  unk_take(f.unknown, &dst->unknown_fields);
 }
 
 static inline Pair from_pair(const struct ak_dfix_Pair &f, const uint8_t *base, ak_dec_ctx *ctx) {
@@ -867,6 +1276,7 @@ static inline Pair from_pair(const struct ak_dfix_Pair &f, const uint8_t *base, 
   Pair r;
   s_of(base, f.key, ctx, &r.key);
   r.value = f.value;
+  unk_take(f.unknown, &r.unknown_fields);
   return r;
 }
 
@@ -876,6 +1286,7 @@ static inline void fill_list_results_response(ListResultsResponse *dst, const st
   (void)dst; (void)f; (void)base; (void)ctx;
   dst->page = f.page;
   dst->total = f.total;
+  unk_take(f.unknown, &dst->unknown_fields);
 }
 
 // In place, never constructed: `ListTasksDetailedResponse` carries a repeated or map field,
@@ -884,31 +1295,36 @@ static inline void fill_list_tasks_detailed_response(ListTasksDetailedResponse *
   (void)dst; (void)f; (void)base; (void)ctx;
   dst->page = f.page;
   dst->total = f.total;
+  unk_take(f.unknown, &dst->unknown_fields);
 }
 
 // In place, never constructed: `ListTaskSummaryResponse` carries a repeated or map field,
 // and `apply` arrives AFTER the runs that populated it.
 static inline void fill_list_task_summary_response(ListTaskSummaryResponse *dst, const struct ak_dfix_ListTaskSummaryResponse &f, const uint8_t *base, ak_dec_ctx *ctx) {
   (void)dst; (void)f; (void)base; (void)ctx;
+  unk_take(f.unknown, &dst->unknown_fields);
 }
 
 // In place, never constructed: `ListProbeResponse` carries a repeated or map field,
 // and `apply` arrives AFTER the runs that populated it.
 static inline void fill_list_probe_response(ListProbeResponse *dst, const struct ak_dfix_ListProbeResponse &f, const uint8_t *base, ak_dec_ctx *ctx) {
   (void)dst; (void)f; (void)base; (void)ctx;
+  unk_take(f.unknown, &dst->unknown_fields);
 }
 
 // In place, never constructed: `ListMetricsResponse` carries a repeated or map field,
 // and `apply` arrives AFTER the runs that populated it.
 static inline void fill_list_metrics_response(ListMetricsResponse *dst, const struct ak_dfix_ListMetricsResponse &f, const uint8_t *base, ak_dec_ctx *ctx) {
   (void)dst; (void)f; (void)base; (void)ctx;
+  unk_take(f.unknown, &dst->unknown_fields);
 }
 
 static inline UploadResultDataMessage from_upload_result_data_message(const struct ak_dfix_UploadResultDataMessage &f, const uint8_t *base, ak_dec_ctx *ctx) {
   (void)f; (void)base; (void)ctx;
   UploadResultDataMessage r;
   if (f.presence & (1u << 0)) r.upload.set(from_upload_result_data(f.upload, base, ctx));
-  else r.upload.reset();
+  else { r.upload.reset(); unk_drop(f.upload.unknown); }
+  unk_take(f.unknown, &r.unknown_fields);
   return r;
 }
 
@@ -916,6 +1332,7 @@ static inline UploadResultDataMessage from_upload_result_data_message(const stru
 // and `apply` arrives AFTER the runs that populated it.
 static inline void fill_dual_response(DualResponse *dst, const struct ak_dfix_DualResponse &f, const uint8_t *base, ak_dec_ctx *ctx) {
   (void)dst; (void)f; (void)base; (void)ctx;
+  unk_take(f.unknown, &dst->unknown_fields);
 }
 
 static int32_t loop_list_results_response_results(ak_enc_ctx *ctx, const void *obj, int64_t token) {
@@ -2796,9 +3213,312 @@ intptr_t encode_into_dual_response_nobatch(ak_enc_ctx *ctx, const DualResponse &
   return ak_encode_DualResponse(&h, ctx, &vt, &fix);
 }
 
+static int32_t loop_list_results_response_results_unk(ak_enc_ctx *ctx, const void *obj, int64_t token) {
+  AK_GUARD_BEGIN
+    const EncObj_ListResultsResponse *h = (const EncObj_ListResultsResponse *)obj;
+    const Tcs &t = h->t;
+    (void)t; (void)token;
+    const ListResultsResponse &src_owner = (*h->o);
+    const std::vector<ResultRaw> &src = src_owner.results;
+    constexpr size_t kChunk = ak::arena_n(sizeof(struct ak_ufix_ResultRaw));
+    struct ak_ufix_ResultRaw chunk[kChunk];
+    size_t i = 0, done = 0;
+    (void)done;
+    for (size_t k = 0; k < src.size(); ++k) {
+      chunk[i] = make_result_raw_unk(src[k], t);
+      ++i;
+      if (i == kChunk) {
+        AK_TAX();
+        int32_t rc = ak_uelem_ResultRaw(ctx, chunk, (int32_t)i);
+        if (rc < 0) return rc;
+        done += i;
+        i = 0;
+      }
+    }
+    if (i > 0) {
+      AK_TAX();
+      int32_t rc = ak_uelem_ResultRaw(ctx, chunk, (int32_t)i);
+      if (rc < 0) return rc;
+    }
+  AK_GUARD_END
+}
+
+intptr_t encode_into_list_results_response_unk(ak_enc_ctx *ctx, const ListResultsResponse &o, const Tcs &t) {
+  AK_INIT_OR_RETURN();
+  ak_enc_reset(ctx);
+  EncObj_ListResultsResponse h;
+  h.o = &o;
+  h.t = t;
+  struct ak_evt_ListResultsResponse vt;
+  vt.loop_results = loop_list_results_response_results_unk;
+  struct ak_ufix_ListResultsResponse fix = make_list_results_response_unk(o, t);
+  return ak_uencode_ListResultsResponse(&h, ctx, &vt, &fix);
+}
+
+static int32_t loop_list_tasks_detailed_response_tasks_unk(ak_enc_ctx *ctx, const void *obj, int64_t token) {
+  AK_GUARD_BEGIN
+    const EncObj_ListTasksDetailedResponse *h = (const EncObj_ListTasksDetailedResponse *)obj;
+    const Tcs &t = h->t;
+    (void)t; (void)token;
+    const ListTasksDetailedResponse &src_owner = (*h->o);
+    const std::vector<TaskDetailed> &src = src_owner.tasks;
+    constexpr size_t kChunk = ak::arena_n(sizeof(struct ak_ufix_TaskDetailed));
+    struct ak_ufix_TaskDetailed chunk[kChunk];
+    size_t i = 0, done = 0;
+    (void)done;
+    for (size_t k = 0; k < src.size(); ++k) {
+      chunk[i] = make_task_detailed_unk(src[k], t);
+      ++i;
+      if (i == kChunk) {
+        AK_TAX();
+        int32_t rc = ak_uelemu_TaskDetailed(ctx, chunk, (int32_t)i, (int64_t)done);
+        if (rc < 0) return rc;
+        done += i;
+        i = 0;
+      }
+    }
+    if (i > 0) {
+      AK_TAX();
+      int32_t rc = ak_uelemu_TaskDetailed(ctx, chunk, (int32_t)i, (int64_t)done);
+      if (rc < 0) return rc;
+    }
+  AK_GUARD_END
+}
+
+intptr_t encode_into_list_tasks_detailed_response_unk(ak_enc_ctx *ctx, const ListTasksDetailedResponse &o, const Tcs &t) {
+  AK_INIT_OR_RETURN();
+  ak_enc_reset(ctx);
+  EncObj_ListTasksDetailedResponse h;
+  h.o = &o;
+  h.t = t;
+  struct ak_evt_ListTasksDetailedResponse vt;
+  vt.loop_tasks = loop_list_tasks_detailed_response_tasks_unk;
+  vt.elem_tasks = &kElemVt_ListTasksDetailedResponse_tasks;
+  struct ak_ufix_ListTasksDetailedResponse fix = make_list_tasks_detailed_response_unk(o, t);
+  return ak_uencode_ListTasksDetailedResponse(&h, ctx, &vt, &fix);
+}
+
+static int32_t loop_list_probe_response_probes_unk(ak_enc_ctx *ctx, const void *obj, int64_t token) {
+  AK_GUARD_BEGIN
+    const EncObj_ListProbeResponse *h = (const EncObj_ListProbeResponse *)obj;
+    const Tcs &t = h->t;
+    (void)t; (void)token;
+    const ListProbeResponse &src_owner = (*h->o);
+    const std::vector<Probe> &src = src_owner.probes;
+    constexpr size_t kChunk = ak::arena_n(sizeof(struct ak_ufix_Probe));
+    struct ak_ufix_Probe chunk[kChunk];
+    size_t i = 0, done = 0;
+    (void)done;
+    for (size_t k = 0; k < src.size(); ++k) {
+      chunk[i] = make_probe_unk(src[k], t);
+      ++i;
+      if (i == kChunk) {
+        AK_TAX();
+        int32_t rc = ak_uelem_Probe(ctx, chunk, (int32_t)i);
+        if (rc < 0) return rc;
+        done += i;
+        i = 0;
+      }
+    }
+    if (i > 0) {
+      AK_TAX();
+      int32_t rc = ak_uelem_Probe(ctx, chunk, (int32_t)i);
+      if (rc < 0) return rc;
+    }
+  AK_GUARD_END
+}
+
+intptr_t encode_into_list_probe_response_unk(ak_enc_ctx *ctx, const ListProbeResponse &o, const Tcs &t) {
+  AK_INIT_OR_RETURN();
+  ak_enc_reset(ctx);
+  EncObj_ListProbeResponse h;
+  h.o = &o;
+  h.t = t;
+  struct ak_evt_ListProbeResponse vt;
+  vt.loop_probes = loop_list_probe_response_probes_unk;
+  struct ak_ufix_ListProbeResponse fix = make_list_probe_response_unk(o, t);
+  return ak_uencode_ListProbeResponse(&h, ctx, &vt, &fix);
+}
+
+static int32_t loop_list_task_summary_response_tasks_unk(ak_enc_ctx *ctx, const void *obj, int64_t token) {
+  AK_GUARD_BEGIN
+    const EncObj_ListTaskSummaryResponse *h = (const EncObj_ListTaskSummaryResponse *)obj;
+    const Tcs &t = h->t;
+    (void)t; (void)token;
+    const ListTaskSummaryResponse &src_owner = (*h->o);
+    const std::vector<TaskSummary> &src = src_owner.tasks;
+    constexpr size_t kChunk = ak::arena_n(sizeof(struct ak_ufix_TaskSummary));
+    struct ak_ufix_TaskSummary chunk[kChunk];
+    size_t i = 0, done = 0;
+    (void)done;
+    for (size_t k = 0; k < src.size(); ++k) {
+      chunk[i] = make_task_summary_unk(src[k], t);
+      ++i;
+      if (i == kChunk) {
+        AK_TAX();
+        int32_t rc = ak_uelemu_TaskSummary(ctx, chunk, (int32_t)i, (int64_t)done);
+        if (rc < 0) return rc;
+        done += i;
+        i = 0;
+      }
+    }
+    if (i > 0) {
+      AK_TAX();
+      int32_t rc = ak_uelemu_TaskSummary(ctx, chunk, (int32_t)i, (int64_t)done);
+      if (rc < 0) return rc;
+    }
+  AK_GUARD_END
+}
+
+intptr_t encode_into_list_task_summary_response_unk(ak_enc_ctx *ctx, const ListTaskSummaryResponse &o, const Tcs &t) {
+  AK_INIT_OR_RETURN();
+  ak_enc_reset(ctx);
+  EncObj_ListTaskSummaryResponse h;
+  h.o = &o;
+  h.t = t;
+  struct ak_evt_ListTaskSummaryResponse vt;
+  vt.loop_tasks = loop_list_task_summary_response_tasks_unk;
+  vt.elem_tasks = &kElemVt_ListTaskSummaryResponse_tasks;
+  struct ak_ufix_ListTaskSummaryResponse fix = make_list_task_summary_response_unk(o, t);
+  return ak_uencode_ListTaskSummaryResponse(&h, ctx, &vt, &fix);
+}
+
+intptr_t encode_into_upload_result_data_message_unk(ak_enc_ctx *ctx, const UploadResultDataMessage &o, const Tcs &t) {
+  AK_INIT_OR_RETURN();
+  ak_enc_reset(ctx);
+  EncObj_UploadResultDataMessage h;
+  h.o = &o;
+  h.t = t;
+  struct ak_evt_UploadResultDataMessage vt;
+  vt._reserved = NULL;
+  struct ak_ufix_UploadResultDataMessage fix = make_upload_result_data_message_unk(o, t);
+  const std::string &dbuf = (*o.upload).data_chunk;
+  return ak_uencode_UploadResultDataMessage(&h, ctx, &vt, &fix, (const uint8_t *)dbuf.data(), dbuf.size());
+}
+
+static int32_t loop_list_metrics_response_batches_unk(ak_enc_ctx *ctx, const void *obj, int64_t token) {
+  AK_GUARD_BEGIN
+    const EncObj_ListMetricsResponse *h = (const EncObj_ListMetricsResponse *)obj;
+    const Tcs &t = h->t;
+    (void)t; (void)token;
+    const ListMetricsResponse &src_owner = (*h->o);
+    const std::vector<MetricsBatch> &src = src_owner.batches;
+    constexpr size_t kChunk = ak::arena_n(sizeof(struct ak_ufix_MetricsBatch));
+    struct ak_ufix_MetricsBatch chunk[kChunk];
+    size_t i = 0, done = 0;
+    (void)done;
+    for (size_t k = 0; k < src.size(); ++k) {
+      chunk[i] = make_metrics_batch_unk(src[k], t);
+      ++i;
+      if (i == kChunk) {
+        AK_TAX();
+        int32_t rc = ak_uelemu_MetricsBatch(ctx, chunk, (int32_t)i, (int64_t)done);
+        if (rc < 0) return rc;
+        done += i;
+        i = 0;
+      }
+    }
+    if (i > 0) {
+      AK_TAX();
+      int32_t rc = ak_uelemu_MetricsBatch(ctx, chunk, (int32_t)i, (int64_t)done);
+      if (rc < 0) return rc;
+    }
+  AK_GUARD_END
+}
+
+intptr_t encode_into_list_metrics_response_unk(ak_enc_ctx *ctx, const ListMetricsResponse &o, const Tcs &t) {
+  AK_INIT_OR_RETURN();
+  ak_enc_reset(ctx);
+  EncObj_ListMetricsResponse h;
+  h.o = &o;
+  h.t = t;
+  struct ak_evt_ListMetricsResponse vt;
+  vt.loop_batches = loop_list_metrics_response_batches_unk;
+  vt.elem_batches = &kElemVt_ListMetricsResponse_batches;
+  struct ak_ufix_ListMetricsResponse fix = make_list_metrics_response_unk(o, t);
+  return ak_uencode_ListMetricsResponse(&h, ctx, &vt, &fix);
+}
+
+static int32_t loop_dual_response_left_unk(ak_enc_ctx *ctx, const void *obj, int64_t token) {
+  AK_GUARD_BEGIN
+    const EncObj_DualResponse *h = (const EncObj_DualResponse *)obj;
+    const Tcs &t = h->t;
+    (void)t; (void)token;
+    const DualResponse &src_owner = (*h->o);
+    const std::vector<Pair> &src = src_owner.left;
+    constexpr size_t kChunk = ak::arena_n(sizeof(struct ak_ufix_Pair));
+    struct ak_ufix_Pair chunk[kChunk];
+    size_t i = 0, done = 0;
+    (void)done;
+    for (size_t k = 0; k < src.size(); ++k) {
+      chunk[i] = make_pair_unk(src[k], t);
+      ++i;
+      if (i == kChunk) {
+        AK_TAX();
+        int32_t rc = ak_uelem_Pair(ctx, chunk, (int32_t)i);
+        if (rc < 0) return rc;
+        done += i;
+        i = 0;
+      }
+    }
+    if (i > 0) {
+      AK_TAX();
+      int32_t rc = ak_uelem_Pair(ctx, chunk, (int32_t)i);
+      if (rc < 0) return rc;
+    }
+  AK_GUARD_END
+}
+
+static int32_t loop_dual_response_right_unk(ak_enc_ctx *ctx, const void *obj, int64_t token) {
+  AK_GUARD_BEGIN
+    const EncObj_DualResponse *h = (const EncObj_DualResponse *)obj;
+    const Tcs &t = h->t;
+    (void)t; (void)token;
+    const DualResponse &src_owner = (*h->o);
+    const std::vector<Pair> &src = src_owner.right;
+    constexpr size_t kChunk = ak::arena_n(sizeof(struct ak_ufix_Pair));
+    struct ak_ufix_Pair chunk[kChunk];
+    size_t i = 0, done = 0;
+    (void)done;
+    for (size_t k = 0; k < src.size(); ++k) {
+      chunk[i] = make_pair_unk(src[k], t);
+      ++i;
+      if (i == kChunk) {
+        AK_TAX();
+        int32_t rc = ak_uelem_Pair(ctx, chunk, (int32_t)i);
+        if (rc < 0) return rc;
+        done += i;
+        i = 0;
+      }
+    }
+    if (i > 0) {
+      AK_TAX();
+      int32_t rc = ak_uelem_Pair(ctx, chunk, (int32_t)i);
+      if (rc < 0) return rc;
+    }
+  AK_GUARD_END
+}
+
+intptr_t encode_into_dual_response_unk(ak_enc_ctx *ctx, const DualResponse &o, const Tcs &t) {
+  AK_INIT_OR_RETURN();
+  ak_enc_reset(ctx);
+  EncObj_DualResponse h;
+  h.o = &o;
+  h.t = t;
+  struct ak_evt_DualResponse vt;
+  vt.loop_left = loop_dual_response_left_unk;
+  vt.loop_right = loop_dual_response_right_unk;
+  struct ak_ufix_DualResponse fix = make_dual_response_unk(o, t);
+  return ak_uencode_DualResponse(&h, ctx, &vt, &fix);
+}
+
 struct Sink_ListResultsResponse {
   ListResultsResponse *out;
   const uint8_t *base;
+  // Decision 11 rule 1: called after every element delivery, where the host may
+  // refill its pools in place. NULL unless the decode pre-allocates.
+  void (*refill)(void *);
+  void *hold;
 };
 
 static void apply_list_results_response(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_ListResultsResponse *fx) {
@@ -2809,6 +3529,8 @@ static void apply_list_results_response(ak_dec_ctx *ctx, void *obj, const struct
     (void)f; (void)base;
   s->out->page = f.page;
   s->out->total = f.total;
+    s->out->unknown_fields.clear();
+    unk_take(f.unknown, &s->out->unknown_fields);
   AK_DGUARD_END
 }
 
@@ -2818,23 +3540,124 @@ static void add_list_results_response_results(ak_dec_ctx *ctx, void *obj, int64_
     s->out->results.reserve(s->out->results.size() + (size_t)n);
     for (int32_t i = 0; i < n; ++i)
       s->out->results.push_back(from_result_raw(elems[i], s->base, ctx));
+    AK_REFILL();
   AK_DGUARD_END
 }
 
-int32_t decode_with_list_results_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out) {
+static int32_t decode_impl_list_results_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   Sink_ListResultsResponse sink;
   sink.out = out;
   sink.base = b;
+  sink.refill = refill;
+  sink.hold = hold;
   struct ak_dvt_ListResultsResponse vt;
   vt.apply = apply_list_results_response;
   vt.add_results = add_list_results_response_results;
   return ak_decode_ListResultsResponse(ctx, &sink, b, n, &vt);
 }
 
+// Decode with the context as it is armed: a context from
+// ak_dec_ctx_new_ListResultsResponse(NULL) (or last reset with NULL) drops every unknown field.
+int32_t decode_with_list_results_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out) {
+  return decode_impl_list_results_response(ctx, b, n, out, NULL, NULL);
+}
+
+// Decision 11: every position of `ListResultsResponse` backed by `unk_grow` (no pre-allocated
+// buffer, a repeated position an empty pool), except position `zero` (plan
+// unk_positions order), left all zero: discarded there. zero < 0 = none.
+void unk_opts_list_results_response(struct ak_dec_ListResultsResponse_opts *o, int zero) {
+  std::memset(o, 0, sizeof(*o));
+  o->host = NULL;
+  if (zero != 0) o->self.grow = unk_grow;
+  if (zero != 1) o->results.grow = unk_grow;
+  if (zero != 2) o->results_created_at.grow = unk_grow;
+  if (zero != 3) o->results_completed_at.grow = unk_grow;
+}
+
+// The decode with the context armed with `opts`, read IN PLACE by the core until the
+// disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,
+// is called with `hold` after every element delivery (rule 1). Every buffer this
+// binding allocated and did not deliver is freed before return.
+int32_t decode_with_list_results_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out, struct ak_dec_ListResultsResponse_opts *opts, void (*refill)(void *), void *hold) {
+  AK_INIT_OR_RETURN();
+  int32_t rc = ak_dec_reset_ListResultsResponse(ctx, opts);
+  if (rc != AK_OK) return rc;
+  rc = decode_impl_list_results_response(ctx, b, n, out, refill, hold);
+  int32_t rc2 = ak_dec_reset_ListResultsResponse(ctx, NULL);
+  unk_reclaim();
+  if (rc >= 0 && rc2 != AK_OK) rc = rc2;
+  return rc;
+}
+
+// Decision 11: retain everywhere (every position grows on demand).
+int32_t decode_with_list_results_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out) {
+  struct ak_dec_ListResultsResponse_opts opts;
+  unk_opts_list_results_response(&opts, -1);
+  return decode_with_list_results_response_opts(ctx, b, n, out, &opts, NULL, NULL);
+}
+
+// Decision 11 rule 1, pre-allocated: every singular position gets one buffer of `cap`
+// bytes, every pool `k`, refilled in place after each delivery; `unk_grow` is the
+// fallback. Unconsumed buffers are freed by the decode's reclaim.
+struct UnkPool_ListResultsResponse {
+  struct ak_dec_ListResultsResponse_opts opts;
+  std::vector<struct ak_unk_buf> bufs;
+  uint32_t k;
+  uint32_t cap;
+  uint64_t refills;
+};
+
+static void unk_refill_list_results_response(void *hv) {
+  UnkPool_ListResultsResponse *h = (UnkPool_ListResultsResponse *)hv;
+  (void)h;
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[0 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[1 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[2 * (size_t)h->k + j], h->cap, &h->refills);
+}
+
+int32_t decode_with_list_results_response_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+  UnkPool_ListResultsResponse h;
+  unk_opts_list_results_response(&h.opts, -1);
+  h.k = k;
+  h.cap = cap;
+  h.refills = 0;
+  h.bufs.assign((size_t)3 * k, ak_unk_buf());
+  for (size_t i = 0; i < h.bufs.size(); ++i) { h.bufs[i].data = NULL; h.bufs[i].len = 0; h.bufs[i].cap = 0; }
+  h.opts.results.bufs = k ? &h.bufs[0 * (size_t)k] : NULL;
+  h.opts.results.n = k;
+  h.opts.results_created_at.bufs = k ? &h.bufs[1 * (size_t)k] : NULL;
+  h.opts.results_created_at.n = k;
+  h.opts.results_completed_at.bufs = k ? &h.bufs[2 * (size_t)k] : NULL;
+  h.opts.results_completed_at.n = k;
+  uint64_t first = 0;
+  unk_fill_buf(&h.opts.self.buf, cap, &first);
+  unk_refill_list_results_response(&h);
+  h.refills = 0;
+  int32_t rc = decode_with_list_results_response_opts(ctx, b, n, out, &h.opts, unk_refill_list_results_response, &h);
+  if (refills) *refills = h.refills;
+  return rc;
+}
+
+// Decision 11 control: clear every facade bag at position `pos` (plan.unk_positions
+// order) -- what decoding with that position's entry zeroed must produce.
+void unk_clear_list_results_response(ListResultsResponse &o, int pos) {
+  switch (pos) {
+    case 0: { o.unknown_fields.clear(); } break;
+    case 1: { for (size_t i0 = 0; i0 < o.results.size(); ++i0) { ResultRaw &x0 = o.results[i0]; x0.unknown_fields.clear(); } } break;
+    case 2: { for (size_t i0 = 0; i0 < o.results.size(); ++i0) { ResultRaw &x0 = o.results[i0]; if (x0.created_at.has_value()) { Timestamp &x1 = *x0.created_at; x1.unknown_fields.clear(); } } } break;
+    case 3: { for (size_t i0 = 0; i0 < o.results.size(); ++i0) { ResultRaw &x0 = o.results[i0]; if (x0.completed_at.has_value()) { Timestamp &x1 = *x0.completed_at; x1.unknown_fields.clear(); } } } break;
+    default: break;
+  }
+}
+
 struct Sink_ListTasksDetailedResponse {
   ListTasksDetailedResponse *out;
   const uint8_t *base;
+  // Decision 11 rule 1: called after every element delivery, where the host may
+  // refill its pools in place. NULL unless the decode pre-allocates.
+  void (*refill)(void *);
+  void *hold;
 };
 
 static void apply_list_tasks_detailed_response(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_ListTasksDetailedResponse *fx) {
@@ -2845,6 +3668,8 @@ static void apply_list_tasks_detailed_response(ak_dec_ctx *ctx, void *obj, const
     (void)f; (void)base;
   s->out->page = f.page;
   s->out->total = f.total;
+    s->out->unknown_fields.clear();
+    unk_take(f.unknown, &s->out->unknown_fields);
   AK_DGUARD_END
 }
 
@@ -2854,6 +3679,7 @@ static int64_t new_list_tasks_detailed_response_tasks(ak_dec_ctx *ctx, void *obj
 #endif
     Sink_ListTasksDetailedResponse *s = (Sink_ListTasksDetailedResponse *)obj;
     s->out->tasks.push_back(TaskDetailed());
+    AK_REFILL();
     return (int64_t)(s->out->tasks.size() - 1);
 #ifndef AK_NO_GUARD
   } catch (...) {
@@ -2868,6 +3694,7 @@ static void apply_list_tasks_detailed_response_tasks(ak_dec_ctx *ctx, void *obj,
   AK_DGUARD_BEGIN
     Sink_ListTasksDetailedResponse *s = (Sink_ListTasksDetailedResponse *)obj;
     fill_task_detailed(&s->out->tasks[(size_t)tok], *fx, s->base, ctx);
+    AK_REFILL();
   AK_DGUARD_END
 }
 
@@ -2884,6 +3711,7 @@ static void add_list_tasks_detailed_response_tasks_parent_task_ids(ak_dec_ctx *c
       s_of(s->base, elems[i], ctx, &dst.back());
 #endif
     }
+    AK_REFILL();
   AK_DGUARD_END
 }
 
@@ -2900,6 +3728,7 @@ static void add_list_tasks_detailed_response_tasks_data_dependencies(ak_dec_ctx 
       s_of(s->base, elems[i], ctx, &dst.back());
 #endif
     }
+    AK_REFILL();
   AK_DGUARD_END
 }
 
@@ -2916,6 +3745,7 @@ static void add_list_tasks_detailed_response_tasks_expected_output_ids(ak_dec_ct
       s_of(s->base, elems[i], ctx, &dst.back());
 #endif
     }
+    AK_REFILL();
   AK_DGUARD_END
 }
 
@@ -2932,6 +3762,7 @@ static void add_list_tasks_detailed_response_tasks_retry_of_ids(ak_dec_ctx *ctx,
       s_of(s->base, elems[i], ctx, &dst.back());
 #endif
     }
+    AK_REFILL();
   AK_DGUARD_END
 }
 
@@ -2943,20 +3774,24 @@ static void add_list_tasks_detailed_response_tasks_options_options(ak_dec_ctx *c
     for (int32_t i = 0; i < n; ++i) {
       s_of(s->base, elems[i].key, ctx, &k_);
       s_of(s->base, elems[i].value, ctx, &v_);
+      unk_drop_entry(elems[i].unknown);
 #if AK_CXX17
       dst.insert_or_assign(std::move(k_), std::move(v_));
 #else
       dst[k_] = v_;
 #endif
     }
+    AK_REFILL();
   AK_DGUARD_END
 }
 
-int32_t decode_with_list_tasks_detailed_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out) {
+static int32_t decode_impl_list_tasks_detailed_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   Sink_ListTasksDetailedResponse sink;
   sink.out = out;
   sink.base = b;
+  sink.refill = refill;
+  sink.hold = hold;
   struct ak_dvt_ListTasksDetailedResponse vt;
   vt.apply = apply_list_tasks_detailed_response;
   vt.new_tasks = new_list_tasks_detailed_response_tasks;
@@ -2969,9 +3804,177 @@ int32_t decode_with_list_tasks_detailed_response(ak_dec_ctx *ctx, const uint8_t 
   return ak_decode_ListTasksDetailedResponse(ctx, &sink, b, n, &vt);
 }
 
+// Decode with the context as it is armed: a context from
+// ak_dec_ctx_new_ListTasksDetailedResponse(NULL) (or last reset with NULL) drops every unknown field.
+int32_t decode_with_list_tasks_detailed_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out) {
+  return decode_impl_list_tasks_detailed_response(ctx, b, n, out, NULL, NULL);
+}
+
+// Decision 11: every position of `ListTasksDetailedResponse` backed by `unk_grow` (no pre-allocated
+// buffer, a repeated position an empty pool), except position `zero` (plan
+// unk_positions order), left all zero: discarded there. zero < 0 = none.
+void unk_opts_list_tasks_detailed_response(struct ak_dec_ListTasksDetailedResponse_opts *o, int zero) {
+  std::memset(o, 0, sizeof(*o));
+  o->host = NULL;
+  if (zero != 0) o->self.grow = unk_grow;
+  if (zero != 1) o->tasks.grow = unk_grow;
+  if (zero != 2) o->tasks_options.grow = unk_grow;
+  if (zero != 3) o->tasks_options_options.grow = unk_grow;
+  if (zero != 4) o->tasks_options_max_duration.grow = unk_grow;
+  if (zero != 5) o->tasks_created_at.grow = unk_grow;
+  if (zero != 6) o->tasks_submitted_at.grow = unk_grow;
+  if (zero != 7) o->tasks_started_at.grow = unk_grow;
+  if (zero != 8) o->tasks_ended_at.grow = unk_grow;
+  if (zero != 9) o->tasks_pod_ttl.grow = unk_grow;
+  if (zero != 10) o->tasks_output.grow = unk_grow;
+  if (zero != 11) o->tasks_received_at.grow = unk_grow;
+  if (zero != 12) o->tasks_acquired_at.grow = unk_grow;
+  if (zero != 13) o->tasks_creation_to_end_duration.grow = unk_grow;
+  if (zero != 14) o->tasks_processing_to_end_duration.grow = unk_grow;
+  if (zero != 15) o->tasks_received_to_end_duration.grow = unk_grow;
+  if (zero != 16) o->tasks_processed_at.grow = unk_grow;
+  if (zero != 17) o->tasks_fetched_at.grow = unk_grow;
+}
+
+// The decode with the context armed with `opts`, read IN PLACE by the core until the
+// disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,
+// is called with `hold` after every element delivery (rule 1). Every buffer this
+// binding allocated and did not deliver is freed before return.
+int32_t decode_with_list_tasks_detailed_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out, struct ak_dec_ListTasksDetailedResponse_opts *opts, void (*refill)(void *), void *hold) {
+  AK_INIT_OR_RETURN();
+  int32_t rc = ak_dec_reset_ListTasksDetailedResponse(ctx, opts);
+  if (rc != AK_OK) return rc;
+  rc = decode_impl_list_tasks_detailed_response(ctx, b, n, out, refill, hold);
+  int32_t rc2 = ak_dec_reset_ListTasksDetailedResponse(ctx, NULL);
+  unk_reclaim();
+  if (rc >= 0 && rc2 != AK_OK) rc = rc2;
+  return rc;
+}
+
+// Decision 11: retain everywhere (every position grows on demand).
+int32_t decode_with_list_tasks_detailed_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out) {
+  struct ak_dec_ListTasksDetailedResponse_opts opts;
+  unk_opts_list_tasks_detailed_response(&opts, -1);
+  return decode_with_list_tasks_detailed_response_opts(ctx, b, n, out, &opts, NULL, NULL);
+}
+
+// Decision 11 rule 1, pre-allocated: every singular position gets one buffer of `cap`
+// bytes, every pool `k`, refilled in place after each delivery; `unk_grow` is the
+// fallback. Unconsumed buffers are freed by the decode's reclaim.
+struct UnkPool_ListTasksDetailedResponse {
+  struct ak_dec_ListTasksDetailedResponse_opts opts;
+  std::vector<struct ak_unk_buf> bufs;
+  uint32_t k;
+  uint32_t cap;
+  uint64_t refills;
+};
+
+static void unk_refill_list_tasks_detailed_response(void *hv) {
+  UnkPool_ListTasksDetailedResponse *h = (UnkPool_ListTasksDetailedResponse *)hv;
+  (void)h;
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[0 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[1 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[2 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[3 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[4 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[5 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[6 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[7 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[8 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[9 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[10 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[11 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[12 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[13 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[14 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[15 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[16 * (size_t)h->k + j], h->cap, &h->refills);
+}
+
+int32_t decode_with_list_tasks_detailed_response_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+  UnkPool_ListTasksDetailedResponse h;
+  unk_opts_list_tasks_detailed_response(&h.opts, -1);
+  h.k = k;
+  h.cap = cap;
+  h.refills = 0;
+  h.bufs.assign((size_t)17 * k, ak_unk_buf());
+  for (size_t i = 0; i < h.bufs.size(); ++i) { h.bufs[i].data = NULL; h.bufs[i].len = 0; h.bufs[i].cap = 0; }
+  h.opts.tasks.bufs = k ? &h.bufs[0 * (size_t)k] : NULL;
+  h.opts.tasks.n = k;
+  h.opts.tasks_options.bufs = k ? &h.bufs[1 * (size_t)k] : NULL;
+  h.opts.tasks_options.n = k;
+  h.opts.tasks_options_options.bufs = k ? &h.bufs[2 * (size_t)k] : NULL;
+  h.opts.tasks_options_options.n = k;
+  h.opts.tasks_options_max_duration.bufs = k ? &h.bufs[3 * (size_t)k] : NULL;
+  h.opts.tasks_options_max_duration.n = k;
+  h.opts.tasks_created_at.bufs = k ? &h.bufs[4 * (size_t)k] : NULL;
+  h.opts.tasks_created_at.n = k;
+  h.opts.tasks_submitted_at.bufs = k ? &h.bufs[5 * (size_t)k] : NULL;
+  h.opts.tasks_submitted_at.n = k;
+  h.opts.tasks_started_at.bufs = k ? &h.bufs[6 * (size_t)k] : NULL;
+  h.opts.tasks_started_at.n = k;
+  h.opts.tasks_ended_at.bufs = k ? &h.bufs[7 * (size_t)k] : NULL;
+  h.opts.tasks_ended_at.n = k;
+  h.opts.tasks_pod_ttl.bufs = k ? &h.bufs[8 * (size_t)k] : NULL;
+  h.opts.tasks_pod_ttl.n = k;
+  h.opts.tasks_output.bufs = k ? &h.bufs[9 * (size_t)k] : NULL;
+  h.opts.tasks_output.n = k;
+  h.opts.tasks_received_at.bufs = k ? &h.bufs[10 * (size_t)k] : NULL;
+  h.opts.tasks_received_at.n = k;
+  h.opts.tasks_acquired_at.bufs = k ? &h.bufs[11 * (size_t)k] : NULL;
+  h.opts.tasks_acquired_at.n = k;
+  h.opts.tasks_creation_to_end_duration.bufs = k ? &h.bufs[12 * (size_t)k] : NULL;
+  h.opts.tasks_creation_to_end_duration.n = k;
+  h.opts.tasks_processing_to_end_duration.bufs = k ? &h.bufs[13 * (size_t)k] : NULL;
+  h.opts.tasks_processing_to_end_duration.n = k;
+  h.opts.tasks_received_to_end_duration.bufs = k ? &h.bufs[14 * (size_t)k] : NULL;
+  h.opts.tasks_received_to_end_duration.n = k;
+  h.opts.tasks_processed_at.bufs = k ? &h.bufs[15 * (size_t)k] : NULL;
+  h.opts.tasks_processed_at.n = k;
+  h.opts.tasks_fetched_at.bufs = k ? &h.bufs[16 * (size_t)k] : NULL;
+  h.opts.tasks_fetched_at.n = k;
+  uint64_t first = 0;
+  unk_fill_buf(&h.opts.self.buf, cap, &first);
+  unk_refill_list_tasks_detailed_response(&h);
+  h.refills = 0;
+  int32_t rc = decode_with_list_tasks_detailed_response_opts(ctx, b, n, out, &h.opts, unk_refill_list_tasks_detailed_response, &h);
+  if (refills) *refills = h.refills;
+  return rc;
+}
+
+// Decision 11 control: clear every facade bag at position `pos` (plan.unk_positions
+// order) -- what decoding with that position's entry zeroed must produce.
+void unk_clear_list_tasks_detailed_response(ListTasksDetailedResponse &o, int pos) {
+  switch (pos) {
+    case 0: { o.unknown_fields.clear(); } break;
+    case 1: { for (size_t i0 = 0; i0 < o.tasks.size(); ++i0) { TaskDetailed &x0 = o.tasks[i0]; x0.unknown_fields.clear(); } } break;
+    case 2: { for (size_t i0 = 0; i0 < o.tasks.size(); ++i0) { TaskDetailed &x0 = o.tasks[i0]; if (x0.options.has_value()) { TaskOptions &x1 = *x0.options; x1.unknown_fields.clear(); } } } break;
+    case 3: { for (size_t i0 = 0; i0 < o.tasks.size(); ++i0) { TaskDetailed &x0 = o.tasks[i0]; if (x0.options.has_value()) { TaskOptions &x1 = *x0.options; /* a facade map entry has no bag */ } } } break;
+    case 4: { for (size_t i0 = 0; i0 < o.tasks.size(); ++i0) { TaskDetailed &x0 = o.tasks[i0]; if (x0.options.has_value()) { TaskOptions &x1 = *x0.options; if (x1.max_duration.has_value()) { Duration &x2 = *x1.max_duration; x2.unknown_fields.clear(); } } } } break;
+    case 5: { for (size_t i0 = 0; i0 < o.tasks.size(); ++i0) { TaskDetailed &x0 = o.tasks[i0]; if (x0.created_at.has_value()) { Timestamp &x1 = *x0.created_at; x1.unknown_fields.clear(); } } } break;
+    case 6: { for (size_t i0 = 0; i0 < o.tasks.size(); ++i0) { TaskDetailed &x0 = o.tasks[i0]; if (x0.submitted_at.has_value()) { Timestamp &x1 = *x0.submitted_at; x1.unknown_fields.clear(); } } } break;
+    case 7: { for (size_t i0 = 0; i0 < o.tasks.size(); ++i0) { TaskDetailed &x0 = o.tasks[i0]; if (x0.started_at.has_value()) { Timestamp &x1 = *x0.started_at; x1.unknown_fields.clear(); } } } break;
+    case 8: { for (size_t i0 = 0; i0 < o.tasks.size(); ++i0) { TaskDetailed &x0 = o.tasks[i0]; if (x0.ended_at.has_value()) { Timestamp &x1 = *x0.ended_at; x1.unknown_fields.clear(); } } } break;
+    case 9: { for (size_t i0 = 0; i0 < o.tasks.size(); ++i0) { TaskDetailed &x0 = o.tasks[i0]; if (x0.pod_ttl.has_value()) { Timestamp &x1 = *x0.pod_ttl; x1.unknown_fields.clear(); } } } break;
+    case 10: { for (size_t i0 = 0; i0 < o.tasks.size(); ++i0) { TaskDetailed &x0 = o.tasks[i0]; if (x0.output.has_value()) { TaskOutput &x1 = *x0.output; x1.unknown_fields.clear(); } } } break;
+    case 11: { for (size_t i0 = 0; i0 < o.tasks.size(); ++i0) { TaskDetailed &x0 = o.tasks[i0]; if (x0.received_at.has_value()) { Timestamp &x1 = *x0.received_at; x1.unknown_fields.clear(); } } } break;
+    case 12: { for (size_t i0 = 0; i0 < o.tasks.size(); ++i0) { TaskDetailed &x0 = o.tasks[i0]; if (x0.acquired_at.has_value()) { Timestamp &x1 = *x0.acquired_at; x1.unknown_fields.clear(); } } } break;
+    case 13: { for (size_t i0 = 0; i0 < o.tasks.size(); ++i0) { TaskDetailed &x0 = o.tasks[i0]; if (x0.creation_to_end_duration.has_value()) { Duration &x1 = *x0.creation_to_end_duration; x1.unknown_fields.clear(); } } } break;
+    case 14: { for (size_t i0 = 0; i0 < o.tasks.size(); ++i0) { TaskDetailed &x0 = o.tasks[i0]; if (x0.processing_to_end_duration.has_value()) { Duration &x1 = *x0.processing_to_end_duration; x1.unknown_fields.clear(); } } } break;
+    case 15: { for (size_t i0 = 0; i0 < o.tasks.size(); ++i0) { TaskDetailed &x0 = o.tasks[i0]; if (x0.received_to_end_duration.has_value()) { Duration &x1 = *x0.received_to_end_duration; x1.unknown_fields.clear(); } } } break;
+    case 16: { for (size_t i0 = 0; i0 < o.tasks.size(); ++i0) { TaskDetailed &x0 = o.tasks[i0]; if (x0.processed_at.has_value()) { Timestamp &x1 = *x0.processed_at; x1.unknown_fields.clear(); } } } break;
+    case 17: { for (size_t i0 = 0; i0 < o.tasks.size(); ++i0) { TaskDetailed &x0 = o.tasks[i0]; if (x0.fetched_at.has_value()) { Timestamp &x1 = *x0.fetched_at; x1.unknown_fields.clear(); } } } break;
+    default: break;
+  }
+}
+
 struct Sink_ListProbeResponse {
   ListProbeResponse *out;
   const uint8_t *base;
+  // Decision 11 rule 1: called after every element delivery, where the host may
+  // refill its pools in place. NULL unless the decode pre-allocates.
+  void (*refill)(void *);
+  void *hold;
 };
 
 static void apply_list_probe_response(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_ListProbeResponse *fx) {
@@ -2980,6 +3983,8 @@ static void apply_list_probe_response(ak_dec_ctx *ctx, void *obj, const struct a
     const struct ak_dfix_ListProbeResponse &f = *fx;
     const uint8_t *base = s->base;
     (void)f; (void)base;
+    s->out->unknown_fields.clear();
+    unk_take(f.unknown, &s->out->unknown_fields);
   AK_DGUARD_END
 }
 
@@ -2989,23 +3994,119 @@ static void add_list_probe_response_probes(ak_dec_ctx *ctx, void *obj, int64_t t
     s->out->probes.reserve(s->out->probes.size() + (size_t)n);
     for (int32_t i = 0; i < n; ++i)
       s->out->probes.push_back(from_probe(elems[i], s->base, ctx));
+    AK_REFILL();
   AK_DGUARD_END
 }
 
-int32_t decode_with_list_probe_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out) {
+static int32_t decode_impl_list_probe_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   Sink_ListProbeResponse sink;
   sink.out = out;
   sink.base = b;
+  sink.refill = refill;
+  sink.hold = hold;
   struct ak_dvt_ListProbeResponse vt;
   vt.apply = apply_list_probe_response;
   vt.add_probes = add_list_probe_response_probes;
   return ak_decode_ListProbeResponse(ctx, &sink, b, n, &vt);
 }
 
+// Decode with the context as it is armed: a context from
+// ak_dec_ctx_new_ListProbeResponse(NULL) (or last reset with NULL) drops every unknown field.
+int32_t decode_with_list_probe_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out) {
+  return decode_impl_list_probe_response(ctx, b, n, out, NULL, NULL);
+}
+
+// Decision 11: every position of `ListProbeResponse` backed by `unk_grow` (no pre-allocated
+// buffer, a repeated position an empty pool), except position `zero` (plan
+// unk_positions order), left all zero: discarded there. zero < 0 = none.
+void unk_opts_list_probe_response(struct ak_dec_ListProbeResponse_opts *o, int zero) {
+  std::memset(o, 0, sizeof(*o));
+  o->host = NULL;
+  if (zero != 0) o->self.grow = unk_grow;
+  if (zero != 1) o->probes.grow = unk_grow;
+  if (zero != 2) o->probes_body.grow = unk_grow;
+}
+
+// The decode with the context armed with `opts`, read IN PLACE by the core until the
+// disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,
+// is called with `hold` after every element delivery (rule 1). Every buffer this
+// binding allocated and did not deliver is freed before return.
+int32_t decode_with_list_probe_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out, struct ak_dec_ListProbeResponse_opts *opts, void (*refill)(void *), void *hold) {
+  AK_INIT_OR_RETURN();
+  int32_t rc = ak_dec_reset_ListProbeResponse(ctx, opts);
+  if (rc != AK_OK) return rc;
+  rc = decode_impl_list_probe_response(ctx, b, n, out, refill, hold);
+  int32_t rc2 = ak_dec_reset_ListProbeResponse(ctx, NULL);
+  unk_reclaim();
+  if (rc >= 0 && rc2 != AK_OK) rc = rc2;
+  return rc;
+}
+
+// Decision 11: retain everywhere (every position grows on demand).
+int32_t decode_with_list_probe_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out) {
+  struct ak_dec_ListProbeResponse_opts opts;
+  unk_opts_list_probe_response(&opts, -1);
+  return decode_with_list_probe_response_opts(ctx, b, n, out, &opts, NULL, NULL);
+}
+
+// Decision 11 rule 1, pre-allocated: every singular position gets one buffer of `cap`
+// bytes, every pool `k`, refilled in place after each delivery; `unk_grow` is the
+// fallback. Unconsumed buffers are freed by the decode's reclaim.
+struct UnkPool_ListProbeResponse {
+  struct ak_dec_ListProbeResponse_opts opts;
+  std::vector<struct ak_unk_buf> bufs;
+  uint32_t k;
+  uint32_t cap;
+  uint64_t refills;
+};
+
+static void unk_refill_list_probe_response(void *hv) {
+  UnkPool_ListProbeResponse *h = (UnkPool_ListProbeResponse *)hv;
+  (void)h;
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[0 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[1 * (size_t)h->k + j], h->cap, &h->refills);
+}
+
+int32_t decode_with_list_probe_response_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+  UnkPool_ListProbeResponse h;
+  unk_opts_list_probe_response(&h.opts, -1);
+  h.k = k;
+  h.cap = cap;
+  h.refills = 0;
+  h.bufs.assign((size_t)2 * k, ak_unk_buf());
+  for (size_t i = 0; i < h.bufs.size(); ++i) { h.bufs[i].data = NULL; h.bufs[i].len = 0; h.bufs[i].cap = 0; }
+  h.opts.probes.bufs = k ? &h.bufs[0 * (size_t)k] : NULL;
+  h.opts.probes.n = k;
+  h.opts.probes_body.bufs = k ? &h.bufs[1 * (size_t)k] : NULL;
+  h.opts.probes_body.n = k;
+  uint64_t first = 0;
+  unk_fill_buf(&h.opts.self.buf, cap, &first);
+  unk_refill_list_probe_response(&h);
+  h.refills = 0;
+  int32_t rc = decode_with_list_probe_response_opts(ctx, b, n, out, &h.opts, unk_refill_list_probe_response, &h);
+  if (refills) *refills = h.refills;
+  return rc;
+}
+
+// Decision 11 control: clear every facade bag at position `pos` (plan.unk_positions
+// order) -- what decoding with that position's entry zeroed must produce.
+void unk_clear_list_probe_response(ListProbeResponse &o, int pos) {
+  switch (pos) {
+    case 0: { o.unknown_fields.clear(); } break;
+    case 1: { for (size_t i0 = 0; i0 < o.probes.size(); ++i0) { Probe &x0 = o.probes[i0]; x0.unknown_fields.clear(); } } break;
+    case 2: { for (size_t i0 = 0; i0 < o.probes.size(); ++i0) { Probe &x0 = o.probes[i0]; if ((int)x0.body.which() == 13) { Timestamp &x1 = x0.body.mutable_as_stamp(); x1.unknown_fields.clear(); } if ((int)x0.body.which() == 14) { Empty &x1 = x0.body.mutable_as_nothing(); x1.unknown_fields.clear(); } } } break;
+    default: break;
+  }
+}
+
 struct Sink_ListTaskSummaryResponse {
   ListTaskSummaryResponse *out;
   const uint8_t *base;
+  // Decision 11 rule 1: called after every element delivery, where the host may
+  // refill its pools in place. NULL unless the decode pre-allocates.
+  void (*refill)(void *);
+  void *hold;
 };
 
 static void apply_list_task_summary_response(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_ListTaskSummaryResponse *fx) {
@@ -3014,6 +4115,8 @@ static void apply_list_task_summary_response(ak_dec_ctx *ctx, void *obj, const s
     const struct ak_dfix_ListTaskSummaryResponse &f = *fx;
     const uint8_t *base = s->base;
     (void)f; (void)base;
+    s->out->unknown_fields.clear();
+    unk_take(f.unknown, &s->out->unknown_fields);
   AK_DGUARD_END
 }
 
@@ -3023,6 +4126,7 @@ static int64_t new_list_task_summary_response_tasks(ak_dec_ctx *ctx, void *obj) 
 #endif
     Sink_ListTaskSummaryResponse *s = (Sink_ListTaskSummaryResponse *)obj;
     s->out->tasks.push_back(TaskSummary());
+    AK_REFILL();
     return (int64_t)(s->out->tasks.size() - 1);
 #ifndef AK_NO_GUARD
   } catch (...) {
@@ -3037,6 +4141,7 @@ static void apply_list_task_summary_response_tasks(ak_dec_ctx *ctx, void *obj, i
   AK_DGUARD_BEGIN
     Sink_ListTaskSummaryResponse *s = (Sink_ListTaskSummaryResponse *)obj;
     fill_task_summary(&s->out->tasks[(size_t)tok], *fx, s->base, ctx);
+    AK_REFILL();
   AK_DGUARD_END
 }
 
@@ -3048,20 +4153,24 @@ static void add_list_task_summary_response_tasks_options_options(ak_dec_ctx *ctx
     for (int32_t i = 0; i < n; ++i) {
       s_of(s->base, elems[i].key, ctx, &k_);
       s_of(s->base, elems[i].value, ctx, &v_);
+      unk_drop_entry(elems[i].unknown);
 #if AK_CXX17
       dst.insert_or_assign(std::move(k_), std::move(v_));
 #else
       dst[k_] = v_;
 #endif
     }
+    AK_REFILL();
   AK_DGUARD_END
 }
 
-int32_t decode_with_list_task_summary_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out) {
+static int32_t decode_impl_list_task_summary_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   Sink_ListTaskSummaryResponse sink;
   sink.out = out;
   sink.base = b;
+  sink.refill = refill;
+  sink.hold = hold;
   struct ak_dvt_ListTaskSummaryResponse vt;
   vt.apply = apply_list_task_summary_response;
   vt.new_tasks = new_list_task_summary_response_tasks;
@@ -3070,9 +4179,117 @@ int32_t decode_with_list_task_summary_response(ak_dec_ctx *ctx, const uint8_t *b
   return ak_decode_ListTaskSummaryResponse(ctx, &sink, b, n, &vt);
 }
 
+// Decode with the context as it is armed: a context from
+// ak_dec_ctx_new_ListTaskSummaryResponse(NULL) (or last reset with NULL) drops every unknown field.
+int32_t decode_with_list_task_summary_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out) {
+  return decode_impl_list_task_summary_response(ctx, b, n, out, NULL, NULL);
+}
+
+// Decision 11: every position of `ListTaskSummaryResponse` backed by `unk_grow` (no pre-allocated
+// buffer, a repeated position an empty pool), except position `zero` (plan
+// unk_positions order), left all zero: discarded there. zero < 0 = none.
+void unk_opts_list_task_summary_response(struct ak_dec_ListTaskSummaryResponse_opts *o, int zero) {
+  std::memset(o, 0, sizeof(*o));
+  o->host = NULL;
+  if (zero != 0) o->self.grow = unk_grow;
+  if (zero != 1) o->tasks.grow = unk_grow;
+  if (zero != 2) o->tasks_options.grow = unk_grow;
+  if (zero != 3) o->tasks_options_options.grow = unk_grow;
+  if (zero != 4) o->tasks_options_max_duration.grow = unk_grow;
+  if (zero != 5) o->tasks_created_at.grow = unk_grow;
+}
+
+// The decode with the context armed with `opts`, read IN PLACE by the core until the
+// disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,
+// is called with `hold` after every element delivery (rule 1). Every buffer this
+// binding allocated and did not deliver is freed before return.
+int32_t decode_with_list_task_summary_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out, struct ak_dec_ListTaskSummaryResponse_opts *opts, void (*refill)(void *), void *hold) {
+  AK_INIT_OR_RETURN();
+  int32_t rc = ak_dec_reset_ListTaskSummaryResponse(ctx, opts);
+  if (rc != AK_OK) return rc;
+  rc = decode_impl_list_task_summary_response(ctx, b, n, out, refill, hold);
+  int32_t rc2 = ak_dec_reset_ListTaskSummaryResponse(ctx, NULL);
+  unk_reclaim();
+  if (rc >= 0 && rc2 != AK_OK) rc = rc2;
+  return rc;
+}
+
+// Decision 11: retain everywhere (every position grows on demand).
+int32_t decode_with_list_task_summary_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out) {
+  struct ak_dec_ListTaskSummaryResponse_opts opts;
+  unk_opts_list_task_summary_response(&opts, -1);
+  return decode_with_list_task_summary_response_opts(ctx, b, n, out, &opts, NULL, NULL);
+}
+
+// Decision 11 rule 1, pre-allocated: every singular position gets one buffer of `cap`
+// bytes, every pool `k`, refilled in place after each delivery; `unk_grow` is the
+// fallback. Unconsumed buffers are freed by the decode's reclaim.
+struct UnkPool_ListTaskSummaryResponse {
+  struct ak_dec_ListTaskSummaryResponse_opts opts;
+  std::vector<struct ak_unk_buf> bufs;
+  uint32_t k;
+  uint32_t cap;
+  uint64_t refills;
+};
+
+static void unk_refill_list_task_summary_response(void *hv) {
+  UnkPool_ListTaskSummaryResponse *h = (UnkPool_ListTaskSummaryResponse *)hv;
+  (void)h;
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[0 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[1 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[2 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[3 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[4 * (size_t)h->k + j], h->cap, &h->refills);
+}
+
+int32_t decode_with_list_task_summary_response_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+  UnkPool_ListTaskSummaryResponse h;
+  unk_opts_list_task_summary_response(&h.opts, -1);
+  h.k = k;
+  h.cap = cap;
+  h.refills = 0;
+  h.bufs.assign((size_t)5 * k, ak_unk_buf());
+  for (size_t i = 0; i < h.bufs.size(); ++i) { h.bufs[i].data = NULL; h.bufs[i].len = 0; h.bufs[i].cap = 0; }
+  h.opts.tasks.bufs = k ? &h.bufs[0 * (size_t)k] : NULL;
+  h.opts.tasks.n = k;
+  h.opts.tasks_options.bufs = k ? &h.bufs[1 * (size_t)k] : NULL;
+  h.opts.tasks_options.n = k;
+  h.opts.tasks_options_options.bufs = k ? &h.bufs[2 * (size_t)k] : NULL;
+  h.opts.tasks_options_options.n = k;
+  h.opts.tasks_options_max_duration.bufs = k ? &h.bufs[3 * (size_t)k] : NULL;
+  h.opts.tasks_options_max_duration.n = k;
+  h.opts.tasks_created_at.bufs = k ? &h.bufs[4 * (size_t)k] : NULL;
+  h.opts.tasks_created_at.n = k;
+  uint64_t first = 0;
+  unk_fill_buf(&h.opts.self.buf, cap, &first);
+  unk_refill_list_task_summary_response(&h);
+  h.refills = 0;
+  int32_t rc = decode_with_list_task_summary_response_opts(ctx, b, n, out, &h.opts, unk_refill_list_task_summary_response, &h);
+  if (refills) *refills = h.refills;
+  return rc;
+}
+
+// Decision 11 control: clear every facade bag at position `pos` (plan.unk_positions
+// order) -- what decoding with that position's entry zeroed must produce.
+void unk_clear_list_task_summary_response(ListTaskSummaryResponse &o, int pos) {
+  switch (pos) {
+    case 0: { o.unknown_fields.clear(); } break;
+    case 1: { for (size_t i0 = 0; i0 < o.tasks.size(); ++i0) { TaskSummary &x0 = o.tasks[i0]; x0.unknown_fields.clear(); } } break;
+    case 2: { for (size_t i0 = 0; i0 < o.tasks.size(); ++i0) { TaskSummary &x0 = o.tasks[i0]; if (x0.options.has_value()) { TaskOptions &x1 = *x0.options; x1.unknown_fields.clear(); } } } break;
+    case 3: { for (size_t i0 = 0; i0 < o.tasks.size(); ++i0) { TaskSummary &x0 = o.tasks[i0]; if (x0.options.has_value()) { TaskOptions &x1 = *x0.options; /* a facade map entry has no bag */ } } } break;
+    case 4: { for (size_t i0 = 0; i0 < o.tasks.size(); ++i0) { TaskSummary &x0 = o.tasks[i0]; if (x0.options.has_value()) { TaskOptions &x1 = *x0.options; if (x1.max_duration.has_value()) { Duration &x2 = *x1.max_duration; x2.unknown_fields.clear(); } } } } break;
+    case 5: { for (size_t i0 = 0; i0 < o.tasks.size(); ++i0) { TaskSummary &x0 = o.tasks[i0]; if (x0.created_at.has_value()) { Timestamp &x1 = *x0.created_at; x1.unknown_fields.clear(); } } } break;
+    default: break;
+  }
+}
+
 struct Sink_UploadResultDataMessage {
   UploadResultDataMessage *out;
   const uint8_t *base;
+  // Decision 11 rule 1: called after every element delivery, where the host may
+  // refill its pools in place. NULL unless the decode pre-allocates.
+  void (*refill)(void *);
+  void *hold;
 };
 
 static void apply_upload_result_data_message(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_UploadResultDataMessage *fx) {
@@ -3082,23 +4299,113 @@ static void apply_upload_result_data_message(ak_dec_ctx *ctx, void *obj, const s
     const uint8_t *base = s->base;
     (void)f; (void)base;
   if (f.presence & (1u << 0)) s->out->upload.set(from_upload_result_data(f.upload, base, ctx));
-  else s->out->upload.reset();
+  else { s->out->upload.reset(); unk_drop(f.upload.unknown); }
+    s->out->unknown_fields.clear();
+    unk_take(f.unknown, &s->out->unknown_fields);
   AK_DGUARD_END
 }
 
-int32_t decode_with_upload_result_data_message(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out) {
+static int32_t decode_impl_upload_result_data_message(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   Sink_UploadResultDataMessage sink;
   sink.out = out;
   sink.base = b;
+  sink.refill = refill;
+  sink.hold = hold;
   struct ak_dvt_UploadResultDataMessage vt;
   vt.apply = apply_upload_result_data_message;
   return ak_decode_UploadResultDataMessage(ctx, &sink, b, n, &vt);
 }
 
+// Decode with the context as it is armed: a context from
+// ak_dec_ctx_new_UploadResultDataMessage(NULL) (or last reset with NULL) drops every unknown field.
+int32_t decode_with_upload_result_data_message(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out) {
+  return decode_impl_upload_result_data_message(ctx, b, n, out, NULL, NULL);
+}
+
+// Decision 11: every position of `UploadResultDataMessage` backed by `unk_grow` (no pre-allocated
+// buffer, a repeated position an empty pool), except position `zero` (plan
+// unk_positions order), left all zero: discarded there. zero < 0 = none.
+void unk_opts_upload_result_data_message(struct ak_dec_UploadResultDataMessage_opts *o, int zero) {
+  std::memset(o, 0, sizeof(*o));
+  o->host = NULL;
+  if (zero != 0) o->self.grow = unk_grow;
+  if (zero != 1) o->upload.grow = unk_grow;
+}
+
+// The decode with the context armed with `opts`, read IN PLACE by the core until the
+// disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,
+// is called with `hold` after every element delivery (rule 1). Every buffer this
+// binding allocated and did not deliver is freed before return.
+int32_t decode_with_upload_result_data_message_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out, struct ak_dec_UploadResultDataMessage_opts *opts, void (*refill)(void *), void *hold) {
+  AK_INIT_OR_RETURN();
+  int32_t rc = ak_dec_reset_UploadResultDataMessage(ctx, opts);
+  if (rc != AK_OK) return rc;
+  rc = decode_impl_upload_result_data_message(ctx, b, n, out, refill, hold);
+  int32_t rc2 = ak_dec_reset_UploadResultDataMessage(ctx, NULL);
+  unk_reclaim();
+  if (rc >= 0 && rc2 != AK_OK) rc = rc2;
+  return rc;
+}
+
+// Decision 11: retain everywhere (every position grows on demand).
+int32_t decode_with_upload_result_data_message_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out) {
+  struct ak_dec_UploadResultDataMessage_opts opts;
+  unk_opts_upload_result_data_message(&opts, -1);
+  return decode_with_upload_result_data_message_opts(ctx, b, n, out, &opts, NULL, NULL);
+}
+
+// Decision 11 rule 1, pre-allocated: every singular position gets one buffer of `cap`
+// bytes, every pool `k`, refilled in place after each delivery; `unk_grow` is the
+// fallback. Unconsumed buffers are freed by the decode's reclaim.
+struct UnkPool_UploadResultDataMessage {
+  struct ak_dec_UploadResultDataMessage_opts opts;
+  std::vector<struct ak_unk_buf> bufs;
+  uint32_t k;
+  uint32_t cap;
+  uint64_t refills;
+};
+
+static void unk_refill_upload_result_data_message(void *hv) {
+  UnkPool_UploadResultDataMessage *h = (UnkPool_UploadResultDataMessage *)hv;
+  (void)h;
+}
+
+int32_t decode_with_upload_result_data_message_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+  UnkPool_UploadResultDataMessage h;
+  unk_opts_upload_result_data_message(&h.opts, -1);
+  h.k = k;
+  h.cap = cap;
+  h.refills = 0;
+  h.bufs.assign((size_t)0 * k, ak_unk_buf());
+  for (size_t i = 0; i < h.bufs.size(); ++i) { h.bufs[i].data = NULL; h.bufs[i].len = 0; h.bufs[i].cap = 0; }
+  uint64_t first = 0;
+  unk_fill_buf(&h.opts.self.buf, cap, &first);
+  unk_fill_buf(&h.opts.upload.buf, cap, &first);
+  unk_refill_upload_result_data_message(&h);
+  h.refills = 0;
+  int32_t rc = decode_with_upload_result_data_message_opts(ctx, b, n, out, &h.opts, unk_refill_upload_result_data_message, &h);
+  if (refills) *refills = h.refills;
+  return rc;
+}
+
+// Decision 11 control: clear every facade bag at position `pos` (plan.unk_positions
+// order) -- what decoding with that position's entry zeroed must produce.
+void unk_clear_upload_result_data_message(UploadResultDataMessage &o, int pos) {
+  switch (pos) {
+    case 0: { o.unknown_fields.clear(); } break;
+    case 1: { if (o.upload.has_value()) { UploadResultData &x0 = *o.upload; x0.unknown_fields.clear(); } } break;
+    default: break;
+  }
+}
+
 struct Sink_ListMetricsResponse {
   ListMetricsResponse *out;
   const uint8_t *base;
+  // Decision 11 rule 1: called after every element delivery, where the host may
+  // refill its pools in place. NULL unless the decode pre-allocates.
+  void (*refill)(void *);
+  void *hold;
 };
 
 static void apply_list_metrics_response(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_ListMetricsResponse *fx) {
@@ -3107,6 +4414,8 @@ static void apply_list_metrics_response(ak_dec_ctx *ctx, void *obj, const struct
     const struct ak_dfix_ListMetricsResponse &f = *fx;
     const uint8_t *base = s->base;
     (void)f; (void)base;
+    s->out->unknown_fields.clear();
+    unk_take(f.unknown, &s->out->unknown_fields);
   AK_DGUARD_END
 }
 
@@ -3116,6 +4425,7 @@ static int64_t new_list_metrics_response_batches(ak_dec_ctx *ctx, void *obj) {
 #endif
     Sink_ListMetricsResponse *s = (Sink_ListMetricsResponse *)obj;
     s->out->batches.push_back(MetricsBatch());
+    AK_REFILL();
     return (int64_t)(s->out->batches.size() - 1);
 #ifndef AK_NO_GUARD
   } catch (...) {
@@ -3130,6 +4440,7 @@ static void apply_list_metrics_response_batches(ak_dec_ctx *ctx, void *obj, int6
   AK_DGUARD_BEGIN
     Sink_ListMetricsResponse *s = (Sink_ListMetricsResponse *)obj;
     fill_metrics_batch(&s->out->batches[(size_t)tok], *fx, s->base, ctx);
+    AK_REFILL();
   AK_DGUARD_END
 }
 
@@ -3139,6 +4450,7 @@ static void add_list_metrics_response_batches_ticks(ak_dec_ctx *ctx, void *obj, 
     std::vector<int64_t> &dst = s->out->batches[(size_t)tok].ticks;
     dst.reserve(dst.size() + (size_t)n);
     for (int32_t i = 0; i < n; ++i) dst.push_back(elems[i]);
+    AK_REFILL();
   AK_DGUARD_END
 }
 
@@ -3148,6 +4460,7 @@ static void add_list_metrics_response_batches_values(ak_dec_ctx *ctx, void *obj,
     std::vector<double> &dst = s->out->batches[(size_t)tok].values;
     dst.reserve(dst.size() + (size_t)n);
     for (int32_t i = 0; i < n; ++i) dst.push_back(elems[i]);
+    AK_REFILL();
   AK_DGUARD_END
 }
 
@@ -3157,6 +4470,7 @@ static void add_list_metrics_response_batches_codes(ak_dec_ctx *ctx, void *obj, 
     std::vector<int32_t> &dst = s->out->batches[(size_t)tok].codes;
     dst.reserve(dst.size() + (size_t)n);
     for (int32_t i = 0; i < n; ++i) dst.push_back(elems[i]);
+    AK_REFILL();
   AK_DGUARD_END
 }
 
@@ -3166,6 +4480,7 @@ static void add_list_metrics_response_batches_flags(ak_dec_ctx *ctx, void *obj, 
     std::vector<bool> &dst = s->out->batches[(size_t)tok].flags;
     dst.reserve(dst.size() + (size_t)n);
     for (int32_t i = 0; i < n; ++i) dst.push_back(elems[i] != 0);
+    AK_REFILL();
   AK_DGUARD_END
 }
 
@@ -3175,14 +4490,17 @@ static void add_list_metrics_response_batches_statuses(ak_dec_ctx *ctx, void *ob
     std::vector<TaskStatus> &dst = s->out->batches[(size_t)tok].statuses;
     dst.reserve(dst.size() + (size_t)n);
     for (int32_t i = 0; i < n; ++i) dst.push_back(shapes::TaskStatus(elems[i]));
+    AK_REFILL();
   AK_DGUARD_END
 }
 
-int32_t decode_with_list_metrics_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out) {
+static int32_t decode_impl_list_metrics_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   Sink_ListMetricsResponse sink;
   sink.out = out;
   sink.base = b;
+  sink.refill = refill;
+  sink.hold = hold;
   struct ak_dvt_ListMetricsResponse vt;
   vt.apply = apply_list_metrics_response;
   vt.new_batches = new_list_metrics_response_batches;
@@ -3195,9 +4513,97 @@ int32_t decode_with_list_metrics_response(ak_dec_ctx *ctx, const uint8_t *b, siz
   return ak_decode_ListMetricsResponse(ctx, &sink, b, n, &vt);
 }
 
+// Decode with the context as it is armed: a context from
+// ak_dec_ctx_new_ListMetricsResponse(NULL) (or last reset with NULL) drops every unknown field.
+int32_t decode_with_list_metrics_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out) {
+  return decode_impl_list_metrics_response(ctx, b, n, out, NULL, NULL);
+}
+
+// Decision 11: every position of `ListMetricsResponse` backed by `unk_grow` (no pre-allocated
+// buffer, a repeated position an empty pool), except position `zero` (plan
+// unk_positions order), left all zero: discarded there. zero < 0 = none.
+void unk_opts_list_metrics_response(struct ak_dec_ListMetricsResponse_opts *o, int zero) {
+  std::memset(o, 0, sizeof(*o));
+  o->host = NULL;
+  if (zero != 0) o->self.grow = unk_grow;
+  if (zero != 1) o->batches.grow = unk_grow;
+}
+
+// The decode with the context armed with `opts`, read IN PLACE by the core until the
+// disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,
+// is called with `hold` after every element delivery (rule 1). Every buffer this
+// binding allocated and did not deliver is freed before return.
+int32_t decode_with_list_metrics_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out, struct ak_dec_ListMetricsResponse_opts *opts, void (*refill)(void *), void *hold) {
+  AK_INIT_OR_RETURN();
+  int32_t rc = ak_dec_reset_ListMetricsResponse(ctx, opts);
+  if (rc != AK_OK) return rc;
+  rc = decode_impl_list_metrics_response(ctx, b, n, out, refill, hold);
+  int32_t rc2 = ak_dec_reset_ListMetricsResponse(ctx, NULL);
+  unk_reclaim();
+  if (rc >= 0 && rc2 != AK_OK) rc = rc2;
+  return rc;
+}
+
+// Decision 11: retain everywhere (every position grows on demand).
+int32_t decode_with_list_metrics_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out) {
+  struct ak_dec_ListMetricsResponse_opts opts;
+  unk_opts_list_metrics_response(&opts, -1);
+  return decode_with_list_metrics_response_opts(ctx, b, n, out, &opts, NULL, NULL);
+}
+
+// Decision 11 rule 1, pre-allocated: every singular position gets one buffer of `cap`
+// bytes, every pool `k`, refilled in place after each delivery; `unk_grow` is the
+// fallback. Unconsumed buffers are freed by the decode's reclaim.
+struct UnkPool_ListMetricsResponse {
+  struct ak_dec_ListMetricsResponse_opts opts;
+  std::vector<struct ak_unk_buf> bufs;
+  uint32_t k;
+  uint32_t cap;
+  uint64_t refills;
+};
+
+static void unk_refill_list_metrics_response(void *hv) {
+  UnkPool_ListMetricsResponse *h = (UnkPool_ListMetricsResponse *)hv;
+  (void)h;
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[0 * (size_t)h->k + j], h->cap, &h->refills);
+}
+
+int32_t decode_with_list_metrics_response_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+  UnkPool_ListMetricsResponse h;
+  unk_opts_list_metrics_response(&h.opts, -1);
+  h.k = k;
+  h.cap = cap;
+  h.refills = 0;
+  h.bufs.assign((size_t)1 * k, ak_unk_buf());
+  for (size_t i = 0; i < h.bufs.size(); ++i) { h.bufs[i].data = NULL; h.bufs[i].len = 0; h.bufs[i].cap = 0; }
+  h.opts.batches.bufs = k ? &h.bufs[0 * (size_t)k] : NULL;
+  h.opts.batches.n = k;
+  uint64_t first = 0;
+  unk_fill_buf(&h.opts.self.buf, cap, &first);
+  unk_refill_list_metrics_response(&h);
+  h.refills = 0;
+  int32_t rc = decode_with_list_metrics_response_opts(ctx, b, n, out, &h.opts, unk_refill_list_metrics_response, &h);
+  if (refills) *refills = h.refills;
+  return rc;
+}
+
+// Decision 11 control: clear every facade bag at position `pos` (plan.unk_positions
+// order) -- what decoding with that position's entry zeroed must produce.
+void unk_clear_list_metrics_response(ListMetricsResponse &o, int pos) {
+  switch (pos) {
+    case 0: { o.unknown_fields.clear(); } break;
+    case 1: { for (size_t i0 = 0; i0 < o.batches.size(); ++i0) { MetricsBatch &x0 = o.batches[i0]; x0.unknown_fields.clear(); } } break;
+    default: break;
+  }
+}
+
 struct Sink_DualResponse {
   DualResponse *out;
   const uint8_t *base;
+  // Decision 11 rule 1: called after every element delivery, where the host may
+  // refill its pools in place. NULL unless the decode pre-allocates.
+  void (*refill)(void *);
+  void *hold;
 };
 
 static void apply_dual_response(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_DualResponse *fx) {
@@ -3206,6 +4612,8 @@ static void apply_dual_response(ak_dec_ctx *ctx, void *obj, const struct ak_dfix
     const struct ak_dfix_DualResponse &f = *fx;
     const uint8_t *base = s->base;
     (void)f; (void)base;
+    s->out->unknown_fields.clear();
+    unk_take(f.unknown, &s->out->unknown_fields);
   AK_DGUARD_END
 }
 
@@ -3215,6 +4623,7 @@ static void add_dual_response_left(ak_dec_ctx *ctx, void *obj, int64_t tok, cons
     s->out->left.reserve(s->out->left.size() + (size_t)n);
     for (int32_t i = 0; i < n; ++i)
       s->out->left.push_back(from_pair(elems[i], s->base, ctx));
+    AK_REFILL();
   AK_DGUARD_END
 }
 
@@ -3224,19 +4633,111 @@ static void add_dual_response_right(ak_dec_ctx *ctx, void *obj, int64_t tok, con
     s->out->right.reserve(s->out->right.size() + (size_t)n);
     for (int32_t i = 0; i < n; ++i)
       s->out->right.push_back(from_pair(elems[i], s->base, ctx));
+    AK_REFILL();
   AK_DGUARD_END
 }
 
-int32_t decode_with_dual_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out) {
+static int32_t decode_impl_dual_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   Sink_DualResponse sink;
   sink.out = out;
   sink.base = b;
+  sink.refill = refill;
+  sink.hold = hold;
   struct ak_dvt_DualResponse vt;
   vt.apply = apply_dual_response;
   vt.add_left = add_dual_response_left;
   vt.add_right = add_dual_response_right;
   return ak_decode_DualResponse(ctx, &sink, b, n, &vt);
+}
+
+// Decode with the context as it is armed: a context from
+// ak_dec_ctx_new_DualResponse(NULL) (or last reset with NULL) drops every unknown field.
+int32_t decode_with_dual_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out) {
+  return decode_impl_dual_response(ctx, b, n, out, NULL, NULL);
+}
+
+// Decision 11: every position of `DualResponse` backed by `unk_grow` (no pre-allocated
+// buffer, a repeated position an empty pool), except position `zero` (plan
+// unk_positions order), left all zero: discarded there. zero < 0 = none.
+void unk_opts_dual_response(struct ak_dec_DualResponse_opts *o, int zero) {
+  std::memset(o, 0, sizeof(*o));
+  o->host = NULL;
+  if (zero != 0) o->self.grow = unk_grow;
+  if (zero != 1) o->left.grow = unk_grow;
+  if (zero != 2) o->right.grow = unk_grow;
+}
+
+// The decode with the context armed with `opts`, read IN PLACE by the core until the
+// disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,
+// is called with `hold` after every element delivery (rule 1). Every buffer this
+// binding allocated and did not deliver is freed before return.
+int32_t decode_with_dual_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out, struct ak_dec_DualResponse_opts *opts, void (*refill)(void *), void *hold) {
+  AK_INIT_OR_RETURN();
+  int32_t rc = ak_dec_reset_DualResponse(ctx, opts);
+  if (rc != AK_OK) return rc;
+  rc = decode_impl_dual_response(ctx, b, n, out, refill, hold);
+  int32_t rc2 = ak_dec_reset_DualResponse(ctx, NULL);
+  unk_reclaim();
+  if (rc >= 0 && rc2 != AK_OK) rc = rc2;
+  return rc;
+}
+
+// Decision 11: retain everywhere (every position grows on demand).
+int32_t decode_with_dual_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out) {
+  struct ak_dec_DualResponse_opts opts;
+  unk_opts_dual_response(&opts, -1);
+  return decode_with_dual_response_opts(ctx, b, n, out, &opts, NULL, NULL);
+}
+
+// Decision 11 rule 1, pre-allocated: every singular position gets one buffer of `cap`
+// bytes, every pool `k`, refilled in place after each delivery; `unk_grow` is the
+// fallback. Unconsumed buffers are freed by the decode's reclaim.
+struct UnkPool_DualResponse {
+  struct ak_dec_DualResponse_opts opts;
+  std::vector<struct ak_unk_buf> bufs;
+  uint32_t k;
+  uint32_t cap;
+  uint64_t refills;
+};
+
+static void unk_refill_dual_response(void *hv) {
+  UnkPool_DualResponse *h = (UnkPool_DualResponse *)hv;
+  (void)h;
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[0 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[1 * (size_t)h->k + j], h->cap, &h->refills);
+}
+
+int32_t decode_with_dual_response_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+  UnkPool_DualResponse h;
+  unk_opts_dual_response(&h.opts, -1);
+  h.k = k;
+  h.cap = cap;
+  h.refills = 0;
+  h.bufs.assign((size_t)2 * k, ak_unk_buf());
+  for (size_t i = 0; i < h.bufs.size(); ++i) { h.bufs[i].data = NULL; h.bufs[i].len = 0; h.bufs[i].cap = 0; }
+  h.opts.left.bufs = k ? &h.bufs[0 * (size_t)k] : NULL;
+  h.opts.left.n = k;
+  h.opts.right.bufs = k ? &h.bufs[1 * (size_t)k] : NULL;
+  h.opts.right.n = k;
+  uint64_t first = 0;
+  unk_fill_buf(&h.opts.self.buf, cap, &first);
+  unk_refill_dual_response(&h);
+  h.refills = 0;
+  int32_t rc = decode_with_dual_response_opts(ctx, b, n, out, &h.opts, unk_refill_dual_response, &h);
+  if (refills) *refills = h.refills;
+  return rc;
+}
+
+// Decision 11 control: clear every facade bag at position `pos` (plan.unk_positions
+// order) -- what decoding with that position's entry zeroed must produce.
+void unk_clear_dual_response(DualResponse &o, int pos) {
+  switch (pos) {
+    case 0: { o.unknown_fields.clear(); } break;
+    case 1: { for (size_t i0 = 0; i0 < o.left.size(); ++i0) { Pair &x0 = o.left[i0]; x0.unknown_fields.clear(); } } break;
+    case 2: { for (size_t i0 = 0; i0 < o.right.size(); ++i0) { Pair &x0 = o.right[i0]; x0.unknown_fields.clear(); } } break;
+    default: break;
+  }
 }
 
 }  // namespace ffi

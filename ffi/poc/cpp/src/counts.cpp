@@ -8,6 +8,7 @@
 // "how many", and the `counts_a17_static_lto` build exists so the artifact check can be
 // seen firing.
 #include <cstdio>
+#include <cstdlib>
 #include <string>
 
 #include "harness.h"
@@ -73,12 +74,29 @@ static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
 
   ak_enc_ctx_free(ctx);
 
-  ak_dec_ctx *dctx = ak_dec_ctx_new();
+  // Decision 11 rule 6: the context is bound to this payload's root.
+  ak_dec_ctx *dctx = shapes::ffi::dec_ctx_new_for<F>();
   F out;
   ak_dec_counters_reset(dctx);
   ffi_dec(dctx, (const uint8_t *)wire.data(), wire.size(), &out);
   ak_dec_counters(dctx, &c);
   show(id, "decode", c, elems);
+  if (std::getenv("AK_COUNTS_RETAIN") != NULL) {
+    // Requirement 10's arms, counted. Printed only on request, so the committed baseline's
+    // rows (the campaign gate's comparison) are unchanged. The two ak_dec_reset_<Root>
+    // calls of an armed decode are forward calls the core's counters do not see.
+    F r1;
+    ak_dec_counters_reset(dctx);
+    shapes::ffi::DecRoot<F>::decode_unk(dctx, (const uint8_t *)wire.data(), wire.size(), &r1);
+    ak_dec_counters(dctx, &c);
+    show(id, "decode retain (+2 rst)", c, elems);
+    F r2;
+    ak_dec_counters_reset(dctx);
+    shapes::ffi::DecRoot<F>::decode_pool(dctx, (const uint8_t *)wire.data(), wire.size(), &r2,
+                                         4, 64, NULL);
+    ak_dec_counters(dctx, &c);
+    show(id, "decode pool (+2 rst)", c, elems);
+  }
   ak_dec_ctx_free(dctx);
   (void)nat_dec;
 }

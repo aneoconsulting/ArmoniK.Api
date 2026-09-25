@@ -3,7 +3,9 @@
 // Arm `core-ffi`: the generated C++ host binding over the C ABI.
 #include "generated/binding.h"
 
+#include <cstdlib>
 #include <cstring>
+#include <unordered_set>
 
 namespace corpus {
 namespace ffi {
@@ -120,6 +122,92 @@ static inline void b_of(const uint8_t *base, const struct ak_span &s, ak::String
   *out = ak::StringView((const char *)(base + s.off), s.len);
 }
 
+// ---- ABI v1 decision 11, the host side of the unknown-field buffers ------------------
+//
+// The core copies each message occurrence's unknown runs into a buffer slot of its group
+// (plan: UNKNOWN FIELDS ON DECODE). Every buffer this binding hands the core is malloc'd:
+// from `unk_grow` (realloc semantics, NULL/0 = fresh) or pre-allocated and registered with
+// `unk_track`. A buffer passes to the host when its group is delivered; `unk_take` appends
+// it to the facade bag and frees it, `unk_drop` frees one the facade has no bag for (a map
+// entry, an inactive oneof member). What was placed but never delivered (a failed decode)
+// and what a pool still holds after the decode are freed by `unk_reclaim`.
+static std::unordered_set<void *> &unk_live() {
+  static thread_local std::unordered_set<void *> live;
+  return live;
+}
+static thread_local size_t t_unk_entry_bytes = 0;
+
+int32_t unk_grow(void *host, int32_t want, uint8_t **dst, int32_t *cap) {
+  (void)host;
+  if (want <= 0) return AK_ERR_LIMIT;
+  void *old = *dst;
+  void *p = old ? std::realloc(old, (size_t)want) : std::malloc((size_t)want);
+  if (p == NULL) return AK_ERR_LIMIT;
+  std::unordered_set<void *> &l = unk_live();
+  if (old != NULL) l.erase(old);
+  l.insert(p);
+  *dst = (uint8_t *)p;
+  *cap = want;
+  return AK_OK;
+}
+
+void unk_track(void *p) {
+  if (p != NULL) unk_live().insert(p);
+}
+
+size_t unk_reclaim() {
+  std::unordered_set<void *> &l = unk_live();
+  size_t n = l.size();
+  for (std::unordered_set<void *>::iterator it = l.begin(); it != l.end(); ++it) std::free(*it);
+  l.clear();
+  return n;
+}
+
+size_t unk_entry_bytes() {
+  size_t r = t_unk_entry_bytes;
+  t_unk_entry_bytes = 0;
+  return r;
+}
+
+static inline void unk_free_buf(void *p) {
+  std::unordered_set<void *> &l = unk_live();
+  if (!l.empty()) l.erase(p);
+  std::free(p);
+}
+
+// Delivery: the slot's runs, in wire order, into the facade's bag.
+static inline void unk_take(const struct ak_unk_buf &b, std::string *bag) {
+  if (b.data == NULL) return;
+  bag->append((const char *)b.data, b.len);
+  unk_free_buf(b.data);
+}
+
+// Delivery where the facade keeps nothing (an inactive oneof member, an absent child).
+static inline void unk_drop(const struct ak_unk_buf &b) {
+  if (b.data != NULL) unk_free_buf(b.data);
+}
+
+// A map entry: the facade's map has no bag (the U-map-entry gap), so the bytes are counted
+// (the evidence that the core captured them) and freed.
+static inline void unk_drop_entry(const struct ak_unk_buf &b) {
+  if (b.data == NULL) return;
+  t_unk_entry_bytes += b.len;
+  unk_free_buf(b.data);
+}
+
+// A pre-allocated buffer written into an EMPTY entry of the host's options (rule 1: the
+// host refills in place, with no call); tracked, so an unconsumed one is reclaimed.
+static inline void unk_fill_buf(struct ak_unk_buf *e, uint32_t cap, uint64_t *count) {
+  if (e->data != NULL || cap == 0) return;
+  void *p = std::malloc(cap);
+  if (p == NULL) return;
+  unk_track(p);
+  e->data = p;
+  e->len = 0;
+  e->cap = cap;
+  ++*count;
+}
+
 // The host's own memcpy transcoder: the same bytes, written from the HOST side, so every
 // string costs one reverse crossing instead of none. It is the drafted ABI's string form
 // priced without building a second core.
@@ -188,13 +276,7 @@ int32_t ak_init_once() {
 #define AK_INIT_OR_RETURN() \
   do { int32_t irc_ = ak_init_once(); if (irc_ != AK_OK) return irc_; } while (0)
 
-// Decision 11: one captured unknown run, staged until the decode returns.
-// slot 0 = the root object; slot k = element `token` of the k-th loop slot.
-struct AkPending {
-  uint32_t slot;
-  int64_t token;
-  std::string bytes;
-};
+#define AK_REFILL() do { if (s->refill) s->refill(s->hold); } while (0)
 
 static inline void fill_timestamp_sparse(struct ak_efix_Timestamp *d, const Timestamp &o, const Tcs &t);
 static inline void fill_duration_sparse(struct ak_efix_Duration *d, const Duration &o, const Tcs &t);
@@ -1382,6 +1464,7 @@ static inline Timestamp from_timestamp(const struct ak_dfix_Timestamp &f, const 
   Timestamp r;
   r.seconds = f.seconds;
   r.nanos = f.nanos;
+  unk_take(f.unknown, &r.unknown_fields);
   return r;
 }
 
@@ -1390,6 +1473,7 @@ static inline Duration from_duration(const struct ak_dfix_Duration &f, const uin
   Duration r;
   r.seconds = f.seconds;
   r.nanos = f.nanos;
+  unk_take(f.unknown, &r.unknown_fields);
   return r;
 }
 
@@ -1401,14 +1485,15 @@ static inline ResultRaw from_result_raw(const struct ak_dfix_ResultRaw &f, const
   s_of(base, f.owner_task_id, ctx, &r.owner_task_id);
   r.status = corpus::ResultStatus(f.status);
   if (f.presence & (1u << 0)) r.created_at.set(from_timestamp(f.created_at, base, ctx));
-  else r.created_at.reset();
+  else { r.created_at.reset(); unk_drop(f.created_at.unknown); }
   if (f.presence & (1u << 1)) r.completed_at.set(from_timestamp(f.completed_at, base, ctx));
-  else r.completed_at.reset();
+  else { r.completed_at.reset(); unk_drop(f.completed_at.unknown); }
   s_of(base, f.result_id, ctx, &r.result_id);
   r.size = f.size;
   s_of(base, f.created_by, ctx, &r.created_by);
   b_of(base, f.opaque_id, &r.opaque_id);
   r.manual_deletion = (f.manual_deletion != 0);
+  unk_take(f.unknown, &r.unknown_fields);
   return r;
 }
 
@@ -1417,7 +1502,7 @@ static inline ResultRaw from_result_raw(const struct ak_dfix_ResultRaw &f, const
 static inline void fill_task_options(TaskOptions *dst, const struct ak_dfix_TaskOptions &f, const uint8_t *base, ak_dec_ctx *ctx) {
   (void)dst; (void)f; (void)base; (void)ctx;
   if (f.presence & (1u << 0)) dst->max_duration.set(from_duration(f.max_duration, base, ctx));
-  else dst->max_duration.reset();
+  else { dst->max_duration.reset(); unk_drop(f.max_duration.unknown); }
   dst->max_retries = f.max_retries;
   dst->priority = f.priority;
   s_of(base, f.partition_id, ctx, &dst->partition_id);
@@ -1426,6 +1511,7 @@ static inline void fill_task_options(TaskOptions *dst, const struct ak_dfix_Task
   s_of(base, f.application_namespace, ctx, &dst->application_namespace);
   s_of(base, f.application_service, ctx, &dst->application_service);
   s_of(base, f.engine_type, ctx, &dst->engine_type);
+  unk_take(f.unknown, &dst->unknown_fields);
 }
 
 static inline TaskOutput from_task_output(const struct ak_dfix_TaskOutput &f, const uint8_t *base, ak_dec_ctx *ctx) {
@@ -1433,6 +1519,7 @@ static inline TaskOutput from_task_output(const struct ak_dfix_TaskOutput &f, co
   TaskOutput r;
   r.success = (f.success != 0);
   s_of(base, f.error, ctx, &r.error);
+  unk_take(f.unknown, &r.unknown_fields);
   return r;
 }
 
@@ -1446,37 +1533,38 @@ static inline void fill_task_detailed(TaskDetailed *dst, const struct ak_dfix_Ta
   dst->status = corpus::TaskStatus(f.status);
   s_of(base, f.status_message, ctx, &dst->status_message);
   if (f.presence & (1u << 0)) fill_task_options(&dst->options.get_or_insert(), f.options, base, ctx);
-  else dst->options.reset();
+  else { dst->options.reset(); unk_drop(f.options.unknown); }
   if (f.presence & (1u << 1)) dst->created_at.set(from_timestamp(f.created_at, base, ctx));
-  else dst->created_at.reset();
+  else { dst->created_at.reset(); unk_drop(f.created_at.unknown); }
   if (f.presence & (1u << 2)) dst->submitted_at.set(from_timestamp(f.submitted_at, base, ctx));
-  else dst->submitted_at.reset();
+  else { dst->submitted_at.reset(); unk_drop(f.submitted_at.unknown); }
   if (f.presence & (1u << 3)) dst->started_at.set(from_timestamp(f.started_at, base, ctx));
-  else dst->started_at.reset();
+  else { dst->started_at.reset(); unk_drop(f.started_at.unknown); }
   if (f.presence & (1u << 4)) dst->ended_at.set(from_timestamp(f.ended_at, base, ctx));
-  else dst->ended_at.reset();
+  else { dst->ended_at.reset(); unk_drop(f.ended_at.unknown); }
   if (f.presence & (1u << 5)) dst->pod_ttl.set(from_timestamp(f.pod_ttl, base, ctx));
-  else dst->pod_ttl.reset();
+  else { dst->pod_ttl.reset(); unk_drop(f.pod_ttl.unknown); }
   if (f.presence & (1u << 6)) dst->output.set(from_task_output(f.output, base, ctx));
-  else dst->output.reset();
+  else { dst->output.reset(); unk_drop(f.output.unknown); }
   s_of(base, f.pod_hostname, ctx, &dst->pod_hostname);
   if (f.presence & (1u << 7)) dst->received_at.set(from_timestamp(f.received_at, base, ctx));
-  else dst->received_at.reset();
+  else { dst->received_at.reset(); unk_drop(f.received_at.unknown); }
   if (f.presence & (1u << 8)) dst->acquired_at.set(from_timestamp(f.acquired_at, base, ctx));
-  else dst->acquired_at.reset();
+  else { dst->acquired_at.reset(); unk_drop(f.acquired_at.unknown); }
   if (f.presence & (1u << 9)) dst->creation_to_end_duration.set(from_duration(f.creation_to_end_duration, base, ctx));
-  else dst->creation_to_end_duration.reset();
+  else { dst->creation_to_end_duration.reset(); unk_drop(f.creation_to_end_duration.unknown); }
   if (f.presence & (1u << 10)) dst->processing_to_end_duration.set(from_duration(f.processing_to_end_duration, base, ctx));
-  else dst->processing_to_end_duration.reset();
+  else { dst->processing_to_end_duration.reset(); unk_drop(f.processing_to_end_duration.unknown); }
   s_of(base, f.initial_task_id, ctx, &dst->initial_task_id);
   if (f.presence & (1u << 11)) dst->received_to_end_duration.set(from_duration(f.received_to_end_duration, base, ctx));
-  else dst->received_to_end_duration.reset();
+  else { dst->received_to_end_duration.reset(); unk_drop(f.received_to_end_duration.unknown); }
   if (f.presence & (1u << 12)) dst->processed_at.set(from_timestamp(f.processed_at, base, ctx));
-  else dst->processed_at.reset();
+  else { dst->processed_at.reset(); unk_drop(f.processed_at.unknown); }
   if (f.presence & (1u << 13)) dst->fetched_at.set(from_timestamp(f.fetched_at, base, ctx));
-  else dst->fetched_at.reset();
+  else { dst->fetched_at.reset(); unk_drop(f.fetched_at.unknown); }
   s_of(base, f.payload_id, ctx, &dst->payload_id);
   s_of(base, f.created_by, ctx, &dst->created_by);
+  unk_take(f.unknown, &dst->unknown_fields);
 }
 
 // In place, never constructed: `TaskSummary` carries a repeated or map field,
@@ -1486,18 +1574,20 @@ static inline void fill_task_summary(TaskSummary *dst, const struct ak_dfix_Task
   s_of(base, f.id, ctx, &dst->id);
   s_of(base, f.session_id, ctx, &dst->session_id);
   if (f.presence & (1u << 0)) fill_task_options(&dst->options.get_or_insert(), f.options, base, ctx);
-  else dst->options.reset();
+  else { dst->options.reset(); unk_drop(f.options.unknown); }
   dst->status = corpus::TaskStatus(f.status);
   if (f.presence & (1u << 1)) dst->created_at.set(from_timestamp(f.created_at, base, ctx));
-  else dst->created_at.reset();
+  else { dst->created_at.reset(); unk_drop(f.created_at.unknown); }
   s_of(base, f.error, ctx, &dst->error);
   s_of(base, f.status_message, ctx, &dst->status_message);
   dst->count_data_dependencies = f.count_data_dependencies;
+  unk_take(f.unknown, &dst->unknown_fields);
 }
 
 static inline Empty from_empty(const struct ak_dfix_Empty &f, const uint8_t *base, ak_dec_ctx *ctx) {
   (void)f; (void)base; (void)ctx;
   Empty r;
+  unk_take(f.unknown, &r.unknown_fields);
   return r;
 }
 
@@ -1510,6 +1600,8 @@ static inline Probe from_probe(const struct ak_dfix_Probe &f, const uint8_t *bas
   if (f.presence & (1u << 1)) s_of(base, f.opt_label, ctx, &r.opt_label.emplace());
   if (f.presence & (1u << 2)) r.opt_flag.set((f.opt_flag != 0));
   else r.opt_flag.reset();
+  if (f.body_case != 13u) unk_drop(f.body_as_stamp.unknown);
+  if (f.body_case != 14u) unk_drop(f.body_as_nothing.unknown);
   switch (f.body_case) {
     case 10: {
       r.body.set_as_int() = f.body_as_int; break; }
@@ -1523,6 +1615,7 @@ static inline Probe from_probe(const struct ak_dfix_Probe &f, const uint8_t *bas
       r.body.set_as_nothing() = from_empty(f.body_as_nothing, base, ctx); break; }
     default: r.body.clear(); break;
   }
+  unk_take(f.unknown, &r.unknown_fields);
   return r;
 }
 
@@ -1532,6 +1625,7 @@ static inline UploadResultData from_upload_result_data(const struct ak_dfix_Uplo
   s_of(base, f.session_id, ctx, &r.session_id);
   s_of(base, f.result_id, ctx, &r.result_id);
   b_of(base, f.data_chunk, &r.data_chunk);
+  unk_take(f.unknown, &r.unknown_fields);
   return r;
 }
 
@@ -1540,6 +1634,7 @@ static inline UploadResultData from_upload_result_data(const struct ak_dfix_Uplo
 static inline void fill_metrics_batch(MetricsBatch *dst, const struct ak_dfix_MetricsBatch &f, const uint8_t *base, ak_dec_ctx *ctx) {
   (void)dst; (void)f; (void)base; (void)ctx;
   s_of(base, f.id, ctx, &dst->id);
+  unk_take(f.unknown, &dst->unknown_fields);
 }
 
 static inline Pair from_pair(const struct ak_dfix_Pair &f, const uint8_t *base, ak_dec_ctx *ctx) {
@@ -1547,6 +1642,7 @@ static inline Pair from_pair(const struct ak_dfix_Pair &f, const uint8_t *base, 
   Pair r;
   s_of(base, f.key, ctx, &r.key);
   r.value = f.value;
+  unk_take(f.unknown, &r.unknown_fields);
   return r;
 }
 
@@ -1556,6 +1652,7 @@ static inline void fill_list_results_response(ListResultsResponse *dst, const st
   (void)dst; (void)f; (void)base; (void)ctx;
   dst->page = f.page;
   dst->total = f.total;
+  unk_take(f.unknown, &dst->unknown_fields);
 }
 
 // In place, never constructed: `ListTasksDetailedResponse` carries a repeated or map field,
@@ -1564,31 +1661,36 @@ static inline void fill_list_tasks_detailed_response(ListTasksDetailedResponse *
   (void)dst; (void)f; (void)base; (void)ctx;
   dst->page = f.page;
   dst->total = f.total;
+  unk_take(f.unknown, &dst->unknown_fields);
 }
 
 // In place, never constructed: `ListTaskSummaryResponse` carries a repeated or map field,
 // and `apply` arrives AFTER the runs that populated it.
 static inline void fill_list_task_summary_response(ListTaskSummaryResponse *dst, const struct ak_dfix_ListTaskSummaryResponse &f, const uint8_t *base, ak_dec_ctx *ctx) {
   (void)dst; (void)f; (void)base; (void)ctx;
+  unk_take(f.unknown, &dst->unknown_fields);
 }
 
 // In place, never constructed: `ListProbeResponse` carries a repeated or map field,
 // and `apply` arrives AFTER the runs that populated it.
 static inline void fill_list_probe_response(ListProbeResponse *dst, const struct ak_dfix_ListProbeResponse &f, const uint8_t *base, ak_dec_ctx *ctx) {
   (void)dst; (void)f; (void)base; (void)ctx;
+  unk_take(f.unknown, &dst->unknown_fields);
 }
 
 // In place, never constructed: `ListMetricsResponse` carries a repeated or map field,
 // and `apply` arrives AFTER the runs that populated it.
 static inline void fill_list_metrics_response(ListMetricsResponse *dst, const struct ak_dfix_ListMetricsResponse &f, const uint8_t *base, ak_dec_ctx *ctx) {
   (void)dst; (void)f; (void)base; (void)ctx;
+  unk_take(f.unknown, &dst->unknown_fields);
 }
 
 static inline UploadResultDataMessage from_upload_result_data_message(const struct ak_dfix_UploadResultDataMessage &f, const uint8_t *base, ak_dec_ctx *ctx) {
   (void)f; (void)base; (void)ctx;
   UploadResultDataMessage r;
   if (f.presence & (1u << 0)) r.upload.set(from_upload_result_data(f.upload, base, ctx));
-  else r.upload.reset();
+  else { r.upload.reset(); unk_drop(f.upload.unknown); }
+  unk_take(f.unknown, &r.unknown_fields);
   return r;
 }
 
@@ -1596,6 +1698,7 @@ static inline UploadResultDataMessage from_upload_result_data_message(const stru
 // and `apply` arrives AFTER the runs that populated it.
 static inline void fill_dual_response(DualResponse *dst, const struct ak_dfix_DualResponse &f, const uint8_t *base, ak_dec_ctx *ctx) {
   (void)dst; (void)f; (void)base; (void)ctx;
+  unk_take(f.unknown, &dst->unknown_fields);
 }
 
 static inline ChunkLeaf from_chunk_leaf(const struct ak_dfix_ChunkLeaf &f, const uint8_t *base, ak_dec_ctx *ctx) {
@@ -1603,6 +1706,7 @@ static inline ChunkLeaf from_chunk_leaf(const struct ak_dfix_ChunkLeaf &f, const
   ChunkLeaf r;
   s_of(base, f.k, ctx, &r.k);
   r.v = f.v;
+  unk_take(f.unknown, &r.unknown_fields);
   return r;
 }
 
@@ -1610,6 +1714,7 @@ static inline ChunkLeaf from_chunk_leaf(const struct ak_dfix_ChunkLeaf &f, const
 // and `apply` arrives AFTER the runs that populated it.
 static inline void fill_chunk_inner(ChunkInner *dst, const struct ak_dfix_ChunkInner &f, const uint8_t *base, ak_dec_ctx *ctx) {
   (void)dst; (void)f; (void)base; (void)ctx;
+  unk_take(f.unknown, &dst->unknown_fields);
 }
 
 // In place, never constructed: `ChunkElement` carries a repeated or map field,
@@ -1618,7 +1723,8 @@ static inline void fill_chunk_element(ChunkElement *dst, const struct ak_dfix_Ch
   (void)dst; (void)f; (void)base; (void)ctx;
   s_of(base, f.id, ctx, &dst->id);
   if (f.presence & (1u << 0)) fill_chunk_inner(&dst->inner.get_or_insert(), f.inner, base, ctx);
-  else dst->inner.reset();
+  else { dst->inner.reset(); unk_drop(f.inner.unknown); }
+  unk_take(f.unknown, &dst->unknown_fields);
 }
 
 // In place, never constructed: `ChunkedResponse` carries a repeated or map field,
@@ -1626,12 +1732,14 @@ static inline void fill_chunk_element(ChunkElement *dst, const struct ak_dfix_Ch
 static inline void fill_chunked_response(ChunkedResponse *dst, const struct ak_dfix_ChunkedResponse &f, const uint8_t *base, ak_dec_ctx *ctx) {
   (void)dst; (void)f; (void)base; (void)ctx;
   dst->page = f.page;
+  unk_take(f.unknown, &dst->unknown_fields);
 }
 
 // In place, never constructed: `ChunkedResponseWide` carries a repeated or map field,
 // and `apply` arrives AFTER the runs that populated it.
 static inline void fill_chunked_response_wide(ChunkedResponseWide *dst, const struct ak_dfix_ChunkedResponseWide &f, const uint8_t *base, ak_dec_ctx *ctx) {
   (void)dst; (void)f; (void)base; (void)ctx;
+  unk_take(f.unknown, &dst->unknown_fields);
 }
 
 static inline LeafElement from_leaf_element(const struct ak_dfix_LeafElement &f, const uint8_t *base, ak_dec_ctx *ctx) {
@@ -1640,7 +1748,8 @@ static inline LeafElement from_leaf_element(const struct ak_dfix_LeafElement &f,
   s_of(base, f.id, ctx, &r.id);
   r.n = f.n;
   if (f.presence & (1u << 0)) r.stamp.set(from_timestamp(f.stamp, base, ctx));
-  else r.stamp.reset();
+  else { r.stamp.reset(); unk_drop(f.stamp.unknown); }
+  unk_take(f.unknown, &r.unknown_fields);
   return r;
 }
 
@@ -1648,12 +1757,14 @@ static inline LeafElement from_leaf_element(const struct ak_dfix_LeafElement &f,
 // and `apply` arrives AFTER the runs that populated it.
 static inline void fill_leaf_response(LeafResponse *dst, const struct ak_dfix_LeafResponse &f, const uint8_t *base, ak_dec_ctx *ctx) {
   (void)dst; (void)f; (void)base; (void)ctx;
+  unk_take(f.unknown, &dst->unknown_fields);
 }
 
 static inline SurrogateInner from_surrogate_inner(const struct ak_dfix_SurrogateInner &f, const uint8_t *base, ak_dec_ctx *ctx) {
   (void)f; (void)base; (void)ctx;
   SurrogateInner r;
   s_of(base, f.text, ctx, &r.text);
+  unk_take(f.unknown, &r.unknown_fields);
   return r;
 }
 
@@ -1663,8 +1774,9 @@ static inline void fill_surrogate(Surrogate *dst, const struct ak_dfix_Surrogate
   (void)dst; (void)f; (void)base; (void)ctx;
   s_of(base, f.text, ctx, &dst->text);
   if (f.presence & (1u << 0)) dst->nested.set(from_surrogate_inner(f.nested, base, ctx));
-  else dst->nested.reset();
+  else { dst->nested.reset(); unk_drop(f.nested.unknown); }
   b_of(base, f.raw, &dst->raw);
+  unk_take(f.unknown, &dst->unknown_fields);
 }
 
 static inline WireZoo from_wire_zoo(const struct ak_dfix_WireZoo &f, const uint8_t *base, ak_dec_ctx *ctx) {
@@ -1679,8 +1791,9 @@ static inline WireZoo from_wire_zoo(const struct ak_dfix_WireZoo &f, const uint8
   b_of(base, f.v_bytes, &r.v_bytes);
   r.v_enum = corpus::ResultStatus(f.v_enum);
   if (f.presence & (1u << 0)) r.v_msg.set(from_timestamp(f.v_msg, base, ctx));
-  else r.v_msg.reset();
+  else { r.v_msg.reset(); unk_drop(f.v_msg.unknown); }
   r.v_big_tag = f.v_big_tag;
+  unk_take(f.unknown, &r.unknown_fields);
   return r;
 }
 
@@ -7784,10 +7897,10 @@ intptr_t encode_into_wire_zoo_unk(ak_enc_ctx *ctx, const WireZoo &o, const Tcs &
 struct Sink_Timestamp {
   Timestamp *out;
   const uint8_t *base;
-  // Decision 11: unknown runs staged by (slot, token) and applied after the
-  // decode -- a capture buffer may flush before the run that carries the
-  // element it belongs to. NULL on the drop path.
-  std::vector<AkPending> *pending;
+  // Decision 11 rule 1: called after every element delivery, where the host may
+  // refill its pools in place. NULL unless the decode pre-allocates.
+  void (*refill)(void *);
+  void *hold;
 };
 
 static void apply_timestamp(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_Timestamp *fx) {
@@ -7798,49 +7911,109 @@ static void apply_timestamp(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_Tim
     (void)f; (void)base;
   s->out->seconds = f.seconds;
   s->out->nanos = f.nanos;
+    s->out->unknown_fields.clear();
+    unk_take(f.unknown, &s->out->unknown_fields);
   AK_DGUARD_END
 }
 
-int32_t decode_with_timestamp(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Timestamp *out) {
+static int32_t decode_impl_timestamp(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Timestamp *out, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   Sink_Timestamp sink;
   sink.out = out;
   sink.base = b;
-  sink.pending = NULL;
+  sink.refill = refill;
+  sink.hold = hold;
   struct ak_dvt_Timestamp vt;
   vt.apply = apply_timestamp;
   return ak_decode_Timestamp(ctx, &sink, b, n, &vt);
 }
 
-int32_t decode_with_timestamp_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Timestamp *out) {
+// Decode with the context as it is armed: a context from
+// ak_dec_ctx_new_Timestamp(NULL) (or last reset with NULL) drops every unknown field.
+int32_t decode_with_timestamp(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Timestamp *out) {
+  return decode_impl_timestamp(ctx, b, n, out, NULL, NULL);
+}
+
+// Decision 11: every position of `Timestamp` backed by `unk_grow` (no pre-allocated
+// buffer, a repeated position an empty pool), except position `zero` (plan
+// unk_positions order), left all zero: discarded there. zero < 0 = none.
+void unk_opts_timestamp(struct ak_dec_Timestamp_opts *o, int zero) {
+  std::memset(o, 0, sizeof(*o));
+  o->host = NULL;
+  if (zero != 0) o->self.grow = unk_grow;
+}
+
+// The decode with the context armed with `opts`, read IN PLACE by the core until the
+// disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,
+// is called with `hold` after every element delivery (rule 1). Every buffer this
+// binding allocated and did not deliver is freed before return.
+int32_t decode_with_timestamp_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Timestamp *out, struct ak_dec_Timestamp_opts *opts, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
-  std::vector<AkPending> pending;
-  Sink_Timestamp sink;
-  sink.out = out;
-  sink.base = b;
-  sink.pending = &pending;
-  struct ak_dvt_Timestamp vt;
-  vt.apply = apply_timestamp;
-  int32_t rc = ak_decode_Timestamp(ctx, &sink, b, n, &vt);
-  if (rc < 0) return rc;
-  // Applied after the decode, not during it (see AkPending).
-  for (size_t i = 0; i < pending.size(); ++i) {
-    const AkPending &pd = pending[i];
-    switch (pd.slot) {
-      case 0: out->unknown_fields.append(pd.bytes); break;
-      default: break;
-    }
-  }
+  int32_t rc = ak_dec_reset_Timestamp(ctx, opts);
+  if (rc != AK_OK) return rc;
+  rc = decode_impl_timestamp(ctx, b, n, out, refill, hold);
+  int32_t rc2 = ak_dec_reset_Timestamp(ctx, NULL);
+  unk_reclaim();
+  if (rc >= 0 && rc2 != AK_OK) rc = rc2;
   return rc;
+}
+
+// Decision 11: retain everywhere (every position grows on demand).
+int32_t decode_with_timestamp_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Timestamp *out) {
+  struct ak_dec_Timestamp_opts opts;
+  unk_opts_timestamp(&opts, -1);
+  return decode_with_timestamp_opts(ctx, b, n, out, &opts, NULL, NULL);
+}
+
+// Decision 11 rule 1, pre-allocated: every singular position gets one buffer of `cap`
+// bytes, every pool `k`, refilled in place after each delivery; `unk_grow` is the
+// fallback. Unconsumed buffers are freed by the decode's reclaim.
+struct UnkPool_Timestamp {
+  struct ak_dec_Timestamp_opts opts;
+  std::vector<struct ak_unk_buf> bufs;
+  uint32_t k;
+  uint32_t cap;
+  uint64_t refills;
+};
+
+static void unk_refill_timestamp(void *hv) {
+  UnkPool_Timestamp *h = (UnkPool_Timestamp *)hv;
+  (void)h;
+}
+
+int32_t decode_with_timestamp_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Timestamp *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+  UnkPool_Timestamp h;
+  unk_opts_timestamp(&h.opts, -1);
+  h.k = k;
+  h.cap = cap;
+  h.refills = 0;
+  h.bufs.assign((size_t)0 * k, ak_unk_buf());
+  for (size_t i = 0; i < h.bufs.size(); ++i) { h.bufs[i].data = NULL; h.bufs[i].len = 0; h.bufs[i].cap = 0; }
+  uint64_t first = 0;
+  unk_fill_buf(&h.opts.self.buf, cap, &first);
+  unk_refill_timestamp(&h);
+  h.refills = 0;
+  int32_t rc = decode_with_timestamp_opts(ctx, b, n, out, &h.opts, unk_refill_timestamp, &h);
+  if (refills) *refills = h.refills;
+  return rc;
+}
+
+// Decision 11 control: clear every facade bag at position `pos` (plan.unk_positions
+// order) -- what decoding with that position's entry zeroed must produce.
+void unk_clear_timestamp(Timestamp &o, int pos) {
+  switch (pos) {
+    case 0: { o.unknown_fields.clear(); } break;
+    default: break;
+  }
 }
 
 struct Sink_Duration {
   Duration *out;
   const uint8_t *base;
-  // Decision 11: unknown runs staged by (slot, token) and applied after the
-  // decode -- a capture buffer may flush before the run that carries the
-  // element it belongs to. NULL on the drop path.
-  std::vector<AkPending> *pending;
+  // Decision 11 rule 1: called after every element delivery, where the host may
+  // refill its pools in place. NULL unless the decode pre-allocates.
+  void (*refill)(void *);
+  void *hold;
 };
 
 static void apply_duration(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_Duration *fx) {
@@ -7851,49 +8024,109 @@ static void apply_duration(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_Dura
     (void)f; (void)base;
   s->out->seconds = f.seconds;
   s->out->nanos = f.nanos;
+    s->out->unknown_fields.clear();
+    unk_take(f.unknown, &s->out->unknown_fields);
   AK_DGUARD_END
 }
 
-int32_t decode_with_duration(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Duration *out) {
+static int32_t decode_impl_duration(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Duration *out, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   Sink_Duration sink;
   sink.out = out;
   sink.base = b;
-  sink.pending = NULL;
+  sink.refill = refill;
+  sink.hold = hold;
   struct ak_dvt_Duration vt;
   vt.apply = apply_duration;
   return ak_decode_Duration(ctx, &sink, b, n, &vt);
 }
 
-int32_t decode_with_duration_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Duration *out) {
+// Decode with the context as it is armed: a context from
+// ak_dec_ctx_new_Duration(NULL) (or last reset with NULL) drops every unknown field.
+int32_t decode_with_duration(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Duration *out) {
+  return decode_impl_duration(ctx, b, n, out, NULL, NULL);
+}
+
+// Decision 11: every position of `Duration` backed by `unk_grow` (no pre-allocated
+// buffer, a repeated position an empty pool), except position `zero` (plan
+// unk_positions order), left all zero: discarded there. zero < 0 = none.
+void unk_opts_duration(struct ak_dec_Duration_opts *o, int zero) {
+  std::memset(o, 0, sizeof(*o));
+  o->host = NULL;
+  if (zero != 0) o->self.grow = unk_grow;
+}
+
+// The decode with the context armed with `opts`, read IN PLACE by the core until the
+// disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,
+// is called with `hold` after every element delivery (rule 1). Every buffer this
+// binding allocated and did not deliver is freed before return.
+int32_t decode_with_duration_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Duration *out, struct ak_dec_Duration_opts *opts, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
-  std::vector<AkPending> pending;
-  Sink_Duration sink;
-  sink.out = out;
-  sink.base = b;
-  sink.pending = &pending;
-  struct ak_dvt_Duration vt;
-  vt.apply = apply_duration;
-  int32_t rc = ak_decode_Duration(ctx, &sink, b, n, &vt);
-  if (rc < 0) return rc;
-  // Applied after the decode, not during it (see AkPending).
-  for (size_t i = 0; i < pending.size(); ++i) {
-    const AkPending &pd = pending[i];
-    switch (pd.slot) {
-      case 0: out->unknown_fields.append(pd.bytes); break;
-      default: break;
-    }
-  }
+  int32_t rc = ak_dec_reset_Duration(ctx, opts);
+  if (rc != AK_OK) return rc;
+  rc = decode_impl_duration(ctx, b, n, out, refill, hold);
+  int32_t rc2 = ak_dec_reset_Duration(ctx, NULL);
+  unk_reclaim();
+  if (rc >= 0 && rc2 != AK_OK) rc = rc2;
   return rc;
+}
+
+// Decision 11: retain everywhere (every position grows on demand).
+int32_t decode_with_duration_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Duration *out) {
+  struct ak_dec_Duration_opts opts;
+  unk_opts_duration(&opts, -1);
+  return decode_with_duration_opts(ctx, b, n, out, &opts, NULL, NULL);
+}
+
+// Decision 11 rule 1, pre-allocated: every singular position gets one buffer of `cap`
+// bytes, every pool `k`, refilled in place after each delivery; `unk_grow` is the
+// fallback. Unconsumed buffers are freed by the decode's reclaim.
+struct UnkPool_Duration {
+  struct ak_dec_Duration_opts opts;
+  std::vector<struct ak_unk_buf> bufs;
+  uint32_t k;
+  uint32_t cap;
+  uint64_t refills;
+};
+
+static void unk_refill_duration(void *hv) {
+  UnkPool_Duration *h = (UnkPool_Duration *)hv;
+  (void)h;
+}
+
+int32_t decode_with_duration_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Duration *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+  UnkPool_Duration h;
+  unk_opts_duration(&h.opts, -1);
+  h.k = k;
+  h.cap = cap;
+  h.refills = 0;
+  h.bufs.assign((size_t)0 * k, ak_unk_buf());
+  for (size_t i = 0; i < h.bufs.size(); ++i) { h.bufs[i].data = NULL; h.bufs[i].len = 0; h.bufs[i].cap = 0; }
+  uint64_t first = 0;
+  unk_fill_buf(&h.opts.self.buf, cap, &first);
+  unk_refill_duration(&h);
+  h.refills = 0;
+  int32_t rc = decode_with_duration_opts(ctx, b, n, out, &h.opts, unk_refill_duration, &h);
+  if (refills) *refills = h.refills;
+  return rc;
+}
+
+// Decision 11 control: clear every facade bag at position `pos` (plan.unk_positions
+// order) -- what decoding with that position's entry zeroed must produce.
+void unk_clear_duration(Duration &o, int pos) {
+  switch (pos) {
+    case 0: { o.unknown_fields.clear(); } break;
+    default: break;
+  }
 }
 
 struct Sink_ResultRaw {
   ResultRaw *out;
   const uint8_t *base;
-  // Decision 11: unknown runs staged by (slot, token) and applied after the
-  // decode -- a capture buffer may flush before the run that carries the
-  // element it belongs to. NULL on the drop path.
-  std::vector<AkPending> *pending;
+  // Decision 11 rule 1: called after every element delivery, where the host may
+  // refill its pools in place. NULL unless the decode pre-allocates.
+  void (*refill)(void *);
+  void *hold;
 };
 
 static void apply_result_raw(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_ResultRaw *fx) {
@@ -7907,57 +8140,123 @@ static void apply_result_raw(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_Re
   s_of(base, f.owner_task_id, ctx, &s->out->owner_task_id);
   s->out->status = corpus::ResultStatus(f.status);
   if (f.presence & (1u << 0)) s->out->created_at.set(from_timestamp(f.created_at, base, ctx));
-  else s->out->created_at.reset();
+  else { s->out->created_at.reset(); unk_drop(f.created_at.unknown); }
   if (f.presence & (1u << 1)) s->out->completed_at.set(from_timestamp(f.completed_at, base, ctx));
-  else s->out->completed_at.reset();
+  else { s->out->completed_at.reset(); unk_drop(f.completed_at.unknown); }
   s_of(base, f.result_id, ctx, &s->out->result_id);
   s->out->size = f.size;
   s_of(base, f.created_by, ctx, &s->out->created_by);
   b_of(base, f.opaque_id, &s->out->opaque_id);
   s->out->manual_deletion = (f.manual_deletion != 0);
+    s->out->unknown_fields.clear();
+    unk_take(f.unknown, &s->out->unknown_fields);
   AK_DGUARD_END
 }
 
-int32_t decode_with_result_raw(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ResultRaw *out) {
+static int32_t decode_impl_result_raw(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ResultRaw *out, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   Sink_ResultRaw sink;
   sink.out = out;
   sink.base = b;
-  sink.pending = NULL;
+  sink.refill = refill;
+  sink.hold = hold;
   struct ak_dvt_ResultRaw vt;
   vt.apply = apply_result_raw;
   return ak_decode_ResultRaw(ctx, &sink, b, n, &vt);
 }
 
-int32_t decode_with_result_raw_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ResultRaw *out) {
+// Decode with the context as it is armed: a context from
+// ak_dec_ctx_new_ResultRaw(NULL) (or last reset with NULL) drops every unknown field.
+int32_t decode_with_result_raw(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ResultRaw *out) {
+  return decode_impl_result_raw(ctx, b, n, out, NULL, NULL);
+}
+
+// Decision 11: every position of `ResultRaw` backed by `unk_grow` (no pre-allocated
+// buffer, a repeated position an empty pool), except position `zero` (plan
+// unk_positions order), left all zero: discarded there. zero < 0 = none.
+void unk_opts_result_raw(struct ak_dec_ResultRaw_opts *o, int zero) {
+  std::memset(o, 0, sizeof(*o));
+  o->host = NULL;
+  if (zero != 0) o->self.grow = unk_grow;
+  if (zero != 1) o->created_at.grow = unk_grow;
+  if (zero != 2) o->completed_at.grow = unk_grow;
+}
+
+// The decode with the context armed with `opts`, read IN PLACE by the core until the
+// disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,
+// is called with `hold` after every element delivery (rule 1). Every buffer this
+// binding allocated and did not deliver is freed before return.
+int32_t decode_with_result_raw_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ResultRaw *out, struct ak_dec_ResultRaw_opts *opts, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
-  std::vector<AkPending> pending;
-  Sink_ResultRaw sink;
-  sink.out = out;
-  sink.base = b;
-  sink.pending = &pending;
-  struct ak_dvt_ResultRaw vt;
-  vt.apply = apply_result_raw;
-  int32_t rc = ak_decode_ResultRaw(ctx, &sink, b, n, &vt);
-  if (rc < 0) return rc;
-  // Applied after the decode, not during it (see AkPending).
-  for (size_t i = 0; i < pending.size(); ++i) {
-    const AkPending &pd = pending[i];
-    switch (pd.slot) {
-      case 0: out->unknown_fields.append(pd.bytes); break;
-      default: break;
-    }
-  }
+  int32_t rc = ak_dec_reset_ResultRaw(ctx, opts);
+  if (rc != AK_OK) return rc;
+  rc = decode_impl_result_raw(ctx, b, n, out, refill, hold);
+  int32_t rc2 = ak_dec_reset_ResultRaw(ctx, NULL);
+  unk_reclaim();
+  if (rc >= 0 && rc2 != AK_OK) rc = rc2;
   return rc;
+}
+
+// Decision 11: retain everywhere (every position grows on demand).
+int32_t decode_with_result_raw_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ResultRaw *out) {
+  struct ak_dec_ResultRaw_opts opts;
+  unk_opts_result_raw(&opts, -1);
+  return decode_with_result_raw_opts(ctx, b, n, out, &opts, NULL, NULL);
+}
+
+// Decision 11 rule 1, pre-allocated: every singular position gets one buffer of `cap`
+// bytes, every pool `k`, refilled in place after each delivery; `unk_grow` is the
+// fallback. Unconsumed buffers are freed by the decode's reclaim.
+struct UnkPool_ResultRaw {
+  struct ak_dec_ResultRaw_opts opts;
+  std::vector<struct ak_unk_buf> bufs;
+  uint32_t k;
+  uint32_t cap;
+  uint64_t refills;
+};
+
+static void unk_refill_result_raw(void *hv) {
+  UnkPool_ResultRaw *h = (UnkPool_ResultRaw *)hv;
+  (void)h;
+}
+
+int32_t decode_with_result_raw_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ResultRaw *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+  UnkPool_ResultRaw h;
+  unk_opts_result_raw(&h.opts, -1);
+  h.k = k;
+  h.cap = cap;
+  h.refills = 0;
+  h.bufs.assign((size_t)0 * k, ak_unk_buf());
+  for (size_t i = 0; i < h.bufs.size(); ++i) { h.bufs[i].data = NULL; h.bufs[i].len = 0; h.bufs[i].cap = 0; }
+  uint64_t first = 0;
+  unk_fill_buf(&h.opts.self.buf, cap, &first);
+  unk_fill_buf(&h.opts.created_at.buf, cap, &first);
+  unk_fill_buf(&h.opts.completed_at.buf, cap, &first);
+  unk_refill_result_raw(&h);
+  h.refills = 0;
+  int32_t rc = decode_with_result_raw_opts(ctx, b, n, out, &h.opts, unk_refill_result_raw, &h);
+  if (refills) *refills = h.refills;
+  return rc;
+}
+
+// Decision 11 control: clear every facade bag at position `pos` (plan.unk_positions
+// order) -- what decoding with that position's entry zeroed must produce.
+void unk_clear_result_raw(ResultRaw &o, int pos) {
+  switch (pos) {
+    case 0: { o.unknown_fields.clear(); } break;
+    case 1: { if (o.created_at.has_value()) { Timestamp &x0 = *o.created_at; x0.unknown_fields.clear(); } } break;
+    case 2: { if (o.completed_at.has_value()) { Timestamp &x0 = *o.completed_at; x0.unknown_fields.clear(); } } break;
+    default: break;
+  }
 }
 
 struct Sink_TaskOptions {
   TaskOptions *out;
   const uint8_t *base;
-  // Decision 11: unknown runs staged by (slot, token) and applied after the
-  // decode -- a capture buffer may flush before the run that carries the
-  // element it belongs to. NULL on the drop path.
-  std::vector<AkPending> *pending;
+  // Decision 11 rule 1: called after every element delivery, where the host may
+  // refill its pools in place. NULL unless the decode pre-allocates.
+  void (*refill)(void *);
+  void *hold;
 };
 
 static void apply_task_options(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_TaskOptions *fx) {
@@ -7967,7 +8266,7 @@ static void apply_task_options(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_
     const uint8_t *base = s->base;
     (void)f; (void)base;
   if (f.presence & (1u << 0)) s->out->max_duration.set(from_duration(f.max_duration, base, ctx));
-  else s->out->max_duration.reset();
+  else { s->out->max_duration.reset(); unk_drop(f.max_duration.unknown); }
   s->out->max_retries = f.max_retries;
   s->out->priority = f.priority;
   s_of(base, f.partition_id, ctx, &s->out->partition_id);
@@ -7976,6 +8275,8 @@ static void apply_task_options(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_
   s_of(base, f.application_namespace, ctx, &s->out->application_namespace);
   s_of(base, f.application_service, ctx, &s->out->application_service);
   s_of(base, f.engine_type, ctx, &s->out->engine_type);
+    s->out->unknown_fields.clear();
+    unk_take(f.unknown, &s->out->unknown_fields);
   AK_DGUARD_END
 }
 
@@ -7986,57 +8287,124 @@ static void add_task_options_options(ak_dec_ctx *ctx, void *obj, int64_t tok, co
     for (int32_t i = 0; i < n; ++i) {
       s_of(s->base, elems[i].key, ctx, &k_);
       s_of(s->base, elems[i].value, ctx, &v_);
+      unk_drop_entry(elems[i].unknown);
 #if AK_CXX17
       s->out->options.insert_or_assign(std::move(k_), std::move(v_));
 #else
       s->out->options[k_] = v_;
 #endif
     }
+    AK_REFILL();
   AK_DGUARD_END
 }
 
-int32_t decode_with_task_options(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskOptions *out) {
+static int32_t decode_impl_task_options(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskOptions *out, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   Sink_TaskOptions sink;
   sink.out = out;
   sink.base = b;
-  sink.pending = NULL;
+  sink.refill = refill;
+  sink.hold = hold;
   struct ak_dvt_TaskOptions vt;
   vt.apply = apply_task_options;
   vt.add_options = add_task_options_options;
   return ak_decode_TaskOptions(ctx, &sink, b, n, &vt);
 }
 
-int32_t decode_with_task_options_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskOptions *out) {
+// Decode with the context as it is armed: a context from
+// ak_dec_ctx_new_TaskOptions(NULL) (or last reset with NULL) drops every unknown field.
+int32_t decode_with_task_options(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskOptions *out) {
+  return decode_impl_task_options(ctx, b, n, out, NULL, NULL);
+}
+
+// Decision 11: every position of `TaskOptions` backed by `unk_grow` (no pre-allocated
+// buffer, a repeated position an empty pool), except position `zero` (plan
+// unk_positions order), left all zero: discarded there. zero < 0 = none.
+void unk_opts_task_options(struct ak_dec_TaskOptions_opts *o, int zero) {
+  std::memset(o, 0, sizeof(*o));
+  o->host = NULL;
+  if (zero != 0) o->self.grow = unk_grow;
+  if (zero != 1) o->options.grow = unk_grow;
+  if (zero != 2) o->max_duration.grow = unk_grow;
+}
+
+// The decode with the context armed with `opts`, read IN PLACE by the core until the
+// disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,
+// is called with `hold` after every element delivery (rule 1). Every buffer this
+// binding allocated and did not deliver is freed before return.
+int32_t decode_with_task_options_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskOptions *out, struct ak_dec_TaskOptions_opts *opts, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
-  std::vector<AkPending> pending;
-  Sink_TaskOptions sink;
-  sink.out = out;
-  sink.base = b;
-  sink.pending = &pending;
-  struct ak_dvt_TaskOptions vt;
-  vt.apply = apply_task_options;
-  vt.add_options = add_task_options_options;
-  int32_t rc = ak_decode_TaskOptions(ctx, &sink, b, n, &vt);
-  if (rc < 0) return rc;
-  // Applied after the decode, not during it (see AkPending).
-  for (size_t i = 0; i < pending.size(); ++i) {
-    const AkPending &pd = pending[i];
-    switch (pd.slot) {
-      case 0: out->unknown_fields.append(pd.bytes); break;
-      default: break;
-    }
-  }
+  int32_t rc = ak_dec_reset_TaskOptions(ctx, opts);
+  if (rc != AK_OK) return rc;
+  rc = decode_impl_task_options(ctx, b, n, out, refill, hold);
+  int32_t rc2 = ak_dec_reset_TaskOptions(ctx, NULL);
+  unk_reclaim();
+  if (rc >= 0 && rc2 != AK_OK) rc = rc2;
   return rc;
+}
+
+// Decision 11: retain everywhere (every position grows on demand).
+int32_t decode_with_task_options_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskOptions *out) {
+  struct ak_dec_TaskOptions_opts opts;
+  unk_opts_task_options(&opts, -1);
+  return decode_with_task_options_opts(ctx, b, n, out, &opts, NULL, NULL);
+}
+
+// Decision 11 rule 1, pre-allocated: every singular position gets one buffer of `cap`
+// bytes, every pool `k`, refilled in place after each delivery; `unk_grow` is the
+// fallback. Unconsumed buffers are freed by the decode's reclaim.
+struct UnkPool_TaskOptions {
+  struct ak_dec_TaskOptions_opts opts;
+  std::vector<struct ak_unk_buf> bufs;
+  uint32_t k;
+  uint32_t cap;
+  uint64_t refills;
+};
+
+static void unk_refill_task_options(void *hv) {
+  UnkPool_TaskOptions *h = (UnkPool_TaskOptions *)hv;
+  (void)h;
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[0 * (size_t)h->k + j], h->cap, &h->refills);
+}
+
+int32_t decode_with_task_options_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskOptions *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+  UnkPool_TaskOptions h;
+  unk_opts_task_options(&h.opts, -1);
+  h.k = k;
+  h.cap = cap;
+  h.refills = 0;
+  h.bufs.assign((size_t)1 * k, ak_unk_buf());
+  for (size_t i = 0; i < h.bufs.size(); ++i) { h.bufs[i].data = NULL; h.bufs[i].len = 0; h.bufs[i].cap = 0; }
+  h.opts.options.bufs = k ? &h.bufs[0 * (size_t)k] : NULL;
+  h.opts.options.n = k;
+  uint64_t first = 0;
+  unk_fill_buf(&h.opts.self.buf, cap, &first);
+  unk_fill_buf(&h.opts.max_duration.buf, cap, &first);
+  unk_refill_task_options(&h);
+  h.refills = 0;
+  int32_t rc = decode_with_task_options_opts(ctx, b, n, out, &h.opts, unk_refill_task_options, &h);
+  if (refills) *refills = h.refills;
+  return rc;
+}
+
+// Decision 11 control: clear every facade bag at position `pos` (plan.unk_positions
+// order) -- what decoding with that position's entry zeroed must produce.
+void unk_clear_task_options(TaskOptions &o, int pos) {
+  switch (pos) {
+    case 0: { o.unknown_fields.clear(); } break;
+    case 1: { /* a facade map entry has no bag */ } break;
+    case 2: { if (o.max_duration.has_value()) { Duration &x0 = *o.max_duration; x0.unknown_fields.clear(); } } break;
+    default: break;
+  }
 }
 
 struct Sink_TaskOutput {
   TaskOutput *out;
   const uint8_t *base;
-  // Decision 11: unknown runs staged by (slot, token) and applied after the
-  // decode -- a capture buffer may flush before the run that carries the
-  // element it belongs to. NULL on the drop path.
-  std::vector<AkPending> *pending;
+  // Decision 11 rule 1: called after every element delivery, where the host may
+  // refill its pools in place. NULL unless the decode pre-allocates.
+  void (*refill)(void *);
+  void *hold;
 };
 
 static void apply_task_output(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_TaskOutput *fx) {
@@ -8047,49 +8415,109 @@ static void apply_task_output(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_T
     (void)f; (void)base;
   s->out->success = (f.success != 0);
   s_of(base, f.error, ctx, &s->out->error);
+    s->out->unknown_fields.clear();
+    unk_take(f.unknown, &s->out->unknown_fields);
   AK_DGUARD_END
 }
 
-int32_t decode_with_task_output(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskOutput *out) {
+static int32_t decode_impl_task_output(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskOutput *out, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   Sink_TaskOutput sink;
   sink.out = out;
   sink.base = b;
-  sink.pending = NULL;
+  sink.refill = refill;
+  sink.hold = hold;
   struct ak_dvt_TaskOutput vt;
   vt.apply = apply_task_output;
   return ak_decode_TaskOutput(ctx, &sink, b, n, &vt);
 }
 
-int32_t decode_with_task_output_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskOutput *out) {
+// Decode with the context as it is armed: a context from
+// ak_dec_ctx_new_TaskOutput(NULL) (or last reset with NULL) drops every unknown field.
+int32_t decode_with_task_output(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskOutput *out) {
+  return decode_impl_task_output(ctx, b, n, out, NULL, NULL);
+}
+
+// Decision 11: every position of `TaskOutput` backed by `unk_grow` (no pre-allocated
+// buffer, a repeated position an empty pool), except position `zero` (plan
+// unk_positions order), left all zero: discarded there. zero < 0 = none.
+void unk_opts_task_output(struct ak_dec_TaskOutput_opts *o, int zero) {
+  std::memset(o, 0, sizeof(*o));
+  o->host = NULL;
+  if (zero != 0) o->self.grow = unk_grow;
+}
+
+// The decode with the context armed with `opts`, read IN PLACE by the core until the
+// disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,
+// is called with `hold` after every element delivery (rule 1). Every buffer this
+// binding allocated and did not deliver is freed before return.
+int32_t decode_with_task_output_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskOutput *out, struct ak_dec_TaskOutput_opts *opts, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
-  std::vector<AkPending> pending;
-  Sink_TaskOutput sink;
-  sink.out = out;
-  sink.base = b;
-  sink.pending = &pending;
-  struct ak_dvt_TaskOutput vt;
-  vt.apply = apply_task_output;
-  int32_t rc = ak_decode_TaskOutput(ctx, &sink, b, n, &vt);
-  if (rc < 0) return rc;
-  // Applied after the decode, not during it (see AkPending).
-  for (size_t i = 0; i < pending.size(); ++i) {
-    const AkPending &pd = pending[i];
-    switch (pd.slot) {
-      case 0: out->unknown_fields.append(pd.bytes); break;
-      default: break;
-    }
-  }
+  int32_t rc = ak_dec_reset_TaskOutput(ctx, opts);
+  if (rc != AK_OK) return rc;
+  rc = decode_impl_task_output(ctx, b, n, out, refill, hold);
+  int32_t rc2 = ak_dec_reset_TaskOutput(ctx, NULL);
+  unk_reclaim();
+  if (rc >= 0 && rc2 != AK_OK) rc = rc2;
   return rc;
+}
+
+// Decision 11: retain everywhere (every position grows on demand).
+int32_t decode_with_task_output_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskOutput *out) {
+  struct ak_dec_TaskOutput_opts opts;
+  unk_opts_task_output(&opts, -1);
+  return decode_with_task_output_opts(ctx, b, n, out, &opts, NULL, NULL);
+}
+
+// Decision 11 rule 1, pre-allocated: every singular position gets one buffer of `cap`
+// bytes, every pool `k`, refilled in place after each delivery; `unk_grow` is the
+// fallback. Unconsumed buffers are freed by the decode's reclaim.
+struct UnkPool_TaskOutput {
+  struct ak_dec_TaskOutput_opts opts;
+  std::vector<struct ak_unk_buf> bufs;
+  uint32_t k;
+  uint32_t cap;
+  uint64_t refills;
+};
+
+static void unk_refill_task_output(void *hv) {
+  UnkPool_TaskOutput *h = (UnkPool_TaskOutput *)hv;
+  (void)h;
+}
+
+int32_t decode_with_task_output_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskOutput *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+  UnkPool_TaskOutput h;
+  unk_opts_task_output(&h.opts, -1);
+  h.k = k;
+  h.cap = cap;
+  h.refills = 0;
+  h.bufs.assign((size_t)0 * k, ak_unk_buf());
+  for (size_t i = 0; i < h.bufs.size(); ++i) { h.bufs[i].data = NULL; h.bufs[i].len = 0; h.bufs[i].cap = 0; }
+  uint64_t first = 0;
+  unk_fill_buf(&h.opts.self.buf, cap, &first);
+  unk_refill_task_output(&h);
+  h.refills = 0;
+  int32_t rc = decode_with_task_output_opts(ctx, b, n, out, &h.opts, unk_refill_task_output, &h);
+  if (refills) *refills = h.refills;
+  return rc;
+}
+
+// Decision 11 control: clear every facade bag at position `pos` (plan.unk_positions
+// order) -- what decoding with that position's entry zeroed must produce.
+void unk_clear_task_output(TaskOutput &o, int pos) {
+  switch (pos) {
+    case 0: { o.unknown_fields.clear(); } break;
+    default: break;
+  }
 }
 
 struct Sink_TaskDetailed {
   TaskDetailed *out;
   const uint8_t *base;
-  // Decision 11: unknown runs staged by (slot, token) and applied after the
-  // decode -- a capture buffer may flush before the run that carries the
-  // element it belongs to. NULL on the drop path.
-  std::vector<AkPending> *pending;
+  // Decision 11 rule 1: called after every element delivery, where the host may
+  // refill its pools in place. NULL unless the decode pre-allocates.
+  void (*refill)(void *);
+  void *hold;
 };
 
 static void apply_task_detailed(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_TaskDetailed *fx) {
@@ -8104,37 +8532,39 @@ static void apply_task_detailed(ak_dec_ctx *ctx, void *obj, const struct ak_dfix
   s->out->status = corpus::TaskStatus(f.status);
   s_of(base, f.status_message, ctx, &s->out->status_message);
   if (f.presence & (1u << 0)) fill_task_options(&s->out->options.get_or_insert(), f.options, base, ctx);
-  else s->out->options.reset();
+  else { s->out->options.reset(); unk_drop(f.options.unknown); }
   if (f.presence & (1u << 1)) s->out->created_at.set(from_timestamp(f.created_at, base, ctx));
-  else s->out->created_at.reset();
+  else { s->out->created_at.reset(); unk_drop(f.created_at.unknown); }
   if (f.presence & (1u << 2)) s->out->submitted_at.set(from_timestamp(f.submitted_at, base, ctx));
-  else s->out->submitted_at.reset();
+  else { s->out->submitted_at.reset(); unk_drop(f.submitted_at.unknown); }
   if (f.presence & (1u << 3)) s->out->started_at.set(from_timestamp(f.started_at, base, ctx));
-  else s->out->started_at.reset();
+  else { s->out->started_at.reset(); unk_drop(f.started_at.unknown); }
   if (f.presence & (1u << 4)) s->out->ended_at.set(from_timestamp(f.ended_at, base, ctx));
-  else s->out->ended_at.reset();
+  else { s->out->ended_at.reset(); unk_drop(f.ended_at.unknown); }
   if (f.presence & (1u << 5)) s->out->pod_ttl.set(from_timestamp(f.pod_ttl, base, ctx));
-  else s->out->pod_ttl.reset();
+  else { s->out->pod_ttl.reset(); unk_drop(f.pod_ttl.unknown); }
   if (f.presence & (1u << 6)) s->out->output.set(from_task_output(f.output, base, ctx));
-  else s->out->output.reset();
+  else { s->out->output.reset(); unk_drop(f.output.unknown); }
   s_of(base, f.pod_hostname, ctx, &s->out->pod_hostname);
   if (f.presence & (1u << 7)) s->out->received_at.set(from_timestamp(f.received_at, base, ctx));
-  else s->out->received_at.reset();
+  else { s->out->received_at.reset(); unk_drop(f.received_at.unknown); }
   if (f.presence & (1u << 8)) s->out->acquired_at.set(from_timestamp(f.acquired_at, base, ctx));
-  else s->out->acquired_at.reset();
+  else { s->out->acquired_at.reset(); unk_drop(f.acquired_at.unknown); }
   if (f.presence & (1u << 9)) s->out->creation_to_end_duration.set(from_duration(f.creation_to_end_duration, base, ctx));
-  else s->out->creation_to_end_duration.reset();
+  else { s->out->creation_to_end_duration.reset(); unk_drop(f.creation_to_end_duration.unknown); }
   if (f.presence & (1u << 10)) s->out->processing_to_end_duration.set(from_duration(f.processing_to_end_duration, base, ctx));
-  else s->out->processing_to_end_duration.reset();
+  else { s->out->processing_to_end_duration.reset(); unk_drop(f.processing_to_end_duration.unknown); }
   s_of(base, f.initial_task_id, ctx, &s->out->initial_task_id);
   if (f.presence & (1u << 11)) s->out->received_to_end_duration.set(from_duration(f.received_to_end_duration, base, ctx));
-  else s->out->received_to_end_duration.reset();
+  else { s->out->received_to_end_duration.reset(); unk_drop(f.received_to_end_duration.unknown); }
   if (f.presence & (1u << 12)) s->out->processed_at.set(from_timestamp(f.processed_at, base, ctx));
-  else s->out->processed_at.reset();
+  else { s->out->processed_at.reset(); unk_drop(f.processed_at.unknown); }
   if (f.presence & (1u << 13)) s->out->fetched_at.set(from_timestamp(f.fetched_at, base, ctx));
-  else s->out->fetched_at.reset();
+  else { s->out->fetched_at.reset(); unk_drop(f.fetched_at.unknown); }
   s_of(base, f.payload_id, ctx, &s->out->payload_id);
   s_of(base, f.created_by, ctx, &s->out->created_by);
+    s->out->unknown_fields.clear();
+    unk_take(f.unknown, &s->out->unknown_fields);
   AK_DGUARD_END
 }
 
@@ -8153,6 +8583,7 @@ static void add_task_detailed_parent_task_ids(ak_dec_ctx *ctx, void *obj, int64_
 #endif
       s_of(s->base, elems[i], ctx, &b_);
     }
+    AK_REFILL();
   AK_DGUARD_END
 }
 
@@ -8171,6 +8602,7 @@ static void add_task_detailed_data_dependencies(ak_dec_ctx *ctx, void *obj, int6
 #endif
       s_of(s->base, elems[i], ctx, &b_);
     }
+    AK_REFILL();
   AK_DGUARD_END
 }
 
@@ -8189,6 +8621,7 @@ static void add_task_detailed_expected_output_ids(ak_dec_ctx *ctx, void *obj, in
 #endif
       s_of(s->base, elems[i], ctx, &b_);
     }
+    AK_REFILL();
   AK_DGUARD_END
 }
 
@@ -8207,6 +8640,7 @@ static void add_task_detailed_retry_of_ids(ak_dec_ctx *ctx, void *obj, int64_t t
 #endif
       s_of(s->base, elems[i], ctx, &b_);
     }
+    AK_REFILL();
   AK_DGUARD_END
 }
 
@@ -8217,21 +8651,24 @@ static void add_task_detailed_options_options(ak_dec_ctx *ctx, void *obj, int64_
     for (int32_t i = 0; i < n; ++i) {
       s_of(s->base, elems[i].key, ctx, &k_);
       s_of(s->base, elems[i].value, ctx, &v_);
+      unk_drop_entry(elems[i].unknown);
 #if AK_CXX17
       s->out->options.get_or_insert().options.insert_or_assign(std::move(k_), std::move(v_));
 #else
       s->out->options.get_or_insert().options[k_] = v_;
 #endif
     }
+    AK_REFILL();
   AK_DGUARD_END
 }
 
-int32_t decode_with_task_detailed(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskDetailed *out) {
+static int32_t decode_impl_task_detailed(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskDetailed *out, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   Sink_TaskDetailed sink;
   sink.out = out;
   sink.base = b;
-  sink.pending = NULL;
+  sink.refill = refill;
+  sink.hold = hold;
   struct ak_dvt_TaskDetailed vt;
   vt.apply = apply_task_detailed;
   vt.add_parent_task_ids = add_task_detailed_parent_task_ids;
@@ -8242,40 +8679,142 @@ int32_t decode_with_task_detailed(ak_dec_ctx *ctx, const uint8_t *b, size_t n, T
   return ak_decode_TaskDetailed(ctx, &sink, b, n, &vt);
 }
 
-int32_t decode_with_task_detailed_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskDetailed *out) {
+// Decode with the context as it is armed: a context from
+// ak_dec_ctx_new_TaskDetailed(NULL) (or last reset with NULL) drops every unknown field.
+int32_t decode_with_task_detailed(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskDetailed *out) {
+  return decode_impl_task_detailed(ctx, b, n, out, NULL, NULL);
+}
+
+// Decision 11: every position of `TaskDetailed` backed by `unk_grow` (no pre-allocated
+// buffer, a repeated position an empty pool), except position `zero` (plan
+// unk_positions order), left all zero: discarded there. zero < 0 = none.
+void unk_opts_task_detailed(struct ak_dec_TaskDetailed_opts *o, int zero) {
+  std::memset(o, 0, sizeof(*o));
+  o->host = NULL;
+  if (zero != 0) o->self.grow = unk_grow;
+  if (zero != 1) o->options.grow = unk_grow;
+  if (zero != 2) o->options_options.grow = unk_grow;
+  if (zero != 3) o->options_max_duration.grow = unk_grow;
+  if (zero != 4) o->created_at.grow = unk_grow;
+  if (zero != 5) o->submitted_at.grow = unk_grow;
+  if (zero != 6) o->started_at.grow = unk_grow;
+  if (zero != 7) o->ended_at.grow = unk_grow;
+  if (zero != 8) o->pod_ttl.grow = unk_grow;
+  if (zero != 9) o->output.grow = unk_grow;
+  if (zero != 10) o->received_at.grow = unk_grow;
+  if (zero != 11) o->acquired_at.grow = unk_grow;
+  if (zero != 12) o->creation_to_end_duration.grow = unk_grow;
+  if (zero != 13) o->processing_to_end_duration.grow = unk_grow;
+  if (zero != 14) o->received_to_end_duration.grow = unk_grow;
+  if (zero != 15) o->processed_at.grow = unk_grow;
+  if (zero != 16) o->fetched_at.grow = unk_grow;
+}
+
+// The decode with the context armed with `opts`, read IN PLACE by the core until the
+// disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,
+// is called with `hold` after every element delivery (rule 1). Every buffer this
+// binding allocated and did not deliver is freed before return.
+int32_t decode_with_task_detailed_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskDetailed *out, struct ak_dec_TaskDetailed_opts *opts, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
-  std::vector<AkPending> pending;
-  Sink_TaskDetailed sink;
-  sink.out = out;
-  sink.base = b;
-  sink.pending = &pending;
-  struct ak_dvt_TaskDetailed vt;
-  vt.apply = apply_task_detailed;
-  vt.add_parent_task_ids = add_task_detailed_parent_task_ids;
-  vt.add_data_dependencies = add_task_detailed_data_dependencies;
-  vt.add_expected_output_ids = add_task_detailed_expected_output_ids;
-  vt.add_retry_of_ids = add_task_detailed_retry_of_ids;
-  vt.add_options_options = add_task_detailed_options_options;
-  int32_t rc = ak_decode_TaskDetailed(ctx, &sink, b, n, &vt);
-  if (rc < 0) return rc;
-  // Applied after the decode, not during it (see AkPending).
-  for (size_t i = 0; i < pending.size(); ++i) {
-    const AkPending &pd = pending[i];
-    switch (pd.slot) {
-      case 0: out->unknown_fields.append(pd.bytes); break;
-      default: break;
-    }
-  }
+  int32_t rc = ak_dec_reset_TaskDetailed(ctx, opts);
+  if (rc != AK_OK) return rc;
+  rc = decode_impl_task_detailed(ctx, b, n, out, refill, hold);
+  int32_t rc2 = ak_dec_reset_TaskDetailed(ctx, NULL);
+  unk_reclaim();
+  if (rc >= 0 && rc2 != AK_OK) rc = rc2;
   return rc;
+}
+
+// Decision 11: retain everywhere (every position grows on demand).
+int32_t decode_with_task_detailed_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskDetailed *out) {
+  struct ak_dec_TaskDetailed_opts opts;
+  unk_opts_task_detailed(&opts, -1);
+  return decode_with_task_detailed_opts(ctx, b, n, out, &opts, NULL, NULL);
+}
+
+// Decision 11 rule 1, pre-allocated: every singular position gets one buffer of `cap`
+// bytes, every pool `k`, refilled in place after each delivery; `unk_grow` is the
+// fallback. Unconsumed buffers are freed by the decode's reclaim.
+struct UnkPool_TaskDetailed {
+  struct ak_dec_TaskDetailed_opts opts;
+  std::vector<struct ak_unk_buf> bufs;
+  uint32_t k;
+  uint32_t cap;
+  uint64_t refills;
+};
+
+static void unk_refill_task_detailed(void *hv) {
+  UnkPool_TaskDetailed *h = (UnkPool_TaskDetailed *)hv;
+  (void)h;
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[0 * (size_t)h->k + j], h->cap, &h->refills);
+}
+
+int32_t decode_with_task_detailed_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskDetailed *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+  UnkPool_TaskDetailed h;
+  unk_opts_task_detailed(&h.opts, -1);
+  h.k = k;
+  h.cap = cap;
+  h.refills = 0;
+  h.bufs.assign((size_t)1 * k, ak_unk_buf());
+  for (size_t i = 0; i < h.bufs.size(); ++i) { h.bufs[i].data = NULL; h.bufs[i].len = 0; h.bufs[i].cap = 0; }
+  h.opts.options_options.bufs = k ? &h.bufs[0 * (size_t)k] : NULL;
+  h.opts.options_options.n = k;
+  uint64_t first = 0;
+  unk_fill_buf(&h.opts.self.buf, cap, &first);
+  unk_fill_buf(&h.opts.options.buf, cap, &first);
+  unk_fill_buf(&h.opts.options_max_duration.buf, cap, &first);
+  unk_fill_buf(&h.opts.created_at.buf, cap, &first);
+  unk_fill_buf(&h.opts.submitted_at.buf, cap, &first);
+  unk_fill_buf(&h.opts.started_at.buf, cap, &first);
+  unk_fill_buf(&h.opts.ended_at.buf, cap, &first);
+  unk_fill_buf(&h.opts.pod_ttl.buf, cap, &first);
+  unk_fill_buf(&h.opts.output.buf, cap, &first);
+  unk_fill_buf(&h.opts.received_at.buf, cap, &first);
+  unk_fill_buf(&h.opts.acquired_at.buf, cap, &first);
+  unk_fill_buf(&h.opts.creation_to_end_duration.buf, cap, &first);
+  unk_fill_buf(&h.opts.processing_to_end_duration.buf, cap, &first);
+  unk_fill_buf(&h.opts.received_to_end_duration.buf, cap, &first);
+  unk_fill_buf(&h.opts.processed_at.buf, cap, &first);
+  unk_fill_buf(&h.opts.fetched_at.buf, cap, &first);
+  unk_refill_task_detailed(&h);
+  h.refills = 0;
+  int32_t rc = decode_with_task_detailed_opts(ctx, b, n, out, &h.opts, unk_refill_task_detailed, &h);
+  if (refills) *refills = h.refills;
+  return rc;
+}
+
+// Decision 11 control: clear every facade bag at position `pos` (plan.unk_positions
+// order) -- what decoding with that position's entry zeroed must produce.
+void unk_clear_task_detailed(TaskDetailed &o, int pos) {
+  switch (pos) {
+    case 0: { o.unknown_fields.clear(); } break;
+    case 1: { if (o.options.has_value()) { TaskOptions &x0 = *o.options; x0.unknown_fields.clear(); } } break;
+    case 2: { if (o.options.has_value()) { TaskOptions &x0 = *o.options; /* a facade map entry has no bag */ } } break;
+    case 3: { if (o.options.has_value()) { TaskOptions &x0 = *o.options; if (x0.max_duration.has_value()) { Duration &x1 = *x0.max_duration; x1.unknown_fields.clear(); } } } break;
+    case 4: { if (o.created_at.has_value()) { Timestamp &x0 = *o.created_at; x0.unknown_fields.clear(); } } break;
+    case 5: { if (o.submitted_at.has_value()) { Timestamp &x0 = *o.submitted_at; x0.unknown_fields.clear(); } } break;
+    case 6: { if (o.started_at.has_value()) { Timestamp &x0 = *o.started_at; x0.unknown_fields.clear(); } } break;
+    case 7: { if (o.ended_at.has_value()) { Timestamp &x0 = *o.ended_at; x0.unknown_fields.clear(); } } break;
+    case 8: { if (o.pod_ttl.has_value()) { Timestamp &x0 = *o.pod_ttl; x0.unknown_fields.clear(); } } break;
+    case 9: { if (o.output.has_value()) { TaskOutput &x0 = *o.output; x0.unknown_fields.clear(); } } break;
+    case 10: { if (o.received_at.has_value()) { Timestamp &x0 = *o.received_at; x0.unknown_fields.clear(); } } break;
+    case 11: { if (o.acquired_at.has_value()) { Timestamp &x0 = *o.acquired_at; x0.unknown_fields.clear(); } } break;
+    case 12: { if (o.creation_to_end_duration.has_value()) { Duration &x0 = *o.creation_to_end_duration; x0.unknown_fields.clear(); } } break;
+    case 13: { if (o.processing_to_end_duration.has_value()) { Duration &x0 = *o.processing_to_end_duration; x0.unknown_fields.clear(); } } break;
+    case 14: { if (o.received_to_end_duration.has_value()) { Duration &x0 = *o.received_to_end_duration; x0.unknown_fields.clear(); } } break;
+    case 15: { if (o.processed_at.has_value()) { Timestamp &x0 = *o.processed_at; x0.unknown_fields.clear(); } } break;
+    case 16: { if (o.fetched_at.has_value()) { Timestamp &x0 = *o.fetched_at; x0.unknown_fields.clear(); } } break;
+    default: break;
+  }
 }
 
 struct Sink_TaskSummary {
   TaskSummary *out;
   const uint8_t *base;
-  // Decision 11: unknown runs staged by (slot, token) and applied after the
-  // decode -- a capture buffer may flush before the run that carries the
-  // element it belongs to. NULL on the drop path.
-  std::vector<AkPending> *pending;
+  // Decision 11 rule 1: called after every element delivery, where the host may
+  // refill its pools in place. NULL unless the decode pre-allocates.
+  void (*refill)(void *);
+  void *hold;
 };
 
 static void apply_task_summary(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_TaskSummary *fx) {
@@ -8287,13 +8826,15 @@ static void apply_task_summary(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_
   s_of(base, f.id, ctx, &s->out->id);
   s_of(base, f.session_id, ctx, &s->out->session_id);
   if (f.presence & (1u << 0)) fill_task_options(&s->out->options.get_or_insert(), f.options, base, ctx);
-  else s->out->options.reset();
+  else { s->out->options.reset(); unk_drop(f.options.unknown); }
   s->out->status = corpus::TaskStatus(f.status);
   if (f.presence & (1u << 1)) s->out->created_at.set(from_timestamp(f.created_at, base, ctx));
-  else s->out->created_at.reset();
+  else { s->out->created_at.reset(); unk_drop(f.created_at.unknown); }
   s_of(base, f.error, ctx, &s->out->error);
   s_of(base, f.status_message, ctx, &s->out->status_message);
   s->out->count_data_dependencies = f.count_data_dependencies;
+    s->out->unknown_fields.clear();
+    unk_take(f.unknown, &s->out->unknown_fields);
   AK_DGUARD_END
 }
 
@@ -8304,57 +8845,130 @@ static void add_task_summary_options_options(ak_dec_ctx *ctx, void *obj, int64_t
     for (int32_t i = 0; i < n; ++i) {
       s_of(s->base, elems[i].key, ctx, &k_);
       s_of(s->base, elems[i].value, ctx, &v_);
+      unk_drop_entry(elems[i].unknown);
 #if AK_CXX17
       s->out->options.get_or_insert().options.insert_or_assign(std::move(k_), std::move(v_));
 #else
       s->out->options.get_or_insert().options[k_] = v_;
 #endif
     }
+    AK_REFILL();
   AK_DGUARD_END
 }
 
-int32_t decode_with_task_summary(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskSummary *out) {
+static int32_t decode_impl_task_summary(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskSummary *out, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   Sink_TaskSummary sink;
   sink.out = out;
   sink.base = b;
-  sink.pending = NULL;
+  sink.refill = refill;
+  sink.hold = hold;
   struct ak_dvt_TaskSummary vt;
   vt.apply = apply_task_summary;
   vt.add_options_options = add_task_summary_options_options;
   return ak_decode_TaskSummary(ctx, &sink, b, n, &vt);
 }
 
-int32_t decode_with_task_summary_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskSummary *out) {
+// Decode with the context as it is armed: a context from
+// ak_dec_ctx_new_TaskSummary(NULL) (or last reset with NULL) drops every unknown field.
+int32_t decode_with_task_summary(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskSummary *out) {
+  return decode_impl_task_summary(ctx, b, n, out, NULL, NULL);
+}
+
+// Decision 11: every position of `TaskSummary` backed by `unk_grow` (no pre-allocated
+// buffer, a repeated position an empty pool), except position `zero` (plan
+// unk_positions order), left all zero: discarded there. zero < 0 = none.
+void unk_opts_task_summary(struct ak_dec_TaskSummary_opts *o, int zero) {
+  std::memset(o, 0, sizeof(*o));
+  o->host = NULL;
+  if (zero != 0) o->self.grow = unk_grow;
+  if (zero != 1) o->options.grow = unk_grow;
+  if (zero != 2) o->options_options.grow = unk_grow;
+  if (zero != 3) o->options_max_duration.grow = unk_grow;
+  if (zero != 4) o->created_at.grow = unk_grow;
+}
+
+// The decode with the context armed with `opts`, read IN PLACE by the core until the
+// disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,
+// is called with `hold` after every element delivery (rule 1). Every buffer this
+// binding allocated and did not deliver is freed before return.
+int32_t decode_with_task_summary_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskSummary *out, struct ak_dec_TaskSummary_opts *opts, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
-  std::vector<AkPending> pending;
-  Sink_TaskSummary sink;
-  sink.out = out;
-  sink.base = b;
-  sink.pending = &pending;
-  struct ak_dvt_TaskSummary vt;
-  vt.apply = apply_task_summary;
-  vt.add_options_options = add_task_summary_options_options;
-  int32_t rc = ak_decode_TaskSummary(ctx, &sink, b, n, &vt);
-  if (rc < 0) return rc;
-  // Applied after the decode, not during it (see AkPending).
-  for (size_t i = 0; i < pending.size(); ++i) {
-    const AkPending &pd = pending[i];
-    switch (pd.slot) {
-      case 0: out->unknown_fields.append(pd.bytes); break;
-      default: break;
-    }
-  }
+  int32_t rc = ak_dec_reset_TaskSummary(ctx, opts);
+  if (rc != AK_OK) return rc;
+  rc = decode_impl_task_summary(ctx, b, n, out, refill, hold);
+  int32_t rc2 = ak_dec_reset_TaskSummary(ctx, NULL);
+  unk_reclaim();
+  if (rc >= 0 && rc2 != AK_OK) rc = rc2;
   return rc;
+}
+
+// Decision 11: retain everywhere (every position grows on demand).
+int32_t decode_with_task_summary_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskSummary *out) {
+  struct ak_dec_TaskSummary_opts opts;
+  unk_opts_task_summary(&opts, -1);
+  return decode_with_task_summary_opts(ctx, b, n, out, &opts, NULL, NULL);
+}
+
+// Decision 11 rule 1, pre-allocated: every singular position gets one buffer of `cap`
+// bytes, every pool `k`, refilled in place after each delivery; `unk_grow` is the
+// fallback. Unconsumed buffers are freed by the decode's reclaim.
+struct UnkPool_TaskSummary {
+  struct ak_dec_TaskSummary_opts opts;
+  std::vector<struct ak_unk_buf> bufs;
+  uint32_t k;
+  uint32_t cap;
+  uint64_t refills;
+};
+
+static void unk_refill_task_summary(void *hv) {
+  UnkPool_TaskSummary *h = (UnkPool_TaskSummary *)hv;
+  (void)h;
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[0 * (size_t)h->k + j], h->cap, &h->refills);
+}
+
+int32_t decode_with_task_summary_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskSummary *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+  UnkPool_TaskSummary h;
+  unk_opts_task_summary(&h.opts, -1);
+  h.k = k;
+  h.cap = cap;
+  h.refills = 0;
+  h.bufs.assign((size_t)1 * k, ak_unk_buf());
+  for (size_t i = 0; i < h.bufs.size(); ++i) { h.bufs[i].data = NULL; h.bufs[i].len = 0; h.bufs[i].cap = 0; }
+  h.opts.options_options.bufs = k ? &h.bufs[0 * (size_t)k] : NULL;
+  h.opts.options_options.n = k;
+  uint64_t first = 0;
+  unk_fill_buf(&h.opts.self.buf, cap, &first);
+  unk_fill_buf(&h.opts.options.buf, cap, &first);
+  unk_fill_buf(&h.opts.options_max_duration.buf, cap, &first);
+  unk_fill_buf(&h.opts.created_at.buf, cap, &first);
+  unk_refill_task_summary(&h);
+  h.refills = 0;
+  int32_t rc = decode_with_task_summary_opts(ctx, b, n, out, &h.opts, unk_refill_task_summary, &h);
+  if (refills) *refills = h.refills;
+  return rc;
+}
+
+// Decision 11 control: clear every facade bag at position `pos` (plan.unk_positions
+// order) -- what decoding with that position's entry zeroed must produce.
+void unk_clear_task_summary(TaskSummary &o, int pos) {
+  switch (pos) {
+    case 0: { o.unknown_fields.clear(); } break;
+    case 1: { if (o.options.has_value()) { TaskOptions &x0 = *o.options; x0.unknown_fields.clear(); } } break;
+    case 2: { if (o.options.has_value()) { TaskOptions &x0 = *o.options; /* a facade map entry has no bag */ } } break;
+    case 3: { if (o.options.has_value()) { TaskOptions &x0 = *o.options; if (x0.max_duration.has_value()) { Duration &x1 = *x0.max_duration; x1.unknown_fields.clear(); } } } break;
+    case 4: { if (o.created_at.has_value()) { Timestamp &x0 = *o.created_at; x0.unknown_fields.clear(); } } break;
+    default: break;
+  }
 }
 
 struct Sink_Probe {
   Probe *out;
   const uint8_t *base;
-  // Decision 11: unknown runs staged by (slot, token) and applied after the
-  // decode -- a capture buffer may flush before the run that carries the
-  // element it belongs to. NULL on the drop path.
-  std::vector<AkPending> *pending;
+  // Decision 11 rule 1: called after every element delivery, where the host may
+  // refill its pools in place. NULL unless the decode pre-allocates.
+  void (*refill)(void *);
+  void *hold;
 };
 
 static void apply_probe(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_Probe *fx) {
@@ -8369,6 +8983,8 @@ static void apply_probe(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_Probe *
   if (f.presence & (1u << 1)) s_of(base, f.opt_label, ctx, &s->out->opt_label.emplace());
   if (f.presence & (1u << 2)) s->out->opt_flag.set((f.opt_flag != 0));
   else s->out->opt_flag.reset();
+  if (f.body_case != 13u) unk_drop(f.body_as_stamp.unknown);
+  if (f.body_case != 14u) unk_drop(f.body_as_nothing.unknown);
   switch (f.body_case) {
     case 10: {
       s->out->body.set_as_int() = f.body_as_int; break; }
@@ -8382,49 +8998,112 @@ static void apply_probe(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_Probe *
       s->out->body.set_as_nothing() = from_empty(f.body_as_nothing, base, ctx); break; }
     default: s->out->body.clear(); break;
   }
+    s->out->unknown_fields.clear();
+    unk_take(f.unknown, &s->out->unknown_fields);
   AK_DGUARD_END
 }
 
-int32_t decode_with_probe(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Probe *out) {
+static int32_t decode_impl_probe(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Probe *out, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   Sink_Probe sink;
   sink.out = out;
   sink.base = b;
-  sink.pending = NULL;
+  sink.refill = refill;
+  sink.hold = hold;
   struct ak_dvt_Probe vt;
   vt.apply = apply_probe;
   return ak_decode_Probe(ctx, &sink, b, n, &vt);
 }
 
-int32_t decode_with_probe_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Probe *out) {
+// Decode with the context as it is armed: a context from
+// ak_dec_ctx_new_Probe(NULL) (or last reset with NULL) drops every unknown field.
+int32_t decode_with_probe(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Probe *out) {
+  return decode_impl_probe(ctx, b, n, out, NULL, NULL);
+}
+
+// Decision 11: every position of `Probe` backed by `unk_grow` (no pre-allocated
+// buffer, a repeated position an empty pool), except position `zero` (plan
+// unk_positions order), left all zero: discarded there. zero < 0 = none.
+void unk_opts_probe(struct ak_dec_Probe_opts *o, int zero) {
+  std::memset(o, 0, sizeof(*o));
+  o->host = NULL;
+  if (zero != 0) o->self.grow = unk_grow;
+  if (zero != 1) o->body.grow = unk_grow;
+}
+
+// The decode with the context armed with `opts`, read IN PLACE by the core until the
+// disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,
+// is called with `hold` after every element delivery (rule 1). Every buffer this
+// binding allocated and did not deliver is freed before return.
+int32_t decode_with_probe_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Probe *out, struct ak_dec_Probe_opts *opts, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
-  std::vector<AkPending> pending;
-  Sink_Probe sink;
-  sink.out = out;
-  sink.base = b;
-  sink.pending = &pending;
-  struct ak_dvt_Probe vt;
-  vt.apply = apply_probe;
-  int32_t rc = ak_decode_Probe(ctx, &sink, b, n, &vt);
-  if (rc < 0) return rc;
-  // Applied after the decode, not during it (see AkPending).
-  for (size_t i = 0; i < pending.size(); ++i) {
-    const AkPending &pd = pending[i];
-    switch (pd.slot) {
-      case 0: out->unknown_fields.append(pd.bytes); break;
-      default: break;
-    }
-  }
+  int32_t rc = ak_dec_reset_Probe(ctx, opts);
+  if (rc != AK_OK) return rc;
+  rc = decode_impl_probe(ctx, b, n, out, refill, hold);
+  int32_t rc2 = ak_dec_reset_Probe(ctx, NULL);
+  unk_reclaim();
+  if (rc >= 0 && rc2 != AK_OK) rc = rc2;
   return rc;
+}
+
+// Decision 11: retain everywhere (every position grows on demand).
+int32_t decode_with_probe_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Probe *out) {
+  struct ak_dec_Probe_opts opts;
+  unk_opts_probe(&opts, -1);
+  return decode_with_probe_opts(ctx, b, n, out, &opts, NULL, NULL);
+}
+
+// Decision 11 rule 1, pre-allocated: every singular position gets one buffer of `cap`
+// bytes, every pool `k`, refilled in place after each delivery; `unk_grow` is the
+// fallback. Unconsumed buffers are freed by the decode's reclaim.
+struct UnkPool_Probe {
+  struct ak_dec_Probe_opts opts;
+  std::vector<struct ak_unk_buf> bufs;
+  uint32_t k;
+  uint32_t cap;
+  uint64_t refills;
+};
+
+static void unk_refill_probe(void *hv) {
+  UnkPool_Probe *h = (UnkPool_Probe *)hv;
+  (void)h;
+}
+
+int32_t decode_with_probe_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Probe *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+  UnkPool_Probe h;
+  unk_opts_probe(&h.opts, -1);
+  h.k = k;
+  h.cap = cap;
+  h.refills = 0;
+  h.bufs.assign((size_t)0 * k, ak_unk_buf());
+  for (size_t i = 0; i < h.bufs.size(); ++i) { h.bufs[i].data = NULL; h.bufs[i].len = 0; h.bufs[i].cap = 0; }
+  uint64_t first = 0;
+  unk_fill_buf(&h.opts.self.buf, cap, &first);
+  unk_fill_buf(&h.opts.body.buf, cap, &first);
+  unk_refill_probe(&h);
+  h.refills = 0;
+  int32_t rc = decode_with_probe_opts(ctx, b, n, out, &h.opts, unk_refill_probe, &h);
+  if (refills) *refills = h.refills;
+  return rc;
+}
+
+// Decision 11 control: clear every facade bag at position `pos` (plan.unk_positions
+// order) -- what decoding with that position's entry zeroed must produce.
+void unk_clear_probe(Probe &o, int pos) {
+  switch (pos) {
+    case 0: { o.unknown_fields.clear(); } break;
+    case 1: { if ((int)o.body.which() == 13) { Timestamp &x0 = o.body.mutable_as_stamp(); x0.unknown_fields.clear(); } if ((int)o.body.which() == 14) { Empty &x0 = o.body.mutable_as_nothing(); x0.unknown_fields.clear(); } } break;
+    default: break;
+  }
 }
 
 struct Sink_Empty {
   Empty *out;
   const uint8_t *base;
-  // Decision 11: unknown runs staged by (slot, token) and applied after the
-  // decode -- a capture buffer may flush before the run that carries the
-  // element it belongs to. NULL on the drop path.
-  std::vector<AkPending> *pending;
+  // Decision 11 rule 1: called after every element delivery, where the host may
+  // refill its pools in place. NULL unless the decode pre-allocates.
+  void (*refill)(void *);
+  void *hold;
 };
 
 static void apply_empty(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_Empty *fx) {
@@ -8433,49 +9112,109 @@ static void apply_empty(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_Empty *
     const struct ak_dfix_Empty &f = *fx;
     const uint8_t *base = s->base;
     (void)f; (void)base;
+    s->out->unknown_fields.clear();
+    unk_take(f.unknown, &s->out->unknown_fields);
   AK_DGUARD_END
 }
 
-int32_t decode_with_empty(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Empty *out) {
+static int32_t decode_impl_empty(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Empty *out, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   Sink_Empty sink;
   sink.out = out;
   sink.base = b;
-  sink.pending = NULL;
+  sink.refill = refill;
+  sink.hold = hold;
   struct ak_dvt_Empty vt;
   vt.apply = apply_empty;
   return ak_decode_Empty(ctx, &sink, b, n, &vt);
 }
 
-int32_t decode_with_empty_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Empty *out) {
+// Decode with the context as it is armed: a context from
+// ak_dec_ctx_new_Empty(NULL) (or last reset with NULL) drops every unknown field.
+int32_t decode_with_empty(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Empty *out) {
+  return decode_impl_empty(ctx, b, n, out, NULL, NULL);
+}
+
+// Decision 11: every position of `Empty` backed by `unk_grow` (no pre-allocated
+// buffer, a repeated position an empty pool), except position `zero` (plan
+// unk_positions order), left all zero: discarded there. zero < 0 = none.
+void unk_opts_empty(struct ak_dec_Empty_opts *o, int zero) {
+  std::memset(o, 0, sizeof(*o));
+  o->host = NULL;
+  if (zero != 0) o->self.grow = unk_grow;
+}
+
+// The decode with the context armed with `opts`, read IN PLACE by the core until the
+// disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,
+// is called with `hold` after every element delivery (rule 1). Every buffer this
+// binding allocated and did not deliver is freed before return.
+int32_t decode_with_empty_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Empty *out, struct ak_dec_Empty_opts *opts, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
-  std::vector<AkPending> pending;
-  Sink_Empty sink;
-  sink.out = out;
-  sink.base = b;
-  sink.pending = &pending;
-  struct ak_dvt_Empty vt;
-  vt.apply = apply_empty;
-  int32_t rc = ak_decode_Empty(ctx, &sink, b, n, &vt);
-  if (rc < 0) return rc;
-  // Applied after the decode, not during it (see AkPending).
-  for (size_t i = 0; i < pending.size(); ++i) {
-    const AkPending &pd = pending[i];
-    switch (pd.slot) {
-      case 0: out->unknown_fields.append(pd.bytes); break;
-      default: break;
-    }
-  }
+  int32_t rc = ak_dec_reset_Empty(ctx, opts);
+  if (rc != AK_OK) return rc;
+  rc = decode_impl_empty(ctx, b, n, out, refill, hold);
+  int32_t rc2 = ak_dec_reset_Empty(ctx, NULL);
+  unk_reclaim();
+  if (rc >= 0 && rc2 != AK_OK) rc = rc2;
   return rc;
+}
+
+// Decision 11: retain everywhere (every position grows on demand).
+int32_t decode_with_empty_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Empty *out) {
+  struct ak_dec_Empty_opts opts;
+  unk_opts_empty(&opts, -1);
+  return decode_with_empty_opts(ctx, b, n, out, &opts, NULL, NULL);
+}
+
+// Decision 11 rule 1, pre-allocated: every singular position gets one buffer of `cap`
+// bytes, every pool `k`, refilled in place after each delivery; `unk_grow` is the
+// fallback. Unconsumed buffers are freed by the decode's reclaim.
+struct UnkPool_Empty {
+  struct ak_dec_Empty_opts opts;
+  std::vector<struct ak_unk_buf> bufs;
+  uint32_t k;
+  uint32_t cap;
+  uint64_t refills;
+};
+
+static void unk_refill_empty(void *hv) {
+  UnkPool_Empty *h = (UnkPool_Empty *)hv;
+  (void)h;
+}
+
+int32_t decode_with_empty_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Empty *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+  UnkPool_Empty h;
+  unk_opts_empty(&h.opts, -1);
+  h.k = k;
+  h.cap = cap;
+  h.refills = 0;
+  h.bufs.assign((size_t)0 * k, ak_unk_buf());
+  for (size_t i = 0; i < h.bufs.size(); ++i) { h.bufs[i].data = NULL; h.bufs[i].len = 0; h.bufs[i].cap = 0; }
+  uint64_t first = 0;
+  unk_fill_buf(&h.opts.self.buf, cap, &first);
+  unk_refill_empty(&h);
+  h.refills = 0;
+  int32_t rc = decode_with_empty_opts(ctx, b, n, out, &h.opts, unk_refill_empty, &h);
+  if (refills) *refills = h.refills;
+  return rc;
+}
+
+// Decision 11 control: clear every facade bag at position `pos` (plan.unk_positions
+// order) -- what decoding with that position's entry zeroed must produce.
+void unk_clear_empty(Empty &o, int pos) {
+  switch (pos) {
+    case 0: { o.unknown_fields.clear(); } break;
+    default: break;
+  }
 }
 
 struct Sink_UploadResultData {
   UploadResultData *out;
   const uint8_t *base;
-  // Decision 11: unknown runs staged by (slot, token) and applied after the
-  // decode -- a capture buffer may flush before the run that carries the
-  // element it belongs to. NULL on the drop path.
-  std::vector<AkPending> *pending;
+  // Decision 11 rule 1: called after every element delivery, where the host may
+  // refill its pools in place. NULL unless the decode pre-allocates.
+  void (*refill)(void *);
+  void *hold;
 };
 
 static void apply_upload_result_data(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_UploadResultData *fx) {
@@ -8487,49 +9226,109 @@ static void apply_upload_result_data(ak_dec_ctx *ctx, void *obj, const struct ak
   s_of(base, f.session_id, ctx, &s->out->session_id);
   s_of(base, f.result_id, ctx, &s->out->result_id);
   b_of(base, f.data_chunk, &s->out->data_chunk);
+    s->out->unknown_fields.clear();
+    unk_take(f.unknown, &s->out->unknown_fields);
   AK_DGUARD_END
 }
 
-int32_t decode_with_upload_result_data(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultData *out) {
+static int32_t decode_impl_upload_result_data(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultData *out, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   Sink_UploadResultData sink;
   sink.out = out;
   sink.base = b;
-  sink.pending = NULL;
+  sink.refill = refill;
+  sink.hold = hold;
   struct ak_dvt_UploadResultData vt;
   vt.apply = apply_upload_result_data;
   return ak_decode_UploadResultData(ctx, &sink, b, n, &vt);
 }
 
-int32_t decode_with_upload_result_data_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultData *out) {
+// Decode with the context as it is armed: a context from
+// ak_dec_ctx_new_UploadResultData(NULL) (or last reset with NULL) drops every unknown field.
+int32_t decode_with_upload_result_data(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultData *out) {
+  return decode_impl_upload_result_data(ctx, b, n, out, NULL, NULL);
+}
+
+// Decision 11: every position of `UploadResultData` backed by `unk_grow` (no pre-allocated
+// buffer, a repeated position an empty pool), except position `zero` (plan
+// unk_positions order), left all zero: discarded there. zero < 0 = none.
+void unk_opts_upload_result_data(struct ak_dec_UploadResultData_opts *o, int zero) {
+  std::memset(o, 0, sizeof(*o));
+  o->host = NULL;
+  if (zero != 0) o->self.grow = unk_grow;
+}
+
+// The decode with the context armed with `opts`, read IN PLACE by the core until the
+// disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,
+// is called with `hold` after every element delivery (rule 1). Every buffer this
+// binding allocated and did not deliver is freed before return.
+int32_t decode_with_upload_result_data_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultData *out, struct ak_dec_UploadResultData_opts *opts, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
-  std::vector<AkPending> pending;
-  Sink_UploadResultData sink;
-  sink.out = out;
-  sink.base = b;
-  sink.pending = &pending;
-  struct ak_dvt_UploadResultData vt;
-  vt.apply = apply_upload_result_data;
-  int32_t rc = ak_decode_UploadResultData(ctx, &sink, b, n, &vt);
-  if (rc < 0) return rc;
-  // Applied after the decode, not during it (see AkPending).
-  for (size_t i = 0; i < pending.size(); ++i) {
-    const AkPending &pd = pending[i];
-    switch (pd.slot) {
-      case 0: out->unknown_fields.append(pd.bytes); break;
-      default: break;
-    }
-  }
+  int32_t rc = ak_dec_reset_UploadResultData(ctx, opts);
+  if (rc != AK_OK) return rc;
+  rc = decode_impl_upload_result_data(ctx, b, n, out, refill, hold);
+  int32_t rc2 = ak_dec_reset_UploadResultData(ctx, NULL);
+  unk_reclaim();
+  if (rc >= 0 && rc2 != AK_OK) rc = rc2;
   return rc;
+}
+
+// Decision 11: retain everywhere (every position grows on demand).
+int32_t decode_with_upload_result_data_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultData *out) {
+  struct ak_dec_UploadResultData_opts opts;
+  unk_opts_upload_result_data(&opts, -1);
+  return decode_with_upload_result_data_opts(ctx, b, n, out, &opts, NULL, NULL);
+}
+
+// Decision 11 rule 1, pre-allocated: every singular position gets one buffer of `cap`
+// bytes, every pool `k`, refilled in place after each delivery; `unk_grow` is the
+// fallback. Unconsumed buffers are freed by the decode's reclaim.
+struct UnkPool_UploadResultData {
+  struct ak_dec_UploadResultData_opts opts;
+  std::vector<struct ak_unk_buf> bufs;
+  uint32_t k;
+  uint32_t cap;
+  uint64_t refills;
+};
+
+static void unk_refill_upload_result_data(void *hv) {
+  UnkPool_UploadResultData *h = (UnkPool_UploadResultData *)hv;
+  (void)h;
+}
+
+int32_t decode_with_upload_result_data_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultData *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+  UnkPool_UploadResultData h;
+  unk_opts_upload_result_data(&h.opts, -1);
+  h.k = k;
+  h.cap = cap;
+  h.refills = 0;
+  h.bufs.assign((size_t)0 * k, ak_unk_buf());
+  for (size_t i = 0; i < h.bufs.size(); ++i) { h.bufs[i].data = NULL; h.bufs[i].len = 0; h.bufs[i].cap = 0; }
+  uint64_t first = 0;
+  unk_fill_buf(&h.opts.self.buf, cap, &first);
+  unk_refill_upload_result_data(&h);
+  h.refills = 0;
+  int32_t rc = decode_with_upload_result_data_opts(ctx, b, n, out, &h.opts, unk_refill_upload_result_data, &h);
+  if (refills) *refills = h.refills;
+  return rc;
+}
+
+// Decision 11 control: clear every facade bag at position `pos` (plan.unk_positions
+// order) -- what decoding with that position's entry zeroed must produce.
+void unk_clear_upload_result_data(UploadResultData &o, int pos) {
+  switch (pos) {
+    case 0: { o.unknown_fields.clear(); } break;
+    default: break;
+  }
 }
 
 struct Sink_MetricsBatch {
   MetricsBatch *out;
   const uint8_t *base;
-  // Decision 11: unknown runs staged by (slot, token) and applied after the
-  // decode -- a capture buffer may flush before the run that carries the
-  // element it belongs to. NULL on the drop path.
-  std::vector<AkPending> *pending;
+  // Decision 11 rule 1: called after every element delivery, where the host may
+  // refill its pools in place. NULL unless the decode pre-allocates.
+  void (*refill)(void *);
+  void *hold;
 };
 
 static void apply_metrics_batch(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_MetricsBatch *fx) {
@@ -8539,6 +9338,8 @@ static void apply_metrics_batch(ak_dec_ctx *ctx, void *obj, const struct ak_dfix
     const uint8_t *base = s->base;
     (void)f; (void)base;
   s_of(base, f.id, ctx, &s->out->id);
+    s->out->unknown_fields.clear();
+    unk_take(f.unknown, &s->out->unknown_fields);
   AK_DGUARD_END
 }
 
@@ -8547,6 +9348,7 @@ static void add_metrics_batch_ticks(ak_dec_ctx *ctx, void *obj, int64_t tok, con
     Sink_MetricsBatch *s = (Sink_MetricsBatch *)obj; (void)tok;
     s->out->ticks.reserve(s->out->ticks.size() + (size_t)n);
     for (int32_t i = 0; i < n; ++i) s->out->ticks.push_back(elems[i]);
+    AK_REFILL();
   AK_DGUARD_END
 }
 
@@ -8555,6 +9357,7 @@ static void add_metrics_batch_values(ak_dec_ctx *ctx, void *obj, int64_t tok, co
     Sink_MetricsBatch *s = (Sink_MetricsBatch *)obj; (void)tok;
     s->out->values.reserve(s->out->values.size() + (size_t)n);
     for (int32_t i = 0; i < n; ++i) s->out->values.push_back(elems[i]);
+    AK_REFILL();
   AK_DGUARD_END
 }
 
@@ -8563,6 +9366,7 @@ static void add_metrics_batch_codes(ak_dec_ctx *ctx, void *obj, int64_t tok, con
     Sink_MetricsBatch *s = (Sink_MetricsBatch *)obj; (void)tok;
     s->out->codes.reserve(s->out->codes.size() + (size_t)n);
     for (int32_t i = 0; i < n; ++i) s->out->codes.push_back(elems[i]);
+    AK_REFILL();
   AK_DGUARD_END
 }
 
@@ -8571,6 +9375,7 @@ static void add_metrics_batch_flags(ak_dec_ctx *ctx, void *obj, int64_t tok, con
     Sink_MetricsBatch *s = (Sink_MetricsBatch *)obj; (void)tok;
     s->out->flags.reserve(s->out->flags.size() + (size_t)n);
     for (int32_t i = 0; i < n; ++i) s->out->flags.push_back(elems[i] != 0);
+    AK_REFILL();
   AK_DGUARD_END
 }
 
@@ -8579,15 +9384,17 @@ static void add_metrics_batch_statuses(ak_dec_ctx *ctx, void *obj, int64_t tok, 
     Sink_MetricsBatch *s = (Sink_MetricsBatch *)obj; (void)tok;
     s->out->statuses.reserve(s->out->statuses.size() + (size_t)n);
     for (int32_t i = 0; i < n; ++i) s->out->statuses.push_back(corpus::TaskStatus(elems[i]));
+    AK_REFILL();
   AK_DGUARD_END
 }
 
-int32_t decode_with_metrics_batch(ak_dec_ctx *ctx, const uint8_t *b, size_t n, MetricsBatch *out) {
+static int32_t decode_impl_metrics_batch(ak_dec_ctx *ctx, const uint8_t *b, size_t n, MetricsBatch *out, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   Sink_MetricsBatch sink;
   sink.out = out;
   sink.base = b;
-  sink.pending = NULL;
+  sink.refill = refill;
+  sink.hold = hold;
   struct ak_dvt_MetricsBatch vt;
   vt.apply = apply_metrics_batch;
   vt.add_ticks = add_metrics_batch_ticks;
@@ -8598,40 +9405,92 @@ int32_t decode_with_metrics_batch(ak_dec_ctx *ctx, const uint8_t *b, size_t n, M
   return ak_decode_MetricsBatch(ctx, &sink, b, n, &vt);
 }
 
-int32_t decode_with_metrics_batch_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, MetricsBatch *out) {
+// Decode with the context as it is armed: a context from
+// ak_dec_ctx_new_MetricsBatch(NULL) (or last reset with NULL) drops every unknown field.
+int32_t decode_with_metrics_batch(ak_dec_ctx *ctx, const uint8_t *b, size_t n, MetricsBatch *out) {
+  return decode_impl_metrics_batch(ctx, b, n, out, NULL, NULL);
+}
+
+// Decision 11: every position of `MetricsBatch` backed by `unk_grow` (no pre-allocated
+// buffer, a repeated position an empty pool), except position `zero` (plan
+// unk_positions order), left all zero: discarded there. zero < 0 = none.
+void unk_opts_metrics_batch(struct ak_dec_MetricsBatch_opts *o, int zero) {
+  std::memset(o, 0, sizeof(*o));
+  o->host = NULL;
+  if (zero != 0) o->self.grow = unk_grow;
+}
+
+// The decode with the context armed with `opts`, read IN PLACE by the core until the
+// disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,
+// is called with `hold` after every element delivery (rule 1). Every buffer this
+// binding allocated and did not deliver is freed before return.
+int32_t decode_with_metrics_batch_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, MetricsBatch *out, struct ak_dec_MetricsBatch_opts *opts, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
-  std::vector<AkPending> pending;
-  Sink_MetricsBatch sink;
-  sink.out = out;
-  sink.base = b;
-  sink.pending = &pending;
-  struct ak_dvt_MetricsBatch vt;
-  vt.apply = apply_metrics_batch;
-  vt.add_ticks = add_metrics_batch_ticks;
-  vt.add_values = add_metrics_batch_values;
-  vt.add_codes = add_metrics_batch_codes;
-  vt.add_flags = add_metrics_batch_flags;
-  vt.add_statuses = add_metrics_batch_statuses;
-  int32_t rc = ak_decode_MetricsBatch(ctx, &sink, b, n, &vt);
-  if (rc < 0) return rc;
-  // Applied after the decode, not during it (see AkPending).
-  for (size_t i = 0; i < pending.size(); ++i) {
-    const AkPending &pd = pending[i];
-    switch (pd.slot) {
-      case 0: out->unknown_fields.append(pd.bytes); break;
-      default: break;
-    }
-  }
+  int32_t rc = ak_dec_reset_MetricsBatch(ctx, opts);
+  if (rc != AK_OK) return rc;
+  rc = decode_impl_metrics_batch(ctx, b, n, out, refill, hold);
+  int32_t rc2 = ak_dec_reset_MetricsBatch(ctx, NULL);
+  unk_reclaim();
+  if (rc >= 0 && rc2 != AK_OK) rc = rc2;
   return rc;
+}
+
+// Decision 11: retain everywhere (every position grows on demand).
+int32_t decode_with_metrics_batch_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, MetricsBatch *out) {
+  struct ak_dec_MetricsBatch_opts opts;
+  unk_opts_metrics_batch(&opts, -1);
+  return decode_with_metrics_batch_opts(ctx, b, n, out, &opts, NULL, NULL);
+}
+
+// Decision 11 rule 1, pre-allocated: every singular position gets one buffer of `cap`
+// bytes, every pool `k`, refilled in place after each delivery; `unk_grow` is the
+// fallback. Unconsumed buffers are freed by the decode's reclaim.
+struct UnkPool_MetricsBatch {
+  struct ak_dec_MetricsBatch_opts opts;
+  std::vector<struct ak_unk_buf> bufs;
+  uint32_t k;
+  uint32_t cap;
+  uint64_t refills;
+};
+
+static void unk_refill_metrics_batch(void *hv) {
+  UnkPool_MetricsBatch *h = (UnkPool_MetricsBatch *)hv;
+  (void)h;
+}
+
+int32_t decode_with_metrics_batch_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, MetricsBatch *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+  UnkPool_MetricsBatch h;
+  unk_opts_metrics_batch(&h.opts, -1);
+  h.k = k;
+  h.cap = cap;
+  h.refills = 0;
+  h.bufs.assign((size_t)0 * k, ak_unk_buf());
+  for (size_t i = 0; i < h.bufs.size(); ++i) { h.bufs[i].data = NULL; h.bufs[i].len = 0; h.bufs[i].cap = 0; }
+  uint64_t first = 0;
+  unk_fill_buf(&h.opts.self.buf, cap, &first);
+  unk_refill_metrics_batch(&h);
+  h.refills = 0;
+  int32_t rc = decode_with_metrics_batch_opts(ctx, b, n, out, &h.opts, unk_refill_metrics_batch, &h);
+  if (refills) *refills = h.refills;
+  return rc;
+}
+
+// Decision 11 control: clear every facade bag at position `pos` (plan.unk_positions
+// order) -- what decoding with that position's entry zeroed must produce.
+void unk_clear_metrics_batch(MetricsBatch &o, int pos) {
+  switch (pos) {
+    case 0: { o.unknown_fields.clear(); } break;
+    default: break;
+  }
 }
 
 struct Sink_Pair {
   Pair *out;
   const uint8_t *base;
-  // Decision 11: unknown runs staged by (slot, token) and applied after the
-  // decode -- a capture buffer may flush before the run that carries the
-  // element it belongs to. NULL on the drop path.
-  std::vector<AkPending> *pending;
+  // Decision 11 rule 1: called after every element delivery, where the host may
+  // refill its pools in place. NULL unless the decode pre-allocates.
+  void (*refill)(void *);
+  void *hold;
 };
 
 static void apply_pair(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_Pair *fx) {
@@ -8642,49 +9501,109 @@ static void apply_pair(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_Pair *fx
     (void)f; (void)base;
   s_of(base, f.key, ctx, &s->out->key);
   s->out->value = f.value;
+    s->out->unknown_fields.clear();
+    unk_take(f.unknown, &s->out->unknown_fields);
   AK_DGUARD_END
 }
 
-int32_t decode_with_pair(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Pair *out) {
+static int32_t decode_impl_pair(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Pair *out, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   Sink_Pair sink;
   sink.out = out;
   sink.base = b;
-  sink.pending = NULL;
+  sink.refill = refill;
+  sink.hold = hold;
   struct ak_dvt_Pair vt;
   vt.apply = apply_pair;
   return ak_decode_Pair(ctx, &sink, b, n, &vt);
 }
 
-int32_t decode_with_pair_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Pair *out) {
+// Decode with the context as it is armed: a context from
+// ak_dec_ctx_new_Pair(NULL) (or last reset with NULL) drops every unknown field.
+int32_t decode_with_pair(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Pair *out) {
+  return decode_impl_pair(ctx, b, n, out, NULL, NULL);
+}
+
+// Decision 11: every position of `Pair` backed by `unk_grow` (no pre-allocated
+// buffer, a repeated position an empty pool), except position `zero` (plan
+// unk_positions order), left all zero: discarded there. zero < 0 = none.
+void unk_opts_pair(struct ak_dec_Pair_opts *o, int zero) {
+  std::memset(o, 0, sizeof(*o));
+  o->host = NULL;
+  if (zero != 0) o->self.grow = unk_grow;
+}
+
+// The decode with the context armed with `opts`, read IN PLACE by the core until the
+// disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,
+// is called with `hold` after every element delivery (rule 1). Every buffer this
+// binding allocated and did not deliver is freed before return.
+int32_t decode_with_pair_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Pair *out, struct ak_dec_Pair_opts *opts, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
-  std::vector<AkPending> pending;
-  Sink_Pair sink;
-  sink.out = out;
-  sink.base = b;
-  sink.pending = &pending;
-  struct ak_dvt_Pair vt;
-  vt.apply = apply_pair;
-  int32_t rc = ak_decode_Pair(ctx, &sink, b, n, &vt);
-  if (rc < 0) return rc;
-  // Applied after the decode, not during it (see AkPending).
-  for (size_t i = 0; i < pending.size(); ++i) {
-    const AkPending &pd = pending[i];
-    switch (pd.slot) {
-      case 0: out->unknown_fields.append(pd.bytes); break;
-      default: break;
-    }
-  }
+  int32_t rc = ak_dec_reset_Pair(ctx, opts);
+  if (rc != AK_OK) return rc;
+  rc = decode_impl_pair(ctx, b, n, out, refill, hold);
+  int32_t rc2 = ak_dec_reset_Pair(ctx, NULL);
+  unk_reclaim();
+  if (rc >= 0 && rc2 != AK_OK) rc = rc2;
   return rc;
+}
+
+// Decision 11: retain everywhere (every position grows on demand).
+int32_t decode_with_pair_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Pair *out) {
+  struct ak_dec_Pair_opts opts;
+  unk_opts_pair(&opts, -1);
+  return decode_with_pair_opts(ctx, b, n, out, &opts, NULL, NULL);
+}
+
+// Decision 11 rule 1, pre-allocated: every singular position gets one buffer of `cap`
+// bytes, every pool `k`, refilled in place after each delivery; `unk_grow` is the
+// fallback. Unconsumed buffers are freed by the decode's reclaim.
+struct UnkPool_Pair {
+  struct ak_dec_Pair_opts opts;
+  std::vector<struct ak_unk_buf> bufs;
+  uint32_t k;
+  uint32_t cap;
+  uint64_t refills;
+};
+
+static void unk_refill_pair(void *hv) {
+  UnkPool_Pair *h = (UnkPool_Pair *)hv;
+  (void)h;
+}
+
+int32_t decode_with_pair_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Pair *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+  UnkPool_Pair h;
+  unk_opts_pair(&h.opts, -1);
+  h.k = k;
+  h.cap = cap;
+  h.refills = 0;
+  h.bufs.assign((size_t)0 * k, ak_unk_buf());
+  for (size_t i = 0; i < h.bufs.size(); ++i) { h.bufs[i].data = NULL; h.bufs[i].len = 0; h.bufs[i].cap = 0; }
+  uint64_t first = 0;
+  unk_fill_buf(&h.opts.self.buf, cap, &first);
+  unk_refill_pair(&h);
+  h.refills = 0;
+  int32_t rc = decode_with_pair_opts(ctx, b, n, out, &h.opts, unk_refill_pair, &h);
+  if (refills) *refills = h.refills;
+  return rc;
+}
+
+// Decision 11 control: clear every facade bag at position `pos` (plan.unk_positions
+// order) -- what decoding with that position's entry zeroed must produce.
+void unk_clear_pair(Pair &o, int pos) {
+  switch (pos) {
+    case 0: { o.unknown_fields.clear(); } break;
+    default: break;
+  }
 }
 
 struct Sink_ListResultsResponse {
   ListResultsResponse *out;
   const uint8_t *base;
-  // Decision 11: unknown runs staged by (slot, token) and applied after the
-  // decode -- a capture buffer may flush before the run that carries the
-  // element it belongs to. NULL on the drop path.
-  std::vector<AkPending> *pending;
+  // Decision 11 rule 1: called after every element delivery, where the host may
+  // refill its pools in place. NULL unless the decode pre-allocates.
+  void (*refill)(void *);
+  void *hold;
 };
 
 static void apply_list_results_response(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_ListResultsResponse *fx) {
@@ -8695,6 +9614,8 @@ static void apply_list_results_response(ak_dec_ctx *ctx, void *obj, const struct
     (void)f; (void)base;
   s->out->page = f.page;
   s->out->total = f.total;
+    s->out->unknown_fields.clear();
+    unk_take(f.unknown, &s->out->unknown_fields);
   AK_DGUARD_END
 }
 
@@ -8704,54 +9625,124 @@ static void add_list_results_response_results(ak_dec_ctx *ctx, void *obj, int64_
     s->out->results.reserve(s->out->results.size() + (size_t)n);
     for (int32_t i = 0; i < n; ++i)
       s->out->results.push_back(from_result_raw(elems[i], s->base, ctx));
+    AK_REFILL();
   AK_DGUARD_END
 }
 
-int32_t decode_with_list_results_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out) {
+static int32_t decode_impl_list_results_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   Sink_ListResultsResponse sink;
   sink.out = out;
   sink.base = b;
-  sink.pending = NULL;
+  sink.refill = refill;
+  sink.hold = hold;
   struct ak_dvt_ListResultsResponse vt;
   vt.apply = apply_list_results_response;
   vt.add_results = add_list_results_response_results;
   return ak_decode_ListResultsResponse(ctx, &sink, b, n, &vt);
 }
 
-int32_t decode_with_list_results_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out) {
+// Decode with the context as it is armed: a context from
+// ak_dec_ctx_new_ListResultsResponse(NULL) (or last reset with NULL) drops every unknown field.
+int32_t decode_with_list_results_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out) {
+  return decode_impl_list_results_response(ctx, b, n, out, NULL, NULL);
+}
+
+// Decision 11: every position of `ListResultsResponse` backed by `unk_grow` (no pre-allocated
+// buffer, a repeated position an empty pool), except position `zero` (plan
+// unk_positions order), left all zero: discarded there. zero < 0 = none.
+void unk_opts_list_results_response(struct ak_dec_ListResultsResponse_opts *o, int zero) {
+  std::memset(o, 0, sizeof(*o));
+  o->host = NULL;
+  if (zero != 0) o->self.grow = unk_grow;
+  if (zero != 1) o->results.grow = unk_grow;
+  if (zero != 2) o->results_created_at.grow = unk_grow;
+  if (zero != 3) o->results_completed_at.grow = unk_grow;
+}
+
+// The decode with the context armed with `opts`, read IN PLACE by the core until the
+// disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,
+// is called with `hold` after every element delivery (rule 1). Every buffer this
+// binding allocated and did not deliver is freed before return.
+int32_t decode_with_list_results_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out, struct ak_dec_ListResultsResponse_opts *opts, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
-  std::vector<AkPending> pending;
-  Sink_ListResultsResponse sink;
-  sink.out = out;
-  sink.base = b;
-  sink.pending = &pending;
-  struct ak_dvt_ListResultsResponse vt;
-  vt.apply = apply_list_results_response;
-  vt.add_results = add_list_results_response_results;
-  int32_t rc = ak_decode_ListResultsResponse(ctx, &sink, b, n, &vt);
-  if (rc < 0) return rc;
-  // Applied after the decode, not during it (see AkPending).
-  for (size_t i = 0; i < pending.size(); ++i) {
-    const AkPending &pd = pending[i];
-    switch (pd.slot) {
-      case 0: out->unknown_fields.append(pd.bytes); break;
-      case 1:
-        if (pd.token >= 0 && (size_t)pd.token < (*out).results.size()) (*out).results[(size_t)pd.token].unknown_fields.append(pd.bytes);
-        break;
-      default: break;
-    }
-  }
+  int32_t rc = ak_dec_reset_ListResultsResponse(ctx, opts);
+  if (rc != AK_OK) return rc;
+  rc = decode_impl_list_results_response(ctx, b, n, out, refill, hold);
+  int32_t rc2 = ak_dec_reset_ListResultsResponse(ctx, NULL);
+  unk_reclaim();
+  if (rc >= 0 && rc2 != AK_OK) rc = rc2;
   return rc;
+}
+
+// Decision 11: retain everywhere (every position grows on demand).
+int32_t decode_with_list_results_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out) {
+  struct ak_dec_ListResultsResponse_opts opts;
+  unk_opts_list_results_response(&opts, -1);
+  return decode_with_list_results_response_opts(ctx, b, n, out, &opts, NULL, NULL);
+}
+
+// Decision 11 rule 1, pre-allocated: every singular position gets one buffer of `cap`
+// bytes, every pool `k`, refilled in place after each delivery; `unk_grow` is the
+// fallback. Unconsumed buffers are freed by the decode's reclaim.
+struct UnkPool_ListResultsResponse {
+  struct ak_dec_ListResultsResponse_opts opts;
+  std::vector<struct ak_unk_buf> bufs;
+  uint32_t k;
+  uint32_t cap;
+  uint64_t refills;
+};
+
+static void unk_refill_list_results_response(void *hv) {
+  UnkPool_ListResultsResponse *h = (UnkPool_ListResultsResponse *)hv;
+  (void)h;
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[0 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[1 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[2 * (size_t)h->k + j], h->cap, &h->refills);
+}
+
+int32_t decode_with_list_results_response_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+  UnkPool_ListResultsResponse h;
+  unk_opts_list_results_response(&h.opts, -1);
+  h.k = k;
+  h.cap = cap;
+  h.refills = 0;
+  h.bufs.assign((size_t)3 * k, ak_unk_buf());
+  for (size_t i = 0; i < h.bufs.size(); ++i) { h.bufs[i].data = NULL; h.bufs[i].len = 0; h.bufs[i].cap = 0; }
+  h.opts.results.bufs = k ? &h.bufs[0 * (size_t)k] : NULL;
+  h.opts.results.n = k;
+  h.opts.results_created_at.bufs = k ? &h.bufs[1 * (size_t)k] : NULL;
+  h.opts.results_created_at.n = k;
+  h.opts.results_completed_at.bufs = k ? &h.bufs[2 * (size_t)k] : NULL;
+  h.opts.results_completed_at.n = k;
+  uint64_t first = 0;
+  unk_fill_buf(&h.opts.self.buf, cap, &first);
+  unk_refill_list_results_response(&h);
+  h.refills = 0;
+  int32_t rc = decode_with_list_results_response_opts(ctx, b, n, out, &h.opts, unk_refill_list_results_response, &h);
+  if (refills) *refills = h.refills;
+  return rc;
+}
+
+// Decision 11 control: clear every facade bag at position `pos` (plan.unk_positions
+// order) -- what decoding with that position's entry zeroed must produce.
+void unk_clear_list_results_response(ListResultsResponse &o, int pos) {
+  switch (pos) {
+    case 0: { o.unknown_fields.clear(); } break;
+    case 1: { for (size_t i0 = 0; i0 < o.results.size(); ++i0) { ResultRaw &x0 = o.results[i0]; x0.unknown_fields.clear(); } } break;
+    case 2: { for (size_t i0 = 0; i0 < o.results.size(); ++i0) { ResultRaw &x0 = o.results[i0]; if (x0.created_at.has_value()) { Timestamp &x1 = *x0.created_at; x1.unknown_fields.clear(); } } } break;
+    case 3: { for (size_t i0 = 0; i0 < o.results.size(); ++i0) { ResultRaw &x0 = o.results[i0]; if (x0.completed_at.has_value()) { Timestamp &x1 = *x0.completed_at; x1.unknown_fields.clear(); } } } break;
+    default: break;
+  }
 }
 
 struct Sink_ListTasksDetailedResponse {
   ListTasksDetailedResponse *out;
   const uint8_t *base;
-  // Decision 11: unknown runs staged by (slot, token) and applied after the
-  // decode -- a capture buffer may flush before the run that carries the
-  // element it belongs to. NULL on the drop path.
-  std::vector<AkPending> *pending;
+  // Decision 11 rule 1: called after every element delivery, where the host may
+  // refill its pools in place. NULL unless the decode pre-allocates.
+  void (*refill)(void *);
+  void *hold;
 };
 
 static void apply_list_tasks_detailed_response(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_ListTasksDetailedResponse *fx) {
@@ -8762,6 +9753,8 @@ static void apply_list_tasks_detailed_response(ak_dec_ctx *ctx, void *obj, const
     (void)f; (void)base;
   s->out->page = f.page;
   s->out->total = f.total;
+    s->out->unknown_fields.clear();
+    unk_take(f.unknown, &s->out->unknown_fields);
   AK_DGUARD_END
 }
 
@@ -8771,6 +9764,7 @@ static int64_t new_list_tasks_detailed_response_tasks(ak_dec_ctx *ctx, void *obj
 #endif
     Sink_ListTasksDetailedResponse *s = (Sink_ListTasksDetailedResponse *)obj;
     s->out->tasks.push_back(TaskDetailed());
+    AK_REFILL();
     return (int64_t)(s->out->tasks.size() - 1);
 #ifndef AK_NO_GUARD
   } catch (...) {
@@ -8785,6 +9779,7 @@ static void apply_list_tasks_detailed_response_tasks(ak_dec_ctx *ctx, void *obj,
   AK_DGUARD_BEGIN
     Sink_ListTasksDetailedResponse *s = (Sink_ListTasksDetailedResponse *)obj;
     fill_task_detailed(&s->out->tasks[(size_t)tok], *fx, s->base, ctx);
+    AK_REFILL();
   AK_DGUARD_END
 }
 
@@ -8801,6 +9796,7 @@ static void add_list_tasks_detailed_response_tasks_parent_task_ids(ak_dec_ctx *c
       s_of(s->base, elems[i], ctx, &dst.back());
 #endif
     }
+    AK_REFILL();
   AK_DGUARD_END
 }
 
@@ -8817,6 +9813,7 @@ static void add_list_tasks_detailed_response_tasks_data_dependencies(ak_dec_ctx 
       s_of(s->base, elems[i], ctx, &dst.back());
 #endif
     }
+    AK_REFILL();
   AK_DGUARD_END
 }
 
@@ -8833,6 +9830,7 @@ static void add_list_tasks_detailed_response_tasks_expected_output_ids(ak_dec_ct
       s_of(s->base, elems[i], ctx, &dst.back());
 #endif
     }
+    AK_REFILL();
   AK_DGUARD_END
 }
 
@@ -8849,6 +9847,7 @@ static void add_list_tasks_detailed_response_tasks_retry_of_ids(ak_dec_ctx *ctx,
       s_of(s->base, elems[i], ctx, &dst.back());
 #endif
     }
+    AK_REFILL();
   AK_DGUARD_END
 }
 
@@ -8860,21 +9859,24 @@ static void add_list_tasks_detailed_response_tasks_options_options(ak_dec_ctx *c
     for (int32_t i = 0; i < n; ++i) {
       s_of(s->base, elems[i].key, ctx, &k_);
       s_of(s->base, elems[i].value, ctx, &v_);
+      unk_drop_entry(elems[i].unknown);
 #if AK_CXX17
       dst.insert_or_assign(std::move(k_), std::move(v_));
 #else
       dst[k_] = v_;
 #endif
     }
+    AK_REFILL();
   AK_DGUARD_END
 }
 
-int32_t decode_with_list_tasks_detailed_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out) {
+static int32_t decode_impl_list_tasks_detailed_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   Sink_ListTasksDetailedResponse sink;
   sink.out = out;
   sink.base = b;
-  sink.pending = NULL;
+  sink.refill = refill;
+  sink.hold = hold;
   struct ak_dvt_ListTasksDetailedResponse vt;
   vt.apply = apply_list_tasks_detailed_response;
   vt.new_tasks = new_list_tasks_detailed_response_tasks;
@@ -8887,45 +9889,177 @@ int32_t decode_with_list_tasks_detailed_response(ak_dec_ctx *ctx, const uint8_t 
   return ak_decode_ListTasksDetailedResponse(ctx, &sink, b, n, &vt);
 }
 
-int32_t decode_with_list_tasks_detailed_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out) {
+// Decode with the context as it is armed: a context from
+// ak_dec_ctx_new_ListTasksDetailedResponse(NULL) (or last reset with NULL) drops every unknown field.
+int32_t decode_with_list_tasks_detailed_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out) {
+  return decode_impl_list_tasks_detailed_response(ctx, b, n, out, NULL, NULL);
+}
+
+// Decision 11: every position of `ListTasksDetailedResponse` backed by `unk_grow` (no pre-allocated
+// buffer, a repeated position an empty pool), except position `zero` (plan
+// unk_positions order), left all zero: discarded there. zero < 0 = none.
+void unk_opts_list_tasks_detailed_response(struct ak_dec_ListTasksDetailedResponse_opts *o, int zero) {
+  std::memset(o, 0, sizeof(*o));
+  o->host = NULL;
+  if (zero != 0) o->self.grow = unk_grow;
+  if (zero != 1) o->tasks.grow = unk_grow;
+  if (zero != 2) o->tasks_options.grow = unk_grow;
+  if (zero != 3) o->tasks_options_options.grow = unk_grow;
+  if (zero != 4) o->tasks_options_max_duration.grow = unk_grow;
+  if (zero != 5) o->tasks_created_at.grow = unk_grow;
+  if (zero != 6) o->tasks_submitted_at.grow = unk_grow;
+  if (zero != 7) o->tasks_started_at.grow = unk_grow;
+  if (zero != 8) o->tasks_ended_at.grow = unk_grow;
+  if (zero != 9) o->tasks_pod_ttl.grow = unk_grow;
+  if (zero != 10) o->tasks_output.grow = unk_grow;
+  if (zero != 11) o->tasks_received_at.grow = unk_grow;
+  if (zero != 12) o->tasks_acquired_at.grow = unk_grow;
+  if (zero != 13) o->tasks_creation_to_end_duration.grow = unk_grow;
+  if (zero != 14) o->tasks_processing_to_end_duration.grow = unk_grow;
+  if (zero != 15) o->tasks_received_to_end_duration.grow = unk_grow;
+  if (zero != 16) o->tasks_processed_at.grow = unk_grow;
+  if (zero != 17) o->tasks_fetched_at.grow = unk_grow;
+}
+
+// The decode with the context armed with `opts`, read IN PLACE by the core until the
+// disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,
+// is called with `hold` after every element delivery (rule 1). Every buffer this
+// binding allocated and did not deliver is freed before return.
+int32_t decode_with_list_tasks_detailed_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out, struct ak_dec_ListTasksDetailedResponse_opts *opts, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
-  std::vector<AkPending> pending;
-  Sink_ListTasksDetailedResponse sink;
-  sink.out = out;
-  sink.base = b;
-  sink.pending = &pending;
-  struct ak_dvt_ListTasksDetailedResponse vt;
-  vt.apply = apply_list_tasks_detailed_response;
-  vt.new_tasks = new_list_tasks_detailed_response_tasks;
-  vt.apply_tasks = apply_list_tasks_detailed_response_tasks;
-  vt.add_tasks_parent_task_ids = add_list_tasks_detailed_response_tasks_parent_task_ids;
-  vt.add_tasks_data_dependencies = add_list_tasks_detailed_response_tasks_data_dependencies;
-  vt.add_tasks_expected_output_ids = add_list_tasks_detailed_response_tasks_expected_output_ids;
-  vt.add_tasks_retry_of_ids = add_list_tasks_detailed_response_tasks_retry_of_ids;
-  vt.add_tasks_options_options = add_list_tasks_detailed_response_tasks_options_options;
-  int32_t rc = ak_decode_ListTasksDetailedResponse(ctx, &sink, b, n, &vt);
-  if (rc < 0) return rc;
-  // Applied after the decode, not during it (see AkPending).
-  for (size_t i = 0; i < pending.size(); ++i) {
-    const AkPending &pd = pending[i];
-    switch (pd.slot) {
-      case 0: out->unknown_fields.append(pd.bytes); break;
-      case 1:
-        if (pd.token >= 0 && (size_t)pd.token < (*out).tasks.size()) (*out).tasks[(size_t)pd.token].unknown_fields.append(pd.bytes);
-        break;
-      default: break;
-    }
-  }
+  int32_t rc = ak_dec_reset_ListTasksDetailedResponse(ctx, opts);
+  if (rc != AK_OK) return rc;
+  rc = decode_impl_list_tasks_detailed_response(ctx, b, n, out, refill, hold);
+  int32_t rc2 = ak_dec_reset_ListTasksDetailedResponse(ctx, NULL);
+  unk_reclaim();
+  if (rc >= 0 && rc2 != AK_OK) rc = rc2;
   return rc;
+}
+
+// Decision 11: retain everywhere (every position grows on demand).
+int32_t decode_with_list_tasks_detailed_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out) {
+  struct ak_dec_ListTasksDetailedResponse_opts opts;
+  unk_opts_list_tasks_detailed_response(&opts, -1);
+  return decode_with_list_tasks_detailed_response_opts(ctx, b, n, out, &opts, NULL, NULL);
+}
+
+// Decision 11 rule 1, pre-allocated: every singular position gets one buffer of `cap`
+// bytes, every pool `k`, refilled in place after each delivery; `unk_grow` is the
+// fallback. Unconsumed buffers are freed by the decode's reclaim.
+struct UnkPool_ListTasksDetailedResponse {
+  struct ak_dec_ListTasksDetailedResponse_opts opts;
+  std::vector<struct ak_unk_buf> bufs;
+  uint32_t k;
+  uint32_t cap;
+  uint64_t refills;
+};
+
+static void unk_refill_list_tasks_detailed_response(void *hv) {
+  UnkPool_ListTasksDetailedResponse *h = (UnkPool_ListTasksDetailedResponse *)hv;
+  (void)h;
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[0 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[1 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[2 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[3 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[4 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[5 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[6 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[7 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[8 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[9 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[10 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[11 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[12 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[13 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[14 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[15 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[16 * (size_t)h->k + j], h->cap, &h->refills);
+}
+
+int32_t decode_with_list_tasks_detailed_response_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+  UnkPool_ListTasksDetailedResponse h;
+  unk_opts_list_tasks_detailed_response(&h.opts, -1);
+  h.k = k;
+  h.cap = cap;
+  h.refills = 0;
+  h.bufs.assign((size_t)17 * k, ak_unk_buf());
+  for (size_t i = 0; i < h.bufs.size(); ++i) { h.bufs[i].data = NULL; h.bufs[i].len = 0; h.bufs[i].cap = 0; }
+  h.opts.tasks.bufs = k ? &h.bufs[0 * (size_t)k] : NULL;
+  h.opts.tasks.n = k;
+  h.opts.tasks_options.bufs = k ? &h.bufs[1 * (size_t)k] : NULL;
+  h.opts.tasks_options.n = k;
+  h.opts.tasks_options_options.bufs = k ? &h.bufs[2 * (size_t)k] : NULL;
+  h.opts.tasks_options_options.n = k;
+  h.opts.tasks_options_max_duration.bufs = k ? &h.bufs[3 * (size_t)k] : NULL;
+  h.opts.tasks_options_max_duration.n = k;
+  h.opts.tasks_created_at.bufs = k ? &h.bufs[4 * (size_t)k] : NULL;
+  h.opts.tasks_created_at.n = k;
+  h.opts.tasks_submitted_at.bufs = k ? &h.bufs[5 * (size_t)k] : NULL;
+  h.opts.tasks_submitted_at.n = k;
+  h.opts.tasks_started_at.bufs = k ? &h.bufs[6 * (size_t)k] : NULL;
+  h.opts.tasks_started_at.n = k;
+  h.opts.tasks_ended_at.bufs = k ? &h.bufs[7 * (size_t)k] : NULL;
+  h.opts.tasks_ended_at.n = k;
+  h.opts.tasks_pod_ttl.bufs = k ? &h.bufs[8 * (size_t)k] : NULL;
+  h.opts.tasks_pod_ttl.n = k;
+  h.opts.tasks_output.bufs = k ? &h.bufs[9 * (size_t)k] : NULL;
+  h.opts.tasks_output.n = k;
+  h.opts.tasks_received_at.bufs = k ? &h.bufs[10 * (size_t)k] : NULL;
+  h.opts.tasks_received_at.n = k;
+  h.opts.tasks_acquired_at.bufs = k ? &h.bufs[11 * (size_t)k] : NULL;
+  h.opts.tasks_acquired_at.n = k;
+  h.opts.tasks_creation_to_end_duration.bufs = k ? &h.bufs[12 * (size_t)k] : NULL;
+  h.opts.tasks_creation_to_end_duration.n = k;
+  h.opts.tasks_processing_to_end_duration.bufs = k ? &h.bufs[13 * (size_t)k] : NULL;
+  h.opts.tasks_processing_to_end_duration.n = k;
+  h.opts.tasks_received_to_end_duration.bufs = k ? &h.bufs[14 * (size_t)k] : NULL;
+  h.opts.tasks_received_to_end_duration.n = k;
+  h.opts.tasks_processed_at.bufs = k ? &h.bufs[15 * (size_t)k] : NULL;
+  h.opts.tasks_processed_at.n = k;
+  h.opts.tasks_fetched_at.bufs = k ? &h.bufs[16 * (size_t)k] : NULL;
+  h.opts.tasks_fetched_at.n = k;
+  uint64_t first = 0;
+  unk_fill_buf(&h.opts.self.buf, cap, &first);
+  unk_refill_list_tasks_detailed_response(&h);
+  h.refills = 0;
+  int32_t rc = decode_with_list_tasks_detailed_response_opts(ctx, b, n, out, &h.opts, unk_refill_list_tasks_detailed_response, &h);
+  if (refills) *refills = h.refills;
+  return rc;
+}
+
+// Decision 11 control: clear every facade bag at position `pos` (plan.unk_positions
+// order) -- what decoding with that position's entry zeroed must produce.
+void unk_clear_list_tasks_detailed_response(ListTasksDetailedResponse &o, int pos) {
+  switch (pos) {
+    case 0: { o.unknown_fields.clear(); } break;
+    case 1: { for (size_t i0 = 0; i0 < o.tasks.size(); ++i0) { TaskDetailed &x0 = o.tasks[i0]; x0.unknown_fields.clear(); } } break;
+    case 2: { for (size_t i0 = 0; i0 < o.tasks.size(); ++i0) { TaskDetailed &x0 = o.tasks[i0]; if (x0.options.has_value()) { TaskOptions &x1 = *x0.options; x1.unknown_fields.clear(); } } } break;
+    case 3: { for (size_t i0 = 0; i0 < o.tasks.size(); ++i0) { TaskDetailed &x0 = o.tasks[i0]; if (x0.options.has_value()) { TaskOptions &x1 = *x0.options; /* a facade map entry has no bag */ } } } break;
+    case 4: { for (size_t i0 = 0; i0 < o.tasks.size(); ++i0) { TaskDetailed &x0 = o.tasks[i0]; if (x0.options.has_value()) { TaskOptions &x1 = *x0.options; if (x1.max_duration.has_value()) { Duration &x2 = *x1.max_duration; x2.unknown_fields.clear(); } } } } break;
+    case 5: { for (size_t i0 = 0; i0 < o.tasks.size(); ++i0) { TaskDetailed &x0 = o.tasks[i0]; if (x0.created_at.has_value()) { Timestamp &x1 = *x0.created_at; x1.unknown_fields.clear(); } } } break;
+    case 6: { for (size_t i0 = 0; i0 < o.tasks.size(); ++i0) { TaskDetailed &x0 = o.tasks[i0]; if (x0.submitted_at.has_value()) { Timestamp &x1 = *x0.submitted_at; x1.unknown_fields.clear(); } } } break;
+    case 7: { for (size_t i0 = 0; i0 < o.tasks.size(); ++i0) { TaskDetailed &x0 = o.tasks[i0]; if (x0.started_at.has_value()) { Timestamp &x1 = *x0.started_at; x1.unknown_fields.clear(); } } } break;
+    case 8: { for (size_t i0 = 0; i0 < o.tasks.size(); ++i0) { TaskDetailed &x0 = o.tasks[i0]; if (x0.ended_at.has_value()) { Timestamp &x1 = *x0.ended_at; x1.unknown_fields.clear(); } } } break;
+    case 9: { for (size_t i0 = 0; i0 < o.tasks.size(); ++i0) { TaskDetailed &x0 = o.tasks[i0]; if (x0.pod_ttl.has_value()) { Timestamp &x1 = *x0.pod_ttl; x1.unknown_fields.clear(); } } } break;
+    case 10: { for (size_t i0 = 0; i0 < o.tasks.size(); ++i0) { TaskDetailed &x0 = o.tasks[i0]; if (x0.output.has_value()) { TaskOutput &x1 = *x0.output; x1.unknown_fields.clear(); } } } break;
+    case 11: { for (size_t i0 = 0; i0 < o.tasks.size(); ++i0) { TaskDetailed &x0 = o.tasks[i0]; if (x0.received_at.has_value()) { Timestamp &x1 = *x0.received_at; x1.unknown_fields.clear(); } } } break;
+    case 12: { for (size_t i0 = 0; i0 < o.tasks.size(); ++i0) { TaskDetailed &x0 = o.tasks[i0]; if (x0.acquired_at.has_value()) { Timestamp &x1 = *x0.acquired_at; x1.unknown_fields.clear(); } } } break;
+    case 13: { for (size_t i0 = 0; i0 < o.tasks.size(); ++i0) { TaskDetailed &x0 = o.tasks[i0]; if (x0.creation_to_end_duration.has_value()) { Duration &x1 = *x0.creation_to_end_duration; x1.unknown_fields.clear(); } } } break;
+    case 14: { for (size_t i0 = 0; i0 < o.tasks.size(); ++i0) { TaskDetailed &x0 = o.tasks[i0]; if (x0.processing_to_end_duration.has_value()) { Duration &x1 = *x0.processing_to_end_duration; x1.unknown_fields.clear(); } } } break;
+    case 15: { for (size_t i0 = 0; i0 < o.tasks.size(); ++i0) { TaskDetailed &x0 = o.tasks[i0]; if (x0.received_to_end_duration.has_value()) { Duration &x1 = *x0.received_to_end_duration; x1.unknown_fields.clear(); } } } break;
+    case 16: { for (size_t i0 = 0; i0 < o.tasks.size(); ++i0) { TaskDetailed &x0 = o.tasks[i0]; if (x0.processed_at.has_value()) { Timestamp &x1 = *x0.processed_at; x1.unknown_fields.clear(); } } } break;
+    case 17: { for (size_t i0 = 0; i0 < o.tasks.size(); ++i0) { TaskDetailed &x0 = o.tasks[i0]; if (x0.fetched_at.has_value()) { Timestamp &x1 = *x0.fetched_at; x1.unknown_fields.clear(); } } } break;
+    default: break;
+  }
 }
 
 struct Sink_ListTaskSummaryResponse {
   ListTaskSummaryResponse *out;
   const uint8_t *base;
-  // Decision 11: unknown runs staged by (slot, token) and applied after the
-  // decode -- a capture buffer may flush before the run that carries the
-  // element it belongs to. NULL on the drop path.
-  std::vector<AkPending> *pending;
+  // Decision 11 rule 1: called after every element delivery, where the host may
+  // refill its pools in place. NULL unless the decode pre-allocates.
+  void (*refill)(void *);
+  void *hold;
 };
 
 static void apply_list_task_summary_response(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_ListTaskSummaryResponse *fx) {
@@ -8934,6 +10068,8 @@ static void apply_list_task_summary_response(ak_dec_ctx *ctx, void *obj, const s
     const struct ak_dfix_ListTaskSummaryResponse &f = *fx;
     const uint8_t *base = s->base;
     (void)f; (void)base;
+    s->out->unknown_fields.clear();
+    unk_take(f.unknown, &s->out->unknown_fields);
   AK_DGUARD_END
 }
 
@@ -8943,6 +10079,7 @@ static int64_t new_list_task_summary_response_tasks(ak_dec_ctx *ctx, void *obj) 
 #endif
     Sink_ListTaskSummaryResponse *s = (Sink_ListTaskSummaryResponse *)obj;
     s->out->tasks.push_back(TaskSummary());
+    AK_REFILL();
     return (int64_t)(s->out->tasks.size() - 1);
 #ifndef AK_NO_GUARD
   } catch (...) {
@@ -8957,6 +10094,7 @@ static void apply_list_task_summary_response_tasks(ak_dec_ctx *ctx, void *obj, i
   AK_DGUARD_BEGIN
     Sink_ListTaskSummaryResponse *s = (Sink_ListTaskSummaryResponse *)obj;
     fill_task_summary(&s->out->tasks[(size_t)tok], *fx, s->base, ctx);
+    AK_REFILL();
   AK_DGUARD_END
 }
 
@@ -8968,21 +10106,24 @@ static void add_list_task_summary_response_tasks_options_options(ak_dec_ctx *ctx
     for (int32_t i = 0; i < n; ++i) {
       s_of(s->base, elems[i].key, ctx, &k_);
       s_of(s->base, elems[i].value, ctx, &v_);
+      unk_drop_entry(elems[i].unknown);
 #if AK_CXX17
       dst.insert_or_assign(std::move(k_), std::move(v_));
 #else
       dst[k_] = v_;
 #endif
     }
+    AK_REFILL();
   AK_DGUARD_END
 }
 
-int32_t decode_with_list_task_summary_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out) {
+static int32_t decode_impl_list_task_summary_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   Sink_ListTaskSummaryResponse sink;
   sink.out = out;
   sink.base = b;
-  sink.pending = NULL;
+  sink.refill = refill;
+  sink.hold = hold;
   struct ak_dvt_ListTaskSummaryResponse vt;
   vt.apply = apply_list_task_summary_response;
   vt.new_tasks = new_list_task_summary_response_tasks;
@@ -8991,41 +10132,117 @@ int32_t decode_with_list_task_summary_response(ak_dec_ctx *ctx, const uint8_t *b
   return ak_decode_ListTaskSummaryResponse(ctx, &sink, b, n, &vt);
 }
 
-int32_t decode_with_list_task_summary_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out) {
+// Decode with the context as it is armed: a context from
+// ak_dec_ctx_new_ListTaskSummaryResponse(NULL) (or last reset with NULL) drops every unknown field.
+int32_t decode_with_list_task_summary_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out) {
+  return decode_impl_list_task_summary_response(ctx, b, n, out, NULL, NULL);
+}
+
+// Decision 11: every position of `ListTaskSummaryResponse` backed by `unk_grow` (no pre-allocated
+// buffer, a repeated position an empty pool), except position `zero` (plan
+// unk_positions order), left all zero: discarded there. zero < 0 = none.
+void unk_opts_list_task_summary_response(struct ak_dec_ListTaskSummaryResponse_opts *o, int zero) {
+  std::memset(o, 0, sizeof(*o));
+  o->host = NULL;
+  if (zero != 0) o->self.grow = unk_grow;
+  if (zero != 1) o->tasks.grow = unk_grow;
+  if (zero != 2) o->tasks_options.grow = unk_grow;
+  if (zero != 3) o->tasks_options_options.grow = unk_grow;
+  if (zero != 4) o->tasks_options_max_duration.grow = unk_grow;
+  if (zero != 5) o->tasks_created_at.grow = unk_grow;
+}
+
+// The decode with the context armed with `opts`, read IN PLACE by the core until the
+// disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,
+// is called with `hold` after every element delivery (rule 1). Every buffer this
+// binding allocated and did not deliver is freed before return.
+int32_t decode_with_list_task_summary_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out, struct ak_dec_ListTaskSummaryResponse_opts *opts, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
-  std::vector<AkPending> pending;
-  Sink_ListTaskSummaryResponse sink;
-  sink.out = out;
-  sink.base = b;
-  sink.pending = &pending;
-  struct ak_dvt_ListTaskSummaryResponse vt;
-  vt.apply = apply_list_task_summary_response;
-  vt.new_tasks = new_list_task_summary_response_tasks;
-  vt.apply_tasks = apply_list_task_summary_response_tasks;
-  vt.add_tasks_options_options = add_list_task_summary_response_tasks_options_options;
-  int32_t rc = ak_decode_ListTaskSummaryResponse(ctx, &sink, b, n, &vt);
-  if (rc < 0) return rc;
-  // Applied after the decode, not during it (see AkPending).
-  for (size_t i = 0; i < pending.size(); ++i) {
-    const AkPending &pd = pending[i];
-    switch (pd.slot) {
-      case 0: out->unknown_fields.append(pd.bytes); break;
-      case 1:
-        if (pd.token >= 0 && (size_t)pd.token < (*out).tasks.size()) (*out).tasks[(size_t)pd.token].unknown_fields.append(pd.bytes);
-        break;
-      default: break;
-    }
-  }
+  int32_t rc = ak_dec_reset_ListTaskSummaryResponse(ctx, opts);
+  if (rc != AK_OK) return rc;
+  rc = decode_impl_list_task_summary_response(ctx, b, n, out, refill, hold);
+  int32_t rc2 = ak_dec_reset_ListTaskSummaryResponse(ctx, NULL);
+  unk_reclaim();
+  if (rc >= 0 && rc2 != AK_OK) rc = rc2;
   return rc;
+}
+
+// Decision 11: retain everywhere (every position grows on demand).
+int32_t decode_with_list_task_summary_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out) {
+  struct ak_dec_ListTaskSummaryResponse_opts opts;
+  unk_opts_list_task_summary_response(&opts, -1);
+  return decode_with_list_task_summary_response_opts(ctx, b, n, out, &opts, NULL, NULL);
+}
+
+// Decision 11 rule 1, pre-allocated: every singular position gets one buffer of `cap`
+// bytes, every pool `k`, refilled in place after each delivery; `unk_grow` is the
+// fallback. Unconsumed buffers are freed by the decode's reclaim.
+struct UnkPool_ListTaskSummaryResponse {
+  struct ak_dec_ListTaskSummaryResponse_opts opts;
+  std::vector<struct ak_unk_buf> bufs;
+  uint32_t k;
+  uint32_t cap;
+  uint64_t refills;
+};
+
+static void unk_refill_list_task_summary_response(void *hv) {
+  UnkPool_ListTaskSummaryResponse *h = (UnkPool_ListTaskSummaryResponse *)hv;
+  (void)h;
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[0 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[1 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[2 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[3 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[4 * (size_t)h->k + j], h->cap, &h->refills);
+}
+
+int32_t decode_with_list_task_summary_response_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+  UnkPool_ListTaskSummaryResponse h;
+  unk_opts_list_task_summary_response(&h.opts, -1);
+  h.k = k;
+  h.cap = cap;
+  h.refills = 0;
+  h.bufs.assign((size_t)5 * k, ak_unk_buf());
+  for (size_t i = 0; i < h.bufs.size(); ++i) { h.bufs[i].data = NULL; h.bufs[i].len = 0; h.bufs[i].cap = 0; }
+  h.opts.tasks.bufs = k ? &h.bufs[0 * (size_t)k] : NULL;
+  h.opts.tasks.n = k;
+  h.opts.tasks_options.bufs = k ? &h.bufs[1 * (size_t)k] : NULL;
+  h.opts.tasks_options.n = k;
+  h.opts.tasks_options_options.bufs = k ? &h.bufs[2 * (size_t)k] : NULL;
+  h.opts.tasks_options_options.n = k;
+  h.opts.tasks_options_max_duration.bufs = k ? &h.bufs[3 * (size_t)k] : NULL;
+  h.opts.tasks_options_max_duration.n = k;
+  h.opts.tasks_created_at.bufs = k ? &h.bufs[4 * (size_t)k] : NULL;
+  h.opts.tasks_created_at.n = k;
+  uint64_t first = 0;
+  unk_fill_buf(&h.opts.self.buf, cap, &first);
+  unk_refill_list_task_summary_response(&h);
+  h.refills = 0;
+  int32_t rc = decode_with_list_task_summary_response_opts(ctx, b, n, out, &h.opts, unk_refill_list_task_summary_response, &h);
+  if (refills) *refills = h.refills;
+  return rc;
+}
+
+// Decision 11 control: clear every facade bag at position `pos` (plan.unk_positions
+// order) -- what decoding with that position's entry zeroed must produce.
+void unk_clear_list_task_summary_response(ListTaskSummaryResponse &o, int pos) {
+  switch (pos) {
+    case 0: { o.unknown_fields.clear(); } break;
+    case 1: { for (size_t i0 = 0; i0 < o.tasks.size(); ++i0) { TaskSummary &x0 = o.tasks[i0]; x0.unknown_fields.clear(); } } break;
+    case 2: { for (size_t i0 = 0; i0 < o.tasks.size(); ++i0) { TaskSummary &x0 = o.tasks[i0]; if (x0.options.has_value()) { TaskOptions &x1 = *x0.options; x1.unknown_fields.clear(); } } } break;
+    case 3: { for (size_t i0 = 0; i0 < o.tasks.size(); ++i0) { TaskSummary &x0 = o.tasks[i0]; if (x0.options.has_value()) { TaskOptions &x1 = *x0.options; /* a facade map entry has no bag */ } } } break;
+    case 4: { for (size_t i0 = 0; i0 < o.tasks.size(); ++i0) { TaskSummary &x0 = o.tasks[i0]; if (x0.options.has_value()) { TaskOptions &x1 = *x0.options; if (x1.max_duration.has_value()) { Duration &x2 = *x1.max_duration; x2.unknown_fields.clear(); } } } } break;
+    case 5: { for (size_t i0 = 0; i0 < o.tasks.size(); ++i0) { TaskSummary &x0 = o.tasks[i0]; if (x0.created_at.has_value()) { Timestamp &x1 = *x0.created_at; x1.unknown_fields.clear(); } } } break;
+    default: break;
+  }
 }
 
 struct Sink_ListProbeResponse {
   ListProbeResponse *out;
   const uint8_t *base;
-  // Decision 11: unknown runs staged by (slot, token) and applied after the
-  // decode -- a capture buffer may flush before the run that carries the
-  // element it belongs to. NULL on the drop path.
-  std::vector<AkPending> *pending;
+  // Decision 11 rule 1: called after every element delivery, where the host may
+  // refill its pools in place. NULL unless the decode pre-allocates.
+  void (*refill)(void *);
+  void *hold;
 };
 
 static void apply_list_probe_response(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_ListProbeResponse *fx) {
@@ -9034,6 +10251,8 @@ static void apply_list_probe_response(ak_dec_ctx *ctx, void *obj, const struct a
     const struct ak_dfix_ListProbeResponse &f = *fx;
     const uint8_t *base = s->base;
     (void)f; (void)base;
+    s->out->unknown_fields.clear();
+    unk_take(f.unknown, &s->out->unknown_fields);
   AK_DGUARD_END
 }
 
@@ -9043,54 +10262,119 @@ static void add_list_probe_response_probes(ak_dec_ctx *ctx, void *obj, int64_t t
     s->out->probes.reserve(s->out->probes.size() + (size_t)n);
     for (int32_t i = 0; i < n; ++i)
       s->out->probes.push_back(from_probe(elems[i], s->base, ctx));
+    AK_REFILL();
   AK_DGUARD_END
 }
 
-int32_t decode_with_list_probe_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out) {
+static int32_t decode_impl_list_probe_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   Sink_ListProbeResponse sink;
   sink.out = out;
   sink.base = b;
-  sink.pending = NULL;
+  sink.refill = refill;
+  sink.hold = hold;
   struct ak_dvt_ListProbeResponse vt;
   vt.apply = apply_list_probe_response;
   vt.add_probes = add_list_probe_response_probes;
   return ak_decode_ListProbeResponse(ctx, &sink, b, n, &vt);
 }
 
-int32_t decode_with_list_probe_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out) {
+// Decode with the context as it is armed: a context from
+// ak_dec_ctx_new_ListProbeResponse(NULL) (or last reset with NULL) drops every unknown field.
+int32_t decode_with_list_probe_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out) {
+  return decode_impl_list_probe_response(ctx, b, n, out, NULL, NULL);
+}
+
+// Decision 11: every position of `ListProbeResponse` backed by `unk_grow` (no pre-allocated
+// buffer, a repeated position an empty pool), except position `zero` (plan
+// unk_positions order), left all zero: discarded there. zero < 0 = none.
+void unk_opts_list_probe_response(struct ak_dec_ListProbeResponse_opts *o, int zero) {
+  std::memset(o, 0, sizeof(*o));
+  o->host = NULL;
+  if (zero != 0) o->self.grow = unk_grow;
+  if (zero != 1) o->probes.grow = unk_grow;
+  if (zero != 2) o->probes_body.grow = unk_grow;
+}
+
+// The decode with the context armed with `opts`, read IN PLACE by the core until the
+// disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,
+// is called with `hold` after every element delivery (rule 1). Every buffer this
+// binding allocated and did not deliver is freed before return.
+int32_t decode_with_list_probe_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out, struct ak_dec_ListProbeResponse_opts *opts, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
-  std::vector<AkPending> pending;
-  Sink_ListProbeResponse sink;
-  sink.out = out;
-  sink.base = b;
-  sink.pending = &pending;
-  struct ak_dvt_ListProbeResponse vt;
-  vt.apply = apply_list_probe_response;
-  vt.add_probes = add_list_probe_response_probes;
-  int32_t rc = ak_decode_ListProbeResponse(ctx, &sink, b, n, &vt);
-  if (rc < 0) return rc;
-  // Applied after the decode, not during it (see AkPending).
-  for (size_t i = 0; i < pending.size(); ++i) {
-    const AkPending &pd = pending[i];
-    switch (pd.slot) {
-      case 0: out->unknown_fields.append(pd.bytes); break;
-      case 1:
-        if (pd.token >= 0 && (size_t)pd.token < (*out).probes.size()) (*out).probes[(size_t)pd.token].unknown_fields.append(pd.bytes);
-        break;
-      default: break;
-    }
-  }
+  int32_t rc = ak_dec_reset_ListProbeResponse(ctx, opts);
+  if (rc != AK_OK) return rc;
+  rc = decode_impl_list_probe_response(ctx, b, n, out, refill, hold);
+  int32_t rc2 = ak_dec_reset_ListProbeResponse(ctx, NULL);
+  unk_reclaim();
+  if (rc >= 0 && rc2 != AK_OK) rc = rc2;
   return rc;
+}
+
+// Decision 11: retain everywhere (every position grows on demand).
+int32_t decode_with_list_probe_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out) {
+  struct ak_dec_ListProbeResponse_opts opts;
+  unk_opts_list_probe_response(&opts, -1);
+  return decode_with_list_probe_response_opts(ctx, b, n, out, &opts, NULL, NULL);
+}
+
+// Decision 11 rule 1, pre-allocated: every singular position gets one buffer of `cap`
+// bytes, every pool `k`, refilled in place after each delivery; `unk_grow` is the
+// fallback. Unconsumed buffers are freed by the decode's reclaim.
+struct UnkPool_ListProbeResponse {
+  struct ak_dec_ListProbeResponse_opts opts;
+  std::vector<struct ak_unk_buf> bufs;
+  uint32_t k;
+  uint32_t cap;
+  uint64_t refills;
+};
+
+static void unk_refill_list_probe_response(void *hv) {
+  UnkPool_ListProbeResponse *h = (UnkPool_ListProbeResponse *)hv;
+  (void)h;
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[0 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[1 * (size_t)h->k + j], h->cap, &h->refills);
+}
+
+int32_t decode_with_list_probe_response_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+  UnkPool_ListProbeResponse h;
+  unk_opts_list_probe_response(&h.opts, -1);
+  h.k = k;
+  h.cap = cap;
+  h.refills = 0;
+  h.bufs.assign((size_t)2 * k, ak_unk_buf());
+  for (size_t i = 0; i < h.bufs.size(); ++i) { h.bufs[i].data = NULL; h.bufs[i].len = 0; h.bufs[i].cap = 0; }
+  h.opts.probes.bufs = k ? &h.bufs[0 * (size_t)k] : NULL;
+  h.opts.probes.n = k;
+  h.opts.probes_body.bufs = k ? &h.bufs[1 * (size_t)k] : NULL;
+  h.opts.probes_body.n = k;
+  uint64_t first = 0;
+  unk_fill_buf(&h.opts.self.buf, cap, &first);
+  unk_refill_list_probe_response(&h);
+  h.refills = 0;
+  int32_t rc = decode_with_list_probe_response_opts(ctx, b, n, out, &h.opts, unk_refill_list_probe_response, &h);
+  if (refills) *refills = h.refills;
+  return rc;
+}
+
+// Decision 11 control: clear every facade bag at position `pos` (plan.unk_positions
+// order) -- what decoding with that position's entry zeroed must produce.
+void unk_clear_list_probe_response(ListProbeResponse &o, int pos) {
+  switch (pos) {
+    case 0: { o.unknown_fields.clear(); } break;
+    case 1: { for (size_t i0 = 0; i0 < o.probes.size(); ++i0) { Probe &x0 = o.probes[i0]; x0.unknown_fields.clear(); } } break;
+    case 2: { for (size_t i0 = 0; i0 < o.probes.size(); ++i0) { Probe &x0 = o.probes[i0]; if ((int)x0.body.which() == 13) { Timestamp &x1 = x0.body.mutable_as_stamp(); x1.unknown_fields.clear(); } if ((int)x0.body.which() == 14) { Empty &x1 = x0.body.mutable_as_nothing(); x1.unknown_fields.clear(); } } } break;
+    default: break;
+  }
 }
 
 struct Sink_ListMetricsResponse {
   ListMetricsResponse *out;
   const uint8_t *base;
-  // Decision 11: unknown runs staged by (slot, token) and applied after the
-  // decode -- a capture buffer may flush before the run that carries the
-  // element it belongs to. NULL on the drop path.
-  std::vector<AkPending> *pending;
+  // Decision 11 rule 1: called after every element delivery, where the host may
+  // refill its pools in place. NULL unless the decode pre-allocates.
+  void (*refill)(void *);
+  void *hold;
 };
 
 static void apply_list_metrics_response(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_ListMetricsResponse *fx) {
@@ -9099,6 +10383,8 @@ static void apply_list_metrics_response(ak_dec_ctx *ctx, void *obj, const struct
     const struct ak_dfix_ListMetricsResponse &f = *fx;
     const uint8_t *base = s->base;
     (void)f; (void)base;
+    s->out->unknown_fields.clear();
+    unk_take(f.unknown, &s->out->unknown_fields);
   AK_DGUARD_END
 }
 
@@ -9108,6 +10394,7 @@ static int64_t new_list_metrics_response_batches(ak_dec_ctx *ctx, void *obj) {
 #endif
     Sink_ListMetricsResponse *s = (Sink_ListMetricsResponse *)obj;
     s->out->batches.push_back(MetricsBatch());
+    AK_REFILL();
     return (int64_t)(s->out->batches.size() - 1);
 #ifndef AK_NO_GUARD
   } catch (...) {
@@ -9122,6 +10409,7 @@ static void apply_list_metrics_response_batches(ak_dec_ctx *ctx, void *obj, int6
   AK_DGUARD_BEGIN
     Sink_ListMetricsResponse *s = (Sink_ListMetricsResponse *)obj;
     fill_metrics_batch(&s->out->batches[(size_t)tok], *fx, s->base, ctx);
+    AK_REFILL();
   AK_DGUARD_END
 }
 
@@ -9131,6 +10419,7 @@ static void add_list_metrics_response_batches_ticks(ak_dec_ctx *ctx, void *obj, 
     std::vector<int64_t> &dst = s->out->batches[(size_t)tok].ticks;
     dst.reserve(dst.size() + (size_t)n);
     for (int32_t i = 0; i < n; ++i) dst.push_back(elems[i]);
+    AK_REFILL();
   AK_DGUARD_END
 }
 
@@ -9140,6 +10429,7 @@ static void add_list_metrics_response_batches_values(ak_dec_ctx *ctx, void *obj,
     std::vector<double> &dst = s->out->batches[(size_t)tok].values;
     dst.reserve(dst.size() + (size_t)n);
     for (int32_t i = 0; i < n; ++i) dst.push_back(elems[i]);
+    AK_REFILL();
   AK_DGUARD_END
 }
 
@@ -9149,6 +10439,7 @@ static void add_list_metrics_response_batches_codes(ak_dec_ctx *ctx, void *obj, 
     std::vector<int32_t> &dst = s->out->batches[(size_t)tok].codes;
     dst.reserve(dst.size() + (size_t)n);
     for (int32_t i = 0; i < n; ++i) dst.push_back(elems[i]);
+    AK_REFILL();
   AK_DGUARD_END
 }
 
@@ -9158,6 +10449,7 @@ static void add_list_metrics_response_batches_flags(ak_dec_ctx *ctx, void *obj, 
     std::vector<bool> &dst = s->out->batches[(size_t)tok].flags;
     dst.reserve(dst.size() + (size_t)n);
     for (int32_t i = 0; i < n; ++i) dst.push_back(elems[i] != 0);
+    AK_REFILL();
   AK_DGUARD_END
 }
 
@@ -9167,15 +10459,17 @@ static void add_list_metrics_response_batches_statuses(ak_dec_ctx *ctx, void *ob
     std::vector<TaskStatus> &dst = s->out->batches[(size_t)tok].statuses;
     dst.reserve(dst.size() + (size_t)n);
     for (int32_t i = 0; i < n; ++i) dst.push_back(corpus::TaskStatus(elems[i]));
+    AK_REFILL();
   AK_DGUARD_END
 }
 
-int32_t decode_with_list_metrics_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out) {
+static int32_t decode_impl_list_metrics_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   Sink_ListMetricsResponse sink;
   sink.out = out;
   sink.base = b;
-  sink.pending = NULL;
+  sink.refill = refill;
+  sink.hold = hold;
   struct ak_dvt_ListMetricsResponse vt;
   vt.apply = apply_list_metrics_response;
   vt.new_batches = new_list_metrics_response_batches;
@@ -9188,45 +10482,97 @@ int32_t decode_with_list_metrics_response(ak_dec_ctx *ctx, const uint8_t *b, siz
   return ak_decode_ListMetricsResponse(ctx, &sink, b, n, &vt);
 }
 
-int32_t decode_with_list_metrics_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out) {
+// Decode with the context as it is armed: a context from
+// ak_dec_ctx_new_ListMetricsResponse(NULL) (or last reset with NULL) drops every unknown field.
+int32_t decode_with_list_metrics_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out) {
+  return decode_impl_list_metrics_response(ctx, b, n, out, NULL, NULL);
+}
+
+// Decision 11: every position of `ListMetricsResponse` backed by `unk_grow` (no pre-allocated
+// buffer, a repeated position an empty pool), except position `zero` (plan
+// unk_positions order), left all zero: discarded there. zero < 0 = none.
+void unk_opts_list_metrics_response(struct ak_dec_ListMetricsResponse_opts *o, int zero) {
+  std::memset(o, 0, sizeof(*o));
+  o->host = NULL;
+  if (zero != 0) o->self.grow = unk_grow;
+  if (zero != 1) o->batches.grow = unk_grow;
+}
+
+// The decode with the context armed with `opts`, read IN PLACE by the core until the
+// disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,
+// is called with `hold` after every element delivery (rule 1). Every buffer this
+// binding allocated and did not deliver is freed before return.
+int32_t decode_with_list_metrics_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out, struct ak_dec_ListMetricsResponse_opts *opts, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
-  std::vector<AkPending> pending;
-  Sink_ListMetricsResponse sink;
-  sink.out = out;
-  sink.base = b;
-  sink.pending = &pending;
-  struct ak_dvt_ListMetricsResponse vt;
-  vt.apply = apply_list_metrics_response;
-  vt.new_batches = new_list_metrics_response_batches;
-  vt.apply_batches = apply_list_metrics_response_batches;
-  vt.add_batches_ticks = add_list_metrics_response_batches_ticks;
-  vt.add_batches_values = add_list_metrics_response_batches_values;
-  vt.add_batches_codes = add_list_metrics_response_batches_codes;
-  vt.add_batches_flags = add_list_metrics_response_batches_flags;
-  vt.add_batches_statuses = add_list_metrics_response_batches_statuses;
-  int32_t rc = ak_decode_ListMetricsResponse(ctx, &sink, b, n, &vt);
-  if (rc < 0) return rc;
-  // Applied after the decode, not during it (see AkPending).
-  for (size_t i = 0; i < pending.size(); ++i) {
-    const AkPending &pd = pending[i];
-    switch (pd.slot) {
-      case 0: out->unknown_fields.append(pd.bytes); break;
-      case 1:
-        if (pd.token >= 0 && (size_t)pd.token < (*out).batches.size()) (*out).batches[(size_t)pd.token].unknown_fields.append(pd.bytes);
-        break;
-      default: break;
-    }
-  }
+  int32_t rc = ak_dec_reset_ListMetricsResponse(ctx, opts);
+  if (rc != AK_OK) return rc;
+  rc = decode_impl_list_metrics_response(ctx, b, n, out, refill, hold);
+  int32_t rc2 = ak_dec_reset_ListMetricsResponse(ctx, NULL);
+  unk_reclaim();
+  if (rc >= 0 && rc2 != AK_OK) rc = rc2;
   return rc;
+}
+
+// Decision 11: retain everywhere (every position grows on demand).
+int32_t decode_with_list_metrics_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out) {
+  struct ak_dec_ListMetricsResponse_opts opts;
+  unk_opts_list_metrics_response(&opts, -1);
+  return decode_with_list_metrics_response_opts(ctx, b, n, out, &opts, NULL, NULL);
+}
+
+// Decision 11 rule 1, pre-allocated: every singular position gets one buffer of `cap`
+// bytes, every pool `k`, refilled in place after each delivery; `unk_grow` is the
+// fallback. Unconsumed buffers are freed by the decode's reclaim.
+struct UnkPool_ListMetricsResponse {
+  struct ak_dec_ListMetricsResponse_opts opts;
+  std::vector<struct ak_unk_buf> bufs;
+  uint32_t k;
+  uint32_t cap;
+  uint64_t refills;
+};
+
+static void unk_refill_list_metrics_response(void *hv) {
+  UnkPool_ListMetricsResponse *h = (UnkPool_ListMetricsResponse *)hv;
+  (void)h;
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[0 * (size_t)h->k + j], h->cap, &h->refills);
+}
+
+int32_t decode_with_list_metrics_response_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+  UnkPool_ListMetricsResponse h;
+  unk_opts_list_metrics_response(&h.opts, -1);
+  h.k = k;
+  h.cap = cap;
+  h.refills = 0;
+  h.bufs.assign((size_t)1 * k, ak_unk_buf());
+  for (size_t i = 0; i < h.bufs.size(); ++i) { h.bufs[i].data = NULL; h.bufs[i].len = 0; h.bufs[i].cap = 0; }
+  h.opts.batches.bufs = k ? &h.bufs[0 * (size_t)k] : NULL;
+  h.opts.batches.n = k;
+  uint64_t first = 0;
+  unk_fill_buf(&h.opts.self.buf, cap, &first);
+  unk_refill_list_metrics_response(&h);
+  h.refills = 0;
+  int32_t rc = decode_with_list_metrics_response_opts(ctx, b, n, out, &h.opts, unk_refill_list_metrics_response, &h);
+  if (refills) *refills = h.refills;
+  return rc;
+}
+
+// Decision 11 control: clear every facade bag at position `pos` (plan.unk_positions
+// order) -- what decoding with that position's entry zeroed must produce.
+void unk_clear_list_metrics_response(ListMetricsResponse &o, int pos) {
+  switch (pos) {
+    case 0: { o.unknown_fields.clear(); } break;
+    case 1: { for (size_t i0 = 0; i0 < o.batches.size(); ++i0) { MetricsBatch &x0 = o.batches[i0]; x0.unknown_fields.clear(); } } break;
+    default: break;
+  }
 }
 
 struct Sink_UploadResultDataMessage {
   UploadResultDataMessage *out;
   const uint8_t *base;
-  // Decision 11: unknown runs staged by (slot, token) and applied after the
-  // decode -- a capture buffer may flush before the run that carries the
-  // element it belongs to. NULL on the drop path.
-  std::vector<AkPending> *pending;
+  // Decision 11 rule 1: called after every element delivery, where the host may
+  // refill its pools in place. NULL unless the decode pre-allocates.
+  void (*refill)(void *);
+  void *hold;
 };
 
 static void apply_upload_result_data_message(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_UploadResultDataMessage *fx) {
@@ -9236,50 +10582,113 @@ static void apply_upload_result_data_message(ak_dec_ctx *ctx, void *obj, const s
     const uint8_t *base = s->base;
     (void)f; (void)base;
   if (f.presence & (1u << 0)) s->out->upload.set(from_upload_result_data(f.upload, base, ctx));
-  else s->out->upload.reset();
+  else { s->out->upload.reset(); unk_drop(f.upload.unknown); }
+    s->out->unknown_fields.clear();
+    unk_take(f.unknown, &s->out->unknown_fields);
   AK_DGUARD_END
 }
 
-int32_t decode_with_upload_result_data_message(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out) {
+static int32_t decode_impl_upload_result_data_message(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   Sink_UploadResultDataMessage sink;
   sink.out = out;
   sink.base = b;
-  sink.pending = NULL;
+  sink.refill = refill;
+  sink.hold = hold;
   struct ak_dvt_UploadResultDataMessage vt;
   vt.apply = apply_upload_result_data_message;
   return ak_decode_UploadResultDataMessage(ctx, &sink, b, n, &vt);
 }
 
-int32_t decode_with_upload_result_data_message_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out) {
+// Decode with the context as it is armed: a context from
+// ak_dec_ctx_new_UploadResultDataMessage(NULL) (or last reset with NULL) drops every unknown field.
+int32_t decode_with_upload_result_data_message(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out) {
+  return decode_impl_upload_result_data_message(ctx, b, n, out, NULL, NULL);
+}
+
+// Decision 11: every position of `UploadResultDataMessage` backed by `unk_grow` (no pre-allocated
+// buffer, a repeated position an empty pool), except position `zero` (plan
+// unk_positions order), left all zero: discarded there. zero < 0 = none.
+void unk_opts_upload_result_data_message(struct ak_dec_UploadResultDataMessage_opts *o, int zero) {
+  std::memset(o, 0, sizeof(*o));
+  o->host = NULL;
+  if (zero != 0) o->self.grow = unk_grow;
+  if (zero != 1) o->upload.grow = unk_grow;
+}
+
+// The decode with the context armed with `opts`, read IN PLACE by the core until the
+// disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,
+// is called with `hold` after every element delivery (rule 1). Every buffer this
+// binding allocated and did not deliver is freed before return.
+int32_t decode_with_upload_result_data_message_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out, struct ak_dec_UploadResultDataMessage_opts *opts, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
-  std::vector<AkPending> pending;
-  Sink_UploadResultDataMessage sink;
-  sink.out = out;
-  sink.base = b;
-  sink.pending = &pending;
-  struct ak_dvt_UploadResultDataMessage vt;
-  vt.apply = apply_upload_result_data_message;
-  int32_t rc = ak_decode_UploadResultDataMessage(ctx, &sink, b, n, &vt);
-  if (rc < 0) return rc;
-  // Applied after the decode, not during it (see AkPending).
-  for (size_t i = 0; i < pending.size(); ++i) {
-    const AkPending &pd = pending[i];
-    switch (pd.slot) {
-      case 0: out->unknown_fields.append(pd.bytes); break;
-      default: break;
-    }
-  }
+  int32_t rc = ak_dec_reset_UploadResultDataMessage(ctx, opts);
+  if (rc != AK_OK) return rc;
+  rc = decode_impl_upload_result_data_message(ctx, b, n, out, refill, hold);
+  int32_t rc2 = ak_dec_reset_UploadResultDataMessage(ctx, NULL);
+  unk_reclaim();
+  if (rc >= 0 && rc2 != AK_OK) rc = rc2;
   return rc;
+}
+
+// Decision 11: retain everywhere (every position grows on demand).
+int32_t decode_with_upload_result_data_message_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out) {
+  struct ak_dec_UploadResultDataMessage_opts opts;
+  unk_opts_upload_result_data_message(&opts, -1);
+  return decode_with_upload_result_data_message_opts(ctx, b, n, out, &opts, NULL, NULL);
+}
+
+// Decision 11 rule 1, pre-allocated: every singular position gets one buffer of `cap`
+// bytes, every pool `k`, refilled in place after each delivery; `unk_grow` is the
+// fallback. Unconsumed buffers are freed by the decode's reclaim.
+struct UnkPool_UploadResultDataMessage {
+  struct ak_dec_UploadResultDataMessage_opts opts;
+  std::vector<struct ak_unk_buf> bufs;
+  uint32_t k;
+  uint32_t cap;
+  uint64_t refills;
+};
+
+static void unk_refill_upload_result_data_message(void *hv) {
+  UnkPool_UploadResultDataMessage *h = (UnkPool_UploadResultDataMessage *)hv;
+  (void)h;
+}
+
+int32_t decode_with_upload_result_data_message_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+  UnkPool_UploadResultDataMessage h;
+  unk_opts_upload_result_data_message(&h.opts, -1);
+  h.k = k;
+  h.cap = cap;
+  h.refills = 0;
+  h.bufs.assign((size_t)0 * k, ak_unk_buf());
+  for (size_t i = 0; i < h.bufs.size(); ++i) { h.bufs[i].data = NULL; h.bufs[i].len = 0; h.bufs[i].cap = 0; }
+  uint64_t first = 0;
+  unk_fill_buf(&h.opts.self.buf, cap, &first);
+  unk_fill_buf(&h.opts.upload.buf, cap, &first);
+  unk_refill_upload_result_data_message(&h);
+  h.refills = 0;
+  int32_t rc = decode_with_upload_result_data_message_opts(ctx, b, n, out, &h.opts, unk_refill_upload_result_data_message, &h);
+  if (refills) *refills = h.refills;
+  return rc;
+}
+
+// Decision 11 control: clear every facade bag at position `pos` (plan.unk_positions
+// order) -- what decoding with that position's entry zeroed must produce.
+void unk_clear_upload_result_data_message(UploadResultDataMessage &o, int pos) {
+  switch (pos) {
+    case 0: { o.unknown_fields.clear(); } break;
+    case 1: { if (o.upload.has_value()) { UploadResultData &x0 = *o.upload; x0.unknown_fields.clear(); } } break;
+    default: break;
+  }
 }
 
 struct Sink_DualResponse {
   DualResponse *out;
   const uint8_t *base;
-  // Decision 11: unknown runs staged by (slot, token) and applied after the
-  // decode -- a capture buffer may flush before the run that carries the
-  // element it belongs to. NULL on the drop path.
-  std::vector<AkPending> *pending;
+  // Decision 11 rule 1: called after every element delivery, where the host may
+  // refill its pools in place. NULL unless the decode pre-allocates.
+  void (*refill)(void *);
+  void *hold;
 };
 
 static void apply_dual_response(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_DualResponse *fx) {
@@ -9288,6 +10697,8 @@ static void apply_dual_response(ak_dec_ctx *ctx, void *obj, const struct ak_dfix
     const struct ak_dfix_DualResponse &f = *fx;
     const uint8_t *base = s->base;
     (void)f; (void)base;
+    s->out->unknown_fields.clear();
+    unk_take(f.unknown, &s->out->unknown_fields);
   AK_DGUARD_END
 }
 
@@ -9297,6 +10708,7 @@ static void add_dual_response_left(ak_dec_ctx *ctx, void *obj, int64_t tok, cons
     s->out->left.reserve(s->out->left.size() + (size_t)n);
     for (int32_t i = 0; i < n; ++i)
       s->out->left.push_back(from_pair(elems[i], s->base, ctx));
+    AK_REFILL();
   AK_DGUARD_END
 }
 
@@ -9306,15 +10718,17 @@ static void add_dual_response_right(ak_dec_ctx *ctx, void *obj, int64_t tok, con
     s->out->right.reserve(s->out->right.size() + (size_t)n);
     for (int32_t i = 0; i < n; ++i)
       s->out->right.push_back(from_pair(elems[i], s->base, ctx));
+    AK_REFILL();
   AK_DGUARD_END
 }
 
-int32_t decode_with_dual_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out) {
+static int32_t decode_impl_dual_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   Sink_DualResponse sink;
   sink.out = out;
   sink.base = b;
-  sink.pending = NULL;
+  sink.refill = refill;
+  sink.hold = hold;
   struct ak_dvt_DualResponse vt;
   vt.apply = apply_dual_response;
   vt.add_left = add_dual_response_left;
@@ -9322,43 +10736,102 @@ int32_t decode_with_dual_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, D
   return ak_decode_DualResponse(ctx, &sink, b, n, &vt);
 }
 
-int32_t decode_with_dual_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out) {
+// Decode with the context as it is armed: a context from
+// ak_dec_ctx_new_DualResponse(NULL) (or last reset with NULL) drops every unknown field.
+int32_t decode_with_dual_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out) {
+  return decode_impl_dual_response(ctx, b, n, out, NULL, NULL);
+}
+
+// Decision 11: every position of `DualResponse` backed by `unk_grow` (no pre-allocated
+// buffer, a repeated position an empty pool), except position `zero` (plan
+// unk_positions order), left all zero: discarded there. zero < 0 = none.
+void unk_opts_dual_response(struct ak_dec_DualResponse_opts *o, int zero) {
+  std::memset(o, 0, sizeof(*o));
+  o->host = NULL;
+  if (zero != 0) o->self.grow = unk_grow;
+  if (zero != 1) o->left.grow = unk_grow;
+  if (zero != 2) o->right.grow = unk_grow;
+}
+
+// The decode with the context armed with `opts`, read IN PLACE by the core until the
+// disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,
+// is called with `hold` after every element delivery (rule 1). Every buffer this
+// binding allocated and did not deliver is freed before return.
+int32_t decode_with_dual_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out, struct ak_dec_DualResponse_opts *opts, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
-  std::vector<AkPending> pending;
-  Sink_DualResponse sink;
-  sink.out = out;
-  sink.base = b;
-  sink.pending = &pending;
-  struct ak_dvt_DualResponse vt;
-  vt.apply = apply_dual_response;
-  vt.add_left = add_dual_response_left;
-  vt.add_right = add_dual_response_right;
-  int32_t rc = ak_decode_DualResponse(ctx, &sink, b, n, &vt);
-  if (rc < 0) return rc;
-  // Applied after the decode, not during it (see AkPending).
-  for (size_t i = 0; i < pending.size(); ++i) {
-    const AkPending &pd = pending[i];
-    switch (pd.slot) {
-      case 0: out->unknown_fields.append(pd.bytes); break;
-      case 1:
-        if (pd.token >= 0 && (size_t)pd.token < (*out).left.size()) (*out).left[(size_t)pd.token].unknown_fields.append(pd.bytes);
-        break;
-      case 2:
-        if (pd.token >= 0 && (size_t)pd.token < (*out).right.size()) (*out).right[(size_t)pd.token].unknown_fields.append(pd.bytes);
-        break;
-      default: break;
-    }
-  }
+  int32_t rc = ak_dec_reset_DualResponse(ctx, opts);
+  if (rc != AK_OK) return rc;
+  rc = decode_impl_dual_response(ctx, b, n, out, refill, hold);
+  int32_t rc2 = ak_dec_reset_DualResponse(ctx, NULL);
+  unk_reclaim();
+  if (rc >= 0 && rc2 != AK_OK) rc = rc2;
   return rc;
+}
+
+// Decision 11: retain everywhere (every position grows on demand).
+int32_t decode_with_dual_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out) {
+  struct ak_dec_DualResponse_opts opts;
+  unk_opts_dual_response(&opts, -1);
+  return decode_with_dual_response_opts(ctx, b, n, out, &opts, NULL, NULL);
+}
+
+// Decision 11 rule 1, pre-allocated: every singular position gets one buffer of `cap`
+// bytes, every pool `k`, refilled in place after each delivery; `unk_grow` is the
+// fallback. Unconsumed buffers are freed by the decode's reclaim.
+struct UnkPool_DualResponse {
+  struct ak_dec_DualResponse_opts opts;
+  std::vector<struct ak_unk_buf> bufs;
+  uint32_t k;
+  uint32_t cap;
+  uint64_t refills;
+};
+
+static void unk_refill_dual_response(void *hv) {
+  UnkPool_DualResponse *h = (UnkPool_DualResponse *)hv;
+  (void)h;
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[0 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[1 * (size_t)h->k + j], h->cap, &h->refills);
+}
+
+int32_t decode_with_dual_response_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+  UnkPool_DualResponse h;
+  unk_opts_dual_response(&h.opts, -1);
+  h.k = k;
+  h.cap = cap;
+  h.refills = 0;
+  h.bufs.assign((size_t)2 * k, ak_unk_buf());
+  for (size_t i = 0; i < h.bufs.size(); ++i) { h.bufs[i].data = NULL; h.bufs[i].len = 0; h.bufs[i].cap = 0; }
+  h.opts.left.bufs = k ? &h.bufs[0 * (size_t)k] : NULL;
+  h.opts.left.n = k;
+  h.opts.right.bufs = k ? &h.bufs[1 * (size_t)k] : NULL;
+  h.opts.right.n = k;
+  uint64_t first = 0;
+  unk_fill_buf(&h.opts.self.buf, cap, &first);
+  unk_refill_dual_response(&h);
+  h.refills = 0;
+  int32_t rc = decode_with_dual_response_opts(ctx, b, n, out, &h.opts, unk_refill_dual_response, &h);
+  if (refills) *refills = h.refills;
+  return rc;
+}
+
+// Decision 11 control: clear every facade bag at position `pos` (plan.unk_positions
+// order) -- what decoding with that position's entry zeroed must produce.
+void unk_clear_dual_response(DualResponse &o, int pos) {
+  switch (pos) {
+    case 0: { o.unknown_fields.clear(); } break;
+    case 1: { for (size_t i0 = 0; i0 < o.left.size(); ++i0) { Pair &x0 = o.left[i0]; x0.unknown_fields.clear(); } } break;
+    case 2: { for (size_t i0 = 0; i0 < o.right.size(); ++i0) { Pair &x0 = o.right[i0]; x0.unknown_fields.clear(); } } break;
+    default: break;
+  }
 }
 
 struct Sink_ChunkLeaf {
   ChunkLeaf *out;
   const uint8_t *base;
-  // Decision 11: unknown runs staged by (slot, token) and applied after the
-  // decode -- a capture buffer may flush before the run that carries the
-  // element it belongs to. NULL on the drop path.
-  std::vector<AkPending> *pending;
+  // Decision 11 rule 1: called after every element delivery, where the host may
+  // refill its pools in place. NULL unless the decode pre-allocates.
+  void (*refill)(void *);
+  void *hold;
 };
 
 static void apply_chunk_leaf(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_ChunkLeaf *fx) {
@@ -9369,49 +10842,109 @@ static void apply_chunk_leaf(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_Ch
     (void)f; (void)base;
   s_of(base, f.k, ctx, &s->out->k);
   s->out->v = f.v;
+    s->out->unknown_fields.clear();
+    unk_take(f.unknown, &s->out->unknown_fields);
   AK_DGUARD_END
 }
 
-int32_t decode_with_chunk_leaf(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkLeaf *out) {
+static int32_t decode_impl_chunk_leaf(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkLeaf *out, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   Sink_ChunkLeaf sink;
   sink.out = out;
   sink.base = b;
-  sink.pending = NULL;
+  sink.refill = refill;
+  sink.hold = hold;
   struct ak_dvt_ChunkLeaf vt;
   vt.apply = apply_chunk_leaf;
   return ak_decode_ChunkLeaf(ctx, &sink, b, n, &vt);
 }
 
-int32_t decode_with_chunk_leaf_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkLeaf *out) {
+// Decode with the context as it is armed: a context from
+// ak_dec_ctx_new_ChunkLeaf(NULL) (or last reset with NULL) drops every unknown field.
+int32_t decode_with_chunk_leaf(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkLeaf *out) {
+  return decode_impl_chunk_leaf(ctx, b, n, out, NULL, NULL);
+}
+
+// Decision 11: every position of `ChunkLeaf` backed by `unk_grow` (no pre-allocated
+// buffer, a repeated position an empty pool), except position `zero` (plan
+// unk_positions order), left all zero: discarded there. zero < 0 = none.
+void unk_opts_chunk_leaf(struct ak_dec_ChunkLeaf_opts *o, int zero) {
+  std::memset(o, 0, sizeof(*o));
+  o->host = NULL;
+  if (zero != 0) o->self.grow = unk_grow;
+}
+
+// The decode with the context armed with `opts`, read IN PLACE by the core until the
+// disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,
+// is called with `hold` after every element delivery (rule 1). Every buffer this
+// binding allocated and did not deliver is freed before return.
+int32_t decode_with_chunk_leaf_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkLeaf *out, struct ak_dec_ChunkLeaf_opts *opts, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
-  std::vector<AkPending> pending;
-  Sink_ChunkLeaf sink;
-  sink.out = out;
-  sink.base = b;
-  sink.pending = &pending;
-  struct ak_dvt_ChunkLeaf vt;
-  vt.apply = apply_chunk_leaf;
-  int32_t rc = ak_decode_ChunkLeaf(ctx, &sink, b, n, &vt);
-  if (rc < 0) return rc;
-  // Applied after the decode, not during it (see AkPending).
-  for (size_t i = 0; i < pending.size(); ++i) {
-    const AkPending &pd = pending[i];
-    switch (pd.slot) {
-      case 0: out->unknown_fields.append(pd.bytes); break;
-      default: break;
-    }
-  }
+  int32_t rc = ak_dec_reset_ChunkLeaf(ctx, opts);
+  if (rc != AK_OK) return rc;
+  rc = decode_impl_chunk_leaf(ctx, b, n, out, refill, hold);
+  int32_t rc2 = ak_dec_reset_ChunkLeaf(ctx, NULL);
+  unk_reclaim();
+  if (rc >= 0 && rc2 != AK_OK) rc = rc2;
   return rc;
+}
+
+// Decision 11: retain everywhere (every position grows on demand).
+int32_t decode_with_chunk_leaf_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkLeaf *out) {
+  struct ak_dec_ChunkLeaf_opts opts;
+  unk_opts_chunk_leaf(&opts, -1);
+  return decode_with_chunk_leaf_opts(ctx, b, n, out, &opts, NULL, NULL);
+}
+
+// Decision 11 rule 1, pre-allocated: every singular position gets one buffer of `cap`
+// bytes, every pool `k`, refilled in place after each delivery; `unk_grow` is the
+// fallback. Unconsumed buffers are freed by the decode's reclaim.
+struct UnkPool_ChunkLeaf {
+  struct ak_dec_ChunkLeaf_opts opts;
+  std::vector<struct ak_unk_buf> bufs;
+  uint32_t k;
+  uint32_t cap;
+  uint64_t refills;
+};
+
+static void unk_refill_chunk_leaf(void *hv) {
+  UnkPool_ChunkLeaf *h = (UnkPool_ChunkLeaf *)hv;
+  (void)h;
+}
+
+int32_t decode_with_chunk_leaf_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkLeaf *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+  UnkPool_ChunkLeaf h;
+  unk_opts_chunk_leaf(&h.opts, -1);
+  h.k = k;
+  h.cap = cap;
+  h.refills = 0;
+  h.bufs.assign((size_t)0 * k, ak_unk_buf());
+  for (size_t i = 0; i < h.bufs.size(); ++i) { h.bufs[i].data = NULL; h.bufs[i].len = 0; h.bufs[i].cap = 0; }
+  uint64_t first = 0;
+  unk_fill_buf(&h.opts.self.buf, cap, &first);
+  unk_refill_chunk_leaf(&h);
+  h.refills = 0;
+  int32_t rc = decode_with_chunk_leaf_opts(ctx, b, n, out, &h.opts, unk_refill_chunk_leaf, &h);
+  if (refills) *refills = h.refills;
+  return rc;
+}
+
+// Decision 11 control: clear every facade bag at position `pos` (plan.unk_positions
+// order) -- what decoding with that position's entry zeroed must produce.
+void unk_clear_chunk_leaf(ChunkLeaf &o, int pos) {
+  switch (pos) {
+    case 0: { o.unknown_fields.clear(); } break;
+    default: break;
+  }
 }
 
 struct Sink_ChunkInner {
   ChunkInner *out;
   const uint8_t *base;
-  // Decision 11: unknown runs staged by (slot, token) and applied after the
-  // decode -- a capture buffer may flush before the run that carries the
-  // element it belongs to. NULL on the drop path.
-  std::vector<AkPending> *pending;
+  // Decision 11 rule 1: called after every element delivery, where the host may
+  // refill its pools in place. NULL unless the decode pre-allocates.
+  void (*refill)(void *);
+  void *hold;
 };
 
 static void apply_chunk_inner(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_ChunkInner *fx) {
@@ -9420,6 +10953,8 @@ static void apply_chunk_inner(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_C
     const struct ak_dfix_ChunkInner &f = *fx;
     const uint8_t *base = s->base;
     (void)f; (void)base;
+    s->out->unknown_fields.clear();
+    unk_take(f.unknown, &s->out->unknown_fields);
   AK_DGUARD_END
 }
 
@@ -9428,6 +10963,7 @@ static void add_chunk_inner_marks(ak_dec_ctx *ctx, void *obj, int64_t tok, const
     Sink_ChunkInner *s = (Sink_ChunkInner *)obj; (void)tok;
     s->out->marks.reserve(s->out->marks.size() + (size_t)n);
     for (int32_t i = 0; i < n; ++i) s->out->marks.push_back(elems[i]);
+    AK_REFILL();
   AK_DGUARD_END
 }
 
@@ -9437,15 +10973,17 @@ static void add_chunk_inner_leaves(ak_dec_ctx *ctx, void *obj, int64_t tok, cons
     s->out->leaves.reserve(s->out->leaves.size() + (size_t)n);
     for (int32_t i = 0; i < n; ++i)
       s->out->leaves.push_back(from_chunk_leaf(elems[i], s->base, ctx));
+    AK_REFILL();
   AK_DGUARD_END
 }
 
-int32_t decode_with_chunk_inner(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkInner *out) {
+static int32_t decode_impl_chunk_inner(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkInner *out, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   Sink_ChunkInner sink;
   sink.out = out;
   sink.base = b;
-  sink.pending = NULL;
+  sink.refill = refill;
+  sink.hold = hold;
   struct ak_dvt_ChunkInner vt;
   vt.apply = apply_chunk_inner;
   vt.add_marks = add_chunk_inner_marks;
@@ -9453,40 +10991,97 @@ int32_t decode_with_chunk_inner(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Chu
   return ak_decode_ChunkInner(ctx, &sink, b, n, &vt);
 }
 
-int32_t decode_with_chunk_inner_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkInner *out) {
+// Decode with the context as it is armed: a context from
+// ak_dec_ctx_new_ChunkInner(NULL) (or last reset with NULL) drops every unknown field.
+int32_t decode_with_chunk_inner(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkInner *out) {
+  return decode_impl_chunk_inner(ctx, b, n, out, NULL, NULL);
+}
+
+// Decision 11: every position of `ChunkInner` backed by `unk_grow` (no pre-allocated
+// buffer, a repeated position an empty pool), except position `zero` (plan
+// unk_positions order), left all zero: discarded there. zero < 0 = none.
+void unk_opts_chunk_inner(struct ak_dec_ChunkInner_opts *o, int zero) {
+  std::memset(o, 0, sizeof(*o));
+  o->host = NULL;
+  if (zero != 0) o->self.grow = unk_grow;
+  if (zero != 1) o->leaves.grow = unk_grow;
+}
+
+// The decode with the context armed with `opts`, read IN PLACE by the core until the
+// disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,
+// is called with `hold` after every element delivery (rule 1). Every buffer this
+// binding allocated and did not deliver is freed before return.
+int32_t decode_with_chunk_inner_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkInner *out, struct ak_dec_ChunkInner_opts *opts, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
-  std::vector<AkPending> pending;
-  Sink_ChunkInner sink;
-  sink.out = out;
-  sink.base = b;
-  sink.pending = &pending;
-  struct ak_dvt_ChunkInner vt;
-  vt.apply = apply_chunk_inner;
-  vt.add_marks = add_chunk_inner_marks;
-  vt.add_leaves = add_chunk_inner_leaves;
-  int32_t rc = ak_decode_ChunkInner(ctx, &sink, b, n, &vt);
-  if (rc < 0) return rc;
-  // Applied after the decode, not during it (see AkPending).
-  for (size_t i = 0; i < pending.size(); ++i) {
-    const AkPending &pd = pending[i];
-    switch (pd.slot) {
-      case 0: out->unknown_fields.append(pd.bytes); break;
-      case 2:
-        if (pd.token >= 0 && (size_t)pd.token < (*out).leaves.size()) (*out).leaves[(size_t)pd.token].unknown_fields.append(pd.bytes);
-        break;
-      default: break;
-    }
-  }
+  int32_t rc = ak_dec_reset_ChunkInner(ctx, opts);
+  if (rc != AK_OK) return rc;
+  rc = decode_impl_chunk_inner(ctx, b, n, out, refill, hold);
+  int32_t rc2 = ak_dec_reset_ChunkInner(ctx, NULL);
+  unk_reclaim();
+  if (rc >= 0 && rc2 != AK_OK) rc = rc2;
   return rc;
+}
+
+// Decision 11: retain everywhere (every position grows on demand).
+int32_t decode_with_chunk_inner_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkInner *out) {
+  struct ak_dec_ChunkInner_opts opts;
+  unk_opts_chunk_inner(&opts, -1);
+  return decode_with_chunk_inner_opts(ctx, b, n, out, &opts, NULL, NULL);
+}
+
+// Decision 11 rule 1, pre-allocated: every singular position gets one buffer of `cap`
+// bytes, every pool `k`, refilled in place after each delivery; `unk_grow` is the
+// fallback. Unconsumed buffers are freed by the decode's reclaim.
+struct UnkPool_ChunkInner {
+  struct ak_dec_ChunkInner_opts opts;
+  std::vector<struct ak_unk_buf> bufs;
+  uint32_t k;
+  uint32_t cap;
+  uint64_t refills;
+};
+
+static void unk_refill_chunk_inner(void *hv) {
+  UnkPool_ChunkInner *h = (UnkPool_ChunkInner *)hv;
+  (void)h;
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[0 * (size_t)h->k + j], h->cap, &h->refills);
+}
+
+int32_t decode_with_chunk_inner_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkInner *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+  UnkPool_ChunkInner h;
+  unk_opts_chunk_inner(&h.opts, -1);
+  h.k = k;
+  h.cap = cap;
+  h.refills = 0;
+  h.bufs.assign((size_t)1 * k, ak_unk_buf());
+  for (size_t i = 0; i < h.bufs.size(); ++i) { h.bufs[i].data = NULL; h.bufs[i].len = 0; h.bufs[i].cap = 0; }
+  h.opts.leaves.bufs = k ? &h.bufs[0 * (size_t)k] : NULL;
+  h.opts.leaves.n = k;
+  uint64_t first = 0;
+  unk_fill_buf(&h.opts.self.buf, cap, &first);
+  unk_refill_chunk_inner(&h);
+  h.refills = 0;
+  int32_t rc = decode_with_chunk_inner_opts(ctx, b, n, out, &h.opts, unk_refill_chunk_inner, &h);
+  if (refills) *refills = h.refills;
+  return rc;
+}
+
+// Decision 11 control: clear every facade bag at position `pos` (plan.unk_positions
+// order) -- what decoding with that position's entry zeroed must produce.
+void unk_clear_chunk_inner(ChunkInner &o, int pos) {
+  switch (pos) {
+    case 0: { o.unknown_fields.clear(); } break;
+    case 1: { for (size_t i0 = 0; i0 < o.leaves.size(); ++i0) { ChunkLeaf &x0 = o.leaves[i0]; x0.unknown_fields.clear(); } } break;
+    default: break;
+  }
 }
 
 struct Sink_ChunkElement {
   ChunkElement *out;
   const uint8_t *base;
-  // Decision 11: unknown runs staged by (slot, token) and applied after the
-  // decode -- a capture buffer may flush before the run that carries the
-  // element it belongs to. NULL on the drop path.
-  std::vector<AkPending> *pending;
+  // Decision 11 rule 1: called after every element delivery, where the host may
+  // refill its pools in place. NULL unless the decode pre-allocates.
+  void (*refill)(void *);
+  void *hold;
 };
 
 static void apply_chunk_element(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_ChunkElement *fx) {
@@ -9497,7 +11092,9 @@ static void apply_chunk_element(ak_dec_ctx *ctx, void *obj, const struct ak_dfix
     (void)f; (void)base;
   s_of(base, f.id, ctx, &s->out->id);
   if (f.presence & (1u << 0)) fill_chunk_inner(&s->out->inner.get_or_insert(), f.inner, base, ctx);
-  else s->out->inner.reset();
+  else { s->out->inner.reset(); unk_drop(f.inner.unknown); }
+    s->out->unknown_fields.clear();
+    unk_take(f.unknown, &s->out->unknown_fields);
   AK_DGUARD_END
 }
 
@@ -9516,6 +11113,7 @@ static void add_chunk_element_labels(ak_dec_ctx *ctx, void *obj, int64_t tok, co
 #endif
       s_of(s->base, elems[i], ctx, &b_);
     }
+    AK_REFILL();
   AK_DGUARD_END
 }
 
@@ -9526,12 +11124,14 @@ static void add_chunk_element_attrs(ak_dec_ctx *ctx, void *obj, int64_t tok, con
     for (int32_t i = 0; i < n; ++i) {
       s_of(s->base, elems[i].key, ctx, &k_);
       s_of(s->base, elems[i].value, ctx, &v_);
+      unk_drop_entry(elems[i].unknown);
 #if AK_CXX17
       s->out->attrs.insert_or_assign(std::move(k_), std::move(v_));
 #else
       s->out->attrs[k_] = v_;
 #endif
     }
+    AK_REFILL();
   AK_DGUARD_END
 }
 
@@ -9540,6 +11140,7 @@ static void add_chunk_element_inner_marks(ak_dec_ctx *ctx, void *obj, int64_t to
     Sink_ChunkElement *s = (Sink_ChunkElement *)obj; (void)tok;
     s->out->inner.get_or_insert().marks.reserve(s->out->inner.get_or_insert().marks.size() + (size_t)n);
     for (int32_t i = 0; i < n; ++i) s->out->inner.get_or_insert().marks.push_back(elems[i]);
+    AK_REFILL();
   AK_DGUARD_END
 }
 
@@ -9549,15 +11150,17 @@ static void add_chunk_element_inner_leaves(ak_dec_ctx *ctx, void *obj, int64_t t
     s->out->inner.get_or_insert().leaves.reserve(s->out->inner.get_or_insert().leaves.size() + (size_t)n);
     for (int32_t i = 0; i < n; ++i)
       s->out->inner.get_or_insert().leaves.push_back(from_chunk_leaf(elems[i], s->base, ctx));
+    AK_REFILL();
   AK_DGUARD_END
 }
 
-int32_t decode_with_chunk_element(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkElement *out) {
+static int32_t decode_impl_chunk_element(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkElement *out, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   Sink_ChunkElement sink;
   sink.out = out;
   sink.base = b;
-  sink.pending = NULL;
+  sink.refill = refill;
+  sink.hold = hold;
   struct ak_dvt_ChunkElement vt;
   vt.apply = apply_chunk_element;
   vt.add_labels = add_chunk_element_labels;
@@ -9567,42 +11170,105 @@ int32_t decode_with_chunk_element(ak_dec_ctx *ctx, const uint8_t *b, size_t n, C
   return ak_decode_ChunkElement(ctx, &sink, b, n, &vt);
 }
 
-int32_t decode_with_chunk_element_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkElement *out) {
+// Decode with the context as it is armed: a context from
+// ak_dec_ctx_new_ChunkElement(NULL) (or last reset with NULL) drops every unknown field.
+int32_t decode_with_chunk_element(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkElement *out) {
+  return decode_impl_chunk_element(ctx, b, n, out, NULL, NULL);
+}
+
+// Decision 11: every position of `ChunkElement` backed by `unk_grow` (no pre-allocated
+// buffer, a repeated position an empty pool), except position `zero` (plan
+// unk_positions order), left all zero: discarded there. zero < 0 = none.
+void unk_opts_chunk_element(struct ak_dec_ChunkElement_opts *o, int zero) {
+  std::memset(o, 0, sizeof(*o));
+  o->host = NULL;
+  if (zero != 0) o->self.grow = unk_grow;
+  if (zero != 1) o->attrs.grow = unk_grow;
+  if (zero != 2) o->inner.grow = unk_grow;
+  if (zero != 3) o->inner_leaves.grow = unk_grow;
+}
+
+// The decode with the context armed with `opts`, read IN PLACE by the core until the
+// disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,
+// is called with `hold` after every element delivery (rule 1). Every buffer this
+// binding allocated and did not deliver is freed before return.
+int32_t decode_with_chunk_element_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkElement *out, struct ak_dec_ChunkElement_opts *opts, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
-  std::vector<AkPending> pending;
-  Sink_ChunkElement sink;
-  sink.out = out;
-  sink.base = b;
-  sink.pending = &pending;
-  struct ak_dvt_ChunkElement vt;
-  vt.apply = apply_chunk_element;
-  vt.add_labels = add_chunk_element_labels;
-  vt.add_attrs = add_chunk_element_attrs;
-  vt.add_inner_marks = add_chunk_element_inner_marks;
-  vt.add_inner_leaves = add_chunk_element_inner_leaves;
-  int32_t rc = ak_decode_ChunkElement(ctx, &sink, b, n, &vt);
-  if (rc < 0) return rc;
-  // Applied after the decode, not during it (see AkPending).
-  for (size_t i = 0; i < pending.size(); ++i) {
-    const AkPending &pd = pending[i];
-    switch (pd.slot) {
-      case 0: out->unknown_fields.append(pd.bytes); break;
-      case 4:
-        if ((*out).inner.has_value() && pd.token >= 0 && (size_t)pd.token < (*(*out).inner).leaves.size()) (*(*out).inner).leaves[(size_t)pd.token].unknown_fields.append(pd.bytes);
-        break;
-      default: break;
-    }
-  }
+  int32_t rc = ak_dec_reset_ChunkElement(ctx, opts);
+  if (rc != AK_OK) return rc;
+  rc = decode_impl_chunk_element(ctx, b, n, out, refill, hold);
+  int32_t rc2 = ak_dec_reset_ChunkElement(ctx, NULL);
+  unk_reclaim();
+  if (rc >= 0 && rc2 != AK_OK) rc = rc2;
   return rc;
+}
+
+// Decision 11: retain everywhere (every position grows on demand).
+int32_t decode_with_chunk_element_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkElement *out) {
+  struct ak_dec_ChunkElement_opts opts;
+  unk_opts_chunk_element(&opts, -1);
+  return decode_with_chunk_element_opts(ctx, b, n, out, &opts, NULL, NULL);
+}
+
+// Decision 11 rule 1, pre-allocated: every singular position gets one buffer of `cap`
+// bytes, every pool `k`, refilled in place after each delivery; `unk_grow` is the
+// fallback. Unconsumed buffers are freed by the decode's reclaim.
+struct UnkPool_ChunkElement {
+  struct ak_dec_ChunkElement_opts opts;
+  std::vector<struct ak_unk_buf> bufs;
+  uint32_t k;
+  uint32_t cap;
+  uint64_t refills;
+};
+
+static void unk_refill_chunk_element(void *hv) {
+  UnkPool_ChunkElement *h = (UnkPool_ChunkElement *)hv;
+  (void)h;
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[0 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[1 * (size_t)h->k + j], h->cap, &h->refills);
+}
+
+int32_t decode_with_chunk_element_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkElement *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+  UnkPool_ChunkElement h;
+  unk_opts_chunk_element(&h.opts, -1);
+  h.k = k;
+  h.cap = cap;
+  h.refills = 0;
+  h.bufs.assign((size_t)2 * k, ak_unk_buf());
+  for (size_t i = 0; i < h.bufs.size(); ++i) { h.bufs[i].data = NULL; h.bufs[i].len = 0; h.bufs[i].cap = 0; }
+  h.opts.attrs.bufs = k ? &h.bufs[0 * (size_t)k] : NULL;
+  h.opts.attrs.n = k;
+  h.opts.inner_leaves.bufs = k ? &h.bufs[1 * (size_t)k] : NULL;
+  h.opts.inner_leaves.n = k;
+  uint64_t first = 0;
+  unk_fill_buf(&h.opts.self.buf, cap, &first);
+  unk_fill_buf(&h.opts.inner.buf, cap, &first);
+  unk_refill_chunk_element(&h);
+  h.refills = 0;
+  int32_t rc = decode_with_chunk_element_opts(ctx, b, n, out, &h.opts, unk_refill_chunk_element, &h);
+  if (refills) *refills = h.refills;
+  return rc;
+}
+
+// Decision 11 control: clear every facade bag at position `pos` (plan.unk_positions
+// order) -- what decoding with that position's entry zeroed must produce.
+void unk_clear_chunk_element(ChunkElement &o, int pos) {
+  switch (pos) {
+    case 0: { o.unknown_fields.clear(); } break;
+    case 1: { /* a facade map entry has no bag */ } break;
+    case 2: { if (o.inner.has_value()) { ChunkInner &x0 = *o.inner; x0.unknown_fields.clear(); } } break;
+    case 3: { if (o.inner.has_value()) { ChunkInner &x0 = *o.inner; for (size_t i1 = 0; i1 < x0.leaves.size(); ++i1) { ChunkLeaf &x1 = x0.leaves[i1]; x1.unknown_fields.clear(); } } } break;
+    default: break;
+  }
 }
 
 struct Sink_ChunkedResponse {
   ChunkedResponse *out;
   const uint8_t *base;
-  // Decision 11: unknown runs staged by (slot, token) and applied after the
-  // decode -- a capture buffer may flush before the run that carries the
-  // element it belongs to. NULL on the drop path.
-  std::vector<AkPending> *pending;
+  // Decision 11 rule 1: called after every element delivery, where the host may
+  // refill its pools in place. NULL unless the decode pre-allocates.
+  void (*refill)(void *);
+  void *hold;
 };
 
 static void apply_chunked_response(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_ChunkedResponse *fx) {
@@ -9612,6 +11278,8 @@ static void apply_chunked_response(ak_dec_ctx *ctx, void *obj, const struct ak_d
     const uint8_t *base = s->base;
     (void)f; (void)base;
   s->out->page = f.page;
+    s->out->unknown_fields.clear();
+    unk_take(f.unknown, &s->out->unknown_fields);
   AK_DGUARD_END
 }
 
@@ -9621,6 +11289,7 @@ static int64_t new_chunked_response_items(ak_dec_ctx *ctx, void *obj) {
 #endif
     Sink_ChunkedResponse *s = (Sink_ChunkedResponse *)obj;
     s->out->items.push_back(ChunkElement());
+    AK_REFILL();
     return (int64_t)(s->out->items.size() - 1);
 #ifndef AK_NO_GUARD
   } catch (...) {
@@ -9635,6 +11304,7 @@ static void apply_chunked_response_items(ak_dec_ctx *ctx, void *obj, int64_t tok
   AK_DGUARD_BEGIN
     Sink_ChunkedResponse *s = (Sink_ChunkedResponse *)obj;
     fill_chunk_element(&s->out->items[(size_t)tok], *fx, s->base, ctx);
+    AK_REFILL();
   AK_DGUARD_END
 }
 
@@ -9651,6 +11321,7 @@ static void add_chunked_response_items_labels(ak_dec_ctx *ctx, void *obj, int64_
       s_of(s->base, elems[i], ctx, &dst.back());
 #endif
     }
+    AK_REFILL();
   AK_DGUARD_END
 }
 
@@ -9662,12 +11333,14 @@ static void add_chunked_response_items_attrs(ak_dec_ctx *ctx, void *obj, int64_t
     for (int32_t i = 0; i < n; ++i) {
       s_of(s->base, elems[i].key, ctx, &k_);
       s_of(s->base, elems[i].value, ctx, &v_);
+      unk_drop_entry(elems[i].unknown);
 #if AK_CXX17
       dst.insert_or_assign(std::move(k_), std::move(v_));
 #else
       dst[k_] = v_;
 #endif
     }
+    AK_REFILL();
   AK_DGUARD_END
 }
 
@@ -9677,6 +11350,7 @@ static void add_chunked_response_items_inner_marks(ak_dec_ctx *ctx, void *obj, i
     std::vector<int64_t> &dst = s->out->items[(size_t)tok].inner.get_or_insert().marks;
     dst.reserve(dst.size() + (size_t)n);
     for (int32_t i = 0; i < n; ++i) dst.push_back(elems[i]);
+    AK_REFILL();
   AK_DGUARD_END
 }
 
@@ -9687,15 +11361,17 @@ static void add_chunked_response_items_inner_leaves(ak_dec_ctx *ctx, void *obj, 
     dst.reserve(dst.size() + (size_t)n);
     for (int32_t i = 0; i < n; ++i)
       dst.push_back(from_chunk_leaf(elems[i], s->base, ctx));
+    AK_REFILL();
   AK_DGUARD_END
 }
 
-int32_t decode_with_chunked_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkedResponse *out) {
+static int32_t decode_impl_chunked_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkedResponse *out, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   Sink_ChunkedResponse sink;
   sink.out = out;
   sink.base = b;
-  sink.pending = NULL;
+  sink.refill = refill;
+  sink.hold = hold;
   struct ak_dvt_ChunkedResponse vt;
   vt.apply = apply_chunked_response;
   vt.new_items = new_chunked_response_items;
@@ -9707,44 +11383,112 @@ int32_t decode_with_chunked_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n
   return ak_decode_ChunkedResponse(ctx, &sink, b, n, &vt);
 }
 
-int32_t decode_with_chunked_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkedResponse *out) {
+// Decode with the context as it is armed: a context from
+// ak_dec_ctx_new_ChunkedResponse(NULL) (or last reset with NULL) drops every unknown field.
+int32_t decode_with_chunked_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkedResponse *out) {
+  return decode_impl_chunked_response(ctx, b, n, out, NULL, NULL);
+}
+
+// Decision 11: every position of `ChunkedResponse` backed by `unk_grow` (no pre-allocated
+// buffer, a repeated position an empty pool), except position `zero` (plan
+// unk_positions order), left all zero: discarded there. zero < 0 = none.
+void unk_opts_chunked_response(struct ak_dec_ChunkedResponse_opts *o, int zero) {
+  std::memset(o, 0, sizeof(*o));
+  o->host = NULL;
+  if (zero != 0) o->self.grow = unk_grow;
+  if (zero != 1) o->items.grow = unk_grow;
+  if (zero != 2) o->items_attrs.grow = unk_grow;
+  if (zero != 3) o->items_inner.grow = unk_grow;
+  if (zero != 4) o->items_inner_leaves.grow = unk_grow;
+}
+
+// The decode with the context armed with `opts`, read IN PLACE by the core until the
+// disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,
+// is called with `hold` after every element delivery (rule 1). Every buffer this
+// binding allocated and did not deliver is freed before return.
+int32_t decode_with_chunked_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkedResponse *out, struct ak_dec_ChunkedResponse_opts *opts, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
-  std::vector<AkPending> pending;
-  Sink_ChunkedResponse sink;
-  sink.out = out;
-  sink.base = b;
-  sink.pending = &pending;
-  struct ak_dvt_ChunkedResponse vt;
-  vt.apply = apply_chunked_response;
-  vt.new_items = new_chunked_response_items;
-  vt.apply_items = apply_chunked_response_items;
-  vt.add_items_labels = add_chunked_response_items_labels;
-  vt.add_items_attrs = add_chunked_response_items_attrs;
-  vt.add_items_inner_marks = add_chunked_response_items_inner_marks;
-  vt.add_items_inner_leaves = add_chunked_response_items_inner_leaves;
-  int32_t rc = ak_decode_ChunkedResponse(ctx, &sink, b, n, &vt);
-  if (rc < 0) return rc;
-  // Applied after the decode, not during it (see AkPending).
-  for (size_t i = 0; i < pending.size(); ++i) {
-    const AkPending &pd = pending[i];
-    switch (pd.slot) {
-      case 0: out->unknown_fields.append(pd.bytes); break;
-      case 1:
-        if (pd.token >= 0 && (size_t)pd.token < (*out).items.size()) (*out).items[(size_t)pd.token].unknown_fields.append(pd.bytes);
-        break;
-      default: break;
-    }
-  }
+  int32_t rc = ak_dec_reset_ChunkedResponse(ctx, opts);
+  if (rc != AK_OK) return rc;
+  rc = decode_impl_chunked_response(ctx, b, n, out, refill, hold);
+  int32_t rc2 = ak_dec_reset_ChunkedResponse(ctx, NULL);
+  unk_reclaim();
+  if (rc >= 0 && rc2 != AK_OK) rc = rc2;
   return rc;
+}
+
+// Decision 11: retain everywhere (every position grows on demand).
+int32_t decode_with_chunked_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkedResponse *out) {
+  struct ak_dec_ChunkedResponse_opts opts;
+  unk_opts_chunked_response(&opts, -1);
+  return decode_with_chunked_response_opts(ctx, b, n, out, &opts, NULL, NULL);
+}
+
+// Decision 11 rule 1, pre-allocated: every singular position gets one buffer of `cap`
+// bytes, every pool `k`, refilled in place after each delivery; `unk_grow` is the
+// fallback. Unconsumed buffers are freed by the decode's reclaim.
+struct UnkPool_ChunkedResponse {
+  struct ak_dec_ChunkedResponse_opts opts;
+  std::vector<struct ak_unk_buf> bufs;
+  uint32_t k;
+  uint32_t cap;
+  uint64_t refills;
+};
+
+static void unk_refill_chunked_response(void *hv) {
+  UnkPool_ChunkedResponse *h = (UnkPool_ChunkedResponse *)hv;
+  (void)h;
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[0 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[1 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[2 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[3 * (size_t)h->k + j], h->cap, &h->refills);
+}
+
+int32_t decode_with_chunked_response_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkedResponse *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+  UnkPool_ChunkedResponse h;
+  unk_opts_chunked_response(&h.opts, -1);
+  h.k = k;
+  h.cap = cap;
+  h.refills = 0;
+  h.bufs.assign((size_t)4 * k, ak_unk_buf());
+  for (size_t i = 0; i < h.bufs.size(); ++i) { h.bufs[i].data = NULL; h.bufs[i].len = 0; h.bufs[i].cap = 0; }
+  h.opts.items.bufs = k ? &h.bufs[0 * (size_t)k] : NULL;
+  h.opts.items.n = k;
+  h.opts.items_attrs.bufs = k ? &h.bufs[1 * (size_t)k] : NULL;
+  h.opts.items_attrs.n = k;
+  h.opts.items_inner.bufs = k ? &h.bufs[2 * (size_t)k] : NULL;
+  h.opts.items_inner.n = k;
+  h.opts.items_inner_leaves.bufs = k ? &h.bufs[3 * (size_t)k] : NULL;
+  h.opts.items_inner_leaves.n = k;
+  uint64_t first = 0;
+  unk_fill_buf(&h.opts.self.buf, cap, &first);
+  unk_refill_chunked_response(&h);
+  h.refills = 0;
+  int32_t rc = decode_with_chunked_response_opts(ctx, b, n, out, &h.opts, unk_refill_chunked_response, &h);
+  if (refills) *refills = h.refills;
+  return rc;
+}
+
+// Decision 11 control: clear every facade bag at position `pos` (plan.unk_positions
+// order) -- what decoding with that position's entry zeroed must produce.
+void unk_clear_chunked_response(ChunkedResponse &o, int pos) {
+  switch (pos) {
+    case 0: { o.unknown_fields.clear(); } break;
+    case 1: { for (size_t i0 = 0; i0 < o.items.size(); ++i0) { ChunkElement &x0 = o.items[i0]; x0.unknown_fields.clear(); } } break;
+    case 2: { for (size_t i0 = 0; i0 < o.items.size(); ++i0) { ChunkElement &x0 = o.items[i0]; /* a facade map entry has no bag */ } } break;
+    case 3: { for (size_t i0 = 0; i0 < o.items.size(); ++i0) { ChunkElement &x0 = o.items[i0]; if (x0.inner.has_value()) { ChunkInner &x1 = *x0.inner; x1.unknown_fields.clear(); } } } break;
+    case 4: { for (size_t i0 = 0; i0 < o.items.size(); ++i0) { ChunkElement &x0 = o.items[i0]; if (x0.inner.has_value()) { ChunkInner &x1 = *x0.inner; for (size_t i2 = 0; i2 < x1.leaves.size(); ++i2) { ChunkLeaf &x2 = x1.leaves[i2]; x2.unknown_fields.clear(); } } } } break;
+    default: break;
+  }
 }
 
 struct Sink_ChunkedResponseWide {
   ChunkedResponseWide *out;
   const uint8_t *base;
-  // Decision 11: unknown runs staged by (slot, token) and applied after the
-  // decode -- a capture buffer may flush before the run that carries the
-  // element it belongs to. NULL on the drop path.
-  std::vector<AkPending> *pending;
+  // Decision 11 rule 1: called after every element delivery, where the host may
+  // refill its pools in place. NULL unless the decode pre-allocates.
+  void (*refill)(void *);
+  void *hold;
 };
 
 static void apply_chunked_response_wide(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_ChunkedResponseWide *fx) {
@@ -9753,6 +11497,8 @@ static void apply_chunked_response_wide(ak_dec_ctx *ctx, void *obj, const struct
     const struct ak_dfix_ChunkedResponseWide &f = *fx;
     const uint8_t *base = s->base;
     (void)f; (void)base;
+    s->out->unknown_fields.clear();
+    unk_take(f.unknown, &s->out->unknown_fields);
   AK_DGUARD_END
 }
 
@@ -9762,6 +11508,7 @@ static int64_t new_chunked_response_wide_items(ak_dec_ctx *ctx, void *obj) {
 #endif
     Sink_ChunkedResponseWide *s = (Sink_ChunkedResponseWide *)obj;
     s->out->items.push_back(ChunkElement());
+    AK_REFILL();
     return (int64_t)(s->out->items.size() - 1);
 #ifndef AK_NO_GUARD
   } catch (...) {
@@ -9776,6 +11523,7 @@ static void apply_chunked_response_wide_items(ak_dec_ctx *ctx, void *obj, int64_
   AK_DGUARD_BEGIN
     Sink_ChunkedResponseWide *s = (Sink_ChunkedResponseWide *)obj;
     fill_chunk_element(&s->out->items[(size_t)tok], *fx, s->base, ctx);
+    AK_REFILL();
   AK_DGUARD_END
 }
 
@@ -9792,6 +11540,7 @@ static void add_chunked_response_wide_items_labels(ak_dec_ctx *ctx, void *obj, i
       s_of(s->base, elems[i], ctx, &dst.back());
 #endif
     }
+    AK_REFILL();
   AK_DGUARD_END
 }
 
@@ -9803,12 +11552,14 @@ static void add_chunked_response_wide_items_attrs(ak_dec_ctx *ctx, void *obj, in
     for (int32_t i = 0; i < n; ++i) {
       s_of(s->base, elems[i].key, ctx, &k_);
       s_of(s->base, elems[i].value, ctx, &v_);
+      unk_drop_entry(elems[i].unknown);
 #if AK_CXX17
       dst.insert_or_assign(std::move(k_), std::move(v_));
 #else
       dst[k_] = v_;
 #endif
     }
+    AK_REFILL();
   AK_DGUARD_END
 }
 
@@ -9818,6 +11569,7 @@ static void add_chunked_response_wide_items_inner_marks(ak_dec_ctx *ctx, void *o
     std::vector<int64_t> &dst = s->out->items[(size_t)tok].inner.get_or_insert().marks;
     dst.reserve(dst.size() + (size_t)n);
     for (int32_t i = 0; i < n; ++i) dst.push_back(elems[i]);
+    AK_REFILL();
   AK_DGUARD_END
 }
 
@@ -9828,15 +11580,17 @@ static void add_chunked_response_wide_items_inner_leaves(ak_dec_ctx *ctx, void *
     dst.reserve(dst.size() + (size_t)n);
     for (int32_t i = 0; i < n; ++i)
       dst.push_back(from_chunk_leaf(elems[i], s->base, ctx));
+    AK_REFILL();
   AK_DGUARD_END
 }
 
-int32_t decode_with_chunked_response_wide(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkedResponseWide *out) {
+static int32_t decode_impl_chunked_response_wide(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkedResponseWide *out, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   Sink_ChunkedResponseWide sink;
   sink.out = out;
   sink.base = b;
-  sink.pending = NULL;
+  sink.refill = refill;
+  sink.hold = hold;
   struct ak_dvt_ChunkedResponseWide vt;
   vt.apply = apply_chunked_response_wide;
   vt.new_items = new_chunked_response_wide_items;
@@ -9848,44 +11602,112 @@ int32_t decode_with_chunked_response_wide(ak_dec_ctx *ctx, const uint8_t *b, siz
   return ak_decode_ChunkedResponseWide(ctx, &sink, b, n, &vt);
 }
 
-int32_t decode_with_chunked_response_wide_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkedResponseWide *out) {
+// Decode with the context as it is armed: a context from
+// ak_dec_ctx_new_ChunkedResponseWide(NULL) (or last reset with NULL) drops every unknown field.
+int32_t decode_with_chunked_response_wide(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkedResponseWide *out) {
+  return decode_impl_chunked_response_wide(ctx, b, n, out, NULL, NULL);
+}
+
+// Decision 11: every position of `ChunkedResponseWide` backed by `unk_grow` (no pre-allocated
+// buffer, a repeated position an empty pool), except position `zero` (plan
+// unk_positions order), left all zero: discarded there. zero < 0 = none.
+void unk_opts_chunked_response_wide(struct ak_dec_ChunkedResponseWide_opts *o, int zero) {
+  std::memset(o, 0, sizeof(*o));
+  o->host = NULL;
+  if (zero != 0) o->self.grow = unk_grow;
+  if (zero != 1) o->items.grow = unk_grow;
+  if (zero != 2) o->items_attrs.grow = unk_grow;
+  if (zero != 3) o->items_inner.grow = unk_grow;
+  if (zero != 4) o->items_inner_leaves.grow = unk_grow;
+}
+
+// The decode with the context armed with `opts`, read IN PLACE by the core until the
+// disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,
+// is called with `hold` after every element delivery (rule 1). Every buffer this
+// binding allocated and did not deliver is freed before return.
+int32_t decode_with_chunked_response_wide_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkedResponseWide *out, struct ak_dec_ChunkedResponseWide_opts *opts, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
-  std::vector<AkPending> pending;
-  Sink_ChunkedResponseWide sink;
-  sink.out = out;
-  sink.base = b;
-  sink.pending = &pending;
-  struct ak_dvt_ChunkedResponseWide vt;
-  vt.apply = apply_chunked_response_wide;
-  vt.new_items = new_chunked_response_wide_items;
-  vt.apply_items = apply_chunked_response_wide_items;
-  vt.add_items_labels = add_chunked_response_wide_items_labels;
-  vt.add_items_attrs = add_chunked_response_wide_items_attrs;
-  vt.add_items_inner_marks = add_chunked_response_wide_items_inner_marks;
-  vt.add_items_inner_leaves = add_chunked_response_wide_items_inner_leaves;
-  int32_t rc = ak_decode_ChunkedResponseWide(ctx, &sink, b, n, &vt);
-  if (rc < 0) return rc;
-  // Applied after the decode, not during it (see AkPending).
-  for (size_t i = 0; i < pending.size(); ++i) {
-    const AkPending &pd = pending[i];
-    switch (pd.slot) {
-      case 0: out->unknown_fields.append(pd.bytes); break;
-      case 1:
-        if (pd.token >= 0 && (size_t)pd.token < (*out).items.size()) (*out).items[(size_t)pd.token].unknown_fields.append(pd.bytes);
-        break;
-      default: break;
-    }
-  }
+  int32_t rc = ak_dec_reset_ChunkedResponseWide(ctx, opts);
+  if (rc != AK_OK) return rc;
+  rc = decode_impl_chunked_response_wide(ctx, b, n, out, refill, hold);
+  int32_t rc2 = ak_dec_reset_ChunkedResponseWide(ctx, NULL);
+  unk_reclaim();
+  if (rc >= 0 && rc2 != AK_OK) rc = rc2;
   return rc;
+}
+
+// Decision 11: retain everywhere (every position grows on demand).
+int32_t decode_with_chunked_response_wide_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkedResponseWide *out) {
+  struct ak_dec_ChunkedResponseWide_opts opts;
+  unk_opts_chunked_response_wide(&opts, -1);
+  return decode_with_chunked_response_wide_opts(ctx, b, n, out, &opts, NULL, NULL);
+}
+
+// Decision 11 rule 1, pre-allocated: every singular position gets one buffer of `cap`
+// bytes, every pool `k`, refilled in place after each delivery; `unk_grow` is the
+// fallback. Unconsumed buffers are freed by the decode's reclaim.
+struct UnkPool_ChunkedResponseWide {
+  struct ak_dec_ChunkedResponseWide_opts opts;
+  std::vector<struct ak_unk_buf> bufs;
+  uint32_t k;
+  uint32_t cap;
+  uint64_t refills;
+};
+
+static void unk_refill_chunked_response_wide(void *hv) {
+  UnkPool_ChunkedResponseWide *h = (UnkPool_ChunkedResponseWide *)hv;
+  (void)h;
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[0 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[1 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[2 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[3 * (size_t)h->k + j], h->cap, &h->refills);
+}
+
+int32_t decode_with_chunked_response_wide_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkedResponseWide *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+  UnkPool_ChunkedResponseWide h;
+  unk_opts_chunked_response_wide(&h.opts, -1);
+  h.k = k;
+  h.cap = cap;
+  h.refills = 0;
+  h.bufs.assign((size_t)4 * k, ak_unk_buf());
+  for (size_t i = 0; i < h.bufs.size(); ++i) { h.bufs[i].data = NULL; h.bufs[i].len = 0; h.bufs[i].cap = 0; }
+  h.opts.items.bufs = k ? &h.bufs[0 * (size_t)k] : NULL;
+  h.opts.items.n = k;
+  h.opts.items_attrs.bufs = k ? &h.bufs[1 * (size_t)k] : NULL;
+  h.opts.items_attrs.n = k;
+  h.opts.items_inner.bufs = k ? &h.bufs[2 * (size_t)k] : NULL;
+  h.opts.items_inner.n = k;
+  h.opts.items_inner_leaves.bufs = k ? &h.bufs[3 * (size_t)k] : NULL;
+  h.opts.items_inner_leaves.n = k;
+  uint64_t first = 0;
+  unk_fill_buf(&h.opts.self.buf, cap, &first);
+  unk_refill_chunked_response_wide(&h);
+  h.refills = 0;
+  int32_t rc = decode_with_chunked_response_wide_opts(ctx, b, n, out, &h.opts, unk_refill_chunked_response_wide, &h);
+  if (refills) *refills = h.refills;
+  return rc;
+}
+
+// Decision 11 control: clear every facade bag at position `pos` (plan.unk_positions
+// order) -- what decoding with that position's entry zeroed must produce.
+void unk_clear_chunked_response_wide(ChunkedResponseWide &o, int pos) {
+  switch (pos) {
+    case 0: { o.unknown_fields.clear(); } break;
+    case 1: { for (size_t i0 = 0; i0 < o.items.size(); ++i0) { ChunkElement &x0 = o.items[i0]; x0.unknown_fields.clear(); } } break;
+    case 2: { for (size_t i0 = 0; i0 < o.items.size(); ++i0) { ChunkElement &x0 = o.items[i0]; /* a facade map entry has no bag */ } } break;
+    case 3: { for (size_t i0 = 0; i0 < o.items.size(); ++i0) { ChunkElement &x0 = o.items[i0]; if (x0.inner.has_value()) { ChunkInner &x1 = *x0.inner; x1.unknown_fields.clear(); } } } break;
+    case 4: { for (size_t i0 = 0; i0 < o.items.size(); ++i0) { ChunkElement &x0 = o.items[i0]; if (x0.inner.has_value()) { ChunkInner &x1 = *x0.inner; for (size_t i2 = 0; i2 < x1.leaves.size(); ++i2) { ChunkLeaf &x2 = x1.leaves[i2]; x2.unknown_fields.clear(); } } } } break;
+    default: break;
+  }
 }
 
 struct Sink_LeafElement {
   LeafElement *out;
   const uint8_t *base;
-  // Decision 11: unknown runs staged by (slot, token) and applied after the
-  // decode -- a capture buffer may flush before the run that carries the
-  // element it belongs to. NULL on the drop path.
-  std::vector<AkPending> *pending;
+  // Decision 11 rule 1: called after every element delivery, where the host may
+  // refill its pools in place. NULL unless the decode pre-allocates.
+  void (*refill)(void *);
+  void *hold;
 };
 
 static void apply_leaf_element(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_LeafElement *fx) {
@@ -9897,50 +11719,113 @@ static void apply_leaf_element(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_
   s_of(base, f.id, ctx, &s->out->id);
   s->out->n = f.n;
   if (f.presence & (1u << 0)) s->out->stamp.set(from_timestamp(f.stamp, base, ctx));
-  else s->out->stamp.reset();
+  else { s->out->stamp.reset(); unk_drop(f.stamp.unknown); }
+    s->out->unknown_fields.clear();
+    unk_take(f.unknown, &s->out->unknown_fields);
   AK_DGUARD_END
 }
 
-int32_t decode_with_leaf_element(ak_dec_ctx *ctx, const uint8_t *b, size_t n, LeafElement *out) {
+static int32_t decode_impl_leaf_element(ak_dec_ctx *ctx, const uint8_t *b, size_t n, LeafElement *out, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   Sink_LeafElement sink;
   sink.out = out;
   sink.base = b;
-  sink.pending = NULL;
+  sink.refill = refill;
+  sink.hold = hold;
   struct ak_dvt_LeafElement vt;
   vt.apply = apply_leaf_element;
   return ak_decode_LeafElement(ctx, &sink, b, n, &vt);
 }
 
-int32_t decode_with_leaf_element_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, LeafElement *out) {
+// Decode with the context as it is armed: a context from
+// ak_dec_ctx_new_LeafElement(NULL) (or last reset with NULL) drops every unknown field.
+int32_t decode_with_leaf_element(ak_dec_ctx *ctx, const uint8_t *b, size_t n, LeafElement *out) {
+  return decode_impl_leaf_element(ctx, b, n, out, NULL, NULL);
+}
+
+// Decision 11: every position of `LeafElement` backed by `unk_grow` (no pre-allocated
+// buffer, a repeated position an empty pool), except position `zero` (plan
+// unk_positions order), left all zero: discarded there. zero < 0 = none.
+void unk_opts_leaf_element(struct ak_dec_LeafElement_opts *o, int zero) {
+  std::memset(o, 0, sizeof(*o));
+  o->host = NULL;
+  if (zero != 0) o->self.grow = unk_grow;
+  if (zero != 1) o->stamp.grow = unk_grow;
+}
+
+// The decode with the context armed with `opts`, read IN PLACE by the core until the
+// disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,
+// is called with `hold` after every element delivery (rule 1). Every buffer this
+// binding allocated and did not deliver is freed before return.
+int32_t decode_with_leaf_element_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, LeafElement *out, struct ak_dec_LeafElement_opts *opts, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
-  std::vector<AkPending> pending;
-  Sink_LeafElement sink;
-  sink.out = out;
-  sink.base = b;
-  sink.pending = &pending;
-  struct ak_dvt_LeafElement vt;
-  vt.apply = apply_leaf_element;
-  int32_t rc = ak_decode_LeafElement(ctx, &sink, b, n, &vt);
-  if (rc < 0) return rc;
-  // Applied after the decode, not during it (see AkPending).
-  for (size_t i = 0; i < pending.size(); ++i) {
-    const AkPending &pd = pending[i];
-    switch (pd.slot) {
-      case 0: out->unknown_fields.append(pd.bytes); break;
-      default: break;
-    }
-  }
+  int32_t rc = ak_dec_reset_LeafElement(ctx, opts);
+  if (rc != AK_OK) return rc;
+  rc = decode_impl_leaf_element(ctx, b, n, out, refill, hold);
+  int32_t rc2 = ak_dec_reset_LeafElement(ctx, NULL);
+  unk_reclaim();
+  if (rc >= 0 && rc2 != AK_OK) rc = rc2;
   return rc;
+}
+
+// Decision 11: retain everywhere (every position grows on demand).
+int32_t decode_with_leaf_element_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, LeafElement *out) {
+  struct ak_dec_LeafElement_opts opts;
+  unk_opts_leaf_element(&opts, -1);
+  return decode_with_leaf_element_opts(ctx, b, n, out, &opts, NULL, NULL);
+}
+
+// Decision 11 rule 1, pre-allocated: every singular position gets one buffer of `cap`
+// bytes, every pool `k`, refilled in place after each delivery; `unk_grow` is the
+// fallback. Unconsumed buffers are freed by the decode's reclaim.
+struct UnkPool_LeafElement {
+  struct ak_dec_LeafElement_opts opts;
+  std::vector<struct ak_unk_buf> bufs;
+  uint32_t k;
+  uint32_t cap;
+  uint64_t refills;
+};
+
+static void unk_refill_leaf_element(void *hv) {
+  UnkPool_LeafElement *h = (UnkPool_LeafElement *)hv;
+  (void)h;
+}
+
+int32_t decode_with_leaf_element_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, LeafElement *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+  UnkPool_LeafElement h;
+  unk_opts_leaf_element(&h.opts, -1);
+  h.k = k;
+  h.cap = cap;
+  h.refills = 0;
+  h.bufs.assign((size_t)0 * k, ak_unk_buf());
+  for (size_t i = 0; i < h.bufs.size(); ++i) { h.bufs[i].data = NULL; h.bufs[i].len = 0; h.bufs[i].cap = 0; }
+  uint64_t first = 0;
+  unk_fill_buf(&h.opts.self.buf, cap, &first);
+  unk_fill_buf(&h.opts.stamp.buf, cap, &first);
+  unk_refill_leaf_element(&h);
+  h.refills = 0;
+  int32_t rc = decode_with_leaf_element_opts(ctx, b, n, out, &h.opts, unk_refill_leaf_element, &h);
+  if (refills) *refills = h.refills;
+  return rc;
+}
+
+// Decision 11 control: clear every facade bag at position `pos` (plan.unk_positions
+// order) -- what decoding with that position's entry zeroed must produce.
+void unk_clear_leaf_element(LeafElement &o, int pos) {
+  switch (pos) {
+    case 0: { o.unknown_fields.clear(); } break;
+    case 1: { if (o.stamp.has_value()) { Timestamp &x0 = *o.stamp; x0.unknown_fields.clear(); } } break;
+    default: break;
+  }
 }
 
 struct Sink_LeafResponse {
   LeafResponse *out;
   const uint8_t *base;
-  // Decision 11: unknown runs staged by (slot, token) and applied after the
-  // decode -- a capture buffer may flush before the run that carries the
-  // element it belongs to. NULL on the drop path.
-  std::vector<AkPending> *pending;
+  // Decision 11 rule 1: called after every element delivery, where the host may
+  // refill its pools in place. NULL unless the decode pre-allocates.
+  void (*refill)(void *);
+  void *hold;
 };
 
 static void apply_leaf_response(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_LeafResponse *fx) {
@@ -9949,6 +11834,8 @@ static void apply_leaf_response(ak_dec_ctx *ctx, void *obj, const struct ak_dfix
     const struct ak_dfix_LeafResponse &f = *fx;
     const uint8_t *base = s->base;
     (void)f; (void)base;
+    s->out->unknown_fields.clear();
+    unk_take(f.unknown, &s->out->unknown_fields);
   AK_DGUARD_END
 }
 
@@ -9958,54 +11845,119 @@ static void add_leaf_response_items(ak_dec_ctx *ctx, void *obj, int64_t tok, con
     s->out->items.reserve(s->out->items.size() + (size_t)n);
     for (int32_t i = 0; i < n; ++i)
       s->out->items.push_back(from_leaf_element(elems[i], s->base, ctx));
+    AK_REFILL();
   AK_DGUARD_END
 }
 
-int32_t decode_with_leaf_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, LeafResponse *out) {
+static int32_t decode_impl_leaf_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, LeafResponse *out, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   Sink_LeafResponse sink;
   sink.out = out;
   sink.base = b;
-  sink.pending = NULL;
+  sink.refill = refill;
+  sink.hold = hold;
   struct ak_dvt_LeafResponse vt;
   vt.apply = apply_leaf_response;
   vt.add_items = add_leaf_response_items;
   return ak_decode_LeafResponse(ctx, &sink, b, n, &vt);
 }
 
-int32_t decode_with_leaf_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, LeafResponse *out) {
+// Decode with the context as it is armed: a context from
+// ak_dec_ctx_new_LeafResponse(NULL) (or last reset with NULL) drops every unknown field.
+int32_t decode_with_leaf_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, LeafResponse *out) {
+  return decode_impl_leaf_response(ctx, b, n, out, NULL, NULL);
+}
+
+// Decision 11: every position of `LeafResponse` backed by `unk_grow` (no pre-allocated
+// buffer, a repeated position an empty pool), except position `zero` (plan
+// unk_positions order), left all zero: discarded there. zero < 0 = none.
+void unk_opts_leaf_response(struct ak_dec_LeafResponse_opts *o, int zero) {
+  std::memset(o, 0, sizeof(*o));
+  o->host = NULL;
+  if (zero != 0) o->self.grow = unk_grow;
+  if (zero != 1) o->items.grow = unk_grow;
+  if (zero != 2) o->items_stamp.grow = unk_grow;
+}
+
+// The decode with the context armed with `opts`, read IN PLACE by the core until the
+// disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,
+// is called with `hold` after every element delivery (rule 1). Every buffer this
+// binding allocated and did not deliver is freed before return.
+int32_t decode_with_leaf_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, LeafResponse *out, struct ak_dec_LeafResponse_opts *opts, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
-  std::vector<AkPending> pending;
-  Sink_LeafResponse sink;
-  sink.out = out;
-  sink.base = b;
-  sink.pending = &pending;
-  struct ak_dvt_LeafResponse vt;
-  vt.apply = apply_leaf_response;
-  vt.add_items = add_leaf_response_items;
-  int32_t rc = ak_decode_LeafResponse(ctx, &sink, b, n, &vt);
-  if (rc < 0) return rc;
-  // Applied after the decode, not during it (see AkPending).
-  for (size_t i = 0; i < pending.size(); ++i) {
-    const AkPending &pd = pending[i];
-    switch (pd.slot) {
-      case 0: out->unknown_fields.append(pd.bytes); break;
-      case 1:
-        if (pd.token >= 0 && (size_t)pd.token < (*out).items.size()) (*out).items[(size_t)pd.token].unknown_fields.append(pd.bytes);
-        break;
-      default: break;
-    }
-  }
+  int32_t rc = ak_dec_reset_LeafResponse(ctx, opts);
+  if (rc != AK_OK) return rc;
+  rc = decode_impl_leaf_response(ctx, b, n, out, refill, hold);
+  int32_t rc2 = ak_dec_reset_LeafResponse(ctx, NULL);
+  unk_reclaim();
+  if (rc >= 0 && rc2 != AK_OK) rc = rc2;
   return rc;
+}
+
+// Decision 11: retain everywhere (every position grows on demand).
+int32_t decode_with_leaf_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, LeafResponse *out) {
+  struct ak_dec_LeafResponse_opts opts;
+  unk_opts_leaf_response(&opts, -1);
+  return decode_with_leaf_response_opts(ctx, b, n, out, &opts, NULL, NULL);
+}
+
+// Decision 11 rule 1, pre-allocated: every singular position gets one buffer of `cap`
+// bytes, every pool `k`, refilled in place after each delivery; `unk_grow` is the
+// fallback. Unconsumed buffers are freed by the decode's reclaim.
+struct UnkPool_LeafResponse {
+  struct ak_dec_LeafResponse_opts opts;
+  std::vector<struct ak_unk_buf> bufs;
+  uint32_t k;
+  uint32_t cap;
+  uint64_t refills;
+};
+
+static void unk_refill_leaf_response(void *hv) {
+  UnkPool_LeafResponse *h = (UnkPool_LeafResponse *)hv;
+  (void)h;
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[0 * (size_t)h->k + j], h->cap, &h->refills);
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[1 * (size_t)h->k + j], h->cap, &h->refills);
+}
+
+int32_t decode_with_leaf_response_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, LeafResponse *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+  UnkPool_LeafResponse h;
+  unk_opts_leaf_response(&h.opts, -1);
+  h.k = k;
+  h.cap = cap;
+  h.refills = 0;
+  h.bufs.assign((size_t)2 * k, ak_unk_buf());
+  for (size_t i = 0; i < h.bufs.size(); ++i) { h.bufs[i].data = NULL; h.bufs[i].len = 0; h.bufs[i].cap = 0; }
+  h.opts.items.bufs = k ? &h.bufs[0 * (size_t)k] : NULL;
+  h.opts.items.n = k;
+  h.opts.items_stamp.bufs = k ? &h.bufs[1 * (size_t)k] : NULL;
+  h.opts.items_stamp.n = k;
+  uint64_t first = 0;
+  unk_fill_buf(&h.opts.self.buf, cap, &first);
+  unk_refill_leaf_response(&h);
+  h.refills = 0;
+  int32_t rc = decode_with_leaf_response_opts(ctx, b, n, out, &h.opts, unk_refill_leaf_response, &h);
+  if (refills) *refills = h.refills;
+  return rc;
+}
+
+// Decision 11 control: clear every facade bag at position `pos` (plan.unk_positions
+// order) -- what decoding with that position's entry zeroed must produce.
+void unk_clear_leaf_response(LeafResponse &o, int pos) {
+  switch (pos) {
+    case 0: { o.unknown_fields.clear(); } break;
+    case 1: { for (size_t i0 = 0; i0 < o.items.size(); ++i0) { LeafElement &x0 = o.items[i0]; x0.unknown_fields.clear(); } } break;
+    case 2: { for (size_t i0 = 0; i0 < o.items.size(); ++i0) { LeafElement &x0 = o.items[i0]; if (x0.stamp.has_value()) { Timestamp &x1 = *x0.stamp; x1.unknown_fields.clear(); } } } break;
+    default: break;
+  }
 }
 
 struct Sink_Surrogate {
   Surrogate *out;
   const uint8_t *base;
-  // Decision 11: unknown runs staged by (slot, token) and applied after the
-  // decode -- a capture buffer may flush before the run that carries the
-  // element it belongs to. NULL on the drop path.
-  std::vector<AkPending> *pending;
+  // Decision 11 rule 1: called after every element delivery, where the host may
+  // refill its pools in place. NULL unless the decode pre-allocates.
+  void (*refill)(void *);
+  void *hold;
 };
 
 static void apply_surrogate(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_Surrogate *fx) {
@@ -10016,8 +11968,10 @@ static void apply_surrogate(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_Sur
     (void)f; (void)base;
   s_of(base, f.text, ctx, &s->out->text);
   if (f.presence & (1u << 0)) s->out->nested.set(from_surrogate_inner(f.nested, base, ctx));
-  else s->out->nested.reset();
+  else { s->out->nested.reset(); unk_drop(f.nested.unknown); }
   b_of(base, f.raw, &s->out->raw);
+    s->out->unknown_fields.clear();
+    unk_take(f.unknown, &s->out->unknown_fields);
   AK_DGUARD_END
 }
 
@@ -10028,12 +11982,14 @@ static void add_surrogate_attrs(ak_dec_ctx *ctx, void *obj, int64_t tok, const s
     for (int32_t i = 0; i < n; ++i) {
       s_of(s->base, elems[i].key, ctx, &k_);
       s_of(s->base, elems[i].value, ctx, &v_);
+      unk_drop_entry(elems[i].unknown);
 #if AK_CXX17
       s->out->attrs.insert_or_assign(std::move(k_), std::move(v_));
 #else
       s->out->attrs[k_] = v_;
 #endif
     }
+    AK_REFILL();
   AK_DGUARD_END
 }
 
@@ -10052,15 +12008,17 @@ static void add_surrogate_texts(ak_dec_ctx *ctx, void *obj, int64_t tok, const s
 #endif
       s_of(s->base, elems[i], ctx, &b_);
     }
+    AK_REFILL();
   AK_DGUARD_END
 }
 
-int32_t decode_with_surrogate(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Surrogate *out) {
+static int32_t decode_impl_surrogate(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Surrogate *out, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   Sink_Surrogate sink;
   sink.out = out;
   sink.base = b;
-  sink.pending = NULL;
+  sink.refill = refill;
+  sink.hold = hold;
   struct ak_dvt_Surrogate vt;
   vt.apply = apply_surrogate;
   vt.add_attrs = add_surrogate_attrs;
@@ -10068,37 +12026,100 @@ int32_t decode_with_surrogate(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Surro
   return ak_decode_Surrogate(ctx, &sink, b, n, &vt);
 }
 
-int32_t decode_with_surrogate_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Surrogate *out) {
+// Decode with the context as it is armed: a context from
+// ak_dec_ctx_new_Surrogate(NULL) (or last reset with NULL) drops every unknown field.
+int32_t decode_with_surrogate(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Surrogate *out) {
+  return decode_impl_surrogate(ctx, b, n, out, NULL, NULL);
+}
+
+// Decision 11: every position of `Surrogate` backed by `unk_grow` (no pre-allocated
+// buffer, a repeated position an empty pool), except position `zero` (plan
+// unk_positions order), left all zero: discarded there. zero < 0 = none.
+void unk_opts_surrogate(struct ak_dec_Surrogate_opts *o, int zero) {
+  std::memset(o, 0, sizeof(*o));
+  o->host = NULL;
+  if (zero != 0) o->self.grow = unk_grow;
+  if (zero != 1) o->nested.grow = unk_grow;
+  if (zero != 2) o->attrs.grow = unk_grow;
+}
+
+// The decode with the context armed with `opts`, read IN PLACE by the core until the
+// disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,
+// is called with `hold` after every element delivery (rule 1). Every buffer this
+// binding allocated and did not deliver is freed before return.
+int32_t decode_with_surrogate_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Surrogate *out, struct ak_dec_Surrogate_opts *opts, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
-  std::vector<AkPending> pending;
-  Sink_Surrogate sink;
-  sink.out = out;
-  sink.base = b;
-  sink.pending = &pending;
-  struct ak_dvt_Surrogate vt;
-  vt.apply = apply_surrogate;
-  vt.add_attrs = add_surrogate_attrs;
-  vt.add_texts = add_surrogate_texts;
-  int32_t rc = ak_decode_Surrogate(ctx, &sink, b, n, &vt);
-  if (rc < 0) return rc;
-  // Applied after the decode, not during it (see AkPending).
-  for (size_t i = 0; i < pending.size(); ++i) {
-    const AkPending &pd = pending[i];
-    switch (pd.slot) {
-      case 0: out->unknown_fields.append(pd.bytes); break;
-      default: break;
-    }
-  }
+  int32_t rc = ak_dec_reset_Surrogate(ctx, opts);
+  if (rc != AK_OK) return rc;
+  rc = decode_impl_surrogate(ctx, b, n, out, refill, hold);
+  int32_t rc2 = ak_dec_reset_Surrogate(ctx, NULL);
+  unk_reclaim();
+  if (rc >= 0 && rc2 != AK_OK) rc = rc2;
   return rc;
+}
+
+// Decision 11: retain everywhere (every position grows on demand).
+int32_t decode_with_surrogate_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Surrogate *out) {
+  struct ak_dec_Surrogate_opts opts;
+  unk_opts_surrogate(&opts, -1);
+  return decode_with_surrogate_opts(ctx, b, n, out, &opts, NULL, NULL);
+}
+
+// Decision 11 rule 1, pre-allocated: every singular position gets one buffer of `cap`
+// bytes, every pool `k`, refilled in place after each delivery; `unk_grow` is the
+// fallback. Unconsumed buffers are freed by the decode's reclaim.
+struct UnkPool_Surrogate {
+  struct ak_dec_Surrogate_opts opts;
+  std::vector<struct ak_unk_buf> bufs;
+  uint32_t k;
+  uint32_t cap;
+  uint64_t refills;
+};
+
+static void unk_refill_surrogate(void *hv) {
+  UnkPool_Surrogate *h = (UnkPool_Surrogate *)hv;
+  (void)h;
+  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[0 * (size_t)h->k + j], h->cap, &h->refills);
+}
+
+int32_t decode_with_surrogate_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Surrogate *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+  UnkPool_Surrogate h;
+  unk_opts_surrogate(&h.opts, -1);
+  h.k = k;
+  h.cap = cap;
+  h.refills = 0;
+  h.bufs.assign((size_t)1 * k, ak_unk_buf());
+  for (size_t i = 0; i < h.bufs.size(); ++i) { h.bufs[i].data = NULL; h.bufs[i].len = 0; h.bufs[i].cap = 0; }
+  h.opts.attrs.bufs = k ? &h.bufs[0 * (size_t)k] : NULL;
+  h.opts.attrs.n = k;
+  uint64_t first = 0;
+  unk_fill_buf(&h.opts.self.buf, cap, &first);
+  unk_fill_buf(&h.opts.nested.buf, cap, &first);
+  unk_refill_surrogate(&h);
+  h.refills = 0;
+  int32_t rc = decode_with_surrogate_opts(ctx, b, n, out, &h.opts, unk_refill_surrogate, &h);
+  if (refills) *refills = h.refills;
+  return rc;
+}
+
+// Decision 11 control: clear every facade bag at position `pos` (plan.unk_positions
+// order) -- what decoding with that position's entry zeroed must produce.
+void unk_clear_surrogate(Surrogate &o, int pos) {
+  switch (pos) {
+    case 0: { o.unknown_fields.clear(); } break;
+    case 1: { if (o.nested.has_value()) { SurrogateInner &x0 = *o.nested; x0.unknown_fields.clear(); } } break;
+    case 2: { /* a facade map entry has no bag */ } break;
+    default: break;
+  }
 }
 
 struct Sink_SurrogateInner {
   SurrogateInner *out;
   const uint8_t *base;
-  // Decision 11: unknown runs staged by (slot, token) and applied after the
-  // decode -- a capture buffer may flush before the run that carries the
-  // element it belongs to. NULL on the drop path.
-  std::vector<AkPending> *pending;
+  // Decision 11 rule 1: called after every element delivery, where the host may
+  // refill its pools in place. NULL unless the decode pre-allocates.
+  void (*refill)(void *);
+  void *hold;
 };
 
 static void apply_surrogate_inner(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_SurrogateInner *fx) {
@@ -10108,49 +12129,109 @@ static void apply_surrogate_inner(ak_dec_ctx *ctx, void *obj, const struct ak_df
     const uint8_t *base = s->base;
     (void)f; (void)base;
   s_of(base, f.text, ctx, &s->out->text);
+    s->out->unknown_fields.clear();
+    unk_take(f.unknown, &s->out->unknown_fields);
   AK_DGUARD_END
 }
 
-int32_t decode_with_surrogate_inner(ak_dec_ctx *ctx, const uint8_t *b, size_t n, SurrogateInner *out) {
+static int32_t decode_impl_surrogate_inner(ak_dec_ctx *ctx, const uint8_t *b, size_t n, SurrogateInner *out, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   Sink_SurrogateInner sink;
   sink.out = out;
   sink.base = b;
-  sink.pending = NULL;
+  sink.refill = refill;
+  sink.hold = hold;
   struct ak_dvt_SurrogateInner vt;
   vt.apply = apply_surrogate_inner;
   return ak_decode_SurrogateInner(ctx, &sink, b, n, &vt);
 }
 
-int32_t decode_with_surrogate_inner_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, SurrogateInner *out) {
+// Decode with the context as it is armed: a context from
+// ak_dec_ctx_new_SurrogateInner(NULL) (or last reset with NULL) drops every unknown field.
+int32_t decode_with_surrogate_inner(ak_dec_ctx *ctx, const uint8_t *b, size_t n, SurrogateInner *out) {
+  return decode_impl_surrogate_inner(ctx, b, n, out, NULL, NULL);
+}
+
+// Decision 11: every position of `SurrogateInner` backed by `unk_grow` (no pre-allocated
+// buffer, a repeated position an empty pool), except position `zero` (plan
+// unk_positions order), left all zero: discarded there. zero < 0 = none.
+void unk_opts_surrogate_inner(struct ak_dec_SurrogateInner_opts *o, int zero) {
+  std::memset(o, 0, sizeof(*o));
+  o->host = NULL;
+  if (zero != 0) o->self.grow = unk_grow;
+}
+
+// The decode with the context armed with `opts`, read IN PLACE by the core until the
+// disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,
+// is called with `hold` after every element delivery (rule 1). Every buffer this
+// binding allocated and did not deliver is freed before return.
+int32_t decode_with_surrogate_inner_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, SurrogateInner *out, struct ak_dec_SurrogateInner_opts *opts, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
-  std::vector<AkPending> pending;
-  Sink_SurrogateInner sink;
-  sink.out = out;
-  sink.base = b;
-  sink.pending = &pending;
-  struct ak_dvt_SurrogateInner vt;
-  vt.apply = apply_surrogate_inner;
-  int32_t rc = ak_decode_SurrogateInner(ctx, &sink, b, n, &vt);
-  if (rc < 0) return rc;
-  // Applied after the decode, not during it (see AkPending).
-  for (size_t i = 0; i < pending.size(); ++i) {
-    const AkPending &pd = pending[i];
-    switch (pd.slot) {
-      case 0: out->unknown_fields.append(pd.bytes); break;
-      default: break;
-    }
-  }
+  int32_t rc = ak_dec_reset_SurrogateInner(ctx, opts);
+  if (rc != AK_OK) return rc;
+  rc = decode_impl_surrogate_inner(ctx, b, n, out, refill, hold);
+  int32_t rc2 = ak_dec_reset_SurrogateInner(ctx, NULL);
+  unk_reclaim();
+  if (rc >= 0 && rc2 != AK_OK) rc = rc2;
   return rc;
+}
+
+// Decision 11: retain everywhere (every position grows on demand).
+int32_t decode_with_surrogate_inner_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, SurrogateInner *out) {
+  struct ak_dec_SurrogateInner_opts opts;
+  unk_opts_surrogate_inner(&opts, -1);
+  return decode_with_surrogate_inner_opts(ctx, b, n, out, &opts, NULL, NULL);
+}
+
+// Decision 11 rule 1, pre-allocated: every singular position gets one buffer of `cap`
+// bytes, every pool `k`, refilled in place after each delivery; `unk_grow` is the
+// fallback. Unconsumed buffers are freed by the decode's reclaim.
+struct UnkPool_SurrogateInner {
+  struct ak_dec_SurrogateInner_opts opts;
+  std::vector<struct ak_unk_buf> bufs;
+  uint32_t k;
+  uint32_t cap;
+  uint64_t refills;
+};
+
+static void unk_refill_surrogate_inner(void *hv) {
+  UnkPool_SurrogateInner *h = (UnkPool_SurrogateInner *)hv;
+  (void)h;
+}
+
+int32_t decode_with_surrogate_inner_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, SurrogateInner *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+  UnkPool_SurrogateInner h;
+  unk_opts_surrogate_inner(&h.opts, -1);
+  h.k = k;
+  h.cap = cap;
+  h.refills = 0;
+  h.bufs.assign((size_t)0 * k, ak_unk_buf());
+  for (size_t i = 0; i < h.bufs.size(); ++i) { h.bufs[i].data = NULL; h.bufs[i].len = 0; h.bufs[i].cap = 0; }
+  uint64_t first = 0;
+  unk_fill_buf(&h.opts.self.buf, cap, &first);
+  unk_refill_surrogate_inner(&h);
+  h.refills = 0;
+  int32_t rc = decode_with_surrogate_inner_opts(ctx, b, n, out, &h.opts, unk_refill_surrogate_inner, &h);
+  if (refills) *refills = h.refills;
+  return rc;
+}
+
+// Decision 11 control: clear every facade bag at position `pos` (plan.unk_positions
+// order) -- what decoding with that position's entry zeroed must produce.
+void unk_clear_surrogate_inner(SurrogateInner &o, int pos) {
+  switch (pos) {
+    case 0: { o.unknown_fields.clear(); } break;
+    default: break;
+  }
 }
 
 struct Sink_WireZoo {
   WireZoo *out;
   const uint8_t *base;
-  // Decision 11: unknown runs staged by (slot, token) and applied after the
-  // decode -- a capture buffer may flush before the run that carries the
-  // element it belongs to. NULL on the drop path.
-  std::vector<AkPending> *pending;
+  // Decision 11 rule 1: called after every element delivery, where the host may
+  // refill its pools in place. NULL unless the decode pre-allocates.
+  void (*refill)(void *);
+  void *hold;
 };
 
 static void apply_wire_zoo(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_WireZoo *fx) {
@@ -10168,42 +12249,105 @@ static void apply_wire_zoo(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_Wire
   b_of(base, f.v_bytes, &s->out->v_bytes);
   s->out->v_enum = corpus::ResultStatus(f.v_enum);
   if (f.presence & (1u << 0)) s->out->v_msg.set(from_timestamp(f.v_msg, base, ctx));
-  else s->out->v_msg.reset();
+  else { s->out->v_msg.reset(); unk_drop(f.v_msg.unknown); }
   s->out->v_big_tag = f.v_big_tag;
+    s->out->unknown_fields.clear();
+    unk_take(f.unknown, &s->out->unknown_fields);
   AK_DGUARD_END
 }
 
-int32_t decode_with_wire_zoo(ak_dec_ctx *ctx, const uint8_t *b, size_t n, WireZoo *out) {
+static int32_t decode_impl_wire_zoo(ak_dec_ctx *ctx, const uint8_t *b, size_t n, WireZoo *out, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   Sink_WireZoo sink;
   sink.out = out;
   sink.base = b;
-  sink.pending = NULL;
+  sink.refill = refill;
+  sink.hold = hold;
   struct ak_dvt_WireZoo vt;
   vt.apply = apply_wire_zoo;
   return ak_decode_WireZoo(ctx, &sink, b, n, &vt);
 }
 
-int32_t decode_with_wire_zoo_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, WireZoo *out) {
+// Decode with the context as it is armed: a context from
+// ak_dec_ctx_new_WireZoo(NULL) (or last reset with NULL) drops every unknown field.
+int32_t decode_with_wire_zoo(ak_dec_ctx *ctx, const uint8_t *b, size_t n, WireZoo *out) {
+  return decode_impl_wire_zoo(ctx, b, n, out, NULL, NULL);
+}
+
+// Decision 11: every position of `WireZoo` backed by `unk_grow` (no pre-allocated
+// buffer, a repeated position an empty pool), except position `zero` (plan
+// unk_positions order), left all zero: discarded there. zero < 0 = none.
+void unk_opts_wire_zoo(struct ak_dec_WireZoo_opts *o, int zero) {
+  std::memset(o, 0, sizeof(*o));
+  o->host = NULL;
+  if (zero != 0) o->self.grow = unk_grow;
+  if (zero != 1) o->v_msg.grow = unk_grow;
+}
+
+// The decode with the context armed with `opts`, read IN PLACE by the core until the
+// disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,
+// is called with `hold` after every element delivery (rule 1). Every buffer this
+// binding allocated and did not deliver is freed before return.
+int32_t decode_with_wire_zoo_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, WireZoo *out, struct ak_dec_WireZoo_opts *opts, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
-  std::vector<AkPending> pending;
-  Sink_WireZoo sink;
-  sink.out = out;
-  sink.base = b;
-  sink.pending = &pending;
-  struct ak_dvt_WireZoo vt;
-  vt.apply = apply_wire_zoo;
-  int32_t rc = ak_decode_WireZoo(ctx, &sink, b, n, &vt);
-  if (rc < 0) return rc;
-  // Applied after the decode, not during it (see AkPending).
-  for (size_t i = 0; i < pending.size(); ++i) {
-    const AkPending &pd = pending[i];
-    switch (pd.slot) {
-      case 0: out->unknown_fields.append(pd.bytes); break;
-      default: break;
-    }
-  }
+  int32_t rc = ak_dec_reset_WireZoo(ctx, opts);
+  if (rc != AK_OK) return rc;
+  rc = decode_impl_wire_zoo(ctx, b, n, out, refill, hold);
+  int32_t rc2 = ak_dec_reset_WireZoo(ctx, NULL);
+  unk_reclaim();
+  if (rc >= 0 && rc2 != AK_OK) rc = rc2;
   return rc;
+}
+
+// Decision 11: retain everywhere (every position grows on demand).
+int32_t decode_with_wire_zoo_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, WireZoo *out) {
+  struct ak_dec_WireZoo_opts opts;
+  unk_opts_wire_zoo(&opts, -1);
+  return decode_with_wire_zoo_opts(ctx, b, n, out, &opts, NULL, NULL);
+}
+
+// Decision 11 rule 1, pre-allocated: every singular position gets one buffer of `cap`
+// bytes, every pool `k`, refilled in place after each delivery; `unk_grow` is the
+// fallback. Unconsumed buffers are freed by the decode's reclaim.
+struct UnkPool_WireZoo {
+  struct ak_dec_WireZoo_opts opts;
+  std::vector<struct ak_unk_buf> bufs;
+  uint32_t k;
+  uint32_t cap;
+  uint64_t refills;
+};
+
+static void unk_refill_wire_zoo(void *hv) {
+  UnkPool_WireZoo *h = (UnkPool_WireZoo *)hv;
+  (void)h;
+}
+
+int32_t decode_with_wire_zoo_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, WireZoo *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+  UnkPool_WireZoo h;
+  unk_opts_wire_zoo(&h.opts, -1);
+  h.k = k;
+  h.cap = cap;
+  h.refills = 0;
+  h.bufs.assign((size_t)0 * k, ak_unk_buf());
+  for (size_t i = 0; i < h.bufs.size(); ++i) { h.bufs[i].data = NULL; h.bufs[i].len = 0; h.bufs[i].cap = 0; }
+  uint64_t first = 0;
+  unk_fill_buf(&h.opts.self.buf, cap, &first);
+  unk_fill_buf(&h.opts.v_msg.buf, cap, &first);
+  unk_refill_wire_zoo(&h);
+  h.refills = 0;
+  int32_t rc = decode_with_wire_zoo_opts(ctx, b, n, out, &h.opts, unk_refill_wire_zoo, &h);
+  if (refills) *refills = h.refills;
+  return rc;
+}
+
+// Decision 11 control: clear every facade bag at position `pos` (plan.unk_positions
+// order) -- what decoding with that position's entry zeroed must produce.
+void unk_clear_wire_zoo(WireZoo &o, int pos) {
+  switch (pos) {
+    case 0: { o.unknown_fields.clear(); } break;
+    case 1: { if (o.v_msg.has_value()) { Timestamp &x0 = *o.v_msg; x0.unknown_fields.clear(); } } break;
+    default: break;
+  }
 }
 
 }  // namespace ffi

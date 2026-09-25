@@ -65,30 +65,292 @@ intptr_t encode_into_list_results_response(ak_enc_ctx *ctx, const ListResultsRes
 intptr_t encode_into_list_results_response_zeroed(ak_enc_ctx *ctx, const ListResultsResponse &o, const Tcs &t);
 intptr_t encode_into_list_results_response_nobatch(ak_enc_ctx *ctx, const ListResultsResponse &o, const Tcs &t);
 int32_t decode_with_list_results_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out);
+// Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
+// in place and must stay alive and unmoved for the call.
+int32_t decode_with_list_results_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out, struct ak_dec_ListResultsResponse_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
+int32_t decode_with_list_results_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out);
+int32_t decode_with_list_results_response_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out, uint32_t k, uint32_t cap, uint64_t *refills = NULL);
+void unk_opts_list_results_response(struct ak_dec_ListResultsResponse_opts *o, int zero);
+void unk_clear_list_results_response(ListResultsResponse &o, int pos);
 intptr_t encode_into_list_tasks_detailed_response(ak_enc_ctx *ctx, const ListTasksDetailedResponse &o, const Tcs &t);
 intptr_t encode_into_list_tasks_detailed_response_zeroed(ak_enc_ctx *ctx, const ListTasksDetailedResponse &o, const Tcs &t);
 intptr_t encode_into_list_tasks_detailed_response_nobatch(ak_enc_ctx *ctx, const ListTasksDetailedResponse &o, const Tcs &t);
 int32_t decode_with_list_tasks_detailed_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out);
+// Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
+// in place and must stay alive and unmoved for the call.
+int32_t decode_with_list_tasks_detailed_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out, struct ak_dec_ListTasksDetailedResponse_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
+int32_t decode_with_list_tasks_detailed_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out);
+int32_t decode_with_list_tasks_detailed_response_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out, uint32_t k, uint32_t cap, uint64_t *refills = NULL);
+void unk_opts_list_tasks_detailed_response(struct ak_dec_ListTasksDetailedResponse_opts *o, int zero);
+void unk_clear_list_tasks_detailed_response(ListTasksDetailedResponse &o, int pos);
 intptr_t encode_into_list_probe_response(ak_enc_ctx *ctx, const ListProbeResponse &o, const Tcs &t);
 intptr_t encode_into_list_probe_response_zeroed(ak_enc_ctx *ctx, const ListProbeResponse &o, const Tcs &t);
 intptr_t encode_into_list_probe_response_nobatch(ak_enc_ctx *ctx, const ListProbeResponse &o, const Tcs &t);
 int32_t decode_with_list_probe_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out);
+// Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
+// in place and must stay alive and unmoved for the call.
+int32_t decode_with_list_probe_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out, struct ak_dec_ListProbeResponse_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
+int32_t decode_with_list_probe_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out);
+int32_t decode_with_list_probe_response_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out, uint32_t k, uint32_t cap, uint64_t *refills = NULL);
+void unk_opts_list_probe_response(struct ak_dec_ListProbeResponse_opts *o, int zero);
+void unk_clear_list_probe_response(ListProbeResponse &o, int pos);
 intptr_t encode_into_list_task_summary_response(ak_enc_ctx *ctx, const ListTaskSummaryResponse &o, const Tcs &t);
 intptr_t encode_into_list_task_summary_response_zeroed(ak_enc_ctx *ctx, const ListTaskSummaryResponse &o, const Tcs &t);
 intptr_t encode_into_list_task_summary_response_nobatch(ak_enc_ctx *ctx, const ListTaskSummaryResponse &o, const Tcs &t);
 int32_t decode_with_list_task_summary_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out);
+// Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
+// in place and must stay alive and unmoved for the call.
+int32_t decode_with_list_task_summary_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out, struct ak_dec_ListTaskSummaryResponse_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
+int32_t decode_with_list_task_summary_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out);
+int32_t decode_with_list_task_summary_response_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out, uint32_t k, uint32_t cap, uint64_t *refills = NULL);
+void unk_opts_list_task_summary_response(struct ak_dec_ListTaskSummaryResponse_opts *o, int zero);
+void unk_clear_list_task_summary_response(ListTaskSummaryResponse &o, int pos);
 intptr_t encode_into_upload_result_data_message(ak_enc_ctx *ctx, const UploadResultDataMessage &o, const Tcs &t);
 intptr_t encode_into_upload_result_data_message_zeroed(ak_enc_ctx *ctx, const UploadResultDataMessage &o, const Tcs &t);
 intptr_t encode_into_upload_result_data_message_nobatch(ak_enc_ctx *ctx, const UploadResultDataMessage &o, const Tcs &t);
 int32_t decode_with_upload_result_data_message(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out);
+// Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
+// in place and must stay alive and unmoved for the call.
+int32_t decode_with_upload_result_data_message_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out, struct ak_dec_UploadResultDataMessage_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
+int32_t decode_with_upload_result_data_message_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out);
+int32_t decode_with_upload_result_data_message_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out, uint32_t k, uint32_t cap, uint64_t *refills = NULL);
+void unk_opts_upload_result_data_message(struct ak_dec_UploadResultDataMessage_opts *o, int zero);
+void unk_clear_upload_result_data_message(UploadResultDataMessage &o, int pos);
 intptr_t encode_into_list_metrics_response(ak_enc_ctx *ctx, const ListMetricsResponse &o, const Tcs &t);
 intptr_t encode_into_list_metrics_response_zeroed(ak_enc_ctx *ctx, const ListMetricsResponse &o, const Tcs &t);
 intptr_t encode_into_list_metrics_response_nobatch(ak_enc_ctx *ctx, const ListMetricsResponse &o, const Tcs &t);
 int32_t decode_with_list_metrics_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out);
+// Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
+// in place and must stay alive and unmoved for the call.
+int32_t decode_with_list_metrics_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out, struct ak_dec_ListMetricsResponse_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
+int32_t decode_with_list_metrics_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out);
+int32_t decode_with_list_metrics_response_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out, uint32_t k, uint32_t cap, uint64_t *refills = NULL);
+void unk_opts_list_metrics_response(struct ak_dec_ListMetricsResponse_opts *o, int zero);
+void unk_clear_list_metrics_response(ListMetricsResponse &o, int pos);
 intptr_t encode_into_dual_response(ak_enc_ctx *ctx, const DualResponse &o, const Tcs &t);
 intptr_t encode_into_dual_response_zeroed(ak_enc_ctx *ctx, const DualResponse &o, const Tcs &t);
 intptr_t encode_into_dual_response_nobatch(ak_enc_ctx *ctx, const DualResponse &o, const Tcs &t);
 int32_t decode_with_dual_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out);
+// Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
+// in place and must stay alive and unmoved for the call.
+int32_t decode_with_dual_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out, struct ak_dec_DualResponse_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
+int32_t decode_with_dual_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out);
+int32_t decode_with_dual_response_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out, uint32_t k, uint32_t cap, uint64_t *refills = NULL);
+void unk_opts_dual_response(struct ak_dec_DualResponse_opts *o, int zero);
+void unk_clear_dual_response(DualResponse &o, int pos);
+
+// Decision 11, the host side of the unknown-field buffers (see binding.cpp).
+int32_t unk_grow(void *host, int32_t want, uint8_t **dst, int32_t *cap);
+void unk_track(void *p);
+size_t unk_reclaim();
+size_t unk_entry_bytes();
+
+// Decision 11 rule 6: a decode context is BOUND to its root. `DecRoot<T>` names the
+// root's context constructor, reset, options and decodes, for code generic over T.
+template <class T> struct DecRoot;
+template <> struct DecRoot<ListResultsResponse> {
+  typedef struct ak_dec_ListResultsResponse_opts Opts;
+  enum { kPositions = 4, kIndex = 0 };
+  static const char *name() { return "ListResultsResponse"; }
+  static ak_dec_ctx *ctx_new(Opts *o) { return ak_dec_ctx_new_ListResultsResponse(o); }
+  static int32_t reset(ak_dec_ctx *c, Opts *o) { return ak_dec_reset_ListResultsResponse(c, o); }
+  static void opts(Opts *o, int zero) { unk_opts_list_results_response(o, zero); }
+  static void clear(ListResultsResponse &v, int pos) { unk_clear_list_results_response(v, pos); }
+  static bool is_entry(int pos) {
+    static const bool k[4] = {false, false, false, false};
+    return pos >= 0 && pos < 4 && k[pos];
+  }
+  static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, ListResultsResponse *out) {
+    return decode_with_list_results_response(c, b, n, out);
+  }
+  static int32_t decode_opts(ak_dec_ctx *c, const uint8_t *b, size_t n, ListResultsResponse *out, Opts *o) {
+    return decode_with_list_results_response_opts(c, b, n, out, o);
+  }
+  static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, ListResultsResponse *out) {
+    return decode_with_list_results_response_unk(c, b, n, out);
+  }
+  static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, ListResultsResponse *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+    return decode_with_list_results_response_pool(c, b, n, out, k, cap, refills);
+  }
+};
+template <> struct DecRoot<ListTasksDetailedResponse> {
+  typedef struct ak_dec_ListTasksDetailedResponse_opts Opts;
+  enum { kPositions = 18, kIndex = 1 };
+  static const char *name() { return "ListTasksDetailedResponse"; }
+  static ak_dec_ctx *ctx_new(Opts *o) { return ak_dec_ctx_new_ListTasksDetailedResponse(o); }
+  static int32_t reset(ak_dec_ctx *c, Opts *o) { return ak_dec_reset_ListTasksDetailedResponse(c, o); }
+  static void opts(Opts *o, int zero) { unk_opts_list_tasks_detailed_response(o, zero); }
+  static void clear(ListTasksDetailedResponse &v, int pos) { unk_clear_list_tasks_detailed_response(v, pos); }
+  static bool is_entry(int pos) {
+    static const bool k[18] = {false, false, false, true, false, false, false, false, false, false, false, false, false, false, false, false, false, false};
+    return pos >= 0 && pos < 18 && k[pos];
+  }
+  static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, ListTasksDetailedResponse *out) {
+    return decode_with_list_tasks_detailed_response(c, b, n, out);
+  }
+  static int32_t decode_opts(ak_dec_ctx *c, const uint8_t *b, size_t n, ListTasksDetailedResponse *out, Opts *o) {
+    return decode_with_list_tasks_detailed_response_opts(c, b, n, out, o);
+  }
+  static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, ListTasksDetailedResponse *out) {
+    return decode_with_list_tasks_detailed_response_unk(c, b, n, out);
+  }
+  static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, ListTasksDetailedResponse *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+    return decode_with_list_tasks_detailed_response_pool(c, b, n, out, k, cap, refills);
+  }
+};
+template <> struct DecRoot<ListProbeResponse> {
+  typedef struct ak_dec_ListProbeResponse_opts Opts;
+  enum { kPositions = 3, kIndex = 2 };
+  static const char *name() { return "ListProbeResponse"; }
+  static ak_dec_ctx *ctx_new(Opts *o) { return ak_dec_ctx_new_ListProbeResponse(o); }
+  static int32_t reset(ak_dec_ctx *c, Opts *o) { return ak_dec_reset_ListProbeResponse(c, o); }
+  static void opts(Opts *o, int zero) { unk_opts_list_probe_response(o, zero); }
+  static void clear(ListProbeResponse &v, int pos) { unk_clear_list_probe_response(v, pos); }
+  static bool is_entry(int pos) {
+    static const bool k[3] = {false, false, false};
+    return pos >= 0 && pos < 3 && k[pos];
+  }
+  static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, ListProbeResponse *out) {
+    return decode_with_list_probe_response(c, b, n, out);
+  }
+  static int32_t decode_opts(ak_dec_ctx *c, const uint8_t *b, size_t n, ListProbeResponse *out, Opts *o) {
+    return decode_with_list_probe_response_opts(c, b, n, out, o);
+  }
+  static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, ListProbeResponse *out) {
+    return decode_with_list_probe_response_unk(c, b, n, out);
+  }
+  static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, ListProbeResponse *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+    return decode_with_list_probe_response_pool(c, b, n, out, k, cap, refills);
+  }
+};
+template <> struct DecRoot<ListTaskSummaryResponse> {
+  typedef struct ak_dec_ListTaskSummaryResponse_opts Opts;
+  enum { kPositions = 6, kIndex = 3 };
+  static const char *name() { return "ListTaskSummaryResponse"; }
+  static ak_dec_ctx *ctx_new(Opts *o) { return ak_dec_ctx_new_ListTaskSummaryResponse(o); }
+  static int32_t reset(ak_dec_ctx *c, Opts *o) { return ak_dec_reset_ListTaskSummaryResponse(c, o); }
+  static void opts(Opts *o, int zero) { unk_opts_list_task_summary_response(o, zero); }
+  static void clear(ListTaskSummaryResponse &v, int pos) { unk_clear_list_task_summary_response(v, pos); }
+  static bool is_entry(int pos) {
+    static const bool k[6] = {false, false, false, true, false, false};
+    return pos >= 0 && pos < 6 && k[pos];
+  }
+  static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, ListTaskSummaryResponse *out) {
+    return decode_with_list_task_summary_response(c, b, n, out);
+  }
+  static int32_t decode_opts(ak_dec_ctx *c, const uint8_t *b, size_t n, ListTaskSummaryResponse *out, Opts *o) {
+    return decode_with_list_task_summary_response_opts(c, b, n, out, o);
+  }
+  static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, ListTaskSummaryResponse *out) {
+    return decode_with_list_task_summary_response_unk(c, b, n, out);
+  }
+  static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, ListTaskSummaryResponse *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+    return decode_with_list_task_summary_response_pool(c, b, n, out, k, cap, refills);
+  }
+};
+template <> struct DecRoot<UploadResultDataMessage> {
+  typedef struct ak_dec_UploadResultDataMessage_opts Opts;
+  enum { kPositions = 2, kIndex = 4 };
+  static const char *name() { return "UploadResultDataMessage"; }
+  static ak_dec_ctx *ctx_new(Opts *o) { return ak_dec_ctx_new_UploadResultDataMessage(o); }
+  static int32_t reset(ak_dec_ctx *c, Opts *o) { return ak_dec_reset_UploadResultDataMessage(c, o); }
+  static void opts(Opts *o, int zero) { unk_opts_upload_result_data_message(o, zero); }
+  static void clear(UploadResultDataMessage &v, int pos) { unk_clear_upload_result_data_message(v, pos); }
+  static bool is_entry(int pos) {
+    static const bool k[2] = {false, false};
+    return pos >= 0 && pos < 2 && k[pos];
+  }
+  static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, UploadResultDataMessage *out) {
+    return decode_with_upload_result_data_message(c, b, n, out);
+  }
+  static int32_t decode_opts(ak_dec_ctx *c, const uint8_t *b, size_t n, UploadResultDataMessage *out, Opts *o) {
+    return decode_with_upload_result_data_message_opts(c, b, n, out, o);
+  }
+  static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, UploadResultDataMessage *out) {
+    return decode_with_upload_result_data_message_unk(c, b, n, out);
+  }
+  static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, UploadResultDataMessage *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+    return decode_with_upload_result_data_message_pool(c, b, n, out, k, cap, refills);
+  }
+};
+template <> struct DecRoot<ListMetricsResponse> {
+  typedef struct ak_dec_ListMetricsResponse_opts Opts;
+  enum { kPositions = 2, kIndex = 5 };
+  static const char *name() { return "ListMetricsResponse"; }
+  static ak_dec_ctx *ctx_new(Opts *o) { return ak_dec_ctx_new_ListMetricsResponse(o); }
+  static int32_t reset(ak_dec_ctx *c, Opts *o) { return ak_dec_reset_ListMetricsResponse(c, o); }
+  static void opts(Opts *o, int zero) { unk_opts_list_metrics_response(o, zero); }
+  static void clear(ListMetricsResponse &v, int pos) { unk_clear_list_metrics_response(v, pos); }
+  static bool is_entry(int pos) {
+    static const bool k[2] = {false, false};
+    return pos >= 0 && pos < 2 && k[pos];
+  }
+  static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, ListMetricsResponse *out) {
+    return decode_with_list_metrics_response(c, b, n, out);
+  }
+  static int32_t decode_opts(ak_dec_ctx *c, const uint8_t *b, size_t n, ListMetricsResponse *out, Opts *o) {
+    return decode_with_list_metrics_response_opts(c, b, n, out, o);
+  }
+  static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, ListMetricsResponse *out) {
+    return decode_with_list_metrics_response_unk(c, b, n, out);
+  }
+  static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, ListMetricsResponse *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+    return decode_with_list_metrics_response_pool(c, b, n, out, k, cap, refills);
+  }
+};
+template <> struct DecRoot<DualResponse> {
+  typedef struct ak_dec_DualResponse_opts Opts;
+  enum { kPositions = 3, kIndex = 6 };
+  static const char *name() { return "DualResponse"; }
+  static ak_dec_ctx *ctx_new(Opts *o) { return ak_dec_ctx_new_DualResponse(o); }
+  static int32_t reset(ak_dec_ctx *c, Opts *o) { return ak_dec_reset_DualResponse(c, o); }
+  static void opts(Opts *o, int zero) { unk_opts_dual_response(o, zero); }
+  static void clear(DualResponse &v, int pos) { unk_clear_dual_response(v, pos); }
+  static bool is_entry(int pos) {
+    static const bool k[3] = {false, false, false};
+    return pos >= 0 && pos < 3 && k[pos];
+  }
+  static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, DualResponse *out) {
+    return decode_with_dual_response(c, b, n, out);
+  }
+  static int32_t decode_opts(ak_dec_ctx *c, const uint8_t *b, size_t n, DualResponse *out, Opts *o) {
+    return decode_with_dual_response_opts(c, b, n, out, o);
+  }
+  static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, DualResponse *out) {
+    return decode_with_dual_response_unk(c, b, n, out);
+  }
+  static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, DualResponse *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+    return decode_with_dual_response_pool(c, b, n, out, k, cap, refills);
+  }
+};
+// A context bound to T's root, in drop mode (NULL options).
+template <class T> inline ak_dec_ctx *dec_ctx_new_for() { return DecRoot<T>::ctx_new(NULL); }
+
+// One bound context per root, in drop mode, for a host that decodes several roots
+// (one set per thread: a context is not shared between threads).
+struct DecCtxs {
+  ak_dec_ctx *c[7];
+  DecCtxs() {
+    c[0] = ak_dec_ctx_new_ListResultsResponse(NULL);
+    c[1] = ak_dec_ctx_new_ListTasksDetailedResponse(NULL);
+    c[2] = ak_dec_ctx_new_ListProbeResponse(NULL);
+    c[3] = ak_dec_ctx_new_ListTaskSummaryResponse(NULL);
+    c[4] = ak_dec_ctx_new_UploadResultDataMessage(NULL);
+    c[5] = ak_dec_ctx_new_ListMetricsResponse(NULL);
+    c[6] = ak_dec_ctx_new_DualResponse(NULL);
+  }
+  ~DecCtxs() {
+    for (int i = 0; i < 7; ++i) ak_dec_ctx_free(c[i]);
+  }
+  bool ok() const {
+    for (int i = 0; i < 7; ++i) if (c[i] == NULL) return false;
+    return true;
+  }
+  template <class T> ak_dec_ctx *of() const { return c[DecRoot<T>::kIndex]; }
+ private:
+  DecCtxs(const DecCtxs &);
+  DecCtxs &operator=(const DecCtxs &);
+};
 
 // Exposed so the `groupfill` arm can price the by-value group's host-side fill
 // on its own, in ns per element, rather than only as a subtraction between

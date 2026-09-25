@@ -153,234 +153,1164 @@ intptr_t encode_into_timestamp(ak_enc_ctx *ctx, const Timestamp &o, const Tcs &t
 intptr_t encode_into_timestamp_zeroed(ak_enc_ctx *ctx, const Timestamp &o, const Tcs &t);
 intptr_t encode_into_timestamp_nobatch(ak_enc_ctx *ctx, const Timestamp &o, const Tcs &t);
 int32_t decode_with_timestamp(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Timestamp *out);
-// Decision 11 / plan Options.unknown = retain: the same entry points over
-// the u-groups (encode) and with the unknown-field capture on (decode).
+// Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_timestamp_unk(ak_enc_ctx *ctx, const Timestamp &o, const Tcs &t);
+// Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
+// in place and must stay alive and unmoved for the call.
+int32_t decode_with_timestamp_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Timestamp *out, struct ak_dec_Timestamp_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
 int32_t decode_with_timestamp_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Timestamp *out);
+int32_t decode_with_timestamp_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Timestamp *out, uint32_t k, uint32_t cap, uint64_t *refills = NULL);
+void unk_opts_timestamp(struct ak_dec_Timestamp_opts *o, int zero);
+void unk_clear_timestamp(Timestamp &o, int pos);
 intptr_t encode_into_duration(ak_enc_ctx *ctx, const Duration &o, const Tcs &t);
 intptr_t encode_into_duration_zeroed(ak_enc_ctx *ctx, const Duration &o, const Tcs &t);
 intptr_t encode_into_duration_nobatch(ak_enc_ctx *ctx, const Duration &o, const Tcs &t);
 int32_t decode_with_duration(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Duration *out);
-// Decision 11 / plan Options.unknown = retain: the same entry points over
-// the u-groups (encode) and with the unknown-field capture on (decode).
+// Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_duration_unk(ak_enc_ctx *ctx, const Duration &o, const Tcs &t);
+// Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
+// in place and must stay alive and unmoved for the call.
+int32_t decode_with_duration_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Duration *out, struct ak_dec_Duration_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
 int32_t decode_with_duration_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Duration *out);
+int32_t decode_with_duration_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Duration *out, uint32_t k, uint32_t cap, uint64_t *refills = NULL);
+void unk_opts_duration(struct ak_dec_Duration_opts *o, int zero);
+void unk_clear_duration(Duration &o, int pos);
 intptr_t encode_into_result_raw(ak_enc_ctx *ctx, const ResultRaw &o, const Tcs &t);
 intptr_t encode_into_result_raw_zeroed(ak_enc_ctx *ctx, const ResultRaw &o, const Tcs &t);
 intptr_t encode_into_result_raw_nobatch(ak_enc_ctx *ctx, const ResultRaw &o, const Tcs &t);
 int32_t decode_with_result_raw(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ResultRaw *out);
-// Decision 11 / plan Options.unknown = retain: the same entry points over
-// the u-groups (encode) and with the unknown-field capture on (decode).
+// Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_result_raw_unk(ak_enc_ctx *ctx, const ResultRaw &o, const Tcs &t);
+// Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
+// in place and must stay alive and unmoved for the call.
+int32_t decode_with_result_raw_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ResultRaw *out, struct ak_dec_ResultRaw_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
 int32_t decode_with_result_raw_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ResultRaw *out);
+int32_t decode_with_result_raw_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ResultRaw *out, uint32_t k, uint32_t cap, uint64_t *refills = NULL);
+void unk_opts_result_raw(struct ak_dec_ResultRaw_opts *o, int zero);
+void unk_clear_result_raw(ResultRaw &o, int pos);
 intptr_t encode_into_task_options(ak_enc_ctx *ctx, const TaskOptions &o, const Tcs &t);
 intptr_t encode_into_task_options_zeroed(ak_enc_ctx *ctx, const TaskOptions &o, const Tcs &t);
 intptr_t encode_into_task_options_nobatch(ak_enc_ctx *ctx, const TaskOptions &o, const Tcs &t);
 int32_t decode_with_task_options(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskOptions *out);
-// Decision 11 / plan Options.unknown = retain: the same entry points over
-// the u-groups (encode) and with the unknown-field capture on (decode).
+// Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_task_options_unk(ak_enc_ctx *ctx, const TaskOptions &o, const Tcs &t);
+// Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
+// in place and must stay alive and unmoved for the call.
+int32_t decode_with_task_options_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskOptions *out, struct ak_dec_TaskOptions_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
 int32_t decode_with_task_options_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskOptions *out);
+int32_t decode_with_task_options_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskOptions *out, uint32_t k, uint32_t cap, uint64_t *refills = NULL);
+void unk_opts_task_options(struct ak_dec_TaskOptions_opts *o, int zero);
+void unk_clear_task_options(TaskOptions &o, int pos);
 intptr_t encode_into_task_output(ak_enc_ctx *ctx, const TaskOutput &o, const Tcs &t);
 intptr_t encode_into_task_output_zeroed(ak_enc_ctx *ctx, const TaskOutput &o, const Tcs &t);
 intptr_t encode_into_task_output_nobatch(ak_enc_ctx *ctx, const TaskOutput &o, const Tcs &t);
 int32_t decode_with_task_output(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskOutput *out);
-// Decision 11 / plan Options.unknown = retain: the same entry points over
-// the u-groups (encode) and with the unknown-field capture on (decode).
+// Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_task_output_unk(ak_enc_ctx *ctx, const TaskOutput &o, const Tcs &t);
+// Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
+// in place and must stay alive and unmoved for the call.
+int32_t decode_with_task_output_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskOutput *out, struct ak_dec_TaskOutput_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
 int32_t decode_with_task_output_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskOutput *out);
+int32_t decode_with_task_output_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskOutput *out, uint32_t k, uint32_t cap, uint64_t *refills = NULL);
+void unk_opts_task_output(struct ak_dec_TaskOutput_opts *o, int zero);
+void unk_clear_task_output(TaskOutput &o, int pos);
 intptr_t encode_into_task_detailed(ak_enc_ctx *ctx, const TaskDetailed &o, const Tcs &t);
 intptr_t encode_into_task_detailed_zeroed(ak_enc_ctx *ctx, const TaskDetailed &o, const Tcs &t);
 intptr_t encode_into_task_detailed_nobatch(ak_enc_ctx *ctx, const TaskDetailed &o, const Tcs &t);
 int32_t decode_with_task_detailed(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskDetailed *out);
-// Decision 11 / plan Options.unknown = retain: the same entry points over
-// the u-groups (encode) and with the unknown-field capture on (decode).
+// Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_task_detailed_unk(ak_enc_ctx *ctx, const TaskDetailed &o, const Tcs &t);
+// Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
+// in place and must stay alive and unmoved for the call.
+int32_t decode_with_task_detailed_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskDetailed *out, struct ak_dec_TaskDetailed_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
 int32_t decode_with_task_detailed_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskDetailed *out);
+int32_t decode_with_task_detailed_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskDetailed *out, uint32_t k, uint32_t cap, uint64_t *refills = NULL);
+void unk_opts_task_detailed(struct ak_dec_TaskDetailed_opts *o, int zero);
+void unk_clear_task_detailed(TaskDetailed &o, int pos);
 intptr_t encode_into_task_summary(ak_enc_ctx *ctx, const TaskSummary &o, const Tcs &t);
 intptr_t encode_into_task_summary_zeroed(ak_enc_ctx *ctx, const TaskSummary &o, const Tcs &t);
 intptr_t encode_into_task_summary_nobatch(ak_enc_ctx *ctx, const TaskSummary &o, const Tcs &t);
 int32_t decode_with_task_summary(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskSummary *out);
-// Decision 11 / plan Options.unknown = retain: the same entry points over
-// the u-groups (encode) and with the unknown-field capture on (decode).
+// Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_task_summary_unk(ak_enc_ctx *ctx, const TaskSummary &o, const Tcs &t);
+// Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
+// in place and must stay alive and unmoved for the call.
+int32_t decode_with_task_summary_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskSummary *out, struct ak_dec_TaskSummary_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
 int32_t decode_with_task_summary_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskSummary *out);
+int32_t decode_with_task_summary_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskSummary *out, uint32_t k, uint32_t cap, uint64_t *refills = NULL);
+void unk_opts_task_summary(struct ak_dec_TaskSummary_opts *o, int zero);
+void unk_clear_task_summary(TaskSummary &o, int pos);
 intptr_t encode_into_probe(ak_enc_ctx *ctx, const Probe &o, const Tcs &t);
 intptr_t encode_into_probe_zeroed(ak_enc_ctx *ctx, const Probe &o, const Tcs &t);
 intptr_t encode_into_probe_nobatch(ak_enc_ctx *ctx, const Probe &o, const Tcs &t);
 int32_t decode_with_probe(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Probe *out);
-// Decision 11 / plan Options.unknown = retain: the same entry points over
-// the u-groups (encode) and with the unknown-field capture on (decode).
+// Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_probe_unk(ak_enc_ctx *ctx, const Probe &o, const Tcs &t);
+// Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
+// in place and must stay alive and unmoved for the call.
+int32_t decode_with_probe_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Probe *out, struct ak_dec_Probe_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
 int32_t decode_with_probe_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Probe *out);
+int32_t decode_with_probe_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Probe *out, uint32_t k, uint32_t cap, uint64_t *refills = NULL);
+void unk_opts_probe(struct ak_dec_Probe_opts *o, int zero);
+void unk_clear_probe(Probe &o, int pos);
 intptr_t encode_into_empty(ak_enc_ctx *ctx, const Empty &o, const Tcs &t);
 intptr_t encode_into_empty_zeroed(ak_enc_ctx *ctx, const Empty &o, const Tcs &t);
 intptr_t encode_into_empty_nobatch(ak_enc_ctx *ctx, const Empty &o, const Tcs &t);
 int32_t decode_with_empty(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Empty *out);
-// Decision 11 / plan Options.unknown = retain: the same entry points over
-// the u-groups (encode) and with the unknown-field capture on (decode).
+// Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_empty_unk(ak_enc_ctx *ctx, const Empty &o, const Tcs &t);
+// Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
+// in place and must stay alive and unmoved for the call.
+int32_t decode_with_empty_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Empty *out, struct ak_dec_Empty_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
 int32_t decode_with_empty_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Empty *out);
+int32_t decode_with_empty_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Empty *out, uint32_t k, uint32_t cap, uint64_t *refills = NULL);
+void unk_opts_empty(struct ak_dec_Empty_opts *o, int zero);
+void unk_clear_empty(Empty &o, int pos);
 intptr_t encode_into_upload_result_data(ak_enc_ctx *ctx, const UploadResultData &o, const Tcs &t);
 intptr_t encode_into_upload_result_data_zeroed(ak_enc_ctx *ctx, const UploadResultData &o, const Tcs &t);
 intptr_t encode_into_upload_result_data_nobatch(ak_enc_ctx *ctx, const UploadResultData &o, const Tcs &t);
 int32_t decode_with_upload_result_data(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultData *out);
-// Decision 11 / plan Options.unknown = retain: the same entry points over
-// the u-groups (encode) and with the unknown-field capture on (decode).
+// Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_upload_result_data_unk(ak_enc_ctx *ctx, const UploadResultData &o, const Tcs &t);
+// Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
+// in place and must stay alive and unmoved for the call.
+int32_t decode_with_upload_result_data_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultData *out, struct ak_dec_UploadResultData_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
 int32_t decode_with_upload_result_data_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultData *out);
+int32_t decode_with_upload_result_data_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultData *out, uint32_t k, uint32_t cap, uint64_t *refills = NULL);
+void unk_opts_upload_result_data(struct ak_dec_UploadResultData_opts *o, int zero);
+void unk_clear_upload_result_data(UploadResultData &o, int pos);
 intptr_t encode_into_metrics_batch(ak_enc_ctx *ctx, const MetricsBatch &o, const Tcs &t);
 intptr_t encode_into_metrics_batch_zeroed(ak_enc_ctx *ctx, const MetricsBatch &o, const Tcs &t);
 intptr_t encode_into_metrics_batch_nobatch(ak_enc_ctx *ctx, const MetricsBatch &o, const Tcs &t);
 int32_t decode_with_metrics_batch(ak_dec_ctx *ctx, const uint8_t *b, size_t n, MetricsBatch *out);
-// Decision 11 / plan Options.unknown = retain: the same entry points over
-// the u-groups (encode) and with the unknown-field capture on (decode).
+// Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_metrics_batch_unk(ak_enc_ctx *ctx, const MetricsBatch &o, const Tcs &t);
+// Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
+// in place and must stay alive and unmoved for the call.
+int32_t decode_with_metrics_batch_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, MetricsBatch *out, struct ak_dec_MetricsBatch_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
 int32_t decode_with_metrics_batch_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, MetricsBatch *out);
+int32_t decode_with_metrics_batch_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, MetricsBatch *out, uint32_t k, uint32_t cap, uint64_t *refills = NULL);
+void unk_opts_metrics_batch(struct ak_dec_MetricsBatch_opts *o, int zero);
+void unk_clear_metrics_batch(MetricsBatch &o, int pos);
 intptr_t encode_into_pair(ak_enc_ctx *ctx, const Pair &o, const Tcs &t);
 intptr_t encode_into_pair_zeroed(ak_enc_ctx *ctx, const Pair &o, const Tcs &t);
 intptr_t encode_into_pair_nobatch(ak_enc_ctx *ctx, const Pair &o, const Tcs &t);
 int32_t decode_with_pair(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Pair *out);
-// Decision 11 / plan Options.unknown = retain: the same entry points over
-// the u-groups (encode) and with the unknown-field capture on (decode).
+// Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_pair_unk(ak_enc_ctx *ctx, const Pair &o, const Tcs &t);
+// Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
+// in place and must stay alive and unmoved for the call.
+int32_t decode_with_pair_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Pair *out, struct ak_dec_Pair_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
 int32_t decode_with_pair_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Pair *out);
+int32_t decode_with_pair_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Pair *out, uint32_t k, uint32_t cap, uint64_t *refills = NULL);
+void unk_opts_pair(struct ak_dec_Pair_opts *o, int zero);
+void unk_clear_pair(Pair &o, int pos);
 intptr_t encode_into_list_results_response(ak_enc_ctx *ctx, const ListResultsResponse &o, const Tcs &t);
 intptr_t encode_into_list_results_response_zeroed(ak_enc_ctx *ctx, const ListResultsResponse &o, const Tcs &t);
 intptr_t encode_into_list_results_response_nobatch(ak_enc_ctx *ctx, const ListResultsResponse &o, const Tcs &t);
 int32_t decode_with_list_results_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out);
-// Decision 11 / plan Options.unknown = retain: the same entry points over
-// the u-groups (encode) and with the unknown-field capture on (decode).
+// Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_list_results_response_unk(ak_enc_ctx *ctx, const ListResultsResponse &o, const Tcs &t);
+// Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
+// in place and must stay alive and unmoved for the call.
+int32_t decode_with_list_results_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out, struct ak_dec_ListResultsResponse_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
 int32_t decode_with_list_results_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out);
+int32_t decode_with_list_results_response_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out, uint32_t k, uint32_t cap, uint64_t *refills = NULL);
+void unk_opts_list_results_response(struct ak_dec_ListResultsResponse_opts *o, int zero);
+void unk_clear_list_results_response(ListResultsResponse &o, int pos);
 intptr_t encode_into_list_tasks_detailed_response(ak_enc_ctx *ctx, const ListTasksDetailedResponse &o, const Tcs &t);
 intptr_t encode_into_list_tasks_detailed_response_zeroed(ak_enc_ctx *ctx, const ListTasksDetailedResponse &o, const Tcs &t);
 intptr_t encode_into_list_tasks_detailed_response_nobatch(ak_enc_ctx *ctx, const ListTasksDetailedResponse &o, const Tcs &t);
 int32_t decode_with_list_tasks_detailed_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out);
-// Decision 11 / plan Options.unknown = retain: the same entry points over
-// the u-groups (encode) and with the unknown-field capture on (decode).
+// Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_list_tasks_detailed_response_unk(ak_enc_ctx *ctx, const ListTasksDetailedResponse &o, const Tcs &t);
+// Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
+// in place and must stay alive and unmoved for the call.
+int32_t decode_with_list_tasks_detailed_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out, struct ak_dec_ListTasksDetailedResponse_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
 int32_t decode_with_list_tasks_detailed_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out);
+int32_t decode_with_list_tasks_detailed_response_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out, uint32_t k, uint32_t cap, uint64_t *refills = NULL);
+void unk_opts_list_tasks_detailed_response(struct ak_dec_ListTasksDetailedResponse_opts *o, int zero);
+void unk_clear_list_tasks_detailed_response(ListTasksDetailedResponse &o, int pos);
 intptr_t encode_into_list_task_summary_response(ak_enc_ctx *ctx, const ListTaskSummaryResponse &o, const Tcs &t);
 intptr_t encode_into_list_task_summary_response_zeroed(ak_enc_ctx *ctx, const ListTaskSummaryResponse &o, const Tcs &t);
 intptr_t encode_into_list_task_summary_response_nobatch(ak_enc_ctx *ctx, const ListTaskSummaryResponse &o, const Tcs &t);
 int32_t decode_with_list_task_summary_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out);
-// Decision 11 / plan Options.unknown = retain: the same entry points over
-// the u-groups (encode) and with the unknown-field capture on (decode).
+// Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_list_task_summary_response_unk(ak_enc_ctx *ctx, const ListTaskSummaryResponse &o, const Tcs &t);
+// Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
+// in place and must stay alive and unmoved for the call.
+int32_t decode_with_list_task_summary_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out, struct ak_dec_ListTaskSummaryResponse_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
 int32_t decode_with_list_task_summary_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out);
+int32_t decode_with_list_task_summary_response_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out, uint32_t k, uint32_t cap, uint64_t *refills = NULL);
+void unk_opts_list_task_summary_response(struct ak_dec_ListTaskSummaryResponse_opts *o, int zero);
+void unk_clear_list_task_summary_response(ListTaskSummaryResponse &o, int pos);
 intptr_t encode_into_list_probe_response(ak_enc_ctx *ctx, const ListProbeResponse &o, const Tcs &t);
 intptr_t encode_into_list_probe_response_zeroed(ak_enc_ctx *ctx, const ListProbeResponse &o, const Tcs &t);
 intptr_t encode_into_list_probe_response_nobatch(ak_enc_ctx *ctx, const ListProbeResponse &o, const Tcs &t);
 int32_t decode_with_list_probe_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out);
-// Decision 11 / plan Options.unknown = retain: the same entry points over
-// the u-groups (encode) and with the unknown-field capture on (decode).
+// Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_list_probe_response_unk(ak_enc_ctx *ctx, const ListProbeResponse &o, const Tcs &t);
+// Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
+// in place and must stay alive and unmoved for the call.
+int32_t decode_with_list_probe_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out, struct ak_dec_ListProbeResponse_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
 int32_t decode_with_list_probe_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out);
+int32_t decode_with_list_probe_response_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out, uint32_t k, uint32_t cap, uint64_t *refills = NULL);
+void unk_opts_list_probe_response(struct ak_dec_ListProbeResponse_opts *o, int zero);
+void unk_clear_list_probe_response(ListProbeResponse &o, int pos);
 intptr_t encode_into_list_metrics_response(ak_enc_ctx *ctx, const ListMetricsResponse &o, const Tcs &t);
 intptr_t encode_into_list_metrics_response_zeroed(ak_enc_ctx *ctx, const ListMetricsResponse &o, const Tcs &t);
 intptr_t encode_into_list_metrics_response_nobatch(ak_enc_ctx *ctx, const ListMetricsResponse &o, const Tcs &t);
 int32_t decode_with_list_metrics_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out);
-// Decision 11 / plan Options.unknown = retain: the same entry points over
-// the u-groups (encode) and with the unknown-field capture on (decode).
+// Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_list_metrics_response_unk(ak_enc_ctx *ctx, const ListMetricsResponse &o, const Tcs &t);
+// Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
+// in place and must stay alive and unmoved for the call.
+int32_t decode_with_list_metrics_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out, struct ak_dec_ListMetricsResponse_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
 int32_t decode_with_list_metrics_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out);
+int32_t decode_with_list_metrics_response_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out, uint32_t k, uint32_t cap, uint64_t *refills = NULL);
+void unk_opts_list_metrics_response(struct ak_dec_ListMetricsResponse_opts *o, int zero);
+void unk_clear_list_metrics_response(ListMetricsResponse &o, int pos);
 intptr_t encode_into_upload_result_data_message(ak_enc_ctx *ctx, const UploadResultDataMessage &o, const Tcs &t);
 intptr_t encode_into_upload_result_data_message_zeroed(ak_enc_ctx *ctx, const UploadResultDataMessage &o, const Tcs &t);
 intptr_t encode_into_upload_result_data_message_nobatch(ak_enc_ctx *ctx, const UploadResultDataMessage &o, const Tcs &t);
 int32_t decode_with_upload_result_data_message(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out);
-// Decision 11 / plan Options.unknown = retain: the same entry points over
-// the u-groups (encode) and with the unknown-field capture on (decode).
+// Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_upload_result_data_message_unk(ak_enc_ctx *ctx, const UploadResultDataMessage &o, const Tcs &t);
+// Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
+// in place and must stay alive and unmoved for the call.
+int32_t decode_with_upload_result_data_message_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out, struct ak_dec_UploadResultDataMessage_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
 int32_t decode_with_upload_result_data_message_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out);
+int32_t decode_with_upload_result_data_message_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out, uint32_t k, uint32_t cap, uint64_t *refills = NULL);
+void unk_opts_upload_result_data_message(struct ak_dec_UploadResultDataMessage_opts *o, int zero);
+void unk_clear_upload_result_data_message(UploadResultDataMessage &o, int pos);
 intptr_t encode_into_dual_response(ak_enc_ctx *ctx, const DualResponse &o, const Tcs &t);
 intptr_t encode_into_dual_response_zeroed(ak_enc_ctx *ctx, const DualResponse &o, const Tcs &t);
 intptr_t encode_into_dual_response_nobatch(ak_enc_ctx *ctx, const DualResponse &o, const Tcs &t);
 int32_t decode_with_dual_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out);
-// Decision 11 / plan Options.unknown = retain: the same entry points over
-// the u-groups (encode) and with the unknown-field capture on (decode).
+// Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_dual_response_unk(ak_enc_ctx *ctx, const DualResponse &o, const Tcs &t);
+// Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
+// in place and must stay alive and unmoved for the call.
+int32_t decode_with_dual_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out, struct ak_dec_DualResponse_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
 int32_t decode_with_dual_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out);
+int32_t decode_with_dual_response_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out, uint32_t k, uint32_t cap, uint64_t *refills = NULL);
+void unk_opts_dual_response(struct ak_dec_DualResponse_opts *o, int zero);
+void unk_clear_dual_response(DualResponse &o, int pos);
 intptr_t encode_into_chunk_leaf(ak_enc_ctx *ctx, const ChunkLeaf &o, const Tcs &t);
 intptr_t encode_into_chunk_leaf_zeroed(ak_enc_ctx *ctx, const ChunkLeaf &o, const Tcs &t);
 intptr_t encode_into_chunk_leaf_nobatch(ak_enc_ctx *ctx, const ChunkLeaf &o, const Tcs &t);
 int32_t decode_with_chunk_leaf(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkLeaf *out);
-// Decision 11 / plan Options.unknown = retain: the same entry points over
-// the u-groups (encode) and with the unknown-field capture on (decode).
+// Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_chunk_leaf_unk(ak_enc_ctx *ctx, const ChunkLeaf &o, const Tcs &t);
+// Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
+// in place and must stay alive and unmoved for the call.
+int32_t decode_with_chunk_leaf_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkLeaf *out, struct ak_dec_ChunkLeaf_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
 int32_t decode_with_chunk_leaf_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkLeaf *out);
+int32_t decode_with_chunk_leaf_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkLeaf *out, uint32_t k, uint32_t cap, uint64_t *refills = NULL);
+void unk_opts_chunk_leaf(struct ak_dec_ChunkLeaf_opts *o, int zero);
+void unk_clear_chunk_leaf(ChunkLeaf &o, int pos);
 intptr_t encode_into_chunk_inner(ak_enc_ctx *ctx, const ChunkInner &o, const Tcs &t);
 intptr_t encode_into_chunk_inner_zeroed(ak_enc_ctx *ctx, const ChunkInner &o, const Tcs &t);
 intptr_t encode_into_chunk_inner_nobatch(ak_enc_ctx *ctx, const ChunkInner &o, const Tcs &t);
 int32_t decode_with_chunk_inner(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkInner *out);
-// Decision 11 / plan Options.unknown = retain: the same entry points over
-// the u-groups (encode) and with the unknown-field capture on (decode).
+// Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_chunk_inner_unk(ak_enc_ctx *ctx, const ChunkInner &o, const Tcs &t);
+// Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
+// in place and must stay alive and unmoved for the call.
+int32_t decode_with_chunk_inner_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkInner *out, struct ak_dec_ChunkInner_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
 int32_t decode_with_chunk_inner_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkInner *out);
+int32_t decode_with_chunk_inner_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkInner *out, uint32_t k, uint32_t cap, uint64_t *refills = NULL);
+void unk_opts_chunk_inner(struct ak_dec_ChunkInner_opts *o, int zero);
+void unk_clear_chunk_inner(ChunkInner &o, int pos);
 intptr_t encode_into_chunk_element(ak_enc_ctx *ctx, const ChunkElement &o, const Tcs &t);
 intptr_t encode_into_chunk_element_zeroed(ak_enc_ctx *ctx, const ChunkElement &o, const Tcs &t);
 intptr_t encode_into_chunk_element_nobatch(ak_enc_ctx *ctx, const ChunkElement &o, const Tcs &t);
 int32_t decode_with_chunk_element(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkElement *out);
-// Decision 11 / plan Options.unknown = retain: the same entry points over
-// the u-groups (encode) and with the unknown-field capture on (decode).
+// Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_chunk_element_unk(ak_enc_ctx *ctx, const ChunkElement &o, const Tcs &t);
+// Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
+// in place and must stay alive and unmoved for the call.
+int32_t decode_with_chunk_element_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkElement *out, struct ak_dec_ChunkElement_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
 int32_t decode_with_chunk_element_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkElement *out);
+int32_t decode_with_chunk_element_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkElement *out, uint32_t k, uint32_t cap, uint64_t *refills = NULL);
+void unk_opts_chunk_element(struct ak_dec_ChunkElement_opts *o, int zero);
+void unk_clear_chunk_element(ChunkElement &o, int pos);
 intptr_t encode_into_chunked_response(ak_enc_ctx *ctx, const ChunkedResponse &o, const Tcs &t);
 intptr_t encode_into_chunked_response_zeroed(ak_enc_ctx *ctx, const ChunkedResponse &o, const Tcs &t);
 intptr_t encode_into_chunked_response_nobatch(ak_enc_ctx *ctx, const ChunkedResponse &o, const Tcs &t);
 int32_t decode_with_chunked_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkedResponse *out);
-// Decision 11 / plan Options.unknown = retain: the same entry points over
-// the u-groups (encode) and with the unknown-field capture on (decode).
+// Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_chunked_response_unk(ak_enc_ctx *ctx, const ChunkedResponse &o, const Tcs &t);
+// Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
+// in place and must stay alive and unmoved for the call.
+int32_t decode_with_chunked_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkedResponse *out, struct ak_dec_ChunkedResponse_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
 int32_t decode_with_chunked_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkedResponse *out);
+int32_t decode_with_chunked_response_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkedResponse *out, uint32_t k, uint32_t cap, uint64_t *refills = NULL);
+void unk_opts_chunked_response(struct ak_dec_ChunkedResponse_opts *o, int zero);
+void unk_clear_chunked_response(ChunkedResponse &o, int pos);
 intptr_t encode_into_chunked_response_wide(ak_enc_ctx *ctx, const ChunkedResponseWide &o, const Tcs &t);
 intptr_t encode_into_chunked_response_wide_zeroed(ak_enc_ctx *ctx, const ChunkedResponseWide &o, const Tcs &t);
 intptr_t encode_into_chunked_response_wide_nobatch(ak_enc_ctx *ctx, const ChunkedResponseWide &o, const Tcs &t);
 int32_t decode_with_chunked_response_wide(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkedResponseWide *out);
-// Decision 11 / plan Options.unknown = retain: the same entry points over
-// the u-groups (encode) and with the unknown-field capture on (decode).
+// Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_chunked_response_wide_unk(ak_enc_ctx *ctx, const ChunkedResponseWide &o, const Tcs &t);
+// Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
+// in place and must stay alive and unmoved for the call.
+int32_t decode_with_chunked_response_wide_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkedResponseWide *out, struct ak_dec_ChunkedResponseWide_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
 int32_t decode_with_chunked_response_wide_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkedResponseWide *out);
+int32_t decode_with_chunked_response_wide_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkedResponseWide *out, uint32_t k, uint32_t cap, uint64_t *refills = NULL);
+void unk_opts_chunked_response_wide(struct ak_dec_ChunkedResponseWide_opts *o, int zero);
+void unk_clear_chunked_response_wide(ChunkedResponseWide &o, int pos);
 intptr_t encode_into_leaf_element(ak_enc_ctx *ctx, const LeafElement &o, const Tcs &t);
 intptr_t encode_into_leaf_element_zeroed(ak_enc_ctx *ctx, const LeafElement &o, const Tcs &t);
 intptr_t encode_into_leaf_element_nobatch(ak_enc_ctx *ctx, const LeafElement &o, const Tcs &t);
 int32_t decode_with_leaf_element(ak_dec_ctx *ctx, const uint8_t *b, size_t n, LeafElement *out);
-// Decision 11 / plan Options.unknown = retain: the same entry points over
-// the u-groups (encode) and with the unknown-field capture on (decode).
+// Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_leaf_element_unk(ak_enc_ctx *ctx, const LeafElement &o, const Tcs &t);
+// Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
+// in place and must stay alive and unmoved for the call.
+int32_t decode_with_leaf_element_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, LeafElement *out, struct ak_dec_LeafElement_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
 int32_t decode_with_leaf_element_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, LeafElement *out);
+int32_t decode_with_leaf_element_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, LeafElement *out, uint32_t k, uint32_t cap, uint64_t *refills = NULL);
+void unk_opts_leaf_element(struct ak_dec_LeafElement_opts *o, int zero);
+void unk_clear_leaf_element(LeafElement &o, int pos);
 intptr_t encode_into_leaf_response(ak_enc_ctx *ctx, const LeafResponse &o, const Tcs &t);
 intptr_t encode_into_leaf_response_zeroed(ak_enc_ctx *ctx, const LeafResponse &o, const Tcs &t);
 intptr_t encode_into_leaf_response_nobatch(ak_enc_ctx *ctx, const LeafResponse &o, const Tcs &t);
 int32_t decode_with_leaf_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, LeafResponse *out);
-// Decision 11 / plan Options.unknown = retain: the same entry points over
-// the u-groups (encode) and with the unknown-field capture on (decode).
+// Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_leaf_response_unk(ak_enc_ctx *ctx, const LeafResponse &o, const Tcs &t);
+// Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
+// in place and must stay alive and unmoved for the call.
+int32_t decode_with_leaf_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, LeafResponse *out, struct ak_dec_LeafResponse_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
 int32_t decode_with_leaf_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, LeafResponse *out);
+int32_t decode_with_leaf_response_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, LeafResponse *out, uint32_t k, uint32_t cap, uint64_t *refills = NULL);
+void unk_opts_leaf_response(struct ak_dec_LeafResponse_opts *o, int zero);
+void unk_clear_leaf_response(LeafResponse &o, int pos);
 intptr_t encode_into_surrogate(ak_enc_ctx *ctx, const Surrogate &o, const Tcs &t);
 intptr_t encode_into_surrogate_zeroed(ak_enc_ctx *ctx, const Surrogate &o, const Tcs &t);
 intptr_t encode_into_surrogate_nobatch(ak_enc_ctx *ctx, const Surrogate &o, const Tcs &t);
 int32_t decode_with_surrogate(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Surrogate *out);
-// Decision 11 / plan Options.unknown = retain: the same entry points over
-// the u-groups (encode) and with the unknown-field capture on (decode).
+// Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_surrogate_unk(ak_enc_ctx *ctx, const Surrogate &o, const Tcs &t);
+// Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
+// in place and must stay alive and unmoved for the call.
+int32_t decode_with_surrogate_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Surrogate *out, struct ak_dec_Surrogate_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
 int32_t decode_with_surrogate_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Surrogate *out);
+int32_t decode_with_surrogate_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Surrogate *out, uint32_t k, uint32_t cap, uint64_t *refills = NULL);
+void unk_opts_surrogate(struct ak_dec_Surrogate_opts *o, int zero);
+void unk_clear_surrogate(Surrogate &o, int pos);
 intptr_t encode_into_surrogate_inner(ak_enc_ctx *ctx, const SurrogateInner &o, const Tcs &t);
 intptr_t encode_into_surrogate_inner_zeroed(ak_enc_ctx *ctx, const SurrogateInner &o, const Tcs &t);
 intptr_t encode_into_surrogate_inner_nobatch(ak_enc_ctx *ctx, const SurrogateInner &o, const Tcs &t);
 int32_t decode_with_surrogate_inner(ak_dec_ctx *ctx, const uint8_t *b, size_t n, SurrogateInner *out);
-// Decision 11 / plan Options.unknown = retain: the same entry points over
-// the u-groups (encode) and with the unknown-field capture on (decode).
+// Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_surrogate_inner_unk(ak_enc_ctx *ctx, const SurrogateInner &o, const Tcs &t);
+// Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
+// in place and must stay alive and unmoved for the call.
+int32_t decode_with_surrogate_inner_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, SurrogateInner *out, struct ak_dec_SurrogateInner_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
 int32_t decode_with_surrogate_inner_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, SurrogateInner *out);
+int32_t decode_with_surrogate_inner_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, SurrogateInner *out, uint32_t k, uint32_t cap, uint64_t *refills = NULL);
+void unk_opts_surrogate_inner(struct ak_dec_SurrogateInner_opts *o, int zero);
+void unk_clear_surrogate_inner(SurrogateInner &o, int pos);
 intptr_t encode_into_wire_zoo(ak_enc_ctx *ctx, const WireZoo &o, const Tcs &t);
 intptr_t encode_into_wire_zoo_zeroed(ak_enc_ctx *ctx, const WireZoo &o, const Tcs &t);
 intptr_t encode_into_wire_zoo_nobatch(ak_enc_ctx *ctx, const WireZoo &o, const Tcs &t);
 int32_t decode_with_wire_zoo(ak_dec_ctx *ctx, const uint8_t *b, size_t n, WireZoo *out);
-// Decision 11 / plan Options.unknown = retain: the same entry points over
-// the u-groups (encode) and with the unknown-field capture on (decode).
+// Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_wire_zoo_unk(ak_enc_ctx *ctx, const WireZoo &o, const Tcs &t);
+// Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
+// in place and must stay alive and unmoved for the call.
+int32_t decode_with_wire_zoo_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, WireZoo *out, struct ak_dec_WireZoo_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
 int32_t decode_with_wire_zoo_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, WireZoo *out);
+int32_t decode_with_wire_zoo_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, WireZoo *out, uint32_t k, uint32_t cap, uint64_t *refills = NULL);
+void unk_opts_wire_zoo(struct ak_dec_WireZoo_opts *o, int zero);
+void unk_clear_wire_zoo(WireZoo &o, int pos);
+
+// Decision 11, the host side of the unknown-field buffers (see binding.cpp).
+int32_t unk_grow(void *host, int32_t want, uint8_t **dst, int32_t *cap);
+void unk_track(void *p);
+size_t unk_reclaim();
+size_t unk_entry_bytes();
+
+// Decision 11 rule 6: a decode context is BOUND to its root. `DecRoot<T>` names the
+// root's context constructor, reset, options and decodes, for code generic over T.
+template <class T> struct DecRoot;
+template <> struct DecRoot<Timestamp> {
+  typedef struct ak_dec_Timestamp_opts Opts;
+  enum { kPositions = 1, kIndex = 0 };
+  static const char *name() { return "Timestamp"; }
+  static ak_dec_ctx *ctx_new(Opts *o) { return ak_dec_ctx_new_Timestamp(o); }
+  static int32_t reset(ak_dec_ctx *c, Opts *o) { return ak_dec_reset_Timestamp(c, o); }
+  static void opts(Opts *o, int zero) { unk_opts_timestamp(o, zero); }
+  static void clear(Timestamp &v, int pos) { unk_clear_timestamp(v, pos); }
+  static bool is_entry(int pos) {
+    static const bool k[1] = {false};
+    return pos >= 0 && pos < 1 && k[pos];
+  }
+  static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, Timestamp *out) {
+    return decode_with_timestamp(c, b, n, out);
+  }
+  static int32_t decode_opts(ak_dec_ctx *c, const uint8_t *b, size_t n, Timestamp *out, Opts *o) {
+    return decode_with_timestamp_opts(c, b, n, out, o);
+  }
+  static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, Timestamp *out) {
+    return decode_with_timestamp_unk(c, b, n, out);
+  }
+  static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, Timestamp *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+    return decode_with_timestamp_pool(c, b, n, out, k, cap, refills);
+  }
+};
+template <> struct DecRoot<Duration> {
+  typedef struct ak_dec_Duration_opts Opts;
+  enum { kPositions = 1, kIndex = 1 };
+  static const char *name() { return "Duration"; }
+  static ak_dec_ctx *ctx_new(Opts *o) { return ak_dec_ctx_new_Duration(o); }
+  static int32_t reset(ak_dec_ctx *c, Opts *o) { return ak_dec_reset_Duration(c, o); }
+  static void opts(Opts *o, int zero) { unk_opts_duration(o, zero); }
+  static void clear(Duration &v, int pos) { unk_clear_duration(v, pos); }
+  static bool is_entry(int pos) {
+    static const bool k[1] = {false};
+    return pos >= 0 && pos < 1 && k[pos];
+  }
+  static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, Duration *out) {
+    return decode_with_duration(c, b, n, out);
+  }
+  static int32_t decode_opts(ak_dec_ctx *c, const uint8_t *b, size_t n, Duration *out, Opts *o) {
+    return decode_with_duration_opts(c, b, n, out, o);
+  }
+  static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, Duration *out) {
+    return decode_with_duration_unk(c, b, n, out);
+  }
+  static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, Duration *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+    return decode_with_duration_pool(c, b, n, out, k, cap, refills);
+  }
+};
+template <> struct DecRoot<ResultRaw> {
+  typedef struct ak_dec_ResultRaw_opts Opts;
+  enum { kPositions = 3, kIndex = 2 };
+  static const char *name() { return "ResultRaw"; }
+  static ak_dec_ctx *ctx_new(Opts *o) { return ak_dec_ctx_new_ResultRaw(o); }
+  static int32_t reset(ak_dec_ctx *c, Opts *o) { return ak_dec_reset_ResultRaw(c, o); }
+  static void opts(Opts *o, int zero) { unk_opts_result_raw(o, zero); }
+  static void clear(ResultRaw &v, int pos) { unk_clear_result_raw(v, pos); }
+  static bool is_entry(int pos) {
+    static const bool k[3] = {false, false, false};
+    return pos >= 0 && pos < 3 && k[pos];
+  }
+  static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, ResultRaw *out) {
+    return decode_with_result_raw(c, b, n, out);
+  }
+  static int32_t decode_opts(ak_dec_ctx *c, const uint8_t *b, size_t n, ResultRaw *out, Opts *o) {
+    return decode_with_result_raw_opts(c, b, n, out, o);
+  }
+  static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, ResultRaw *out) {
+    return decode_with_result_raw_unk(c, b, n, out);
+  }
+  static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, ResultRaw *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+    return decode_with_result_raw_pool(c, b, n, out, k, cap, refills);
+  }
+};
+template <> struct DecRoot<TaskOptions> {
+  typedef struct ak_dec_TaskOptions_opts Opts;
+  enum { kPositions = 3, kIndex = 3 };
+  static const char *name() { return "TaskOptions"; }
+  static ak_dec_ctx *ctx_new(Opts *o) { return ak_dec_ctx_new_TaskOptions(o); }
+  static int32_t reset(ak_dec_ctx *c, Opts *o) { return ak_dec_reset_TaskOptions(c, o); }
+  static void opts(Opts *o, int zero) { unk_opts_task_options(o, zero); }
+  static void clear(TaskOptions &v, int pos) { unk_clear_task_options(v, pos); }
+  static bool is_entry(int pos) {
+    static const bool k[3] = {false, true, false};
+    return pos >= 0 && pos < 3 && k[pos];
+  }
+  static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, TaskOptions *out) {
+    return decode_with_task_options(c, b, n, out);
+  }
+  static int32_t decode_opts(ak_dec_ctx *c, const uint8_t *b, size_t n, TaskOptions *out, Opts *o) {
+    return decode_with_task_options_opts(c, b, n, out, o);
+  }
+  static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, TaskOptions *out) {
+    return decode_with_task_options_unk(c, b, n, out);
+  }
+  static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, TaskOptions *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+    return decode_with_task_options_pool(c, b, n, out, k, cap, refills);
+  }
+};
+template <> struct DecRoot<TaskOutput> {
+  typedef struct ak_dec_TaskOutput_opts Opts;
+  enum { kPositions = 1, kIndex = 4 };
+  static const char *name() { return "TaskOutput"; }
+  static ak_dec_ctx *ctx_new(Opts *o) { return ak_dec_ctx_new_TaskOutput(o); }
+  static int32_t reset(ak_dec_ctx *c, Opts *o) { return ak_dec_reset_TaskOutput(c, o); }
+  static void opts(Opts *o, int zero) { unk_opts_task_output(o, zero); }
+  static void clear(TaskOutput &v, int pos) { unk_clear_task_output(v, pos); }
+  static bool is_entry(int pos) {
+    static const bool k[1] = {false};
+    return pos >= 0 && pos < 1 && k[pos];
+  }
+  static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, TaskOutput *out) {
+    return decode_with_task_output(c, b, n, out);
+  }
+  static int32_t decode_opts(ak_dec_ctx *c, const uint8_t *b, size_t n, TaskOutput *out, Opts *o) {
+    return decode_with_task_output_opts(c, b, n, out, o);
+  }
+  static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, TaskOutput *out) {
+    return decode_with_task_output_unk(c, b, n, out);
+  }
+  static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, TaskOutput *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+    return decode_with_task_output_pool(c, b, n, out, k, cap, refills);
+  }
+};
+template <> struct DecRoot<TaskDetailed> {
+  typedef struct ak_dec_TaskDetailed_opts Opts;
+  enum { kPositions = 17, kIndex = 5 };
+  static const char *name() { return "TaskDetailed"; }
+  static ak_dec_ctx *ctx_new(Opts *o) { return ak_dec_ctx_new_TaskDetailed(o); }
+  static int32_t reset(ak_dec_ctx *c, Opts *o) { return ak_dec_reset_TaskDetailed(c, o); }
+  static void opts(Opts *o, int zero) { unk_opts_task_detailed(o, zero); }
+  static void clear(TaskDetailed &v, int pos) { unk_clear_task_detailed(v, pos); }
+  static bool is_entry(int pos) {
+    static const bool k[17] = {false, false, true, false, false, false, false, false, false, false, false, false, false, false, false, false, false};
+    return pos >= 0 && pos < 17 && k[pos];
+  }
+  static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, TaskDetailed *out) {
+    return decode_with_task_detailed(c, b, n, out);
+  }
+  static int32_t decode_opts(ak_dec_ctx *c, const uint8_t *b, size_t n, TaskDetailed *out, Opts *o) {
+    return decode_with_task_detailed_opts(c, b, n, out, o);
+  }
+  static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, TaskDetailed *out) {
+    return decode_with_task_detailed_unk(c, b, n, out);
+  }
+  static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, TaskDetailed *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+    return decode_with_task_detailed_pool(c, b, n, out, k, cap, refills);
+  }
+};
+template <> struct DecRoot<TaskSummary> {
+  typedef struct ak_dec_TaskSummary_opts Opts;
+  enum { kPositions = 5, kIndex = 6 };
+  static const char *name() { return "TaskSummary"; }
+  static ak_dec_ctx *ctx_new(Opts *o) { return ak_dec_ctx_new_TaskSummary(o); }
+  static int32_t reset(ak_dec_ctx *c, Opts *o) { return ak_dec_reset_TaskSummary(c, o); }
+  static void opts(Opts *o, int zero) { unk_opts_task_summary(o, zero); }
+  static void clear(TaskSummary &v, int pos) { unk_clear_task_summary(v, pos); }
+  static bool is_entry(int pos) {
+    static const bool k[5] = {false, false, true, false, false};
+    return pos >= 0 && pos < 5 && k[pos];
+  }
+  static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, TaskSummary *out) {
+    return decode_with_task_summary(c, b, n, out);
+  }
+  static int32_t decode_opts(ak_dec_ctx *c, const uint8_t *b, size_t n, TaskSummary *out, Opts *o) {
+    return decode_with_task_summary_opts(c, b, n, out, o);
+  }
+  static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, TaskSummary *out) {
+    return decode_with_task_summary_unk(c, b, n, out);
+  }
+  static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, TaskSummary *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+    return decode_with_task_summary_pool(c, b, n, out, k, cap, refills);
+  }
+};
+template <> struct DecRoot<Probe> {
+  typedef struct ak_dec_Probe_opts Opts;
+  enum { kPositions = 2, kIndex = 7 };
+  static const char *name() { return "Probe"; }
+  static ak_dec_ctx *ctx_new(Opts *o) { return ak_dec_ctx_new_Probe(o); }
+  static int32_t reset(ak_dec_ctx *c, Opts *o) { return ak_dec_reset_Probe(c, o); }
+  static void opts(Opts *o, int zero) { unk_opts_probe(o, zero); }
+  static void clear(Probe &v, int pos) { unk_clear_probe(v, pos); }
+  static bool is_entry(int pos) {
+    static const bool k[2] = {false, false};
+    return pos >= 0 && pos < 2 && k[pos];
+  }
+  static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, Probe *out) {
+    return decode_with_probe(c, b, n, out);
+  }
+  static int32_t decode_opts(ak_dec_ctx *c, const uint8_t *b, size_t n, Probe *out, Opts *o) {
+    return decode_with_probe_opts(c, b, n, out, o);
+  }
+  static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, Probe *out) {
+    return decode_with_probe_unk(c, b, n, out);
+  }
+  static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, Probe *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+    return decode_with_probe_pool(c, b, n, out, k, cap, refills);
+  }
+};
+template <> struct DecRoot<Empty> {
+  typedef struct ak_dec_Empty_opts Opts;
+  enum { kPositions = 1, kIndex = 8 };
+  static const char *name() { return "Empty"; }
+  static ak_dec_ctx *ctx_new(Opts *o) { return ak_dec_ctx_new_Empty(o); }
+  static int32_t reset(ak_dec_ctx *c, Opts *o) { return ak_dec_reset_Empty(c, o); }
+  static void opts(Opts *o, int zero) { unk_opts_empty(o, zero); }
+  static void clear(Empty &v, int pos) { unk_clear_empty(v, pos); }
+  static bool is_entry(int pos) {
+    static const bool k[1] = {false};
+    return pos >= 0 && pos < 1 && k[pos];
+  }
+  static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, Empty *out) {
+    return decode_with_empty(c, b, n, out);
+  }
+  static int32_t decode_opts(ak_dec_ctx *c, const uint8_t *b, size_t n, Empty *out, Opts *o) {
+    return decode_with_empty_opts(c, b, n, out, o);
+  }
+  static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, Empty *out) {
+    return decode_with_empty_unk(c, b, n, out);
+  }
+  static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, Empty *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+    return decode_with_empty_pool(c, b, n, out, k, cap, refills);
+  }
+};
+template <> struct DecRoot<UploadResultData> {
+  typedef struct ak_dec_UploadResultData_opts Opts;
+  enum { kPositions = 1, kIndex = 9 };
+  static const char *name() { return "UploadResultData"; }
+  static ak_dec_ctx *ctx_new(Opts *o) { return ak_dec_ctx_new_UploadResultData(o); }
+  static int32_t reset(ak_dec_ctx *c, Opts *o) { return ak_dec_reset_UploadResultData(c, o); }
+  static void opts(Opts *o, int zero) { unk_opts_upload_result_data(o, zero); }
+  static void clear(UploadResultData &v, int pos) { unk_clear_upload_result_data(v, pos); }
+  static bool is_entry(int pos) {
+    static const bool k[1] = {false};
+    return pos >= 0 && pos < 1 && k[pos];
+  }
+  static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, UploadResultData *out) {
+    return decode_with_upload_result_data(c, b, n, out);
+  }
+  static int32_t decode_opts(ak_dec_ctx *c, const uint8_t *b, size_t n, UploadResultData *out, Opts *o) {
+    return decode_with_upload_result_data_opts(c, b, n, out, o);
+  }
+  static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, UploadResultData *out) {
+    return decode_with_upload_result_data_unk(c, b, n, out);
+  }
+  static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, UploadResultData *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+    return decode_with_upload_result_data_pool(c, b, n, out, k, cap, refills);
+  }
+};
+template <> struct DecRoot<MetricsBatch> {
+  typedef struct ak_dec_MetricsBatch_opts Opts;
+  enum { kPositions = 1, kIndex = 10 };
+  static const char *name() { return "MetricsBatch"; }
+  static ak_dec_ctx *ctx_new(Opts *o) { return ak_dec_ctx_new_MetricsBatch(o); }
+  static int32_t reset(ak_dec_ctx *c, Opts *o) { return ak_dec_reset_MetricsBatch(c, o); }
+  static void opts(Opts *o, int zero) { unk_opts_metrics_batch(o, zero); }
+  static void clear(MetricsBatch &v, int pos) { unk_clear_metrics_batch(v, pos); }
+  static bool is_entry(int pos) {
+    static const bool k[1] = {false};
+    return pos >= 0 && pos < 1 && k[pos];
+  }
+  static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, MetricsBatch *out) {
+    return decode_with_metrics_batch(c, b, n, out);
+  }
+  static int32_t decode_opts(ak_dec_ctx *c, const uint8_t *b, size_t n, MetricsBatch *out, Opts *o) {
+    return decode_with_metrics_batch_opts(c, b, n, out, o);
+  }
+  static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, MetricsBatch *out) {
+    return decode_with_metrics_batch_unk(c, b, n, out);
+  }
+  static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, MetricsBatch *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+    return decode_with_metrics_batch_pool(c, b, n, out, k, cap, refills);
+  }
+};
+template <> struct DecRoot<Pair> {
+  typedef struct ak_dec_Pair_opts Opts;
+  enum { kPositions = 1, kIndex = 11 };
+  static const char *name() { return "Pair"; }
+  static ak_dec_ctx *ctx_new(Opts *o) { return ak_dec_ctx_new_Pair(o); }
+  static int32_t reset(ak_dec_ctx *c, Opts *o) { return ak_dec_reset_Pair(c, o); }
+  static void opts(Opts *o, int zero) { unk_opts_pair(o, zero); }
+  static void clear(Pair &v, int pos) { unk_clear_pair(v, pos); }
+  static bool is_entry(int pos) {
+    static const bool k[1] = {false};
+    return pos >= 0 && pos < 1 && k[pos];
+  }
+  static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, Pair *out) {
+    return decode_with_pair(c, b, n, out);
+  }
+  static int32_t decode_opts(ak_dec_ctx *c, const uint8_t *b, size_t n, Pair *out, Opts *o) {
+    return decode_with_pair_opts(c, b, n, out, o);
+  }
+  static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, Pair *out) {
+    return decode_with_pair_unk(c, b, n, out);
+  }
+  static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, Pair *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+    return decode_with_pair_pool(c, b, n, out, k, cap, refills);
+  }
+};
+template <> struct DecRoot<ListResultsResponse> {
+  typedef struct ak_dec_ListResultsResponse_opts Opts;
+  enum { kPositions = 4, kIndex = 12 };
+  static const char *name() { return "ListResultsResponse"; }
+  static ak_dec_ctx *ctx_new(Opts *o) { return ak_dec_ctx_new_ListResultsResponse(o); }
+  static int32_t reset(ak_dec_ctx *c, Opts *o) { return ak_dec_reset_ListResultsResponse(c, o); }
+  static void opts(Opts *o, int zero) { unk_opts_list_results_response(o, zero); }
+  static void clear(ListResultsResponse &v, int pos) { unk_clear_list_results_response(v, pos); }
+  static bool is_entry(int pos) {
+    static const bool k[4] = {false, false, false, false};
+    return pos >= 0 && pos < 4 && k[pos];
+  }
+  static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, ListResultsResponse *out) {
+    return decode_with_list_results_response(c, b, n, out);
+  }
+  static int32_t decode_opts(ak_dec_ctx *c, const uint8_t *b, size_t n, ListResultsResponse *out, Opts *o) {
+    return decode_with_list_results_response_opts(c, b, n, out, o);
+  }
+  static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, ListResultsResponse *out) {
+    return decode_with_list_results_response_unk(c, b, n, out);
+  }
+  static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, ListResultsResponse *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+    return decode_with_list_results_response_pool(c, b, n, out, k, cap, refills);
+  }
+};
+template <> struct DecRoot<ListTasksDetailedResponse> {
+  typedef struct ak_dec_ListTasksDetailedResponse_opts Opts;
+  enum { kPositions = 18, kIndex = 13 };
+  static const char *name() { return "ListTasksDetailedResponse"; }
+  static ak_dec_ctx *ctx_new(Opts *o) { return ak_dec_ctx_new_ListTasksDetailedResponse(o); }
+  static int32_t reset(ak_dec_ctx *c, Opts *o) { return ak_dec_reset_ListTasksDetailedResponse(c, o); }
+  static void opts(Opts *o, int zero) { unk_opts_list_tasks_detailed_response(o, zero); }
+  static void clear(ListTasksDetailedResponse &v, int pos) { unk_clear_list_tasks_detailed_response(v, pos); }
+  static bool is_entry(int pos) {
+    static const bool k[18] = {false, false, false, true, false, false, false, false, false, false, false, false, false, false, false, false, false, false};
+    return pos >= 0 && pos < 18 && k[pos];
+  }
+  static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, ListTasksDetailedResponse *out) {
+    return decode_with_list_tasks_detailed_response(c, b, n, out);
+  }
+  static int32_t decode_opts(ak_dec_ctx *c, const uint8_t *b, size_t n, ListTasksDetailedResponse *out, Opts *o) {
+    return decode_with_list_tasks_detailed_response_opts(c, b, n, out, o);
+  }
+  static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, ListTasksDetailedResponse *out) {
+    return decode_with_list_tasks_detailed_response_unk(c, b, n, out);
+  }
+  static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, ListTasksDetailedResponse *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+    return decode_with_list_tasks_detailed_response_pool(c, b, n, out, k, cap, refills);
+  }
+};
+template <> struct DecRoot<ListTaskSummaryResponse> {
+  typedef struct ak_dec_ListTaskSummaryResponse_opts Opts;
+  enum { kPositions = 6, kIndex = 14 };
+  static const char *name() { return "ListTaskSummaryResponse"; }
+  static ak_dec_ctx *ctx_new(Opts *o) { return ak_dec_ctx_new_ListTaskSummaryResponse(o); }
+  static int32_t reset(ak_dec_ctx *c, Opts *o) { return ak_dec_reset_ListTaskSummaryResponse(c, o); }
+  static void opts(Opts *o, int zero) { unk_opts_list_task_summary_response(o, zero); }
+  static void clear(ListTaskSummaryResponse &v, int pos) { unk_clear_list_task_summary_response(v, pos); }
+  static bool is_entry(int pos) {
+    static const bool k[6] = {false, false, false, true, false, false};
+    return pos >= 0 && pos < 6 && k[pos];
+  }
+  static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, ListTaskSummaryResponse *out) {
+    return decode_with_list_task_summary_response(c, b, n, out);
+  }
+  static int32_t decode_opts(ak_dec_ctx *c, const uint8_t *b, size_t n, ListTaskSummaryResponse *out, Opts *o) {
+    return decode_with_list_task_summary_response_opts(c, b, n, out, o);
+  }
+  static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, ListTaskSummaryResponse *out) {
+    return decode_with_list_task_summary_response_unk(c, b, n, out);
+  }
+  static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, ListTaskSummaryResponse *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+    return decode_with_list_task_summary_response_pool(c, b, n, out, k, cap, refills);
+  }
+};
+template <> struct DecRoot<ListProbeResponse> {
+  typedef struct ak_dec_ListProbeResponse_opts Opts;
+  enum { kPositions = 3, kIndex = 15 };
+  static const char *name() { return "ListProbeResponse"; }
+  static ak_dec_ctx *ctx_new(Opts *o) { return ak_dec_ctx_new_ListProbeResponse(o); }
+  static int32_t reset(ak_dec_ctx *c, Opts *o) { return ak_dec_reset_ListProbeResponse(c, o); }
+  static void opts(Opts *o, int zero) { unk_opts_list_probe_response(o, zero); }
+  static void clear(ListProbeResponse &v, int pos) { unk_clear_list_probe_response(v, pos); }
+  static bool is_entry(int pos) {
+    static const bool k[3] = {false, false, false};
+    return pos >= 0 && pos < 3 && k[pos];
+  }
+  static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, ListProbeResponse *out) {
+    return decode_with_list_probe_response(c, b, n, out);
+  }
+  static int32_t decode_opts(ak_dec_ctx *c, const uint8_t *b, size_t n, ListProbeResponse *out, Opts *o) {
+    return decode_with_list_probe_response_opts(c, b, n, out, o);
+  }
+  static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, ListProbeResponse *out) {
+    return decode_with_list_probe_response_unk(c, b, n, out);
+  }
+  static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, ListProbeResponse *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+    return decode_with_list_probe_response_pool(c, b, n, out, k, cap, refills);
+  }
+};
+template <> struct DecRoot<ListMetricsResponse> {
+  typedef struct ak_dec_ListMetricsResponse_opts Opts;
+  enum { kPositions = 2, kIndex = 16 };
+  static const char *name() { return "ListMetricsResponse"; }
+  static ak_dec_ctx *ctx_new(Opts *o) { return ak_dec_ctx_new_ListMetricsResponse(o); }
+  static int32_t reset(ak_dec_ctx *c, Opts *o) { return ak_dec_reset_ListMetricsResponse(c, o); }
+  static void opts(Opts *o, int zero) { unk_opts_list_metrics_response(o, zero); }
+  static void clear(ListMetricsResponse &v, int pos) { unk_clear_list_metrics_response(v, pos); }
+  static bool is_entry(int pos) {
+    static const bool k[2] = {false, false};
+    return pos >= 0 && pos < 2 && k[pos];
+  }
+  static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, ListMetricsResponse *out) {
+    return decode_with_list_metrics_response(c, b, n, out);
+  }
+  static int32_t decode_opts(ak_dec_ctx *c, const uint8_t *b, size_t n, ListMetricsResponse *out, Opts *o) {
+    return decode_with_list_metrics_response_opts(c, b, n, out, o);
+  }
+  static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, ListMetricsResponse *out) {
+    return decode_with_list_metrics_response_unk(c, b, n, out);
+  }
+  static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, ListMetricsResponse *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+    return decode_with_list_metrics_response_pool(c, b, n, out, k, cap, refills);
+  }
+};
+template <> struct DecRoot<UploadResultDataMessage> {
+  typedef struct ak_dec_UploadResultDataMessage_opts Opts;
+  enum { kPositions = 2, kIndex = 17 };
+  static const char *name() { return "UploadResultDataMessage"; }
+  static ak_dec_ctx *ctx_new(Opts *o) { return ak_dec_ctx_new_UploadResultDataMessage(o); }
+  static int32_t reset(ak_dec_ctx *c, Opts *o) { return ak_dec_reset_UploadResultDataMessage(c, o); }
+  static void opts(Opts *o, int zero) { unk_opts_upload_result_data_message(o, zero); }
+  static void clear(UploadResultDataMessage &v, int pos) { unk_clear_upload_result_data_message(v, pos); }
+  static bool is_entry(int pos) {
+    static const bool k[2] = {false, false};
+    return pos >= 0 && pos < 2 && k[pos];
+  }
+  static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, UploadResultDataMessage *out) {
+    return decode_with_upload_result_data_message(c, b, n, out);
+  }
+  static int32_t decode_opts(ak_dec_ctx *c, const uint8_t *b, size_t n, UploadResultDataMessage *out, Opts *o) {
+    return decode_with_upload_result_data_message_opts(c, b, n, out, o);
+  }
+  static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, UploadResultDataMessage *out) {
+    return decode_with_upload_result_data_message_unk(c, b, n, out);
+  }
+  static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, UploadResultDataMessage *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+    return decode_with_upload_result_data_message_pool(c, b, n, out, k, cap, refills);
+  }
+};
+template <> struct DecRoot<DualResponse> {
+  typedef struct ak_dec_DualResponse_opts Opts;
+  enum { kPositions = 3, kIndex = 18 };
+  static const char *name() { return "DualResponse"; }
+  static ak_dec_ctx *ctx_new(Opts *o) { return ak_dec_ctx_new_DualResponse(o); }
+  static int32_t reset(ak_dec_ctx *c, Opts *o) { return ak_dec_reset_DualResponse(c, o); }
+  static void opts(Opts *o, int zero) { unk_opts_dual_response(o, zero); }
+  static void clear(DualResponse &v, int pos) { unk_clear_dual_response(v, pos); }
+  static bool is_entry(int pos) {
+    static const bool k[3] = {false, false, false};
+    return pos >= 0 && pos < 3 && k[pos];
+  }
+  static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, DualResponse *out) {
+    return decode_with_dual_response(c, b, n, out);
+  }
+  static int32_t decode_opts(ak_dec_ctx *c, const uint8_t *b, size_t n, DualResponse *out, Opts *o) {
+    return decode_with_dual_response_opts(c, b, n, out, o);
+  }
+  static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, DualResponse *out) {
+    return decode_with_dual_response_unk(c, b, n, out);
+  }
+  static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, DualResponse *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+    return decode_with_dual_response_pool(c, b, n, out, k, cap, refills);
+  }
+};
+template <> struct DecRoot<ChunkLeaf> {
+  typedef struct ak_dec_ChunkLeaf_opts Opts;
+  enum { kPositions = 1, kIndex = 19 };
+  static const char *name() { return "ChunkLeaf"; }
+  static ak_dec_ctx *ctx_new(Opts *o) { return ak_dec_ctx_new_ChunkLeaf(o); }
+  static int32_t reset(ak_dec_ctx *c, Opts *o) { return ak_dec_reset_ChunkLeaf(c, o); }
+  static void opts(Opts *o, int zero) { unk_opts_chunk_leaf(o, zero); }
+  static void clear(ChunkLeaf &v, int pos) { unk_clear_chunk_leaf(v, pos); }
+  static bool is_entry(int pos) {
+    static const bool k[1] = {false};
+    return pos >= 0 && pos < 1 && k[pos];
+  }
+  static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkLeaf *out) {
+    return decode_with_chunk_leaf(c, b, n, out);
+  }
+  static int32_t decode_opts(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkLeaf *out, Opts *o) {
+    return decode_with_chunk_leaf_opts(c, b, n, out, o);
+  }
+  static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkLeaf *out) {
+    return decode_with_chunk_leaf_unk(c, b, n, out);
+  }
+  static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkLeaf *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+    return decode_with_chunk_leaf_pool(c, b, n, out, k, cap, refills);
+  }
+};
+template <> struct DecRoot<ChunkInner> {
+  typedef struct ak_dec_ChunkInner_opts Opts;
+  enum { kPositions = 2, kIndex = 20 };
+  static const char *name() { return "ChunkInner"; }
+  static ak_dec_ctx *ctx_new(Opts *o) { return ak_dec_ctx_new_ChunkInner(o); }
+  static int32_t reset(ak_dec_ctx *c, Opts *o) { return ak_dec_reset_ChunkInner(c, o); }
+  static void opts(Opts *o, int zero) { unk_opts_chunk_inner(o, zero); }
+  static void clear(ChunkInner &v, int pos) { unk_clear_chunk_inner(v, pos); }
+  static bool is_entry(int pos) {
+    static const bool k[2] = {false, false};
+    return pos >= 0 && pos < 2 && k[pos];
+  }
+  static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkInner *out) {
+    return decode_with_chunk_inner(c, b, n, out);
+  }
+  static int32_t decode_opts(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkInner *out, Opts *o) {
+    return decode_with_chunk_inner_opts(c, b, n, out, o);
+  }
+  static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkInner *out) {
+    return decode_with_chunk_inner_unk(c, b, n, out);
+  }
+  static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkInner *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+    return decode_with_chunk_inner_pool(c, b, n, out, k, cap, refills);
+  }
+};
+template <> struct DecRoot<ChunkElement> {
+  typedef struct ak_dec_ChunkElement_opts Opts;
+  enum { kPositions = 4, kIndex = 21 };
+  static const char *name() { return "ChunkElement"; }
+  static ak_dec_ctx *ctx_new(Opts *o) { return ak_dec_ctx_new_ChunkElement(o); }
+  static int32_t reset(ak_dec_ctx *c, Opts *o) { return ak_dec_reset_ChunkElement(c, o); }
+  static void opts(Opts *o, int zero) { unk_opts_chunk_element(o, zero); }
+  static void clear(ChunkElement &v, int pos) { unk_clear_chunk_element(v, pos); }
+  static bool is_entry(int pos) {
+    static const bool k[4] = {false, true, false, false};
+    return pos >= 0 && pos < 4 && k[pos];
+  }
+  static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkElement *out) {
+    return decode_with_chunk_element(c, b, n, out);
+  }
+  static int32_t decode_opts(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkElement *out, Opts *o) {
+    return decode_with_chunk_element_opts(c, b, n, out, o);
+  }
+  static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkElement *out) {
+    return decode_with_chunk_element_unk(c, b, n, out);
+  }
+  static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkElement *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+    return decode_with_chunk_element_pool(c, b, n, out, k, cap, refills);
+  }
+};
+template <> struct DecRoot<ChunkedResponse> {
+  typedef struct ak_dec_ChunkedResponse_opts Opts;
+  enum { kPositions = 5, kIndex = 22 };
+  static const char *name() { return "ChunkedResponse"; }
+  static ak_dec_ctx *ctx_new(Opts *o) { return ak_dec_ctx_new_ChunkedResponse(o); }
+  static int32_t reset(ak_dec_ctx *c, Opts *o) { return ak_dec_reset_ChunkedResponse(c, o); }
+  static void opts(Opts *o, int zero) { unk_opts_chunked_response(o, zero); }
+  static void clear(ChunkedResponse &v, int pos) { unk_clear_chunked_response(v, pos); }
+  static bool is_entry(int pos) {
+    static const bool k[5] = {false, false, true, false, false};
+    return pos >= 0 && pos < 5 && k[pos];
+  }
+  static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkedResponse *out) {
+    return decode_with_chunked_response(c, b, n, out);
+  }
+  static int32_t decode_opts(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkedResponse *out, Opts *o) {
+    return decode_with_chunked_response_opts(c, b, n, out, o);
+  }
+  static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkedResponse *out) {
+    return decode_with_chunked_response_unk(c, b, n, out);
+  }
+  static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkedResponse *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+    return decode_with_chunked_response_pool(c, b, n, out, k, cap, refills);
+  }
+};
+template <> struct DecRoot<ChunkedResponseWide> {
+  typedef struct ak_dec_ChunkedResponseWide_opts Opts;
+  enum { kPositions = 5, kIndex = 23 };
+  static const char *name() { return "ChunkedResponseWide"; }
+  static ak_dec_ctx *ctx_new(Opts *o) { return ak_dec_ctx_new_ChunkedResponseWide(o); }
+  static int32_t reset(ak_dec_ctx *c, Opts *o) { return ak_dec_reset_ChunkedResponseWide(c, o); }
+  static void opts(Opts *o, int zero) { unk_opts_chunked_response_wide(o, zero); }
+  static void clear(ChunkedResponseWide &v, int pos) { unk_clear_chunked_response_wide(v, pos); }
+  static bool is_entry(int pos) {
+    static const bool k[5] = {false, false, true, false, false};
+    return pos >= 0 && pos < 5 && k[pos];
+  }
+  static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkedResponseWide *out) {
+    return decode_with_chunked_response_wide(c, b, n, out);
+  }
+  static int32_t decode_opts(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkedResponseWide *out, Opts *o) {
+    return decode_with_chunked_response_wide_opts(c, b, n, out, o);
+  }
+  static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkedResponseWide *out) {
+    return decode_with_chunked_response_wide_unk(c, b, n, out);
+  }
+  static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkedResponseWide *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+    return decode_with_chunked_response_wide_pool(c, b, n, out, k, cap, refills);
+  }
+};
+template <> struct DecRoot<LeafElement> {
+  typedef struct ak_dec_LeafElement_opts Opts;
+  enum { kPositions = 2, kIndex = 24 };
+  static const char *name() { return "LeafElement"; }
+  static ak_dec_ctx *ctx_new(Opts *o) { return ak_dec_ctx_new_LeafElement(o); }
+  static int32_t reset(ak_dec_ctx *c, Opts *o) { return ak_dec_reset_LeafElement(c, o); }
+  static void opts(Opts *o, int zero) { unk_opts_leaf_element(o, zero); }
+  static void clear(LeafElement &v, int pos) { unk_clear_leaf_element(v, pos); }
+  static bool is_entry(int pos) {
+    static const bool k[2] = {false, false};
+    return pos >= 0 && pos < 2 && k[pos];
+  }
+  static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, LeafElement *out) {
+    return decode_with_leaf_element(c, b, n, out);
+  }
+  static int32_t decode_opts(ak_dec_ctx *c, const uint8_t *b, size_t n, LeafElement *out, Opts *o) {
+    return decode_with_leaf_element_opts(c, b, n, out, o);
+  }
+  static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, LeafElement *out) {
+    return decode_with_leaf_element_unk(c, b, n, out);
+  }
+  static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, LeafElement *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+    return decode_with_leaf_element_pool(c, b, n, out, k, cap, refills);
+  }
+};
+template <> struct DecRoot<LeafResponse> {
+  typedef struct ak_dec_LeafResponse_opts Opts;
+  enum { kPositions = 3, kIndex = 25 };
+  static const char *name() { return "LeafResponse"; }
+  static ak_dec_ctx *ctx_new(Opts *o) { return ak_dec_ctx_new_LeafResponse(o); }
+  static int32_t reset(ak_dec_ctx *c, Opts *o) { return ak_dec_reset_LeafResponse(c, o); }
+  static void opts(Opts *o, int zero) { unk_opts_leaf_response(o, zero); }
+  static void clear(LeafResponse &v, int pos) { unk_clear_leaf_response(v, pos); }
+  static bool is_entry(int pos) {
+    static const bool k[3] = {false, false, false};
+    return pos >= 0 && pos < 3 && k[pos];
+  }
+  static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, LeafResponse *out) {
+    return decode_with_leaf_response(c, b, n, out);
+  }
+  static int32_t decode_opts(ak_dec_ctx *c, const uint8_t *b, size_t n, LeafResponse *out, Opts *o) {
+    return decode_with_leaf_response_opts(c, b, n, out, o);
+  }
+  static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, LeafResponse *out) {
+    return decode_with_leaf_response_unk(c, b, n, out);
+  }
+  static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, LeafResponse *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+    return decode_with_leaf_response_pool(c, b, n, out, k, cap, refills);
+  }
+};
+template <> struct DecRoot<Surrogate> {
+  typedef struct ak_dec_Surrogate_opts Opts;
+  enum { kPositions = 3, kIndex = 26 };
+  static const char *name() { return "Surrogate"; }
+  static ak_dec_ctx *ctx_new(Opts *o) { return ak_dec_ctx_new_Surrogate(o); }
+  static int32_t reset(ak_dec_ctx *c, Opts *o) { return ak_dec_reset_Surrogate(c, o); }
+  static void opts(Opts *o, int zero) { unk_opts_surrogate(o, zero); }
+  static void clear(Surrogate &v, int pos) { unk_clear_surrogate(v, pos); }
+  static bool is_entry(int pos) {
+    static const bool k[3] = {false, false, true};
+    return pos >= 0 && pos < 3 && k[pos];
+  }
+  static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, Surrogate *out) {
+    return decode_with_surrogate(c, b, n, out);
+  }
+  static int32_t decode_opts(ak_dec_ctx *c, const uint8_t *b, size_t n, Surrogate *out, Opts *o) {
+    return decode_with_surrogate_opts(c, b, n, out, o);
+  }
+  static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, Surrogate *out) {
+    return decode_with_surrogate_unk(c, b, n, out);
+  }
+  static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, Surrogate *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+    return decode_with_surrogate_pool(c, b, n, out, k, cap, refills);
+  }
+};
+template <> struct DecRoot<SurrogateInner> {
+  typedef struct ak_dec_SurrogateInner_opts Opts;
+  enum { kPositions = 1, kIndex = 27 };
+  static const char *name() { return "SurrogateInner"; }
+  static ak_dec_ctx *ctx_new(Opts *o) { return ak_dec_ctx_new_SurrogateInner(o); }
+  static int32_t reset(ak_dec_ctx *c, Opts *o) { return ak_dec_reset_SurrogateInner(c, o); }
+  static void opts(Opts *o, int zero) { unk_opts_surrogate_inner(o, zero); }
+  static void clear(SurrogateInner &v, int pos) { unk_clear_surrogate_inner(v, pos); }
+  static bool is_entry(int pos) {
+    static const bool k[1] = {false};
+    return pos >= 0 && pos < 1 && k[pos];
+  }
+  static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, SurrogateInner *out) {
+    return decode_with_surrogate_inner(c, b, n, out);
+  }
+  static int32_t decode_opts(ak_dec_ctx *c, const uint8_t *b, size_t n, SurrogateInner *out, Opts *o) {
+    return decode_with_surrogate_inner_opts(c, b, n, out, o);
+  }
+  static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, SurrogateInner *out) {
+    return decode_with_surrogate_inner_unk(c, b, n, out);
+  }
+  static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, SurrogateInner *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+    return decode_with_surrogate_inner_pool(c, b, n, out, k, cap, refills);
+  }
+};
+template <> struct DecRoot<WireZoo> {
+  typedef struct ak_dec_WireZoo_opts Opts;
+  enum { kPositions = 2, kIndex = 28 };
+  static const char *name() { return "WireZoo"; }
+  static ak_dec_ctx *ctx_new(Opts *o) { return ak_dec_ctx_new_WireZoo(o); }
+  static int32_t reset(ak_dec_ctx *c, Opts *o) { return ak_dec_reset_WireZoo(c, o); }
+  static void opts(Opts *o, int zero) { unk_opts_wire_zoo(o, zero); }
+  static void clear(WireZoo &v, int pos) { unk_clear_wire_zoo(v, pos); }
+  static bool is_entry(int pos) {
+    static const bool k[2] = {false, false};
+    return pos >= 0 && pos < 2 && k[pos];
+  }
+  static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, WireZoo *out) {
+    return decode_with_wire_zoo(c, b, n, out);
+  }
+  static int32_t decode_opts(ak_dec_ctx *c, const uint8_t *b, size_t n, WireZoo *out, Opts *o) {
+    return decode_with_wire_zoo_opts(c, b, n, out, o);
+  }
+  static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, WireZoo *out) {
+    return decode_with_wire_zoo_unk(c, b, n, out);
+  }
+  static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, WireZoo *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+    return decode_with_wire_zoo_pool(c, b, n, out, k, cap, refills);
+  }
+};
+// A context bound to T's root, in drop mode (NULL options).
+template <class T> inline ak_dec_ctx *dec_ctx_new_for() { return DecRoot<T>::ctx_new(NULL); }
+
+// One bound context per root, in drop mode, for a host that decodes several roots
+// (one set per thread: a context is not shared between threads).
+struct DecCtxs {
+  ak_dec_ctx *c[29];
+  DecCtxs() {
+    c[0] = ak_dec_ctx_new_Timestamp(NULL);
+    c[1] = ak_dec_ctx_new_Duration(NULL);
+    c[2] = ak_dec_ctx_new_ResultRaw(NULL);
+    c[3] = ak_dec_ctx_new_TaskOptions(NULL);
+    c[4] = ak_dec_ctx_new_TaskOutput(NULL);
+    c[5] = ak_dec_ctx_new_TaskDetailed(NULL);
+    c[6] = ak_dec_ctx_new_TaskSummary(NULL);
+    c[7] = ak_dec_ctx_new_Probe(NULL);
+    c[8] = ak_dec_ctx_new_Empty(NULL);
+    c[9] = ak_dec_ctx_new_UploadResultData(NULL);
+    c[10] = ak_dec_ctx_new_MetricsBatch(NULL);
+    c[11] = ak_dec_ctx_new_Pair(NULL);
+    c[12] = ak_dec_ctx_new_ListResultsResponse(NULL);
+    c[13] = ak_dec_ctx_new_ListTasksDetailedResponse(NULL);
+    c[14] = ak_dec_ctx_new_ListTaskSummaryResponse(NULL);
+    c[15] = ak_dec_ctx_new_ListProbeResponse(NULL);
+    c[16] = ak_dec_ctx_new_ListMetricsResponse(NULL);
+    c[17] = ak_dec_ctx_new_UploadResultDataMessage(NULL);
+    c[18] = ak_dec_ctx_new_DualResponse(NULL);
+    c[19] = ak_dec_ctx_new_ChunkLeaf(NULL);
+    c[20] = ak_dec_ctx_new_ChunkInner(NULL);
+    c[21] = ak_dec_ctx_new_ChunkElement(NULL);
+    c[22] = ak_dec_ctx_new_ChunkedResponse(NULL);
+    c[23] = ak_dec_ctx_new_ChunkedResponseWide(NULL);
+    c[24] = ak_dec_ctx_new_LeafElement(NULL);
+    c[25] = ak_dec_ctx_new_LeafResponse(NULL);
+    c[26] = ak_dec_ctx_new_Surrogate(NULL);
+    c[27] = ak_dec_ctx_new_SurrogateInner(NULL);
+    c[28] = ak_dec_ctx_new_WireZoo(NULL);
+  }
+  ~DecCtxs() {
+    for (int i = 0; i < 29; ++i) ak_dec_ctx_free(c[i]);
+  }
+  bool ok() const {
+    for (int i = 0; i < 29; ++i) if (c[i] == NULL) return false;
+    return true;
+  }
+  template <class T> ak_dec_ctx *of() const { return c[DecRoot<T>::kIndex]; }
+ private:
+  DecCtxs(const DecCtxs &);
+  DecCtxs &operator=(const DecCtxs &);
+};
 
 // Exposed so the `groupfill` arm can price the by-value group's host-side fill
 // on its own, in ns per element, rather than only as a subtraction between
