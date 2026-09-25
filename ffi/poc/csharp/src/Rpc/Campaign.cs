@@ -430,6 +430,22 @@ public static class CampaignMain
         }
         byte[] CoreUpBytes() => Core.EncodeToArray(f22);
 
+#if AK_NO_UNKNOWN_FIELDS
+        // WP5 step 10, req 12: the NO-UNKNOWN client (unknown fields compiled out of the core
+        // and the binding): C-nounk and D-nounk, with A and B as in-process controls.
+        var ops = new List<(string Cell, string Dir, Func<int, int, Task> Run)>
+        {
+            ("A", "a", (n, k) => AsyncOp(() => Grpc(aDown, Array.Empty<byte>()), n, k)),
+            ("B", "a", (n, k) => BlockingOp(BDown, n, k)),
+            ("C-nounk", "a", (n, k) => BlockingOp(() => CDown(false), n, k)),
+            ("D-nounk", "a", (n, k) => AsyncOp(() => Grpc(dDownD, Array.Empty<byte>()), n, k)),
+            ("A", "b", (n, k) => AsyncOp(() => Grpc(aUp, g22), n, k)),
+            ("B", "b", (n, k) => BlockingOp(BUp, n, k)),
+            ("C-nounk", "b", (n, k) => BlockingOp(() => CUp(false), n, k)),
+            ("D-nounk", "b", (n, k) => AsyncOp(() => Grpc(dUpD, f22), n, k)),
+        };
+        GC.KeepAlive(dDownR); GC.KeepAlive(dUpR);   // defined in both builds, used by the full one
+#else
         var ops = new List<(string Cell, string Dir, Func<int, int, Task> Run)>
         {
             ("A", "a", (n, k) => AsyncOp(() => Grpc(aDown, Array.Empty<byte>()), n, k)),
@@ -453,9 +469,10 @@ public static class CampaignMain
             ("C.callback", "b", (n, k) => AsyncOp(() => CoreAsync(false, upPath, CoreUpBytes(), 0, true), n, k)),
             ("C.queue", "b", (n, k) => AsyncOp(() => CoreAsync(true, upPath, CoreUpBytes(), 0, true), n, k)),
         };
+#endif
         var cells = (from o in ops from k in levels select (o.Cell, o.Dir, k, o.Run)).ToList();
         Header("rpc", string.Format(CultureInfo.InvariantCulture,
-            "launch {0}, rounds {1}, {2} calls per sample, in flight {3}; transport {4} (client: DisableDynamicWindowSizing{5}; Kestrel {6}; core: ak_client_opts stream {7} connection {8} adaptive 0 nagle {9}); Unix socket {10}; the server is a separate process; B/C blocking delivery, .callback/.queue extra rows (C.* in drop mode); C and D in each unknown-field mode (req 12 amended): C-retain/D-retain = decision 11's options armed at every position and ak_uencode_*, C-drop/D-drop = reset with NULL and ak_encode_* (C-nounk/D-nounk: the compiled-out build, not yet ported); a retained decode that leaves a grown buffer undelivered fails its call; direction a: empty request, P2.2 response ({11} B); b: P2.2 request decoded by the server, empty response; warm-up {12} calls per cell; every call checked (status and length)",
+            "build " + AbiVariant.Name + " (WP5 step 10); launch {0}, rounds {1}, {2} calls per sample, in flight {3}; transport {4} (client: DisableDynamicWindowSizing{5}; Kestrel {6}; core: ak_client_opts stream {7} connection {8} adaptive 0 nagle {9}); Unix socket {10}; the server is a separate process; B/C blocking delivery, .callback/.queue extra rows (C.* in drop mode); C and D in each unknown-field mode (req 12 amended): C-retain/D-retain = decision 11's options armed at every position and ak_uencode_*, C-drop/D-drop = reset with NULL and ak_encode_* (C-nounk/D-nounk: the no-unknown client, its own build and core; A and B are its in-process controls); a retained decode that leaves a grown buffer undelivered fails its call; direction a: empty request, P2.2 response ({11} B); b: P2.2 request decoded by the server, empty response; warm-up {12} calls per cell; every call checked (status and length)",
             launch, rounds, calls, string.Join("/", levels), transport, pinned ? " + InitialHttp2StreamWindowSize 4 MiB" : ", no window set",
             pinned ? "stream/connection window 4 MiB" : "defaults", opts.stream_window, opts.connection_window, opts.tcp_nagle, sock, want, 2 * levels.Max()));
 
@@ -477,6 +494,7 @@ public static class CampaignMain
                     {
                         Suite = "rpc", Cell = c.Cell, Payload = "P2.2", Dir = c.Dir, Transport = transport, Inflight = c.k,
                         Mode = c.Cell.EndsWith("-retain", StringComparison.Ordinal) ? "retain"
+                             : c.Cell.EndsWith("-nounk", StringComparison.Ordinal) ? "no-unknown"
                              : c.Cell.StartsWith("C", StringComparison.Ordinal) || c.Cell.StartsWith("D", StringComparison.Ordinal) ? "drop" : "default",
                         Launch = launch, Round = r, CpuNs = c1 - c0, WallNs = w1 - w0, Iters = calls,
                     }.Json());
