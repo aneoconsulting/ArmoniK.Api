@@ -2443,6 +2443,11 @@ static unsigned long ak_py_reclaim(HostCtx *h) {
 }
 
 
+static ak_dec_ctx *ak_py_tls_acquire(int root, int *tmp);
+static void ak_py_tls_release(int root, ak_dec_ctx *c, int tmp);
+static ak_enc_ctx *ak_py_tls_enc_acquire(int *tmp);
+static void ak_py_tls_enc_release(ak_enc_ctx *c, int tmp);
+
 static inline void dropgroup_Timestamp(HostCtx *h, const struct ak_dfix_Timestamp *e) {
   if (e->unknown.data) ak_py_release(h, e->unknown.data);
 }
@@ -5273,22 +5278,26 @@ static PyObject *encode_attr_ListResultsResponse(PyObject *rootobj, PyObject *ac
   HostCtx *h = &hs;
   static const struct ak_evt_ListResultsResponse VT = {.loop_results = loop_attr_RListResultsResponse_results};
   static const struct ak_evt_ListResultsResponse VTU = {.loop_results = loopu_attr_RListResultsResponse_results};
-  ak_enc_ctx *ctx = ak_enc_ctx_new();
+  int tmp_ = 0;
+  ak_enc_ctx *ctx = ak_py_tls_enc_acquire(&tmp_);
   if (!ctx) return PyErr_NoMemory();
+#ifdef AK_COUNT
+  ak_enc_counters_reset(ctx);
+#endif
   intptr_t rc;
   if (retain) {
     struct ak_ufix_ListResultsResponse fixu;
     memset(&fixu, 0, sizeof fixu);
-    if (fillu_attr_ListResultsResponse(&fixu, rootobj, h)) { ak_enc_ctx_free(ctx); return NULL; }
+    if (fillu_attr_ListResultsResponse(&fixu, rootobj, h)) { ak_py_tls_enc_release(ctx, tmp_); return NULL; }
     rc = ak_uencode_ListResultsResponse(h, ctx, &VTU, &fixu);
   } else {
     struct ak_efix_ListResultsResponse fix;
     memset(&fix, 0, sizeof fix);
-    if (fill_attr_ListResultsResponse(&fix, rootobj, h)) { ak_enc_ctx_free(ctx); return NULL; }
+    if (fill_attr_ListResultsResponse(&fix, rootobj, h)) { ak_py_tls_enc_release(ctx, tmp_); return NULL; }
     rc = ak_encode_ListResultsResponse(h, ctx, &VT, &fix);
   }
   if (rc < 0) {
-    ak_enc_ctx_free(ctx);
+    ak_py_tls_enc_release(ctx, tmp_);
     if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_ListResultsResponse returned %ld", (long)rc);
     return NULL;
   }
@@ -5296,10 +5305,10 @@ static PyObject *encode_attr_ListResultsResponse(PyObject *rootobj, PyObject *ac
   { struct AkCounters c; ak_enc_counters(ctx, &c); CORE_ADD(CORE_ENC, c); }
 #endif
   const uint8_t *pp = NULL; size_t len = 0;
-  if (ak_enc_take(ctx, &pp, &len)) { ak_enc_ctx_free(ctx);
+  if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
   PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
-  ak_enc_ctx_free(ctx);
+  ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
 static int32_t loop_attr_RListTasksDetailedResponse_tasks(ak_enc_ctx *ctx, const void *obj, int64_t token) {
@@ -5382,22 +5391,26 @@ static PyObject *encode_attr_ListTasksDetailedResponse(PyObject *rootobj, PyObje
   HostCtx *h = &hs;
   static const struct ak_evt_ListTasksDetailedResponse VT = {.loop_tasks = loop_attr_RListTasksDetailedResponse_tasks, .elem_tasks = &EVT_attr_TaskDetailed};
   static const struct ak_evt_ListTasksDetailedResponse VTU = {.loop_tasks = loopu_attr_RListTasksDetailedResponse_tasks, .elem_tasks = &EVTU_attr_TaskDetailed};
-  ak_enc_ctx *ctx = ak_enc_ctx_new();
+  int tmp_ = 0;
+  ak_enc_ctx *ctx = ak_py_tls_enc_acquire(&tmp_);
   if (!ctx) return PyErr_NoMemory();
+#ifdef AK_COUNT
+  ak_enc_counters_reset(ctx);
+#endif
   intptr_t rc;
   if (retain) {
     struct ak_ufix_ListTasksDetailedResponse fixu;
     memset(&fixu, 0, sizeof fixu);
-    if (fillu_attr_ListTasksDetailedResponse(&fixu, rootobj, h)) { ak_enc_ctx_free(ctx); return NULL; }
+    if (fillu_attr_ListTasksDetailedResponse(&fixu, rootobj, h)) { ak_py_tls_enc_release(ctx, tmp_); return NULL; }
     rc = ak_uencode_ListTasksDetailedResponse(h, ctx, &VTU, &fixu);
   } else {
     struct ak_efix_ListTasksDetailedResponse fix;
     memset(&fix, 0, sizeof fix);
-    if (fill_attr_ListTasksDetailedResponse(&fix, rootobj, h)) { ak_enc_ctx_free(ctx); return NULL; }
+    if (fill_attr_ListTasksDetailedResponse(&fix, rootobj, h)) { ak_py_tls_enc_release(ctx, tmp_); return NULL; }
     rc = ak_encode_ListTasksDetailedResponse(h, ctx, &VT, &fix);
   }
   if (rc < 0) {
-    ak_enc_ctx_free(ctx);
+    ak_py_tls_enc_release(ctx, tmp_);
     if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_ListTasksDetailedResponse returned %ld", (long)rc);
     return NULL;
   }
@@ -5405,10 +5418,10 @@ static PyObject *encode_attr_ListTasksDetailedResponse(PyObject *rootobj, PyObje
   { struct AkCounters c; ak_enc_counters(ctx, &c); CORE_ADD(CORE_ENC, c); }
 #endif
   const uint8_t *pp = NULL; size_t len = 0;
-  if (ak_enc_take(ctx, &pp, &len)) { ak_enc_ctx_free(ctx);
+  if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
   PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
-  ak_enc_ctx_free(ctx);
+  ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
 static int32_t loop_attr_RListProbeResponse_probes(ak_enc_ctx *ctx, const void *obj, int64_t token) {
@@ -5481,22 +5494,26 @@ static PyObject *encode_attr_ListProbeResponse(PyObject *rootobj, PyObject *acc,
   HostCtx *h = &hs;
   static const struct ak_evt_ListProbeResponse VT = {.loop_probes = loop_attr_RListProbeResponse_probes};
   static const struct ak_evt_ListProbeResponse VTU = {.loop_probes = loopu_attr_RListProbeResponse_probes};
-  ak_enc_ctx *ctx = ak_enc_ctx_new();
+  int tmp_ = 0;
+  ak_enc_ctx *ctx = ak_py_tls_enc_acquire(&tmp_);
   if (!ctx) return PyErr_NoMemory();
+#ifdef AK_COUNT
+  ak_enc_counters_reset(ctx);
+#endif
   intptr_t rc;
   if (retain) {
     struct ak_ufix_ListProbeResponse fixu;
     memset(&fixu, 0, sizeof fixu);
-    if (fillu_attr_ListProbeResponse(&fixu, rootobj, h)) { ak_enc_ctx_free(ctx); return NULL; }
+    if (fillu_attr_ListProbeResponse(&fixu, rootobj, h)) { ak_py_tls_enc_release(ctx, tmp_); return NULL; }
     rc = ak_uencode_ListProbeResponse(h, ctx, &VTU, &fixu);
   } else {
     struct ak_efix_ListProbeResponse fix;
     memset(&fix, 0, sizeof fix);
-    if (fill_attr_ListProbeResponse(&fix, rootobj, h)) { ak_enc_ctx_free(ctx); return NULL; }
+    if (fill_attr_ListProbeResponse(&fix, rootobj, h)) { ak_py_tls_enc_release(ctx, tmp_); return NULL; }
     rc = ak_encode_ListProbeResponse(h, ctx, &VT, &fix);
   }
   if (rc < 0) {
-    ak_enc_ctx_free(ctx);
+    ak_py_tls_enc_release(ctx, tmp_);
     if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_ListProbeResponse returned %ld", (long)rc);
     return NULL;
   }
@@ -5504,10 +5521,10 @@ static PyObject *encode_attr_ListProbeResponse(PyObject *rootobj, PyObject *acc,
   { struct AkCounters c; ak_enc_counters(ctx, &c); CORE_ADD(CORE_ENC, c); }
 #endif
   const uint8_t *pp = NULL; size_t len = 0;
-  if (ak_enc_take(ctx, &pp, &len)) { ak_enc_ctx_free(ctx);
+  if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
   PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
-  ak_enc_ctx_free(ctx);
+  ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
 static int32_t loop_attr_RListTaskSummaryResponse_tasks(ak_enc_ctx *ctx, const void *obj, int64_t token) {
@@ -5590,22 +5607,26 @@ static PyObject *encode_attr_ListTaskSummaryResponse(PyObject *rootobj, PyObject
   HostCtx *h = &hs;
   static const struct ak_evt_ListTaskSummaryResponse VT = {.loop_tasks = loop_attr_RListTaskSummaryResponse_tasks, .elem_tasks = &EVT_attr_TaskSummary};
   static const struct ak_evt_ListTaskSummaryResponse VTU = {.loop_tasks = loopu_attr_RListTaskSummaryResponse_tasks, .elem_tasks = &EVTU_attr_TaskSummary};
-  ak_enc_ctx *ctx = ak_enc_ctx_new();
+  int tmp_ = 0;
+  ak_enc_ctx *ctx = ak_py_tls_enc_acquire(&tmp_);
   if (!ctx) return PyErr_NoMemory();
+#ifdef AK_COUNT
+  ak_enc_counters_reset(ctx);
+#endif
   intptr_t rc;
   if (retain) {
     struct ak_ufix_ListTaskSummaryResponse fixu;
     memset(&fixu, 0, sizeof fixu);
-    if (fillu_attr_ListTaskSummaryResponse(&fixu, rootobj, h)) { ak_enc_ctx_free(ctx); return NULL; }
+    if (fillu_attr_ListTaskSummaryResponse(&fixu, rootobj, h)) { ak_py_tls_enc_release(ctx, tmp_); return NULL; }
     rc = ak_uencode_ListTaskSummaryResponse(h, ctx, &VTU, &fixu);
   } else {
     struct ak_efix_ListTaskSummaryResponse fix;
     memset(&fix, 0, sizeof fix);
-    if (fill_attr_ListTaskSummaryResponse(&fix, rootobj, h)) { ak_enc_ctx_free(ctx); return NULL; }
+    if (fill_attr_ListTaskSummaryResponse(&fix, rootobj, h)) { ak_py_tls_enc_release(ctx, tmp_); return NULL; }
     rc = ak_encode_ListTaskSummaryResponse(h, ctx, &VT, &fix);
   }
   if (rc < 0) {
-    ak_enc_ctx_free(ctx);
+    ak_py_tls_enc_release(ctx, tmp_);
     if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_ListTaskSummaryResponse returned %ld", (long)rc);
     return NULL;
   }
@@ -5613,10 +5634,10 @@ static PyObject *encode_attr_ListTaskSummaryResponse(PyObject *rootobj, PyObject
   { struct AkCounters c; ak_enc_counters(ctx, &c); CORE_ADD(CORE_ENC, c); }
 #endif
   const uint8_t *pp = NULL; size_t len = 0;
-  if (ak_enc_take(ctx, &pp, &len)) { ak_enc_ctx_free(ctx);
+  if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
   PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
-  ak_enc_ctx_free(ctx);
+  ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
 static PyObject *encode_attr_UploadResultDataMessage(PyObject *rootobj, PyObject *acc, int retain) {
@@ -5625,22 +5646,26 @@ static PyObject *encode_attr_UploadResultDataMessage(PyObject *rootobj, PyObject
   HostCtx *h = &hs;
   static const struct ak_evt_UploadResultDataMessage VT = {0};
   static const struct ak_evt_UploadResultDataMessage VTU = {0};
-  ak_enc_ctx *ctx = ak_enc_ctx_new();
+  int tmp_ = 0;
+  ak_enc_ctx *ctx = ak_py_tls_enc_acquire(&tmp_);
   if (!ctx) return PyErr_NoMemory();
+#ifdef AK_COUNT
+  ak_enc_counters_reset(ctx);
+#endif
   intptr_t rc;
   if (retain) {
     struct ak_ufix_UploadResultDataMessage fixu;
     memset(&fixu, 0, sizeof fixu);
-    if (fillu_attr_UploadResultDataMessage(&fixu, rootobj, h)) { ak_enc_ctx_free(ctx); return NULL; }
+    if (fillu_attr_UploadResultDataMessage(&fixu, rootobj, h)) { ak_py_tls_enc_release(ctx, tmp_); return NULL; }
     rc = ak_uencode_UploadResultDataMessage(h, ctx, &VTU, &fixu, h->direct, h->direct_len);
   } else {
     struct ak_efix_UploadResultDataMessage fix;
     memset(&fix, 0, sizeof fix);
-    if (fill_attr_UploadResultDataMessage(&fix, rootobj, h)) { ak_enc_ctx_free(ctx); return NULL; }
+    if (fill_attr_UploadResultDataMessage(&fix, rootobj, h)) { ak_py_tls_enc_release(ctx, tmp_); return NULL; }
     rc = ak_encode_UploadResultDataMessage(h, ctx, &VT, &fix, h->direct, h->direct_len);
   }
   if (rc < 0) {
-    ak_enc_ctx_free(ctx);
+    ak_py_tls_enc_release(ctx, tmp_);
     if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_UploadResultDataMessage returned %ld", (long)rc);
     return NULL;
   }
@@ -5648,10 +5673,10 @@ static PyObject *encode_attr_UploadResultDataMessage(PyObject *rootobj, PyObject
   { struct AkCounters c; ak_enc_counters(ctx, &c); CORE_ADD(CORE_ENC, c); }
 #endif
   const uint8_t *pp = NULL; size_t len = 0;
-  if (ak_enc_take(ctx, &pp, &len)) { ak_enc_ctx_free(ctx);
+  if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
   PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
-  ak_enc_ctx_free(ctx);
+  ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
 static int32_t loop_attr_RListMetricsResponse_batches(ak_enc_ctx *ctx, const void *obj, int64_t token) {
@@ -5734,22 +5759,26 @@ static PyObject *encode_attr_ListMetricsResponse(PyObject *rootobj, PyObject *ac
   HostCtx *h = &hs;
   static const struct ak_evt_ListMetricsResponse VT = {.loop_batches = loop_attr_RListMetricsResponse_batches, .elem_batches = &EVT_attr_MetricsBatch};
   static const struct ak_evt_ListMetricsResponse VTU = {.loop_batches = loopu_attr_RListMetricsResponse_batches, .elem_batches = &EVTU_attr_MetricsBatch};
-  ak_enc_ctx *ctx = ak_enc_ctx_new();
+  int tmp_ = 0;
+  ak_enc_ctx *ctx = ak_py_tls_enc_acquire(&tmp_);
   if (!ctx) return PyErr_NoMemory();
+#ifdef AK_COUNT
+  ak_enc_counters_reset(ctx);
+#endif
   intptr_t rc;
   if (retain) {
     struct ak_ufix_ListMetricsResponse fixu;
     memset(&fixu, 0, sizeof fixu);
-    if (fillu_attr_ListMetricsResponse(&fixu, rootobj, h)) { ak_enc_ctx_free(ctx); return NULL; }
+    if (fillu_attr_ListMetricsResponse(&fixu, rootobj, h)) { ak_py_tls_enc_release(ctx, tmp_); return NULL; }
     rc = ak_uencode_ListMetricsResponse(h, ctx, &VTU, &fixu);
   } else {
     struct ak_efix_ListMetricsResponse fix;
     memset(&fix, 0, sizeof fix);
-    if (fill_attr_ListMetricsResponse(&fix, rootobj, h)) { ak_enc_ctx_free(ctx); return NULL; }
+    if (fill_attr_ListMetricsResponse(&fix, rootobj, h)) { ak_py_tls_enc_release(ctx, tmp_); return NULL; }
     rc = ak_encode_ListMetricsResponse(h, ctx, &VT, &fix);
   }
   if (rc < 0) {
-    ak_enc_ctx_free(ctx);
+    ak_py_tls_enc_release(ctx, tmp_);
     if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_ListMetricsResponse returned %ld", (long)rc);
     return NULL;
   }
@@ -5757,10 +5786,10 @@ static PyObject *encode_attr_ListMetricsResponse(PyObject *rootobj, PyObject *ac
   { struct AkCounters c; ak_enc_counters(ctx, &c); CORE_ADD(CORE_ENC, c); }
 #endif
   const uint8_t *pp = NULL; size_t len = 0;
-  if (ak_enc_take(ctx, &pp, &len)) { ak_enc_ctx_free(ctx);
+  if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
   PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
-  ak_enc_ctx_free(ctx);
+  ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
 static int32_t loop_attr_RDualResponse_left(ak_enc_ctx *ctx, const void *obj, int64_t token) {
@@ -5897,22 +5926,26 @@ static PyObject *encode_attr_DualResponse(PyObject *rootobj, PyObject *acc, int 
   HostCtx *h = &hs;
   static const struct ak_evt_DualResponse VT = {.loop_left = loop_attr_RDualResponse_left, .loop_right = loop_attr_RDualResponse_right};
   static const struct ak_evt_DualResponse VTU = {.loop_left = loopu_attr_RDualResponse_left, .loop_right = loopu_attr_RDualResponse_right};
-  ak_enc_ctx *ctx = ak_enc_ctx_new();
+  int tmp_ = 0;
+  ak_enc_ctx *ctx = ak_py_tls_enc_acquire(&tmp_);
   if (!ctx) return PyErr_NoMemory();
+#ifdef AK_COUNT
+  ak_enc_counters_reset(ctx);
+#endif
   intptr_t rc;
   if (retain) {
     struct ak_ufix_DualResponse fixu;
     memset(&fixu, 0, sizeof fixu);
-    if (fillu_attr_DualResponse(&fixu, rootobj, h)) { ak_enc_ctx_free(ctx); return NULL; }
+    if (fillu_attr_DualResponse(&fixu, rootobj, h)) { ak_py_tls_enc_release(ctx, tmp_); return NULL; }
     rc = ak_uencode_DualResponse(h, ctx, &VTU, &fixu);
   } else {
     struct ak_efix_DualResponse fix;
     memset(&fix, 0, sizeof fix);
-    if (fill_attr_DualResponse(&fix, rootobj, h)) { ak_enc_ctx_free(ctx); return NULL; }
+    if (fill_attr_DualResponse(&fix, rootobj, h)) { ak_py_tls_enc_release(ctx, tmp_); return NULL; }
     rc = ak_encode_DualResponse(h, ctx, &VT, &fix);
   }
   if (rc < 0) {
-    ak_enc_ctx_free(ctx);
+    ak_py_tls_enc_release(ctx, tmp_);
     if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_DualResponse returned %ld", (long)rc);
     return NULL;
   }
@@ -5920,10 +5953,10 @@ static PyObject *encode_attr_DualResponse(PyObject *rootobj, PyObject *acc, int 
   { struct AkCounters c; ak_enc_counters(ctx, &c); CORE_ADD(CORE_ENC, c); }
 #endif
   const uint8_t *pp = NULL; size_t len = 0;
-  if (ak_enc_take(ctx, &pp, &len)) { ak_enc_ctx_free(ctx);
+  if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
   PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
-  ak_enc_ctx_free(ctx);
+  ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
 static int setgroup_attr_Timestamp(HostCtx *h, PyObject *ob, const struct ak_dfix_Timestamp *e) {
@@ -7086,16 +7119,22 @@ static PyObject *decode_attr_ListResultsResponse(PyObject *buf, PyObject *acc, H
     if (!(zero & (1ULL << 2))) o.results_created_at.grow = ak_py_grow;
     if (!(zero & (1ULL << 3))) o.results_completed_at.grow = ak_py_grow;
   }
-  ak_dec_ctx *ctx = ak_dec_ctx_new_ListResultsResponse(NULL);   /* bound to this root (rule 6) */
+  int tmp_ = 0;
+  ak_dec_ctx *ctx = ak_py_tls_acquire(0, &tmp_);   /* bound to this root (rule 6) */
   if (!ctx) { Py_DECREF(h.lists[0]); Py_DECREF(rootobj); return PyErr_NoMemory(); }
+#ifdef AK_COUNT
+  ak_dec_counters_reset(ctx);
+#endif
   int32_t rc = ak_dec_reset_ListResultsResponse(ctx, retain ? &o : NULL);   /* a reset per decode (rule 7) */
   if (rc == 0) rc = ak_decode_ListResultsResponse(ctx, &h, (const uint8_t *)pp, (size_t)blen, &VT);
-  int32_t rr = ak_dec_reset_ListResultsResponse(ctx, NULL);   /* disarm: the core forgets &o */
-  if (rc == 0 && rr != 0) rc = rr;
+  if (retain) {
+    int32_t rr = ak_dec_reset_ListResultsResponse(ctx, NULL);   /* disarm: the core forgets &o */
+    if (rc == 0 && rr != 0) rc = rr;
+  }
 #ifdef AK_COUNT
   { struct AkCounters c; ak_dec_counters(ctx, &c); CORE_ADD(CORE_DEC, c); }
 #endif
-  ak_dec_ctx_free(ctx);
+  ak_py_tls_release(0, ctx, tmp_);
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
     Py_DECREF(h.lists[0]); Py_DECREF(rootobj);
@@ -7294,16 +7333,22 @@ static PyObject *decode_attr_ListTasksDetailedResponse(PyObject *buf, PyObject *
     if (!(zero & (1ULL << 16))) o.tasks_processed_at.grow = ak_py_grow;
     if (!(zero & (1ULL << 17))) o.tasks_fetched_at.grow = ak_py_grow;
   }
-  ak_dec_ctx *ctx = ak_dec_ctx_new_ListTasksDetailedResponse(NULL);   /* bound to this root (rule 6) */
+  int tmp_ = 0;
+  ak_dec_ctx *ctx = ak_py_tls_acquire(1, &tmp_);   /* bound to this root (rule 6) */
   if (!ctx) { Py_DECREF(h.lists[0]); Py_DECREF(rootobj); return PyErr_NoMemory(); }
+#ifdef AK_COUNT
+  ak_dec_counters_reset(ctx);
+#endif
   int32_t rc = ak_dec_reset_ListTasksDetailedResponse(ctx, retain ? &o : NULL);   /* a reset per decode (rule 7) */
   if (rc == 0) rc = ak_decode_ListTasksDetailedResponse(ctx, &h, (const uint8_t *)pp, (size_t)blen, &VT);
-  int32_t rr = ak_dec_reset_ListTasksDetailedResponse(ctx, NULL);   /* disarm: the core forgets &o */
-  if (rc == 0 && rr != 0) rc = rr;
+  if (retain) {
+    int32_t rr = ak_dec_reset_ListTasksDetailedResponse(ctx, NULL);   /* disarm: the core forgets &o */
+    if (rc == 0 && rr != 0) rc = rr;
+  }
 #ifdef AK_COUNT
   { struct AkCounters c; ak_dec_counters(ctx, &c); CORE_ADD(CORE_DEC, c); }
 #endif
-  ak_dec_ctx_free(ctx);
+  ak_py_tls_release(1, ctx, tmp_);
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
     Py_DECREF(h.lists[0]); Py_DECREF(rootobj);
@@ -7364,16 +7409,22 @@ static PyObject *decode_attr_ListProbeResponse(PyObject *buf, PyObject *acc, Hos
     if (!(zero & (1ULL << 1))) o.probes.grow = ak_py_grow;
     if (!(zero & (1ULL << 2))) o.probes_body.grow = ak_py_grow;
   }
-  ak_dec_ctx *ctx = ak_dec_ctx_new_ListProbeResponse(NULL);   /* bound to this root (rule 6) */
+  int tmp_ = 0;
+  ak_dec_ctx *ctx = ak_py_tls_acquire(2, &tmp_);   /* bound to this root (rule 6) */
   if (!ctx) { Py_DECREF(h.lists[0]); Py_DECREF(rootobj); return PyErr_NoMemory(); }
+#ifdef AK_COUNT
+  ak_dec_counters_reset(ctx);
+#endif
   int32_t rc = ak_dec_reset_ListProbeResponse(ctx, retain ? &o : NULL);   /* a reset per decode (rule 7) */
   if (rc == 0) rc = ak_decode_ListProbeResponse(ctx, &h, (const uint8_t *)pp, (size_t)blen, &VT);
-  int32_t rr = ak_dec_reset_ListProbeResponse(ctx, NULL);   /* disarm: the core forgets &o */
-  if (rc == 0 && rr != 0) rc = rr;
+  if (retain) {
+    int32_t rr = ak_dec_reset_ListProbeResponse(ctx, NULL);   /* disarm: the core forgets &o */
+    if (rc == 0 && rr != 0) rc = rr;
+  }
 #ifdef AK_COUNT
   { struct AkCounters c; ak_dec_counters(ctx, &c); CORE_ADD(CORE_DEC, c); }
 #endif
-  ak_dec_ctx_free(ctx);
+  ak_py_tls_release(2, ctx, tmp_);
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
     Py_DECREF(h.lists[0]); Py_DECREF(rootobj);
@@ -7476,16 +7527,22 @@ static PyObject *decode_attr_ListTaskSummaryResponse(PyObject *buf, PyObject *ac
     if (!(zero & (1ULL << 4))) o.tasks_options_max_duration.grow = ak_py_grow;
     if (!(zero & (1ULL << 5))) o.tasks_created_at.grow = ak_py_grow;
   }
-  ak_dec_ctx *ctx = ak_dec_ctx_new_ListTaskSummaryResponse(NULL);   /* bound to this root (rule 6) */
+  int tmp_ = 0;
+  ak_dec_ctx *ctx = ak_py_tls_acquire(3, &tmp_);   /* bound to this root (rule 6) */
   if (!ctx) { Py_DECREF(h.lists[0]); Py_DECREF(rootobj); return PyErr_NoMemory(); }
+#ifdef AK_COUNT
+  ak_dec_counters_reset(ctx);
+#endif
   int32_t rc = ak_dec_reset_ListTaskSummaryResponse(ctx, retain ? &o : NULL);   /* a reset per decode (rule 7) */
   if (rc == 0) rc = ak_decode_ListTaskSummaryResponse(ctx, &h, (const uint8_t *)pp, (size_t)blen, &VT);
-  int32_t rr = ak_dec_reset_ListTaskSummaryResponse(ctx, NULL);   /* disarm: the core forgets &o */
-  if (rc == 0 && rr != 0) rc = rr;
+  if (retain) {
+    int32_t rr = ak_dec_reset_ListTaskSummaryResponse(ctx, NULL);   /* disarm: the core forgets &o */
+    if (rc == 0 && rr != 0) rc = rr;
+  }
 #ifdef AK_COUNT
   { struct AkCounters c; ak_dec_counters(ctx, &c); CORE_ADD(CORE_DEC, c); }
 #endif
-  ak_dec_ctx_free(ctx);
+  ak_py_tls_release(3, ctx, tmp_);
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
     Py_DECREF(h.lists[0]); Py_DECREF(rootobj);
@@ -7518,16 +7575,22 @@ static PyObject *decode_attr_UploadResultDataMessage(PyObject *buf, PyObject *ac
     if (!(zero & (1ULL << 0))) o.self.grow = ak_py_grow;
     if (!(zero & (1ULL << 1))) o.upload.grow = ak_py_grow;
   }
-  ak_dec_ctx *ctx = ak_dec_ctx_new_UploadResultDataMessage(NULL);   /* bound to this root (rule 6) */
+  int tmp_ = 0;
+  ak_dec_ctx *ctx = ak_py_tls_acquire(4, &tmp_);   /* bound to this root (rule 6) */
   if (!ctx) {  Py_DECREF(rootobj); return PyErr_NoMemory(); }
+#ifdef AK_COUNT
+  ak_dec_counters_reset(ctx);
+#endif
   int32_t rc = ak_dec_reset_UploadResultDataMessage(ctx, retain ? &o : NULL);   /* a reset per decode (rule 7) */
   if (rc == 0) rc = ak_decode_UploadResultDataMessage(ctx, &h, (const uint8_t *)pp, (size_t)blen, &VT);
-  int32_t rr = ak_dec_reset_UploadResultDataMessage(ctx, NULL);   /* disarm: the core forgets &o */
-  if (rc == 0 && rr != 0) rc = rr;
+  if (retain) {
+    int32_t rr = ak_dec_reset_UploadResultDataMessage(ctx, NULL);   /* disarm: the core forgets &o */
+    if (rc == 0 && rr != 0) rc = rr;
+  }
 #ifdef AK_COUNT
   { struct AkCounters c; ak_dec_counters(ctx, &c); CORE_ADD(CORE_DEC, c); }
 #endif
-  ak_dec_ctx_free(ctx);
+  ak_py_tls_release(4, ctx, tmp_);
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
      Py_DECREF(rootobj);
@@ -7693,16 +7756,22 @@ static PyObject *decode_attr_ListMetricsResponse(PyObject *buf, PyObject *acc, H
     if (!(zero & (1ULL << 0))) o.self.grow = ak_py_grow;
     if (!(zero & (1ULL << 1))) o.batches.grow = ak_py_grow;
   }
-  ak_dec_ctx *ctx = ak_dec_ctx_new_ListMetricsResponse(NULL);   /* bound to this root (rule 6) */
+  int tmp_ = 0;
+  ak_dec_ctx *ctx = ak_py_tls_acquire(5, &tmp_);   /* bound to this root (rule 6) */
   if (!ctx) { Py_DECREF(h.lists[0]); Py_DECREF(rootobj); return PyErr_NoMemory(); }
+#ifdef AK_COUNT
+  ak_dec_counters_reset(ctx);
+#endif
   int32_t rc = ak_dec_reset_ListMetricsResponse(ctx, retain ? &o : NULL);   /* a reset per decode (rule 7) */
   if (rc == 0) rc = ak_decode_ListMetricsResponse(ctx, &h, (const uint8_t *)pp, (size_t)blen, &VT);
-  int32_t rr = ak_dec_reset_ListMetricsResponse(ctx, NULL);   /* disarm: the core forgets &o */
-  if (rc == 0 && rr != 0) rc = rr;
+  if (retain) {
+    int32_t rr = ak_dec_reset_ListMetricsResponse(ctx, NULL);   /* disarm: the core forgets &o */
+    if (rc == 0 && rr != 0) rc = rr;
+  }
 #ifdef AK_COUNT
   { struct AkCounters c; ak_dec_counters(ctx, &c); CORE_ADD(CORE_DEC, c); }
 #endif
-  ak_dec_ctx_free(ctx);
+  ak_py_tls_release(5, ctx, tmp_);
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
     Py_DECREF(h.lists[0]); Py_DECREF(rootobj);
@@ -7790,16 +7859,22 @@ static PyObject *decode_attr_DualResponse(PyObject *buf, PyObject *acc, HostType
     if (!(zero & (1ULL << 1))) o.left.grow = ak_py_grow;
     if (!(zero & (1ULL << 2))) o.right.grow = ak_py_grow;
   }
-  ak_dec_ctx *ctx = ak_dec_ctx_new_DualResponse(NULL);   /* bound to this root (rule 6) */
+  int tmp_ = 0;
+  ak_dec_ctx *ctx = ak_py_tls_acquire(6, &tmp_);   /* bound to this root (rule 6) */
   if (!ctx) { Py_DECREF(h.lists[0]); Py_DECREF(h.lists[1]); Py_DECREF(rootobj); return PyErr_NoMemory(); }
+#ifdef AK_COUNT
+  ak_dec_counters_reset(ctx);
+#endif
   int32_t rc = ak_dec_reset_DualResponse(ctx, retain ? &o : NULL);   /* a reset per decode (rule 7) */
   if (rc == 0) rc = ak_decode_DualResponse(ctx, &h, (const uint8_t *)pp, (size_t)blen, &VT);
-  int32_t rr = ak_dec_reset_DualResponse(ctx, NULL);   /* disarm: the core forgets &o */
-  if (rc == 0 && rr != 0) rc = rr;
+  if (retain) {
+    int32_t rr = ak_dec_reset_DualResponse(ctx, NULL);   /* disarm: the core forgets &o */
+    if (rc == 0 && rr != 0) rc = rr;
+  }
 #ifdef AK_COUNT
   { struct AkCounters c; ak_dec_counters(ctx, &c); CORE_ADD(CORE_DEC, c); }
 #endif
-  ak_dec_ctx_free(ctx);
+  ak_py_tls_release(6, ctx, tmp_);
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
     Py_DECREF(h.lists[0]); Py_DECREF(h.lists[1]); Py_DECREF(rootobj);
@@ -9938,22 +10013,26 @@ static PyObject *encode_cext_ListResultsResponse(PyObject *rootobj, PyObject *ac
   HostCtx *h = &hs;
   static const struct ak_evt_ListResultsResponse VT = {.loop_results = loop_cext_RListResultsResponse_results};
   static const struct ak_evt_ListResultsResponse VTU = {.loop_results = loopu_cext_RListResultsResponse_results};
-  ak_enc_ctx *ctx = ak_enc_ctx_new();
+  int tmp_ = 0;
+  ak_enc_ctx *ctx = ak_py_tls_enc_acquire(&tmp_);
   if (!ctx) return PyErr_NoMemory();
+#ifdef AK_COUNT
+  ak_enc_counters_reset(ctx);
+#endif
   intptr_t rc;
   if (retain) {
     struct ak_ufix_ListResultsResponse fixu;
     memset(&fixu, 0, sizeof fixu);
-    if (fillu_cext_ListResultsResponse(&fixu, rootobj, h)) { ak_enc_ctx_free(ctx); return NULL; }
+    if (fillu_cext_ListResultsResponse(&fixu, rootobj, h)) { ak_py_tls_enc_release(ctx, tmp_); return NULL; }
     rc = ak_uencode_ListResultsResponse(h, ctx, &VTU, &fixu);
   } else {
     struct ak_efix_ListResultsResponse fix;
     memset(&fix, 0, sizeof fix);
-    if (fill_cext_ListResultsResponse(&fix, rootobj, h)) { ak_enc_ctx_free(ctx); return NULL; }
+    if (fill_cext_ListResultsResponse(&fix, rootobj, h)) { ak_py_tls_enc_release(ctx, tmp_); return NULL; }
     rc = ak_encode_ListResultsResponse(h, ctx, &VT, &fix);
   }
   if (rc < 0) {
-    ak_enc_ctx_free(ctx);
+    ak_py_tls_enc_release(ctx, tmp_);
     if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_ListResultsResponse returned %ld", (long)rc);
     return NULL;
   }
@@ -9961,10 +10040,10 @@ static PyObject *encode_cext_ListResultsResponse(PyObject *rootobj, PyObject *ac
   { struct AkCounters c; ak_enc_counters(ctx, &c); CORE_ADD(CORE_ENC, c); }
 #endif
   const uint8_t *pp = NULL; size_t len = 0;
-  if (ak_enc_take(ctx, &pp, &len)) { ak_enc_ctx_free(ctx);
+  if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
   PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
-  ak_enc_ctx_free(ctx);
+  ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
 static int32_t loop_cext_RListTasksDetailedResponse_tasks(ak_enc_ctx *ctx, const void *obj, int64_t token) {
@@ -10043,22 +10122,26 @@ static PyObject *encode_cext_ListTasksDetailedResponse(PyObject *rootobj, PyObje
   HostCtx *h = &hs;
   static const struct ak_evt_ListTasksDetailedResponse VT = {.loop_tasks = loop_cext_RListTasksDetailedResponse_tasks, .elem_tasks = &EVT_cext_TaskDetailed};
   static const struct ak_evt_ListTasksDetailedResponse VTU = {.loop_tasks = loopu_cext_RListTasksDetailedResponse_tasks, .elem_tasks = &EVTU_cext_TaskDetailed};
-  ak_enc_ctx *ctx = ak_enc_ctx_new();
+  int tmp_ = 0;
+  ak_enc_ctx *ctx = ak_py_tls_enc_acquire(&tmp_);
   if (!ctx) return PyErr_NoMemory();
+#ifdef AK_COUNT
+  ak_enc_counters_reset(ctx);
+#endif
   intptr_t rc;
   if (retain) {
     struct ak_ufix_ListTasksDetailedResponse fixu;
     memset(&fixu, 0, sizeof fixu);
-    if (fillu_cext_ListTasksDetailedResponse(&fixu, rootobj, h)) { ak_enc_ctx_free(ctx); return NULL; }
+    if (fillu_cext_ListTasksDetailedResponse(&fixu, rootobj, h)) { ak_py_tls_enc_release(ctx, tmp_); return NULL; }
     rc = ak_uencode_ListTasksDetailedResponse(h, ctx, &VTU, &fixu);
   } else {
     struct ak_efix_ListTasksDetailedResponse fix;
     memset(&fix, 0, sizeof fix);
-    if (fill_cext_ListTasksDetailedResponse(&fix, rootobj, h)) { ak_enc_ctx_free(ctx); return NULL; }
+    if (fill_cext_ListTasksDetailedResponse(&fix, rootobj, h)) { ak_py_tls_enc_release(ctx, tmp_); return NULL; }
     rc = ak_encode_ListTasksDetailedResponse(h, ctx, &VT, &fix);
   }
   if (rc < 0) {
-    ak_enc_ctx_free(ctx);
+    ak_py_tls_enc_release(ctx, tmp_);
     if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_ListTasksDetailedResponse returned %ld", (long)rc);
     return NULL;
   }
@@ -10066,10 +10149,10 @@ static PyObject *encode_cext_ListTasksDetailedResponse(PyObject *rootobj, PyObje
   { struct AkCounters c; ak_enc_counters(ctx, &c); CORE_ADD(CORE_ENC, c); }
 #endif
   const uint8_t *pp = NULL; size_t len = 0;
-  if (ak_enc_take(ctx, &pp, &len)) { ak_enc_ctx_free(ctx);
+  if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
   PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
-  ak_enc_ctx_free(ctx);
+  ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
 static int32_t loop_cext_RListProbeResponse_probes(ak_enc_ctx *ctx, const void *obj, int64_t token) {
@@ -10138,22 +10221,26 @@ static PyObject *encode_cext_ListProbeResponse(PyObject *rootobj, PyObject *acc,
   HostCtx *h = &hs;
   static const struct ak_evt_ListProbeResponse VT = {.loop_probes = loop_cext_RListProbeResponse_probes};
   static const struct ak_evt_ListProbeResponse VTU = {.loop_probes = loopu_cext_RListProbeResponse_probes};
-  ak_enc_ctx *ctx = ak_enc_ctx_new();
+  int tmp_ = 0;
+  ak_enc_ctx *ctx = ak_py_tls_enc_acquire(&tmp_);
   if (!ctx) return PyErr_NoMemory();
+#ifdef AK_COUNT
+  ak_enc_counters_reset(ctx);
+#endif
   intptr_t rc;
   if (retain) {
     struct ak_ufix_ListProbeResponse fixu;
     memset(&fixu, 0, sizeof fixu);
-    if (fillu_cext_ListProbeResponse(&fixu, rootobj, h)) { ak_enc_ctx_free(ctx); return NULL; }
+    if (fillu_cext_ListProbeResponse(&fixu, rootobj, h)) { ak_py_tls_enc_release(ctx, tmp_); return NULL; }
     rc = ak_uencode_ListProbeResponse(h, ctx, &VTU, &fixu);
   } else {
     struct ak_efix_ListProbeResponse fix;
     memset(&fix, 0, sizeof fix);
-    if (fill_cext_ListProbeResponse(&fix, rootobj, h)) { ak_enc_ctx_free(ctx); return NULL; }
+    if (fill_cext_ListProbeResponse(&fix, rootobj, h)) { ak_py_tls_enc_release(ctx, tmp_); return NULL; }
     rc = ak_encode_ListProbeResponse(h, ctx, &VT, &fix);
   }
   if (rc < 0) {
-    ak_enc_ctx_free(ctx);
+    ak_py_tls_enc_release(ctx, tmp_);
     if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_ListProbeResponse returned %ld", (long)rc);
     return NULL;
   }
@@ -10161,10 +10248,10 @@ static PyObject *encode_cext_ListProbeResponse(PyObject *rootobj, PyObject *acc,
   { struct AkCounters c; ak_enc_counters(ctx, &c); CORE_ADD(CORE_ENC, c); }
 #endif
   const uint8_t *pp = NULL; size_t len = 0;
-  if (ak_enc_take(ctx, &pp, &len)) { ak_enc_ctx_free(ctx);
+  if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
   PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
-  ak_enc_ctx_free(ctx);
+  ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
 static int32_t loop_cext_RListTaskSummaryResponse_tasks(ak_enc_ctx *ctx, const void *obj, int64_t token) {
@@ -10243,22 +10330,26 @@ static PyObject *encode_cext_ListTaskSummaryResponse(PyObject *rootobj, PyObject
   HostCtx *h = &hs;
   static const struct ak_evt_ListTaskSummaryResponse VT = {.loop_tasks = loop_cext_RListTaskSummaryResponse_tasks, .elem_tasks = &EVT_cext_TaskSummary};
   static const struct ak_evt_ListTaskSummaryResponse VTU = {.loop_tasks = loopu_cext_RListTaskSummaryResponse_tasks, .elem_tasks = &EVTU_cext_TaskSummary};
-  ak_enc_ctx *ctx = ak_enc_ctx_new();
+  int tmp_ = 0;
+  ak_enc_ctx *ctx = ak_py_tls_enc_acquire(&tmp_);
   if (!ctx) return PyErr_NoMemory();
+#ifdef AK_COUNT
+  ak_enc_counters_reset(ctx);
+#endif
   intptr_t rc;
   if (retain) {
     struct ak_ufix_ListTaskSummaryResponse fixu;
     memset(&fixu, 0, sizeof fixu);
-    if (fillu_cext_ListTaskSummaryResponse(&fixu, rootobj, h)) { ak_enc_ctx_free(ctx); return NULL; }
+    if (fillu_cext_ListTaskSummaryResponse(&fixu, rootobj, h)) { ak_py_tls_enc_release(ctx, tmp_); return NULL; }
     rc = ak_uencode_ListTaskSummaryResponse(h, ctx, &VTU, &fixu);
   } else {
     struct ak_efix_ListTaskSummaryResponse fix;
     memset(&fix, 0, sizeof fix);
-    if (fill_cext_ListTaskSummaryResponse(&fix, rootobj, h)) { ak_enc_ctx_free(ctx); return NULL; }
+    if (fill_cext_ListTaskSummaryResponse(&fix, rootobj, h)) { ak_py_tls_enc_release(ctx, tmp_); return NULL; }
     rc = ak_encode_ListTaskSummaryResponse(h, ctx, &VT, &fix);
   }
   if (rc < 0) {
-    ak_enc_ctx_free(ctx);
+    ak_py_tls_enc_release(ctx, tmp_);
     if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_ListTaskSummaryResponse returned %ld", (long)rc);
     return NULL;
   }
@@ -10266,10 +10357,10 @@ static PyObject *encode_cext_ListTaskSummaryResponse(PyObject *rootobj, PyObject
   { struct AkCounters c; ak_enc_counters(ctx, &c); CORE_ADD(CORE_ENC, c); }
 #endif
   const uint8_t *pp = NULL; size_t len = 0;
-  if (ak_enc_take(ctx, &pp, &len)) { ak_enc_ctx_free(ctx);
+  if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
   PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
-  ak_enc_ctx_free(ctx);
+  ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
 static PyObject *encode_cext_UploadResultDataMessage(PyObject *rootobj, PyObject *acc, int retain) {
@@ -10278,22 +10369,26 @@ static PyObject *encode_cext_UploadResultDataMessage(PyObject *rootobj, PyObject
   HostCtx *h = &hs;
   static const struct ak_evt_UploadResultDataMessage VT = {0};
   static const struct ak_evt_UploadResultDataMessage VTU = {0};
-  ak_enc_ctx *ctx = ak_enc_ctx_new();
+  int tmp_ = 0;
+  ak_enc_ctx *ctx = ak_py_tls_enc_acquire(&tmp_);
   if (!ctx) return PyErr_NoMemory();
+#ifdef AK_COUNT
+  ak_enc_counters_reset(ctx);
+#endif
   intptr_t rc;
   if (retain) {
     struct ak_ufix_UploadResultDataMessage fixu;
     memset(&fixu, 0, sizeof fixu);
-    if (fillu_cext_UploadResultDataMessage(&fixu, rootobj, h)) { ak_enc_ctx_free(ctx); return NULL; }
+    if (fillu_cext_UploadResultDataMessage(&fixu, rootobj, h)) { ak_py_tls_enc_release(ctx, tmp_); return NULL; }
     rc = ak_uencode_UploadResultDataMessage(h, ctx, &VTU, &fixu, h->direct, h->direct_len);
   } else {
     struct ak_efix_UploadResultDataMessage fix;
     memset(&fix, 0, sizeof fix);
-    if (fill_cext_UploadResultDataMessage(&fix, rootobj, h)) { ak_enc_ctx_free(ctx); return NULL; }
+    if (fill_cext_UploadResultDataMessage(&fix, rootobj, h)) { ak_py_tls_enc_release(ctx, tmp_); return NULL; }
     rc = ak_encode_UploadResultDataMessage(h, ctx, &VT, &fix, h->direct, h->direct_len);
   }
   if (rc < 0) {
-    ak_enc_ctx_free(ctx);
+    ak_py_tls_enc_release(ctx, tmp_);
     if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_UploadResultDataMessage returned %ld", (long)rc);
     return NULL;
   }
@@ -10301,10 +10396,10 @@ static PyObject *encode_cext_UploadResultDataMessage(PyObject *rootobj, PyObject
   { struct AkCounters c; ak_enc_counters(ctx, &c); CORE_ADD(CORE_ENC, c); }
 #endif
   const uint8_t *pp = NULL; size_t len = 0;
-  if (ak_enc_take(ctx, &pp, &len)) { ak_enc_ctx_free(ctx);
+  if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
   PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
-  ak_enc_ctx_free(ctx);
+  ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
 static int32_t loop_cext_RListMetricsResponse_batches(ak_enc_ctx *ctx, const void *obj, int64_t token) {
@@ -10383,22 +10478,26 @@ static PyObject *encode_cext_ListMetricsResponse(PyObject *rootobj, PyObject *ac
   HostCtx *h = &hs;
   static const struct ak_evt_ListMetricsResponse VT = {.loop_batches = loop_cext_RListMetricsResponse_batches, .elem_batches = &EVT_cext_MetricsBatch};
   static const struct ak_evt_ListMetricsResponse VTU = {.loop_batches = loopu_cext_RListMetricsResponse_batches, .elem_batches = &EVTU_cext_MetricsBatch};
-  ak_enc_ctx *ctx = ak_enc_ctx_new();
+  int tmp_ = 0;
+  ak_enc_ctx *ctx = ak_py_tls_enc_acquire(&tmp_);
   if (!ctx) return PyErr_NoMemory();
+#ifdef AK_COUNT
+  ak_enc_counters_reset(ctx);
+#endif
   intptr_t rc;
   if (retain) {
     struct ak_ufix_ListMetricsResponse fixu;
     memset(&fixu, 0, sizeof fixu);
-    if (fillu_cext_ListMetricsResponse(&fixu, rootobj, h)) { ak_enc_ctx_free(ctx); return NULL; }
+    if (fillu_cext_ListMetricsResponse(&fixu, rootobj, h)) { ak_py_tls_enc_release(ctx, tmp_); return NULL; }
     rc = ak_uencode_ListMetricsResponse(h, ctx, &VTU, &fixu);
   } else {
     struct ak_efix_ListMetricsResponse fix;
     memset(&fix, 0, sizeof fix);
-    if (fill_cext_ListMetricsResponse(&fix, rootobj, h)) { ak_enc_ctx_free(ctx); return NULL; }
+    if (fill_cext_ListMetricsResponse(&fix, rootobj, h)) { ak_py_tls_enc_release(ctx, tmp_); return NULL; }
     rc = ak_encode_ListMetricsResponse(h, ctx, &VT, &fix);
   }
   if (rc < 0) {
-    ak_enc_ctx_free(ctx);
+    ak_py_tls_enc_release(ctx, tmp_);
     if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_ListMetricsResponse returned %ld", (long)rc);
     return NULL;
   }
@@ -10406,10 +10505,10 @@ static PyObject *encode_cext_ListMetricsResponse(PyObject *rootobj, PyObject *ac
   { struct AkCounters c; ak_enc_counters(ctx, &c); CORE_ADD(CORE_ENC, c); }
 #endif
   const uint8_t *pp = NULL; size_t len = 0;
-  if (ak_enc_take(ctx, &pp, &len)) { ak_enc_ctx_free(ctx);
+  if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
   PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
-  ak_enc_ctx_free(ctx);
+  ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
 static int32_t loop_cext_RDualResponse_left(ak_enc_ctx *ctx, const void *obj, int64_t token) {
@@ -10538,22 +10637,26 @@ static PyObject *encode_cext_DualResponse(PyObject *rootobj, PyObject *acc, int 
   HostCtx *h = &hs;
   static const struct ak_evt_DualResponse VT = {.loop_left = loop_cext_RDualResponse_left, .loop_right = loop_cext_RDualResponse_right};
   static const struct ak_evt_DualResponse VTU = {.loop_left = loopu_cext_RDualResponse_left, .loop_right = loopu_cext_RDualResponse_right};
-  ak_enc_ctx *ctx = ak_enc_ctx_new();
+  int tmp_ = 0;
+  ak_enc_ctx *ctx = ak_py_tls_enc_acquire(&tmp_);
   if (!ctx) return PyErr_NoMemory();
+#ifdef AK_COUNT
+  ak_enc_counters_reset(ctx);
+#endif
   intptr_t rc;
   if (retain) {
     struct ak_ufix_DualResponse fixu;
     memset(&fixu, 0, sizeof fixu);
-    if (fillu_cext_DualResponse(&fixu, rootobj, h)) { ak_enc_ctx_free(ctx); return NULL; }
+    if (fillu_cext_DualResponse(&fixu, rootobj, h)) { ak_py_tls_enc_release(ctx, tmp_); return NULL; }
     rc = ak_uencode_DualResponse(h, ctx, &VTU, &fixu);
   } else {
     struct ak_efix_DualResponse fix;
     memset(&fix, 0, sizeof fix);
-    if (fill_cext_DualResponse(&fix, rootobj, h)) { ak_enc_ctx_free(ctx); return NULL; }
+    if (fill_cext_DualResponse(&fix, rootobj, h)) { ak_py_tls_enc_release(ctx, tmp_); return NULL; }
     rc = ak_encode_DualResponse(h, ctx, &VT, &fix);
   }
   if (rc < 0) {
-    ak_enc_ctx_free(ctx);
+    ak_py_tls_enc_release(ctx, tmp_);
     if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_DualResponse returned %ld", (long)rc);
     return NULL;
   }
@@ -10561,10 +10664,10 @@ static PyObject *encode_cext_DualResponse(PyObject *rootobj, PyObject *acc, int 
   { struct AkCounters c; ak_enc_counters(ctx, &c); CORE_ADD(CORE_ENC, c); }
 #endif
   const uint8_t *pp = NULL; size_t len = 0;
-  if (ak_enc_take(ctx, &pp, &len)) { ak_enc_ctx_free(ctx);
+  if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
   PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
-  ak_enc_ctx_free(ctx);
+  ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
 static int setgroup_cext_Timestamp(HostCtx *h, PyObject *ob, const struct ak_dfix_Timestamp *e) {
@@ -11402,16 +11505,22 @@ static PyObject *decode_cext_ListResultsResponse(PyObject *buf, PyObject *acc, H
     if (!(zero & (1ULL << 2))) o.results_created_at.grow = ak_py_grow;
     if (!(zero & (1ULL << 3))) o.results_completed_at.grow = ak_py_grow;
   }
-  ak_dec_ctx *ctx = ak_dec_ctx_new_ListResultsResponse(NULL);   /* bound to this root (rule 6) */
+  int tmp_ = 0;
+  ak_dec_ctx *ctx = ak_py_tls_acquire(0, &tmp_);   /* bound to this root (rule 6) */
   if (!ctx) { Py_DECREF(h.lists[0]); Py_DECREF(rootobj); return PyErr_NoMemory(); }
+#ifdef AK_COUNT
+  ak_dec_counters_reset(ctx);
+#endif
   int32_t rc = ak_dec_reset_ListResultsResponse(ctx, retain ? &o : NULL);   /* a reset per decode (rule 7) */
   if (rc == 0) rc = ak_decode_ListResultsResponse(ctx, &h, (const uint8_t *)pp, (size_t)blen, &VT);
-  int32_t rr = ak_dec_reset_ListResultsResponse(ctx, NULL);   /* disarm: the core forgets &o */
-  if (rc == 0 && rr != 0) rc = rr;
+  if (retain) {
+    int32_t rr = ak_dec_reset_ListResultsResponse(ctx, NULL);   /* disarm: the core forgets &o */
+    if (rc == 0 && rr != 0) rc = rr;
+  }
 #ifdef AK_COUNT
   { struct AkCounters c; ak_dec_counters(ctx, &c); CORE_ADD(CORE_DEC, c); }
 #endif
-  ak_dec_ctx_free(ctx);
+  ak_py_tls_release(0, ctx, tmp_);
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
     Py_DECREF(h.lists[0]); Py_DECREF(rootobj);
@@ -11593,16 +11702,22 @@ static PyObject *decode_cext_ListTasksDetailedResponse(PyObject *buf, PyObject *
     if (!(zero & (1ULL << 16))) o.tasks_processed_at.grow = ak_py_grow;
     if (!(zero & (1ULL << 17))) o.tasks_fetched_at.grow = ak_py_grow;
   }
-  ak_dec_ctx *ctx = ak_dec_ctx_new_ListTasksDetailedResponse(NULL);   /* bound to this root (rule 6) */
+  int tmp_ = 0;
+  ak_dec_ctx *ctx = ak_py_tls_acquire(1, &tmp_);   /* bound to this root (rule 6) */
   if (!ctx) { Py_DECREF(h.lists[0]); Py_DECREF(rootobj); return PyErr_NoMemory(); }
+#ifdef AK_COUNT
+  ak_dec_counters_reset(ctx);
+#endif
   int32_t rc = ak_dec_reset_ListTasksDetailedResponse(ctx, retain ? &o : NULL);   /* a reset per decode (rule 7) */
   if (rc == 0) rc = ak_decode_ListTasksDetailedResponse(ctx, &h, (const uint8_t *)pp, (size_t)blen, &VT);
-  int32_t rr = ak_dec_reset_ListTasksDetailedResponse(ctx, NULL);   /* disarm: the core forgets &o */
-  if (rc == 0 && rr != 0) rc = rr;
+  if (retain) {
+    int32_t rr = ak_dec_reset_ListTasksDetailedResponse(ctx, NULL);   /* disarm: the core forgets &o */
+    if (rc == 0 && rr != 0) rc = rr;
+  }
 #ifdef AK_COUNT
   { struct AkCounters c; ak_dec_counters(ctx, &c); CORE_ADD(CORE_DEC, c); }
 #endif
-  ak_dec_ctx_free(ctx);
+  ak_py_tls_release(1, ctx, tmp_);
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
     Py_DECREF(h.lists[0]); Py_DECREF(rootobj);
@@ -11660,16 +11775,22 @@ static PyObject *decode_cext_ListProbeResponse(PyObject *buf, PyObject *acc, Hos
     if (!(zero & (1ULL << 1))) o.probes.grow = ak_py_grow;
     if (!(zero & (1ULL << 2))) o.probes_body.grow = ak_py_grow;
   }
-  ak_dec_ctx *ctx = ak_dec_ctx_new_ListProbeResponse(NULL);   /* bound to this root (rule 6) */
+  int tmp_ = 0;
+  ak_dec_ctx *ctx = ak_py_tls_acquire(2, &tmp_);   /* bound to this root (rule 6) */
   if (!ctx) { Py_DECREF(h.lists[0]); Py_DECREF(rootobj); return PyErr_NoMemory(); }
+#ifdef AK_COUNT
+  ak_dec_counters_reset(ctx);
+#endif
   int32_t rc = ak_dec_reset_ListProbeResponse(ctx, retain ? &o : NULL);   /* a reset per decode (rule 7) */
   if (rc == 0) rc = ak_decode_ListProbeResponse(ctx, &h, (const uint8_t *)pp, (size_t)blen, &VT);
-  int32_t rr = ak_dec_reset_ListProbeResponse(ctx, NULL);   /* disarm: the core forgets &o */
-  if (rc == 0 && rr != 0) rc = rr;
+  if (retain) {
+    int32_t rr = ak_dec_reset_ListProbeResponse(ctx, NULL);   /* disarm: the core forgets &o */
+    if (rc == 0 && rr != 0) rc = rr;
+  }
 #ifdef AK_COUNT
   { struct AkCounters c; ak_dec_counters(ctx, &c); CORE_ADD(CORE_DEC, c); }
 #endif
-  ak_dec_ctx_free(ctx);
+  ak_py_tls_release(2, ctx, tmp_);
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
     Py_DECREF(h.lists[0]); Py_DECREF(rootobj);
@@ -11763,16 +11884,22 @@ static PyObject *decode_cext_ListTaskSummaryResponse(PyObject *buf, PyObject *ac
     if (!(zero & (1ULL << 4))) o.tasks_options_max_duration.grow = ak_py_grow;
     if (!(zero & (1ULL << 5))) o.tasks_created_at.grow = ak_py_grow;
   }
-  ak_dec_ctx *ctx = ak_dec_ctx_new_ListTaskSummaryResponse(NULL);   /* bound to this root (rule 6) */
+  int tmp_ = 0;
+  ak_dec_ctx *ctx = ak_py_tls_acquire(3, &tmp_);   /* bound to this root (rule 6) */
   if (!ctx) { Py_DECREF(h.lists[0]); Py_DECREF(rootobj); return PyErr_NoMemory(); }
+#ifdef AK_COUNT
+  ak_dec_counters_reset(ctx);
+#endif
   int32_t rc = ak_dec_reset_ListTaskSummaryResponse(ctx, retain ? &o : NULL);   /* a reset per decode (rule 7) */
   if (rc == 0) rc = ak_decode_ListTaskSummaryResponse(ctx, &h, (const uint8_t *)pp, (size_t)blen, &VT);
-  int32_t rr = ak_dec_reset_ListTaskSummaryResponse(ctx, NULL);   /* disarm: the core forgets &o */
-  if (rc == 0 && rr != 0) rc = rr;
+  if (retain) {
+    int32_t rr = ak_dec_reset_ListTaskSummaryResponse(ctx, NULL);   /* disarm: the core forgets &o */
+    if (rc == 0 && rr != 0) rc = rr;
+  }
 #ifdef AK_COUNT
   { struct AkCounters c; ak_dec_counters(ctx, &c); CORE_ADD(CORE_DEC, c); }
 #endif
-  ak_dec_ctx_free(ctx);
+  ak_py_tls_release(3, ctx, tmp_);
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
     Py_DECREF(h.lists[0]); Py_DECREF(rootobj);
@@ -11805,16 +11932,22 @@ static PyObject *decode_cext_UploadResultDataMessage(PyObject *buf, PyObject *ac
     if (!(zero & (1ULL << 0))) o.self.grow = ak_py_grow;
     if (!(zero & (1ULL << 1))) o.upload.grow = ak_py_grow;
   }
-  ak_dec_ctx *ctx = ak_dec_ctx_new_UploadResultDataMessage(NULL);   /* bound to this root (rule 6) */
+  int tmp_ = 0;
+  ak_dec_ctx *ctx = ak_py_tls_acquire(4, &tmp_);   /* bound to this root (rule 6) */
   if (!ctx) {  Py_DECREF(rootobj); return PyErr_NoMemory(); }
+#ifdef AK_COUNT
+  ak_dec_counters_reset(ctx);
+#endif
   int32_t rc = ak_dec_reset_UploadResultDataMessage(ctx, retain ? &o : NULL);   /* a reset per decode (rule 7) */
   if (rc == 0) rc = ak_decode_UploadResultDataMessage(ctx, &h, (const uint8_t *)pp, (size_t)blen, &VT);
-  int32_t rr = ak_dec_reset_UploadResultDataMessage(ctx, NULL);   /* disarm: the core forgets &o */
-  if (rc == 0 && rr != 0) rc = rr;
+  if (retain) {
+    int32_t rr = ak_dec_reset_UploadResultDataMessage(ctx, NULL);   /* disarm: the core forgets &o */
+    if (rc == 0 && rr != 0) rc = rr;
+  }
 #ifdef AK_COUNT
   { struct AkCounters c; ak_dec_counters(ctx, &c); CORE_ADD(CORE_DEC, c); }
 #endif
-  ak_dec_ctx_free(ctx);
+  ak_py_tls_release(4, ctx, tmp_);
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
      Py_DECREF(rootobj);
@@ -11967,16 +12100,22 @@ static PyObject *decode_cext_ListMetricsResponse(PyObject *buf, PyObject *acc, H
     if (!(zero & (1ULL << 0))) o.self.grow = ak_py_grow;
     if (!(zero & (1ULL << 1))) o.batches.grow = ak_py_grow;
   }
-  ak_dec_ctx *ctx = ak_dec_ctx_new_ListMetricsResponse(NULL);   /* bound to this root (rule 6) */
+  int tmp_ = 0;
+  ak_dec_ctx *ctx = ak_py_tls_acquire(5, &tmp_);   /* bound to this root (rule 6) */
   if (!ctx) { Py_DECREF(h.lists[0]); Py_DECREF(rootobj); return PyErr_NoMemory(); }
+#ifdef AK_COUNT
+  ak_dec_counters_reset(ctx);
+#endif
   int32_t rc = ak_dec_reset_ListMetricsResponse(ctx, retain ? &o : NULL);   /* a reset per decode (rule 7) */
   if (rc == 0) rc = ak_decode_ListMetricsResponse(ctx, &h, (const uint8_t *)pp, (size_t)blen, &VT);
-  int32_t rr = ak_dec_reset_ListMetricsResponse(ctx, NULL);   /* disarm: the core forgets &o */
-  if (rc == 0 && rr != 0) rc = rr;
+  if (retain) {
+    int32_t rr = ak_dec_reset_ListMetricsResponse(ctx, NULL);   /* disarm: the core forgets &o */
+    if (rc == 0 && rr != 0) rc = rr;
+  }
 #ifdef AK_COUNT
   { struct AkCounters c; ak_dec_counters(ctx, &c); CORE_ADD(CORE_DEC, c); }
 #endif
-  ak_dec_ctx_free(ctx);
+  ak_py_tls_release(5, ctx, tmp_);
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
     Py_DECREF(h.lists[0]); Py_DECREF(rootobj);
@@ -12058,16 +12197,22 @@ static PyObject *decode_cext_DualResponse(PyObject *buf, PyObject *acc, HostType
     if (!(zero & (1ULL << 1))) o.left.grow = ak_py_grow;
     if (!(zero & (1ULL << 2))) o.right.grow = ak_py_grow;
   }
-  ak_dec_ctx *ctx = ak_dec_ctx_new_DualResponse(NULL);   /* bound to this root (rule 6) */
+  int tmp_ = 0;
+  ak_dec_ctx *ctx = ak_py_tls_acquire(6, &tmp_);   /* bound to this root (rule 6) */
   if (!ctx) { Py_DECREF(h.lists[0]); Py_DECREF(h.lists[1]); Py_DECREF(rootobj); return PyErr_NoMemory(); }
+#ifdef AK_COUNT
+  ak_dec_counters_reset(ctx);
+#endif
   int32_t rc = ak_dec_reset_DualResponse(ctx, retain ? &o : NULL);   /* a reset per decode (rule 7) */
   if (rc == 0) rc = ak_decode_DualResponse(ctx, &h, (const uint8_t *)pp, (size_t)blen, &VT);
-  int32_t rr = ak_dec_reset_DualResponse(ctx, NULL);   /* disarm: the core forgets &o */
-  if (rc == 0 && rr != 0) rc = rr;
+  if (retain) {
+    int32_t rr = ak_dec_reset_DualResponse(ctx, NULL);   /* disarm: the core forgets &o */
+    if (rc == 0 && rr != 0) rc = rr;
+  }
 #ifdef AK_COUNT
   { struct AkCounters c; ak_dec_counters(ctx, &c); CORE_ADD(CORE_DEC, c); }
 #endif
-  ak_dec_ctx_free(ctx);
+  ak_py_tls_release(6, ctx, tmp_);
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
     Py_DECREF(h.lists[0]); Py_DECREF(h.lists[1]); Py_DECREF(rootobj);
@@ -15138,22 +15283,26 @@ static PyObject *encode_pyacc_ListResultsResponse(PyObject *rootobj, PyObject *a
   HostCtx *h = &hs;
   static const struct ak_evt_ListResultsResponse VT = {.loop_results = loop_pyacc_RListResultsResponse_results};
   static const struct ak_evt_ListResultsResponse VTU = {.loop_results = loopu_pyacc_RListResultsResponse_results};
-  ak_enc_ctx *ctx = ak_enc_ctx_new();
+  int tmp_ = 0;
+  ak_enc_ctx *ctx = ak_py_tls_enc_acquire(&tmp_);
   if (!ctx) return PyErr_NoMemory();
+#ifdef AK_COUNT
+  ak_enc_counters_reset(ctx);
+#endif
   intptr_t rc;
   if (retain) {
     struct ak_ufix_ListResultsResponse fixu;
     memset(&fixu, 0, sizeof fixu);
-    if (fillu_pyacc_ListResultsResponse(&fixu, rootobj, h)) { ak_enc_ctx_free(ctx); return NULL; }
+    if (fillu_pyacc_ListResultsResponse(&fixu, rootobj, h)) { ak_py_tls_enc_release(ctx, tmp_); return NULL; }
     rc = ak_uencode_ListResultsResponse(h, ctx, &VTU, &fixu);
   } else {
     struct ak_efix_ListResultsResponse fix;
     memset(&fix, 0, sizeof fix);
-    if (fill_pyacc_ListResultsResponse(&fix, rootobj, h)) { ak_enc_ctx_free(ctx); return NULL; }
+    if (fill_pyacc_ListResultsResponse(&fix, rootobj, h)) { ak_py_tls_enc_release(ctx, tmp_); return NULL; }
     rc = ak_encode_ListResultsResponse(h, ctx, &VT, &fix);
   }
   if (rc < 0) {
-    ak_enc_ctx_free(ctx);
+    ak_py_tls_enc_release(ctx, tmp_);
     if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_ListResultsResponse returned %ld", (long)rc);
     return NULL;
   }
@@ -15161,10 +15310,10 @@ static PyObject *encode_pyacc_ListResultsResponse(PyObject *rootobj, PyObject *a
   { struct AkCounters c; ak_enc_counters(ctx, &c); CORE_ADD(CORE_ENC, c); }
 #endif
   const uint8_t *pp = NULL; size_t len = 0;
-  if (ak_enc_take(ctx, &pp, &len)) { ak_enc_ctx_free(ctx);
+  if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
   PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
-  ak_enc_ctx_free(ctx);
+  ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
 static int32_t loop_pyacc_RListTasksDetailedResponse_tasks(ak_enc_ctx *ctx, const void *obj, int64_t token) {
@@ -15251,22 +15400,26 @@ static PyObject *encode_pyacc_ListTasksDetailedResponse(PyObject *rootobj, PyObj
   HostCtx *h = &hs;
   static const struct ak_evt_ListTasksDetailedResponse VT = {.loop_tasks = loop_pyacc_RListTasksDetailedResponse_tasks, .elem_tasks = &EVT_pyacc_TaskDetailed};
   static const struct ak_evt_ListTasksDetailedResponse VTU = {.loop_tasks = loopu_pyacc_RListTasksDetailedResponse_tasks, .elem_tasks = &EVTU_pyacc_TaskDetailed};
-  ak_enc_ctx *ctx = ak_enc_ctx_new();
+  int tmp_ = 0;
+  ak_enc_ctx *ctx = ak_py_tls_enc_acquire(&tmp_);
   if (!ctx) return PyErr_NoMemory();
+#ifdef AK_COUNT
+  ak_enc_counters_reset(ctx);
+#endif
   intptr_t rc;
   if (retain) {
     struct ak_ufix_ListTasksDetailedResponse fixu;
     memset(&fixu, 0, sizeof fixu);
-    if (fillu_pyacc_ListTasksDetailedResponse(&fixu, rootobj, h)) { ak_enc_ctx_free(ctx); return NULL; }
+    if (fillu_pyacc_ListTasksDetailedResponse(&fixu, rootobj, h)) { ak_py_tls_enc_release(ctx, tmp_); return NULL; }
     rc = ak_uencode_ListTasksDetailedResponse(h, ctx, &VTU, &fixu);
   } else {
     struct ak_efix_ListTasksDetailedResponse fix;
     memset(&fix, 0, sizeof fix);
-    if (fill_pyacc_ListTasksDetailedResponse(&fix, rootobj, h)) { ak_enc_ctx_free(ctx); return NULL; }
+    if (fill_pyacc_ListTasksDetailedResponse(&fix, rootobj, h)) { ak_py_tls_enc_release(ctx, tmp_); return NULL; }
     rc = ak_encode_ListTasksDetailedResponse(h, ctx, &VT, &fix);
   }
   if (rc < 0) {
-    ak_enc_ctx_free(ctx);
+    ak_py_tls_enc_release(ctx, tmp_);
     if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_ListTasksDetailedResponse returned %ld", (long)rc);
     return NULL;
   }
@@ -15274,10 +15427,10 @@ static PyObject *encode_pyacc_ListTasksDetailedResponse(PyObject *rootobj, PyObj
   { struct AkCounters c; ak_enc_counters(ctx, &c); CORE_ADD(CORE_ENC, c); }
 #endif
   const uint8_t *pp = NULL; size_t len = 0;
-  if (ak_enc_take(ctx, &pp, &len)) { ak_enc_ctx_free(ctx);
+  if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
   PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
-  ak_enc_ctx_free(ctx);
+  ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
 static int32_t loop_pyacc_RListProbeResponse_probes(ak_enc_ctx *ctx, const void *obj, int64_t token) {
@@ -15354,22 +15507,26 @@ static PyObject *encode_pyacc_ListProbeResponse(PyObject *rootobj, PyObject *acc
   HostCtx *h = &hs;
   static const struct ak_evt_ListProbeResponse VT = {.loop_probes = loop_pyacc_RListProbeResponse_probes};
   static const struct ak_evt_ListProbeResponse VTU = {.loop_probes = loopu_pyacc_RListProbeResponse_probes};
-  ak_enc_ctx *ctx = ak_enc_ctx_new();
+  int tmp_ = 0;
+  ak_enc_ctx *ctx = ak_py_tls_enc_acquire(&tmp_);
   if (!ctx) return PyErr_NoMemory();
+#ifdef AK_COUNT
+  ak_enc_counters_reset(ctx);
+#endif
   intptr_t rc;
   if (retain) {
     struct ak_ufix_ListProbeResponse fixu;
     memset(&fixu, 0, sizeof fixu);
-    if (fillu_pyacc_ListProbeResponse(&fixu, rootobj, h)) { ak_enc_ctx_free(ctx); return NULL; }
+    if (fillu_pyacc_ListProbeResponse(&fixu, rootobj, h)) { ak_py_tls_enc_release(ctx, tmp_); return NULL; }
     rc = ak_uencode_ListProbeResponse(h, ctx, &VTU, &fixu);
   } else {
     struct ak_efix_ListProbeResponse fix;
     memset(&fix, 0, sizeof fix);
-    if (fill_pyacc_ListProbeResponse(&fix, rootobj, h)) { ak_enc_ctx_free(ctx); return NULL; }
+    if (fill_pyacc_ListProbeResponse(&fix, rootobj, h)) { ak_py_tls_enc_release(ctx, tmp_); return NULL; }
     rc = ak_encode_ListProbeResponse(h, ctx, &VT, &fix);
   }
   if (rc < 0) {
-    ak_enc_ctx_free(ctx);
+    ak_py_tls_enc_release(ctx, tmp_);
     if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_ListProbeResponse returned %ld", (long)rc);
     return NULL;
   }
@@ -15377,10 +15534,10 @@ static PyObject *encode_pyacc_ListProbeResponse(PyObject *rootobj, PyObject *acc
   { struct AkCounters c; ak_enc_counters(ctx, &c); CORE_ADD(CORE_ENC, c); }
 #endif
   const uint8_t *pp = NULL; size_t len = 0;
-  if (ak_enc_take(ctx, &pp, &len)) { ak_enc_ctx_free(ctx);
+  if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
   PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
-  ak_enc_ctx_free(ctx);
+  ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
 static int32_t loop_pyacc_RListTaskSummaryResponse_tasks(ak_enc_ctx *ctx, const void *obj, int64_t token) {
@@ -15467,22 +15624,26 @@ static PyObject *encode_pyacc_ListTaskSummaryResponse(PyObject *rootobj, PyObjec
   HostCtx *h = &hs;
   static const struct ak_evt_ListTaskSummaryResponse VT = {.loop_tasks = loop_pyacc_RListTaskSummaryResponse_tasks, .elem_tasks = &EVT_pyacc_TaskSummary};
   static const struct ak_evt_ListTaskSummaryResponse VTU = {.loop_tasks = loopu_pyacc_RListTaskSummaryResponse_tasks, .elem_tasks = &EVTU_pyacc_TaskSummary};
-  ak_enc_ctx *ctx = ak_enc_ctx_new();
+  int tmp_ = 0;
+  ak_enc_ctx *ctx = ak_py_tls_enc_acquire(&tmp_);
   if (!ctx) return PyErr_NoMemory();
+#ifdef AK_COUNT
+  ak_enc_counters_reset(ctx);
+#endif
   intptr_t rc;
   if (retain) {
     struct ak_ufix_ListTaskSummaryResponse fixu;
     memset(&fixu, 0, sizeof fixu);
-    if (fillu_pyacc_ListTaskSummaryResponse(&fixu, rootobj, h)) { ak_enc_ctx_free(ctx); return NULL; }
+    if (fillu_pyacc_ListTaskSummaryResponse(&fixu, rootobj, h)) { ak_py_tls_enc_release(ctx, tmp_); return NULL; }
     rc = ak_uencode_ListTaskSummaryResponse(h, ctx, &VTU, &fixu);
   } else {
     struct ak_efix_ListTaskSummaryResponse fix;
     memset(&fix, 0, sizeof fix);
-    if (fill_pyacc_ListTaskSummaryResponse(&fix, rootobj, h)) { ak_enc_ctx_free(ctx); return NULL; }
+    if (fill_pyacc_ListTaskSummaryResponse(&fix, rootobj, h)) { ak_py_tls_enc_release(ctx, tmp_); return NULL; }
     rc = ak_encode_ListTaskSummaryResponse(h, ctx, &VT, &fix);
   }
   if (rc < 0) {
-    ak_enc_ctx_free(ctx);
+    ak_py_tls_enc_release(ctx, tmp_);
     if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_ListTaskSummaryResponse returned %ld", (long)rc);
     return NULL;
   }
@@ -15490,10 +15651,10 @@ static PyObject *encode_pyacc_ListTaskSummaryResponse(PyObject *rootobj, PyObjec
   { struct AkCounters c; ak_enc_counters(ctx, &c); CORE_ADD(CORE_ENC, c); }
 #endif
   const uint8_t *pp = NULL; size_t len = 0;
-  if (ak_enc_take(ctx, &pp, &len)) { ak_enc_ctx_free(ctx);
+  if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
   PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
-  ak_enc_ctx_free(ctx);
+  ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
 static PyObject *encode_pyacc_UploadResultDataMessage(PyObject *rootobj, PyObject *acc, int retain) {
@@ -15502,22 +15663,26 @@ static PyObject *encode_pyacc_UploadResultDataMessage(PyObject *rootobj, PyObjec
   HostCtx *h = &hs;
   static const struct ak_evt_UploadResultDataMessage VT = {0};
   static const struct ak_evt_UploadResultDataMessage VTU = {0};
-  ak_enc_ctx *ctx = ak_enc_ctx_new();
+  int tmp_ = 0;
+  ak_enc_ctx *ctx = ak_py_tls_enc_acquire(&tmp_);
   if (!ctx) return PyErr_NoMemory();
+#ifdef AK_COUNT
+  ak_enc_counters_reset(ctx);
+#endif
   intptr_t rc;
   if (retain) {
     struct ak_ufix_UploadResultDataMessage fixu;
     memset(&fixu, 0, sizeof fixu);
-    if (fillu_pyacc_UploadResultDataMessage(&fixu, rootobj, h)) { ak_enc_ctx_free(ctx); return NULL; }
+    if (fillu_pyacc_UploadResultDataMessage(&fixu, rootobj, h)) { ak_py_tls_enc_release(ctx, tmp_); return NULL; }
     rc = ak_uencode_UploadResultDataMessage(h, ctx, &VTU, &fixu, h->direct, h->direct_len);
   } else {
     struct ak_efix_UploadResultDataMessage fix;
     memset(&fix, 0, sizeof fix);
-    if (fill_pyacc_UploadResultDataMessage(&fix, rootobj, h)) { ak_enc_ctx_free(ctx); return NULL; }
+    if (fill_pyacc_UploadResultDataMessage(&fix, rootobj, h)) { ak_py_tls_enc_release(ctx, tmp_); return NULL; }
     rc = ak_encode_UploadResultDataMessage(h, ctx, &VT, &fix, h->direct, h->direct_len);
   }
   if (rc < 0) {
-    ak_enc_ctx_free(ctx);
+    ak_py_tls_enc_release(ctx, tmp_);
     if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_UploadResultDataMessage returned %ld", (long)rc);
     return NULL;
   }
@@ -15525,10 +15690,10 @@ static PyObject *encode_pyacc_UploadResultDataMessage(PyObject *rootobj, PyObjec
   { struct AkCounters c; ak_enc_counters(ctx, &c); CORE_ADD(CORE_ENC, c); }
 #endif
   const uint8_t *pp = NULL; size_t len = 0;
-  if (ak_enc_take(ctx, &pp, &len)) { ak_enc_ctx_free(ctx);
+  if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
   PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
-  ak_enc_ctx_free(ctx);
+  ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
 static int32_t loop_pyacc_RListMetricsResponse_batches(ak_enc_ctx *ctx, const void *obj, int64_t token) {
@@ -15615,22 +15780,26 @@ static PyObject *encode_pyacc_ListMetricsResponse(PyObject *rootobj, PyObject *a
   HostCtx *h = &hs;
   static const struct ak_evt_ListMetricsResponse VT = {.loop_batches = loop_pyacc_RListMetricsResponse_batches, .elem_batches = &EVT_pyacc_MetricsBatch};
   static const struct ak_evt_ListMetricsResponse VTU = {.loop_batches = loopu_pyacc_RListMetricsResponse_batches, .elem_batches = &EVTU_pyacc_MetricsBatch};
-  ak_enc_ctx *ctx = ak_enc_ctx_new();
+  int tmp_ = 0;
+  ak_enc_ctx *ctx = ak_py_tls_enc_acquire(&tmp_);
   if (!ctx) return PyErr_NoMemory();
+#ifdef AK_COUNT
+  ak_enc_counters_reset(ctx);
+#endif
   intptr_t rc;
   if (retain) {
     struct ak_ufix_ListMetricsResponse fixu;
     memset(&fixu, 0, sizeof fixu);
-    if (fillu_pyacc_ListMetricsResponse(&fixu, rootobj, h)) { ak_enc_ctx_free(ctx); return NULL; }
+    if (fillu_pyacc_ListMetricsResponse(&fixu, rootobj, h)) { ak_py_tls_enc_release(ctx, tmp_); return NULL; }
     rc = ak_uencode_ListMetricsResponse(h, ctx, &VTU, &fixu);
   } else {
     struct ak_efix_ListMetricsResponse fix;
     memset(&fix, 0, sizeof fix);
-    if (fill_pyacc_ListMetricsResponse(&fix, rootobj, h)) { ak_enc_ctx_free(ctx); return NULL; }
+    if (fill_pyacc_ListMetricsResponse(&fix, rootobj, h)) { ak_py_tls_enc_release(ctx, tmp_); return NULL; }
     rc = ak_encode_ListMetricsResponse(h, ctx, &VT, &fix);
   }
   if (rc < 0) {
-    ak_enc_ctx_free(ctx);
+    ak_py_tls_enc_release(ctx, tmp_);
     if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_ListMetricsResponse returned %ld", (long)rc);
     return NULL;
   }
@@ -15638,10 +15807,10 @@ static PyObject *encode_pyacc_ListMetricsResponse(PyObject *rootobj, PyObject *a
   { struct AkCounters c; ak_enc_counters(ctx, &c); CORE_ADD(CORE_ENC, c); }
 #endif
   const uint8_t *pp = NULL; size_t len = 0;
-  if (ak_enc_take(ctx, &pp, &len)) { ak_enc_ctx_free(ctx);
+  if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
   PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
-  ak_enc_ctx_free(ctx);
+  ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
 static int32_t loop_pyacc_RDualResponse_left(ak_enc_ctx *ctx, const void *obj, int64_t token) {
@@ -15786,22 +15955,26 @@ static PyObject *encode_pyacc_DualResponse(PyObject *rootobj, PyObject *acc, int
   HostCtx *h = &hs;
   static const struct ak_evt_DualResponse VT = {.loop_left = loop_pyacc_RDualResponse_left, .loop_right = loop_pyacc_RDualResponse_right};
   static const struct ak_evt_DualResponse VTU = {.loop_left = loopu_pyacc_RDualResponse_left, .loop_right = loopu_pyacc_RDualResponse_right};
-  ak_enc_ctx *ctx = ak_enc_ctx_new();
+  int tmp_ = 0;
+  ak_enc_ctx *ctx = ak_py_tls_enc_acquire(&tmp_);
   if (!ctx) return PyErr_NoMemory();
+#ifdef AK_COUNT
+  ak_enc_counters_reset(ctx);
+#endif
   intptr_t rc;
   if (retain) {
     struct ak_ufix_DualResponse fixu;
     memset(&fixu, 0, sizeof fixu);
-    if (fillu_pyacc_DualResponse(&fixu, rootobj, h)) { ak_enc_ctx_free(ctx); return NULL; }
+    if (fillu_pyacc_DualResponse(&fixu, rootobj, h)) { ak_py_tls_enc_release(ctx, tmp_); return NULL; }
     rc = ak_uencode_DualResponse(h, ctx, &VTU, &fixu);
   } else {
     struct ak_efix_DualResponse fix;
     memset(&fix, 0, sizeof fix);
-    if (fill_pyacc_DualResponse(&fix, rootobj, h)) { ak_enc_ctx_free(ctx); return NULL; }
+    if (fill_pyacc_DualResponse(&fix, rootobj, h)) { ak_py_tls_enc_release(ctx, tmp_); return NULL; }
     rc = ak_encode_DualResponse(h, ctx, &VT, &fix);
   }
   if (rc < 0) {
-    ak_enc_ctx_free(ctx);
+    ak_py_tls_enc_release(ctx, tmp_);
     if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_DualResponse returned %ld", (long)rc);
     return NULL;
   }
@@ -15809,10 +15982,10 @@ static PyObject *encode_pyacc_DualResponse(PyObject *rootobj, PyObject *acc, int
   { struct AkCounters c; ak_enc_counters(ctx, &c); CORE_ADD(CORE_ENC, c); }
 #endif
   const uint8_t *pp = NULL; size_t len = 0;
-  if (ak_enc_take(ctx, &pp, &len)) { ak_enc_ctx_free(ctx);
+  if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
   PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
-  ak_enc_ctx_free(ctx);
+  ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
 static int setgroup_pyacc_Timestamp(HostCtx *h, PyObject *ob, const struct ak_dfix_Timestamp *e) {
@@ -17221,16 +17394,22 @@ static PyObject *decode_pyacc_ListResultsResponse(PyObject *buf, PyObject *acc, 
     if (!(zero & (1ULL << 2))) o.results_created_at.grow = ak_py_grow;
     if (!(zero & (1ULL << 3))) o.results_completed_at.grow = ak_py_grow;
   }
-  ak_dec_ctx *ctx = ak_dec_ctx_new_ListResultsResponse(NULL);   /* bound to this root (rule 6) */
+  int tmp_ = 0;
+  ak_dec_ctx *ctx = ak_py_tls_acquire(0, &tmp_);   /* bound to this root (rule 6) */
   if (!ctx) { Py_DECREF(h.lists[0]); Py_DECREF(rootobj); return PyErr_NoMemory(); }
+#ifdef AK_COUNT
+  ak_dec_counters_reset(ctx);
+#endif
   int32_t rc = ak_dec_reset_ListResultsResponse(ctx, retain ? &o : NULL);   /* a reset per decode (rule 7) */
   if (rc == 0) rc = ak_decode_ListResultsResponse(ctx, &h, (const uint8_t *)pp, (size_t)blen, &VT);
-  int32_t rr = ak_dec_reset_ListResultsResponse(ctx, NULL);   /* disarm: the core forgets &o */
-  if (rc == 0 && rr != 0) rc = rr;
+  if (retain) {
+    int32_t rr = ak_dec_reset_ListResultsResponse(ctx, NULL);   /* disarm: the core forgets &o */
+    if (rc == 0 && rr != 0) rc = rr;
+  }
 #ifdef AK_COUNT
   { struct AkCounters c; ak_dec_counters(ctx, &c); CORE_ADD(CORE_DEC, c); }
 #endif
-  ak_dec_ctx_free(ctx);
+  ak_py_tls_release(0, ctx, tmp_);
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
     Py_DECREF(h.lists[0]); Py_DECREF(rootobj);
@@ -17445,16 +17624,22 @@ static PyObject *decode_pyacc_ListTasksDetailedResponse(PyObject *buf, PyObject 
     if (!(zero & (1ULL << 16))) o.tasks_processed_at.grow = ak_py_grow;
     if (!(zero & (1ULL << 17))) o.tasks_fetched_at.grow = ak_py_grow;
   }
-  ak_dec_ctx *ctx = ak_dec_ctx_new_ListTasksDetailedResponse(NULL);   /* bound to this root (rule 6) */
+  int tmp_ = 0;
+  ak_dec_ctx *ctx = ak_py_tls_acquire(1, &tmp_);   /* bound to this root (rule 6) */
   if (!ctx) { Py_DECREF(h.lists[0]); Py_DECREF(rootobj); return PyErr_NoMemory(); }
+#ifdef AK_COUNT
+  ak_dec_counters_reset(ctx);
+#endif
   int32_t rc = ak_dec_reset_ListTasksDetailedResponse(ctx, retain ? &o : NULL);   /* a reset per decode (rule 7) */
   if (rc == 0) rc = ak_decode_ListTasksDetailedResponse(ctx, &h, (const uint8_t *)pp, (size_t)blen, &VT);
-  int32_t rr = ak_dec_reset_ListTasksDetailedResponse(ctx, NULL);   /* disarm: the core forgets &o */
-  if (rc == 0 && rr != 0) rc = rr;
+  if (retain) {
+    int32_t rr = ak_dec_reset_ListTasksDetailedResponse(ctx, NULL);   /* disarm: the core forgets &o */
+    if (rc == 0 && rr != 0) rc = rr;
+  }
 #ifdef AK_COUNT
   { struct AkCounters c; ak_dec_counters(ctx, &c); CORE_ADD(CORE_DEC, c); }
 #endif
-  ak_dec_ctx_free(ctx);
+  ak_py_tls_release(1, ctx, tmp_);
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
     Py_DECREF(h.lists[0]); Py_DECREF(rootobj);
@@ -17517,16 +17702,22 @@ static PyObject *decode_pyacc_ListProbeResponse(PyObject *buf, PyObject *acc, Ho
     if (!(zero & (1ULL << 1))) o.probes.grow = ak_py_grow;
     if (!(zero & (1ULL << 2))) o.probes_body.grow = ak_py_grow;
   }
-  ak_dec_ctx *ctx = ak_dec_ctx_new_ListProbeResponse(NULL);   /* bound to this root (rule 6) */
+  int tmp_ = 0;
+  ak_dec_ctx *ctx = ak_py_tls_acquire(2, &tmp_);   /* bound to this root (rule 6) */
   if (!ctx) { Py_DECREF(h.lists[0]); Py_DECREF(rootobj); return PyErr_NoMemory(); }
+#ifdef AK_COUNT
+  ak_dec_counters_reset(ctx);
+#endif
   int32_t rc = ak_dec_reset_ListProbeResponse(ctx, retain ? &o : NULL);   /* a reset per decode (rule 7) */
   if (rc == 0) rc = ak_decode_ListProbeResponse(ctx, &h, (const uint8_t *)pp, (size_t)blen, &VT);
-  int32_t rr = ak_dec_reset_ListProbeResponse(ctx, NULL);   /* disarm: the core forgets &o */
-  if (rc == 0 && rr != 0) rc = rr;
+  if (retain) {
+    int32_t rr = ak_dec_reset_ListProbeResponse(ctx, NULL);   /* disarm: the core forgets &o */
+    if (rc == 0 && rr != 0) rc = rr;
+  }
 #ifdef AK_COUNT
   { struct AkCounters c; ak_dec_counters(ctx, &c); CORE_ADD(CORE_DEC, c); }
 #endif
-  ak_dec_ctx_free(ctx);
+  ak_py_tls_release(2, ctx, tmp_);
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
     Py_DECREF(h.lists[0]); Py_DECREF(rootobj);
@@ -17637,16 +17828,22 @@ static PyObject *decode_pyacc_ListTaskSummaryResponse(PyObject *buf, PyObject *a
     if (!(zero & (1ULL << 4))) o.tasks_options_max_duration.grow = ak_py_grow;
     if (!(zero & (1ULL << 5))) o.tasks_created_at.grow = ak_py_grow;
   }
-  ak_dec_ctx *ctx = ak_dec_ctx_new_ListTaskSummaryResponse(NULL);   /* bound to this root (rule 6) */
+  int tmp_ = 0;
+  ak_dec_ctx *ctx = ak_py_tls_acquire(3, &tmp_);   /* bound to this root (rule 6) */
   if (!ctx) { Py_DECREF(h.lists[0]); Py_DECREF(rootobj); return PyErr_NoMemory(); }
+#ifdef AK_COUNT
+  ak_dec_counters_reset(ctx);
+#endif
   int32_t rc = ak_dec_reset_ListTaskSummaryResponse(ctx, retain ? &o : NULL);   /* a reset per decode (rule 7) */
   if (rc == 0) rc = ak_decode_ListTaskSummaryResponse(ctx, &h, (const uint8_t *)pp, (size_t)blen, &VT);
-  int32_t rr = ak_dec_reset_ListTaskSummaryResponse(ctx, NULL);   /* disarm: the core forgets &o */
-  if (rc == 0 && rr != 0) rc = rr;
+  if (retain) {
+    int32_t rr = ak_dec_reset_ListTaskSummaryResponse(ctx, NULL);   /* disarm: the core forgets &o */
+    if (rc == 0 && rr != 0) rc = rr;
+  }
 #ifdef AK_COUNT
   { struct AkCounters c; ak_dec_counters(ctx, &c); CORE_ADD(CORE_DEC, c); }
 #endif
-  ak_dec_ctx_free(ctx);
+  ak_py_tls_release(3, ctx, tmp_);
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
     Py_DECREF(h.lists[0]); Py_DECREF(rootobj);
@@ -17679,16 +17876,22 @@ static PyObject *decode_pyacc_UploadResultDataMessage(PyObject *buf, PyObject *a
     if (!(zero & (1ULL << 0))) o.self.grow = ak_py_grow;
     if (!(zero & (1ULL << 1))) o.upload.grow = ak_py_grow;
   }
-  ak_dec_ctx *ctx = ak_dec_ctx_new_UploadResultDataMessage(NULL);   /* bound to this root (rule 6) */
+  int tmp_ = 0;
+  ak_dec_ctx *ctx = ak_py_tls_acquire(4, &tmp_);   /* bound to this root (rule 6) */
   if (!ctx) {  Py_DECREF(rootobj); return PyErr_NoMemory(); }
+#ifdef AK_COUNT
+  ak_dec_counters_reset(ctx);
+#endif
   int32_t rc = ak_dec_reset_UploadResultDataMessage(ctx, retain ? &o : NULL);   /* a reset per decode (rule 7) */
   if (rc == 0) rc = ak_decode_UploadResultDataMessage(ctx, &h, (const uint8_t *)pp, (size_t)blen, &VT);
-  int32_t rr = ak_dec_reset_UploadResultDataMessage(ctx, NULL);   /* disarm: the core forgets &o */
-  if (rc == 0 && rr != 0) rc = rr;
+  if (retain) {
+    int32_t rr = ak_dec_reset_UploadResultDataMessage(ctx, NULL);   /* disarm: the core forgets &o */
+    if (rc == 0 && rr != 0) rc = rr;
+  }
 #ifdef AK_COUNT
   { struct AkCounters c; ak_dec_counters(ctx, &c); CORE_ADD(CORE_DEC, c); }
 #endif
-  ak_dec_ctx_free(ctx);
+  ak_py_tls_release(4, ctx, tmp_);
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
      Py_DECREF(rootobj);
@@ -17866,16 +18069,22 @@ static PyObject *decode_pyacc_ListMetricsResponse(PyObject *buf, PyObject *acc, 
     if (!(zero & (1ULL << 0))) o.self.grow = ak_py_grow;
     if (!(zero & (1ULL << 1))) o.batches.grow = ak_py_grow;
   }
-  ak_dec_ctx *ctx = ak_dec_ctx_new_ListMetricsResponse(NULL);   /* bound to this root (rule 6) */
+  int tmp_ = 0;
+  ak_dec_ctx *ctx = ak_py_tls_acquire(5, &tmp_);   /* bound to this root (rule 6) */
   if (!ctx) { Py_DECREF(h.lists[0]); Py_DECREF(rootobj); return PyErr_NoMemory(); }
+#ifdef AK_COUNT
+  ak_dec_counters_reset(ctx);
+#endif
   int32_t rc = ak_dec_reset_ListMetricsResponse(ctx, retain ? &o : NULL);   /* a reset per decode (rule 7) */
   if (rc == 0) rc = ak_decode_ListMetricsResponse(ctx, &h, (const uint8_t *)pp, (size_t)blen, &VT);
-  int32_t rr = ak_dec_reset_ListMetricsResponse(ctx, NULL);   /* disarm: the core forgets &o */
-  if (rc == 0 && rr != 0) rc = rr;
+  if (retain) {
+    int32_t rr = ak_dec_reset_ListMetricsResponse(ctx, NULL);   /* disarm: the core forgets &o */
+    if (rc == 0 && rr != 0) rc = rr;
+  }
 #ifdef AK_COUNT
   { struct AkCounters c; ak_dec_counters(ctx, &c); CORE_ADD(CORE_DEC, c); }
 #endif
-  ak_dec_ctx_free(ctx);
+  ak_py_tls_release(5, ctx, tmp_);
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
     Py_DECREF(h.lists[0]); Py_DECREF(rootobj);
@@ -17967,16 +18176,22 @@ static PyObject *decode_pyacc_DualResponse(PyObject *buf, PyObject *acc, HostTyp
     if (!(zero & (1ULL << 1))) o.left.grow = ak_py_grow;
     if (!(zero & (1ULL << 2))) o.right.grow = ak_py_grow;
   }
-  ak_dec_ctx *ctx = ak_dec_ctx_new_DualResponse(NULL);   /* bound to this root (rule 6) */
+  int tmp_ = 0;
+  ak_dec_ctx *ctx = ak_py_tls_acquire(6, &tmp_);   /* bound to this root (rule 6) */
   if (!ctx) { Py_DECREF(h.lists[0]); Py_DECREF(h.lists[1]); Py_DECREF(rootobj); return PyErr_NoMemory(); }
+#ifdef AK_COUNT
+  ak_dec_counters_reset(ctx);
+#endif
   int32_t rc = ak_dec_reset_DualResponse(ctx, retain ? &o : NULL);   /* a reset per decode (rule 7) */
   if (rc == 0) rc = ak_decode_DualResponse(ctx, &h, (const uint8_t *)pp, (size_t)blen, &VT);
-  int32_t rr = ak_dec_reset_DualResponse(ctx, NULL);   /* disarm: the core forgets &o */
-  if (rc == 0 && rr != 0) rc = rr;
+  if (retain) {
+    int32_t rr = ak_dec_reset_DualResponse(ctx, NULL);   /* disarm: the core forgets &o */
+    if (rc == 0 && rr != 0) rc = rr;
+  }
 #ifdef AK_COUNT
   { struct AkCounters c; ak_dec_counters(ctx, &c); CORE_ADD(CORE_DEC, c); }
 #endif
-  ak_dec_ctx_free(ctx);
+  ak_py_tls_release(6, ctx, tmp_);
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
     Py_DECREF(h.lists[0]); Py_DECREF(h.lists[1]); Py_DECREF(rootobj);
@@ -18119,4 +18334,72 @@ static void ak_py_wrong_root(int a, int b, int32_t *reset_rc, int32_t *decode_rc
     break; }
   }
   ak_dec_ctx_free(ctx);
+}
+
+
+#include <pthread.h>
+#include <stdlib.h>
+struct ak_py_tls {
+  ak_dec_ctx *c[AK_NROOTS]; unsigned char busy[AK_NROOTS];
+  ak_enc_ctx *e; unsigned char ebusy;
+};
+static pthread_key_t AK_TLS_KEY;
+static int AK_TLS_OK;
+static unsigned long AK_TLS_CREATED;   /* contexts created through the key, for the harness */
+static void ak_py_tls_free(void *p) {
+  struct ak_py_tls *t = (struct ak_py_tls *)p;
+  if (!t) return;
+  for (int i = 0; i < AK_NROOTS; i++) if (t->c[i]) ak_dec_ctx_free(t->c[i]);
+  if (t->e) ak_enc_ctx_free(t->e);
+  free(t);
+}
+static int ak_py_tls_init(void) {
+  if (AK_TLS_OK) return 0;
+  if (pthread_key_create(&AK_TLS_KEY, ak_py_tls_free)) return -1;
+  AK_TLS_OK = 1;
+  return 0;
+}
+static void ak_py_tls_fini(void) {
+  if (!AK_TLS_OK) return;
+  ak_py_tls_free(pthread_getspecific(AK_TLS_KEY));
+  pthread_setspecific(AK_TLS_KEY, NULL);
+  pthread_key_delete(AK_TLS_KEY);
+  AK_TLS_OK = 0;
+}
+static struct ak_py_tls *ak_py_tls_block(void) {
+  struct ak_py_tls *t = AK_TLS_OK ? (struct ak_py_tls *)pthread_getspecific(AK_TLS_KEY) : NULL;
+  if (!t && AK_TLS_OK) {
+    t = (struct ak_py_tls *)calloc(1, sizeof *t);
+    if (t && pthread_setspecific(AK_TLS_KEY, t)) { free(t); t = NULL; }
+  }
+  return t;
+}
+static ak_dec_ctx *ak_py_tls_acquire(int root, int *tmp) {
+  *tmp = 0;
+  struct ak_py_tls *t = ak_py_tls_block();
+  if (!t || t->busy[root]) { *tmp = 1; return ak_py_ctx_new(root); }
+  if (!t->c[root]) { t->c[root] = ak_py_ctx_new(root); if (!t->c[root]) return NULL; AK_TLS_CREATED++; }
+  t->busy[root] = 1;
+  return t->c[root];
+}
+static void ak_py_tls_release(int root, ak_dec_ctx *c, int tmp) {
+  if (tmp) { ak_dec_ctx_free(c); return; }
+  struct ak_py_tls *t = (struct ak_py_tls *)pthread_getspecific(AK_TLS_KEY);
+  if (t) t->busy[root] = 0;
+}
+/* The encode context: unbound, one per thread; reset per encode (the output buffer and the
+ * sticky error slot start clean). */
+static ak_enc_ctx *ak_py_tls_enc_acquire(int *tmp) {
+  *tmp = 0;
+  struct ak_py_tls *t = ak_py_tls_block();
+  if (!t || t->ebusy) { *tmp = 1; return ak_enc_ctx_new(); }
+  if (!t->e) { t->e = ak_enc_ctx_new(); if (!t->e) return NULL; AK_TLS_CREATED++; }
+  else ak_enc_reset(t->e);
+  t->ebusy = 1;
+  return t->e;
+}
+static void ak_py_tls_enc_release(ak_enc_ctx *c, int tmp) {
+  if (tmp) { ak_enc_ctx_free(c); return; }
+  struct ak_py_tls *t = (struct ak_py_tls *)pthread_getspecific(AK_TLS_KEY);
+  if (t) t->ebusy = 0;
 }
