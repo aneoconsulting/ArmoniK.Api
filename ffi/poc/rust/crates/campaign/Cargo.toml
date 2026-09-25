@@ -1,0 +1,47 @@
+[package]
+name = "campaign"
+edition.workspace = true
+rust-version.workspace = true
+version.workspace = true
+publish.workspace = true
+
+# FIX-PLAN WP3: the rust slice's campaign harness (design/CAMPAIGN.md).
+#   benches/codec.rs   the codec suite on criterion (requirement 22a)
+#   bin/rpc_server     the RPC grid's server, a separate process (requirement 13)
+#   bin/rpc_client     the RPC grid's client, cells A-D (requirements 12-18)
+#   bin/calib          the crossing benchmark, forward and reverse (requirement 20)
+#   bin/crossings      crossing counts of every core-ffi case, counting build (19)
+# Driven by poc/rust/run_campaign.sh.
+
+[features]
+default = ["init-guard"]
+# CAMPAIGN.md requirement 6: init-guard ON, as in every gate.
+init-guard = ["harness/init-guard"]
+# README R5 / CAMPAIGN.md requirement 19: the counting build, for bin `crossings` only.
+count = ["harness/count"]
+
+[dependencies]
+harness = { path = "../harness", default-features = false, features = ["guard"] }
+facade = { path = "../facade" }
+shapes-prost = { path = "../shapes-prost" }
+shapes-values = { path = "../shapes-values" }
+ak-abi = { path = "../../../codec/crates/ak-abi" }
+ak-rt = { path = "../../../codec/crates/ak-rt" }
+ak-core = { path = "../../../codec/crates/ak-core", features = ["rpc"] }
+rpc = { path = "../../../codec/crates/rpc" }
+prost.workspace = true
+bytes.workspace = true
+sha2.workspace = true
+serde_json.workspace = true
+tonic = { workspace = true, features = ["codegen", "transport", "server", "router"] }
+tonic-prost.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "net", "macros", "time", "sync"] }
+http.workspace = true
+http-body.workspace = true
+tower-service.workspace = true
+libc = "0.2"
+criterion = { version = "0.5", default-features = false }
+
+[[bench]]
+name = "codec"
+harness = false

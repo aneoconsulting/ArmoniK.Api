@@ -4,7 +4,7 @@ resolver = "2"
 # `poc/codec/`. They are reached by path, like every other slice reaches them; what is
 # left in this workspace is what is this slice's own -- its facade, its harness, its
 # prost arms and its stage-1 validator.
-members = ["crates/shapes-prost", "crates/shapes-values", "crates/stage1-validate", "crates/facade", "crates/harness"]
+members = ["crates/shapes-prost", "crates/shapes-values", "crates/stage1-validate", "crates/facade", "crates/harness", "crates/campaign"]
 
 [workspace.package]
 edition = "2021"
