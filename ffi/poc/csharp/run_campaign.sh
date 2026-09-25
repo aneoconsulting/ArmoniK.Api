@@ -103,7 +103,8 @@ case "$SUITE" in
   codec)
     # The codec suite runs under BenchmarkDotNet (CAMPAIGN.md 22a): src/BenchDotNet, InProcessEmit
     # toolchain, one pinned process per launch; the arm order rotates with the launch (req 22).
-    # BDN's console log goes to DIR/codec-launch<N>.bdn.log, its artifacts to DIR/bdn-launch<N>/.
+    # BDN's console log goes to DIR/codec-launch<N>.bdn.log (committed); its artifacts directory
+    # holds only a copy of that log, so it stays in SCRATCH. The raw figures are the JSON lines.
     GATE="$(gate_first)"; ensure_core; build
     ( cd "$SLICE" && dotnet build src/BenchDotNet/BenchDotNet.csproj -c Release >> "$SCRATCH/campaign-build.out" 2>&1 ) || { tail -30 "$SCRATCH/campaign-build.out"; exit 1; }
     B8="$SLICE/src/BenchDotNet/bin/Release/net8.0"
@@ -112,7 +113,7 @@ case "$SUITE" in
     for l in $(seq 1 "$LAUNCHES"); do
       f="$OUT/codec-launch$l.jsonl"
       { header "rpc,init-guard"; echo "$GATE"; } > "$f"
-      taskset -c "$AK_CPU_CLIENT" dotnet "$B8/BenchDotNet.dll" --launch "$l" --out "$f" --artifacts "$OUT/bdn-launch$l" "${EXTRA[@]}" \
+      taskset -c "$AK_CPU_CLIENT" dotnet "$B8/BenchDotNet.dll" --launch "$l" --out "$f" --artifacts "$SCRATCH/bdn-launch$l" "${EXTRA[@]}" \
         > "$OUT/codec-launch$l.bdn.log" 2>&1 || { echo "codec launch $l failed ($f, $OUT/codec-launch$l.bdn.log)" >&2; exit 1; }
     done ;;
   calib)
