@@ -1,0 +1,2985 @@
+# engine:         BenchmarkDotNet 0.15.8.0 (CAMPAIGN.md 22a), toolchain InProcessEmit (this process, pinned by the runner)
+# runtime:        .NET 8.0.31; TieredCompilation=default TieredPGO=default (net8.0 defaults unless set); GC server=False, concurrent (default)
+# incumbent:      Google.Protobuf 3.32.0
+# managed codec:  plan utf8=reject unknown=both
+# job:            launch 1; 1 actual iterations (rounds) per case, 1 warm-up iterations (the same for every case) after BDN's jitting stage (1 overhead + 1 workload jitting invocation per case, logged by BDN in the .bdn.log, not exported) and pilot, iteration time 2 ms (the pilot picks the invocation count per case), strategy Throughput, EvaluateOverhead=false (no overhead subtraction anywhere)
+# clocks:         wall per iteration (BDN, Stopwatch; exported RAW, no outlier removal, no overhead subtraction); process CPU per case (getrusage(RUSAGE_SELF)) across BDN's BeforeActualRun..AfterActualRun = the actual stage including the GCs BDN forces between iterations (their pause time beside it), round 0; per-iteration and thread CPU are NOT available from BDN (no diagnoser or column gives them)
+# process unit:   incumbent-best:default; this launch's unit order: incumbent-prod:default, incumbent-best:default, host-gen:drop, host-gen:retain, core-ffi:drop, core-ffi:retain, core-ffi-pull:drop (arms rotated by launch, modes within an arm too; requirement 22)
+# pre-warm:       9 round(s) of 64 calls to every case of this process, 0.5 s apart, before BDN starts; the last round compiled 0 method(s) of measured code (JIT events read back)
+# correctness:    560 pre-timing checks passed (byte identity of every encode arm per payload and content set; every arm accepts every unknown row)
+# cases:          60 exported, after 2 prime case(s) run first and not exported (copies of the first cases, content "prime")
+// Validating benchmarks:
+// ***** BenchmarkRunner: Start   *****
+// ***** Found 62 benchmark(s) in total *****
+// ***** Building 1 exe(s) in Parallel: Start   *****
+// ***** Done, took 00:00:00 (0.1 sec)   *****
+// Found 62 benchmarks:
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [45]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [45]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [41]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [41]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [46]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [39]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [39]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [44]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [45]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [45]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [45]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [41]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [41]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [46]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [39]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [39]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [44]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [45]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [45]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [45]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [45]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [45]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [45]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [45]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [45]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [45]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [45]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [45]]
+
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 502167.00 ns, 502.1670 us/op
+WorkloadJitting  1: 1 op, 316732.00 ns, 316.7320 us/op
+
+WorkloadPilot    1: 4 op, 14341.00 ns, 3.5853 us/op
+WorkloadPilot    2: 558 op, 490140.00 ns, 878.3871 ns/op
+WorkloadPilot    3: 2277 op, 2026878.00 ns, 890.1528 ns/op
+WorkloadPilot    4: 2247 op, 1960750.00 ns, 872.6079 ns/op
+WorkloadPilot    5: 2292 op, 2032902.00 ns, 886.9555 ns/op
+WorkloadPilot    6: 2255 op, 1979142.00 ns, 877.6683 ns/op
+WorkloadPilot    7: 2279 op, 2004057.00 ns, 879.3581 ns/op
+
+WorkloadWarmup   1: 2279 op, 1980921.00 ns, 869.2062 ns/op
+
+WorkloadActual   1: 2279 op, 1938794.00 ns, 850.7214 ns/op
+
+WorkloadResult   1: 2279 op, 1938794.00 ns, 850.7214 ns/op
+
+
+Mean = 850.721 ns, StdErr = 0.000 ns (0.00%), N = 1, StdDev = 0.000 ns
+Min = 850.721 ns, Q1 = 850.721 ns, Median = 850.721 ns, Q3 = 850.721 ns, Max = 850.721 ns
+IQR = 0.000 ns, LowerFence = 850.721 ns, UpperFence = 850.721 ns
+ConfidenceInterval = [NaN ns; NaN ns] (CI 99.9%), Margin = NaN ns (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 61 (98.4 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 396960.00 ns, 396.9600 us/op
+WorkloadJitting  1: 1 op, 303580.00 ns, 303.5800 us/op
+
+WorkloadPilot    1: 4 op, 20773.00 ns, 5.1933 us/op
+WorkloadPilot    2: 385 op, 1232990.00 ns, 3.2026 us/op
+WorkloadPilot    3: 624 op, 1443715.00 ns, 2.3136 us/op
+WorkloadPilot    4: 864 op, 1917893.00 ns, 2.2198 us/op
+WorkloadPilot    5: 901 op, 1713233.00 ns, 1.9015 us/op
+WorkloadPilot    6: 1052 op, 3428275.00 ns, 3.2588 us/op
+WorkloadPilot    7: 614 op, 1056358.00 ns, 1.7205 us/op
+WorkloadPilot    8: 1162 op, 2223567.00 ns, 1.9136 us/op
+WorkloadPilot    9: 1045 op, 1836220.00 ns, 1.7571 us/op
+WorkloadPilot   10: 1138 op, 3659429.00 ns, 3.2157 us/op
+
+WorkloadWarmup   1: 1138 op, 2422475.00 ns, 2.1287 us/op
+
+WorkloadActual   1: 1138 op, 2111392.00 ns, 1.8554 us/op
+
+WorkloadResult   1: 1138 op, 2111392.00 ns, 1.8554 us/op
+
+
+Mean = 1.855 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 1.855 us, Q1 = 1.855 us, Median = 1.855 us, Q3 = 1.855 us, Max = 1.855 us
+IQR = 0.000 us, LowerFence = 1.855 us, UpperFence = 1.855 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 60 (96.8 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 355268.00 ns, 355.2680 us/op
+WorkloadJitting  1: 1 op, 283746.00 ns, 283.7460 us/op
+
+WorkloadPilot    1: 4 op, 13050.00 ns, 3.2625 us/op
+WorkloadPilot    2: 613 op, 541965.00 ns, 884.1191 ns/op
+WorkloadPilot    3: 2262 op, 2011176.00 ns, 889.1141 ns/op
+WorkloadPilot    4: 2249 op, 1884865.00 ns, 838.0903 ns/op
+WorkloadPilot    5: 2386 op, 2067191.00 ns, 866.3835 ns/op
+WorkloadPilot    6: 2308 op, 1989292.00 ns, 861.9116 ns/op
+WorkloadPilot    7: 2320 op, 1989506.00 ns, 857.5457 ns/op
+WorkloadPilot    8: 2332 op, 1942137.00 ns, 832.8203 ns/op
+WorkloadPilot    9: 2401 op, 2005684.00 ns, 835.3536 ns/op
+
+WorkloadWarmup   1: 2401 op, 2034143.00 ns, 847.2066 ns/op
+
+WorkloadActual   1: 2401 op, 1985330.00 ns, 826.8763 ns/op
+
+WorkloadResult   1: 2401 op, 1985330.00 ns, 826.8763 ns/op
+
+
+Mean = 826.876 ns, StdErr = 0.000 ns (0.00%), N = 1, StdDev = 0.000 ns
+Min = 826.876 ns, Q1 = 826.876 ns, Median = 826.876 ns, Q3 = 826.876 ns, Max = 826.876 ns
+IQR = 0.000 ns, LowerFence = 826.876 ns, UpperFence = 826.876 ns
+ConfidenceInterval = [NaN ns; NaN ns] (CI 99.9%), Margin = NaN ns (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 59 (95.2 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 384951.00 ns, 384.9510 us/op
+WorkloadJitting  1: 1 op, 314196.00 ns, 314.1960 us/op
+
+WorkloadPilot    1: 4 op, 19671.00 ns, 4.9178 us/op
+WorkloadPilot    2: 407 op, 1304585.00 ns, 3.2054 us/op
+WorkloadPilot    3: 624 op, 1236327.00 ns, 1.9813 us/op
+WorkloadPilot    4: 1009 op, 1791885.00 ns, 1.7759 us/op
+WorkloadPilot    5: 1126 op, 2040344.00 ns, 1.8120 us/op
+WorkloadPilot    6: 1104 op, 3095622.00 ns, 2.8040 us/op
+WorkloadPilot    7: 713 op, 1255478.00 ns, 1.7608 us/op
+WorkloadPilot    8: 1136 op, 2048732.00 ns, 1.8035 us/op
+
+WorkloadWarmup   1: 1136 op, 2134254.00 ns, 1.8787 us/op
+
+WorkloadActual   1: 1136 op, 1996703.00 ns, 1.7577 us/op
+
+WorkloadResult   1: 1136 op, 1996703.00 ns, 1.7577 us/op
+
+
+Mean = 1.758 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 1.758 us, Q1 = 1.758 us, Median = 1.758 us, Q3 = 1.758 us, Max = 1.758 us
+IQR = 0.000 us, LowerFence = 1.758 us, UpperFence = 1.758 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 58 (93.5 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [45]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 364802.00 ns, 364.8020 us/op
+WorkloadJitting  1: 1 op, 339968.00 ns, 339.9680 us/op
+
+WorkloadPilot    1: 4 op, 18758.00 ns, 4.6895 us/op
+WorkloadPilot    2: 426 op, 1403045.00 ns, 3.2935 us/op
+WorkloadPilot    3: 607 op, 1439043.00 ns, 2.3707 us/op
+WorkloadPilot    4: 844 op, 1934325.00 ns, 2.2919 us/op
+WorkloadPilot    5: 873 op, 1650240.00 ns, 1.8903 us/op
+WorkloadPilot    6: 1058 op, 3382822.00 ns, 3.1974 us/op
+WorkloadPilot    7: 626 op, 1132861.00 ns, 1.8097 us/op
+WorkloadPilot    8: 1105 op, 2028435.00 ns, 1.8357 us/op
+WorkloadPilot    9: 1090 op, 1901194.00 ns, 1.7442 us/op
+WorkloadPilot   10: 1147 op, 2663278.00 ns, 2.3220 us/op
+
+WorkloadWarmup   1: 1147 op, 2121315.00 ns, 1.8494 us/op
+
+WorkloadActual   1: 1147 op, 2141422.00 ns, 1.8670 us/op
+
+WorkloadResult   1: 1147 op, 2141422.00 ns, 1.8670 us/op
+
+
+Mean = 1.867 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 1.867 us, Q1 = 1.867 us, Median = 1.867 us, Q3 = 1.867 us, Max = 1.867 us
+IQR = 0.000 us, LowerFence = 1.867 us, UpperFence = 1.867 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 57 (91.9 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 377039.00 ns, 377.0390 us/op
+WorkloadJitting  1: 1 op, 934088.00 ns, 934.0880 us/op
+
+WorkloadPilot    1: 4 op, 1190841.00 ns, 297.7103 us/op
+WorkloadPilot    2: 7 op, 2048499.00 ns, 292.6427 us/op
+
+WorkloadWarmup   1: 7 op, 1959390.00 ns, 279.9129 us/op
+
+WorkloadActual   1: 7 op, 2008680.00 ns, 286.9543 us/op
+
+WorkloadResult   1: 7 op, 2008680.00 ns, 286.9543 us/op
+
+
+Mean = 286.954 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 286.954 us, Q1 = 286.954 us, Median = 286.954 us, Q3 = 286.954 us, Max = 286.954 us
+IQR = 0.000 us, LowerFence = 286.954 us, UpperFence = 286.954 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 56 (90.3 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 398709.00 ns, 398.7090 us/op
+WorkloadJitting  1: 1 op, 857346.00 ns, 857.3460 us/op
+
+WorkloadPilot    1: 4 op, 3149833.00 ns, 787.4583 us/op
+
+WorkloadWarmup   1: 4 op, 2110525.00 ns, 527.6313 us/op
+
+WorkloadActual   1: 4 op, 2558962.00 ns, 639.7405 us/op
+
+WorkloadResult   1: 4 op, 2558962.00 ns, 639.7405 us/op
+
+
+Mean = 639.740 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 639.740 us, Q1 = 639.740 us, Median = 639.740 us, Q3 = 639.740 us, Max = 639.740 us
+IQR = 0.000 us, LowerFence = 639.740 us, UpperFence = 639.740 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 55 (88.7 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [45]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 396562.00 ns, 396.5620 us/op
+WorkloadJitting  1: 1 op, 837369.00 ns, 837.3690 us/op
+
+WorkloadPilot    1: 4 op, 2255268.00 ns, 563.8170 us/op
+
+WorkloadWarmup   1: 4 op, 2227541.00 ns, 556.8853 us/op
+
+WorkloadActual   1: 4 op, 1910189.00 ns, 477.5473 us/op
+
+WorkloadResult   1: 4 op, 1910189.00 ns, 477.5473 us/op
+
+
+Mean = 477.547 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 477.547 us, Q1 = 477.547 us, Median = 477.547 us, Q3 = 477.547 us, Max = 477.547 us
+IQR = 0.000 us, LowerFence = 477.547 us, UpperFence = 477.547 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 54 (87.1 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [41]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 379284.00 ns, 379.2840 us/op
+WorkloadJitting  1: 1 op, 839627.00 ns, 839.6270 us/op
+
+WorkloadPilot    1: 4 op, 1388811.00 ns, 347.2028 us/op
+WorkloadPilot    2: 6 op, 2331981.00 ns, 388.6635 us/op
+
+WorkloadWarmup   1: 6 op, 2038577.00 ns, 339.7628 us/op
+
+WorkloadActual   1: 6 op, 2057962.00 ns, 342.9937 us/op
+
+WorkloadResult   1: 6 op, 2057962.00 ns, 342.9937 us/op
+
+
+Mean = 342.994 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 342.994 us, Q1 = 342.994 us, Median = 342.994 us, Q3 = 342.994 us, Max = 342.994 us
+IQR = 0.000 us, LowerFence = 342.994 us, UpperFence = 342.994 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 53 (85.5 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [41]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 327238.00 ns, 327.2380 us/op
+WorkloadJitting  1: 1 op, 858259.00 ns, 858.2590 us/op
+
+WorkloadPilot    1: 4 op, 3341654.00 ns, 835.4135 us/op
+WorkloadPilot    2: 2 op, 1116965.00 ns, 558.4825 us/op
+WorkloadPilot    3: 4 op, 2513058.00 ns, 628.2645 us/op
+
+WorkloadWarmup   1: 4 op, 2263508.00 ns, 565.8770 us/op
+
+WorkloadActual   1: 4 op, 2222755.00 ns, 555.6888 us/op
+
+WorkloadResult   1: 4 op, 2222755.00 ns, 555.6888 us/op
+
+
+Mean = 555.689 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 555.689 us, Q1 = 555.689 us, Median = 555.689 us, Q3 = 555.689 us, Max = 555.689 us
+IQR = 0.000 us, LowerFence = 555.689 us, UpperFence = 555.689 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 52 (83.9 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [46]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 434990.00 ns, 434.9900 us/op
+WorkloadJitting  1: 1 op, 987310.00 ns, 987.3100 us/op
+
+WorkloadPilot    1: 4 op, 2407978.00 ns, 601.9945 us/op
+
+WorkloadWarmup   1: 4 op, 2532074.00 ns, 633.0185 us/op
+
+WorkloadActual   1: 4 op, 2255957.00 ns, 563.9893 us/op
+
+WorkloadResult   1: 4 op, 2255957.00 ns, 563.9893 us/op
+
+
+Mean = 563.989 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 563.989 us, Q1 = 563.989 us, Median = 563.989 us, Q3 = 563.989 us, Max = 563.989 us
+IQR = 0.000 us, LowerFence = 563.989 us, UpperFence = 563.989 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 51 (82.3 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [39]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 379289.00 ns, 379.2890 us/op
+WorkloadJitting  1: 1 op, 952600.00 ns, 952.6000 us/op
+
+WorkloadPilot    1: 4 op, 1697645.00 ns, 424.4113 us/op
+
+WorkloadWarmup   1: 4 op, 1800746.00 ns, 450.1865 us/op
+
+WorkloadActual   1: 4 op, 1722725.00 ns, 430.6813 us/op
+
+WorkloadResult   1: 4 op, 1722725.00 ns, 430.6813 us/op
+
+
+Mean = 430.681 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 430.681 us, Q1 = 430.681 us, Median = 430.681 us, Q3 = 430.681 us, Max = 430.681 us
+IQR = 0.000 us, LowerFence = 430.681 us, UpperFence = 430.681 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 50 (80.6 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [39]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 377314.00 ns, 377.3140 us/op
+WorkloadJitting  1: 1 op, 1063085.00 ns, 1.0631 ms/op
+
+WorkloadPilot    1: 4 op, 3044511.00 ns, 761.1278 us/op
+
+WorkloadWarmup   1: 4 op, 3050356.00 ns, 762.5890 us/op
+
+WorkloadActual   1: 4 op, 3062162.00 ns, 765.5405 us/op
+
+WorkloadResult   1: 4 op, 3062162.00 ns, 765.5405 us/op
+
+
+Mean = 765.540 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 765.540 us, Q1 = 765.540 us, Median = 765.540 us, Q3 = 765.540 us, Max = 765.540 us
+IQR = 0.000 us, LowerFence = 765.540 us, UpperFence = 765.540 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 49 (79.0 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [44]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 476316.00 ns, 476.3160 us/op
+WorkloadJitting  1: 1 op, 1154472.00 ns, 1.1545 ms/op
+
+WorkloadPilot    1: 4 op, 3203159.00 ns, 800.7898 us/op
+WorkloadPilot    2: 2 op, 2112102.00 ns, 1.0561 ms/op
+
+WorkloadWarmup   1: 2 op, 2288102.00 ns, 1.1441 ms/op
+
+WorkloadActual   1: 2 op, 2129348.00 ns, 1.0647 ms/op
+
+WorkloadResult   1: 2 op, 2129348.00 ns, 1.0647 ms/op
+
+
+Mean = 1.065 ms, StdErr = 0.000 ms (0.00%), N = 1, StdDev = 0.000 ms
+Min = 1.065 ms, Q1 = 1.065 ms, Median = 1.065 ms, Q3 = 1.065 ms, Max = 1.065 ms
+IQR = 0.000 ms, LowerFence = 1.065 ms, UpperFence = 1.065 ms
+ConfidenceInterval = [NaN ms; NaN ms] (CI 99.9%), Margin = NaN ms (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 48 (77.4 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 375614.00 ns, 375.6140 us/op
+WorkloadJitting  1: 1 op, 272609.00 ns, 272.6090 us/op
+
+WorkloadPilot    1: 4 op, 34344.00 ns, 8.5860 us/op
+WorkloadPilot    2: 233 op, 1567623.00 ns, 6.7280 us/op
+WorkloadPilot    3: 297 op, 2070990.00 ns, 6.9730 us/op
+WorkloadPilot    4: 287 op, 2051329.00 ns, 7.1475 us/op
+WorkloadPilot    5: 280 op, 1920199.00 ns, 6.8579 us/op
+WorkloadPilot    6: 292 op, 1833379.00 ns, 6.2787 us/op
+WorkloadPilot    7: 319 op, 2054423.00 ns, 6.4402 us/op
+
+WorkloadWarmup   1: 319 op, 2094064.00 ns, 6.5645 us/op
+
+WorkloadActual   1: 319 op, 2393137.00 ns, 7.5020 us/op
+
+WorkloadResult   1: 319 op, 2393137.00 ns, 7.5020 us/op
+
+
+Mean = 7.502 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 7.502 us, Q1 = 7.502 us, Median = 7.502 us, Q3 = 7.502 us, Max = 7.502 us
+IQR = 0.000 us, LowerFence = 7.502 us, UpperFence = 7.502 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 47 (75.8 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 355928.00 ns, 355.9280 us/op
+WorkloadJitting  1: 1 op, 364356.00 ns, 364.3560 us/op
+
+WorkloadPilot    1: 4 op, 157178.00 ns, 39.2945 us/op
+WorkloadPilot    2: 51 op, 1962867.00 ns, 38.4876 us/op
+
+WorkloadWarmup   1: 51 op, 1857415.00 ns, 36.4199 us/op
+
+WorkloadActual   1: 51 op, 894322.00 ns, 17.5357 us/op
+
+WorkloadResult   1: 51 op, 894322.00 ns, 17.5357 us/op
+
+
+Mean = 17.536 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 17.536 us, Q1 = 17.536 us, Median = 17.536 us, Q3 = 17.536 us, Max = 17.536 us
+IQR = 0.000 us, LowerFence = 17.536 us, UpperFence = 17.536 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 46 (74.2 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [45]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 384817.00 ns, 384.8170 us/op
+WorkloadJitting  1: 1 op, 305923.00 ns, 305.9230 us/op
+
+WorkloadPilot    1: 4 op, 116923.00 ns, 29.2308 us/op
+WorkloadPilot    2: 68 op, 3397489.00 ns, 49.9631 us/op
+WorkloadPilot    3: 40 op, 1173460.00 ns, 29.3365 us/op
+WorkloadPilot    4: 68 op, 1250436.00 ns, 18.3888 us/op
+WorkloadPilot    5: 109 op, 3174412.00 ns, 29.1230 us/op
+WorkloadPilot    6: 69 op, 2673900.00 ns, 38.7522 us/op
+
+WorkloadWarmup   1: 69 op, 1352571.00 ns, 19.6025 us/op
+
+WorkloadActual   1: 69 op, 1235625.00 ns, 17.9076 us/op
+
+WorkloadResult   1: 69 op, 1235625.00 ns, 17.9076 us/op
+
+
+Mean = 17.908 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 17.908 us, Q1 = 17.908 us, Median = 17.908 us, Q3 = 17.908 us, Max = 17.908 us
+IQR = 0.000 us, LowerFence = 17.908 us, UpperFence = 17.908 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 45 (72.6 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 387332.00 ns, 387.3320 us/op
+WorkloadJitting  1: 1 op, 357532.00 ns, 357.5320 us/op
+
+WorkloadPilot    1: 4 op, 27863.00 ns, 6.9658 us/op
+WorkloadPilot    2: 287 op, 634821.00 ns, 2.2119 us/op
+WorkloadPilot    3: 904 op, 2082003.00 ns, 2.3031 us/op
+WorkloadPilot    4: 868 op, 2092603.00 ns, 2.4108 us/op
+WorkloadPilot    5: 830 op, 1748627.00 ns, 2.1068 us/op
+WorkloadPilot    6: 949 op, 1985631.00 ns, 2.0923 us/op
+WorkloadPilot    7: 956 op, 1960995.00 ns, 2.0513 us/op
+WorkloadPilot    8: 975 op, 2354233.00 ns, 2.4146 us/op
+
+WorkloadWarmup   1: 975 op, 2066335.00 ns, 2.1193 us/op
+
+WorkloadActual   1: 975 op, 2014458.00 ns, 2.0661 us/op
+
+WorkloadResult   1: 975 op, 2014458.00 ns, 2.0661 us/op
+
+
+Mean = 2.066 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 2.066 us, Q1 = 2.066 us, Median = 2.066 us, Q3 = 2.066 us, Max = 2.066 us
+IQR = 0.000 us, LowerFence = 2.066 us, UpperFence = 2.066 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 44 (71.0 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 340584.00 ns, 340.5840 us/op
+WorkloadJitting  1: 1 op, 335607.00 ns, 335.6070 us/op
+
+WorkloadPilot    1: 4 op, 56514.00 ns, 14.1285 us/op
+WorkloadPilot    2: 142 op, 816793.00 ns, 5.7521 us/op
+WorkloadPilot    3: 348 op, 1618709.00 ns, 4.6515 us/op
+WorkloadPilot    4: 430 op, 1590625.00 ns, 3.6991 us/op
+WorkloadPilot    5: 541 op, 2042083.00 ns, 3.7746 us/op
+WorkloadPilot    6: 530 op, 2811197.00 ns, 5.3041 us/op
+WorkloadPilot    7: 377 op, 1040517.00 ns, 2.7600 us/op
+WorkloadPilot    8: 725 op, 2568285.00 ns, 3.5425 us/op
+
+WorkloadWarmup   1: 725 op, 2598439.00 ns, 3.5841 us/op
+
+WorkloadActual   1: 725 op, 2025538.00 ns, 2.7938 us/op
+
+WorkloadResult   1: 725 op, 2025538.00 ns, 2.7938 us/op
+
+
+Mean = 2.794 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 2.794 us, Q1 = 2.794 us, Median = 2.794 us, Q3 = 2.794 us, Max = 2.794 us
+IQR = 0.000 us, LowerFence = 2.794 us, UpperFence = 2.794 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 43 (69.4 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [45]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 380340.00 ns, 380.3400 us/op
+WorkloadJitting  1: 1 op, 332881.00 ns, 332.8810 us/op
+
+WorkloadPilot    1: 4 op, 30343.00 ns, 7.5858 us/op
+WorkloadPilot    2: 264 op, 1867828.00 ns, 7.0751 us/op
+WorkloadPilot    3: 283 op, 920868.00 ns, 3.2540 us/op
+WorkloadPilot    4: 615 op, 2583210.00 ns, 4.2003 us/op
+WorkloadPilot    5: 476 op, 1337000.00 ns, 2.8088 us/op
+WorkloadPilot    6: 712 op, 3888451.00 ns, 5.4613 us/op
+WorkloadPilot    7: 366 op, 1044762.00 ns, 2.8545 us/op
+WorkloadPilot    8: 701 op, 2454062.00 ns, 3.5008 us/op
+
+WorkloadWarmup   1: 701 op, 2237481.00 ns, 3.1918 us/op
+
+WorkloadActual   1: 701 op, 2272405.00 ns, 3.2417 us/op
+
+WorkloadResult   1: 701 op, 2272405.00 ns, 3.2417 us/op
+
+
+Mean = 3.242 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 3.242 us, Q1 = 3.242 us, Median = 3.242 us, Q3 = 3.242 us, Max = 3.242 us
+IQR = 0.000 us, LowerFence = 3.242 us, UpperFence = 3.242 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 42 (67.7 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 379142.00 ns, 379.1420 us/op
+WorkloadJitting  1: 1 op, 2053010.00 ns, 2.0530 ms/op
+
+OverheadJitting  2: 1 op, 2423.00 ns, 2.4230 us/op
+WorkloadJitting  2: 1 op, 1378388.00 ns, 1.3784 ms/op
+
+WorkloadWarmup   1: 1 op, 1376187.00 ns, 1.3762 ms/op
+
+WorkloadActual   1: 1 op, 1442026.00 ns, 1.4420 ms/op
+
+WorkloadResult   1: 1 op, 1442026.00 ns, 1.4420 ms/op
+
+
+Mean = 1.442 ms, StdErr = 0.000 ms (0.00%), N = 1, StdDev = 0.000 ms
+Min = 1.442 ms, Q1 = 1.442 ms, Median = 1.442 ms, Q3 = 1.442 ms, Max = 1.442 ms
+IQR = 0.000 ms, LowerFence = 1.442 ms, UpperFence = 1.442 ms
+ConfidenceInterval = [NaN ms; NaN ms] (CI 99.9%), Margin = NaN ms (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 41 (66.1 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 456271.00 ns, 456.2710 us/op
+WorkloadJitting  1: 1 op, 1967840.00 ns, 1.9678 ms/op
+
+OverheadJitting  2: 1 op, 3761.00 ns, 3.7610 us/op
+WorkloadJitting  2: 1 op, 1694224.00 ns, 1.6942 ms/op
+
+WorkloadWarmup   1: 1 op, 1629661.00 ns, 1.6297 ms/op
+
+WorkloadActual   1: 1 op, 2028852.00 ns, 2.0289 ms/op
+
+WorkloadResult   1: 1 op, 2028852.00 ns, 2.0289 ms/op
+
+
+Mean = 2.029 ms, StdErr = 0.000 ms (0.00%), N = 1, StdDev = 0.000 ms
+Min = 2.029 ms, Q1 = 2.029 ms, Median = 2.029 ms, Q3 = 2.029 ms, Max = 2.029 ms
+IQR = 0.000 ms, LowerFence = 2.029 ms, UpperFence = 2.029 ms
+ConfidenceInterval = [NaN ms; NaN ms] (CI 99.9%), Margin = NaN ms (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 40 (64.5 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [45]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 372154.00 ns, 372.1540 us/op
+WorkloadJitting  1: 1 op, 2195564.00 ns, 2.1956 ms/op
+
+OverheadJitting  2: 1 op, 3117.00 ns, 3.1170 us/op
+WorkloadJitting  2: 1 op, 1910651.00 ns, 1.9107 ms/op
+
+WorkloadWarmup   1: 1 op, 1888291.00 ns, 1.8883 ms/op
+
+WorkloadActual   1: 1 op, 1964362.00 ns, 1.9644 ms/op
+
+WorkloadResult   1: 1 op, 1964362.00 ns, 1.9644 ms/op
+
+
+Mean = 1.964 ms, StdErr = 0.000 ms (0.00%), N = 1, StdDev = 0.000 ms
+Min = 1.964 ms, Q1 = 1.964 ms, Median = 1.964 ms, Q3 = 1.964 ms, Max = 1.964 ms
+IQR = 0.000 ms, LowerFence = 1.964 ms, UpperFence = 1.964 ms
+ConfidenceInterval = [NaN ms; NaN ms] (CI 99.9%), Margin = NaN ms (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 39 (62.9 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [41]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 460879.00 ns, 460.8790 us/op
+WorkloadJitting  1: 1 op, 2489524.00 ns, 2.4895 ms/op
+
+OverheadJitting  2: 1 op, 3143.00 ns, 3.1430 us/op
+WorkloadJitting  2: 1 op, 1593745.00 ns, 1.5937 ms/op
+
+WorkloadWarmup   1: 1 op, 1772069.00 ns, 1.7721 ms/op
+
+WorkloadActual   1: 1 op, 1604025.00 ns, 1.6040 ms/op
+
+WorkloadResult   1: 1 op, 1604025.00 ns, 1.6040 ms/op
+
+
+Mean = 1.604 ms, StdErr = 0.000 ms (0.00%), N = 1, StdDev = 0.000 ms
+Min = 1.604 ms, Q1 = 1.604 ms, Median = 1.604 ms, Q3 = 1.604 ms, Max = 1.604 ms
+IQR = 0.000 ms, LowerFence = 1.604 ms, UpperFence = 1.604 ms
+ConfidenceInterval = [NaN ms; NaN ms] (CI 99.9%), Margin = NaN ms (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 38 (61.3 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [41]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 435641.00 ns, 435.6410 us/op
+WorkloadJitting  1: 1 op, 2384070.00 ns, 2.3841 ms/op
+
+OverheadJitting  2: 1 op, 2950.00 ns, 2.9500 us/op
+WorkloadJitting  2: 1 op, 1948625.00 ns, 1.9486 ms/op
+
+WorkloadWarmup   1: 1 op, 1956858.00 ns, 1.9569 ms/op
+
+WorkloadActual   1: 1 op, 1927991.00 ns, 1.9280 ms/op
+
+WorkloadResult   1: 1 op, 1927991.00 ns, 1.9280 ms/op
+
+
+Mean = 1.928 ms, StdErr = 0.000 ms (0.00%), N = 1, StdDev = 0.000 ms
+Min = 1.928 ms, Q1 = 1.928 ms, Median = 1.928 ms, Q3 = 1.928 ms, Max = 1.928 ms
+IQR = 0.000 ms, LowerFence = 1.928 ms, UpperFence = 1.928 ms
+ConfidenceInterval = [NaN ms; NaN ms] (CI 99.9%), Margin = NaN ms (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 37 (59.7 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [46]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 410756.00 ns, 410.7560 us/op
+WorkloadJitting  1: 1 op, 2401837.00 ns, 2.4018 ms/op
+
+OverheadJitting  2: 1 op, 3192.00 ns, 3.1920 us/op
+WorkloadJitting  2: 1 op, 2151604.00 ns, 2.1516 ms/op
+
+WorkloadWarmup   1: 1 op, 2301174.00 ns, 2.3012 ms/op
+
+WorkloadActual   1: 1 op, 2083797.00 ns, 2.0838 ms/op
+
+WorkloadResult   1: 1 op, 2083797.00 ns, 2.0838 ms/op
+
+
+Mean = 2.084 ms, StdErr = 0.000 ms (0.00%), N = 1, StdDev = 0.000 ms
+Min = 2.084 ms, Q1 = 2.084 ms, Median = 2.084 ms, Q3 = 2.084 ms, Max = 2.084 ms
+IQR = 0.000 ms, LowerFence = 2.084 ms, UpperFence = 2.084 ms
+ConfidenceInterval = [NaN ms; NaN ms] (CI 99.9%), Margin = NaN ms (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 36 (58.1 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [39]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 381802.00 ns, 381.8020 us/op
+WorkloadJitting  1: 1 op, 3164912.00 ns, 3.1649 ms/op
+
+OverheadJitting  2: 1 op, 2808.00 ns, 2.8080 us/op
+WorkloadJitting  2: 1 op, 2132302.00 ns, 2.1323 ms/op
+
+WorkloadWarmup   1: 1 op, 2101073.00 ns, 2.1011 ms/op
+
+WorkloadActual   1: 1 op, 1892755.00 ns, 1.8928 ms/op
+
+WorkloadResult   1: 1 op, 1892755.00 ns, 1.8928 ms/op
+
+
+Mean = 1.893 ms, StdErr = 0.000 ms (0.00%), N = 1, StdDev = 0.000 ms
+Min = 1.893 ms, Q1 = 1.893 ms, Median = 1.893 ms, Q3 = 1.893 ms, Max = 1.893 ms
+IQR = 0.000 ms, LowerFence = 1.893 ms, UpperFence = 1.893 ms
+ConfidenceInterval = [NaN ms; NaN ms] (CI 99.9%), Margin = NaN ms (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 35 (56.5 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [39]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 446207.00 ns, 446.2070 us/op
+WorkloadJitting  1: 1 op, 2946598.00 ns, 2.9466 ms/op
+
+OverheadJitting  2: 1 op, 3066.00 ns, 3.0660 us/op
+WorkloadJitting  2: 1 op, 2796256.00 ns, 2.7963 ms/op
+
+WorkloadWarmup   1: 1 op, 2923903.00 ns, 2.9239 ms/op
+
+WorkloadActual   1: 1 op, 4659879.00 ns, 4.6599 ms/op
+
+WorkloadResult   1: 1 op, 4659879.00 ns, 4.6599 ms/op
+
+
+Mean = 4.660 ms, StdErr = 0.000 ms (0.00%), N = 1, StdDev = 0.000 ms
+Min = 4.660 ms, Q1 = 4.660 ms, Median = 4.660 ms, Q3 = 4.660 ms, Max = 4.660 ms
+IQR = 0.000 ms, LowerFence = 4.660 ms, UpperFence = 4.660 ms
+ConfidenceInterval = [NaN ms; NaN ms] (CI 99.9%), Margin = NaN ms (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 34 (54.8 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [44]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 340377.00 ns, 340.3770 us/op
+WorkloadJitting  1: 1 op, 2975783.00 ns, 2.9758 ms/op
+
+OverheadJitting  2: 1 op, 2822.00 ns, 2.8220 us/op
+WorkloadJitting  2: 1 op, 2681229.00 ns, 2.6812 ms/op
+
+WorkloadWarmup   1: 1 op, 3327554.00 ns, 3.3276 ms/op
+
+WorkloadActual   1: 1 op, 2794023.00 ns, 2.7940 ms/op
+
+WorkloadResult   1: 1 op, 2794023.00 ns, 2.7940 ms/op
+
+
+Mean = 2.794 ms, StdErr = 0.000 ms (0.00%), N = 1, StdDev = 0.000 ms
+Min = 2.794 ms, Q1 = 2.794 ms, Median = 2.794 ms, Q3 = 2.794 ms, Max = 2.794 ms
+IQR = 0.000 ms, LowerFence = 2.794 ms, UpperFence = 2.794 ms
+ConfidenceInterval = [NaN ms; NaN ms] (CI 99.9%), Margin = NaN ms (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 33 (53.2 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 481084.00 ns, 481.0840 us/op
+WorkloadJitting  1: 1 op, 1450225.00 ns, 1.4502 ms/op
+
+OverheadJitting  2: 1 op, 2927.00 ns, 2.9270 us/op
+WorkloadJitting  2: 1 op, 918615.00 ns, 918.6150 us/op
+
+WorkloadPilot    1: 4 op, 3502489.00 ns, 875.6223 us/op
+WorkloadPilot    2: 2 op, 1877972.00 ns, 938.9860 us/op
+
+WorkloadWarmup   1: 2 op, 1796506.00 ns, 898.2530 us/op
+
+WorkloadActual   1: 2 op, 1697309.00 ns, 848.6545 us/op
+
+WorkloadResult   1: 2 op, 1697309.00 ns, 848.6545 us/op
+
+
+Mean = 848.654 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 848.654 us, Q1 = 848.654 us, Median = 848.654 us, Q3 = 848.654 us, Max = 848.654 us
+IQR = 0.000 us, LowerFence = 848.654 us, UpperFence = 848.654 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 32 (51.6 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 414859.00 ns, 414.8590 us/op
+WorkloadJitting  1: 1 op, 1461978.00 ns, 1.4620 ms/op
+
+OverheadJitting  2: 1 op, 7865.00 ns, 7.8650 us/op
+WorkloadJitting  2: 1 op, 1160333.00 ns, 1.1603 ms/op
+
+WorkloadPilot    1: 4 op, 4301155.00 ns, 1.0753 ms/op
+WorkloadPilot    2: 2 op, 2200261.00 ns, 1.1001 ms/op
+
+WorkloadWarmup   1: 2 op, 3229005.00 ns, 1.6145 ms/op
+
+WorkloadActual   1: 2 op, 4426714.00 ns, 2.2134 ms/op
+
+WorkloadResult   1: 2 op, 4426714.00 ns, 2.2134 ms/op
+
+
+Mean = 2.213 ms, StdErr = 0.000 ms (0.00%), N = 1, StdDev = 0.000 ms
+Min = 2.213 ms, Q1 = 2.213 ms, Median = 2.213 ms, Q3 = 2.213 ms, Max = 2.213 ms
+IQR = 0.000 ms, LowerFence = 2.213 ms, UpperFence = 2.213 ms
+ConfidenceInterval = [NaN ms; NaN ms] (CI 99.9%), Margin = NaN ms (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 31 (50.0 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [45]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 455227.00 ns, 455.2270 us/op
+WorkloadJitting  1: 1 op, 1514250.00 ns, 1.5143 ms/op
+
+OverheadJitting  2: 1 op, 3093.00 ns, 3.0930 us/op
+WorkloadJitting  2: 1 op, 1174958.00 ns, 1.1750 ms/op
+
+WorkloadPilot    1: 4 op, 4611075.00 ns, 1.1528 ms/op
+WorkloadPilot    2: 2 op, 2142834.00 ns, 1.0714 ms/op
+
+WorkloadWarmup   1: 2 op, 2036272.00 ns, 1.0181 ms/op
+
+WorkloadActual   1: 2 op, 2508128.00 ns, 1.2541 ms/op
+
+WorkloadResult   1: 2 op, 2508128.00 ns, 1.2541 ms/op
+
+
+Mean = 1.254 ms, StdErr = 0.000 ms (0.00%), N = 1, StdDev = 0.000 ms
+Min = 1.254 ms, Q1 = 1.254 ms, Median = 1.254 ms, Q3 = 1.254 ms, Max = 1.254 ms
+IQR = 0.000 ms, LowerFence = 1.254 ms, UpperFence = 1.254 ms
+ConfidenceInterval = [NaN ms; NaN ms] (CI 99.9%), Margin = NaN ms (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 30 (48.4 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 467968.00 ns, 467.9680 us/op
+WorkloadJitting  1: 1 op, 1813564.00 ns, 1.8136 ms/op
+
+OverheadJitting  2: 1 op, 3327.00 ns, 3.3270 us/op
+WorkloadJitting  2: 1 op, 1135647.00 ns, 1.1356 ms/op
+
+WorkloadPilot    1: 4 op, 4179810.00 ns, 1.0450 ms/op
+WorkloadPilot    2: 2 op, 2058262.00 ns, 1.0291 ms/op
+
+WorkloadWarmup   1: 2 op, 2123982.00 ns, 1.0620 ms/op
+
+WorkloadActual   1: 2 op, 2121690.00 ns, 1.0608 ms/op
+
+WorkloadResult   1: 2 op, 2121690.00 ns, 1.0608 ms/op
+
+
+Mean = 1.061 ms, StdErr = 0.000 ms (0.00%), N = 1, StdDev = 0.000 ms
+Min = 1.061 ms, Q1 = 1.061 ms, Median = 1.061 ms, Q3 = 1.061 ms, Max = 1.061 ms
+IQR = 0.000 ms, LowerFence = 1.061 ms, UpperFence = 1.061 ms
+ConfidenceInterval = [NaN ms; NaN ms] (CI 99.9%), Margin = NaN ms (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 29 (46.8 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 502533.00 ns, 502.5330 us/op
+WorkloadJitting  1: 1 op, 1793296.00 ns, 1.7933 ms/op
+
+OverheadJitting  2: 1 op, 2872.00 ns, 2.8720 us/op
+WorkloadJitting  2: 1 op, 1392551.00 ns, 1.3926 ms/op
+
+WorkloadWarmup   1: 1 op, 1386138.00 ns, 1.3861 ms/op
+
+WorkloadActual   1: 1 op, 1368719.00 ns, 1.3687 ms/op
+
+WorkloadResult   1: 1 op, 1368719.00 ns, 1.3687 ms/op
+
+
+Mean = 1.369 ms, StdErr = 0.000 ms (0.00%), N = 1, StdDev = 0.000 ms
+Min = 1.369 ms, Q1 = 1.369 ms, Median = 1.369 ms, Q3 = 1.369 ms, Max = 1.369 ms
+IQR = 0.000 ms, LowerFence = 1.369 ms, UpperFence = 1.369 ms
+ConfidenceInterval = [NaN ms; NaN ms] (CI 99.9%), Margin = NaN ms (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 28 (45.2 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [45]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 691465.00 ns, 691.4650 us/op
+WorkloadJitting  1: 1 op, 2359043.00 ns, 2.3590 ms/op
+
+OverheadJitting  2: 1 op, 4004.00 ns, 4.0040 us/op
+WorkloadJitting  2: 1 op, 1620717.00 ns, 1.6207 ms/op
+
+WorkloadWarmup   1: 1 op, 1599471.00 ns, 1.5995 ms/op
+
+WorkloadActual   1: 1 op, 1621504.00 ns, 1.6215 ms/op
+
+WorkloadResult   1: 1 op, 1621504.00 ns, 1.6215 ms/op
+
+
+Mean = 1.622 ms, StdErr = 0.000 ms (0.00%), N = 1, StdDev = 0.000 ms
+Min = 1.622 ms, Q1 = 1.622 ms, Median = 1.622 ms, Q3 = 1.622 ms, Max = 1.622 ms
+IQR = 0.000 ms, LowerFence = 1.622 ms, UpperFence = 1.622 ms
+ConfidenceInterval = [NaN ms; NaN ms] (CI 99.9%), Margin = NaN ms (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 27 (43.5 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 393349.00 ns, 393.3490 us/op
+WorkloadJitting  1: 1 op, 394403.00 ns, 394.4030 us/op
+
+WorkloadPilot    1: 4 op, 189192.00 ns, 47.2980 us/op
+WorkloadPilot    2: 42 op, 1964227.00 ns, 46.7673 us/op
+
+WorkloadWarmup   1: 42 op, 1606341.00 ns, 38.2462 us/op
+
+WorkloadActual   1: 42 op, 1634430.00 ns, 38.9150 us/op
+
+WorkloadResult   1: 42 op, 1634430.00 ns, 38.9150 us/op
+
+
+Mean = 38.915 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 38.915 us, Q1 = 38.915 us, Median = 38.915 us, Q3 = 38.915 us, Max = 38.915 us
+IQR = 0.000 us, LowerFence = 38.915 us, UpperFence = 38.915 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 26 (41.9 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 371712.00 ns, 371.7120 us/op
+WorkloadJitting  1: 1 op, 555739.00 ns, 555.7390 us/op
+
+WorkloadPilot    1: 4 op, 387977.00 ns, 96.9943 us/op
+WorkloadPilot    2: 21 op, 3267813.00 ns, 155.6101 us/op
+WorkloadPilot    3: 13 op, 745017.00 ns, 57.3090 us/op
+WorkloadPilot    4: 35 op, 2831147.00 ns, 80.8899 us/op
+WorkloadPilot    5: 25 op, 1673117.00 ns, 66.9247 us/op
+WorkloadPilot    6: 30 op, 2952689.00 ns, 98.4230 us/op
+
+WorkloadWarmup   1: 30 op, 2024523.00 ns, 67.4841 us/op
+
+WorkloadActual   1: 30 op, 1782613.00 ns, 59.4204 us/op
+
+WorkloadResult   1: 30 op, 1782613.00 ns, 59.4204 us/op
+
+
+Mean = 59.420 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 59.420 us, Q1 = 59.420 us, Median = 59.420 us, Q3 = 59.420 us, Max = 59.420 us
+IQR = 0.000 us, LowerFence = 59.420 us, UpperFence = 59.420 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 25 (40.3 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [45]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 339267.00 ns, 339.2670 us/op
+WorkloadJitting  1: 1 op, 397817.00 ns, 397.8170 us/op
+
+WorkloadPilot    1: 4 op, 499225.00 ns, 124.8063 us/op
+WorkloadPilot    2: 16 op, 1538129.00 ns, 96.1331 us/op
+WorkloadPilot    3: 21 op, 1417651.00 ns, 67.5072 us/op
+WorkloadPilot    4: 30 op, 2085252.00 ns, 69.5084 us/op
+
+WorkloadWarmup   1: 30 op, 2881343.00 ns, 96.0448 us/op
+
+WorkloadActual   1: 30 op, 1632028.00 ns, 54.4009 us/op
+
+WorkloadResult   1: 30 op, 1632028.00 ns, 54.4009 us/op
+
+
+Mean = 54.401 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 54.401 us, Q1 = 54.401 us, Median = 54.401 us, Q3 = 54.401 us, Max = 54.401 us
+IQR = 0.000 us, LowerFence = 54.401 us, UpperFence = 54.401 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 24 (38.7 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 365666.00 ns, 365.6660 us/op
+WorkloadJitting  1: 1 op, 321773.00 ns, 321.7730 us/op
+
+WorkloadPilot    1: 4 op, 111965.00 ns, 27.9913 us/op
+WorkloadPilot    2: 71 op, 1181591.00 ns, 16.6421 us/op
+WorkloadPilot    3: 120 op, 2025882.00 ns, 16.8824 us/op
+WorkloadPilot    4: 118 op, 2099677.00 ns, 17.7939 us/op
+WorkloadPilot    5: 112 op, 2457217.00 ns, 21.9394 us/op
+
+WorkloadWarmup   1: 112 op, 1929469.00 ns, 17.2274 us/op
+
+WorkloadActual   1: 112 op, 2109347.00 ns, 18.8335 us/op
+
+WorkloadResult   1: 112 op, 2109347.00 ns, 18.8335 us/op
+
+
+Mean = 18.833 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 18.833 us, Q1 = 18.833 us, Median = 18.833 us, Q3 = 18.833 us, Max = 18.833 us
+IQR = 0.000 us, LowerFence = 18.833 us, UpperFence = 18.833 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 23 (37.1 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 406892.00 ns, 406.8920 us/op
+WorkloadJitting  1: 1 op, 341584.00 ns, 341.5840 us/op
+
+WorkloadPilot    1: 4 op, 203343.00 ns, 50.8358 us/op
+WorkloadPilot    2: 39 op, 2025223.00 ns, 51.9288 us/op
+
+WorkloadWarmup   1: 39 op, 2175009.00 ns, 55.7695 us/op
+
+WorkloadActual   1: 39 op, 1235414.00 ns, 31.6773 us/op
+
+WorkloadResult   1: 39 op, 1235414.00 ns, 31.6773 us/op
+
+
+Mean = 31.677 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 31.677 us, Q1 = 31.677 us, Median = 31.677 us, Q3 = 31.677 us, Max = 31.677 us
+IQR = 0.000 us, LowerFence = 31.677 us, UpperFence = 31.677 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 22 (35.5 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [45]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 331471.00 ns, 331.4710 us/op
+WorkloadJitting  1: 1 op, 332222.00 ns, 332.2220 us/op
+
+WorkloadPilot    1: 4 op, 238354.00 ns, 59.5885 us/op
+WorkloadPilot    2: 34 op, 1723362.00 ns, 50.6871 us/op
+WorkloadPilot    3: 39 op, 1357835.00 ns, 34.8163 us/op
+WorkloadPilot    4: 57 op, 2311072.00 ns, 40.5451 us/op
+WorkloadPilot    5: 49 op, 1532754.00 ns, 31.2807 us/op
+WorkloadPilot    6: 64 op, 3221621.00 ns, 50.3378 us/op
+WorkloadPilot    7: 40 op, 1184336.00 ns, 29.6084 us/op
+WorkloadPilot    8: 68 op, 2633313.00 ns, 38.7252 us/op
+
+WorkloadWarmup   1: 68 op, 2570141.00 ns, 37.7962 us/op
+
+WorkloadActual   1: 68 op, 2154640.00 ns, 31.6859 us/op
+
+WorkloadResult   1: 68 op, 2154640.00 ns, 31.6859 us/op
+
+
+Mean = 31.686 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 31.686 us, Q1 = 31.686 us, Median = 31.686 us, Q3 = 31.686 us, Max = 31.686 us
+IQR = 0.000 us, LowerFence = 31.686 us, UpperFence = 31.686 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 21 (33.9 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 350213.00 ns, 350.2130 us/op
+WorkloadJitting  1: 1 op, 681277.00 ns, 681.2770 us/op
+
+WorkloadPilot    1: 4 op, 1293279.00 ns, 323.3198 us/op
+WorkloadPilot    2: 6 op, 1976562.00 ns, 329.4270 us/op
+
+WorkloadWarmup   1: 6 op, 1998580.00 ns, 333.0967 us/op
+
+WorkloadActual   1: 6 op, 1967772.00 ns, 327.9620 us/op
+
+WorkloadResult   1: 6 op, 1967772.00 ns, 327.9620 us/op
+
+
+Mean = 327.962 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 327.962 us, Q1 = 327.962 us, Median = 327.962 us, Q3 = 327.962 us, Max = 327.962 us
+IQR = 0.000 us, LowerFence = 327.962 us, UpperFence = 327.962 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 20 (32.3 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 421083.00 ns, 421.0830 us/op
+WorkloadJitting  1: 1 op, 823221.00 ns, 823.2210 us/op
+
+WorkloadPilot    1: 4 op, 2056641.00 ns, 514.1603 us/op
+
+WorkloadWarmup   1: 4 op, 1793789.00 ns, 448.4473 us/op
+
+WorkloadActual   1: 4 op, 1353823.00 ns, 338.4558 us/op
+
+WorkloadResult   1: 4 op, 1353823.00 ns, 338.4558 us/op
+
+
+Mean = 338.456 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 338.456 us, Q1 = 338.456 us, Median = 338.456 us, Q3 = 338.456 us, Max = 338.456 us
+IQR = 0.000 us, LowerFence = 338.456 us, UpperFence = 338.456 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 19 (30.6 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [45]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 373840.00 ns, 373.8400 us/op
+WorkloadJitting  1: 1 op, 706333.00 ns, 706.3330 us/op
+
+WorkloadPilot    1: 4 op, 2301213.00 ns, 575.3033 us/op
+
+WorkloadWarmup   1: 4 op, 1499674.00 ns, 374.9185 us/op
+
+WorkloadActual   1: 4 op, 1405948.00 ns, 351.4870 us/op
+
+WorkloadResult   1: 4 op, 1405948.00 ns, 351.4870 us/op
+
+
+Mean = 351.487 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 351.487 us, Q1 = 351.487 us, Median = 351.487 us, Q3 = 351.487 us, Max = 351.487 us
+IQR = 0.000 us, LowerFence = 351.487 us, UpperFence = 351.487 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 18 (29.0 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 413017.00 ns, 413.0170 us/op
+WorkloadJitting  1: 1 op, 346452.00 ns, 346.4520 us/op
+
+WorkloadPilot    1: 4 op, 8354.00 ns, 2.0885 us/op
+WorkloadPilot    2: 958 op, 121346.00 ns, 126.6660 ns/op
+WorkloadPilot    3: 15790 op, 1423984.00 ns, 90.1826 ns/op
+WorkloadPilot    4: 22177 op, 1831866.00 ns, 82.6021 ns/op
+WorkloadPilot    5: 24212 op, 2665976.00 ns, 110.1097 ns/op
+WorkloadPilot    6: 18164 op, 1565155.00 ns, 86.1680 ns/op
+WorkloadPilot    7: 23210 op, 1916400.00 ns, 82.5679 ns/op
+WorkloadPilot    8: 24223 op, 2082464.00 ns, 85.9705 ns/op
+WorkloadPilot    9: 23264 op, 1792786.00 ns, 77.0627 ns/op
+WorkloadPilot   10: 25953 op, 2203183.00 ns, 84.8913 ns/op
+
+WorkloadWarmup   1: 25953 op, 2371727.00 ns, 91.3855 ns/op
+
+WorkloadActual   1: 25953 op, 2151637.00 ns, 82.9051 ns/op
+
+WorkloadResult   1: 25953 op, 2151637.00 ns, 82.9051 ns/op
+
+
+Mean = 82.905 ns, StdErr = 0.000 ns (0.00%), N = 1, StdDev = 0.000 ns
+Min = 82.905 ns, Q1 = 82.905 ns, Median = 82.905 ns, Q3 = 82.905 ns, Max = 82.905 ns
+IQR = 0.000 ns, LowerFence = 82.905 ns, UpperFence = 82.905 ns
+ConfidenceInterval = [NaN ns; NaN ns] (CI 99.9%), Margin = NaN ns (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 17 (27.4 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 409767.00 ns, 409.7670 us/op
+WorkloadJitting  1: 1 op, 354208.00 ns, 354.2080 us/op
+
+WorkloadPilot    1: 4 op, 9409.00 ns, 2.3523 us/op
+WorkloadPilot    2: 850 op, 338316.00 ns, 398.0188 ns/op
+WorkloadPilot    3: 5025 op, 1767874.00 ns, 351.8157 ns/op
+WorkloadPilot    4: 5685 op, 1241614.00 ns, 218.4018 ns/op
+WorkloadPilot    5: 9157 op, 2291160.00 ns, 250.2086 ns/op
+WorkloadPilot    6: 7993 op, 2851624.00 ns, 356.7652 ns/op
+WorkloadPilot    7: 5606 op, 1072009.00 ns, 191.2253 ns/op
+WorkloadPilot    8: 10459 op, 2209490.00 ns, 211.2525 ns/op
+
+WorkloadWarmup   1: 10459 op, 2441240.00 ns, 233.4105 ns/op
+
+WorkloadActual   1: 10459 op, 1914926.00 ns, 183.0888 ns/op
+
+WorkloadResult   1: 10459 op, 1914926.00 ns, 183.0888 ns/op
+
+
+Mean = 183.089 ns, StdErr = 0.000 ns (0.00%), N = 1, StdDev = 0.000 ns
+Min = 183.089 ns, Q1 = 183.089 ns, Median = 183.089 ns, Q3 = 183.089 ns, Max = 183.089 ns
+IQR = 0.000 ns, LowerFence = 183.089 ns, UpperFence = 183.089 ns
+ConfidenceInterval = [NaN ns; NaN ns] (CI 99.9%), Margin = NaN ns (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 16 (25.8 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [45]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 391971.00 ns, 391.9710 us/op
+WorkloadJitting  1: 1 op, 300386.00 ns, 300.3860 us/op
+
+WorkloadPilot    1: 4 op, 8479.00 ns, 2.1198 us/op
+WorkloadPilot    2: 944 op, 365279.00 ns, 386.9481 ns/op
+WorkloadPilot    3: 5169 op, 1793493.00 ns, 346.9710 ns/op
+WorkloadPilot    4: 5764 op, 1122654.00 ns, 194.7700 ns/op
+WorkloadPilot    5: 10269 op, 2593747.00 ns, 252.5803 ns/op
+WorkloadPilot    6: 7918 op, 2797960.00 ns, 353.3670 ns/op
+WorkloadPilot    7: 5660 op, 950895.00 ns, 168.0027 ns/op
+WorkloadPilot    8: 11905 op, 2401424.00 ns, 201.7156 ns/op
+
+WorkloadWarmup   1: 11905 op, 3095305.00 ns, 260.0004 ns/op
+
+WorkloadActual   1: 11905 op, 2051075.00 ns, 172.2869 ns/op
+
+WorkloadResult   1: 11905 op, 2051075.00 ns, 172.2869 ns/op
+
+
+Mean = 172.287 ns, StdErr = 0.000 ns (0.00%), N = 1, StdDev = 0.000 ns
+Min = 172.287 ns, Q1 = 172.287 ns, Median = 172.287 ns, Q3 = 172.287 ns, Max = 172.287 ns
+IQR = 0.000 ns, LowerFence = 172.287 ns, UpperFence = 172.287 ns
+ConfidenceInterval = [NaN ns; NaN ns] (CI 99.9%), Margin = NaN ns (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 15 (24.2 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 387841.00 ns, 387.8410 us/op
+WorkloadJitting  1: 1 op, 298225.00 ns, 298.2250 us/op
+
+WorkloadPilot    1: 4 op, 18155.00 ns, 4.5388 us/op
+WorkloadPilot    2: 441 op, 821420.00 ns, 1.8626 us/op
+WorkloadPilot    3: 1074 op, 2129378.00 ns, 1.9827 us/op
+WorkloadPilot    4: 1009 op, 1853524.00 ns, 1.8370 us/op
+WorkloadPilot    5: 1089 op, 2006084.00 ns, 1.8421 us/op
+WorkloadPilot    6: 1086 op, 2037673.00 ns, 1.8763 us/op
+
+WorkloadWarmup   1: 1086 op, 2016727.00 ns, 1.8570 us/op
+
+WorkloadActual   1: 1086 op, 2003866.00 ns, 1.8452 us/op
+
+WorkloadResult   1: 1086 op, 2003866.00 ns, 1.8452 us/op
+
+
+Mean = 1.845 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 1.845 us, Q1 = 1.845 us, Median = 1.845 us, Q3 = 1.845 us, Max = 1.845 us
+IQR = 0.000 us, LowerFence = 1.845 us, UpperFence = 1.845 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 14 (22.6 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 333901.00 ns, 333.9010 us/op
+WorkloadJitting  1: 1 op, 354235.00 ns, 354.2350 us/op
+
+WorkloadPilot    1: 4 op, 117741.00 ns, 29.4353 us/op
+WorkloadPilot    2: 68 op, 2683989.00 ns, 39.4704 us/op
+WorkloadPilot    3: 51 op, 362452.00 ns, 7.1069 us/op
+WorkloadPilot    4: 281 op, 8575389.00 ns, 30.5174 us/op
+WorkloadPilot    5: 66 op, 522080.00 ns, 7.9103 us/op
+WorkloadPilot    6: 253 op, 5294141.00 ns, 20.9255 us/op
+
+WorkloadWarmup   1: 253 op, 1743609.00 ns, 6.8917 us/op
+
+WorkloadActual   1: 253 op, 1691923.00 ns, 6.6874 us/op
+
+WorkloadResult   1: 253 op, 1691923.00 ns, 6.6874 us/op
+
+
+Mean = 6.687 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 6.687 us, Q1 = 6.687 us, Median = 6.687 us, Q3 = 6.687 us, Max = 6.687 us
+IQR = 0.000 us, LowerFence = 6.687 us, UpperFence = 6.687 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 13 (21.0 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [45]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 356872.00 ns, 356.8720 us/op
+WorkloadJitting  1: 1 op, 314831.00 ns, 314.8310 us/op
+
+WorkloadPilot    1: 4 op, 29847.00 ns, 7.4618 us/op
+WorkloadPilot    2: 268 op, 6183110.00 ns, 23.0713 us/op
+WorkloadPilot    3: 87 op, 609424.00 ns, 7.0049 us/op
+WorkloadPilot    4: 286 op, 1797374.00 ns, 6.2845 us/op
+WorkloadPilot    5: 318 op, 1816903.00 ns, 5.7135 us/op
+WorkloadPilot    6: 350 op, 4690840.00 ns, 13.4024 us/op
+WorkloadPilot    7: 149 op, 879610.00 ns, 5.9034 us/op
+WorkloadPilot    8: 339 op, 1792162.00 ns, 5.2866 us/op
+WorkloadPilot    9: 378 op, 2036218.00 ns, 5.3868 us/op
+
+WorkloadWarmup   1: 378 op, 2921880.00 ns, 7.7298 us/op
+
+WorkloadActual   1: 378 op, 1824589.00 ns, 4.8270 us/op
+
+WorkloadResult   1: 378 op, 1824589.00 ns, 4.8270 us/op
+
+
+Mean = 4.827 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 4.827 us, Q1 = 4.827 us, Median = 4.827 us, Q3 = 4.827 us, Max = 4.827 us
+IQR = 0.000 us, LowerFence = 4.827 us, UpperFence = 4.827 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 12 (19.4 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 373829.00 ns, 373.8290 us/op
+WorkloadJitting  1: 1 op, 2151632.00 ns, 2.1516 ms/op
+
+OverheadJitting  2: 1 op, 2491.00 ns, 2.4910 us/op
+WorkloadJitting  2: 1 op, 100052.00 ns, 100.0520 us/op
+
+OverheadJitting  3: 16 op, 597360.00 ns, 37.3350 us/op
+WorkloadJitting  3: 16 op, 1330113.00 ns, 83.1321 us/op
+
+WorkloadPilot    1: 16 op, 774595.00 ns, 48.4122 us/op
+WorkloadPilot    2: 48 op, 2186203.00 ns, 45.5459 us/op
+
+WorkloadWarmup   1: 48 op, 2268230.00 ns, 47.2548 us/op
+
+WorkloadActual   1: 48 op, 2247287.00 ns, 46.8185 us/op
+
+WorkloadResult   1: 48 op, 2247287.00 ns, 46.8185 us/op
+
+
+Mean = 46.818 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 46.818 us, Q1 = 46.818 us, Median = 46.818 us, Q3 = 46.818 us, Max = 46.818 us
+IQR = 0.000 us, LowerFence = 46.818 us, UpperFence = 46.818 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 11 (17.7 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 368652.00 ns, 368.6520 us/op
+WorkloadJitting  1: 1 op, 501695.00 ns, 501.6950 us/op
+
+WorkloadPilot    1: 4 op, 680098.00 ns, 170.0245 us/op
+WorkloadPilot    2: 12 op, 4631468.00 ns, 385.9557 us/op
+WorkloadPilot    3: 5 op, 630943.00 ns, 126.1886 us/op
+WorkloadPilot    4: 16 op, 6576318.00 ns, 411.0199 us/op
+WorkloadPilot    5: 5 op, 494764.00 ns, 98.9528 us/op
+WorkloadPilot    6: 20 op, 8595146.00 ns, 429.7573 us/op
+
+WorkloadWarmup   1: 20 op, 8424906.00 ns, 421.2453 us/op
+
+WorkloadActual   1: 20 op, 7864037.00 ns, 393.2019 us/op
+
+WorkloadResult   1: 20 op, 7864037.00 ns, 393.2019 us/op
+
+
+Mean = 393.202 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 393.202 us, Q1 = 393.202 us, Median = 393.202 us, Q3 = 393.202 us, Max = 393.202 us
+IQR = 0.000 us, LowerFence = 393.202 us, UpperFence = 393.202 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 10 (16.1 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [45]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 414423.00 ns, 414.4230 us/op
+WorkloadJitting  1: 1 op, 509708.00 ns, 509.7080 us/op
+
+WorkloadPilot    1: 4 op, 1709757.00 ns, 427.4393 us/op
+
+WorkloadWarmup   1: 4 op, 1646247.00 ns, 411.5618 us/op
+
+WorkloadActual   1: 4 op, 1601682.00 ns, 400.4205 us/op
+
+WorkloadResult   1: 4 op, 1601682.00 ns, 400.4205 us/op
+
+
+Mean = 400.421 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 400.421 us, Q1 = 400.421 us, Median = 400.421 us, Q3 = 400.421 us, Max = 400.421 us
+IQR = 0.000 us, LowerFence = 400.421 us, UpperFence = 400.421 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 9 (14.5 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 501467.00 ns, 501.4670 us/op
+WorkloadJitting  1: 1 op, 2795415.00 ns, 2.7954 ms/op
+
+OverheadJitting  2: 1 op, 2731.00 ns, 2.7310 us/op
+WorkloadJitting  2: 1 op, 427405.00 ns, 427.4050 us/op
+
+WorkloadPilot    1: 4 op, 1321694.00 ns, 330.4235 us/op
+WorkloadPilot    2: 6 op, 2009102.00 ns, 334.8503 us/op
+
+WorkloadWarmup   1: 6 op, 1985551.00 ns, 330.9252 us/op
+
+WorkloadActual   1: 6 op, 1989766.00 ns, 331.6277 us/op
+
+WorkloadResult   1: 6 op, 1989766.00 ns, 331.6277 us/op
+
+
+Mean = 331.628 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 331.628 us, Q1 = 331.628 us, Median = 331.628 us, Q3 = 331.628 us, Max = 331.628 us
+IQR = 0.000 us, LowerFence = 331.628 us, UpperFence = 331.628 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 8 (12.9 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 509488.00 ns, 509.4880 us/op
+WorkloadJitting  1: 1 op, 2928371.00 ns, 2.9284 ms/op
+
+OverheadJitting  2: 1 op, 2629.00 ns, 2.6290 us/op
+WorkloadJitting  2: 1 op, 2507111.00 ns, 2.5071 ms/op
+
+WorkloadWarmup   1: 1 op, 2382910.00 ns, 2.3829 ms/op
+
+WorkloadActual   1: 1 op, 2495598.00 ns, 2.4956 ms/op
+
+WorkloadResult   1: 1 op, 2495598.00 ns, 2.4956 ms/op
+
+
+Mean = 2.496 ms, StdErr = 0.000 ms (0.00%), N = 1, StdDev = 0.000 ms
+Min = 2.496 ms, Q1 = 2.496 ms, Median = 2.496 ms, Q3 = 2.496 ms, Max = 2.496 ms
+IQR = 0.000 ms, LowerFence = 2.496 ms, UpperFence = 2.496 ms
+ConfidenceInterval = [NaN ms; NaN ms] (CI 99.9%), Margin = NaN ms (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 7 (11.3 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [45]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 500915.00 ns, 500.9150 us/op
+WorkloadJitting  1: 1 op, 1233749.00 ns, 1.2337 ms/op
+
+WorkloadPilot    1: 4 op, 2887643.00 ns, 721.9108 us/op
+
+WorkloadWarmup   1: 4 op, 2085214.00 ns, 521.3035 us/op
+
+WorkloadActual   1: 4 op, 2093067.00 ns, 523.2668 us/op
+
+WorkloadResult   1: 4 op, 2093067.00 ns, 523.2668 us/op
+
+
+Mean = 523.267 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 523.267 us, Q1 = 523.267 us, Median = 523.267 us, Q3 = 523.267 us, Max = 523.267 us
+IQR = 0.000 us, LowerFence = 523.267 us, UpperFence = 523.267 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 6 (9.7 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 466444.00 ns, 466.4440 us/op
+WorkloadJitting  1: 1 op, 712708.00 ns, 712.7080 us/op
+
+WorkloadPilot    1: 4 op, 1701198.00 ns, 425.2995 us/op
+
+WorkloadWarmup   1: 4 op, 1681845.00 ns, 420.4613 us/op
+
+WorkloadActual   1: 4 op, 1731819.00 ns, 432.9548 us/op
+
+WorkloadResult   1: 4 op, 1731819.00 ns, 432.9548 us/op
+
+
+Mean = 432.955 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 432.955 us, Q1 = 432.955 us, Median = 432.955 us, Q3 = 432.955 us, Max = 432.955 us
+IQR = 0.000 us, LowerFence = 432.955 us, UpperFence = 432.955 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 5 (8.1 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 478061.00 ns, 478.0610 us/op
+WorkloadJitting  1: 1 op, 707415.00 ns, 707.4150 us/op
+
+WorkloadPilot    1: 4 op, 1279598.00 ns, 319.8995 us/op
+WorkloadPilot    2: 6 op, 1819166.00 ns, 303.1943 us/op
+
+WorkloadWarmup   1: 6 op, 1690710.00 ns, 281.7850 us/op
+
+WorkloadActual   1: 6 op, 1828477.00 ns, 304.7462 us/op
+
+WorkloadResult   1: 6 op, 1828477.00 ns, 304.7462 us/op
+
+
+Mean = 304.746 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 304.746 us, Q1 = 304.746 us, Median = 304.746 us, Q3 = 304.746 us, Max = 304.746 us
+IQR = 0.000 us, LowerFence = 304.746 us, UpperFence = 304.746 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 4 (6.5 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [45]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 347859.00 ns, 347.8590 us/op
+WorkloadJitting  1: 1 op, 651263.00 ns, 651.2630 us/op
+
+WorkloadPilot    1: 4 op, 1245697.00 ns, 311.4243 us/op
+WorkloadPilot    2: 6 op, 1874615.00 ns, 312.4358 us/op
+
+WorkloadWarmup   1: 6 op, 1833515.00 ns, 305.5858 us/op
+
+WorkloadActual   1: 6 op, 1820724.00 ns, 303.4540 us/op
+
+WorkloadResult   1: 6 op, 1820724.00 ns, 303.4540 us/op
+
+
+Mean = 303.454 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 303.454 us, Q1 = 303.454 us, Median = 303.454 us, Q3 = 303.454 us, Max = 303.454 us
+IQR = 0.000 us, LowerFence = 303.454 us, UpperFence = 303.454 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 3 (4.8 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 370357.00 ns, 370.3570 us/op
+WorkloadJitting  1: 1 op, 297156.00 ns, 297.1560 us/op
+
+WorkloadPilot    1: 4 op, 8697.00 ns, 2.1743 us/op
+WorkloadPilot    2: 920 op, 226183.00 ns, 245.8511 ns/op
+WorkloadPilot    3: 8135 op, 2122357.00 ns, 260.8921 ns/op
+WorkloadPilot    4: 7666 op, 2078773.00 ns, 271.1679 ns/op
+WorkloadPilot    5: 7376 op, 1874289.00 ns, 254.1064 ns/op
+WorkloadPilot    6: 7871 op, 2116471.00 ns, 268.8948 ns/op
+
+WorkloadWarmup   1: 7871 op, 2079925.00 ns, 264.2517 ns/op
+
+WorkloadActual   1: 7871 op, 2209137.00 ns, 280.6679 ns/op
+
+WorkloadResult   1: 7871 op, 2209137.00 ns, 280.6679 ns/op
+
+
+Mean = 280.668 ns, StdErr = 0.000 ns (0.00%), N = 1, StdDev = 0.000 ns
+Min = 280.668 ns, Q1 = 280.668 ns, Median = 280.668 ns, Q3 = 280.668 ns, Max = 280.668 ns
+IQR = 0.000 ns, LowerFence = 280.668 ns, UpperFence = 280.668 ns
+ConfidenceInterval = [NaN ns; NaN ns] (CI 99.9%), Margin = NaN ns (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 2 (3.2 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 376865.00 ns, 376.8650 us/op
+WorkloadJitting  1: 1 op, 296754.00 ns, 296.7540 us/op
+
+WorkloadPilot    1: 4 op, 35462.00 ns, 8.8655 us/op
+WorkloadPilot    2: 226 op, 284677.00 ns, 1.2596 us/op
+WorkloadPilot    3: 1588 op, 1619539.00 ns, 1.0199 us/op
+WorkloadPilot    4: 1961 op, 1408251.00 ns, 718.1290 ns/op
+WorkloadPilot    5: 2785 op, 2132987.00 ns, 765.8840 ns/op
+WorkloadPilot    6: 2611 op, 2717618.00 ns, 1.0408 us/op
+WorkloadPilot    7: 1922 op, 1237127.00 ns, 643.6665 ns/op
+WorkloadPilot    8: 3107 op, 2108848.00 ns, 678.7409 ns/op
+
+WorkloadWarmup   1: 3107 op, 2381852.00 ns, 766.6083 ns/op
+
+WorkloadActual   1: 3107 op, 2036648.00 ns, 655.5031 ns/op
+
+WorkloadResult   1: 3107 op, 2036648.00 ns, 655.5031 ns/op
+
+
+Mean = 655.503 ns, StdErr = 0.000 ns (0.00%), N = 1, StdDev = 0.000 ns
+Min = 655.503 ns, Q1 = 655.503 ns, Median = 655.503 ns, Q3 = 655.503 ns, Max = 655.503 ns
+IQR = 0.000 ns, LowerFence = 655.503 ns, UpperFence = 655.503 ns
+ConfidenceInterval = [NaN ns; NaN ns] (CI 99.9%), Margin = NaN ns (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 1 (1.6 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [45]]
+// *** Execute ***
+// Launch: 1 / 1
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: Job-MQVTFZ(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1)
+
+OverheadJitting  1: 1 op, 482164.00 ns, 482.1640 us/op
+WorkloadJitting  1: 1 op, 314605.00 ns, 314.6050 us/op
+
+WorkloadPilot    1: 4 op, 16533.00 ns, 4.1333 us/op
+WorkloadPilot    2: 484 op, 528612.00 ns, 1.0922 us/op
+WorkloadPilot    3: 1831 op, 1921336.00 ns, 1.0493 us/op
+WorkloadPilot    4: 1906 op, 1153342.00 ns, 605.1112 ns/op
+WorkloadPilot    5: 3305 op, 2634520.00 ns, 797.1316 ns/op
+WorkloadPilot    6: 2509 op, 2496166.00 ns, 994.8848 ns/op
+WorkloadPilot    7: 2010 op, 1227331.00 ns, 610.6124 ns/op
+WorkloadPilot    8: 3275 op, 2257945.00 ns, 689.4489 ns/op
+
+WorkloadWarmup   1: 3275 op, 2645534.00 ns, 807.7966 ns/op
+
+WorkloadActual   1: 3275 op, 2082101.00 ns, 635.7560 ns/op
+
+WorkloadResult   1: 3275 op, 2082101.00 ns, 635.7560 ns/op
+
+
+Mean = 635.756 ns, StdErr = 0.000 ns (0.00%), N = 1, StdDev = 0.000 ns
+Min = 635.756 ns, Q1 = 635.756 ns, Median = 635.756 ns, Q3 = 635.756 ns, Max = 635.756 ns
+IQR = 0.000 ns, LowerFence = 635.756 ns, UpperFence = 635.756 ns
+ConfidenceInterval = [NaN ns; NaN ns] (CI 99.9%), Margin = NaN ns (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+
+// ** Remained 0 (0.0 %) benchmark(s) to run. Estimated finish 2026-09-25 16:55 (0h 0m from now) **
+Run time: 00:00:07 (7.76 sec), executed benchmarks: 62
+
+// ***** BenchmarkRunner: Finish  *****
+
+// * Export *
+  logs/csharp/campaign/codec-launch1.jsonl
+
+// * Detailed results *
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+Runtime = ; GC = 
+Mean = 850.721 ns, StdErr = 0.000 ns (0.00%), N = 1, StdDev = 0.000 ns
+Min = 850.721 ns, Q1 = 850.721 ns, Median = 850.721 ns, Q3 = 850.721 ns, Max = 850.721 ns
+IQR = 0.000 ns, LowerFence = 850.721 ns, UpperFence = 850.721 ns
+ConfidenceInterval = [NaN ns; NaN ns] (CI 99.9%), Margin = NaN ns (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[850.221 ns ; 851.221 ns) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+Runtime = ; GC = 
+Mean = 1.855 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 1.855 us, Q1 = 1.855 us, Median = 1.855 us, Q3 = 1.855 us, Max = 1.855 us
+IQR = 0.000 us, LowerFence = 1.855 us, UpperFence = 1.855 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[1.855 us ; 1.856 us) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+Runtime = ; GC = 
+Mean = 826.876 ns, StdErr = 0.000 ns (0.00%), N = 1, StdDev = 0.000 ns
+Min = 826.876 ns, Q1 = 826.876 ns, Median = 826.876 ns, Q3 = 826.876 ns, Max = 826.876 ns
+IQR = 0.000 ns, LowerFence = 826.876 ns, UpperFence = 826.876 ns
+ConfidenceInterval = [NaN ns; NaN ns] (CI 99.9%), Margin = NaN ns (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[826.376 ns ; 827.376 ns) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+Runtime = ; GC = 
+Mean = 1.758 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 1.758 us, Q1 = 1.758 us, Median = 1.758 us, Q3 = 1.758 us, Max = 1.758 us
+IQR = 0.000 us, LowerFence = 1.758 us, UpperFence = 1.758 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[1.757 us ; 1.758 us) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [45]]
+Runtime = ; GC = 
+Mean = 1.867 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 1.867 us, Q1 = 1.867 us, Median = 1.867 us, Q3 = 1.867 us, Max = 1.867 us
+IQR = 0.000 us, LowerFence = 1.867 us, UpperFence = 1.867 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[1.866 us ; 1.867 us) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+Runtime = ; GC = 
+Mean = 286.954 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 286.954 us, Q1 = 286.954 us, Median = 286.954 us, Q3 = 286.954 us, Max = 286.954 us
+IQR = 0.000 us, LowerFence = 286.954 us, UpperFence = 286.954 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[286.954 us ; 286.955 us) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+Runtime = ; GC = 
+Mean = 639.740 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 639.740 us, Q1 = 639.740 us, Median = 639.740 us, Q3 = 639.740 us, Max = 639.740 us
+IQR = 0.000 us, LowerFence = 639.740 us, UpperFence = 639.740 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[639.740 us ; 639.741 us) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [45]]
+Runtime = ; GC = 
+Mean = 477.547 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 477.547 us, Q1 = 477.547 us, Median = 477.547 us, Q3 = 477.547 us, Max = 477.547 us
+IQR = 0.000 us, LowerFence = 477.547 us, UpperFence = 477.547 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[477.547 us ; 477.548 us) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [41]]
+Runtime = ; GC = 
+Mean = 342.994 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 342.994 us, Q1 = 342.994 us, Median = 342.994 us, Q3 = 342.994 us, Max = 342.994 us
+IQR = 0.000 us, LowerFence = 342.994 us, UpperFence = 342.994 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[342.993 us ; 342.994 us) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [41]]
+Runtime = ; GC = 
+Mean = 555.689 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 555.689 us, Q1 = 555.689 us, Median = 555.689 us, Q3 = 555.689 us, Max = 555.689 us
+IQR = 0.000 us, LowerFence = 555.689 us, UpperFence = 555.689 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[555.688 us ; 555.689 us) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [46]]
+Runtime = ; GC = 
+Mean = 563.989 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 563.989 us, Q1 = 563.989 us, Median = 563.989 us, Q3 = 563.989 us, Max = 563.989 us
+IQR = 0.000 us, LowerFence = 563.989 us, UpperFence = 563.989 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[563.989 us ; 563.990 us) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [39]]
+Runtime = ; GC = 
+Mean = 430.681 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 430.681 us, Q1 = 430.681 us, Median = 430.681 us, Q3 = 430.681 us, Max = 430.681 us
+IQR = 0.000 us, LowerFence = 430.681 us, UpperFence = 430.681 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[430.681 us ; 430.682 us) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [39]]
+Runtime = ; GC = 
+Mean = 765.540 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 765.540 us, Q1 = 765.540 us, Median = 765.540 us, Q3 = 765.540 us, Max = 765.540 us
+IQR = 0.000 us, LowerFence = 765.540 us, UpperFence = 765.540 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[765.540 us ; 765.541 us) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [44]]
+Runtime = ; GC = 
+Mean = 1.065 ms, StdErr = 0.000 ms (0.00%), N = 1, StdDev = 0.000 ms
+Min = 1.065 ms, Q1 = 1.065 ms, Median = 1.065 ms, Q3 = 1.065 ms, Max = 1.065 ms
+IQR = 0.000 ms, LowerFence = 1.065 ms, UpperFence = 1.065 ms
+ConfidenceInterval = [NaN ms; NaN ms] (CI 99.9%), Margin = NaN ms (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[1.065 ms ; 1.065 ms) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+Runtime = ; GC = 
+Mean = 7.502 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 7.502 us, Q1 = 7.502 us, Median = 7.502 us, Q3 = 7.502 us, Max = 7.502 us
+IQR = 0.000 us, LowerFence = 7.502 us, UpperFence = 7.502 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[7.501 us ; 7.502 us) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+Runtime = ; GC = 
+Mean = 17.536 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 17.536 us, Q1 = 17.536 us, Median = 17.536 us, Q3 = 17.536 us, Max = 17.536 us
+IQR = 0.000 us, LowerFence = 17.536 us, UpperFence = 17.536 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[17.535 us ; 17.536 us) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [45]]
+Runtime = ; GC = 
+Mean = 17.908 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 17.908 us, Q1 = 17.908 us, Median = 17.908 us, Q3 = 17.908 us, Max = 17.908 us
+IQR = 0.000 us, LowerFence = 17.908 us, UpperFence = 17.908 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[17.907 us ; 17.908 us) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+Runtime = ; GC = 
+Mean = 2.066 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 2.066 us, Q1 = 2.066 us, Median = 2.066 us, Q3 = 2.066 us, Max = 2.066 us
+IQR = 0.000 us, LowerFence = 2.066 us, UpperFence = 2.066 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[2.066 us ; 2.067 us) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+Runtime = ; GC = 
+Mean = 2.794 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 2.794 us, Q1 = 2.794 us, Median = 2.794 us, Q3 = 2.794 us, Max = 2.794 us
+IQR = 0.000 us, LowerFence = 2.794 us, UpperFence = 2.794 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[2.793 us ; 2.794 us) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [45]]
+Runtime = ; GC = 
+Mean = 3.242 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 3.242 us, Q1 = 3.242 us, Median = 3.242 us, Q3 = 3.242 us, Max = 3.242 us
+IQR = 0.000 us, LowerFence = 3.242 us, UpperFence = 3.242 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[3.241 us ; 3.242 us) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+Runtime = ; GC = 
+Mean = 1.442 ms, StdErr = 0.000 ms (0.00%), N = 1, StdDev = 0.000 ms
+Min = 1.442 ms, Q1 = 1.442 ms, Median = 1.442 ms, Q3 = 1.442 ms, Max = 1.442 ms
+IQR = 0.000 ms, LowerFence = 1.442 ms, UpperFence = 1.442 ms
+ConfidenceInterval = [NaN ms; NaN ms] (CI 99.9%), Margin = NaN ms (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[1.442 ms ; 1.442 ms) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+Runtime = ; GC = 
+Mean = 2.029 ms, StdErr = 0.000 ms (0.00%), N = 1, StdDev = 0.000 ms
+Min = 2.029 ms, Q1 = 2.029 ms, Median = 2.029 ms, Q3 = 2.029 ms, Max = 2.029 ms
+IQR = 0.000 ms, LowerFence = 2.029 ms, UpperFence = 2.029 ms
+ConfidenceInterval = [NaN ms; NaN ms] (CI 99.9%), Margin = NaN ms (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[2.029 ms ; 2.029 ms) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [45]]
+Runtime = ; GC = 
+Mean = 1.964 ms, StdErr = 0.000 ms (0.00%), N = 1, StdDev = 0.000 ms
+Min = 1.964 ms, Q1 = 1.964 ms, Median = 1.964 ms, Q3 = 1.964 ms, Max = 1.964 ms
+IQR = 0.000 ms, LowerFence = 1.964 ms, UpperFence = 1.964 ms
+ConfidenceInterval = [NaN ms; NaN ms] (CI 99.9%), Margin = NaN ms (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[1.964 ms ; 1.964 ms) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [41]]
+Runtime = ; GC = 
+Mean = 1.604 ms, StdErr = 0.000 ms (0.00%), N = 1, StdDev = 0.000 ms
+Min = 1.604 ms, Q1 = 1.604 ms, Median = 1.604 ms, Q3 = 1.604 ms, Max = 1.604 ms
+IQR = 0.000 ms, LowerFence = 1.604 ms, UpperFence = 1.604 ms
+ConfidenceInterval = [NaN ms; NaN ms] (CI 99.9%), Margin = NaN ms (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[1.604 ms ; 1.604 ms) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [41]]
+Runtime = ; GC = 
+Mean = 1.928 ms, StdErr = 0.000 ms (0.00%), N = 1, StdDev = 0.000 ms
+Min = 1.928 ms, Q1 = 1.928 ms, Median = 1.928 ms, Q3 = 1.928 ms, Max = 1.928 ms
+IQR = 0.000 ms, LowerFence = 1.928 ms, UpperFence = 1.928 ms
+ConfidenceInterval = [NaN ms; NaN ms] (CI 99.9%), Margin = NaN ms (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[1.928 ms ; 1.928 ms) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [46]]
+Runtime = ; GC = 
+Mean = 2.084 ms, StdErr = 0.000 ms (0.00%), N = 1, StdDev = 0.000 ms
+Min = 2.084 ms, Q1 = 2.084 ms, Median = 2.084 ms, Q3 = 2.084 ms, Max = 2.084 ms
+IQR = 0.000 ms, LowerFence = 2.084 ms, UpperFence = 2.084 ms
+ConfidenceInterval = [NaN ms; NaN ms] (CI 99.9%), Margin = NaN ms (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[2.084 ms ; 2.084 ms) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [39]]
+Runtime = ; GC = 
+Mean = 1.893 ms, StdErr = 0.000 ms (0.00%), N = 1, StdDev = 0.000 ms
+Min = 1.893 ms, Q1 = 1.893 ms, Median = 1.893 ms, Q3 = 1.893 ms, Max = 1.893 ms
+IQR = 0.000 ms, LowerFence = 1.893 ms, UpperFence = 1.893 ms
+ConfidenceInterval = [NaN ms; NaN ms] (CI 99.9%), Margin = NaN ms (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[1.893 ms ; 1.893 ms) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [39]]
+Runtime = ; GC = 
+Mean = 4.660 ms, StdErr = 0.000 ms (0.00%), N = 1, StdDev = 0.000 ms
+Min = 4.660 ms, Q1 = 4.660 ms, Median = 4.660 ms, Q3 = 4.660 ms, Max = 4.660 ms
+IQR = 0.000 ms, LowerFence = 4.660 ms, UpperFence = 4.660 ms
+ConfidenceInterval = [NaN ms; NaN ms] (CI 99.9%), Margin = NaN ms (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[4.660 ms ; 4.660 ms) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [44]]
+Runtime = ; GC = 
+Mean = 2.794 ms, StdErr = 0.000 ms (0.00%), N = 1, StdDev = 0.000 ms
+Min = 2.794 ms, Q1 = 2.794 ms, Median = 2.794 ms, Q3 = 2.794 ms, Max = 2.794 ms
+IQR = 0.000 ms, LowerFence = 2.794 ms, UpperFence = 2.794 ms
+ConfidenceInterval = [NaN ms; NaN ms] (CI 99.9%), Margin = NaN ms (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[2.794 ms ; 2.794 ms) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+Runtime = ; GC = 
+Mean = 848.654 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 848.654 us, Q1 = 848.654 us, Median = 848.654 us, Q3 = 848.654 us, Max = 848.654 us
+IQR = 0.000 us, LowerFence = 848.654 us, UpperFence = 848.654 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[848.654 us ; 848.655 us) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+Runtime = ; GC = 
+Mean = 2.213 ms, StdErr = 0.000 ms (0.00%), N = 1, StdDev = 0.000 ms
+Min = 2.213 ms, Q1 = 2.213 ms, Median = 2.213 ms, Q3 = 2.213 ms, Max = 2.213 ms
+IQR = 0.000 ms, LowerFence = 2.213 ms, UpperFence = 2.213 ms
+ConfidenceInterval = [NaN ms; NaN ms] (CI 99.9%), Margin = NaN ms (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[2.213 ms ; 2.213 ms) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [45]]
+Runtime = ; GC = 
+Mean = 1.254 ms, StdErr = 0.000 ms (0.00%), N = 1, StdDev = 0.000 ms
+Min = 1.254 ms, Q1 = 1.254 ms, Median = 1.254 ms, Q3 = 1.254 ms, Max = 1.254 ms
+IQR = 0.000 ms, LowerFence = 1.254 ms, UpperFence = 1.254 ms
+ConfidenceInterval = [NaN ms; NaN ms] (CI 99.9%), Margin = NaN ms (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[1.254 ms ; 1.254 ms) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+Runtime = ; GC = 
+Mean = 1.061 ms, StdErr = 0.000 ms (0.00%), N = 1, StdDev = 0.000 ms
+Min = 1.061 ms, Q1 = 1.061 ms, Median = 1.061 ms, Q3 = 1.061 ms, Max = 1.061 ms
+IQR = 0.000 ms, LowerFence = 1.061 ms, UpperFence = 1.061 ms
+ConfidenceInterval = [NaN ms; NaN ms] (CI 99.9%), Margin = NaN ms (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[1.061 ms ; 1.061 ms) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+Runtime = ; GC = 
+Mean = 1.369 ms, StdErr = 0.000 ms (0.00%), N = 1, StdDev = 0.000 ms
+Min = 1.369 ms, Q1 = 1.369 ms, Median = 1.369 ms, Q3 = 1.369 ms, Max = 1.369 ms
+IQR = 0.000 ms, LowerFence = 1.369 ms, UpperFence = 1.369 ms
+ConfidenceInterval = [NaN ms; NaN ms] (CI 99.9%), Margin = NaN ms (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[1.369 ms ; 1.369 ms) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [45]]
+Runtime = ; GC = 
+Mean = 1.622 ms, StdErr = 0.000 ms (0.00%), N = 1, StdDev = 0.000 ms
+Min = 1.622 ms, Q1 = 1.622 ms, Median = 1.622 ms, Q3 = 1.622 ms, Max = 1.622 ms
+IQR = 0.000 ms, LowerFence = 1.622 ms, UpperFence = 1.622 ms
+ConfidenceInterval = [NaN ms; NaN ms] (CI 99.9%), Margin = NaN ms (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[1.622 ms ; 1.622 ms) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+Runtime = ; GC = 
+Mean = 38.915 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 38.915 us, Q1 = 38.915 us, Median = 38.915 us, Q3 = 38.915 us, Max = 38.915 us
+IQR = 0.000 us, LowerFence = 38.915 us, UpperFence = 38.915 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[38.914 us ; 38.916 us) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+Runtime = ; GC = 
+Mean = 59.420 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 59.420 us, Q1 = 59.420 us, Median = 59.420 us, Q3 = 59.420 us, Max = 59.420 us
+IQR = 0.000 us, LowerFence = 59.420 us, UpperFence = 59.420 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[59.420 us ; 59.421 us) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [45]]
+Runtime = ; GC = 
+Mean = 54.401 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 54.401 us, Q1 = 54.401 us, Median = 54.401 us, Q3 = 54.401 us, Max = 54.401 us
+IQR = 0.000 us, LowerFence = 54.401 us, UpperFence = 54.401 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[54.400 us ; 54.401 us) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+Runtime = ; GC = 
+Mean = 18.833 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 18.833 us, Q1 = 18.833 us, Median = 18.833 us, Q3 = 18.833 us, Max = 18.833 us
+IQR = 0.000 us, LowerFence = 18.833 us, UpperFence = 18.833 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[18.833 us ; 18.834 us) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+Runtime = ; GC = 
+Mean = 31.677 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 31.677 us, Q1 = 31.677 us, Median = 31.677 us, Q3 = 31.677 us, Max = 31.677 us
+IQR = 0.000 us, LowerFence = 31.677 us, UpperFence = 31.677 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[31.677 us ; 31.678 us) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [45]]
+Runtime = ; GC = 
+Mean = 31.686 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 31.686 us, Q1 = 31.686 us, Median = 31.686 us, Q3 = 31.686 us, Max = 31.686 us
+IQR = 0.000 us, LowerFence = 31.686 us, UpperFence = 31.686 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[31.685 us ; 31.686 us) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+Runtime = ; GC = 
+Mean = 327.962 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 327.962 us, Q1 = 327.962 us, Median = 327.962 us, Q3 = 327.962 us, Max = 327.962 us
+IQR = 0.000 us, LowerFence = 327.962 us, UpperFence = 327.962 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[327.962 us ; 327.962 us) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+Runtime = ; GC = 
+Mean = 338.456 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 338.456 us, Q1 = 338.456 us, Median = 338.456 us, Q3 = 338.456 us, Max = 338.456 us
+IQR = 0.000 us, LowerFence = 338.456 us, UpperFence = 338.456 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[338.455 us ; 338.456 us) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [45]]
+Runtime = ; GC = 
+Mean = 351.487 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 351.487 us, Q1 = 351.487 us, Median = 351.487 us, Q3 = 351.487 us, Max = 351.487 us
+IQR = 0.000 us, LowerFence = 351.487 us, UpperFence = 351.487 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[351.486 us ; 351.488 us) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+Runtime = ; GC = 
+Mean = 82.905 ns, StdErr = 0.000 ns (0.00%), N = 1, StdDev = 0.000 ns
+Min = 82.905 ns, Q1 = 82.905 ns, Median = 82.905 ns, Q3 = 82.905 ns, Max = 82.905 ns
+IQR = 0.000 ns, LowerFence = 82.905 ns, UpperFence = 82.905 ns
+ConfidenceInterval = [NaN ns; NaN ns] (CI 99.9%), Margin = NaN ns (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[82.405 ns ; 83.405 ns) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+Runtime = ; GC = 
+Mean = 183.089 ns, StdErr = 0.000 ns (0.00%), N = 1, StdDev = 0.000 ns
+Min = 183.089 ns, Q1 = 183.089 ns, Median = 183.089 ns, Q3 = 183.089 ns, Max = 183.089 ns
+IQR = 0.000 ns, LowerFence = 183.089 ns, UpperFence = 183.089 ns
+ConfidenceInterval = [NaN ns; NaN ns] (CI 99.9%), Margin = NaN ns (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[182.589 ns ; 183.589 ns) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [45]]
+Runtime = ; GC = 
+Mean = 172.287 ns, StdErr = 0.000 ns (0.00%), N = 1, StdDev = 0.000 ns
+Min = 172.287 ns, Q1 = 172.287 ns, Median = 172.287 ns, Q3 = 172.287 ns, Max = 172.287 ns
+IQR = 0.000 ns, LowerFence = 172.287 ns, UpperFence = 172.287 ns
+ConfidenceInterval = [NaN ns; NaN ns] (CI 99.9%), Margin = NaN ns (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[171.787 ns ; 172.787 ns) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+Runtime = ; GC = 
+Mean = 1.845 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 1.845 us, Q1 = 1.845 us, Median = 1.845 us, Q3 = 1.845 us, Max = 1.845 us
+IQR = 0.000 us, LowerFence = 1.845 us, UpperFence = 1.845 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[1.845 us ; 1.846 us) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+Runtime = ; GC = 
+Mean = 6.687 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 6.687 us, Q1 = 6.687 us, Median = 6.687 us, Q3 = 6.687 us, Max = 6.687 us
+IQR = 0.000 us, LowerFence = 6.687 us, UpperFence = 6.687 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[6.687 us ; 6.688 us) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [45]]
+Runtime = ; GC = 
+Mean = 4.827 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 4.827 us, Q1 = 4.827 us, Median = 4.827 us, Q3 = 4.827 us, Max = 4.827 us
+IQR = 0.000 us, LowerFence = 4.827 us, UpperFence = 4.827 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[4.826 us ; 4.827 us) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+Runtime = ; GC = 
+Mean = 46.818 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 46.818 us, Q1 = 46.818 us, Median = 46.818 us, Q3 = 46.818 us, Max = 46.818 us
+IQR = 0.000 us, LowerFence = 46.818 us, UpperFence = 46.818 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[46.818 us ; 46.819 us) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+Runtime = ; GC = 
+Mean = 393.202 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 393.202 us, Q1 = 393.202 us, Median = 393.202 us, Q3 = 393.202 us, Max = 393.202 us
+IQR = 0.000 us, LowerFence = 393.202 us, UpperFence = 393.202 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[393.201 us ; 393.202 us) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [45]]
+Runtime = ; GC = 
+Mean = 400.421 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 400.421 us, Q1 = 400.421 us, Median = 400.421 us, Q3 = 400.421 us, Max = 400.421 us
+IQR = 0.000 us, LowerFence = 400.421 us, UpperFence = 400.421 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[400.420 us ; 400.421 us) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+Runtime = ; GC = 
+Mean = 331.628 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 331.628 us, Q1 = 331.628 us, Median = 331.628 us, Q3 = 331.628 us, Max = 331.628 us
+IQR = 0.000 us, LowerFence = 331.628 us, UpperFence = 331.628 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[331.627 us ; 331.628 us) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+Runtime = ; GC = 
+Mean = 2.496 ms, StdErr = 0.000 ms (0.00%), N = 1, StdDev = 0.000 ms
+Min = 2.496 ms, Q1 = 2.496 ms, Median = 2.496 ms, Q3 = 2.496 ms, Max = 2.496 ms
+IQR = 0.000 ms, LowerFence = 2.496 ms, UpperFence = 2.496 ms
+ConfidenceInterval = [NaN ms; NaN ms] (CI 99.9%), Margin = NaN ms (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[2.496 ms ; 2.496 ms) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [45]]
+Runtime = ; GC = 
+Mean = 523.267 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 523.267 us, Q1 = 523.267 us, Median = 523.267 us, Q3 = 523.267 us, Max = 523.267 us
+IQR = 0.000 us, LowerFence = 523.267 us, UpperFence = 523.267 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[523.266 us ; 523.267 us) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+Runtime = ; GC = 
+Mean = 432.955 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 432.955 us, Q1 = 432.955 us, Median = 432.955 us, Q3 = 432.955 us, Max = 432.955 us
+IQR = 0.000 us, LowerFence = 432.955 us, UpperFence = 432.955 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[432.954 us ; 432.955 us) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+Runtime = ; GC = 
+Mean = 304.746 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 304.746 us, Q1 = 304.746 us, Median = 304.746 us, Q3 = 304.746 us, Max = 304.746 us
+IQR = 0.000 us, LowerFence = 304.746 us, UpperFence = 304.746 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[304.746 us ; 304.747 us) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [45]]
+Runtime = ; GC = 
+Mean = 303.454 us, StdErr = 0.000 us (0.00%), N = 1, StdDev = 0.000 us
+Min = 303.454 us, Q1 = 303.454 us, Median = 303.454 us, Q3 = 303.454 us, Max = 303.454 us
+IQR = 0.000 us, LowerFence = 303.454 us, UpperFence = 303.454 us
+ConfidenceInterval = [NaN us; NaN us] (CI 99.9%), Margin = NaN us (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[303.454 us ; 303.454 us) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+Runtime = ; GC = 
+Mean = 280.668 ns, StdErr = 0.000 ns (0.00%), N = 1, StdDev = 0.000 ns
+Min = 280.668 ns, Q1 = 280.668 ns, Median = 280.668 ns, Q3 = 280.668 ns, Max = 280.668 ns
+IQR = 0.000 ns, LowerFence = 280.668 ns, UpperFence = 280.668 ns
+ConfidenceInterval = [NaN ns; NaN ns] (CI 99.9%), Margin = NaN ns (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[280.168 ns ; 281.168 ns) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [40]]
+Runtime = ; GC = 
+Mean = 655.503 ns, StdErr = 0.000 ns (0.00%), N = 1, StdDev = 0.000 ns
+Min = 655.503 ns, Q1 = 655.503 ns, Median = 655.503 ns, Q3 = 655.503 ns, Max = 655.503 ns
+IQR = 0.000 ns, LowerFence = 655.503 ns, UpperFence = 655.503 ns
+ConfidenceInterval = [NaN ns; NaN ns] (CI 99.9%), Margin = NaN ns (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[655.003 ns ; 656.003 ns) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Toolchain=InProcessEmitToolchain, IterationCount=1, IterationTime=2ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=1) [Case=incum(...)fault [45]]
+Runtime = ; GC = 
+Mean = 635.756 ns, StdErr = 0.000 ns (0.00%), N = 1, StdDev = 0.000 ns
+Min = 635.756 ns, Q1 = 635.756 ns, Median = 635.756 ns, Q3 = 635.756 ns, Max = 635.756 ns
+IQR = 0.000 ns, LowerFence = 635.756 ns, UpperFence = 635.756 ns
+ConfidenceInterval = [NaN ns; NaN ns] (CI 99.9%), Margin = NaN ns (NaN% of Mean)
+Skewness = NaN, Kurtosis = NaN, MValue = 2
+-------------------- Histogram --------------------
+[635.256 ns ; 636.256 ns) | @
+---------------------------------------------------
+
+// * Summary *
+
+BenchmarkDotNet v0.15.8, Linux Ubuntu 24.04.4 LTS (Noble Numbat)
+Intel Xeon Processor 2.10GHz, 1 CPU, 4 logical and 4 physical cores
+.NET SDK 8.0.131
+  [Host] : .NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+
+Job=campaign  EvaluateOverhead=False  Toolchain=InProcessEmitToolchain  
+IterationCount=1  IterationTime=2ms  LaunchCount=1  
+RunStrategy=Throughput  WarmupCount=1  
+
+| Method | Case                 | Mean            | Error |
+|------- |--------------------- |----------------:|------:|
+| Run    | incum(...)fault [40] |       850.72 ns |    NA |
+| Run    | incum(...)fault [40] |     1,855.35 ns |    NA |
+| Run    | incum(...)fault [40] |       826.88 ns |    NA |
+| Run    | incum(...)fault [40] |     1,757.66 ns |    NA |
+| Run    | incum(...)fault [45] |     1,866.98 ns |    NA |
+| Run    | incum(...)fault [40] |   286,954.29 ns |    NA |
+| Run    | incum(...)fault [40] |   639,740.50 ns |    NA |
+| Run    | incum(...)fault [45] |   477,547.25 ns |    NA |
+| Run    | incum(...)fault [41] |   342,993.67 ns |    NA |
+| Run    | incum(...)fault [41] |   555,688.75 ns |    NA |
+| Run    | incum(...)fault [46] |   563,989.25 ns |    NA |
+| Run    | incum(...)fault [39] |   430,681.25 ns |    NA |
+| Run    | incum(...)fault [39] |   765,540.50 ns |    NA |
+| Run    | incum(...)fault [44] | 1,064,674.00 ns |    NA |
+| Run    | incum(...)fault [40] |     7,502.00 ns |    NA |
+| Run    | incum(...)fault [40] |    17,535.73 ns |    NA |
+| Run    | incum(...)fault [45] |    17,907.61 ns |    NA |
+| Run    | incum(...)fault [40] |     2,066.11 ns |    NA |
+| Run    | incum(...)fault [40] |     2,793.85 ns |    NA |
+| Run    | incum(...)fault [45] |     3,241.66 ns |    NA |
+| Run    | incum(...)fault [40] | 1,442,026.00 ns |    NA |
+| Run    | incum(...)fault [40] | 2,028,852.00 ns |    NA |
+| Run    | incum(...)fault [45] | 1,964,362.00 ns |    NA |
+| Run    | incum(...)fault [41] | 1,604,025.00 ns |    NA |
+| Run    | incum(...)fault [41] | 1,927,991.00 ns |    NA |
+| Run    | incum(...)fault [46] | 2,083,797.00 ns |    NA |
+| Run    | incum(...)fault [39] | 1,892,755.00 ns |    NA |
+| Run    | incum(...)fault [39] | 4,659,879.00 ns |    NA |
+| Run    | incum(...)fault [44] | 2,794,023.00 ns |    NA |
+| Run    | incum(...)fault [40] |   848,654.50 ns |    NA |
+| Run    | incum(...)fault [40] | 2,213,357.00 ns |    NA |
+| Run    | incum(...)fault [45] | 1,254,064.00 ns |    NA |
+| Run    | incum(...)fault [40] | 1,060,845.00 ns |    NA |
+| Run    | incum(...)fault [40] | 1,368,719.00 ns |    NA |
+| Run    | incum(...)fault [45] | 1,621,504.00 ns |    NA |
+| Run    | incum(...)fault [40] |    38,915.00 ns |    NA |
+| Run    | incum(...)fault [40] |    59,420.43 ns |    NA |
+| Run    | incum(...)fault [45] |    54,400.93 ns |    NA |
+| Run    | incum(...)fault [40] |    18,833.46 ns |    NA |
+| Run    | incum(...)fault [40] |    31,677.28 ns |    NA |
+| Run    | incum(...)fault [45] |    31,685.88 ns |    NA |
+| Run    | incum(...)fault [40] |   327,962.00 ns |    NA |
+| Run    | incum(...)fault [40] |   338,455.75 ns |    NA |
+| Run    | incum(...)fault [45] |   351,487.00 ns |    NA |
+| Run    | incum(...)fault [40] |        82.91 ns |    NA |
+| Run    | incum(...)fault [40] |       183.09 ns |    NA |
+| Run    | incum(...)fault [45] |       172.29 ns |    NA |
+| Run    | incum(...)fault [40] |     1,845.18 ns |    NA |
+| Run    | incum(...)fault [40] |     6,687.44 ns |    NA |
+| Run    | incum(...)fault [45] |     4,826.96 ns |    NA |
+| Run    | incum(...)fault [40] |    46,818.48 ns |    NA |
+| Run    | incum(...)fault [40] |   393,201.85 ns |    NA |
+| Run    | incum(...)fault [45] |   400,420.50 ns |    NA |
+| Run    | incum(...)fault [40] |   331,627.67 ns |    NA |
+| Run    | incum(...)fault [40] | 2,495,598.00 ns |    NA |
+| Run    | incum(...)fault [45] |   523,266.75 ns |    NA |
+| Run    | incum(...)fault [40] |   432,954.75 ns |    NA |
+| Run    | incum(...)fault [40] |   304,746.17 ns |    NA |
+| Run    | incum(...)fault [45] |   303,454.00 ns |    NA |
+| Run    | incum(...)fault [40] |       280.67 ns |    NA |
+| Run    | incum(...)fault [40] |       655.50 ns |    NA |
+| Run    | incum(...)fault [45] |       635.76 ns |    NA |
+
+// * Legends *
+  Case  : Value of the 'Case' parameter
+  Mean  : Arithmetic mean of all measurements
+  Error : Half of 99.9% confidence interval
+  1 ns  : 1 Nanosecond (0.000000001 sec)
+
+// * Diagnostic Output - AkProcessCpu *
+
+
+// ***** BenchmarkRunner: End *****
+Global total time: 00:00:08 (8.49 sec), executed benchmarks: 62
+// * Artifacts cleanup *
+Artifacts cleanup is finished
