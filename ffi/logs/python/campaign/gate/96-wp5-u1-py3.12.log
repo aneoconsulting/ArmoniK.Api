@@ -1,6 +1,6 @@
 # python slice: U1, a map entry with an unknown field, py3.12
-# date:      2026-09-25T19:11:23Z
-# commit:    24caa3e
+# date:      2026-09-25T21:16:39Z
+# commit:    dfbfefd + uncommitted changes in poc/python or poc/codec
 # phase:     correctness only; nothing here is a timing
 
 # U1: a map entry carrying an unknown field, four readers (no timings)

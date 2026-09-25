@@ -1191,3 +1191,20 @@ JOURNAL, plus a cpp-slice file). The codec output found on disk after that refus
 a run I could not trace, so I discarded it rather than commit it. After committing (24caa3e),
 `--suite codec --smoke --allow-dirty` re-ran the gate (passed at 24caa3e) and wrote 378 shape
 values and 60 unknown values with no traceback: logs/python/campaign/codec-*.
+
+### J44. RPC cells C and D in retain and drop (CAMPAIGN req 12, 85cb00f)
+
+C and D became C-retain/C-drop/D-retain/D-drop in a, a+read and b, with `unknown_mode` on each
+sample row. The first question was whether retain actually runs. P2.2 carries no unknown
+field, so a retain cell that is secretly drop would pass every call check. So there is now a
+control per transport: the same decode/encode calls the cells make, run on P2.2 with field
+1000 appended. Retain re-emits all 540,425 bytes; drop gives the 540,422 back. The binding
+has a new `unk_totals()` (successful drop decodes, retain decodes, and buffers reclaimed
+undelivered after a success).
+- In the direct smoke the decode counts are exact: 384 retain and 576 drop per transport,
+  which is 4 and 6 decode cells x 3 in-flight settings x 16 calls x (warm-up + 1 round).
+- Leaked buffers: 0.
+- Contexts: 700 created over 1,100 threads started, bounded per thread, since each sample
+  starts fresh threads.
+Found, not fixed: `AK_LAST_RECLAIMED` is a process-global in the generated render (STATE, open
+defects). No-unknown cells wait for the rust agent's compiled-out build.

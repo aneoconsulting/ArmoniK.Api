@@ -80,6 +80,22 @@ per-thread correction; the same figures as the per-call gate at 883ae3b):
 unknown rows, plus host-gen drop and retain and the incumbent at its default. Smoke,
 instrumentation: `logs/python/campaign/codec-*` (rerun on the per-thread contexts).
 
+## RPC cells per unknown-field mode (CAMPAIGN req 12 as amended, 85cb00f)
+
+`camp_rpc.py` runs C and D as **C-retain, C-drop, D-retain, D-drop** in every direction
+(a, a+read, b). Retain passes `retain=True` to decode and encode (every position armed, on the
+per-thread contexts); drop is the same build with every entry zero. Every sample row carries
+`unknown_mode` (A, B: `incumbent-default`; C-queue, C-callback: `drop`). **C-nounk/D-nounk
+are not built**: they wait for the compiled-out variant in `poc/codec` and its port here.
+Checks per transport, and a failed one aborts with no sample written:
+- every call checked as before;
+- the retain control: P2.2 with field 1000 appended is re-emitted by the retain calls and
+  dropped by the drop calls;
+- after the run, the binding's `unk_totals()`: leaked buffers 0, both modes ran (the decode
+  counts are exact: 384 retain, 576 drop at `--calls 16`, one round), and contexts created
+  stay per thread.
+Smoke (instrumentation): `logs/python/campaign/rpc-launch1.jsonl`.
+
 ## WP3: the campaign harness (work unit 6)
 
 `run_campaign.sh --suite codec|rpc|calib|gate --out <dir>` (owner's run: `--out
@@ -269,6 +285,12 @@ shim -> CPython (counted by the shim), core fwd and core rev (counted by the cor
    retained (the retained form is what `py-retain` writes on the `unknown` class).
 
 ## Open defects
+
+- **`AK_LAST_RECLAIMED` is process-global** in the py_capi render (`poc/codec/gen`, not
+  mine to edit). With threads decoding, a GIL switch between its store and the read
+  can misattribute a decode's figure. `unk_totals()` reads it in C immediately after the
+  generated decode returns. On success, one facade attribute store runs in between, and it
+  runs no bytecode for the cext facade. The fix belongs in the generator: make it per thread.
 
 | # | where | what |
 |---|---|---|
