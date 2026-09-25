@@ -1,0 +1,53 @@
+# rust slice campaign runner, suite rpc
+# INSTRUMENTATION unless on the campaign machine of CAMPAIGN.md section 2 (a container figure is not a result)
+# commit     833ea32   tree-id d40dbf35eafc3ed8
+# date       2026-09-25T16:00:13Z
+# machine    Intel(R) Xeon(R) Processor @ 2.10GHz; 4 CPUs online; kernel 6.18.44-fc-v37
+# smt        active=0 control=notsupported
+# governor   n/a
+# turbo      intel_pstate/no_turbo=n/a cpufreq/boost=n/a
+# isolation  cmdline: cgroup: n/a
+# cpu sets   CLIENT=1 SERVER=2,3 OS=the rest
+# runtime    rustc 1.94.1 (e408947bf 2026-03-25); cargo 1.94.1 (29ea6fb6a 2026-03-24)
+# incumbent  prost 0.14.4, tonic 0.14.6, tonic-prost 0.14.6; criterion 0.5.1
+# build      cargo --release (opt-level 3, lto off, codegen-units default), core ak-core as a cdylib linked through the dynamic linker, core features rpc,init-guard; harness guard on; transcoder ak_tc_utf8_trusted (a Rust String is UTF-8)
+# repeats    launches=1 rounds=1 smoke=1
+# slice: rust   suite: rpc
+# INSTRUMENTATION unless run on the campaign machine (CAMPAIGN.md section 2); a container figure is not a result
+# incumbent: prost 0.14 / tonic 0.14 (tonic-prost), as pinned in poc/rust/Cargo.lock
+# build: release profile, core ak-core cdylib (shared, linked by the dynamic linker), features rpc,init-guard; harness guard on
+# rustc: see run header
+# transport: shipped: tonic endpoint defaults with TCP nodelay (packages/rust's GrpcClient__TcpNagleAlgorithm=false), ak_client_new, server defaults
+# link: loopback TCP; server = rpc_server, a separate process (requirement 13), pre-serialised P2.2
+# cells: A prost+tonic, B prost+core (blocking), C core+core (blocking), D core+tonic; callback/queue deliveries not run in this suite
+# launch: 1
+# cell order: A,B,C,D
+# rounds: 1
+# calls per round: 16 rounded up to a multiple of in-flight
+# warm-up: 16 calls per (cell, dir, in-flight) before round 1
+# clocks: cpu_ns = getrusage(RUSAGE_SELF) utime+stime of the client per round; wall_ns = monotonic
+# runtimes: tonic cells: tokio multi-thread, 2 workers; core cells: ak_runtime_new(2)
+{"cell":"A","cpu_ns":40854000,"dir":"a","inflight":1,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":58450542}
+{"cell":"A","cpu_ns":49899000,"dir":"a","inflight":8,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":71928349}
+{"cell":"A","cpu_ns":57737000,"dir":"a","inflight":16,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":64613227}
+{"cell":"A","cpu_ns":24210000,"dir":"b","inflight":1,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":93728770}
+{"cell":"A","cpu_ns":26867000,"dir":"b","inflight":8,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":64271469}
+{"cell":"A","cpu_ns":34091000,"dir":"b","inflight":16,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":77845680}
+{"cell":"B","cpu_ns":47754000,"dir":"a","inflight":1,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":53534035}
+{"cell":"B","cpu_ns":50251000,"dir":"a","inflight":8,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":50816806}
+{"cell":"B","cpu_ns":49093000,"dir":"a","inflight":16,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":52648789}
+{"cell":"B","cpu_ns":17779000,"dir":"b","inflight":1,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":113909525}
+{"cell":"B","cpu_ns":27180000,"dir":"b","inflight":8,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":80263103}
+{"cell":"B","cpu_ns":20272000,"dir":"b","inflight":16,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":78509511}
+{"cell":"C","cpu_ns":46490000,"dir":"a","inflight":1,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":140167089}
+{"cell":"C","cpu_ns":56639000,"dir":"a","inflight":8,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":57043288}
+{"cell":"C","cpu_ns":62535000,"dir":"a","inflight":16,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":62995619}
+{"cell":"C","cpu_ns":15411000,"dir":"b","inflight":1,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":87404169}
+{"cell":"C","cpu_ns":17497000,"dir":"b","inflight":8,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":53993673}
+{"cell":"C","cpu_ns":20144000,"dir":"b","inflight":16,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":68554729}
+{"cell":"D","cpu_ns":46309000,"dir":"a","inflight":1,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":59779170}
+{"cell":"D","cpu_ns":52324000,"dir":"a","inflight":8,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":52480848}
+{"cell":"D","cpu_ns":60555000,"dir":"a","inflight":16,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":60721434}
+{"cell":"D","cpu_ns":14927000,"dir":"b","inflight":1,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":95980128}
+{"cell":"D","cpu_ns":18278000,"dir":"b","inflight":8,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":51002718}
+{"cell":"D","cpu_ns":19359000,"dir":"b","inflight":16,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":158082603}

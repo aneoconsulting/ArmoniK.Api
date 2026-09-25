@@ -131,6 +131,8 @@ case "$SUITE" in
       CRITERION_HOME="$SCRATCH/criterion-launch$L" AK_LAUNCH=$L AK_OUT="$F.body" \
         taskset -c "$AK_CPU_CLIENT" "$BENCH" > "$OUT/codec-launch$L.criterion.log" 2>&1 \
         || { echo "codec launch $L FAILED: $OUT/codec-launch$L.criterion.log" >&2; exit 1; }
+      { cat "$F.head"; echo "# criterion's console output (its own summary; the samples are in $(basename "$F"))"; cat "$OUT/codec-launch$L.criterion.log"; } > "$OUT/codec-launch$L.criterion.tmp"
+      mv "$OUT/codec-launch$L.criterion.tmp" "$OUT/codec-launch$L.criterion.log"
       cat "$F.head" "$F.body" > "$F"; rm -f "$F.head" "$F.body"
       echo "codec launch $L: $(grep -vc '^#' "$F") sample rows -> $F"
     done ;;

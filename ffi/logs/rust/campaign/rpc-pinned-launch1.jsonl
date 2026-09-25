@@ -1,0 +1,53 @@
+# rust slice campaign runner, suite rpc
+# INSTRUMENTATION unless on the campaign machine of CAMPAIGN.md section 2 (a container figure is not a result)
+# commit     833ea32   tree-id d40dbf35eafc3ed8
+# date       2026-09-25T16:00:19Z
+# machine    Intel(R) Xeon(R) Processor @ 2.10GHz; 4 CPUs online; kernel 6.18.44-fc-v37
+# smt        active=0 control=notsupported
+# governor   n/a
+# turbo      intel_pstate/no_turbo=n/a cpufreq/boost=n/a
+# isolation  cmdline: cgroup: n/a
+# cpu sets   CLIENT=1 SERVER=2,3 OS=the rest
+# runtime    rustc 1.94.1 (e408947bf 2026-03-25); cargo 1.94.1 (29ea6fb6a 2026-03-24)
+# incumbent  prost 0.14.4, tonic 0.14.6, tonic-prost 0.14.6; criterion 0.5.1
+# build      cargo --release (opt-level 3, lto off, codegen-units default), core ak-core as a cdylib linked through the dynamic linker, core features rpc,init-guard; harness guard on; transcoder ak_tc_utf8_trusted (a Rust String is UTF-8)
+# repeats    launches=1 rounds=1 smoke=1
+# slice: rust   suite: rpc
+# INSTRUMENTATION unless run on the campaign machine (CAMPAIGN.md section 2); a container figure is not a result
+# incumbent: prost 0.14 / tonic 0.14 (tonic-prost), as pinned in poc/rust/Cargo.lock
+# build: release profile, core ak-core cdylib (shared, linked by the dynamic linker), features rpc,init-guard; harness guard on
+# rustc: see run header
+# transport: pinned: 4 MiB stream + connection windows, adaptive off, Nagle off, both transports and the server
+# link: loopback TCP; server = rpc_server, a separate process (requirement 13), pre-serialised P2.2
+# cells: A prost+tonic, B prost+core (blocking), C core+core (blocking), D core+tonic; callback/queue deliveries not run in this suite
+# launch: 1
+# cell order: A,B,C,D
+# rounds: 1
+# calls per round: 16 rounded up to a multiple of in-flight
+# warm-up: 16 calls per (cell, dir, in-flight) before round 1
+# clocks: cpu_ns = getrusage(RUSAGE_SELF) utime+stime of the client per round; wall_ns = monotonic
+# runtimes: tonic cells: tokio multi-thread, 2 workers; core cells: ak_runtime_new(2)
+{"cell":"A","cpu_ns":40742000,"dir":"a","inflight":1,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":59635514}
+{"cell":"A","cpu_ns":46372000,"dir":"a","inflight":8,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":46870638}
+{"cell":"A","cpu_ns":55247000,"dir":"a","inflight":16,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":56109790}
+{"cell":"A","cpu_ns":23618000,"dir":"b","inflight":1,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":69623471}
+{"cell":"A","cpu_ns":23079000,"dir":"b","inflight":8,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":42674537}
+{"cell":"A","cpu_ns":23600000,"dir":"b","inflight":16,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":108979193}
+{"cell":"B","cpu_ns":37730000,"dir":"a","inflight":1,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":51712536}
+{"cell":"B","cpu_ns":46036000,"dir":"a","inflight":8,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":46121491}
+{"cell":"B","cpu_ns":47013000,"dir":"a","inflight":16,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":47117955}
+{"cell":"B","cpu_ns":16903000,"dir":"b","inflight":1,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":83931219}
+{"cell":"B","cpu_ns":16577000,"dir":"b","inflight":8,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":48068891}
+{"cell":"B","cpu_ns":18284000,"dir":"b","inflight":16,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":93160450}
+{"cell":"C","cpu_ns":59065000,"dir":"a","inflight":1,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":68383912}
+{"cell":"C","cpu_ns":50434000,"dir":"a","inflight":8,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":50555948}
+{"cell":"C","cpu_ns":59928000,"dir":"a","inflight":16,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":60168755}
+{"cell":"C","cpu_ns":15143000,"dir":"b","inflight":1,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":59603123}
+{"cell":"C","cpu_ns":15004000,"dir":"b","inflight":8,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":44061488}
+{"cell":"C","cpu_ns":17671000,"dir":"b","inflight":16,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":107553869}
+{"cell":"D","cpu_ns":49715000,"dir":"a","inflight":1,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":61888089}
+{"cell":"D","cpu_ns":56352000,"dir":"a","inflight":8,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":56437477}
+{"cell":"D","cpu_ns":59463000,"dir":"a","inflight":16,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":59593147}
+{"cell":"D","cpu_ns":15341000,"dir":"b","inflight":1,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":85587431}
+{"cell":"D","cpu_ns":16221000,"dir":"b","inflight":8,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":62394747}
+{"cell":"D","cpu_ns":17554000,"dir":"b","inflight":16,"iters":16,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":113834753}
