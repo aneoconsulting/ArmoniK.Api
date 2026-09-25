@@ -21,6 +21,7 @@
 set -u
 cd "$(dirname "$0")/.." || exit 2
 B=${1:-build}
+B=$(cd "$B" && pwd) || exit 2   # absolute: the steps below run from other directories
 L=../../logs/cpp
 PAY=../../schema/generated
 S=$(mktemp -d)
@@ -63,7 +64,7 @@ ufam() { nm -D --defined-only "$1" 2>/dev/null | grep -cE ' (ak_uencode_|ak_uele
   echo
   echo "===== 3. payload byte identity, layout, rule 6: conformance_nounk ====="
   for b in conformance_nounk_a17 conformance_nounk_c11 conformance_nounk_static; do
-    (cd "$PAY" && timeout 300 "$OLDPWD/$B/$b" payloads > "$S/c.log" 2>&1; echo $? > "$S/rc")
+    (cd "$PAY" && timeout 300 "$B/$b" payloads > "$S/c.log" 2>&1; echo $? > "$S/rc")
     grep -E 'layout facts|no-unknown build|checks,|FAIL' "$S/c.log" | sed 's/^/  /'
     [ "$(cat "$S/rc")" = 0 ] && ok "$b" || bad "$b exit $(cat "$S/rc")"
   done
@@ -88,7 +89,7 @@ ufam() { nm -D --defined-only "$1" 2>/dev/null | grep -cE ' (ak_uencode_|ak_uele
   [ $rc != 0 ] && ok "the dropped-form check fails on a retaining arm (seen failing)" || bad "dropped-form check blind"
   echo
   echo "===== 5. crossing counts ====="
-  (cd "$PAY" && "$OLDPWD/$B/counts_nounk" > "$S/counts.log" 2>&1) || bad "counts_nounk exit"
+  (cd "$PAY" && "$B/counts_nounk" > "$S/counts.log" 2>&1) || bad "counts_nounk exit"
   grep -E '^  P' "$L/counts-nounk-baseline.log" > "$S/want"; grep -E '^  P' "$S/counts.log" > "$S/got"
   if diff "$S/want" "$S/got" > "$S/d"; then ok "$(wc -l < "$S/got") rows identical to counts-nounk-baseline.log"
   else head "$S/d"; bad "counts differ from counts-nounk-baseline.log"; fi
