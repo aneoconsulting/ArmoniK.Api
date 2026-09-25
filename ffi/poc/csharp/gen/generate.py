@@ -27,7 +27,10 @@ import os
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-CODECGEN = os.path.abspath(os.path.join(HERE, "..", "..", "codec", "gen"))
+# AK_CODECGEN: render from ANOTHER copy of poc/codec/gen (gen/gate.sh passes a snapshot of
+# the committed tree, so a concurrent edit in the working tree cannot leak into a gate).
+CODECGEN = os.path.abspath(os.environ.get("AK_CODECGEN")
+                           or os.path.join(HERE, "..", "..", "codec", "gen"))
 # THIS directory first: both directories contain a `generate.py`.
 sys.path.insert(0, CODECGEN)
 sys.path.insert(0, HERE)
@@ -43,6 +46,7 @@ import cs_build             # noqa: E402
 import cs_arms              # noqa: E402
 import cs_proj              # noqa: E402
 import cs_registry          # noqa: E402
+import cs_campaign          # noqa: E402
 
 ROOT = os.path.dirname(HERE)
 
@@ -58,7 +62,7 @@ ROOTS = [
 
 SHARED = ["cs_names.py", "cs_types.py", "cs_managed.py", "cs_binding.py", "cs_host.py",
           "cs_layout_probe.py"]
-GLUE = ["glue.py", "cs_values.py", "cs_build.py", "cs_arms.py", "cs_proj.py", "cs_registry.py",
+GLUE = ["glue.py", "cs_values.py", "cs_build.py", "cs_arms.py", "cs_proj.py", "cs_registry.py", "cs_campaign.py",
         "generate.py"]
 
 
@@ -98,6 +102,7 @@ def targets():
         "src/Harness/Generated/CoreFfi.cs": cs_host.emit_host(p, "Armonik.Ffi.Harness", "Armonik.Ffi.Facade"),
         "src/Harness/Generated/CoreArms.cs": cs_registry.emit_registry(p, payload_roots()),
         "src/Rpc/Generated/RpcAbi.cs": cs_binding.emit_rpc(p, "Armonik.Ffi.Rpc"),
+        "src/Rpc/Generated/CampaignOps.cs": cs_campaign.emit(p, payload_roots()),
         "src/Corpus/Generated/Types.cs": cs_types.emit_types(full, "Armonik.Ffi.Corpus"),
         "src/Corpus/Generated/Eq.cs": cs_types.emit_eq(full, "Armonik.Ffi.Corpus"),
         "src/Corpus/Generated/Codec.cs": ccodec,

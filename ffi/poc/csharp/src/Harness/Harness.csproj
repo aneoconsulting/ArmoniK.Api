@@ -38,8 +38,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Google.Protobuf" Version="3.28.3" />
-    <PackageReference Include="Grpc.Tools" Version="2.66.0" PrivateAssets="All" />
+    <PackageReference Include="Google.Protobuf" Version="3.32.0" />
+    <PackageReference Include="Grpc.Tools" Version="2.72.0" PrivateAssets="All" />
   </ItemGroup>
 
   <ItemGroup>

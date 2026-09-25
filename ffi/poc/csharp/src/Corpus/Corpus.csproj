@@ -23,8 +23,8 @@
   <ItemGroup>
     <!-- The incumbent, as an independent accept/reject oracle for the roots
          ffi/schema also has (R14). Same .proto the harness uses. -->
-    <PackageReference Include="Google.Protobuf" Version="3.28.3" />
-    <PackageReference Include="Grpc.Tools" Version="2.66.0" PrivateAssets="All" />
+    <PackageReference Include="Google.Protobuf" Version="3.32.0" />
+    <PackageReference Include="Grpc.Tools" Version="2.72.0" PrivateAssets="All" />
   </ItemGroup>
 
   <ItemGroup>

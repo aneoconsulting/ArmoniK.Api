@@ -73,6 +73,14 @@ public static class CoreGate
         Console.WriteLine(new string('-', 113));
 
         bool coreCounts = false;
+        // design/CAMPAIGN.md requirement 19: the crossing counts gate a campaign run. With
+        // AK_CROSSINGS_EXPECT set, every row's six counts must equal the committed ones.
+        var expect = new Dictionary<string, string>(StringComparer.Ordinal);
+        var xpath = Environment.GetEnvironmentVariable("AK_CROSSINGS_EXPECT");
+        if (!string.IsNullOrEmpty(xpath))
+            foreach (var l in System.IO.File.ReadAllLines(xpath))
+                if (l.Length != 0 && l[0] != '#') { var f = l.Split(' ', 2); expect[f[0]] = f[1]; }
+        var wrote = new List<string>();
         var covered = new HashSet<string>(CoreArms.Ids, StringComparer.Ordinal);
         foreach (var id in rows.Keys.OrderBy(x => x, StringComparer.Ordinal))
         {
@@ -172,6 +180,13 @@ public static class CoreGate
                     }
                 }
             }
+            var counts = string.Join(" ", ef, er, df, dr, pf, pr);
+            wrote.Add(id + " " + counts);
+            if (expect.Count != 0 && (!expect.TryGetValue(id, out var want) || want != counts))
+            {
+                Console.WriteLine("  {0}: CROSSINGS {1}, committed {2}", id, counts, want ?? "(none)");
+                bad++;
+            }
             Console.WriteLine("{0,-8} {1,-26} {2,7}  {3,-4} {4,-4} {5,-4} {6,-4} {15,-4} {7,-4} {8,4} {9,4} {10,5} {11,4} {12,5} {13,4} {14,9}",
                 id, row.Root, row.Bytes, enc, dec, val, pull, r5, ef, er, df, dr, pf, pr, foot, uret);
             arm?.Dispose();
@@ -181,6 +196,11 @@ public static class CoreGate
         var missing = rows.Keys.Where(k => !covered.Contains(k)).OrderBy(x => x, StringComparer.Ordinal).ToArray();
         if (missing.Length != 0)
             Console.WriteLine("NOT COVERED: {0}", string.Join(", ", missing));
+        if (expect.Count != 0)
+            Console.WriteLine("Crossing counts against {0}: {1}", xpath, expect.Count == wrote.Count ? "compared on every row" : "row count differs");
+        var wr = Environment.GetEnvironmentVariable("AK_CROSSINGS_WRITE");
+        if (!string.IsNullOrEmpty(wr))
+            System.IO.File.WriteAllLines(wr, new[] { "# payload  encode fwd rev  push-decode fwd rev  pull-decode fwd rev (whole run per element call; counting core)" }.Concat(wrote));
         Console.WriteLine("R5: the host's tally and the core's counters are {0}.",
             coreCounts ? "compared above and equal on every row"
                        : "not comparable here -- this core was not built with --features count");

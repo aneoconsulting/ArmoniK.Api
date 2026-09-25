@@ -101,6 +101,8 @@ public static class Program
         // ABORTS rather than returning an error, and an abort takes the whole
         // harness with it. Run it as a child and read the exit status.
         if (argv.Contains("--shared-ctx")) return SharedCtx(argv);
+        // design/CAMPAIGN.md: the campaign runner's measuring process (run_campaign.sh).
+        if (argv.Length > 0 && argv[0] == "campaign") return await Armonik.Ffi.Campaign.CampaignMain.Run(argv.Skip(1).ToArray());
         // FIX-PLAN WP5 step 4: the RPC structs (generated from plan.rpc) against the
         // Rust declaration, by name both ways, with the harness's comparison.
         int li = Array.IndexOf(argv, "--layout");
