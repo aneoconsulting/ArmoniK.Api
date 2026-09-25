@@ -2179,22 +2179,78 @@ JNIEXPORT jint JNICALL Java_ak_Native_encLen(JNIEnv *e, jclass c, jlong x) {
  * are the host's once delivered: `unkTake` copies one into a byte[] and frees it,
  * `unkFree` frees one the facade has no place for (a map entry's, an inactive oneof
  * member's). Plain C: no JVM upcall, so a grow is a reverse crossing into the shim only. */
+/* Every buffer this grow allocates carries a header linking it into the list of the
+ * options struct that armed the decode (`host`, passed back as `sink`). Delivery (unkTake,
+ * unkFree) unlinks it; what is still linked when the decode returns was never delivered:
+ * after a FAILED decode that is every buffer the core took or grew before the error, which
+ * rule 3 leaves with the host, and `unkReclaim` frees them. `g_unk_live` counts buffers
+ * alive anywhere (the leak control reads it). */
+typedef struct ak_jbuf { struct ak_jbuf *prev, *next; } ak_jbuf;   /* 16 B: data stays 16-aligned */
+static int64_t g_unk_live;
+
+static void ak_jbuf_link(ak_jbuf *list, ak_jbuf *b) {
+  b->next = list->next; b->prev = list;
+  list->next->prev = b; list->next = b;
+}
+static void ak_jbuf_unlink(ak_jbuf *b) {
+  b->prev->next = b->next; b->next->prev = b->prev;
+  b->prev = b->next = b;
+}
+
 static int32_t ak_java_grow(void *sink, int32_t want, uint8_t **dst, int32_t *cap) {
-  (void) sink;
+  ak_jbuf *list = (ak_jbuf *) sink;
   if (want < 0) return AK_ERR_LIMIT;
+  if (list == NULL) return AK_ERR_HOST;
   int64_t c = *dst == NULL ? 0 : (int64_t) *cap;
   int64_t n = c * 2;
   if (n < want) n = want;
   if (n < 64) n = 64;
   if (n > 0x7fffffff) n = want;
-  uint8_t *p = (uint8_t *) realloc(*dst, (size_t) n);
-  if (p == NULL) return AK_ERR_CAPACITY;
-  *dst = p;
+  ak_jbuf *old = *dst == NULL ? NULL : ((ak_jbuf *) *dst) - 1;
+  if (old != NULL) ak_jbuf_unlink(old);
+  ak_jbuf *b = (ak_jbuf *) realloc(old, sizeof(ak_jbuf) + (size_t) n);
+  if (b == NULL) {
+    if (old != NULL) ak_jbuf_link(list, old);       /* still the host's, still tracked */
+    return AK_ERR_CAPACITY;
+  }
+  if (old == NULL) __atomic_add_fetch(&g_unk_live, 1, __ATOMIC_RELAXED);
+  ak_jbuf_link(list, b);
+  *dst = (uint8_t *) (b + 1);
   *cap = (int32_t) n;
   return AK_OK;
 }
+static void ak_jbuf_free(void *data) {
+  if (data == NULL) return;
+  ak_jbuf *b = ((ak_jbuf *) data) - 1;
+  ak_jbuf_unlink(b);
+  free(b);
+  __atomic_sub_fetch(&g_unk_live, 1, __ATOMIC_RELAXED);
+}
 JNIEXPORT jlong JNICALL Java_ak_Native_unkGrow(JNIEnv *e, jclass c) {
   (void) e; (void) c;  return (jlong)(intptr_t) ak_java_grow;
+}
+/* A tracking list: the `host` of one options struct (a circular sentinel). */
+JNIEXPORT jlong JNICALL Java_ak_Native_unkListNew(JNIEnv *e, jclass c) {
+  (void) e; (void) c;
+  ak_jbuf *l = (ak_jbuf *) malloc(sizeof(ak_jbuf));
+  if (l != NULL) l->prev = l->next = l;
+  return (jlong)(intptr_t) l;
+}
+/* Free every buffer still linked (never delivered); returns how many. */
+JNIEXPORT jint JNICALL Java_ak_Native_unkReclaim(JNIEnv *e, jclass c, jlong list) {
+  (void) e; (void) c;
+  ak_jbuf *l = (ak_jbuf *)(intptr_t) list;
+  jint n = 0;
+  if (l == NULL) return 0;
+  while (l->next != l) { ak_jbuf_free((void *) (l->next + 1)); n++; }
+  return n;
+}
+JNIEXPORT void JNICALL Java_ak_Native_unkListFree(JNIEnv *e, jclass c, jlong list) {
+  Java_ak_Native_unkReclaim(e, c, list);
+  free((void *)(intptr_t) list);
+}
+JNIEXPORT jlong JNICALL Java_ak_Native_unkLive(JNIEnv *e, jclass c) {
+  (void) e; (void) c;  return (jlong) __atomic_load_n(&g_unk_live, __ATOMIC_RELAXED);
 }
 JNIEXPORT jbyteArray JNICALL Java_ak_Native_unkTake(JNIEnv *env, jclass c, jlong data, jint len) {
   (void) c;
@@ -2203,11 +2259,11 @@ JNIEXPORT jbyteArray JNICALL Java_ak_Native_unkTake(JNIEnv *env, jclass c, jlong
     out = (*env)->NewByteArray(env, len);
     if (out != NULL) (*env)->SetByteArrayRegion(env, out, 0, len, (const jbyte *)(intptr_t) data);
   }
-  free((void *)(intptr_t) data);
+  ak_jbuf_free((void *)(intptr_t) data);
   return out;
 }
 JNIEXPORT void JNICALL Java_ak_Native_unkFree(JNIEnv *e, jclass c, jlong data) {
-  (void) e; (void) c;  free((void *)(intptr_t) data);
+  (void) e; (void) c;  ak_jbuf_free((void *)(intptr_t) data);
 }
 JNIEXPORT void JNICALL Java_ak_Native_decCtxFree(JNIEnv *e, jclass c, jlong x) {
   (void) e; (void) c;  ak_dec_ctx_free((ak_dec_ctx *)(intptr_t) x);

@@ -66,6 +66,11 @@ public final class Native {
   public static native long unkGrow();
   public static native byte[] unkTake(long data, int len);
   public static native void unkFree(long data);
+  /** The per-options tracking list, the reclaim of what was never delivered, the live count. */
+  public static native long unkListNew();
+  public static native int unkReclaim(long list);
+  public static native void unkListFree(long list);
+  public static native long unkLive();
   public static native void decCtxFree(long ctx);
   public static native int decErr(long ctx);
   public static native void decErrReset(long ctx);

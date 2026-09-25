@@ -2590,6 +2590,14 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
   // ---- decision 11: root-bound contexts, in-place options, the bags ----------
   final long[] decCtxs = new long[29];
   final long[] unkOpts = new long[29];
+  /** Per root: the shim's list of the buffers its grow handed out (the options' `host`). */
+  final long[] unkLists = new long[29];
+  /** Buffers the core grew in a decode that then FAILED, reclaimed (rule 3: they are the
+   *  host's); and buffers left undelivered after a decode that SUCCEEDED (a binding
+   *  defect: every non-NULL slot of a delivered group is taken or freed). */
+  public long unkReclaimed, unkLeftAfterSuccess;
+  /** Planted defect for the leak control (-Dak.unk.leakplant=1): nothing is reclaimed. */
+  static final boolean UNK_PLANT_NO_RECLAIM = "1".equals(System.getProperty("ak.unk.leakplant"));
   final long[] unkMask = {-1L, -1L, -1L, -1L, -1L, -1L, -1L, -1L, -1L, -1L, -1L, -1L, -1L, -1L, -1L, -1L, -1L, -1L, -1L, -1L, -1L, -1L, -1L, -1L, -1L, -1L, -1L, -1L, -1L};
   /** Each root's positions, in the options struct's order (plan.unk_opts_layout). */
   public static final String[][] UNK_POSITIONS = {
@@ -2675,18 +2683,24 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
       case 0: {
         x = Mem.alloc(ak.corpus.Layout.AK_DEC_TIMESTAMP_OPTS_SIZE);
         Mem.zero(x, ak.corpus.Layout.AK_DEC_TIMESTAMP_OPTS_SIZE);
+        if (unkLists[0] == 0) unkLists[0] = Native.unkListNew();
+        Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_TIMESTAMP_OPTS__HOST, unkLists[0]);   // host: the tracking list
         if ((unkMask[0] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_TIMESTAMP_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
         break;
       }
       case 1: {
         x = Mem.alloc(ak.corpus.Layout.AK_DEC_DURATION_OPTS_SIZE);
         Mem.zero(x, ak.corpus.Layout.AK_DEC_DURATION_OPTS_SIZE);
+        if (unkLists[1] == 0) unkLists[1] = Native.unkListNew();
+        Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_DURATION_OPTS__HOST, unkLists[1]);   // host: the tracking list
         if ((unkMask[1] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_DURATION_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
         break;
       }
       case 2: {
         x = Mem.alloc(ak.corpus.Layout.AK_DEC_RESULTRAW_OPTS_SIZE);
         Mem.zero(x, ak.corpus.Layout.AK_DEC_RESULTRAW_OPTS_SIZE);
+        if (unkLists[2] == 0) unkLists[2] = Native.unkListNew();
+        Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_RESULTRAW_OPTS__HOST, unkLists[2]);   // host: the tracking list
         if ((unkMask[2] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_RESULTRAW_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
         if ((unkMask[2] & (1L << 1)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_RESULTRAW_OPTS__CREATED_AT + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // created_at (ak_unk_opts)
         if ((unkMask[2] & (1L << 2)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_RESULTRAW_OPTS__COMPLETED_AT + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // completed_at (ak_unk_opts)
@@ -2695,6 +2709,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
       case 3: {
         x = Mem.alloc(ak.corpus.Layout.AK_DEC_TASKOPTIONS_OPTS_SIZE);
         Mem.zero(x, ak.corpus.Layout.AK_DEC_TASKOPTIONS_OPTS_SIZE);
+        if (unkLists[3] == 0) unkLists[3] = Native.unkListNew();
+        Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_TASKOPTIONS_OPTS__HOST, unkLists[3]);   // host: the tracking list
         if ((unkMask[3] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_TASKOPTIONS_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
         if ((unkMask[3] & (1L << 1)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_TASKOPTIONS_OPTS__OPTIONS + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // options (ak_unk_pool)
         if ((unkMask[3] & (1L << 2)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_TASKOPTIONS_OPTS__MAX_DURATION + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // max_duration (ak_unk_opts)
@@ -2703,12 +2719,16 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
       case 4: {
         x = Mem.alloc(ak.corpus.Layout.AK_DEC_TASKOUTPUT_OPTS_SIZE);
         Mem.zero(x, ak.corpus.Layout.AK_DEC_TASKOUTPUT_OPTS_SIZE);
+        if (unkLists[4] == 0) unkLists[4] = Native.unkListNew();
+        Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_TASKOUTPUT_OPTS__HOST, unkLists[4]);   // host: the tracking list
         if ((unkMask[4] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_TASKOUTPUT_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
         break;
       }
       case 5: {
         x = Mem.alloc(ak.corpus.Layout.AK_DEC_TASKDETAILED_OPTS_SIZE);
         Mem.zero(x, ak.corpus.Layout.AK_DEC_TASKDETAILED_OPTS_SIZE);
+        if (unkLists[5] == 0) unkLists[5] = Native.unkListNew();
+        Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_TASKDETAILED_OPTS__HOST, unkLists[5]);   // host: the tracking list
         if ((unkMask[5] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_TASKDETAILED_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
         if ((unkMask[5] & (1L << 1)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_TASKDETAILED_OPTS__OPTIONS + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // options (ak_unk_opts)
         if ((unkMask[5] & (1L << 2)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_TASKDETAILED_OPTS__OPTIONS_OPTIONS + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // options_options (ak_unk_pool)
@@ -2731,6 +2751,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
       case 6: {
         x = Mem.alloc(ak.corpus.Layout.AK_DEC_TASKSUMMARY_OPTS_SIZE);
         Mem.zero(x, ak.corpus.Layout.AK_DEC_TASKSUMMARY_OPTS_SIZE);
+        if (unkLists[6] == 0) unkLists[6] = Native.unkListNew();
+        Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_TASKSUMMARY_OPTS__HOST, unkLists[6]);   // host: the tracking list
         if ((unkMask[6] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_TASKSUMMARY_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
         if ((unkMask[6] & (1L << 1)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_TASKSUMMARY_OPTS__OPTIONS + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // options (ak_unk_opts)
         if ((unkMask[6] & (1L << 2)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_TASKSUMMARY_OPTS__OPTIONS_OPTIONS + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // options_options (ak_unk_pool)
@@ -2741,6 +2763,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
       case 7: {
         x = Mem.alloc(ak.corpus.Layout.AK_DEC_PROBE_OPTS_SIZE);
         Mem.zero(x, ak.corpus.Layout.AK_DEC_PROBE_OPTS_SIZE);
+        if (unkLists[7] == 0) unkLists[7] = Native.unkListNew();
+        Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_PROBE_OPTS__HOST, unkLists[7]);   // host: the tracking list
         if ((unkMask[7] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_PROBE_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
         if ((unkMask[7] & (1L << 1)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_PROBE_OPTS__BODY + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // body (ak_unk_opts)
         break;
@@ -2748,30 +2772,40 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
       case 8: {
         x = Mem.alloc(ak.corpus.Layout.AK_DEC_EMPTY_OPTS_SIZE);
         Mem.zero(x, ak.corpus.Layout.AK_DEC_EMPTY_OPTS_SIZE);
+        if (unkLists[8] == 0) unkLists[8] = Native.unkListNew();
+        Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_EMPTY_OPTS__HOST, unkLists[8]);   // host: the tracking list
         if ((unkMask[8] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_EMPTY_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
         break;
       }
       case 9: {
         x = Mem.alloc(ak.corpus.Layout.AK_DEC_UPLOADRESULTDATA_OPTS_SIZE);
         Mem.zero(x, ak.corpus.Layout.AK_DEC_UPLOADRESULTDATA_OPTS_SIZE);
+        if (unkLists[9] == 0) unkLists[9] = Native.unkListNew();
+        Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_UPLOADRESULTDATA_OPTS__HOST, unkLists[9]);   // host: the tracking list
         if ((unkMask[9] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_UPLOADRESULTDATA_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
         break;
       }
       case 10: {
         x = Mem.alloc(ak.corpus.Layout.AK_DEC_METRICSBATCH_OPTS_SIZE);
         Mem.zero(x, ak.corpus.Layout.AK_DEC_METRICSBATCH_OPTS_SIZE);
+        if (unkLists[10] == 0) unkLists[10] = Native.unkListNew();
+        Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_METRICSBATCH_OPTS__HOST, unkLists[10]);   // host: the tracking list
         if ((unkMask[10] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_METRICSBATCH_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
         break;
       }
       case 11: {
         x = Mem.alloc(ak.corpus.Layout.AK_DEC_PAIR_OPTS_SIZE);
         Mem.zero(x, ak.corpus.Layout.AK_DEC_PAIR_OPTS_SIZE);
+        if (unkLists[11] == 0) unkLists[11] = Native.unkListNew();
+        Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_PAIR_OPTS__HOST, unkLists[11]);   // host: the tracking list
         if ((unkMask[11] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_PAIR_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
         break;
       }
       case 12: {
         x = Mem.alloc(ak.corpus.Layout.AK_DEC_LISTRESULTSRESPONSE_OPTS_SIZE);
         Mem.zero(x, ak.corpus.Layout.AK_DEC_LISTRESULTSRESPONSE_OPTS_SIZE);
+        if (unkLists[12] == 0) unkLists[12] = Native.unkListNew();
+        Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LISTRESULTSRESPONSE_OPTS__HOST, unkLists[12]);   // host: the tracking list
         if ((unkMask[12] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LISTRESULTSRESPONSE_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
         if ((unkMask[12] & (1L << 1)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LISTRESULTSRESPONSE_OPTS__RESULTS + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // results (ak_unk_pool)
         if ((unkMask[12] & (1L << 2)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LISTRESULTSRESPONSE_OPTS__RESULTS_CREATED_AT + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // results_created_at (ak_unk_pool)
@@ -2781,6 +2815,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
       case 13: {
         x = Mem.alloc(ak.corpus.Layout.AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS_SIZE);
         Mem.zero(x, ak.corpus.Layout.AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS_SIZE);
+        if (unkLists[13] == 0) unkLists[13] = Native.unkListNew();
+        Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__HOST, unkLists[13]);   // host: the tracking list
         if ((unkMask[13] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
         if ((unkMask[13] & (1L << 1)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // tasks (ak_unk_pool)
         if ((unkMask[13] & (1L << 2)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS__TASKS_OPTIONS + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // tasks_options (ak_unk_pool)
@@ -2804,6 +2840,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
       case 14: {
         x = Mem.alloc(ak.corpus.Layout.AK_DEC_LISTTASKSUMMARYRESPONSE_OPTS_SIZE);
         Mem.zero(x, ak.corpus.Layout.AK_DEC_LISTTASKSUMMARYRESPONSE_OPTS_SIZE);
+        if (unkLists[14] == 0) unkLists[14] = Native.unkListNew();
+        Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LISTTASKSUMMARYRESPONSE_OPTS__HOST, unkLists[14]);   // host: the tracking list
         if ((unkMask[14] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LISTTASKSUMMARYRESPONSE_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
         if ((unkMask[14] & (1L << 1)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LISTTASKSUMMARYRESPONSE_OPTS__TASKS + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // tasks (ak_unk_pool)
         if ((unkMask[14] & (1L << 2)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LISTTASKSUMMARYRESPONSE_OPTS__TASKS_OPTIONS + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // tasks_options (ak_unk_pool)
@@ -2815,6 +2853,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
       case 15: {
         x = Mem.alloc(ak.corpus.Layout.AK_DEC_LISTPROBERESPONSE_OPTS_SIZE);
         Mem.zero(x, ak.corpus.Layout.AK_DEC_LISTPROBERESPONSE_OPTS_SIZE);
+        if (unkLists[15] == 0) unkLists[15] = Native.unkListNew();
+        Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LISTPROBERESPONSE_OPTS__HOST, unkLists[15]);   // host: the tracking list
         if ((unkMask[15] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LISTPROBERESPONSE_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
         if ((unkMask[15] & (1L << 1)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LISTPROBERESPONSE_OPTS__PROBES + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // probes (ak_unk_pool)
         if ((unkMask[15] & (1L << 2)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LISTPROBERESPONSE_OPTS__PROBES_BODY + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // probes_body (ak_unk_pool)
@@ -2823,6 +2863,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
       case 16: {
         x = Mem.alloc(ak.corpus.Layout.AK_DEC_LISTMETRICSRESPONSE_OPTS_SIZE);
         Mem.zero(x, ak.corpus.Layout.AK_DEC_LISTMETRICSRESPONSE_OPTS_SIZE);
+        if (unkLists[16] == 0) unkLists[16] = Native.unkListNew();
+        Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LISTMETRICSRESPONSE_OPTS__HOST, unkLists[16]);   // host: the tracking list
         if ((unkMask[16] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LISTMETRICSRESPONSE_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
         if ((unkMask[16] & (1L << 1)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LISTMETRICSRESPONSE_OPTS__BATCHES + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // batches (ak_unk_pool)
         break;
@@ -2830,6 +2872,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
       case 17: {
         x = Mem.alloc(ak.corpus.Layout.AK_DEC_UPLOADRESULTDATAMESSAGE_OPTS_SIZE);
         Mem.zero(x, ak.corpus.Layout.AK_DEC_UPLOADRESULTDATAMESSAGE_OPTS_SIZE);
+        if (unkLists[17] == 0) unkLists[17] = Native.unkListNew();
+        Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_UPLOADRESULTDATAMESSAGE_OPTS__HOST, unkLists[17]);   // host: the tracking list
         if ((unkMask[17] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_UPLOADRESULTDATAMESSAGE_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
         if ((unkMask[17] & (1L << 1)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_UPLOADRESULTDATAMESSAGE_OPTS__UPLOAD + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // upload (ak_unk_opts)
         break;
@@ -2837,6 +2881,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
       case 18: {
         x = Mem.alloc(ak.corpus.Layout.AK_DEC_DUALRESPONSE_OPTS_SIZE);
         Mem.zero(x, ak.corpus.Layout.AK_DEC_DUALRESPONSE_OPTS_SIZE);
+        if (unkLists[18] == 0) unkLists[18] = Native.unkListNew();
+        Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_DUALRESPONSE_OPTS__HOST, unkLists[18]);   // host: the tracking list
         if ((unkMask[18] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_DUALRESPONSE_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
         if ((unkMask[18] & (1L << 1)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_DUALRESPONSE_OPTS__LEFT + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // left (ak_unk_pool)
         if ((unkMask[18] & (1L << 2)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_DUALRESPONSE_OPTS__RIGHT + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // right (ak_unk_pool)
@@ -2845,12 +2891,16 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
       case 19: {
         x = Mem.alloc(ak.corpus.Layout.AK_DEC_CHUNKLEAF_OPTS_SIZE);
         Mem.zero(x, ak.corpus.Layout.AK_DEC_CHUNKLEAF_OPTS_SIZE);
+        if (unkLists[19] == 0) unkLists[19] = Native.unkListNew();
+        Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_CHUNKLEAF_OPTS__HOST, unkLists[19]);   // host: the tracking list
         if ((unkMask[19] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_CHUNKLEAF_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
         break;
       }
       case 20: {
         x = Mem.alloc(ak.corpus.Layout.AK_DEC_CHUNKINNER_OPTS_SIZE);
         Mem.zero(x, ak.corpus.Layout.AK_DEC_CHUNKINNER_OPTS_SIZE);
+        if (unkLists[20] == 0) unkLists[20] = Native.unkListNew();
+        Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_CHUNKINNER_OPTS__HOST, unkLists[20]);   // host: the tracking list
         if ((unkMask[20] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_CHUNKINNER_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
         if ((unkMask[20] & (1L << 1)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_CHUNKINNER_OPTS__LEAVES + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // leaves (ak_unk_pool)
         break;
@@ -2858,6 +2908,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
       case 21: {
         x = Mem.alloc(ak.corpus.Layout.AK_DEC_CHUNKELEMENT_OPTS_SIZE);
         Mem.zero(x, ak.corpus.Layout.AK_DEC_CHUNKELEMENT_OPTS_SIZE);
+        if (unkLists[21] == 0) unkLists[21] = Native.unkListNew();
+        Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_CHUNKELEMENT_OPTS__HOST, unkLists[21]);   // host: the tracking list
         if ((unkMask[21] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_CHUNKELEMENT_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
         if ((unkMask[21] & (1L << 1)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_CHUNKELEMENT_OPTS__ATTRS + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // attrs (ak_unk_pool)
         if ((unkMask[21] & (1L << 2)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_CHUNKELEMENT_OPTS__INNER + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // inner (ak_unk_opts)
@@ -2867,6 +2919,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
       case 22: {
         x = Mem.alloc(ak.corpus.Layout.AK_DEC_CHUNKEDRESPONSE_OPTS_SIZE);
         Mem.zero(x, ak.corpus.Layout.AK_DEC_CHUNKEDRESPONSE_OPTS_SIZE);
+        if (unkLists[22] == 0) unkLists[22] = Native.unkListNew();
+        Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_CHUNKEDRESPONSE_OPTS__HOST, unkLists[22]);   // host: the tracking list
         if ((unkMask[22] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_CHUNKEDRESPONSE_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
         if ((unkMask[22] & (1L << 1)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_CHUNKEDRESPONSE_OPTS__ITEMS + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // items (ak_unk_pool)
         if ((unkMask[22] & (1L << 2)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_CHUNKEDRESPONSE_OPTS__ITEMS_ATTRS + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // items_attrs (ak_unk_pool)
@@ -2877,6 +2931,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
       case 23: {
         x = Mem.alloc(ak.corpus.Layout.AK_DEC_CHUNKEDRESPONSEWIDE_OPTS_SIZE);
         Mem.zero(x, ak.corpus.Layout.AK_DEC_CHUNKEDRESPONSEWIDE_OPTS_SIZE);
+        if (unkLists[23] == 0) unkLists[23] = Native.unkListNew();
+        Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_CHUNKEDRESPONSEWIDE_OPTS__HOST, unkLists[23]);   // host: the tracking list
         if ((unkMask[23] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_CHUNKEDRESPONSEWIDE_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
         if ((unkMask[23] & (1L << 1)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_CHUNKEDRESPONSEWIDE_OPTS__ITEMS + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // items (ak_unk_pool)
         if ((unkMask[23] & (1L << 2)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_CHUNKEDRESPONSEWIDE_OPTS__ITEMS_ATTRS + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // items_attrs (ak_unk_pool)
@@ -2887,6 +2943,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
       case 24: {
         x = Mem.alloc(ak.corpus.Layout.AK_DEC_LEAFELEMENT_OPTS_SIZE);
         Mem.zero(x, ak.corpus.Layout.AK_DEC_LEAFELEMENT_OPTS_SIZE);
+        if (unkLists[24] == 0) unkLists[24] = Native.unkListNew();
+        Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LEAFELEMENT_OPTS__HOST, unkLists[24]);   // host: the tracking list
         if ((unkMask[24] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LEAFELEMENT_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
         if ((unkMask[24] & (1L << 1)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LEAFELEMENT_OPTS__STAMP + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // stamp (ak_unk_opts)
         break;
@@ -2894,6 +2952,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
       case 25: {
         x = Mem.alloc(ak.corpus.Layout.AK_DEC_LEAFRESPONSE_OPTS_SIZE);
         Mem.zero(x, ak.corpus.Layout.AK_DEC_LEAFRESPONSE_OPTS_SIZE);
+        if (unkLists[25] == 0) unkLists[25] = Native.unkListNew();
+        Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LEAFRESPONSE_OPTS__HOST, unkLists[25]);   // host: the tracking list
         if ((unkMask[25] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LEAFRESPONSE_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
         if ((unkMask[25] & (1L << 1)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LEAFRESPONSE_OPTS__ITEMS + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // items (ak_unk_pool)
         if ((unkMask[25] & (1L << 2)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_LEAFRESPONSE_OPTS__ITEMS_STAMP + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // items_stamp (ak_unk_pool)
@@ -2902,6 +2962,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
       case 26: {
         x = Mem.alloc(ak.corpus.Layout.AK_DEC_SURROGATE_OPTS_SIZE);
         Mem.zero(x, ak.corpus.Layout.AK_DEC_SURROGATE_OPTS_SIZE);
+        if (unkLists[26] == 0) unkLists[26] = Native.unkListNew();
+        Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_SURROGATE_OPTS__HOST, unkLists[26]);   // host: the tracking list
         if ((unkMask[26] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_SURROGATE_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
         if ((unkMask[26] & (1L << 1)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_SURROGATE_OPTS__NESTED + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // nested (ak_unk_opts)
         if ((unkMask[26] & (1L << 2)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_SURROGATE_OPTS__ATTRS + ak.corpus.Layout.AK_UNK_POOL__GROW, grow);   // attrs (ak_unk_pool)
@@ -2910,12 +2972,16 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
       case 27: {
         x = Mem.alloc(ak.corpus.Layout.AK_DEC_SURROGATEINNER_OPTS_SIZE);
         Mem.zero(x, ak.corpus.Layout.AK_DEC_SURROGATEINNER_OPTS_SIZE);
+        if (unkLists[27] == 0) unkLists[27] = Native.unkListNew();
+        Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_SURROGATEINNER_OPTS__HOST, unkLists[27]);   // host: the tracking list
         if ((unkMask[27] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_SURROGATEINNER_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
         break;
       }
       case 28: {
         x = Mem.alloc(ak.corpus.Layout.AK_DEC_WIREZOO_OPTS_SIZE);
         Mem.zero(x, ak.corpus.Layout.AK_DEC_WIREZOO_OPTS_SIZE);
+        if (unkLists[28] == 0) unkLists[28] = Native.unkListNew();
+        Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_WIREZOO_OPTS__HOST, unkLists[28]);   // host: the tracking list
         if ((unkMask[28] & (1L << 0)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_WIREZOO_OPTS__SELF + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // self (ak_unk_opts)
         if ((unkMask[28] & (1L << 1)) != 0) Mem.U.putLong(x + ak.corpus.Layout.AK_DEC_WIREZOO_OPTS__V_MSG + ak.corpus.Layout.AK_UNK_OPTS__GROW, grow);   // v_msg (ak_unk_opts)
         break;
@@ -2937,8 +3003,16 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     for (int i = 0; i < decCtxs.length; i++) {
       if (decCtxs[i] != 0) Native.decCtxFree(decCtxs[i]);
       if (unkOpts[i] != 0) Mem.free(unkOpts[i]);
-      decCtxs[i] = unkOpts[i] = 0;
+      if (unkLists[i] != 0) Native.unkListFree(unkLists[i]);
+      decCtxs[i] = unkOpts[i] = unkLists[i] = 0;
     }
+  }
+
+  /** After a retain decode: free what was never delivered (rule 3) and count it. */
+  void unkSettle(int ri, int rc) {
+    if (UNK_PLANT_NO_RECLAIM) return;
+    int left = Native.unkReclaim(unkLists[ri]);
+    if (rc < 0) unkReclaimed += left; else unkLeftAfterSuccess += left;
   }
 
   /** A delivered slot's buffer: copied into a byte[] (null when empty) and freed. The data
@@ -5889,8 +5963,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
     // and unmoved while armed), decode, disarm. Drop mode needs no reset.
     if (retain) check(ak.corpus.NativeEntry.decResetTimestamp(decCtx, unkOptsOf(0)));
-    int rc = ak.corpus.NativeEntry.decodeTimestamp(this, decCtx, wireNative, len, dvtTimestamp);
-    if (retain) ak.corpus.NativeEntry.decResetTimestamp(decCtx, 0L);
+    int rc = -1;   // a Java exception out of the decode counts as a failure
+    try {
+      rc = ak.corpus.NativeEntry.decodeTimestamp(this, decCtx, wireNative, len, dvtTimestamp);
+    } finally {
+      if (retain) { ak.corpus.NativeEntry.decResetTimestamp(decCtx, 0L); unkSettle(0, rc); }
+    }
     check(rc);
     return r;
   }
@@ -5916,8 +5994,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
     // and unmoved while armed), decode, disarm. Drop mode needs no reset.
     if (retain) check(ak.corpus.NativeEntry.decResetDuration(decCtx, unkOptsOf(1)));
-    int rc = ak.corpus.NativeEntry.decodeDuration(this, decCtx, wireNative, len, dvtDuration);
-    if (retain) ak.corpus.NativeEntry.decResetDuration(decCtx, 0L);
+    int rc = -1;   // a Java exception out of the decode counts as a failure
+    try {
+      rc = ak.corpus.NativeEntry.decodeDuration(this, decCtx, wireNative, len, dvtDuration);
+    } finally {
+      if (retain) { ak.corpus.NativeEntry.decResetDuration(decCtx, 0L); unkSettle(1, rc); }
+    }
     check(rc);
     return r;
   }
@@ -5943,8 +6025,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
     // and unmoved while armed), decode, disarm. Drop mode needs no reset.
     if (retain) check(ak.corpus.NativeEntry.decResetResultRaw(decCtx, unkOptsOf(2)));
-    int rc = ak.corpus.NativeEntry.decodeResultRaw(this, decCtx, wireNative, len, dvtResultRaw);
-    if (retain) ak.corpus.NativeEntry.decResetResultRaw(decCtx, 0L);
+    int rc = -1;   // a Java exception out of the decode counts as a failure
+    try {
+      rc = ak.corpus.NativeEntry.decodeResultRaw(this, decCtx, wireNative, len, dvtResultRaw);
+    } finally {
+      if (retain) { ak.corpus.NativeEntry.decResetResultRaw(decCtx, 0L); unkSettle(2, rc); }
+    }
     check(rc);
     return r;
   }
@@ -5970,8 +6056,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
     // and unmoved while armed), decode, disarm. Drop mode needs no reset.
     if (retain) check(ak.corpus.NativeEntry.decResetTaskOptions(decCtx, unkOptsOf(3)));
-    int rc = ak.corpus.NativeEntry.decodeTaskOptions(this, decCtx, wireNative, len, dvtTaskOptions);
-    if (retain) ak.corpus.NativeEntry.decResetTaskOptions(decCtx, 0L);
+    int rc = -1;   // a Java exception out of the decode counts as a failure
+    try {
+      rc = ak.corpus.NativeEntry.decodeTaskOptions(this, decCtx, wireNative, len, dvtTaskOptions);
+    } finally {
+      if (retain) { ak.corpus.NativeEntry.decResetTaskOptions(decCtx, 0L); unkSettle(3, rc); }
+    }
     check(rc);
     return r;
   }
@@ -5997,8 +6087,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
     // and unmoved while armed), decode, disarm. Drop mode needs no reset.
     if (retain) check(ak.corpus.NativeEntry.decResetTaskOutput(decCtx, unkOptsOf(4)));
-    int rc = ak.corpus.NativeEntry.decodeTaskOutput(this, decCtx, wireNative, len, dvtTaskOutput);
-    if (retain) ak.corpus.NativeEntry.decResetTaskOutput(decCtx, 0L);
+    int rc = -1;   // a Java exception out of the decode counts as a failure
+    try {
+      rc = ak.corpus.NativeEntry.decodeTaskOutput(this, decCtx, wireNative, len, dvtTaskOutput);
+    } finally {
+      if (retain) { ak.corpus.NativeEntry.decResetTaskOutput(decCtx, 0L); unkSettle(4, rc); }
+    }
     check(rc);
     return r;
   }
@@ -6024,8 +6118,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
     // and unmoved while armed), decode, disarm. Drop mode needs no reset.
     if (retain) check(ak.corpus.NativeEntry.decResetTaskDetailed(decCtx, unkOptsOf(5)));
-    int rc = ak.corpus.NativeEntry.decodeTaskDetailed(this, decCtx, wireNative, len, dvtTaskDetailed);
-    if (retain) ak.corpus.NativeEntry.decResetTaskDetailed(decCtx, 0L);
+    int rc = -1;   // a Java exception out of the decode counts as a failure
+    try {
+      rc = ak.corpus.NativeEntry.decodeTaskDetailed(this, decCtx, wireNative, len, dvtTaskDetailed);
+    } finally {
+      if (retain) { ak.corpus.NativeEntry.decResetTaskDetailed(decCtx, 0L); unkSettle(5, rc); }
+    }
     check(rc);
     return r;
   }
@@ -6051,8 +6149,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
     // and unmoved while armed), decode, disarm. Drop mode needs no reset.
     if (retain) check(ak.corpus.NativeEntry.decResetTaskSummary(decCtx, unkOptsOf(6)));
-    int rc = ak.corpus.NativeEntry.decodeTaskSummary(this, decCtx, wireNative, len, dvtTaskSummary);
-    if (retain) ak.corpus.NativeEntry.decResetTaskSummary(decCtx, 0L);
+    int rc = -1;   // a Java exception out of the decode counts as a failure
+    try {
+      rc = ak.corpus.NativeEntry.decodeTaskSummary(this, decCtx, wireNative, len, dvtTaskSummary);
+    } finally {
+      if (retain) { ak.corpus.NativeEntry.decResetTaskSummary(decCtx, 0L); unkSettle(6, rc); }
+    }
     check(rc);
     return r;
   }
@@ -6078,8 +6180,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
     // and unmoved while armed), decode, disarm. Drop mode needs no reset.
     if (retain) check(ak.corpus.NativeEntry.decResetProbe(decCtx, unkOptsOf(7)));
-    int rc = ak.corpus.NativeEntry.decodeProbe(this, decCtx, wireNative, len, dvtProbe);
-    if (retain) ak.corpus.NativeEntry.decResetProbe(decCtx, 0L);
+    int rc = -1;   // a Java exception out of the decode counts as a failure
+    try {
+      rc = ak.corpus.NativeEntry.decodeProbe(this, decCtx, wireNative, len, dvtProbe);
+    } finally {
+      if (retain) { ak.corpus.NativeEntry.decResetProbe(decCtx, 0L); unkSettle(7, rc); }
+    }
     check(rc);
     return r;
   }
@@ -6105,8 +6211,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
     // and unmoved while armed), decode, disarm. Drop mode needs no reset.
     if (retain) check(ak.corpus.NativeEntry.decResetEmpty(decCtx, unkOptsOf(8)));
-    int rc = ak.corpus.NativeEntry.decodeEmpty(this, decCtx, wireNative, len, dvtEmpty);
-    if (retain) ak.corpus.NativeEntry.decResetEmpty(decCtx, 0L);
+    int rc = -1;   // a Java exception out of the decode counts as a failure
+    try {
+      rc = ak.corpus.NativeEntry.decodeEmpty(this, decCtx, wireNative, len, dvtEmpty);
+    } finally {
+      if (retain) { ak.corpus.NativeEntry.decResetEmpty(decCtx, 0L); unkSettle(8, rc); }
+    }
     check(rc);
     return r;
   }
@@ -6139,8 +6249,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
     // and unmoved while armed), decode, disarm. Drop mode needs no reset.
     if (retain) check(ak.corpus.NativeEntry.decResetUploadResultData(decCtx, unkOptsOf(9)));
-    int rc = ak.corpus.NativeEntry.decodeUploadResultData(this, decCtx, wireNative, len, dvtUploadResultData);
-    if (retain) ak.corpus.NativeEntry.decResetUploadResultData(decCtx, 0L);
+    int rc = -1;   // a Java exception out of the decode counts as a failure
+    try {
+      rc = ak.corpus.NativeEntry.decodeUploadResultData(this, decCtx, wireNative, len, dvtUploadResultData);
+    } finally {
+      if (retain) { ak.corpus.NativeEntry.decResetUploadResultData(decCtx, 0L); unkSettle(9, rc); }
+    }
     check(rc);
     return r;
   }
@@ -6166,8 +6280,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
     // and unmoved while armed), decode, disarm. Drop mode needs no reset.
     if (retain) check(ak.corpus.NativeEntry.decResetMetricsBatch(decCtx, unkOptsOf(10)));
-    int rc = ak.corpus.NativeEntry.decodeMetricsBatch(this, decCtx, wireNative, len, dvtMetricsBatch);
-    if (retain) ak.corpus.NativeEntry.decResetMetricsBatch(decCtx, 0L);
+    int rc = -1;   // a Java exception out of the decode counts as a failure
+    try {
+      rc = ak.corpus.NativeEntry.decodeMetricsBatch(this, decCtx, wireNative, len, dvtMetricsBatch);
+    } finally {
+      if (retain) { ak.corpus.NativeEntry.decResetMetricsBatch(decCtx, 0L); unkSettle(10, rc); }
+    }
     check(rc);
     return r;
   }
@@ -6193,8 +6311,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
     // and unmoved while armed), decode, disarm. Drop mode needs no reset.
     if (retain) check(ak.corpus.NativeEntry.decResetPair(decCtx, unkOptsOf(11)));
-    int rc = ak.corpus.NativeEntry.decodePair(this, decCtx, wireNative, len, dvtPair);
-    if (retain) ak.corpus.NativeEntry.decResetPair(decCtx, 0L);
+    int rc = -1;   // a Java exception out of the decode counts as a failure
+    try {
+      rc = ak.corpus.NativeEntry.decodePair(this, decCtx, wireNative, len, dvtPair);
+    } finally {
+      if (retain) { ak.corpus.NativeEntry.decResetPair(decCtx, 0L); unkSettle(11, rc); }
+    }
     check(rc);
     return r;
   }
@@ -6220,8 +6342,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
     // and unmoved while armed), decode, disarm. Drop mode needs no reset.
     if (retain) check(ak.corpus.NativeEntry.decResetListResultsResponse(decCtx, unkOptsOf(12)));
-    int rc = ak.corpus.NativeEntry.decodeListResultsResponse(this, decCtx, wireNative, len, dvtListResultsResponse);
-    if (retain) ak.corpus.NativeEntry.decResetListResultsResponse(decCtx, 0L);
+    int rc = -1;   // a Java exception out of the decode counts as a failure
+    try {
+      rc = ak.corpus.NativeEntry.decodeListResultsResponse(this, decCtx, wireNative, len, dvtListResultsResponse);
+    } finally {
+      if (retain) { ak.corpus.NativeEntry.decResetListResultsResponse(decCtx, 0L); unkSettle(12, rc); }
+    }
     check(rc);
     return r;
   }
@@ -6247,8 +6373,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
     // and unmoved while armed), decode, disarm. Drop mode needs no reset.
     if (retain) check(ak.corpus.NativeEntry.decResetListTasksDetailedResponse(decCtx, unkOptsOf(13)));
-    int rc = ak.corpus.NativeEntry.decodeListTasksDetailedResponse(this, decCtx, wireNative, len, dvtListTasksDetailedResponse);
-    if (retain) ak.corpus.NativeEntry.decResetListTasksDetailedResponse(decCtx, 0L);
+    int rc = -1;   // a Java exception out of the decode counts as a failure
+    try {
+      rc = ak.corpus.NativeEntry.decodeListTasksDetailedResponse(this, decCtx, wireNative, len, dvtListTasksDetailedResponse);
+    } finally {
+      if (retain) { ak.corpus.NativeEntry.decResetListTasksDetailedResponse(decCtx, 0L); unkSettle(13, rc); }
+    }
     check(rc);
     return r;
   }
@@ -6274,8 +6404,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
     // and unmoved while armed), decode, disarm. Drop mode needs no reset.
     if (retain) check(ak.corpus.NativeEntry.decResetListTaskSummaryResponse(decCtx, unkOptsOf(14)));
-    int rc = ak.corpus.NativeEntry.decodeListTaskSummaryResponse(this, decCtx, wireNative, len, dvtListTaskSummaryResponse);
-    if (retain) ak.corpus.NativeEntry.decResetListTaskSummaryResponse(decCtx, 0L);
+    int rc = -1;   // a Java exception out of the decode counts as a failure
+    try {
+      rc = ak.corpus.NativeEntry.decodeListTaskSummaryResponse(this, decCtx, wireNative, len, dvtListTaskSummaryResponse);
+    } finally {
+      if (retain) { ak.corpus.NativeEntry.decResetListTaskSummaryResponse(decCtx, 0L); unkSettle(14, rc); }
+    }
     check(rc);
     return r;
   }
@@ -6301,8 +6435,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
     // and unmoved while armed), decode, disarm. Drop mode needs no reset.
     if (retain) check(ak.corpus.NativeEntry.decResetListProbeResponse(decCtx, unkOptsOf(15)));
-    int rc = ak.corpus.NativeEntry.decodeListProbeResponse(this, decCtx, wireNative, len, dvtListProbeResponse);
-    if (retain) ak.corpus.NativeEntry.decResetListProbeResponse(decCtx, 0L);
+    int rc = -1;   // a Java exception out of the decode counts as a failure
+    try {
+      rc = ak.corpus.NativeEntry.decodeListProbeResponse(this, decCtx, wireNative, len, dvtListProbeResponse);
+    } finally {
+      if (retain) { ak.corpus.NativeEntry.decResetListProbeResponse(decCtx, 0L); unkSettle(15, rc); }
+    }
     check(rc);
     return r;
   }
@@ -6328,8 +6466,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
     // and unmoved while armed), decode, disarm. Drop mode needs no reset.
     if (retain) check(ak.corpus.NativeEntry.decResetListMetricsResponse(decCtx, unkOptsOf(16)));
-    int rc = ak.corpus.NativeEntry.decodeListMetricsResponse(this, decCtx, wireNative, len, dvtListMetricsResponse);
-    if (retain) ak.corpus.NativeEntry.decResetListMetricsResponse(decCtx, 0L);
+    int rc = -1;   // a Java exception out of the decode counts as a failure
+    try {
+      rc = ak.corpus.NativeEntry.decodeListMetricsResponse(this, decCtx, wireNative, len, dvtListMetricsResponse);
+    } finally {
+      if (retain) { ak.corpus.NativeEntry.decResetListMetricsResponse(decCtx, 0L); unkSettle(16, rc); }
+    }
     check(rc);
     return r;
   }
@@ -6362,8 +6504,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
     // and unmoved while armed), decode, disarm. Drop mode needs no reset.
     if (retain) check(ak.corpus.NativeEntry.decResetUploadResultDataMessage(decCtx, unkOptsOf(17)));
-    int rc = ak.corpus.NativeEntry.decodeUploadResultDataMessage(this, decCtx, wireNative, len, dvtUploadResultDataMessage);
-    if (retain) ak.corpus.NativeEntry.decResetUploadResultDataMessage(decCtx, 0L);
+    int rc = -1;   // a Java exception out of the decode counts as a failure
+    try {
+      rc = ak.corpus.NativeEntry.decodeUploadResultDataMessage(this, decCtx, wireNative, len, dvtUploadResultDataMessage);
+    } finally {
+      if (retain) { ak.corpus.NativeEntry.decResetUploadResultDataMessage(decCtx, 0L); unkSettle(17, rc); }
+    }
     check(rc);
     return r;
   }
@@ -6389,8 +6535,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
     // and unmoved while armed), decode, disarm. Drop mode needs no reset.
     if (retain) check(ak.corpus.NativeEntry.decResetDualResponse(decCtx, unkOptsOf(18)));
-    int rc = ak.corpus.NativeEntry.decodeDualResponse(this, decCtx, wireNative, len, dvtDualResponse);
-    if (retain) ak.corpus.NativeEntry.decResetDualResponse(decCtx, 0L);
+    int rc = -1;   // a Java exception out of the decode counts as a failure
+    try {
+      rc = ak.corpus.NativeEntry.decodeDualResponse(this, decCtx, wireNative, len, dvtDualResponse);
+    } finally {
+      if (retain) { ak.corpus.NativeEntry.decResetDualResponse(decCtx, 0L); unkSettle(18, rc); }
+    }
     check(rc);
     return r;
   }
@@ -6416,8 +6566,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
     // and unmoved while armed), decode, disarm. Drop mode needs no reset.
     if (retain) check(ak.corpus.NativeEntry.decResetChunkLeaf(decCtx, unkOptsOf(19)));
-    int rc = ak.corpus.NativeEntry.decodeChunkLeaf(this, decCtx, wireNative, len, dvtChunkLeaf);
-    if (retain) ak.corpus.NativeEntry.decResetChunkLeaf(decCtx, 0L);
+    int rc = -1;   // a Java exception out of the decode counts as a failure
+    try {
+      rc = ak.corpus.NativeEntry.decodeChunkLeaf(this, decCtx, wireNative, len, dvtChunkLeaf);
+    } finally {
+      if (retain) { ak.corpus.NativeEntry.decResetChunkLeaf(decCtx, 0L); unkSettle(19, rc); }
+    }
     check(rc);
     return r;
   }
@@ -6443,8 +6597,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
     // and unmoved while armed), decode, disarm. Drop mode needs no reset.
     if (retain) check(ak.corpus.NativeEntry.decResetChunkInner(decCtx, unkOptsOf(20)));
-    int rc = ak.corpus.NativeEntry.decodeChunkInner(this, decCtx, wireNative, len, dvtChunkInner);
-    if (retain) ak.corpus.NativeEntry.decResetChunkInner(decCtx, 0L);
+    int rc = -1;   // a Java exception out of the decode counts as a failure
+    try {
+      rc = ak.corpus.NativeEntry.decodeChunkInner(this, decCtx, wireNative, len, dvtChunkInner);
+    } finally {
+      if (retain) { ak.corpus.NativeEntry.decResetChunkInner(decCtx, 0L); unkSettle(20, rc); }
+    }
     check(rc);
     return r;
   }
@@ -6470,8 +6628,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
     // and unmoved while armed), decode, disarm. Drop mode needs no reset.
     if (retain) check(ak.corpus.NativeEntry.decResetChunkElement(decCtx, unkOptsOf(21)));
-    int rc = ak.corpus.NativeEntry.decodeChunkElement(this, decCtx, wireNative, len, dvtChunkElement);
-    if (retain) ak.corpus.NativeEntry.decResetChunkElement(decCtx, 0L);
+    int rc = -1;   // a Java exception out of the decode counts as a failure
+    try {
+      rc = ak.corpus.NativeEntry.decodeChunkElement(this, decCtx, wireNative, len, dvtChunkElement);
+    } finally {
+      if (retain) { ak.corpus.NativeEntry.decResetChunkElement(decCtx, 0L); unkSettle(21, rc); }
+    }
     check(rc);
     return r;
   }
@@ -6497,8 +6659,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
     // and unmoved while armed), decode, disarm. Drop mode needs no reset.
     if (retain) check(ak.corpus.NativeEntry.decResetChunkedResponse(decCtx, unkOptsOf(22)));
-    int rc = ak.corpus.NativeEntry.decodeChunkedResponse(this, decCtx, wireNative, len, dvtChunkedResponse);
-    if (retain) ak.corpus.NativeEntry.decResetChunkedResponse(decCtx, 0L);
+    int rc = -1;   // a Java exception out of the decode counts as a failure
+    try {
+      rc = ak.corpus.NativeEntry.decodeChunkedResponse(this, decCtx, wireNative, len, dvtChunkedResponse);
+    } finally {
+      if (retain) { ak.corpus.NativeEntry.decResetChunkedResponse(decCtx, 0L); unkSettle(22, rc); }
+    }
     check(rc);
     return r;
   }
@@ -6524,8 +6690,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
     // and unmoved while armed), decode, disarm. Drop mode needs no reset.
     if (retain) check(ak.corpus.NativeEntry.decResetChunkedResponseWide(decCtx, unkOptsOf(23)));
-    int rc = ak.corpus.NativeEntry.decodeChunkedResponseWide(this, decCtx, wireNative, len, dvtChunkedResponseWide);
-    if (retain) ak.corpus.NativeEntry.decResetChunkedResponseWide(decCtx, 0L);
+    int rc = -1;   // a Java exception out of the decode counts as a failure
+    try {
+      rc = ak.corpus.NativeEntry.decodeChunkedResponseWide(this, decCtx, wireNative, len, dvtChunkedResponseWide);
+    } finally {
+      if (retain) { ak.corpus.NativeEntry.decResetChunkedResponseWide(decCtx, 0L); unkSettle(23, rc); }
+    }
     check(rc);
     return r;
   }
@@ -6551,8 +6721,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
     // and unmoved while armed), decode, disarm. Drop mode needs no reset.
     if (retain) check(ak.corpus.NativeEntry.decResetLeafElement(decCtx, unkOptsOf(24)));
-    int rc = ak.corpus.NativeEntry.decodeLeafElement(this, decCtx, wireNative, len, dvtLeafElement);
-    if (retain) ak.corpus.NativeEntry.decResetLeafElement(decCtx, 0L);
+    int rc = -1;   // a Java exception out of the decode counts as a failure
+    try {
+      rc = ak.corpus.NativeEntry.decodeLeafElement(this, decCtx, wireNative, len, dvtLeafElement);
+    } finally {
+      if (retain) { ak.corpus.NativeEntry.decResetLeafElement(decCtx, 0L); unkSettle(24, rc); }
+    }
     check(rc);
     return r;
   }
@@ -6578,8 +6752,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
     // and unmoved while armed), decode, disarm. Drop mode needs no reset.
     if (retain) check(ak.corpus.NativeEntry.decResetLeafResponse(decCtx, unkOptsOf(25)));
-    int rc = ak.corpus.NativeEntry.decodeLeafResponse(this, decCtx, wireNative, len, dvtLeafResponse);
-    if (retain) ak.corpus.NativeEntry.decResetLeafResponse(decCtx, 0L);
+    int rc = -1;   // a Java exception out of the decode counts as a failure
+    try {
+      rc = ak.corpus.NativeEntry.decodeLeafResponse(this, decCtx, wireNative, len, dvtLeafResponse);
+    } finally {
+      if (retain) { ak.corpus.NativeEntry.decResetLeafResponse(decCtx, 0L); unkSettle(25, rc); }
+    }
     check(rc);
     return r;
   }
@@ -6605,8 +6783,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
     // and unmoved while armed), decode, disarm. Drop mode needs no reset.
     if (retain) check(ak.corpus.NativeEntry.decResetSurrogate(decCtx, unkOptsOf(26)));
-    int rc = ak.corpus.NativeEntry.decodeSurrogate(this, decCtx, wireNative, len, dvtSurrogate);
-    if (retain) ak.corpus.NativeEntry.decResetSurrogate(decCtx, 0L);
+    int rc = -1;   // a Java exception out of the decode counts as a failure
+    try {
+      rc = ak.corpus.NativeEntry.decodeSurrogate(this, decCtx, wireNative, len, dvtSurrogate);
+    } finally {
+      if (retain) { ak.corpus.NativeEntry.decResetSurrogate(decCtx, 0L); unkSettle(26, rc); }
+    }
     check(rc);
     return r;
   }
@@ -6632,8 +6814,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
     // and unmoved while armed), decode, disarm. Drop mode needs no reset.
     if (retain) check(ak.corpus.NativeEntry.decResetSurrogateInner(decCtx, unkOptsOf(27)));
-    int rc = ak.corpus.NativeEntry.decodeSurrogateInner(this, decCtx, wireNative, len, dvtSurrogateInner);
-    if (retain) ak.corpus.NativeEntry.decResetSurrogateInner(decCtx, 0L);
+    int rc = -1;   // a Java exception out of the decode counts as a failure
+    try {
+      rc = ak.corpus.NativeEntry.decodeSurrogateInner(this, decCtx, wireNative, len, dvtSurrogateInner);
+    } finally {
+      if (retain) { ak.corpus.NativeEntry.decResetSurrogateInner(decCtx, 0L); unkSettle(27, rc); }
+    }
     check(rc);
     return r;
   }
@@ -6659,8 +6845,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
     // and unmoved while armed), decode, disarm. Drop mode needs no reset.
     if (retain) check(ak.corpus.NativeEntry.decResetWireZoo(decCtx, unkOptsOf(28)));
-    int rc = ak.corpus.NativeEntry.decodeWireZoo(this, decCtx, wireNative, len, dvtWireZoo);
-    if (retain) ak.corpus.NativeEntry.decResetWireZoo(decCtx, 0L);
+    int rc = -1;   // a Java exception out of the decode counts as a failure
+    try {
+      rc = ak.corpus.NativeEntry.decodeWireZoo(this, decCtx, wireNative, len, dvtWireZoo);
+    } finally {
+      if (retain) { ak.corpus.NativeEntry.decResetWireZoo(decCtx, 0L); unkSettle(28, rc); }
+    }
     check(rc);
     return r;
   }
@@ -6707,7 +6897,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // here would be a forward crossing per decode for nothing.
     decCtx = decCtxOf(0);   // decision 11 rule 6: the root's own context
     if (retain) check(ak.corpus.NativeEntry.decResetTimestamp(decCtx, unkOptsOf(0)));
-    check(ak.corpus.NativeEntry.parseTimestamp(this, decCtx, wire, off, len));
+    int prc = ak.corpus.NativeEntry.parseTimestamp(this, decCtx, wire, off, len);
+    if (prc < 0 && retain) { ak.corpus.NativeEntry.decResetTimestamp(decCtx, 0L); unkSettle(0, prc); }
+    check(prc);
     Timestamp r = new Timestamp();
     decRoot = r;
     decTokN = 0;
@@ -6715,6 +6907,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // core parsed THAT array, not a copy of it.
     wireHeap = wire;
     wireBase = off;
+    // A failure while reading the records (a drain error, a replay defect) still
+    // disarms and reclaims: `finally` (rule 3).
+    try {
     if (pullWalk) {
       // `ak_bdr_ptr`: read the records in place. One forward crossing for
       // the whole response and no intermediate at all. A JVM host can do
@@ -6733,8 +6928,10 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayTimestamp(pullChunk, pullChunk + got);
       }
     }
-    // Disarmed only after the records are read: they carry the buffers (decision 11).
-    if (retain) ak.corpus.NativeEntry.decResetTimestamp(decCtx, 0L);
+    } finally {
+      // Disarmed only after the records are read: they carry the buffers (decision 11).
+      if (retain) { ak.corpus.NativeEntry.decResetTimestamp(decCtx, 0L); unkSettle(0, 0); }
+    }
     return r;
   }
 
@@ -6770,7 +6967,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // here would be a forward crossing per decode for nothing.
     decCtx = decCtxOf(1);   // decision 11 rule 6: the root's own context
     if (retain) check(ak.corpus.NativeEntry.decResetDuration(decCtx, unkOptsOf(1)));
-    check(ak.corpus.NativeEntry.parseDuration(this, decCtx, wire, off, len));
+    int prc = ak.corpus.NativeEntry.parseDuration(this, decCtx, wire, off, len);
+    if (prc < 0 && retain) { ak.corpus.NativeEntry.decResetDuration(decCtx, 0L); unkSettle(1, prc); }
+    check(prc);
     Duration r = new Duration();
     decRoot = r;
     decTokN = 0;
@@ -6778,6 +6977,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // core parsed THAT array, not a copy of it.
     wireHeap = wire;
     wireBase = off;
+    // A failure while reading the records (a drain error, a replay defect) still
+    // disarms and reclaims: `finally` (rule 3).
+    try {
     if (pullWalk) {
       // `ak_bdr_ptr`: read the records in place. One forward crossing for
       // the whole response and no intermediate at all. A JVM host can do
@@ -6796,8 +6998,10 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayDuration(pullChunk, pullChunk + got);
       }
     }
-    // Disarmed only after the records are read: they carry the buffers (decision 11).
-    if (retain) ak.corpus.NativeEntry.decResetDuration(decCtx, 0L);
+    } finally {
+      // Disarmed only after the records are read: they carry the buffers (decision 11).
+      if (retain) { ak.corpus.NativeEntry.decResetDuration(decCtx, 0L); unkSettle(1, 0); }
+    }
     return r;
   }
 
@@ -6833,7 +7037,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // here would be a forward crossing per decode for nothing.
     decCtx = decCtxOf(2);   // decision 11 rule 6: the root's own context
     if (retain) check(ak.corpus.NativeEntry.decResetResultRaw(decCtx, unkOptsOf(2)));
-    check(ak.corpus.NativeEntry.parseResultRaw(this, decCtx, wire, off, len));
+    int prc = ak.corpus.NativeEntry.parseResultRaw(this, decCtx, wire, off, len);
+    if (prc < 0 && retain) { ak.corpus.NativeEntry.decResetResultRaw(decCtx, 0L); unkSettle(2, prc); }
+    check(prc);
     ResultRaw r = new ResultRaw();
     decRoot = r;
     decTokN = 0;
@@ -6841,6 +7047,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // core parsed THAT array, not a copy of it.
     wireHeap = wire;
     wireBase = off;
+    // A failure while reading the records (a drain error, a replay defect) still
+    // disarms and reclaims: `finally` (rule 3).
+    try {
     if (pullWalk) {
       // `ak_bdr_ptr`: read the records in place. One forward crossing for
       // the whole response and no intermediate at all. A JVM host can do
@@ -6859,8 +7068,10 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayResultRaw(pullChunk, pullChunk + got);
       }
     }
-    // Disarmed only after the records are read: they carry the buffers (decision 11).
-    if (retain) ak.corpus.NativeEntry.decResetResultRaw(decCtx, 0L);
+    } finally {
+      // Disarmed only after the records are read: they carry the buffers (decision 11).
+      if (retain) { ak.corpus.NativeEntry.decResetResultRaw(decCtx, 0L); unkSettle(2, 0); }
+    }
     return r;
   }
 
@@ -6896,7 +7107,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // here would be a forward crossing per decode for nothing.
     decCtx = decCtxOf(3);   // decision 11 rule 6: the root's own context
     if (retain) check(ak.corpus.NativeEntry.decResetTaskOptions(decCtx, unkOptsOf(3)));
-    check(ak.corpus.NativeEntry.parseTaskOptions(this, decCtx, wire, off, len));
+    int prc = ak.corpus.NativeEntry.parseTaskOptions(this, decCtx, wire, off, len);
+    if (prc < 0 && retain) { ak.corpus.NativeEntry.decResetTaskOptions(decCtx, 0L); unkSettle(3, prc); }
+    check(prc);
     TaskOptions r = new TaskOptions();
     decRoot = r;
     decTokN = 0;
@@ -6904,6 +7117,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // core parsed THAT array, not a copy of it.
     wireHeap = wire;
     wireBase = off;
+    // A failure while reading the records (a drain error, a replay defect) still
+    // disarms and reclaims: `finally` (rule 3).
+    try {
     if (pullWalk) {
       // `ak_bdr_ptr`: read the records in place. One forward crossing for
       // the whole response and no intermediate at all. A JVM host can do
@@ -6922,8 +7138,10 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayTaskOptions(pullChunk, pullChunk + got);
       }
     }
-    // Disarmed only after the records are read: they carry the buffers (decision 11).
-    if (retain) ak.corpus.NativeEntry.decResetTaskOptions(decCtx, 0L);
+    } finally {
+      // Disarmed only after the records are read: they carry the buffers (decision 11).
+      if (retain) { ak.corpus.NativeEntry.decResetTaskOptions(decCtx, 0L); unkSettle(3, 0); }
+    }
     return r;
   }
 
@@ -6965,7 +7183,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // here would be a forward crossing per decode for nothing.
     decCtx = decCtxOf(4);   // decision 11 rule 6: the root's own context
     if (retain) check(ak.corpus.NativeEntry.decResetTaskOutput(decCtx, unkOptsOf(4)));
-    check(ak.corpus.NativeEntry.parseTaskOutput(this, decCtx, wire, off, len));
+    int prc = ak.corpus.NativeEntry.parseTaskOutput(this, decCtx, wire, off, len);
+    if (prc < 0 && retain) { ak.corpus.NativeEntry.decResetTaskOutput(decCtx, 0L); unkSettle(4, prc); }
+    check(prc);
     TaskOutput r = new TaskOutput();
     decRoot = r;
     decTokN = 0;
@@ -6973,6 +7193,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // core parsed THAT array, not a copy of it.
     wireHeap = wire;
     wireBase = off;
+    // A failure while reading the records (a drain error, a replay defect) still
+    // disarms and reclaims: `finally` (rule 3).
+    try {
     if (pullWalk) {
       // `ak_bdr_ptr`: read the records in place. One forward crossing for
       // the whole response and no intermediate at all. A JVM host can do
@@ -6991,8 +7214,10 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayTaskOutput(pullChunk, pullChunk + got);
       }
     }
-    // Disarmed only after the records are read: they carry the buffers (decision 11).
-    if (retain) ak.corpus.NativeEntry.decResetTaskOutput(decCtx, 0L);
+    } finally {
+      // Disarmed only after the records are read: they carry the buffers (decision 11).
+      if (retain) { ak.corpus.NativeEntry.decResetTaskOutput(decCtx, 0L); unkSettle(4, 0); }
+    }
     return r;
   }
 
@@ -7028,7 +7253,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // here would be a forward crossing per decode for nothing.
     decCtx = decCtxOf(5);   // decision 11 rule 6: the root's own context
     if (retain) check(ak.corpus.NativeEntry.decResetTaskDetailed(decCtx, unkOptsOf(5)));
-    check(ak.corpus.NativeEntry.parseTaskDetailed(this, decCtx, wire, off, len));
+    int prc = ak.corpus.NativeEntry.parseTaskDetailed(this, decCtx, wire, off, len);
+    if (prc < 0 && retain) { ak.corpus.NativeEntry.decResetTaskDetailed(decCtx, 0L); unkSettle(5, prc); }
+    check(prc);
     TaskDetailed r = new TaskDetailed();
     decRoot = r;
     decTokN = 0;
@@ -7036,6 +7263,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // core parsed THAT array, not a copy of it.
     wireHeap = wire;
     wireBase = off;
+    // A failure while reading the records (a drain error, a replay defect) still
+    // disarms and reclaims: `finally` (rule 3).
+    try {
     if (pullWalk) {
       // `ak_bdr_ptr`: read the records in place. One forward crossing for
       // the whole response and no intermediate at all. A JVM host can do
@@ -7054,8 +7284,10 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayTaskDetailed(pullChunk, pullChunk + got);
       }
     }
-    // Disarmed only after the records are read: they carry the buffers (decision 11).
-    if (retain) ak.corpus.NativeEntry.decResetTaskDetailed(decCtx, 0L);
+    } finally {
+      // Disarmed only after the records are read: they carry the buffers (decision 11).
+      if (retain) { ak.corpus.NativeEntry.decResetTaskDetailed(decCtx, 0L); unkSettle(5, 0); }
+    }
     return r;
   }
 
@@ -7101,7 +7333,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // here would be a forward crossing per decode for nothing.
     decCtx = decCtxOf(6);   // decision 11 rule 6: the root's own context
     if (retain) check(ak.corpus.NativeEntry.decResetTaskSummary(decCtx, unkOptsOf(6)));
-    check(ak.corpus.NativeEntry.parseTaskSummary(this, decCtx, wire, off, len));
+    int prc = ak.corpus.NativeEntry.parseTaskSummary(this, decCtx, wire, off, len);
+    if (prc < 0 && retain) { ak.corpus.NativeEntry.decResetTaskSummary(decCtx, 0L); unkSettle(6, prc); }
+    check(prc);
     TaskSummary r = new TaskSummary();
     decRoot = r;
     decTokN = 0;
@@ -7109,6 +7343,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // core parsed THAT array, not a copy of it.
     wireHeap = wire;
     wireBase = off;
+    // A failure while reading the records (a drain error, a replay defect) still
+    // disarms and reclaims: `finally` (rule 3).
+    try {
     if (pullWalk) {
       // `ak_bdr_ptr`: read the records in place. One forward crossing for
       // the whole response and no intermediate at all. A JVM host can do
@@ -7127,8 +7364,10 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayTaskSummary(pullChunk, pullChunk + got);
       }
     }
-    // Disarmed only after the records are read: they carry the buffers (decision 11).
-    if (retain) ak.corpus.NativeEntry.decResetTaskSummary(decCtx, 0L);
+    } finally {
+      // Disarmed only after the records are read: they carry the buffers (decision 11).
+      if (retain) { ak.corpus.NativeEntry.decResetTaskSummary(decCtx, 0L); unkSettle(6, 0); }
+    }
     return r;
   }
 
@@ -7170,7 +7409,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // here would be a forward crossing per decode for nothing.
     decCtx = decCtxOf(7);   // decision 11 rule 6: the root's own context
     if (retain) check(ak.corpus.NativeEntry.decResetProbe(decCtx, unkOptsOf(7)));
-    check(ak.corpus.NativeEntry.parseProbe(this, decCtx, wire, off, len));
+    int prc = ak.corpus.NativeEntry.parseProbe(this, decCtx, wire, off, len);
+    if (prc < 0 && retain) { ak.corpus.NativeEntry.decResetProbe(decCtx, 0L); unkSettle(7, prc); }
+    check(prc);
     Probe r = new Probe();
     decRoot = r;
     decTokN = 0;
@@ -7178,6 +7419,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // core parsed THAT array, not a copy of it.
     wireHeap = wire;
     wireBase = off;
+    // A failure while reading the records (a drain error, a replay defect) still
+    // disarms and reclaims: `finally` (rule 3).
+    try {
     if (pullWalk) {
       // `ak_bdr_ptr`: read the records in place. One forward crossing for
       // the whole response and no intermediate at all. A JVM host can do
@@ -7196,8 +7440,10 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayProbe(pullChunk, pullChunk + got);
       }
     }
-    // Disarmed only after the records are read: they carry the buffers (decision 11).
-    if (retain) ak.corpus.NativeEntry.decResetProbe(decCtx, 0L);
+    } finally {
+      // Disarmed only after the records are read: they carry the buffers (decision 11).
+      if (retain) { ak.corpus.NativeEntry.decResetProbe(decCtx, 0L); unkSettle(7, 0); }
+    }
     return r;
   }
 
@@ -7233,7 +7479,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // here would be a forward crossing per decode for nothing.
     decCtx = decCtxOf(8);   // decision 11 rule 6: the root's own context
     if (retain) check(ak.corpus.NativeEntry.decResetEmpty(decCtx, unkOptsOf(8)));
-    check(ak.corpus.NativeEntry.parseEmpty(this, decCtx, wire, off, len));
+    int prc = ak.corpus.NativeEntry.parseEmpty(this, decCtx, wire, off, len);
+    if (prc < 0 && retain) { ak.corpus.NativeEntry.decResetEmpty(decCtx, 0L); unkSettle(8, prc); }
+    check(prc);
     Empty r = new Empty();
     decRoot = r;
     decTokN = 0;
@@ -7241,6 +7489,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // core parsed THAT array, not a copy of it.
     wireHeap = wire;
     wireBase = off;
+    // A failure while reading the records (a drain error, a replay defect) still
+    // disarms and reclaims: `finally` (rule 3).
+    try {
     if (pullWalk) {
       // `ak_bdr_ptr`: read the records in place. One forward crossing for
       // the whole response and no intermediate at all. A JVM host can do
@@ -7259,8 +7510,10 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayEmpty(pullChunk, pullChunk + got);
       }
     }
-    // Disarmed only after the records are read: they carry the buffers (decision 11).
-    if (retain) ak.corpus.NativeEntry.decResetEmpty(decCtx, 0L);
+    } finally {
+      // Disarmed only after the records are read: they carry the buffers (decision 11).
+      if (retain) { ak.corpus.NativeEntry.decResetEmpty(decCtx, 0L); unkSettle(8, 0); }
+    }
     return r;
   }
 
@@ -7296,7 +7549,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // here would be a forward crossing per decode for nothing.
     decCtx = decCtxOf(9);   // decision 11 rule 6: the root's own context
     if (retain) check(ak.corpus.NativeEntry.decResetUploadResultData(decCtx, unkOptsOf(9)));
-    check(ak.corpus.NativeEntry.parseUploadResultData(this, decCtx, wire, off, len));
+    int prc = ak.corpus.NativeEntry.parseUploadResultData(this, decCtx, wire, off, len);
+    if (prc < 0 && retain) { ak.corpus.NativeEntry.decResetUploadResultData(decCtx, 0L); unkSettle(9, prc); }
+    check(prc);
     UploadResultData r = new UploadResultData();
     decRoot = r;
     decTokN = 0;
@@ -7304,6 +7559,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // core parsed THAT array, not a copy of it.
     wireHeap = wire;
     wireBase = off;
+    // A failure while reading the records (a drain error, a replay defect) still
+    // disarms and reclaims: `finally` (rule 3).
+    try {
     if (pullWalk) {
       // `ak_bdr_ptr`: read the records in place. One forward crossing for
       // the whole response and no intermediate at all. A JVM host can do
@@ -7322,8 +7580,10 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayUploadResultData(pullChunk, pullChunk + got);
       }
     }
-    // Disarmed only after the records are read: they carry the buffers (decision 11).
-    if (retain) ak.corpus.NativeEntry.decResetUploadResultData(decCtx, 0L);
+    } finally {
+      // Disarmed only after the records are read: they carry the buffers (decision 11).
+      if (retain) { ak.corpus.NativeEntry.decResetUploadResultData(decCtx, 0L); unkSettle(9, 0); }
+    }
     return r;
   }
 
@@ -7359,7 +7619,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // here would be a forward crossing per decode for nothing.
     decCtx = decCtxOf(10);   // decision 11 rule 6: the root's own context
     if (retain) check(ak.corpus.NativeEntry.decResetMetricsBatch(decCtx, unkOptsOf(10)));
-    check(ak.corpus.NativeEntry.parseMetricsBatch(this, decCtx, wire, off, len));
+    int prc = ak.corpus.NativeEntry.parseMetricsBatch(this, decCtx, wire, off, len);
+    if (prc < 0 && retain) { ak.corpus.NativeEntry.decResetMetricsBatch(decCtx, 0L); unkSettle(10, prc); }
+    check(prc);
     MetricsBatch r = new MetricsBatch();
     decRoot = r;
     decTokN = 0;
@@ -7367,6 +7629,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // core parsed THAT array, not a copy of it.
     wireHeap = wire;
     wireBase = off;
+    // A failure while reading the records (a drain error, a replay defect) still
+    // disarms and reclaims: `finally` (rule 3).
+    try {
     if (pullWalk) {
       // `ak_bdr_ptr`: read the records in place. One forward crossing for
       // the whole response and no intermediate at all. A JVM host can do
@@ -7385,8 +7650,10 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayMetricsBatch(pullChunk, pullChunk + got);
       }
     }
-    // Disarmed only after the records are read: they carry the buffers (decision 11).
-    if (retain) ak.corpus.NativeEntry.decResetMetricsBatch(decCtx, 0L);
+    } finally {
+      // Disarmed only after the records are read: they carry the buffers (decision 11).
+      if (retain) { ak.corpus.NativeEntry.decResetMetricsBatch(decCtx, 0L); unkSettle(10, 0); }
+    }
     return r;
   }
 
@@ -7432,7 +7699,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // here would be a forward crossing per decode for nothing.
     decCtx = decCtxOf(11);   // decision 11 rule 6: the root's own context
     if (retain) check(ak.corpus.NativeEntry.decResetPair(decCtx, unkOptsOf(11)));
-    check(ak.corpus.NativeEntry.parsePair(this, decCtx, wire, off, len));
+    int prc = ak.corpus.NativeEntry.parsePair(this, decCtx, wire, off, len);
+    if (prc < 0 && retain) { ak.corpus.NativeEntry.decResetPair(decCtx, 0L); unkSettle(11, prc); }
+    check(prc);
     Pair r = new Pair();
     decRoot = r;
     decTokN = 0;
@@ -7440,6 +7709,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // core parsed THAT array, not a copy of it.
     wireHeap = wire;
     wireBase = off;
+    // A failure while reading the records (a drain error, a replay defect) still
+    // disarms and reclaims: `finally` (rule 3).
+    try {
     if (pullWalk) {
       // `ak_bdr_ptr`: read the records in place. One forward crossing for
       // the whole response and no intermediate at all. A JVM host can do
@@ -7458,8 +7730,10 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayPair(pullChunk, pullChunk + got);
       }
     }
-    // Disarmed only after the records are read: they carry the buffers (decision 11).
-    if (retain) ak.corpus.NativeEntry.decResetPair(decCtx, 0L);
+    } finally {
+      // Disarmed only after the records are read: they carry the buffers (decision 11).
+      if (retain) { ak.corpus.NativeEntry.decResetPair(decCtx, 0L); unkSettle(11, 0); }
+    }
     return r;
   }
 
@@ -7495,7 +7769,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // here would be a forward crossing per decode for nothing.
     decCtx = decCtxOf(12);   // decision 11 rule 6: the root's own context
     if (retain) check(ak.corpus.NativeEntry.decResetListResultsResponse(decCtx, unkOptsOf(12)));
-    check(ak.corpus.NativeEntry.parseListResultsResponse(this, decCtx, wire, off, len));
+    int prc = ak.corpus.NativeEntry.parseListResultsResponse(this, decCtx, wire, off, len);
+    if (prc < 0 && retain) { ak.corpus.NativeEntry.decResetListResultsResponse(decCtx, 0L); unkSettle(12, prc); }
+    check(prc);
     ListResultsResponse r = new ListResultsResponse();
     decRoot = r;
     decTokN = 0;
@@ -7503,6 +7779,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // core parsed THAT array, not a copy of it.
     wireHeap = wire;
     wireBase = off;
+    // A failure while reading the records (a drain error, a replay defect) still
+    // disarms and reclaims: `finally` (rule 3).
+    try {
     if (pullWalk) {
       // `ak_bdr_ptr`: read the records in place. One forward crossing for
       // the whole response and no intermediate at all. A JVM host can do
@@ -7521,8 +7800,10 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayListResultsResponse(pullChunk, pullChunk + got);
       }
     }
-    // Disarmed only after the records are read: they carry the buffers (decision 11).
-    if (retain) ak.corpus.NativeEntry.decResetListResultsResponse(decCtx, 0L);
+    } finally {
+      // Disarmed only after the records are read: they carry the buffers (decision 11).
+      if (retain) { ak.corpus.NativeEntry.decResetListResultsResponse(decCtx, 0L); unkSettle(12, 0); }
+    }
     return r;
   }
 
@@ -7564,7 +7845,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // here would be a forward crossing per decode for nothing.
     decCtx = decCtxOf(13);   // decision 11 rule 6: the root's own context
     if (retain) check(ak.corpus.NativeEntry.decResetListTasksDetailedResponse(decCtx, unkOptsOf(13)));
-    check(ak.corpus.NativeEntry.parseListTasksDetailedResponse(this, decCtx, wire, off, len));
+    int prc = ak.corpus.NativeEntry.parseListTasksDetailedResponse(this, decCtx, wire, off, len);
+    if (prc < 0 && retain) { ak.corpus.NativeEntry.decResetListTasksDetailedResponse(decCtx, 0L); unkSettle(13, prc); }
+    check(prc);
     ListTasksDetailedResponse r = new ListTasksDetailedResponse();
     decRoot = r;
     decTokN = 0;
@@ -7572,6 +7855,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // core parsed THAT array, not a copy of it.
     wireHeap = wire;
     wireBase = off;
+    // A failure while reading the records (a drain error, a replay defect) still
+    // disarms and reclaims: `finally` (rule 3).
+    try {
     if (pullWalk) {
       // `ak_bdr_ptr`: read the records in place. One forward crossing for
       // the whole response and no intermediate at all. A JVM host can do
@@ -7590,8 +7876,10 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayListTasksDetailedResponse(pullChunk, pullChunk + got);
       }
     }
-    // Disarmed only after the records are read: they carry the buffers (decision 11).
-    if (retain) ak.corpus.NativeEntry.decResetListTasksDetailedResponse(decCtx, 0L);
+    } finally {
+      // Disarmed only after the records are read: they carry the buffers (decision 11).
+      if (retain) { ak.corpus.NativeEntry.decResetListTasksDetailedResponse(decCtx, 0L); unkSettle(13, 0); }
+    }
     return r;
   }
 
@@ -7649,7 +7937,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // here would be a forward crossing per decode for nothing.
     decCtx = decCtxOf(14);   // decision 11 rule 6: the root's own context
     if (retain) check(ak.corpus.NativeEntry.decResetListTaskSummaryResponse(decCtx, unkOptsOf(14)));
-    check(ak.corpus.NativeEntry.parseListTaskSummaryResponse(this, decCtx, wire, off, len));
+    int prc = ak.corpus.NativeEntry.parseListTaskSummaryResponse(this, decCtx, wire, off, len);
+    if (prc < 0 && retain) { ak.corpus.NativeEntry.decResetListTaskSummaryResponse(decCtx, 0L); unkSettle(14, prc); }
+    check(prc);
     ListTaskSummaryResponse r = new ListTaskSummaryResponse();
     decRoot = r;
     decTokN = 0;
@@ -7657,6 +7947,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // core parsed THAT array, not a copy of it.
     wireHeap = wire;
     wireBase = off;
+    // A failure while reading the records (a drain error, a replay defect) still
+    // disarms and reclaims: `finally` (rule 3).
+    try {
     if (pullWalk) {
       // `ak_bdr_ptr`: read the records in place. One forward crossing for
       // the whole response and no intermediate at all. A JVM host can do
@@ -7675,8 +7968,10 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayListTaskSummaryResponse(pullChunk, pullChunk + got);
       }
     }
-    // Disarmed only after the records are read: they carry the buffers (decision 11).
-    if (retain) ak.corpus.NativeEntry.decResetListTaskSummaryResponse(decCtx, 0L);
+    } finally {
+      // Disarmed only after the records are read: they carry the buffers (decision 11).
+      if (retain) { ak.corpus.NativeEntry.decResetListTaskSummaryResponse(decCtx, 0L); unkSettle(14, 0); }
+    }
     return r;
   }
 
@@ -7730,7 +8025,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // here would be a forward crossing per decode for nothing.
     decCtx = decCtxOf(15);   // decision 11 rule 6: the root's own context
     if (retain) check(ak.corpus.NativeEntry.decResetListProbeResponse(decCtx, unkOptsOf(15)));
-    check(ak.corpus.NativeEntry.parseListProbeResponse(this, decCtx, wire, off, len));
+    int prc = ak.corpus.NativeEntry.parseListProbeResponse(this, decCtx, wire, off, len);
+    if (prc < 0 && retain) { ak.corpus.NativeEntry.decResetListProbeResponse(decCtx, 0L); unkSettle(15, prc); }
+    check(prc);
     ListProbeResponse r = new ListProbeResponse();
     decRoot = r;
     decTokN = 0;
@@ -7738,6 +8035,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // core parsed THAT array, not a copy of it.
     wireHeap = wire;
     wireBase = off;
+    // A failure while reading the records (a drain error, a replay defect) still
+    // disarms and reclaims: `finally` (rule 3).
+    try {
     if (pullWalk) {
       // `ak_bdr_ptr`: read the records in place. One forward crossing for
       // the whole response and no intermediate at all. A JVM host can do
@@ -7756,8 +8056,10 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayListProbeResponse(pullChunk, pullChunk + got);
       }
     }
-    // Disarmed only after the records are read: they carry the buffers (decision 11).
-    if (retain) ak.corpus.NativeEntry.decResetListProbeResponse(decCtx, 0L);
+    } finally {
+      // Disarmed only after the records are read: they carry the buffers (decision 11).
+      if (retain) { ak.corpus.NativeEntry.decResetListProbeResponse(decCtx, 0L); unkSettle(15, 0); }
+    }
     return r;
   }
 
@@ -7799,7 +8101,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // here would be a forward crossing per decode for nothing.
     decCtx = decCtxOf(16);   // decision 11 rule 6: the root's own context
     if (retain) check(ak.corpus.NativeEntry.decResetListMetricsResponse(decCtx, unkOptsOf(16)));
-    check(ak.corpus.NativeEntry.parseListMetricsResponse(this, decCtx, wire, off, len));
+    int prc = ak.corpus.NativeEntry.parseListMetricsResponse(this, decCtx, wire, off, len);
+    if (prc < 0 && retain) { ak.corpus.NativeEntry.decResetListMetricsResponse(decCtx, 0L); unkSettle(16, prc); }
+    check(prc);
     ListMetricsResponse r = new ListMetricsResponse();
     decRoot = r;
     decTokN = 0;
@@ -7807,6 +8111,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // core parsed THAT array, not a copy of it.
     wireHeap = wire;
     wireBase = off;
+    // A failure while reading the records (a drain error, a replay defect) still
+    // disarms and reclaims: `finally` (rule 3).
+    try {
     if (pullWalk) {
       // `ak_bdr_ptr`: read the records in place. One forward crossing for
       // the whole response and no intermediate at all. A JVM host can do
@@ -7825,8 +8132,10 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayListMetricsResponse(pullChunk, pullChunk + got);
       }
     }
-    // Disarmed only after the records are read: they carry the buffers (decision 11).
-    if (retain) ak.corpus.NativeEntry.decResetListMetricsResponse(decCtx, 0L);
+    } finally {
+      // Disarmed only after the records are read: they carry the buffers (decision 11).
+      if (retain) { ak.corpus.NativeEntry.decResetListMetricsResponse(decCtx, 0L); unkSettle(16, 0); }
+    }
     return r;
   }
 
@@ -7884,7 +8193,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // here would be a forward crossing per decode for nothing.
     decCtx = decCtxOf(17);   // decision 11 rule 6: the root's own context
     if (retain) check(ak.corpus.NativeEntry.decResetUploadResultDataMessage(decCtx, unkOptsOf(17)));
-    check(ak.corpus.NativeEntry.parseUploadResultDataMessage(this, decCtx, wire, off, len));
+    int prc = ak.corpus.NativeEntry.parseUploadResultDataMessage(this, decCtx, wire, off, len);
+    if (prc < 0 && retain) { ak.corpus.NativeEntry.decResetUploadResultDataMessage(decCtx, 0L); unkSettle(17, prc); }
+    check(prc);
     UploadResultDataMessage r = new UploadResultDataMessage();
     decRoot = r;
     decTokN = 0;
@@ -7892,6 +8203,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // core parsed THAT array, not a copy of it.
     wireHeap = wire;
     wireBase = off;
+    // A failure while reading the records (a drain error, a replay defect) still
+    // disarms and reclaims: `finally` (rule 3).
+    try {
     if (pullWalk) {
       // `ak_bdr_ptr`: read the records in place. One forward crossing for
       // the whole response and no intermediate at all. A JVM host can do
@@ -7910,8 +8224,10 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayUploadResultDataMessage(pullChunk, pullChunk + got);
       }
     }
-    // Disarmed only after the records are read: they carry the buffers (decision 11).
-    if (retain) ak.corpus.NativeEntry.decResetUploadResultDataMessage(decCtx, 0L);
+    } finally {
+      // Disarmed only after the records are read: they carry the buffers (decision 11).
+      if (retain) { ak.corpus.NativeEntry.decResetUploadResultDataMessage(decCtx, 0L); unkSettle(17, 0); }
+    }
     return r;
   }
 
@@ -7947,7 +8263,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // here would be a forward crossing per decode for nothing.
     decCtx = decCtxOf(18);   // decision 11 rule 6: the root's own context
     if (retain) check(ak.corpus.NativeEntry.decResetDualResponse(decCtx, unkOptsOf(18)));
-    check(ak.corpus.NativeEntry.parseDualResponse(this, decCtx, wire, off, len));
+    int prc = ak.corpus.NativeEntry.parseDualResponse(this, decCtx, wire, off, len);
+    if (prc < 0 && retain) { ak.corpus.NativeEntry.decResetDualResponse(decCtx, 0L); unkSettle(18, prc); }
+    check(prc);
     DualResponse r = new DualResponse();
     decRoot = r;
     decTokN = 0;
@@ -7955,6 +8273,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // core parsed THAT array, not a copy of it.
     wireHeap = wire;
     wireBase = off;
+    // A failure while reading the records (a drain error, a replay defect) still
+    // disarms and reclaims: `finally` (rule 3).
+    try {
     if (pullWalk) {
       // `ak_bdr_ptr`: read the records in place. One forward crossing for
       // the whole response and no intermediate at all. A JVM host can do
@@ -7973,8 +8294,10 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayDualResponse(pullChunk, pullChunk + got);
       }
     }
-    // Disarmed only after the records are read: they carry the buffers (decision 11).
-    if (retain) ak.corpus.NativeEntry.decResetDualResponse(decCtx, 0L);
+    } finally {
+      // Disarmed only after the records are read: they carry the buffers (decision 11).
+      if (retain) { ak.corpus.NativeEntry.decResetDualResponse(decCtx, 0L); unkSettle(18, 0); }
+    }
     return r;
   }
 
@@ -8017,7 +8340,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // here would be a forward crossing per decode for nothing.
     decCtx = decCtxOf(19);   // decision 11 rule 6: the root's own context
     if (retain) check(ak.corpus.NativeEntry.decResetChunkLeaf(decCtx, unkOptsOf(19)));
-    check(ak.corpus.NativeEntry.parseChunkLeaf(this, decCtx, wire, off, len));
+    int prc = ak.corpus.NativeEntry.parseChunkLeaf(this, decCtx, wire, off, len);
+    if (prc < 0 && retain) { ak.corpus.NativeEntry.decResetChunkLeaf(decCtx, 0L); unkSettle(19, prc); }
+    check(prc);
     ChunkLeaf r = new ChunkLeaf();
     decRoot = r;
     decTokN = 0;
@@ -8025,6 +8350,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // core parsed THAT array, not a copy of it.
     wireHeap = wire;
     wireBase = off;
+    // A failure while reading the records (a drain error, a replay defect) still
+    // disarms and reclaims: `finally` (rule 3).
+    try {
     if (pullWalk) {
       // `ak_bdr_ptr`: read the records in place. One forward crossing for
       // the whole response and no intermediate at all. A JVM host can do
@@ -8043,8 +8371,10 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayChunkLeaf(pullChunk, pullChunk + got);
       }
     }
-    // Disarmed only after the records are read: they carry the buffers (decision 11).
-    if (retain) ak.corpus.NativeEntry.decResetChunkLeaf(decCtx, 0L);
+    } finally {
+      // Disarmed only after the records are read: they carry the buffers (decision 11).
+      if (retain) { ak.corpus.NativeEntry.decResetChunkLeaf(decCtx, 0L); unkSettle(19, 0); }
+    }
     return r;
   }
 
@@ -8080,7 +8410,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // here would be a forward crossing per decode for nothing.
     decCtx = decCtxOf(20);   // decision 11 rule 6: the root's own context
     if (retain) check(ak.corpus.NativeEntry.decResetChunkInner(decCtx, unkOptsOf(20)));
-    check(ak.corpus.NativeEntry.parseChunkInner(this, decCtx, wire, off, len));
+    int prc = ak.corpus.NativeEntry.parseChunkInner(this, decCtx, wire, off, len);
+    if (prc < 0 && retain) { ak.corpus.NativeEntry.decResetChunkInner(decCtx, 0L); unkSettle(20, prc); }
+    check(prc);
     ChunkInner r = new ChunkInner();
     decRoot = r;
     decTokN = 0;
@@ -8088,6 +8420,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // core parsed THAT array, not a copy of it.
     wireHeap = wire;
     wireBase = off;
+    // A failure while reading the records (a drain error, a replay defect) still
+    // disarms and reclaims: `finally` (rule 3).
+    try {
     if (pullWalk) {
       // `ak_bdr_ptr`: read the records in place. One forward crossing for
       // the whole response and no intermediate at all. A JVM host can do
@@ -8106,8 +8441,10 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayChunkInner(pullChunk, pullChunk + got);
       }
     }
-    // Disarmed only after the records are read: they carry the buffers (decision 11).
-    if (retain) ak.corpus.NativeEntry.decResetChunkInner(decCtx, 0L);
+    } finally {
+      // Disarmed only after the records are read: they carry the buffers (decision 11).
+      if (retain) { ak.corpus.NativeEntry.decResetChunkInner(decCtx, 0L); unkSettle(20, 0); }
+    }
     return r;
   }
 
@@ -8150,7 +8487,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // here would be a forward crossing per decode for nothing.
     decCtx = decCtxOf(21);   // decision 11 rule 6: the root's own context
     if (retain) check(ak.corpus.NativeEntry.decResetChunkElement(decCtx, unkOptsOf(21)));
-    check(ak.corpus.NativeEntry.parseChunkElement(this, decCtx, wire, off, len));
+    int prc = ak.corpus.NativeEntry.parseChunkElement(this, decCtx, wire, off, len);
+    if (prc < 0 && retain) { ak.corpus.NativeEntry.decResetChunkElement(decCtx, 0L); unkSettle(21, prc); }
+    check(prc);
     ChunkElement r = new ChunkElement();
     decRoot = r;
     decTokN = 0;
@@ -8158,6 +8497,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // core parsed THAT array, not a copy of it.
     wireHeap = wire;
     wireBase = off;
+    // A failure while reading the records (a drain error, a replay defect) still
+    // disarms and reclaims: `finally` (rule 3).
+    try {
     if (pullWalk) {
       // `ak_bdr_ptr`: read the records in place. One forward crossing for
       // the whole response and no intermediate at all. A JVM host can do
@@ -8176,8 +8518,10 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayChunkElement(pullChunk, pullChunk + got);
       }
     }
-    // Disarmed only after the records are read: they carry the buffers (decision 11).
-    if (retain) ak.corpus.NativeEntry.decResetChunkElement(decCtx, 0L);
+    } finally {
+      // Disarmed only after the records are read: they carry the buffers (decision 11).
+      if (retain) { ak.corpus.NativeEntry.decResetChunkElement(decCtx, 0L); unkSettle(21, 0); }
+    }
     return r;
   }
 
@@ -8222,7 +8566,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // here would be a forward crossing per decode for nothing.
     decCtx = decCtxOf(22);   // decision 11 rule 6: the root's own context
     if (retain) check(ak.corpus.NativeEntry.decResetChunkedResponse(decCtx, unkOptsOf(22)));
-    check(ak.corpus.NativeEntry.parseChunkedResponse(this, decCtx, wire, off, len));
+    int prc = ak.corpus.NativeEntry.parseChunkedResponse(this, decCtx, wire, off, len);
+    if (prc < 0 && retain) { ak.corpus.NativeEntry.decResetChunkedResponse(decCtx, 0L); unkSettle(22, prc); }
+    check(prc);
     ChunkedResponse r = new ChunkedResponse();
     decRoot = r;
     decTokN = 0;
@@ -8230,6 +8576,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // core parsed THAT array, not a copy of it.
     wireHeap = wire;
     wireBase = off;
+    // A failure while reading the records (a drain error, a replay defect) still
+    // disarms and reclaims: `finally` (rule 3).
+    try {
     if (pullWalk) {
       // `ak_bdr_ptr`: read the records in place. One forward crossing for
       // the whole response and no intermediate at all. A JVM host can do
@@ -8248,8 +8597,10 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayChunkedResponse(pullChunk, pullChunk + got);
       }
     }
-    // Disarmed only after the records are read: they carry the buffers (decision 11).
-    if (retain) ak.corpus.NativeEntry.decResetChunkedResponse(decCtx, 0L);
+    } finally {
+      // Disarmed only after the records are read: they carry the buffers (decision 11).
+      if (retain) { ak.corpus.NativeEntry.decResetChunkedResponse(decCtx, 0L); unkSettle(22, 0); }
+    }
     return r;
   }
 
@@ -8306,7 +8657,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // here would be a forward crossing per decode for nothing.
     decCtx = decCtxOf(23);   // decision 11 rule 6: the root's own context
     if (retain) check(ak.corpus.NativeEntry.decResetChunkedResponseWide(decCtx, unkOptsOf(23)));
-    check(ak.corpus.NativeEntry.parseChunkedResponseWide(this, decCtx, wire, off, len));
+    int prc = ak.corpus.NativeEntry.parseChunkedResponseWide(this, decCtx, wire, off, len);
+    if (prc < 0 && retain) { ak.corpus.NativeEntry.decResetChunkedResponseWide(decCtx, 0L); unkSettle(23, prc); }
+    check(prc);
     ChunkedResponseWide r = new ChunkedResponseWide();
     decRoot = r;
     decTokN = 0;
@@ -8314,6 +8667,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // core parsed THAT array, not a copy of it.
     wireHeap = wire;
     wireBase = off;
+    // A failure while reading the records (a drain error, a replay defect) still
+    // disarms and reclaims: `finally` (rule 3).
+    try {
     if (pullWalk) {
       // `ak_bdr_ptr`: read the records in place. One forward crossing for
       // the whole response and no intermediate at all. A JVM host can do
@@ -8332,8 +8688,10 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayChunkedResponseWide(pullChunk, pullChunk + got);
       }
     }
-    // Disarmed only after the records are read: they carry the buffers (decision 11).
-    if (retain) ak.corpus.NativeEntry.decResetChunkedResponseWide(decCtx, 0L);
+    } finally {
+      // Disarmed only after the records are read: they carry the buffers (decision 11).
+      if (retain) { ak.corpus.NativeEntry.decResetChunkedResponseWide(decCtx, 0L); unkSettle(23, 0); }
+    }
     return r;
   }
 
@@ -8390,7 +8748,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // here would be a forward crossing per decode for nothing.
     decCtx = decCtxOf(24);   // decision 11 rule 6: the root's own context
     if (retain) check(ak.corpus.NativeEntry.decResetLeafElement(decCtx, unkOptsOf(24)));
-    check(ak.corpus.NativeEntry.parseLeafElement(this, decCtx, wire, off, len));
+    int prc = ak.corpus.NativeEntry.parseLeafElement(this, decCtx, wire, off, len);
+    if (prc < 0 && retain) { ak.corpus.NativeEntry.decResetLeafElement(decCtx, 0L); unkSettle(24, prc); }
+    check(prc);
     LeafElement r = new LeafElement();
     decRoot = r;
     decTokN = 0;
@@ -8398,6 +8758,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // core parsed THAT array, not a copy of it.
     wireHeap = wire;
     wireBase = off;
+    // A failure while reading the records (a drain error, a replay defect) still
+    // disarms and reclaims: `finally` (rule 3).
+    try {
     if (pullWalk) {
       // `ak_bdr_ptr`: read the records in place. One forward crossing for
       // the whole response and no intermediate at all. A JVM host can do
@@ -8416,8 +8779,10 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayLeafElement(pullChunk, pullChunk + got);
       }
     }
-    // Disarmed only after the records are read: they carry the buffers (decision 11).
-    if (retain) ak.corpus.NativeEntry.decResetLeafElement(decCtx, 0L);
+    } finally {
+      // Disarmed only after the records are read: they carry the buffers (decision 11).
+      if (retain) { ak.corpus.NativeEntry.decResetLeafElement(decCtx, 0L); unkSettle(24, 0); }
+    }
     return r;
   }
 
@@ -8453,7 +8818,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // here would be a forward crossing per decode for nothing.
     decCtx = decCtxOf(25);   // decision 11 rule 6: the root's own context
     if (retain) check(ak.corpus.NativeEntry.decResetLeafResponse(decCtx, unkOptsOf(25)));
-    check(ak.corpus.NativeEntry.parseLeafResponse(this, decCtx, wire, off, len));
+    int prc = ak.corpus.NativeEntry.parseLeafResponse(this, decCtx, wire, off, len);
+    if (prc < 0 && retain) { ak.corpus.NativeEntry.decResetLeafResponse(decCtx, 0L); unkSettle(25, prc); }
+    check(prc);
     LeafResponse r = new LeafResponse();
     decRoot = r;
     decTokN = 0;
@@ -8461,6 +8828,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // core parsed THAT array, not a copy of it.
     wireHeap = wire;
     wireBase = off;
+    // A failure while reading the records (a drain error, a replay defect) still
+    // disarms and reclaims: `finally` (rule 3).
+    try {
     if (pullWalk) {
       // `ak_bdr_ptr`: read the records in place. One forward crossing for
       // the whole response and no intermediate at all. A JVM host can do
@@ -8479,8 +8849,10 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayLeafResponse(pullChunk, pullChunk + got);
       }
     }
-    // Disarmed only after the records are read: they carry the buffers (decision 11).
-    if (retain) ak.corpus.NativeEntry.decResetLeafResponse(decCtx, 0L);
+    } finally {
+      // Disarmed only after the records are read: they carry the buffers (decision 11).
+      if (retain) { ak.corpus.NativeEntry.decResetLeafResponse(decCtx, 0L); unkSettle(25, 0); }
+    }
     return r;
   }
 
@@ -8522,7 +8894,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // here would be a forward crossing per decode for nothing.
     decCtx = decCtxOf(26);   // decision 11 rule 6: the root's own context
     if (retain) check(ak.corpus.NativeEntry.decResetSurrogate(decCtx, unkOptsOf(26)));
-    check(ak.corpus.NativeEntry.parseSurrogate(this, decCtx, wire, off, len));
+    int prc = ak.corpus.NativeEntry.parseSurrogate(this, decCtx, wire, off, len);
+    if (prc < 0 && retain) { ak.corpus.NativeEntry.decResetSurrogate(decCtx, 0L); unkSettle(26, prc); }
+    check(prc);
     Surrogate r = new Surrogate();
     decRoot = r;
     decTokN = 0;
@@ -8530,6 +8904,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // core parsed THAT array, not a copy of it.
     wireHeap = wire;
     wireBase = off;
+    // A failure while reading the records (a drain error, a replay defect) still
+    // disarms and reclaims: `finally` (rule 3).
+    try {
     if (pullWalk) {
       // `ak_bdr_ptr`: read the records in place. One forward crossing for
       // the whole response and no intermediate at all. A JVM host can do
@@ -8548,8 +8925,10 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replaySurrogate(pullChunk, pullChunk + got);
       }
     }
-    // Disarmed only after the records are read: they carry the buffers (decision 11).
-    if (retain) ak.corpus.NativeEntry.decResetSurrogate(decCtx, 0L);
+    } finally {
+      // Disarmed only after the records are read: they carry the buffers (decision 11).
+      if (retain) { ak.corpus.NativeEntry.decResetSurrogate(decCtx, 0L); unkSettle(26, 0); }
+    }
     return r;
   }
 
@@ -8592,7 +8971,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // here would be a forward crossing per decode for nothing.
     decCtx = decCtxOf(27);   // decision 11 rule 6: the root's own context
     if (retain) check(ak.corpus.NativeEntry.decResetSurrogateInner(decCtx, unkOptsOf(27)));
-    check(ak.corpus.NativeEntry.parseSurrogateInner(this, decCtx, wire, off, len));
+    int prc = ak.corpus.NativeEntry.parseSurrogateInner(this, decCtx, wire, off, len);
+    if (prc < 0 && retain) { ak.corpus.NativeEntry.decResetSurrogateInner(decCtx, 0L); unkSettle(27, prc); }
+    check(prc);
     SurrogateInner r = new SurrogateInner();
     decRoot = r;
     decTokN = 0;
@@ -8600,6 +8981,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // core parsed THAT array, not a copy of it.
     wireHeap = wire;
     wireBase = off;
+    // A failure while reading the records (a drain error, a replay defect) still
+    // disarms and reclaims: `finally` (rule 3).
+    try {
     if (pullWalk) {
       // `ak_bdr_ptr`: read the records in place. One forward crossing for
       // the whole response and no intermediate at all. A JVM host can do
@@ -8618,8 +9002,10 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replaySurrogateInner(pullChunk, pullChunk + got);
       }
     }
-    // Disarmed only after the records are read: they carry the buffers (decision 11).
-    if (retain) ak.corpus.NativeEntry.decResetSurrogateInner(decCtx, 0L);
+    } finally {
+      // Disarmed only after the records are read: they carry the buffers (decision 11).
+      if (retain) { ak.corpus.NativeEntry.decResetSurrogateInner(decCtx, 0L); unkSettle(27, 0); }
+    }
     return r;
   }
 
@@ -8655,7 +9041,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // here would be a forward crossing per decode for nothing.
     decCtx = decCtxOf(28);   // decision 11 rule 6: the root's own context
     if (retain) check(ak.corpus.NativeEntry.decResetWireZoo(decCtx, unkOptsOf(28)));
-    check(ak.corpus.NativeEntry.parseWireZoo(this, decCtx, wire, off, len));
+    int prc = ak.corpus.NativeEntry.parseWireZoo(this, decCtx, wire, off, len);
+    if (prc < 0 && retain) { ak.corpus.NativeEntry.decResetWireZoo(decCtx, 0L); unkSettle(28, prc); }
+    check(prc);
     WireZoo r = new WireZoo();
     decRoot = r;
     decTokN = 0;
@@ -8663,6 +9051,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // core parsed THAT array, not a copy of it.
     wireHeap = wire;
     wireBase = off;
+    // A failure while reading the records (a drain error, a replay defect) still
+    // disarms and reclaims: `finally` (rule 3).
+    try {
     if (pullWalk) {
       // `ak_bdr_ptr`: read the records in place. One forward crossing for
       // the whole response and no intermediate at all. A JVM host can do
@@ -8681,8 +9072,10 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
         replayWireZoo(pullChunk, pullChunk + got);
       }
     }
-    // Disarmed only after the records are read: they carry the buffers (decision 11).
-    if (retain) ak.corpus.NativeEntry.decResetWireZoo(decCtx, 0L);
+    } finally {
+      // Disarmed only after the records are read: they carry the buffers (decision 11).
+      if (retain) { ak.corpus.NativeEntry.decResetWireZoo(decCtx, 0L); unkSettle(28, 0); }
+    }
     return r;
   }
 
