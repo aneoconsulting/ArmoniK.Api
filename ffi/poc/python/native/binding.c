@@ -55,6 +55,9 @@ static PyObject *py_encode(PyObject *m, PyObject *args) {
   return AK_ENC[b][r](root, acc, retain);
 }
 
+static unsigned long long AK_UNK_OK[2];  /* successful decodes: [0] drop, [1] retain */
+static unsigned long long AK_UNK_LEAKED; /* buffers reclaimed undelivered after a SUCCESS */
+
 static PyObject *py_decode(PyObject *m, PyObject *args) {
   (void)m;
   const char *backend, *rootname;
@@ -70,7 +73,15 @@ static PyObject *py_decode(PyObject *m, PyObject *args) {
   HostTypes T;
   memset(&T, 0, sizeof T);
   if (types_from_seq(&T, types)) return NULL;
-  return AK_DEC[b][r](buf, acc, &T, retain, zero);
+  PyObject *res = AK_DEC[b][r](buf, acc, &T, retain, zero);
+  /* Run-level leak accounting (CAMPAIGN req 12 C-retain/D-retain): read right after the
+   * generated decode stored it, with no Python code run in between, so under the GIL it is
+   * this decode's figure even with other threads decoding. */
+  if (res) {
+    AK_UNK_OK[retain ? 1 : 0]++;
+    AK_UNK_LEAKED += AK_LAST_RECLAIMED;
+  }
+  return res;
 }
 
 /* ABI v1 section 10 and obligation 12.3.  The shim and the core restate the same group
@@ -227,6 +238,13 @@ static PyObject *py_last_reclaimed(PyObject *m, PyObject *unused) {
   (void)m;
   (void)unused;
   return PyLong_FromUnsignedLong(AK_LAST_RECLAIMED);
+}
+
+/* (drop decodes, retain decodes, leaked buffers) since import, successful decodes only. */
+static PyObject *py_unk_totals(PyObject *m, PyObject *unused) {
+  (void)m;
+  (void)unused;
+  return Py_BuildValue("(KKK)", AK_UNK_OK[0], AK_UNK_OK[1], AK_UNK_LEAKED);
 }
 
 /* Decision 11 port: decode contexts are per root per thread, created once and reused.
@@ -513,6 +531,7 @@ static PyMethodDef methods[] = {
     {"unk_positions", py_unk_positions, METH_VARARGS, "decision 11: a root's unknown-field positions"},
     {"wrong_root", py_wrong_root, METH_VARARGS, "decision 11 rule 6 control: (reset rc, decode rc, delivered)"},
     {"last_reclaimed", py_last_reclaimed, METH_NOARGS, "buffers the last decode reclaimed undelivered"},
+    {"unk_totals", py_unk_totals, METH_NOARGS, "(drop decodes, retain decodes, leaked buffers) since import"},
     {"tls_created", py_tls_created, METH_NOARGS, "decode contexts created through the per-thread key"},
     {"layout_host", py_layout_host, METH_NOARGS,
      "the shim's own layout facts, named, as compared with the core's at import"},
