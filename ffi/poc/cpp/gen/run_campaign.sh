@@ -105,7 +105,8 @@ DIRTY=$(git -C "$REPO" status --porcelain -- ffi/poc/cpp ffi/poc/codec ffi/schem
 if [ -n "$DIRTY" ] && [ "${AK_CAMPAIGN_ALLOW_DIRTY:-0}" != 1 ]; then
   echo "REFUSED: the tree is dirty (requirement 27):" >&2; echo "$DIRTY" | head -20 >&2; exit 2
 fi
-COMMIT=$(git -C "$REPO" rev-parse HEAD)
+# AK_COMMIT: the commit a snapshot run was archived from (else the repository HEAD).
+COMMIT=${AK_COMMIT:-$(git -C "$REPO" rev-parse HEAD)}
 
 header() {  # header <suite> <launch> : one JSON line, prefixed "# " (requirement 27)
   python3 - "$1" "$2" <<EOF

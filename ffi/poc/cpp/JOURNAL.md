@@ -1381,3 +1381,21 @@ Not met, with reasons, in STATE.md's checklist: requirement 10 (core-ffi retain 
 the C++ decision-11 port) and the section 3 incumbent versions (the container has only
 grpc++ 1.51.1). The rust bench in the calib suite did not build in the snapshot, because
 the snapshot lacks `poc/rust/crates`. perf is absent here.
+
+## 2026-09-25: requirement 22a, the codec suite on Google Benchmark
+
+I installed Google Benchmark 1.8.3 from apt (libbenchmark-dev). The gate, its plant and
+the warm-up are unchanged. The rotated-round loop is replaced by one registered benchmark
+per slot:
+- fixed iterations, raw repetitions, random interleaving;
+- registration order rotated by launch;
+- DoNotOptimize and ClobberMemory every iteration.
+
+A converter maps the per-repetition JSON to section 7's lines. The first conversion
+leaked Google Benchmark's name suffixes ("/iterations:3/repeats:2") into `unknown_mode`.
+The name is now cut at the first "/".
+
+The apt build reports itself as a debug build of the library; this is stated in the
+checklist. The smoke's header names 7b5dad4, the repository HEAD at run time. The
+snapshot was archived at b2bc2b8, and the five commits between them touch none of the
+run's inputs. The runner now takes `AK_COMMIT` for snapshot runs.
