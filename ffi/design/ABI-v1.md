@@ -1346,10 +1346,12 @@ Each blocks something. None is settled by a measurement that exists today.
      typedef struct {
          ak_unk_buf  buf;    /* one pre-allocated buffer for this position */
          ak_grow_fn  grow;   /* called when buf is absent, too small, or already handed out */
-         void       *host;   /* passed back to grow */
      } ak_unk_opts;          /* all zero: unknowns at this position are discarded */
 
      typedef struct {        /* generated per root, same traversal as the groups */
+         void       *host;   /* ONE per options struct, passed back to every grow as `sink`;
+                                a host that needs to tell positions apart gives them
+                                different grow functions (owner, 2026-09-24) */
          ak_unk_opts self;
          ak_unk_opts tasks;
          ak_unk_opts tasks_options;
