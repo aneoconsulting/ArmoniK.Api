@@ -341,7 +341,8 @@ int main(int argc, char **argv) {
   // same mode, and the result must be what the INCUMBENT makes of the same response
   // (protobuf C++ retains unknown fields by default): both sides parsed by protobuf and
   // re-serialised deterministically, so the comparison is of messages, not of one encoder's
-  // form. Retain additionally re-encodes byte-identical to the wire it read.
+  // form. (Not byte identity with the wire: the server's pre-serialised P2.2 is protobuf's
+  // own form, which differs from the canonical one in encoding choices, not in content.)
   for (size_t i = 0; i < cells.size(); ++i) {
     const Cell &cl = cells[i];
     if (cl.mode == kDefault) continue;
@@ -381,7 +382,6 @@ int main(int argc, char **argv) {
       back.SerializeToCodedStream(&co);
     }
     if (inc_det != our_det) die("pre-check: the core's re-encode differs from the incumbent's", (long)i);
-    if (cl.mode == kRetain && ours != wire) die("pre-check: retain re-encode not byte-identical", (long)i);
     if ((long)f.tasks.size() != inc.tasks_size()) die("pre-check task count", (long)f.tasks.size());
   }
 
