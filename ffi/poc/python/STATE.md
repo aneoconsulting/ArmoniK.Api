@@ -8,7 +8,7 @@ are listed at the foot as instrumentation.
 
 | | |
 |---|---|
-| **Status** | Work unit 7 done: **decision 11 through the C ABI** (FIX-PLAN WP5 step 9). The shim renders root-bound contexts **held per thread** (one per root and one encoder per thread, created lazily, reused; correction of the per-call context), per-root `ak_dec_<Root>_opts` armed per decode, a C grow, slots taken into the facade's `_unknown`, and the `ak_uencode_*` family. **ffi-retain** passes the whole corpus at 3.12 and 3.7 (no retention gap except the disputed U-map-entry), and the decision 11 controls pass. **CAMPAIGN requirement 10 is now met**: core-ffi retain is timed in the pyperf codec suite. WP3 harness (work unit 6) below |
+| **Status** | Work unit 8 done: **the no-unknown variant** (FIX-PLAN WP5 step 10 port) rendered, built, gated at 3.12 and 3.7 and in the codec and RPC harnesses; `AK_LAST_RECLAIMED` per thread. See the section below. Before it, work unit 7: **decision 11 through the C ABI** (FIX-PLAN WP5 step 9). The shim renders root-bound contexts **held per thread** (one per root and one encoder per thread, created lazily, reused; correction of the per-call context), per-root `ak_dec_<Root>_opts` armed per decode, a C grow, slots taken into the facade's `_unknown`, and the `ak_uencode_*` family. **ffi-retain** passes the whole corpus at 3.12 and 3.7 (no retention gap except the disputed U-map-entry), and the decision 11 controls pass. **CAMPAIGN requirement 10 is now met**: core-ffi retain is timed in the pyperf codec suite. WP3 harness (work unit 6) below |
 | **Floor** (owner D1: 3.7) | **Builds and passes every gate on CPython 3.7.5** (Ubuntu 18.04's packages from archive.ubuntu.com, `fetch_py37.sh`): logs 90-97 |
 | **Target** (owner D1: 3.12) | Built and gated on **3.12.3**: logs 90-96, 98. grpcio 1.84.0, protobuf 7.36.2 (upb) |
 | **Incumbent** (R14) | protobuf on **upb** through gRPC's generated marshaller path (`SerializeToString` / `FromString`), `verify_r14.py` (log 52). On the 3.7 floor: protobuf 4.24.4 (upb), for the conformance gate only |
@@ -80,14 +80,66 @@ per-thread correction; the same figures as the per-call gate at 883ae3b):
 unknown rows, plus host-gen drop and retain and the incumbent at its default. Smoke,
 instrumentation: `logs/python/campaign/codec-*` (rerun on the per-thread contexts).
 
+## The no-unknown variant (work unit 8, FIX-PLAN WP5 step 10 port)
+
+Unknown-field support is **compiled out**, not disabled at run time.
+- **Render:** `gen/generate.py` renders `gen/out/nounk/` and `gen/out/corpus-nounk/` from
+  `P.relower(p, p.options.with_unknown("drop"))`: `py_capi.emit` (this slice's backend,
+  `poc/codec/gen/py_capi.py`) and `c_abi.emit`'s second header (`AK_NO_UNKNOWN_FIELDS 1`).
+  - The variant shim has no `ak_ufix`, `fillu_`/`loopu_`, options, `ak_dec_reset_<Root>`,
+    `ak_uencode_*`/`ak_uelem*`, grow/reclaim or `unknown` member reads.
+  - It calls `ak_dec_ctx_new_<Root>(void)`. A `retain` argument is refused (ValueError).
+  - The full build's generated text changed only by the thread-local `AK_LAST_RECLAIMED`.
+  - The facade keeps its `_unknown` slot: `py_pure.emit_facade` renders the same facade from
+    both plans, so the variant still carries that slot per object.
+- **Build** (`build.sh`): four more cores with `--no-default-features` (`init-guard`,
+  `count,init-guard`, `rpc,init-guard`, `corpus,init-guard`), each in its own target
+  directory (`build/cargo/*-nounk`). Separate modules are built from them: `_akffi_nounk`,
+  `_akffi_count_nounk`, `_akffi_rpc_nounk`, `_akffi_corpus_nounk`,
+  `_akffi_corpus_chunk_nounk`, plus the noinit control. `native/binding.c` selects the
+  variant with `-DAK_NOUNK`, and `#error`s if the shim and the header disagree.
+- **Build checks:**
+  - The variant cores export 0 u-family entry points, against 21 in the full cores.
+  - Each module resolves `libak_core.so` to its own core and imports 0 u-family entry
+    points in the variant (full: 21, corpus 70).
+  - Layout facts: 240 in the variant against 400 in the full build (corpus: 340 against 574).
+  - Must-fail: the variant shim linked to the full core refuses to import at the layout check.
+- **Gate** (logs 100-103 at 3.12 and 3.7):
+  - conformance on `_akffi_nounk` and on `_akffi_rpc_nounk`;
+  - the whole corpus through the variant:
+    - 4 arms, 0 failures;
+    - the 307 unknown rows that have a dropped form write it on every ffi arm; the 4
+      open-enum rows have no dropped form in the manifest and are checked by C3;
+    - byte identity with the full build's drop arms at the same level: 2,181 re-encodings,
+      0 differ;
+    - the controls fail as required;
+  - the variant's own controls: 0 positions; 622 of 622 retain calls refused; wrong root
+    refused with -8 on 812 pairs; per-thread contexts.
+- **Crossing counts** (step 103, whole numbers per call, committed in
+  `counts/crossings-{drop,nounk}.txt`):
+  - only P1.2 decode moves, reverse **8 to 5**, on all 5 backends; 5 of 160 rows differ,
+    the same as in the rust slice;
+  - the per-element table (log 98) rounds this away, which is why the files hold
+    whole-call totals.
+- **Harness:**
+  - codec: `camp_pyperf.py --variant nounk` writes `codec-<family>-nounk-launchN`;
+  - RPC: `camp_rpc.py --variant nounk` writes `rpc-nounk-launchN`;
+  - `run_campaign.sh` runs both builds per launch, in an order alternated by launch.
+  - No figure crosses the two builds except through the incumbent rows timed in the same
+    process.
+- **`AK_LAST_RECLAIMED` per thread** (`_Thread_local`, or `__thread`).
+  - Control (the d11 controls, log 93): thread A's retain decode fails after growing a buffer
+    (reclaims 1). Thread B then makes a successful decode (0). A reads 1 again.
+  - Its must-fail twin (`ctl/_akffi_corpus_globalreclaim`, built with `AK_THREAD_LOCAL`
+    empty) reads B's 0, and the control fails as required.
+
 ## RPC cells per unknown-field mode (CAMPAIGN req 12 as amended, 85cb00f)
 
 `camp_rpc.py` runs C and D as **C-retain, C-drop, D-retain, D-drop** in every direction
 (a, a+read, b). Retain passes `retain=True` to decode and encode (every position armed, on the
 per-thread contexts); drop is the same build with every entry zero. Every sample row carries
-`unknown_mode` (A, B: `incumbent-default`; C-queue, C-callback: `drop`). **C-nounk/D-nounk
-are not built**: they wait for the compiled-out variant in `poc/codec` and its port here
-(the next step, with the `AK_LAST_RECLAIMED` fix).
+`unknown_mode` (A, B: `incumbent-default`; C-queue, C-callback: `drop`). C-nounk/D-nounk are
+the no-unknown build's client (work unit 8, section above).
 Checks per transport, and a failed one aborts with no sample written:
 - every call checked as before;
 - the retain control: P2.2 with field 1000 appended is re-emitted by the retain calls and
@@ -154,29 +206,29 @@ raw measurement exported.
 | 7 | met | 16 payloads; the content sets on P2.4 (SHAPES.md P10 row; the Rust slice's recode rule); every corpus U-* row whose root the C ABI carries, disputed excluded (311 rows; the Nest rows and U-map-entry named with the reason) |
 | 8 | met | incumbent-prod (SerializeToString / FromString), incumbent-best (SerializePartialToString, ParseFromString into a reused message), core-ffi (push), host-gen; core-ffi-attr as a labelled extra. No pull arm exists in this slice |
 | 9 | met | encode, decode (bare), decode+read through one reader for every arm |
-| 10 | **met** (work unit 7) | core-ffi drop and retain (decision 11, every position armed; `ak_uencode_*` on encode), host-gen drop and retain, incumbent at upb's default (retain, stated) |
+| 10 | **met** (work unit 8, three modes) | core-ffi drop and retain (decision 11, every position armed; `ak_uencode_*` on encode) in the full build, and core-ffi **no-unknown** in the separately built variant (`--variant nounk`: `_akffi_nounk` / `_akffi_corpus_nounk`, own pyperf invocation with the incumbent as its control, order alternated by launch). host-gen drop and retain; host-gen has **no** third arm because `py_pure.emit_pycodec` renders byte-identical text for drop from the full and the relowered plan (checked), so host-gen drop is already the compiled-out form. Incumbent at upb's default (retain, stated) |
 | 11 | met (argued) | the same object graph is re-serialised each iteration; neither upb-python nor the facades memoise a serialised size or form, so nothing is amortised. Stated, not rebuilt per iteration |
-| 12 | met | cells A, B, C, D |
+| 12 | **met** (req 12 as amended) | full build: A, B, C-retain, C-drop, D-retain, D-drop; no-unknown build (`camp_rpc.py --variant nounk`, `_akffi_rpc_nounk`, its own process): A, B (in-process controls), C-nounk, D-nounk. `unknown_mode` on every sample |
 | 13 | met | `camp_server.py`, a separate pinned process; (a) pre-serialised P2.2; (b) the server decodes with upb, identically for every cell |
 | 14 | met | (a) and (b); the optional streamed upload is not built |
 | 15 | met | 1, 8, 16 in flight |
 | 16 | met | B and C blocking; queue and callback as labelled extras, direction (a) only |
 | 17 | met | shipped and pinned, the same switch for all four cells and one server process per transport. grpcio has no connection-window argument and sets TCP_NODELAY itself; both stated in the header |
 | 18 | met | every call checked (status, length); the server checks every request; one failure aborts with no sample. The planted short-body control is seen failing in the gate suite |
-| 19 | met | calib compares the counting build with `counts_expected.txt` and stops on a difference; gate step 98 does the same against log 85 |
+| 19 | met | calib compares the counting build with `counts_expected.txt` and stops on a difference; gate step 98 does the same against log 85; gate step 103 compares whole-number per-call counts of the full build (`counts/crossings-drop.txt`) and the no-unknown build (`counts/crossings-nounk.txt`) with their committed files |
 | 20 | partly met | host forward and fwd+reverse measured separately (reverse alone is the difference, left to the summary); the rust slice's `bench` is built from the snapshot and run pinned. `perf stat` is implemented but `perf` is absent in this container, so cycles and instructions are unverified |
 | 21 | met | codec: CLOCK_THREAD_CPUTIME_ID; rpc: CLOCK_PROCESS_CPUTIME_ID of the client, wall beside |
 | 22 | met (22a) | codec: pyperf, one worker per benchmark, order rotated between launches; rpc: rotated by one per round within (transport, direction, in flight) |
 | 23 | met | defaults 5 rounds x 3 launches, every sample written (smoke: 1 x 1) |
 | 24 | met | codec: pyperf's warm-up (3 values) and loop calibration, exported; rpc: one sample's calls per cell before round 1 |
 | 25 | met | M_TOP_PAD before any allocation (J26); GC ON, `gc.collect()` before every sample, stated |
-| 26 | met | codec, rpc and calib refuse without a `gate.ok` for the trees they read; the corpus runs every codec arm in both unknown-field modes (ffi-retain added) |
+| 26 | met | codec, rpc and calib refuse without a `gate.ok` for the trees they read; the corpus runs every codec arm in both unknown-field modes (ffi-retain added), and the no-unknown variant has its own corpus gate (step 101) |
 | 27 | met | header: commit (a dirty tree is refused unless `--allow-dirty`), machine, CPU sets, versions, build, transport, warm-up, repeats |
 | 28 | met | one JSON object per sample with the listed fields |
 | 29 | met by parameter | `--out`; the smoke is in `logs/python/campaign/` |
 | 30 | met | `camp_summary.py`: median [min, max] and per-round ratio only |
 | 31 | met for the slice | `run_campaign.sh` with the common interface. The top-level `ffi/campaign.sh` is outside this slice's directory (aggregating session) |
-| 32 | met | this smoke run, and this section |
+| 32 | met | the smoke runs (headers marked INSTRUMENTATION; the no-unknown files beside the full ones), and this section |
 
 Harness changes the contract forced: the RPC server moved out of process (R-C3/R-C4); the
 collector is ON for timed runs (bench.py's GC-off rule is superseded for the campaign); decode
@@ -287,7 +339,7 @@ shim -> CPython (counted by the shim), core fwd and core rev (counted by the cor
 
 ## Open defects
 
-- **`AK_LAST_RECLAIMED` is process-global** in the py_capi render (`poc/codec/gen`, not
+- (fixed in work unit 8) **`AK_LAST_RECLAIMED` was process-global** in the py_capi render (`poc/codec/gen`, not
   mine to edit). With threads decoding, a GIL switch between its store and the read
   can misattribute a decode's figure. `unk_totals()` reads it in C immediately after the
   generated decode returns. On success, one facade attribute store runs in between, and it
@@ -335,7 +387,9 @@ stale text (JOURNAL J28).
 1. The owner's campaign run: `./run_campaign.sh --suite gate|calib|codec|rpc --out
    ffi/logs/python/campaign`, without `--smoke`, with the CPU sets exported.
 2. Re-render (`gen/generate.py`) and re-gate (`./gate.sh python3.12 build/py37/python3.7`)
-   whenever `plan.py`, `c_abi.py` or the core changes.
+   whenever `plan.py`, `c_abi.py` or the core changes. The gate now includes the no-unknown
+   variant (steps 100-103); a changed crossing count in either build stops it until the
+   committed file in `counts/` is reviewed and replaced.
 
 ## Log index
 
@@ -354,6 +408,10 @@ stale text (JOURNAL J28).
 | `95-wp5-rd1-lenwrap-py3.12.log`, `-py3.7.log` | R-D1 through the shim |
 | `96-wp5-u1-py3.12.log`, `-py3.7.log` | U1 |
 | `97-wp5-floor-source.log` | 3.7.5 headers, five variants, and the pre-port control |
+| `100-wp5s10-conformance-nounk-py3.12.log`, `-py3.7.log` | conformance on the no-unknown variant `_akffi_nounk`, its crossing counts (whole numbers under `abs`) |
+| `101-wp5s10-corpus-nounk-py3.12.log`, `-py3.7.log` | the whole corpus through the variant: dropped form on every unknown row that has one, byte identity against the full build's drop arms, the controls, the variant's own controls |
+| `102-wp5s10-conformance-rpc-nounk-py3.12.log`, `-py3.7.log` | conformance on `_akffi_rpc_nounk` |
+| `103-wp5s10-counts-drop-vs-nounk.log` | whole-number crossing counts of both builds against `counts/`, and their difference (P1.2 decode reverse 8 to 5) |
 | `98-wp5-counts-vs-85.log` | crossing counts unchanged by the port; the header is the cpp slice's |
 | `99-wp5-corpus-chunk256-before-D13.log` | D13 before the fix (71 rows, all packed) |
 | `52-r14-baseline.log` | R14 derived from `Protos/V1` |

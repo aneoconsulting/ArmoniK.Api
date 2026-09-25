@@ -1,20 +1,20 @@
 # python slice: build, WP5 step 5 (plan-rendered shim, init-guard cores)
-# date:      2026-09-25T18:39:05Z
-# commit:    acb5128 + uncommitted changes in poc/python or poc/codec
+# date:      2026-09-25T22:15:53Z
+# commit:    c27def8 + uncommitted changes in poc/python or poc/codec
 # phase:     correctness only; nothing here is a timing
 
    core source: /home/user/ArmoniK.Api/ffi/poc/codec
-   commit:      acb5128 + UNCOMMITTED CHANGES in poc/codec
-   core tree:   156740261d843af3
-   targets:     /home/user/ArmoniK.Api/ffi/poc/python/build/cargo/{plain,count,rpc,corpus}
+   commit:      c27def8 + UNCOMMITTED CHANGES in poc/codec
+   core tree:   dddeb70af18c28b4
+   targets:     /home/user/ArmoniK.Api/ffi/poc/python/build/cargo/{plain,count,rpc,corpus} and the no-unknown variant's /home/user/ArmoniK.Api/ffi/poc/python/build/cargo/{plain,count,rpc,corpus}-nounk
 == 1. R0: one core, at poc/codec, reached by path ==
-  [ok]   codec/gen/generate.py --check: 9 files ok
+  [ok]   codec/gen/generate.py --check: 15 files ok
 
 one_core: 0 failure(s)
 
 == 2. R1: the generated tree is current with the plans ==
 guard 2 python backend modules import plans only; a planted IR import is caught
-generated tree is current with the plans (10 files)
+generated tree is current with the plans (14 files)
 
 == 3. the shared core, every build WITH init-guard (R-G7) ==
    cargo (plain --features init-guard): 16 warnings, in /home/user/ArmoniK.Api/ffi/poc/python/build/cargo/plain.stderr
@@ -24,14 +24,35 @@ generated tree is current with the plans (10 files)
    the rpc core: 14 section 9 entry points
    cargo (corpus --features corpus,init-guard): 38 warnings, in /home/user/ArmoniK.Api/ffi/poc/python/build/cargo/corpus.stderr
    the corpus core: 1 ak_decode_WireZoo export(s)
+   cargo (plain-nounk --no-default-features --features init-guard): 9 warnings, in /home/user/ArmoniK.Api/ffi/poc/python/build/cargo/plain-nounk.stderr
+   cargo (count-nounk --no-default-features --features count,init-guard): 9 warnings, in /home/user/ArmoniK.Api/ffi/poc/python/build/cargo/count-nounk.stderr
+   cargo (rpc-nounk --no-default-features --features rpc,init-guard): 9 warnings, in /home/user/ArmoniK.Api/ffi/poc/python/build/cargo/rpc-nounk.stderr
+   cargo (corpus-nounk --no-default-features --features corpus,init-guard): 20 warnings, in /home/user/ArmoniK.Api/ffi/poc/python/build/cargo/corpus-nounk.stderr
+   no-unknown cores: 0 u-family exports (ak_uencode_*, ak_uelem*, ak_dec_reset_*) in each of 4; the full cores export 21
 
 == python 3.12 (3.12.3, sys.hexversion 0x30c03f0) ==
    built _akffi, _akffi_count, _akffi_rpc, _akffi_corpus, _akffi_corpus_chunk in build/py3.12; the noinit control in build/py3.12/ctl
+   built the no-unknown variant: _akffi_nounk, _akffi_count_nounk, _akffi_rpc_nounk, _akffi_corpus_nounk, _akffi_corpus_chunk_nounk; its noinit control in build/py3.12/ctl
+   _akffi: libak_core.so is plain, 21 u-family imports, layout facts and variant: 400 False
+   _akffi_count: libak_core.so is count, 21 u-family imports, layout facts and variant: 400 False
+   _akffi_rpc: libak_core.so is rpc, 21 u-family imports, layout facts and variant: 400 False
+   _akffi_corpus: libak_core.so is corpus, 70 u-family imports, layout facts and variant: 574 False
+   _akffi_nounk: libak_core.so is plain-nounk, 0 u-family imports, layout facts and variant: 240 True
+   _akffi_count_nounk: libak_core.so is count-nounk, 0 u-family imports, layout facts and variant: 240 True
+   _akffi_rpc_nounk: libak_core.so is rpc-nounk, 0 u-family imports, layout facts and variant: 240 True
+   _akffi_corpus_nounk: libak_core.so is corpus-nounk, 0 u-family imports, layout facts and variant: 340 True
+   _akffi_corpus_chunk_nounk: libak_core.so is corpus-nounk, 0 u-family imports, layout facts and variant: 340 True
+   must-fail control: the no-unknown shim over the full core refuses to import: ImportError: layout: the core exports 400 facts, this shim pins 240
    _akffi.cpython-312-x86_64-linux-gnu.so: 67 undefined ak_* imports incl. ak_init, PyInit_ exported, libak_core.so NEEDED
    _akffi_count.cpython-312-x86_64-linux-gnu.so: 71 undefined ak_* imports incl. ak_init, PyInit_ exported, libak_core.so NEEDED
    _akffi_rpc.cpython-312-x86_64-linux-gnu.so: 81 undefined ak_* imports incl. ak_init, PyInit_ exported, libak_core.so NEEDED
    _akffi_corpus.cpython-312-x86_64-linux-gnu.so: 187 undefined ak_* imports incl. ak_init, PyInit_ exported, libak_core.so NEEDED
    _akffi_corpus_chunk.cpython-312-x86_64-linux-gnu.so: 187 undefined ak_* imports incl. ak_init, PyInit_ exported, libak_core.so NEEDED
+   _akffi_nounk.cpython-312-x86_64-linux-gnu.so: 46 undefined ak_* imports incl. ak_init, PyInit_ exported, libak_core.so NEEDED
+   _akffi_count_nounk.cpython-312-x86_64-linux-gnu.so: 50 undefined ak_* imports incl. ak_init, PyInit_ exported, libak_core.so NEEDED
+   _akffi_rpc_nounk.cpython-312-x86_64-linux-gnu.so: 60 undefined ak_* imports incl. ak_init, PyInit_ exported, libak_core.so NEEDED
+   _akffi_corpus_nounk.cpython-312-x86_64-linux-gnu.so: 117 undefined ak_* imports incl. ak_init, PyInit_ exported, libak_core.so NEEDED
+   _akffi_corpus_chunk_nounk.cpython-312-x86_64-linux-gnu.so: 117 undefined ak_* imports incl. ak_init, PyInit_ exported, libak_core.so NEEDED
    control: _akffi_corpus_noinit imports no ak_init (AK_SKIP_INIT is in that build only)
    must-fail control: a planted layout mismatch refuses to import: ImportError: layout: ak_dfix_TaskOptionsOptionsEntry.key is 1 in the core and 0 here
    _akffi_rpc.cpython-312-x86_64-linux-gnu.so: all 6 section 9 imports, libak_core.so resolves to the rpc build
@@ -39,11 +60,27 @@ generated tree is current with the plans (10 files)
 
 == python 3.7 (3.7.5, sys.hexversion 0x30705f0) ==
    built _akffi, _akffi_count, _akffi_rpc, _akffi_corpus, _akffi_corpus_chunk in build/py3.7; the noinit control in build/py3.7/ctl
+   built the no-unknown variant: _akffi_nounk, _akffi_count_nounk, _akffi_rpc_nounk, _akffi_corpus_nounk, _akffi_corpus_chunk_nounk; its noinit control in build/py3.7/ctl
+   _akffi: libak_core.so is plain, 21 u-family imports, layout facts and variant: 400 False
+   _akffi_count: libak_core.so is count, 21 u-family imports, layout facts and variant: 400 False
+   _akffi_rpc: libak_core.so is rpc, 21 u-family imports, layout facts and variant: 400 False
+   _akffi_corpus: libak_core.so is corpus, 70 u-family imports, layout facts and variant: 574 False
+   _akffi_nounk: libak_core.so is plain-nounk, 0 u-family imports, layout facts and variant: 240 True
+   _akffi_count_nounk: libak_core.so is count-nounk, 0 u-family imports, layout facts and variant: 240 True
+   _akffi_rpc_nounk: libak_core.so is rpc-nounk, 0 u-family imports, layout facts and variant: 240 True
+   _akffi_corpus_nounk: libak_core.so is corpus-nounk, 0 u-family imports, layout facts and variant: 340 True
+   _akffi_corpus_chunk_nounk: libak_core.so is corpus-nounk, 0 u-family imports, layout facts and variant: 340 True
+   must-fail control: the no-unknown shim over the full core refuses to import: ImportError: layout: the core exports 400 facts, this shim pins 240
    _akffi.cpython-37m-x86_64-linux-gnu.so: 67 undefined ak_* imports incl. ak_init, PyInit_ exported, libak_core.so NEEDED
    _akffi_count.cpython-37m-x86_64-linux-gnu.so: 71 undefined ak_* imports incl. ak_init, PyInit_ exported, libak_core.so NEEDED
    _akffi_rpc.cpython-37m-x86_64-linux-gnu.so: 81 undefined ak_* imports incl. ak_init, PyInit_ exported, libak_core.so NEEDED
    _akffi_corpus.cpython-37m-x86_64-linux-gnu.so: 187 undefined ak_* imports incl. ak_init, PyInit_ exported, libak_core.so NEEDED
    _akffi_corpus_chunk.cpython-37m-x86_64-linux-gnu.so: 187 undefined ak_* imports incl. ak_init, PyInit_ exported, libak_core.so NEEDED
+   _akffi_nounk.cpython-37m-x86_64-linux-gnu.so: 46 undefined ak_* imports incl. ak_init, PyInit_ exported, libak_core.so NEEDED
+   _akffi_count_nounk.cpython-37m-x86_64-linux-gnu.so: 50 undefined ak_* imports incl. ak_init, PyInit_ exported, libak_core.so NEEDED
+   _akffi_rpc_nounk.cpython-37m-x86_64-linux-gnu.so: 60 undefined ak_* imports incl. ak_init, PyInit_ exported, libak_core.so NEEDED
+   _akffi_corpus_nounk.cpython-37m-x86_64-linux-gnu.so: 117 undefined ak_* imports incl. ak_init, PyInit_ exported, libak_core.so NEEDED
+   _akffi_corpus_chunk_nounk.cpython-37m-x86_64-linux-gnu.so: 117 undefined ak_* imports incl. ak_init, PyInit_ exported, libak_core.so NEEDED
    control: _akffi_corpus_noinit imports no ak_init (AK_SKIP_INIT is in that build only)
    must-fail control: a planted layout mismatch refuses to import: ImportError: layout: ak_dfix_TaskOptionsOptionsEntry.key is 1 in the core and 0 here
    _akffi_rpc.cpython-37m-x86_64-linux-gnu.so: all 6 section 9 imports, libak_core.so resolves to the rpc build

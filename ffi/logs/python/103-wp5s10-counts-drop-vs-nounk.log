@@ -1,0 +1,24 @@
+# python slice: crossing counts per call, full build (drop) and no-unknown build (WP5 step 10, requirement 19)
+# date:      2026-09-25T22:22:15Z
+# commit:    2410125 + uncommitted changes in poc/python or poc/codec
+# phase:     correctness only; nothing here is a timing
+
+   py3.12 drop: 160 rows, IDENTICAL to counts/crossings-drop.txt
+   py3.12 nounk: 160 rows, IDENTICAL to counts/crossings-nounk.txt
+   py3.7 drop: 160 rows, IDENTICAL to counts/crossings-drop.txt
+   py3.7 nounk: 160 rows, IDENTICAL to counts/crossings-nounk.txt
+
+## the committed files against each other: what compiling unknown fields out changes
+   16,20c16,20
+   <    abs P1.2  decode  plain                  fwd      1 rev      8
+   <    abs P1.2  decode  __slots__              fwd      1 rev      8
+   <    abs P1.2  decode  C ext type             fwd      1 rev      8
+   <    abs P1.2  decode  pyacc (python fn)      fwd      1 rev      8
+   <    abs P1.2  decode  pyacc (C attrgetter)   fwd      1 rev      8
+   ---
+   >    abs P1.2  decode  plain                  fwd      1 rev      5
+   >    abs P1.2  decode  __slots__              fwd      1 rev      5
+   >    abs P1.2  decode  C ext type             fwd      1 rev      5
+   >    abs P1.2  decode  pyacc (python fn)      fwd      1 rev      5
+   >    abs P1.2  decode  pyacc (C attrgetter)   fwd      1 rev      5
+   5 of 160 rows differ
