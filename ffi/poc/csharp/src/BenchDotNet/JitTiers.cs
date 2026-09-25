@@ -81,12 +81,14 @@ public sealed class JitTiers : EventListener
     /// The JSON fragment for one case, given its signal times.
     private static Jit[] _all;
     private static Dictionary<ulong, DateTime> _first;
+    private static HashSet<ulong> _initial;
 
     /// Called once all events have arrived (the exporter waits for the stream to go quiet).
     public static void Freeze()
     {
         _all = Events.ToArray();
         _first = _all.GroupBy(j => j.Id).ToDictionary(g => g.Key, g => g.Min(j => j.T));
+        _initial = _all.GroupBy(j => j.Id).Where(g => { var t = g.OrderBy(j => j.T).First().Tier; return t == 1 || t == 3; }).Select(g => g.Key).ToHashSet();
     }
 
     /// ts = the end of this case's GlobalSetup: a method first compiled between t0 and ts is
@@ -98,7 +100,11 @@ public sealed class JitTiers : EventListener
         bool Setup(Jit j) { var f = _first[j.Id]; return f >= t0 && f < ts; }
         var pre = all.Where(j => j.T >= t0 && j.T < t1 && !Setup(j)).ToList();
         var span = all.Where(j => j.T >= t1 && j.T <= t2 && !Setup(j)).ToList();
-        var mine = new HashSet<ulong>(all.Where(j => _first[j.Id] >= ts && _first[j.Id] <= t2).Select(j => j.Id));
+        // "Compiled in this case": the method's FIRST recorded event is its initial tier-0
+        // compile and falls after this case's setup. A method whose first event is a
+        // promotion (instrumented tier 0, tier 1) was first compiled before the listener
+        // started (runtime start-up code, e.g. the cast cache) and is not attributed here.
+        var mine = new HashSet<ulong>(all.Where(j => _first[j.Id] >= ts && _first[j.Id] <= t2 && _initial.Contains(j.Id)).Select(j => j.Id));
         var last = all.Where(j => j.T <= t2 && mine.Contains(j.Id)).GroupBy(j => j.Id).Select(g => g.OrderBy(j => j.T).Last()).ToList();
         var left = last.Where(j => Tier0(j.Tier)).ToList();
         // A tier-0 method that the runtime promotes LATER was hot while this case measured
