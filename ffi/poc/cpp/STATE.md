@@ -6,7 +6,7 @@ session, which makes it the most expensive defect in this directory.
 
 | | |
 |---|---|
-| **Status** | **2026-09-25, FIX-PLAN WP3: the campaign harness exists and its smoke run passes; campaign-ready except requirement 10 (core-ffi retain: pending the decision-11 C++ port) and the section 3 incumbent versions (only grpc++ 1.51.1 / protobuf 3.21.12 in the container).** `gen/run_campaign.sh --suite codec\|rpc\|calib\|gate --out <dir>`; checklist below. The gate stopped the first smoke on a real crossing-count change (P1.2 decode reverse 5 -> 8 after decision 11); re-baselined deliberately. No figure is reported. The C++ binding is in poc/codec's transitional drop mode (29d515e): rendering decision 11's options for C++ is the next task. WP5 tail (D38/D39) and WP5 step 2 are kept below |
+| **Status** | **2026-09-25, WP3 + requirement 22a: the codec suite now times on Google Benchmark 1.8.3 (apt libbenchmark-dev); RPC and calib stay on the runner (requirements 13/18).** Smoke (1 launch, 1 round, instrumentation): gate green, 1305 Google Benchmark repetitions converted to section 7 lines. Campaign-ready except requirement 10 (core-ffi retain: pending the decision-11 C++ port) and the section 3 incumbent versions. Checklist and 22a deltas below |
 | **Core** | **the shared one at `ffi/poc/codec/crates/ak-core` (README R0), not a copy**, built by CMake with `--features init-guard` in every configuration (timed, counting, the three planted cores) and once more with `--features corpus,init-guard` into `core-build/target-corpus` for the corpus harness (its own ABI and header, `corpus/include/ak_abi.h`). `-DAK_CORE_ROOT`/`-DAK_CORE_TGT` still point the build at a snapshot. This work unit ran against the shared tree at `882112c` (HEAD when gated) |
 | **Blocked on** | nothing |
 | **Floor** | **C++11, demonstrated not declared.** C++14 also builds and passes (README open question 3) |
@@ -65,6 +65,38 @@ codec binary's gate 118 groups / 1305 slots 0 failed and its plant 166 slots fai
 RPC response length aborts. Suites: codec 1305 samples, rpc 48 (24 per transport), calib 2.
 Runner refusals (overlap, missing set, dirty tree): `logs/cpp/campaign/runner-controls.log`.
 
+### Requirement 22a (owner, 2026-09-25): the codec suite on Google Benchmark
+
+`campaign_codec` keeps its in-process gate, the gate's plant and the identical warm-up.
+Its timing is now one Google Benchmark per slot, named `arm|payload|content|dir|unknown_mode`:
+- fixed `Iterations` per group, from the byte budget as before, with `Repetitions` =
+  `AK_CAMPAIGN_ROUNDS`;
+- `ReportAggregatesOnly(false)`, so every repetition is a raw row;
+- `--benchmark_enable_random_interleaving`, so repetitions are interleaved across all
+  benchmarks, and the registration order is rotated by launch;
+- `DoNotOptimize(fold)` and `ClobberMemory()` every iteration;
+- `cpu_time` is Google Benchmark's default CPU timer (the benchmark thread), with
+  `real_time` as wall beside it.
+
+`gen/gbench_to_jsonl.py` converts the JSON (run_type "iteration" only) into section 7's
+lines, as `cpu_ns = cpu_time x iterations` and `round = repetition_index`. The raw
+`codec-launchN.gbench.json` is committed beside the converted lines. The per-iteration
+call goes through a `std::function`, which costs the same for every arm (stated).
+
+The apt library reports `library_build_type: debug`. The loop body is header-inline and
+compiled in this slice's `-O2 -DNDEBUG` translation unit, but the library's own
+bookkeeping comes from that build. A vendored Release build of v1.8.3 needs only a
+different `benchmark_DIR`. That choice is the owner's; it is noted in the log's context
+line.
+
+Checklist deltas: **21** codec CPU time = Google Benchmark `cpu_time` (thread) + `real_time`;
+**22** interleaving = Google Benchmark's random interleaving of repetitions + rotation by
+launch (blocks allowed); **22a** met for codec; RPC and calib stay on the runner, because a
+separate server process and abort-on-first-failure do not fit a Google Benchmark
+registration cleanly; **23** repetitions reported raw; **24** warm-up is still this
+binary's identical per-arm budget (`--benchmark_min_warmup_time=0`, so Google Benchmark
+adds none). Everything else unchanged.
+
 ### Section 10 checklist
 
 | # | Requirement | Status |
@@ -90,8 +122,8 @@ Runner refusals (overlap, missing set, dirty tree): `logs/cpp/campaign/runner-co
 | 18 | every call checked | **met**: status + length per call (cell A: content per call, wire length once before the rounds), abort on first failure; control in the gate |
 | 19 | crossing counts gate | **met**: counts_a17_shared against logs/cpp/counts-baseline.log (it stopped the first smoke on a real change) |
 | 20 | crossing cost, fwd and rev, perf stat | **met on a machine with perf**; here perf is absent (recorded) and the rust slice's bench did not build in the out-of-tree snapshot (it lacks `poc/rust/crates`); reverse is reported as the fwd+rev row, from which the aggregator subtracts the forward row |
-| 21 | CPU time | **met**: CLOCK_THREAD_CPUTIME_ID (codec, calib); getrusage(RUSAGE_SELF) of the client + wall (RPC) |
-| 22 | interleaved, rotated | **met** |
+| 21 | CPU time | **met**: Google Benchmark cpu_time (thread) + real_time (codec); CLOCK_THREAD_CPUTIME_ID (calib); getrusage(RUSAGE_SELF) of the client + wall (RPC) |
+| 22 | interleaved, rotated | **met**: codec by Google Benchmark random interleaving + launch rotation; RPC by rotated rounds |
 | 23 | 5 rounds x 3 launches, every round committed | **met** (runner defaults) |
 | 24 | warm-up fixed and identical | **met**: a byte budget per codec arm, a call count per RPC cell, before round 1; JIT n/a |
 | 25 | allocator warmed identically | **met** (every arm's warm-up precedes round 1); GC n/a |
