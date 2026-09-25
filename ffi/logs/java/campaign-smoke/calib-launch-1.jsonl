@@ -1,0 +1,21 @@
+# campaign log, java slice (design/CAMPAIGN.md W11 draft)  suite=calib  launch=1 iterations=200000 perf=unavailable in this environment
+# commit 68830ee   (dirty tree refused unless AK_CAMPAIGN_ALLOW_DIRTY=1)
+# SMOKE RUN (req 32): 1 launch, 1 round, reduced iterations. EVERY FIGURE BELOW IS CONTAINER INSTRUMENTATION, NOT A RESULT.
+# machine: cpu="Intel(R) Xeon(R) Processor @ 2.80GHz" nproc=4 smt=0
+#   governor=n/a no_turbo=n/a boost=n/a kernel=6.18.44-fc-v37
+#   isolation="none (container smoke run)" isolated_cpus= numa_nodes=1
+#   AK_CPU_CLIENT=unset AK_CPU_SERVER=unset (taskset; OS = the rest)
+# runtime: target openjdk version "17.0.20.1" 2026-08-18   floor (gated only) openjdk version "1.8.0_504"
+# incumbent: grpc-api-1.74.0.jar grpc-netty-shaded-1.74.0.jar grpc-protobuf-1.74.0.jar protobuf-java-3.25.5.jar 
+# build: core snapshot: ffi/poc/codec at d43f917, tree key tree-676e33f5f986778c
+#   core cargo profile release, features ["default", "init-guard"]  (shared library, cdylib); shim gcc -O2 -std=c11
+#   JVM: -Xms4g -Xmx4g -XX:+UseG1GC -Xss8m (tiered JIT on, default thresholds)
+# repeats: 1 launch(es) x 1 round(s) per process (req 23)
+{"slice":"java","suite":"calib","arm":"crossing-forward-core-shim","launch":1,"round":1,"cpu_ns":"stripped","wall_ns":"stripped","iters":200000}
+{"meta":{"sink":79999600000}}
+{"slice":"java","suite":"calib","arm":"crossing-reverse-jni-upcall","launch":1,"round":1,"cpu_ns":"stripped","wall_ns":"stripped","iters":200000}
+{"slice":"java","suite":"calib","arm":"crossing-forward-jni","launch":1,"round":1,"cpu_ns":"stripped","wall_ns":"stripped","iters":200000}
+{"meta":{"sink":159999200000}}
+# rust-bench: -       crossing  forward (no-op)        <figures stripped>
+# rust-bench: -       crossing  fwd+reverse (no-op)     <figures stripped>
+# perf: unavailable here, so no cycles/instructions (req 20)

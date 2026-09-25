@@ -1,0 +1,41 @@
+# campaign log, java slice (design/CAMPAIGN.md W11 draft)  suite=rpc  transport=pinned launch=1 warm-up=1 sample(s) per (dir,inflight,cell) before round 1 (cells A-D in ONE client process, server in its own process)
+# commit 68830ee   (dirty tree refused unless AK_CAMPAIGN_ALLOW_DIRTY=1)
+# SMOKE RUN (req 32): 1 launch, 1 round, reduced iterations. EVERY FIGURE BELOW IS CONTAINER INSTRUMENTATION, NOT A RESULT.
+# machine: cpu="Intel(R) Xeon(R) Processor @ 2.80GHz" nproc=4 smt=0
+#   governor=n/a no_turbo=n/a boost=n/a kernel=6.18.44-fc-v37
+#   isolation="none (container smoke run)" isolated_cpus= numa_nodes=1
+#   AK_CPU_CLIENT=unset AK_CPU_SERVER=unset (taskset; OS = the rest)
+# runtime: target openjdk version "17.0.20.1" 2026-08-18   floor (gated only) openjdk version "1.8.0_504"
+# incumbent: grpc-api-1.74.0.jar grpc-netty-shaded-1.74.0.jar grpc-protobuf-1.74.0.jar protobuf-java-3.25.5.jar 
+# build: core snapshot: ffi/poc/codec at d43f917, tree key tree-676e33f5f986778c
+#   core cargo profile release, features ["default", "init-guard"]  (shared library, cdylib); shim gcc -O2 -std=c11
+#   JVM: -Xms4g -Xmx4g -XX:+UseG1GC -Xss8m (tiered JIT on, default thresholds)
+# repeats: 1 launch(es) x 1 round(s) per process (req 23)
+# server:  java ... ak.CampaignRpc --serve (grpc-java, pre-serialised P2.2; direction b parses with protobuf-java)
+{"meta":{"suite":"rpc","warmup_samples_per_cell":1,"jit_ms_after_warmup":"stripped","transport":"pinned","calls":64,"chunk":16,"core_workers":2,"socket":"unix"}}
+{"slice":"java","suite":"rpc","cell":"B","payload":"P2.2","dir":"a","transport":"pinned","inflight":1,"delivery":"blocking","launch":1,"round":1,"cpu_ns":"stripped","wall_ns":"stripped","iters":64}
+{"slice":"java","suite":"rpc","cell":"C","payload":"P2.2","dir":"a","transport":"pinned","inflight":1,"delivery":"blocking","launch":1,"round":1,"cpu_ns":"stripped","wall_ns":"stripped","iters":64}
+{"slice":"java","suite":"rpc","cell":"D","payload":"P2.2","dir":"a","transport":"pinned","inflight":1,"launch":1,"round":1,"cpu_ns":"stripped","wall_ns":"stripped","iters":64}
+{"slice":"java","suite":"rpc","cell":"A","payload":"P2.2","dir":"a","transport":"pinned","inflight":1,"launch":1,"round":1,"cpu_ns":"stripped","wall_ns":"stripped","iters":64}
+{"slice":"java","suite":"rpc","cell":"B","payload":"P2.2","dir":"a","transport":"pinned","inflight":8,"delivery":"blocking","launch":1,"round":1,"cpu_ns":"stripped","wall_ns":"stripped","iters":64}
+{"slice":"java","suite":"rpc","cell":"C","payload":"P2.2","dir":"a","transport":"pinned","inflight":8,"delivery":"blocking","launch":1,"round":1,"cpu_ns":"stripped","wall_ns":"stripped","iters":64}
+{"slice":"java","suite":"rpc","cell":"D","payload":"P2.2","dir":"a","transport":"pinned","inflight":8,"launch":1,"round":1,"cpu_ns":"stripped","wall_ns":"stripped","iters":64}
+{"slice":"java","suite":"rpc","cell":"A","payload":"P2.2","dir":"a","transport":"pinned","inflight":8,"launch":1,"round":1,"cpu_ns":"stripped","wall_ns":"stripped","iters":64}
+{"slice":"java","suite":"rpc","cell":"B","payload":"P2.2","dir":"a","transport":"pinned","inflight":16,"delivery":"blocking","launch":1,"round":1,"cpu_ns":"stripped","wall_ns":"stripped","iters":64}
+{"slice":"java","suite":"rpc","cell":"C","payload":"P2.2","dir":"a","transport":"pinned","inflight":16,"delivery":"blocking","launch":1,"round":1,"cpu_ns":"stripped","wall_ns":"stripped","iters":64}
+{"slice":"java","suite":"rpc","cell":"D","payload":"P2.2","dir":"a","transport":"pinned","inflight":16,"launch":1,"round":1,"cpu_ns":"stripped","wall_ns":"stripped","iters":64}
+{"slice":"java","suite":"rpc","cell":"A","payload":"P2.2","dir":"a","transport":"pinned","inflight":16,"launch":1,"round":1,"cpu_ns":"stripped","wall_ns":"stripped","iters":64}
+{"slice":"java","suite":"rpc","cell":"B","payload":"P2.2","dir":"b","transport":"pinned","inflight":1,"delivery":"blocking","launch":1,"round":1,"cpu_ns":"stripped","wall_ns":"stripped","iters":64}
+{"slice":"java","suite":"rpc","cell":"C","payload":"P2.2","dir":"b","transport":"pinned","inflight":1,"delivery":"blocking","launch":1,"round":1,"cpu_ns":"stripped","wall_ns":"stripped","iters":64}
+{"slice":"java","suite":"rpc","cell":"D","payload":"P2.2","dir":"b","transport":"pinned","inflight":1,"launch":1,"round":1,"cpu_ns":"stripped","wall_ns":"stripped","iters":64}
+{"slice":"java","suite":"rpc","cell":"A","payload":"P2.2","dir":"b","transport":"pinned","inflight":1,"launch":1,"round":1,"cpu_ns":"stripped","wall_ns":"stripped","iters":64}
+{"slice":"java","suite":"rpc","cell":"B","payload":"P2.2","dir":"b","transport":"pinned","inflight":8,"delivery":"blocking","launch":1,"round":1,"cpu_ns":"stripped","wall_ns":"stripped","iters":64}
+{"slice":"java","suite":"rpc","cell":"C","payload":"P2.2","dir":"b","transport":"pinned","inflight":8,"delivery":"blocking","launch":1,"round":1,"cpu_ns":"stripped","wall_ns":"stripped","iters":64}
+{"slice":"java","suite":"rpc","cell":"D","payload":"P2.2","dir":"b","transport":"pinned","inflight":8,"launch":1,"round":1,"cpu_ns":"stripped","wall_ns":"stripped","iters":64}
+{"slice":"java","suite":"rpc","cell":"A","payload":"P2.2","dir":"b","transport":"pinned","inflight":8,"launch":1,"round":1,"cpu_ns":"stripped","wall_ns":"stripped","iters":64}
+{"slice":"java","suite":"rpc","cell":"B","payload":"P2.2","dir":"b","transport":"pinned","inflight":16,"delivery":"blocking","launch":1,"round":1,"cpu_ns":"stripped","wall_ns":"stripped","iters":64}
+{"slice":"java","suite":"rpc","cell":"C","payload":"P2.2","dir":"b","transport":"pinned","inflight":16,"delivery":"blocking","launch":1,"round":1,"cpu_ns":"stripped","wall_ns":"stripped","iters":64}
+{"slice":"java","suite":"rpc","cell":"D","payload":"P2.2","dir":"b","transport":"pinned","inflight":16,"launch":1,"round":1,"cpu_ns":"stripped","wall_ns":"stripped","iters":64}
+{"slice":"java","suite":"rpc","cell":"A","payload":"P2.2","dir":"b","transport":"pinned","inflight":16,"launch":1,"round":1,"cpu_ns":"stripped","wall_ns":"stripped","iters":64}
+{"meta":{"round":1,"jit_ms":"stripped"}}
+{"meta":{"sink":1172071730901}}
