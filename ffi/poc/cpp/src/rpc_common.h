@@ -25,7 +25,11 @@
 #include <vector>
 
 #include "ak_abi.h"
+#ifdef AK_NO_UNKNOWN_FIELDS  // WP5 step 10: the no-unknown build
+#include "generated/binding_nounk.h"
+#else
 #include "generated/binding.h"
+#endif
 #include "shapes_svc.grpc.pb.h"
 
 namespace svcns = armonik::ffi::shapes::v1;

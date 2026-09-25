@@ -98,7 +98,9 @@ py() { python3 "$@" 2> >(grep -v -i 'distutils\|traceback (most recent call last
            conformance_a17_static conformance_a17_noinit corpus_all_a17 corpus_all_c14 corpus_all_c11 \
            corpus_all_a17_static corpus_all_noinit bench_a17_shared bench_a17_static bench_b17_shared \
            bench_c14_shared bench_c11_shared bench_a17_gateplant contentsets_a17 counts_a17_shared \
-           counts_a17_static groupskip_a17 conc_a17_shared odrcheck rpccounts; do
+           counts_a17_static groupskip_a17 conc_a17_shared odrcheck rpccounts \
+           conformance_nounk_a17 conformance_nounk_c11 conformance_nounk_static corpus_nounk_a17 \
+           corpus_nounk_c11 corpus_nounk_noinit counts_nounk; do
     t=$(stat -c %Y "$B/$b" 2>/dev/null || echo 0)
     if [ "$t" -lt "${NEWEST%%.*}" ]; then echo "  STALE $b"; stale=$((stale+1)); fi
   done
@@ -267,11 +269,17 @@ fi
   fi
 } > "$L/wp5-gates.log" 2>&1
 
+# WP5 step 10: the no-unknown build, gated on its own (gen/nounk_gate.sh -> wp5s10-nounk.log).
+bash gen/nounk_gate.sh "$B"
+
 TOTAL=0
 for f in build generator conformance corpus probe bytes boundary gates; do
   n=$(grep -c '>>> FAIL' "$L/wp5-$f.log")
   TOTAL=$((TOTAL + n))
   printf '%-14s %s failure(s)\n' "$f" "$n"
 done
+n=$(grep -c '>>> FAIL' "$L/wp5s10-nounk.log")
+TOTAL=$((TOTAL + n))
+printf '%-14s %s failure(s)\n' "s10-nounk" "$n"
 echo "wp5_gate: $TOTAL step(s) failed"
 exit $((TOTAL ? 1 : 0))

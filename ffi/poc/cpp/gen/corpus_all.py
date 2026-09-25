@@ -20,6 +20,8 @@ arms, by name.
 
   corpus_all.py BINARY [--manifest PATH] [--only P1,P2] [--timeout S] [--plant proj|reenc|accept]
                        [--expect-fail]   exit 0 iff the run FAILED (a control)
+                       [--expect-dropped ARM,...]  fail if the arm writes an unknown row in a
+                                         non-dropped form (the no-unknown build)
                        [--max-retain-gap ID,...]  fail if a retain arm writes the dropped
                                          form on any row not listed
                        [--record FILE]   write every (row, arm) outcome, so two builds (two
@@ -126,6 +128,7 @@ class Tally:
         self.fails = []
         self.disputes = []
         self.retain_gap = []
+        self.not_dropped = []   # unknown rows written in a non-dropped form (has a dropped one)
         self.by_class = {}
         self.refusals = {}
 
@@ -169,6 +172,10 @@ def eval_arm(row, rid, arm, r, vec, t):
                 t.forms[label] = t.forms.get(label, 0) + 1
                 if arm.endswith("retain") and cls == "unknown" and "dropped" in label:
                     t.retain_gap.append("%s (%s)" % (rid, arm))
+                if (cls == "unknown" and "dropped" not in label and
+                        any("dropped" in " / ".join(f.get("forms", []))
+                            for f in row.get("accepted_encodings") or [])):
+                    t.not_dropped.append("%s (%s)" % (rid, arm))
             else:
                 rr = records(re)
                 if row.get("permutation_accepted") and rr is not None and rr == records(vec):
@@ -261,12 +268,15 @@ def main(argv):
         return compare(args[1:])
     binary = args.pop(0)
     only, timeout, plant, expect_fail, record, unk, max_gap = [], 10.0, None, False, None, False, None
+    expect_dropped = []
     while args:
         a = args.pop(0)
         if a == "--unk-controls":
             unk = True
         elif a == "--max-retain-gap":
             max_gap = set(args.pop(0).split(","))
+        elif a == "--expect-dropped":
+            expect_dropped = args.pop(0).split(",")
         elif a == "--manifest":
             CORPUS = os.path.dirname(os.path.abspath(args.pop(0)))
         elif a == "--only":
@@ -359,6 +369,13 @@ def main(argv):
             for g in extra:
                 print("   FAIL retention gap %s" % g)
             total += len(extra)
+    for a in expect_dropped:
+        # WP5 step 10: the no-unknown build must write every unknown row in its dropped form.
+        nd = tallies[a].not_dropped
+        print("## %s unknown rows NOT written in the dropped form: %d" % (a, len(nd)))
+        for g in nd[:20]:
+            print("   FAIL not dropped %s" % g)
+        total += len(nd)
     print("# rows that hung or crashed a child: %d" % len(hard))
     for h in hard[:20]:
         print("!! %s" % h)

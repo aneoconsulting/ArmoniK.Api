@@ -61,7 +61,17 @@
 
 // Requirement 10's switch: on since the binding exports decision 11's retain entry points
 // (WP5 step 9). -DAK_CAMPAIGN_NO_FFI_RETAIN removes the arm (the gate line says so).
-#ifndef AK_CAMPAIGN_NO_FFI_RETAIN
+#if defined(AK_NO_UNKNOWN_FIELDS)
+// WP5 step 10, the NO-UNKNOWN build (a separate binary, campaign_codec_nounk): unknown-field
+// support compiled out of the core and the binding. core-ffi runs in mode "no-unknown";
+// host-gen runs its drop codec only (it is generated from the drop plan in both binaries:
+// no capture code), the incumbents in their default mode: in-process controls.
+#define AK_FFI_RETAIN_ENC(s) NULL
+#define AK_FFI_RETAIN_DEC(s) NULL
+#define AK_FFI_RETAIN_STATE "compiled out (no-unknown build)"
+#define AK_FFI_DROP_MODE "no-unknown"
+#define AK_HOSTGEN_MODES 1
+#elif !defined(AK_CAMPAIGN_NO_FFI_RETAIN)
 #define AK_FFI_RETAIN_ENC(s) &shapes::ffi::encode_into_##s##_unk
 #define AK_FFI_RETAIN_DEC(s) &shapes::ffi::decode_with_##s##_unk
 #define AK_FFI_RETAIN_STATE "built"
@@ -69,6 +79,10 @@
 #define AK_FFI_RETAIN_ENC(s) NULL
 #define AK_FFI_RETAIN_DEC(s) NULL
 #define AK_FFI_RETAIN_STATE "removed by -DAK_CAMPAIGN_NO_FFI_RETAIN"
+#endif
+#ifndef AK_FFI_DROP_MODE
+#define AK_FFI_DROP_MODE "drop"
+#define AK_HOSTGEN_MODES 2
 #endif
 
 namespace {
@@ -206,7 +220,7 @@ Group make_group(const std::string &payload, const std::string &content, const F
       if (pbtouch::touch(*pb) != want_fold) return "the incumbent's own builder and the facade builder disagree";
       return "";
     }});
-    g.slots.push_back({"core-ffi", "encode", "drop", [F, fac, cx, tc](long n) {
+    g.slots.push_back({"core-ffi", "encode", AK_FFI_DROP_MODE, [F, fac, cx, tc](long n) {
       uint64_t h = 0;
       for (long i = 0; i < n; ++i) {
         F.ffi_enc(cx->ec, *fac, tc);
@@ -238,7 +252,7 @@ Group make_group(const std::string &payload, const std::string &content, const F
         return std::string((const char *)p, len) == *cp ? "" : "bytes differ from the canonical";
       }});
     }
-    for (int r = 0; r < 2; ++r) {
+    for (int r = 0; r < AK_HOSTGEN_MODES; ++r) {
       bool ret = r == 1;
       g.slots.push_back({"host-gen", "encode", ret ? "retain" : "drop", [F, fac, cx, ret](long n) {
         uint64_t h = 0;
@@ -286,7 +300,7 @@ Group make_group(const std::string &payload, const std::string &content, const F
       if (!m.ParseFromString(*cp)) return "parse failed";
       return pbtouch::touch(m) == want_fold ? "" : "field fold differs";
     }});
-    g.slots.push_back({"core-ffi", dir, "drop", [F, cx, cbf, cn, read](long n) {
+    g.slots.push_back({"core-ffi", dir, AK_FFI_DROP_MODE, [F, cx, cbf, cn, read](long n) {
       uint64_t h = 0;
       for (long i = 0; i < n; ++i) {
         Fac v;
@@ -316,7 +330,7 @@ Group make_group(const std::string &payload, const std::string &content, const F
         return shapes::touch::touch(v) == want_fold ? "" : "field fold differs from the incumbent's";
       }});
     }
-    for (int r = 0; r < 2; ++r) {
+    for (int r = 0; r < AK_HOSTGEN_MODES; ++r) {
       bool ret = r == 1;
       g.slots.push_back({"host-gen", dir, ret ? "retain" : "drop", [F, cb, cn, read, ret](long n) {
         uint64_t h = 0;

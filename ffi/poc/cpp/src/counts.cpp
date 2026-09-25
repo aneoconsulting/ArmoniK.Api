@@ -81,6 +81,7 @@ static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
   ffi_dec(dctx, (const uint8_t *)wire.data(), wire.size(), &out);
   ak_dec_counters(dctx, &c);
   show(id, "decode", c, elems);
+#ifndef AK_NO_UNKNOWN_FIELDS
   if (std::getenv("AK_COUNTS_RETAIN") != NULL) {
     // Requirement 10's arms, counted. Printed only on request, so the committed baseline's
     // rows (the campaign gate's comparison) are unchanged. The two ak_dec_reset_<Root>
@@ -97,6 +98,7 @@ static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
     ak_dec_counters(dctx, &c);
     show(id, "decode pool (+2 rst)", c, elems);
   }
+#endif
   ak_dec_ctx_free(dctx);
   (void)nat_dec;
 }
