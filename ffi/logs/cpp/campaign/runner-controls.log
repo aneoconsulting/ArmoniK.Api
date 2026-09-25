@@ -1,0 +1,11 @@
+# run_campaign.sh refusals, each MUST exit non-zero before building or timing anything
+## overlapping CPU sets (requirement 4)
+REFUSED: AK_CPU_CLIENT (0-2) and AK_CPU_SERVER (2,3) overlap
+exit 2
+## a missing CPU set (requirement 4)
+gen/run_campaign.sh: line 42: AK_CPU_CLIENT: AK_CPU_CLIENT is required (requirement 4)
+exit 1
+## a dirty tree (requirement 27; gen/run_campaign.sh itself is modified and uncommitted at this point)
+REFUSED: the tree is dirty (requirement 27):
+ M ffi/poc/cpp/gen/run_campaign.sh
+exit 2

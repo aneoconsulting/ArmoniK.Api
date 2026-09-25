@@ -1347,3 +1347,37 @@ edit. The inputs are now only what gets compiled (C++ sources and headers, CMake
 core's Rust). The control run skipped the build on the pre-fix tree and was refused with
 24 stale binaries. The clean-build gate is green. The corpus had grown to 702 rows in the
 meantime; the result is the same shape: 0 failures, disputed rows excluded.
+
+## 2026-09-25: FIX-PLAN WP3, the campaign harness
+
+The rust agent owned poc/codec during this unit and was mid-way through decision 11, so
+the working tree's codec was not the committed one. I built and gated against `git
+archive` snapshots of HEAD and generated there. The one exception was a regeneration of
+this slice's tree against the committed decision-11 core (60f7661): the header and vtables
+changed, and the binding's `_unk` entry points now decode in the transitional drop mode.
+
+New binaries:
+- `campaign_codec`: four arms, three directions, drop/retain.
+- `campaign_server` and `campaign_rpc`: two processes, cells A-D, directions a/b, 1/8/16
+  in flight, shipped and pinned.
+- `campaign_calib`: the crossing cost.
+
+`gen/cpp_touch.py` generates a read-every-field traversal over both the facade and
+protoc's types. Map folds are order-independent, so the two traversals must agree, and
+that equality is the decode gate. The codec gate passed on its first run, so I planted
+a changed byte in core-ffi's input. 166 slots failed, all of them core-ffi, and nothing
+was timed. P2.5 rules out comparing incumbent encoder bytes with the canonical form
+(protobuf writes the other valid form of it), so incumbent encoders are checked by
+decoding their output and folding it.
+
+The first full smoke's gate refused to run: counts_a17_shared gave P1.2 decode reverse 8
+against the committed 5. That is requirement 19 working. The cause is decision 11's
+layout. Every decode group gained `ak_unk_buf`; `ak_dfix_ResultRaw` gained it three times
+(itself and two inlined Timestamps), so fewer groups fit the 32 KB arena and the run
+arrives in more chunks. I re-baselined into a separate committed file with the reason in
+its header, and left `counts.log` untouched. The second smoke passed every suite.
+
+Not met, with reasons, in STATE.md's checklist: requirement 10 (core-ffi retain waits for
+the C++ decision-11 port) and the section 3 incumbent versions (the container has only
+grpc++ 1.51.1). The rust bench in the calib suite did not build in the snapshot, because
+the snapshot lacks `poc/rust/crates`. perf is absent here.

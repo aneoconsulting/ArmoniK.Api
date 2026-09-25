@@ -1,0 +1,53 @@
+# {"build": {"core_features": "init-guard,rpc", "core_profile": "cargo --release", "cxx_flags": "-O2 -g -DNDEBUG -std=c++17", "dir": "/tmp/claude-0/sp/snap2/ffi/poc/cpp/build-campaign", "linkage": "shared (libak_core.so)", "lto": "off", "std": "c++17 (target)"}, "commit": "32d69b0146474c9035d9a30f7718bd9d834b5391", "dirty": false, "dirty_files": [], "instrumentation": true, "launch": 1, "machine": {"boost": null, "cpu_client": "0,1", "cpu_model": "Intel(R) Xeon(R) Processor @ 2.80GHz", "cpu_server": "2,3", "cpus_online": "0-3", "governor": "unavailable", "isolated": "", "isolation_cmdline": [], "kernel": "Linux 6.18.44-fc-v37 x86_64", "no_turbo": null, "nproc": "4", "runner_cpuset": "0-3", "smt_active": "0"}, "repeats": {"launches": 1, "rounds": 1}, "sample": {"calib_iters": 1000000, "codec_bytes": 262144, "codec_clock": "CLOCK_THREAD_CPUTIME_ID + CLOCK_MONOTONIC", "rpc_calls": 16, "rpc_clock": "getrusage(RUSAGE_SELF) of the client process + CLOCK_MONOTONIC"}, "slice": "cpp", "suite": "rpc", "transport": {"pinned": "grpc++: 4 MiB stream window, BDP off (no connection-window argument exists, C31); core: 4 MiB stream and connection windows, adaptive off, Nagle off; both: 2 MiB max message", "shipped": "grpc++: keepalive 30 s, max idle 5 min, local subchannel pool (packages/cpp getChannelArguments; its retry service config not applied); core: ak_client_new defaults"}, "versions": {"cxx": "g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0", "grpcpp": "1.51.1", "incumbent_prefix": "system", "protobuf_pkgconfig": "3.21.12", "protoc": "libprotoc 3.21.12", "rustc": "rustc 1.94.1 (e408947bf 2026-03-25)"}, "warmup": {"allocator": "every arm runs its warm-up before round 1", "codec_bytes_per_arm": 65536, "rpc_calls_per_cell": 4}}
+# {"campaign_rpc": {"target": "127.0.0.1:32907", "transport": "shipped", "cells": "ABCD", "dirs": "ab", "calls_per_sample": 16, "warmup_calls": 4, "rounds": 1, "core_workers": 2, "expect_bytes": 540422, "delivery_B_C": "blocking"}}
+{"slice":"cpp","suite":"rpc","cell":"A","payload":"P2.2","dir":"a","transport":"shipped","inflight":1,"launch":1,"round":0,"cpu_ns":69455000,"wall_ns":75400520,"iters":16}
+{"slice":"cpp","suite":"rpc","cell":"B","payload":"P2.2","dir":"a","transport":"shipped","inflight":1,"launch":1,"round":0,"cpu_ns":70880000,"wall_ns":76452361,"iters":16}
+{"slice":"cpp","suite":"rpc","cell":"C","payload":"P2.2","dir":"a","transport":"shipped","inflight":1,"launch":1,"round":0,"cpu_ns":60683000,"wall_ns":63325901,"iters":16}
+{"slice":"cpp","suite":"rpc","cell":"D","payload":"P2.2","dir":"a","transport":"shipped","inflight":1,"launch":1,"round":0,"cpu_ns":67356000,"wall_ns":74439400,"iters":16}
+{"slice":"cpp","suite":"rpc","cell":"A","payload":"P2.2","dir":"a","transport":"shipped","inflight":8,"launch":1,"round":0,"cpu_ns":75184000,"wall_ns":46657786,"iters":16}
+{"slice":"cpp","suite":"rpc","cell":"B","payload":"P2.2","dir":"a","transport":"shipped","inflight":8,"launch":1,"round":0,"cpu_ns":94855000,"wall_ns":54135534,"iters":16}
+{"slice":"cpp","suite":"rpc","cell":"C","payload":"P2.2","dir":"a","transport":"shipped","inflight":8,"launch":1,"round":0,"cpu_ns":74433000,"wall_ns":46798381,"iters":16}
+{"slice":"cpp","suite":"rpc","cell":"D","payload":"P2.2","dir":"a","transport":"shipped","inflight":8,"launch":1,"round":0,"cpu_ns":80387000,"wall_ns":48658135,"iters":16}
+{"slice":"cpp","suite":"rpc","cell":"A","payload":"P2.2","dir":"a","transport":"shipped","inflight":16,"launch":1,"round":0,"cpu_ns":75074000,"wall_ns":41224788,"iters":16}
+{"slice":"cpp","suite":"rpc","cell":"B","payload":"P2.2","dir":"a","transport":"shipped","inflight":16,"launch":1,"round":0,"cpu_ns":119345000,"wall_ns":60895602,"iters":16}
+{"slice":"cpp","suite":"rpc","cell":"C","payload":"P2.2","dir":"a","transport":"shipped","inflight":16,"launch":1,"round":0,"cpu_ns":89781000,"wall_ns":45731728,"iters":16}
+{"slice":"cpp","suite":"rpc","cell":"D","payload":"P2.2","dir":"a","transport":"shipped","inflight":16,"launch":1,"round":0,"cpu_ns":84673000,"wall_ns":44143392,"iters":16}
+{"slice":"cpp","suite":"rpc","cell":"A","payload":"P2.2","dir":"b","transport":"shipped","inflight":1,"launch":1,"round":0,"cpu_ns":28125000,"wall_ns":93972347,"iters":16}
+{"slice":"cpp","suite":"rpc","cell":"B","payload":"P2.2","dir":"b","transport":"shipped","inflight":1,"launch":1,"round":0,"cpu_ns":28479000,"wall_ns":85620429,"iters":16}
+{"slice":"cpp","suite":"rpc","cell":"C","payload":"P2.2","dir":"b","transport":"shipped","inflight":1,"launch":1,"round":0,"cpu_ns":31452000,"wall_ns":96426427,"iters":16}
+{"slice":"cpp","suite":"rpc","cell":"D","payload":"P2.2","dir":"b","transport":"shipped","inflight":1,"launch":1,"round":0,"cpu_ns":20598000,"wall_ns":78609489,"iters":16}
+{"slice":"cpp","suite":"rpc","cell":"A","payload":"P2.2","dir":"b","transport":"shipped","inflight":8,"launch":1,"round":0,"cpu_ns":30127000,"wall_ns":44558614,"iters":16}
+{"slice":"cpp","suite":"rpc","cell":"B","payload":"P2.2","dir":"b","transport":"shipped","inflight":8,"launch":1,"round":0,"cpu_ns":36866000,"wall_ns":47757492,"iters":16}
+{"slice":"cpp","suite":"rpc","cell":"C","payload":"P2.2","dir":"b","transport":"shipped","inflight":8,"launch":1,"round":0,"cpu_ns":29393000,"wall_ns":44052473,"iters":16}
+{"slice":"cpp","suite":"rpc","cell":"D","payload":"P2.2","dir":"b","transport":"shipped","inflight":8,"launch":1,"round":0,"cpu_ns":24399000,"wall_ns":40667133,"iters":16}
+{"slice":"cpp","suite":"rpc","cell":"A","payload":"P2.2","dir":"b","transport":"shipped","inflight":16,"launch":1,"round":0,"cpu_ns":29450000,"wall_ns":48645145,"iters":16}
+{"slice":"cpp","suite":"rpc","cell":"B","payload":"P2.2","dir":"b","transport":"shipped","inflight":16,"launch":1,"round":0,"cpu_ns":35899000,"wall_ns":53161971,"iters":16}
+{"slice":"cpp","suite":"rpc","cell":"C","payload":"P2.2","dir":"b","transport":"shipped","inflight":16,"launch":1,"round":0,"cpu_ns":30266000,"wall_ns":52765686,"iters":16}
+{"slice":"cpp","suite":"rpc","cell":"D","payload":"P2.2","dir":"b","transport":"shipped","inflight":16,"launch":1,"round":0,"cpu_ns":28813000,"wall_ns":42907297,"iters":16}
+# server (shipped): server cpu_ns 1573515000 (instrumentation)
+# {"campaign_rpc": {"target": "127.0.0.1:44695", "transport": "pinned", "cells": "ABCD", "dirs": "ab", "calls_per_sample": 16, "warmup_calls": 4, "rounds": 1, "core_workers": 2, "expect_bytes": 540422, "delivery_B_C": "blocking"}}
+{"slice":"cpp","suite":"rpc","cell":"A","payload":"P2.2","dir":"a","transport":"pinned","inflight":1,"launch":1,"round":0,"cpu_ns":69384000,"wall_ns":77792118,"iters":16}
+{"slice":"cpp","suite":"rpc","cell":"B","payload":"P2.2","dir":"a","transport":"pinned","inflight":1,"launch":1,"round":0,"cpu_ns":71823000,"wall_ns":78496130,"iters":16}
+{"slice":"cpp","suite":"rpc","cell":"C","payload":"P2.2","dir":"a","transport":"pinned","inflight":1,"launch":1,"round":0,"cpu_ns":59856000,"wall_ns":76933851,"iters":16}
+{"slice":"cpp","suite":"rpc","cell":"D","payload":"P2.2","dir":"a","transport":"pinned","inflight":1,"launch":1,"round":0,"cpu_ns":69542000,"wall_ns":76678378,"iters":16}
+{"slice":"cpp","suite":"rpc","cell":"A","payload":"P2.2","dir":"a","transport":"pinned","inflight":8,"launch":1,"round":0,"cpu_ns":75129000,"wall_ns":44179049,"iters":16}
+{"slice":"cpp","suite":"rpc","cell":"B","payload":"P2.2","dir":"a","transport":"pinned","inflight":8,"launch":1,"round":0,"cpu_ns":97655000,"wall_ns":55752515,"iters":16}
+{"slice":"cpp","suite":"rpc","cell":"C","payload":"P2.2","dir":"a","transport":"pinned","inflight":8,"launch":1,"round":0,"cpu_ns":86057000,"wall_ns":47309354,"iters":16}
+{"slice":"cpp","suite":"rpc","cell":"D","payload":"P2.2","dir":"a","transport":"pinned","inflight":8,"launch":1,"round":0,"cpu_ns":125968000,"wall_ns":65263462,"iters":16}
+{"slice":"cpp","suite":"rpc","cell":"A","payload":"P2.2","dir":"a","transport":"pinned","inflight":16,"launch":1,"round":0,"cpu_ns":99323000,"wall_ns":61226122,"iters":16}
+{"slice":"cpp","suite":"rpc","cell":"B","payload":"P2.2","dir":"a","transport":"pinned","inflight":16,"launch":1,"round":0,"cpu_ns":114966000,"wall_ns":62257714,"iters":16}
+{"slice":"cpp","suite":"rpc","cell":"C","payload":"P2.2","dir":"a","transport":"pinned","inflight":16,"launch":1,"round":0,"cpu_ns":87636000,"wall_ns":48390272,"iters":16}
+{"slice":"cpp","suite":"rpc","cell":"D","payload":"P2.2","dir":"a","transport":"pinned","inflight":16,"launch":1,"round":0,"cpu_ns":86289000,"wall_ns":53310643,"iters":16}
+{"slice":"cpp","suite":"rpc","cell":"A","payload":"P2.2","dir":"b","transport":"pinned","inflight":1,"launch":1,"round":0,"cpu_ns":28599000,"wall_ns":107336491,"iters":16}
+{"slice":"cpp","suite":"rpc","cell":"B","payload":"P2.2","dir":"b","transport":"pinned","inflight":1,"launch":1,"round":0,"cpu_ns":34794000,"wall_ns":93537593,"iters":16}
+{"slice":"cpp","suite":"rpc","cell":"C","payload":"P2.2","dir":"b","transport":"pinned","inflight":1,"launch":1,"round":0,"cpu_ns":26419000,"wall_ns":88949629,"iters":16}
+{"slice":"cpp","suite":"rpc","cell":"D","payload":"P2.2","dir":"b","transport":"pinned","inflight":1,"launch":1,"round":0,"cpu_ns":21484000,"wall_ns":91157109,"iters":16}
+{"slice":"cpp","suite":"rpc","cell":"A","payload":"P2.2","dir":"b","transport":"pinned","inflight":8,"launch":1,"round":0,"cpu_ns":32296000,"wall_ns":47201870,"iters":16}
+{"slice":"cpp","suite":"rpc","cell":"B","payload":"P2.2","dir":"b","transport":"pinned","inflight":8,"launch":1,"round":0,"cpu_ns":46950000,"wall_ns":49556577,"iters":16}
+{"slice":"cpp","suite":"rpc","cell":"C","payload":"P2.2","dir":"b","transport":"pinned","inflight":8,"launch":1,"round":0,"cpu_ns":29914000,"wall_ns":44920323,"iters":16}
+{"slice":"cpp","suite":"rpc","cell":"D","payload":"P2.2","dir":"b","transport":"pinned","inflight":8,"launch":1,"round":0,"cpu_ns":21754000,"wall_ns":42713281,"iters":16}
+{"slice":"cpp","suite":"rpc","cell":"A","payload":"P2.2","dir":"b","transport":"pinned","inflight":16,"launch":1,"round":0,"cpu_ns":26695000,"wall_ns":53785299,"iters":16}
+{"slice":"cpp","suite":"rpc","cell":"B","payload":"P2.2","dir":"b","transport":"pinned","inflight":16,"launch":1,"round":0,"cpu_ns":36487000,"wall_ns":58149407,"iters":16}
+{"slice":"cpp","suite":"rpc","cell":"C","payload":"P2.2","dir":"b","transport":"pinned","inflight":16,"launch":1,"round":0,"cpu_ns":29461000,"wall_ns":48184735,"iters":16}
+{"slice":"cpp","suite":"rpc","cell":"D","payload":"P2.2","dir":"b","transport":"pinned","inflight":16,"launch":1,"round":0,"cpu_ns":23470000,"wall_ns":40639687,"iters":16}
+# server (pinned): server cpu_ns 1562946000 (instrumentation)

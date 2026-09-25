@@ -38,6 +38,7 @@ done
 case "$SUITE" in codec|rpc|calib|gate) ;; *) echo "--suite codec|rpc|calib|gate" >&2; exit 2 ;; esac
 [ -n "$OUT" ] || { echo "--out <dir>" >&2; exit 2; }
 mkdir -p "$OUT"; OUT=$(cd "$OUT" && pwd)
+TMPD=$(mktemp -d)   # scratch files of the gate and the server; never committed
 : "${AK_CPU_CLIENT:?AK_CPU_CLIENT is required (requirement 4)}"
 : "${AK_CPU_SERVER:?AK_CPU_SERVER is required (requirement 4)}"
 LAUNCHES=${AK_CAMPAIGN_LAUNCHES:-3}
@@ -166,20 +167,20 @@ run_gate() {
     fi
     python3 gen/generate.py --check 2>/dev/null | grep -v '^ok' ; gck=${PIPESTATUS[0]}
     [ "$gck" = 0 ] || { echo ">>> FAIL: generate.py --check"; }
-    cmake -S . -B "$B" -DAK_RPC=ON > "$OUT/.cfg.log" 2>&1 && cmake --build "$B" -j"$(nproc)" > "$OUT/.build.log" 2>&1 \
-      && echo ">>> ok: build" || { tail -20 "$OUT/.build.log"; echo ">>> FAIL: build"; }
+    cmake -S . -B "$B" -DAK_RPC=ON > "$TMPD/cfg.log" 2>&1 && cmake --build "$B" -j"$(nproc)" > "$TMPD/build.log" 2>&1 \
+      && echo ">>> ok: build" || { tail -20 "$TMPD/build.log"; echo ">>> FAIL: build"; }
     echo "===== conformance: byte identity on the payload set, every level and linkage ====="
     for b in conformance_a17_shared conformance_b17_shared conformance_c14_shared conformance_c11_shared conformance_a17_static; do
-      (cd "$FFI/schema/generated" && taskset -c "$AK_CPU_CLIENT" "$B/$b" payloads > "$OUT/.c.log" 2>&1); rc=$?
-      echo "  $b: $(tail -1 "$OUT/.c.log")"
+      (cd "$FFI/schema/generated" && taskset -c "$AK_CPU_CLIENT" "$B/$b" payloads > "$TMPD/c.log" 2>&1); rc=$?
+      echo "  $b: $(tail -1 "$TMPD/c.log")"
       [ $rc = 0 ] || echo ">>> FAIL: $b"
     done
     (cd "$FFI/schema/generated" && "$B/conformance_a17_noinit" payloads > /dev/null 2>&1) \
       && echo ">>> FAIL: the planted no-ak_init build passed" || echo "  control noinit: failed as required"
     echo "===== the full corpus, four arms (drop and retain), target and floor ====="
     for b in corpus_all_a17 corpus_all_c11; do
-      python3 gen/corpus_all.py "$B/$b" > "$OUT/.k.log" 2>/dev/null; rc=$?
-      grep -E '^## |^   pass|^CORPUS' "$OUT/.k.log" | sed 's/^/  /'
+      python3 gen/corpus_all.py "$B/$b" > "$TMPD/k.log" 2>/dev/null; rc=$?
+      grep -E '^## |^   pass|^CORPUS' "$TMPD/k.log" | sed 's/^/  /'
       [ $rc = 0 ] || echo ">>> FAIL: corpus $b"
     done
     SUB="S-Probe,U-root,X-lenwrap-lrr,E-map,T-dec-root"
@@ -193,27 +194,27 @@ run_gate() {
     (cd "$FFI/schema/generated" && "$B/counts_a17_shared" > "$OUT/counts.log" 2>&1)
     # The committed baseline (logs/cpp/counts-baseline.log, re-taken deliberately when the
     # core's ABI changes a count, with the reason in its header).
-    grep -E '^  P' "$FFI/logs/cpp/counts-baseline.log" > "$OUT/.want"
-    grep -E '^  P' "$OUT/counts.log" > "$OUT/.got"
-    if diff "$OUT/.want" "$OUT/.got" > "$OUT/.diff"; then
-      echo "  $(wc -l < "$OUT/.got") count rows identical to logs/cpp/counts-baseline.log"
+    grep -E '^  P' "$FFI/logs/cpp/counts-baseline.log" > "$TMPD/want"
+    grep -E '^  P' "$OUT/counts.log" > "$TMPD/got"
+    if diff "$TMPD/want" "$TMPD/got" > "$TMPD/diff"; then
+      echo "  $(wc -l < "$TMPD/got") count rows identical to logs/cpp/counts-baseline.log"
     else
-      head -10 "$OUT/.diff"; echo ">>> FAIL: crossing counts differ from the committed ones"
+      head -10 "$TMPD/diff"; echo ">>> FAIL: crossing counts differ from the committed ones"
     fi
     echo "===== the codec campaign binary's own gate, and its planted control ====="
     unknown_rows
-    (cd "$FFI/schema/generated" && "$B/campaign_codec" --rounds 0 --bytes 1 --warmup 1 --corpus "$FFI/corpus/generated" --rows "$ROWS" > "$OUT/.g.log" 2>&1); rc=$?
-    grep '^#' "$OUT/.g.log" | sed 's/^/  /'
-    [ $rc = 0 ] || { grep 'GATE FAIL' "$OUT/.g.log" | head; echo ">>> FAIL: campaign_codec gate"; }
-    (cd "$FFI/schema/generated" && AK_CAMPAIGN_PLANT=1 "$B/campaign_codec" --rounds 0 --bytes 1 --warmup 1 --corpus "$FFI/corpus/generated" --rows "$ROWS" > "$OUT/.g.log" 2>&1) \
+    (cd "$FFI/schema/generated" && "$B/campaign_codec" --rounds 0 --bytes 1 --warmup 1 --corpus "$FFI/corpus/generated" --rows "$ROWS" > "$TMPD/g.log" 2>&1); rc=$?
+    grep '^#' "$TMPD/g.log" | sed 's/^/  /'
+    [ $rc = 0 ] || { grep 'GATE FAIL' "$TMPD/g.log" | head; echo ">>> FAIL: campaign_codec gate"; }
+    (cd "$FFI/schema/generated" && AK_CAMPAIGN_PLANT=1 "$B/campaign_codec" --rounds 0 --bytes 1 --warmup 1 --corpus "$FFI/corpus/generated" --rows "$ROWS" > "$TMPD/g.log" 2>&1) \
       && echo ">>> FAIL: the planted codec gate passed" \
-      || echo "  control campaign_codec plant: $(grep -c 'GATE FAIL' "$OUT/.g.log") slots failed as required"
+      || echo "  control campaign_codec plant: $(grep -c 'GATE FAIL' "$TMPD/g.log") slots failed as required"
     echo "===== the RPC call check (requirement 18) seen failing: a wrong expected length ====="
     start_server shipped
     timeout 120 taskset -c "$AK_CPU_CLIENT" "$B/campaign_rpc" --target 127.0.0.1:$PORT --expect $((EXP + 1)) \
-      --transport shipped --cells C --dirs a --inflight 1 --rounds 1 --calls 2 --warmup 1 > "$OUT/.r.log" 2>&1; rc=$?
+      --transport shipped --cells C --dirs a --inflight 1 --rounds 1 --calls 2 --warmup 1 > "$TMPD/r.log" 2>&1; rc=$?
     stop_server
-    [ $rc != 0 ] && echo "  control rpc length: aborted as required (exit $rc: $(grep -m1 'CALL CHECK' "$OUT/.r.log"))" \
+    [ $rc != 0 ] && echo "  control rpc length: aborted as required (exit $rc: $(grep -m1 'CALL CHECK' "$TMPD/r.log"))" \
                  || echo ">>> FAIL: a wrong response length did not abort"
   } > "$log" 2>&1
   if grep -q '>>> FAIL' "$log"; then
@@ -242,14 +243,14 @@ EOF
 
 PORT=""; EXP=""; SPID=""
 start_server() {
-  taskset -c "$AK_CPU_SERVER" "$B/campaign_server" --port 0 --transport "$1" > "$OUT/.srv.out" 2> "$OUT/.srv.err" &
+  taskset -c "$AK_CPU_SERVER" "$B/campaign_server" --port 0 --transport "$1" > "$TMPD/srv.out" 2> "$TMPD/srv.err" &
   SPID=$!
-  for _ in $(seq 100); do grep -q READY "$OUT/.srv.out" 2>/dev/null && break; sleep 0.1; done
-  PORT=$(awk '/READY/{print $2}' "$OUT/.srv.out"); EXP=$(awk '/READY/{print $3}' "$OUT/.srv.out")
-  [ -n "$PORT" ] || { echo "the server did not start"; cat "$OUT/.srv.err"; exit 1; }
+  for _ in $(seq 100); do grep -q READY "$TMPD/srv.out" 2>/dev/null && break; sleep 0.1; done
+  PORT=$(awk '/READY/{print $2}' "$TMPD/srv.out"); EXP=$(awk '/READY/{print $3}' "$TMPD/srv.out")
+  [ -n "$PORT" ] || { echo "the server did not start"; cat "$TMPD/srv.err"; exit 1; }
 }
 stop_server() { kill "$SPID" 2>/dev/null; wait "$SPID" 2>/dev/null; SPID=""; }
-trap 'stop_server' EXIT
+trap 'stop_server; rm -rf "$TMPD"' EXIT
 
 ensure_gate() {
   if [ -f "$OUT/gate.ok" ] && [ "$(cat "$OUT/gate.ok")" = "$COMMIT $B" ]; then return 0; fi
@@ -280,7 +281,7 @@ case "$SUITE" in
           --transport "$t" --launch "$l" --rounds "$ROUNDS" --calls "$CALLS" --warmup "$RPCWARM" >> "$f" 2>&1
         rc=$?
         stop_server
-        echo "# server ($t): $(cat "$OUT/.srv.err")" >> "$f"
+        echo "# server ($t): $(cat "$TMPD/srv.err")" >> "$f"
         [ $rc = 0 ] || { echo "rpc launch $l ($t) failed: $f" >&2; exit 1; }
       done
       echo "wrote $f"
@@ -293,9 +294,9 @@ case "$SUITE" in
       header calib "$l" > "$f"
       for d in forward reverse; do
         if [ -n "$PERF" ]; then
-          taskset -c "$AK_CPU_CLIENT" "$PERF" stat -x, -e cycles,instructions -o "$OUT/.perf" \
+          taskset -c "$AK_CPU_CLIENT" "$PERF" stat -x, -e cycles,instructions -o "$TMPD/perf" \
             "$B/campaign_calib" --dir $d --launch "$l" --rounds "$ROUNDS" --iters "$CITERS" >> "$f" 2>&1
-          sed 's/^/# perf '"$d"': /' "$OUT/.perf" >> "$f"
+          sed 's/^/# perf '"$d"': /' "$TMPD/perf" >> "$f"
         else
           echo "# perf unavailable on this machine: cycles and instructions not recorded (requirement 20)" >> "$f"
           taskset -c "$AK_CPU_CLIENT" "$B/campaign_calib" --dir $d --launch "$l" --rounds "$ROUNDS" --iters "$CITERS" >> "$f" 2>&1
