@@ -1,28 +1,28 @@
 # slice:           python
 # suite:           rpc
-# commit:          8d2e7ac
-# date:            2026-09-25T18:22:56Z
-# snapshot:        883ae3b (883ae3b)
+# commit:          aed38df
+# date:            2026-09-25T19:00:37Z
+# snapshot:        aed38df (HEAD)
 # cpu_model:       Intel(R) Xeon(R) Processor @ 2.10GHz
 # cpus_online:     4
 # smt:             0
 # governor:        unknown
 # turbo:           unknown (no intel_pstate/boost knob)
 # kernel:          6.18.44-fc-v37
-# isolation:       none (container smoke run)
-# cpu_client:      0-1
-# cpu_server:      2-3
+# isolation:       none detected (isolated=)
+# cpu_client:      unset
+# cpu_server:      unset
 # cpu_os:          unset (everything not in CLIENT or SERVER)
 # python:          3.12.3
 # implementation:  CPython
 # protobuf:        7.36.2 (upb)
 # grpcio:          1.84.0
-# build:           {"cc": "cc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0", "cflags": "-O2 -fPIC -Wall -Wextra -Werror -Wno-unused-parameter -fvisibility=hidden", "core_features": {"_akffi": "init-guard", "_akffi_corpus": "corpus,init-guard", "_akffi_count": "count,init-guard", "_akffi_rpc": "rpc,init-guard"}, "core_linkage": "shared (libak_core.so through the dynamic linker)", "core_profile_release": "lto = false", "core_source": "/home/user/ArmoniK.Api/ffi/poc/python/build/snap/883ae3b/ffi/poc/codec", "rustc": "rustc 1.94.1 (e408947bf 2026-03-25)", "snapshot": "883ae3b"}
+# build:           {"cc": "cc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0", "cflags": "-O2 -fPIC -Wall -Wextra -Werror -Wno-unused-parameter -fvisibility=hidden", "core_features": {"_akffi": "init-guard", "_akffi_corpus": "corpus,init-guard", "_akffi_count": "count,init-guard", "_akffi_rpc": "rpc,init-guard"}, "core_linkage": "shared (libak_core.so through the dynamic linker)", "core_profile_release": "lto = false", "core_source": "/home/user/ArmoniK.Api/ffi/poc/python/build/snap/973e5ba/ffi/poc/codec", "rustc": "rustc 1.94.1 (e408947bf 2026-03-25)", "snapshot": "HEAD"}
 # launch:          1
 # rounds:          1
 # calls_per_sample: 16
 # inflight:        [1, 8, 16]
-# affinity_client: [0, 1]
+# affinity_client: [0, 1, 2, 3]
 # payload:         P2.2 (540422 bytes)
 # transport_shipped: grpcio: no channel option (packages/python create_channel); server: grpcio defaults; core: ak_client_new (tonic defaults)
 # transport_pinned: grpcio client and server: grpc.http2.lookahead_bytes=4 MiB, bdp_probe=0, message limits 16 MiB; no connection-window argument exists in grpcio; grpcio sets TCP_NODELAY itself (logs/python/80). core: ak_client_new_opts stream=connection=4 MiB, adaptive=0, limits 16 MiB, tcp_nagle=0 (off)
@@ -34,5 +34,5 @@
 # clock:           CLOCK_PROCESS_CPUTIME_ID of the client (cpu_ns), perf_counter_ns (wall_ns)
 # delivery:        B and C blocking; queue and callback are labelled extra cells, direction a only
 # INSTRUMENTATION: a container smoke run (CAMPAIGN.md requirement 32). No figure below is a result.
-# server (shipped): pid 8337, port 33663, affinity 2,3
+# server (shipped): pid 28628, port 36717, affinity 0,1,2,3
 # ABORTED, NO FIGURE: CallFailed: CallFailed: response is 540421 bytes, want 540422

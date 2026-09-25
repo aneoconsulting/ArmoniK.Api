@@ -1,14 +1,14 @@
 # python slice: build, WP5 step 5 (plan-rendered shim, init-guard cores)
-# date:      2026-09-25T18:18:43Z
-# commit:    8d2e7ac + uncommitted changes in poc/python or poc/codec
+# date:      2026-09-25T18:54:35Z
+# commit:    973e5ba
 # phase:     correctness only; nothing here is a timing
 
-   core source: /home/user/ArmoniK.Api/ffi/poc/python/build/snap/883ae3b/ffi/poc/codec (snapshot of 883ae3b)
-   commit:      883ae3b (snapshot)
-   core tree:   db0fcb92c84176d5
-   targets:     /home/user/ArmoniK.Api/ffi/poc/python/build/cargo-883ae3b/{plain,count,rpc,corpus}
+   core source: /home/user/ArmoniK.Api/ffi/poc/python/build/snap/973e5ba/ffi/poc/codec (snapshot of 973e5ba)
+   commit:      973e5ba (snapshot)
+   core tree:   5e4936f1aebecd4f
+   targets:     /home/user/ArmoniK.Api/ffi/poc/python/build/cargo-973e5ba/{plain,count,rpc,corpus}
 == 1. R0: one core, at poc/codec, reached by path ==
-   snapshot mode: the core is the archived poc/codec of 883ae3b, reached by path; one_core.sh
+   snapshot mode: the core is the archived poc/codec of 973e5ba, reached by path; one_core.sh
    checks the working tree (other slices), which is not what this build reads
 
 == 2. R1: the generated tree is current with the plans ==
@@ -16,21 +16,21 @@ guard 2 python backend modules import plans only; a planted IR import is caught
 generated tree is current with the plans (10 files)
 
 == 3. the shared core, every build WITH init-guard (R-G7) ==
-   cargo (plain --features init-guard): 16 warnings, in /home/user/ArmoniK.Api/ffi/poc/python/build/cargo-883ae3b/plain.stderr
+   cargo (plain --features init-guard): 16 warnings, in /home/user/ArmoniK.Api/ffi/poc/python/build/cargo-973e5ba/plain.stderr
    exported ak_* entry points: 99
-   cargo (count --features count,init-guard): 16 warnings, in /home/user/ArmoniK.Api/ffi/poc/python/build/cargo-883ae3b/count.stderr
-   cargo (rpc --features rpc,init-guard): 16 warnings, in /home/user/ArmoniK.Api/ffi/poc/python/build/cargo-883ae3b/rpc.stderr
+   cargo (count --features count,init-guard): 16 warnings, in /home/user/ArmoniK.Api/ffi/poc/python/build/cargo-973e5ba/count.stderr
+   cargo (rpc --features rpc,init-guard): 16 warnings, in /home/user/ArmoniK.Api/ffi/poc/python/build/cargo-973e5ba/rpc.stderr
    the rpc core: 14 section 9 entry points
-   cargo (corpus --features corpus,init-guard): 38 warnings, in /home/user/ArmoniK.Api/ffi/poc/python/build/cargo-883ae3b/corpus.stderr
+   cargo (corpus --features corpus,init-guard): 38 warnings, in /home/user/ArmoniK.Api/ffi/poc/python/build/cargo-973e5ba/corpus.stderr
    the corpus core: 1 ak_decode_WireZoo export(s)
 
 == python 3.12 (3.12.3, sys.hexversion 0x30c03f0) ==
    built _akffi, _akffi_count, _akffi_rpc, _akffi_corpus, _akffi_corpus_chunk in build/py3.12; the noinit control in build/py3.12/ctl
-   _akffi.cpython-312-x86_64-linux-gnu.so: 66 undefined ak_* imports incl. ak_init, PyInit_ exported, libak_core.so NEEDED
-   _akffi_count.cpython-312-x86_64-linux-gnu.so: 68 undefined ak_* imports incl. ak_init, PyInit_ exported, libak_core.so NEEDED
-   _akffi_rpc.cpython-312-x86_64-linux-gnu.so: 80 undefined ak_* imports incl. ak_init, PyInit_ exported, libak_core.so NEEDED
-   _akffi_corpus.cpython-312-x86_64-linux-gnu.so: 186 undefined ak_* imports incl. ak_init, PyInit_ exported, libak_core.so NEEDED
-   _akffi_corpus_chunk.cpython-312-x86_64-linux-gnu.so: 186 undefined ak_* imports incl. ak_init, PyInit_ exported, libak_core.so NEEDED
+   _akffi.cpython-312-x86_64-linux-gnu.so: 67 undefined ak_* imports incl. ak_init, PyInit_ exported, libak_core.so NEEDED
+   _akffi_count.cpython-312-x86_64-linux-gnu.so: 71 undefined ak_* imports incl. ak_init, PyInit_ exported, libak_core.so NEEDED
+   _akffi_rpc.cpython-312-x86_64-linux-gnu.so: 81 undefined ak_* imports incl. ak_init, PyInit_ exported, libak_core.so NEEDED
+   _akffi_corpus.cpython-312-x86_64-linux-gnu.so: 187 undefined ak_* imports incl. ak_init, PyInit_ exported, libak_core.so NEEDED
+   _akffi_corpus_chunk.cpython-312-x86_64-linux-gnu.so: 187 undefined ak_* imports incl. ak_init, PyInit_ exported, libak_core.so NEEDED
    control: _akffi_corpus_noinit imports no ak_init (AK_SKIP_INIT is in that build only)
    must-fail control: a planted layout mismatch refuses to import: ImportError: layout: ak_dfix_TaskOptionsOptionsEntry.key is 1 in the core and 0 here
    _akffi_rpc.cpython-312-x86_64-linux-gnu.so: all 6 section 9 imports, libak_core.so resolves to the rpc build
@@ -38,11 +38,11 @@ generated tree is current with the plans (10 files)
 
 == python 3.7 (3.7.5, sys.hexversion 0x30705f0) ==
    built _akffi, _akffi_count, _akffi_rpc, _akffi_corpus, _akffi_corpus_chunk in build/py3.7; the noinit control in build/py3.7/ctl
-   _akffi.cpython-37m-x86_64-linux-gnu.so: 66 undefined ak_* imports incl. ak_init, PyInit_ exported, libak_core.so NEEDED
-   _akffi_count.cpython-37m-x86_64-linux-gnu.so: 68 undefined ak_* imports incl. ak_init, PyInit_ exported, libak_core.so NEEDED
-   _akffi_rpc.cpython-37m-x86_64-linux-gnu.so: 80 undefined ak_* imports incl. ak_init, PyInit_ exported, libak_core.so NEEDED
-   _akffi_corpus.cpython-37m-x86_64-linux-gnu.so: 186 undefined ak_* imports incl. ak_init, PyInit_ exported, libak_core.so NEEDED
-   _akffi_corpus_chunk.cpython-37m-x86_64-linux-gnu.so: 186 undefined ak_* imports incl. ak_init, PyInit_ exported, libak_core.so NEEDED
+   _akffi.cpython-37m-x86_64-linux-gnu.so: 67 undefined ak_* imports incl. ak_init, PyInit_ exported, libak_core.so NEEDED
+   _akffi_count.cpython-37m-x86_64-linux-gnu.so: 71 undefined ak_* imports incl. ak_init, PyInit_ exported, libak_core.so NEEDED
+   _akffi_rpc.cpython-37m-x86_64-linux-gnu.so: 81 undefined ak_* imports incl. ak_init, PyInit_ exported, libak_core.so NEEDED
+   _akffi_corpus.cpython-37m-x86_64-linux-gnu.so: 187 undefined ak_* imports incl. ak_init, PyInit_ exported, libak_core.so NEEDED
+   _akffi_corpus_chunk.cpython-37m-x86_64-linux-gnu.so: 187 undefined ak_* imports incl. ak_init, PyInit_ exported, libak_core.so NEEDED
    control: _akffi_corpus_noinit imports no ak_init (AK_SKIP_INIT is in that build only)
    must-fail control: a planted layout mismatch refuses to import: ImportError: layout: ak_dfix_TaskOptionsOptionsEntry.key is 1 in the core and 0 here
    _akffi_rpc.cpython-37m-x86_64-linux-gnu.so: all 6 section 9 imports, libak_core.so resolves to the rpc build

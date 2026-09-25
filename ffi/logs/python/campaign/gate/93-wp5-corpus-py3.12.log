@@ -1,6 +1,6 @@
 # python slice: the whole corpus, five arms, controls, py3.12
-# date:      2026-09-25T18:21:25Z
-# commit:    8d2e7ac + uncommitted changes in poc/python or poc/codec
+# date:      2026-09-25T18:59:15Z
+# commit:    aed38df
 # phase:     correctness only; nothing here is a timing
 
 # python slice: the conformance corpus, every row, every arm (FIX-PLAN WP5 item 6.1)
@@ -444,7 +444,7 @@
    X-wire-type-7                            ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | DecodeError(-2) | DecodeError(-2)
 
 # rows that hung or crashed a worker: 0
-# wall 2 s (instrumentation)
+# wall 1 s (instrumentation)
 CORPUS PASSES on all 6 arms
 
 ===== controls (each MUST FAIL) =====
@@ -462,4 +462,6 @@ CONTROLS ALL FAILED AS REQUIRED
    zeroed position: 1373 (row, position) pairs over 311 rows; 315 where zeroing removes a bag; 0 mismatch
    leak: 0 successful retain decode(s) reclaimed an undelivered buffer
    wrong root: 812 ordered pairs refused with -8 and nothing delivered; positive control 29 of 29 roots; 0 failure(s)
+   per-thread contexts, reuse: 39808 decode+encode(s) on this thread created 0 context(s) (want 0)
+   per-thread contexts, threads: 8 x 12440 decode+encode(s); 0 error(s); 232 context(s) created (at most 232)
 D11 CONTROLS PASS

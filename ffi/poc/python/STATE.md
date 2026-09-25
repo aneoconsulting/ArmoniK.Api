@@ -8,7 +8,7 @@ are listed at the foot as instrumentation.
 
 | | |
 |---|---|
-| **Status** | Work unit 7 done: **decision 11 through the C ABI** (FIX-PLAN WP5 step 9). The shim renders root-bound contexts, per-root `ak_dec_<Root>_opts` armed per decode, a C grow, slots taken into the facade's `_unknown`, and the `ak_uencode_*` family. **ffi-retain** passes the whole corpus at 3.12 and 3.7 (no retention gap except the disputed U-map-entry), and the decision 11 controls pass. **CAMPAIGN requirement 10 is now met**: core-ffi retain is timed in the pyperf codec suite. WP3 harness (work unit 6) below |
+| **Status** | Work unit 7 done: **decision 11 through the C ABI** (FIX-PLAN WP5 step 9). The shim renders root-bound contexts **held per thread** (one per root and one encoder per thread, created lazily, reused; correction of the per-call context), per-root `ak_dec_<Root>_opts` armed per decode, a C grow, slots taken into the facade's `_unknown`, and the `ak_uencode_*` family. **ffi-retain** passes the whole corpus at 3.12 and 3.7 (no retention gap except the disputed U-map-entry), and the decision 11 controls pass. **CAMPAIGN requirement 10 is now met**: core-ffi retain is timed in the pyperf codec suite. WP3 harness (work unit 6) below |
 | **Floor** (owner D1: 3.7) | **Builds and passes every gate on CPython 3.7.5** (Ubuntu 18.04's packages from archive.ubuntu.com, `fetch_py37.sh`): logs 90-97 |
 | **Target** (owner D1: 3.12) | Built and gated on **3.12.3**: logs 90-96, 98. grpcio 1.84.0, protobuf 7.36.2 (upb) |
 | **Incumbent** (R14) | protobuf on **upb** through gRPC's generated marshaller path (`SerializeToString` / `FromString`), `verify_r14.py` (log 52). On the 3.7 floor: protobuf 4.24.4 (upb), for the conformance gate only |
@@ -17,11 +17,22 @@ are listed at the foot as instrumentation.
 ## Decision 11 through the C ABI (work unit 7, WP5 step 9)
 
 `py_capi` (in `poc/codec/gen/`) renders:
+- **Contexts, per thread:** a pthread key holds each thread's block: one decode context per
+  root (`ak_dec_ctx_new_<R>(NULL)`, created on that thread's first decode of R) and one encode
+  context. The key's destructor frees a block at thread exit; the module's `m_free` frees the
+  calling thread's block and deletes the key (another thread still alive then is not freed
+  before process exit). A decode or encode re-entered on the same thread for a busy slot (a
+  callback that decodes) gets a temporary context, freed after; that path is not exercised
+  by any control. The reason for per-thread rather than one per process: the GIL can switch
+  threads inside a decode callback (facade `__init__`, pyacc accessors are Python code).
 - **Decode:** `decode_<b>_<R>(buf, acc, T, retain, zero)`:
-  - `ak_dec_ctx_new_<R>(NULL)` (the context is bound to its root);
-  - `ak_dec_reset_<R>(ctx, retain ? &opts : NULL)`, return checked;
+  - the thread's context for R;
+  - `ak_dec_reset_<R>(ctx, retain ? &opts : NULL)`, return checked (a reset per decode, rule 7);
   - the decode;
-  - `ak_dec_reset_<R>(ctx, NULL)`, return checked.
+  - retain only: `ak_dec_reset_<R>(ctx, NULL)`, return checked (the disarm; drop mode has
+    nothing armed, so it pays one reset per decode).
+- **Encode:** the thread's encode context, `ak_enc_reset` before each encode except the first;
+  the counting build resets the counters per call (`ak_enc_counters_reset`/`ak_dec_counters_reset`).
 
   `ak_dec_<R>_opts` is laid out from `plan.unk_opts_layout` in the decode's frame, so it
   stays unmoved while armed. Every armed position uses `ak_py_grow` (realloc; NULL/0 means
@@ -34,12 +45,14 @@ are listed at the foot as instrumentation.
 - **Encode:** `fillu_`/`loopu_` fill the `ak_ufix` groups, including each message's
   `_unknown` as `unknown: ak_blob`, and call `ak_uencode_<R>` and `ak_uelem*_`.
 - **`native/binding.c`:** `encode(..., acc, retain)`, `decode(..., acc, retain, zero_mask)`,
-  `unk_positions(root)`, `wrong_root(a, b)`, `last_reclaimed()`.
+  `unk_positions(root)`, `wrong_root(a, b)`, `last_reclaimed()`, `tls_created()` (contexts
+  created through the thread key).
 
 Drop mode is the same code path with every entry zero. Crossing counts are unchanged (log 98,
 160 rows at both levels), and the per-decode resets add no counted crossing.
 
-**Gate at 883ae3b, 3.12 and 3.7** (logs `90`-`98`, rerun; the header names the snapshot):
+**Gate at 6feff87 (python code at acb5128), 3.12 and 3.7** (logs `90`-`98`, rerun after the
+per-thread correction; the same figures as the per-call gate at 883ae3b):
 - Conformance passes on both shims.
 - **Corpus, 6 arms** (the corpus now has 702 rows):
   - ffi-cext, ffi-attr, ffi-chunk256 and **ffi-retain** each pass 680 with 0 failures
@@ -57,11 +70,15 @@ Drop mode is the same code path with every entry zero. Crossing counts are uncha
     positive control passes on 29 of 29 roots.
   - Leak: 0 undelivered buffers after a successful retain decode.
   - noinit now also covers ffi-retain.
+  - **Per-thread contexts:** 39,808 further decode+encodes on one thread create 0 contexts;
+    8 threads at a 1 us switch interval, 12,440 decode+encodes each, re-encode every row to
+    the single-thread bytes with 0 errors and 0 reclaimed buffers, and create exactly 232
+    contexts (8 x (28 roots + 1 encoder)).
 - RPC gate, R-D1, U1 and the 3.7 source check all pass.
 
 **Requirement 10:** the pyperf codec suite times core-ffi in drop AND retain, shapes and the
 unknown rows, plus host-gen drop and retain and the incumbent at its default. Smoke,
-instrumentation: `logs/python/campaign/codec-*`, 378 plus 60 values.
+instrumentation: `logs/python/campaign/codec-*` (rerun on the per-thread contexts).
 
 ## WP3: the campaign harness (work unit 6)
 
