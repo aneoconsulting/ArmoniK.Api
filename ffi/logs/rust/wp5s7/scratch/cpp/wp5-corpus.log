@@ -1,0 +1,2008 @@
+# cpp slice, WP5 step 2: the full conformance corpus, four arms
+#   date       2026-09-25T06:35:21Z
+#   machine    Linux 6.18.44-fc-v37 x86_64, 4 vCPU, Intel(R) Xeon(R) Processor @ 2.80GHz
+#   compiler   g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0; rustc 1.94.1 (e408947bf 2026-03-25)
+#   commit     e22c9f2
+#   core       ffi/poc/codec at that commit, built --features init-guard (and corpus,init-guard
+#              for the corpus ABI); no timing is taken by anything in this log
+
+===== corpus_all_a17 =====
+# the conformance corpus, C ABI and core-native, unknown fields dropped and retained
+#   binary     build/corpus_all_a17
+#   build      __cplusplus 201703, target impl True, binding skips ak_init: False
+#   manifest   corpus/generated/manifest.json (702 rows)
+#   core       ak-core --features corpus,init-guard: generated for the corpus's READER
+#              schema by poc/codec/gen (plan.py + rust_abi.py); CONTRACT rule 0
+#   native     rendered by poc/codec/gen/cpp_native.py from the same plans: drop / retain
+#   decode utf8 policy reject; recursion limit 100; ffi-retain arm built: True
+#   each row in a child process, timeout 10 s
+
+## ffi-drop
+   pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16  arm not built 0
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  107  fail   0
+     shape      pass  163  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  311  fail   0
+   forms written (C3):
+      183  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       46  unknown-dropped
+       25  unknown-dropped / unknown-dropped, map values always written
+      156  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   refusal codes (C4): -2 x39, -3 x73, -6 x31
+   disputed: U-map-entry [ffi-drop]: accepted; projection matches the reading of null
+   disputed: X-field-2p32-plus-2 [ffi-drop]: refused (-2)
+   disputed: X-field-over-max [ffi-drop]: refused (-2)
+   disputed: X-field-over-max-in-group [ffi-drop]: refused (-2)
+   disputed: X-tag-zero-Empty [ffi-drop]: refused (-2)
+   disputed: X-tag-zero-nested-Empty [ffi-drop]: refused (-2)
+
+## ffi-retain
+   pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16  arm not built 0
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  107  fail   0
+     shape      pass  163  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  311  fail   0
+   forms written (C3):
+      183  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       46  unknown-dropped
+       25  unknown-dropped / unknown-dropped, map values always written
+      156  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   refusal codes (C4): -2 x39, -3 x73, -6 x31
+   disputed: U-map-entry [ffi-retain]: accepted; projection matches the reading of null
+   disputed: X-field-2p32-plus-2 [ffi-retain]: refused (-2)
+   disputed: X-field-over-max [ffi-retain]: refused (-2)
+   disputed: X-field-over-max-in-group [ffi-retain]: refused (-2)
+   disputed: X-tag-zero-Empty [ffi-retain]: refused (-2)
+   disputed: X-tag-zero-nested-Empty [ffi-retain]: refused (-2)
+   retain mode wrote the DROPPED form on 308 row(s) (accepted by the contract; a retention gap):
+     U-chunkelem-all (ffi-retain)
+     U-chunkelem-u-fixed32 (ffi-retain)
+     U-chunkelem-u-fixed64 (ffi-retain)
+     U-chunkelem-u-len (ffi-retain)
+     U-chunkelem-u-msg (ffi-retain)
+     U-chunkelem-u-packed (ffi-retain)
+     U-chunkelem-u-repeated (ffi-retain)
+     U-chunkelem-u-varint (ffi-retain)
+     U-deep-all (ffi-retain)
+     U-deep-u-fixed32 (ffi-retain)
+     U-deep-u-fixed64 (ffi-retain)
+     U-deep-u-len (ffi-retain)
+     U-deep-u-msg (ffi-retain)
+     U-deep-u-packed (ffi-retain)
+     U-deep-u-repeated (ffi-retain)
+     U-deep-u-varint (ffi-retain)
+     U-element-all (ffi-retain)
+     U-element-u-fixed32 (ffi-retain)
+     U-element-u-fixed64 (ffi-retain)
+     U-element-u-len (ffi-retain)
+     U-element-u-msg (ffi-retain)
+     U-element-u-packed (ffi-retain)
+     U-element-u-repeated (ffi-retain)
+     U-element-u-varint (ffi-retain)
+     U-group-field-max (ffi-retain)
+     U-leaf-all (ffi-retain)
+     U-leaf-u-fixed32 (ffi-retain)
+     U-leaf-u-fixed64 (ffi-retain)
+     U-leaf-u-len (ffi-retain)
+     U-leaf-u-msg (ffi-retain)
+     U-leaf-u-packed (ffi-retain)
+     U-leaf-u-repeated (ffi-retain)
+     U-leaf-u-varint (ffi-retain)
+     U-map-entry (ffi-retain)
+     U-nested-all (ffi-retain)
+     U-nested-before (ffi-retain)
+     U-nested-group (ffi-retain)
+     U-nested-interleaved (ffi-retain)
+     U-nested-u-fixed32 (ffi-retain)
+     U-nested-u-fixed64 (ffi-retain)
+     U-nested-u-len (ffi-retain)
+     U-nested-u-msg (ffi-retain)
+     U-nested-u-packed (ffi-retain)
+     U-nested-u-repeated (ffi-retain)
+     U-nested-u-varint (ffi-retain)
+     U-oneof-all (ffi-retain)
+     U-oneof-before (ffi-retain)
+     U-oneof-group (ffi-retain)
+     U-oneof-interleaved (ffi-retain)
+     U-oneof-member-after-known (ffi-retain)
+     U-oneof-member-alone (ffi-retain)
+     U-oneof-member-before-known (ffi-retain)
+     U-oneof-u-fixed32 (ffi-retain)
+     U-oneof-u-fixed64 (ffi-retain)
+     U-oneof-u-len (ffi-retain)
+     U-oneof-u-msg (ffi-retain)
+     U-oneof-u-packed (ffi-retain)
+     U-oneof-u-repeated (ffi-retain)
+     U-oneof-u-varint (ffi-retain)
+     U-root-all (ffi-retain)
+     U-root-before (ffi-retain)
+     U-root-group (ffi-retain)
+     U-root-interleaved (ffi-retain)
+     U-root-max-tag (ffi-retain)
+     U-root-u-fixed32 (ffi-retain)
+     U-root-u-fixed64 (ffi-retain)
+     U-root-u-len (ffi-retain)
+     U-root-u-msg (ffi-retain)
+     U-root-u-packed (ffi-retain)
+     U-root-u-repeated (ffi-retain)
+     U-root-u-varint (ffi-retain)
+     U-wire-ChunkElement-attrs-as-wt0 (ffi-retain)
+     U-wire-ChunkElement-attrs-as-wt1 (ffi-retain)
+     U-wire-ChunkElement-attrs-as-wt5 (ffi-retain)
+     U-wire-ChunkElement-id-as-wt0 (ffi-retain)
+     U-wire-ChunkElement-id-as-wt1 (ffi-retain)
+     U-wire-ChunkElement-id-as-wt5 (ffi-retain)
+     U-wire-ChunkElement-inner-as-wt0 (ffi-retain)
+     U-wire-ChunkElement-inner-as-wt1 (ffi-retain)
+     U-wire-ChunkElement-inner-as-wt5 (ffi-retain)
+     U-wire-ChunkElement-labels-as-wt0 (ffi-retain)
+     U-wire-ChunkElement-labels-as-wt1 (ffi-retain)
+     U-wire-ChunkElement-labels-as-wt5 (ffi-retain)
+     U-wire-ChunkInner-leaves-as-wt0 (ffi-retain)
+     U-wire-ChunkInner-leaves-as-wt1 (ffi-retain)
+     U-wire-ChunkInner-leaves-as-wt5 (ffi-retain)
+     U-wire-ChunkInner-marks-as-wt1 (ffi-retain)
+     U-wire-ChunkInner-marks-as-wt5 (ffi-retain)
+     U-wire-ChunkLeaf-k-as-wt0 (ffi-retain)
+     U-wire-ChunkLeaf-k-as-wt1 (ffi-retain)
+     U-wire-ChunkLeaf-k-as-wt5 (ffi-retain)
+     U-wire-ChunkLeaf-v-as-wt1 (ffi-retain)
+     U-wire-ChunkLeaf-v-as-wt2 (ffi-retain)
+     U-wire-ChunkLeaf-v-as-wt5 (ffi-retain)
+     U-wire-ChunkedResponse-items-as-wt0 (ffi-retain)
+     U-wire-ChunkedResponse-items-as-wt1 (ffi-retain)
+     U-wire-ChunkedResponse-items-as-wt5 (ffi-retain)
+     U-wire-ChunkedResponse-page-as-wt1 (ffi-retain)
+     U-wire-ChunkedResponse-page-as-wt2 (ffi-retain)
+     U-wire-ChunkedResponse-page-as-wt5 (ffi-retain)
+     U-wire-ChunkedResponseWide-items-as-wt0 (ffi-retain)
+     U-wire-ChunkedResponseWide-items-as-wt1 (ffi-retain)
+     U-wire-ChunkedResponseWide-items-as-wt5 (ffi-retain)
+     U-wire-DualResponse-left-as-wt0 (ffi-retain)
+     U-wire-DualResponse-left-as-wt1 (ffi-retain)
+     U-wire-DualResponse-left-as-wt5 (ffi-retain)
+     U-wire-Duration-nanos-as-wt1 (ffi-retain)
+     U-wire-Duration-nanos-as-wt2 (ffi-retain)
+     U-wire-Duration-nanos-as-wt5 (ffi-retain)
+     U-wire-Duration-seconds-as-wt1 (ffi-retain)
+     U-wire-Duration-seconds-as-wt2 (ffi-retain)
+     U-wire-Duration-seconds-as-wt5 (ffi-retain)
+     U-wire-LeafElement-id-as-wt0 (ffi-retain)
+     U-wire-LeafElement-id-as-wt1 (ffi-retain)
+     U-wire-LeafElement-id-as-wt5 (ffi-retain)
+     U-wire-LeafElement-n-as-wt1 (ffi-retain)
+     U-wire-LeafElement-n-as-wt2 (ffi-retain)
+     U-wire-LeafElement-n-as-wt5 (ffi-retain)
+     U-wire-LeafElement-stamp-as-wt0 (ffi-retain)
+     U-wire-LeafElement-stamp-as-wt1 (ffi-retain)
+     U-wire-LeafElement-stamp-as-wt5 (ffi-retain)
+     U-wire-LeafResponse-items-as-wt0 (ffi-retain)
+     U-wire-LeafResponse-items-as-wt1 (ffi-retain)
+     U-wire-LeafResponse-items-as-wt5 (ffi-retain)
+     U-wire-ListMetricsResponse-batches-as-wt0 (ffi-retain)
+     U-wire-ListMetricsResponse-batches-as-wt1 (ffi-retain)
+     U-wire-ListMetricsResponse-batches-as-wt5 (ffi-retain)
+     U-wire-ListProbeResponse-probes-as-wt0 (ffi-retain)
+     U-wire-ListProbeResponse-probes-as-wt1 (ffi-retain)
+     U-wire-ListProbeResponse-probes-as-wt5 (ffi-retain)
+     U-wire-ListResultsResponse-page-as-wt1 (ffi-retain)
+     U-wire-ListResultsResponse-page-as-wt2 (ffi-retain)
+     U-wire-ListResultsResponse-page-as-wt5 (ffi-retain)
+     U-wire-ListResultsResponse-results-as-wt0 (ffi-retain)
+     U-wire-ListResultsResponse-results-as-wt1 (ffi-retain)
+     U-wire-ListResultsResponse-results-as-wt5 (ffi-retain)
+     U-wire-ListTaskSummaryResponse-tasks-as-wt0 (ffi-retain)
+     U-wire-ListTaskSummaryResponse-tasks-as-wt1 (ffi-retain)
+     U-wire-ListTaskSummaryResponse-tasks-as-wt5 (ffi-retain)
+     U-wire-ListTasksDetailedResponse-page-as-wt1 (ffi-retain)
+     U-wire-ListTasksDetailedResponse-page-as-wt2 (ffi-retain)
+     U-wire-ListTasksDetailedResponse-page-as-wt5 (ffi-retain)
+     U-wire-ListTasksDetailedResponse-tasks-as-wt0 (ffi-retain)
+     U-wire-ListTasksDetailedResponse-tasks-as-wt1 (ffi-retain)
+     U-wire-ListTasksDetailedResponse-tasks-as-wt5 (ffi-retain)
+     U-wire-MetricsBatch-codes-as-wt1 (ffi-retain)
+     U-wire-MetricsBatch-codes-as-wt5 (ffi-retain)
+     U-wire-MetricsBatch-flags-as-wt1 (ffi-retain)
+     U-wire-MetricsBatch-flags-as-wt5 (ffi-retain)
+     U-wire-MetricsBatch-id-as-wt0 (ffi-retain)
+     U-wire-MetricsBatch-id-as-wt1 (ffi-retain)
+     U-wire-MetricsBatch-id-as-wt5 (ffi-retain)
+     U-wire-MetricsBatch-statuses-as-wt1 (ffi-retain)
+     U-wire-MetricsBatch-statuses-as-wt5 (ffi-retain)
+     U-wire-MetricsBatch-ticks-as-wt1 (ffi-retain)
+     U-wire-MetricsBatch-ticks-as-wt5 (ffi-retain)
+     U-wire-MetricsBatch-values-as-wt0 (ffi-retain)
+     U-wire-MetricsBatch-values-as-wt5 (ffi-retain)
+     U-wire-Pair-key-as-wt0 (ffi-retain)
+     U-wire-Pair-key-as-wt1 (ffi-retain)
+     U-wire-Pair-key-as-wt5 (ffi-retain)
+     U-wire-Pair-value-as-wt1 (ffi-retain)
+     U-wire-Pair-value-as-wt2 (ffi-retain)
+     U-wire-Pair-value-as-wt5 (ffi-retain)
+     U-wire-Probe-as-blob-as-wt0 (ffi-retain)
+     U-wire-Probe-as-blob-as-wt1 (ffi-retain)
+     U-wire-Probe-as-blob-as-wt5 (ffi-retain)
+     U-wire-Probe-as-int-as-wt1 (ffi-retain)
+     U-wire-Probe-as-int-as-wt2 (ffi-retain)
+     U-wire-Probe-as-int-as-wt5 (ffi-retain)
+     U-wire-Probe-as-stamp-as-wt0 (ffi-retain)
+     U-wire-Probe-as-stamp-as-wt1 (ffi-retain)
+     U-wire-Probe-as-stamp-as-wt5 (ffi-retain)
+     U-wire-Probe-as-text-as-wt0 (ffi-retain)
+     U-wire-Probe-as-text-as-wt1 (ffi-retain)
+     U-wire-Probe-as-text-as-wt5 (ffi-retain)
+     U-wire-Probe-id-as-wt0 (ffi-retain)
+     U-wire-Probe-id-as-wt1 (ffi-retain)
+     U-wire-Probe-id-as-wt5 (ffi-retain)
+     U-wire-Probe-opt-count-as-wt1 (ffi-retain)
+     U-wire-Probe-opt-count-as-wt2 (ffi-retain)
+     U-wire-Probe-opt-count-as-wt5 (ffi-retain)
+     U-wire-Probe-opt-flag-as-wt1 (ffi-retain)
+     U-wire-Probe-opt-flag-as-wt2 (ffi-retain)
+     U-wire-Probe-opt-flag-as-wt5 (ffi-retain)
+     U-wire-Probe-opt-label-as-wt0 (ffi-retain)
+     U-wire-Probe-opt-label-as-wt1 (ffi-retain)
+     U-wire-Probe-opt-label-as-wt5 (ffi-retain)
+     U-wire-ResultRaw-created-at-as-wt0 (ffi-retain)
+     U-wire-ResultRaw-created-at-as-wt1 (ffi-retain)
+     U-wire-ResultRaw-created-at-as-wt5 (ffi-retain)
+     U-wire-ResultRaw-manual-deletion-as-wt1 (ffi-retain)
+     U-wire-ResultRaw-manual-deletion-as-wt2 (ffi-retain)
+     U-wire-ResultRaw-manual-deletion-as-wt5 (ffi-retain)
+     U-wire-ResultRaw-opaque-id-as-wt0 (ffi-retain)
+     U-wire-ResultRaw-opaque-id-as-wt1 (ffi-retain)
+     U-wire-ResultRaw-opaque-id-as-wt5 (ffi-retain)
+     U-wire-ResultRaw-session-id-as-wt0 (ffi-retain)
+     U-wire-ResultRaw-session-id-as-wt1 (ffi-retain)
+     U-wire-ResultRaw-session-id-as-wt5 (ffi-retain)
+     U-wire-ResultRaw-size-as-wt1 (ffi-retain)
+     U-wire-ResultRaw-size-as-wt2 (ffi-retain)
+     U-wire-ResultRaw-size-as-wt5 (ffi-retain)
+     U-wire-ResultRaw-status-as-wt1 (ffi-retain)
+     U-wire-ResultRaw-status-as-wt2 (ffi-retain)
+     U-wire-ResultRaw-status-as-wt5 (ffi-retain)
+     U-wire-Surrogate-attrs-as-wt0 (ffi-retain)
+     U-wire-Surrogate-attrs-as-wt1 (ffi-retain)
+     U-wire-Surrogate-attrs-as-wt5 (ffi-retain)
+     U-wire-Surrogate-nested-as-wt0 (ffi-retain)
+     U-wire-Surrogate-nested-as-wt1 (ffi-retain)
+     U-wire-Surrogate-nested-as-wt5 (ffi-retain)
+     U-wire-Surrogate-raw-as-wt0 (ffi-retain)
+     U-wire-Surrogate-raw-as-wt1 (ffi-retain)
+     U-wire-Surrogate-raw-as-wt5 (ffi-retain)
+     U-wire-Surrogate-text-as-wt0 (ffi-retain)
+     U-wire-Surrogate-text-as-wt1 (ffi-retain)
+     U-wire-Surrogate-text-as-wt5 (ffi-retain)
+     U-wire-Surrogate-texts-as-wt0 (ffi-retain)
+     U-wire-Surrogate-texts-as-wt1 (ffi-retain)
+     U-wire-Surrogate-texts-as-wt5 (ffi-retain)
+     U-wire-SurrogateInner-text-as-wt0 (ffi-retain)
+     U-wire-SurrogateInner-text-as-wt1 (ffi-retain)
+     U-wire-SurrogateInner-text-as-wt5 (ffi-retain)
+     U-wire-TaskDetailed-id-as-wt0 (ffi-retain)
+     U-wire-TaskDetailed-id-as-wt1 (ffi-retain)
+     U-wire-TaskDetailed-id-as-wt5 (ffi-retain)
+     U-wire-TaskDetailed-options-as-wt0 (ffi-retain)
+     U-wire-TaskDetailed-options-as-wt1 (ffi-retain)
+     U-wire-TaskDetailed-options-as-wt5 (ffi-retain)
+     U-wire-TaskDetailed-parent-task-ids-as-wt0 (ffi-retain)
+     U-wire-TaskDetailed-parent-task-ids-as-wt1 (ffi-retain)
+     U-wire-TaskDetailed-parent-task-ids-as-wt5 (ffi-retain)
+     U-wire-TaskDetailed-status-as-wt1 (ffi-retain)
+     U-wire-TaskDetailed-status-as-wt2 (ffi-retain)
+     U-wire-TaskDetailed-status-as-wt5 (ffi-retain)
+     U-wire-TaskOptions-max-duration-as-wt0 (ffi-retain)
+     U-wire-TaskOptions-max-duration-as-wt1 (ffi-retain)
+     U-wire-TaskOptions-max-duration-as-wt5 (ffi-retain)
+     U-wire-TaskOptions-max-retries-as-wt1 (ffi-retain)
+     U-wire-TaskOptions-max-retries-as-wt2 (ffi-retain)
+     U-wire-TaskOptions-max-retries-as-wt5 (ffi-retain)
+     U-wire-TaskOptions-options-as-wt0 (ffi-retain)
+     U-wire-TaskOptions-options-as-wt1 (ffi-retain)
+     U-wire-TaskOptions-options-as-wt5 (ffi-retain)
+     U-wire-TaskOptions-partition-id-as-wt0 (ffi-retain)
+     U-wire-TaskOptions-partition-id-as-wt1 (ffi-retain)
+     U-wire-TaskOptions-partition-id-as-wt5 (ffi-retain)
+     U-wire-TaskOutput-error-as-wt0 (ffi-retain)
+     U-wire-TaskOutput-error-as-wt1 (ffi-retain)
+     U-wire-TaskOutput-error-as-wt5 (ffi-retain)
+     U-wire-TaskOutput-success-as-wt1 (ffi-retain)
+     U-wire-TaskOutput-success-as-wt2 (ffi-retain)
+     U-wire-TaskOutput-success-as-wt5 (ffi-retain)
+     U-wire-TaskSummary-count-data-dependencies-as-wt1 (ffi-retain)
+     U-wire-TaskSummary-count-data-dependencies-as-wt2 (ffi-retain)
+     U-wire-TaskSummary-count-data-dependencies-as-wt5 (ffi-retain)
+     U-wire-TaskSummary-id-as-wt0 (ffi-retain)
+     U-wire-TaskSummary-id-as-wt1 (ffi-retain)
+     U-wire-TaskSummary-id-as-wt5 (ffi-retain)
+     U-wire-TaskSummary-options-as-wt0 (ffi-retain)
+     U-wire-TaskSummary-options-as-wt1 (ffi-retain)
+     U-wire-TaskSummary-options-as-wt5 (ffi-retain)
+     U-wire-TaskSummary-status-as-wt1 (ffi-retain)
+     U-wire-TaskSummary-status-as-wt2 (ffi-retain)
+     U-wire-TaskSummary-status-as-wt5 (ffi-retain)
+     U-wire-Timestamp-nanos-as-wt1 (ffi-retain)
+     U-wire-Timestamp-nanos-as-wt2 (ffi-retain)
+     U-wire-Timestamp-nanos-as-wt5 (ffi-retain)
+     U-wire-Timestamp-seconds-as-wt1 (ffi-retain)
+     U-wire-Timestamp-seconds-as-wt2 (ffi-retain)
+     U-wire-Timestamp-seconds-as-wt5 (ffi-retain)
+     U-wire-UploadResultData-data-chunk-as-wt0 (ffi-retain)
+     U-wire-UploadResultData-data-chunk-as-wt1 (ffi-retain)
+     U-wire-UploadResultData-data-chunk-as-wt5 (ffi-retain)
+     U-wire-UploadResultData-session-id-as-wt0 (ffi-retain)
+     U-wire-UploadResultData-session-id-as-wt1 (ffi-retain)
+     U-wire-UploadResultData-session-id-as-wt5 (ffi-retain)
+     U-wire-UploadResultDataMessage-upload-as-wt0 (ffi-retain)
+     U-wire-UploadResultDataMessage-upload-as-wt1 (ffi-retain)
+     U-wire-UploadResultDataMessage-upload-as-wt5 (ffi-retain)
+     U-wire-WireZoo-v-bool-as-wt1 (ffi-retain)
+     U-wire-WireZoo-v-bool-as-wt2 (ffi-retain)
+     U-wire-WireZoo-v-bool-as-wt5 (ffi-retain)
+     U-wire-WireZoo-v-bytes-as-wt0 (ffi-retain)
+     U-wire-WireZoo-v-bytes-as-wt1 (ffi-retain)
+     U-wire-WireZoo-v-bytes-as-wt5 (ffi-retain)
+     U-wire-WireZoo-v-double-as-wt0 (ffi-retain)
+     U-wire-WireZoo-v-double-as-wt2 (ffi-retain)
+     U-wire-WireZoo-v-double-as-wt5 (ffi-retain)
+     U-wire-WireZoo-v-enum-as-wt1 (ffi-retain)
+     U-wire-WireZoo-v-enum-as-wt2 (ffi-retain)
+     U-wire-WireZoo-v-enum-as-wt5 (ffi-retain)
+     U-wire-WireZoo-v-fixed32-as-wt0 (ffi-retain)
+     U-wire-WireZoo-v-fixed32-as-wt1 (ffi-retain)
+     U-wire-WireZoo-v-fixed32-as-wt2 (ffi-retain)
+     U-wire-WireZoo-v-int32-as-wt1 (ffi-retain)
+     U-wire-WireZoo-v-int32-as-wt2 (ffi-retain)
+     U-wire-WireZoo-v-int32-as-wt5 (ffi-retain)
+     U-wire-WireZoo-v-int64-as-wt1 (ffi-retain)
+     U-wire-WireZoo-v-int64-as-wt2 (ffi-retain)
+     U-wire-WireZoo-v-int64-as-wt5 (ffi-retain)
+     U-wire-WireZoo-v-msg-as-wt0 (ffi-retain)
+     U-wire-WireZoo-v-msg-as-wt1 (ffi-retain)
+     U-wire-WireZoo-v-msg-as-wt5 (ffi-retain)
+     U-wire-WireZoo-v-string-as-wt0 (ffi-retain)
+     U-wire-WireZoo-v-string-as-wt1 (ffi-retain)
+     U-wire-WireZoo-v-string-as-wt5 (ffi-retain)
+
+## native-drop
+   pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0  arm not built 0
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  110  fail   0
+     shape      pass  170  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  317  fail   0
+   forms written (C3):
+      190  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       46  unknown-dropped
+       25  unknown-dropped / unknown-dropped, map values always written
+      162  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   refusal codes (C4): -2 x40, -3 x73, -4 x2, -6 x31
+   disputed: U-map-entry [native-drop]: accepted; projection matches the reading of null
+   disputed: X-field-2p32-plus-2 [native-drop]: refused (-2)
+   disputed: X-field-over-max [native-drop]: refused (-2)
+   disputed: X-field-over-max-in-group [native-drop]: refused (-2)
+   disputed: X-tag-zero-Empty [native-drop]: refused (-2)
+   disputed: X-tag-zero-nested-Empty [native-drop]: refused (-2)
+
+## native-retain
+   pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0  arm not built 0
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  110  fail   0
+     shape      pass  170  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  317  fail   0
+   forms written (C3):
+      391  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+      105  as committed / unknown-retained, map values always written
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        1  as upb writes it: the same message, encoded differently
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+        1  unknown-dropped / unknown-dropped, map values always written
+        6  unknown-retained, appended in tag order
+   refusal codes (C4): -2 x40, -3 x73, -4 x2, -6 x31
+   disputed: U-map-entry [native-retain]: accepted; projection matches the reading of null
+   disputed: X-field-2p32-plus-2 [native-retain]: refused (-2)
+   disputed: X-field-over-max [native-retain]: refused (-2)
+   disputed: X-field-over-max-in-group [native-retain]: refused (-2)
+   disputed: X-tag-zero-Empty [native-retain]: refused (-2)
+   disputed: X-tag-zero-nested-Empty [native-retain]: refused (-2)
+   retain mode wrote the DROPPED form on 1 row(s) (accepted by the contract; a retention gap):
+     U-map-entry (native-retain)
+
+# rows that hung or crashed a child: 0
+CORPUS PASSES on every built arm
+>>> ok: corpus corpus_all_a17 (exit 0)
+
+===== corpus_all_c14 =====
+# the conformance corpus, C ABI and core-native, unknown fields dropped and retained
+#   binary     build/corpus_all_c14
+#   build      __cplusplus 201402, target impl False, binding skips ak_init: False
+#   manifest   corpus/generated/manifest.json (702 rows)
+#   core       ak-core --features corpus,init-guard: generated for the corpus's READER
+#              schema by poc/codec/gen (plan.py + rust_abi.py); CONTRACT rule 0
+#   native     rendered by poc/codec/gen/cpp_native.py from the same plans: drop / retain
+#   decode utf8 policy reject; recursion limit 100; ffi-retain arm built: True
+#   each row in a child process, timeout 10 s
+
+## ffi-drop
+   pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16  arm not built 0
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  107  fail   0
+     shape      pass  163  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  311  fail   0
+   forms written (C3):
+      183  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       46  unknown-dropped
+       25  unknown-dropped / unknown-dropped, map values always written
+      156  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   refusal codes (C4): -2 x39, -3 x73, -6 x31
+   disputed: U-map-entry [ffi-drop]: accepted; projection matches the reading of null
+   disputed: X-field-2p32-plus-2 [ffi-drop]: refused (-2)
+   disputed: X-field-over-max [ffi-drop]: refused (-2)
+   disputed: X-field-over-max-in-group [ffi-drop]: refused (-2)
+   disputed: X-tag-zero-Empty [ffi-drop]: refused (-2)
+   disputed: X-tag-zero-nested-Empty [ffi-drop]: refused (-2)
+
+## ffi-retain
+   pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16  arm not built 0
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  107  fail   0
+     shape      pass  163  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  311  fail   0
+   forms written (C3):
+      183  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       46  unknown-dropped
+       25  unknown-dropped / unknown-dropped, map values always written
+      156  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   refusal codes (C4): -2 x39, -3 x73, -6 x31
+   disputed: U-map-entry [ffi-retain]: accepted; projection matches the reading of null
+   disputed: X-field-2p32-plus-2 [ffi-retain]: refused (-2)
+   disputed: X-field-over-max [ffi-retain]: refused (-2)
+   disputed: X-field-over-max-in-group [ffi-retain]: refused (-2)
+   disputed: X-tag-zero-Empty [ffi-retain]: refused (-2)
+   disputed: X-tag-zero-nested-Empty [ffi-retain]: refused (-2)
+   retain mode wrote the DROPPED form on 308 row(s) (accepted by the contract; a retention gap):
+     U-chunkelem-all (ffi-retain)
+     U-chunkelem-u-fixed32 (ffi-retain)
+     U-chunkelem-u-fixed64 (ffi-retain)
+     U-chunkelem-u-len (ffi-retain)
+     U-chunkelem-u-msg (ffi-retain)
+     U-chunkelem-u-packed (ffi-retain)
+     U-chunkelem-u-repeated (ffi-retain)
+     U-chunkelem-u-varint (ffi-retain)
+     U-deep-all (ffi-retain)
+     U-deep-u-fixed32 (ffi-retain)
+     U-deep-u-fixed64 (ffi-retain)
+     U-deep-u-len (ffi-retain)
+     U-deep-u-msg (ffi-retain)
+     U-deep-u-packed (ffi-retain)
+     U-deep-u-repeated (ffi-retain)
+     U-deep-u-varint (ffi-retain)
+     U-element-all (ffi-retain)
+     U-element-u-fixed32 (ffi-retain)
+     U-element-u-fixed64 (ffi-retain)
+     U-element-u-len (ffi-retain)
+     U-element-u-msg (ffi-retain)
+     U-element-u-packed (ffi-retain)
+     U-element-u-repeated (ffi-retain)
+     U-element-u-varint (ffi-retain)
+     U-group-field-max (ffi-retain)
+     U-leaf-all (ffi-retain)
+     U-leaf-u-fixed32 (ffi-retain)
+     U-leaf-u-fixed64 (ffi-retain)
+     U-leaf-u-len (ffi-retain)
+     U-leaf-u-msg (ffi-retain)
+     U-leaf-u-packed (ffi-retain)
+     U-leaf-u-repeated (ffi-retain)
+     U-leaf-u-varint (ffi-retain)
+     U-map-entry (ffi-retain)
+     U-nested-all (ffi-retain)
+     U-nested-before (ffi-retain)
+     U-nested-group (ffi-retain)
+     U-nested-interleaved (ffi-retain)
+     U-nested-u-fixed32 (ffi-retain)
+     U-nested-u-fixed64 (ffi-retain)
+     U-nested-u-len (ffi-retain)
+     U-nested-u-msg (ffi-retain)
+     U-nested-u-packed (ffi-retain)
+     U-nested-u-repeated (ffi-retain)
+     U-nested-u-varint (ffi-retain)
+     U-oneof-all (ffi-retain)
+     U-oneof-before (ffi-retain)
+     U-oneof-group (ffi-retain)
+     U-oneof-interleaved (ffi-retain)
+     U-oneof-member-after-known (ffi-retain)
+     U-oneof-member-alone (ffi-retain)
+     U-oneof-member-before-known (ffi-retain)
+     U-oneof-u-fixed32 (ffi-retain)
+     U-oneof-u-fixed64 (ffi-retain)
+     U-oneof-u-len (ffi-retain)
+     U-oneof-u-msg (ffi-retain)
+     U-oneof-u-packed (ffi-retain)
+     U-oneof-u-repeated (ffi-retain)
+     U-oneof-u-varint (ffi-retain)
+     U-root-all (ffi-retain)
+     U-root-before (ffi-retain)
+     U-root-group (ffi-retain)
+     U-root-interleaved (ffi-retain)
+     U-root-max-tag (ffi-retain)
+     U-root-u-fixed32 (ffi-retain)
+     U-root-u-fixed64 (ffi-retain)
+     U-root-u-len (ffi-retain)
+     U-root-u-msg (ffi-retain)
+     U-root-u-packed (ffi-retain)
+     U-root-u-repeated (ffi-retain)
+     U-root-u-varint (ffi-retain)
+     U-wire-ChunkElement-attrs-as-wt0 (ffi-retain)
+     U-wire-ChunkElement-attrs-as-wt1 (ffi-retain)
+     U-wire-ChunkElement-attrs-as-wt5 (ffi-retain)
+     U-wire-ChunkElement-id-as-wt0 (ffi-retain)
+     U-wire-ChunkElement-id-as-wt1 (ffi-retain)
+     U-wire-ChunkElement-id-as-wt5 (ffi-retain)
+     U-wire-ChunkElement-inner-as-wt0 (ffi-retain)
+     U-wire-ChunkElement-inner-as-wt1 (ffi-retain)
+     U-wire-ChunkElement-inner-as-wt5 (ffi-retain)
+     U-wire-ChunkElement-labels-as-wt0 (ffi-retain)
+     U-wire-ChunkElement-labels-as-wt1 (ffi-retain)
+     U-wire-ChunkElement-labels-as-wt5 (ffi-retain)
+     U-wire-ChunkInner-leaves-as-wt0 (ffi-retain)
+     U-wire-ChunkInner-leaves-as-wt1 (ffi-retain)
+     U-wire-ChunkInner-leaves-as-wt5 (ffi-retain)
+     U-wire-ChunkInner-marks-as-wt1 (ffi-retain)
+     U-wire-ChunkInner-marks-as-wt5 (ffi-retain)
+     U-wire-ChunkLeaf-k-as-wt0 (ffi-retain)
+     U-wire-ChunkLeaf-k-as-wt1 (ffi-retain)
+     U-wire-ChunkLeaf-k-as-wt5 (ffi-retain)
+     U-wire-ChunkLeaf-v-as-wt1 (ffi-retain)
+     U-wire-ChunkLeaf-v-as-wt2 (ffi-retain)
+     U-wire-ChunkLeaf-v-as-wt5 (ffi-retain)
+     U-wire-ChunkedResponse-items-as-wt0 (ffi-retain)
+     U-wire-ChunkedResponse-items-as-wt1 (ffi-retain)
+     U-wire-ChunkedResponse-items-as-wt5 (ffi-retain)
+     U-wire-ChunkedResponse-page-as-wt1 (ffi-retain)
+     U-wire-ChunkedResponse-page-as-wt2 (ffi-retain)
+     U-wire-ChunkedResponse-page-as-wt5 (ffi-retain)
+     U-wire-ChunkedResponseWide-items-as-wt0 (ffi-retain)
+     U-wire-ChunkedResponseWide-items-as-wt1 (ffi-retain)
+     U-wire-ChunkedResponseWide-items-as-wt5 (ffi-retain)
+     U-wire-DualResponse-left-as-wt0 (ffi-retain)
+     U-wire-DualResponse-left-as-wt1 (ffi-retain)
+     U-wire-DualResponse-left-as-wt5 (ffi-retain)
+     U-wire-Duration-nanos-as-wt1 (ffi-retain)
+     U-wire-Duration-nanos-as-wt2 (ffi-retain)
+     U-wire-Duration-nanos-as-wt5 (ffi-retain)
+     U-wire-Duration-seconds-as-wt1 (ffi-retain)
+     U-wire-Duration-seconds-as-wt2 (ffi-retain)
+     U-wire-Duration-seconds-as-wt5 (ffi-retain)
+     U-wire-LeafElement-id-as-wt0 (ffi-retain)
+     U-wire-LeafElement-id-as-wt1 (ffi-retain)
+     U-wire-LeafElement-id-as-wt5 (ffi-retain)
+     U-wire-LeafElement-n-as-wt1 (ffi-retain)
+     U-wire-LeafElement-n-as-wt2 (ffi-retain)
+     U-wire-LeafElement-n-as-wt5 (ffi-retain)
+     U-wire-LeafElement-stamp-as-wt0 (ffi-retain)
+     U-wire-LeafElement-stamp-as-wt1 (ffi-retain)
+     U-wire-LeafElement-stamp-as-wt5 (ffi-retain)
+     U-wire-LeafResponse-items-as-wt0 (ffi-retain)
+     U-wire-LeafResponse-items-as-wt1 (ffi-retain)
+     U-wire-LeafResponse-items-as-wt5 (ffi-retain)
+     U-wire-ListMetricsResponse-batches-as-wt0 (ffi-retain)
+     U-wire-ListMetricsResponse-batches-as-wt1 (ffi-retain)
+     U-wire-ListMetricsResponse-batches-as-wt5 (ffi-retain)
+     U-wire-ListProbeResponse-probes-as-wt0 (ffi-retain)
+     U-wire-ListProbeResponse-probes-as-wt1 (ffi-retain)
+     U-wire-ListProbeResponse-probes-as-wt5 (ffi-retain)
+     U-wire-ListResultsResponse-page-as-wt1 (ffi-retain)
+     U-wire-ListResultsResponse-page-as-wt2 (ffi-retain)
+     U-wire-ListResultsResponse-page-as-wt5 (ffi-retain)
+     U-wire-ListResultsResponse-results-as-wt0 (ffi-retain)
+     U-wire-ListResultsResponse-results-as-wt1 (ffi-retain)
+     U-wire-ListResultsResponse-results-as-wt5 (ffi-retain)
+     U-wire-ListTaskSummaryResponse-tasks-as-wt0 (ffi-retain)
+     U-wire-ListTaskSummaryResponse-tasks-as-wt1 (ffi-retain)
+     U-wire-ListTaskSummaryResponse-tasks-as-wt5 (ffi-retain)
+     U-wire-ListTasksDetailedResponse-page-as-wt1 (ffi-retain)
+     U-wire-ListTasksDetailedResponse-page-as-wt2 (ffi-retain)
+     U-wire-ListTasksDetailedResponse-page-as-wt5 (ffi-retain)
+     U-wire-ListTasksDetailedResponse-tasks-as-wt0 (ffi-retain)
+     U-wire-ListTasksDetailedResponse-tasks-as-wt1 (ffi-retain)
+     U-wire-ListTasksDetailedResponse-tasks-as-wt5 (ffi-retain)
+     U-wire-MetricsBatch-codes-as-wt1 (ffi-retain)
+     U-wire-MetricsBatch-codes-as-wt5 (ffi-retain)
+     U-wire-MetricsBatch-flags-as-wt1 (ffi-retain)
+     U-wire-MetricsBatch-flags-as-wt5 (ffi-retain)
+     U-wire-MetricsBatch-id-as-wt0 (ffi-retain)
+     U-wire-MetricsBatch-id-as-wt1 (ffi-retain)
+     U-wire-MetricsBatch-id-as-wt5 (ffi-retain)
+     U-wire-MetricsBatch-statuses-as-wt1 (ffi-retain)
+     U-wire-MetricsBatch-statuses-as-wt5 (ffi-retain)
+     U-wire-MetricsBatch-ticks-as-wt1 (ffi-retain)
+     U-wire-MetricsBatch-ticks-as-wt5 (ffi-retain)
+     U-wire-MetricsBatch-values-as-wt0 (ffi-retain)
+     U-wire-MetricsBatch-values-as-wt5 (ffi-retain)
+     U-wire-Pair-key-as-wt0 (ffi-retain)
+     U-wire-Pair-key-as-wt1 (ffi-retain)
+     U-wire-Pair-key-as-wt5 (ffi-retain)
+     U-wire-Pair-value-as-wt1 (ffi-retain)
+     U-wire-Pair-value-as-wt2 (ffi-retain)
+     U-wire-Pair-value-as-wt5 (ffi-retain)
+     U-wire-Probe-as-blob-as-wt0 (ffi-retain)
+     U-wire-Probe-as-blob-as-wt1 (ffi-retain)
+     U-wire-Probe-as-blob-as-wt5 (ffi-retain)
+     U-wire-Probe-as-int-as-wt1 (ffi-retain)
+     U-wire-Probe-as-int-as-wt2 (ffi-retain)
+     U-wire-Probe-as-int-as-wt5 (ffi-retain)
+     U-wire-Probe-as-stamp-as-wt0 (ffi-retain)
+     U-wire-Probe-as-stamp-as-wt1 (ffi-retain)
+     U-wire-Probe-as-stamp-as-wt5 (ffi-retain)
+     U-wire-Probe-as-text-as-wt0 (ffi-retain)
+     U-wire-Probe-as-text-as-wt1 (ffi-retain)
+     U-wire-Probe-as-text-as-wt5 (ffi-retain)
+     U-wire-Probe-id-as-wt0 (ffi-retain)
+     U-wire-Probe-id-as-wt1 (ffi-retain)
+     U-wire-Probe-id-as-wt5 (ffi-retain)
+     U-wire-Probe-opt-count-as-wt1 (ffi-retain)
+     U-wire-Probe-opt-count-as-wt2 (ffi-retain)
+     U-wire-Probe-opt-count-as-wt5 (ffi-retain)
+     U-wire-Probe-opt-flag-as-wt1 (ffi-retain)
+     U-wire-Probe-opt-flag-as-wt2 (ffi-retain)
+     U-wire-Probe-opt-flag-as-wt5 (ffi-retain)
+     U-wire-Probe-opt-label-as-wt0 (ffi-retain)
+     U-wire-Probe-opt-label-as-wt1 (ffi-retain)
+     U-wire-Probe-opt-label-as-wt5 (ffi-retain)
+     U-wire-ResultRaw-created-at-as-wt0 (ffi-retain)
+     U-wire-ResultRaw-created-at-as-wt1 (ffi-retain)
+     U-wire-ResultRaw-created-at-as-wt5 (ffi-retain)
+     U-wire-ResultRaw-manual-deletion-as-wt1 (ffi-retain)
+     U-wire-ResultRaw-manual-deletion-as-wt2 (ffi-retain)
+     U-wire-ResultRaw-manual-deletion-as-wt5 (ffi-retain)
+     U-wire-ResultRaw-opaque-id-as-wt0 (ffi-retain)
+     U-wire-ResultRaw-opaque-id-as-wt1 (ffi-retain)
+     U-wire-ResultRaw-opaque-id-as-wt5 (ffi-retain)
+     U-wire-ResultRaw-session-id-as-wt0 (ffi-retain)
+     U-wire-ResultRaw-session-id-as-wt1 (ffi-retain)
+     U-wire-ResultRaw-session-id-as-wt5 (ffi-retain)
+     U-wire-ResultRaw-size-as-wt1 (ffi-retain)
+     U-wire-ResultRaw-size-as-wt2 (ffi-retain)
+     U-wire-ResultRaw-size-as-wt5 (ffi-retain)
+     U-wire-ResultRaw-status-as-wt1 (ffi-retain)
+     U-wire-ResultRaw-status-as-wt2 (ffi-retain)
+     U-wire-ResultRaw-status-as-wt5 (ffi-retain)
+     U-wire-Surrogate-attrs-as-wt0 (ffi-retain)
+     U-wire-Surrogate-attrs-as-wt1 (ffi-retain)
+     U-wire-Surrogate-attrs-as-wt5 (ffi-retain)
+     U-wire-Surrogate-nested-as-wt0 (ffi-retain)
+     U-wire-Surrogate-nested-as-wt1 (ffi-retain)
+     U-wire-Surrogate-nested-as-wt5 (ffi-retain)
+     U-wire-Surrogate-raw-as-wt0 (ffi-retain)
+     U-wire-Surrogate-raw-as-wt1 (ffi-retain)
+     U-wire-Surrogate-raw-as-wt5 (ffi-retain)
+     U-wire-Surrogate-text-as-wt0 (ffi-retain)
+     U-wire-Surrogate-text-as-wt1 (ffi-retain)
+     U-wire-Surrogate-text-as-wt5 (ffi-retain)
+     U-wire-Surrogate-texts-as-wt0 (ffi-retain)
+     U-wire-Surrogate-texts-as-wt1 (ffi-retain)
+     U-wire-Surrogate-texts-as-wt5 (ffi-retain)
+     U-wire-SurrogateInner-text-as-wt0 (ffi-retain)
+     U-wire-SurrogateInner-text-as-wt1 (ffi-retain)
+     U-wire-SurrogateInner-text-as-wt5 (ffi-retain)
+     U-wire-TaskDetailed-id-as-wt0 (ffi-retain)
+     U-wire-TaskDetailed-id-as-wt1 (ffi-retain)
+     U-wire-TaskDetailed-id-as-wt5 (ffi-retain)
+     U-wire-TaskDetailed-options-as-wt0 (ffi-retain)
+     U-wire-TaskDetailed-options-as-wt1 (ffi-retain)
+     U-wire-TaskDetailed-options-as-wt5 (ffi-retain)
+     U-wire-TaskDetailed-parent-task-ids-as-wt0 (ffi-retain)
+     U-wire-TaskDetailed-parent-task-ids-as-wt1 (ffi-retain)
+     U-wire-TaskDetailed-parent-task-ids-as-wt5 (ffi-retain)
+     U-wire-TaskDetailed-status-as-wt1 (ffi-retain)
+     U-wire-TaskDetailed-status-as-wt2 (ffi-retain)
+     U-wire-TaskDetailed-status-as-wt5 (ffi-retain)
+     U-wire-TaskOptions-max-duration-as-wt0 (ffi-retain)
+     U-wire-TaskOptions-max-duration-as-wt1 (ffi-retain)
+     U-wire-TaskOptions-max-duration-as-wt5 (ffi-retain)
+     U-wire-TaskOptions-max-retries-as-wt1 (ffi-retain)
+     U-wire-TaskOptions-max-retries-as-wt2 (ffi-retain)
+     U-wire-TaskOptions-max-retries-as-wt5 (ffi-retain)
+     U-wire-TaskOptions-options-as-wt0 (ffi-retain)
+     U-wire-TaskOptions-options-as-wt1 (ffi-retain)
+     U-wire-TaskOptions-options-as-wt5 (ffi-retain)
+     U-wire-TaskOptions-partition-id-as-wt0 (ffi-retain)
+     U-wire-TaskOptions-partition-id-as-wt1 (ffi-retain)
+     U-wire-TaskOptions-partition-id-as-wt5 (ffi-retain)
+     U-wire-TaskOutput-error-as-wt0 (ffi-retain)
+     U-wire-TaskOutput-error-as-wt1 (ffi-retain)
+     U-wire-TaskOutput-error-as-wt5 (ffi-retain)
+     U-wire-TaskOutput-success-as-wt1 (ffi-retain)
+     U-wire-TaskOutput-success-as-wt2 (ffi-retain)
+     U-wire-TaskOutput-success-as-wt5 (ffi-retain)
+     U-wire-TaskSummary-count-data-dependencies-as-wt1 (ffi-retain)
+     U-wire-TaskSummary-count-data-dependencies-as-wt2 (ffi-retain)
+     U-wire-TaskSummary-count-data-dependencies-as-wt5 (ffi-retain)
+     U-wire-TaskSummary-id-as-wt0 (ffi-retain)
+     U-wire-TaskSummary-id-as-wt1 (ffi-retain)
+     U-wire-TaskSummary-id-as-wt5 (ffi-retain)
+     U-wire-TaskSummary-options-as-wt0 (ffi-retain)
+     U-wire-TaskSummary-options-as-wt1 (ffi-retain)
+     U-wire-TaskSummary-options-as-wt5 (ffi-retain)
+     U-wire-TaskSummary-status-as-wt1 (ffi-retain)
+     U-wire-TaskSummary-status-as-wt2 (ffi-retain)
+     U-wire-TaskSummary-status-as-wt5 (ffi-retain)
+     U-wire-Timestamp-nanos-as-wt1 (ffi-retain)
+     U-wire-Timestamp-nanos-as-wt2 (ffi-retain)
+     U-wire-Timestamp-nanos-as-wt5 (ffi-retain)
+     U-wire-Timestamp-seconds-as-wt1 (ffi-retain)
+     U-wire-Timestamp-seconds-as-wt2 (ffi-retain)
+     U-wire-Timestamp-seconds-as-wt5 (ffi-retain)
+     U-wire-UploadResultData-data-chunk-as-wt0 (ffi-retain)
+     U-wire-UploadResultData-data-chunk-as-wt1 (ffi-retain)
+     U-wire-UploadResultData-data-chunk-as-wt5 (ffi-retain)
+     U-wire-UploadResultData-session-id-as-wt0 (ffi-retain)
+     U-wire-UploadResultData-session-id-as-wt1 (ffi-retain)
+     U-wire-UploadResultData-session-id-as-wt5 (ffi-retain)
+     U-wire-UploadResultDataMessage-upload-as-wt0 (ffi-retain)
+     U-wire-UploadResultDataMessage-upload-as-wt1 (ffi-retain)
+     U-wire-UploadResultDataMessage-upload-as-wt5 (ffi-retain)
+     U-wire-WireZoo-v-bool-as-wt1 (ffi-retain)
+     U-wire-WireZoo-v-bool-as-wt2 (ffi-retain)
+     U-wire-WireZoo-v-bool-as-wt5 (ffi-retain)
+     U-wire-WireZoo-v-bytes-as-wt0 (ffi-retain)
+     U-wire-WireZoo-v-bytes-as-wt1 (ffi-retain)
+     U-wire-WireZoo-v-bytes-as-wt5 (ffi-retain)
+     U-wire-WireZoo-v-double-as-wt0 (ffi-retain)
+     U-wire-WireZoo-v-double-as-wt2 (ffi-retain)
+     U-wire-WireZoo-v-double-as-wt5 (ffi-retain)
+     U-wire-WireZoo-v-enum-as-wt1 (ffi-retain)
+     U-wire-WireZoo-v-enum-as-wt2 (ffi-retain)
+     U-wire-WireZoo-v-enum-as-wt5 (ffi-retain)
+     U-wire-WireZoo-v-fixed32-as-wt0 (ffi-retain)
+     U-wire-WireZoo-v-fixed32-as-wt1 (ffi-retain)
+     U-wire-WireZoo-v-fixed32-as-wt2 (ffi-retain)
+     U-wire-WireZoo-v-int32-as-wt1 (ffi-retain)
+     U-wire-WireZoo-v-int32-as-wt2 (ffi-retain)
+     U-wire-WireZoo-v-int32-as-wt5 (ffi-retain)
+     U-wire-WireZoo-v-int64-as-wt1 (ffi-retain)
+     U-wire-WireZoo-v-int64-as-wt2 (ffi-retain)
+     U-wire-WireZoo-v-int64-as-wt5 (ffi-retain)
+     U-wire-WireZoo-v-msg-as-wt0 (ffi-retain)
+     U-wire-WireZoo-v-msg-as-wt1 (ffi-retain)
+     U-wire-WireZoo-v-msg-as-wt5 (ffi-retain)
+     U-wire-WireZoo-v-string-as-wt0 (ffi-retain)
+     U-wire-WireZoo-v-string-as-wt1 (ffi-retain)
+     U-wire-WireZoo-v-string-as-wt5 (ffi-retain)
+
+## native-drop
+   pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0  arm not built 0
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  110  fail   0
+     shape      pass  170  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  317  fail   0
+   forms written (C3):
+      190  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       46  unknown-dropped
+       25  unknown-dropped / unknown-dropped, map values always written
+      162  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   refusal codes (C4): -2 x40, -3 x73, -4 x2, -6 x31
+   disputed: U-map-entry [native-drop]: accepted; projection matches the reading of null
+   disputed: X-field-2p32-plus-2 [native-drop]: refused (-2)
+   disputed: X-field-over-max [native-drop]: refused (-2)
+   disputed: X-field-over-max-in-group [native-drop]: refused (-2)
+   disputed: X-tag-zero-Empty [native-drop]: refused (-2)
+   disputed: X-tag-zero-nested-Empty [native-drop]: refused (-2)
+
+## native-retain
+   pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0  arm not built 0
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  110  fail   0
+     shape      pass  170  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  317  fail   0
+   forms written (C3):
+      391  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+      105  as committed / unknown-retained, map values always written
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        1  as upb writes it: the same message, encoded differently
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+        1  unknown-dropped / unknown-dropped, map values always written
+        6  unknown-retained, appended in tag order
+   refusal codes (C4): -2 x40, -3 x73, -4 x2, -6 x31
+   disputed: U-map-entry [native-retain]: accepted; projection matches the reading of null
+   disputed: X-field-2p32-plus-2 [native-retain]: refused (-2)
+   disputed: X-field-over-max [native-retain]: refused (-2)
+   disputed: X-field-over-max-in-group [native-retain]: refused (-2)
+   disputed: X-tag-zero-Empty [native-retain]: refused (-2)
+   disputed: X-tag-zero-nested-Empty [native-retain]: refused (-2)
+   retain mode wrote the DROPPED form on 1 row(s) (accepted by the contract; a retention gap):
+     U-map-entry (native-retain)
+
+# rows that hung or crashed a child: 0
+CORPUS PASSES on every built arm
+>>> ok: corpus corpus_all_c14 (exit 0)
+
+===== corpus_all_c11 =====
+# the conformance corpus, C ABI and core-native, unknown fields dropped and retained
+#   binary     build/corpus_all_c11
+#   build      __cplusplus 201103, target impl False, binding skips ak_init: False
+#   manifest   corpus/generated/manifest.json (702 rows)
+#   core       ak-core --features corpus,init-guard: generated for the corpus's READER
+#              schema by poc/codec/gen (plan.py + rust_abi.py); CONTRACT rule 0
+#   native     rendered by poc/codec/gen/cpp_native.py from the same plans: drop / retain
+#   decode utf8 policy reject; recursion limit 100; ffi-retain arm built: True
+#   each row in a child process, timeout 10 s
+
+## ffi-drop
+   pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16  arm not built 0
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  107  fail   0
+     shape      pass  163  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  311  fail   0
+   forms written (C3):
+      183  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       46  unknown-dropped
+       25  unknown-dropped / unknown-dropped, map values always written
+      156  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   refusal codes (C4): -2 x39, -3 x73, -6 x31
+   disputed: U-map-entry [ffi-drop]: accepted; projection matches the reading of null
+   disputed: X-field-2p32-plus-2 [ffi-drop]: refused (-2)
+   disputed: X-field-over-max [ffi-drop]: refused (-2)
+   disputed: X-field-over-max-in-group [ffi-drop]: refused (-2)
+   disputed: X-tag-zero-Empty [ffi-drop]: refused (-2)
+   disputed: X-tag-zero-nested-Empty [ffi-drop]: refused (-2)
+
+## ffi-retain
+   pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16  arm not built 0
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  107  fail   0
+     shape      pass  163  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  311  fail   0
+   forms written (C3):
+      183  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       46  unknown-dropped
+       25  unknown-dropped / unknown-dropped, map values always written
+      156  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   refusal codes (C4): -2 x39, -3 x73, -6 x31
+   disputed: U-map-entry [ffi-retain]: accepted; projection matches the reading of null
+   disputed: X-field-2p32-plus-2 [ffi-retain]: refused (-2)
+   disputed: X-field-over-max [ffi-retain]: refused (-2)
+   disputed: X-field-over-max-in-group [ffi-retain]: refused (-2)
+   disputed: X-tag-zero-Empty [ffi-retain]: refused (-2)
+   disputed: X-tag-zero-nested-Empty [ffi-retain]: refused (-2)
+   retain mode wrote the DROPPED form on 308 row(s) (accepted by the contract; a retention gap):
+     U-chunkelem-all (ffi-retain)
+     U-chunkelem-u-fixed32 (ffi-retain)
+     U-chunkelem-u-fixed64 (ffi-retain)
+     U-chunkelem-u-len (ffi-retain)
+     U-chunkelem-u-msg (ffi-retain)
+     U-chunkelem-u-packed (ffi-retain)
+     U-chunkelem-u-repeated (ffi-retain)
+     U-chunkelem-u-varint (ffi-retain)
+     U-deep-all (ffi-retain)
+     U-deep-u-fixed32 (ffi-retain)
+     U-deep-u-fixed64 (ffi-retain)
+     U-deep-u-len (ffi-retain)
+     U-deep-u-msg (ffi-retain)
+     U-deep-u-packed (ffi-retain)
+     U-deep-u-repeated (ffi-retain)
+     U-deep-u-varint (ffi-retain)
+     U-element-all (ffi-retain)
+     U-element-u-fixed32 (ffi-retain)
+     U-element-u-fixed64 (ffi-retain)
+     U-element-u-len (ffi-retain)
+     U-element-u-msg (ffi-retain)
+     U-element-u-packed (ffi-retain)
+     U-element-u-repeated (ffi-retain)
+     U-element-u-varint (ffi-retain)
+     U-group-field-max (ffi-retain)
+     U-leaf-all (ffi-retain)
+     U-leaf-u-fixed32 (ffi-retain)
+     U-leaf-u-fixed64 (ffi-retain)
+     U-leaf-u-len (ffi-retain)
+     U-leaf-u-msg (ffi-retain)
+     U-leaf-u-packed (ffi-retain)
+     U-leaf-u-repeated (ffi-retain)
+     U-leaf-u-varint (ffi-retain)
+     U-map-entry (ffi-retain)
+     U-nested-all (ffi-retain)
+     U-nested-before (ffi-retain)
+     U-nested-group (ffi-retain)
+     U-nested-interleaved (ffi-retain)
+     U-nested-u-fixed32 (ffi-retain)
+     U-nested-u-fixed64 (ffi-retain)
+     U-nested-u-len (ffi-retain)
+     U-nested-u-msg (ffi-retain)
+     U-nested-u-packed (ffi-retain)
+     U-nested-u-repeated (ffi-retain)
+     U-nested-u-varint (ffi-retain)
+     U-oneof-all (ffi-retain)
+     U-oneof-before (ffi-retain)
+     U-oneof-group (ffi-retain)
+     U-oneof-interleaved (ffi-retain)
+     U-oneof-member-after-known (ffi-retain)
+     U-oneof-member-alone (ffi-retain)
+     U-oneof-member-before-known (ffi-retain)
+     U-oneof-u-fixed32 (ffi-retain)
+     U-oneof-u-fixed64 (ffi-retain)
+     U-oneof-u-len (ffi-retain)
+     U-oneof-u-msg (ffi-retain)
+     U-oneof-u-packed (ffi-retain)
+     U-oneof-u-repeated (ffi-retain)
+     U-oneof-u-varint (ffi-retain)
+     U-root-all (ffi-retain)
+     U-root-before (ffi-retain)
+     U-root-group (ffi-retain)
+     U-root-interleaved (ffi-retain)
+     U-root-max-tag (ffi-retain)
+     U-root-u-fixed32 (ffi-retain)
+     U-root-u-fixed64 (ffi-retain)
+     U-root-u-len (ffi-retain)
+     U-root-u-msg (ffi-retain)
+     U-root-u-packed (ffi-retain)
+     U-root-u-repeated (ffi-retain)
+     U-root-u-varint (ffi-retain)
+     U-wire-ChunkElement-attrs-as-wt0 (ffi-retain)
+     U-wire-ChunkElement-attrs-as-wt1 (ffi-retain)
+     U-wire-ChunkElement-attrs-as-wt5 (ffi-retain)
+     U-wire-ChunkElement-id-as-wt0 (ffi-retain)
+     U-wire-ChunkElement-id-as-wt1 (ffi-retain)
+     U-wire-ChunkElement-id-as-wt5 (ffi-retain)
+     U-wire-ChunkElement-inner-as-wt0 (ffi-retain)
+     U-wire-ChunkElement-inner-as-wt1 (ffi-retain)
+     U-wire-ChunkElement-inner-as-wt5 (ffi-retain)
+     U-wire-ChunkElement-labels-as-wt0 (ffi-retain)
+     U-wire-ChunkElement-labels-as-wt1 (ffi-retain)
+     U-wire-ChunkElement-labels-as-wt5 (ffi-retain)
+     U-wire-ChunkInner-leaves-as-wt0 (ffi-retain)
+     U-wire-ChunkInner-leaves-as-wt1 (ffi-retain)
+     U-wire-ChunkInner-leaves-as-wt5 (ffi-retain)
+     U-wire-ChunkInner-marks-as-wt1 (ffi-retain)
+     U-wire-ChunkInner-marks-as-wt5 (ffi-retain)
+     U-wire-ChunkLeaf-k-as-wt0 (ffi-retain)
+     U-wire-ChunkLeaf-k-as-wt1 (ffi-retain)
+     U-wire-ChunkLeaf-k-as-wt5 (ffi-retain)
+     U-wire-ChunkLeaf-v-as-wt1 (ffi-retain)
+     U-wire-ChunkLeaf-v-as-wt2 (ffi-retain)
+     U-wire-ChunkLeaf-v-as-wt5 (ffi-retain)
+     U-wire-ChunkedResponse-items-as-wt0 (ffi-retain)
+     U-wire-ChunkedResponse-items-as-wt1 (ffi-retain)
+     U-wire-ChunkedResponse-items-as-wt5 (ffi-retain)
+     U-wire-ChunkedResponse-page-as-wt1 (ffi-retain)
+     U-wire-ChunkedResponse-page-as-wt2 (ffi-retain)
+     U-wire-ChunkedResponse-page-as-wt5 (ffi-retain)
+     U-wire-ChunkedResponseWide-items-as-wt0 (ffi-retain)
+     U-wire-ChunkedResponseWide-items-as-wt1 (ffi-retain)
+     U-wire-ChunkedResponseWide-items-as-wt5 (ffi-retain)
+     U-wire-DualResponse-left-as-wt0 (ffi-retain)
+     U-wire-DualResponse-left-as-wt1 (ffi-retain)
+     U-wire-DualResponse-left-as-wt5 (ffi-retain)
+     U-wire-Duration-nanos-as-wt1 (ffi-retain)
+     U-wire-Duration-nanos-as-wt2 (ffi-retain)
+     U-wire-Duration-nanos-as-wt5 (ffi-retain)
+     U-wire-Duration-seconds-as-wt1 (ffi-retain)
+     U-wire-Duration-seconds-as-wt2 (ffi-retain)
+     U-wire-Duration-seconds-as-wt5 (ffi-retain)
+     U-wire-LeafElement-id-as-wt0 (ffi-retain)
+     U-wire-LeafElement-id-as-wt1 (ffi-retain)
+     U-wire-LeafElement-id-as-wt5 (ffi-retain)
+     U-wire-LeafElement-n-as-wt1 (ffi-retain)
+     U-wire-LeafElement-n-as-wt2 (ffi-retain)
+     U-wire-LeafElement-n-as-wt5 (ffi-retain)
+     U-wire-LeafElement-stamp-as-wt0 (ffi-retain)
+     U-wire-LeafElement-stamp-as-wt1 (ffi-retain)
+     U-wire-LeafElement-stamp-as-wt5 (ffi-retain)
+     U-wire-LeafResponse-items-as-wt0 (ffi-retain)
+     U-wire-LeafResponse-items-as-wt1 (ffi-retain)
+     U-wire-LeafResponse-items-as-wt5 (ffi-retain)
+     U-wire-ListMetricsResponse-batches-as-wt0 (ffi-retain)
+     U-wire-ListMetricsResponse-batches-as-wt1 (ffi-retain)
+     U-wire-ListMetricsResponse-batches-as-wt5 (ffi-retain)
+     U-wire-ListProbeResponse-probes-as-wt0 (ffi-retain)
+     U-wire-ListProbeResponse-probes-as-wt1 (ffi-retain)
+     U-wire-ListProbeResponse-probes-as-wt5 (ffi-retain)
+     U-wire-ListResultsResponse-page-as-wt1 (ffi-retain)
+     U-wire-ListResultsResponse-page-as-wt2 (ffi-retain)
+     U-wire-ListResultsResponse-page-as-wt5 (ffi-retain)
+     U-wire-ListResultsResponse-results-as-wt0 (ffi-retain)
+     U-wire-ListResultsResponse-results-as-wt1 (ffi-retain)
+     U-wire-ListResultsResponse-results-as-wt5 (ffi-retain)
+     U-wire-ListTaskSummaryResponse-tasks-as-wt0 (ffi-retain)
+     U-wire-ListTaskSummaryResponse-tasks-as-wt1 (ffi-retain)
+     U-wire-ListTaskSummaryResponse-tasks-as-wt5 (ffi-retain)
+     U-wire-ListTasksDetailedResponse-page-as-wt1 (ffi-retain)
+     U-wire-ListTasksDetailedResponse-page-as-wt2 (ffi-retain)
+     U-wire-ListTasksDetailedResponse-page-as-wt5 (ffi-retain)
+     U-wire-ListTasksDetailedResponse-tasks-as-wt0 (ffi-retain)
+     U-wire-ListTasksDetailedResponse-tasks-as-wt1 (ffi-retain)
+     U-wire-ListTasksDetailedResponse-tasks-as-wt5 (ffi-retain)
+     U-wire-MetricsBatch-codes-as-wt1 (ffi-retain)
+     U-wire-MetricsBatch-codes-as-wt5 (ffi-retain)
+     U-wire-MetricsBatch-flags-as-wt1 (ffi-retain)
+     U-wire-MetricsBatch-flags-as-wt5 (ffi-retain)
+     U-wire-MetricsBatch-id-as-wt0 (ffi-retain)
+     U-wire-MetricsBatch-id-as-wt1 (ffi-retain)
+     U-wire-MetricsBatch-id-as-wt5 (ffi-retain)
+     U-wire-MetricsBatch-statuses-as-wt1 (ffi-retain)
+     U-wire-MetricsBatch-statuses-as-wt5 (ffi-retain)
+     U-wire-MetricsBatch-ticks-as-wt1 (ffi-retain)
+     U-wire-MetricsBatch-ticks-as-wt5 (ffi-retain)
+     U-wire-MetricsBatch-values-as-wt0 (ffi-retain)
+     U-wire-MetricsBatch-values-as-wt5 (ffi-retain)
+     U-wire-Pair-key-as-wt0 (ffi-retain)
+     U-wire-Pair-key-as-wt1 (ffi-retain)
+     U-wire-Pair-key-as-wt5 (ffi-retain)
+     U-wire-Pair-value-as-wt1 (ffi-retain)
+     U-wire-Pair-value-as-wt2 (ffi-retain)
+     U-wire-Pair-value-as-wt5 (ffi-retain)
+     U-wire-Probe-as-blob-as-wt0 (ffi-retain)
+     U-wire-Probe-as-blob-as-wt1 (ffi-retain)
+     U-wire-Probe-as-blob-as-wt5 (ffi-retain)
+     U-wire-Probe-as-int-as-wt1 (ffi-retain)
+     U-wire-Probe-as-int-as-wt2 (ffi-retain)
+     U-wire-Probe-as-int-as-wt5 (ffi-retain)
+     U-wire-Probe-as-stamp-as-wt0 (ffi-retain)
+     U-wire-Probe-as-stamp-as-wt1 (ffi-retain)
+     U-wire-Probe-as-stamp-as-wt5 (ffi-retain)
+     U-wire-Probe-as-text-as-wt0 (ffi-retain)
+     U-wire-Probe-as-text-as-wt1 (ffi-retain)
+     U-wire-Probe-as-text-as-wt5 (ffi-retain)
+     U-wire-Probe-id-as-wt0 (ffi-retain)
+     U-wire-Probe-id-as-wt1 (ffi-retain)
+     U-wire-Probe-id-as-wt5 (ffi-retain)
+     U-wire-Probe-opt-count-as-wt1 (ffi-retain)
+     U-wire-Probe-opt-count-as-wt2 (ffi-retain)
+     U-wire-Probe-opt-count-as-wt5 (ffi-retain)
+     U-wire-Probe-opt-flag-as-wt1 (ffi-retain)
+     U-wire-Probe-opt-flag-as-wt2 (ffi-retain)
+     U-wire-Probe-opt-flag-as-wt5 (ffi-retain)
+     U-wire-Probe-opt-label-as-wt0 (ffi-retain)
+     U-wire-Probe-opt-label-as-wt1 (ffi-retain)
+     U-wire-Probe-opt-label-as-wt5 (ffi-retain)
+     U-wire-ResultRaw-created-at-as-wt0 (ffi-retain)
+     U-wire-ResultRaw-created-at-as-wt1 (ffi-retain)
+     U-wire-ResultRaw-created-at-as-wt5 (ffi-retain)
+     U-wire-ResultRaw-manual-deletion-as-wt1 (ffi-retain)
+     U-wire-ResultRaw-manual-deletion-as-wt2 (ffi-retain)
+     U-wire-ResultRaw-manual-deletion-as-wt5 (ffi-retain)
+     U-wire-ResultRaw-opaque-id-as-wt0 (ffi-retain)
+     U-wire-ResultRaw-opaque-id-as-wt1 (ffi-retain)
+     U-wire-ResultRaw-opaque-id-as-wt5 (ffi-retain)
+     U-wire-ResultRaw-session-id-as-wt0 (ffi-retain)
+     U-wire-ResultRaw-session-id-as-wt1 (ffi-retain)
+     U-wire-ResultRaw-session-id-as-wt5 (ffi-retain)
+     U-wire-ResultRaw-size-as-wt1 (ffi-retain)
+     U-wire-ResultRaw-size-as-wt2 (ffi-retain)
+     U-wire-ResultRaw-size-as-wt5 (ffi-retain)
+     U-wire-ResultRaw-status-as-wt1 (ffi-retain)
+     U-wire-ResultRaw-status-as-wt2 (ffi-retain)
+     U-wire-ResultRaw-status-as-wt5 (ffi-retain)
+     U-wire-Surrogate-attrs-as-wt0 (ffi-retain)
+     U-wire-Surrogate-attrs-as-wt1 (ffi-retain)
+     U-wire-Surrogate-attrs-as-wt5 (ffi-retain)
+     U-wire-Surrogate-nested-as-wt0 (ffi-retain)
+     U-wire-Surrogate-nested-as-wt1 (ffi-retain)
+     U-wire-Surrogate-nested-as-wt5 (ffi-retain)
+     U-wire-Surrogate-raw-as-wt0 (ffi-retain)
+     U-wire-Surrogate-raw-as-wt1 (ffi-retain)
+     U-wire-Surrogate-raw-as-wt5 (ffi-retain)
+     U-wire-Surrogate-text-as-wt0 (ffi-retain)
+     U-wire-Surrogate-text-as-wt1 (ffi-retain)
+     U-wire-Surrogate-text-as-wt5 (ffi-retain)
+     U-wire-Surrogate-texts-as-wt0 (ffi-retain)
+     U-wire-Surrogate-texts-as-wt1 (ffi-retain)
+     U-wire-Surrogate-texts-as-wt5 (ffi-retain)
+     U-wire-SurrogateInner-text-as-wt0 (ffi-retain)
+     U-wire-SurrogateInner-text-as-wt1 (ffi-retain)
+     U-wire-SurrogateInner-text-as-wt5 (ffi-retain)
+     U-wire-TaskDetailed-id-as-wt0 (ffi-retain)
+     U-wire-TaskDetailed-id-as-wt1 (ffi-retain)
+     U-wire-TaskDetailed-id-as-wt5 (ffi-retain)
+     U-wire-TaskDetailed-options-as-wt0 (ffi-retain)
+     U-wire-TaskDetailed-options-as-wt1 (ffi-retain)
+     U-wire-TaskDetailed-options-as-wt5 (ffi-retain)
+     U-wire-TaskDetailed-parent-task-ids-as-wt0 (ffi-retain)
+     U-wire-TaskDetailed-parent-task-ids-as-wt1 (ffi-retain)
+     U-wire-TaskDetailed-parent-task-ids-as-wt5 (ffi-retain)
+     U-wire-TaskDetailed-status-as-wt1 (ffi-retain)
+     U-wire-TaskDetailed-status-as-wt2 (ffi-retain)
+     U-wire-TaskDetailed-status-as-wt5 (ffi-retain)
+     U-wire-TaskOptions-max-duration-as-wt0 (ffi-retain)
+     U-wire-TaskOptions-max-duration-as-wt1 (ffi-retain)
+     U-wire-TaskOptions-max-duration-as-wt5 (ffi-retain)
+     U-wire-TaskOptions-max-retries-as-wt1 (ffi-retain)
+     U-wire-TaskOptions-max-retries-as-wt2 (ffi-retain)
+     U-wire-TaskOptions-max-retries-as-wt5 (ffi-retain)
+     U-wire-TaskOptions-options-as-wt0 (ffi-retain)
+     U-wire-TaskOptions-options-as-wt1 (ffi-retain)
+     U-wire-TaskOptions-options-as-wt5 (ffi-retain)
+     U-wire-TaskOptions-partition-id-as-wt0 (ffi-retain)
+     U-wire-TaskOptions-partition-id-as-wt1 (ffi-retain)
+     U-wire-TaskOptions-partition-id-as-wt5 (ffi-retain)
+     U-wire-TaskOutput-error-as-wt0 (ffi-retain)
+     U-wire-TaskOutput-error-as-wt1 (ffi-retain)
+     U-wire-TaskOutput-error-as-wt5 (ffi-retain)
+     U-wire-TaskOutput-success-as-wt1 (ffi-retain)
+     U-wire-TaskOutput-success-as-wt2 (ffi-retain)
+     U-wire-TaskOutput-success-as-wt5 (ffi-retain)
+     U-wire-TaskSummary-count-data-dependencies-as-wt1 (ffi-retain)
+     U-wire-TaskSummary-count-data-dependencies-as-wt2 (ffi-retain)
+     U-wire-TaskSummary-count-data-dependencies-as-wt5 (ffi-retain)
+     U-wire-TaskSummary-id-as-wt0 (ffi-retain)
+     U-wire-TaskSummary-id-as-wt1 (ffi-retain)
+     U-wire-TaskSummary-id-as-wt5 (ffi-retain)
+     U-wire-TaskSummary-options-as-wt0 (ffi-retain)
+     U-wire-TaskSummary-options-as-wt1 (ffi-retain)
+     U-wire-TaskSummary-options-as-wt5 (ffi-retain)
+     U-wire-TaskSummary-status-as-wt1 (ffi-retain)
+     U-wire-TaskSummary-status-as-wt2 (ffi-retain)
+     U-wire-TaskSummary-status-as-wt5 (ffi-retain)
+     U-wire-Timestamp-nanos-as-wt1 (ffi-retain)
+     U-wire-Timestamp-nanos-as-wt2 (ffi-retain)
+     U-wire-Timestamp-nanos-as-wt5 (ffi-retain)
+     U-wire-Timestamp-seconds-as-wt1 (ffi-retain)
+     U-wire-Timestamp-seconds-as-wt2 (ffi-retain)
+     U-wire-Timestamp-seconds-as-wt5 (ffi-retain)
+     U-wire-UploadResultData-data-chunk-as-wt0 (ffi-retain)
+     U-wire-UploadResultData-data-chunk-as-wt1 (ffi-retain)
+     U-wire-UploadResultData-data-chunk-as-wt5 (ffi-retain)
+     U-wire-UploadResultData-session-id-as-wt0 (ffi-retain)
+     U-wire-UploadResultData-session-id-as-wt1 (ffi-retain)
+     U-wire-UploadResultData-session-id-as-wt5 (ffi-retain)
+     U-wire-UploadResultDataMessage-upload-as-wt0 (ffi-retain)
+     U-wire-UploadResultDataMessage-upload-as-wt1 (ffi-retain)
+     U-wire-UploadResultDataMessage-upload-as-wt5 (ffi-retain)
+     U-wire-WireZoo-v-bool-as-wt1 (ffi-retain)
+     U-wire-WireZoo-v-bool-as-wt2 (ffi-retain)
+     U-wire-WireZoo-v-bool-as-wt5 (ffi-retain)
+     U-wire-WireZoo-v-bytes-as-wt0 (ffi-retain)
+     U-wire-WireZoo-v-bytes-as-wt1 (ffi-retain)
+     U-wire-WireZoo-v-bytes-as-wt5 (ffi-retain)
+     U-wire-WireZoo-v-double-as-wt0 (ffi-retain)
+     U-wire-WireZoo-v-double-as-wt2 (ffi-retain)
+     U-wire-WireZoo-v-double-as-wt5 (ffi-retain)
+     U-wire-WireZoo-v-enum-as-wt1 (ffi-retain)
+     U-wire-WireZoo-v-enum-as-wt2 (ffi-retain)
+     U-wire-WireZoo-v-enum-as-wt5 (ffi-retain)
+     U-wire-WireZoo-v-fixed32-as-wt0 (ffi-retain)
+     U-wire-WireZoo-v-fixed32-as-wt1 (ffi-retain)
+     U-wire-WireZoo-v-fixed32-as-wt2 (ffi-retain)
+     U-wire-WireZoo-v-int32-as-wt1 (ffi-retain)
+     U-wire-WireZoo-v-int32-as-wt2 (ffi-retain)
+     U-wire-WireZoo-v-int32-as-wt5 (ffi-retain)
+     U-wire-WireZoo-v-int64-as-wt1 (ffi-retain)
+     U-wire-WireZoo-v-int64-as-wt2 (ffi-retain)
+     U-wire-WireZoo-v-int64-as-wt5 (ffi-retain)
+     U-wire-WireZoo-v-msg-as-wt0 (ffi-retain)
+     U-wire-WireZoo-v-msg-as-wt1 (ffi-retain)
+     U-wire-WireZoo-v-msg-as-wt5 (ffi-retain)
+     U-wire-WireZoo-v-string-as-wt0 (ffi-retain)
+     U-wire-WireZoo-v-string-as-wt1 (ffi-retain)
+     U-wire-WireZoo-v-string-as-wt5 (ffi-retain)
+
+## native-drop
+   pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0  arm not built 0
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  110  fail   0
+     shape      pass  170  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  317  fail   0
+   forms written (C3):
+      190  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       46  unknown-dropped
+       25  unknown-dropped / unknown-dropped, map values always written
+      162  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   refusal codes (C4): -2 x40, -3 x73, -4 x2, -6 x31
+   disputed: U-map-entry [native-drop]: accepted; projection matches the reading of null
+   disputed: X-field-2p32-plus-2 [native-drop]: refused (-2)
+   disputed: X-field-over-max [native-drop]: refused (-2)
+   disputed: X-field-over-max-in-group [native-drop]: refused (-2)
+   disputed: X-tag-zero-Empty [native-drop]: refused (-2)
+   disputed: X-tag-zero-nested-Empty [native-drop]: refused (-2)
+
+## native-retain
+   pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0  arm not built 0
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  110  fail   0
+     shape      pass  170  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  317  fail   0
+   forms written (C3):
+      391  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+      105  as committed / unknown-retained, map values always written
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        1  as upb writes it: the same message, encoded differently
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+        1  unknown-dropped / unknown-dropped, map values always written
+        6  unknown-retained, appended in tag order
+   refusal codes (C4): -2 x40, -3 x73, -4 x2, -6 x31
+   disputed: U-map-entry [native-retain]: accepted; projection matches the reading of null
+   disputed: X-field-2p32-plus-2 [native-retain]: refused (-2)
+   disputed: X-field-over-max [native-retain]: refused (-2)
+   disputed: X-field-over-max-in-group [native-retain]: refused (-2)
+   disputed: X-tag-zero-Empty [native-retain]: refused (-2)
+   disputed: X-tag-zero-nested-Empty [native-retain]: refused (-2)
+   retain mode wrote the DROPPED form on 1 row(s) (accepted by the contract; a retention gap):
+     U-map-entry (native-retain)
+
+# rows that hung or crashed a child: 0
+CORPUS PASSES on every built arm
+>>> ok: corpus corpus_all_c11 (exit 0)
+
+===== corpus_all_a17_static =====
+# the conformance corpus, C ABI and core-native, unknown fields dropped and retained
+#   binary     build/corpus_all_a17_static
+#   build      __cplusplus 201703, target impl True, binding skips ak_init: False
+#   manifest   corpus/generated/manifest.json (702 rows)
+#   core       ak-core --features corpus,init-guard: generated for the corpus's READER
+#              schema by poc/codec/gen (plan.py + rust_abi.py); CONTRACT rule 0
+#   native     rendered by poc/codec/gen/cpp_native.py from the same plans: drop / retain
+#   decode utf8 policy reject; recursion limit 100; ffi-retain arm built: True
+#   each row in a child process, timeout 10 s
+
+## ffi-drop
+   pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16  arm not built 0
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  107  fail   0
+     shape      pass  163  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  311  fail   0
+   forms written (C3):
+      183  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       46  unknown-dropped
+       25  unknown-dropped / unknown-dropped, map values always written
+      156  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   refusal codes (C4): -2 x39, -3 x73, -6 x31
+   disputed: U-map-entry [ffi-drop]: accepted; projection matches the reading of null
+   disputed: X-field-2p32-plus-2 [ffi-drop]: refused (-2)
+   disputed: X-field-over-max [ffi-drop]: refused (-2)
+   disputed: X-field-over-max-in-group [ffi-drop]: refused (-2)
+   disputed: X-tag-zero-Empty [ffi-drop]: refused (-2)
+   disputed: X-tag-zero-nested-Empty [ffi-drop]: refused (-2)
+
+## ffi-retain
+   pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16  arm not built 0
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  107  fail   0
+     shape      pass  163  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  311  fail   0
+   forms written (C3):
+      183  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       46  unknown-dropped
+       25  unknown-dropped / unknown-dropped, map values always written
+      156  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   refusal codes (C4): -2 x39, -3 x73, -6 x31
+   disputed: U-map-entry [ffi-retain]: accepted; projection matches the reading of null
+   disputed: X-field-2p32-plus-2 [ffi-retain]: refused (-2)
+   disputed: X-field-over-max [ffi-retain]: refused (-2)
+   disputed: X-field-over-max-in-group [ffi-retain]: refused (-2)
+   disputed: X-tag-zero-Empty [ffi-retain]: refused (-2)
+   disputed: X-tag-zero-nested-Empty [ffi-retain]: refused (-2)
+   retain mode wrote the DROPPED form on 308 row(s) (accepted by the contract; a retention gap):
+     U-chunkelem-all (ffi-retain)
+     U-chunkelem-u-fixed32 (ffi-retain)
+     U-chunkelem-u-fixed64 (ffi-retain)
+     U-chunkelem-u-len (ffi-retain)
+     U-chunkelem-u-msg (ffi-retain)
+     U-chunkelem-u-packed (ffi-retain)
+     U-chunkelem-u-repeated (ffi-retain)
+     U-chunkelem-u-varint (ffi-retain)
+     U-deep-all (ffi-retain)
+     U-deep-u-fixed32 (ffi-retain)
+     U-deep-u-fixed64 (ffi-retain)
+     U-deep-u-len (ffi-retain)
+     U-deep-u-msg (ffi-retain)
+     U-deep-u-packed (ffi-retain)
+     U-deep-u-repeated (ffi-retain)
+     U-deep-u-varint (ffi-retain)
+     U-element-all (ffi-retain)
+     U-element-u-fixed32 (ffi-retain)
+     U-element-u-fixed64 (ffi-retain)
+     U-element-u-len (ffi-retain)
+     U-element-u-msg (ffi-retain)
+     U-element-u-packed (ffi-retain)
+     U-element-u-repeated (ffi-retain)
+     U-element-u-varint (ffi-retain)
+     U-group-field-max (ffi-retain)
+     U-leaf-all (ffi-retain)
+     U-leaf-u-fixed32 (ffi-retain)
+     U-leaf-u-fixed64 (ffi-retain)
+     U-leaf-u-len (ffi-retain)
+     U-leaf-u-msg (ffi-retain)
+     U-leaf-u-packed (ffi-retain)
+     U-leaf-u-repeated (ffi-retain)
+     U-leaf-u-varint (ffi-retain)
+     U-map-entry (ffi-retain)
+     U-nested-all (ffi-retain)
+     U-nested-before (ffi-retain)
+     U-nested-group (ffi-retain)
+     U-nested-interleaved (ffi-retain)
+     U-nested-u-fixed32 (ffi-retain)
+     U-nested-u-fixed64 (ffi-retain)
+     U-nested-u-len (ffi-retain)
+     U-nested-u-msg (ffi-retain)
+     U-nested-u-packed (ffi-retain)
+     U-nested-u-repeated (ffi-retain)
+     U-nested-u-varint (ffi-retain)
+     U-oneof-all (ffi-retain)
+     U-oneof-before (ffi-retain)
+     U-oneof-group (ffi-retain)
+     U-oneof-interleaved (ffi-retain)
+     U-oneof-member-after-known (ffi-retain)
+     U-oneof-member-alone (ffi-retain)
+     U-oneof-member-before-known (ffi-retain)
+     U-oneof-u-fixed32 (ffi-retain)
+     U-oneof-u-fixed64 (ffi-retain)
+     U-oneof-u-len (ffi-retain)
+     U-oneof-u-msg (ffi-retain)
+     U-oneof-u-packed (ffi-retain)
+     U-oneof-u-repeated (ffi-retain)
+     U-oneof-u-varint (ffi-retain)
+     U-root-all (ffi-retain)
+     U-root-before (ffi-retain)
+     U-root-group (ffi-retain)
+     U-root-interleaved (ffi-retain)
+     U-root-max-tag (ffi-retain)
+     U-root-u-fixed32 (ffi-retain)
+     U-root-u-fixed64 (ffi-retain)
+     U-root-u-len (ffi-retain)
+     U-root-u-msg (ffi-retain)
+     U-root-u-packed (ffi-retain)
+     U-root-u-repeated (ffi-retain)
+     U-root-u-varint (ffi-retain)
+     U-wire-ChunkElement-attrs-as-wt0 (ffi-retain)
+     U-wire-ChunkElement-attrs-as-wt1 (ffi-retain)
+     U-wire-ChunkElement-attrs-as-wt5 (ffi-retain)
+     U-wire-ChunkElement-id-as-wt0 (ffi-retain)
+     U-wire-ChunkElement-id-as-wt1 (ffi-retain)
+     U-wire-ChunkElement-id-as-wt5 (ffi-retain)
+     U-wire-ChunkElement-inner-as-wt0 (ffi-retain)
+     U-wire-ChunkElement-inner-as-wt1 (ffi-retain)
+     U-wire-ChunkElement-inner-as-wt5 (ffi-retain)
+     U-wire-ChunkElement-labels-as-wt0 (ffi-retain)
+     U-wire-ChunkElement-labels-as-wt1 (ffi-retain)
+     U-wire-ChunkElement-labels-as-wt5 (ffi-retain)
+     U-wire-ChunkInner-leaves-as-wt0 (ffi-retain)
+     U-wire-ChunkInner-leaves-as-wt1 (ffi-retain)
+     U-wire-ChunkInner-leaves-as-wt5 (ffi-retain)
+     U-wire-ChunkInner-marks-as-wt1 (ffi-retain)
+     U-wire-ChunkInner-marks-as-wt5 (ffi-retain)
+     U-wire-ChunkLeaf-k-as-wt0 (ffi-retain)
+     U-wire-ChunkLeaf-k-as-wt1 (ffi-retain)
+     U-wire-ChunkLeaf-k-as-wt5 (ffi-retain)
+     U-wire-ChunkLeaf-v-as-wt1 (ffi-retain)
+     U-wire-ChunkLeaf-v-as-wt2 (ffi-retain)
+     U-wire-ChunkLeaf-v-as-wt5 (ffi-retain)
+     U-wire-ChunkedResponse-items-as-wt0 (ffi-retain)
+     U-wire-ChunkedResponse-items-as-wt1 (ffi-retain)
+     U-wire-ChunkedResponse-items-as-wt5 (ffi-retain)
+     U-wire-ChunkedResponse-page-as-wt1 (ffi-retain)
+     U-wire-ChunkedResponse-page-as-wt2 (ffi-retain)
+     U-wire-ChunkedResponse-page-as-wt5 (ffi-retain)
+     U-wire-ChunkedResponseWide-items-as-wt0 (ffi-retain)
+     U-wire-ChunkedResponseWide-items-as-wt1 (ffi-retain)
+     U-wire-ChunkedResponseWide-items-as-wt5 (ffi-retain)
+     U-wire-DualResponse-left-as-wt0 (ffi-retain)
+     U-wire-DualResponse-left-as-wt1 (ffi-retain)
+     U-wire-DualResponse-left-as-wt5 (ffi-retain)
+     U-wire-Duration-nanos-as-wt1 (ffi-retain)
+     U-wire-Duration-nanos-as-wt2 (ffi-retain)
+     U-wire-Duration-nanos-as-wt5 (ffi-retain)
+     U-wire-Duration-seconds-as-wt1 (ffi-retain)
+     U-wire-Duration-seconds-as-wt2 (ffi-retain)
+     U-wire-Duration-seconds-as-wt5 (ffi-retain)
+     U-wire-LeafElement-id-as-wt0 (ffi-retain)
+     U-wire-LeafElement-id-as-wt1 (ffi-retain)
+     U-wire-LeafElement-id-as-wt5 (ffi-retain)
+     U-wire-LeafElement-n-as-wt1 (ffi-retain)
+     U-wire-LeafElement-n-as-wt2 (ffi-retain)
+     U-wire-LeafElement-n-as-wt5 (ffi-retain)
+     U-wire-LeafElement-stamp-as-wt0 (ffi-retain)
+     U-wire-LeafElement-stamp-as-wt1 (ffi-retain)
+     U-wire-LeafElement-stamp-as-wt5 (ffi-retain)
+     U-wire-LeafResponse-items-as-wt0 (ffi-retain)
+     U-wire-LeafResponse-items-as-wt1 (ffi-retain)
+     U-wire-LeafResponse-items-as-wt5 (ffi-retain)
+     U-wire-ListMetricsResponse-batches-as-wt0 (ffi-retain)
+     U-wire-ListMetricsResponse-batches-as-wt1 (ffi-retain)
+     U-wire-ListMetricsResponse-batches-as-wt5 (ffi-retain)
+     U-wire-ListProbeResponse-probes-as-wt0 (ffi-retain)
+     U-wire-ListProbeResponse-probes-as-wt1 (ffi-retain)
+     U-wire-ListProbeResponse-probes-as-wt5 (ffi-retain)
+     U-wire-ListResultsResponse-page-as-wt1 (ffi-retain)
+     U-wire-ListResultsResponse-page-as-wt2 (ffi-retain)
+     U-wire-ListResultsResponse-page-as-wt5 (ffi-retain)
+     U-wire-ListResultsResponse-results-as-wt0 (ffi-retain)
+     U-wire-ListResultsResponse-results-as-wt1 (ffi-retain)
+     U-wire-ListResultsResponse-results-as-wt5 (ffi-retain)
+     U-wire-ListTaskSummaryResponse-tasks-as-wt0 (ffi-retain)
+     U-wire-ListTaskSummaryResponse-tasks-as-wt1 (ffi-retain)
+     U-wire-ListTaskSummaryResponse-tasks-as-wt5 (ffi-retain)
+     U-wire-ListTasksDetailedResponse-page-as-wt1 (ffi-retain)
+     U-wire-ListTasksDetailedResponse-page-as-wt2 (ffi-retain)
+     U-wire-ListTasksDetailedResponse-page-as-wt5 (ffi-retain)
+     U-wire-ListTasksDetailedResponse-tasks-as-wt0 (ffi-retain)
+     U-wire-ListTasksDetailedResponse-tasks-as-wt1 (ffi-retain)
+     U-wire-ListTasksDetailedResponse-tasks-as-wt5 (ffi-retain)
+     U-wire-MetricsBatch-codes-as-wt1 (ffi-retain)
+     U-wire-MetricsBatch-codes-as-wt5 (ffi-retain)
+     U-wire-MetricsBatch-flags-as-wt1 (ffi-retain)
+     U-wire-MetricsBatch-flags-as-wt5 (ffi-retain)
+     U-wire-MetricsBatch-id-as-wt0 (ffi-retain)
+     U-wire-MetricsBatch-id-as-wt1 (ffi-retain)
+     U-wire-MetricsBatch-id-as-wt5 (ffi-retain)
+     U-wire-MetricsBatch-statuses-as-wt1 (ffi-retain)
+     U-wire-MetricsBatch-statuses-as-wt5 (ffi-retain)
+     U-wire-MetricsBatch-ticks-as-wt1 (ffi-retain)
+     U-wire-MetricsBatch-ticks-as-wt5 (ffi-retain)
+     U-wire-MetricsBatch-values-as-wt0 (ffi-retain)
+     U-wire-MetricsBatch-values-as-wt5 (ffi-retain)
+     U-wire-Pair-key-as-wt0 (ffi-retain)
+     U-wire-Pair-key-as-wt1 (ffi-retain)
+     U-wire-Pair-key-as-wt5 (ffi-retain)
+     U-wire-Pair-value-as-wt1 (ffi-retain)
+     U-wire-Pair-value-as-wt2 (ffi-retain)
+     U-wire-Pair-value-as-wt5 (ffi-retain)
+     U-wire-Probe-as-blob-as-wt0 (ffi-retain)
+     U-wire-Probe-as-blob-as-wt1 (ffi-retain)
+     U-wire-Probe-as-blob-as-wt5 (ffi-retain)
+     U-wire-Probe-as-int-as-wt1 (ffi-retain)
+     U-wire-Probe-as-int-as-wt2 (ffi-retain)
+     U-wire-Probe-as-int-as-wt5 (ffi-retain)
+     U-wire-Probe-as-stamp-as-wt0 (ffi-retain)
+     U-wire-Probe-as-stamp-as-wt1 (ffi-retain)
+     U-wire-Probe-as-stamp-as-wt5 (ffi-retain)
+     U-wire-Probe-as-text-as-wt0 (ffi-retain)
+     U-wire-Probe-as-text-as-wt1 (ffi-retain)
+     U-wire-Probe-as-text-as-wt5 (ffi-retain)
+     U-wire-Probe-id-as-wt0 (ffi-retain)
+     U-wire-Probe-id-as-wt1 (ffi-retain)
+     U-wire-Probe-id-as-wt5 (ffi-retain)
+     U-wire-Probe-opt-count-as-wt1 (ffi-retain)
+     U-wire-Probe-opt-count-as-wt2 (ffi-retain)
+     U-wire-Probe-opt-count-as-wt5 (ffi-retain)
+     U-wire-Probe-opt-flag-as-wt1 (ffi-retain)
+     U-wire-Probe-opt-flag-as-wt2 (ffi-retain)
+     U-wire-Probe-opt-flag-as-wt5 (ffi-retain)
+     U-wire-Probe-opt-label-as-wt0 (ffi-retain)
+     U-wire-Probe-opt-label-as-wt1 (ffi-retain)
+     U-wire-Probe-opt-label-as-wt5 (ffi-retain)
+     U-wire-ResultRaw-created-at-as-wt0 (ffi-retain)
+     U-wire-ResultRaw-created-at-as-wt1 (ffi-retain)
+     U-wire-ResultRaw-created-at-as-wt5 (ffi-retain)
+     U-wire-ResultRaw-manual-deletion-as-wt1 (ffi-retain)
+     U-wire-ResultRaw-manual-deletion-as-wt2 (ffi-retain)
+     U-wire-ResultRaw-manual-deletion-as-wt5 (ffi-retain)
+     U-wire-ResultRaw-opaque-id-as-wt0 (ffi-retain)
+     U-wire-ResultRaw-opaque-id-as-wt1 (ffi-retain)
+     U-wire-ResultRaw-opaque-id-as-wt5 (ffi-retain)
+     U-wire-ResultRaw-session-id-as-wt0 (ffi-retain)
+     U-wire-ResultRaw-session-id-as-wt1 (ffi-retain)
+     U-wire-ResultRaw-session-id-as-wt5 (ffi-retain)
+     U-wire-ResultRaw-size-as-wt1 (ffi-retain)
+     U-wire-ResultRaw-size-as-wt2 (ffi-retain)
+     U-wire-ResultRaw-size-as-wt5 (ffi-retain)
+     U-wire-ResultRaw-status-as-wt1 (ffi-retain)
+     U-wire-ResultRaw-status-as-wt2 (ffi-retain)
+     U-wire-ResultRaw-status-as-wt5 (ffi-retain)
+     U-wire-Surrogate-attrs-as-wt0 (ffi-retain)
+     U-wire-Surrogate-attrs-as-wt1 (ffi-retain)
+     U-wire-Surrogate-attrs-as-wt5 (ffi-retain)
+     U-wire-Surrogate-nested-as-wt0 (ffi-retain)
+     U-wire-Surrogate-nested-as-wt1 (ffi-retain)
+     U-wire-Surrogate-nested-as-wt5 (ffi-retain)
+     U-wire-Surrogate-raw-as-wt0 (ffi-retain)
+     U-wire-Surrogate-raw-as-wt1 (ffi-retain)
+     U-wire-Surrogate-raw-as-wt5 (ffi-retain)
+     U-wire-Surrogate-text-as-wt0 (ffi-retain)
+     U-wire-Surrogate-text-as-wt1 (ffi-retain)
+     U-wire-Surrogate-text-as-wt5 (ffi-retain)
+     U-wire-Surrogate-texts-as-wt0 (ffi-retain)
+     U-wire-Surrogate-texts-as-wt1 (ffi-retain)
+     U-wire-Surrogate-texts-as-wt5 (ffi-retain)
+     U-wire-SurrogateInner-text-as-wt0 (ffi-retain)
+     U-wire-SurrogateInner-text-as-wt1 (ffi-retain)
+     U-wire-SurrogateInner-text-as-wt5 (ffi-retain)
+     U-wire-TaskDetailed-id-as-wt0 (ffi-retain)
+     U-wire-TaskDetailed-id-as-wt1 (ffi-retain)
+     U-wire-TaskDetailed-id-as-wt5 (ffi-retain)
+     U-wire-TaskDetailed-options-as-wt0 (ffi-retain)
+     U-wire-TaskDetailed-options-as-wt1 (ffi-retain)
+     U-wire-TaskDetailed-options-as-wt5 (ffi-retain)
+     U-wire-TaskDetailed-parent-task-ids-as-wt0 (ffi-retain)
+     U-wire-TaskDetailed-parent-task-ids-as-wt1 (ffi-retain)
+     U-wire-TaskDetailed-parent-task-ids-as-wt5 (ffi-retain)
+     U-wire-TaskDetailed-status-as-wt1 (ffi-retain)
+     U-wire-TaskDetailed-status-as-wt2 (ffi-retain)
+     U-wire-TaskDetailed-status-as-wt5 (ffi-retain)
+     U-wire-TaskOptions-max-duration-as-wt0 (ffi-retain)
+     U-wire-TaskOptions-max-duration-as-wt1 (ffi-retain)
+     U-wire-TaskOptions-max-duration-as-wt5 (ffi-retain)
+     U-wire-TaskOptions-max-retries-as-wt1 (ffi-retain)
+     U-wire-TaskOptions-max-retries-as-wt2 (ffi-retain)
+     U-wire-TaskOptions-max-retries-as-wt5 (ffi-retain)
+     U-wire-TaskOptions-options-as-wt0 (ffi-retain)
+     U-wire-TaskOptions-options-as-wt1 (ffi-retain)
+     U-wire-TaskOptions-options-as-wt5 (ffi-retain)
+     U-wire-TaskOptions-partition-id-as-wt0 (ffi-retain)
+     U-wire-TaskOptions-partition-id-as-wt1 (ffi-retain)
+     U-wire-TaskOptions-partition-id-as-wt5 (ffi-retain)
+     U-wire-TaskOutput-error-as-wt0 (ffi-retain)
+     U-wire-TaskOutput-error-as-wt1 (ffi-retain)
+     U-wire-TaskOutput-error-as-wt5 (ffi-retain)
+     U-wire-TaskOutput-success-as-wt1 (ffi-retain)
+     U-wire-TaskOutput-success-as-wt2 (ffi-retain)
+     U-wire-TaskOutput-success-as-wt5 (ffi-retain)
+     U-wire-TaskSummary-count-data-dependencies-as-wt1 (ffi-retain)
+     U-wire-TaskSummary-count-data-dependencies-as-wt2 (ffi-retain)
+     U-wire-TaskSummary-count-data-dependencies-as-wt5 (ffi-retain)
+     U-wire-TaskSummary-id-as-wt0 (ffi-retain)
+     U-wire-TaskSummary-id-as-wt1 (ffi-retain)
+     U-wire-TaskSummary-id-as-wt5 (ffi-retain)
+     U-wire-TaskSummary-options-as-wt0 (ffi-retain)
+     U-wire-TaskSummary-options-as-wt1 (ffi-retain)
+     U-wire-TaskSummary-options-as-wt5 (ffi-retain)
+     U-wire-TaskSummary-status-as-wt1 (ffi-retain)
+     U-wire-TaskSummary-status-as-wt2 (ffi-retain)
+     U-wire-TaskSummary-status-as-wt5 (ffi-retain)
+     U-wire-Timestamp-nanos-as-wt1 (ffi-retain)
+     U-wire-Timestamp-nanos-as-wt2 (ffi-retain)
+     U-wire-Timestamp-nanos-as-wt5 (ffi-retain)
+     U-wire-Timestamp-seconds-as-wt1 (ffi-retain)
+     U-wire-Timestamp-seconds-as-wt2 (ffi-retain)
+     U-wire-Timestamp-seconds-as-wt5 (ffi-retain)
+     U-wire-UploadResultData-data-chunk-as-wt0 (ffi-retain)
+     U-wire-UploadResultData-data-chunk-as-wt1 (ffi-retain)
+     U-wire-UploadResultData-data-chunk-as-wt5 (ffi-retain)
+     U-wire-UploadResultData-session-id-as-wt0 (ffi-retain)
+     U-wire-UploadResultData-session-id-as-wt1 (ffi-retain)
+     U-wire-UploadResultData-session-id-as-wt5 (ffi-retain)
+     U-wire-UploadResultDataMessage-upload-as-wt0 (ffi-retain)
+     U-wire-UploadResultDataMessage-upload-as-wt1 (ffi-retain)
+     U-wire-UploadResultDataMessage-upload-as-wt5 (ffi-retain)
+     U-wire-WireZoo-v-bool-as-wt1 (ffi-retain)
+     U-wire-WireZoo-v-bool-as-wt2 (ffi-retain)
+     U-wire-WireZoo-v-bool-as-wt5 (ffi-retain)
+     U-wire-WireZoo-v-bytes-as-wt0 (ffi-retain)
+     U-wire-WireZoo-v-bytes-as-wt1 (ffi-retain)
+     U-wire-WireZoo-v-bytes-as-wt5 (ffi-retain)
+     U-wire-WireZoo-v-double-as-wt0 (ffi-retain)
+     U-wire-WireZoo-v-double-as-wt2 (ffi-retain)
+     U-wire-WireZoo-v-double-as-wt5 (ffi-retain)
+     U-wire-WireZoo-v-enum-as-wt1 (ffi-retain)
+     U-wire-WireZoo-v-enum-as-wt2 (ffi-retain)
+     U-wire-WireZoo-v-enum-as-wt5 (ffi-retain)
+     U-wire-WireZoo-v-fixed32-as-wt0 (ffi-retain)
+     U-wire-WireZoo-v-fixed32-as-wt1 (ffi-retain)
+     U-wire-WireZoo-v-fixed32-as-wt2 (ffi-retain)
+     U-wire-WireZoo-v-int32-as-wt1 (ffi-retain)
+     U-wire-WireZoo-v-int32-as-wt2 (ffi-retain)
+     U-wire-WireZoo-v-int32-as-wt5 (ffi-retain)
+     U-wire-WireZoo-v-int64-as-wt1 (ffi-retain)
+     U-wire-WireZoo-v-int64-as-wt2 (ffi-retain)
+     U-wire-WireZoo-v-int64-as-wt5 (ffi-retain)
+     U-wire-WireZoo-v-msg-as-wt0 (ffi-retain)
+     U-wire-WireZoo-v-msg-as-wt1 (ffi-retain)
+     U-wire-WireZoo-v-msg-as-wt5 (ffi-retain)
+     U-wire-WireZoo-v-string-as-wt0 (ffi-retain)
+     U-wire-WireZoo-v-string-as-wt1 (ffi-retain)
+     U-wire-WireZoo-v-string-as-wt5 (ffi-retain)
+
+## native-drop
+   pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0  arm not built 0
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  110  fail   0
+     shape      pass  170  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  317  fail   0
+   forms written (C3):
+      190  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       46  unknown-dropped
+       25  unknown-dropped / unknown-dropped, map values always written
+      162  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   refusal codes (C4): -2 x40, -3 x73, -4 x2, -6 x31
+   disputed: U-map-entry [native-drop]: accepted; projection matches the reading of null
+   disputed: X-field-2p32-plus-2 [native-drop]: refused (-2)
+   disputed: X-field-over-max [native-drop]: refused (-2)
+   disputed: X-field-over-max-in-group [native-drop]: refused (-2)
+   disputed: X-tag-zero-Empty [native-drop]: refused (-2)
+   disputed: X-tag-zero-nested-Empty [native-drop]: refused (-2)
+
+## native-retain
+   pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0  arm not built 0
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  110  fail   0
+     shape      pass  170  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  317  fail   0
+   forms written (C3):
+      391  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+      105  as committed / unknown-retained, map values always written
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        1  as upb writes it: the same message, encoded differently
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+        1  unknown-dropped / unknown-dropped, map values always written
+        6  unknown-retained, appended in tag order
+   refusal codes (C4): -2 x40, -3 x73, -4 x2, -6 x31
+   disputed: U-map-entry [native-retain]: accepted; projection matches the reading of null
+   disputed: X-field-2p32-plus-2 [native-retain]: refused (-2)
+   disputed: X-field-over-max [native-retain]: refused (-2)
+   disputed: X-field-over-max-in-group [native-retain]: refused (-2)
+   disputed: X-tag-zero-Empty [native-retain]: refused (-2)
+   disputed: X-tag-zero-nested-Empty [native-retain]: refused (-2)
+   retain mode wrote the DROPPED form on 1 row(s) (accepted by the contract; a retention gap):
+     U-map-entry (native-retain)
+
+# rows that hung or crashed a child: 0
+CORPUS PASSES on every built arm
+>>> ok: corpus corpus_all_a17_static (exit 0)
+
+===== the four builds' outcomes, (row, arm) by (row, arm): identical across levels and linkages =====
+corpus_all_a17 vs corpus_all_c14: 2808 (row, arm) outcomes compared, 0 differ
+corpus_all_a17 vs corpus_all_c11: 2808 (row, arm) outcomes compared, 0 differ
+corpus_all_a17 vs corpus_all_a17_static: 2808 (row, arm) outcomes compared, 0 differ
+>>> ok: compare (exit 0)
+
+===== control: AK_CORPUS_PLANT=proj on S-Probe,U-root,X-lenwrap-lrr,E-map,T-dec-root,U-wire-MetricsBatch -- must FAIL =====
+## ffi-drop
+   pass 57  fail 39  disputed (excluded) 0  not in the C ABI 0  arm not built 0
+## ffi-retain
+   pass 57  fail 39  disputed (excluded) 0  not in the C ABI 0  arm not built 0
+## native-drop
+   pass 57  fail 39  disputed (excluded) 0  not in the C ABI 0  arm not built 0
+## native-retain
+   pass 57  fail 39  disputed (excluded) 0  not in the C ABI 0  arm not built 0
+CORPUS FAILS: 156 arm-row failure(s), 0 hang/crash row(s)
+>>> ok: control proj failed as required
+
+===== control: AK_CORPUS_PLANT=reenc on S-Probe,U-root,X-lenwrap-lrr,E-map,T-dec-root,U-wire-MetricsBatch -- must FAIL =====
+## ffi-drop
+   pass 57  fail 39  disputed (excluded) 0  not in the C ABI 0  arm not built 0
+## ffi-retain
+   pass 57  fail 39  disputed (excluded) 0  not in the C ABI 0  arm not built 0
+## native-drop
+   pass 57  fail 39  disputed (excluded) 0  not in the C ABI 0  arm not built 0
+## native-retain
+   pass 57  fail 39  disputed (excluded) 0  not in the C ABI 0  arm not built 0
+CORPUS FAILS: 156 arm-row failure(s), 0 hang/crash row(s)
+>>> ok: control reenc failed as required
+
+===== control: AK_CORPUS_PLANT=accept on S-Probe,U-root,X-lenwrap-lrr,E-map,T-dec-root,U-wire-MetricsBatch -- must FAIL =====
+## ffi-drop
+   pass 39  fail 57  disputed (excluded) 0  not in the C ABI 0  arm not built 0
+## ffi-retain
+   pass 39  fail 57  disputed (excluded) 0  not in the C ABI 0  arm not built 0
+## native-drop
+   pass 39  fail 57  disputed (excluded) 0  not in the C ABI 0  arm not built 0
+## native-retain
+   pass 39  fail 57  disputed (excluded) 0  not in the C ABI 0  arm not built 0
+CORPUS FAILS: 228 arm-row failure(s), 0 hang/crash row(s)
+>>> ok: control accept failed as required
+
+===== control: --compare sees a planted difference (reenc vs clean, same rows) -- must FAIL =====
+  DIFF E-map-dup-key [ffi-drop]: corpus_all_a17 vs corpus_all_a17
+  DIFF E-map-dup-key [ffi-retain]: corpus_all_a17 vs corpus_all_a17
+  DIFF E-map-dup-key [native-drop]: corpus_all_a17 vs corpus_all_a17
+  DIFF E-map-dup-key [native-retain]: corpus_all_a17 vs corpus_all_a17
+  DIFF E-map-empty-value-written [ffi-drop]: corpus_all_a17 vs corpus_all_a17
+  DIFF E-map-empty-value-written [ffi-retain]: corpus_all_a17 vs corpus_all_a17
+  DIFF E-map-empty-value-written [native-drop]: corpus_all_a17 vs corpus_all_a17
+  DIFF E-map-empty-value-written [native-retain]: corpus_all_a17 vs corpus_all_a17
+  DIFF E-map-entry-empty [ffi-drop]: corpus_all_a17 vs corpus_all_a17
+  DIFF E-map-entry-empty [ffi-retain]: corpus_all_a17 vs corpus_all_a17
+corpus_all_a17 vs corpus_all_a17: 384 (row, arm) outcomes compared, 156 differ
+>>> ok: compare control (exit 1)
+
+===== control: corpus_all_noinit, the binding skips ak_init, core built with init-guard -- must FAIL =====
+#   build      __cplusplus 201703, target impl True, binding skips ak_init: True
+## ffi-drop
+   pass 57  fail 39  disputed (excluded) 0  not in the C ABI 0  arm not built 0
+## ffi-retain
+   pass 57  fail 39  disputed (excluded) 0  not in the C ABI 0  arm not built 0
+## native-drop
+   pass 96  fail 0  disputed (excluded) 0  not in the C ABI 0  arm not built 0
+## native-retain
+   pass 96  fail 0  disputed (excluded) 0  not in the C ABI 0  arm not built 0
+CORPUS FAILS: 78 arm-row failure(s), 0 hang/crash row(s)
+   FAIL E-map-dup-key [ffi-drop]: C1: refused with -10
+   FAIL E-map-empty-value-written [ffi-drop]: C1: refused with -10
+   FAIL E-map-entry-empty [ffi-drop]: C1: refused with -10
+  ffi arm-row failures: 78, native arm-row failures: 0 (native has no ak_init)
+>>> ok: control noinit failed as required

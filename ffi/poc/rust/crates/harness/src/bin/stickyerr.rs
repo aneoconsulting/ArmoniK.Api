@@ -182,18 +182,24 @@ fn dec_m1_add_fails() -> bool {
     let b = m1_bytes();
     let vt = ak_dvt_ListResultsResponse {
         apply: Some(d_apply_m1),
-        unknown: None,
-        unk_results: None,
         add_results: Some(d1_add),
     };
     let rc = unsafe { ak_decode_ListResultsResponse(c.dec, &mut o as *mut Obs as *mut c_void, b.as_ptr(), b.len(), &vt) };
     verdict("D1 decode M1, add fails", rc as i64, &o, "")
 }
 
-unsafe extern "C" fn d_unk(ctx: *mut ak_dec_ctx, obj: *mut c_void, _s: *const ak_uspan, _n: i32) {
-    let o = obs(obj);
+/// WP5 step 7 (decision 11): the unknown-field upcall is now `grow`. It calls `ak_fail`
+/// through the context it is given as its host and returns AK_OK; the core must stop.
+struct GrowHost {
+    ctx: *mut ak_dec_ctx,
+    o: *mut Obs,
+}
+unsafe extern "C" fn d_unk_grow(sink: *mut c_void, _want: i32, _dst: *mut *mut u8, _cap: *mut i32) -> i32 {
+    let h = &mut *(sink as *mut GrowHost);
+    let o = &mut *h.o;
     o.up();
-    host_fail(ctx as *mut c_void, o);
+    host_fail(h.ctx as *mut c_void, o);
+    AK_OK
 }
 unsafe extern "C" fn d_add_ok(_ctx: *mut ak_dec_ctx, obj: *mut c_void, _t: i64, _e: *const ak_dfix_ResultRaw, _n: i32) {
     obs(obj).up();
@@ -205,12 +211,24 @@ fn dec_m1_unknown_fails() -> bool {
     let b = m1_unknown_bytes();
     let vt = ak_dvt_ListResultsResponse {
         apply: Some(d_apply_m1),
-        unknown: Some(d_unk),
-        unk_results: None,
         add_results: Some(d_add_ok),
     };
-    let rc = unsafe { ak_decode_ListResultsResponse(c.dec, &mut o as *mut Obs as *mut c_void, b.as_ptr(), b.len(), &vt) };
-    verdict("D3 decode M1, root unknown-field upcall fails", rc as i64, &o, "")
+    let mut h = GrowHost { ctx: c.dec, o: &mut o as *mut Obs };
+    let z = ak_unk_opts { buf: ak_unk_buf { data: std::ptr::null_mut(), len: 0, cap: 0 }, grow: None };
+    let opts = ak_dec_ListResultsResponse_opts {
+        host: &mut h as *mut GrowHost as *mut c_void,
+        self_: ak_unk_opts { grow: Some(d_unk_grow), ..z },
+        results: z,
+        results_created_at: z,
+        results_completed_at: z,
+    };
+    let rc = unsafe {
+        ak_dec_reset_ListResultsResponse(c.dec, &opts);
+        let rc = ak_decode_ListResultsResponse(c.dec, &mut o as *mut Obs as *mut c_void, b.as_ptr(), b.len(), &vt);
+        ak_dec_reset_ListResultsResponse(c.dec, std::ptr::null());
+        rc
+    };
+    verdict("D3 decode M1, root unknown-field grow upcall fails", rc as i64, &o, "")
 }
 
 unsafe extern "C" fn d_apply_m2(_c: *mut ak_dec_ctx, obj: *mut c_void, _f: *const ak_dfix_ListTasksDetailedResponse) {
@@ -260,8 +278,6 @@ fn m2_vt(
 ) -> ak_dvt_ListTasksDetailedResponse {
     ak_dvt_ListTasksDetailedResponse {
         apply: Some(d_apply_m2),
-        unknown: None,
-        unk_tasks: None,
         new_tasks: Some(new),
         apply_tasks: Some(d2_apply_el),
         add_tasks_parent_task_ids: Some(add_parent),

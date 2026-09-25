@@ -7,7 +7,7 @@ what a binding should choose (the decision is the owner's).
 
 | | |
 |---|---|
-| **Status** | **FIX-PLAN WP5 step 6 (consolidation) done, 2026-09-24**: the fixed ABI (codes, structs, entry points, vtable order, pull numbering, RPC counting) lives in `plan.FIXED` and every backend renders it; one C header backend (`c_abi.py`); the guard covers all 26 backend modules; `poc/codec/gen/generate.py [--check]` regenerates every slice; field-number and map-order rules stated and applied (commits 57b6180, 3cee365, 41eb485). Before that: **FIX-PLAN WP4 items 7, 9, 10 done (Part A) and WP5 step 1 done (Part B).** The shared core and the core-native control are now rendered by ONE rule layer (`poc/codec/gen/plan.py`) through Rust backends that render plans only; the full conformance corpus passes through the C ABI and core-native in both unknown-field modes. Stages 1 to 6 before that (four arms, every shape, RPC arm, pull family, concurrency suite, lifecycle) |
+| **Status** | **FIX-PLAN WP5 step 7 (decision 11's unknown-field mechanism, as the owner specified it) built in the plan, the core and the Rust backends, 2026-09-25**: decode groups carry `unknown: ak_unk_buf`, per-root `ak_dec_<Root>_opts` (one host pointer, one `ak_unk_opts` per message position), `ak_dec_ctx_new_<Root>` / `ak_dec_reset_<Root>`; the `unknown`/`unk_<slot>` callbacks, `ak_unk_f` and `ak_uspan` are gone; ffi-retain now writes the retained form on the 16 `U-leaf-*`/`U-deep-*` rows; push and pull both capture. Other slices' generated trees are STALE until their owners render the options (their backends were given a transitional drop-mode change so their generators run). Before that: **FIX-PLAN WP5 step 6 (consolidation) done, 2026-09-24**: the fixed ABI (codes, structs, entry points, vtable order, pull numbering, RPC counting) lives in `plan.FIXED` and every backend renders it; one C header backend (`c_abi.py`); the guard covers all 26 backend modules; `poc/codec/gen/generate.py [--check]` regenerates every slice; field-number and map-order rules stated and applied (commits 57b6180, 3cee365, 41eb485). Before that: **FIX-PLAN WP4 items 7, 9, 10 done (Part A) and WP5 step 1 done (Part B).** The shared core and the core-native control are now rendered by ONE rule layer (`poc/codec/gen/plan.py`) through Rust backends that render plans only; the full conformance corpus passes through the C ABI and core-native in both unknown-field modes. Stages 1 to 6 before that (four arms, every shape, RPC arm, pull family, concurrency suite, lifecycle) |
 | **Blocked on** | nothing |
 | **Floor** (must build and pass correctness) | MSRV 1.88 declared. **Not verified: no 1.88 toolchain in this container**, stable 1.94.1 only (plus a nightly 1.100, used for ThreadSanitizer and nothing else) |
 | **Target** | the same, one configuration (README section 5) |
@@ -87,6 +87,34 @@ Arms: `prost`, `armonik` (facade + generated prost impl), `core-native` (drop) a
 `ffi-drop`, `ffi-retain`, `native-drop`, `native-retain`.
 
 ## What was checked (results; each with its log)
+
+WP5 step 7 (decision 11 mechanism), uncommitted state -> the poc(codec) commit named in JOURNAL:
+
+- **Rust gate** (`logs/rust/wp5s7-gate.log`): GATE PASSED. Byte identity on every payload
+  and arm; R-D6 case D3 now plants the failure in the `grow` upcall (rc -1, 0 upcalls after).
+- **Corpus** (same log, section 11): ffi-drop/ffi-retain 680/0, native 696/0 (702 rows, 6
+  disputed, 16 `Nest` rows outside the ABI); ffi-retain's retention gaps went from 17 rows
+  to 1 (`U-map-entry`, which native-retain shares: the facade map has no per-entry bag).
+- **Decision 11 controls** (`corpus --unk-controls`, `logs/rust/wp5s7/unk-controls.out`):
+  543 accept rows whose root crosses the ABI, 2,350 (row, position) pairs; zeroing each
+  position in turn dropped exactly that position on every row (307 rows carry unknowns,
+  315 pairs change); pull (walk, all armed) == push on every row; U-map-entry: the core
+  delivers the entry's 8 bytes and delivers none with the entry position zeroed. The plant
+  (bags not cleared) fails on all 307 rows (`unk-controls-plant.out`). Placement: a
+  pre-allocated buffer with no grow serves element 0 and element 1 is refused with
+  AK_ERR_CAPACITY (never the same buffer twice); with grow, element 1 gets a distinct buffer.
+- **Other slices, in a scratch worktree** (their gates, never their working trees:
+  `logs/rust/wp5s7/scratch/`): with the transitional drop-mode backends, cpp wp5_gate 0 steps
+  failed, java build + corpus.sh CORPUS GATE PASSED + gate.sh PASS a/b/c, csharp gate.sh
+  GATE PASSED, python gate (3.12 only, no 3.7 in the scratch tree) corpus passes on 5 arms
+  and fails P7.1 conformance on every arm including the pure-Python codec (the permutation
+  judge needs the incumbent the scratch tree lacks; not this change). Their ffi-retain arms
+  now write the DROPPED form on ~307-308 unknown rows (cpp, csharp): retention through the
+  C ABI is lost there until they render the options.
+- **Crossing counts** (`logs/rust/wp5s7/crossing-counts-diff.txt`): encode unchanged; decode
+  reverse calls rise where the 16-byte slot shrinks the 32 KB arena's element count
+  (P1.2 add calls 5 -> 8 per 1,000 elements; P2.2 pull records unchanged, pull footprint
+  bytes up 20-65%). Counts, not timings: the layout cost the owner asked to measure.
 
 WP5 step 6 (consolidation), on 41eb485 unless stated:
 
@@ -174,10 +202,12 @@ WP5 step 6 (consolidation), on 41eb485 unless stated:
 | # | Where | What | Status |
 |---|---|---|---|
 | D35 | ABI v1 section 6 | **A recursive message cannot cross the C ABI**: a group inlines its whole singular subtree, so `Nest` has no finite group. `plan.check_expressible` refuses it at generator time by name; the 16 `Nest` rows run on core-native only (depth limit 100, `X-depth-101/300` refused with -4). | open, an ABI decision |
-| D34 | ABI v1 decision 11 candidate | **Retain through the C ABI covers the root and every repeated element, not an inlined singular child, a oneof message member or a map entry**: the decode side has no slot to deliver their unknown runs to (`ak_uspan` carries a token, not a path). 16 corpus rows write the dropped form in `ffi-retain` (accepted by the contract). Core-native retains at every level except map entries. | open, needs an ABI shape |
+| D34 (closed by WP5 step 7 for the C ABI) | ABI v1 decision 11 candidate | **Retain through the C ABI covers the root and every repeated element, not an inlined singular child, a oneof message member or a map entry**: the decode side has no slot to deliver their unknown runs to (`ak_uspan` carries a token, not a path). 16 corpus rows write the dropped form in `ffi-retain` (accepted by the contract). Core-native retains at every level except map entries. | open, needs an ABI shape |
 | D38 | hand runtimes outside this unit's allowance | the field-number limit inside a skipped group is not in `poc/cpp/include/ak/rt.h`, `poc/java/src/java/ak/Dec.java`, `poc/csharp/src/Facade/Wire.cs`: native/R/managed arms accept `P-field-maxplus1-in-group` | open, owner slices |
 | D39 | other slices' build scripts | a gate can run on stale artifacts: java gen/build.sh reused `core-build/` over a `git archive` snapshot and kept a core without the field check (fixed by `rm -rf core-build`); cpp gen/wp5_gate.sh does not build, and `build/` dated from before the C++ backend | open, owner slices |
 | D40 | poc/csharp CoreTransport.cs | hand-declared RPC counting; the plan's RPC counting surface is not rendered for C# until it is removed | open, csharp slice |
+| D41 | other slices | their generated trees are STALE against the step-7 plan until each slice regenerates and renders `ak_dec_<Root>_opts` (their bindings currently decode in drop mode through a transitional backend change) | open, owner slices |
+| D42 | rust facade | a map entry has no bag in the facade, so `U-map-entry` is still written dropped by ffi-retain and native-retain although the core delivers the entry's bytes | open, a facade decision |
 | D2 | this container | no rustc 1.88, so the declared MSRV is unverified | open, cannot be fixed here |
 
 ### Fixed this session
@@ -239,6 +269,8 @@ log index and `JOURNAL.md`. D20's ABI hazard (an empty buffer's pointer can be s
 
 | Log | What it establishes |
 |---|---|
+| `logs/rust/wp5s7-gate.log` | the rust gate with decision 11's mechanism (corpus, controls, counts) |
+| `logs/rust/wp5s7/` | decision 11 controls and plant, crossing-count diff, other slices' scratch gates |
 | `logs/rust/wp5s6-gate.log` | the rust gate on the step-6 final state |
 | `logs/rust/wp5s6-gate-a.log` | the rust gate after the fixed-ABI consolidation (57b6180) |
 | `logs/rust/wp5s6-generate-check.log` | one command, every slice, --check; the 26-module guard |

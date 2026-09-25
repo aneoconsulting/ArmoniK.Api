@@ -1,0 +1,106 @@
+# cpp slice, WP5 step 2: boundary
+#   date       2026-09-25T06:36:45Z
+#   machine    Linux 6.18.44-fc-v37 x86_64, 4 vCPU, Intel(R) Xeon(R) Processor @ 2.80GHz
+#   compiler   g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0; rustc 1.94.1 (e408947bf 2026-03-25)
+#   commit     e22c9f2
+#   core       ffi/poc/codec at that commit, built --features init-guard (and corpus,init-guard
+#              for the corpus ABI); no timing is taken by anything in this log
+
+===== boundary.sh =====
+== half one: does the FFI arm cross? ==
+  shared: 42 ak_* symbols are UNDEFINED dynamic imports; the per-message ones are:
+                    U ak_decode_DualResponse
+                    U ak_decode_ListMetricsResponse
+                    U ak_decode_ListProbeResponse
+                    U ak_decode_ListResultsResponse
+                    U ak_decode_ListTaskSummaryResponse
+                    U ak_decode_ListTasksDetailedResponse
+                    U ak_decode_UploadResultDataMessage
+                    U ak_elem_Pair
+                    U ak_elem_Probe
+                    U ak_elem_ResultRaw
+                    U ak_elem_TaskOptionsOptionsEntry
+                    U ak_elemu_MetricsBatch
+                    U ak_elemu_TaskDetailed
+                    U ak_elemu_TaskSummary
+                    U ak_encode_DualResponse
+                    U ak_encode_ListMetricsResponse
+                    U ak_encode_ListProbeResponse
+                    U ak_encode_ListResultsResponse
+                    U ak_encode_ListTaskSummaryResponse
+                    U ak_encode_ListTasksDetailedResponse
+                    U ak_encode_UploadResultDataMessage
+  [ok]   shared arm: the boundary is a real dynamic import
+
+  static: 100 ak_* symbols are DEFINED in the image (that is what static linkage is)
+    ak_encode_ListResultsResponse             523 B entry point, 6 call sites
+  [ok]   static arm: ak_encode_ListResultsResponse is CALLED, not inlined away
+    ak_decode_ListResultsResponse            3394 B entry point, 2 call sites
+  [ok]   static arm: ak_decode_ListResultsResponse is CALLED, not inlined away
+    ak_elem_ResultRaw                        3214 B entry point, 10 call sites
+  [ok]   static arm: ak_elem_ResultRaw is CALLED, not inlined away
+    ak_encode_ListTasksDetailedResponse       539 B entry point, 6 call sites
+  [ok]   static arm: ak_encode_ListTasksDetailedResponse is CALLED, not inlined away
+    ak_elemu_TaskDetailed                     889 B entry point, 10 call sites
+  [ok]   static arm: ak_elemu_TaskDetailed is CALLED, not inlined away
+
+  static + -flto (R5's named hazard, built on purpose):
+    ak_encode_ListResultsResponse          3 call sites under -flto
+  [ok]   -flto did NOT inline ak_encode_ListResultsResponse away
+    ak_elem_ResultRaw                      5 call sites under -flto
+  [ok]   -flto did NOT inline ak_elem_ResultRaw away
+    Why: gcc's -flto can only inline across GIMPLE it produced, and a Rust staticlib's
+    archive members are native objects. So R5's C++ hazard does not bite a C++ host
+    over THIS core. That is a fact about the toolchain pair, reported rather than
+    assumed, and it would not hold for a core compiled by the same LTO.
+
+== half two: is the no-boundary control fused into the benchmark loop? ==
+
+  C18. This used to ask whether the control function was LARGER than the largest
+  timing closure in the image and take that as evidence it was not copied into one.
+  Size is a proxy for fusion, not a test of it, and its positive control was -flto,
+  which fires only when the optimiser happens to fuse something. After the core moved
+  (W10) the largest closure went from 1433 B to 911 B, the 1155 B control landed on
+  the other side of the line, and the control went quiet without anyone deciding it
+  should. A size-threshold control is fragile by construction.
+
+  Two direct properties instead, and a fixture that proves the checker can report
+  both. The control is reached through a FUNCTION POINTER handed to the case runner,
+  so there is no direct call site to count -- what fusion would destroy is (1) the
+  out-of-line body and (2) the call instruction in the closure.
+
+  the checker's own control (src/fusion_probe.cpp): one function that MUST be called
+  and one that MUST be fused, both by construction rather than by optimisation level
+  [ok]   the counter sees the call in ak_probe_loop_called (1)
+  [ok]   the counter sees fusion: ak_probe_loop_fused has 0 calls
+  [ok]   ak_probe_called has an out-of-line body (59 B)
+
+  bench_a17_shared:
+  [ok]   bench_a17_shared: all 9 timing closures still call out
+  [ok]   bench_a17_shared: shapes::native::encode_into_list_results_response has an out-of-line body (1953 B)
+  [ok]   bench_a17_shared: shapes::native::enc_task_detailed has an out-of-line body (2743 B)
+  [ok]   bench_a17_shared: shapes::native::dec_list_results_response has an out-of-line body (1634 B)
+  [ok]   bench_a17_shared: shapes::native::dec_list_tasks_detailed_response has an out-of-line body (3639 B)
+  [ok]   bench_a17_shared: shapes::native::decode_list_metrics_response has an out-of-line body (4050 B)
+  bench_a17_shared_lto:
+  [ok]   bench_a17_shared_lto: all 7 timing closures still call out
+  [ok]   bench_a17_shared_lto: shapes::native::encode_into_list_results_response has an out-of-line body (1214 B)
+  [ok]   bench_a17_shared_lto: shapes::native::enc_task_detailed has an out-of-line body (2743 B)
+  [ok]   bench_a17_shared_lto: shapes::native::dec_list_results_response has an out-of-line body (1295 B)
+  [ok]   bench_a17_shared_lto: shapes::native::dec_list_tasks_detailed_response has an out-of-line body (2876 B)
+  [ok]   bench_a17_shared_lto: shapes::native::decode_list_metrics_response has an out-of-line body (2630 B)
+  The control is reached through a FUNCTION POINTER passed to the case runner, so its
+  address is taken and an out-of-line body must exist. Both properties above are the
+  question itself rather than a proxy for it, and the fixture says the checker can
+  report either answer.
+
+boundary: 23 checks passed, 0 failed
+>>> ok: boundary.sh (exit 0)
+
+===== the corpus core's layout facts against the corpus header =====
+layout: 574 facts compared (corpus ABI), 0 disagree
+>>> ok: corpus layout (exit 0)
+
+layout: 574 facts compared (corpus ABI), 0 disagree
+>>> ok: corpus layout (static) (exit 0)
+

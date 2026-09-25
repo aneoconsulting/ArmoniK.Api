@@ -31,7 +31,9 @@ nproc; grep -m1 'model name' /proc/cpuinfo || true
 
 step "1. generators current, one core"
 python3 gen/generate.py --check 2>/dev/null
-python3 ../codec/gen/generate.py --check 2>/dev/null
+# The shared core and its guard. `--core-only`: the other slices' generated trees are
+# gated by their own gates (and by the one command, `generate.py --check`, run on its own).
+python3 ../codec/gen/generate.py --check --core-only 2>/dev/null
 ../codec/gen/one_core.sh | tail -2
 
 step "2. core unit tests (debug build: std's precondition checks on)"

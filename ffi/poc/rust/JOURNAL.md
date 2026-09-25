@@ -2160,3 +2160,37 @@ corpus's own merge (`spec.load()`), so `fixed32` and the corpus-only messages ex
   backend commit, so the second cpp gate run (cpp-2-stale-binaries) proved nothing; rebuilt
   with cmake and reran (cpp-3). D39.
 - C# RPC counting not rendered (hand CoreTransport.cs would clash), D40.
+
+## 2026-09-25 -- FIX-PLAN WP5 step 7: decision 11's unknown-field mechanism (authorized)
+
+### Done
+
+1. plan.py states the mechanism (UNKNOWN FIELDS ON DECODE): positions in preorder/tag order
+   (`unk_positions`, `unk_offset`), `ak_dfix_M.unknown: ak_unk_buf` before `presence`,
+   `ak_dec_<Root>_opts { host; ak_unk_opts <pos>... }` (owner amendment: one host pointer),
+   `ak_dec_ctx_new_<Root>` / `ak_dec_reset_<Root>`, placement/ownership/discard/error
+   rules. A map is `append_message` over its pair message (map_entry op removed; the five
+   native backends re-pointed, output identical but a comment). dec_vtable lost `unknown`
+   and `unk_<slot>`; FIXED lost `ak_unk_f`/`ak_uspan`, gained `ak_unk_buf`/`ak_unk_opts`.
+2. Core: `UnkCx`/`unk_put`/`unk_arm` replace UnkBuf; the context holds its own copy of the
+   armed positions. Push and pull capture at every position, inlined children and oneof
+   members included; a oneof member re-entered keeps its buffer, emptied.
+3. ak_grow_fn fits unchanged with realloc semantics (data/cap in = current buffer, NULL/0
+   for a fresh one, first cap bytes preserved); its i32 want/cap refuse > 2 GiB (ERR_LIMIT).
+4. Rust binding: `unk_grow` / `take_unk` / `unk_reclaim`; `decode_with_*_unk` =
+   arm, decode, disarm (two forward crossings more than the old callback arm, and none on
+   the drop path); `parse_walk_with_*_unk`; generated controls `unk_controls_*`.
+5. Controls in `corpus --unk-controls` and gen/corpus.sh section 5, with a plant.
+
+### Refuted / found
+
+- First corpus run of the controls: S-double-nan "mismatched" -- NaN != NaN under
+  PartialEq, a harness artifact; compared through Debug.
+- The rust gate and one_core.sh ran the one-command check over EVERY slice, so they failed on
+  the other slices' (expected) staleness; both now check `--core-only`, and the one command
+  is run and reported on its own.
+- Other agents were working in cpp/java/csharp/python while this ran: I regenerated the cpp
+  tree once in the shared working tree, then restored every file I had written. The other
+  slices were then regenerated and gated only in a scratch worktree (logs/rust/wp5s7/).
+- `U-map-entry` stays a retention gap: the core delivers the entry's bytes (8), the facade map
+  has nowhere to keep them (D42).
