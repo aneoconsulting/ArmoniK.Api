@@ -33,7 +33,7 @@ Four things here are decisions rather than transliterations, and each is an arm:
 """
 from plan import (abi_order_topo, direct_fields, elem_type, group_fields, loop_slots,
                   presence_bits, slot_name, ugroup_fields, unk_opts_layout, unk_opts_name,
-                  vtable_messages)
+                  vtable_messages, unknown_compiled_out)
 import plan as A
 import java_layout as L
 import java_names as N
@@ -46,6 +46,10 @@ WHO = "java_binding.py"
 # decision 13 is a second package over the SAME ABI, so it shares them).
 LAYOUT = ["ak.shapes.Layout"]
 ENTRY = ["ak.NativeEntry"]
+# WP5 step 10: True while rendering the no-unknown variant (plan: THE NO-UNKNOWN VARIANT).
+# The binding then has no retain path at all: no u-fills, no u-loops, no options, no
+# delivery or freeing of unknown-field buffers, no `retain` flag.
+NOUNK = [False]
 
 ARENA_BYTES = 32 * 1024
 
@@ -270,7 +274,8 @@ def _emit_apply(ir, o, name):
                 # Rule 4: the oneof's one buffer lives in the ACTIVE member's slot; any other
                 # member slot that is non-NULL (the emptied buffer after a switch to a
                 # scalar member) is the host's too, and has nowhere to go: freed.
-                o.append("    else freeUnk%s(g + %s);" % (f.of, _off(sname, member)))
+                if not NOUNK[0]:
+                    o.append("    else freeUnk%s(g + %s);" % (f.of, _off(sname, member)))
             continue
         _apply_one(ir, o, 4, f, sname, member, dst, bits, oneof=False)
     o.append("  }")
@@ -298,7 +303,10 @@ def _apply_one(ir, o, ind, f, sname, member, dst, bits, oneof):
         o.append("%sif ((pres & %d) != 0) {" % (p, 1 << bit))
         o.append("%s  if (%s == null) %s = %s;" % (p, dst, dst, ctor))
         o.append("%s  apply%s(g + %s, %s);" % (p, f.of, _off(sname, member), dst))
-        o.append("%s} else freeUnk%s(g + %s);" % (p, f.of, _off(sname, member)))
+        if NOUNK[0]:
+            o.append("%s}" % p)
+        else:
+            o.append("%s} else freeUnk%s(g + %s);" % (p, f.of, _off(sname, member)))
         return
     if f.kind == "string":
         if f.explicit:
@@ -351,6 +359,9 @@ def _emit_unk_state(ir, o):
     grow and no pre-allocated buffer, and the delivery helpers."""
     roots = list(ir.roots)
     n = len(roots)
+    if NOUNK[0]:
+        _emit_ctx_state_nounk(ir, o)
+        return
     o.append("")
     o.append("  // ---- decision 11: root-bound contexts, in-place options, the bags ----------")
     o.append("  final long[] decCtxs = new long[%d];" % n)
@@ -408,6 +419,37 @@ def _emit_unk_state(ir, o):
     o.append("    return unkOpts[ri] = x;")
     o.append("  }")
     o.append(UNK_HELPERS)
+
+
+def _emit_ctx_state_nounk(ir, o):
+    """The no-unknown variant: root-bound contexts (rule 6) with no options, nothing else."""
+    roots = list(ir.roots)
+    o.append("")
+    o.append("  // ---- WP5 step 10, the no-unknown variant: root-bound contexts, no options -----")
+    o.append("  final long[] decCtxs = new long[%d];" % len(roots))
+    o.append("  public static final String[] ROOTS = {%s};" % ", ".join('"%s"' % r for r in roots))
+    o.append("")
+    o.append("  long decCtxOf(int ri) {")
+    o.append("    long c = decCtxs[ri];")
+    o.append("    if (c != 0) return c;")
+    o.append("    switch (ri) {")
+    for i, r in enumerate(roots):
+        o.append("      case %d: c = %s.decCtxNew%s(); break;" % (i, ENTRY[0], r))
+    o.append("      default: throw new IllegalArgumentException(\"root \" + ri);")
+    o.append("    }")
+    o.append("    if (c == 0) throw new IllegalStateException(\"ak_dec_ctx_new_<Root> failed\");")
+    o.append("    return decCtxs[ri] = c;")
+    o.append("  }")
+    o.append("")
+    o.append("  /** A context bound to `root` (for the counting harness and the wrong-root control). */")
+    o.append("  public long contextOf(String root) { return decCtxOf(java.util.Arrays.asList(ROOTS).indexOf(root)); }")
+    o.append("")
+    o.append("  void freeUnkState() {")
+    o.append("    for (int i = 0; i < decCtxs.length; i++) {")
+    o.append("      if (decCtxs[i] != 0) Native.decCtxFree(decCtxs[i]);")
+    o.append("      decCtxs[i] = 0;")
+    o.append("    }")
+    o.append("  }")
 
 
 UNK_HELPERS = """
@@ -682,7 +724,8 @@ def _emit_dec_slot(ir, o, owner, kind, sn, fld, slot):
         o.append("      long g = p + (long) i * %s;" % _size(_dfix(et)))
         o.append("      %s.put(getStr(g + %s), getStr(g + %s));"
                  % (cont, _off(_dfix(et), "key"), _off(_dfix(et), "value")))
-        o.append("      freeUnk%s(g);   // a facade map entry has no bag (U-map-entry)" % et)
+        if not NOUNK[0]:
+            o.append("      freeUnk%s(g);   // a facade map entry has no bag (U-map-entry)" % et)
         o.append("    }")
     elif f2.kind in ("string", "bytes"):
         o.append("    for (int i = 0; i < n; i++)")
@@ -753,6 +796,7 @@ def emit(ir, level=17, ns=N.PKG, facade_ns=None, layout="ak.shapes.Layout",
     """The Binding class of one facade package at one Java level. `layout` and `entry` are
     the description's Layout and NativeEntry classes (one per description)."""
     LAYOUT[0], ENTRY[0] = layout, entry
+    NOUNK[0] = unknown_compiled_out(ir)
     enc = A.enc_slots(ir)
     dec = A.dec_slots(ir)
     enc_ix = {(msg, slot_name(path)): i for i, (msg, path, _f) in enumerate(enc)}
@@ -770,7 +814,14 @@ def emit(ir, level=17, ns=N.PKG, facade_ns=None, layout="ak.shapes.Layout",
         o.append("import %s.*;" % facade_ns)
     o += ["", DOC % (level, "the target" if level >= 17 else "the floor"),
          "public final class Binding implements AutoCloseable, ak.Callbacks {"]
-    o.append(PRELUDE % (level, ARENA_BYTES, ENTRY[0], LAYOUT[0]))
+    pre = PRELUDE % (level, ARENA_BYTES, ENTRY[0], LAYOUT[0])
+    if NOUNK[0]:
+        a = pre.index(RETAIN_FLAG_START)
+        b = pre.index(RETAIN_FLAG_END)
+        pre = (pre[:a] + "  /** WP5 step 10: unknown-field support is COMPILED OUT of this binding and of the core\n"
+               "   *  it links (plan: THE NO-UNKNOWN VARIANT). An unknown field is skipped. */\n"
+               "  public static final String UNKNOWN_FIELDS = \"no-unknown\";\n\n" + pre[b:])
+    o.append(pre)
 
     # ---- the string staging, which is the whole floor/target divergence
     o.append(STAGE_BORROW if N.is_borrow()
@@ -840,13 +891,15 @@ def emit(ir, level=17, ns=N.PKG, facade_ns=None, layout="ak.shapes.Layout",
             continue
         _emit_fill(ir, o, name, sparse=False)
         _emit_fill(ir, o, name, sparse=True)
-        _emit_fill(ir, o, name, sparse=False, u=True)
+        if not NOUNK[0]:
+            _emit_fill(ir, o, name, sparse=False, u=True)
     for name in abi_order_topo(ir):
         if ir.msg(name).synthetic:
             continue
         _emit_apply(ir, o, name)
-    for name in abi_order_topo(ir):
-        _emit_free_unk(ir, o, name)
+    if not NOUNK[0]:
+        for name in abi_order_topo(ir):
+            _emit_free_unk(ir, o, name)
     _emit_unk_state(ir, o)
     # A synthetic map-entry group has no facade class of its own: ABI v1 section 11
     # gives a map no case, so the host reads the pair's two spans where the run arrives
@@ -856,7 +909,7 @@ def emit(ir, level=17, ns=N.PKG, facade_ns=None, layout="ak.shapes.Layout",
     for i, (msg, path, f) in enumerate(enc):
         _emit_loop(ir, o, msg, path, f, i, zeroed=False)
         _emit_loop(ir, o, msg, path, f, i, zeroed=True)
-        if elem_type(f):
+        if elem_type(f) and not NOUNK[0]:
             _emit_loop(ir, o, msg, path, f, i, zeroed=False, u=True)
 
     o.append("")
@@ -868,7 +921,7 @@ def emit(ir, level=17, ns=N.PKG, facade_ns=None, layout="ak.shapes.Layout",
     o.append("    try {")
     o.append("      switch (slot) {")
     for i, (msg, path, f) in enumerate(enc):
-        if elem_type(f):
+        if elem_type(f) and not NOUNK[0]:
             o.append("        case %d: return retain ? loop%dU(ctx, token) : zeroed ? loop%dZeroed(ctx, token)"
                      " : loop%d(ctx, token);" % (i, i, i, i))
         else:
@@ -934,8 +987,12 @@ def emit(ir, level=17, ns=N.PKG, facade_ns=None, layout="ak.shapes.Layout",
         o.append("    encTokN = 0;")
         o.append("    encRoot = o;")
         o.append("    lastHostError = null;")
-        o.append("    long g = arena.alloc(retain ? %s : %s);" % (_size(_ufix(root)), _size(_efix(root))))
-        o.append("    if (retain) fill%sU(g, o); else fill%s(g, o);" % (root, root))
+        if NOUNK[0]:
+            o.append("    long g = arena.alloc(%s);" % _size(_efix(root)))
+            o.append("    fill%s(g, o);" % root)
+        else:
+            o.append("    long g = arena.alloc(retain ? %s : %s);" % (_size(_ufix(root)), _size(_efix(root))))
+            o.append("    if (retain) fill%sU(g, o); else fill%s(g, o);" % (root, root))
         if direct:
             dpath, dfield = direct[0]
             expr = "o" + "".join(".%s" % s for s in dpath)
@@ -947,10 +1004,16 @@ def emit(ir, level=17, ns=N.PKG, facade_ns=None, layout="ak.shapes.Layout",
             guards = ["o" + "".join(".%s" % s for s in dpath[:k + 1]) + " == null"
                       for k in range(len(dpath))]
             o.append("    byte[] direct = (%s) ? ak.Native.NO_BYTES : %s;" % (" || ".join(guards), expr))
-            o.append("    long rc = retain ? %s.uencodeDirect%s(this, encCtx, evt%s, g, direct, direct.length)"
-                     % (ENTRY[0], root, root))
-            o.append("        : %s.encodeDirect%s(this, encCtx, evt%s, g, direct, direct.length);"
-                     % (ENTRY[0], root, root))
+            if NOUNK[0]:
+                o.append("    long rc = %s.encodeDirect%s(this, encCtx, evt%s, g, direct, direct.length);"
+                         % (ENTRY[0], root, root))
+            else:
+                o.append("    long rc = retain ? %s.uencodeDirect%s(this, encCtx, evt%s, g, direct, direct.length)"
+                         % (ENTRY[0], root, root))
+                o.append("        : %s.encodeDirect%s(this, encCtx, evt%s, g, direct, direct.length);"
+                         % (ENTRY[0], root, root))
+        elif NOUNK[0]:
+            o.append("    long rc = %s.encode%s(this, encCtx, evt%s, g);" % (ENTRY[0], root, root))
         else:
             o.append("    long rc = retain ? %s.uencode%s(this, encCtx, evt%s, g)"
                      " : %s.encode%s(this, encCtx, evt%s, g);"
@@ -968,6 +1031,11 @@ def emit(ir, level=17, ns=N.PKG, facade_ns=None, layout="ak.shapes.Layout",
         o.append("    beginDecode(wire, off, len);")
         o.append("    decRoot = r;")
         o.append("    decCtx = decCtxOf(%d);" % ri)
+        if NOUNK[0]:
+            o.append("    check(%s.decode%s(this, decCtx, wireNative, len, dvt%s));" % (ENTRY[0], root, root))
+            o.append("    return r;")
+            o.append("  }")
+            continue
         o.append("    // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive")
         o.append("    // and unmoved while armed), decode, disarm. Drop mode needs no reset.")
         o.append("    if (retain) check(%s.decReset%s(decCtx, unkOptsOf(%d)));" % (ENTRY[0], root, ri))
@@ -1007,6 +1075,9 @@ DOC = '''/**
  * mutable state that worked at one call in flight and failed outright at eight, which is
  * the GOOD failure mode -- the bad one is a wrong byte under contention.
  */'''
+
+RETAIN_FLAG_START = "  /** Decision 11: retain unknown fields."
+RETAIN_FLAG_END = "  /** The batching predicate"
 
 PRELUDE = '''
   /** ABI v1 7.3: a byte budget divided by the group size, not an element count, so the

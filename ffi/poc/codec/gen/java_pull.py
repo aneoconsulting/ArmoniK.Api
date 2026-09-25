@@ -28,6 +28,7 @@ that array directly (7.4). That copy is one of the two things the family is supp
 save, and it is saved here rather than argued for.
 """
 import plan as A
+from plan import unknown_compiled_out
 
 AK_BDR_APPLY = A.BDR["AK_BDR_APPLY"]
 AK_BDR_ADD = A.BDR["AK_BDR_ADD"]
@@ -57,10 +58,14 @@ def emit(ir, dec_ix, o, entry="ak.NativeEntry"):
         o.append("    // here would be a forward crossing per decode for nothing.")
         ri = ir.roots.index(root)
         o.append("    decCtx = decCtxOf(%d);   // decision 11 rule 6: the root's own context" % ri)
-        o.append("    if (retain) check(%s.decReset%s(decCtx, unkOptsOf(%d)));" % (entry, root, ri))
-        o.append("    int prc = %s.parse%s(this, decCtx, wire, off, len);" % (entry, root))
-        o.append("    if (prc < 0 && retain) { %s.decReset%s(decCtx, 0L); unkSettle(%d, prc); }" % (entry, root, ri))
-        o.append("    check(prc);")
+        nounk = unknown_compiled_out(ir)
+        if nounk:
+            o.append("    check(%s.parse%s(this, decCtx, wire, off, len));" % (entry, root))
+        else:
+            o.append("    if (retain) check(%s.decReset%s(decCtx, unkOptsOf(%d)));" % (entry, root, ri))
+            o.append("    int prc = %s.parse%s(this, decCtx, wire, off, len);" % (entry, root))
+            o.append("    if (prc < 0 && retain) { %s.decReset%s(decCtx, 0L); unkSettle(%d, prc); }" % (entry, root, ri))
+            o.append("    check(prc);")
         o.append("    %s r = new %s();" % (root, root))
         o.append("    decRoot = r;")
         o.append("    decTokN = 0;")
@@ -68,9 +73,10 @@ def emit(ir, dec_ix, o, entry="ak.NativeEntry"):
         o.append("    // core parsed THAT array, not a copy of it.")
         o.append("    wireHeap = wire;")
         o.append("    wireBase = off;")
-        o.append("    // A failure while reading the records (a drain error, a replay defect) still")
-        o.append("    // disarms and reclaims: `finally` (rule 3).")
-        o.append("    try {")
+        if not nounk:
+            o.append("    // A failure while reading the records (a drain error, a replay defect) still")
+            o.append("    // disarms and reclaims: `finally` (rule 3).")
+            o.append("    try {")
         o.append("    if (pullWalk) {")
         o.append("      // `ak_bdr_ptr`: read the records in place. One forward crossing for")
         o.append("      // the whole response and no intermediate at all. A JVM host can do")
@@ -89,10 +95,11 @@ def emit(ir, dec_ix, o, entry="ak.NativeEntry"):
         o.append("        replay%s(pullChunk, pullChunk + got);" % root)
         o.append("      }")
         o.append("    }")
-        o.append("    } finally {")
-        o.append("      // Disarmed only after the records are read: they carry the buffers (decision 11).")
-        o.append("      if (retain) { %s.decReset%s(decCtx, 0L); unkSettle(%d, 0); }" % (entry, root, ri))
-        o.append("    }")
+        if not nounk:
+            o.append("    } finally {")
+            o.append("      // Disarmed only after the records are read: they carry the buffers (decision 11).")
+            o.append("      if (retain) { %s.decReset%s(decCtx, 0L); unkSettle(%d, 0); }" % (entry, root, ri))
+            o.append("    }")
         o.append("    return r;")
         o.append("  }")
         o.append("")

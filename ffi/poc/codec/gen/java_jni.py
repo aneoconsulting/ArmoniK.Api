@@ -20,7 +20,7 @@ only to price the guard; `-DAK_CROSSING_TAX` is the cpp slice's calibrated-delay
 shapes description, `ak.corpus.NativeEntry` for the corpus's), which is also the JNI name
 prefix; the fixed natives are `ak.Native`'s in every build.
 """
-from plan import direct_fields, element_types, slot_name
+from plan import direct_fields, element_types, slot_name, unknown_compiled_out
 import plan as A
 import java_names as N
 
@@ -149,8 +149,16 @@ static inline void ak_dec_add(ak_dec_ctx *ctx, int32_t slot, int64_t token,
 '''
 
 
+def _families(p):
+    """(prefix, group) of the encode families: `ak_encode_*`/`ak_elem*` over the e-groups
+    and, unless unknown fields are compiled out (plan: THE NO-UNKNOWN VARIANT), the
+    u-family over the u-groups."""
+    return (("", "e"),) if unknown_compiled_out(p) else (("", "e"), ("u", "u"))
+
+
 def emit_c(p, entry):
     J = jni_prefix(entry)
+    nounk = unknown_compiled_out(p)
     o = [N.c_head(p, WHO), PRE]
     enc = A.enc_slots(p)
     dec = A.dec_slots(p)
@@ -208,7 +216,7 @@ def emit_c(p, entry):
     o.append("}")
 
     for root in p.roots:
-      for U, G in (("", "e"), ("u", "u")):
+      for U, G in _families(p):
           o.append("")
           o.append("JNIEXPORT jlong JNICALL %s%sencode%s(JNIEnv *env, jclass cls, jobject self,"
                    " jlong ctx, jlong vt, jlong fix) {" % (J, U, root))
@@ -265,15 +273,22 @@ def emit_c(p, entry):
         o.append("")
         # Decision 11 rule 6: a decode context is BOUND to its root; the options are read IN
         # PLACE from native memory the binding keeps alive and unmoved while armed.
-        o.append("JNIEXPORT jlong JNICALL %sdecCtxNew%s(JNIEnv *e, jclass c, jlong opts) {" % (J, root))
-        o.append("  (void) e; (void) c;")
-        o.append("  return (jlong)(intptr_t) ak_dec_ctx_new_%s((struct ak_dec_%s_opts *)(intptr_t) opts);" % (root, root))
-        o.append("}")
-        o.append("JNIEXPORT jint JNICALL %sdecReset%s(JNIEnv *e, jclass c, jlong ctx, jlong opts) {" % (J, root))
-        o.append("  (void) e; (void) c;")
-        o.append("  return (jint) ak_dec_reset_%s((ak_dec_ctx *)(intptr_t) ctx,"
-                 " (struct ak_dec_%s_opts *)(intptr_t) opts);" % (root, root))
-        o.append("}")
+        if nounk:
+            # The no-unknown variant: no options type, no reset; still root-bound.
+            o.append("JNIEXPORT jlong JNICALL %sdecCtxNew%s(JNIEnv *e, jclass c) {" % (J, root))
+            o.append("  (void) e; (void) c;")
+            o.append("  return (jlong)(intptr_t) ak_dec_ctx_new_%s();" % root)
+            o.append("}")
+        else:
+            o.append("JNIEXPORT jlong JNICALL %sdecCtxNew%s(JNIEnv *e, jclass c, jlong opts) {" % (J, root))
+            o.append("  (void) e; (void) c;")
+            o.append("  return (jlong)(intptr_t) ak_dec_ctx_new_%s((struct ak_dec_%s_opts *)(intptr_t) opts);" % (root, root))
+            o.append("}")
+            o.append("JNIEXPORT jint JNICALL %sdecReset%s(JNIEnv *e, jclass c, jlong ctx, jlong opts) {" % (J, root))
+            o.append("  (void) e; (void) c;")
+            o.append("  return (jint) ak_dec_reset_%s((ak_dec_ctx *)(intptr_t) ctx,"
+                     " (struct ak_dec_%s_opts *)(intptr_t) opts);" % (root, root))
+            o.append("}")
         o.append("")
         o.append("/* PULL. `ak_parse_%s` deposits records and calls nobody, so the wire is pinned" % root)
         o.append(" * rather than copied; there is no ak_push frame to make an upcall from. */")
@@ -290,7 +305,7 @@ def emit_c(p, entry):
         o.append("}")
 
     for et in sorted(element_types(p)):
-      for U, G in (("", "e"), ("u", "u")):
+      for U, G in _families(p):
         o.append("")
         if p.msg(et).leaf:
             o.append("JNIEXPORT jint JNICALL %s%selem%s(JNIEnv *env, jclass cls, jlong ctx,"
@@ -309,8 +324,19 @@ def emit_c(p, entry):
             o.append("      (const struct ak_%sfix_%s *)(intptr_t) elems, (int32_t) n, (int64_t) tok0);" % (G, et))
             o.append("}")
 
-    o.append(FIXED)
+    if nounk:
+        # The host side of the unknown-field buffers exists only where there are buffers.
+        a = FIXED.index(UNK_BLOCK_START)
+        b = FIXED.index(UNK_BLOCK_END)
+        o.append(FIXED[:a] + "/* (WP5 step 10: the no-unknown variant has no unknown-field"
+                 " buffers, so no grow and no delivery helpers.) */\n" + FIXED[b:])
+    else:
+        o.append(FIXED)
     return "\n".join(o)
+
+
+UNK_BLOCK_START = "/* ---- decision 11: the host side of the unknown-field buffers"
+UNK_BLOCK_END = "JNIEXPORT void JNICALL Java_ak_Native_decCtxFree"
 
 
 FIXED = r'''
@@ -631,17 +657,22 @@ def emit_java(p, entry):
     for root in p.roots:
         o.append("")
         o.append("  public static native long encode%s(Object self, long ctx, long vt, long fix);" % root)
-        o.append("  /** The same over the u-group: every message's unknownFields re-emitted (decision 11). */")
-        o.append("  public static native long uencode%s(Object self, long ctx, long vt, long fix);" % root)
-        o.append("  /** Decision 11 rule 6: a context bound to this root, options read in place (0 = drop). */")
-        o.append("  public static native long decCtxNew%s(long opts);" % root)
-        o.append("  public static native int decReset%s(long ctx, long opts);" % root)
+        if unknown_compiled_out(p):
+            o.append("  /** Rule 6 in the no-unknown variant: a context bound to this root (no options). */")
+            o.append("  public static native long decCtxNew%s();" % root)
+        else:
+            o.append("  /** The same over the u-group: every message's unknownFields re-emitted (decision 11). */")
+            o.append("  public static native long uencode%s(Object self, long ctx, long vt, long fix);" % root)
+            o.append("  /** Decision 11 rule 6: a context bound to this root, options read in place (0 = drop). */")
+            o.append("  public static native long decCtxNew%s(long opts);" % root)
+            o.append("  public static native int decReset%s(long ctx, long opts);" % root)
         if direct_fields(p, root):
             o.append("  /** ABI v1 section 8: the direct field pinned for the call. */")
             o.append("  public static native long encodeDirect%s(Object self, long ctx, long vt,"
                      " long fix, byte[] data, int dlen);" % root)
-            o.append("  public static native long uencodeDirect%s(Object self, long ctx, long vt,"
-                     " long fix, byte[] data, int dlen);" % root)
+            if not unknown_compiled_out(p):
+                o.append("  public static native long uencodeDirect%s(Object self, long ctx, long vt,"
+                         " long fix, byte[] data, int dlen);" % root)
         o.append("  public static native int decode%s(Object self, long ctx, long buf, long len, long vt);" % root)
         o.append("  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */")
         o.append("  public static native int parse%s(Object self, long ctx, byte[] wire, int off, int len);" % root)
@@ -649,10 +680,12 @@ def emit_java(p, entry):
     for et in sorted(element_types(p)):
         if p.msg(et).leaf:
             o.append("  public static native int elem%s(long ctx, long elems, int n);" % et)
-            o.append("  public static native int uelem%s(long ctx, long elems, int n);" % et)
+            if not unknown_compiled_out(p):
+                o.append("  public static native int uelem%s(long ctx, long elems, int n);" % et)
         else:
             o.append("  public static native int elemu%s(long ctx, long elems, int n, long tok0);" % et)
-            o.append("  public static native int uelemu%s(long ctx, long elems, int n, long tok0);" % et)
+            if not unknown_compiled_out(p):
+                o.append("  public static native int uelemu%s(long ctx, long elems, int n, long tok0);" % et)
     o.append("}")
     o.append("")
     return "\n".join(o)
