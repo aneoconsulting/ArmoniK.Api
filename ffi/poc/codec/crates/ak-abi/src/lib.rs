@@ -157,6 +157,24 @@ impl Default for ak_unk_opts {
     }
 }
 
+/// Decision 11 rule 1: a REPEATED position's configuration: buffers taken in order, cleared in place as they are taken; `grow` the fallback.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_unk_pool {
+    pub bufs: *mut ak_unk_buf,
+    pub n: u32,
+    pub grow: Option<ak_grow_fn>,
+}
+impl Default for ak_unk_pool {
+    fn default() -> Self {
+        ak_unk_pool {
+            bufs: ::core::ptr::null_mut(),
+            n: 0,
+            grow: None,
+        }
+    }
+}
+
 /// ak_init's out-parameter (ABI v1 section 3/5): a code and a detail.
 #[repr(C)]
 #[derive(Clone, Copy, Default, Debug, PartialEq, Eq)]
@@ -241,7 +259,6 @@ unsafe extern "C" {
     pub fn ak_enc_reset(ctx: *mut ak_enc_ctx);
     /// Borrow what the context has encoded, valid until the next reset; returns the status.
     pub fn ak_enc_take(ctx: *mut ak_enc_ctx, ptr: *mut *const u8, len: *mut usize) -> i32;
-    pub fn ak_dec_ctx_new() -> *mut ak_dec_ctx;
     pub fn ak_dec_ctx_free(ctx: *mut ak_dec_ctx);
     /// Sticky, first error wins; takes either context (ABI v1 section 5).
     pub fn ak_fail(ctx: *mut c_void, code: i32, msg: *const u8, msg_len: u32);

@@ -310,6 +310,139 @@ pub fn ak_init_once() -> i32 {
     }
 }
 
+/// One decode context per root (decision 11 rule 6: contexts are root-bound).
+#[derive(Clone, Copy)]
+pub struct DecCtxs {
+    pub timestamp: *mut ak_dec_ctx,
+    pub duration: *mut ak_dec_ctx,
+    pub result_raw: *mut ak_dec_ctx,
+    pub task_options: *mut ak_dec_ctx,
+    pub task_output: *mut ak_dec_ctx,
+    pub task_detailed: *mut ak_dec_ctx,
+    pub task_summary: *mut ak_dec_ctx,
+    pub probe: *mut ak_dec_ctx,
+    pub empty: *mut ak_dec_ctx,
+    pub upload_result_data: *mut ak_dec_ctx,
+    pub metrics_batch: *mut ak_dec_ctx,
+    pub pair: *mut ak_dec_ctx,
+    pub list_results_response: *mut ak_dec_ctx,
+    pub list_tasks_detailed_response: *mut ak_dec_ctx,
+    pub list_task_summary_response: *mut ak_dec_ctx,
+    pub list_probe_response: *mut ak_dec_ctx,
+    pub list_metrics_response: *mut ak_dec_ctx,
+    pub upload_result_data_message: *mut ak_dec_ctx,
+    pub dual_response: *mut ak_dec_ctx,
+    pub chunk_leaf: *mut ak_dec_ctx,
+    pub chunk_inner: *mut ak_dec_ctx,
+    pub chunk_element: *mut ak_dec_ctx,
+    pub chunked_response: *mut ak_dec_ctx,
+    pub chunked_response_wide: *mut ak_dec_ctx,
+    pub leaf_element: *mut ak_dec_ctx,
+    pub leaf_response: *mut ak_dec_ctx,
+    pub surrogate: *mut ak_dec_ctx,
+    pub surrogate_inner: *mut ak_dec_ctx,
+    pub wire_zoo: *mut ak_dec_ctx,
+}
+impl DecCtxs {
+    /// Every root's context, bound, in drop mode. Requires `ak_init` first.
+    pub fn new() -> Self {
+        unsafe {
+            let d = DecCtxs {
+                timestamp: ak_dec_ctx_new_Timestamp(::core::ptr::null_mut()),
+                duration: ak_dec_ctx_new_Duration(::core::ptr::null_mut()),
+                result_raw: ak_dec_ctx_new_ResultRaw(::core::ptr::null_mut()),
+                task_options: ak_dec_ctx_new_TaskOptions(::core::ptr::null_mut()),
+                task_output: ak_dec_ctx_new_TaskOutput(::core::ptr::null_mut()),
+                task_detailed: ak_dec_ctx_new_TaskDetailed(::core::ptr::null_mut()),
+                task_summary: ak_dec_ctx_new_TaskSummary(::core::ptr::null_mut()),
+                probe: ak_dec_ctx_new_Probe(::core::ptr::null_mut()),
+                empty: ak_dec_ctx_new_Empty(::core::ptr::null_mut()),
+                upload_result_data: ak_dec_ctx_new_UploadResultData(::core::ptr::null_mut()),
+                metrics_batch: ak_dec_ctx_new_MetricsBatch(::core::ptr::null_mut()),
+                pair: ak_dec_ctx_new_Pair(::core::ptr::null_mut()),
+                list_results_response: ak_dec_ctx_new_ListResultsResponse(::core::ptr::null_mut()),
+                list_tasks_detailed_response: ak_dec_ctx_new_ListTasksDetailedResponse(::core::ptr::null_mut()),
+                list_task_summary_response: ak_dec_ctx_new_ListTaskSummaryResponse(::core::ptr::null_mut()),
+                list_probe_response: ak_dec_ctx_new_ListProbeResponse(::core::ptr::null_mut()),
+                list_metrics_response: ak_dec_ctx_new_ListMetricsResponse(::core::ptr::null_mut()),
+                upload_result_data_message: ak_dec_ctx_new_UploadResultDataMessage(::core::ptr::null_mut()),
+                dual_response: ak_dec_ctx_new_DualResponse(::core::ptr::null_mut()),
+                chunk_leaf: ak_dec_ctx_new_ChunkLeaf(::core::ptr::null_mut()),
+                chunk_inner: ak_dec_ctx_new_ChunkInner(::core::ptr::null_mut()),
+                chunk_element: ak_dec_ctx_new_ChunkElement(::core::ptr::null_mut()),
+                chunked_response: ak_dec_ctx_new_ChunkedResponse(::core::ptr::null_mut()),
+                chunked_response_wide: ak_dec_ctx_new_ChunkedResponseWide(::core::ptr::null_mut()),
+                leaf_element: ak_dec_ctx_new_LeafElement(::core::ptr::null_mut()),
+                leaf_response: ak_dec_ctx_new_LeafResponse(::core::ptr::null_mut()),
+                surrogate: ak_dec_ctx_new_Surrogate(::core::ptr::null_mut()),
+                surrogate_inner: ak_dec_ctx_new_SurrogateInner(::core::ptr::null_mut()),
+                wire_zoo: ak_dec_ctx_new_WireZoo(::core::ptr::null_mut()),
+            };
+            assert!(!d.timestamp.is_null(), "ak_dec_ctx_new_Timestamp");
+            assert!(!d.duration.is_null(), "ak_dec_ctx_new_Duration");
+            assert!(!d.result_raw.is_null(), "ak_dec_ctx_new_ResultRaw");
+            assert!(!d.task_options.is_null(), "ak_dec_ctx_new_TaskOptions");
+            assert!(!d.task_output.is_null(), "ak_dec_ctx_new_TaskOutput");
+            assert!(!d.task_detailed.is_null(), "ak_dec_ctx_new_TaskDetailed");
+            assert!(!d.task_summary.is_null(), "ak_dec_ctx_new_TaskSummary");
+            assert!(!d.probe.is_null(), "ak_dec_ctx_new_Probe");
+            assert!(!d.empty.is_null(), "ak_dec_ctx_new_Empty");
+            assert!(!d.upload_result_data.is_null(), "ak_dec_ctx_new_UploadResultData");
+            assert!(!d.metrics_batch.is_null(), "ak_dec_ctx_new_MetricsBatch");
+            assert!(!d.pair.is_null(), "ak_dec_ctx_new_Pair");
+            assert!(!d.list_results_response.is_null(), "ak_dec_ctx_new_ListResultsResponse");
+            assert!(!d.list_tasks_detailed_response.is_null(), "ak_dec_ctx_new_ListTasksDetailedResponse");
+            assert!(!d.list_task_summary_response.is_null(), "ak_dec_ctx_new_ListTaskSummaryResponse");
+            assert!(!d.list_probe_response.is_null(), "ak_dec_ctx_new_ListProbeResponse");
+            assert!(!d.list_metrics_response.is_null(), "ak_dec_ctx_new_ListMetricsResponse");
+            assert!(!d.upload_result_data_message.is_null(), "ak_dec_ctx_new_UploadResultDataMessage");
+            assert!(!d.dual_response.is_null(), "ak_dec_ctx_new_DualResponse");
+            assert!(!d.chunk_leaf.is_null(), "ak_dec_ctx_new_ChunkLeaf");
+            assert!(!d.chunk_inner.is_null(), "ak_dec_ctx_new_ChunkInner");
+            assert!(!d.chunk_element.is_null(), "ak_dec_ctx_new_ChunkElement");
+            assert!(!d.chunked_response.is_null(), "ak_dec_ctx_new_ChunkedResponse");
+            assert!(!d.chunked_response_wide.is_null(), "ak_dec_ctx_new_ChunkedResponseWide");
+            assert!(!d.leaf_element.is_null(), "ak_dec_ctx_new_LeafElement");
+            assert!(!d.leaf_response.is_null(), "ak_dec_ctx_new_LeafResponse");
+            assert!(!d.surrogate.is_null(), "ak_dec_ctx_new_Surrogate");
+            assert!(!d.surrogate_inner.is_null(), "ak_dec_ctx_new_SurrogateInner");
+            assert!(!d.wire_zoo.is_null(), "ak_dec_ctx_new_WireZoo");
+            d
+        }
+    }
+    pub unsafe fn free(self) {
+        ak_dec_ctx_free(self.timestamp);
+        ak_dec_ctx_free(self.duration);
+        ak_dec_ctx_free(self.result_raw);
+        ak_dec_ctx_free(self.task_options);
+        ak_dec_ctx_free(self.task_output);
+        ak_dec_ctx_free(self.task_detailed);
+        ak_dec_ctx_free(self.task_summary);
+        ak_dec_ctx_free(self.probe);
+        ak_dec_ctx_free(self.empty);
+        ak_dec_ctx_free(self.upload_result_data);
+        ak_dec_ctx_free(self.metrics_batch);
+        ak_dec_ctx_free(self.pair);
+        ak_dec_ctx_free(self.list_results_response);
+        ak_dec_ctx_free(self.list_tasks_detailed_response);
+        ak_dec_ctx_free(self.list_task_summary_response);
+        ak_dec_ctx_free(self.list_probe_response);
+        ak_dec_ctx_free(self.list_metrics_response);
+        ak_dec_ctx_free(self.upload_result_data_message);
+        ak_dec_ctx_free(self.dual_response);
+        ak_dec_ctx_free(self.chunk_leaf);
+        ak_dec_ctx_free(self.chunk_inner);
+        ak_dec_ctx_free(self.chunk_element);
+        ak_dec_ctx_free(self.chunked_response);
+        ak_dec_ctx_free(self.chunked_response_wide);
+        ak_dec_ctx_free(self.leaf_element);
+        ak_dec_ctx_free(self.leaf_response);
+        ak_dec_ctx_free(self.surrogate);
+        ak_dec_ctx_free(self.surrogate_inner);
+        ak_dec_ctx_free(self.wire_zoo);
+    }
+}
+
 /// Total fill: every group field assigned, presence assigned and not OR-ed.
 #[inline(always)]
 pub(crate) fn make_timestamp(o: &Timestamp, tc: (ak_transcode_fn, ak_transcode_fn)) -> ak_efix_Timestamp {
@@ -6698,7 +6831,8 @@ unsafe extern "C" fn apply_timestamp(
     })
 }
 
-pub fn decode_with_timestamp(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<Timestamp, i32> {
+pub fn decode_with_timestamp(ctxs: DecCtxs, b: &[u8]) -> Result<Timestamp, i32> {
+    let ctx = ctxs.timestamp;
     let mut out = Timestamp::default();
     let rc = unsafe {
         let mut sink = SinkTimestamp { out: &mut out, base: b.as_ptr() };
@@ -6711,10 +6845,13 @@ pub fn decode_with_timestamp(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<Timestamp
 }
 
 /// Decision 11: every position of `Timestamp` backed by `unk_grow` (no pre-allocated
-/// buffer), except position `zero`, if given, left all zero (discarded there).
+/// buffer; a repeated position is an empty pool), except position `zero`, if
+/// given, left all zero (discarded there).
 pub fn unk_opts_timestamp(zero: Option<usize>) -> ak_dec_Timestamp_opts {
     let e = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: Some(unk_grow) };
     let z = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: None };
+    let pe = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: Some(unk_grow) };
+    let pz = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: None };
     ak_dec_Timestamp_opts {
         host: ::core::ptr::null_mut(),
         self_: if zero == Some(0) { z } else { e },
@@ -6722,27 +6859,30 @@ pub fn unk_opts_timestamp(zero: Option<usize>) -> ak_dec_Timestamp_opts {
 }
 pub const UNK_POSITIONS_TIMESTAMP: usize = 1;
 
-/// The same decode with the context armed with `opts`, then disarmed; buffers
-/// the core placed but never delivered (an inactive oneof member, a map entry,
-/// a failed decode) are reclaimed.
-pub fn decode_with_timestamp_opts(ctx: *mut ak_dec_ctx, b: &[u8], opts: &ak_dec_Timestamp_opts) -> Result<Timestamp, i32> {
-    unsafe { ak_dec_reset_Timestamp(ctx, opts); }
-    let r = decode_with_timestamp(ctx, b);
-    unsafe { ak_dec_reset_Timestamp(ctx, ::core::ptr::null()); }
+/// The same decode with the context armed with `opts` (read IN PLACE by the core
+/// until the disarming reset), then disarmed; buffers the core placed but never
+/// delivered (an inactive oneof member, a map entry, a failed decode) are reclaimed.
+pub fn decode_with_timestamp_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_Timestamp_opts) -> Result<Timestamp, i32> {
+    let rc = unsafe { ak_dec_reset_Timestamp(ctxs.timestamp, opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = decode_with_timestamp(ctxs, b);
+    unsafe { ak_dec_reset_Timestamp(ctxs.timestamp, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
 
 /// Decision 11: retain everywhere.
-pub fn decode_with_timestamp_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<Timestamp, i32> {
-    decode_with_timestamp_opts(ctx, b, &unk_opts_timestamp(None))
+pub fn decode_with_timestamp_unk(ctxs: DecCtxs, b: &[u8]) -> Result<Timestamp, i32> {
+    decode_with_timestamp_opts(ctxs, b, &mut unk_opts_timestamp(None))
 }
 
 /// Decision 11: the pull family (walk in place) with every position retained.
-pub fn parse_walk_with_timestamp_unk(ctx: *mut ak_dec_ctx, b: &[u8], toks: &mut Vec<i64>) -> Result<Timestamp, i32> {
-    unsafe { ak_dec_reset_Timestamp(ctx, &unk_opts_timestamp(None)); }
-    let r = parse_walk_with_timestamp(ctx, b, toks);
-    unsafe { ak_dec_reset_Timestamp(ctx, ::core::ptr::null()); }
+pub fn parse_walk_with_timestamp_unk(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<Timestamp, i32> {
+    let mut opts = unk_opts_timestamp(None);
+    let rc = unsafe { ak_dec_reset_Timestamp(ctxs.timestamp, &mut opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = parse_walk_with_timestamp(ctxs, b, toks);
+    unsafe { ak_dec_reset_Timestamp(ctxs.timestamp, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
@@ -6755,7 +6895,7 @@ pub fn unk_clear_timestamp(o: &mut Timestamp, pos: usize) {
     }
 }
 
-pub fn unk_controls_timestamp(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
+pub fn unk_controls_timestamp(ctx: DecCtxs, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
     const IS_ENTRY: [bool; 1] = [false];
     unk_entry_bytes();
     let all = decode_with_timestamp_unk(ctx, b)?;
@@ -6767,7 +6907,7 @@ pub fn unk_controls_timestamp(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) -> Re
     let dbg = |x: &Timestamp| format!("{:?}", x);
     let mut rep = UnkReport { positions: 1, pull_equal: dbg(&pw) == dbg(&all), entry_bytes: eb_all, ..Default::default() };
     for i in 0..1 {
-        let got = decode_with_timestamp_opts(ctx, b, &unk_opts_timestamp(Some(i)))?;
+        let got = decode_with_timestamp_opts(ctx, b, &mut unk_opts_timestamp(Some(i)))?;
         let eb = unk_entry_bytes();
         let mut exp = all.clone();
         if !plant { unk_clear_timestamp(&mut exp, i); }
@@ -6839,11 +6979,12 @@ unsafe fn replay_timestamp_opaque(
 /// measures the family and not an allocator. `Vec<u64>`: a record payload is
 /// an `ak_dfix_*` and has to be 8-aligned.
 pub fn parse_drain_with_timestamp(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     scratch: &mut Vec<u64>,
     toks: &mut Vec<i64>,
 ) -> Result<Timestamp, i32> {
+    let ctx = ctxs.timestamp;
     let mut out = Timestamp::default();
     if scratch.len() * 8 < ak_rt::bdr::BDR_MIN_CHUNK {
         scratch.resize(ak_rt::bdr::BDR_MIN_CHUNK.div_ceil(8), 0);
@@ -6882,10 +7023,11 @@ pub fn parse_drain_with_timestamp(
 /// decomposition: the difference between this arm and the one above IS the
 /// copy, measured rather than estimated.
 pub fn parse_walk_with_timestamp(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<Timestamp, i32> {
+    let ctx = ctxs.timestamp;
     let mut out = Timestamp::default();
     toks.clear();
     let rc = unsafe {
@@ -6915,10 +7057,11 @@ pub fn parse_walk_with_timestamp(
 /// arm exists so that "pull is at parity with push here" is not secretly
 /// "pull's deposit code was inlined and push's could not be".
 pub fn parse_walk_opaque_with_timestamp(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<Timestamp, i32> {
+    let ctx = ctxs.timestamp;
     let mut out = Timestamp::default();
     toks.clear();
     let rc = unsafe {
@@ -6965,7 +7108,8 @@ unsafe extern "C" fn apply_duration(
     })
 }
 
-pub fn decode_with_duration(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<Duration, i32> {
+pub fn decode_with_duration(ctxs: DecCtxs, b: &[u8]) -> Result<Duration, i32> {
+    let ctx = ctxs.duration;
     let mut out = Duration::default();
     let rc = unsafe {
         let mut sink = SinkDuration { out: &mut out, base: b.as_ptr() };
@@ -6978,10 +7122,13 @@ pub fn decode_with_duration(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<Duration, 
 }
 
 /// Decision 11: every position of `Duration` backed by `unk_grow` (no pre-allocated
-/// buffer), except position `zero`, if given, left all zero (discarded there).
+/// buffer; a repeated position is an empty pool), except position `zero`, if
+/// given, left all zero (discarded there).
 pub fn unk_opts_duration(zero: Option<usize>) -> ak_dec_Duration_opts {
     let e = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: Some(unk_grow) };
     let z = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: None };
+    let pe = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: Some(unk_grow) };
+    let pz = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: None };
     ak_dec_Duration_opts {
         host: ::core::ptr::null_mut(),
         self_: if zero == Some(0) { z } else { e },
@@ -6989,27 +7136,30 @@ pub fn unk_opts_duration(zero: Option<usize>) -> ak_dec_Duration_opts {
 }
 pub const UNK_POSITIONS_DURATION: usize = 1;
 
-/// The same decode with the context armed with `opts`, then disarmed; buffers
-/// the core placed but never delivered (an inactive oneof member, a map entry,
-/// a failed decode) are reclaimed.
-pub fn decode_with_duration_opts(ctx: *mut ak_dec_ctx, b: &[u8], opts: &ak_dec_Duration_opts) -> Result<Duration, i32> {
-    unsafe { ak_dec_reset_Duration(ctx, opts); }
-    let r = decode_with_duration(ctx, b);
-    unsafe { ak_dec_reset_Duration(ctx, ::core::ptr::null()); }
+/// The same decode with the context armed with `opts` (read IN PLACE by the core
+/// until the disarming reset), then disarmed; buffers the core placed but never
+/// delivered (an inactive oneof member, a map entry, a failed decode) are reclaimed.
+pub fn decode_with_duration_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_Duration_opts) -> Result<Duration, i32> {
+    let rc = unsafe { ak_dec_reset_Duration(ctxs.duration, opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = decode_with_duration(ctxs, b);
+    unsafe { ak_dec_reset_Duration(ctxs.duration, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
 
 /// Decision 11: retain everywhere.
-pub fn decode_with_duration_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<Duration, i32> {
-    decode_with_duration_opts(ctx, b, &unk_opts_duration(None))
+pub fn decode_with_duration_unk(ctxs: DecCtxs, b: &[u8]) -> Result<Duration, i32> {
+    decode_with_duration_opts(ctxs, b, &mut unk_opts_duration(None))
 }
 
 /// Decision 11: the pull family (walk in place) with every position retained.
-pub fn parse_walk_with_duration_unk(ctx: *mut ak_dec_ctx, b: &[u8], toks: &mut Vec<i64>) -> Result<Duration, i32> {
-    unsafe { ak_dec_reset_Duration(ctx, &unk_opts_duration(None)); }
-    let r = parse_walk_with_duration(ctx, b, toks);
-    unsafe { ak_dec_reset_Duration(ctx, ::core::ptr::null()); }
+pub fn parse_walk_with_duration_unk(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<Duration, i32> {
+    let mut opts = unk_opts_duration(None);
+    let rc = unsafe { ak_dec_reset_Duration(ctxs.duration, &mut opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = parse_walk_with_duration(ctxs, b, toks);
+    unsafe { ak_dec_reset_Duration(ctxs.duration, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
@@ -7022,7 +7172,7 @@ pub fn unk_clear_duration(o: &mut Duration, pos: usize) {
     }
 }
 
-pub fn unk_controls_duration(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
+pub fn unk_controls_duration(ctx: DecCtxs, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
     const IS_ENTRY: [bool; 1] = [false];
     unk_entry_bytes();
     let all = decode_with_duration_unk(ctx, b)?;
@@ -7034,7 +7184,7 @@ pub fn unk_controls_duration(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) -> Res
     let dbg = |x: &Duration| format!("{:?}", x);
     let mut rep = UnkReport { positions: 1, pull_equal: dbg(&pw) == dbg(&all), entry_bytes: eb_all, ..Default::default() };
     for i in 0..1 {
-        let got = decode_with_duration_opts(ctx, b, &unk_opts_duration(Some(i)))?;
+        let got = decode_with_duration_opts(ctx, b, &mut unk_opts_duration(Some(i)))?;
         let eb = unk_entry_bytes();
         let mut exp = all.clone();
         if !plant { unk_clear_duration(&mut exp, i); }
@@ -7106,11 +7256,12 @@ unsafe fn replay_duration_opaque(
 /// measures the family and not an allocator. `Vec<u64>`: a record payload is
 /// an `ak_dfix_*` and has to be 8-aligned.
 pub fn parse_drain_with_duration(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     scratch: &mut Vec<u64>,
     toks: &mut Vec<i64>,
 ) -> Result<Duration, i32> {
+    let ctx = ctxs.duration;
     let mut out = Duration::default();
     if scratch.len() * 8 < ak_rt::bdr::BDR_MIN_CHUNK {
         scratch.resize(ak_rt::bdr::BDR_MIN_CHUNK.div_ceil(8), 0);
@@ -7149,10 +7300,11 @@ pub fn parse_drain_with_duration(
 /// decomposition: the difference between this arm and the one above IS the
 /// copy, measured rather than estimated.
 pub fn parse_walk_with_duration(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<Duration, i32> {
+    let ctx = ctxs.duration;
     let mut out = Duration::default();
     toks.clear();
     let rc = unsafe {
@@ -7182,10 +7334,11 @@ pub fn parse_walk_with_duration(
 /// arm exists so that "pull is at parity with push here" is not secretly
 /// "pull's deposit code was inlined and push's could not be".
 pub fn parse_walk_opaque_with_duration(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<Duration, i32> {
+    let ctx = ctxs.duration;
     let mut out = Duration::default();
     toks.clear();
     let rc = unsafe {
@@ -7249,7 +7402,8 @@ unsafe extern "C" fn apply_result_raw(
     })
 }
 
-pub fn decode_with_result_raw(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ResultRaw, i32> {
+pub fn decode_with_result_raw(ctxs: DecCtxs, b: &[u8]) -> Result<ResultRaw, i32> {
+    let ctx = ctxs.result_raw;
     let mut out = ResultRaw::default();
     let rc = unsafe {
         let mut sink = SinkResultRaw { out: &mut out, base: b.as_ptr() };
@@ -7262,10 +7416,13 @@ pub fn decode_with_result_raw(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ResultRa
 }
 
 /// Decision 11: every position of `ResultRaw` backed by `unk_grow` (no pre-allocated
-/// buffer), except position `zero`, if given, left all zero (discarded there).
+/// buffer; a repeated position is an empty pool), except position `zero`, if
+/// given, left all zero (discarded there).
 pub fn unk_opts_result_raw(zero: Option<usize>) -> ak_dec_ResultRaw_opts {
     let e = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: Some(unk_grow) };
     let z = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: None };
+    let pe = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: Some(unk_grow) };
+    let pz = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: None };
     ak_dec_ResultRaw_opts {
         host: ::core::ptr::null_mut(),
         self_: if zero == Some(0) { z } else { e },
@@ -7275,27 +7432,30 @@ pub fn unk_opts_result_raw(zero: Option<usize>) -> ak_dec_ResultRaw_opts {
 }
 pub const UNK_POSITIONS_RESULTRAW: usize = 3;
 
-/// The same decode with the context armed with `opts`, then disarmed; buffers
-/// the core placed but never delivered (an inactive oneof member, a map entry,
-/// a failed decode) are reclaimed.
-pub fn decode_with_result_raw_opts(ctx: *mut ak_dec_ctx, b: &[u8], opts: &ak_dec_ResultRaw_opts) -> Result<ResultRaw, i32> {
-    unsafe { ak_dec_reset_ResultRaw(ctx, opts); }
-    let r = decode_with_result_raw(ctx, b);
-    unsafe { ak_dec_reset_ResultRaw(ctx, ::core::ptr::null()); }
+/// The same decode with the context armed with `opts` (read IN PLACE by the core
+/// until the disarming reset), then disarmed; buffers the core placed but never
+/// delivered (an inactive oneof member, a map entry, a failed decode) are reclaimed.
+pub fn decode_with_result_raw_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_ResultRaw_opts) -> Result<ResultRaw, i32> {
+    let rc = unsafe { ak_dec_reset_ResultRaw(ctxs.result_raw, opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = decode_with_result_raw(ctxs, b);
+    unsafe { ak_dec_reset_ResultRaw(ctxs.result_raw, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
 
 /// Decision 11: retain everywhere.
-pub fn decode_with_result_raw_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ResultRaw, i32> {
-    decode_with_result_raw_opts(ctx, b, &unk_opts_result_raw(None))
+pub fn decode_with_result_raw_unk(ctxs: DecCtxs, b: &[u8]) -> Result<ResultRaw, i32> {
+    decode_with_result_raw_opts(ctxs, b, &mut unk_opts_result_raw(None))
 }
 
 /// Decision 11: the pull family (walk in place) with every position retained.
-pub fn parse_walk_with_result_raw_unk(ctx: *mut ak_dec_ctx, b: &[u8], toks: &mut Vec<i64>) -> Result<ResultRaw, i32> {
-    unsafe { ak_dec_reset_ResultRaw(ctx, &unk_opts_result_raw(None)); }
-    let r = parse_walk_with_result_raw(ctx, b, toks);
-    unsafe { ak_dec_reset_ResultRaw(ctx, ::core::ptr::null()); }
+pub fn parse_walk_with_result_raw_unk(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<ResultRaw, i32> {
+    let mut opts = unk_opts_result_raw(None);
+    let rc = unsafe { ak_dec_reset_ResultRaw(ctxs.result_raw, &mut opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = parse_walk_with_result_raw(ctxs, b, toks);
+    unsafe { ak_dec_reset_ResultRaw(ctxs.result_raw, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
@@ -7310,7 +7470,7 @@ pub fn unk_clear_result_raw(o: &mut ResultRaw, pos: usize) {
     }
 }
 
-pub fn unk_controls_result_raw(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
+pub fn unk_controls_result_raw(ctx: DecCtxs, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
     const IS_ENTRY: [bool; 3] = [false, false, false];
     unk_entry_bytes();
     let all = decode_with_result_raw_unk(ctx, b)?;
@@ -7322,7 +7482,7 @@ pub fn unk_controls_result_raw(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) -> R
     let dbg = |x: &ResultRaw| format!("{:?}", x);
     let mut rep = UnkReport { positions: 3, pull_equal: dbg(&pw) == dbg(&all), entry_bytes: eb_all, ..Default::default() };
     for i in 0..3 {
-        let got = decode_with_result_raw_opts(ctx, b, &unk_opts_result_raw(Some(i)))?;
+        let got = decode_with_result_raw_opts(ctx, b, &mut unk_opts_result_raw(Some(i)))?;
         let eb = unk_entry_bytes();
         let mut exp = all.clone();
         if !plant { unk_clear_result_raw(&mut exp, i); }
@@ -7394,11 +7554,12 @@ unsafe fn replay_result_raw_opaque(
 /// measures the family and not an allocator. `Vec<u64>`: a record payload is
 /// an `ak_dfix_*` and has to be 8-aligned.
 pub fn parse_drain_with_result_raw(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     scratch: &mut Vec<u64>,
     toks: &mut Vec<i64>,
 ) -> Result<ResultRaw, i32> {
+    let ctx = ctxs.result_raw;
     let mut out = ResultRaw::default();
     if scratch.len() * 8 < ak_rt::bdr::BDR_MIN_CHUNK {
         scratch.resize(ak_rt::bdr::BDR_MIN_CHUNK.div_ceil(8), 0);
@@ -7437,10 +7598,11 @@ pub fn parse_drain_with_result_raw(
 /// decomposition: the difference between this arm and the one above IS the
 /// copy, measured rather than estimated.
 pub fn parse_walk_with_result_raw(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<ResultRaw, i32> {
+    let ctx = ctxs.result_raw;
     let mut out = ResultRaw::default();
     toks.clear();
     let rc = unsafe {
@@ -7470,10 +7632,11 @@ pub fn parse_walk_with_result_raw(
 /// arm exists so that "pull is at parity with push here" is not secretly
 /// "pull's deposit code was inlined and push's could not be".
 pub fn parse_walk_opaque_with_result_raw(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<ResultRaw, i32> {
+    let ctx = ctxs.result_raw;
     let mut out = ResultRaw::default();
     toks.clear();
     let rc = unsafe {
@@ -7554,7 +7717,8 @@ unsafe extern "C" fn add_task_options_options(
     })
 }
 
-pub fn decode_with_task_options(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<TaskOptions, i32> {
+pub fn decode_with_task_options(ctxs: DecCtxs, b: &[u8]) -> Result<TaskOptions, i32> {
+    let ctx = ctxs.task_options;
     let mut out = TaskOptions::default();
     let rc = unsafe {
         let mut sink = SinkTaskOptions { out: &mut out, base: b.as_ptr() };
@@ -7568,40 +7732,46 @@ pub fn decode_with_task_options(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<TaskOp
 }
 
 /// Decision 11: every position of `TaskOptions` backed by `unk_grow` (no pre-allocated
-/// buffer), except position `zero`, if given, left all zero (discarded there).
+/// buffer; a repeated position is an empty pool), except position `zero`, if
+/// given, left all zero (discarded there).
 pub fn unk_opts_task_options(zero: Option<usize>) -> ak_dec_TaskOptions_opts {
     let e = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: Some(unk_grow) };
     let z = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: None };
+    let pe = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: Some(unk_grow) };
+    let pz = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: None };
     ak_dec_TaskOptions_opts {
         host: ::core::ptr::null_mut(),
         self_: if zero == Some(0) { z } else { e },
-        options: if zero == Some(1) { z } else { e },
+        options: if zero == Some(1) { pz } else { pe },
         max_duration: if zero == Some(2) { z } else { e },
     }
 }
 pub const UNK_POSITIONS_TASKOPTIONS: usize = 3;
 
-/// The same decode with the context armed with `opts`, then disarmed; buffers
-/// the core placed but never delivered (an inactive oneof member, a map entry,
-/// a failed decode) are reclaimed.
-pub fn decode_with_task_options_opts(ctx: *mut ak_dec_ctx, b: &[u8], opts: &ak_dec_TaskOptions_opts) -> Result<TaskOptions, i32> {
-    unsafe { ak_dec_reset_TaskOptions(ctx, opts); }
-    let r = decode_with_task_options(ctx, b);
-    unsafe { ak_dec_reset_TaskOptions(ctx, ::core::ptr::null()); }
+/// The same decode with the context armed with `opts` (read IN PLACE by the core
+/// until the disarming reset), then disarmed; buffers the core placed but never
+/// delivered (an inactive oneof member, a map entry, a failed decode) are reclaimed.
+pub fn decode_with_task_options_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_TaskOptions_opts) -> Result<TaskOptions, i32> {
+    let rc = unsafe { ak_dec_reset_TaskOptions(ctxs.task_options, opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = decode_with_task_options(ctxs, b);
+    unsafe { ak_dec_reset_TaskOptions(ctxs.task_options, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
 
 /// Decision 11: retain everywhere.
-pub fn decode_with_task_options_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<TaskOptions, i32> {
-    decode_with_task_options_opts(ctx, b, &unk_opts_task_options(None))
+pub fn decode_with_task_options_unk(ctxs: DecCtxs, b: &[u8]) -> Result<TaskOptions, i32> {
+    decode_with_task_options_opts(ctxs, b, &mut unk_opts_task_options(None))
 }
 
 /// Decision 11: the pull family (walk in place) with every position retained.
-pub fn parse_walk_with_task_options_unk(ctx: *mut ak_dec_ctx, b: &[u8], toks: &mut Vec<i64>) -> Result<TaskOptions, i32> {
-    unsafe { ak_dec_reset_TaskOptions(ctx, &unk_opts_task_options(None)); }
-    let r = parse_walk_with_task_options(ctx, b, toks);
-    unsafe { ak_dec_reset_TaskOptions(ctx, ::core::ptr::null()); }
+pub fn parse_walk_with_task_options_unk(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<TaskOptions, i32> {
+    let mut opts = unk_opts_task_options(None);
+    let rc = unsafe { ak_dec_reset_TaskOptions(ctxs.task_options, &mut opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = parse_walk_with_task_options(ctxs, b, toks);
+    unsafe { ak_dec_reset_TaskOptions(ctxs.task_options, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
@@ -7616,7 +7786,7 @@ pub fn unk_clear_task_options(o: &mut TaskOptions, pos: usize) {
     }
 }
 
-pub fn unk_controls_task_options(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
+pub fn unk_controls_task_options(ctx: DecCtxs, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
     const IS_ENTRY: [bool; 3] = [false, true, false];
     unk_entry_bytes();
     let all = decode_with_task_options_unk(ctx, b)?;
@@ -7628,7 +7798,7 @@ pub fn unk_controls_task_options(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) ->
     let dbg = |x: &TaskOptions| format!("{:?}", x);
     let mut rep = UnkReport { positions: 3, pull_equal: dbg(&pw) == dbg(&all), entry_bytes: eb_all, ..Default::default() };
     for i in 0..3 {
-        let got = decode_with_task_options_opts(ctx, b, &unk_opts_task_options(Some(i)))?;
+        let got = decode_with_task_options_opts(ctx, b, &mut unk_opts_task_options(Some(i)))?;
         let eb = unk_entry_bytes();
         let mut exp = all.clone();
         if !plant { unk_clear_task_options(&mut exp, i); }
@@ -7707,11 +7877,12 @@ unsafe fn replay_task_options_opaque(
 /// measures the family and not an allocator. `Vec<u64>`: a record payload is
 /// an `ak_dfix_*` and has to be 8-aligned.
 pub fn parse_drain_with_task_options(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     scratch: &mut Vec<u64>,
     toks: &mut Vec<i64>,
 ) -> Result<TaskOptions, i32> {
+    let ctx = ctxs.task_options;
     let mut out = TaskOptions::default();
     if scratch.len() * 8 < ak_rt::bdr::BDR_MIN_CHUNK {
         scratch.resize(ak_rt::bdr::BDR_MIN_CHUNK.div_ceil(8), 0);
@@ -7750,10 +7921,11 @@ pub fn parse_drain_with_task_options(
 /// decomposition: the difference between this arm and the one above IS the
 /// copy, measured rather than estimated.
 pub fn parse_walk_with_task_options(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<TaskOptions, i32> {
+    let ctx = ctxs.task_options;
     let mut out = TaskOptions::default();
     toks.clear();
     let rc = unsafe {
@@ -7783,10 +7955,11 @@ pub fn parse_walk_with_task_options(
 /// arm exists so that "pull is at parity with push here" is not secretly
 /// "pull's deposit code was inlined and push's could not be".
 pub fn parse_walk_opaque_with_task_options(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<TaskOptions, i32> {
+    let ctx = ctxs.task_options;
     let mut out = TaskOptions::default();
     toks.clear();
     let rc = unsafe {
@@ -7833,7 +8006,8 @@ unsafe extern "C" fn apply_task_output(
     })
 }
 
-pub fn decode_with_task_output(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<TaskOutput, i32> {
+pub fn decode_with_task_output(ctxs: DecCtxs, b: &[u8]) -> Result<TaskOutput, i32> {
+    let ctx = ctxs.task_output;
     let mut out = TaskOutput::default();
     let rc = unsafe {
         let mut sink = SinkTaskOutput { out: &mut out, base: b.as_ptr() };
@@ -7846,10 +8020,13 @@ pub fn decode_with_task_output(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<TaskOut
 }
 
 /// Decision 11: every position of `TaskOutput` backed by `unk_grow` (no pre-allocated
-/// buffer), except position `zero`, if given, left all zero (discarded there).
+/// buffer; a repeated position is an empty pool), except position `zero`, if
+/// given, left all zero (discarded there).
 pub fn unk_opts_task_output(zero: Option<usize>) -> ak_dec_TaskOutput_opts {
     let e = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: Some(unk_grow) };
     let z = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: None };
+    let pe = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: Some(unk_grow) };
+    let pz = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: None };
     ak_dec_TaskOutput_opts {
         host: ::core::ptr::null_mut(),
         self_: if zero == Some(0) { z } else { e },
@@ -7857,27 +8034,30 @@ pub fn unk_opts_task_output(zero: Option<usize>) -> ak_dec_TaskOutput_opts {
 }
 pub const UNK_POSITIONS_TASKOUTPUT: usize = 1;
 
-/// The same decode with the context armed with `opts`, then disarmed; buffers
-/// the core placed but never delivered (an inactive oneof member, a map entry,
-/// a failed decode) are reclaimed.
-pub fn decode_with_task_output_opts(ctx: *mut ak_dec_ctx, b: &[u8], opts: &ak_dec_TaskOutput_opts) -> Result<TaskOutput, i32> {
-    unsafe { ak_dec_reset_TaskOutput(ctx, opts); }
-    let r = decode_with_task_output(ctx, b);
-    unsafe { ak_dec_reset_TaskOutput(ctx, ::core::ptr::null()); }
+/// The same decode with the context armed with `opts` (read IN PLACE by the core
+/// until the disarming reset), then disarmed; buffers the core placed but never
+/// delivered (an inactive oneof member, a map entry, a failed decode) are reclaimed.
+pub fn decode_with_task_output_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_TaskOutput_opts) -> Result<TaskOutput, i32> {
+    let rc = unsafe { ak_dec_reset_TaskOutput(ctxs.task_output, opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = decode_with_task_output(ctxs, b);
+    unsafe { ak_dec_reset_TaskOutput(ctxs.task_output, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
 
 /// Decision 11: retain everywhere.
-pub fn decode_with_task_output_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<TaskOutput, i32> {
-    decode_with_task_output_opts(ctx, b, &unk_opts_task_output(None))
+pub fn decode_with_task_output_unk(ctxs: DecCtxs, b: &[u8]) -> Result<TaskOutput, i32> {
+    decode_with_task_output_opts(ctxs, b, &mut unk_opts_task_output(None))
 }
 
 /// Decision 11: the pull family (walk in place) with every position retained.
-pub fn parse_walk_with_task_output_unk(ctx: *mut ak_dec_ctx, b: &[u8], toks: &mut Vec<i64>) -> Result<TaskOutput, i32> {
-    unsafe { ak_dec_reset_TaskOutput(ctx, &unk_opts_task_output(None)); }
-    let r = parse_walk_with_task_output(ctx, b, toks);
-    unsafe { ak_dec_reset_TaskOutput(ctx, ::core::ptr::null()); }
+pub fn parse_walk_with_task_output_unk(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<TaskOutput, i32> {
+    let mut opts = unk_opts_task_output(None);
+    let rc = unsafe { ak_dec_reset_TaskOutput(ctxs.task_output, &mut opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = parse_walk_with_task_output(ctxs, b, toks);
+    unsafe { ak_dec_reset_TaskOutput(ctxs.task_output, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
@@ -7890,7 +8070,7 @@ pub fn unk_clear_task_output(o: &mut TaskOutput, pos: usize) {
     }
 }
 
-pub fn unk_controls_task_output(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
+pub fn unk_controls_task_output(ctx: DecCtxs, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
     const IS_ENTRY: [bool; 1] = [false];
     unk_entry_bytes();
     let all = decode_with_task_output_unk(ctx, b)?;
@@ -7902,7 +8082,7 @@ pub fn unk_controls_task_output(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) -> 
     let dbg = |x: &TaskOutput| format!("{:?}", x);
     let mut rep = UnkReport { positions: 1, pull_equal: dbg(&pw) == dbg(&all), entry_bytes: eb_all, ..Default::default() };
     for i in 0..1 {
-        let got = decode_with_task_output_opts(ctx, b, &unk_opts_task_output(Some(i)))?;
+        let got = decode_with_task_output_opts(ctx, b, &mut unk_opts_task_output(Some(i)))?;
         let eb = unk_entry_bytes();
         let mut exp = all.clone();
         if !plant { unk_clear_task_output(&mut exp, i); }
@@ -7974,11 +8154,12 @@ unsafe fn replay_task_output_opaque(
 /// measures the family and not an allocator. `Vec<u64>`: a record payload is
 /// an `ak_dfix_*` and has to be 8-aligned.
 pub fn parse_drain_with_task_output(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     scratch: &mut Vec<u64>,
     toks: &mut Vec<i64>,
 ) -> Result<TaskOutput, i32> {
+    let ctx = ctxs.task_output;
     let mut out = TaskOutput::default();
     if scratch.len() * 8 < ak_rt::bdr::BDR_MIN_CHUNK {
         scratch.resize(ak_rt::bdr::BDR_MIN_CHUNK.div_ceil(8), 0);
@@ -8017,10 +8198,11 @@ pub fn parse_drain_with_task_output(
 /// decomposition: the difference between this arm and the one above IS the
 /// copy, measured rather than estimated.
 pub fn parse_walk_with_task_output(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<TaskOutput, i32> {
+    let ctx = ctxs.task_output;
     let mut out = TaskOutput::default();
     toks.clear();
     let rc = unsafe {
@@ -8050,10 +8232,11 @@ pub fn parse_walk_with_task_output(
 /// arm exists so that "pull is at parity with push here" is not secretly
 /// "pull's deposit code was inlined and push's could not be".
 pub fn parse_walk_opaque_with_task_output(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<TaskOutput, i32> {
+    let ctx = ctxs.task_output;
     let mut out = TaskOutput::default();
     toks.clear();
     let rc = unsafe {
@@ -8269,7 +8452,8 @@ unsafe extern "C" fn add_task_detailed_options_options(
     })
 }
 
-pub fn decode_with_task_detailed(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<TaskDetailed, i32> {
+pub fn decode_with_task_detailed(ctxs: DecCtxs, b: &[u8]) -> Result<TaskDetailed, i32> {
+    let ctx = ctxs.task_detailed;
     let mut out = TaskDetailed::default();
     let rc = unsafe {
         let mut sink = SinkTaskDetailed { out: &mut out, base: b.as_ptr() };
@@ -8287,15 +8471,18 @@ pub fn decode_with_task_detailed(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<TaskD
 }
 
 /// Decision 11: every position of `TaskDetailed` backed by `unk_grow` (no pre-allocated
-/// buffer), except position `zero`, if given, left all zero (discarded there).
+/// buffer; a repeated position is an empty pool), except position `zero`, if
+/// given, left all zero (discarded there).
 pub fn unk_opts_task_detailed(zero: Option<usize>) -> ak_dec_TaskDetailed_opts {
     let e = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: Some(unk_grow) };
     let z = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: None };
+    let pe = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: Some(unk_grow) };
+    let pz = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: None };
     ak_dec_TaskDetailed_opts {
         host: ::core::ptr::null_mut(),
         self_: if zero == Some(0) { z } else { e },
         options: if zero == Some(1) { z } else { e },
-        options_options: if zero == Some(2) { z } else { e },
+        options_options: if zero == Some(2) { pz } else { pe },
         options_max_duration: if zero == Some(3) { z } else { e },
         created_at: if zero == Some(4) { z } else { e },
         submitted_at: if zero == Some(5) { z } else { e },
@@ -8314,27 +8501,30 @@ pub fn unk_opts_task_detailed(zero: Option<usize>) -> ak_dec_TaskDetailed_opts {
 }
 pub const UNK_POSITIONS_TASKDETAILED: usize = 17;
 
-/// The same decode with the context armed with `opts`, then disarmed; buffers
-/// the core placed but never delivered (an inactive oneof member, a map entry,
-/// a failed decode) are reclaimed.
-pub fn decode_with_task_detailed_opts(ctx: *mut ak_dec_ctx, b: &[u8], opts: &ak_dec_TaskDetailed_opts) -> Result<TaskDetailed, i32> {
-    unsafe { ak_dec_reset_TaskDetailed(ctx, opts); }
-    let r = decode_with_task_detailed(ctx, b);
-    unsafe { ak_dec_reset_TaskDetailed(ctx, ::core::ptr::null()); }
+/// The same decode with the context armed with `opts` (read IN PLACE by the core
+/// until the disarming reset), then disarmed; buffers the core placed but never
+/// delivered (an inactive oneof member, a map entry, a failed decode) are reclaimed.
+pub fn decode_with_task_detailed_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_TaskDetailed_opts) -> Result<TaskDetailed, i32> {
+    let rc = unsafe { ak_dec_reset_TaskDetailed(ctxs.task_detailed, opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = decode_with_task_detailed(ctxs, b);
+    unsafe { ak_dec_reset_TaskDetailed(ctxs.task_detailed, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
 
 /// Decision 11: retain everywhere.
-pub fn decode_with_task_detailed_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<TaskDetailed, i32> {
-    decode_with_task_detailed_opts(ctx, b, &unk_opts_task_detailed(None))
+pub fn decode_with_task_detailed_unk(ctxs: DecCtxs, b: &[u8]) -> Result<TaskDetailed, i32> {
+    decode_with_task_detailed_opts(ctxs, b, &mut unk_opts_task_detailed(None))
 }
 
 /// Decision 11: the pull family (walk in place) with every position retained.
-pub fn parse_walk_with_task_detailed_unk(ctx: *mut ak_dec_ctx, b: &[u8], toks: &mut Vec<i64>) -> Result<TaskDetailed, i32> {
-    unsafe { ak_dec_reset_TaskDetailed(ctx, &unk_opts_task_detailed(None)); }
-    let r = parse_walk_with_task_detailed(ctx, b, toks);
-    unsafe { ak_dec_reset_TaskDetailed(ctx, ::core::ptr::null()); }
+pub fn parse_walk_with_task_detailed_unk(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<TaskDetailed, i32> {
+    let mut opts = unk_opts_task_detailed(None);
+    let rc = unsafe { ak_dec_reset_TaskDetailed(ctxs.task_detailed, &mut opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = parse_walk_with_task_detailed(ctxs, b, toks);
+    unsafe { ak_dec_reset_TaskDetailed(ctxs.task_detailed, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
@@ -8363,7 +8553,7 @@ pub fn unk_clear_task_detailed(o: &mut TaskDetailed, pos: usize) {
     }
 }
 
-pub fn unk_controls_task_detailed(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
+pub fn unk_controls_task_detailed(ctx: DecCtxs, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
     const IS_ENTRY: [bool; 17] = [false, false, true, false, false, false, false, false, false, false, false, false, false, false, false, false, false];
     unk_entry_bytes();
     let all = decode_with_task_detailed_unk(ctx, b)?;
@@ -8375,7 +8565,7 @@ pub fn unk_controls_task_detailed(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) -
     let dbg = |x: &TaskDetailed| format!("{:?}", x);
     let mut rep = UnkReport { positions: 17, pull_equal: dbg(&pw) == dbg(&all), entry_bytes: eb_all, ..Default::default() };
     for i in 0..17 {
-        let got = decode_with_task_detailed_opts(ctx, b, &unk_opts_task_detailed(Some(i)))?;
+        let got = decode_with_task_detailed_opts(ctx, b, &mut unk_opts_task_detailed(Some(i)))?;
         let eb = unk_entry_bytes();
         let mut exp = all.clone();
         if !plant { unk_clear_task_detailed(&mut exp, i); }
@@ -8482,11 +8672,12 @@ unsafe fn replay_task_detailed_opaque(
 /// measures the family and not an allocator. `Vec<u64>`: a record payload is
 /// an `ak_dfix_*` and has to be 8-aligned.
 pub fn parse_drain_with_task_detailed(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     scratch: &mut Vec<u64>,
     toks: &mut Vec<i64>,
 ) -> Result<TaskDetailed, i32> {
+    let ctx = ctxs.task_detailed;
     let mut out = TaskDetailed::default();
     if scratch.len() * 8 < ak_rt::bdr::BDR_MIN_CHUNK {
         scratch.resize(ak_rt::bdr::BDR_MIN_CHUNK.div_ceil(8), 0);
@@ -8525,10 +8716,11 @@ pub fn parse_drain_with_task_detailed(
 /// decomposition: the difference between this arm and the one above IS the
 /// copy, measured rather than estimated.
 pub fn parse_walk_with_task_detailed(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<TaskDetailed, i32> {
+    let ctx = ctxs.task_detailed;
     let mut out = TaskDetailed::default();
     toks.clear();
     let rc = unsafe {
@@ -8558,10 +8750,11 @@ pub fn parse_walk_with_task_detailed(
 /// arm exists so that "pull is at parity with push here" is not secretly
 /// "pull's deposit code was inlined and push's could not be".
 pub fn parse_walk_opaque_with_task_detailed(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<TaskDetailed, i32> {
+    let ctx = ctxs.task_detailed;
     let mut out = TaskDetailed::default();
     toks.clear();
     let rc = unsafe {
@@ -8646,7 +8839,8 @@ unsafe extern "C" fn add_task_summary_options_options(
     })
 }
 
-pub fn decode_with_task_summary(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<TaskSummary, i32> {
+pub fn decode_with_task_summary(ctxs: DecCtxs, b: &[u8]) -> Result<TaskSummary, i32> {
+    let ctx = ctxs.task_summary;
     let mut out = TaskSummary::default();
     let rc = unsafe {
         let mut sink = SinkTaskSummary { out: &mut out, base: b.as_ptr() };
@@ -8660,42 +8854,48 @@ pub fn decode_with_task_summary(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<TaskSu
 }
 
 /// Decision 11: every position of `TaskSummary` backed by `unk_grow` (no pre-allocated
-/// buffer), except position `zero`, if given, left all zero (discarded there).
+/// buffer; a repeated position is an empty pool), except position `zero`, if
+/// given, left all zero (discarded there).
 pub fn unk_opts_task_summary(zero: Option<usize>) -> ak_dec_TaskSummary_opts {
     let e = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: Some(unk_grow) };
     let z = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: None };
+    let pe = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: Some(unk_grow) };
+    let pz = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: None };
     ak_dec_TaskSummary_opts {
         host: ::core::ptr::null_mut(),
         self_: if zero == Some(0) { z } else { e },
         options: if zero == Some(1) { z } else { e },
-        options_options: if zero == Some(2) { z } else { e },
+        options_options: if zero == Some(2) { pz } else { pe },
         options_max_duration: if zero == Some(3) { z } else { e },
         created_at: if zero == Some(4) { z } else { e },
     }
 }
 pub const UNK_POSITIONS_TASKSUMMARY: usize = 5;
 
-/// The same decode with the context armed with `opts`, then disarmed; buffers
-/// the core placed but never delivered (an inactive oneof member, a map entry,
-/// a failed decode) are reclaimed.
-pub fn decode_with_task_summary_opts(ctx: *mut ak_dec_ctx, b: &[u8], opts: &ak_dec_TaskSummary_opts) -> Result<TaskSummary, i32> {
-    unsafe { ak_dec_reset_TaskSummary(ctx, opts); }
-    let r = decode_with_task_summary(ctx, b);
-    unsafe { ak_dec_reset_TaskSummary(ctx, ::core::ptr::null()); }
+/// The same decode with the context armed with `opts` (read IN PLACE by the core
+/// until the disarming reset), then disarmed; buffers the core placed but never
+/// delivered (an inactive oneof member, a map entry, a failed decode) are reclaimed.
+pub fn decode_with_task_summary_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_TaskSummary_opts) -> Result<TaskSummary, i32> {
+    let rc = unsafe { ak_dec_reset_TaskSummary(ctxs.task_summary, opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = decode_with_task_summary(ctxs, b);
+    unsafe { ak_dec_reset_TaskSummary(ctxs.task_summary, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
 
 /// Decision 11: retain everywhere.
-pub fn decode_with_task_summary_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<TaskSummary, i32> {
-    decode_with_task_summary_opts(ctx, b, &unk_opts_task_summary(None))
+pub fn decode_with_task_summary_unk(ctxs: DecCtxs, b: &[u8]) -> Result<TaskSummary, i32> {
+    decode_with_task_summary_opts(ctxs, b, &mut unk_opts_task_summary(None))
 }
 
 /// Decision 11: the pull family (walk in place) with every position retained.
-pub fn parse_walk_with_task_summary_unk(ctx: *mut ak_dec_ctx, b: &[u8], toks: &mut Vec<i64>) -> Result<TaskSummary, i32> {
-    unsafe { ak_dec_reset_TaskSummary(ctx, &unk_opts_task_summary(None)); }
-    let r = parse_walk_with_task_summary(ctx, b, toks);
-    unsafe { ak_dec_reset_TaskSummary(ctx, ::core::ptr::null()); }
+pub fn parse_walk_with_task_summary_unk(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<TaskSummary, i32> {
+    let mut opts = unk_opts_task_summary(None);
+    let rc = unsafe { ak_dec_reset_TaskSummary(ctxs.task_summary, &mut opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = parse_walk_with_task_summary(ctxs, b, toks);
+    unsafe { ak_dec_reset_TaskSummary(ctxs.task_summary, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
@@ -8712,7 +8912,7 @@ pub fn unk_clear_task_summary(o: &mut TaskSummary, pos: usize) {
     }
 }
 
-pub fn unk_controls_task_summary(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
+pub fn unk_controls_task_summary(ctx: DecCtxs, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
     const IS_ENTRY: [bool; 5] = [false, false, true, false, false];
     unk_entry_bytes();
     let all = decode_with_task_summary_unk(ctx, b)?;
@@ -8724,7 +8924,7 @@ pub fn unk_controls_task_summary(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) ->
     let dbg = |x: &TaskSummary| format!("{:?}", x);
     let mut rep = UnkReport { positions: 5, pull_equal: dbg(&pw) == dbg(&all), entry_bytes: eb_all, ..Default::default() };
     for i in 0..5 {
-        let got = decode_with_task_summary_opts(ctx, b, &unk_opts_task_summary(Some(i)))?;
+        let got = decode_with_task_summary_opts(ctx, b, &mut unk_opts_task_summary(Some(i)))?;
         let eb = unk_entry_bytes();
         let mut exp = all.clone();
         if !plant { unk_clear_task_summary(&mut exp, i); }
@@ -8803,11 +9003,12 @@ unsafe fn replay_task_summary_opaque(
 /// measures the family and not an allocator. `Vec<u64>`: a record payload is
 /// an `ak_dfix_*` and has to be 8-aligned.
 pub fn parse_drain_with_task_summary(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     scratch: &mut Vec<u64>,
     toks: &mut Vec<i64>,
 ) -> Result<TaskSummary, i32> {
+    let ctx = ctxs.task_summary;
     let mut out = TaskSummary::default();
     if scratch.len() * 8 < ak_rt::bdr::BDR_MIN_CHUNK {
         scratch.resize(ak_rt::bdr::BDR_MIN_CHUNK.div_ceil(8), 0);
@@ -8846,10 +9047,11 @@ pub fn parse_drain_with_task_summary(
 /// decomposition: the difference between this arm and the one above IS the
 /// copy, measured rather than estimated.
 pub fn parse_walk_with_task_summary(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<TaskSummary, i32> {
+    let ctx = ctxs.task_summary;
     let mut out = TaskSummary::default();
     toks.clear();
     let rc = unsafe {
@@ -8879,10 +9081,11 @@ pub fn parse_walk_with_task_summary(
 /// arm exists so that "pull is at parity with push here" is not secretly
 /// "pull's deposit code was inlined and push's could not be".
 pub fn parse_walk_opaque_with_task_summary(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<TaskSummary, i32> {
+    let ctx = ctxs.task_summary;
     let mut out = TaskSummary::default();
     toks.clear();
     let rc = unsafe {
@@ -8939,7 +9142,8 @@ unsafe extern "C" fn apply_probe(
     })
 }
 
-pub fn decode_with_probe(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<Probe, i32> {
+pub fn decode_with_probe(ctxs: DecCtxs, b: &[u8]) -> Result<Probe, i32> {
+    let ctx = ctxs.probe;
     let mut out = Probe::default();
     let rc = unsafe {
         let mut sink = SinkProbe { out: &mut out, base: b.as_ptr() };
@@ -8952,40 +9156,45 @@ pub fn decode_with_probe(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<Probe, i32> {
 }
 
 /// Decision 11: every position of `Probe` backed by `unk_grow` (no pre-allocated
-/// buffer), except position `zero`, if given, left all zero (discarded there).
+/// buffer; a repeated position is an empty pool), except position `zero`, if
+/// given, left all zero (discarded there).
 pub fn unk_opts_probe(zero: Option<usize>) -> ak_dec_Probe_opts {
     let e = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: Some(unk_grow) };
     let z = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: None };
+    let pe = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: Some(unk_grow) };
+    let pz = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: None };
     ak_dec_Probe_opts {
         host: ::core::ptr::null_mut(),
         self_: if zero == Some(0) { z } else { e },
-        body_as_stamp: if zero == Some(1) { z } else { e },
-        body_as_nothing: if zero == Some(2) { z } else { e },
+        body: if zero == Some(1) { z } else { e },
     }
 }
-pub const UNK_POSITIONS_PROBE: usize = 3;
+pub const UNK_POSITIONS_PROBE: usize = 2;
 
-/// The same decode with the context armed with `opts`, then disarmed; buffers
-/// the core placed but never delivered (an inactive oneof member, a map entry,
-/// a failed decode) are reclaimed.
-pub fn decode_with_probe_opts(ctx: *mut ak_dec_ctx, b: &[u8], opts: &ak_dec_Probe_opts) -> Result<Probe, i32> {
-    unsafe { ak_dec_reset_Probe(ctx, opts); }
-    let r = decode_with_probe(ctx, b);
-    unsafe { ak_dec_reset_Probe(ctx, ::core::ptr::null()); }
+/// The same decode with the context armed with `opts` (read IN PLACE by the core
+/// until the disarming reset), then disarmed; buffers the core placed but never
+/// delivered (an inactive oneof member, a map entry, a failed decode) are reclaimed.
+pub fn decode_with_probe_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_Probe_opts) -> Result<Probe, i32> {
+    let rc = unsafe { ak_dec_reset_Probe(ctxs.probe, opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = decode_with_probe(ctxs, b);
+    unsafe { ak_dec_reset_Probe(ctxs.probe, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
 
 /// Decision 11: retain everywhere.
-pub fn decode_with_probe_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<Probe, i32> {
-    decode_with_probe_opts(ctx, b, &unk_opts_probe(None))
+pub fn decode_with_probe_unk(ctxs: DecCtxs, b: &[u8]) -> Result<Probe, i32> {
+    decode_with_probe_opts(ctxs, b, &mut unk_opts_probe(None))
 }
 
 /// Decision 11: the pull family (walk in place) with every position retained.
-pub fn parse_walk_with_probe_unk(ctx: *mut ak_dec_ctx, b: &[u8], toks: &mut Vec<i64>) -> Result<Probe, i32> {
-    unsafe { ak_dec_reset_Probe(ctx, &unk_opts_probe(None)); }
-    let r = parse_walk_with_probe(ctx, b, toks);
-    unsafe { ak_dec_reset_Probe(ctx, ::core::ptr::null()); }
+pub fn parse_walk_with_probe_unk(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<Probe, i32> {
+    let mut opts = unk_opts_probe(None);
+    let rc = unsafe { ak_dec_reset_Probe(ctxs.probe, &mut opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = parse_walk_with_probe(ctxs, b, toks);
+    unsafe { ak_dec_reset_Probe(ctxs.probe, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
@@ -8994,14 +9203,13 @@ pub fn parse_walk_with_probe_unk(ctx: *mut ak_dec_ctx, b: &[u8], toks: &mut Vec<
 pub fn unk_clear_probe(o: &mut Probe, pos: usize) {
     match pos {
         0 => { o.unknown_fields.clear(); }
-        1 => { if let Some(ProbeBody::AsStamp(x0)) = o.body.as_mut() { x0.unknown_fields.clear(); } }
-        2 => { if let Some(ProbeBody::AsNothing(x0)) = o.body.as_mut() { x0.unknown_fields.clear(); } }
+        1 => { match o.body.as_mut() { Some(ProbeBody::AsStamp(x0)) => { x0.unknown_fields.clear(); } Some(ProbeBody::AsNothing(x0)) => { x0.unknown_fields.clear(); } _ => {} } }
         _ => {}
     }
 }
 
-pub fn unk_controls_probe(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
-    const IS_ENTRY: [bool; 3] = [false, false, false];
+pub fn unk_controls_probe(ctx: DecCtxs, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
+    const IS_ENTRY: [bool; 2] = [false, false];
     unk_entry_bytes();
     let all = decode_with_probe_unk(ctx, b)?;
     let eb_all = unk_entry_bytes();
@@ -9010,9 +9218,9 @@ pub fn unk_controls_probe(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) -> Result
     unk_entry_bytes();
     // Compared through Debug so a NaN equals itself (S-double-nan); bytes are the corpus's job.
     let dbg = |x: &Probe| format!("{:?}", x);
-    let mut rep = UnkReport { positions: 3, pull_equal: dbg(&pw) == dbg(&all), entry_bytes: eb_all, ..Default::default() };
-    for i in 0..3 {
-        let got = decode_with_probe_opts(ctx, b, &unk_opts_probe(Some(i)))?;
+    let mut rep = UnkReport { positions: 2, pull_equal: dbg(&pw) == dbg(&all), entry_bytes: eb_all, ..Default::default() };
+    for i in 0..2 {
+        let got = decode_with_probe_opts(ctx, b, &mut unk_opts_probe(Some(i)))?;
         let eb = unk_entry_bytes();
         let mut exp = all.clone();
         if !plant { unk_clear_probe(&mut exp, i); }
@@ -9084,11 +9292,12 @@ unsafe fn replay_probe_opaque(
 /// measures the family and not an allocator. `Vec<u64>`: a record payload is
 /// an `ak_dfix_*` and has to be 8-aligned.
 pub fn parse_drain_with_probe(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     scratch: &mut Vec<u64>,
     toks: &mut Vec<i64>,
 ) -> Result<Probe, i32> {
+    let ctx = ctxs.probe;
     let mut out = Probe::default();
     if scratch.len() * 8 < ak_rt::bdr::BDR_MIN_CHUNK {
         scratch.resize(ak_rt::bdr::BDR_MIN_CHUNK.div_ceil(8), 0);
@@ -9127,10 +9336,11 @@ pub fn parse_drain_with_probe(
 /// decomposition: the difference between this arm and the one above IS the
 /// copy, measured rather than estimated.
 pub fn parse_walk_with_probe(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<Probe, i32> {
+    let ctx = ctxs.probe;
     let mut out = Probe::default();
     toks.clear();
     let rc = unsafe {
@@ -9160,10 +9370,11 @@ pub fn parse_walk_with_probe(
 /// arm exists so that "pull is at parity with push here" is not secretly
 /// "pull's deposit code was inlined and push's could not be".
 pub fn parse_walk_opaque_with_probe(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<Probe, i32> {
+    let ctx = ctxs.probe;
     let mut out = Probe::default();
     toks.clear();
     let rc = unsafe {
@@ -9208,7 +9419,8 @@ unsafe extern "C" fn apply_empty(
     })
 }
 
-pub fn decode_with_empty(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<Empty, i32> {
+pub fn decode_with_empty(ctxs: DecCtxs, b: &[u8]) -> Result<Empty, i32> {
+    let ctx = ctxs.empty;
     let mut out = Empty::default();
     let rc = unsafe {
         let mut sink = SinkEmpty { out: &mut out, base: b.as_ptr() };
@@ -9221,10 +9433,13 @@ pub fn decode_with_empty(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<Empty, i32> {
 }
 
 /// Decision 11: every position of `Empty` backed by `unk_grow` (no pre-allocated
-/// buffer), except position `zero`, if given, left all zero (discarded there).
+/// buffer; a repeated position is an empty pool), except position `zero`, if
+/// given, left all zero (discarded there).
 pub fn unk_opts_empty(zero: Option<usize>) -> ak_dec_Empty_opts {
     let e = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: Some(unk_grow) };
     let z = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: None };
+    let pe = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: Some(unk_grow) };
+    let pz = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: None };
     ak_dec_Empty_opts {
         host: ::core::ptr::null_mut(),
         self_: if zero == Some(0) { z } else { e },
@@ -9232,27 +9447,30 @@ pub fn unk_opts_empty(zero: Option<usize>) -> ak_dec_Empty_opts {
 }
 pub const UNK_POSITIONS_EMPTY: usize = 1;
 
-/// The same decode with the context armed with `opts`, then disarmed; buffers
-/// the core placed but never delivered (an inactive oneof member, a map entry,
-/// a failed decode) are reclaimed.
-pub fn decode_with_empty_opts(ctx: *mut ak_dec_ctx, b: &[u8], opts: &ak_dec_Empty_opts) -> Result<Empty, i32> {
-    unsafe { ak_dec_reset_Empty(ctx, opts); }
-    let r = decode_with_empty(ctx, b);
-    unsafe { ak_dec_reset_Empty(ctx, ::core::ptr::null()); }
+/// The same decode with the context armed with `opts` (read IN PLACE by the core
+/// until the disarming reset), then disarmed; buffers the core placed but never
+/// delivered (an inactive oneof member, a map entry, a failed decode) are reclaimed.
+pub fn decode_with_empty_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_Empty_opts) -> Result<Empty, i32> {
+    let rc = unsafe { ak_dec_reset_Empty(ctxs.empty, opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = decode_with_empty(ctxs, b);
+    unsafe { ak_dec_reset_Empty(ctxs.empty, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
 
 /// Decision 11: retain everywhere.
-pub fn decode_with_empty_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<Empty, i32> {
-    decode_with_empty_opts(ctx, b, &unk_opts_empty(None))
+pub fn decode_with_empty_unk(ctxs: DecCtxs, b: &[u8]) -> Result<Empty, i32> {
+    decode_with_empty_opts(ctxs, b, &mut unk_opts_empty(None))
 }
 
 /// Decision 11: the pull family (walk in place) with every position retained.
-pub fn parse_walk_with_empty_unk(ctx: *mut ak_dec_ctx, b: &[u8], toks: &mut Vec<i64>) -> Result<Empty, i32> {
-    unsafe { ak_dec_reset_Empty(ctx, &unk_opts_empty(None)); }
-    let r = parse_walk_with_empty(ctx, b, toks);
-    unsafe { ak_dec_reset_Empty(ctx, ::core::ptr::null()); }
+pub fn parse_walk_with_empty_unk(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<Empty, i32> {
+    let mut opts = unk_opts_empty(None);
+    let rc = unsafe { ak_dec_reset_Empty(ctxs.empty, &mut opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = parse_walk_with_empty(ctxs, b, toks);
+    unsafe { ak_dec_reset_Empty(ctxs.empty, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
@@ -9265,7 +9483,7 @@ pub fn unk_clear_empty(o: &mut Empty, pos: usize) {
     }
 }
 
-pub fn unk_controls_empty(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
+pub fn unk_controls_empty(ctx: DecCtxs, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
     const IS_ENTRY: [bool; 1] = [false];
     unk_entry_bytes();
     let all = decode_with_empty_unk(ctx, b)?;
@@ -9277,7 +9495,7 @@ pub fn unk_controls_empty(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) -> Result
     let dbg = |x: &Empty| format!("{:?}", x);
     let mut rep = UnkReport { positions: 1, pull_equal: dbg(&pw) == dbg(&all), entry_bytes: eb_all, ..Default::default() };
     for i in 0..1 {
-        let got = decode_with_empty_opts(ctx, b, &unk_opts_empty(Some(i)))?;
+        let got = decode_with_empty_opts(ctx, b, &mut unk_opts_empty(Some(i)))?;
         let eb = unk_entry_bytes();
         let mut exp = all.clone();
         if !plant { unk_clear_empty(&mut exp, i); }
@@ -9349,11 +9567,12 @@ unsafe fn replay_empty_opaque(
 /// measures the family and not an allocator. `Vec<u64>`: a record payload is
 /// an `ak_dfix_*` and has to be 8-aligned.
 pub fn parse_drain_with_empty(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     scratch: &mut Vec<u64>,
     toks: &mut Vec<i64>,
 ) -> Result<Empty, i32> {
+    let ctx = ctxs.empty;
     let mut out = Empty::default();
     if scratch.len() * 8 < ak_rt::bdr::BDR_MIN_CHUNK {
         scratch.resize(ak_rt::bdr::BDR_MIN_CHUNK.div_ceil(8), 0);
@@ -9392,10 +9611,11 @@ pub fn parse_drain_with_empty(
 /// decomposition: the difference between this arm and the one above IS the
 /// copy, measured rather than estimated.
 pub fn parse_walk_with_empty(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<Empty, i32> {
+    let ctx = ctxs.empty;
     let mut out = Empty::default();
     toks.clear();
     let rc = unsafe {
@@ -9425,10 +9645,11 @@ pub fn parse_walk_with_empty(
 /// arm exists so that "pull is at parity with push here" is not secretly
 /// "pull's deposit code was inlined and push's could not be".
 pub fn parse_walk_opaque_with_empty(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<Empty, i32> {
+    let ctx = ctxs.empty;
     let mut out = Empty::default();
     toks.clear();
     let rc = unsafe {
@@ -9476,7 +9697,8 @@ unsafe extern "C" fn apply_upload_result_data(
     })
 }
 
-pub fn decode_with_upload_result_data(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<UploadResultData, i32> {
+pub fn decode_with_upload_result_data(ctxs: DecCtxs, b: &[u8]) -> Result<UploadResultData, i32> {
+    let ctx = ctxs.upload_result_data;
     let mut out = UploadResultData::default();
     let rc = unsafe {
         let mut sink = SinkUploadResultData { out: &mut out, base: b.as_ptr() };
@@ -9489,10 +9711,13 @@ pub fn decode_with_upload_result_data(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<
 }
 
 /// Decision 11: every position of `UploadResultData` backed by `unk_grow` (no pre-allocated
-/// buffer), except position `zero`, if given, left all zero (discarded there).
+/// buffer; a repeated position is an empty pool), except position `zero`, if
+/// given, left all zero (discarded there).
 pub fn unk_opts_upload_result_data(zero: Option<usize>) -> ak_dec_UploadResultData_opts {
     let e = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: Some(unk_grow) };
     let z = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: None };
+    let pe = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: Some(unk_grow) };
+    let pz = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: None };
     ak_dec_UploadResultData_opts {
         host: ::core::ptr::null_mut(),
         self_: if zero == Some(0) { z } else { e },
@@ -9500,27 +9725,30 @@ pub fn unk_opts_upload_result_data(zero: Option<usize>) -> ak_dec_UploadResultDa
 }
 pub const UNK_POSITIONS_UPLOADRESULTDATA: usize = 1;
 
-/// The same decode with the context armed with `opts`, then disarmed; buffers
-/// the core placed but never delivered (an inactive oneof member, a map entry,
-/// a failed decode) are reclaimed.
-pub fn decode_with_upload_result_data_opts(ctx: *mut ak_dec_ctx, b: &[u8], opts: &ak_dec_UploadResultData_opts) -> Result<UploadResultData, i32> {
-    unsafe { ak_dec_reset_UploadResultData(ctx, opts); }
-    let r = decode_with_upload_result_data(ctx, b);
-    unsafe { ak_dec_reset_UploadResultData(ctx, ::core::ptr::null()); }
+/// The same decode with the context armed with `opts` (read IN PLACE by the core
+/// until the disarming reset), then disarmed; buffers the core placed but never
+/// delivered (an inactive oneof member, a map entry, a failed decode) are reclaimed.
+pub fn decode_with_upload_result_data_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_UploadResultData_opts) -> Result<UploadResultData, i32> {
+    let rc = unsafe { ak_dec_reset_UploadResultData(ctxs.upload_result_data, opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = decode_with_upload_result_data(ctxs, b);
+    unsafe { ak_dec_reset_UploadResultData(ctxs.upload_result_data, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
 
 /// Decision 11: retain everywhere.
-pub fn decode_with_upload_result_data_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<UploadResultData, i32> {
-    decode_with_upload_result_data_opts(ctx, b, &unk_opts_upload_result_data(None))
+pub fn decode_with_upload_result_data_unk(ctxs: DecCtxs, b: &[u8]) -> Result<UploadResultData, i32> {
+    decode_with_upload_result_data_opts(ctxs, b, &mut unk_opts_upload_result_data(None))
 }
 
 /// Decision 11: the pull family (walk in place) with every position retained.
-pub fn parse_walk_with_upload_result_data_unk(ctx: *mut ak_dec_ctx, b: &[u8], toks: &mut Vec<i64>) -> Result<UploadResultData, i32> {
-    unsafe { ak_dec_reset_UploadResultData(ctx, &unk_opts_upload_result_data(None)); }
-    let r = parse_walk_with_upload_result_data(ctx, b, toks);
-    unsafe { ak_dec_reset_UploadResultData(ctx, ::core::ptr::null()); }
+pub fn parse_walk_with_upload_result_data_unk(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<UploadResultData, i32> {
+    let mut opts = unk_opts_upload_result_data(None);
+    let rc = unsafe { ak_dec_reset_UploadResultData(ctxs.upload_result_data, &mut opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = parse_walk_with_upload_result_data(ctxs, b, toks);
+    unsafe { ak_dec_reset_UploadResultData(ctxs.upload_result_data, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
@@ -9533,7 +9761,7 @@ pub fn unk_clear_upload_result_data(o: &mut UploadResultData, pos: usize) {
     }
 }
 
-pub fn unk_controls_upload_result_data(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
+pub fn unk_controls_upload_result_data(ctx: DecCtxs, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
     const IS_ENTRY: [bool; 1] = [false];
     unk_entry_bytes();
     let all = decode_with_upload_result_data_unk(ctx, b)?;
@@ -9545,7 +9773,7 @@ pub fn unk_controls_upload_result_data(ctx: *mut ak_dec_ctx, b: &[u8], plant: bo
     let dbg = |x: &UploadResultData| format!("{:?}", x);
     let mut rep = UnkReport { positions: 1, pull_equal: dbg(&pw) == dbg(&all), entry_bytes: eb_all, ..Default::default() };
     for i in 0..1 {
-        let got = decode_with_upload_result_data_opts(ctx, b, &unk_opts_upload_result_data(Some(i)))?;
+        let got = decode_with_upload_result_data_opts(ctx, b, &mut unk_opts_upload_result_data(Some(i)))?;
         let eb = unk_entry_bytes();
         let mut exp = all.clone();
         if !plant { unk_clear_upload_result_data(&mut exp, i); }
@@ -9617,11 +9845,12 @@ unsafe fn replay_upload_result_data_opaque(
 /// measures the family and not an allocator. `Vec<u64>`: a record payload is
 /// an `ak_dfix_*` and has to be 8-aligned.
 pub fn parse_drain_with_upload_result_data(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     scratch: &mut Vec<u64>,
     toks: &mut Vec<i64>,
 ) -> Result<UploadResultData, i32> {
+    let ctx = ctxs.upload_result_data;
     let mut out = UploadResultData::default();
     if scratch.len() * 8 < ak_rt::bdr::BDR_MIN_CHUNK {
         scratch.resize(ak_rt::bdr::BDR_MIN_CHUNK.div_ceil(8), 0);
@@ -9660,10 +9889,11 @@ pub fn parse_drain_with_upload_result_data(
 /// decomposition: the difference between this arm and the one above IS the
 /// copy, measured rather than estimated.
 pub fn parse_walk_with_upload_result_data(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<UploadResultData, i32> {
+    let ctx = ctxs.upload_result_data;
     let mut out = UploadResultData::default();
     toks.clear();
     let rc = unsafe {
@@ -9693,10 +9923,11 @@ pub fn parse_walk_with_upload_result_data(
 /// arm exists so that "pull is at parity with push here" is not secretly
 /// "pull's deposit code was inlined and push's could not be".
 pub fn parse_walk_opaque_with_upload_result_data(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<UploadResultData, i32> {
+    let ctx = ctxs.upload_result_data;
     let mut out = UploadResultData::default();
     toks.clear();
     let rc = unsafe {
@@ -9827,7 +10058,8 @@ unsafe extern "C" fn add_metrics_batch_statuses(
     })
 }
 
-pub fn decode_with_metrics_batch(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<MetricsBatch, i32> {
+pub fn decode_with_metrics_batch(ctxs: DecCtxs, b: &[u8]) -> Result<MetricsBatch, i32> {
+    let ctx = ctxs.metrics_batch;
     let mut out = MetricsBatch::default();
     let rc = unsafe {
         let mut sink = SinkMetricsBatch { out: &mut out, base: b.as_ptr() };
@@ -9845,10 +10077,13 @@ pub fn decode_with_metrics_batch(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<Metri
 }
 
 /// Decision 11: every position of `MetricsBatch` backed by `unk_grow` (no pre-allocated
-/// buffer), except position `zero`, if given, left all zero (discarded there).
+/// buffer; a repeated position is an empty pool), except position `zero`, if
+/// given, left all zero (discarded there).
 pub fn unk_opts_metrics_batch(zero: Option<usize>) -> ak_dec_MetricsBatch_opts {
     let e = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: Some(unk_grow) };
     let z = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: None };
+    let pe = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: Some(unk_grow) };
+    let pz = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: None };
     ak_dec_MetricsBatch_opts {
         host: ::core::ptr::null_mut(),
         self_: if zero == Some(0) { z } else { e },
@@ -9856,27 +10091,30 @@ pub fn unk_opts_metrics_batch(zero: Option<usize>) -> ak_dec_MetricsBatch_opts {
 }
 pub const UNK_POSITIONS_METRICSBATCH: usize = 1;
 
-/// The same decode with the context armed with `opts`, then disarmed; buffers
-/// the core placed but never delivered (an inactive oneof member, a map entry,
-/// a failed decode) are reclaimed.
-pub fn decode_with_metrics_batch_opts(ctx: *mut ak_dec_ctx, b: &[u8], opts: &ak_dec_MetricsBatch_opts) -> Result<MetricsBatch, i32> {
-    unsafe { ak_dec_reset_MetricsBatch(ctx, opts); }
-    let r = decode_with_metrics_batch(ctx, b);
-    unsafe { ak_dec_reset_MetricsBatch(ctx, ::core::ptr::null()); }
+/// The same decode with the context armed with `opts` (read IN PLACE by the core
+/// until the disarming reset), then disarmed; buffers the core placed but never
+/// delivered (an inactive oneof member, a map entry, a failed decode) are reclaimed.
+pub fn decode_with_metrics_batch_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_MetricsBatch_opts) -> Result<MetricsBatch, i32> {
+    let rc = unsafe { ak_dec_reset_MetricsBatch(ctxs.metrics_batch, opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = decode_with_metrics_batch(ctxs, b);
+    unsafe { ak_dec_reset_MetricsBatch(ctxs.metrics_batch, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
 
 /// Decision 11: retain everywhere.
-pub fn decode_with_metrics_batch_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<MetricsBatch, i32> {
-    decode_with_metrics_batch_opts(ctx, b, &unk_opts_metrics_batch(None))
+pub fn decode_with_metrics_batch_unk(ctxs: DecCtxs, b: &[u8]) -> Result<MetricsBatch, i32> {
+    decode_with_metrics_batch_opts(ctxs, b, &mut unk_opts_metrics_batch(None))
 }
 
 /// Decision 11: the pull family (walk in place) with every position retained.
-pub fn parse_walk_with_metrics_batch_unk(ctx: *mut ak_dec_ctx, b: &[u8], toks: &mut Vec<i64>) -> Result<MetricsBatch, i32> {
-    unsafe { ak_dec_reset_MetricsBatch(ctx, &unk_opts_metrics_batch(None)); }
-    let r = parse_walk_with_metrics_batch(ctx, b, toks);
-    unsafe { ak_dec_reset_MetricsBatch(ctx, ::core::ptr::null()); }
+pub fn parse_walk_with_metrics_batch_unk(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<MetricsBatch, i32> {
+    let mut opts = unk_opts_metrics_batch(None);
+    let rc = unsafe { ak_dec_reset_MetricsBatch(ctxs.metrics_batch, &mut opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = parse_walk_with_metrics_batch(ctxs, b, toks);
+    unsafe { ak_dec_reset_MetricsBatch(ctxs.metrics_batch, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
@@ -9889,7 +10127,7 @@ pub fn unk_clear_metrics_batch(o: &mut MetricsBatch, pos: usize) {
     }
 }
 
-pub fn unk_controls_metrics_batch(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
+pub fn unk_controls_metrics_batch(ctx: DecCtxs, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
     const IS_ENTRY: [bool; 1] = [false];
     unk_entry_bytes();
     let all = decode_with_metrics_batch_unk(ctx, b)?;
@@ -9901,7 +10139,7 @@ pub fn unk_controls_metrics_batch(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) -
     let dbg = |x: &MetricsBatch| format!("{:?}", x);
     let mut rep = UnkReport { positions: 1, pull_equal: dbg(&pw) == dbg(&all), entry_bytes: eb_all, ..Default::default() };
     for i in 0..1 {
-        let got = decode_with_metrics_batch_opts(ctx, b, &unk_opts_metrics_batch(Some(i)))?;
+        let got = decode_with_metrics_batch_opts(ctx, b, &mut unk_opts_metrics_batch(Some(i)))?;
         let eb = unk_entry_bytes();
         let mut exp = all.clone();
         if !plant { unk_clear_metrics_batch(&mut exp, i); }
@@ -10008,11 +10246,12 @@ unsafe fn replay_metrics_batch_opaque(
 /// measures the family and not an allocator. `Vec<u64>`: a record payload is
 /// an `ak_dfix_*` and has to be 8-aligned.
 pub fn parse_drain_with_metrics_batch(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     scratch: &mut Vec<u64>,
     toks: &mut Vec<i64>,
 ) -> Result<MetricsBatch, i32> {
+    let ctx = ctxs.metrics_batch;
     let mut out = MetricsBatch::default();
     if scratch.len() * 8 < ak_rt::bdr::BDR_MIN_CHUNK {
         scratch.resize(ak_rt::bdr::BDR_MIN_CHUNK.div_ceil(8), 0);
@@ -10051,10 +10290,11 @@ pub fn parse_drain_with_metrics_batch(
 /// decomposition: the difference between this arm and the one above IS the
 /// copy, measured rather than estimated.
 pub fn parse_walk_with_metrics_batch(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<MetricsBatch, i32> {
+    let ctx = ctxs.metrics_batch;
     let mut out = MetricsBatch::default();
     toks.clear();
     let rc = unsafe {
@@ -10084,10 +10324,11 @@ pub fn parse_walk_with_metrics_batch(
 /// arm exists so that "pull is at parity with push here" is not secretly
 /// "pull's deposit code was inlined and push's could not be".
 pub fn parse_walk_opaque_with_metrics_batch(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<MetricsBatch, i32> {
+    let ctx = ctxs.metrics_batch;
     let mut out = MetricsBatch::default();
     toks.clear();
     let rc = unsafe {
@@ -10134,7 +10375,8 @@ unsafe extern "C" fn apply_pair(
     })
 }
 
-pub fn decode_with_pair(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<Pair, i32> {
+pub fn decode_with_pair(ctxs: DecCtxs, b: &[u8]) -> Result<Pair, i32> {
+    let ctx = ctxs.pair;
     let mut out = Pair::default();
     let rc = unsafe {
         let mut sink = SinkPair { out: &mut out, base: b.as_ptr() };
@@ -10147,10 +10389,13 @@ pub fn decode_with_pair(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<Pair, i32> {
 }
 
 /// Decision 11: every position of `Pair` backed by `unk_grow` (no pre-allocated
-/// buffer), except position `zero`, if given, left all zero (discarded there).
+/// buffer; a repeated position is an empty pool), except position `zero`, if
+/// given, left all zero (discarded there).
 pub fn unk_opts_pair(zero: Option<usize>) -> ak_dec_Pair_opts {
     let e = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: Some(unk_grow) };
     let z = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: None };
+    let pe = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: Some(unk_grow) };
+    let pz = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: None };
     ak_dec_Pair_opts {
         host: ::core::ptr::null_mut(),
         self_: if zero == Some(0) { z } else { e },
@@ -10158,27 +10403,30 @@ pub fn unk_opts_pair(zero: Option<usize>) -> ak_dec_Pair_opts {
 }
 pub const UNK_POSITIONS_PAIR: usize = 1;
 
-/// The same decode with the context armed with `opts`, then disarmed; buffers
-/// the core placed but never delivered (an inactive oneof member, a map entry,
-/// a failed decode) are reclaimed.
-pub fn decode_with_pair_opts(ctx: *mut ak_dec_ctx, b: &[u8], opts: &ak_dec_Pair_opts) -> Result<Pair, i32> {
-    unsafe { ak_dec_reset_Pair(ctx, opts); }
-    let r = decode_with_pair(ctx, b);
-    unsafe { ak_dec_reset_Pair(ctx, ::core::ptr::null()); }
+/// The same decode with the context armed with `opts` (read IN PLACE by the core
+/// until the disarming reset), then disarmed; buffers the core placed but never
+/// delivered (an inactive oneof member, a map entry, a failed decode) are reclaimed.
+pub fn decode_with_pair_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_Pair_opts) -> Result<Pair, i32> {
+    let rc = unsafe { ak_dec_reset_Pair(ctxs.pair, opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = decode_with_pair(ctxs, b);
+    unsafe { ak_dec_reset_Pair(ctxs.pair, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
 
 /// Decision 11: retain everywhere.
-pub fn decode_with_pair_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<Pair, i32> {
-    decode_with_pair_opts(ctx, b, &unk_opts_pair(None))
+pub fn decode_with_pair_unk(ctxs: DecCtxs, b: &[u8]) -> Result<Pair, i32> {
+    decode_with_pair_opts(ctxs, b, &mut unk_opts_pair(None))
 }
 
 /// Decision 11: the pull family (walk in place) with every position retained.
-pub fn parse_walk_with_pair_unk(ctx: *mut ak_dec_ctx, b: &[u8], toks: &mut Vec<i64>) -> Result<Pair, i32> {
-    unsafe { ak_dec_reset_Pair(ctx, &unk_opts_pair(None)); }
-    let r = parse_walk_with_pair(ctx, b, toks);
-    unsafe { ak_dec_reset_Pair(ctx, ::core::ptr::null()); }
+pub fn parse_walk_with_pair_unk(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<Pair, i32> {
+    let mut opts = unk_opts_pair(None);
+    let rc = unsafe { ak_dec_reset_Pair(ctxs.pair, &mut opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = parse_walk_with_pair(ctxs, b, toks);
+    unsafe { ak_dec_reset_Pair(ctxs.pair, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
@@ -10191,7 +10439,7 @@ pub fn unk_clear_pair(o: &mut Pair, pos: usize) {
     }
 }
 
-pub fn unk_controls_pair(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
+pub fn unk_controls_pair(ctx: DecCtxs, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
     const IS_ENTRY: [bool; 1] = [false];
     unk_entry_bytes();
     let all = decode_with_pair_unk(ctx, b)?;
@@ -10203,7 +10451,7 @@ pub fn unk_controls_pair(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) -> Result<
     let dbg = |x: &Pair| format!("{:?}", x);
     let mut rep = UnkReport { positions: 1, pull_equal: dbg(&pw) == dbg(&all), entry_bytes: eb_all, ..Default::default() };
     for i in 0..1 {
-        let got = decode_with_pair_opts(ctx, b, &unk_opts_pair(Some(i)))?;
+        let got = decode_with_pair_opts(ctx, b, &mut unk_opts_pair(Some(i)))?;
         let eb = unk_entry_bytes();
         let mut exp = all.clone();
         if !plant { unk_clear_pair(&mut exp, i); }
@@ -10275,11 +10523,12 @@ unsafe fn replay_pair_opaque(
 /// measures the family and not an allocator. `Vec<u64>`: a record payload is
 /// an `ak_dfix_*` and has to be 8-aligned.
 pub fn parse_drain_with_pair(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     scratch: &mut Vec<u64>,
     toks: &mut Vec<i64>,
 ) -> Result<Pair, i32> {
+    let ctx = ctxs.pair;
     let mut out = Pair::default();
     if scratch.len() * 8 < ak_rt::bdr::BDR_MIN_CHUNK {
         scratch.resize(ak_rt::bdr::BDR_MIN_CHUNK.div_ceil(8), 0);
@@ -10318,10 +10567,11 @@ pub fn parse_drain_with_pair(
 /// decomposition: the difference between this arm and the one above IS the
 /// copy, measured rather than estimated.
 pub fn parse_walk_with_pair(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<Pair, i32> {
+    let ctx = ctxs.pair;
     let mut out = Pair::default();
     toks.clear();
     let rc = unsafe {
@@ -10351,10 +10601,11 @@ pub fn parse_walk_with_pair(
 /// arm exists so that "pull is at parity with push here" is not secretly
 /// "pull's deposit code was inlined and push's could not be".
 pub fn parse_walk_opaque_with_pair(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<Pair, i32> {
+    let ctx = ctxs.pair;
     let mut out = Pair::default();
     toks.clear();
     let rc = unsafe {
@@ -10418,7 +10669,8 @@ unsafe extern "C" fn add_list_results_response_results(
     })
 }
 
-pub fn decode_with_list_results_response(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ListResultsResponse, i32> {
+pub fn decode_with_list_results_response(ctxs: DecCtxs, b: &[u8]) -> Result<ListResultsResponse, i32> {
+    let ctx = ctxs.list_results_response;
     let mut out = ListResultsResponse::default();
     let rc = unsafe {
         let mut sink = SinkListResultsResponse { out: &mut out, base: b.as_ptr() };
@@ -10432,41 +10684,47 @@ pub fn decode_with_list_results_response(ctx: *mut ak_dec_ctx, b: &[u8]) -> Resu
 }
 
 /// Decision 11: every position of `ListResultsResponse` backed by `unk_grow` (no pre-allocated
-/// buffer), except position `zero`, if given, left all zero (discarded there).
+/// buffer; a repeated position is an empty pool), except position `zero`, if
+/// given, left all zero (discarded there).
 pub fn unk_opts_list_results_response(zero: Option<usize>) -> ak_dec_ListResultsResponse_opts {
     let e = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: Some(unk_grow) };
     let z = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: None };
+    let pe = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: Some(unk_grow) };
+    let pz = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: None };
     ak_dec_ListResultsResponse_opts {
         host: ::core::ptr::null_mut(),
         self_: if zero == Some(0) { z } else { e },
-        results: if zero == Some(1) { z } else { e },
-        results_created_at: if zero == Some(2) { z } else { e },
-        results_completed_at: if zero == Some(3) { z } else { e },
+        results: if zero == Some(1) { pz } else { pe },
+        results_created_at: if zero == Some(2) { pz } else { pe },
+        results_completed_at: if zero == Some(3) { pz } else { pe },
     }
 }
 pub const UNK_POSITIONS_LISTRESULTSRESPONSE: usize = 4;
 
-/// The same decode with the context armed with `opts`, then disarmed; buffers
-/// the core placed but never delivered (an inactive oneof member, a map entry,
-/// a failed decode) are reclaimed.
-pub fn decode_with_list_results_response_opts(ctx: *mut ak_dec_ctx, b: &[u8], opts: &ak_dec_ListResultsResponse_opts) -> Result<ListResultsResponse, i32> {
-    unsafe { ak_dec_reset_ListResultsResponse(ctx, opts); }
-    let r = decode_with_list_results_response(ctx, b);
-    unsafe { ak_dec_reset_ListResultsResponse(ctx, ::core::ptr::null()); }
+/// The same decode with the context armed with `opts` (read IN PLACE by the core
+/// until the disarming reset), then disarmed; buffers the core placed but never
+/// delivered (an inactive oneof member, a map entry, a failed decode) are reclaimed.
+pub fn decode_with_list_results_response_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_ListResultsResponse_opts) -> Result<ListResultsResponse, i32> {
+    let rc = unsafe { ak_dec_reset_ListResultsResponse(ctxs.list_results_response, opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = decode_with_list_results_response(ctxs, b);
+    unsafe { ak_dec_reset_ListResultsResponse(ctxs.list_results_response, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
 
 /// Decision 11: retain everywhere.
-pub fn decode_with_list_results_response_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ListResultsResponse, i32> {
-    decode_with_list_results_response_opts(ctx, b, &unk_opts_list_results_response(None))
+pub fn decode_with_list_results_response_unk(ctxs: DecCtxs, b: &[u8]) -> Result<ListResultsResponse, i32> {
+    decode_with_list_results_response_opts(ctxs, b, &mut unk_opts_list_results_response(None))
 }
 
 /// Decision 11: the pull family (walk in place) with every position retained.
-pub fn parse_walk_with_list_results_response_unk(ctx: *mut ak_dec_ctx, b: &[u8], toks: &mut Vec<i64>) -> Result<ListResultsResponse, i32> {
-    unsafe { ak_dec_reset_ListResultsResponse(ctx, &unk_opts_list_results_response(None)); }
-    let r = parse_walk_with_list_results_response(ctx, b, toks);
-    unsafe { ak_dec_reset_ListResultsResponse(ctx, ::core::ptr::null()); }
+pub fn parse_walk_with_list_results_response_unk(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<ListResultsResponse, i32> {
+    let mut opts = unk_opts_list_results_response(None);
+    let rc = unsafe { ak_dec_reset_ListResultsResponse(ctxs.list_results_response, &mut opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = parse_walk_with_list_results_response(ctxs, b, toks);
+    unsafe { ak_dec_reset_ListResultsResponse(ctxs.list_results_response, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
@@ -10482,7 +10740,7 @@ pub fn unk_clear_list_results_response(o: &mut ListResultsResponse, pos: usize) 
     }
 }
 
-pub fn unk_controls_list_results_response(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
+pub fn unk_controls_list_results_response(ctx: DecCtxs, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
     const IS_ENTRY: [bool; 4] = [false, false, false, false];
     unk_entry_bytes();
     let all = decode_with_list_results_response_unk(ctx, b)?;
@@ -10494,7 +10752,7 @@ pub fn unk_controls_list_results_response(ctx: *mut ak_dec_ctx, b: &[u8], plant:
     let dbg = |x: &ListResultsResponse| format!("{:?}", x);
     let mut rep = UnkReport { positions: 4, pull_equal: dbg(&pw) == dbg(&all), entry_bytes: eb_all, ..Default::default() };
     for i in 0..4 {
-        let got = decode_with_list_results_response_opts(ctx, b, &unk_opts_list_results_response(Some(i)))?;
+        let got = decode_with_list_results_response_opts(ctx, b, &mut unk_opts_list_results_response(Some(i)))?;
         let eb = unk_entry_bytes();
         let mut exp = all.clone();
         if !plant { unk_clear_list_results_response(&mut exp, i); }
@@ -10573,11 +10831,12 @@ unsafe fn replay_list_results_response_opaque(
 /// measures the family and not an allocator. `Vec<u64>`: a record payload is
 /// an `ak_dfix_*` and has to be 8-aligned.
 pub fn parse_drain_with_list_results_response(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     scratch: &mut Vec<u64>,
     toks: &mut Vec<i64>,
 ) -> Result<ListResultsResponse, i32> {
+    let ctx = ctxs.list_results_response;
     let mut out = ListResultsResponse::default();
     if scratch.len() * 8 < ak_rt::bdr::BDR_MIN_CHUNK {
         scratch.resize(ak_rt::bdr::BDR_MIN_CHUNK.div_ceil(8), 0);
@@ -10616,10 +10875,11 @@ pub fn parse_drain_with_list_results_response(
 /// decomposition: the difference between this arm and the one above IS the
 /// copy, measured rather than estimated.
 pub fn parse_walk_with_list_results_response(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<ListResultsResponse, i32> {
+    let ctx = ctxs.list_results_response;
     let mut out = ListResultsResponse::default();
     toks.clear();
     let rc = unsafe {
@@ -10649,10 +10909,11 @@ pub fn parse_walk_with_list_results_response(
 /// arm exists so that "pull is at parity with push here" is not secretly
 /// "pull's deposit code was inlined and push's could not be".
 pub fn parse_walk_opaque_with_list_results_response(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<ListResultsResponse, i32> {
+    let ctx = ctxs.list_results_response;
     let mut out = ListResultsResponse::default();
     toks.clear();
     let rc = unsafe {
@@ -10811,7 +11072,8 @@ unsafe extern "C" fn add_list_tasks_detailed_response_tasks_options_options(
     })
 }
 
-pub fn decode_with_list_tasks_detailed_response(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ListTasksDetailedResponse, i32> {
+pub fn decode_with_list_tasks_detailed_response(ctxs: DecCtxs, b: &[u8]) -> Result<ListTasksDetailedResponse, i32> {
+    let ctx = ctxs.list_tasks_detailed_response;
     let mut out = ListTasksDetailedResponse::default();
     let rc = unsafe {
         let mut sink = SinkListTasksDetailedResponse { out: &mut out, base: b.as_ptr() };
@@ -10831,55 +11093,61 @@ pub fn decode_with_list_tasks_detailed_response(ctx: *mut ak_dec_ctx, b: &[u8]) 
 }
 
 /// Decision 11: every position of `ListTasksDetailedResponse` backed by `unk_grow` (no pre-allocated
-/// buffer), except position `zero`, if given, left all zero (discarded there).
+/// buffer; a repeated position is an empty pool), except position `zero`, if
+/// given, left all zero (discarded there).
 pub fn unk_opts_list_tasks_detailed_response(zero: Option<usize>) -> ak_dec_ListTasksDetailedResponse_opts {
     let e = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: Some(unk_grow) };
     let z = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: None };
+    let pe = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: Some(unk_grow) };
+    let pz = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: None };
     ak_dec_ListTasksDetailedResponse_opts {
         host: ::core::ptr::null_mut(),
         self_: if zero == Some(0) { z } else { e },
-        tasks: if zero == Some(1) { z } else { e },
-        tasks_options: if zero == Some(2) { z } else { e },
-        tasks_options_options: if zero == Some(3) { z } else { e },
-        tasks_options_max_duration: if zero == Some(4) { z } else { e },
-        tasks_created_at: if zero == Some(5) { z } else { e },
-        tasks_submitted_at: if zero == Some(6) { z } else { e },
-        tasks_started_at: if zero == Some(7) { z } else { e },
-        tasks_ended_at: if zero == Some(8) { z } else { e },
-        tasks_pod_ttl: if zero == Some(9) { z } else { e },
-        tasks_output: if zero == Some(10) { z } else { e },
-        tasks_received_at: if zero == Some(11) { z } else { e },
-        tasks_acquired_at: if zero == Some(12) { z } else { e },
-        tasks_creation_to_end_duration: if zero == Some(13) { z } else { e },
-        tasks_processing_to_end_duration: if zero == Some(14) { z } else { e },
-        tasks_received_to_end_duration: if zero == Some(15) { z } else { e },
-        tasks_processed_at: if zero == Some(16) { z } else { e },
-        tasks_fetched_at: if zero == Some(17) { z } else { e },
+        tasks: if zero == Some(1) { pz } else { pe },
+        tasks_options: if zero == Some(2) { pz } else { pe },
+        tasks_options_options: if zero == Some(3) { pz } else { pe },
+        tasks_options_max_duration: if zero == Some(4) { pz } else { pe },
+        tasks_created_at: if zero == Some(5) { pz } else { pe },
+        tasks_submitted_at: if zero == Some(6) { pz } else { pe },
+        tasks_started_at: if zero == Some(7) { pz } else { pe },
+        tasks_ended_at: if zero == Some(8) { pz } else { pe },
+        tasks_pod_ttl: if zero == Some(9) { pz } else { pe },
+        tasks_output: if zero == Some(10) { pz } else { pe },
+        tasks_received_at: if zero == Some(11) { pz } else { pe },
+        tasks_acquired_at: if zero == Some(12) { pz } else { pe },
+        tasks_creation_to_end_duration: if zero == Some(13) { pz } else { pe },
+        tasks_processing_to_end_duration: if zero == Some(14) { pz } else { pe },
+        tasks_received_to_end_duration: if zero == Some(15) { pz } else { pe },
+        tasks_processed_at: if zero == Some(16) { pz } else { pe },
+        tasks_fetched_at: if zero == Some(17) { pz } else { pe },
     }
 }
 pub const UNK_POSITIONS_LISTTASKSDETAILEDRESPONSE: usize = 18;
 
-/// The same decode with the context armed with `opts`, then disarmed; buffers
-/// the core placed but never delivered (an inactive oneof member, a map entry,
-/// a failed decode) are reclaimed.
-pub fn decode_with_list_tasks_detailed_response_opts(ctx: *mut ak_dec_ctx, b: &[u8], opts: &ak_dec_ListTasksDetailedResponse_opts) -> Result<ListTasksDetailedResponse, i32> {
-    unsafe { ak_dec_reset_ListTasksDetailedResponse(ctx, opts); }
-    let r = decode_with_list_tasks_detailed_response(ctx, b);
-    unsafe { ak_dec_reset_ListTasksDetailedResponse(ctx, ::core::ptr::null()); }
+/// The same decode with the context armed with `opts` (read IN PLACE by the core
+/// until the disarming reset), then disarmed; buffers the core placed but never
+/// delivered (an inactive oneof member, a map entry, a failed decode) are reclaimed.
+pub fn decode_with_list_tasks_detailed_response_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_ListTasksDetailedResponse_opts) -> Result<ListTasksDetailedResponse, i32> {
+    let rc = unsafe { ak_dec_reset_ListTasksDetailedResponse(ctxs.list_tasks_detailed_response, opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = decode_with_list_tasks_detailed_response(ctxs, b);
+    unsafe { ak_dec_reset_ListTasksDetailedResponse(ctxs.list_tasks_detailed_response, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
 
 /// Decision 11: retain everywhere.
-pub fn decode_with_list_tasks_detailed_response_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ListTasksDetailedResponse, i32> {
-    decode_with_list_tasks_detailed_response_opts(ctx, b, &unk_opts_list_tasks_detailed_response(None))
+pub fn decode_with_list_tasks_detailed_response_unk(ctxs: DecCtxs, b: &[u8]) -> Result<ListTasksDetailedResponse, i32> {
+    decode_with_list_tasks_detailed_response_opts(ctxs, b, &mut unk_opts_list_tasks_detailed_response(None))
 }
 
 /// Decision 11: the pull family (walk in place) with every position retained.
-pub fn parse_walk_with_list_tasks_detailed_response_unk(ctx: *mut ak_dec_ctx, b: &[u8], toks: &mut Vec<i64>) -> Result<ListTasksDetailedResponse, i32> {
-    unsafe { ak_dec_reset_ListTasksDetailedResponse(ctx, &unk_opts_list_tasks_detailed_response(None)); }
-    let r = parse_walk_with_list_tasks_detailed_response(ctx, b, toks);
-    unsafe { ak_dec_reset_ListTasksDetailedResponse(ctx, ::core::ptr::null()); }
+pub fn parse_walk_with_list_tasks_detailed_response_unk(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<ListTasksDetailedResponse, i32> {
+    let mut opts = unk_opts_list_tasks_detailed_response(None);
+    let rc = unsafe { ak_dec_reset_ListTasksDetailedResponse(ctxs.list_tasks_detailed_response, &mut opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = parse_walk_with_list_tasks_detailed_response(ctxs, b, toks);
+    unsafe { ak_dec_reset_ListTasksDetailedResponse(ctxs.list_tasks_detailed_response, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
@@ -10909,7 +11177,7 @@ pub fn unk_clear_list_tasks_detailed_response(o: &mut ListTasksDetailedResponse,
     }
 }
 
-pub fn unk_controls_list_tasks_detailed_response(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
+pub fn unk_controls_list_tasks_detailed_response(ctx: DecCtxs, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
     const IS_ENTRY: [bool; 18] = [false, false, false, true, false, false, false, false, false, false, false, false, false, false, false, false, false, false];
     unk_entry_bytes();
     let all = decode_with_list_tasks_detailed_response_unk(ctx, b)?;
@@ -10921,7 +11189,7 @@ pub fn unk_controls_list_tasks_detailed_response(ctx: *mut ak_dec_ctx, b: &[u8],
     let dbg = |x: &ListTasksDetailedResponse| format!("{:?}", x);
     let mut rep = UnkReport { positions: 18, pull_equal: dbg(&pw) == dbg(&all), entry_bytes: eb_all, ..Default::default() };
     for i in 0..18 {
-        let got = decode_with_list_tasks_detailed_response_opts(ctx, b, &unk_opts_list_tasks_detailed_response(Some(i)))?;
+        let got = decode_with_list_tasks_detailed_response_opts(ctx, b, &mut unk_opts_list_tasks_detailed_response(Some(i)))?;
         let eb = unk_entry_bytes();
         let mut exp = all.clone();
         if !plant { unk_clear_list_tasks_detailed_response(&mut exp, i); }
@@ -11035,11 +11303,12 @@ unsafe fn replay_list_tasks_detailed_response_opaque(
 /// measures the family and not an allocator. `Vec<u64>`: a record payload is
 /// an `ak_dfix_*` and has to be 8-aligned.
 pub fn parse_drain_with_list_tasks_detailed_response(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     scratch: &mut Vec<u64>,
     toks: &mut Vec<i64>,
 ) -> Result<ListTasksDetailedResponse, i32> {
+    let ctx = ctxs.list_tasks_detailed_response;
     let mut out = ListTasksDetailedResponse::default();
     if scratch.len() * 8 < ak_rt::bdr::BDR_MIN_CHUNK {
         scratch.resize(ak_rt::bdr::BDR_MIN_CHUNK.div_ceil(8), 0);
@@ -11078,10 +11347,11 @@ pub fn parse_drain_with_list_tasks_detailed_response(
 /// decomposition: the difference between this arm and the one above IS the
 /// copy, measured rather than estimated.
 pub fn parse_walk_with_list_tasks_detailed_response(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<ListTasksDetailedResponse, i32> {
+    let ctx = ctxs.list_tasks_detailed_response;
     let mut out = ListTasksDetailedResponse::default();
     toks.clear();
     let rc = unsafe {
@@ -11111,10 +11381,11 @@ pub fn parse_walk_with_list_tasks_detailed_response(
 /// arm exists so that "pull is at parity with push here" is not secretly
 /// "pull's deposit code was inlined and push's could not be".
 pub fn parse_walk_opaque_with_list_tasks_detailed_response(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<ListTasksDetailedResponse, i32> {
+    let ctx = ctxs.list_tasks_detailed_response;
     let mut out = ListTasksDetailedResponse::default();
     toks.clear();
     let rc = unsafe {
@@ -11203,7 +11474,8 @@ unsafe extern "C" fn add_list_task_summary_response_tasks_options_options(
     })
 }
 
-pub fn decode_with_list_task_summary_response(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ListTaskSummaryResponse, i32> {
+pub fn decode_with_list_task_summary_response(ctxs: DecCtxs, b: &[u8]) -> Result<ListTaskSummaryResponse, i32> {
+    let ctx = ctxs.list_task_summary_response;
     let mut out = ListTaskSummaryResponse::default();
     let rc = unsafe {
         let mut sink = SinkListTaskSummaryResponse { out: &mut out, base: b.as_ptr() };
@@ -11219,43 +11491,49 @@ pub fn decode_with_list_task_summary_response(ctx: *mut ak_dec_ctx, b: &[u8]) ->
 }
 
 /// Decision 11: every position of `ListTaskSummaryResponse` backed by `unk_grow` (no pre-allocated
-/// buffer), except position `zero`, if given, left all zero (discarded there).
+/// buffer; a repeated position is an empty pool), except position `zero`, if
+/// given, left all zero (discarded there).
 pub fn unk_opts_list_task_summary_response(zero: Option<usize>) -> ak_dec_ListTaskSummaryResponse_opts {
     let e = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: Some(unk_grow) };
     let z = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: None };
+    let pe = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: Some(unk_grow) };
+    let pz = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: None };
     ak_dec_ListTaskSummaryResponse_opts {
         host: ::core::ptr::null_mut(),
         self_: if zero == Some(0) { z } else { e },
-        tasks: if zero == Some(1) { z } else { e },
-        tasks_options: if zero == Some(2) { z } else { e },
-        tasks_options_options: if zero == Some(3) { z } else { e },
-        tasks_options_max_duration: if zero == Some(4) { z } else { e },
-        tasks_created_at: if zero == Some(5) { z } else { e },
+        tasks: if zero == Some(1) { pz } else { pe },
+        tasks_options: if zero == Some(2) { pz } else { pe },
+        tasks_options_options: if zero == Some(3) { pz } else { pe },
+        tasks_options_max_duration: if zero == Some(4) { pz } else { pe },
+        tasks_created_at: if zero == Some(5) { pz } else { pe },
     }
 }
 pub const UNK_POSITIONS_LISTTASKSUMMARYRESPONSE: usize = 6;
 
-/// The same decode with the context armed with `opts`, then disarmed; buffers
-/// the core placed but never delivered (an inactive oneof member, a map entry,
-/// a failed decode) are reclaimed.
-pub fn decode_with_list_task_summary_response_opts(ctx: *mut ak_dec_ctx, b: &[u8], opts: &ak_dec_ListTaskSummaryResponse_opts) -> Result<ListTaskSummaryResponse, i32> {
-    unsafe { ak_dec_reset_ListTaskSummaryResponse(ctx, opts); }
-    let r = decode_with_list_task_summary_response(ctx, b);
-    unsafe { ak_dec_reset_ListTaskSummaryResponse(ctx, ::core::ptr::null()); }
+/// The same decode with the context armed with `opts` (read IN PLACE by the core
+/// until the disarming reset), then disarmed; buffers the core placed but never
+/// delivered (an inactive oneof member, a map entry, a failed decode) are reclaimed.
+pub fn decode_with_list_task_summary_response_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_ListTaskSummaryResponse_opts) -> Result<ListTaskSummaryResponse, i32> {
+    let rc = unsafe { ak_dec_reset_ListTaskSummaryResponse(ctxs.list_task_summary_response, opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = decode_with_list_task_summary_response(ctxs, b);
+    unsafe { ak_dec_reset_ListTaskSummaryResponse(ctxs.list_task_summary_response, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
 
 /// Decision 11: retain everywhere.
-pub fn decode_with_list_task_summary_response_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ListTaskSummaryResponse, i32> {
-    decode_with_list_task_summary_response_opts(ctx, b, &unk_opts_list_task_summary_response(None))
+pub fn decode_with_list_task_summary_response_unk(ctxs: DecCtxs, b: &[u8]) -> Result<ListTaskSummaryResponse, i32> {
+    decode_with_list_task_summary_response_opts(ctxs, b, &mut unk_opts_list_task_summary_response(None))
 }
 
 /// Decision 11: the pull family (walk in place) with every position retained.
-pub fn parse_walk_with_list_task_summary_response_unk(ctx: *mut ak_dec_ctx, b: &[u8], toks: &mut Vec<i64>) -> Result<ListTaskSummaryResponse, i32> {
-    unsafe { ak_dec_reset_ListTaskSummaryResponse(ctx, &unk_opts_list_task_summary_response(None)); }
-    let r = parse_walk_with_list_task_summary_response(ctx, b, toks);
-    unsafe { ak_dec_reset_ListTaskSummaryResponse(ctx, ::core::ptr::null()); }
+pub fn parse_walk_with_list_task_summary_response_unk(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<ListTaskSummaryResponse, i32> {
+    let mut opts = unk_opts_list_task_summary_response(None);
+    let rc = unsafe { ak_dec_reset_ListTaskSummaryResponse(ctxs.list_task_summary_response, &mut opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = parse_walk_with_list_task_summary_response(ctxs, b, toks);
+    unsafe { ak_dec_reset_ListTaskSummaryResponse(ctxs.list_task_summary_response, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
@@ -11273,7 +11551,7 @@ pub fn unk_clear_list_task_summary_response(o: &mut ListTaskSummaryResponse, pos
     }
 }
 
-pub fn unk_controls_list_task_summary_response(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
+pub fn unk_controls_list_task_summary_response(ctx: DecCtxs, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
     const IS_ENTRY: [bool; 6] = [false, false, false, true, false, false];
     unk_entry_bytes();
     let all = decode_with_list_task_summary_response_unk(ctx, b)?;
@@ -11285,7 +11563,7 @@ pub fn unk_controls_list_task_summary_response(ctx: *mut ak_dec_ctx, b: &[u8], p
     let dbg = |x: &ListTaskSummaryResponse| format!("{:?}", x);
     let mut rep = UnkReport { positions: 6, pull_equal: dbg(&pw) == dbg(&all), entry_bytes: eb_all, ..Default::default() };
     for i in 0..6 {
-        let got = decode_with_list_task_summary_response_opts(ctx, b, &unk_opts_list_task_summary_response(Some(i)))?;
+        let got = decode_with_list_task_summary_response_opts(ctx, b, &mut unk_opts_list_task_summary_response(Some(i)))?;
         let eb = unk_entry_bytes();
         let mut exp = all.clone();
         if !plant { unk_clear_list_task_summary_response(&mut exp, i); }
@@ -11371,11 +11649,12 @@ unsafe fn replay_list_task_summary_response_opaque(
 /// measures the family and not an allocator. `Vec<u64>`: a record payload is
 /// an `ak_dfix_*` and has to be 8-aligned.
 pub fn parse_drain_with_list_task_summary_response(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     scratch: &mut Vec<u64>,
     toks: &mut Vec<i64>,
 ) -> Result<ListTaskSummaryResponse, i32> {
+    let ctx = ctxs.list_task_summary_response;
     let mut out = ListTaskSummaryResponse::default();
     if scratch.len() * 8 < ak_rt::bdr::BDR_MIN_CHUNK {
         scratch.resize(ak_rt::bdr::BDR_MIN_CHUNK.div_ceil(8), 0);
@@ -11414,10 +11693,11 @@ pub fn parse_drain_with_list_task_summary_response(
 /// decomposition: the difference between this arm and the one above IS the
 /// copy, measured rather than estimated.
 pub fn parse_walk_with_list_task_summary_response(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<ListTaskSummaryResponse, i32> {
+    let ctx = ctxs.list_task_summary_response;
     let mut out = ListTaskSummaryResponse::default();
     toks.clear();
     let rc = unsafe {
@@ -11447,10 +11727,11 @@ pub fn parse_walk_with_list_task_summary_response(
 /// arm exists so that "pull is at parity with push here" is not secretly
 /// "pull's deposit code was inlined and push's could not be".
 pub fn parse_walk_opaque_with_list_task_summary_response(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<ListTaskSummaryResponse, i32> {
+    let ctx = ctxs.list_task_summary_response;
     let mut out = ListTaskSummaryResponse::default();
     toks.clear();
     let rc = unsafe {
@@ -11512,7 +11793,8 @@ unsafe extern "C" fn add_list_probe_response_probes(
     })
 }
 
-pub fn decode_with_list_probe_response(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ListProbeResponse, i32> {
+pub fn decode_with_list_probe_response(ctxs: DecCtxs, b: &[u8]) -> Result<ListProbeResponse, i32> {
+    let ctx = ctxs.list_probe_response;
     let mut out = ListProbeResponse::default();
     let rc = unsafe {
         let mut sink = SinkListProbeResponse { out: &mut out, base: b.as_ptr() };
@@ -11526,41 +11808,46 @@ pub fn decode_with_list_probe_response(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result
 }
 
 /// Decision 11: every position of `ListProbeResponse` backed by `unk_grow` (no pre-allocated
-/// buffer), except position `zero`, if given, left all zero (discarded there).
+/// buffer; a repeated position is an empty pool), except position `zero`, if
+/// given, left all zero (discarded there).
 pub fn unk_opts_list_probe_response(zero: Option<usize>) -> ak_dec_ListProbeResponse_opts {
     let e = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: Some(unk_grow) };
     let z = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: None };
+    let pe = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: Some(unk_grow) };
+    let pz = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: None };
     ak_dec_ListProbeResponse_opts {
         host: ::core::ptr::null_mut(),
         self_: if zero == Some(0) { z } else { e },
-        probes: if zero == Some(1) { z } else { e },
-        probes_body_as_stamp: if zero == Some(2) { z } else { e },
-        probes_body_as_nothing: if zero == Some(3) { z } else { e },
+        probes: if zero == Some(1) { pz } else { pe },
+        probes_body: if zero == Some(2) { pz } else { pe },
     }
 }
-pub const UNK_POSITIONS_LISTPROBERESPONSE: usize = 4;
+pub const UNK_POSITIONS_LISTPROBERESPONSE: usize = 3;
 
-/// The same decode with the context armed with `opts`, then disarmed; buffers
-/// the core placed but never delivered (an inactive oneof member, a map entry,
-/// a failed decode) are reclaimed.
-pub fn decode_with_list_probe_response_opts(ctx: *mut ak_dec_ctx, b: &[u8], opts: &ak_dec_ListProbeResponse_opts) -> Result<ListProbeResponse, i32> {
-    unsafe { ak_dec_reset_ListProbeResponse(ctx, opts); }
-    let r = decode_with_list_probe_response(ctx, b);
-    unsafe { ak_dec_reset_ListProbeResponse(ctx, ::core::ptr::null()); }
+/// The same decode with the context armed with `opts` (read IN PLACE by the core
+/// until the disarming reset), then disarmed; buffers the core placed but never
+/// delivered (an inactive oneof member, a map entry, a failed decode) are reclaimed.
+pub fn decode_with_list_probe_response_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_ListProbeResponse_opts) -> Result<ListProbeResponse, i32> {
+    let rc = unsafe { ak_dec_reset_ListProbeResponse(ctxs.list_probe_response, opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = decode_with_list_probe_response(ctxs, b);
+    unsafe { ak_dec_reset_ListProbeResponse(ctxs.list_probe_response, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
 
 /// Decision 11: retain everywhere.
-pub fn decode_with_list_probe_response_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ListProbeResponse, i32> {
-    decode_with_list_probe_response_opts(ctx, b, &unk_opts_list_probe_response(None))
+pub fn decode_with_list_probe_response_unk(ctxs: DecCtxs, b: &[u8]) -> Result<ListProbeResponse, i32> {
+    decode_with_list_probe_response_opts(ctxs, b, &mut unk_opts_list_probe_response(None))
 }
 
 /// Decision 11: the pull family (walk in place) with every position retained.
-pub fn parse_walk_with_list_probe_response_unk(ctx: *mut ak_dec_ctx, b: &[u8], toks: &mut Vec<i64>) -> Result<ListProbeResponse, i32> {
-    unsafe { ak_dec_reset_ListProbeResponse(ctx, &unk_opts_list_probe_response(None)); }
-    let r = parse_walk_with_list_probe_response(ctx, b, toks);
-    unsafe { ak_dec_reset_ListProbeResponse(ctx, ::core::ptr::null()); }
+pub fn parse_walk_with_list_probe_response_unk(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<ListProbeResponse, i32> {
+    let mut opts = unk_opts_list_probe_response(None);
+    let rc = unsafe { ak_dec_reset_ListProbeResponse(ctxs.list_probe_response, &mut opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = parse_walk_with_list_probe_response(ctxs, b, toks);
+    unsafe { ak_dec_reset_ListProbeResponse(ctxs.list_probe_response, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
@@ -11570,14 +11857,13 @@ pub fn unk_clear_list_probe_response(o: &mut ListProbeResponse, pos: usize) {
     match pos {
         0 => { o.unknown_fields.clear(); }
         1 => { for x0 in o.probes.iter_mut() { x0.unknown_fields.clear(); } }
-        2 => { for x0 in o.probes.iter_mut() { if let Some(ProbeBody::AsStamp(x1)) = x0.body.as_mut() { x1.unknown_fields.clear(); } } }
-        3 => { for x0 in o.probes.iter_mut() { if let Some(ProbeBody::AsNothing(x1)) = x0.body.as_mut() { x1.unknown_fields.clear(); } } }
+        2 => { for x0 in o.probes.iter_mut() { match x0.body.as_mut() { Some(ProbeBody::AsStamp(x1)) => { x1.unknown_fields.clear(); } Some(ProbeBody::AsNothing(x1)) => { x1.unknown_fields.clear(); } _ => {} } } }
         _ => {}
     }
 }
 
-pub fn unk_controls_list_probe_response(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
-    const IS_ENTRY: [bool; 4] = [false, false, false, false];
+pub fn unk_controls_list_probe_response(ctx: DecCtxs, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
+    const IS_ENTRY: [bool; 3] = [false, false, false];
     unk_entry_bytes();
     let all = decode_with_list_probe_response_unk(ctx, b)?;
     let eb_all = unk_entry_bytes();
@@ -11586,9 +11872,9 @@ pub fn unk_controls_list_probe_response(ctx: *mut ak_dec_ctx, b: &[u8], plant: b
     unk_entry_bytes();
     // Compared through Debug so a NaN equals itself (S-double-nan); bytes are the corpus's job.
     let dbg = |x: &ListProbeResponse| format!("{:?}", x);
-    let mut rep = UnkReport { positions: 4, pull_equal: dbg(&pw) == dbg(&all), entry_bytes: eb_all, ..Default::default() };
-    for i in 0..4 {
-        let got = decode_with_list_probe_response_opts(ctx, b, &unk_opts_list_probe_response(Some(i)))?;
+    let mut rep = UnkReport { positions: 3, pull_equal: dbg(&pw) == dbg(&all), entry_bytes: eb_all, ..Default::default() };
+    for i in 0..3 {
+        let got = decode_with_list_probe_response_opts(ctx, b, &mut unk_opts_list_probe_response(Some(i)))?;
         let eb = unk_entry_bytes();
         let mut exp = all.clone();
         if !plant { unk_clear_list_probe_response(&mut exp, i); }
@@ -11667,11 +11953,12 @@ unsafe fn replay_list_probe_response_opaque(
 /// measures the family and not an allocator. `Vec<u64>`: a record payload is
 /// an `ak_dfix_*` and has to be 8-aligned.
 pub fn parse_drain_with_list_probe_response(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     scratch: &mut Vec<u64>,
     toks: &mut Vec<i64>,
 ) -> Result<ListProbeResponse, i32> {
+    let ctx = ctxs.list_probe_response;
     let mut out = ListProbeResponse::default();
     if scratch.len() * 8 < ak_rt::bdr::BDR_MIN_CHUNK {
         scratch.resize(ak_rt::bdr::BDR_MIN_CHUNK.div_ceil(8), 0);
@@ -11710,10 +11997,11 @@ pub fn parse_drain_with_list_probe_response(
 /// decomposition: the difference between this arm and the one above IS the
 /// copy, measured rather than estimated.
 pub fn parse_walk_with_list_probe_response(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<ListProbeResponse, i32> {
+    let ctx = ctxs.list_probe_response;
     let mut out = ListProbeResponse::default();
     toks.clear();
     let rc = unsafe {
@@ -11743,10 +12031,11 @@ pub fn parse_walk_with_list_probe_response(
 /// arm exists so that "pull is at parity with push here" is not secretly
 /// "pull's deposit code was inlined and push's could not be".
 pub fn parse_walk_opaque_with_list_probe_response(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<ListProbeResponse, i32> {
+    let ctx = ctxs.list_probe_response;
     let mut out = ListProbeResponse::default();
     toks.clear();
     let rc = unsafe {
@@ -11897,7 +12186,8 @@ unsafe extern "C" fn add_list_metrics_response_batches_statuses(
     })
 }
 
-pub fn decode_with_list_metrics_response(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ListMetricsResponse, i32> {
+pub fn decode_with_list_metrics_response(ctxs: DecCtxs, b: &[u8]) -> Result<ListMetricsResponse, i32> {
+    let ctx = ctxs.list_metrics_response;
     let mut out = ListMetricsResponse::default();
     let rc = unsafe {
         let mut sink = SinkListMetricsResponse { out: &mut out, base: b.as_ptr() };
@@ -11917,39 +12207,45 @@ pub fn decode_with_list_metrics_response(ctx: *mut ak_dec_ctx, b: &[u8]) -> Resu
 }
 
 /// Decision 11: every position of `ListMetricsResponse` backed by `unk_grow` (no pre-allocated
-/// buffer), except position `zero`, if given, left all zero (discarded there).
+/// buffer; a repeated position is an empty pool), except position `zero`, if
+/// given, left all zero (discarded there).
 pub fn unk_opts_list_metrics_response(zero: Option<usize>) -> ak_dec_ListMetricsResponse_opts {
     let e = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: Some(unk_grow) };
     let z = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: None };
+    let pe = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: Some(unk_grow) };
+    let pz = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: None };
     ak_dec_ListMetricsResponse_opts {
         host: ::core::ptr::null_mut(),
         self_: if zero == Some(0) { z } else { e },
-        batches: if zero == Some(1) { z } else { e },
+        batches: if zero == Some(1) { pz } else { pe },
     }
 }
 pub const UNK_POSITIONS_LISTMETRICSRESPONSE: usize = 2;
 
-/// The same decode with the context armed with `opts`, then disarmed; buffers
-/// the core placed but never delivered (an inactive oneof member, a map entry,
-/// a failed decode) are reclaimed.
-pub fn decode_with_list_metrics_response_opts(ctx: *mut ak_dec_ctx, b: &[u8], opts: &ak_dec_ListMetricsResponse_opts) -> Result<ListMetricsResponse, i32> {
-    unsafe { ak_dec_reset_ListMetricsResponse(ctx, opts); }
-    let r = decode_with_list_metrics_response(ctx, b);
-    unsafe { ak_dec_reset_ListMetricsResponse(ctx, ::core::ptr::null()); }
+/// The same decode with the context armed with `opts` (read IN PLACE by the core
+/// until the disarming reset), then disarmed; buffers the core placed but never
+/// delivered (an inactive oneof member, a map entry, a failed decode) are reclaimed.
+pub fn decode_with_list_metrics_response_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_ListMetricsResponse_opts) -> Result<ListMetricsResponse, i32> {
+    let rc = unsafe { ak_dec_reset_ListMetricsResponse(ctxs.list_metrics_response, opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = decode_with_list_metrics_response(ctxs, b);
+    unsafe { ak_dec_reset_ListMetricsResponse(ctxs.list_metrics_response, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
 
 /// Decision 11: retain everywhere.
-pub fn decode_with_list_metrics_response_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ListMetricsResponse, i32> {
-    decode_with_list_metrics_response_opts(ctx, b, &unk_opts_list_metrics_response(None))
+pub fn decode_with_list_metrics_response_unk(ctxs: DecCtxs, b: &[u8]) -> Result<ListMetricsResponse, i32> {
+    decode_with_list_metrics_response_opts(ctxs, b, &mut unk_opts_list_metrics_response(None))
 }
 
 /// Decision 11: the pull family (walk in place) with every position retained.
-pub fn parse_walk_with_list_metrics_response_unk(ctx: *mut ak_dec_ctx, b: &[u8], toks: &mut Vec<i64>) -> Result<ListMetricsResponse, i32> {
-    unsafe { ak_dec_reset_ListMetricsResponse(ctx, &unk_opts_list_metrics_response(None)); }
-    let r = parse_walk_with_list_metrics_response(ctx, b, toks);
-    unsafe { ak_dec_reset_ListMetricsResponse(ctx, ::core::ptr::null()); }
+pub fn parse_walk_with_list_metrics_response_unk(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<ListMetricsResponse, i32> {
+    let mut opts = unk_opts_list_metrics_response(None);
+    let rc = unsafe { ak_dec_reset_ListMetricsResponse(ctxs.list_metrics_response, &mut opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = parse_walk_with_list_metrics_response(ctxs, b, toks);
+    unsafe { ak_dec_reset_ListMetricsResponse(ctxs.list_metrics_response, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
@@ -11963,7 +12259,7 @@ pub fn unk_clear_list_metrics_response(o: &mut ListMetricsResponse, pos: usize) 
     }
 }
 
-pub fn unk_controls_list_metrics_response(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
+pub fn unk_controls_list_metrics_response(ctx: DecCtxs, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
     const IS_ENTRY: [bool; 2] = [false, false];
     unk_entry_bytes();
     let all = decode_with_list_metrics_response_unk(ctx, b)?;
@@ -11975,7 +12271,7 @@ pub fn unk_controls_list_metrics_response(ctx: *mut ak_dec_ctx, b: &[u8], plant:
     let dbg = |x: &ListMetricsResponse| format!("{:?}", x);
     let mut rep = UnkReport { positions: 2, pull_equal: dbg(&pw) == dbg(&all), entry_bytes: eb_all, ..Default::default() };
     for i in 0..2 {
-        let got = decode_with_list_metrics_response_opts(ctx, b, &unk_opts_list_metrics_response(Some(i)))?;
+        let got = decode_with_list_metrics_response_opts(ctx, b, &mut unk_opts_list_metrics_response(Some(i)))?;
         let eb = unk_entry_bytes();
         let mut exp = all.clone();
         if !plant { unk_clear_list_metrics_response(&mut exp, i); }
@@ -12089,11 +12385,12 @@ unsafe fn replay_list_metrics_response_opaque(
 /// measures the family and not an allocator. `Vec<u64>`: a record payload is
 /// an `ak_dfix_*` and has to be 8-aligned.
 pub fn parse_drain_with_list_metrics_response(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     scratch: &mut Vec<u64>,
     toks: &mut Vec<i64>,
 ) -> Result<ListMetricsResponse, i32> {
+    let ctx = ctxs.list_metrics_response;
     let mut out = ListMetricsResponse::default();
     if scratch.len() * 8 < ak_rt::bdr::BDR_MIN_CHUNK {
         scratch.resize(ak_rt::bdr::BDR_MIN_CHUNK.div_ceil(8), 0);
@@ -12132,10 +12429,11 @@ pub fn parse_drain_with_list_metrics_response(
 /// decomposition: the difference between this arm and the one above IS the
 /// copy, measured rather than estimated.
 pub fn parse_walk_with_list_metrics_response(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<ListMetricsResponse, i32> {
+    let ctx = ctxs.list_metrics_response;
     let mut out = ListMetricsResponse::default();
     toks.clear();
     let rc = unsafe {
@@ -12165,10 +12463,11 @@ pub fn parse_walk_with_list_metrics_response(
 /// arm exists so that "pull is at parity with push here" is not secretly
 /// "pull's deposit code was inlined and push's could not be".
 pub fn parse_walk_opaque_with_list_metrics_response(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<ListMetricsResponse, i32> {
+    let ctx = ctxs.list_metrics_response;
     let mut out = ListMetricsResponse::default();
     toks.clear();
     let rc = unsafe {
@@ -12218,7 +12517,8 @@ unsafe extern "C" fn apply_upload_result_data_message(
     })
 }
 
-pub fn decode_with_upload_result_data_message(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<UploadResultDataMessage, i32> {
+pub fn decode_with_upload_result_data_message(ctxs: DecCtxs, b: &[u8]) -> Result<UploadResultDataMessage, i32> {
+    let ctx = ctxs.upload_result_data_message;
     let mut out = UploadResultDataMessage::default();
     let rc = unsafe {
         let mut sink = SinkUploadResultDataMessage { out: &mut out, base: b.as_ptr() };
@@ -12231,10 +12531,13 @@ pub fn decode_with_upload_result_data_message(ctx: *mut ak_dec_ctx, b: &[u8]) ->
 }
 
 /// Decision 11: every position of `UploadResultDataMessage` backed by `unk_grow` (no pre-allocated
-/// buffer), except position `zero`, if given, left all zero (discarded there).
+/// buffer; a repeated position is an empty pool), except position `zero`, if
+/// given, left all zero (discarded there).
 pub fn unk_opts_upload_result_data_message(zero: Option<usize>) -> ak_dec_UploadResultDataMessage_opts {
     let e = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: Some(unk_grow) };
     let z = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: None };
+    let pe = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: Some(unk_grow) };
+    let pz = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: None };
     ak_dec_UploadResultDataMessage_opts {
         host: ::core::ptr::null_mut(),
         self_: if zero == Some(0) { z } else { e },
@@ -12243,27 +12546,30 @@ pub fn unk_opts_upload_result_data_message(zero: Option<usize>) -> ak_dec_Upload
 }
 pub const UNK_POSITIONS_UPLOADRESULTDATAMESSAGE: usize = 2;
 
-/// The same decode with the context armed with `opts`, then disarmed; buffers
-/// the core placed but never delivered (an inactive oneof member, a map entry,
-/// a failed decode) are reclaimed.
-pub fn decode_with_upload_result_data_message_opts(ctx: *mut ak_dec_ctx, b: &[u8], opts: &ak_dec_UploadResultDataMessage_opts) -> Result<UploadResultDataMessage, i32> {
-    unsafe { ak_dec_reset_UploadResultDataMessage(ctx, opts); }
-    let r = decode_with_upload_result_data_message(ctx, b);
-    unsafe { ak_dec_reset_UploadResultDataMessage(ctx, ::core::ptr::null()); }
+/// The same decode with the context armed with `opts` (read IN PLACE by the core
+/// until the disarming reset), then disarmed; buffers the core placed but never
+/// delivered (an inactive oneof member, a map entry, a failed decode) are reclaimed.
+pub fn decode_with_upload_result_data_message_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_UploadResultDataMessage_opts) -> Result<UploadResultDataMessage, i32> {
+    let rc = unsafe { ak_dec_reset_UploadResultDataMessage(ctxs.upload_result_data_message, opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = decode_with_upload_result_data_message(ctxs, b);
+    unsafe { ak_dec_reset_UploadResultDataMessage(ctxs.upload_result_data_message, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
 
 /// Decision 11: retain everywhere.
-pub fn decode_with_upload_result_data_message_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<UploadResultDataMessage, i32> {
-    decode_with_upload_result_data_message_opts(ctx, b, &unk_opts_upload_result_data_message(None))
+pub fn decode_with_upload_result_data_message_unk(ctxs: DecCtxs, b: &[u8]) -> Result<UploadResultDataMessage, i32> {
+    decode_with_upload_result_data_message_opts(ctxs, b, &mut unk_opts_upload_result_data_message(None))
 }
 
 /// Decision 11: the pull family (walk in place) with every position retained.
-pub fn parse_walk_with_upload_result_data_message_unk(ctx: *mut ak_dec_ctx, b: &[u8], toks: &mut Vec<i64>) -> Result<UploadResultDataMessage, i32> {
-    unsafe { ak_dec_reset_UploadResultDataMessage(ctx, &unk_opts_upload_result_data_message(None)); }
-    let r = parse_walk_with_upload_result_data_message(ctx, b, toks);
-    unsafe { ak_dec_reset_UploadResultDataMessage(ctx, ::core::ptr::null()); }
+pub fn parse_walk_with_upload_result_data_message_unk(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<UploadResultDataMessage, i32> {
+    let mut opts = unk_opts_upload_result_data_message(None);
+    let rc = unsafe { ak_dec_reset_UploadResultDataMessage(ctxs.upload_result_data_message, &mut opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = parse_walk_with_upload_result_data_message(ctxs, b, toks);
+    unsafe { ak_dec_reset_UploadResultDataMessage(ctxs.upload_result_data_message, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
@@ -12277,7 +12583,7 @@ pub fn unk_clear_upload_result_data_message(o: &mut UploadResultDataMessage, pos
     }
 }
 
-pub fn unk_controls_upload_result_data_message(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
+pub fn unk_controls_upload_result_data_message(ctx: DecCtxs, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
     const IS_ENTRY: [bool; 2] = [false, false];
     unk_entry_bytes();
     let all = decode_with_upload_result_data_message_unk(ctx, b)?;
@@ -12289,7 +12595,7 @@ pub fn unk_controls_upload_result_data_message(ctx: *mut ak_dec_ctx, b: &[u8], p
     let dbg = |x: &UploadResultDataMessage| format!("{:?}", x);
     let mut rep = UnkReport { positions: 2, pull_equal: dbg(&pw) == dbg(&all), entry_bytes: eb_all, ..Default::default() };
     for i in 0..2 {
-        let got = decode_with_upload_result_data_message_opts(ctx, b, &unk_opts_upload_result_data_message(Some(i)))?;
+        let got = decode_with_upload_result_data_message_opts(ctx, b, &mut unk_opts_upload_result_data_message(Some(i)))?;
         let eb = unk_entry_bytes();
         let mut exp = all.clone();
         if !plant { unk_clear_upload_result_data_message(&mut exp, i); }
@@ -12361,11 +12667,12 @@ unsafe fn replay_upload_result_data_message_opaque(
 /// measures the family and not an allocator. `Vec<u64>`: a record payload is
 /// an `ak_dfix_*` and has to be 8-aligned.
 pub fn parse_drain_with_upload_result_data_message(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     scratch: &mut Vec<u64>,
     toks: &mut Vec<i64>,
 ) -> Result<UploadResultDataMessage, i32> {
+    let ctx = ctxs.upload_result_data_message;
     let mut out = UploadResultDataMessage::default();
     if scratch.len() * 8 < ak_rt::bdr::BDR_MIN_CHUNK {
         scratch.resize(ak_rt::bdr::BDR_MIN_CHUNK.div_ceil(8), 0);
@@ -12404,10 +12711,11 @@ pub fn parse_drain_with_upload_result_data_message(
 /// decomposition: the difference between this arm and the one above IS the
 /// copy, measured rather than estimated.
 pub fn parse_walk_with_upload_result_data_message(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<UploadResultDataMessage, i32> {
+    let ctx = ctxs.upload_result_data_message;
     let mut out = UploadResultDataMessage::default();
     toks.clear();
     let rc = unsafe {
@@ -12437,10 +12745,11 @@ pub fn parse_walk_with_upload_result_data_message(
 /// arm exists so that "pull is at parity with push here" is not secretly
 /// "pull's deposit code was inlined and push's could not be".
 pub fn parse_walk_opaque_with_upload_result_data_message(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<UploadResultDataMessage, i32> {
+    let ctx = ctxs.upload_result_data_message;
     let mut out = UploadResultDataMessage::default();
     toks.clear();
     let rc = unsafe {
@@ -12519,7 +12828,8 @@ unsafe extern "C" fn add_dual_response_right(
     })
 }
 
-pub fn decode_with_dual_response(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<DualResponse, i32> {
+pub fn decode_with_dual_response(ctxs: DecCtxs, b: &[u8]) -> Result<DualResponse, i32> {
+    let ctx = ctxs.dual_response;
     let mut out = DualResponse::default();
     let rc = unsafe {
         let mut sink = SinkDualResponse { out: &mut out, base: b.as_ptr() };
@@ -12534,40 +12844,46 @@ pub fn decode_with_dual_response(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<DualR
 }
 
 /// Decision 11: every position of `DualResponse` backed by `unk_grow` (no pre-allocated
-/// buffer), except position `zero`, if given, left all zero (discarded there).
+/// buffer; a repeated position is an empty pool), except position `zero`, if
+/// given, left all zero (discarded there).
 pub fn unk_opts_dual_response(zero: Option<usize>) -> ak_dec_DualResponse_opts {
     let e = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: Some(unk_grow) };
     let z = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: None };
+    let pe = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: Some(unk_grow) };
+    let pz = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: None };
     ak_dec_DualResponse_opts {
         host: ::core::ptr::null_mut(),
         self_: if zero == Some(0) { z } else { e },
-        left: if zero == Some(1) { z } else { e },
-        right: if zero == Some(2) { z } else { e },
+        left: if zero == Some(1) { pz } else { pe },
+        right: if zero == Some(2) { pz } else { pe },
     }
 }
 pub const UNK_POSITIONS_DUALRESPONSE: usize = 3;
 
-/// The same decode with the context armed with `opts`, then disarmed; buffers
-/// the core placed but never delivered (an inactive oneof member, a map entry,
-/// a failed decode) are reclaimed.
-pub fn decode_with_dual_response_opts(ctx: *mut ak_dec_ctx, b: &[u8], opts: &ak_dec_DualResponse_opts) -> Result<DualResponse, i32> {
-    unsafe { ak_dec_reset_DualResponse(ctx, opts); }
-    let r = decode_with_dual_response(ctx, b);
-    unsafe { ak_dec_reset_DualResponse(ctx, ::core::ptr::null()); }
+/// The same decode with the context armed with `opts` (read IN PLACE by the core
+/// until the disarming reset), then disarmed; buffers the core placed but never
+/// delivered (an inactive oneof member, a map entry, a failed decode) are reclaimed.
+pub fn decode_with_dual_response_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_DualResponse_opts) -> Result<DualResponse, i32> {
+    let rc = unsafe { ak_dec_reset_DualResponse(ctxs.dual_response, opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = decode_with_dual_response(ctxs, b);
+    unsafe { ak_dec_reset_DualResponse(ctxs.dual_response, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
 
 /// Decision 11: retain everywhere.
-pub fn decode_with_dual_response_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<DualResponse, i32> {
-    decode_with_dual_response_opts(ctx, b, &unk_opts_dual_response(None))
+pub fn decode_with_dual_response_unk(ctxs: DecCtxs, b: &[u8]) -> Result<DualResponse, i32> {
+    decode_with_dual_response_opts(ctxs, b, &mut unk_opts_dual_response(None))
 }
 
 /// Decision 11: the pull family (walk in place) with every position retained.
-pub fn parse_walk_with_dual_response_unk(ctx: *mut ak_dec_ctx, b: &[u8], toks: &mut Vec<i64>) -> Result<DualResponse, i32> {
-    unsafe { ak_dec_reset_DualResponse(ctx, &unk_opts_dual_response(None)); }
-    let r = parse_walk_with_dual_response(ctx, b, toks);
-    unsafe { ak_dec_reset_DualResponse(ctx, ::core::ptr::null()); }
+pub fn parse_walk_with_dual_response_unk(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<DualResponse, i32> {
+    let mut opts = unk_opts_dual_response(None);
+    let rc = unsafe { ak_dec_reset_DualResponse(ctxs.dual_response, &mut opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = parse_walk_with_dual_response(ctxs, b, toks);
+    unsafe { ak_dec_reset_DualResponse(ctxs.dual_response, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
@@ -12582,7 +12898,7 @@ pub fn unk_clear_dual_response(o: &mut DualResponse, pos: usize) {
     }
 }
 
-pub fn unk_controls_dual_response(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
+pub fn unk_controls_dual_response(ctx: DecCtxs, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
     const IS_ENTRY: [bool; 3] = [false, false, false];
     unk_entry_bytes();
     let all = decode_with_dual_response_unk(ctx, b)?;
@@ -12594,7 +12910,7 @@ pub fn unk_controls_dual_response(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) -
     let dbg = |x: &DualResponse| format!("{:?}", x);
     let mut rep = UnkReport { positions: 3, pull_equal: dbg(&pw) == dbg(&all), entry_bytes: eb_all, ..Default::default() };
     for i in 0..3 {
-        let got = decode_with_dual_response_opts(ctx, b, &unk_opts_dual_response(Some(i)))?;
+        let got = decode_with_dual_response_opts(ctx, b, &mut unk_opts_dual_response(Some(i)))?;
         let eb = unk_entry_bytes();
         let mut exp = all.clone();
         if !plant { unk_clear_dual_response(&mut exp, i); }
@@ -12680,11 +12996,12 @@ unsafe fn replay_dual_response_opaque(
 /// measures the family and not an allocator. `Vec<u64>`: a record payload is
 /// an `ak_dfix_*` and has to be 8-aligned.
 pub fn parse_drain_with_dual_response(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     scratch: &mut Vec<u64>,
     toks: &mut Vec<i64>,
 ) -> Result<DualResponse, i32> {
+    let ctx = ctxs.dual_response;
     let mut out = DualResponse::default();
     if scratch.len() * 8 < ak_rt::bdr::BDR_MIN_CHUNK {
         scratch.resize(ak_rt::bdr::BDR_MIN_CHUNK.div_ceil(8), 0);
@@ -12723,10 +13040,11 @@ pub fn parse_drain_with_dual_response(
 /// decomposition: the difference between this arm and the one above IS the
 /// copy, measured rather than estimated.
 pub fn parse_walk_with_dual_response(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<DualResponse, i32> {
+    let ctx = ctxs.dual_response;
     let mut out = DualResponse::default();
     toks.clear();
     let rc = unsafe {
@@ -12756,10 +13074,11 @@ pub fn parse_walk_with_dual_response(
 /// arm exists so that "pull is at parity with push here" is not secretly
 /// "pull's deposit code was inlined and push's could not be".
 pub fn parse_walk_opaque_with_dual_response(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<DualResponse, i32> {
+    let ctx = ctxs.dual_response;
     let mut out = DualResponse::default();
     toks.clear();
     let rc = unsafe {
@@ -12806,7 +13125,8 @@ unsafe extern "C" fn apply_chunk_leaf(
     })
 }
 
-pub fn decode_with_chunk_leaf(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ChunkLeaf, i32> {
+pub fn decode_with_chunk_leaf(ctxs: DecCtxs, b: &[u8]) -> Result<ChunkLeaf, i32> {
+    let ctx = ctxs.chunk_leaf;
     let mut out = ChunkLeaf::default();
     let rc = unsafe {
         let mut sink = SinkChunkLeaf { out: &mut out, base: b.as_ptr() };
@@ -12819,10 +13139,13 @@ pub fn decode_with_chunk_leaf(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ChunkLea
 }
 
 /// Decision 11: every position of `ChunkLeaf` backed by `unk_grow` (no pre-allocated
-/// buffer), except position `zero`, if given, left all zero (discarded there).
+/// buffer; a repeated position is an empty pool), except position `zero`, if
+/// given, left all zero (discarded there).
 pub fn unk_opts_chunk_leaf(zero: Option<usize>) -> ak_dec_ChunkLeaf_opts {
     let e = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: Some(unk_grow) };
     let z = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: None };
+    let pe = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: Some(unk_grow) };
+    let pz = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: None };
     ak_dec_ChunkLeaf_opts {
         host: ::core::ptr::null_mut(),
         self_: if zero == Some(0) { z } else { e },
@@ -12830,27 +13153,30 @@ pub fn unk_opts_chunk_leaf(zero: Option<usize>) -> ak_dec_ChunkLeaf_opts {
 }
 pub const UNK_POSITIONS_CHUNKLEAF: usize = 1;
 
-/// The same decode with the context armed with `opts`, then disarmed; buffers
-/// the core placed but never delivered (an inactive oneof member, a map entry,
-/// a failed decode) are reclaimed.
-pub fn decode_with_chunk_leaf_opts(ctx: *mut ak_dec_ctx, b: &[u8], opts: &ak_dec_ChunkLeaf_opts) -> Result<ChunkLeaf, i32> {
-    unsafe { ak_dec_reset_ChunkLeaf(ctx, opts); }
-    let r = decode_with_chunk_leaf(ctx, b);
-    unsafe { ak_dec_reset_ChunkLeaf(ctx, ::core::ptr::null()); }
+/// The same decode with the context armed with `opts` (read IN PLACE by the core
+/// until the disarming reset), then disarmed; buffers the core placed but never
+/// delivered (an inactive oneof member, a map entry, a failed decode) are reclaimed.
+pub fn decode_with_chunk_leaf_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_ChunkLeaf_opts) -> Result<ChunkLeaf, i32> {
+    let rc = unsafe { ak_dec_reset_ChunkLeaf(ctxs.chunk_leaf, opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = decode_with_chunk_leaf(ctxs, b);
+    unsafe { ak_dec_reset_ChunkLeaf(ctxs.chunk_leaf, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
 
 /// Decision 11: retain everywhere.
-pub fn decode_with_chunk_leaf_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ChunkLeaf, i32> {
-    decode_with_chunk_leaf_opts(ctx, b, &unk_opts_chunk_leaf(None))
+pub fn decode_with_chunk_leaf_unk(ctxs: DecCtxs, b: &[u8]) -> Result<ChunkLeaf, i32> {
+    decode_with_chunk_leaf_opts(ctxs, b, &mut unk_opts_chunk_leaf(None))
 }
 
 /// Decision 11: the pull family (walk in place) with every position retained.
-pub fn parse_walk_with_chunk_leaf_unk(ctx: *mut ak_dec_ctx, b: &[u8], toks: &mut Vec<i64>) -> Result<ChunkLeaf, i32> {
-    unsafe { ak_dec_reset_ChunkLeaf(ctx, &unk_opts_chunk_leaf(None)); }
-    let r = parse_walk_with_chunk_leaf(ctx, b, toks);
-    unsafe { ak_dec_reset_ChunkLeaf(ctx, ::core::ptr::null()); }
+pub fn parse_walk_with_chunk_leaf_unk(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<ChunkLeaf, i32> {
+    let mut opts = unk_opts_chunk_leaf(None);
+    let rc = unsafe { ak_dec_reset_ChunkLeaf(ctxs.chunk_leaf, &mut opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = parse_walk_with_chunk_leaf(ctxs, b, toks);
+    unsafe { ak_dec_reset_ChunkLeaf(ctxs.chunk_leaf, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
@@ -12863,7 +13189,7 @@ pub fn unk_clear_chunk_leaf(o: &mut ChunkLeaf, pos: usize) {
     }
 }
 
-pub fn unk_controls_chunk_leaf(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
+pub fn unk_controls_chunk_leaf(ctx: DecCtxs, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
     const IS_ENTRY: [bool; 1] = [false];
     unk_entry_bytes();
     let all = decode_with_chunk_leaf_unk(ctx, b)?;
@@ -12875,7 +13201,7 @@ pub fn unk_controls_chunk_leaf(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) -> R
     let dbg = |x: &ChunkLeaf| format!("{:?}", x);
     let mut rep = UnkReport { positions: 1, pull_equal: dbg(&pw) == dbg(&all), entry_bytes: eb_all, ..Default::default() };
     for i in 0..1 {
-        let got = decode_with_chunk_leaf_opts(ctx, b, &unk_opts_chunk_leaf(Some(i)))?;
+        let got = decode_with_chunk_leaf_opts(ctx, b, &mut unk_opts_chunk_leaf(Some(i)))?;
         let eb = unk_entry_bytes();
         let mut exp = all.clone();
         if !plant { unk_clear_chunk_leaf(&mut exp, i); }
@@ -12947,11 +13273,12 @@ unsafe fn replay_chunk_leaf_opaque(
 /// measures the family and not an allocator. `Vec<u64>`: a record payload is
 /// an `ak_dfix_*` and has to be 8-aligned.
 pub fn parse_drain_with_chunk_leaf(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     scratch: &mut Vec<u64>,
     toks: &mut Vec<i64>,
 ) -> Result<ChunkLeaf, i32> {
+    let ctx = ctxs.chunk_leaf;
     let mut out = ChunkLeaf::default();
     if scratch.len() * 8 < ak_rt::bdr::BDR_MIN_CHUNK {
         scratch.resize(ak_rt::bdr::BDR_MIN_CHUNK.div_ceil(8), 0);
@@ -12990,10 +13317,11 @@ pub fn parse_drain_with_chunk_leaf(
 /// decomposition: the difference between this arm and the one above IS the
 /// copy, measured rather than estimated.
 pub fn parse_walk_with_chunk_leaf(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<ChunkLeaf, i32> {
+    let ctx = ctxs.chunk_leaf;
     let mut out = ChunkLeaf::default();
     toks.clear();
     let rc = unsafe {
@@ -13023,10 +13351,11 @@ pub fn parse_walk_with_chunk_leaf(
 /// arm exists so that "pull is at parity with push here" is not secretly
 /// "pull's deposit code was inlined and push's could not be".
 pub fn parse_walk_opaque_with_chunk_leaf(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<ChunkLeaf, i32> {
+    let ctx = ctxs.chunk_leaf;
     let mut out = ChunkLeaf::default();
     toks.clear();
     let rc = unsafe {
@@ -13105,7 +13434,8 @@ unsafe extern "C" fn add_chunk_inner_leaves(
     })
 }
 
-pub fn decode_with_chunk_inner(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ChunkInner, i32> {
+pub fn decode_with_chunk_inner(ctxs: DecCtxs, b: &[u8]) -> Result<ChunkInner, i32> {
+    let ctx = ctxs.chunk_inner;
     let mut out = ChunkInner::default();
     let rc = unsafe {
         let mut sink = SinkChunkInner { out: &mut out, base: b.as_ptr() };
@@ -13120,39 +13450,45 @@ pub fn decode_with_chunk_inner(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ChunkIn
 }
 
 /// Decision 11: every position of `ChunkInner` backed by `unk_grow` (no pre-allocated
-/// buffer), except position `zero`, if given, left all zero (discarded there).
+/// buffer; a repeated position is an empty pool), except position `zero`, if
+/// given, left all zero (discarded there).
 pub fn unk_opts_chunk_inner(zero: Option<usize>) -> ak_dec_ChunkInner_opts {
     let e = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: Some(unk_grow) };
     let z = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: None };
+    let pe = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: Some(unk_grow) };
+    let pz = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: None };
     ak_dec_ChunkInner_opts {
         host: ::core::ptr::null_mut(),
         self_: if zero == Some(0) { z } else { e },
-        leaves: if zero == Some(1) { z } else { e },
+        leaves: if zero == Some(1) { pz } else { pe },
     }
 }
 pub const UNK_POSITIONS_CHUNKINNER: usize = 2;
 
-/// The same decode with the context armed with `opts`, then disarmed; buffers
-/// the core placed but never delivered (an inactive oneof member, a map entry,
-/// a failed decode) are reclaimed.
-pub fn decode_with_chunk_inner_opts(ctx: *mut ak_dec_ctx, b: &[u8], opts: &ak_dec_ChunkInner_opts) -> Result<ChunkInner, i32> {
-    unsafe { ak_dec_reset_ChunkInner(ctx, opts); }
-    let r = decode_with_chunk_inner(ctx, b);
-    unsafe { ak_dec_reset_ChunkInner(ctx, ::core::ptr::null()); }
+/// The same decode with the context armed with `opts` (read IN PLACE by the core
+/// until the disarming reset), then disarmed; buffers the core placed but never
+/// delivered (an inactive oneof member, a map entry, a failed decode) are reclaimed.
+pub fn decode_with_chunk_inner_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_ChunkInner_opts) -> Result<ChunkInner, i32> {
+    let rc = unsafe { ak_dec_reset_ChunkInner(ctxs.chunk_inner, opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = decode_with_chunk_inner(ctxs, b);
+    unsafe { ak_dec_reset_ChunkInner(ctxs.chunk_inner, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
 
 /// Decision 11: retain everywhere.
-pub fn decode_with_chunk_inner_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ChunkInner, i32> {
-    decode_with_chunk_inner_opts(ctx, b, &unk_opts_chunk_inner(None))
+pub fn decode_with_chunk_inner_unk(ctxs: DecCtxs, b: &[u8]) -> Result<ChunkInner, i32> {
+    decode_with_chunk_inner_opts(ctxs, b, &mut unk_opts_chunk_inner(None))
 }
 
 /// Decision 11: the pull family (walk in place) with every position retained.
-pub fn parse_walk_with_chunk_inner_unk(ctx: *mut ak_dec_ctx, b: &[u8], toks: &mut Vec<i64>) -> Result<ChunkInner, i32> {
-    unsafe { ak_dec_reset_ChunkInner(ctx, &unk_opts_chunk_inner(None)); }
-    let r = parse_walk_with_chunk_inner(ctx, b, toks);
-    unsafe { ak_dec_reset_ChunkInner(ctx, ::core::ptr::null()); }
+pub fn parse_walk_with_chunk_inner_unk(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<ChunkInner, i32> {
+    let mut opts = unk_opts_chunk_inner(None);
+    let rc = unsafe { ak_dec_reset_ChunkInner(ctxs.chunk_inner, &mut opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = parse_walk_with_chunk_inner(ctxs, b, toks);
+    unsafe { ak_dec_reset_ChunkInner(ctxs.chunk_inner, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
@@ -13166,7 +13502,7 @@ pub fn unk_clear_chunk_inner(o: &mut ChunkInner, pos: usize) {
     }
 }
 
-pub fn unk_controls_chunk_inner(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
+pub fn unk_controls_chunk_inner(ctx: DecCtxs, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
     const IS_ENTRY: [bool; 2] = [false, false];
     unk_entry_bytes();
     let all = decode_with_chunk_inner_unk(ctx, b)?;
@@ -13178,7 +13514,7 @@ pub fn unk_controls_chunk_inner(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) -> 
     let dbg = |x: &ChunkInner| format!("{:?}", x);
     let mut rep = UnkReport { positions: 2, pull_equal: dbg(&pw) == dbg(&all), entry_bytes: eb_all, ..Default::default() };
     for i in 0..2 {
-        let got = decode_with_chunk_inner_opts(ctx, b, &unk_opts_chunk_inner(Some(i)))?;
+        let got = decode_with_chunk_inner_opts(ctx, b, &mut unk_opts_chunk_inner(Some(i)))?;
         let eb = unk_entry_bytes();
         let mut exp = all.clone();
         if !plant { unk_clear_chunk_inner(&mut exp, i); }
@@ -13264,11 +13600,12 @@ unsafe fn replay_chunk_inner_opaque(
 /// measures the family and not an allocator. `Vec<u64>`: a record payload is
 /// an `ak_dfix_*` and has to be 8-aligned.
 pub fn parse_drain_with_chunk_inner(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     scratch: &mut Vec<u64>,
     toks: &mut Vec<i64>,
 ) -> Result<ChunkInner, i32> {
+    let ctx = ctxs.chunk_inner;
     let mut out = ChunkInner::default();
     if scratch.len() * 8 < ak_rt::bdr::BDR_MIN_CHUNK {
         scratch.resize(ak_rt::bdr::BDR_MIN_CHUNK.div_ceil(8), 0);
@@ -13307,10 +13644,11 @@ pub fn parse_drain_with_chunk_inner(
 /// decomposition: the difference between this arm and the one above IS the
 /// copy, measured rather than estimated.
 pub fn parse_walk_with_chunk_inner(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<ChunkInner, i32> {
+    let ctx = ctxs.chunk_inner;
     let mut out = ChunkInner::default();
     toks.clear();
     let rc = unsafe {
@@ -13340,10 +13678,11 @@ pub fn parse_walk_with_chunk_inner(
 /// arm exists so that "pull is at parity with push here" is not secretly
 /// "pull's deposit code was inlined and push's could not be".
 pub fn parse_walk_opaque_with_chunk_inner(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<ChunkInner, i32> {
+    let ctx = ctxs.chunk_inner;
     let mut out = ChunkInner::default();
     toks.clear();
     let rc = unsafe {
@@ -13469,7 +13808,8 @@ unsafe extern "C" fn add_chunk_element_inner_leaves(
     })
 }
 
-pub fn decode_with_chunk_element(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ChunkElement, i32> {
+pub fn decode_with_chunk_element(ctxs: DecCtxs, b: &[u8]) -> Result<ChunkElement, i32> {
+    let ctx = ctxs.chunk_element;
     let mut out = ChunkElement::default();
     let rc = unsafe {
         let mut sink = SinkChunkElement { out: &mut out, base: b.as_ptr() };
@@ -13486,41 +13826,47 @@ pub fn decode_with_chunk_element(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<Chunk
 }
 
 /// Decision 11: every position of `ChunkElement` backed by `unk_grow` (no pre-allocated
-/// buffer), except position `zero`, if given, left all zero (discarded there).
+/// buffer; a repeated position is an empty pool), except position `zero`, if
+/// given, left all zero (discarded there).
 pub fn unk_opts_chunk_element(zero: Option<usize>) -> ak_dec_ChunkElement_opts {
     let e = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: Some(unk_grow) };
     let z = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: None };
+    let pe = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: Some(unk_grow) };
+    let pz = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: None };
     ak_dec_ChunkElement_opts {
         host: ::core::ptr::null_mut(),
         self_: if zero == Some(0) { z } else { e },
-        attrs: if zero == Some(1) { z } else { e },
+        attrs: if zero == Some(1) { pz } else { pe },
         inner: if zero == Some(2) { z } else { e },
-        inner_leaves: if zero == Some(3) { z } else { e },
+        inner_leaves: if zero == Some(3) { pz } else { pe },
     }
 }
 pub const UNK_POSITIONS_CHUNKELEMENT: usize = 4;
 
-/// The same decode with the context armed with `opts`, then disarmed; buffers
-/// the core placed but never delivered (an inactive oneof member, a map entry,
-/// a failed decode) are reclaimed.
-pub fn decode_with_chunk_element_opts(ctx: *mut ak_dec_ctx, b: &[u8], opts: &ak_dec_ChunkElement_opts) -> Result<ChunkElement, i32> {
-    unsafe { ak_dec_reset_ChunkElement(ctx, opts); }
-    let r = decode_with_chunk_element(ctx, b);
-    unsafe { ak_dec_reset_ChunkElement(ctx, ::core::ptr::null()); }
+/// The same decode with the context armed with `opts` (read IN PLACE by the core
+/// until the disarming reset), then disarmed; buffers the core placed but never
+/// delivered (an inactive oneof member, a map entry, a failed decode) are reclaimed.
+pub fn decode_with_chunk_element_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_ChunkElement_opts) -> Result<ChunkElement, i32> {
+    let rc = unsafe { ak_dec_reset_ChunkElement(ctxs.chunk_element, opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = decode_with_chunk_element(ctxs, b);
+    unsafe { ak_dec_reset_ChunkElement(ctxs.chunk_element, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
 
 /// Decision 11: retain everywhere.
-pub fn decode_with_chunk_element_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ChunkElement, i32> {
-    decode_with_chunk_element_opts(ctx, b, &unk_opts_chunk_element(None))
+pub fn decode_with_chunk_element_unk(ctxs: DecCtxs, b: &[u8]) -> Result<ChunkElement, i32> {
+    decode_with_chunk_element_opts(ctxs, b, &mut unk_opts_chunk_element(None))
 }
 
 /// Decision 11: the pull family (walk in place) with every position retained.
-pub fn parse_walk_with_chunk_element_unk(ctx: *mut ak_dec_ctx, b: &[u8], toks: &mut Vec<i64>) -> Result<ChunkElement, i32> {
-    unsafe { ak_dec_reset_ChunkElement(ctx, &unk_opts_chunk_element(None)); }
-    let r = parse_walk_with_chunk_element(ctx, b, toks);
-    unsafe { ak_dec_reset_ChunkElement(ctx, ::core::ptr::null()); }
+pub fn parse_walk_with_chunk_element_unk(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<ChunkElement, i32> {
+    let mut opts = unk_opts_chunk_element(None);
+    let rc = unsafe { ak_dec_reset_ChunkElement(ctxs.chunk_element, &mut opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = parse_walk_with_chunk_element(ctxs, b, toks);
+    unsafe { ak_dec_reset_ChunkElement(ctxs.chunk_element, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
@@ -13536,7 +13882,7 @@ pub fn unk_clear_chunk_element(o: &mut ChunkElement, pos: usize) {
     }
 }
 
-pub fn unk_controls_chunk_element(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
+pub fn unk_controls_chunk_element(ctx: DecCtxs, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
     const IS_ENTRY: [bool; 4] = [false, true, false, false];
     unk_entry_bytes();
     let all = decode_with_chunk_element_unk(ctx, b)?;
@@ -13548,7 +13894,7 @@ pub fn unk_controls_chunk_element(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) -
     let dbg = |x: &ChunkElement| format!("{:?}", x);
     let mut rep = UnkReport { positions: 4, pull_equal: dbg(&pw) == dbg(&all), entry_bytes: eb_all, ..Default::default() };
     for i in 0..4 {
-        let got = decode_with_chunk_element_opts(ctx, b, &unk_opts_chunk_element(Some(i)))?;
+        let got = decode_with_chunk_element_opts(ctx, b, &mut unk_opts_chunk_element(Some(i)))?;
         let eb = unk_entry_bytes();
         let mut exp = all.clone();
         if !plant { unk_clear_chunk_element(&mut exp, i); }
@@ -13648,11 +13994,12 @@ unsafe fn replay_chunk_element_opaque(
 /// measures the family and not an allocator. `Vec<u64>`: a record payload is
 /// an `ak_dfix_*` and has to be 8-aligned.
 pub fn parse_drain_with_chunk_element(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     scratch: &mut Vec<u64>,
     toks: &mut Vec<i64>,
 ) -> Result<ChunkElement, i32> {
+    let ctx = ctxs.chunk_element;
     let mut out = ChunkElement::default();
     if scratch.len() * 8 < ak_rt::bdr::BDR_MIN_CHUNK {
         scratch.resize(ak_rt::bdr::BDR_MIN_CHUNK.div_ceil(8), 0);
@@ -13691,10 +14038,11 @@ pub fn parse_drain_with_chunk_element(
 /// decomposition: the difference between this arm and the one above IS the
 /// copy, measured rather than estimated.
 pub fn parse_walk_with_chunk_element(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<ChunkElement, i32> {
+    let ctx = ctxs.chunk_element;
     let mut out = ChunkElement::default();
     toks.clear();
     let rc = unsafe {
@@ -13724,10 +14072,11 @@ pub fn parse_walk_with_chunk_element(
 /// arm exists so that "pull is at parity with push here" is not secretly
 /// "pull's deposit code was inlined and push's could not be".
 pub fn parse_walk_opaque_with_chunk_element(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<ChunkElement, i32> {
+    let ctx = ctxs.chunk_element;
     let mut out = ChunkElement::default();
     toks.clear();
     let rc = unsafe {
@@ -13868,7 +14217,8 @@ unsafe extern "C" fn add_chunked_response_items_inner_leaves(
     })
 }
 
-pub fn decode_with_chunked_response(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ChunkedResponse, i32> {
+pub fn decode_with_chunked_response(ctxs: DecCtxs, b: &[u8]) -> Result<ChunkedResponse, i32> {
+    let ctx = ctxs.chunked_response;
     let mut out = ChunkedResponse::default();
     let rc = unsafe {
         let mut sink = SinkChunkedResponse { out: &mut out, base: b.as_ptr() };
@@ -13887,42 +14237,48 @@ pub fn decode_with_chunked_response(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<Ch
 }
 
 /// Decision 11: every position of `ChunkedResponse` backed by `unk_grow` (no pre-allocated
-/// buffer), except position `zero`, if given, left all zero (discarded there).
+/// buffer; a repeated position is an empty pool), except position `zero`, if
+/// given, left all zero (discarded there).
 pub fn unk_opts_chunked_response(zero: Option<usize>) -> ak_dec_ChunkedResponse_opts {
     let e = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: Some(unk_grow) };
     let z = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: None };
+    let pe = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: Some(unk_grow) };
+    let pz = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: None };
     ak_dec_ChunkedResponse_opts {
         host: ::core::ptr::null_mut(),
         self_: if zero == Some(0) { z } else { e },
-        items: if zero == Some(1) { z } else { e },
-        items_attrs: if zero == Some(2) { z } else { e },
-        items_inner: if zero == Some(3) { z } else { e },
-        items_inner_leaves: if zero == Some(4) { z } else { e },
+        items: if zero == Some(1) { pz } else { pe },
+        items_attrs: if zero == Some(2) { pz } else { pe },
+        items_inner: if zero == Some(3) { pz } else { pe },
+        items_inner_leaves: if zero == Some(4) { pz } else { pe },
     }
 }
 pub const UNK_POSITIONS_CHUNKEDRESPONSE: usize = 5;
 
-/// The same decode with the context armed with `opts`, then disarmed; buffers
-/// the core placed but never delivered (an inactive oneof member, a map entry,
-/// a failed decode) are reclaimed.
-pub fn decode_with_chunked_response_opts(ctx: *mut ak_dec_ctx, b: &[u8], opts: &ak_dec_ChunkedResponse_opts) -> Result<ChunkedResponse, i32> {
-    unsafe { ak_dec_reset_ChunkedResponse(ctx, opts); }
-    let r = decode_with_chunked_response(ctx, b);
-    unsafe { ak_dec_reset_ChunkedResponse(ctx, ::core::ptr::null()); }
+/// The same decode with the context armed with `opts` (read IN PLACE by the core
+/// until the disarming reset), then disarmed; buffers the core placed but never
+/// delivered (an inactive oneof member, a map entry, a failed decode) are reclaimed.
+pub fn decode_with_chunked_response_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_ChunkedResponse_opts) -> Result<ChunkedResponse, i32> {
+    let rc = unsafe { ak_dec_reset_ChunkedResponse(ctxs.chunked_response, opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = decode_with_chunked_response(ctxs, b);
+    unsafe { ak_dec_reset_ChunkedResponse(ctxs.chunked_response, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
 
 /// Decision 11: retain everywhere.
-pub fn decode_with_chunked_response_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ChunkedResponse, i32> {
-    decode_with_chunked_response_opts(ctx, b, &unk_opts_chunked_response(None))
+pub fn decode_with_chunked_response_unk(ctxs: DecCtxs, b: &[u8]) -> Result<ChunkedResponse, i32> {
+    decode_with_chunked_response_opts(ctxs, b, &mut unk_opts_chunked_response(None))
 }
 
 /// Decision 11: the pull family (walk in place) with every position retained.
-pub fn parse_walk_with_chunked_response_unk(ctx: *mut ak_dec_ctx, b: &[u8], toks: &mut Vec<i64>) -> Result<ChunkedResponse, i32> {
-    unsafe { ak_dec_reset_ChunkedResponse(ctx, &unk_opts_chunked_response(None)); }
-    let r = parse_walk_with_chunked_response(ctx, b, toks);
-    unsafe { ak_dec_reset_ChunkedResponse(ctx, ::core::ptr::null()); }
+pub fn parse_walk_with_chunked_response_unk(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<ChunkedResponse, i32> {
+    let mut opts = unk_opts_chunked_response(None);
+    let rc = unsafe { ak_dec_reset_ChunkedResponse(ctxs.chunked_response, &mut opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = parse_walk_with_chunked_response(ctxs, b, toks);
+    unsafe { ak_dec_reset_ChunkedResponse(ctxs.chunked_response, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
@@ -13939,7 +14295,7 @@ pub fn unk_clear_chunked_response(o: &mut ChunkedResponse, pos: usize) {
     }
 }
 
-pub fn unk_controls_chunked_response(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
+pub fn unk_controls_chunked_response(ctx: DecCtxs, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
     const IS_ENTRY: [bool; 5] = [false, false, true, false, false];
     unk_entry_bytes();
     let all = decode_with_chunked_response_unk(ctx, b)?;
@@ -13951,7 +14307,7 @@ pub fn unk_controls_chunked_response(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool
     let dbg = |x: &ChunkedResponse| format!("{:?}", x);
     let mut rep = UnkReport { positions: 5, pull_equal: dbg(&pw) == dbg(&all), entry_bytes: eb_all, ..Default::default() };
     for i in 0..5 {
-        let got = decode_with_chunked_response_opts(ctx, b, &unk_opts_chunked_response(Some(i)))?;
+        let got = decode_with_chunked_response_opts(ctx, b, &mut unk_opts_chunked_response(Some(i)))?;
         let eb = unk_entry_bytes();
         let mut exp = all.clone();
         if !plant { unk_clear_chunked_response(&mut exp, i); }
@@ -14058,11 +14414,12 @@ unsafe fn replay_chunked_response_opaque(
 /// measures the family and not an allocator. `Vec<u64>`: a record payload is
 /// an `ak_dfix_*` and has to be 8-aligned.
 pub fn parse_drain_with_chunked_response(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     scratch: &mut Vec<u64>,
     toks: &mut Vec<i64>,
 ) -> Result<ChunkedResponse, i32> {
+    let ctx = ctxs.chunked_response;
     let mut out = ChunkedResponse::default();
     if scratch.len() * 8 < ak_rt::bdr::BDR_MIN_CHUNK {
         scratch.resize(ak_rt::bdr::BDR_MIN_CHUNK.div_ceil(8), 0);
@@ -14101,10 +14458,11 @@ pub fn parse_drain_with_chunked_response(
 /// decomposition: the difference between this arm and the one above IS the
 /// copy, measured rather than estimated.
 pub fn parse_walk_with_chunked_response(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<ChunkedResponse, i32> {
+    let ctx = ctxs.chunked_response;
     let mut out = ChunkedResponse::default();
     toks.clear();
     let rc = unsafe {
@@ -14134,10 +14492,11 @@ pub fn parse_walk_with_chunked_response(
 /// arm exists so that "pull is at parity with push here" is not secretly
 /// "pull's deposit code was inlined and push's could not be".
 pub fn parse_walk_opaque_with_chunked_response(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<ChunkedResponse, i32> {
+    let ctx = ctxs.chunked_response;
     let mut out = ChunkedResponse::default();
     toks.clear();
     let rc = unsafe {
@@ -14277,7 +14636,8 @@ unsafe extern "C" fn add_chunked_response_wide_items_inner_leaves(
     })
 }
 
-pub fn decode_with_chunked_response_wide(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ChunkedResponseWide, i32> {
+pub fn decode_with_chunked_response_wide(ctxs: DecCtxs, b: &[u8]) -> Result<ChunkedResponseWide, i32> {
+    let ctx = ctxs.chunked_response_wide;
     let mut out = ChunkedResponseWide::default();
     let rc = unsafe {
         let mut sink = SinkChunkedResponseWide { out: &mut out, base: b.as_ptr() };
@@ -14296,42 +14656,48 @@ pub fn decode_with_chunked_response_wide(ctx: *mut ak_dec_ctx, b: &[u8]) -> Resu
 }
 
 /// Decision 11: every position of `ChunkedResponseWide` backed by `unk_grow` (no pre-allocated
-/// buffer), except position `zero`, if given, left all zero (discarded there).
+/// buffer; a repeated position is an empty pool), except position `zero`, if
+/// given, left all zero (discarded there).
 pub fn unk_opts_chunked_response_wide(zero: Option<usize>) -> ak_dec_ChunkedResponseWide_opts {
     let e = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: Some(unk_grow) };
     let z = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: None };
+    let pe = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: Some(unk_grow) };
+    let pz = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: None };
     ak_dec_ChunkedResponseWide_opts {
         host: ::core::ptr::null_mut(),
         self_: if zero == Some(0) { z } else { e },
-        items: if zero == Some(1) { z } else { e },
-        items_attrs: if zero == Some(2) { z } else { e },
-        items_inner: if zero == Some(3) { z } else { e },
-        items_inner_leaves: if zero == Some(4) { z } else { e },
+        items: if zero == Some(1) { pz } else { pe },
+        items_attrs: if zero == Some(2) { pz } else { pe },
+        items_inner: if zero == Some(3) { pz } else { pe },
+        items_inner_leaves: if zero == Some(4) { pz } else { pe },
     }
 }
 pub const UNK_POSITIONS_CHUNKEDRESPONSEWIDE: usize = 5;
 
-/// The same decode with the context armed with `opts`, then disarmed; buffers
-/// the core placed but never delivered (an inactive oneof member, a map entry,
-/// a failed decode) are reclaimed.
-pub fn decode_with_chunked_response_wide_opts(ctx: *mut ak_dec_ctx, b: &[u8], opts: &ak_dec_ChunkedResponseWide_opts) -> Result<ChunkedResponseWide, i32> {
-    unsafe { ak_dec_reset_ChunkedResponseWide(ctx, opts); }
-    let r = decode_with_chunked_response_wide(ctx, b);
-    unsafe { ak_dec_reset_ChunkedResponseWide(ctx, ::core::ptr::null()); }
+/// The same decode with the context armed with `opts` (read IN PLACE by the core
+/// until the disarming reset), then disarmed; buffers the core placed but never
+/// delivered (an inactive oneof member, a map entry, a failed decode) are reclaimed.
+pub fn decode_with_chunked_response_wide_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_ChunkedResponseWide_opts) -> Result<ChunkedResponseWide, i32> {
+    let rc = unsafe { ak_dec_reset_ChunkedResponseWide(ctxs.chunked_response_wide, opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = decode_with_chunked_response_wide(ctxs, b);
+    unsafe { ak_dec_reset_ChunkedResponseWide(ctxs.chunked_response_wide, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
 
 /// Decision 11: retain everywhere.
-pub fn decode_with_chunked_response_wide_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<ChunkedResponseWide, i32> {
-    decode_with_chunked_response_wide_opts(ctx, b, &unk_opts_chunked_response_wide(None))
+pub fn decode_with_chunked_response_wide_unk(ctxs: DecCtxs, b: &[u8]) -> Result<ChunkedResponseWide, i32> {
+    decode_with_chunked_response_wide_opts(ctxs, b, &mut unk_opts_chunked_response_wide(None))
 }
 
 /// Decision 11: the pull family (walk in place) with every position retained.
-pub fn parse_walk_with_chunked_response_wide_unk(ctx: *mut ak_dec_ctx, b: &[u8], toks: &mut Vec<i64>) -> Result<ChunkedResponseWide, i32> {
-    unsafe { ak_dec_reset_ChunkedResponseWide(ctx, &unk_opts_chunked_response_wide(None)); }
-    let r = parse_walk_with_chunked_response_wide(ctx, b, toks);
-    unsafe { ak_dec_reset_ChunkedResponseWide(ctx, ::core::ptr::null()); }
+pub fn parse_walk_with_chunked_response_wide_unk(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<ChunkedResponseWide, i32> {
+    let mut opts = unk_opts_chunked_response_wide(None);
+    let rc = unsafe { ak_dec_reset_ChunkedResponseWide(ctxs.chunked_response_wide, &mut opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = parse_walk_with_chunked_response_wide(ctxs, b, toks);
+    unsafe { ak_dec_reset_ChunkedResponseWide(ctxs.chunked_response_wide, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
@@ -14348,7 +14714,7 @@ pub fn unk_clear_chunked_response_wide(o: &mut ChunkedResponseWide, pos: usize) 
     }
 }
 
-pub fn unk_controls_chunked_response_wide(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
+pub fn unk_controls_chunked_response_wide(ctx: DecCtxs, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
     const IS_ENTRY: [bool; 5] = [false, false, true, false, false];
     unk_entry_bytes();
     let all = decode_with_chunked_response_wide_unk(ctx, b)?;
@@ -14360,7 +14726,7 @@ pub fn unk_controls_chunked_response_wide(ctx: *mut ak_dec_ctx, b: &[u8], plant:
     let dbg = |x: &ChunkedResponseWide| format!("{:?}", x);
     let mut rep = UnkReport { positions: 5, pull_equal: dbg(&pw) == dbg(&all), entry_bytes: eb_all, ..Default::default() };
     for i in 0..5 {
-        let got = decode_with_chunked_response_wide_opts(ctx, b, &unk_opts_chunked_response_wide(Some(i)))?;
+        let got = decode_with_chunked_response_wide_opts(ctx, b, &mut unk_opts_chunked_response_wide(Some(i)))?;
         let eb = unk_entry_bytes();
         let mut exp = all.clone();
         if !plant { unk_clear_chunked_response_wide(&mut exp, i); }
@@ -14467,11 +14833,12 @@ unsafe fn replay_chunked_response_wide_opaque(
 /// measures the family and not an allocator. `Vec<u64>`: a record payload is
 /// an `ak_dfix_*` and has to be 8-aligned.
 pub fn parse_drain_with_chunked_response_wide(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     scratch: &mut Vec<u64>,
     toks: &mut Vec<i64>,
 ) -> Result<ChunkedResponseWide, i32> {
+    let ctx = ctxs.chunked_response_wide;
     let mut out = ChunkedResponseWide::default();
     if scratch.len() * 8 < ak_rt::bdr::BDR_MIN_CHUNK {
         scratch.resize(ak_rt::bdr::BDR_MIN_CHUNK.div_ceil(8), 0);
@@ -14510,10 +14877,11 @@ pub fn parse_drain_with_chunked_response_wide(
 /// decomposition: the difference between this arm and the one above IS the
 /// copy, measured rather than estimated.
 pub fn parse_walk_with_chunked_response_wide(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<ChunkedResponseWide, i32> {
+    let ctx = ctxs.chunked_response_wide;
     let mut out = ChunkedResponseWide::default();
     toks.clear();
     let rc = unsafe {
@@ -14543,10 +14911,11 @@ pub fn parse_walk_with_chunked_response_wide(
 /// arm exists so that "pull is at parity with push here" is not secretly
 /// "pull's deposit code was inlined and push's could not be".
 pub fn parse_walk_opaque_with_chunked_response_wide(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<ChunkedResponseWide, i32> {
+    let ctx = ctxs.chunked_response_wide;
     let mut out = ChunkedResponseWide::default();
     toks.clear();
     let rc = unsafe {
@@ -14598,7 +14967,8 @@ unsafe extern "C" fn apply_leaf_element(
     })
 }
 
-pub fn decode_with_leaf_element(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<LeafElement, i32> {
+pub fn decode_with_leaf_element(ctxs: DecCtxs, b: &[u8]) -> Result<LeafElement, i32> {
+    let ctx = ctxs.leaf_element;
     let mut out = LeafElement::default();
     let rc = unsafe {
         let mut sink = SinkLeafElement { out: &mut out, base: b.as_ptr() };
@@ -14611,10 +14981,13 @@ pub fn decode_with_leaf_element(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<LeafEl
 }
 
 /// Decision 11: every position of `LeafElement` backed by `unk_grow` (no pre-allocated
-/// buffer), except position `zero`, if given, left all zero (discarded there).
+/// buffer; a repeated position is an empty pool), except position `zero`, if
+/// given, left all zero (discarded there).
 pub fn unk_opts_leaf_element(zero: Option<usize>) -> ak_dec_LeafElement_opts {
     let e = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: Some(unk_grow) };
     let z = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: None };
+    let pe = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: Some(unk_grow) };
+    let pz = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: None };
     ak_dec_LeafElement_opts {
         host: ::core::ptr::null_mut(),
         self_: if zero == Some(0) { z } else { e },
@@ -14623,27 +14996,30 @@ pub fn unk_opts_leaf_element(zero: Option<usize>) -> ak_dec_LeafElement_opts {
 }
 pub const UNK_POSITIONS_LEAFELEMENT: usize = 2;
 
-/// The same decode with the context armed with `opts`, then disarmed; buffers
-/// the core placed but never delivered (an inactive oneof member, a map entry,
-/// a failed decode) are reclaimed.
-pub fn decode_with_leaf_element_opts(ctx: *mut ak_dec_ctx, b: &[u8], opts: &ak_dec_LeafElement_opts) -> Result<LeafElement, i32> {
-    unsafe { ak_dec_reset_LeafElement(ctx, opts); }
-    let r = decode_with_leaf_element(ctx, b);
-    unsafe { ak_dec_reset_LeafElement(ctx, ::core::ptr::null()); }
+/// The same decode with the context armed with `opts` (read IN PLACE by the core
+/// until the disarming reset), then disarmed; buffers the core placed but never
+/// delivered (an inactive oneof member, a map entry, a failed decode) are reclaimed.
+pub fn decode_with_leaf_element_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_LeafElement_opts) -> Result<LeafElement, i32> {
+    let rc = unsafe { ak_dec_reset_LeafElement(ctxs.leaf_element, opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = decode_with_leaf_element(ctxs, b);
+    unsafe { ak_dec_reset_LeafElement(ctxs.leaf_element, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
 
 /// Decision 11: retain everywhere.
-pub fn decode_with_leaf_element_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<LeafElement, i32> {
-    decode_with_leaf_element_opts(ctx, b, &unk_opts_leaf_element(None))
+pub fn decode_with_leaf_element_unk(ctxs: DecCtxs, b: &[u8]) -> Result<LeafElement, i32> {
+    decode_with_leaf_element_opts(ctxs, b, &mut unk_opts_leaf_element(None))
 }
 
 /// Decision 11: the pull family (walk in place) with every position retained.
-pub fn parse_walk_with_leaf_element_unk(ctx: *mut ak_dec_ctx, b: &[u8], toks: &mut Vec<i64>) -> Result<LeafElement, i32> {
-    unsafe { ak_dec_reset_LeafElement(ctx, &unk_opts_leaf_element(None)); }
-    let r = parse_walk_with_leaf_element(ctx, b, toks);
-    unsafe { ak_dec_reset_LeafElement(ctx, ::core::ptr::null()); }
+pub fn parse_walk_with_leaf_element_unk(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<LeafElement, i32> {
+    let mut opts = unk_opts_leaf_element(None);
+    let rc = unsafe { ak_dec_reset_LeafElement(ctxs.leaf_element, &mut opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = parse_walk_with_leaf_element(ctxs, b, toks);
+    unsafe { ak_dec_reset_LeafElement(ctxs.leaf_element, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
@@ -14657,7 +15033,7 @@ pub fn unk_clear_leaf_element(o: &mut LeafElement, pos: usize) {
     }
 }
 
-pub fn unk_controls_leaf_element(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
+pub fn unk_controls_leaf_element(ctx: DecCtxs, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
     const IS_ENTRY: [bool; 2] = [false, false];
     unk_entry_bytes();
     let all = decode_with_leaf_element_unk(ctx, b)?;
@@ -14669,7 +15045,7 @@ pub fn unk_controls_leaf_element(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) ->
     let dbg = |x: &LeafElement| format!("{:?}", x);
     let mut rep = UnkReport { positions: 2, pull_equal: dbg(&pw) == dbg(&all), entry_bytes: eb_all, ..Default::default() };
     for i in 0..2 {
-        let got = decode_with_leaf_element_opts(ctx, b, &unk_opts_leaf_element(Some(i)))?;
+        let got = decode_with_leaf_element_opts(ctx, b, &mut unk_opts_leaf_element(Some(i)))?;
         let eb = unk_entry_bytes();
         let mut exp = all.clone();
         if !plant { unk_clear_leaf_element(&mut exp, i); }
@@ -14741,11 +15117,12 @@ unsafe fn replay_leaf_element_opaque(
 /// measures the family and not an allocator. `Vec<u64>`: a record payload is
 /// an `ak_dfix_*` and has to be 8-aligned.
 pub fn parse_drain_with_leaf_element(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     scratch: &mut Vec<u64>,
     toks: &mut Vec<i64>,
 ) -> Result<LeafElement, i32> {
+    let ctx = ctxs.leaf_element;
     let mut out = LeafElement::default();
     if scratch.len() * 8 < ak_rt::bdr::BDR_MIN_CHUNK {
         scratch.resize(ak_rt::bdr::BDR_MIN_CHUNK.div_ceil(8), 0);
@@ -14784,10 +15161,11 @@ pub fn parse_drain_with_leaf_element(
 /// decomposition: the difference between this arm and the one above IS the
 /// copy, measured rather than estimated.
 pub fn parse_walk_with_leaf_element(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<LeafElement, i32> {
+    let ctx = ctxs.leaf_element;
     let mut out = LeafElement::default();
     toks.clear();
     let rc = unsafe {
@@ -14817,10 +15195,11 @@ pub fn parse_walk_with_leaf_element(
 /// arm exists so that "pull is at parity with push here" is not secretly
 /// "pull's deposit code was inlined and push's could not be".
 pub fn parse_walk_opaque_with_leaf_element(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<LeafElement, i32> {
+    let ctx = ctxs.leaf_element;
     let mut out = LeafElement::default();
     toks.clear();
     let rc = unsafe {
@@ -14882,7 +15261,8 @@ unsafe extern "C" fn add_leaf_response_items(
     })
 }
 
-pub fn decode_with_leaf_response(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<LeafResponse, i32> {
+pub fn decode_with_leaf_response(ctxs: DecCtxs, b: &[u8]) -> Result<LeafResponse, i32> {
+    let ctx = ctxs.leaf_response;
     let mut out = LeafResponse::default();
     let rc = unsafe {
         let mut sink = SinkLeafResponse { out: &mut out, base: b.as_ptr() };
@@ -14896,40 +15276,46 @@ pub fn decode_with_leaf_response(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<LeafR
 }
 
 /// Decision 11: every position of `LeafResponse` backed by `unk_grow` (no pre-allocated
-/// buffer), except position `zero`, if given, left all zero (discarded there).
+/// buffer; a repeated position is an empty pool), except position `zero`, if
+/// given, left all zero (discarded there).
 pub fn unk_opts_leaf_response(zero: Option<usize>) -> ak_dec_LeafResponse_opts {
     let e = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: Some(unk_grow) };
     let z = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: None };
+    let pe = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: Some(unk_grow) };
+    let pz = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: None };
     ak_dec_LeafResponse_opts {
         host: ::core::ptr::null_mut(),
         self_: if zero == Some(0) { z } else { e },
-        items: if zero == Some(1) { z } else { e },
-        items_stamp: if zero == Some(2) { z } else { e },
+        items: if zero == Some(1) { pz } else { pe },
+        items_stamp: if zero == Some(2) { pz } else { pe },
     }
 }
 pub const UNK_POSITIONS_LEAFRESPONSE: usize = 3;
 
-/// The same decode with the context armed with `opts`, then disarmed; buffers
-/// the core placed but never delivered (an inactive oneof member, a map entry,
-/// a failed decode) are reclaimed.
-pub fn decode_with_leaf_response_opts(ctx: *mut ak_dec_ctx, b: &[u8], opts: &ak_dec_LeafResponse_opts) -> Result<LeafResponse, i32> {
-    unsafe { ak_dec_reset_LeafResponse(ctx, opts); }
-    let r = decode_with_leaf_response(ctx, b);
-    unsafe { ak_dec_reset_LeafResponse(ctx, ::core::ptr::null()); }
+/// The same decode with the context armed with `opts` (read IN PLACE by the core
+/// until the disarming reset), then disarmed; buffers the core placed but never
+/// delivered (an inactive oneof member, a map entry, a failed decode) are reclaimed.
+pub fn decode_with_leaf_response_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_LeafResponse_opts) -> Result<LeafResponse, i32> {
+    let rc = unsafe { ak_dec_reset_LeafResponse(ctxs.leaf_response, opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = decode_with_leaf_response(ctxs, b);
+    unsafe { ak_dec_reset_LeafResponse(ctxs.leaf_response, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
 
 /// Decision 11: retain everywhere.
-pub fn decode_with_leaf_response_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<LeafResponse, i32> {
-    decode_with_leaf_response_opts(ctx, b, &unk_opts_leaf_response(None))
+pub fn decode_with_leaf_response_unk(ctxs: DecCtxs, b: &[u8]) -> Result<LeafResponse, i32> {
+    decode_with_leaf_response_opts(ctxs, b, &mut unk_opts_leaf_response(None))
 }
 
 /// Decision 11: the pull family (walk in place) with every position retained.
-pub fn parse_walk_with_leaf_response_unk(ctx: *mut ak_dec_ctx, b: &[u8], toks: &mut Vec<i64>) -> Result<LeafResponse, i32> {
-    unsafe { ak_dec_reset_LeafResponse(ctx, &unk_opts_leaf_response(None)); }
-    let r = parse_walk_with_leaf_response(ctx, b, toks);
-    unsafe { ak_dec_reset_LeafResponse(ctx, ::core::ptr::null()); }
+pub fn parse_walk_with_leaf_response_unk(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<LeafResponse, i32> {
+    let mut opts = unk_opts_leaf_response(None);
+    let rc = unsafe { ak_dec_reset_LeafResponse(ctxs.leaf_response, &mut opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = parse_walk_with_leaf_response(ctxs, b, toks);
+    unsafe { ak_dec_reset_LeafResponse(ctxs.leaf_response, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
@@ -14944,7 +15330,7 @@ pub fn unk_clear_leaf_response(o: &mut LeafResponse, pos: usize) {
     }
 }
 
-pub fn unk_controls_leaf_response(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
+pub fn unk_controls_leaf_response(ctx: DecCtxs, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
     const IS_ENTRY: [bool; 3] = [false, false, false];
     unk_entry_bytes();
     let all = decode_with_leaf_response_unk(ctx, b)?;
@@ -14956,7 +15342,7 @@ pub fn unk_controls_leaf_response(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) -
     let dbg = |x: &LeafResponse| format!("{:?}", x);
     let mut rep = UnkReport { positions: 3, pull_equal: dbg(&pw) == dbg(&all), entry_bytes: eb_all, ..Default::default() };
     for i in 0..3 {
-        let got = decode_with_leaf_response_opts(ctx, b, &unk_opts_leaf_response(Some(i)))?;
+        let got = decode_with_leaf_response_opts(ctx, b, &mut unk_opts_leaf_response(Some(i)))?;
         let eb = unk_entry_bytes();
         let mut exp = all.clone();
         if !plant { unk_clear_leaf_response(&mut exp, i); }
@@ -15035,11 +15421,12 @@ unsafe fn replay_leaf_response_opaque(
 /// measures the family and not an allocator. `Vec<u64>`: a record payload is
 /// an `ak_dfix_*` and has to be 8-aligned.
 pub fn parse_drain_with_leaf_response(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     scratch: &mut Vec<u64>,
     toks: &mut Vec<i64>,
 ) -> Result<LeafResponse, i32> {
+    let ctx = ctxs.leaf_response;
     let mut out = LeafResponse::default();
     if scratch.len() * 8 < ak_rt::bdr::BDR_MIN_CHUNK {
         scratch.resize(ak_rt::bdr::BDR_MIN_CHUNK.div_ceil(8), 0);
@@ -15078,10 +15465,11 @@ pub fn parse_drain_with_leaf_response(
 /// decomposition: the difference between this arm and the one above IS the
 /// copy, measured rather than estimated.
 pub fn parse_walk_with_leaf_response(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<LeafResponse, i32> {
+    let ctx = ctxs.leaf_response;
     let mut out = LeafResponse::default();
     toks.clear();
     let rc = unsafe {
@@ -15111,10 +15499,11 @@ pub fn parse_walk_with_leaf_response(
 /// arm exists so that "pull is at parity with push here" is not secretly
 /// "pull's deposit code was inlined and push's could not be".
 pub fn parse_walk_opaque_with_leaf_response(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<LeafResponse, i32> {
+    let ctx = ctxs.leaf_response;
     let mut out = LeafResponse::default();
     toks.clear();
     let rc = unsafe {
@@ -15206,7 +15595,8 @@ unsafe extern "C" fn add_surrogate_texts(
     })
 }
 
-pub fn decode_with_surrogate(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<Surrogate, i32> {
+pub fn decode_with_surrogate(ctxs: DecCtxs, b: &[u8]) -> Result<Surrogate, i32> {
+    let ctx = ctxs.surrogate;
     let mut out = Surrogate::default();
     let rc = unsafe {
         let mut sink = SinkSurrogate { out: &mut out, base: b.as_ptr() };
@@ -15221,40 +15611,46 @@ pub fn decode_with_surrogate(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<Surrogate
 }
 
 /// Decision 11: every position of `Surrogate` backed by `unk_grow` (no pre-allocated
-/// buffer), except position `zero`, if given, left all zero (discarded there).
+/// buffer; a repeated position is an empty pool), except position `zero`, if
+/// given, left all zero (discarded there).
 pub fn unk_opts_surrogate(zero: Option<usize>) -> ak_dec_Surrogate_opts {
     let e = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: Some(unk_grow) };
     let z = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: None };
+    let pe = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: Some(unk_grow) };
+    let pz = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: None };
     ak_dec_Surrogate_opts {
         host: ::core::ptr::null_mut(),
         self_: if zero == Some(0) { z } else { e },
         nested: if zero == Some(1) { z } else { e },
-        attrs: if zero == Some(2) { z } else { e },
+        attrs: if zero == Some(2) { pz } else { pe },
     }
 }
 pub const UNK_POSITIONS_SURROGATE: usize = 3;
 
-/// The same decode with the context armed with `opts`, then disarmed; buffers
-/// the core placed but never delivered (an inactive oneof member, a map entry,
-/// a failed decode) are reclaimed.
-pub fn decode_with_surrogate_opts(ctx: *mut ak_dec_ctx, b: &[u8], opts: &ak_dec_Surrogate_opts) -> Result<Surrogate, i32> {
-    unsafe { ak_dec_reset_Surrogate(ctx, opts); }
-    let r = decode_with_surrogate(ctx, b);
-    unsafe { ak_dec_reset_Surrogate(ctx, ::core::ptr::null()); }
+/// The same decode with the context armed with `opts` (read IN PLACE by the core
+/// until the disarming reset), then disarmed; buffers the core placed but never
+/// delivered (an inactive oneof member, a map entry, a failed decode) are reclaimed.
+pub fn decode_with_surrogate_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_Surrogate_opts) -> Result<Surrogate, i32> {
+    let rc = unsafe { ak_dec_reset_Surrogate(ctxs.surrogate, opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = decode_with_surrogate(ctxs, b);
+    unsafe { ak_dec_reset_Surrogate(ctxs.surrogate, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
 
 /// Decision 11: retain everywhere.
-pub fn decode_with_surrogate_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<Surrogate, i32> {
-    decode_with_surrogate_opts(ctx, b, &unk_opts_surrogate(None))
+pub fn decode_with_surrogate_unk(ctxs: DecCtxs, b: &[u8]) -> Result<Surrogate, i32> {
+    decode_with_surrogate_opts(ctxs, b, &mut unk_opts_surrogate(None))
 }
 
 /// Decision 11: the pull family (walk in place) with every position retained.
-pub fn parse_walk_with_surrogate_unk(ctx: *mut ak_dec_ctx, b: &[u8], toks: &mut Vec<i64>) -> Result<Surrogate, i32> {
-    unsafe { ak_dec_reset_Surrogate(ctx, &unk_opts_surrogate(None)); }
-    let r = parse_walk_with_surrogate(ctx, b, toks);
-    unsafe { ak_dec_reset_Surrogate(ctx, ::core::ptr::null()); }
+pub fn parse_walk_with_surrogate_unk(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<Surrogate, i32> {
+    let mut opts = unk_opts_surrogate(None);
+    let rc = unsafe { ak_dec_reset_Surrogate(ctxs.surrogate, &mut opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = parse_walk_with_surrogate(ctxs, b, toks);
+    unsafe { ak_dec_reset_Surrogate(ctxs.surrogate, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
@@ -15269,7 +15665,7 @@ pub fn unk_clear_surrogate(o: &mut Surrogate, pos: usize) {
     }
 }
 
-pub fn unk_controls_surrogate(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
+pub fn unk_controls_surrogate(ctx: DecCtxs, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
     const IS_ENTRY: [bool; 3] = [false, false, true];
     unk_entry_bytes();
     let all = decode_with_surrogate_unk(ctx, b)?;
@@ -15281,7 +15677,7 @@ pub fn unk_controls_surrogate(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) -> Re
     let dbg = |x: &Surrogate| format!("{:?}", x);
     let mut rep = UnkReport { positions: 3, pull_equal: dbg(&pw) == dbg(&all), entry_bytes: eb_all, ..Default::default() };
     for i in 0..3 {
-        let got = decode_with_surrogate_opts(ctx, b, &unk_opts_surrogate(Some(i)))?;
+        let got = decode_with_surrogate_opts(ctx, b, &mut unk_opts_surrogate(Some(i)))?;
         let eb = unk_entry_bytes();
         let mut exp = all.clone();
         if !plant { unk_clear_surrogate(&mut exp, i); }
@@ -15367,11 +15763,12 @@ unsafe fn replay_surrogate_opaque(
 /// measures the family and not an allocator. `Vec<u64>`: a record payload is
 /// an `ak_dfix_*` and has to be 8-aligned.
 pub fn parse_drain_with_surrogate(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     scratch: &mut Vec<u64>,
     toks: &mut Vec<i64>,
 ) -> Result<Surrogate, i32> {
+    let ctx = ctxs.surrogate;
     let mut out = Surrogate::default();
     if scratch.len() * 8 < ak_rt::bdr::BDR_MIN_CHUNK {
         scratch.resize(ak_rt::bdr::BDR_MIN_CHUNK.div_ceil(8), 0);
@@ -15410,10 +15807,11 @@ pub fn parse_drain_with_surrogate(
 /// decomposition: the difference between this arm and the one above IS the
 /// copy, measured rather than estimated.
 pub fn parse_walk_with_surrogate(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<Surrogate, i32> {
+    let ctx = ctxs.surrogate;
     let mut out = Surrogate::default();
     toks.clear();
     let rc = unsafe {
@@ -15443,10 +15841,11 @@ pub fn parse_walk_with_surrogate(
 /// arm exists so that "pull is at parity with push here" is not secretly
 /// "pull's deposit code was inlined and push's could not be".
 pub fn parse_walk_opaque_with_surrogate(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<Surrogate, i32> {
+    let ctx = ctxs.surrogate;
     let mut out = Surrogate::default();
     toks.clear();
     let rc = unsafe {
@@ -15492,7 +15891,8 @@ unsafe extern "C" fn apply_surrogate_inner(
     })
 }
 
-pub fn decode_with_surrogate_inner(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<SurrogateInner, i32> {
+pub fn decode_with_surrogate_inner(ctxs: DecCtxs, b: &[u8]) -> Result<SurrogateInner, i32> {
+    let ctx = ctxs.surrogate_inner;
     let mut out = SurrogateInner::default();
     let rc = unsafe {
         let mut sink = SinkSurrogateInner { out: &mut out, base: b.as_ptr() };
@@ -15505,10 +15905,13 @@ pub fn decode_with_surrogate_inner(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<Sur
 }
 
 /// Decision 11: every position of `SurrogateInner` backed by `unk_grow` (no pre-allocated
-/// buffer), except position `zero`, if given, left all zero (discarded there).
+/// buffer; a repeated position is an empty pool), except position `zero`, if
+/// given, left all zero (discarded there).
 pub fn unk_opts_surrogate_inner(zero: Option<usize>) -> ak_dec_SurrogateInner_opts {
     let e = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: Some(unk_grow) };
     let z = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: None };
+    let pe = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: Some(unk_grow) };
+    let pz = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: None };
     ak_dec_SurrogateInner_opts {
         host: ::core::ptr::null_mut(),
         self_: if zero == Some(0) { z } else { e },
@@ -15516,27 +15919,30 @@ pub fn unk_opts_surrogate_inner(zero: Option<usize>) -> ak_dec_SurrogateInner_op
 }
 pub const UNK_POSITIONS_SURROGATEINNER: usize = 1;
 
-/// The same decode with the context armed with `opts`, then disarmed; buffers
-/// the core placed but never delivered (an inactive oneof member, a map entry,
-/// a failed decode) are reclaimed.
-pub fn decode_with_surrogate_inner_opts(ctx: *mut ak_dec_ctx, b: &[u8], opts: &ak_dec_SurrogateInner_opts) -> Result<SurrogateInner, i32> {
-    unsafe { ak_dec_reset_SurrogateInner(ctx, opts); }
-    let r = decode_with_surrogate_inner(ctx, b);
-    unsafe { ak_dec_reset_SurrogateInner(ctx, ::core::ptr::null()); }
+/// The same decode with the context armed with `opts` (read IN PLACE by the core
+/// until the disarming reset), then disarmed; buffers the core placed but never
+/// delivered (an inactive oneof member, a map entry, a failed decode) are reclaimed.
+pub fn decode_with_surrogate_inner_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_SurrogateInner_opts) -> Result<SurrogateInner, i32> {
+    let rc = unsafe { ak_dec_reset_SurrogateInner(ctxs.surrogate_inner, opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = decode_with_surrogate_inner(ctxs, b);
+    unsafe { ak_dec_reset_SurrogateInner(ctxs.surrogate_inner, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
 
 /// Decision 11: retain everywhere.
-pub fn decode_with_surrogate_inner_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<SurrogateInner, i32> {
-    decode_with_surrogate_inner_opts(ctx, b, &unk_opts_surrogate_inner(None))
+pub fn decode_with_surrogate_inner_unk(ctxs: DecCtxs, b: &[u8]) -> Result<SurrogateInner, i32> {
+    decode_with_surrogate_inner_opts(ctxs, b, &mut unk_opts_surrogate_inner(None))
 }
 
 /// Decision 11: the pull family (walk in place) with every position retained.
-pub fn parse_walk_with_surrogate_inner_unk(ctx: *mut ak_dec_ctx, b: &[u8], toks: &mut Vec<i64>) -> Result<SurrogateInner, i32> {
-    unsafe { ak_dec_reset_SurrogateInner(ctx, &unk_opts_surrogate_inner(None)); }
-    let r = parse_walk_with_surrogate_inner(ctx, b, toks);
-    unsafe { ak_dec_reset_SurrogateInner(ctx, ::core::ptr::null()); }
+pub fn parse_walk_with_surrogate_inner_unk(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<SurrogateInner, i32> {
+    let mut opts = unk_opts_surrogate_inner(None);
+    let rc = unsafe { ak_dec_reset_SurrogateInner(ctxs.surrogate_inner, &mut opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = parse_walk_with_surrogate_inner(ctxs, b, toks);
+    unsafe { ak_dec_reset_SurrogateInner(ctxs.surrogate_inner, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
@@ -15549,7 +15955,7 @@ pub fn unk_clear_surrogate_inner(o: &mut SurrogateInner, pos: usize) {
     }
 }
 
-pub fn unk_controls_surrogate_inner(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
+pub fn unk_controls_surrogate_inner(ctx: DecCtxs, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
     const IS_ENTRY: [bool; 1] = [false];
     unk_entry_bytes();
     let all = decode_with_surrogate_inner_unk(ctx, b)?;
@@ -15561,7 +15967,7 @@ pub fn unk_controls_surrogate_inner(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool)
     let dbg = |x: &SurrogateInner| format!("{:?}", x);
     let mut rep = UnkReport { positions: 1, pull_equal: dbg(&pw) == dbg(&all), entry_bytes: eb_all, ..Default::default() };
     for i in 0..1 {
-        let got = decode_with_surrogate_inner_opts(ctx, b, &unk_opts_surrogate_inner(Some(i)))?;
+        let got = decode_with_surrogate_inner_opts(ctx, b, &mut unk_opts_surrogate_inner(Some(i)))?;
         let eb = unk_entry_bytes();
         let mut exp = all.clone();
         if !plant { unk_clear_surrogate_inner(&mut exp, i); }
@@ -15633,11 +16039,12 @@ unsafe fn replay_surrogate_inner_opaque(
 /// measures the family and not an allocator. `Vec<u64>`: a record payload is
 /// an `ak_dfix_*` and has to be 8-aligned.
 pub fn parse_drain_with_surrogate_inner(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     scratch: &mut Vec<u64>,
     toks: &mut Vec<i64>,
 ) -> Result<SurrogateInner, i32> {
+    let ctx = ctxs.surrogate_inner;
     let mut out = SurrogateInner::default();
     if scratch.len() * 8 < ak_rt::bdr::BDR_MIN_CHUNK {
         scratch.resize(ak_rt::bdr::BDR_MIN_CHUNK.div_ceil(8), 0);
@@ -15676,10 +16083,11 @@ pub fn parse_drain_with_surrogate_inner(
 /// decomposition: the difference between this arm and the one above IS the
 /// copy, measured rather than estimated.
 pub fn parse_walk_with_surrogate_inner(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<SurrogateInner, i32> {
+    let ctx = ctxs.surrogate_inner;
     let mut out = SurrogateInner::default();
     toks.clear();
     let rc = unsafe {
@@ -15709,10 +16117,11 @@ pub fn parse_walk_with_surrogate_inner(
 /// arm exists so that "pull is at parity with push here" is not secretly
 /// "pull's deposit code was inlined and push's could not be".
 pub fn parse_walk_opaque_with_surrogate_inner(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<SurrogateInner, i32> {
+    let ctx = ctxs.surrogate_inner;
     let mut out = SurrogateInner::default();
     toks.clear();
     let rc = unsafe {
@@ -15771,7 +16180,8 @@ unsafe extern "C" fn apply_wire_zoo(
     })
 }
 
-pub fn decode_with_wire_zoo(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<WireZoo, i32> {
+pub fn decode_with_wire_zoo(ctxs: DecCtxs, b: &[u8]) -> Result<WireZoo, i32> {
+    let ctx = ctxs.wire_zoo;
     let mut out = WireZoo::default();
     let rc = unsafe {
         let mut sink = SinkWireZoo { out: &mut out, base: b.as_ptr() };
@@ -15784,10 +16194,13 @@ pub fn decode_with_wire_zoo(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<WireZoo, i
 }
 
 /// Decision 11: every position of `WireZoo` backed by `unk_grow` (no pre-allocated
-/// buffer), except position `zero`, if given, left all zero (discarded there).
+/// buffer; a repeated position is an empty pool), except position `zero`, if
+/// given, left all zero (discarded there).
 pub fn unk_opts_wire_zoo(zero: Option<usize>) -> ak_dec_WireZoo_opts {
     let e = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: Some(unk_grow) };
     let z = ak_unk_opts { buf: ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 }, grow: None };
+    let pe = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: Some(unk_grow) };
+    let pz = ak_unk_pool { bufs: ::core::ptr::null_mut(), n: 0, grow: None };
     ak_dec_WireZoo_opts {
         host: ::core::ptr::null_mut(),
         self_: if zero == Some(0) { z } else { e },
@@ -15796,27 +16209,30 @@ pub fn unk_opts_wire_zoo(zero: Option<usize>) -> ak_dec_WireZoo_opts {
 }
 pub const UNK_POSITIONS_WIREZOO: usize = 2;
 
-/// The same decode with the context armed with `opts`, then disarmed; buffers
-/// the core placed but never delivered (an inactive oneof member, a map entry,
-/// a failed decode) are reclaimed.
-pub fn decode_with_wire_zoo_opts(ctx: *mut ak_dec_ctx, b: &[u8], opts: &ak_dec_WireZoo_opts) -> Result<WireZoo, i32> {
-    unsafe { ak_dec_reset_WireZoo(ctx, opts); }
-    let r = decode_with_wire_zoo(ctx, b);
-    unsafe { ak_dec_reset_WireZoo(ctx, ::core::ptr::null()); }
+/// The same decode with the context armed with `opts` (read IN PLACE by the core
+/// until the disarming reset), then disarmed; buffers the core placed but never
+/// delivered (an inactive oneof member, a map entry, a failed decode) are reclaimed.
+pub fn decode_with_wire_zoo_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_WireZoo_opts) -> Result<WireZoo, i32> {
+    let rc = unsafe { ak_dec_reset_WireZoo(ctxs.wire_zoo, opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = decode_with_wire_zoo(ctxs, b);
+    unsafe { ak_dec_reset_WireZoo(ctxs.wire_zoo, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
 
 /// Decision 11: retain everywhere.
-pub fn decode_with_wire_zoo_unk(ctx: *mut ak_dec_ctx, b: &[u8]) -> Result<WireZoo, i32> {
-    decode_with_wire_zoo_opts(ctx, b, &unk_opts_wire_zoo(None))
+pub fn decode_with_wire_zoo_unk(ctxs: DecCtxs, b: &[u8]) -> Result<WireZoo, i32> {
+    decode_with_wire_zoo_opts(ctxs, b, &mut unk_opts_wire_zoo(None))
 }
 
 /// Decision 11: the pull family (walk in place) with every position retained.
-pub fn parse_walk_with_wire_zoo_unk(ctx: *mut ak_dec_ctx, b: &[u8], toks: &mut Vec<i64>) -> Result<WireZoo, i32> {
-    unsafe { ak_dec_reset_WireZoo(ctx, &unk_opts_wire_zoo(None)); }
-    let r = parse_walk_with_wire_zoo(ctx, b, toks);
-    unsafe { ak_dec_reset_WireZoo(ctx, ::core::ptr::null()); }
+pub fn parse_walk_with_wire_zoo_unk(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<WireZoo, i32> {
+    let mut opts = unk_opts_wire_zoo(None);
+    let rc = unsafe { ak_dec_reset_WireZoo(ctxs.wire_zoo, &mut opts) };
+    if rc != AK_OK { return Err(rc); }
+    let r = parse_walk_with_wire_zoo(ctxs, b, toks);
+    unsafe { ak_dec_reset_WireZoo(ctxs.wire_zoo, ::core::ptr::null_mut()); }
     unk_reclaim();
     r
 }
@@ -15830,7 +16246,7 @@ pub fn unk_clear_wire_zoo(o: &mut WireZoo, pos: usize) {
     }
 }
 
-pub fn unk_controls_wire_zoo(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
+pub fn unk_controls_wire_zoo(ctx: DecCtxs, b: &[u8], plant: bool) -> Result<UnkReport, i32> {
     const IS_ENTRY: [bool; 2] = [false, false];
     unk_entry_bytes();
     let all = decode_with_wire_zoo_unk(ctx, b)?;
@@ -15842,7 +16258,7 @@ pub fn unk_controls_wire_zoo(ctx: *mut ak_dec_ctx, b: &[u8], plant: bool) -> Res
     let dbg = |x: &WireZoo| format!("{:?}", x);
     let mut rep = UnkReport { positions: 2, pull_equal: dbg(&pw) == dbg(&all), entry_bytes: eb_all, ..Default::default() };
     for i in 0..2 {
-        let got = decode_with_wire_zoo_opts(ctx, b, &unk_opts_wire_zoo(Some(i)))?;
+        let got = decode_with_wire_zoo_opts(ctx, b, &mut unk_opts_wire_zoo(Some(i)))?;
         let eb = unk_entry_bytes();
         let mut exp = all.clone();
         if !plant { unk_clear_wire_zoo(&mut exp, i); }
@@ -15914,11 +16330,12 @@ unsafe fn replay_wire_zoo_opaque(
 /// measures the family and not an allocator. `Vec<u64>`: a record payload is
 /// an `ak_dfix_*` and has to be 8-aligned.
 pub fn parse_drain_with_wire_zoo(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     scratch: &mut Vec<u64>,
     toks: &mut Vec<i64>,
 ) -> Result<WireZoo, i32> {
+    let ctx = ctxs.wire_zoo;
     let mut out = WireZoo::default();
     if scratch.len() * 8 < ak_rt::bdr::BDR_MIN_CHUNK {
         scratch.resize(ak_rt::bdr::BDR_MIN_CHUNK.div_ceil(8), 0);
@@ -15957,10 +16374,11 @@ pub fn parse_drain_with_wire_zoo(
 /// decomposition: the difference between this arm and the one above IS the
 /// copy, measured rather than estimated.
 pub fn parse_walk_with_wire_zoo(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<WireZoo, i32> {
+    let ctx = ctxs.wire_zoo;
     let mut out = WireZoo::default();
     toks.clear();
     let rc = unsafe {
@@ -15990,10 +16408,11 @@ pub fn parse_walk_with_wire_zoo(
 /// arm exists so that "pull is at parity with push here" is not secretly
 /// "pull's deposit code was inlined and push's could not be".
 pub fn parse_walk_opaque_with_wire_zoo(
-    ctx: *mut ak_dec_ctx,
+    ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<WireZoo, i32> {
+    let ctx = ctxs.wire_zoo;
     let mut out = WireZoo::default();
     toks.clear();
     let rc = unsafe {

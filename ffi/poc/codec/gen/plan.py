@@ -167,56 +167,78 @@ DECODE RULES (stated once, applied by every backend)
     * a host that reports failure (`ak_fail`, or a negative token) stops the decode at the
       next check, which follows every upcall (ABI v1 section 5, R-D6).
 
-UNKNOWN FIELDS ON DECODE, THROUGH THE C ABI (ABI v1 decision 11, mechanism specified by
------------------------------------------------- the owner 2026-09-24; WP5 step 7)
+UNKNOWN FIELDS ON DECODE, THROUGH THE C ABI (ABI v1 decision 11: mechanism specified by
+------------------------------------------------ the owner 2026-09-24, implementation rules
+                                                 confirmed 2026-09-25; WP5 steps 7 and 8)
     * encode is unchanged: every encode u-group (root and each inlined child) carries its
       own `unknown: ak_blob`, written verbatim after the known fields (`unknown_tail`);
     * a MESSAGE POSITION is the root, each element of a repeated message field, each map
-      entry (a map is a repeated pair message), each inlined singular child and each oneof
-      message member, reached from a root by a static path. `unk_positions(p, root)` lists
-      them: PREORDER, the message itself first, then for each message-typed field in TAG
-      ORDER (singular, oneof member, repeated, map) that field's own positions. A message's
-      subtree is therefore contiguous, and a position's index relative to any enclosing
-      message is the same whatever root reached it (`unk_offset`);
+      entry (a map is a repeated pair message), each inlined singular child, and each
+      ONEOF with message members (ONE position per oneof, shared by its message members;
+      rule 4), reached from a root by a static path. `unk_positions(p, root)` lists them:
+      PREORDER, the message itself first, then for each message-typed field in TAG ORDER
+      that field's own positions (a oneof's position at its first message member). A
+      message's subtree is therefore contiguous, and a position's index relative to any
+      enclosing message is the same whatever root reached it (`unk_offset`). A oneof
+      message member whose type has message positions of its own is REFUSED (the schema
+      and the corpus have none; a shared position has no single subtree to place them in);
     * every decode group `ak_dfix_M` ends with `unknown: ak_unk_buf` (before `presence`),
       so each message occurrence carries ONE buffer slot of its own: the core copies that
       message's unknown tag-and-value runs into it, in wire order, verbatim (copied, not
       referenced: the runs need not be contiguous in the input). Buffers are never shared,
       so a sub-message can be re-encoded outside its parent with its own bag;
-    * configuration: per root, `ak_dec_<Root>_opts { void *host; ak_unk_opts <position>
-      ...; }`, one `ak_unk_opts { ak_unk_buf buf; ak_grow_fn grow; }` per position in
-      `unk_positions` order, named by `unk_opts_members` (`self` for the root). `host` is
-      ONE per struct and is passed as `sink` to whichever position's grow is called; a host
-      that must tell positions apart gives them different grow functions (owner amendment,
-      2026-09-24). It is passed at context creation, `ak_dec_ctx_new_<Root>(opts)`, and at
-      reset, `ak_dec_reset_<Root>(ctx, opts)`; the core keeps its own copy, so the host's
-      struct need not outlive the call. NULL opts = every entry zero. A context armed for
-      one root decodes every OTHER root in drop mode; a context never armed is in drop mode;
-    * DISCARD: an all-zero entry (no buffer, no grow) drops the unknowns at that position
-      only. Every entry zero is drop mode, the same code path;
+    * ONEOF (rule 4): the oneof's one buffer lives in the slot of its ACTIVE message member;
+      when the case switches to another message member the core takes that buffer from the
+      previous member's slot, empties it (len = 0) and places it in the new member's slot,
+      so at most one member slot holds it. After a switch to a scalar or blob member the
+      buffer stays, emptied, in the last message member's slot (inactive, the host's at
+      delivery like every non-NULL slot);
+    * configuration: per root, `ak_dec_<Root>_opts { void *host; <entry> <position>...; }`,
+      in `unk_positions` order, named and typed by `unk_opts_layout` (`self` for the root).
+      A position that can occur ONCE per decode (the root, a singular child or a oneof not
+      under any repeated field) is an `ak_unk_opts { ak_unk_buf buf; ak_grow_fn grow; }`; a
+      position that can occur more than once (an element, a map entry, or anything under
+      one) is an `ak_unk_pool { ak_unk_buf *bufs; uint32_t n; ak_grow_fn grow; }` (rule 1).
+      `host` is ONE per struct and is passed as `sink` to whichever position's grow is
+      called; a host that must tell positions apart gives them different grow functions;
+    * IN PLACE (rule 1): the core keeps the HOST'S POINTER, never a copy. It reads an entry
+      when it needs a buffer: a singular entry's `buf` if non-NULL, else a pool's first
+      non-NULL `bufs[i]` for i in 0..n (taken in order). CONSUMING a buffer CLEARS that
+      entry in the host's struct (`buf` / `bufs[i]` set to {NULL, 0, 0}); the host may
+      refill any entry between two deliveries by writing its own memory, with no call
+      (without batching, an element position is refilled in `new_<slot>` or
+      `apply_<slot>`; with batching, a pool after each `add_<slot>`). `grow` is the
+      fallback when the entry has nothing left. The struct must stay valid and unmoved
+      from the reset that armed it until the context is reset or freed;
+    * CONTEXTS ARE ROOT-BOUND (rule 6): `ak_dec_ctx_new_<Root>(opts)` creates a context
+      bound to that root (NULL opts = drop mode); `ak_dec_reset_<Root>(ctx, opts)` re-arms
+      it and returns AK_OK, or AK_ERR_INVALID_STATE for a context bound to another root;
+      `ak_decode_<R>` / `ak_parse_<R>` on a context bound to another root return
+      AK_ERR_INVALID_STATE and deliver nothing. There is no untyped `ak_dec_ctx_new`. A reset
+      per decode is expected (rule 7): it is how pre-allocated buffers are re-armed;
+    * DISCARD: an entry that is ALL ZERO WHEN ARMED (no buffer, no grow; for a pool, no
+      buffers and no grow) drops the unknowns at that position only, for that decode.
+      Every entry zero is drop mode, the same code path;
     * PLACEMENT: when a message occurrence meets its first unknown run and its slot has no
-      buffer, the position's pre-allocated `buf` is MOVED into the slot (the context's entry
-      no longer has it) if it still has one; otherwise `grow(host, want, &data, &cap)` is
-      called with data = NULL and cap = 0 (a fresh buffer). When a run does not fit, the
-      slot's buffer is grown in place: `grow(host, want = len + run, &data, &cap)` with the
-      CURRENT data/cap, and the host returns a buffer of at least `want` bytes whose first
-      `cap`-on-entry bytes are preserved (realloc semantics; it may move). So one buffer is
-      never placed in two slots: the pre-allocated one is moved out on first use, and a
-      handed-out buffer is never passed to grow again. A repeated position's pre-allocated
-      buffer serves the first element that needs one; later elements get theirs from grow;
+      buffer, the entry's next buffer is MOVED into the slot (and cleared in the host's
+      struct); otherwise `grow(host, want, &data, &cap)` is called with data = NULL and
+      cap = 0 (a fresh buffer). When a run does not fit, the slot's buffer is grown in
+      place: `grow(host, want = len + run, &data, &cap)` with the CURRENT data/cap, and the
+      host returns a buffer of at least `want` bytes whose first `cap`-on-entry bytes are
+      preserved (realloc semantics; it may move). So one buffer is never placed in two
+      slots: an entry's buffer is cleared as it is taken, and a placed buffer is never
+      passed to grow again for another slot;
     * `ak_grow_fn`'s signature is the transcoders' (ABI v1 section 4) unchanged: its `want`
-      and `cap` are i32, so a buffer past i32::MAX bytes is refused with ERR_LIMIT;
-    * errors: grow returns a negative code -> the decode fails with it; a position with a
-      buffer but no grow whose buffer is too small or already handed out -> ERR_CAPACITY
-      (never a silent partial copy); grow returning less than `want` -> ERR_CAPACITY;
-    * OWNERSHIP: a buffer placed in a slot passes to the host when the group carrying it is
-      delivered: at `apply`/`apply_<slot>`/`add_<slot>` (push) or when the record is read
-      (pull). Every non-NULL slot of a delivered group is the host's, including one inside
-      an inactive oneof member (the core keeps a member's buffer, emptied, when the case
-      moves to another member and back, and never drops a placed buffer). A failed decode
-      delivers nothing: every buffer it placed or grew stays the host's, which the host
-      knows from its own buffers and its grow calls. `ak_dec_reset_<Root>` re-arms every
-      position;
+      and `cap` are i32, so a buffer past i32::MAX bytes is refused with ERR_LIMIT (rule 5);
+    * errors (rule 2): no buffer left and no grow, at a position not in discard, ->
+      ERR_CAPACITY (never a partial copy); a buffer too small and no grow -> ERR_CAPACITY;
+      grow returns a negative code -> the decode fails with it; grow returning less than
+      `want` -> ERR_CAPACITY;
+    * OWNERSHIP (rule 3): a buffer placed in a slot passes to the host when the group
+      carrying it is delivered: at `apply`/`apply_<slot>`/`add_<slot>` (push) or when the
+      record is read (pull). Every non-NULL slot of a delivered group is the host's. A
+      failed decode delivers nothing and rolls nothing back: every buffer it took or grew
+      stays the host's, which the host knows from its struct and its grow calls;
     * reverse calls: none unless a position has no buffer left or one is too small; then
       one `grow` (counted as a reverse crossing and a grow);
     * recursive messages stay refused from the C ABI (owner, 2026-09-24), so the positions
@@ -1006,6 +1028,9 @@ class FixedAbi:
         ("ak_unk_opts", "Decision 11: one message position's configuration; all zero = its "
                         "unknowns are discarded.",
          [("buf", "ak_unk_buf"), ("grow", "ak_grow_fn?")]),
+        ("ak_unk_pool", "Decision 11 rule 1: a REPEATED position's configuration: buffers taken "
+                        "in order, cleared in place as they are taken; `grow` the fallback.",
+         [("bufs", "*mut ak_unk_buf"), ("n", "u32"), ("grow", "ak_grow_fn?")]),
         ("ak_err", "ak_init's out-parameter (ABI v1 section 3/5): a code and a detail.",
          [("code", "i32"), ("detail", "u32")]),
         ("ak_init_opts", "ak_init's options (ABI v1 section 3).",
@@ -1020,7 +1045,7 @@ class FixedAbi:
          [("op", "u32"), ("slot", "u32"), ("token", "i64"), ("n", "u32"), ("bytes", "u32")]),
     ]
     # The sizes a renderer asserts (LP64 / 64-bit hosts, which is every host this ships to).
-    sizes = {"ak_str": 24, "ak_span": 12, "ak_blob": 16, "ak_unk_buf": 16, "ak_unk_opts": 24,
+    sizes = {"ak_str": 24, "ak_span": 12, "ak_blob": 16, "ak_unk_buf": 16, "ak_unk_opts": 24, "ak_unk_pool": 24,
              "ak_err": 8,
              "ak_init_opts": 24, "AkCounters": 48, "ak_bdr_rec": 24}
 
@@ -1057,7 +1082,8 @@ class FixedAbi:
         ("context", "ak_enc_take", [("ctx", "*mut ak_enc_ctx"), ("ptr", "*mut *const u8"),
                                     ("len", "*mut usize")], "i32",
          "Borrow what the context has encoded, valid until the next reset; returns the status."),
-        ("context", "ak_dec_ctx_new", [], "*mut ak_dec_ctx", ""),
+        # WP5 step 8 (decision 11 rule 6): no untyped `ak_dec_ctx_new`; a decode context is
+        # created bound to its root by `ak_dec_ctx_new_<Root>` (plan.unk_entry_points).
         ("context", "ak_dec_ctx_free", [("ctx", "*mut ak_dec_ctx")], None, ""),
         ("error", "ak_fail", [("ctx", "*mut void"), ("code", "i32"), ("msg", "*const u8"),
                               ("msg_len", "u32")], None,
@@ -1233,9 +1259,9 @@ def pull_records(p, root):
 # struct and its member names, and the two entry points per root.
 
 def _unk_key(f):
-    """A message-typed field's path element: the group member name (a oneof member is
-    `<oneof>_<member>`, as in `group_fields`)."""
-    return "%s_%s" % (f.oneof, f.name) if f.oneof else f.name
+    """A message-typed field's path element: the field name, or for a oneof member the
+    ONEOF's name (one position per oneof, rule 4)."""
+    return f.oneof if f.oneof else f.name
 
 
 def _unk_child(f):
@@ -1246,16 +1272,21 @@ def _unk_child(f):
     return None
 
 
+ONEOF_POSITION = "oneof"
+
+
 def unk_positions(p, name, _trail=None):
     """[(path tuple, message name)] of every message position in `name`'s decode, `name`
     itself first (path ()), then in TAG ORDER each message-typed field's positions, depth
-    first (preorder). A recursive message has no finite list and is refused (it cannot
-    cross the C ABI, `check_expressible`)."""
+    first (preorder). A oneof with message members is ONE position (message name
+    `ONEOF_POSITION`), listed at its first message member; a member type with positions of
+    its own is refused. A recursive message has no finite list and is refused."""
     memo = p.__dict__.setdefault("_unk_memo", {})
     if _trail is None and name in memo:
         return memo[name]
     trail = (_trail or frozenset()) | {name}
     out = [((), name)]
+    seen_oneofs = set()
     for f in p.msg(name).fields:
         c = _unk_child(f)
         if c is None:
@@ -1263,11 +1294,41 @@ def unk_positions(p, name, _trail=None):
         if c in trail:
             raise NotExpressible("REFUSED: %s reaches %s again (%s.%s): a recursive message has "
                                  "no finite set of unknown-field positions" % (name, c, name, f.name))
+        if f.oneof:
+            if len(unk_positions(p, c, trail)) > 1:
+                raise NotImplementedError(
+                    "REFUSED: oneof member %s.%s (%s) has message positions of its own; decision "
+                    "11 rule 4 makes the oneof ONE position, which has no single subtree to hold "
+                    "them" % (name, f.name, c))
+            if f.oneof in seen_oneofs:
+                continue
+            seen_oneofs.add(f.oneof)
+            out.append(((f.oneof,), ONEOF_POSITION))
+            continue
         for path, m in unk_positions(p, c, trail):
             out.append(((_unk_key(f),) + path, m))
     if _trail is None:
         memo[name] = out
     return out
+
+
+def _unk_repeated(p, name, path):
+    """Can the position at `path` (relative to `name`) occur more than once per decode?"""
+    m = p.msg(name)
+    for k in path:
+        f = None
+        for g in m.fields:
+            if (g.oneof or g.name) == k and _unk_child(g) is not None:
+                f = g
+                break
+        if f is None:
+            raise KeyError("%s: no position key %s" % (m.name, k))
+        if f.card in ("repeated", "map"):
+            return True
+        if f.oneof:
+            return False
+        m = p.msg(_unk_child(f))
+    return False
 
 
 def unk_offset(p, name, f):
@@ -1279,6 +1340,14 @@ def unk_offset(p, name, f):
         if path == k:
             return i
     raise KeyError("%s.%s is not a message position" % (name, f.name))
+
+
+def unk_opts_layout(p, root):
+    """The members of `ak_dec_<root>_opts` after `host`, in order: (member name, message
+    name or ONEOF_POSITION, entry type) with entry type `ak_unk_opts` for a position that
+    occurs once per decode and `ak_unk_pool` for one that can occur more (rule 1)."""
+    return [(n, m, "ak_unk_pool" if _unk_repeated(p, root, path) else "ak_unk_opts")
+            for (n, m), (path, _m) in zip(unk_opts_members(p, root), unk_positions(p, root))]
 
 
 def unk_opts_name(root):
@@ -1310,8 +1379,10 @@ def unk_entry_points(p, root):
     """The two per-root entry points of decision 11, (name, [(param, type)], return, doc)."""
     o = unk_opts_name(root)
     return [
-        ("ak_dec_ctx_new_%s" % root, [("opts", "*const %s" % o)], "*mut ak_dec_ctx",
-         "A decode context armed with these options (NULL = drop everywhere)."),
-        ("ak_dec_reset_%s" % root, [("ctx", "*mut ak_dec_ctx"), ("opts", "*const %s" % o)], None,
-         "Re-arm every position of this root from `opts` (copied; NULL = drop everywhere)."),
+        ("ak_dec_ctx_new_%s" % root, [("opts", "*mut %s" % o)], "*mut ak_dec_ctx",
+         "A decode context BOUND to this root (rule 6), armed with `opts` read in place "
+         "(NULL = drop everywhere)."),
+        ("ak_dec_reset_%s" % root, [("ctx", "*mut ak_dec_ctx"), ("opts", "*mut %s" % o)], "i32",
+         "Re-arm every position from `opts`, read IN PLACE (NULL = drop everywhere); "
+         "AK_ERR_INVALID_STATE for a context bound to another root."),
     ]

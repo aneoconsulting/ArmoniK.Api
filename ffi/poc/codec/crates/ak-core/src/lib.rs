@@ -324,11 +324,13 @@ pub struct DecCtxImpl {
     /// context rather than a local of the entry point because the whole point of pull is
     /// that the host reads it AFTER the call returns.
     pub bdr: ak_rt::Bdr,
-    /// Decision 11 (WP5 step 7): the unknown-field options this context is armed with --
-    /// the root they are for (`plan.unk_root_id`, 0 = not armed, drop mode), the ONE host
-    /// pointer, and the core's own copy of the positions, consumed as buffers are placed.
-    pub unk_root: u32,
-    pub unk_host: *mut c_void,
+    /// Decision 11 rule 6 (WP5 step 8): the root this context is BOUND to
+    /// (`plan.unk_root_id`); decoding another root with it is refused.
+    pub root: u32,
+    /// Rule 1: the host's options struct, read IN PLACE (never copied); NULL = drop mode.
+    /// Its first word is the ONE host pointer handed to every grow.
+    pub unk_opts: *mut u8,
+    /// One entry per position (plan.unk_positions order): a pointer into the host's struct.
     pub unk: Vec<UnkPos>,
 }
 
@@ -402,14 +404,15 @@ pub unsafe extern "C" fn ak_enc_err(ctx: *const ak_enc_ctx) -> i32 {
     }
 }
 
-#[no_mangle]
-pub extern "C" fn ak_dec_ctx_new() -> *mut ak_dec_ctx {
+/// Decision 11 rule 6: a decode context exists only BOUND to a root; the generated
+/// `ak_dec_ctx_new_<Root>` calls this. There is no untyped `ak_dec_ctx_new`.
+pub(crate) fn dec_ctx_alloc(root: u32) -> *mut ak_dec_ctx {
     Box::into_raw(Box::new(DecCtxImpl {
         hdr: CtxHeader { kind: AK_CTX_DEC, err: AK_OK },
         c: Default::default(),
         bdr: ak_rt::Bdr::new(),
-        unk_root: 0,
-        unk_host: core::ptr::null_mut(),
+        root,
+        unk_opts: core::ptr::null_mut(),
         unk: Vec::new(),
     })) as *mut ak_dec_ctx
 }
@@ -1010,18 +1013,19 @@ pub(crate) unsafe fn enc_blob(cx: *mut EncCtxImpl, tag: u32, site: u32, s: &ak_s
     true
 }
 
-/// Decision 11 (WP5 step 7, the owner's mechanism): one message position of the context's
-/// armed options. `handed` records that its pre-allocated buffer has been MOVED into a slot,
-/// so it can never be placed a second time (plan: UNKNOWN FIELDS ON DECODE, PLACEMENT).
-#[repr(C)]
+/// Decision 11 (WP5 steps 7-8): one message position of the context's armed options: a
+/// pointer to its entry IN THE HOST'S STRUCT (rule 1), an `ak_unk_opts` or, for a position
+/// that can occur more than once, an `ak_unk_pool`; `discard` is "the entry was all zero
+/// when armed".
 #[derive(Clone, Copy)]
 pub struct UnkPos {
-    pub o: ak_unk_opts,
-    pub handed: bool,
+    pub entry: *mut u8,
+    pub pool: bool,
+    pub discard: bool,
 }
 
 /// What a decoder carries for its message: the context and the message's position, or a
-/// NULL position (drop mode, or a context armed for another root). Copy, two words.
+/// NULL position (drop mode). Copy, two words.
 #[derive(Clone, Copy)]
 pub struct UnkCx {
     pub dcx: *mut DecCtxImpl,
@@ -1029,14 +1033,10 @@ pub struct UnkCx {
 }
 
 impl UnkCx {
-    /// The root's position, if this context is armed for this root.
+    /// The root's position, if this context is armed.
     #[inline(always)]
-    pub unsafe fn root(dcx: *mut DecCtxImpl, root_id: u32) -> UnkCx {
-        let pos = if (*dcx).unk_root == root_id && !(*dcx).unk.is_empty() {
-            (*dcx).unk.as_mut_ptr()
-        } else {
-            core::ptr::null_mut()
-        };
+    pub unsafe fn root(dcx: *mut DecCtxImpl) -> UnkCx {
+        let pos = if !(*dcx).unk.is_empty() { (*dcx).unk.as_mut_ptr() } else { core::ptr::null_mut() };
         UnkCx { dcx, pos }
     }
 
@@ -1051,43 +1051,77 @@ impl UnkCx {
     }
 }
 
-/// Arm (or, with `n == 0`, disarm) a context for one root: the core's own copy, so the
-/// host's struct need not outlive the call.
-pub(crate) unsafe fn unk_arm(dcx: *mut DecCtxImpl, root_id: u32, host: *mut c_void,
-                             first: *const ak_unk_opts, n: usize) {
+const NO_BUF: ak_unk_buf = ak_unk_buf { data: core::ptr::null_mut(), len: 0, cap: 0 };
+
+/// Arm a (bound) context from the host's struct, read in place; NULL = drop mode. `layout`
+/// is the root's (byte offset, is pool) per position, generated from the plan. Whether a
+/// position discards is decided HERE, from its entry as the host armed it.
+pub(crate) unsafe fn unk_arm(dcx: *mut DecCtxImpl, opts: *mut u8, layout: &[(usize, bool)]) {
     let cx = &mut *dcx;
     cx.unk.clear();
-    if n == 0 || first.is_null() {
-        cx.unk_root = 0;
-        cx.unk_host = core::ptr::null_mut();
+    cx.unk_opts = opts;
+    if opts.is_null() {
         return;
     }
-    cx.unk_root = root_id;
-    cx.unk_host = host;
-    let src = core::slice::from_raw_parts(first, n);
-    cx.unk.extend(src.iter().map(|o| UnkPos { o: *o, handed: false }));
+    let mut all_discard = true;
+    for &(off, pool) in layout {
+        let entry = opts.add(off);
+        let discard = if pool {
+            let p = &*(entry as *const ak_unk_pool);
+            let any = !p.bufs.is_null() && (0..p.n as usize).any(|i| !(*p.bufs.add(i)).data.is_null());
+            !any && p.grow.is_none()
+        } else {
+            let o = &*(entry as *const ak_unk_opts);
+            o.buf.data.is_null() && o.grow.is_none()
+        };
+        all_discard &= discard;
+        cx.unk.push(UnkPos { entry, pool, discard });
+    }
+    if all_discard {
+        // Every entry zero: drop mode, the same code path as NULL (one null test per run).
+        cx.unk.clear();
+    }
 }
 
 /// Copy one unknown run of a message into that message's own buffer slot (plan: UNKNOWN
 /// FIELDS ON DECODE). Returns AK_OK or the error that fails the decode.
 #[inline(never)]
 pub(crate) unsafe fn unk_put(u: UnkCx, slot: &mut ak_unk_buf, run: &[u8]) -> i32 {
-    let e = &mut *u.pos;
+    let e = *u.pos;
+    if e.discard {
+        return AK_OK;
+    }
+    // Rule 1: the entry is read NOW, in the host's struct, so a refill the host wrote
+    // since the last delivery is seen.
+    let grow = if e.pool { (*(e.entry as *const ak_unk_pool)).grow } else { (*(e.entry as *const ak_unk_opts)).grow };
     if slot.data.is_null() {
-        if !e.o.buf.data.is_null() {
-            // PLACEMENT: the pre-allocated buffer is MOVED, so it cannot be placed twice.
-            debug_assert!(!e.handed);
-            *slot = ak_unk_buf { data: e.o.buf.data, len: 0, cap: e.o.buf.cap };
-            e.o.buf = ak_unk_buf { data: core::ptr::null_mut(), len: 0, cap: 0 };
-            e.handed = true;
-        } else if e.o.grow.is_none() {
-            // DISCARD (an all-zero entry), or a buffer already handed out and no grow.
-            return if e.handed { AK_ERR_CAPACITY } else { AK_OK };
+        let taken = if e.pool {
+            let p = &mut *(e.entry as *mut ak_unk_pool);
+            let mut t = NO_BUF;
+            if !p.bufs.is_null() {
+                for i in 0..p.n as usize {
+                    let b = &mut *p.bufs.add(i);
+                    if !b.data.is_null() {
+                        // Taken in order, and CLEARED in place: never placed twice.
+                        t = core::mem::replace(b, NO_BUF);
+                        break;
+                    }
+                }
+            }
+            t
+        } else {
+            core::mem::replace(&mut (*(e.entry as *mut ak_unk_opts)).buf, NO_BUF)
+        };
+        if !taken.data.is_null() {
+            *slot = ak_unk_buf { data: taken.data, len: 0, cap: taken.cap };
+        } else if grow.is_none() {
+            // Rule 2: nothing left and no grow.
+            return AK_ERR_CAPACITY;
         }
     }
     let need = slot.len as usize + run.len();
     if need > slot.cap as usize {
-        let Some(grow) = e.o.grow else { return AK_ERR_CAPACITY };
+        let Some(grow) = grow else { return AK_ERR_CAPACITY };
         if need > i32::MAX as usize {
             return AK_ERR_LIMIT;
         }
@@ -1096,7 +1130,8 @@ pub(crate) unsafe fn unk_put(u: UnkCx, slot: &mut ak_unk_buf, run: &[u8]) -> i32
         let cx = &mut *u.dcx;
         ak_rt::bump!(cx.c, reverse);
         ak_rt::bump!(cx.c, grows);
-        let rc = grow(cx.unk_host, need as i32, &mut dst, &mut cap);
+        let host = *(cx.unk_opts as *const *mut c_void);
+        let rc = grow(host, need as i32, &mut dst, &mut cap);
         if rc < 0 {
             return rc;
         }

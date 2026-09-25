@@ -6,7 +6,7 @@
 // The fixed vocabulary (ak_str, ak_span, ak_blob, ak_unk_buf, ak_unk_opts, ak_loop_f,
 // AK_TOKEN_ROOT) is plan.FIXED's, rendered into ak-abi's lib.rs (WP5 step 6).
 use super::super::{ak_blob, ak_dec_ctx, ak_enc_ctx, ak_loop_f, ak_span, ak_str, ak_unk_buf,
-    ak_unk_opts};
+    ak_unk_opts, ak_unk_pool};
 use core::ffi::c_void;
 
 /// Encode group for `TaskOptionsOptionsEntry`.
@@ -1707,12 +1707,12 @@ pub struct ak_dec_ListResultsResponse_opts {
     pub host: *mut c_void,
     /// `ListResultsResponse`
     pub self_: ak_unk_opts,
-    /// `ResultRaw`
-    pub results: ak_unk_opts,
-    /// `Timestamp`
-    pub results_created_at: ak_unk_opts,
-    /// `Timestamp`
-    pub results_completed_at: ak_unk_opts,
+    /// `ResultRaw` (a repeated position: a pool, rule 1)
+    pub results: ak_unk_pool,
+    /// `Timestamp` (a repeated position: a pool, rule 1)
+    pub results_created_at: ak_unk_pool,
+    /// `Timestamp` (a repeated position: a pool, rule 1)
+    pub results_completed_at: ak_unk_pool,
 }
 pub const AK_DEC_LISTRESULTSRESPONSE_OPTS_N: usize = 4;
 
@@ -1725,40 +1725,40 @@ pub struct ak_dec_ListTasksDetailedResponse_opts {
     pub host: *mut c_void,
     /// `ListTasksDetailedResponse`
     pub self_: ak_unk_opts,
-    /// `TaskDetailed`
-    pub tasks: ak_unk_opts,
-    /// `TaskOptions`
-    pub tasks_options: ak_unk_opts,
-    /// `TaskOptionsOptionsEntry`
-    pub tasks_options_options: ak_unk_opts,
-    /// `Duration`
-    pub tasks_options_max_duration: ak_unk_opts,
-    /// `Timestamp`
-    pub tasks_created_at: ak_unk_opts,
-    /// `Timestamp`
-    pub tasks_submitted_at: ak_unk_opts,
-    /// `Timestamp`
-    pub tasks_started_at: ak_unk_opts,
-    /// `Timestamp`
-    pub tasks_ended_at: ak_unk_opts,
-    /// `Timestamp`
-    pub tasks_pod_ttl: ak_unk_opts,
-    /// `TaskOutput`
-    pub tasks_output: ak_unk_opts,
-    /// `Timestamp`
-    pub tasks_received_at: ak_unk_opts,
-    /// `Timestamp`
-    pub tasks_acquired_at: ak_unk_opts,
-    /// `Duration`
-    pub tasks_creation_to_end_duration: ak_unk_opts,
-    /// `Duration`
-    pub tasks_processing_to_end_duration: ak_unk_opts,
-    /// `Duration`
-    pub tasks_received_to_end_duration: ak_unk_opts,
-    /// `Timestamp`
-    pub tasks_processed_at: ak_unk_opts,
-    /// `Timestamp`
-    pub tasks_fetched_at: ak_unk_opts,
+    /// `TaskDetailed` (a repeated position: a pool, rule 1)
+    pub tasks: ak_unk_pool,
+    /// `TaskOptions` (a repeated position: a pool, rule 1)
+    pub tasks_options: ak_unk_pool,
+    /// `TaskOptionsOptionsEntry` (a repeated position: a pool, rule 1)
+    pub tasks_options_options: ak_unk_pool,
+    /// `Duration` (a repeated position: a pool, rule 1)
+    pub tasks_options_max_duration: ak_unk_pool,
+    /// `Timestamp` (a repeated position: a pool, rule 1)
+    pub tasks_created_at: ak_unk_pool,
+    /// `Timestamp` (a repeated position: a pool, rule 1)
+    pub tasks_submitted_at: ak_unk_pool,
+    /// `Timestamp` (a repeated position: a pool, rule 1)
+    pub tasks_started_at: ak_unk_pool,
+    /// `Timestamp` (a repeated position: a pool, rule 1)
+    pub tasks_ended_at: ak_unk_pool,
+    /// `Timestamp` (a repeated position: a pool, rule 1)
+    pub tasks_pod_ttl: ak_unk_pool,
+    /// `TaskOutput` (a repeated position: a pool, rule 1)
+    pub tasks_output: ak_unk_pool,
+    /// `Timestamp` (a repeated position: a pool, rule 1)
+    pub tasks_received_at: ak_unk_pool,
+    /// `Timestamp` (a repeated position: a pool, rule 1)
+    pub tasks_acquired_at: ak_unk_pool,
+    /// `Duration` (a repeated position: a pool, rule 1)
+    pub tasks_creation_to_end_duration: ak_unk_pool,
+    /// `Duration` (a repeated position: a pool, rule 1)
+    pub tasks_processing_to_end_duration: ak_unk_pool,
+    /// `Duration` (a repeated position: a pool, rule 1)
+    pub tasks_received_to_end_duration: ak_unk_pool,
+    /// `Timestamp` (a repeated position: a pool, rule 1)
+    pub tasks_processed_at: ak_unk_pool,
+    /// `Timestamp` (a repeated position: a pool, rule 1)
+    pub tasks_fetched_at: ak_unk_pool,
 }
 pub const AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS_N: usize = 18;
 
@@ -1771,14 +1771,12 @@ pub struct ak_dec_ListProbeResponse_opts {
     pub host: *mut c_void,
     /// `ListProbeResponse`
     pub self_: ak_unk_opts,
-    /// `Probe`
-    pub probes: ak_unk_opts,
-    /// `Timestamp`
-    pub probes_body_as_stamp: ak_unk_opts,
-    /// `Empty`
-    pub probes_body_as_nothing: ak_unk_opts,
+    /// `Probe` (a repeated position: a pool, rule 1)
+    pub probes: ak_unk_pool,
+    /// `oneof` (a repeated position: a pool, rule 1)
+    pub probes_body: ak_unk_pool,
 }
-pub const AK_DEC_LISTPROBERESPONSE_OPTS_N: usize = 4;
+pub const AK_DEC_LISTPROBERESPONSE_OPTS_N: usize = 3;
 
 /// Decision 11: `ListTaskSummaryResponse`'s unknown-field options, one entry per message position
 /// (plan.unk_positions order). All zero = drop mode.
@@ -1789,16 +1787,16 @@ pub struct ak_dec_ListTaskSummaryResponse_opts {
     pub host: *mut c_void,
     /// `ListTaskSummaryResponse`
     pub self_: ak_unk_opts,
-    /// `TaskSummary`
-    pub tasks: ak_unk_opts,
-    /// `TaskOptions`
-    pub tasks_options: ak_unk_opts,
-    /// `TaskOptionsOptionsEntry`
-    pub tasks_options_options: ak_unk_opts,
-    /// `Duration`
-    pub tasks_options_max_duration: ak_unk_opts,
-    /// `Timestamp`
-    pub tasks_created_at: ak_unk_opts,
+    /// `TaskSummary` (a repeated position: a pool, rule 1)
+    pub tasks: ak_unk_pool,
+    /// `TaskOptions` (a repeated position: a pool, rule 1)
+    pub tasks_options: ak_unk_pool,
+    /// `TaskOptionsOptionsEntry` (a repeated position: a pool, rule 1)
+    pub tasks_options_options: ak_unk_pool,
+    /// `Duration` (a repeated position: a pool, rule 1)
+    pub tasks_options_max_duration: ak_unk_pool,
+    /// `Timestamp` (a repeated position: a pool, rule 1)
+    pub tasks_created_at: ak_unk_pool,
 }
 pub const AK_DEC_LISTTASKSUMMARYRESPONSE_OPTS_N: usize = 6;
 
@@ -1825,8 +1823,8 @@ pub struct ak_dec_ListMetricsResponse_opts {
     pub host: *mut c_void,
     /// `ListMetricsResponse`
     pub self_: ak_unk_opts,
-    /// `MetricsBatch`
-    pub batches: ak_unk_opts,
+    /// `MetricsBatch` (a repeated position: a pool, rule 1)
+    pub batches: ak_unk_pool,
 }
 pub const AK_DEC_LISTMETRICSRESPONSE_OPTS_N: usize = 2;
 
@@ -1839,10 +1837,10 @@ pub struct ak_dec_DualResponse_opts {
     pub host: *mut c_void,
     /// `DualResponse`
     pub self_: ak_unk_opts,
-    /// `Pair`
-    pub left: ak_unk_opts,
-    /// `Pair`
-    pub right: ak_unk_opts,
+    /// `Pair` (a repeated position: a pool, rule 1)
+    pub left: ak_unk_pool,
+    /// `Pair` (a repeated position: a pool, rule 1)
+    pub right: ak_unk_pool,
 }
 pub const AK_DEC_DUALRESPONSE_OPTS_N: usize = 3;
 
@@ -1870,10 +1868,10 @@ unsafe extern "C" {
         len: usize,
         vt: *const ak_dvt_ListResultsResponse,
     ) -> i32;
-    /// A decode context armed with these options (NULL = drop everywhere).
-    pub fn ak_dec_ctx_new_ListResultsResponse(opts: *const ak_dec_ListResultsResponse_opts) -> *mut ak_dec_ctx;
-    /// Re-arm every position of this root from `opts` (copied; NULL = drop everywhere).
-    pub fn ak_dec_reset_ListResultsResponse(ctx: *mut ak_dec_ctx, opts: *const ak_dec_ListResultsResponse_opts);
+    /// A decode context BOUND to this root (rule 6), armed with `opts` read in place (NULL = drop everywhere).
+    pub fn ak_dec_ctx_new_ListResultsResponse(opts: *mut ak_dec_ListResultsResponse_opts) -> *mut ak_dec_ctx;
+    /// Re-arm every position from `opts`, read IN PLACE (NULL = drop everywhere); AK_ERR_INVALID_STATE for a context bound to another root.
+    pub fn ak_dec_reset_ListResultsResponse(ctx: *mut ak_dec_ctx, opts: *mut ak_dec_ListResultsResponse_opts) -> i32;
     /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse
     /// call. The decoded values land in the context's record buffer and the
     /// host reads them with `ak_bdr_drain` or `ak_bdr_ptr`.
@@ -1903,10 +1901,10 @@ unsafe extern "C" {
         len: usize,
         vt: *const ak_dvt_ListTasksDetailedResponse,
     ) -> i32;
-    /// A decode context armed with these options (NULL = drop everywhere).
-    pub fn ak_dec_ctx_new_ListTasksDetailedResponse(opts: *const ak_dec_ListTasksDetailedResponse_opts) -> *mut ak_dec_ctx;
-    /// Re-arm every position of this root from `opts` (copied; NULL = drop everywhere).
-    pub fn ak_dec_reset_ListTasksDetailedResponse(ctx: *mut ak_dec_ctx, opts: *const ak_dec_ListTasksDetailedResponse_opts);
+    /// A decode context BOUND to this root (rule 6), armed with `opts` read in place (NULL = drop everywhere).
+    pub fn ak_dec_ctx_new_ListTasksDetailedResponse(opts: *mut ak_dec_ListTasksDetailedResponse_opts) -> *mut ak_dec_ctx;
+    /// Re-arm every position from `opts`, read IN PLACE (NULL = drop everywhere); AK_ERR_INVALID_STATE for a context bound to another root.
+    pub fn ak_dec_reset_ListTasksDetailedResponse(ctx: *mut ak_dec_ctx, opts: *mut ak_dec_ListTasksDetailedResponse_opts) -> i32;
     /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse
     /// call. The decoded values land in the context's record buffer and the
     /// host reads them with `ak_bdr_drain` or `ak_bdr_ptr`.
@@ -1936,10 +1934,10 @@ unsafe extern "C" {
         len: usize,
         vt: *const ak_dvt_ListProbeResponse,
     ) -> i32;
-    /// A decode context armed with these options (NULL = drop everywhere).
-    pub fn ak_dec_ctx_new_ListProbeResponse(opts: *const ak_dec_ListProbeResponse_opts) -> *mut ak_dec_ctx;
-    /// Re-arm every position of this root from `opts` (copied; NULL = drop everywhere).
-    pub fn ak_dec_reset_ListProbeResponse(ctx: *mut ak_dec_ctx, opts: *const ak_dec_ListProbeResponse_opts);
+    /// A decode context BOUND to this root (rule 6), armed with `opts` read in place (NULL = drop everywhere).
+    pub fn ak_dec_ctx_new_ListProbeResponse(opts: *mut ak_dec_ListProbeResponse_opts) -> *mut ak_dec_ctx;
+    /// Re-arm every position from `opts`, read IN PLACE (NULL = drop everywhere); AK_ERR_INVALID_STATE for a context bound to another root.
+    pub fn ak_dec_reset_ListProbeResponse(ctx: *mut ak_dec_ctx, opts: *mut ak_dec_ListProbeResponse_opts) -> i32;
     /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse
     /// call. The decoded values land in the context's record buffer and the
     /// host reads them with `ak_bdr_drain` or `ak_bdr_ptr`.
@@ -1969,10 +1967,10 @@ unsafe extern "C" {
         len: usize,
         vt: *const ak_dvt_ListTaskSummaryResponse,
     ) -> i32;
-    /// A decode context armed with these options (NULL = drop everywhere).
-    pub fn ak_dec_ctx_new_ListTaskSummaryResponse(opts: *const ak_dec_ListTaskSummaryResponse_opts) -> *mut ak_dec_ctx;
-    /// Re-arm every position of this root from `opts` (copied; NULL = drop everywhere).
-    pub fn ak_dec_reset_ListTaskSummaryResponse(ctx: *mut ak_dec_ctx, opts: *const ak_dec_ListTaskSummaryResponse_opts);
+    /// A decode context BOUND to this root (rule 6), armed with `opts` read in place (NULL = drop everywhere).
+    pub fn ak_dec_ctx_new_ListTaskSummaryResponse(opts: *mut ak_dec_ListTaskSummaryResponse_opts) -> *mut ak_dec_ctx;
+    /// Re-arm every position from `opts`, read IN PLACE (NULL = drop everywhere); AK_ERR_INVALID_STATE for a context bound to another root.
+    pub fn ak_dec_reset_ListTaskSummaryResponse(ctx: *mut ak_dec_ctx, opts: *mut ak_dec_ListTaskSummaryResponse_opts) -> i32;
     /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse
     /// call. The decoded values land in the context's record buffer and the
     /// host reads them with `ak_bdr_drain` or `ak_bdr_ptr`.
@@ -2007,10 +2005,10 @@ unsafe extern "C" {
         len: usize,
         vt: *const ak_dvt_UploadResultDataMessage,
     ) -> i32;
-    /// A decode context armed with these options (NULL = drop everywhere).
-    pub fn ak_dec_ctx_new_UploadResultDataMessage(opts: *const ak_dec_UploadResultDataMessage_opts) -> *mut ak_dec_ctx;
-    /// Re-arm every position of this root from `opts` (copied; NULL = drop everywhere).
-    pub fn ak_dec_reset_UploadResultDataMessage(ctx: *mut ak_dec_ctx, opts: *const ak_dec_UploadResultDataMessage_opts);
+    /// A decode context BOUND to this root (rule 6), armed with `opts` read in place (NULL = drop everywhere).
+    pub fn ak_dec_ctx_new_UploadResultDataMessage(opts: *mut ak_dec_UploadResultDataMessage_opts) -> *mut ak_dec_ctx;
+    /// Re-arm every position from `opts`, read IN PLACE (NULL = drop everywhere); AK_ERR_INVALID_STATE for a context bound to another root.
+    pub fn ak_dec_reset_UploadResultDataMessage(ctx: *mut ak_dec_ctx, opts: *mut ak_dec_UploadResultDataMessage_opts) -> i32;
     /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse
     /// call. The decoded values land in the context's record buffer and the
     /// host reads them with `ak_bdr_drain` or `ak_bdr_ptr`.
@@ -2040,10 +2038,10 @@ unsafe extern "C" {
         len: usize,
         vt: *const ak_dvt_ListMetricsResponse,
     ) -> i32;
-    /// A decode context armed with these options (NULL = drop everywhere).
-    pub fn ak_dec_ctx_new_ListMetricsResponse(opts: *const ak_dec_ListMetricsResponse_opts) -> *mut ak_dec_ctx;
-    /// Re-arm every position of this root from `opts` (copied; NULL = drop everywhere).
-    pub fn ak_dec_reset_ListMetricsResponse(ctx: *mut ak_dec_ctx, opts: *const ak_dec_ListMetricsResponse_opts);
+    /// A decode context BOUND to this root (rule 6), armed with `opts` read in place (NULL = drop everywhere).
+    pub fn ak_dec_ctx_new_ListMetricsResponse(opts: *mut ak_dec_ListMetricsResponse_opts) -> *mut ak_dec_ctx;
+    /// Re-arm every position from `opts`, read IN PLACE (NULL = drop everywhere); AK_ERR_INVALID_STATE for a context bound to another root.
+    pub fn ak_dec_reset_ListMetricsResponse(ctx: *mut ak_dec_ctx, opts: *mut ak_dec_ListMetricsResponse_opts) -> i32;
     /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse
     /// call. The decoded values land in the context's record buffer and the
     /// host reads them with `ak_bdr_drain` or `ak_bdr_ptr`.
@@ -2073,10 +2071,10 @@ unsafe extern "C" {
         len: usize,
         vt: *const ak_dvt_DualResponse,
     ) -> i32;
-    /// A decode context armed with these options (NULL = drop everywhere).
-    pub fn ak_dec_ctx_new_DualResponse(opts: *const ak_dec_DualResponse_opts) -> *mut ak_dec_ctx;
-    /// Re-arm every position of this root from `opts` (copied; NULL = drop everywhere).
-    pub fn ak_dec_reset_DualResponse(ctx: *mut ak_dec_ctx, opts: *const ak_dec_DualResponse_opts);
+    /// A decode context BOUND to this root (rule 6), armed with `opts` read in place (NULL = drop everywhere).
+    pub fn ak_dec_ctx_new_DualResponse(opts: *mut ak_dec_DualResponse_opts) -> *mut ak_dec_ctx;
+    /// Re-arm every position from `opts`, read IN PLACE (NULL = drop everywhere); AK_ERR_INVALID_STATE for a context bound to another root.
+    pub fn ak_dec_reset_DualResponse(ctx: *mut ak_dec_ctx, opts: *mut ak_dec_DualResponse_opts) -> i32;
     /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse
     /// call. The decoded values land in the context's record buffer and the
     /// host reads them with `ak_bdr_drain` or `ak_bdr_ptr`.
