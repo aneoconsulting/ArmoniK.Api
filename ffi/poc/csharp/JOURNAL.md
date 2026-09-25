@@ -1597,3 +1597,46 @@ After that fix: smoke PASS on all 1,780 cases (81 cases show a compilation insid
 stage, all runtime or engine methods by name), and one unit at the default job (core-ffi:drop,
 336 cases) PASS. The split between measured and engine code is by name and every counted method
 is named in the rows.
+
+### 52. WP5 step 9: decision 11 ported to the C# backends (D41 closed)
+
+Asked by the aggregating session: render decision 11's options and root-bound contexts in my
+cs_* backends, take the bags into the facade, gate net8.0 and net6.0, and meet CAMPAIGN
+requirement 10 in the BDN codec suite. Core at e897f57 (step 8), plan's UNKNOWN FIELDS contract.
+
+**What was built.** cs_binding renders `ak_dec_<Root>_opts` from `plan.unk_opts_layout` and the
+two per-root imports from `plan.unk_entry_points` (the untyped `ak_dec_ctx_new` went with
+plan.FIXED). cs_host: one context per `CoreFfi_<Root>`, created bound in drop mode; before each
+decode the native options (allocated once, never moved) are rewritten with every position
+naming one `[UnmanagedCallersOnly]` grow over `NativeMemory.Realloc`, the context armed with
+`ak_dec_reset_<Root>(ctx, &opts)`, and disarmed with `reset(ctx, NULL)` after, success or not.
+The group readers (`D_<M>`, shared by push callbacks and pull records) take each delivered
+message's slot into `UnknownFields` and free the native buffer; an absent child's slots, the
+inactive oneof members' and a map entry's are freed (`F_<M>`, `G.Drop`). Every buffer grow hands
+out is tracked for the one decode; after a success none may be left (UNDELIVERED, a host
+defect), after a failure the rest is freed (rule 3). The layout probe prints Rust's escaped
+`self_` under the plan name, and the layout comparison now requires the options structs.
+
+**The one thing I had to decide: the resets and the crossing counts.** Arming and disarming are
+two forward calls per decode the core does not count, so the R5 comparison (host tally = core
+counters) broke on the first run and every decode row moved by 2. I count them apart
+(`ResetCalls`); `gen/crossings.txt` is unchanged, and stays comparable with the other slices'
+core-side counts. Stated in STATE.
+
+**Controls.** `corpus --unk-controls` (in process, like the rust harness's step 5): each
+position zeroed in turn must equal the retained value with that position's facade bags cleared
+(`ClearPosition`, generated from `plan.unk_positions`), pull must equal push, both as retained
+re-encodings; and the wrong-root refusal. Result, net8.0 and net6.0: 543 rows, 2,290 pairs, 307
+rows with unknowns, 315 pairs changed by zeroing, 0 mismatches, pull == push everywhere, 0
+undelivered; wrong root -8/-8/-8, own root fine. Exactly the rust slice's numbers. Plant (the
+expectation's clearing skipped): 307 rows mismatch. `AK_CORPUS_RETAIN_STRICT=1` makes a retain
+gap a gate failure; the `unkdrop` plant (ffi-retain decoding in drop mode) reproduces the old
+307-row regression and fails it.
+
+**Result.** ffi-retain writes the retained form on every non-disputed unknown row (0 gaps;
+was 307 in the transitional drop mode, 16 before decision 11). U-map-entry stays the one
+position C# drops, and it is disputed. The BDN pre-timing checks now also require core-ffi
+retain and host-gen retain to re-encode every one of the 92 timed unknown rows to the
+incumbent's bytes (744 checks, all pass), so requirement 10's retain rows are timed on a
+decoder that retains. Not built: the placement controls (pool, refill, oneof move, CAPACITY):
+this host only uses grow.
