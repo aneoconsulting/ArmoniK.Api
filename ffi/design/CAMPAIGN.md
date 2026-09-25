@@ -72,9 +72,17 @@ in its container shows it executes (section 9).
 9. **Directions:** encode, and decode reported **twice**: the bare call, and decode
    followed by reading every field. Any comparison with upb's lazy `FromString`
    names which of the two it is.
-10. **Unknown fields:** `core-ffi` and `host-gen` run in **drop** and **retain**
-    (ABI v1 decision 11's mechanism; retain means every position's options entry
-    is armed), the incumbent in its default mode, stated.
+10. **Unknown fields, three modes** (amended 2026-09-25, owner): `core-ffi` and
+    `host-gen` run in
+    - **retain**: decision 11's mechanism, every position's options entry armed;
+    - **drop**: the same build, every entry zero (dropped at run time);
+    - **no-unknown**: a build with unknown-field support **compiled out** (the
+      generator's `unknown="drop"` option: no `ak_unk_buf` slots in the decode groups,
+      no options structs, no capture or re-emission code in the core or the binding).
+      This prices what proposing retention costs even when it is not used.
+    The incumbent runs in its default mode, stated. The no-unknown build has its own
+    committed crossing counts (req 19) and its own correctness gate (corpus with every
+    unknown row written in the dropped form).
 11. **A message is serialised once per iteration** from a fresh or reset object
     graph, so no per-instance memo is amortised (the protobuf-java lesson).
 
@@ -88,6 +96,10 @@ in its container shows it executes (section 9).
     | B | incumbent | the core's transport |
     | C | core, through the C ABI | the core's transport |
     | D | core, through the C ABI | host's gRPC stack |
+
+    Cells C and D run in each unknown-field mode of req 10 (**retain**, **drop**,
+    **no-unknown**), labelled `C-retain`, `C-drop`, `C-nounk` and likewise for D
+    (owner, 2026-09-25); A and B run the incumbent in its default mode.
 
 13. **The server is a separate process** in every host, including Rust and C++, and
     returns **pre-serialised response bytes**, so its work is identical across cells.
