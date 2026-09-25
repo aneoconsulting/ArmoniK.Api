@@ -86,6 +86,7 @@ static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
   ak_enc_ctx *ctx = ak_enc_ctx_new();
   shapes::ffi::Tcs tc = shapes::ffi::tcs_core();
   std::string ffi_bytes, ffiz_bytes, ffinb_bytes, ffih_bytes, ffiv_bytes, ffiu_bytes;
+#ifndef AK_NO_UNKNOWN_FIELDS
   {
     // Requirement 10 / decision 11: the retain encode (u-groups, empty bags on a payload).
     intptr_t rc = ffi_enc_unk(ctx, facade, tc);
@@ -95,6 +96,9 @@ static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
     check(rc >= 0, std::string(id) + " ffi-retain encode rc");
     ffiu_bytes.assign((const char *)p, n);
   }
+#else
+  (void)ffi_enc_unk;
+#endif
   {
     intptr_t rc = ffi_enc(ctx, facade, tc);
     const uint8_t *p = NULL;
@@ -175,7 +179,9 @@ static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
   check(sha_of(ffinb_bytes) == want, std::string(id) + " ffi-nobatch sha");
   check(sha_of(ffih_bytes) == want, std::string(id) + " ffi-hosttc sha");
   check(sha_of(ffiv_bytes) == want, std::string(id) + " ffi-valtc sha");
+#ifndef AK_NO_UNKNOWN_FIELDS
   check(sha_of(ffiu_bytes) == want, std::string(id) + " ffi-retain sha");
+#endif
 
   // Decode, then value identity between the two facade decoders and a re-encode.
   {
@@ -203,6 +209,7 @@ static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
   ak_dec_ctx *dctx = shapes::ffi::dec_ctx_new_for<F>();
   rc = ffi_dec(dctx, (const uint8_t *)pb_bytes.data(), pb_bytes.size(), &fffi);
   check(rc == 0 && ak_dec_err(dctx) == 0, std::string(id) + " ffi decode rc");
+#ifndef AK_NO_UNKNOWN_FIELDS
   {
     // Decision 11 on the same bytes and the same bound context: retain everywhere, and the
     // pre-allocated pools refilled in place. A payload has no unknown field, so both must
@@ -219,6 +226,7 @@ static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
           std::string(id) + " ffi-pool decode == built value");
     check(shapes::ffi::unk_reclaim() == 0, std::string(id) + " no unknown-field buffer left live");
   }
+#endif
   ak_dec_ctx_free(dctx);
   check(fnat == fffi, std::string(id) + " native/ffi decoded VALUES agree");
   check(fnat == facade, std::string(id) + " decoded value == built value");
@@ -242,7 +250,7 @@ static void run_p71(const std::string &dir) {
   int32_t rc = shapes::native::decode_dual_response((const uint8_t *)v.data(), v.size(), &f);
   check(rc == 0, "P7.1 native decode");
   shapes::DualResponse g;
-  ak_dec_ctx *dctx = ak_dec_ctx_new_DualResponse(NULL);
+  ak_dec_ctx *dctx = shapes::ffi::dec_ctx_new_for<shapes::DualResponse>();
   rc = shapes::ffi::decode_with_dual_response(dctx, (const uint8_t *)v.data(), v.size(), &g);
   check(rc == 0 && ak_dec_err(dctx) == 0, "P7.1 ffi decode");
   ak_dec_ctx_free(dctx);
@@ -329,7 +337,7 @@ static void run_absent_and_unknown() {
     int32_t rc = shapes::native::decode_list_results_response(
         (const uint8_t *)s.data(), s.size(), &fn);
     check(rc == 0, std::string("unknown field skipped, native: ") + vs[i].name);
-    ak_dec_ctx *dctx = ak_dec_ctx_new_ListResultsResponse(NULL);
+    ak_dec_ctx *dctx = shapes::ffi::dec_ctx_new_for<shapes::ListResultsResponse>();
     rc = shapes::ffi::decode_with_list_results_response(
         dctx, (const uint8_t *)s.data(), s.size(), &ff);
     check(rc == 0 && ak_dec_err(dctx) == 0,
@@ -401,7 +409,7 @@ static void run_absent_and_unknown() {
       int32_t rc = shapes::native::decode_list_results_response(
           (const uint8_t *)out.data(), out.size(), &fn);
       check(rc == 0, std::string("unknown NESTED field skipped, native: ") + vs2[i].name);
-      ak_dec_ctx *dctx = ak_dec_ctx_new_ListResultsResponse(NULL);
+      ak_dec_ctx *dctx = shapes::ffi::dec_ctx_new_for<shapes::ListResultsResponse>();
       rc = shapes::ffi::decode_with_list_results_response(
           dctx, (const uint8_t *)out.data(), out.size(), &ff);
       check(rc == 0 && ak_dec_err(dctx) == 0,
@@ -461,7 +469,7 @@ static void run_absent_and_unknown() {
     check(shapes::native::decode_list_probe_response(
               (const uint8_t *)out.data(), out.size(), &fn) == 0,
           "unknown oneof-member tag skipped, native");
-    ak_dec_ctx *dctx = ak_dec_ctx_new_ListProbeResponse(NULL);
+    ak_dec_ctx *dctx = shapes::ffi::dec_ctx_new_for<shapes::ListProbeResponse>();
     check(shapes::ffi::decode_with_list_probe_response(
               dctx, (const uint8_t *)out.data(), out.size(), &ff) == 0 &&
               ak_dec_err(dctx) == 0,
@@ -508,7 +516,7 @@ static void run_absent_and_unknown() {
     check(rc == 0, "malformed UTF-8: the lossy policy accepts it (and that is the problem)");
 #else
     check(rc == ak::ERR_TRANSCODE, "malformed UTF-8 rejected by the native decoder");
-    ak_dec_ctx *dctx = ak_dec_ctx_new_ListResultsResponse(NULL);
+    ak_dec_ctx *dctx = shapes::ffi::dec_ctx_new_for<shapes::ListResultsResponse>();
     shapes::ListResultsResponse ff;
     int32_t frc = shapes::ffi::decode_with_list_results_response(
         dctx, (const uint8_t *)s.data(), s.size(), &ff);
@@ -576,6 +584,7 @@ static void run_absent_and_unknown() {
 }
 
 // ---------------------------------------------------------------- decision 11
+#ifndef AK_NO_UNKNOWN_FIELDS
 //
 // ABI v1 decision 11 (implementation rules confirmed 2026-09-25) through the generated
 // binding and, where the binding cannot reach a case, the raw C ABI: pools taken in order
@@ -919,6 +928,42 @@ static void run_decision11() {
   d11_wrong_root();
   d11_roundtrip();
 }
+#else
+// WP5 step 10, the NO-UNKNOWN build: no options, no retain. What remains of decision 11 is
+// rule 6 (root-bound contexts, `ak_dec_ctx_new_<Root>(void)`) and the drop of an unknown
+// field at the root and inside an element; the layout table above is the variant's (240
+// facts) and was compared with this core's export.
+static void run_decision11() {
+  ak_dec_ctx *c = ak_dec_ctx_new_ListResultsResponse();
+  const uint8_t *e = (const uint8_t *)"";
+  struct ak_dvt_ListTasksDetailedResponse vt;
+  std::memset(&vt, 0, sizeof(vt));
+  int32_t d = ak_decode_ListTasksDetailedResponse(c, NULL, e, 0, &vt);
+  int32_t p = ak_parse_ListTasksDetailedResponse(c, e, 0);
+  shapes::ListTasksDetailedResponse t1;
+  int32_t bd = shapes::ffi::decode_with_list_tasks_detailed_response(c, e, 0, &t1);
+  // One element with an unknown run, and one at the root: decoded, both dropped.
+  std::string b("\x0a\x07\x0a\x02zz\xa0\x06\x07", 9);
+  b += std::string("\xa0\x06\x09", 3);
+  shapes::ListResultsResponse v;
+  int32_t own = shapes::ffi::decode_with_list_results_response(c, (const uint8_t *)b.data(), b.size(), &v);
+  bool dropped = own == 0 && v.unknown_fields.empty() && v.results.size() == 1 &&
+                 v.results[0].unknown_fields.empty();
+  std::printf("  no-unknown build: wrong root decode %d, parse %d, binding decode %d"
+              " (AK_ERR_INVALID_STATE %d); own root %d, unknowns dropped %d\n",
+              d, p, bd, AK_ERR_INVALID_STATE, own, (int)dropped);
+  check(d == AK_ERR_INVALID_STATE && p == AK_ERR_INVALID_STATE && bd == AK_ERR_INVALID_STATE,
+        "nounk wrong root: refused with AK_ERR_INVALID_STATE");
+  check(dropped, "nounk: unknown fields at the root and in an element are dropped");
+  ak_dec_ctx_free(c);
+}
+#endif
+
+#ifdef AK_NO_UNKNOWN_FIELDS
+#define AK_CONF_ENC_UNK(s) NULL
+#else
+#define AK_CONF_ENC_UNK(s) &shapes::ffi::encode_into_##s##_unk
+#endif
 
 int main(int argc, char **argv) {
   const char *dir = argc > 1 ? argv[1] : "../../schema/generated/payloads";
@@ -951,7 +996,7 @@ int main(int argc, char **argv) {
   run_case<shapes::Root, ns::Root>(                                               \
       id, &shapes::build::payload_##pfx, &pbbuild::payload_##pfx,                 \
       &shapes::ffi::encode_into_##sroot, &shapes::ffi::encode_into_##sroot##_zeroed, \
-      &shapes::ffi::encode_into_##sroot##_nobatch, &shapes::ffi::encode_into_##sroot##_unk, \
+      &shapes::ffi::encode_into_##sroot##_nobatch, AK_CONF_ENC_UNK(sroot),         \
       &shapes::ffi::decode_with_##sroot,                                          \
       &shapes::native::encode_into_##sroot, &shapes::native::decode_##sroot,      \
       sha, nbytes);

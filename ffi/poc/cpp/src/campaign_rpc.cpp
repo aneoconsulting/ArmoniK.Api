@@ -46,7 +46,11 @@
 #include <google/protobuf/io/zero_copy_stream_impl_lite.h>
 
 #include "ak_abi.h"
+#ifdef AK_NO_UNKNOWN_FIELDS  // WP5 step 10: the no-unknown client (nounk/include's ak_abi.h)
+#include "generated/binding_nounk.h"
+#else
 #include "generated/binding.h"
+#endif
 #include "generated/build.h"
 #include "generated/pb_build.h"
 
@@ -57,13 +61,15 @@ namespace {
 const char *const kPush = "/armonik.ffi.shapes.v1.Shapes/Push";
 
 // One cell of the grid: its transport/codec letter and, for C and D, its unknown-field mode.
-enum Mode { kDefault, kRetain, kDrop };
+enum Mode { kDefault, kRetain, kDrop, kNoUnk };
 struct Cell {
   char base;
   Mode mode;
   std::string label;
 };
-const char *mode_name(Mode m) { return m == kRetain ? "retain" : m == kDrop ? "drop" : "default"; }
+const char *mode_name(Mode m) {
+  return m == kRetain ? "retain" : m == kDrop ? "drop" : m == kNoUnk ? "no-unknown" : "default";
+}
 
 std::vector<Cell> parse_cells(const std::string &spec) {
   std::vector<Cell> out;
@@ -71,8 +77,12 @@ std::vector<Cell> parse_cells(const std::string &spec) {
   if (!labels) {
     for (char c : spec) {
       if (c == 'C' || c == 'D') {
+#ifdef AK_NO_UNKNOWN_FIELDS
+        out.push_back(Cell{c, kNoUnk, std::string(1, c) + "-nounk"});
+#else
         out.push_back(Cell{c, kRetain, std::string(1, c) + "-retain"});
         out.push_back(Cell{c, kDrop, std::string(1, c) + "-drop"});
+#endif
       } else {
         out.push_back(Cell{c, kDefault, std::string(1, c)});
       }
@@ -84,7 +94,9 @@ std::vector<Cell> parse_cells(const std::string &spec) {
     size_t q = spec.find(',', p);
     std::string l = spec.substr(p, q == std::string::npos ? std::string::npos : q - p);
     if (!l.empty()) {
-      Mode m = l.size() > 1 ? (l.substr(1) == "-retain" ? kRetain : kDrop) : kDefault;
+      Mode m = l.size() == 1 ? kDefault
+               : l.substr(1) == "-retain" ? kRetain
+               : l.substr(1) == "-nounk" ? kNoUnk : kDrop;
       out.push_back(Cell{l[0], m, l});
     }
     if (q == std::string::npos) break;
@@ -140,6 +152,14 @@ grpc::ChannelArguments channel_args(const std::string &transport) {
 // ---- one call of each cell, direction a and b ---------------------------------------
 // The client-side codec of cells C and D in their mode (direction b's request, direction a's
 // response). Every call is checked by the caller.
+#ifdef AK_NO_UNKNOWN_FIELDS
+intptr_t core_encode(ak_enc_ctx *ec, const shapes::ListTasksDetailedResponse &v, Mode) {
+  return shapes::ffi::encode_into_list_tasks_detailed_response(ec, v, shapes::ffi::tcs_core());
+}
+int32_t core_decode(ak_dec_ctx *dc, const uint8_t *p, size_t n, shapes::ListTasksDetailedResponse *f, Mode) {
+  return shapes::ffi::decode_with_list_tasks_detailed_response(dc, p, n, f);
+}
+#else
 intptr_t core_encode(ak_enc_ctx *ec, const shapes::ListTasksDetailedResponse &v, Mode m) {
   return m == kRetain
              ? shapes::ffi::encode_into_list_tasks_detailed_response_unk(ec, v, shapes::ffi::tcs_core())
@@ -149,6 +169,7 @@ int32_t core_decode(ak_dec_ctx *dc, const uint8_t *p, size_t n, shapes::ListTask
   return m == kRetain ? shapes::ffi::decode_with_list_tasks_detailed_response_unk(dc, p, n, f)
                       : shapes::ffi::decode_with_list_tasks_detailed_response(dc, p, n, f);
 }
+#endif
 
 long cell_call(World &w, const Cell &cl, char dir, int t, ak_enc_ctx *ec, ak_dec_ctx *dc) {
   const char cell = cl.base;
@@ -259,7 +280,7 @@ long batch(World &w, const Cell &cell, char dir, int k, int total) {
   for (int t = 0; t < k; ++t) {
     ts.push_back(std::thread([&, t]() {
       ak_enc_ctx *ec = ak_enc_ctx_new();
-      ak_dec_ctx *dc = ak_dec_ctx_new_ListTasksDetailedResponse(NULL);  // decision 11 rule 6: bound to the one root cells decode
+      ak_dec_ctx *dc = shapes::ffi::dec_ctx_new_for<shapes::ListTasksDetailedResponse>();  // decision 11 rule 6: bound to the one root cells decode
       long n = 0;
       for (int i = 0; i < per; ++i) n += cell_call(w, cell, dir, t, ec, dc);
       ak_enc_ctx_free(ec);
@@ -334,7 +355,13 @@ int main(int argc, char **argv) {
   const std::vector<Cell> cells = parse_cells(c.cells);
   for (size_t i = 0; i < cells.size(); ++i)
     if (std::string("ABCD").find(cells[i].base) == std::string::npos ||
-        ((cells[i].base == 'C' || cells[i].base == 'D') != (cells[i].mode != kDefault)))
+        ((cells[i].base == 'C' || cells[i].base == 'D') != (cells[i].mode != kDefault))
+#ifdef AK_NO_UNKNOWN_FIELDS
+        || cells[i].mode == kRetain || cells[i].mode == kDrop
+#else
+        || cells[i].mode == kNoUnk
+#endif
+        )
       die("unknown cell label", (long)i);
 
   // Before any sample: C and D in each mode decode one Fetch response, re-encode it in the
@@ -354,7 +381,7 @@ int main(int argc, char **argv) {
       die("pre-check fetch", (long)out.len);
     std::string wire((const char *)out.ptr, out.len);
     ak_bytes_free(&out);
-    ak_dec_ctx *dc = ak_dec_ctx_new_ListTasksDetailedResponse(NULL);
+    ak_dec_ctx *dc = shapes::ffi::dec_ctx_new_for<shapes::ListTasksDetailedResponse>();
     ak_enc_ctx *ec = ak_enc_ctx_new();
     shapes::ListTasksDetailedResponse f;
     int32_t drc = core_decode(dc, (const uint8_t *)wire.data(), wire.size(), &f, cl.mode);
@@ -396,11 +423,18 @@ int main(int argc, char **argv) {
   std::printf("# {\"campaign_rpc\": {\"target\": \"%s\", \"transport\": \"%s\", \"cells\": \"%s\","
               " \"dirs\": \"%s\", \"calls_per_sample\": %d, \"warmup_calls\": %d, \"rounds\": %d,"
               " \"core_workers\": %d, \"expect_bytes\": %zu, \"delivery_B_C\": \"blocking\","
-              " \"unknown_modes\": \"C and D in retain (decode_with_*_unk / encode_into_*_unk) and drop;"
-              " A and B default; nounk pending the compiled-out build\","
+              " \"unknown_modes\": \"%s\","
               " \"precheck\": \"C/D each mode: decode, re-encode, equal to the incumbent's deterministic re-serialisation\"}}\n",
               c.target.c_str(), c.transport.c_str(), c.cells.c_str(), c.dirs.c_str(), c.calls,
-              c.warmup, c.rounds, c.workers, w.expect_a);
+              c.warmup, c.rounds, c.workers, w.expect_a,
+#ifdef AK_NO_UNKNOWN_FIELDS
+              "no-unknown build (unknown fields compiled out): C-nounk and D-nounk; A and B default,"
+              " in-process controls"
+#else
+              "full build: C and D in retain (decode_with_*_unk / encode_into_*_unk) and drop;"
+              " A and B default"
+#endif
+              );
   for (char d : c.dirs)
     for (int k : c.inflight)
       for (size_t j = 0; j < cells.size(); ++j) batch(w, cells[j], d, k, c.warmup);  // warm-up, identical per cell

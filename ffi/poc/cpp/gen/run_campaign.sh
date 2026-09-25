@@ -147,6 +147,8 @@ h = {
            "core_profile": "cargo --release"},
  "transport": {"shipped": "grpc++: keepalive 30 s, max idle 5 min, local subchannel pool (packages/cpp getChannelArguments; its retry service config not applied); core: ak_client_new defaults",
                "pinned": "grpc++: 4 MiB stream window, BDP off (no connection-window argument exists, C31); core: 4 MiB stream and connection windows, adaptive off, Nagle off; both: 2 MiB max message"},
+ "variants": {"full": "ak-core default features (unknown-fields: decision 11), binaries campaign_codec / campaign_rpc: core-ffi drop and retain, C/D-retain and -drop",
+              "no-unknown": "ak-core --no-default-features (unknown fields compiled out; plan relowered with unknown=drop), nounk/include/ak_abi.h, binaries campaign_codec_nounk (codec-nounk-launch*.jsonl) / campaign_rpc_nounk: core-ffi no-unknown, C/D-nounk; A, B, host-gen drop and the incumbents are in-process controls there"},
  "repeats": {"launches": $LAUNCHES, "rounds": $ROUNDS},
  "warmup": {"codec_bytes_per_arm": $WARM, "rpc_calls_per_cell": $RPCWARM, "allocator": "every arm runs its warm-up before round 1"},
  "sample": {"codec_bytes": $BYTES, "rpc_calls": $CALLS, "calib_iters": $CITERS,
@@ -203,6 +205,10 @@ run_gate() {
     else
       head -10 "$TMPD/diff"; echo ">>> FAIL: crossing counts differ from the committed ones"
     fi
+    echo "===== WP5 step 10: the no-unknown build (gen/nounk_gate.sh -> logs/cpp/wp5s10-nounk.log) ====="
+    bash gen/nounk_gate.sh "$B"; ngr=$?
+    grep -E '^>>> |u-family exports|^nounk_gate' "$FFI/logs/cpp/wp5s10-nounk.log" | sed 's/^/  /'
+    [ $ngr = 0 ] || echo ">>> FAIL: the no-unknown gate"
     echo "===== the codec campaign binary's own gate, and its planted control ====="
     unknown_rows
     (cd "$FFI/schema/generated" && "$B/campaign_codec" --rounds 0 --bytes 1 --warmup 1 --corpus "$FFI/corpus/generated" --rows "$ROWS" > "$TMPD/g.log" 2>&1); rc=$?
@@ -211,13 +217,23 @@ run_gate() {
     (cd "$FFI/schema/generated" && AK_CAMPAIGN_PLANT=1 "$B/campaign_codec" --rounds 0 --bytes 1 --warmup 1 --corpus "$FFI/corpus/generated" --rows "$ROWS" > "$TMPD/g.log" 2>&1) \
       && echo ">>> FAIL: the planted codec gate passed" \
       || echo "  control campaign_codec plant: $(grep -c 'GATE FAIL' "$TMPD/g.log") slots failed as required"
+    for cb in campaign_codec_nounk; do   # the no-unknown codec binary: its own gate and plant
+      (cd "$FFI/schema/generated" && "$B/$cb" --rounds 0 --bytes 1 --warmup 1 --corpus "$FFI/corpus/generated" --rows "$ROWS" > "$TMPD/g.log" 2>&1); rc=$?
+      grep '^#' "$TMPD/g.log" | sed 's/^/  /'
+      [ $rc = 0 ] || { grep 'GATE FAIL' "$TMPD/g.log" | head; echo ">>> FAIL: $cb gate"; }
+      (cd "$FFI/schema/generated" && AK_CAMPAIGN_PLANT=1 "$B/$cb" --rounds 0 --bytes 1 --warmup 1 --corpus "$FFI/corpus/generated" --rows "$ROWS" > "$TMPD/g.log" 2>&1) \
+        && echo ">>> FAIL: the planted $cb gate passed" \
+        || echo "  control $cb plant: $(grep -c 'GATE FAIL' "$TMPD/g.log") slots failed as required"
+    done
     echo "===== the RPC call check (requirement 18) seen failing: a wrong expected length ====="
     start_server shipped
-    timeout 120 taskset -c "$AK_CPU_CLIENT" "$B/campaign_rpc" --target 127.0.0.1:$PORT --expect $((EXP + 1)) \
-      --transport shipped --cells C --dirs a --inflight 1 --rounds 1 --calls 2 --warmup 1 > "$TMPD/r.log" 2>&1; rc=$?
+    for rb in campaign_rpc campaign_rpc_nounk; do
+      timeout 120 taskset -c "$AK_CPU_CLIENT" "$B/$rb" --target 127.0.0.1:$PORT --expect $((EXP + 1)) \
+        --transport shipped --cells C --dirs a --inflight 1 --rounds 1 --calls 2 --warmup 1 > "$TMPD/r.log" 2>&1; rc=$?
+      [ $rc != 0 ] && echo "  control rpc length ($rb): aborted as required (exit $rc: $(grep -m1 'CALL CHECK' "$TMPD/r.log"))" \
+                   || echo ">>> FAIL: a wrong response length did not abort ($rb)"
+    done
     stop_server
-    [ $rc != 0 ] && echo "  control rpc length: aborted as required (exit $rc: $(grep -m1 'CALL CHECK' "$TMPD/r.log"))" \
-                 || echo ">>> FAIL: a wrong response length did not abort"
   } > "$log" 2>&1
   if grep -q '>>> FAIL' "$log"; then
     echo "GATE FAILED (requirement 26): see $log; no figure is produced" >&2; return 1
@@ -281,14 +297,21 @@ case "$SUITE" in
   codec)
     ensure_gate || exit 1
     unknown_rows
+    # WP5 step 10 (requirement 10's third mode): two binaries, the full build (core-ffi drop
+    # and retain) and the no-unknown build (core-ffi no-unknown; host-gen drop and the
+    # incumbents as in-process controls), one file each per launch, their ORDER alternated
+    # by launch so neither always runs on a cold or warm machine.
     for l in $(seq 1 "$LAUNCHES"); do
-      f=$OUT/codec-launch$l.jsonl
+     if [ $((l % 2)) = 1 ]; then CBS="campaign_codec campaign_codec_nounk"; else CBS="campaign_codec_nounk campaign_codec"; fi
+     for cb in $CBS; do
+      tag=${cb#campaign_codec}; tag=${tag#_}; tag=${tag:+$tag-}
+      f=$OUT/codec-${tag}launch$l.jsonl
       # Google Benchmark (requirement 22a): the binary gates, warms up and runs the
       # benchmarks; its per-repetition JSON is converted to section 7's lines, and the raw
       # Google Benchmark JSON is kept beside them.
-      gb=$OUT/codec-launch$l.gbench.json
+      gb=$OUT/codec-${tag}launch$l.gbench.json
       { header codec "$l"
-        (cd "$FFI/schema/generated" && taskset -c "$AK_CPU_CLIENT" "$B/campaign_codec" --launch "$l" \
+        (cd "$FFI/schema/generated" && taskset -c "$AK_CPU_CLIENT" "$B/$cb" --launch "$l" \
            --rounds "$ROUNDS" --bytes "$BYTES" --warmup "$WARM" --corpus "$FFI/corpus/generated" \
            --rows "$ROWS" --gbench-out "$gb" > "$TMPD/gb.console" 2>&1; echo $? > "$TMPD/gb.rc")
         grep '^#' "$TMPD/gb.console"
@@ -297,17 +320,25 @@ case "$SUITE" in
         echo "codec launch $l failed: $f" >&2; tail -20 "$TMPD/gb.console" >&2; exit 1
       fi
       echo "wrote $f"
+     done
     done ;;
   rpc)
     ensure_gate || exit 1
     for l in $(seq 1 "$LAUNCHES"); do
       f=$OUT/rpc-launch$l.jsonl
       header rpc "$l" > "$f"
+      # WP5 step 10: the full client (A B C-retain C-drop D-retain D-drop) and the no-unknown
+      # client (A B C-nounk D-nounk; A and B its in-process controls), order alternated by
+      # launch, against the same server process per transport.
+      if [ $((l % 2)) = 1 ]; then RBS="campaign_rpc campaign_rpc_nounk"; else RBS="campaign_rpc_nounk campaign_rpc"; fi
       for t in shipped pinned; do
         start_server "$t"
-        timeout 7200 taskset -c "$AK_CPU_CLIENT" "$B/campaign_rpc" --target 127.0.0.1:$PORT --expect "$EXP" \
-          --transport "$t" --launch "$l" --rounds "$ROUNDS" --calls "$CALLS" --warmup "$RPCWARM" >> "$f" 2>&1
-        rc=$?
+        rc=0
+        for rb in $RBS; do
+          echo "# client $rb" >> "$f"
+          timeout 7200 taskset -c "$AK_CPU_CLIENT" "$B/$rb" --target 127.0.0.1:$PORT --expect "$EXP" \
+            --transport "$t" --launch "$l" --rounds "$ROUNDS" --calls "$CALLS" --warmup "$RPCWARM" >> "$f" 2>&1 || rc=$?
+        done
         stop_server
         echo "# server ($t): $(cat "$TMPD/srv.err")" >> "$f"
         [ $rc = 0 ] || { echo "rpc launch $l ($t) failed: $f" >&2; exit 1; }

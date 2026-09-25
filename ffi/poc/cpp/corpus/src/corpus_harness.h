@@ -17,7 +17,11 @@
 #include "generated/types.h"
 #include "generated/core_native.h"
 #include "generated/core_native_retain.h"
+#ifdef AK_NO_UNKNOWN_FIELDS  // WP5 step 10: the no-unknown build (corpus/nounk/include)
+#include "generated/binding_nounk.h"
+#else
 #include "generated/binding.h"
+#endif
 #include "generated/project.h"
 
 namespace corpus {
@@ -98,6 +102,7 @@ Outcome ffi_arm(const uint8_t *b, size_t n, Cx &cx,
   return o;
 }
 
+#ifndef AK_NO_UNKNOWN_FIELDS
 // The facade value as the retain encode writes it: every bag the facade holds, compared
 // as bytes (so a NaN equals itself, S-double-nan). "E<rc>" when the encode refuses.
 template <class T>
@@ -191,6 +196,7 @@ std::string unk_controls(const uint8_t *b, size_t n, Cx &cx,
   js << "]}";
   return js.str();
 }
+#endif  // !AK_NO_UNKNOWN_FIELDS
 
 // Generated (gen/generate.py, corpus glue): one case per root of the corpus reader schema.
 Outcome run_arm(const std::string &root, Arm arm, const uint8_t *b, size_t n, Cx &cx);

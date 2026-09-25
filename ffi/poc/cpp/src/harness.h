@@ -21,8 +21,15 @@
 #include "ak/rt.h"
 #include "ak/values.h"
 #include "ak_abi.h"
+// WP5 step 10: the no-unknown build compiles against nounk/include's ak_abi.h, which
+// defines AK_NO_UNKNOWN_FIELDS, and the binding rendered from the drop plan.
+#ifdef AK_NO_UNKNOWN_FIELDS
+#include "generated/binding_nounk.h"
+#include "generated/binding_borrow_nounk.h"
+#else
 #include "generated/binding.h"
 #include "generated/binding_borrow.h"
+#endif
 #include "generated/build.h"
 #include "generated/cases.h"
 #include "generated/core_native.h"

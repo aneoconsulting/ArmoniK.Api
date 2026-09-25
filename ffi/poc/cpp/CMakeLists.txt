@@ -505,3 +505,128 @@ set_property(TARGET odrcheck PROPERTY CXX_STANDARD 17)
 if(AK_ODR_BREAK)
   target_compile_definitions(odrcheck PRIVATE AK_ODR_BREAK=1)
 endif()
+
+# ---- WP5 step 10: THE NO-UNKNOWN VARIANT (unknown fields compiled out) ---------------
+# plan.py's THE NO-UNKNOWN VARIANT, rendered by gen/generate.py from the plan relowered with
+# unknown="drop": nounk/include/ak_abi.h (defines AK_NO_UNKNOWN_FIELDS, 240 layout facts),
+# src/generated/binding_nounk.cpp, and the corpus's corpus/nounk/include + *_nounk.cpp. The
+# core is ak-core --no-default-features (no `unknown-fields`) + init-guard, each flavour in
+# its OWN target dir (a variant build in a shared dir overwrites the full libak_core.so).
+# The nounk include dir comes FIRST, so "ak_abi.h" and "generated/ak_layout.h" are the
+# variant's; harness sources select the variant binding on AK_NO_UNKNOWN_FIELDS.
+set(NOUNK_FEATURES --no-default-features --features)
+set(CORE_NOUNK_OUT "${CORE_TGT}/target-nounk/release")
+set(CORE_COUNT_NOUNK_OUT "${CORE_TGT}/target-count-nounk/release")
+set(CORE_CORPUS_NOUNK_OUT "${CORE_TGT}/target-corpus-nounk/release")
+add_custom_target(core_nounk ALL
+  COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_TGT}/target-nounk
+          cargo build --release ${NOUNK_FEATURES} ${AK_CORE_FEATURES} --manifest-path ${CORE_DIR}/Cargo.toml
+  BYPRODUCTS ${CORE_NOUNK_OUT}/libak_core.so ${CORE_NOUNK_OUT}/libak_core.a
+  COMMENT "cargo build ak-core, no-unknown variant (--no-default-features --features init-guard)")
+add_custom_target(core_count_nounk ALL
+  COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_TGT}/target-count-nounk
+          cargo build --release ${NOUNK_FEATURES} count,${AK_CORE_FEATURES} --manifest-path ${CORE_DIR}/Cargo.toml
+  BYPRODUCTS ${CORE_COUNT_NOUNK_OUT}/libak_core.so
+  COMMENT "cargo build ak-core, no-unknown variant, --features count")
+add_custom_target(core_corpus_nounk ALL
+  COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_TGT}/target-corpus-nounk
+          cargo build --release ${NOUNK_FEATURES} corpus,${AK_CORE_FEATURES} --manifest-path ${CORE_DIR}/Cargo.toml
+  BYPRODUCTS ${CORE_CORPUS_NOUNK_OUT}/libak_core.so ${CORE_CORPUS_NOUNK_OUT}/libak_core.a
+  COMMENT "cargo build ak-core, no-unknown variant, --features corpus (corpus reader ABI)")
+
+# ak_arm_nounk(<name> <exe-source> <std> <linkage> <core-dir> <core-target>)
+function(ak_arm_nounk name src std linkage coredir coretgt)
+  add_executable(${name}
+    ${src}
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/rt.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/values.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/types.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/build.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/pb_build.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/core_native.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/binding_nounk.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/types_borrow.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/binding_borrow_nounk.cpp)
+  add_dependencies(${name} ${coretgt})
+  target_include_directories(${name} PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/nounk/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${GEN})
+  target_link_libraries(${name} PRIVATE shapes_pb Threads::Threads)
+  set_property(TARGET ${name} PROPERTY CXX_STANDARD ${std})
+  set_property(TARGET ${name} PROPERTY CXX_STANDARD_REQUIRED ON)
+  target_compile_definitions(${name} PRIVATE AK_LINKAGE="${linkage}")
+  if(std STREQUAL "11")
+    target_compile_definitions(${name} PRIVATE AK_FLOOR_IMPL=1)
+  endif()
+  if(linkage STREQUAL "static")
+    target_link_libraries(${name} PRIVATE ${coredir}/libak_core.a ${CMAKE_DL_LIBS} m)
+  else()
+    target_link_libraries(${name} PRIVATE ${coredir}/libak_core.so)
+    set_property(TARGET ${name} APPEND_STRING PROPERTY LINK_FLAGS " -Wl,-rpath,${coredir}")
+  endif()
+endfunction()
+ak_arm_nounk(conformance_nounk_a17 ${CONF} 17 shared ${CORE_NOUNK_OUT} core_nounk)
+ak_arm_nounk(conformance_nounk_c11 ${CONF} 11 shared ${CORE_NOUNK_OUT} core_nounk)
+ak_arm_nounk(conformance_nounk_static ${CONF} 17 static ${CORE_NOUNK_OUT} core_nounk)
+ak_arm_nounk(counts_nounk ${COUNTS} 17 shared ${CORE_COUNT_NOUNK_OUT} core_count_nounk)
+target_compile_definitions(counts_nounk PRIVATE AK_COUNTING=1)
+
+# ak_corpus_nounk(<name> <std> <impl>)
+function(ak_corpus_nounk name std impl)
+  add_executable(${name}
+    ${CORPUS_DIR}/src/corpus_main.cpp
+    ${CORPUS_DIR}/src/generated/dispatch_nounk.cpp
+    ${CORPUS_DIR}/src/generated/types.cpp
+    ${CORPUS_DIR}/src/generated/core_native.cpp
+    ${CORPUS_DIR}/src/generated/core_native_retain.cpp
+    ${CORPUS_DIR}/src/generated/binding_nounk.cpp
+    ${CORPUS_DIR}/src/generated/project.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/rt.cpp)
+  add_dependencies(${name} core_corpus_nounk)
+  target_include_directories(${name} PRIVATE ${CORPUS_DIR}/nounk/include ${CORPUS_DIR}/include
+    ${CORPUS_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/include ${Protobuf_INCLUDE_DIRS})
+  target_link_libraries(${name} PRIVATE ${Protobuf_LIBRARIES} Threads::Threads
+    ${CORE_CORPUS_NOUNK_OUT}/libak_core.so)
+  set_property(TARGET ${name} APPEND_STRING PROPERTY LINK_FLAGS " -Wl,-rpath,${CORE_CORPUS_NOUNK_OUT}")
+  set_property(TARGET ${name} PROPERTY CXX_STANDARD ${std})
+  set_property(TARGET ${name} PROPERTY CXX_STANDARD_REQUIRED ON)
+  if(impl STREQUAL "floor")
+    target_compile_definitions(${name} PRIVATE AK_FLOOR_IMPL=1)
+  endif()
+endfunction()
+ak_corpus_nounk(corpus_nounk_a17 17 target)
+ak_corpus_nounk(corpus_nounk_c11 11 floor)
+ak_corpus_nounk(corpus_nounk_noinit 17 target)
+target_compile_definitions(corpus_nounk_noinit PRIVATE AK_BINDING_SKIP_INIT=1)
+
+if(AK_RPC)
+  set(CORE_CAMP_NOUNK_OUT "${CORE_TGT}/target-camp-nounk/release")
+  add_custom_target(core_camp_nounk ALL
+    COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_TGT}/target-camp-nounk
+            cargo build --release ${NOUNK_FEATURES} rpc,${AK_CORE_FEATURES} --manifest-path ${CORE_DIR}/Cargo.toml
+    BYPRODUCTS ${CORE_CAMP_NOUNK_OUT}/libak_core.so
+    COMMENT "cargo build ak-core, no-unknown variant, --features rpc (campaign)")
+  string(REPLACE "generated/binding.cpp" "generated/binding_nounk.cpp" RPC_COMMON_NOUNK "${RPC_COMMON}")
+  add_executable(campaign_rpc_nounk ${CMAKE_CURRENT_SOURCE_DIR}/src/campaign_rpc.cpp ${RPC_COMMON_NOUNK})
+  add_dependencies(campaign_rpc_nounk core_camp_nounk)
+  target_include_directories(campaign_rpc_nounk PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/nounk/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/src ${GEN} ${GRPCPP_INCLUDE_DIRS})
+  target_link_libraries(campaign_rpc_nounk PRIVATE shapes_pb Threads::Threads
+    ${GRPCPP_LIBRARIES} ${CORE_CAMP_NOUNK_OUT}/libak_core.so)
+  target_link_directories(campaign_rpc_nounk PRIVATE ${GRPCPP_LIBRARY_DIRS})
+  set_property(TARGET campaign_rpc_nounk PROPERTY CXX_STANDARD 17)
+  target_compile_definitions(campaign_rpc_nounk PRIVATE AK_LINKAGE="shared")
+  set_property(TARGET campaign_rpc_nounk APPEND_STRING PROPERTY LINK_FLAGS " -Wl,-rpath,${CORE_CAMP_NOUNK_OUT}")
+
+  ak_arm_nounk(campaign_codec_nounk ${CMAKE_CURRENT_SOURCE_DIR}/src/campaign_codec.cpp 17 shared
+               ${CORE_NOUNK_OUT} core_nounk)
+  target_sources(campaign_codec_nounk PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/core_native_retain.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/touch.cpp)
+  target_include_directories(campaign_codec_nounk PRIVATE ${GRPCPP_INCLUDE_DIRS})
+  target_link_directories(campaign_codec_nounk PRIVATE ${GRPCPP_LIBRARY_DIRS})
+  target_link_libraries(campaign_codec_nounk PRIVATE ${GRPCPP_LIBRARIES} benchmark::benchmark)
+  target_compile_definitions(campaign_codec_nounk PRIVATE AK_GBENCH_VERSION="${benchmark_VERSION}")
+endif()
