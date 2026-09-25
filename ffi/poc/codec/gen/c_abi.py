@@ -14,7 +14,15 @@ Everything comes from `plan.py`:
     the entry points -- `vtable_messages`, `element_types`, `direct_fields`;
   * the RPC half -- `plan.rpc`, and its counting surface -- `plan.FIXED.rpc_counting`;
   * the layout facts -- `cpp_layout.facts`, the enumeration the core's export uses.
-It adds no member, reorders none and derives no layout. A host that wants the C compiler
+It adds no member, reorders none and derives no layout.
+
+WP5 step 10, THE NO-UNKNOWN VARIANT (plan.py): `emit` of a plan relowered with
+unknown="drop" renders a SECOND, complete header -- no `unknown` slot in the decode groups, no
+`ak_ufix_*` group, no `ak_dec_<Root>_opts`, no `ak_uencode_*`/`ak_uelem*_*`, no
+`ak_dec_reset_*`, and `ak_dec_ctx_new_<Root>(void)` -- with its own layout facts and
+asserts. It carries the same file name and guard and additionally defines
+`AK_NO_UNKNOWN_FIELDS 1`; a host writes it to a variant include directory and selects
+the variant per build by include path (the full header's text is unchanged). A host that wants the C compiler
 to check ITS OWN numbers (the Java binding computes offsets in Java) passes
 `extra_asserts`, lines appended inside the header's assertion section.
 
@@ -207,14 +215,14 @@ SASSERT = """
 """.strip("\n")
 
 
-def _asserts(p):
+def _asserts(p, nounk=False):
     o = ["/* The fixed structs' sizes on a 64-bit host (plan.FIXED.sizes). */",
          "#if UINTPTR_MAX == 0xFFFFFFFFFFFFFFFFu"]
     for name, size in FIXED.sizes.items():
         o.append("AK_SASSERT(sizeof(struct %s) == %d, \"sizeof %s\");" % (name, size, name))
     o.append("AK_SASSERT(offsetof(struct ak_bdr_rec, token) == 8, \"ak_bdr_rec.token\");")
     # Decision 11: the core reads an options struct as `host` then an array of entries.
-    for root in p.roots:
+    for root in ([] if nounk else p.roots):
         on = unk_opts_name(root)
         n = len(unk_opts_members(p, root))
         o.append("AK_SASSERT(sizeof(struct %s) == 8 + %d * 24, \"sizeof %s\");"
@@ -236,9 +244,16 @@ def _asserts(p):
 def emit(x, extra_asserts=()):
     """(ak_abi.h, ak_layout.h, ak_layout_names.h) for a plan."""
     p = as_plan(x)
+    nounk = p.options.unknown == "drop"
     head = HEAD_FMT % getattr(p, "source", "ffi/schema/shapes.json")
     o = [head]
     o += _fixed_top(p)
+    if nounk:
+        o += ["/* ---- WP5 step 10: THE NO-UNKNOWN VARIANT (plan.py) -------------------------------",
+              " * Unknown-field support compiled out: an unknown field is skipped, never captured",
+              " * or re-emitted. The core behind this header is built without the `unknown-fields`",
+              " * feature; its layout facts are this header's. */",
+              "#define AK_NO_UNKNOWN_FIELDS 1", ""]
     o += _lifecycle(p)
 
     # ---- per-message groups (plan.group_fields / ugroup_fields / presence_bits) --------
@@ -246,7 +261,7 @@ def emit(x, extra_asserts=()):
     for name in abi_order_topo(p):
         m = p.msg(name)
         bits = presence_bits(m)
-        for pre in ("e", "d", "u"):
+        for pre in (("e", "d") if nounk else ("e", "d", "u")):
             sname = "ak_%sfix_%s" % (pre, name)
             fields = ugroup_fields(m) if pre == "u" else group_fields(m, pre != "d")
             o.append("/* %s group for `%s`.%s */" % (
@@ -297,7 +312,7 @@ def emit(x, extra_asserts=()):
         o.append("")
 
     # ---- decision 11's per-root options (plan.unk_opts_layout, WP5 steps 7-8) ------------
-    for root in p.roots:
+    for root in ([] if nounk else p.roots):
         on = unk_opts_name(root)
         o.append("/* Decision 11: `%s`'s unknown-field options, one entry per message position" % root)
         o.append(" * (plan.unk_positions order), read IN PLACE by the core; a repeated position is a")
@@ -317,9 +332,10 @@ def emit(x, extra_asserts=()):
         o.append("intptr_t ak_encode_%s(const void *obj, ak_enc_ctx *ctx,"
                  " const struct ak_evt_%s *vt, const struct ak_efix_%s *fix%s);"
                  % (root, root, root, dargs))
-        o.append("intptr_t ak_uencode_%s(const void *obj, ak_enc_ctx *ctx,"
-                 " const struct ak_evt_%s *vt, const struct ak_ufix_%s *fix%s);"
-                 % (root, root, root, dargs))
+        if not nounk:
+            o.append("intptr_t ak_uencode_%s(const void *obj, ak_enc_ctx *ctx,"
+                     " const struct ak_evt_%s *vt, const struct ak_ufix_%s *fix%s);"
+                     % (root, root, root, dargs))
         o.append("int32_t ak_decode_%s(ak_dec_ctx *ctx, void *obj, const uint8_t *buf,"
                  " size_t len, const struct ak_dvt_%s *vt);" % (root, root))
         o.append("int32_t ak_parse_%s(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);" % root)
@@ -329,13 +345,15 @@ def emit(x, extra_asserts=()):
         if p.msg(et).leaf:
             o.append("int32_t ak_elem_%s(ak_enc_ctx *ctx, const struct ak_efix_%s *elems, int32_t n);"
                      % (et, et))
-            o.append("int32_t ak_uelem_%s(ak_enc_ctx *ctx, const struct ak_ufix_%s *elems, int32_t n);"
-                     % (et, et))
+            if not nounk:
+                o.append("int32_t ak_uelem_%s(ak_enc_ctx *ctx, const struct ak_ufix_%s *elems, int32_t n);"
+                         % (et, et))
         else:
             o.append("int32_t ak_elemu_%s(ak_enc_ctx *ctx, const struct ak_efix_%s *elems,"
                      " int32_t n, int64_t tok0);" % (et, et))
-            o.append("int32_t ak_uelemu_%s(ak_enc_ctx *ctx, const struct ak_ufix_%s *elems,"
-                     " int32_t n, int64_t tok0);" % (et, et))
+            if not nounk:
+                o.append("int32_t ak_uelemu_%s(ak_enc_ctx *ctx, const struct ak_ufix_%s *elems,"
+                         " int32_t n, int64_t tok0);" % (et, et))
     for _g, name, params, ret, doc in FIXED.run_functions():
         o.append(_decl(name, params, ret))
     o.append("")
@@ -345,7 +363,7 @@ def emit(x, extra_asserts=()):
     # ---- section 10: group layouts exported and asserted ---------------------------
     o.append(SASSERT)
     o.append("")
-    o += _asserts(p)
+    o += _asserts(p, nounk)
     o += list(extra_asserts)
     o.append("/* Number of (struct, member) layout facts this header pins. */")
     n = sum(1 + len(ms) for _, ms in layout_asserts)

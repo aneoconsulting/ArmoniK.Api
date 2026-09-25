@@ -28,7 +28,10 @@ def facts(ir):
     out = []
     for name in abi_order_topo(ir):
         m = ir.msg(name)
-        for pre in ("e", "d", "u"):
+        # WP5 step 10: the no-unknown variant has no u-groups (and no `unknown` member in
+        # a d-group, which `group_fields` already omits), so its facts are its own.
+        pres = ("e", "d") if ir.options.unknown == "drop" else ("e", "d", "u")
+        for pre in pres:
             sname = "ak_%sfix_%s" % (pre, name)
             fields = ugroup_fields(m) if pre == "u" else group_fields(m, pre != "d")
             out.append((sname, [fn for fn, _ in fields] + ["presence"]))

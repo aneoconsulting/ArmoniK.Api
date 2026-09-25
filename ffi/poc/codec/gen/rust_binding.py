@@ -53,31 +53,7 @@ def _top_src(path, indent="        "):
 
 # ============================================================== the host binding
 
-BINDING_PRELUDE = '''//! Arm `core-ffi-rust`: the generated host binding.
-//!
-//! Two invariants from ABI v1 are load-bearing here and both are generated rather than left
-//! to a binding author's discipline.
-//!
-//! Section 6, "the fill must be total": every scalar and all three words of every `ak_str`
-//! are assigned unconditionally, and the presence word is assigned rather than OR-ed. In
-//! exchange the codec does not reset the element group between elements. A partial fill
-//! does not fail, it silently inherits the previous element's value -- which is why a group
-//! is built by a constructor here rather than by stores into a reused slot.
-//!
-//! Section 5, the guard: a panic crossing `extern "C"` aborts the process, so every
-//! reverse-call accessor is wrapped and a panic becomes `ak_fail` plus a return.
-//!
-//! One rule the decode side cannot do without, and it is a rule about WHICH shape of
-//! accessor the generator emits: a message whose type carries a repeated or map field is
-//! filled IN PLACE, never constructed. `apply` for such a message arrives after the runs
-//! that populated those fields, so constructing a fresh value would silently discard them.
-//! A leaf message has no such hazard and gets a constructor.
-#![allow(non_snake_case, non_camel_case_types, unused_variables, clippy::all)]
-use ak_abi::*;
-use core::ffi::c_void;
-use facade::*;
-
-// ---- decision 11 (WP5 step 7): the host side of the unknown-field buffers --------
+BINDING_UNK_PRELUDE = '''// ---- decision 11 (WP5 step 7): the host side of the unknown-field buffers --------
 //
 // The core copies each message's unknown runs into a buffer this binding owns, obtained
 // through `unk_grow` (plan: UNKNOWN FIELDS ON DECODE). A buffer passes to the host when
@@ -170,6 +146,33 @@ pub fn unk_reclaim() -> usize {
         v.len()
     })
 }
+
+'''
+
+
+BINDING_PRELUDE = '''//! Arm `core-ffi-rust`: the generated host binding.
+//!
+//! Two invariants from ABI v1 are load-bearing here and both are generated rather than left
+//! to a binding author's discipline.
+//!
+//! Section 6, "the fill must be total": every scalar and all three words of every `ak_str`
+//! are assigned unconditionally, and the presence word is assigned rather than OR-ed. In
+//! exchange the codec does not reset the element group between elements. A partial fill
+//! does not fail, it silently inherits the previous element's value -- which is why a group
+//! is built by a constructor here rather than by stores into a reused slot.
+//!
+//! Section 5, the guard: a panic crossing `extern "C"` aborts the process, so every
+//! reverse-call accessor is wrapped and a panic becomes `ak_fail` plus a return.
+//!
+//! One rule the decode side cannot do without, and it is a rule about WHICH shape of
+//! accessor the generator emits: a message whose type carries a repeated or map field is
+//! filled IN PLACE, never constructed. `apply` for such a message arrives after the runs
+//! that populated those fields, so constructing a fresh value would silently discard them.
+//! A leaf message has no such hazard and gets a constructor.
+#![allow(non_snake_case, non_camel_case_types, unused_variables, clippy::all)]
+use ak_abi::*;
+use core::ffi::c_void;
+use facade::*;
 
 /// ABI v1 section 5. Rust's analogue of the managed guard: a panic crossing `extern "C"`
 /// aborts the process, so the binding catches it and reports it through the context it was
@@ -388,7 +391,14 @@ def _lifecycle(p):
 
 def emit_binding(ir):
     ir = as_plan(ir)
-    o = [HEAD, BINDING_PRELUDE, ""]
+    global NOUNK
+    # WP5 step 10: the NO-UNKNOWN variant's binding (plan: THE NO-UNKNOWN VARIANT): no
+    # u-groups, no bags handed to the core or taken from it, no options, no `_unk` family.
+    NOUNK = ir.options.unknown == "drop"
+    # The unknown-field prelude sits right after the `use` lines, where it always did, so
+    # the full variant's text is unchanged by the split.
+    head, tail = BINDING_PRELUDE.split('use facade::*;\n\n', 1)
+    o = [HEAD, head + 'use facade::*;\n\n' + ("" if NOUNK else BINDING_UNK_PRELUDE) + tail, ""]
     o += _lifecycle(ir)
     o += _dec_ctxs(ir)
 
@@ -490,6 +500,8 @@ def emit_binding(ir):
         bits = presence_bits(m)
         src = "TaskOptionsOptionsEntryLike" if m.synthetic else name
         if m.synthetic:
+            continue
+        if NOUNK:
             continue
         o.append("/// Total fill, PLUS the unknown-field bag (decision 11 candidate). One more")
         o.append("/// `ak_str` slot per group -- which is what makes this interact with decision 9:")
@@ -684,6 +696,8 @@ def emit_binding(ir):
         if m.synthetic:
             continue
         bits = presence_bits(m)
+        if NOUNK:
+            continue
         o.append("/// Sparse fill PLUS the unknown-field bag: decisions 9 and 11 together, which is")
         o.append("/// written. The cost traded is a compare and a branch per field against an")
         o.append("/// unconditional store per field, plus one memset per chunk.")
@@ -764,8 +778,9 @@ def emit_binding(ir):
             _emit_loop(ir, o, root, path, f, sn, top=True)
             if f.kind == "message" and f.card != "map":
                 _emit_loop_zeroed(ir, o, root, path, f, sn)
-                _emit_loop_unk(ir, o, root, path, f, sn)
-                _emit_loop_unk_zeroed(ir, o, root, path, f, sn)
+                if not NOUNK:
+                    _emit_loop_unk(ir, o, root, path, f, sn)
+                    _emit_loop_unk_zeroed(ir, o, root, path, f, sn)
             et = elem_type(f)
             if et and has_slots(ir, et):
                 for ipath, iff in loop_slots(ir, et):
@@ -819,6 +834,7 @@ def emit_binding(ir):
         # The same entry point with the ZEROED-GROUP loop callbacks installed where one
         # exists. ABI v1 open decision 9 candidate; the default above is untouched.
         # Decisions 9 and 11 together.
+        umark = len(o)
         o.append("pub fn encode_into_%s_unk_zeroed(ctx: *mut ak_enc_ctx, o: &%s, t: &Tcs) -> Result<usize, i32> {"
                  % (rs, root))
         o.append("    unsafe {")
@@ -873,6 +889,9 @@ def emit_binding(ir):
         o.append("    }")
         o.append("}")
         o.append("")
+        if NOUNK:
+            # The two `_unk` encode entries above use the u-groups: not in this variant.
+            del o[umark:]
         o.append("pub fn encode_into_%s_zeroed(ctx: *mut ak_enc_ctx, o: &%s, t: &Tcs) -> Result<usize, i32> {"
                  % (rs, root))
         o.append("    unsafe {")
@@ -930,7 +949,8 @@ def emit_binding(ir):
                 o.extend("    " + ln for ln in lines[1:-1])
                 o.append("    };")
             o.append("    // Decision 11 (WP5 step 7): the message's own buffer, the host's now.")
-            o.append("    dst.unknown_fields.extend_from_slice(&take_unk(&f.unknown));")
+            if not NOUNK:
+                o.append("    dst.unknown_fields.extend_from_slice(&take_unk(&f.unknown));")
             o.append("}")
         else:
             o.append("#[inline(always)]")
@@ -948,7 +968,7 @@ def emit_binding(ir):
                 o.extend("        " + ln for ln in lines[1:-1])
                 o.append("        },")
             o.append("        // Decision 11 (WP5 step 7): the message's own buffer, the host's now.")
-            o.append("        unknown_fields: take_unk(&f.unknown),")
+            o.append("        unknown_fields: %s," % ("Vec::new()" if NOUNK else "take_unk(&f.unknown)"))
             o.append("    }")
             o.append("}")
         o.append("")
@@ -980,7 +1000,8 @@ def emit_binding(ir):
             o.extend("        " + ln for ln in lines[1:-1])
             o.append("        };")
         o.append("        // Decision 11 (WP5 step 7): the root's own buffer, the host's now.")
-        o.append("        s.out.unknown_fields = take_unk(&f.unknown);")
+        if not NOUNK:
+            o.append("        s.out.unknown_fields = take_unk(&f.unknown);")
         o.append("    })")
         o.append("}")
         o.append("")
@@ -1042,6 +1063,7 @@ def emit_binding(ir):
         o.append("}")
         o.append("")
         # ---- decision 11 (WP5 steps 7-8): the options, and the same decode with them armed.
+        omark = len(o)
         on = unk_opts_name(root)
         lay = unk_opts_layout(ir, root)
         o.append("/// Decision 11: every position of `%s` backed by `unk_grow` (no pre-allocated" % root)
@@ -1093,6 +1115,8 @@ def emit_binding(ir):
         o.append("")
         o += _emit_unk_clear(ir, root)
         o += _emit_unk_controls(ir, root)
+        if NOUNK:
+            del o[omark:]
 
         # ================== ABI v1 section 7.1's PULL family, host side =================
         #
@@ -1437,8 +1461,9 @@ def _emit_add(ir, o, root, et, sn, path, f):
         o.append("            dst.insert(s_of(base, e.key, ctx), s_of(base, e.value, ctx));")
         o.append("            // Decision 11: the entry's own buffer; the facade map has no bag for")
         o.append("            // it (U-map-entry), so it is taken and dropped.")
-        o.append("            let t = take_unk(&e.unknown);")
-        o.append("            UNK_ENTRY_BYTES.with(|c| c.set(c.get() + t.len()));")
+        if not NOUNK:
+            o.append("            let t = take_unk(&e.unknown);")
+            o.append("            UNK_ENTRY_BYTES.with(|c| c.set(c.get() + t.len()));")
         o.append("        }")
     elif f.kind == "string":
         o.append("        dst.reserve(n as usize);")
@@ -1703,6 +1728,9 @@ def _run_call(ir, f, et, n, done, bag=False):
 
 
 
+NOUNK = False
+
+
 def _emit_unk_clear(ir, root):
     """Test support for decision 11's discard control: clear the facade bag of every
     message at one position (plan.unk_positions order), which is what decoding with that
@@ -1799,7 +1827,7 @@ def _dec_ctxs(ir):
     o.append("        unsafe {")
     o.append("            let d = DecCtxs {")
     for root in ir.roots:
-        o.append("                %s: ak_dec_ctx_new_%s(::core::ptr::null_mut())," % (snake(root), root))
+        o.append("                %s: ak_dec_ctx_new_%s(%s)," % (snake(root), root, "" if NOUNK else "::core::ptr::null_mut()"))
     o.append("            };")
     for root in ir.roots:
         o.append("            assert!(!d.%s.is_null(), \"ak_dec_ctx_new_%s\");" % (snake(root), root))

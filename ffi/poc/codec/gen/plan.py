@@ -244,6 +244,27 @@ UNKNOWN FIELDS ON DECODE, THROUGH THE C ABI (ABI v1 decision 11: mechanism speci
     * recursive messages stay refused from the C ABI (owner, 2026-09-24), so the positions
       of an expressible root are finite.
 
+THE NO-UNKNOWN VARIANT (Options(unknown="drop") for the C ABI; WP5 step 10)
+----------------------
+    A complete compile-time variant of the same ABI, from the same plans, that prices what
+    proposing retention costs even when it is not used. Against the "both" ABI it has:
+    * decode groups WITHOUT the `unknown: ak_unk_buf` member (`group_fields`), so every
+      group and every arena element is 16 bytes smaller;
+    * NO `ak_ufix_M` groups, NO `ak_uencode_<Root>`, NO `ak_uelem_*`/`ak_uelemu_*`;
+    * NO `ak_dec_<Root>_opts`, NO `ak_dec_reset_<Root>`, no capture code in the decoders
+      (an unknown field is skipped: the plan's drop rule);
+    * root-bound contexts still (rule 6): `ak_dec_ctx_new_<Root>(void)` takes NO options
+      parameter (the options type does not exist in this variant), and decoding another
+      root with it is refused with AK_ERR_INVALID_STATE (`unk_entry_points` gives the
+      variant's signature);
+    * the fixed vocabulary (plan.FIXED, including `ak_unk_buf`/`ak_unk_opts`/`ak_unk_pool`
+      and `ak_blob`) is unchanged: those types are declared and unused, so the fixed part of
+      every header stays one text;
+    * layouts are asserted per variant: each variant's header and the core's
+      `ak_layout_facts` are rendered from the variant's plan.
+    A backend selects it by rendering from `relower(p, p.options.with_unknown("drop"))`; it
+    never re-derives which members to omit.
+
 ABI LAYOUT (derived here once; every language's declaration is rendered from it)
 ----------
     presence_bits(m)        {field: bit} -- a singular message child and every explicit
@@ -326,12 +347,15 @@ class Options:
     """The generator options. Each is a behaviour the owner has not decided, so the
     generator carries every value and the campaign measures them.
 
-    unknown   "drop"   unknown fields are skipped;
-              "retain" unknown fields are captured and re-emitted after the known ones;
-              "both"   (the C ABI core's default) both families are emitted and the host
-                       picks per call: `ak_encode_*`/`ak_decode_*` without capture, and
-                       `ak_uencode_*`/`ak_decode_*` with the `unknown` slots set. Owner
-                       position 6 / decision D4: both behaviours exist and are measured.
+    unknown   "drop"   unknown fields are skipped. For the C ABI this is the NO-UNKNOWN
+                       VARIANT (WP5 step 10, CAMPAIGN.md req 10): unknown-field support
+                       COMPILED OUT -- see THE NO-UNKNOWN VARIANT below;
+              "retain" unknown fields are captured and re-emitted after the known ones
+                       (the host-generated codecs' retain rendering);
+              "both"   (the C ABI core's default) decision 11's mechanism: the host picks
+                       per call and per position -- `ak_encode_*` or `ak_uencode_*`, and
+                       `ak_decode_*` with the options armed or all zero. Owner position 6 /
+                       decision D4: both behaviours exist and are measured.
     utf8      "reject" (default, proto3) or "lossy" (U+FFFD substitution), on decode.
               Encode never validates: a host string type carries the invariant, and a
               converting transcoder refuses what it cannot encode (ABI v1 decision 3).
@@ -446,6 +470,8 @@ class FieldPlan:
 
 class MessagePlan:
     def __init__(self, m, plan):
+        # WP5 step 10: the no-unknown variant has no unknown-field slot in its decode groups.
+        self.unk_slot = plan.options.unknown != "drop"
         self.name = m.name
         self.synthetic = m.synthetic
         self.raw = m.raw
@@ -652,8 +678,9 @@ def group_fields(m, enc):
                 out.append((n, "ak_%sfix_%s" % ("e" if enc else "d", g.of)))
             else:
                 out.append((n, ABI_SCALAR[g.kind]))
-    if not enc:
-        # Decision 11 (WP5 step 7): the message occurrence's own unknown-field buffer.
+    if not enc and getattr(m, "unk_slot", True):
+        # Decision 11 (WP5 step 7): the message occurrence's own unknown-field buffer;
+        # absent from the no-unknown variant (WP5 step 10).
         out.append(("unknown", "ak_unk_buf"))
     return out
 
@@ -1375,8 +1402,17 @@ def unk_root_id(p, root):
     return p.roots.index(root) + 1
 
 
+def unknown_compiled_out(p):
+    """True for the no-unknown variant (WP5 step 10)."""
+    return p.options.unknown == "drop"
+
+
 def unk_entry_points(p, root):
-    """The two per-root entry points of decision 11, (name, [(param, type)], return, doc)."""
+    """The per-root decode-context entry points of decision 11, (name, [(param, type)],
+    return, doc). The no-unknown variant has one: `ak_dec_ctx_new_<Root>(void)`."""
+    if unknown_compiled_out(p):
+        return [("ak_dec_ctx_new_%s" % root, [], "*mut ak_dec_ctx",
+                 "A decode context BOUND to this root (rule 6); unknown fields are compiled out.")]
     o = unk_opts_name(root)
     return [
         ("ak_dec_ctx_new_%s" % root, [("opts", "*mut %s" % o)], "*mut ak_dec_ctx",

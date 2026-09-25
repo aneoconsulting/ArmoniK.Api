@@ -26,7 +26,7 @@ from plan import (FIXED, dec_vtable, enc_vtable, pull_slot,  # noqa: F401
                   oneof_message_members, presence_bits, slot_elem, slot_name, ugroup_fields,
                   vtable_messages, unk_positions, unk_offset, unk_opts_name,
                   unk_opts_members, unk_root_id, unk_entry_points,
-                  unk_opts_layout)
+                  unk_opts_layout, unknown_compiled_out)
 from rustnames import SCALAR  # noqa: F401
 
 # Historical name, imported by the cpp and java generators until they are ported.
@@ -105,14 +105,17 @@ SITE_NAMES = []
 
 def emit_abi(ir):
     ir = as_plan(ir)
+    # WP5 step 10: the no-unknown variant has no u-groups, no options, no u-family.
+    nounk = unknown_compiled_out(ir)
     o = [head_of(ir),
          "//! The per-message part of the C ABI: section 6's groups and vtables, section 7's",
          "//! decode fixes. Both the core and the host binding compile against this file.",
          "#![allow(non_camel_case_types, non_upper_case_globals)]",
          "// The fixed vocabulary (ak_str, ak_span, ak_blob, ak_unk_buf, ak_unk_opts, ak_loop_f,",
          "// AK_TOKEN_ROOT) is plan.FIXED's, rendered into ak-abi's lib.rs (WP5 step 6).",
-         "use super::super::{ak_blob, ak_dec_ctx, ak_enc_ctx, ak_loop_f, ak_span, ak_str, ak_unk_buf,",
-         "    ak_unk_opts, ak_unk_pool};",
+         ("use super::super::{ak_dec_ctx, ak_enc_ctx, ak_loop_f, ak_span, ak_str};" if nounk else
+          "use super::super::{ak_blob, ak_dec_ctx, ak_enc_ctx, ak_loop_f, ak_span, ak_str, ak_unk_buf,\n"
+          "    ak_unk_opts, ak_unk_pool};"),
          "use core::ffi::c_void;",
          ""]
 
@@ -124,7 +127,7 @@ def emit_abi(ir):
         # single `ak_str`, NOT a repeated field, and that is load-bearing: run
         # `gen/unknown_predicate.py` -- a repeated bag takes the schema from 9 leaf messages
         # to 0 and the batched run of section 7.2 fails everywhere.
-        for pre in ("e", "d", "u"):
+        for pre in (("e", "d") if nounk else ("e", "d", "u")):
             enc = pre != "d"
             sname = "ak_%sfix_%s" % (pre, name)
             o.append("/// %s group for `%s`.%s" % (
@@ -200,7 +203,7 @@ def emit_abi(ir):
         o.append("")
 
     # Decision 11 (WP5 step 7): the per-root unknown-field options, from the plan.
-    for root in ir.roots:
+    for root in ([] if nounk else ir.roots):
         o.append("/// Decision 11: `%s`'s unknown-field options, one entry per message position" % root)
         o.append("/// (plan.unk_positions order). All zero = drop mode.")
         o.append("#[repr(C)]")
@@ -229,6 +232,7 @@ def emit_abi(ir):
             o.append("        direct: *const u8,")
             o.append("        direct_len: usize,")
         o.append("    ) -> isize;")
+        ustart = len(o)
         o.append("    /// ABI v1 open decision 11 candidate: the same entry over the group that")
         o.append("    /// carries the unknown-field bag.")
         o.append("    pub fn ak_uencode_%s(" % root)
@@ -240,6 +244,8 @@ def emit_abi(ir):
             o.append("        direct: *const u8,")
             o.append("        direct_len: usize,")
         o.append("    ) -> isize;")
+        if nounk:
+            del o[ustart:]
         o.append("    pub fn ak_decode_%s(" % root)
         o.append("        ctx: *mut ak_dec_ctx,")
         o.append("        obj: *mut c_void,")
@@ -265,8 +271,9 @@ def emit_abi(ir):
             o.append("    /// so the codec makes no reverse call during a run.")
             o.append("    pub fn ak_elem_%s(ctx: *mut ak_enc_ctx, elems: *const ak_efix_%s, n: i32) -> i32;"
                      % (et, et))
-            o.append("    pub fn ak_uelem_%s(ctx: *mut ak_enc_ctx, elems: *const ak_ufix_%s, n: i32) -> i32;"
-                     % (et, et))
+            if not nounk:
+                o.append("    pub fn ak_uelem_%s(ctx: *mut ak_enc_ctx, elems: *const ak_ufix_%s, n: i32) -> i32;"
+                         % (et, et))
         else:
             o.append("    /// Unrestricted form: names element i as `tok0 + i` from a contiguous")
             o.append("    /// token range the host allocated, because the codec has to call back")
@@ -277,12 +284,13 @@ def emit_abi(ir):
             o.append("        n: i32,")
             o.append("        tok0: i64,")
             o.append("    ) -> i32;")
-            o.append("    pub fn ak_uelemu_%s(" % et)
-            o.append("        ctx: *mut ak_enc_ctx,")
-            o.append("        elems: *const ak_ufix_%s," % et)
-            o.append("        n: i32,")
-            o.append("        tok0: i64,")
-            o.append("    ) -> i32;")
+            if not nounk:
+                o.append("    pub fn ak_uelemu_%s(" % et)
+                o.append("        ctx: *mut ak_enc_ctx,")
+                o.append("        elems: *const ak_ufix_%s," % et)
+                o.append("        n: i32,")
+                o.append("        tok0: i64,")
+                o.append("    ) -> i32;")
     # The run symbols: fixed names, from plan.FIXED.run_functions (WP5 step 6).
     for _g, fname, params, ret, doc in FIXED.run_functions():
         o.append("    /// %s" % doc)
@@ -423,12 +431,13 @@ class Sites:
 
 def emit_codec(ir):
     ir = as_plan(ir)
-    if ir.options.unknown != "both":
-        # The C ABI carries BOTH unknown-field behaviours and the host picks per call
-        # (`ak_encode_*` / `ak_uencode_*`; `ak_decode_*` with or without the `unknown`
-        # slots). A single-mode rendering would be a different ABI, so it is refused
-        # rather than emitted with a `u` family that silently drops the bag.
-        raise NotImplementedError("the C ABI core renders unknown='both'; got %r" % ir.options.unknown)
+    global NOUNK
+    if ir.options.unknown not in ("both", "drop"):
+        # The C ABI carries decision 11's mechanism ("both": the host picks per call and
+        # per position) or the NO-UNKNOWN variant ("drop": support compiled out, WP5 step
+        # 10). "retain" alone would be a third ABI and is refused rather than emitted.
+        raise NotImplementedError("the C ABI core renders unknown='both' or 'drop'; got %r" % ir.options.unknown)
+    NOUNK = ir.options.unknown == "drop"
     # Refused at generator time, never emitted wrong: a root the ABI cannot carry.
     for root in ir.roots:
         check_expressible(ir, root)
@@ -571,7 +580,9 @@ def emit_codec(ir):
         body.append("}")
         body.append("")
         # The same group, walked again with the bag slot. ABI v1 open decision 11
-        # candidate; the `e` family above is untouched.
+        # candidate; the `e` family above is untouched. Not in the no-unknown variant (the
+        # walk still runs so both variants allocate the same length-prefix sites).
+        ustart = len(body)
         body.append("#[inline]")
         if slots:
             body.append("unsafe fn enc_%s_ugroup(" % snake(name))
@@ -588,6 +599,8 @@ def emit_codec(ir):
         body.append("    true")
         body.append("}")
         body.append("")
+        if NOUNK:
+            del body[ustart:]
 
     for et in sorted(element_types(ir)):
         m = ir.msg(et)
@@ -611,6 +624,7 @@ def emit_codec(ir):
             body.append("    AK_OK")
             body.append("}")
             body.append("")
+            ustart = len(body)
             body.append("/// The same run over the group that carries the unknown-field bag.")
             body.append("#[no_mangle]")
             body.append("pub unsafe extern \"C\" fn ak_uelem_%s(" % et)
@@ -630,6 +644,8 @@ def emit_codec(ir):
             body.extend(RESTORE_LINES)
             body.append("    AK_OK")
             body.append("}")
+            if NOUNK:
+                del body[ustart:]
         else:
             body.append("#[no_mangle]")
             body.append("pub unsafe extern \"C\" fn ak_elemu_%s(" % et)
@@ -658,6 +674,7 @@ def emit_codec(ir):
             body.append("    AK_OK")
             body.append("}")
             body.append("")
+            ustart = len(body)
             body.append("/// The same unbatched run over the group that carries the bag.")
             body.append("#[no_mangle]")
             body.append("pub unsafe extern \"C\" fn ak_uelemu_%s(" % et)
@@ -683,6 +700,8 @@ def emit_codec(ir):
             body.extend(RESTORE_LINES)
             body.append("    AK_OK")
             body.append("}")
+            if NOUNK:
+                del body[ustart:]
         body.append("")
 
     for root in ir.roots:
@@ -714,6 +733,7 @@ def emit_codec(ir):
         body.append("}")
         body.append("")
         # The same root entry with the bag. ABI v1 open decision 11 candidate.
+        ustart = len(body)
         body.append("#[no_mangle]")
         body.append("pub unsafe extern \"C\" fn ak_uencode_%s(" % root)
         body.append("    obj: *const c_void,")
@@ -741,6 +761,8 @@ def emit_codec(ir):
         body.append("    (*cx).e.buf.len() as isize")
         body.append("}")
         body.append("")
+        if NOUNK:
+            del body[ustart:]
 
     body.append("#[no_mangle]")
     body.append("pub unsafe extern \"C\" fn ak_blob_run(")
@@ -796,11 +818,12 @@ def emit_codec(ir):
          "//! here, a facade object there (R-E1).",
          "#![allow(non_snake_case, non_camel_case_types, unused_unsafe, unused_variables,",
          "    unused_assignments, unused_mut, unused_macros, clippy::all)]",
-         "use crate::{enc_blob, enc_raw, unk_put, DecCtxImpl, EncCtxImpl, UnkCx};",
+         ("use crate::{enc_blob, DecCtxImpl, EncCtxImpl};" if NOUNK else
+          "use crate::{enc_blob, enc_raw, unk_put, DecCtxImpl, EncCtxImpl, UnkCx};"),
          "use ak_abi::*;",
          "use ak_rt::dec::Dec;",
          "use core::ffi::c_void;",
-         "",
+         ""] + ([NOUNK_PRELUDE] if NOUNK else []) + [
          "/// One learned length-prefix slot per site. Per context, never process-global.",
          "pub const SITES: usize = %d;" % len(sites),
          ""]
@@ -832,6 +855,32 @@ CAP = """                if %s.err == 0 && !u.pos.is_null() {
                     let rc = unk_put(u, &mut out.unknown, &buf0[s0..%s.pos]);
                     if rc != 0 { %s.err = rc; }
                 }"""
+
+
+# WP5 step 10: True while rendering the NO-UNKNOWN variant (plan: THE NO-UNKNOWN VARIANT).
+NOUNK = False
+
+# The no-unknown variant's decoders keep the shape of the full variant's (one traversal,
+# one emitter) but carry a ZERO-SIZED `UnkCx` with no capture behind it: every `u`
+# parameter and `u.at(..)` compiles to nothing, and no `unk_put` exists to call.
+NOUNK_PRELUDE = """/// WP5 step 10, the no-unknown variant: unknown-field support compiled out. A zero-sized
+/// stand-in for the full variant's position cursor, so both variants share one traversal.
+#[derive(Clone, Copy)]
+pub struct UnkCx;
+impl UnkCx {
+    #[inline(always)]
+    pub unsafe fn root(_d: *mut DecCtxImpl) -> UnkCx { UnkCx }
+    #[inline(always)]
+    pub fn at(self, _rel: usize) -> UnkCx { self }
+}
+"""
+
+
+def _cap(out):
+    """The `_` arm's capture into the base message's buffer; nothing in the no-unknown
+    variant, where an unknown field is only skipped."""
+    if not NOUNK:
+        out.extend((CAP % ("d", "d", "d")).split("\n"))
 
 
 def _emit_decode(ir, sites):
@@ -918,12 +967,13 @@ def _emit_decode(ir, sites):
                 o.extend("        " + ln for ln in sub)
                 o.append("                        _ => {")
                 o.append("                            %s.skip(tag, wire);" % crd)
-                o.append("                            // Decision 11: the inlined child's OWN buffer.")
-                o.append("                            if %s.err == 0 && !u.pos.is_null() {" % crd)
-                o.append("                                let rc = unk_put(u.at(%d), &mut %s.%s.unknown, &%s[s0..%s.pos]);"
-                         % (crel, fxexpr, f.name, nbuf, crd))
-                o.append("                                if rc != 0 { %s.err = rc; }" % crd)
-                o.append("                            }")
+                if not NOUNK:
+                    o.append("                            // Decision 11: the inlined child's OWN buffer.")
+                    o.append("                            if %s.err == 0 && !u.pos.is_null() {" % crd)
+                    o.append("                                let rc = unk_put(u.at(%d), &mut %s.%s.unknown, &%s[s0..%s.pos]);"
+                             % (crel, fxexpr, f.name, nbuf, crd))
+                    o.append("                                if rc != 0 { %s.err = rc; }" % crd)
+                    o.append("                            }")
                 o.append("                        }")
                 o.append("                    }")
                 o.append("                }")
@@ -1024,22 +1074,26 @@ def _emit_decode(ir, sites):
                     o.append("                let mut os = Dec::new(&%s[off..off + n]);" % bufname)
                     o.append("                // Plan rule: the SAME member again merges; another member,")
                     o.append("                // or none, starts from empty.")
-                    # Decision 11 rule 4: ONE position and ONE buffer per oneof. On a switch
-                    # to this member, the buffer moves (emptied) from the previous message
-                    # member's slot into this one's, so at most one member slot holds it.
-                    others = [g for g in m.oneofs[oname] if g.kind == "message" and g is not f]
-                    o.append("                // Decision 11 rule 4: the oneof's ONE buffer moves, emptied, from the")
-                    o.append("                // previous message member's slot into this member's.")
-                    o.append("                if %s.%s_case != %d {" % (fxexpr, oname, f.tag))
-                    o.append("                    // At most one member slot holds it (the invariant this keeps).")
-                    o.append("                    let mut k = ::core::mem::replace(&mut %s.unknown, ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 });" % n)
-                    for g in others:
-                        o.append("                    let t = ::core::mem::replace(&mut %s.%s_%s.unknown, ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 });"
-                                 % (fxexpr, oname, g.name))
-                        o.append("                    if !t.data.is_null() { k = t; }")
-                    o.append("                    %s = ak_dfix_%s::ZERO;" % (n, f.of))
-                    o.append("                    %s.unknown = ak_unk_buf { data: k.data, len: 0, cap: k.cap };" % n)
-                    o.append("                }")
+                    if NOUNK:
+                        o.append("                if %s.%s_case != %d { %s = ak_dfix_%s::ZERO; }"
+                                 % (fxexpr, oname, f.tag, n, f.of))
+                    else:
+                        # Decision 11 rule 4: ONE position and ONE buffer per oneof. On a switch
+                        # to this member, the buffer moves (emptied) from the previous message
+                        # member's slot into this one's, so at most one member slot holds it.
+                        others = [g for g in m.oneofs[oname] if g.kind == "message" and g is not f]
+                        o.append("                // Decision 11 rule 4: the oneof's ONE buffer moves, emptied, from the")
+                        o.append("                // previous message member's slot into this member's.")
+                        o.append("                if %s.%s_case != %d {" % (fxexpr, oname, f.tag))
+                        o.append("                    // At most one member slot holds it (the invariant this keeps).")
+                        o.append("                    let mut k = ::core::mem::replace(&mut %s.unknown, ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 });" % n)
+                        for g in others:
+                            o.append("                    let t = ::core::mem::replace(&mut %s.%s_%s.unknown, ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 });"
+                                     % (fxexpr, oname, g.name))
+                            o.append("                    if !t.data.is_null() { k = t; }")
+                        o.append("                    %s = ak_dfix_%s::ZERO;" % (n, f.of))
+                        o.append("                    %s.unknown = ak_unk_buf { data: k.data, len: 0, cap: k.cap };" % n)
+                        o.append("                }")
                     o.append("                dec_%s_fix_into(&mut os, %s + off, %s, &mut %s);"
                              % (snake(f.of), basename, ux(f), n))
                     o.append("                if os.err != 0 { %s.err = os.err; }" % rd)
@@ -1140,7 +1194,7 @@ def _emit_decode(ir, sites):
         dec_walk(name, name, "out", (), "buf0", "base0", 0, {}, out)
         out.append("            _ => {")
         out.append("                d.skip(tag, wire);")
-        out.extend((CAP % ("d", "d", "d")).split("\n"))
+        _cap(out)
         out.append("            }")
         out.append("        }")
         out.append("    }")
@@ -1205,7 +1259,7 @@ def _emit_decode(ir, sites):
             out.append("            _ => {")
             out.append("                if cur != 0 { flush!(); cur = 0; }")
             out.append("                d.skip(tag, wire);")
-            out.extend((CAP % ("d", "d", "d")).split("\n"))
+            _cap(out)
             out.append("            }")
             out.append("        }")
             out.append("    }")
@@ -1284,7 +1338,7 @@ def _emit_decode(ir, sites):
         out.append("            _ => {")
         out.append("                if cur != 0 { flush!(); cur = 0; }")
         out.append("                d.skip(tag, wire);")
-        out.extend((CAP % ("d", "d", "d")).split("\n"))
+        _cap(out)
         out.append("            }")
         out.append("        }")
         out.append("    }")
@@ -1308,7 +1362,15 @@ def _emit_decode(ir, sites):
         out.append("")
 
     # ============================================ decision 11's options (WP5 steps 7, 8)
-    for root in ir.roots:
+    for root in (ir.roots if NOUNK else []):
+        out.append("/// Decision 11 rule 6: a decode context BOUND to `%s` (no-unknown variant:" % root)
+        out.append("/// unknown fields compiled out, no options).")
+        out.append("#[no_mangle]")
+        out.append("pub unsafe extern \"C\" fn ak_dec_ctx_new_%s() -> *mut ak_dec_ctx {" % root)
+        out.append("    crate::dec_ctx_alloc(%d)" % unk_root_id(ir, root))
+        out.append("}")
+        out.append("")
+    for root in ([] if NOUNK else ir.roots):
         on = unk_opts_name(root)
         lay = unk_opts_layout(ir, root)
         rid = unk_root_id(ir, root)
@@ -1406,7 +1468,7 @@ def _emit_decode(ir, sites):
             out.append("            _ => {")
             out.append("                if cur != 0 { flush!(); cur = 0; }")
             out.append("                d.skip(tag, wire);")
-            out.extend((CAP % ("d", "d", "d")).split("\n"))
+            _cap(out)
             out.append("            }")
             out.append("        }")
             out.append("    }")
@@ -1482,7 +1544,7 @@ def _emit_decode(ir, sites):
         out.append("            _ => {")
         out.append("                if cur != 0 { flush!(); cur = 0; }")
         out.append("                d.skip(tag, wire);")
-        out.extend((CAP % ("d", "d", "d")).split("\n"))
+        _cap(out)
         out.append("            }")
         out.append("        }")
         out.append("    }")

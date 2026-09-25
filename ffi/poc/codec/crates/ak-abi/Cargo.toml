@@ -6,7 +6,11 @@ version.workspace = true
 publish.workspace = true
 
 [features]
-default = []
+# WP5 step 10: decision 11's unknown-field support. OFF selects the NO-UNKNOWN variant of
+# the per-message ABI (`src/generated_nounk/`, `src/generated_corpus_nounk/`): no
+# `ak_unk_buf` slot in the decode groups, no u-groups, no options structs.
+default = ["unknown-fields"]
+unknown-fields = []
 # Test-only: the ABI generated for ffi/corpus's reader schema (see src/lib.rs). Never in a
 # shipped build; `poc/rust/corpus/` enables it in a workspace of its own.
 corpus = []

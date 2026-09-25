@@ -134,6 +134,17 @@ def targets():
         "crates/ak-core/src/generated_corpus/codec.rs": ccodec,
         "crates/ak-core/src/generated_corpus/layout.rs": cpp_layout.emit(cp),
     })
+    # WP5 step 10: the NO-UNKNOWN variant of both (plan: THE NO-UNKNOWN VARIANT), from the
+    # same plans relowered with unknown="drop", behind ak-abi/ak-core's `unknown-fields`
+    # feature (default on; off selects these files).
+    for pp, sub in ((p, "generated_nounk"), (cp, "generated_corpus_nounk")):
+        dp = P.relower(pp, pp.options.with_unknown("drop"))
+        dcodec = rust_abi.emit_codec(dp)
+        out.update({
+            "crates/ak-abi/src/%s/abi.rs" % sub: rust_abi.emit_abi(dp),
+            "crates/ak-core/src/%s/codec.rs" % sub: dcodec,
+            "crates/ak-core/src/%s/layout.rs" % sub: cpp_layout.emit(dp),
+        })
     # The RPC half's region of ak-abi's hand-written lib.rs (see rust_abi.emit_rpc_abi).
     lib = os.path.join(ROOT, "crates/ak-abi/src/lib.rs")
     text = rust_abi.splice_region(open(lib).read(), rust_abi.emit_rpc_abi(p))
