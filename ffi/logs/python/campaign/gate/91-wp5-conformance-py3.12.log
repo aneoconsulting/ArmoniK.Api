@@ -1,6 +1,6 @@
 # python slice: conformance on _akffi, py3.12
-# date:      2026-09-25T21:16:14Z
-# commit:    dfbfefd + uncommitted changes in poc/python or poc/codec
+# date:      2026-09-25T22:33:26Z
+# commit:    9975ca9
 # phase:     correctness only; nothing here is a timing
 
 # python slice, work unit 2: conformance on the COMPOSED arm (README R2)
@@ -9,11 +9,11 @@
 # manifest:    validated against prost 0.14.4 and a second encoder (W2)
 # shim:        _akffi (_akffi.cpython-312-x86_64-linux-gnu.so)
 # section 9:   absent
-# core loaded: poc/python/build/cargo-8de7890/plain/release/libak_core.so
+# core loaded: poc/python/build/cargo-9975ca9/plain/release/libak_core.so
 
 ## R1: the generated tree is current with shapes.json
    guard 2 python backend modules import plans only; a planted IR import is caught
-generated tree is current with the plans (10 files)
+generated tree is current with the plans (14 files)
 
 ## ABI v1 section 10: the core and the shim agree on the group layouts
    ak_abi_version() = 1, the shim was generated against 1
@@ -368,7 +368,7 @@ generated tree is current with the plans (10 files)
         ok*   core-ffi / pyacc (C attrgetter)  (a permutation of the same triples; SHAPES.md P7.1)
 
 ## crossing counts, counting build, BOTH halves (README R5)
-#  shim: _akffi_count; core loaded: poc/python/build/cargo-8de7890/count/release/libak_core.so
+#  shim: _akffi_count; core loaded: poc/python/build/cargo-9975ca9/count/release/libak_core.so
 #  The core counts its own crossings and the shim counts what it does to
 #  CPython. Neither half can count the other's, which is why both are here.
 #  'shim' = calls the shim makes INTO CPython (value reads, list access, attribute
@@ -535,5 +535,167 @@ generated tree is current with the plans (10 files)
    P7.1  decode  C ext type             shim   2.00  core fwd  0.17 rev  1.17  [C-API value read=6, PyList element=6]
    P7.1  decode  pyacc (python fn)      shim   4.33  core fwd  0.17 rev  1.17  [C-API value read=6, PyList element=6, call into Python=14]
    P7.1  decode  pyacc (C attrgetter)   shim   4.33  core fwd  0.17 rev  1.17  [C-API value read=6, PyList element=6, call into Python=14]
+
+## core crossings per call, whole numbers (the committed crossing-count files)
+   abs P1.1  encode  plain                  fwd      2 rev      1
+   abs P1.1  encode  __slots__              fwd      2 rev      1
+   abs P1.1  encode  C ext type             fwd      2 rev      1
+   abs P1.1  encode  pyacc (python fn)      fwd      2 rev      1
+   abs P1.1  encode  pyacc (C attrgetter)   fwd      2 rev      1
+   abs P1.1  decode  plain                  fwd      1 rev      2
+   abs P1.1  decode  __slots__              fwd      1 rev      2
+   abs P1.1  decode  C ext type             fwd      1 rev      2
+   abs P1.1  decode  pyacc (python fn)      fwd      1 rev      2
+   abs P1.1  decode  pyacc (C attrgetter)   fwd      1 rev      2
+   abs P1.2  encode  plain                  fwd      8 rev      1
+   abs P1.2  encode  __slots__              fwd      8 rev      1
+   abs P1.2  encode  C ext type             fwd      8 rev      1
+   abs P1.2  encode  pyacc (python fn)      fwd      8 rev      1
+   abs P1.2  encode  pyacc (C attrgetter)   fwd      8 rev      1
+   abs P1.2  decode  plain                  fwd      1 rev      8
+   abs P1.2  decode  __slots__              fwd      1 rev      8
+   abs P1.2  decode  C ext type             fwd      1 rev      8
+   abs P1.2  decode  pyacc (python fn)      fwd      1 rev      8
+   abs P1.2  decode  pyacc (C attrgetter)   fwd      1 rev      8
+   abs P1.3  encode  plain                  fwd      3 rev      1
+   abs P1.3  encode  __slots__              fwd      3 rev      1
+   abs P1.3  encode  C ext type             fwd      3 rev      1
+   abs P1.3  encode  pyacc (python fn)      fwd      3 rev      1
+   abs P1.3  encode  pyacc (C attrgetter)   fwd      3 rev      1
+   abs P1.3  decode  plain                  fwd      1 rev      3
+   abs P1.3  decode  __slots__              fwd      1 rev      3
+   abs P1.3  decode  C ext type             fwd      1 rev      3
+   abs P1.3  decode  pyacc (python fn)      fwd      1 rev      3
+   abs P1.3  decode  pyacc (C attrgetter)   fwd      1 rev      3
+   abs P2.1  encode  plain                  fwd      7 rev      6
+   abs P2.1  encode  __slots__              fwd      7 rev      6
+   abs P2.1  encode  C ext type             fwd      7 rev      6
+   abs P2.1  encode  pyacc (python fn)      fwd      7 rev      6
+   abs P2.1  encode  pyacc (C attrgetter)   fwd      7 rev      6
+   abs P2.1  decode  plain                  fwd      1 rev      8
+   abs P2.1  decode  __slots__              fwd      1 rev      8
+   abs P2.1  decode  C ext type             fwd      1 rev      8
+   abs P2.1  decode  pyacc (python fn)      fwd      1 rev      8
+   abs P2.1  decode  pyacc (C attrgetter)   fwd      1 rev      8
+   abs P2.2  encode  plain                  fwd   2511 rev   2501
+   abs P2.2  encode  __slots__              fwd   2511 rev   2501
+   abs P2.2  encode  C ext type             fwd   2511 rev   2501
+   abs P2.2  encode  pyacc (python fn)      fwd   2511 rev   2501
+   abs P2.2  encode  pyacc (C attrgetter)   fwd   2511 rev   2501
+   abs P2.2  decode  plain                  fwd      1 rev   3501
+   abs P2.2  decode  __slots__              fwd      1 rev   3501
+   abs P2.2  decode  C ext type             fwd      1 rev   3501
+   abs P2.2  decode  pyacc (python fn)      fwd      1 rev   3501
+   abs P2.2  decode  pyacc (C attrgetter)   fwd      1 rev   3501
+   abs P2.3  encode  plain                  fwd    629 rev    626
+   abs P2.3  encode  __slots__              fwd    629 rev    626
+   abs P2.3  encode  C ext type             fwd    629 rev    626
+   abs P2.3  encode  pyacc (python fn)      fwd    629 rev    626
+   abs P2.3  encode  pyacc (C attrgetter)   fwd    629 rev    626
+   abs P2.3  decode  plain                  fwd      1 rev    876
+   abs P2.3  decode  __slots__              fwd      1 rev    876
+   abs P2.3  decode  C ext type             fwd      1 rev    876
+   abs P2.3  decode  pyacc (python fn)      fwd      1 rev    876
+   abs P2.3  decode  pyacc (C attrgetter)   fwd      1 rev    876
+   abs P2.4  encode  plain                  fwd    403 rev    401
+   abs P2.4  encode  __slots__              fwd    403 rev    401
+   abs P2.4  encode  C ext type             fwd    403 rev    401
+   abs P2.4  encode  pyacc (python fn)      fwd    403 rev    401
+   abs P2.4  encode  pyacc (C attrgetter)   fwd    403 rev    401
+   abs P2.4  decode  plain                  fwd      1 rev    561
+   abs P2.4  decode  __slots__              fwd      1 rev    561
+   abs P2.4  decode  C ext type             fwd      1 rev    561
+   abs P2.4  decode  pyacc (python fn)      fwd      1 rev    561
+   abs P2.4  decode  pyacc (C attrgetter)   fwd      1 rev    561
+   abs P2.5  encode  plain                  fwd    102 rev    101
+   abs P2.5  encode  __slots__              fwd    102 rev    101
+   abs P2.5  encode  C ext type             fwd    102 rev    101
+   abs P2.5  encode  pyacc (python fn)      fwd    102 rev    101
+   abs P2.5  encode  pyacc (C attrgetter)   fwd    102 rev    101
+   abs P2.5  decode  plain                  fwd      1 rev    141
+   abs P2.5  decode  __slots__              fwd      1 rev    141
+   abs P2.5  decode  C ext type             fwd      1 rev    141
+   abs P2.5  decode  pyacc (python fn)      fwd      1 rev    141
+   abs P2.5  decode  pyacc (C attrgetter)   fwd      1 rev    141
+   abs P3.1  encode  plain                  fwd      2 rev      1
+   abs P3.1  encode  __slots__              fwd      2 rev      1
+   abs P3.1  encode  C ext type             fwd      2 rev      1
+   abs P3.1  encode  pyacc (python fn)      fwd      2 rev      1
+   abs P3.1  encode  pyacc (C attrgetter)   fwd      2 rev      1
+   abs P3.1  decode  plain                  fwd      1 rev      2
+   abs P3.1  decode  __slots__              fwd      1 rev      2
+   abs P3.1  decode  C ext type             fwd      1 rev      2
+   abs P3.1  decode  pyacc (python fn)      fwd      1 rev      2
+   abs P3.1  decode  pyacc (C attrgetter)   fwd      1 rev      2
+   abs P4.1  encode  plain                  fwd    203 rev    201
+   abs P4.1  encode  __slots__              fwd    203 rev    201
+   abs P4.1  encode  C ext type             fwd    203 rev    201
+   abs P4.1  encode  pyacc (python fn)      fwd    203 rev    201
+   abs P4.1  encode  pyacc (C attrgetter)   fwd    203 rev    201
+   abs P4.1  decode  plain                  fwd      1 rev    601
+   abs P4.1  decode  __slots__              fwd      1 rev    601
+   abs P4.1  decode  C ext type             fwd      1 rev    601
+   abs P4.1  decode  pyacc (python fn)      fwd      1 rev    601
+   abs P4.1  decode  pyacc (C attrgetter)   fwd      1 rev    601
+   abs P5.1  encode  plain                  fwd      1 rev      0
+   abs P5.1  encode  __slots__              fwd      1 rev      0
+   abs P5.1  encode  C ext type             fwd      1 rev      0
+   abs P5.1  encode  pyacc (python fn)      fwd      1 rev      0
+   abs P5.1  encode  pyacc (C attrgetter)   fwd      1 rev      0
+   abs P5.1  decode  plain                  fwd      1 rev      1
+   abs P5.1  decode  __slots__              fwd      1 rev      1
+   abs P5.1  decode  C ext type             fwd      1 rev      1
+   abs P5.1  decode  pyacc (python fn)      fwd      1 rev      1
+   abs P5.1  decode  pyacc (C attrgetter)   fwd      1 rev      1
+   abs P5.2  encode  plain                  fwd      1 rev      0
+   abs P5.2  encode  __slots__              fwd      1 rev      0
+   abs P5.2  encode  C ext type             fwd      1 rev      0
+   abs P5.2  encode  pyacc (python fn)      fwd      1 rev      0
+   abs P5.2  encode  pyacc (C attrgetter)   fwd      1 rev      0
+   abs P5.2  decode  plain                  fwd      1 rev      1
+   abs P5.2  decode  __slots__              fwd      1 rev      1
+   abs P5.2  decode  C ext type             fwd      1 rev      1
+   abs P5.2  decode  pyacc (python fn)      fwd      1 rev      1
+   abs P5.2  decode  pyacc (C attrgetter)   fwd      1 rev      1
+   abs P5.3  encode  plain                  fwd      1 rev      0
+   abs P5.3  encode  __slots__              fwd      1 rev      0
+   abs P5.3  encode  C ext type             fwd      1 rev      0
+   abs P5.3  encode  pyacc (python fn)      fwd      1 rev      0
+   abs P5.3  encode  pyacc (C attrgetter)   fwd      1 rev      0
+   abs P5.3  decode  plain                  fwd      1 rev      1
+   abs P5.3  decode  __slots__              fwd      1 rev      1
+   abs P5.3  decode  C ext type             fwd      1 rev      1
+   abs P5.3  decode  pyacc (python fn)      fwd      1 rev      1
+   abs P5.3  decode  pyacc (C attrgetter)   fwd      1 rev      1
+   abs P5.4  encode  plain                  fwd      1 rev      0
+   abs P5.4  encode  __slots__              fwd      1 rev      0
+   abs P5.4  encode  C ext type             fwd      1 rev      0
+   abs P5.4  encode  pyacc (python fn)      fwd      1 rev      0
+   abs P5.4  encode  pyacc (C attrgetter)   fwd      1 rev      0
+   abs P5.4  decode  plain                  fwd      1 rev      1
+   abs P5.4  decode  __slots__              fwd      1 rev      1
+   abs P5.4  decode  C ext type             fwd      1 rev      1
+   abs P5.4  decode  pyacc (python fn)      fwd      1 rev      1
+   abs P5.4  decode  pyacc (C attrgetter)   fwd      1 rev      1
+   abs P6.1  encode  plain                  fwd   1002 rev   1001
+   abs P6.1  encode  __slots__              fwd   1002 rev   1001
+   abs P6.1  encode  C ext type             fwd   1002 rev   1001
+   abs P6.1  encode  pyacc (python fn)      fwd   1002 rev   1001
+   abs P6.1  encode  pyacc (C attrgetter)   fwd   1002 rev   1001
+   abs P6.1  decode  plain                  fwd      1 rev   1401
+   abs P6.1  decode  __slots__              fwd      1 rev   1401
+   abs P6.1  decode  C ext type             fwd      1 rev   1401
+   abs P6.1  decode  pyacc (python fn)      fwd      1 rev   1401
+   abs P6.1  decode  pyacc (C attrgetter)   fwd      1 rev   1401
+   abs P7.1  encode  plain                  fwd      3 rev      2
+   abs P7.1  encode  __slots__              fwd      3 rev      2
+   abs P7.1  encode  C ext type             fwd      3 rev      2
+   abs P7.1  encode  pyacc (python fn)      fwd      3 rev      2
+   abs P7.1  encode  pyacc (C attrgetter)   fwd      3 rev      2
+   abs P7.1  decode  plain                  fwd      1 rev      7
+   abs P7.1  decode  __slots__              fwd      1 rev      7
+   abs P7.1  decode  C ext type             fwd      1 rev      7
+   abs P7.1  decode  pyacc (python fn)      fwd      1 rev      7
+   abs P7.1  decode  pyacc (C attrgetter)   fwd      1 rev      7
 
 ALL CHECKS PASS

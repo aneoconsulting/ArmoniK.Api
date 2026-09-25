@@ -1,0 +1,117 @@
+# slice:           python
+# suite:           rpc
+# commit:          42f5372
+# date:            2026-09-25T22:45:18Z
+# snapshot:        42f5372 (HEAD)
+# cpu_model:       Intel(R) Xeon(R) Processor @ 2.10GHz
+# cpus_online:     4
+# smt:             0
+# governor:        unknown
+# turbo:           unknown (no intel_pstate/boost knob)
+# kernel:          6.18.44-fc-v37
+# isolation:       none detected (isolated=)
+# cpu_client:      unset
+# cpu_server:      unset
+# cpu_os:          unset (everything not in CLIENT or SERVER)
+# python:          3.12.3
+# implementation:  CPython
+# protobuf:        7.36.2 (upb)
+# grpcio:          1.84.0
+# build:           {"cc": "cc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0", "cflags": "-O2 -fPIC -Wall -Wextra -Werror -Wno-unused-parameter -fvisibility=hidden", "core_features": {"_akffi": "init-guard", "_akffi_corpus": "corpus,init-guard", "_akffi_corpus_nounk": "--no-default-features corpus,init-guard", "_akffi_count": "count,init-guard", "_akffi_count_nounk": "--no-default-features count,init-guard", "_akffi_nounk": "--no-default-features init-guard", "_akffi_rpc": "rpc,init-guard", "_akffi_rpc_nounk": "--no-default-features rpc,init-guard"}, "core_linkage": "shared (libak_core.so through the dynamic linker)", "core_profile_release": "lto = false", "core_source": "/home/user/ArmoniK.Api/ffi/poc/python/build/snap/9975ca9/ffi/poc/codec", "rustc": "rustc 1.94.1 (e408947bf 2026-03-25)", "snapshot": "HEAD"}
+# launch:          1
+# rounds:          1
+# calls_per_sample: 16
+# inflight:        [1, 8, 16]
+# affinity_client: [0, 1, 2, 3]
+# payload:         P2.2 (540422 bytes)
+# transport_shipped: grpcio: no channel option (packages/python create_channel); server: grpcio defaults; core: ak_client_new (tonic defaults)
+# transport_pinned: grpcio client and server: grpc.http2.lookahead_bytes=4 MiB, bdp_probe=0, message limits 16 MiB; no connection-window argument exists in grpcio; grpcio sets TCP_NODELAY itself (logs/python/80). core: ak_client_new_opts stream=connection=4 MiB, adaptive=0, limits 16 MiB, tcp_nagle=0 (off)
+# network:         loopback TCP 127.0.0.1
+# server:          camp_server.py, separate process, AK_CPU_SERVER, pre-serialised P2.2 on Get; Put decodes with upb and checks
+# allocator:       M_TOP_PAD applied
+# gc:              ON; gc.collect() before every sample
+# warmup:          one sample's calls per cell before round 1
+# clock:           CLOCK_PROCESS_CPUTIME_ID of the client (cpu_ns), perf_counter_ns (wall_ns)
+# delivery:        B and C blocking; queue and callback are labelled extra cells, direction a only
+# variant_build:   no-unknown variant (WP5 step 10): _akffi_rpc_nounk over ak-core --no-default-features --features rpc,init-guard; A and B are this process's controls
+# unknown_modes:   C-nounk and D-nounk: no-unknown (compiled out); A and B: incumbent default
+# INSTRUMENTATION: a container smoke run (CAMPAIGN.md requirement 32). No figure below is a result.
+# server (shipped): pid 31088, port 35765, affinity 0,1,2,3
+# no-unknown control: _akffi_rpc_nounk; P2.2 + field 1000 decodes to P2.2 (540422 bytes); a retain decode is refused
+# shipped: core-ffi decodes drop 384, retain 0, leaked buffers 0; contexts created 300 over 600 threads started
+# server (pinned): pid 32015, port 34385, affinity 0,1,2,3
+# no-unknown control: _akffi_rpc_nounk; P2.2 + field 1000 decodes to P2.2 (540422 bytes); a retain decode is refused
+# pinned: core-ffi decodes drop 384, retain 0, leaked buffers 0; contexts created 300 over 600 threads started
+{"cell": "A", "cpu_ns": 21439172, "dir": "a", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default", "wall_ns": 31588069}
+{"cell": "B", "cpu_ns": 16893055, "dir": "a", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default", "wall_ns": 25163940}
+{"cell": "C-nounk", "cpu_ns": 48292657, "dir": "a", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "no-unknown", "wall_ns": 57575384}
+{"cell": "D-nounk", "cpu_ns": 49931597, "dir": "a", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "no-unknown", "wall_ns": 67030260}
+{"cell": "A", "cpu_ns": 24153334, "dir": "a", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default", "wall_ns": 32225707}
+{"cell": "B", "cpu_ns": 19750525, "dir": "a", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default", "wall_ns": 34763335}
+{"cell": "C-nounk", "cpu_ns": 52918371, "dir": "a", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "no-unknown", "wall_ns": 57112609}
+{"cell": "D-nounk", "cpu_ns": 52448112, "dir": "a", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "no-unknown", "wall_ns": 62354805}
+{"cell": "A", "cpu_ns": 25650416, "dir": "a", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default", "wall_ns": 41929543}
+{"cell": "B", "cpu_ns": 23702080, "dir": "a", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default", "wall_ns": 44489355}
+{"cell": "C-nounk", "cpu_ns": 56675590, "dir": "a", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "no-unknown", "wall_ns": 62121730}
+{"cell": "D-nounk", "cpu_ns": 70745276, "dir": "a", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "no-unknown", "wall_ns": 83332964}
+{"cell": "A", "cpu_ns": 182616083, "dir": "a+read", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default", "wall_ns": 201400523}
+{"cell": "B", "cpu_ns": 172293324, "dir": "a+read", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default", "wall_ns": 221299461}
+{"cell": "C-nounk", "cpu_ns": 125139871, "dir": "a+read", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "no-unknown", "wall_ns": 183894926}
+{"cell": "D-nounk", "cpu_ns": 148823345, "dir": "a+read", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "no-unknown", "wall_ns": 221176305}
+{"cell": "A", "cpu_ns": 177583450, "dir": "a+read", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default", "wall_ns": 197929049}
+{"cell": "B", "cpu_ns": 176462510, "dir": "a+read", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default", "wall_ns": 205970059}
+{"cell": "C-nounk", "cpu_ns": 137510645, "dir": "a+read", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "no-unknown", "wall_ns": 159833775}
+{"cell": "D-nounk", "cpu_ns": 127201621, "dir": "a+read", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "no-unknown", "wall_ns": 139313874}
+{"cell": "A", "cpu_ns": 179055757, "dir": "a+read", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default", "wall_ns": 213661060}
+{"cell": "B", "cpu_ns": 164332564, "dir": "a+read", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default", "wall_ns": 183617853}
+{"cell": "C-nounk", "cpu_ns": 135438973, "dir": "a+read", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "no-unknown", "wall_ns": 244546463}
+{"cell": "D-nounk", "cpu_ns": 140071546, "dir": "a+read", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "no-unknown", "wall_ns": 144878364}
+{"cell": "A", "cpu_ns": 18522086, "dir": "b", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default", "wall_ns": 99692672}
+{"cell": "B", "cpu_ns": 20352765, "dir": "b", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default", "wall_ns": 47679044}
+{"cell": "C-nounk", "cpu_ns": 24403707, "dir": "b", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "no-unknown", "wall_ns": 65259991}
+{"cell": "D-nounk", "cpu_ns": 24106217, "dir": "b", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "no-unknown", "wall_ns": 74361427}
+{"cell": "A", "cpu_ns": 24548373, "dir": "b", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default", "wall_ns": 40467118}
+{"cell": "B", "cpu_ns": 21125636, "dir": "b", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default", "wall_ns": 55649605}
+{"cell": "C-nounk", "cpu_ns": 24491567, "dir": "b", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "no-unknown", "wall_ns": 40244284}
+{"cell": "D-nounk", "cpu_ns": 25961718, "dir": "b", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "no-unknown", "wall_ns": 46885808}
+{"cell": "A", "cpu_ns": 23828801, "dir": "b", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default", "wall_ns": 42825132}
+{"cell": "B", "cpu_ns": 22229658, "dir": "b", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default", "wall_ns": 80976406}
+{"cell": "C-nounk", "cpu_ns": 26163310, "dir": "b", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "no-unknown", "wall_ns": 70418799}
+{"cell": "D-nounk", "cpu_ns": 29524165, "dir": "b", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "no-unknown", "wall_ns": 110304710}
+{"cell": "A", "cpu_ns": 24807615, "dir": "a", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default", "wall_ns": 36062260}
+{"cell": "B", "cpu_ns": 22794730, "dir": "a", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default", "wall_ns": 32892445}
+{"cell": "C-nounk", "cpu_ns": 58033540, "dir": "a", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "no-unknown", "wall_ns": 82104236}
+{"cell": "D-nounk", "cpu_ns": 56206676, "dir": "a", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "no-unknown", "wall_ns": 76409266}
+{"cell": "A", "cpu_ns": 24321215, "dir": "a", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default", "wall_ns": 29354316}
+{"cell": "B", "cpu_ns": 24084529, "dir": "a", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default", "wall_ns": 27133739}
+{"cell": "C-nounk", "cpu_ns": 57392847, "dir": "a", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "no-unknown", "wall_ns": 58242058}
+{"cell": "D-nounk", "cpu_ns": 59417785, "dir": "a", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "no-unknown", "wall_ns": 65150999}
+{"cell": "A", "cpu_ns": 25666587, "dir": "a", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default", "wall_ns": 28341470}
+{"cell": "B", "cpu_ns": 23200264, "dir": "a", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default", "wall_ns": 30518027}
+{"cell": "C-nounk", "cpu_ns": 63114579, "dir": "a", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "no-unknown", "wall_ns": 72891019}
+{"cell": "D-nounk", "cpu_ns": 82645941, "dir": "a", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "no-unknown", "wall_ns": 82168446}
+{"cell": "A", "cpu_ns": 188418251, "dir": "a+read", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default", "wall_ns": 415192971}
+{"cell": "B", "cpu_ns": 173122057, "dir": "a+read", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default", "wall_ns": 244289177}
+{"cell": "C-nounk", "cpu_ns": 120001726, "dir": "a+read", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "no-unknown", "wall_ns": 129760965}
+{"cell": "D-nounk", "cpu_ns": 118928277, "dir": "a+read", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "no-unknown", "wall_ns": 138097056}
+{"cell": "A", "cpu_ns": 167913149, "dir": "a+read", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default", "wall_ns": 172499561}
+{"cell": "B", "cpu_ns": 165274978, "dir": "a+read", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default", "wall_ns": 203500421}
+{"cell": "C-nounk", "cpu_ns": 140035477, "dir": "a+read", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "no-unknown", "wall_ns": 167344376}
+{"cell": "D-nounk", "cpu_ns": 128459767, "dir": "a+read", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "no-unknown", "wall_ns": 179979990}
+{"cell": "A", "cpu_ns": 183185043, "dir": "a+read", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default", "wall_ns": 210206913}
+{"cell": "B", "cpu_ns": 176206353, "dir": "a+read", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default", "wall_ns": 187347877}
+{"cell": "C-nounk", "cpu_ns": 139053716, "dir": "a+read", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "no-unknown", "wall_ns": 161557068}
+{"cell": "D-nounk", "cpu_ns": 147072706, "dir": "a+read", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "no-unknown", "wall_ns": 172530813}
+{"cell": "A", "cpu_ns": 19111243, "dir": "b", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default", "wall_ns": 49749043}
+{"cell": "B", "cpu_ns": 17838694, "dir": "b", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default", "wall_ns": 73003446}
+{"cell": "C-nounk", "cpu_ns": 22284558, "dir": "b", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "no-unknown", "wall_ns": 58547613}
+{"cell": "D-nounk", "cpu_ns": 21012468, "dir": "b", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "no-unknown", "wall_ns": 77463926}
+{"cell": "A", "cpu_ns": 26245823, "dir": "b", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default", "wall_ns": 50918611}
+{"cell": "B", "cpu_ns": 22022520, "dir": "b", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default", "wall_ns": 33755619}
+{"cell": "C-nounk", "cpu_ns": 26933696, "dir": "b", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "no-unknown", "wall_ns": 38596163}
+{"cell": "D-nounk", "cpu_ns": 26646014, "dir": "b", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "no-unknown", "wall_ns": 42366013}
+{"cell": "A", "cpu_ns": 25075545, "dir": "b", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default", "wall_ns": 39724128}
+{"cell": "B", "cpu_ns": 24450110, "dir": "b", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default", "wall_ns": 38258117}
+{"cell": "C-nounk", "cpu_ns": 26859442, "dir": "b", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "no-unknown", "wall_ns": 38049063}
+{"cell": "D-nounk", "cpu_ns": 26814555, "dir": "b", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "no-unknown", "wall_ns": 44601896}
+# samples: 72
