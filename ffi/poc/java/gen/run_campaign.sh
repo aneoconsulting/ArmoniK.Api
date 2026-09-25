@@ -96,11 +96,17 @@ header() {  # $1 = file, $2 = suite description
   } > "$f"
 }
 
-gate_ok() { [ -f "$OUT/gate-$COMMIT.ok" ]; }
+# The gate stamp is keyed on what the build is made of (the trees of poc/java, poc/codec,
+# schema and corpus at HEAD, plus the dirty marker), not on HEAD itself: other slices commit
+# on the same branch, and a commit elsewhere must not force a re-gate, while any change to
+# these four trees must.
+GKEY=$(cd "$TOP" && for d in ffi/poc/java ffi/poc/codec ffi/schema ffi/corpus; do git rev-parse "HEAD:$d"; done \
+       | sha256sum | cut -c1-16)${DIRTY:+-dirty}
+gate_ok() { [ -f "$OUT/gate-$GKEY.ok" ]; }
 
 run_gate() {
-  local f="$OUT/gate-$COMMIT.log"
-  header "$f" "correctness gate: payload set on arms a/b/c, full corpus on 8 and 17 with controls, crossing counts against the committed reference"
+  local f="$OUT/gate-$GKEY.log"
+  header "$f" "gate key $GKEY; correctness gate: payload set on arms a/b/c, full corpus on 8 and 17 with controls, crossing counts against the committed reference"
   local rc=0
   { echo "## gen/gate.sh"; bash gen/gate.sh; } >> "$f" 2>&1 || rc=1
   { echo; echo "## gen/corpus.sh"; bash gen/corpus.sh; } >> "$f" 2>&1 || rc=1
@@ -112,7 +118,7 @@ run_gate() {
   else
     echo "## crossing counts DIFFER from gen/campaign/counts.ref (req 19): see counts-$COMMIT.diff" >> "$f"; rc=1
   fi
-  if [ $rc = 0 ]; then echo "GATE PASSED" >> "$f"; date -u +%FT%TZ > "$OUT/gate-$COMMIT.ok"
+  if [ $rc = 0 ]; then echo "GATE PASSED" >> "$f"; echo "commit $COMMIT $(date -u +%FT%TZ)" > "$OUT/gate-$GKEY.ok"
   else echo "GATE FAILED: no timing suite runs at this commit" >> "$f"; fi
   echo "gate: $(tail -1 "$f")  ($f)"
   return $rc
@@ -125,30 +131,30 @@ JAVA="$J17/bin/java $JVM_FLAGS -cp build/cls17:$CP -Dak.camp.rounds=$ROUNDS"
 
 case "$SUITE" in
 codec)
-  EXTRA=""
-  [ "$SMOKE" = 1 ] && EXTRA="-Dak.camp.budget=${AK_SMOKE_BUDGET:-65536} -Dak.camp.maxiters=${AK_SMOKE_MAXITERS:-50} -Dak.camp.warm=1"
+  EXTRA=""; WARM=${AK_WARM:-5}
+  [ "$SMOKE" = 1 ] && { EXTRA="-Dak.camp.budget=${AK_SMOKE_BUDGET:-65536} -Dak.camp.maxiters=${AK_SMOKE_MAXITERS:-50}"; WARM=1; }
   for l in $(seq 1 "$LAUNCHES"); do
     # req 24: protobuf-java's content-set rows in both String coder states (JDK 17 compact
     # strings on, and off with -XX:-CompactStrings), each its own process.
     for coder in compact utf16; do
       f="$OUT/codec-$coder-launch-$l.jsonl"
-      header "$f" "coder=$coder launch=$l warm-up=${AK_WARM:-5} samples per (arm,payload,content,dir) before round 1"
+      header "$f" "coder=$coder launch=$l warm-up=$WARM sample(s) per (arm,payload,content,dir) before round 1"
       CF=""; [ "$coder" = utf16 ] && CF="-XX:-CompactStrings"
       echo "# command: $PIN_C java $CF ... ak.CampaignCodec" >> "$f"
       $PIN_C $JAVA $CF -Dak.lib="$HERE/build/jni/libakjni.so" -Dak.camp.launch="$l" \
-        -Dak.camp.coder="$coder" -Dak.camp.out="$f" -Dak.camp.warm="${AK_WARM:-5}" $EXTRA \
+        -Dak.camp.coder="$coder" -Dak.camp.out="$f" -Dak.camp.warm="$WARM" $EXTRA \
         ${AK_CODEC_PROPS:-} ak.CampaignCodec || { echo "codec launch $l ($coder) FAILED; no figure"; exit 1; }
       echo "codec launch $l ($coder): $(grep -c '"cpu_ns"' "$f") samples -> $f"
     done
   done ;;
 rpc)
-  EXTRA=""
-  [ "$SMOKE" = 1 ] && EXTRA="-Dak.camp.calls=${AK_SMOKE_CALLS:-64} -Dak.camp.chunk=16 -Dak.camp.warm=1"
+  EXTRA=""; WARM=${AK_WARM:-2}
+  [ "$SMOKE" = 1 ] && { EXTRA="-Dak.camp.calls=${AK_SMOKE_CALLS:-64} -Dak.camp.chunk=16"; WARM=1; }
   for l in $(seq 1 "$LAUNCHES"); do
     for tr in shipped pinned; do
       f="$OUT/rpc-$tr-launch-$l.jsonl"
       sock="$HERE/build/campaign-$$-$tr-$l.sock"
-      header "$f" "transport=$tr launch=$l (cells A-D in ONE client process, server in its own process)"
+      header "$f" "transport=$tr launch=$l warm-up=$WARM sample(s) per (dir,inflight,cell) before round 1 (cells A-D in ONE client process, server in its own process)"
       echo "# server: $PIN_S java ... ak.CampaignRpc --serve (grpc-java, pre-serialised P2.2; direction b parses with protobuf-java)" >> "$f"
       $PIN_S $JAVA -Dak.camp.transport="$tr" -Dak.lib="$HERE/build/jnirpc/libakjni.so" \
         ak.CampaignRpc --serve "$sock" > "$OUT/rpc-server-$tr-$l.txt" 2>&1 &
@@ -158,7 +164,7 @@ rpc)
       rc=0
       $PIN_C $JAVA -Dak.camp.transport="$tr" -Dak.camp.socket="$sock" -Dak.camp.launch="$l" \
         -Dak.lib="$HERE/build/jnirpc/libakjni.so" -Dak.rpclib="$HERE/build/jnirpc/libakjni.so" \
-        -Dak.camp.out="$f" $EXTRA ${AK_RPC_PROPS:-} ak.CampaignRpc || rc=$?
+        -Dak.camp.out="$f" -Dak.camp.warm="$WARM" $EXTRA ${AK_RPC_PROPS:-} ak.CampaignRpc || rc=$?
       kill $spid 2>/dev/null || true; wait $spid 2>/dev/null || true
       rm -f "$sock"
       [ $rc = 0 ] || { echo "rpc launch $l ($tr) FAILED (req 18); no figure"; exit 1; }
