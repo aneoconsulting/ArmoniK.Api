@@ -35,11 +35,21 @@ buffer). The group reader that delivers a message takes its slot into the facade
 U-map-entry is the one position that drops) is freed. A retained decode tracks every buffer
 grow handed out and takes back; one left over after a successful decode is a host defect,
 reported as UNDELIVERED, and every one left after a failed decode is freed (rule 3).
+
+The NO-UNKNOWN variant (WP5 step 10: `plan.unknown_compiled_out`, a plan relowered with
+unknown="drop") is rendered from the same functions with every retain path left out: no
+U_ fills and no `ak_uencode_*`/`ak_uelem*_*` calls, no options, no resets, no grow, no bag
+taken or freed, `ak_dec_ctx_new_<Root>()`; `retain` = true is refused (NotSupported).
 """
 from plan import (as_plan, direct_fields, elem_type, loop_slots, presence_bits, slot_elem,
-                  slot_name)
+                  slot_name, unknown_compiled_out)
 import cs_names as N
 from cs_types import BAG
+
+# WP5 step 10: True while rendering the NO-UNKNOWN variant (a plan relowered with
+# unknown="drop"): no u-groups, no ak_uencode/ak_uelem*, no options, no resets, no bag
+# capture, `ak_dec_ctx_new_<Root>()`. Set by emit_host from plan.unknown_compiled_out.
+_NO = False
 
 RUN_FN = {"i32": "ak_run_i32", "i64": "ak_run_i64", "f64": "ak_run_f64", "u8": "ak_run_u8"}
 UCO = "[UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]"
@@ -131,6 +141,31 @@ def _emit_groups(o, p):
     o += "    [MethodImpl(MethodImplOptions.AggressiveInlining)]"
     o += '    internal static string Str(byte* b, ak_span s) => s.len == 0 || SkipStrings ? "" : Encoding.UTF8.GetString(b + s.off, (int)s.len);'
     o += ""
+    if not _NO:
+        _emit_unk_helpers(o)
+    o += "    [MethodImpl(MethodImplOptions.AggressiveInlining)]"
+    o += "    internal static byte[] Bytes(byte* b, ak_span s)"
+    o += "    {"
+    o += "        if (s.len == 0) return Array.Empty<byte>();"
+    o += "        var a = new byte[s.len];"
+    o += "        new ReadOnlySpan<byte>(b + s.off, (int)s.len).CopyTo(a);"
+    o += "        return a;"
+    o += "    }"
+    o += ""
+    for name in p.abi_order:
+        m = p.msg(name)
+        if m.synthetic:
+            continue
+        for u in ((False,) if _NO else (False, True)):
+            _emit_fill(o, p, m, u)
+        _emit_unfill(o, p, m)
+        if not _NO:
+            _emit_free(o, p, m)
+    o += "}"
+    o += ""
+
+
+def _emit_unk_helpers(o):
     o += "    /// Decision 11: the buffers a RETAINED decode has been handed by grow and not yet taken"
     o += "    /// back (null in drop mode). Thread-static: the core calls grow on the decoding thread."
     o += "    [ThreadStatic] internal static HashSet<IntPtr> Live;"
@@ -156,25 +191,6 @@ def _emit_groups(o, p):
     o += "        NativeMemory.Free((void*)u.data);"
     o += "        u = default;"
     o += "    }"
-    o += ""
-    o += "    [MethodImpl(MethodImplOptions.AggressiveInlining)]"
-    o += "    internal static byte[] Bytes(byte* b, ak_span s)"
-    o += "    {"
-    o += "        if (s.len == 0) return Array.Empty<byte>();"
-    o += "        var a = new byte[s.len];"
-    o += "        new ReadOnlySpan<byte>(b + s.off, (int)s.len).CopyTo(a);"
-    o += "        return a;"
-    o += "    }"
-    o += ""
-    for name in p.abi_order:
-        m = p.msg(name)
-        if m.synthetic:
-            continue
-        for u in (False, True):
-            _emit_fill(o, p, m, u)
-        _emit_unfill(o, p, m)
-        _emit_free(o, p, m)
-    o += "}"
     o += ""
 
 
@@ -249,7 +265,10 @@ def _emit_unfill(o, p, m):
         if f.kind == "message":
             # In place: a run for a slot on this child may already have created it. An
             # absent child's slots are freed (every non-NULL slot is the host's, rule 3).
-            o += "        if (%s) D_%s(ref %s, %s ??= new %s(), b); else F_%s(ref %s);" % (present, f.of, mem, acc, f.of, f.of, mem)
+            if _NO:
+                o += "        if (%s) D_%s(ref %s, %s ??= new %s(), b);" % (present, f.of, mem, acc, f.of)
+            else:
+                o += "        if (%s) D_%s(ref %s, %s ??= new %s(), b); else F_%s(ref %s);" % (present, f.of, mem, acc, f.of, f.of, mem)
         elif f.explicit:
             val = ("Str(b, %s)" % mem if f.kind == "string" else "Bytes(b, %s)" % mem
                    if f.kind == "bytes" else _dec(f, mem))
@@ -266,7 +285,7 @@ def _emit_unfill(o, p, m):
         # after a switch to a scalar member it may stay, emptied, in the last message
         # member's. Every slot but the active member's is freed.
         for gm in members:
-            if gm.kind == "message":
+            if gm.kind == "message" and not _NO:
                 o += "        if (d.%s_case != %d) F_%s(ref d.%s_%s);" % (oname, gm.tag, gm.of, oname, gm.name)
         o += "        t.%s = (%s)d.%s_case;" % (N.oneof_case_field(oname), ct, oname)
         o += "        switch (d.%s_case)" % oname
@@ -285,7 +304,8 @@ def _emit_unfill(o, p, m):
                 o += "                %s = %s; break;" % (acc, _dec(gm, mem))
         o += "            default: break;"
         o += "        }"
-    o += "        t.%s = Take(ref d.unknown);   // decision 11: this message's own buffer" % BAG
+    if not _NO:
+        o += "        t.%s = Take(ref d.unknown);   // decision 11: this message's own buffer" % BAG
     o += "    }"
     o += ""
 
@@ -304,6 +324,42 @@ def _emit_free(o, p, m):
                 o += "        F_%s(ref d.%s_%s);" % (gm.of, oname, gm.name)
     o += "    }"
     o += ""
+
+
+UNKHOST = r'''
+/// Decision 11: the one grow callback every position of every root's options names
+/// (`ak_grow_fn`, i32 sizes). NativeMemory.Realloc: `*dst` NULL with `*cap` 0 is a fresh
+/// buffer, otherwise the first `*cap` bytes are preserved (realloc semantics; it may move).
+/// A retained decode tracks what it hands out (`G.Live`), so nothing leaks on failure.
+public static unsafe class UnkHost
+{
+    public static long Grows;
+
+    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static int Grow(IntPtr sink, int want, byte** dst, int* cap)
+    {
+        try
+        {
+            if (want < 0) return Abi.AK_ERR_LIMIT;
+            int c = *cap;
+            long nc = Math.Max((long)want, Math.Max(64L, 2L * c));
+            if (nc > int.MaxValue) nc = want;
+            void* old = *dst;
+            void* np = NativeMemory.Realloc(old, (nuint)nc);
+            var live = G.Live;
+            if (live != null) { if (old != null) live.Remove((IntPtr)old); live.Add((IntPtr)np); }
+            *dst = (byte*)np;
+            *cap = (int)nc;
+            Grows++;
+            return 0;
+        }
+        catch { return Abi.AK_ERR_HOST; }
+    }
+
+    public static IntPtr Fn => (IntPtr)(delegate* unmanaged[Cdecl]<IntPtr, int, byte**, int*, int>)&Grow;
+}
+
+'''
 
 
 STAGE = r'''
@@ -406,38 +462,6 @@ public sealed unsafe class Stage : IDisposable
     }
 }
 
-/// Decision 11: the one grow callback every position of every root's options names
-/// (`ak_grow_fn`, i32 sizes). NativeMemory.Realloc: `*dst` NULL with `*cap` 0 is a fresh
-/// buffer, otherwise the first `*cap` bytes are preserved (realloc semantics; it may move).
-/// A retained decode tracks what it hands out (`G.Live`), so nothing leaks on failure.
-public static unsafe class UnkHost
-{
-    public static long Grows;
-
-    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
-    public static int Grow(IntPtr sink, int want, byte** dst, int* cap)
-    {
-        try
-        {
-            if (want < 0) return Abi.AK_ERR_LIMIT;
-            int c = *cap;
-            long nc = Math.Max((long)want, Math.Max(64L, 2L * c));
-            if (nc > int.MaxValue) nc = want;
-            void* old = *dst;
-            void* np = NativeMemory.Realloc(old, (nuint)nc);
-            var live = G.Live;
-            if (live != null) { if (old != null) live.Remove((IntPtr)old); live.Add((IntPtr)np); }
-            *dst = (byte*)np;
-            *cap = (int)nc;
-            Grows++;
-            return 0;
-        }
-        catch { return Abi.AK_ERR_HOST; }
-    }
-
-    public static IntPtr Fn => (IntPtr)(delegate* unmanaged[Cdecl]<IntPtr, int, byte**, int*, int>)&Grow;
-}
-
 /// A native array that only grows, re-allocated before any pointer into it is handed out.
 public static unsafe class Arr
 {
@@ -495,7 +519,7 @@ def _stage_elem(o, s, arr, idx, src, ind, retain_expr):
         o += "%s{ ref var e = ref ((%s*)%s)[%s]; e = default; e.key = _st.Str(%s.Key); e.value = _st.Str(%s.Value); }" % (
             ind, s.cs_e, arr, idx, src, src)
     else:
-        if retain_expr and s.top:
+        if retain_expr and s.top and not _NO:
             o += "%sif (%s) G.U_%s(ref ((%s*)%s)[%s], %s, _st);" % (ind, retain_expr, s.et, s.u_elem(), arr, idx, src)
             o += "%selse G.E_%s(ref ((%s*)%s)[%s], %s, _st);" % (ind, s.et, s.cs_e, arr, idx, src)
         else:
@@ -503,7 +527,7 @@ def _stage_elem(o, s, arr, idx, src, ind, retain_expr):
 
 
 def _elem_size(s):
-    if s.kind == "msg" and s.top:
+    if s.kind == "msg" and s.top and not _NO:
         return "Math.Max(sizeof(%s), sizeof(%s))" % (s.cs_e, s.u_elem())
     return "sizeof(%s)" % s.cs_e
 
@@ -535,10 +559,15 @@ def _add_body(o, s, lst, xs, n, ind, var="i"):
     elif s.kind == "packed":
         o += "%sfor (int %s = 0; %s < %s; %s++) %s.Add(%s);" % (ind, var, var, n, var, lst, _dec(s.f, "%s[%s]" % (xs, var)))
     elif s.kind == "map":
-        o += "%s// plan: a duplicate key replaces the earlier value. The facade map has no bag:" % ind
-        o += "%s// an entry's unknown-field buffer (decision 11) is freed (U-map-entry)." % ind
-        o += "%sfor (int %s = 0; %s < %s; %s++) { %s[G.Str(b, %s[%s].key)] = G.Str(b, %s[%s].value); G.Drop(ref %s[%s].unknown); }" % (
-            ind, var, var, n, var, lst, xs, var, xs, var, xs, var)
+        if _NO:
+            o += "%s// plan: a duplicate key replaces the earlier value." % ind
+            o += "%sfor (int %s = 0; %s < %s; %s++) %s[G.Str(b, %s[%s].key)] = G.Str(b, %s[%s].value);" % (
+                ind, var, var, n, var, lst, xs, var, xs, var)
+        else:
+            o += "%s// plan: a duplicate key replaces the earlier value. The facade map has no bag:" % ind
+            o += "%s// an entry's unknown-field buffer (decision 11) is freed (U-map-entry)." % ind
+            o += "%sfor (int %s = 0; %s < %s; %s++) { %s[G.Str(b, %s[%s].key)] = G.Str(b, %s[%s].value); G.Drop(ref %s[%s].unknown); }" % (
+                ind, var, var, n, var, lst, xs, var, xs, var, xs, var)
     else:
         o += "%sfor (int %s = 0; %s < %s; %s++) { var x = new %s(); G.D_%s(ref %s[%s], x, b); %s.Add(x); }" % (
             ind, var, var, n, var, s.et, s.et, xs, var, lst)
@@ -573,7 +602,7 @@ def _emit_root(o, p, root, facade_ns):
     o += "    private static long _fwd, _rev;"
     o += "    public long ForwardCalls => _fwd;"
     o += "    public long ReverseCalls => _rev;"
-    o += "    public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }"
+    o += "    public void CallsReset() { _fwd = 0; _rev = 0;%s }" % ("" if _NO else " _resets = 0;")
     for s in slots:
         o += "    private int _cap_%s;" % s.name
         for i in s.inner:
@@ -611,9 +640,12 @@ def _emit_root(o, p, root, facade_ns):
             o += "            {"
             o += "                int k = n - off; if (k > chunk) k = chunk;"
             o += "                _fwd++;"
-            o += "                int rc = run->Retain != 0"
-            o += "                    ? %s" % _loop_forward_u(s, "((%s*)run->S_%s + off)" % (s.u_elem(), s.name), "k", "off")
-            o += "                    : %s;" % _loop_forward(s, "((%s*)run->S_%s + off)" % (s.cs_e, s.name), "k", "off")
+            if _NO:
+                o += "                int rc = %s;" % _loop_forward(s, "((%s*)run->S_%s + off)" % (s.cs_e, s.name), "k", "off")
+            else:
+                o += "                int rc = run->Retain != 0"
+                o += "                    ? %s" % _loop_forward_u(s, "((%s*)run->S_%s + off)" % (s.u_elem(), s.name), "k", "off")
+                o += "                    : %s;" % _loop_forward(s, "((%s*)run->S_%s + off)" % (s.cs_e, s.name), "k", "off")
             o += "                if (rc < 0) return rc;"
             o += "            }"
             o += "            return 0;"
@@ -645,7 +677,8 @@ def _emit_root(o, p, root, facade_ns):
     # ---------------- encode
     o += "    public int Fill(%s src) { Go(src, false, false, out _, out _); return 0; }" % root
     o += "    public void Encode(%s src, out byte* p, out int len) { int rc = Go(src, false, true, out p, out len); if (rc < 0) throw new InvalidOperationException($\"core encode failed: {rc}\"); }" % root
-    o += "    public void EncodeU(%s src, out byte* p, out int len) { int rc = Go(src, true, true, out p, out len); if (rc < 0) throw new InvalidOperationException($\"core encode failed: {rc}\"); }" % root
+    if not _NO:
+        o += "    public void EncodeU(%s src, out byte* p, out int len) { int rc = Go(src, true, true, out p, out len); if (rc < 0) throw new InvalidOperationException($\"core encode failed: {rc}\"); }" % root
     o += "    public int TryEncode(%s src, bool retain, out byte* p, out int len) => Go(src, retain, true, out p, out len);" % root
     o += "    public byte[] EncodeToArray(%s src, bool retain = false)" % root
     o += "    {"
@@ -662,7 +695,10 @@ def _emit_root(o, p, root, facade_ns):
     o += "        Abi.ak_enc_reset(_ctx);"
     o += "        _st.Reset();"
     o += "        _run->Chunk = Chunk;"
-    o += "        _run->Retain = retain ? 1 : 0;"
+    if _NO:
+        o += "        if (retain) throw new NotSupportedException(\"unknown fields are compiled out of this build (WP5 step 10): no ak_uencode\");"
+    else:
+        o += "        _run->Retain = retain ? 1 : 0;"
     for s in slots:
         o += "        {"
         o += "            var lst = %s;" % _get("src", p, root, s.path)
@@ -721,28 +757,40 @@ def _emit_root(o, p, root, facade_ns):
         o += "        byte[] direct = %s ?? Array.Empty<byte>();" % _get("src", p, root, dpath)
         dargs = ", dp, (nuint)direct.Length"
     o += "        nint rc;"
-    o += "        if (retain)"
-    o += "        {"
-    o += "            var fix = new ak_ufix_%s();" % root
-    o += "            G.U_%s(ref fix, src, _st);" % root
-    o += "            if (!call) return 0;"
-    o += "            _fwd++;"
-    if ds:
-        o += "            fixed (byte* dp = direct) rc = Abi.ak_uencode_%s(_run, _ctx, &vt, &fix%s);" % (root, dargs)
+    if _NO:
+        o += "        {"
+        o += "            var fix = new ak_efix_%s();" % root
+        o += "            G.E_%s(ref fix, src, _st);" % root
+        o += "            if (!call) return 0;"
+        o += "            _fwd++;"
+        if ds:
+            o += "            fixed (byte* dp = direct) rc = Abi.ak_encode_%s(_run, _ctx, &vt, &fix%s);" % (root, dargs)
+        else:
+            o += "            rc = Abi.ak_encode_%s(_run, _ctx, &vt, &fix);" % root
+        o += "        }"
     else:
-        o += "            rc = Abi.ak_uencode_%s(_run, _ctx, &vt, &fix);" % root
-    o += "        }"
-    o += "        else"
-    o += "        {"
-    o += "            var fix = new ak_efix_%s();" % root
-    o += "            G.E_%s(ref fix, src, _st);" % root
-    o += "            if (!call) return 0;"
-    o += "            _fwd++;"
-    if ds:
-        o += "            fixed (byte* dp = direct) rc = Abi.ak_encode_%s(_run, _ctx, &vt, &fix%s);" % (root, dargs)
-    else:
-        o += "            rc = Abi.ak_encode_%s(_run, _ctx, &vt, &fix);" % root
-    o += "        }"
+        o += "        if (retain)"
+        o += "        {"
+        o += "            var fix = new ak_ufix_%s();" % root
+        o += "            G.U_%s(ref fix, src, _st);" % root
+        o += "            if (!call) return 0;"
+        o += "            _fwd++;"
+        if ds:
+            o += "            fixed (byte* dp = direct) rc = Abi.ak_uencode_%s(_run, _ctx, &vt, &fix%s);" % (root, dargs)
+        else:
+            o += "            rc = Abi.ak_uencode_%s(_run, _ctx, &vt, &fix);" % root
+        o += "        }"
+        o += "        else"
+        o += "        {"
+        o += "            var fix = new ak_efix_%s();" % root
+        o += "            G.E_%s(ref fix, src, _st);" % root
+        o += "            if (!call) return 0;"
+        o += "            _fwd++;"
+        if ds:
+            o += "            fixed (byte* dp = direct) rc = Abi.ak_encode_%s(_run, _ctx, &vt, &fix%s);" % (root, dargs)
+        else:
+            o += "            rc = Abi.ak_encode_%s(_run, _ctx, &vt, &fix);" % root
+        o += "        }"
     o += "        if (rc < 0) return (int)rc;"
     o += "        byte* bp; nuint blen;"
     o += "        int tk = Abi.ak_enc_take(_ctx, &bp, &blen);"
@@ -778,7 +826,8 @@ def _emit_root(o, p, root, facade_ns):
         if s.has_evt:
             o += "        if (_evt_%s != null) { NativeMemory.Free(_evt_%s); _evt_%s = null; }" % (s.name, s.name, s.name)
     o += "        if (_drun != null) { NativeMemory.Free(_drun); _drun = null; }"
-    o += "        if (_uo != null) { NativeMemory.Free(_uo); _uo = null; }"
+    if not _NO:
+        o += "        if (_uo != null) { NativeMemory.Free(_uo); _uo = null; }"
     o += "    }"
     o += "}"
     o += ""
@@ -861,15 +910,17 @@ def _emit_decode(o, p, root, slots):
     o += ""
     _emit_unk(o, p, root)
     o += "    public %s Decode(byte[] src, int len) { int rc = TryDecode(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($\"core decode failed: {rc}\"); return t; }" % root
-    o += "    public %s DecodeU(byte[] src, int len) { int rc = TryDecode(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($\"core decode failed: {rc}\"); return t; }" % root
+    if not _NO:
+        o += "    public %s DecodeU(byte[] src, int len) { int rc = TryDecode(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($\"core decode failed: {rc}\"); return t; }" % root
     o += ""
     o += "    /// The core's code (< 0) on failure; the output is then unspecified and discarded (R-G6)."
     o += "    public int TryDecode(byte[] src, int len, bool retain, out %s result) => DecodeArmed(src, len, retain ? -1 : -2, out result);" % root
     o += ""
-    o += "    /// A control (decision 11 DISCARD): retain everywhere except `position` (an index into"
-    o += "    /// UnkPositionNames), whose entry is all zero when armed."
-    o += "    public int TryDecodeZeroing(byte[] src, int len, int position, out %s result) => DecodeArmed(src, len, position, out result);" % root
-    o += ""
+    if not _NO:
+        o += "    /// A control (decision 11 DISCARD): retain everywhere except `position` (an index into"
+        o += "    /// UnkPositionNames), whose entry is all zero when armed."
+        o += "    public int TryDecodeZeroing(byte[] src, int len, int position, out %s result) => DecodeArmed(src, len, position, out result);" % root
+        o += ""
     o += "    private int DecodeArmed(byte[] src, int len, int mode, out %s result)" % root
     o += "    {"
     o += "        result = null;"
@@ -943,9 +994,33 @@ def _clear(p, mname, path, x, ind, o, depth=0):
     o += "%s}" % ind
 
 
+def _emit_unk_nounk(o, p, root):
+    """The NO-UNKNOWN variant: a root-bound context with no options, nothing to arm."""
+    o += "    /// WP5 step 10: this build has unknown fields COMPILED OUT (no options, no resets)."
+    o += "    public const bool UnknownCompiledOut = true;"
+    o += "    public const int UNDELIVERED = -1001;   // never returned by this build"
+    o += "    public int Undelivered => 0;"
+    o += "    public long ResetCalls => 0;"
+    o += ""
+    o += "    private void EnsureDec()"
+    o += "    {"
+    o += "        if (_dctx != IntPtr.Zero) return;"
+    o += "        _dctx = Abi.ak_dec_ctx_new_%s();   // rule 6: bound to this root; no options exist" % root
+    o += "        if (_dctx == IntPtr.Zero) throw new InvalidOperationException(\"ak_dec_ctx_new_%s returned NULL\");" % root
+    o += "        _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));"
+    o += "    }"
+    o += ""
+    o += "    private int ArmFor(int mode) => mode == -2 ? 0 : throw new NotSupportedException(\"unknown fields are compiled out of this build (WP5 step 10)\");"
+    o += "    private int Disarm(int rc) => rc;"
+    o += ""
+
+
 def _emit_unk(o, p, root):
     """Decision 11 for this root: the options (native, unmoved while armed), arming and
     disarming around one decode, and the controls' position helpers."""
+    if _NO:
+        _emit_unk_nounk(o, p, root)
+        return
     from plan import unk_opts_layout, unk_opts_name, unk_positions
     lay = unk_opts_layout(p, root)
     pos = unk_positions(p, root)
@@ -964,6 +1039,7 @@ def _emit_unk(o, p, root):
     o += "    /// apart from ForwardCalls because the core's R5 counters do not count them."
     o += "    private static long _resets;"
     o += "    public long ResetCalls => _resets;"
+    o += "    public const bool UnknownCompiledOut = false;"
     o += ""
     o += "    private void EnsureDec()"
     o += "    {"
@@ -1037,7 +1113,8 @@ def _emit_pull(o, p, root, slots):
           "but grow), then replay it with the same group readers the push callbacks use. The "
           "context is armed exactly as for push.", "    ")
     o += "    public %s Pull(byte[] src, int len) { int rc = TryPull(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($\"core parse failed: {rc}\"); return t; }" % root
-    o += "    public %s PullU(byte[] src, int len) { int rc = TryPull(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($\"core parse failed: {rc}\"); return t; }" % root
+    if not _NO:
+        o += "    public %s PullU(byte[] src, int len) { int rc = TryPull(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($\"core parse failed: {rc}\"); return t; }" % root
     o += ""
     o += "    public int TryPull(byte[] src, int len, bool retain, out %s result)" % root
     o += "    {"
@@ -1112,7 +1189,9 @@ def _emit_pull(o, p, root, slots):
 
 
 def emit_host(x, ns, facade_ns):
+    global _NO
     p = as_plan(x)
+    _NO = unknown_compiled_out(p)
     o = N.Head("The core-ffi host binding for every root of this message set.", p.source, "cs_host")
     o += "#if NET5_0_OR_GREATER"
     o += "using System;"
@@ -1125,8 +1204,12 @@ def emit_host(x, ns, facade_ns):
         o += "using %s;" % facade_ns
     o += ""
     o += "namespace %s;" % ns
-    for ln in STAGE.strip("\n").split("\n"):
+    stage = STAGE if not _NO else STAGE[:STAGE.index("    /// The unknown-field bag: raw runs")] + STAGE[STAGE.index("    public void Dispose()"):]
+    for ln in stage.strip("\n").split("\n"):
         o += ln
+    if not _NO:
+        for ln in UNKHOST.strip("\n").split("\n"):
+            o += ln
     o += ""
     _emit_groups(o, p)
     for root in p.roots:
