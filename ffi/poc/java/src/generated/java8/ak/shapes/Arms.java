@@ -109,4 +109,48 @@ public final class Arms {
       default: throw new IllegalArgumentException(id);
     }
   }
+
+  public static void encodeRRetain(String id, Object o, Enc e) {
+    switch (id) {
+      case "P1.1": CodecRetain.encodeIntoListResultsResponse(e, (ListResultsResponse) o); break;
+      case "P1.2": CodecRetain.encodeIntoListResultsResponse(e, (ListResultsResponse) o); break;
+      case "P1.3": CodecRetain.encodeIntoListResultsResponse(e, (ListResultsResponse) o); break;
+      case "P2.1": CodecRetain.encodeIntoListTasksDetailedResponse(e, (ListTasksDetailedResponse) o); break;
+      case "P2.2": CodecRetain.encodeIntoListTasksDetailedResponse(e, (ListTasksDetailedResponse) o); break;
+      case "P2.3": CodecRetain.encodeIntoListTasksDetailedResponse(e, (ListTasksDetailedResponse) o); break;
+      case "P2.4": CodecRetain.encodeIntoListTasksDetailedResponse(e, (ListTasksDetailedResponse) o); break;
+      case "P2.5": CodecRetain.encodeIntoListTasksDetailedResponse(e, (ListTasksDetailedResponse) o); break;
+      case "P3.1": CodecRetain.encodeIntoListProbeResponse(e, (ListProbeResponse) o); break;
+      case "P4.1": CodecRetain.encodeIntoListTaskSummaryResponse(e, (ListTaskSummaryResponse) o); break;
+      case "P5.1": CodecRetain.encodeIntoUploadResultDataMessage(e, (UploadResultDataMessage) o); break;
+      case "P5.2": CodecRetain.encodeIntoUploadResultDataMessage(e, (UploadResultDataMessage) o); break;
+      case "P5.3": CodecRetain.encodeIntoUploadResultDataMessage(e, (UploadResultDataMessage) o); break;
+      case "P5.4": CodecRetain.encodeIntoUploadResultDataMessage(e, (UploadResultDataMessage) o); break;
+      case "P6.1": CodecRetain.encodeIntoListMetricsResponse(e, (ListMetricsResponse) o); break;
+      case "P7.1": CodecRetain.encodeIntoDualResponse(e, (DualResponse) o); break;
+      default: throw new IllegalArgumentException(id);
+    }
+  }
+
+  public static Object decodeRRetain(String id, Dec d, byte[] buf, int off, int len) {
+    switch (id) {
+      case "P1.1": return CodecRetain.decodeListResultsResponse(d, buf, off, len);
+      case "P1.2": return CodecRetain.decodeListResultsResponse(d, buf, off, len);
+      case "P1.3": return CodecRetain.decodeListResultsResponse(d, buf, off, len);
+      case "P2.1": return CodecRetain.decodeListTasksDetailedResponse(d, buf, off, len);
+      case "P2.2": return CodecRetain.decodeListTasksDetailedResponse(d, buf, off, len);
+      case "P2.3": return CodecRetain.decodeListTasksDetailedResponse(d, buf, off, len);
+      case "P2.4": return CodecRetain.decodeListTasksDetailedResponse(d, buf, off, len);
+      case "P2.5": return CodecRetain.decodeListTasksDetailedResponse(d, buf, off, len);
+      case "P3.1": return CodecRetain.decodeListProbeResponse(d, buf, off, len);
+      case "P4.1": return CodecRetain.decodeListTaskSummaryResponse(d, buf, off, len);
+      case "P5.1": return CodecRetain.decodeUploadResultDataMessage(d, buf, off, len);
+      case "P5.2": return CodecRetain.decodeUploadResultDataMessage(d, buf, off, len);
+      case "P5.3": return CodecRetain.decodeUploadResultDataMessage(d, buf, off, len);
+      case "P5.4": return CodecRetain.decodeUploadResultDataMessage(d, buf, off, len);
+      case "P6.1": return CodecRetain.decodeListMetricsResponse(d, buf, off, len);
+      case "P7.1": return CodecRetain.decodeDualResponse(d, buf, off, len);
+      default: throw new IllegalArgumentException(id);
+    }
+  }
 }

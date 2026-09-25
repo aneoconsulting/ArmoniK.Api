@@ -70,4 +70,28 @@ public final class PbArms {
       default: throw new IllegalArgumentException(id);
     }
   }
+
+  /** `parseFrom(byte[])`, the library's own array entry point (incumbent-best). */
+  public static Message parseArray(String id, byte[] b)
+      throws com.google.protobuf.InvalidProtocolBufferException {
+    switch (id) {
+      case "P1.1": return ak.pb.ListResultsResponse.parseFrom(b);
+      case "P1.2": return ak.pb.ListResultsResponse.parseFrom(b);
+      case "P1.3": return ak.pb.ListResultsResponse.parseFrom(b);
+      case "P2.1": return ak.pb.ListTasksDetailedResponse.parseFrom(b);
+      case "P2.2": return ak.pb.ListTasksDetailedResponse.parseFrom(b);
+      case "P2.3": return ak.pb.ListTasksDetailedResponse.parseFrom(b);
+      case "P2.4": return ak.pb.ListTasksDetailedResponse.parseFrom(b);
+      case "P2.5": return ak.pb.ListTasksDetailedResponse.parseFrom(b);
+      case "P3.1": return ak.pb.ListProbeResponse.parseFrom(b);
+      case "P4.1": return ak.pb.ListTaskSummaryResponse.parseFrom(b);
+      case "P5.1": return ak.pb.UploadResultDataMessage.parseFrom(b);
+      case "P5.2": return ak.pb.UploadResultDataMessage.parseFrom(b);
+      case "P5.3": return ak.pb.UploadResultDataMessage.parseFrom(b);
+      case "P5.4": return ak.pb.UploadResultDataMessage.parseFrom(b);
+      case "P6.1": return ak.pb.ListMetricsResponse.parseFrom(b);
+      case "P7.1": return ak.pb.DualResponse.parseFrom(b);
+      default: throw new IllegalArgumentException(id);
+    }
+  }
 }

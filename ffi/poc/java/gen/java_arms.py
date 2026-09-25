@@ -83,6 +83,24 @@ def emit(ir, ns=N.PKG):
     o.append('      default: throw new IllegalArgumentException(id);')
     o.append("    }")
     o.append("  }")
+    # ---- arm R in retain mode (CodecRetain), for the campaign's unknown_mode switch
+    o.append("")
+    o.append("  public static void encodeRRetain(String id, Object o, Enc e) {")
+    o.append("    switch (id) {")
+    for pid, spec in _payload_ids(ir):
+        root = spec["root"]
+        o.append('      case "%s": CodecRetain.encodeInto%s(e, (%s) o); break;' % (pid, root, root))
+    o.append('      default: throw new IllegalArgumentException(id);')
+    o.append("    }")
+    o.append("  }")
+    o.append("")
+    o.append("  public static Object decodeRRetain(String id, Dec d, byte[] buf, int off, int len) {")
+    o.append("    switch (id) {")
+    for pid, spec in _payload_ids(ir):
+        o.append('      case "%s": return CodecRetain.decode%s(d, buf, off, len);' % (pid, spec["root"]))
+    o.append('      default: throw new IllegalArgumentException(id);')
+    o.append("    }")
+    o.append("  }")
     o.append("}")
     o.append("")
     return "\n".join(o)

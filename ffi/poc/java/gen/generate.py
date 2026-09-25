@@ -32,7 +32,10 @@ import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-CODECGEN = os.path.abspath(os.path.join(HERE, "..", "..", "codec", "gen"))
+# AK_CODECGEN: render from another copy of poc/codec/gen (e.g. a `git archive` snapshot of
+# the committed one, while another agent has the working tree mid-change); the default is
+# the working tree.
+CODECGEN = os.environ.get("AK_CODECGEN") or os.path.abspath(os.path.join(HERE, "..", "..", "codec", "gen"))
 # THIS directory first: poc/codec/gen also has a `generate.py`.
 sys.path.insert(0, CODECGEN)
 sys.path.insert(0, HERE)
@@ -46,6 +49,7 @@ import java_arms             # noqa: E402  glue: payload -> arm R dispatch
 import pbarms                # noqa: E402  glue: payload -> protobuf-java dispatch
 import java_ffiarms          # noqa: E402  glue: payload -> binding dispatch
 import java_corpus           # noqa: E402  glue: corpus dispatch and projection
+import java_walk             # noqa: E402  glue: campaign decode-and-read walkers
 
 ROOT = os.path.dirname(HERE)
 
@@ -65,7 +69,7 @@ LEVELS = java_backend.LEVELS
 # The slice's generator glue (the corpus DRIVER, gen/corpus.py, reads the manifest and is
 # not a generator module).
 GLUE = ["generate.py", "java_build.py", "java_pbbuild.py", "java_arms.py", "pbarms.py",
-        "java_ffiarms.py", "java_corpus.py"]
+        "java_ffiarms.py", "java_corpus.py", "java_walk.py"]
 
 
 def shapes_targets():
@@ -81,6 +85,8 @@ def shapes_targets():
         out["%s/Arms.java" % d] = java_arms.emit(p)
         out["%s/PbArms.java" % d] = pbarms.emit(p)
         out["%s/FfiArms.java" % d] = java_ffiarms.emit(p)
+        out["%s/Walk.java" % d] = java_walk.emit_walk(p, "ak.shapes")
+        out["%s/PbWalk.java" % d] = java_walk.emit_pbwalk(p, "ak.shapes")
         out["src/generated/%s/ak/floor/FfiArms.java" % level_dir] = java_ffiarms.emit(
             p, ns="ak.floor", facade=N.PKG)
         with N.string_type_as("ak.Utf8View"):

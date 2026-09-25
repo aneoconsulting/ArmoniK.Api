@@ -1,3 +1,4 @@
+#define _POSIX_C_SOURCE 200809L   /* clock_gettime under -std=c11 */
 /* ABI v1 section 9's RPC half, reached from the JVM.
  *
  * This is the arm the branch's outcome 2 actually proposes: the RPC layer lives in the
@@ -23,6 +24,7 @@
 #include <jni.h>
 #include <stdint.h>
 #include <stddef.h>
+#include <time.h>
 
 #include "ak_abi.h"
 
@@ -207,4 +209,14 @@ JNIEXPORT jlong JNICALL Java_ak_NativeRpc_clientNewOpts(JNIEnv *env, jclass c, j
   ak_client *cl = ak_client_new_opts((ak_runtime *)(intptr_t) r, (const uint8_t *) u, (size_t) len, &o);
   (*env)->ReleaseByteArrayElements(env, uri, u, JNI_ABORT);
   return (jlong)(intptr_t) cl;
+}
+
+/* CAMPAIGN.md req 21: the client process's CPU time for an RPC cell, from
+ * CLOCK_PROCESS_CPUTIME_ID (ns). Not getProcessCpuTime: on Linux the JDK reads times(),
+ * whose tick is 10 ms. */
+JNIEXPORT jlong JNICALL Java_ak_NativeRpc_processCpuNs(JNIEnv *e, jclass c) {
+  (void) e; (void) c;
+  struct timespec ts;
+  if (clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts) != 0) return -1;
+  return (jlong) ts.tv_sec * 1000000000LL + (jlong) ts.tv_nsec;
 }

@@ -17,8 +17,6 @@ say() { echo "== $*"; }
 
 # ---- 1. the generator: glue over poc/codec/gen's Java backend (FIX-PLAN WP5 step 3).
 # It writes under poc/java only; the core's generated files are poc/codec/gen's.
-say "generate"
-python3 gen/generate.py
 
 # ---- 2. the core, behind the C ABI. THE shared core (R0), not a copy.
 # Built from a SNAPSHOT of the committed `ffi/poc/codec` (git archive of $AK_CORE_REV,
@@ -41,13 +39,23 @@ if [ -n "${AK_CODEC:-}" ]; then
               | LC_ALL=C sort | xargs sha256sum | sha256sum | cut -c1-16)
   echo "   core: AK_CODEC=$CODEC, source key $KEY" | tee build/core-rev.txt
 else
-  CODEC=$HERE/build/codec-snap
-  rm -rf "$CODEC" && mkdir -p "$CODEC"
+  # The snapshot keeps the ffi/ layout (poc/codec beside schema/ and corpus/), because the
+  # generator in poc/codec/gen reads the descriptions relative to itself.
+  SNAP=$HERE/build/snap
+  rm -rf "$SNAP" && mkdir -p "$SNAP"
   TOP=$(git rev-parse --show-toplevel)
-  ( cd "$TOP" && git archive "$REV" ffi/poc/codec ) | tar -x -C "$CODEC" --strip-components=3
+  ( cd "$TOP" && git archive "$REV" ffi/poc/codec ffi/schema ffi/corpus ) | tar -x -C "$SNAP"
+  CODEC=$SNAP/ffi/poc/codec
+  export AK_CODECGEN=$CODEC/gen
   KEY=tree-$(cd "$TOP" && git rev-parse "$REV:ffi/poc/codec" | cut -c1-16)
   echo "   core snapshot: ffi/poc/codec at $(git rev-parse --short "$REV"), tree key $KEY" | tee build/core-rev.txt
 fi
+# ---- 1. the generator: glue over poc/codec/gen's Java backend (FIX-PLAN WP5 step 3), from
+# the SAME snapshot as the core, so the binding and the core come from one generator state
+# even while another agent has poc/codec mid-change in the working tree.
+say "generate (poc/codec/gen from ${AK_CODECGEN:-the working tree})"
+python3 gen/generate.py
+
 CB=core-build/$KEY
 mkdir -p "$CB"
 ln -sfn "$KEY" core-build/current
@@ -137,7 +145,8 @@ mkdir -p build/cls8
   -sourcepath "src/java:src/generated/java8:src/generated/shared:src/generated_corpus/java8:src/generated_corpus/shared:build/pbjava" \
   $(find src/java src/generated/java8 src/generated/shared src/generated_corpus/java8 \
        src/generated_corpus/shared -name '*.java' \
-       ! -name 'Ffm*.java' ! -name 'Pin.java' ! -name 'RunR14.java') \
+       ! -name 'Ffm*.java' ! -name 'Pin.java' ! -name 'RunR14.java' \
+       ! -name 'Campaign*.java') \
   $(find build/pbjava -name '*.java')
 
 # ---- 7. the two secondary probes, both newer than the target and built separately
@@ -153,7 +162,7 @@ gcc -O2 -fPIC -shared -I"$J17/include" -I"$J17/include/linux" \
   -o build/probe/libprobe.so probe/probe.c
 "$J21/bin/javac" --release 21 --enable-preview -nowarn -d build/ffm probe/FfmProbe.java
 "$J21/bin/javac" -nowarn -d build/pin src/java/ak/Pin.java
-"$J17/bin/javac" -nowarn -d build/probe probe/Probe.java
+"$J17/bin/javac" -nowarn -d build/probe probe/Probe.java probe/CampaignRev.java
 
 # The shim-primitive probe: what a generated C shim would pay per JNI accessor, priced
 # before the arm that would depend on it is built. Its own .so, so `crossing.log`'s
