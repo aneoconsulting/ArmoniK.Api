@@ -34,7 +34,8 @@ string-as-a-CALL (a host transcoder, one reverse crossing per string) are the sa
 with a different `Tcs`. That is the third mechanism decision 1 asks the price of.
 """
 from plan import (abi_order_topo, as_plan, direct_fields, elem_type, loop_slots,
-                  presence_bits, slot_name, unk_opts_layout, unk_opts_name, unk_positions)
+                  presence_bits, slot_name, unk_opts_layout, unk_opts_name, unk_positions,
+                  unknown_compiled_out)
 import cpp_names as cppnames
 from cpp_names import camel, oneof_type, snake
 
@@ -53,6 +54,12 @@ def _head(p):
 # contract. It is NOT what a facade ships by default: the strings are valid only while the
 # input buffer lives.
 NS = ["shapes"]
+
+# WP5 step 10: True while rendering THE NO-UNKNOWN VARIANT (plan.unknown_compiled_out: the
+# plan relowered with unknown="drop"). The decode groups have no `unknown` slot, there are
+# no options, no reset, no u-family, and `ak_dec_ctx_new_<Root>(void)`; this backend then
+# renders no delivery, no retain path and no refill hook. Set by emit / emit_header.
+NOUNK = [False]
 
 
 def _ns():
@@ -298,11 +305,13 @@ def _decode_field(ir, m, f, o, bits, dst):
         if has_slots(ir, f.of):
             o.append("  if (f.presence & (1u << %d)) fill_%s(&%s.get_or_insert(), f.%s, base, ctx);"
                      % (bits[n], snake(f.of), dst + n, n))
-            o.append("  else { %s.reset(); unk_drop(f.%s.unknown); }" % (dst + n, n))
+            o.append("  else %s.reset();" % (dst + n) if NOUNK[0] else
+                     "  else { %s.reset(); unk_drop(f.%s.unknown); }" % (dst + n, n))
         else:
             o.append("  if (f.presence & (1u << %d)) %s.set(from_%s(f.%s, base, ctx));"
                      % (bits[n], dst + n, snake(f.of), n))
-            o.append("  else { %s.reset(); unk_drop(f.%s.unknown); }" % (dst + n, n))
+            o.append("  else %s.reset();" % (dst + n) if NOUNK[0] else
+                     "  else { %s.reset(); unk_drop(f.%s.unknown); }" % (dst + n, n))
     elif f.kind == "enum":
         o.append("  %s = %s::%s(f.%s);" % (dst + n, _ns(), f.of, n))
     elif f.explicit:
@@ -323,7 +332,7 @@ def _decode_oneof(ir, m, oname, members, o, dst):
     # taken by that member's `from_`; any other message member's non-NULL slot (the buffer
     # left behind by a switch to a scalar or blob member) is the host's and is freed.
     for gm in members:
-        if gm.kind == "message":
+        if gm.kind == "message" and not NOUNK[0]:
             o.append("  if (f.%s_case != %du) unk_drop(f.%s_%s.unknown);"
                      % (oname, gm.tag, oname, gm.name))
     o.append("  switch (f.%s_case) {" % oname)
@@ -679,92 +688,6 @@ static inline void s_of(const uint8_t *base, const struct ak_span &s, ak_dec_ctx
 static inline void b_of(const uint8_t *base, const struct ak_span &s, ak::StringView *out) {
   *out = ak::StringView((const char *)(base + s.off), s.len);
 }
-
-// ---- ABI v1 decision 11, the host side of the unknown-field buffers ------------------
-//
-// The core copies each message occurrence's unknown runs into a buffer slot of its group
-// (plan: UNKNOWN FIELDS ON DECODE). Every buffer this binding hands the core is malloc'd:
-// from `unk_grow` (realloc semantics, NULL/0 = fresh) or pre-allocated and registered with
-// `unk_track`. A buffer passes to the host when its group is delivered; `unk_take` appends
-// it to the facade bag and frees it, `unk_drop` frees one the facade has no bag for (a map
-// entry, an inactive oneof member). What was placed but never delivered (a failed decode)
-// and what a pool still holds after the decode are freed by `unk_reclaim`.
-static std::unordered_set<void *> &unk_live() {
-  static thread_local std::unordered_set<void *> live;
-  return live;
-}
-static thread_local size_t t_unk_entry_bytes = 0;
-
-int32_t unk_grow(void *host, int32_t want, uint8_t **dst, int32_t *cap) {
-  (void)host;
-  if (want <= 0) return AK_ERR_LIMIT;
-  void *old = *dst;
-  void *p = old ? std::realloc(old, (size_t)want) : std::malloc((size_t)want);
-  if (p == NULL) return AK_ERR_LIMIT;
-  std::unordered_set<void *> &l = unk_live();
-  if (old != NULL) l.erase(old);
-  l.insert(p);
-  *dst = (uint8_t *)p;
-  *cap = want;
-  return AK_OK;
-}
-
-void unk_track(void *p) {
-  if (p != NULL) unk_live().insert(p);
-}
-
-size_t unk_reclaim() {
-  std::unordered_set<void *> &l = unk_live();
-  size_t n = l.size();
-  for (std::unordered_set<void *>::iterator it = l.begin(); it != l.end(); ++it) std::free(*it);
-  l.clear();
-  return n;
-}
-
-size_t unk_entry_bytes() {
-  size_t r = t_unk_entry_bytes;
-  t_unk_entry_bytes = 0;
-  return r;
-}
-
-static inline void unk_free_buf(void *p) {
-  std::unordered_set<void *> &l = unk_live();
-  if (!l.empty()) l.erase(p);
-  std::free(p);
-}
-
-// Delivery: the slot's runs, in wire order, into the facade's bag.
-static inline void unk_take(const struct ak_unk_buf &b, std::string *bag) {
-  if (b.data == NULL) return;
-  bag->append((const char *)b.data, b.len);
-  unk_free_buf(b.data);
-}
-
-// Delivery where the facade keeps nothing (an inactive oneof member, an absent child).
-static inline void unk_drop(const struct ak_unk_buf &b) {
-  if (b.data != NULL) unk_free_buf(b.data);
-}
-
-// A map entry: the facade's map has no bag (the U-map-entry gap), so the bytes are counted
-// (the evidence that the core captured them) and freed.
-static inline void unk_drop_entry(const struct ak_unk_buf &b) {
-  if (b.data == NULL) return;
-  t_unk_entry_bytes += b.len;
-  unk_free_buf(b.data);
-}
-
-// A pre-allocated buffer written into an EMPTY entry of the host's options (rule 1: the
-// host refills in place, with no call); tracked, so an unconsumed one is reclaimed.
-static inline void unk_fill_buf(struct ak_unk_buf *e, uint32_t cap, uint64_t *count) {
-  if (e->data != NULL || cap == 0) return;
-  void *p = std::malloc(cap);
-  if (p == NULL) return;
-  unk_track(p);
-  e->data = p;
-  e->len = 0;
-  e->cap = cap;
-  ++*count;
-}
 '''
 
 
@@ -772,6 +695,9 @@ def emit_header(ir, ns="shapes", guard="AK_BINDING_H", types_h="generated/types.
                 retain=False):
     ir = as_plan(ir)
     NS[0] = ns
+    NOUNK[0] = nu = unknown_compiled_out(ir)
+    if nu:
+        retain = False
     o = [_head(ir), "#ifndef %s" % guard, "#define %s" % guard,
          '#include "ak_abi.h"', '#include "ak/rt.h"', '#include "ak/vocab.h"',
          '#include "%s"' % types_h,
@@ -812,6 +738,8 @@ def emit_header(ir, ns="shapes", guard="AK_BINDING_H", types_h="generated/types.
             o.append("// Decision 11 / plan Options.unknown = retain: the encode over the u-groups.")
             o.append("intptr_t encode_into_%s_unk(ak_enc_ctx *ctx, const %s &o, const Tcs &t);"
                      % (snake(root), root))
+        if nu:
+            continue
         rs, on = snake(root), unk_opts_name(root)
         o.append("// Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read")
         o.append("// in place and must stay alive and unmoved for the call.")
@@ -825,6 +753,9 @@ def emit_header(ir, ns="shapes", guard="AK_BINDING_H", types_h="generated/types.
         o.append("void unk_opts_%s(struct %s *o, int zero);" % (rs, on))
         o.append("void unk_clear_%s(%s &o, int pos);" % (rs, root))
     o.append("")
+    if nu:
+        o += _nounk_header_tail(ir)
+        return "\n".join(o)
     o.append("// Decision 11, the host side of the unknown-field buffers (see binding.cpp).")
     o.append("int32_t unk_grow(void *host, int32_t want, uint8_t **dst, int32_t *cap);")
     o.append("void unk_track(void *p);")
@@ -905,10 +836,65 @@ def emit_header(ir, ns="shapes", guard="AK_BINDING_H", types_h="generated/types.
     return "\n".join(o)
 
 
+def _nounk_header_tail(ir):
+    """The no-unknown variant's root-bound contexts: `ak_dec_ctx_new_<Root>(void)`, the same
+    DecRoot / dec_ctx_new_for / DecCtxs names as the full binding, nothing of decision 11."""
+    ns = NS[0]
+    o = ["// ABI v1 rule 6 in the NO-UNKNOWN variant (AK_NO_UNKNOWN_FIELDS): a decode context is",
+         "// bound to its root and takes no options (unknown fields are compiled out).",
+         "template <class T> struct DecRoot;"]
+    for root in ir.roots:
+        o.append("template <> struct DecRoot<%s> {" % root)
+        o.append("  enum { kIndex = %d };" % ir.roots.index(root))
+        o.append("  static const char *name() { return \"%s\"; }" % root)
+        o.append("  static ak_dec_ctx *ctx_new() { return ak_dec_ctx_new_%s(); }" % root)
+        o.append("  static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, %s *out) {" % root)
+        o.append("    return decode_with_%s(c, b, n, out);" % snake(root))
+        o.append("  }")
+        o.append("};")
+    o.append("template <class T> inline ak_dec_ctx *dec_ctx_new_for() { return DecRoot<T>::ctx_new(); }")
+    o.append("")
+    o.append("struct DecCtxs {")
+    o.append("  ak_dec_ctx *c[%d];" % len(ir.roots))
+    o.append("  DecCtxs() {")
+    for i, root in enumerate(ir.roots):
+        o.append("    c[%d] = ak_dec_ctx_new_%s();" % (i, root))
+    o.append("  }")
+    o.append("  ~DecCtxs() {")
+    o.append("    for (int i = 0; i < %d; ++i) ak_dec_ctx_free(c[i]);" % len(ir.roots))
+    o.append("  }")
+    o.append("  bool ok() const {")
+    o.append("    for (int i = 0; i < %d; ++i) if (c[i] == NULL) return false;" % len(ir.roots))
+    o.append("    return true;")
+    o.append("  }")
+    o.append("  template <class T> ak_dec_ctx *of() const { return c[DecRoot<T>::kIndex]; }")
+    o.append(" private:")
+    o.append("  DecCtxs(const DecCtxs &);")
+    o.append("  DecCtxs &operator=(const DecCtxs &);")
+    o.append("};")
+    o.append("")
+    o.append("// Exposed so the `groupfill` arm can price the by-value group's host-side fill.")
+    for name in abi_order_topo(ir):
+        if ir.msg(name).synthetic:
+            continue
+        o.append("struct ak_efix_%s make_%s(const %s &o, const Tcs &t);" % (name, snake(name), name))
+    o.append("")
+    o.append("}  // namespace ffi")
+    o.append("}  // namespace %s" % ns)
+    o.append("#endif")
+    o.append("")
+    return o
+
+
 def emit(ir, ns="shapes", hdr="generated/binding.h", retain=False):
     ir = as_plan(ir)
     NS[0] = ns
+    NOUNK[0] = nu = unknown_compiled_out(ir)
+    if nu:
+        retain = False
     o = [_head(ir), PRE % {"HDR": hdr, "NS": ns}]
+    if not nu:
+        o.append(PRE_UNK)
 
     # ---- the transcoders ----------------------------------------------------------
     o.append("""
@@ -955,7 +941,10 @@ Tcs tcs_host() {
 """.strip("\n"))
     o.append("")
     o.extend(_lifecycle(ir))
-    o.append("#define AK_REFILL() do { if (s->refill) s->refill(s->hold); } while (0)")
+    if nu:
+        o.append("#define AK_REFILL() ((void)0)  // the no-unknown variant has no pools to refill")
+    else:
+        o.append("#define AK_REFILL() do { if (s->refill) s->refill(s->hold); } while (0)")
     o.append("")
 
     # Forward declarations: a group inlines its children by value and C++ needs the
@@ -1076,7 +1065,8 @@ Tcs tcs_host() {
                 _decode_field(ir, m, fld, o, bits, "dst->")
             for oname, members in m.oneofs.items():
                 _decode_oneof(ir, m, oname, members, o, "dst->")
-            o.append("  unk_take(f.unknown, &dst->unknown_fields);")
+            if not nu:
+                o.append("  unk_take(f.unknown, &dst->unknown_fields);")
             o.append("}")
         else:
             o.append("static inline %s from_%s(const struct ak_dfix_%s &f, const uint8_t *base,"
@@ -1089,7 +1079,8 @@ Tcs tcs_host() {
                 _decode_field(ir, m, fld, o, bits, "r.")
             for oname, members in m.oneofs.items():
                 _decode_oneof(ir, m, oname, members, o, "r.")
-            o.append("  unk_take(f.unknown, &r.unknown_fields);")
+            if not nu:
+                o.append("  unk_take(f.unknown, &r.unknown_fields);")
             o.append("  return r;")
             o.append("}")
         o.append("")
@@ -1175,8 +1166,9 @@ Tcs tcs_host() {
         o.append("  const uint8_t *base;")
         o.append("  // Decision 11 rule 1: called after every element delivery, where the host may")
         o.append("  // refill its pools in place. NULL unless the decode pre-allocates.")
-        o.append("  void (*refill)(void *);")
-        o.append("  void *hold;")
+        if not nu:
+            o.append("  void (*refill)(void *);")
+            o.append("  void *hold;")
         o.append("};")
         o.append("")
         o.append("static void apply_%s(ak_dec_ctx *ctx, void *obj,"
@@ -1192,8 +1184,9 @@ Tcs tcs_host() {
             _decode_field(ir, m, fld, o, bits, "s->out->")
         for oname, members in m.oneofs.items():
             _decode_oneof(ir, m, oname, members, o, "s->out->")
-        o.append("    s->out->unknown_fields.clear();")
-        o.append("    unk_take(f.unknown, &s->out->unknown_fields);")
+        if not nu:
+            o.append("    s->out->unknown_fields.clear();")
+            o.append("    unk_take(f.unknown, &s->out->unknown_fields);")
         o.append("  AK_DGUARD_END")
         o.append("}")
         o.append("")
@@ -1263,7 +1256,8 @@ Tcs tcs_host() {
                     o.append("    for (int32_t i = 0; i < n; ++i) {")
                     o.append("      " + map_reader(kk, "s->base", "elems[i].key", "ctx", "k_"))
                     o.append("      " + map_reader(vk, "s->base", "elems[i].value", "ctx", "v_"))
-                    o.append("      unk_drop_entry(elems[i].unknown);")
+                    if not nu:
+                        o.append("      unk_drop_entry(elems[i].unknown);")
                     o.append("#if AK_CXX17")
                     o.append("      %s.insert_or_assign(std::move(k_), std::move(v_));" % dst)
                     o.append("#else")
@@ -1350,7 +1344,8 @@ Tcs tcs_host() {
                         o.append("    for (int32_t i = 0; i < n; ++i) {")
                         o.append("      " + map_reader(kk, "s->base", "elems[i].key", "ctx", "k_"))
                         o.append("      " + map_reader(vk, "s->base", "elems[i].value", "ctx", "v_"))
-                        o.append("      unk_drop_entry(elems[i].unknown);")
+                        if not nu:
+                            o.append("      unk_drop_entry(elems[i].unknown);")
                         o.append("#if AK_CXX17")
                         o.append("      dst.insert_or_assign(std::move(k_), std::move(v_));")
                         o.append("#else")
@@ -1409,8 +1404,11 @@ Tcs tcs_host() {
         o.append("  Sink_%s sink;" % root)
         o.append("  sink.out = out;")
         o.append("  sink.base = b;")
-        o.append("  sink.refill = refill;")
-        o.append("  sink.hold = hold;")
+        if nu:
+            o.append("  (void)refill; (void)hold;")
+        else:
+            o.append("  sink.refill = refill;")
+            o.append("  sink.hold = hold;")
         o.append("  struct ak_dvt_%s vt;" % root)
         o.append("  vt.apply = apply_%s;" % snake(root))
         for path, f in slots:
@@ -1435,7 +1433,8 @@ Tcs tcs_host() {
         o.append("  return decode_impl_%s(ctx, b, n, out, NULL, NULL);" % snake(root))
         o.append("}")
         o.append("")
-        _emit_decode_unk(ir, o, root)
+        if not nu:
+            _emit_decode_unk(ir, o, root)
 
     o.append("}  // namespace ffi")
     o.append("}  // namespace %s" % ns)
@@ -1444,6 +1443,94 @@ Tcs tcs_host() {
 
 
 # ---------------------------------------------------------------- retain (decision 11)
+
+# The decision-11 host helpers, rendered after PRE in the full variant only.
+PRE_UNK = '''// ---- ABI v1 decision 11, the host side of the unknown-field buffers ------------------
+//
+// The core copies each message occurrence's unknown runs into a buffer slot of its group
+// (plan: UNKNOWN FIELDS ON DECODE). Every buffer this binding hands the core is malloc'd:
+// from `unk_grow` (realloc semantics, NULL/0 = fresh) or pre-allocated and registered with
+// `unk_track`. A buffer passes to the host when its group is delivered; `unk_take` appends
+// it to the facade bag and frees it, `unk_drop` frees one the facade has no bag for (a map
+// entry, an inactive oneof member). What was placed but never delivered (a failed decode)
+// and what a pool still holds after the decode are freed by `unk_reclaim`.
+static std::unordered_set<void *> &unk_live() {
+  static thread_local std::unordered_set<void *> live;
+  return live;
+}
+static thread_local size_t t_unk_entry_bytes = 0;
+
+int32_t unk_grow(void *host, int32_t want, uint8_t **dst, int32_t *cap) {
+  (void)host;
+  if (want <= 0) return AK_ERR_LIMIT;
+  void *old = *dst;
+  void *p = old ? std::realloc(old, (size_t)want) : std::malloc((size_t)want);
+  if (p == NULL) return AK_ERR_LIMIT;
+  std::unordered_set<void *> &l = unk_live();
+  if (old != NULL) l.erase(old);
+  l.insert(p);
+  *dst = (uint8_t *)p;
+  *cap = want;
+  return AK_OK;
+}
+
+void unk_track(void *p) {
+  if (p != NULL) unk_live().insert(p);
+}
+
+size_t unk_reclaim() {
+  std::unordered_set<void *> &l = unk_live();
+  size_t n = l.size();
+  for (std::unordered_set<void *>::iterator it = l.begin(); it != l.end(); ++it) std::free(*it);
+  l.clear();
+  return n;
+}
+
+size_t unk_entry_bytes() {
+  size_t r = t_unk_entry_bytes;
+  t_unk_entry_bytes = 0;
+  return r;
+}
+
+static inline void unk_free_buf(void *p) {
+  std::unordered_set<void *> &l = unk_live();
+  if (!l.empty()) l.erase(p);
+  std::free(p);
+}
+
+// Delivery: the slot's runs, in wire order, into the facade's bag.
+static inline void unk_take(const struct ak_unk_buf &b, std::string *bag) {
+  if (b.data == NULL) return;
+  bag->append((const char *)b.data, b.len);
+  unk_free_buf(b.data);
+}
+
+// Delivery where the facade keeps nothing (an inactive oneof member, an absent child).
+static inline void unk_drop(const struct ak_unk_buf &b) {
+  if (b.data != NULL) unk_free_buf(b.data);
+}
+
+// A map entry: the facade's map has no bag (the U-map-entry gap), so the bytes are counted
+// (the evidence that the core captured them) and freed.
+static inline void unk_drop_entry(const struct ak_unk_buf &b) {
+  if (b.data == NULL) return;
+  t_unk_entry_bytes += b.len;
+  unk_free_buf(b.data);
+}
+
+// A pre-allocated buffer written into an EMPTY entry of the host's options (rule 1: the
+// host refills in place, with no call); tracked, so an unconsumed one is reclaimed.
+static inline void unk_fill_buf(struct ak_unk_buf *e, uint32_t cap, uint64_t *count) {
+  if (e->data != NULL || cap == 0) return;
+  void *p = std::malloc(cap);
+  if (p == NULL) return;
+  unk_track(p);
+  e->data = p;
+  e->len = 0;
+  e->cap = cap;
+  ++*count;
+}
+'''
 
 RETAIN = True     # this backend renders the retain family (`*_unk`) when asked
 
