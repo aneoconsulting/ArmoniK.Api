@@ -700,3 +700,37 @@ threads, each thread built its own Binding, and none was ever closed -- a harnes
 predates this change and grew with the two extra cells. Each sample thread now closes its
 Bindings when it ends (peak RSS ~4.5 GB, the 4 GB heap). C-nounk and D-nounk wait for
 the compiled-out no-unknown variant in poc/codec. Smoke: `logs/java/campaign/rpc-*`.
+
+### J28. FIX-PLAN WP5 step 10: the no-unknown build on the JVM (2026-09-25)
+
+Backend (f4ab079, java_* only): every module renders from `plan.unknown_compiled_out(p)`;
+no rule added. java_layout: no u-groups, no options structs. java_jni: no u-family or
+reset natives, `decCtxNew<Root>()` without parameter, the shim's buffer block (grow, lists,
+take/free) left out. java_binding/java_pull: no retain path at all (no u-fills, u-loops,
+options, `freeUnk*`, `takeUnk`, `retain` flag). java_facade: no `unknownFields` in the
+variant. java_backend: no CodecRetain. Header = c_abi.emit(drop plan) with Java's offset
+asserts. The full build's 264 generated files are byte-unchanged.
+
+Slice (3fdcc3a): the variant in its own directories with the same package names (the two
+builds cannot share a process: both shims load a core by the same soname), compiled into
+its own class trees at both levels. The hand-written drivers compile against both through
+generated glue (`FfiArms`/`Dispatch.setRetain`, `unkCounters`, `Arms.R_SITES`,
+`ak.Variant`); `RunUnkControls` and `RunUnkLeak` are left out of the variant tree.
+
+Checked: payload gate a/b/c on the variant, 1,389 checks each, 0 failures, 66 unknown
+vectors; corpus on 8 and 17, R, ffi, ffi-pull, ffi-pull-walk, ffi-borrow, 0 failing, the
+unknown rows written in the dropped forms; planted controls fail (proj 130, reenc 130,
+accept 475, noinit 104); layout facts 240 (shapes) and 340 (corpus) agree with the variant
+core's export; a full tree on the variant core and a variant tree on the full core are
+both refused at load (400 vs 240); rule 6 on the variant's contexts (-8, own root 0);
+the variant cores export no ak_uencode_/ak_uelem*/ak_dec_reset_ (build.sh checks every
+shim against its variant). Counts (counts-nounk.ref vs counts.ref): P1.2 decode reverse
+8 -> 5 as in the rust slice; additionally in the pull section, fewer 32 KB drain chunks
+(P1.2 9 -> 6, P2.2 23 -> 16, P2.3 12 -> 11, P2.4 14 -> 13, P4.1 6 -> 5) and a smaller record
+footprint on every payload -- the decode groups carried in the records are 16 bytes smaller
+per group. The rust slice's table has no pull-drain column, so the second is new here.
+
+Harness: run_campaign.sh gates both builds; codec (JMH) and RPC run each build per launch,
+order alternating by launch. Smoke at 3fdcc3a in logs/java/campaign-wp5s10/ (instrumentation,
+figures stripped). The gate ran twice: another slice committed poc/codec between the gate
+and the codec suite, so the codec suite re-gated on the same build (both pass).
