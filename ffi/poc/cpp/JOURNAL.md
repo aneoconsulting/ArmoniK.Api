@@ -1399,3 +1399,5 @@ The apt build reports itself as a debug build of the library; this is stated in 
 checklist. The smoke's header names 7b5dad4, the repository HEAD at run time. The
 snapshot was archived at b2bc2b8, and the five commits between them touch none of the
 run's inputs. The runner now takes `AK_COMMIT` for snapshot runs.
+
+Owner follow-up: Google Benchmark now comes from a Release build of the v1.8.3 tag, made by the runner and commit-checked, instead of apt's debug library. Re-smoked at 833ea32: library_build_type release, 1305 repetitions, gate green.
