@@ -1,6 +1,6 @@
 # python slice: the 3.7 source check, and every other CPython header set here
-# date:      2026-09-25T21:17:12Z
-# commit:    dfbfefd + uncommitted changes in poc/python or poc/codec
+# date:      2026-09-25T22:35:00Z
+# commit:    9975ca9
 # phase:     correctness only; nothing here is a timing
 
 # 3.7.5 headers: /home/user/ArmoniK.Api/ffi/poc/python/build/py37/root/usr/include/python3.7m (#define PY_VERSION              "3.7.5")
@@ -11,25 +11,30 @@
    ok    gen/out -DAK_RPC
    ok    gen/out/corpus -DAK_CORPUS
    ok    gen/out/corpus -DAK_CORPUS -DAK_CHUNK_BYTES=256 -DAK_CHUNK_PACKED=3
+   ok    gen/out/corpus -DAK_CORPUS -DAK_THREAD_LOCAL=
+   ok    gen/out/nounk -DAK_NOUNK
+   ok    gen/out/nounk -DAK_NOUNK -DAK_COUNT
+   ok    gen/out/nounk -DAK_NOUNK -DAK_RPC
+   ok    gen/out/corpus-nounk -DAK_NOUNK -DAK_CORPUS
 
 ## the version conditionals in the sources compiled above
    gen/out/binding.c:14:#if PY_VERSION_HEX >= 0x030A0000
    gen/out/binding.c:19:#if PY_VERSION_HEX >= 0x03090000
    native/binding.c:18: * and the two C-API calls newer than the 3.7 floor are under `PY_VERSION_HEX` (R-D4).
-   native/binding.c:585:#if PY_VERSION_HEX >= 0x030A0000
-   native/binding.c:624:#if PY_VERSION_HEX < 0x03090000 && defined(__GNUC__)
+   native/binding.c:616:#if PY_VERSION_HEX >= 0x030A0000
+   native/binding.c:655:#if PY_VERSION_HEX < 0x03090000 && defined(__GNUC__)
    post-3.7 names reached only through them:
      Py_NewRef: 1 in gen/out/binding.c, 1 in gen/out/corpus/binding.c, 0 in native/binding.c
      PyObject_CallNoArgs: 1 in gen/out/binding.c, 1 in gen/out/corpus/binding.c, 0 in native/binding.c
      PyObject_CallOneArg: 1 in gen/out/binding.c, 1 in gen/out/corpus/binding.c, 0 in native/binding.c
      PyModule_AddObjectRef: 0 in gen/out/binding.c, 0 in gen/out/corpus/binding.c, 1 in native/binding.c
 
-## the same five variants against every other CPython header set reachable here
-   ok    CPython 3.9 headers: 5 of 5 variants
-   ok    CPython 3.10 headers: 5 of 5 variants
-   ok    CPython 3.11 headers: 5 of 5 variants
-   ok    CPython 3.12 headers: 5 of 5 variants
-   ok    CPython 3.13 headers: 5 of 5 variants
+## the same 10 variants against every other CPython header set reachable here
+   ok    CPython 3.9 headers: 10 of 10 variants
+   ok    CPython 3.10 headers: 10 of 10 variants
+   ok    CPython 3.11 headers: 10 of 10 variants
+   ok    CPython 3.12 headers: 10 of 10 variants
+   ok    CPython 3.13 headers: 10 of 10 variants
 
 ## control: the pre-port tree (aba944a) must FAIL the same check
    failed as required:

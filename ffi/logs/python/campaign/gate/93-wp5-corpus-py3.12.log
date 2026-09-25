@@ -1,6 +1,6 @@
 # python slice: the whole corpus, five arms, controls, py3.12
-# date:      2026-09-25T21:16:28Z
-# commit:    dfbfefd + uncommitted changes in poc/python or poc/codec
+# date:      2026-09-25T22:33:40Z
+# commit:    9975ca9
 # phase:     correctness only; nothing here is a timing
 
 # python slice: the conformance corpus, every row, every arm (FIX-PLAN WP5 item 6.1)
@@ -464,4 +464,6 @@ CONTROLS ALL FAILED AS REQUIRED
    wrong root: 812 ordered pairs refused with -8 and nothing delivered; positive control 29 of 29 roots; 0 failure(s)
    per-thread contexts, reuse: 39808 decode+encode(s) on this thread created 0 context(s) (want 0)
    per-thread contexts, threads: 8 x 12440 decode+encode(s); 0 error(s); 232 context(s) created (at most 232)
+   per-thread AK_LAST_RECLAIMED: holds (shim, U-group-field-max: thread A's failed decode reclaimed 1, thread B's successful decode 0, A reads 1 after B)
+   must-fail twin: failed as required (process-wide slot, U-group-field-max: thread A's failed decode reclaimed 1, thread B's successful decode 0, A reads 0 after B)
 D11 CONTROLS PASS
