@@ -6,7 +6,7 @@ session, which makes it the most expensive defect in this directory.
 
 | | |
 |---|---|
-| **Status** | **2026-09-24 (fourth work unit), WP5 tail: D38 and D39 fixed, re-gated from a CLEAN build at `fd3ec1a` against core/generator `41eb485`+. Correctness only, no timing.** D38: `ak/rt.h`'s group skip refuses a field number above the plan's `MAX_FIELD_NUMBER` with `ERR_MALFORMED` (compared on the full 64-bit key), taking the limit and the group depth from `include/generated/ak_rules.h`, rendered from `plan.py` by `cpp_native.emit_rules`; the probe row `P-field-maxplus1-in-group` failed on both native arms before (`d38-probe-before.log`) and passes on all four after (`wp5-probe.log`, C++17 and C++11). D39: `gen/wp5_gate.sh` now generates, configures and builds every target itself (`CLEAN=1` for a clean build) and refuses to gate a binary older than the newest C++/Rust source; its control (`AK_GATE_NO_BUILD=1`) refused 24 stale binaries (`d39-stale-refusal.log`). Clean-build gate: 0 failed steps -- payload set 476/0 x5 (noinit plant fails 205); corpus now 702 rows: ffi 680/0, native 696/0, 6 disputed, 16 not in the C ABI, at 17/14/11/static, 2808 outcomes identical across builds; controls fail; byte audit 213/213 unchanged; 542 corpus layout facts agree. The third work unit (WP5 step 2) is kept below |
+| **Status** | **2026-09-25, FIX-PLAN WP3: the campaign harness exists and its smoke run passes; campaign-ready except requirement 10 (core-ffi retain: pending the decision-11 C++ port) and the section 3 incumbent versions (only grpc++ 1.51.1 / protobuf 3.21.12 in the container).** `gen/run_campaign.sh --suite codec\|rpc\|calib\|gate --out <dir>`; checklist below. The gate stopped the first smoke on a real crossing-count change (P1.2 decode reverse 5 -> 8 after decision 11); re-baselined deliberately. No figure is reported. The C++ binding is in poc/codec's transitional drop mode (29d515e): rendering decision 11's options for C++ is the next task. WP5 tail (D38/D39) and WP5 step 2 are kept below |
 | **Core** | **the shared one at `ffi/poc/codec/crates/ak-core` (README R0), not a copy**, built by CMake with `--features init-guard` in every configuration (timed, counting, the three planted cores) and once more with `--features corpus,init-guard` into `core-build/target-corpus` for the corpus harness (its own ABI and header, `corpus/include/ak_abi.h`). `-DAK_CORE_ROOT`/`-DAK_CORE_TGT` still point the build at a snapshot. This work unit ran against the shared tree at `882112c` (HEAD when gated) |
 | **Blocked on** | nothing |
 | **Floor** | **C++11, demonstrated not declared.** C++14 also builds and passes (README open question 3) |
@@ -16,7 +16,94 @@ session, which makes it the most expensive defect in this directory.
 | **Machine** | **TWO of them, and that is a fact about the logs rather than a footnote.** Everything except `rpc.log` and `rpcflow.log`: 4 vCPU Intel Xeon @ **2.80 GHz**. Those two: 4 vCPU Intel Xeon @ **2.10 GHz**, same kernel (Linux 6.18.44), same g++ 13.3.0 `-O2 -g -DNDEBUG`, same rustc 1.94.1. **No absolute crosses between them** (R13, R4) |
 | **R13 calibration** | the 2.80 GHz machine's rust-slice crossing is **1.5 ns** forward (`calibration-r13.log`), against 1.8 ns in the rust slice's own container. **On the 2.10 GHz machine it could not be re-taken: the rust slice does not build on this branch (C27).** What was re-taken there is this slice's OWN crossing, by the unchanged bench: **forward 0.59-0.65 ns, reverse 0.27-0.31 ns**, against 1.822-1.824 / 0.6 published from the 2.80 GHz box. A factor of about three, on a nominally slower clock. That is the whole reason R13 exists |
 
-## This work unit (2026-09-24, fourth): WP5 tail, D38 and D39
+## This work unit (2026-09-25): FIX-PLAN WP3, the campaign harness (design/CAMPAIGN.md)
+
+**Campaign-ready, with the exceptions listed as `not met` in the checklist below.**
+Smoke run in this container (4 vCPU Xeon @ 2.80 GHz, no isolation, no governor control,
+no perf): 1 launch, 1 round, reduced sizes, CLIENT = 0,1, SERVER = 2,3, commit `32d69b0`,
+clean tree. Logs in `ffi/logs/cpp/campaign/`, every header marked `"instrumentation": true`.
+**No figure in them is a result** (README 1.1); they show the harness runs.
+
+What exists:
+
+```
+gen/run_campaign.sh --suite codec|rpc|calib|gate --out <dir>   the runner (requirement 31)
+  reads AK_CPU_CLIENT / AK_CPU_SERVER (required, disjoint, no shared SMT sibling, one NUMA
+  node), refuses a dirty tree (AK_CAMPAIGN_ALLOW_DIRTY=1 for smoke only, recorded), runs the
+  gate before any suite (once per commit+build: <out>/gate.ok), writes one header line and
+  one JSON object per sample per file, one file per suite and launch
+src/campaign_codec.cpp   codec suite: incumbent-prod (grpc++ SerializationTraits),
+  incumbent-best (SerializeToString/ParseFromString), core-ffi (drop; retain hook), host-gen
+  (drop, retain); encode / decode / decode_read (gen/cpp_touch.py's generated traversal);
+  16 payloads + Latin-1 and wide on P1.2, P2.2, P3.1, P4.1, P6.1 + 92 corpus U-* rows at the
+  seven roots the timed codec implements (excluding disputed); its own byte/fold gate before
+  round 1 (AK_CAMPAIGN_PLANT=1 must fail it); rotated rounds; CLOCK_THREAD_CPUTIME_ID + wall
+src/campaign_server.cpp  the RPC server, its own process: pre-serialised P2.2 for Fetch,
+  Push decoded with grpc++'s SerializationTraits (identical for every cell)
+src/campaign_rpc.cpp     the RPC client: cells A-D, directions a (empty -> P2.2) and b
+  (P2.2 -> empty), 1/8/16 in flight, shipped|pinned for BOTH transports, B and C blocking,
+  every call checked (abort, exit 3), getrusage(RUSAGE_SELF) + wall, rotated rounds
+src/campaign_calib.cpp   ak_noop forward and ak_noop_reverse (fwd+rev) loops; the runner
+  wraps them in perf stat when perf exists and runs the rust slice's crossing bench
+gen/campaign_summary.py  requirement 30's summaries only (median/min/max per iteration,
+  per-round ratio to incumbent-prod or cell A)
+proto/shapes_svc.proto   + Push(ListTasksDetailedResponse) returns (Empty)
+logs/cpp/counts-baseline.log  the gate's crossing-count baseline (see below)
+```
+
+**The gate stopped the first smoke, and it was right** (`logs/cpp/wp3-gate-count-stop.log`):
+P1.2 decode reverse crossings 5 -> 8 against the pre-decision-11 `counts.log`. Every decode
+group gained `unknown: ak_unk_buf` (29d515e), `ak_dfix_ResultRaw` three times (itself and
+two inlined Timestamps), so fewer groups fit the 32 KB arena and the 1,000-element run
+arrives in more chunks. `counts-baseline.log` is the deliberate re-baseline with that reason
+in its header; nothing else moved (86 of 87 rows identical).
+
+Smoke results (correctness, the only kind reported): gate green -- payload set 476/0 at
+C++17/17-floor/14/11/static; corpus (702 rows) ffi 680/0 and native 696/0 at C++17 and
+C++11; controls proj/reenc/accept/noinit fail; 87 count rows equal to the baseline; the
+codec binary's gate 118 groups / 1305 slots 0 failed and its plant 166 slots failed; a wrong
+RPC response length aborts. Suites: codec 1305 samples, rpc 48 (24 per transport), calib 2.
+Runner refusals (overlap, missing set, dirty tree): `logs/cpp/campaign/runner-controls.log`.
+
+### Section 10 checklist
+
+| # | Requirement | Status |
+|---|---|---|
+| 1 | one machine, slices sequential | **met** on the runner's side (suites run one after another, nothing concurrent); the machine is the owner's |
+| 2 | governor, turbo, SMT | **met (recorded)**: header reads scaling_governor, intel_pstate/no_turbo, cpufreq/boost, smt/active; the runner does not set them (owner) |
+| 3 | isolation | **met (recorded)**: /sys/.../isolated, isolcpus/nohz_full on the cmdline, the runner's cpuset |
+| 4 | three disjoint CPU sets, one NUMA node, no shared SMT siblings, parameters | **met**: AK_CPU_CLIENT/AK_CPU_SERVER required, overlap / SMT sibling / NUMA span refused; the OS set is "everything else" and not checked |
+| 5 | floors gated, no timing | **met**: C++11 and C++14 conformance, C++11 corpus in the gate |
+| 6 | build flags printed | **met**: flags from the build, shared linkage, LTO off, core features (init-guard[,rpc]) |
+| 3 (table) | incumbent at gRPC v1.54.0 and a current version | **not met here**: the container has grpc++ 1.51.1 / protobuf 3.21.12 only. The runner builds against another install with AK_INCUMBENT_PREFIX; the owner provides the two prefixes |
+| 7 | 16 payloads, content sets, U-* rows | **met**, with a reading to confirm: content sets on P1.2, P2.2, P3.1, P4.1, P6.1 (SHAPES.md names no payload list; this is the committed content-set gate's); U-* rows at the seven roots the TIMED codec implements (92). Rows at other corpus roots are implemented only by the corpus build, a different ABI that is not a timed configuration |
+| 8 | arms | **met**: incumbent-prod, incumbent-best, core-ffi (push), host-gen; pull: not in this slice; Rust-only arms n/a |
+| 9 | encode, decode twice | **met**: decode and decode_read |
+| 10 | drop and retain for core-ffi and host-gen | **not met: pending decision 11 port**. host-gen drop and retain are timed; core-ffi retain is a hook (`-DAK_CAMPAIGN_FFI_RETAIN`) and the C++ binding in poc/codec is in its transitional drop mode (29d515e) until the decision-11 options are rendered for C++ (the next task) |
+| 11 | serialise once per iteration, fresh object | **met**: decode into a fresh object every iteration; protobuf C++ recomputes ByteSizeLong on every Serialize (no memo) |
+| 12 | cells A-D | **met** |
+| 13 | server out of process, pre-serialised | **met** (direction a); direction b's server decode is the incumbent's in every cell |
+| 14 | directions a and b | **met**; the optional streamed upload is not built |
+| 15 | 1, 8, 16 in flight | **met** |
+| 16 | B and C blocking | **met**; callback/queue rows exist only in the older rpcbench, not in the campaign binary |
+| 17 | shipped and pinned | **met**, stated: grpc++ shipped = packages/cpp's channel args minus its retry service config; grpc++ pinned has no connection-window argument (C31); core shipped = ak_client_new defaults |
+| 18 | every call checked | **met**: status + length per call (cell A: content per call, wire length once before the rounds), abort on first failure; control in the gate |
+| 19 | crossing counts gate | **met**: counts_a17_shared against logs/cpp/counts-baseline.log (it stopped the first smoke on a real change) |
+| 20 | crossing cost, fwd and rev, perf stat | **met on a machine with perf**; here perf is absent (recorded) and the rust slice's bench did not build in the out-of-tree snapshot (it lacks `poc/rust/crates`); reverse is reported as the fwd+rev row, from which the aggregator subtracts the forward row |
+| 21 | CPU time | **met**: CLOCK_THREAD_CPUTIME_ID (codec, calib); getrusage(RUSAGE_SELF) of the client + wall (RPC) |
+| 22 | interleaved, rotated | **met** |
+| 23 | 5 rounds x 3 launches, every round committed | **met** (runner defaults) |
+| 24 | warm-up fixed and identical | **met**: a byte budget per codec arm, a call count per RPC cell, before round 1; JIT n/a |
+| 25 | allocator warmed identically | **met** (every arm's warm-up precedes round 1); GC n/a |
+| 26 | correctness gate first | **met** |
+| 27 | header; dirty tree refused | **met** |
+| 28 | one JSON object per sample | **met** |
+| 29 | logs in ffi/logs/cpp/campaign/ | **met** (smoke there) |
+| 30 | summaries only as specified | **met** (gen/campaign_summary.py; not run into a committed file) |
+| 31 | runner interface; top-level ffi/campaign.sh | **met** for the slice runner; `ffi/campaign.sh` is outside this slice (aggregating session) |
+| 32 | smoke run committed, marked | **met** |
+
+## Previous work unit (2026-09-24, fourth): WP5 tail, D38 and D39
 
 Against core and generator at `41eb485` (plan consolidation: `c_abi.py` is the one C header
 backend, `MAX_FIELD_NUMBER = 2^29-1`, `GROUP_DEPTH_LIMIT = 100`). The aggregating session had
@@ -91,7 +178,11 @@ plan option rendered into the core and the native codec, not a host build switch
 
 | gate | result | log |
 |---|---|---|
-| `gen/generate.py --check` | every target current; guard: 5 shared C++ modules import plans only, glue imports no IR, planted import caught | `wp5-build.log` | D39: generate, clean configure + build, mtime freshness of every gated binary | the gated binaries are the tree's; refused otherwise |
+| `gen/generate.py --check` | every target current; guard: 5 shared C++ modules import plans only, glue imports no IR, planted import caught | `campaign/gate.log`, `campaign/{codec,rpc,calib}-launch1.jsonl` | the WP3 smoke: 1 launch, 1 round, reduced sizes, commit 32d69b0, headers marked instrumentation | the campaign harness runs; the gate passes; **no figure is a result** |
+| `campaign/runner-controls.log` | run_campaign.sh with overlapping / missing CPU sets and a dirty tree | each refused before anything runs |
+| `wp3-gate-count-stop.log` | the first smoke's gate | requirement 19's stop on P1.2 decode reverse 5 -> 8 (decision 11's layout) |
+| `counts-baseline.log` | counts_a17_shared at 60f7661 (core 29d515e) | the gate's count baseline, with the reason for its one difference in its header |
+| `wp5-build.log` | D39: generate, clean configure + build, mtime freshness of every gated binary | the gated binaries are the tree's; refused otherwise |
 | `d39-stale-refusal.log` | the same step with `AK_GATE_NO_BUILD=1` on the pre-fix build | the freshness check refuses 24 stale binaries (the D39 control) |
 | `wp5-probe.log` | the rust slice's oracle-probe manifest, four arms, C++17 and C++11 | D38 after: 11/11 on every arm |
 | `d38-probe-before.log` | the probe manifest through the pre-fix `corpus_all_a17` | D38 before: native-drop and native-retain accept `P-field-maxplus1-in-group` |
