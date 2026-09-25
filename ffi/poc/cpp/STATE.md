@@ -6,7 +6,7 @@ session, which makes it the most expensive defect in this directory.
 
 | | |
 |---|---|
-| **Status** | **2026-09-25, WP3 + requirement 22a: the codec suite now times on Google Benchmark 1.8.3 (apt libbenchmark-dev); RPC and calib stay on the runner (requirements 13/18).** Smoke (1 launch, 1 round, instrumentation): gate green, 1305 Google Benchmark repetitions converted to section 7 lines. Campaign-ready except requirement 10 (core-ffi retain: pending the decision-11 C++ port) and the section 3 incumbent versions. Checklist and 22a deltas below |
+| **Status** | **2026-09-25, WP3 + requirement 22a: the codec suite now times on Google Benchmark v1.8.3, a Release build the runner makes from the upstream tag; RPC and calib stay on the runner (requirements 13/18).** Smoke (1 launch, 1 round, instrumentation): gate green, 1305 Google Benchmark repetitions converted to section 7 lines. Campaign-ready except requirement 10 (core-ffi retain: pending the decision-11 C++ port) and the section 3 incumbent versions. Checklist and 22a deltas below |
 | **Core** | **the shared one at `ffi/poc/codec/crates/ak-core` (README R0), not a copy**, built by CMake with `--features init-guard` in every configuration (timed, counting, the three planted cores) and once more with `--features corpus,init-guard` into `core-build/target-corpus` for the corpus harness (its own ABI and header, `corpus/include/ak_abi.h`). `-DAK_CORE_ROOT`/`-DAK_CORE_TGT` still point the build at a snapshot. This work unit ran against the shared tree at `882112c` (HEAD when gated) |
 | **Blocked on** | nothing |
 | **Floor** | **C++11, demonstrated not declared.** C++14 also builds and passes (README open question 3) |
@@ -83,11 +83,12 @@ lines, as `cpu_ns = cpu_time x iterations` and `round = repetition_index`. The r
 `codec-launchN.gbench.json` is committed beside the converted lines. The per-iteration
 call goes through a `std::function`, which costs the same for every arm (stated).
 
-The apt library reports `library_build_type: debug`. The loop body is header-inline and
-compiled in this slice's `-O2 -DNDEBUG` translation unit, but the library's own
-bookkeeping comes from that build. A vendored Release build of v1.8.3 needs only a
-different `benchmark_DIR`. That choice is the owner's; it is noted in the log's context
-line.
+Google Benchmark is a **Release build of v1.8.3**. The runner builds it from the upstream
+tag, checks the tag's commit (344117638c8f) and passes it as `-Dbenchmark_DIR`; CMake
+requires exactly 1.8.3. Apt's `libbenchmark-dev` is no longer used, because it reports
+`library_build_type: debug`. Every codec log prints the version in its header and
+Google Benchmark's own `library_build_type: release` in its context line. The smoke at
+833ea32 shows both.
 
 Checklist deltas: **21** codec CPU time = Google Benchmark `cpu_time` (thread) + `real_time`;
 **22** interleaving = Google Benchmark's random interleaving of repetitions + rotation by
