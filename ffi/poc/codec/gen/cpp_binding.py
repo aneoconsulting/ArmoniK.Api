@@ -34,7 +34,7 @@ string-as-a-CALL (a host transcoder, one reverse crossing per string) are the sa
 with a different `Tcs`. That is the third mechanism decision 1 asks the price of.
 """
 from plan import (abi_order_topo, as_plan, direct_fields, elem_type, loop_slots,
-                  presence_bits, slot_name)
+                  presence_bits, slot_name, unk_opts_layout, unk_opts_name, unk_positions)
 import cpp_names as cppnames
 from cpp_names import camel, oneof_type, snake
 
@@ -293,14 +293,16 @@ def _decode_field(ir, m, f, o, bits, dst):
         else:
             o.append("  b_of(base, f.%s, &%s);" % (n, dst + n))
     elif f.kind == "message":
+        # Decision 11: the child's own unknown slot is delivered with it (fill_/from_ take
+        # it into the child's bag); an absent child's slot, never placed, is freed if set.
         if has_slots(ir, f.of):
             o.append("  if (f.presence & (1u << %d)) fill_%s(&%s.get_or_insert(), f.%s, base, ctx);"
                      % (bits[n], snake(f.of), dst + n, n))
-            o.append("  else %s.reset();" % (dst + n))
+            o.append("  else { %s.reset(); unk_drop(f.%s.unknown); }" % (dst + n, n))
         else:
             o.append("  if (f.presence & (1u << %d)) %s.set(from_%s(f.%s, base, ctx));"
                      % (bits[n], dst + n, snake(f.of), n))
-            o.append("  else %s.reset();" % (dst + n))
+            o.append("  else { %s.reset(); unk_drop(f.%s.unknown); }" % (dst + n, n))
     elif f.kind == "enum":
         o.append("  %s = %s::%s(f.%s);" % (dst + n, _ns(), f.of, n))
     elif f.explicit:
@@ -317,6 +319,13 @@ def _decode_field(ir, m, f, o, bits, dst):
 
 def _decode_oneof(ir, m, oname, members, o, dst):
     ty = oneof_type(m.name, oname)
+    # Decision 11 rule 4: the oneof's ONE buffer is in the ACTIVE message member's slot,
+    # taken by that member's `from_`; any other message member's non-NULL slot (the buffer
+    # left behind by a switch to a scalar or blob member) is the host's and is freed.
+    for gm in members:
+        if gm.kind == "message":
+            o.append("  if (f.%s_case != %du) unk_drop(f.%s_%s.unknown);"
+                     % (oname, gm.tag, oname, gm.name))
     o.append("  switch (f.%s_case) {" % oname)
     for gm in members:
         slot = "%s_%s" % (oname, gm.name)
@@ -552,7 +561,9 @@ def _lifecycle(p):
 PRE = '''// Arm `core-ffi`: the generated C++ host binding over the C ABI.
 #include "%(HDR)s"
 
+#include <cstdlib>
 #include <cstring>
+#include <unordered_set>
 
 namespace %(NS)s {
 namespace ffi {
@@ -668,6 +679,92 @@ static inline void s_of(const uint8_t *base, const struct ak_span &s, ak_dec_ctx
 static inline void b_of(const uint8_t *base, const struct ak_span &s, ak::StringView *out) {
   *out = ak::StringView((const char *)(base + s.off), s.len);
 }
+
+// ---- ABI v1 decision 11, the host side of the unknown-field buffers ------------------
+//
+// The core copies each message occurrence's unknown runs into a buffer slot of its group
+// (plan: UNKNOWN FIELDS ON DECODE). Every buffer this binding hands the core is malloc'd:
+// from `unk_grow` (realloc semantics, NULL/0 = fresh) or pre-allocated and registered with
+// `unk_track`. A buffer passes to the host when its group is delivered; `unk_take` appends
+// it to the facade bag and frees it, `unk_drop` frees one the facade has no bag for (a map
+// entry, an inactive oneof member). What was placed but never delivered (a failed decode)
+// and what a pool still holds after the decode are freed by `unk_reclaim`.
+static std::unordered_set<void *> &unk_live() {
+  static thread_local std::unordered_set<void *> live;
+  return live;
+}
+static thread_local size_t t_unk_entry_bytes = 0;
+
+int32_t unk_grow(void *host, int32_t want, uint8_t **dst, int32_t *cap) {
+  (void)host;
+  if (want <= 0) return AK_ERR_LIMIT;
+  void *old = *dst;
+  void *p = old ? std::realloc(old, (size_t)want) : std::malloc((size_t)want);
+  if (p == NULL) return AK_ERR_LIMIT;
+  std::unordered_set<void *> &l = unk_live();
+  if (old != NULL) l.erase(old);
+  l.insert(p);
+  *dst = (uint8_t *)p;
+  *cap = want;
+  return AK_OK;
+}
+
+void unk_track(void *p) {
+  if (p != NULL) unk_live().insert(p);
+}
+
+size_t unk_reclaim() {
+  std::unordered_set<void *> &l = unk_live();
+  size_t n = l.size();
+  for (std::unordered_set<void *>::iterator it = l.begin(); it != l.end(); ++it) std::free(*it);
+  l.clear();
+  return n;
+}
+
+size_t unk_entry_bytes() {
+  size_t r = t_unk_entry_bytes;
+  t_unk_entry_bytes = 0;
+  return r;
+}
+
+static inline void unk_free_buf(void *p) {
+  std::unordered_set<void *> &l = unk_live();
+  if (!l.empty()) l.erase(p);
+  std::free(p);
+}
+
+// Delivery: the slot's runs, in wire order, into the facade's bag.
+static inline void unk_take(const struct ak_unk_buf &b, std::string *bag) {
+  if (b.data == NULL) return;
+  bag->append((const char *)b.data, b.len);
+  unk_free_buf(b.data);
+}
+
+// Delivery where the facade keeps nothing (an inactive oneof member, an absent child).
+static inline void unk_drop(const struct ak_unk_buf &b) {
+  if (b.data != NULL) unk_free_buf(b.data);
+}
+
+// A map entry: the facade's map has no bag (the U-map-entry gap), so the bytes are counted
+// (the evidence that the core captured them) and freed.
+static inline void unk_drop_entry(const struct ak_unk_buf &b) {
+  if (b.data == NULL) return;
+  t_unk_entry_bytes += b.len;
+  unk_free_buf(b.data);
+}
+
+// A pre-allocated buffer written into an EMPTY entry of the host's options (rule 1: the
+// host refills in place, with no call); tracked, so an unconsumed one is reclaimed.
+static inline void unk_fill_buf(struct ak_unk_buf *e, uint32_t cap, uint64_t *count) {
+  if (e->data != NULL || cap == 0) return;
+  void *p = std::malloc(cap);
+  if (p == NULL) return;
+  unk_track(p);
+  e->data = p;
+  e->len = 0;
+  e->cap = cap;
+  ++*count;
+}
 '''
 
 
@@ -712,12 +809,86 @@ def emit_header(ir, ns="shapes", guard="AK_BINDING_H", types_h="generated/types.
         o.append("int32_t decode_with_%s(ak_dec_ctx *ctx, const uint8_t *b, size_t n, %s *out);"
                  % (snake(root), root))
         if retain:
-            o.append("// Decision 11 / plan Options.unknown = retain: the same entry points over")
-            o.append("// the u-groups (encode) and with the unknown-field capture on (decode).")
+            o.append("// Decision 11 / plan Options.unknown = retain: the encode over the u-groups.")
             o.append("intptr_t encode_into_%s_unk(ak_enc_ctx *ctx, const %s &o, const Tcs &t);"
                      % (snake(root), root))
-            o.append("int32_t decode_with_%s_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, %s *out);"
-                     % (snake(root), root))
+        rs, on = snake(root), unk_opts_name(root)
+        o.append("// Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read")
+        o.append("// in place and must stay alive and unmoved for the call.")
+        o.append("int32_t decode_with_%s_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, %s *out,"
+                 " struct %s *opts, void (*refill)(void *) = NULL, void *hold = NULL);"
+                 % (rs, root, on))
+        o.append("int32_t decode_with_%s_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, %s *out);"
+                 % (rs, root))
+        o.append("int32_t decode_with_%s_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, %s *out,"
+                 " uint32_t k, uint32_t cap, uint64_t *refills = NULL);" % (rs, root))
+        o.append("void unk_opts_%s(struct %s *o, int zero);" % (rs, on))
+        o.append("void unk_clear_%s(%s &o, int pos);" % (rs, root))
+    o.append("")
+    o.append("// Decision 11, the host side of the unknown-field buffers (see binding.cpp).")
+    o.append("int32_t unk_grow(void *host, int32_t want, uint8_t **dst, int32_t *cap);")
+    o.append("void unk_track(void *p);")
+    o.append("size_t unk_reclaim();")
+    o.append("size_t unk_entry_bytes();")
+    o.append("")
+    o.append("// Decision 11 rule 6: a decode context is BOUND to its root. `DecRoot<T>` names the")
+    o.append("// root's context constructor, reset, options and decodes, for code generic over T.")
+    o.append("template <class T> struct DecRoot;")
+    for root in ir.roots:
+        rs, on = snake(root), unk_opts_name(root)
+        mem = unk_opts_layout(ir, root)
+        ent = ", ".join("true" if (m != "oneof" and ir.msg(m).synthetic) else "false"
+                        for _n, m, _t in mem)
+        o.append("template <> struct DecRoot<%s> {" % root)
+        o.append("  typedef struct %s Opts;" % on)
+        o.append("  enum { kPositions = %d, kIndex = %d };" % (len(mem), ir.roots.index(root)))
+        o.append("  static const char *name() { return \"%s\"; }" % root)
+        o.append("  static ak_dec_ctx *ctx_new(Opts *o) { return ak_dec_ctx_new_%s(o); }" % root)
+        o.append("  static int32_t reset(ak_dec_ctx *c, Opts *o) { return ak_dec_reset_%s(c, o); }" % root)
+        o.append("  static void opts(Opts *o, int zero) { unk_opts_%s(o, zero); }" % rs)
+        o.append("  static void clear(%s &v, int pos) { unk_clear_%s(v, pos); }" % (root, rs))
+        o.append("  static bool is_entry(int pos) {")
+        o.append("    static const bool k[%d] = {%s};" % (len(mem), ent))
+        o.append("    return pos >= 0 && pos < %d && k[pos];" % len(mem))
+        o.append("  }")
+        o.append("  static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, %s *out) {" % root)
+        o.append("    return decode_with_%s(c, b, n, out);" % rs)
+        o.append("  }")
+        o.append("  static int32_t decode_opts(ak_dec_ctx *c, const uint8_t *b, size_t n, %s *out,"
+                 " Opts *o) {" % root)
+        o.append("    return decode_with_%s_opts(c, b, n, out, o);" % rs)
+        o.append("  }")
+        o.append("  static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, %s *out) {" % root)
+        o.append("    return decode_with_%s_unk(c, b, n, out);" % rs)
+        o.append("  }")
+        o.append("  static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, %s *out,"
+                 " uint32_t k, uint32_t cap, uint64_t *refills) {" % root)
+        o.append("    return decode_with_%s_pool(c, b, n, out, k, cap, refills);" % rs)
+        o.append("  }")
+        o.append("};")
+    o.append("// A context bound to T's root, in drop mode (NULL options).")
+    o.append("template <class T> inline ak_dec_ctx *dec_ctx_new_for() { return DecRoot<T>::ctx_new(NULL); }")
+    o.append("")
+    o.append("// One bound context per root, in drop mode, for a host that decodes several roots")
+    o.append("// (one set per thread: a context is not shared between threads).")
+    o.append("struct DecCtxs {")
+    o.append("  ak_dec_ctx *c[%d];" % len(ir.roots))
+    o.append("  DecCtxs() {")
+    for i, root in enumerate(ir.roots):
+        o.append("    c[%d] = ak_dec_ctx_new_%s(NULL);" % (i, root))
+    o.append("  }")
+    o.append("  ~DecCtxs() {")
+    o.append("    for (int i = 0; i < %d; ++i) ak_dec_ctx_free(c[i]);" % len(ir.roots))
+    o.append("  }")
+    o.append("  bool ok() const {")
+    o.append("    for (int i = 0; i < %d; ++i) if (c[i] == NULL) return false;" % len(ir.roots))
+    o.append("    return true;")
+    o.append("  }")
+    o.append("  template <class T> ak_dec_ctx *of() const { return c[DecRoot<T>::kIndex]; }")
+    o.append(" private:")
+    o.append("  DecCtxs(const DecCtxs &);")
+    o.append("  DecCtxs &operator=(const DecCtxs &);")
+    o.append("};")
     o.append("")
     o.append("// Exposed so the `groupfill` arm can price the by-value group's host-side fill")
     o.append("// on its own, in ns per element, rather than only as a subtraction between")
@@ -784,15 +955,8 @@ Tcs tcs_host() {
 """.strip("\n"))
     o.append("")
     o.extend(_lifecycle(ir))
-    if retain:
-        o.append("// Decision 11: one captured unknown run, staged until the decode returns.")
-        o.append("// slot 0 = the root object; slot k = element `token` of the k-th loop slot.")
-        o.append("struct AkPending {")
-        o.append("  uint32_t slot;")
-        o.append("  int64_t token;")
-        o.append("  std::string bytes;")
-        o.append("};")
-        o.append("")
+    o.append("#define AK_REFILL() do { if (s->refill) s->refill(s->hold); } while (0)")
+    o.append("")
 
     # Forward declarations: a group inlines its children by value and C++ needs the
     # declaration first, where Rust does not.
@@ -912,6 +1076,7 @@ Tcs tcs_host() {
                 _decode_field(ir, m, fld, o, bits, "dst->")
             for oname, members in m.oneofs.items():
                 _decode_oneof(ir, m, oname, members, o, "dst->")
+            o.append("  unk_take(f.unknown, &dst->unknown_fields);")
             o.append("}")
         else:
             o.append("static inline %s from_%s(const struct ak_dfix_%s &f, const uint8_t *base,"
@@ -924,6 +1089,7 @@ Tcs tcs_host() {
                 _decode_field(ir, m, fld, o, bits, "r.")
             for oname, members in m.oneofs.items():
                 _decode_oneof(ir, m, oname, members, o, "r.")
+            o.append("  unk_take(f.unknown, &r.unknown_fields);")
             o.append("  return r;")
             o.append("}")
         o.append("")
@@ -1007,11 +1173,10 @@ Tcs tcs_host() {
         o.append("struct Sink_%s {" % root)
         o.append("  %s *out;" % root)
         o.append("  const uint8_t *base;")
-        if retain:
-            o.append("  // Decision 11: unknown runs staged by (slot, token) and applied after the")
-            o.append("  // decode -- a capture buffer may flush before the run that carries the")
-            o.append("  // element it belongs to. NULL on the drop path.")
-            o.append("  std::vector<AkPending> *pending;")
+        o.append("  // Decision 11 rule 1: called after every element delivery, where the host may")
+        o.append("  // refill its pools in place. NULL unless the decode pre-allocates.")
+        o.append("  void (*refill)(void *);")
+        o.append("  void *hold;")
         o.append("};")
         o.append("")
         o.append("static void apply_%s(ak_dec_ctx *ctx, void *obj,"
@@ -1027,6 +1192,8 @@ Tcs tcs_host() {
             _decode_field(ir, m, fld, o, bits, "s->out->")
         for oname, members in m.oneofs.items():
             _decode_oneof(ir, m, oname, members, o, "s->out->")
+        o.append("    s->out->unknown_fields.clear();")
+        o.append("    unk_take(f.unknown, &s->out->unknown_fields);")
         o.append("  AK_DGUARD_END")
         o.append("}")
         o.append("")
@@ -1052,6 +1219,7 @@ Tcs tcs_host() {
                              " %s.push_back(%s::%s(elems[i]));" % (dst, _ns(), f.of))
                 else:
                     o.append("    for (int32_t i = 0; i < n; ++i) %s.push_back(elems[i]);" % dst)
+                o.append("    AK_REFILL();")
                 o.append("  AK_DGUARD_END")
                 o.append("}")
                 o.append("")
@@ -1076,6 +1244,7 @@ Tcs tcs_host() {
                 else:
                     o.append("      b_of(s->base, elems[i], &b_);")
                 o.append("    }")
+                o.append("    AK_REFILL();")
                 o.append("  AK_DGUARD_END")
                 o.append("}")
                 o.append("")
@@ -1094,6 +1263,7 @@ Tcs tcs_host() {
                     o.append("    for (int32_t i = 0; i < n; ++i) {")
                     o.append("      " + map_reader(kk, "s->base", "elems[i].key", "ctx", "k_"))
                     o.append("      " + map_reader(vk, "s->base", "elems[i].value", "ctx", "v_"))
+                    o.append("      unk_drop_entry(elems[i].unknown);")
                     o.append("#if AK_CXX17")
                     o.append("      %s.insert_or_assign(std::move(k_), std::move(v_));" % dst)
                     o.append("#else")
@@ -1105,6 +1275,7 @@ Tcs tcs_host() {
                     o.append("    for (int32_t i = 0; i < n; ++i)")
                     o.append("      %s.push_back(from_%s(elems[i], s->base, ctx));"
                              % (dst, snake(elem_ty)))
+                o.append("    AK_REFILL();")
                 o.append("  AK_DGUARD_END")
                 o.append("}")
                 o.append("")
@@ -1116,6 +1287,7 @@ Tcs tcs_host() {
                 o.append("#endif")
                 o.append("    Sink_%s *s = (Sink_%s *)obj;" % (root, root))
                 o.append("    %s.push_back(%s());" % (dst, elem_ty))
+                o.append("    AK_REFILL();")
                 o.append("    return (int64_t)(%s.size() - 1);" % dst)
                 o.append("#ifndef AK_NO_GUARD")
                 o.append("  } catch (...) {")
@@ -1133,6 +1305,7 @@ Tcs tcs_host() {
                 o.append("    Sink_%s *s = (Sink_%s *)obj;" % (root, root))
                 o.append("    fill_%s(&%s[(size_t)tok], *fx, s->base, ctx);"
                          % (snake(elem_ty), dst))
+                o.append("    AK_REFILL();")
                 o.append("  AK_DGUARD_END")
                 o.append("}")
                 o.append("")
@@ -1161,6 +1334,7 @@ Tcs tcs_host() {
                         o.append("      s_of(s->base, elems[i], ctx, &dst.back());")
                         o.append("#endif")
                         o.append("    }")
+                        o.append("    AK_REFILL();")
                         o.append("  AK_DGUARD_END")
                         o.append("}")
                         o.append("")
@@ -1176,12 +1350,14 @@ Tcs tcs_host() {
                         o.append("    for (int32_t i = 0; i < n; ++i) {")
                         o.append("      " + map_reader(kk, "s->base", "elems[i].key", "ctx", "k_"))
                         o.append("      " + map_reader(vk, "s->base", "elems[i].value", "ctx", "v_"))
+                        o.append("      unk_drop_entry(elems[i].unknown);")
                         o.append("#if AK_CXX17")
                         o.append("      dst.insert_or_assign(std::move(k_), std::move(v_));")
                         o.append("#else")
                         o.append("      dst[k_] = v_;")
                         o.append("#endif")
                         o.append("    }")
+                        o.append("    AK_REFILL();")
                         o.append("  AK_DGUARD_END")
                         o.append("}")
                         o.append("")
@@ -1203,6 +1379,7 @@ Tcs tcs_host() {
                                      " dst.push_back(%s::%s(elems[i]));" % (_ns(), iff.of))
                         else:
                             o.append("    for (int32_t i = 0; i < n; ++i) dst.push_back(elems[i]);")
+                        o.append("    AK_REFILL();")
                         o.append("  AK_DGUARD_END")
                         o.append("}")
                         o.append("")
@@ -1217,6 +1394,7 @@ Tcs tcs_host() {
                         o.append("    for (int32_t i = 0; i < n; ++i)")
                         o.append("      dst.push_back(from_%s(elems[i], s->base, ctx));"
                                  % snake(iet))
+                        o.append("    AK_REFILL();")
                         o.append("  AK_DGUARD_END")
                         o.append("}")
                         o.append("")
@@ -1225,14 +1403,14 @@ Tcs tcs_host() {
                             "decode inner slot %s.%s (%s %s)"
                             % (elem_ty, isn, iff.card, iff.kind))
 
-        o.append("int32_t decode_with_%s(ak_dec_ctx *ctx, const uint8_t *b, size_t n, %s *out) {"
-                 % (snake(root), root))
+        o.append("static int32_t decode_impl_%s(ak_dec_ctx *ctx, const uint8_t *b, size_t n, %s *out,"
+                 " void (*refill)(void *), void *hold) {" % (snake(root), root))
         o.append("  AK_INIT_OR_RETURN();")
         o.append("  Sink_%s sink;" % root)
         o.append("  sink.out = out;")
         o.append("  sink.base = b;")
-        if retain:
-            o.append("  sink.pending = NULL;")
+        o.append("  sink.refill = refill;")
+        o.append("  sink.hold = hold;")
         o.append("  struct ak_dvt_%s vt;" % root)
         o.append("  vt.apply = apply_%s;" % snake(root))
         for path, f in slots:
@@ -1250,8 +1428,14 @@ Tcs tcs_host() {
         o.append("  return ak_decode_%s(ctx, &sink, b, n, &vt);" % root)
         o.append("}")
         o.append("")
-        if retain:
-            _emit_decode_unk(ir, o, root)
+        o.append("// Decode with the context as it is armed: a context from")
+        o.append("// ak_dec_ctx_new_%s(NULL) (or last reset with NULL) drops every unknown field." % root)
+        o.append("int32_t decode_with_%s(ak_dec_ctx *ctx, const uint8_t *b, size_t n, %s *out) {"
+                 % (snake(root), root))
+        o.append("  return decode_impl_%s(ctx, b, n, out, NULL, NULL);" % snake(root))
+        o.append("}")
+        o.append("")
+        _emit_decode_unk(ir, o, root)
 
     o.append("}  // namespace ffi")
     o.append("}  // namespace %s" % ns)
@@ -1309,64 +1493,130 @@ def _emit_encode_unk(ir, o, root):
 
 
 def _emit_decode_unk(ir, o, root):
-    """`decode_with_<root>_unk`: the push decode with the capture callbacks set. Runs for
-    the root land in the root's bag; runs for element `token` of a repeated-message slot in
-    that element's bag. Map entries carry no bag (the facade's `std::map` has nowhere to
-    put one), so a map slot's runs are dropped -- `U-map-entry`, the same retention gap as
-    the rust binding; an inlined child's own unknowns are not delivered by the core (D34)."""
+    """Decision 11 (ABI v1, implementation rules of 2026-09-25) for one root: the options
+    (`ak_dec_<root>_opts`, rendered from `plan.unk_opts_layout`), the armed decode
+    (reset(&opts), decode, reset(NULL)), retain everywhere, the pre-allocated pools with
+    their refill, and the discard control's expected value (`unk_clear_*`). Delivery itself
+    is in `apply_*`/`fill_*`/`from_*` (every group's slot, every inlined child's, the active
+    oneof member's); a map entry has no facade bag (`U-map-entry`)."""
     rs = snake(root)
-    slots = loop_slots(ir, root)
-
-    # WP5 step 7 (decision 11): the `unknown` / `unk_<slot>` callbacks are gone from the
-    # ABI; unknown fields travel as data in the groups, configured by `ak_dec_<Root>_opts`.
-    # This backend does not render the options yet, so this entry point decodes in DROP
-    # mode (its context is never armed) and `pending` stays empty: a transitional state,
-    # to be replaced by the cpp slice rendering the options (see plan.py).
-    o.append("int32_t decode_with_%s_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, %s *out) {"
-             % (rs, root))
+    on = unk_opts_name(root)
+    lay = unk_opts_layout(ir, root)
+    o.append("// Decision 11: every position of `%s` backed by `unk_grow` (no pre-allocated" % root)
+    o.append("// buffer, a repeated position an empty pool), except position `zero` (plan")
+    o.append("// unk_positions order), left all zero: discarded there. zero < 0 = none.")
+    o.append("void unk_opts_%s(struct %s *o, int zero) {" % (rs, on))
+    o.append("  std::memset(o, 0, sizeof(*o));")
+    o.append("  o->host = NULL;")
+    for i, (mn, _m, _ty) in enumerate(lay):
+        o.append("  if (zero != %d) o->%s.grow = unk_grow;" % (i, mn))
+    o.append("}")
+    o.append("")
+    o.append("// The decode with the context armed with `opts`, read IN PLACE by the core until the")
+    o.append("// disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,")
+    o.append("// is called with `hold` after every element delivery (rule 1). Every buffer this")
+    o.append("// binding allocated and did not deliver is freed before return.")
+    o.append("int32_t decode_with_%s_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, %s *out,"
+             " struct %s *opts, void (*refill)(void *), void *hold) {" % (rs, root, on))
     o.append("  AK_INIT_OR_RETURN();")
-    o.append("  std::vector<AkPending> pending;")
-    o.append("  Sink_%s sink;" % root)
-    o.append("  sink.out = out;")
-    o.append("  sink.base = b;")
-    o.append("  sink.pending = &pending;")
-    o.append("  struct ak_dvt_%s vt;" % root)
-    o.append("  vt.apply = apply_%s;" % rs)
-    for path, f in slots:
-        sn = slot_name(path)
-        et = elem_type(f)
-        elem_ty = f.entry if f.card == "map" else et
-        if elem_ty is None or ir.msg(elem_ty).leaf:
-            o.append("  vt.add_%s = add_%s_%s;" % (sn, rs, sn))
-        else:
-            o.append("  vt.new_%s = new_%s_%s;" % (sn, rs, sn))
-            o.append("  vt.apply_%s = apply_%s_%s;" % (sn, rs, sn))
-            for ipath, _iff in loop_slots(ir, elem_ty):
-                isn = slot_name(ipath)
-                o.append("  vt.add_%s_%s = add_%s_%s_%s;" % (sn, isn, rs, sn, isn))
-    o.append("  int32_t rc = ak_decode_%s(ctx, &sink, b, n, &vt);" % root)
-    o.append("  if (rc < 0) return rc;")
-    o.append("  // Applied after the decode, not during it (see AkPending).")
-    o.append("  for (size_t i = 0; i < pending.size(); ++i) {")
-    o.append("    const AkPending &pd = pending[i];")
-    o.append("    switch (pd.slot) {")
-    o.append("      case 0: out->unknown_fields.append(pd.bytes); break;")
-    for si, (path, f) in enumerate(slots):
-        if not elem_type(f) or f.card == "map":
-            continue
-        conds, expr = [], "(*out)"
-        for comp in path[:-1]:
-            conds.append("%s.%s.has_value()" % (expr, comp))
-            expr = "(*%s.%s)" % (expr, comp)
-        vec = "%s.%s" % (expr, path[-1])
-        conds.append("pd.token >= 0 && (size_t)pd.token < %s.size()" % vec)
-        o.append("      case %d:" % (si + 1))
-        o.append("        if (%s) %s[(size_t)pd.token].unknown_fields.append(pd.bytes);"
-                 % (" && ".join(conds), vec))
-        o.append("        break;")
-    o.append("      default: break;")
-    o.append("    }")
-    o.append("  }")
+    o.append("  int32_t rc = ak_dec_reset_%s(ctx, opts);" % root)
+    o.append("  if (rc != AK_OK) return rc;")
+    o.append("  rc = decode_impl_%s(ctx, b, n, out, refill, hold);" % rs)
+    o.append("  int32_t rc2 = ak_dec_reset_%s(ctx, NULL);" % root)
+    o.append("  unk_reclaim();")
+    o.append("  if (rc >= 0 && rc2 != AK_OK) rc = rc2;")
     o.append("  return rc;")
     o.append("}")
     o.append("")
+    o.append("// Decision 11: retain everywhere (every position grows on demand).")
+    o.append("int32_t decode_with_%s_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, %s *out) {"
+             % (rs, root))
+    o.append("  struct %s opts;" % on)
+    o.append("  unk_opts_%s(&opts, -1);" % rs)
+    o.append("  return decode_with_%s_opts(ctx, b, n, out, &opts, NULL, NULL);" % rs)
+    o.append("}")
+    o.append("")
+    pools = [(i, mn) for i, (mn, _m, ty) in enumerate(lay) if ty == "ak_unk_pool"]
+    singles = [(i, mn) for i, (mn, _m, ty) in enumerate(lay) if ty != "ak_unk_pool"]
+    o.append("// Decision 11 rule 1, pre-allocated: every singular position gets one buffer of `cap`")
+    o.append("// bytes, every pool `k`, refilled in place after each delivery; `unk_grow` is the")
+    o.append("// fallback. Unconsumed buffers are freed by the decode's reclaim.")
+    o.append("struct UnkPool_%s {" % root)
+    o.append("  struct %s opts;" % on)
+    o.append("  std::vector<struct ak_unk_buf> bufs;")
+    o.append("  uint32_t k;")
+    o.append("  uint32_t cap;")
+    o.append("  uint64_t refills;")
+    o.append("};")
+    o.append("")
+    o.append("static void unk_refill_%s(void *hv) {" % rs)
+    o.append("  UnkPool_%s *h = (UnkPool_%s *)hv;" % (root, root))
+    o.append("  (void)h;")
+    for pi, (_i, mn) in enumerate(pools):
+        o.append("  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[%d * (size_t)h->k + j], h->cap, &h->refills);" % pi)
+    o.append("}")
+    o.append("")
+    o.append("int32_t decode_with_%s_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, %s *out,"
+             " uint32_t k, uint32_t cap, uint64_t *refills) {" % (rs, root))
+    o.append("  UnkPool_%s h;" % root)
+    o.append("  unk_opts_%s(&h.opts, -1);" % rs)
+    o.append("  h.k = k;")
+    o.append("  h.cap = cap;")
+    o.append("  h.refills = 0;")
+    o.append("  h.bufs.assign((size_t)%d * k, ak_unk_buf());" % len(pools))
+    o.append("  for (size_t i = 0; i < h.bufs.size(); ++i) { h.bufs[i].data = NULL; h.bufs[i].len = 0; h.bufs[i].cap = 0; }")
+    for pi, (_i, mn) in enumerate(pools):
+        o.append("  h.opts.%s.bufs = k ? &h.bufs[%d * (size_t)k] : NULL;" % (mn, pi))
+        o.append("  h.opts.%s.n = k;" % mn)
+    o.append("  uint64_t first = 0;")
+    for _i, mn in singles:
+        o.append("  unk_fill_buf(&h.opts.%s.buf, cap, &first);" % mn)
+    o.append("  unk_refill_%s(&h);" % rs)
+    o.append("  h.refills = 0;")
+    o.append("  int32_t rc = decode_with_%s_opts(ctx, b, n, out, &h.opts, unk_refill_%s, &h);"
+             % (rs, rs))
+    o.append("  if (refills) *refills = h.refills;")
+    o.append("  return rc;")
+    o.append("}")
+    o.append("")
+    # the discard control's expected value
+    o.append("// Decision 11 control: clear every facade bag at position `pos` (plan.unk_positions")
+    o.append("// order) -- what decoding with that position's entry zeroed must produce.")
+    o.append("void unk_clear_%s(%s &o, int pos) {" % (rs, root))
+    o.append("  switch (pos) {")
+    for i, (path, _m) in enumerate(unk_positions(ir, root)):
+        o.append("    case %d: { %s } break;" % (i, _clear_path(ir, root, "o", path, 0)))
+    o.append("    default: break;")
+    o.append("  }")
+    o.append("}")
+    o.append("")
+
+
+def _clear_path(ir, name, expr, path, depth):
+    if not path:
+        return "%s.unknown_fields.clear();" % expr
+    m = ir.msg(name)
+    key = path[0]
+    v = "x%d" % depth
+    if key in m.oneofs:
+        arms = []
+        for g in m.oneofs[key]:
+            if g.kind != "message":
+                continue
+            arms.append("if ((int)%s.%s.which() == %d) { %s &%s = %s.%s.mutable_%s(); %s }"
+                        % (expr, key, g.tag, g.of, v, expr, key, g.name,
+                           _clear_path(ir, g.of, v, path[1:], depth + 1)))
+        return " ".join(arms)
+    for f in m.fields:
+        if f.name != key or f.oneof:
+            continue
+        if f.card == "map":
+            return "/* a facade map entry has no bag */"
+        if f.card == "repeated":
+            return ("for (size_t i%d = 0; i%d < %s.%s.size(); ++i%d) { %s &%s = %s.%s[i%d]; %s }"
+                    % (depth, depth, expr, f.name, depth, f.of, v, expr, f.name, depth,
+                       _clear_path(ir, f.of, v, path[1:], depth + 1)))
+        return ("if (%s.%s.has_value()) { %s &%s = *%s.%s; %s }"
+                % (expr, f.name, f.of, v, expr, f.name,
+                   _clear_path(ir, f.of, v, path[1:], depth + 1)))
+    raise KeyError("%s: no field for position key %s" % (name, key))
