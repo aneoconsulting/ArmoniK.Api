@@ -19,7 +19,11 @@ name = "ak_core"
 crate-type = ["cdylib", "staticlib"]
 
 [features]
-default = []
+# WP5 step 10: decision 11's unknown-field support (capture, options, re-emission). OFF is
+# the NO-UNKNOWN variant, support compiled out (plan: THE NO-UNKNOWN VARIANT). A dependent
+# that turns it off must depend on ak-core AND ak-abi with `default-features = false`.
+default = ["unknown-fields"]
+unknown-fields = ["ak-abi/unknown-fields"]
 # README R5: the counting build. Propagated to ak-rt so the counters live in the contexts.
 count = ["ak-rt/count"]
 # ABI v1 open decision 3: the decode side's UTF-8 policy. Default is lossy, which is what a
@@ -44,7 +48,7 @@ corpus = ["ak-abi/corpus"]
 rpc = ["dep:rpc", "dep:tonic", "dep:tokio", "dep:bytes", "dep:http"]
 
 [dependencies]
-ak-abi = { path = "../ak-abi" }
+ak-abi = { path = "../ak-abi", default-features = false }
 ak-rt = { path = "../ak-rt" }
 simdutf8.workspace = true
 rpc = { path = "../rpc", optional = true }

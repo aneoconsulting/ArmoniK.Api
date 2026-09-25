@@ -72,9 +72,11 @@ echo "# the emitted core exists once"
 # by the same generator (`gen/generate.py`, one plan layer, one backend) for the corpus's
 # reader schema, behind the test-only `corpus` feature of ak-abi/ak-core (FIX-PLAN WP5
 # item 6.1). It lives inside codec/ and nowhere else, which is what this check guards;
-# a copy of it outside codec/ is still counted below.
+# a copy of it outside codec/ is still counted below. WP5 step 10: `generated_nounk/` and
+# `generated_corpus_nounk/` likewise: the no-unknown variant of the same core, from the
+# same generator, behind ak-abi/ak-core's `unknown-fields` feature.
 for f in codec.rs layout.rs abi.rs; do
-  hits=$(srcs "$f" | grep -v '/poc/codec/crates/[a-z-]*/src/generated_corpus/' | sort)
+  hits=$(srcs "$f" | grep -vE '/poc/codec/crates/[a-z-]*/src/generated_(corpus|nounk|corpus_nounk)/' | sort)
   n=$(printf '%s\n' "$hits" | grep -c .)
   if [ "$n" != 1 ]; then
     fail "$f exists in $n places:"; printf '%s\n' "$hits" | sed 's/^/           /'

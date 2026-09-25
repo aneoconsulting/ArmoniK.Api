@@ -17,7 +17,11 @@ pub mod generated {
     /// corpus's reader schema instead of `ffi/schema/shapes.json`, so the corpus can be
     /// run through the C ABI (FIX-PLAN WP5 item 6.1). It CHANGES the ABI, so it is only
     /// ever enabled by a build of its own (`poc/rust/corpus/`, its own workspace).
-    #[cfg_attr(feature = "corpus", path = "../generated_corpus/abi.rs")]
+    ///
+    /// WP5 step 10: without `unknown-fields`, the NO-UNKNOWN variant of the same ABI.
+    #[cfg_attr(all(feature = "corpus", feature = "unknown-fields"), path = "../generated_corpus/abi.rs")]
+    #[cfg_attr(all(feature = "corpus", not(feature = "unknown-fields")), path = "../generated_corpus_nounk/abi.rs")]
+    #[cfg_attr(all(not(feature = "corpus"), not(feature = "unknown-fields")), path = "../generated_nounk/abi.rs")]
     pub mod abi;
 }
 pub use generated::abi::*;

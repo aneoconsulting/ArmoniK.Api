@@ -50,7 +50,9 @@ pub mod rpc;
 pub mod generated {
     /// `corpus` (test-only): the codec generated for the conformance corpus's reader
     /// schema, from the same plan layer and the same backend (FIX-PLAN WP5 item 6.1).
-    #[cfg_attr(feature = "corpus", path = "../generated_corpus/codec.rs")]
+    #[cfg_attr(all(feature = "corpus", feature = "unknown-fields"), path = "../generated_corpus/codec.rs")]
+    #[cfg_attr(all(feature = "corpus", not(feature = "unknown-fields")), path = "../generated_corpus_nounk/codec.rs")]
+    #[cfg_attr(all(not(feature = "corpus"), not(feature = "unknown-fields")), path = "../generated_nounk/codec.rs")]
     pub mod codec;
     /// R-G5: the core's RPC definitions checked against the ONE declaration (`plan.rpc`).
     #[cfg(feature = "rpc")]
@@ -61,7 +63,9 @@ pub mod generated {
     /// host can compare it with what ITS compiler produced. The rust slice could not
     /// exercise this (both sides compiled against one header); here the two sides
     /// genuinely restate the layout, which is the case section 10 exists for.
-    #[cfg_attr(feature = "corpus", path = "../generated_corpus/layout.rs")]
+    #[cfg_attr(all(feature = "corpus", feature = "unknown-fields"), path = "../generated_corpus/layout.rs")]
+    #[cfg_attr(all(feature = "corpus", not(feature = "unknown-fields")), path = "../generated_corpus_nounk/layout.rs")]
+    #[cfg_attr(all(not(feature = "corpus"), not(feature = "unknown-fields")), path = "../generated_nounk/layout.rs")]
     pub mod layout;
 }
 
@@ -329,8 +333,10 @@ pub struct DecCtxImpl {
     pub root: u32,
     /// Rule 1: the host's options struct, read IN PLACE (never copied); NULL = drop mode.
     /// Its first word is the ONE host pointer handed to every grow.
+    #[cfg(feature = "unknown-fields")]
     pub unk_opts: *mut u8,
     /// One entry per position (plan.unk_positions order): a pointer into the host's struct.
+    #[cfg(feature = "unknown-fields")]
     pub unk: Vec<UnkPos>,
 }
 
@@ -412,7 +418,9 @@ pub(crate) fn dec_ctx_alloc(root: u32) -> *mut ak_dec_ctx {
         c: Default::default(),
         bdr: ak_rt::Bdr::new(),
         root,
+        #[cfg(feature = "unknown-fields")]
         unk_opts: core::ptr::null_mut(),
+        #[cfg(feature = "unknown-fields")]
         unk: Vec::new(),
     })) as *mut ak_dec_ctx
 }
@@ -1017,6 +1025,7 @@ pub(crate) unsafe fn enc_blob(cx: *mut EncCtxImpl, tag: u32, site: u32, s: &ak_s
 /// pointer to its entry IN THE HOST'S STRUCT (rule 1), an `ak_unk_opts` or, for a position
 /// that can occur more than once, an `ak_unk_pool`; `discard` is "the entry was all zero
 /// when armed".
+#[cfg(feature = "unknown-fields")]
 #[derive(Clone, Copy)]
 pub struct UnkPos {
     pub entry: *mut u8,
@@ -1026,12 +1035,14 @@ pub struct UnkPos {
 
 /// What a decoder carries for its message: the context and the message's position, or a
 /// NULL position (drop mode). Copy, two words.
+#[cfg(feature = "unknown-fields")]
 #[derive(Clone, Copy)]
 pub struct UnkCx {
     pub dcx: *mut DecCtxImpl,
     pub pos: *mut UnkPos,
 }
 
+#[cfg(feature = "unknown-fields")]
 impl UnkCx {
     /// The root's position, if this context is armed.
     #[inline(always)]
@@ -1051,11 +1062,13 @@ impl UnkCx {
     }
 }
 
+#[cfg(feature = "unknown-fields")]
 const NO_BUF: ak_unk_buf = ak_unk_buf { data: core::ptr::null_mut(), len: 0, cap: 0 };
 
 /// Arm a (bound) context from the host's struct, read in place; NULL = drop mode. `layout`
 /// is the root's (byte offset, is pool) per position, generated from the plan. Whether a
 /// position discards is decided HERE, from its entry as the host armed it.
+#[cfg(feature = "unknown-fields")]
 pub(crate) unsafe fn unk_arm(dcx: *mut DecCtxImpl, opts: *mut u8, layout: &[(usize, bool)]) {
     let cx = &mut *dcx;
     cx.unk.clear();
@@ -1085,6 +1098,7 @@ pub(crate) unsafe fn unk_arm(dcx: *mut DecCtxImpl, opts: *mut u8, layout: &[(usi
 
 /// Copy one unknown run of a message into that message's own buffer slot (plan: UNKNOWN
 /// FIELDS ON DECODE). Returns AK_OK or the error that fails the decode.
+#[cfg(feature = "unknown-fields")]
 #[inline(never)]
 pub(crate) unsafe fn unk_put(u: UnkCx, slot: &mut ak_unk_buf, run: &[u8]) -> i32 {
     let e = *u.pos;
@@ -1162,6 +1176,7 @@ pub(crate) unsafe fn unk_put(u: UnkCx, slot: &mut ak_unk_buf, run: &[u8]) -> i32
 /// decision 3 settled, `ak_tc_bytes` and `ak_tc_utf8_trusted` are already the same memcpy,
 /// so a transcoder here would be a pointer whose only legal value is the identity -- dead
 /// weight on every group of every message, and an invitation to set it wrong.
+#[cfg(feature = "unknown-fields")]
 #[inline]
 pub(crate) unsafe fn enc_raw(cx: *mut EncCtxImpl, s: &ak_blob) -> bool {
     if s.len == 0 {
