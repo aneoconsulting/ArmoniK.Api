@@ -256,17 +256,29 @@ public final class CampaignCodec {
       }
       if (!Arrays.equals(got, w))
         throw new IllegalStateException(id + "/" + cs + " " + a.name() + "/" + a.mode() + ": encoding differs");
-    } else if (!(a instanceof Pbj)) {
+    } else {
+      // Decode: compared with arm R's own reading of the same bytes, re-encoded, not with the
+      // bytes themselves -- P7.1 is interleaved on purpose and no writer reproduces it.
+      ref.pool = new Object[] {Arms.decodeR(id, new Dec(), w, 0, w.length)};
+      byte[] want = ref.once(id);
+      checkDecode(a, id, cs, w, want, ref);
+    }
+  }
+
+  static void checkDecode(CArm a, String id, int cs, byte[] w, byte[] want, HostGen ref) throws Exception {
+    if (!(a instanceof Pbj)) {
       Object x = a instanceof Ffi ? (((Ffi) a).pull ? FfiArms.parse(((Ffi) a).b, id, w, 0, w.length)
                                                     : FfiArms.decode(((Ffi) a).b, id, w, 0, w.length))
-          : Arms.decodeR(id, new Dec(), w, 0, w.length);
+          : ((HostGen) a).retain ? Arms.decodeRRetain(id, new Dec(), w, 0, w.length)
+                                 : Arms.decodeR(id, new Dec(), w, 0, w.length);
       ref.pool = new Object[] {x};
-      if (!Arrays.equals(ref.once(id), w))
+      if (!Arrays.equals(ref.once(id), want))
         throw new IllegalStateException(id + "/" + cs + " " + a.name() + ": decode does not round-trip");
     } else {
       Message m = PbArms.parseArray(id, w);
-      ref.pool = new Object[] {Arms.decodeR(id, new Dec(), m.toByteArray(), 0, m.getSerializedSize())};
-      if (!Arrays.equals(ref.once(id), w))
+      byte[] pb = m.toByteArray();
+      ref.pool = new Object[] {Arms.decodeR(id, new Dec(), pb, 0, pb.length)};
+      if (!Arrays.equals(ref.once(id), want))
         throw new IllegalStateException(id + "/" + cs + " " + a.name() + ": decode does not round-trip");
     }
   }

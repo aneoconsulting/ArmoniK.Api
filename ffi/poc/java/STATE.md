@@ -46,7 +46,7 @@ crossing counts, floor builds, corpus passes, feasibility and defects found.
 ## Campaign readiness (design/CAMPAIGN.md W11 draft, a10ac81) -- FIX-PLAN WP3
 
 The harness: `gen/run_campaign.sh --suite codec|rpc|calib|gate --out <dir>` over
-`ak.CampaignCodec`, `ak.CampaignRpc` (client and `--serve`), `ak.CampaignCalib` +
+`ak.CodecJmh` on JMH (req 22a; arms in `ak.CampaignCodec`), `ak.CampaignRpc` (client and `--serve`), `ak.CampaignCalib` +
 `probe/CampaignRev`, the gate (`gen/gate.sh`, `gen/corpus.sh`, crossing counts against
 `gen/campaign/counts.ref`). Smoke run (req 32): `logs/java/campaign-smoke/`, 1 launch, 1
 round, reduced iterations; **the committed copy has every figure stripped** (cpu_ns, wall_ns,
@@ -64,7 +64,7 @@ jit_ms replaced by "stripped"), so it shows structure and coverage and nothing e
 | 8 | arms | met: incumbent-prod (grpc-java `ProtoLiteUtils` marshaller, R14), incumbent-best (`toByteArray` / `parseFrom(byte[])`), core-ffi (push), core-ffi-pull (labelled extra), host-gen (arm R) |
 | 9 | encode, decode bare, decode + read all | met: `encode`, `decode`, `decode-read` (generated `Walk` / `PbWalk` read every field) |
 | 10 | drop and retain for core-ffi and host-gen | **pending decision 11 port**: host-gen drop and retain run (`Codec`, `CodecRetain`); core-ffi retain is wired as an `unknown_mode` hook and recorded as pending in a meta line, because the binding does not render decision 11's mechanism yet (being ported into poc/codec); incumbent: protobuf-java's default (retains) |
-| 11 | serialise once per iteration, fresh graph | met: a pool of `iters` freshly built objects per encode sample, untimed; same for the facade arms |
+| 11 | serialise once per iteration, fresh graph | met: a pool of `iters` freshly built objects per encode sample, built in JMH's untimed `@Setup(Level.Iteration)`; same for the facade arms |
 | 12 | cells A-D | met |
 | 13 | server separate process, pre-serialised | met: `--serve`, its own JVM on `AK_CPU_SERVER`; (a) the same pre-serialised P2.2 bytes; (b) parses with protobuf-java in every cell |
 | 14 | directions (a) and (b) | met; the optional streamed upload is not built |
@@ -74,14 +74,15 @@ jit_ms replaced by "stripped"), so it shows structure and coverage and nothing e
 | 18 | every call checked, abort | met: exception / non-OK aborts; response length checked (P2.2 in a, 0 in b); samples are written only if the run completes |
 | 19 | crossing counts gate | met: the gate diffs the counting build's rows against `gen/campaign/counts.ref` (94 rows, equal to wp5-counts.log) |
 | 20 | crossing cost, fwd and rev, perf stat | **partly met**: forward through the core's shim, JNI forward and JNI upcall (reverse) as JSON samples, the rust slice's crossing bench beside them; `perf stat` wraps each when `perf` exists -- not installed in this container, so cycles/instructions are unverified here |
-| 21 | CPU time, fine clock | met: codec thread CPU (ThreadMXBean, CLOCK_THREAD_CPUTIME_ID); RPC process CPU from `clock_gettime(CLOCK_PROCESS_CPUTIME_ID)` via rpc.c (not the JDK's `getProcessCpuTime`, which reads `times()`); wall beside it |
-| 22 | interleaved, rotated | met: codec arms rotated per round inside each (payload, content, dir); RPC cells rotated per round inside each (dir, inflight) |
-| 23 | >= 5 rounds, 3 launches, every round committed | met: `AK_ROUNDS` 5, `AK_LAUNCHES` 3 by default; one JSON line per round |
-| 24 | warm-up stated, both coder states | met: fixed warm-up samples per cell (codec 5, RPC 2), the JIT's cumulative compile time recorded after warm-up and per round; every codec launch runs twice, compact strings and `-XX:-CompactStrings` (`coder` field) |
+| 21 | CPU time, fine clock | met: codec -- JMH measures wall only, so the benchmark method reads the thread CPU clock (ThreadMXBean, CLOCK_THREAD_CPUTIME_ID) at its start and end and the converter joins it per iteration (the two reads sit inside JMH's timed region); RPC process CPU from `clock_gettime(CLOCK_PROCESS_CPUTIME_ID)` via rpc.c (not the JDK's `getProcessCpuTime`, which reads `times()`); wall beside it |
+| 22 | interleaved, rotated | met in blocks for codec (req 22a): JMH runs each cell in its own fork, rounds consecutively; the arm order inside each (payload, content, dir) block is rotated between launches. RPC: cells rotated per round inside each (dir, inflight) |
+| 23 | >= 5 rounds, 3 launches, every round committed | met: `AK_ROUNDS` 5 (JMH measurement iterations), `AK_LAUNCHES` 3 (one JMH invocation each, `-f 1`, i.e. one fork per cell per launch); every raw JMH iteration exported, JMH's JSON kept beside the lines |
+| 24 | warm-up stated, both coder states | met: codec -- JMH warm-up iterations per cell (`-wi`, 5; each in the cell's own fork, so every arm gets the same), recorded in a meta line per cell with the mode, forks, JVM and its arguments (tiered JIT, default thresholds); RPC 2 warm-up samples and the JIT's compile time per round; every codec launch runs twice, compact strings and `-XX:-CompactStrings` (`coder` field) |
+| 22a | codec suite on the ecosystem's framework (owner) | met: JMH 1.37 (`ak.CodecJmh`, `deps/jmh/pom.xml`), SingleShotTime, one iteration = one sample, Blackhole on the result sink, `-foe true` with the correctness check in the trial setup; RPC and calib stay on the runner (req 13 separate server, req 18 abort on any failed call) |
 | 25 | allocator warmed, GC stated | met: same warm-up for every arm, heap fixed (-Xms=-Xmx 4g), G1 on |
 | 26 | gate before timing | met: a timing suite runs only with a passed gate stamp for the build (run first if absent) |
 | 27 | header | met (see 2-6, transport, repeats); dirty tree refused for poc/java (poc/codec, schema and corpus enter only through the `git archive` snapshot) |
-| 28 | JSON lines body | met, the required fields plus `coder`, `delivery` (extra) and `{"meta":...}` lines |
+| 28 | JSON lines body | met, the required fields plus `coder`, `engine`, `delivery` (extra) and `{"meta":...}` lines; codec lines converted from JMH's rawData by `gen/jmh_to_jsonl.py` (a sample with no CPU reading is refused) |
 | 29 | logs to ffi/logs/campaign/java/ | **not met here by ownership**: `--out` takes any directory; the smoke log is committed under `logs/java/campaign-smoke/` because a slice writes `logs/<lang>/` only |
 | 30 | summaries | not produced (optional); the raw lines carry what section 8 needs |
 | 31 | runner interface, top-level campaign.sh | met for the slice runner; `ffi/campaign.sh` is the aggregating session's (not written here) |
