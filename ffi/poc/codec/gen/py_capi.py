@@ -31,8 +31,8 @@ Retention through the C ABI is not rendered here; the pure-Python codec renders 
 
 A backend: imports `plan` only.
 """
-from plan import (as_plan, direct_fields, elem_type, loop_slots, presence_bits,
-                  slot_name)
+from plan import (abi_order_topo, as_plan, direct_fields, elem_type, loop_slots, presence_bits,
+                  slot_name, unk_opts_layout, unk_opts_name, unk_positions)
 import cpp_layout
 
 CHUNK_BYTES = 32768   # ABI v1 sections 6 and 7.3: batched runs chunk at 32 KB.
@@ -103,8 +103,8 @@ def presence_bit(gp, owner, fname):
     return "AK_%sFIX_%s_PRESENT_%s" % (gp.upper(), owner.upper(), fname.upper())
 
 
-def chunk_macro(name):
-    return "CHUNK_%s" % name.upper()
+def chunk_macro(name, u=False):
+    return "CHUNK%s_%s" % ("U" if u else "", name.upper())
 
 
 def real_messages(p):
@@ -302,14 +302,19 @@ def tc(kind):
 
 # ------------------------------------------------------------------ encode: group fill
 
-def emit_fill(p, name, b):
+def emit_fill(p, name, b, u=False):
     """`fill_<b>_<M>`: the group of M from a facade object, into zeroed memory (ABI v1
     decision 9's sparse fill: the memset is the group's default). Loop-slot fields cross
     through the vtable. A singular child's group is inlined, and filled by the same
-    function (ABI v1 section 6)."""
+    function (ABI v1 section 6).
+
+    `u`: `fillu_<b>_<M>` fills the RETAIN group `ak_ufix_M` (decision 11: every group,
+    inlined children included, carries its own `unknown: ak_blob`, taken from the facade's
+    `_unknown` bytes and written by the core verbatim after the known fields)."""
     m = p.msg(name)
     bits = presence_bits(m)
-    L = ["static int fill_%s_%s(struct ak_efix_%s *e, PyObject *ob, HostCtx *h) {" % (b, name, name),
+    fn = "fillu" if u else "fill"
+    L = ["static int %s_%s_%s(struct ak_%sfix_%s *e, PyObject *ob, HostCtx *h) {" % (fn, b, name, "u" if u else "e", name),
          "  (void)h; (void)e; (void)ob;"]
     for f in m.plain:
         if f.card != "singular":
@@ -345,7 +350,7 @@ def emit_fill(p, name, b):
             L.append(read_obj(b, name, f.name, "v", "ob", "    "))
             L.append("    if (v != Py_None) {")
             L.append("      e->presence |= %s;" % presence_bit("e", name, f.name))
-            L.append("      if (fill_%s_%s(&e->%s, v, h)) { %s return -1; }" % (b, f.of, f.name, dec_v))
+            L.append("      if (%s_%s_%s(&e->%s, v, h)) { %s return -1; }" % (fn, b, f.of, f.name, dec_v))
             L.append("    }")
             L.append("    " + dec_v)
         elif f.presence == "explicit":
@@ -388,7 +393,7 @@ def emit_fill(p, name, b):
                 L.append("      if (mv == Py_None) { %s" % dec_mv)
                 L.append("        PyErr_SetString(PyExc_ValueError, \"%s.%s is selected but None\"); return -1; }"
                          % (name, g.name))
-                L.append("      if (fill_%s_%s(&e->%s, mv, h)) { %s return -1; }" % (b, g.of, gn, dec_mv))
+                L.append("      if (%s_%s_%s(&e->%s, mv, h)) { %s return -1; }" % (fn, b, g.of, gn, dec_mv))
                 L.append("      " + dec_mv)
             else:
                 L.append(read_scalar(b, name, ga, "mv", "ob", "      "))
@@ -400,6 +405,17 @@ def emit_fill(p, name, b):
                  " (long)cs); return -1;" % (name, oname))
         L.append("    }")
         L.append("  }")
+    if u:
+        ua = Attr(name, "_unknown", "bytes")
+        L.append("  { /* decision 11: this message's retained runs, written after its known fields */")
+        L.append(read_obj(b, name, "_unknown", "v", "ob", "    "))
+        L.append("    BUMP(C_READ);")
+        L.append("    char *up = NULL; Py_ssize_t ul = 0;")
+        L.append("    if (v != Py_None && PyBytes_AsStringAndSize(v, &up, &ul)) { if (own_v) Py_DECREF(v); return -1; }")
+        L.append("    if (ul) { e->unknown.data = up; e->unknown.len = (size_t)ul; }")
+        L.append("    if (own_v) Py_DECREF(v);")
+        L.append("  }")
+        del ua
     L.append("  return 0;\n}")
     return "\n".join(L)
 
@@ -435,15 +451,17 @@ def walk_path(p, owner, path, b, start, ind):
     return "\n".join(L), cur_owner
 
 
-def emit_loop(p, ctxkind, owner, path, f, b):
+def emit_loop(p, ctxkind, owner, path, f, b, u=False):
     """One encode loop callback, for slot `path` of vtable owner `owner`.
 
     ctxkind "R": `owner` is a root and the holder is `h->root`.
     ctxkind "E": `owner` is a non-leaf element type and the holder is element `token` of
     the element list the enclosing root loop left in `h->cur[0]`."""
     sn = slot_name(path)
-    L = ["static int32_t loop_%s_%s_%s(ak_enc_ctx *ctx, const void *obj, int64_t token) {"
-         % (b, ctx_name(ctxkind, owner), sn),
+    lp = "loopu" if u else "loop"
+    g = "u" if u else "e"
+    L = ["static int32_t %s_%s_%s_%s(ak_enc_ctx *ctx, const void *obj, int64_t token) {"
+         % (lp, b, ctx_name(ctxkind, owner), sn),
          "  (void)token;",
          "  HostCtx *h = (HostCtx *)obj;"]
     if ctxkind == "R":
@@ -467,9 +485,9 @@ def emit_loop(p, ctxkind, owner, path, f, b):
               # and the pure-Python codec and the Rust core-native control use it too.
               "  if (PyList_Sort(keys) < 0) { Py_DECREF(keys); rc = -1; goto out; }",
               "  Py_ssize_t n = PyList_Size(keys);",
-              "  struct ak_efix_%s chunk[%s];" % (f.entry, chunk_macro(f.entry)),
-              "  for (Py_ssize_t i = 0; i < n; i += %s) {" % chunk_macro(f.entry),
-              "    int32_t k = (int32_t)((n - i < %s) ? (n - i) : %s);" % (chunk_macro(f.entry), chunk_macro(f.entry)),
+              "  struct ak_%sfix_%s chunk[%s];" % (g, f.entry, chunk_macro(f.entry, u)),
+              "  for (Py_ssize_t i = 0; i < n; i += %s) {" % chunk_macro(f.entry, u),
+              "    int32_t k = (int32_t)((n - i < %s) ? (n - i) : %s);" % (chunk_macro(f.entry, u), chunk_macro(f.entry, u)),
               "    memset(chunk, 0, sizeof(chunk[0]) * (size_t)k);",
               "    for (int32_t j = 0; j < k; j++) {",
               "      BUMP(C_ITEM);",
@@ -488,7 +506,7 @@ def emit_loop(p, ctxkind, owner, path, f, b):
                      % (g.name, g.name, g.name, tc(g.kind)))
             L.append("      }")
         L += ["    }",
-              "    if (ak_elem_%s(ctx, chunk, k)) { Py_DECREF(keys); rc = -1; goto out; }" % f.entry,
+              "    if (ak_%selem_%s(ctx, chunk, k)) { Py_DECREF(keys); rc = -1; goto out; }" % ("u" if u else "", f.entry),
               "  }",
               "  Py_DECREF(keys);"]
         return "\n".join(L + tail)
@@ -554,27 +572,27 @@ def emit_loop(p, ctxkind, owner, path, f, b):
     leaf = p.msg(et).leaf
     if not leaf and ctxkind == "E":
         raise Unsupported("%s.%s: a non-leaf element inside a non-leaf element" % (owner, f.name))
-    L += ["  struct ak_efix_%s chunk[%s];" % (et, chunk_macro(et)),
+    L += ["  struct ak_%sfix_%s chunk[%s];" % (g, et, chunk_macro(et, u)),
           "  int64_t done = 0;"]
     if not leaf:
         # The element list, so the element's own loop slots can index it by token without
         # re-reading the attribute. Only a root loop sets it (non-leaf in non-leaf is refused).
         L.append("  h->cur[0] = lst;")
-    L += ["  for (Py_ssize_t i = 0; i < n; i += %s) {" % chunk_macro(et),
-          "    int32_t k = (int32_t)((n - i < %s) ? (n - i) : %s);" % (chunk_macro(et), chunk_macro(et)),
+    L += ["  for (Py_ssize_t i = 0; i < n; i += %s) {" % chunk_macro(et, u),
+          "    int32_t k = (int32_t)((n - i < %s) ? (n - i) : %s);" % (chunk_macro(et, u), chunk_macro(et, u)),
           "    /* ABI v1 decision 9: bulk clear once, then assign only what differs. */",
           "    memset(chunk, 0, sizeof(chunk[0]) * (size_t)k);",
           "    for (int32_t j = 0; j < k; j++) {",
           "      BUMP(C_ITEM);",
           "      PyObject *e = PyList_GetItem(lst, i + j);",
-          "      if (!e || fill_%s_%s(&chunk[j], e, h)) { rc = -1; goto out; }" % (b, et),
+          "      if (!e || %s_%s_%s(&chunk[j], e, h)) { rc = -1; goto out; }" % ("fillu" if u else "fill", b, et),
           "    }"]
     if leaf:
-        L.append("    if (ak_elem_%s(ctx, chunk, k)) { rc = -1; goto out; }" % et)
+        L.append("    if (ak_%selem_%s(ctx, chunk, k)) { rc = -1; goto out; }" % ("u" if u else "", et))
     else:
         L.append("    /* NOT a leaf: a token range, and each of the element's own containers is a")
         L.append("       reverse call per element (ABI v1 section 6). */")
-        L.append("    if (ak_elemu_%s(ctx, chunk, k, done)) { rc = -1; goto out; }" % et)
+        L.append("    if (ak_%selemu_%s(ctx, chunk, k, done)) { rc = -1; goto out; }" % ("u" if u else "", et))
     L += ["    done += k;",
           "  }"]
     if not leaf:
@@ -583,12 +601,19 @@ def emit_loop(p, ctxkind, owner, path, f, b):
     return "\n".join(L + tail)
 
 
-def evt_init(p, owner, ctxkind, b, evt_names):
-    """The designated initialiser of `struct ak_evt_<owner>`."""
+def has_groups(f):
+    """A loop slot whose run carries groups (a map's entries, a repeated message): its retain
+    variant differs (ufix groups, `ak_uelem*`); a blob or packed run is the same in both."""
+    return f.card == "map" or (f.card == "repeated" and f.kind == "message")
+
+
+def evt_init(p, owner, ctxkind, b, evt_names, u=False):
+    """The designated initialiser of `struct ak_evt_<owner>` (`u`: the retain family's)."""
     items = []
     for path, f in loop_slots(p, owner):
         sn = slot_name(path)
-        items.append(".loop_%s = loop_%s_%s_%s" % (sn, b, ctx_name(ctxkind, owner), sn))
+        lp = "loopu" if (u and has_groups(f)) else "loop"
+        items.append(".loop_%s = %s_%s_%s_%s" % (sn, lp, b, ctx_name(ctxkind, owner), sn))
         et = elem_type(f)
         if et and loop_slots(p, et):
             items.append(".elem_%s = &%s" % (sn, evt_names[et]))
@@ -596,18 +621,29 @@ def evt_init(p, owner, ctxkind, b, evt_names):
 
 
 def emit_encode_entry(p, root, b):
-    L = ["static PyObject *encode_%s_%s(PyObject *rootobj, PyObject *acc) {" % (b, root),
+    """`retain` selects the family: `ak_encode_R` over `ak_efix` groups (unknown fields
+    dropped) or `ak_uencode_R` over `ak_ufix` groups (each message's `_unknown` re-emitted)."""
+    d = ", h->direct, h->direct_len" if direct_fields(p, root) else ""
+    L = ["static PyObject *encode_%s_%s(PyObject *rootobj, PyObject *acc, int retain) {" % (b, root),
          "  HostCtx hs; memset(&hs, 0, sizeof hs);",
          "  hs.root = rootobj; hs.acc = acc;",
          "  HostCtx *h = &hs;",
-         "  struct ak_efix_%s fix;" % root,
-         "  memset(&fix, 0, sizeof fix);",
-         "  if (fill_%s_%s(&fix, rootobj, h)) return NULL;" % (b, root),
          "  static const struct ak_evt_%s VT = %s;" % (root, evt_init(p, root, "R", b, EVT_NAMES[b])),
+         "  static const struct ak_evt_%s VTU = %s;" % (root, evt_init(p, root, "R", b, EVTU_NAMES[b], True)),
          "  ak_enc_ctx *ctx = ak_enc_ctx_new();",
          "  if (!ctx) return PyErr_NoMemory();",
-         ("  intptr_t rc = ak_encode_%s(h, ctx, &VT, &fix, h->direct, h->direct_len);" % root)
-         if direct_fields(p, root) else ("  intptr_t rc = ak_encode_%s(h, ctx, &VT, &fix);" % root),
+         "  intptr_t rc;",
+         "  if (retain) {",
+         "    struct ak_ufix_%s fixu;" % root,
+         "    memset(&fixu, 0, sizeof fixu);",
+         "    if (fillu_%s_%s(&fixu, rootobj, h)) { ak_enc_ctx_free(ctx); return NULL; }" % (b, root),
+         "    rc = ak_uencode_%s(h, ctx, &VTU, &fixu%s);" % (root, d),
+         "  } else {",
+         "    struct ak_efix_%s fix;" % root,
+         "    memset(&fix, 0, sizeof fix);",
+         "    if (fill_%s_%s(&fix, rootobj, h)) { ak_enc_ctx_free(ctx); return NULL; }" % (b, root),
+         "    rc = ak_encode_%s(h, ctx, &VT, &fix%s);" % (root, d),
+         "  }",
          "  if (rc < 0) {",
          "    ak_enc_ctx_free(ctx);",
          "    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, \"ak_encode_%s returned %%ld\", (long)rc);" % root,
@@ -626,6 +662,7 @@ def emit_encode_entry(p, root, b):
 
 
 EVT_NAMES = {}
+EVTU_NAMES = {}
 
 
 # ------------------------------------------------------------------ decode
@@ -705,6 +742,8 @@ def emit_setgroup(p, name, b):
             L.append(code)
             L.append("      if (setgroup_%s_%s(h, cur, &e->%s)) { Py_DECREF(cur); return -1; }" % (b, f.of, f.name))
             L.append("      Py_DECREF(cur);")
+            L.append("    } else {")
+            L.append("      dropgroup_%s(h, &e->%s);   /* decision 11: an absent child's slots are the host's too */" % (f.of, f.name))
             L.append("    }")
         else:
             L.append(write_field(b, name, a, sp, "    "))
@@ -727,14 +766,49 @@ def emit_setgroup(p, name, b):
                 L.append("      Py_DECREF(cur);")
             else:
                 L.append(write_field(b, name, ga, "e->%s" % gn, "      "))
+            # Decision 11 rule 4: the oneof's one buffer sits in the ACTIVE message member's
+            # slot; every other member slot that is non-NULL (an emptied buffer left behind by
+            # a switch) is delivered with the group and freed here.
+            for g2 in members:
+                if g2.kind == "message" and g2 is not g:
+                    L.append("      dropgroup_%s(h, &e->%s_%s);" % (g2.of, oname, g2.name))
             L.append("      break; }")
-        L.append("    default: break;")
+        L.append("    default:")
+        for g2 in members:
+            if g2.kind == "message":
+                L.append("      dropgroup_%s(h, &e->%s_%s);" % (g2.of, oname, g2.name))
+        L.append("      break;")
         L.append("    }")
         # The discriminant LAST, so a watched facade never shows a case pointing at a member
         # that has not been written yet.
         L.append(write_field(b, name, ca, "e->%s_case" % oname, "    "))
         L.append("  }")
+    # Decision 11: this occurrence's own buffer passes to the host with the group; it becomes
+    # the facade's `_unknown` and is freed. NULL in drop mode, so drop pays one test.
+    ua = Attr(name, "_unknown", "bytes")
+    L.append("  if (e->unknown.data) {")
+    L.append("    PyObject *ub_ = PyBytes_FromStringAndSize((const char *)e->unknown.data, (Py_ssize_t)e->unknown.len);")
+    L.append("    ak_py_release(h, e->unknown.data);")
+    L.append(write_field(b, name, ua, "ub_", "    "))
+    L.append("  }")
     L.append("  return 0;\n}")
+    return "\n".join(L)
+
+
+def emit_dropgroup(p, name):
+    """Free every non-NULL unknown-field slot of a delivered group that has no facade object
+    to go to (an absent child, an inactive oneof member), depth first. Backend-independent."""
+    m = p.msg(name)
+    L = ["static inline void dropgroup_%s(HostCtx *h, const struct ak_dfix_%s *e) {" % (name, name),
+         "  if (e->unknown.data) ak_py_release(h, e->unknown.data);"]
+    for f in m.plain:
+        if f.card == "singular" and f.kind == "message":
+            L.append("  dropgroup_%s(h, &e->%s);" % (f.of, f.name))
+    for oname, members in m.oneofs.items():
+        for g in members:
+            if g.kind == "message":
+                L.append("  dropgroup_%s(h, &e->%s_%s);" % (g.of, oname, g.name))
+    L.append("}")
     return "\n".join(L)
 
 
@@ -749,6 +823,9 @@ def _append_run(p, f, b, owner_msg, ind, lstvar):
     et = elem_type(f)
     if f.card == "map":
         entry = p.msg(f.entry)
+        # Decision 11: a map entry is a message position, but the facade's dict has no bag for
+        # it, so its buffer is freed at delivery (the U-map-entry retention gap, disputed).
+        L.append(p_ + "for (int32_t i = 0; i < n; i++) if (elems[i].unknown.data) ak_py_release(h, elems[i].unknown.data);")
         L.append(p_ + "for (int32_t i = 0; i < n; i++) {")
         L.append(p_ + "  BUMP(C_READ); BUMP(C_READ); BUMP(C_ITEM);")
         kv = {}
@@ -909,7 +986,12 @@ def emit_root_decode(p, root, b):
               "  return 0;\n}"]
     lists = root_lists(p, root)
     free = " ".join("Py_DECREF(h.lists[%d]);" % i for i in range(len(lists)))
-    L += ["static PyObject *decode_%s_%s(PyObject *buf, PyObject *acc, HostTypes *T) {" % (b, root),
+    layout = unk_opts_layout(p, root)
+    if len(layout) > 64:
+        raise Unsupported("%s has %d unknown-field positions; the zero mask holds 64" % (root, len(layout)))
+    arm = ["    if (!(zero & (1ULL << %d))) o.%s.grow = ak_py_grow;" % (i, n) for i, (n, _m, _t) in enumerate(layout)]
+    L += ["static PyObject *decode_%s_%s(PyObject *buf, PyObject *acc, HostTypes *T, int retain,"
+          " unsigned long long zero) {" % (b, root),
           "  char *pp = NULL; Py_ssize_t blen = 0;",
           "  if (PyBytes_AsStringAndSize(buf, &pp, &blen)) return NULL;",
           "  PyObject *rootobj = AK_CALL0(T->ty_%s);" % root,
@@ -923,13 +1005,25 @@ def emit_root_decode(p, root, b):
         L.append("  h.lists[%d] = PyList_New(0);" % i)
         L.append("  if (!h.lists[%d]) { %s Py_DECREF(rootobj); return NULL; }" % (i, prev))
     L += ["  static const struct ak_dvt_%s VT = {%s};" % (root, ", ".join(vt)),
-          "  ak_dec_ctx *ctx = ak_dec_ctx_new();",
+          # Decision 11: the options live in THIS frame, unmoved, from the reset that arms them
+          # to the reset that disarms them; every armed position grows from ak_py_grow (no
+          # pre-allocated buffers). `zero` leaves chosen positions all-zero (discard there):
+          # the harness's zeroed-position control.
+          "  struct %s o;" % unk_opts_name(root),
+          "  memset(&o, 0, sizeof o);",
+          "  o.host = &h;",
+          "  if (retain) {"] + arm + ["  }",
+          "  ak_dec_ctx *ctx = ak_dec_ctx_new_%s(NULL);   /* bound to this root (rule 6) */" % root,
           "  if (!ctx) { %s Py_DECREF(rootobj); return PyErr_NoMemory(); }" % free,
-          "  int32_t rc = ak_decode_%s(ctx, &h, (const uint8_t *)pp, (size_t)blen, &VT);" % root,
+          "  int32_t rc = ak_dec_reset_%s(ctx, retain ? &o : NULL);   /* a reset per decode (rule 7) */" % root,
+          "  if (rc == 0) rc = ak_decode_%s(ctx, &h, (const uint8_t *)pp, (size_t)blen, &VT);" % root,
+          "  int32_t rr = ak_dec_reset_%s(ctx, NULL);   /* disarm: the core forgets &o */" % root,
+          "  if (rc == 0 && rr != 0) rc = rr;",
           "#ifdef AK_COUNT",
           "  { struct AkCounters c; ak_dec_counters(ctx, &c); CORE_ADD(CORE_DEC, c); }",
           "#endif",
           "  ak_dec_ctx_free(ctx);",
+          "  AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */",
           "  if (rc || h.failed) {",
           "    %s Py_DECREF(rootobj);" % free,
           "    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, \"ak_decode_%s returned %%d\", (int)rc);" % root,
@@ -944,6 +1038,56 @@ def emit_root_decode(p, root, b):
 
 
 FIRST_TYPE = [None]
+
+UNK_HELPERS = r'''/* ---- decision 11 (WP5 step 9): the host side of the unknown-field buffers --------------
+ * Every buffer the core fills comes from ak_py_grow (no pre-allocated buffers): a header in
+ * front of the bytes links it into the HostCtx's live list, so a buffer the host never gets
+ * back as a delivered slot (a failed decode, rule 3) is still freed, by ak_py_reclaim at the
+ * end of the decode. A delivered slot is released at delivery (ak_py_release). */
+struct ak_py_buf { struct ak_py_buf *prev, *next; };
+static unsigned long AK_LAST_RECLAIMED;
+
+static void ak_py_link(HostCtx *h, struct ak_py_buf *b) {
+  b->prev = NULL; b->next = h->live;
+  if (h->live) h->live->prev = b;
+  h->live = b;
+}
+
+static void ak_py_unlink(HostCtx *h, struct ak_py_buf *b) {
+  if (b->prev) b->prev->next = b->next; else h->live = b->next;
+  if (b->next) b->next->prev = b->prev;
+}
+
+/* ak_grow_fn: NULL/0 = a fresh buffer; otherwise realloc keeping the first *cap bytes. The
+ * capacity doubles, so a message with many runs grows O(log n) times. */
+static int32_t ak_py_grow(void *sink, int32_t want, uint8_t **dst, int32_t *cap) {
+  HostCtx *h = (HostCtx *)sink;
+  if (want <= 0) return AK_ERR_LIMIT;
+  int64_t n = *dst ? 2 * (int64_t)*cap : 64;
+  if (n < want) n = want;
+  if (n > INT32_MAX) n = want;
+  struct ak_py_buf *old = *dst ? ((struct ak_py_buf *)(void *)*dst) - 1 : NULL;
+  if (old) ak_py_unlink(h, old);
+  struct ak_py_buf *b = (struct ak_py_buf *)realloc(old, sizeof *b + (size_t)n);
+  if (!b) { if (old) ak_py_link(h, old); return AK_ERR_CAPACITY; }
+  ak_py_link(h, b);
+  *dst = (uint8_t *)(b + 1);
+  *cap = (int32_t)n;
+  return AK_OK;
+}
+
+static void ak_py_release(HostCtx *h, void *data) {
+  struct ak_py_buf *b = ((struct ak_py_buf *)data) - 1;
+  ak_py_unlink(h, b);
+  free(b);
+}
+
+static unsigned long ak_py_reclaim(HostCtx *h) {
+  unsigned long n = 0;
+  while (h->live) { struct ak_py_buf *b = h->live; h->live = b->next; free(b); n++; }
+  return n;
+}
+'''
 
 
 # ------------------------------------------------------------------ the whole file
@@ -1086,8 +1230,10 @@ def emit(x, modname="_akffi", backends=("attr", "cext", "pyacc")):
     L.append(emit_ctypes(p, names, modname))
     groups = set(names) | {n for n in p.messages if p.msg(n).synthetic}
     for name in sorted(groups):
-        L.append("#define %s ((int32_t)(AK_CHUNK_BYTES / sizeof(struct ak_efix_%s)) > 0 ? \\" % (chunk_macro(name), name))
-        L.append("                  (int32_t)(AK_CHUNK_BYTES / sizeof(struct ak_efix_%s)) : 1)" % name)
+        for u in (False, True):
+            g = "u" if u else "e"
+            L.append("#define %s ((int32_t)(AK_CHUNK_BYTES / sizeof(struct ak_%sfix_%s)) > 0 ? \\" % (chunk_macro(name, u), g, name))
+            L.append("                  (int32_t)(AK_CHUNK_BYTES / sizeof(struct ak_%sfix_%s)) : 1)" % (g, name))
     L.append("")
     keys = sorted({a.name for n in names for a in attrs(p.msg(n))})
     for k in keys:
@@ -1106,10 +1252,17 @@ def emit(x, modname="_akffi", backends=("attr", "cext", "pyacc")):
           "  PyObject *cur[1];    /* encode: the element list of the open non-leaf root slot */",
           "  int failed;",
           "  const uint8_t *direct;  /* ABI v1 section 8: the bulk field's bytes, */",
-          "  size_t direct_len;      /* passed BESIDE the group rather than in it. */"]
+          "  size_t direct_len;      /* passed BESIDE the group rather than in it. */",
+          "  struct ak_py_buf *live; /* decision 11: every unknown-field buffer ak_py_grow handed out */"]
     for n in names:
         L.append("  PyObject *ty_%s;" % n)
-    L += ["} HostCtx;", ""]
+    L += ["} HostCtx;", "", UNK_HELPERS, ""]
+    # Decision 11: the backend-independent release of a delivered group's slots that have no
+    # facade object (an absent child, an inactive oneof member).
+    for n in abi_order_topo(p):
+        if not p.msg(n).synthetic:
+            L.append(emit_dropgroup(p, n))
+    L.append("")
     L.append("static int intern_keys(void) {")
     for k in keys:
         L.append('  K_%s = PyUnicode_InternFromString("%s"); if (!K_%s) return -1;' % (k, k, k))
@@ -1154,23 +1307,31 @@ def emit(x, modname="_akffi", backends=("attr", "cext", "pyacc")):
                         need_setgroup(iet)
     for b in backends:
         EVT_NAMES[b] = {et: "EVT_%s_%s" % (b, et) for et in elem_ctx}
+        EVTU_NAMES[b] = {et: "EVTU_%s_%s" % (b, et) for et in elem_ctx}
         L.append("/* ===================== backend: %s ===================== */" % b)
         for n in names:
             if n in fill_needed:
                 L.append("static int fill_%s_%s(struct ak_efix_%s *, PyObject *, HostCtx *);" % (b, n, n))
+                L.append("static int fillu_%s_%s(struct ak_ufix_%s *, PyObject *, HostCtx *);" % (b, n, n))
             if n in setgroup_needed:
                 L.append("static int setgroup_%s_%s(HostCtx *, PyObject *, const struct ak_dfix_%s *);" % (b, n, n))
         L.append("")
         for n in names:
             if n in fill_needed:
                 L.append(emit_fill(p, n, b))
+                L.append(emit_fill(p, n, b, u=True))
         for et in elem_ctx:
             for path, f in loop_slots(p, et):
                 L.append(emit_loop(p, "E", et, path, f, b))
+                if has_groups(f):
+                    L.append(emit_loop(p, "E", et, path, f, b, u=True))
             L.append("static const struct ak_evt_%s %s = %s;" % (et, EVT_NAMES[b][et], evt_init(p, et, "E", b, EVT_NAMES[b])))
+            L.append("static const struct ak_evt_%s %s = %s;" % (et, EVTU_NAMES[b][et], evt_init(p, et, "E", b, EVTU_NAMES[b], True)))
         for r in p.roots:
             for path, f in loop_slots(p, r):
                 L.append(emit_loop(p, "R", r, path, f, b))
+                if has_groups(f):
+                    L.append(emit_loop(p, "R", r, path, f, b, u=True))
             L.append(emit_encode_entry(p, r, b))
         for n in names:
             if n in setgroup_needed:
@@ -1197,8 +1358,8 @@ def emit(x, modname="_akffi", backends=("attr", "cext", "pyacc")):
           "  }",
           "  return 0;\n}",
           ""]
-    L.append("typedef PyObject *(*ak_enc_f)(PyObject *, PyObject *);")
-    L.append("typedef PyObject *(*ak_dec_f)(PyObject *, PyObject *, HostTypes *);")
+    L.append("typedef PyObject *(*ak_enc_f)(PyObject *, PyObject *, int);")
+    L.append("typedef PyObject *(*ak_dec_f)(PyObject *, PyObject *, HostTypes *, int, unsigned long long);")
     L.append("#define AK_NBACKENDS %d" % len(backends))
     L.append("static const char *AK_BACKENDS[AK_NBACKENDS] = {%s};" % ", ".join('"%s"' % b for b in backends))
     L.append("#define AK_NROOTS %d" % len(p.roots))
@@ -1217,4 +1378,51 @@ def emit(x, modname="_akffi", backends=("attr", "cext", "pyacc")):
         L.append("  {%s}," % ", ".join("decode_%s_%s" % (b, r) for r in p.roots))
     L.append("};")
     L.append("")
+    L += emit_unk_tables(p)
     return "\n".join(L)
+
+
+def emit_unk_tables(p):
+    """Decision 11 facts the harness needs, and the wrong-root control.
+
+    AK_UNKPOS[root]: one "name|kind|path" string per position, in `unk_opts_layout` order
+    (the bit of the decode's `zero` mask), kind "msg" or "oneof", path the dotted field path
+    from the root ("" for the root itself); a oneof's path ends at the oneof's name.
+
+    ak_py_wrong_root(a, b): a context bound to root `a`, then `ak_dec_reset_<b>` and
+    `ak_decode_<b>` on it. Rule 6 says both are refused (AK_ERR_INVALID_STATE) and nothing
+    is delivered; returns the two codes and whether the trap `apply` ran."""
+    L = ["/* ---- decision 11: unknown-field positions, and the wrong-root control ---- */"]
+    for r in p.roots:
+        items = []
+        for (n, m, _t), (path, _mm) in zip(unk_opts_layout(p, r), unk_positions(p, r)):
+            items.append('"%s|%s|%s"' % (n, "oneof" if m == "oneof" else "msg", ".".join(path)))
+        L.append("static const char *AK_UNKPOS_%s[] = {%s, NULL};" % (r, ", ".join(items)))
+    L.append("static const char *const *AK_UNKPOS[AK_NROOTS] = {%s};" % ", ".join("AK_UNKPOS_%s" % r for r in p.roots))
+    L.append("static int AK_TRAP_DELIVERED;")
+    for r in p.roots:
+        L.append("static void trap_apply_%s(ak_dec_ctx *c, void *o, const struct ak_dfix_%s *f) {" % (r, r))
+        L.append("  (void)c; (void)o; (void)f; AK_TRAP_DELIVERED = 1;\n}")
+    L.append("static ak_dec_ctx *ak_py_ctx_new(int a) {")
+    L.append("  switch (a) {")
+    for i, r in enumerate(p.roots):
+        L.append("  case %d: return ak_dec_ctx_new_%s(NULL);" % (i, r))
+    L.append("  }")
+    L.append("  return NULL;\n}")
+    L.append("static void ak_py_wrong_root(int a, int b, int32_t *reset_rc, int32_t *decode_rc) {")
+    L.append("  ak_dec_ctx *ctx = ak_py_ctx_new(a);")
+    L.append("  AK_TRAP_DELIVERED = 0;")
+    L.append("  *reset_rc = *decode_rc = 0;")
+    L.append("  if (!ctx) return;")
+    L.append("  static const uint8_t empty[1] = {0};")
+    L.append("  switch (b) {")
+    for i, r in enumerate(p.roots):
+        L.append("  case %d: {" % i)
+        L.append("    static const struct ak_dvt_%s VT = {.apply = trap_apply_%s};" % (r, r))
+        L.append("    *reset_rc = ak_dec_reset_%s(ctx, NULL);" % r)
+        L.append("    *decode_rc = ak_decode_%s(ctx, NULL, empty, 0, &VT);" % r)
+        L.append("    break; }")
+    L.append("  }")
+    L.append("  ak_dec_ctx_free(ctx);\n}")
+    L.append("")
+    return L
