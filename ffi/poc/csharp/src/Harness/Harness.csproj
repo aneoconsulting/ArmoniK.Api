@@ -81,14 +81,22 @@
          entry points are identical and the transport is added, and the whole
          conformance and corpus gate is re-run against it. -->
     <None Include="../../target-core/release/libak_core.so"
-          Condition="Exists('../../target-core/release/libak_core.so')"
+          Condition="'$(AkNounk)' != 'true' And Exists('../../target-core/release/libak_core.so')"
           CopyToOutputDirectory="PreserveNewest" Link="libak_core.so" />
     <None Include="../../../codec/target/release/libak_core.so"
-          Condition="!Exists('../../target-core/release/libak_core.so') And Exists('../../../codec/target/release/libak_core.so')"
+          Condition="'$(AkNounk)' != 'true' And !Exists('../../target-core/release/libak_core.so') And Exists('../../../codec/target/release/libak_core.so')"
           CopyToOutputDirectory="PreserveNewest" Link="libak_core.so" />
   </ItemGroup>
 
 
+
+  <!-- WP5 step 10: the NO-UNKNOWN build loads the NO-UNKNOWN core (ak-core
+       with default features off, its own target dir), never the full one. -->
+  <ItemGroup Condition="'$(AkNounk)' == 'true'">
+    <None Include="../../target-core-nounk/release/libak_core.so"
+          Condition="Exists('../../target-core-nounk/release/libak_core.so')"
+          CopyToOutputDirectory="PreserveNewest" Link="libak_core.so" />
+  </ItemGroup>
 
   <!-- The corpus runner moved to ../Corpus (its own core build, the corpus feature). -->
   <ItemGroup>

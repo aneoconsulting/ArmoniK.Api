@@ -18,6 +18,8 @@
 //
 //   corpus [--only P1,P2] [--timeout-ms N]     the whole corpus: a verdict, exit 0/1
 //   corpus --row ID                             one row, one line per arm (the child)
+//   corpus --wrong-root                         rule 6 alone (both builds)
+//   corpus --variant                            the build's variant and the loaded core's
 //   corpus --unk-controls [--plant]             decision 11's controls (WP5 step 9), in process:
 //                                               per-position discard, pull == push, the wrong-
 //                                               root refusal; --plant skips the expectation's
@@ -46,7 +48,13 @@ namespace Armonik.Ffi.Corpus;
 
 public static class Program
 {
+#if AK_NO_UNKNOWN_FIELDS
+    // WP5 step 10: the NO-UNKNOWN build (unknown fields compiled out of the managed codec,
+    // the binding and the core): the retain arms do not exist in it.
+    private static readonly string[] Arms = { "managed-drop", "ffi-drop" };
+#else
     private static readonly string[] Arms = { "managed-drop", "managed-retain", "ffi-drop", "ffi-retain" };
+#endif
 
     /// `--manifest PATH`: a manifest in the corpus's format elsewhere (e.g. the oracle probe
     /// rows of poc/rust/gen/probe_corpus.py); children get the same.
@@ -75,6 +83,14 @@ public static class Program
             else if (argv[i] == "--only") only = argv[++i];
             else if (argv[i] == "--manifest") ManifestArg = argv[++i];
             else if (argv[i] == "--unk-controls") return UnkControls(argv.Contains("--plant"), only);
+            else if (argv[i] == "--wrong-root") return WrongRoot() ? 0 : 1;
+            else if (argv[i] == "--variant")
+            {
+                // WP5 step 10: which build this is, and whether the loaded core is the same one.
+                var why = AbiVariant.CheckLoadedCore();
+                Console.WriteLine("binding variant {0}; loaded core: {1}; ak_layout_facts: {2} facts in this binding", AbiVariant.Name, why ?? "the same variant", AbiLayout.FactCount);
+                return why == null ? 0 : 1;
+            }
             else if (argv[i] == "--timeout-ms") timeout = int.Parse(argv[++i], CultureInfo.InvariantCulture);
             else if (argv[i] == "--layout")
             {
@@ -91,6 +107,20 @@ public static class Program
     }
 
     // ============================================================== decision 11's controls
+
+    /// Rule 6 on this build: a context bound to one root refused by another's entry points.
+    /// The no-unknown build has no reset (int.MinValue = not applicable).
+    private static bool WrongRoot()
+    {
+        var w = Ffi.WrongRoot();
+        bool na = w.Reset == int.MinValue;
+        bool wrOk = w.Decode == Abi.AK_ERR_INVALID_STATE && w.Parse == Abi.AK_ERR_INVALID_STATE
+                    && (na || (w.Reset == Abi.AK_ERR_INVALID_STATE && w.OwnReset == 0)) && w.OwnParse >= 0;
+        Console.WriteLine("  wrong root ({0}): decode rc {1}, parse rc {2}, reset {3} (AK_ERR_INVALID_STATE = {4}); own root: reset {5}, parse {6}  {7}",
+            Ffi.WrongRootPair, w.Decode, w.Parse, na ? "n/a (no reset in this build)" : "rc " + w.Reset, Abi.AK_ERR_INVALID_STATE,
+            na ? "n/a" : w.OwnReset.ToString(CultureInfo.InvariantCulture), w.OwnParse, wrOk ? "PASS" : "FAIL");
+        return wrOk;
+    }
 
     private static int UnkControls(bool plant, string only)
     {
@@ -127,11 +157,7 @@ public static class Program
             rows, positions, withUnk, changed);
         Console.WriteLine("discard mismatches: {0} row(s); pull != push: {1} row(s); retained decode errors (incl. UNDELIVERED): {2}{3}",
             bad, pullBad, errors, plant ? "   [PLANTED: the expectation's clearing skipped]" : "");
-        var w = Ffi.WrongRoot();
-        bool wrOk = w.Decode == Abi.AK_ERR_INVALID_STATE && w.Parse == Abi.AK_ERR_INVALID_STATE && w.Reset == Abi.AK_ERR_INVALID_STATE
-                    && w.OwnReset == 0 && w.OwnParse >= 0;
-        Console.WriteLine("  wrong root ({0}): decode rc {1}, parse rc {2}, reset rc {3} (AK_ERR_INVALID_STATE = {4}); own root: reset {5}, parse {6}  {7}",
-            Ffi.WrongRootPair, w.Decode, w.Parse, w.Reset, Abi.AK_ERR_INVALID_STATE, w.OwnReset, w.OwnParse, wrOk ? "PASS" : "FAIL");
+        bool wrOk = WrongRoot();
         bool ok = bad == 0 && pullBad == 0 && errors == 0 && wrOk && rows > 0;
         Console.WriteLine(ok ? "UNK CONTROLS PASSED" : "UNK CONTROLS FAILED");
         return ok ? 0 : 1;
@@ -354,7 +380,8 @@ public static class Program
         public SortedDictionary<string, int[]> ByClass = new SortedDictionary<string, int[]>(StringComparer.Ordinal);
         public SortedDictionary<string, int> Forms = new SortedDictionary<string, int>(StringComparer.Ordinal);
         public SortedDictionary<string, int> Errs = new SortedDictionary<string, int>(StringComparer.Ordinal);
-        public List<string> Fails = new List<string>(), Disputes = new List<string>(), RetainGap = new List<string>();
+        public List<string> Fails = new List<string>(), Disputes = new List<string>(), RetainGap = new List<string>(), NotDropped = new List<string>();
+        public int Dropped;
     }
 
     private static int Parent(string only, int timeout)
@@ -412,6 +439,8 @@ public static class Program
                         if (err.Length != 0) { var k = System.Text.RegularExpressions.Regex.Replace(err, "^(\\w+ -?\\d+( \\(\\w+\\))?).*$", "$1"); t.Errs[k] = (t.Errs.TryGetValue(k, out var e) ? e : 0) + 1; }
                         if (arm.EndsWith("retain", StringComparison.Ordinal) && cls == "unknown" && form.Contains("dropped"))
                             t.RetainGap.Add(id);
+                        if (arm.EndsWith("drop", StringComparison.Ordinal) && form.Contains("dropped")) t.Dropped++;
+                        if (arm.EndsWith("drop", StringComparison.Ordinal) && form.Contains("retained")) t.NotDropped.Add(id);
                         break;
                     case "disputed": t.Disputed++; t.Disputes.Add(id + ": " + detail); break;
                     case "notinabi": t.NotInAbi++; break;
@@ -456,7 +485,21 @@ public static class Program
             Console.WriteLine("retain strict (AK_CORPUS_RETAIN_STRICT=1): {0}", gaps == 0 ? "no retain arm wrote the dropped form on a non-disputed row" : gaps + " gap(s): FAIL");
             if (gaps != 0) total += gaps;
         }
-        if (total == 0 && hard == 0) { Console.WriteLine("CORPUS PASSES on all four arms"); return 0; }
+        // AK_CORPUS_DROP_STRICT=1 (the no-unknown gate, WP5 step 10): every drop arm writes the
+        // DROPPED form wherever a row carries unknown fields; a retained form FAILS.
+        if (Environment.GetEnvironmentVariable("AK_CORPUS_DROP_STRICT") == "1")
+        {
+            int nd = 0;
+            foreach (var arm in Arms)
+                if (arm.EndsWith("drop", StringComparison.Ordinal) && tallies.TryGetValue(arm, out var tt))
+                {
+                    nd += tt.NotDropped.Count;
+                    Console.WriteLine("drop strict: {0} wrote the dropped form on {1} row(s), a retained form on {2}{3}", arm, tt.Dropped, tt.NotDropped.Count,
+                        tt.NotDropped.Count == 0 ? "" : ": " + string.Join(", ", tt.NotDropped.Take(12)));
+                }
+            if (nd != 0) total += nd;
+        }
+        if (total == 0 && hard == 0) { Console.WriteLine("CORPUS PASSES on all {0} arms", Arms.Length); return 0; }
         Console.WriteLine("CORPUS FAILS: {0} arm-row failure(s), {1} hang/crash row(s)", total, hard);
         return 1;
     }

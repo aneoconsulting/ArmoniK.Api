@@ -61,6 +61,10 @@ public static class CoreGate
         if (!string.IsNullOrEmpty(ce)) int.TryParse(ce, out chunk);
         bool utf16 = Environment.GetEnvironmentVariable("AK_UTF16") == "1";
 
+        // WP5 step 10: the binding's variant, and whether the loaded core is the same one.
+        var vwhy = AbiVariant.CheckLoadedCore();
+        Console.WriteLine("binding variant: {0}; loaded core: {1}", AbiVariant.Name, vwhy ?? "the same variant (checked by its u-family exports)");
+        if (vwhy != null) bad++;
         Console.WriteLine("core-ffi through the C ABI, every shape. Strings are handed over as {0}.",
             utf16 ? "the host's own UTF-16 with ak_tc_utf16 (AK_UTF16=1)"
                   : "staged UTF-8 with ak_tc_bytes");
@@ -126,6 +130,10 @@ public static class CoreGate
 
                 // Retain mode through the C ABI: ak_uencode_* with the (empty) bags, and
                 // the push decode with the capture callbacks installed. Same bytes.
+#if AK_NO_UNKNOWN_FIELDS
+                // WP5 step 10: this build has unknown fields compiled out: no retain path to check.
+                uret = "n/a";
+#else
                 try
                 {
                     var ue = arm.EncodeToArrayU();
@@ -136,6 +144,7 @@ public static class CoreGate
                 }
                 catch (Exception ex) { uret = "THREW " + ex.GetType().Name; }
                 if (uret != "ok") bad++;
+#endif
 
                 // Encode and decode counted on their own operations, so the
                 // per-direction figures are comparable with the other slices'.

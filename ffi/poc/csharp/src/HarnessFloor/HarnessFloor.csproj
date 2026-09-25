@@ -47,7 +47,7 @@
 
   <ItemGroup>
     <Compile Include="../Facade/**/*.cs" LinkBase="Facade"
-             Exclude="../Facade/obj/**;../Facade/bin/**;../Facade/obj-floor/**;../Facade/bin-floor/**;../Facade/obj-strict/**;../Facade/bin-strict/**" />
+             Exclude="../Facade/obj/**;../Facade/bin/**;../Facade/obj-floor/**;../Facade/bin-floor/**;../Facade/obj-strict/**;../Facade/bin-strict/**;../Facade/obj-nounk/**;../Facade/bin-nounk/**;../Facade/GeneratedNounk/**" />
     <!-- FIX-PLAN WP5 step 4: the generated P/Invoke binding (Generated/Abi.cs) IS
          compiled here: its imports carry DllImport under the #else of
          NET7_0_OR_GREATER, so net48 builds the same file net8.0 and net6.0 do.
@@ -58,7 +58,7 @@
          ONLY here: there is no .NET Framework (Windows) and no Mono in this
          container, so nothing in it is run (FIX-PLAN WP3 item 17). -->
     <Compile Include="../Harness/**/*.cs" LinkBase="Harness"
-             Exclude="../Harness/obj/**;../Harness/bin/**;../Harness/obj-floor/**;../Harness/bin-floor/**;../Harness/obj-strict/**;../Harness/bin-strict/**" />
+             Exclude="../Harness/obj/**;../Harness/bin/**;../Harness/obj-floor/**;../Harness/bin-floor/**;../Harness/obj-strict/**;../Harness/bin-strict/**;../Harness/obj-nounk/**;../Harness/bin-nounk/**;../Harness/GeneratedNounk/**" />
   </ItemGroup>
 
 </Project>

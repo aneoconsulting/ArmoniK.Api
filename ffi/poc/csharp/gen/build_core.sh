@@ -8,13 +8,17 @@
 #   target-core-count   --features rpc,count,init-guard    R5's counting build
 #   target-core-corpus  --features corpus,init-guard       the core generated for the corpus
 #                                                          reader schema (src/Corpus)
-#   abi/ probe          default and --features corpus      the Rust declaration's layout,
+#   target-core*-nounk  the same three with --no-default-features: the NO-UNKNOWN variant
+#                       (WP5 step 10; unknown fields compiled out), each in its own target dir
+#   abi/ probe          default, --features corpus, and both with --no-default-features:
+#                                                          the Rust declaration's layout,
 #                                                          JSON into target-core*/layout.json
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SLICE="$(cd "$HERE/.." && pwd)"
 REPO="$(git -C "$SLICE" rev-parse --show-toplevel)"
 SCRATCH="${SCRATCH:-$(mktemp -d)}"
+mkdir -p "$SCRATCH"
 SNAP="$SCRATCH/snap"
 rm -rf "$SNAP"; mkdir -p "$SNAP"
 ( cd "$REPO" && git archive HEAD ffi/poc/codec | tar -x -C "$SNAP" )
@@ -27,15 +31,26 @@ mkdir -p "$SNAP/ffi/poc/csharp"
 cp -r "$SLICE/abi" "$SNAP/ffi/poc/csharp/abi"
 rm -rf "$SNAP/ffi/poc/csharp/abi/target"
 echo "# rustc $(rustc --version | awk '{print $2}'), cargo $(cargo --version | awk '{print $2}')"
-build() {  # name features
+build() {  # name features [extra cargo flags]
   local dir="$SLICE/$1"
-  ( cd "$SNAP/ffi/poc/codec" && CARGO_TARGET_DIR="$dir" cargo build --release -q -p ak-core --features "$2" 2>"$SCRATCH/cargo.err" ) \
+  ( cd "$SNAP/ffi/poc/codec" && CARGO_TARGET_DIR="$dir" cargo build --release -q -p ak-core ${3:-} --features "$2" 2>"$SCRATCH/cargo.err" ) \
     || { cat "$SCRATCH/cargo.err"; exit 1; }
   echo "#   $1: --features $2 -> $(sha256sum "$dir/release/libak_core.so" | cut -c1-16) ($(nm -D --defined-only "$dir/release/libak_core.so" | grep -c ' T ak_') ak_* exports)"
 }
 build target-core "rpc,init-guard"
 build target-core-count "rpc,count,init-guard"
 build target-core-corpus "corpus,init-guard"
+# WP5 step 10: the NO-UNKNOWN variant (ak-core without its default `unknown-fields`), each
+# in its own target dir so it can never overwrite a full build's libak_core.so.
+build target-core-nounk "rpc,init-guard" --no-default-features
+build target-core-count-nounk "rpc,count,init-guard" --no-default-features
+build target-core-corpus-nounk "corpus,init-guard" --no-default-features
 ( cd "$SNAP/ffi/poc/csharp/abi" && CARGO_TARGET_DIR="$SLICE/target-probe" cargo run --release -q 2>"$SCRATCH/cargo.err" > "$SLICE/target-core/layout.json" ) || { cat "$SCRATCH/cargo.err"; exit 1; }
 ( cd "$SNAP/ffi/poc/csharp/abi" && CARGO_TARGET_DIR="$SLICE/target-probe-corpus" cargo run --release -q --features corpus 2>"$SCRATCH/cargo.err" > "$SLICE/target-core-corpus/layout.json" ) || { cat "$SCRATCH/cargo.err"; exit 1; }
+( cd "$SNAP/ffi/poc/csharp/abi" && CARGO_TARGET_DIR="$SLICE/target-probe-nounk" cargo run --release -q --no-default-features 2>"$SCRATCH/cargo.err" > "$SLICE/target-core-nounk/layout.json" ) || { cat "$SCRATCH/cargo.err"; exit 1; }
+( cd "$SNAP/ffi/poc/csharp/abi" && CARGO_TARGET_DIR="$SLICE/target-probe-corpus-nounk" cargo run --release -q --no-default-features --features corpus 2>"$SCRATCH/cargo.err" > "$SLICE/target-core-corpus-nounk/layout.json" ) || { cat "$SCRATCH/cargo.err"; exit 1; }
 echo "#   layout probe: $(grep -c '"size"' "$SLICE/target-core/layout.json") structs (shapes), $(grep -c '"size"' "$SLICE/target-core-corpus/layout.json") structs (corpus)"
+echo "#   layout probe, no-unknown: $(grep -c '"size"' "$SLICE/target-core-nounk/layout.json") structs (shapes), $(grep -c '"size"' "$SLICE/target-core-corpus-nounk/layout.json") structs (corpus)"
+for d in target-core target-core-nounk; do
+  echo "#   $d: $(nm -D --defined-only "$SLICE/$d/release/libak_core.so" | grep -c ' T ak_uencode_') ak_uencode_* exports"
+done

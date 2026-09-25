@@ -44,6 +44,9 @@ public static class Program
 
         // Requirement 26: byte identity of every timed encode arm, and every arm accepting
         // every unknown row, BEFORE anything is timed. Throws (exit non-zero) otherwise.
+        // WP5 step 10: the build's unknown-field variant, and the loaded core must be the same.
+        var vwhy = Armonik.Ffi.Harness.AbiVariant.CheckLoadedCore();
+        if (vwhy != null) { Console.Error.WriteLine("core variant mismatch: " + vwhy); return 3; }
         int checks = Cases.Verify();
         // Requirement 24, the tier: a process-level pre-warm before BDN starts. Every case of
         // this process is called 64 times per round, rounds 0.5 s apart, until a round causes
@@ -60,12 +63,17 @@ public static class Program
             "# engine:         BenchmarkDotNet " + typeof(BenchmarkRunner).Assembly.GetName().Version + " (CAMPAIGN.md 22a), toolchain InProcessEmit (this process, pinned by the runner)",
             "# runtime:        " + RuntimeInformation.FrameworkDescription + "; TieredCompilation=" + Env("DOTNET_TieredCompilation") + " TieredPGO=" + Env("DOTNET_TieredPGO") + " (net8.0 defaults unless set); GC server=" + GCSettings.IsServerGC + ", concurrent (default)",
             "# incumbent:      Google.Protobuf " + Ver(typeof(Google.Protobuf.MessageParser)),
+            "# build:          " + Armonik.Ffi.Harness.AbiVariant.Name + " (WP5 step 10; the loaded core checked to be the same variant by its u-family exports)",
             "# managed codec:  plan utf8=" + Armonik.Ffi.Facade.Codec.Utf8Policy + " unknown=" + Armonik.Ffi.Facade.Codec.UnknownMode,
             string.Format(CultureInfo.InvariantCulture, "# job:            launch {0}; {1} actual iterations (rounds) per case, {2} warm-up iterations (the same for every case) after BDN's jitting stage (1 overhead + 1 workload jitting invocation per case, logged by BDN in the .bdn.log, not exported) and pilot, iteration time {3} ms (the pilot picks the invocation count per case), strategy Throughput, EvaluateOverhead=false (no overhead subtraction anywhere)", launch, rounds, warm, itMs),
             "# clocks:         wall per iteration (BDN, Stopwatch; exported RAW, no outlier removal, no overhead subtraction); process CPU per case (getrusage(RUSAGE_SELF)) across BDN's BeforeActualRun..AfterActualRun = the actual stage including the GCs BDN forces between iterations (their pause time beside it), round 0; per-iteration and thread CPU are NOT available from BDN (no diagnoser or column gives them)",
             "# process unit:   " + (Cases.Unit ?? "all cases") + "; this launch's unit order: " + string.Join(", ", Cases.Units(launch)) + " (arms rotated by launch, modes within an arm too; requirement 22)",
             string.Format(CultureInfo.InvariantCulture, "# pre-warm:       {0} round(s) of 64 calls to every case of this process, 0.5 s apart, before BDN starts; the last round compiled {1} method(s) of measured code (JIT events read back)", prewarmRounds, lastRoundJits),
+#if AK_NO_UNKNOWN_FIELDS
+            "# correctness:    " + checks + " pre-timing checks passed (byte identity of every encode arm per payload and content set; every arm accepts every unknown row; on every unknown row core-ffi no-unknown and host-gen no-unknown re-encode to the same DROPPED form)",
+#else
             "# correctness:    " + checks + " pre-timing checks passed (byte identity of every encode arm per payload and content set; every arm accepts every unknown row; on every unknown row core-ffi retain and host-gen retain re-encode to the incumbent's bytes, i.e. the unknown fields are kept: requirement 10)",
+#endif
             "# cases:          " + ncases + " exported, after " + nprime + " prime case(s) run first and not exported (copies of the first cases, content \"prime\")",
         };
         File.AppendAllLines(outp, hdr);

@@ -13,6 +13,8 @@
 #
 #   cargo run --release                      the shapes ABI
 #   cargo run --release --features corpus    the corpus-schema ABI
+#   cargo run --release --no-default-features [--features corpus]
+#                                            the NO-UNKNOWN variant (WP5 step 10)
 [package]
 name = "ak-layout-probe"
 version = "0.1.0"
@@ -23,9 +25,11 @@ name = "ak-layout-probe"
 path = "src/main.rs"
 
 [features]
+default = ["unknown-fields"]
+unknown-fields = ["ak-abi/unknown-fields"]
 corpus = ["ak-abi/corpus"]
 
 [dependencies]
-ak-abi = { path = "../../codec/crates/ak-abi" }
+ak-abi = { path = "../../codec/crates/ak-abi", default-features = false }
 
 [workspace]

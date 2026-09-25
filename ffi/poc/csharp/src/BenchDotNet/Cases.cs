@@ -25,9 +25,18 @@ public static class Cases
     /// The arms in their launch-1 order; launch n rotates it by n - 1 (requirement 22).
     public static readonly string[] Arms = { "incumbent-prod", "incumbent-best", "host-gen", "core-ffi", "core-ffi-pull" };
 
+#if AK_NO_UNKNOWN_FIELDS
+    // WP5 step 10: the NO-UNKNOWN build (unknown fields compiled out of the core, the
+    // binding and the managed codec, which is rendered from the drop plan: host-gen here is
+    // plan-generated too). Mode `no-unknown`; the incumbent arms are the in-process controls.
+    private static readonly string[] EncArms = { "incumbent-prod:default", "incumbent-best:default", "host-gen:no-unknown", "core-ffi:no-unknown" };
+    private static readonly string[] DecArms = { "incumbent-prod:default", "incumbent-best:default", "host-gen:no-unknown", "core-ffi:no-unknown", "core-ffi-pull:no-unknown" };
+    private static readonly string[] UnkArms = { "incumbent-prod:default", "host-gen:no-unknown", "core-ffi:no-unknown" };
+#else
     private static readonly string[] EncArms = { "incumbent-prod:default", "incumbent-best:default", "host-gen:drop", "host-gen:retain", "core-ffi:drop", "core-ffi:retain" };
     private static readonly string[] DecArms = { "incumbent-prod:default", "incumbent-best:default", "host-gen:drop", "host-gen:retain", "core-ffi:drop", "core-ffi:retain", "core-ffi-pull:drop" };
     private static readonly string[] UnkArms = { "incumbent-prod:default", "host-gen:drop", "host-gen:retain", "core-ffi:drop", "core-ffi:retain" };
+#endif
 
     /// The process unit (JOURNAL 51): one process per "arm:mode", so each process holds at
     /// most a few hundred cases. BDN keeps tens of kB per case alive for the whole run, and
@@ -144,7 +153,9 @@ public static class Cases
                 ops.EncHost(ref e);
                 Same(e.ToArray(), wire, pid + " host-gen");
                 Same(ops.EncFfiBytes(false), wire, pid + " core-ffi drop");
+#if !AK_NO_UNKNOWN_FIELDS
                 Same(ops.EncFfiBytes(true), wire, pid + " core-ffi retain");
+#endif
                 var w = new BufWriter(wire.Length + 4096);
                 ops.EncIncProd(w);
                 Same(w.WrittenSpan.ToArray(), wire, pid + " incumbent-prod");
@@ -155,6 +166,13 @@ public static class Cases
         foreach (var id in UnknownRows())
         {
             var (ops, b) = Row(id);
+#if AK_NO_UNKNOWN_FIELDS
+            // The no-unknown build: every arm accepts the row, and host-gen and core-ffi both
+            // re-encode it in the DROPPED form, the same bytes.
+            ops.DecIncBest(b, b.Length, true); ops.DecHost(b, b.Length, false, true); ops.DecFfi(b, b.Length, false, true);
+            Same(ops.RtFfi(b, b.Length, false), ops.RtHost(b, b.Length, false), id + " core-ffi no-unknown vs host-gen no-unknown (decode-reencode, dropped form)");
+            n += 4;
+#else
             ops.DecIncBest(b, b.Length, true); ops.DecHost(b, b.Length, false, true); ops.DecHost(b, b.Length, true, true);
             ops.DecFfi(b, b.Length, false, true); ops.DecFfi(b, b.Length, true, true);
             n += 5;
@@ -167,6 +185,7 @@ public static class Cases
             Same(ops.RtFfi(b, b.Length, true), ops.RtHost(b, b.Length, true), id + " core-ffi retain vs host-gen retain (decode-reencode)");
             Same(ops.RtFfi(b, b.Length, true), inc, id + " core-ffi retain vs incumbent (decode-reencode)");
             n += 2;
+#endif
         }
         return n;
     }

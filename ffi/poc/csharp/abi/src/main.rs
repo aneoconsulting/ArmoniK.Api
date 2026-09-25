@@ -5,7 +5,8 @@
 //! lays it out: size, alignment, and every member's name, offset and size, as JSON on stdout.
 //! The struct and member lists were parsed out of the Rust source text, not taken from any
 //! plan, so this is not derived from the list the C# declaration was rendered from (R-E6).
-//! Build with `--features corpus` for the corpus-schema ABI.
+//! Build with `--features corpus` for the corpus-schema ABI, and with
+//! `--no-default-features` for the NO-UNKNOWN variant (WP5 step 10).
 #![allow(unused_unsafe)]
 use ak_abi::*;
 use core::mem::{align_of, offset_of, size_of, MaybeUninit};
@@ -37,7 +38,7 @@ macro_rules! lay {
     }};
 }
 
-#[cfg(not(feature = "corpus"))]
+#[cfg(all(not(feature = "corpus"), feature = "unknown-fields"))]
 fn all(out: &mut Vec<String>) {
     lay!(out, ak_str, [data, len, tc]);
     lay!(out, ak_span, [off, len, coder]);
@@ -150,7 +151,7 @@ fn all(out: &mut Vec<String>) {
     lay!(out, ak_dec_DualResponse_opts, [host, self_, left, right]);
 }
 
-#[cfg(feature = "corpus")]
+#[cfg(all(feature = "corpus", feature = "unknown-fields"))]
 fn all(out: &mut Vec<String>) {
     lay!(out, ak_str, [data, len, tc]);
     lay!(out, ak_span, [off, len, coder]);
@@ -355,6 +356,238 @@ fn all(out: &mut Vec<String>) {
     lay!(out, ak_dec_Surrogate_opts, [host, self_, nested, attrs]);
     lay!(out, ak_dec_SurrogateInner_opts, [host, self_]);
     lay!(out, ak_dec_WireZoo_opts, [host, self_, v_msg]);
+}
+
+#[cfg(all(not(feature = "corpus"), not(feature = "unknown-fields")))]
+fn all(out: &mut Vec<String>) {
+    lay!(out, ak_str, [data, len, tc]);
+    lay!(out, ak_span, [off, len, coder]);
+    lay!(out, ak_blob, [data, len]);
+    lay!(out, ak_unk_buf, [data, len, cap]);
+    lay!(out, ak_unk_opts, [buf, grow]);
+    lay!(out, ak_unk_pool, [bufs, n, grow]);
+    lay!(out, ak_err, [code, detail]);
+    lay!(out, ak_init_opts, [abi_version, flags, log, log_ctx]);
+    lay!(out, AkCounters, [forward, reverse, transcode, prefix_moves, prefix_bytes, grows]);
+    lay!(out, ak_bdr_rec, [op, slot, token, n, bytes]);
+    lay!(out, ak_bytes, [ptr, len, owner]);
+    lay!(out, ak_completion, [tag, status, bytes]);
+    lay!(out, ak_client_opts, [stream_window, connection_window, adaptive_window, max_recv_message, max_send_message, tcp_nagle]);
+    lay!(out, ak_rpc_counters, [forward, reverse]);
+    lay!(out, ak_efix_TaskOptionsOptionsEntry, [key, value, presence]);
+    lay!(out, ak_dfix_TaskOptionsOptionsEntry, [key, value, presence]);
+    lay!(out, ak_efix_Timestamp, [seconds, nanos, presence]);
+    lay!(out, ak_dfix_Timestamp, [seconds, nanos, presence]);
+    lay!(out, ak_efix_Duration, [seconds, nanos, presence]);
+    lay!(out, ak_dfix_Duration, [seconds, nanos, presence]);
+    lay!(out, ak_efix_ResultRaw, [session_id, name, owner_task_id, status, created_at, completed_at, result_id, size, created_by, opaque_id, manual_deletion, presence]);
+    lay!(out, ak_dfix_ResultRaw, [session_id, name, owner_task_id, status, created_at, completed_at, result_id, size, created_by, opaque_id, manual_deletion, presence]);
+    lay!(out, ak_efix_TaskOptions, [max_duration, max_retries, priority, partition_id, application_name, application_version, application_namespace, application_service, engine_type, presence]);
+    lay!(out, ak_dfix_TaskOptions, [max_duration, max_retries, priority, partition_id, application_name, application_version, application_namespace, application_service, engine_type, presence]);
+    lay!(out, ak_efix_TaskOutput, [success, error, presence]);
+    lay!(out, ak_dfix_TaskOutput, [success, error, presence]);
+    lay!(out, ak_efix_TaskDetailed, [id, session_id, owner_pod_id, status, status_message, options, created_at, submitted_at, started_at, ended_at, pod_ttl, output, pod_hostname, received_at, acquired_at, creation_to_end_duration, processing_to_end_duration, initial_task_id, received_to_end_duration, processed_at, fetched_at, payload_id, created_by, presence]);
+    lay!(out, ak_dfix_TaskDetailed, [id, session_id, owner_pod_id, status, status_message, options, created_at, submitted_at, started_at, ended_at, pod_ttl, output, pod_hostname, received_at, acquired_at, creation_to_end_duration, processing_to_end_duration, initial_task_id, received_to_end_duration, processed_at, fetched_at, payload_id, created_by, presence]);
+    lay!(out, ak_efix_TaskSummary, [id, session_id, options, status, created_at, error, status_message, count_data_dependencies, presence]);
+    lay!(out, ak_dfix_TaskSummary, [id, session_id, options, status, created_at, error, status_message, count_data_dependencies, presence]);
+    lay!(out, ak_efix_Probe, [id, opt_count, opt_label, opt_flag, body_case, body_as_int, body_as_text, body_as_blob, body_as_stamp, body_as_nothing, presence]);
+    lay!(out, ak_dfix_Probe, [id, opt_count, opt_label, opt_flag, body_case, body_as_int, body_as_text, body_as_blob, body_as_stamp, body_as_nothing, presence]);
+    lay!(out, ak_efix_Empty, [presence]);
+    lay!(out, ak_dfix_Empty, [presence]);
+    lay!(out, ak_efix_UploadResultData, [session_id, result_id, data_chunk, presence]);
+    lay!(out, ak_dfix_UploadResultData, [session_id, result_id, data_chunk, presence]);
+    lay!(out, ak_efix_MetricsBatch, [id, presence]);
+    lay!(out, ak_dfix_MetricsBatch, [id, presence]);
+    lay!(out, ak_efix_Pair, [key, value, presence]);
+    lay!(out, ak_dfix_Pair, [key, value, presence]);
+    lay!(out, ak_efix_ListResultsResponse, [page, total, presence]);
+    lay!(out, ak_dfix_ListResultsResponse, [page, total, presence]);
+    lay!(out, ak_efix_ListTasksDetailedResponse, [page, total, presence]);
+    lay!(out, ak_dfix_ListTasksDetailedResponse, [page, total, presence]);
+    lay!(out, ak_efix_ListTaskSummaryResponse, [presence]);
+    lay!(out, ak_dfix_ListTaskSummaryResponse, [presence]);
+    lay!(out, ak_efix_ListProbeResponse, [presence]);
+    lay!(out, ak_dfix_ListProbeResponse, [presence]);
+    lay!(out, ak_efix_ListMetricsResponse, [presence]);
+    lay!(out, ak_dfix_ListMetricsResponse, [presence]);
+    lay!(out, ak_efix_UploadResultDataMessage, [upload, presence]);
+    lay!(out, ak_dfix_UploadResultDataMessage, [upload, presence]);
+    lay!(out, ak_efix_DualResponse, [presence]);
+    lay!(out, ak_dfix_DualResponse, [presence]);
+    lay!(out, ak_evt_ListResultsResponse, [loop_results]);
+    lay!(out, ak_dvt_ListResultsResponse, [apply, add_results]);
+    lay!(out, ak_evt_ListTasksDetailedResponse, [loop_tasks, elem_tasks]);
+    lay!(out, ak_dvt_ListTasksDetailedResponse, [apply, new_tasks, apply_tasks, add_tasks_parent_task_ids, add_tasks_data_dependencies, add_tasks_expected_output_ids, add_tasks_retry_of_ids, add_tasks_options_options]);
+    lay!(out, ak_evt_ListProbeResponse, [loop_probes]);
+    lay!(out, ak_dvt_ListProbeResponse, [apply, add_probes]);
+    lay!(out, ak_evt_ListTaskSummaryResponse, [loop_tasks, elem_tasks]);
+    lay!(out, ak_dvt_ListTaskSummaryResponse, [apply, new_tasks, apply_tasks, add_tasks_options_options]);
+    lay!(out, ak_evt_UploadResultDataMessage, [_reserved]);
+    lay!(out, ak_dvt_UploadResultDataMessage, [apply]);
+    lay!(out, ak_evt_ListMetricsResponse, [loop_batches, elem_batches]);
+    lay!(out, ak_dvt_ListMetricsResponse, [apply, new_batches, apply_batches, add_batches_ticks, add_batches_values, add_batches_codes, add_batches_flags, add_batches_statuses]);
+    lay!(out, ak_evt_DualResponse, [loop_left, loop_right]);
+    lay!(out, ak_dvt_DualResponse, [apply, add_left, add_right]);
+    lay!(out, ak_evt_TaskOptionsOptionsEntry, [_reserved]);
+    lay!(out, ak_dvt_TaskOptionsOptionsEntry, [apply]);
+    lay!(out, ak_evt_ResultRaw, [_reserved]);
+    lay!(out, ak_dvt_ResultRaw, [apply]);
+    lay!(out, ak_evt_TaskDetailed, [loop_parent_task_ids, loop_data_dependencies, loop_expected_output_ids, loop_retry_of_ids, loop_options_options]);
+    lay!(out, ak_dvt_TaskDetailed, [apply, add_parent_task_ids, add_data_dependencies, add_expected_output_ids, add_retry_of_ids, add_options_options]);
+    lay!(out, ak_evt_TaskSummary, [loop_options_options]);
+    lay!(out, ak_dvt_TaskSummary, [apply, add_options_options]);
+    lay!(out, ak_evt_Probe, [_reserved]);
+    lay!(out, ak_dvt_Probe, [apply]);
+    lay!(out, ak_evt_MetricsBatch, [loop_ticks, loop_values, loop_codes, loop_flags, loop_statuses]);
+    lay!(out, ak_dvt_MetricsBatch, [apply, add_ticks, add_values, add_codes, add_flags, add_statuses]);
+    lay!(out, ak_evt_Pair, [_reserved]);
+    lay!(out, ak_dvt_Pair, [apply]);
+}
+
+#[cfg(all(feature = "corpus", not(feature = "unknown-fields")))]
+fn all(out: &mut Vec<String>) {
+    lay!(out, ak_str, [data, len, tc]);
+    lay!(out, ak_span, [off, len, coder]);
+    lay!(out, ak_blob, [data, len]);
+    lay!(out, ak_unk_buf, [data, len, cap]);
+    lay!(out, ak_unk_opts, [buf, grow]);
+    lay!(out, ak_unk_pool, [bufs, n, grow]);
+    lay!(out, ak_err, [code, detail]);
+    lay!(out, ak_init_opts, [abi_version, flags, log, log_ctx]);
+    lay!(out, AkCounters, [forward, reverse, transcode, prefix_moves, prefix_bytes, grows]);
+    lay!(out, ak_bdr_rec, [op, slot, token, n, bytes]);
+    lay!(out, ak_bytes, [ptr, len, owner]);
+    lay!(out, ak_completion, [tag, status, bytes]);
+    lay!(out, ak_client_opts, [stream_window, connection_window, adaptive_window, max_recv_message, max_send_message, tcp_nagle]);
+    lay!(out, ak_rpc_counters, [forward, reverse]);
+    lay!(out, ak_efix_TaskOptionsOptionsEntry, [key, value, presence]);
+    lay!(out, ak_dfix_TaskOptionsOptionsEntry, [key, value, presence]);
+    lay!(out, ak_efix_ChunkElementAttrsEntry, [key, value, presence]);
+    lay!(out, ak_dfix_ChunkElementAttrsEntry, [key, value, presence]);
+    lay!(out, ak_efix_SurrogateAttrsEntry, [key, value, presence]);
+    lay!(out, ak_dfix_SurrogateAttrsEntry, [key, value, presence]);
+    lay!(out, ak_efix_Timestamp, [seconds, nanos, presence]);
+    lay!(out, ak_dfix_Timestamp, [seconds, nanos, presence]);
+    lay!(out, ak_efix_Duration, [seconds, nanos, presence]);
+    lay!(out, ak_dfix_Duration, [seconds, nanos, presence]);
+    lay!(out, ak_efix_ResultRaw, [session_id, name, owner_task_id, status, created_at, completed_at, result_id, size, created_by, opaque_id, manual_deletion, presence]);
+    lay!(out, ak_dfix_ResultRaw, [session_id, name, owner_task_id, status, created_at, completed_at, result_id, size, created_by, opaque_id, manual_deletion, presence]);
+    lay!(out, ak_efix_TaskOptions, [max_duration, max_retries, priority, partition_id, application_name, application_version, application_namespace, application_service, engine_type, presence]);
+    lay!(out, ak_dfix_TaskOptions, [max_duration, max_retries, priority, partition_id, application_name, application_version, application_namespace, application_service, engine_type, presence]);
+    lay!(out, ak_efix_TaskOutput, [success, error, presence]);
+    lay!(out, ak_dfix_TaskOutput, [success, error, presence]);
+    lay!(out, ak_efix_TaskDetailed, [id, session_id, owner_pod_id, status, status_message, options, created_at, submitted_at, started_at, ended_at, pod_ttl, output, pod_hostname, received_at, acquired_at, creation_to_end_duration, processing_to_end_duration, initial_task_id, received_to_end_duration, processed_at, fetched_at, payload_id, created_by, presence]);
+    lay!(out, ak_dfix_TaskDetailed, [id, session_id, owner_pod_id, status, status_message, options, created_at, submitted_at, started_at, ended_at, pod_ttl, output, pod_hostname, received_at, acquired_at, creation_to_end_duration, processing_to_end_duration, initial_task_id, received_to_end_duration, processed_at, fetched_at, payload_id, created_by, presence]);
+    lay!(out, ak_efix_TaskSummary, [id, session_id, options, status, created_at, error, status_message, count_data_dependencies, presence]);
+    lay!(out, ak_dfix_TaskSummary, [id, session_id, options, status, created_at, error, status_message, count_data_dependencies, presence]);
+    lay!(out, ak_efix_Probe, [id, opt_count, opt_label, opt_flag, body_case, body_as_int, body_as_text, body_as_blob, body_as_stamp, body_as_nothing, presence]);
+    lay!(out, ak_dfix_Probe, [id, opt_count, opt_label, opt_flag, body_case, body_as_int, body_as_text, body_as_blob, body_as_stamp, body_as_nothing, presence]);
+    lay!(out, ak_efix_Empty, [presence]);
+    lay!(out, ak_dfix_Empty, [presence]);
+    lay!(out, ak_efix_UploadResultData, [session_id, result_id, data_chunk, presence]);
+    lay!(out, ak_dfix_UploadResultData, [session_id, result_id, data_chunk, presence]);
+    lay!(out, ak_efix_MetricsBatch, [id, presence]);
+    lay!(out, ak_dfix_MetricsBatch, [id, presence]);
+    lay!(out, ak_efix_Pair, [key, value, presence]);
+    lay!(out, ak_dfix_Pair, [key, value, presence]);
+    lay!(out, ak_efix_ListResultsResponse, [page, total, presence]);
+    lay!(out, ak_dfix_ListResultsResponse, [page, total, presence]);
+    lay!(out, ak_efix_ListTasksDetailedResponse, [page, total, presence]);
+    lay!(out, ak_dfix_ListTasksDetailedResponse, [page, total, presence]);
+    lay!(out, ak_efix_ListTaskSummaryResponse, [presence]);
+    lay!(out, ak_dfix_ListTaskSummaryResponse, [presence]);
+    lay!(out, ak_efix_ListProbeResponse, [presence]);
+    lay!(out, ak_dfix_ListProbeResponse, [presence]);
+    lay!(out, ak_efix_ListMetricsResponse, [presence]);
+    lay!(out, ak_dfix_ListMetricsResponse, [presence]);
+    lay!(out, ak_efix_UploadResultDataMessage, [upload, presence]);
+    lay!(out, ak_dfix_UploadResultDataMessage, [upload, presence]);
+    lay!(out, ak_efix_DualResponse, [presence]);
+    lay!(out, ak_dfix_DualResponse, [presence]);
+    lay!(out, ak_efix_ChunkLeaf, [k, v, presence]);
+    lay!(out, ak_dfix_ChunkLeaf, [k, v, presence]);
+    lay!(out, ak_efix_ChunkInner, [presence]);
+    lay!(out, ak_dfix_ChunkInner, [presence]);
+    lay!(out, ak_efix_ChunkElement, [id, inner, presence]);
+    lay!(out, ak_dfix_ChunkElement, [id, inner, presence]);
+    lay!(out, ak_efix_ChunkedResponse, [page, presence]);
+    lay!(out, ak_dfix_ChunkedResponse, [page, presence]);
+    lay!(out, ak_efix_ChunkedResponseWide, [presence]);
+    lay!(out, ak_dfix_ChunkedResponseWide, [presence]);
+    lay!(out, ak_efix_LeafElement, [id, n, stamp, presence]);
+    lay!(out, ak_dfix_LeafElement, [id, n, stamp, presence]);
+    lay!(out, ak_efix_LeafResponse, [presence]);
+    lay!(out, ak_dfix_LeafResponse, [presence]);
+    lay!(out, ak_efix_Surrogate, [text, nested, raw, presence]);
+    lay!(out, ak_dfix_Surrogate, [text, nested, raw, presence]);
+    lay!(out, ak_efix_SurrogateInner, [text, presence]);
+    lay!(out, ak_dfix_SurrogateInner, [text, presence]);
+    lay!(out, ak_efix_WireZoo, [v_int32, v_int64, v_bool, v_double, v_fixed32, v_string, v_bytes, v_enum, v_msg, v_big_tag, presence]);
+    lay!(out, ak_dfix_WireZoo, [v_int32, v_int64, v_bool, v_double, v_fixed32, v_string, v_bytes, v_enum, v_msg, v_big_tag, presence]);
+    lay!(out, ak_evt_Timestamp, [_reserved]);
+    lay!(out, ak_dvt_Timestamp, [apply]);
+    lay!(out, ak_evt_Duration, [_reserved]);
+    lay!(out, ak_dvt_Duration, [apply]);
+    lay!(out, ak_evt_ResultRaw, [_reserved]);
+    lay!(out, ak_dvt_ResultRaw, [apply]);
+    lay!(out, ak_evt_TaskOptions, [loop_options]);
+    lay!(out, ak_dvt_TaskOptions, [apply, add_options]);
+    lay!(out, ak_evt_TaskOutput, [_reserved]);
+    lay!(out, ak_dvt_TaskOutput, [apply]);
+    lay!(out, ak_evt_TaskDetailed, [loop_parent_task_ids, loop_data_dependencies, loop_expected_output_ids, loop_retry_of_ids, loop_options_options]);
+    lay!(out, ak_dvt_TaskDetailed, [apply, add_parent_task_ids, add_data_dependencies, add_expected_output_ids, add_retry_of_ids, add_options_options]);
+    lay!(out, ak_evt_TaskSummary, [loop_options_options]);
+    lay!(out, ak_dvt_TaskSummary, [apply, add_options_options]);
+    lay!(out, ak_evt_Probe, [_reserved]);
+    lay!(out, ak_dvt_Probe, [apply]);
+    lay!(out, ak_evt_Empty, [_reserved]);
+    lay!(out, ak_dvt_Empty, [apply]);
+    lay!(out, ak_evt_UploadResultData, [_reserved]);
+    lay!(out, ak_dvt_UploadResultData, [apply]);
+    lay!(out, ak_evt_MetricsBatch, [loop_ticks, loop_values, loop_codes, loop_flags, loop_statuses]);
+    lay!(out, ak_dvt_MetricsBatch, [apply, add_ticks, add_values, add_codes, add_flags, add_statuses]);
+    lay!(out, ak_evt_Pair, [_reserved]);
+    lay!(out, ak_dvt_Pair, [apply]);
+    lay!(out, ak_evt_ListResultsResponse, [loop_results]);
+    lay!(out, ak_dvt_ListResultsResponse, [apply, add_results]);
+    lay!(out, ak_evt_ListTasksDetailedResponse, [loop_tasks, elem_tasks]);
+    lay!(out, ak_dvt_ListTasksDetailedResponse, [apply, new_tasks, apply_tasks, add_tasks_parent_task_ids, add_tasks_data_dependencies, add_tasks_expected_output_ids, add_tasks_retry_of_ids, add_tasks_options_options]);
+    lay!(out, ak_evt_ListTaskSummaryResponse, [loop_tasks, elem_tasks]);
+    lay!(out, ak_dvt_ListTaskSummaryResponse, [apply, new_tasks, apply_tasks, add_tasks_options_options]);
+    lay!(out, ak_evt_ListProbeResponse, [loop_probes]);
+    lay!(out, ak_dvt_ListProbeResponse, [apply, add_probes]);
+    lay!(out, ak_evt_ListMetricsResponse, [loop_batches, elem_batches]);
+    lay!(out, ak_dvt_ListMetricsResponse, [apply, new_batches, apply_batches, add_batches_ticks, add_batches_values, add_batches_codes, add_batches_flags, add_batches_statuses]);
+    lay!(out, ak_evt_UploadResultDataMessage, [_reserved]);
+    lay!(out, ak_dvt_UploadResultDataMessage, [apply]);
+    lay!(out, ak_evt_DualResponse, [loop_left, loop_right]);
+    lay!(out, ak_dvt_DualResponse, [apply, add_left, add_right]);
+    lay!(out, ak_evt_ChunkLeaf, [_reserved]);
+    lay!(out, ak_dvt_ChunkLeaf, [apply]);
+    lay!(out, ak_evt_ChunkInner, [loop_marks, loop_leaves]);
+    lay!(out, ak_dvt_ChunkInner, [apply, add_marks, add_leaves]);
+    lay!(out, ak_evt_ChunkElement, [loop_labels, loop_attrs, loop_inner_marks, loop_inner_leaves]);
+    lay!(out, ak_dvt_ChunkElement, [apply, add_labels, add_attrs, add_inner_marks, add_inner_leaves]);
+    lay!(out, ak_evt_ChunkedResponse, [loop_items, elem_items]);
+    lay!(out, ak_dvt_ChunkedResponse, [apply, new_items, apply_items, add_items_labels, add_items_attrs, add_items_inner_marks, add_items_inner_leaves]);
+    lay!(out, ak_evt_ChunkedResponseWide, [loop_items, elem_items]);
+    lay!(out, ak_dvt_ChunkedResponseWide, [apply, new_items, apply_items, add_items_labels, add_items_attrs, add_items_inner_marks, add_items_inner_leaves]);
+    lay!(out, ak_evt_LeafElement, [_reserved]);
+    lay!(out, ak_dvt_LeafElement, [apply]);
+    lay!(out, ak_evt_LeafResponse, [loop_items]);
+    lay!(out, ak_dvt_LeafResponse, [apply, add_items]);
+    lay!(out, ak_evt_Surrogate, [loop_attrs, loop_texts]);
+    lay!(out, ak_dvt_Surrogate, [apply, add_attrs, add_texts]);
+    lay!(out, ak_evt_SurrogateInner, [_reserved]);
+    lay!(out, ak_dvt_SurrogateInner, [apply]);
+    lay!(out, ak_evt_WireZoo, [_reserved]);
+    lay!(out, ak_dvt_WireZoo, [apply]);
+    lay!(out, ak_evt_TaskOptionsOptionsEntry, [_reserved]);
+    lay!(out, ak_dvt_TaskOptionsOptionsEntry, [apply]);
+    lay!(out, ak_evt_ChunkElementAttrsEntry, [_reserved]);
+    lay!(out, ak_dvt_ChunkElementAttrsEntry, [apply]);
+    lay!(out, ak_evt_SurrogateAttrsEntry, [_reserved]);
+    lay!(out, ak_dvt_SurrogateAttrsEntry, [apply]);
 }
 
 fn main() {
