@@ -1,6 +1,6 @@
 # csharp slice, FIX-PLAN WP5 step 4 gate. CORRECTNESS ONLY: no timing is taken.
-# date:        2026-09-25T07:06:09Z
-# branch HEAD: 5d81225
+# date:        2026-09-25T08:47:54Z
+# branch HEAD: 7f7f6b6
 # dotnet:      SDK 8.0.131; runtimes: 8.0.31 + Microsoft.NETCore.App.Runtime.linux-x64 6.0.36 from NuGet (self-contained)
 # corpus:      ffi/corpus at de21106, 702 vectors
 # machine:     container, 4 vCPU, Intel(R) Xeon(R) Processor @ 2.80GHz, 6.18.44-fc-v37
@@ -9,6 +9,7 @@
 $ python3 -S gen/generate.py --check
 guard 6 shared C# backends and 8 glue modules import no IR or description; a planted IR import is caught
 ok    abi/src/main.rs
+ok    src/BenchDotNet/Generated/CampaignOps.cs
 ok    src/Corpus/Generated/Abi.cs
 ok    src/Corpus/Generated/Codec.cs
 ok    src/Corpus/Generated/CoreFfi.cs
@@ -26,7 +27,6 @@ ok    src/Harness/Generated/Arms.cs
 ok    src/Harness/Generated/BuildGp.cs
 ok    src/Harness/Generated/CoreArms.cs
 ok    src/Harness/Generated/CoreFfi.cs
-ok    src/Rpc/Generated/CampaignOps.cs
 ok    src/Rpc/Generated/RpcAbi.cs
 exit status: 0
 
@@ -67,6 +67,12 @@ $ dotnet build src/Rpc/Rpc.csproj -c Release
   Rpc -> ffi/poc/csharp/src/Rpc/bin/Release/net8.0/akrpc.dll
 Build succeeded.
 exit status: 0
+$ dotnet build src/BenchDotNet/BenchDotNet.csproj -c Release
+  Facade -> ffi/poc/csharp/src/Facade/bin/Release/net8.0/Facade.dll
+  Harness -> ffi/poc/csharp/src/Harness/bin/Release/net8.0/harness.dll
+  BenchDotNet -> ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet.dll
+Build succeeded.
+exit status: 0
 $ dotnet build src/HarnessFloor/HarnessFloor.csproj -c Release
   HarnessFloor -> ffi/poc/csharp/src/HarnessFloor/bin/Release/net48/harness48.exe
 Build succeeded.
@@ -83,7 +89,7 @@ exit status: 0
 # core in Release/net8.0: target-core (f51b5fe5f1697475)
 $ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/Release/net8.0/harness.dll conformance
 # harness: conformance
-# utc:                 2026-09-25T07:08:04Z
+# utc:                 2026-09-25T08:49:47Z
 # runtime:             .NET 8.0.31
 # os:                  Ubuntu 24.04.4 LTS
 # arch:                X64
@@ -125,7 +131,7 @@ P7.1     -      DualResponse                  98  perm    perm    perm    perm  
 exit status: 0
 $ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/Release/net8.0/harness.dll unknown
 # harness: unknown
-# utc:                 2026-09-25T07:08:06Z
+# utc:                 2026-09-25T08:49:49Z
 # runtime:             .NET 8.0.31
 # os:                  Ubuntu 24.04.4 LTS
 # arch:                X64
@@ -187,7 +193,7 @@ value moved, which would be a real defect).
 exit status: 0
 $ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/Release/net8.0/harness.dll groups
 # harness: groups
-# utc:                 2026-09-25T07:08:06Z
+# utc:                 2026-09-25T08:49:49Z
 # runtime:             .NET 8.0.31
 # os:                  Ubuntu 24.04.4 LTS
 # arch:                X64
@@ -233,7 +239,7 @@ The same at 200,000, which is past where an unbounded skipper aborts:
 exit status: 0
 $ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/Release/net8.0/harness.dll utf8
 # harness: utf8
-# utc:                 2026-09-25T07:08:06Z
+# utc:                 2026-09-25T08:49:50Z
 # runtime:             .NET 8.0.31
 # os:                  Ubuntu 24.04.4 LTS
 # arch:                X64
@@ -292,7 +298,7 @@ plan Options.utf8 = reject: the managed codec must refuse 15 of 15; it refused 1
 exit status: 0
 $ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/Release/net8.0/harness.dll mapforms
 # harness: mapforms
-# utc:                 2026-09-25T07:08:06Z
+# utc:                 2026-09-25T08:49:50Z
 # runtime:             .NET 8.0.31
 # os:                  Ubuntu 24.04.4 LTS
 # arch:                X64
@@ -349,7 +355,7 @@ Reading this.
 exit status: 0
 $ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/Release/net8.0/harness.dll layout /home/user/ArmoniK.Api/ffi/poc/csharp/target-core/layout.json
 # harness: layout
-# utc:                 2026-09-25T07:08:06Z
+# utc:                 2026-09-25T08:49:50Z
 # runtime:             .NET 8.0.31
 # os:                  Ubuntu 24.04.4 LTS
 # arch:                X64
@@ -383,7 +389,7 @@ exit status: 2
 control net8 layout plant: failed, as required
 $ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/Release/net8.0/harness.dll coreffi
 # harness: coreffi
-# utc:                 2026-09-25T07:08:07Z
+# utc:                 2026-09-25T08:49:50Z
 # runtime:             .NET 8.0.31
 # os:                  Ubuntu 24.04.4 LTS
 # arch:                X64
@@ -464,7 +470,7 @@ exit status: 0
 # core in Release/net8.0: target-core-count (1f78cb94d7dc4e86)
 $ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/Release/net8.0/harness.dll coreffi
 # harness: coreffi
-# utc:                 2026-09-25T07:08:08Z
+# utc:                 2026-09-25T08:49:51Z
 # runtime:             .NET 8.0.31
 # os:                  Ubuntu 24.04.4 LTS
 # arch:                X64
@@ -564,7 +570,7 @@ control net8 coreffi without ak_init (init-guard core): failed, as required
 # core in bin/publish-net6: target-core (f51b5fe5f1697475)
 $ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/publish-net6/harness conformance
 # harness: conformance
-# utc:                 2026-09-25T07:08:10Z
+# utc:                 2026-09-25T08:49:53Z
 # runtime:             .NET 6.0.36
 # os:                  Linux 6.18.44-fc-v37 #1 SMP PREEMPT_DYNAMIC @0
 # arch:                X64
@@ -606,7 +612,7 @@ P7.1     -      DualResponse                  98  perm    perm    perm    perm  
 exit status: 0
 $ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/publish-net6/harness unknown
 # harness: unknown
-# utc:                 2026-09-25T07:08:12Z
+# utc:                 2026-09-25T08:49:55Z
 # runtime:             .NET 6.0.36
 # os:                  Linux 6.18.44-fc-v37 #1 SMP PREEMPT_DYNAMIC @0
 # arch:                X64
@@ -668,7 +674,7 @@ value moved, which would be a real defect).
 exit status: 0
 $ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/publish-net6/harness groups
 # harness: groups
-# utc:                 2026-09-25T07:08:12Z
+# utc:                 2026-09-25T08:49:55Z
 # runtime:             .NET 6.0.36
 # os:                  Linux 6.18.44-fc-v37 #1 SMP PREEMPT_DYNAMIC @0
 # arch:                X64
@@ -714,7 +720,7 @@ The same at 200,000, which is past where an unbounded skipper aborts:
 exit status: 0
 $ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/publish-net6/harness utf8
 # harness: utf8
-# utc:                 2026-09-25T07:08:12Z
+# utc:                 2026-09-25T08:49:55Z
 # runtime:             .NET 6.0.36
 # os:                  Linux 6.18.44-fc-v37 #1 SMP PREEMPT_DYNAMIC @0
 # arch:                X64
@@ -773,7 +779,7 @@ plan Options.utf8 = reject: the managed codec must refuse 15 of 15; it refused 1
 exit status: 0
 $ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/publish-net6/harness mapforms
 # harness: mapforms
-# utc:                 2026-09-25T07:08:12Z
+# utc:                 2026-09-25T08:49:55Z
 # runtime:             .NET 6.0.36
 # os:                  Linux 6.18.44-fc-v37 #1 SMP PREEMPT_DYNAMIC @0
 # arch:                X64
@@ -830,7 +836,7 @@ Reading this.
 exit status: 0
 $ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/publish-net6/harness layout /home/user/ArmoniK.Api/ffi/poc/csharp/target-core/layout.json
 # harness: layout
-# utc:                 2026-09-25T07:08:13Z
+# utc:                 2026-09-25T08:49:56Z
 # runtime:             .NET 6.0.36
 # os:                  Linux 6.18.44-fc-v37 #1 SMP PREEMPT_DYNAMIC @0
 # arch:                X64
@@ -864,7 +870,7 @@ exit status: 2
 control net6 layout plant: failed, as required
 $ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/publish-net6/harness coreffi
 # harness: coreffi
-# utc:                 2026-09-25T07:08:13Z
+# utc:                 2026-09-25T08:49:56Z
 # runtime:             .NET 6.0.36
 # os:                  Linux 6.18.44-fc-v37 #1 SMP PREEMPT_DYNAMIC @0
 # arch:                X64
@@ -945,7 +951,7 @@ exit status: 0
 # core in bin/publish-net6: target-core-count (1f78cb94d7dc4e86)
 $ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/publish-net6/harness coreffi
 # harness: coreffi
-# utc:                 2026-09-25T07:08:14Z
+# utc:                 2026-09-25T08:49:57Z
 # runtime:             .NET 6.0.36
 # os:                  Linux 6.18.44-fc-v37 #1 SMP PREEMPT_DYNAMIC @0
 # arch:                X64

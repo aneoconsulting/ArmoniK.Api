@@ -1498,3 +1498,49 @@ notes, and the rpc socket path under the long scratchpad exceeded the 108-byte U
 limit, so Kestrel threw at startup): gate PASSED at 5d81225, then codec (1,780 samples),
 rpc shipped and pinned (48 each), the abort control (0 samples, both transports), calib (2
 samples, after the crossing-count gate). No figure from it is used anywhere.
+
+### 50. Unit 4: BenchmarkDotNet restored as the codec engine (CAMPAIGN 22 amended, 22a)
+
+Contract: design/CAMPAIGN.md at 975001b (req 22: blocks allowed, arm order rotated between
+launches; req 22a: BDN is the default .NET engine).
+
+**What was built.** `src/BenchDotNet` (retired at WP3 as D1) rebuilt on the WP5 generated
+code rather than recovered file by file: the old project (84a4622^) timed hand-written
+arms over the pre-WP5 facade and would not have compiled. The per-root calls come from the
+same glue as before (`gen/cs_campaign.py`, target moved from src/Rpc to src/BenchDotNet).
+One benchmark class, the case a `[ParamsSource]` string (arm|dir|payload|content|mode), so
+the execution order is an orderer's: blocks by arm, the arm list rotated by launch number.
+Job: InProcessEmit (one process, so the runner's taskset pins every case), Throughput,
+LaunchCount 1, fixed warm-up and iteration counts, iteration time 100 ms (smoke 2 ms),
+EvaluateOverhead=false. akrpc lost its codec suite; the gate now builds BenchDotNet.
+
+**Requirements through configuration.** 28: a custom exporter writes every raw
+Workload/Actual measurement (wall ns and op count) as a section 7 line; BDN's outlier
+handling only reaches its console summary. 21: BDN has no CPU column and no per-iteration
+hook short of [IterationSetup], which changes BDN's invocation defaults (not used); a
+diagnoser on BeforeActualRun/AfterActualRun reads getrusage around each case, one round-0
+row. **Finding while building it:** that span is warm-up + actual, not actual alone (the
+first trial's span wall was about twice the one actual iteration; `bdn_stages` shows the
+pilot is outside it, the warm-up inside), so cpu_ns/iters is not a per-op CPU figure; the
+row says so. And BDN's jitting iterations are NOT in `AllMeasurements` (the first exporter
+wrote `bdn_jitting: 0` for every case: a field reporting nothing); the field was removed and
+the header states the jitting stage from BDN's log. 24: fixed warm-up per case, every stage
+exported per case. 25: GC counts and heap size per case (the span holds 4 forced gen2
+collections per case at 1 warm-up + 1 actual: BDN's default forced GC between iterations).
+26: the in-process check now also covers incumbent-best encode (it was timed but not
+compared in the first version): 560 checks.
+
+**RPC stays on akrpc campaign** (evaluated, not ported): req 18's whole-run abort, one
+sample = one batch of concurrent calls with process CPU, the pilot varying calls per
+sample, and the per-transport server lifecycle all fight BDN's model. Reasons in STATE.
+
+**Engine cost (container, instrumentation).** BDN's per-case overhead grows with the case
+count in one process: 20 cases 1.4 s total, 60 cases 8 to 17 s, 400 cases 176 s, 1,780
+cases 36 to 44 min, with no heap trend and GC counts identical per case, so the growth is
+outside the measured iterations (not investigated further). A full default launch is hours.
+
+**Smoke.** `run_campaign.sh --suite codec --smoke` at 7f7f6b6: gate re-run and PASSED (the
+code had changed since the last passed gate), 560 checks, 1,780 cases, 0 failed, 3,560 JSON
+lines, 44 min (36 min on the first attempt at 99bdc0d, whose output was discarded after the
+incumbent-best check and the GC fields were added). Heap at span start 61 to 72 MB with no
+trend; every case's span holds 4/4/4 collections. No figure from it is used anywhere.
