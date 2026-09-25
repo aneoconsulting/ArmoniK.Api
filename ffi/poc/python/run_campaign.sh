@@ -83,14 +83,34 @@ case "$SUITE" in
     echo "GATE PASSED"
     ;;
   codec)
+    # CAMPAIGN.md 22a: the codec suite on pyperf (camp_pyperf.py). One pyperf invocation per
+    # launch (order rotated by launch), `--processes 1 --values ROUNDS`: a fresh worker per
+    # benchmark per launch, pinned by --affinity to AK_CPU_CLIENT; pyperf's warm-up and loop
+    # calibration; every raw value exported to section 7 by camp_pyperf_export.py.
     need_gate
     mkdir -p "build/$TAG/pb2corpus"
     (cd ../../corpus/generated && "$PY" -W ignore -m grpc_tools.protoc -I. --python_out="$HERE/build/$TAG/pb2corpus" corpus.proto)
+    [ -d build/pyperf/pyperf ] || "$PY" -m pip install -q --target build/pyperf "pyperf==2.10.0" 2>/dev/null
+    AFF="${AK_CPU_CLIENT:-$("$PY" -c 'import os;print(",".join(map(str,sorted(os.sched_getaffinity(0)))))')}"
+    if [ -n "$SMOKE" ]; then
+      PP="--processes 1 --values 1 --warmups 1 --min-time 0.002"
+      ONLY_UNKNOWN="--only U-root-all,U-nested-all,U-oneof-all,U-wire-Probe-name-as-wt0,U-enum-value-999"
+    else
+      PP="--processes 1 --values $ROUNDS --warmups 3 --min-time 0.1"
+      ONLY_UNKNOWN=""
+    fi
     for l in $(seq 1 "$LAUNCHES"); do
       for fam in shapes unknown; do
-        "$PY" camp_codec.py --family $fam --launch "$l" --rounds "$ROUNDS" --target-ms "$TARGET_MS" \
-          --out "$OUT/codec-$fam-launch$l.jsonl" $SMOKE $DIRTY
-        echo "   codec $fam launch $l: $(grep -c '^{' "$OUT/codec-$fam-launch$l.jsonl" || true) samples"
+        O1="$OUT/codec-$fam-launch$l"
+        rm -rf "$O1.side" "$O1.pyperf.json"
+        ONLY=""; [ $fam = unknown ] && ONLY="$ONLY_UNKNOWN"
+        PYTHONPATH="$HERE/build/pyperf" "$PY" camp_pyperf.py --family $fam --launch "$l" $ONLY --side "$O1.side" \
+          -o "$O1.pyperf.json" $PP --affinity "$AFF" --copy-env --quiet > "$O1.pyperf.out" 2>&1 \
+          || { tail -20 "$O1.pyperf.out"; echo "   pyperf failed: codec $fam launch $l"; exit 1; }
+        "$PY" camp_pyperf_export.py --json "$O1.pyperf.json" --side "$O1.side" --launch "$l" \
+          --pyperf-args "$PP --affinity $AFF --copy-env $ONLY" --out "$O1.jsonl" $SMOKE $DIRTY
+        rm -rf "$O1.side"
+        echo "   codec $fam launch $l (pyperf): $(grep -c '"phase": "value"' "$O1.jsonl" || true) values, $(grep -c '^{' "$O1.jsonl" || true) raw measurements"
       done
     done
     "$PY" camp_summary.py "$OUT" > "$OUT/summary.txt"
