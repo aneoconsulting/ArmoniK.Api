@@ -1,6 +1,6 @@
 # python slice: R-D1 wrapped lengths through the shim, py3.12
-# date:      2026-09-25T22:21:01Z
-# commit:    2410125 + uncommitted changes in poc/python or poc/codec
+# date:      2026-09-25T23:07:46Z
+# commit:    4a1c09f + uncommitted changes in poc/python or poc/codec
 # phase:     correctness only; nothing here is a timing
 
 # R-D1 length-varint wrap through the python shim (_akffi), ListResultsResponse decode

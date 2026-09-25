@@ -1,11 +1,11 @@
 # python slice: build, WP5 step 5 (plan-rendered shim, init-guard cores)
-# date:      2026-09-25T22:15:53Z
-# commit:    c27def8 + uncommitted changes in poc/python or poc/codec
+# date:      2026-09-25T23:03:49Z
+# commit:    3cf32ba
 # phase:     correctness only; nothing here is a timing
 
    core source: /home/user/ArmoniK.Api/ffi/poc/codec
-   commit:      c27def8 + UNCOMMITTED CHANGES in poc/codec
-   core tree:   dddeb70af18c28b4
+   commit:      3cf32ba
+   core tree:   6c73f38829280dae
    targets:     /home/user/ArmoniK.Api/ffi/poc/python/build/cargo/{plain,count,rpc,corpus} and the no-unknown variant's /home/user/ArmoniK.Api/ffi/poc/python/build/cargo/{plain,count,rpc,corpus}-nounk
 == 1. R0: one core, at poc/codec, reached by path ==
   [ok]   codec/gen/generate.py --check: 15 files ok
@@ -14,7 +14,7 @@ one_core: 0 failure(s)
 
 == 2. R1: the generated tree is current with the plans ==
 guard 2 python backend modules import plans only; a planted IR import is caught
-generated tree is current with the plans (14 files)
+generated tree is current with the plans (18 files)
 
 == 3. the shared core, every build WITH init-guard (R-G7) ==
    cargo (plain --features init-guard): 16 warnings, in /home/user/ArmoniK.Api/ffi/poc/python/build/cargo/plain.stderr

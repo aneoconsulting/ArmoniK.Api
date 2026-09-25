@@ -1,6 +1,6 @@
 # python slice: the whole corpus through the no-unknown variant (WP5 step 10), py3.12
-# date:      2026-09-25T22:21:10Z
-# commit:    2410125 + uncommitted changes in poc/python or poc/codec
+# date:      2026-09-25T23:07:53Z
+# commit:    4a1c09f + uncommitted changes in poc/python or poc/codec
 # phase:     correctness only; nothing here is a timing
 
 # python slice: the conformance corpus, every row, every arm (FIX-PLAN WP5 item 6.1)
@@ -376,6 +376,8 @@ CONTROLS ALL FAILED AS REQUIRED
 
 ===== decision 11 controls (zeroed position, wrong root, leak) =====
    positions: 0 over 29 roots (want 0: no options exist in this variant)
+   _unknown on the variant's facades: 0 finding(s) over 60 Plain/Slots classes, 29 C types and 622 decoded objects
+   must-fail twin: the full build's corpus facade shows 150 finding(s) (want > 0)
    retain refused: 622 of 622 retain calls (decode and encode, every unknown row)
    wrong root: 812 ordered pairs refused with -8 and nothing delivered (no reset exists); positive control 29 of 29 roots; 0 failure(s)
    per-thread contexts: reuse 19904 decode+encode(s) created 0 (want 0); 8 threads x 12440: 0 error(s), 232 context(s) created (at most 232)
