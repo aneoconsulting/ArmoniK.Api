@@ -112,6 +112,7 @@ def corpus_targets():
         d = "src/generated_corpus/%s/ak/corpus" % level_dir
         out["%s/Project.java" % d] = java_corpus.emit_project(full, "ak.corpus")
         out["%s/Dispatch.java" % d] = java_corpus.emit_dispatch(full, pa, "ak.corpus")
+        out["%s/Walk.java" % d] = java_walk.emit_walk(full, "ak.corpus")
         with N.string_type_as("ak.Utf8View"):
             out["%s/borrow/Project.java" % d] = java_corpus.emit_project(full, "ak.corpus.borrow")
             out["%s/borrow/Dispatch.java" % d] = java_corpus.emit_dispatch(

@@ -40,10 +40,16 @@ def main():
                 if (cell, i) not in cpu:
                     raise SystemExit("no CPU sample for %s measurement %d" % (cell, i))
                 c, n = cpu[(cell, i)]
-                out.append(json.dumps({"slice": "java", "suite": "codec", "arm": arm, "payload": payload,
-                    "content": content, "dir": d, "unknown_mode": mode, "coder": coder,
+                extra = {}
+                cont = content
+                if content.startswith("corpus:"):
+                    cont, extra = "corpus", {"root": content[7:]}
+                rec = {"slice": "java", "suite": "codec", "arm": arm, "payload": payload,
+                    "content": cont, "dir": d, "unknown_mode": mode, "coder": coder,
                     "engine": "jmh", "launch": launch, "round": i + 1, "cpu_ns": c,
-                    "wall_ns": int(round(wall)), "iters": n}, separators=(",", ":")))
+                    "wall_ns": int(round(wall)), "iters": n}
+                rec.update(extra)
+                out.append(json.dumps(rec, separators=(",", ":")))
     print("\n".join(out))
 
 

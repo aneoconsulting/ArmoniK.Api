@@ -64,13 +64,22 @@ public class CodecJmh {
   @Setup(Level.Trial)
   public void trial() throws Exception {
     String[] c = cell.split("\\|");
-    arm = CampaignCodec.make(c[0], c[1]);
     id = c[2];
-    cs = java.util.Arrays.asList(CampaignCodec.SET_NAMES).indexOf(c[3]);
     dir = c[4];
-    wire = CampaignCodec.canonical(id, cs);
+    if (c[3].startsWith("corpus:")) {
+      // Req 7 (amended): a corpus U-* row, through the corpus description.
+      wire = CampaignCodec.corpusRow(id);
+      CampaignCodec.UArm u = new CampaignCodec.UArm(c[0], c[1], c[3].substring(7), wire);
+      CampaignCodec.checkU(u);
+      arm = u;
+      cs = 0;
+    } else {
+      arm = CampaignCodec.make(c[0], c[1]);
+      cs = java.util.Arrays.asList(CampaignCodec.SET_NAMES).indexOf(c[3]);
+      wire = CampaignCodec.canonical(id, cs);
+      CampaignCodec.check(arm, id, cs, wire, dir);
+    }
     n = CampaignCodec.iters(wire.length);
-    CampaignCodec.check(arm, id, cs, wire, dir);
   }
 
   @Setup(Level.Iteration)
