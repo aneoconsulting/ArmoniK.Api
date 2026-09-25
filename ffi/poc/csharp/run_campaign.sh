@@ -43,7 +43,7 @@ DIRTY=0
 # What the run reads from the working tree: this slice, the schema and the corpus. The core
 # and the generator are built from `git archive HEAD` (gen/build_core.sh, gen/gate.sh), so a
 # working-tree edit in ffi/poc/codec cannot enter a run and is not part of this check.
-CODE="ffi/poc/csharp/src ffi/poc/csharp/gen ffi/poc/csharp/abi ffi/poc/csharp/run_campaign.sh ffi/poc/csharp/Directory.Build.props"
+CODE="ffi/poc/csharp/src ffi/poc/csharp/gen ffi/poc/csharp/abi ffi/poc/csharp/run_campaign.sh ffi/poc/csharp/Directory.Build.props ffi/poc/csharp/Directory.Build.targets"
 # (STATE.md and JOURNAL.md are notes, not inputs of a run.)
 if ! git -C "$REPO" diff --quiet HEAD -- $CODE ffi/schema ffi/corpus \
    || [ -n "$(git -C "$REPO" status --porcelain --untracked-files=normal -- ffi/poc/csharp/src ffi/poc/csharp/gen ffi/poc/csharp/run_campaign.sh)" ]; then
