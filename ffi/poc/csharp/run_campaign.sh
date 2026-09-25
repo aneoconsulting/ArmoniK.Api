@@ -39,8 +39,11 @@ export SCRATCH="${SCRATCH:-$(mktemp -d)}"
 export DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1
 COMMIT="$(git -C "$REPO" rev-parse --short HEAD)"
 DIRTY=0
-if ! git -C "$REPO" diff --quiet HEAD -- ffi/poc/csharp ffi/poc/codec ffi/schema ffi/corpus \
-   || [ -n "$(git -C "$REPO" status --porcelain --untracked-files=normal -- ffi/poc/csharp/src ffi/poc/csharp/gen ffi/poc/codec/gen ffi/poc/codec/crates)" ]; then
+# What the run reads from the working tree: this slice, the schema and the corpus. The core
+# and the generator are built from `git archive HEAD` (gen/build_core.sh, gen/gate.sh), so a
+# working-tree edit in ffi/poc/codec cannot enter a run and is not part of this check.
+if ! git -C "$REPO" diff --quiet HEAD -- ffi/poc/csharp ffi/schema ffi/corpus \
+   || [ -n "$(git -C "$REPO" status --porcelain --untracked-files=normal -- ffi/poc/csharp/src ffi/poc/csharp/gen ffi/poc/csharp/run_campaign.sh)" ]; then
   DIRTY=1
   if [ "${AK_ALLOW_DIRTY:-0}" != "1" ]; then echo "refused: the tree is dirty (requirement 27); commit, or AK_ALLOW_DIRTY=1" >&2; exit 3; fi
 fi
@@ -62,7 +65,7 @@ header() {  # requirement 27: the machine and the build, in every log
   echo "# isolation:     cmdline isolcpus/nohz_full: $(tr ' ' '\n' < /proc/cmdline | grep -E '^(isolcpus|nohz_full)=' | tr '\n' ' ' || true)cpuset: $(sysf /sys/fs/cgroup/cpuset.cpus.effective)"
   echo "# cpu sets:      CLIENT=$AK_CPU_CLIENT SERVER=${AK_CPU_SERVER:-n/a}${CPUNOTE:-}; pinning by taskset"
   echo "# runtime:       .NET $(dotnet --list-runtimes | awk '/NETCore.App/{print $2}' | tr '\n' ' ')(SDK $(dotnet --version)); target net8.0, Release; tiering and PGO at their net8.0 defaults unless DOTNET_* is set: TieredCompilation=${DOTNET_TieredCompilation:-default} TieredPGO=${DOTNET_TieredPGO:-default}; workstation GC, concurrent (default)"
-  echo "# core:          libak_core.so shared, cargo --release, features $1 (init-guard ON, as in every gate)"
+  echo "# core:          libak_core.so shared, cargo --release, features $1 (init-guard ON, as in every gate), built from git archive HEAD ffi/poc/codec"
   echo "# repeats:       $LAUNCHES launch(es) x $ROUNDS round(s); arms/cells interleaved per round, rotated"
 }
 
