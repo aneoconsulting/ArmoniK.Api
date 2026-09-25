@@ -10,6 +10,15 @@ using Armonik.Ffi.Facade;
 
 namespace Armonik.Ffi.Corpus;
 
+public sealed class UnkRow
+{
+    public int Positions;
+    public bool PullEqual;
+    public string Error;
+    public List<string> Mismatched = new List<string>();
+    public List<string> Changed = new List<string>();
+}
+
 public static unsafe class Ffi
 {
     public static readonly string[] Roots = { "Timestamp", "Duration", "ResultRaw", "TaskOptions", "TaskOutput", "TaskDetailed", "TaskSummary", "Probe", "Empty", "UploadResultData", "MetricsBatch", "Pair", "ListResultsResponse", "ListTasksDetailedResponse", "ListTaskSummaryResponse", "ListProbeResponse", "ListMetricsResponse", "UploadResultDataMessage", "DualResponse", "ChunkLeaf", "ChunkInner", "ChunkElement", "ChunkedResponse", "ChunkedResponseWide", "LeafElement", "LeafResponse", "Surrogate", "SurrogateInner", "WireZoo" };
@@ -87,6 +96,646 @@ public static unsafe class Ffi
             default: return 1;
         }
     }
+
+    /// Decision 11's controls on one accept row (WP5 step 9). Retained push decode as the
+    /// reference; (1) each position zeroed in turn must equal the reference with that
+    /// position's facade bags cleared (`plant`: not cleared, so rows with unknowns MUST
+    /// mismatch); (2) the pull family must deliver what push does. Compared as retained
+    /// re-encodings (ak_uencode_*), which carry every bag. null: root not in the C ABI.
+    public static UnkRow UnkControl(string root, byte[] b, bool plant)
+    {
+        switch (root)
+        {
+            case "Timestamp":
+            {
+                var c = _Timestamp ??= new CoreFfi_Timestamp();
+                var u = new UnkRow { Positions = CoreFfi_Timestamp.UnkPositionNames.Length };
+                int rc = c.TryDecode(b, b.Length, true, out var all);
+                if (rc < 0) { u.Error = "retained decode " + rc + (rc == CoreFfi_Timestamp.UNDELIVERED ? " (UNDELIVERED " + c.Undelivered + ")" : ""); return u; }
+                var want = c.EncodeToArray(all, true);
+                rc = c.TryPull(b, b.Length, true, out var pl);
+                u.PullEqual = rc == 0 && c.EncodeToArray(pl, true).AsSpan().SequenceEqual(want);
+                for (int i = 0; i < u.Positions; i++)
+                {
+                    rc = c.TryDecodeZeroing(b, b.Length, i, out var z);
+                    if (rc < 0) { u.Mismatched.Add(CoreFfi_Timestamp.UnkPositionNames[i] + " rc " + rc); continue; }
+                    var zb = c.EncodeToArray(z, true);
+                    c.TryDecode(b, b.Length, true, out var exp);
+                    if (!plant) CoreFfi_Timestamp.ClearPosition(exp, i);
+                    if (!zb.AsSpan().SequenceEqual(c.EncodeToArray(exp, true))) u.Mismatched.Add(CoreFfi_Timestamp.UnkPositionNames[i]);
+                    if (!zb.AsSpan().SequenceEqual(want)) u.Changed.Add(CoreFfi_Timestamp.UnkPositionNames[i]);
+                }
+                return u;
+            }
+            case "Duration":
+            {
+                var c = _Duration ??= new CoreFfi_Duration();
+                var u = new UnkRow { Positions = CoreFfi_Duration.UnkPositionNames.Length };
+                int rc = c.TryDecode(b, b.Length, true, out var all);
+                if (rc < 0) { u.Error = "retained decode " + rc + (rc == CoreFfi_Duration.UNDELIVERED ? " (UNDELIVERED " + c.Undelivered + ")" : ""); return u; }
+                var want = c.EncodeToArray(all, true);
+                rc = c.TryPull(b, b.Length, true, out var pl);
+                u.PullEqual = rc == 0 && c.EncodeToArray(pl, true).AsSpan().SequenceEqual(want);
+                for (int i = 0; i < u.Positions; i++)
+                {
+                    rc = c.TryDecodeZeroing(b, b.Length, i, out var z);
+                    if (rc < 0) { u.Mismatched.Add(CoreFfi_Duration.UnkPositionNames[i] + " rc " + rc); continue; }
+                    var zb = c.EncodeToArray(z, true);
+                    c.TryDecode(b, b.Length, true, out var exp);
+                    if (!plant) CoreFfi_Duration.ClearPosition(exp, i);
+                    if (!zb.AsSpan().SequenceEqual(c.EncodeToArray(exp, true))) u.Mismatched.Add(CoreFfi_Duration.UnkPositionNames[i]);
+                    if (!zb.AsSpan().SequenceEqual(want)) u.Changed.Add(CoreFfi_Duration.UnkPositionNames[i]);
+                }
+                return u;
+            }
+            case "ResultRaw":
+            {
+                var c = _ResultRaw ??= new CoreFfi_ResultRaw();
+                var u = new UnkRow { Positions = CoreFfi_ResultRaw.UnkPositionNames.Length };
+                int rc = c.TryDecode(b, b.Length, true, out var all);
+                if (rc < 0) { u.Error = "retained decode " + rc + (rc == CoreFfi_ResultRaw.UNDELIVERED ? " (UNDELIVERED " + c.Undelivered + ")" : ""); return u; }
+                var want = c.EncodeToArray(all, true);
+                rc = c.TryPull(b, b.Length, true, out var pl);
+                u.PullEqual = rc == 0 && c.EncodeToArray(pl, true).AsSpan().SequenceEqual(want);
+                for (int i = 0; i < u.Positions; i++)
+                {
+                    rc = c.TryDecodeZeroing(b, b.Length, i, out var z);
+                    if (rc < 0) { u.Mismatched.Add(CoreFfi_ResultRaw.UnkPositionNames[i] + " rc " + rc); continue; }
+                    var zb = c.EncodeToArray(z, true);
+                    c.TryDecode(b, b.Length, true, out var exp);
+                    if (!plant) CoreFfi_ResultRaw.ClearPosition(exp, i);
+                    if (!zb.AsSpan().SequenceEqual(c.EncodeToArray(exp, true))) u.Mismatched.Add(CoreFfi_ResultRaw.UnkPositionNames[i]);
+                    if (!zb.AsSpan().SequenceEqual(want)) u.Changed.Add(CoreFfi_ResultRaw.UnkPositionNames[i]);
+                }
+                return u;
+            }
+            case "TaskOptions":
+            {
+                var c = _TaskOptions ??= new CoreFfi_TaskOptions();
+                var u = new UnkRow { Positions = CoreFfi_TaskOptions.UnkPositionNames.Length };
+                int rc = c.TryDecode(b, b.Length, true, out var all);
+                if (rc < 0) { u.Error = "retained decode " + rc + (rc == CoreFfi_TaskOptions.UNDELIVERED ? " (UNDELIVERED " + c.Undelivered + ")" : ""); return u; }
+                var want = c.EncodeToArray(all, true);
+                rc = c.TryPull(b, b.Length, true, out var pl);
+                u.PullEqual = rc == 0 && c.EncodeToArray(pl, true).AsSpan().SequenceEqual(want);
+                for (int i = 0; i < u.Positions; i++)
+                {
+                    rc = c.TryDecodeZeroing(b, b.Length, i, out var z);
+                    if (rc < 0) { u.Mismatched.Add(CoreFfi_TaskOptions.UnkPositionNames[i] + " rc " + rc); continue; }
+                    var zb = c.EncodeToArray(z, true);
+                    c.TryDecode(b, b.Length, true, out var exp);
+                    if (!plant) CoreFfi_TaskOptions.ClearPosition(exp, i);
+                    if (!zb.AsSpan().SequenceEqual(c.EncodeToArray(exp, true))) u.Mismatched.Add(CoreFfi_TaskOptions.UnkPositionNames[i]);
+                    if (!zb.AsSpan().SequenceEqual(want)) u.Changed.Add(CoreFfi_TaskOptions.UnkPositionNames[i]);
+                }
+                return u;
+            }
+            case "TaskOutput":
+            {
+                var c = _TaskOutput ??= new CoreFfi_TaskOutput();
+                var u = new UnkRow { Positions = CoreFfi_TaskOutput.UnkPositionNames.Length };
+                int rc = c.TryDecode(b, b.Length, true, out var all);
+                if (rc < 0) { u.Error = "retained decode " + rc + (rc == CoreFfi_TaskOutput.UNDELIVERED ? " (UNDELIVERED " + c.Undelivered + ")" : ""); return u; }
+                var want = c.EncodeToArray(all, true);
+                rc = c.TryPull(b, b.Length, true, out var pl);
+                u.PullEqual = rc == 0 && c.EncodeToArray(pl, true).AsSpan().SequenceEqual(want);
+                for (int i = 0; i < u.Positions; i++)
+                {
+                    rc = c.TryDecodeZeroing(b, b.Length, i, out var z);
+                    if (rc < 0) { u.Mismatched.Add(CoreFfi_TaskOutput.UnkPositionNames[i] + " rc " + rc); continue; }
+                    var zb = c.EncodeToArray(z, true);
+                    c.TryDecode(b, b.Length, true, out var exp);
+                    if (!plant) CoreFfi_TaskOutput.ClearPosition(exp, i);
+                    if (!zb.AsSpan().SequenceEqual(c.EncodeToArray(exp, true))) u.Mismatched.Add(CoreFfi_TaskOutput.UnkPositionNames[i]);
+                    if (!zb.AsSpan().SequenceEqual(want)) u.Changed.Add(CoreFfi_TaskOutput.UnkPositionNames[i]);
+                }
+                return u;
+            }
+            case "TaskDetailed":
+            {
+                var c = _TaskDetailed ??= new CoreFfi_TaskDetailed();
+                var u = new UnkRow { Positions = CoreFfi_TaskDetailed.UnkPositionNames.Length };
+                int rc = c.TryDecode(b, b.Length, true, out var all);
+                if (rc < 0) { u.Error = "retained decode " + rc + (rc == CoreFfi_TaskDetailed.UNDELIVERED ? " (UNDELIVERED " + c.Undelivered + ")" : ""); return u; }
+                var want = c.EncodeToArray(all, true);
+                rc = c.TryPull(b, b.Length, true, out var pl);
+                u.PullEqual = rc == 0 && c.EncodeToArray(pl, true).AsSpan().SequenceEqual(want);
+                for (int i = 0; i < u.Positions; i++)
+                {
+                    rc = c.TryDecodeZeroing(b, b.Length, i, out var z);
+                    if (rc < 0) { u.Mismatched.Add(CoreFfi_TaskDetailed.UnkPositionNames[i] + " rc " + rc); continue; }
+                    var zb = c.EncodeToArray(z, true);
+                    c.TryDecode(b, b.Length, true, out var exp);
+                    if (!plant) CoreFfi_TaskDetailed.ClearPosition(exp, i);
+                    if (!zb.AsSpan().SequenceEqual(c.EncodeToArray(exp, true))) u.Mismatched.Add(CoreFfi_TaskDetailed.UnkPositionNames[i]);
+                    if (!zb.AsSpan().SequenceEqual(want)) u.Changed.Add(CoreFfi_TaskDetailed.UnkPositionNames[i]);
+                }
+                return u;
+            }
+            case "TaskSummary":
+            {
+                var c = _TaskSummary ??= new CoreFfi_TaskSummary();
+                var u = new UnkRow { Positions = CoreFfi_TaskSummary.UnkPositionNames.Length };
+                int rc = c.TryDecode(b, b.Length, true, out var all);
+                if (rc < 0) { u.Error = "retained decode " + rc + (rc == CoreFfi_TaskSummary.UNDELIVERED ? " (UNDELIVERED " + c.Undelivered + ")" : ""); return u; }
+                var want = c.EncodeToArray(all, true);
+                rc = c.TryPull(b, b.Length, true, out var pl);
+                u.PullEqual = rc == 0 && c.EncodeToArray(pl, true).AsSpan().SequenceEqual(want);
+                for (int i = 0; i < u.Positions; i++)
+                {
+                    rc = c.TryDecodeZeroing(b, b.Length, i, out var z);
+                    if (rc < 0) { u.Mismatched.Add(CoreFfi_TaskSummary.UnkPositionNames[i] + " rc " + rc); continue; }
+                    var zb = c.EncodeToArray(z, true);
+                    c.TryDecode(b, b.Length, true, out var exp);
+                    if (!plant) CoreFfi_TaskSummary.ClearPosition(exp, i);
+                    if (!zb.AsSpan().SequenceEqual(c.EncodeToArray(exp, true))) u.Mismatched.Add(CoreFfi_TaskSummary.UnkPositionNames[i]);
+                    if (!zb.AsSpan().SequenceEqual(want)) u.Changed.Add(CoreFfi_TaskSummary.UnkPositionNames[i]);
+                }
+                return u;
+            }
+            case "Probe":
+            {
+                var c = _Probe ??= new CoreFfi_Probe();
+                var u = new UnkRow { Positions = CoreFfi_Probe.UnkPositionNames.Length };
+                int rc = c.TryDecode(b, b.Length, true, out var all);
+                if (rc < 0) { u.Error = "retained decode " + rc + (rc == CoreFfi_Probe.UNDELIVERED ? " (UNDELIVERED " + c.Undelivered + ")" : ""); return u; }
+                var want = c.EncodeToArray(all, true);
+                rc = c.TryPull(b, b.Length, true, out var pl);
+                u.PullEqual = rc == 0 && c.EncodeToArray(pl, true).AsSpan().SequenceEqual(want);
+                for (int i = 0; i < u.Positions; i++)
+                {
+                    rc = c.TryDecodeZeroing(b, b.Length, i, out var z);
+                    if (rc < 0) { u.Mismatched.Add(CoreFfi_Probe.UnkPositionNames[i] + " rc " + rc); continue; }
+                    var zb = c.EncodeToArray(z, true);
+                    c.TryDecode(b, b.Length, true, out var exp);
+                    if (!plant) CoreFfi_Probe.ClearPosition(exp, i);
+                    if (!zb.AsSpan().SequenceEqual(c.EncodeToArray(exp, true))) u.Mismatched.Add(CoreFfi_Probe.UnkPositionNames[i]);
+                    if (!zb.AsSpan().SequenceEqual(want)) u.Changed.Add(CoreFfi_Probe.UnkPositionNames[i]);
+                }
+                return u;
+            }
+            case "Empty":
+            {
+                var c = _Empty ??= new CoreFfi_Empty();
+                var u = new UnkRow { Positions = CoreFfi_Empty.UnkPositionNames.Length };
+                int rc = c.TryDecode(b, b.Length, true, out var all);
+                if (rc < 0) { u.Error = "retained decode " + rc + (rc == CoreFfi_Empty.UNDELIVERED ? " (UNDELIVERED " + c.Undelivered + ")" : ""); return u; }
+                var want = c.EncodeToArray(all, true);
+                rc = c.TryPull(b, b.Length, true, out var pl);
+                u.PullEqual = rc == 0 && c.EncodeToArray(pl, true).AsSpan().SequenceEqual(want);
+                for (int i = 0; i < u.Positions; i++)
+                {
+                    rc = c.TryDecodeZeroing(b, b.Length, i, out var z);
+                    if (rc < 0) { u.Mismatched.Add(CoreFfi_Empty.UnkPositionNames[i] + " rc " + rc); continue; }
+                    var zb = c.EncodeToArray(z, true);
+                    c.TryDecode(b, b.Length, true, out var exp);
+                    if (!plant) CoreFfi_Empty.ClearPosition(exp, i);
+                    if (!zb.AsSpan().SequenceEqual(c.EncodeToArray(exp, true))) u.Mismatched.Add(CoreFfi_Empty.UnkPositionNames[i]);
+                    if (!zb.AsSpan().SequenceEqual(want)) u.Changed.Add(CoreFfi_Empty.UnkPositionNames[i]);
+                }
+                return u;
+            }
+            case "UploadResultData":
+            {
+                var c = _UploadResultData ??= new CoreFfi_UploadResultData();
+                var u = new UnkRow { Positions = CoreFfi_UploadResultData.UnkPositionNames.Length };
+                int rc = c.TryDecode(b, b.Length, true, out var all);
+                if (rc < 0) { u.Error = "retained decode " + rc + (rc == CoreFfi_UploadResultData.UNDELIVERED ? " (UNDELIVERED " + c.Undelivered + ")" : ""); return u; }
+                var want = c.EncodeToArray(all, true);
+                rc = c.TryPull(b, b.Length, true, out var pl);
+                u.PullEqual = rc == 0 && c.EncodeToArray(pl, true).AsSpan().SequenceEqual(want);
+                for (int i = 0; i < u.Positions; i++)
+                {
+                    rc = c.TryDecodeZeroing(b, b.Length, i, out var z);
+                    if (rc < 0) { u.Mismatched.Add(CoreFfi_UploadResultData.UnkPositionNames[i] + " rc " + rc); continue; }
+                    var zb = c.EncodeToArray(z, true);
+                    c.TryDecode(b, b.Length, true, out var exp);
+                    if (!plant) CoreFfi_UploadResultData.ClearPosition(exp, i);
+                    if (!zb.AsSpan().SequenceEqual(c.EncodeToArray(exp, true))) u.Mismatched.Add(CoreFfi_UploadResultData.UnkPositionNames[i]);
+                    if (!zb.AsSpan().SequenceEqual(want)) u.Changed.Add(CoreFfi_UploadResultData.UnkPositionNames[i]);
+                }
+                return u;
+            }
+            case "MetricsBatch":
+            {
+                var c = _MetricsBatch ??= new CoreFfi_MetricsBatch();
+                var u = new UnkRow { Positions = CoreFfi_MetricsBatch.UnkPositionNames.Length };
+                int rc = c.TryDecode(b, b.Length, true, out var all);
+                if (rc < 0) { u.Error = "retained decode " + rc + (rc == CoreFfi_MetricsBatch.UNDELIVERED ? " (UNDELIVERED " + c.Undelivered + ")" : ""); return u; }
+                var want = c.EncodeToArray(all, true);
+                rc = c.TryPull(b, b.Length, true, out var pl);
+                u.PullEqual = rc == 0 && c.EncodeToArray(pl, true).AsSpan().SequenceEqual(want);
+                for (int i = 0; i < u.Positions; i++)
+                {
+                    rc = c.TryDecodeZeroing(b, b.Length, i, out var z);
+                    if (rc < 0) { u.Mismatched.Add(CoreFfi_MetricsBatch.UnkPositionNames[i] + " rc " + rc); continue; }
+                    var zb = c.EncodeToArray(z, true);
+                    c.TryDecode(b, b.Length, true, out var exp);
+                    if (!plant) CoreFfi_MetricsBatch.ClearPosition(exp, i);
+                    if (!zb.AsSpan().SequenceEqual(c.EncodeToArray(exp, true))) u.Mismatched.Add(CoreFfi_MetricsBatch.UnkPositionNames[i]);
+                    if (!zb.AsSpan().SequenceEqual(want)) u.Changed.Add(CoreFfi_MetricsBatch.UnkPositionNames[i]);
+                }
+                return u;
+            }
+            case "Pair":
+            {
+                var c = _Pair ??= new CoreFfi_Pair();
+                var u = new UnkRow { Positions = CoreFfi_Pair.UnkPositionNames.Length };
+                int rc = c.TryDecode(b, b.Length, true, out var all);
+                if (rc < 0) { u.Error = "retained decode " + rc + (rc == CoreFfi_Pair.UNDELIVERED ? " (UNDELIVERED " + c.Undelivered + ")" : ""); return u; }
+                var want = c.EncodeToArray(all, true);
+                rc = c.TryPull(b, b.Length, true, out var pl);
+                u.PullEqual = rc == 0 && c.EncodeToArray(pl, true).AsSpan().SequenceEqual(want);
+                for (int i = 0; i < u.Positions; i++)
+                {
+                    rc = c.TryDecodeZeroing(b, b.Length, i, out var z);
+                    if (rc < 0) { u.Mismatched.Add(CoreFfi_Pair.UnkPositionNames[i] + " rc " + rc); continue; }
+                    var zb = c.EncodeToArray(z, true);
+                    c.TryDecode(b, b.Length, true, out var exp);
+                    if (!plant) CoreFfi_Pair.ClearPosition(exp, i);
+                    if (!zb.AsSpan().SequenceEqual(c.EncodeToArray(exp, true))) u.Mismatched.Add(CoreFfi_Pair.UnkPositionNames[i]);
+                    if (!zb.AsSpan().SequenceEqual(want)) u.Changed.Add(CoreFfi_Pair.UnkPositionNames[i]);
+                }
+                return u;
+            }
+            case "ListResultsResponse":
+            {
+                var c = _ListResultsResponse ??= new CoreFfi_ListResultsResponse();
+                var u = new UnkRow { Positions = CoreFfi_ListResultsResponse.UnkPositionNames.Length };
+                int rc = c.TryDecode(b, b.Length, true, out var all);
+                if (rc < 0) { u.Error = "retained decode " + rc + (rc == CoreFfi_ListResultsResponse.UNDELIVERED ? " (UNDELIVERED " + c.Undelivered + ")" : ""); return u; }
+                var want = c.EncodeToArray(all, true);
+                rc = c.TryPull(b, b.Length, true, out var pl);
+                u.PullEqual = rc == 0 && c.EncodeToArray(pl, true).AsSpan().SequenceEqual(want);
+                for (int i = 0; i < u.Positions; i++)
+                {
+                    rc = c.TryDecodeZeroing(b, b.Length, i, out var z);
+                    if (rc < 0) { u.Mismatched.Add(CoreFfi_ListResultsResponse.UnkPositionNames[i] + " rc " + rc); continue; }
+                    var zb = c.EncodeToArray(z, true);
+                    c.TryDecode(b, b.Length, true, out var exp);
+                    if (!plant) CoreFfi_ListResultsResponse.ClearPosition(exp, i);
+                    if (!zb.AsSpan().SequenceEqual(c.EncodeToArray(exp, true))) u.Mismatched.Add(CoreFfi_ListResultsResponse.UnkPositionNames[i]);
+                    if (!zb.AsSpan().SequenceEqual(want)) u.Changed.Add(CoreFfi_ListResultsResponse.UnkPositionNames[i]);
+                }
+                return u;
+            }
+            case "ListTasksDetailedResponse":
+            {
+                var c = _ListTasksDetailedResponse ??= new CoreFfi_ListTasksDetailedResponse();
+                var u = new UnkRow { Positions = CoreFfi_ListTasksDetailedResponse.UnkPositionNames.Length };
+                int rc = c.TryDecode(b, b.Length, true, out var all);
+                if (rc < 0) { u.Error = "retained decode " + rc + (rc == CoreFfi_ListTasksDetailedResponse.UNDELIVERED ? " (UNDELIVERED " + c.Undelivered + ")" : ""); return u; }
+                var want = c.EncodeToArray(all, true);
+                rc = c.TryPull(b, b.Length, true, out var pl);
+                u.PullEqual = rc == 0 && c.EncodeToArray(pl, true).AsSpan().SequenceEqual(want);
+                for (int i = 0; i < u.Positions; i++)
+                {
+                    rc = c.TryDecodeZeroing(b, b.Length, i, out var z);
+                    if (rc < 0) { u.Mismatched.Add(CoreFfi_ListTasksDetailedResponse.UnkPositionNames[i] + " rc " + rc); continue; }
+                    var zb = c.EncodeToArray(z, true);
+                    c.TryDecode(b, b.Length, true, out var exp);
+                    if (!plant) CoreFfi_ListTasksDetailedResponse.ClearPosition(exp, i);
+                    if (!zb.AsSpan().SequenceEqual(c.EncodeToArray(exp, true))) u.Mismatched.Add(CoreFfi_ListTasksDetailedResponse.UnkPositionNames[i]);
+                    if (!zb.AsSpan().SequenceEqual(want)) u.Changed.Add(CoreFfi_ListTasksDetailedResponse.UnkPositionNames[i]);
+                }
+                return u;
+            }
+            case "ListTaskSummaryResponse":
+            {
+                var c = _ListTaskSummaryResponse ??= new CoreFfi_ListTaskSummaryResponse();
+                var u = new UnkRow { Positions = CoreFfi_ListTaskSummaryResponse.UnkPositionNames.Length };
+                int rc = c.TryDecode(b, b.Length, true, out var all);
+                if (rc < 0) { u.Error = "retained decode " + rc + (rc == CoreFfi_ListTaskSummaryResponse.UNDELIVERED ? " (UNDELIVERED " + c.Undelivered + ")" : ""); return u; }
+                var want = c.EncodeToArray(all, true);
+                rc = c.TryPull(b, b.Length, true, out var pl);
+                u.PullEqual = rc == 0 && c.EncodeToArray(pl, true).AsSpan().SequenceEqual(want);
+                for (int i = 0; i < u.Positions; i++)
+                {
+                    rc = c.TryDecodeZeroing(b, b.Length, i, out var z);
+                    if (rc < 0) { u.Mismatched.Add(CoreFfi_ListTaskSummaryResponse.UnkPositionNames[i] + " rc " + rc); continue; }
+                    var zb = c.EncodeToArray(z, true);
+                    c.TryDecode(b, b.Length, true, out var exp);
+                    if (!plant) CoreFfi_ListTaskSummaryResponse.ClearPosition(exp, i);
+                    if (!zb.AsSpan().SequenceEqual(c.EncodeToArray(exp, true))) u.Mismatched.Add(CoreFfi_ListTaskSummaryResponse.UnkPositionNames[i]);
+                    if (!zb.AsSpan().SequenceEqual(want)) u.Changed.Add(CoreFfi_ListTaskSummaryResponse.UnkPositionNames[i]);
+                }
+                return u;
+            }
+            case "ListProbeResponse":
+            {
+                var c = _ListProbeResponse ??= new CoreFfi_ListProbeResponse();
+                var u = new UnkRow { Positions = CoreFfi_ListProbeResponse.UnkPositionNames.Length };
+                int rc = c.TryDecode(b, b.Length, true, out var all);
+                if (rc < 0) { u.Error = "retained decode " + rc + (rc == CoreFfi_ListProbeResponse.UNDELIVERED ? " (UNDELIVERED " + c.Undelivered + ")" : ""); return u; }
+                var want = c.EncodeToArray(all, true);
+                rc = c.TryPull(b, b.Length, true, out var pl);
+                u.PullEqual = rc == 0 && c.EncodeToArray(pl, true).AsSpan().SequenceEqual(want);
+                for (int i = 0; i < u.Positions; i++)
+                {
+                    rc = c.TryDecodeZeroing(b, b.Length, i, out var z);
+                    if (rc < 0) { u.Mismatched.Add(CoreFfi_ListProbeResponse.UnkPositionNames[i] + " rc " + rc); continue; }
+                    var zb = c.EncodeToArray(z, true);
+                    c.TryDecode(b, b.Length, true, out var exp);
+                    if (!plant) CoreFfi_ListProbeResponse.ClearPosition(exp, i);
+                    if (!zb.AsSpan().SequenceEqual(c.EncodeToArray(exp, true))) u.Mismatched.Add(CoreFfi_ListProbeResponse.UnkPositionNames[i]);
+                    if (!zb.AsSpan().SequenceEqual(want)) u.Changed.Add(CoreFfi_ListProbeResponse.UnkPositionNames[i]);
+                }
+                return u;
+            }
+            case "ListMetricsResponse":
+            {
+                var c = _ListMetricsResponse ??= new CoreFfi_ListMetricsResponse();
+                var u = new UnkRow { Positions = CoreFfi_ListMetricsResponse.UnkPositionNames.Length };
+                int rc = c.TryDecode(b, b.Length, true, out var all);
+                if (rc < 0) { u.Error = "retained decode " + rc + (rc == CoreFfi_ListMetricsResponse.UNDELIVERED ? " (UNDELIVERED " + c.Undelivered + ")" : ""); return u; }
+                var want = c.EncodeToArray(all, true);
+                rc = c.TryPull(b, b.Length, true, out var pl);
+                u.PullEqual = rc == 0 && c.EncodeToArray(pl, true).AsSpan().SequenceEqual(want);
+                for (int i = 0; i < u.Positions; i++)
+                {
+                    rc = c.TryDecodeZeroing(b, b.Length, i, out var z);
+                    if (rc < 0) { u.Mismatched.Add(CoreFfi_ListMetricsResponse.UnkPositionNames[i] + " rc " + rc); continue; }
+                    var zb = c.EncodeToArray(z, true);
+                    c.TryDecode(b, b.Length, true, out var exp);
+                    if (!plant) CoreFfi_ListMetricsResponse.ClearPosition(exp, i);
+                    if (!zb.AsSpan().SequenceEqual(c.EncodeToArray(exp, true))) u.Mismatched.Add(CoreFfi_ListMetricsResponse.UnkPositionNames[i]);
+                    if (!zb.AsSpan().SequenceEqual(want)) u.Changed.Add(CoreFfi_ListMetricsResponse.UnkPositionNames[i]);
+                }
+                return u;
+            }
+            case "UploadResultDataMessage":
+            {
+                var c = _UploadResultDataMessage ??= new CoreFfi_UploadResultDataMessage();
+                var u = new UnkRow { Positions = CoreFfi_UploadResultDataMessage.UnkPositionNames.Length };
+                int rc = c.TryDecode(b, b.Length, true, out var all);
+                if (rc < 0) { u.Error = "retained decode " + rc + (rc == CoreFfi_UploadResultDataMessage.UNDELIVERED ? " (UNDELIVERED " + c.Undelivered + ")" : ""); return u; }
+                var want = c.EncodeToArray(all, true);
+                rc = c.TryPull(b, b.Length, true, out var pl);
+                u.PullEqual = rc == 0 && c.EncodeToArray(pl, true).AsSpan().SequenceEqual(want);
+                for (int i = 0; i < u.Positions; i++)
+                {
+                    rc = c.TryDecodeZeroing(b, b.Length, i, out var z);
+                    if (rc < 0) { u.Mismatched.Add(CoreFfi_UploadResultDataMessage.UnkPositionNames[i] + " rc " + rc); continue; }
+                    var zb = c.EncodeToArray(z, true);
+                    c.TryDecode(b, b.Length, true, out var exp);
+                    if (!plant) CoreFfi_UploadResultDataMessage.ClearPosition(exp, i);
+                    if (!zb.AsSpan().SequenceEqual(c.EncodeToArray(exp, true))) u.Mismatched.Add(CoreFfi_UploadResultDataMessage.UnkPositionNames[i]);
+                    if (!zb.AsSpan().SequenceEqual(want)) u.Changed.Add(CoreFfi_UploadResultDataMessage.UnkPositionNames[i]);
+                }
+                return u;
+            }
+            case "DualResponse":
+            {
+                var c = _DualResponse ??= new CoreFfi_DualResponse();
+                var u = new UnkRow { Positions = CoreFfi_DualResponse.UnkPositionNames.Length };
+                int rc = c.TryDecode(b, b.Length, true, out var all);
+                if (rc < 0) { u.Error = "retained decode " + rc + (rc == CoreFfi_DualResponse.UNDELIVERED ? " (UNDELIVERED " + c.Undelivered + ")" : ""); return u; }
+                var want = c.EncodeToArray(all, true);
+                rc = c.TryPull(b, b.Length, true, out var pl);
+                u.PullEqual = rc == 0 && c.EncodeToArray(pl, true).AsSpan().SequenceEqual(want);
+                for (int i = 0; i < u.Positions; i++)
+                {
+                    rc = c.TryDecodeZeroing(b, b.Length, i, out var z);
+                    if (rc < 0) { u.Mismatched.Add(CoreFfi_DualResponse.UnkPositionNames[i] + " rc " + rc); continue; }
+                    var zb = c.EncodeToArray(z, true);
+                    c.TryDecode(b, b.Length, true, out var exp);
+                    if (!plant) CoreFfi_DualResponse.ClearPosition(exp, i);
+                    if (!zb.AsSpan().SequenceEqual(c.EncodeToArray(exp, true))) u.Mismatched.Add(CoreFfi_DualResponse.UnkPositionNames[i]);
+                    if (!zb.AsSpan().SequenceEqual(want)) u.Changed.Add(CoreFfi_DualResponse.UnkPositionNames[i]);
+                }
+                return u;
+            }
+            case "ChunkLeaf":
+            {
+                var c = _ChunkLeaf ??= new CoreFfi_ChunkLeaf();
+                var u = new UnkRow { Positions = CoreFfi_ChunkLeaf.UnkPositionNames.Length };
+                int rc = c.TryDecode(b, b.Length, true, out var all);
+                if (rc < 0) { u.Error = "retained decode " + rc + (rc == CoreFfi_ChunkLeaf.UNDELIVERED ? " (UNDELIVERED " + c.Undelivered + ")" : ""); return u; }
+                var want = c.EncodeToArray(all, true);
+                rc = c.TryPull(b, b.Length, true, out var pl);
+                u.PullEqual = rc == 0 && c.EncodeToArray(pl, true).AsSpan().SequenceEqual(want);
+                for (int i = 0; i < u.Positions; i++)
+                {
+                    rc = c.TryDecodeZeroing(b, b.Length, i, out var z);
+                    if (rc < 0) { u.Mismatched.Add(CoreFfi_ChunkLeaf.UnkPositionNames[i] + " rc " + rc); continue; }
+                    var zb = c.EncodeToArray(z, true);
+                    c.TryDecode(b, b.Length, true, out var exp);
+                    if (!plant) CoreFfi_ChunkLeaf.ClearPosition(exp, i);
+                    if (!zb.AsSpan().SequenceEqual(c.EncodeToArray(exp, true))) u.Mismatched.Add(CoreFfi_ChunkLeaf.UnkPositionNames[i]);
+                    if (!zb.AsSpan().SequenceEqual(want)) u.Changed.Add(CoreFfi_ChunkLeaf.UnkPositionNames[i]);
+                }
+                return u;
+            }
+            case "ChunkInner":
+            {
+                var c = _ChunkInner ??= new CoreFfi_ChunkInner();
+                var u = new UnkRow { Positions = CoreFfi_ChunkInner.UnkPositionNames.Length };
+                int rc = c.TryDecode(b, b.Length, true, out var all);
+                if (rc < 0) { u.Error = "retained decode " + rc + (rc == CoreFfi_ChunkInner.UNDELIVERED ? " (UNDELIVERED " + c.Undelivered + ")" : ""); return u; }
+                var want = c.EncodeToArray(all, true);
+                rc = c.TryPull(b, b.Length, true, out var pl);
+                u.PullEqual = rc == 0 && c.EncodeToArray(pl, true).AsSpan().SequenceEqual(want);
+                for (int i = 0; i < u.Positions; i++)
+                {
+                    rc = c.TryDecodeZeroing(b, b.Length, i, out var z);
+                    if (rc < 0) { u.Mismatched.Add(CoreFfi_ChunkInner.UnkPositionNames[i] + " rc " + rc); continue; }
+                    var zb = c.EncodeToArray(z, true);
+                    c.TryDecode(b, b.Length, true, out var exp);
+                    if (!plant) CoreFfi_ChunkInner.ClearPosition(exp, i);
+                    if (!zb.AsSpan().SequenceEqual(c.EncodeToArray(exp, true))) u.Mismatched.Add(CoreFfi_ChunkInner.UnkPositionNames[i]);
+                    if (!zb.AsSpan().SequenceEqual(want)) u.Changed.Add(CoreFfi_ChunkInner.UnkPositionNames[i]);
+                }
+                return u;
+            }
+            case "ChunkElement":
+            {
+                var c = _ChunkElement ??= new CoreFfi_ChunkElement();
+                var u = new UnkRow { Positions = CoreFfi_ChunkElement.UnkPositionNames.Length };
+                int rc = c.TryDecode(b, b.Length, true, out var all);
+                if (rc < 0) { u.Error = "retained decode " + rc + (rc == CoreFfi_ChunkElement.UNDELIVERED ? " (UNDELIVERED " + c.Undelivered + ")" : ""); return u; }
+                var want = c.EncodeToArray(all, true);
+                rc = c.TryPull(b, b.Length, true, out var pl);
+                u.PullEqual = rc == 0 && c.EncodeToArray(pl, true).AsSpan().SequenceEqual(want);
+                for (int i = 0; i < u.Positions; i++)
+                {
+                    rc = c.TryDecodeZeroing(b, b.Length, i, out var z);
+                    if (rc < 0) { u.Mismatched.Add(CoreFfi_ChunkElement.UnkPositionNames[i] + " rc " + rc); continue; }
+                    var zb = c.EncodeToArray(z, true);
+                    c.TryDecode(b, b.Length, true, out var exp);
+                    if (!plant) CoreFfi_ChunkElement.ClearPosition(exp, i);
+                    if (!zb.AsSpan().SequenceEqual(c.EncodeToArray(exp, true))) u.Mismatched.Add(CoreFfi_ChunkElement.UnkPositionNames[i]);
+                    if (!zb.AsSpan().SequenceEqual(want)) u.Changed.Add(CoreFfi_ChunkElement.UnkPositionNames[i]);
+                }
+                return u;
+            }
+            case "ChunkedResponse":
+            {
+                var c = _ChunkedResponse ??= new CoreFfi_ChunkedResponse();
+                var u = new UnkRow { Positions = CoreFfi_ChunkedResponse.UnkPositionNames.Length };
+                int rc = c.TryDecode(b, b.Length, true, out var all);
+                if (rc < 0) { u.Error = "retained decode " + rc + (rc == CoreFfi_ChunkedResponse.UNDELIVERED ? " (UNDELIVERED " + c.Undelivered + ")" : ""); return u; }
+                var want = c.EncodeToArray(all, true);
+                rc = c.TryPull(b, b.Length, true, out var pl);
+                u.PullEqual = rc == 0 && c.EncodeToArray(pl, true).AsSpan().SequenceEqual(want);
+                for (int i = 0; i < u.Positions; i++)
+                {
+                    rc = c.TryDecodeZeroing(b, b.Length, i, out var z);
+                    if (rc < 0) { u.Mismatched.Add(CoreFfi_ChunkedResponse.UnkPositionNames[i] + " rc " + rc); continue; }
+                    var zb = c.EncodeToArray(z, true);
+                    c.TryDecode(b, b.Length, true, out var exp);
+                    if (!plant) CoreFfi_ChunkedResponse.ClearPosition(exp, i);
+                    if (!zb.AsSpan().SequenceEqual(c.EncodeToArray(exp, true))) u.Mismatched.Add(CoreFfi_ChunkedResponse.UnkPositionNames[i]);
+                    if (!zb.AsSpan().SequenceEqual(want)) u.Changed.Add(CoreFfi_ChunkedResponse.UnkPositionNames[i]);
+                }
+                return u;
+            }
+            case "ChunkedResponseWide":
+            {
+                var c = _ChunkedResponseWide ??= new CoreFfi_ChunkedResponseWide();
+                var u = new UnkRow { Positions = CoreFfi_ChunkedResponseWide.UnkPositionNames.Length };
+                int rc = c.TryDecode(b, b.Length, true, out var all);
+                if (rc < 0) { u.Error = "retained decode " + rc + (rc == CoreFfi_ChunkedResponseWide.UNDELIVERED ? " (UNDELIVERED " + c.Undelivered + ")" : ""); return u; }
+                var want = c.EncodeToArray(all, true);
+                rc = c.TryPull(b, b.Length, true, out var pl);
+                u.PullEqual = rc == 0 && c.EncodeToArray(pl, true).AsSpan().SequenceEqual(want);
+                for (int i = 0; i < u.Positions; i++)
+                {
+                    rc = c.TryDecodeZeroing(b, b.Length, i, out var z);
+                    if (rc < 0) { u.Mismatched.Add(CoreFfi_ChunkedResponseWide.UnkPositionNames[i] + " rc " + rc); continue; }
+                    var zb = c.EncodeToArray(z, true);
+                    c.TryDecode(b, b.Length, true, out var exp);
+                    if (!plant) CoreFfi_ChunkedResponseWide.ClearPosition(exp, i);
+                    if (!zb.AsSpan().SequenceEqual(c.EncodeToArray(exp, true))) u.Mismatched.Add(CoreFfi_ChunkedResponseWide.UnkPositionNames[i]);
+                    if (!zb.AsSpan().SequenceEqual(want)) u.Changed.Add(CoreFfi_ChunkedResponseWide.UnkPositionNames[i]);
+                }
+                return u;
+            }
+            case "LeafElement":
+            {
+                var c = _LeafElement ??= new CoreFfi_LeafElement();
+                var u = new UnkRow { Positions = CoreFfi_LeafElement.UnkPositionNames.Length };
+                int rc = c.TryDecode(b, b.Length, true, out var all);
+                if (rc < 0) { u.Error = "retained decode " + rc + (rc == CoreFfi_LeafElement.UNDELIVERED ? " (UNDELIVERED " + c.Undelivered + ")" : ""); return u; }
+                var want = c.EncodeToArray(all, true);
+                rc = c.TryPull(b, b.Length, true, out var pl);
+                u.PullEqual = rc == 0 && c.EncodeToArray(pl, true).AsSpan().SequenceEqual(want);
+                for (int i = 0; i < u.Positions; i++)
+                {
+                    rc = c.TryDecodeZeroing(b, b.Length, i, out var z);
+                    if (rc < 0) { u.Mismatched.Add(CoreFfi_LeafElement.UnkPositionNames[i] + " rc " + rc); continue; }
+                    var zb = c.EncodeToArray(z, true);
+                    c.TryDecode(b, b.Length, true, out var exp);
+                    if (!plant) CoreFfi_LeafElement.ClearPosition(exp, i);
+                    if (!zb.AsSpan().SequenceEqual(c.EncodeToArray(exp, true))) u.Mismatched.Add(CoreFfi_LeafElement.UnkPositionNames[i]);
+                    if (!zb.AsSpan().SequenceEqual(want)) u.Changed.Add(CoreFfi_LeafElement.UnkPositionNames[i]);
+                }
+                return u;
+            }
+            case "LeafResponse":
+            {
+                var c = _LeafResponse ??= new CoreFfi_LeafResponse();
+                var u = new UnkRow { Positions = CoreFfi_LeafResponse.UnkPositionNames.Length };
+                int rc = c.TryDecode(b, b.Length, true, out var all);
+                if (rc < 0) { u.Error = "retained decode " + rc + (rc == CoreFfi_LeafResponse.UNDELIVERED ? " (UNDELIVERED " + c.Undelivered + ")" : ""); return u; }
+                var want = c.EncodeToArray(all, true);
+                rc = c.TryPull(b, b.Length, true, out var pl);
+                u.PullEqual = rc == 0 && c.EncodeToArray(pl, true).AsSpan().SequenceEqual(want);
+                for (int i = 0; i < u.Positions; i++)
+                {
+                    rc = c.TryDecodeZeroing(b, b.Length, i, out var z);
+                    if (rc < 0) { u.Mismatched.Add(CoreFfi_LeafResponse.UnkPositionNames[i] + " rc " + rc); continue; }
+                    var zb = c.EncodeToArray(z, true);
+                    c.TryDecode(b, b.Length, true, out var exp);
+                    if (!plant) CoreFfi_LeafResponse.ClearPosition(exp, i);
+                    if (!zb.AsSpan().SequenceEqual(c.EncodeToArray(exp, true))) u.Mismatched.Add(CoreFfi_LeafResponse.UnkPositionNames[i]);
+                    if (!zb.AsSpan().SequenceEqual(want)) u.Changed.Add(CoreFfi_LeafResponse.UnkPositionNames[i]);
+                }
+                return u;
+            }
+            case "Surrogate":
+            {
+                var c = _Surrogate ??= new CoreFfi_Surrogate();
+                var u = new UnkRow { Positions = CoreFfi_Surrogate.UnkPositionNames.Length };
+                int rc = c.TryDecode(b, b.Length, true, out var all);
+                if (rc < 0) { u.Error = "retained decode " + rc + (rc == CoreFfi_Surrogate.UNDELIVERED ? " (UNDELIVERED " + c.Undelivered + ")" : ""); return u; }
+                var want = c.EncodeToArray(all, true);
+                rc = c.TryPull(b, b.Length, true, out var pl);
+                u.PullEqual = rc == 0 && c.EncodeToArray(pl, true).AsSpan().SequenceEqual(want);
+                for (int i = 0; i < u.Positions; i++)
+                {
+                    rc = c.TryDecodeZeroing(b, b.Length, i, out var z);
+                    if (rc < 0) { u.Mismatched.Add(CoreFfi_Surrogate.UnkPositionNames[i] + " rc " + rc); continue; }
+                    var zb = c.EncodeToArray(z, true);
+                    c.TryDecode(b, b.Length, true, out var exp);
+                    if (!plant) CoreFfi_Surrogate.ClearPosition(exp, i);
+                    if (!zb.AsSpan().SequenceEqual(c.EncodeToArray(exp, true))) u.Mismatched.Add(CoreFfi_Surrogate.UnkPositionNames[i]);
+                    if (!zb.AsSpan().SequenceEqual(want)) u.Changed.Add(CoreFfi_Surrogate.UnkPositionNames[i]);
+                }
+                return u;
+            }
+            case "SurrogateInner":
+            {
+                var c = _SurrogateInner ??= new CoreFfi_SurrogateInner();
+                var u = new UnkRow { Positions = CoreFfi_SurrogateInner.UnkPositionNames.Length };
+                int rc = c.TryDecode(b, b.Length, true, out var all);
+                if (rc < 0) { u.Error = "retained decode " + rc + (rc == CoreFfi_SurrogateInner.UNDELIVERED ? " (UNDELIVERED " + c.Undelivered + ")" : ""); return u; }
+                var want = c.EncodeToArray(all, true);
+                rc = c.TryPull(b, b.Length, true, out var pl);
+                u.PullEqual = rc == 0 && c.EncodeToArray(pl, true).AsSpan().SequenceEqual(want);
+                for (int i = 0; i < u.Positions; i++)
+                {
+                    rc = c.TryDecodeZeroing(b, b.Length, i, out var z);
+                    if (rc < 0) { u.Mismatched.Add(CoreFfi_SurrogateInner.UnkPositionNames[i] + " rc " + rc); continue; }
+                    var zb = c.EncodeToArray(z, true);
+                    c.TryDecode(b, b.Length, true, out var exp);
+                    if (!plant) CoreFfi_SurrogateInner.ClearPosition(exp, i);
+                    if (!zb.AsSpan().SequenceEqual(c.EncodeToArray(exp, true))) u.Mismatched.Add(CoreFfi_SurrogateInner.UnkPositionNames[i]);
+                    if (!zb.AsSpan().SequenceEqual(want)) u.Changed.Add(CoreFfi_SurrogateInner.UnkPositionNames[i]);
+                }
+                return u;
+            }
+            case "WireZoo":
+            {
+                var c = _WireZoo ??= new CoreFfi_WireZoo();
+                var u = new UnkRow { Positions = CoreFfi_WireZoo.UnkPositionNames.Length };
+                int rc = c.TryDecode(b, b.Length, true, out var all);
+                if (rc < 0) { u.Error = "retained decode " + rc + (rc == CoreFfi_WireZoo.UNDELIVERED ? " (UNDELIVERED " + c.Undelivered + ")" : ""); return u; }
+                var want = c.EncodeToArray(all, true);
+                rc = c.TryPull(b, b.Length, true, out var pl);
+                u.PullEqual = rc == 0 && c.EncodeToArray(pl, true).AsSpan().SequenceEqual(want);
+                for (int i = 0; i < u.Positions; i++)
+                {
+                    rc = c.TryDecodeZeroing(b, b.Length, i, out var z);
+                    if (rc < 0) { u.Mismatched.Add(CoreFfi_WireZoo.UnkPositionNames[i] + " rc " + rc); continue; }
+                    var zb = c.EncodeToArray(z, true);
+                    c.TryDecode(b, b.Length, true, out var exp);
+                    if (!plant) CoreFfi_WireZoo.ClearPosition(exp, i);
+                    if (!zb.AsSpan().SequenceEqual(c.EncodeToArray(exp, true))) u.Mismatched.Add(CoreFfi_WireZoo.UnkPositionNames[i]);
+                    if (!zb.AsSpan().SequenceEqual(want)) u.Changed.Add(CoreFfi_WireZoo.UnkPositionNames[i]);
+                }
+                return u;
+            }
+            default: return null;
+        }
+    }
+
+    /// Decision 11 rule 6: a context bound to Timestamp, used for Duration, is refused
+    /// (AK_ERR_INVALID_STATE) by decode, parse and reset, and still serves its own root.
+    public static (int Decode, int Parse, int Reset, int OwnReset, int OwnParse) WrongRoot()
+    {
+        AbiInit.Ensure();
+        IntPtr ctx = Abi.ak_dec_ctx_new_Timestamp(null);
+        byte one = 0;
+        var vt = default(ak_dvt_Duration);
+        int d = Abi.ak_decode_Duration(ctx, null, &one, 0, &vt);
+        int p = Abi.ak_parse_Duration(ctx, &one, 0);
+        int r = Abi.ak_dec_reset_Duration(ctx, null);
+        int or = Abi.ak_dec_reset_Timestamp(ctx, null);
+        int op = Abi.ak_parse_Timestamp(ctx, &one, 0);
+        Abi.ak_dec_ctx_free(ctx);
+        return (d, p, r, or, op);
+    }
+    public static readonly string WrongRootPair = "Timestamp context, Duration entry points";
 
     public static int Encode(string root, object msg, bool retain, out byte[] bytes)
     {

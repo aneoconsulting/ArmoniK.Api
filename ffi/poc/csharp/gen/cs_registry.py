@@ -100,6 +100,15 @@ def emit_corpus_dispatch(abi, refused):
     o += ""
     o += "namespace Armonik.Ffi.Corpus;"
     o += ""
+    o += "public sealed class UnkRow"
+    o += "{"
+    o += "    public int Positions;"
+    o += "    public bool PullEqual;"
+    o += "    public string Error;"
+    o += "    public List<string> Mismatched = new List<string>();"
+    o += "    public List<string> Changed = new List<string>();"
+    o += "}"
+    o += ""
     o += "public static unsafe class Ffi"
     o += "{"
     o += "    public static readonly string[] Roots = { %s };" % ", ".join('"%s"' % r for r in abi.roots)
@@ -124,6 +133,60 @@ def emit_corpus_dispatch(abi, refused):
     o += "            default: return 1;"
     o += "        }"
     o += "    }"
+    o += ""
+    o += "    /// Decision 11's controls on one accept row (WP5 step 9). Retained push decode as the"
+    o += "    /// reference; (1) each position zeroed in turn must equal the reference with that"
+    o += "    /// position's facade bags cleared (`plant`: not cleared, so rows with unknowns MUST"
+    o += "    /// mismatch); (2) the pull family must deliver what push does. Compared as retained"
+    o += "    /// re-encodings (ak_uencode_*), which carry every bag. null: root not in the C ABI."
+    o += "    public static UnkRow UnkControl(string root, byte[] b, bool plant)"
+    o += "    {"
+    o += "        switch (root)"
+    o += "        {"
+    for r in abi.roots:
+        o += "            case \"%s\":" % r
+        o += "            {"
+        o += "                var c = _%s ??= new CoreFfi_%s();" % (r, r)
+        o += "                var u = new UnkRow { Positions = CoreFfi_%s.UnkPositionNames.Length };" % r
+        o += "                int rc = c.TryDecode(b, b.Length, true, out var all);"
+        o += "                if (rc < 0) { u.Error = \"retained decode \" + rc + (rc == CoreFfi_%s.UNDELIVERED ? \" (UNDELIVERED \" + c.Undelivered + \")\" : \"\"); return u; }" % r
+        o += "                var want = c.EncodeToArray(all, true);"
+        o += "                rc = c.TryPull(b, b.Length, true, out var pl);"
+        o += "                u.PullEqual = rc == 0 && c.EncodeToArray(pl, true).AsSpan().SequenceEqual(want);"
+        o += "                for (int i = 0; i < u.Positions; i++)"
+        o += "                {"
+        o += "                    rc = c.TryDecodeZeroing(b, b.Length, i, out var z);"
+        o += "                    if (rc < 0) { u.Mismatched.Add(CoreFfi_%s.UnkPositionNames[i] + \" rc \" + rc); continue; }" % r
+        o += "                    var zb = c.EncodeToArray(z, true);"
+        o += "                    c.TryDecode(b, b.Length, true, out var exp);"
+        o += "                    if (!plant) CoreFfi_%s.ClearPosition(exp, i);" % r
+        o += "                    if (!zb.AsSpan().SequenceEqual(c.EncodeToArray(exp, true))) u.Mismatched.Add(CoreFfi_%s.UnkPositionNames[i]);" % r
+        o += "                    if (!zb.AsSpan().SequenceEqual(want)) u.Changed.Add(CoreFfi_%s.UnkPositionNames[i]);" % r
+        o += "                }"
+        o += "                return u;"
+        o += "            }"
+    o += "            default: return null;"
+    o += "        }"
+    o += "    }"
+    o += ""
+    a, b = abi.roots[0], abi.roots[1]
+    o += "    /// Decision 11 rule 6: a context bound to %s, used for %s, is refused" % (a, b)
+    o += "    /// (AK_ERR_INVALID_STATE) by decode, parse and reset, and still serves its own root."
+    o += "    public static (int Decode, int Parse, int Reset, int OwnReset, int OwnParse) WrongRoot()"
+    o += "    {"
+    o += "        AbiInit.Ensure();"
+    o += "        IntPtr ctx = Abi.ak_dec_ctx_new_%s(null);" % a
+    o += "        byte one = 0;"
+    o += "        var vt = default(ak_dvt_%s);" % b
+    o += "        int d = Abi.ak_decode_%s(ctx, null, &one, 0, &vt);" % b
+    o += "        int p = Abi.ak_parse_%s(ctx, &one, 0);" % b
+    o += "        int r = Abi.ak_dec_reset_%s(ctx, null);" % b
+    o += "        int or = Abi.ak_dec_reset_%s(ctx, null);" % a
+    o += "        int op = Abi.ak_parse_%s(ctx, &one, 0);" % a
+    o += "        Abi.ak_dec_ctx_free(ctx);"
+    o += "        return (d, p, r, or, op);"
+    o += "    }"
+    o += "    public static readonly string WrongRootPair = \"%s context, %s entry points\";" % (a, b)
     o += ""
     o += "    public static int Encode(string root, object msg, bool retain, out byte[] bytes)"
     o += "    {"

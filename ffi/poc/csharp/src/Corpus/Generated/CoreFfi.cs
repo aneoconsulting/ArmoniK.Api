@@ -113,6 +113,38 @@ public sealed unsafe class Stage : IDisposable
     }
 }
 
+/// Decision 11: the one grow callback every position of every root's options names
+/// (`ak_grow_fn`, i32 sizes). NativeMemory.Realloc: `*dst` NULL with `*cap` 0 is a fresh
+/// buffer, otherwise the first `*cap` bytes are preserved (realloc semantics; it may move).
+/// A retained decode tracks what it hands out (`G.Live`), so nothing leaks on failure.
+public static unsafe class UnkHost
+{
+    public static long Grows;
+
+    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static int Grow(IntPtr sink, int want, byte** dst, int* cap)
+    {
+        try
+        {
+            if (want < 0) return Abi.AK_ERR_LIMIT;
+            int c = *cap;
+            long nc = Math.Max((long)want, Math.Max(64L, 2L * c));
+            if (nc > int.MaxValue) nc = want;
+            void* old = *dst;
+            void* np = NativeMemory.Realloc(old, (nuint)nc);
+            var live = G.Live;
+            if (live != null) { if (old != null) live.Remove((IntPtr)old); live.Add((IntPtr)np); }
+            *dst = (byte*)np;
+            *cap = (int)nc;
+            Grows++;
+            return 0;
+        }
+        catch { return Abi.AK_ERR_HOST; }
+    }
+
+    public static IntPtr Fn => (IntPtr)(delegate* unmanaged[Cdecl]<IntPtr, int, byte**, int*, int>)&Grow;
+}
+
 /// A native array that only grows, re-allocated before any pointer into it is handed out.
 public static unsafe class Arr
 {
@@ -164,6 +196,32 @@ public static unsafe class G
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static string Str(byte* b, ak_span s) => s.len == 0 || SkipStrings ? "" : Encoding.UTF8.GetString(b + s.off, (int)s.len);
 
+    /// Decision 11: the buffers a RETAINED decode has been handed by grow and not yet taken
+    /// back (null in drop mode). Thread-static: the core calls grow on the decoding thread.
+    [ThreadStatic] internal static HashSet<IntPtr> Live;
+
+    /// A delivered message's buffer into its facade bag (null when none or empty); the
+    /// native buffer is freed and the slot cleared.
+    internal static byte[] Take(ref ak_unk_buf u)
+    {
+        if (u.data == IntPtr.Zero) return null;
+        byte[] r = null;
+        if (u.len != 0) { r = new byte[u.len]; new ReadOnlySpan<byte>((void*)u.data, (int)u.len).CopyTo(r); }
+        Live?.Remove(u.data);
+        NativeMemory.Free((void*)u.data);
+        u = default;
+        return r;
+    }
+
+    /// A non-NULL slot the facade has no place for (inactive, absent, a map entry): freed.
+    internal static void Drop(ref ak_unk_buf u)
+    {
+        if (u.data == IntPtr.Zero) return;
+        Live?.Remove(u.data);
+        NativeMemory.Free((void*)u.data);
+        u = default;
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static byte[] Bytes(byte* b, ak_span s)
     {
@@ -192,6 +250,12 @@ public static unsafe class G
     {
         t.Seconds = d.seconds;
         t.Nanos = d.nanos;
+        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
+    }
+
+    internal static void F_Timestamp(ref ak_dfix_Timestamp d)
+    {
+        Drop(ref d.unknown);
     }
 
     internal static void E_Duration(ref ak_efix_Duration g, Duration s, Stage st)
@@ -213,6 +277,12 @@ public static unsafe class G
     {
         t.Seconds = d.seconds;
         t.Nanos = d.nanos;
+        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
+    }
+
+    internal static void F_Duration(ref ak_dfix_Duration d)
+    {
+        Drop(ref d.unknown);
     }
 
     internal static void E_ResultRaw(ref ak_efix_ResultRaw g, ResultRaw s, Stage st)
@@ -254,13 +324,21 @@ public static unsafe class G
         t.Name = Str(b, d.name);
         t.OwnerTaskId = Str(b, d.owner_task_id);
         t.Status = (ResultStatus)d.status;
-        if ((d.presence & AkPresent.ResultRaw_created_at) != 0) D_Timestamp(ref d.created_at, t.CreatedAt ??= new Timestamp(), b);
-        if ((d.presence & AkPresent.ResultRaw_completed_at) != 0) D_Timestamp(ref d.completed_at, t.CompletedAt ??= new Timestamp(), b);
+        if ((d.presence & AkPresent.ResultRaw_created_at) != 0) D_Timestamp(ref d.created_at, t.CreatedAt ??= new Timestamp(), b); else F_Timestamp(ref d.created_at);
+        if ((d.presence & AkPresent.ResultRaw_completed_at) != 0) D_Timestamp(ref d.completed_at, t.CompletedAt ??= new Timestamp(), b); else F_Timestamp(ref d.completed_at);
         t.ResultId = Str(b, d.result_id);
         t.Size = d.size;
         t.CreatedBy = Str(b, d.created_by);
         t.OpaqueId = Bytes(b, d.opaque_id);
         t.ManualDeletion = (d.manual_deletion != 0);
+        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
+    }
+
+    internal static void F_ResultRaw(ref ak_dfix_ResultRaw d)
+    {
+        Drop(ref d.unknown);
+        F_Timestamp(ref d.created_at);
+        F_Timestamp(ref d.completed_at);
     }
 
     internal static void E_TaskOptions(ref ak_efix_TaskOptions g, TaskOptions s, Stage st)
@@ -294,7 +372,7 @@ public static unsafe class G
 
     internal static void D_TaskOptions(ref ak_dfix_TaskOptions d, TaskOptions t, byte* b)
     {
-        if ((d.presence & AkPresent.TaskOptions_max_duration) != 0) D_Duration(ref d.max_duration, t.MaxDuration ??= new Duration(), b);
+        if ((d.presence & AkPresent.TaskOptions_max_duration) != 0) D_Duration(ref d.max_duration, t.MaxDuration ??= new Duration(), b); else F_Duration(ref d.max_duration);
         t.MaxRetries = d.max_retries;
         t.Priority = d.priority;
         t.PartitionId = Str(b, d.partition_id);
@@ -303,6 +381,13 @@ public static unsafe class G
         t.ApplicationNamespace = Str(b, d.application_namespace);
         t.ApplicationService = Str(b, d.application_service);
         t.EngineType = Str(b, d.engine_type);
+        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
+    }
+
+    internal static void F_TaskOptions(ref ak_dfix_TaskOptions d)
+    {
+        Drop(ref d.unknown);
+        F_Duration(ref d.max_duration);
     }
 
     internal static void E_TaskOutput(ref ak_efix_TaskOutput g, TaskOutput s, Stage st)
@@ -324,6 +409,12 @@ public static unsafe class G
     {
         t.Success = (d.success != 0);
         t.Error = Str(b, d.error);
+        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
+    }
+
+    internal static void F_TaskOutput(ref ak_dfix_TaskOutput d)
+    {
+        Drop(ref d.unknown);
     }
 
     internal static void E_TaskDetailed(ref ak_efix_TaskDetailed g, TaskDetailed s, Stage st)
@@ -390,24 +481,44 @@ public static unsafe class G
         t.OwnerPodId = Str(b, d.owner_pod_id);
         t.Status = (TaskStatus)d.status;
         t.StatusMessage = Str(b, d.status_message);
-        if ((d.presence & AkPresent.TaskDetailed_options) != 0) D_TaskOptions(ref d.options, t.Options ??= new TaskOptions(), b);
-        if ((d.presence & AkPresent.TaskDetailed_created_at) != 0) D_Timestamp(ref d.created_at, t.CreatedAt ??= new Timestamp(), b);
-        if ((d.presence & AkPresent.TaskDetailed_submitted_at) != 0) D_Timestamp(ref d.submitted_at, t.SubmittedAt ??= new Timestamp(), b);
-        if ((d.presence & AkPresent.TaskDetailed_started_at) != 0) D_Timestamp(ref d.started_at, t.StartedAt ??= new Timestamp(), b);
-        if ((d.presence & AkPresent.TaskDetailed_ended_at) != 0) D_Timestamp(ref d.ended_at, t.EndedAt ??= new Timestamp(), b);
-        if ((d.presence & AkPresent.TaskDetailed_pod_ttl) != 0) D_Timestamp(ref d.pod_ttl, t.PodTtl ??= new Timestamp(), b);
-        if ((d.presence & AkPresent.TaskDetailed_output) != 0) D_TaskOutput(ref d.output, t.Output ??= new TaskOutput(), b);
+        if ((d.presence & AkPresent.TaskDetailed_options) != 0) D_TaskOptions(ref d.options, t.Options ??= new TaskOptions(), b); else F_TaskOptions(ref d.options);
+        if ((d.presence & AkPresent.TaskDetailed_created_at) != 0) D_Timestamp(ref d.created_at, t.CreatedAt ??= new Timestamp(), b); else F_Timestamp(ref d.created_at);
+        if ((d.presence & AkPresent.TaskDetailed_submitted_at) != 0) D_Timestamp(ref d.submitted_at, t.SubmittedAt ??= new Timestamp(), b); else F_Timestamp(ref d.submitted_at);
+        if ((d.presence & AkPresent.TaskDetailed_started_at) != 0) D_Timestamp(ref d.started_at, t.StartedAt ??= new Timestamp(), b); else F_Timestamp(ref d.started_at);
+        if ((d.presence & AkPresent.TaskDetailed_ended_at) != 0) D_Timestamp(ref d.ended_at, t.EndedAt ??= new Timestamp(), b); else F_Timestamp(ref d.ended_at);
+        if ((d.presence & AkPresent.TaskDetailed_pod_ttl) != 0) D_Timestamp(ref d.pod_ttl, t.PodTtl ??= new Timestamp(), b); else F_Timestamp(ref d.pod_ttl);
+        if ((d.presence & AkPresent.TaskDetailed_output) != 0) D_TaskOutput(ref d.output, t.Output ??= new TaskOutput(), b); else F_TaskOutput(ref d.output);
         t.PodHostname = Str(b, d.pod_hostname);
-        if ((d.presence & AkPresent.TaskDetailed_received_at) != 0) D_Timestamp(ref d.received_at, t.ReceivedAt ??= new Timestamp(), b);
-        if ((d.presence & AkPresent.TaskDetailed_acquired_at) != 0) D_Timestamp(ref d.acquired_at, t.AcquiredAt ??= new Timestamp(), b);
-        if ((d.presence & AkPresent.TaskDetailed_creation_to_end_duration) != 0) D_Duration(ref d.creation_to_end_duration, t.CreationToEndDuration ??= new Duration(), b);
-        if ((d.presence & AkPresent.TaskDetailed_processing_to_end_duration) != 0) D_Duration(ref d.processing_to_end_duration, t.ProcessingToEndDuration ??= new Duration(), b);
+        if ((d.presence & AkPresent.TaskDetailed_received_at) != 0) D_Timestamp(ref d.received_at, t.ReceivedAt ??= new Timestamp(), b); else F_Timestamp(ref d.received_at);
+        if ((d.presence & AkPresent.TaskDetailed_acquired_at) != 0) D_Timestamp(ref d.acquired_at, t.AcquiredAt ??= new Timestamp(), b); else F_Timestamp(ref d.acquired_at);
+        if ((d.presence & AkPresent.TaskDetailed_creation_to_end_duration) != 0) D_Duration(ref d.creation_to_end_duration, t.CreationToEndDuration ??= new Duration(), b); else F_Duration(ref d.creation_to_end_duration);
+        if ((d.presence & AkPresent.TaskDetailed_processing_to_end_duration) != 0) D_Duration(ref d.processing_to_end_duration, t.ProcessingToEndDuration ??= new Duration(), b); else F_Duration(ref d.processing_to_end_duration);
         t.InitialTaskId = Str(b, d.initial_task_id);
-        if ((d.presence & AkPresent.TaskDetailed_received_to_end_duration) != 0) D_Duration(ref d.received_to_end_duration, t.ReceivedToEndDuration ??= new Duration(), b);
-        if ((d.presence & AkPresent.TaskDetailed_processed_at) != 0) D_Timestamp(ref d.processed_at, t.ProcessedAt ??= new Timestamp(), b);
-        if ((d.presence & AkPresent.TaskDetailed_fetched_at) != 0) D_Timestamp(ref d.fetched_at, t.FetchedAt ??= new Timestamp(), b);
+        if ((d.presence & AkPresent.TaskDetailed_received_to_end_duration) != 0) D_Duration(ref d.received_to_end_duration, t.ReceivedToEndDuration ??= new Duration(), b); else F_Duration(ref d.received_to_end_duration);
+        if ((d.presence & AkPresent.TaskDetailed_processed_at) != 0) D_Timestamp(ref d.processed_at, t.ProcessedAt ??= new Timestamp(), b); else F_Timestamp(ref d.processed_at);
+        if ((d.presence & AkPresent.TaskDetailed_fetched_at) != 0) D_Timestamp(ref d.fetched_at, t.FetchedAt ??= new Timestamp(), b); else F_Timestamp(ref d.fetched_at);
         t.PayloadId = Str(b, d.payload_id);
         t.CreatedBy = Str(b, d.created_by);
+        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
+    }
+
+    internal static void F_TaskDetailed(ref ak_dfix_TaskDetailed d)
+    {
+        Drop(ref d.unknown);
+        F_TaskOptions(ref d.options);
+        F_Timestamp(ref d.created_at);
+        F_Timestamp(ref d.submitted_at);
+        F_Timestamp(ref d.started_at);
+        F_Timestamp(ref d.ended_at);
+        F_Timestamp(ref d.pod_ttl);
+        F_TaskOutput(ref d.output);
+        F_Timestamp(ref d.received_at);
+        F_Timestamp(ref d.acquired_at);
+        F_Duration(ref d.creation_to_end_duration);
+        F_Duration(ref d.processing_to_end_duration);
+        F_Duration(ref d.received_to_end_duration);
+        F_Timestamp(ref d.processed_at);
+        F_Timestamp(ref d.fetched_at);
     }
 
     internal static void E_TaskSummary(ref ak_efix_TaskSummary g, TaskSummary s, Stage st)
@@ -441,12 +552,20 @@ public static unsafe class G
     {
         t.Id = Str(b, d.id);
         t.SessionId = Str(b, d.session_id);
-        if ((d.presence & AkPresent.TaskSummary_options) != 0) D_TaskOptions(ref d.options, t.Options ??= new TaskOptions(), b);
+        if ((d.presence & AkPresent.TaskSummary_options) != 0) D_TaskOptions(ref d.options, t.Options ??= new TaskOptions(), b); else F_TaskOptions(ref d.options);
         t.Status = (TaskStatus)d.status;
-        if ((d.presence & AkPresent.TaskSummary_created_at) != 0) D_Timestamp(ref d.created_at, t.CreatedAt ??= new Timestamp(), b);
+        if ((d.presence & AkPresent.TaskSummary_created_at) != 0) D_Timestamp(ref d.created_at, t.CreatedAt ??= new Timestamp(), b); else F_Timestamp(ref d.created_at);
         t.Error = Str(b, d.error);
         t.StatusMessage = Str(b, d.status_message);
         t.CountDataDependencies = d.count_data_dependencies;
+        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
+    }
+
+    internal static void F_TaskSummary(ref ak_dfix_TaskSummary d)
+    {
+        Drop(ref d.unknown);
+        F_TaskOptions(ref d.options);
+        F_Timestamp(ref d.created_at);
     }
 
     internal static void E_Probe(ref ak_efix_Probe g, Probe s, Stage st)
@@ -506,6 +625,8 @@ public static unsafe class G
         t.OptCount = (d.presence & AkPresent.Probe_opt_count) != 0 ? d.opt_count : null;
         t.OptLabel = (d.presence & AkPresent.Probe_opt_label) != 0 ? Str(b, d.opt_label) : null;
         t.OptFlag = (d.presence & AkPresent.Probe_opt_flag) != 0 ? (d.opt_flag != 0) : null;
+        if (d.body_case != 13) F_Timestamp(ref d.body_as_stamp);
+        if (d.body_case != 14) F_Empty(ref d.body_as_nothing);
         t.BodyCase = (ProbeBodyCase)d.body_case;
         switch (d.body_case)
         {
@@ -521,6 +642,14 @@ public static unsafe class G
                 t.AsNothing = new Empty(); D_Empty(ref d.body_as_nothing, t.AsNothing, b); break;
             default: break;
         }
+        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
+    }
+
+    internal static void F_Probe(ref ak_dfix_Probe d)
+    {
+        Drop(ref d.unknown);
+        F_Timestamp(ref d.body_as_stamp);
+        F_Empty(ref d.body_as_nothing);
     }
 
     internal static void E_Empty(ref ak_efix_Empty g, Empty s, Stage st)
@@ -536,6 +665,12 @@ public static unsafe class G
 
     internal static void D_Empty(ref ak_dfix_Empty d, Empty t, byte* b)
     {
+        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
+    }
+
+    internal static void F_Empty(ref ak_dfix_Empty d)
+    {
+        Drop(ref d.unknown);
     }
 
     internal static void E_UploadResultData(ref ak_efix_UploadResultData g, UploadResultData s, Stage st)
@@ -562,6 +697,12 @@ public static unsafe class G
         t.SessionId = Str(b, d.session_id);
         t.ResultId = Str(b, d.result_id);
         t.DataChunk = Bytes(b, d.data_chunk);
+        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
+    }
+
+    internal static void F_UploadResultData(ref ak_dfix_UploadResultData d)
+    {
+        Drop(ref d.unknown);
     }
 
     internal static void E_MetricsBatch(ref ak_efix_MetricsBatch g, MetricsBatch s, Stage st)
@@ -580,6 +721,12 @@ public static unsafe class G
     internal static void D_MetricsBatch(ref ak_dfix_MetricsBatch d, MetricsBatch t, byte* b)
     {
         t.Id = Str(b, d.id);
+        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
+    }
+
+    internal static void F_MetricsBatch(ref ak_dfix_MetricsBatch d)
+    {
+        Drop(ref d.unknown);
     }
 
     internal static void E_Pair(ref ak_efix_Pair g, Pair s, Stage st)
@@ -601,6 +748,12 @@ public static unsafe class G
     {
         t.Key = Str(b, d.key);
         t.Value = d.value;
+        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
+    }
+
+    internal static void F_Pair(ref ak_dfix_Pair d)
+    {
+        Drop(ref d.unknown);
     }
 
     internal static void E_ListResultsResponse(ref ak_efix_ListResultsResponse g, ListResultsResponse s, Stage st)
@@ -622,6 +775,12 @@ public static unsafe class G
     {
         t.Page = d.page;
         t.Total = d.total;
+        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
+    }
+
+    internal static void F_ListResultsResponse(ref ak_dfix_ListResultsResponse d)
+    {
+        Drop(ref d.unknown);
     }
 
     internal static void E_ListTasksDetailedResponse(ref ak_efix_ListTasksDetailedResponse g, ListTasksDetailedResponse s, Stage st)
@@ -643,6 +802,12 @@ public static unsafe class G
     {
         t.Page = d.page;
         t.Total = d.total;
+        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
+    }
+
+    internal static void F_ListTasksDetailedResponse(ref ak_dfix_ListTasksDetailedResponse d)
+    {
+        Drop(ref d.unknown);
     }
 
     internal static void E_ListTaskSummaryResponse(ref ak_efix_ListTaskSummaryResponse g, ListTaskSummaryResponse s, Stage st)
@@ -658,6 +823,12 @@ public static unsafe class G
 
     internal static void D_ListTaskSummaryResponse(ref ak_dfix_ListTaskSummaryResponse d, ListTaskSummaryResponse t, byte* b)
     {
+        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
+    }
+
+    internal static void F_ListTaskSummaryResponse(ref ak_dfix_ListTaskSummaryResponse d)
+    {
+        Drop(ref d.unknown);
     }
 
     internal static void E_ListProbeResponse(ref ak_efix_ListProbeResponse g, ListProbeResponse s, Stage st)
@@ -673,6 +844,12 @@ public static unsafe class G
 
     internal static void D_ListProbeResponse(ref ak_dfix_ListProbeResponse d, ListProbeResponse t, byte* b)
     {
+        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
+    }
+
+    internal static void F_ListProbeResponse(ref ak_dfix_ListProbeResponse d)
+    {
+        Drop(ref d.unknown);
     }
 
     internal static void E_ListMetricsResponse(ref ak_efix_ListMetricsResponse g, ListMetricsResponse s, Stage st)
@@ -688,6 +865,12 @@ public static unsafe class G
 
     internal static void D_ListMetricsResponse(ref ak_dfix_ListMetricsResponse d, ListMetricsResponse t, byte* b)
     {
+        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
+    }
+
+    internal static void F_ListMetricsResponse(ref ak_dfix_ListMetricsResponse d)
+    {
+        Drop(ref d.unknown);
     }
 
     internal static void E_UploadResultDataMessage(ref ak_efix_UploadResultDataMessage g, UploadResultDataMessage s, Stage st)
@@ -705,7 +888,14 @@ public static unsafe class G
 
     internal static void D_UploadResultDataMessage(ref ak_dfix_UploadResultDataMessage d, UploadResultDataMessage t, byte* b)
     {
-        if ((d.presence & AkPresent.UploadResultDataMessage_upload) != 0) D_UploadResultData(ref d.upload, t.Upload ??= new UploadResultData(), b);
+        if ((d.presence & AkPresent.UploadResultDataMessage_upload) != 0) D_UploadResultData(ref d.upload, t.Upload ??= new UploadResultData(), b); else F_UploadResultData(ref d.upload);
+        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
+    }
+
+    internal static void F_UploadResultDataMessage(ref ak_dfix_UploadResultDataMessage d)
+    {
+        Drop(ref d.unknown);
+        F_UploadResultData(ref d.upload);
     }
 
     internal static void E_DualResponse(ref ak_efix_DualResponse g, DualResponse s, Stage st)
@@ -721,6 +911,12 @@ public static unsafe class G
 
     internal static void D_DualResponse(ref ak_dfix_DualResponse d, DualResponse t, byte* b)
     {
+        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
+    }
+
+    internal static void F_DualResponse(ref ak_dfix_DualResponse d)
+    {
+        Drop(ref d.unknown);
     }
 
     internal static void E_ChunkLeaf(ref ak_efix_ChunkLeaf g, ChunkLeaf s, Stage st)
@@ -742,6 +938,12 @@ public static unsafe class G
     {
         t.K = Str(b, d.k);
         t.V = d.v;
+        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
+    }
+
+    internal static void F_ChunkLeaf(ref ak_dfix_ChunkLeaf d)
+    {
+        Drop(ref d.unknown);
     }
 
     internal static void E_ChunkInner(ref ak_efix_ChunkInner g, ChunkInner s, Stage st)
@@ -757,6 +959,12 @@ public static unsafe class G
 
     internal static void D_ChunkInner(ref ak_dfix_ChunkInner d, ChunkInner t, byte* b)
     {
+        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
+    }
+
+    internal static void F_ChunkInner(ref ak_dfix_ChunkInner d)
+    {
+        Drop(ref d.unknown);
     }
 
     internal static void E_ChunkElement(ref ak_efix_ChunkElement g, ChunkElement s, Stage st)
@@ -777,7 +985,14 @@ public static unsafe class G
     internal static void D_ChunkElement(ref ak_dfix_ChunkElement d, ChunkElement t, byte* b)
     {
         t.Id = Str(b, d.id);
-        if ((d.presence & AkPresent.ChunkElement_inner) != 0) D_ChunkInner(ref d.inner, t.Inner ??= new ChunkInner(), b);
+        if ((d.presence & AkPresent.ChunkElement_inner) != 0) D_ChunkInner(ref d.inner, t.Inner ??= new ChunkInner(), b); else F_ChunkInner(ref d.inner);
+        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
+    }
+
+    internal static void F_ChunkElement(ref ak_dfix_ChunkElement d)
+    {
+        Drop(ref d.unknown);
+        F_ChunkInner(ref d.inner);
     }
 
     internal static void E_ChunkedResponse(ref ak_efix_ChunkedResponse g, ChunkedResponse s, Stage st)
@@ -796,6 +1011,12 @@ public static unsafe class G
     internal static void D_ChunkedResponse(ref ak_dfix_ChunkedResponse d, ChunkedResponse t, byte* b)
     {
         t.Page = d.page;
+        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
+    }
+
+    internal static void F_ChunkedResponse(ref ak_dfix_ChunkedResponse d)
+    {
+        Drop(ref d.unknown);
     }
 
     internal static void E_ChunkedResponseWide(ref ak_efix_ChunkedResponseWide g, ChunkedResponseWide s, Stage st)
@@ -811,6 +1032,12 @@ public static unsafe class G
 
     internal static void D_ChunkedResponseWide(ref ak_dfix_ChunkedResponseWide d, ChunkedResponseWide t, byte* b)
     {
+        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
+    }
+
+    internal static void F_ChunkedResponseWide(ref ak_dfix_ChunkedResponseWide d)
+    {
+        Drop(ref d.unknown);
     }
 
     internal static void E_LeafElement(ref ak_efix_LeafElement g, LeafElement s, Stage st)
@@ -834,7 +1061,14 @@ public static unsafe class G
     {
         t.Id = Str(b, d.id);
         t.N = d.n;
-        if ((d.presence & AkPresent.LeafElement_stamp) != 0) D_Timestamp(ref d.stamp, t.Stamp ??= new Timestamp(), b);
+        if ((d.presence & AkPresent.LeafElement_stamp) != 0) D_Timestamp(ref d.stamp, t.Stamp ??= new Timestamp(), b); else F_Timestamp(ref d.stamp);
+        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
+    }
+
+    internal static void F_LeafElement(ref ak_dfix_LeafElement d)
+    {
+        Drop(ref d.unknown);
+        F_Timestamp(ref d.stamp);
     }
 
     internal static void E_LeafResponse(ref ak_efix_LeafResponse g, LeafResponse s, Stage st)
@@ -850,6 +1084,12 @@ public static unsafe class G
 
     internal static void D_LeafResponse(ref ak_dfix_LeafResponse d, LeafResponse t, byte* b)
     {
+        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
+    }
+
+    internal static void F_LeafResponse(ref ak_dfix_LeafResponse d)
+    {
+        Drop(ref d.unknown);
     }
 
     internal static void E_Surrogate(ref ak_efix_Surrogate g, Surrogate s, Stage st)
@@ -872,8 +1112,15 @@ public static unsafe class G
     internal static void D_Surrogate(ref ak_dfix_Surrogate d, Surrogate t, byte* b)
     {
         t.Text = Str(b, d.text);
-        if ((d.presence & AkPresent.Surrogate_nested) != 0) D_SurrogateInner(ref d.nested, t.Nested ??= new SurrogateInner(), b);
+        if ((d.presence & AkPresent.Surrogate_nested) != 0) D_SurrogateInner(ref d.nested, t.Nested ??= new SurrogateInner(), b); else F_SurrogateInner(ref d.nested);
         t.Raw = Bytes(b, d.raw);
+        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
+    }
+
+    internal static void F_Surrogate(ref ak_dfix_Surrogate d)
+    {
+        Drop(ref d.unknown);
+        F_SurrogateInner(ref d.nested);
     }
 
     internal static void E_SurrogateInner(ref ak_efix_SurrogateInner g, SurrogateInner s, Stage st)
@@ -892,6 +1139,12 @@ public static unsafe class G
     internal static void D_SurrogateInner(ref ak_dfix_SurrogateInner d, SurrogateInner t, byte* b)
     {
         t.Text = Str(b, d.text);
+        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
+    }
+
+    internal static void F_SurrogateInner(ref ak_dfix_SurrogateInner d)
+    {
+        Drop(ref d.unknown);
     }
 
     internal static void E_WireZoo(ref ak_efix_WireZoo g, WireZoo s, Stage st)
@@ -935,8 +1188,15 @@ public static unsafe class G
         t.VString = Str(b, d.v_string);
         t.VBytes = Bytes(b, d.v_bytes);
         t.VEnum = (ResultStatus)d.v_enum;
-        if ((d.presence & AkPresent.WireZoo_v_msg) != 0) D_Timestamp(ref d.v_msg, t.VMsg ??= new Timestamp(), b);
+        if ((d.presence & AkPresent.WireZoo_v_msg) != 0) D_Timestamp(ref d.v_msg, t.VMsg ??= new Timestamp(), b); else F_Timestamp(ref d.v_msg);
         t.VBigTag = d.v_big_tag;
+        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
+    }
+
+    internal static void F_WireZoo(ref ak_dfix_WireZoo d)
+    {
+        Drop(ref d.unknown);
+        F_Timestamp(ref d.v_msg);
     }
 
 }
@@ -961,7 +1221,7 @@ public sealed unsafe class CoreFfi_Timestamp : IDisposable
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
-    public void CallsReset() { _fwd = 0; _rev = 0; }
+    public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
 
     public CoreFfi_Timestamp(bool utf16 = false)
     {
@@ -1021,7 +1281,7 @@ public sealed unsafe class CoreFfi_Timestamp : IDisposable
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct DecRun { public IntPtr Target; public byte* Buf; public IntPtr Pending; }
+    private struct DecRun { public IntPtr Target; public byte* Buf; }
 
     private static Timestamp Tgt(void* obj) => (Timestamp)GCHandle.FromIntPtr(((DecRun*)obj)->Target).Target;
 
@@ -1035,24 +1295,104 @@ public sealed unsafe class CoreFfi_Timestamp : IDisposable
 
     private static readonly byte[] One = new byte[1];
 
+    /// Decision 11: every message position of this root, in plan.unk_positions order
+    /// (the options' member order).
+    public static readonly string[] UnkPositionNames = { "self" };
+
+    /// A retained decode ended with a buffer grow handed out that no delivered group
+    /// carried back to the host: a host defect, never a core code.
+    public const int UNDELIVERED = -1001;
+    public int Undelivered { get; private set; }
+    private ak_dec_Timestamp_opts* _uo;
+    private HashSet<IntPtr> _live;
+    /// The resets that arm and disarm each decode (rule 7): forward crossings, counted
+    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    private static long _resets;
+    public long ResetCalls => _resets;
+
+    private void EnsureDec()
+    {
+        if (_dctx != IntPtr.Zero) return;
+        _dctx = Abi.ak_dec_ctx_new_Timestamp(null);   // rule 6: bound to this root, drop mode
+        if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_Timestamp returned NULL");
+        _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
+    }
+
+    /// The options, rewritten before every retained decode: every entry names the one
+    /// grow and holds no pre-allocated buffer (all from grow, so the core never needs
+    /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
+    private ak_dec_Timestamp_opts* Arm(int zero)
+    {
+        if (_uo == null) _uo = (ak_dec_Timestamp_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_Timestamp_opts));
+        *_uo = default;
+        var g = UnkHost.Fn;
+        if (zero != 0) _uo->self.grow = g;
+        return _uo;
+    }
+
+    /// mode -2: drop (reset with NULL); -1: retain everywhere; k >= 0: retain but k.
+    private int ArmFor(int mode)
+    {
+        Undelivered = 0;
+        _resets++;
+        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_Timestamp(_dctx, null); }
+        _live ??= new HashSet<IntPtr>();
+        _live.Clear();
+        G.Live = _live;
+        return Abi.ak_dec_reset_Timestamp(_dctx, Arm(mode));
+    }
+
+    /// After every decode: the core forgets the options (reset with NULL), and a buffer
+    /// still outstanding is freed; after a success that is UNDELIVERED.
+    private int Disarm(int rc)
+    {
+        _resets++;
+        Abi.ak_dec_reset_Timestamp(_dctx, null);
+        var live = G.Live;
+        G.Live = null;
+        if (live == null || live.Count == 0) return rc;
+        foreach (var q in live) NativeMemory.Free((void*)q);
+        int left = live.Count;
+        live.Clear();
+        if (rc < 0) return rc;
+        Undelivered = left;
+        return UNDELIVERED;
+    }
+
+    /// The zeroed-position control's expectation: the facade bags at `position` cleared.
+    public static void ClearPosition(Timestamp t, int position)
+    {
+        switch (position)
+        {
+            case 0:
+            {
+                t.UnknownFields = null;
+                break;
+            }
+            default: throw new ArgumentOutOfRangeException(nameof(position));
+        }
+    }
+
     public Timestamp Decode(byte[] src, int len) { int rc = TryDecode(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
     public Timestamp DecodeU(byte[] src, int len) { int rc = TryDecode(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
 
     /// The core's code (< 0) on failure; the output is then unspecified and discarded (R-G6).
-    public int TryDecode(byte[] src, int len, bool retain, out Timestamp result)
+    public int TryDecode(byte[] src, int len, bool retain, out Timestamp result) => DecodeArmed(src, len, retain ? -1 : -2, out result);
+
+    /// A control (decision 11 DISCARD): retain everywhere except `position` (an index into
+    /// UnkPositionNames), whose entry is all zero when armed.
+    public int TryDecodeZeroing(byte[] src, int len, int position, out Timestamp result) => DecodeArmed(src, len, position, out result);
+
+    private int DecodeArmed(byte[] src, int len, int mode, out Timestamp result)
     {
         result = null;
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        EnsureDec();
         Abi.ak_dec_err_reset(_dctx);
+        int ar = ArmFor(mode);
+        if (ar != 0) { Disarm(ar); return ar; }
         var target = new Timestamp();
-        var pend = retain ? new List<(int, long, byte[])>() : null;
         var h = GCHandle.Alloc(target);
-        var hp = retain ? GCHandle.Alloc(pend) : default;
-        int rc;
+        int rc = Abi.AK_ERR_HOST;
         try
         {
             fixed (byte* b0 = src)
@@ -1062,7 +1402,6 @@ public sealed unsafe class CoreFfi_Timestamp : IDisposable
                 byte* b = len == 0 ? one : b0;
                 _drun->Target = GCHandle.ToIntPtr(h);
                 _drun->Buf = b;
-                _drun->Pending = retain ? GCHandle.ToIntPtr(hp) : IntPtr.Zero;
                 var vt = new ak_dvt_Timestamp
                 {
                     apply = &ApplyRoot,
@@ -1072,49 +1411,47 @@ public sealed unsafe class CoreFfi_Timestamp : IDisposable
                 if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); if (retain) hp.Free(); }
+        finally { h.Free(); rc = Disarm(rc); }
         if (rc < 0) return rc;
-        if (retain)
-        {
-            // Applied after the decode: a capture may flush before the run that
-            // carries the element it belongs to.
-            foreach (var (slot, token, bytes) in pend)
-            {
-                switch (slot)
-                {
-                    case 0: target.UnknownFields = W.Append(target.UnknownFields, bytes, 0, bytes.Length); break;
-                    default: break;   // a map entry has no bag
-                }
-            }
-        }
         result = target;
         return 0;
     }
 
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
-    /// call), then replay it with the same group readers the push callbacks use.
-    public Timestamp Pull(byte[] src, int len)
+    /// call but grow), then replay it with the same group readers the push callbacks
+    /// use. The context is armed exactly as for push.
+    public Timestamp Pull(byte[] src, int len) { int rc = TryPull(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+    public Timestamp PullU(byte[] src, int len) { int rc = TryPull(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+
+    public int TryPull(byte[] src, int len, bool retain, out Timestamp result)
     {
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        result = null;
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
         var t = new Timestamp();
-        fixed (byte* b0 = src)
-        fixed (byte* one = One)
+        int rc = Abi.AK_ERR_HOST;
+        try
         {
-            byte* b = len == 0 ? one : b0;
-            _fwd++;
-            int rc = Abi.ak_parse_Timestamp(_dctx, b, (nuint)len);
-            if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}");
-            byte* recs; nuint rlen;
-            _fwd++;
-            int pr = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
-            if (pr != 0) throw new InvalidOperationException($"ak_bdr_ptr failed: {pr}");
-            Replay(t, b, recs, (int)rlen);
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                _fwd++;
+                rc = Abi.ak_parse_Timestamp(_dctx, b, (nuint)len);
+                if (rc >= 0)
+                {
+                    byte* recs; nuint rlen;
+                    _fwd++;
+                    rc = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
+                    if (rc == 0) Replay(t, b, recs, (int)rlen);
+                }
+            }
         }
-        return t;
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;
+        result = t;
+        return 0;
     }
 
     private const uint OP_APPLY = 1, OP_ADD = 2, OP_NEW = 3, OP_APPLY_ELEM = 4;   // ak_bdr_rec.op
@@ -1151,6 +1488,7 @@ public sealed unsafe class CoreFfi_Timestamp : IDisposable
             NativeMemory.Free(_run); _run = null;
         }
         if (_drun != null) { NativeMemory.Free(_drun); _drun = null; }
+        if (_uo != null) { NativeMemory.Free(_uo); _uo = null; }
     }
 }
 
@@ -1174,7 +1512,7 @@ public sealed unsafe class CoreFfi_Duration : IDisposable
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
-    public void CallsReset() { _fwd = 0; _rev = 0; }
+    public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
 
     public CoreFfi_Duration(bool utf16 = false)
     {
@@ -1234,7 +1572,7 @@ public sealed unsafe class CoreFfi_Duration : IDisposable
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct DecRun { public IntPtr Target; public byte* Buf; public IntPtr Pending; }
+    private struct DecRun { public IntPtr Target; public byte* Buf; }
 
     private static Duration Tgt(void* obj) => (Duration)GCHandle.FromIntPtr(((DecRun*)obj)->Target).Target;
 
@@ -1248,24 +1586,104 @@ public sealed unsafe class CoreFfi_Duration : IDisposable
 
     private static readonly byte[] One = new byte[1];
 
+    /// Decision 11: every message position of this root, in plan.unk_positions order
+    /// (the options' member order).
+    public static readonly string[] UnkPositionNames = { "self" };
+
+    /// A retained decode ended with a buffer grow handed out that no delivered group
+    /// carried back to the host: a host defect, never a core code.
+    public const int UNDELIVERED = -1001;
+    public int Undelivered { get; private set; }
+    private ak_dec_Duration_opts* _uo;
+    private HashSet<IntPtr> _live;
+    /// The resets that arm and disarm each decode (rule 7): forward crossings, counted
+    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    private static long _resets;
+    public long ResetCalls => _resets;
+
+    private void EnsureDec()
+    {
+        if (_dctx != IntPtr.Zero) return;
+        _dctx = Abi.ak_dec_ctx_new_Duration(null);   // rule 6: bound to this root, drop mode
+        if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_Duration returned NULL");
+        _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
+    }
+
+    /// The options, rewritten before every retained decode: every entry names the one
+    /// grow and holds no pre-allocated buffer (all from grow, so the core never needs
+    /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
+    private ak_dec_Duration_opts* Arm(int zero)
+    {
+        if (_uo == null) _uo = (ak_dec_Duration_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_Duration_opts));
+        *_uo = default;
+        var g = UnkHost.Fn;
+        if (zero != 0) _uo->self.grow = g;
+        return _uo;
+    }
+
+    /// mode -2: drop (reset with NULL); -1: retain everywhere; k >= 0: retain but k.
+    private int ArmFor(int mode)
+    {
+        Undelivered = 0;
+        _resets++;
+        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_Duration(_dctx, null); }
+        _live ??= new HashSet<IntPtr>();
+        _live.Clear();
+        G.Live = _live;
+        return Abi.ak_dec_reset_Duration(_dctx, Arm(mode));
+    }
+
+    /// After every decode: the core forgets the options (reset with NULL), and a buffer
+    /// still outstanding is freed; after a success that is UNDELIVERED.
+    private int Disarm(int rc)
+    {
+        _resets++;
+        Abi.ak_dec_reset_Duration(_dctx, null);
+        var live = G.Live;
+        G.Live = null;
+        if (live == null || live.Count == 0) return rc;
+        foreach (var q in live) NativeMemory.Free((void*)q);
+        int left = live.Count;
+        live.Clear();
+        if (rc < 0) return rc;
+        Undelivered = left;
+        return UNDELIVERED;
+    }
+
+    /// The zeroed-position control's expectation: the facade bags at `position` cleared.
+    public static void ClearPosition(Duration t, int position)
+    {
+        switch (position)
+        {
+            case 0:
+            {
+                t.UnknownFields = null;
+                break;
+            }
+            default: throw new ArgumentOutOfRangeException(nameof(position));
+        }
+    }
+
     public Duration Decode(byte[] src, int len) { int rc = TryDecode(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
     public Duration DecodeU(byte[] src, int len) { int rc = TryDecode(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
 
     /// The core's code (< 0) on failure; the output is then unspecified and discarded (R-G6).
-    public int TryDecode(byte[] src, int len, bool retain, out Duration result)
+    public int TryDecode(byte[] src, int len, bool retain, out Duration result) => DecodeArmed(src, len, retain ? -1 : -2, out result);
+
+    /// A control (decision 11 DISCARD): retain everywhere except `position` (an index into
+    /// UnkPositionNames), whose entry is all zero when armed.
+    public int TryDecodeZeroing(byte[] src, int len, int position, out Duration result) => DecodeArmed(src, len, position, out result);
+
+    private int DecodeArmed(byte[] src, int len, int mode, out Duration result)
     {
         result = null;
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        EnsureDec();
         Abi.ak_dec_err_reset(_dctx);
+        int ar = ArmFor(mode);
+        if (ar != 0) { Disarm(ar); return ar; }
         var target = new Duration();
-        var pend = retain ? new List<(int, long, byte[])>() : null;
         var h = GCHandle.Alloc(target);
-        var hp = retain ? GCHandle.Alloc(pend) : default;
-        int rc;
+        int rc = Abi.AK_ERR_HOST;
         try
         {
             fixed (byte* b0 = src)
@@ -1275,7 +1693,6 @@ public sealed unsafe class CoreFfi_Duration : IDisposable
                 byte* b = len == 0 ? one : b0;
                 _drun->Target = GCHandle.ToIntPtr(h);
                 _drun->Buf = b;
-                _drun->Pending = retain ? GCHandle.ToIntPtr(hp) : IntPtr.Zero;
                 var vt = new ak_dvt_Duration
                 {
                     apply = &ApplyRoot,
@@ -1285,49 +1702,47 @@ public sealed unsafe class CoreFfi_Duration : IDisposable
                 if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); if (retain) hp.Free(); }
+        finally { h.Free(); rc = Disarm(rc); }
         if (rc < 0) return rc;
-        if (retain)
-        {
-            // Applied after the decode: a capture may flush before the run that
-            // carries the element it belongs to.
-            foreach (var (slot, token, bytes) in pend)
-            {
-                switch (slot)
-                {
-                    case 0: target.UnknownFields = W.Append(target.UnknownFields, bytes, 0, bytes.Length); break;
-                    default: break;   // a map entry has no bag
-                }
-            }
-        }
         result = target;
         return 0;
     }
 
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
-    /// call), then replay it with the same group readers the push callbacks use.
-    public Duration Pull(byte[] src, int len)
+    /// call but grow), then replay it with the same group readers the push callbacks
+    /// use. The context is armed exactly as for push.
+    public Duration Pull(byte[] src, int len) { int rc = TryPull(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+    public Duration PullU(byte[] src, int len) { int rc = TryPull(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+
+    public int TryPull(byte[] src, int len, bool retain, out Duration result)
     {
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        result = null;
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
         var t = new Duration();
-        fixed (byte* b0 = src)
-        fixed (byte* one = One)
+        int rc = Abi.AK_ERR_HOST;
+        try
         {
-            byte* b = len == 0 ? one : b0;
-            _fwd++;
-            int rc = Abi.ak_parse_Duration(_dctx, b, (nuint)len);
-            if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}");
-            byte* recs; nuint rlen;
-            _fwd++;
-            int pr = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
-            if (pr != 0) throw new InvalidOperationException($"ak_bdr_ptr failed: {pr}");
-            Replay(t, b, recs, (int)rlen);
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                _fwd++;
+                rc = Abi.ak_parse_Duration(_dctx, b, (nuint)len);
+                if (rc >= 0)
+                {
+                    byte* recs; nuint rlen;
+                    _fwd++;
+                    rc = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
+                    if (rc == 0) Replay(t, b, recs, (int)rlen);
+                }
+            }
         }
-        return t;
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;
+        result = t;
+        return 0;
     }
 
     private const uint OP_APPLY = 1, OP_ADD = 2, OP_NEW = 3, OP_APPLY_ELEM = 4;   // ak_bdr_rec.op
@@ -1364,6 +1779,7 @@ public sealed unsafe class CoreFfi_Duration : IDisposable
             NativeMemory.Free(_run); _run = null;
         }
         if (_drun != null) { NativeMemory.Free(_drun); _drun = null; }
+        if (_uo != null) { NativeMemory.Free(_uo); _uo = null; }
     }
 }
 
@@ -1387,7 +1803,7 @@ public sealed unsafe class CoreFfi_ResultRaw : IDisposable
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
-    public void CallsReset() { _fwd = 0; _rev = 0; }
+    public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
 
     public CoreFfi_ResultRaw(bool utf16 = false)
     {
@@ -1447,7 +1863,7 @@ public sealed unsafe class CoreFfi_ResultRaw : IDisposable
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct DecRun { public IntPtr Target; public byte* Buf; public IntPtr Pending; }
+    private struct DecRun { public IntPtr Target; public byte* Buf; }
 
     private static ResultRaw Tgt(void* obj) => (ResultRaw)GCHandle.FromIntPtr(((DecRun*)obj)->Target).Target;
 
@@ -1461,24 +1877,122 @@ public sealed unsafe class CoreFfi_ResultRaw : IDisposable
 
     private static readonly byte[] One = new byte[1];
 
+    /// Decision 11: every message position of this root, in plan.unk_positions order
+    /// (the options' member order).
+    public static readonly string[] UnkPositionNames = { "self", "created_at", "completed_at" };
+
+    /// A retained decode ended with a buffer grow handed out that no delivered group
+    /// carried back to the host: a host defect, never a core code.
+    public const int UNDELIVERED = -1001;
+    public int Undelivered { get; private set; }
+    private ak_dec_ResultRaw_opts* _uo;
+    private HashSet<IntPtr> _live;
+    /// The resets that arm and disarm each decode (rule 7): forward crossings, counted
+    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    private static long _resets;
+    public long ResetCalls => _resets;
+
+    private void EnsureDec()
+    {
+        if (_dctx != IntPtr.Zero) return;
+        _dctx = Abi.ak_dec_ctx_new_ResultRaw(null);   // rule 6: bound to this root, drop mode
+        if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_ResultRaw returned NULL");
+        _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
+    }
+
+    /// The options, rewritten before every retained decode: every entry names the one
+    /// grow and holds no pre-allocated buffer (all from grow, so the core never needs
+    /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
+    private ak_dec_ResultRaw_opts* Arm(int zero)
+    {
+        if (_uo == null) _uo = (ak_dec_ResultRaw_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_ResultRaw_opts));
+        *_uo = default;
+        var g = UnkHost.Fn;
+        if (zero != 0) _uo->self.grow = g;
+        if (zero != 1) _uo->created_at.grow = g;
+        if (zero != 2) _uo->completed_at.grow = g;
+        return _uo;
+    }
+
+    /// mode -2: drop (reset with NULL); -1: retain everywhere; k >= 0: retain but k.
+    private int ArmFor(int mode)
+    {
+        Undelivered = 0;
+        _resets++;
+        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_ResultRaw(_dctx, null); }
+        _live ??= new HashSet<IntPtr>();
+        _live.Clear();
+        G.Live = _live;
+        return Abi.ak_dec_reset_ResultRaw(_dctx, Arm(mode));
+    }
+
+    /// After every decode: the core forgets the options (reset with NULL), and a buffer
+    /// still outstanding is freed; after a success that is UNDELIVERED.
+    private int Disarm(int rc)
+    {
+        _resets++;
+        Abi.ak_dec_reset_ResultRaw(_dctx, null);
+        var live = G.Live;
+        G.Live = null;
+        if (live == null || live.Count == 0) return rc;
+        foreach (var q in live) NativeMemory.Free((void*)q);
+        int left = live.Count;
+        live.Clear();
+        if (rc < 0) return rc;
+        Undelivered = left;
+        return UNDELIVERED;
+    }
+
+    /// The zeroed-position control's expectation: the facade bags at `position` cleared.
+    public static void ClearPosition(ResultRaw t, int position)
+    {
+        switch (position)
+        {
+            case 0:
+            {
+                t.UnknownFields = null;
+                break;
+            }
+            case 1:
+            {
+                if (t.CreatedAt != null) { var e0 = t.CreatedAt;
+
+                    e0.UnknownFields = null;
+                }
+                break;
+            }
+            case 2:
+            {
+                if (t.CompletedAt != null) { var e0 = t.CompletedAt;
+
+                    e0.UnknownFields = null;
+                }
+                break;
+            }
+            default: throw new ArgumentOutOfRangeException(nameof(position));
+        }
+    }
+
     public ResultRaw Decode(byte[] src, int len) { int rc = TryDecode(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
     public ResultRaw DecodeU(byte[] src, int len) { int rc = TryDecode(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
 
     /// The core's code (< 0) on failure; the output is then unspecified and discarded (R-G6).
-    public int TryDecode(byte[] src, int len, bool retain, out ResultRaw result)
+    public int TryDecode(byte[] src, int len, bool retain, out ResultRaw result) => DecodeArmed(src, len, retain ? -1 : -2, out result);
+
+    /// A control (decision 11 DISCARD): retain everywhere except `position` (an index into
+    /// UnkPositionNames), whose entry is all zero when armed.
+    public int TryDecodeZeroing(byte[] src, int len, int position, out ResultRaw result) => DecodeArmed(src, len, position, out result);
+
+    private int DecodeArmed(byte[] src, int len, int mode, out ResultRaw result)
     {
         result = null;
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        EnsureDec();
         Abi.ak_dec_err_reset(_dctx);
+        int ar = ArmFor(mode);
+        if (ar != 0) { Disarm(ar); return ar; }
         var target = new ResultRaw();
-        var pend = retain ? new List<(int, long, byte[])>() : null;
         var h = GCHandle.Alloc(target);
-        var hp = retain ? GCHandle.Alloc(pend) : default;
-        int rc;
+        int rc = Abi.AK_ERR_HOST;
         try
         {
             fixed (byte* b0 = src)
@@ -1488,7 +2002,6 @@ public sealed unsafe class CoreFfi_ResultRaw : IDisposable
                 byte* b = len == 0 ? one : b0;
                 _drun->Target = GCHandle.ToIntPtr(h);
                 _drun->Buf = b;
-                _drun->Pending = retain ? GCHandle.ToIntPtr(hp) : IntPtr.Zero;
                 var vt = new ak_dvt_ResultRaw
                 {
                     apply = &ApplyRoot,
@@ -1498,49 +2011,47 @@ public sealed unsafe class CoreFfi_ResultRaw : IDisposable
                 if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); if (retain) hp.Free(); }
+        finally { h.Free(); rc = Disarm(rc); }
         if (rc < 0) return rc;
-        if (retain)
-        {
-            // Applied after the decode: a capture may flush before the run that
-            // carries the element it belongs to.
-            foreach (var (slot, token, bytes) in pend)
-            {
-                switch (slot)
-                {
-                    case 0: target.UnknownFields = W.Append(target.UnknownFields, bytes, 0, bytes.Length); break;
-                    default: break;   // a map entry has no bag
-                }
-            }
-        }
         result = target;
         return 0;
     }
 
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
-    /// call), then replay it with the same group readers the push callbacks use.
-    public ResultRaw Pull(byte[] src, int len)
+    /// call but grow), then replay it with the same group readers the push callbacks
+    /// use. The context is armed exactly as for push.
+    public ResultRaw Pull(byte[] src, int len) { int rc = TryPull(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+    public ResultRaw PullU(byte[] src, int len) { int rc = TryPull(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+
+    public int TryPull(byte[] src, int len, bool retain, out ResultRaw result)
     {
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        result = null;
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
         var t = new ResultRaw();
-        fixed (byte* b0 = src)
-        fixed (byte* one = One)
+        int rc = Abi.AK_ERR_HOST;
+        try
         {
-            byte* b = len == 0 ? one : b0;
-            _fwd++;
-            int rc = Abi.ak_parse_ResultRaw(_dctx, b, (nuint)len);
-            if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}");
-            byte* recs; nuint rlen;
-            _fwd++;
-            int pr = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
-            if (pr != 0) throw new InvalidOperationException($"ak_bdr_ptr failed: {pr}");
-            Replay(t, b, recs, (int)rlen);
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                _fwd++;
+                rc = Abi.ak_parse_ResultRaw(_dctx, b, (nuint)len);
+                if (rc >= 0)
+                {
+                    byte* recs; nuint rlen;
+                    _fwd++;
+                    rc = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
+                    if (rc == 0) Replay(t, b, recs, (int)rlen);
+                }
+            }
         }
-        return t;
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;
+        result = t;
+        return 0;
     }
 
     private const uint OP_APPLY = 1, OP_ADD = 2, OP_NEW = 3, OP_APPLY_ELEM = 4;   // ak_bdr_rec.op
@@ -1577,6 +2088,7 @@ public sealed unsafe class CoreFfi_ResultRaw : IDisposable
             NativeMemory.Free(_run); _run = null;
         }
         if (_drun != null) { NativeMemory.Free(_drun); _drun = null; }
+        if (_uo != null) { NativeMemory.Free(_uo); _uo = null; }
     }
 }
 
@@ -1601,7 +2113,7 @@ public sealed unsafe class CoreFfi_TaskOptions : IDisposable
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
-    public void CallsReset() { _fwd = 0; _rev = 0; }
+    public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
     private int _cap_options;
 
     public CoreFfi_TaskOptions(bool utf16 = false)
@@ -1685,7 +2197,7 @@ public sealed unsafe class CoreFfi_TaskOptions : IDisposable
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct DecRun { public IntPtr Target; public byte* Buf; public IntPtr Pending; }
+    private struct DecRun { public IntPtr Target; public byte* Buf; }
 
     private static TaskOptions Tgt(void* obj) => (TaskOptions)GCHandle.FromIntPtr(((DecRun*)obj)->Target).Target;
 
@@ -1705,32 +2217,128 @@ public sealed unsafe class CoreFfi_TaskOptions : IDisposable
         {
             byte* b = ((DecRun*)obj)->Buf;
             var lst = Tgt(obj).Options;
-            // plan: a duplicate key replaces the earlier value.
-            for (int i = 0; i < n; i++) lst[G.Str(b, xs[i].key)] = G.Str(b, xs[i].value);
+            // plan: a duplicate key replaces the earlier value. The facade map has no bag:
+            // an entry's unknown-field buffer (decision 11) is freed (U-map-entry).
+            for (int i = 0; i < n; i++) { lst[G.Str(b, xs[i].key)] = G.Str(b, xs[i].value); G.Drop(ref xs[i].unknown); }
         }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
     private static readonly byte[] One = new byte[1];
 
+    /// Decision 11: every message position of this root, in plan.unk_positions order
+    /// (the options' member order).
+    public static readonly string[] UnkPositionNames = { "self", "options", "max_duration" };
+
+    /// A retained decode ended with a buffer grow handed out that no delivered group
+    /// carried back to the host: a host defect, never a core code.
+    public const int UNDELIVERED = -1001;
+    public int Undelivered { get; private set; }
+    private ak_dec_TaskOptions_opts* _uo;
+    private HashSet<IntPtr> _live;
+    /// The resets that arm and disarm each decode (rule 7): forward crossings, counted
+    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    private static long _resets;
+    public long ResetCalls => _resets;
+
+    private void EnsureDec()
+    {
+        if (_dctx != IntPtr.Zero) return;
+        _dctx = Abi.ak_dec_ctx_new_TaskOptions(null);   // rule 6: bound to this root, drop mode
+        if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_TaskOptions returned NULL");
+        _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
+    }
+
+    /// The options, rewritten before every retained decode: every entry names the one
+    /// grow and holds no pre-allocated buffer (all from grow, so the core never needs
+    /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
+    private ak_dec_TaskOptions_opts* Arm(int zero)
+    {
+        if (_uo == null) _uo = (ak_dec_TaskOptions_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_TaskOptions_opts));
+        *_uo = default;
+        var g = UnkHost.Fn;
+        if (zero != 0) _uo->self.grow = g;
+        if (zero != 1) _uo->options.grow = g;
+        if (zero != 2) _uo->max_duration.grow = g;
+        return _uo;
+    }
+
+    /// mode -2: drop (reset with NULL); -1: retain everywhere; k >= 0: retain but k.
+    private int ArmFor(int mode)
+    {
+        Undelivered = 0;
+        _resets++;
+        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_TaskOptions(_dctx, null); }
+        _live ??= new HashSet<IntPtr>();
+        _live.Clear();
+        G.Live = _live;
+        return Abi.ak_dec_reset_TaskOptions(_dctx, Arm(mode));
+    }
+
+    /// After every decode: the core forgets the options (reset with NULL), and a buffer
+    /// still outstanding is freed; after a success that is UNDELIVERED.
+    private int Disarm(int rc)
+    {
+        _resets++;
+        Abi.ak_dec_reset_TaskOptions(_dctx, null);
+        var live = G.Live;
+        G.Live = null;
+        if (live == null || live.Count == 0) return rc;
+        foreach (var q in live) NativeMemory.Free((void*)q);
+        int left = live.Count;
+        live.Clear();
+        if (rc < 0) return rc;
+        Undelivered = left;
+        return UNDELIVERED;
+    }
+
+    /// The zeroed-position control's expectation: the facade bags at `position` cleared.
+    public static void ClearPosition(TaskOptions t, int position)
+    {
+        switch (position)
+        {
+            case 0:
+            {
+                t.UnknownFields = null;
+                break;
+            }
+            case 1:
+            {
+                // a map entry: the facade map has no bag (U-map-entry), nothing to clear
+                break;
+            }
+            case 2:
+            {
+                if (t.MaxDuration != null) { var e0 = t.MaxDuration;
+
+                    e0.UnknownFields = null;
+                }
+                break;
+            }
+            default: throw new ArgumentOutOfRangeException(nameof(position));
+        }
+    }
+
     public TaskOptions Decode(byte[] src, int len) { int rc = TryDecode(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
     public TaskOptions DecodeU(byte[] src, int len) { int rc = TryDecode(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
 
     /// The core's code (< 0) on failure; the output is then unspecified and discarded (R-G6).
-    public int TryDecode(byte[] src, int len, bool retain, out TaskOptions result)
+    public int TryDecode(byte[] src, int len, bool retain, out TaskOptions result) => DecodeArmed(src, len, retain ? -1 : -2, out result);
+
+    /// A control (decision 11 DISCARD): retain everywhere except `position` (an index into
+    /// UnkPositionNames), whose entry is all zero when armed.
+    public int TryDecodeZeroing(byte[] src, int len, int position, out TaskOptions result) => DecodeArmed(src, len, position, out result);
+
+    private int DecodeArmed(byte[] src, int len, int mode, out TaskOptions result)
     {
         result = null;
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        EnsureDec();
         Abi.ak_dec_err_reset(_dctx);
+        int ar = ArmFor(mode);
+        if (ar != 0) { Disarm(ar); return ar; }
         var target = new TaskOptions();
-        var pend = retain ? new List<(int, long, byte[])>() : null;
         var h = GCHandle.Alloc(target);
-        var hp = retain ? GCHandle.Alloc(pend) : default;
-        int rc;
+        int rc = Abi.AK_ERR_HOST;
         try
         {
             fixed (byte* b0 = src)
@@ -1740,7 +2348,6 @@ public sealed unsafe class CoreFfi_TaskOptions : IDisposable
                 byte* b = len == 0 ? one : b0;
                 _drun->Target = GCHandle.ToIntPtr(h);
                 _drun->Buf = b;
-                _drun->Pending = retain ? GCHandle.ToIntPtr(hp) : IntPtr.Zero;
                 var vt = new ak_dvt_TaskOptions
                 {
                     apply = &ApplyRoot,
@@ -1751,49 +2358,47 @@ public sealed unsafe class CoreFfi_TaskOptions : IDisposable
                 if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); if (retain) hp.Free(); }
+        finally { h.Free(); rc = Disarm(rc); }
         if (rc < 0) return rc;
-        if (retain)
-        {
-            // Applied after the decode: a capture may flush before the run that
-            // carries the element it belongs to.
-            foreach (var (slot, token, bytes) in pend)
-            {
-                switch (slot)
-                {
-                    case 0: target.UnknownFields = W.Append(target.UnknownFields, bytes, 0, bytes.Length); break;
-                    default: break;   // a map entry has no bag
-                }
-            }
-        }
         result = target;
         return 0;
     }
 
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
-    /// call), then replay it with the same group readers the push callbacks use.
-    public TaskOptions Pull(byte[] src, int len)
+    /// call but grow), then replay it with the same group readers the push callbacks
+    /// use. The context is armed exactly as for push.
+    public TaskOptions Pull(byte[] src, int len) { int rc = TryPull(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+    public TaskOptions PullU(byte[] src, int len) { int rc = TryPull(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+
+    public int TryPull(byte[] src, int len, bool retain, out TaskOptions result)
     {
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        result = null;
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
         var t = new TaskOptions();
-        fixed (byte* b0 = src)
-        fixed (byte* one = One)
+        int rc = Abi.AK_ERR_HOST;
+        try
         {
-            byte* b = len == 0 ? one : b0;
-            _fwd++;
-            int rc = Abi.ak_parse_TaskOptions(_dctx, b, (nuint)len);
-            if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}");
-            byte* recs; nuint rlen;
-            _fwd++;
-            int pr = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
-            if (pr != 0) throw new InvalidOperationException($"ak_bdr_ptr failed: {pr}");
-            Replay(t, b, recs, (int)rlen);
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                _fwd++;
+                rc = Abi.ak_parse_TaskOptions(_dctx, b, (nuint)len);
+                if (rc >= 0)
+                {
+                    byte* recs; nuint rlen;
+                    _fwd++;
+                    rc = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
+                    if (rc == 0) Replay(t, b, recs, (int)rlen);
+                }
+            }
         }
-        return t;
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;
+        result = t;
+        return 0;
     }
 
     private const uint OP_APPLY = 1, OP_ADD = 2, OP_NEW = 3, OP_APPLY_ELEM = 4;   // ak_bdr_rec.op
@@ -1812,8 +2417,9 @@ public sealed unsafe class CoreFfi_TaskOptions : IDisposable
                 case OP_ADD when outer == 0 && inner == 1:   // a root-level run
                 {
                     var xs = (ak_dfix_TaskOptionsOptionsEntry*)body; var lst = t.Options;
-                    // plan: a duplicate key replaces the earlier value.
-                    for (int i = 0; i < (int)r.n; i++) lst[G.Str(b, xs[i].key)] = G.Str(b, xs[i].value);
+                    // plan: a duplicate key replaces the earlier value. The facade map has no bag:
+                    // an entry's unknown-field buffer (decision 11) is freed (U-map-entry).
+                    for (int i = 0; i < (int)r.n; i++) { lst[G.Str(b, xs[i].key)] = G.Str(b, xs[i].value); G.Drop(ref xs[i].unknown); }
                     break;
                 }
                 default: break;
@@ -1838,6 +2444,7 @@ public sealed unsafe class CoreFfi_TaskOptions : IDisposable
             NativeMemory.Free(_run); _run = null;
         }
         if (_drun != null) { NativeMemory.Free(_drun); _drun = null; }
+        if (_uo != null) { NativeMemory.Free(_uo); _uo = null; }
     }
 }
 
@@ -1861,7 +2468,7 @@ public sealed unsafe class CoreFfi_TaskOutput : IDisposable
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
-    public void CallsReset() { _fwd = 0; _rev = 0; }
+    public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
 
     public CoreFfi_TaskOutput(bool utf16 = false)
     {
@@ -1921,7 +2528,7 @@ public sealed unsafe class CoreFfi_TaskOutput : IDisposable
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct DecRun { public IntPtr Target; public byte* Buf; public IntPtr Pending; }
+    private struct DecRun { public IntPtr Target; public byte* Buf; }
 
     private static TaskOutput Tgt(void* obj) => (TaskOutput)GCHandle.FromIntPtr(((DecRun*)obj)->Target).Target;
 
@@ -1935,24 +2542,104 @@ public sealed unsafe class CoreFfi_TaskOutput : IDisposable
 
     private static readonly byte[] One = new byte[1];
 
+    /// Decision 11: every message position of this root, in plan.unk_positions order
+    /// (the options' member order).
+    public static readonly string[] UnkPositionNames = { "self" };
+
+    /// A retained decode ended with a buffer grow handed out that no delivered group
+    /// carried back to the host: a host defect, never a core code.
+    public const int UNDELIVERED = -1001;
+    public int Undelivered { get; private set; }
+    private ak_dec_TaskOutput_opts* _uo;
+    private HashSet<IntPtr> _live;
+    /// The resets that arm and disarm each decode (rule 7): forward crossings, counted
+    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    private static long _resets;
+    public long ResetCalls => _resets;
+
+    private void EnsureDec()
+    {
+        if (_dctx != IntPtr.Zero) return;
+        _dctx = Abi.ak_dec_ctx_new_TaskOutput(null);   // rule 6: bound to this root, drop mode
+        if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_TaskOutput returned NULL");
+        _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
+    }
+
+    /// The options, rewritten before every retained decode: every entry names the one
+    /// grow and holds no pre-allocated buffer (all from grow, so the core never needs
+    /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
+    private ak_dec_TaskOutput_opts* Arm(int zero)
+    {
+        if (_uo == null) _uo = (ak_dec_TaskOutput_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_TaskOutput_opts));
+        *_uo = default;
+        var g = UnkHost.Fn;
+        if (zero != 0) _uo->self.grow = g;
+        return _uo;
+    }
+
+    /// mode -2: drop (reset with NULL); -1: retain everywhere; k >= 0: retain but k.
+    private int ArmFor(int mode)
+    {
+        Undelivered = 0;
+        _resets++;
+        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_TaskOutput(_dctx, null); }
+        _live ??= new HashSet<IntPtr>();
+        _live.Clear();
+        G.Live = _live;
+        return Abi.ak_dec_reset_TaskOutput(_dctx, Arm(mode));
+    }
+
+    /// After every decode: the core forgets the options (reset with NULL), and a buffer
+    /// still outstanding is freed; after a success that is UNDELIVERED.
+    private int Disarm(int rc)
+    {
+        _resets++;
+        Abi.ak_dec_reset_TaskOutput(_dctx, null);
+        var live = G.Live;
+        G.Live = null;
+        if (live == null || live.Count == 0) return rc;
+        foreach (var q in live) NativeMemory.Free((void*)q);
+        int left = live.Count;
+        live.Clear();
+        if (rc < 0) return rc;
+        Undelivered = left;
+        return UNDELIVERED;
+    }
+
+    /// The zeroed-position control's expectation: the facade bags at `position` cleared.
+    public static void ClearPosition(TaskOutput t, int position)
+    {
+        switch (position)
+        {
+            case 0:
+            {
+                t.UnknownFields = null;
+                break;
+            }
+            default: throw new ArgumentOutOfRangeException(nameof(position));
+        }
+    }
+
     public TaskOutput Decode(byte[] src, int len) { int rc = TryDecode(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
     public TaskOutput DecodeU(byte[] src, int len) { int rc = TryDecode(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
 
     /// The core's code (< 0) on failure; the output is then unspecified and discarded (R-G6).
-    public int TryDecode(byte[] src, int len, bool retain, out TaskOutput result)
+    public int TryDecode(byte[] src, int len, bool retain, out TaskOutput result) => DecodeArmed(src, len, retain ? -1 : -2, out result);
+
+    /// A control (decision 11 DISCARD): retain everywhere except `position` (an index into
+    /// UnkPositionNames), whose entry is all zero when armed.
+    public int TryDecodeZeroing(byte[] src, int len, int position, out TaskOutput result) => DecodeArmed(src, len, position, out result);
+
+    private int DecodeArmed(byte[] src, int len, int mode, out TaskOutput result)
     {
         result = null;
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        EnsureDec();
         Abi.ak_dec_err_reset(_dctx);
+        int ar = ArmFor(mode);
+        if (ar != 0) { Disarm(ar); return ar; }
         var target = new TaskOutput();
-        var pend = retain ? new List<(int, long, byte[])>() : null;
         var h = GCHandle.Alloc(target);
-        var hp = retain ? GCHandle.Alloc(pend) : default;
-        int rc;
+        int rc = Abi.AK_ERR_HOST;
         try
         {
             fixed (byte* b0 = src)
@@ -1962,7 +2649,6 @@ public sealed unsafe class CoreFfi_TaskOutput : IDisposable
                 byte* b = len == 0 ? one : b0;
                 _drun->Target = GCHandle.ToIntPtr(h);
                 _drun->Buf = b;
-                _drun->Pending = retain ? GCHandle.ToIntPtr(hp) : IntPtr.Zero;
                 var vt = new ak_dvt_TaskOutput
                 {
                     apply = &ApplyRoot,
@@ -1972,49 +2658,47 @@ public sealed unsafe class CoreFfi_TaskOutput : IDisposable
                 if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); if (retain) hp.Free(); }
+        finally { h.Free(); rc = Disarm(rc); }
         if (rc < 0) return rc;
-        if (retain)
-        {
-            // Applied after the decode: a capture may flush before the run that
-            // carries the element it belongs to.
-            foreach (var (slot, token, bytes) in pend)
-            {
-                switch (slot)
-                {
-                    case 0: target.UnknownFields = W.Append(target.UnknownFields, bytes, 0, bytes.Length); break;
-                    default: break;   // a map entry has no bag
-                }
-            }
-        }
         result = target;
         return 0;
     }
 
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
-    /// call), then replay it with the same group readers the push callbacks use.
-    public TaskOutput Pull(byte[] src, int len)
+    /// call but grow), then replay it with the same group readers the push callbacks
+    /// use. The context is armed exactly as for push.
+    public TaskOutput Pull(byte[] src, int len) { int rc = TryPull(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+    public TaskOutput PullU(byte[] src, int len) { int rc = TryPull(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+
+    public int TryPull(byte[] src, int len, bool retain, out TaskOutput result)
     {
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        result = null;
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
         var t = new TaskOutput();
-        fixed (byte* b0 = src)
-        fixed (byte* one = One)
+        int rc = Abi.AK_ERR_HOST;
+        try
         {
-            byte* b = len == 0 ? one : b0;
-            _fwd++;
-            int rc = Abi.ak_parse_TaskOutput(_dctx, b, (nuint)len);
-            if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}");
-            byte* recs; nuint rlen;
-            _fwd++;
-            int pr = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
-            if (pr != 0) throw new InvalidOperationException($"ak_bdr_ptr failed: {pr}");
-            Replay(t, b, recs, (int)rlen);
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                _fwd++;
+                rc = Abi.ak_parse_TaskOutput(_dctx, b, (nuint)len);
+                if (rc >= 0)
+                {
+                    byte* recs; nuint rlen;
+                    _fwd++;
+                    rc = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
+                    if (rc == 0) Replay(t, b, recs, (int)rlen);
+                }
+            }
         }
-        return t;
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;
+        result = t;
+        return 0;
     }
 
     private const uint OP_APPLY = 1, OP_ADD = 2, OP_NEW = 3, OP_APPLY_ELEM = 4;   // ak_bdr_rec.op
@@ -2051,6 +2735,7 @@ public sealed unsafe class CoreFfi_TaskOutput : IDisposable
             NativeMemory.Free(_run); _run = null;
         }
         if (_drun != null) { NativeMemory.Free(_drun); _drun = null; }
+        if (_uo != null) { NativeMemory.Free(_uo); _uo = null; }
     }
 }
 
@@ -2079,7 +2764,7 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
-    public void CallsReset() { _fwd = 0; _rev = 0; }
+    public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
     private int _cap_parent_task_ids;
     private int _cap_data_dependencies;
     private int _cap_expected_output_ids;
@@ -2271,7 +2956,7 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct DecRun { public IntPtr Target; public byte* Buf; public IntPtr Pending; }
+    private struct DecRun { public IntPtr Target; public byte* Buf; }
 
     private static TaskDetailed Tgt(void* obj) => (TaskDetailed)GCHandle.FromIntPtr(((DecRun*)obj)->Target).Target;
 
@@ -2343,32 +3028,260 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
         {
             byte* b = ((DecRun*)obj)->Buf;
             var lst = (Tgt(obj).Options ??= new TaskOptions()).Options;
-            // plan: a duplicate key replaces the earlier value.
-            for (int i = 0; i < n; i++) lst[G.Str(b, xs[i].key)] = G.Str(b, xs[i].value);
+            // plan: a duplicate key replaces the earlier value. The facade map has no bag:
+            // an entry's unknown-field buffer (decision 11) is freed (U-map-entry).
+            for (int i = 0; i < n; i++) { lst[G.Str(b, xs[i].key)] = G.Str(b, xs[i].value); G.Drop(ref xs[i].unknown); }
         }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
     private static readonly byte[] One = new byte[1];
 
+    /// Decision 11: every message position of this root, in plan.unk_positions order
+    /// (the options' member order).
+    public static readonly string[] UnkPositionNames = { "self", "options", "options_options", "options_max_duration", "created_at", "submitted_at", "started_at", "ended_at", "pod_ttl", "output", "received_at", "acquired_at", "creation_to_end_duration", "processing_to_end_duration", "received_to_end_duration", "processed_at", "fetched_at" };
+
+    /// A retained decode ended with a buffer grow handed out that no delivered group
+    /// carried back to the host: a host defect, never a core code.
+    public const int UNDELIVERED = -1001;
+    public int Undelivered { get; private set; }
+    private ak_dec_TaskDetailed_opts* _uo;
+    private HashSet<IntPtr> _live;
+    /// The resets that arm and disarm each decode (rule 7): forward crossings, counted
+    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    private static long _resets;
+    public long ResetCalls => _resets;
+
+    private void EnsureDec()
+    {
+        if (_dctx != IntPtr.Zero) return;
+        _dctx = Abi.ak_dec_ctx_new_TaskDetailed(null);   // rule 6: bound to this root, drop mode
+        if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_TaskDetailed returned NULL");
+        _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
+    }
+
+    /// The options, rewritten before every retained decode: every entry names the one
+    /// grow and holds no pre-allocated buffer (all from grow, so the core never needs
+    /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
+    private ak_dec_TaskDetailed_opts* Arm(int zero)
+    {
+        if (_uo == null) _uo = (ak_dec_TaskDetailed_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_TaskDetailed_opts));
+        *_uo = default;
+        var g = UnkHost.Fn;
+        if (zero != 0) _uo->self.grow = g;
+        if (zero != 1) _uo->options.grow = g;
+        if (zero != 2) _uo->options_options.grow = g;
+        if (zero != 3) _uo->options_max_duration.grow = g;
+        if (zero != 4) _uo->created_at.grow = g;
+        if (zero != 5) _uo->submitted_at.grow = g;
+        if (zero != 6) _uo->started_at.grow = g;
+        if (zero != 7) _uo->ended_at.grow = g;
+        if (zero != 8) _uo->pod_ttl.grow = g;
+        if (zero != 9) _uo->output.grow = g;
+        if (zero != 10) _uo->received_at.grow = g;
+        if (zero != 11) _uo->acquired_at.grow = g;
+        if (zero != 12) _uo->creation_to_end_duration.grow = g;
+        if (zero != 13) _uo->processing_to_end_duration.grow = g;
+        if (zero != 14) _uo->received_to_end_duration.grow = g;
+        if (zero != 15) _uo->processed_at.grow = g;
+        if (zero != 16) _uo->fetched_at.grow = g;
+        return _uo;
+    }
+
+    /// mode -2: drop (reset with NULL); -1: retain everywhere; k >= 0: retain but k.
+    private int ArmFor(int mode)
+    {
+        Undelivered = 0;
+        _resets++;
+        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_TaskDetailed(_dctx, null); }
+        _live ??= new HashSet<IntPtr>();
+        _live.Clear();
+        G.Live = _live;
+        return Abi.ak_dec_reset_TaskDetailed(_dctx, Arm(mode));
+    }
+
+    /// After every decode: the core forgets the options (reset with NULL), and a buffer
+    /// still outstanding is freed; after a success that is UNDELIVERED.
+    private int Disarm(int rc)
+    {
+        _resets++;
+        Abi.ak_dec_reset_TaskDetailed(_dctx, null);
+        var live = G.Live;
+        G.Live = null;
+        if (live == null || live.Count == 0) return rc;
+        foreach (var q in live) NativeMemory.Free((void*)q);
+        int left = live.Count;
+        live.Clear();
+        if (rc < 0) return rc;
+        Undelivered = left;
+        return UNDELIVERED;
+    }
+
+    /// The zeroed-position control's expectation: the facade bags at `position` cleared.
+    public static void ClearPosition(TaskDetailed t, int position)
+    {
+        switch (position)
+        {
+            case 0:
+            {
+                t.UnknownFields = null;
+                break;
+            }
+            case 1:
+            {
+                if (t.Options != null) { var e0 = t.Options;
+
+                    e0.UnknownFields = null;
+                }
+                break;
+            }
+            case 2:
+            {
+                if (t.Options != null) { var e0 = t.Options;
+
+                    // a map entry: the facade map has no bag (U-map-entry), nothing to clear
+                }
+                break;
+            }
+            case 3:
+            {
+                if (t.Options != null) { var e0 = t.Options;
+
+                    if (e0.MaxDuration != null) { var e1 = e0.MaxDuration;
+
+                        e1.UnknownFields = null;
+                    }
+                }
+                break;
+            }
+            case 4:
+            {
+                if (t.CreatedAt != null) { var e0 = t.CreatedAt;
+
+                    e0.UnknownFields = null;
+                }
+                break;
+            }
+            case 5:
+            {
+                if (t.SubmittedAt != null) { var e0 = t.SubmittedAt;
+
+                    e0.UnknownFields = null;
+                }
+                break;
+            }
+            case 6:
+            {
+                if (t.StartedAt != null) { var e0 = t.StartedAt;
+
+                    e0.UnknownFields = null;
+                }
+                break;
+            }
+            case 7:
+            {
+                if (t.EndedAt != null) { var e0 = t.EndedAt;
+
+                    e0.UnknownFields = null;
+                }
+                break;
+            }
+            case 8:
+            {
+                if (t.PodTtl != null) { var e0 = t.PodTtl;
+
+                    e0.UnknownFields = null;
+                }
+                break;
+            }
+            case 9:
+            {
+                if (t.Output != null) { var e0 = t.Output;
+
+                    e0.UnknownFields = null;
+                }
+                break;
+            }
+            case 10:
+            {
+                if (t.ReceivedAt != null) { var e0 = t.ReceivedAt;
+
+                    e0.UnknownFields = null;
+                }
+                break;
+            }
+            case 11:
+            {
+                if (t.AcquiredAt != null) { var e0 = t.AcquiredAt;
+
+                    e0.UnknownFields = null;
+                }
+                break;
+            }
+            case 12:
+            {
+                if (t.CreationToEndDuration != null) { var e0 = t.CreationToEndDuration;
+
+                    e0.UnknownFields = null;
+                }
+                break;
+            }
+            case 13:
+            {
+                if (t.ProcessingToEndDuration != null) { var e0 = t.ProcessingToEndDuration;
+
+                    e0.UnknownFields = null;
+                }
+                break;
+            }
+            case 14:
+            {
+                if (t.ReceivedToEndDuration != null) { var e0 = t.ReceivedToEndDuration;
+
+                    e0.UnknownFields = null;
+                }
+                break;
+            }
+            case 15:
+            {
+                if (t.ProcessedAt != null) { var e0 = t.ProcessedAt;
+
+                    e0.UnknownFields = null;
+                }
+                break;
+            }
+            case 16:
+            {
+                if (t.FetchedAt != null) { var e0 = t.FetchedAt;
+
+                    e0.UnknownFields = null;
+                }
+                break;
+            }
+            default: throw new ArgumentOutOfRangeException(nameof(position));
+        }
+    }
+
     public TaskDetailed Decode(byte[] src, int len) { int rc = TryDecode(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
     public TaskDetailed DecodeU(byte[] src, int len) { int rc = TryDecode(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
 
     /// The core's code (< 0) on failure; the output is then unspecified and discarded (R-G6).
-    public int TryDecode(byte[] src, int len, bool retain, out TaskDetailed result)
+    public int TryDecode(byte[] src, int len, bool retain, out TaskDetailed result) => DecodeArmed(src, len, retain ? -1 : -2, out result);
+
+    /// A control (decision 11 DISCARD): retain everywhere except `position` (an index into
+    /// UnkPositionNames), whose entry is all zero when armed.
+    public int TryDecodeZeroing(byte[] src, int len, int position, out TaskDetailed result) => DecodeArmed(src, len, position, out result);
+
+    private int DecodeArmed(byte[] src, int len, int mode, out TaskDetailed result)
     {
         result = null;
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        EnsureDec();
         Abi.ak_dec_err_reset(_dctx);
+        int ar = ArmFor(mode);
+        if (ar != 0) { Disarm(ar); return ar; }
         var target = new TaskDetailed();
-        var pend = retain ? new List<(int, long, byte[])>() : null;
         var h = GCHandle.Alloc(target);
-        var hp = retain ? GCHandle.Alloc(pend) : default;
-        int rc;
+        int rc = Abi.AK_ERR_HOST;
         try
         {
             fixed (byte* b0 = src)
@@ -2378,7 +3291,6 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
                 byte* b = len == 0 ? one : b0;
                 _drun->Target = GCHandle.ToIntPtr(h);
                 _drun->Buf = b;
-                _drun->Pending = retain ? GCHandle.ToIntPtr(hp) : IntPtr.Zero;
                 var vt = new ak_dvt_TaskDetailed
                 {
                     apply = &ApplyRoot,
@@ -2393,49 +3305,47 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
                 if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); if (retain) hp.Free(); }
+        finally { h.Free(); rc = Disarm(rc); }
         if (rc < 0) return rc;
-        if (retain)
-        {
-            // Applied after the decode: a capture may flush before the run that
-            // carries the element it belongs to.
-            foreach (var (slot, token, bytes) in pend)
-            {
-                switch (slot)
-                {
-                    case 0: target.UnknownFields = W.Append(target.UnknownFields, bytes, 0, bytes.Length); break;
-                    default: break;   // a map entry has no bag
-                }
-            }
-        }
         result = target;
         return 0;
     }
 
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
-    /// call), then replay it with the same group readers the push callbacks use.
-    public TaskDetailed Pull(byte[] src, int len)
+    /// call but grow), then replay it with the same group readers the push callbacks
+    /// use. The context is armed exactly as for push.
+    public TaskDetailed Pull(byte[] src, int len) { int rc = TryPull(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+    public TaskDetailed PullU(byte[] src, int len) { int rc = TryPull(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+
+    public int TryPull(byte[] src, int len, bool retain, out TaskDetailed result)
     {
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        result = null;
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
         var t = new TaskDetailed();
-        fixed (byte* b0 = src)
-        fixed (byte* one = One)
+        int rc = Abi.AK_ERR_HOST;
+        try
         {
-            byte* b = len == 0 ? one : b0;
-            _fwd++;
-            int rc = Abi.ak_parse_TaskDetailed(_dctx, b, (nuint)len);
-            if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}");
-            byte* recs; nuint rlen;
-            _fwd++;
-            int pr = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
-            if (pr != 0) throw new InvalidOperationException($"ak_bdr_ptr failed: {pr}");
-            Replay(t, b, recs, (int)rlen);
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                _fwd++;
+                rc = Abi.ak_parse_TaskDetailed(_dctx, b, (nuint)len);
+                if (rc >= 0)
+                {
+                    byte* recs; nuint rlen;
+                    _fwd++;
+                    rc = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
+                    if (rc == 0) Replay(t, b, recs, (int)rlen);
+                }
+            }
         }
-        return t;
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;
+        result = t;
+        return 0;
     }
 
     private const uint OP_APPLY = 1, OP_ADD = 2, OP_NEW = 3, OP_APPLY_ELEM = 4;   // ak_bdr_rec.op
@@ -2478,8 +3388,9 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
                 case OP_ADD when outer == 0 && inner == 5:   // a root-level run
                 {
                     var xs = (ak_dfix_TaskOptionsOptionsEntry*)body; var lst = (t.Options ??= new TaskOptions()).Options;
-                    // plan: a duplicate key replaces the earlier value.
-                    for (int i = 0; i < (int)r.n; i++) lst[G.Str(b, xs[i].key)] = G.Str(b, xs[i].value);
+                    // plan: a duplicate key replaces the earlier value. The facade map has no bag:
+                    // an entry's unknown-field buffer (decision 11) is freed (U-map-entry).
+                    for (int i = 0; i < (int)r.n; i++) { lst[G.Str(b, xs[i].key)] = G.Str(b, xs[i].value); G.Drop(ref xs[i].unknown); }
                     break;
                 }
                 default: break;
@@ -2508,6 +3419,7 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
             NativeMemory.Free(_run); _run = null;
         }
         if (_drun != null) { NativeMemory.Free(_drun); _drun = null; }
+        if (_uo != null) { NativeMemory.Free(_uo); _uo = null; }
     }
 }
 
@@ -2532,7 +3444,7 @@ public sealed unsafe class CoreFfi_TaskSummary : IDisposable
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
-    public void CallsReset() { _fwd = 0; _rev = 0; }
+    public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
     private int _cap_options_options;
 
     public CoreFfi_TaskSummary(bool utf16 = false)
@@ -2616,7 +3528,7 @@ public sealed unsafe class CoreFfi_TaskSummary : IDisposable
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct DecRun { public IntPtr Target; public byte* Buf; public IntPtr Pending; }
+    private struct DecRun { public IntPtr Target; public byte* Buf; }
 
     private static TaskSummary Tgt(void* obj) => (TaskSummary)GCHandle.FromIntPtr(((DecRun*)obj)->Target).Target;
 
@@ -2636,32 +3548,152 @@ public sealed unsafe class CoreFfi_TaskSummary : IDisposable
         {
             byte* b = ((DecRun*)obj)->Buf;
             var lst = (Tgt(obj).Options ??= new TaskOptions()).Options;
-            // plan: a duplicate key replaces the earlier value.
-            for (int i = 0; i < n; i++) lst[G.Str(b, xs[i].key)] = G.Str(b, xs[i].value);
+            // plan: a duplicate key replaces the earlier value. The facade map has no bag:
+            // an entry's unknown-field buffer (decision 11) is freed (U-map-entry).
+            for (int i = 0; i < n; i++) { lst[G.Str(b, xs[i].key)] = G.Str(b, xs[i].value); G.Drop(ref xs[i].unknown); }
         }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
     private static readonly byte[] One = new byte[1];
 
+    /// Decision 11: every message position of this root, in plan.unk_positions order
+    /// (the options' member order).
+    public static readonly string[] UnkPositionNames = { "self", "options", "options_options", "options_max_duration", "created_at" };
+
+    /// A retained decode ended with a buffer grow handed out that no delivered group
+    /// carried back to the host: a host defect, never a core code.
+    public const int UNDELIVERED = -1001;
+    public int Undelivered { get; private set; }
+    private ak_dec_TaskSummary_opts* _uo;
+    private HashSet<IntPtr> _live;
+    /// The resets that arm and disarm each decode (rule 7): forward crossings, counted
+    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    private static long _resets;
+    public long ResetCalls => _resets;
+
+    private void EnsureDec()
+    {
+        if (_dctx != IntPtr.Zero) return;
+        _dctx = Abi.ak_dec_ctx_new_TaskSummary(null);   // rule 6: bound to this root, drop mode
+        if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_TaskSummary returned NULL");
+        _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
+    }
+
+    /// The options, rewritten before every retained decode: every entry names the one
+    /// grow and holds no pre-allocated buffer (all from grow, so the core never needs
+    /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
+    private ak_dec_TaskSummary_opts* Arm(int zero)
+    {
+        if (_uo == null) _uo = (ak_dec_TaskSummary_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_TaskSummary_opts));
+        *_uo = default;
+        var g = UnkHost.Fn;
+        if (zero != 0) _uo->self.grow = g;
+        if (zero != 1) _uo->options.grow = g;
+        if (zero != 2) _uo->options_options.grow = g;
+        if (zero != 3) _uo->options_max_duration.grow = g;
+        if (zero != 4) _uo->created_at.grow = g;
+        return _uo;
+    }
+
+    /// mode -2: drop (reset with NULL); -1: retain everywhere; k >= 0: retain but k.
+    private int ArmFor(int mode)
+    {
+        Undelivered = 0;
+        _resets++;
+        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_TaskSummary(_dctx, null); }
+        _live ??= new HashSet<IntPtr>();
+        _live.Clear();
+        G.Live = _live;
+        return Abi.ak_dec_reset_TaskSummary(_dctx, Arm(mode));
+    }
+
+    /// After every decode: the core forgets the options (reset with NULL), and a buffer
+    /// still outstanding is freed; after a success that is UNDELIVERED.
+    private int Disarm(int rc)
+    {
+        _resets++;
+        Abi.ak_dec_reset_TaskSummary(_dctx, null);
+        var live = G.Live;
+        G.Live = null;
+        if (live == null || live.Count == 0) return rc;
+        foreach (var q in live) NativeMemory.Free((void*)q);
+        int left = live.Count;
+        live.Clear();
+        if (rc < 0) return rc;
+        Undelivered = left;
+        return UNDELIVERED;
+    }
+
+    /// The zeroed-position control's expectation: the facade bags at `position` cleared.
+    public static void ClearPosition(TaskSummary t, int position)
+    {
+        switch (position)
+        {
+            case 0:
+            {
+                t.UnknownFields = null;
+                break;
+            }
+            case 1:
+            {
+                if (t.Options != null) { var e0 = t.Options;
+
+                    e0.UnknownFields = null;
+                }
+                break;
+            }
+            case 2:
+            {
+                if (t.Options != null) { var e0 = t.Options;
+
+                    // a map entry: the facade map has no bag (U-map-entry), nothing to clear
+                }
+                break;
+            }
+            case 3:
+            {
+                if (t.Options != null) { var e0 = t.Options;
+
+                    if (e0.MaxDuration != null) { var e1 = e0.MaxDuration;
+
+                        e1.UnknownFields = null;
+                    }
+                }
+                break;
+            }
+            case 4:
+            {
+                if (t.CreatedAt != null) { var e0 = t.CreatedAt;
+
+                    e0.UnknownFields = null;
+                }
+                break;
+            }
+            default: throw new ArgumentOutOfRangeException(nameof(position));
+        }
+    }
+
     public TaskSummary Decode(byte[] src, int len) { int rc = TryDecode(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
     public TaskSummary DecodeU(byte[] src, int len) { int rc = TryDecode(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
 
     /// The core's code (< 0) on failure; the output is then unspecified and discarded (R-G6).
-    public int TryDecode(byte[] src, int len, bool retain, out TaskSummary result)
+    public int TryDecode(byte[] src, int len, bool retain, out TaskSummary result) => DecodeArmed(src, len, retain ? -1 : -2, out result);
+
+    /// A control (decision 11 DISCARD): retain everywhere except `position` (an index into
+    /// UnkPositionNames), whose entry is all zero when armed.
+    public int TryDecodeZeroing(byte[] src, int len, int position, out TaskSummary result) => DecodeArmed(src, len, position, out result);
+
+    private int DecodeArmed(byte[] src, int len, int mode, out TaskSummary result)
     {
         result = null;
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        EnsureDec();
         Abi.ak_dec_err_reset(_dctx);
+        int ar = ArmFor(mode);
+        if (ar != 0) { Disarm(ar); return ar; }
         var target = new TaskSummary();
-        var pend = retain ? new List<(int, long, byte[])>() : null;
         var h = GCHandle.Alloc(target);
-        var hp = retain ? GCHandle.Alloc(pend) : default;
-        int rc;
+        int rc = Abi.AK_ERR_HOST;
         try
         {
             fixed (byte* b0 = src)
@@ -2671,7 +3703,6 @@ public sealed unsafe class CoreFfi_TaskSummary : IDisposable
                 byte* b = len == 0 ? one : b0;
                 _drun->Target = GCHandle.ToIntPtr(h);
                 _drun->Buf = b;
-                _drun->Pending = retain ? GCHandle.ToIntPtr(hp) : IntPtr.Zero;
                 var vt = new ak_dvt_TaskSummary
                 {
                     apply = &ApplyRoot,
@@ -2682,49 +3713,47 @@ public sealed unsafe class CoreFfi_TaskSummary : IDisposable
                 if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); if (retain) hp.Free(); }
+        finally { h.Free(); rc = Disarm(rc); }
         if (rc < 0) return rc;
-        if (retain)
-        {
-            // Applied after the decode: a capture may flush before the run that
-            // carries the element it belongs to.
-            foreach (var (slot, token, bytes) in pend)
-            {
-                switch (slot)
-                {
-                    case 0: target.UnknownFields = W.Append(target.UnknownFields, bytes, 0, bytes.Length); break;
-                    default: break;   // a map entry has no bag
-                }
-            }
-        }
         result = target;
         return 0;
     }
 
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
-    /// call), then replay it with the same group readers the push callbacks use.
-    public TaskSummary Pull(byte[] src, int len)
+    /// call but grow), then replay it with the same group readers the push callbacks
+    /// use. The context is armed exactly as for push.
+    public TaskSummary Pull(byte[] src, int len) { int rc = TryPull(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+    public TaskSummary PullU(byte[] src, int len) { int rc = TryPull(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+
+    public int TryPull(byte[] src, int len, bool retain, out TaskSummary result)
     {
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        result = null;
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
         var t = new TaskSummary();
-        fixed (byte* b0 = src)
-        fixed (byte* one = One)
+        int rc = Abi.AK_ERR_HOST;
+        try
         {
-            byte* b = len == 0 ? one : b0;
-            _fwd++;
-            int rc = Abi.ak_parse_TaskSummary(_dctx, b, (nuint)len);
-            if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}");
-            byte* recs; nuint rlen;
-            _fwd++;
-            int pr = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
-            if (pr != 0) throw new InvalidOperationException($"ak_bdr_ptr failed: {pr}");
-            Replay(t, b, recs, (int)rlen);
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                _fwd++;
+                rc = Abi.ak_parse_TaskSummary(_dctx, b, (nuint)len);
+                if (rc >= 0)
+                {
+                    byte* recs; nuint rlen;
+                    _fwd++;
+                    rc = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
+                    if (rc == 0) Replay(t, b, recs, (int)rlen);
+                }
+            }
         }
-        return t;
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;
+        result = t;
+        return 0;
     }
 
     private const uint OP_APPLY = 1, OP_ADD = 2, OP_NEW = 3, OP_APPLY_ELEM = 4;   // ak_bdr_rec.op
@@ -2743,8 +3772,9 @@ public sealed unsafe class CoreFfi_TaskSummary : IDisposable
                 case OP_ADD when outer == 0 && inner == 1:   // a root-level run
                 {
                     var xs = (ak_dfix_TaskOptionsOptionsEntry*)body; var lst = (t.Options ??= new TaskOptions()).Options;
-                    // plan: a duplicate key replaces the earlier value.
-                    for (int i = 0; i < (int)r.n; i++) lst[G.Str(b, xs[i].key)] = G.Str(b, xs[i].value);
+                    // plan: a duplicate key replaces the earlier value. The facade map has no bag:
+                    // an entry's unknown-field buffer (decision 11) is freed (U-map-entry).
+                    for (int i = 0; i < (int)r.n; i++) { lst[G.Str(b, xs[i].key)] = G.Str(b, xs[i].value); G.Drop(ref xs[i].unknown); }
                     break;
                 }
                 default: break;
@@ -2769,6 +3799,7 @@ public sealed unsafe class CoreFfi_TaskSummary : IDisposable
             NativeMemory.Free(_run); _run = null;
         }
         if (_drun != null) { NativeMemory.Free(_drun); _drun = null; }
+        if (_uo != null) { NativeMemory.Free(_uo); _uo = null; }
     }
 }
 
@@ -2792,7 +3823,7 @@ public sealed unsafe class CoreFfi_Probe : IDisposable
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
-    public void CallsReset() { _fwd = 0; _rev = 0; }
+    public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
 
     public CoreFfi_Probe(bool utf16 = false)
     {
@@ -2852,7 +3883,7 @@ public sealed unsafe class CoreFfi_Probe : IDisposable
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct DecRun { public IntPtr Target; public byte* Buf; public IntPtr Pending; }
+    private struct DecRun { public IntPtr Target; public byte* Buf; }
 
     private static Probe Tgt(void* obj) => (Probe)GCHandle.FromIntPtr(((DecRun*)obj)->Target).Target;
 
@@ -2866,24 +3897,111 @@ public sealed unsafe class CoreFfi_Probe : IDisposable
 
     private static readonly byte[] One = new byte[1];
 
+    /// Decision 11: every message position of this root, in plan.unk_positions order
+    /// (the options' member order).
+    public static readonly string[] UnkPositionNames = { "self", "body" };
+
+    /// A retained decode ended with a buffer grow handed out that no delivered group
+    /// carried back to the host: a host defect, never a core code.
+    public const int UNDELIVERED = -1001;
+    public int Undelivered { get; private set; }
+    private ak_dec_Probe_opts* _uo;
+    private HashSet<IntPtr> _live;
+    /// The resets that arm and disarm each decode (rule 7): forward crossings, counted
+    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    private static long _resets;
+    public long ResetCalls => _resets;
+
+    private void EnsureDec()
+    {
+        if (_dctx != IntPtr.Zero) return;
+        _dctx = Abi.ak_dec_ctx_new_Probe(null);   // rule 6: bound to this root, drop mode
+        if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_Probe returned NULL");
+        _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
+    }
+
+    /// The options, rewritten before every retained decode: every entry names the one
+    /// grow and holds no pre-allocated buffer (all from grow, so the core never needs
+    /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
+    private ak_dec_Probe_opts* Arm(int zero)
+    {
+        if (_uo == null) _uo = (ak_dec_Probe_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_Probe_opts));
+        *_uo = default;
+        var g = UnkHost.Fn;
+        if (zero != 0) _uo->self.grow = g;
+        if (zero != 1) _uo->body.grow = g;
+        return _uo;
+    }
+
+    /// mode -2: drop (reset with NULL); -1: retain everywhere; k >= 0: retain but k.
+    private int ArmFor(int mode)
+    {
+        Undelivered = 0;
+        _resets++;
+        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_Probe(_dctx, null); }
+        _live ??= new HashSet<IntPtr>();
+        _live.Clear();
+        G.Live = _live;
+        return Abi.ak_dec_reset_Probe(_dctx, Arm(mode));
+    }
+
+    /// After every decode: the core forgets the options (reset with NULL), and a buffer
+    /// still outstanding is freed; after a success that is UNDELIVERED.
+    private int Disarm(int rc)
+    {
+        _resets++;
+        Abi.ak_dec_reset_Probe(_dctx, null);
+        var live = G.Live;
+        G.Live = null;
+        if (live == null || live.Count == 0) return rc;
+        foreach (var q in live) NativeMemory.Free((void*)q);
+        int left = live.Count;
+        live.Clear();
+        if (rc < 0) return rc;
+        Undelivered = left;
+        return UNDELIVERED;
+    }
+
+    /// The zeroed-position control's expectation: the facade bags at `position` cleared.
+    public static void ClearPosition(Probe t, int position)
+    {
+        switch (position)
+        {
+            case 0:
+            {
+                t.UnknownFields = null;
+                break;
+            }
+            case 1:
+            {
+                if (t.AsStamp != null) t.AsStamp.UnknownFields = null;
+                if (t.AsNothing != null) t.AsNothing.UnknownFields = null;
+                break;
+            }
+            default: throw new ArgumentOutOfRangeException(nameof(position));
+        }
+    }
+
     public Probe Decode(byte[] src, int len) { int rc = TryDecode(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
     public Probe DecodeU(byte[] src, int len) { int rc = TryDecode(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
 
     /// The core's code (< 0) on failure; the output is then unspecified and discarded (R-G6).
-    public int TryDecode(byte[] src, int len, bool retain, out Probe result)
+    public int TryDecode(byte[] src, int len, bool retain, out Probe result) => DecodeArmed(src, len, retain ? -1 : -2, out result);
+
+    /// A control (decision 11 DISCARD): retain everywhere except `position` (an index into
+    /// UnkPositionNames), whose entry is all zero when armed.
+    public int TryDecodeZeroing(byte[] src, int len, int position, out Probe result) => DecodeArmed(src, len, position, out result);
+
+    private int DecodeArmed(byte[] src, int len, int mode, out Probe result)
     {
         result = null;
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        EnsureDec();
         Abi.ak_dec_err_reset(_dctx);
+        int ar = ArmFor(mode);
+        if (ar != 0) { Disarm(ar); return ar; }
         var target = new Probe();
-        var pend = retain ? new List<(int, long, byte[])>() : null;
         var h = GCHandle.Alloc(target);
-        var hp = retain ? GCHandle.Alloc(pend) : default;
-        int rc;
+        int rc = Abi.AK_ERR_HOST;
         try
         {
             fixed (byte* b0 = src)
@@ -2893,7 +4011,6 @@ public sealed unsafe class CoreFfi_Probe : IDisposable
                 byte* b = len == 0 ? one : b0;
                 _drun->Target = GCHandle.ToIntPtr(h);
                 _drun->Buf = b;
-                _drun->Pending = retain ? GCHandle.ToIntPtr(hp) : IntPtr.Zero;
                 var vt = new ak_dvt_Probe
                 {
                     apply = &ApplyRoot,
@@ -2903,49 +4020,47 @@ public sealed unsafe class CoreFfi_Probe : IDisposable
                 if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); if (retain) hp.Free(); }
+        finally { h.Free(); rc = Disarm(rc); }
         if (rc < 0) return rc;
-        if (retain)
-        {
-            // Applied after the decode: a capture may flush before the run that
-            // carries the element it belongs to.
-            foreach (var (slot, token, bytes) in pend)
-            {
-                switch (slot)
-                {
-                    case 0: target.UnknownFields = W.Append(target.UnknownFields, bytes, 0, bytes.Length); break;
-                    default: break;   // a map entry has no bag
-                }
-            }
-        }
         result = target;
         return 0;
     }
 
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
-    /// call), then replay it with the same group readers the push callbacks use.
-    public Probe Pull(byte[] src, int len)
+    /// call but grow), then replay it with the same group readers the push callbacks
+    /// use. The context is armed exactly as for push.
+    public Probe Pull(byte[] src, int len) { int rc = TryPull(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+    public Probe PullU(byte[] src, int len) { int rc = TryPull(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+
+    public int TryPull(byte[] src, int len, bool retain, out Probe result)
     {
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        result = null;
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
         var t = new Probe();
-        fixed (byte* b0 = src)
-        fixed (byte* one = One)
+        int rc = Abi.AK_ERR_HOST;
+        try
         {
-            byte* b = len == 0 ? one : b0;
-            _fwd++;
-            int rc = Abi.ak_parse_Probe(_dctx, b, (nuint)len);
-            if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}");
-            byte* recs; nuint rlen;
-            _fwd++;
-            int pr = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
-            if (pr != 0) throw new InvalidOperationException($"ak_bdr_ptr failed: {pr}");
-            Replay(t, b, recs, (int)rlen);
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                _fwd++;
+                rc = Abi.ak_parse_Probe(_dctx, b, (nuint)len);
+                if (rc >= 0)
+                {
+                    byte* recs; nuint rlen;
+                    _fwd++;
+                    rc = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
+                    if (rc == 0) Replay(t, b, recs, (int)rlen);
+                }
+            }
         }
-        return t;
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;
+        result = t;
+        return 0;
     }
 
     private const uint OP_APPLY = 1, OP_ADD = 2, OP_NEW = 3, OP_APPLY_ELEM = 4;   // ak_bdr_rec.op
@@ -2982,6 +4097,7 @@ public sealed unsafe class CoreFfi_Probe : IDisposable
             NativeMemory.Free(_run); _run = null;
         }
         if (_drun != null) { NativeMemory.Free(_drun); _drun = null; }
+        if (_uo != null) { NativeMemory.Free(_uo); _uo = null; }
     }
 }
 
@@ -3005,7 +4121,7 @@ public sealed unsafe class CoreFfi_Empty : IDisposable
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
-    public void CallsReset() { _fwd = 0; _rev = 0; }
+    public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
 
     public CoreFfi_Empty(bool utf16 = false)
     {
@@ -3065,7 +4181,7 @@ public sealed unsafe class CoreFfi_Empty : IDisposable
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct DecRun { public IntPtr Target; public byte* Buf; public IntPtr Pending; }
+    private struct DecRun { public IntPtr Target; public byte* Buf; }
 
     private static Empty Tgt(void* obj) => (Empty)GCHandle.FromIntPtr(((DecRun*)obj)->Target).Target;
 
@@ -3079,24 +4195,104 @@ public sealed unsafe class CoreFfi_Empty : IDisposable
 
     private static readonly byte[] One = new byte[1];
 
+    /// Decision 11: every message position of this root, in plan.unk_positions order
+    /// (the options' member order).
+    public static readonly string[] UnkPositionNames = { "self" };
+
+    /// A retained decode ended with a buffer grow handed out that no delivered group
+    /// carried back to the host: a host defect, never a core code.
+    public const int UNDELIVERED = -1001;
+    public int Undelivered { get; private set; }
+    private ak_dec_Empty_opts* _uo;
+    private HashSet<IntPtr> _live;
+    /// The resets that arm and disarm each decode (rule 7): forward crossings, counted
+    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    private static long _resets;
+    public long ResetCalls => _resets;
+
+    private void EnsureDec()
+    {
+        if (_dctx != IntPtr.Zero) return;
+        _dctx = Abi.ak_dec_ctx_new_Empty(null);   // rule 6: bound to this root, drop mode
+        if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_Empty returned NULL");
+        _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
+    }
+
+    /// The options, rewritten before every retained decode: every entry names the one
+    /// grow and holds no pre-allocated buffer (all from grow, so the core never needs
+    /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
+    private ak_dec_Empty_opts* Arm(int zero)
+    {
+        if (_uo == null) _uo = (ak_dec_Empty_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_Empty_opts));
+        *_uo = default;
+        var g = UnkHost.Fn;
+        if (zero != 0) _uo->self.grow = g;
+        return _uo;
+    }
+
+    /// mode -2: drop (reset with NULL); -1: retain everywhere; k >= 0: retain but k.
+    private int ArmFor(int mode)
+    {
+        Undelivered = 0;
+        _resets++;
+        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_Empty(_dctx, null); }
+        _live ??= new HashSet<IntPtr>();
+        _live.Clear();
+        G.Live = _live;
+        return Abi.ak_dec_reset_Empty(_dctx, Arm(mode));
+    }
+
+    /// After every decode: the core forgets the options (reset with NULL), and a buffer
+    /// still outstanding is freed; after a success that is UNDELIVERED.
+    private int Disarm(int rc)
+    {
+        _resets++;
+        Abi.ak_dec_reset_Empty(_dctx, null);
+        var live = G.Live;
+        G.Live = null;
+        if (live == null || live.Count == 0) return rc;
+        foreach (var q in live) NativeMemory.Free((void*)q);
+        int left = live.Count;
+        live.Clear();
+        if (rc < 0) return rc;
+        Undelivered = left;
+        return UNDELIVERED;
+    }
+
+    /// The zeroed-position control's expectation: the facade bags at `position` cleared.
+    public static void ClearPosition(Empty t, int position)
+    {
+        switch (position)
+        {
+            case 0:
+            {
+                t.UnknownFields = null;
+                break;
+            }
+            default: throw new ArgumentOutOfRangeException(nameof(position));
+        }
+    }
+
     public Empty Decode(byte[] src, int len) { int rc = TryDecode(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
     public Empty DecodeU(byte[] src, int len) { int rc = TryDecode(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
 
     /// The core's code (< 0) on failure; the output is then unspecified and discarded (R-G6).
-    public int TryDecode(byte[] src, int len, bool retain, out Empty result)
+    public int TryDecode(byte[] src, int len, bool retain, out Empty result) => DecodeArmed(src, len, retain ? -1 : -2, out result);
+
+    /// A control (decision 11 DISCARD): retain everywhere except `position` (an index into
+    /// UnkPositionNames), whose entry is all zero when armed.
+    public int TryDecodeZeroing(byte[] src, int len, int position, out Empty result) => DecodeArmed(src, len, position, out result);
+
+    private int DecodeArmed(byte[] src, int len, int mode, out Empty result)
     {
         result = null;
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        EnsureDec();
         Abi.ak_dec_err_reset(_dctx);
+        int ar = ArmFor(mode);
+        if (ar != 0) { Disarm(ar); return ar; }
         var target = new Empty();
-        var pend = retain ? new List<(int, long, byte[])>() : null;
         var h = GCHandle.Alloc(target);
-        var hp = retain ? GCHandle.Alloc(pend) : default;
-        int rc;
+        int rc = Abi.AK_ERR_HOST;
         try
         {
             fixed (byte* b0 = src)
@@ -3106,7 +4302,6 @@ public sealed unsafe class CoreFfi_Empty : IDisposable
                 byte* b = len == 0 ? one : b0;
                 _drun->Target = GCHandle.ToIntPtr(h);
                 _drun->Buf = b;
-                _drun->Pending = retain ? GCHandle.ToIntPtr(hp) : IntPtr.Zero;
                 var vt = new ak_dvt_Empty
                 {
                     apply = &ApplyRoot,
@@ -3116,49 +4311,47 @@ public sealed unsafe class CoreFfi_Empty : IDisposable
                 if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); if (retain) hp.Free(); }
+        finally { h.Free(); rc = Disarm(rc); }
         if (rc < 0) return rc;
-        if (retain)
-        {
-            // Applied after the decode: a capture may flush before the run that
-            // carries the element it belongs to.
-            foreach (var (slot, token, bytes) in pend)
-            {
-                switch (slot)
-                {
-                    case 0: target.UnknownFields = W.Append(target.UnknownFields, bytes, 0, bytes.Length); break;
-                    default: break;   // a map entry has no bag
-                }
-            }
-        }
         result = target;
         return 0;
     }
 
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
-    /// call), then replay it with the same group readers the push callbacks use.
-    public Empty Pull(byte[] src, int len)
+    /// call but grow), then replay it with the same group readers the push callbacks
+    /// use. The context is armed exactly as for push.
+    public Empty Pull(byte[] src, int len) { int rc = TryPull(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+    public Empty PullU(byte[] src, int len) { int rc = TryPull(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+
+    public int TryPull(byte[] src, int len, bool retain, out Empty result)
     {
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        result = null;
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
         var t = new Empty();
-        fixed (byte* b0 = src)
-        fixed (byte* one = One)
+        int rc = Abi.AK_ERR_HOST;
+        try
         {
-            byte* b = len == 0 ? one : b0;
-            _fwd++;
-            int rc = Abi.ak_parse_Empty(_dctx, b, (nuint)len);
-            if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}");
-            byte* recs; nuint rlen;
-            _fwd++;
-            int pr = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
-            if (pr != 0) throw new InvalidOperationException($"ak_bdr_ptr failed: {pr}");
-            Replay(t, b, recs, (int)rlen);
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                _fwd++;
+                rc = Abi.ak_parse_Empty(_dctx, b, (nuint)len);
+                if (rc >= 0)
+                {
+                    byte* recs; nuint rlen;
+                    _fwd++;
+                    rc = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
+                    if (rc == 0) Replay(t, b, recs, (int)rlen);
+                }
+            }
         }
-        return t;
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;
+        result = t;
+        return 0;
     }
 
     private const uint OP_APPLY = 1, OP_ADD = 2, OP_NEW = 3, OP_APPLY_ELEM = 4;   // ak_bdr_rec.op
@@ -3195,6 +4388,7 @@ public sealed unsafe class CoreFfi_Empty : IDisposable
             NativeMemory.Free(_run); _run = null;
         }
         if (_drun != null) { NativeMemory.Free(_drun); _drun = null; }
+        if (_uo != null) { NativeMemory.Free(_uo); _uo = null; }
     }
 }
 
@@ -3218,7 +4412,7 @@ public sealed unsafe class CoreFfi_UploadResultData : IDisposable
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
-    public void CallsReset() { _fwd = 0; _rev = 0; }
+    public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
 
     public CoreFfi_UploadResultData(bool utf16 = false)
     {
@@ -3280,7 +4474,7 @@ public sealed unsafe class CoreFfi_UploadResultData : IDisposable
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct DecRun { public IntPtr Target; public byte* Buf; public IntPtr Pending; }
+    private struct DecRun { public IntPtr Target; public byte* Buf; }
 
     private static UploadResultData Tgt(void* obj) => (UploadResultData)GCHandle.FromIntPtr(((DecRun*)obj)->Target).Target;
 
@@ -3294,24 +4488,104 @@ public sealed unsafe class CoreFfi_UploadResultData : IDisposable
 
     private static readonly byte[] One = new byte[1];
 
+    /// Decision 11: every message position of this root, in plan.unk_positions order
+    /// (the options' member order).
+    public static readonly string[] UnkPositionNames = { "self" };
+
+    /// A retained decode ended with a buffer grow handed out that no delivered group
+    /// carried back to the host: a host defect, never a core code.
+    public const int UNDELIVERED = -1001;
+    public int Undelivered { get; private set; }
+    private ak_dec_UploadResultData_opts* _uo;
+    private HashSet<IntPtr> _live;
+    /// The resets that arm and disarm each decode (rule 7): forward crossings, counted
+    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    private static long _resets;
+    public long ResetCalls => _resets;
+
+    private void EnsureDec()
+    {
+        if (_dctx != IntPtr.Zero) return;
+        _dctx = Abi.ak_dec_ctx_new_UploadResultData(null);   // rule 6: bound to this root, drop mode
+        if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_UploadResultData returned NULL");
+        _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
+    }
+
+    /// The options, rewritten before every retained decode: every entry names the one
+    /// grow and holds no pre-allocated buffer (all from grow, so the core never needs
+    /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
+    private ak_dec_UploadResultData_opts* Arm(int zero)
+    {
+        if (_uo == null) _uo = (ak_dec_UploadResultData_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_UploadResultData_opts));
+        *_uo = default;
+        var g = UnkHost.Fn;
+        if (zero != 0) _uo->self.grow = g;
+        return _uo;
+    }
+
+    /// mode -2: drop (reset with NULL); -1: retain everywhere; k >= 0: retain but k.
+    private int ArmFor(int mode)
+    {
+        Undelivered = 0;
+        _resets++;
+        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_UploadResultData(_dctx, null); }
+        _live ??= new HashSet<IntPtr>();
+        _live.Clear();
+        G.Live = _live;
+        return Abi.ak_dec_reset_UploadResultData(_dctx, Arm(mode));
+    }
+
+    /// After every decode: the core forgets the options (reset with NULL), and a buffer
+    /// still outstanding is freed; after a success that is UNDELIVERED.
+    private int Disarm(int rc)
+    {
+        _resets++;
+        Abi.ak_dec_reset_UploadResultData(_dctx, null);
+        var live = G.Live;
+        G.Live = null;
+        if (live == null || live.Count == 0) return rc;
+        foreach (var q in live) NativeMemory.Free((void*)q);
+        int left = live.Count;
+        live.Clear();
+        if (rc < 0) return rc;
+        Undelivered = left;
+        return UNDELIVERED;
+    }
+
+    /// The zeroed-position control's expectation: the facade bags at `position` cleared.
+    public static void ClearPosition(UploadResultData t, int position)
+    {
+        switch (position)
+        {
+            case 0:
+            {
+                t.UnknownFields = null;
+                break;
+            }
+            default: throw new ArgumentOutOfRangeException(nameof(position));
+        }
+    }
+
     public UploadResultData Decode(byte[] src, int len) { int rc = TryDecode(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
     public UploadResultData DecodeU(byte[] src, int len) { int rc = TryDecode(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
 
     /// The core's code (< 0) on failure; the output is then unspecified and discarded (R-G6).
-    public int TryDecode(byte[] src, int len, bool retain, out UploadResultData result)
+    public int TryDecode(byte[] src, int len, bool retain, out UploadResultData result) => DecodeArmed(src, len, retain ? -1 : -2, out result);
+
+    /// A control (decision 11 DISCARD): retain everywhere except `position` (an index into
+    /// UnkPositionNames), whose entry is all zero when armed.
+    public int TryDecodeZeroing(byte[] src, int len, int position, out UploadResultData result) => DecodeArmed(src, len, position, out result);
+
+    private int DecodeArmed(byte[] src, int len, int mode, out UploadResultData result)
     {
         result = null;
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        EnsureDec();
         Abi.ak_dec_err_reset(_dctx);
+        int ar = ArmFor(mode);
+        if (ar != 0) { Disarm(ar); return ar; }
         var target = new UploadResultData();
-        var pend = retain ? new List<(int, long, byte[])>() : null;
         var h = GCHandle.Alloc(target);
-        var hp = retain ? GCHandle.Alloc(pend) : default;
-        int rc;
+        int rc = Abi.AK_ERR_HOST;
         try
         {
             fixed (byte* b0 = src)
@@ -3321,7 +4595,6 @@ public sealed unsafe class CoreFfi_UploadResultData : IDisposable
                 byte* b = len == 0 ? one : b0;
                 _drun->Target = GCHandle.ToIntPtr(h);
                 _drun->Buf = b;
-                _drun->Pending = retain ? GCHandle.ToIntPtr(hp) : IntPtr.Zero;
                 var vt = new ak_dvt_UploadResultData
                 {
                     apply = &ApplyRoot,
@@ -3331,49 +4604,47 @@ public sealed unsafe class CoreFfi_UploadResultData : IDisposable
                 if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); if (retain) hp.Free(); }
+        finally { h.Free(); rc = Disarm(rc); }
         if (rc < 0) return rc;
-        if (retain)
-        {
-            // Applied after the decode: a capture may flush before the run that
-            // carries the element it belongs to.
-            foreach (var (slot, token, bytes) in pend)
-            {
-                switch (slot)
-                {
-                    case 0: target.UnknownFields = W.Append(target.UnknownFields, bytes, 0, bytes.Length); break;
-                    default: break;   // a map entry has no bag
-                }
-            }
-        }
         result = target;
         return 0;
     }
 
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
-    /// call), then replay it with the same group readers the push callbacks use.
-    public UploadResultData Pull(byte[] src, int len)
+    /// call but grow), then replay it with the same group readers the push callbacks
+    /// use. The context is armed exactly as for push.
+    public UploadResultData Pull(byte[] src, int len) { int rc = TryPull(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+    public UploadResultData PullU(byte[] src, int len) { int rc = TryPull(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+
+    public int TryPull(byte[] src, int len, bool retain, out UploadResultData result)
     {
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        result = null;
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
         var t = new UploadResultData();
-        fixed (byte* b0 = src)
-        fixed (byte* one = One)
+        int rc = Abi.AK_ERR_HOST;
+        try
         {
-            byte* b = len == 0 ? one : b0;
-            _fwd++;
-            int rc = Abi.ak_parse_UploadResultData(_dctx, b, (nuint)len);
-            if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}");
-            byte* recs; nuint rlen;
-            _fwd++;
-            int pr = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
-            if (pr != 0) throw new InvalidOperationException($"ak_bdr_ptr failed: {pr}");
-            Replay(t, b, recs, (int)rlen);
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                _fwd++;
+                rc = Abi.ak_parse_UploadResultData(_dctx, b, (nuint)len);
+                if (rc >= 0)
+                {
+                    byte* recs; nuint rlen;
+                    _fwd++;
+                    rc = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
+                    if (rc == 0) Replay(t, b, recs, (int)rlen);
+                }
+            }
         }
-        return t;
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;
+        result = t;
+        return 0;
     }
 
     private const uint OP_APPLY = 1, OP_ADD = 2, OP_NEW = 3, OP_APPLY_ELEM = 4;   // ak_bdr_rec.op
@@ -3410,6 +4681,7 @@ public sealed unsafe class CoreFfi_UploadResultData : IDisposable
             NativeMemory.Free(_run); _run = null;
         }
         if (_drun != null) { NativeMemory.Free(_drun); _drun = null; }
+        if (_uo != null) { NativeMemory.Free(_uo); _uo = null; }
     }
 }
 
@@ -3438,7 +4710,7 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
-    public void CallsReset() { _fwd = 0; _rev = 0; }
+    public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
     private int _cap_ticks;
     private int _cap_values;
     private int _cap_codes;
@@ -3632,7 +4904,7 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct DecRun { public IntPtr Target; public byte* Buf; public IntPtr Pending; }
+    private struct DecRun { public IntPtr Target; public byte* Buf; }
 
     private static MetricsBatch Tgt(void* obj) => (MetricsBatch)GCHandle.FromIntPtr(((DecRun*)obj)->Target).Target;
 
@@ -3711,24 +4983,104 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
 
     private static readonly byte[] One = new byte[1];
 
+    /// Decision 11: every message position of this root, in plan.unk_positions order
+    /// (the options' member order).
+    public static readonly string[] UnkPositionNames = { "self" };
+
+    /// A retained decode ended with a buffer grow handed out that no delivered group
+    /// carried back to the host: a host defect, never a core code.
+    public const int UNDELIVERED = -1001;
+    public int Undelivered { get; private set; }
+    private ak_dec_MetricsBatch_opts* _uo;
+    private HashSet<IntPtr> _live;
+    /// The resets that arm and disarm each decode (rule 7): forward crossings, counted
+    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    private static long _resets;
+    public long ResetCalls => _resets;
+
+    private void EnsureDec()
+    {
+        if (_dctx != IntPtr.Zero) return;
+        _dctx = Abi.ak_dec_ctx_new_MetricsBatch(null);   // rule 6: bound to this root, drop mode
+        if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_MetricsBatch returned NULL");
+        _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
+    }
+
+    /// The options, rewritten before every retained decode: every entry names the one
+    /// grow and holds no pre-allocated buffer (all from grow, so the core never needs
+    /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
+    private ak_dec_MetricsBatch_opts* Arm(int zero)
+    {
+        if (_uo == null) _uo = (ak_dec_MetricsBatch_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_MetricsBatch_opts));
+        *_uo = default;
+        var g = UnkHost.Fn;
+        if (zero != 0) _uo->self.grow = g;
+        return _uo;
+    }
+
+    /// mode -2: drop (reset with NULL); -1: retain everywhere; k >= 0: retain but k.
+    private int ArmFor(int mode)
+    {
+        Undelivered = 0;
+        _resets++;
+        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_MetricsBatch(_dctx, null); }
+        _live ??= new HashSet<IntPtr>();
+        _live.Clear();
+        G.Live = _live;
+        return Abi.ak_dec_reset_MetricsBatch(_dctx, Arm(mode));
+    }
+
+    /// After every decode: the core forgets the options (reset with NULL), and a buffer
+    /// still outstanding is freed; after a success that is UNDELIVERED.
+    private int Disarm(int rc)
+    {
+        _resets++;
+        Abi.ak_dec_reset_MetricsBatch(_dctx, null);
+        var live = G.Live;
+        G.Live = null;
+        if (live == null || live.Count == 0) return rc;
+        foreach (var q in live) NativeMemory.Free((void*)q);
+        int left = live.Count;
+        live.Clear();
+        if (rc < 0) return rc;
+        Undelivered = left;
+        return UNDELIVERED;
+    }
+
+    /// The zeroed-position control's expectation: the facade bags at `position` cleared.
+    public static void ClearPosition(MetricsBatch t, int position)
+    {
+        switch (position)
+        {
+            case 0:
+            {
+                t.UnknownFields = null;
+                break;
+            }
+            default: throw new ArgumentOutOfRangeException(nameof(position));
+        }
+    }
+
     public MetricsBatch Decode(byte[] src, int len) { int rc = TryDecode(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
     public MetricsBatch DecodeU(byte[] src, int len) { int rc = TryDecode(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
 
     /// The core's code (< 0) on failure; the output is then unspecified and discarded (R-G6).
-    public int TryDecode(byte[] src, int len, bool retain, out MetricsBatch result)
+    public int TryDecode(byte[] src, int len, bool retain, out MetricsBatch result) => DecodeArmed(src, len, retain ? -1 : -2, out result);
+
+    /// A control (decision 11 DISCARD): retain everywhere except `position` (an index into
+    /// UnkPositionNames), whose entry is all zero when armed.
+    public int TryDecodeZeroing(byte[] src, int len, int position, out MetricsBatch result) => DecodeArmed(src, len, position, out result);
+
+    private int DecodeArmed(byte[] src, int len, int mode, out MetricsBatch result)
     {
         result = null;
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        EnsureDec();
         Abi.ak_dec_err_reset(_dctx);
+        int ar = ArmFor(mode);
+        if (ar != 0) { Disarm(ar); return ar; }
         var target = new MetricsBatch();
-        var pend = retain ? new List<(int, long, byte[])>() : null;
         var h = GCHandle.Alloc(target);
-        var hp = retain ? GCHandle.Alloc(pend) : default;
-        int rc;
+        int rc = Abi.AK_ERR_HOST;
         try
         {
             fixed (byte* b0 = src)
@@ -3738,7 +5090,6 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
                 byte* b = len == 0 ? one : b0;
                 _drun->Target = GCHandle.ToIntPtr(h);
                 _drun->Buf = b;
-                _drun->Pending = retain ? GCHandle.ToIntPtr(hp) : IntPtr.Zero;
                 var vt = new ak_dvt_MetricsBatch
                 {
                     apply = &ApplyRoot,
@@ -3753,49 +5104,47 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
                 if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); if (retain) hp.Free(); }
+        finally { h.Free(); rc = Disarm(rc); }
         if (rc < 0) return rc;
-        if (retain)
-        {
-            // Applied after the decode: a capture may flush before the run that
-            // carries the element it belongs to.
-            foreach (var (slot, token, bytes) in pend)
-            {
-                switch (slot)
-                {
-                    case 0: target.UnknownFields = W.Append(target.UnknownFields, bytes, 0, bytes.Length); break;
-                    default: break;   // a map entry has no bag
-                }
-            }
-        }
         result = target;
         return 0;
     }
 
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
-    /// call), then replay it with the same group readers the push callbacks use.
-    public MetricsBatch Pull(byte[] src, int len)
+    /// call but grow), then replay it with the same group readers the push callbacks
+    /// use. The context is armed exactly as for push.
+    public MetricsBatch Pull(byte[] src, int len) { int rc = TryPull(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+    public MetricsBatch PullU(byte[] src, int len) { int rc = TryPull(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+
+    public int TryPull(byte[] src, int len, bool retain, out MetricsBatch result)
     {
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        result = null;
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
         var t = new MetricsBatch();
-        fixed (byte* b0 = src)
-        fixed (byte* one = One)
+        int rc = Abi.AK_ERR_HOST;
+        try
         {
-            byte* b = len == 0 ? one : b0;
-            _fwd++;
-            int rc = Abi.ak_parse_MetricsBatch(_dctx, b, (nuint)len);
-            if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}");
-            byte* recs; nuint rlen;
-            _fwd++;
-            int pr = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
-            if (pr != 0) throw new InvalidOperationException($"ak_bdr_ptr failed: {pr}");
-            Replay(t, b, recs, (int)rlen);
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                _fwd++;
+                rc = Abi.ak_parse_MetricsBatch(_dctx, b, (nuint)len);
+                if (rc >= 0)
+                {
+                    byte* recs; nuint rlen;
+                    _fwd++;
+                    rc = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
+                    if (rc == 0) Replay(t, b, recs, (int)rlen);
+                }
+            }
         }
-        return t;
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;
+        result = t;
+        return 0;
     }
 
     private const uint OP_APPLY = 1, OP_ADD = 2, OP_NEW = 3, OP_APPLY_ELEM = 4;   // ak_bdr_rec.op
@@ -3867,6 +5216,7 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
             NativeMemory.Free(_run); _run = null;
         }
         if (_drun != null) { NativeMemory.Free(_drun); _drun = null; }
+        if (_uo != null) { NativeMemory.Free(_uo); _uo = null; }
     }
 }
 
@@ -3890,7 +5240,7 @@ public sealed unsafe class CoreFfi_Pair : IDisposable
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
-    public void CallsReset() { _fwd = 0; _rev = 0; }
+    public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
 
     public CoreFfi_Pair(bool utf16 = false)
     {
@@ -3950,7 +5300,7 @@ public sealed unsafe class CoreFfi_Pair : IDisposable
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct DecRun { public IntPtr Target; public byte* Buf; public IntPtr Pending; }
+    private struct DecRun { public IntPtr Target; public byte* Buf; }
 
     private static Pair Tgt(void* obj) => (Pair)GCHandle.FromIntPtr(((DecRun*)obj)->Target).Target;
 
@@ -3964,24 +5314,104 @@ public sealed unsafe class CoreFfi_Pair : IDisposable
 
     private static readonly byte[] One = new byte[1];
 
+    /// Decision 11: every message position of this root, in plan.unk_positions order
+    /// (the options' member order).
+    public static readonly string[] UnkPositionNames = { "self" };
+
+    /// A retained decode ended with a buffer grow handed out that no delivered group
+    /// carried back to the host: a host defect, never a core code.
+    public const int UNDELIVERED = -1001;
+    public int Undelivered { get; private set; }
+    private ak_dec_Pair_opts* _uo;
+    private HashSet<IntPtr> _live;
+    /// The resets that arm and disarm each decode (rule 7): forward crossings, counted
+    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    private static long _resets;
+    public long ResetCalls => _resets;
+
+    private void EnsureDec()
+    {
+        if (_dctx != IntPtr.Zero) return;
+        _dctx = Abi.ak_dec_ctx_new_Pair(null);   // rule 6: bound to this root, drop mode
+        if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_Pair returned NULL");
+        _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
+    }
+
+    /// The options, rewritten before every retained decode: every entry names the one
+    /// grow and holds no pre-allocated buffer (all from grow, so the core never needs
+    /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
+    private ak_dec_Pair_opts* Arm(int zero)
+    {
+        if (_uo == null) _uo = (ak_dec_Pair_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_Pair_opts));
+        *_uo = default;
+        var g = UnkHost.Fn;
+        if (zero != 0) _uo->self.grow = g;
+        return _uo;
+    }
+
+    /// mode -2: drop (reset with NULL); -1: retain everywhere; k >= 0: retain but k.
+    private int ArmFor(int mode)
+    {
+        Undelivered = 0;
+        _resets++;
+        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_Pair(_dctx, null); }
+        _live ??= new HashSet<IntPtr>();
+        _live.Clear();
+        G.Live = _live;
+        return Abi.ak_dec_reset_Pair(_dctx, Arm(mode));
+    }
+
+    /// After every decode: the core forgets the options (reset with NULL), and a buffer
+    /// still outstanding is freed; after a success that is UNDELIVERED.
+    private int Disarm(int rc)
+    {
+        _resets++;
+        Abi.ak_dec_reset_Pair(_dctx, null);
+        var live = G.Live;
+        G.Live = null;
+        if (live == null || live.Count == 0) return rc;
+        foreach (var q in live) NativeMemory.Free((void*)q);
+        int left = live.Count;
+        live.Clear();
+        if (rc < 0) return rc;
+        Undelivered = left;
+        return UNDELIVERED;
+    }
+
+    /// The zeroed-position control's expectation: the facade bags at `position` cleared.
+    public static void ClearPosition(Pair t, int position)
+    {
+        switch (position)
+        {
+            case 0:
+            {
+                t.UnknownFields = null;
+                break;
+            }
+            default: throw new ArgumentOutOfRangeException(nameof(position));
+        }
+    }
+
     public Pair Decode(byte[] src, int len) { int rc = TryDecode(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
     public Pair DecodeU(byte[] src, int len) { int rc = TryDecode(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
 
     /// The core's code (< 0) on failure; the output is then unspecified and discarded (R-G6).
-    public int TryDecode(byte[] src, int len, bool retain, out Pair result)
+    public int TryDecode(byte[] src, int len, bool retain, out Pair result) => DecodeArmed(src, len, retain ? -1 : -2, out result);
+
+    /// A control (decision 11 DISCARD): retain everywhere except `position` (an index into
+    /// UnkPositionNames), whose entry is all zero when armed.
+    public int TryDecodeZeroing(byte[] src, int len, int position, out Pair result) => DecodeArmed(src, len, position, out result);
+
+    private int DecodeArmed(byte[] src, int len, int mode, out Pair result)
     {
         result = null;
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        EnsureDec();
         Abi.ak_dec_err_reset(_dctx);
+        int ar = ArmFor(mode);
+        if (ar != 0) { Disarm(ar); return ar; }
         var target = new Pair();
-        var pend = retain ? new List<(int, long, byte[])>() : null;
         var h = GCHandle.Alloc(target);
-        var hp = retain ? GCHandle.Alloc(pend) : default;
-        int rc;
+        int rc = Abi.AK_ERR_HOST;
         try
         {
             fixed (byte* b0 = src)
@@ -3991,7 +5421,6 @@ public sealed unsafe class CoreFfi_Pair : IDisposable
                 byte* b = len == 0 ? one : b0;
                 _drun->Target = GCHandle.ToIntPtr(h);
                 _drun->Buf = b;
-                _drun->Pending = retain ? GCHandle.ToIntPtr(hp) : IntPtr.Zero;
                 var vt = new ak_dvt_Pair
                 {
                     apply = &ApplyRoot,
@@ -4001,49 +5430,47 @@ public sealed unsafe class CoreFfi_Pair : IDisposable
                 if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); if (retain) hp.Free(); }
+        finally { h.Free(); rc = Disarm(rc); }
         if (rc < 0) return rc;
-        if (retain)
-        {
-            // Applied after the decode: a capture may flush before the run that
-            // carries the element it belongs to.
-            foreach (var (slot, token, bytes) in pend)
-            {
-                switch (slot)
-                {
-                    case 0: target.UnknownFields = W.Append(target.UnknownFields, bytes, 0, bytes.Length); break;
-                    default: break;   // a map entry has no bag
-                }
-            }
-        }
         result = target;
         return 0;
     }
 
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
-    /// call), then replay it with the same group readers the push callbacks use.
-    public Pair Pull(byte[] src, int len)
+    /// call but grow), then replay it with the same group readers the push callbacks
+    /// use. The context is armed exactly as for push.
+    public Pair Pull(byte[] src, int len) { int rc = TryPull(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+    public Pair PullU(byte[] src, int len) { int rc = TryPull(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+
+    public int TryPull(byte[] src, int len, bool retain, out Pair result)
     {
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        result = null;
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
         var t = new Pair();
-        fixed (byte* b0 = src)
-        fixed (byte* one = One)
+        int rc = Abi.AK_ERR_HOST;
+        try
         {
-            byte* b = len == 0 ? one : b0;
-            _fwd++;
-            int rc = Abi.ak_parse_Pair(_dctx, b, (nuint)len);
-            if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}");
-            byte* recs; nuint rlen;
-            _fwd++;
-            int pr = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
-            if (pr != 0) throw new InvalidOperationException($"ak_bdr_ptr failed: {pr}");
-            Replay(t, b, recs, (int)rlen);
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                _fwd++;
+                rc = Abi.ak_parse_Pair(_dctx, b, (nuint)len);
+                if (rc >= 0)
+                {
+                    byte* recs; nuint rlen;
+                    _fwd++;
+                    rc = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
+                    if (rc == 0) Replay(t, b, recs, (int)rlen);
+                }
+            }
         }
-        return t;
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;
+        result = t;
+        return 0;
     }
 
     private const uint OP_APPLY = 1, OP_ADD = 2, OP_NEW = 3, OP_APPLY_ELEM = 4;   // ak_bdr_rec.op
@@ -4080,6 +5507,7 @@ public sealed unsafe class CoreFfi_Pair : IDisposable
             NativeMemory.Free(_run); _run = null;
         }
         if (_drun != null) { NativeMemory.Free(_drun); _drun = null; }
+        if (_uo != null) { NativeMemory.Free(_uo); _uo = null; }
     }
 }
 
@@ -4104,7 +5532,7 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
-    public void CallsReset() { _fwd = 0; _rev = 0; }
+    public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
     private int _cap_results;
 
     public CoreFfi_ListResultsResponse(bool utf16 = false)
@@ -4200,7 +5628,7 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct DecRun { public IntPtr Target; public byte* Buf; public IntPtr Pending; }
+    private struct DecRun { public IntPtr Target; public byte* Buf; }
 
     private static ListResultsResponse Tgt(void* obj) => (ListResultsResponse)GCHandle.FromIntPtr(((DecRun*)obj)->Target).Target;
 
@@ -4227,24 +5655,137 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
 
     private static readonly byte[] One = new byte[1];
 
+    /// Decision 11: every message position of this root, in plan.unk_positions order
+    /// (the options' member order).
+    public static readonly string[] UnkPositionNames = { "self", "results", "results_created_at", "results_completed_at" };
+
+    /// A retained decode ended with a buffer grow handed out that no delivered group
+    /// carried back to the host: a host defect, never a core code.
+    public const int UNDELIVERED = -1001;
+    public int Undelivered { get; private set; }
+    private ak_dec_ListResultsResponse_opts* _uo;
+    private HashSet<IntPtr> _live;
+    /// The resets that arm and disarm each decode (rule 7): forward crossings, counted
+    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    private static long _resets;
+    public long ResetCalls => _resets;
+
+    private void EnsureDec()
+    {
+        if (_dctx != IntPtr.Zero) return;
+        _dctx = Abi.ak_dec_ctx_new_ListResultsResponse(null);   // rule 6: bound to this root, drop mode
+        if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_ListResultsResponse returned NULL");
+        _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
+    }
+
+    /// The options, rewritten before every retained decode: every entry names the one
+    /// grow and holds no pre-allocated buffer (all from grow, so the core never needs
+    /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
+    private ak_dec_ListResultsResponse_opts* Arm(int zero)
+    {
+        if (_uo == null) _uo = (ak_dec_ListResultsResponse_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_ListResultsResponse_opts));
+        *_uo = default;
+        var g = UnkHost.Fn;
+        if (zero != 0) _uo->self.grow = g;
+        if (zero != 1) _uo->results.grow = g;
+        if (zero != 2) _uo->results_created_at.grow = g;
+        if (zero != 3) _uo->results_completed_at.grow = g;
+        return _uo;
+    }
+
+    /// mode -2: drop (reset with NULL); -1: retain everywhere; k >= 0: retain but k.
+    private int ArmFor(int mode)
+    {
+        Undelivered = 0;
+        _resets++;
+        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_ListResultsResponse(_dctx, null); }
+        _live ??= new HashSet<IntPtr>();
+        _live.Clear();
+        G.Live = _live;
+        return Abi.ak_dec_reset_ListResultsResponse(_dctx, Arm(mode));
+    }
+
+    /// After every decode: the core forgets the options (reset with NULL), and a buffer
+    /// still outstanding is freed; after a success that is UNDELIVERED.
+    private int Disarm(int rc)
+    {
+        _resets++;
+        Abi.ak_dec_reset_ListResultsResponse(_dctx, null);
+        var live = G.Live;
+        G.Live = null;
+        if (live == null || live.Count == 0) return rc;
+        foreach (var q in live) NativeMemory.Free((void*)q);
+        int left = live.Count;
+        live.Clear();
+        if (rc < 0) return rc;
+        Undelivered = left;
+        return UNDELIVERED;
+    }
+
+    /// The zeroed-position control's expectation: the facade bags at `position` cleared.
+    public static void ClearPosition(ListResultsResponse t, int position)
+    {
+        switch (position)
+        {
+            case 0:
+            {
+                t.UnknownFields = null;
+                break;
+            }
+            case 1:
+            {
+                if (t.Results != null) foreach (var e0 in t.Results)
+                {
+                    e0.UnknownFields = null;
+                }
+                break;
+            }
+            case 2:
+            {
+                if (t.Results != null) foreach (var e0 in t.Results)
+                {
+                    if (e0.CreatedAt != null) { var e1 = e0.CreatedAt;
+
+                        e1.UnknownFields = null;
+                    }
+                }
+                break;
+            }
+            case 3:
+            {
+                if (t.Results != null) foreach (var e0 in t.Results)
+                {
+                    if (e0.CompletedAt != null) { var e1 = e0.CompletedAt;
+
+                        e1.UnknownFields = null;
+                    }
+                }
+                break;
+            }
+            default: throw new ArgumentOutOfRangeException(nameof(position));
+        }
+    }
+
     public ListResultsResponse Decode(byte[] src, int len) { int rc = TryDecode(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
     public ListResultsResponse DecodeU(byte[] src, int len) { int rc = TryDecode(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
 
     /// The core's code (< 0) on failure; the output is then unspecified and discarded (R-G6).
-    public int TryDecode(byte[] src, int len, bool retain, out ListResultsResponse result)
+    public int TryDecode(byte[] src, int len, bool retain, out ListResultsResponse result) => DecodeArmed(src, len, retain ? -1 : -2, out result);
+
+    /// A control (decision 11 DISCARD): retain everywhere except `position` (an index into
+    /// UnkPositionNames), whose entry is all zero when armed.
+    public int TryDecodeZeroing(byte[] src, int len, int position, out ListResultsResponse result) => DecodeArmed(src, len, position, out result);
+
+    private int DecodeArmed(byte[] src, int len, int mode, out ListResultsResponse result)
     {
         result = null;
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        EnsureDec();
         Abi.ak_dec_err_reset(_dctx);
+        int ar = ArmFor(mode);
+        if (ar != 0) { Disarm(ar); return ar; }
         var target = new ListResultsResponse();
-        var pend = retain ? new List<(int, long, byte[])>() : null;
         var h = GCHandle.Alloc(target);
-        var hp = retain ? GCHandle.Alloc(pend) : default;
-        int rc;
+        int rc = Abi.AK_ERR_HOST;
         try
         {
             fixed (byte* b0 = src)
@@ -4254,7 +5795,6 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
                 byte* b = len == 0 ? one : b0;
                 _drun->Target = GCHandle.ToIntPtr(h);
                 _drun->Buf = b;
-                _drun->Pending = retain ? GCHandle.ToIntPtr(hp) : IntPtr.Zero;
                 var vt = new ak_dvt_ListResultsResponse
                 {
                     apply = &ApplyRoot,
@@ -4265,50 +5805,47 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
                 if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); if (retain) hp.Free(); }
+        finally { h.Free(); rc = Disarm(rc); }
         if (rc < 0) return rc;
-        if (retain)
-        {
-            // Applied after the decode: a capture may flush before the run that
-            // carries the element it belongs to.
-            foreach (var (slot, token, bytes) in pend)
-            {
-                switch (slot)
-                {
-                    case 0: target.UnknownFields = W.Append(target.UnknownFields, bytes, 0, bytes.Length); break;
-                    case 1: { var l = target.Results; if (l != null && token >= 0 && token < l.Count) { var e = l[(int)token]; e.UnknownFields = W.Append(e.UnknownFields, bytes, 0, bytes.Length); } break; }
-                    default: break;   // a map entry has no bag
-                }
-            }
-        }
         result = target;
         return 0;
     }
 
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
-    /// call), then replay it with the same group readers the push callbacks use.
-    public ListResultsResponse Pull(byte[] src, int len)
+    /// call but grow), then replay it with the same group readers the push callbacks
+    /// use. The context is armed exactly as for push.
+    public ListResultsResponse Pull(byte[] src, int len) { int rc = TryPull(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+    public ListResultsResponse PullU(byte[] src, int len) { int rc = TryPull(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+
+    public int TryPull(byte[] src, int len, bool retain, out ListResultsResponse result)
     {
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        result = null;
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
         var t = new ListResultsResponse();
-        fixed (byte* b0 = src)
-        fixed (byte* one = One)
+        int rc = Abi.AK_ERR_HOST;
+        try
         {
-            byte* b = len == 0 ? one : b0;
-            _fwd++;
-            int rc = Abi.ak_parse_ListResultsResponse(_dctx, b, (nuint)len);
-            if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}");
-            byte* recs; nuint rlen;
-            _fwd++;
-            int pr = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
-            if (pr != 0) throw new InvalidOperationException($"ak_bdr_ptr failed: {pr}");
-            Replay(t, b, recs, (int)rlen);
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                _fwd++;
+                rc = Abi.ak_parse_ListResultsResponse(_dctx, b, (nuint)len);
+                if (rc >= 0)
+                {
+                    byte* recs; nuint rlen;
+                    _fwd++;
+                    rc = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
+                    if (rc == 0) Replay(t, b, recs, (int)rlen);
+                }
+            }
         }
-        return t;
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;
+        result = t;
+        return 0;
     }
 
     private const uint OP_APPLY = 1, OP_ADD = 2, OP_NEW = 3, OP_APPLY_ELEM = 4;   // ak_bdr_rec.op
@@ -4352,6 +5889,7 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
             NativeMemory.Free(_run); _run = null;
         }
         if (_drun != null) { NativeMemory.Free(_drun); _drun = null; }
+        if (_uo != null) { NativeMemory.Free(_uo); _uo = null; }
     }
 }
 
@@ -4382,7 +5920,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
-    public void CallsReset() { _fwd = 0; _rev = 0; }
+    public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
     private int _cap_tasks;
     private int _cap_tasks_parent_task_ids, _capo_tasks_parent_task_ids;
     private int _cap_tasks_data_dependencies, _capo_tasks_data_dependencies;
@@ -4658,7 +6196,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct DecRun { public IntPtr Target; public byte* Buf; public IntPtr Pending; }
+    private struct DecRun { public IntPtr Target; public byte* Buf; }
 
     private static ListTasksDetailedResponse Tgt(void* obj) => (ListTasksDetailedResponse)GCHandle.FromIntPtr(((DecRun*)obj)->Target).Target;
 
@@ -4751,32 +6289,317 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             byte* b = ((DecRun*)obj)->Buf;
             var e = Tgt(obj).Tasks[(int)token];
             var il = (e.Options ??= new TaskOptions()).Options;
-            // plan: a duplicate key replaces the earlier value.
-            for (int k = 0; k < n; k++) il[G.Str(b, xs[k].key)] = G.Str(b, xs[k].value);
+            // plan: a duplicate key replaces the earlier value. The facade map has no bag:
+            // an entry's unknown-field buffer (decision 11) is freed (U-map-entry).
+            for (int k = 0; k < n; k++) { il[G.Str(b, xs[k].key)] = G.Str(b, xs[k].value); G.Drop(ref xs[k].unknown); }
         }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
     private static readonly byte[] One = new byte[1];
 
+    /// Decision 11: every message position of this root, in plan.unk_positions order
+    /// (the options' member order).
+    public static readonly string[] UnkPositionNames = { "self", "tasks", "tasks_options", "tasks_options_options", "tasks_options_max_duration", "tasks_created_at", "tasks_submitted_at", "tasks_started_at", "tasks_ended_at", "tasks_pod_ttl", "tasks_output", "tasks_received_at", "tasks_acquired_at", "tasks_creation_to_end_duration", "tasks_processing_to_end_duration", "tasks_received_to_end_duration", "tasks_processed_at", "tasks_fetched_at" };
+
+    /// A retained decode ended with a buffer grow handed out that no delivered group
+    /// carried back to the host: a host defect, never a core code.
+    public const int UNDELIVERED = -1001;
+    public int Undelivered { get; private set; }
+    private ak_dec_ListTasksDetailedResponse_opts* _uo;
+    private HashSet<IntPtr> _live;
+    /// The resets that arm and disarm each decode (rule 7): forward crossings, counted
+    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    private static long _resets;
+    public long ResetCalls => _resets;
+
+    private void EnsureDec()
+    {
+        if (_dctx != IntPtr.Zero) return;
+        _dctx = Abi.ak_dec_ctx_new_ListTasksDetailedResponse(null);   // rule 6: bound to this root, drop mode
+        if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_ListTasksDetailedResponse returned NULL");
+        _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
+    }
+
+    /// The options, rewritten before every retained decode: every entry names the one
+    /// grow and holds no pre-allocated buffer (all from grow, so the core never needs
+    /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
+    private ak_dec_ListTasksDetailedResponse_opts* Arm(int zero)
+    {
+        if (_uo == null) _uo = (ak_dec_ListTasksDetailedResponse_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_ListTasksDetailedResponse_opts));
+        *_uo = default;
+        var g = UnkHost.Fn;
+        if (zero != 0) _uo->self.grow = g;
+        if (zero != 1) _uo->tasks.grow = g;
+        if (zero != 2) _uo->tasks_options.grow = g;
+        if (zero != 3) _uo->tasks_options_options.grow = g;
+        if (zero != 4) _uo->tasks_options_max_duration.grow = g;
+        if (zero != 5) _uo->tasks_created_at.grow = g;
+        if (zero != 6) _uo->tasks_submitted_at.grow = g;
+        if (zero != 7) _uo->tasks_started_at.grow = g;
+        if (zero != 8) _uo->tasks_ended_at.grow = g;
+        if (zero != 9) _uo->tasks_pod_ttl.grow = g;
+        if (zero != 10) _uo->tasks_output.grow = g;
+        if (zero != 11) _uo->tasks_received_at.grow = g;
+        if (zero != 12) _uo->tasks_acquired_at.grow = g;
+        if (zero != 13) _uo->tasks_creation_to_end_duration.grow = g;
+        if (zero != 14) _uo->tasks_processing_to_end_duration.grow = g;
+        if (zero != 15) _uo->tasks_received_to_end_duration.grow = g;
+        if (zero != 16) _uo->tasks_processed_at.grow = g;
+        if (zero != 17) _uo->tasks_fetched_at.grow = g;
+        return _uo;
+    }
+
+    /// mode -2: drop (reset with NULL); -1: retain everywhere; k >= 0: retain but k.
+    private int ArmFor(int mode)
+    {
+        Undelivered = 0;
+        _resets++;
+        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_ListTasksDetailedResponse(_dctx, null); }
+        _live ??= new HashSet<IntPtr>();
+        _live.Clear();
+        G.Live = _live;
+        return Abi.ak_dec_reset_ListTasksDetailedResponse(_dctx, Arm(mode));
+    }
+
+    /// After every decode: the core forgets the options (reset with NULL), and a buffer
+    /// still outstanding is freed; after a success that is UNDELIVERED.
+    private int Disarm(int rc)
+    {
+        _resets++;
+        Abi.ak_dec_reset_ListTasksDetailedResponse(_dctx, null);
+        var live = G.Live;
+        G.Live = null;
+        if (live == null || live.Count == 0) return rc;
+        foreach (var q in live) NativeMemory.Free((void*)q);
+        int left = live.Count;
+        live.Clear();
+        if (rc < 0) return rc;
+        Undelivered = left;
+        return UNDELIVERED;
+    }
+
+    /// The zeroed-position control's expectation: the facade bags at `position` cleared.
+    public static void ClearPosition(ListTasksDetailedResponse t, int position)
+    {
+        switch (position)
+        {
+            case 0:
+            {
+                t.UnknownFields = null;
+                break;
+            }
+            case 1:
+            {
+                if (t.Tasks != null) foreach (var e0 in t.Tasks)
+                {
+                    e0.UnknownFields = null;
+                }
+                break;
+            }
+            case 2:
+            {
+                if (t.Tasks != null) foreach (var e0 in t.Tasks)
+                {
+                    if (e0.Options != null) { var e1 = e0.Options;
+
+                        e1.UnknownFields = null;
+                    }
+                }
+                break;
+            }
+            case 3:
+            {
+                if (t.Tasks != null) foreach (var e0 in t.Tasks)
+                {
+                    if (e0.Options != null) { var e1 = e0.Options;
+
+                        // a map entry: the facade map has no bag (U-map-entry), nothing to clear
+                    }
+                }
+                break;
+            }
+            case 4:
+            {
+                if (t.Tasks != null) foreach (var e0 in t.Tasks)
+                {
+                    if (e0.Options != null) { var e1 = e0.Options;
+
+                        if (e1.MaxDuration != null) { var e2 = e1.MaxDuration;
+
+                            e2.UnknownFields = null;
+                        }
+                    }
+                }
+                break;
+            }
+            case 5:
+            {
+                if (t.Tasks != null) foreach (var e0 in t.Tasks)
+                {
+                    if (e0.CreatedAt != null) { var e1 = e0.CreatedAt;
+
+                        e1.UnknownFields = null;
+                    }
+                }
+                break;
+            }
+            case 6:
+            {
+                if (t.Tasks != null) foreach (var e0 in t.Tasks)
+                {
+                    if (e0.SubmittedAt != null) { var e1 = e0.SubmittedAt;
+
+                        e1.UnknownFields = null;
+                    }
+                }
+                break;
+            }
+            case 7:
+            {
+                if (t.Tasks != null) foreach (var e0 in t.Tasks)
+                {
+                    if (e0.StartedAt != null) { var e1 = e0.StartedAt;
+
+                        e1.UnknownFields = null;
+                    }
+                }
+                break;
+            }
+            case 8:
+            {
+                if (t.Tasks != null) foreach (var e0 in t.Tasks)
+                {
+                    if (e0.EndedAt != null) { var e1 = e0.EndedAt;
+
+                        e1.UnknownFields = null;
+                    }
+                }
+                break;
+            }
+            case 9:
+            {
+                if (t.Tasks != null) foreach (var e0 in t.Tasks)
+                {
+                    if (e0.PodTtl != null) { var e1 = e0.PodTtl;
+
+                        e1.UnknownFields = null;
+                    }
+                }
+                break;
+            }
+            case 10:
+            {
+                if (t.Tasks != null) foreach (var e0 in t.Tasks)
+                {
+                    if (e0.Output != null) { var e1 = e0.Output;
+
+                        e1.UnknownFields = null;
+                    }
+                }
+                break;
+            }
+            case 11:
+            {
+                if (t.Tasks != null) foreach (var e0 in t.Tasks)
+                {
+                    if (e0.ReceivedAt != null) { var e1 = e0.ReceivedAt;
+
+                        e1.UnknownFields = null;
+                    }
+                }
+                break;
+            }
+            case 12:
+            {
+                if (t.Tasks != null) foreach (var e0 in t.Tasks)
+                {
+                    if (e0.AcquiredAt != null) { var e1 = e0.AcquiredAt;
+
+                        e1.UnknownFields = null;
+                    }
+                }
+                break;
+            }
+            case 13:
+            {
+                if (t.Tasks != null) foreach (var e0 in t.Tasks)
+                {
+                    if (e0.CreationToEndDuration != null) { var e1 = e0.CreationToEndDuration;
+
+                        e1.UnknownFields = null;
+                    }
+                }
+                break;
+            }
+            case 14:
+            {
+                if (t.Tasks != null) foreach (var e0 in t.Tasks)
+                {
+                    if (e0.ProcessingToEndDuration != null) { var e1 = e0.ProcessingToEndDuration;
+
+                        e1.UnknownFields = null;
+                    }
+                }
+                break;
+            }
+            case 15:
+            {
+                if (t.Tasks != null) foreach (var e0 in t.Tasks)
+                {
+                    if (e0.ReceivedToEndDuration != null) { var e1 = e0.ReceivedToEndDuration;
+
+                        e1.UnknownFields = null;
+                    }
+                }
+                break;
+            }
+            case 16:
+            {
+                if (t.Tasks != null) foreach (var e0 in t.Tasks)
+                {
+                    if (e0.ProcessedAt != null) { var e1 = e0.ProcessedAt;
+
+                        e1.UnknownFields = null;
+                    }
+                }
+                break;
+            }
+            case 17:
+            {
+                if (t.Tasks != null) foreach (var e0 in t.Tasks)
+                {
+                    if (e0.FetchedAt != null) { var e1 = e0.FetchedAt;
+
+                        e1.UnknownFields = null;
+                    }
+                }
+                break;
+            }
+            default: throw new ArgumentOutOfRangeException(nameof(position));
+        }
+    }
+
     public ListTasksDetailedResponse Decode(byte[] src, int len) { int rc = TryDecode(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
     public ListTasksDetailedResponse DecodeU(byte[] src, int len) { int rc = TryDecode(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
 
     /// The core's code (< 0) on failure; the output is then unspecified and discarded (R-G6).
-    public int TryDecode(byte[] src, int len, bool retain, out ListTasksDetailedResponse result)
+    public int TryDecode(byte[] src, int len, bool retain, out ListTasksDetailedResponse result) => DecodeArmed(src, len, retain ? -1 : -2, out result);
+
+    /// A control (decision 11 DISCARD): retain everywhere except `position` (an index into
+    /// UnkPositionNames), whose entry is all zero when armed.
+    public int TryDecodeZeroing(byte[] src, int len, int position, out ListTasksDetailedResponse result) => DecodeArmed(src, len, position, out result);
+
+    private int DecodeArmed(byte[] src, int len, int mode, out ListTasksDetailedResponse result)
     {
         result = null;
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        EnsureDec();
         Abi.ak_dec_err_reset(_dctx);
+        int ar = ArmFor(mode);
+        if (ar != 0) { Disarm(ar); return ar; }
         var target = new ListTasksDetailedResponse();
-        var pend = retain ? new List<(int, long, byte[])>() : null;
         var h = GCHandle.Alloc(target);
-        var hp = retain ? GCHandle.Alloc(pend) : default;
-        int rc;
+        int rc = Abi.AK_ERR_HOST;
         try
         {
             fixed (byte* b0 = src)
@@ -4786,7 +6609,6 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
                 byte* b = len == 0 ? one : b0;
                 _drun->Target = GCHandle.ToIntPtr(h);
                 _drun->Buf = b;
-                _drun->Pending = retain ? GCHandle.ToIntPtr(hp) : IntPtr.Zero;
                 var vt = new ak_dvt_ListTasksDetailedResponse
                 {
                     apply = &ApplyRoot,
@@ -4803,50 +6625,47 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
                 if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); if (retain) hp.Free(); }
+        finally { h.Free(); rc = Disarm(rc); }
         if (rc < 0) return rc;
-        if (retain)
-        {
-            // Applied after the decode: a capture may flush before the run that
-            // carries the element it belongs to.
-            foreach (var (slot, token, bytes) in pend)
-            {
-                switch (slot)
-                {
-                    case 0: target.UnknownFields = W.Append(target.UnknownFields, bytes, 0, bytes.Length); break;
-                    case 1: { var l = target.Tasks; if (l != null && token >= 0 && token < l.Count) { var e = l[(int)token]; e.UnknownFields = W.Append(e.UnknownFields, bytes, 0, bytes.Length); } break; }
-                    default: break;   // a map entry has no bag
-                }
-            }
-        }
         result = target;
         return 0;
     }
 
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
-    /// call), then replay it with the same group readers the push callbacks use.
-    public ListTasksDetailedResponse Pull(byte[] src, int len)
+    /// call but grow), then replay it with the same group readers the push callbacks
+    /// use. The context is armed exactly as for push.
+    public ListTasksDetailedResponse Pull(byte[] src, int len) { int rc = TryPull(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+    public ListTasksDetailedResponse PullU(byte[] src, int len) { int rc = TryPull(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+
+    public int TryPull(byte[] src, int len, bool retain, out ListTasksDetailedResponse result)
     {
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        result = null;
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
         var t = new ListTasksDetailedResponse();
-        fixed (byte* b0 = src)
-        fixed (byte* one = One)
+        int rc = Abi.AK_ERR_HOST;
+        try
         {
-            byte* b = len == 0 ? one : b0;
-            _fwd++;
-            int rc = Abi.ak_parse_ListTasksDetailedResponse(_dctx, b, (nuint)len);
-            if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}");
-            byte* recs; nuint rlen;
-            _fwd++;
-            int pr = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
-            if (pr != 0) throw new InvalidOperationException($"ak_bdr_ptr failed: {pr}");
-            Replay(t, b, recs, (int)rlen);
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                _fwd++;
+                rc = Abi.ak_parse_ListTasksDetailedResponse(_dctx, b, (nuint)len);
+                if (rc >= 0)
+                {
+                    byte* recs; nuint rlen;
+                    _fwd++;
+                    rc = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
+                    if (rc == 0) Replay(t, b, recs, (int)rlen);
+                }
+            }
         }
-        return t;
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;
+        result = t;
+        return 0;
     }
 
     private const uint OP_APPLY = 1, OP_ADD = 2, OP_NEW = 3, OP_APPLY_ELEM = 4;   // ak_bdr_rec.op
@@ -4891,8 +6710,9 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
                 case OP_ADD when outer == 1 && inner == 5:
                 {
                     var xs = (ak_dfix_TaskOptionsOptionsEntry*)body; var e = t.Tasks[(int)r.token]; var il = (e.Options ??= new TaskOptions()).Options;
-                    // plan: a duplicate key replaces the earlier value.
-                    for (int k = 0; k < (int)r.n; k++) il[G.Str(b, xs[k].key)] = G.Str(b, xs[k].value);
+                    // plan: a duplicate key replaces the earlier value. The facade map has no bag:
+                    // an entry's unknown-field buffer (decision 11) is freed (U-map-entry).
+                    for (int k = 0; k < (int)r.n; k++) { il[G.Str(b, xs[k].key)] = G.Str(b, xs[k].value); G.Drop(ref xs[k].unknown); }
                     break;
                 }
                 default: break;
@@ -4923,6 +6743,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
         }
         if (_evt_tasks != null) { NativeMemory.Free(_evt_tasks); _evt_tasks = null; }
         if (_drun != null) { NativeMemory.Free(_drun); _drun = null; }
+        if (_uo != null) { NativeMemory.Free(_uo); _uo = null; }
     }
 }
 
@@ -4949,7 +6770,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
-    public void CallsReset() { _fwd = 0; _rev = 0; }
+    public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
     private int _cap_tasks;
     private int _cap_tasks_options_options, _capo_tasks_options_options;
     private ak_evt_TaskSummary* _evt_tasks;
@@ -5081,7 +6902,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct DecRun { public IntPtr Target; public byte* Buf; public IntPtr Pending; }
+    private struct DecRun { public IntPtr Target; public byte* Buf; }
 
     private static ListTaskSummaryResponse Tgt(void* obj) => (ListTaskSummaryResponse)GCHandle.FromIntPtr(((DecRun*)obj)->Target).Target;
 
@@ -5118,32 +6939,173 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
             byte* b = ((DecRun*)obj)->Buf;
             var e = Tgt(obj).Tasks[(int)token];
             var il = (e.Options ??= new TaskOptions()).Options;
-            // plan: a duplicate key replaces the earlier value.
-            for (int k = 0; k < n; k++) il[G.Str(b, xs[k].key)] = G.Str(b, xs[k].value);
+            // plan: a duplicate key replaces the earlier value. The facade map has no bag:
+            // an entry's unknown-field buffer (decision 11) is freed (U-map-entry).
+            for (int k = 0; k < n; k++) { il[G.Str(b, xs[k].key)] = G.Str(b, xs[k].value); G.Drop(ref xs[k].unknown); }
         }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
     private static readonly byte[] One = new byte[1];
 
+    /// Decision 11: every message position of this root, in plan.unk_positions order
+    /// (the options' member order).
+    public static readonly string[] UnkPositionNames = { "self", "tasks", "tasks_options", "tasks_options_options", "tasks_options_max_duration", "tasks_created_at" };
+
+    /// A retained decode ended with a buffer grow handed out that no delivered group
+    /// carried back to the host: a host defect, never a core code.
+    public const int UNDELIVERED = -1001;
+    public int Undelivered { get; private set; }
+    private ak_dec_ListTaskSummaryResponse_opts* _uo;
+    private HashSet<IntPtr> _live;
+    /// The resets that arm and disarm each decode (rule 7): forward crossings, counted
+    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    private static long _resets;
+    public long ResetCalls => _resets;
+
+    private void EnsureDec()
+    {
+        if (_dctx != IntPtr.Zero) return;
+        _dctx = Abi.ak_dec_ctx_new_ListTaskSummaryResponse(null);   // rule 6: bound to this root, drop mode
+        if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_ListTaskSummaryResponse returned NULL");
+        _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
+    }
+
+    /// The options, rewritten before every retained decode: every entry names the one
+    /// grow and holds no pre-allocated buffer (all from grow, so the core never needs
+    /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
+    private ak_dec_ListTaskSummaryResponse_opts* Arm(int zero)
+    {
+        if (_uo == null) _uo = (ak_dec_ListTaskSummaryResponse_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_ListTaskSummaryResponse_opts));
+        *_uo = default;
+        var g = UnkHost.Fn;
+        if (zero != 0) _uo->self.grow = g;
+        if (zero != 1) _uo->tasks.grow = g;
+        if (zero != 2) _uo->tasks_options.grow = g;
+        if (zero != 3) _uo->tasks_options_options.grow = g;
+        if (zero != 4) _uo->tasks_options_max_duration.grow = g;
+        if (zero != 5) _uo->tasks_created_at.grow = g;
+        return _uo;
+    }
+
+    /// mode -2: drop (reset with NULL); -1: retain everywhere; k >= 0: retain but k.
+    private int ArmFor(int mode)
+    {
+        Undelivered = 0;
+        _resets++;
+        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_ListTaskSummaryResponse(_dctx, null); }
+        _live ??= new HashSet<IntPtr>();
+        _live.Clear();
+        G.Live = _live;
+        return Abi.ak_dec_reset_ListTaskSummaryResponse(_dctx, Arm(mode));
+    }
+
+    /// After every decode: the core forgets the options (reset with NULL), and a buffer
+    /// still outstanding is freed; after a success that is UNDELIVERED.
+    private int Disarm(int rc)
+    {
+        _resets++;
+        Abi.ak_dec_reset_ListTaskSummaryResponse(_dctx, null);
+        var live = G.Live;
+        G.Live = null;
+        if (live == null || live.Count == 0) return rc;
+        foreach (var q in live) NativeMemory.Free((void*)q);
+        int left = live.Count;
+        live.Clear();
+        if (rc < 0) return rc;
+        Undelivered = left;
+        return UNDELIVERED;
+    }
+
+    /// The zeroed-position control's expectation: the facade bags at `position` cleared.
+    public static void ClearPosition(ListTaskSummaryResponse t, int position)
+    {
+        switch (position)
+        {
+            case 0:
+            {
+                t.UnknownFields = null;
+                break;
+            }
+            case 1:
+            {
+                if (t.Tasks != null) foreach (var e0 in t.Tasks)
+                {
+                    e0.UnknownFields = null;
+                }
+                break;
+            }
+            case 2:
+            {
+                if (t.Tasks != null) foreach (var e0 in t.Tasks)
+                {
+                    if (e0.Options != null) { var e1 = e0.Options;
+
+                        e1.UnknownFields = null;
+                    }
+                }
+                break;
+            }
+            case 3:
+            {
+                if (t.Tasks != null) foreach (var e0 in t.Tasks)
+                {
+                    if (e0.Options != null) { var e1 = e0.Options;
+
+                        // a map entry: the facade map has no bag (U-map-entry), nothing to clear
+                    }
+                }
+                break;
+            }
+            case 4:
+            {
+                if (t.Tasks != null) foreach (var e0 in t.Tasks)
+                {
+                    if (e0.Options != null) { var e1 = e0.Options;
+
+                        if (e1.MaxDuration != null) { var e2 = e1.MaxDuration;
+
+                            e2.UnknownFields = null;
+                        }
+                    }
+                }
+                break;
+            }
+            case 5:
+            {
+                if (t.Tasks != null) foreach (var e0 in t.Tasks)
+                {
+                    if (e0.CreatedAt != null) { var e1 = e0.CreatedAt;
+
+                        e1.UnknownFields = null;
+                    }
+                }
+                break;
+            }
+            default: throw new ArgumentOutOfRangeException(nameof(position));
+        }
+    }
+
     public ListTaskSummaryResponse Decode(byte[] src, int len) { int rc = TryDecode(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
     public ListTaskSummaryResponse DecodeU(byte[] src, int len) { int rc = TryDecode(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
 
     /// The core's code (< 0) on failure; the output is then unspecified and discarded (R-G6).
-    public int TryDecode(byte[] src, int len, bool retain, out ListTaskSummaryResponse result)
+    public int TryDecode(byte[] src, int len, bool retain, out ListTaskSummaryResponse result) => DecodeArmed(src, len, retain ? -1 : -2, out result);
+
+    /// A control (decision 11 DISCARD): retain everywhere except `position` (an index into
+    /// UnkPositionNames), whose entry is all zero when armed.
+    public int TryDecodeZeroing(byte[] src, int len, int position, out ListTaskSummaryResponse result) => DecodeArmed(src, len, position, out result);
+
+    private int DecodeArmed(byte[] src, int len, int mode, out ListTaskSummaryResponse result)
     {
         result = null;
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        EnsureDec();
         Abi.ak_dec_err_reset(_dctx);
+        int ar = ArmFor(mode);
+        if (ar != 0) { Disarm(ar); return ar; }
         var target = new ListTaskSummaryResponse();
-        var pend = retain ? new List<(int, long, byte[])>() : null;
         var h = GCHandle.Alloc(target);
-        var hp = retain ? GCHandle.Alloc(pend) : default;
-        int rc;
+        int rc = Abi.AK_ERR_HOST;
         try
         {
             fixed (byte* b0 = src)
@@ -5153,7 +7115,6 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
                 byte* b = len == 0 ? one : b0;
                 _drun->Target = GCHandle.ToIntPtr(h);
                 _drun->Buf = b;
-                _drun->Pending = retain ? GCHandle.ToIntPtr(hp) : IntPtr.Zero;
                 var vt = new ak_dvt_ListTaskSummaryResponse
                 {
                     apply = &ApplyRoot,
@@ -5166,50 +7127,47 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
                 if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); if (retain) hp.Free(); }
+        finally { h.Free(); rc = Disarm(rc); }
         if (rc < 0) return rc;
-        if (retain)
-        {
-            // Applied after the decode: a capture may flush before the run that
-            // carries the element it belongs to.
-            foreach (var (slot, token, bytes) in pend)
-            {
-                switch (slot)
-                {
-                    case 0: target.UnknownFields = W.Append(target.UnknownFields, bytes, 0, bytes.Length); break;
-                    case 1: { var l = target.Tasks; if (l != null && token >= 0 && token < l.Count) { var e = l[(int)token]; e.UnknownFields = W.Append(e.UnknownFields, bytes, 0, bytes.Length); } break; }
-                    default: break;   // a map entry has no bag
-                }
-            }
-        }
         result = target;
         return 0;
     }
 
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
-    /// call), then replay it with the same group readers the push callbacks use.
-    public ListTaskSummaryResponse Pull(byte[] src, int len)
+    /// call but grow), then replay it with the same group readers the push callbacks
+    /// use. The context is armed exactly as for push.
+    public ListTaskSummaryResponse Pull(byte[] src, int len) { int rc = TryPull(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+    public ListTaskSummaryResponse PullU(byte[] src, int len) { int rc = TryPull(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+
+    public int TryPull(byte[] src, int len, bool retain, out ListTaskSummaryResponse result)
     {
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        result = null;
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
         var t = new ListTaskSummaryResponse();
-        fixed (byte* b0 = src)
-        fixed (byte* one = One)
+        int rc = Abi.AK_ERR_HOST;
+        try
         {
-            byte* b = len == 0 ? one : b0;
-            _fwd++;
-            int rc = Abi.ak_parse_ListTaskSummaryResponse(_dctx, b, (nuint)len);
-            if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}");
-            byte* recs; nuint rlen;
-            _fwd++;
-            int pr = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
-            if (pr != 0) throw new InvalidOperationException($"ak_bdr_ptr failed: {pr}");
-            Replay(t, b, recs, (int)rlen);
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                _fwd++;
+                rc = Abi.ak_parse_ListTaskSummaryResponse(_dctx, b, (nuint)len);
+                if (rc >= 0)
+                {
+                    byte* recs; nuint rlen;
+                    _fwd++;
+                    rc = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
+                    if (rc == 0) Replay(t, b, recs, (int)rlen);
+                }
+            }
         }
-        return t;
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;
+        result = t;
+        return 0;
     }
 
     private const uint OP_APPLY = 1, OP_ADD = 2, OP_NEW = 3, OP_APPLY_ELEM = 4;   // ak_bdr_rec.op
@@ -5230,8 +7188,9 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
                 case OP_ADD when outer == 1 && inner == 1:
                 {
                     var xs = (ak_dfix_TaskOptionsOptionsEntry*)body; var e = t.Tasks[(int)r.token]; var il = (e.Options ??= new TaskOptions()).Options;
-                    // plan: a duplicate key replaces the earlier value.
-                    for (int k = 0; k < (int)r.n; k++) il[G.Str(b, xs[k].key)] = G.Str(b, xs[k].value);
+                    // plan: a duplicate key replaces the earlier value. The facade map has no bag:
+                    // an entry's unknown-field buffer (decision 11) is freed (U-map-entry).
+                    for (int k = 0; k < (int)r.n; k++) { il[G.Str(b, xs[k].key)] = G.Str(b, xs[k].value); G.Drop(ref xs[k].unknown); }
                     break;
                 }
                 default: break;
@@ -5258,6 +7217,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
         }
         if (_evt_tasks != null) { NativeMemory.Free(_evt_tasks); _evt_tasks = null; }
         if (_drun != null) { NativeMemory.Free(_drun); _drun = null; }
+        if (_uo != null) { NativeMemory.Free(_uo); _uo = null; }
     }
 }
 
@@ -5282,7 +7242,7 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
-    public void CallsReset() { _fwd = 0; _rev = 0; }
+    public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
     private int _cap_probes;
 
     public CoreFfi_ListProbeResponse(bool utf16 = false)
@@ -5378,7 +7338,7 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct DecRun { public IntPtr Target; public byte* Buf; public IntPtr Pending; }
+    private struct DecRun { public IntPtr Target; public byte* Buf; }
 
     private static ListProbeResponse Tgt(void* obj) => (ListProbeResponse)GCHandle.FromIntPtr(((DecRun*)obj)->Target).Target;
 
@@ -5405,24 +7365,123 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
 
     private static readonly byte[] One = new byte[1];
 
+    /// Decision 11: every message position of this root, in plan.unk_positions order
+    /// (the options' member order).
+    public static readonly string[] UnkPositionNames = { "self", "probes", "probes_body" };
+
+    /// A retained decode ended with a buffer grow handed out that no delivered group
+    /// carried back to the host: a host defect, never a core code.
+    public const int UNDELIVERED = -1001;
+    public int Undelivered { get; private set; }
+    private ak_dec_ListProbeResponse_opts* _uo;
+    private HashSet<IntPtr> _live;
+    /// The resets that arm and disarm each decode (rule 7): forward crossings, counted
+    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    private static long _resets;
+    public long ResetCalls => _resets;
+
+    private void EnsureDec()
+    {
+        if (_dctx != IntPtr.Zero) return;
+        _dctx = Abi.ak_dec_ctx_new_ListProbeResponse(null);   // rule 6: bound to this root, drop mode
+        if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_ListProbeResponse returned NULL");
+        _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
+    }
+
+    /// The options, rewritten before every retained decode: every entry names the one
+    /// grow and holds no pre-allocated buffer (all from grow, so the core never needs
+    /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
+    private ak_dec_ListProbeResponse_opts* Arm(int zero)
+    {
+        if (_uo == null) _uo = (ak_dec_ListProbeResponse_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_ListProbeResponse_opts));
+        *_uo = default;
+        var g = UnkHost.Fn;
+        if (zero != 0) _uo->self.grow = g;
+        if (zero != 1) _uo->probes.grow = g;
+        if (zero != 2) _uo->probes_body.grow = g;
+        return _uo;
+    }
+
+    /// mode -2: drop (reset with NULL); -1: retain everywhere; k >= 0: retain but k.
+    private int ArmFor(int mode)
+    {
+        Undelivered = 0;
+        _resets++;
+        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_ListProbeResponse(_dctx, null); }
+        _live ??= new HashSet<IntPtr>();
+        _live.Clear();
+        G.Live = _live;
+        return Abi.ak_dec_reset_ListProbeResponse(_dctx, Arm(mode));
+    }
+
+    /// After every decode: the core forgets the options (reset with NULL), and a buffer
+    /// still outstanding is freed; after a success that is UNDELIVERED.
+    private int Disarm(int rc)
+    {
+        _resets++;
+        Abi.ak_dec_reset_ListProbeResponse(_dctx, null);
+        var live = G.Live;
+        G.Live = null;
+        if (live == null || live.Count == 0) return rc;
+        foreach (var q in live) NativeMemory.Free((void*)q);
+        int left = live.Count;
+        live.Clear();
+        if (rc < 0) return rc;
+        Undelivered = left;
+        return UNDELIVERED;
+    }
+
+    /// The zeroed-position control's expectation: the facade bags at `position` cleared.
+    public static void ClearPosition(ListProbeResponse t, int position)
+    {
+        switch (position)
+        {
+            case 0:
+            {
+                t.UnknownFields = null;
+                break;
+            }
+            case 1:
+            {
+                if (t.Probes != null) foreach (var e0 in t.Probes)
+                {
+                    e0.UnknownFields = null;
+                }
+                break;
+            }
+            case 2:
+            {
+                if (t.Probes != null) foreach (var e0 in t.Probes)
+                {
+                    if (e0.AsStamp != null) e0.AsStamp.UnknownFields = null;
+                    if (e0.AsNothing != null) e0.AsNothing.UnknownFields = null;
+                }
+                break;
+            }
+            default: throw new ArgumentOutOfRangeException(nameof(position));
+        }
+    }
+
     public ListProbeResponse Decode(byte[] src, int len) { int rc = TryDecode(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
     public ListProbeResponse DecodeU(byte[] src, int len) { int rc = TryDecode(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
 
     /// The core's code (< 0) on failure; the output is then unspecified and discarded (R-G6).
-    public int TryDecode(byte[] src, int len, bool retain, out ListProbeResponse result)
+    public int TryDecode(byte[] src, int len, bool retain, out ListProbeResponse result) => DecodeArmed(src, len, retain ? -1 : -2, out result);
+
+    /// A control (decision 11 DISCARD): retain everywhere except `position` (an index into
+    /// UnkPositionNames), whose entry is all zero when armed.
+    public int TryDecodeZeroing(byte[] src, int len, int position, out ListProbeResponse result) => DecodeArmed(src, len, position, out result);
+
+    private int DecodeArmed(byte[] src, int len, int mode, out ListProbeResponse result)
     {
         result = null;
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        EnsureDec();
         Abi.ak_dec_err_reset(_dctx);
+        int ar = ArmFor(mode);
+        if (ar != 0) { Disarm(ar); return ar; }
         var target = new ListProbeResponse();
-        var pend = retain ? new List<(int, long, byte[])>() : null;
         var h = GCHandle.Alloc(target);
-        var hp = retain ? GCHandle.Alloc(pend) : default;
-        int rc;
+        int rc = Abi.AK_ERR_HOST;
         try
         {
             fixed (byte* b0 = src)
@@ -5432,7 +7491,6 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
                 byte* b = len == 0 ? one : b0;
                 _drun->Target = GCHandle.ToIntPtr(h);
                 _drun->Buf = b;
-                _drun->Pending = retain ? GCHandle.ToIntPtr(hp) : IntPtr.Zero;
                 var vt = new ak_dvt_ListProbeResponse
                 {
                     apply = &ApplyRoot,
@@ -5443,50 +7501,47 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
                 if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); if (retain) hp.Free(); }
+        finally { h.Free(); rc = Disarm(rc); }
         if (rc < 0) return rc;
-        if (retain)
-        {
-            // Applied after the decode: a capture may flush before the run that
-            // carries the element it belongs to.
-            foreach (var (slot, token, bytes) in pend)
-            {
-                switch (slot)
-                {
-                    case 0: target.UnknownFields = W.Append(target.UnknownFields, bytes, 0, bytes.Length); break;
-                    case 1: { var l = target.Probes; if (l != null && token >= 0 && token < l.Count) { var e = l[(int)token]; e.UnknownFields = W.Append(e.UnknownFields, bytes, 0, bytes.Length); } break; }
-                    default: break;   // a map entry has no bag
-                }
-            }
-        }
         result = target;
         return 0;
     }
 
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
-    /// call), then replay it with the same group readers the push callbacks use.
-    public ListProbeResponse Pull(byte[] src, int len)
+    /// call but grow), then replay it with the same group readers the push callbacks
+    /// use. The context is armed exactly as for push.
+    public ListProbeResponse Pull(byte[] src, int len) { int rc = TryPull(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+    public ListProbeResponse PullU(byte[] src, int len) { int rc = TryPull(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+
+    public int TryPull(byte[] src, int len, bool retain, out ListProbeResponse result)
     {
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        result = null;
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
         var t = new ListProbeResponse();
-        fixed (byte* b0 = src)
-        fixed (byte* one = One)
+        int rc = Abi.AK_ERR_HOST;
+        try
         {
-            byte* b = len == 0 ? one : b0;
-            _fwd++;
-            int rc = Abi.ak_parse_ListProbeResponse(_dctx, b, (nuint)len);
-            if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}");
-            byte* recs; nuint rlen;
-            _fwd++;
-            int pr = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
-            if (pr != 0) throw new InvalidOperationException($"ak_bdr_ptr failed: {pr}");
-            Replay(t, b, recs, (int)rlen);
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                _fwd++;
+                rc = Abi.ak_parse_ListProbeResponse(_dctx, b, (nuint)len);
+                if (rc >= 0)
+                {
+                    byte* recs; nuint rlen;
+                    _fwd++;
+                    rc = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
+                    if (rc == 0) Replay(t, b, recs, (int)rlen);
+                }
+            }
         }
-        return t;
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;
+        result = t;
+        return 0;
     }
 
     private const uint OP_APPLY = 1, OP_ADD = 2, OP_NEW = 3, OP_APPLY_ELEM = 4;   // ak_bdr_rec.op
@@ -5530,6 +7585,7 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
             NativeMemory.Free(_run); _run = null;
         }
         if (_drun != null) { NativeMemory.Free(_drun); _drun = null; }
+        if (_uo != null) { NativeMemory.Free(_uo); _uo = null; }
     }
 }
 
@@ -5559,7 +7615,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
-    public void CallsReset() { _fwd = 0; _rev = 0; }
+    public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
     private int _cap_batches;
     private int _cap_batches_ticks, _capo_batches_ticks;
     private int _cap_batches_values, _capo_batches_values;
@@ -5838,7 +7894,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct DecRun { public IntPtr Target; public byte* Buf; public IntPtr Pending; }
+    private struct DecRun { public IntPtr Target; public byte* Buf; }
 
     private static ListMetricsResponse Tgt(void* obj) => (ListMetricsResponse)GCHandle.FromIntPtr(((DecRun*)obj)->Target).Target;
 
@@ -5938,24 +7994,113 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
 
     private static readonly byte[] One = new byte[1];
 
+    /// Decision 11: every message position of this root, in plan.unk_positions order
+    /// (the options' member order).
+    public static readonly string[] UnkPositionNames = { "self", "batches" };
+
+    /// A retained decode ended with a buffer grow handed out that no delivered group
+    /// carried back to the host: a host defect, never a core code.
+    public const int UNDELIVERED = -1001;
+    public int Undelivered { get; private set; }
+    private ak_dec_ListMetricsResponse_opts* _uo;
+    private HashSet<IntPtr> _live;
+    /// The resets that arm and disarm each decode (rule 7): forward crossings, counted
+    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    private static long _resets;
+    public long ResetCalls => _resets;
+
+    private void EnsureDec()
+    {
+        if (_dctx != IntPtr.Zero) return;
+        _dctx = Abi.ak_dec_ctx_new_ListMetricsResponse(null);   // rule 6: bound to this root, drop mode
+        if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_ListMetricsResponse returned NULL");
+        _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
+    }
+
+    /// The options, rewritten before every retained decode: every entry names the one
+    /// grow and holds no pre-allocated buffer (all from grow, so the core never needs
+    /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
+    private ak_dec_ListMetricsResponse_opts* Arm(int zero)
+    {
+        if (_uo == null) _uo = (ak_dec_ListMetricsResponse_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_ListMetricsResponse_opts));
+        *_uo = default;
+        var g = UnkHost.Fn;
+        if (zero != 0) _uo->self.grow = g;
+        if (zero != 1) _uo->batches.grow = g;
+        return _uo;
+    }
+
+    /// mode -2: drop (reset with NULL); -1: retain everywhere; k >= 0: retain but k.
+    private int ArmFor(int mode)
+    {
+        Undelivered = 0;
+        _resets++;
+        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_ListMetricsResponse(_dctx, null); }
+        _live ??= new HashSet<IntPtr>();
+        _live.Clear();
+        G.Live = _live;
+        return Abi.ak_dec_reset_ListMetricsResponse(_dctx, Arm(mode));
+    }
+
+    /// After every decode: the core forgets the options (reset with NULL), and a buffer
+    /// still outstanding is freed; after a success that is UNDELIVERED.
+    private int Disarm(int rc)
+    {
+        _resets++;
+        Abi.ak_dec_reset_ListMetricsResponse(_dctx, null);
+        var live = G.Live;
+        G.Live = null;
+        if (live == null || live.Count == 0) return rc;
+        foreach (var q in live) NativeMemory.Free((void*)q);
+        int left = live.Count;
+        live.Clear();
+        if (rc < 0) return rc;
+        Undelivered = left;
+        return UNDELIVERED;
+    }
+
+    /// The zeroed-position control's expectation: the facade bags at `position` cleared.
+    public static void ClearPosition(ListMetricsResponse t, int position)
+    {
+        switch (position)
+        {
+            case 0:
+            {
+                t.UnknownFields = null;
+                break;
+            }
+            case 1:
+            {
+                if (t.Batches != null) foreach (var e0 in t.Batches)
+                {
+                    e0.UnknownFields = null;
+                }
+                break;
+            }
+            default: throw new ArgumentOutOfRangeException(nameof(position));
+        }
+    }
+
     public ListMetricsResponse Decode(byte[] src, int len) { int rc = TryDecode(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
     public ListMetricsResponse DecodeU(byte[] src, int len) { int rc = TryDecode(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
 
     /// The core's code (< 0) on failure; the output is then unspecified and discarded (R-G6).
-    public int TryDecode(byte[] src, int len, bool retain, out ListMetricsResponse result)
+    public int TryDecode(byte[] src, int len, bool retain, out ListMetricsResponse result) => DecodeArmed(src, len, retain ? -1 : -2, out result);
+
+    /// A control (decision 11 DISCARD): retain everywhere except `position` (an index into
+    /// UnkPositionNames), whose entry is all zero when armed.
+    public int TryDecodeZeroing(byte[] src, int len, int position, out ListMetricsResponse result) => DecodeArmed(src, len, position, out result);
+
+    private int DecodeArmed(byte[] src, int len, int mode, out ListMetricsResponse result)
     {
         result = null;
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        EnsureDec();
         Abi.ak_dec_err_reset(_dctx);
+        int ar = ArmFor(mode);
+        if (ar != 0) { Disarm(ar); return ar; }
         var target = new ListMetricsResponse();
-        var pend = retain ? new List<(int, long, byte[])>() : null;
         var h = GCHandle.Alloc(target);
-        var hp = retain ? GCHandle.Alloc(pend) : default;
-        int rc;
+        int rc = Abi.AK_ERR_HOST;
         try
         {
             fixed (byte* b0 = src)
@@ -5965,7 +8110,6 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
                 byte* b = len == 0 ? one : b0;
                 _drun->Target = GCHandle.ToIntPtr(h);
                 _drun->Buf = b;
-                _drun->Pending = retain ? GCHandle.ToIntPtr(hp) : IntPtr.Zero;
                 var vt = new ak_dvt_ListMetricsResponse
                 {
                     apply = &ApplyRoot,
@@ -5982,50 +8126,47 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
                 if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); if (retain) hp.Free(); }
+        finally { h.Free(); rc = Disarm(rc); }
         if (rc < 0) return rc;
-        if (retain)
-        {
-            // Applied after the decode: a capture may flush before the run that
-            // carries the element it belongs to.
-            foreach (var (slot, token, bytes) in pend)
-            {
-                switch (slot)
-                {
-                    case 0: target.UnknownFields = W.Append(target.UnknownFields, bytes, 0, bytes.Length); break;
-                    case 1: { var l = target.Batches; if (l != null && token >= 0 && token < l.Count) { var e = l[(int)token]; e.UnknownFields = W.Append(e.UnknownFields, bytes, 0, bytes.Length); } break; }
-                    default: break;   // a map entry has no bag
-                }
-            }
-        }
         result = target;
         return 0;
     }
 
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
-    /// call), then replay it with the same group readers the push callbacks use.
-    public ListMetricsResponse Pull(byte[] src, int len)
+    /// call but grow), then replay it with the same group readers the push callbacks
+    /// use. The context is armed exactly as for push.
+    public ListMetricsResponse Pull(byte[] src, int len) { int rc = TryPull(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+    public ListMetricsResponse PullU(byte[] src, int len) { int rc = TryPull(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+
+    public int TryPull(byte[] src, int len, bool retain, out ListMetricsResponse result)
     {
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        result = null;
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
         var t = new ListMetricsResponse();
-        fixed (byte* b0 = src)
-        fixed (byte* one = One)
+        int rc = Abi.AK_ERR_HOST;
+        try
         {
-            byte* b = len == 0 ? one : b0;
-            _fwd++;
-            int rc = Abi.ak_parse_ListMetricsResponse(_dctx, b, (nuint)len);
-            if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}");
-            byte* recs; nuint rlen;
-            _fwd++;
-            int pr = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
-            if (pr != 0) throw new InvalidOperationException($"ak_bdr_ptr failed: {pr}");
-            Replay(t, b, recs, (int)rlen);
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                _fwd++;
+                rc = Abi.ak_parse_ListMetricsResponse(_dctx, b, (nuint)len);
+                if (rc >= 0)
+                {
+                    byte* recs; nuint rlen;
+                    _fwd++;
+                    rc = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
+                    if (rc == 0) Replay(t, b, recs, (int)rlen);
+                }
+            }
         }
-        return t;
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;
+        result = t;
+        return 0;
     }
 
     private const uint OP_APPLY = 1, OP_ADD = 2, OP_NEW = 3, OP_APPLY_ELEM = 4;   // ak_bdr_rec.op
@@ -6101,6 +8242,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
         }
         if (_evt_batches != null) { NativeMemory.Free(_evt_batches); _evt_batches = null; }
         if (_drun != null) { NativeMemory.Free(_drun); _drun = null; }
+        if (_uo != null) { NativeMemory.Free(_uo); _uo = null; }
     }
 }
 
@@ -6125,7 +8267,7 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
-    public void CallsReset() { _fwd = 0; _rev = 0; }
+    public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
 
     public CoreFfi_UploadResultDataMessage(bool utf16 = false)
     {
@@ -6187,7 +8329,7 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct DecRun { public IntPtr Target; public byte* Buf; public IntPtr Pending; }
+    private struct DecRun { public IntPtr Target; public byte* Buf; }
 
     private static UploadResultDataMessage Tgt(void* obj) => (UploadResultDataMessage)GCHandle.FromIntPtr(((DecRun*)obj)->Target).Target;
 
@@ -6201,24 +8343,113 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
 
     private static readonly byte[] One = new byte[1];
 
+    /// Decision 11: every message position of this root, in plan.unk_positions order
+    /// (the options' member order).
+    public static readonly string[] UnkPositionNames = { "self", "upload" };
+
+    /// A retained decode ended with a buffer grow handed out that no delivered group
+    /// carried back to the host: a host defect, never a core code.
+    public const int UNDELIVERED = -1001;
+    public int Undelivered { get; private set; }
+    private ak_dec_UploadResultDataMessage_opts* _uo;
+    private HashSet<IntPtr> _live;
+    /// The resets that arm and disarm each decode (rule 7): forward crossings, counted
+    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    private static long _resets;
+    public long ResetCalls => _resets;
+
+    private void EnsureDec()
+    {
+        if (_dctx != IntPtr.Zero) return;
+        _dctx = Abi.ak_dec_ctx_new_UploadResultDataMessage(null);   // rule 6: bound to this root, drop mode
+        if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_UploadResultDataMessage returned NULL");
+        _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
+    }
+
+    /// The options, rewritten before every retained decode: every entry names the one
+    /// grow and holds no pre-allocated buffer (all from grow, so the core never needs
+    /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
+    private ak_dec_UploadResultDataMessage_opts* Arm(int zero)
+    {
+        if (_uo == null) _uo = (ak_dec_UploadResultDataMessage_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_UploadResultDataMessage_opts));
+        *_uo = default;
+        var g = UnkHost.Fn;
+        if (zero != 0) _uo->self.grow = g;
+        if (zero != 1) _uo->upload.grow = g;
+        return _uo;
+    }
+
+    /// mode -2: drop (reset with NULL); -1: retain everywhere; k >= 0: retain but k.
+    private int ArmFor(int mode)
+    {
+        Undelivered = 0;
+        _resets++;
+        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_UploadResultDataMessage(_dctx, null); }
+        _live ??= new HashSet<IntPtr>();
+        _live.Clear();
+        G.Live = _live;
+        return Abi.ak_dec_reset_UploadResultDataMessage(_dctx, Arm(mode));
+    }
+
+    /// After every decode: the core forgets the options (reset with NULL), and a buffer
+    /// still outstanding is freed; after a success that is UNDELIVERED.
+    private int Disarm(int rc)
+    {
+        _resets++;
+        Abi.ak_dec_reset_UploadResultDataMessage(_dctx, null);
+        var live = G.Live;
+        G.Live = null;
+        if (live == null || live.Count == 0) return rc;
+        foreach (var q in live) NativeMemory.Free((void*)q);
+        int left = live.Count;
+        live.Clear();
+        if (rc < 0) return rc;
+        Undelivered = left;
+        return UNDELIVERED;
+    }
+
+    /// The zeroed-position control's expectation: the facade bags at `position` cleared.
+    public static void ClearPosition(UploadResultDataMessage t, int position)
+    {
+        switch (position)
+        {
+            case 0:
+            {
+                t.UnknownFields = null;
+                break;
+            }
+            case 1:
+            {
+                if (t.Upload != null) { var e0 = t.Upload;
+
+                    e0.UnknownFields = null;
+                }
+                break;
+            }
+            default: throw new ArgumentOutOfRangeException(nameof(position));
+        }
+    }
+
     public UploadResultDataMessage Decode(byte[] src, int len) { int rc = TryDecode(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
     public UploadResultDataMessage DecodeU(byte[] src, int len) { int rc = TryDecode(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
 
     /// The core's code (< 0) on failure; the output is then unspecified and discarded (R-G6).
-    public int TryDecode(byte[] src, int len, bool retain, out UploadResultDataMessage result)
+    public int TryDecode(byte[] src, int len, bool retain, out UploadResultDataMessage result) => DecodeArmed(src, len, retain ? -1 : -2, out result);
+
+    /// A control (decision 11 DISCARD): retain everywhere except `position` (an index into
+    /// UnkPositionNames), whose entry is all zero when armed.
+    public int TryDecodeZeroing(byte[] src, int len, int position, out UploadResultDataMessage result) => DecodeArmed(src, len, position, out result);
+
+    private int DecodeArmed(byte[] src, int len, int mode, out UploadResultDataMessage result)
     {
         result = null;
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        EnsureDec();
         Abi.ak_dec_err_reset(_dctx);
+        int ar = ArmFor(mode);
+        if (ar != 0) { Disarm(ar); return ar; }
         var target = new UploadResultDataMessage();
-        var pend = retain ? new List<(int, long, byte[])>() : null;
         var h = GCHandle.Alloc(target);
-        var hp = retain ? GCHandle.Alloc(pend) : default;
-        int rc;
+        int rc = Abi.AK_ERR_HOST;
         try
         {
             fixed (byte* b0 = src)
@@ -6228,7 +8459,6 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
                 byte* b = len == 0 ? one : b0;
                 _drun->Target = GCHandle.ToIntPtr(h);
                 _drun->Buf = b;
-                _drun->Pending = retain ? GCHandle.ToIntPtr(hp) : IntPtr.Zero;
                 var vt = new ak_dvt_UploadResultDataMessage
                 {
                     apply = &ApplyRoot,
@@ -6238,49 +8468,47 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
                 if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); if (retain) hp.Free(); }
+        finally { h.Free(); rc = Disarm(rc); }
         if (rc < 0) return rc;
-        if (retain)
-        {
-            // Applied after the decode: a capture may flush before the run that
-            // carries the element it belongs to.
-            foreach (var (slot, token, bytes) in pend)
-            {
-                switch (slot)
-                {
-                    case 0: target.UnknownFields = W.Append(target.UnknownFields, bytes, 0, bytes.Length); break;
-                    default: break;   // a map entry has no bag
-                }
-            }
-        }
         result = target;
         return 0;
     }
 
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
-    /// call), then replay it with the same group readers the push callbacks use.
-    public UploadResultDataMessage Pull(byte[] src, int len)
+    /// call but grow), then replay it with the same group readers the push callbacks
+    /// use. The context is armed exactly as for push.
+    public UploadResultDataMessage Pull(byte[] src, int len) { int rc = TryPull(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+    public UploadResultDataMessage PullU(byte[] src, int len) { int rc = TryPull(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+
+    public int TryPull(byte[] src, int len, bool retain, out UploadResultDataMessage result)
     {
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        result = null;
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
         var t = new UploadResultDataMessage();
-        fixed (byte* b0 = src)
-        fixed (byte* one = One)
+        int rc = Abi.AK_ERR_HOST;
+        try
         {
-            byte* b = len == 0 ? one : b0;
-            _fwd++;
-            int rc = Abi.ak_parse_UploadResultDataMessage(_dctx, b, (nuint)len);
-            if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}");
-            byte* recs; nuint rlen;
-            _fwd++;
-            int pr = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
-            if (pr != 0) throw new InvalidOperationException($"ak_bdr_ptr failed: {pr}");
-            Replay(t, b, recs, (int)rlen);
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                _fwd++;
+                rc = Abi.ak_parse_UploadResultDataMessage(_dctx, b, (nuint)len);
+                if (rc >= 0)
+                {
+                    byte* recs; nuint rlen;
+                    _fwd++;
+                    rc = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
+                    if (rc == 0) Replay(t, b, recs, (int)rlen);
+                }
+            }
         }
-        return t;
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;
+        result = t;
+        return 0;
     }
 
     private const uint OP_APPLY = 1, OP_ADD = 2, OP_NEW = 3, OP_APPLY_ELEM = 4;   // ak_bdr_rec.op
@@ -6317,6 +8545,7 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
             NativeMemory.Free(_run); _run = null;
         }
         if (_drun != null) { NativeMemory.Free(_drun); _drun = null; }
+        if (_uo != null) { NativeMemory.Free(_uo); _uo = null; }
     }
 }
 
@@ -6342,7 +8571,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
-    public void CallsReset() { _fwd = 0; _rev = 0; }
+    public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
     private int _cap_left;
     private int _cap_right;
 
@@ -6475,7 +8704,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct DecRun { public IntPtr Target; public byte* Buf; public IntPtr Pending; }
+    private struct DecRun { public IntPtr Target; public byte* Buf; }
 
     private static DualResponse Tgt(void* obj) => (DualResponse)GCHandle.FromIntPtr(((DecRun*)obj)->Target).Target;
 
@@ -6515,24 +8744,122 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
 
     private static readonly byte[] One = new byte[1];
 
+    /// Decision 11: every message position of this root, in plan.unk_positions order
+    /// (the options' member order).
+    public static readonly string[] UnkPositionNames = { "self", "left", "right" };
+
+    /// A retained decode ended with a buffer grow handed out that no delivered group
+    /// carried back to the host: a host defect, never a core code.
+    public const int UNDELIVERED = -1001;
+    public int Undelivered { get; private set; }
+    private ak_dec_DualResponse_opts* _uo;
+    private HashSet<IntPtr> _live;
+    /// The resets that arm and disarm each decode (rule 7): forward crossings, counted
+    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    private static long _resets;
+    public long ResetCalls => _resets;
+
+    private void EnsureDec()
+    {
+        if (_dctx != IntPtr.Zero) return;
+        _dctx = Abi.ak_dec_ctx_new_DualResponse(null);   // rule 6: bound to this root, drop mode
+        if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_DualResponse returned NULL");
+        _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
+    }
+
+    /// The options, rewritten before every retained decode: every entry names the one
+    /// grow and holds no pre-allocated buffer (all from grow, so the core never needs
+    /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
+    private ak_dec_DualResponse_opts* Arm(int zero)
+    {
+        if (_uo == null) _uo = (ak_dec_DualResponse_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_DualResponse_opts));
+        *_uo = default;
+        var g = UnkHost.Fn;
+        if (zero != 0) _uo->self.grow = g;
+        if (zero != 1) _uo->left.grow = g;
+        if (zero != 2) _uo->right.grow = g;
+        return _uo;
+    }
+
+    /// mode -2: drop (reset with NULL); -1: retain everywhere; k >= 0: retain but k.
+    private int ArmFor(int mode)
+    {
+        Undelivered = 0;
+        _resets++;
+        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_DualResponse(_dctx, null); }
+        _live ??= new HashSet<IntPtr>();
+        _live.Clear();
+        G.Live = _live;
+        return Abi.ak_dec_reset_DualResponse(_dctx, Arm(mode));
+    }
+
+    /// After every decode: the core forgets the options (reset with NULL), and a buffer
+    /// still outstanding is freed; after a success that is UNDELIVERED.
+    private int Disarm(int rc)
+    {
+        _resets++;
+        Abi.ak_dec_reset_DualResponse(_dctx, null);
+        var live = G.Live;
+        G.Live = null;
+        if (live == null || live.Count == 0) return rc;
+        foreach (var q in live) NativeMemory.Free((void*)q);
+        int left = live.Count;
+        live.Clear();
+        if (rc < 0) return rc;
+        Undelivered = left;
+        return UNDELIVERED;
+    }
+
+    /// The zeroed-position control's expectation: the facade bags at `position` cleared.
+    public static void ClearPosition(DualResponse t, int position)
+    {
+        switch (position)
+        {
+            case 0:
+            {
+                t.UnknownFields = null;
+                break;
+            }
+            case 1:
+            {
+                if (t.Left != null) foreach (var e0 in t.Left)
+                {
+                    e0.UnknownFields = null;
+                }
+                break;
+            }
+            case 2:
+            {
+                if (t.Right != null) foreach (var e0 in t.Right)
+                {
+                    e0.UnknownFields = null;
+                }
+                break;
+            }
+            default: throw new ArgumentOutOfRangeException(nameof(position));
+        }
+    }
+
     public DualResponse Decode(byte[] src, int len) { int rc = TryDecode(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
     public DualResponse DecodeU(byte[] src, int len) { int rc = TryDecode(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
 
     /// The core's code (< 0) on failure; the output is then unspecified and discarded (R-G6).
-    public int TryDecode(byte[] src, int len, bool retain, out DualResponse result)
+    public int TryDecode(byte[] src, int len, bool retain, out DualResponse result) => DecodeArmed(src, len, retain ? -1 : -2, out result);
+
+    /// A control (decision 11 DISCARD): retain everywhere except `position` (an index into
+    /// UnkPositionNames), whose entry is all zero when armed.
+    public int TryDecodeZeroing(byte[] src, int len, int position, out DualResponse result) => DecodeArmed(src, len, position, out result);
+
+    private int DecodeArmed(byte[] src, int len, int mode, out DualResponse result)
     {
         result = null;
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        EnsureDec();
         Abi.ak_dec_err_reset(_dctx);
+        int ar = ArmFor(mode);
+        if (ar != 0) { Disarm(ar); return ar; }
         var target = new DualResponse();
-        var pend = retain ? new List<(int, long, byte[])>() : null;
         var h = GCHandle.Alloc(target);
-        var hp = retain ? GCHandle.Alloc(pend) : default;
-        int rc;
+        int rc = Abi.AK_ERR_HOST;
         try
         {
             fixed (byte* b0 = src)
@@ -6542,7 +8869,6 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
                 byte* b = len == 0 ? one : b0;
                 _drun->Target = GCHandle.ToIntPtr(h);
                 _drun->Buf = b;
-                _drun->Pending = retain ? GCHandle.ToIntPtr(hp) : IntPtr.Zero;
                 var vt = new ak_dvt_DualResponse
                 {
                     apply = &ApplyRoot,
@@ -6554,51 +8880,47 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
                 if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); if (retain) hp.Free(); }
+        finally { h.Free(); rc = Disarm(rc); }
         if (rc < 0) return rc;
-        if (retain)
-        {
-            // Applied after the decode: a capture may flush before the run that
-            // carries the element it belongs to.
-            foreach (var (slot, token, bytes) in pend)
-            {
-                switch (slot)
-                {
-                    case 0: target.UnknownFields = W.Append(target.UnknownFields, bytes, 0, bytes.Length); break;
-                    case 1: { var l = target.Left; if (l != null && token >= 0 && token < l.Count) { var e = l[(int)token]; e.UnknownFields = W.Append(e.UnknownFields, bytes, 0, bytes.Length); } break; }
-                    case 2: { var l = target.Right; if (l != null && token >= 0 && token < l.Count) { var e = l[(int)token]; e.UnknownFields = W.Append(e.UnknownFields, bytes, 0, bytes.Length); } break; }
-                    default: break;   // a map entry has no bag
-                }
-            }
-        }
         result = target;
         return 0;
     }
 
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
-    /// call), then replay it with the same group readers the push callbacks use.
-    public DualResponse Pull(byte[] src, int len)
+    /// call but grow), then replay it with the same group readers the push callbacks
+    /// use. The context is armed exactly as for push.
+    public DualResponse Pull(byte[] src, int len) { int rc = TryPull(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+    public DualResponse PullU(byte[] src, int len) { int rc = TryPull(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+
+    public int TryPull(byte[] src, int len, bool retain, out DualResponse result)
     {
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        result = null;
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
         var t = new DualResponse();
-        fixed (byte* b0 = src)
-        fixed (byte* one = One)
+        int rc = Abi.AK_ERR_HOST;
+        try
         {
-            byte* b = len == 0 ? one : b0;
-            _fwd++;
-            int rc = Abi.ak_parse_DualResponse(_dctx, b, (nuint)len);
-            if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}");
-            byte* recs; nuint rlen;
-            _fwd++;
-            int pr = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
-            if (pr != 0) throw new InvalidOperationException($"ak_bdr_ptr failed: {pr}");
-            Replay(t, b, recs, (int)rlen);
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                _fwd++;
+                rc = Abi.ak_parse_DualResponse(_dctx, b, (nuint)len);
+                if (rc >= 0)
+                {
+                    byte* recs; nuint rlen;
+                    _fwd++;
+                    rc = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
+                    if (rc == 0) Replay(t, b, recs, (int)rlen);
+                }
+            }
         }
-        return t;
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;
+        result = t;
+        return 0;
     }
 
     private const uint OP_APPLY = 1, OP_ADD = 2, OP_NEW = 3, OP_APPLY_ELEM = 4;   // ak_bdr_rec.op
@@ -6649,6 +8971,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
             NativeMemory.Free(_run); _run = null;
         }
         if (_drun != null) { NativeMemory.Free(_drun); _drun = null; }
+        if (_uo != null) { NativeMemory.Free(_uo); _uo = null; }
     }
 }
 
@@ -6672,7 +8995,7 @@ public sealed unsafe class CoreFfi_ChunkLeaf : IDisposable
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
-    public void CallsReset() { _fwd = 0; _rev = 0; }
+    public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
 
     public CoreFfi_ChunkLeaf(bool utf16 = false)
     {
@@ -6732,7 +9055,7 @@ public sealed unsafe class CoreFfi_ChunkLeaf : IDisposable
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct DecRun { public IntPtr Target; public byte* Buf; public IntPtr Pending; }
+    private struct DecRun { public IntPtr Target; public byte* Buf; }
 
     private static ChunkLeaf Tgt(void* obj) => (ChunkLeaf)GCHandle.FromIntPtr(((DecRun*)obj)->Target).Target;
 
@@ -6746,24 +9069,104 @@ public sealed unsafe class CoreFfi_ChunkLeaf : IDisposable
 
     private static readonly byte[] One = new byte[1];
 
+    /// Decision 11: every message position of this root, in plan.unk_positions order
+    /// (the options' member order).
+    public static readonly string[] UnkPositionNames = { "self" };
+
+    /// A retained decode ended with a buffer grow handed out that no delivered group
+    /// carried back to the host: a host defect, never a core code.
+    public const int UNDELIVERED = -1001;
+    public int Undelivered { get; private set; }
+    private ak_dec_ChunkLeaf_opts* _uo;
+    private HashSet<IntPtr> _live;
+    /// The resets that arm and disarm each decode (rule 7): forward crossings, counted
+    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    private static long _resets;
+    public long ResetCalls => _resets;
+
+    private void EnsureDec()
+    {
+        if (_dctx != IntPtr.Zero) return;
+        _dctx = Abi.ak_dec_ctx_new_ChunkLeaf(null);   // rule 6: bound to this root, drop mode
+        if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_ChunkLeaf returned NULL");
+        _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
+    }
+
+    /// The options, rewritten before every retained decode: every entry names the one
+    /// grow and holds no pre-allocated buffer (all from grow, so the core never needs
+    /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
+    private ak_dec_ChunkLeaf_opts* Arm(int zero)
+    {
+        if (_uo == null) _uo = (ak_dec_ChunkLeaf_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_ChunkLeaf_opts));
+        *_uo = default;
+        var g = UnkHost.Fn;
+        if (zero != 0) _uo->self.grow = g;
+        return _uo;
+    }
+
+    /// mode -2: drop (reset with NULL); -1: retain everywhere; k >= 0: retain but k.
+    private int ArmFor(int mode)
+    {
+        Undelivered = 0;
+        _resets++;
+        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_ChunkLeaf(_dctx, null); }
+        _live ??= new HashSet<IntPtr>();
+        _live.Clear();
+        G.Live = _live;
+        return Abi.ak_dec_reset_ChunkLeaf(_dctx, Arm(mode));
+    }
+
+    /// After every decode: the core forgets the options (reset with NULL), and a buffer
+    /// still outstanding is freed; after a success that is UNDELIVERED.
+    private int Disarm(int rc)
+    {
+        _resets++;
+        Abi.ak_dec_reset_ChunkLeaf(_dctx, null);
+        var live = G.Live;
+        G.Live = null;
+        if (live == null || live.Count == 0) return rc;
+        foreach (var q in live) NativeMemory.Free((void*)q);
+        int left = live.Count;
+        live.Clear();
+        if (rc < 0) return rc;
+        Undelivered = left;
+        return UNDELIVERED;
+    }
+
+    /// The zeroed-position control's expectation: the facade bags at `position` cleared.
+    public static void ClearPosition(ChunkLeaf t, int position)
+    {
+        switch (position)
+        {
+            case 0:
+            {
+                t.UnknownFields = null;
+                break;
+            }
+            default: throw new ArgumentOutOfRangeException(nameof(position));
+        }
+    }
+
     public ChunkLeaf Decode(byte[] src, int len) { int rc = TryDecode(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
     public ChunkLeaf DecodeU(byte[] src, int len) { int rc = TryDecode(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
 
     /// The core's code (< 0) on failure; the output is then unspecified and discarded (R-G6).
-    public int TryDecode(byte[] src, int len, bool retain, out ChunkLeaf result)
+    public int TryDecode(byte[] src, int len, bool retain, out ChunkLeaf result) => DecodeArmed(src, len, retain ? -1 : -2, out result);
+
+    /// A control (decision 11 DISCARD): retain everywhere except `position` (an index into
+    /// UnkPositionNames), whose entry is all zero when armed.
+    public int TryDecodeZeroing(byte[] src, int len, int position, out ChunkLeaf result) => DecodeArmed(src, len, position, out result);
+
+    private int DecodeArmed(byte[] src, int len, int mode, out ChunkLeaf result)
     {
         result = null;
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        EnsureDec();
         Abi.ak_dec_err_reset(_dctx);
+        int ar = ArmFor(mode);
+        if (ar != 0) { Disarm(ar); return ar; }
         var target = new ChunkLeaf();
-        var pend = retain ? new List<(int, long, byte[])>() : null;
         var h = GCHandle.Alloc(target);
-        var hp = retain ? GCHandle.Alloc(pend) : default;
-        int rc;
+        int rc = Abi.AK_ERR_HOST;
         try
         {
             fixed (byte* b0 = src)
@@ -6773,7 +9176,6 @@ public sealed unsafe class CoreFfi_ChunkLeaf : IDisposable
                 byte* b = len == 0 ? one : b0;
                 _drun->Target = GCHandle.ToIntPtr(h);
                 _drun->Buf = b;
-                _drun->Pending = retain ? GCHandle.ToIntPtr(hp) : IntPtr.Zero;
                 var vt = new ak_dvt_ChunkLeaf
                 {
                     apply = &ApplyRoot,
@@ -6783,49 +9185,47 @@ public sealed unsafe class CoreFfi_ChunkLeaf : IDisposable
                 if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); if (retain) hp.Free(); }
+        finally { h.Free(); rc = Disarm(rc); }
         if (rc < 0) return rc;
-        if (retain)
-        {
-            // Applied after the decode: a capture may flush before the run that
-            // carries the element it belongs to.
-            foreach (var (slot, token, bytes) in pend)
-            {
-                switch (slot)
-                {
-                    case 0: target.UnknownFields = W.Append(target.UnknownFields, bytes, 0, bytes.Length); break;
-                    default: break;   // a map entry has no bag
-                }
-            }
-        }
         result = target;
         return 0;
     }
 
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
-    /// call), then replay it with the same group readers the push callbacks use.
-    public ChunkLeaf Pull(byte[] src, int len)
+    /// call but grow), then replay it with the same group readers the push callbacks
+    /// use. The context is armed exactly as for push.
+    public ChunkLeaf Pull(byte[] src, int len) { int rc = TryPull(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+    public ChunkLeaf PullU(byte[] src, int len) { int rc = TryPull(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+
+    public int TryPull(byte[] src, int len, bool retain, out ChunkLeaf result)
     {
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        result = null;
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
         var t = new ChunkLeaf();
-        fixed (byte* b0 = src)
-        fixed (byte* one = One)
+        int rc = Abi.AK_ERR_HOST;
+        try
         {
-            byte* b = len == 0 ? one : b0;
-            _fwd++;
-            int rc = Abi.ak_parse_ChunkLeaf(_dctx, b, (nuint)len);
-            if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}");
-            byte* recs; nuint rlen;
-            _fwd++;
-            int pr = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
-            if (pr != 0) throw new InvalidOperationException($"ak_bdr_ptr failed: {pr}");
-            Replay(t, b, recs, (int)rlen);
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                _fwd++;
+                rc = Abi.ak_parse_ChunkLeaf(_dctx, b, (nuint)len);
+                if (rc >= 0)
+                {
+                    byte* recs; nuint rlen;
+                    _fwd++;
+                    rc = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
+                    if (rc == 0) Replay(t, b, recs, (int)rlen);
+                }
+            }
         }
-        return t;
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;
+        result = t;
+        return 0;
     }
 
     private const uint OP_APPLY = 1, OP_ADD = 2, OP_NEW = 3, OP_APPLY_ELEM = 4;   // ak_bdr_rec.op
@@ -6862,6 +9262,7 @@ public sealed unsafe class CoreFfi_ChunkLeaf : IDisposable
             NativeMemory.Free(_run); _run = null;
         }
         if (_drun != null) { NativeMemory.Free(_drun); _drun = null; }
+        if (_uo != null) { NativeMemory.Free(_uo); _uo = null; }
     }
 }
 
@@ -6887,7 +9288,7 @@ public sealed unsafe class CoreFfi_ChunkInner : IDisposable
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
-    public void CallsReset() { _fwd = 0; _rev = 0; }
+    public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
     private int _cap_marks;
     private int _cap_leaves;
 
@@ -7010,7 +9411,7 @@ public sealed unsafe class CoreFfi_ChunkInner : IDisposable
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct DecRun { public IntPtr Target; public byte* Buf; public IntPtr Pending; }
+    private struct DecRun { public IntPtr Target; public byte* Buf; }
 
     private static ChunkInner Tgt(void* obj) => (ChunkInner)GCHandle.FromIntPtr(((DecRun*)obj)->Target).Target;
 
@@ -7050,24 +9451,113 @@ public sealed unsafe class CoreFfi_ChunkInner : IDisposable
 
     private static readonly byte[] One = new byte[1];
 
+    /// Decision 11: every message position of this root, in plan.unk_positions order
+    /// (the options' member order).
+    public static readonly string[] UnkPositionNames = { "self", "leaves" };
+
+    /// A retained decode ended with a buffer grow handed out that no delivered group
+    /// carried back to the host: a host defect, never a core code.
+    public const int UNDELIVERED = -1001;
+    public int Undelivered { get; private set; }
+    private ak_dec_ChunkInner_opts* _uo;
+    private HashSet<IntPtr> _live;
+    /// The resets that arm and disarm each decode (rule 7): forward crossings, counted
+    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    private static long _resets;
+    public long ResetCalls => _resets;
+
+    private void EnsureDec()
+    {
+        if (_dctx != IntPtr.Zero) return;
+        _dctx = Abi.ak_dec_ctx_new_ChunkInner(null);   // rule 6: bound to this root, drop mode
+        if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_ChunkInner returned NULL");
+        _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
+    }
+
+    /// The options, rewritten before every retained decode: every entry names the one
+    /// grow and holds no pre-allocated buffer (all from grow, so the core never needs
+    /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
+    private ak_dec_ChunkInner_opts* Arm(int zero)
+    {
+        if (_uo == null) _uo = (ak_dec_ChunkInner_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_ChunkInner_opts));
+        *_uo = default;
+        var g = UnkHost.Fn;
+        if (zero != 0) _uo->self.grow = g;
+        if (zero != 1) _uo->leaves.grow = g;
+        return _uo;
+    }
+
+    /// mode -2: drop (reset with NULL); -1: retain everywhere; k >= 0: retain but k.
+    private int ArmFor(int mode)
+    {
+        Undelivered = 0;
+        _resets++;
+        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_ChunkInner(_dctx, null); }
+        _live ??= new HashSet<IntPtr>();
+        _live.Clear();
+        G.Live = _live;
+        return Abi.ak_dec_reset_ChunkInner(_dctx, Arm(mode));
+    }
+
+    /// After every decode: the core forgets the options (reset with NULL), and a buffer
+    /// still outstanding is freed; after a success that is UNDELIVERED.
+    private int Disarm(int rc)
+    {
+        _resets++;
+        Abi.ak_dec_reset_ChunkInner(_dctx, null);
+        var live = G.Live;
+        G.Live = null;
+        if (live == null || live.Count == 0) return rc;
+        foreach (var q in live) NativeMemory.Free((void*)q);
+        int left = live.Count;
+        live.Clear();
+        if (rc < 0) return rc;
+        Undelivered = left;
+        return UNDELIVERED;
+    }
+
+    /// The zeroed-position control's expectation: the facade bags at `position` cleared.
+    public static void ClearPosition(ChunkInner t, int position)
+    {
+        switch (position)
+        {
+            case 0:
+            {
+                t.UnknownFields = null;
+                break;
+            }
+            case 1:
+            {
+                if (t.Leaves != null) foreach (var e0 in t.Leaves)
+                {
+                    e0.UnknownFields = null;
+                }
+                break;
+            }
+            default: throw new ArgumentOutOfRangeException(nameof(position));
+        }
+    }
+
     public ChunkInner Decode(byte[] src, int len) { int rc = TryDecode(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
     public ChunkInner DecodeU(byte[] src, int len) { int rc = TryDecode(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
 
     /// The core's code (< 0) on failure; the output is then unspecified and discarded (R-G6).
-    public int TryDecode(byte[] src, int len, bool retain, out ChunkInner result)
+    public int TryDecode(byte[] src, int len, bool retain, out ChunkInner result) => DecodeArmed(src, len, retain ? -1 : -2, out result);
+
+    /// A control (decision 11 DISCARD): retain everywhere except `position` (an index into
+    /// UnkPositionNames), whose entry is all zero when armed.
+    public int TryDecodeZeroing(byte[] src, int len, int position, out ChunkInner result) => DecodeArmed(src, len, position, out result);
+
+    private int DecodeArmed(byte[] src, int len, int mode, out ChunkInner result)
     {
         result = null;
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        EnsureDec();
         Abi.ak_dec_err_reset(_dctx);
+        int ar = ArmFor(mode);
+        if (ar != 0) { Disarm(ar); return ar; }
         var target = new ChunkInner();
-        var pend = retain ? new List<(int, long, byte[])>() : null;
         var h = GCHandle.Alloc(target);
-        var hp = retain ? GCHandle.Alloc(pend) : default;
-        int rc;
+        int rc = Abi.AK_ERR_HOST;
         try
         {
             fixed (byte* b0 = src)
@@ -7077,7 +9567,6 @@ public sealed unsafe class CoreFfi_ChunkInner : IDisposable
                 byte* b = len == 0 ? one : b0;
                 _drun->Target = GCHandle.ToIntPtr(h);
                 _drun->Buf = b;
-                _drun->Pending = retain ? GCHandle.ToIntPtr(hp) : IntPtr.Zero;
                 var vt = new ak_dvt_ChunkInner
                 {
                     apply = &ApplyRoot,
@@ -7089,50 +9578,47 @@ public sealed unsafe class CoreFfi_ChunkInner : IDisposable
                 if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); if (retain) hp.Free(); }
+        finally { h.Free(); rc = Disarm(rc); }
         if (rc < 0) return rc;
-        if (retain)
-        {
-            // Applied after the decode: a capture may flush before the run that
-            // carries the element it belongs to.
-            foreach (var (slot, token, bytes) in pend)
-            {
-                switch (slot)
-                {
-                    case 0: target.UnknownFields = W.Append(target.UnknownFields, bytes, 0, bytes.Length); break;
-                    case 2: { var l = target.Leaves; if (l != null && token >= 0 && token < l.Count) { var e = l[(int)token]; e.UnknownFields = W.Append(e.UnknownFields, bytes, 0, bytes.Length); } break; }
-                    default: break;   // a map entry has no bag
-                }
-            }
-        }
         result = target;
         return 0;
     }
 
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
-    /// call), then replay it with the same group readers the push callbacks use.
-    public ChunkInner Pull(byte[] src, int len)
+    /// call but grow), then replay it with the same group readers the push callbacks
+    /// use. The context is armed exactly as for push.
+    public ChunkInner Pull(byte[] src, int len) { int rc = TryPull(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+    public ChunkInner PullU(byte[] src, int len) { int rc = TryPull(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+
+    public int TryPull(byte[] src, int len, bool retain, out ChunkInner result)
     {
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        result = null;
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
         var t = new ChunkInner();
-        fixed (byte* b0 = src)
-        fixed (byte* one = One)
+        int rc = Abi.AK_ERR_HOST;
+        try
         {
-            byte* b = len == 0 ? one : b0;
-            _fwd++;
-            int rc = Abi.ak_parse_ChunkInner(_dctx, b, (nuint)len);
-            if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}");
-            byte* recs; nuint rlen;
-            _fwd++;
-            int pr = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
-            if (pr != 0) throw new InvalidOperationException($"ak_bdr_ptr failed: {pr}");
-            Replay(t, b, recs, (int)rlen);
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                _fwd++;
+                rc = Abi.ak_parse_ChunkInner(_dctx, b, (nuint)len);
+                if (rc >= 0)
+                {
+                    byte* recs; nuint rlen;
+                    _fwd++;
+                    rc = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
+                    if (rc == 0) Replay(t, b, recs, (int)rlen);
+                }
+            }
         }
-        return t;
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;
+        result = t;
+        return 0;
     }
 
     private const uint OP_APPLY = 1, OP_ADD = 2, OP_NEW = 3, OP_APPLY_ELEM = 4;   // ak_bdr_rec.op
@@ -7183,6 +9669,7 @@ public sealed unsafe class CoreFfi_ChunkInner : IDisposable
             NativeMemory.Free(_run); _run = null;
         }
         if (_drun != null) { NativeMemory.Free(_drun); _drun = null; }
+        if (_uo != null) { NativeMemory.Free(_uo); _uo = null; }
     }
 }
 
@@ -7210,7 +9697,7 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
-    public void CallsReset() { _fwd = 0; _rev = 0; }
+    public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
     private int _cap_labels;
     private int _cap_attrs;
     private int _cap_inner_marks;
@@ -7385,7 +9872,7 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct DecRun { public IntPtr Target; public byte* Buf; public IntPtr Pending; }
+    private struct DecRun { public IntPtr Target; public byte* Buf; }
 
     private static ChunkElement Tgt(void* obj) => (ChunkElement)GCHandle.FromIntPtr(((DecRun*)obj)->Target).Target;
 
@@ -7418,8 +9905,9 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
         {
             byte* b = ((DecRun*)obj)->Buf;
             var lst = Tgt(obj).Attrs;
-            // plan: a duplicate key replaces the earlier value.
-            for (int i = 0; i < n; i++) lst[G.Str(b, xs[i].key)] = G.Str(b, xs[i].value);
+            // plan: a duplicate key replaces the earlier value. The facade map has no bag:
+            // an entry's unknown-field buffer (decision 11) is freed (U-map-entry).
+            for (int i = 0; i < n; i++) { lst[G.Str(b, xs[i].key)] = G.Str(b, xs[i].value); G.Drop(ref xs[i].unknown); }
         }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
@@ -7452,24 +9940,131 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
 
     private static readonly byte[] One = new byte[1];
 
+    /// Decision 11: every message position of this root, in plan.unk_positions order
+    /// (the options' member order).
+    public static readonly string[] UnkPositionNames = { "self", "attrs", "inner", "inner_leaves" };
+
+    /// A retained decode ended with a buffer grow handed out that no delivered group
+    /// carried back to the host: a host defect, never a core code.
+    public const int UNDELIVERED = -1001;
+    public int Undelivered { get; private set; }
+    private ak_dec_ChunkElement_opts* _uo;
+    private HashSet<IntPtr> _live;
+    /// The resets that arm and disarm each decode (rule 7): forward crossings, counted
+    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    private static long _resets;
+    public long ResetCalls => _resets;
+
+    private void EnsureDec()
+    {
+        if (_dctx != IntPtr.Zero) return;
+        _dctx = Abi.ak_dec_ctx_new_ChunkElement(null);   // rule 6: bound to this root, drop mode
+        if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_ChunkElement returned NULL");
+        _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
+    }
+
+    /// The options, rewritten before every retained decode: every entry names the one
+    /// grow and holds no pre-allocated buffer (all from grow, so the core never needs
+    /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
+    private ak_dec_ChunkElement_opts* Arm(int zero)
+    {
+        if (_uo == null) _uo = (ak_dec_ChunkElement_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_ChunkElement_opts));
+        *_uo = default;
+        var g = UnkHost.Fn;
+        if (zero != 0) _uo->self.grow = g;
+        if (zero != 1) _uo->attrs.grow = g;
+        if (zero != 2) _uo->inner.grow = g;
+        if (zero != 3) _uo->inner_leaves.grow = g;
+        return _uo;
+    }
+
+    /// mode -2: drop (reset with NULL); -1: retain everywhere; k >= 0: retain but k.
+    private int ArmFor(int mode)
+    {
+        Undelivered = 0;
+        _resets++;
+        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_ChunkElement(_dctx, null); }
+        _live ??= new HashSet<IntPtr>();
+        _live.Clear();
+        G.Live = _live;
+        return Abi.ak_dec_reset_ChunkElement(_dctx, Arm(mode));
+    }
+
+    /// After every decode: the core forgets the options (reset with NULL), and a buffer
+    /// still outstanding is freed; after a success that is UNDELIVERED.
+    private int Disarm(int rc)
+    {
+        _resets++;
+        Abi.ak_dec_reset_ChunkElement(_dctx, null);
+        var live = G.Live;
+        G.Live = null;
+        if (live == null || live.Count == 0) return rc;
+        foreach (var q in live) NativeMemory.Free((void*)q);
+        int left = live.Count;
+        live.Clear();
+        if (rc < 0) return rc;
+        Undelivered = left;
+        return UNDELIVERED;
+    }
+
+    /// The zeroed-position control's expectation: the facade bags at `position` cleared.
+    public static void ClearPosition(ChunkElement t, int position)
+    {
+        switch (position)
+        {
+            case 0:
+            {
+                t.UnknownFields = null;
+                break;
+            }
+            case 1:
+            {
+                // a map entry: the facade map has no bag (U-map-entry), nothing to clear
+                break;
+            }
+            case 2:
+            {
+                if (t.Inner != null) { var e0 = t.Inner;
+
+                    e0.UnknownFields = null;
+                }
+                break;
+            }
+            case 3:
+            {
+                if (t.Inner != null) { var e0 = t.Inner;
+
+                    if (e0.Leaves != null) foreach (var e1 in e0.Leaves)
+                    {
+                        e1.UnknownFields = null;
+                    }
+                }
+                break;
+            }
+            default: throw new ArgumentOutOfRangeException(nameof(position));
+        }
+    }
+
     public ChunkElement Decode(byte[] src, int len) { int rc = TryDecode(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
     public ChunkElement DecodeU(byte[] src, int len) { int rc = TryDecode(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
 
     /// The core's code (< 0) on failure; the output is then unspecified and discarded (R-G6).
-    public int TryDecode(byte[] src, int len, bool retain, out ChunkElement result)
+    public int TryDecode(byte[] src, int len, bool retain, out ChunkElement result) => DecodeArmed(src, len, retain ? -1 : -2, out result);
+
+    /// A control (decision 11 DISCARD): retain everywhere except `position` (an index into
+    /// UnkPositionNames), whose entry is all zero when armed.
+    public int TryDecodeZeroing(byte[] src, int len, int position, out ChunkElement result) => DecodeArmed(src, len, position, out result);
+
+    private int DecodeArmed(byte[] src, int len, int mode, out ChunkElement result)
     {
         result = null;
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        EnsureDec();
         Abi.ak_dec_err_reset(_dctx);
+        int ar = ArmFor(mode);
+        if (ar != 0) { Disarm(ar); return ar; }
         var target = new ChunkElement();
-        var pend = retain ? new List<(int, long, byte[])>() : null;
         var h = GCHandle.Alloc(target);
-        var hp = retain ? GCHandle.Alloc(pend) : default;
-        int rc;
+        int rc = Abi.AK_ERR_HOST;
         try
         {
             fixed (byte* b0 = src)
@@ -7479,7 +10074,6 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
                 byte* b = len == 0 ? one : b0;
                 _drun->Target = GCHandle.ToIntPtr(h);
                 _drun->Buf = b;
-                _drun->Pending = retain ? GCHandle.ToIntPtr(hp) : IntPtr.Zero;
                 var vt = new ak_dvt_ChunkElement
                 {
                     apply = &ApplyRoot,
@@ -7493,50 +10087,47 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
                 if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); if (retain) hp.Free(); }
+        finally { h.Free(); rc = Disarm(rc); }
         if (rc < 0) return rc;
-        if (retain)
-        {
-            // Applied after the decode: a capture may flush before the run that
-            // carries the element it belongs to.
-            foreach (var (slot, token, bytes) in pend)
-            {
-                switch (slot)
-                {
-                    case 0: target.UnknownFields = W.Append(target.UnknownFields, bytes, 0, bytes.Length); break;
-                    case 4: { var l = target.Inner?.Leaves; if (l != null && token >= 0 && token < l.Count) { var e = l[(int)token]; e.UnknownFields = W.Append(e.UnknownFields, bytes, 0, bytes.Length); } break; }
-                    default: break;   // a map entry has no bag
-                }
-            }
-        }
         result = target;
         return 0;
     }
 
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
-    /// call), then replay it with the same group readers the push callbacks use.
-    public ChunkElement Pull(byte[] src, int len)
+    /// call but grow), then replay it with the same group readers the push callbacks
+    /// use. The context is armed exactly as for push.
+    public ChunkElement Pull(byte[] src, int len) { int rc = TryPull(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+    public ChunkElement PullU(byte[] src, int len) { int rc = TryPull(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+
+    public int TryPull(byte[] src, int len, bool retain, out ChunkElement result)
     {
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        result = null;
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
         var t = new ChunkElement();
-        fixed (byte* b0 = src)
-        fixed (byte* one = One)
+        int rc = Abi.AK_ERR_HOST;
+        try
         {
-            byte* b = len == 0 ? one : b0;
-            _fwd++;
-            int rc = Abi.ak_parse_ChunkElement(_dctx, b, (nuint)len);
-            if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}");
-            byte* recs; nuint rlen;
-            _fwd++;
-            int pr = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
-            if (pr != 0) throw new InvalidOperationException($"ak_bdr_ptr failed: {pr}");
-            Replay(t, b, recs, (int)rlen);
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                _fwd++;
+                rc = Abi.ak_parse_ChunkElement(_dctx, b, (nuint)len);
+                if (rc >= 0)
+                {
+                    byte* recs; nuint rlen;
+                    _fwd++;
+                    rc = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
+                    if (rc == 0) Replay(t, b, recs, (int)rlen);
+                }
+            }
         }
-        return t;
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;
+        result = t;
+        return 0;
     }
 
     private const uint OP_APPLY = 1, OP_ADD = 2, OP_NEW = 3, OP_APPLY_ELEM = 4;   // ak_bdr_rec.op
@@ -7561,8 +10152,9 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
                 case OP_ADD when outer == 0 && inner == 2:   // a root-level run
                 {
                     var xs = (ak_dfix_ChunkElementAttrsEntry*)body; var lst = t.Attrs;
-                    // plan: a duplicate key replaces the earlier value.
-                    for (int i = 0; i < (int)r.n; i++) lst[G.Str(b, xs[i].key)] = G.Str(b, xs[i].value);
+                    // plan: a duplicate key replaces the earlier value. The facade map has no bag:
+                    // an entry's unknown-field buffer (decision 11) is freed (U-map-entry).
+                    for (int i = 0; i < (int)r.n; i++) { lst[G.Str(b, xs[i].key)] = G.Str(b, xs[i].value); G.Drop(ref xs[i].unknown); }
                     break;
                 }
                 case OP_ADD when outer == 0 && inner == 3:   // a root-level run
@@ -7602,6 +10194,7 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
             NativeMemory.Free(_run); _run = null;
         }
         if (_drun != null) { NativeMemory.Free(_drun); _drun = null; }
+        if (_uo != null) { NativeMemory.Free(_uo); _uo = null; }
     }
 }
 
@@ -7630,7 +10223,7 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
-    public void CallsReset() { _fwd = 0; _rev = 0; }
+    public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
     private int _cap_items;
     private int _cap_items_labels, _capo_items_labels;
     private int _cap_items_attrs, _capo_items_attrs;
@@ -7870,7 +10463,7 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct DecRun { public IntPtr Target; public byte* Buf; public IntPtr Pending; }
+    private struct DecRun { public IntPtr Target; public byte* Buf; }
 
     private static ChunkedResponse Tgt(void* obj) => (ChunkedResponse)GCHandle.FromIntPtr(((DecRun*)obj)->Target).Target;
 
@@ -7921,8 +10514,9 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
             byte* b = ((DecRun*)obj)->Buf;
             var e = Tgt(obj).Items[(int)token];
             var il = e.Attrs;
-            // plan: a duplicate key replaces the earlier value.
-            for (int k = 0; k < n; k++) il[G.Str(b, xs[k].key)] = G.Str(b, xs[k].value);
+            // plan: a duplicate key replaces the earlier value. The facade map has no bag:
+            // an entry's unknown-field buffer (decision 11) is freed (U-map-entry).
+            for (int k = 0; k < n; k++) { il[G.Str(b, xs[k].key)] = G.Str(b, xs[k].value); G.Drop(ref xs[k].unknown); }
         }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
@@ -7957,24 +10551,149 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
 
     private static readonly byte[] One = new byte[1];
 
+    /// Decision 11: every message position of this root, in plan.unk_positions order
+    /// (the options' member order).
+    public static readonly string[] UnkPositionNames = { "self", "items", "items_attrs", "items_inner", "items_inner_leaves" };
+
+    /// A retained decode ended with a buffer grow handed out that no delivered group
+    /// carried back to the host: a host defect, never a core code.
+    public const int UNDELIVERED = -1001;
+    public int Undelivered { get; private set; }
+    private ak_dec_ChunkedResponse_opts* _uo;
+    private HashSet<IntPtr> _live;
+    /// The resets that arm and disarm each decode (rule 7): forward crossings, counted
+    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    private static long _resets;
+    public long ResetCalls => _resets;
+
+    private void EnsureDec()
+    {
+        if (_dctx != IntPtr.Zero) return;
+        _dctx = Abi.ak_dec_ctx_new_ChunkedResponse(null);   // rule 6: bound to this root, drop mode
+        if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_ChunkedResponse returned NULL");
+        _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
+    }
+
+    /// The options, rewritten before every retained decode: every entry names the one
+    /// grow and holds no pre-allocated buffer (all from grow, so the core never needs
+    /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
+    private ak_dec_ChunkedResponse_opts* Arm(int zero)
+    {
+        if (_uo == null) _uo = (ak_dec_ChunkedResponse_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_ChunkedResponse_opts));
+        *_uo = default;
+        var g = UnkHost.Fn;
+        if (zero != 0) _uo->self.grow = g;
+        if (zero != 1) _uo->items.grow = g;
+        if (zero != 2) _uo->items_attrs.grow = g;
+        if (zero != 3) _uo->items_inner.grow = g;
+        if (zero != 4) _uo->items_inner_leaves.grow = g;
+        return _uo;
+    }
+
+    /// mode -2: drop (reset with NULL); -1: retain everywhere; k >= 0: retain but k.
+    private int ArmFor(int mode)
+    {
+        Undelivered = 0;
+        _resets++;
+        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_ChunkedResponse(_dctx, null); }
+        _live ??= new HashSet<IntPtr>();
+        _live.Clear();
+        G.Live = _live;
+        return Abi.ak_dec_reset_ChunkedResponse(_dctx, Arm(mode));
+    }
+
+    /// After every decode: the core forgets the options (reset with NULL), and a buffer
+    /// still outstanding is freed; after a success that is UNDELIVERED.
+    private int Disarm(int rc)
+    {
+        _resets++;
+        Abi.ak_dec_reset_ChunkedResponse(_dctx, null);
+        var live = G.Live;
+        G.Live = null;
+        if (live == null || live.Count == 0) return rc;
+        foreach (var q in live) NativeMemory.Free((void*)q);
+        int left = live.Count;
+        live.Clear();
+        if (rc < 0) return rc;
+        Undelivered = left;
+        return UNDELIVERED;
+    }
+
+    /// The zeroed-position control's expectation: the facade bags at `position` cleared.
+    public static void ClearPosition(ChunkedResponse t, int position)
+    {
+        switch (position)
+        {
+            case 0:
+            {
+                t.UnknownFields = null;
+                break;
+            }
+            case 1:
+            {
+                if (t.Items != null) foreach (var e0 in t.Items)
+                {
+                    e0.UnknownFields = null;
+                }
+                break;
+            }
+            case 2:
+            {
+                if (t.Items != null) foreach (var e0 in t.Items)
+                {
+                    // a map entry: the facade map has no bag (U-map-entry), nothing to clear
+                }
+                break;
+            }
+            case 3:
+            {
+                if (t.Items != null) foreach (var e0 in t.Items)
+                {
+                    if (e0.Inner != null) { var e1 = e0.Inner;
+
+                        e1.UnknownFields = null;
+                    }
+                }
+                break;
+            }
+            case 4:
+            {
+                if (t.Items != null) foreach (var e0 in t.Items)
+                {
+                    if (e0.Inner != null) { var e1 = e0.Inner;
+
+                        if (e1.Leaves != null) foreach (var e2 in e1.Leaves)
+                        {
+                            e2.UnknownFields = null;
+                        }
+                    }
+                }
+                break;
+            }
+            default: throw new ArgumentOutOfRangeException(nameof(position));
+        }
+    }
+
     public ChunkedResponse Decode(byte[] src, int len) { int rc = TryDecode(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
     public ChunkedResponse DecodeU(byte[] src, int len) { int rc = TryDecode(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
 
     /// The core's code (< 0) on failure; the output is then unspecified and discarded (R-G6).
-    public int TryDecode(byte[] src, int len, bool retain, out ChunkedResponse result)
+    public int TryDecode(byte[] src, int len, bool retain, out ChunkedResponse result) => DecodeArmed(src, len, retain ? -1 : -2, out result);
+
+    /// A control (decision 11 DISCARD): retain everywhere except `position` (an index into
+    /// UnkPositionNames), whose entry is all zero when armed.
+    public int TryDecodeZeroing(byte[] src, int len, int position, out ChunkedResponse result) => DecodeArmed(src, len, position, out result);
+
+    private int DecodeArmed(byte[] src, int len, int mode, out ChunkedResponse result)
     {
         result = null;
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        EnsureDec();
         Abi.ak_dec_err_reset(_dctx);
+        int ar = ArmFor(mode);
+        if (ar != 0) { Disarm(ar); return ar; }
         var target = new ChunkedResponse();
-        var pend = retain ? new List<(int, long, byte[])>() : null;
         var h = GCHandle.Alloc(target);
-        var hp = retain ? GCHandle.Alloc(pend) : default;
-        int rc;
+        int rc = Abi.AK_ERR_HOST;
         try
         {
             fixed (byte* b0 = src)
@@ -7984,7 +10703,6 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
                 byte* b = len == 0 ? one : b0;
                 _drun->Target = GCHandle.ToIntPtr(h);
                 _drun->Buf = b;
-                _drun->Pending = retain ? GCHandle.ToIntPtr(hp) : IntPtr.Zero;
                 var vt = new ak_dvt_ChunkedResponse
                 {
                     apply = &ApplyRoot,
@@ -8000,50 +10718,47 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
                 if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); if (retain) hp.Free(); }
+        finally { h.Free(); rc = Disarm(rc); }
         if (rc < 0) return rc;
-        if (retain)
-        {
-            // Applied after the decode: a capture may flush before the run that
-            // carries the element it belongs to.
-            foreach (var (slot, token, bytes) in pend)
-            {
-                switch (slot)
-                {
-                    case 0: target.UnknownFields = W.Append(target.UnknownFields, bytes, 0, bytes.Length); break;
-                    case 1: { var l = target.Items; if (l != null && token >= 0 && token < l.Count) { var e = l[(int)token]; e.UnknownFields = W.Append(e.UnknownFields, bytes, 0, bytes.Length); } break; }
-                    default: break;   // a map entry has no bag
-                }
-            }
-        }
         result = target;
         return 0;
     }
 
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
-    /// call), then replay it with the same group readers the push callbacks use.
-    public ChunkedResponse Pull(byte[] src, int len)
+    /// call but grow), then replay it with the same group readers the push callbacks
+    /// use. The context is armed exactly as for push.
+    public ChunkedResponse Pull(byte[] src, int len) { int rc = TryPull(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+    public ChunkedResponse PullU(byte[] src, int len) { int rc = TryPull(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+
+    public int TryPull(byte[] src, int len, bool retain, out ChunkedResponse result)
     {
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        result = null;
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
         var t = new ChunkedResponse();
-        fixed (byte* b0 = src)
-        fixed (byte* one = One)
+        int rc = Abi.AK_ERR_HOST;
+        try
         {
-            byte* b = len == 0 ? one : b0;
-            _fwd++;
-            int rc = Abi.ak_parse_ChunkedResponse(_dctx, b, (nuint)len);
-            if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}");
-            byte* recs; nuint rlen;
-            _fwd++;
-            int pr = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
-            if (pr != 0) throw new InvalidOperationException($"ak_bdr_ptr failed: {pr}");
-            Replay(t, b, recs, (int)rlen);
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                _fwd++;
+                rc = Abi.ak_parse_ChunkedResponse(_dctx, b, (nuint)len);
+                if (rc >= 0)
+                {
+                    byte* recs; nuint rlen;
+                    _fwd++;
+                    rc = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
+                    if (rc == 0) Replay(t, b, recs, (int)rlen);
+                }
+            }
         }
-        return t;
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;
+        result = t;
+        return 0;
     }
 
     private const uint OP_APPLY = 1, OP_ADD = 2, OP_NEW = 3, OP_APPLY_ELEM = 4;   // ak_bdr_rec.op
@@ -8070,8 +10785,9 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
                 case OP_ADD when outer == 1 && inner == 2:
                 {
                     var xs = (ak_dfix_ChunkElementAttrsEntry*)body; var e = t.Items[(int)r.token]; var il = e.Attrs;
-                    // plan: a duplicate key replaces the earlier value.
-                    for (int k = 0; k < (int)r.n; k++) il[G.Str(b, xs[k].key)] = G.Str(b, xs[k].value);
+                    // plan: a duplicate key replaces the earlier value. The facade map has no bag:
+                    // an entry's unknown-field buffer (decision 11) is freed (U-map-entry).
+                    for (int k = 0; k < (int)r.n; k++) { il[G.Str(b, xs[k].key)] = G.Str(b, xs[k].value); G.Drop(ref xs[k].unknown); }
                     break;
                 }
                 case OP_ADD when outer == 1 && inner == 3:
@@ -8113,6 +10829,7 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
         }
         if (_evt_items != null) { NativeMemory.Free(_evt_items); _evt_items = null; }
         if (_drun != null) { NativeMemory.Free(_drun); _drun = null; }
+        if (_uo != null) { NativeMemory.Free(_uo); _uo = null; }
     }
 }
 
@@ -8141,7 +10858,7 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
-    public void CallsReset() { _fwd = 0; _rev = 0; }
+    public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
     private int _cap_items;
     private int _cap_items_labels, _capo_items_labels;
     private int _cap_items_attrs, _capo_items_attrs;
@@ -8381,7 +11098,7 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct DecRun { public IntPtr Target; public byte* Buf; public IntPtr Pending; }
+    private struct DecRun { public IntPtr Target; public byte* Buf; }
 
     private static ChunkedResponseWide Tgt(void* obj) => (ChunkedResponseWide)GCHandle.FromIntPtr(((DecRun*)obj)->Target).Target;
 
@@ -8432,8 +11149,9 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
             byte* b = ((DecRun*)obj)->Buf;
             var e = Tgt(obj).Items[(int)token];
             var il = e.Attrs;
-            // plan: a duplicate key replaces the earlier value.
-            for (int k = 0; k < n; k++) il[G.Str(b, xs[k].key)] = G.Str(b, xs[k].value);
+            // plan: a duplicate key replaces the earlier value. The facade map has no bag:
+            // an entry's unknown-field buffer (decision 11) is freed (U-map-entry).
+            for (int k = 0; k < n; k++) { il[G.Str(b, xs[k].key)] = G.Str(b, xs[k].value); G.Drop(ref xs[k].unknown); }
         }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
@@ -8468,24 +11186,149 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
 
     private static readonly byte[] One = new byte[1];
 
+    /// Decision 11: every message position of this root, in plan.unk_positions order
+    /// (the options' member order).
+    public static readonly string[] UnkPositionNames = { "self", "items", "items_attrs", "items_inner", "items_inner_leaves" };
+
+    /// A retained decode ended with a buffer grow handed out that no delivered group
+    /// carried back to the host: a host defect, never a core code.
+    public const int UNDELIVERED = -1001;
+    public int Undelivered { get; private set; }
+    private ak_dec_ChunkedResponseWide_opts* _uo;
+    private HashSet<IntPtr> _live;
+    /// The resets that arm and disarm each decode (rule 7): forward crossings, counted
+    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    private static long _resets;
+    public long ResetCalls => _resets;
+
+    private void EnsureDec()
+    {
+        if (_dctx != IntPtr.Zero) return;
+        _dctx = Abi.ak_dec_ctx_new_ChunkedResponseWide(null);   // rule 6: bound to this root, drop mode
+        if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_ChunkedResponseWide returned NULL");
+        _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
+    }
+
+    /// The options, rewritten before every retained decode: every entry names the one
+    /// grow and holds no pre-allocated buffer (all from grow, so the core never needs
+    /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
+    private ak_dec_ChunkedResponseWide_opts* Arm(int zero)
+    {
+        if (_uo == null) _uo = (ak_dec_ChunkedResponseWide_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_ChunkedResponseWide_opts));
+        *_uo = default;
+        var g = UnkHost.Fn;
+        if (zero != 0) _uo->self.grow = g;
+        if (zero != 1) _uo->items.grow = g;
+        if (zero != 2) _uo->items_attrs.grow = g;
+        if (zero != 3) _uo->items_inner.grow = g;
+        if (zero != 4) _uo->items_inner_leaves.grow = g;
+        return _uo;
+    }
+
+    /// mode -2: drop (reset with NULL); -1: retain everywhere; k >= 0: retain but k.
+    private int ArmFor(int mode)
+    {
+        Undelivered = 0;
+        _resets++;
+        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_ChunkedResponseWide(_dctx, null); }
+        _live ??= new HashSet<IntPtr>();
+        _live.Clear();
+        G.Live = _live;
+        return Abi.ak_dec_reset_ChunkedResponseWide(_dctx, Arm(mode));
+    }
+
+    /// After every decode: the core forgets the options (reset with NULL), and a buffer
+    /// still outstanding is freed; after a success that is UNDELIVERED.
+    private int Disarm(int rc)
+    {
+        _resets++;
+        Abi.ak_dec_reset_ChunkedResponseWide(_dctx, null);
+        var live = G.Live;
+        G.Live = null;
+        if (live == null || live.Count == 0) return rc;
+        foreach (var q in live) NativeMemory.Free((void*)q);
+        int left = live.Count;
+        live.Clear();
+        if (rc < 0) return rc;
+        Undelivered = left;
+        return UNDELIVERED;
+    }
+
+    /// The zeroed-position control's expectation: the facade bags at `position` cleared.
+    public static void ClearPosition(ChunkedResponseWide t, int position)
+    {
+        switch (position)
+        {
+            case 0:
+            {
+                t.UnknownFields = null;
+                break;
+            }
+            case 1:
+            {
+                if (t.Items != null) foreach (var e0 in t.Items)
+                {
+                    e0.UnknownFields = null;
+                }
+                break;
+            }
+            case 2:
+            {
+                if (t.Items != null) foreach (var e0 in t.Items)
+                {
+                    // a map entry: the facade map has no bag (U-map-entry), nothing to clear
+                }
+                break;
+            }
+            case 3:
+            {
+                if (t.Items != null) foreach (var e0 in t.Items)
+                {
+                    if (e0.Inner != null) { var e1 = e0.Inner;
+
+                        e1.UnknownFields = null;
+                    }
+                }
+                break;
+            }
+            case 4:
+            {
+                if (t.Items != null) foreach (var e0 in t.Items)
+                {
+                    if (e0.Inner != null) { var e1 = e0.Inner;
+
+                        if (e1.Leaves != null) foreach (var e2 in e1.Leaves)
+                        {
+                            e2.UnknownFields = null;
+                        }
+                    }
+                }
+                break;
+            }
+            default: throw new ArgumentOutOfRangeException(nameof(position));
+        }
+    }
+
     public ChunkedResponseWide Decode(byte[] src, int len) { int rc = TryDecode(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
     public ChunkedResponseWide DecodeU(byte[] src, int len) { int rc = TryDecode(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
 
     /// The core's code (< 0) on failure; the output is then unspecified and discarded (R-G6).
-    public int TryDecode(byte[] src, int len, bool retain, out ChunkedResponseWide result)
+    public int TryDecode(byte[] src, int len, bool retain, out ChunkedResponseWide result) => DecodeArmed(src, len, retain ? -1 : -2, out result);
+
+    /// A control (decision 11 DISCARD): retain everywhere except `position` (an index into
+    /// UnkPositionNames), whose entry is all zero when armed.
+    public int TryDecodeZeroing(byte[] src, int len, int position, out ChunkedResponseWide result) => DecodeArmed(src, len, position, out result);
+
+    private int DecodeArmed(byte[] src, int len, int mode, out ChunkedResponseWide result)
     {
         result = null;
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        EnsureDec();
         Abi.ak_dec_err_reset(_dctx);
+        int ar = ArmFor(mode);
+        if (ar != 0) { Disarm(ar); return ar; }
         var target = new ChunkedResponseWide();
-        var pend = retain ? new List<(int, long, byte[])>() : null;
         var h = GCHandle.Alloc(target);
-        var hp = retain ? GCHandle.Alloc(pend) : default;
-        int rc;
+        int rc = Abi.AK_ERR_HOST;
         try
         {
             fixed (byte* b0 = src)
@@ -8495,7 +11338,6 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
                 byte* b = len == 0 ? one : b0;
                 _drun->Target = GCHandle.ToIntPtr(h);
                 _drun->Buf = b;
-                _drun->Pending = retain ? GCHandle.ToIntPtr(hp) : IntPtr.Zero;
                 var vt = new ak_dvt_ChunkedResponseWide
                 {
                     apply = &ApplyRoot,
@@ -8511,50 +11353,47 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
                 if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); if (retain) hp.Free(); }
+        finally { h.Free(); rc = Disarm(rc); }
         if (rc < 0) return rc;
-        if (retain)
-        {
-            // Applied after the decode: a capture may flush before the run that
-            // carries the element it belongs to.
-            foreach (var (slot, token, bytes) in pend)
-            {
-                switch (slot)
-                {
-                    case 0: target.UnknownFields = W.Append(target.UnknownFields, bytes, 0, bytes.Length); break;
-                    case 1: { var l = target.Items; if (l != null && token >= 0 && token < l.Count) { var e = l[(int)token]; e.UnknownFields = W.Append(e.UnknownFields, bytes, 0, bytes.Length); } break; }
-                    default: break;   // a map entry has no bag
-                }
-            }
-        }
         result = target;
         return 0;
     }
 
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
-    /// call), then replay it with the same group readers the push callbacks use.
-    public ChunkedResponseWide Pull(byte[] src, int len)
+    /// call but grow), then replay it with the same group readers the push callbacks
+    /// use. The context is armed exactly as for push.
+    public ChunkedResponseWide Pull(byte[] src, int len) { int rc = TryPull(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+    public ChunkedResponseWide PullU(byte[] src, int len) { int rc = TryPull(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+
+    public int TryPull(byte[] src, int len, bool retain, out ChunkedResponseWide result)
     {
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        result = null;
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
         var t = new ChunkedResponseWide();
-        fixed (byte* b0 = src)
-        fixed (byte* one = One)
+        int rc = Abi.AK_ERR_HOST;
+        try
         {
-            byte* b = len == 0 ? one : b0;
-            _fwd++;
-            int rc = Abi.ak_parse_ChunkedResponseWide(_dctx, b, (nuint)len);
-            if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}");
-            byte* recs; nuint rlen;
-            _fwd++;
-            int pr = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
-            if (pr != 0) throw new InvalidOperationException($"ak_bdr_ptr failed: {pr}");
-            Replay(t, b, recs, (int)rlen);
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                _fwd++;
+                rc = Abi.ak_parse_ChunkedResponseWide(_dctx, b, (nuint)len);
+                if (rc >= 0)
+                {
+                    byte* recs; nuint rlen;
+                    _fwd++;
+                    rc = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
+                    if (rc == 0) Replay(t, b, recs, (int)rlen);
+                }
+            }
         }
-        return t;
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;
+        result = t;
+        return 0;
     }
 
     private const uint OP_APPLY = 1, OP_ADD = 2, OP_NEW = 3, OP_APPLY_ELEM = 4;   // ak_bdr_rec.op
@@ -8581,8 +11420,9 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
                 case OP_ADD when outer == 1 && inner == 2:
                 {
                     var xs = (ak_dfix_ChunkElementAttrsEntry*)body; var e = t.Items[(int)r.token]; var il = e.Attrs;
-                    // plan: a duplicate key replaces the earlier value.
-                    for (int k = 0; k < (int)r.n; k++) il[G.Str(b, xs[k].key)] = G.Str(b, xs[k].value);
+                    // plan: a duplicate key replaces the earlier value. The facade map has no bag:
+                    // an entry's unknown-field buffer (decision 11) is freed (U-map-entry).
+                    for (int k = 0; k < (int)r.n; k++) { il[G.Str(b, xs[k].key)] = G.Str(b, xs[k].value); G.Drop(ref xs[k].unknown); }
                     break;
                 }
                 case OP_ADD when outer == 1 && inner == 3:
@@ -8624,6 +11464,7 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
         }
         if (_evt_items != null) { NativeMemory.Free(_evt_items); _evt_items = null; }
         if (_drun != null) { NativeMemory.Free(_drun); _drun = null; }
+        if (_uo != null) { NativeMemory.Free(_uo); _uo = null; }
     }
 }
 
@@ -8647,7 +11488,7 @@ public sealed unsafe class CoreFfi_LeafElement : IDisposable
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
-    public void CallsReset() { _fwd = 0; _rev = 0; }
+    public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
 
     public CoreFfi_LeafElement(bool utf16 = false)
     {
@@ -8707,7 +11548,7 @@ public sealed unsafe class CoreFfi_LeafElement : IDisposable
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct DecRun { public IntPtr Target; public byte* Buf; public IntPtr Pending; }
+    private struct DecRun { public IntPtr Target; public byte* Buf; }
 
     private static LeafElement Tgt(void* obj) => (LeafElement)GCHandle.FromIntPtr(((DecRun*)obj)->Target).Target;
 
@@ -8721,24 +11562,113 @@ public sealed unsafe class CoreFfi_LeafElement : IDisposable
 
     private static readonly byte[] One = new byte[1];
 
+    /// Decision 11: every message position of this root, in plan.unk_positions order
+    /// (the options' member order).
+    public static readonly string[] UnkPositionNames = { "self", "stamp" };
+
+    /// A retained decode ended with a buffer grow handed out that no delivered group
+    /// carried back to the host: a host defect, never a core code.
+    public const int UNDELIVERED = -1001;
+    public int Undelivered { get; private set; }
+    private ak_dec_LeafElement_opts* _uo;
+    private HashSet<IntPtr> _live;
+    /// The resets that arm and disarm each decode (rule 7): forward crossings, counted
+    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    private static long _resets;
+    public long ResetCalls => _resets;
+
+    private void EnsureDec()
+    {
+        if (_dctx != IntPtr.Zero) return;
+        _dctx = Abi.ak_dec_ctx_new_LeafElement(null);   // rule 6: bound to this root, drop mode
+        if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_LeafElement returned NULL");
+        _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
+    }
+
+    /// The options, rewritten before every retained decode: every entry names the one
+    /// grow and holds no pre-allocated buffer (all from grow, so the core never needs
+    /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
+    private ak_dec_LeafElement_opts* Arm(int zero)
+    {
+        if (_uo == null) _uo = (ak_dec_LeafElement_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_LeafElement_opts));
+        *_uo = default;
+        var g = UnkHost.Fn;
+        if (zero != 0) _uo->self.grow = g;
+        if (zero != 1) _uo->stamp.grow = g;
+        return _uo;
+    }
+
+    /// mode -2: drop (reset with NULL); -1: retain everywhere; k >= 0: retain but k.
+    private int ArmFor(int mode)
+    {
+        Undelivered = 0;
+        _resets++;
+        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_LeafElement(_dctx, null); }
+        _live ??= new HashSet<IntPtr>();
+        _live.Clear();
+        G.Live = _live;
+        return Abi.ak_dec_reset_LeafElement(_dctx, Arm(mode));
+    }
+
+    /// After every decode: the core forgets the options (reset with NULL), and a buffer
+    /// still outstanding is freed; after a success that is UNDELIVERED.
+    private int Disarm(int rc)
+    {
+        _resets++;
+        Abi.ak_dec_reset_LeafElement(_dctx, null);
+        var live = G.Live;
+        G.Live = null;
+        if (live == null || live.Count == 0) return rc;
+        foreach (var q in live) NativeMemory.Free((void*)q);
+        int left = live.Count;
+        live.Clear();
+        if (rc < 0) return rc;
+        Undelivered = left;
+        return UNDELIVERED;
+    }
+
+    /// The zeroed-position control's expectation: the facade bags at `position` cleared.
+    public static void ClearPosition(LeafElement t, int position)
+    {
+        switch (position)
+        {
+            case 0:
+            {
+                t.UnknownFields = null;
+                break;
+            }
+            case 1:
+            {
+                if (t.Stamp != null) { var e0 = t.Stamp;
+
+                    e0.UnknownFields = null;
+                }
+                break;
+            }
+            default: throw new ArgumentOutOfRangeException(nameof(position));
+        }
+    }
+
     public LeafElement Decode(byte[] src, int len) { int rc = TryDecode(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
     public LeafElement DecodeU(byte[] src, int len) { int rc = TryDecode(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
 
     /// The core's code (< 0) on failure; the output is then unspecified and discarded (R-G6).
-    public int TryDecode(byte[] src, int len, bool retain, out LeafElement result)
+    public int TryDecode(byte[] src, int len, bool retain, out LeafElement result) => DecodeArmed(src, len, retain ? -1 : -2, out result);
+
+    /// A control (decision 11 DISCARD): retain everywhere except `position` (an index into
+    /// UnkPositionNames), whose entry is all zero when armed.
+    public int TryDecodeZeroing(byte[] src, int len, int position, out LeafElement result) => DecodeArmed(src, len, position, out result);
+
+    private int DecodeArmed(byte[] src, int len, int mode, out LeafElement result)
     {
         result = null;
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        EnsureDec();
         Abi.ak_dec_err_reset(_dctx);
+        int ar = ArmFor(mode);
+        if (ar != 0) { Disarm(ar); return ar; }
         var target = new LeafElement();
-        var pend = retain ? new List<(int, long, byte[])>() : null;
         var h = GCHandle.Alloc(target);
-        var hp = retain ? GCHandle.Alloc(pend) : default;
-        int rc;
+        int rc = Abi.AK_ERR_HOST;
         try
         {
             fixed (byte* b0 = src)
@@ -8748,7 +11678,6 @@ public sealed unsafe class CoreFfi_LeafElement : IDisposable
                 byte* b = len == 0 ? one : b0;
                 _drun->Target = GCHandle.ToIntPtr(h);
                 _drun->Buf = b;
-                _drun->Pending = retain ? GCHandle.ToIntPtr(hp) : IntPtr.Zero;
                 var vt = new ak_dvt_LeafElement
                 {
                     apply = &ApplyRoot,
@@ -8758,49 +11687,47 @@ public sealed unsafe class CoreFfi_LeafElement : IDisposable
                 if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); if (retain) hp.Free(); }
+        finally { h.Free(); rc = Disarm(rc); }
         if (rc < 0) return rc;
-        if (retain)
-        {
-            // Applied after the decode: a capture may flush before the run that
-            // carries the element it belongs to.
-            foreach (var (slot, token, bytes) in pend)
-            {
-                switch (slot)
-                {
-                    case 0: target.UnknownFields = W.Append(target.UnknownFields, bytes, 0, bytes.Length); break;
-                    default: break;   // a map entry has no bag
-                }
-            }
-        }
         result = target;
         return 0;
     }
 
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
-    /// call), then replay it with the same group readers the push callbacks use.
-    public LeafElement Pull(byte[] src, int len)
+    /// call but grow), then replay it with the same group readers the push callbacks
+    /// use. The context is armed exactly as for push.
+    public LeafElement Pull(byte[] src, int len) { int rc = TryPull(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+    public LeafElement PullU(byte[] src, int len) { int rc = TryPull(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+
+    public int TryPull(byte[] src, int len, bool retain, out LeafElement result)
     {
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        result = null;
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
         var t = new LeafElement();
-        fixed (byte* b0 = src)
-        fixed (byte* one = One)
+        int rc = Abi.AK_ERR_HOST;
+        try
         {
-            byte* b = len == 0 ? one : b0;
-            _fwd++;
-            int rc = Abi.ak_parse_LeafElement(_dctx, b, (nuint)len);
-            if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}");
-            byte* recs; nuint rlen;
-            _fwd++;
-            int pr = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
-            if (pr != 0) throw new InvalidOperationException($"ak_bdr_ptr failed: {pr}");
-            Replay(t, b, recs, (int)rlen);
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                _fwd++;
+                rc = Abi.ak_parse_LeafElement(_dctx, b, (nuint)len);
+                if (rc >= 0)
+                {
+                    byte* recs; nuint rlen;
+                    _fwd++;
+                    rc = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
+                    if (rc == 0) Replay(t, b, recs, (int)rlen);
+                }
+            }
         }
-        return t;
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;
+        result = t;
+        return 0;
     }
 
     private const uint OP_APPLY = 1, OP_ADD = 2, OP_NEW = 3, OP_APPLY_ELEM = 4;   // ak_bdr_rec.op
@@ -8837,6 +11764,7 @@ public sealed unsafe class CoreFfi_LeafElement : IDisposable
             NativeMemory.Free(_run); _run = null;
         }
         if (_drun != null) { NativeMemory.Free(_drun); _drun = null; }
+        if (_uo != null) { NativeMemory.Free(_uo); _uo = null; }
     }
 }
 
@@ -8861,7 +11789,7 @@ public sealed unsafe class CoreFfi_LeafResponse : IDisposable
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
-    public void CallsReset() { _fwd = 0; _rev = 0; }
+    public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
     private int _cap_items;
 
     public CoreFfi_LeafResponse(bool utf16 = false)
@@ -8957,7 +11885,7 @@ public sealed unsafe class CoreFfi_LeafResponse : IDisposable
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct DecRun { public IntPtr Target; public byte* Buf; public IntPtr Pending; }
+    private struct DecRun { public IntPtr Target; public byte* Buf; }
 
     private static LeafResponse Tgt(void* obj) => (LeafResponse)GCHandle.FromIntPtr(((DecRun*)obj)->Target).Target;
 
@@ -8984,24 +11912,125 @@ public sealed unsafe class CoreFfi_LeafResponse : IDisposable
 
     private static readonly byte[] One = new byte[1];
 
+    /// Decision 11: every message position of this root, in plan.unk_positions order
+    /// (the options' member order).
+    public static readonly string[] UnkPositionNames = { "self", "items", "items_stamp" };
+
+    /// A retained decode ended with a buffer grow handed out that no delivered group
+    /// carried back to the host: a host defect, never a core code.
+    public const int UNDELIVERED = -1001;
+    public int Undelivered { get; private set; }
+    private ak_dec_LeafResponse_opts* _uo;
+    private HashSet<IntPtr> _live;
+    /// The resets that arm and disarm each decode (rule 7): forward crossings, counted
+    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    private static long _resets;
+    public long ResetCalls => _resets;
+
+    private void EnsureDec()
+    {
+        if (_dctx != IntPtr.Zero) return;
+        _dctx = Abi.ak_dec_ctx_new_LeafResponse(null);   // rule 6: bound to this root, drop mode
+        if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_LeafResponse returned NULL");
+        _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
+    }
+
+    /// The options, rewritten before every retained decode: every entry names the one
+    /// grow and holds no pre-allocated buffer (all from grow, so the core never needs
+    /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
+    private ak_dec_LeafResponse_opts* Arm(int zero)
+    {
+        if (_uo == null) _uo = (ak_dec_LeafResponse_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_LeafResponse_opts));
+        *_uo = default;
+        var g = UnkHost.Fn;
+        if (zero != 0) _uo->self.grow = g;
+        if (zero != 1) _uo->items.grow = g;
+        if (zero != 2) _uo->items_stamp.grow = g;
+        return _uo;
+    }
+
+    /// mode -2: drop (reset with NULL); -1: retain everywhere; k >= 0: retain but k.
+    private int ArmFor(int mode)
+    {
+        Undelivered = 0;
+        _resets++;
+        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_LeafResponse(_dctx, null); }
+        _live ??= new HashSet<IntPtr>();
+        _live.Clear();
+        G.Live = _live;
+        return Abi.ak_dec_reset_LeafResponse(_dctx, Arm(mode));
+    }
+
+    /// After every decode: the core forgets the options (reset with NULL), and a buffer
+    /// still outstanding is freed; after a success that is UNDELIVERED.
+    private int Disarm(int rc)
+    {
+        _resets++;
+        Abi.ak_dec_reset_LeafResponse(_dctx, null);
+        var live = G.Live;
+        G.Live = null;
+        if (live == null || live.Count == 0) return rc;
+        foreach (var q in live) NativeMemory.Free((void*)q);
+        int left = live.Count;
+        live.Clear();
+        if (rc < 0) return rc;
+        Undelivered = left;
+        return UNDELIVERED;
+    }
+
+    /// The zeroed-position control's expectation: the facade bags at `position` cleared.
+    public static void ClearPosition(LeafResponse t, int position)
+    {
+        switch (position)
+        {
+            case 0:
+            {
+                t.UnknownFields = null;
+                break;
+            }
+            case 1:
+            {
+                if (t.Items != null) foreach (var e0 in t.Items)
+                {
+                    e0.UnknownFields = null;
+                }
+                break;
+            }
+            case 2:
+            {
+                if (t.Items != null) foreach (var e0 in t.Items)
+                {
+                    if (e0.Stamp != null) { var e1 = e0.Stamp;
+
+                        e1.UnknownFields = null;
+                    }
+                }
+                break;
+            }
+            default: throw new ArgumentOutOfRangeException(nameof(position));
+        }
+    }
+
     public LeafResponse Decode(byte[] src, int len) { int rc = TryDecode(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
     public LeafResponse DecodeU(byte[] src, int len) { int rc = TryDecode(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
 
     /// The core's code (< 0) on failure; the output is then unspecified and discarded (R-G6).
-    public int TryDecode(byte[] src, int len, bool retain, out LeafResponse result)
+    public int TryDecode(byte[] src, int len, bool retain, out LeafResponse result) => DecodeArmed(src, len, retain ? -1 : -2, out result);
+
+    /// A control (decision 11 DISCARD): retain everywhere except `position` (an index into
+    /// UnkPositionNames), whose entry is all zero when armed.
+    public int TryDecodeZeroing(byte[] src, int len, int position, out LeafResponse result) => DecodeArmed(src, len, position, out result);
+
+    private int DecodeArmed(byte[] src, int len, int mode, out LeafResponse result)
     {
         result = null;
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        EnsureDec();
         Abi.ak_dec_err_reset(_dctx);
+        int ar = ArmFor(mode);
+        if (ar != 0) { Disarm(ar); return ar; }
         var target = new LeafResponse();
-        var pend = retain ? new List<(int, long, byte[])>() : null;
         var h = GCHandle.Alloc(target);
-        var hp = retain ? GCHandle.Alloc(pend) : default;
-        int rc;
+        int rc = Abi.AK_ERR_HOST;
         try
         {
             fixed (byte* b0 = src)
@@ -9011,7 +12040,6 @@ public sealed unsafe class CoreFfi_LeafResponse : IDisposable
                 byte* b = len == 0 ? one : b0;
                 _drun->Target = GCHandle.ToIntPtr(h);
                 _drun->Buf = b;
-                _drun->Pending = retain ? GCHandle.ToIntPtr(hp) : IntPtr.Zero;
                 var vt = new ak_dvt_LeafResponse
                 {
                     apply = &ApplyRoot,
@@ -9022,50 +12050,47 @@ public sealed unsafe class CoreFfi_LeafResponse : IDisposable
                 if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); if (retain) hp.Free(); }
+        finally { h.Free(); rc = Disarm(rc); }
         if (rc < 0) return rc;
-        if (retain)
-        {
-            // Applied after the decode: a capture may flush before the run that
-            // carries the element it belongs to.
-            foreach (var (slot, token, bytes) in pend)
-            {
-                switch (slot)
-                {
-                    case 0: target.UnknownFields = W.Append(target.UnknownFields, bytes, 0, bytes.Length); break;
-                    case 1: { var l = target.Items; if (l != null && token >= 0 && token < l.Count) { var e = l[(int)token]; e.UnknownFields = W.Append(e.UnknownFields, bytes, 0, bytes.Length); } break; }
-                    default: break;   // a map entry has no bag
-                }
-            }
-        }
         result = target;
         return 0;
     }
 
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
-    /// call), then replay it with the same group readers the push callbacks use.
-    public LeafResponse Pull(byte[] src, int len)
+    /// call but grow), then replay it with the same group readers the push callbacks
+    /// use. The context is armed exactly as for push.
+    public LeafResponse Pull(byte[] src, int len) { int rc = TryPull(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+    public LeafResponse PullU(byte[] src, int len) { int rc = TryPull(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+
+    public int TryPull(byte[] src, int len, bool retain, out LeafResponse result)
     {
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        result = null;
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
         var t = new LeafResponse();
-        fixed (byte* b0 = src)
-        fixed (byte* one = One)
+        int rc = Abi.AK_ERR_HOST;
+        try
         {
-            byte* b = len == 0 ? one : b0;
-            _fwd++;
-            int rc = Abi.ak_parse_LeafResponse(_dctx, b, (nuint)len);
-            if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}");
-            byte* recs; nuint rlen;
-            _fwd++;
-            int pr = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
-            if (pr != 0) throw new InvalidOperationException($"ak_bdr_ptr failed: {pr}");
-            Replay(t, b, recs, (int)rlen);
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                _fwd++;
+                rc = Abi.ak_parse_LeafResponse(_dctx, b, (nuint)len);
+                if (rc >= 0)
+                {
+                    byte* recs; nuint rlen;
+                    _fwd++;
+                    rc = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
+                    if (rc == 0) Replay(t, b, recs, (int)rlen);
+                }
+            }
         }
-        return t;
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;
+        result = t;
+        return 0;
     }
 
     private const uint OP_APPLY = 1, OP_ADD = 2, OP_NEW = 3, OP_APPLY_ELEM = 4;   // ak_bdr_rec.op
@@ -9109,6 +12134,7 @@ public sealed unsafe class CoreFfi_LeafResponse : IDisposable
             NativeMemory.Free(_run); _run = null;
         }
         if (_drun != null) { NativeMemory.Free(_drun); _drun = null; }
+        if (_uo != null) { NativeMemory.Free(_uo); _uo = null; }
     }
 }
 
@@ -9134,7 +12160,7 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
-    public void CallsReset() { _fwd = 0; _rev = 0; }
+    public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
     private int _cap_attrs;
     private int _cap_texts;
 
@@ -9245,7 +12271,7 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct DecRun { public IntPtr Target; public byte* Buf; public IntPtr Pending; }
+    private struct DecRun { public IntPtr Target; public byte* Buf; }
 
     private static Surrogate Tgt(void* obj) => (Surrogate)GCHandle.FromIntPtr(((DecRun*)obj)->Target).Target;
 
@@ -9265,8 +12291,9 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
         {
             byte* b = ((DecRun*)obj)->Buf;
             var lst = Tgt(obj).Attrs;
-            // plan: a duplicate key replaces the earlier value.
-            for (int i = 0; i < n; i++) lst[G.Str(b, xs[i].key)] = G.Str(b, xs[i].value);
+            // plan: a duplicate key replaces the earlier value. The facade map has no bag:
+            // an entry's unknown-field buffer (decision 11) is freed (U-map-entry).
+            for (int i = 0; i < n; i++) { lst[G.Str(b, xs[i].key)] = G.Str(b, xs[i].value); G.Drop(ref xs[i].unknown); }
         }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
@@ -9286,24 +12313,119 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
 
     private static readonly byte[] One = new byte[1];
 
+    /// Decision 11: every message position of this root, in plan.unk_positions order
+    /// (the options' member order).
+    public static readonly string[] UnkPositionNames = { "self", "nested", "attrs" };
+
+    /// A retained decode ended with a buffer grow handed out that no delivered group
+    /// carried back to the host: a host defect, never a core code.
+    public const int UNDELIVERED = -1001;
+    public int Undelivered { get; private set; }
+    private ak_dec_Surrogate_opts* _uo;
+    private HashSet<IntPtr> _live;
+    /// The resets that arm and disarm each decode (rule 7): forward crossings, counted
+    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    private static long _resets;
+    public long ResetCalls => _resets;
+
+    private void EnsureDec()
+    {
+        if (_dctx != IntPtr.Zero) return;
+        _dctx = Abi.ak_dec_ctx_new_Surrogate(null);   // rule 6: bound to this root, drop mode
+        if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_Surrogate returned NULL");
+        _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
+    }
+
+    /// The options, rewritten before every retained decode: every entry names the one
+    /// grow and holds no pre-allocated buffer (all from grow, so the core never needs
+    /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
+    private ak_dec_Surrogate_opts* Arm(int zero)
+    {
+        if (_uo == null) _uo = (ak_dec_Surrogate_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_Surrogate_opts));
+        *_uo = default;
+        var g = UnkHost.Fn;
+        if (zero != 0) _uo->self.grow = g;
+        if (zero != 1) _uo->nested.grow = g;
+        if (zero != 2) _uo->attrs.grow = g;
+        return _uo;
+    }
+
+    /// mode -2: drop (reset with NULL); -1: retain everywhere; k >= 0: retain but k.
+    private int ArmFor(int mode)
+    {
+        Undelivered = 0;
+        _resets++;
+        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_Surrogate(_dctx, null); }
+        _live ??= new HashSet<IntPtr>();
+        _live.Clear();
+        G.Live = _live;
+        return Abi.ak_dec_reset_Surrogate(_dctx, Arm(mode));
+    }
+
+    /// After every decode: the core forgets the options (reset with NULL), and a buffer
+    /// still outstanding is freed; after a success that is UNDELIVERED.
+    private int Disarm(int rc)
+    {
+        _resets++;
+        Abi.ak_dec_reset_Surrogate(_dctx, null);
+        var live = G.Live;
+        G.Live = null;
+        if (live == null || live.Count == 0) return rc;
+        foreach (var q in live) NativeMemory.Free((void*)q);
+        int left = live.Count;
+        live.Clear();
+        if (rc < 0) return rc;
+        Undelivered = left;
+        return UNDELIVERED;
+    }
+
+    /// The zeroed-position control's expectation: the facade bags at `position` cleared.
+    public static void ClearPosition(Surrogate t, int position)
+    {
+        switch (position)
+        {
+            case 0:
+            {
+                t.UnknownFields = null;
+                break;
+            }
+            case 1:
+            {
+                if (t.Nested != null) { var e0 = t.Nested;
+
+                    e0.UnknownFields = null;
+                }
+                break;
+            }
+            case 2:
+            {
+                // a map entry: the facade map has no bag (U-map-entry), nothing to clear
+                break;
+            }
+            default: throw new ArgumentOutOfRangeException(nameof(position));
+        }
+    }
+
     public Surrogate Decode(byte[] src, int len) { int rc = TryDecode(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
     public Surrogate DecodeU(byte[] src, int len) { int rc = TryDecode(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
 
     /// The core's code (< 0) on failure; the output is then unspecified and discarded (R-G6).
-    public int TryDecode(byte[] src, int len, bool retain, out Surrogate result)
+    public int TryDecode(byte[] src, int len, bool retain, out Surrogate result) => DecodeArmed(src, len, retain ? -1 : -2, out result);
+
+    /// A control (decision 11 DISCARD): retain everywhere except `position` (an index into
+    /// UnkPositionNames), whose entry is all zero when armed.
+    public int TryDecodeZeroing(byte[] src, int len, int position, out Surrogate result) => DecodeArmed(src, len, position, out result);
+
+    private int DecodeArmed(byte[] src, int len, int mode, out Surrogate result)
     {
         result = null;
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        EnsureDec();
         Abi.ak_dec_err_reset(_dctx);
+        int ar = ArmFor(mode);
+        if (ar != 0) { Disarm(ar); return ar; }
         var target = new Surrogate();
-        var pend = retain ? new List<(int, long, byte[])>() : null;
         var h = GCHandle.Alloc(target);
-        var hp = retain ? GCHandle.Alloc(pend) : default;
-        int rc;
+        int rc = Abi.AK_ERR_HOST;
         try
         {
             fixed (byte* b0 = src)
@@ -9313,7 +12435,6 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
                 byte* b = len == 0 ? one : b0;
                 _drun->Target = GCHandle.ToIntPtr(h);
                 _drun->Buf = b;
-                _drun->Pending = retain ? GCHandle.ToIntPtr(hp) : IntPtr.Zero;
                 var vt = new ak_dvt_Surrogate
                 {
                     apply = &ApplyRoot,
@@ -9325,49 +12446,47 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
                 if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); if (retain) hp.Free(); }
+        finally { h.Free(); rc = Disarm(rc); }
         if (rc < 0) return rc;
-        if (retain)
-        {
-            // Applied after the decode: a capture may flush before the run that
-            // carries the element it belongs to.
-            foreach (var (slot, token, bytes) in pend)
-            {
-                switch (slot)
-                {
-                    case 0: target.UnknownFields = W.Append(target.UnknownFields, bytes, 0, bytes.Length); break;
-                    default: break;   // a map entry has no bag
-                }
-            }
-        }
         result = target;
         return 0;
     }
 
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
-    /// call), then replay it with the same group readers the push callbacks use.
-    public Surrogate Pull(byte[] src, int len)
+    /// call but grow), then replay it with the same group readers the push callbacks
+    /// use. The context is armed exactly as for push.
+    public Surrogate Pull(byte[] src, int len) { int rc = TryPull(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+    public Surrogate PullU(byte[] src, int len) { int rc = TryPull(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+
+    public int TryPull(byte[] src, int len, bool retain, out Surrogate result)
     {
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        result = null;
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
         var t = new Surrogate();
-        fixed (byte* b0 = src)
-        fixed (byte* one = One)
+        int rc = Abi.AK_ERR_HOST;
+        try
         {
-            byte* b = len == 0 ? one : b0;
-            _fwd++;
-            int rc = Abi.ak_parse_Surrogate(_dctx, b, (nuint)len);
-            if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}");
-            byte* recs; nuint rlen;
-            _fwd++;
-            int pr = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
-            if (pr != 0) throw new InvalidOperationException($"ak_bdr_ptr failed: {pr}");
-            Replay(t, b, recs, (int)rlen);
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                _fwd++;
+                rc = Abi.ak_parse_Surrogate(_dctx, b, (nuint)len);
+                if (rc >= 0)
+                {
+                    byte* recs; nuint rlen;
+                    _fwd++;
+                    rc = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
+                    if (rc == 0) Replay(t, b, recs, (int)rlen);
+                }
+            }
         }
-        return t;
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;
+        result = t;
+        return 0;
     }
 
     private const uint OP_APPLY = 1, OP_ADD = 2, OP_NEW = 3, OP_APPLY_ELEM = 4;   // ak_bdr_rec.op
@@ -9386,8 +12505,9 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
                 case OP_ADD when outer == 0 && inner == 1:   // a root-level run
                 {
                     var xs = (ak_dfix_SurrogateAttrsEntry*)body; var lst = t.Attrs;
-                    // plan: a duplicate key replaces the earlier value.
-                    for (int i = 0; i < (int)r.n; i++) lst[G.Str(b, xs[i].key)] = G.Str(b, xs[i].value);
+                    // plan: a duplicate key replaces the earlier value. The facade map has no bag:
+                    // an entry's unknown-field buffer (decision 11) is freed (U-map-entry).
+                    for (int i = 0; i < (int)r.n; i++) { lst[G.Str(b, xs[i].key)] = G.Str(b, xs[i].value); G.Drop(ref xs[i].unknown); }
                     break;
                 }
                 case OP_ADD when outer == 0 && inner == 2:   // a root-level run
@@ -9419,6 +12539,7 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
             NativeMemory.Free(_run); _run = null;
         }
         if (_drun != null) { NativeMemory.Free(_drun); _drun = null; }
+        if (_uo != null) { NativeMemory.Free(_uo); _uo = null; }
     }
 }
 
@@ -9442,7 +12563,7 @@ public sealed unsafe class CoreFfi_SurrogateInner : IDisposable
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
-    public void CallsReset() { _fwd = 0; _rev = 0; }
+    public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
 
     public CoreFfi_SurrogateInner(bool utf16 = false)
     {
@@ -9502,7 +12623,7 @@ public sealed unsafe class CoreFfi_SurrogateInner : IDisposable
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct DecRun { public IntPtr Target; public byte* Buf; public IntPtr Pending; }
+    private struct DecRun { public IntPtr Target; public byte* Buf; }
 
     private static SurrogateInner Tgt(void* obj) => (SurrogateInner)GCHandle.FromIntPtr(((DecRun*)obj)->Target).Target;
 
@@ -9516,24 +12637,104 @@ public sealed unsafe class CoreFfi_SurrogateInner : IDisposable
 
     private static readonly byte[] One = new byte[1];
 
+    /// Decision 11: every message position of this root, in plan.unk_positions order
+    /// (the options' member order).
+    public static readonly string[] UnkPositionNames = { "self" };
+
+    /// A retained decode ended with a buffer grow handed out that no delivered group
+    /// carried back to the host: a host defect, never a core code.
+    public const int UNDELIVERED = -1001;
+    public int Undelivered { get; private set; }
+    private ak_dec_SurrogateInner_opts* _uo;
+    private HashSet<IntPtr> _live;
+    /// The resets that arm and disarm each decode (rule 7): forward crossings, counted
+    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    private static long _resets;
+    public long ResetCalls => _resets;
+
+    private void EnsureDec()
+    {
+        if (_dctx != IntPtr.Zero) return;
+        _dctx = Abi.ak_dec_ctx_new_SurrogateInner(null);   // rule 6: bound to this root, drop mode
+        if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_SurrogateInner returned NULL");
+        _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
+    }
+
+    /// The options, rewritten before every retained decode: every entry names the one
+    /// grow and holds no pre-allocated buffer (all from grow, so the core never needs
+    /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
+    private ak_dec_SurrogateInner_opts* Arm(int zero)
+    {
+        if (_uo == null) _uo = (ak_dec_SurrogateInner_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_SurrogateInner_opts));
+        *_uo = default;
+        var g = UnkHost.Fn;
+        if (zero != 0) _uo->self.grow = g;
+        return _uo;
+    }
+
+    /// mode -2: drop (reset with NULL); -1: retain everywhere; k >= 0: retain but k.
+    private int ArmFor(int mode)
+    {
+        Undelivered = 0;
+        _resets++;
+        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_SurrogateInner(_dctx, null); }
+        _live ??= new HashSet<IntPtr>();
+        _live.Clear();
+        G.Live = _live;
+        return Abi.ak_dec_reset_SurrogateInner(_dctx, Arm(mode));
+    }
+
+    /// After every decode: the core forgets the options (reset with NULL), and a buffer
+    /// still outstanding is freed; after a success that is UNDELIVERED.
+    private int Disarm(int rc)
+    {
+        _resets++;
+        Abi.ak_dec_reset_SurrogateInner(_dctx, null);
+        var live = G.Live;
+        G.Live = null;
+        if (live == null || live.Count == 0) return rc;
+        foreach (var q in live) NativeMemory.Free((void*)q);
+        int left = live.Count;
+        live.Clear();
+        if (rc < 0) return rc;
+        Undelivered = left;
+        return UNDELIVERED;
+    }
+
+    /// The zeroed-position control's expectation: the facade bags at `position` cleared.
+    public static void ClearPosition(SurrogateInner t, int position)
+    {
+        switch (position)
+        {
+            case 0:
+            {
+                t.UnknownFields = null;
+                break;
+            }
+            default: throw new ArgumentOutOfRangeException(nameof(position));
+        }
+    }
+
     public SurrogateInner Decode(byte[] src, int len) { int rc = TryDecode(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
     public SurrogateInner DecodeU(byte[] src, int len) { int rc = TryDecode(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
 
     /// The core's code (< 0) on failure; the output is then unspecified and discarded (R-G6).
-    public int TryDecode(byte[] src, int len, bool retain, out SurrogateInner result)
+    public int TryDecode(byte[] src, int len, bool retain, out SurrogateInner result) => DecodeArmed(src, len, retain ? -1 : -2, out result);
+
+    /// A control (decision 11 DISCARD): retain everywhere except `position` (an index into
+    /// UnkPositionNames), whose entry is all zero when armed.
+    public int TryDecodeZeroing(byte[] src, int len, int position, out SurrogateInner result) => DecodeArmed(src, len, position, out result);
+
+    private int DecodeArmed(byte[] src, int len, int mode, out SurrogateInner result)
     {
         result = null;
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        EnsureDec();
         Abi.ak_dec_err_reset(_dctx);
+        int ar = ArmFor(mode);
+        if (ar != 0) { Disarm(ar); return ar; }
         var target = new SurrogateInner();
-        var pend = retain ? new List<(int, long, byte[])>() : null;
         var h = GCHandle.Alloc(target);
-        var hp = retain ? GCHandle.Alloc(pend) : default;
-        int rc;
+        int rc = Abi.AK_ERR_HOST;
         try
         {
             fixed (byte* b0 = src)
@@ -9543,7 +12744,6 @@ public sealed unsafe class CoreFfi_SurrogateInner : IDisposable
                 byte* b = len == 0 ? one : b0;
                 _drun->Target = GCHandle.ToIntPtr(h);
                 _drun->Buf = b;
-                _drun->Pending = retain ? GCHandle.ToIntPtr(hp) : IntPtr.Zero;
                 var vt = new ak_dvt_SurrogateInner
                 {
                     apply = &ApplyRoot,
@@ -9553,49 +12753,47 @@ public sealed unsafe class CoreFfi_SurrogateInner : IDisposable
                 if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); if (retain) hp.Free(); }
+        finally { h.Free(); rc = Disarm(rc); }
         if (rc < 0) return rc;
-        if (retain)
-        {
-            // Applied after the decode: a capture may flush before the run that
-            // carries the element it belongs to.
-            foreach (var (slot, token, bytes) in pend)
-            {
-                switch (slot)
-                {
-                    case 0: target.UnknownFields = W.Append(target.UnknownFields, bytes, 0, bytes.Length); break;
-                    default: break;   // a map entry has no bag
-                }
-            }
-        }
         result = target;
         return 0;
     }
 
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
-    /// call), then replay it with the same group readers the push callbacks use.
-    public SurrogateInner Pull(byte[] src, int len)
+    /// call but grow), then replay it with the same group readers the push callbacks
+    /// use. The context is armed exactly as for push.
+    public SurrogateInner Pull(byte[] src, int len) { int rc = TryPull(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+    public SurrogateInner PullU(byte[] src, int len) { int rc = TryPull(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+
+    public int TryPull(byte[] src, int len, bool retain, out SurrogateInner result)
     {
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        result = null;
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
         var t = new SurrogateInner();
-        fixed (byte* b0 = src)
-        fixed (byte* one = One)
+        int rc = Abi.AK_ERR_HOST;
+        try
         {
-            byte* b = len == 0 ? one : b0;
-            _fwd++;
-            int rc = Abi.ak_parse_SurrogateInner(_dctx, b, (nuint)len);
-            if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}");
-            byte* recs; nuint rlen;
-            _fwd++;
-            int pr = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
-            if (pr != 0) throw new InvalidOperationException($"ak_bdr_ptr failed: {pr}");
-            Replay(t, b, recs, (int)rlen);
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                _fwd++;
+                rc = Abi.ak_parse_SurrogateInner(_dctx, b, (nuint)len);
+                if (rc >= 0)
+                {
+                    byte* recs; nuint rlen;
+                    _fwd++;
+                    rc = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
+                    if (rc == 0) Replay(t, b, recs, (int)rlen);
+                }
+            }
         }
-        return t;
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;
+        result = t;
+        return 0;
     }
 
     private const uint OP_APPLY = 1, OP_ADD = 2, OP_NEW = 3, OP_APPLY_ELEM = 4;   // ak_bdr_rec.op
@@ -9632,6 +12830,7 @@ public sealed unsafe class CoreFfi_SurrogateInner : IDisposable
             NativeMemory.Free(_run); _run = null;
         }
         if (_drun != null) { NativeMemory.Free(_drun); _drun = null; }
+        if (_uo != null) { NativeMemory.Free(_uo); _uo = null; }
     }
 }
 
@@ -9655,7 +12854,7 @@ public sealed unsafe class CoreFfi_WireZoo : IDisposable
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
-    public void CallsReset() { _fwd = 0; _rev = 0; }
+    public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
 
     public CoreFfi_WireZoo(bool utf16 = false)
     {
@@ -9715,7 +12914,7 @@ public sealed unsafe class CoreFfi_WireZoo : IDisposable
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct DecRun { public IntPtr Target; public byte* Buf; public IntPtr Pending; }
+    private struct DecRun { public IntPtr Target; public byte* Buf; }
 
     private static WireZoo Tgt(void* obj) => (WireZoo)GCHandle.FromIntPtr(((DecRun*)obj)->Target).Target;
 
@@ -9729,24 +12928,113 @@ public sealed unsafe class CoreFfi_WireZoo : IDisposable
 
     private static readonly byte[] One = new byte[1];
 
+    /// Decision 11: every message position of this root, in plan.unk_positions order
+    /// (the options' member order).
+    public static readonly string[] UnkPositionNames = { "self", "v_msg" };
+
+    /// A retained decode ended with a buffer grow handed out that no delivered group
+    /// carried back to the host: a host defect, never a core code.
+    public const int UNDELIVERED = -1001;
+    public int Undelivered { get; private set; }
+    private ak_dec_WireZoo_opts* _uo;
+    private HashSet<IntPtr> _live;
+    /// The resets that arm and disarm each decode (rule 7): forward crossings, counted
+    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    private static long _resets;
+    public long ResetCalls => _resets;
+
+    private void EnsureDec()
+    {
+        if (_dctx != IntPtr.Zero) return;
+        _dctx = Abi.ak_dec_ctx_new_WireZoo(null);   // rule 6: bound to this root, drop mode
+        if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_WireZoo returned NULL");
+        _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
+    }
+
+    /// The options, rewritten before every retained decode: every entry names the one
+    /// grow and holds no pre-allocated buffer (all from grow, so the core never needs
+    /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
+    private ak_dec_WireZoo_opts* Arm(int zero)
+    {
+        if (_uo == null) _uo = (ak_dec_WireZoo_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_WireZoo_opts));
+        *_uo = default;
+        var g = UnkHost.Fn;
+        if (zero != 0) _uo->self.grow = g;
+        if (zero != 1) _uo->v_msg.grow = g;
+        return _uo;
+    }
+
+    /// mode -2: drop (reset with NULL); -1: retain everywhere; k >= 0: retain but k.
+    private int ArmFor(int mode)
+    {
+        Undelivered = 0;
+        _resets++;
+        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_WireZoo(_dctx, null); }
+        _live ??= new HashSet<IntPtr>();
+        _live.Clear();
+        G.Live = _live;
+        return Abi.ak_dec_reset_WireZoo(_dctx, Arm(mode));
+    }
+
+    /// After every decode: the core forgets the options (reset with NULL), and a buffer
+    /// still outstanding is freed; after a success that is UNDELIVERED.
+    private int Disarm(int rc)
+    {
+        _resets++;
+        Abi.ak_dec_reset_WireZoo(_dctx, null);
+        var live = G.Live;
+        G.Live = null;
+        if (live == null || live.Count == 0) return rc;
+        foreach (var q in live) NativeMemory.Free((void*)q);
+        int left = live.Count;
+        live.Clear();
+        if (rc < 0) return rc;
+        Undelivered = left;
+        return UNDELIVERED;
+    }
+
+    /// The zeroed-position control's expectation: the facade bags at `position` cleared.
+    public static void ClearPosition(WireZoo t, int position)
+    {
+        switch (position)
+        {
+            case 0:
+            {
+                t.UnknownFields = null;
+                break;
+            }
+            case 1:
+            {
+                if (t.VMsg != null) { var e0 = t.VMsg;
+
+                    e0.UnknownFields = null;
+                }
+                break;
+            }
+            default: throw new ArgumentOutOfRangeException(nameof(position));
+        }
+    }
+
     public WireZoo Decode(byte[] src, int len) { int rc = TryDecode(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
     public WireZoo DecodeU(byte[] src, int len) { int rc = TryDecode(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
 
     /// The core's code (< 0) on failure; the output is then unspecified and discarded (R-G6).
-    public int TryDecode(byte[] src, int len, bool retain, out WireZoo result)
+    public int TryDecode(byte[] src, int len, bool retain, out WireZoo result) => DecodeArmed(src, len, retain ? -1 : -2, out result);
+
+    /// A control (decision 11 DISCARD): retain everywhere except `position` (an index into
+    /// UnkPositionNames), whose entry is all zero when armed.
+    public int TryDecodeZeroing(byte[] src, int len, int position, out WireZoo result) => DecodeArmed(src, len, position, out result);
+
+    private int DecodeArmed(byte[] src, int len, int mode, out WireZoo result)
     {
         result = null;
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        EnsureDec();
         Abi.ak_dec_err_reset(_dctx);
+        int ar = ArmFor(mode);
+        if (ar != 0) { Disarm(ar); return ar; }
         var target = new WireZoo();
-        var pend = retain ? new List<(int, long, byte[])>() : null;
         var h = GCHandle.Alloc(target);
-        var hp = retain ? GCHandle.Alloc(pend) : default;
-        int rc;
+        int rc = Abi.AK_ERR_HOST;
         try
         {
             fixed (byte* b0 = src)
@@ -9756,7 +13044,6 @@ public sealed unsafe class CoreFfi_WireZoo : IDisposable
                 byte* b = len == 0 ? one : b0;
                 _drun->Target = GCHandle.ToIntPtr(h);
                 _drun->Buf = b;
-                _drun->Pending = retain ? GCHandle.ToIntPtr(hp) : IntPtr.Zero;
                 var vt = new ak_dvt_WireZoo
                 {
                     apply = &ApplyRoot,
@@ -9766,49 +13053,47 @@ public sealed unsafe class CoreFfi_WireZoo : IDisposable
                 if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); if (retain) hp.Free(); }
+        finally { h.Free(); rc = Disarm(rc); }
         if (rc < 0) return rc;
-        if (retain)
-        {
-            // Applied after the decode: a capture may flush before the run that
-            // carries the element it belongs to.
-            foreach (var (slot, token, bytes) in pend)
-            {
-                switch (slot)
-                {
-                    case 0: target.UnknownFields = W.Append(target.UnknownFields, bytes, 0, bytes.Length); break;
-                    default: break;   // a map entry has no bag
-                }
-            }
-        }
         result = target;
         return 0;
     }
 
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
-    /// call), then replay it with the same group readers the push callbacks use.
-    public WireZoo Pull(byte[] src, int len)
+    /// call but grow), then replay it with the same group readers the push callbacks
+    /// use. The context is armed exactly as for push.
+    public WireZoo Pull(byte[] src, int len) { int rc = TryPull(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+    public WireZoo PullU(byte[] src, int len) { int rc = TryPull(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}"); return t; }
+
+    public int TryPull(byte[] src, int len, bool retain, out WireZoo result)
     {
-        if (_dctx == IntPtr.Zero)
-        {
-            _dctx = Abi.ak_dec_ctx_new();
-            _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-        }
+        result = null;
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
         var t = new WireZoo();
-        fixed (byte* b0 = src)
-        fixed (byte* one = One)
+        int rc = Abi.AK_ERR_HOST;
+        try
         {
-            byte* b = len == 0 ? one : b0;
-            _fwd++;
-            int rc = Abi.ak_parse_WireZoo(_dctx, b, (nuint)len);
-            if (rc < 0) throw new InvalidOperationException($"core parse failed: {rc}");
-            byte* recs; nuint rlen;
-            _fwd++;
-            int pr = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
-            if (pr != 0) throw new InvalidOperationException($"ak_bdr_ptr failed: {pr}");
-            Replay(t, b, recs, (int)rlen);
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                _fwd++;
+                rc = Abi.ak_parse_WireZoo(_dctx, b, (nuint)len);
+                if (rc >= 0)
+                {
+                    byte* recs; nuint rlen;
+                    _fwd++;
+                    rc = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
+                    if (rc == 0) Replay(t, b, recs, (int)rlen);
+                }
+            }
         }
-        return t;
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;
+        result = t;
+        return 0;
     }
 
     private const uint OP_APPLY = 1, OP_ADD = 2, OP_NEW = 3, OP_APPLY_ELEM = 4;   // ak_bdr_rec.op
@@ -9845,6 +13130,7 @@ public sealed unsafe class CoreFfi_WireZoo : IDisposable
             NativeMemory.Free(_run); _run = null;
         }
         if (_drun != null) { NativeMemory.Free(_drun); _drun = null; }
+        if (_uo != null) { NativeMemory.Free(_uo); _uo = null; }
     }
 }
 

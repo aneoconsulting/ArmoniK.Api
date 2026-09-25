@@ -158,6 +158,15 @@ public static class Cases
             ops.DecIncBest(b, b.Length, true); ops.DecHost(b, b.Length, false, true); ops.DecHost(b, b.Length, true, true);
             ops.DecFfi(b, b.Length, false, true); ops.DecFfi(b, b.Length, true, true);
             n += 5;
+            // Requirement 10 (decision 11, WP5 step 9): the timed RETAIN arms keep the unknown
+            // fields. host-gen retain and core-ffi retain re-encode to the same bytes, and to
+            // the incumbent's (Google.Protobuf retains) wherever the row's unknowns are not
+            // inside a map entry (the facade map has no bag: U-map-entry, which is disputed
+            // and never reaches this list).
+            var inc = ops.RtIncBytes(b);
+            Same(ops.RtFfi(b, b.Length, true), ops.RtHost(b, b.Length, true), id + " core-ffi retain vs host-gen retain (decode-reencode)");
+            Same(ops.RtFfi(b, b.Length, true), inc, id + " core-ffi retain vs incumbent (decode-reencode)");
+            n += 2;
         }
         return n;
     }

@@ -6,7 +6,8 @@
 //   managed-retain  the same codec with `Dec.Retain`: unknown runs captured and re-emitted
 //   ffi-drop        core-ffi against the core generated for the corpus reader schema
 //                   (`ak-core --features corpus,init-guard`), `ak_decode_*` / `ak_encode_*`
-//   ffi-retain      the same, with the capture callbacks and `ak_uencode_*`
+//   ffi-retain      the same, decision 11's options armed (every position retained through
+//                   grow) and `ak_uencode_*`
 //
 // Obligations: C1 (parse every accept row), C2 (project it; `_unknown` not compared, as the
 // contract allows), C3 (re-encode to one of `accepted_encodings`, or a re-ordering where
@@ -17,11 +18,17 @@
 //
 //   corpus [--only P1,P2] [--timeout-ms N]     the whole corpus: a verdict, exit 0/1
 //   corpus --row ID                             one row, one line per arm (the child)
+//   corpus --unk-controls [--plant]             decision 11's controls (WP5 step 9), in process:
+//                                               per-position discard, pull == push, the wrong-
+//                                               root refusal; --plant skips the expectation's
+//                                               clearing, so the discard check MUST fail
 //
 // Controls (gen/gate.sh runs each and requires it to FAIL):
 //   AK_CORPUS_PLANT=proj    a planted key in every projection      -> C2 must fail
 //   AK_CORPUS_PLANT=reenc   a byte appended to every re-encoding   -> C3 must fail
 //   AK_CORPUS_PLANT=accept  every refusal read as an acceptance    -> C4 must fail
+//   AK_CORPUS_PLANT=unkdrop ffi-retain decodes in drop mode        -> with AK_CORPUS_RETAIN_STRICT=1
+//                                                                     (retention gaps fail) must fail
 //   AK_GATE_PLANT_NO_INIT=1 the binding skips ak_init (init-guard) -> the ffi arms must fail
 
 using System;
@@ -67,6 +74,7 @@ public static class Program
             if (argv[i] == "--row") row = argv[++i];
             else if (argv[i] == "--only") only = argv[++i];
             else if (argv[i] == "--manifest") ManifestArg = argv[++i];
+            else if (argv[i] == "--unk-controls") return UnkControls(argv.Contains("--plant"), only);
             else if (argv[i] == "--timeout-ms") timeout = int.Parse(argv[++i], CultureInfo.InvariantCulture);
             else if (argv[i] == "--layout")
             {
@@ -80,6 +88,53 @@ public static class Program
             else { Console.Error.WriteLine("unknown argument " + argv[i]); return 2; }
         }
         return row != null ? Child(row) : Parent(only, timeout);
+    }
+
+    // ============================================================== decision 11's controls
+
+    private static int UnkControls(bool plant, string only)
+    {
+        var dir = Dir();
+        var man = H.Json.Parse(File.ReadAllText(Path.Combine(dir, "manifest.json")))["vectors"];
+        int rows = 0, positions = 0, changed = 0, withUnk = 0, bad = 0, pullBad = 0, errors = 0;
+        Console.WriteLine("# decision 11 (WP5 step 9): every accept row whose root crosses the C ABI; retained push is the");
+        Console.WriteLine("# reference; each position zeroed in turn must equal it with that position's bags cleared;");
+        Console.WriteLine("# pull must equal push (compared as retained re-encodings, ak_uencode_*)");
+        foreach (var id in man.Keys.OrderBy(x => x, StringComparer.Ordinal))
+        {
+            var v = man[id];
+            if (v["expect"].AsString != "accept") continue;
+            if (only != null && !only.Split(',').Any(o => id.StartsWith(o, StringComparison.Ordinal))) continue;
+            var bytes = File.ReadAllBytes(Path.Combine(dir, v["file"].AsString));
+            var root = v["root"].AsString;
+            var u = Ffi.UnkControl(root, bytes, plant);
+            if (u == null) continue;
+            rows++;
+            positions += u.Positions;
+            if (u.Error != null) { errors++; if (errors <= 12) Console.WriteLine("  ERR  {0} ({1}): {2}", id, root, u.Error); continue; }
+            changed += u.Changed.Count;
+            if (u.Changed.Count > 0) withUnk++;
+            if (u.Mismatched.Count > 0)
+            {
+                bad++;
+                if (bad <= 12) Console.WriteLine("  FAIL {0} ({1}): zeroing {2} did not drop exactly that position", id, root, string.Join(", ", u.Mismatched));
+            }
+            if (!u.PullEqual) { pullBad++; Console.WriteLine("  FAIL {0}: pull != push", id); }
+            if (id.StartsWith("U-", StringComparison.Ordinal) && (id.EndsWith("-all", StringComparison.Ordinal) || id == "U-map-entry"))
+                Console.WriteLine("  {0,-34} {1,-26} positions {2,2}, changed by zeroing {3,2} ({4})", id, root, u.Positions, u.Changed.Count, string.Join(", ", u.Changed));
+        }
+        Console.WriteLine("rows {0} (accept, root in the ABI), {1} (row, position) pairs; rows with unknowns at some position {2} ({3} pairs changed by zeroing)",
+            rows, positions, withUnk, changed);
+        Console.WriteLine("discard mismatches: {0} row(s); pull != push: {1} row(s); retained decode errors (incl. UNDELIVERED): {2}{3}",
+            bad, pullBad, errors, plant ? "   [PLANTED: the expectation's clearing skipped]" : "");
+        var w = Ffi.WrongRoot();
+        bool wrOk = w.Decode == Abi.AK_ERR_INVALID_STATE && w.Parse == Abi.AK_ERR_INVALID_STATE && w.Reset == Abi.AK_ERR_INVALID_STATE
+                    && w.OwnReset == 0 && w.OwnParse >= 0;
+        Console.WriteLine("  wrong root ({0}): decode rc {1}, parse rc {2}, reset rc {3} (AK_ERR_INVALID_STATE = {4}); own root: reset {5}, parse {6}  {7}",
+            Ffi.WrongRootPair, w.Decode, w.Parse, w.Reset, Abi.AK_ERR_INVALID_STATE, w.OwnReset, w.OwnParse, wrOk ? "PASS" : "FAIL");
+        bool ok = bad == 0 && pullBad == 0 && errors == 0 && wrOk && rows > 0;
+        Console.WriteLine(ok ? "UNK CONTROLS PASSED" : "UNK CONTROLS FAILED");
+        return ok ? 0 : 1;
     }
 
     // ============================================================== the child
@@ -127,7 +182,10 @@ public static class Program
         {
             if (!Ffi.Roots.Contains(root)) { r.Verdict = "notinabi"; r.Detail = "root " + root + " is refused by the generator"; return r; }
             int rc;
-            try { rc = Ffi.Decode(root, bytes, retain, out msg); }
+            // AK_CORPUS_PLANT=unkdrop: ffi-retain decodes in DROP mode (the 307-row regression of
+            // the transitional port): AK_CORPUS_RETAIN_STRICT must fail.
+            bool dretain = retain && !(plant == "unkdrop" && arm == "ffi-retain");
+            try { rc = Ffi.Decode(root, bytes, dretain, out msg); }
             catch (Exception ex) { rc = int.MinValue; err = "THREW " + ex.GetType().Name + ": " + ex.Message; }
             if (err == null && rc < 0) err = "core " + rc + CoreName(rc);
         }
@@ -386,6 +444,18 @@ public static class Program
         }
         Incumbent(dir, vectors, accepted);
         Console.WriteLine("# rows that hung or crashed a child: {0}", hard);
+        // AK_CORPUS_RETAIN_STRICT=1 (the gate, since decision 11's port, WP5 step 9): a retain
+        // arm that writes the dropped form on a non-disputed unknown-class row FAILS, where the
+        // contract alone would accept it as a retention gap.
+        if (Environment.GetEnvironmentVariable("AK_CORPUS_RETAIN_STRICT") == "1")
+        {
+            int gaps = 0;
+            foreach (var arm in Arms)
+                if (tallies.TryGetValue(arm, out var tt) && tt.RetainGap.Count != 0)
+                { gaps += tt.RetainGap.Count; Console.WriteLine("RETAIN STRICT: {0} wrote the dropped form on {1} row(s)", arm, tt.RetainGap.Count); }
+            Console.WriteLine("retain strict (AK_CORPUS_RETAIN_STRICT=1): {0}", gaps == 0 ? "no retain arm wrote the dropped form on a non-disputed row" : gaps + " gap(s): FAIL");
+            if (gaps != 0) total += gaps;
+        }
         if (total == 0 && hard == 0) { Console.WriteLine("CORPUS PASSES on all four arms"); return 0; }
         Console.WriteLine("CORPUS FAILS: {0} arm-row failure(s), {1} hang/crash row(s)", total, hard);
         return 1;

@@ -39,7 +39,8 @@ public static class LayoutCompare
                 if (cs[n].Size != rust[n].Size) { Console.WriteLine("  FAIL {0}.{1}: size Rust {2}, C# {3}", s.Name, n, rust[n].Size, cs[n].Size); bad++; }
             }
         }
-        var must = new Regex("^ak_[edu]fix_|^ak_[ed]vt_");
+        // decision 11: the per-root options struct must be bound too (WP5 step 9).
+        var must = new Regex("^ak_[edu]fix_|^ak_[ed]vt_|^ak_dec_\\w+_opts$");
         var unbound = new List<string>();
         foreach (var n in probe.Keys)
         {

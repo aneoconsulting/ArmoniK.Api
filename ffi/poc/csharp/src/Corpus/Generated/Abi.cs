@@ -57,6 +57,16 @@ public struct ak_unk_opts
     public IntPtr grow;
 }
 
+/// Decision 11 rule 1: a REPEATED position's configuration: buffers taken in order,
+/// cleared in place as they are taken; `grow` the fallback.
+[StructLayout(LayoutKind.Sequential)]
+public struct ak_unk_pool
+{
+    public IntPtr bufs;
+    public uint n;
+    public IntPtr grow;
+}
+
 /// ak_init's out-parameter (ABI v1 section 3/5): a code and a detail.
 [StructLayout(LayoutKind.Sequential)]
 public struct ak_err
@@ -1548,6 +1558,341 @@ public unsafe struct ak_dvt_SurrogateAttrsEntry
     public delegate* unmanaged[Cdecl]<IntPtr, void*, ak_dfix_SurrogateAttrsEntry*, void> apply;
 }
 
+/// Decision 11: Timestamp's unknown-field configuration, read IN PLACE by the core from
+/// the reset that arms it until the next reset (plan.unk_opts_layout).
+[StructLayout(LayoutKind.Sequential)]
+public struct ak_dec_Timestamp_opts
+{
+    public IntPtr host;
+    public ak_unk_opts self;
+}
+
+/// Decision 11: Duration's unknown-field configuration, read IN PLACE by the core from
+/// the reset that arms it until the next reset (plan.unk_opts_layout).
+[StructLayout(LayoutKind.Sequential)]
+public struct ak_dec_Duration_opts
+{
+    public IntPtr host;
+    public ak_unk_opts self;
+}
+
+/// Decision 11: ResultRaw's unknown-field configuration, read IN PLACE by the core from
+/// the reset that arms it until the next reset (plan.unk_opts_layout).
+[StructLayout(LayoutKind.Sequential)]
+public struct ak_dec_ResultRaw_opts
+{
+    public IntPtr host;
+    public ak_unk_opts self;
+    public ak_unk_opts created_at;
+    public ak_unk_opts completed_at;
+}
+
+/// Decision 11: TaskOptions's unknown-field configuration, read IN PLACE by the core
+/// from the reset that arms it until the next reset (plan.unk_opts_layout).
+[StructLayout(LayoutKind.Sequential)]
+public struct ak_dec_TaskOptions_opts
+{
+    public IntPtr host;
+    public ak_unk_opts self;
+    public ak_unk_pool options;
+    public ak_unk_opts max_duration;
+}
+
+/// Decision 11: TaskOutput's unknown-field configuration, read IN PLACE by the core
+/// from the reset that arms it until the next reset (plan.unk_opts_layout).
+[StructLayout(LayoutKind.Sequential)]
+public struct ak_dec_TaskOutput_opts
+{
+    public IntPtr host;
+    public ak_unk_opts self;
+}
+
+/// Decision 11: TaskDetailed's unknown-field configuration, read IN PLACE by the core
+/// from the reset that arms it until the next reset (plan.unk_opts_layout).
+[StructLayout(LayoutKind.Sequential)]
+public struct ak_dec_TaskDetailed_opts
+{
+    public IntPtr host;
+    public ak_unk_opts self;
+    public ak_unk_opts options;
+    public ak_unk_pool options_options;
+    public ak_unk_opts options_max_duration;
+    public ak_unk_opts created_at;
+    public ak_unk_opts submitted_at;
+    public ak_unk_opts started_at;
+    public ak_unk_opts ended_at;
+    public ak_unk_opts pod_ttl;
+    public ak_unk_opts output;
+    public ak_unk_opts received_at;
+    public ak_unk_opts acquired_at;
+    public ak_unk_opts creation_to_end_duration;
+    public ak_unk_opts processing_to_end_duration;
+    public ak_unk_opts received_to_end_duration;
+    public ak_unk_opts processed_at;
+    public ak_unk_opts fetched_at;
+}
+
+/// Decision 11: TaskSummary's unknown-field configuration, read IN PLACE by the core
+/// from the reset that arms it until the next reset (plan.unk_opts_layout).
+[StructLayout(LayoutKind.Sequential)]
+public struct ak_dec_TaskSummary_opts
+{
+    public IntPtr host;
+    public ak_unk_opts self;
+    public ak_unk_opts options;
+    public ak_unk_pool options_options;
+    public ak_unk_opts options_max_duration;
+    public ak_unk_opts created_at;
+}
+
+/// Decision 11: Probe's unknown-field configuration, read IN PLACE by the core from the
+/// reset that arms it until the next reset (plan.unk_opts_layout).
+[StructLayout(LayoutKind.Sequential)]
+public struct ak_dec_Probe_opts
+{
+    public IntPtr host;
+    public ak_unk_opts self;
+    public ak_unk_opts body;
+}
+
+/// Decision 11: Empty's unknown-field configuration, read IN PLACE by the core from the
+/// reset that arms it until the next reset (plan.unk_opts_layout).
+[StructLayout(LayoutKind.Sequential)]
+public struct ak_dec_Empty_opts
+{
+    public IntPtr host;
+    public ak_unk_opts self;
+}
+
+/// Decision 11: UploadResultData's unknown-field configuration, read IN PLACE by the
+/// core from the reset that arms it until the next reset (plan.unk_opts_layout).
+[StructLayout(LayoutKind.Sequential)]
+public struct ak_dec_UploadResultData_opts
+{
+    public IntPtr host;
+    public ak_unk_opts self;
+}
+
+/// Decision 11: MetricsBatch's unknown-field configuration, read IN PLACE by the core
+/// from the reset that arms it until the next reset (plan.unk_opts_layout).
+[StructLayout(LayoutKind.Sequential)]
+public struct ak_dec_MetricsBatch_opts
+{
+    public IntPtr host;
+    public ak_unk_opts self;
+}
+
+/// Decision 11: Pair's unknown-field configuration, read IN PLACE by the core from the
+/// reset that arms it until the next reset (plan.unk_opts_layout).
+[StructLayout(LayoutKind.Sequential)]
+public struct ak_dec_Pair_opts
+{
+    public IntPtr host;
+    public ak_unk_opts self;
+}
+
+/// Decision 11: ListResultsResponse's unknown-field configuration, read IN PLACE by the
+/// core from the reset that arms it until the next reset (plan.unk_opts_layout).
+[StructLayout(LayoutKind.Sequential)]
+public struct ak_dec_ListResultsResponse_opts
+{
+    public IntPtr host;
+    public ak_unk_opts self;
+    public ak_unk_pool results;
+    public ak_unk_pool results_created_at;
+    public ak_unk_pool results_completed_at;
+}
+
+/// Decision 11: ListTasksDetailedResponse's unknown-field configuration, read IN PLACE
+/// by the core from the reset that arms it until the next reset (plan.unk_opts_layout).
+[StructLayout(LayoutKind.Sequential)]
+public struct ak_dec_ListTasksDetailedResponse_opts
+{
+    public IntPtr host;
+    public ak_unk_opts self;
+    public ak_unk_pool tasks;
+    public ak_unk_pool tasks_options;
+    public ak_unk_pool tasks_options_options;
+    public ak_unk_pool tasks_options_max_duration;
+    public ak_unk_pool tasks_created_at;
+    public ak_unk_pool tasks_submitted_at;
+    public ak_unk_pool tasks_started_at;
+    public ak_unk_pool tasks_ended_at;
+    public ak_unk_pool tasks_pod_ttl;
+    public ak_unk_pool tasks_output;
+    public ak_unk_pool tasks_received_at;
+    public ak_unk_pool tasks_acquired_at;
+    public ak_unk_pool tasks_creation_to_end_duration;
+    public ak_unk_pool tasks_processing_to_end_duration;
+    public ak_unk_pool tasks_received_to_end_duration;
+    public ak_unk_pool tasks_processed_at;
+    public ak_unk_pool tasks_fetched_at;
+}
+
+/// Decision 11: ListTaskSummaryResponse's unknown-field configuration, read IN PLACE by
+/// the core from the reset that arms it until the next reset (plan.unk_opts_layout).
+[StructLayout(LayoutKind.Sequential)]
+public struct ak_dec_ListTaskSummaryResponse_opts
+{
+    public IntPtr host;
+    public ak_unk_opts self;
+    public ak_unk_pool tasks;
+    public ak_unk_pool tasks_options;
+    public ak_unk_pool tasks_options_options;
+    public ak_unk_pool tasks_options_max_duration;
+    public ak_unk_pool tasks_created_at;
+}
+
+/// Decision 11: ListProbeResponse's unknown-field configuration, read IN PLACE by the
+/// core from the reset that arms it until the next reset (plan.unk_opts_layout).
+[StructLayout(LayoutKind.Sequential)]
+public struct ak_dec_ListProbeResponse_opts
+{
+    public IntPtr host;
+    public ak_unk_opts self;
+    public ak_unk_pool probes;
+    public ak_unk_pool probes_body;
+}
+
+/// Decision 11: ListMetricsResponse's unknown-field configuration, read IN PLACE by the
+/// core from the reset that arms it until the next reset (plan.unk_opts_layout).
+[StructLayout(LayoutKind.Sequential)]
+public struct ak_dec_ListMetricsResponse_opts
+{
+    public IntPtr host;
+    public ak_unk_opts self;
+    public ak_unk_pool batches;
+}
+
+/// Decision 11: UploadResultDataMessage's unknown-field configuration, read IN PLACE by
+/// the core from the reset that arms it until the next reset (plan.unk_opts_layout).
+[StructLayout(LayoutKind.Sequential)]
+public struct ak_dec_UploadResultDataMessage_opts
+{
+    public IntPtr host;
+    public ak_unk_opts self;
+    public ak_unk_opts upload;
+}
+
+/// Decision 11: DualResponse's unknown-field configuration, read IN PLACE by the core
+/// from the reset that arms it until the next reset (plan.unk_opts_layout).
+[StructLayout(LayoutKind.Sequential)]
+public struct ak_dec_DualResponse_opts
+{
+    public IntPtr host;
+    public ak_unk_opts self;
+    public ak_unk_pool left;
+    public ak_unk_pool right;
+}
+
+/// Decision 11: ChunkLeaf's unknown-field configuration, read IN PLACE by the core from
+/// the reset that arms it until the next reset (plan.unk_opts_layout).
+[StructLayout(LayoutKind.Sequential)]
+public struct ak_dec_ChunkLeaf_opts
+{
+    public IntPtr host;
+    public ak_unk_opts self;
+}
+
+/// Decision 11: ChunkInner's unknown-field configuration, read IN PLACE by the core
+/// from the reset that arms it until the next reset (plan.unk_opts_layout).
+[StructLayout(LayoutKind.Sequential)]
+public struct ak_dec_ChunkInner_opts
+{
+    public IntPtr host;
+    public ak_unk_opts self;
+    public ak_unk_pool leaves;
+}
+
+/// Decision 11: ChunkElement's unknown-field configuration, read IN PLACE by the core
+/// from the reset that arms it until the next reset (plan.unk_opts_layout).
+[StructLayout(LayoutKind.Sequential)]
+public struct ak_dec_ChunkElement_opts
+{
+    public IntPtr host;
+    public ak_unk_opts self;
+    public ak_unk_pool attrs;
+    public ak_unk_opts inner;
+    public ak_unk_pool inner_leaves;
+}
+
+/// Decision 11: ChunkedResponse's unknown-field configuration, read IN PLACE by the
+/// core from the reset that arms it until the next reset (plan.unk_opts_layout).
+[StructLayout(LayoutKind.Sequential)]
+public struct ak_dec_ChunkedResponse_opts
+{
+    public IntPtr host;
+    public ak_unk_opts self;
+    public ak_unk_pool items;
+    public ak_unk_pool items_attrs;
+    public ak_unk_pool items_inner;
+    public ak_unk_pool items_inner_leaves;
+}
+
+/// Decision 11: ChunkedResponseWide's unknown-field configuration, read IN PLACE by the
+/// core from the reset that arms it until the next reset (plan.unk_opts_layout).
+[StructLayout(LayoutKind.Sequential)]
+public struct ak_dec_ChunkedResponseWide_opts
+{
+    public IntPtr host;
+    public ak_unk_opts self;
+    public ak_unk_pool items;
+    public ak_unk_pool items_attrs;
+    public ak_unk_pool items_inner;
+    public ak_unk_pool items_inner_leaves;
+}
+
+/// Decision 11: LeafElement's unknown-field configuration, read IN PLACE by the core
+/// from the reset that arms it until the next reset (plan.unk_opts_layout).
+[StructLayout(LayoutKind.Sequential)]
+public struct ak_dec_LeafElement_opts
+{
+    public IntPtr host;
+    public ak_unk_opts self;
+    public ak_unk_opts stamp;
+}
+
+/// Decision 11: LeafResponse's unknown-field configuration, read IN PLACE by the core
+/// from the reset that arms it until the next reset (plan.unk_opts_layout).
+[StructLayout(LayoutKind.Sequential)]
+public struct ak_dec_LeafResponse_opts
+{
+    public IntPtr host;
+    public ak_unk_opts self;
+    public ak_unk_pool items;
+    public ak_unk_pool items_stamp;
+}
+
+/// Decision 11: Surrogate's unknown-field configuration, read IN PLACE by the core from
+/// the reset that arms it until the next reset (plan.unk_opts_layout).
+[StructLayout(LayoutKind.Sequential)]
+public struct ak_dec_Surrogate_opts
+{
+    public IntPtr host;
+    public ak_unk_opts self;
+    public ak_unk_opts nested;
+    public ak_unk_pool attrs;
+}
+
+/// Decision 11: SurrogateInner's unknown-field configuration, read IN PLACE by the core
+/// from the reset that arms it until the next reset (plan.unk_opts_layout).
+[StructLayout(LayoutKind.Sequential)]
+public struct ak_dec_SurrogateInner_opts
+{
+    public IntPtr host;
+    public ak_unk_opts self;
+}
+
+/// Decision 11: WireZoo's unknown-field configuration, read IN PLACE by the core from
+/// the reset that arms it until the next reset (plan.unk_opts_layout).
+[StructLayout(LayoutKind.Sequential)]
+public struct ak_dec_WireZoo_opts
+{
+    public IntPtr host;
+    public ak_unk_opts self;
+    public ak_unk_opts v_msg;
+}
+
 /// ABI v1 section 6: plain exports, declared per symbol, so a missing one is a load
 /// failure. Every declaration carries both language levels.
 public static unsafe partial class Abi
@@ -1658,14 +2003,6 @@ public static unsafe partial class Abi
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern int ak_enc_take(IntPtr ctx, byte** ptr, nuint* len);
-#endif
-#if NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial IntPtr ak_dec_ctx_new();
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern IntPtr ak_dec_ctx_new();
 #endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
@@ -3051,6 +3388,470 @@ public static unsafe partial class Abi
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern int ak_uelemu_TaskSummary(IntPtr ctx, ak_ufix_TaskSummary* elems, int n, long tok0);
 #endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr ak_dec_ctx_new_Timestamp(ak_dec_Timestamp_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern IntPtr ak_dec_ctx_new_Timestamp(ak_dec_Timestamp_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial int ak_dec_reset_Timestamp(IntPtr ctx, ak_dec_Timestamp_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ak_dec_reset_Timestamp(IntPtr ctx, ak_dec_Timestamp_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr ak_dec_ctx_new_Duration(ak_dec_Duration_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern IntPtr ak_dec_ctx_new_Duration(ak_dec_Duration_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial int ak_dec_reset_Duration(IntPtr ctx, ak_dec_Duration_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ak_dec_reset_Duration(IntPtr ctx, ak_dec_Duration_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr ak_dec_ctx_new_ResultRaw(ak_dec_ResultRaw_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern IntPtr ak_dec_ctx_new_ResultRaw(ak_dec_ResultRaw_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial int ak_dec_reset_ResultRaw(IntPtr ctx, ak_dec_ResultRaw_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ak_dec_reset_ResultRaw(IntPtr ctx, ak_dec_ResultRaw_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr ak_dec_ctx_new_TaskOptions(ak_dec_TaskOptions_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern IntPtr ak_dec_ctx_new_TaskOptions(ak_dec_TaskOptions_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial int ak_dec_reset_TaskOptions(IntPtr ctx, ak_dec_TaskOptions_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ak_dec_reset_TaskOptions(IntPtr ctx, ak_dec_TaskOptions_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr ak_dec_ctx_new_TaskOutput(ak_dec_TaskOutput_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern IntPtr ak_dec_ctx_new_TaskOutput(ak_dec_TaskOutput_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial int ak_dec_reset_TaskOutput(IntPtr ctx, ak_dec_TaskOutput_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ak_dec_reset_TaskOutput(IntPtr ctx, ak_dec_TaskOutput_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr ak_dec_ctx_new_TaskDetailed(ak_dec_TaskDetailed_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern IntPtr ak_dec_ctx_new_TaskDetailed(ak_dec_TaskDetailed_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial int ak_dec_reset_TaskDetailed(IntPtr ctx, ak_dec_TaskDetailed_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ak_dec_reset_TaskDetailed(IntPtr ctx, ak_dec_TaskDetailed_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr ak_dec_ctx_new_TaskSummary(ak_dec_TaskSummary_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern IntPtr ak_dec_ctx_new_TaskSummary(ak_dec_TaskSummary_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial int ak_dec_reset_TaskSummary(IntPtr ctx, ak_dec_TaskSummary_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ak_dec_reset_TaskSummary(IntPtr ctx, ak_dec_TaskSummary_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr ak_dec_ctx_new_Probe(ak_dec_Probe_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern IntPtr ak_dec_ctx_new_Probe(ak_dec_Probe_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial int ak_dec_reset_Probe(IntPtr ctx, ak_dec_Probe_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ak_dec_reset_Probe(IntPtr ctx, ak_dec_Probe_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr ak_dec_ctx_new_Empty(ak_dec_Empty_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern IntPtr ak_dec_ctx_new_Empty(ak_dec_Empty_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial int ak_dec_reset_Empty(IntPtr ctx, ak_dec_Empty_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ak_dec_reset_Empty(IntPtr ctx, ak_dec_Empty_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr ak_dec_ctx_new_UploadResultData(ak_dec_UploadResultData_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern IntPtr ak_dec_ctx_new_UploadResultData(ak_dec_UploadResultData_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial int ak_dec_reset_UploadResultData(IntPtr ctx, ak_dec_UploadResultData_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ak_dec_reset_UploadResultData(IntPtr ctx, ak_dec_UploadResultData_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr ak_dec_ctx_new_MetricsBatch(ak_dec_MetricsBatch_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern IntPtr ak_dec_ctx_new_MetricsBatch(ak_dec_MetricsBatch_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial int ak_dec_reset_MetricsBatch(IntPtr ctx, ak_dec_MetricsBatch_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ak_dec_reset_MetricsBatch(IntPtr ctx, ak_dec_MetricsBatch_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr ak_dec_ctx_new_Pair(ak_dec_Pair_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern IntPtr ak_dec_ctx_new_Pair(ak_dec_Pair_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial int ak_dec_reset_Pair(IntPtr ctx, ak_dec_Pair_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ak_dec_reset_Pair(IntPtr ctx, ak_dec_Pair_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr ak_dec_ctx_new_ListResultsResponse(ak_dec_ListResultsResponse_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern IntPtr ak_dec_ctx_new_ListResultsResponse(ak_dec_ListResultsResponse_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial int ak_dec_reset_ListResultsResponse(IntPtr ctx, ak_dec_ListResultsResponse_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ak_dec_reset_ListResultsResponse(IntPtr ctx, ak_dec_ListResultsResponse_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr ak_dec_ctx_new_ListTasksDetailedResponse(ak_dec_ListTasksDetailedResponse_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern IntPtr ak_dec_ctx_new_ListTasksDetailedResponse(ak_dec_ListTasksDetailedResponse_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial int ak_dec_reset_ListTasksDetailedResponse(IntPtr ctx, ak_dec_ListTasksDetailedResponse_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ak_dec_reset_ListTasksDetailedResponse(IntPtr ctx, ak_dec_ListTasksDetailedResponse_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr ak_dec_ctx_new_ListTaskSummaryResponse(ak_dec_ListTaskSummaryResponse_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern IntPtr ak_dec_ctx_new_ListTaskSummaryResponse(ak_dec_ListTaskSummaryResponse_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial int ak_dec_reset_ListTaskSummaryResponse(IntPtr ctx, ak_dec_ListTaskSummaryResponse_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ak_dec_reset_ListTaskSummaryResponse(IntPtr ctx, ak_dec_ListTaskSummaryResponse_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr ak_dec_ctx_new_ListProbeResponse(ak_dec_ListProbeResponse_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern IntPtr ak_dec_ctx_new_ListProbeResponse(ak_dec_ListProbeResponse_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial int ak_dec_reset_ListProbeResponse(IntPtr ctx, ak_dec_ListProbeResponse_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ak_dec_reset_ListProbeResponse(IntPtr ctx, ak_dec_ListProbeResponse_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr ak_dec_ctx_new_ListMetricsResponse(ak_dec_ListMetricsResponse_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern IntPtr ak_dec_ctx_new_ListMetricsResponse(ak_dec_ListMetricsResponse_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial int ak_dec_reset_ListMetricsResponse(IntPtr ctx, ak_dec_ListMetricsResponse_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ak_dec_reset_ListMetricsResponse(IntPtr ctx, ak_dec_ListMetricsResponse_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr ak_dec_ctx_new_UploadResultDataMessage(ak_dec_UploadResultDataMessage_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern IntPtr ak_dec_ctx_new_UploadResultDataMessage(ak_dec_UploadResultDataMessage_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial int ak_dec_reset_UploadResultDataMessage(IntPtr ctx, ak_dec_UploadResultDataMessage_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ak_dec_reset_UploadResultDataMessage(IntPtr ctx, ak_dec_UploadResultDataMessage_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr ak_dec_ctx_new_DualResponse(ak_dec_DualResponse_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern IntPtr ak_dec_ctx_new_DualResponse(ak_dec_DualResponse_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial int ak_dec_reset_DualResponse(IntPtr ctx, ak_dec_DualResponse_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ak_dec_reset_DualResponse(IntPtr ctx, ak_dec_DualResponse_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr ak_dec_ctx_new_ChunkLeaf(ak_dec_ChunkLeaf_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern IntPtr ak_dec_ctx_new_ChunkLeaf(ak_dec_ChunkLeaf_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial int ak_dec_reset_ChunkLeaf(IntPtr ctx, ak_dec_ChunkLeaf_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ak_dec_reset_ChunkLeaf(IntPtr ctx, ak_dec_ChunkLeaf_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr ak_dec_ctx_new_ChunkInner(ak_dec_ChunkInner_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern IntPtr ak_dec_ctx_new_ChunkInner(ak_dec_ChunkInner_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial int ak_dec_reset_ChunkInner(IntPtr ctx, ak_dec_ChunkInner_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ak_dec_reset_ChunkInner(IntPtr ctx, ak_dec_ChunkInner_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr ak_dec_ctx_new_ChunkElement(ak_dec_ChunkElement_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern IntPtr ak_dec_ctx_new_ChunkElement(ak_dec_ChunkElement_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial int ak_dec_reset_ChunkElement(IntPtr ctx, ak_dec_ChunkElement_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ak_dec_reset_ChunkElement(IntPtr ctx, ak_dec_ChunkElement_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr ak_dec_ctx_new_ChunkedResponse(ak_dec_ChunkedResponse_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern IntPtr ak_dec_ctx_new_ChunkedResponse(ak_dec_ChunkedResponse_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial int ak_dec_reset_ChunkedResponse(IntPtr ctx, ak_dec_ChunkedResponse_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ak_dec_reset_ChunkedResponse(IntPtr ctx, ak_dec_ChunkedResponse_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr ak_dec_ctx_new_ChunkedResponseWide(ak_dec_ChunkedResponseWide_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern IntPtr ak_dec_ctx_new_ChunkedResponseWide(ak_dec_ChunkedResponseWide_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial int ak_dec_reset_ChunkedResponseWide(IntPtr ctx, ak_dec_ChunkedResponseWide_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ak_dec_reset_ChunkedResponseWide(IntPtr ctx, ak_dec_ChunkedResponseWide_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr ak_dec_ctx_new_LeafElement(ak_dec_LeafElement_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern IntPtr ak_dec_ctx_new_LeafElement(ak_dec_LeafElement_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial int ak_dec_reset_LeafElement(IntPtr ctx, ak_dec_LeafElement_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ak_dec_reset_LeafElement(IntPtr ctx, ak_dec_LeafElement_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr ak_dec_ctx_new_LeafResponse(ak_dec_LeafResponse_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern IntPtr ak_dec_ctx_new_LeafResponse(ak_dec_LeafResponse_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial int ak_dec_reset_LeafResponse(IntPtr ctx, ak_dec_LeafResponse_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ak_dec_reset_LeafResponse(IntPtr ctx, ak_dec_LeafResponse_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr ak_dec_ctx_new_Surrogate(ak_dec_Surrogate_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern IntPtr ak_dec_ctx_new_Surrogate(ak_dec_Surrogate_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial int ak_dec_reset_Surrogate(IntPtr ctx, ak_dec_Surrogate_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ak_dec_reset_Surrogate(IntPtr ctx, ak_dec_Surrogate_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr ak_dec_ctx_new_SurrogateInner(ak_dec_SurrogateInner_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern IntPtr ak_dec_ctx_new_SurrogateInner(ak_dec_SurrogateInner_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial int ak_dec_reset_SurrogateInner(IntPtr ctx, ak_dec_SurrogateInner_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ak_dec_reset_SurrogateInner(IntPtr ctx, ak_dec_SurrogateInner_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr ak_dec_ctx_new_WireZoo(ak_dec_WireZoo_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern IntPtr ak_dec_ctx_new_WireZoo(ak_dec_WireZoo_opts* opts);
+#endif
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial int ak_dec_reset_WireZoo(IntPtr ctx, ak_dec_WireZoo_opts* opts);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ak_dec_reset_WireZoo(IntPtr ctx, ak_dec_WireZoo_opts* opts);
+#endif
 }
 
 /// ABI v1 section 3, rendered from plan.lifecycle: `ak_init` with `AK_INIT_NO_CRYPTO |
@@ -3125,6 +3926,14 @@ public static unsafe class AbiLayout
             var s = new S { Name = "ak_unk_opts", Size = sizeof(ak_unk_opts), Fields = typeof(ak_unk_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
             var v = default(ak_unk_opts); ak_unk_opts* z = &v;
             s.F.Add(("buf", (int)((byte*)&z->buf - (byte*)z), Fsz(&z->buf)));
+            s.F.Add(("grow", (int)((byte*)&z->grow - (byte*)z), Fsz(&z->grow)));
+            all.Add(s);
+        }
+        {
+            var s = new S { Name = "ak_unk_pool", Size = sizeof(ak_unk_pool), Fields = typeof(ak_unk_pool).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
+            var v = default(ak_unk_pool); ak_unk_pool* z = &v;
+            s.F.Add(("bufs", (int)((byte*)&z->bufs - (byte*)z), Fsz(&z->bufs)));
+            s.F.Add(("n", (int)((byte*)&z->n - (byte*)z), Fsz(&z->n)));
             s.F.Add(("grow", (int)((byte*)&z->grow - (byte*)z), Fsz(&z->grow)));
             all.Add(s);
         }
@@ -4578,6 +5387,283 @@ public static unsafe class AbiLayout
             var s = new S { Name = "ak_dvt_SurrogateAttrsEntry", Size = sizeof(ak_dvt_SurrogateAttrsEntry), Fields = typeof(ak_dvt_SurrogateAttrsEntry).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
             var v = default(ak_dvt_SurrogateAttrsEntry); ak_dvt_SurrogateAttrsEntry* z = &v;
             s.F.Add(("apply", (int)((byte*)&z->apply - (byte*)z), sizeof(IntPtr)));
+            all.Add(s);
+        }
+        {
+            var s = new S { Name = "ak_dec_Timestamp_opts", Size = sizeof(ak_dec_Timestamp_opts), Fields = typeof(ak_dec_Timestamp_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
+            var v = default(ak_dec_Timestamp_opts); ak_dec_Timestamp_opts* z = &v;
+            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
+            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
+            all.Add(s);
+        }
+        {
+            var s = new S { Name = "ak_dec_Duration_opts", Size = sizeof(ak_dec_Duration_opts), Fields = typeof(ak_dec_Duration_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
+            var v = default(ak_dec_Duration_opts); ak_dec_Duration_opts* z = &v;
+            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
+            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
+            all.Add(s);
+        }
+        {
+            var s = new S { Name = "ak_dec_ResultRaw_opts", Size = sizeof(ak_dec_ResultRaw_opts), Fields = typeof(ak_dec_ResultRaw_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
+            var v = default(ak_dec_ResultRaw_opts); ak_dec_ResultRaw_opts* z = &v;
+            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
+            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
+            s.F.Add(("created_at", (int)((byte*)&z->created_at - (byte*)z), Fsz(&z->created_at)));
+            s.F.Add(("completed_at", (int)((byte*)&z->completed_at - (byte*)z), Fsz(&z->completed_at)));
+            all.Add(s);
+        }
+        {
+            var s = new S { Name = "ak_dec_TaskOptions_opts", Size = sizeof(ak_dec_TaskOptions_opts), Fields = typeof(ak_dec_TaskOptions_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
+            var v = default(ak_dec_TaskOptions_opts); ak_dec_TaskOptions_opts* z = &v;
+            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
+            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
+            s.F.Add(("options", (int)((byte*)&z->options - (byte*)z), Fsz(&z->options)));
+            s.F.Add(("max_duration", (int)((byte*)&z->max_duration - (byte*)z), Fsz(&z->max_duration)));
+            all.Add(s);
+        }
+        {
+            var s = new S { Name = "ak_dec_TaskOutput_opts", Size = sizeof(ak_dec_TaskOutput_opts), Fields = typeof(ak_dec_TaskOutput_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
+            var v = default(ak_dec_TaskOutput_opts); ak_dec_TaskOutput_opts* z = &v;
+            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
+            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
+            all.Add(s);
+        }
+        {
+            var s = new S { Name = "ak_dec_TaskDetailed_opts", Size = sizeof(ak_dec_TaskDetailed_opts), Fields = typeof(ak_dec_TaskDetailed_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
+            var v = default(ak_dec_TaskDetailed_opts); ak_dec_TaskDetailed_opts* z = &v;
+            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
+            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
+            s.F.Add(("options", (int)((byte*)&z->options - (byte*)z), Fsz(&z->options)));
+            s.F.Add(("options_options", (int)((byte*)&z->options_options - (byte*)z), Fsz(&z->options_options)));
+            s.F.Add(("options_max_duration", (int)((byte*)&z->options_max_duration - (byte*)z), Fsz(&z->options_max_duration)));
+            s.F.Add(("created_at", (int)((byte*)&z->created_at - (byte*)z), Fsz(&z->created_at)));
+            s.F.Add(("submitted_at", (int)((byte*)&z->submitted_at - (byte*)z), Fsz(&z->submitted_at)));
+            s.F.Add(("started_at", (int)((byte*)&z->started_at - (byte*)z), Fsz(&z->started_at)));
+            s.F.Add(("ended_at", (int)((byte*)&z->ended_at - (byte*)z), Fsz(&z->ended_at)));
+            s.F.Add(("pod_ttl", (int)((byte*)&z->pod_ttl - (byte*)z), Fsz(&z->pod_ttl)));
+            s.F.Add(("output", (int)((byte*)&z->output - (byte*)z), Fsz(&z->output)));
+            s.F.Add(("received_at", (int)((byte*)&z->received_at - (byte*)z), Fsz(&z->received_at)));
+            s.F.Add(("acquired_at", (int)((byte*)&z->acquired_at - (byte*)z), Fsz(&z->acquired_at)));
+            s.F.Add(("creation_to_end_duration", (int)((byte*)&z->creation_to_end_duration - (byte*)z), Fsz(&z->creation_to_end_duration)));
+            s.F.Add(("processing_to_end_duration", (int)((byte*)&z->processing_to_end_duration - (byte*)z), Fsz(&z->processing_to_end_duration)));
+            s.F.Add(("received_to_end_duration", (int)((byte*)&z->received_to_end_duration - (byte*)z), Fsz(&z->received_to_end_duration)));
+            s.F.Add(("processed_at", (int)((byte*)&z->processed_at - (byte*)z), Fsz(&z->processed_at)));
+            s.F.Add(("fetched_at", (int)((byte*)&z->fetched_at - (byte*)z), Fsz(&z->fetched_at)));
+            all.Add(s);
+        }
+        {
+            var s = new S { Name = "ak_dec_TaskSummary_opts", Size = sizeof(ak_dec_TaskSummary_opts), Fields = typeof(ak_dec_TaskSummary_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
+            var v = default(ak_dec_TaskSummary_opts); ak_dec_TaskSummary_opts* z = &v;
+            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
+            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
+            s.F.Add(("options", (int)((byte*)&z->options - (byte*)z), Fsz(&z->options)));
+            s.F.Add(("options_options", (int)((byte*)&z->options_options - (byte*)z), Fsz(&z->options_options)));
+            s.F.Add(("options_max_duration", (int)((byte*)&z->options_max_duration - (byte*)z), Fsz(&z->options_max_duration)));
+            s.F.Add(("created_at", (int)((byte*)&z->created_at - (byte*)z), Fsz(&z->created_at)));
+            all.Add(s);
+        }
+        {
+            var s = new S { Name = "ak_dec_Probe_opts", Size = sizeof(ak_dec_Probe_opts), Fields = typeof(ak_dec_Probe_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
+            var v = default(ak_dec_Probe_opts); ak_dec_Probe_opts* z = &v;
+            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
+            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
+            s.F.Add(("body", (int)((byte*)&z->body - (byte*)z), Fsz(&z->body)));
+            all.Add(s);
+        }
+        {
+            var s = new S { Name = "ak_dec_Empty_opts", Size = sizeof(ak_dec_Empty_opts), Fields = typeof(ak_dec_Empty_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
+            var v = default(ak_dec_Empty_opts); ak_dec_Empty_opts* z = &v;
+            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
+            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
+            all.Add(s);
+        }
+        {
+            var s = new S { Name = "ak_dec_UploadResultData_opts", Size = sizeof(ak_dec_UploadResultData_opts), Fields = typeof(ak_dec_UploadResultData_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
+            var v = default(ak_dec_UploadResultData_opts); ak_dec_UploadResultData_opts* z = &v;
+            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
+            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
+            all.Add(s);
+        }
+        {
+            var s = new S { Name = "ak_dec_MetricsBatch_opts", Size = sizeof(ak_dec_MetricsBatch_opts), Fields = typeof(ak_dec_MetricsBatch_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
+            var v = default(ak_dec_MetricsBatch_opts); ak_dec_MetricsBatch_opts* z = &v;
+            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
+            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
+            all.Add(s);
+        }
+        {
+            var s = new S { Name = "ak_dec_Pair_opts", Size = sizeof(ak_dec_Pair_opts), Fields = typeof(ak_dec_Pair_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
+            var v = default(ak_dec_Pair_opts); ak_dec_Pair_opts* z = &v;
+            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
+            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
+            all.Add(s);
+        }
+        {
+            var s = new S { Name = "ak_dec_ListResultsResponse_opts", Size = sizeof(ak_dec_ListResultsResponse_opts), Fields = typeof(ak_dec_ListResultsResponse_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
+            var v = default(ak_dec_ListResultsResponse_opts); ak_dec_ListResultsResponse_opts* z = &v;
+            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
+            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
+            s.F.Add(("results", (int)((byte*)&z->results - (byte*)z), Fsz(&z->results)));
+            s.F.Add(("results_created_at", (int)((byte*)&z->results_created_at - (byte*)z), Fsz(&z->results_created_at)));
+            s.F.Add(("results_completed_at", (int)((byte*)&z->results_completed_at - (byte*)z), Fsz(&z->results_completed_at)));
+            all.Add(s);
+        }
+        {
+            var s = new S { Name = "ak_dec_ListTasksDetailedResponse_opts", Size = sizeof(ak_dec_ListTasksDetailedResponse_opts), Fields = typeof(ak_dec_ListTasksDetailedResponse_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
+            var v = default(ak_dec_ListTasksDetailedResponse_opts); ak_dec_ListTasksDetailedResponse_opts* z = &v;
+            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
+            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
+            s.F.Add(("tasks", (int)((byte*)&z->tasks - (byte*)z), Fsz(&z->tasks)));
+            s.F.Add(("tasks_options", (int)((byte*)&z->tasks_options - (byte*)z), Fsz(&z->tasks_options)));
+            s.F.Add(("tasks_options_options", (int)((byte*)&z->tasks_options_options - (byte*)z), Fsz(&z->tasks_options_options)));
+            s.F.Add(("tasks_options_max_duration", (int)((byte*)&z->tasks_options_max_duration - (byte*)z), Fsz(&z->tasks_options_max_duration)));
+            s.F.Add(("tasks_created_at", (int)((byte*)&z->tasks_created_at - (byte*)z), Fsz(&z->tasks_created_at)));
+            s.F.Add(("tasks_submitted_at", (int)((byte*)&z->tasks_submitted_at - (byte*)z), Fsz(&z->tasks_submitted_at)));
+            s.F.Add(("tasks_started_at", (int)((byte*)&z->tasks_started_at - (byte*)z), Fsz(&z->tasks_started_at)));
+            s.F.Add(("tasks_ended_at", (int)((byte*)&z->tasks_ended_at - (byte*)z), Fsz(&z->tasks_ended_at)));
+            s.F.Add(("tasks_pod_ttl", (int)((byte*)&z->tasks_pod_ttl - (byte*)z), Fsz(&z->tasks_pod_ttl)));
+            s.F.Add(("tasks_output", (int)((byte*)&z->tasks_output - (byte*)z), Fsz(&z->tasks_output)));
+            s.F.Add(("tasks_received_at", (int)((byte*)&z->tasks_received_at - (byte*)z), Fsz(&z->tasks_received_at)));
+            s.F.Add(("tasks_acquired_at", (int)((byte*)&z->tasks_acquired_at - (byte*)z), Fsz(&z->tasks_acquired_at)));
+            s.F.Add(("tasks_creation_to_end_duration", (int)((byte*)&z->tasks_creation_to_end_duration - (byte*)z), Fsz(&z->tasks_creation_to_end_duration)));
+            s.F.Add(("tasks_processing_to_end_duration", (int)((byte*)&z->tasks_processing_to_end_duration - (byte*)z), Fsz(&z->tasks_processing_to_end_duration)));
+            s.F.Add(("tasks_received_to_end_duration", (int)((byte*)&z->tasks_received_to_end_duration - (byte*)z), Fsz(&z->tasks_received_to_end_duration)));
+            s.F.Add(("tasks_processed_at", (int)((byte*)&z->tasks_processed_at - (byte*)z), Fsz(&z->tasks_processed_at)));
+            s.F.Add(("tasks_fetched_at", (int)((byte*)&z->tasks_fetched_at - (byte*)z), Fsz(&z->tasks_fetched_at)));
+            all.Add(s);
+        }
+        {
+            var s = new S { Name = "ak_dec_ListTaskSummaryResponse_opts", Size = sizeof(ak_dec_ListTaskSummaryResponse_opts), Fields = typeof(ak_dec_ListTaskSummaryResponse_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
+            var v = default(ak_dec_ListTaskSummaryResponse_opts); ak_dec_ListTaskSummaryResponse_opts* z = &v;
+            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
+            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
+            s.F.Add(("tasks", (int)((byte*)&z->tasks - (byte*)z), Fsz(&z->tasks)));
+            s.F.Add(("tasks_options", (int)((byte*)&z->tasks_options - (byte*)z), Fsz(&z->tasks_options)));
+            s.F.Add(("tasks_options_options", (int)((byte*)&z->tasks_options_options - (byte*)z), Fsz(&z->tasks_options_options)));
+            s.F.Add(("tasks_options_max_duration", (int)((byte*)&z->tasks_options_max_duration - (byte*)z), Fsz(&z->tasks_options_max_duration)));
+            s.F.Add(("tasks_created_at", (int)((byte*)&z->tasks_created_at - (byte*)z), Fsz(&z->tasks_created_at)));
+            all.Add(s);
+        }
+        {
+            var s = new S { Name = "ak_dec_ListProbeResponse_opts", Size = sizeof(ak_dec_ListProbeResponse_opts), Fields = typeof(ak_dec_ListProbeResponse_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
+            var v = default(ak_dec_ListProbeResponse_opts); ak_dec_ListProbeResponse_opts* z = &v;
+            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
+            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
+            s.F.Add(("probes", (int)((byte*)&z->probes - (byte*)z), Fsz(&z->probes)));
+            s.F.Add(("probes_body", (int)((byte*)&z->probes_body - (byte*)z), Fsz(&z->probes_body)));
+            all.Add(s);
+        }
+        {
+            var s = new S { Name = "ak_dec_ListMetricsResponse_opts", Size = sizeof(ak_dec_ListMetricsResponse_opts), Fields = typeof(ak_dec_ListMetricsResponse_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
+            var v = default(ak_dec_ListMetricsResponse_opts); ak_dec_ListMetricsResponse_opts* z = &v;
+            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
+            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
+            s.F.Add(("batches", (int)((byte*)&z->batches - (byte*)z), Fsz(&z->batches)));
+            all.Add(s);
+        }
+        {
+            var s = new S { Name = "ak_dec_UploadResultDataMessage_opts", Size = sizeof(ak_dec_UploadResultDataMessage_opts), Fields = typeof(ak_dec_UploadResultDataMessage_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
+            var v = default(ak_dec_UploadResultDataMessage_opts); ak_dec_UploadResultDataMessage_opts* z = &v;
+            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
+            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
+            s.F.Add(("upload", (int)((byte*)&z->upload - (byte*)z), Fsz(&z->upload)));
+            all.Add(s);
+        }
+        {
+            var s = new S { Name = "ak_dec_DualResponse_opts", Size = sizeof(ak_dec_DualResponse_opts), Fields = typeof(ak_dec_DualResponse_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
+            var v = default(ak_dec_DualResponse_opts); ak_dec_DualResponse_opts* z = &v;
+            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
+            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
+            s.F.Add(("left", (int)((byte*)&z->left - (byte*)z), Fsz(&z->left)));
+            s.F.Add(("right", (int)((byte*)&z->right - (byte*)z), Fsz(&z->right)));
+            all.Add(s);
+        }
+        {
+            var s = new S { Name = "ak_dec_ChunkLeaf_opts", Size = sizeof(ak_dec_ChunkLeaf_opts), Fields = typeof(ak_dec_ChunkLeaf_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
+            var v = default(ak_dec_ChunkLeaf_opts); ak_dec_ChunkLeaf_opts* z = &v;
+            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
+            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
+            all.Add(s);
+        }
+        {
+            var s = new S { Name = "ak_dec_ChunkInner_opts", Size = sizeof(ak_dec_ChunkInner_opts), Fields = typeof(ak_dec_ChunkInner_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
+            var v = default(ak_dec_ChunkInner_opts); ak_dec_ChunkInner_opts* z = &v;
+            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
+            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
+            s.F.Add(("leaves", (int)((byte*)&z->leaves - (byte*)z), Fsz(&z->leaves)));
+            all.Add(s);
+        }
+        {
+            var s = new S { Name = "ak_dec_ChunkElement_opts", Size = sizeof(ak_dec_ChunkElement_opts), Fields = typeof(ak_dec_ChunkElement_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
+            var v = default(ak_dec_ChunkElement_opts); ak_dec_ChunkElement_opts* z = &v;
+            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
+            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
+            s.F.Add(("attrs", (int)((byte*)&z->attrs - (byte*)z), Fsz(&z->attrs)));
+            s.F.Add(("inner", (int)((byte*)&z->inner - (byte*)z), Fsz(&z->inner)));
+            s.F.Add(("inner_leaves", (int)((byte*)&z->inner_leaves - (byte*)z), Fsz(&z->inner_leaves)));
+            all.Add(s);
+        }
+        {
+            var s = new S { Name = "ak_dec_ChunkedResponse_opts", Size = sizeof(ak_dec_ChunkedResponse_opts), Fields = typeof(ak_dec_ChunkedResponse_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
+            var v = default(ak_dec_ChunkedResponse_opts); ak_dec_ChunkedResponse_opts* z = &v;
+            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
+            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
+            s.F.Add(("items", (int)((byte*)&z->items - (byte*)z), Fsz(&z->items)));
+            s.F.Add(("items_attrs", (int)((byte*)&z->items_attrs - (byte*)z), Fsz(&z->items_attrs)));
+            s.F.Add(("items_inner", (int)((byte*)&z->items_inner - (byte*)z), Fsz(&z->items_inner)));
+            s.F.Add(("items_inner_leaves", (int)((byte*)&z->items_inner_leaves - (byte*)z), Fsz(&z->items_inner_leaves)));
+            all.Add(s);
+        }
+        {
+            var s = new S { Name = "ak_dec_ChunkedResponseWide_opts", Size = sizeof(ak_dec_ChunkedResponseWide_opts), Fields = typeof(ak_dec_ChunkedResponseWide_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
+            var v = default(ak_dec_ChunkedResponseWide_opts); ak_dec_ChunkedResponseWide_opts* z = &v;
+            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
+            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
+            s.F.Add(("items", (int)((byte*)&z->items - (byte*)z), Fsz(&z->items)));
+            s.F.Add(("items_attrs", (int)((byte*)&z->items_attrs - (byte*)z), Fsz(&z->items_attrs)));
+            s.F.Add(("items_inner", (int)((byte*)&z->items_inner - (byte*)z), Fsz(&z->items_inner)));
+            s.F.Add(("items_inner_leaves", (int)((byte*)&z->items_inner_leaves - (byte*)z), Fsz(&z->items_inner_leaves)));
+            all.Add(s);
+        }
+        {
+            var s = new S { Name = "ak_dec_LeafElement_opts", Size = sizeof(ak_dec_LeafElement_opts), Fields = typeof(ak_dec_LeafElement_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
+            var v = default(ak_dec_LeafElement_opts); ak_dec_LeafElement_opts* z = &v;
+            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
+            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
+            s.F.Add(("stamp", (int)((byte*)&z->stamp - (byte*)z), Fsz(&z->stamp)));
+            all.Add(s);
+        }
+        {
+            var s = new S { Name = "ak_dec_LeafResponse_opts", Size = sizeof(ak_dec_LeafResponse_opts), Fields = typeof(ak_dec_LeafResponse_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
+            var v = default(ak_dec_LeafResponse_opts); ak_dec_LeafResponse_opts* z = &v;
+            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
+            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
+            s.F.Add(("items", (int)((byte*)&z->items - (byte*)z), Fsz(&z->items)));
+            s.F.Add(("items_stamp", (int)((byte*)&z->items_stamp - (byte*)z), Fsz(&z->items_stamp)));
+            all.Add(s);
+        }
+        {
+            var s = new S { Name = "ak_dec_Surrogate_opts", Size = sizeof(ak_dec_Surrogate_opts), Fields = typeof(ak_dec_Surrogate_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
+            var v = default(ak_dec_Surrogate_opts); ak_dec_Surrogate_opts* z = &v;
+            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
+            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
+            s.F.Add(("nested", (int)((byte*)&z->nested - (byte*)z), Fsz(&z->nested)));
+            s.F.Add(("attrs", (int)((byte*)&z->attrs - (byte*)z), Fsz(&z->attrs)));
+            all.Add(s);
+        }
+        {
+            var s = new S { Name = "ak_dec_SurrogateInner_opts", Size = sizeof(ak_dec_SurrogateInner_opts), Fields = typeof(ak_dec_SurrogateInner_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
+            var v = default(ak_dec_SurrogateInner_opts); ak_dec_SurrogateInner_opts* z = &v;
+            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
+            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
+            all.Add(s);
+        }
+        {
+            var s = new S { Name = "ak_dec_WireZoo_opts", Size = sizeof(ak_dec_WireZoo_opts), Fields = typeof(ak_dec_WireZoo_opts).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
+            var v = default(ak_dec_WireZoo_opts); ak_dec_WireZoo_opts* z = &v;
+            s.F.Add(("host", (int)((byte*)&z->host - (byte*)z), Fsz(&z->host)));
+            s.F.Add(("self", (int)((byte*)&z->self - (byte*)z), Fsz(&z->self)));
+            s.F.Add(("v_msg", (int)((byte*)&z->v_msg - (byte*)z), Fsz(&z->v_msg)));
             all.Add(s);
         }
         return all;
