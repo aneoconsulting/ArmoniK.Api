@@ -6065,9 +6065,16 @@ unsafe fn dec_probe_fix_into(d: &mut Dec, base: usize, u: UnkCx, out: &mut ak_df
                 let mut os = Dec::new(&buf0[off..off + n]);
                 // Plan rule: the SAME member again merges; another member,
                 // or none, starts from empty.
-                // Decision 11: a buffer already placed in this member's slot is
-                // KEPT, emptied: never dropped, never in two slots.
-                if out.body_case != 13 { let k = out.body_as_stamp.unknown; out.body_as_stamp = ak_dfix_Timestamp::ZERO; out.body_as_stamp.unknown = ak_unk_buf { data: k.data, len: 0, cap: k.cap }; }
+                // Decision 11 rule 4: the oneof's ONE buffer moves, emptied, from the
+                // previous message member's slot into this member's.
+                if out.body_case != 13 {
+                    // At most one member slot holds it (the invariant this keeps).
+                    let mut k = ::core::mem::replace(&mut out.body_as_stamp.unknown, ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 });
+                    let t = ::core::mem::replace(&mut out.body_as_nothing.unknown, ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 });
+                    if !t.data.is_null() { k = t; }
+                    out.body_as_stamp = ak_dfix_Timestamp::ZERO;
+                    out.body_as_stamp.unknown = ak_unk_buf { data: k.data, len: 0, cap: k.cap };
+                }
                 dec_timestamp_fix_into(&mut os, base0 + off, u.at(1), &mut out.body_as_stamp);
                 if os.err != 0 { d.err = os.err; }
                 // Last one wins: a later member replaces the case.
@@ -6079,10 +6086,17 @@ unsafe fn dec_probe_fix_into(d: &mut Dec, base: usize, u: UnkCx, out: &mut ak_df
                 let mut os = Dec::new(&buf0[off..off + n]);
                 // Plan rule: the SAME member again merges; another member,
                 // or none, starts from empty.
-                // Decision 11: a buffer already placed in this member's slot is
-                // KEPT, emptied: never dropped, never in two slots.
-                if out.body_case != 14 { let k = out.body_as_nothing.unknown; out.body_as_nothing = ak_dfix_Empty::ZERO; out.body_as_nothing.unknown = ak_unk_buf { data: k.data, len: 0, cap: k.cap }; }
-                dec_empty_fix_into(&mut os, base0 + off, u.at(2), &mut out.body_as_nothing);
+                // Decision 11 rule 4: the oneof's ONE buffer moves, emptied, from the
+                // previous message member's slot into this member's.
+                if out.body_case != 14 {
+                    // At most one member slot holds it (the invariant this keeps).
+                    let mut k = ::core::mem::replace(&mut out.body_as_nothing.unknown, ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 });
+                    let t = ::core::mem::replace(&mut out.body_as_stamp.unknown, ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 });
+                    if !t.data.is_null() { k = t; }
+                    out.body_as_nothing = ak_dfix_Empty::ZERO;
+                    out.body_as_nothing.unknown = ak_unk_buf { data: k.data, len: 0, cap: k.cap };
+                }
+                dec_empty_fix_into(&mut os, base0 + off, u.at(1), &mut out.body_as_nothing);
                 if os.err != 0 { d.err = os.err; }
                 // Last one wins: a later member replaces the case.
                 out.body_case = 14;
@@ -8184,6 +8198,8 @@ pub unsafe extern "C" fn ak_decode_Timestamp(
     // later decode. Doing it here rather than in the host costs no extra crossing
     // and takes the obligation off the binding author.
     (*dcx).hdr.err = AK_OK;
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 1 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: spans are (u32, u32) into this buffer, so a buffer longer than
     // u32::MAX would alias offsets and lengths. Reject at entry rather than
     // truncate. `usize` is 64-bit on every host this ships to.
@@ -8199,9 +8215,9 @@ pub unsafe extern "C" fn ak_decode_Timestamp(
         () => {
         };
     }
-    // Decision 11: the positions this context is armed with for this root, or
-    // none (drop mode: every capture below is one null test).
-    let u = UnkCx::root(dcx, 1);
+    // Decision 11: the positions this context is armed with, or none (drop mode:
+    // every capture below is one null test). The context is bound to its root.
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -8264,6 +8280,8 @@ pub unsafe extern "C" fn ak_decode_Duration(
     // later decode. Doing it here rather than in the host costs no extra crossing
     // and takes the obligation off the binding author.
     (*dcx).hdr.err = AK_OK;
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 2 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: spans are (u32, u32) into this buffer, so a buffer longer than
     // u32::MAX would alias offsets and lengths. Reject at entry rather than
     // truncate. `usize` is 64-bit on every host this ships to.
@@ -8279,9 +8297,9 @@ pub unsafe extern "C" fn ak_decode_Duration(
         () => {
         };
     }
-    // Decision 11: the positions this context is armed with for this root, or
-    // none (drop mode: every capture below is one null test).
-    let u = UnkCx::root(dcx, 2);
+    // Decision 11: the positions this context is armed with, or none (drop mode:
+    // every capture below is one null test). The context is bound to its root.
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -8344,6 +8362,8 @@ pub unsafe extern "C" fn ak_decode_ResultRaw(
     // later decode. Doing it here rather than in the host costs no extra crossing
     // and takes the obligation off the binding author.
     (*dcx).hdr.err = AK_OK;
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 3 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: spans are (u32, u32) into this buffer, so a buffer longer than
     // u32::MAX would alias offsets and lengths. Reject at entry rather than
     // truncate. `usize` is 64-bit on every host this ships to.
@@ -8359,9 +8379,9 @@ pub unsafe extern "C" fn ak_decode_ResultRaw(
         () => {
         };
     }
-    // Decision 11: the positions this context is armed with for this root, or
-    // none (drop mode: every capture below is one null test).
-    let u = UnkCx::root(dcx, 3);
+    // Decision 11: the positions this context is armed with, or none (drop mode:
+    // every capture below is one null test). The context is bound to its root.
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -8531,6 +8551,8 @@ pub unsafe extern "C" fn ak_decode_TaskOptions(
     // later decode. Doing it here rather than in the host costs no extra crossing
     // and takes the obligation off the binding author.
     (*dcx).hdr.err = AK_OK;
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 4 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: spans are (u32, u32) into this buffer, so a buffer longer than
     // u32::MAX would alias offsets and lengths. Reject at entry rather than
     // truncate. `usize` is 64-bit on every host this ships to.
@@ -8567,9 +8589,9 @@ pub unsafe extern "C" fn ak_decode_TaskOptions(
             flush_options!();
         };
     }
-    // Decision 11: the positions this context is armed with for this root, or
-    // none (drop mode: every capture below is one null test).
-    let u = UnkCx::root(dcx, 4);
+    // Decision 11: the positions this context is armed with, or none (drop mode:
+    // every capture below is one null test). The context is bound to its root.
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -8711,6 +8733,8 @@ pub unsafe extern "C" fn ak_decode_TaskOutput(
     // later decode. Doing it here rather than in the host costs no extra crossing
     // and takes the obligation off the binding author.
     (*dcx).hdr.err = AK_OK;
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 5 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: spans are (u32, u32) into this buffer, so a buffer longer than
     // u32::MAX would alias offsets and lengths. Reject at entry rather than
     // truncate. `usize` is 64-bit on every host this ships to.
@@ -8726,9 +8750,9 @@ pub unsafe extern "C" fn ak_decode_TaskOutput(
         () => {
         };
     }
-    // Decision 11: the positions this context is armed with for this root, or
-    // none (drop mode: every capture below is one null test).
-    let u = UnkCx::root(dcx, 5);
+    // Decision 11: the positions this context is armed with, or none (drop mode:
+    // every capture below is one null test). The context is bound to its root.
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -8793,6 +8817,8 @@ pub unsafe extern "C" fn ak_decode_TaskDetailed(
     // later decode. Doing it here rather than in the host costs no extra crossing
     // and takes the obligation off the binding author.
     (*dcx).hdr.err = AK_OK;
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 6 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: spans are (u32, u32) into this buffer, so a buffer longer than
     // u32::MAX would alias offsets and lengths. Reject at entry rather than
     // truncate. `usize` is 64-bit on every host this ships to.
@@ -8913,9 +8939,9 @@ pub unsafe extern "C" fn ak_decode_TaskDetailed(
             flush_options_options!();
         };
     }
-    // Decision 11: the positions this context is armed with for this root, or
-    // none (drop mode: every capture below is one null test).
-    let u = UnkCx::root(dcx, 6);
+    // Decision 11: the positions this context is armed with, or none (drop mode:
+    // every capture below is one null test). The context is bound to its root.
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -9611,6 +9637,8 @@ pub unsafe extern "C" fn ak_decode_TaskSummary(
     // later decode. Doing it here rather than in the host costs no extra crossing
     // and takes the obligation off the binding author.
     (*dcx).hdr.err = AK_OK;
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 7 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: spans are (u32, u32) into this buffer, so a buffer longer than
     // u32::MAX would alias offsets and lengths. Reject at entry rather than
     // truncate. `usize` is 64-bit on every host this ships to.
@@ -9647,9 +9675,9 @@ pub unsafe extern "C" fn ak_decode_TaskSummary(
             flush_options_options!();
         };
     }
-    // Decision 11: the positions this context is armed with for this root, or
-    // none (drop mode: every capture below is one null test).
-    let u = UnkCx::root(dcx, 7);
+    // Decision 11: the positions this context is armed with, or none (drop mode:
+    // every capture below is one null test). The context is bound to its root.
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -9883,6 +9911,8 @@ pub unsafe extern "C" fn ak_decode_Probe(
     // later decode. Doing it here rather than in the host costs no extra crossing
     // and takes the obligation off the binding author.
     (*dcx).hdr.err = AK_OK;
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 8 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: spans are (u32, u32) into this buffer, so a buffer longer than
     // u32::MAX would alias offsets and lengths. Reject at entry rather than
     // truncate. `usize` is 64-bit on every host this ships to.
@@ -9898,9 +9928,9 @@ pub unsafe extern "C" fn ak_decode_Probe(
         () => {
         };
     }
-    // Decision 11: the positions this context is armed with for this root, or
-    // none (drop mode: every capture below is one null test).
-    let u = UnkCx::root(dcx, 8);
+    // Decision 11: the positions this context is armed with, or none (drop mode:
+    // every capture below is one null test). The context is bound to its root.
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -9959,9 +9989,16 @@ pub unsafe extern "C" fn ak_decode_Probe(
                 let mut os = Dec::new(&buf0[off..off + n]);
                 // Plan rule: the SAME member again merges; another member,
                 // or none, starts from empty.
-                // Decision 11: a buffer already placed in this member's slot is
-                // KEPT, emptied: never dropped, never in two slots.
-                if out.body_case != 13 { let k = out.body_as_stamp.unknown; out.body_as_stamp = ak_dfix_Timestamp::ZERO; out.body_as_stamp.unknown = ak_unk_buf { data: k.data, len: 0, cap: k.cap }; }
+                // Decision 11 rule 4: the oneof's ONE buffer moves, emptied, from the
+                // previous message member's slot into this member's.
+                if out.body_case != 13 {
+                    // At most one member slot holds it (the invariant this keeps).
+                    let mut k = ::core::mem::replace(&mut out.body_as_stamp.unknown, ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 });
+                    let t = ::core::mem::replace(&mut out.body_as_nothing.unknown, ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 });
+                    if !t.data.is_null() { k = t; }
+                    out.body_as_stamp = ak_dfix_Timestamp::ZERO;
+                    out.body_as_stamp.unknown = ak_unk_buf { data: k.data, len: 0, cap: k.cap };
+                }
                 dec_timestamp_fix_into(&mut os, base0 + off, u.at(1), &mut out.body_as_stamp);
                 if os.err != 0 { d.err = os.err; }
                 // Last one wins: a later member replaces the case.
@@ -9973,10 +10010,17 @@ pub unsafe extern "C" fn ak_decode_Probe(
                 let mut os = Dec::new(&buf0[off..off + n]);
                 // Plan rule: the SAME member again merges; another member,
                 // or none, starts from empty.
-                // Decision 11: a buffer already placed in this member's slot is
-                // KEPT, emptied: never dropped, never in two slots.
-                if out.body_case != 14 { let k = out.body_as_nothing.unknown; out.body_as_nothing = ak_dfix_Empty::ZERO; out.body_as_nothing.unknown = ak_unk_buf { data: k.data, len: 0, cap: k.cap }; }
-                dec_empty_fix_into(&mut os, base0 + off, u.at(2), &mut out.body_as_nothing);
+                // Decision 11 rule 4: the oneof's ONE buffer moves, emptied, from the
+                // previous message member's slot into this member's.
+                if out.body_case != 14 {
+                    // At most one member slot holds it (the invariant this keeps).
+                    let mut k = ::core::mem::replace(&mut out.body_as_nothing.unknown, ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 });
+                    let t = ::core::mem::replace(&mut out.body_as_stamp.unknown, ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 });
+                    if !t.data.is_null() { k = t; }
+                    out.body_as_nothing = ak_dfix_Empty::ZERO;
+                    out.body_as_nothing.unknown = ak_unk_buf { data: k.data, len: 0, cap: k.cap };
+                }
+                dec_empty_fix_into(&mut os, base0 + off, u.at(1), &mut out.body_as_nothing);
                 if os.err != 0 { d.err = os.err; }
                 // Last one wins: a later member replaces the case.
                 out.body_case = 14;
@@ -10027,6 +10071,8 @@ pub unsafe extern "C" fn ak_decode_Empty(
     // later decode. Doing it here rather than in the host costs no extra crossing
     // and takes the obligation off the binding author.
     (*dcx).hdr.err = AK_OK;
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 9 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: spans are (u32, u32) into this buffer, so a buffer longer than
     // u32::MAX would alias offsets and lengths. Reject at entry rather than
     // truncate. `usize` is 64-bit on every host this ships to.
@@ -10042,9 +10088,9 @@ pub unsafe extern "C" fn ak_decode_Empty(
         () => {
         };
     }
-    // Decision 11: the positions this context is armed with for this root, or
-    // none (drop mode: every capture below is one null test).
-    let u = UnkCx::root(dcx, 9);
+    // Decision 11: the positions this context is armed with, or none (drop mode:
+    // every capture below is one null test). The context is bound to its root.
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -10099,6 +10145,8 @@ pub unsafe extern "C" fn ak_decode_UploadResultData(
     // later decode. Doing it here rather than in the host costs no extra crossing
     // and takes the obligation off the binding author.
     (*dcx).hdr.err = AK_OK;
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 10 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: spans are (u32, u32) into this buffer, so a buffer longer than
     // u32::MAX would alias offsets and lengths. Reject at entry rather than
     // truncate. `usize` is 64-bit on every host this ships to.
@@ -10114,9 +10162,9 @@ pub unsafe extern "C" fn ak_decode_UploadResultData(
         () => {
         };
     }
-    // Decision 11: the positions this context is armed with for this root, or
-    // none (drop mode: every capture below is one null test).
-    let u = UnkCx::root(dcx, 10);
+    // Decision 11: the positions this context is armed with, or none (drop mode:
+    // every capture below is one null test). The context is bound to its root.
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -10188,6 +10236,8 @@ pub unsafe extern "C" fn ak_decode_MetricsBatch(
     // later decode. Doing it here rather than in the host costs no extra crossing
     // and takes the obligation off the binding author.
     (*dcx).hdr.err = AK_OK;
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 11 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: spans are (u32, u32) into this buffer, so a buffer longer than
     // u32::MAX would alias offsets and lengths. Reject at entry rather than
     // truncate. `usize` is 64-bit on every host this ships to.
@@ -10308,9 +10358,9 @@ pub unsafe extern "C" fn ak_decode_MetricsBatch(
             flush_statuses!();
         };
     }
-    // Decision 11: the positions this context is armed with for this root, or
-    // none (drop mode: every capture below is one null test).
-    let u = UnkCx::root(dcx, 11);
+    // Decision 11: the positions this context is armed with, or none (drop mode:
+    // every capture below is one null test). The context is bound to its root.
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -10466,6 +10516,8 @@ pub unsafe extern "C" fn ak_decode_Pair(
     // later decode. Doing it here rather than in the host costs no extra crossing
     // and takes the obligation off the binding author.
     (*dcx).hdr.err = AK_OK;
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 12 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: spans are (u32, u32) into this buffer, so a buffer longer than
     // u32::MAX would alias offsets and lengths. Reject at entry rather than
     // truncate. `usize` is 64-bit on every host this ships to.
@@ -10481,9 +10533,9 @@ pub unsafe extern "C" fn ak_decode_Pair(
         () => {
         };
     }
-    // Decision 11: the positions this context is armed with for this root, or
-    // none (drop mode: every capture below is one null test).
-    let u = UnkCx::root(dcx, 12);
+    // Decision 11: the positions this context is armed with, or none (drop mode:
+    // every capture below is one null test). The context is bound to its root.
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -10548,6 +10600,8 @@ pub unsafe extern "C" fn ak_decode_ListResultsResponse(
     // later decode. Doing it here rather than in the host costs no extra crossing
     // and takes the obligation off the binding author.
     (*dcx).hdr.err = AK_OK;
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 13 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: spans are (u32, u32) into this buffer, so a buffer longer than
     // u32::MAX would alias offsets and lengths. Reject at entry rather than
     // truncate. `usize` is 64-bit on every host this ships to.
@@ -10584,9 +10638,9 @@ pub unsafe extern "C" fn ak_decode_ListResultsResponse(
             flush_results!();
         };
     }
-    // Decision 11: the positions this context is armed with for this root, or
-    // none (drop mode: every capture below is one null test).
-    let u = UnkCx::root(dcx, 13);
+    // Decision 11: the positions this context is armed with, or none (drop mode:
+    // every capture below is one null test). The context is bound to its root.
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -10658,6 +10712,8 @@ pub unsafe extern "C" fn ak_decode_ListTasksDetailedResponse(
     // later decode. Doing it here rather than in the host costs no extra crossing
     // and takes the obligation off the binding author.
     (*dcx).hdr.err = AK_OK;
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 14 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: spans are (u32, u32) into this buffer, so a buffer longer than
     // u32::MAX would alias offsets and lengths. Reject at entry rather than
     // truncate. `usize` is 64-bit on every host this ships to.
@@ -10673,9 +10729,9 @@ pub unsafe extern "C" fn ak_decode_ListTasksDetailedResponse(
         () => {
         };
     }
-    // Decision 11: the positions this context is armed with for this root, or
-    // none (drop mode: every capture below is one null test).
-    let u = UnkCx::root(dcx, 14);
+    // Decision 11: the positions this context is armed with, or none (drop mode:
+    // every capture below is one null test). The context is bound to its root.
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -10745,6 +10801,8 @@ pub unsafe extern "C" fn ak_decode_ListTaskSummaryResponse(
     // later decode. Doing it here rather than in the host costs no extra crossing
     // and takes the obligation off the binding author.
     (*dcx).hdr.err = AK_OK;
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 15 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: spans are (u32, u32) into this buffer, so a buffer longer than
     // u32::MAX would alias offsets and lengths. Reject at entry rather than
     // truncate. `usize` is 64-bit on every host this ships to.
@@ -10760,9 +10818,9 @@ pub unsafe extern "C" fn ak_decode_ListTaskSummaryResponse(
         () => {
         };
     }
-    // Decision 11: the positions this context is armed with for this root, or
-    // none (drop mode: every capture below is one null test).
-    let u = UnkCx::root(dcx, 15);
+    // Decision 11: the positions this context is armed with, or none (drop mode:
+    // every capture below is one null test). The context is bound to its root.
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -10824,6 +10882,8 @@ pub unsafe extern "C" fn ak_decode_ListProbeResponse(
     // later decode. Doing it here rather than in the host costs no extra crossing
     // and takes the obligation off the binding author.
     (*dcx).hdr.err = AK_OK;
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 16 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: spans are (u32, u32) into this buffer, so a buffer longer than
     // u32::MAX would alias offsets and lengths. Reject at entry rather than
     // truncate. `usize` is 64-bit on every host this ships to.
@@ -10860,9 +10920,9 @@ pub unsafe extern "C" fn ak_decode_ListProbeResponse(
             flush_probes!();
         };
     }
-    // Decision 11: the positions this context is armed with for this root, or
-    // none (drop mode: every capture below is one null test).
-    let u = UnkCx::root(dcx, 16);
+    // Decision 11: the positions this context is armed with, or none (drop mode:
+    // every capture below is one null test). The context is bound to its root.
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -10926,6 +10986,8 @@ pub unsafe extern "C" fn ak_decode_ListMetricsResponse(
     // later decode. Doing it here rather than in the host costs no extra crossing
     // and takes the obligation off the binding author.
     (*dcx).hdr.err = AK_OK;
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 17 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: spans are (u32, u32) into this buffer, so a buffer longer than
     // u32::MAX would alias offsets and lengths. Reject at entry rather than
     // truncate. `usize` is 64-bit on every host this ships to.
@@ -10941,9 +11003,9 @@ pub unsafe extern "C" fn ak_decode_ListMetricsResponse(
         () => {
         };
     }
-    // Decision 11: the positions this context is armed with for this root, or
-    // none (drop mode: every capture below is one null test).
-    let u = UnkCx::root(dcx, 17);
+    // Decision 11: the positions this context is armed with, or none (drop mode:
+    // every capture below is one null test). The context is bound to its root.
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -11005,6 +11067,8 @@ pub unsafe extern "C" fn ak_decode_UploadResultDataMessage(
     // later decode. Doing it here rather than in the host costs no extra crossing
     // and takes the obligation off the binding author.
     (*dcx).hdr.err = AK_OK;
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 18 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: spans are (u32, u32) into this buffer, so a buffer longer than
     // u32::MAX would alias offsets and lengths. Reject at entry rather than
     // truncate. `usize` is 64-bit on every host this ships to.
@@ -11020,9 +11084,9 @@ pub unsafe extern "C" fn ak_decode_UploadResultDataMessage(
         () => {
         };
     }
-    // Decision 11: the positions this context is armed with for this root, or
-    // none (drop mode: every capture below is one null test).
-    let u = UnkCx::root(dcx, 18);
+    // Decision 11: the positions this context is armed with, or none (drop mode:
+    // every capture below is one null test). The context is bound to its root.
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -11120,6 +11184,8 @@ pub unsafe extern "C" fn ak_decode_DualResponse(
     // later decode. Doing it here rather than in the host costs no extra crossing
     // and takes the obligation off the binding author.
     (*dcx).hdr.err = AK_OK;
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 19 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: spans are (u32, u32) into this buffer, so a buffer longer than
     // u32::MAX would alias offsets and lengths. Reject at entry rather than
     // truncate. `usize` is 64-bit on every host this ships to.
@@ -11177,9 +11243,9 @@ pub unsafe extern "C" fn ak_decode_DualResponse(
             flush_right!();
         };
     }
-    // Decision 11: the positions this context is armed with for this root, or
-    // none (drop mode: every capture below is one null test).
-    let u = UnkCx::root(dcx, 19);
+    // Decision 11: the positions this context is armed with, or none (drop mode:
+    // every capture below is one null test). The context is bound to its root.
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -11252,6 +11318,8 @@ pub unsafe extern "C" fn ak_decode_ChunkLeaf(
     // later decode. Doing it here rather than in the host costs no extra crossing
     // and takes the obligation off the binding author.
     (*dcx).hdr.err = AK_OK;
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 20 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: spans are (u32, u32) into this buffer, so a buffer longer than
     // u32::MAX would alias offsets and lengths. Reject at entry rather than
     // truncate. `usize` is 64-bit on every host this ships to.
@@ -11267,9 +11335,9 @@ pub unsafe extern "C" fn ak_decode_ChunkLeaf(
         () => {
         };
     }
-    // Decision 11: the positions this context is armed with for this root, or
-    // none (drop mode: every capture below is one null test).
-    let u = UnkCx::root(dcx, 20);
+    // Decision 11: the positions this context is armed with, or none (drop mode:
+    // every capture below is one null test). The context is bound to its root.
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -11334,6 +11402,8 @@ pub unsafe extern "C" fn ak_decode_ChunkInner(
     // later decode. Doing it here rather than in the host costs no extra crossing
     // and takes the obligation off the binding author.
     (*dcx).hdr.err = AK_OK;
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 21 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: spans are (u32, u32) into this buffer, so a buffer longer than
     // u32::MAX would alias offsets and lengths. Reject at entry rather than
     // truncate. `usize` is 64-bit on every host this ships to.
@@ -11391,9 +11461,9 @@ pub unsafe extern "C" fn ak_decode_ChunkInner(
             flush_leaves!();
         };
     }
-    // Decision 11: the positions this context is armed with for this root, or
-    // none (drop mode: every capture below is one null test).
-    let u = UnkCx::root(dcx, 21);
+    // Decision 11: the positions this context is armed with, or none (drop mode:
+    // every capture below is one null test). The context is bound to its root.
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -11476,6 +11546,8 @@ pub unsafe extern "C" fn ak_decode_ChunkElement(
     // later decode. Doing it here rather than in the host costs no extra crossing
     // and takes the obligation off the binding author.
     (*dcx).hdr.err = AK_OK;
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 22 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: spans are (u32, u32) into this buffer, so a buffer longer than
     // u32::MAX would alias offsets and lengths. Reject at entry rather than
     // truncate. `usize` is 64-bit on every host this ships to.
@@ -11575,9 +11647,9 @@ pub unsafe extern "C" fn ak_decode_ChunkElement(
             flush_inner_leaves!();
         };
     }
-    // Decision 11: the positions this context is armed with for this root, or
-    // none (drop mode: every capture below is one null test).
-    let u = UnkCx::root(dcx, 22);
+    // Decision 11: the positions this context is armed with, or none (drop mode:
+    // every capture below is one null test). The context is bound to its root.
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -11709,6 +11781,8 @@ pub unsafe extern "C" fn ak_decode_ChunkedResponse(
     // later decode. Doing it here rather than in the host costs no extra crossing
     // and takes the obligation off the binding author.
     (*dcx).hdr.err = AK_OK;
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 23 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: spans are (u32, u32) into this buffer, so a buffer longer than
     // u32::MAX would alias offsets and lengths. Reject at entry rather than
     // truncate. `usize` is 64-bit on every host this ships to.
@@ -11724,9 +11798,9 @@ pub unsafe extern "C" fn ak_decode_ChunkedResponse(
         () => {
         };
     }
-    // Decision 11: the positions this context is armed with for this root, or
-    // none (drop mode: every capture below is one null test).
-    let u = UnkCx::root(dcx, 23);
+    // Decision 11: the positions this context is armed with, or none (drop mode:
+    // every capture below is one null test). The context is bound to its root.
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -11792,6 +11866,8 @@ pub unsafe extern "C" fn ak_decode_ChunkedResponseWide(
     // later decode. Doing it here rather than in the host costs no extra crossing
     // and takes the obligation off the binding author.
     (*dcx).hdr.err = AK_OK;
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 24 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: spans are (u32, u32) into this buffer, so a buffer longer than
     // u32::MAX would alias offsets and lengths. Reject at entry rather than
     // truncate. `usize` is 64-bit on every host this ships to.
@@ -11807,9 +11883,9 @@ pub unsafe extern "C" fn ak_decode_ChunkedResponseWide(
         () => {
         };
     }
-    // Decision 11: the positions this context is armed with for this root, or
-    // none (drop mode: every capture below is one null test).
-    let u = UnkCx::root(dcx, 24);
+    // Decision 11: the positions this context is armed with, or none (drop mode:
+    // every capture below is one null test). The context is bound to its root.
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -11871,6 +11947,8 @@ pub unsafe extern "C" fn ak_decode_LeafElement(
     // later decode. Doing it here rather than in the host costs no extra crossing
     // and takes the obligation off the binding author.
     (*dcx).hdr.err = AK_OK;
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 25 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: spans are (u32, u32) into this buffer, so a buffer longer than
     // u32::MAX would alias offsets and lengths. Reject at entry rather than
     // truncate. `usize` is 64-bit on every host this ships to.
@@ -11886,9 +11964,9 @@ pub unsafe extern "C" fn ak_decode_LeafElement(
         () => {
         };
     }
-    // Decision 11: the positions this context is armed with for this root, or
-    // none (drop mode: every capture below is one null test).
-    let u = UnkCx::root(dcx, 25);
+    // Decision 11: the positions this context is armed with, or none (drop mode:
+    // every capture below is one null test). The context is bound to its root.
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -11987,6 +12065,8 @@ pub unsafe extern "C" fn ak_decode_LeafResponse(
     // later decode. Doing it here rather than in the host costs no extra crossing
     // and takes the obligation off the binding author.
     (*dcx).hdr.err = AK_OK;
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 26 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: spans are (u32, u32) into this buffer, so a buffer longer than
     // u32::MAX would alias offsets and lengths. Reject at entry rather than
     // truncate. `usize` is 64-bit on every host this ships to.
@@ -12023,9 +12103,9 @@ pub unsafe extern "C" fn ak_decode_LeafResponse(
             flush_items!();
         };
     }
-    // Decision 11: the positions this context is armed with for this root, or
-    // none (drop mode: every capture below is one null test).
-    let u = UnkCx::root(dcx, 26);
+    // Decision 11: the positions this context is armed with, or none (drop mode:
+    // every capture below is one null test). The context is bound to its root.
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -12089,6 +12169,8 @@ pub unsafe extern "C" fn ak_decode_Surrogate(
     // later decode. Doing it here rather than in the host costs no extra crossing
     // and takes the obligation off the binding author.
     (*dcx).hdr.err = AK_OK;
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 27 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: spans are (u32, u32) into this buffer, so a buffer longer than
     // u32::MAX would alias offsets and lengths. Reject at entry rather than
     // truncate. `usize` is 64-bit on every host this ships to.
@@ -12146,9 +12228,9 @@ pub unsafe extern "C" fn ak_decode_Surrogate(
             flush_texts!();
         };
     }
-    // Decision 11: the positions this context is armed with for this root, or
-    // none (drop mode: every capture below is one null test).
-    let u = UnkCx::root(dcx, 27);
+    // Decision 11: the positions this context is armed with, or none (drop mode:
+    // every capture below is one null test). The context is bound to its root.
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -12263,6 +12345,8 @@ pub unsafe extern "C" fn ak_decode_SurrogateInner(
     // later decode. Doing it here rather than in the host costs no extra crossing
     // and takes the obligation off the binding author.
     (*dcx).hdr.err = AK_OK;
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 28 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: spans are (u32, u32) into this buffer, so a buffer longer than
     // u32::MAX would alias offsets and lengths. Reject at entry rather than
     // truncate. `usize` is 64-bit on every host this ships to.
@@ -12278,9 +12362,9 @@ pub unsafe extern "C" fn ak_decode_SurrogateInner(
         () => {
         };
     }
-    // Decision 11: the positions this context is armed with for this root, or
-    // none (drop mode: every capture below is one null test).
-    let u = UnkCx::root(dcx, 28);
+    // Decision 11: the positions this context is armed with, or none (drop mode:
+    // every capture below is one null test). The context is bound to its root.
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -12341,6 +12425,8 @@ pub unsafe extern "C" fn ak_decode_WireZoo(
     // later decode. Doing it here rather than in the host costs no extra crossing
     // and takes the obligation off the binding author.
     (*dcx).hdr.err = AK_OK;
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 29 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: spans are (u32, u32) into this buffer, so a buffer longer than
     // u32::MAX would alias offsets and lengths. Reject at entry rather than
     // truncate. `usize` is 64-bit on every host this ships to.
@@ -12356,9 +12442,9 @@ pub unsafe extern "C" fn ak_decode_WireZoo(
         () => {
         };
     }
-    // Decision 11: the positions this context is armed with for this root, or
-    // none (drop mode: every capture below is one null test).
-    let u = UnkCx::root(dcx, 29);
+    // Decision 11: the positions this context is armed with, or none (drop mode:
+    // every capture below is one null test). The context is bound to its root.
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -12465,1105 +12551,947 @@ pub unsafe extern "C" fn ak_decode_WireZoo(
     if (*dcx).hdr.err != AK_OK { (*dcx).hdr.err } else if d.err != 0 { d.err } else { AK_OK }
 }
 
-// `ak_dec_Timestamp_opts` is `host` then 1 `ak_unk_opts` back to back: the core reads it as
-// an array, so the layout is asserted here.
-const _: () = {
-    assert!(::core::mem::offset_of!(ak_dec_Timestamp_opts, self_) == 8);
-    assert!(::core::mem::offset_of!(ak_dec_Timestamp_opts, self_) == 8 + 0 * ::core::mem::size_of::<ak_unk_opts>());
-    assert!(::core::mem::size_of::<ak_dec_Timestamp_opts>() == 8 + 1 * ::core::mem::size_of::<ak_unk_opts>());
-};
+/// Decision 11 rule 1: where each position's entry sits in `ak_dec_Timestamp_opts`, and whether it
+/// is a pool; the core reads the host's struct IN PLACE through these offsets.
+const UNK_LAYOUT_TIMESTAMP: [(usize, bool); 1] = [
+    (::core::mem::offset_of!(ak_dec_Timestamp_opts, self_), false),
+];
 
-/// Decision 11: re-arm every unknown-field position of `Timestamp` (copied; NULL =
-/// drop everywhere).
+/// Decision 11: re-arm every unknown-field position of `Timestamp` from `opts`, read in
+/// place (NULL = drop everywhere). Rule 6: only a context bound to this root.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_reset_Timestamp(ctx: *mut ak_dec_ctx, opts: *const ak_dec_Timestamp_opts) {
+pub unsafe extern "C" fn ak_dec_reset_Timestamp(ctx: *mut ak_dec_ctx, opts: *mut ak_dec_Timestamp_opts) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
     #[cfg(feature = "init-guard")]
     if !crate::ak_init_ok() {
-        return;
+        return AK_ERR_UNINITIALIZED;
     }
-    if ctx.is_null() { return; }
-    if opts.is_null() {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 1, ::core::ptr::null_mut(), ::core::ptr::null(), 0);
-    } else {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 1, (*opts).host, &(*opts).self_, 1);
-    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 1 { return AK_ERR_INVALID_STATE; }
+    crate::unk_arm(dcx, opts as *mut u8, &UNK_LAYOUT_TIMESTAMP);
+    AK_OK
 }
 
-/// Decision 11: a decode context armed for `Timestamp` at creation.
+/// Decision 11 rule 6: a decode context BOUND to `Timestamp`, armed with `opts`.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_ctx_new_Timestamp(opts: *const ak_dec_Timestamp_opts) -> *mut ak_dec_ctx {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return ::core::ptr::null_mut();
-    }
-    let ctx = crate::ak_dec_ctx_new();
-    ak_dec_reset_Timestamp(ctx, opts);
+pub unsafe extern "C" fn ak_dec_ctx_new_Timestamp(opts: *mut ak_dec_Timestamp_opts) -> *mut ak_dec_ctx {
+    let ctx = crate::dec_ctx_alloc(1);
+    crate::unk_arm(ctx as *mut DecCtxImpl, opts as *mut u8, &UNK_LAYOUT_TIMESTAMP);
     ctx
 }
 
-// `ak_dec_Duration_opts` is `host` then 1 `ak_unk_opts` back to back: the core reads it as
-// an array, so the layout is asserted here.
-const _: () = {
-    assert!(::core::mem::offset_of!(ak_dec_Duration_opts, self_) == 8);
-    assert!(::core::mem::offset_of!(ak_dec_Duration_opts, self_) == 8 + 0 * ::core::mem::size_of::<ak_unk_opts>());
-    assert!(::core::mem::size_of::<ak_dec_Duration_opts>() == 8 + 1 * ::core::mem::size_of::<ak_unk_opts>());
-};
+/// Decision 11 rule 1: where each position's entry sits in `ak_dec_Duration_opts`, and whether it
+/// is a pool; the core reads the host's struct IN PLACE through these offsets.
+const UNK_LAYOUT_DURATION: [(usize, bool); 1] = [
+    (::core::mem::offset_of!(ak_dec_Duration_opts, self_), false),
+];
 
-/// Decision 11: re-arm every unknown-field position of `Duration` (copied; NULL =
-/// drop everywhere).
+/// Decision 11: re-arm every unknown-field position of `Duration` from `opts`, read in
+/// place (NULL = drop everywhere). Rule 6: only a context bound to this root.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_reset_Duration(ctx: *mut ak_dec_ctx, opts: *const ak_dec_Duration_opts) {
+pub unsafe extern "C" fn ak_dec_reset_Duration(ctx: *mut ak_dec_ctx, opts: *mut ak_dec_Duration_opts) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
     #[cfg(feature = "init-guard")]
     if !crate::ak_init_ok() {
-        return;
+        return AK_ERR_UNINITIALIZED;
     }
-    if ctx.is_null() { return; }
-    if opts.is_null() {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 2, ::core::ptr::null_mut(), ::core::ptr::null(), 0);
-    } else {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 2, (*opts).host, &(*opts).self_, 1);
-    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 2 { return AK_ERR_INVALID_STATE; }
+    crate::unk_arm(dcx, opts as *mut u8, &UNK_LAYOUT_DURATION);
+    AK_OK
 }
 
-/// Decision 11: a decode context armed for `Duration` at creation.
+/// Decision 11 rule 6: a decode context BOUND to `Duration`, armed with `opts`.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_ctx_new_Duration(opts: *const ak_dec_Duration_opts) -> *mut ak_dec_ctx {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return ::core::ptr::null_mut();
-    }
-    let ctx = crate::ak_dec_ctx_new();
-    ak_dec_reset_Duration(ctx, opts);
+pub unsafe extern "C" fn ak_dec_ctx_new_Duration(opts: *mut ak_dec_Duration_opts) -> *mut ak_dec_ctx {
+    let ctx = crate::dec_ctx_alloc(2);
+    crate::unk_arm(ctx as *mut DecCtxImpl, opts as *mut u8, &UNK_LAYOUT_DURATION);
     ctx
 }
 
-// `ak_dec_ResultRaw_opts` is `host` then 3 `ak_unk_opts` back to back: the core reads it as
-// an array, so the layout is asserted here.
-const _: () = {
-    assert!(::core::mem::offset_of!(ak_dec_ResultRaw_opts, self_) == 8);
-    assert!(::core::mem::offset_of!(ak_dec_ResultRaw_opts, completed_at) == 8 + 2 * ::core::mem::size_of::<ak_unk_opts>());
-    assert!(::core::mem::size_of::<ak_dec_ResultRaw_opts>() == 8 + 3 * ::core::mem::size_of::<ak_unk_opts>());
-};
+/// Decision 11 rule 1: where each position's entry sits in `ak_dec_ResultRaw_opts`, and whether it
+/// is a pool; the core reads the host's struct IN PLACE through these offsets.
+const UNK_LAYOUT_RESULTRAW: [(usize, bool); 3] = [
+    (::core::mem::offset_of!(ak_dec_ResultRaw_opts, self_), false),
+    (::core::mem::offset_of!(ak_dec_ResultRaw_opts, created_at), false),
+    (::core::mem::offset_of!(ak_dec_ResultRaw_opts, completed_at), false),
+];
 
-/// Decision 11: re-arm every unknown-field position of `ResultRaw` (copied; NULL =
-/// drop everywhere).
+/// Decision 11: re-arm every unknown-field position of `ResultRaw` from `opts`, read in
+/// place (NULL = drop everywhere). Rule 6: only a context bound to this root.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_reset_ResultRaw(ctx: *mut ak_dec_ctx, opts: *const ak_dec_ResultRaw_opts) {
+pub unsafe extern "C" fn ak_dec_reset_ResultRaw(ctx: *mut ak_dec_ctx, opts: *mut ak_dec_ResultRaw_opts) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
     #[cfg(feature = "init-guard")]
     if !crate::ak_init_ok() {
-        return;
+        return AK_ERR_UNINITIALIZED;
     }
-    if ctx.is_null() { return; }
-    if opts.is_null() {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 3, ::core::ptr::null_mut(), ::core::ptr::null(), 0);
-    } else {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 3, (*opts).host, &(*opts).self_, 3);
-    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 3 { return AK_ERR_INVALID_STATE; }
+    crate::unk_arm(dcx, opts as *mut u8, &UNK_LAYOUT_RESULTRAW);
+    AK_OK
 }
 
-/// Decision 11: a decode context armed for `ResultRaw` at creation.
+/// Decision 11 rule 6: a decode context BOUND to `ResultRaw`, armed with `opts`.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_ctx_new_ResultRaw(opts: *const ak_dec_ResultRaw_opts) -> *mut ak_dec_ctx {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return ::core::ptr::null_mut();
-    }
-    let ctx = crate::ak_dec_ctx_new();
-    ak_dec_reset_ResultRaw(ctx, opts);
+pub unsafe extern "C" fn ak_dec_ctx_new_ResultRaw(opts: *mut ak_dec_ResultRaw_opts) -> *mut ak_dec_ctx {
+    let ctx = crate::dec_ctx_alloc(3);
+    crate::unk_arm(ctx as *mut DecCtxImpl, opts as *mut u8, &UNK_LAYOUT_RESULTRAW);
     ctx
 }
 
-// `ak_dec_TaskOptions_opts` is `host` then 3 `ak_unk_opts` back to back: the core reads it as
-// an array, so the layout is asserted here.
-const _: () = {
-    assert!(::core::mem::offset_of!(ak_dec_TaskOptions_opts, self_) == 8);
-    assert!(::core::mem::offset_of!(ak_dec_TaskOptions_opts, max_duration) == 8 + 2 * ::core::mem::size_of::<ak_unk_opts>());
-    assert!(::core::mem::size_of::<ak_dec_TaskOptions_opts>() == 8 + 3 * ::core::mem::size_of::<ak_unk_opts>());
-};
+/// Decision 11 rule 1: where each position's entry sits in `ak_dec_TaskOptions_opts`, and whether it
+/// is a pool; the core reads the host's struct IN PLACE through these offsets.
+const UNK_LAYOUT_TASKOPTIONS: [(usize, bool); 3] = [
+    (::core::mem::offset_of!(ak_dec_TaskOptions_opts, self_), false),
+    (::core::mem::offset_of!(ak_dec_TaskOptions_opts, options), true),
+    (::core::mem::offset_of!(ak_dec_TaskOptions_opts, max_duration), false),
+];
 
-/// Decision 11: re-arm every unknown-field position of `TaskOptions` (copied; NULL =
-/// drop everywhere).
+/// Decision 11: re-arm every unknown-field position of `TaskOptions` from `opts`, read in
+/// place (NULL = drop everywhere). Rule 6: only a context bound to this root.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_reset_TaskOptions(ctx: *mut ak_dec_ctx, opts: *const ak_dec_TaskOptions_opts) {
+pub unsafe extern "C" fn ak_dec_reset_TaskOptions(ctx: *mut ak_dec_ctx, opts: *mut ak_dec_TaskOptions_opts) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
     #[cfg(feature = "init-guard")]
     if !crate::ak_init_ok() {
-        return;
+        return AK_ERR_UNINITIALIZED;
     }
-    if ctx.is_null() { return; }
-    if opts.is_null() {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 4, ::core::ptr::null_mut(), ::core::ptr::null(), 0);
-    } else {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 4, (*opts).host, &(*opts).self_, 3);
-    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 4 { return AK_ERR_INVALID_STATE; }
+    crate::unk_arm(dcx, opts as *mut u8, &UNK_LAYOUT_TASKOPTIONS);
+    AK_OK
 }
 
-/// Decision 11: a decode context armed for `TaskOptions` at creation.
+/// Decision 11 rule 6: a decode context BOUND to `TaskOptions`, armed with `opts`.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_ctx_new_TaskOptions(opts: *const ak_dec_TaskOptions_opts) -> *mut ak_dec_ctx {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return ::core::ptr::null_mut();
-    }
-    let ctx = crate::ak_dec_ctx_new();
-    ak_dec_reset_TaskOptions(ctx, opts);
+pub unsafe extern "C" fn ak_dec_ctx_new_TaskOptions(opts: *mut ak_dec_TaskOptions_opts) -> *mut ak_dec_ctx {
+    let ctx = crate::dec_ctx_alloc(4);
+    crate::unk_arm(ctx as *mut DecCtxImpl, opts as *mut u8, &UNK_LAYOUT_TASKOPTIONS);
     ctx
 }
 
-// `ak_dec_TaskOutput_opts` is `host` then 1 `ak_unk_opts` back to back: the core reads it as
-// an array, so the layout is asserted here.
-const _: () = {
-    assert!(::core::mem::offset_of!(ak_dec_TaskOutput_opts, self_) == 8);
-    assert!(::core::mem::offset_of!(ak_dec_TaskOutput_opts, self_) == 8 + 0 * ::core::mem::size_of::<ak_unk_opts>());
-    assert!(::core::mem::size_of::<ak_dec_TaskOutput_opts>() == 8 + 1 * ::core::mem::size_of::<ak_unk_opts>());
-};
+/// Decision 11 rule 1: where each position's entry sits in `ak_dec_TaskOutput_opts`, and whether it
+/// is a pool; the core reads the host's struct IN PLACE through these offsets.
+const UNK_LAYOUT_TASKOUTPUT: [(usize, bool); 1] = [
+    (::core::mem::offset_of!(ak_dec_TaskOutput_opts, self_), false),
+];
 
-/// Decision 11: re-arm every unknown-field position of `TaskOutput` (copied; NULL =
-/// drop everywhere).
+/// Decision 11: re-arm every unknown-field position of `TaskOutput` from `opts`, read in
+/// place (NULL = drop everywhere). Rule 6: only a context bound to this root.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_reset_TaskOutput(ctx: *mut ak_dec_ctx, opts: *const ak_dec_TaskOutput_opts) {
+pub unsafe extern "C" fn ak_dec_reset_TaskOutput(ctx: *mut ak_dec_ctx, opts: *mut ak_dec_TaskOutput_opts) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
     #[cfg(feature = "init-guard")]
     if !crate::ak_init_ok() {
-        return;
+        return AK_ERR_UNINITIALIZED;
     }
-    if ctx.is_null() { return; }
-    if opts.is_null() {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 5, ::core::ptr::null_mut(), ::core::ptr::null(), 0);
-    } else {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 5, (*opts).host, &(*opts).self_, 1);
-    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 5 { return AK_ERR_INVALID_STATE; }
+    crate::unk_arm(dcx, opts as *mut u8, &UNK_LAYOUT_TASKOUTPUT);
+    AK_OK
 }
 
-/// Decision 11: a decode context armed for `TaskOutput` at creation.
+/// Decision 11 rule 6: a decode context BOUND to `TaskOutput`, armed with `opts`.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_ctx_new_TaskOutput(opts: *const ak_dec_TaskOutput_opts) -> *mut ak_dec_ctx {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return ::core::ptr::null_mut();
-    }
-    let ctx = crate::ak_dec_ctx_new();
-    ak_dec_reset_TaskOutput(ctx, opts);
+pub unsafe extern "C" fn ak_dec_ctx_new_TaskOutput(opts: *mut ak_dec_TaskOutput_opts) -> *mut ak_dec_ctx {
+    let ctx = crate::dec_ctx_alloc(5);
+    crate::unk_arm(ctx as *mut DecCtxImpl, opts as *mut u8, &UNK_LAYOUT_TASKOUTPUT);
     ctx
 }
 
-// `ak_dec_TaskDetailed_opts` is `host` then 17 `ak_unk_opts` back to back: the core reads it as
-// an array, so the layout is asserted here.
-const _: () = {
-    assert!(::core::mem::offset_of!(ak_dec_TaskDetailed_opts, self_) == 8);
-    assert!(::core::mem::offset_of!(ak_dec_TaskDetailed_opts, fetched_at) == 8 + 16 * ::core::mem::size_of::<ak_unk_opts>());
-    assert!(::core::mem::size_of::<ak_dec_TaskDetailed_opts>() == 8 + 17 * ::core::mem::size_of::<ak_unk_opts>());
-};
+/// Decision 11 rule 1: where each position's entry sits in `ak_dec_TaskDetailed_opts`, and whether it
+/// is a pool; the core reads the host's struct IN PLACE through these offsets.
+const UNK_LAYOUT_TASKDETAILED: [(usize, bool); 17] = [
+    (::core::mem::offset_of!(ak_dec_TaskDetailed_opts, self_), false),
+    (::core::mem::offset_of!(ak_dec_TaskDetailed_opts, options), false),
+    (::core::mem::offset_of!(ak_dec_TaskDetailed_opts, options_options), true),
+    (::core::mem::offset_of!(ak_dec_TaskDetailed_opts, options_max_duration), false),
+    (::core::mem::offset_of!(ak_dec_TaskDetailed_opts, created_at), false),
+    (::core::mem::offset_of!(ak_dec_TaskDetailed_opts, submitted_at), false),
+    (::core::mem::offset_of!(ak_dec_TaskDetailed_opts, started_at), false),
+    (::core::mem::offset_of!(ak_dec_TaskDetailed_opts, ended_at), false),
+    (::core::mem::offset_of!(ak_dec_TaskDetailed_opts, pod_ttl), false),
+    (::core::mem::offset_of!(ak_dec_TaskDetailed_opts, output), false),
+    (::core::mem::offset_of!(ak_dec_TaskDetailed_opts, received_at), false),
+    (::core::mem::offset_of!(ak_dec_TaskDetailed_opts, acquired_at), false),
+    (::core::mem::offset_of!(ak_dec_TaskDetailed_opts, creation_to_end_duration), false),
+    (::core::mem::offset_of!(ak_dec_TaskDetailed_opts, processing_to_end_duration), false),
+    (::core::mem::offset_of!(ak_dec_TaskDetailed_opts, received_to_end_duration), false),
+    (::core::mem::offset_of!(ak_dec_TaskDetailed_opts, processed_at), false),
+    (::core::mem::offset_of!(ak_dec_TaskDetailed_opts, fetched_at), false),
+];
 
-/// Decision 11: re-arm every unknown-field position of `TaskDetailed` (copied; NULL =
-/// drop everywhere).
+/// Decision 11: re-arm every unknown-field position of `TaskDetailed` from `opts`, read in
+/// place (NULL = drop everywhere). Rule 6: only a context bound to this root.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_reset_TaskDetailed(ctx: *mut ak_dec_ctx, opts: *const ak_dec_TaskDetailed_opts) {
+pub unsafe extern "C" fn ak_dec_reset_TaskDetailed(ctx: *mut ak_dec_ctx, opts: *mut ak_dec_TaskDetailed_opts) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
     #[cfg(feature = "init-guard")]
     if !crate::ak_init_ok() {
-        return;
+        return AK_ERR_UNINITIALIZED;
     }
-    if ctx.is_null() { return; }
-    if opts.is_null() {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 6, ::core::ptr::null_mut(), ::core::ptr::null(), 0);
-    } else {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 6, (*opts).host, &(*opts).self_, 17);
-    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 6 { return AK_ERR_INVALID_STATE; }
+    crate::unk_arm(dcx, opts as *mut u8, &UNK_LAYOUT_TASKDETAILED);
+    AK_OK
 }
 
-/// Decision 11: a decode context armed for `TaskDetailed` at creation.
+/// Decision 11 rule 6: a decode context BOUND to `TaskDetailed`, armed with `opts`.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_ctx_new_TaskDetailed(opts: *const ak_dec_TaskDetailed_opts) -> *mut ak_dec_ctx {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return ::core::ptr::null_mut();
-    }
-    let ctx = crate::ak_dec_ctx_new();
-    ak_dec_reset_TaskDetailed(ctx, opts);
+pub unsafe extern "C" fn ak_dec_ctx_new_TaskDetailed(opts: *mut ak_dec_TaskDetailed_opts) -> *mut ak_dec_ctx {
+    let ctx = crate::dec_ctx_alloc(6);
+    crate::unk_arm(ctx as *mut DecCtxImpl, opts as *mut u8, &UNK_LAYOUT_TASKDETAILED);
     ctx
 }
 
-// `ak_dec_TaskSummary_opts` is `host` then 5 `ak_unk_opts` back to back: the core reads it as
-// an array, so the layout is asserted here.
-const _: () = {
-    assert!(::core::mem::offset_of!(ak_dec_TaskSummary_opts, self_) == 8);
-    assert!(::core::mem::offset_of!(ak_dec_TaskSummary_opts, created_at) == 8 + 4 * ::core::mem::size_of::<ak_unk_opts>());
-    assert!(::core::mem::size_of::<ak_dec_TaskSummary_opts>() == 8 + 5 * ::core::mem::size_of::<ak_unk_opts>());
-};
+/// Decision 11 rule 1: where each position's entry sits in `ak_dec_TaskSummary_opts`, and whether it
+/// is a pool; the core reads the host's struct IN PLACE through these offsets.
+const UNK_LAYOUT_TASKSUMMARY: [(usize, bool); 5] = [
+    (::core::mem::offset_of!(ak_dec_TaskSummary_opts, self_), false),
+    (::core::mem::offset_of!(ak_dec_TaskSummary_opts, options), false),
+    (::core::mem::offset_of!(ak_dec_TaskSummary_opts, options_options), true),
+    (::core::mem::offset_of!(ak_dec_TaskSummary_opts, options_max_duration), false),
+    (::core::mem::offset_of!(ak_dec_TaskSummary_opts, created_at), false),
+];
 
-/// Decision 11: re-arm every unknown-field position of `TaskSummary` (copied; NULL =
-/// drop everywhere).
+/// Decision 11: re-arm every unknown-field position of `TaskSummary` from `opts`, read in
+/// place (NULL = drop everywhere). Rule 6: only a context bound to this root.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_reset_TaskSummary(ctx: *mut ak_dec_ctx, opts: *const ak_dec_TaskSummary_opts) {
+pub unsafe extern "C" fn ak_dec_reset_TaskSummary(ctx: *mut ak_dec_ctx, opts: *mut ak_dec_TaskSummary_opts) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
     #[cfg(feature = "init-guard")]
     if !crate::ak_init_ok() {
-        return;
+        return AK_ERR_UNINITIALIZED;
     }
-    if ctx.is_null() { return; }
-    if opts.is_null() {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 7, ::core::ptr::null_mut(), ::core::ptr::null(), 0);
-    } else {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 7, (*opts).host, &(*opts).self_, 5);
-    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 7 { return AK_ERR_INVALID_STATE; }
+    crate::unk_arm(dcx, opts as *mut u8, &UNK_LAYOUT_TASKSUMMARY);
+    AK_OK
 }
 
-/// Decision 11: a decode context armed for `TaskSummary` at creation.
+/// Decision 11 rule 6: a decode context BOUND to `TaskSummary`, armed with `opts`.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_ctx_new_TaskSummary(opts: *const ak_dec_TaskSummary_opts) -> *mut ak_dec_ctx {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return ::core::ptr::null_mut();
-    }
-    let ctx = crate::ak_dec_ctx_new();
-    ak_dec_reset_TaskSummary(ctx, opts);
+pub unsafe extern "C" fn ak_dec_ctx_new_TaskSummary(opts: *mut ak_dec_TaskSummary_opts) -> *mut ak_dec_ctx {
+    let ctx = crate::dec_ctx_alloc(7);
+    crate::unk_arm(ctx as *mut DecCtxImpl, opts as *mut u8, &UNK_LAYOUT_TASKSUMMARY);
     ctx
 }
 
-// `ak_dec_Probe_opts` is `host` then 3 `ak_unk_opts` back to back: the core reads it as
-// an array, so the layout is asserted here.
-const _: () = {
-    assert!(::core::mem::offset_of!(ak_dec_Probe_opts, self_) == 8);
-    assert!(::core::mem::offset_of!(ak_dec_Probe_opts, body_as_nothing) == 8 + 2 * ::core::mem::size_of::<ak_unk_opts>());
-    assert!(::core::mem::size_of::<ak_dec_Probe_opts>() == 8 + 3 * ::core::mem::size_of::<ak_unk_opts>());
-};
+/// Decision 11 rule 1: where each position's entry sits in `ak_dec_Probe_opts`, and whether it
+/// is a pool; the core reads the host's struct IN PLACE through these offsets.
+const UNK_LAYOUT_PROBE: [(usize, bool); 2] = [
+    (::core::mem::offset_of!(ak_dec_Probe_opts, self_), false),
+    (::core::mem::offset_of!(ak_dec_Probe_opts, body), false),
+];
 
-/// Decision 11: re-arm every unknown-field position of `Probe` (copied; NULL =
-/// drop everywhere).
+/// Decision 11: re-arm every unknown-field position of `Probe` from `opts`, read in
+/// place (NULL = drop everywhere). Rule 6: only a context bound to this root.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_reset_Probe(ctx: *mut ak_dec_ctx, opts: *const ak_dec_Probe_opts) {
+pub unsafe extern "C" fn ak_dec_reset_Probe(ctx: *mut ak_dec_ctx, opts: *mut ak_dec_Probe_opts) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
     #[cfg(feature = "init-guard")]
     if !crate::ak_init_ok() {
-        return;
+        return AK_ERR_UNINITIALIZED;
     }
-    if ctx.is_null() { return; }
-    if opts.is_null() {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 8, ::core::ptr::null_mut(), ::core::ptr::null(), 0);
-    } else {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 8, (*opts).host, &(*opts).self_, 3);
-    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 8 { return AK_ERR_INVALID_STATE; }
+    crate::unk_arm(dcx, opts as *mut u8, &UNK_LAYOUT_PROBE);
+    AK_OK
 }
 
-/// Decision 11: a decode context armed for `Probe` at creation.
+/// Decision 11 rule 6: a decode context BOUND to `Probe`, armed with `opts`.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_ctx_new_Probe(opts: *const ak_dec_Probe_opts) -> *mut ak_dec_ctx {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return ::core::ptr::null_mut();
-    }
-    let ctx = crate::ak_dec_ctx_new();
-    ak_dec_reset_Probe(ctx, opts);
+pub unsafe extern "C" fn ak_dec_ctx_new_Probe(opts: *mut ak_dec_Probe_opts) -> *mut ak_dec_ctx {
+    let ctx = crate::dec_ctx_alloc(8);
+    crate::unk_arm(ctx as *mut DecCtxImpl, opts as *mut u8, &UNK_LAYOUT_PROBE);
     ctx
 }
 
-// `ak_dec_Empty_opts` is `host` then 1 `ak_unk_opts` back to back: the core reads it as
-// an array, so the layout is asserted here.
-const _: () = {
-    assert!(::core::mem::offset_of!(ak_dec_Empty_opts, self_) == 8);
-    assert!(::core::mem::offset_of!(ak_dec_Empty_opts, self_) == 8 + 0 * ::core::mem::size_of::<ak_unk_opts>());
-    assert!(::core::mem::size_of::<ak_dec_Empty_opts>() == 8 + 1 * ::core::mem::size_of::<ak_unk_opts>());
-};
+/// Decision 11 rule 1: where each position's entry sits in `ak_dec_Empty_opts`, and whether it
+/// is a pool; the core reads the host's struct IN PLACE through these offsets.
+const UNK_LAYOUT_EMPTY: [(usize, bool); 1] = [
+    (::core::mem::offset_of!(ak_dec_Empty_opts, self_), false),
+];
 
-/// Decision 11: re-arm every unknown-field position of `Empty` (copied; NULL =
-/// drop everywhere).
+/// Decision 11: re-arm every unknown-field position of `Empty` from `opts`, read in
+/// place (NULL = drop everywhere). Rule 6: only a context bound to this root.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_reset_Empty(ctx: *mut ak_dec_ctx, opts: *const ak_dec_Empty_opts) {
+pub unsafe extern "C" fn ak_dec_reset_Empty(ctx: *mut ak_dec_ctx, opts: *mut ak_dec_Empty_opts) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
     #[cfg(feature = "init-guard")]
     if !crate::ak_init_ok() {
-        return;
+        return AK_ERR_UNINITIALIZED;
     }
-    if ctx.is_null() { return; }
-    if opts.is_null() {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 9, ::core::ptr::null_mut(), ::core::ptr::null(), 0);
-    } else {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 9, (*opts).host, &(*opts).self_, 1);
-    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 9 { return AK_ERR_INVALID_STATE; }
+    crate::unk_arm(dcx, opts as *mut u8, &UNK_LAYOUT_EMPTY);
+    AK_OK
 }
 
-/// Decision 11: a decode context armed for `Empty` at creation.
+/// Decision 11 rule 6: a decode context BOUND to `Empty`, armed with `opts`.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_ctx_new_Empty(opts: *const ak_dec_Empty_opts) -> *mut ak_dec_ctx {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return ::core::ptr::null_mut();
-    }
-    let ctx = crate::ak_dec_ctx_new();
-    ak_dec_reset_Empty(ctx, opts);
+pub unsafe extern "C" fn ak_dec_ctx_new_Empty(opts: *mut ak_dec_Empty_opts) -> *mut ak_dec_ctx {
+    let ctx = crate::dec_ctx_alloc(9);
+    crate::unk_arm(ctx as *mut DecCtxImpl, opts as *mut u8, &UNK_LAYOUT_EMPTY);
     ctx
 }
 
-// `ak_dec_UploadResultData_opts` is `host` then 1 `ak_unk_opts` back to back: the core reads it as
-// an array, so the layout is asserted here.
-const _: () = {
-    assert!(::core::mem::offset_of!(ak_dec_UploadResultData_opts, self_) == 8);
-    assert!(::core::mem::offset_of!(ak_dec_UploadResultData_opts, self_) == 8 + 0 * ::core::mem::size_of::<ak_unk_opts>());
-    assert!(::core::mem::size_of::<ak_dec_UploadResultData_opts>() == 8 + 1 * ::core::mem::size_of::<ak_unk_opts>());
-};
+/// Decision 11 rule 1: where each position's entry sits in `ak_dec_UploadResultData_opts`, and whether it
+/// is a pool; the core reads the host's struct IN PLACE through these offsets.
+const UNK_LAYOUT_UPLOADRESULTDATA: [(usize, bool); 1] = [
+    (::core::mem::offset_of!(ak_dec_UploadResultData_opts, self_), false),
+];
 
-/// Decision 11: re-arm every unknown-field position of `UploadResultData` (copied; NULL =
-/// drop everywhere).
+/// Decision 11: re-arm every unknown-field position of `UploadResultData` from `opts`, read in
+/// place (NULL = drop everywhere). Rule 6: only a context bound to this root.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_reset_UploadResultData(ctx: *mut ak_dec_ctx, opts: *const ak_dec_UploadResultData_opts) {
+pub unsafe extern "C" fn ak_dec_reset_UploadResultData(ctx: *mut ak_dec_ctx, opts: *mut ak_dec_UploadResultData_opts) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
     #[cfg(feature = "init-guard")]
     if !crate::ak_init_ok() {
-        return;
+        return AK_ERR_UNINITIALIZED;
     }
-    if ctx.is_null() { return; }
-    if opts.is_null() {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 10, ::core::ptr::null_mut(), ::core::ptr::null(), 0);
-    } else {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 10, (*opts).host, &(*opts).self_, 1);
-    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 10 { return AK_ERR_INVALID_STATE; }
+    crate::unk_arm(dcx, opts as *mut u8, &UNK_LAYOUT_UPLOADRESULTDATA);
+    AK_OK
 }
 
-/// Decision 11: a decode context armed for `UploadResultData` at creation.
+/// Decision 11 rule 6: a decode context BOUND to `UploadResultData`, armed with `opts`.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_ctx_new_UploadResultData(opts: *const ak_dec_UploadResultData_opts) -> *mut ak_dec_ctx {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return ::core::ptr::null_mut();
-    }
-    let ctx = crate::ak_dec_ctx_new();
-    ak_dec_reset_UploadResultData(ctx, opts);
+pub unsafe extern "C" fn ak_dec_ctx_new_UploadResultData(opts: *mut ak_dec_UploadResultData_opts) -> *mut ak_dec_ctx {
+    let ctx = crate::dec_ctx_alloc(10);
+    crate::unk_arm(ctx as *mut DecCtxImpl, opts as *mut u8, &UNK_LAYOUT_UPLOADRESULTDATA);
     ctx
 }
 
-// `ak_dec_MetricsBatch_opts` is `host` then 1 `ak_unk_opts` back to back: the core reads it as
-// an array, so the layout is asserted here.
-const _: () = {
-    assert!(::core::mem::offset_of!(ak_dec_MetricsBatch_opts, self_) == 8);
-    assert!(::core::mem::offset_of!(ak_dec_MetricsBatch_opts, self_) == 8 + 0 * ::core::mem::size_of::<ak_unk_opts>());
-    assert!(::core::mem::size_of::<ak_dec_MetricsBatch_opts>() == 8 + 1 * ::core::mem::size_of::<ak_unk_opts>());
-};
+/// Decision 11 rule 1: where each position's entry sits in `ak_dec_MetricsBatch_opts`, and whether it
+/// is a pool; the core reads the host's struct IN PLACE through these offsets.
+const UNK_LAYOUT_METRICSBATCH: [(usize, bool); 1] = [
+    (::core::mem::offset_of!(ak_dec_MetricsBatch_opts, self_), false),
+];
 
-/// Decision 11: re-arm every unknown-field position of `MetricsBatch` (copied; NULL =
-/// drop everywhere).
+/// Decision 11: re-arm every unknown-field position of `MetricsBatch` from `opts`, read in
+/// place (NULL = drop everywhere). Rule 6: only a context bound to this root.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_reset_MetricsBatch(ctx: *mut ak_dec_ctx, opts: *const ak_dec_MetricsBatch_opts) {
+pub unsafe extern "C" fn ak_dec_reset_MetricsBatch(ctx: *mut ak_dec_ctx, opts: *mut ak_dec_MetricsBatch_opts) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
     #[cfg(feature = "init-guard")]
     if !crate::ak_init_ok() {
-        return;
+        return AK_ERR_UNINITIALIZED;
     }
-    if ctx.is_null() { return; }
-    if opts.is_null() {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 11, ::core::ptr::null_mut(), ::core::ptr::null(), 0);
-    } else {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 11, (*opts).host, &(*opts).self_, 1);
-    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 11 { return AK_ERR_INVALID_STATE; }
+    crate::unk_arm(dcx, opts as *mut u8, &UNK_LAYOUT_METRICSBATCH);
+    AK_OK
 }
 
-/// Decision 11: a decode context armed for `MetricsBatch` at creation.
+/// Decision 11 rule 6: a decode context BOUND to `MetricsBatch`, armed with `opts`.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_ctx_new_MetricsBatch(opts: *const ak_dec_MetricsBatch_opts) -> *mut ak_dec_ctx {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return ::core::ptr::null_mut();
-    }
-    let ctx = crate::ak_dec_ctx_new();
-    ak_dec_reset_MetricsBatch(ctx, opts);
+pub unsafe extern "C" fn ak_dec_ctx_new_MetricsBatch(opts: *mut ak_dec_MetricsBatch_opts) -> *mut ak_dec_ctx {
+    let ctx = crate::dec_ctx_alloc(11);
+    crate::unk_arm(ctx as *mut DecCtxImpl, opts as *mut u8, &UNK_LAYOUT_METRICSBATCH);
     ctx
 }
 
-// `ak_dec_Pair_opts` is `host` then 1 `ak_unk_opts` back to back: the core reads it as
-// an array, so the layout is asserted here.
-const _: () = {
-    assert!(::core::mem::offset_of!(ak_dec_Pair_opts, self_) == 8);
-    assert!(::core::mem::offset_of!(ak_dec_Pair_opts, self_) == 8 + 0 * ::core::mem::size_of::<ak_unk_opts>());
-    assert!(::core::mem::size_of::<ak_dec_Pair_opts>() == 8 + 1 * ::core::mem::size_of::<ak_unk_opts>());
-};
+/// Decision 11 rule 1: where each position's entry sits in `ak_dec_Pair_opts`, and whether it
+/// is a pool; the core reads the host's struct IN PLACE through these offsets.
+const UNK_LAYOUT_PAIR: [(usize, bool); 1] = [
+    (::core::mem::offset_of!(ak_dec_Pair_opts, self_), false),
+];
 
-/// Decision 11: re-arm every unknown-field position of `Pair` (copied; NULL =
-/// drop everywhere).
+/// Decision 11: re-arm every unknown-field position of `Pair` from `opts`, read in
+/// place (NULL = drop everywhere). Rule 6: only a context bound to this root.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_reset_Pair(ctx: *mut ak_dec_ctx, opts: *const ak_dec_Pair_opts) {
+pub unsafe extern "C" fn ak_dec_reset_Pair(ctx: *mut ak_dec_ctx, opts: *mut ak_dec_Pair_opts) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
     #[cfg(feature = "init-guard")]
     if !crate::ak_init_ok() {
-        return;
+        return AK_ERR_UNINITIALIZED;
     }
-    if ctx.is_null() { return; }
-    if opts.is_null() {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 12, ::core::ptr::null_mut(), ::core::ptr::null(), 0);
-    } else {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 12, (*opts).host, &(*opts).self_, 1);
-    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 12 { return AK_ERR_INVALID_STATE; }
+    crate::unk_arm(dcx, opts as *mut u8, &UNK_LAYOUT_PAIR);
+    AK_OK
 }
 
-/// Decision 11: a decode context armed for `Pair` at creation.
+/// Decision 11 rule 6: a decode context BOUND to `Pair`, armed with `opts`.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_ctx_new_Pair(opts: *const ak_dec_Pair_opts) -> *mut ak_dec_ctx {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return ::core::ptr::null_mut();
-    }
-    let ctx = crate::ak_dec_ctx_new();
-    ak_dec_reset_Pair(ctx, opts);
+pub unsafe extern "C" fn ak_dec_ctx_new_Pair(opts: *mut ak_dec_Pair_opts) -> *mut ak_dec_ctx {
+    let ctx = crate::dec_ctx_alloc(12);
+    crate::unk_arm(ctx as *mut DecCtxImpl, opts as *mut u8, &UNK_LAYOUT_PAIR);
     ctx
 }
 
-// `ak_dec_ListResultsResponse_opts` is `host` then 4 `ak_unk_opts` back to back: the core reads it as
-// an array, so the layout is asserted here.
-const _: () = {
-    assert!(::core::mem::offset_of!(ak_dec_ListResultsResponse_opts, self_) == 8);
-    assert!(::core::mem::offset_of!(ak_dec_ListResultsResponse_opts, results_completed_at) == 8 + 3 * ::core::mem::size_of::<ak_unk_opts>());
-    assert!(::core::mem::size_of::<ak_dec_ListResultsResponse_opts>() == 8 + 4 * ::core::mem::size_of::<ak_unk_opts>());
-};
+/// Decision 11 rule 1: where each position's entry sits in `ak_dec_ListResultsResponse_opts`, and whether it
+/// is a pool; the core reads the host's struct IN PLACE through these offsets.
+const UNK_LAYOUT_LISTRESULTSRESPONSE: [(usize, bool); 4] = [
+    (::core::mem::offset_of!(ak_dec_ListResultsResponse_opts, self_), false),
+    (::core::mem::offset_of!(ak_dec_ListResultsResponse_opts, results), true),
+    (::core::mem::offset_of!(ak_dec_ListResultsResponse_opts, results_created_at), true),
+    (::core::mem::offset_of!(ak_dec_ListResultsResponse_opts, results_completed_at), true),
+];
 
-/// Decision 11: re-arm every unknown-field position of `ListResultsResponse` (copied; NULL =
-/// drop everywhere).
+/// Decision 11: re-arm every unknown-field position of `ListResultsResponse` from `opts`, read in
+/// place (NULL = drop everywhere). Rule 6: only a context bound to this root.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_reset_ListResultsResponse(ctx: *mut ak_dec_ctx, opts: *const ak_dec_ListResultsResponse_opts) {
+pub unsafe extern "C" fn ak_dec_reset_ListResultsResponse(ctx: *mut ak_dec_ctx, opts: *mut ak_dec_ListResultsResponse_opts) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
     #[cfg(feature = "init-guard")]
     if !crate::ak_init_ok() {
-        return;
+        return AK_ERR_UNINITIALIZED;
     }
-    if ctx.is_null() { return; }
-    if opts.is_null() {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 13, ::core::ptr::null_mut(), ::core::ptr::null(), 0);
-    } else {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 13, (*opts).host, &(*opts).self_, 4);
-    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 13 { return AK_ERR_INVALID_STATE; }
+    crate::unk_arm(dcx, opts as *mut u8, &UNK_LAYOUT_LISTRESULTSRESPONSE);
+    AK_OK
 }
 
-/// Decision 11: a decode context armed for `ListResultsResponse` at creation.
+/// Decision 11 rule 6: a decode context BOUND to `ListResultsResponse`, armed with `opts`.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_ctx_new_ListResultsResponse(opts: *const ak_dec_ListResultsResponse_opts) -> *mut ak_dec_ctx {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return ::core::ptr::null_mut();
-    }
-    let ctx = crate::ak_dec_ctx_new();
-    ak_dec_reset_ListResultsResponse(ctx, opts);
+pub unsafe extern "C" fn ak_dec_ctx_new_ListResultsResponse(opts: *mut ak_dec_ListResultsResponse_opts) -> *mut ak_dec_ctx {
+    let ctx = crate::dec_ctx_alloc(13);
+    crate::unk_arm(ctx as *mut DecCtxImpl, opts as *mut u8, &UNK_LAYOUT_LISTRESULTSRESPONSE);
     ctx
 }
 
-// `ak_dec_ListTasksDetailedResponse_opts` is `host` then 18 `ak_unk_opts` back to back: the core reads it as
-// an array, so the layout is asserted here.
-const _: () = {
-    assert!(::core::mem::offset_of!(ak_dec_ListTasksDetailedResponse_opts, self_) == 8);
-    assert!(::core::mem::offset_of!(ak_dec_ListTasksDetailedResponse_opts, tasks_fetched_at) == 8 + 17 * ::core::mem::size_of::<ak_unk_opts>());
-    assert!(::core::mem::size_of::<ak_dec_ListTasksDetailedResponse_opts>() == 8 + 18 * ::core::mem::size_of::<ak_unk_opts>());
-};
+/// Decision 11 rule 1: where each position's entry sits in `ak_dec_ListTasksDetailedResponse_opts`, and whether it
+/// is a pool; the core reads the host's struct IN PLACE through these offsets.
+const UNK_LAYOUT_LISTTASKSDETAILEDRESPONSE: [(usize, bool); 18] = [
+    (::core::mem::offset_of!(ak_dec_ListTasksDetailedResponse_opts, self_), false),
+    (::core::mem::offset_of!(ak_dec_ListTasksDetailedResponse_opts, tasks), true),
+    (::core::mem::offset_of!(ak_dec_ListTasksDetailedResponse_opts, tasks_options), true),
+    (::core::mem::offset_of!(ak_dec_ListTasksDetailedResponse_opts, tasks_options_options), true),
+    (::core::mem::offset_of!(ak_dec_ListTasksDetailedResponse_opts, tasks_options_max_duration), true),
+    (::core::mem::offset_of!(ak_dec_ListTasksDetailedResponse_opts, tasks_created_at), true),
+    (::core::mem::offset_of!(ak_dec_ListTasksDetailedResponse_opts, tasks_submitted_at), true),
+    (::core::mem::offset_of!(ak_dec_ListTasksDetailedResponse_opts, tasks_started_at), true),
+    (::core::mem::offset_of!(ak_dec_ListTasksDetailedResponse_opts, tasks_ended_at), true),
+    (::core::mem::offset_of!(ak_dec_ListTasksDetailedResponse_opts, tasks_pod_ttl), true),
+    (::core::mem::offset_of!(ak_dec_ListTasksDetailedResponse_opts, tasks_output), true),
+    (::core::mem::offset_of!(ak_dec_ListTasksDetailedResponse_opts, tasks_received_at), true),
+    (::core::mem::offset_of!(ak_dec_ListTasksDetailedResponse_opts, tasks_acquired_at), true),
+    (::core::mem::offset_of!(ak_dec_ListTasksDetailedResponse_opts, tasks_creation_to_end_duration), true),
+    (::core::mem::offset_of!(ak_dec_ListTasksDetailedResponse_opts, tasks_processing_to_end_duration), true),
+    (::core::mem::offset_of!(ak_dec_ListTasksDetailedResponse_opts, tasks_received_to_end_duration), true),
+    (::core::mem::offset_of!(ak_dec_ListTasksDetailedResponse_opts, tasks_processed_at), true),
+    (::core::mem::offset_of!(ak_dec_ListTasksDetailedResponse_opts, tasks_fetched_at), true),
+];
 
-/// Decision 11: re-arm every unknown-field position of `ListTasksDetailedResponse` (copied; NULL =
-/// drop everywhere).
+/// Decision 11: re-arm every unknown-field position of `ListTasksDetailedResponse` from `opts`, read in
+/// place (NULL = drop everywhere). Rule 6: only a context bound to this root.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_reset_ListTasksDetailedResponse(ctx: *mut ak_dec_ctx, opts: *const ak_dec_ListTasksDetailedResponse_opts) {
+pub unsafe extern "C" fn ak_dec_reset_ListTasksDetailedResponse(ctx: *mut ak_dec_ctx, opts: *mut ak_dec_ListTasksDetailedResponse_opts) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
     #[cfg(feature = "init-guard")]
     if !crate::ak_init_ok() {
-        return;
+        return AK_ERR_UNINITIALIZED;
     }
-    if ctx.is_null() { return; }
-    if opts.is_null() {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 14, ::core::ptr::null_mut(), ::core::ptr::null(), 0);
-    } else {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 14, (*opts).host, &(*opts).self_, 18);
-    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 14 { return AK_ERR_INVALID_STATE; }
+    crate::unk_arm(dcx, opts as *mut u8, &UNK_LAYOUT_LISTTASKSDETAILEDRESPONSE);
+    AK_OK
 }
 
-/// Decision 11: a decode context armed for `ListTasksDetailedResponse` at creation.
+/// Decision 11 rule 6: a decode context BOUND to `ListTasksDetailedResponse`, armed with `opts`.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_ctx_new_ListTasksDetailedResponse(opts: *const ak_dec_ListTasksDetailedResponse_opts) -> *mut ak_dec_ctx {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return ::core::ptr::null_mut();
-    }
-    let ctx = crate::ak_dec_ctx_new();
-    ak_dec_reset_ListTasksDetailedResponse(ctx, opts);
+pub unsafe extern "C" fn ak_dec_ctx_new_ListTasksDetailedResponse(opts: *mut ak_dec_ListTasksDetailedResponse_opts) -> *mut ak_dec_ctx {
+    let ctx = crate::dec_ctx_alloc(14);
+    crate::unk_arm(ctx as *mut DecCtxImpl, opts as *mut u8, &UNK_LAYOUT_LISTTASKSDETAILEDRESPONSE);
     ctx
 }
 
-// `ak_dec_ListTaskSummaryResponse_opts` is `host` then 6 `ak_unk_opts` back to back: the core reads it as
-// an array, so the layout is asserted here.
-const _: () = {
-    assert!(::core::mem::offset_of!(ak_dec_ListTaskSummaryResponse_opts, self_) == 8);
-    assert!(::core::mem::offset_of!(ak_dec_ListTaskSummaryResponse_opts, tasks_created_at) == 8 + 5 * ::core::mem::size_of::<ak_unk_opts>());
-    assert!(::core::mem::size_of::<ak_dec_ListTaskSummaryResponse_opts>() == 8 + 6 * ::core::mem::size_of::<ak_unk_opts>());
-};
+/// Decision 11 rule 1: where each position's entry sits in `ak_dec_ListTaskSummaryResponse_opts`, and whether it
+/// is a pool; the core reads the host's struct IN PLACE through these offsets.
+const UNK_LAYOUT_LISTTASKSUMMARYRESPONSE: [(usize, bool); 6] = [
+    (::core::mem::offset_of!(ak_dec_ListTaskSummaryResponse_opts, self_), false),
+    (::core::mem::offset_of!(ak_dec_ListTaskSummaryResponse_opts, tasks), true),
+    (::core::mem::offset_of!(ak_dec_ListTaskSummaryResponse_opts, tasks_options), true),
+    (::core::mem::offset_of!(ak_dec_ListTaskSummaryResponse_opts, tasks_options_options), true),
+    (::core::mem::offset_of!(ak_dec_ListTaskSummaryResponse_opts, tasks_options_max_duration), true),
+    (::core::mem::offset_of!(ak_dec_ListTaskSummaryResponse_opts, tasks_created_at), true),
+];
 
-/// Decision 11: re-arm every unknown-field position of `ListTaskSummaryResponse` (copied; NULL =
-/// drop everywhere).
+/// Decision 11: re-arm every unknown-field position of `ListTaskSummaryResponse` from `opts`, read in
+/// place (NULL = drop everywhere). Rule 6: only a context bound to this root.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_reset_ListTaskSummaryResponse(ctx: *mut ak_dec_ctx, opts: *const ak_dec_ListTaskSummaryResponse_opts) {
+pub unsafe extern "C" fn ak_dec_reset_ListTaskSummaryResponse(ctx: *mut ak_dec_ctx, opts: *mut ak_dec_ListTaskSummaryResponse_opts) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
     #[cfg(feature = "init-guard")]
     if !crate::ak_init_ok() {
-        return;
+        return AK_ERR_UNINITIALIZED;
     }
-    if ctx.is_null() { return; }
-    if opts.is_null() {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 15, ::core::ptr::null_mut(), ::core::ptr::null(), 0);
-    } else {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 15, (*opts).host, &(*opts).self_, 6);
-    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 15 { return AK_ERR_INVALID_STATE; }
+    crate::unk_arm(dcx, opts as *mut u8, &UNK_LAYOUT_LISTTASKSUMMARYRESPONSE);
+    AK_OK
 }
 
-/// Decision 11: a decode context armed for `ListTaskSummaryResponse` at creation.
+/// Decision 11 rule 6: a decode context BOUND to `ListTaskSummaryResponse`, armed with `opts`.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_ctx_new_ListTaskSummaryResponse(opts: *const ak_dec_ListTaskSummaryResponse_opts) -> *mut ak_dec_ctx {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return ::core::ptr::null_mut();
-    }
-    let ctx = crate::ak_dec_ctx_new();
-    ak_dec_reset_ListTaskSummaryResponse(ctx, opts);
+pub unsafe extern "C" fn ak_dec_ctx_new_ListTaskSummaryResponse(opts: *mut ak_dec_ListTaskSummaryResponse_opts) -> *mut ak_dec_ctx {
+    let ctx = crate::dec_ctx_alloc(15);
+    crate::unk_arm(ctx as *mut DecCtxImpl, opts as *mut u8, &UNK_LAYOUT_LISTTASKSUMMARYRESPONSE);
     ctx
 }
 
-// `ak_dec_ListProbeResponse_opts` is `host` then 4 `ak_unk_opts` back to back: the core reads it as
-// an array, so the layout is asserted here.
-const _: () = {
-    assert!(::core::mem::offset_of!(ak_dec_ListProbeResponse_opts, self_) == 8);
-    assert!(::core::mem::offset_of!(ak_dec_ListProbeResponse_opts, probes_body_as_nothing) == 8 + 3 * ::core::mem::size_of::<ak_unk_opts>());
-    assert!(::core::mem::size_of::<ak_dec_ListProbeResponse_opts>() == 8 + 4 * ::core::mem::size_of::<ak_unk_opts>());
-};
+/// Decision 11 rule 1: where each position's entry sits in `ak_dec_ListProbeResponse_opts`, and whether it
+/// is a pool; the core reads the host's struct IN PLACE through these offsets.
+const UNK_LAYOUT_LISTPROBERESPONSE: [(usize, bool); 3] = [
+    (::core::mem::offset_of!(ak_dec_ListProbeResponse_opts, self_), false),
+    (::core::mem::offset_of!(ak_dec_ListProbeResponse_opts, probes), true),
+    (::core::mem::offset_of!(ak_dec_ListProbeResponse_opts, probes_body), true),
+];
 
-/// Decision 11: re-arm every unknown-field position of `ListProbeResponse` (copied; NULL =
-/// drop everywhere).
+/// Decision 11: re-arm every unknown-field position of `ListProbeResponse` from `opts`, read in
+/// place (NULL = drop everywhere). Rule 6: only a context bound to this root.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_reset_ListProbeResponse(ctx: *mut ak_dec_ctx, opts: *const ak_dec_ListProbeResponse_opts) {
+pub unsafe extern "C" fn ak_dec_reset_ListProbeResponse(ctx: *mut ak_dec_ctx, opts: *mut ak_dec_ListProbeResponse_opts) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
     #[cfg(feature = "init-guard")]
     if !crate::ak_init_ok() {
-        return;
+        return AK_ERR_UNINITIALIZED;
     }
-    if ctx.is_null() { return; }
-    if opts.is_null() {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 16, ::core::ptr::null_mut(), ::core::ptr::null(), 0);
-    } else {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 16, (*opts).host, &(*opts).self_, 4);
-    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 16 { return AK_ERR_INVALID_STATE; }
+    crate::unk_arm(dcx, opts as *mut u8, &UNK_LAYOUT_LISTPROBERESPONSE);
+    AK_OK
 }
 
-/// Decision 11: a decode context armed for `ListProbeResponse` at creation.
+/// Decision 11 rule 6: a decode context BOUND to `ListProbeResponse`, armed with `opts`.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_ctx_new_ListProbeResponse(opts: *const ak_dec_ListProbeResponse_opts) -> *mut ak_dec_ctx {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return ::core::ptr::null_mut();
-    }
-    let ctx = crate::ak_dec_ctx_new();
-    ak_dec_reset_ListProbeResponse(ctx, opts);
+pub unsafe extern "C" fn ak_dec_ctx_new_ListProbeResponse(opts: *mut ak_dec_ListProbeResponse_opts) -> *mut ak_dec_ctx {
+    let ctx = crate::dec_ctx_alloc(16);
+    crate::unk_arm(ctx as *mut DecCtxImpl, opts as *mut u8, &UNK_LAYOUT_LISTPROBERESPONSE);
     ctx
 }
 
-// `ak_dec_ListMetricsResponse_opts` is `host` then 2 `ak_unk_opts` back to back: the core reads it as
-// an array, so the layout is asserted here.
-const _: () = {
-    assert!(::core::mem::offset_of!(ak_dec_ListMetricsResponse_opts, self_) == 8);
-    assert!(::core::mem::offset_of!(ak_dec_ListMetricsResponse_opts, batches) == 8 + 1 * ::core::mem::size_of::<ak_unk_opts>());
-    assert!(::core::mem::size_of::<ak_dec_ListMetricsResponse_opts>() == 8 + 2 * ::core::mem::size_of::<ak_unk_opts>());
-};
+/// Decision 11 rule 1: where each position's entry sits in `ak_dec_ListMetricsResponse_opts`, and whether it
+/// is a pool; the core reads the host's struct IN PLACE through these offsets.
+const UNK_LAYOUT_LISTMETRICSRESPONSE: [(usize, bool); 2] = [
+    (::core::mem::offset_of!(ak_dec_ListMetricsResponse_opts, self_), false),
+    (::core::mem::offset_of!(ak_dec_ListMetricsResponse_opts, batches), true),
+];
 
-/// Decision 11: re-arm every unknown-field position of `ListMetricsResponse` (copied; NULL =
-/// drop everywhere).
+/// Decision 11: re-arm every unknown-field position of `ListMetricsResponse` from `opts`, read in
+/// place (NULL = drop everywhere). Rule 6: only a context bound to this root.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_reset_ListMetricsResponse(ctx: *mut ak_dec_ctx, opts: *const ak_dec_ListMetricsResponse_opts) {
+pub unsafe extern "C" fn ak_dec_reset_ListMetricsResponse(ctx: *mut ak_dec_ctx, opts: *mut ak_dec_ListMetricsResponse_opts) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
     #[cfg(feature = "init-guard")]
     if !crate::ak_init_ok() {
-        return;
+        return AK_ERR_UNINITIALIZED;
     }
-    if ctx.is_null() { return; }
-    if opts.is_null() {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 17, ::core::ptr::null_mut(), ::core::ptr::null(), 0);
-    } else {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 17, (*opts).host, &(*opts).self_, 2);
-    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 17 { return AK_ERR_INVALID_STATE; }
+    crate::unk_arm(dcx, opts as *mut u8, &UNK_LAYOUT_LISTMETRICSRESPONSE);
+    AK_OK
 }
 
-/// Decision 11: a decode context armed for `ListMetricsResponse` at creation.
+/// Decision 11 rule 6: a decode context BOUND to `ListMetricsResponse`, armed with `opts`.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_ctx_new_ListMetricsResponse(opts: *const ak_dec_ListMetricsResponse_opts) -> *mut ak_dec_ctx {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return ::core::ptr::null_mut();
-    }
-    let ctx = crate::ak_dec_ctx_new();
-    ak_dec_reset_ListMetricsResponse(ctx, opts);
+pub unsafe extern "C" fn ak_dec_ctx_new_ListMetricsResponse(opts: *mut ak_dec_ListMetricsResponse_opts) -> *mut ak_dec_ctx {
+    let ctx = crate::dec_ctx_alloc(17);
+    crate::unk_arm(ctx as *mut DecCtxImpl, opts as *mut u8, &UNK_LAYOUT_LISTMETRICSRESPONSE);
     ctx
 }
 
-// `ak_dec_UploadResultDataMessage_opts` is `host` then 2 `ak_unk_opts` back to back: the core reads it as
-// an array, so the layout is asserted here.
-const _: () = {
-    assert!(::core::mem::offset_of!(ak_dec_UploadResultDataMessage_opts, self_) == 8);
-    assert!(::core::mem::offset_of!(ak_dec_UploadResultDataMessage_opts, upload) == 8 + 1 * ::core::mem::size_of::<ak_unk_opts>());
-    assert!(::core::mem::size_of::<ak_dec_UploadResultDataMessage_opts>() == 8 + 2 * ::core::mem::size_of::<ak_unk_opts>());
-};
+/// Decision 11 rule 1: where each position's entry sits in `ak_dec_UploadResultDataMessage_opts`, and whether it
+/// is a pool; the core reads the host's struct IN PLACE through these offsets.
+const UNK_LAYOUT_UPLOADRESULTDATAMESSAGE: [(usize, bool); 2] = [
+    (::core::mem::offset_of!(ak_dec_UploadResultDataMessage_opts, self_), false),
+    (::core::mem::offset_of!(ak_dec_UploadResultDataMessage_opts, upload), false),
+];
 
-/// Decision 11: re-arm every unknown-field position of `UploadResultDataMessage` (copied; NULL =
-/// drop everywhere).
+/// Decision 11: re-arm every unknown-field position of `UploadResultDataMessage` from `opts`, read in
+/// place (NULL = drop everywhere). Rule 6: only a context bound to this root.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_reset_UploadResultDataMessage(ctx: *mut ak_dec_ctx, opts: *const ak_dec_UploadResultDataMessage_opts) {
+pub unsafe extern "C" fn ak_dec_reset_UploadResultDataMessage(ctx: *mut ak_dec_ctx, opts: *mut ak_dec_UploadResultDataMessage_opts) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
     #[cfg(feature = "init-guard")]
     if !crate::ak_init_ok() {
-        return;
+        return AK_ERR_UNINITIALIZED;
     }
-    if ctx.is_null() { return; }
-    if opts.is_null() {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 18, ::core::ptr::null_mut(), ::core::ptr::null(), 0);
-    } else {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 18, (*opts).host, &(*opts).self_, 2);
-    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 18 { return AK_ERR_INVALID_STATE; }
+    crate::unk_arm(dcx, opts as *mut u8, &UNK_LAYOUT_UPLOADRESULTDATAMESSAGE);
+    AK_OK
 }
 
-/// Decision 11: a decode context armed for `UploadResultDataMessage` at creation.
+/// Decision 11 rule 6: a decode context BOUND to `UploadResultDataMessage`, armed with `opts`.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_ctx_new_UploadResultDataMessage(opts: *const ak_dec_UploadResultDataMessage_opts) -> *mut ak_dec_ctx {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return ::core::ptr::null_mut();
-    }
-    let ctx = crate::ak_dec_ctx_new();
-    ak_dec_reset_UploadResultDataMessage(ctx, opts);
+pub unsafe extern "C" fn ak_dec_ctx_new_UploadResultDataMessage(opts: *mut ak_dec_UploadResultDataMessage_opts) -> *mut ak_dec_ctx {
+    let ctx = crate::dec_ctx_alloc(18);
+    crate::unk_arm(ctx as *mut DecCtxImpl, opts as *mut u8, &UNK_LAYOUT_UPLOADRESULTDATAMESSAGE);
     ctx
 }
 
-// `ak_dec_DualResponse_opts` is `host` then 3 `ak_unk_opts` back to back: the core reads it as
-// an array, so the layout is asserted here.
-const _: () = {
-    assert!(::core::mem::offset_of!(ak_dec_DualResponse_opts, self_) == 8);
-    assert!(::core::mem::offset_of!(ak_dec_DualResponse_opts, right) == 8 + 2 * ::core::mem::size_of::<ak_unk_opts>());
-    assert!(::core::mem::size_of::<ak_dec_DualResponse_opts>() == 8 + 3 * ::core::mem::size_of::<ak_unk_opts>());
-};
+/// Decision 11 rule 1: where each position's entry sits in `ak_dec_DualResponse_opts`, and whether it
+/// is a pool; the core reads the host's struct IN PLACE through these offsets.
+const UNK_LAYOUT_DUALRESPONSE: [(usize, bool); 3] = [
+    (::core::mem::offset_of!(ak_dec_DualResponse_opts, self_), false),
+    (::core::mem::offset_of!(ak_dec_DualResponse_opts, left), true),
+    (::core::mem::offset_of!(ak_dec_DualResponse_opts, right), true),
+];
 
-/// Decision 11: re-arm every unknown-field position of `DualResponse` (copied; NULL =
-/// drop everywhere).
+/// Decision 11: re-arm every unknown-field position of `DualResponse` from `opts`, read in
+/// place (NULL = drop everywhere). Rule 6: only a context bound to this root.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_reset_DualResponse(ctx: *mut ak_dec_ctx, opts: *const ak_dec_DualResponse_opts) {
+pub unsafe extern "C" fn ak_dec_reset_DualResponse(ctx: *mut ak_dec_ctx, opts: *mut ak_dec_DualResponse_opts) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
     #[cfg(feature = "init-guard")]
     if !crate::ak_init_ok() {
-        return;
+        return AK_ERR_UNINITIALIZED;
     }
-    if ctx.is_null() { return; }
-    if opts.is_null() {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 19, ::core::ptr::null_mut(), ::core::ptr::null(), 0);
-    } else {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 19, (*opts).host, &(*opts).self_, 3);
-    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 19 { return AK_ERR_INVALID_STATE; }
+    crate::unk_arm(dcx, opts as *mut u8, &UNK_LAYOUT_DUALRESPONSE);
+    AK_OK
 }
 
-/// Decision 11: a decode context armed for `DualResponse` at creation.
+/// Decision 11 rule 6: a decode context BOUND to `DualResponse`, armed with `opts`.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_ctx_new_DualResponse(opts: *const ak_dec_DualResponse_opts) -> *mut ak_dec_ctx {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return ::core::ptr::null_mut();
-    }
-    let ctx = crate::ak_dec_ctx_new();
-    ak_dec_reset_DualResponse(ctx, opts);
+pub unsafe extern "C" fn ak_dec_ctx_new_DualResponse(opts: *mut ak_dec_DualResponse_opts) -> *mut ak_dec_ctx {
+    let ctx = crate::dec_ctx_alloc(19);
+    crate::unk_arm(ctx as *mut DecCtxImpl, opts as *mut u8, &UNK_LAYOUT_DUALRESPONSE);
     ctx
 }
 
-// `ak_dec_ChunkLeaf_opts` is `host` then 1 `ak_unk_opts` back to back: the core reads it as
-// an array, so the layout is asserted here.
-const _: () = {
-    assert!(::core::mem::offset_of!(ak_dec_ChunkLeaf_opts, self_) == 8);
-    assert!(::core::mem::offset_of!(ak_dec_ChunkLeaf_opts, self_) == 8 + 0 * ::core::mem::size_of::<ak_unk_opts>());
-    assert!(::core::mem::size_of::<ak_dec_ChunkLeaf_opts>() == 8 + 1 * ::core::mem::size_of::<ak_unk_opts>());
-};
+/// Decision 11 rule 1: where each position's entry sits in `ak_dec_ChunkLeaf_opts`, and whether it
+/// is a pool; the core reads the host's struct IN PLACE through these offsets.
+const UNK_LAYOUT_CHUNKLEAF: [(usize, bool); 1] = [
+    (::core::mem::offset_of!(ak_dec_ChunkLeaf_opts, self_), false),
+];
 
-/// Decision 11: re-arm every unknown-field position of `ChunkLeaf` (copied; NULL =
-/// drop everywhere).
+/// Decision 11: re-arm every unknown-field position of `ChunkLeaf` from `opts`, read in
+/// place (NULL = drop everywhere). Rule 6: only a context bound to this root.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_reset_ChunkLeaf(ctx: *mut ak_dec_ctx, opts: *const ak_dec_ChunkLeaf_opts) {
+pub unsafe extern "C" fn ak_dec_reset_ChunkLeaf(ctx: *mut ak_dec_ctx, opts: *mut ak_dec_ChunkLeaf_opts) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
     #[cfg(feature = "init-guard")]
     if !crate::ak_init_ok() {
-        return;
+        return AK_ERR_UNINITIALIZED;
     }
-    if ctx.is_null() { return; }
-    if opts.is_null() {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 20, ::core::ptr::null_mut(), ::core::ptr::null(), 0);
-    } else {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 20, (*opts).host, &(*opts).self_, 1);
-    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 20 { return AK_ERR_INVALID_STATE; }
+    crate::unk_arm(dcx, opts as *mut u8, &UNK_LAYOUT_CHUNKLEAF);
+    AK_OK
 }
 
-/// Decision 11: a decode context armed for `ChunkLeaf` at creation.
+/// Decision 11 rule 6: a decode context BOUND to `ChunkLeaf`, armed with `opts`.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_ctx_new_ChunkLeaf(opts: *const ak_dec_ChunkLeaf_opts) -> *mut ak_dec_ctx {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return ::core::ptr::null_mut();
-    }
-    let ctx = crate::ak_dec_ctx_new();
-    ak_dec_reset_ChunkLeaf(ctx, opts);
+pub unsafe extern "C" fn ak_dec_ctx_new_ChunkLeaf(opts: *mut ak_dec_ChunkLeaf_opts) -> *mut ak_dec_ctx {
+    let ctx = crate::dec_ctx_alloc(20);
+    crate::unk_arm(ctx as *mut DecCtxImpl, opts as *mut u8, &UNK_LAYOUT_CHUNKLEAF);
     ctx
 }
 
-// `ak_dec_ChunkInner_opts` is `host` then 2 `ak_unk_opts` back to back: the core reads it as
-// an array, so the layout is asserted here.
-const _: () = {
-    assert!(::core::mem::offset_of!(ak_dec_ChunkInner_opts, self_) == 8);
-    assert!(::core::mem::offset_of!(ak_dec_ChunkInner_opts, leaves) == 8 + 1 * ::core::mem::size_of::<ak_unk_opts>());
-    assert!(::core::mem::size_of::<ak_dec_ChunkInner_opts>() == 8 + 2 * ::core::mem::size_of::<ak_unk_opts>());
-};
+/// Decision 11 rule 1: where each position's entry sits in `ak_dec_ChunkInner_opts`, and whether it
+/// is a pool; the core reads the host's struct IN PLACE through these offsets.
+const UNK_LAYOUT_CHUNKINNER: [(usize, bool); 2] = [
+    (::core::mem::offset_of!(ak_dec_ChunkInner_opts, self_), false),
+    (::core::mem::offset_of!(ak_dec_ChunkInner_opts, leaves), true),
+];
 
-/// Decision 11: re-arm every unknown-field position of `ChunkInner` (copied; NULL =
-/// drop everywhere).
+/// Decision 11: re-arm every unknown-field position of `ChunkInner` from `opts`, read in
+/// place (NULL = drop everywhere). Rule 6: only a context bound to this root.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_reset_ChunkInner(ctx: *mut ak_dec_ctx, opts: *const ak_dec_ChunkInner_opts) {
+pub unsafe extern "C" fn ak_dec_reset_ChunkInner(ctx: *mut ak_dec_ctx, opts: *mut ak_dec_ChunkInner_opts) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
     #[cfg(feature = "init-guard")]
     if !crate::ak_init_ok() {
-        return;
+        return AK_ERR_UNINITIALIZED;
     }
-    if ctx.is_null() { return; }
-    if opts.is_null() {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 21, ::core::ptr::null_mut(), ::core::ptr::null(), 0);
-    } else {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 21, (*opts).host, &(*opts).self_, 2);
-    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 21 { return AK_ERR_INVALID_STATE; }
+    crate::unk_arm(dcx, opts as *mut u8, &UNK_LAYOUT_CHUNKINNER);
+    AK_OK
 }
 
-/// Decision 11: a decode context armed for `ChunkInner` at creation.
+/// Decision 11 rule 6: a decode context BOUND to `ChunkInner`, armed with `opts`.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_ctx_new_ChunkInner(opts: *const ak_dec_ChunkInner_opts) -> *mut ak_dec_ctx {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return ::core::ptr::null_mut();
-    }
-    let ctx = crate::ak_dec_ctx_new();
-    ak_dec_reset_ChunkInner(ctx, opts);
+pub unsafe extern "C" fn ak_dec_ctx_new_ChunkInner(opts: *mut ak_dec_ChunkInner_opts) -> *mut ak_dec_ctx {
+    let ctx = crate::dec_ctx_alloc(21);
+    crate::unk_arm(ctx as *mut DecCtxImpl, opts as *mut u8, &UNK_LAYOUT_CHUNKINNER);
     ctx
 }
 
-// `ak_dec_ChunkElement_opts` is `host` then 4 `ak_unk_opts` back to back: the core reads it as
-// an array, so the layout is asserted here.
-const _: () = {
-    assert!(::core::mem::offset_of!(ak_dec_ChunkElement_opts, self_) == 8);
-    assert!(::core::mem::offset_of!(ak_dec_ChunkElement_opts, inner_leaves) == 8 + 3 * ::core::mem::size_of::<ak_unk_opts>());
-    assert!(::core::mem::size_of::<ak_dec_ChunkElement_opts>() == 8 + 4 * ::core::mem::size_of::<ak_unk_opts>());
-};
+/// Decision 11 rule 1: where each position's entry sits in `ak_dec_ChunkElement_opts`, and whether it
+/// is a pool; the core reads the host's struct IN PLACE through these offsets.
+const UNK_LAYOUT_CHUNKELEMENT: [(usize, bool); 4] = [
+    (::core::mem::offset_of!(ak_dec_ChunkElement_opts, self_), false),
+    (::core::mem::offset_of!(ak_dec_ChunkElement_opts, attrs), true),
+    (::core::mem::offset_of!(ak_dec_ChunkElement_opts, inner), false),
+    (::core::mem::offset_of!(ak_dec_ChunkElement_opts, inner_leaves), true),
+];
 
-/// Decision 11: re-arm every unknown-field position of `ChunkElement` (copied; NULL =
-/// drop everywhere).
+/// Decision 11: re-arm every unknown-field position of `ChunkElement` from `opts`, read in
+/// place (NULL = drop everywhere). Rule 6: only a context bound to this root.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_reset_ChunkElement(ctx: *mut ak_dec_ctx, opts: *const ak_dec_ChunkElement_opts) {
+pub unsafe extern "C" fn ak_dec_reset_ChunkElement(ctx: *mut ak_dec_ctx, opts: *mut ak_dec_ChunkElement_opts) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
     #[cfg(feature = "init-guard")]
     if !crate::ak_init_ok() {
-        return;
+        return AK_ERR_UNINITIALIZED;
     }
-    if ctx.is_null() { return; }
-    if opts.is_null() {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 22, ::core::ptr::null_mut(), ::core::ptr::null(), 0);
-    } else {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 22, (*opts).host, &(*opts).self_, 4);
-    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 22 { return AK_ERR_INVALID_STATE; }
+    crate::unk_arm(dcx, opts as *mut u8, &UNK_LAYOUT_CHUNKELEMENT);
+    AK_OK
 }
 
-/// Decision 11: a decode context armed for `ChunkElement` at creation.
+/// Decision 11 rule 6: a decode context BOUND to `ChunkElement`, armed with `opts`.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_ctx_new_ChunkElement(opts: *const ak_dec_ChunkElement_opts) -> *mut ak_dec_ctx {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return ::core::ptr::null_mut();
-    }
-    let ctx = crate::ak_dec_ctx_new();
-    ak_dec_reset_ChunkElement(ctx, opts);
+pub unsafe extern "C" fn ak_dec_ctx_new_ChunkElement(opts: *mut ak_dec_ChunkElement_opts) -> *mut ak_dec_ctx {
+    let ctx = crate::dec_ctx_alloc(22);
+    crate::unk_arm(ctx as *mut DecCtxImpl, opts as *mut u8, &UNK_LAYOUT_CHUNKELEMENT);
     ctx
 }
 
-// `ak_dec_ChunkedResponse_opts` is `host` then 5 `ak_unk_opts` back to back: the core reads it as
-// an array, so the layout is asserted here.
-const _: () = {
-    assert!(::core::mem::offset_of!(ak_dec_ChunkedResponse_opts, self_) == 8);
-    assert!(::core::mem::offset_of!(ak_dec_ChunkedResponse_opts, items_inner_leaves) == 8 + 4 * ::core::mem::size_of::<ak_unk_opts>());
-    assert!(::core::mem::size_of::<ak_dec_ChunkedResponse_opts>() == 8 + 5 * ::core::mem::size_of::<ak_unk_opts>());
-};
+/// Decision 11 rule 1: where each position's entry sits in `ak_dec_ChunkedResponse_opts`, and whether it
+/// is a pool; the core reads the host's struct IN PLACE through these offsets.
+const UNK_LAYOUT_CHUNKEDRESPONSE: [(usize, bool); 5] = [
+    (::core::mem::offset_of!(ak_dec_ChunkedResponse_opts, self_), false),
+    (::core::mem::offset_of!(ak_dec_ChunkedResponse_opts, items), true),
+    (::core::mem::offset_of!(ak_dec_ChunkedResponse_opts, items_attrs), true),
+    (::core::mem::offset_of!(ak_dec_ChunkedResponse_opts, items_inner), true),
+    (::core::mem::offset_of!(ak_dec_ChunkedResponse_opts, items_inner_leaves), true),
+];
 
-/// Decision 11: re-arm every unknown-field position of `ChunkedResponse` (copied; NULL =
-/// drop everywhere).
+/// Decision 11: re-arm every unknown-field position of `ChunkedResponse` from `opts`, read in
+/// place (NULL = drop everywhere). Rule 6: only a context bound to this root.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_reset_ChunkedResponse(ctx: *mut ak_dec_ctx, opts: *const ak_dec_ChunkedResponse_opts) {
+pub unsafe extern "C" fn ak_dec_reset_ChunkedResponse(ctx: *mut ak_dec_ctx, opts: *mut ak_dec_ChunkedResponse_opts) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
     #[cfg(feature = "init-guard")]
     if !crate::ak_init_ok() {
-        return;
+        return AK_ERR_UNINITIALIZED;
     }
-    if ctx.is_null() { return; }
-    if opts.is_null() {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 23, ::core::ptr::null_mut(), ::core::ptr::null(), 0);
-    } else {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 23, (*opts).host, &(*opts).self_, 5);
-    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 23 { return AK_ERR_INVALID_STATE; }
+    crate::unk_arm(dcx, opts as *mut u8, &UNK_LAYOUT_CHUNKEDRESPONSE);
+    AK_OK
 }
 
-/// Decision 11: a decode context armed for `ChunkedResponse` at creation.
+/// Decision 11 rule 6: a decode context BOUND to `ChunkedResponse`, armed with `opts`.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_ctx_new_ChunkedResponse(opts: *const ak_dec_ChunkedResponse_opts) -> *mut ak_dec_ctx {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return ::core::ptr::null_mut();
-    }
-    let ctx = crate::ak_dec_ctx_new();
-    ak_dec_reset_ChunkedResponse(ctx, opts);
+pub unsafe extern "C" fn ak_dec_ctx_new_ChunkedResponse(opts: *mut ak_dec_ChunkedResponse_opts) -> *mut ak_dec_ctx {
+    let ctx = crate::dec_ctx_alloc(23);
+    crate::unk_arm(ctx as *mut DecCtxImpl, opts as *mut u8, &UNK_LAYOUT_CHUNKEDRESPONSE);
     ctx
 }
 
-// `ak_dec_ChunkedResponseWide_opts` is `host` then 5 `ak_unk_opts` back to back: the core reads it as
-// an array, so the layout is asserted here.
-const _: () = {
-    assert!(::core::mem::offset_of!(ak_dec_ChunkedResponseWide_opts, self_) == 8);
-    assert!(::core::mem::offset_of!(ak_dec_ChunkedResponseWide_opts, items_inner_leaves) == 8 + 4 * ::core::mem::size_of::<ak_unk_opts>());
-    assert!(::core::mem::size_of::<ak_dec_ChunkedResponseWide_opts>() == 8 + 5 * ::core::mem::size_of::<ak_unk_opts>());
-};
+/// Decision 11 rule 1: where each position's entry sits in `ak_dec_ChunkedResponseWide_opts`, and whether it
+/// is a pool; the core reads the host's struct IN PLACE through these offsets.
+const UNK_LAYOUT_CHUNKEDRESPONSEWIDE: [(usize, bool); 5] = [
+    (::core::mem::offset_of!(ak_dec_ChunkedResponseWide_opts, self_), false),
+    (::core::mem::offset_of!(ak_dec_ChunkedResponseWide_opts, items), true),
+    (::core::mem::offset_of!(ak_dec_ChunkedResponseWide_opts, items_attrs), true),
+    (::core::mem::offset_of!(ak_dec_ChunkedResponseWide_opts, items_inner), true),
+    (::core::mem::offset_of!(ak_dec_ChunkedResponseWide_opts, items_inner_leaves), true),
+];
 
-/// Decision 11: re-arm every unknown-field position of `ChunkedResponseWide` (copied; NULL =
-/// drop everywhere).
+/// Decision 11: re-arm every unknown-field position of `ChunkedResponseWide` from `opts`, read in
+/// place (NULL = drop everywhere). Rule 6: only a context bound to this root.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_reset_ChunkedResponseWide(ctx: *mut ak_dec_ctx, opts: *const ak_dec_ChunkedResponseWide_opts) {
+pub unsafe extern "C" fn ak_dec_reset_ChunkedResponseWide(ctx: *mut ak_dec_ctx, opts: *mut ak_dec_ChunkedResponseWide_opts) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
     #[cfg(feature = "init-guard")]
     if !crate::ak_init_ok() {
-        return;
+        return AK_ERR_UNINITIALIZED;
     }
-    if ctx.is_null() { return; }
-    if opts.is_null() {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 24, ::core::ptr::null_mut(), ::core::ptr::null(), 0);
-    } else {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 24, (*opts).host, &(*opts).self_, 5);
-    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 24 { return AK_ERR_INVALID_STATE; }
+    crate::unk_arm(dcx, opts as *mut u8, &UNK_LAYOUT_CHUNKEDRESPONSEWIDE);
+    AK_OK
 }
 
-/// Decision 11: a decode context armed for `ChunkedResponseWide` at creation.
+/// Decision 11 rule 6: a decode context BOUND to `ChunkedResponseWide`, armed with `opts`.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_ctx_new_ChunkedResponseWide(opts: *const ak_dec_ChunkedResponseWide_opts) -> *mut ak_dec_ctx {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return ::core::ptr::null_mut();
-    }
-    let ctx = crate::ak_dec_ctx_new();
-    ak_dec_reset_ChunkedResponseWide(ctx, opts);
+pub unsafe extern "C" fn ak_dec_ctx_new_ChunkedResponseWide(opts: *mut ak_dec_ChunkedResponseWide_opts) -> *mut ak_dec_ctx {
+    let ctx = crate::dec_ctx_alloc(24);
+    crate::unk_arm(ctx as *mut DecCtxImpl, opts as *mut u8, &UNK_LAYOUT_CHUNKEDRESPONSEWIDE);
     ctx
 }
 
-// `ak_dec_LeafElement_opts` is `host` then 2 `ak_unk_opts` back to back: the core reads it as
-// an array, so the layout is asserted here.
-const _: () = {
-    assert!(::core::mem::offset_of!(ak_dec_LeafElement_opts, self_) == 8);
-    assert!(::core::mem::offset_of!(ak_dec_LeafElement_opts, stamp) == 8 + 1 * ::core::mem::size_of::<ak_unk_opts>());
-    assert!(::core::mem::size_of::<ak_dec_LeafElement_opts>() == 8 + 2 * ::core::mem::size_of::<ak_unk_opts>());
-};
+/// Decision 11 rule 1: where each position's entry sits in `ak_dec_LeafElement_opts`, and whether it
+/// is a pool; the core reads the host's struct IN PLACE through these offsets.
+const UNK_LAYOUT_LEAFELEMENT: [(usize, bool); 2] = [
+    (::core::mem::offset_of!(ak_dec_LeafElement_opts, self_), false),
+    (::core::mem::offset_of!(ak_dec_LeafElement_opts, stamp), false),
+];
 
-/// Decision 11: re-arm every unknown-field position of `LeafElement` (copied; NULL =
-/// drop everywhere).
+/// Decision 11: re-arm every unknown-field position of `LeafElement` from `opts`, read in
+/// place (NULL = drop everywhere). Rule 6: only a context bound to this root.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_reset_LeafElement(ctx: *mut ak_dec_ctx, opts: *const ak_dec_LeafElement_opts) {
+pub unsafe extern "C" fn ak_dec_reset_LeafElement(ctx: *mut ak_dec_ctx, opts: *mut ak_dec_LeafElement_opts) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
     #[cfg(feature = "init-guard")]
     if !crate::ak_init_ok() {
-        return;
+        return AK_ERR_UNINITIALIZED;
     }
-    if ctx.is_null() { return; }
-    if opts.is_null() {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 25, ::core::ptr::null_mut(), ::core::ptr::null(), 0);
-    } else {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 25, (*opts).host, &(*opts).self_, 2);
-    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 25 { return AK_ERR_INVALID_STATE; }
+    crate::unk_arm(dcx, opts as *mut u8, &UNK_LAYOUT_LEAFELEMENT);
+    AK_OK
 }
 
-/// Decision 11: a decode context armed for `LeafElement` at creation.
+/// Decision 11 rule 6: a decode context BOUND to `LeafElement`, armed with `opts`.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_ctx_new_LeafElement(opts: *const ak_dec_LeafElement_opts) -> *mut ak_dec_ctx {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return ::core::ptr::null_mut();
-    }
-    let ctx = crate::ak_dec_ctx_new();
-    ak_dec_reset_LeafElement(ctx, opts);
+pub unsafe extern "C" fn ak_dec_ctx_new_LeafElement(opts: *mut ak_dec_LeafElement_opts) -> *mut ak_dec_ctx {
+    let ctx = crate::dec_ctx_alloc(25);
+    crate::unk_arm(ctx as *mut DecCtxImpl, opts as *mut u8, &UNK_LAYOUT_LEAFELEMENT);
     ctx
 }
 
-// `ak_dec_LeafResponse_opts` is `host` then 3 `ak_unk_opts` back to back: the core reads it as
-// an array, so the layout is asserted here.
-const _: () = {
-    assert!(::core::mem::offset_of!(ak_dec_LeafResponse_opts, self_) == 8);
-    assert!(::core::mem::offset_of!(ak_dec_LeafResponse_opts, items_stamp) == 8 + 2 * ::core::mem::size_of::<ak_unk_opts>());
-    assert!(::core::mem::size_of::<ak_dec_LeafResponse_opts>() == 8 + 3 * ::core::mem::size_of::<ak_unk_opts>());
-};
+/// Decision 11 rule 1: where each position's entry sits in `ak_dec_LeafResponse_opts`, and whether it
+/// is a pool; the core reads the host's struct IN PLACE through these offsets.
+const UNK_LAYOUT_LEAFRESPONSE: [(usize, bool); 3] = [
+    (::core::mem::offset_of!(ak_dec_LeafResponse_opts, self_), false),
+    (::core::mem::offset_of!(ak_dec_LeafResponse_opts, items), true),
+    (::core::mem::offset_of!(ak_dec_LeafResponse_opts, items_stamp), true),
+];
 
-/// Decision 11: re-arm every unknown-field position of `LeafResponse` (copied; NULL =
-/// drop everywhere).
+/// Decision 11: re-arm every unknown-field position of `LeafResponse` from `opts`, read in
+/// place (NULL = drop everywhere). Rule 6: only a context bound to this root.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_reset_LeafResponse(ctx: *mut ak_dec_ctx, opts: *const ak_dec_LeafResponse_opts) {
+pub unsafe extern "C" fn ak_dec_reset_LeafResponse(ctx: *mut ak_dec_ctx, opts: *mut ak_dec_LeafResponse_opts) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
     #[cfg(feature = "init-guard")]
     if !crate::ak_init_ok() {
-        return;
+        return AK_ERR_UNINITIALIZED;
     }
-    if ctx.is_null() { return; }
-    if opts.is_null() {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 26, ::core::ptr::null_mut(), ::core::ptr::null(), 0);
-    } else {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 26, (*opts).host, &(*opts).self_, 3);
-    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 26 { return AK_ERR_INVALID_STATE; }
+    crate::unk_arm(dcx, opts as *mut u8, &UNK_LAYOUT_LEAFRESPONSE);
+    AK_OK
 }
 
-/// Decision 11: a decode context armed for `LeafResponse` at creation.
+/// Decision 11 rule 6: a decode context BOUND to `LeafResponse`, armed with `opts`.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_ctx_new_LeafResponse(opts: *const ak_dec_LeafResponse_opts) -> *mut ak_dec_ctx {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return ::core::ptr::null_mut();
-    }
-    let ctx = crate::ak_dec_ctx_new();
-    ak_dec_reset_LeafResponse(ctx, opts);
+pub unsafe extern "C" fn ak_dec_ctx_new_LeafResponse(opts: *mut ak_dec_LeafResponse_opts) -> *mut ak_dec_ctx {
+    let ctx = crate::dec_ctx_alloc(26);
+    crate::unk_arm(ctx as *mut DecCtxImpl, opts as *mut u8, &UNK_LAYOUT_LEAFRESPONSE);
     ctx
 }
 
-// `ak_dec_Surrogate_opts` is `host` then 3 `ak_unk_opts` back to back: the core reads it as
-// an array, so the layout is asserted here.
-const _: () = {
-    assert!(::core::mem::offset_of!(ak_dec_Surrogate_opts, self_) == 8);
-    assert!(::core::mem::offset_of!(ak_dec_Surrogate_opts, attrs) == 8 + 2 * ::core::mem::size_of::<ak_unk_opts>());
-    assert!(::core::mem::size_of::<ak_dec_Surrogate_opts>() == 8 + 3 * ::core::mem::size_of::<ak_unk_opts>());
-};
+/// Decision 11 rule 1: where each position's entry sits in `ak_dec_Surrogate_opts`, and whether it
+/// is a pool; the core reads the host's struct IN PLACE through these offsets.
+const UNK_LAYOUT_SURROGATE: [(usize, bool); 3] = [
+    (::core::mem::offset_of!(ak_dec_Surrogate_opts, self_), false),
+    (::core::mem::offset_of!(ak_dec_Surrogate_opts, nested), false),
+    (::core::mem::offset_of!(ak_dec_Surrogate_opts, attrs), true),
+];
 
-/// Decision 11: re-arm every unknown-field position of `Surrogate` (copied; NULL =
-/// drop everywhere).
+/// Decision 11: re-arm every unknown-field position of `Surrogate` from `opts`, read in
+/// place (NULL = drop everywhere). Rule 6: only a context bound to this root.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_reset_Surrogate(ctx: *mut ak_dec_ctx, opts: *const ak_dec_Surrogate_opts) {
+pub unsafe extern "C" fn ak_dec_reset_Surrogate(ctx: *mut ak_dec_ctx, opts: *mut ak_dec_Surrogate_opts) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
     #[cfg(feature = "init-guard")]
     if !crate::ak_init_ok() {
-        return;
+        return AK_ERR_UNINITIALIZED;
     }
-    if ctx.is_null() { return; }
-    if opts.is_null() {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 27, ::core::ptr::null_mut(), ::core::ptr::null(), 0);
-    } else {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 27, (*opts).host, &(*opts).self_, 3);
-    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 27 { return AK_ERR_INVALID_STATE; }
+    crate::unk_arm(dcx, opts as *mut u8, &UNK_LAYOUT_SURROGATE);
+    AK_OK
 }
 
-/// Decision 11: a decode context armed for `Surrogate` at creation.
+/// Decision 11 rule 6: a decode context BOUND to `Surrogate`, armed with `opts`.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_ctx_new_Surrogate(opts: *const ak_dec_Surrogate_opts) -> *mut ak_dec_ctx {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return ::core::ptr::null_mut();
-    }
-    let ctx = crate::ak_dec_ctx_new();
-    ak_dec_reset_Surrogate(ctx, opts);
+pub unsafe extern "C" fn ak_dec_ctx_new_Surrogate(opts: *mut ak_dec_Surrogate_opts) -> *mut ak_dec_ctx {
+    let ctx = crate::dec_ctx_alloc(27);
+    crate::unk_arm(ctx as *mut DecCtxImpl, opts as *mut u8, &UNK_LAYOUT_SURROGATE);
     ctx
 }
 
-// `ak_dec_SurrogateInner_opts` is `host` then 1 `ak_unk_opts` back to back: the core reads it as
-// an array, so the layout is asserted here.
-const _: () = {
-    assert!(::core::mem::offset_of!(ak_dec_SurrogateInner_opts, self_) == 8);
-    assert!(::core::mem::offset_of!(ak_dec_SurrogateInner_opts, self_) == 8 + 0 * ::core::mem::size_of::<ak_unk_opts>());
-    assert!(::core::mem::size_of::<ak_dec_SurrogateInner_opts>() == 8 + 1 * ::core::mem::size_of::<ak_unk_opts>());
-};
+/// Decision 11 rule 1: where each position's entry sits in `ak_dec_SurrogateInner_opts`, and whether it
+/// is a pool; the core reads the host's struct IN PLACE through these offsets.
+const UNK_LAYOUT_SURROGATEINNER: [(usize, bool); 1] = [
+    (::core::mem::offset_of!(ak_dec_SurrogateInner_opts, self_), false),
+];
 
-/// Decision 11: re-arm every unknown-field position of `SurrogateInner` (copied; NULL =
-/// drop everywhere).
+/// Decision 11: re-arm every unknown-field position of `SurrogateInner` from `opts`, read in
+/// place (NULL = drop everywhere). Rule 6: only a context bound to this root.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_reset_SurrogateInner(ctx: *mut ak_dec_ctx, opts: *const ak_dec_SurrogateInner_opts) {
+pub unsafe extern "C" fn ak_dec_reset_SurrogateInner(ctx: *mut ak_dec_ctx, opts: *mut ak_dec_SurrogateInner_opts) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
     #[cfg(feature = "init-guard")]
     if !crate::ak_init_ok() {
-        return;
+        return AK_ERR_UNINITIALIZED;
     }
-    if ctx.is_null() { return; }
-    if opts.is_null() {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 28, ::core::ptr::null_mut(), ::core::ptr::null(), 0);
-    } else {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 28, (*opts).host, &(*opts).self_, 1);
-    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 28 { return AK_ERR_INVALID_STATE; }
+    crate::unk_arm(dcx, opts as *mut u8, &UNK_LAYOUT_SURROGATEINNER);
+    AK_OK
 }
 
-/// Decision 11: a decode context armed for `SurrogateInner` at creation.
+/// Decision 11 rule 6: a decode context BOUND to `SurrogateInner`, armed with `opts`.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_ctx_new_SurrogateInner(opts: *const ak_dec_SurrogateInner_opts) -> *mut ak_dec_ctx {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return ::core::ptr::null_mut();
-    }
-    let ctx = crate::ak_dec_ctx_new();
-    ak_dec_reset_SurrogateInner(ctx, opts);
+pub unsafe extern "C" fn ak_dec_ctx_new_SurrogateInner(opts: *mut ak_dec_SurrogateInner_opts) -> *mut ak_dec_ctx {
+    let ctx = crate::dec_ctx_alloc(28);
+    crate::unk_arm(ctx as *mut DecCtxImpl, opts as *mut u8, &UNK_LAYOUT_SURROGATEINNER);
     ctx
 }
 
-// `ak_dec_WireZoo_opts` is `host` then 2 `ak_unk_opts` back to back: the core reads it as
-// an array, so the layout is asserted here.
-const _: () = {
-    assert!(::core::mem::offset_of!(ak_dec_WireZoo_opts, self_) == 8);
-    assert!(::core::mem::offset_of!(ak_dec_WireZoo_opts, v_msg) == 8 + 1 * ::core::mem::size_of::<ak_unk_opts>());
-    assert!(::core::mem::size_of::<ak_dec_WireZoo_opts>() == 8 + 2 * ::core::mem::size_of::<ak_unk_opts>());
-};
+/// Decision 11 rule 1: where each position's entry sits in `ak_dec_WireZoo_opts`, and whether it
+/// is a pool; the core reads the host's struct IN PLACE through these offsets.
+const UNK_LAYOUT_WIREZOO: [(usize, bool); 2] = [
+    (::core::mem::offset_of!(ak_dec_WireZoo_opts, self_), false),
+    (::core::mem::offset_of!(ak_dec_WireZoo_opts, v_msg), false),
+];
 
-/// Decision 11: re-arm every unknown-field position of `WireZoo` (copied; NULL =
-/// drop everywhere).
+/// Decision 11: re-arm every unknown-field position of `WireZoo` from `opts`, read in
+/// place (NULL = drop everywhere). Rule 6: only a context bound to this root.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_reset_WireZoo(ctx: *mut ak_dec_ctx, opts: *const ak_dec_WireZoo_opts) {
+pub unsafe extern "C" fn ak_dec_reset_WireZoo(ctx: *mut ak_dec_ctx, opts: *mut ak_dec_WireZoo_opts) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
     #[cfg(feature = "init-guard")]
     if !crate::ak_init_ok() {
-        return;
+        return AK_ERR_UNINITIALIZED;
     }
-    if ctx.is_null() { return; }
-    if opts.is_null() {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 29, ::core::ptr::null_mut(), ::core::ptr::null(), 0);
-    } else {
-        crate::unk_arm(ctx as *mut DecCtxImpl, 29, (*opts).host, &(*opts).self_, 2);
-    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 29 { return AK_ERR_INVALID_STATE; }
+    crate::unk_arm(dcx, opts as *mut u8, &UNK_LAYOUT_WIREZOO);
+    AK_OK
 }
 
-/// Decision 11: a decode context armed for `WireZoo` at creation.
+/// Decision 11 rule 6: a decode context BOUND to `WireZoo`, armed with `opts`.
 #[no_mangle]
-pub unsafe extern "C" fn ak_dec_ctx_new_WireZoo(opts: *const ak_dec_WireZoo_opts) -> *mut ak_dec_ctx {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return ::core::ptr::null_mut();
-    }
-    let ctx = crate::ak_dec_ctx_new();
-    ak_dec_reset_WireZoo(ctx, opts);
+pub unsafe extern "C" fn ak_dec_ctx_new_WireZoo(opts: *mut ak_dec_WireZoo_opts) -> *mut ak_dec_ctx {
+    let ctx = crate::dec_ctx_alloc(29);
+    crate::unk_arm(ctx as *mut DecCtxImpl, opts as *mut u8, &UNK_LAYOUT_WIREZOO);
     ctx
 }
 
@@ -15401,6 +15329,8 @@ pub unsafe extern "C" fn ak_parse_Timestamp(
     // so a rejected parse cannot poison every later one on this context.
     (*dcx).hdr.err = AK_OK;
     (*dcx).bdr.reset();
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 1 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: reject a buffer longer than u32::MAX before it can alias a span.
     if len > u32::MAX as usize {
         (*dcx).hdr.err = AK_ERR_LIMIT;
@@ -15414,7 +15344,7 @@ pub unsafe extern "C" fn ak_parse_Timestamp(
         () => {
         };
     }
-    let u = UnkCx::root(dcx, 1);
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -15481,6 +15411,8 @@ pub unsafe extern "C" fn ak_parse_Duration(
     // so a rejected parse cannot poison every later one on this context.
     (*dcx).hdr.err = AK_OK;
     (*dcx).bdr.reset();
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 2 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: reject a buffer longer than u32::MAX before it can alias a span.
     if len > u32::MAX as usize {
         (*dcx).hdr.err = AK_ERR_LIMIT;
@@ -15494,7 +15426,7 @@ pub unsafe extern "C" fn ak_parse_Duration(
         () => {
         };
     }
-    let u = UnkCx::root(dcx, 2);
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -15561,6 +15493,8 @@ pub unsafe extern "C" fn ak_parse_ResultRaw(
     // so a rejected parse cannot poison every later one on this context.
     (*dcx).hdr.err = AK_OK;
     (*dcx).bdr.reset();
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 3 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: reject a buffer longer than u32::MAX before it can alias a span.
     if len > u32::MAX as usize {
         (*dcx).hdr.err = AK_ERR_LIMIT;
@@ -15574,7 +15508,7 @@ pub unsafe extern "C" fn ak_parse_ResultRaw(
         () => {
         };
     }
-    let u = UnkCx::root(dcx, 3);
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -15748,6 +15682,8 @@ pub unsafe extern "C" fn ak_parse_TaskOptions(
     // so a rejected parse cannot poison every later one on this context.
     (*dcx).hdr.err = AK_OK;
     (*dcx).bdr.reset();
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 4 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: reject a buffer longer than u32::MAX before it can alias a span.
     if len > u32::MAX as usize {
         (*dcx).hdr.err = AK_ERR_LIMIT;
@@ -15785,7 +15721,7 @@ pub unsafe extern "C" fn ak_parse_TaskOptions(
             flush_options!();
         };
     }
-    let u = UnkCx::root(dcx, 4);
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -15931,6 +15867,8 @@ pub unsafe extern "C" fn ak_parse_TaskOutput(
     // so a rejected parse cannot poison every later one on this context.
     (*dcx).hdr.err = AK_OK;
     (*dcx).bdr.reset();
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 5 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: reject a buffer longer than u32::MAX before it can alias a span.
     if len > u32::MAX as usize {
         (*dcx).hdr.err = AK_ERR_LIMIT;
@@ -15944,7 +15882,7 @@ pub unsafe extern "C" fn ak_parse_TaskOutput(
         () => {
         };
     }
-    let u = UnkCx::root(dcx, 5);
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -16013,6 +15951,8 @@ pub unsafe extern "C" fn ak_parse_TaskDetailed(
     // so a rejected parse cannot poison every later one on this context.
     (*dcx).hdr.err = AK_OK;
     (*dcx).bdr.reset();
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 6 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: reject a buffer longer than u32::MAX before it can alias a span.
     if len > u32::MAX as usize {
         (*dcx).hdr.err = AK_ERR_LIMIT;
@@ -16146,7 +16086,7 @@ pub unsafe extern "C" fn ak_parse_TaskDetailed(
             flush_options_options!();
         };
     }
-    let u = UnkCx::root(dcx, 6);
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -16846,6 +16786,8 @@ pub unsafe extern "C" fn ak_parse_TaskSummary(
     // so a rejected parse cannot poison every later one on this context.
     (*dcx).hdr.err = AK_OK;
     (*dcx).bdr.reset();
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 7 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: reject a buffer longer than u32::MAX before it can alias a span.
     if len > u32::MAX as usize {
         (*dcx).hdr.err = AK_ERR_LIMIT;
@@ -16883,7 +16825,7 @@ pub unsafe extern "C" fn ak_parse_TaskSummary(
             flush_options_options!();
         };
     }
-    let u = UnkCx::root(dcx, 7);
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -17121,6 +17063,8 @@ pub unsafe extern "C" fn ak_parse_Probe(
     // so a rejected parse cannot poison every later one on this context.
     (*dcx).hdr.err = AK_OK;
     (*dcx).bdr.reset();
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 8 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: reject a buffer longer than u32::MAX before it can alias a span.
     if len > u32::MAX as usize {
         (*dcx).hdr.err = AK_ERR_LIMIT;
@@ -17134,7 +17078,7 @@ pub unsafe extern "C" fn ak_parse_Probe(
         () => {
         };
     }
-    let u = UnkCx::root(dcx, 8);
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -17193,9 +17137,16 @@ pub unsafe extern "C" fn ak_parse_Probe(
                 let mut os = Dec::new(&buf0[off..off + n]);
                 // Plan rule: the SAME member again merges; another member,
                 // or none, starts from empty.
-                // Decision 11: a buffer already placed in this member's slot is
-                // KEPT, emptied: never dropped, never in two slots.
-                if out.body_case != 13 { let k = out.body_as_stamp.unknown; out.body_as_stamp = ak_dfix_Timestamp::ZERO; out.body_as_stamp.unknown = ak_unk_buf { data: k.data, len: 0, cap: k.cap }; }
+                // Decision 11 rule 4: the oneof's ONE buffer moves, emptied, from the
+                // previous message member's slot into this member's.
+                if out.body_case != 13 {
+                    // At most one member slot holds it (the invariant this keeps).
+                    let mut k = ::core::mem::replace(&mut out.body_as_stamp.unknown, ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 });
+                    let t = ::core::mem::replace(&mut out.body_as_nothing.unknown, ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 });
+                    if !t.data.is_null() { k = t; }
+                    out.body_as_stamp = ak_dfix_Timestamp::ZERO;
+                    out.body_as_stamp.unknown = ak_unk_buf { data: k.data, len: 0, cap: k.cap };
+                }
                 dec_timestamp_fix_into(&mut os, base0 + off, u.at(1), &mut out.body_as_stamp);
                 if os.err != 0 { d.err = os.err; }
                 // Last one wins: a later member replaces the case.
@@ -17207,10 +17158,17 @@ pub unsafe extern "C" fn ak_parse_Probe(
                 let mut os = Dec::new(&buf0[off..off + n]);
                 // Plan rule: the SAME member again merges; another member,
                 // or none, starts from empty.
-                // Decision 11: a buffer already placed in this member's slot is
-                // KEPT, emptied: never dropped, never in two slots.
-                if out.body_case != 14 { let k = out.body_as_nothing.unknown; out.body_as_nothing = ak_dfix_Empty::ZERO; out.body_as_nothing.unknown = ak_unk_buf { data: k.data, len: 0, cap: k.cap }; }
-                dec_empty_fix_into(&mut os, base0 + off, u.at(2), &mut out.body_as_nothing);
+                // Decision 11 rule 4: the oneof's ONE buffer moves, emptied, from the
+                // previous message member's slot into this member's.
+                if out.body_case != 14 {
+                    // At most one member slot holds it (the invariant this keeps).
+                    let mut k = ::core::mem::replace(&mut out.body_as_nothing.unknown, ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 });
+                    let t = ::core::mem::replace(&mut out.body_as_stamp.unknown, ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 });
+                    if !t.data.is_null() { k = t; }
+                    out.body_as_nothing = ak_dfix_Empty::ZERO;
+                    out.body_as_nothing.unknown = ak_unk_buf { data: k.data, len: 0, cap: k.cap };
+                }
+                dec_empty_fix_into(&mut os, base0 + off, u.at(1), &mut out.body_as_nothing);
                 if os.err != 0 { d.err = os.err; }
                 // Last one wins: a later member replaces the case.
                 out.body_case = 14;
@@ -17265,6 +17223,8 @@ pub unsafe extern "C" fn ak_parse_Empty(
     // so a rejected parse cannot poison every later one on this context.
     (*dcx).hdr.err = AK_OK;
     (*dcx).bdr.reset();
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 9 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: reject a buffer longer than u32::MAX before it can alias a span.
     if len > u32::MAX as usize {
         (*dcx).hdr.err = AK_ERR_LIMIT;
@@ -17278,7 +17238,7 @@ pub unsafe extern "C" fn ak_parse_Empty(
         () => {
         };
     }
-    let u = UnkCx::root(dcx, 9);
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -17337,6 +17297,8 @@ pub unsafe extern "C" fn ak_parse_UploadResultData(
     // so a rejected parse cannot poison every later one on this context.
     (*dcx).hdr.err = AK_OK;
     (*dcx).bdr.reset();
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 10 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: reject a buffer longer than u32::MAX before it can alias a span.
     if len > u32::MAX as usize {
         (*dcx).hdr.err = AK_ERR_LIMIT;
@@ -17350,7 +17312,7 @@ pub unsafe extern "C" fn ak_parse_UploadResultData(
         () => {
         };
     }
-    let u = UnkCx::root(dcx, 10);
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -17426,6 +17388,8 @@ pub unsafe extern "C" fn ak_parse_MetricsBatch(
     // so a rejected parse cannot poison every later one on this context.
     (*dcx).hdr.err = AK_OK;
     (*dcx).bdr.reset();
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 11 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: reject a buffer longer than u32::MAX before it can alias a span.
     if len > u32::MAX as usize {
         (*dcx).hdr.err = AK_ERR_LIMIT;
@@ -17559,7 +17523,7 @@ pub unsafe extern "C" fn ak_parse_MetricsBatch(
             flush_statuses!();
         };
     }
-    let u = UnkCx::root(dcx, 11);
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -17719,6 +17683,8 @@ pub unsafe extern "C" fn ak_parse_Pair(
     // so a rejected parse cannot poison every later one on this context.
     (*dcx).hdr.err = AK_OK;
     (*dcx).bdr.reset();
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 12 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: reject a buffer longer than u32::MAX before it can alias a span.
     if len > u32::MAX as usize {
         (*dcx).hdr.err = AK_ERR_LIMIT;
@@ -17732,7 +17698,7 @@ pub unsafe extern "C" fn ak_parse_Pair(
         () => {
         };
     }
-    let u = UnkCx::root(dcx, 12);
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -17801,6 +17767,8 @@ pub unsafe extern "C" fn ak_parse_ListResultsResponse(
     // so a rejected parse cannot poison every later one on this context.
     (*dcx).hdr.err = AK_OK;
     (*dcx).bdr.reset();
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 13 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: reject a buffer longer than u32::MAX before it can alias a span.
     if len > u32::MAX as usize {
         (*dcx).hdr.err = AK_ERR_LIMIT;
@@ -17838,7 +17806,7 @@ pub unsafe extern "C" fn ak_parse_ListResultsResponse(
             flush_results!();
         };
     }
-    let u = UnkCx::root(dcx, 13);
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -17914,6 +17882,8 @@ pub unsafe extern "C" fn ak_parse_ListTasksDetailedResponse(
     // so a rejected parse cannot poison every later one on this context.
     (*dcx).hdr.err = AK_OK;
     (*dcx).bdr.reset();
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 14 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: reject a buffer longer than u32::MAX before it can alias a span.
     if len > u32::MAX as usize {
         (*dcx).hdr.err = AK_ERR_LIMIT;
@@ -17927,7 +17897,7 @@ pub unsafe extern "C" fn ak_parse_ListTasksDetailedResponse(
         () => {
         };
     }
-    let u = UnkCx::root(dcx, 14);
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -18001,6 +17971,8 @@ pub unsafe extern "C" fn ak_parse_ListTaskSummaryResponse(
     // so a rejected parse cannot poison every later one on this context.
     (*dcx).hdr.err = AK_OK;
     (*dcx).bdr.reset();
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 15 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: reject a buffer longer than u32::MAX before it can alias a span.
     if len > u32::MAX as usize {
         (*dcx).hdr.err = AK_ERR_LIMIT;
@@ -18014,7 +17986,7 @@ pub unsafe extern "C" fn ak_parse_ListTaskSummaryResponse(
         () => {
         };
     }
-    let u = UnkCx::root(dcx, 15);
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -18080,6 +18052,8 @@ pub unsafe extern "C" fn ak_parse_ListProbeResponse(
     // so a rejected parse cannot poison every later one on this context.
     (*dcx).hdr.err = AK_OK;
     (*dcx).bdr.reset();
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 16 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: reject a buffer longer than u32::MAX before it can alias a span.
     if len > u32::MAX as usize {
         (*dcx).hdr.err = AK_ERR_LIMIT;
@@ -18117,7 +18091,7 @@ pub unsafe extern "C" fn ak_parse_ListProbeResponse(
             flush_probes!();
         };
     }
-    let u = UnkCx::root(dcx, 16);
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -18185,6 +18159,8 @@ pub unsafe extern "C" fn ak_parse_ListMetricsResponse(
     // so a rejected parse cannot poison every later one on this context.
     (*dcx).hdr.err = AK_OK;
     (*dcx).bdr.reset();
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 17 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: reject a buffer longer than u32::MAX before it can alias a span.
     if len > u32::MAX as usize {
         (*dcx).hdr.err = AK_ERR_LIMIT;
@@ -18198,7 +18174,7 @@ pub unsafe extern "C" fn ak_parse_ListMetricsResponse(
         () => {
         };
     }
-    let u = UnkCx::root(dcx, 17);
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -18264,6 +18240,8 @@ pub unsafe extern "C" fn ak_parse_UploadResultDataMessage(
     // so a rejected parse cannot poison every later one on this context.
     (*dcx).hdr.err = AK_OK;
     (*dcx).bdr.reset();
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 18 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: reject a buffer longer than u32::MAX before it can alias a span.
     if len > u32::MAX as usize {
         (*dcx).hdr.err = AK_ERR_LIMIT;
@@ -18277,7 +18255,7 @@ pub unsafe extern "C" fn ak_parse_UploadResultDataMessage(
         () => {
         };
     }
-    let u = UnkCx::root(dcx, 18);
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -18379,6 +18357,8 @@ pub unsafe extern "C" fn ak_parse_DualResponse(
     // so a rejected parse cannot poison every later one on this context.
     (*dcx).hdr.err = AK_OK;
     (*dcx).bdr.reset();
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 19 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: reject a buffer longer than u32::MAX before it can alias a span.
     if len > u32::MAX as usize {
         (*dcx).hdr.err = AK_ERR_LIMIT;
@@ -18440,7 +18420,7 @@ pub unsafe extern "C" fn ak_parse_DualResponse(
             flush_right!();
         };
     }
-    let u = UnkCx::root(dcx, 19);
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -18517,6 +18497,8 @@ pub unsafe extern "C" fn ak_parse_ChunkLeaf(
     // so a rejected parse cannot poison every later one on this context.
     (*dcx).hdr.err = AK_OK;
     (*dcx).bdr.reset();
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 20 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: reject a buffer longer than u32::MAX before it can alias a span.
     if len > u32::MAX as usize {
         (*dcx).hdr.err = AK_ERR_LIMIT;
@@ -18530,7 +18512,7 @@ pub unsafe extern "C" fn ak_parse_ChunkLeaf(
         () => {
         };
     }
-    let u = UnkCx::root(dcx, 20);
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -18599,6 +18581,8 @@ pub unsafe extern "C" fn ak_parse_ChunkInner(
     // so a rejected parse cannot poison every later one on this context.
     (*dcx).hdr.err = AK_OK;
     (*dcx).bdr.reset();
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 21 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: reject a buffer longer than u32::MAX before it can alias a span.
     if len > u32::MAX as usize {
         (*dcx).hdr.err = AK_ERR_LIMIT;
@@ -18660,7 +18644,7 @@ pub unsafe extern "C" fn ak_parse_ChunkInner(
             flush_leaves!();
         };
     }
-    let u = UnkCx::root(dcx, 21);
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -18747,6 +18731,8 @@ pub unsafe extern "C" fn ak_parse_ChunkElement(
     // so a rejected parse cannot poison every later one on this context.
     (*dcx).hdr.err = AK_OK;
     (*dcx).bdr.reset();
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 22 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: reject a buffer longer than u32::MAX before it can alias a span.
     if len > u32::MAX as usize {
         (*dcx).hdr.err = AK_ERR_LIMIT;
@@ -18856,7 +18842,7 @@ pub unsafe extern "C" fn ak_parse_ChunkElement(
             flush_inner_leaves!();
         };
     }
-    let u = UnkCx::root(dcx, 22);
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -18992,6 +18978,8 @@ pub unsafe extern "C" fn ak_parse_ChunkedResponse(
     // so a rejected parse cannot poison every later one on this context.
     (*dcx).hdr.err = AK_OK;
     (*dcx).bdr.reset();
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 23 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: reject a buffer longer than u32::MAX before it can alias a span.
     if len > u32::MAX as usize {
         (*dcx).hdr.err = AK_ERR_LIMIT;
@@ -19005,7 +18993,7 @@ pub unsafe extern "C" fn ak_parse_ChunkedResponse(
         () => {
         };
     }
-    let u = UnkCx::root(dcx, 23);
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -19075,6 +19063,8 @@ pub unsafe extern "C" fn ak_parse_ChunkedResponseWide(
     // so a rejected parse cannot poison every later one on this context.
     (*dcx).hdr.err = AK_OK;
     (*dcx).bdr.reset();
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 24 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: reject a buffer longer than u32::MAX before it can alias a span.
     if len > u32::MAX as usize {
         (*dcx).hdr.err = AK_ERR_LIMIT;
@@ -19088,7 +19078,7 @@ pub unsafe extern "C" fn ak_parse_ChunkedResponseWide(
         () => {
         };
     }
-    let u = UnkCx::root(dcx, 24);
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -19154,6 +19144,8 @@ pub unsafe extern "C" fn ak_parse_LeafElement(
     // so a rejected parse cannot poison every later one on this context.
     (*dcx).hdr.err = AK_OK;
     (*dcx).bdr.reset();
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 25 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: reject a buffer longer than u32::MAX before it can alias a span.
     if len > u32::MAX as usize {
         (*dcx).hdr.err = AK_ERR_LIMIT;
@@ -19167,7 +19159,7 @@ pub unsafe extern "C" fn ak_parse_LeafElement(
         () => {
         };
     }
-    let u = UnkCx::root(dcx, 25);
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -19270,6 +19262,8 @@ pub unsafe extern "C" fn ak_parse_LeafResponse(
     // so a rejected parse cannot poison every later one on this context.
     (*dcx).hdr.err = AK_OK;
     (*dcx).bdr.reset();
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 26 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: reject a buffer longer than u32::MAX before it can alias a span.
     if len > u32::MAX as usize {
         (*dcx).hdr.err = AK_ERR_LIMIT;
@@ -19307,7 +19301,7 @@ pub unsafe extern "C" fn ak_parse_LeafResponse(
             flush_items!();
         };
     }
-    let u = UnkCx::root(dcx, 26);
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -19375,6 +19369,8 @@ pub unsafe extern "C" fn ak_parse_Surrogate(
     // so a rejected parse cannot poison every later one on this context.
     (*dcx).hdr.err = AK_OK;
     (*dcx).bdr.reset();
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 27 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: reject a buffer longer than u32::MAX before it can alias a span.
     if len > u32::MAX as usize {
         (*dcx).hdr.err = AK_ERR_LIMIT;
@@ -19436,7 +19432,7 @@ pub unsafe extern "C" fn ak_parse_Surrogate(
             flush_texts!();
         };
     }
-    let u = UnkCx::root(dcx, 27);
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -19555,6 +19551,8 @@ pub unsafe extern "C" fn ak_parse_SurrogateInner(
     // so a rejected parse cannot poison every later one on this context.
     (*dcx).hdr.err = AK_OK;
     (*dcx).bdr.reset();
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 28 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: reject a buffer longer than u32::MAX before it can alias a span.
     if len > u32::MAX as usize {
         (*dcx).hdr.err = AK_ERR_LIMIT;
@@ -19568,7 +19566,7 @@ pub unsafe extern "C" fn ak_parse_SurrogateInner(
         () => {
         };
     }
-    let u = UnkCx::root(dcx, 28);
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -19633,6 +19631,8 @@ pub unsafe extern "C" fn ak_parse_WireZoo(
     // so a rejected parse cannot poison every later one on this context.
     (*dcx).hdr.err = AK_OK;
     (*dcx).bdr.reset();
+    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    if (*dcx).root != 29 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: reject a buffer longer than u32::MAX before it can alias a span.
     if len > u32::MAX as usize {
         (*dcx).hdr.err = AK_ERR_LIMIT;
@@ -19646,7 +19646,7 @@ pub unsafe extern "C" fn ak_parse_WireZoo(
         () => {
         };
     }
-    let u = UnkCx::root(dcx, 29);
+    let u = UnkCx::root(dcx);
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;

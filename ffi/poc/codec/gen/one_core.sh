@@ -51,7 +51,9 @@ echo
 # not.
 echo "# the ABI's entry points are defined once"
 # All four are hand-written in lib.rs, not emitted, which is where the fork was.
-for sym in ak_enc_ctx_new ak_dec_ctx_new ak_tc_utf8 ak_tc_utf16; do
+# WP5 step 8: `ak_dec_ctx_new` is gone (decision 11 rule 6); `ak_dec_ctx_free` is the
+# decode family's hand-written sentinel now.
+for sym in ak_enc_ctx_new ak_dec_ctx_free ak_tc_utf8 ak_tc_utf16; do
   hits=$(grep -rlE "extern \"C\" fn $sym\b" $(srcs '*.rs') 2>/dev/null | sort -u)
   n=$(printf '%s\n' "$hits" | grep -c . )
   if [ "$n" != 1 ]; then

@@ -16,7 +16,6 @@ const _ak_enc_ctx_new: unsafe extern "C" fn() -> *mut ak_enc_ctx = crate::ak_enc
 const _ak_enc_ctx_free: unsafe extern "C" fn(*mut ak_enc_ctx) = crate::ak_enc_ctx_free;
 const _ak_enc_reset: unsafe extern "C" fn(*mut ak_enc_ctx) = crate::ak_enc_reset;
 const _ak_enc_take: unsafe extern "C" fn(*mut ak_enc_ctx, *mut *const u8, *mut usize) -> i32 = crate::ak_enc_take;
-const _ak_dec_ctx_new: unsafe extern "C" fn() -> *mut ak_dec_ctx = crate::ak_dec_ctx_new;
 const _ak_dec_ctx_free: unsafe extern "C" fn(*mut ak_dec_ctx) = crate::ak_dec_ctx_free;
 const _ak_fail: unsafe extern "C" fn(*mut c_void, i32, *const u8, u32) = crate::ak_fail;
 const _ak_enc_err: unsafe extern "C" fn(*const ak_enc_ctx) -> i32 = crate::ak_enc_err;

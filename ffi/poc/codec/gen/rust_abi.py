@@ -25,7 +25,8 @@ from plan import (FIXED, dec_vtable, enc_vtable, pull_slot,  # noqa: F401
                   direct_fields, elem_type, element_types, group_fields, loop_slots,
                   oneof_message_members, presence_bits, slot_elem, slot_name, ugroup_fields,
                   vtable_messages, unk_positions, unk_offset, unk_opts_name,
-                  unk_opts_members, unk_root_id, unk_entry_points)
+                  unk_opts_members, unk_root_id, unk_entry_points,
+                  unk_opts_layout)
 from rustnames import SCALAR  # noqa: F401
 
 # Historical name, imported by the cpp and java generators until they are ported.
@@ -111,7 +112,7 @@ def emit_abi(ir):
          "// The fixed vocabulary (ak_str, ak_span, ak_blob, ak_unk_buf, ak_unk_opts, ak_loop_f,",
          "// AK_TOKEN_ROOT) is plan.FIXED's, rendered into ak-abi's lib.rs (WP5 step 6).",
          "use super::super::{ak_blob, ak_dec_ctx, ak_enc_ctx, ak_loop_f, ak_span, ak_str, ak_unk_buf,",
-         "    ak_unk_opts};",
+         "    ak_unk_opts, ak_unk_pool};",
          "use core::ffi::c_void;",
          ""]
 
@@ -207,9 +208,9 @@ def emit_abi(ir):
         o.append("pub struct %s {" % unk_opts_name(root))
         o.append("    /// ONE per struct: passed as `sink` to whichever position's grow is called.")
         o.append("    pub host: *mut c_void,")
-        for mn, m in unk_opts_members(ir, root):
-            o.append("    /// `%s`" % m)
-            o.append("    pub %s: ak_unk_opts," % rust_member(mn))
+        for mn, m, ty in unk_opts_layout(ir, root):
+            o.append("    /// `%s`%s" % (m, " (a repeated position: a pool, rule 1)" if ty == "ak_unk_pool" else ""))
+            o.append("    pub %s: %s," % (rust_member(mn), ty))
         o.append("}")
         o.append("pub const %s_N: usize = %d;" % (unk_opts_name(root).upper(), len(unk_opts_members(ir, root))))
         o.append("")
@@ -372,6 +373,12 @@ def _init_guard(body):
         out.append(ln)
         if not (ln.startswith("pub unsafe extern \"C\" fn ak_")
                 or ln.startswith("pub extern \"C\" fn ak_")):
+            i += 1
+            continue
+        # Context creation is not guarded, as `ak_enc_ctx_new` (and the untyped
+        # `ak_dec_ctx_new` it replaces, WP5 step 8) never were: the first CODEC call on the
+        # context is what refuses with AK_ERR_UNINITIALIZED.
+        if "fn ak_dec_ctx_new_" in ln:
             i += 1
             continue
         # Walk to the end of the signature, which is the first line ending in `{`.
@@ -1017,10 +1024,22 @@ def _emit_decode(ir, sites):
                     o.append("                let mut os = Dec::new(&%s[off..off + n]);" % bufname)
                     o.append("                // Plan rule: the SAME member again merges; another member,")
                     o.append("                // or none, starts from empty.")
-                    o.append("                // Decision 11: a buffer already placed in this member's slot is")
-                    o.append("                // KEPT, emptied: never dropped, never in two slots.")
-                    o.append("                if %s.%s_case != %d { let k = %s.unknown; %s = ak_dfix_%s::ZERO; %s.unknown = ak_unk_buf { data: k.data, len: 0, cap: k.cap }; }"
-                             % (fxexpr, oname, f.tag, n, n, f.of, n))
+                    # Decision 11 rule 4: ONE position and ONE buffer per oneof. On a switch
+                    # to this member, the buffer moves (emptied) from the previous message
+                    # member's slot into this one's, so at most one member slot holds it.
+                    others = [g for g in m.oneofs[oname] if g.kind == "message" and g is not f]
+                    o.append("                // Decision 11 rule 4: the oneof's ONE buffer moves, emptied, from the")
+                    o.append("                // previous message member's slot into this member's.")
+                    o.append("                if %s.%s_case != %d {" % (fxexpr, oname, f.tag))
+                    o.append("                    // At most one member slot holds it (the invariant this keeps).")
+                    o.append("                    let mut k = ::core::mem::replace(&mut %s.unknown, ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 });" % n)
+                    for g in others:
+                        o.append("                    let t = ::core::mem::replace(&mut %s.%s_%s.unknown, ak_unk_buf { data: ::core::ptr::null_mut(), len: 0, cap: 0 });"
+                                 % (fxexpr, oname, g.name))
+                        o.append("                    if !t.data.is_null() { k = t; }")
+                    o.append("                    %s = ak_dfix_%s::ZERO;" % (n, f.of))
+                    o.append("                    %s.unknown = ak_unk_buf { data: k.data, len: 0, cap: k.cap };" % n)
+                    o.append("                }")
                     o.append("                dec_%s_fix_into(&mut os, %s + off, %s, &mut %s);"
                              % (snake(f.of), basename, ux(f), n))
                     o.append("                if os.err != 0 { %s.err = os.err; }" % rd)
@@ -1227,6 +1246,8 @@ def _emit_decode(ir, sites):
         out.append("    // later decode. Doing it here rather than in the host costs no extra crossing")
         out.append("    // and takes the obligation off the binding author.")
         out.append("    (*dcx).hdr.err = AK_OK;")
+        out.append("    // Decision 11 rule 6: the context is bound to its root; another root is refused.")
+        out.append("    if (*dcx).root != %d { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }" % unk_root_id(ir, root))
         out.append("    // R-D9: spans are (u32, u32) into this buffer, so a buffer longer than")
         out.append("    // u32::MAX would alias offsets and lengths. Reject at entry rather than")
         out.append("    // truncate. `usize` is 64-bit on every host this ships to.")
@@ -1248,9 +1269,9 @@ def _emit_decode(ir, sites):
             arena_decl(sn, dty, out)
             slots.append((sn, dty, "add_%s" % sn))
         flush_macros(slots, "AK_TOKEN_ROOT", out)
-        out.append("    // Decision 11: the positions this context is armed with for this root, or")
-        out.append("    // none (drop mode: every capture below is one null test).")
-        out.append("    let u = UnkCx::root(dcx, %d);" % unk_root_id(ir, root))
+        out.append("    // Decision 11: the positions this context is armed with, or none (drop mode:")
+        out.append("    // every capture below is one null test). The context is bound to its root.")
+        out.append("    let u = UnkCx::root(dcx);")
         out.append("    let mut cur = 0u32;")
         out.append("    while !d.at_end() {")
         out.append("        let s0 = d.pos;")
@@ -1286,39 +1307,34 @@ def _emit_decode(ir, sites):
         out.append("}")
         out.append("")
 
-    # ============================================ decision 11's options (WP5 step 7)
+    # ============================================ decision 11's options (WP5 steps 7, 8)
     for root in ir.roots:
         on = unk_opts_name(root)
-        mem = unk_opts_members(ir, root)
-        first, last = rust_member(mem[0][0]), rust_member(mem[-1][0])
+        lay = unk_opts_layout(ir, root)
         rid = unk_root_id(ir, root)
-        out.append("// `%s` is `host` then %d `ak_unk_opts` back to back: the core reads it as" % (on, len(mem)))
-        out.append("// an array, so the layout is asserted here.")
-        out.append("const _: () = {")
-        out.append("    assert!(::core::mem::offset_of!(%s, %s) == 8);" % (on, first))
-        out.append("    assert!(::core::mem::offset_of!(%s, %s) == 8 + %d * ::core::mem::size_of::<ak_unk_opts>());"
-                   % (on, last, len(mem) - 1))
-        out.append("    assert!(::core::mem::size_of::<%s>() == 8 + %d * ::core::mem::size_of::<ak_unk_opts>());"
-                   % (on, len(mem)))
-        out.append("};")
+        out.append("/// Decision 11 rule 1: where each position's entry sits in `%s`, and whether it" % on)
+        out.append("/// is a pool; the core reads the host's struct IN PLACE through these offsets.")
+        out.append("const UNK_LAYOUT_%s: [(usize, bool); %d] = [" % (root.upper(), len(lay)))
+        for mn, _m, ty in lay:
+            out.append("    (::core::mem::offset_of!(%s, %s), %s)," % (on, rust_member(mn), "true" if ty == "ak_unk_pool" else "false"))
+        out.append("];")
         out.append("")
-        out.append("/// Decision 11: re-arm every unknown-field position of `%s` (copied; NULL =" % root)
-        out.append("/// drop everywhere).")
+        out.append("/// Decision 11: re-arm every unknown-field position of `%s` from `opts`, read in" % root)
+        out.append("/// place (NULL = drop everywhere). Rule 6: only a context bound to this root.")
         out.append("#[no_mangle]")
-        out.append("pub unsafe extern \"C\" fn ak_dec_reset_%s(ctx: *mut ak_dec_ctx, opts: *const %s) {" % (root, on))
-        out.append("    if ctx.is_null() { return; }")
-        out.append("    if opts.is_null() {")
-        out.append("        crate::unk_arm(ctx as *mut DecCtxImpl, %d, ::core::ptr::null_mut(), ::core::ptr::null(), 0);" % rid)
-        out.append("    } else {")
-        out.append("        crate::unk_arm(ctx as *mut DecCtxImpl, %d, (*opts).host, &(*opts).%s, %d);" % (rid, first, len(mem)))
-        out.append("    }")
+        out.append("pub unsafe extern \"C\" fn ak_dec_reset_%s(ctx: *mut ak_dec_ctx, opts: *mut %s) -> i32 {" % (root, on))
+        out.append("    if ctx.is_null() { return AK_ERR_INVALID_STATE; }")
+        out.append("    let dcx = ctx as *mut DecCtxImpl;")
+        out.append("    if (*dcx).root != %d { return AK_ERR_INVALID_STATE; }" % rid)
+        out.append("    crate::unk_arm(dcx, opts as *mut u8, &UNK_LAYOUT_%s);" % root.upper())
+        out.append("    AK_OK")
         out.append("}")
         out.append("")
-        out.append("/// Decision 11: a decode context armed for `%s` at creation." % root)
+        out.append("/// Decision 11 rule 6: a decode context BOUND to `%s`, armed with `opts`." % root)
         out.append("#[no_mangle]")
-        out.append("pub unsafe extern \"C\" fn ak_dec_ctx_new_%s(opts: *const %s) -> *mut ak_dec_ctx {" % (root, on))
-        out.append("    let ctx = crate::ak_dec_ctx_new();")
-        out.append("    ak_dec_reset_%s(ctx, opts);" % root)
+        out.append("pub unsafe extern \"C\" fn ak_dec_ctx_new_%s(opts: *mut %s) -> *mut ak_dec_ctx {" % (root, on))
+        out.append("    let ctx = crate::dec_ctx_alloc(%d);" % rid)
+        out.append("    crate::unk_arm(ctx as *mut DecCtxImpl, opts as *mut u8, &UNK_LAYOUT_%s);" % root.upper())
         out.append("    ctx")
         out.append("}")
         out.append("")
@@ -1430,6 +1446,8 @@ def _emit_decode(ir, sites):
         out.append("    // so a rejected parse cannot poison every later one on this context.")
         out.append("    (*dcx).hdr.err = AK_OK;")
         out.append("    (*dcx).bdr.reset();")
+        out.append("    // Decision 11 rule 6: the context is bound to its root; another root is refused.")
+        out.append("    if (*dcx).root != %d { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }" % unk_root_id(ir, root))
         out.append("    // R-D9: reject a buffer longer than u32::MAX before it can alias a span.")
         out.append("    if len > u32::MAX as usize {")
         out.append("        (*dcx).hdr.err = AK_ERR_LIMIT;")
@@ -1449,7 +1467,7 @@ def _emit_decode(ir, sites):
             arena_decl(sn, dty, out)
             slots.append((sn, dty, i + 1))
         flush_macros(slots, "AK_TOKEN_ROOT", out, family="pull")
-        out.append("    let u = UnkCx::root(dcx, %d);" % unk_root_id(ir, root))
+        out.append("    let u = UnkCx::root(dcx);")
         out.append("    let mut cur = 0u32;")
         out.append("    while !d.at_end() {")
         out.append("        let s0 = d.pos;")
