@@ -102,7 +102,7 @@ def targets():
         "src/Harness/Generated/CoreFfi.cs": cs_host.emit_host(p, "Armonik.Ffi.Harness", "Armonik.Ffi.Facade"),
         "src/Harness/Generated/CoreArms.cs": cs_registry.emit_registry(p, payload_roots()),
         "src/Rpc/Generated/RpcAbi.cs": cs_binding.emit_rpc(p, "Armonik.Ffi.Rpc"),
-        "src/Rpc/Generated/CampaignOps.cs": cs_campaign.emit(p, payload_roots()),
+        "src/BenchDotNet/Generated/CampaignOps.cs": cs_campaign.emit(p, payload_roots()),
         "src/Corpus/Generated/Types.cs": cs_types.emit_types(full, "Armonik.Ffi.Corpus"),
         "src/Corpus/Generated/Eq.cs": cs_types.emit_eq(full, "Armonik.Ffi.Corpus"),
         "src/Corpus/Generated/Codec.cs": ccodec,

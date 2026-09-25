@@ -1,0 +1,142 @@
+// BenchmarkDotNet configured to meet design/CAMPAIGN.md requirements 21 to 28 (req 22a).
+//
+//   * every RAW workload measurement of the actual stage is exported, one JSON line per
+//     iteration (JsonLinesExporter); BDN's outlier removal and overhead subtraction touch
+//     only its own summary, never the exported rows (they carry the raw wall time);
+//   * CPU: BDN measures WALL time per iteration (Stopwatch). CPU time is added by a
+//     diagnoser (CpuDiagnoser) that reads getrusage(RUSAGE_SELF) across BDN's
+//     BeforeActualRun..AfterActualRun span (warm-up + actual stages): one extra row per
+//     case, round 0. Per-iteration CPU is not available
+//     from BDN; that is stated in the header;
+//   * warm-up: a FIXED number of warm-up iterations for every case (WithWarmupCount), after
+//     BDN's own jitting stage; both counts are exported per case;
+//   * the arm order is rotated per launch (RotatingOrderer, requirement 22).
+
+using System;
+using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+using System.Runtime.InteropServices;
+using System.Text;
+using System.Threading;
+using BenchmarkDotNet.Analysers;
+using BenchmarkDotNet.Columns;
+using BenchmarkDotNet.Configs;
+using BenchmarkDotNet.Diagnosers;
+using BenchmarkDotNet.Engines;
+using BenchmarkDotNet.Exporters;
+using BenchmarkDotNet.Loggers;
+using BenchmarkDotNet.Order;
+using BenchmarkDotNet.Reports;
+using BenchmarkDotNet.Running;
+using BenchmarkDotNet.Validators;
+
+namespace Armonik.Ffi.Bdn;
+
+internal static unsafe class ProcCpu
+{
+    [StructLayout(LayoutKind.Sequential)] private struct Timeval { public long Sec, Usec; }
+    [StructLayout(LayoutKind.Sequential)]
+    private struct Rusage { public Timeval Utime, Stime; public long a, b, c, d, e, f, g, h, i, j, k, l, m, n; }
+    [DllImport("libc")] private static extern int getrusage(int who, Rusage* ru);
+    public static long Ns() { Rusage r; getrusage(0, &r); return (r.Utime.Sec + r.Stime.Sec) * 1_000_000_000L + (r.Utime.Usec + r.Stime.Usec) * 1000L; }
+    public static long Wall() => (long)(System.Diagnostics.Stopwatch.GetTimestamp() * (1e9 / System.Diagnostics.Stopwatch.Frequency));
+}
+
+/// CPU time of the process across BeforeActualRun -> AfterActualRun (warm-up + actual stages;
+/// BDN has no signal between them, and none per iteration).
+public sealed class CpuDiagnoser : IDiagnoser
+{
+    public static readonly Dictionary<string, (long Cpu, long Wall)> Stage = new Dictionary<string, (long, long)>();
+    private long _c0, _w0;
+    public IEnumerable<string> Ids => new[] { "AkProcessCpu" };
+    public IEnumerable<IExporter> Exporters => Array.Empty<IExporter>();
+    public IEnumerable<IAnalyser> Analysers => Array.Empty<IAnalyser>();
+    public RunMode GetRunMode(BenchmarkCase benchmarkCase) => RunMode.NoOverhead;
+    public bool RequiresBlockingAcknowledgments(BenchmarkCase benchmarkCase) => true;
+    public void Handle(HostSignal signal, DiagnoserActionParameters parameters)
+    {
+        if (signal == HostSignal.BeforeActualRun) { _w0 = ProcCpu.Wall(); _c0 = ProcCpu.Ns(); }
+        else if (signal == HostSignal.AfterActualRun)
+        {
+            long c1 = ProcCpu.Ns(), w1 = ProcCpu.Wall();
+            Stage[parameters.BenchmarkCase.Parameters["Case"].ToString()] = (c1 - _c0, w1 - _w0);
+        }
+    }
+    public IEnumerable<Metric> ProcessResults(DiagnoserResults results) => Array.Empty<Metric>();
+    public void DisplayResults(ILogger logger) { }
+    public IEnumerable<ValidationError> Validate(ValidationParameters validationParameters) => Array.Empty<ValidationError>();
+}
+
+/// Requirement 22 (amended): blocks by arm, the arm order rotated between launches.
+public sealed class RotatingOrderer : IOrderer
+{
+    private readonly string[] _arms;
+    public RotatingOrderer(int launch)
+    {
+        int k = (launch - 1) % Cases.Arms.Length;
+        _arms = Cases.Arms.Skip(k).Concat(Cases.Arms.Take(k)).ToArray();
+    }
+    public string[] ArmOrder => _arms;
+    private int Rank(BenchmarkCase b) => Array.IndexOf(_arms, Case.Parse(b.Parameters["Case"].ToString()).Arm);
+    public IEnumerable<BenchmarkCase> GetExecutionOrder(ImmutableArray<BenchmarkCase> benchmarksCase, IEnumerable<BenchmarkLogicalGroupRule> order = null)
+        => benchmarksCase.Select((b, i) => (b, i)).OrderBy(t => Rank(t.b)).ThenBy(t => t.i).Select(t => t.b);
+    public IEnumerable<BenchmarkCase> GetSummaryOrder(ImmutableArray<BenchmarkCase> benchmarksCases, Summary summary) => GetExecutionOrder(benchmarksCases);
+    public string GetHighlightGroupKey(BenchmarkCase benchmarkCase) => null;
+    public string GetLogicalGroupKey(ImmutableArray<BenchmarkCase> allBenchmarksCases, BenchmarkCase benchmarkCase) => "codec";
+    public IEnumerable<IGrouping<string, BenchmarkCase>> GetLogicalGroupOrder(IEnumerable<IGrouping<string, BenchmarkCase>> logicalGroups, IEnumerable<BenchmarkLogicalGroupRule> order = null) => logicalGroups;
+    public bool SeparateLogicalGroups => false;
+}
+
+/// Section 7: one JSON object per raw measurement, appended to the launch's log.
+public sealed class JsonLinesExporter : IExporter
+{
+    private readonly string _path;
+    private readonly int _launch;
+    public JsonLinesExporter(string path, int launch) { _path = path; _launch = launch; }
+    public string Name => "ak-jsonl";
+    public void ExportToLog(Summary summary, ILogger logger) { }
+
+    private static string J(Case c, int launch, int round, long cpu, long wall, long iters, string extra)
+    {
+        var sb = new StringBuilder("{\"slice\":\"csharp\",\"suite\":\"codec\"");
+        sb.Append(",\"arm\":\"").Append(c.Arm).Append("\",\"payload\":\"").Append(c.Payload).Append("\",\"content\":\"").Append(c.Content)
+          .Append("\",\"dir\":\"").Append(c.Dir).Append("\",\"unknown_mode\":\"").Append(c.Mode).Append('"');
+        sb.Append(",\"launch\":").Append(launch).Append(",\"round\":").Append(round);
+        if (cpu >= 0) sb.Append(",\"cpu_ns\":").Append(cpu);
+        sb.Append(",\"wall_ns\":").Append(wall).Append(",\"iters\":").Append(iters);
+        if (extra != null) sb.Append(',').Append(extra);
+        return sb.Append('}').ToString();
+    }
+
+    public IEnumerable<string> ExportToFiles(Summary summary, ILogger consoleLogger)
+    {
+        var o = new List<string>();
+        foreach (var r in summary.Reports)
+        {
+            var c = Case.Parse(r.BenchmarkCase.Parameters["Case"].ToString());
+            if (!r.Success || r.AllMeasurements == null || r.AllMeasurements.Count == 0)
+            {
+                o.Add("# FAILED CASE (no measurement): " + c.Key);
+                continue;
+            }
+            var all = r.AllMeasurements;
+            int warm = all.Count(m => m.IterationMode == IterationMode.Workload && m.IterationStage == IterationStage.Warmup);
+            var act = all.Where(m => m.IterationMode == IterationMode.Workload && m.IterationStage == IterationStage.Actual).ToList();
+            int round = 0;
+            foreach (var m in act)
+                o.Add(J(c, _launch, ++round, -1, (long)Math.Round(m.Nanoseconds), m.Operations,
+                    string.Format(CultureInfo.InvariantCulture, "\"engine\":\"bdn\",\"bdn_warmup\":{0}", warm)));
+            // Every stage BDN ran for this case, as mode/stage: count, ops, ns (requirement 24).
+            var stages = string.Join(",", all.GroupBy(m => m.IterationMode + "/" + m.IterationStage)
+                .Select(g => string.Format(CultureInfo.InvariantCulture, "\"{0}\":[{1},{2},{3}]", g.Key, g.Count(), g.Sum(m => m.Operations), (long)Math.Round(g.Sum(m => m.Nanoseconds)))));
+            if (CpuDiagnoser.Stage.TryGetValue(c.Key, out var st))
+                o.Add(J(c, _launch, 0, st.Cpu, st.Wall, act.Sum(m => m.Operations),
+                    "\"engine\":\"bdn\",\"bdn_stages\":{" + stages + "},\"note\":\"round 0 = CPU (getrusage RUSAGE_SELF) and wall of the process across BDN BeforeActualRun..AfterActualRun, which spans the warm-up AND actual stages (pilot and jitting precede it); iters = actual-stage ops only, so cpu_ns/iters is NOT a per-op CPU figure, cpu_ns/wall_ns is the occupancy of that span; bdn_stages = [iterations, ops, ns] per mode/stage\""));
+        }
+        File.AppendAllLines(_path, o);
+        return new[] { _path };
+    }
+}

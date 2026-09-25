@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The CODEC SUITE's timing engine (design/CAMPAIGN.md requirement 22a: BenchmarkDotNet
+       is the default .NET engine). Driven by ../../run_campaign.sh, which pins this process
+       to AK_CPU_CLIENT and runs the correctness gate first. Measures the arms the plan's
+       generated code provides (poc/codec/gen via gen/generate.py) and exports every raw
+       measurement as section 7's JSON lines (JsonLinesExporter.cs). -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <RootNamespace>Armonik.Ffi.Bdn</RootNamespace>
+    <Optimize>true</Optimize>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Harness/Harness.csproj" />
+  </ItemGroup>
+
+</Project>
