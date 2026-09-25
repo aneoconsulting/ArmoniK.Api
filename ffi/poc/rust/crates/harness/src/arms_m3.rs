@@ -160,6 +160,7 @@ pub mod core_ffi_zeroed {
 
 /// The unknown-field bag on M3, which is where the seven unknown-field vectors live.
 /// See `arms::core_ffi_unk`.
+#[cfg(feature = "unknown-fields")]
 pub mod core_ffi_unk {
     use super::*;
     use crate::arms::core_ffi_arm::Ctx;

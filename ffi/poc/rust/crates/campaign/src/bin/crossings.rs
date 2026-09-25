@@ -30,7 +30,7 @@ fn dec(d: *mut ak_dec_ctx) -> (u64, u64) {
 impl Visit for Count<'_> {
     fn visit<R: Ops>(&mut self) {
         let (c, w) = (self.ctx, &self.inp.bytes[..]);
-        for (m, retain) in [("drop", false), ("retain", true)] {
+        for &(m, retain) in MODES {
             if self.inp.encode {
                 let v = R::n_decode(w, retain && self.inp.unknown_row).expect("value");
                 R::f_encode(c, &v, retain).expect("encode");

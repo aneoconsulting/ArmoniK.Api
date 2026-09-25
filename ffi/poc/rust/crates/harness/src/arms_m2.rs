@@ -176,6 +176,7 @@ pub mod core_ffi_zeroed {
 
 /// The unknown-field bag on the shape the control plane actually moves.
 /// See `arms::core_ffi_unk`.
+#[cfg(feature = "unknown-fields")]
 pub mod core_ffi_unk {
     use super::*;
     use crate::arms::core_ffi_arm::Ctx;

@@ -84,8 +84,35 @@ CARGO_TARGET_DIR="$PWD/target-count" cargo run --release -q -p campaign --featur
   | diff -q gen/crossings.txt - >/dev/null && echo "  $(wc -l < gen/crossings.txt) lines identical" \
   || { echo "  crossing counts DIFFER from gen/crossings.txt"; exit 1; }
 
+step "12. the NO-UNKNOWN variant (WP5 step 10; CAMPAIGN.md req 10): unknown-field support compiled out"
+# Its own build and target directory (a shared target would overwrite libak_core.so).
+( export CARGO_TARGET_DIR="$PWD/target-nounk"
+  echo "  build: campaign --no-default-features --features init-guard (ak-core/ak-abi without unknown-fields)"
+  B=$(cargo bench -q -p campaign --no-default-features --features init-guard --bench codec_suite --no-run --message-format=json 2>/dev/null \
+      | python3 -S -c 'import sys,json
+for l in sys.stdin:
+    try: m=json.loads(l)
+    except Exception: continue
+    if m.get("reason")=="compiler-artifact" and m.get("target",{}).get("name")=="codec_suite" and m.get("executable"): print(m["executable"])' | tail -1)
+  L=$(ldd "$B" | grep -o '/[^ ]*libak_core.so')
+  echo "  core: $L -- ak_uencode_* exports: $(nm -D --defined-only "$L" | grep -c ' T ak_uencode_'), ak_dec_reset_* exports: $(nm -D --defined-only "$L" | grep -c ' T ak_dec_reset_') (both must be 0)"
+  [ "$(nm -D --defined-only "$L" | grep -cE ' T ak_(uencode|uelem|dec_reset)_')" = 0 ] || { echo "  the no-unknown core exports the u-family"; exit 1; }
+  CRITERION_HOME="$(mktemp -d)" AK_PRECHECK_ONLY=1 "$B" 2>&1 | grep -E "^# precheck|PRECHECK" )
+echo "  byte identity and the shape vectors (incl. absent-path and unknown-field) on the no-unknown build:"
+for bin in conformance shapes; do
+  CARGO_TARGET_DIR="$PWD/target-nounk" cargo run --release -q -p harness --no-default-features --features guard,init-guard --bin $bin 2>/dev/null \
+    | grep -E "^VERDICT" | sed "s/^/    $bin: /"
+done
+CARGO_TARGET_DIR="$PWD/target-count-nounk" cargo run --release -q -p campaign --no-default-features --features count,init-guard --bin crossings 2>/dev/null \
+  | diff -q gen/crossings-nounk.txt - >/dev/null && echo "  no-unknown crossing counts: $(wc -l < gen/crossings-nounk.txt) lines identical to gen/crossings-nounk.txt" \
+  || { echo "  no-unknown crossing counts DIFFER from gen/crossings-nounk.txt"; exit 1; }
+
+echo "  the C header's two variants (poc/codec/gen/c_abi.py), each against its core:"
+cargo build --release -q -p campaign --bin crossings 2>/dev/null   # the full core, default target
+gen/c_variant.sh target/release/deps/libak_core.so target-nounk/release/deps/libak_core.so
+
 if [ "${1:-}" = "--tsan" ]; then
-  step "12. ThreadSanitizer over the concurrency suite"
+  step "13. ThreadSanitizer over the concurrency suite"
   gen/tsan.sh 2>/dev/null
 fi
 

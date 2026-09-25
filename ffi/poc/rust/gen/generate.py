@@ -83,6 +83,9 @@ def targets(ir):
         "../codec/crates/ak-abi/src/generated/abi.rs": rust_abi.emit_abi(ir),
         "../codec/crates/ak-core/src/generated/codec.rs": codec,
         "crates/harness/src/generated/binding.rs": rust_binding.emit_binding(ir),
+        # WP5 step 10: the no-unknown variant's binding (harness feature `unknown-fields` off).
+        "crates/harness/src/generated/binding_nounk.rs":
+            rust_binding.emit_binding(P.relower(ir, ir.options.with_unknown("drop"))),
         # FIX-PLAN WP3 (design/CAMPAIGN.md): the campaign's per-root table and visitors.
         "crates/campaign/src/generated/roots.rs": rust_campaign.emit(ir),
     }
@@ -107,6 +110,8 @@ def corpus_targets():
             rust_native.emit_core_native(full, "retain"),
         "corpus/crates/facade/src/generated/project.rs": rust_project.emit(full),
         "corpus/crates/harness/src/generated/binding.rs": rust_binding.emit_binding(abi),
+        "corpus/crates/harness/src/generated/binding_nounk.rs":
+            rust_binding.emit_binding(P.relower(abi, abi.options.with_unknown("drop"))),
         "corpus/crates/harness/src/generated/dispatch.rs":
             rust_corpus.emit_dispatch(full, abi_roots, refused),
         # The core for the corpus schema, written here too so this slice's --check gates it.

@@ -150,7 +150,30 @@ fn tonic_channel(rt: &tokio::runtime::Runtime, target: &str, pinned: bool) -> to
 }
 
 /// The call function of one (cell, direction) at in-flight k: thread i uses slot i.
+/// The core codec's calls in cells C and D, per unknown-field mode (CAMPAIGN.md req 12):
+/// `retain` arms every decision 11 position and encodes through the u-groups, `drop`
+/// arms nothing, `nounk` is this binary built without `unknown-fields` (compiled out).
+fn core_encode<'a>(ctx: &'a harness::arms::core_ffi_arm::Ctx, v: &facade::ListTasksDetailedResponse, retain: bool) -> &'a [u8] {
+    #[cfg(feature = "unknown-fields")]
+    if retain {
+        harness::generated::binding::encode_into_list_tasks_detailed_response_unk(ctx.enc, v, &ctx.tcs).expect("core-ffi encode");
+        return unsafe { harness::generated::binding::encoded(ctx.enc) };
+    }
+    let _ = retain;
+    m2::core_ffi_arm::encode_into(ctx, v)
+}
+fn core_decode(ctx: &harness::arms::core_ffi_arm::Ctx, b: &[u8], retain: bool) -> Result<facade::ListTasksDetailedResponse, i32> {
+    #[cfg(feature = "unknown-fields")]
+    if retain {
+        return harness::generated::binding::decode_with_list_tasks_detailed_response_unk(ctx.dec, b);
+    }
+    let _ = retain;
+    harness::generated::binding::decode_with_list_tasks_detailed_response(ctx.dec, b)
+}
+
 fn make(cell: &str, dir: &'static str, k: usize, target: &str, pinned: bool, want_a: u64) -> CallFn {
+    let (cell, mode) = cell.split_once('-').unwrap_or((cell, ""));
+    let retain = mode == "retain";
     let want = if dir == "a" { want_a } else { 0 };
     let p_val = Arc::new(m2::prost_arm::value(m2::P2_2));
     let f_val: &'static _ = Box::leak(Box::new(m2::armonik_arm::value(m2::P2_2)));
@@ -200,12 +223,11 @@ fn make(cell: &str, dir: &'static str, k: usize, target: &str, pinned: bool, wan
             let cc = Arc::new(CoreClient::new(target, pinned));
             Arc::new(move |i| {
                 let ctx = &slots[i].0;
-                let body: &[u8] = if dir == "a" { &[] } else { m2::core_ffi_arm::encode_into(ctx, f_val) };
+                let body: &[u8] = if dir == "a" { &[] } else { core_encode(ctx, f_val, retain) };
                 cc.call(path, body, |resp| {
                     if resp.len() as u64 != want { return Err(format!("cell C response {} B, expected {want}", resp.len())); }
                     if dir == "a" {
-                        let v = harness::generated::binding::decode_with_list_tasks_detailed_response(ctx.dec, resp)
-                            .map_err(|e| format!("core-ffi decode {e}"))?;
+                        let v = core_decode(ctx, resp, retain).map_err(|e| format!("core-ffi decode {e}"))?;
                         std::hint::black_box(v);
                     }
                     Ok(())
@@ -217,7 +239,7 @@ fn make(cell: &str, dir: &'static str, k: usize, target: &str, pinned: bool, wan
             let ch = tonic_channel(&rt, target, pinned);
             Arc::new(move |i| {
                 let ctx = &slots[i].0;
-                let body = if dir == "a" { Bytes::new() } else { Bytes::copy_from_slice(m2::core_ffi_arm::encode_into(ctx, f_val)) };
+                let body = if dir == "a" { Bytes::new() } else { Bytes::copy_from_slice(core_encode(ctx, f_val, retain)) };
                 let mut g = tonic::client::Grpc::new(ch.clone());
                 let pq = http::uri::PathAndQuery::from_static(path);
                 let resp: Bytes = rt.block_on(async {
@@ -226,8 +248,7 @@ fn make(cell: &str, dir: &'static str, k: usize, target: &str, pinned: bool, wan
                 })?;
                 if resp.len() as u64 != want { return Err(format!("cell D response {} B, expected {want}", resp.len())); }
                 if dir == "a" {
-                    let v = harness::generated::binding::decode_with_list_tasks_detailed_response(ctx.dec, &resp)
-                        .map_err(|e| format!("core-ffi decode {e}"))?;
+                    let v = core_decode(ctx, &resp, retain).map_err(|e| format!("core-ffi decode {e}"))?;
                     std::hint::black_box(v);
                 }
                 Ok(())
@@ -273,8 +294,16 @@ fn main() {
     let want_a = if plant { p22 + 1 } else { p22 };
     assert!(harness::generated::binding::ak_init_once() >= 0);
 
-    let cells = ["A", "B", "C", "D"];
-    let order: Vec<&str> = (0..4).map(|i| cells[(i + launch - 1) % 4]).collect();
+    // CAMPAIGN.md req 12 (amended): C and D in each unknown-field mode; the no-unknown
+    // build (`unknown-fields` off) is a separate binary that runs C-nounk and D-nounk, and
+    // A and B again as its IN-PROCESS CONTROL columns: neither touches the codec's unknown
+    // path, so a C-nounk/C-drop ratio is read against the A and B of the same process.
+    #[cfg(feature = "unknown-fields")]
+    let cells: &[&str] = &["A", "B", "C-retain", "C-drop", "D-retain", "D-drop"];
+    #[cfg(not(feature = "unknown-fields"))]
+    let cells: &[&str] = &["A", "B", "C-nounk", "D-nounk"];
+    let nc = cells.len();
+    let order: Vec<&str> = (0..nc).map(|i| cells[(i + launch - 1) % nc]).collect();
     let mut lines = Vec::new();
     for cell in &order {
         for dir in ["a", "b"] {
@@ -311,7 +340,8 @@ fn main() {
             "tonic endpoint defaults with TCP nodelay (packages/rust's GrpcClient__TcpNagleAlgorithm=false), ak_client_new, server defaults"
         })),
         ("link", "loopback TCP; server = rpc_server, a separate process (requirement 13), pre-serialised P2.2".into()),
-        ("cells", "A prost+tonic, B prost+core (blocking), C core+core (blocking), D core+tonic; callback/queue deliveries not run in this suite".into()),
+        ("cells", "A prost+tonic, B prost+core (blocking), C core+core (blocking), D core+tonic; C and D per unknown-field mode (-retain: every decision 11 position armed and u-group encode; -drop: nothing armed; -nounk: the build with unknown-field support compiled out); callback/queue deliveries not run in this suite".into()),
+        ("build", if cfg!(feature = "unknown-fields") { "unknown-fields (retain/drop)".into() } else { "NO-UNKNOWN (unknown-field support compiled out)".to_string() }),
         ("launch", launch.to_string()),
         ("cell order", order.join(",")),
         ("rounds", rounds.to_string()),

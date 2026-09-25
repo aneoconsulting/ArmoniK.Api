@@ -462,13 +462,22 @@ impl Ops for R_ListResultsResponse {
         if retain { core_native_retain::encode_into_list_results_response(v, e) } else { core_native::encode_into_list_results_response(v, e) }
     }
     fn f_decode(c: &Ctx, b: &[u8], retain: bool) -> Result<Self::F, i32> {
-        if retain { binding::decode_with_list_results_response_unk(c.dec, b) } else { binding::decode_with_list_results_response(c.dec, b) }
+        #[cfg(feature = "unknown-fields")]
+        if retain { return binding::decode_with_list_results_response_unk(c.dec, b); }
+        let _ = retain;
+        binding::decode_with_list_results_response(c.dec, b)
     }
     fn f_encode(c: &Ctx, v: &Self::F, retain: bool) -> Result<usize, i32> {
-        if retain { binding::encode_into_list_results_response_unk(c.enc, v, &c.tcs) } else { binding::encode_into_list_results_response(c.enc, v, &c.tcs) }
+        #[cfg(feature = "unknown-fields")]
+        if retain { return binding::encode_into_list_results_response_unk(c.enc, v, &c.tcs); }
+        let _ = retain;
+        binding::encode_into_list_results_response(c.enc, v, &c.tcs)
     }
     fn f_pull(c: &Ctx, b: &[u8], retain: bool, toks: &mut Vec<i64>) -> Result<Self::F, i32> {
-        if retain { binding::parse_walk_with_list_results_response_unk(c.dec, b, toks) } else { binding::parse_walk_with_list_results_response(c.dec, b, toks) }
+        #[cfg(feature = "unknown-fields")]
+        if retain { return binding::parse_walk_with_list_results_response_unk(c.dec, b, toks); }
+        let _ = retain;
+        binding::parse_walk_with_list_results_response(c.dec, b, toks)
     }
     fn dec_ctx(c: &Ctx) -> *mut ak_abi::ak_dec_ctx { c.dec.list_results_response }
     fn touch_f(v: &Self::F) -> u64 { touch_f_list_results_response(v, 0) }
@@ -497,13 +506,22 @@ impl Ops for R_ListTasksDetailedResponse {
         if retain { core_native_retain::encode_into_list_tasks_detailed_response(v, e) } else { core_native::encode_into_list_tasks_detailed_response(v, e) }
     }
     fn f_decode(c: &Ctx, b: &[u8], retain: bool) -> Result<Self::F, i32> {
-        if retain { binding::decode_with_list_tasks_detailed_response_unk(c.dec, b) } else { binding::decode_with_list_tasks_detailed_response(c.dec, b) }
+        #[cfg(feature = "unknown-fields")]
+        if retain { return binding::decode_with_list_tasks_detailed_response_unk(c.dec, b); }
+        let _ = retain;
+        binding::decode_with_list_tasks_detailed_response(c.dec, b)
     }
     fn f_encode(c: &Ctx, v: &Self::F, retain: bool) -> Result<usize, i32> {
-        if retain { binding::encode_into_list_tasks_detailed_response_unk(c.enc, v, &c.tcs) } else { binding::encode_into_list_tasks_detailed_response(c.enc, v, &c.tcs) }
+        #[cfg(feature = "unknown-fields")]
+        if retain { return binding::encode_into_list_tasks_detailed_response_unk(c.enc, v, &c.tcs); }
+        let _ = retain;
+        binding::encode_into_list_tasks_detailed_response(c.enc, v, &c.tcs)
     }
     fn f_pull(c: &Ctx, b: &[u8], retain: bool, toks: &mut Vec<i64>) -> Result<Self::F, i32> {
-        if retain { binding::parse_walk_with_list_tasks_detailed_response_unk(c.dec, b, toks) } else { binding::parse_walk_with_list_tasks_detailed_response(c.dec, b, toks) }
+        #[cfg(feature = "unknown-fields")]
+        if retain { return binding::parse_walk_with_list_tasks_detailed_response_unk(c.dec, b, toks); }
+        let _ = retain;
+        binding::parse_walk_with_list_tasks_detailed_response(c.dec, b, toks)
     }
     fn dec_ctx(c: &Ctx) -> *mut ak_abi::ak_dec_ctx { c.dec.list_tasks_detailed_response }
     fn touch_f(v: &Self::F) -> u64 { touch_f_list_tasks_detailed_response(v, 0) }
@@ -528,13 +546,22 @@ impl Ops for R_ListProbeResponse {
         if retain { core_native_retain::encode_into_list_probe_response(v, e) } else { core_native::encode_into_list_probe_response(v, e) }
     }
     fn f_decode(c: &Ctx, b: &[u8], retain: bool) -> Result<Self::F, i32> {
-        if retain { binding::decode_with_list_probe_response_unk(c.dec, b) } else { binding::decode_with_list_probe_response(c.dec, b) }
+        #[cfg(feature = "unknown-fields")]
+        if retain { return binding::decode_with_list_probe_response_unk(c.dec, b); }
+        let _ = retain;
+        binding::decode_with_list_probe_response(c.dec, b)
     }
     fn f_encode(c: &Ctx, v: &Self::F, retain: bool) -> Result<usize, i32> {
-        if retain { binding::encode_into_list_probe_response_unk(c.enc, v, &c.tcs) } else { binding::encode_into_list_probe_response(c.enc, v, &c.tcs) }
+        #[cfg(feature = "unknown-fields")]
+        if retain { return binding::encode_into_list_probe_response_unk(c.enc, v, &c.tcs); }
+        let _ = retain;
+        binding::encode_into_list_probe_response(c.enc, v, &c.tcs)
     }
     fn f_pull(c: &Ctx, b: &[u8], retain: bool, toks: &mut Vec<i64>) -> Result<Self::F, i32> {
-        if retain { binding::parse_walk_with_list_probe_response_unk(c.dec, b, toks) } else { binding::parse_walk_with_list_probe_response(c.dec, b, toks) }
+        #[cfg(feature = "unknown-fields")]
+        if retain { return binding::parse_walk_with_list_probe_response_unk(c.dec, b, toks); }
+        let _ = retain;
+        binding::parse_walk_with_list_probe_response(c.dec, b, toks)
     }
     fn dec_ctx(c: &Ctx) -> *mut ak_abi::ak_dec_ctx { c.dec.list_probe_response }
     fn touch_f(v: &Self::F) -> u64 { touch_f_list_probe_response(v, 0) }
@@ -559,13 +586,22 @@ impl Ops for R_ListTaskSummaryResponse {
         if retain { core_native_retain::encode_into_list_task_summary_response(v, e) } else { core_native::encode_into_list_task_summary_response(v, e) }
     }
     fn f_decode(c: &Ctx, b: &[u8], retain: bool) -> Result<Self::F, i32> {
-        if retain { binding::decode_with_list_task_summary_response_unk(c.dec, b) } else { binding::decode_with_list_task_summary_response(c.dec, b) }
+        #[cfg(feature = "unknown-fields")]
+        if retain { return binding::decode_with_list_task_summary_response_unk(c.dec, b); }
+        let _ = retain;
+        binding::decode_with_list_task_summary_response(c.dec, b)
     }
     fn f_encode(c: &Ctx, v: &Self::F, retain: bool) -> Result<usize, i32> {
-        if retain { binding::encode_into_list_task_summary_response_unk(c.enc, v, &c.tcs) } else { binding::encode_into_list_task_summary_response(c.enc, v, &c.tcs) }
+        #[cfg(feature = "unknown-fields")]
+        if retain { return binding::encode_into_list_task_summary_response_unk(c.enc, v, &c.tcs); }
+        let _ = retain;
+        binding::encode_into_list_task_summary_response(c.enc, v, &c.tcs)
     }
     fn f_pull(c: &Ctx, b: &[u8], retain: bool, toks: &mut Vec<i64>) -> Result<Self::F, i32> {
-        if retain { binding::parse_walk_with_list_task_summary_response_unk(c.dec, b, toks) } else { binding::parse_walk_with_list_task_summary_response(c.dec, b, toks) }
+        #[cfg(feature = "unknown-fields")]
+        if retain { return binding::parse_walk_with_list_task_summary_response_unk(c.dec, b, toks); }
+        let _ = retain;
+        binding::parse_walk_with_list_task_summary_response(c.dec, b, toks)
     }
     fn dec_ctx(c: &Ctx) -> *mut ak_abi::ak_dec_ctx { c.dec.list_task_summary_response }
     fn touch_f(v: &Self::F) -> u64 { touch_f_list_task_summary_response(v, 0) }
@@ -593,13 +629,22 @@ impl Ops for R_UploadResultDataMessage {
         if retain { core_native_retain::encode_into_upload_result_data_message(v, e) } else { core_native::encode_into_upload_result_data_message(v, e) }
     }
     fn f_decode(c: &Ctx, b: &[u8], retain: bool) -> Result<Self::F, i32> {
-        if retain { binding::decode_with_upload_result_data_message_unk(c.dec, b) } else { binding::decode_with_upload_result_data_message(c.dec, b) }
+        #[cfg(feature = "unknown-fields")]
+        if retain { return binding::decode_with_upload_result_data_message_unk(c.dec, b); }
+        let _ = retain;
+        binding::decode_with_upload_result_data_message(c.dec, b)
     }
     fn f_encode(c: &Ctx, v: &Self::F, retain: bool) -> Result<usize, i32> {
-        if retain { binding::encode_into_upload_result_data_message_unk(c.enc, v, &c.tcs) } else { binding::encode_into_upload_result_data_message(c.enc, v, &c.tcs) }
+        #[cfg(feature = "unknown-fields")]
+        if retain { return binding::encode_into_upload_result_data_message_unk(c.enc, v, &c.tcs); }
+        let _ = retain;
+        binding::encode_into_upload_result_data_message(c.enc, v, &c.tcs)
     }
     fn f_pull(c: &Ctx, b: &[u8], retain: bool, toks: &mut Vec<i64>) -> Result<Self::F, i32> {
-        if retain { binding::parse_walk_with_upload_result_data_message_unk(c.dec, b, toks) } else { binding::parse_walk_with_upload_result_data_message(c.dec, b, toks) }
+        #[cfg(feature = "unknown-fields")]
+        if retain { return binding::parse_walk_with_upload_result_data_message_unk(c.dec, b, toks); }
+        let _ = retain;
+        binding::parse_walk_with_upload_result_data_message(c.dec, b, toks)
     }
     fn dec_ctx(c: &Ctx) -> *mut ak_abi::ak_dec_ctx { c.dec.upload_result_data_message }
     fn touch_f(v: &Self::F) -> u64 { touch_f_upload_result_data_message(v, 0) }
@@ -624,13 +669,22 @@ impl Ops for R_ListMetricsResponse {
         if retain { core_native_retain::encode_into_list_metrics_response(v, e) } else { core_native::encode_into_list_metrics_response(v, e) }
     }
     fn f_decode(c: &Ctx, b: &[u8], retain: bool) -> Result<Self::F, i32> {
-        if retain { binding::decode_with_list_metrics_response_unk(c.dec, b) } else { binding::decode_with_list_metrics_response(c.dec, b) }
+        #[cfg(feature = "unknown-fields")]
+        if retain { return binding::decode_with_list_metrics_response_unk(c.dec, b); }
+        let _ = retain;
+        binding::decode_with_list_metrics_response(c.dec, b)
     }
     fn f_encode(c: &Ctx, v: &Self::F, retain: bool) -> Result<usize, i32> {
-        if retain { binding::encode_into_list_metrics_response_unk(c.enc, v, &c.tcs) } else { binding::encode_into_list_metrics_response(c.enc, v, &c.tcs) }
+        #[cfg(feature = "unknown-fields")]
+        if retain { return binding::encode_into_list_metrics_response_unk(c.enc, v, &c.tcs); }
+        let _ = retain;
+        binding::encode_into_list_metrics_response(c.enc, v, &c.tcs)
     }
     fn f_pull(c: &Ctx, b: &[u8], retain: bool, toks: &mut Vec<i64>) -> Result<Self::F, i32> {
-        if retain { binding::parse_walk_with_list_metrics_response_unk(c.dec, b, toks) } else { binding::parse_walk_with_list_metrics_response(c.dec, b, toks) }
+        #[cfg(feature = "unknown-fields")]
+        if retain { return binding::parse_walk_with_list_metrics_response_unk(c.dec, b, toks); }
+        let _ = retain;
+        binding::parse_walk_with_list_metrics_response(c.dec, b, toks)
     }
     fn dec_ctx(c: &Ctx) -> *mut ak_abi::ak_dec_ctx { c.dec.list_metrics_response }
     fn touch_f(v: &Self::F) -> u64 { touch_f_list_metrics_response(v, 0) }
@@ -654,13 +708,22 @@ impl Ops for R_DualResponse {
         if retain { core_native_retain::encode_into_dual_response(v, e) } else { core_native::encode_into_dual_response(v, e) }
     }
     fn f_decode(c: &Ctx, b: &[u8], retain: bool) -> Result<Self::F, i32> {
-        if retain { binding::decode_with_dual_response_unk(c.dec, b) } else { binding::decode_with_dual_response(c.dec, b) }
+        #[cfg(feature = "unknown-fields")]
+        if retain { return binding::decode_with_dual_response_unk(c.dec, b); }
+        let _ = retain;
+        binding::decode_with_dual_response(c.dec, b)
     }
     fn f_encode(c: &Ctx, v: &Self::F, retain: bool) -> Result<usize, i32> {
-        if retain { binding::encode_into_dual_response_unk(c.enc, v, &c.tcs) } else { binding::encode_into_dual_response(c.enc, v, &c.tcs) }
+        #[cfg(feature = "unknown-fields")]
+        if retain { return binding::encode_into_dual_response_unk(c.enc, v, &c.tcs); }
+        let _ = retain;
+        binding::encode_into_dual_response(c.enc, v, &c.tcs)
     }
     fn f_pull(c: &Ctx, b: &[u8], retain: bool, toks: &mut Vec<i64>) -> Result<Self::F, i32> {
-        if retain { binding::parse_walk_with_dual_response_unk(c.dec, b, toks) } else { binding::parse_walk_with_dual_response(c.dec, b, toks) }
+        #[cfg(feature = "unknown-fields")]
+        if retain { return binding::parse_walk_with_dual_response_unk(c.dec, b, toks); }
+        let _ = retain;
+        binding::parse_walk_with_dual_response(c.dec, b, toks)
     }
     fn dec_ctx(c: &Ctx) -> *mut ak_abi::ak_dec_ctx { c.dec.dual_response }
     fn touch_f(v: &Self::F) -> u64 { touch_f_dual_response(v, 0) }

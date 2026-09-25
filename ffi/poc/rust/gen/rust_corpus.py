@@ -49,7 +49,10 @@ def emit_dispatch(full, abi_roots, refused):
         o.append("        %s => match arm {" % lit(name))
         if name in abi_roots:
             o.append("            Arm::FfiDrop => ffi(b, cx, binding::decode_with_%s, binding::encode_into_%s, project::project_%s)," % (s, s, s))
+            o.append("            #[cfg(feature = \"unknown-fields\")]")
             o.append("            Arm::FfiRetain => ffi(b, cx, binding::decode_with_%s_unk, binding::encode_into_%s_unk, project::project_%s)," % (s, s, s))
+            o.append("            #[cfg(not(feature = \"unknown-fields\"))]")
+            o.append("            Arm::FfiRetain => Outcome::NotInAbi,")
         else:
             o.append("            Arm::FfiDrop | Arm::FfiRetain => Outcome::NotInAbi,")
         o.append("            Arm::NativeDrop => native(b, core_native::decode_%s, core_native::encode_%s, project::project_%s)," % (s, s, s))
@@ -60,6 +63,7 @@ def emit_dispatch(full, abi_roots, refused):
     o.append("}")
     o.append("")
     # Decision 11 (WP5 step 7): the unknown-field controls, per root the ABI carries.
+    o.append("#[cfg(feature = \"unknown-fields\")]")
     o.append("pub fn unk_controls(root: &str, cx: &Cx, b: &[u8], plant: bool) -> Option<Result<binding::UnkReport, i32>> {")
     o.append("    match root {")
     for name in full.order:

@@ -11,6 +11,7 @@
 #        accept  every refusal turned into an acceptance  -> C4 must fail
 #        noinit  ak_init skipped (the core checks)        -> every C ABI arm must fail
 #   5  decision 11's controls (corpus --unk-controls) and their plant, which must fail
+#   6  the NO-UNKNOWN build (WP5 step 10): the corpus and the controls again
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$HERE/.."
@@ -60,5 +61,31 @@ else
   echo "  control unk-plant (bags not cleared): failed as required: $(grep '^discard' /tmp/corpus-unk.$$)"
 fi
 rm -f /tmp/corpus-unk.$$
+
+echo "===== 6. the NO-UNKNOWN build (WP5 step 10): support compiled out, every unknown row dropped ====="
+( cd corpus && CARGO_TARGET_DIR="$HERE/../target-corpus-nounk" cargo build --release -q --no-default-features --features init-guard 2>/dev/null )
+NB="$HERE/../target-corpus-nounk/release/corpus"
+NL=$(ldd "$NB" | grep -o '/[^ ]*libak_core.so')
+echo "# $NL: ak_uencode_* $(nm -D --defined-only "$NL" | grep -c ' T ak_uencode_'), ak_dec_reset_* $(nm -D --defined-only "$NL" | grep -c ' T ak_dec_reset_'), ak_decode_WireZoo $(nm -D --defined-only "$NL" | grep -c ' T ak_decode_WireZoo')"
+if "$NB" > /tmp/corpus-nounk.$$ 2>&1; then
+  grep -E '^## |^   pass|DROPPED|retain|CORPUS' /tmp/corpus-nounk.$$ | grep -v "^     "
+  echo "  ffi-nounk forms on unknown rows: $(sed -n '/## ffi-nounk/,/## native-drop/p' /tmp/corpus-nounk.$$ | grep -ciE '^ +[0-9]+ +unknown-retained') retained-form lines (must be 0)"
+  sed -n '/## ffi-nounk/,/## native-drop/p' /tmp/corpus-nounk.$$ | grep -qiE '^ +[0-9]+ +unknown-retained' && { echo "  the no-unknown build wrote a retained form"; bad=$((bad+1)); }
+else
+  cat /tmp/corpus-nounk.$$; echo "  NO-UNKNOWN CORPUS FAILED"; bad=$((bad+1))
+fi
+for p in proj reenc accept; do
+  if AK_CORPUS_PLANT=$p "$NB" --only "$SUB" > /tmp/corpus-ctl.$$ 2>&1; then
+    echo "  control $p (no-unknown build): PASSED -- the harness is blind to it"; bad=$((bad+1))
+  else
+    echo "  control $p (no-unknown build): failed as required ($(grep -c 'FAIL ' /tmp/corpus-ctl.$$) arm-row failures)"
+  fi
+done
+if AK_CORPUS_SKIP_INIT=1 "$NB" --only "$SUB" > /tmp/corpus-ctl.$$ 2>&1; then
+  echo "  control noinit (no-unknown build): PASSED -- init-guard is not in the build"; bad=$((bad+1))
+else
+  echo "  control noinit (no-unknown build): failed as required: $(grep -c 'FAIL .*\[ffi-' /tmp/corpus-ctl.$$) C ABI arm-row failures"
+fi
+rm -f /tmp/corpus-nounk.$$ /tmp/corpus-ctl.$$
 [ $bad -eq 0 ] || { echo "CONTROLS FAILED: $bad"; exit 1; }
 echo "CORPUS GATE PASSED"
