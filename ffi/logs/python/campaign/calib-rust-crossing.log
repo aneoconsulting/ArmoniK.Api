@@ -1,0 +1,3 @@
+# the rust slice's crossing benchmark (CAMPAIGN.md 20; README R13), run on this machine
+# source: /home/user/ArmoniK.Api/ffi/poc/python/build/snap/dadea5f/ffi/poc/rust
+# NOT RUN: /home/user/ArmoniK.Api/ffi/poc/python/build/snap/dadea5f/ffi/poc/rust does not exist (build.sh creates the snapshot)

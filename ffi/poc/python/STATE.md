@@ -8,13 +8,71 @@ are listed at the foot as instrumentation.
 
 | | |
 |---|---|
-| **Status** | Work unit 5 done: **FIX-PLAN WP5 step 5**, the Python backend on the shared plan. Every generated file of this slice is rendered by `poc/codec/gen` from a plan; `poc/python/gen/` holds build glue only. **R-D4 fixed** (and one more floor defect, D14, found by building on real 3.7), **R-E5 fixed** (pycodec's 42 corpus failures are 0), **R-G4 fixed**, **R-G7 fixed** (every core built WITH `init-guard`), **R-G8 holds** in the pure-Python codec. D13 found and fixed |
+| **Status** | Work unit 6 done: **FIX-PLAN WP3, the campaign harness** (`run_campaign.sh`, design/CAMPAIGN.md with 0e8e9eb's amendments). It is campaign-ready except for requirement 10 (core-ffi retain waits on rendering decision 11's options in `py_capi`) and the items marked in the checklist below. The smoke run is in `logs/python/campaign/` (instrumentation). Work unit 5 (WP5 step 5) is below and still holds |
 | **Floor** (owner D1: 3.7) | **Builds and passes every gate on CPython 3.7.5** (Ubuntu 18.04's packages from archive.ubuntu.com, `fetch_py37.sh`): logs 90-97 |
 | **Target** (owner D1: 3.12) | Built and gated on **3.12.3**: logs 90-96, 98. grpcio 1.84.0, protobuf 7.36.2 (upb) |
 | **Incumbent** (R14) | protobuf on **upb** through gRPC's generated marshaller path (`SerializeToString` / `FromString`), `verify_r14.py` (log 52). On the 3.7 floor: protobuf 4.24.4 (upb), for the conformance gate only |
 | **Core** | `poc/codec`, the one core (R0), this checkout (commit in each log header; the `AK_UPSTREAM` snapshot mechanism is retired). Four builds, all `init-guard`: plain, `count`, `rpc`, `corpus` |
 
-## What exists
+## WP3: the campaign harness (work unit 6)
+
+`run_campaign.sh --suite codec|rpc|calib|gate --out <dir>` (owner's run: `--out
+ffi/logs/python/campaign`). Environment: `AK_CPU_CLIENT`, `AK_CPU_SERVER`, `AK_ISOLATION`,
+`AK_PY` (3.12), `AK_FLOOR_PY` (3.7 from `fetch_py37.sh`), `AK_SNAPSHOT` (default HEAD: the
+core and the generator come from a `git archive` of that commit, never the working tree).
+Files: `camp_lib.py` (pinning, clocks, header, JSON body), `camp_codec.py`, `camp_rpc.py` +
+`camp_server.py`, `camp_calib.py`, `camp_summary.py`, `counts_expected.txt`, `arms_plan.py`.
+
+**Smoke run** (1 launch, 1 round, reduced iterations; every log carries the INSTRUMENTATION
+line): `logs/python/campaign/`. The gate passed at 3.12 and 3.7 (gate/90-98, plus the RPC
+runner's must-fail control). Samples: calib 2 plus the rust crossing log, codec shapes 324,
+codec unknown 3732 (311 rows), rpc 96. HEAD moved during the run (154803d at the gate,
+dadea5f for the timed suites). The gate stamp is keyed on the source trees the build reads,
+and it accepted the later suites, so those trees are the same at both commits. From now on
+the header prints the resolved snapshot sha, where this run's logs print `HEAD`.
+
+### Checklist (CAMPAIGN.md section 10)
+
+| # | status | how, or why not |
+|---|---|---|
+| 1 | met (harness side) | suites run one after another; the machine and its tenancy are the owner's |
+| 2 | met (recorded) | governor, turbo, SMT read from /sys into every header; setting them is the owner's |
+| 3 | met (recorded) | `AK_ISOLATION`, or isolcpus/nohz_full from /proc/cmdline, in every header |
+| 4 | met | client pins itself to `AK_CPU_CLIENT` and the server to `AK_CPU_SERVER` (sched_setaffinity before any thread); the affinity in force is logged. NUMA and SMT-sibling disjointness are not checked by the runner |
+| 5 | met | 3.7 runs the gate (corpus, byte identity) and no timing suite |
+| 6 | met | `buildinfo.json` in every header: cc, CFLAGS, shared linkage, core release profile (lto=false), features incl. `init-guard`; GC stated |
+| 7 | met | 16 payloads; the content sets on P2.4 (SHAPES.md P10 row; the Rust slice's recode rule); every corpus U-* row whose root the C ABI carries, disputed excluded (311 rows; the Nest rows and U-map-entry named with the reason) |
+| 8 | met | incumbent-prod (SerializeToString / FromString), incumbent-best (SerializePartialToString, ParseFromString into a reused message), core-ffi (push), host-gen; core-ffi-attr as a labelled extra. No pull arm exists in this slice |
+| 9 | met | encode, decode (bare), decode+read through one reader for every arm |
+| 10 | **not met: pending the decision 11 port** | host-gen drop and retain are timed; incumbent at upb's default (retain, stated); core-ffi drop is timed; **core-ffi retain is not built**: `py_capi` renders decision 11's transitional drop mode (29d515e), and rendering the options is the next task |
+| 11 | met (argued) | the same object graph is re-serialised each iteration; neither upb-python nor the facades memoise a serialised size or form, so nothing is amortised. Stated, not rebuilt per iteration |
+| 12 | met | cells A, B, C, D |
+| 13 | met | `camp_server.py`, a separate pinned process; (a) pre-serialised P2.2; (b) the server decodes with upb, identically for every cell |
+| 14 | met | (a) and (b); the optional streamed upload is not built |
+| 15 | met | 1, 8, 16 in flight |
+| 16 | met | B and C blocking; queue and callback as labelled extras, direction (a) only |
+| 17 | met | shipped and pinned, the same switch for all four cells and one server process per transport. grpcio has no connection-window argument and sets TCP_NODELAY itself; both stated in the header |
+| 18 | met | every call checked (status, length); the server checks every request; one failure aborts with no sample. The planted short-body control is seen failing in the gate suite |
+| 19 | met | calib compares the counting build with `counts_expected.txt` and stops on a difference; gate step 98 does the same against log 85 |
+| 20 | partly met | host forward and fwd+reverse measured separately (reverse alone is the difference, left to the summary); the rust slice's `bench` is built from the snapshot and run pinned. `perf stat` is implemented but `perf` is absent in this container, so cycles and instructions are unverified |
+| 21 | met | codec: CLOCK_THREAD_CPUTIME_ID; rpc: CLOCK_PROCESS_CPUTIME_ID of the client, wall beside |
+| 22 | met | rotated by one per round, within each (payload, content, direction) or (transport, direction, in flight) |
+| 23 | met | defaults 5 rounds x 3 launches, every sample written (smoke: 1 x 1) |
+| 24 | met | per arm or cell: calibration, then one sample's iterations before round 1, the same rule for every arm |
+| 25 | met | M_TOP_PAD before any allocation (J26); GC ON, `gc.collect()` before every sample, stated |
+| 26 | met, one gap | codec, rpc and calib refuse without a `gate.ok` for the trees they read (they run the gate first), and each codec case is also checked in process. The gap is req 10: the corpus runs core-ffi in drop mode only |
+| 27 | met | header: commit (a dirty tree is refused unless `--allow-dirty`), machine, CPU sets, versions, build, transport, warm-up, repeats |
+| 28 | met | one JSON object per sample with the listed fields |
+| 29 | met by parameter | `--out`; the smoke is in `logs/python/campaign/` |
+| 30 | met | `camp_summary.py`: median [min, max] and per-round ratio only |
+| 31 | met for the slice | `run_campaign.sh` with the common interface. The top-level `ffi/campaign.sh` is outside this slice's directory (aggregating session) |
+| 32 | met | this smoke run, and this section |
+
+Harness changes the contract forced: the RPC server moved out of process (R-C3/R-C4); the
+collector is ON for timed runs (bench.py's GC-off rule is superseded for the campaign); decode
+is reported bare and with every field read in both the codec suite and the RPC cells (R-C2).
+
+## What exists (work unit 5)
 
 ```
 poc/codec/gen/py_pure.py   (shared backend) facade.py + pycodec.py (drop) + pycodec_retain.py
@@ -156,15 +214,17 @@ stale text (JOURNAL J28).
 
 ## Next step
 
-1. When the aggregating session rules on the plan gaps above, re-render (`gen/generate.py`)
-   and re-run `./gate.sh python3.12 build/py37/python3.7`.
-2. Whenever the shared core, `plan.py`, `cpp_abi.py` or `cpp_layout.py` change: `./gate.sh`
-   (the build's `--check` reports a stale tree first).
-3. Retention through the C ABI (`ak_uencode_*`, `ak_unk_f`), if the owner's D4 needs a Python
-   ffi-retain column.
-4. WP3: conform `rpc.py`, `bench.py`, `concurrency.py` to `design/CAMPAIGN.md`.
+1. Render decision 11's options (`ak_unk_opts` per position, `ak_dec_reset_<Root>`) in
+   `py_capi` and add core-ffi retain to the corpus gate and the codec suite (requirement 10).
+2. The owner's run: `AK_CPU_CLIENT=.. AK_CPU_SERVER=.. AK_ISOLATION=.. ./run_campaign.sh --suite
+   gate|calib|codec|rpc --out ffi/logs/python/campaign`, with no `--smoke`.
+3. Re-render and re-gate whenever `plan.py`, `c_abi.py` or the core changes; the gate stamp
+   notices on its own.
 
 ## Log index
+
+`campaign/`: the WP3 smoke run (instrumentation): gate/ (90-98 at 3.12 and 3.7, the RPC control), calib, codec shapes and unknown, rpc, summary.txt.
+
 
 **Results now** (correctness, counts, feasibility, defects):
 

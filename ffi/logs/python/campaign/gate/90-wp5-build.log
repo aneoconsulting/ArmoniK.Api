@@ -1,0 +1,51 @@
+# python slice: build, WP5 step 5 (plan-rendered shim, init-guard cores)
+# date:      2026-09-25T06:41:16Z
+# commit:    154803d
+# phase:     correctness only; nothing here is a timing
+
+   core source: /home/user/ArmoniK.Api/ffi/poc/python/build/snap/154803d/ffi/poc/codec (snapshot of 154803d)
+   commit:      154803d (snapshot)
+   core tree:   0429a9d823d38672
+   targets:     /home/user/ArmoniK.Api/ffi/poc/python/build/cargo-154803d/{plain,count,rpc,corpus}
+== 1. R0: one core, at poc/codec, reached by path ==
+   snapshot mode: the core is the archived poc/codec of 154803d, reached by path; one_core.sh
+   checks the working tree (other slices), which is not what this build reads
+
+== 2. R1: the generated tree is current with the plans ==
+guard 2 python backend modules import plans only; a planted IR import is caught
+generated tree is current with the plans (10 files)
+
+== 3. the shared core, every build WITH init-guard (R-G7) ==
+   cargo (plain --features init-guard): 16 warnings, in /home/user/ArmoniK.Api/ffi/poc/python/build/cargo-154803d/plain.stderr
+   exported ak_* entry points: 100
+   cargo (count --features count,init-guard): 16 warnings, in /home/user/ArmoniK.Api/ffi/poc/python/build/cargo-154803d/count.stderr
+   cargo (rpc --features rpc,init-guard): 16 warnings, in /home/user/ArmoniK.Api/ffi/poc/python/build/cargo-154803d/rpc.stderr
+   the rpc core: 14 section 9 entry points
+   cargo (corpus --features corpus,init-guard): 38 warnings, in /home/user/ArmoniK.Api/ffi/poc/python/build/cargo-154803d/corpus.stderr
+   the corpus core: 1 ak_decode_WireZoo export(s)
+
+== python 3.12 (3.12.3, sys.hexversion 0x30c03f0) ==
+   built _akffi, _akffi_count, _akffi_rpc, _akffi_corpus, _akffi_corpus_chunk in build/py3.12; the noinit control in build/py3.12/ctl
+   _akffi.cpython-312-x86_64-linux-gnu.so: 39 undefined ak_* imports incl. ak_init, PyInit_ exported, libak_core.so NEEDED
+   _akffi_count.cpython-312-x86_64-linux-gnu.so: 41 undefined ak_* imports incl. ak_init, PyInit_ exported, libak_core.so NEEDED
+   _akffi_rpc.cpython-312-x86_64-linux-gnu.so: 53 undefined ak_* imports incl. ak_init, PyInit_ exported, libak_core.so NEEDED
+   _akffi_corpus.cpython-312-x86_64-linux-gnu.so: 88 undefined ak_* imports incl. ak_init, PyInit_ exported, libak_core.so NEEDED
+   _akffi_corpus_chunk.cpython-312-x86_64-linux-gnu.so: 88 undefined ak_* imports incl. ak_init, PyInit_ exported, libak_core.so NEEDED
+   control: _akffi_corpus_noinit imports no ak_init (AK_SKIP_INIT is in that build only)
+   must-fail control: a planted layout mismatch refuses to import: ImportError: layout: ak_dfix_TaskOptionsOptionsEntry.key is 1 in the core and 0 here
+   _akffi_rpc.cpython-312-x86_64-linux-gnu.so: all 6 section 9 imports, libak_core.so resolves to the rpc build
+   must-fail control: a shim built WITHOUT -DAK_RPC imports 0 of 6 and is refused
+
+== python 3.7 (3.7.5, sys.hexversion 0x30705f0) ==
+   built _akffi, _akffi_count, _akffi_rpc, _akffi_corpus, _akffi_corpus_chunk in build/py3.7; the noinit control in build/py3.7/ctl
+   _akffi.cpython-37m-x86_64-linux-gnu.so: 39 undefined ak_* imports incl. ak_init, PyInit_ exported, libak_core.so NEEDED
+   _akffi_count.cpython-37m-x86_64-linux-gnu.so: 41 undefined ak_* imports incl. ak_init, PyInit_ exported, libak_core.so NEEDED
+   _akffi_rpc.cpython-37m-x86_64-linux-gnu.so: 53 undefined ak_* imports incl. ak_init, PyInit_ exported, libak_core.so NEEDED
+   _akffi_corpus.cpython-37m-x86_64-linux-gnu.so: 88 undefined ak_* imports incl. ak_init, PyInit_ exported, libak_core.so NEEDED
+   _akffi_corpus_chunk.cpython-37m-x86_64-linux-gnu.so: 88 undefined ak_* imports incl. ak_init, PyInit_ exported, libak_core.so NEEDED
+   control: _akffi_corpus_noinit imports no ak_init (AK_SKIP_INIT is in that build only)
+   must-fail control: a planted layout mismatch refuses to import: ImportError: layout: ak_dfix_TaskOptionsOptionsEntry.key is 1 in the core and 0 here
+   _akffi_rpc.cpython-37m-x86_64-linux-gnu.so: all 6 section 9 imports, libak_core.so resolves to the rpc build
+   must-fail control: a shim built WITHOUT -DAK_RPC imports 0 of 6 and is refused
+
+the composed arm is built. conformance.py gates it before anything is timed.

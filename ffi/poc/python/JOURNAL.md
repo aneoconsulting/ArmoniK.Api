@@ -1089,3 +1089,21 @@ core's at import instead of printing that the build "would have" failed), `proj`
 core-ffi **retain** is not built: the shim renders drop only, and the decision 11
 mechanism is being added to `poc/codec` by the rust agent now. The suite records this as
 pending and does not time it.
+
+### J40. The smoke run, and what it found in the runner
+
+Four things turned up before a clean pass:
+- The dirty-tree refusal fired on this slice's own uncommitted JOURNAL edit, so a run now
+  starts from a committed tree.
+- Decision 11 landed in the plan mid-work (29d515e), and the snapshot build's R1 check
+  reported the shim STALE. It was re-rendered (transitional drop mode).
+- The gate stamp was first keyed on HEAD, so every other slice's commit forced a re-gate. It
+  is now keyed on the source trees the build reads.
+- gate.sh's step 98 failed on the word DIFFERS in its informational cpp-header comparison
+  (the cpp slice had not re-rendered since decision 11). Only a crossing-count difference
+  fails it now.
+
+CAMPAIGN.md was amended (0e8e9eb). Requirement 7's unknown rows are now every U-* row whose
+root the C ABI carries (311 rows), and requirement 29's logs go to `logs/python/campaign/`.
+The final smoke passed all four suites. HEAD moved between the gate and the timed suites,
+and the header then printed `HEAD` rather than the resolved sha; that is fixed in camp_lib.
