@@ -57,7 +57,7 @@ core() {  # dir variant  -- put a core build next to a harness
   echo "# core in $(basename "$(dirname "$1")")/$(basename "$1"): $2 ($(sha256sum "$1/libak_core.so" | cut -c1-16))"
 }
 
-echo "# csharp slice, FIX-PLAN WP5 step 4 gate. CORRECTNESS ONLY: no timing is taken."
+echo "# csharp slice gate (FIX-PLAN WP5 steps 4 and 9). CORRECTNESS ONLY: no timing is taken."
 echo "# date:        $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 echo "# branch HEAD: $(git -C "$REPO" rev-parse --short HEAD)$(git -C "$REPO" diff --quiet HEAD -- ffi/poc/csharp ffi/poc/codec/gen/cs_*.py || echo ' + the uncommitted slice changes this log is committed with')"
 echo "# dotnet:      SDK $(dotnet --version); runtimes: $(dotnet --list-runtimes | grep NETCore | awk '{print $2}' | tr '\n' ' ')+ Microsoft.NETCore.App.Runtime.linux-x64 6.0.36 from NuGet (self-contained)"
@@ -117,7 +117,12 @@ for lvl in 8 6; do
   step "7.$lvl the corpus, net${lvl}.0"
   core "$C" target-core-corpus
   run "net$lvl corpus layout" "${CX[@]}" --layout "$LAYC"
-  run "net$lvl corpus" "${CX[@]}"
+  # Since decision 11's port (WP5 step 9) a retain arm that writes the dropped form on a
+  # non-disputed unknown-class row FAILS the gate (AK_CORPUS_RETAIN_STRICT=1).
+  AK_CORPUS_RETAIN_STRICT=1 run "net$lvl corpus" "${CX[@]}"
+  AK_CORPUS_RETAIN_STRICT=1 AK_CORPUS_PLANT=unkdrop control "net$lvl corpus unkdrop (ffi-retain in drop mode, strict retain)" "${CX[@]}" --only "U-"
+  run "net$lvl decision 11 controls (discard per position, pull == push, wrong root)" "${CX[@]}" --unk-controls
+  control "net$lvl decision 11 plant (the expectation's clearing skipped)" "${CX[@]}" --unk-controls --plant
   SUB="S-Probe,U-root,X-lenwrap-lrr,E-map,T-dec-root"
   AK_CORPUS_PLANT=proj control "net$lvl corpus proj" "${CX[@]}" --only "$SUB"
   AK_CORPUS_PLANT=reenc control "net$lvl corpus reenc" "${CX[@]}" --only "$SUB"

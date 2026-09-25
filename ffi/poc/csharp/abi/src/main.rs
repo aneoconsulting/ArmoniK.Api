@@ -14,6 +14,15 @@ fn fsz<F>(_: *const F) -> usize {
     size_of::<F>()
 }
 
+/// A member the Rust renderer escaped because its plan name is a Rust keyword (`self` ->
+/// `self_`) is printed under the PLAN name, which is what the C# declaration uses.
+fn plan_name(n: &str) -> &str {
+    match n {
+        "self_" | "type_" | "ref_" | "match_" | "mod_" | "move_" | "impl_" | "fn_" | "use_" | "crate_" => &n[..n.len() - 1],
+        _ => n,
+    }
+}
+
 macro_rules! lay {
     ($out:expr, $t:ident, [$($f:ident),* $(,)?]) => {{
         let u = MaybeUninit::<$t>::uninit();
@@ -21,7 +30,7 @@ macro_rules! lay {
         let mut fields: Vec<String> = Vec::new();
         $(
             fields.push(format!("{{\"name\": \"{}\", \"offset\": {}, \"size\": {}}}",
-                stringify!($f), offset_of!($t, $f), fsz(unsafe { core::ptr::addr_of!((*p).$f) })));
+                plan_name(stringify!($f)), offset_of!($t, $f), fsz(unsafe { core::ptr::addr_of!((*p).$f) })));
         )*
         $out.push(format!("  \"{}\": {{\"size\": {}, \"align\": {}, \"fields\": [{}]}}",
             stringify!($t), size_of::<$t>(), align_of::<$t>(), fields.join(", ")));
@@ -35,6 +44,7 @@ fn all(out: &mut Vec<String>) {
     lay!(out, ak_blob, [data, len]);
     lay!(out, ak_unk_buf, [data, len, cap]);
     lay!(out, ak_unk_opts, [buf, grow]);
+    lay!(out, ak_unk_pool, [bufs, n, grow]);
     lay!(out, ak_err, [code, detail]);
     lay!(out, ak_init_opts, [abi_version, flags, log, log_ctx]);
     lay!(out, AkCounters, [forward, reverse, transcode, prefix_moves, prefix_bytes, grows]);
@@ -133,7 +143,7 @@ fn all(out: &mut Vec<String>) {
     lay!(out, ak_dvt_Pair, [apply]);
     lay!(out, ak_dec_ListResultsResponse_opts, [host, self_, results, results_created_at, results_completed_at]);
     lay!(out, ak_dec_ListTasksDetailedResponse_opts, [host, self_, tasks, tasks_options, tasks_options_options, tasks_options_max_duration, tasks_created_at, tasks_submitted_at, tasks_started_at, tasks_ended_at, tasks_pod_ttl, tasks_output, tasks_received_at, tasks_acquired_at, tasks_creation_to_end_duration, tasks_processing_to_end_duration, tasks_received_to_end_duration, tasks_processed_at, tasks_fetched_at]);
-    lay!(out, ak_dec_ListProbeResponse_opts, [host, self_, probes, probes_body_as_stamp, probes_body_as_nothing]);
+    lay!(out, ak_dec_ListProbeResponse_opts, [host, self_, probes, probes_body]);
     lay!(out, ak_dec_ListTaskSummaryResponse_opts, [host, self_, tasks, tasks_options, tasks_options_options, tasks_options_max_duration, tasks_created_at]);
     lay!(out, ak_dec_UploadResultDataMessage_opts, [host, self_, upload]);
     lay!(out, ak_dec_ListMetricsResponse_opts, [host, self_, batches]);
@@ -147,6 +157,7 @@ fn all(out: &mut Vec<String>) {
     lay!(out, ak_blob, [data, len]);
     lay!(out, ak_unk_buf, [data, len, cap]);
     lay!(out, ak_unk_opts, [buf, grow]);
+    lay!(out, ak_unk_pool, [bufs, n, grow]);
     lay!(out, ak_err, [code, detail]);
     lay!(out, ak_init_opts, [abi_version, flags, log, log_ctx]);
     lay!(out, AkCounters, [forward, reverse, transcode, prefix_moves, prefix_bytes, grows]);
@@ -322,7 +333,7 @@ fn all(out: &mut Vec<String>) {
     lay!(out, ak_dec_TaskOutput_opts, [host, self_]);
     lay!(out, ak_dec_TaskDetailed_opts, [host, self_, options, options_options, options_max_duration, created_at, submitted_at, started_at, ended_at, pod_ttl, output, received_at, acquired_at, creation_to_end_duration, processing_to_end_duration, received_to_end_duration, processed_at, fetched_at]);
     lay!(out, ak_dec_TaskSummary_opts, [host, self_, options, options_options, options_max_duration, created_at]);
-    lay!(out, ak_dec_Probe_opts, [host, self_, body_as_stamp, body_as_nothing]);
+    lay!(out, ak_dec_Probe_opts, [host, self_, body]);
     lay!(out, ak_dec_Empty_opts, [host, self_]);
     lay!(out, ak_dec_UploadResultData_opts, [host, self_]);
     lay!(out, ak_dec_MetricsBatch_opts, [host, self_]);
@@ -330,7 +341,7 @@ fn all(out: &mut Vec<String>) {
     lay!(out, ak_dec_ListResultsResponse_opts, [host, self_, results, results_created_at, results_completed_at]);
     lay!(out, ak_dec_ListTasksDetailedResponse_opts, [host, self_, tasks, tasks_options, tasks_options_options, tasks_options_max_duration, tasks_created_at, tasks_submitted_at, tasks_started_at, tasks_ended_at, tasks_pod_ttl, tasks_output, tasks_received_at, tasks_acquired_at, tasks_creation_to_end_duration, tasks_processing_to_end_duration, tasks_received_to_end_duration, tasks_processed_at, tasks_fetched_at]);
     lay!(out, ak_dec_ListTaskSummaryResponse_opts, [host, self_, tasks, tasks_options, tasks_options_options, tasks_options_max_duration, tasks_created_at]);
-    lay!(out, ak_dec_ListProbeResponse_opts, [host, self_, probes, probes_body_as_stamp, probes_body_as_nothing]);
+    lay!(out, ak_dec_ListProbeResponse_opts, [host, self_, probes, probes_body]);
     lay!(out, ak_dec_ListMetricsResponse_opts, [host, self_, batches]);
     lay!(out, ak_dec_UploadResultDataMessage_opts, [host, self_, upload]);
     lay!(out, ak_dec_DualResponse_opts, [host, self_, left, right]);

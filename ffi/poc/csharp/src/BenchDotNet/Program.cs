@@ -65,7 +65,7 @@ public static class Program
             "# clocks:         wall per iteration (BDN, Stopwatch; exported RAW, no outlier removal, no overhead subtraction); process CPU per case (getrusage(RUSAGE_SELF)) across BDN's BeforeActualRun..AfterActualRun = the actual stage including the GCs BDN forces between iterations (their pause time beside it), round 0; per-iteration and thread CPU are NOT available from BDN (no diagnoser or column gives them)",
             "# process unit:   " + (Cases.Unit ?? "all cases") + "; this launch's unit order: " + string.Join(", ", Cases.Units(launch)) + " (arms rotated by launch, modes within an arm too; requirement 22)",
             string.Format(CultureInfo.InvariantCulture, "# pre-warm:       {0} round(s) of 64 calls to every case of this process, 0.5 s apart, before BDN starts; the last round compiled {1} method(s) of measured code (JIT events read back)", prewarmRounds, lastRoundJits),
-            "# correctness:    " + checks + " pre-timing checks passed (byte identity of every encode arm per payload and content set; every arm accepts every unknown row)",
+            "# correctness:    " + checks + " pre-timing checks passed (byte identity of every encode arm per payload and content set; every arm accepts every unknown row; on every unknown row core-ffi retain and host-gen retain re-encode to the incumbent's bytes, i.e. the unknown fields are kept: requirement 10)",
             "# cases:          " + ncases + " exported, after " + nprime + " prime case(s) run first and not exported (copies of the first cases, content \"prime\")",
         };
         File.AppendAllLines(outp, hdr);
