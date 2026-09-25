@@ -1381,6 +1381,33 @@ Each blocks something. None is settled by a measurement that exists today.
      from 5 to 8; encode counts are unchanged.
    - **Recursive messages stay refused** from the C ABI (owner, 2026-09-24).
 
+   **Implementation rules, confirmed by the owner 2026-09-25** (they amend the
+   block above where they differ):
+
+   1. **The options are read in place.** The core keeps the host's pointer, not a
+      copy. When it consumes a buffer it clears that entry in the host's struct, and
+      the host may refill any entry between two deliveries by writing its own memory,
+      with no call. Without batching the host refills an element position in `new` or
+      `applyelem`. **A repeated position carries a pool**,
+      `ak_unk_pool { ak_unk_buf *bufs; uint32_t n; ak_grow_fn grow; }`, taken in order
+      and refilled by the host after each batch; a singular position keeps
+      `ak_unk_opts { ak_unk_buf buf; ak_grow_fn grow; }`. `grow` is the fallback when a
+      position has nothing left.
+   2. **No buffer and no `grow`**: the decode fails with `AK_ERR_CAPACITY`, never a
+      partial copy.
+   3. **A failed decode** leaves every buffer already placed or grown with the host;
+      the core never rolls back.
+   4. **A oneof is one position with one slot**, shared by its message members; when
+      the case switches the core empties that buffer and reuses it for the new member.
+   5. **`ak_grow_fn` keeps its `i32` sizes**: a buffer above 2 GiB is refused with
+      `AK_ERR_LIMIT`.
+   6. **A decode context is bound to its root.** `ak_dec_ctx_new_<Root>(opts)` binds it
+      (`NULL` opts is drop mode); `ak_dec_reset_<Root>` accepts only a context of that
+      root; decoding another root with it is refused with an error. The untyped
+      `ak_dec_ctx_new()` is removed.
+   7. **A reset per decode** is expected whatever the unknown-field configuration; it
+      is how pre-allocated buffers are re-armed.
+
 12. **The diagnostic contract**, and it is worse than "five failures render as
    one string". `ak_init` now owns the log and tracing bridges (section 3), which
    settles *who*. What is still open is *what*: five distinct transport failures
