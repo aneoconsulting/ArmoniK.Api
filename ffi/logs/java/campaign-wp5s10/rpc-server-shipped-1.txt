@@ -1,0 +1,13 @@
+SERVING /home/user/ArmoniK.Api/ffi/poc/java/build/campaign-11899-shipped-1.sock transport=shipped response=540422B
+Sep 25, 2026 11:01:03 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0x1bbb9bc1, L:/home/user/ArmoniK.Api/ffi/poc/java/build/campaign-11899-shipped-1.sock - R:]'
+Sep 25, 2026 11:01:03 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0x76a17d6f, L:/home/user/ArmoniK.Api/ffi/poc/java/build/campaign-11899-shipped-1.sock - R:]'
+Sep 25, 2026 11:01:03 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0x4900969d, L:/home/user/ArmoniK.Api/ffi/poc/java/build/campaign-11899-shipped-1.sock - R:]'
+Sep 25, 2026 11:01:03 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0x9653db7c, L:/home/user/ArmoniK.Api/ffi/poc/java/build/campaign-11899-shipped-1.sock - R:]'
+Sep 25, 2026 11:01:04 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0xc8ce0d28, L:/home/user/ArmoniK.Api/ffi/poc/java/build/campaign-11899-shipped-1.sock - R:]'
+Sep 25, 2026 11:01:04 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0xdc60b298, L:/home/user/ArmoniK.Api/ffi/poc/java/build/campaign-11899-shipped-1.sock - R:]'

@@ -1,0 +1,9 @@
+SERVING /home/user/ArmoniK.Api/ffi/poc/java/build/campaign-11899-pinned-nounk-1.sock transport=pinned response=540422B
+Sep 25, 2026 11:02:40 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0x3b76ada4, L:/home/user/ArmoniK.Api/ffi/poc/java/build/campaign-11899-pinned-nounk-1.sock - R:]'
+Sep 25, 2026 11:02:40 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0x61ae74a7, L:/home/user/ArmoniK.Api/ffi/poc/java/build/campaign-11899-pinned-nounk-1.sock - R:]'
+Sep 25, 2026 11:02:40 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0x0013c71f, L:/home/user/ArmoniK.Api/ffi/poc/java/build/campaign-11899-pinned-nounk-1.sock - R:]'
+Sep 25, 2026 11:02:41 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0x14dc5ea1, L:/home/user/ArmoniK.Api/ffi/poc/java/build/campaign-11899-pinned-nounk-1.sock - R:]'
