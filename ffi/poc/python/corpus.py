@@ -32,6 +32,15 @@ Controls, each of which MUST fail (`--controls`):
                                                            -> every ffi row must fail
   python3.12 corpus.py [--arms a,b] [--only prefix,...] [--timeout s] [--controls]
                        [--dump FILE] [--compare FILE]   (re-encoding sha256s, per arm and row)
+
+THE NO-UNKNOWN VARIANT (WP5 step 10), `AK_NOUNK=1` in the environment: the ffi arms import
+`_akffi_corpus_nounk` / `_akffi_corpus_chunk_nounk` (the shim rendered from the corpus plan
+relowered with unknown="drop", over ak-core `--no-default-features --features
+corpus,init-guard`); the arms are ffi-cext, ffi-attr, ffi-chunk256 and py-drop. Added checks:
+every unknown-class row writes the DROPPED form on every ffi arm, and `--compare` against the
+full build's dump at the same level is the byte identity against drop. `--d11` in the
+variant: retain is refused, no root has a position, wrong root is refused (-8, no reset
+exists), and the per-thread contexts control in drop mode.
 """
 import hashlib
 import json
@@ -49,6 +58,11 @@ GEN = os.path.join(HERE, "gen", "out", "corpus")
 ARMS = ["ffi-cext", "ffi-attr", "ffi-chunk256", "ffi-retain", "py-drop", "py-retain"]
 DROP_ARMS = ["ffi-cext", "ffi-attr", "ffi-chunk256", "py-drop"]
 RETAIN_ARMS = ["ffi-retain", "py-retain"]
+NOUNK = os.environ.get("AK_NOUNK") == "1"
+SFX = "_nounk" if NOUNK else ""
+if NOUNK:
+    ARMS = list(DROP_ARMS)
+    RETAIN_ARMS = []
 
 
 def rpath(rel):
@@ -72,14 +86,16 @@ class Arm:
             self.chunk_bytes = 32768
             if self.plant == "noinit":
                 sys.path.insert(0, os.path.join(HERE, "build", TAG, "ctl"))
-                mod = __import__("_akffi_corpus_noinit")
+                mod = __import__("_akffi_corpus_noinit" + SFX)
             elif name == "ffi-chunk256":
                 sys.path.insert(0, os.path.join(HERE, "build", TAG))
-                mod = __import__("_akffi_corpus_chunk")
+                mod = __import__("_akffi_corpus_chunk" + SFX)
                 self.chunk_bytes = 256
             else:
                 sys.path.insert(0, os.path.join(HERE, "build", TAG))
-                mod = __import__("_akffi_corpus")
+                mod = __import__("_akffi_corpus" + SFX)
+            if bool(getattr(mod, "nounk", lambda: False)()) != NOUNK:
+                raise SystemExit("%s is not the %s variant" % (mod.__name__, "no-unknown" if NOUNK else "full"))
             self.mod = mod
             names = [n[1:] for n in mod.types()]
             self.roots = set(mod.roots())
@@ -653,7 +669,147 @@ def d11_controls(out=sys.stdout):
           % (len(roots) * (len(roots) - 1) - (wr_bad if wr_bad else 0), pos_ok, len(roots), wr_bad), file=out)
     bad += wr_bad
     bad += tls_control(mod, ty, man, rows, out)
+    ok, detail = reclaim_tls_control(mod, ty, man, rows, out)
+    print("   per-thread AK_LAST_RECLAIMED: %s (%s)" % ("holds" if ok else "FAILS", detail), file=out)
+    bad += 0 if ok else 1
+    # Its must-fail twin: the same shim built with AK_THREAD_LOCAL empty (one process-wide slot).
+    sys.path.insert(0, os.path.join(HERE, "build", TAG, "ctl"))
+    try:
+        gmod = __import__("_akffi_corpus_globalreclaim")
+        gty = tuple(getattr(gmod, "C" + n) for n in names)
+        gok, gdetail = reclaim_tls_control(gmod, gty, man, rows, out, label="process-wide slot")
+        print("   must-fail twin: %s (%s)" % ("PASSED -- the check is blind" if gok else "failed as required", gdetail), file=out)
+        bad += 1 if gok else 0
+    except ImportError as e:
+        print("   must-fail twin NOT BUILT: %s" % e, file=out)
+        bad += 1
     print("D11 CONTROLS %s" % ("PASS" if not bad else "FAIL (%d)" % bad), file=out)
+    return 1 if bad else 0
+
+
+def reclaim_tls_control(mod, ty, man, rows, out, label="shim"):
+    """AK_LAST_RECLAIMED is per thread. Thread A makes a retain decode that FAILS after
+    growing buffers (an unknown-bearing row with a truncated field appended), reads its
+    count n1 > 0, and waits; thread B then makes a successful decode (its own count 0) and
+    signals; A reads again and must still see n1. With one process-wide slot A sees B's 0.
+    Returns (verdict ok, detail)."""
+    import threading
+    vid = None
+    for v in rows:
+        r = man[v]
+        b = open(rpath(r["file"]), "rb").read() + b"\x0a\x7f"   # field 1, wire type 2, 127 bytes promised, none given
+        try:
+            mod.decode("cext", r["root"], b, ty, None, True)
+        except Exception:  # noqa: BLE001 -- the failing decode is the point
+            if mod.last_reclaimed():
+                vid, bad_buf, root = v, b, r["root"]
+                break
+    if vid is None:
+        return False, "no failing retain decode reclaimed a buffer: the control is blind"
+    ok_buf = open(rpath(man[vid]["file"]), "rb").read()
+    evA, evB, seen = threading.Event(), threading.Event(), {}
+
+    def a():
+        try:
+            mod.decode("cext", root, bad_buf, ty, None, True)
+        except Exception:  # noqa: BLE001
+            pass
+        seen["n1"] = mod.last_reclaimed()
+        evA.set()
+        evB.wait(10)
+        seen["n2"] = mod.last_reclaimed()
+
+    def b():
+        evA.wait(10)
+        mod.decode("cext", root, ok_buf, ty, None, True)
+        seen["b"] = mod.last_reclaimed()
+        evB.set()
+    ts = [threading.Thread(target=a), threading.Thread(target=b)]
+    for t in ts:
+        t.start()
+    for t in ts:
+        t.join()
+    ok = seen.get("n1", 0) > 0 and seen.get("n2") == seen.get("n1") and seen.get("b") == 0
+    return ok, ("%s, %s: thread A's failed decode reclaimed %s, thread B's successful decode %s, A reads %s after B"
+                % (label, vid, seen.get("n1"), seen.get("b"), seen.get("n2")))
+
+
+def nounk_controls(out=sys.stdout):
+    """The no-unknown variant's controls (WP5 step 10), in one process."""
+    arm = Arm("ffi-cext")
+    mod = arm.mod
+    names = [n[1:] for n in mod.types()]
+    ty = tuple(arm.ctors[n] for n in names)
+    man = json.load(open(os.path.join(CORPUS, "manifest.json")))["vectors"]
+    bad = 0
+    roots = sorted(arm.roots)
+    npos = sum(len(mod.unk_positions(r)) for r in roots)
+    print("   positions: %d over %d roots (want 0: no options exist in this variant)" % (npos, len(roots)), file=out)
+    bad += 1 if npos else 0
+    rows = sorted(k for k, r in man.items() if r["class"] == "unknown" and r["expect"] == "accept"
+                  and r.get("verdict") != "disputed" and r["root"] in arm.roots)
+    refused = 0
+    for v in rows:
+        r = man[v]
+        buf = open(rpath(r["file"]), "rb").read()
+        o = mod.decode("cext", r["root"], buf, ty)
+        for call in (lambda: mod.decode("cext", r["root"], buf, ty, None, True),
+                     lambda: mod.encode("cext", r["root"], o, None, True)):
+            try:
+                call()
+            except ValueError as e:
+                if "compiled out" in str(e):
+                    refused += 1
+    print("   retain refused: %d of %d retain calls (decode and encode, every unknown row)" % (refused, 2 * len(rows)), file=out)
+    bad += 0 if refused == 2 * len(rows) and rows else 1
+    wr_bad = pos_ok = 0
+    for a in roots:
+        for b in roots:
+            rr, dr, delivered = mod.wrong_root(a, b)
+            if a == b:
+                pos_ok += 1 if (rr == 0 and dr == 0 and delivered) else 0
+                wr_bad += 0 if (rr == 0 and dr == 0 and delivered) else 1
+            elif not (rr == 0 and dr == -8 and not delivered):
+                wr_bad += 1
+                print("   WRONG ROOT ACCEPTED: ctx %s, root %s -> decode %d delivered %s" % (a, b, dr, delivered), file=out)
+    print("   wrong root: %d ordered pairs refused with -8 and nothing delivered (no reset exists); "
+          "positive control %d of %d roots; %d failure(s)"
+          % (len(roots) * (len(roots) - 1) - wr_bad, pos_ok, len(roots), wr_bad), file=out)
+    bad += wr_bad
+    # the per-thread contexts, drop mode only (the variant has no other)
+    import threading
+    bufs = [(man[v]["root"], open(rpath(man[v]["file"]), "rb").read()) for v in rows]
+    want = [mod.encode("cext", r, mod.decode("cext", r, b, ty)) for r, b in bufs]
+    c0 = mod.tls_created()
+    for _ in range(64):
+        for r, b in bufs:
+            mod.encode("cext", r, mod.decode("cext", r, b, ty))
+    reuse = mod.tls_created() - c0
+    errs = []
+
+    def work():
+        try:
+            for _ in range(40):
+                for (r, b), w in zip(bufs, want):
+                    if mod.encode("cext", r, mod.decode("cext", r, b, ty)) != w:
+                        errs.append("differs %s" % r)
+        except Exception as e:  # noqa: BLE001
+            errs.append(repr(e))
+    old = sys.getswitchinterval()
+    sys.setswitchinterval(1e-6)
+    c1 = mod.tls_created()
+    ts = [threading.Thread(target=work) for _ in range(8)]
+    for t in ts:
+        t.start()
+    for t in ts:
+        t.join()
+    sys.setswitchinterval(old)
+    made = mod.tls_created() - c1
+    nroots = len({r for r, _b in bufs}) + 1
+    print("   per-thread contexts: reuse %d decode+encode(s) created %d (want 0); 8 threads x %d: %d error(s), "
+          "%d context(s) created (at most %d)" % (64 * len(bufs), reuse, 40 * len(bufs), len(errs), made, 8 * nroots), file=out)
+    bad += (1 if reuse else 0) + len(errs) + (1 if made > 8 * nroots or made == 0 else 0)
+    print("NOUNK CONTROLS %s" % ("PASS" if not bad else "FAIL (%d)" % bad), file=out)
     return 1 if bad else 0
 
 
@@ -712,7 +868,7 @@ def main(argv):
     if "--worker" in argv:
         return worker(argv[argv.index("--worker") + 1])
     if "--d11" in argv:
-        return d11_controls()
+        return nounk_controls() if NOUNK else d11_controls()
     arms = ARMS
     if "--arms" in argv:
         arms = argv[argv.index("--arms") + 1].split(",")
@@ -723,7 +879,11 @@ def main(argv):
     print("#   manifest   ffi/corpus/generated/manifest.json (%d rows, corpus %s)"
           % (len(man["vectors"]), man.get("corpus_version", "?")))
     print("#   generated  gen/out/corpus/*, rendered by poc/codec/gen from the corpus READER plan")
-    print("#   ffi arms   _akffi_corpus over ak-core --features corpus,init-guard; unknown fields dropped")
+    if NOUNK:
+        print("#   VARIANT    no-unknown (WP5 step 10): _akffi_corpus_nounk over ak-core --no-default-features "
+              "--features corpus,init-guard; unknown fields compiled out")
+    else:
+        print("#   ffi arms   _akffi_corpus over ak-core --features corpus,init-guard; unknown fields dropped")
     print("#   py arms    pycodec.py (drop), pycodec_retain.py (retain), plain facade")
     print("#   interpreter %s; each row in a worker process, timeout %.0f s" % (sys.version.split()[0], timeout))
     t0 = time.time()
@@ -752,8 +912,9 @@ def main(argv):
         fails += nd
     print("\n## between-arm byte identity (CONTRACT 5.5), drop arms")
     bad = cross_arm(ids, results)
-    print("\n## between-arm byte identity, retain arms (ffi-retain against py-retain)")
-    bad += cross_arm(ids, results, family=RETAIN_ARMS)
+    if RETAIN_ARMS:
+        print("\n## between-arm byte identity, retain arms (ffi-retain against py-retain)")
+        bad += cross_arm(ids, results, family=RETAIN_ARMS)
     print("\n## retain arms: rows where the retained form was NOT written (a retention gap)")
     for a in RETAIN_ARMS:
         if a not in results:
@@ -763,6 +924,24 @@ def main(argv):
         dis = [v for v in ids if results[a][v].get("disputed") and man["vectors"][v]["class"] == "unknown"]
         print("   %-12s %d row(s) wrote the dropped form: %s%s" % (a, len(gap), ", ".join(gap) or "none",
               ("; disputed (excluded, reading reported above): " + ", ".join(dis)) if dis else ""))
+    if NOUNK:
+        print("\n## no-unknown variant: every unknown-class row writes the DROPPED form on every ffi arm")
+        for a in [x for x in results if x.startswith("ffi")]:
+            unk = [v for v in ids if man["vectors"][v]["class"] == "unknown" and not results[a][v].get("notabi")
+                   and not results[a][v].get("disputed") and man["vectors"][v]["expect"] == "accept"]
+            # A row whose manifest offers no dropped form (an open enum's unlisted value is a
+            # KNOWN field, kept on decode) is checked by C3 against its one accepted form.
+            hasd = [v for v in unk if any(f.startswith("unknown-dropped") for e in man["vectors"][v].get("accepted_encodings", [])
+                                          for f in e.get("forms", []))]
+            nod = [v for v in unk if v not in hasd]
+            notd = [v for v in hasd if not (results[a][v].get("form") or "").startswith("unknown-dropped")]
+            print("   %-12s %d unknown row(s) with a dropped form: %d not written in it%s; %d row(s) with no dropped form "
+                  "in the manifest (checked by C3 only): %s"
+                  % (a, len(hasd), len(notd), (": " + ", ".join(notd)) if notd else "", len(nod), ", ".join(nod) or "none"))
+            bad += len(notd)
+            if not hasd:
+                print("   NO UNKNOWN ROW RAN on %s: the check is blind" % a)
+                bad += 1
     print("\n## C4: the refusal each arm returned, per reject vector")
     refusals(ids, man, results)
     print("\n# rows that hung or crashed a worker: %d" % hung)
@@ -774,7 +953,8 @@ def main(argv):
         print("\n===== controls (each MUST FAIL) =====")
         sub = ["S-Probe", "U-root", "X-lenwrap-lrr", "E-map", "T-dec-root", "B-P2"]
         bad_ctl = 0
-        for plant, carms in (("proj", ARMS), ("reenc", ARMS), ("accept", ARMS), ("noinit", ["ffi-cext", "ffi-attr", "ffi-retain"])):
+        noinit_arms = ["ffi-cext", "ffi-attr"] + ([] if NOUNK else ["ffi-retain"])
+        for plant, carms in (("proj", ARMS), ("reenc", ARMS), ("accept", ARMS), ("noinit", noinit_arms)):
             m2, ids2, res2 = run(carms, sub, timeout, plant=plant)
             nf = sum(1 for a in res2 for v in ids2 if res2[a][v].get("fails"))
             per = {a: sum(1 for v in ids2 if res2[a][v].get("fails")) for a in res2}

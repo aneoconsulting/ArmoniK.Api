@@ -25,10 +25,23 @@
  * default flags are what a CODEC binding passes). */
 #define AK_INIT_FLAGS (AK_INIT_NO_PANIC_HOOK)
 #endif
-#ifdef AK_CORPUS
+/* AK_NOUNK selects the no-unknown variant's shim (WP5 step 10: rendered from the plan
+ * relowered with unknown="drop", compiled against its own header, linked to a core built
+ * without `unknown-fields`): a separately built extension module, not a run-time switch. */
+#if defined(AK_CORPUS) && defined(AK_NOUNK)
+#include "../gen/out/corpus-nounk/binding.c"
+#elif defined(AK_CORPUS)
 #include "../gen/out/corpus/binding.c"
+#elif defined(AK_NOUNK)
+#include "../gen/out/nounk/binding.c"
 #else
 #include "../gen/out/binding.c"
+#endif
+#if defined(AK_NOUNK) != defined(AK_NO_UNKNOWN_FIELDS)
+#error "the shim and its header disagree about the no-unknown variant"
+#endif
+#if defined(AK_NOUNK) != defined(AK_NOUNK_SHIM)
+#error "the generated shim is not the variant this build asked for"
 #endif
 
 typedef struct {
@@ -79,7 +92,9 @@ static PyObject *py_decode(PyObject *m, PyObject *args) {
    * this decode's figure even with other threads decoding. */
   if (res) {
     AK_UNK_OK[retain ? 1 : 0]++;
+#ifndef AK_NOUNK
     AK_UNK_LEAKED += AK_LAST_RECLAIMED;
+#endif
   }
   return res;
 }
@@ -237,10 +252,25 @@ static PyObject *py_wrong_root(PyObject *m, PyObject *args) {
 static PyObject *py_last_reclaimed(PyObject *m, PyObject *unused) {
   (void)m;
   (void)unused;
+#ifdef AK_NOUNK
+  return PyLong_FromUnsignedLong(0);   /* nothing is ever grown in this variant */
+#else
   return PyLong_FromUnsignedLong(AK_LAST_RECLAIMED);
+#endif
 }
 
 /* (drop decodes, retain decodes, leaked buffers) since import, successful decodes only. */
+/* Which variant this module is: True in the no-unknown build (WP5 step 10). */
+static PyObject *py_nounk(PyObject *m, PyObject *unused) {
+  (void)m;
+  (void)unused;
+#ifdef AK_NOUNK
+  Py_RETURN_TRUE;
+#else
+  Py_RETURN_FALSE;
+#endif
+}
+
 static PyObject *py_unk_totals(PyObject *m, PyObject *unused) {
   (void)m;
   (void)unused;
@@ -531,6 +561,7 @@ static PyMethodDef methods[] = {
     {"unk_positions", py_unk_positions, METH_VARARGS, "decision 11: a root's unknown-field positions"},
     {"wrong_root", py_wrong_root, METH_VARARGS, "decision 11 rule 6 control: (reset rc, decode rc, delivered)"},
     {"last_reclaimed", py_last_reclaimed, METH_NOARGS, "buffers the last decode reclaimed undelivered"},
+    {"nounk", py_nounk, METH_NOARGS, "True in the no-unknown (compiled-out) variant"},
     {"unk_totals", py_unk_totals, METH_NOARGS, "(drop decodes, retain decodes, leaked buffers) since import"},
     {"tls_created", py_tls_created, METH_NOARGS, "decode contexts created through the per-thread key"},
     {"layout_host", py_layout_host, METH_NOARGS,

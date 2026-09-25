@@ -186,6 +186,7 @@ def counts_only():
     print("#  get/set, calls into Python), per element. 'core fwd' = host->core ABI calls,")
     print("#  'core rev' = core->host callbacks, per element. Different edges: never add them.")
     m = arms._ffi
+    absrows = []
     print("   %-5s %-7s %-22s %s" % ("", "dir", "backend", "per element"))
     for pid in arms.PAYLOADS:
         n = max(MANIFEST["payloads"][pid]["elements"], 1)
@@ -204,6 +205,13 @@ def counts_only():
                          core["forward"] / n, core["reverse"] / n,
                          ", ".join("%s=%d" % (k, v) for k, v in sorted(shim.items())
                                    if v)))
+                absrows.append((pid, direction, name[len("core-ffi / "):], core["forward"], core["reverse"]))
+    # The per-element figures above round a few crossings over a thousand elements away (P1.2:
+    # 5 and 8 reverse crossings both print 0.01), so the committed crossing-count files
+    # (WP5 step 10, requirement 19) take these whole-call totals.
+    print("\n## core crossings per call, whole numbers (the committed crossing-count files)")
+    for pid, direction, bk, fwd, rev in absrows:
+        print("   abs %-5s %-7s %-22s fwd %6d rev %6d" % (pid, direction, bk, fwd, rev))
     return 0
 
 

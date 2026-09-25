@@ -15,6 +15,15 @@
 #   97  the 3.7 source check: the pre-port tree fails against real 3.7 headers, this one does not
 #   98  crossing counts against logs/python/85 (the pre-port shim), row for row; and the
 #       rendered C header against the cpp slice's (one renderer, c_abi)
+#   WP5 step 10, THE NO-UNKNOWN VARIANT (unknown fields compiled out), per interpreter:
+#   100 conformance on _akffi_nounk (counting build _akffi_count_nounk)
+#   101 the whole corpus through the variant's shim: every unknown row in the dropped form,
+#       byte identity against the full build's drop arms at the same level, the controls
+#       and the variant's own (retain refused, no positions, wrong root, per-thread contexts)
+#   102 conformance on _akffi_rpc_nounk
+#   103 crossing counts, whole numbers per call, full (drop) and no-unknown builds, each
+#       against its committed file (counts/crossings-drop.txt, counts/crossings-nounk.txt),
+#       and the difference between the two
 # A floor interpreter from ./fetch_py37.sh is `build/py37/python3.7`.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -57,7 +66,41 @@ for PY in "$@"; do
   echo "   95 rd1:                    $(tail -1 "$LOGS/95-wp5-rd1-lenwrap-$T.log")"
   { hdr "python slice: U1, a map entry with an unknown field, $T"; "$PY" u1_map_unknown.py; } > "$LOGS/96-wp5-u1-$T.log" 2>&1 || rc=1
   echo "   96 u1:                     $(grep -c 'options' "$LOGS/96-wp5-u1-$T.log") readings"
+  { hdr "python slice: conformance on the no-unknown variant _akffi_nounk (WP5 step 10), $T"
+    AK_FFI_MODULE=_akffi_nounk AK_COUNT_MODULE=_akffi_count_nounk "$PY" conformance.py; } \
+    > "$LOGS/100-wp5s10-conformance-nounk-$T.log" 2>&1 || rc=1
+  echo "  100 conformance nounk:      $(tail -1 "$LOGS/100-wp5s10-conformance-nounk-$T.log")"
+  { hdr "python slice: the whole corpus through the no-unknown variant (WP5 step 10), $T"
+    AK_NOUNK=1 "$PY" corpus.py --timeout 20 --controls --dump "$HERE/build/corpus-nounk-$T.json" \
+      --compare "$HERE/build/corpus-$T.json"; } > "$LOGS/101-wp5s10-corpus-nounk-$T.log" 2>&1 || rc=1
+  echo "  101 corpus nounk:           $(grep -E '^CORPUS' "$LOGS/101-wp5s10-corpus-nounk-$T.log") / $(grep -E '^CONTROLS' "$LOGS/101-wp5s10-corpus-nounk-$T.log") / $(grep -E '^NOUNK CONTROLS' "$LOGS/101-wp5s10-corpus-nounk-$T.log")"
+  { hdr "python slice: conformance on _akffi_rpc_nounk, $T"; AK_FFI_MODULE=_akffi_rpc_nounk AK_COUNT_MODULE=_akffi_count_nounk "$PY" conformance.py; } \
+    > "$LOGS/102-wp5s10-conformance-rpc-nounk-$T.log" 2>&1 || rc=1
+  echo "  102 conformance rpc nounk:  $(tail -1 "$LOGS/102-wp5s10-conformance-rpc-nounk-$T.log")"
 done
+
+echo "===== 103. crossing counts, whole numbers per call: full (drop) and no-unknown builds ====="
+{
+  hdr "python slice: crossing counts per call, full build (drop) and no-unknown build (WP5 step 10, requirement 19)"
+  for PY in "$@"; do
+    T=$(tagof "$PY")
+    grep '^   abs' "$LOGS/91-wp5-conformance-$T.log" > "$HERE/build/abs-drop-$T.txt"
+    grep '^   abs' "$LOGS/100-wp5s10-conformance-nounk-$T.log" > "$HERE/build/abs-nounk-$T.txt"
+    for v in drop nounk; do
+      if diff "$HERE/counts/crossings-$v.txt" "$HERE/build/abs-$v-$T.txt"; then
+        echo "   $T $v: $(wc -l < "$HERE/build/abs-$v-$T.txt") rows, IDENTICAL to counts/crossings-$v.txt"
+      else
+        echo "   $T $v: DIFFERS from counts/crossings-$v.txt (above)"
+      fi
+    done
+  done
+  echo
+  echo "## the committed files against each other: what compiling unknown fields out changes"
+  diff "$HERE/counts/crossings-drop.txt" "$HERE/counts/crossings-nounk.txt" | sed 's/^/   /'
+  echo "   $(diff "$HERE/counts/crossings-drop.txt" "$HERE/counts/crossings-nounk.txt" | grep -c '^>' || true) of $(wc -l < "$HERE/counts/crossings-drop.txt") rows differ"
+} > "$LOGS/103-wp5s10-counts-drop-vs-nounk.log" 2>&1
+grep -E 'IDENTICAL|DIFFERS|rows differ' "$LOGS/103-wp5s10-counts-drop-vs-nounk.log"
+grep -q "DIFFERS from counts/" "$LOGS/103-wp5s10-counts-drop-vs-nounk.log" && rc=1
 
 echo "===== 97. the 3.7 source check ====="
 { hdr "python slice: the 3.7 source check, and every other CPython header set here"; ./floor_check.sh; } > "$LOGS/97-wp5-floor-source.log" 2>&1 || rc=1

@@ -16,6 +16,8 @@ derivation (CLAUDE.md, one generator):
 Two plan sets, two output directories:
 
   gen/out/          `ffi/schema/shapes.json`, the seven roots every slice's core carries
+  gen/out/nounk/, gen/out/corpus-nounk/   the same two plan sets relowered with
+                    unknown="drop" (WP5 step 10): the no-unknown variant's shim and header
   gen/out/corpus/   the conformance corpus's READER schema (CONTRACT.md rule 0): the shim
                     over the corpus-feature core for every root the C ABI can carry, and
                     the facade and pure-Python codec for every corpus message (the one
@@ -77,6 +79,14 @@ def outputs():
         "binding.c": py_capi.emit(p, "_akffi"),
         "ak_abi.h": c_abi.emit(p)[0],
     }
+    # WP5 step 10, THE NO-UNKNOWN VARIANT: the same plans relowered with unknown="drop";
+    # py_capi and c_abi render the variant from them (no u groups, options, reset or
+    # u-family; ak_dec_ctx_new_<Root>(void); AK_NO_UNKNOWN_FIELDS 1 in the header).
+    pd = P.relower(p, p.options.with_unknown("drop"))
+    out.update({
+        "nounk/binding.c": py_capi.emit(pd, "_akffi_nounk"),
+        "nounk/ak_abi.h": c_abi.emit(pd)[0],
+    })
     # The corpus: the C ABI's roots are the ones the shared generator's corpus core carries.
     roots, _refused = G.corpus_roots()
     cp = P.load_corpus(roots)
@@ -87,6 +97,11 @@ def outputs():
         "corpus/pycodec_retain.py": py_pure.emit_pycodec(full, "retain"),
         "corpus/binding.c": py_capi.emit(cp, "_akffi_corpus", backends=("attr", "cext")),
         "corpus/ak_abi.h": c_abi.emit(cp)[0],
+    })
+    cpd = P.relower(cp, cp.options.with_unknown("drop"))
+    out.update({
+        "corpus-nounk/binding.c": py_capi.emit(cpd, "_akffi_corpus_nounk", backends=("attr", "cext")),
+        "corpus-nounk/ak_abi.h": c_abi.emit(cpd)[0],
     })
     return out, G
 
