@@ -79,9 +79,14 @@ build() {
   ( cd "$SLICE" && dotnet build src/Harness/Harness.csproj -c Release -f net8.0 >> "$SCRATCH/campaign-build.out" 2>&1 ) || { tail -30 "$SCRATCH/campaign-build.out"; exit 1; }
 }
 gate_first() {  # requirement 26
-  if [ -f "$OUT/gate.log" ] && grep -q "^GATE PASSED" "$OUT/gate.log" && grep -q "branch HEAD: $COMMIT\b" "$OUT/gate.log"; then
-    echo "# gate:          passed at $COMMIT ($OUT/gate.log)"
-    return
+  # A passed gate is reused when the commit it ran at has the SAME content as HEAD in every
+  # path a run depends on (other slices commit to the branch concurrently).
+  if [ -f "$OUT/gate.log" ] && grep -q "^GATE PASSED" "$OUT/gate.log" && ! grep -q "^# branch HEAD: .*uncommitted" "$OUT/gate.log"; then
+    local g; g="$(sed -n 's/^# branch HEAD: \([0-9a-f]*\).*/\1/p' "$OUT/gate.log" | head -1)"
+    if [ -n "$g" ] && git -C "$REPO" diff --quiet "$g" HEAD -- ffi/poc/csharp ffi/poc/codec ffi/schema ffi/corpus; then
+      echo "# gate:          passed at $g, identical to $COMMIT in ffi/poc/csharp, poc/codec, schema, corpus ($OUT/gate.log)"
+      return
+    fi
   fi
   "$SLICE/gen/gate.sh" > "$OUT/gate.log" 2>&1
   if ! grep -q "^GATE PASSED" "$OUT/gate.log"; then echo "the correctness gate FAILED ($OUT/gate.log): no figure is produced" >&2; exit 1; fi

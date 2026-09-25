@@ -854,29 +854,6 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
-    private static void UnkRoot(IntPtr ctx, void* obj, ak_uspan* spans, int n) => Pend(ctx, obj, 0, spans, n);
-
-    private static void Pend(IntPtr ctx, void* obj, int slot, ak_uspan* spans, int n)
-    {
-        _rev++;
-        try
-        {
-            var run = (DecRun*)obj;
-            var pend = (List<(int, long, byte[])>)GCHandle.FromIntPtr(run->Pending).Target;
-            for (int i = 0; i < n; i++)
-            {
-                var a = new byte[spans[i].len];
-                new ReadOnlySpan<byte>(run->Buf + spans[i].off, (int)spans[i].len).CopyTo(a);
-                pend.Add((slot, spans[i].token, a));
-            }
-        }
-        catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
-    }
-
-    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
-    private static void Unk_results(IntPtr ctx, void* obj, ak_uspan* spans, int n) => Pend(ctx, obj, 1, spans, n);
-
-    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Add_results(IntPtr ctx, void* obj, long token, ak_dfix_ResultRaw* xs, int n)
     {
         _rev++;
@@ -922,8 +899,6 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
                 var vt = new ak_dvt_ListResultsResponse
                 {
                     apply = &ApplyRoot,
-                    unknown = retain ? &UnkRoot : null,
-                    unk_results = retain ? &Unk_results : null,
                     add_results = &Add_results,
                 };
                 _fwd++;
@@ -1337,29 +1312,6 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
-    private static void UnkRoot(IntPtr ctx, void* obj, ak_uspan* spans, int n) => Pend(ctx, obj, 0, spans, n);
-
-    private static void Pend(IntPtr ctx, void* obj, int slot, ak_uspan* spans, int n)
-    {
-        _rev++;
-        try
-        {
-            var run = (DecRun*)obj;
-            var pend = (List<(int, long, byte[])>)GCHandle.FromIntPtr(run->Pending).Target;
-            for (int i = 0; i < n; i++)
-            {
-                var a = new byte[spans[i].len];
-                new ReadOnlySpan<byte>(run->Buf + spans[i].off, (int)spans[i].len).CopyTo(a);
-                pend.Add((slot, spans[i].token, a));
-            }
-        }
-        catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
-    }
-
-    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
-    private static void Unk_tasks(IntPtr ctx, void* obj, ak_uspan* spans, int n) => Pend(ctx, obj, 1, spans, n);
-
-    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static long New_tasks(IntPtr ctx, void* obj)
     {
         _rev++;
@@ -1479,8 +1431,6 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
                 var vt = new ak_dvt_ListTasksDetailedResponse
                 {
                     apply = &ApplyRoot,
-                    unknown = retain ? &UnkRoot : null,
-                    unk_tasks = retain ? &Unk_tasks : null,
                     new_tasks = &New_tasks,
                     apply_tasks = &Apply_tasks,
                     add_tasks_parent_task_ids = &Add_tasks_parent_task_ids,
@@ -1747,29 +1697,6 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
-    private static void UnkRoot(IntPtr ctx, void* obj, ak_uspan* spans, int n) => Pend(ctx, obj, 0, spans, n);
-
-    private static void Pend(IntPtr ctx, void* obj, int slot, ak_uspan* spans, int n)
-    {
-        _rev++;
-        try
-        {
-            var run = (DecRun*)obj;
-            var pend = (List<(int, long, byte[])>)GCHandle.FromIntPtr(run->Pending).Target;
-            for (int i = 0; i < n; i++)
-            {
-                var a = new byte[spans[i].len];
-                new ReadOnlySpan<byte>(run->Buf + spans[i].off, (int)spans[i].len).CopyTo(a);
-                pend.Add((slot, spans[i].token, a));
-            }
-        }
-        catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
-    }
-
-    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
-    private static void Unk_probes(IntPtr ctx, void* obj, ak_uspan* spans, int n) => Pend(ctx, obj, 1, spans, n);
-
-    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Add_probes(IntPtr ctx, void* obj, long token, ak_dfix_Probe* xs, int n)
     {
         _rev++;
@@ -1815,8 +1742,6 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
                 var vt = new ak_dvt_ListProbeResponse
                 {
                     apply = &ApplyRoot,
-                    unknown = retain ? &UnkRoot : null,
-                    unk_probes = retain ? &Unk_probes : null,
                     add_probes = &Add_probes,
                 };
                 _fwd++;
@@ -2082,29 +2007,6 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
-    private static void UnkRoot(IntPtr ctx, void* obj, ak_uspan* spans, int n) => Pend(ctx, obj, 0, spans, n);
-
-    private static void Pend(IntPtr ctx, void* obj, int slot, ak_uspan* spans, int n)
-    {
-        _rev++;
-        try
-        {
-            var run = (DecRun*)obj;
-            var pend = (List<(int, long, byte[])>)GCHandle.FromIntPtr(run->Pending).Target;
-            for (int i = 0; i < n; i++)
-            {
-                var a = new byte[spans[i].len];
-                new ReadOnlySpan<byte>(run->Buf + spans[i].off, (int)spans[i].len).CopyTo(a);
-                pend.Add((slot, spans[i].token, a));
-            }
-        }
-        catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
-    }
-
-    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
-    private static void Unk_tasks(IntPtr ctx, void* obj, ak_uspan* spans, int n) => Pend(ctx, obj, 1, spans, n);
-
-    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static long New_tasks(IntPtr ctx, void* obj)
     {
         _rev++;
@@ -2168,8 +2070,6 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
                 var vt = new ak_dvt_ListTaskSummaryResponse
                 {
                     apply = &ApplyRoot,
-                    unknown = retain ? &UnkRoot : null,
-                    unk_tasks = retain ? &Unk_tasks : null,
                     new_tasks = &New_tasks,
                     apply_tasks = &Apply_tasks,
                     add_tasks_options_options = &Add_tasks_options_options,
@@ -2369,26 +2269,6 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
-    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
-    private static void UnkRoot(IntPtr ctx, void* obj, ak_uspan* spans, int n) => Pend(ctx, obj, 0, spans, n);
-
-    private static void Pend(IntPtr ctx, void* obj, int slot, ak_uspan* spans, int n)
-    {
-        _rev++;
-        try
-        {
-            var run = (DecRun*)obj;
-            var pend = (List<(int, long, byte[])>)GCHandle.FromIntPtr(run->Pending).Target;
-            for (int i = 0; i < n; i++)
-            {
-                var a = new byte[spans[i].len];
-                new ReadOnlySpan<byte>(run->Buf + spans[i].off, (int)spans[i].len).CopyTo(a);
-                pend.Add((slot, spans[i].token, a));
-            }
-        }
-        catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
-    }
-
     private static readonly byte[] One = new byte[1];
 
     public UploadResultDataMessage Decode(byte[] src, int len) { int rc = TryDecode(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core decode failed: {rc}"); return t; }
@@ -2422,7 +2302,6 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
                 var vt = new ak_dvt_UploadResultDataMessage
                 {
                     apply = &ApplyRoot,
-                    unknown = retain ? &UnkRoot : null,
                 };
                 _fwd++;
                 rc = Abi.ak_decode_UploadResultDataMessage(_dctx, _drun, b, (nuint)len, &vt);
@@ -2829,29 +2708,6 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
-    private static void UnkRoot(IntPtr ctx, void* obj, ak_uspan* spans, int n) => Pend(ctx, obj, 0, spans, n);
-
-    private static void Pend(IntPtr ctx, void* obj, int slot, ak_uspan* spans, int n)
-    {
-        _rev++;
-        try
-        {
-            var run = (DecRun*)obj;
-            var pend = (List<(int, long, byte[])>)GCHandle.FromIntPtr(run->Pending).Target;
-            for (int i = 0; i < n; i++)
-            {
-                var a = new byte[spans[i].len];
-                new ReadOnlySpan<byte>(run->Buf + spans[i].off, (int)spans[i].len).CopyTo(a);
-                pend.Add((slot, spans[i].token, a));
-            }
-        }
-        catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
-    }
-
-    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
-    private static void Unk_batches(IntPtr ctx, void* obj, ak_uspan* spans, int n) => Pend(ctx, obj, 1, spans, n);
-
-    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static long New_batches(IntPtr ctx, void* obj)
     {
         _rev++;
@@ -2970,8 +2826,6 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
                 var vt = new ak_dvt_ListMetricsResponse
                 {
                     apply = &ApplyRoot,
-                    unknown = retain ? &UnkRoot : null,
-                    unk_batches = retain ? &Unk_batches : null,
                     new_batches = &New_batches,
                     apply_batches = &Apply_batches,
                     add_batches_ticks = &Add_batches_ticks,
@@ -3275,29 +3129,6 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
-    private static void UnkRoot(IntPtr ctx, void* obj, ak_uspan* spans, int n) => Pend(ctx, obj, 0, spans, n);
-
-    private static void Pend(IntPtr ctx, void* obj, int slot, ak_uspan* spans, int n)
-    {
-        _rev++;
-        try
-        {
-            var run = (DecRun*)obj;
-            var pend = (List<(int, long, byte[])>)GCHandle.FromIntPtr(run->Pending).Target;
-            for (int i = 0; i < n; i++)
-            {
-                var a = new byte[spans[i].len];
-                new ReadOnlySpan<byte>(run->Buf + spans[i].off, (int)spans[i].len).CopyTo(a);
-                pend.Add((slot, spans[i].token, a));
-            }
-        }
-        catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
-    }
-
-    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
-    private static void Unk_left(IntPtr ctx, void* obj, ak_uspan* spans, int n) => Pend(ctx, obj, 1, spans, n);
-
-    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Add_left(IntPtr ctx, void* obj, long token, ak_dfix_Pair* xs, int n)
     {
         _rev++;
@@ -3309,9 +3140,6 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
         }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
-
-    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
-    private static void Unk_right(IntPtr ctx, void* obj, ak_uspan* spans, int n) => Pend(ctx, obj, 2, spans, n);
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Add_right(IntPtr ctx, void* obj, long token, ak_dfix_Pair* xs, int n)
@@ -3359,10 +3187,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
                 var vt = new ak_dvt_DualResponse
                 {
                     apply = &ApplyRoot,
-                    unknown = retain ? &UnkRoot : null,
-                    unk_left = retain ? &Unk_left : null,
                     add_left = &Add_left,
-                    unk_right = retain ? &Unk_right : null,
                     add_right = &Add_right,
                 };
                 _fwd++;

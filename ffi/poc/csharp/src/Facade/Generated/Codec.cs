@@ -1107,7 +1107,7 @@ public static class Codec
             if (tag == 0 || (k >> 3) > 536870911UL) { d.Err = W.ErrMalformed; return; }
             switch (((ulong)tag << 3) | (uint)wire)
             {
-                case 10UL: // (1, 2) map_entry options
+                case 10UL: // (1, 2) append_message options
                 {
                     int e2 = d.LenEnd(); if (d.Err != 0) return;
                     if (depth + 1 > Limit) { d.Err = W.ErrDepth; return; }
