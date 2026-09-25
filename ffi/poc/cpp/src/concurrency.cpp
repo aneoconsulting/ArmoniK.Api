@@ -63,10 +63,12 @@ struct Shape {
   // built object. It used to re-encode the decoded value with `ak::Enc` and memcmp, which
   // made it a second observation of the NATIVE ENCODER (R-D7): every wrong native encode
   // was counted twice, once here, and "44 wrong" was 22 distinct wrong encodes.
-  bool (*roundtrip)(ak_dec_ctx *, const uint8_t *, std::size_t);
+  bool (*roundtrip)(shapes::ffi::DecCtxs &, const uint8_t *, std::size_t);
   // Whether the decoder ACCEPTED the input, whatever it produced: T4's poisoned threads
   // need this and not `roundtrip`, which a truncated-but-accepted decode would also fail.
-  bool (*accepts)(ak_dec_ctx *, const uint8_t *, std::size_t);
+  bool (*accepts)(shapes::ffi::DecCtxs &, const uint8_t *, std::size_t);
+  // Decision 11 rule 6: the context bound to this shape's root, out of the thread's set.
+  ak_dec_ctx *(*ctx)(shapes::ffi::DecCtxs &);
 };
 
 template <class F, class P, F (*MK)(void), void (*PBMK)(P *), void (*NAT)(const F &, ak::Enc *),
@@ -91,14 +93,15 @@ struct Case {
   }
   static void enc_native(ak::Enc *e) { NAT(obj(), e); }
   static intptr_t enc_ffi(ak_enc_ctx *c, const shapes::ffi::Tcs &t) { return FFI(c, obj(), t); }
-  static bool roundtrip(ak_dec_ctx *d, const uint8_t *p, std::size_t n) {
+  static ak_dec_ctx *ctx(shapes::ffi::DecCtxs &d) { return d.of<F>(); }
+  static bool roundtrip(shapes::ffi::DecCtxs &d, const uint8_t *p, std::size_t n) {
     F back;
-    if (DEC(d, p, n, &back) < 0) return false;
+    if (DEC(d.of<F>(), p, n, &back) < 0) return false;
     return back == obj();
   }
-  static bool accepts(ak_dec_ctx *d, const uint8_t *p, std::size_t n) {
+  static bool accepts(shapes::ffi::DecCtxs &d, const uint8_t *p, std::size_t n) {
     F back;
-    return DEC(d, p, n, &back) >= 0;
+    return DEC(d.of<F>(), p, n, &back) >= 0;
   }
 };
 
@@ -136,6 +139,7 @@ static void add(const char *id, const char *sha, std::size_t nbytes) {
   s.enc_ffi = &C::enc_ffi;
   s.roundtrip = &C::roundtrip;
   s.accepts = &C::accepts;
+  s.ctx = &C::ctx;
   // The reference is the canonical encoding, and it is ANCHORED: memcmp is what the
   // threads do because sha256 of 4 MB per assertion would make the suite a hash benchmark,
   // but the buffer memcmp runs against is checked against manifest.json's sha right here,
@@ -204,7 +208,7 @@ static void tally(const Counts &c) {
 static void worker(int tid, int rounds, std::size_t first, std::size_t count, Counts *c) {
   ak::Enc e(shapes::native::kSites);
   ak_enc_ctx *ectx = ak_enc_ctx_new();
-  ak_dec_ctx *dctx = ak_dec_ctx_new();
+  shapes::ffi::DecCtxs dctx;
   shapes::ffi::Tcs core = shapes::ffi::tcs_core();
   shapes::ffi::Tcs host = shapes::ffi::tcs_host();
 
@@ -240,11 +244,10 @@ static void worker(int tid, int rounds, std::size_t first, std::size_t count, Co
       }
       if (!s.roundtrip(dctx, (const uint8_t *)s.ref.data(), s.ref.size()))
         ++c->wrong_roundtrip;
-      if (ak_enc_err(ectx) != 0 || ak_dec_err(dctx) != 0) ++c->spurious_err;
+      if (ak_enc_err(ectx) != 0 || ak_dec_err(s.ctx(dctx)) != 0) ++c->spurious_err;
     }
   }
   ak_enc_ctx_free(ectx);
-  ak_dec_ctx_free(dctx);
 }
 
 static void report(const char *what, const Counts &c) {
@@ -379,22 +382,21 @@ static void t4_error_isolation(int threads, int rounds) {
   for (int t = 0; t < threads; ++t) {
     bool poison = (t % 2) == 1;
     ts.push_back(std::thread([t, poison, rounds, &bad_ok, &good_failed, &leaked]() {
-      ak_dec_ctx *dctx = ak_dec_ctx_new();
+      shapes::ffi::DecCtxs dctx;
       for (int r = 0; r < rounds; ++r) {
         const Shape &s = g_shapes[(std::size_t)(t + r) % g_shapes.size()];
         if (poison) {
           // Truncated in the middle of a length-delimited body: malformed, not empty.
           std::size_t n = s.ref.size() / 2 + 1;
           bool ok = s.accepts(dctx, (const uint8_t *)s.ref.data(), n);
-          if (ok && ak_dec_err(dctx) == 0) ++bad_ok;
-          ak_dec_err_reset(dctx);
+          if (ok && ak_dec_err(s.ctx(dctx)) == 0) ++bad_ok;
+          ak_dec_err_reset(s.ctx(dctx));
         } else {
           bool ok = s.roundtrip(dctx, (const uint8_t *)s.ref.data(), s.ref.size());
           if (!ok) ++good_failed;
-          if (ak_dec_err(dctx) != 0) ++leaked;
+          if (ak_dec_err(s.ctx(dctx)) != 0) ++leaked;
         }
       }
-      ak_dec_ctx_free(dctx);
     }));
   }
   for (std::size_t i = 0; i < ts.size(); ++i) ts[i].join();

@@ -253,4 +253,38 @@ Outcome run_arm(const std::string &root, Arm arm, const uint8_t *b, size_t n, Cx
   return Outcome::unknown_root();
 }
 
+std::string run_unk(const std::string &root, const uint8_t *b, size_t n, Cx &cx, bool plant) {
+  if (root == "Timestamp") return unk_controls<Timestamp>(b, n, cx, ffi::encode_into_timestamp_unk, plant);
+  if (root == "Duration") return unk_controls<Duration>(b, n, cx, ffi::encode_into_duration_unk, plant);
+  if (root == "ResultRaw") return unk_controls<ResultRaw>(b, n, cx, ffi::encode_into_result_raw_unk, plant);
+  if (root == "TaskOptions") return unk_controls<TaskOptions>(b, n, cx, ffi::encode_into_task_options_unk, plant);
+  if (root == "TaskOutput") return unk_controls<TaskOutput>(b, n, cx, ffi::encode_into_task_output_unk, plant);
+  if (root == "TaskDetailed") return unk_controls<TaskDetailed>(b, n, cx, ffi::encode_into_task_detailed_unk, plant);
+  if (root == "TaskSummary") return unk_controls<TaskSummary>(b, n, cx, ffi::encode_into_task_summary_unk, plant);
+  if (root == "Probe") return unk_controls<Probe>(b, n, cx, ffi::encode_into_probe_unk, plant);
+  if (root == "Empty") return unk_controls<Empty>(b, n, cx, ffi::encode_into_empty_unk, plant);
+  if (root == "UploadResultData") return unk_controls<UploadResultData>(b, n, cx, ffi::encode_into_upload_result_data_unk, plant);
+  if (root == "MetricsBatch") return unk_controls<MetricsBatch>(b, n, cx, ffi::encode_into_metrics_batch_unk, plant);
+  if (root == "Pair") return unk_controls<Pair>(b, n, cx, ffi::encode_into_pair_unk, plant);
+  if (root == "ListResultsResponse") return unk_controls<ListResultsResponse>(b, n, cx, ffi::encode_into_list_results_response_unk, plant);
+  if (root == "ListTasksDetailedResponse") return unk_controls<ListTasksDetailedResponse>(b, n, cx, ffi::encode_into_list_tasks_detailed_response_unk, plant);
+  if (root == "ListTaskSummaryResponse") return unk_controls<ListTaskSummaryResponse>(b, n, cx, ffi::encode_into_list_task_summary_response_unk, plant);
+  if (root == "ListProbeResponse") return unk_controls<ListProbeResponse>(b, n, cx, ffi::encode_into_list_probe_response_unk, plant);
+  if (root == "ListMetricsResponse") return unk_controls<ListMetricsResponse>(b, n, cx, ffi::encode_into_list_metrics_response_unk, plant);
+  if (root == "UploadResultDataMessage") return unk_controls<UploadResultDataMessage>(b, n, cx, ffi::encode_into_upload_result_data_message_unk, plant);
+  if (root == "DualResponse") return unk_controls<DualResponse>(b, n, cx, ffi::encode_into_dual_response_unk, plant);
+  if (root == "ChunkLeaf") return unk_controls<ChunkLeaf>(b, n, cx, ffi::encode_into_chunk_leaf_unk, plant);
+  if (root == "ChunkInner") return unk_controls<ChunkInner>(b, n, cx, ffi::encode_into_chunk_inner_unk, plant);
+  if (root == "ChunkElement") return unk_controls<ChunkElement>(b, n, cx, ffi::encode_into_chunk_element_unk, plant);
+  if (root == "ChunkedResponse") return unk_controls<ChunkedResponse>(b, n, cx, ffi::encode_into_chunked_response_unk, plant);
+  if (root == "ChunkedResponseWide") return unk_controls<ChunkedResponseWide>(b, n, cx, ffi::encode_into_chunked_response_wide_unk, plant);
+  if (root == "LeafElement") return unk_controls<LeafElement>(b, n, cx, ffi::encode_into_leaf_element_unk, plant);
+  if (root == "LeafResponse") return unk_controls<LeafResponse>(b, n, cx, ffi::encode_into_leaf_response_unk, plant);
+  if (root == "Surrogate") return unk_controls<Surrogate>(b, n, cx, ffi::encode_into_surrogate_unk, plant);
+  if (root == "SurrogateInner") return unk_controls<SurrogateInner>(b, n, cx, ffi::encode_into_surrogate_inner_unk, plant);
+  if (root == "WireZoo") return unk_controls<WireZoo>(b, n, cx, ffi::encode_into_wire_zoo_unk, plant);
+  (void)b; (void)n; (void)cx; (void)plant;
+  return "";
+}
+
 }  // namespace corpus

@@ -240,7 +240,7 @@ static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
 
   ak::Enc e(shapes::native::kSites);
   ak_enc_ctx *ctx = ak_enc_ctx_new();
-  ak_dec_ctx *dctx = ak_dec_ctx_new();
+  ak_dec_ctx *dctx = shapes::ffi::dec_ctx_new_for<F>();  // decision 11 rule 6: bound to the root (both facades)
   shapes::ffi::Tcs tc = shapes::ffi::tcs_core();
   shapes::ffi::Tcs tv = shapes::ffi::tcs_core_validating();
 #ifdef AK_GATE_PLANT

@@ -14,10 +14,11 @@
 //   protoc's types). A message is decoded into a FRESH object every iteration and encoded
 //   from the same object graph every iteration; protobuf C++ recomputes ByteSizeLong on every
 //   Serialize, so no size memo is amortised (req. 11).
-// Unknown fields (req. 10): host-gen in drop AND retain; core-ffi in drop, and retain is a
-//   hook (`AK_CAMPAIGN_FFI_RETAIN`) waiting for ABI v1 decision 11's generated retain path
-//   (WP5 step 7, being ported into poc/codec); the incumbent in its default mode (protobuf
-//   C++ 3.x RETAINS unknown fields), stated as unknown_mode "default".
+// Unknown fields (req. 10): host-gen in drop AND retain; core-ffi in drop AND retain (ABI v1
+//   decision 11, WP5 step 9: the binding's `encode_into_*_unk` over the u-groups and
+//   `decode_with_*_unk`, a decode with every position of `ak_dec_<Root>_opts` armed through
+//   ak_dec_reset_<Root>, grow-backed, then disarmed); the incumbent in its default mode
+//   (protobuf C++ 3.x RETAINS unknown fields), stated as unknown_mode "default".
 // Payloads (req. 7): the 15 buildable payloads of SHAPES.md plus P7.1 (decode only, from its
 //   vector), the Latin-1 and wide content sets on P1.2, P2.2, P3.1, P4.1 and P6.1 (the set
 //   the committed content-set gate covers; SHAPES.md: string-path payloads, P6.1 the
@@ -58,17 +59,16 @@
 #include "generated/core_native_retain.h"
 #include "generated/touch.h"
 
-// Requirement 10's switch. Build with -DAK_CAMPAIGN_FFI_RETAIN once the binding exports
-// the decision-11 retain entry points; until then the core-ffi retain arm is absent and the
-// gate line says "pending decision 11 port".
-#ifdef AK_CAMPAIGN_FFI_RETAIN
+// Requirement 10's switch: on since the binding exports decision 11's retain entry points
+// (WP5 step 9). -DAK_CAMPAIGN_NO_FFI_RETAIN removes the arm (the gate line says so).
+#ifndef AK_CAMPAIGN_NO_FFI_RETAIN
 #define AK_FFI_RETAIN_ENC(s) &shapes::ffi::encode_into_##s##_unk
 #define AK_FFI_RETAIN_DEC(s) &shapes::ffi::decode_with_##s##_unk
 #define AK_FFI_RETAIN_STATE "built"
 #else
 #define AK_FFI_RETAIN_ENC(s) NULL
 #define AK_FFI_RETAIN_DEC(s) NULL
-#define AK_FFI_RETAIN_STATE "pending decision 11 port"
+#define AK_FFI_RETAIN_STATE "removed by -DAK_CAMPAIGN_NO_FFI_RETAIN"
 #endif
 
 namespace {
@@ -131,7 +131,9 @@ struct Fns {
 
 struct Ctx {
   ak_enc_ctx *ec;
-  ak_dec_ctx *dc;
+  // Decision 11 rule 6: one bound decode context per root (drop mode between decodes; the
+  // retain arm arms and disarms its root's context inside decode_with_*_unk).
+  shapes::ffi::DecCtxs *dcs;
   ak::Enc *ne, *nre;
 };
 
@@ -288,14 +290,14 @@ Group make_group(const std::string &payload, const std::string &content, const F
       uint64_t h = 0;
       for (long i = 0; i < n; ++i) {
         Fac v;
-        h += (uint64_t)F.ffi_dec(cx->dc, cbf, cn, &v);
+        h += (uint64_t)F.ffi_dec(cx->dcs->of<Fac>(), cbf, cn, &v);
         if (read) h += shapes::touch::touch(v);
       }
       return h;
     }, [F, cx, cbf, cn, want_fold]() -> std::string {
       Fac v;
-      int32_t rc = F.ffi_dec(cx->dc, cbf, cn, &v);
-      if (rc != 0 || ak_dec_err(cx->dc) != 0) { ak_dec_err_reset(cx->dc); return "decode refused"; }
+      int32_t rc = F.ffi_dec(cx->dcs->of<Fac>(), cbf, cn, &v);
+      if (rc != 0 || ak_dec_err(cx->dcs->of<Fac>()) != 0) { ak_dec_err_reset(cx->dcs->of<Fac>()); return "decode refused"; }
       return shapes::touch::touch(v) == want_fold ? "" : "field fold differs from the incumbent's";
     }});
     if (F.ffi_dec_retain) {
@@ -303,14 +305,14 @@ Group make_group(const std::string &payload, const std::string &content, const F
         uint64_t h = 0;
         for (long i = 0; i < n; ++i) {
           Fac v;
-          h += (uint64_t)F.ffi_dec_retain(cx->dc, cb, cn, &v);
+          h += (uint64_t)F.ffi_dec_retain(cx->dcs->of<Fac>(), cb, cn, &v);
           if (read) h += shapes::touch::touch(v);
         }
         return h;
       }, [F, cx, cb, cn, want_fold]() -> std::string {
         Fac v;
-        int32_t rc = F.ffi_dec_retain(cx->dc, cb, cn, &v);
-        if (rc != 0 || ak_dec_err(cx->dc) != 0) { ak_dec_err_reset(cx->dc); return "decode refused"; }
+        int32_t rc = F.ffi_dec_retain(cx->dcs->of<Fac>(), cb, cn, &v);
+        if (rc != 0 || ak_dec_err(cx->dcs->of<Fac>()) != 0) { ak_dec_err_reset(cx->dcs->of<Fac>()); return "decode refused"; }
         return shapes::touch::touch(v) == want_fold ? "" : "field fold differs from the incumbent's";
       }});
     }
@@ -392,7 +394,8 @@ int main(int argc, char **argv) {
 
   Ctx cx;
   cx.ec = ak_enc_ctx_new();
-  cx.dc = ak_dec_ctx_new();
+  cx.dcs = new shapes::ffi::DecCtxs();
+  if (!cx.dcs->ok()) { std::fprintf(stderr, "ak_dec_ctx_new_<Root> refused\n"); return 2; }
   cx.ne = new ak::Enc(shapes::native::kSites);
   cx.nre = new ak::Enc(shapes::native_retain::kSites);
 

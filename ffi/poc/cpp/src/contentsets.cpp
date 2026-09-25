@@ -93,7 +93,7 @@ static void run(Row *row, const char *id, Fac (*mk)(void), void (*pbmk)(Pb *),
   static const char *names[3] = {"ascii", "latin1", "wide"};
 
   ak_enc_ctx *ectx = ak_enc_ctx_new();
-  ak_dec_ctx *dctx = ak_dec_ctx_new();
+  ak_dec_ctx *dctx = shapes::ffi::dec_ctx_new_for<Fac>();
   shapes::ffi::Tcs tc = shapes::ffi::tcs_core();
 
   for (int s = 0; s < 3; ++s) {

@@ -198,7 +198,7 @@ long batch(World &w, char cell, char dir, int k, int total) {
   for (int t = 0; t < k; ++t) {
     ts.push_back(std::thread([&, t]() {
       ak_enc_ctx *ec = ak_enc_ctx_new();
-      ak_dec_ctx *dc = ak_dec_ctx_new();
+      ak_dec_ctx *dc = ak_dec_ctx_new_ListTasksDetailedResponse(NULL);  // decision 11 rule 6: bound to the one root cells decode
       long n = 0;
       for (int i = 0; i < per; ++i) n += cell_call(w, cell, dir, t, ec, dc);
       ak_enc_ctx_free(ec);
