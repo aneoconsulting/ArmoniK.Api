@@ -84,8 +84,8 @@ impl PullState {
 /// `ak_bdr_footprint` after the last parse: what the intermediate actually costs in bytes.
 /// Reported beside the timings, because "pull materialises the whole response" is a
 /// memory claim as well as a time one and the two are priced separately.
-pub fn footprint(c: &Ctx) -> usize {
-    unsafe { ak_abi::ak_bdr_footprint(c.dec) }
+pub fn footprint(dec: *const ak_abi::ak_dec_ctx) -> usize {
+    unsafe { ak_abi::ak_bdr_footprint(dec) }
 }
 
 macro_rules! pull {

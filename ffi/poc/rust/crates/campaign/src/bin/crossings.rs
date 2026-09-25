@@ -21,9 +21,9 @@ fn enc(ctx: &Ctx) -> (u64, u64) {
     unsafe { ak_enc_counters(ctx.enc, &mut c) };
     (c.forward, c.reverse)
 }
-fn dec(ctx: &Ctx) -> (u64, u64) {
+fn dec(d: *mut ak_dec_ctx) -> (u64, u64) {
     let mut c = AkCounters::default();
-    unsafe { ak_dec_counters(ctx.dec, &mut c) };
+    unsafe { ak_dec_counters(d, &mut c) };
     (c.forward, c.reverse)
 }
 
@@ -40,15 +40,15 @@ impl Visit for Count<'_> {
                 self.out.push(format!("{:<48} {:<12} {:<6} {:>8} {:>8}", self.inp.id, "encode", m, f, r));
             }
             R::f_decode(c, w, retain).expect("decode");
-            unsafe { ak_dec_counters_reset(c.dec) };
+            unsafe { ak_dec_counters_reset(R::dec_ctx(c)) };
             R::f_decode(c, w, retain).expect("decode");
-            let (f, r) = dec(c);
+            let (f, r) = dec(R::dec_ctx(c));
             self.out.push(format!("{:<48} {:<12} {:<6} {:>8} {:>8}", self.inp.id, "decode", m, f, r));
             let mut toks = Vec::new();
             R::f_pull(c, w, retain, &mut toks).expect("pull");
-            unsafe { ak_dec_counters_reset(c.dec) };
+            unsafe { ak_dec_counters_reset(R::dec_ctx(c)) };
             R::f_pull(c, w, retain, &mut toks).expect("pull");
-            let (f, r) = dec(c);
+            let (f, r) = dec(R::dec_ctx(c));
             self.out.push(format!("{:<48} {:<12} {:<6} {:>8} {:>8}", self.inp.id, "decode-pull", m, f, r));
         }
     }

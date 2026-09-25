@@ -43,9 +43,9 @@ fn main() {
 
             let b = core_ffi_arm::encode(&c, &v);
             core_ffi_arm::decode(&c, &b);
-            ak_dec_counters_reset(c.dec);
+            ak_dec_counters_reset(c.dec.list_results_response);
             core_ffi_arm::decode(&c, &b);
-            row(pid, "real", "decode", n, &take_dec(c.dec));
+            row(pid, "real", "decode", n, &take_dec(c.dec.list_results_response));
         }
     }
 
@@ -65,9 +65,9 @@ fn main() {
 
             let b = arms_m2::core_ffi_arm::encode(&c, &v);
             arms_m2::core_ffi_arm::decode(&c, &b);
-            ak_dec_counters_reset(c.dec);
+            ak_dec_counters_reset(c.dec.list_tasks_detailed_response);
             arms_m2::core_ffi_arm::decode(&c, &b);
-            row(pid, "real", "decode", n, &take_dec(c.dec));
+            row(pid, "real", "decode", n, &take_dec(c.dec.list_tasks_detailed_response));
         }
     }
 
@@ -87,9 +87,9 @@ fn main() {
             row("P3.1", "real", "enc warm", n, &take_enc(c.enc));
             let b = m3::core_ffi_arm::encode(&c, &v);
             m3::core_ffi_arm::decode(&c, &b);
-            ak_dec_counters_reset(c.dec);
+            ak_dec_counters_reset(c.dec.list_probe_response);
             m3::core_ffi_arm::decode(&c, &b);
-            row("P3.1", "real", "decode", n, &take_dec(c.dec));
+            row("P3.1", "real", "decode", n, &take_dec(c.dec.list_probe_response));
         }
     }
 

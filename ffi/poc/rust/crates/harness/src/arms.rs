@@ -104,7 +104,7 @@ pub mod core_native_arm {
 /// **The interface cost with the runtime tax removed** (README section 4.1).
 pub mod core_ffi_arm {
     use crate::generated::binding;
-    use ak_abi::{ak_dec_ctx, ak_dec_ctx_free, ak_dec_ctx_new, ak_enc_ctx, ak_enc_ctx_free,
+    use ak_abi::{ak_enc_ctx, ak_enc_ctx_free,
                  ak_enc_ctx_new};
     use facade::ListResultsResponse;
 
@@ -112,7 +112,7 @@ pub mod core_ffi_arm {
     /// allocation and a fresh (unlearned) length-width table inside every measurement.
     pub struct Ctx {
         pub enc: *mut ak_enc_ctx,
-        pub dec: *mut ak_dec_ctx,
+        pub dec: binding::DecCtxs,
         pub tcs: binding::Tcs,
     }
 
@@ -136,7 +136,7 @@ pub mod core_ffi_arm {
             let rc = binding::ak_init_once();
             assert!(rc >= 0, "ak_init failed: rc {rc}");
             unsafe {
-                Ctx { enc: ak_enc_ctx_new(), dec: ak_dec_ctx_new(), tcs: binding::Tcs::trusted() }
+                Ctx { enc: ak_enc_ctx_new(), dec: binding::DecCtxs::new(), tcs: binding::Tcs::trusted() }
             }
         }
         pub fn validating() -> Self {
@@ -155,7 +155,7 @@ pub mod core_ffi_arm {
         fn drop(&mut self) {
             unsafe {
                 ak_enc_ctx_free(self.enc);
-                ak_dec_ctx_free(self.dec);
+                self.dec.free();
             }
         }
     }

@@ -184,7 +184,7 @@ fn dec_m1_add_fails() -> bool {
         apply: Some(d_apply_m1),
         add_results: Some(d1_add),
     };
-    let rc = unsafe { ak_decode_ListResultsResponse(c.dec, &mut o as *mut Obs as *mut c_void, b.as_ptr(), b.len(), &vt) };
+    let rc = unsafe { ak_decode_ListResultsResponse(c.dec.list_results_response, &mut o as *mut Obs as *mut c_void, b.as_ptr(), b.len(), &vt) };
     verdict("D1 decode M1, add fails", rc as i64, &o, "")
 }
 
@@ -213,19 +213,20 @@ fn dec_m1_unknown_fails() -> bool {
         apply: Some(d_apply_m1),
         add_results: Some(d_add_ok),
     };
-    let mut h = GrowHost { ctx: c.dec, o: &mut o as *mut Obs };
+    let mut h = GrowHost { ctx: c.dec.list_results_response, o: &mut o as *mut Obs };
     let z = ak_unk_opts { buf: ak_unk_buf { data: std::ptr::null_mut(), len: 0, cap: 0 }, grow: None };
-    let opts = ak_dec_ListResultsResponse_opts {
+    let pz = ak_unk_pool { bufs: std::ptr::null_mut(), n: 0, grow: None };
+    let mut opts = ak_dec_ListResultsResponse_opts {
         host: &mut h as *mut GrowHost as *mut c_void,
         self_: ak_unk_opts { grow: Some(d_unk_grow), ..z },
-        results: z,
-        results_created_at: z,
-        results_completed_at: z,
+        results: pz,
+        results_created_at: pz,
+        results_completed_at: pz,
     };
     let rc = unsafe {
-        ak_dec_reset_ListResultsResponse(c.dec, &opts);
-        let rc = ak_decode_ListResultsResponse(c.dec, &mut o as *mut Obs as *mut c_void, b.as_ptr(), b.len(), &vt);
-        ak_dec_reset_ListResultsResponse(c.dec, std::ptr::null());
+        ak_dec_reset_ListResultsResponse(c.dec.list_results_response, &mut opts);
+        let rc = ak_decode_ListResultsResponse(c.dec.list_results_response, &mut o as *mut Obs as *mut c_void, b.as_ptr(), b.len(), &vt);
+        ak_dec_reset_ListResultsResponse(c.dec.list_results_response, std::ptr::null_mut());
         rc
     };
     verdict("D3 decode M1, root unknown-field grow upcall fails", rc as i64, &o, "")
@@ -293,7 +294,7 @@ fn dec_m2(name: &str, vt: ak_dvt_ListTasksDetailedResponse) -> bool {
     let mut o = Obs::default();
     let b = m2_bytes();
     let rc = unsafe {
-        ak_decode_ListTasksDetailedResponse(c.dec, &mut o as *mut Obs as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_ListTasksDetailedResponse(c.dec.list_tasks_detailed_response, &mut o as *mut Obs as *mut c_void, b.as_ptr(), b.len(), &vt)
     };
     verdict(name, rc as i64, &o, if o.tok_neg { "(token -1, no ak_fail)" } else { "" })
 }

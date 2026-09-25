@@ -162,7 +162,7 @@ fn drive_ffi(label: &str, buf: &[u8]) {
     };
     let rc = unsafe {
         ak_abi::ak_decode_ListResultsResponse(
-            ctx.dec,
+            ctx.dec.list_results_response,
             &mut obs as *mut _ as *mut c_void,
             buf.as_ptr(),
             buf.len(),
@@ -251,7 +251,7 @@ fn main() {
             };
             let rc = unsafe {
                 ak_abi::ak_decode_ListResultsResponse(
-                    ctx.dec,
+                    ctx.dec.list_results_response,
                     &mut obs as *mut _ as *mut c_void,
                     real.as_ptr(),
                     fake_len,

@@ -470,6 +470,7 @@ impl Ops for R_ListResultsResponse {
     fn f_pull(c: &Ctx, b: &[u8], retain: bool, toks: &mut Vec<i64>) -> Result<Self::F, i32> {
         if retain { binding::parse_walk_with_list_results_response_unk(c.dec, b, toks) } else { binding::parse_walk_with_list_results_response(c.dec, b, toks) }
     }
+    fn dec_ctx(c: &Ctx) -> *mut ak_abi::ak_dec_ctx { c.dec.list_results_response }
     fn touch_f(v: &Self::F) -> u64 { touch_f_list_results_response(v, 0) }
     fn touch_p(v: &Self::P) -> u64 { touch_p_list_results_response(v, 0) }
 }
@@ -504,6 +505,7 @@ impl Ops for R_ListTasksDetailedResponse {
     fn f_pull(c: &Ctx, b: &[u8], retain: bool, toks: &mut Vec<i64>) -> Result<Self::F, i32> {
         if retain { binding::parse_walk_with_list_tasks_detailed_response_unk(c.dec, b, toks) } else { binding::parse_walk_with_list_tasks_detailed_response(c.dec, b, toks) }
     }
+    fn dec_ctx(c: &Ctx) -> *mut ak_abi::ak_dec_ctx { c.dec.list_tasks_detailed_response }
     fn touch_f(v: &Self::F) -> u64 { touch_f_list_tasks_detailed_response(v, 0) }
     fn touch_p(v: &Self::P) -> u64 { touch_p_list_tasks_detailed_response(v, 0) }
 }
@@ -534,6 +536,7 @@ impl Ops for R_ListProbeResponse {
     fn f_pull(c: &Ctx, b: &[u8], retain: bool, toks: &mut Vec<i64>) -> Result<Self::F, i32> {
         if retain { binding::parse_walk_with_list_probe_response_unk(c.dec, b, toks) } else { binding::parse_walk_with_list_probe_response(c.dec, b, toks) }
     }
+    fn dec_ctx(c: &Ctx) -> *mut ak_abi::ak_dec_ctx { c.dec.list_probe_response }
     fn touch_f(v: &Self::F) -> u64 { touch_f_list_probe_response(v, 0) }
     fn touch_p(v: &Self::P) -> u64 { touch_p_list_probe_response(v, 0) }
 }
@@ -564,6 +567,7 @@ impl Ops for R_ListTaskSummaryResponse {
     fn f_pull(c: &Ctx, b: &[u8], retain: bool, toks: &mut Vec<i64>) -> Result<Self::F, i32> {
         if retain { binding::parse_walk_with_list_task_summary_response_unk(c.dec, b, toks) } else { binding::parse_walk_with_list_task_summary_response(c.dec, b, toks) }
     }
+    fn dec_ctx(c: &Ctx) -> *mut ak_abi::ak_dec_ctx { c.dec.list_task_summary_response }
     fn touch_f(v: &Self::F) -> u64 { touch_f_list_task_summary_response(v, 0) }
     fn touch_p(v: &Self::P) -> u64 { touch_p_list_task_summary_response(v, 0) }
 }
@@ -597,6 +601,7 @@ impl Ops for R_UploadResultDataMessage {
     fn f_pull(c: &Ctx, b: &[u8], retain: bool, toks: &mut Vec<i64>) -> Result<Self::F, i32> {
         if retain { binding::parse_walk_with_upload_result_data_message_unk(c.dec, b, toks) } else { binding::parse_walk_with_upload_result_data_message(c.dec, b, toks) }
     }
+    fn dec_ctx(c: &Ctx) -> *mut ak_abi::ak_dec_ctx { c.dec.upload_result_data_message }
     fn touch_f(v: &Self::F) -> u64 { touch_f_upload_result_data_message(v, 0) }
     fn touch_p(v: &Self::P) -> u64 { touch_p_upload_result_data_message(v, 0) }
 }
@@ -627,6 +632,7 @@ impl Ops for R_ListMetricsResponse {
     fn f_pull(c: &Ctx, b: &[u8], retain: bool, toks: &mut Vec<i64>) -> Result<Self::F, i32> {
         if retain { binding::parse_walk_with_list_metrics_response_unk(c.dec, b, toks) } else { binding::parse_walk_with_list_metrics_response(c.dec, b, toks) }
     }
+    fn dec_ctx(c: &Ctx) -> *mut ak_abi::ak_dec_ctx { c.dec.list_metrics_response }
     fn touch_f(v: &Self::F) -> u64 { touch_f_list_metrics_response(v, 0) }
     fn touch_p(v: &Self::P) -> u64 { touch_p_list_metrics_response(v, 0) }
 }
@@ -656,6 +662,7 @@ impl Ops for R_DualResponse {
     fn f_pull(c: &Ctx, b: &[u8], retain: bool, toks: &mut Vec<i64>) -> Result<Self::F, i32> {
         if retain { binding::parse_walk_with_dual_response_unk(c.dec, b, toks) } else { binding::parse_walk_with_dual_response(c.dec, b, toks) }
     }
+    fn dec_ctx(c: &Ctx) -> *mut ak_abi::ak_dec_ctx { c.dec.dual_response }
     fn touch_f(v: &Self::F) -> u64 { touch_f_dual_response(v, 0) }
     fn touch_p(v: &Self::P) -> u64 { touch_p_dual_response(v, 0) }
 }
