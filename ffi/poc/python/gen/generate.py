@@ -85,6 +85,10 @@ def outputs():
     pd = P.relower(p, p.options.with_unknown("drop"))
     out.update({
         "nounk/binding.c": py_capi.emit(pd, "_akffi_nounk"),
+        # the facade without `_unknown`, and host-gen drop beside it (the same text as
+        # gen/out/pycodec.py, so a variant process finds every module in one directory)
+        "nounk/facade.py": py_pure.emit_facade(pd),
+        "nounk/pycodec.py": py_pure.emit_pycodec(pd, "drop"),
         "nounk/ak_abi.h": c_abi.emit(pd)[0],
     })
     # The corpus: the C ABI's roots are the ones the shared generator's corpus core carries.
@@ -101,6 +105,8 @@ def outputs():
     cpd = P.relower(cp, cp.options.with_unknown("drop"))
     out.update({
         "corpus-nounk/binding.c": py_capi.emit(cpd, "_akffi_corpus_nounk", backends=("attr", "cext")),
+        "corpus-nounk/facade.py": py_pure.emit_facade(P.relower(full, full.options.with_unknown("drop"))),
+        "corpus-nounk/pycodec.py": py_pure.emit_pycodec(P.relower(full, full.options.with_unknown("drop")), "drop"),
         "corpus-nounk/ak_abi.h": c_abi.emit(cpd)[0],
     })
     return out, G

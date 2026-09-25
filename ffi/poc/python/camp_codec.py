@@ -242,12 +242,12 @@ def unknown_cases(log, only=None):
     """The unknown-field rows, through the corpus-schema core and the corpus plan's codec."""
     import json
     tag = "py%d.%d" % sys.version_info[:2]
-    gen = os.path.join(HERE, "gen", "out", "corpus")
+    gen = os.path.join(HERE, "gen", "out", "corpus-nounk" if VARIANT == "nounk" else "corpus")
     for p in (gen, os.path.join(HERE, "build", tag), os.path.join(HERE, "build", tag, "pb2corpus")):
         sys.path.insert(0, p)
     import facade as fac          # noqa: E402  gen/out/corpus/facade.py
     import pycodec as pyd         # noqa: E402
-    import pycodec_retain as pyr  # noqa: E402
+    pyr = None if VARIANT == "nounk" else __import__("pycodec_retain")
     ffi = __import__(CORPUS_MOD)   # the full or the no-unknown variant's corpus shim
     import corpus_pb2 as pb       # noqa: E402  from corpus/generated/corpus.proto (reader)
     import arms_plan
@@ -272,7 +272,7 @@ def unknown_cases(log, only=None):
         plan = arms_plan.plan(fac, root)
         m = R.FromString(buf)
         op = pyd.__dict__["decode_root_" + root](buf, CP)
-        opr = pyr.__dict__["decode_root_" + root](buf, CP)
+        opr = None if pyr is None else pyr.__dict__["decode_root_" + root](buf, CP)
         oc = ffi.decode("cext", root, buf, TC)
         ocr = None if VARIANT == "nounk" else ffi.decode("cext", root, buf, TC, None, True)
         accepted = {a["sha256"] for a in r.get("accepted_encodings", [])}

@@ -334,6 +334,22 @@ def main():
                       % (name, "" if back == want else first_diff(back, want), extra))
                 fails += 1
 
+    if arms.NOUNK_VARIANT:
+        # WP5 step 10 / CAMPAIGN req 10: the no-unknown variant carries no `_unknown` on any
+        # facade (Plain, Slots, the C types) nor on any object it decodes.
+        import facts as F
+        print("\n## no-unknown variant: `_unknown` on the facades")
+        if not arms._ffi.nounk():
+            print("   FAIL  %s is not the no-unknown build" % arms._ffi.__name__)
+            fails += 1
+        objs = [(arms._ffi.decode(b, arms.ROOT_OF[pid], arms.reference(pid), ty), arms.ROOT_OF[pid])
+                for pid in arms.PAYLOADS for b, ty in (("cext", arms.TY_CEXT), ("attr", arms.TY_PLAIN))]
+        found = F.unknown_slots(arms.facade, arms._ffi, objs)
+        print("   %d finding(s) over %d Plain/Slots classes, %d C types, %d decoded objects%s"
+              % (len(found), 2 * len(arms.facade.MESSAGES), len(arms._ffi.types()), len(objs),
+                 (": " + "; ".join(found[:5])) if found else ""))
+        fails += len(found)
+
     if not arms.COUNTING:
         # The counting core and the measured core are both `libak_core.so`, so they cannot
         # share a process (see arms.py). Re-enter for that pass alone.

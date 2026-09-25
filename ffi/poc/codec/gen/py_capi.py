@@ -72,7 +72,8 @@ class Attr:
 def attrs(m):
     out = [Attr.of_field(f) for f in m.fields]
     out += [Attr(m.name, "%s_case" % o, "int32") for o in m.oneofs]
-    out.append(Attr(m.name, "_unknown", "bytes"))
+    if not NOUNK[0]:   # the no-unknown variant's C facade type has no `_unknown` member
+        out.append(Attr(m.name, "_unknown", "bytes"))
     return out
 
 
@@ -141,8 +142,11 @@ def emit_ctypes(p, names, modname):
         L.append("  C%s *o = (C%s *)self;" % (name, name))
         for a in ff:
             L.append("  %sv_%s = %s;" % (cty(a), a.name, "NULL" if is_obj(a) else "0"))
-        L.append('  if (!PyArg_ParseTupleAndKeywords(a, kw, "|%s", kwl, %s)) return -1;'
-                 % ("".join(parse_fmt(a) for a in ff), ", ".join("&v_" + a.name for a in ff)))
+        if ff:
+            L.append('  if (!PyArg_ParseTupleAndKeywords(a, kw, "|%s", kwl, %s)) return -1;'
+                     % ("".join(parse_fmt(a) for a in ff), ", ".join("&v_" + a.name for a in ff)))
+        else:   # a message with no attribute at all (the no-unknown variant's empty message)
+            L.append('  (void)o; if (!PyArg_ParseTupleAndKeywords(a, kw, "", kwl)) return -1;')
         for a in ff:
             if is_obj(a):
                 if a.card in ("repeated", "packed"):
@@ -165,11 +169,15 @@ def emit_ctypes(p, names, modname):
         L.append("  return 0;\n}")
         L.append("static int trav_%s(PyObject *s, visitproc visit, void *arg) {" % name)
         L.append("  C%s *o = (C%s *)s;" % (name, name))
+        if not objs:
+            L.append("  (void)o; (void)visit; (void)arg;")
         for a in objs:
             L.append("  Py_VISIT(o->%s);" % a.name)
         L.append("  return 0;\n}")
         L.append("static int clear_%s(PyObject *s) {" % name)
         L.append("  C%s *o = (C%s *)s;" % (name, name))
+        if not objs:
+            L.append("  (void)o;")
         for a in objs:
             L.append("  Py_CLEAR(o->%s);" % a.name)
         L.append("  return 0;\n}")

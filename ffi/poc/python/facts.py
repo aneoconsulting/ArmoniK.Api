@@ -36,3 +36,48 @@ def oneof_groups(fac, msg):
         if c == "oneof":
             out.setdefault(f["oneof"], []).append(f)
     return out
+
+
+def unknown_slots(fac, cext_mod=None, objs=()):
+    """WP5 step 10: every place a facade could still carry `_unknown`. Returns a list of
+    "<class>: <how>" findings, empty when there are none. Checked: each Plain* and Slots*
+    class (a `__slots__` entry, a constructor parameter, the attribute on a fresh instance);
+    each C extension type of `cext_mod` (a member descriptor, the attribute on a fresh
+    instance); and the given decoded objects, walked through every message-valued field."""
+    import inspect
+    found = []
+    for n in fac.MESSAGES:
+        for pre in ("Plain", "Slots"):
+            cls = getattr(fac, pre + n, None)
+            if cls is None:
+                continue
+            if "_unknown" in getattr(cls, "__slots__", ()):
+                found.append("%s%s: __slots__ entry" % (pre, n))
+            if "_unknown" in inspect.signature(cls.__init__).parameters:
+                found.append("%s%s: constructor parameter" % (pre, n))
+            if hasattr(cls(), "_unknown"):
+                found.append("%s%s: attribute on a fresh instance" % (pre, n))
+    if cext_mod is not None:
+        for tn in cext_mod.types():
+            t = getattr(cext_mod, tn)
+            if "_unknown" in dir(t):
+                found.append("%s: member descriptor" % tn)
+            if hasattr(t(), "_unknown"):
+                found.append("%s: attribute on a fresh instance" % tn)
+
+    def walk(o, msg, seen):
+        if o is None or id(o) in seen:
+            return
+        seen.add(id(o))
+        if hasattr(o, "_unknown"):
+            found.append("decoded %s (%s): has _unknown" % (msg, type(o).__name__))
+        for f in fac.MESSAGES[msg]["fields"]:
+            name, _tag, kind, card, of = f[0], f[1], f[2], f[3], f[4]
+            if kind != "message":
+                continue
+            v = getattr(o, name, None)
+            for x in (v if card == "repeated" else [v]):
+                walk(x, of, seen)
+    for o, msg in objs:
+        walk(o, msg, set())
+    return found
