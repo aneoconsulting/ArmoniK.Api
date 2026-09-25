@@ -11,6 +11,7 @@ mode (plan Options.unknown = "retain") keeps the message's captured unknown runs
 included, for re-emission after the known fields. A drop-mode codec never writes it.
 """
 import java_names as N
+from plan import unknown_compiled_out
 
 WHO = "java_facade.py"
 
@@ -76,10 +77,12 @@ def emit_types(p, ns=N.PKG):
             for g in members:
                 o.append("  public %s %s_%s%s;" % (N.member_type_java(g), oname, g.name,
                                                   N.member_init(g)))
-        o.append("")
-        o.append("  /** Unknown fields captured by a retain-mode codec, verbatim, key included;")
-        o.append("   *  re-emitted after the known fields. `null` when none. */")
-        o.append("  public byte[] %s;" % N.UNKNOWN)
+        if not unknown_compiled_out(p):
+            # The no-unknown variant (plan: THE NO-UNKNOWN VARIANT) has nowhere to keep them.
+            o.append("")
+            o.append("  /** Unknown fields captured by a retain-mode codec, verbatim, key included;")
+            o.append("   *  re-emitted after the known fields. `null` when none. */")
+            o.append("  public byte[] %s;" % N.UNKNOWN)
         o.append("}")
         o.append("")
         out["%s.java" % name] = "\n".join(o)

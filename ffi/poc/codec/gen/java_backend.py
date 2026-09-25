@@ -31,7 +31,7 @@ import java_jni
 import java_layout
 import java_names as N
 import java_rcodec
-from plan import check_direct
+from plan import check_direct, unknown_compiled_out
 
 BACKEND_MODULES = ["java_backend.py", "java_names.py", "java_facade.py", "java_rcodec.py",
                    "java_layout.py", "java_jni.py", "java_binding.py",
@@ -64,7 +64,12 @@ def _dir(root, level_dir, pkg):
 
 def emit(p, pkg, entry, java_root, native_dir, shared_dir, floor_pkg=None, borrow_pkg=None,
          pa=None):
-    """`pa`: the plan of the roots that cross the C ABI, when that is not `p` (the corpus's
+    """WP5 step 10: `p` and `pa` relowered with unknown="drop" render the NO-UNKNOWN
+    variant (plan: THE NO-UNKNOWN VARIANT) -- c_abi's second header, a shim and binding with
+    no retain path, a facade without `unknownFields` and arm R in drop mode only. The caller
+    writes it to directories of its own; the full variant's text is unchanged.
+
+    `pa`: the plan of the roots that cross the C ABI, when that is not `p` (the corpus's
     `Nest` is refused by plan.check_expressible and runs on arm R only): the facade and
     arm R render `p`, the header, shim, layout and binding render `pa` -- which must be the
     plan the core it links against was generated from, or the layout guard fails."""
@@ -83,7 +88,9 @@ def emit(p, pkg, entry, java_root, native_dir, shared_dir, floor_pkg=None, borro
         for fn, text in java_facade.emit_types(p, ns=pkg).items():
             out["%s/%s" % (d, fn)] = text
         out["%s/Codec.java" % d] = java_rcodec.emit(p, ns=pkg, unknown="drop")
-        out["%s/CodecRetain.java" % d] = java_rcodec.emit(p, ns=pkg, unknown="retain")
+        if not unknown_compiled_out(p):
+            # The no-unknown variant's facade has no `unknownFields`: arm R has drop only.
+            out["%s/CodecRetain.java" % d] = java_rcodec.emit(p, ns=pkg, unknown="retain")
         out["%s/Layout.java" % d] = java_layout.emit_java(pa, ns=pkg)
         out["%s/Binding.java" % d] = java_binding.emit(pa, level=level, ns=pkg,
                                                        layout=layout, entry=entry)

@@ -19,7 +19,8 @@ Two checks keep it honest, and both are rendered here:
 The pre-WP5 `poc/java/gen/java_layout.py` re-derived the member list itself from
 `rust_abi.group_fields` and patched the u-group by string replacement; it retires.
 """
-from plan import abi_order_topo, group_fields, ugroup_fields, unk_opts_layout, unk_opts_name
+from plan import (abi_order_topo, group_fields, ugroup_fields, unk_opts_layout, unk_opts_name,
+                  unknown_compiled_out)
 import cpp_layout
 import java_names as N
 
@@ -73,17 +74,21 @@ def group_members(m, pre):
 
 
 def build(p):
+    """The groups of `p`. The no-unknown variant (plan: THE NO-UNKNOWN VARIANT) has no
+    u-groups and no per-root options struct; its decode groups have no `unknown` member
+    (plan.group_fields). The fixed entry types stay (plan.FIXED declares them in both)."""
+    nounk = unknown_compiled_out(p)
     lay = Layout()
     for name in abi_order_topo(p):
         m = p.msg(name)
-        for pre in ("e", "d", "u"):
+        for pre in (("e", "d") if nounk else ("e", "d", "u")):
             lay.add("ak_%sfix_%s" % (pre, name), group_members(m, pre))
     # Decision 11 (WP5 steps 7-9): the two entry types and each root's options struct, in the
     # plan's order (plan.unk_opts_layout). A Java binding writes the options into native
     # memory at these numbers; the header static-asserts them against the C compiler.
     lay.add("ak_unk_opts", [("buf", "ak_unk_buf"), ("grow", "ptr")])
     lay.add("ak_unk_pool", [("bufs", "ptr"), ("n", "u32"), ("grow", "ptr")])
-    for root in p.roots:
+    for root in ([] if nounk else p.roots):
         lay.add(unk_opts_name(root), [("host", "ptr")] + [(mn, ty) for mn, _m, ty in unk_opts_layout(p, root)])
     return lay
 
