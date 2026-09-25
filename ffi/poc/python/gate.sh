@@ -18,7 +18,7 @@
 # A floor interpreter from ./fetch_py37.sh is `build/py37/python3.7`.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LOGS="$(cd "$HERE/../.." && pwd)/logs/python"
+LOGS="${AK_GATE_LOGS:-$(cd "$HERE/../.." && pwd)/logs/python}"   # run_campaign.sh points it at its --out
 mkdir -p "$LOGS"
 cd "$HERE"
 TARGET="$1"
@@ -67,7 +67,7 @@ echo "===== 98. crossing counts against the pre-port shim (logs/python/85) =====
 {
   hdr "python slice: crossing counts, plan-rendered shim against the pre-port shim"
   # The `default (_akffi)` block of log 85 (3.12, core 6ede244, the pre-port generator).
-  sed -n '/^########## default (_akffi)/,$p' "$LOGS/85-conformance-rpc-shim.log" | sed -n '/crossing counts/,$p' | grep -E '^\s+P[0-9]' > "$HERE/build/counts-85.txt"
+  sed -n '/^########## default (_akffi)/,$p' "$(cd "$HERE/../.." && pwd)/logs/python/85-conformance-rpc-shim.log" | sed -n '/crossing counts/,$p' | grep -E '^\s+P[0-9]' > "$HERE/build/counts-85.txt"
   for PY in "$@"; do
     T=$(tagof "$PY")
     sed -n '/crossing counts/,$p' "$LOGS/91-wp5-conformance-$T.log" | grep -E '^\s+P[0-9]' > "$HERE/build/counts-$T.txt"

@@ -22,13 +22,37 @@ POC="$(dirname "$HERE")"
 CORE="$POC/codec"
 TBASE="${AK_CARGO_TARGET_BASE:-$HERE/build/cargo}"
 cd "$HERE"
-echo "   core source: $CORE"
-echo "   commit:      $(git -C "$CORE" rev-parse --short HEAD)$(git -C "$CORE" diff --quiet HEAD -- . || echo ' + UNCOMMITTED CHANGES in poc/codec')$(git -C "$HERE" diff --quiet HEAD -- . || echo ' + uncommitted changes in poc/python')"
+# AK_SNAPSHOT=<commit>: build the core and render the shim from a `git archive` of that
+# commit's poc/codec, schema and corpus (build/snap/<sha>), not from the working tree. The
+# campaign runner uses it so a run names a commit even while other agents edit poc/codec;
+# cargo targets are keyed on the snapshot (build/cargo-<sha>).
+if [ -n "${AK_SNAPSHOT:-}" ]; then
+  SHA=$(git -C "$HERE" rev-parse --short "$AK_SNAPSHOT")
+  SNAP="$HERE/build/snap/$SHA"
+  if [ ! -d "$SNAP/ffi/poc/codec" ] || [ ! -d "$SNAP/ffi/poc/rust" ]; then
+    # poc/rust too: the calib suite builds the rust slice's crossing benchmark from it.
+    mkdir -p "$SNAP"
+    (cd "$(git -C "$HERE" rev-parse --show-toplevel)" && git archive "$SHA" ffi/poc/codec ffi/poc/rust ffi/schema ffi/corpus) | tar -x -C "$SNAP"
+  fi
+  CORE="$SNAP/ffi/poc/codec"
+  export AK_CODECGEN="$CORE/gen"
+  TBASE="${AK_CARGO_TARGET_BASE:-$HERE/build/cargo-$SHA}"
+  echo "   core source: $CORE (snapshot of $SHA)"
+  echo "   commit:      $SHA (snapshot)$(git -C "$HERE" diff --quiet HEAD -- . || echo ' + uncommitted changes in poc/python')"
+else
+  echo "   core source: $CORE"
+  echo "   commit:      $(git -C "$CORE" rev-parse --short HEAD)$(git -C "$CORE" diff --quiet HEAD -- . || echo ' + UNCOMMITTED CHANGES in poc/codec')$(git -C "$HERE" diff --quiet HEAD -- . || echo ' + uncommitted changes in poc/python')"
+fi
 echo "   core tree:   $( (cd "$CORE" && find crates gen -type f \( -name '*.rs' -o -name '*.toml' -o -name '*.py' \) | sort | xargs cat | sha256sum | cut -c1-16) )"
 echo "   targets:     $TBASE/{plain,count,rpc,corpus}"
 
 echo "== 1. R0: one core, at poc/codec, reached by path =="
-"$POC/codec/gen/one_core.sh" | tail -3
+if [ -n "${AK_SNAPSHOT:-}" ]; then
+  echo "   snapshot mode: the core is the archived poc/codec of $SHA, reached by path; one_core.sh"
+  echo "   checks the working tree (other slices), which is not what this build reads"
+else
+  "$POC/codec/gen/one_core.sh" | tail -3
+fi
 
 echo
 echo "== 2. R1: the generated tree is current with the plans =="
@@ -98,6 +122,7 @@ for PY in "$@"; do
   # `chunking`: the default 32 KB puts C-elemu-512 in ONE chunk of 32-byte groups).
   shim _akffi_corpus_chunk gen/out/corpus "$CORPUSLIB" "$D" -DAK_CORPUS -DAK_CHUNK_BYTES=256 -DAK_CHUNK_PACKED=3
   echo "   built _akffi, _akffi_count, _akffi_rpc, _akffi_corpus, _akffi_corpus_chunk in $D; the noinit control in $D/ctl"
+  python3.12 write_buildinfo.py "$D/buildinfo.json" "$CORE" "$CFLAGS_COMMON"
 
   # README R5: the boundary is proved from the built artifact, not claimed in a log.
   for so in "$D/_akffi$SOABI" "$D/_akffi_count$SOABI" "$D/_akffi_rpc$SOABI" "$D/_akffi_corpus$SOABI" "$D/_akffi_corpus_chunk$SOABI"; do

@@ -38,7 +38,10 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))       # .../poc/python/gen
 SLICE = os.path.dirname(HERE)
 POC = os.path.dirname(SLICE)
-CODECGEN = os.path.join(POC, "codec", "gen")
+# AK_CODECGEN: the shared generator to render with. Default: this checkout's. A campaign or
+# smoke run sets it to a `git archive` snapshot of a named commit (build.sh AK_SNAPSHOT),
+# so a run never renders from another agent's half-edited working tree.
+CODECGEN = os.environ.get("AK_CODECGEN") or os.path.join(POC, "codec", "gen")
 if CODECGEN not in sys.path:
     sys.path.insert(0, CODECGEN)
 
