@@ -4,7 +4,8 @@ run_type "iteration") converted to section 7's one-object-per-sample lines. Glue
 is computed but the unit conversion. Aggregate rows (mean/median/stddev) are dropped: the
 raw repetitions are the samples.
 
-  gbench_to_jsonl.py GBENCH.json LAUNCH   >> codec-launchN.jsonl
+  gbench_to_jsonl.py GBENCH.json LAUNCH [BUILD]   >> codec-launchN.jsonl
+  BUILD: "full" (default) or "no-unknown" (WP5 step 10), on every sample
 
 name = "arm|payload|content|dir|unknown_mode"; round = repetition_index;
 cpu_ns = cpu_time x iterations (Google Benchmark's default CPU timer: the benchmark
@@ -16,7 +17,7 @@ import sys
 SCALE = {"ns": 1.0, "us": 1e3, "ms": 1e6, "s": 1e9}
 
 
-def main(path, launch):
+def main(path, launch, build="full"):
     d = json.load(open(path))
     ctx = d.get("context", {})
     print("# " + json.dumps({"google_benchmark_context": {k: ctx.get(k) for k in (
@@ -32,7 +33,7 @@ def main(path, launch):
         sc = SCALE[b.get("time_unit", "ns")]
         print(json.dumps({"slice": "cpp", "suite": "codec", "arm": arm, "payload": payload,
                           "content": content, "dir": direction, "unknown_mode": mode,
-                          "launch": int(launch), "round": int(b.get("repetition_index", 0)),
+                          "build": build, "launch": int(launch), "round": int(b.get("repetition_index", 0)),
                           "cpu_ns": round(b["cpu_time"] * sc * it), "wall_ns": round(b["real_time"] * sc * it),
                           "iters": it}, separators=(",", ":")))
         n += 1
@@ -41,4 +42,4 @@ def main(path, launch):
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1], sys.argv[2]))
+    sys.exit(main(*sys.argv[1:4]))

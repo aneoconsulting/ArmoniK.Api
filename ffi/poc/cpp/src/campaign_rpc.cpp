@@ -62,6 +62,13 @@ const char *const kPush = "/armonik.ffi.shapes.v1.Shapes/Push";
 
 // One cell of the grid: its transport/codec letter and, for C and D, its unknown-field mode.
 enum Mode { kDefault, kRetain, kDrop, kNoUnk };
+// Which binary produced a sample: A and B run in both clients (in-process controls), so a
+// sample is identified by (build, cell), never by cell alone.
+#ifdef AK_NO_UNKNOWN_FIELDS
+const char *const kBuild = "no-unknown";
+#else
+const char *const kBuild = "full";
+#endif
 struct Cell {
   char base;
   Mode mode;
@@ -449,11 +456,11 @@ int main(int argc, char **argv) {
           batch(w, cell, d, k, c.calls);
           double c1 = rusage_ns(), w1 = wall_ns();
           int iters = ((c.calls + k - 1) / k) * k;
-          std::printf("{\"slice\":\"cpp\",\"suite\":\"rpc\",\"cell\":\"%s\",\"unknown_mode\":\"%s\","
+          std::printf("{\"slice\":\"cpp\",\"suite\":\"rpc\",\"build\":\"%s\",\"cell\":\"%s\",\"unknown_mode\":\"%s\","
                       "\"payload\":\"P2.2\","
                       "\"dir\":\"%c\",\"transport\":\"%s\",\"inflight\":%d,\"launch\":%d,"
                       "\"round\":%d,\"cpu_ns\":%.0f,\"wall_ns\":%.0f,\"iters\":%d}\n",
-                      cell.label.c_str(), mode_name(cell.mode), d, c.transport.c_str(), k, c.launch, r, c1 - c0, w1 - w0, iters);
+                      kBuild, cell.label.c_str(), mode_name(cell.mode), d, c.transport.c_str(), k, c.launch, r, c1 - c0, w1 - w0, iters);
           std::fflush(stdout);
         }
       }
