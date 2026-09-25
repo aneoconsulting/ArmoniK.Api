@@ -234,6 +234,18 @@ iterations, every file marked instrumentation).
 
 D1 (`src/BenchDotNet`) is **retired** in favour of the runner (deleted).
 
+**Smoke run** (`logs/csharp/campaign/`, commit `5d81225`, CLIENT=0 SERVER=1, 1 launch x 1
+round, reduced iterations; every file headed "instrumentation, not a result"):
+gate PASSED at that commit (`gate.log`: net8.0 and net6.0, conformance 152/152, core-ffi
+16/16, crossing counts = `gen/crossings.txt`, corpus 702 rows managed 696/0 and ffi
+680/0 (+16 Nest), 6 disputed, probe rows 11/11, all controls fail as required);
+codec 1,780 samples (managed and incumbent arms, 16 payloads + 4 content-set graphs +
+92 `U-*` rows); rpc 48 samples per transport (16 cell/delivery rows x 3 in-flight levels,
+shipped and pinned); the requirement-18 control aborted with 0 samples on both transports
+(`*.PLANT.jsonl`); calib 2 samples after the crossing-count gate (`calib-crossing-counts.log`).
+In the gate's corpus, ffi-retain writes the dropped form on 307 unknown rows: the
+transitional drop mode of D41, accepted by the contract, reported as a retention gap.
+
 ## What the plan did not state
 
 Reported at step 4 (vocabulary struct layouts, fixed entry points, flag values, the RPC
