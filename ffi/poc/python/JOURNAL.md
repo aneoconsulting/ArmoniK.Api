@@ -1050,3 +1050,42 @@ naming the fact: the section 10 check is now real, the shim compares its 380 fac
 core's at import instead of printing that the build "would have" failed), `proj`, `reenc`,
 `accept` (log 93), the no-`AK_RPC` shim (build log 90), the backend guard's planted IR import
 (`generate.py --check`), and the 3.7 pre-port control (log 97).
+
+## Work unit 6: FIX-PLAN WP3, the campaign harness (design/CAMPAIGN.md, a10ac81)
+
+### J39. What was built, and what changed in the harness because of the contract
+
+- **One runner**, `run_campaign.sh --suite codec|rpc|calib|gate --out <dir>`, which reads
+  `AK_CPU_CLIENT`, `AK_CPU_SERVER`, `AK_ISOLATION`, and builds the core and renders the
+  shim from `AK_SNAPSHOT` (a `git archive` of a named commit, default HEAD). The rust agent
+  was editing `poc/codec` (decision 11) during this work unit, and a run from the working
+  tree would have used a half-edited generator (the R1 check reported STALE against it).
+  `build.sh` gained the snapshot mode; `gen/generate.py` takes `AK_CODECGEN`.
+- **Codec suite** (`camp_codec.py`): the 16 payloads in ASCII, P2.4 also in Latin-1 and
+  wide (SHAPES.md's P10 row; the Rust slice's `recode` rule applied to every string), and
+  the corpus's seven `U-*-all` rows in a second process (the corpus core is another
+  `libak_core.so`). Arms: incumbent-prod, incumbent-best, core-ffi, core-ffi-attr
+  (labelled), host-gen drop and retain. Directions: encode, decode, decode+read. Per-case
+  correctness check before timing. Rotated interleaving, thread CPU, a `gc.collect()`
+  before every sample with the collector ON. That last part replaces `bench.py`'s
+  collector-off rule, because the contract requires GC on (J28's attribution problem is
+  handled by giving every arm the same collector state at the start of its sample).
+- **RPC suite** (`camp_rpc.py`, `camp_server.py`): the server is now a SEPARATE process
+  pinned to `AK_CPU_SERVER`. Before, it was a thread pool in the client's process and
+  shared its GIL (R-C3, R-C4). Cells A to D; B and C blocking, with queue and callback
+  as labelled extras. Directions `a`, `a+read` (R-C2) and `b`. 1, 8 and 16 in flight.
+  Shipped and pinned, and every cell uses the same server process within a transport.
+  Every call is checked, and one failure aborts with no sample; a planted short body
+  shows the abort (gate suite).
+- **Calib** (`camp_calib.py`): the crossing counts are compared with
+  `counts_expected.txt` (log 91), and a difference stops the run. The host crossing is
+  measured forward and fwd+reverse, the Rust slice's `bench` is built from the same
+  snapshot, and `perf stat` is used when `perf` exists (it does not in this container).
+- **Summaries** (`camp_summary.py`): requirement 30's median [min, max] and per-round
+  ratio, nothing else.
+- `arms.py`'s decode+read reader moved to `arms_plan.py`, so that the corpus family, which
+  cannot import `arms`, reads with the same code.
+
+core-ffi **retain** is not built: the shim renders drop only, and the decision 11
+mechanism is being added to `poc/codec` by the rust agent now. The suite records this as
+pending and does not time it.
