@@ -429,9 +429,11 @@ if(AK_RPC)
   target_include_directories(campaign_codec PRIVATE ${GRPCPP_INCLUDE_DIRS})
   target_link_directories(campaign_codec PRIVATE ${GRPCPP_LIBRARY_DIRS})
   target_link_libraries(campaign_codec PRIVATE ${GRPCPP_LIBRARIES})
-  # CAMPAIGN.md requirement 22a: the codec suite's timing is Google Benchmark (apt
-  # libbenchmark-dev; the version is printed in every log).
-  find_package(benchmark REQUIRED)
+  # CAMPAIGN.md requirement 22a: the codec suite's timing is Google Benchmark, a RELEASE
+  # build of v1.8.3 that gen/run_campaign.sh builds from the upstream tag and passes as
+  # -Dbenchmark_DIR (apt's libbenchmark-dev reports library_build_type "debug"). Version and
+  # build type are printed in every log (Google Benchmark's own JSON context).
+  find_package(benchmark 1.8.3 EXACT REQUIRED)
   target_link_libraries(campaign_codec PRIVATE benchmark::benchmark)
   target_compile_definitions(campaign_codec PRIVATE AK_GBENCH_VERSION="${benchmark_VERSION}")
 endif()
