@@ -13,10 +13,11 @@ public final class Layout {
   public static final int AK_EFIX_TASKOPTIONSOPTIONSENTRY__VALUE = 24;
   public static final int AK_EFIX_TASKOPTIONSOPTIONSENTRY__PRESENCE = 48;
 
-  public static final int AK_DFIX_TASKOPTIONSOPTIONSENTRY_SIZE = 28;   // align 4
+  public static final int AK_DFIX_TASKOPTIONSOPTIONSENTRY_SIZE = 48;   // align 8
   public static final int AK_DFIX_TASKOPTIONSOPTIONSENTRY__KEY = 0;
   public static final int AK_DFIX_TASKOPTIONSOPTIONSENTRY__VALUE = 12;
-  public static final int AK_DFIX_TASKOPTIONSOPTIONSENTRY__PRESENCE = 24;
+  public static final int AK_DFIX_TASKOPTIONSOPTIONSENTRY__UNKNOWN = 24;
+  public static final int AK_DFIX_TASKOPTIONSOPTIONSENTRY__PRESENCE = 40;
 
   public static final int AK_UFIX_TASKOPTIONSOPTIONSENTRY_SIZE = 72;   // align 8
   public static final int AK_UFIX_TASKOPTIONSOPTIONSENTRY__KEY = 0;
@@ -29,10 +30,11 @@ public final class Layout {
   public static final int AK_EFIX_TIMESTAMP__NANOS = 8;
   public static final int AK_EFIX_TIMESTAMP__PRESENCE = 12;
 
-  public static final int AK_DFIX_TIMESTAMP_SIZE = 16;   // align 8
+  public static final int AK_DFIX_TIMESTAMP_SIZE = 40;   // align 8
   public static final int AK_DFIX_TIMESTAMP__SECONDS = 0;
   public static final int AK_DFIX_TIMESTAMP__NANOS = 8;
-  public static final int AK_DFIX_TIMESTAMP__PRESENCE = 12;
+  public static final int AK_DFIX_TIMESTAMP__UNKNOWN = 16;
+  public static final int AK_DFIX_TIMESTAMP__PRESENCE = 32;
 
   public static final int AK_UFIX_TIMESTAMP_SIZE = 40;   // align 8
   public static final int AK_UFIX_TIMESTAMP__SECONDS = 0;
@@ -45,10 +47,11 @@ public final class Layout {
   public static final int AK_EFIX_DURATION__NANOS = 8;
   public static final int AK_EFIX_DURATION__PRESENCE = 12;
 
-  public static final int AK_DFIX_DURATION_SIZE = 16;   // align 8
+  public static final int AK_DFIX_DURATION_SIZE = 40;   // align 8
   public static final int AK_DFIX_DURATION__SECONDS = 0;
   public static final int AK_DFIX_DURATION__NANOS = 8;
-  public static final int AK_DFIX_DURATION__PRESENCE = 12;
+  public static final int AK_DFIX_DURATION__UNKNOWN = 16;
+  public static final int AK_DFIX_DURATION__PRESENCE = 32;
 
   public static final int AK_UFIX_DURATION_SIZE = 40;   // align 8
   public static final int AK_UFIX_DURATION__SECONDS = 0;
@@ -70,19 +73,20 @@ public final class Layout {
   public static final int AK_EFIX_RESULTRAW__MANUAL_DELETION = 192;
   public static final int AK_EFIX_RESULTRAW__PRESENCE = 196;
 
-  public static final int AK_DFIX_RESULTRAW_SIZE = 128;   // align 8
+  public static final int AK_DFIX_RESULTRAW_SIZE = 200;   // align 8
   public static final int AK_DFIX_RESULTRAW__SESSION_ID = 0;
   public static final int AK_DFIX_RESULTRAW__NAME = 12;
   public static final int AK_DFIX_RESULTRAW__OWNER_TASK_ID = 24;
   public static final int AK_DFIX_RESULTRAW__STATUS = 36;
   public static final int AK_DFIX_RESULTRAW__CREATED_AT = 40;
-  public static final int AK_DFIX_RESULTRAW__COMPLETED_AT = 56;
-  public static final int AK_DFIX_RESULTRAW__RESULT_ID = 72;
-  public static final int AK_DFIX_RESULTRAW__SIZE = 88;
-  public static final int AK_DFIX_RESULTRAW__CREATED_BY = 96;
-  public static final int AK_DFIX_RESULTRAW__OPAQUE_ID = 108;
-  public static final int AK_DFIX_RESULTRAW__MANUAL_DELETION = 120;
-  public static final int AK_DFIX_RESULTRAW__PRESENCE = 124;
+  public static final int AK_DFIX_RESULTRAW__COMPLETED_AT = 80;
+  public static final int AK_DFIX_RESULTRAW__RESULT_ID = 120;
+  public static final int AK_DFIX_RESULTRAW__SIZE = 136;
+  public static final int AK_DFIX_RESULTRAW__CREATED_BY = 144;
+  public static final int AK_DFIX_RESULTRAW__OPAQUE_ID = 156;
+  public static final int AK_DFIX_RESULTRAW__MANUAL_DELETION = 168;
+  public static final int AK_DFIX_RESULTRAW__UNKNOWN = 176;
+  public static final int AK_DFIX_RESULTRAW__PRESENCE = 192;
 
   public static final int AK_UFIX_RESULTRAW_SIZE = 272;   // align 8
   public static final int AK_UFIX_RESULTRAW__SESSION_ID = 0;
@@ -111,17 +115,18 @@ public final class Layout {
   public static final int AK_EFIX_TASKOPTIONS__ENGINE_TYPE = 144;
   public static final int AK_EFIX_TASKOPTIONS__PRESENCE = 168;
 
-  public static final int AK_DFIX_TASKOPTIONS_SIZE = 104;   // align 8
+  public static final int AK_DFIX_TASKOPTIONS_SIZE = 144;   // align 8
   public static final int AK_DFIX_TASKOPTIONS__MAX_DURATION = 0;
-  public static final int AK_DFIX_TASKOPTIONS__MAX_RETRIES = 16;
-  public static final int AK_DFIX_TASKOPTIONS__PRIORITY = 20;
-  public static final int AK_DFIX_TASKOPTIONS__PARTITION_ID = 24;
-  public static final int AK_DFIX_TASKOPTIONS__APPLICATION_NAME = 36;
-  public static final int AK_DFIX_TASKOPTIONS__APPLICATION_VERSION = 48;
-  public static final int AK_DFIX_TASKOPTIONS__APPLICATION_NAMESPACE = 60;
-  public static final int AK_DFIX_TASKOPTIONS__APPLICATION_SERVICE = 72;
-  public static final int AK_DFIX_TASKOPTIONS__ENGINE_TYPE = 84;
-  public static final int AK_DFIX_TASKOPTIONS__PRESENCE = 96;
+  public static final int AK_DFIX_TASKOPTIONS__MAX_RETRIES = 40;
+  public static final int AK_DFIX_TASKOPTIONS__PRIORITY = 44;
+  public static final int AK_DFIX_TASKOPTIONS__PARTITION_ID = 48;
+  public static final int AK_DFIX_TASKOPTIONS__APPLICATION_NAME = 60;
+  public static final int AK_DFIX_TASKOPTIONS__APPLICATION_VERSION = 72;
+  public static final int AK_DFIX_TASKOPTIONS__APPLICATION_NAMESPACE = 84;
+  public static final int AK_DFIX_TASKOPTIONS__APPLICATION_SERVICE = 96;
+  public static final int AK_DFIX_TASKOPTIONS__ENGINE_TYPE = 108;
+  public static final int AK_DFIX_TASKOPTIONS__UNKNOWN = 120;
+  public static final int AK_DFIX_TASKOPTIONS__PRESENCE = 136;
 
   public static final int AK_UFIX_TASKOPTIONS_SIZE = 216;   // align 8
   public static final int AK_UFIX_TASKOPTIONS__MAX_DURATION = 0;
@@ -141,10 +146,11 @@ public final class Layout {
   public static final int AK_EFIX_TASKOUTPUT__ERROR = 8;
   public static final int AK_EFIX_TASKOUTPUT__PRESENCE = 32;
 
-  public static final int AK_DFIX_TASKOUTPUT_SIZE = 20;   // align 4
+  public static final int AK_DFIX_TASKOUTPUT_SIZE = 40;   // align 8
   public static final int AK_DFIX_TASKOUTPUT__SUCCESS = 0;
   public static final int AK_DFIX_TASKOUTPUT__ERROR = 4;
-  public static final int AK_DFIX_TASKOUTPUT__PRESENCE = 16;
+  public static final int AK_DFIX_TASKOUTPUT__UNKNOWN = 16;
+  public static final int AK_DFIX_TASKOUTPUT__PRESENCE = 32;
 
   public static final int AK_UFIX_TASKOUTPUT_SIZE = 56;   // align 8
   public static final int AK_UFIX_TASKOUTPUT__SUCCESS = 0;
@@ -178,31 +184,32 @@ public final class Layout {
   public static final int AK_EFIX_TASKDETAILED__CREATED_BY = 584;
   public static final int AK_EFIX_TASKDETAILED__PRESENCE = 608;
 
-  public static final int AK_DFIX_TASKDETAILED_SIZE = 432;   // align 8
+  public static final int AK_DFIX_TASKDETAILED_SIZE = 800;   // align 8
   public static final int AK_DFIX_TASKDETAILED__ID = 0;
   public static final int AK_DFIX_TASKDETAILED__SESSION_ID = 12;
   public static final int AK_DFIX_TASKDETAILED__OWNER_POD_ID = 24;
   public static final int AK_DFIX_TASKDETAILED__STATUS = 36;
   public static final int AK_DFIX_TASKDETAILED__STATUS_MESSAGE = 40;
   public static final int AK_DFIX_TASKDETAILED__OPTIONS = 56;
-  public static final int AK_DFIX_TASKDETAILED__CREATED_AT = 160;
-  public static final int AK_DFIX_TASKDETAILED__SUBMITTED_AT = 176;
-  public static final int AK_DFIX_TASKDETAILED__STARTED_AT = 192;
-  public static final int AK_DFIX_TASKDETAILED__ENDED_AT = 208;
-  public static final int AK_DFIX_TASKDETAILED__POD_TTL = 224;
-  public static final int AK_DFIX_TASKDETAILED__OUTPUT = 240;
-  public static final int AK_DFIX_TASKDETAILED__POD_HOSTNAME = 260;
-  public static final int AK_DFIX_TASKDETAILED__RECEIVED_AT = 272;
-  public static final int AK_DFIX_TASKDETAILED__ACQUIRED_AT = 288;
-  public static final int AK_DFIX_TASKDETAILED__CREATION_TO_END_DURATION = 304;
-  public static final int AK_DFIX_TASKDETAILED__PROCESSING_TO_END_DURATION = 320;
-  public static final int AK_DFIX_TASKDETAILED__INITIAL_TASK_ID = 336;
-  public static final int AK_DFIX_TASKDETAILED__RECEIVED_TO_END_DURATION = 352;
-  public static final int AK_DFIX_TASKDETAILED__PROCESSED_AT = 368;
-  public static final int AK_DFIX_TASKDETAILED__FETCHED_AT = 384;
-  public static final int AK_DFIX_TASKDETAILED__PAYLOAD_ID = 400;
-  public static final int AK_DFIX_TASKDETAILED__CREATED_BY = 412;
-  public static final int AK_DFIX_TASKDETAILED__PRESENCE = 424;
+  public static final int AK_DFIX_TASKDETAILED__CREATED_AT = 200;
+  public static final int AK_DFIX_TASKDETAILED__SUBMITTED_AT = 240;
+  public static final int AK_DFIX_TASKDETAILED__STARTED_AT = 280;
+  public static final int AK_DFIX_TASKDETAILED__ENDED_AT = 320;
+  public static final int AK_DFIX_TASKDETAILED__POD_TTL = 360;
+  public static final int AK_DFIX_TASKDETAILED__OUTPUT = 400;
+  public static final int AK_DFIX_TASKDETAILED__POD_HOSTNAME = 440;
+  public static final int AK_DFIX_TASKDETAILED__RECEIVED_AT = 456;
+  public static final int AK_DFIX_TASKDETAILED__ACQUIRED_AT = 496;
+  public static final int AK_DFIX_TASKDETAILED__CREATION_TO_END_DURATION = 536;
+  public static final int AK_DFIX_TASKDETAILED__PROCESSING_TO_END_DURATION = 576;
+  public static final int AK_DFIX_TASKDETAILED__INITIAL_TASK_ID = 616;
+  public static final int AK_DFIX_TASKDETAILED__RECEIVED_TO_END_DURATION = 632;
+  public static final int AK_DFIX_TASKDETAILED__PROCESSED_AT = 672;
+  public static final int AK_DFIX_TASKDETAILED__FETCHED_AT = 712;
+  public static final int AK_DFIX_TASKDETAILED__PAYLOAD_ID = 752;
+  public static final int AK_DFIX_TASKDETAILED__CREATED_BY = 764;
+  public static final int AK_DFIX_TASKDETAILED__UNKNOWN = 776;
+  public static final int AK_DFIX_TASKDETAILED__PRESENCE = 792;
 
   public static final int AK_UFIX_TASKDETAILED_SIZE = 976;   // align 8
   public static final int AK_UFIX_TASKDETAILED__ID = 0;
@@ -242,16 +249,17 @@ public final class Layout {
   public static final int AK_EFIX_TASKSUMMARY__COUNT_DATA_DEPENDENCIES = 296;
   public static final int AK_EFIX_TASKSUMMARY__PRESENCE = 304;
 
-  public static final int AK_DFIX_TASKSUMMARY_SIZE = 192;   // align 8
+  public static final int AK_DFIX_TASKSUMMARY_SIZE = 272;   // align 8
   public static final int AK_DFIX_TASKSUMMARY__ID = 0;
   public static final int AK_DFIX_TASKSUMMARY__SESSION_ID = 12;
   public static final int AK_DFIX_TASKSUMMARY__OPTIONS = 24;
-  public static final int AK_DFIX_TASKSUMMARY__STATUS = 128;
-  public static final int AK_DFIX_TASKSUMMARY__CREATED_AT = 136;
-  public static final int AK_DFIX_TASKSUMMARY__ERROR = 152;
-  public static final int AK_DFIX_TASKSUMMARY__STATUS_MESSAGE = 164;
-  public static final int AK_DFIX_TASKSUMMARY__COUNT_DATA_DEPENDENCIES = 176;
-  public static final int AK_DFIX_TASKSUMMARY__PRESENCE = 184;
+  public static final int AK_DFIX_TASKSUMMARY__STATUS = 168;
+  public static final int AK_DFIX_TASKSUMMARY__CREATED_AT = 176;
+  public static final int AK_DFIX_TASKSUMMARY__ERROR = 216;
+  public static final int AK_DFIX_TASKSUMMARY__STATUS_MESSAGE = 228;
+  public static final int AK_DFIX_TASKSUMMARY__COUNT_DATA_DEPENDENCIES = 240;
+  public static final int AK_DFIX_TASKSUMMARY__UNKNOWN = 248;
+  public static final int AK_DFIX_TASKSUMMARY__PRESENCE = 264;
 
   public static final int AK_UFIX_TASKSUMMARY_SIZE = 392;   // align 8
   public static final int AK_UFIX_TASKSUMMARY__ID = 0;
@@ -268,8 +276,9 @@ public final class Layout {
   public static final int AK_EFIX_EMPTY_SIZE = 4;   // align 4
   public static final int AK_EFIX_EMPTY__PRESENCE = 0;
 
-  public static final int AK_DFIX_EMPTY_SIZE = 4;   // align 4
-  public static final int AK_DFIX_EMPTY__PRESENCE = 0;
+  public static final int AK_DFIX_EMPTY_SIZE = 24;   // align 8
+  public static final int AK_DFIX_EMPTY__UNKNOWN = 0;
+  public static final int AK_DFIX_EMPTY__PRESENCE = 16;
 
   public static final int AK_UFIX_EMPTY_SIZE = 24;   // align 8
   public static final int AK_UFIX_EMPTY__UNKNOWN = 0;
@@ -288,7 +297,7 @@ public final class Layout {
   public static final int AK_EFIX_PROBE__BODY_AS_NOTHING = 136;
   public static final int AK_EFIX_PROBE__PRESENCE = 140;
 
-  public static final int AK_DFIX_PROBE_SIZE = 96;   // align 8
+  public static final int AK_DFIX_PROBE_SIZE = 160;   // align 8
   public static final int AK_DFIX_PROBE__ID = 0;
   public static final int AK_DFIX_PROBE__OPT_COUNT = 12;
   public static final int AK_DFIX_PROBE__OPT_LABEL = 16;
@@ -298,8 +307,9 @@ public final class Layout {
   public static final int AK_DFIX_PROBE__BODY_AS_TEXT = 48;
   public static final int AK_DFIX_PROBE__BODY_AS_BLOB = 60;
   public static final int AK_DFIX_PROBE__BODY_AS_STAMP = 72;
-  public static final int AK_DFIX_PROBE__BODY_AS_NOTHING = 88;
-  public static final int AK_DFIX_PROBE__PRESENCE = 92;
+  public static final int AK_DFIX_PROBE__BODY_AS_NOTHING = 112;
+  public static final int AK_DFIX_PROBE__UNKNOWN = 136;
+  public static final int AK_DFIX_PROBE__PRESENCE = 152;
 
   public static final int AK_UFIX_PROBE_SIZE = 208;   // align 8
   public static final int AK_UFIX_PROBE__ID = 0;
@@ -321,11 +331,12 @@ public final class Layout {
   public static final int AK_EFIX_UPLOADRESULTDATA__DATA_CHUNK = 48;
   public static final int AK_EFIX_UPLOADRESULTDATA__PRESENCE = 72;
 
-  public static final int AK_DFIX_UPLOADRESULTDATA_SIZE = 40;   // align 4
+  public static final int AK_DFIX_UPLOADRESULTDATA_SIZE = 64;   // align 8
   public static final int AK_DFIX_UPLOADRESULTDATA__SESSION_ID = 0;
   public static final int AK_DFIX_UPLOADRESULTDATA__RESULT_ID = 12;
   public static final int AK_DFIX_UPLOADRESULTDATA__DATA_CHUNK = 24;
-  public static final int AK_DFIX_UPLOADRESULTDATA__PRESENCE = 36;
+  public static final int AK_DFIX_UPLOADRESULTDATA__UNKNOWN = 40;
+  public static final int AK_DFIX_UPLOADRESULTDATA__PRESENCE = 56;
 
   public static final int AK_UFIX_UPLOADRESULTDATA_SIZE = 96;   // align 8
   public static final int AK_UFIX_UPLOADRESULTDATA__SESSION_ID = 0;
@@ -338,9 +349,10 @@ public final class Layout {
   public static final int AK_EFIX_METRICSBATCH__ID = 0;
   public static final int AK_EFIX_METRICSBATCH__PRESENCE = 24;
 
-  public static final int AK_DFIX_METRICSBATCH_SIZE = 16;   // align 4
+  public static final int AK_DFIX_METRICSBATCH_SIZE = 40;   // align 8
   public static final int AK_DFIX_METRICSBATCH__ID = 0;
-  public static final int AK_DFIX_METRICSBATCH__PRESENCE = 12;
+  public static final int AK_DFIX_METRICSBATCH__UNKNOWN = 16;
+  public static final int AK_DFIX_METRICSBATCH__PRESENCE = 32;
 
   public static final int AK_UFIX_METRICSBATCH_SIZE = 48;   // align 8
   public static final int AK_UFIX_METRICSBATCH__ID = 0;
@@ -352,10 +364,11 @@ public final class Layout {
   public static final int AK_EFIX_PAIR__VALUE = 24;
   public static final int AK_EFIX_PAIR__PRESENCE = 28;
 
-  public static final int AK_DFIX_PAIR_SIZE = 20;   // align 4
+  public static final int AK_DFIX_PAIR_SIZE = 40;   // align 8
   public static final int AK_DFIX_PAIR__KEY = 0;
   public static final int AK_DFIX_PAIR__VALUE = 12;
-  public static final int AK_DFIX_PAIR__PRESENCE = 16;
+  public static final int AK_DFIX_PAIR__UNKNOWN = 16;
+  public static final int AK_DFIX_PAIR__PRESENCE = 32;
 
   public static final int AK_UFIX_PAIR_SIZE = 56;   // align 8
   public static final int AK_UFIX_PAIR__KEY = 0;
@@ -368,10 +381,11 @@ public final class Layout {
   public static final int AK_EFIX_LISTRESULTSRESPONSE__TOTAL = 4;
   public static final int AK_EFIX_LISTRESULTSRESPONSE__PRESENCE = 8;
 
-  public static final int AK_DFIX_LISTRESULTSRESPONSE_SIZE = 12;   // align 4
+  public static final int AK_DFIX_LISTRESULTSRESPONSE_SIZE = 32;   // align 8
   public static final int AK_DFIX_LISTRESULTSRESPONSE__PAGE = 0;
   public static final int AK_DFIX_LISTRESULTSRESPONSE__TOTAL = 4;
-  public static final int AK_DFIX_LISTRESULTSRESPONSE__PRESENCE = 8;
+  public static final int AK_DFIX_LISTRESULTSRESPONSE__UNKNOWN = 8;
+  public static final int AK_DFIX_LISTRESULTSRESPONSE__PRESENCE = 24;
 
   public static final int AK_UFIX_LISTRESULTSRESPONSE_SIZE = 32;   // align 8
   public static final int AK_UFIX_LISTRESULTSRESPONSE__PAGE = 0;
@@ -384,10 +398,11 @@ public final class Layout {
   public static final int AK_EFIX_LISTTASKSDETAILEDRESPONSE__TOTAL = 4;
   public static final int AK_EFIX_LISTTASKSDETAILEDRESPONSE__PRESENCE = 8;
 
-  public static final int AK_DFIX_LISTTASKSDETAILEDRESPONSE_SIZE = 12;   // align 4
+  public static final int AK_DFIX_LISTTASKSDETAILEDRESPONSE_SIZE = 32;   // align 8
   public static final int AK_DFIX_LISTTASKSDETAILEDRESPONSE__PAGE = 0;
   public static final int AK_DFIX_LISTTASKSDETAILEDRESPONSE__TOTAL = 4;
-  public static final int AK_DFIX_LISTTASKSDETAILEDRESPONSE__PRESENCE = 8;
+  public static final int AK_DFIX_LISTTASKSDETAILEDRESPONSE__UNKNOWN = 8;
+  public static final int AK_DFIX_LISTTASKSDETAILEDRESPONSE__PRESENCE = 24;
 
   public static final int AK_UFIX_LISTTASKSDETAILEDRESPONSE_SIZE = 32;   // align 8
   public static final int AK_UFIX_LISTTASKSDETAILEDRESPONSE__PAGE = 0;
@@ -398,8 +413,9 @@ public final class Layout {
   public static final int AK_EFIX_LISTTASKSUMMARYRESPONSE_SIZE = 4;   // align 4
   public static final int AK_EFIX_LISTTASKSUMMARYRESPONSE__PRESENCE = 0;
 
-  public static final int AK_DFIX_LISTTASKSUMMARYRESPONSE_SIZE = 4;   // align 4
-  public static final int AK_DFIX_LISTTASKSUMMARYRESPONSE__PRESENCE = 0;
+  public static final int AK_DFIX_LISTTASKSUMMARYRESPONSE_SIZE = 24;   // align 8
+  public static final int AK_DFIX_LISTTASKSUMMARYRESPONSE__UNKNOWN = 0;
+  public static final int AK_DFIX_LISTTASKSUMMARYRESPONSE__PRESENCE = 16;
 
   public static final int AK_UFIX_LISTTASKSUMMARYRESPONSE_SIZE = 24;   // align 8
   public static final int AK_UFIX_LISTTASKSUMMARYRESPONSE__UNKNOWN = 0;
@@ -408,8 +424,9 @@ public final class Layout {
   public static final int AK_EFIX_LISTPROBERESPONSE_SIZE = 4;   // align 4
   public static final int AK_EFIX_LISTPROBERESPONSE__PRESENCE = 0;
 
-  public static final int AK_DFIX_LISTPROBERESPONSE_SIZE = 4;   // align 4
-  public static final int AK_DFIX_LISTPROBERESPONSE__PRESENCE = 0;
+  public static final int AK_DFIX_LISTPROBERESPONSE_SIZE = 24;   // align 8
+  public static final int AK_DFIX_LISTPROBERESPONSE__UNKNOWN = 0;
+  public static final int AK_DFIX_LISTPROBERESPONSE__PRESENCE = 16;
 
   public static final int AK_UFIX_LISTPROBERESPONSE_SIZE = 24;   // align 8
   public static final int AK_UFIX_LISTPROBERESPONSE__UNKNOWN = 0;
@@ -418,8 +435,9 @@ public final class Layout {
   public static final int AK_EFIX_LISTMETRICSRESPONSE_SIZE = 4;   // align 4
   public static final int AK_EFIX_LISTMETRICSRESPONSE__PRESENCE = 0;
 
-  public static final int AK_DFIX_LISTMETRICSRESPONSE_SIZE = 4;   // align 4
-  public static final int AK_DFIX_LISTMETRICSRESPONSE__PRESENCE = 0;
+  public static final int AK_DFIX_LISTMETRICSRESPONSE_SIZE = 24;   // align 8
+  public static final int AK_DFIX_LISTMETRICSRESPONSE__UNKNOWN = 0;
+  public static final int AK_DFIX_LISTMETRICSRESPONSE__PRESENCE = 16;
 
   public static final int AK_UFIX_LISTMETRICSRESPONSE_SIZE = 24;   // align 8
   public static final int AK_UFIX_LISTMETRICSRESPONSE__UNKNOWN = 0;
@@ -429,9 +447,10 @@ public final class Layout {
   public static final int AK_EFIX_UPLOADRESULTDATAMESSAGE__UPLOAD = 0;
   public static final int AK_EFIX_UPLOADRESULTDATAMESSAGE__PRESENCE = 80;
 
-  public static final int AK_DFIX_UPLOADRESULTDATAMESSAGE_SIZE = 44;   // align 4
+  public static final int AK_DFIX_UPLOADRESULTDATAMESSAGE_SIZE = 88;   // align 8
   public static final int AK_DFIX_UPLOADRESULTDATAMESSAGE__UPLOAD = 0;
-  public static final int AK_DFIX_UPLOADRESULTDATAMESSAGE__PRESENCE = 40;
+  public static final int AK_DFIX_UPLOADRESULTDATAMESSAGE__UNKNOWN = 64;
+  public static final int AK_DFIX_UPLOADRESULTDATAMESSAGE__PRESENCE = 80;
 
   public static final int AK_UFIX_UPLOADRESULTDATAMESSAGE_SIZE = 120;   // align 8
   public static final int AK_UFIX_UPLOADRESULTDATAMESSAGE__UPLOAD = 0;
@@ -441,8 +460,9 @@ public final class Layout {
   public static final int AK_EFIX_DUALRESPONSE_SIZE = 4;   // align 4
   public static final int AK_EFIX_DUALRESPONSE__PRESENCE = 0;
 
-  public static final int AK_DFIX_DUALRESPONSE_SIZE = 4;   // align 4
-  public static final int AK_DFIX_DUALRESPONSE__PRESENCE = 0;
+  public static final int AK_DFIX_DUALRESPONSE_SIZE = 24;   // align 8
+  public static final int AK_DFIX_DUALRESPONSE__UNKNOWN = 0;
+  public static final int AK_DFIX_DUALRESPONSE__PRESENCE = 16;
 
   public static final int AK_UFIX_DUALRESPONSE_SIZE = 24;   // align 8
   public static final int AK_UFIX_DUALRESPONSE__UNKNOWN = 0;
@@ -454,10 +474,11 @@ public final class Layout {
     0,
     24,
     48,
-    28,
+    48,
     0,
     12,
     24,
+    40,
     72,
     0,
     24,
@@ -467,10 +488,11 @@ public final class Layout {
     0,
     8,
     12,
-    16,
+    40,
     0,
     8,
-    12,
+    16,
+    32,
     40,
     0,
     8,
@@ -480,10 +502,11 @@ public final class Layout {
     0,
     8,
     12,
-    16,
+    40,
     0,
     8,
-    12,
+    16,
+    32,
     40,
     0,
     8,
@@ -502,19 +525,20 @@ public final class Layout {
     168,
     192,
     196,
-    128,
+    200,
     0,
     12,
     24,
     36,
     40,
-    56,
-    72,
-    88,
-    96,
-    108,
+    80,
     120,
-    124,
+    136,
+    144,
+    156,
+    168,
+    176,
+    192,
     272,
     0,
     24,
@@ -540,17 +564,18 @@ public final class Layout {
     120,
     144,
     168,
-    104,
+    144,
     0,
-    16,
-    20,
-    24,
-    36,
+    40,
+    44,
     48,
     60,
     72,
     84,
     96,
+    108,
+    120,
+    136,
     216,
     0,
     40,
@@ -567,10 +592,11 @@ public final class Layout {
     0,
     8,
     32,
-    20,
+    40,
     0,
     4,
     16,
+    32,
     56,
     0,
     8,
@@ -601,31 +627,32 @@ public final class Layout {
     560,
     584,
     608,
-    432,
+    800,
     0,
     12,
     24,
     36,
     40,
     56,
-    160,
-    176,
-    192,
-    208,
-    224,
+    200,
     240,
-    260,
-    272,
-    288,
-    304,
+    280,
     320,
-    336,
-    352,
-    368,
-    384,
+    360,
     400,
-    412,
-    424,
+    440,
+    456,
+    496,
+    536,
+    576,
+    616,
+    632,
+    672,
+    712,
+    752,
+    764,
+    776,
+    792,
     976,
     0,
     24,
@@ -662,16 +689,17 @@ public final class Layout {
     272,
     296,
     304,
-    192,
+    272,
     0,
     12,
     24,
-    128,
-    136,
-    152,
-    164,
+    168,
     176,
-    184,
+    216,
+    228,
+    240,
+    248,
+    264,
     392,
     0,
     24,
@@ -685,8 +713,9 @@ public final class Layout {
     384,
     4,
     0,
-    4,
+    24,
     0,
+    16,
     24,
     0,
     16,
@@ -702,7 +731,7 @@ public final class Layout {
     120,
     136,
     140,
-    96,
+    160,
     0,
     12,
     16,
@@ -712,8 +741,9 @@ public final class Layout {
     48,
     60,
     72,
-    88,
-    92,
+    112,
+    136,
+    152,
     208,
     0,
     24,
@@ -732,11 +762,12 @@ public final class Layout {
     24,
     48,
     72,
-    40,
+    64,
     0,
     12,
     24,
-    36,
+    40,
+    56,
     96,
     0,
     24,
@@ -746,9 +777,10 @@ public final class Layout {
     32,
     0,
     24,
-    16,
+    40,
     0,
-    12,
+    16,
+    32,
     48,
     0,
     24,
@@ -757,10 +789,11 @@ public final class Layout {
     0,
     24,
     28,
-    20,
+    40,
     0,
     12,
     16,
+    32,
     56,
     0,
     24,
@@ -770,10 +803,11 @@ public final class Layout {
     0,
     4,
     8,
-    12,
+    32,
     0,
     4,
     8,
+    24,
     32,
     0,
     4,
@@ -783,10 +817,11 @@ public final class Layout {
     0,
     4,
     8,
-    12,
+    32,
     0,
     4,
     8,
+    24,
     32,
     0,
     4,
@@ -794,39 +829,44 @@ public final class Layout {
     24,
     4,
     0,
-    4,
+    24,
     0,
+    16,
     24,
     0,
     16,
     4,
     0,
-    4,
+    24,
     0,
+    16,
     24,
     0,
     16,
     4,
     0,
-    4,
+    24,
     0,
+    16,
     24,
     0,
     16,
     88,
     0,
     80,
-    44,
+    88,
     0,
-    40,
+    64,
+    80,
     120,
     0,
     96,
     112,
     4,
     0,
-    4,
+    24,
     0,
+    16,
     24,
     0,
     16,
@@ -840,6 +880,7 @@ public final class Layout {
     "sizeof ak_dfix_TaskOptionsOptionsEntry",
     "ak_dfix_TaskOptionsOptionsEntry.key",
     "ak_dfix_TaskOptionsOptionsEntry.value",
+    "ak_dfix_TaskOptionsOptionsEntry.unknown",
     "ak_dfix_TaskOptionsOptionsEntry.presence",
     "sizeof ak_ufix_TaskOptionsOptionsEntry",
     "ak_ufix_TaskOptionsOptionsEntry.key",
@@ -853,6 +894,7 @@ public final class Layout {
     "sizeof ak_dfix_Timestamp",
     "ak_dfix_Timestamp.seconds",
     "ak_dfix_Timestamp.nanos",
+    "ak_dfix_Timestamp.unknown",
     "ak_dfix_Timestamp.presence",
     "sizeof ak_ufix_Timestamp",
     "ak_ufix_Timestamp.seconds",
@@ -866,6 +908,7 @@ public final class Layout {
     "sizeof ak_dfix_Duration",
     "ak_dfix_Duration.seconds",
     "ak_dfix_Duration.nanos",
+    "ak_dfix_Duration.unknown",
     "ak_dfix_Duration.presence",
     "sizeof ak_ufix_Duration",
     "ak_ufix_Duration.seconds",
@@ -897,6 +940,7 @@ public final class Layout {
     "ak_dfix_ResultRaw.created_by",
     "ak_dfix_ResultRaw.opaque_id",
     "ak_dfix_ResultRaw.manual_deletion",
+    "ak_dfix_ResultRaw.unknown",
     "ak_dfix_ResultRaw.presence",
     "sizeof ak_ufix_ResultRaw",
     "ak_ufix_ResultRaw.session_id",
@@ -933,6 +977,7 @@ public final class Layout {
     "ak_dfix_TaskOptions.application_namespace",
     "ak_dfix_TaskOptions.application_service",
     "ak_dfix_TaskOptions.engine_type",
+    "ak_dfix_TaskOptions.unknown",
     "ak_dfix_TaskOptions.presence",
     "sizeof ak_ufix_TaskOptions",
     "ak_ufix_TaskOptions.max_duration",
@@ -953,6 +998,7 @@ public final class Layout {
     "sizeof ak_dfix_TaskOutput",
     "ak_dfix_TaskOutput.success",
     "ak_dfix_TaskOutput.error",
+    "ak_dfix_TaskOutput.unknown",
     "ak_dfix_TaskOutput.presence",
     "sizeof ak_ufix_TaskOutput",
     "ak_ufix_TaskOutput.success",
@@ -1008,6 +1054,7 @@ public final class Layout {
     "ak_dfix_TaskDetailed.fetched_at",
     "ak_dfix_TaskDetailed.payload_id",
     "ak_dfix_TaskDetailed.created_by",
+    "ak_dfix_TaskDetailed.unknown",
     "ak_dfix_TaskDetailed.presence",
     "sizeof ak_ufix_TaskDetailed",
     "ak_ufix_TaskDetailed.id",
@@ -1054,6 +1101,7 @@ public final class Layout {
     "ak_dfix_TaskSummary.error",
     "ak_dfix_TaskSummary.status_message",
     "ak_dfix_TaskSummary.count_data_dependencies",
+    "ak_dfix_TaskSummary.unknown",
     "ak_dfix_TaskSummary.presence",
     "sizeof ak_ufix_TaskSummary",
     "ak_ufix_TaskSummary.id",
@@ -1069,6 +1117,7 @@ public final class Layout {
     "sizeof ak_efix_Empty",
     "ak_efix_Empty.presence",
     "sizeof ak_dfix_Empty",
+    "ak_dfix_Empty.unknown",
     "ak_dfix_Empty.presence",
     "sizeof ak_ufix_Empty",
     "ak_ufix_Empty.unknown",
@@ -1096,6 +1145,7 @@ public final class Layout {
     "ak_dfix_Probe.body_as_blob",
     "ak_dfix_Probe.body_as_stamp",
     "ak_dfix_Probe.body_as_nothing",
+    "ak_dfix_Probe.unknown",
     "ak_dfix_Probe.presence",
     "sizeof ak_ufix_Probe",
     "ak_ufix_Probe.id",
@@ -1119,6 +1169,7 @@ public final class Layout {
     "ak_dfix_UploadResultData.session_id",
     "ak_dfix_UploadResultData.result_id",
     "ak_dfix_UploadResultData.data_chunk",
+    "ak_dfix_UploadResultData.unknown",
     "ak_dfix_UploadResultData.presence",
     "sizeof ak_ufix_UploadResultData",
     "ak_ufix_UploadResultData.session_id",
@@ -1131,6 +1182,7 @@ public final class Layout {
     "ak_efix_MetricsBatch.presence",
     "sizeof ak_dfix_MetricsBatch",
     "ak_dfix_MetricsBatch.id",
+    "ak_dfix_MetricsBatch.unknown",
     "ak_dfix_MetricsBatch.presence",
     "sizeof ak_ufix_MetricsBatch",
     "ak_ufix_MetricsBatch.id",
@@ -1143,6 +1195,7 @@ public final class Layout {
     "sizeof ak_dfix_Pair",
     "ak_dfix_Pair.key",
     "ak_dfix_Pair.value",
+    "ak_dfix_Pair.unknown",
     "ak_dfix_Pair.presence",
     "sizeof ak_ufix_Pair",
     "ak_ufix_Pair.key",
@@ -1156,6 +1209,7 @@ public final class Layout {
     "sizeof ak_dfix_ListResultsResponse",
     "ak_dfix_ListResultsResponse.page",
     "ak_dfix_ListResultsResponse.total",
+    "ak_dfix_ListResultsResponse.unknown",
     "ak_dfix_ListResultsResponse.presence",
     "sizeof ak_ufix_ListResultsResponse",
     "ak_ufix_ListResultsResponse.page",
@@ -1169,6 +1223,7 @@ public final class Layout {
     "sizeof ak_dfix_ListTasksDetailedResponse",
     "ak_dfix_ListTasksDetailedResponse.page",
     "ak_dfix_ListTasksDetailedResponse.total",
+    "ak_dfix_ListTasksDetailedResponse.unknown",
     "ak_dfix_ListTasksDetailedResponse.presence",
     "sizeof ak_ufix_ListTasksDetailedResponse",
     "ak_ufix_ListTasksDetailedResponse.page",
@@ -1178,6 +1233,7 @@ public final class Layout {
     "sizeof ak_efix_ListTaskSummaryResponse",
     "ak_efix_ListTaskSummaryResponse.presence",
     "sizeof ak_dfix_ListTaskSummaryResponse",
+    "ak_dfix_ListTaskSummaryResponse.unknown",
     "ak_dfix_ListTaskSummaryResponse.presence",
     "sizeof ak_ufix_ListTaskSummaryResponse",
     "ak_ufix_ListTaskSummaryResponse.unknown",
@@ -1185,6 +1241,7 @@ public final class Layout {
     "sizeof ak_efix_ListProbeResponse",
     "ak_efix_ListProbeResponse.presence",
     "sizeof ak_dfix_ListProbeResponse",
+    "ak_dfix_ListProbeResponse.unknown",
     "ak_dfix_ListProbeResponse.presence",
     "sizeof ak_ufix_ListProbeResponse",
     "ak_ufix_ListProbeResponse.unknown",
@@ -1192,6 +1249,7 @@ public final class Layout {
     "sizeof ak_efix_ListMetricsResponse",
     "ak_efix_ListMetricsResponse.presence",
     "sizeof ak_dfix_ListMetricsResponse",
+    "ak_dfix_ListMetricsResponse.unknown",
     "ak_dfix_ListMetricsResponse.presence",
     "sizeof ak_ufix_ListMetricsResponse",
     "ak_ufix_ListMetricsResponse.unknown",
@@ -1201,6 +1259,7 @@ public final class Layout {
     "ak_efix_UploadResultDataMessage.presence",
     "sizeof ak_dfix_UploadResultDataMessage",
     "ak_dfix_UploadResultDataMessage.upload",
+    "ak_dfix_UploadResultDataMessage.unknown",
     "ak_dfix_UploadResultDataMessage.presence",
     "sizeof ak_ufix_UploadResultDataMessage",
     "ak_ufix_UploadResultDataMessage.upload",
@@ -1209,6 +1268,7 @@ public final class Layout {
     "sizeof ak_efix_DualResponse",
     "ak_efix_DualResponse.presence",
     "sizeof ak_dfix_DualResponse",
+    "ak_dfix_DualResponse.unknown",
     "ak_dfix_DualResponse.presence",
     "sizeof ak_ufix_DualResponse",
     "ak_ufix_DualResponse.unknown",

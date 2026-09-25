@@ -258,7 +258,7 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
    *  pointer, so the layout is index times eight and needs no offset
    *  table of its own. */
   private void buildVtables() {
-    vt = Mem.alloc(180L * 8);
+    vt = Mem.alloc(134L * 8);
     Mem.U.putLong(vt + 0 * 8, 0L);   // Timestamp: reserved
     Mem.U.putLong(vt + 1 * 8, 0L);   // Duration: reserved
     Mem.U.putLong(vt + 2 * 8, 0L);   // ResultRaw: reserved
@@ -311,134 +311,88 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     Mem.U.putLong(vt + 49 * 8, 0L);   // ChunkElementAttrsEntry: reserved
     Mem.U.putLong(vt + 50 * 8, 0L);   // SurrogateAttrsEntry: reserved
     Mem.U.putLong(vt + 51 * 8, ak.corpus.NativeEntry.decTrampoline(0));   // Timestamp.apply 
-    Mem.U.putLong(vt + 52 * 8, 0L);   // Timestamp.unknown : decision 11's bag is not built
-    Mem.U.putLong(vt + 53 * 8, ak.corpus.NativeEntry.decTrampoline(1));   // Duration.apply 
-    Mem.U.putLong(vt + 54 * 8, 0L);   // Duration.unknown : decision 11's bag is not built
-    Mem.U.putLong(vt + 55 * 8, ak.corpus.NativeEntry.decTrampoline(2));   // ResultRaw.apply 
-    Mem.U.putLong(vt + 56 * 8, 0L);   // ResultRaw.unknown : decision 11's bag is not built
-    Mem.U.putLong(vt + 57 * 8, ak.corpus.NativeEntry.decTrampoline(3));   // TaskOptions.apply 
-    Mem.U.putLong(vt + 58 * 8, 0L);   // TaskOptions.unknown : decision 11's bag is not built
-    Mem.U.putLong(vt + 59 * 8, 0L);   // TaskOptions.unk options: decision 11's bag is not built
-    Mem.U.putLong(vt + 60 * 8, ak.corpus.NativeEntry.decTrampoline(4));   // TaskOptions.add options
-    Mem.U.putLong(vt + 61 * 8, ak.corpus.NativeEntry.decTrampoline(5));   // TaskOutput.apply 
-    Mem.U.putLong(vt + 62 * 8, 0L);   // TaskOutput.unknown : decision 11's bag is not built
-    Mem.U.putLong(vt + 63 * 8, ak.corpus.NativeEntry.decTrampoline(6));   // TaskDetailed.apply 
-    Mem.U.putLong(vt + 64 * 8, 0L);   // TaskDetailed.unknown : decision 11's bag is not built
-    Mem.U.putLong(vt + 65 * 8, ak.corpus.NativeEntry.decTrampoline(7));   // TaskDetailed.add parent_task_ids
-    Mem.U.putLong(vt + 66 * 8, ak.corpus.NativeEntry.decTrampoline(8));   // TaskDetailed.add data_dependencies
-    Mem.U.putLong(vt + 67 * 8, ak.corpus.NativeEntry.decTrampoline(9));   // TaskDetailed.add expected_output_ids
-    Mem.U.putLong(vt + 68 * 8, ak.corpus.NativeEntry.decTrampoline(10));   // TaskDetailed.add retry_of_ids
-    Mem.U.putLong(vt + 69 * 8, 0L);   // TaskDetailed.unk options_options: decision 11's bag is not built
-    Mem.U.putLong(vt + 70 * 8, ak.corpus.NativeEntry.decTrampoline(11));   // TaskDetailed.add options_options
-    Mem.U.putLong(vt + 71 * 8, ak.corpus.NativeEntry.decTrampoline(12));   // TaskSummary.apply 
-    Mem.U.putLong(vt + 72 * 8, 0L);   // TaskSummary.unknown : decision 11's bag is not built
-    Mem.U.putLong(vt + 73 * 8, 0L);   // TaskSummary.unk options_options: decision 11's bag is not built
-    Mem.U.putLong(vt + 74 * 8, ak.corpus.NativeEntry.decTrampoline(13));   // TaskSummary.add options_options
-    Mem.U.putLong(vt + 75 * 8, ak.corpus.NativeEntry.decTrampoline(14));   // Probe.apply 
-    Mem.U.putLong(vt + 76 * 8, 0L);   // Probe.unknown : decision 11's bag is not built
-    Mem.U.putLong(vt + 77 * 8, ak.corpus.NativeEntry.decTrampoline(15));   // Empty.apply 
-    Mem.U.putLong(vt + 78 * 8, 0L);   // Empty.unknown : decision 11's bag is not built
-    Mem.U.putLong(vt + 79 * 8, ak.corpus.NativeEntry.decTrampoline(16));   // UploadResultData.apply 
-    Mem.U.putLong(vt + 80 * 8, 0L);   // UploadResultData.unknown : decision 11's bag is not built
-    Mem.U.putLong(vt + 81 * 8, ak.corpus.NativeEntry.decTrampoline(17));   // MetricsBatch.apply 
-    Mem.U.putLong(vt + 82 * 8, 0L);   // MetricsBatch.unknown : decision 11's bag is not built
-    Mem.U.putLong(vt + 83 * 8, ak.corpus.NativeEntry.decTrampoline(18));   // MetricsBatch.add ticks
-    Mem.U.putLong(vt + 84 * 8, ak.corpus.NativeEntry.decTrampoline(19));   // MetricsBatch.add values
-    Mem.U.putLong(vt + 85 * 8, ak.corpus.NativeEntry.decTrampoline(20));   // MetricsBatch.add codes
-    Mem.U.putLong(vt + 86 * 8, ak.corpus.NativeEntry.decTrampoline(21));   // MetricsBatch.add flags
-    Mem.U.putLong(vt + 87 * 8, ak.corpus.NativeEntry.decTrampoline(22));   // MetricsBatch.add statuses
-    Mem.U.putLong(vt + 88 * 8, ak.corpus.NativeEntry.decTrampoline(23));   // Pair.apply 
-    Mem.U.putLong(vt + 89 * 8, 0L);   // Pair.unknown : decision 11's bag is not built
-    Mem.U.putLong(vt + 90 * 8, ak.corpus.NativeEntry.decTrampoline(24));   // ListResultsResponse.apply 
-    Mem.U.putLong(vt + 91 * 8, 0L);   // ListResultsResponse.unknown : decision 11's bag is not built
-    Mem.U.putLong(vt + 92 * 8, 0L);   // ListResultsResponse.unk results: decision 11's bag is not built
-    Mem.U.putLong(vt + 93 * 8, ak.corpus.NativeEntry.decTrampoline(25));   // ListResultsResponse.add results
-    Mem.U.putLong(vt + 94 * 8, ak.corpus.NativeEntry.decTrampoline(26));   // ListTasksDetailedResponse.apply 
-    Mem.U.putLong(vt + 95 * 8, 0L);   // ListTasksDetailedResponse.unknown : decision 11's bag is not built
-    Mem.U.putLong(vt + 96 * 8, 0L);   // ListTasksDetailedResponse.unk tasks: decision 11's bag is not built
-    Mem.U.putLong(vt + 97 * 8, ak.corpus.NativeEntry.decTrampoline(27));   // ListTasksDetailedResponse.new tasks
-    Mem.U.putLong(vt + 98 * 8, ak.corpus.NativeEntry.decTrampoline(28));   // ListTasksDetailedResponse.applyelem tasks
-    Mem.U.putLong(vt + 99 * 8, ak.corpus.NativeEntry.decTrampoline(29));   // ListTasksDetailedResponse.addinner tasks_parent_task_ids
-    Mem.U.putLong(vt + 100 * 8, ak.corpus.NativeEntry.decTrampoline(30));   // ListTasksDetailedResponse.addinner tasks_data_dependencies
-    Mem.U.putLong(vt + 101 * 8, ak.corpus.NativeEntry.decTrampoline(31));   // ListTasksDetailedResponse.addinner tasks_expected_output_ids
-    Mem.U.putLong(vt + 102 * 8, ak.corpus.NativeEntry.decTrampoline(32));   // ListTasksDetailedResponse.addinner tasks_retry_of_ids
-    Mem.U.putLong(vt + 103 * 8, ak.corpus.NativeEntry.decTrampoline(33));   // ListTasksDetailedResponse.addinner tasks_options_options
-    Mem.U.putLong(vt + 104 * 8, ak.corpus.NativeEntry.decTrampoline(34));   // ListTaskSummaryResponse.apply 
-    Mem.U.putLong(vt + 105 * 8, 0L);   // ListTaskSummaryResponse.unknown : decision 11's bag is not built
-    Mem.U.putLong(vt + 106 * 8, 0L);   // ListTaskSummaryResponse.unk tasks: decision 11's bag is not built
-    Mem.U.putLong(vt + 107 * 8, ak.corpus.NativeEntry.decTrampoline(35));   // ListTaskSummaryResponse.new tasks
-    Mem.U.putLong(vt + 108 * 8, ak.corpus.NativeEntry.decTrampoline(36));   // ListTaskSummaryResponse.applyelem tasks
-    Mem.U.putLong(vt + 109 * 8, ak.corpus.NativeEntry.decTrampoline(37));   // ListTaskSummaryResponse.addinner tasks_options_options
-    Mem.U.putLong(vt + 110 * 8, ak.corpus.NativeEntry.decTrampoline(38));   // ListProbeResponse.apply 
-    Mem.U.putLong(vt + 111 * 8, 0L);   // ListProbeResponse.unknown : decision 11's bag is not built
-    Mem.U.putLong(vt + 112 * 8, 0L);   // ListProbeResponse.unk probes: decision 11's bag is not built
-    Mem.U.putLong(vt + 113 * 8, ak.corpus.NativeEntry.decTrampoline(39));   // ListProbeResponse.add probes
-    Mem.U.putLong(vt + 114 * 8, ak.corpus.NativeEntry.decTrampoline(40));   // ListMetricsResponse.apply 
-    Mem.U.putLong(vt + 115 * 8, 0L);   // ListMetricsResponse.unknown : decision 11's bag is not built
-    Mem.U.putLong(vt + 116 * 8, 0L);   // ListMetricsResponse.unk batches: decision 11's bag is not built
-    Mem.U.putLong(vt + 117 * 8, ak.corpus.NativeEntry.decTrampoline(41));   // ListMetricsResponse.new batches
-    Mem.U.putLong(vt + 118 * 8, ak.corpus.NativeEntry.decTrampoline(42));   // ListMetricsResponse.applyelem batches
-    Mem.U.putLong(vt + 119 * 8, ak.corpus.NativeEntry.decTrampoline(43));   // ListMetricsResponse.addinner batches_ticks
-    Mem.U.putLong(vt + 120 * 8, ak.corpus.NativeEntry.decTrampoline(44));   // ListMetricsResponse.addinner batches_values
-    Mem.U.putLong(vt + 121 * 8, ak.corpus.NativeEntry.decTrampoline(45));   // ListMetricsResponse.addinner batches_codes
-    Mem.U.putLong(vt + 122 * 8, ak.corpus.NativeEntry.decTrampoline(46));   // ListMetricsResponse.addinner batches_flags
-    Mem.U.putLong(vt + 123 * 8, ak.corpus.NativeEntry.decTrampoline(47));   // ListMetricsResponse.addinner batches_statuses
-    Mem.U.putLong(vt + 124 * 8, ak.corpus.NativeEntry.decTrampoline(48));   // UploadResultDataMessage.apply 
-    Mem.U.putLong(vt + 125 * 8, 0L);   // UploadResultDataMessage.unknown : decision 11's bag is not built
-    Mem.U.putLong(vt + 126 * 8, ak.corpus.NativeEntry.decTrampoline(49));   // DualResponse.apply 
-    Mem.U.putLong(vt + 127 * 8, 0L);   // DualResponse.unknown : decision 11's bag is not built
-    Mem.U.putLong(vt + 128 * 8, 0L);   // DualResponse.unk left: decision 11's bag is not built
-    Mem.U.putLong(vt + 129 * 8, ak.corpus.NativeEntry.decTrampoline(50));   // DualResponse.add left
-    Mem.U.putLong(vt + 130 * 8, 0L);   // DualResponse.unk right: decision 11's bag is not built
-    Mem.U.putLong(vt + 131 * 8, ak.corpus.NativeEntry.decTrampoline(51));   // DualResponse.add right
-    Mem.U.putLong(vt + 132 * 8, ak.corpus.NativeEntry.decTrampoline(52));   // ChunkLeaf.apply 
-    Mem.U.putLong(vt + 133 * 8, 0L);   // ChunkLeaf.unknown : decision 11's bag is not built
-    Mem.U.putLong(vt + 134 * 8, ak.corpus.NativeEntry.decTrampoline(53));   // ChunkInner.apply 
-    Mem.U.putLong(vt + 135 * 8, 0L);   // ChunkInner.unknown : decision 11's bag is not built
-    Mem.U.putLong(vt + 136 * 8, ak.corpus.NativeEntry.decTrampoline(54));   // ChunkInner.add marks
-    Mem.U.putLong(vt + 137 * 8, 0L);   // ChunkInner.unk leaves: decision 11's bag is not built
-    Mem.U.putLong(vt + 138 * 8, ak.corpus.NativeEntry.decTrampoline(55));   // ChunkInner.add leaves
-    Mem.U.putLong(vt + 139 * 8, ak.corpus.NativeEntry.decTrampoline(56));   // ChunkElement.apply 
-    Mem.U.putLong(vt + 140 * 8, 0L);   // ChunkElement.unknown : decision 11's bag is not built
-    Mem.U.putLong(vt + 141 * 8, ak.corpus.NativeEntry.decTrampoline(57));   // ChunkElement.add labels
-    Mem.U.putLong(vt + 142 * 8, 0L);   // ChunkElement.unk attrs: decision 11's bag is not built
-    Mem.U.putLong(vt + 143 * 8, ak.corpus.NativeEntry.decTrampoline(58));   // ChunkElement.add attrs
-    Mem.U.putLong(vt + 144 * 8, ak.corpus.NativeEntry.decTrampoline(59));   // ChunkElement.add inner_marks
-    Mem.U.putLong(vt + 145 * 8, 0L);   // ChunkElement.unk inner_leaves: decision 11's bag is not built
-    Mem.U.putLong(vt + 146 * 8, ak.corpus.NativeEntry.decTrampoline(60));   // ChunkElement.add inner_leaves
-    Mem.U.putLong(vt + 147 * 8, ak.corpus.NativeEntry.decTrampoline(61));   // ChunkedResponse.apply 
-    Mem.U.putLong(vt + 148 * 8, 0L);   // ChunkedResponse.unknown : decision 11's bag is not built
-    Mem.U.putLong(vt + 149 * 8, 0L);   // ChunkedResponse.unk items: decision 11's bag is not built
-    Mem.U.putLong(vt + 150 * 8, ak.corpus.NativeEntry.decTrampoline(62));   // ChunkedResponse.new items
-    Mem.U.putLong(vt + 151 * 8, ak.corpus.NativeEntry.decTrampoline(63));   // ChunkedResponse.applyelem items
-    Mem.U.putLong(vt + 152 * 8, ak.corpus.NativeEntry.decTrampoline(64));   // ChunkedResponse.addinner items_labels
-    Mem.U.putLong(vt + 153 * 8, ak.corpus.NativeEntry.decTrampoline(65));   // ChunkedResponse.addinner items_attrs
-    Mem.U.putLong(vt + 154 * 8, ak.corpus.NativeEntry.decTrampoline(66));   // ChunkedResponse.addinner items_inner_marks
-    Mem.U.putLong(vt + 155 * 8, ak.corpus.NativeEntry.decTrampoline(67));   // ChunkedResponse.addinner items_inner_leaves
-    Mem.U.putLong(vt + 156 * 8, ak.corpus.NativeEntry.decTrampoline(68));   // ChunkedResponseWide.apply 
-    Mem.U.putLong(vt + 157 * 8, 0L);   // ChunkedResponseWide.unknown : decision 11's bag is not built
-    Mem.U.putLong(vt + 158 * 8, 0L);   // ChunkedResponseWide.unk items: decision 11's bag is not built
-    Mem.U.putLong(vt + 159 * 8, ak.corpus.NativeEntry.decTrampoline(69));   // ChunkedResponseWide.new items
-    Mem.U.putLong(vt + 160 * 8, ak.corpus.NativeEntry.decTrampoline(70));   // ChunkedResponseWide.applyelem items
-    Mem.U.putLong(vt + 161 * 8, ak.corpus.NativeEntry.decTrampoline(71));   // ChunkedResponseWide.addinner items_labels
-    Mem.U.putLong(vt + 162 * 8, ak.corpus.NativeEntry.decTrampoline(72));   // ChunkedResponseWide.addinner items_attrs
-    Mem.U.putLong(vt + 163 * 8, ak.corpus.NativeEntry.decTrampoline(73));   // ChunkedResponseWide.addinner items_inner_marks
-    Mem.U.putLong(vt + 164 * 8, ak.corpus.NativeEntry.decTrampoline(74));   // ChunkedResponseWide.addinner items_inner_leaves
-    Mem.U.putLong(vt + 165 * 8, ak.corpus.NativeEntry.decTrampoline(75));   // LeafElement.apply 
-    Mem.U.putLong(vt + 166 * 8, 0L);   // LeafElement.unknown : decision 11's bag is not built
-    Mem.U.putLong(vt + 167 * 8, ak.corpus.NativeEntry.decTrampoline(76));   // LeafResponse.apply 
-    Mem.U.putLong(vt + 168 * 8, 0L);   // LeafResponse.unknown : decision 11's bag is not built
-    Mem.U.putLong(vt + 169 * 8, 0L);   // LeafResponse.unk items: decision 11's bag is not built
-    Mem.U.putLong(vt + 170 * 8, ak.corpus.NativeEntry.decTrampoline(77));   // LeafResponse.add items
-    Mem.U.putLong(vt + 171 * 8, ak.corpus.NativeEntry.decTrampoline(78));   // Surrogate.apply 
-    Mem.U.putLong(vt + 172 * 8, 0L);   // Surrogate.unknown : decision 11's bag is not built
-    Mem.U.putLong(vt + 173 * 8, 0L);   // Surrogate.unk attrs: decision 11's bag is not built
-    Mem.U.putLong(vt + 174 * 8, ak.corpus.NativeEntry.decTrampoline(79));   // Surrogate.add attrs
-    Mem.U.putLong(vt + 175 * 8, ak.corpus.NativeEntry.decTrampoline(80));   // Surrogate.add texts
-    Mem.U.putLong(vt + 176 * 8, ak.corpus.NativeEntry.decTrampoline(81));   // SurrogateInner.apply 
-    Mem.U.putLong(vt + 177 * 8, 0L);   // SurrogateInner.unknown : decision 11's bag is not built
-    Mem.U.putLong(vt + 178 * 8, ak.corpus.NativeEntry.decTrampoline(82));   // WireZoo.apply 
-    Mem.U.putLong(vt + 179 * 8, 0L);   // WireZoo.unknown : decision 11's bag is not built
+    Mem.U.putLong(vt + 52 * 8, ak.corpus.NativeEntry.decTrampoline(1));   // Duration.apply 
+    Mem.U.putLong(vt + 53 * 8, ak.corpus.NativeEntry.decTrampoline(2));   // ResultRaw.apply 
+    Mem.U.putLong(vt + 54 * 8, ak.corpus.NativeEntry.decTrampoline(3));   // TaskOptions.apply 
+    Mem.U.putLong(vt + 55 * 8, ak.corpus.NativeEntry.decTrampoline(4));   // TaskOptions.add options
+    Mem.U.putLong(vt + 56 * 8, ak.corpus.NativeEntry.decTrampoline(5));   // TaskOutput.apply 
+    Mem.U.putLong(vt + 57 * 8, ak.corpus.NativeEntry.decTrampoline(6));   // TaskDetailed.apply 
+    Mem.U.putLong(vt + 58 * 8, ak.corpus.NativeEntry.decTrampoline(7));   // TaskDetailed.add parent_task_ids
+    Mem.U.putLong(vt + 59 * 8, ak.corpus.NativeEntry.decTrampoline(8));   // TaskDetailed.add data_dependencies
+    Mem.U.putLong(vt + 60 * 8, ak.corpus.NativeEntry.decTrampoline(9));   // TaskDetailed.add expected_output_ids
+    Mem.U.putLong(vt + 61 * 8, ak.corpus.NativeEntry.decTrampoline(10));   // TaskDetailed.add retry_of_ids
+    Mem.U.putLong(vt + 62 * 8, ak.corpus.NativeEntry.decTrampoline(11));   // TaskDetailed.add options_options
+    Mem.U.putLong(vt + 63 * 8, ak.corpus.NativeEntry.decTrampoline(12));   // TaskSummary.apply 
+    Mem.U.putLong(vt + 64 * 8, ak.corpus.NativeEntry.decTrampoline(13));   // TaskSummary.add options_options
+    Mem.U.putLong(vt + 65 * 8, ak.corpus.NativeEntry.decTrampoline(14));   // Probe.apply 
+    Mem.U.putLong(vt + 66 * 8, ak.corpus.NativeEntry.decTrampoline(15));   // Empty.apply 
+    Mem.U.putLong(vt + 67 * 8, ak.corpus.NativeEntry.decTrampoline(16));   // UploadResultData.apply 
+    Mem.U.putLong(vt + 68 * 8, ak.corpus.NativeEntry.decTrampoline(17));   // MetricsBatch.apply 
+    Mem.U.putLong(vt + 69 * 8, ak.corpus.NativeEntry.decTrampoline(18));   // MetricsBatch.add ticks
+    Mem.U.putLong(vt + 70 * 8, ak.corpus.NativeEntry.decTrampoline(19));   // MetricsBatch.add values
+    Mem.U.putLong(vt + 71 * 8, ak.corpus.NativeEntry.decTrampoline(20));   // MetricsBatch.add codes
+    Mem.U.putLong(vt + 72 * 8, ak.corpus.NativeEntry.decTrampoline(21));   // MetricsBatch.add flags
+    Mem.U.putLong(vt + 73 * 8, ak.corpus.NativeEntry.decTrampoline(22));   // MetricsBatch.add statuses
+    Mem.U.putLong(vt + 74 * 8, ak.corpus.NativeEntry.decTrampoline(23));   // Pair.apply 
+    Mem.U.putLong(vt + 75 * 8, ak.corpus.NativeEntry.decTrampoline(24));   // ListResultsResponse.apply 
+    Mem.U.putLong(vt + 76 * 8, ak.corpus.NativeEntry.decTrampoline(25));   // ListResultsResponse.add results
+    Mem.U.putLong(vt + 77 * 8, ak.corpus.NativeEntry.decTrampoline(26));   // ListTasksDetailedResponse.apply 
+    Mem.U.putLong(vt + 78 * 8, ak.corpus.NativeEntry.decTrampoline(27));   // ListTasksDetailedResponse.new tasks
+    Mem.U.putLong(vt + 79 * 8, ak.corpus.NativeEntry.decTrampoline(28));   // ListTasksDetailedResponse.applyelem tasks
+    Mem.U.putLong(vt + 80 * 8, ak.corpus.NativeEntry.decTrampoline(29));   // ListTasksDetailedResponse.addinner tasks_parent_task_ids
+    Mem.U.putLong(vt + 81 * 8, ak.corpus.NativeEntry.decTrampoline(30));   // ListTasksDetailedResponse.addinner tasks_data_dependencies
+    Mem.U.putLong(vt + 82 * 8, ak.corpus.NativeEntry.decTrampoline(31));   // ListTasksDetailedResponse.addinner tasks_expected_output_ids
+    Mem.U.putLong(vt + 83 * 8, ak.corpus.NativeEntry.decTrampoline(32));   // ListTasksDetailedResponse.addinner tasks_retry_of_ids
+    Mem.U.putLong(vt + 84 * 8, ak.corpus.NativeEntry.decTrampoline(33));   // ListTasksDetailedResponse.addinner tasks_options_options
+    Mem.U.putLong(vt + 85 * 8, ak.corpus.NativeEntry.decTrampoline(34));   // ListTaskSummaryResponse.apply 
+    Mem.U.putLong(vt + 86 * 8, ak.corpus.NativeEntry.decTrampoline(35));   // ListTaskSummaryResponse.new tasks
+    Mem.U.putLong(vt + 87 * 8, ak.corpus.NativeEntry.decTrampoline(36));   // ListTaskSummaryResponse.applyelem tasks
+    Mem.U.putLong(vt + 88 * 8, ak.corpus.NativeEntry.decTrampoline(37));   // ListTaskSummaryResponse.addinner tasks_options_options
+    Mem.U.putLong(vt + 89 * 8, ak.corpus.NativeEntry.decTrampoline(38));   // ListProbeResponse.apply 
+    Mem.U.putLong(vt + 90 * 8, ak.corpus.NativeEntry.decTrampoline(39));   // ListProbeResponse.add probes
+    Mem.U.putLong(vt + 91 * 8, ak.corpus.NativeEntry.decTrampoline(40));   // ListMetricsResponse.apply 
+    Mem.U.putLong(vt + 92 * 8, ak.corpus.NativeEntry.decTrampoline(41));   // ListMetricsResponse.new batches
+    Mem.U.putLong(vt + 93 * 8, ak.corpus.NativeEntry.decTrampoline(42));   // ListMetricsResponse.applyelem batches
+    Mem.U.putLong(vt + 94 * 8, ak.corpus.NativeEntry.decTrampoline(43));   // ListMetricsResponse.addinner batches_ticks
+    Mem.U.putLong(vt + 95 * 8, ak.corpus.NativeEntry.decTrampoline(44));   // ListMetricsResponse.addinner batches_values
+    Mem.U.putLong(vt + 96 * 8, ak.corpus.NativeEntry.decTrampoline(45));   // ListMetricsResponse.addinner batches_codes
+    Mem.U.putLong(vt + 97 * 8, ak.corpus.NativeEntry.decTrampoline(46));   // ListMetricsResponse.addinner batches_flags
+    Mem.U.putLong(vt + 98 * 8, ak.corpus.NativeEntry.decTrampoline(47));   // ListMetricsResponse.addinner batches_statuses
+    Mem.U.putLong(vt + 99 * 8, ak.corpus.NativeEntry.decTrampoline(48));   // UploadResultDataMessage.apply 
+    Mem.U.putLong(vt + 100 * 8, ak.corpus.NativeEntry.decTrampoline(49));   // DualResponse.apply 
+    Mem.U.putLong(vt + 101 * 8, ak.corpus.NativeEntry.decTrampoline(50));   // DualResponse.add left
+    Mem.U.putLong(vt + 102 * 8, ak.corpus.NativeEntry.decTrampoline(51));   // DualResponse.add right
+    Mem.U.putLong(vt + 103 * 8, ak.corpus.NativeEntry.decTrampoline(52));   // ChunkLeaf.apply 
+    Mem.U.putLong(vt + 104 * 8, ak.corpus.NativeEntry.decTrampoline(53));   // ChunkInner.apply 
+    Mem.U.putLong(vt + 105 * 8, ak.corpus.NativeEntry.decTrampoline(54));   // ChunkInner.add marks
+    Mem.U.putLong(vt + 106 * 8, ak.corpus.NativeEntry.decTrampoline(55));   // ChunkInner.add leaves
+    Mem.U.putLong(vt + 107 * 8, ak.corpus.NativeEntry.decTrampoline(56));   // ChunkElement.apply 
+    Mem.U.putLong(vt + 108 * 8, ak.corpus.NativeEntry.decTrampoline(57));   // ChunkElement.add labels
+    Mem.U.putLong(vt + 109 * 8, ak.corpus.NativeEntry.decTrampoline(58));   // ChunkElement.add attrs
+    Mem.U.putLong(vt + 110 * 8, ak.corpus.NativeEntry.decTrampoline(59));   // ChunkElement.add inner_marks
+    Mem.U.putLong(vt + 111 * 8, ak.corpus.NativeEntry.decTrampoline(60));   // ChunkElement.add inner_leaves
+    Mem.U.putLong(vt + 112 * 8, ak.corpus.NativeEntry.decTrampoline(61));   // ChunkedResponse.apply 
+    Mem.U.putLong(vt + 113 * 8, ak.corpus.NativeEntry.decTrampoline(62));   // ChunkedResponse.new items
+    Mem.U.putLong(vt + 114 * 8, ak.corpus.NativeEntry.decTrampoline(63));   // ChunkedResponse.applyelem items
+    Mem.U.putLong(vt + 115 * 8, ak.corpus.NativeEntry.decTrampoline(64));   // ChunkedResponse.addinner items_labels
+    Mem.U.putLong(vt + 116 * 8, ak.corpus.NativeEntry.decTrampoline(65));   // ChunkedResponse.addinner items_attrs
+    Mem.U.putLong(vt + 117 * 8, ak.corpus.NativeEntry.decTrampoline(66));   // ChunkedResponse.addinner items_inner_marks
+    Mem.U.putLong(vt + 118 * 8, ak.corpus.NativeEntry.decTrampoline(67));   // ChunkedResponse.addinner items_inner_leaves
+    Mem.U.putLong(vt + 119 * 8, ak.corpus.NativeEntry.decTrampoline(68));   // ChunkedResponseWide.apply 
+    Mem.U.putLong(vt + 120 * 8, ak.corpus.NativeEntry.decTrampoline(69));   // ChunkedResponseWide.new items
+    Mem.U.putLong(vt + 121 * 8, ak.corpus.NativeEntry.decTrampoline(70));   // ChunkedResponseWide.applyelem items
+    Mem.U.putLong(vt + 122 * 8, ak.corpus.NativeEntry.decTrampoline(71));   // ChunkedResponseWide.addinner items_labels
+    Mem.U.putLong(vt + 123 * 8, ak.corpus.NativeEntry.decTrampoline(72));   // ChunkedResponseWide.addinner items_attrs
+    Mem.U.putLong(vt + 124 * 8, ak.corpus.NativeEntry.decTrampoline(73));   // ChunkedResponseWide.addinner items_inner_marks
+    Mem.U.putLong(vt + 125 * 8, ak.corpus.NativeEntry.decTrampoline(74));   // ChunkedResponseWide.addinner items_inner_leaves
+    Mem.U.putLong(vt + 126 * 8, ak.corpus.NativeEntry.decTrampoline(75));   // LeafElement.apply 
+    Mem.U.putLong(vt + 127 * 8, ak.corpus.NativeEntry.decTrampoline(76));   // LeafResponse.apply 
+    Mem.U.putLong(vt + 128 * 8, ak.corpus.NativeEntry.decTrampoline(77));   // LeafResponse.add items
+    Mem.U.putLong(vt + 129 * 8, ak.corpus.NativeEntry.decTrampoline(78));   // Surrogate.apply 
+    Mem.U.putLong(vt + 130 * 8, ak.corpus.NativeEntry.decTrampoline(79));   // Surrogate.add attrs
+    Mem.U.putLong(vt + 131 * 8, ak.corpus.NativeEntry.decTrampoline(80));   // Surrogate.add texts
+    Mem.U.putLong(vt + 132 * 8, ak.corpus.NativeEntry.decTrampoline(81));   // SurrogateInner.apply 
+    Mem.U.putLong(vt + 133 * 8, ak.corpus.NativeEntry.decTrampoline(82));   // WireZoo.apply 
     evtTimestamp = vt + 0 * 8;
     evtDuration = vt + 1 * 8;
     evtResultRaw = vt + 2 * 8;
@@ -472,34 +426,34 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     evtChunkElementAttrsEntry = vt + 49 * 8;
     evtSurrogateAttrsEntry = vt + 50 * 8;
     dvtTimestamp = vt + 51 * 8;
-    dvtDuration = vt + 53 * 8;
-    dvtResultRaw = vt + 55 * 8;
-    dvtTaskOptions = vt + 57 * 8;
-    dvtTaskOutput = vt + 61 * 8;
-    dvtTaskDetailed = vt + 63 * 8;
-    dvtTaskSummary = vt + 71 * 8;
-    dvtProbe = vt + 75 * 8;
-    dvtEmpty = vt + 77 * 8;
-    dvtUploadResultData = vt + 79 * 8;
-    dvtMetricsBatch = vt + 81 * 8;
-    dvtPair = vt + 88 * 8;
-    dvtListResultsResponse = vt + 90 * 8;
-    dvtListTasksDetailedResponse = vt + 94 * 8;
-    dvtListTaskSummaryResponse = vt + 104 * 8;
-    dvtListProbeResponse = vt + 110 * 8;
-    dvtListMetricsResponse = vt + 114 * 8;
-    dvtUploadResultDataMessage = vt + 124 * 8;
-    dvtDualResponse = vt + 126 * 8;
-    dvtChunkLeaf = vt + 132 * 8;
-    dvtChunkInner = vt + 134 * 8;
-    dvtChunkElement = vt + 139 * 8;
-    dvtChunkedResponse = vt + 147 * 8;
-    dvtChunkedResponseWide = vt + 156 * 8;
-    dvtLeafElement = vt + 165 * 8;
-    dvtLeafResponse = vt + 167 * 8;
-    dvtSurrogate = vt + 171 * 8;
-    dvtSurrogateInner = vt + 176 * 8;
-    dvtWireZoo = vt + 178 * 8;
+    dvtDuration = vt + 52 * 8;
+    dvtResultRaw = vt + 53 * 8;
+    dvtTaskOptions = vt + 54 * 8;
+    dvtTaskOutput = vt + 56 * 8;
+    dvtTaskDetailed = vt + 57 * 8;
+    dvtTaskSummary = vt + 63 * 8;
+    dvtProbe = vt + 65 * 8;
+    dvtEmpty = vt + 66 * 8;
+    dvtUploadResultData = vt + 67 * 8;
+    dvtMetricsBatch = vt + 68 * 8;
+    dvtPair = vt + 74 * 8;
+    dvtListResultsResponse = vt + 75 * 8;
+    dvtListTasksDetailedResponse = vt + 77 * 8;
+    dvtListTaskSummaryResponse = vt + 85 * 8;
+    dvtListProbeResponse = vt + 89 * 8;
+    dvtListMetricsResponse = vt + 91 * 8;
+    dvtUploadResultDataMessage = vt + 99 * 8;
+    dvtDualResponse = vt + 100 * 8;
+    dvtChunkLeaf = vt + 103 * 8;
+    dvtChunkInner = vt + 104 * 8;
+    dvtChunkElement = vt + 107 * 8;
+    dvtChunkedResponse = vt + 112 * 8;
+    dvtChunkedResponseWide = vt + 119 * 8;
+    dvtLeafElement = vt + 126 * 8;
+    dvtLeafResponse = vt + 127 * 8;
+    dvtSurrogate = vt + 129 * 8;
+    dvtSurrogateInner = vt + 132 * 8;
+    dvtWireZoo = vt + 133 * 8;
   }
 
   private long vt;

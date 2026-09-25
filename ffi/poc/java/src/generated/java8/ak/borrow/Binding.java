@@ -241,7 +241,7 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
    *  pointer, so the layout is index times eight and needs no offset
    *  table of its own. */
   private void buildVtables() {
-    vt = Mem.alloc(68L * 8);
+    vt = Mem.alloc(54L * 8);
     Mem.U.putLong(vt + 0 * 8, ak.NativeEntry.encTrampoline(0));   // ListResultsResponse.loop results
     Mem.U.putLong(vt + 1 * 8, ak.NativeEntry.encTrampoline(1));   // ListTasksDetailedResponse.loop tasks
     Mem.U.putLong(vt + 2 * 8, vt + 13 * 8);   // ListTasksDetailedResponse.elem tasks -> TaskDetailed
@@ -269,47 +269,33 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     Mem.U.putLong(vt + 24 * 8, ak.NativeEntry.encTrampoline(17));   // MetricsBatch.loop statuses
     Mem.U.putLong(vt + 25 * 8, 0L);   // Pair: reserved
     Mem.U.putLong(vt + 26 * 8, ak.NativeEntry.decTrampoline(0));   // ListResultsResponse.apply 
-    Mem.U.putLong(vt + 27 * 8, 0L);   // ListResultsResponse.unknown : decision 11's bag is not built
-    Mem.U.putLong(vt + 28 * 8, 0L);   // ListResultsResponse.unk results: decision 11's bag is not built
-    Mem.U.putLong(vt + 29 * 8, ak.NativeEntry.decTrampoline(1));   // ListResultsResponse.add results
-    Mem.U.putLong(vt + 30 * 8, ak.NativeEntry.decTrampoline(2));   // ListTasksDetailedResponse.apply 
-    Mem.U.putLong(vt + 31 * 8, 0L);   // ListTasksDetailedResponse.unknown : decision 11's bag is not built
-    Mem.U.putLong(vt + 32 * 8, 0L);   // ListTasksDetailedResponse.unk tasks: decision 11's bag is not built
-    Mem.U.putLong(vt + 33 * 8, ak.NativeEntry.decTrampoline(3));   // ListTasksDetailedResponse.new tasks
-    Mem.U.putLong(vt + 34 * 8, ak.NativeEntry.decTrampoline(4));   // ListTasksDetailedResponse.applyelem tasks
-    Mem.U.putLong(vt + 35 * 8, ak.NativeEntry.decTrampoline(5));   // ListTasksDetailedResponse.addinner tasks_parent_task_ids
-    Mem.U.putLong(vt + 36 * 8, ak.NativeEntry.decTrampoline(6));   // ListTasksDetailedResponse.addinner tasks_data_dependencies
-    Mem.U.putLong(vt + 37 * 8, ak.NativeEntry.decTrampoline(7));   // ListTasksDetailedResponse.addinner tasks_expected_output_ids
-    Mem.U.putLong(vt + 38 * 8, ak.NativeEntry.decTrampoline(8));   // ListTasksDetailedResponse.addinner tasks_retry_of_ids
-    Mem.U.putLong(vt + 39 * 8, ak.NativeEntry.decTrampoline(9));   // ListTasksDetailedResponse.addinner tasks_options_options
-    Mem.U.putLong(vt + 40 * 8, ak.NativeEntry.decTrampoline(10));   // ListProbeResponse.apply 
-    Mem.U.putLong(vt + 41 * 8, 0L);   // ListProbeResponse.unknown : decision 11's bag is not built
-    Mem.U.putLong(vt + 42 * 8, 0L);   // ListProbeResponse.unk probes: decision 11's bag is not built
-    Mem.U.putLong(vt + 43 * 8, ak.NativeEntry.decTrampoline(11));   // ListProbeResponse.add probes
-    Mem.U.putLong(vt + 44 * 8, ak.NativeEntry.decTrampoline(12));   // ListTaskSummaryResponse.apply 
-    Mem.U.putLong(vt + 45 * 8, 0L);   // ListTaskSummaryResponse.unknown : decision 11's bag is not built
-    Mem.U.putLong(vt + 46 * 8, 0L);   // ListTaskSummaryResponse.unk tasks: decision 11's bag is not built
-    Mem.U.putLong(vt + 47 * 8, ak.NativeEntry.decTrampoline(13));   // ListTaskSummaryResponse.new tasks
-    Mem.U.putLong(vt + 48 * 8, ak.NativeEntry.decTrampoline(14));   // ListTaskSummaryResponse.applyelem tasks
-    Mem.U.putLong(vt + 49 * 8, ak.NativeEntry.decTrampoline(15));   // ListTaskSummaryResponse.addinner tasks_options_options
-    Mem.U.putLong(vt + 50 * 8, ak.NativeEntry.decTrampoline(16));   // UploadResultDataMessage.apply 
-    Mem.U.putLong(vt + 51 * 8, 0L);   // UploadResultDataMessage.unknown : decision 11's bag is not built
-    Mem.U.putLong(vt + 52 * 8, ak.NativeEntry.decTrampoline(17));   // ListMetricsResponse.apply 
-    Mem.U.putLong(vt + 53 * 8, 0L);   // ListMetricsResponse.unknown : decision 11's bag is not built
-    Mem.U.putLong(vt + 54 * 8, 0L);   // ListMetricsResponse.unk batches: decision 11's bag is not built
-    Mem.U.putLong(vt + 55 * 8, ak.NativeEntry.decTrampoline(18));   // ListMetricsResponse.new batches
-    Mem.U.putLong(vt + 56 * 8, ak.NativeEntry.decTrampoline(19));   // ListMetricsResponse.applyelem batches
-    Mem.U.putLong(vt + 57 * 8, ak.NativeEntry.decTrampoline(20));   // ListMetricsResponse.addinner batches_ticks
-    Mem.U.putLong(vt + 58 * 8, ak.NativeEntry.decTrampoline(21));   // ListMetricsResponse.addinner batches_values
-    Mem.U.putLong(vt + 59 * 8, ak.NativeEntry.decTrampoline(22));   // ListMetricsResponse.addinner batches_codes
-    Mem.U.putLong(vt + 60 * 8, ak.NativeEntry.decTrampoline(23));   // ListMetricsResponse.addinner batches_flags
-    Mem.U.putLong(vt + 61 * 8, ak.NativeEntry.decTrampoline(24));   // ListMetricsResponse.addinner batches_statuses
-    Mem.U.putLong(vt + 62 * 8, ak.NativeEntry.decTrampoline(25));   // DualResponse.apply 
-    Mem.U.putLong(vt + 63 * 8, 0L);   // DualResponse.unknown : decision 11's bag is not built
-    Mem.U.putLong(vt + 64 * 8, 0L);   // DualResponse.unk left: decision 11's bag is not built
-    Mem.U.putLong(vt + 65 * 8, ak.NativeEntry.decTrampoline(26));   // DualResponse.add left
-    Mem.U.putLong(vt + 66 * 8, 0L);   // DualResponse.unk right: decision 11's bag is not built
-    Mem.U.putLong(vt + 67 * 8, ak.NativeEntry.decTrampoline(27));   // DualResponse.add right
+    Mem.U.putLong(vt + 27 * 8, ak.NativeEntry.decTrampoline(1));   // ListResultsResponse.add results
+    Mem.U.putLong(vt + 28 * 8, ak.NativeEntry.decTrampoline(2));   // ListTasksDetailedResponse.apply 
+    Mem.U.putLong(vt + 29 * 8, ak.NativeEntry.decTrampoline(3));   // ListTasksDetailedResponse.new tasks
+    Mem.U.putLong(vt + 30 * 8, ak.NativeEntry.decTrampoline(4));   // ListTasksDetailedResponse.applyelem tasks
+    Mem.U.putLong(vt + 31 * 8, ak.NativeEntry.decTrampoline(5));   // ListTasksDetailedResponse.addinner tasks_parent_task_ids
+    Mem.U.putLong(vt + 32 * 8, ak.NativeEntry.decTrampoline(6));   // ListTasksDetailedResponse.addinner tasks_data_dependencies
+    Mem.U.putLong(vt + 33 * 8, ak.NativeEntry.decTrampoline(7));   // ListTasksDetailedResponse.addinner tasks_expected_output_ids
+    Mem.U.putLong(vt + 34 * 8, ak.NativeEntry.decTrampoline(8));   // ListTasksDetailedResponse.addinner tasks_retry_of_ids
+    Mem.U.putLong(vt + 35 * 8, ak.NativeEntry.decTrampoline(9));   // ListTasksDetailedResponse.addinner tasks_options_options
+    Mem.U.putLong(vt + 36 * 8, ak.NativeEntry.decTrampoline(10));   // ListProbeResponse.apply 
+    Mem.U.putLong(vt + 37 * 8, ak.NativeEntry.decTrampoline(11));   // ListProbeResponse.add probes
+    Mem.U.putLong(vt + 38 * 8, ak.NativeEntry.decTrampoline(12));   // ListTaskSummaryResponse.apply 
+    Mem.U.putLong(vt + 39 * 8, ak.NativeEntry.decTrampoline(13));   // ListTaskSummaryResponse.new tasks
+    Mem.U.putLong(vt + 40 * 8, ak.NativeEntry.decTrampoline(14));   // ListTaskSummaryResponse.applyelem tasks
+    Mem.U.putLong(vt + 41 * 8, ak.NativeEntry.decTrampoline(15));   // ListTaskSummaryResponse.addinner tasks_options_options
+    Mem.U.putLong(vt + 42 * 8, ak.NativeEntry.decTrampoline(16));   // UploadResultDataMessage.apply 
+    Mem.U.putLong(vt + 43 * 8, ak.NativeEntry.decTrampoline(17));   // ListMetricsResponse.apply 
+    Mem.U.putLong(vt + 44 * 8, ak.NativeEntry.decTrampoline(18));   // ListMetricsResponse.new batches
+    Mem.U.putLong(vt + 45 * 8, ak.NativeEntry.decTrampoline(19));   // ListMetricsResponse.applyelem batches
+    Mem.U.putLong(vt + 46 * 8, ak.NativeEntry.decTrampoline(20));   // ListMetricsResponse.addinner batches_ticks
+    Mem.U.putLong(vt + 47 * 8, ak.NativeEntry.decTrampoline(21));   // ListMetricsResponse.addinner batches_values
+    Mem.U.putLong(vt + 48 * 8, ak.NativeEntry.decTrampoline(22));   // ListMetricsResponse.addinner batches_codes
+    Mem.U.putLong(vt + 49 * 8, ak.NativeEntry.decTrampoline(23));   // ListMetricsResponse.addinner batches_flags
+    Mem.U.putLong(vt + 50 * 8, ak.NativeEntry.decTrampoline(24));   // ListMetricsResponse.addinner batches_statuses
+    Mem.U.putLong(vt + 51 * 8, ak.NativeEntry.decTrampoline(25));   // DualResponse.apply 
+    Mem.U.putLong(vt + 52 * 8, ak.NativeEntry.decTrampoline(26));   // DualResponse.add left
+    Mem.U.putLong(vt + 53 * 8, ak.NativeEntry.decTrampoline(27));   // DualResponse.add right
     evtListResultsResponse = vt + 0 * 8;
     evtListTasksDetailedResponse = vt + 1 * 8;
     evtListProbeResponse = vt + 3 * 8;
@@ -325,12 +311,12 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     evtMetricsBatch = vt + 20 * 8;
     evtPair = vt + 25 * 8;
     dvtListResultsResponse = vt + 26 * 8;
-    dvtListTasksDetailedResponse = vt + 30 * 8;
-    dvtListProbeResponse = vt + 40 * 8;
-    dvtListTaskSummaryResponse = vt + 44 * 8;
-    dvtUploadResultDataMessage = vt + 50 * 8;
-    dvtListMetricsResponse = vt + 52 * 8;
-    dvtDualResponse = vt + 62 * 8;
+    dvtListTasksDetailedResponse = vt + 28 * 8;
+    dvtListProbeResponse = vt + 36 * 8;
+    dvtListTaskSummaryResponse = vt + 38 * 8;
+    dvtUploadResultDataMessage = vt + 42 * 8;
+    dvtListMetricsResponse = vt + 43 * 8;
+    dvtDualResponse = vt + 51 * 8;
   }
 
   private long vt;
