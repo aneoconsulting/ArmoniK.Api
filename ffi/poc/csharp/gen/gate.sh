@@ -79,6 +79,7 @@ b publish src/Harness/Harness.csproj -c Release -f net6.0 -r linux-x64 --self-co
 b build src/Corpus/Corpus.csproj -c Release -f net8.0
 b publish src/Corpus/Corpus.csproj -c Release -f net6.0 -r linux-x64 --self-contained -o "$C6"
 b build src/Rpc/Rpc.csproj -c Release
+b build src/BenchDotNet/BenchDotNet.csproj -c Release
 b build src/HarnessFloor/HarnessFloor.csproj -c Release
 echo "# which import form each level compiled (the one generated Abi.cs, #if NET7_0_OR_GREATER):"
 for d in "$H8/harness.dll" "$H6/harness.dll" "$SLICE/src/HarnessFloor/bin/Release/net48/harness48.exe"; do

@@ -69,7 +69,7 @@ header() {  # requirement 27: the machine and the build, in every log
   echo "# cpu sets:      CLIENT=$AK_CPU_CLIENT SERVER=${AK_CPU_SERVER:-n/a}${CPUNOTE:-}; pinning by taskset"
   echo "# runtime:       .NET $(dotnet --list-runtimes | awk '/NETCore.App/{print $2}' | tr '\n' ' ')(SDK $(dotnet --version)); target net8.0, Release; tiering and PGO at their net8.0 defaults unless DOTNET_* is set: TieredCompilation=${DOTNET_TieredCompilation:-default} TieredPGO=${DOTNET_TieredPGO:-default}; workstation GC, concurrent (default)"
   echo "# core:          libak_core.so shared, cargo --release, features $1 (init-guard ON, as in every gate), built from git archive HEAD ffi/poc/codec"
-  echo "# repeats:       $LAUNCHES launch(es) x $ROUNDS round(s); arms/cells interleaved per round, rotated"
+  if [ "$SUITE" = codec ]; then echo "# repeats:       $LAUNCHES launch(es) x $ROUNDS BDN actual iteration(s) per case; arm blocks, order rotated per launch (req 22)"; else echo "# repeats:       $LAUNCHES launch(es) x $ROUNDS round(s); arms/cells interleaved per round, rotated"; fi
 }
 
 ensure_core() {
@@ -101,14 +101,19 @@ case "$SUITE" in
     "$SLICE/gen/gate.sh" > "$OUT/gate.log" 2>&1; rc=$?
     tail -1 "$OUT/gate.log"; exit $rc ;;
   codec)
+    # The codec suite runs under BenchmarkDotNet (CAMPAIGN.md 22a): src/BenchDotNet, InProcessEmit
+    # toolchain, one pinned process per launch; the arm order rotates with the launch (req 22).
+    # BDN's console log goes to DIR/codec-launch<N>.bdn.log, its artifacts to DIR/bdn-launch<N>/.
     GATE="$(gate_first)"; ensure_core; build
-    cp "$SLICE/target-core/release/libak_core.so" "$R8/"
-    EXTRA=(); [ $SMOKE = 1 ] && EXTRA=(--target-ms 0.2 --warmup-ms 0.5 --warmup-iters 2)
+    ( cd "$SLICE" && dotnet build src/BenchDotNet/BenchDotNet.csproj -c Release >> "$SCRATCH/campaign-build.out" 2>&1 ) || { tail -30 "$SCRATCH/campaign-build.out"; exit 1; }
+    B8="$SLICE/src/BenchDotNet/bin/Release/net8.0"
+    cp "$SLICE/target-core/release/libak_core.so" "$B8/"
+    EXTRA=(--rounds "$ROUNDS"); [ $SMOKE = 1 ] && EXTRA=(--smoke)
     for l in $(seq 1 "$LAUNCHES"); do
       f="$OUT/codec-launch$l.jsonl"
       { header "rpc,init-guard"; echo "$GATE"; } > "$f"
-      taskset -c "$AK_CPU_CLIENT" dotnet "$R8/akrpc.dll" campaign --suite codec --launch "$l" --rounds "$ROUNDS" "${EXTRA[@]}" >> "$f" 2>&1 \
-        || { echo "codec launch $l failed ($f)" >&2; exit 1; }
+      taskset -c "$AK_CPU_CLIENT" dotnet "$B8/BenchDotNet.dll" --launch "$l" --out "$f" --artifacts "$OUT/bdn-launch$l" "${EXTRA[@]}" \
+        > "$OUT/codec-launch$l.bdn.log" 2>&1 || { echo "codec launch $l failed ($f, $OUT/codec-launch$l.bdn.log)" >&2; exit 1; }
     done ;;
   calib)
     GATE="$(gate_first)"; ensure_core; build

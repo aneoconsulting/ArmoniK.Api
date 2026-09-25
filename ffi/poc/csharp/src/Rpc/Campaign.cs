@@ -3,14 +3,13 @@
 // runs the correctness gate first and writes the machine header. This file measures and
 // writes one JSON object per sample (section 7); it summarises nothing and ranks nothing.
 //
-//   akrpc campaign --suite codec      --launch N --rounds R [--target-ms T] [--warmup-ms W]
-//                  [--payloads P1.1,..] [--unknown-rows GLOB] [--no-content]
+//   (the codec suite moved to ../BenchDotNet, BenchmarkDotNet; CAMPAIGN.md req 22a)
 //   akrpc campaign --suite rpc-server --sock PATH --transport shipped|pinned
 //   akrpc campaign --suite rpc        --sock PATH --transport shipped|pinned --launch N
 //                  --rounds R [--calls C] [--inflight 1,8,16]
 //   akrpc campaign --suite calib      --launch N --rounds R [--iters N]
 //
-// Clocks (requirement 21): the codec and calib suites read CLOCK_THREAD_CPUTIME_ID of the
+// Clocks (requirement 21): the calib suite reads CLOCK_THREAD_CPUTIME_ID of the
 // one measuring thread; the rpc suite reads getrusage(RUSAGE_SELF) of the client process
 // (the server is another process) and wall time beside it. Process.TotalProcessorTime is not
 // used anywhere in this file.
@@ -111,11 +110,10 @@ public static class CampaignMain
         var suite = Opt(a, "--suite", "");
         switch (suite)
         {
-            case "codec": return Codec(a);
             case "calib": return Calib(a);
             case "rpc-server": return await Server(a);
             case "rpc": return await Rpc(a);
-            default: Console.Error.WriteLine("campaign: --suite codec|calib|rpc|rpc-server"); return 2;
+            default: Console.Error.WriteLine("campaign: --suite calib|rpc|rpc-server"); return 2;
         }
     }
 
@@ -141,183 +139,6 @@ public static class CampaignMain
          as System.Reflection.AssemblyInformationalVersionAttribute)?.InformationalVersion?.Split('+')[0] ?? t.Assembly.GetName().Version.ToString();
 
     private static string Env(string k, string d) { var v = Environment.GetEnvironmentVariable(k); return string.IsNullOrEmpty(v) ? d : v; }
-
-    // ============================================================== codec suite
-
-    private sealed class Cell
-    {
-        public string Arm, Payload, Content, Dir, Mode;
-        public Func<long> Op;
-        public long Iters;
-    }
-
-    private static int Codec(string[] a)
-    {
-        int launch = OptI(a, "--launch", 1), rounds = OptI(a, "--rounds", 5);
-        double targetMs = OptD(a, "--target-ms", 20), warmMs = OptD(a, "--warmup-ms", 50);
-        int warmIters = OptI(a, "--warmup-iters", 64);
-        var only = Opt(a, "--payloads", null)?.Split(',');
-        var unkGlob = Opt(a, "--unknown-rows", "U-*");
-        bool content = !a.Contains("--no-content");
-        Header("codec", string.Format(CultureInfo.InvariantCulture,
-            "launch {0}, rounds {1}, target {2} ms per sample, warm-up: two passes over every cell of max({3} calls, {4} ms), 500 ms apart, then the iteration count is FIXED; GC.Collect before every round",
-            launch, rounds, targetMs, warmIters, warmMs));
-
-        var cells = new List<Cell>();
-        foreach (var pid in OpsTable.Payloads)
-        {
-            if (only != null && !only.Contains(pid)) continue;
-            var sets = content && (pid == "P1.2" || pid == "P2.2") ? new[] { 0, 1, 2 } : new[] { 0 };
-            foreach (var cs in sets)
-            {
-                Values.ContentSet = cs;
-                var ops = OpsTable.ForPayload(pid);
-                Values.ContentSet = Values.Ascii;
-                AddPayloadCells(cells, pid, Values.SetNames[cs], ops);
-            }
-        }
-        if (unkGlob != "none") AddUnknownCells(cells, unkGlob);
-        Console.WriteLine("# cells:          {0} (arm x payload x content x dir x unknown_mode)", cells.Count);
-
-        // Warm-up (requirement 24): identical rule for every arm.
-        var sw = new Stopwatch();
-        for (int pass = 0; pass < 2; pass++)
-        {
-            foreach (var c in cells)
-            {
-                sw.Restart();
-                long n = 0;
-                long t0 = Clock.ThreadCpuNs();
-                while (n < warmIters || sw.Elapsed.TotalMilliseconds < warmMs) { c.Op(); n++; }
-                long per = Math.Max(1, (Clock.ThreadCpuNs() - t0) / n);
-                if (pass == 1) c.Iters = Math.Max(1, (long)(targetMs * 1e6 / per));
-            }
-            if (pass == 0) Thread.Sleep(500);
-        }
-
-        long sink = 0;
-        for (int r = 1; r <= rounds; r++)
-        {
-            GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
-            int start = (int)((long)(r - 1) * cells.Count / rounds);   // rotated order (requirement 22)
-            for (int k = 0; k < cells.Count; k++)
-            {
-                var c = cells[(start + k) % cells.Count];
-                long w0 = Clock.WallNs(), c0 = Clock.ThreadCpuNs();
-                for (long i = 0; i < c.Iters; i++) sink += c.Op();
-                long c1 = Clock.ThreadCpuNs(), w1 = Clock.WallNs();
-                Console.WriteLine(new Sample
-                {
-                    Suite = "codec", Arm = c.Arm, Payload = c.Payload, Content = c.Content, Dir = c.Dir, Mode = c.Mode,
-                    Launch = launch, Round = r, CpuNs = c1 - c0, WallNs = w1 - w0, Iters = c.Iters,
-                }.Json());
-            }
-        }
-        Console.WriteLine("# end (sink {0})", sink & 1);
-        return 0;
-    }
-
-    private static void Same(byte[] got, byte[] want, string what)
-    {
-        if (!got.AsSpan().SequenceEqual(want))
-            throw new InvalidOperationException("byte identity failed before timing: " + what);
-    }
-
-    private static void AddPayloadCells(List<Cell> cells, string pid, string content, RootOps ops)
-    {
-        var wire = ops.IncumbentBytes();
-        // Requirement 26, re-checked in the timed process for every timed arm and content set.
-        var e = Enc.New(Armonik.Ffi.Facade.Codec.Sites, wire.Length + 4096);
-        ops.EncHost(ref e);
-        Same(e.ToArray(), wire, pid + "/" + content + " host-gen");
-        Same(ops.EncFfiBytes(false), wire, pid + "/" + content + " core-ffi drop");
-        Same(ops.EncFfiBytes(true), wire, pid + "/" + content + " core-ffi retain");
-        var w = new BufWriter(wire.Length + 4096);
-        ops.EncIncProd(w);
-        Same(w.WrittenSpan.ToArray(), wire, pid + "/" + content + " incumbent-prod");
-        var seq = new ReadOnlySequence<byte>(wire);
-        int len = wire.Length;
-        void Add(string arm, string dir, string mode, Func<long> op) =>
-            cells.Add(new Cell { Arm = arm, Payload = pid, Content = content, Dir = dir, Mode = mode, Op = op });
-
-        var wp = new BufWriter(wire.Length + 4096);
-        var wb = new BufWriter(wire.Length + 4096);
-        var eh = Enc.New(Armonik.Ffi.Facade.Codec.Sites, wire.Length + 4096);
-        Add("incumbent-prod", "encode", "default", () => ops.EncIncProd(wp));
-        Add("incumbent-best", "encode", "default", () => ops.EncIncBest(wb));
-        // Encode of a bag-free graph is the same code in both modes; both rows exist so the
-        // mode column is complete (requirement 10).
-        Add("host-gen", "encode", "drop", () => ops.EncHost(ref eh));
-        var eh2 = Enc.New(Armonik.Ffi.Facade.Codec.Sites, wire.Length + 4096);
-        Add("host-gen", "encode", "retain", () => ops.EncHost(ref eh2));
-        Add("core-ffi", "encode", "drop", () => ops.EncFfi(false));
-        Add("core-ffi", "encode", "retain", () => ops.EncFfi(true));
-        foreach (var read in new[] { false, true })
-        {
-            var dir = read ? "decode-read" : "decode";
-            Add("incumbent-prod", dir, "default", () => ops.DecIncProd(seq, read));
-            Add("incumbent-best", dir, "default", () => ops.DecIncBest(wire, len, read));
-            Add("host-gen", dir, "drop", () => ops.DecHost(wire, len, false, read));
-            Add("host-gen", dir, "retain", () => ops.DecHost(wire, len, true, read));
-            Add("core-ffi", dir, "drop", () => ops.DecFfi(wire, len, false, read));
-            Add("core-ffi", dir, "retain", () => ops.DecFfi(wire, len, true, read));
-            Add("core-ffi-pull", dir, "drop", () => ops.DecFfiPull(wire, len, read));
-        }
-    }
-
-    private static string CorpusDir()
-    {
-        var d = AppContext.BaseDirectory;
-        for (int i = 0; i < 12 && d != null; i++)
-        {
-            var c = Path.Combine(d, "ffi", "corpus", "generated");
-            if (File.Exists(Path.Combine(c, "manifest.json"))) return c;
-            d = Path.GetDirectoryName(d.TrimEnd(Path.DirectorySeparatorChar));
-        }
-        throw new DirectoryNotFoundException("ffi/corpus/generated");
-    }
-
-    /// Requirement 7 (amended 0e8e9eb): every corpus `U-*` row whose root this slice
-    /// implements (the shapes roots), disputed rows excluded. `--unknown-rows '*-all'`
-    /// keeps one row per site; `none` skips them.
-    private static void AddUnknownCells(List<Cell> cells, string glob)
-    {
-        var dir = CorpusDir();
-        var man = Json.Parse(File.ReadAllText(Path.Combine(dir, "manifest.json")))["vectors"];
-        foreach (var id in man.Keys.OrderBy(x => x, StringComparer.Ordinal))
-        {
-            var v = man[id];
-            if (!id.StartsWith("U-", StringComparison.Ordinal) || v["verdict"].AsString == "disputed") continue;
-            if (v["expect"].AsString != "accept") continue;
-            if (glob == "*-all" && !id.EndsWith("-all", StringComparison.Ordinal)) continue;
-            var ops = OpsTable.ForRoot(v["root"].AsString);
-            if (ops == null) continue;
-            var b = File.ReadAllBytes(Path.Combine(dir, v["file"].AsString));
-            var seq = new ReadOnlySequence<byte>(b);
-            int len = b.Length;
-            // Every arm must accept the row before it is timed (the corpus gate is the proof;
-            // this only refuses to time an arm that throws).
-            ops.DecIncBest(b, len, true); ops.DecHost(b, len, false, true); ops.DecHost(b, len, true, true);
-            ops.DecFfi(b, len, false, true); ops.DecFfi(b, len, true, true);
-            void Add(string arm, string d, string mode, Func<long> op) =>
-                cells.Add(new Cell { Arm = arm, Payload = id, Content = "corpus", Dir = d, Mode = mode, Op = op });
-            var w = new BufWriter(len * 2 + 4096);
-            foreach (var read in new[] { false, true })
-            {
-                var d = read ? "decode-read" : "decode";
-                Add("incumbent-prod", d, "default", () => ops.DecIncProd(seq, read));
-                Add("host-gen", d, "drop", () => ops.DecHost(b, len, false, read));
-                Add("host-gen", d, "retain", () => ops.DecHost(b, len, true, read));
-                Add("core-ffi", d, "drop", () => ops.DecFfi(b, len, false, read));
-                Add("core-ffi", d, "retain", () => ops.DecFfi(b, len, true, read));
-            }
-            Add("incumbent-prod", "decode-reencode", "default", () => ops.RtIncProd(seq, w));
-            Add("host-gen", "decode-reencode", "drop", () => ops.RtHost(b, len, false).Length);
-            Add("host-gen", "decode-reencode", "retain", () => ops.RtHost(b, len, true).Length);
-            Add("core-ffi", "decode-reencode", "drop", () => ops.RtFfi(b, len, false).Length);
-            Add("core-ffi", "decode-reencode", "retain", () => ops.RtFfi(b, len, true).Length);
-        }
-    }
 
     // ============================================================== calib suite
 
