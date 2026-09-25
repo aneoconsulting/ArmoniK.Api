@@ -11,7 +11,7 @@ crossing counts, floor builds, corpus passes, feasibility and defects found.
 
 | | |
 |---|---|
-| **Status** | FIX-PLAN WP5 step 3 done (2889d87, 287deca); WP5 tail D38 and D39 fixed (bb98e8f, 271fdd5) and re-gated from a clean core build at 271fdd5: payload gate 1,389 checks per arm-set, 0 failures (`wp5s6-gate.log`); full corpus (702 rows) on six arms, target and floor, 0 failing arm-rows (`wp5s6-corpus.log`); the rust slice's probe manifest, 0 failing (`wp5s6-probe.log`). **WP3 (2026-09-25): campaign harness built and smoke-run** (`gen/run_campaign.sh`; checklist below; unmet: req 7 unknown-field rows unnamed, req 10 core-ffi retain pending decision 11, req 20 perf unavailable here, req 29 log path by ownership). |
+| **Status** | **2026-09-25, D40 fixed** (185ea62, bdfc8fa, 973e5ba): a failed retain decode no longer leaks the buffers the core grew before the error; gate at 973e5ba from a clean core build: payload arms a/b/c pass, corpus 10 arms x 702 rows on 8 and 17 with 0 failing arm-rows, decision 11 controls pass, leak control (3c) 0 buffers left on 4 retain arms x 89,982 rows on 8 and 17 with the planted no-reclaim failing, counts identical to counts.ref (`wp5s9-leak/gate.log`). Earlier: FIX-PLAN WP5 step 3 done (2889d87, 287deca); WP5 tail D38 and D39 fixed (bb98e8f, 271fdd5) and re-gated from a clean core build at 271fdd5: payload gate 1,389 checks per arm-set, 0 failures (`wp5s6-gate.log`); full corpus (702 rows) on six arms, target and floor, 0 failing arm-rows (`wp5s6-corpus.log`); the rust slice's probe manifest, 0 failing (`wp5s6-probe.log`). **WP3 (2026-09-25): campaign harness built and smoke-run** (`gen/run_campaign.sh`; checklist below; unmet: req 7 unknown-field rows unnamed, req 10 core-ffi retain pending decision 11, req 20 perf unavailable here, req 29 log path by ownership). |
 | **Levels** (owner decision D3) | **floor Java 8** (correctness gate only): `openjdk 1.8.0_504`, JDK 8 `javac`. **target JDK 17**: `openjdk 17.0.20.1`. JDK 21 only for the two secondary probes (virtual threads, FFM preview). |
 | **Incumbent** | protobuf-java **3.25.5** (resolved from `packages/java`'s pins), protoc 3.19.0 (copied from `~/.m2` when present). R14's baseline path is `io.grpc.protobuf.lite.ProtoLiteUtils`' marshaller (`RunR14`). |
 | **Core** | the shared crate `poc/codec/crates/ak-core` (R0), no copy here. `gen/build.sh` builds it from a `git archive` SNAPSHOT of the committed `ffi/poc/codec` (`AK_CORE_REV`, default HEAD; `AK_CODEC=<dir>` for another tree), because other slices regenerate the core in the same working tree; it builds into `core-build/<key>/`, key = the git tree hash of `ffi/poc/codec` at that revision, `core-build/current` -> the key built, and every shim is checked to link that key's core (D39: a reused target dir once kept a stale core). The snapshot commit and key go to `build/core-rev.txt` and into every gate log. **Every codec build carries `init-guard`** (R-G7); the corpus build is `corpus,init-guard`. |
@@ -233,7 +233,9 @@ not), `contentsets.log`, `deopt.log`, `r9-mechanism.log`, `crossing.log`,
 | E8 | `gen/generate.py` wrote into `poc/codec` | **closed**: writes under `poc/java` only |
 | G1 | plan gap: the vtable structs' member order and shape, and the pull record slot numbering, are rendered by `rust_abi` (a backend), not stated by the plan; `java_abi` restates them from the same plan facts. No layout guard covers a vtable | reported to the aggregating session |
 | G2 | plan gap: `plan.lifecycle` names `AK_INIT_*` but not their values; `ak_err`, the error codes and `ak_bdr_rec` are fixed text in `ak-abi` restated in `java_abi` (the record header is static-asserted) | reported |
-| G3 | the ffi arms have no retain mode: decision 11's slots stay NULL and there is no `ak_uencode_*` path in the binding (R-G11 would also bound it) | open, not built |
+| G3 | the ffi arms had no retain mode | **closed** by WP5 step 9 (efe58d1, gate c997197): decision 11 rendered, four retain arms in the corpus |
+| D40 | a FAILED retain decode leaked the buffers the core had grown before the error (rule 3 leaves them with the host; the binding did not track them) | **fixed** (185ea62, bdfc8fa): the shim's grow links each buffer into the options' list (`host`) through a 16 B header, delivery unlinks it, the binding frees what is still linked after every retain decode (`unkSettle`, in `finally`); `ak.RunUnkLeak` (corpus.sh 3c) shows 0 alive, planted no-reclaim fails |
+| D41 | corpus.sh 3b piped `RunUnkControls` into `grep`, so its exit status was masked (a failing control would not have failed the gate) | **fixed** (bdfc8fa): `PIPESTATUS` |
 | G4 | a `lossy` UTF-8 plan option raises in `java_rcodec` (the runtime renders `reject` only) | by design until the option is used |
 | D38 | `Dec`'s group skip accepted a field number above 2^29-1 inside a group; limits were runtime constants | **fixed** (bb98e8f, 271fdd5), wp5s6-probe.log |
 | D39 | `gen/build.sh` reused a cargo target dir over a git-archive snapshot and once kept a stale core | **fixed**: target dir keyed on the snapshot tree, shims checked (wp5s6-d39-keys.log) |
@@ -241,7 +243,8 @@ not), `contentsets.log`, `deopt.log`, `r9-mechanism.log`, `crossing.log`,
 
 ## What is not measured or not run
 
-- **ffi retain** (G3); **corpus C5 (produce)**, so the transcode encode half (`T-enc-*`,
+- **Pre-allocated buffers and pools** (decision 11): every retained buffer comes from the
+  shim's grow; `ak_unk_pool` entries hold no buffer. **corpus C5 (produce)**, so the transcode encode half (`T-enc-*`,
   `produce` names java) is consumed but not produced: `ak.Utf8`'s U+FFFD against
   protobuf-java's `?` is written down and not exercised; **the chunking class** (`C-*`)
   passes on the ffi arms, but how many chunks each row crossed in this binding was not
@@ -262,13 +265,8 @@ not), `contentsets.log`, `deopt.log`, `r9-mechanism.log`, `crossing.log`,
 ## Next step
 
 0. **Campaign (W13), when the owner runs it**: `AK_CPU_CLIENT=.. AK_CPU_SERVER=.. AK_ISOLATION=..
-   gen/run_campaign.sh --suite gate|codec|rpc|calib --out ffi/logs/campaign/java`. Before it:
-   render decision 11's mechanism in the Java binding (req 10), and take the unknown-field
-   row list for req 7.
-
-1. **ffi retain** (G3), if the owner wants both unknown-field modes on the C ABI arms:
-   wire `unknown` / `unk_<slot>` trampolines and the `ak_uencode_*` / `ak_uelem*` path with
-   `ufix` fills; R-G11 bounds what it can retain.
+   gen/run_campaign.sh --suite gate|codec|rpc|calib --out ffi/logs/campaign/java`.
+1. Decision 11 pre-allocated buffers and pools, if the aggregating session asks for them.
 2. **WP3**: conform `Bench`, `RunR14` and `RunRpc` to `design/CAMPAIGN.md`; re-run the RPC
    arm and gate its response bytes.
 3. When the plan states the vtable layout and record numbering (G1), switch `java_abi` to it.
@@ -294,6 +292,8 @@ not), `contentsets.log`, `deopt.log`, `r9-mechanism.log`, `crossing.log`,
 
 | Log | What it establishes |
 |---|---|
+| `wp5s9-leak/gate.log`, `wp5s9-leak/counts-973e5ba.txt` | D40: gate at 973e5ba (clean core build, init-guard), SMOKE mode, no figures: payload a/b/c pass; corpus 10 arms x 702, 8 and 17, 0 failing; 3b decision 11 controls; 3c leak control (686 corpus rows reclaim 0 buffers -- refused before any unknown is taken; 89,296 derived rows reclaim 930 push / 2,435 pull per arm; 0 alive after every row; 0 left after accepted decodes), planted no-reclaim fails; counts identical |
+| `wp5s9/gate.log`, `wp5s9/counts-efe58d1.txt` | WP5 step 9 (decision 11) gate at efe58d1 (superseded by wp5s9-leak for the retain arms' reclaim) |
 | `campaign-smoke/` | WP3 smoke run of `gen/run_campaign.sh` (gate, codec, rpc, calib): structure and coverage; every figure stripped |
 | `wp5s6-gate.log`, `wp5s6-conformance-arm-{a,b,c}.log` | WP5 tail: the payload gate from a clean core build at 271fdd5, 0 failures |
 | `wp5s6-corpus.log` | WP5 tail: 702 corpus rows, six arms, 8 and 17, 0 failing; controls; rule gaps |

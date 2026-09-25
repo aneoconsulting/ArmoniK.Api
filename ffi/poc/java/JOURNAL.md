@@ -661,3 +661,29 @@ mask-ignored control fails with 307 mismatches; a context bound to ListResultsRe
 refuses ListTasksDetailedResponse's reset and parse with -8 and still parses its own root.
 The corpus: the four retain arms write the retained form on every unknown row (no retention
 gap; U-map-entry is disputed and excluded).
+
+### J26. D40: reclaim of a failed retain decode's buffers (2026-09-25)
+
+J25 recorded the leak as "not done"; the aggregating session classed it a defect (rule 3
+leaves a failed decode's buffers with the host, so the host must free them). Fix, after the
+python slice's design: `ak_java_grow` puts a 16 B header on every buffer it allocates and
+links it into a list owned by the arming options struct (`host`, passed back as `sink`; a
+NULL sink is refused with AK_ERR_HOST); `unkTake`/`unkFree` unlink and free; after every
+retain decode, push and pull, `Binding.unkSettle` frees what is still linked and counts it
+as reclaimed (rc < 0) or left undelivered (rc >= 0, a binding defect). Disarm and reclaim
+sit in `finally`, so a Java exception out of the decode or the record replay reclaims too.
+`Native.unkLive` counts buffers alive in the shim.
+
+First control run refuted the obvious control: the corpus's 143 refused C-ABI rows reclaim
+0 buffers on every arm -- each is refused before any unknown field is taken, so decoding
+refused corpus rows alone reaches nothing. `ak.RunUnkLeak` therefore adds derived rows:
+each unknown-class accept row with an invalid tag appended (0x0F, wire type 7) and
+truncated at every length (89,296 rows, 87,652 refused). Result on 17 and 8, per arm:
+reclaimed 930 (push, borrow) / 2,435 (pull, pull-walk; pull grows per record) buffers, 0
+alive after every row, 0 left after accepted decodes, 0 at exit. The planted
+`-Dak.unk.leakplant=1` (no reclaim) leaves 930 / 2,416 rows with buffers alive and fails.
+The per-arm baseline is re-read after each binding closes (closing frees the lists; the
+first plant run showed a negative count from that).
+
+Found on the way (D41): corpus.sh 3b piped RunUnkControls into `grep -v`, which masked
+its exit status; now taken from PIPESTATUS. Gate at 973e5ba: `logs/java/wp5s9-leak/gate.log`.
