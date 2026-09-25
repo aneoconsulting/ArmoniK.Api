@@ -630,22 +630,27 @@ def emit_encode_entry(p, root, b):
          "  HostCtx *h = &hs;",
          "  static const struct ak_evt_%s VT = %s;" % (root, evt_init(p, root, "R", b, EVT_NAMES[b])),
          "  static const struct ak_evt_%s VTU = %s;" % (root, evt_init(p, root, "R", b, EVTU_NAMES[b], True)),
-         "  ak_enc_ctx *ctx = ak_enc_ctx_new();",
+         # One encode context per thread, reused (ak_py_tls_enc_acquire), reset per encode.
+         "  int tmp_ = 0;",
+         "  ak_enc_ctx *ctx = ak_py_tls_enc_acquire(&tmp_);",
          "  if (!ctx) return PyErr_NoMemory();",
+         "#ifdef AK_COUNT",
+         "  ak_enc_counters_reset(ctx);",
+         "#endif",
          "  intptr_t rc;",
          "  if (retain) {",
          "    struct ak_ufix_%s fixu;" % root,
          "    memset(&fixu, 0, sizeof fixu);",
-         "    if (fillu_%s_%s(&fixu, rootobj, h)) { ak_enc_ctx_free(ctx); return NULL; }" % (b, root),
+         "    if (fillu_%s_%s(&fixu, rootobj, h)) { ak_py_tls_enc_release(ctx, tmp_); return NULL; }" % (b, root),
          "    rc = ak_uencode_%s(h, ctx, &VTU, &fixu%s);" % (root, d),
          "  } else {",
          "    struct ak_efix_%s fix;" % root,
          "    memset(&fix, 0, sizeof fix);",
-         "    if (fill_%s_%s(&fix, rootobj, h)) { ak_enc_ctx_free(ctx); return NULL; }" % (b, root),
+         "    if (fill_%s_%s(&fix, rootobj, h)) { ak_py_tls_enc_release(ctx, tmp_); return NULL; }" % (b, root),
          "    rc = ak_encode_%s(h, ctx, &VT, &fix%s);" % (root, d),
          "  }",
          "  if (rc < 0) {",
-         "    ak_enc_ctx_free(ctx);",
+         "    ak_py_tls_enc_release(ctx, tmp_);",
          "    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, \"ak_encode_%s returned %%ld\", (long)rc);" % root,
          "    return NULL;",
          "  }",
@@ -653,10 +658,10 @@ def emit_encode_entry(p, root, b):
          "  { struct AkCounters c; ak_enc_counters(ctx, &c); CORE_ADD(CORE_ENC, c); }",
          "#endif",
          "  const uint8_t *pp = NULL; size_t len = 0;",
-         "  if (ak_enc_take(ctx, &pp, &len)) { ak_enc_ctx_free(ctx);",
+         "  if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);",
          "    PyErr_SetString(PyExc_RuntimeError, \"ak_enc_take\"); return NULL; }",
          "  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);",
-         "  ak_enc_ctx_free(ctx);",
+         "  ak_py_tls_enc_release(ctx, tmp_);",
          "  return out;\n}"]
     return "\n".join(L)
 
@@ -1013,16 +1018,25 @@ def emit_root_decode(p, root, b):
           "  memset(&o, 0, sizeof o);",
           "  o.host = &h;",
           "  if (retain) {"] + arm + ["  }",
-          "  ak_dec_ctx *ctx = ak_dec_ctx_new_%s(NULL);   /* bound to this root (rule 6) */" % root,
+          # One context per root PER THREAD, created lazily and reused (ak_py_tls_acquire);
+          # a reset per decode (rule 7) arms it, and a second reset disarms it only when it
+          # was armed with &o, which lives in this frame. Drop mode: one reset, no disarm.
+          "  int tmp_ = 0;",
+          "  ak_dec_ctx *ctx = ak_py_tls_acquire(%d, &tmp_);   /* bound to this root (rule 6) */" % p.roots.index(root),
           "  if (!ctx) { %s Py_DECREF(rootobj); return PyErr_NoMemory(); }" % free,
+          "#ifdef AK_COUNT",
+          "  ak_dec_counters_reset(ctx);",
+          "#endif",
           "  int32_t rc = ak_dec_reset_%s(ctx, retain ? &o : NULL);   /* a reset per decode (rule 7) */" % root,
           "  if (rc == 0) rc = ak_decode_%s(ctx, &h, (const uint8_t *)pp, (size_t)blen, &VT);" % root,
-          "  int32_t rr = ak_dec_reset_%s(ctx, NULL);   /* disarm: the core forgets &o */" % root,
-          "  if (rc == 0 && rr != 0) rc = rr;",
+          "  if (retain) {",
+          "    int32_t rr = ak_dec_reset_%s(ctx, NULL);   /* disarm: the core forgets &o */" % root,
+          "    if (rc == 0 && rr != 0) rc = rr;",
+          "  }",
           "#ifdef AK_COUNT",
           "  { struct AkCounters c; ak_dec_counters(ctx, &c); CORE_ADD(CORE_DEC, c); }",
           "#endif",
-          "  ak_dec_ctx_free(ctx);",
+          "  ak_py_tls_release(%d, ctx, tmp_);" % p.roots.index(root),
           "  AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */",
           "  if (rc || h.failed) {",
           "    %s Py_DECREF(rootobj);" % free,
@@ -1256,7 +1270,11 @@ def emit(x, modname="_akffi", backends=("attr", "cext", "pyacc")):
           "  struct ak_py_buf *live; /* decision 11: every unknown-field buffer ak_py_grow handed out */"]
     for n in names:
         L.append("  PyObject *ty_%s;" % n)
-    L += ["} HostCtx;", "", UNK_HELPERS, ""]
+    L += ["} HostCtx;", "", UNK_HELPERS, "",
+          "static ak_dec_ctx *ak_py_tls_acquire(int root, int *tmp);",
+          "static void ak_py_tls_release(int root, ak_dec_ctx *c, int tmp);",
+          "static ak_enc_ctx *ak_py_tls_enc_acquire(int *tmp);",
+          "static void ak_py_tls_enc_release(ak_enc_ctx *c, int tmp);", ""]
     # Decision 11: the backend-independent release of a delivered group's slots that have no
     # facade object (an absent child, an inactive oneof member).
     for n in abi_order_topo(p):
@@ -1425,4 +1443,82 @@ def emit_unk_tables(p):
     L.append("  }")
     L.append("  ak_dec_ctx_free(ctx);\n}")
     L.append("")
+    L.append(TLS_HELPERS)
     return L
+
+
+# One decode context per root, and one encode context, PER THREAD. The GIL can pass to another thread inside a
+# decode (a facade __init__ or a pyacc accessor is Python code), so a process-wide context
+# could be reset under a decode in flight; a per-call context would add an allocation and a
+# crossing to every decode. A pthread key holds each thread's block, created on first use and
+# freed by the key's destructor at thread exit; ak_py_tls_fini (module free) frees the
+# calling thread's block and deletes the key. A decode re-entered on the same thread for
+# the same root (a callback that decodes) finds the slot busy and gets a temporary context.
+TLS_HELPERS = r"""
+#include <pthread.h>
+#include <stdlib.h>
+struct ak_py_tls {
+  ak_dec_ctx *c[AK_NROOTS]; unsigned char busy[AK_NROOTS];
+  ak_enc_ctx *e; unsigned char ebusy;
+};
+static pthread_key_t AK_TLS_KEY;
+static int AK_TLS_OK;
+static unsigned long AK_TLS_CREATED;   /* contexts created through the key, for the harness */
+static void ak_py_tls_free(void *p) {
+  struct ak_py_tls *t = (struct ak_py_tls *)p;
+  if (!t) return;
+  for (int i = 0; i < AK_NROOTS; i++) if (t->c[i]) ak_dec_ctx_free(t->c[i]);
+  if (t->e) ak_enc_ctx_free(t->e);
+  free(t);
+}
+static int ak_py_tls_init(void) {
+  if (AK_TLS_OK) return 0;
+  if (pthread_key_create(&AK_TLS_KEY, ak_py_tls_free)) return -1;
+  AK_TLS_OK = 1;
+  return 0;
+}
+static void ak_py_tls_fini(void) {
+  if (!AK_TLS_OK) return;
+  ak_py_tls_free(pthread_getspecific(AK_TLS_KEY));
+  pthread_setspecific(AK_TLS_KEY, NULL);
+  pthread_key_delete(AK_TLS_KEY);
+  AK_TLS_OK = 0;
+}
+static struct ak_py_tls *ak_py_tls_block(void) {
+  struct ak_py_tls *t = AK_TLS_OK ? (struct ak_py_tls *)pthread_getspecific(AK_TLS_KEY) : NULL;
+  if (!t && AK_TLS_OK) {
+    t = (struct ak_py_tls *)calloc(1, sizeof *t);
+    if (t && pthread_setspecific(AK_TLS_KEY, t)) { free(t); t = NULL; }
+  }
+  return t;
+}
+static ak_dec_ctx *ak_py_tls_acquire(int root, int *tmp) {
+  *tmp = 0;
+  struct ak_py_tls *t = ak_py_tls_block();
+  if (!t || t->busy[root]) { *tmp = 1; return ak_py_ctx_new(root); }
+  if (!t->c[root]) { t->c[root] = ak_py_ctx_new(root); if (!t->c[root]) return NULL; AK_TLS_CREATED++; }
+  t->busy[root] = 1;
+  return t->c[root];
+}
+static void ak_py_tls_release(int root, ak_dec_ctx *c, int tmp) {
+  if (tmp) { ak_dec_ctx_free(c); return; }
+  struct ak_py_tls *t = (struct ak_py_tls *)pthread_getspecific(AK_TLS_KEY);
+  if (t) t->busy[root] = 0;
+}
+/* The encode context: unbound, one per thread; reset per encode (the output buffer and the
+ * sticky error slot start clean). */
+static ak_enc_ctx *ak_py_tls_enc_acquire(int *tmp) {
+  *tmp = 0;
+  struct ak_py_tls *t = ak_py_tls_block();
+  if (!t || t->ebusy) { *tmp = 1; return ak_enc_ctx_new(); }
+  if (!t->e) { t->e = ak_enc_ctx_new(); if (!t->e) return NULL; AK_TLS_CREATED++; }
+  else ak_enc_reset(t->e);
+  t->ebusy = 1;
+  return t->e;
+}
+static void ak_py_tls_enc_release(ak_enc_ctx *c, int tmp) {
+  if (tmp) { ak_enc_ctx_free(c); return; }
+  struct ak_py_tls *t = (struct ak_py_tls *)pthread_getspecific(AK_TLS_KEY);
+  if (t) t->ebusy = 0;
+}
+"""
