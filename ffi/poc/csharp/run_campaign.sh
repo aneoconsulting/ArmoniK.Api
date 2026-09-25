@@ -43,7 +43,9 @@ DIRTY=0
 # What the run reads from the working tree: this slice, the schema and the corpus. The core
 # and the generator are built from `git archive HEAD` (gen/build_core.sh, gen/gate.sh), so a
 # working-tree edit in ffi/poc/codec cannot enter a run and is not part of this check.
-if ! git -C "$REPO" diff --quiet HEAD -- ffi/poc/csharp ffi/schema ffi/corpus \
+CODE="ffi/poc/csharp/src ffi/poc/csharp/gen ffi/poc/csharp/abi ffi/poc/csharp/run_campaign.sh ffi/poc/csharp/Directory.Build.props"
+# (STATE.md and JOURNAL.md are notes, not inputs of a run.)
+if ! git -C "$REPO" diff --quiet HEAD -- $CODE ffi/schema ffi/corpus \
    || [ -n "$(git -C "$REPO" status --porcelain --untracked-files=normal -- ffi/poc/csharp/src ffi/poc/csharp/gen ffi/poc/csharp/run_campaign.sh)" ]; then
   DIRTY=1
   if [ "${AK_ALLOW_DIRTY:-0}" != "1" ]; then echo "refused: the tree is dirty (requirement 27); commit, or AK_ALLOW_DIRTY=1" >&2; exit 3; fi
@@ -84,7 +86,7 @@ gate_first() {  # requirement 26
   # path a run depends on (other slices commit to the branch concurrently).
   if [ -f "$OUT/gate.log" ] && grep -q "^GATE PASSED" "$OUT/gate.log" && ! grep -q "^# branch HEAD: .*uncommitted" "$OUT/gate.log"; then
     local g; g="$(sed -n 's/^# branch HEAD: \([0-9a-f]*\).*/\1/p' "$OUT/gate.log" | head -1)"
-    if [ -n "$g" ] && git -C "$REPO" diff --quiet "$g" HEAD -- ffi/poc/csharp ffi/poc/codec ffi/schema ffi/corpus; then
+    if [ -n "$g" ] && git -C "$REPO" diff --quiet "$g" HEAD -- $CODE ffi/poc/codec ffi/schema ffi/corpus; then
       echo "# gate:          passed at $g, identical to $COMMIT in ffi/poc/csharp, poc/codec, schema, corpus ($OUT/gate.log)"
       return
     fi

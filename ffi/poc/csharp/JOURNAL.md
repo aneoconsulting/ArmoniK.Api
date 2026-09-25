@@ -1459,3 +1459,36 @@ structs / 20 members, `ak_rpc_counters` included.
 `--manifest` so the probe rows run through the same four arms; `gen/gate.sh` runs them on
 both levels: 11/11 everywhere. The corpus has grown to 702 rows (three field-number rows,
 disputed in the corpus, refused by all four arms). Everything else unchanged.
+
+### 49. WP3: the campaign runner, the incumbent move, and a gate that caught the core
+
+Contract: design/CAMPAIGN.md (a10ac81, then 0e8e9eb's amendments to requirements 7 and 29).
+
+**What was built.** `run_campaign.sh --suite codec|rpc|calib|gate --out DIR` and a measuring
+mode in akrpc (`akrpc campaign`, `src/Rpc/Campaign.cs`), with the per-root calls and the
+field visitors generated as glue (`gen/cs_campaign.py`). The old RPC grid could not be
+retrofitted: server in-process, `Process.TotalProcessorTime`, min-of-N. The new rpc suite
+runs Kestrel in its own process on `AK_CPU_SERVER` and returns pre-serialised P2.2; cells
+A-D plus the core's callback/queue rows; directions a and b; 1/8/16 in flight; shipped and
+pinned for every cell; every call checked, and a planted wrong length aborts with no
+sample. CPU is CLOCK_THREAD_CPUTIME_ID (codec, calib) or getrusage(RUSAGE_SELF) of the
+client (rpc), via libc P/Invoke. `src/BenchDotNet` retired (D1).
+
+**The incumbent** moved to Google.Protobuf 3.32.0, Grpc.Tools 2.72.0, Grpc.Net.Client and
+Grpc.AspNetCore 2.71.0 (packages/csharp); the gate passes on it.
+
+**Concurrency with other agents, twice.** The session scratchpad is shared between the
+slice agents: another slice's runner overwrote my smoke output file, and could have hit the
+core snapshot directory too. SCRATCH is now a private subdirectory. And HEAD moved under the
+run (other slices commit continuously), so the runner reuses a passed gate by CONTENT of the
+paths a run reads, not by commit hash.
+
+**Decision 11 landed mid-unit (29d515e).** My generated tree went stale and the gate failed
+until regenerated; the shared cs_host now decodes core-ffi in a transitional drop mode
+(options not rendered, D41), so requirement 10 is pending that port. The counting gate
+(requirement 19, new this unit) then failed on one row: P1.2 push-decode reverse 5 -> 8.
+The decode group gained decision 11's `ak_unk_buf`, the arena is a byte budget divided by
+the group size, so 1,000 ResultRaw now need 8 flushes. Nothing else moved; re-baselined.
+
+**The smoke run** (1 launch, 1 round, reduced iterations) is committed under
+logs/csharp/campaign/ with every file marked instrumentation.
