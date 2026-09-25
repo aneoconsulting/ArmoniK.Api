@@ -355,6 +355,14 @@ def _emit_unk_state(ir, o):
     o.append("  // ---- decision 11: root-bound contexts, in-place options, the bags ----------")
     o.append("  final long[] decCtxs = new long[%d];" % n)
     o.append("  final long[] unkOpts = new long[%d];" % n)
+    o.append("  /** Per root: the shim's list of the buffers its grow handed out (the options' `host`). */")
+    o.append("  final long[] unkLists = new long[%d];" % n)
+    o.append("  /** Buffers the core grew in a decode that then FAILED, reclaimed (rule 3: they are the")
+    o.append("   *  host's); and buffers left undelivered after a decode that SUCCEEDED (a binding")
+    o.append("   *  defect: every non-NULL slot of a delivered group is taken or freed). */")
+    o.append("  public long unkReclaimed, unkLeftAfterSuccess;")
+    o.append("  /** Planted defect for the leak control (-Dak.unk.leakplant=1): nothing is reclaimed. */")
+    o.append("  static final boolean UNK_PLANT_NO_RECLAIM = \"1\".equals(System.getProperty(\"ak.unk.leakplant\"));")
     o.append("  final long[] unkMask = {%s};" % ", ".join(["-1L"] * n))
     o.append("  /** Each root's positions, in the options struct's order (plan.unk_opts_layout). */")
     o.append("  public static final String[][] UNK_POSITIONS = {")
@@ -388,6 +396,8 @@ def _emit_unk_state(ir, o):
         o.append("      case %d: {" % i)
         o.append("        x = Mem.alloc(%s);" % _size(on))
         o.append("        Mem.zero(x, %s);" % _size(on))
+        o.append("        if (unkLists[%d] == 0) unkLists[%d] = Native.unkListNew();" % (i, i))
+        o.append("        Mem.U.putLong(x + %s, unkLists[%d]);   // host: the tracking list" % (_off(on, "host"), i))
         for k, (mn, _m, ty) in enumerate(unk_opts_layout(ir, r)):
             o.append("        if ((unkMask[%d] & (1L << %d)) != 0) Mem.U.putLong(x + %s + %s, grow);   // %s (%s)"
                      % (i, k, _off(on, mn), _off(ty, "grow"), mn, ty))
@@ -413,8 +423,16 @@ UNK_HELPERS = """
     for (int i = 0; i < decCtxs.length; i++) {
       if (decCtxs[i] != 0) Native.decCtxFree(decCtxs[i]);
       if (unkOpts[i] != 0) Mem.free(unkOpts[i]);
-      decCtxs[i] = unkOpts[i] = 0;
+      if (unkLists[i] != 0) Native.unkListFree(unkLists[i]);
+      decCtxs[i] = unkOpts[i] = unkLists[i] = 0;
     }
+  }
+
+  /** After a retain decode: free what was never delivered (rule 3) and count it. */
+  void unkSettle(int ri, int rc) {
+    if (UNK_PLANT_NO_RECLAIM) return;
+    int left = Native.unkReclaim(unkLists[ri]);
+    if (rc < 0) unkReclaimed += left; else unkLeftAfterSuccess += left;
   }
 
   /** A delivered slot's buffer: copied into a byte[] (null when empty) and freed. The data
@@ -953,9 +971,13 @@ def emit(ir, level=17, ns=N.PKG, facade_ns=None, layout="ak.shapes.Layout",
         o.append("    // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive")
         o.append("    // and unmoved while armed), decode, disarm. Drop mode needs no reset.")
         o.append("    if (retain) check(%s.decReset%s(decCtx, unkOptsOf(%d)));" % (ENTRY[0], root, ri))
-        o.append("    int rc = %s.decode%s(this, decCtx, wireNative, len,"
+        o.append("    int rc = -1;   // a Java exception out of the decode counts as a failure")
+        o.append("    try {")
+        o.append("      rc = %s.decode%s(this, decCtx, wireNative, len,"
                  " dvt%s);" % (ENTRY[0], root, root))
-        o.append("    if (retain) %s.decReset%s(decCtx, 0L);" % (ENTRY[0], root))
+        o.append("    } finally {")
+        o.append("      if (retain) { %s.decReset%s(decCtx, 0L); unkSettle(%d, rc); }" % (ENTRY[0], root, ri))
+        o.append("    }")
         o.append("    check(rc);")
         o.append("    return r;")
         o.append("  }")
