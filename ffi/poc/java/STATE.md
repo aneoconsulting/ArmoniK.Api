@@ -11,7 +11,7 @@ crossing counts, floor builds, corpus passes, feasibility and defects found.
 
 | | |
 |---|---|
-| **Status** | FIX-PLAN WP5 step 3 done (2889d87, 287deca); WP5 tail D38 and D39 fixed (bb98e8f, 271fdd5) and re-gated from a clean core build at 271fdd5: payload gate 1,389 checks per arm-set, 0 failures (`wp5s6-gate.log`); full corpus (702 rows) on six arms, target and floor, 0 failing arm-rows (`wp5s6-corpus.log`); the rust slice's probe manifest, 0 failing (`wp5s6-probe.log`). |
+| **Status** | FIX-PLAN WP5 step 3 done (2889d87, 287deca); WP5 tail D38 and D39 fixed (bb98e8f, 271fdd5) and re-gated from a clean core build at 271fdd5: payload gate 1,389 checks per arm-set, 0 failures (`wp5s6-gate.log`); full corpus (702 rows) on six arms, target and floor, 0 failing arm-rows (`wp5s6-corpus.log`); the rust slice's probe manifest, 0 failing (`wp5s6-probe.log`). **WP3 (2026-09-25): campaign harness built and smoke-run** (`gen/run_campaign.sh`; checklist below; unmet: req 7 unknown-field rows unnamed, req 10 core-ffi retain pending decision 11, req 20 perf unavailable here, req 29 log path by ownership). |
 | **Levels** (owner decision D3) | **floor Java 8** (correctness gate only): `openjdk 1.8.0_504`, JDK 8 `javac`. **target JDK 17**: `openjdk 17.0.20.1`. JDK 21 only for the two secondary probes (virtual threads, FFM preview). |
 | **Incumbent** | protobuf-java **3.25.5** (resolved from `packages/java`'s pins), protoc 3.19.0 (copied from `~/.m2` when present). R14's baseline path is `io.grpc.protobuf.lite.ProtoLiteUtils`' marshaller (`RunR14`). |
 | **Core** | the shared crate `poc/codec/crates/ak-core` (R0), no copy here. `gen/build.sh` builds it from a `git archive` SNAPSHOT of the committed `ffi/poc/codec` (`AK_CORE_REV`, default HEAD; `AK_CODEC=<dir>` for another tree), because other slices regenerate the core in the same working tree; it builds into `core-build/<key>/`, key = the git tree hash of `ffi/poc/codec` at that revision, `core-build/current` -> the key built, and every shim is checked to link that key's core (D39: a reused target dir once kept a stale core). The snapshot commit and key go to `build/core-rev.txt` and into every gate log. **Every codec build carries `init-guard`** (R-G7); the corpus build is `corpus,init-guard`. |
@@ -42,6 +42,50 @@ crossing counts, floor builds, corpus passes, feasibility and defects found.
 | `ffi-borrow` | decision 13's borrowed facade | yes | yes |
 | `pbj` | protobuf-java | yes | no (not generated; the incumbent) |
 | RPC arm (`RunRpc`, `native/rpc.c`) | section 9 end to end | built, **not run in this unit**, not in either gate | -- |
+
+## Campaign readiness (design/CAMPAIGN.md W11 draft, a10ac81) -- FIX-PLAN WP3
+
+The harness: `gen/run_campaign.sh --suite codec|rpc|calib|gate --out <dir>` over
+`ak.CampaignCodec`, `ak.CampaignRpc` (client and `--serve`), `ak.CampaignCalib` +
+`probe/CampaignRev`, the gate (`gen/gate.sh`, `gen/corpus.sh`, crossing counts against
+`gen/campaign/counts.ref`). Smoke run (req 32): `logs/java/campaign-smoke/`, 1 launch, 1
+round, reduced iterations; **the committed copy has every figure stripped** (cpu_ns, wall_ns,
+jit_ms replaced by "stripped"), so it shows structure and coverage and nothing else.
+
+| # | requirement | status |
+|---|---|---|
+| 1 | one machine, slices sequential | not applicable to a harness (the owner's run); the runner runs one suite at a time |
+| 2 | governor, turbo, SMT | met as recording: header prints governor, no_turbo/boost, SMT from sysfs; setting them is the owner's |
+| 3 | isolation, mechanism recorded | met as recording: `AK_ISOLATION` verbatim plus `/sys/devices/system/cpu/isolated` |
+| 4 | CLIENT / SERVER sets as parameters | met: `AK_CPU_CLIENT` / `AK_CPU_SERVER` via `taskset`, required outside smoke; NUMA/SMT-sibling disjointness is the owner's (node count printed) |
+| 5 | floors gated, not timed | met: the gate suite runs arms b and c (java8 tree, JDK 17 and JDK 8) and the corpus on JDK 8; nothing on 8 is timed (Campaign* is not in the floor build) |
+| 6 | build flags printed | met: core snapshot commit and tree key, cargo features (`init-guard` on), cdylib, shim `-O2`, JVM flags (heap fixed, G1, tiered JIT) |
+| 7 | 16 payloads, 3 content sets, unknown rows | **partly met**: 16 payloads x 3 sets (P7.1 is decode-only, ASCII vector). **Not met**: the corpus unknown-field rows "named in section 4.3" -- section 4.3 names none; needs the list |
+| 8 | arms | met: incumbent-prod (grpc-java `ProtoLiteUtils` marshaller, R14), incumbent-best (`toByteArray` / `parseFrom(byte[])`), core-ffi (push), core-ffi-pull (labelled extra), host-gen (arm R) |
+| 9 | encode, decode bare, decode + read all | met: `encode`, `decode`, `decode-read` (generated `Walk` / `PbWalk` read every field) |
+| 10 | drop and retain for core-ffi and host-gen | **pending decision 11 port**: host-gen drop and retain run (`Codec`, `CodecRetain`); core-ffi retain is wired as an `unknown_mode` hook and recorded as pending in a meta line, because the binding does not render decision 11's mechanism yet (being ported into poc/codec); incumbent: protobuf-java's default (retains) |
+| 11 | serialise once per iteration, fresh graph | met: a pool of `iters` freshly built objects per encode sample, untimed; same for the facade arms |
+| 12 | cells A-D | met |
+| 13 | server separate process, pre-serialised | met: `--serve`, its own JVM on `AK_CPU_SERVER`; (a) the same pre-serialised P2.2 bytes; (b) parses with protobuf-java in every cell |
+| 14 | directions (a) and (b) | met; the optional streamed upload is not built |
+| 15 | 1 / 8 / 16 in flight | met (blocking threads) |
+| 16 | B and C blocking delivery | met; queue/callback extra rows not in the campaign harness (RunRpc has the queue) |
+| 17 | shipped and pinned | met: shipped = packages/java's GrpcChannelBuilder (defaults, 8 MiB inbound, 1 MiB metadata), core with no options, server grpc-java defaults; pinned = 4 MiB windows everywhere, grpc-java BDP off, core adaptive 0 and Nagle 0. One server and one client process per transport |
+| 18 | every call checked, abort | met: exception / non-OK aborts; response length checked (P2.2 in a, 0 in b); samples are written only if the run completes |
+| 19 | crossing counts gate | met: the gate diffs the counting build's rows against `gen/campaign/counts.ref` (94 rows, equal to wp5-counts.log) |
+| 20 | crossing cost, fwd and rev, perf stat | **partly met**: forward through the core's shim, JNI forward and JNI upcall (reverse) as JSON samples, the rust slice's crossing bench beside them; `perf stat` wraps each when `perf` exists -- not installed in this container, so cycles/instructions are unverified here |
+| 21 | CPU time, fine clock | met: codec thread CPU (ThreadMXBean, CLOCK_THREAD_CPUTIME_ID); RPC process CPU from `clock_gettime(CLOCK_PROCESS_CPUTIME_ID)` via rpc.c (not the JDK's `getProcessCpuTime`, which reads `times()`); wall beside it |
+| 22 | interleaved, rotated | met: codec arms rotated per round inside each (payload, content, dir); RPC cells rotated per round inside each (dir, inflight) |
+| 23 | >= 5 rounds, 3 launches, every round committed | met: `AK_ROUNDS` 5, `AK_LAUNCHES` 3 by default; one JSON line per round |
+| 24 | warm-up stated, both coder states | met: fixed warm-up samples per cell (codec 5, RPC 2), the JIT's cumulative compile time recorded after warm-up and per round; every codec launch runs twice, compact strings and `-XX:-CompactStrings` (`coder` field) |
+| 25 | allocator warmed, GC stated | met: same warm-up for every arm, heap fixed (-Xms=-Xmx 4g), G1 on |
+| 26 | gate before timing | met: a timing suite runs only with a passed gate stamp for the build (run first if absent) |
+| 27 | header | met (see 2-6, transport, repeats); dirty tree refused for poc/java (poc/codec, schema and corpus enter only through the `git archive` snapshot) |
+| 28 | JSON lines body | met, the required fields plus `coder`, `delivery` (extra) and `{"meta":...}` lines |
+| 29 | logs to ffi/logs/campaign/java/ | **not met here by ownership**: `--out` takes any directory; the smoke log is committed under `logs/java/campaign-smoke/` because a slice writes `logs/<lang>/` only |
+| 30 | summaries | not produced (optional); the raw lines carry what section 8 needs |
+| 31 | runner interface, top-level campaign.sh | met for the slice runner; `ffi/campaign.sh` is the aggregating session's (not written here) |
+| 32 | smoke run, readiness recorded | met: this section and `logs/java/campaign-smoke/` |
 
 ## Correctness (results)
 
@@ -216,6 +260,11 @@ not), `contentsets.log`, `deopt.log`, `r9-mechanism.log`, `crossing.log`,
 
 ## Next step
 
+0. **Campaign (W13), when the owner runs it**: `AK_CPU_CLIENT=.. AK_CPU_SERVER=.. AK_ISOLATION=..
+   gen/run_campaign.sh --suite gate|codec|rpc|calib --out ffi/logs/campaign/java`. Before it:
+   render decision 11's mechanism in the Java binding (req 10), and take the unknown-field
+   row list for req 7.
+
 1. **ffi retain** (G3), if the owner wants both unknown-field modes on the C ABI arms:
    wire `unknown` / `unk_<slot>` trampolines and the `ak_uencode_*` / `ak_uelem*` path with
    `ufix` fills; R-G11 bounds what it can retain.
@@ -244,6 +293,7 @@ not), `contentsets.log`, `deopt.log`, `r9-mechanism.log`, `crossing.log`,
 
 | Log | What it establishes |
 |---|---|
+| `campaign-smoke/` | WP3 smoke run of `gen/run_campaign.sh` (gate, codec, rpc, calib): structure and coverage; every figure stripped |
 | `wp5s6-gate.log`, `wp5s6-conformance-arm-{a,b,c}.log` | WP5 tail: the payload gate from a clean core build at 271fdd5, 0 failures |
 | `wp5s6-corpus.log` | WP5 tail: 702 corpus rows, six arms, 8 and 17, 0 failing; controls; rule gaps |
 | `wp5s6-probe.log` | the rust slice's probe manifest on six arms, 8 and 17, 0 failing (D38) |

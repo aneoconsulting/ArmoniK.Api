@@ -43,7 +43,6 @@ extern "C" {
 /* ---- section 4: common vocabulary (plan.FIXED) --------------------------------- */
 typedef struct ak_enc_ctx ak_enc_ctx;
 typedef struct ak_dec_ctx ak_dec_ctx;
-typedef struct ak_uspan ak_uspan;
 /* ABI v1 section 4: the transcoder's growth callback; may move the buffer. */
 typedef int32_t (*ak_grow_fn)(void *sink, int32_t want, uint8_t * *dst, int32_t *cap);
 /* ABI v1 section 4: source code units -> UTF-8 into dst; returns bytes written or an error. */
@@ -52,8 +51,6 @@ typedef int32_t (*ak_transcode_fn)(const void *src, size_t len, uint8_t *dst, in
 typedef void (*ak_log_fn)(void *ctx, uint32_t level, const uint8_t *msg, size_t msg_len);
 /* ABI v1 section 6: a host-driven loop over one repeated/packed/map field. */
 typedef int32_t (*ak_loop_f)(ak_enc_ctx *ctx, const void *obj, int64_t token);
-/* Decision 11 candidate: captured unknown-field runs, delivered by token. */
-typedef void (*ak_unk_f)(ak_dec_ctx *ctx, void *obj, const struct ak_uspan *spans, int32_t n);
 /* ABI v1 section 4, encode: a blob as DATA in the group. `len` counts SOURCE code units; `tc == NULL` means the field is ABSENT. */
 struct ak_str {
   const void *data;
@@ -74,13 +71,19 @@ struct ak_blob {
   size_t len;
 };
 typedef struct ak_blob ak_blob;
-/* One captured unknown run: which object (a token) and where in the input. */
-struct ak_uspan {
-  int64_t token;
-  uint32_t off;
+/* Decision 11 (WP5 step 7): one message occurrence's unknown-field buffer, host memory the core copies the runs into. */
+struct ak_unk_buf {
+  void *data;
   uint32_t len;
+  uint32_t cap;
 };
-typedef struct ak_uspan ak_uspan;
+typedef struct ak_unk_buf ak_unk_buf;
+/* Decision 11: one message position's configuration; all zero = its unknowns are discarded. */
+struct ak_unk_opts {
+  struct ak_unk_buf buf;
+  ak_grow_fn grow;
+};
+typedef struct ak_unk_opts ak_unk_opts;
 /* ak_init's out-parameter (ABI v1 section 3/5): a code and a detail. */
 struct ak_err {
   int32_t code;
@@ -139,6 +142,7 @@ struct ak_efix_TaskOptionsOptionsEntry {
 struct ak_dfix_TaskOptionsOptionsEntry {
   struct ak_span key;
   struct ak_span value;
+  struct ak_unk_buf unknown;
   uint32_t presence;
 };
 
@@ -161,6 +165,7 @@ struct ak_efix_Timestamp {
 struct ak_dfix_Timestamp {
   int64_t seconds;
   int32_t nanos;
+  struct ak_unk_buf unknown;
   uint32_t presence;
 };
 
@@ -183,6 +188,7 @@ struct ak_efix_Duration {
 struct ak_dfix_Duration {
   int64_t seconds;
   int32_t nanos;
+  struct ak_unk_buf unknown;
   uint32_t presence;
 };
 
@@ -225,6 +231,7 @@ struct ak_dfix_ResultRaw {
   struct ak_span created_by;
   struct ak_span opaque_id;
   uint8_t manual_deletion;
+  struct ak_unk_buf unknown;
   uint32_t presence;
 };
 #define AK_DFIX_RESULTRAW_PRESENT_CREATED_AT (1u << 0)
@@ -275,6 +282,7 @@ struct ak_dfix_TaskOptions {
   struct ak_span application_namespace;
   struct ak_span application_service;
   struct ak_span engine_type;
+  struct ak_unk_buf unknown;
   uint32_t presence;
 };
 #define AK_DFIX_TASKOPTIONS_PRESENT_MAX_DURATION (1u << 0)
@@ -306,6 +314,7 @@ struct ak_efix_TaskOutput {
 struct ak_dfix_TaskOutput {
   uint8_t success;
   struct ak_span error;
+  struct ak_unk_buf unknown;
   uint32_t presence;
 };
 
@@ -384,6 +393,7 @@ struct ak_dfix_TaskDetailed {
   struct ak_dfix_Timestamp fetched_at;
   struct ak_span payload_id;
   struct ak_span created_by;
+  struct ak_unk_buf unknown;
   uint32_t presence;
 };
 #define AK_DFIX_TASKDETAILED_PRESENT_OPTIONS (1u << 0)
@@ -469,6 +479,7 @@ struct ak_dfix_TaskSummary {
   struct ak_span error;
   struct ak_span status_message;
   int64_t count_data_dependencies;
+  struct ak_unk_buf unknown;
   uint32_t presence;
 };
 #define AK_DFIX_TASKSUMMARY_PRESENT_OPTIONS (1u << 0)
@@ -497,6 +508,7 @@ struct ak_efix_Empty {
 
 /* Decode group for `Empty`. */
 struct ak_dfix_Empty {
+  struct ak_unk_buf unknown;
   uint32_t presence;
 };
 
@@ -536,6 +548,7 @@ struct ak_dfix_Probe {
   struct ak_span body_as_blob;
   struct ak_dfix_Timestamp body_as_stamp;
   struct ak_dfix_Empty body_as_nothing;
+  struct ak_unk_buf unknown;
   uint32_t presence;
 };
 #define AK_DFIX_PROBE_PRESENT_OPT_COUNT (1u << 0)
@@ -574,6 +587,7 @@ struct ak_dfix_UploadResultData {
   struct ak_span session_id;
   struct ak_span result_id;
   struct ak_span data_chunk;
+  struct ak_unk_buf unknown;
   uint32_t presence;
 };
 
@@ -595,6 +609,7 @@ struct ak_efix_MetricsBatch {
 /* Decode group for `MetricsBatch`. */
 struct ak_dfix_MetricsBatch {
   struct ak_span id;
+  struct ak_unk_buf unknown;
   uint32_t presence;
 };
 
@@ -616,6 +631,7 @@ struct ak_efix_Pair {
 struct ak_dfix_Pair {
   struct ak_span key;
   int32_t value;
+  struct ak_unk_buf unknown;
   uint32_t presence;
 };
 
@@ -638,6 +654,7 @@ struct ak_efix_ListResultsResponse {
 struct ak_dfix_ListResultsResponse {
   int32_t page;
   int32_t total;
+  struct ak_unk_buf unknown;
   uint32_t presence;
 };
 
@@ -660,6 +677,7 @@ struct ak_efix_ListTasksDetailedResponse {
 struct ak_dfix_ListTasksDetailedResponse {
   int32_t page;
   int32_t total;
+  struct ak_unk_buf unknown;
   uint32_t presence;
 };
 
@@ -678,6 +696,7 @@ struct ak_efix_ListTaskSummaryResponse {
 
 /* Decode group for `ListTaskSummaryResponse`. */
 struct ak_dfix_ListTaskSummaryResponse {
+  struct ak_unk_buf unknown;
   uint32_t presence;
 };
 
@@ -694,6 +713,7 @@ struct ak_efix_ListProbeResponse {
 
 /* Decode group for `ListProbeResponse`. */
 struct ak_dfix_ListProbeResponse {
+  struct ak_unk_buf unknown;
   uint32_t presence;
 };
 
@@ -710,6 +730,7 @@ struct ak_efix_ListMetricsResponse {
 
 /* Decode group for `ListMetricsResponse`. */
 struct ak_dfix_ListMetricsResponse {
+  struct ak_unk_buf unknown;
   uint32_t presence;
 };
 
@@ -729,6 +750,7 @@ struct ak_efix_UploadResultDataMessage {
 /* Decode group for `UploadResultDataMessage`. */
 struct ak_dfix_UploadResultDataMessage {
   struct ak_dfix_UploadResultData upload;
+  struct ak_unk_buf unknown;
   uint32_t presence;
 };
 #define AK_DFIX_UPLOADRESULTDATAMESSAGE_PRESENT_UPLOAD (1u << 0)
@@ -748,6 +770,7 @@ struct ak_efix_DualResponse {
 
 /* Decode group for `DualResponse`. */
 struct ak_dfix_DualResponse {
+  struct ak_unk_buf unknown;
   uint32_t presence;
 };
 
@@ -765,8 +788,6 @@ struct ak_evt_ListResultsResponse {
 /* Decode vtable for `ListResultsResponse` (the push family, ABI v1 section 7.1). */
 struct ak_dvt_ListResultsResponse {
   void (*apply)(ak_dec_ctx *, void *, const struct ak_dfix_ListResultsResponse *);
-  ak_unk_f unknown;
-  ak_unk_f unk_results;
   void (*add_results)(ak_dec_ctx *, void *, int64_t, const struct ak_dfix_ResultRaw *, int32_t);
 };
 
@@ -779,8 +800,6 @@ struct ak_evt_ListTasksDetailedResponse {
 /* Decode vtable for `ListTasksDetailedResponse` (the push family, ABI v1 section 7.1). */
 struct ak_dvt_ListTasksDetailedResponse {
   void (*apply)(ak_dec_ctx *, void *, const struct ak_dfix_ListTasksDetailedResponse *);
-  ak_unk_f unknown;
-  ak_unk_f unk_tasks;
   int64_t (*new_tasks)(ak_dec_ctx *, void *);
   void (*apply_tasks)(ak_dec_ctx *, void *, int64_t, const struct ak_dfix_TaskDetailed *);
   void (*add_tasks_parent_task_ids)(ak_dec_ctx *, void *, int64_t, const struct ak_span *, int32_t);
@@ -798,8 +817,6 @@ struct ak_evt_ListProbeResponse {
 /* Decode vtable for `ListProbeResponse` (the push family, ABI v1 section 7.1). */
 struct ak_dvt_ListProbeResponse {
   void (*apply)(ak_dec_ctx *, void *, const struct ak_dfix_ListProbeResponse *);
-  ak_unk_f unknown;
-  ak_unk_f unk_probes;
   void (*add_probes)(ak_dec_ctx *, void *, int64_t, const struct ak_dfix_Probe *, int32_t);
 };
 
@@ -812,8 +829,6 @@ struct ak_evt_ListTaskSummaryResponse {
 /* Decode vtable for `ListTaskSummaryResponse` (the push family, ABI v1 section 7.1). */
 struct ak_dvt_ListTaskSummaryResponse {
   void (*apply)(ak_dec_ctx *, void *, const struct ak_dfix_ListTaskSummaryResponse *);
-  ak_unk_f unknown;
-  ak_unk_f unk_tasks;
   int64_t (*new_tasks)(ak_dec_ctx *, void *);
   void (*apply_tasks)(ak_dec_ctx *, void *, int64_t, const struct ak_dfix_TaskSummary *);
   void (*add_tasks_options_options)(ak_dec_ctx *, void *, int64_t, const struct ak_dfix_TaskOptionsOptionsEntry *, int32_t);
@@ -827,7 +842,6 @@ struct ak_evt_UploadResultDataMessage {
 /* Decode vtable for `UploadResultDataMessage` (the push family, ABI v1 section 7.1). */
 struct ak_dvt_UploadResultDataMessage {
   void (*apply)(ak_dec_ctx *, void *, const struct ak_dfix_UploadResultDataMessage *);
-  ak_unk_f unknown;
 };
 
 /* Encode vtable for `ListMetricsResponse`. */
@@ -839,8 +853,6 @@ struct ak_evt_ListMetricsResponse {
 /* Decode vtable for `ListMetricsResponse` (the push family, ABI v1 section 7.1). */
 struct ak_dvt_ListMetricsResponse {
   void (*apply)(ak_dec_ctx *, void *, const struct ak_dfix_ListMetricsResponse *);
-  ak_unk_f unknown;
-  ak_unk_f unk_batches;
   int64_t (*new_batches)(ak_dec_ctx *, void *);
   void (*apply_batches)(ak_dec_ctx *, void *, int64_t, const struct ak_dfix_MetricsBatch *);
   void (*add_batches_ticks)(ak_dec_ctx *, void *, int64_t, const int64_t *, int32_t);
@@ -859,10 +871,7 @@ struct ak_evt_DualResponse {
 /* Decode vtable for `DualResponse` (the push family, ABI v1 section 7.1). */
 struct ak_dvt_DualResponse {
   void (*apply)(ak_dec_ctx *, void *, const struct ak_dfix_DualResponse *);
-  ak_unk_f unknown;
-  ak_unk_f unk_left;
   void (*add_left)(ak_dec_ctx *, void *, int64_t, const struct ak_dfix_Pair *, int32_t);
-  ak_unk_f unk_right;
   void (*add_right)(ak_dec_ctx *, void *, int64_t, const struct ak_dfix_Pair *, int32_t);
 };
 
@@ -874,7 +883,6 @@ struct ak_evt_TaskOptionsOptionsEntry {
 /* Decode vtable for `TaskOptionsOptionsEntry` (the push family, ABI v1 section 7.1). */
 struct ak_dvt_TaskOptionsOptionsEntry {
   void (*apply)(ak_dec_ctx *, void *, const struct ak_dfix_TaskOptionsOptionsEntry *);
-  ak_unk_f unknown;
 };
 
 /* Encode vtable for `ResultRaw`. */
@@ -885,7 +893,6 @@ struct ak_evt_ResultRaw {
 /* Decode vtable for `ResultRaw` (the push family, ABI v1 section 7.1). */
 struct ak_dvt_ResultRaw {
   void (*apply)(ak_dec_ctx *, void *, const struct ak_dfix_ResultRaw *);
-  ak_unk_f unknown;
 };
 
 /* Encode vtable for `TaskDetailed`. */
@@ -900,12 +907,10 @@ struct ak_evt_TaskDetailed {
 /* Decode vtable for `TaskDetailed` (the push family, ABI v1 section 7.1). */
 struct ak_dvt_TaskDetailed {
   void (*apply)(ak_dec_ctx *, void *, const struct ak_dfix_TaskDetailed *);
-  ak_unk_f unknown;
   void (*add_parent_task_ids)(ak_dec_ctx *, void *, int64_t, const struct ak_span *, int32_t);
   void (*add_data_dependencies)(ak_dec_ctx *, void *, int64_t, const struct ak_span *, int32_t);
   void (*add_expected_output_ids)(ak_dec_ctx *, void *, int64_t, const struct ak_span *, int32_t);
   void (*add_retry_of_ids)(ak_dec_ctx *, void *, int64_t, const struct ak_span *, int32_t);
-  ak_unk_f unk_options_options;
   void (*add_options_options)(ak_dec_ctx *, void *, int64_t, const struct ak_dfix_TaskOptionsOptionsEntry *, int32_t);
 };
 
@@ -917,8 +922,6 @@ struct ak_evt_TaskSummary {
 /* Decode vtable for `TaskSummary` (the push family, ABI v1 section 7.1). */
 struct ak_dvt_TaskSummary {
   void (*apply)(ak_dec_ctx *, void *, const struct ak_dfix_TaskSummary *);
-  ak_unk_f unknown;
-  ak_unk_f unk_options_options;
   void (*add_options_options)(ak_dec_ctx *, void *, int64_t, const struct ak_dfix_TaskOptionsOptionsEntry *, int32_t);
 };
 
@@ -930,7 +933,6 @@ struct ak_evt_Probe {
 /* Decode vtable for `Probe` (the push family, ABI v1 section 7.1). */
 struct ak_dvt_Probe {
   void (*apply)(ak_dec_ctx *, void *, const struct ak_dfix_Probe *);
-  ak_unk_f unknown;
 };
 
 /* Encode vtable for `MetricsBatch`. */
@@ -945,7 +947,6 @@ struct ak_evt_MetricsBatch {
 /* Decode vtable for `MetricsBatch` (the push family, ABI v1 section 7.1). */
 struct ak_dvt_MetricsBatch {
   void (*apply)(ak_dec_ctx *, void *, const struct ak_dfix_MetricsBatch *);
-  ak_unk_f unknown;
   void (*add_ticks)(ak_dec_ctx *, void *, int64_t, const int64_t *, int32_t);
   void (*add_values)(ak_dec_ctx *, void *, int64_t, const double *, int32_t);
   void (*add_codes)(ak_dec_ctx *, void *, int64_t, const int32_t *, int32_t);
@@ -961,38 +962,139 @@ struct ak_evt_Pair {
 /* Decode vtable for `Pair` (the push family, ABI v1 section 7.1). */
 struct ak_dvt_Pair {
   void (*apply)(ak_dec_ctx *, void *, const struct ak_dfix_Pair *);
-  ak_unk_f unknown;
 };
+
+/* Decision 11: `ListResultsResponse`'s unknown-field options, one entry per message position
+ * (plan.unk_positions order); `host` is passed to every grow as `sink`. */
+struct ak_dec_ListResultsResponse_opts {
+  void *host;
+  struct ak_unk_opts self;  /* ListResultsResponse */
+  struct ak_unk_opts results;  /* ResultRaw */
+  struct ak_unk_opts results_created_at;  /* Timestamp */
+  struct ak_unk_opts results_completed_at;  /* Timestamp */
+};
+#define AK_DEC_LISTRESULTSRESPONSE_OPTS_N 4
+
+/* Decision 11: `ListTasksDetailedResponse`'s unknown-field options, one entry per message position
+ * (plan.unk_positions order); `host` is passed to every grow as `sink`. */
+struct ak_dec_ListTasksDetailedResponse_opts {
+  void *host;
+  struct ak_unk_opts self;  /* ListTasksDetailedResponse */
+  struct ak_unk_opts tasks;  /* TaskDetailed */
+  struct ak_unk_opts tasks_options;  /* TaskOptions */
+  struct ak_unk_opts tasks_options_options;  /* TaskOptionsOptionsEntry */
+  struct ak_unk_opts tasks_options_max_duration;  /* Duration */
+  struct ak_unk_opts tasks_created_at;  /* Timestamp */
+  struct ak_unk_opts tasks_submitted_at;  /* Timestamp */
+  struct ak_unk_opts tasks_started_at;  /* Timestamp */
+  struct ak_unk_opts tasks_ended_at;  /* Timestamp */
+  struct ak_unk_opts tasks_pod_ttl;  /* Timestamp */
+  struct ak_unk_opts tasks_output;  /* TaskOutput */
+  struct ak_unk_opts tasks_received_at;  /* Timestamp */
+  struct ak_unk_opts tasks_acquired_at;  /* Timestamp */
+  struct ak_unk_opts tasks_creation_to_end_duration;  /* Duration */
+  struct ak_unk_opts tasks_processing_to_end_duration;  /* Duration */
+  struct ak_unk_opts tasks_received_to_end_duration;  /* Duration */
+  struct ak_unk_opts tasks_processed_at;  /* Timestamp */
+  struct ak_unk_opts tasks_fetched_at;  /* Timestamp */
+};
+#define AK_DEC_LISTTASKSDETAILEDRESPONSE_OPTS_N 18
+
+/* Decision 11: `ListProbeResponse`'s unknown-field options, one entry per message position
+ * (plan.unk_positions order); `host` is passed to every grow as `sink`. */
+struct ak_dec_ListProbeResponse_opts {
+  void *host;
+  struct ak_unk_opts self;  /* ListProbeResponse */
+  struct ak_unk_opts probes;  /* Probe */
+  struct ak_unk_opts probes_body_as_stamp;  /* Timestamp */
+  struct ak_unk_opts probes_body_as_nothing;  /* Empty */
+};
+#define AK_DEC_LISTPROBERESPONSE_OPTS_N 4
+
+/* Decision 11: `ListTaskSummaryResponse`'s unknown-field options, one entry per message position
+ * (plan.unk_positions order); `host` is passed to every grow as `sink`. */
+struct ak_dec_ListTaskSummaryResponse_opts {
+  void *host;
+  struct ak_unk_opts self;  /* ListTaskSummaryResponse */
+  struct ak_unk_opts tasks;  /* TaskSummary */
+  struct ak_unk_opts tasks_options;  /* TaskOptions */
+  struct ak_unk_opts tasks_options_options;  /* TaskOptionsOptionsEntry */
+  struct ak_unk_opts tasks_options_max_duration;  /* Duration */
+  struct ak_unk_opts tasks_created_at;  /* Timestamp */
+};
+#define AK_DEC_LISTTASKSUMMARYRESPONSE_OPTS_N 6
+
+/* Decision 11: `UploadResultDataMessage`'s unknown-field options, one entry per message position
+ * (plan.unk_positions order); `host` is passed to every grow as `sink`. */
+struct ak_dec_UploadResultDataMessage_opts {
+  void *host;
+  struct ak_unk_opts self;  /* UploadResultDataMessage */
+  struct ak_unk_opts upload;  /* UploadResultData */
+};
+#define AK_DEC_UPLOADRESULTDATAMESSAGE_OPTS_N 2
+
+/* Decision 11: `ListMetricsResponse`'s unknown-field options, one entry per message position
+ * (plan.unk_positions order); `host` is passed to every grow as `sink`. */
+struct ak_dec_ListMetricsResponse_opts {
+  void *host;
+  struct ak_unk_opts self;  /* ListMetricsResponse */
+  struct ak_unk_opts batches;  /* MetricsBatch */
+};
+#define AK_DEC_LISTMETRICSRESPONSE_OPTS_N 2
+
+/* Decision 11: `DualResponse`'s unknown-field options, one entry per message position
+ * (plan.unk_positions order); `host` is passed to every grow as `sink`. */
+struct ak_dec_DualResponse_opts {
+  void *host;
+  struct ak_unk_opts self;  /* DualResponse */
+  struct ak_unk_opts left;  /* Pair */
+  struct ak_unk_opts right;  /* Pair */
+};
+#define AK_DEC_DUALRESPONSE_OPTS_N 3
 
 /* ABI v1 section 6: what the host calls are PLAIN EXPORTS, not a table. */
 intptr_t ak_encode_ListResultsResponse(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_ListResultsResponse *vt, const struct ak_efix_ListResultsResponse *fix);
 intptr_t ak_uencode_ListResultsResponse(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_ListResultsResponse *vt, const struct ak_ufix_ListResultsResponse *fix);
 int32_t ak_decode_ListResultsResponse(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_ListResultsResponse *vt);
 int32_t ak_parse_ListResultsResponse(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
+ak_dec_ctx *ak_dec_ctx_new_ListResultsResponse(const struct ak_dec_ListResultsResponse_opts *opts);
+void ak_dec_reset_ListResultsResponse(ak_dec_ctx *ctx, const struct ak_dec_ListResultsResponse_opts *opts);
 intptr_t ak_encode_ListTasksDetailedResponse(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_ListTasksDetailedResponse *vt, const struct ak_efix_ListTasksDetailedResponse *fix);
 intptr_t ak_uencode_ListTasksDetailedResponse(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_ListTasksDetailedResponse *vt, const struct ak_ufix_ListTasksDetailedResponse *fix);
 int32_t ak_decode_ListTasksDetailedResponse(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_ListTasksDetailedResponse *vt);
 int32_t ak_parse_ListTasksDetailedResponse(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
+ak_dec_ctx *ak_dec_ctx_new_ListTasksDetailedResponse(const struct ak_dec_ListTasksDetailedResponse_opts *opts);
+void ak_dec_reset_ListTasksDetailedResponse(ak_dec_ctx *ctx, const struct ak_dec_ListTasksDetailedResponse_opts *opts);
 intptr_t ak_encode_ListProbeResponse(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_ListProbeResponse *vt, const struct ak_efix_ListProbeResponse *fix);
 intptr_t ak_uencode_ListProbeResponse(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_ListProbeResponse *vt, const struct ak_ufix_ListProbeResponse *fix);
 int32_t ak_decode_ListProbeResponse(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_ListProbeResponse *vt);
 int32_t ak_parse_ListProbeResponse(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
+ak_dec_ctx *ak_dec_ctx_new_ListProbeResponse(const struct ak_dec_ListProbeResponse_opts *opts);
+void ak_dec_reset_ListProbeResponse(ak_dec_ctx *ctx, const struct ak_dec_ListProbeResponse_opts *opts);
 intptr_t ak_encode_ListTaskSummaryResponse(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_ListTaskSummaryResponse *vt, const struct ak_efix_ListTaskSummaryResponse *fix);
 intptr_t ak_uencode_ListTaskSummaryResponse(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_ListTaskSummaryResponse *vt, const struct ak_ufix_ListTaskSummaryResponse *fix);
 int32_t ak_decode_ListTaskSummaryResponse(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_ListTaskSummaryResponse *vt);
 int32_t ak_parse_ListTaskSummaryResponse(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
+ak_dec_ctx *ak_dec_ctx_new_ListTaskSummaryResponse(const struct ak_dec_ListTaskSummaryResponse_opts *opts);
+void ak_dec_reset_ListTaskSummaryResponse(ak_dec_ctx *ctx, const struct ak_dec_ListTaskSummaryResponse_opts *opts);
 intptr_t ak_encode_UploadResultDataMessage(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_UploadResultDataMessage *vt, const struct ak_efix_UploadResultDataMessage *fix, const uint8_t *direct, size_t direct_len);
 intptr_t ak_uencode_UploadResultDataMessage(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_UploadResultDataMessage *vt, const struct ak_ufix_UploadResultDataMessage *fix, const uint8_t *direct, size_t direct_len);
 int32_t ak_decode_UploadResultDataMessage(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_UploadResultDataMessage *vt);
 int32_t ak_parse_UploadResultDataMessage(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
+ak_dec_ctx *ak_dec_ctx_new_UploadResultDataMessage(const struct ak_dec_UploadResultDataMessage_opts *opts);
+void ak_dec_reset_UploadResultDataMessage(ak_dec_ctx *ctx, const struct ak_dec_UploadResultDataMessage_opts *opts);
 intptr_t ak_encode_ListMetricsResponse(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_ListMetricsResponse *vt, const struct ak_efix_ListMetricsResponse *fix);
 intptr_t ak_uencode_ListMetricsResponse(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_ListMetricsResponse *vt, const struct ak_ufix_ListMetricsResponse *fix);
 int32_t ak_decode_ListMetricsResponse(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_ListMetricsResponse *vt);
 int32_t ak_parse_ListMetricsResponse(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
+ak_dec_ctx *ak_dec_ctx_new_ListMetricsResponse(const struct ak_dec_ListMetricsResponse_opts *opts);
+void ak_dec_reset_ListMetricsResponse(ak_dec_ctx *ctx, const struct ak_dec_ListMetricsResponse_opts *opts);
 intptr_t ak_encode_DualResponse(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_DualResponse *vt, const struct ak_efix_DualResponse *fix);
 intptr_t ak_uencode_DualResponse(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_DualResponse *vt, const struct ak_ufix_DualResponse *fix);
 int32_t ak_decode_DualResponse(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_DualResponse *vt);
 int32_t ak_parse_DualResponse(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
+ak_dec_ctx *ak_dec_ctx_new_DualResponse(const struct ak_dec_DualResponse_opts *opts);
+void ak_dec_reset_DualResponse(ak_dec_ctx *ctx, const struct ak_dec_DualResponse_opts *opts);
 int32_t ak_elemu_MetricsBatch(ak_enc_ctx *ctx, const struct ak_efix_MetricsBatch *elems, int32_t n, int64_t tok0);
 int32_t ak_uelemu_MetricsBatch(ak_enc_ctx *ctx, const struct ak_ufix_MetricsBatch *elems, int32_t n, int64_t tok0);
 int32_t ak_elem_Pair(ak_enc_ctx *ctx, const struct ak_efix_Pair *elems, int32_t n);
@@ -1166,12 +1268,20 @@ void ak_rpc_counters_reset(void);
 AK_SASSERT(sizeof(struct ak_str) == 24, "sizeof ak_str");
 AK_SASSERT(sizeof(struct ak_span) == 12, "sizeof ak_span");
 AK_SASSERT(sizeof(struct ak_blob) == 16, "sizeof ak_blob");
-AK_SASSERT(sizeof(struct ak_uspan) == 16, "sizeof ak_uspan");
+AK_SASSERT(sizeof(struct ak_unk_buf) == 16, "sizeof ak_unk_buf");
+AK_SASSERT(sizeof(struct ak_unk_opts) == 24, "sizeof ak_unk_opts");
 AK_SASSERT(sizeof(struct ak_err) == 8, "sizeof ak_err");
 AK_SASSERT(sizeof(struct ak_init_opts) == 24, "sizeof ak_init_opts");
 AK_SASSERT(sizeof(struct AkCounters) == 48, "sizeof AkCounters");
 AK_SASSERT(sizeof(struct ak_bdr_rec) == 24, "sizeof ak_bdr_rec");
 AK_SASSERT(offsetof(struct ak_bdr_rec, token) == 8, "ak_bdr_rec.token");
+AK_SASSERT(sizeof(struct ak_dec_ListResultsResponse_opts) == 8 + 4 * sizeof(struct ak_unk_opts), "sizeof ak_dec_ListResultsResponse_opts");
+AK_SASSERT(sizeof(struct ak_dec_ListTasksDetailedResponse_opts) == 8 + 18 * sizeof(struct ak_unk_opts), "sizeof ak_dec_ListTasksDetailedResponse_opts");
+AK_SASSERT(sizeof(struct ak_dec_ListProbeResponse_opts) == 8 + 4 * sizeof(struct ak_unk_opts), "sizeof ak_dec_ListProbeResponse_opts");
+AK_SASSERT(sizeof(struct ak_dec_ListTaskSummaryResponse_opts) == 8 + 6 * sizeof(struct ak_unk_opts), "sizeof ak_dec_ListTaskSummaryResponse_opts");
+AK_SASSERT(sizeof(struct ak_dec_UploadResultDataMessage_opts) == 8 + 2 * sizeof(struct ak_unk_opts), "sizeof ak_dec_UploadResultDataMessage_opts");
+AK_SASSERT(sizeof(struct ak_dec_ListMetricsResponse_opts) == 8 + 2 * sizeof(struct ak_unk_opts), "sizeof ak_dec_ListMetricsResponse_opts");
+AK_SASSERT(sizeof(struct ak_dec_DualResponse_opts) == 8 + 3 * sizeof(struct ak_unk_opts), "sizeof ak_dec_DualResponse_opts");
 #endif
 AK_SASSERT(sizeof(struct ak_client_opts) == 24, "sizeof ak_client_opts");
 AK_SASSERT(offsetof(struct ak_client_opts, stream_window) == 0, "ak_client_opts.stream_window");
@@ -1182,36 +1292,46 @@ AK_SASSERT(offsetof(struct ak_client_opts, max_send_message) == 16, "ak_client_o
 AK_SASSERT(offsetof(struct ak_client_opts, tcp_nagle) == 20, "ak_client_opts.tcp_nagle");
 
 /* The Java binding's group offsets (java_layout), checked by the C compiler. */
-AK_SASSERT(sizeof(struct ak_dfix_DualResponse) == 4, "sizeof ak_dfix_DualResponse");
-AK_SASSERT(offsetof(struct ak_dfix_DualResponse, presence) == 0, "ak_dfix_DualResponse.presence");
-AK_SASSERT(sizeof(struct ak_dfix_Duration) == 16, "sizeof ak_dfix_Duration");
+AK_SASSERT(sizeof(struct ak_dfix_DualResponse) == 24, "sizeof ak_dfix_DualResponse");
+AK_SASSERT(offsetof(struct ak_dfix_DualResponse, unknown) == 0, "ak_dfix_DualResponse.unknown");
+AK_SASSERT(offsetof(struct ak_dfix_DualResponse, presence) == 16, "ak_dfix_DualResponse.presence");
+AK_SASSERT(sizeof(struct ak_dfix_Duration) == 40, "sizeof ak_dfix_Duration");
 AK_SASSERT(offsetof(struct ak_dfix_Duration, seconds) == 0, "ak_dfix_Duration.seconds");
 AK_SASSERT(offsetof(struct ak_dfix_Duration, nanos) == 8, "ak_dfix_Duration.nanos");
-AK_SASSERT(offsetof(struct ak_dfix_Duration, presence) == 12, "ak_dfix_Duration.presence");
-AK_SASSERT(sizeof(struct ak_dfix_Empty) == 4, "sizeof ak_dfix_Empty");
-AK_SASSERT(offsetof(struct ak_dfix_Empty, presence) == 0, "ak_dfix_Empty.presence");
-AK_SASSERT(sizeof(struct ak_dfix_ListMetricsResponse) == 4, "sizeof ak_dfix_ListMetricsResponse");
-AK_SASSERT(offsetof(struct ak_dfix_ListMetricsResponse, presence) == 0, "ak_dfix_ListMetricsResponse.presence");
-AK_SASSERT(sizeof(struct ak_dfix_ListProbeResponse) == 4, "sizeof ak_dfix_ListProbeResponse");
-AK_SASSERT(offsetof(struct ak_dfix_ListProbeResponse, presence) == 0, "ak_dfix_ListProbeResponse.presence");
-AK_SASSERT(sizeof(struct ak_dfix_ListResultsResponse) == 12, "sizeof ak_dfix_ListResultsResponse");
+AK_SASSERT(offsetof(struct ak_dfix_Duration, unknown) == 16, "ak_dfix_Duration.unknown");
+AK_SASSERT(offsetof(struct ak_dfix_Duration, presence) == 32, "ak_dfix_Duration.presence");
+AK_SASSERT(sizeof(struct ak_dfix_Empty) == 24, "sizeof ak_dfix_Empty");
+AK_SASSERT(offsetof(struct ak_dfix_Empty, unknown) == 0, "ak_dfix_Empty.unknown");
+AK_SASSERT(offsetof(struct ak_dfix_Empty, presence) == 16, "ak_dfix_Empty.presence");
+AK_SASSERT(sizeof(struct ak_dfix_ListMetricsResponse) == 24, "sizeof ak_dfix_ListMetricsResponse");
+AK_SASSERT(offsetof(struct ak_dfix_ListMetricsResponse, unknown) == 0, "ak_dfix_ListMetricsResponse.unknown");
+AK_SASSERT(offsetof(struct ak_dfix_ListMetricsResponse, presence) == 16, "ak_dfix_ListMetricsResponse.presence");
+AK_SASSERT(sizeof(struct ak_dfix_ListProbeResponse) == 24, "sizeof ak_dfix_ListProbeResponse");
+AK_SASSERT(offsetof(struct ak_dfix_ListProbeResponse, unknown) == 0, "ak_dfix_ListProbeResponse.unknown");
+AK_SASSERT(offsetof(struct ak_dfix_ListProbeResponse, presence) == 16, "ak_dfix_ListProbeResponse.presence");
+AK_SASSERT(sizeof(struct ak_dfix_ListResultsResponse) == 32, "sizeof ak_dfix_ListResultsResponse");
 AK_SASSERT(offsetof(struct ak_dfix_ListResultsResponse, page) == 0, "ak_dfix_ListResultsResponse.page");
 AK_SASSERT(offsetof(struct ak_dfix_ListResultsResponse, total) == 4, "ak_dfix_ListResultsResponse.total");
-AK_SASSERT(offsetof(struct ak_dfix_ListResultsResponse, presence) == 8, "ak_dfix_ListResultsResponse.presence");
-AK_SASSERT(sizeof(struct ak_dfix_ListTaskSummaryResponse) == 4, "sizeof ak_dfix_ListTaskSummaryResponse");
-AK_SASSERT(offsetof(struct ak_dfix_ListTaskSummaryResponse, presence) == 0, "ak_dfix_ListTaskSummaryResponse.presence");
-AK_SASSERT(sizeof(struct ak_dfix_ListTasksDetailedResponse) == 12, "sizeof ak_dfix_ListTasksDetailedResponse");
+AK_SASSERT(offsetof(struct ak_dfix_ListResultsResponse, unknown) == 8, "ak_dfix_ListResultsResponse.unknown");
+AK_SASSERT(offsetof(struct ak_dfix_ListResultsResponse, presence) == 24, "ak_dfix_ListResultsResponse.presence");
+AK_SASSERT(sizeof(struct ak_dfix_ListTaskSummaryResponse) == 24, "sizeof ak_dfix_ListTaskSummaryResponse");
+AK_SASSERT(offsetof(struct ak_dfix_ListTaskSummaryResponse, unknown) == 0, "ak_dfix_ListTaskSummaryResponse.unknown");
+AK_SASSERT(offsetof(struct ak_dfix_ListTaskSummaryResponse, presence) == 16, "ak_dfix_ListTaskSummaryResponse.presence");
+AK_SASSERT(sizeof(struct ak_dfix_ListTasksDetailedResponse) == 32, "sizeof ak_dfix_ListTasksDetailedResponse");
 AK_SASSERT(offsetof(struct ak_dfix_ListTasksDetailedResponse, page) == 0, "ak_dfix_ListTasksDetailedResponse.page");
 AK_SASSERT(offsetof(struct ak_dfix_ListTasksDetailedResponse, total) == 4, "ak_dfix_ListTasksDetailedResponse.total");
-AK_SASSERT(offsetof(struct ak_dfix_ListTasksDetailedResponse, presence) == 8, "ak_dfix_ListTasksDetailedResponse.presence");
-AK_SASSERT(sizeof(struct ak_dfix_MetricsBatch) == 16, "sizeof ak_dfix_MetricsBatch");
+AK_SASSERT(offsetof(struct ak_dfix_ListTasksDetailedResponse, unknown) == 8, "ak_dfix_ListTasksDetailedResponse.unknown");
+AK_SASSERT(offsetof(struct ak_dfix_ListTasksDetailedResponse, presence) == 24, "ak_dfix_ListTasksDetailedResponse.presence");
+AK_SASSERT(sizeof(struct ak_dfix_MetricsBatch) == 40, "sizeof ak_dfix_MetricsBatch");
 AK_SASSERT(offsetof(struct ak_dfix_MetricsBatch, id) == 0, "ak_dfix_MetricsBatch.id");
-AK_SASSERT(offsetof(struct ak_dfix_MetricsBatch, presence) == 12, "ak_dfix_MetricsBatch.presence");
-AK_SASSERT(sizeof(struct ak_dfix_Pair) == 20, "sizeof ak_dfix_Pair");
+AK_SASSERT(offsetof(struct ak_dfix_MetricsBatch, unknown) == 16, "ak_dfix_MetricsBatch.unknown");
+AK_SASSERT(offsetof(struct ak_dfix_MetricsBatch, presence) == 32, "ak_dfix_MetricsBatch.presence");
+AK_SASSERT(sizeof(struct ak_dfix_Pair) == 40, "sizeof ak_dfix_Pair");
 AK_SASSERT(offsetof(struct ak_dfix_Pair, key) == 0, "ak_dfix_Pair.key");
 AK_SASSERT(offsetof(struct ak_dfix_Pair, value) == 12, "ak_dfix_Pair.value");
-AK_SASSERT(offsetof(struct ak_dfix_Pair, presence) == 16, "ak_dfix_Pair.presence");
-AK_SASSERT(sizeof(struct ak_dfix_Probe) == 96, "sizeof ak_dfix_Probe");
+AK_SASSERT(offsetof(struct ak_dfix_Pair, unknown) == 16, "ak_dfix_Pair.unknown");
+AK_SASSERT(offsetof(struct ak_dfix_Pair, presence) == 32, "ak_dfix_Pair.presence");
+AK_SASSERT(sizeof(struct ak_dfix_Probe) == 160, "sizeof ak_dfix_Probe");
 AK_SASSERT(offsetof(struct ak_dfix_Probe, id) == 0, "ak_dfix_Probe.id");
 AK_SASSERT(offsetof(struct ak_dfix_Probe, opt_count) == 12, "ak_dfix_Probe.opt_count");
 AK_SASSERT(offsetof(struct ak_dfix_Probe, opt_label) == 16, "ak_dfix_Probe.opt_label");
@@ -1221,87 +1341,97 @@ AK_SASSERT(offsetof(struct ak_dfix_Probe, body_as_int) == 40, "ak_dfix_Probe.bod
 AK_SASSERT(offsetof(struct ak_dfix_Probe, body_as_text) == 48, "ak_dfix_Probe.body_as_text");
 AK_SASSERT(offsetof(struct ak_dfix_Probe, body_as_blob) == 60, "ak_dfix_Probe.body_as_blob");
 AK_SASSERT(offsetof(struct ak_dfix_Probe, body_as_stamp) == 72, "ak_dfix_Probe.body_as_stamp");
-AK_SASSERT(offsetof(struct ak_dfix_Probe, body_as_nothing) == 88, "ak_dfix_Probe.body_as_nothing");
-AK_SASSERT(offsetof(struct ak_dfix_Probe, presence) == 92, "ak_dfix_Probe.presence");
-AK_SASSERT(sizeof(struct ak_dfix_ResultRaw) == 128, "sizeof ak_dfix_ResultRaw");
+AK_SASSERT(offsetof(struct ak_dfix_Probe, body_as_nothing) == 112, "ak_dfix_Probe.body_as_nothing");
+AK_SASSERT(offsetof(struct ak_dfix_Probe, unknown) == 136, "ak_dfix_Probe.unknown");
+AK_SASSERT(offsetof(struct ak_dfix_Probe, presence) == 152, "ak_dfix_Probe.presence");
+AK_SASSERT(sizeof(struct ak_dfix_ResultRaw) == 200, "sizeof ak_dfix_ResultRaw");
 AK_SASSERT(offsetof(struct ak_dfix_ResultRaw, session_id) == 0, "ak_dfix_ResultRaw.session_id");
 AK_SASSERT(offsetof(struct ak_dfix_ResultRaw, name) == 12, "ak_dfix_ResultRaw.name");
 AK_SASSERT(offsetof(struct ak_dfix_ResultRaw, owner_task_id) == 24, "ak_dfix_ResultRaw.owner_task_id");
 AK_SASSERT(offsetof(struct ak_dfix_ResultRaw, status) == 36, "ak_dfix_ResultRaw.status");
 AK_SASSERT(offsetof(struct ak_dfix_ResultRaw, created_at) == 40, "ak_dfix_ResultRaw.created_at");
-AK_SASSERT(offsetof(struct ak_dfix_ResultRaw, completed_at) == 56, "ak_dfix_ResultRaw.completed_at");
-AK_SASSERT(offsetof(struct ak_dfix_ResultRaw, result_id) == 72, "ak_dfix_ResultRaw.result_id");
-AK_SASSERT(offsetof(struct ak_dfix_ResultRaw, size) == 88, "ak_dfix_ResultRaw.size");
-AK_SASSERT(offsetof(struct ak_dfix_ResultRaw, created_by) == 96, "ak_dfix_ResultRaw.created_by");
-AK_SASSERT(offsetof(struct ak_dfix_ResultRaw, opaque_id) == 108, "ak_dfix_ResultRaw.opaque_id");
-AK_SASSERT(offsetof(struct ak_dfix_ResultRaw, manual_deletion) == 120, "ak_dfix_ResultRaw.manual_deletion");
-AK_SASSERT(offsetof(struct ak_dfix_ResultRaw, presence) == 124, "ak_dfix_ResultRaw.presence");
-AK_SASSERT(sizeof(struct ak_dfix_TaskDetailed) == 432, "sizeof ak_dfix_TaskDetailed");
+AK_SASSERT(offsetof(struct ak_dfix_ResultRaw, completed_at) == 80, "ak_dfix_ResultRaw.completed_at");
+AK_SASSERT(offsetof(struct ak_dfix_ResultRaw, result_id) == 120, "ak_dfix_ResultRaw.result_id");
+AK_SASSERT(offsetof(struct ak_dfix_ResultRaw, size) == 136, "ak_dfix_ResultRaw.size");
+AK_SASSERT(offsetof(struct ak_dfix_ResultRaw, created_by) == 144, "ak_dfix_ResultRaw.created_by");
+AK_SASSERT(offsetof(struct ak_dfix_ResultRaw, opaque_id) == 156, "ak_dfix_ResultRaw.opaque_id");
+AK_SASSERT(offsetof(struct ak_dfix_ResultRaw, manual_deletion) == 168, "ak_dfix_ResultRaw.manual_deletion");
+AK_SASSERT(offsetof(struct ak_dfix_ResultRaw, unknown) == 176, "ak_dfix_ResultRaw.unknown");
+AK_SASSERT(offsetof(struct ak_dfix_ResultRaw, presence) == 192, "ak_dfix_ResultRaw.presence");
+AK_SASSERT(sizeof(struct ak_dfix_TaskDetailed) == 800, "sizeof ak_dfix_TaskDetailed");
 AK_SASSERT(offsetof(struct ak_dfix_TaskDetailed, id) == 0, "ak_dfix_TaskDetailed.id");
 AK_SASSERT(offsetof(struct ak_dfix_TaskDetailed, session_id) == 12, "ak_dfix_TaskDetailed.session_id");
 AK_SASSERT(offsetof(struct ak_dfix_TaskDetailed, owner_pod_id) == 24, "ak_dfix_TaskDetailed.owner_pod_id");
 AK_SASSERT(offsetof(struct ak_dfix_TaskDetailed, status) == 36, "ak_dfix_TaskDetailed.status");
 AK_SASSERT(offsetof(struct ak_dfix_TaskDetailed, status_message) == 40, "ak_dfix_TaskDetailed.status_message");
 AK_SASSERT(offsetof(struct ak_dfix_TaskDetailed, options) == 56, "ak_dfix_TaskDetailed.options");
-AK_SASSERT(offsetof(struct ak_dfix_TaskDetailed, created_at) == 160, "ak_dfix_TaskDetailed.created_at");
-AK_SASSERT(offsetof(struct ak_dfix_TaskDetailed, submitted_at) == 176, "ak_dfix_TaskDetailed.submitted_at");
-AK_SASSERT(offsetof(struct ak_dfix_TaskDetailed, started_at) == 192, "ak_dfix_TaskDetailed.started_at");
-AK_SASSERT(offsetof(struct ak_dfix_TaskDetailed, ended_at) == 208, "ak_dfix_TaskDetailed.ended_at");
-AK_SASSERT(offsetof(struct ak_dfix_TaskDetailed, pod_ttl) == 224, "ak_dfix_TaskDetailed.pod_ttl");
-AK_SASSERT(offsetof(struct ak_dfix_TaskDetailed, output) == 240, "ak_dfix_TaskDetailed.output");
-AK_SASSERT(offsetof(struct ak_dfix_TaskDetailed, pod_hostname) == 260, "ak_dfix_TaskDetailed.pod_hostname");
-AK_SASSERT(offsetof(struct ak_dfix_TaskDetailed, received_at) == 272, "ak_dfix_TaskDetailed.received_at");
-AK_SASSERT(offsetof(struct ak_dfix_TaskDetailed, acquired_at) == 288, "ak_dfix_TaskDetailed.acquired_at");
-AK_SASSERT(offsetof(struct ak_dfix_TaskDetailed, creation_to_end_duration) == 304, "ak_dfix_TaskDetailed.creation_to_end_duration");
-AK_SASSERT(offsetof(struct ak_dfix_TaskDetailed, processing_to_end_duration) == 320, "ak_dfix_TaskDetailed.processing_to_end_duration");
-AK_SASSERT(offsetof(struct ak_dfix_TaskDetailed, initial_task_id) == 336, "ak_dfix_TaskDetailed.initial_task_id");
-AK_SASSERT(offsetof(struct ak_dfix_TaskDetailed, received_to_end_duration) == 352, "ak_dfix_TaskDetailed.received_to_end_duration");
-AK_SASSERT(offsetof(struct ak_dfix_TaskDetailed, processed_at) == 368, "ak_dfix_TaskDetailed.processed_at");
-AK_SASSERT(offsetof(struct ak_dfix_TaskDetailed, fetched_at) == 384, "ak_dfix_TaskDetailed.fetched_at");
-AK_SASSERT(offsetof(struct ak_dfix_TaskDetailed, payload_id) == 400, "ak_dfix_TaskDetailed.payload_id");
-AK_SASSERT(offsetof(struct ak_dfix_TaskDetailed, created_by) == 412, "ak_dfix_TaskDetailed.created_by");
-AK_SASSERT(offsetof(struct ak_dfix_TaskDetailed, presence) == 424, "ak_dfix_TaskDetailed.presence");
-AK_SASSERT(sizeof(struct ak_dfix_TaskOptions) == 104, "sizeof ak_dfix_TaskOptions");
+AK_SASSERT(offsetof(struct ak_dfix_TaskDetailed, created_at) == 200, "ak_dfix_TaskDetailed.created_at");
+AK_SASSERT(offsetof(struct ak_dfix_TaskDetailed, submitted_at) == 240, "ak_dfix_TaskDetailed.submitted_at");
+AK_SASSERT(offsetof(struct ak_dfix_TaskDetailed, started_at) == 280, "ak_dfix_TaskDetailed.started_at");
+AK_SASSERT(offsetof(struct ak_dfix_TaskDetailed, ended_at) == 320, "ak_dfix_TaskDetailed.ended_at");
+AK_SASSERT(offsetof(struct ak_dfix_TaskDetailed, pod_ttl) == 360, "ak_dfix_TaskDetailed.pod_ttl");
+AK_SASSERT(offsetof(struct ak_dfix_TaskDetailed, output) == 400, "ak_dfix_TaskDetailed.output");
+AK_SASSERT(offsetof(struct ak_dfix_TaskDetailed, pod_hostname) == 440, "ak_dfix_TaskDetailed.pod_hostname");
+AK_SASSERT(offsetof(struct ak_dfix_TaskDetailed, received_at) == 456, "ak_dfix_TaskDetailed.received_at");
+AK_SASSERT(offsetof(struct ak_dfix_TaskDetailed, acquired_at) == 496, "ak_dfix_TaskDetailed.acquired_at");
+AK_SASSERT(offsetof(struct ak_dfix_TaskDetailed, creation_to_end_duration) == 536, "ak_dfix_TaskDetailed.creation_to_end_duration");
+AK_SASSERT(offsetof(struct ak_dfix_TaskDetailed, processing_to_end_duration) == 576, "ak_dfix_TaskDetailed.processing_to_end_duration");
+AK_SASSERT(offsetof(struct ak_dfix_TaskDetailed, initial_task_id) == 616, "ak_dfix_TaskDetailed.initial_task_id");
+AK_SASSERT(offsetof(struct ak_dfix_TaskDetailed, received_to_end_duration) == 632, "ak_dfix_TaskDetailed.received_to_end_duration");
+AK_SASSERT(offsetof(struct ak_dfix_TaskDetailed, processed_at) == 672, "ak_dfix_TaskDetailed.processed_at");
+AK_SASSERT(offsetof(struct ak_dfix_TaskDetailed, fetched_at) == 712, "ak_dfix_TaskDetailed.fetched_at");
+AK_SASSERT(offsetof(struct ak_dfix_TaskDetailed, payload_id) == 752, "ak_dfix_TaskDetailed.payload_id");
+AK_SASSERT(offsetof(struct ak_dfix_TaskDetailed, created_by) == 764, "ak_dfix_TaskDetailed.created_by");
+AK_SASSERT(offsetof(struct ak_dfix_TaskDetailed, unknown) == 776, "ak_dfix_TaskDetailed.unknown");
+AK_SASSERT(offsetof(struct ak_dfix_TaskDetailed, presence) == 792, "ak_dfix_TaskDetailed.presence");
+AK_SASSERT(sizeof(struct ak_dfix_TaskOptions) == 144, "sizeof ak_dfix_TaskOptions");
 AK_SASSERT(offsetof(struct ak_dfix_TaskOptions, max_duration) == 0, "ak_dfix_TaskOptions.max_duration");
-AK_SASSERT(offsetof(struct ak_dfix_TaskOptions, max_retries) == 16, "ak_dfix_TaskOptions.max_retries");
-AK_SASSERT(offsetof(struct ak_dfix_TaskOptions, priority) == 20, "ak_dfix_TaskOptions.priority");
-AK_SASSERT(offsetof(struct ak_dfix_TaskOptions, partition_id) == 24, "ak_dfix_TaskOptions.partition_id");
-AK_SASSERT(offsetof(struct ak_dfix_TaskOptions, application_name) == 36, "ak_dfix_TaskOptions.application_name");
-AK_SASSERT(offsetof(struct ak_dfix_TaskOptions, application_version) == 48, "ak_dfix_TaskOptions.application_version");
-AK_SASSERT(offsetof(struct ak_dfix_TaskOptions, application_namespace) == 60, "ak_dfix_TaskOptions.application_namespace");
-AK_SASSERT(offsetof(struct ak_dfix_TaskOptions, application_service) == 72, "ak_dfix_TaskOptions.application_service");
-AK_SASSERT(offsetof(struct ak_dfix_TaskOptions, engine_type) == 84, "ak_dfix_TaskOptions.engine_type");
-AK_SASSERT(offsetof(struct ak_dfix_TaskOptions, presence) == 96, "ak_dfix_TaskOptions.presence");
-AK_SASSERT(sizeof(struct ak_dfix_TaskOptionsOptionsEntry) == 28, "sizeof ak_dfix_TaskOptionsOptionsEntry");
+AK_SASSERT(offsetof(struct ak_dfix_TaskOptions, max_retries) == 40, "ak_dfix_TaskOptions.max_retries");
+AK_SASSERT(offsetof(struct ak_dfix_TaskOptions, priority) == 44, "ak_dfix_TaskOptions.priority");
+AK_SASSERT(offsetof(struct ak_dfix_TaskOptions, partition_id) == 48, "ak_dfix_TaskOptions.partition_id");
+AK_SASSERT(offsetof(struct ak_dfix_TaskOptions, application_name) == 60, "ak_dfix_TaskOptions.application_name");
+AK_SASSERT(offsetof(struct ak_dfix_TaskOptions, application_version) == 72, "ak_dfix_TaskOptions.application_version");
+AK_SASSERT(offsetof(struct ak_dfix_TaskOptions, application_namespace) == 84, "ak_dfix_TaskOptions.application_namespace");
+AK_SASSERT(offsetof(struct ak_dfix_TaskOptions, application_service) == 96, "ak_dfix_TaskOptions.application_service");
+AK_SASSERT(offsetof(struct ak_dfix_TaskOptions, engine_type) == 108, "ak_dfix_TaskOptions.engine_type");
+AK_SASSERT(offsetof(struct ak_dfix_TaskOptions, unknown) == 120, "ak_dfix_TaskOptions.unknown");
+AK_SASSERT(offsetof(struct ak_dfix_TaskOptions, presence) == 136, "ak_dfix_TaskOptions.presence");
+AK_SASSERT(sizeof(struct ak_dfix_TaskOptionsOptionsEntry) == 48, "sizeof ak_dfix_TaskOptionsOptionsEntry");
 AK_SASSERT(offsetof(struct ak_dfix_TaskOptionsOptionsEntry, key) == 0, "ak_dfix_TaskOptionsOptionsEntry.key");
 AK_SASSERT(offsetof(struct ak_dfix_TaskOptionsOptionsEntry, value) == 12, "ak_dfix_TaskOptionsOptionsEntry.value");
-AK_SASSERT(offsetof(struct ak_dfix_TaskOptionsOptionsEntry, presence) == 24, "ak_dfix_TaskOptionsOptionsEntry.presence");
-AK_SASSERT(sizeof(struct ak_dfix_TaskOutput) == 20, "sizeof ak_dfix_TaskOutput");
+AK_SASSERT(offsetof(struct ak_dfix_TaskOptionsOptionsEntry, unknown) == 24, "ak_dfix_TaskOptionsOptionsEntry.unknown");
+AK_SASSERT(offsetof(struct ak_dfix_TaskOptionsOptionsEntry, presence) == 40, "ak_dfix_TaskOptionsOptionsEntry.presence");
+AK_SASSERT(sizeof(struct ak_dfix_TaskOutput) == 40, "sizeof ak_dfix_TaskOutput");
 AK_SASSERT(offsetof(struct ak_dfix_TaskOutput, success) == 0, "ak_dfix_TaskOutput.success");
 AK_SASSERT(offsetof(struct ak_dfix_TaskOutput, error) == 4, "ak_dfix_TaskOutput.error");
-AK_SASSERT(offsetof(struct ak_dfix_TaskOutput, presence) == 16, "ak_dfix_TaskOutput.presence");
-AK_SASSERT(sizeof(struct ak_dfix_TaskSummary) == 192, "sizeof ak_dfix_TaskSummary");
+AK_SASSERT(offsetof(struct ak_dfix_TaskOutput, unknown) == 16, "ak_dfix_TaskOutput.unknown");
+AK_SASSERT(offsetof(struct ak_dfix_TaskOutput, presence) == 32, "ak_dfix_TaskOutput.presence");
+AK_SASSERT(sizeof(struct ak_dfix_TaskSummary) == 272, "sizeof ak_dfix_TaskSummary");
 AK_SASSERT(offsetof(struct ak_dfix_TaskSummary, id) == 0, "ak_dfix_TaskSummary.id");
 AK_SASSERT(offsetof(struct ak_dfix_TaskSummary, session_id) == 12, "ak_dfix_TaskSummary.session_id");
 AK_SASSERT(offsetof(struct ak_dfix_TaskSummary, options) == 24, "ak_dfix_TaskSummary.options");
-AK_SASSERT(offsetof(struct ak_dfix_TaskSummary, status) == 128, "ak_dfix_TaskSummary.status");
-AK_SASSERT(offsetof(struct ak_dfix_TaskSummary, created_at) == 136, "ak_dfix_TaskSummary.created_at");
-AK_SASSERT(offsetof(struct ak_dfix_TaskSummary, error) == 152, "ak_dfix_TaskSummary.error");
-AK_SASSERT(offsetof(struct ak_dfix_TaskSummary, status_message) == 164, "ak_dfix_TaskSummary.status_message");
-AK_SASSERT(offsetof(struct ak_dfix_TaskSummary, count_data_dependencies) == 176, "ak_dfix_TaskSummary.count_data_dependencies");
-AK_SASSERT(offsetof(struct ak_dfix_TaskSummary, presence) == 184, "ak_dfix_TaskSummary.presence");
-AK_SASSERT(sizeof(struct ak_dfix_Timestamp) == 16, "sizeof ak_dfix_Timestamp");
+AK_SASSERT(offsetof(struct ak_dfix_TaskSummary, status) == 168, "ak_dfix_TaskSummary.status");
+AK_SASSERT(offsetof(struct ak_dfix_TaskSummary, created_at) == 176, "ak_dfix_TaskSummary.created_at");
+AK_SASSERT(offsetof(struct ak_dfix_TaskSummary, error) == 216, "ak_dfix_TaskSummary.error");
+AK_SASSERT(offsetof(struct ak_dfix_TaskSummary, status_message) == 228, "ak_dfix_TaskSummary.status_message");
+AK_SASSERT(offsetof(struct ak_dfix_TaskSummary, count_data_dependencies) == 240, "ak_dfix_TaskSummary.count_data_dependencies");
+AK_SASSERT(offsetof(struct ak_dfix_TaskSummary, unknown) == 248, "ak_dfix_TaskSummary.unknown");
+AK_SASSERT(offsetof(struct ak_dfix_TaskSummary, presence) == 264, "ak_dfix_TaskSummary.presence");
+AK_SASSERT(sizeof(struct ak_dfix_Timestamp) == 40, "sizeof ak_dfix_Timestamp");
 AK_SASSERT(offsetof(struct ak_dfix_Timestamp, seconds) == 0, "ak_dfix_Timestamp.seconds");
 AK_SASSERT(offsetof(struct ak_dfix_Timestamp, nanos) == 8, "ak_dfix_Timestamp.nanos");
-AK_SASSERT(offsetof(struct ak_dfix_Timestamp, presence) == 12, "ak_dfix_Timestamp.presence");
-AK_SASSERT(sizeof(struct ak_dfix_UploadResultData) == 40, "sizeof ak_dfix_UploadResultData");
+AK_SASSERT(offsetof(struct ak_dfix_Timestamp, unknown) == 16, "ak_dfix_Timestamp.unknown");
+AK_SASSERT(offsetof(struct ak_dfix_Timestamp, presence) == 32, "ak_dfix_Timestamp.presence");
+AK_SASSERT(sizeof(struct ak_dfix_UploadResultData) == 64, "sizeof ak_dfix_UploadResultData");
 AK_SASSERT(offsetof(struct ak_dfix_UploadResultData, session_id) == 0, "ak_dfix_UploadResultData.session_id");
 AK_SASSERT(offsetof(struct ak_dfix_UploadResultData, result_id) == 12, "ak_dfix_UploadResultData.result_id");
 AK_SASSERT(offsetof(struct ak_dfix_UploadResultData, data_chunk) == 24, "ak_dfix_UploadResultData.data_chunk");
-AK_SASSERT(offsetof(struct ak_dfix_UploadResultData, presence) == 36, "ak_dfix_UploadResultData.presence");
-AK_SASSERT(sizeof(struct ak_dfix_UploadResultDataMessage) == 44, "sizeof ak_dfix_UploadResultDataMessage");
+AK_SASSERT(offsetof(struct ak_dfix_UploadResultData, unknown) == 40, "ak_dfix_UploadResultData.unknown");
+AK_SASSERT(offsetof(struct ak_dfix_UploadResultData, presence) == 56, "ak_dfix_UploadResultData.presence");
+AK_SASSERT(sizeof(struct ak_dfix_UploadResultDataMessage) == 88, "sizeof ak_dfix_UploadResultDataMessage");
 AK_SASSERT(offsetof(struct ak_dfix_UploadResultDataMessage, upload) == 0, "ak_dfix_UploadResultDataMessage.upload");
-AK_SASSERT(offsetof(struct ak_dfix_UploadResultDataMessage, presence) == 40, "ak_dfix_UploadResultDataMessage.presence");
+AK_SASSERT(offsetof(struct ak_dfix_UploadResultDataMessage, unknown) == 64, "ak_dfix_UploadResultDataMessage.unknown");
+AK_SASSERT(offsetof(struct ak_dfix_UploadResultDataMessage, presence) == 80, "ak_dfix_UploadResultDataMessage.presence");
 AK_SASSERT(sizeof(struct ak_efix_DualResponse) == 4, "sizeof ak_efix_DualResponse");
 AK_SASSERT(offsetof(struct ak_efix_DualResponse, presence) == 0, "ak_efix_DualResponse.presence");
 AK_SASSERT(sizeof(struct ak_efix_Duration) == 16, "sizeof ak_efix_Duration");
@@ -1564,7 +1694,7 @@ AK_SASSERT(offsetof(struct ak_ufix_UploadResultDataMessage, unknown) == 96, "ak_
 AK_SASSERT(offsetof(struct ak_ufix_UploadResultDataMessage, presence) == 112, "ak_ufix_UploadResultDataMessage.presence");
 
 /* Number of (struct, member) layout facts this header pins. */
-#define AK_LAYOUT_FACTS 380
+#define AK_LAYOUT_FACTS 400
 
 #ifdef __cplusplus
 } /* extern "C" */

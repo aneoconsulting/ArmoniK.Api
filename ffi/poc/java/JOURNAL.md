@@ -572,3 +572,41 @@ to HEAD's key. The other scripts read `core-build/current`.
 gate 1,389 x 3, 0 failures, unknown 66/0 (`wp5s6-gate.log`); the corpus, now 702 rows (the
 corpus agent added 11), six arms, target and floor, 0 failing arm-rows, 6 disputed, controls
 failing as required (`wp5s6-corpus.log`).
+
+### J23. WP3: the campaign harness against design/CAMPAIGN.md (2026-09-25)
+
+Built new harnesses rather than retrofitting `Bench`/`RunR14`/`RunRpc`, because each old one
+violated a different requirement (R-C4 client and server in one JVM, R-C7/R-C9 four JVMs and
+no raw output, R-C10 toByteArray as the headline): `ak.CampaignCodec`, `ak.CampaignRpc`,
+`ak.CampaignCalib` + `probe/CampaignRev`, driven by `gen/run_campaign.sh`. The old ones stay
+as they were (instrumentation history).
+
+Things found on the way:
+- **The JDK's process CPU counter is too coarse for req 21.** `getProcessCpuTime()` on Linux
+  reads `times()` (10 ms ticks), which the old RunRpc used. The RPC client now reads
+  `clock_gettime(CLOCK_PROCESS_CPUTIME_ID)` through a native in rpc.c.
+- **protobuf-java memoises the serialised size per instance**, so req 11 needs a different
+  object per iteration: pools built untimed per sample (codec) or per chunk (RPC direction b,
+  with only the chunks' run phases timed).
+- **The generator could not run while another agent had poc/codec mid-change** (the working
+  tree's plan grew `ak_unk_buf`, unknown to java_layout). `gen/build.sh` now renders from the
+  same `git archive` snapshot the core is built from (`AK_CODECGEN`), so the binding and the
+  core come from one committed generator state; and the slice's `--check` calls the core's
+  check with `--core-only`, because the shared generator now runs every slice's generator.
+- **The gate stamp keyed on HEAD re-ran the 20-minute gate** when another slice committed in
+  between; it is keyed on the trees that make up the build instead.
+- RunCounts printed a container crossing price ("about 11 ns") in its output: removed.
+
+Smoke run (1 launch, 1 round, reduced iterations; `logs/java/campaign-smoke/`, figures
+stripped): gate passed (payload set, corpus on 8 and 17, controls, counts identical to the
+reference); codec 777 samples per coder state; rpc 24 samples per transport; calib forward,
+JNI forward and upcall, the rust bench's crossing rows; perf absent. No timing is a result.
+
+**The counts gate fired on its first real change (req 19).** Between the reference (63f9f92)
+and the smoke re-run, the core took decision 11 (29d515e): every `ak_dfix_M` gained the
+unknown-field buffer (`ak_dfix_ResultRaw` 128 -> 200 B), so a 32 KB decode chunk holds fewer
+elements and batched decode makes more `add` calls (P1.2 decode reverse 5 -> 8; pull
+footprints grow); encode rows are unchanged. The gate refused to time. The reference was
+re-baselined deliberately at 29d515e with the diff committed
+(`logs/java/campaign-smoke/counts-rebaseline-29d515e.diff`), and the regenerated binding
+(the backend's transitional drop mode) passed the payload gate and the corpus before it.

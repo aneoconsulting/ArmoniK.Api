@@ -550,7 +550,7 @@ public final class CodecRetain {
       known: {
         switch (tag) {
           case 1:
-            if (wire == 2) {   // map_entry options
+            if (wire == 2) {   // append_message options
               {
                 if (depth + 1 > LIMIT) throw Dec.err(Dec.ERR_DEPTH, "nesting past " + LIMIT);
                 int outer = d.push();
@@ -1594,7 +1594,7 @@ public final class CodecRetain {
             } else break;
             break known;
           case 2:
-            if (wire == 2) {   // map_entry attrs
+            if (wire == 2) {   // append_message attrs
               {
                 if (depth + 1 > LIMIT) throw Dec.err(Dec.ERR_DEPTH, "nesting past " + LIMIT);
                 int outer = d.push();
@@ -1820,7 +1820,7 @@ public final class CodecRetain {
             } else break;
             break known;
           case 3:
-            if (wire == 2) {   // map_entry attrs
+            if (wire == 2) {   // append_message attrs
               {
                 if (depth + 1 > LIMIT) throw Dec.err(Dec.ERR_DEPTH, "nesting past " + LIMIT);
                 int outer = d.push();

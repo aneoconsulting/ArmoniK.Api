@@ -459,7 +459,7 @@ public final class CodecRetain {
       known: {
         switch (tag) {
           case 1:
-            if (wire == 2) {   // map_entry options
+            if (wire == 2) {   // append_message options
               {
                 if (depth + 1 > LIMIT) throw Dec.err(Dec.ERR_DEPTH, "nesting past " + LIMIT);
                 int outer = d.push();
