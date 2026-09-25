@@ -1,5 +1,5 @@
-# campaign log, java slice (design/CAMPAIGN.md W11 draft)  suite=codec  gate key ae8463546c98ea6a; correctness gate: payload set on arms a/b/c, full corpus on 8 and 17 with controls, crossing counts against the committed reference
-# commit 51eb3e9   (dirty tree refused unless AK_CAMPAIGN_ALLOW_DIRTY=1)
+# campaign log, java slice (design/CAMPAIGN.md W11 draft)  suite=codec  gate key 046c95a4947d4a5f; correctness gate: payload set on arms a/b/c, full corpus on 8 and 17 with controls, crossing counts against the committed reference
+# commit c997197   (dirty tree refused unless AK_CAMPAIGN_ALLOW_DIRTY=1)
 # SMOKE RUN (req 32): 1 launch, 1 round, reduced iterations. EVERY FIGURE BELOW IS CONTAINER INSTRUMENTATION, NOT A RESULT.
 # machine: cpu="Intel(R) Xeon(R) Processor @ 2.10GHz" nproc=4 smt=0
 #   governor=n/a no_turbo=n/a boost=n/a kernel=6.18.44-fc-v37
@@ -7,72 +7,78 @@
 #   AK_CPU_CLIENT=unset AK_CPU_SERVER=unset (taskset; OS = the rest)
 # runtime: target openjdk version "17.0.20.1" 2026-08-18   floor (gated only) openjdk version "1.8.0_504"
 # incumbent: grpc-api-1.74.0.jar grpc-netty-shaded-1.74.0.jar grpc-protobuf-1.74.0.jar protobuf-java-3.25.5.jar 
-# build: core snapshot: ffi/poc/codec at 51eb3e9, tree key tree-676e33f5f986778c
+# build: core snapshot: ffi/poc/codec at c997197, tree key tree-9f98d86da848337d
 #   core cargo profile release, features ["default", "init-guard"]  (shared library, cdylib); shim gcc -O2 -std=c11
 #   JVM: -Xms4g -Xmx4g -XX:+UseG1GC -Xss8m (tiered JIT on, default thresholds)
 # repeats: 1 launch(es) x 1 round(s) per process (req 23)
 ## gen/gate.sh
 == java slice correctness gate, three arms (README 5.2), no timing ==
-tree commit: 51eb3e9
-   core snapshot: ffi/poc/codec at 51eb3e9, tree key tree-676e33f5f986778c   core built with: ,"features":"["default", "init-guard"] 
+tree commit: 8d2e7ac + uncommitted changes
+   core snapshot: ffi/poc/codec at c997197, tree key tree-9f98d86da848337d   core built with: ,"features":"["default", "init-guard"] 
 target runtime: openjdk version "17.0.20.1" 2026-08-18
 floor runtime:  openjdk version "1.8.0_504"
-shim: /home/user/ArmoniK.Api/ffi/poc/java/build/jni/libakjni.so  sha256 fe91467d59912229
-core: /home/user/ArmoniK.Api/ffi/poc/java/core-build/tree-676e33f5f986778c/target/release/libak_core.so
+shim: /home/user/ArmoniK.Api/ffi/poc/java/build/jni/libakjni.so  sha256 2a4b59623ff34908
+core: /home/user/ArmoniK.Api/ffi/poc/java/core-build/tree-9f98d86da848337d/target/release/libak_core.so
 
 ### arm a   runtime /usr/lib/jvm/java-17-openjdk-amd64   classes build/cls17   exit 0
   java.version=17.0.20.1  schema=/home/user/ArmoniK.Api/ffi/schema/generated
   NOTE: compact strings (JDK 9+ String.value/coder) are IN USE in this build.
   rows per arm (a row is one line naming the arm: encode, pairwise, round trip):
-    R                    rows=319  round-trip-ok=46   failing=0
-    ffi                  rows=319  round-trip-ok=46   failing=0
-    ffi-nobatch          rows=319  round-trip-ok=46   failing=0
-    ffi-zeroed           rows=319  round-trip-ok=46   failing=0
-    ffi-nobatch-zeroed   rows=319  round-trip-ok=46   failing=0
+    R                    rows=364  round-trip-ok=46   failing=0
+    ffi                  rows=364  round-trip-ok=46   failing=0
+    ffi-nobatch          rows=364  round-trip-ok=46   failing=0
+    ffi-zeroed           rows=364  round-trip-ok=46   failing=0
+    ffi-nobatch-zeroed   rows=364  round-trip-ok=46   failing=0
     ffi-pull             rows=94   round-trip-ok=46   failing=0
     ffi-pull-walk        rows=94   round-trip-ok=46   failing=0
+    ffi-retain           rows=364  round-trip-ok=46   failing=0
+    ffi-pull-retain      rows=94   round-trip-ok=46   failing=0
     ffi-borrow           rows=94   round-trip-ok=46   failing=0
-    pbj                  rows=319  round-trip-ok=46   failing=0
-     checked=469  failed=0
-     checked=460  failed=0
-     checked=460  failed=0
-  TOTAL checked=1389  failed=0
+    pbj                  rows=364  round-trip-ok=46   failing=0
+     checked=608  failed=0
+     checked=597  failed=0
+     checked=597  failed=0
+  TOTAL checked=1802  failed=0
 
 ### arm b   runtime /usr/lib/jvm/java-17-openjdk-amd64   classes build/cls8   exit 0
   java.version=17.0.20.1  schema=/home/user/ArmoniK.Api/ffi/schema/generated
   NOTE: compact strings (JDK 9+ String.value/coder) are NOT available in this build.
   rows per arm (a row is one line naming the arm: encode, pairwise, round trip):
-    R                    rows=319  round-trip-ok=46   failing=0
-    ffi                  rows=319  round-trip-ok=46   failing=0
-    ffi-nobatch          rows=319  round-trip-ok=46   failing=0
-    ffi-zeroed           rows=319  round-trip-ok=46   failing=0
-    ffi-nobatch-zeroed   rows=319  round-trip-ok=46   failing=0
+    R                    rows=364  round-trip-ok=46   failing=0
+    ffi                  rows=364  round-trip-ok=46   failing=0
+    ffi-nobatch          rows=364  round-trip-ok=46   failing=0
+    ffi-zeroed           rows=364  round-trip-ok=46   failing=0
+    ffi-nobatch-zeroed   rows=364  round-trip-ok=46   failing=0
     ffi-pull             rows=94   round-trip-ok=46   failing=0
     ffi-pull-walk        rows=94   round-trip-ok=46   failing=0
+    ffi-retain           rows=364  round-trip-ok=46   failing=0
+    ffi-pull-retain      rows=94   round-trip-ok=46   failing=0
     ffi-borrow           rows=94   round-trip-ok=46   failing=0
-    pbj                  rows=319  round-trip-ok=46   failing=0
-     checked=469  failed=0
-     checked=460  failed=0
-     checked=460  failed=0
-  TOTAL checked=1389  failed=0
+    pbj                  rows=364  round-trip-ok=46   failing=0
+     checked=608  failed=0
+     checked=597  failed=0
+     checked=597  failed=0
+  TOTAL checked=1802  failed=0
 
 ### arm c   runtime /usr/lib/jvm/java-8-openjdk-amd64   classes build/cls8   exit 0
   java.version=1.8.0_504  schema=/home/user/ArmoniK.Api/ffi/schema/generated
   NOTE: compact strings (JDK 9+ String.value/coder) are NOT available in this build.
   rows per arm (a row is one line naming the arm: encode, pairwise, round trip):
-    R                    rows=319  round-trip-ok=46   failing=0
-    ffi                  rows=319  round-trip-ok=46   failing=0
-    ffi-nobatch          rows=319  round-trip-ok=46   failing=0
-    ffi-zeroed           rows=319  round-trip-ok=46   failing=0
-    ffi-nobatch-zeroed   rows=319  round-trip-ok=46   failing=0
+    R                    rows=364  round-trip-ok=46   failing=0
+    ffi                  rows=364  round-trip-ok=46   failing=0
+    ffi-nobatch          rows=364  round-trip-ok=46   failing=0
+    ffi-zeroed           rows=364  round-trip-ok=46   failing=0
+    ffi-nobatch-zeroed   rows=364  round-trip-ok=46   failing=0
     ffi-pull             rows=94   round-trip-ok=46   failing=0
     ffi-pull-walk        rows=94   round-trip-ok=46   failing=0
+    ffi-retain           rows=364  round-trip-ok=46   failing=0
+    ffi-pull-retain      rows=94   round-trip-ok=46   failing=0
     ffi-borrow           rows=94   round-trip-ok=46   failing=0
-    pbj                  rows=319  round-trip-ok=46   failing=0
-     checked=469  failed=0
-     checked=460  failed=0
-     checked=460  failed=0
-  TOTAL checked=1389  failed=0
+    pbj                  rows=364  round-trip-ok=46   failing=0
+     checked=608  failed=0
+     checked=597  failed=0
+     checked=597  failed=0
+  TOTAL checked=1802  failed=0
 
 ### unknown-field vectors, arm a
   checked=66  failed=0
@@ -156,10 +162,10 @@ core: /home/user/ArmoniK.Api/ffi/poc/java/core-build/tree-676e33f5f986778c/targe
 GATE: PASS on arms a, b, c
 
 ## gen/corpus.sh
-== java slice corpus gate; tree 51eb3e9
-      core snapshot: ffi/poc/codec at 51eb3e9, tree key tree-676e33f5f986778c
+== java slice corpus gate; tree 8d2e7ac + uncommitted changes
+      core snapshot: ffi/poc/codec at c997197, tree key tree-9f98d86da848337d
    corpus core built with: ,"features":"["corpus", "default", "init-guard"] 
-   shim /home/user/ArmoniK.Api/ffi/poc/java/build/jnicorpus/libakjni.so -> /home/user/ArmoniK.Api/ffi/poc/java/core-build/tree-676e33f5f986778c/target-corpus/release/libak_core.so
+   shim /home/user/ArmoniK.Api/ffi/poc/java/build/jnicorpus/libakjni.so -> /home/user/ArmoniK.Api/ffi/poc/java/core-build/tree-9f98d86da848337d/target-corpus/release/libak_core.so
    the loaded core is the corpus-schema build: 1 ak_decode_WireZoo export(s)
    per-row timeout 5000 ms
 
@@ -168,13 +174,13 @@ guard 8 Java backend modules and the slice glue import plans only; a planted IR 
 core  poc/codec/gen/generate.py --check --core-only: exit 0
 checked 264 generated files, 0 problem(s)
 
-===== 2. the corpus, target (/usr/lib/jvm/java-17-openjdk-amd64, build/cls17), arms R,R-retain,ffi,ffi-pull,ffi-pull-walk,ffi-borrow =====
-# java slice: ffi/corpus against R, R-retain, ffi, ffi-pull, ffi-pull-walk, ffi-borrow  (FIX-PLAN WP5 step 3)
+===== 2. the corpus, target (/usr/lib/jvm/java-17-openjdk-amd64, build/cls17), arms R,R-retain,ffi,ffi-pull,ffi-pull-walk,ffi-borrow,ffi-retain,ffi-pull-retain,ffi-pull-walk-retain,ffi-borrow-retain =====
+# java slice: ffi/corpus against R, R-retain, ffi, ffi-pull, ffi-pull-walk, ffi-borrow, ffi-retain, ffi-pull-retain, ffi-pull-walk-retain, ffi-borrow-retain  (FIX-PLAN WP5 step 3)
 # corpus 1, 702 of 702 vectors
 # classes build/cls17   shim /home/user/ArmoniK.Api/ffi/poc/java/build/jnicorpus/libakjni.so
-# java.version=17.0.20.1  timeout_ms=5000  arms=R,R-retain,ffi,ffi-pull,ffi-pull-walk,ffi-borrow  plant=none  ak.lib=/home/user/ArmoniK.Api/ffi/poc/java/build/jnicorpus/libakjni.so  skipInit=0
+# java.version=17.0.20.1  timeout_ms=5000  arms=R,R-retain,ffi,ffi-pull,ffi-pull-walk,ffi-borrow,ffi-retain,ffi-pull-retain,ffi-pull-walk-retain,ffi-borrow-retain  plant=none  ak.lib=/home/user/ArmoniK.Api/ffi/poc/java/build/jnicorpus/libakjni.so  skipInit=0
 # codec LIMIT=100 utf8=reject  C ABI roots 29 of 30 messages
-# harness exit 0, 4212 result lines
+# harness exit 0, 7020 result lines
 
 ################ arm R
    rows 702: pass 696 (accept 555, refused 141), FAIL 0, disputed (excluded) 6, not in the C ABI 0, timeouts 0
@@ -523,15 +529,59 @@ checked 264 generated files, 0 problem(s)
    disputed X-tag-zero-nested-Empty            expect=reject read: reject (IllegalStateException:core returned -2)
    FAILING rows: 0
 
-RESULT: 0 failing arm-rows over 6 arms x 702 rows
+################ arm ffi-retain
+   rows 702: pass 680 (accept 542, refused 138), FAIL 0, disputed (excluded) 6, not in the C ABI 16, timeouts 0
+   C3 forms written: as committed=378, as committed in ffi/schema/generated=7, as committed/map values always written=5, as committed/map values always written (protobuf C++, upb, protobuf-java)=18, as committed/unknown-retained, map values always written=105, as upb writes it: the same message in a different field ORDER=1, as upb writes it: the same message, encoded differently=1, canonical=5, canonical: ascending by tag/key and value always written=1, canonical: each repeated field contiguous=1, canonical: entries ascending by UTF-8 key=1, canonical: omitted=3, canonical: one entry, the last value=1, canonical: one member=1, canonical: one run=1, canonical: packed=2, canonical: ten-byte sign-extended=3, canonical: the empty value omitted=1, canonical: the zero leaves omitted=1, unknown-retained, appended in tag order=6
+   disputed U-map-entry                        expect=accept read: accept, matches the reading of protobuf 7.36.2 (pure-python backend)
+   disputed X-field-2p32-plus-2                expect=reject read: reject (IllegalStateException:core returned -2)
+   disputed X-field-over-max                   expect=reject read: reject (IllegalStateException:core returned -2)
+   disputed X-field-over-max-in-group          expect=reject read: reject (IllegalStateException:core returned -2)
+   disputed X-tag-zero-Empty                   expect=reject read: reject (IllegalStateException:core returned -2)
+   disputed X-tag-zero-nested-Empty            expect=reject read: reject (IllegalStateException:core returned -2)
+   FAILING rows: 0
 
-===== 2. the corpus, floor (/usr/lib/jvm/java-8-openjdk-amd64, build/cls8), arms R,R-retain,ffi,ffi-pull,ffi-pull-walk,ffi-borrow =====
-# java slice: ffi/corpus against R, R-retain, ffi, ffi-pull, ffi-pull-walk, ffi-borrow  (FIX-PLAN WP5 step 3)
+################ arm ffi-pull-retain
+   rows 702: pass 680 (accept 542, refused 138), FAIL 0, disputed (excluded) 6, not in the C ABI 16, timeouts 0
+   C3 forms written: as committed=378, as committed in ffi/schema/generated=7, as committed/map values always written=5, as committed/map values always written (protobuf C++, upb, protobuf-java)=18, as committed/unknown-retained, map values always written=105, as upb writes it: the same message in a different field ORDER=1, as upb writes it: the same message, encoded differently=1, canonical=5, canonical: ascending by tag/key and value always written=1, canonical: each repeated field contiguous=1, canonical: entries ascending by UTF-8 key=1, canonical: omitted=3, canonical: one entry, the last value=1, canonical: one member=1, canonical: one run=1, canonical: packed=2, canonical: ten-byte sign-extended=3, canonical: the empty value omitted=1, canonical: the zero leaves omitted=1, unknown-retained, appended in tag order=6
+   disputed U-map-entry                        expect=accept read: accept, matches the reading of protobuf 7.36.2 (pure-python backend)
+   disputed X-field-2p32-plus-2                expect=reject read: reject (IllegalStateException:core returned -2)
+   disputed X-field-over-max                   expect=reject read: reject (IllegalStateException:core returned -2)
+   disputed X-field-over-max-in-group          expect=reject read: reject (IllegalStateException:core returned -2)
+   disputed X-tag-zero-Empty                   expect=reject read: reject (IllegalStateException:core returned -2)
+   disputed X-tag-zero-nested-Empty            expect=reject read: reject (IllegalStateException:core returned -2)
+   FAILING rows: 0
+
+################ arm ffi-pull-walk-retain
+   rows 702: pass 680 (accept 542, refused 138), FAIL 0, disputed (excluded) 6, not in the C ABI 16, timeouts 0
+   C3 forms written: as committed=378, as committed in ffi/schema/generated=7, as committed/map values always written=5, as committed/map values always written (protobuf C++, upb, protobuf-java)=18, as committed/unknown-retained, map values always written=105, as upb writes it: the same message in a different field ORDER=1, as upb writes it: the same message, encoded differently=1, canonical=5, canonical: ascending by tag/key and value always written=1, canonical: each repeated field contiguous=1, canonical: entries ascending by UTF-8 key=1, canonical: omitted=3, canonical: one entry, the last value=1, canonical: one member=1, canonical: one run=1, canonical: packed=2, canonical: ten-byte sign-extended=3, canonical: the empty value omitted=1, canonical: the zero leaves omitted=1, unknown-retained, appended in tag order=6
+   disputed U-map-entry                        expect=accept read: accept, matches the reading of protobuf 7.36.2 (pure-python backend)
+   disputed X-field-2p32-plus-2                expect=reject read: reject (IllegalStateException:core returned -2)
+   disputed X-field-over-max                   expect=reject read: reject (IllegalStateException:core returned -2)
+   disputed X-field-over-max-in-group          expect=reject read: reject (IllegalStateException:core returned -2)
+   disputed X-tag-zero-Empty                   expect=reject read: reject (IllegalStateException:core returned -2)
+   disputed X-tag-zero-nested-Empty            expect=reject read: reject (IllegalStateException:core returned -2)
+   FAILING rows: 0
+
+################ arm ffi-borrow-retain
+   rows 702: pass 680 (accept 542, refused 138), FAIL 0, disputed (excluded) 6, not in the C ABI 16, timeouts 0
+   C3 forms written: as committed=378, as committed in ffi/schema/generated=7, as committed/map values always written=5, as committed/map values always written (protobuf C++, upb, protobuf-java)=18, as committed/unknown-retained, map values always written=105, as upb writes it: the same message in a different field ORDER=1, as upb writes it: the same message, encoded differently=1, canonical=5, canonical: ascending by tag/key and value always written=1, canonical: each repeated field contiguous=1, canonical: entries ascending by UTF-8 key=1, canonical: omitted=3, canonical: one entry, the last value=1, canonical: one member=1, canonical: one run=1, canonical: packed=2, canonical: ten-byte sign-extended=3, canonical: the empty value omitted=1, canonical: the zero leaves omitted=1, unknown-retained, appended in tag order=6
+   disputed U-map-entry                        expect=accept read: accept, matches the reading of protobuf 7.36.2 (pure-python backend)
+   disputed X-field-2p32-plus-2                expect=reject read: reject (IllegalStateException:core returned -2)
+   disputed X-field-over-max                   expect=reject read: reject (IllegalStateException:core returned -2)
+   disputed X-field-over-max-in-group          expect=reject read: reject (IllegalStateException:core returned -2)
+   disputed X-tag-zero-Empty                   expect=reject read: reject (IllegalStateException:core returned -2)
+   disputed X-tag-zero-nested-Empty            expect=reject read: reject (IllegalStateException:core returned -2)
+   FAILING rows: 0
+
+RESULT: 0 failing arm-rows over 10 arms x 702 rows
+
+===== 2. the corpus, floor (/usr/lib/jvm/java-8-openjdk-amd64, build/cls8), arms R,R-retain,ffi,ffi-pull,ffi-pull-walk,ffi-borrow,ffi-retain,ffi-pull-retain,ffi-pull-walk-retain,ffi-borrow-retain =====
+# java slice: ffi/corpus against R, R-retain, ffi, ffi-pull, ffi-pull-walk, ffi-borrow, ffi-retain, ffi-pull-retain, ffi-pull-walk-retain, ffi-borrow-retain  (FIX-PLAN WP5 step 3)
 # corpus 1, 702 of 702 vectors
 # classes build/cls8   shim /home/user/ArmoniK.Api/ffi/poc/java/build/jnicorpus/libakjni.so
-# java.version=1.8.0_504  timeout_ms=5000  arms=R,R-retain,ffi,ffi-pull,ffi-pull-walk,ffi-borrow  plant=none  ak.lib=/home/user/ArmoniK.Api/ffi/poc/java/build/jnicorpus/libakjni.so  skipInit=0
+# java.version=1.8.0_504  timeout_ms=5000  arms=R,R-retain,ffi,ffi-pull,ffi-pull-walk,ffi-borrow,ffi-retain,ffi-pull-retain,ffi-pull-walk-retain,ffi-borrow-retain  plant=none  ak.lib=/home/user/ArmoniK.Api/ffi/poc/java/build/jnicorpus/libakjni.so  skipInit=0
 # codec LIMIT=100 utf8=reject  C ABI roots 29 of 30 messages
-# harness exit 0, 4212 result lines
+# harness exit 0, 7020 result lines
 
 ################ arm R
    rows 702: pass 696 (accept 555, refused 141), FAIL 0, disputed (excluded) 6, not in the C ABI 0, timeouts 0
@@ -880,18 +930,69 @@ RESULT: 0 failing arm-rows over 6 arms x 702 rows
    disputed X-tag-zero-nested-Empty            expect=reject read: reject (IllegalStateException:core returned -2)
    FAILING rows: 0
 
-RESULT: 0 failing arm-rows over 6 arms x 702 rows
+################ arm ffi-retain
+   rows 702: pass 680 (accept 542, refused 138), FAIL 0, disputed (excluded) 6, not in the C ABI 16, timeouts 0
+   C3 forms written: as committed=378, as committed in ffi/schema/generated=7, as committed/map values always written=5, as committed/map values always written (protobuf C++, upb, protobuf-java)=18, as committed/unknown-retained, map values always written=105, as upb writes it: the same message in a different field ORDER=1, as upb writes it: the same message, encoded differently=1, canonical=5, canonical: ascending by tag/key and value always written=1, canonical: each repeated field contiguous=1, canonical: entries ascending by UTF-8 key=1, canonical: omitted=3, canonical: one entry, the last value=1, canonical: one member=1, canonical: one run=1, canonical: packed=2, canonical: ten-byte sign-extended=3, canonical: the empty value omitted=1, canonical: the zero leaves omitted=1, unknown-retained, appended in tag order=6
+   disputed U-map-entry                        expect=accept read: accept, matches the reading of protobuf 7.36.2 (pure-python backend)
+   disputed X-field-2p32-plus-2                expect=reject read: reject (IllegalStateException:core returned -2)
+   disputed X-field-over-max                   expect=reject read: reject (IllegalStateException:core returned -2)
+   disputed X-field-over-max-in-group          expect=reject read: reject (IllegalStateException:core returned -2)
+   disputed X-tag-zero-Empty                   expect=reject read: reject (IllegalStateException:core returned -2)
+   disputed X-tag-zero-nested-Empty            expect=reject read: reject (IllegalStateException:core returned -2)
+   FAILING rows: 0
+
+################ arm ffi-pull-retain
+   rows 702: pass 680 (accept 542, refused 138), FAIL 0, disputed (excluded) 6, not in the C ABI 16, timeouts 0
+   C3 forms written: as committed=378, as committed in ffi/schema/generated=7, as committed/map values always written=5, as committed/map values always written (protobuf C++, upb, protobuf-java)=18, as committed/unknown-retained, map values always written=105, as upb writes it: the same message in a different field ORDER=1, as upb writes it: the same message, encoded differently=1, canonical=5, canonical: ascending by tag/key and value always written=1, canonical: each repeated field contiguous=1, canonical: entries ascending by UTF-8 key=1, canonical: omitted=3, canonical: one entry, the last value=1, canonical: one member=1, canonical: one run=1, canonical: packed=2, canonical: ten-byte sign-extended=3, canonical: the empty value omitted=1, canonical: the zero leaves omitted=1, unknown-retained, appended in tag order=6
+   disputed U-map-entry                        expect=accept read: accept, matches the reading of protobuf 7.36.2 (pure-python backend)
+   disputed X-field-2p32-plus-2                expect=reject read: reject (IllegalStateException:core returned -2)
+   disputed X-field-over-max                   expect=reject read: reject (IllegalStateException:core returned -2)
+   disputed X-field-over-max-in-group          expect=reject read: reject (IllegalStateException:core returned -2)
+   disputed X-tag-zero-Empty                   expect=reject read: reject (IllegalStateException:core returned -2)
+   disputed X-tag-zero-nested-Empty            expect=reject read: reject (IllegalStateException:core returned -2)
+   FAILING rows: 0
+
+################ arm ffi-pull-walk-retain
+   rows 702: pass 680 (accept 542, refused 138), FAIL 0, disputed (excluded) 6, not in the C ABI 16, timeouts 0
+   C3 forms written: as committed=378, as committed in ffi/schema/generated=7, as committed/map values always written=5, as committed/map values always written (protobuf C++, upb, protobuf-java)=18, as committed/unknown-retained, map values always written=105, as upb writes it: the same message in a different field ORDER=1, as upb writes it: the same message, encoded differently=1, canonical=5, canonical: ascending by tag/key and value always written=1, canonical: each repeated field contiguous=1, canonical: entries ascending by UTF-8 key=1, canonical: omitted=3, canonical: one entry, the last value=1, canonical: one member=1, canonical: one run=1, canonical: packed=2, canonical: ten-byte sign-extended=3, canonical: the empty value omitted=1, canonical: the zero leaves omitted=1, unknown-retained, appended in tag order=6
+   disputed U-map-entry                        expect=accept read: accept, matches the reading of protobuf 7.36.2 (pure-python backend)
+   disputed X-field-2p32-plus-2                expect=reject read: reject (IllegalStateException:core returned -2)
+   disputed X-field-over-max                   expect=reject read: reject (IllegalStateException:core returned -2)
+   disputed X-field-over-max-in-group          expect=reject read: reject (IllegalStateException:core returned -2)
+   disputed X-tag-zero-Empty                   expect=reject read: reject (IllegalStateException:core returned -2)
+   disputed X-tag-zero-nested-Empty            expect=reject read: reject (IllegalStateException:core returned -2)
+   FAILING rows: 0
+
+################ arm ffi-borrow-retain
+   rows 702: pass 680 (accept 542, refused 138), FAIL 0, disputed (excluded) 6, not in the C ABI 16, timeouts 0
+   C3 forms written: as committed=378, as committed in ffi/schema/generated=7, as committed/map values always written=5, as committed/map values always written (protobuf C++, upb, protobuf-java)=18, as committed/unknown-retained, map values always written=105, as upb writes it: the same message in a different field ORDER=1, as upb writes it: the same message, encoded differently=1, canonical=5, canonical: ascending by tag/key and value always written=1, canonical: each repeated field contiguous=1, canonical: entries ascending by UTF-8 key=1, canonical: omitted=3, canonical: one entry, the last value=1, canonical: one member=1, canonical: one run=1, canonical: packed=2, canonical: ten-byte sign-extended=3, canonical: the empty value omitted=1, canonical: the zero leaves omitted=1, unknown-retained, appended in tag order=6
+   disputed U-map-entry                        expect=accept read: accept, matches the reading of protobuf 7.36.2 (pure-python backend)
+   disputed X-field-2p32-plus-2                expect=reject read: reject (IllegalStateException:core returned -2)
+   disputed X-field-over-max                   expect=reject read: reject (IllegalStateException:core returned -2)
+   disputed X-field-over-max-in-group          expect=reject read: reject (IllegalStateException:core returned -2)
+   disputed X-tag-zero-Empty                   expect=reject read: reject (IllegalStateException:core returned -2)
+   disputed X-tag-zero-nested-Empty            expect=reject read: reject (IllegalStateException:core returned -2)
+   FAILING rows: 0
+
+RESULT: 0 failing arm-rows over 10 arms x 702 rows
 
 ===== 3. controls (target), each MUST FAIL =====
-  control proj: failed as required: RESULT: 156 failing arm-rows over 6 arms x 121 rows
-  control reenc: failed as required: RESULT: 156 failing arm-rows over 6 arms x 121 rows
-  control accept: failed as required: RESULT: 570 failing arm-rows over 6 arms x 121 rows
+  control proj: failed as required: RESULT: 260 failing arm-rows over 10 arms x 121 rows
+  control reenc: failed as required: RESULT: 260 failing arm-rows over 10 arms x 121 rows
+  control accept: failed as required: RESULT: 950 failing arm-rows over 10 arms x 121 rows
   control noinit: failed as required: RESULT: 104 failing arm-rows over 4 arms x 121 rows
           C1   E-map-dup-key                            reject IllegalStateException:core returned -10
           C1   E-map-empty-value-written                reject IllegalStateException:core returned -10
           C1   E-map-dup-key                            reject IllegalStateException:core returned -10
           C1   E-map-empty-value-written                reject IllegalStateException:core returned -10
           C1   E-map-entry-empty                        reject IllegalStateException:core returned -10
+
+===== 3b. decision 11 (WP5 step 9): per-position discard, pull == push, wrong root (target) =====
+per-position discard: rows 311, (row, position) pairs 1373, changed by zeroing: 315 pair(s) in 307 row(s)
+discard mismatches: 0; pull != push: 0
+wrong root: reset rc -8, parse rc -8 (AK_ERR_INVALID_STATE = -8); own root still parses: rc 0  PASS
+UNKNOWN-FIELD CONTROLS PASSED
+  control unk-plant (mask ignored): failed as required: discard mismatches: 307; pull != push: 0   [PLANTED: the mask is ignored]
 
 ===== 4. rule gaps the corpus does not reach directly (target) =====
 merge-singular  R  wire=2a0208012a021002  read={"created_at":{"seconds":"1","nanos":"2"}}   (protobuf: seconds 1 AND nanos 2)
