@@ -1,0 +1,11 @@
+# python slice: crossing counts, plan-rendered shim against the pre-port shim
+# date:      2026-09-25T06:47:18Z
+# commit:    dadea5f
+# phase:     correctness only; nothing here is a timing
+
+   py3.12: 160 rows, IDENTICAL to logs/python/85 (3.12, pre-port shim)
+   py3.7: 160 rows, IDENTICAL to logs/python/85 (3.12, pre-port shim)
+
+## the C header: one renderer (c_abi) for both C-consuming slices
+   gen/out/ak_abi.h is byte-identical to poc/cpp/include/ak_abi.h
+   gen/out/corpus/ak_abi.h is byte-identical to poc/cpp/corpus/include/ak_abi.h

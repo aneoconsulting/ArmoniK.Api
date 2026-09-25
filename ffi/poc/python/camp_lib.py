@@ -133,6 +133,15 @@ def buildinfo():
         return {"missing": p}
 
 
+def _snapshot():
+    """The RESOLVED commit the core was built from (AK_SNAPSHOT may say HEAD, which moves)."""
+    v = os.environ.get("AK_SNAPSHOT")
+    if not v:
+        return "none (working tree)"
+    sha = subprocess.run(["git", "-C", HERE, "rev-parse", "--short", v], capture_output=True, text=True).stdout.strip()
+    return "%s (%s)" % (sha, v)
+
+
 class Log:
     """Header lines start with '#'; every other line is one JSON sample. Samples are held
     until `close(ok=True)`: a run that aborts writes its header, the abort, and NO sample
@@ -152,7 +161,7 @@ class Log:
         m = machine()
         base = {"slice": SLICE, "suite": self.suite, "commit": self.commit,
                 "date": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                "snapshot": os.environ.get("AK_SNAPSHOT", "none (working tree)")}
+                "snapshot": _snapshot()}
         for block in (base, m, versions(), {"build": buildinfo()}, kv):
             for k, v in block.items():
                 self.head.append("# %-16s %s" % (k + ":", v if not isinstance(v, (dict, list)) else json.dumps(v, sort_keys=True)))

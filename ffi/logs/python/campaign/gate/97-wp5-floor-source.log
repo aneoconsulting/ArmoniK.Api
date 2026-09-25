@@ -1,0 +1,41 @@
+# python slice: the 3.7 source check, and every other CPython header set here
+# date:      2026-09-25T06:46:48Z
+# commit:    dadea5f
+# phase:     correctness only; nothing here is a timing
+
+# 3.7.5 headers: /home/user/ArmoniK.Api/ffi/poc/python/build/py37/root/usr/include/python3.7m (#define PY_VERSION              "3.7.5")
+
+## this tree
+   ok    gen/out 
+   ok    gen/out -DAK_COUNT
+   ok    gen/out -DAK_RPC
+   ok    gen/out/corpus -DAK_CORPUS
+   ok    gen/out/corpus -DAK_CORPUS -DAK_CHUNK_BYTES=256 -DAK_CHUNK_PACKED=3
+
+## the version conditionals in the sources compiled above
+   gen/out/binding.c:14:#if PY_VERSION_HEX >= 0x030A0000
+   gen/out/binding.c:19:#if PY_VERSION_HEX >= 0x03090000
+   native/binding.c:18: * and the two C-API calls newer than the 3.7 floor are under `PY_VERSION_HEX` (R-D4).
+   native/binding.c:511:#if PY_VERSION_HEX >= 0x030A0000
+   native/binding.c:545:#if PY_VERSION_HEX < 0x03090000 && defined(__GNUC__)
+   post-3.7 names reached only through them:
+     Py_NewRef: 1 in gen/out/binding.c, 1 in gen/out/corpus/binding.c, 0 in native/binding.c
+     PyObject_CallNoArgs: 1 in gen/out/binding.c, 1 in gen/out/corpus/binding.c, 0 in native/binding.c
+     PyObject_CallOneArg: 1 in gen/out/binding.c, 1 in gen/out/corpus/binding.c, 0 in native/binding.c
+     PyModule_AddObjectRef: 0 in gen/out/binding.c, 0 in gen/out/corpus/binding.c, 1 in native/binding.c
+
+## the same five variants against every other CPython header set reachable here
+   ok    CPython 3.9 headers: 5 of 5 variants
+   ok    CPython 3.10 headers: 5 of 5 variants
+   ok    CPython 3.11 headers: 5 of 5 variants
+   ok    CPython 3.12 headers: 5 of 5 variants
+   ok    CPython 3.13 headers: 5 of 5 variants
+
+## control: the pre-port tree (aba944a) must FAIL the same check
+   failed as required:
+           1 implicit declaration of function 'PyModule_AddObjectRef'
+           1 implicit declaration of function 'PyObject_CallNoArgs'
+           1 implicit declaration of function 'PyObject_CallOneArg'
+           1 implicit declaration of function 'Py_NewRef'
+
+FLOOR SOURCE CHECK PASSES (compile against 3.7.5 headers; the control fails)
