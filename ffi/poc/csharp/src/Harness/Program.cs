@@ -4,6 +4,10 @@ using System.Linq;
 using System.Runtime;
 using System.Runtime.InteropServices;
 
+// The campaign runner (src/Rpc, assembly akrpc) calls the generated imports directly
+// (ak_noop for the crossing calibration), which the generator declares internal.
+[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("akrpc")]
+
 namespace Armonik.Ffi.Harness;
 
 public static class Program

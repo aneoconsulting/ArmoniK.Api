@@ -64,8 +64,10 @@ echo "# dotnet:      SDK $(dotnet --version); runtimes: $(dotnet --list-runtimes
 echo "# corpus:      ffi/corpus at $(git -C "$REPO" log -1 --format=%h -- ffi/corpus), $(python3 -S -c 'import json;print(len(json.load(open("'"$REPO"'/ffi/corpus/generated/manifest.json"))["vectors"]))') vectors"
 echo "# machine:     container, $(nproc) vCPU, $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2 | sed 's/^ //'), $(uname -r)"
 
-step "1. generator"
-run "generate --check" python3 -S gen/generate.py --check
+step "1. generator (rendered from a snapshot of the COMMITTED poc/codec/gen, like the core)"
+rm -rf "$SCRATCH/cg"; mkdir -p "$SCRATCH/cg"
+( cd "$REPO" && git archive HEAD ffi/poc/codec ffi/schema ffi/corpus | tar -x -C "$SCRATCH/cg" )
+AK_CODECGEN="$SCRATCH/cg/ffi/poc/codec/gen" run "generate --check" python3 -S gen/generate.py --check
 
 step "2. the core (every build with init-guard) and the layout probe"
 run "build_core" gen/build_core.sh
@@ -99,7 +101,7 @@ for lvl in 8 6; do
   control "net$lvl layout plant" "${HX[@]}" layout "$LAY" --plant
   AK_LAYOUT_PROBE="$LAY" run "net$lvl coreffi" "${HX[@]}" coreffi
   core "$H" target-core-count
-  run "net$lvl coreffi counting (R5)" "${HX[@]}" coreffi
+  AK_CROSSINGS_EXPECT="$SLICE/gen/crossings.txt" run "net$lvl coreffi counting (R5, counts = gen/crossings.txt)" "${HX[@]}" coreffi
   core "$H" target-core
   AK_GATE_PLANT_NO_INIT=1 control "net$lvl coreffi without ak_init (init-guard core)" "${HX[@]}" coreffi
 done

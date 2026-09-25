@@ -1,0 +1,17 @@
+# payload  encode fwd rev  push-decode fwd rev  pull-decode fwd rev (whole run per element call; counting core)
+P1.1 2 1 1 2 2 0
+P1.2 2 1 1 5 2 0
+P1.3 2 1 1 3 2 0
+P2.1 7 6 1 8 2 0
+P2.2 2502 2501 1 3501 2 0
+P2.3 627 626 1 876 2 0
+P2.4 402 401 1 561 2 0
+P2.5 102 101 1 141 2 0
+P3.1 2 1 1 2 2 0
+P4.1 202 201 1 601 2 0
+P5.1 1 0 1 1 2 0
+P5.2 1 0 1 1 2 0
+P5.3 1 0 1 1 2 0
+P5.4 1 0 1 1 2 0
+P6.1 1002 1001 1 1401 2 0
+P7.1 3 2 1 3 2 0

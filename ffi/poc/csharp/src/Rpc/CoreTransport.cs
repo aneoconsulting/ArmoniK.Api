@@ -68,6 +68,9 @@ internal sealed class CallState
 public sealed class CoreChannel : IDisposable
 {
     private readonly IntPtr _rt, _cl;
+    /// The core client handle, for callers that drive the generated imports directly
+    /// (the campaign runner's blocking cells, which hand the core pointers, not arrays).
+    public IntPtr Client => _cl;
     private IntPtr _q;
     private Thread _drainer;
     private readonly ConcurrentDictionary<ulong, CallState> _pending = new();
