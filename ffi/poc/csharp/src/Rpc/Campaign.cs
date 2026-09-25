@@ -157,7 +157,7 @@ public static class CampaignMain
         double targetMs = OptD(a, "--target-ms", 20), warmMs = OptD(a, "--warmup-ms", 50);
         int warmIters = OptI(a, "--warmup-iters", 64);
         var only = Opt(a, "--payloads", null)?.Split(',');
-        var unkGlob = Opt(a, "--unknown-rows", "*-all");
+        var unkGlob = Opt(a, "--unknown-rows", "U-*");
         bool content = !a.Contains("--no-content");
         Header("codec", string.Format(CultureInfo.InvariantCulture,
             "launch {0}, rounds {1}, target {2} ms per sample, warm-up: two passes over every cell of max({3} calls, {4} ms), 500 ms apart, then the iteration count is FIXED; GC.Collect before every round",
@@ -277,8 +277,9 @@ public static class CampaignMain
         throw new DirectoryNotFoundException("ffi/corpus/generated");
     }
 
-    /// The corpus's unknown-field rows whose root the shapes binding carries. Default: the
-    /// `*-all` row of each site (every wire type at one site); `--unknown-rows all` for all.
+    /// Requirement 7 (amended 0e8e9eb): every corpus `U-*` row whose root this slice
+    /// implements (the shapes roots), disputed rows excluded. `--unknown-rows '*-all'`
+    /// keeps one row per site; `none` skips them.
     private static void AddUnknownCells(List<Cell> cells, string glob)
     {
         var dir = CorpusDir();
@@ -286,7 +287,8 @@ public static class CampaignMain
         foreach (var id in man.Keys.OrderBy(x => x, StringComparer.Ordinal))
         {
             var v = man[id];
-            if (v["class"].AsString != "unknown" || v["expect"].AsString != "accept" || v["verdict"].AsString != "agreed") continue;
+            if (!id.StartsWith("U-", StringComparison.Ordinal) || v["verdict"].AsString == "disputed") continue;
+            if (v["expect"].AsString != "accept") continue;
             if (glob == "*-all" && !id.EndsWith("-all", StringComparison.Ordinal)) continue;
             var ops = OpsTable.ForRoot(v["root"].AsString);
             if (ops == null) continue;

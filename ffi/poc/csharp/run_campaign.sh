@@ -16,7 +16,8 @@
 # Every timed suite first requires this slice's correctness gate (gen/gate.sh) to have
 # passed at this commit in DIR (requirement 26); it runs it if not. Each suite and launch is
 # one file, DIR/<suite>-<transport->launch<N>.jsonl: a header ('#' lines) then one JSON
-# object per sample (requirements 27-29).
+# object per sample (requirements 27-29). The campaign's DIR is ffi/logs/csharp/campaign/
+# (requirement 29 as amended at 0e8e9eb).
 set -uo pipefail
 SLICE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(git -C "$SLICE" rev-parse --show-toplevel)"
