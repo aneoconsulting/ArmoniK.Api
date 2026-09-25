@@ -46,6 +46,7 @@ import rust_abi              # noqa: E402  the core and its ABI, from the plan
 import rust_binding          # noqa: E402  the host binding, from the plan
 import rust_project          # noqa: E402  corpus glue: the projection of a facade value
 import rust_corpus           # noqa: E402  corpus glue: the per-root dispatch table
+import rust_campaign         # noqa: E402  campaign glue: per-root arm table, read-every-field
 
 ROOT = os.path.dirname(HERE)
 
@@ -82,6 +83,8 @@ def targets(ir):
         "../codec/crates/ak-abi/src/generated/abi.rs": rust_abi.emit_abi(ir),
         "../codec/crates/ak-core/src/generated/codec.rs": codec,
         "crates/harness/src/generated/binding.rs": rust_binding.emit_binding(ir),
+        # FIX-PLAN WP3 (design/CAMPAIGN.md): the campaign's per-root table and visitors.
+        "crates/campaign/src/generated/roots.rs": rust_campaign.emit(ir),
     }
 
 
