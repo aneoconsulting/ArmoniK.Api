@@ -1,17 +1,17 @@
 # python slice: R-D1 wrapped lengths through the shim, py3.12
-# date:      2026-09-25T06:46:09Z
-# commit:    dadea5f
+# date:      2026-09-25T15:36:59Z
+# commit:    17b5fd5
 # phase:     correctness only; nothing here is a timing
 
 # R-D1 length-varint wrap through the python shim (_akffi), ListResultsResponse decode
 # interpreter: 3.12.3; each decode in its own subprocess, timeout 10 s
-   ok   finding  C ext type  7af5ffffffffffffffff01     ERROR ValueError: ak_decode_ListResultsResponse returned -3  [core cargo-154803d/plain/release/libak_core.so]
-   ok   finding  plain       7af5ffffffffffffffff01     ERROR ValueError: ak_decode_ListResultsResponse returned -3  [core cargo-154803d/plain/release/libak_core.so]
-   ok   root     C ext type  0affffffffffffffffff01     ERROR ValueError: ak_decode_ListResultsResponse returned -3  [core cargo-154803d/plain/release/libak_core.so]
-   ok   root     plain       0affffffffffffffffff01     ERROR ValueError: ak_decode_ListResultsResponse returned -3  [core cargo-154803d/plain/release/libak_core.so]
-   ok   nested   C ext type  0a0b0affffffffffffffffff01 ERROR ValueError: ak_decode_ListResultsResponse returned -3  [core cargo-154803d/plain/release/libak_core.so]
-   ok   nested   plain       0a0b0affffffffffffffffff01 ERROR ValueError: ak_decode_ListResultsResponse returned -3  [core cargo-154803d/plain/release/libak_core.so]
-   ok   control  C ext type  P1.2                       DECODED 1000 results  [core cargo-154803d/plain/release/libak_core.so]
-   ok   control  plain       P1.2                       DECODED 1000 results  [core cargo-154803d/plain/release/libak_core.so]
+   ok   finding  C ext type  7af5ffffffffffffffff01     ERROR ValueError: ak_decode_ListResultsResponse returned -3  [core cargo-17b5fd5/plain/release/libak_core.so]
+   ok   finding  plain       7af5ffffffffffffffff01     ERROR ValueError: ak_decode_ListResultsResponse returned -3  [core cargo-17b5fd5/plain/release/libak_core.so]
+   ok   root     C ext type  0affffffffffffffffff01     ERROR ValueError: ak_decode_ListResultsResponse returned -3  [core cargo-17b5fd5/plain/release/libak_core.so]
+   ok   root     plain       0affffffffffffffffff01     ERROR ValueError: ak_decode_ListResultsResponse returned -3  [core cargo-17b5fd5/plain/release/libak_core.so]
+   ok   nested   C ext type  0a0b0affffffffffffffffff01 ERROR ValueError: ak_decode_ListResultsResponse returned -3  [core cargo-17b5fd5/plain/release/libak_core.so]
+   ok   nested   plain       0a0b0affffffffffffffffff01 ERROR ValueError: ak_decode_ListResultsResponse returned -3  [core cargo-17b5fd5/plain/release/libak_core.so]
+   ok   control  C ext type  P1.2                       DECODED 1000 results  [core cargo-17b5fd5/plain/release/libak_core.so]
+   ok   control  plain       P1.2                       DECODED 1000 results  [core cargo-17b5fd5/plain/release/libak_core.so]
 
 ALL WRAPPED LENGTHS REFUSED, CONTROL DECODES

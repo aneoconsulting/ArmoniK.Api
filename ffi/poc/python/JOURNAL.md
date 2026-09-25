@@ -1107,3 +1107,19 @@ CAMPAIGN.md was amended (0e8e9eb). Requirement 7's unknown rows are now every U-
 root the C ABI carries (311 rows), and requirement 29's logs go to `logs/python/campaign/`.
 The final smoke passed all four suites. HEAD moved between the gate and the timed suites,
 and the header then printed `HEAD` rather than the resolved sha; that is fixed in camp_lib.
+
+### J41. CAMPAIGN.md 22a: the codec suite moved onto pyperf
+
+The owner decided (cbd3252) that each slice's codec suite runs on its ecosystem's framework;
+for Python that is pyperf. `camp_pyperf.py` registers one `bench_time_func` per
+(family, payload, content, direction, arm, mode). A worker builds only its own payload's cases
+through camp_codec's builders, including their correctness check.
+- **Mapping:** one pyperf invocation per launch, with the order rotated between launches;
+  values = rounds.
+- **Clock:** the time_func returns thread CPU, so pyperf's values are CPU per loop. The wall
+  time of the same call goes to a side file that `camp_pyperf_export.py` joins back by
+  (name, loops, value); in the smoke every value found its record.
+- **Environment:** pyperf filters the environment of its workers, so `--copy-env` is needed
+  for AK_* and PYTHONPATH.
+- **Cost:** a pyperf worker per benchmark makes the full unknown family (3,732 benchmarks)
+  the expensive part of a launch.
