@@ -1,4 +1,10 @@
-"""CAMPAIGN.md section 4.1: the codec suite, one process, pinned to AK_CPU_CLIENT, no server.
+"""CAMPAIGN.md section 4.1: the codec suite's CASES (payloads, arms, directions, modes, the
+per-case correctness check), and the pre-22a engine that timed them.
+
+Since CAMPAIGN.md 22a (cbd3252) run_campaign.sh times these cases with PYPERF
+(camp_pyperf.py builds them through `shapes_cases` / `unknown_cases` with `only=`); the
+`main()` below is the slice runner's own loop, kept for a by-hand comparison and NOT driven
+by run_campaign.sh.
 
   python3.12 camp_codec.py --family shapes|unknown --launch N --rounds R --out FILE
                            [--target-ms T] [--allow-dirty] [--smoke]
@@ -120,12 +126,15 @@ def loop(f):
     return run
 
 
-def shapes_cases(log):
+def shapes_cases(log, only=None):
+    """`only`: build one payload's cases (a pyperf worker needs just its own)."""
     import arms
     fac = arms.facade
     cases, gates = [], []
     R = None
     for pid in arms.PAYLOADS:
+        if only is not None and pid != only:
+            continue
         root = arms.ROOT_OF[pid]
         R = arms._pb_root(pid)
         plan = arms._PLANS[root]
@@ -198,7 +207,7 @@ def shapes_cases(log):
     return cases, gates
 
 
-def unknown_cases(log):
+def unknown_cases(log, only=None):
     """The unknown-field rows, through the corpus-schema core and the corpus plan's codec."""
     import json
     tag = "py%d.%d" % sys.version_info[:2]
@@ -221,6 +230,8 @@ def unknown_cases(log):
     rows = sorted(k for k, r in man.items() if k.startswith("U-") and r["expect"] == "accept"
                   and r.get("verdict") != "disputed" and r["root"] in roots)
     for vid in rows:
+        if only is not None and vid != only:
+            continue
         r = man[vid]
         root = r["root"]
         buf = open(os.path.normpath(os.path.join(L.FFI, "corpus", "generated", r["file"])), "rb").read()

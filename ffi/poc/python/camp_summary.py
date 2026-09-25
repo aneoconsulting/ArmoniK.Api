@@ -36,7 +36,9 @@ def main(d):
     if smoke:
         print("# INSTRUMENTATION: summarised from a smoke run; no figure here is a result")
     for suite in ("codec", "rpc", "calib"):
-        rs = [r for r in rows if r.get("suite") == suite and r.get("iters")]
+        # pyperf's warm-up and calibration measurements are exported (22a) but are not rounds.
+        rs = [r for r in rows if r.get("suite") == suite and r.get("iters")
+              and r.get("phase", "value") == "value"]
         if not rs:
             continue
         print("\n## %s: median [min, max] over all rounds and launches" % suite)
