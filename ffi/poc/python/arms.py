@@ -65,6 +65,7 @@ import pycodec           # noqa: E402  (generated: unknown fields dropped)
 import pycodec_retain    # noqa: E402  (generated: unknown fields retained)
 import payload_values as V  # noqa: E402  (harness glue)
 import facts as _F       # noqa: E402  (the facade's field facts, read from facade.MESSAGES)
+import arms_plan as _AP  # noqa: E402  (the decode+read reader, shared with camp_codec.py)
 
 
 class W:
@@ -384,26 +385,8 @@ def elem_type(pid):
 # ----------------------------------------------------------------------------------
 
 def _plan(msg):
-    """[(name, kind, card, child plan or None)] for one message, from the description.
-
-    A oneof member carries `c == "oneof"` and is NOT listed on its own: the plan records
-    the discriminant once per oneof, as `("<name>_case", "oneof_case", "oneof_case",
-    (name, {tag: (member, kind, child)}))`. Both readers then take the same two steps --
-    ask which member is selected, read that one -- which is `body_case` on the facade and
-    `WhichOneof` on the incumbent.
-    """
-    out = []
-    for f, k, c in W.walk(_SCHEMA, msg):
-        child = _plan(f["of"]) if k == "message" else None
-        if c == "oneof":
-            continue
-        out.append((f["name"], k, c, child))
-    for oname, members in W.oneof_groups(_SCHEMA, msg).items():
-        sel = {g["tag"]: (g["name"], g["kind"],
-                          _plan(g["of"]) if g["kind"] == "message" else None)
-               for g in members}
-        out.append(("%s_case" % oname, "oneof_case", "oneof_case", (oname, sel)))
-    return out
+    """The shared reader's plan for one message of the shapes facade (arms_plan.py)."""
+    return _AP.plan(facade, msg)
 
 
 # Keyed by ROOT rather than by element type, so one reader serves a root with two
@@ -411,93 +394,8 @@ def _plan(msg):
 _PLANS = {r: _plan(r) for r in sorted({ROOT_OF[p] for p in PAYLOADS})}
 
 
-def _read(o, plan):
-    n = 0
-    for name, k, c, child in plan:
-        if c == "oneof_case":
-            n += 1
-            hit = child[1].get(getattr(o, name))
-            if hit is not None:
-                gn, gk, gchild = hit
-                gv = getattr(o, gn)
-                n += 1
-                if gk == "message":
-                    n += _read(gv, gchild)
-                elif gk in ("string", "bytes"):
-                    n += len(gv)
-            continue
-        v = getattr(o, name)
-        n += 1
-        if c == "optional":
-            # Absent is None and there is nothing under it. The facade's presence test IS
-            # the attribute read; the incumbent needs a HasField and then a read, and that
-            # asymmetry is protobuf's API rather than something to hide.
-            if v is not None and k in ("string", "bytes"):
-                n += len(v)
-        elif c == "packed":
-            for x in v:
-                n += 1
-        elif c == "map":
-            for k2, v2 in v.items():
-                n += len(k2) + len(v2)
-        elif c == "repeated":
-            for x in v:
-                n += len(x) if k == "string" else _read(x, child)
-        elif k == "message":
-            if v is not None:
-                n += _read(v, child)
-        elif k in ("string", "bytes"):
-            n += len(v)
-    return n
-
-
-def _read_pb(o, plan, present):
-    n = 0
-    for name, k, c, child in plan:
-        if c == "oneof_case":
-            oname, sel = child
-            n += 1
-            which = o.WhichOneof(oname)
-            if which is not None:
-                gk, gchild = next((v[1], v[2]) for v in sel.values() if v[0] == which)
-                gv = getattr(o, which)
-                n += 1
-                if gk == "message":
-                    n += _read_pb(gv, gchild, True)
-                elif gk in ("string", "bytes"):
-                    n += len(gv)
-            continue
-        if c == "optional":
-            n += 1
-            if o.HasField(name):
-                v = getattr(o, name)
-                if k in ("string", "bytes"):
-                    n += len(v)
-            continue
-        if c == "packed":
-            n += 1
-            for x in getattr(o, name):
-                n += 1
-            continue
-        if k == "message" and c == "singular":
-            # The one place the two readers MUST differ: a protobuf message has no absent
-            # representation an attribute read would show, so presence is a HasField call
-            # where the facade's is `is None`. Same count of reads either way.
-            n += 1
-            if o.HasField(name):
-                n += _read_pb(getattr(o, name), child, True)
-            continue
-        v = getattr(o, name)
-        n += 1
-        if c == "map":
-            for k2, v2 in v.items():
-                n += len(k2) + len(v2)
-        elif c == "repeated":
-            for x in v:
-                n += len(x) if k == "string" else _read_pb(x, child, True)
-        elif k in ("string", "bytes"):
-            n += len(v)
-    return n
+_read = _AP.read
+_read_pb = _AP.read_pb
 
 
 def touch(msg, pid):
