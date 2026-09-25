@@ -7,6 +7,14 @@
 //   | C    | the core through the C ABI (generated binding)     | the core, ak_call_unary (blocking) |
 //   | D    | the core through the C ABI                         | grpc++, raw ByteBuffer methods     |
 //
+//   unknown fields (req. 10/12, amended 2026-09-25): C and D run in each mode, labelled
+//   C-retain / C-drop / D-retain / D-drop. retain = decode_with_*_unk (every position of
+//   ak_dec_<Root>_opts armed, grow-backed, through ak_dec_reset_<Root>) and, direction b,
+//   encode_into_*_unk (the u-groups); drop = the same build with a NULL-options (drop)
+//   context and the plain encode. A and B run the incumbent in its default mode.
+//   (C-nounk / D-nounk wait for the compiled-out build.) `--cells ABCD` expands C and D to
+//   both modes; a label list (`--cells A,C-retain`) selects cells one by one.
+//
 //   directions (req. 14): a = empty request, P2.2 response (Fetch)
 //                         b = P2.2 request the server decodes, empty response (Push)
 //   in flight  (req. 15): 1, 8, 16 -- k host threads, each with one blocking call out
@@ -34,6 +42,9 @@
 #include <thread>
 #include <vector>
 
+#include <google/protobuf/io/coded_stream.h>
+#include <google/protobuf/io/zero_copy_stream_impl_lite.h>
+
 #include "ak_abi.h"
 #include "generated/binding.h"
 #include "generated/build.h"
@@ -44,6 +55,43 @@ using namespace akrpc;
 namespace {
 
 const char *const kPush = "/armonik.ffi.shapes.v1.Shapes/Push";
+
+// One cell of the grid: its transport/codec letter and, for C and D, its unknown-field mode.
+enum Mode { kDefault, kRetain, kDrop };
+struct Cell {
+  char base;
+  Mode mode;
+  std::string label;
+};
+const char *mode_name(Mode m) { return m == kRetain ? "retain" : m == kDrop ? "drop" : "default"; }
+
+std::vector<Cell> parse_cells(const std::string &spec) {
+  std::vector<Cell> out;
+  bool labels = spec.find(',') != std::string::npos || spec.find('-') != std::string::npos;
+  if (!labels) {
+    for (char c : spec) {
+      if (c == 'C' || c == 'D') {
+        out.push_back(Cell{c, kRetain, std::string(1, c) + "-retain"});
+        out.push_back(Cell{c, kDrop, std::string(1, c) + "-drop"});
+      } else {
+        out.push_back(Cell{c, kDefault, std::string(1, c)});
+      }
+    }
+    return out;
+  }
+  size_t p = 0;
+  while (p <= spec.size()) {
+    size_t q = spec.find(',', p);
+    std::string l = spec.substr(p, q == std::string::npos ? std::string::npos : q - p);
+    if (!l.empty()) {
+      Mode m = l.size() > 1 ? (l.substr(1) == "-retain" ? kRetain : kDrop) : kDefault;
+      out.push_back(Cell{l[0], m, l});
+    }
+    if (q == std::string::npos) break;
+    p = q + 1;
+  }
+  return out;
+}
 
 struct Cfg {
   std::string target, transport = "shipped", cells = "ABCD", dirs = "ab";
@@ -90,7 +138,20 @@ grpc::ChannelArguments channel_args(const std::string &transport) {
 }
 
 // ---- one call of each cell, direction a and b ---------------------------------------
-long cell_call(World &w, char cell, char dir, int t, ak_enc_ctx *ec, ak_dec_ctx *dc) {
+// The client-side codec of cells C and D in their mode (direction b's request, direction a's
+// response). Every call is checked by the caller.
+intptr_t core_encode(ak_enc_ctx *ec, const shapes::ListTasksDetailedResponse &v, Mode m) {
+  return m == kRetain
+             ? shapes::ffi::encode_into_list_tasks_detailed_response_unk(ec, v, shapes::ffi::tcs_core())
+             : shapes::ffi::encode_into_list_tasks_detailed_response(ec, v, shapes::ffi::tcs_core());
+}
+int32_t core_decode(ak_dec_ctx *dc, const uint8_t *p, size_t n, shapes::ListTasksDetailedResponse *f, Mode m) {
+  return m == kRetain ? shapes::ffi::decode_with_list_tasks_detailed_response_unk(dc, p, n, f)
+                      : shapes::ffi::decode_with_list_tasks_detailed_response(dc, p, n, f);
+}
+
+long cell_call(World &w, const Cell &cl, char dir, int t, ak_enc_ctx *ec, ak_dec_ctx *dc) {
+  const char cell = cl.base;
   static const uint8_t kNoReq[1] = {0};
   if (cell == 'A') {
     grpc::ClientContext ctx;
@@ -119,7 +180,7 @@ long cell_call(World &w, char cell, char dir, int t, ak_enc_ctx *ec, ak_dec_ctx 
         req = (const uint8_t *)pbreq.data();
         reqn = pbreq.size();
       } else {
-        intptr_t rc = shapes::ffi::encode_into_list_tasks_detailed_response(ec, w.fac_req, shapes::ffi::tcs_core());
+        intptr_t rc = core_encode(ec, w.fac_req, cl.mode);
         if (rc < 0 || ak_enc_take(ec, &req, &reqn) != 0) die("C/b encode", (long)rc);
       }
     }
@@ -136,7 +197,7 @@ long cell_call(World &w, char cell, char dir, int t, ak_enc_ctx *ec, ak_dec_ctx 
         n = m.tasks_size();
       } else {
         shapes::ListTasksDetailedResponse f;
-        int32_t drc = shapes::ffi::decode_with_list_tasks_detailed_response(dc, out.ptr, out.len, &f);
+        int32_t drc = core_decode(dc, out.ptr, out.len, &f, cl.mode);
         if (drc != 0) die("C/a decode", drc);
         n = (long)f.tasks.size();
       }
@@ -156,7 +217,7 @@ long cell_call(World &w, char cell, char dir, int t, ak_enc_ctx *ec, ak_dec_ctx 
   } else {
     const uint8_t *p = NULL;
     size_t n = 0;
-    intptr_t rc = shapes::ffi::encode_into_list_tasks_detailed_response(ec, w.fac_req, shapes::ffi::tcs_core());
+    intptr_t rc = core_encode(ec, w.fac_req, cl.mode);
     if (rc < 0 || ak_enc_take(ec, &p, &n) != 0) die("D/b encode", (long)rc);
     grpc::Slice s(p, n);
     req = grpc::ByteBuffer(&s, 1);
@@ -185,13 +246,13 @@ long cell_call(World &w, char cell, char dir, int t, ak_enc_ctx *ec, ak_dec_ctx 
     len = flat.size();
   }
   shapes::ListTasksDetailedResponse f;
-  int32_t drc = shapes::ffi::decode_with_list_tasks_detailed_response(dc, p, len, &f);
+  int32_t drc = core_decode(dc, p, len, &f, cl.mode);
   if (drc != 0) die("D/a decode", drc);
   return (long)f.tasks.size();
 }
 
 // k threads, `total` calls between them, each thread a blocking caller.
-long batch(World &w, char cell, char dir, int k, int total) {
+long batch(World &w, const Cell &cell, char dir, int k, int total) {
   int per = (total + k - 1) / k;
   std::vector<std::thread> ts;
   std::vector<long> acc((size_t)k, 0);
@@ -270,6 +331,60 @@ int main(int argc, char **argv) {
   pbbuild::payload_p2_2(&w.pb_req);
   w.fac_req = shapes::build::payload_p2_2();
 
+  const std::vector<Cell> cells = parse_cells(c.cells);
+  for (size_t i = 0; i < cells.size(); ++i)
+    if (std::string("ABCD").find(cells[i].base) == std::string::npos ||
+        ((cells[i].base == 'C' || cells[i].base == 'D') != (cells[i].mode != kDefault)))
+      die("unknown cell label", (long)i);
+
+  // Before any sample: C and D in each mode decode one Fetch response, re-encode it in the
+  // same mode, and the result must be what the INCUMBENT makes of the same response
+  // (protobuf C++ retains unknown fields by default): both sides parsed by protobuf and
+  // re-serialised deterministically, so the comparison is of messages, not of one encoder's
+  // form. Retain additionally re-encodes byte-identical to the wire it read.
+  for (size_t i = 0; i < cells.size(); ++i) {
+    const Cell &cl = cells[i];
+    if (cl.mode == kDefault) continue;
+    struct ak_bytes out;
+    out.ptr = NULL; out.len = 0; out.owner = NULL;
+    static const uint8_t kNone[1] = {0};
+    if (ak_call_unary(w.cl, (const uint8_t *)kFetchPath, std::strlen(kFetchPath), kNone, 0, &out) != AK_OK ||
+        out.len != w.expect_a)
+      die("pre-check fetch", (long)out.len);
+    std::string wire((const char *)out.ptr, out.len);
+    ak_bytes_free(&out);
+    ak_dec_ctx *dc = ak_dec_ctx_new_ListTasksDetailedResponse(NULL);
+    ak_enc_ctx *ec = ak_enc_ctx_new();
+    shapes::ListTasksDetailedResponse f;
+    int32_t drc = core_decode(dc, (const uint8_t *)wire.data(), wire.size(), &f, cl.mode);
+    if (drc != 0 || ak_dec_err(dc) != 0) die("pre-check decode", drc);
+    const uint8_t *q = NULL;
+    size_t qn = 0;
+    intptr_t erc = core_encode(ec, f, cl.mode);
+    if (erc < 0 || ak_enc_take(ec, &q, &qn) != 0) die("pre-check re-encode", (long)erc);
+    std::string ours((const char *)q, qn);
+    ak_enc_ctx_free(ec);
+    ak_dec_ctx_free(dc);
+    svcns::ListTasksDetailedResponse inc, back;
+    std::string inc_det, our_det;
+    if (!inc.ParseFromString(wire) || !back.ParseFromString(ours)) die("pre-check incumbent parse", 0);
+    {
+      google::protobuf::io::StringOutputStream so(&inc_det);
+      google::protobuf::io::CodedOutputStream co(&so);
+      co.SetSerializationDeterministic(true);
+      inc.SerializeToCodedStream(&co);
+    }
+    {
+      google::protobuf::io::StringOutputStream so(&our_det);
+      google::protobuf::io::CodedOutputStream co(&so);
+      co.SetSerializationDeterministic(true);
+      back.SerializeToCodedStream(&co);
+    }
+    if (inc_det != our_det) die("pre-check: the core's re-encode differs from the incumbent's", (long)i);
+    if (cl.mode == kRetain && ours != wire) die("pre-check: retain re-encode not byte-identical", (long)i);
+    if ((long)f.tasks.size() != inc.tasks_size()) die("pre-check task count", (long)f.tasks.size());
+  }
+
   // Before any sample: every cell once per direction, and cell A's wire length checked.
   if (c.cells.find('A') != std::string::npos) {
     grpc::ClientContext ctx;
@@ -280,27 +395,31 @@ int main(int argc, char **argv) {
   }
   std::printf("# {\"campaign_rpc\": {\"target\": \"%s\", \"transport\": \"%s\", \"cells\": \"%s\","
               " \"dirs\": \"%s\", \"calls_per_sample\": %d, \"warmup_calls\": %d, \"rounds\": %d,"
-              " \"core_workers\": %d, \"expect_bytes\": %zu, \"delivery_B_C\": \"blocking\"}}\n",
+              " \"core_workers\": %d, \"expect_bytes\": %zu, \"delivery_B_C\": \"blocking\","
+              " \"unknown_modes\": \"C and D in retain (decode_with_*_unk / encode_into_*_unk) and drop;"
+              " A and B default; nounk pending the compiled-out build\","
+              " \"precheck\": \"C/D each mode: decode, re-encode, equal to the incumbent's deterministic re-serialisation\"}}\n",
               c.target.c_str(), c.transport.c_str(), c.cells.c_str(), c.dirs.c_str(), c.calls,
               c.warmup, c.rounds, c.workers, w.expect_a);
   for (char d : c.dirs)
     for (int k : c.inflight)
-      for (char cell : c.cells) batch(w, cell, d, k, c.warmup);  // warm-up, identical per cell
+      for (size_t j = 0; j < cells.size(); ++j) batch(w, cells[j], d, k, c.warmup);  // warm-up, identical per cell
 
   for (int r = 0; r < c.rounds; ++r) {
     for (char d : c.dirs) {
       for (int k : c.inflight) {
-        size_t nc = c.cells.size();
+        size_t nc = cells.size();
         for (size_t j = 0; j < nc; ++j) {
-          char cell = c.cells[(j + (size_t)r) % nc];  // rotated order
+          const Cell &cell = cells[(j + (size_t)r) % nc];  // rotated order
           double c0 = rusage_ns(), w0 = wall_ns();
           batch(w, cell, d, k, c.calls);
           double c1 = rusage_ns(), w1 = wall_ns();
           int iters = ((c.calls + k - 1) / k) * k;
-          std::printf("{\"slice\":\"cpp\",\"suite\":\"rpc\",\"cell\":\"%c\",\"payload\":\"P2.2\","
+          std::printf("{\"slice\":\"cpp\",\"suite\":\"rpc\",\"cell\":\"%s\",\"unknown_mode\":\"%s\","
+                      "\"payload\":\"P2.2\","
                       "\"dir\":\"%c\",\"transport\":\"%s\",\"inflight\":%d,\"launch\":%d,"
                       "\"round\":%d,\"cpu_ns\":%.0f,\"wall_ns\":%.0f,\"iters\":%d}\n",
-                      cell, d, c.transport.c_str(), k, c.launch, r, c1 - c0, w1 - w0, iters);
+                      cell.label.c_str(), mode_name(cell.mode), d, c.transport.c_str(), k, c.launch, r, c1 - c0, w1 - w0, iters);
           std::fflush(stdout);
         }
       }
