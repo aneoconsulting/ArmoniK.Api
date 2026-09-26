@@ -20,7 +20,13 @@ in its container shows it executes (section 9).
 1. **One physical machine, bare metal, no other tenant.** Slices run **one after
    another**, never concurrently. Nothing else runs during a slice.
 2. **Frequency:** governor `performance`, turbo **off**, SMT state recorded (either
-   is allowed, but one state for the whole campaign).
+   is allowed, but one state for the whole campaign). **Reference machine**
+   (owner, 2026-09-26): an Intel Core i9-7900X, 10 cores and 20 threads on one
+   socket, 13.75 MB L3, base 3.30 GHz, Turbo Boost 2.0 up to 4.30 GHz and Turbo Boost
+   Max 3.0 up to 4.50 GHz (Intel's specification page for the i9-7900X). "Turbo off"
+   covers both boosts. Nothing in a harness depends on this model: the machine's
+   parameters live in `ffi/campaign.machine`, which the owner edits for another
+   machine.
 3. **Isolation:** the CPUs used for measurement are isolated from the scheduler
    (`isolcpus`/`nohz_full` or a cpuset cgroup), and one CPU is left for the OS and
    the runner. The mechanism is recorded.
@@ -30,7 +36,11 @@ in its container shows it executes (section 9).
    - `SERVER`: the RPC server process;
    - `OS`: everything else.
    The sets are parameters of the runner (`AK_CPU_CLIENT`, `AK_CPU_SERVER`), not
-   constants in a harness. Suggested: 4 CPUs for `CLIENT`, 4 for `SERVER`.
+   constants in a harness. **Their sizes are fixed for the whole campaign**
+   (owner, 2026-09-26, R-H34): 4 cores for `CLIENT` and 4 for `SERVER`, set in
+   `ffi/campaign.machine` and checked by `ffi/campaign.sh`, because stacks size
+   their thread pools from them. **Every log header records each stack's worker
+   thread counts.
 
 ## 3. Runtimes and versions (owner's levels)
 
@@ -56,7 +66,13 @@ in its container shows it executes (section 9).
 7. **Payloads:** all 16 of `design/SHAPES.md`, the three content sets (ASCII,
    Latin-1, wide) where SHAPES.md defines them, and every corpus row of class
    `unknown` (the `U-*` rows of `corpus/generated/manifest.json`) whose root the
-   slice implements, excluding disputed rows.
+   slice implements, excluding disputed rows. Amended by the owner 2026-09-26:
+   - **content sets** (R-H26): Latin-1 and wide are required on **P1.2, P2.2 and
+     P2.4** in every slice; more payloads are labelled extras;
+   - **U-* rows** (R-H27): the accepted rows whose root is in the shapes schema, in
+     all three directions (encode, decode, decode-read), through the **timed shapes
+     core** in every slice; other rows and the corpus-schema core are labelled
+     extras.
 8. **Arms, per host:**
    - `incumbent-prod`: the production path (R14), i.e. what gRPC's generated
      marshaller calls in that language: grpc++ `SerializationTraits`, grpc-java's
@@ -86,6 +102,13 @@ in its container shows it executes (section 9).
     unknown row written in the dropped form).
 11. **A message is serialised once per iteration** from a fresh or reset object
     graph, so no per-instance memo is amortised (the protobuf-java lesson).
+    **Encode variants, all measured** (owner, 2026-09-26, R-H29), as labelled rows,
+    with graph construction outside the timed window:
+    - **end state**: (i) the bytes in a reused buffer, no allocation; (ii) the form
+      the arm's RPC path hands to its transport (for example a gRPC `ByteBuffer` for
+      the incumbent, the core's buffer for `core-ffi`), stated per arm;
+    - **input**: (i) one hot graph re-encoded; (ii) a pool of distinct graphs larger
+      than the last-level cache, stated.
 
 ### 4.2 RPC grid (client pinned to `CLIENT`, server in its own process pinned to `SERVER`)
 
@@ -97,24 +120,38 @@ in its container shows it executes (section 9).
     | B | incumbent | the core's transport |
     | C | core, through the C ABI | the core's transport |
     | D | core, through the C ABI | host's gRPC stack |
+    | E | the generated host codec (`host-gen`) | the core's transport |
+    | F | the generated host codec (`host-gen`) | host's gRPC stack |
 
     Cells C and D run in each unknown-field mode of req 10 (**retain**, **drop**,
     **no-unknown**), labelled `C-retain`, `C-drop`, `C-nounk` and likewise for D
-    (owner, 2026-09-25); A and B run the incumbent in its default mode.
+    (owner, 2026-09-25); A and B run the incumbent in its default mode. Cells E and
+    F (owner, 2026-09-26, R-H35) serve option 2 of README section 13 and run
+    `host-gen` in each mode it has in the codec suite, labelled likewise.
 
 13. **The server is a separate process** in every host, including Rust and C++, and
     returns **pre-serialised response bytes**, so its work is identical across cells.
     Where a host cannot pre-serialise, server serialisation is timed in full and
-    reported, never partly subtracted.
+    reported, never partly subtracted. Amended by the owner 2026-09-26 (R-H33):
+    **one server process and configuration per launch**, serving every cell of both
+    builds, warmed by a stated number of calls from each client transport before
+    round 1; **one channel per cell per launch**, opened and warmed before round 1.
 14. **Directions:** (a) empty request, P2.2 response; (b) P2.2-sized request that
     the server decodes, empty response. A streamed upload in 2 MiB chunks is
-    optional and scheduled last (FIX-PLAN D5).
+    optional and scheduled last (FIX-PLAN D5). Direction (a) is reported as `a`
+    (decode only) and `a+read` (decode, then read every field) in every slice;
+    cross-slice readings use `a+read` (owner, 2026-09-26, R-H36).
 15. **Concurrency:** 1, 8 and 16 calls in flight.
 16. **Delivery:** B and C use the core's **blocking** delivery in every host; the
     callback and queue deliveries are labelled extra rows where a slice has them.
+    A, D and F use the host stack's **idiomatic** call (blocking or async, as its
+    production code does), stated per slice (owner, 2026-09-26, R-H30).
 17. **Transport configuration, both:** `shipped` (what `packages/<lang>`
     configures) and `pinned` (4 MiB stream and connection windows, adaptive
     windows off, Nagle off, stated). B and C follow the same switch as A and D.
+    **The socket is a Unix domain socket in every slice** (owner, 2026-09-26,
+    R-H28). `packages/java` configures no UDS channel, so Java's `shipped` is
+    grpc-java's defaults over Netty epoll, stated.
 18. **Every call is checked**: status OK and response length equal to the
     expected payload; one failure aborts the run and produces no figure.
 
@@ -122,16 +159,23 @@ in its container shows it executes (section 9).
 
 19. **Crossing counts** per payload and direction, from a counting build, are
     recorded for `core-ffi` (they are machine-independent and gate the run: a count
-    that differs from the committed one stops it).
+    that differs from the committed one stops it). Amended by the owner 2026-09-26
+    (R-H31): the counts include **every exported entry point the timed loop calls,
+    resets included**, with the reset's place stated; they cover the **RPC cells B,
+    C, D and E per call**; and they cover **retain mode**, with the initial buffer
+    sizes fixed: no pre-placed buffer, and a `grow` that allocates exactly the size
+    requested.
 20. **Crossing cost**: the Rust slice's crossing benchmark, run in every host,
     reporting **forward and reverse separately**, with `perf stat` cycles and
     instructions per iteration.
 
 ## 5. How samples are taken
 
-21. **CPU time** of the measured work only: `clock_gettime(CLOCK_THREAD_CPUTIME_ID)`
-    or `getrusage(RUSAGE_THREAD)` per measuring thread, or `getrusage(RUSAGE_SELF)`
-    of the client process for RPC cells (the server is another process).
+21. **CPU time is process CPU, per round, everywhere** (amended by the owner
+    2026-09-26, R-H25): `getrusage(RUSAGE_SELF)` or `CLOCK_PROCESS_CPUTIME_ID` of the
+    measured process, for codec arms and RPC cells alike, so GC, JIT and helper
+    threads count for every arm (the server is another process). The earlier thread
+    clocks are no longer the campaign's CPU figure.
     `Process.TotalProcessorTime` and any counter coarser than 1 microsecond are not
     allowed. **Wall time** is recorded beside CPU for RPC cells.
 22. **Order of arms** (amended 2026-09-25, owner): on a machine that meets section 2,
@@ -161,7 +205,9 @@ in its container shows it executes (section 9).
 24. **Warm-up** is stated per host and identical for every arm: a fixed number of
     iterations before round 1 (managed hosts: enough to reach the optimising JIT
     tier, recorded). protobuf-java's content-set rows run in both string-coder
-    states (the JDK 17 branch-pruning hazard, README R9).
+    states (the JDK 17 branch-pruning hazard, README R9). GC and JIT state between
+    blocks follow each framework's defaults, stated per slice (owner, 2026-09-26,
+    R-H32).
 25. **Allocator state** is warmed identically for every arm before timing (the
     Python J26 lesson); GC settings are stated, and managed GC is on.
 
