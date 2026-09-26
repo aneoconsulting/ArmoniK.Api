@@ -6,6 +6,13 @@ version.workspace = true
 publish.workspace = true
 
 [features]
+# Optimisation step 11 (C2): the decoder's UTF-8 check (`strings::check_utf8`, what every
+# `string` field goes through under the plan's utf8="reject") uses simdutf8. A DEFAULT
+# feature of THIS crate rather than of ak-core, because ak-core depends on ak-rt with its
+# default features: every slice's core build gets it whatever it passes to ak-core
+# (several build ak-core --no-default-features or with an explicit feature list).
+default = ["simd-utf8"]
+simd-utf8 = ["dep:simdutf8"]
 # README R5: a counting build, so a crossing count is counted and not inferred.
 count = []
 # ABI v1 open decision 3: the decode side's UTF-8 policy. Default is lossy, which is what a

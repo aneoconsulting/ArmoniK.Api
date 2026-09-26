@@ -499,6 +499,7 @@ pub fn header(suite: &str, extra: &[(&str, String)]) -> Vec<String> {
         format!("# incumbent: prost 0.14 / tonic 0.14 (tonic-prost), as pinned in poc/rust/Cargo.lock"),
         format!("# build: release profile, core ak-core cdylib (shared, linked by the dynamic linker), features rpc,init-guard; harness guard on"),
         format!("# rustc: {}", option_env!("AK_RUSTC").unwrap_or("see run header")),
+        format!("# decode UTF-8 check (the core's, utf8=\"reject\"): {} (ak-rt; optimisation step 11 made simdutf8 the default)", ak_rt::strings::CHECK_UTF8),
     ];
     for (k, v) in extra {
         h.push(format!("# {k}: {v}"));

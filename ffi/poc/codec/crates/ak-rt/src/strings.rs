@@ -51,20 +51,30 @@ pub const POLICY: &str = if cfg!(feature = "dec-reject-simd") {
 
 /// The plan's UTF-8 rule on decode (`poc/codec/gen/plan.py`, utf8="reject", the default):
 /// a `string` field that is not valid UTF-8 is refused with ERR_TRANSCODE. The policy is the
-/// GENERATOR's (a plan option); which validator runs is this crate's (`dec-reject-simd`
-/// picks `simdutf8::basic`, the default is `core::str::from_utf8`), because that is an
-/// implementation choice and not a wire rule.
+/// GENERATOR's (a plan option); which validator runs is this crate's (the default feature
+/// `simd-utf8`, or `dec-reject-simd`, picks `simdutf8::basic`; without both it is
+/// `core::str::from_utf8`), because that is an implementation choice and not a wire rule.
 #[inline(always)]
 pub fn check_utf8(b: &[u8]) -> Result<(), i32> {
-    #[cfg(feature = "dec-reject-simd")]
+    // Optimisation step 11 (C2): simdutf8 by default (ak-rt's `simd-utf8`, a default
+    // feature); the same accept/refuse set as core::str::from_utf8 (both implement the
+    // Unicode definition of well-formed UTF-8), only the validator differs.
+    #[cfg(any(feature = "simd-utf8", feature = "dec-reject-simd"))]
     {
         simdutf8::basic::from_utf8(b).map(|_| ()).map_err(|_| crate::ERR_TRANSCODE)
     }
-    #[cfg(not(feature = "dec-reject-simd"))]
+    #[cfg(not(any(feature = "simd-utf8", feature = "dec-reject-simd")))]
     {
         core::str::from_utf8(b).map(|_| ()).map_err(|_| crate::ERR_TRANSCODE)
     }
 }
+
+/// Which validator `check_utf8` uses in this build, for a log to name.
+pub const CHECK_UTF8: &str = if cfg!(any(feature = "simd-utf8", feature = "dec-reject-simd")) {
+    "simdutf8::basic"
+} else {
+    "core::str::from_utf8"
+};
 
 /// utf8="reject": materialise a validated string, or ERR_TRANSCODE.
 #[inline(always)]
