@@ -28,7 +28,8 @@ public static class Cases
 #if AK_NO_UNKNOWN_FIELDS
     // WP5 step 10: the NO-UNKNOWN build (unknown fields compiled out of the core, the
     // binding and the managed codec, which is rendered from the drop plan: host-gen here is
-    // plan-generated too). Mode `no-unknown`; the incumbent arms are the in-process controls.
+    // plan-generated too). Mode `no-unknown`; the incumbent arms run as their own units
+    // (every unit is its own process, so they are cross-process controls, not in-process ones).
     private static readonly string[] EncArms = { "incumbent-prod:default", "incumbent-best:default", "host-gen:no-unknown", "core-ffi:no-unknown" };
     private static readonly string[] DecArms = { "incumbent-prod:default", "incumbent-best:default", "host-gen:no-unknown", "core-ffi:no-unknown", "core-ffi-pull:no-unknown" };
     private static readonly string[] UnkArms = { "incumbent-prod:default", "host-gen:no-unknown", "core-ffi:no-unknown" };
