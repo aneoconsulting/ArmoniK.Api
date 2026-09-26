@@ -117,9 +117,44 @@ def LIFECYCLE_FLAGS():
     return LIFECYCLE.flag_values
 
 
+def _arg_names(args):
+    """The parameter names of a C# parameter list (function-pointer types hold commas)."""
+    out, depth, cur = [], 0, ""
+    for ch in args:
+        if ch in "<[(":
+            depth += 1
+        elif ch in ">])":
+            depth -= 1
+        if ch == "," and depth == 0:
+            out.append(cur)
+            cur = ""
+        else:
+            cur += ch
+    if cur.strip():
+        out.append(cur)
+    return [a.strip().split()[-1] for a in out]
+
+
+#: The imports of the class being emitted, for the counting surface (CAMPAIGN req 19).
+_COUNTED = []
+
+
 def emit_import(o, ret, name, args, lib="Lib", indent="    "):
-    """ONE declaration, both language levels (FIX-PLAN WP5 item 3)."""
-    o += "#if NET7_0_OR_GREATER"
+    """ONE declaration, both language levels (FIX-PLAN WP5 item 3).
+
+    CAMPAIGN req 19 (R-H31): under AK_HOST_COUNT (the counting build, `/p:AkHostCount=true`)
+    the import is renamed `<name>__raw` and `<name>` becomes a wrapper that counts the call,
+    so EVERY exported entry point the host calls is counted, by name, where it is called."""
+    _COUNTED.append(name)
+    names = ", ".join(_arg_names(args))
+    ret_kw = "" if ret == "void" else "return "
+    o += "#if AK_HOST_COUNT"
+    o += "%s[DllImport(%s, EntryPoint = \"%s\", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]" % (indent, lib, name)
+    o += "%sprivate static extern %s %s__raw(%s);" % (indent, ret, name, args)
+    o += "%sinternal static long N_%s;" % (indent, name)
+    o += "%sinternal static %s %s(%s) { System.Threading.Interlocked.Increment(ref N_%s); %s%s__raw(%s); }" % (
+        indent, ret, name, args, name, ret_kw, name, names)
+    o += "#elif NET7_0_OR_GREATER"
     o += "%s[LibraryImport(%s)]" % (indent, lib)
     o += "%s[UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]" % indent
     o += "%sinternal static partial %s %s(%s);" % (indent, ret, name, args)
@@ -127,6 +162,26 @@ def emit_import(o, ret, name, args, lib="Lib", indent="    "):
     o += "%s[DllImport(%s, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]" % (indent, lib)
     o += "%sinternal static extern %s %s(%s);" % (indent, ret, name, args)
     o += "#endif"
+
+
+def _emit_counting(o):
+    """The counting surface of the class just emitted (AK_HOST_COUNT only)."""
+    o += "#if AK_HOST_COUNT"
+    o += "    /// CAMPAIGN req 19: every entry point called since the last EntryReset, by name."
+    o += "    public static System.Collections.Generic.List<(string Name, long Calls)> EntryCounts()"
+    o += "    {"
+    o += "        var l = new System.Collections.Generic.List<(string, long)>();"
+    for n in _COUNTED:
+        o += "        if (N_%s != 0) l.Add((\"%s\", N_%s));" % (n, n, n)
+    o += "        return l;"
+    o += "    }"
+    o += "    public static void EntryReset()"
+    o += "    {"
+    for n in _COUNTED:
+        o += "        N_%s = 0;" % n
+    o += "    }"
+    o += "#endif"
+    del _COUNTED[:]
 
 
 def _struct(o, name, fields, doc=None, unsafe=False):
@@ -308,9 +363,11 @@ def emit_abi(x, ns, lib="ak_core"):
     o += "    /// ABI v1 section 8's direct-argument sentinel (`AK_STR_DIRECT`)."
     o += "    public static readonly IntPtr AK_STR_DIRECT = (IntPtr)1;"
     o += ""
+    del _COUNTED[:]
     emit_import(o, "int", lc.init[0], "%s* opts, ak_err* err" % oname)
     for ret, name, args in _fixed_imports() + root_imports(p) + unk_imports(p):
         emit_import(o, ret, name, args)
+    _emit_counting(o)
     o += "}"
     o += ""
 
@@ -459,6 +516,7 @@ def emit_rpc(x, ns, lib="ak_core"):
     o += "{"
     o += '    public const string Lib = "%s";' % lib
     o += "    static AkRpc() { RpcInit.Run(); }"
+    del _COUNTED[:]
     o += ""
     for cname, ctype, cval, cdoc in r.constants:
         if cdoc:
@@ -482,6 +540,7 @@ def emit_rpc(x, ns, lib="ak_core"):
         rt = "void" if ret is None else cs_param(ret)
         args = ", ".join("%s %s" % (cs_param(t), _pname(pn)) for pn, t in params)
         emit_import(o, rt, fname, args)
+    _emit_counting(o)
 
     o += "}"
     o += ""

@@ -342,6 +342,10 @@ UNKHOST = r'''
 public static unsafe class UnkHost
 {
     public static long Grows;
+    /// CAMPAIGN req 19 (R-H31): the counting run sets this, so every grow allocates EXACTLY
+    /// the size the core asked for (no doubling, no 64-byte floor), and the committed retain
+    /// counts do not depend on this host's growth policy. The timed runs leave it false.
+    public static bool Exact;
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static int Grow(IntPtr sink, int want, byte** dst, int* cap)
@@ -350,7 +354,7 @@ public static unsafe class UnkHost
         {
             if (want < 0) return Abi.AK_ERR_LIMIT;
             int c = *cap;
-            long nc = Math.Max((long)want, Math.Max(64L, 2L * c));
+            long nc = Exact ? want : Math.Max((long)want, Math.Max(64L, 2L * c));
             if (nc > int.MaxValue) nc = want;
             void* old = *dst;
             void* np = NativeMemory.Realloc(old, (nuint)nc);
