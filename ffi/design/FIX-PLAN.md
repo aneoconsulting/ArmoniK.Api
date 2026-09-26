@@ -1,6 +1,6 @@
 # Fix plan after the 2026-09-24 adversarial review
 
-Status: **WP1 to WP5 done; decision 11 (unknown fields) implemented in all five slices with the owner's rules; the RPC grid runs C and D in retain and drop in all five slices; the no-unknown build (unknown fields compiled out, `Options(unknown="drop")`) rendered, gated and in the campaign harness of all five slices; WP3 harnesses on each ecosystem's standard framework; `ffi/campaign.sh` written** (2026-09-25). Crossing counts, no-unknown against drop, push decode: only P1.2 decode reverse 8 to 5 in every slice (java's pull path also drains fewer chunks). Next: WP6 (STATE hygiene, every gate re-run from a clean tree, a targeted re-review).
+Status: **WP1 to WP5 done; decision 11 (unknown fields) implemented in all five slices with the owner's rules; the RPC grid runs C and D in retain and drop in all five slices; the no-unknown build (unknown fields compiled out, `Options(unknown="drop")`) rendered, gated and in the campaign harness of all five slices; WP3 harnesses on each ecosystem's standard framework; `ffi/campaign.sh` written** (2026-09-25). Crossing counts, no-unknown against drop, push decode: only P1.2 decode reverse 8 to 5 in every slice (java's pull path also drains fewer chunks). WP6 step 1 done in all five slices (clean gates); step 2 re-review raised register H; the WP6 fixes are in progress, then WP7 (the 2026-09-26 contract). Merged into rust/native-core-ffi-poc at 1e489eb40 before the fixes (owner); merged again at the end.
 assumed to be neither the author nor anyone with the review session's context.
 Everything needed is in this file or in the paths it names.
 
@@ -437,6 +437,34 @@ traversal emitters, recorded as a fact in `README.md`, goes from seven to one.
 
 Done when: section 7 has a disposition on every line, and the re-review raises
 nothing that blocks the campaign.
+
+### WP7. Conform the harnesses to the 2026-09-26 contract (slice agents, after the WP6 fixes)
+
+The owner's decisions on R-H22 to R-H36 amend CAMPAIGN.md reqs 4, 7, 10, 11, 12, 13,
+14, 16, 17, 19, 21, 22, 24 and 30. Each slice conforms its harness and reports the
+section 10 checklist again. The work per slice:
+
+1. process CPU per round in the codec suite as well as RPC (req 21);
+2. content sets on P1.2, P2.2 and P2.4; U-* rows at shapes roots, three directions,
+   through the timed shapes core (req 7);
+3. encode variants: reused-buffer and transport-ready end states, hot graph and
+   beyond-cache pool inputs (req 11);
+4. cells E and F (`host-gen` over the core's transport and over the host's gRPC
+   stack), in each mode `host-gen` has (req 12);
+5. one server per launch for every cell and both builds, warmed, one channel per
+   cell per launch (req 13);
+6. direction (a) as `a` and `a+read` (req 14); A, D and F idiomatic, stated (req 16);
+7. UDS in every slice (req 17);
+8. crossing counts including resets, RPC cells B to E per call, and retain mode with
+   exact-size grow and no pre-placed buffer (req 19);
+9. worker thread counts in every log header (req 4); order randomised or interleaved
+   where the framework allows, else stated (req 22); ratios from per-launch medians
+   (req 30);
+10. the no-unknown build drops the facade's unknown-field member (req 10, R-H22), if
+    not already done in WP6.
+
+Done when every slice's gate passes from a clean checkout for both builds and its
+smoke run shows every new row, figures stripped.
 
 ## 3. What this plan deliberately does not do
 
