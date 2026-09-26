@@ -1,6 +1,6 @@
 # python slice: conformance on _akffi_rpc_nounk, py3.7
-# date:      2026-09-25T22:34:51Z
-# commit:    9975ca9
+# date:      2026-09-26T06:46:45Z
+# commit:    d2cd0b02f
 # phase:     correctness only; nothing here is a timing
 
 # python slice, work unit 2: conformance on the COMPOSED arm (README R2)
@@ -9,11 +9,11 @@
 # manifest:    validated against prost 0.14.4 and a second encoder (W2)
 # shim:        _akffi_rpc_nounk (_akffi_rpc_nounk.cpython-37m-x86_64-linux-gnu.so)
 # section 9:   present (call_unary, call_unary_q, call_unary_cb)
-# core loaded: poc/python/build/cargo-9975ca9/rpc-nounk/release/libak_core.so
+# core loaded: poc/python/build/cargo-d2cd0b02f/rpc-nounk/release/libak_core.so
 
 ## R1: the generated tree is current with shapes.json
    guard 2 python backend modules import plans only; a planted IR import is caught
-generated tree is current with the plans (14 files)
+generated tree is current with the plans (18 files)
 
 ## ABI v1 section 10: the core and the shim agree on the group layouts
    ak_abi_version() = 1, the shim was generated against 1
@@ -27,7 +27,6 @@ generated tree is current with the plans (14 files)
         ok    upb, message parsed not built
         ok    pycodec / plain
         ok    pycodec / __slots__
-        ok    pycodec-retain / plain
         ok    core-ffi / plain
         ok    core-ffi / __slots__
         ok    core-ffi / C ext type
@@ -38,7 +37,6 @@ generated tree is current with the plans (14 files)
         ok    upb, message parsed not built
         ok    pycodec / plain
         ok    pycodec / __slots__
-        ok    pycodec-retain / plain
         ok    core-ffi / plain
         ok    core-ffi / __slots__
         ok    core-ffi / C ext type
@@ -49,7 +47,6 @@ generated tree is current with the plans (14 files)
         ok    upb, message parsed not built
         ok    pycodec / plain
         ok    pycodec / __slots__
-        ok    pycodec-retain / plain
         ok    core-ffi / plain
         ok    core-ffi / __slots__
         ok    core-ffi / C ext type
@@ -61,7 +58,6 @@ generated tree is current with the plans (14 files)
         ok    upb, deterministic=True
         ok    pycodec / plain
         ok    pycodec / __slots__
-        ok    pycodec-retain / plain
         ok    core-ffi / plain
         ok    core-ffi / __slots__
         ok    core-ffi / C ext type
@@ -73,7 +69,6 @@ generated tree is current with the plans (14 files)
         ok    upb, deterministic=True
         ok    pycodec / plain
         ok    pycodec / __slots__
-        ok    pycodec-retain / plain
         ok    core-ffi / plain
         ok    core-ffi / __slots__
         ok    core-ffi / C ext type
@@ -85,7 +80,6 @@ generated tree is current with the plans (14 files)
         ok    upb, deterministic=True
         ok    pycodec / plain
         ok    pycodec / __slots__
-        ok    pycodec-retain / plain
         ok    core-ffi / plain
         ok    core-ffi / __slots__
         ok    core-ffi / C ext type
@@ -97,7 +91,6 @@ generated tree is current with the plans (14 files)
         ok    upb, deterministic=True
         ok    pycodec / plain
         ok    pycodec / __slots__
-        ok    pycodec-retain / plain
         ok    core-ffi / plain
         ok    core-ffi / __slots__
         ok    core-ffi / C ext type
@@ -109,7 +102,6 @@ generated tree is current with the plans (14 files)
         ok*   upb, deterministic=True          legal alternative form: 80 bytes longer: upb writes an empty map value as a present zero-length field and the canonical form omits it (an implicit-presence leaf holding the proto zero). CONTRACT.md C3 lists both.
         ok    pycodec / plain
         ok    pycodec / __slots__
-        ok    pycodec-retain / plain
         ok    core-ffi / plain
         ok    core-ffi / __slots__
         ok    core-ffi / C ext type
@@ -120,7 +112,6 @@ generated tree is current with the plans (14 files)
         ok    upb, message parsed not built
         ok    pycodec / plain
         ok    pycodec / __slots__
-        ok    pycodec-retain / plain
         ok    core-ffi / plain
         ok    core-ffi / __slots__
         ok    core-ffi / C ext type
@@ -132,7 +123,6 @@ generated tree is current with the plans (14 files)
         ok    upb, deterministic=True
         ok    pycodec / plain
         ok    pycodec / __slots__
-        ok    pycodec-retain / plain
         ok    core-ffi / plain
         ok    core-ffi / __slots__
         ok    core-ffi / C ext type
@@ -143,7 +133,6 @@ generated tree is current with the plans (14 files)
         ok    upb, message parsed not built
         ok    pycodec / plain
         ok    pycodec / __slots__
-        ok    pycodec-retain / plain
         ok    core-ffi / plain
         ok    core-ffi / __slots__
         ok    core-ffi / C ext type
@@ -154,7 +143,6 @@ generated tree is current with the plans (14 files)
         ok    upb, message parsed not built
         ok    pycodec / plain
         ok    pycodec / __slots__
-        ok    pycodec-retain / plain
         ok    core-ffi / plain
         ok    core-ffi / __slots__
         ok    core-ffi / C ext type
@@ -165,7 +153,6 @@ generated tree is current with the plans (14 files)
         ok    upb, message parsed not built
         ok    pycodec / plain
         ok    pycodec / __slots__
-        ok    pycodec-retain / plain
         ok    core-ffi / plain
         ok    core-ffi / __slots__
         ok    core-ffi / C ext type
@@ -176,7 +163,6 @@ generated tree is current with the plans (14 files)
         ok    upb, message parsed not built
         ok    pycodec / plain
         ok    pycodec / __slots__
-        ok    pycodec-retain / plain
         ok    core-ffi / plain
         ok    core-ffi / __slots__
         ok    core-ffi / C ext type
@@ -187,7 +173,6 @@ generated tree is current with the plans (14 files)
         ok    upb, message parsed not built
         ok    pycodec / plain
         ok    pycodec / __slots__
-        ok    pycodec-retain / plain
         ok    core-ffi / plain
         ok    core-ffi / __slots__
         ok    core-ffi / C ext type
@@ -198,7 +183,6 @@ generated tree is current with the plans (14 files)
         ok*   upb, message parsed not built    a permutation: the manifest interleaves two repeated fields and no contiguous writer can; same triples, same message
         ok*   pycodec / plain                  a permutation: the manifest interleaves two repeated fields and no contiguous writer can; same triples, same message
         ok*   pycodec / __slots__              a permutation: the manifest interleaves two repeated fields and no contiguous writer can; same triples, same message
-        ok*   pycodec-retain / plain           a permutation: the manifest interleaves two repeated fields and no contiguous writer can; same triples, same message
         ok*   core-ffi / plain                 a permutation: the manifest interleaves two repeated fields and no contiguous writer can; same triples, same message
         ok*   core-ffi / __slots__             a permutation: the manifest interleaves two repeated fields and no contiguous writer can; same triples, same message
         ok*   core-ffi / C ext type            a permutation: the manifest interleaves two repeated fields and no contiguous writer can; same triples, same message
@@ -210,7 +194,6 @@ generated tree is current with the plans (14 files)
         ok    upb (incumbent)
         ok    pycodec / plain
         ok    pycodec / __slots__
-        ok    pycodec-retain / plain
         ok    core-ffi / plain
         ok    core-ffi / __slots__
         ok    core-ffi / C ext type
@@ -220,7 +203,6 @@ generated tree is current with the plans (14 files)
         ok    upb (incumbent)
         ok    pycodec / plain
         ok    pycodec / __slots__
-        ok    pycodec-retain / plain
         ok    core-ffi / plain
         ok    core-ffi / __slots__
         ok    core-ffi / C ext type
@@ -230,7 +212,6 @@ generated tree is current with the plans (14 files)
         ok    upb (incumbent)
         ok    pycodec / plain
         ok    pycodec / __slots__
-        ok    pycodec-retain / plain
         ok    core-ffi / plain
         ok    core-ffi / __slots__
         ok    core-ffi / C ext type
@@ -240,7 +221,6 @@ generated tree is current with the plans (14 files)
         ok    upb (incumbent)
         ok    pycodec / plain
         ok    pycodec / __slots__
-        ok    pycodec-retain / plain
         ok    core-ffi / plain
         ok    core-ffi / __slots__
         ok    core-ffi / C ext type
@@ -250,7 +230,6 @@ generated tree is current with the plans (14 files)
         ok    upb (incumbent)
         ok    pycodec / plain
         ok    pycodec / __slots__
-        ok    pycodec-retain / plain
         ok    core-ffi / plain
         ok    core-ffi / __slots__
         ok    core-ffi / C ext type
@@ -260,7 +239,6 @@ generated tree is current with the plans (14 files)
         ok    upb (incumbent)
         ok    pycodec / plain
         ok    pycodec / __slots__
-        ok    pycodec-retain / plain
         ok    core-ffi / plain
         ok    core-ffi / __slots__
         ok    core-ffi / C ext type
@@ -270,7 +248,6 @@ generated tree is current with the plans (14 files)
         ok    upb (incumbent)
         ok    pycodec / plain
         ok    pycodec / __slots__
-        ok    pycodec-retain / plain
         ok    core-ffi / plain
         ok    core-ffi / __slots__
         ok    core-ffi / C ext type
@@ -280,7 +257,6 @@ generated tree is current with the plans (14 files)
         ok*   upb (incumbent)  (legal alternative form: 80 bytes longer: upb writes an empty map value as a present zero-length field and the canonical form omits it (an implicit-presence leaf holding the proto zero). CONTRACT.md C3 lists both.)
         ok    pycodec / plain
         ok    pycodec / __slots__
-        ok    pycodec-retain / plain
         ok    core-ffi / plain
         ok    core-ffi / __slots__
         ok    core-ffi / C ext type
@@ -290,7 +266,6 @@ generated tree is current with the plans (14 files)
         ok    upb (incumbent)
         ok    pycodec / plain
         ok    pycodec / __slots__
-        ok    pycodec-retain / plain
         ok    core-ffi / plain
         ok    core-ffi / __slots__
         ok    core-ffi / C ext type
@@ -300,7 +275,6 @@ generated tree is current with the plans (14 files)
         ok    upb (incumbent)
         ok    pycodec / plain
         ok    pycodec / __slots__
-        ok    pycodec-retain / plain
         ok    core-ffi / plain
         ok    core-ffi / __slots__
         ok    core-ffi / C ext type
@@ -310,7 +284,6 @@ generated tree is current with the plans (14 files)
         ok    upb (incumbent)
         ok    pycodec / plain
         ok    pycodec / __slots__
-        ok    pycodec-retain / plain
         ok    core-ffi / plain
         ok    core-ffi / __slots__
         ok    core-ffi / C ext type
@@ -320,7 +293,6 @@ generated tree is current with the plans (14 files)
         ok    upb (incumbent)
         ok    pycodec / plain
         ok    pycodec / __slots__
-        ok    pycodec-retain / plain
         ok    core-ffi / plain
         ok    core-ffi / __slots__
         ok    core-ffi / C ext type
@@ -330,7 +302,6 @@ generated tree is current with the plans (14 files)
         ok    upb (incumbent)
         ok    pycodec / plain
         ok    pycodec / __slots__
-        ok    pycodec-retain / plain
         ok    core-ffi / plain
         ok    core-ffi / __slots__
         ok    core-ffi / C ext type
@@ -340,7 +311,6 @@ generated tree is current with the plans (14 files)
         ok    upb (incumbent)
         ok    pycodec / plain
         ok    pycodec / __slots__
-        ok    pycodec-retain / plain
         ok    core-ffi / plain
         ok    core-ffi / __slots__
         ok    core-ffi / C ext type
@@ -350,7 +320,6 @@ generated tree is current with the plans (14 files)
         ok    upb (incumbent)
         ok    pycodec / plain
         ok    pycodec / __slots__
-        ok    pycodec-retain / plain
         ok    core-ffi / plain
         ok    core-ffi / __slots__
         ok    core-ffi / C ext type
@@ -360,15 +329,17 @@ generated tree is current with the plans (14 files)
         ok*   upb (incumbent)  (a permutation of the same triples; SHAPES.md P7.1)
         ok*   pycodec / plain  (a permutation of the same triples; SHAPES.md P7.1)
         ok*   pycodec / __slots__  (a permutation of the same triples; SHAPES.md P7.1)
-        ok*   pycodec-retain / plain  (a permutation of the same triples; SHAPES.md P7.1)
         ok*   core-ffi / plain  (a permutation of the same triples; SHAPES.md P7.1)
         ok*   core-ffi / __slots__  (a permutation of the same triples; SHAPES.md P7.1)
         ok*   core-ffi / C ext type  (a permutation of the same triples; SHAPES.md P7.1)
         ok*   core-ffi / pyacc (python fn)  (a permutation of the same triples; SHAPES.md P7.1)
         ok*   core-ffi / pyacc (C attrgetter)  (a permutation of the same triples; SHAPES.md P7.1)
 
+## no-unknown variant: `_unknown` on the facades
+   0 finding(s) over 38 Plain/Slots classes, 19 C types, 32 decoded objects
+
 ## crossing counts, counting build, BOTH halves (README R5)
-#  shim: _akffi_count_nounk; core loaded: poc/python/build/cargo-9975ca9/count-nounk/release/libak_core.so
+#  shim: _akffi_count_nounk; core loaded: poc/python/build/cargo-d2cd0b02f/count-nounk/release/libak_core.so
 #  The core counts its own crossings and the shim counts what it does to
 #  CPython. Neither half can count the other's, which is why both are here.
 #  'shim' = calls the shim makes INTO CPython (value reads, list access, attribute

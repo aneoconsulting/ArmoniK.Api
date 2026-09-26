@@ -1,6 +1,6 @@
 # python slice: the whole corpus, five arms, controls, py3.12
-# date:      2026-09-25T23:07:37Z
-# commit:    4a1c09f + uncommitted changes in poc/python or poc/codec
+# date:      2026-09-26T06:31:48Z
+# commit:    d2cd0b02f
 # phase:     correctness only; nothing here is a timing
 
 # python slice: the conformance corpus, every row, every arm (FIX-PLAN WP5 item 6.1)
@@ -444,7 +444,7 @@
    X-wire-type-7                            ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | ak_decode_WireZoo returned - | DecodeError(-2) | DecodeError(-2)
 
 # rows that hung or crashed a worker: 0
-# wall 1 s (instrumentation)
+# wall 2 s (instrumentation)
 CORPUS PASSES on all 6 arms
 
 ===== controls (each MUST FAIL) =====

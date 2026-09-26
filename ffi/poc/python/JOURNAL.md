@@ -1287,3 +1287,41 @@ Two first-run failures, both mine:
 decoded object of the variant: shapes 38 classes, 19 C types, 32 objects; corpus 60, 29, 622.
 The full corpus facade gives 150 findings, which is the must-fail twin. Counts are unchanged
 (step 103 identical). The campaign smoke was not rerun (disk).
+
+### J47. FIX-PLAN WP6 step 1: STATE rewritten, gate from a clean checkout, campaign smoke rerun
+
+**STATE.md** is rewritten to say what is true now.
+- The status line no longer carries the history of work units 5 to 8; that history stays here.
+- Removed because it contradicted the tree:
+  - "four builds" (there are eight cores);
+  - "no ffi-retain arm" under "not measured" (it exists since work unit 7);
+  - `cpp_abi.py` (the header renderer is `c_abi.py`);
+  - the "691 rows" corpus figures (the corpus has 702 rows);
+  - "five variants" in the source check (there are ten).
+- Removed because no committed raw log backs them:
+  - the WP3 and 22a smoke sample counts (those logs were overwritten by later smokes);
+  - the concurrency-suite row "run once, log not committed".
+- The CAMPAIGN checklist is now met / not met only. Row 20 is **not met**: `perf` is absent
+  here, so no hardware counter has been read. Row 22a is added.
+- "Not measured" is completed: the re-entrant temporary context, content sets beyond P2.4,
+  the concurrency suite, and the full build's facade slot priced only against the no-unknown
+  build.
+
+**R-C9 (Python part).** `logs/python/80-rpc-grid.log` carried RPC grid timings from
+`8874d046 + UNCOMMITTED` code, and is deleted. No other log carries grid figures from
+uncommitted code. `83` and `81` carry no timing, and `86` had its timing rows deleted when it
+was written. `99` records a defect before its fix, from uncommitted code as its header says;
+it holds no timing.
+
+**Clean gate.**
+- A fresh worktree at origin HEAD d2cd0b0, `git status` empty, no reused build directory.
+- `./fetch_py37.sh` and `mech/build.sh python3.12` run first: the floor interpreter and the 3.12
+  shapes_pb2 live under build directories, so a clean checkout has to make them.
+- `./gate.sh python3.12 build/py37/python3.7`: `gate exit 0`. All 22 logs carry
+  `# commit: d2cd0b02f`, and none says uncommitted.
+- Every figure quoted in STATE was re-read from these logs and matches.
+
+**Campaign smoke.** Rerun in the same worktree (codec, rpc, calib; the runner re-gates first),
+because the committed smoke (5652847) predated the facade without `_unknown`. It is committed
+with its timing figures stripped. The snapshot's target directory was made inside the
+worktree and deleted with it.
