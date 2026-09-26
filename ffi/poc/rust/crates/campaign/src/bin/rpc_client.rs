@@ -106,6 +106,20 @@ impl CoreClient {
             CoreClient { rt, client }
         }
     }
+    /// Optimisation R2: one blocking call whose request is `enc`'s encoded output, moved
+    /// into the core (`ak_call_unary_enc`), not copied.
+    fn call_enc<T>(&self, path: &str, enc: *mut ak_enc_ctx, f: impl FnOnce(&[u8]) -> Result<T, String>) -> Result<T, String> {
+        unsafe {
+            let mut out = ak_bytes::default();
+            let rc = ak_call_unary_enc(self.client, path.as_ptr(), path.len(), enc, &mut out);
+            if rc != AK_OK {
+                return Err(format!("ak_call_unary_enc rc {rc}"));
+            }
+            let r = f(if out.len == 0 { &[] } else { std::slice::from_raw_parts(out.ptr, out.len) });
+            ak_bytes_free(&mut out);
+            r
+        }
+    }
     /// One blocking call; the response bytes are handed to `f` and freed after.
     fn call<T>(&self, path: &str, req: &[u8], f: impl FnOnce(&[u8]) -> Result<T, String>) -> Result<T, String> {
         unsafe {
@@ -224,15 +238,21 @@ fn make(cell: &str, dir: &'static str, k: usize, target: &str, pinned: bool, wan
             let cc = Arc::new(CoreClient::new(target, pinned));
             Arc::new(move |i| {
                 let ctx = &slots[i].0;
-                let body: &[u8] = if dir == "a" { &[] } else { core_encode(ctx, f_val, retain) };
-                cc.call(path, body, |resp| {
+                let check = |resp: &[u8]| {
                     if resp.len() as u64 != want { return Err(format!("cell C response {} B, expected {want}", resp.len())); }
                     if dir == "a" {
                         let v = core_decode(ctx, resp, retain).map_err(|e| format!("core-ffi decode {e}"))?;
                         std::hint::black_box(v);
                     }
                     Ok(())
-                })
+                };
+                if dir == "a" {
+                    cc.call(path, &[], check)
+                } else {
+                    // Optimisation R2: the core's encode output is moved into the call.
+                    let _ = core_encode(ctx, f_val, retain);
+                    cc.call_enc(path, ctx.enc, check)
+                }
             })
         }
         "D" => {
@@ -376,6 +396,7 @@ fn main() {
         ("cells", "A prost+tonic, B prost+core (blocking), C core+core (blocking), D core+tonic; C and D per unknown-field mode (-retain: every decision 11 position armed and u-group encode; -drop: nothing armed; -nounk: the build with unknown-field support compiled out); callback/queue deliveries not run in this suite".into()),
         ("build", if cfg!(feature = "unknown-fields") { "unknown-fields (retain/drop)".into() } else { "NO-UNKNOWN (unknown-field support compiled out)".to_string() }),
         ("core-ffi encode fill", campaign::FFI_ENCODE_FILL.into()),
+        ("cell C request", "direction b: the core encode context's output MOVED into the call (ak_call_unary_enc, optimisation R2); direction a: empty request through ak_call_unary. Cell D copies the encoded bytes into a tonic Bytes (unchanged)".into()),
         ("launch", launch.to_string()),
         ("cell order", if interleave {
             format!("interleave: per (dir, in-flight) every cell built and warmed, round r runs {} rotated by r-1", order.join(","))

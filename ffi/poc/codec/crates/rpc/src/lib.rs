@@ -11,7 +11,7 @@
 //! No TLS, no retry, no metadata, no deadlines, no streaming, no failure injection, no
 //! server-side measurement.
 
-use bytes::{Buf, BufMut, Bytes, BytesMut};
+use bytes::{Buf, BufMut, Bytes};
 use tonic::codec::{Codec, DecodeBuf, Decoder, EncodeBuf, Encoder};
 
 /// A gRPC codec that does not know the schema: it hands the framing layer the bytes it was
@@ -39,10 +39,11 @@ impl Decoder for RawDecoder {
     type Item = Bytes;
     type Error = tonic::Status;
     fn decode(&mut self, src: &mut DecodeBuf<'_>) -> Result<Option<Bytes>, Self::Error> {
+        // Optimisation R1: `copy_to_bytes` already yields an owned `Bytes` (zero-copy
+        // when the frame is one contiguous chunk); copying it into a second buffer
+        // bought nothing.
         let n = src.remaining();
-        let mut b = BytesMut::with_capacity(n);
-        b.put_slice(&src.copy_to_bytes(n));
-        Ok(Some(b.freeze()))
+        Ok(Some(src.copy_to_bytes(n)))
     }
 }
 

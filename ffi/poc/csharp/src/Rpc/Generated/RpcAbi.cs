@@ -144,6 +144,15 @@ public static unsafe partial class AkRpc
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern int ak_call_unary(IntPtr c, byte* path, nuint path_len, byte* req, nuint req_len, ak_bytes* @out);
 #endif
+    /// Blocking delivery whose request is the encode context's output, MOVED (not copied); the context's encoded bytes are consumed. Additive (optimisation R2).
+#if NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial int ak_call_unary_enc(IntPtr c, byte* path, nuint path_len, IntPtr enc, ak_bytes* @out);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ak_call_unary_enc(IntPtr c, byte* path, nuint path_len, IntPtr enc, ak_bytes* @out);
+#endif
 #if NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]

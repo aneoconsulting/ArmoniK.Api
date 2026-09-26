@@ -316,6 +316,88 @@ pub unsafe extern "C" fn ak_call_unary(
     }
 }
 
+/// Optimisation R2: the request is the ENCODE CONTEXT's output, MOVED into the call, not
+/// copied: the context's buffer becomes the request body (owned by the core from here; the
+/// transport may poll it after the response, so nothing borrows host memory) and the
+/// context gets back the buffer of its previous such call, returned when the transport
+/// dropped it. The context's encoded bytes are consumed: after this call it holds none,
+/// and its next operation is an encode (which resets it). The request must be a
+/// successful encode: a context in error is refused with its error. Otherwise the same
+/// blocking delivery as `ak_call_unary`, one crossing in. Additive: `ak_call_unary`
+/// is unchanged. (tonic's `Encoder` still copies the body into its own EncodeBuf; what
+/// this removes is the copy at the ABI.)
+#[no_mangle]
+pub unsafe extern "C" fn ak_call_unary_enc(
+    c: *mut ak_client,
+    path: *const u8,
+    path_len: usize,
+    enc: *mut crate::ak_enc_ctx,
+    out: *mut ak_bytes,
+) -> i32 {
+    fwd();
+    if c.is_null() || enc.is_null() {
+        return AK_ERR_INVALID_STATE;
+    }
+    let cl = &*(c as *const ClientImpl);
+    let rt = &*cl.rt;
+    let p = match core::str::from_utf8(core::slice::from_raw_parts(path, path_len)) {
+        Ok(p) => p,
+        Err(_) => return AK_ERR_INVALID_STATE,
+    };
+    let path = match http::uri::PathAndQuery::from_maybe_shared(p.to_string()) {
+        Ok(p) => p,
+        Err(_) => return AK_ERR_INVALID_STATE,
+    };
+    let cx = &mut *(enc as *mut crate::EncCtxImpl);
+    if cx.hdr.err != AK_OK {
+        return cx.hdr.err;
+    }
+    if cx.e.err != 0 {
+        return cx.e.err;
+    }
+    let spare = cx.spare.lock().ok().and_then(|mut g| g.take());
+    let fresh = match spare {
+        Some(mut v) => {
+            v.clear();
+            v
+        }
+        None => Vec::with_capacity(cx.e.buf.capacity()),
+    };
+    let body_vec = core::mem::replace(&mut cx.e.buf, fresh);
+    let body = Bytes::from_owner(Recycle { v: body_vec, slot: cx.spare.clone() });
+    let res = rt.rt.block_on(unary_once(cl.chan.clone(), path, body));
+    match res {
+        Ok(b) => {
+            *out = into_ak_bytes(b);
+            AK_OK
+        }
+        Err(e) => {
+            trace("ak_call_unary_enc", &e);
+            AK_ERR_HOST
+        }
+    }
+}
+
+/// A moved request body that returns its buffer to its encode context when dropped.
+struct Recycle {
+    v: Vec<u8>,
+    slot: std::sync::Arc<std::sync::Mutex<Option<Vec<u8>>>>,
+}
+impl AsRef<[u8]> for Recycle {
+    fn as_ref(&self) -> &[u8] {
+        &self.v
+    }
+}
+impl Drop for Recycle {
+    fn drop(&mut self) {
+        if let Ok(mut g) = self.slot.try_lock() {
+            if g.is_none() {
+                *g = Some(core::mem::take(&mut self.v));
+            }
+        }
+    }
+}
+
 /// **One call path, three deliveries.** Every mode below awaits this, so a delivery cannot
 /// drift from another delivery: there is one place the request is sent and one place the
 /// response is taken.

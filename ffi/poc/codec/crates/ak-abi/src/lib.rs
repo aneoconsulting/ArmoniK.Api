@@ -424,6 +424,8 @@ unsafe extern "C" {
     pub fn ak_client_destroy(c: *mut ak_client);
     /// Blocking delivery: one crossing in, `ak_bytes_free` the only other.
     pub fn ak_call_unary(c: *mut ak_client, path: *const u8, path_len: usize, req: *const u8, req_len: usize, out: *mut ak_bytes) -> i32;
+    /// Blocking delivery whose request is the encode context's output, MOVED (not copied); the context's encoded bytes are consumed. Additive (optimisation R2).
+    pub fn ak_call_unary_enc(c: *mut ak_client, path: *const u8, path_len: usize, enc: *mut ak_enc_ctx, out: *mut ak_bytes) -> i32;
     pub fn ak_bytes_free(b: *mut ak_bytes);
     /// Callback delivery: 2 forward crossings and 1 reverse.
     pub fn ak_call_unary_cb(c: *mut ak_client, path: *const u8, path_len: usize, req: *const u8, req_len: usize, cb: ak_completion_cb, user_data: *mut c_void, tag: u64) -> *mut ak_call;

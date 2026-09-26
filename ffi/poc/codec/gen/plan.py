@@ -940,6 +940,10 @@ class RpcAbi:
         ("ak_call_unary", [("c", "*mut ak_client"), ("path", "*const u8"), ("path_len", "usize"),
                            ("req", "*const u8"), ("req_len", "usize"), ("out", "*mut ak_bytes")],
          "i32", "Blocking delivery: one crossing in, `ak_bytes_free` the only other."),
+        ("ak_call_unary_enc", [("c", "*mut ak_client"), ("path", "*const u8"), ("path_len", "usize"),
+                               ("enc", "*mut ak_enc_ctx"), ("out", "*mut ak_bytes")],
+         "i32", "Blocking delivery whose request is the encode context's output, MOVED (not "
+                "copied); the context's encoded bytes are consumed. Additive (optimisation R2)."),
         ("ak_bytes_free", [("b", "*mut ak_bytes")], None, ""),
         ("ak_call_unary_cb", [("c", "*mut ak_client"), ("path", "*const u8"), ("path_len", "usize"),
                               ("req", "*const u8"), ("req_len", "usize"), ("cb", "ak_completion_cb"),

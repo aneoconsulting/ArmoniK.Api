@@ -16,7 +16,7 @@
 //! Transport: `shipped` = tonic's server defaults (what packages/rust's peer would see);
 //! `pinned` = 4 MiB stream and connection windows, adaptive windows off.
 
-use bytes::{Buf, BufMut, Bytes, BytesMut};
+use bytes::{Buf, BufMut, Bytes};
 use std::sync::Arc;
 use tonic::codec::{Codec, DecodeBuf, Decoder, EncodeBuf, Encoder};
 
@@ -41,10 +41,9 @@ impl Decoder for RawD {
     type Item = Bytes;
     type Error = tonic::Status;
     fn decode(&mut self, src: &mut DecodeBuf<'_>) -> Result<Option<Bytes>, Self::Error> {
+        // Optimisation R1 (as in the rpc crate): copy_to_bytes already yields an owned Bytes.
         let n = src.remaining();
-        let mut b = BytesMut::with_capacity(n);
-        b.put_slice(&src.copy_to_bytes(n));
-        Ok(Some(b.freeze()))
+        Ok(Some(src.copy_to_bytes(n)))
     }
 }
 impl Codec for Raw {

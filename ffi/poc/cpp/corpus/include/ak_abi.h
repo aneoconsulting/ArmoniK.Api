@@ -2130,6 +2130,8 @@ ak_client *ak_client_new_opts(ak_runtime *r, const uint8_t *uri, size_t uri_len,
 void ak_client_destroy(ak_client *c);
 /* Blocking delivery: one crossing in, `ak_bytes_free` the only other. */
 int32_t ak_call_unary(ak_client *c, const uint8_t *path, size_t path_len, const uint8_t *req, size_t req_len, struct ak_bytes *out);
+/* Blocking delivery whose request is the encode context's output, MOVED (not copied); the context's encoded bytes are consumed. Additive (optimisation R2). */
+int32_t ak_call_unary_enc(ak_client *c, const uint8_t *path, size_t path_len, ak_enc_ctx *enc, struct ak_bytes *out);
 void ak_bytes_free(struct ak_bytes *b);
 /* Callback delivery: 2 forward crossings and 1 reverse. */
 ak_call *ak_call_unary_cb(ak_client *c, const uint8_t *path, size_t path_len, const uint8_t *req, size_t req_len, ak_completion_cb cb, void *user_data, uint64_t tag);
