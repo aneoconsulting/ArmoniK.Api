@@ -5,6 +5,10 @@
   (run_campaign.sh builds this command; camp_pyperf_export.py turns the JSON into section 7)
 
 pyperf's model, mapped onto requirement 23 (run_campaign.sh):
+  order    (req 22 as amended; R-H23) pyperf runs benchmarks one after another and cannot
+           interleave. The order used: blocks of (payload, content, direction) in list order,
+           the arms inside a block rotated by one per launch, and the whole list then rotated
+           by a third per launch
   launch   one pyperf invocation per launch (>= 3), the benchmark order ROTATED by the launch
            number, so no arm is always first
   round    one pyperf value; `--values ROUNDS` (>= 5) per worker process
@@ -46,9 +50,9 @@ VARIANT = os.environ.get("AK_VARIANT", "full")
 ARMS = {
     "shapes": [("incumbent-prod", "incumbent-default"), ("incumbent-best", "incumbent-default"),
                ("core-ffi", "drop"), ("core-ffi", "retain"), ("core-ffi-attr", "drop"),
-               ("host-gen", "drop"), ("host-gen", "retain")],
+               ("host-gen", "drop"), ("host-gen", "retain"), ("host-gen-plain", "drop")],
     "unknown": [("incumbent-prod", "incumbent-default"), ("core-ffi", "drop"), ("core-ffi", "retain"),
-                ("host-gen", "drop"), ("host-gen", "retain")],
+                ("host-gen", "drop"), ("host-gen", "retain"), ("host-gen-plain", "drop")],
 }
 ARMS_NOUNK = {
     "shapes": [("incumbent-prod", "incumbent-default"), ("incumbent-best", "incumbent-default"),
@@ -133,7 +137,13 @@ def main():
     names = []
     for pid, content in payloads(args.family, args.only):
         for d in DIRS:
-            for arm, mode in (ARMS_NOUNK if VARIANT == "nounk" else ARMS)[args.family]:
+            # R-H23 / req 22: pyperf cannot interleave, so the arms of one (payload, content,
+            # direction) block run one after another; their order is rotated by one per
+            # launch (launch l starts at arm (l-1) mod n), so no arm always runs first or always
+            # follows the same neighbour's first position.
+            al = list((ARMS_NOUNK if VARIANT == "nounk" else ARMS)[args.family])
+            r = (args.launch - 1) % len(al)
+            for arm, mode in al[r:] + al[:r]:
                 names.append((pid, content, d, arm, mode))
     # The order rotated between launches: launch l starts (l-1)/3 of the way through the list.
     k = ((args.launch - 1) * max(1, len(names) // 3)) % len(names) if names else 0

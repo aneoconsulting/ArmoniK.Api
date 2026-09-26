@@ -35,7 +35,8 @@ def main():
             r = json.loads(ln)
             side.setdefault((r["name"], r["loops"], r["cpu_s"] / r["loops"]), []).append(r["wall_s"])
     suite = pyperf.BenchmarkSuite.load(opt("--json"))
-    log = L.Log(opt("--out"), "codec", allow_dirty="--allow-dirty" in A, smoke="--smoke" in A)
+    log = L.Log(opt("--out"), "codec", allow_dirty="--allow-dirty" in A, smoke="--smoke" in A,
+                build="nounk" if opt("--variant") == "nounk" else "full")
     fam = None
     missing = 0
     for b in suite.get_benchmarks():

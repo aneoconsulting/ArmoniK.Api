@@ -16,7 +16,7 @@ LIMIT = 100                # Options.recursion_limit
 UTF8_POLICY = 'reject'
 UNKNOWN_FIELDS = 'retain'
 
-ERR_MALFORMED, ERR_TRUNCATED, ERR_DEPTH, ERR_TRANSCODE, ERR_ABI = -2, -3, -4, -6, -11
+ERR_MALFORMED, ERR_TRUNCATED, ERR_DEPTH, ERR_TRANSCODE, ERR_ABI = -2, -3, -4, -6, -11   # plan.FIXED.codes
 _M64 = (1 << 64) - 1
 _GROUP_LIMIT = 100               # plan.GROUP_DEPTH_LIMIT: nested groups, per skip
 
@@ -24,6 +24,15 @@ _GROUP_LIMIT = 100               # plan.GROUP_DEPTH_LIMIT: nested groups, per sk
 class DecodeError(ValueError):
     """A refused input. `code` is the ABI v1 section 5 code the core returns for the same
     input, so a harness compares refusals across arms by code, not by message."""
+
+    def __init__(self, code, what=""):
+        ValueError.__init__(self, "%d %s" % (code, what))
+        self.code = code
+
+
+class EncodeError(ValueError):
+    """A refused facade object on encode, with the code the core gives for it (ERR_ABI for
+    a oneof case that names no member: plan `oneof_checks`)."""
 
     def __init__(self, code, what=""):
         ValueError.__init__(self, "%d %s" % (code, what))
@@ -565,7 +574,7 @@ def _e_TaskSummary(o, out):
 def _e_Probe(o, out):
     _c = o.body_case
     if _c and _c not in (10, 11, 12, 13, 14):
-        raise ValueError('Probe.body_case = %r is not a member tag' % (_c,))
+        raise EncodeError(ERR_ABI, 'Probe.body_case = %r is not a member tag' % (_c,))
     _v = o.id
     if _v:
         _b = _v.encode('utf-8')
@@ -604,21 +613,25 @@ def _e_Probe(o, out):
     if o.body_case == 13:
         _v = o.as_stamp
         if _v is None:
-            raise ValueError('Probe.as_stamp is selected but None')
-        _s = bytearray()
-        _e_Timestamp(_v, _s)
-        out += b'j'
-        _varint(len(_s), out)
-        out += _s
+            out += b'j'
+            out.append(0)
+        else:
+            _s = bytearray()
+            _e_Timestamp(_v, _s)
+            out += b'j'
+            _varint(len(_s), out)
+            out += _s
     if o.body_case == 14:
         _v = o.as_nothing
         if _v is None:
-            raise ValueError('Probe.as_nothing is selected but None')
-        _s = bytearray()
-        _e_Empty(_v, _s)
-        out += b'r'
-        _varint(len(_s), out)
-        out += _s
+            out += b'r'
+            out.append(0)
+        else:
+            _s = bytearray()
+            _e_Empty(_v, _s)
+            out += b'r'
+            _varint(len(_s), out)
+            out += _s
     _u = o._unknown
     if _u:
         out += _u

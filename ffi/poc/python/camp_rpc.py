@@ -28,7 +28,8 @@ SAME server process with the same configuration.
 Every call is checked (18): status OK and the response length (P2.2's in (a), 0 in (b)); the
 server checks every request. One failure aborts the run and the log carries NO sample.
 Samples (21-23, 28): per round, per (transport, direction, in flight), the cells in an order
-rotated by one each round; a sample is `calls` calls over `inflight` threads, timed with
+rotated by one each round (req 22); a sample is `calls` calls over `inflight` threads of one
+pool created before any timed window and reused (R-H2), timed with
 CLOCK_PROCESS_CPUTIME_ID of the client and wall beside it. Warm-up: every cell runs one
 sample's calls before round 1. GC on; allocator in the long-lived state (J26).
 """
@@ -293,28 +294,67 @@ def unknown_mode(cell):
     return "incumbent-default"
 
 
+class Pool:
+    """R-H2: the client threads are created ONCE, before any timed window, and reused by every
+    sample of every cell (per-thread decode contexts included). A sample hands `per` calls to
+    each of the first `inflight` threads and waits for them; idle threads block on an Event and
+    burn no CPU. Before this, every sample started and joined `inflight` threads inside the
+    window, which timed thread creation with the calls."""
+
+    def __init__(self, n):
+        self.go = [threading.Event() for _ in range(n)]
+        self.done = threading.Semaphore(0)
+        self.task = None
+        self.ths = [threading.Thread(target=self._loop, args=(i,), daemon=True) for i in range(n)]
+        for t in self.ths:
+            t.start()
+        threading_starts[0] += n
+
+    def _loop(self, i):
+        while True:
+            self.go[i].wait()
+            self.go[i].clear()
+            task = self.task
+            if task is None:
+                return
+            fn, per, stop, failed = task
+            try:
+                for _ in range(per):
+                    if stop.is_set():
+                        break
+                    fn()
+            except BaseException as e:  # noqa: BLE001
+                failed.append(e)
+                stop.set()
+            self.done.release()
+
+    def run(self, k, fn, per, stop, failed):
+        self.task = (fn, per, stop, failed)
+        for i in range(k):
+            self.go[i].set()
+        for _ in range(k):
+            self.done.acquire()
+
+    def close(self):
+        self.task = None
+        for g in self.go:
+            g.set()
+        for t in self.ths:
+            t.join()
+
+
+POOL = []
+
+
 def sample(fn, calls, inflight):
+    if not POOL:
+        POOL.append(Pool(max(INFLIGHT)))      # outside every timed window
     per = max(1, calls // inflight)
     failed = []
     stop = threading.Event()
-
-    def work():
-        try:
-            for _ in range(per):
-                if stop.is_set():
-                    return
-                fn()
-        except BaseException as e:  # noqa: BLE001
-            failed.append(e)
-            stop.set()
-    ths = [threading.Thread(target=work) for _ in range(inflight)]
-    threading_starts[0] += inflight
     gc.collect()
     c0, w0 = L.proc_cpu_ns(), L.wall_ns()
-    for t in ths:
-        t.start()
-    for t in ths:
-        t.join()
+    POOL[0].run(inflight, fn, per, stop, failed)
     c1, w1 = L.proc_cpu_ns(), L.wall_ns()
     if failed:
         e = failed[0]
@@ -337,7 +377,8 @@ def main():
     rounds = opt("--rounds", 5, int)
     calls = opt("--calls", 400, int)
     transports = opt("--transports", "shipped,pinned").split(",")
-    log = L.Log(opt("--out"), "rpc", allow_dirty="--allow-dirty" in ARGS, smoke="--smoke" in ARGS)
+    log = L.Log(opt("--out"), "rpc", allow_dirty="--allow-dirty" in ARGS, smoke="--smoke" in ARGS,
+                build=VARIANT)
     log.header(launch=launch, rounds=rounds, calls_per_sample=calls, inflight=INFLIGHT,
                affinity_client=AFFINITY, payload="%s (%d bytes)" % (PID, len(arms.reference(PID))),
                transport_shipped="grpcio: no channel option (packages/python create_channel); server: grpcio "
@@ -352,6 +393,8 @@ def main():
                gc="ON; gc.collect() before every sample", warmup="one sample's calls per cell before round 1",
                clock="CLOCK_PROCESS_CPUTIME_ID of the client (cpu_ns), perf_counter_ns (wall_ns)",
                delivery="B and C blocking; queue and callback are labelled extra cells, direction a only",
+               threads="a pool of max(in flight) client threads created once, before the first timed window, "
+                       "reused by every sample of every cell (R-H2)",
                variant_build=("no-unknown variant (WP5 step 10): _akffi_rpc_nounk over ak-core --no-default-features "
                       "--features rpc,init-guard; A and B are this process's controls" if NOUNK
                       else "full build (unknown-fields on): _akffi_rpc"),
@@ -399,6 +442,8 @@ def main():
         log.close(False, "%s: %s" % (type(e).__name__, (str(e).splitlines() or [""])[0][:200]))
         print("ABORTED: %s" % e)
         return 1
+    if POOL:
+        POOL[0].close()
     log.close(True)
     return 0
 

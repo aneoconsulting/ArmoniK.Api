@@ -648,6 +648,24 @@ def d11_controls(out=sys.stdout):
     print("   leak: %d successful retain decode(s) reclaimed an undelivered buffer%s"
           % (len(leaks), (": " + ", ".join(leaks)) if leaks else ""), file=out)
     bad += len(leaks)
+    bad += oneof_control(mod, ty, out)
+    # R-H9: the leak check's must-fail twin. The same shim built with ak_py_release skipped
+    # (AK_PLANT_SKIP_RELEASE): every delivered slot stays on the live list and is reclaimed
+    # after a SUCCESSFUL decode, so the leak check and the oneof control must both fail.
+    sys.path.insert(0, os.path.join(HERE, "build", TAG, "ctl"))
+    try:
+        smod = __import__("_akffi_corpus_skiprelease")
+        sty = tuple(getattr(smod, "C" + n) for n in names)
+        sleaks = leak_rows(smod, sty, man, rows)
+        import io
+        sbad = oneof_control(smod, sty, io.StringIO(), label="skipped release")
+        print("   must-fail twin (skipped release): the leak check flags %d of %d rows, the oneof control %d of 3 "
+              "sequences%s" % (len(sleaks), len(rows), sbad,
+                               " -- failed as required" if sleaks and sbad else " -- BLIND"), file=out)
+        bad += 0 if (sleaks and sbad) else 1
+    except ImportError as e:
+        print("   must-fail twin (skipped release) NOT BUILT: %s" % e, file=out)
+        bad += 1
     if changed == 0:
         print("   ZEROED-POSITION CONTROL IS BLIND: no zeroing removed any bag", file=out)
         bad += 1
@@ -686,6 +704,69 @@ def d11_controls(out=sys.stdout):
         bad += 1
     print("D11 CONTROLS %s" % ("PASS" if not bad else "FAIL (%d)" % bad), file=out)
     return 1 if bad else 0
+
+
+def _ld(tag, body):
+    def v(n):
+        o = bytearray()
+        while n >= 0x80:
+            o.append((n & 0x7F) | 0x80)
+            n >>= 7
+        o.append(n)
+        return bytes(o)
+    return v((tag << 3) | 2) + v(len(body)) + body
+
+
+def _run(x):
+    """One unknown run: field 100, varint x (key 800 = a0 06), as poc/cpp's d11_run."""
+    return b"\xa0\x06" + bytes([x])
+
+
+ONEOF_SEQS = [("stamp -> nothing", [13, 14], 2), ("stamp -> nothing -> stamp", [13, 14, 13], 3),
+              ("stamp -> as_int (scalar)", [13, 10], 0)]
+
+
+def oneof_control(mod, ty, out, label="shim"):
+    """R-H8, decision 11 rule 4 through the retain arm: poc/cpp's three d11_oneof byte
+    sequences (src/conformance.cpp d11_oneof), ListProbeResponse{probes: [Probe{id: "p", body
+    switching members}]}, every member message carrying one unknown run of its own. The final
+    member's bag must be its own run only (run(last)); after a switch to the scalar member no
+    object carries a bag; and every inactive slot must be freed at delivery, so
+    last_reclaimed() == 0 on each (a slot left undelivered would be reclaimed and counted).
+    Returns the number of failures."""
+    bad = 0
+    for name, tags, last in ONEOF_SEQS:
+        p = _ld(1, b"p")
+        for i, t in enumerate(tags):
+            p += (bytes([10 << 3, 5]) if t == 10 else _ld(t, _run(i + 1)))
+        buf = _ld(1, p)
+        v = mod.decode("cext", "ListProbeResponse", buf, ty, None, True)
+        rec = mod.last_reclaimed()
+        pr = v.probes[0] if len(v.probes) == 1 else None
+        case = getattr(pr, "body_case", None)
+        if last:
+            member = pr.as_stamp if case == 13 else pr.as_nothing if case == 14 else None
+            bag = bytes(getattr(member, "_unknown", b"") or b"") if member is not None else None
+            ok = pr is not None and bag == _run(last) and rec == 0
+        else:
+            bag = b"".join(bytes(getattr(x, "_unknown", b"") or b"") for x in (pr, pr.as_stamp, pr.as_nothing) if x is not None)
+            ok = pr is not None and case == 10 and pr.as_int == 5 and not bag and rec == 0
+        back = mod.encode("cext", "ListProbeResponse", v, None, True)
+        print("   oneof %-28s [%s] case %s, final bag %r, reclaimed %d, re-encoded %d bytes: %s"
+              % (name, label, case, bag, rec, len(back), "ok" if ok else "WRONG"), file=out)
+        bad += 0 if ok else 1
+    return bad
+
+
+def leak_rows(mod, ty, man, rows):
+    """The leak check: every successful retain decode of an unknown row reclaims 0 buffers."""
+    leaks = []
+    for vid in rows:
+        r = man[vid]
+        mod.decode("cext", r["root"], open(rpath(r["file"]), "rb").read(), ty, None, True)
+        if mod.last_reclaimed():
+            leaks.append(vid)
+    return leaks
 
 
 def reclaim_tls_control(mod, ty, man, rows, out, label="shim"):
