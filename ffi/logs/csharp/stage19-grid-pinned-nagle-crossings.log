@@ -1,3 +1,6 @@
+# R-C9 (FIX-PLAN, relabelled 2026-09-26): this stage was built against a core that is NOT on the branch
+# (claude/poc-next-slice-76rbjx), so no figure in this log can be reproduced from the tree and none is used.
+# Container instrumentation in any case (README 1.1). Kept as history only.
 # harness: rpc --grid (corrected), --nagle, --crossings
 # date:                  2026-09-20
 # runtime:               .NET 8.0.31, 4 processors
