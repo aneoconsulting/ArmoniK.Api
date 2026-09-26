@@ -2527,3 +2527,26 @@ kept step. Step 0 fixes the harness first.
   (1.019, 0.995, U 0.994); P5.1 1.77 -> 2.01 is one 36-byte row; E3 shows no gain on this
   payload set (no encode field here is long enough for the 32 KB probe to dominate a loop
   callback); kept as part of the step, whose decode half is the gain.
+
+## 2026-09-26 -- optimisation step 7 (R1 + R2) (85d9034, kept: R1 cleanliness, R2 additive)
+
+- R1: the rpc crate's RawDecoder (the core client's response path) and poc/rust
+  rpc_server's decoder return `src.copy_to_bytes(n)` (owned; zero copy for a contiguous
+  frame) instead of copying it into a second BytesMut.
+- R2: `ak_call_unary_enc(c, path, path_len, enc, out)`, additive, declared once in
+  plan.RPC (so every slice's header gained one declaration: cpp include/, nounk/, corpus
+  variants; java native/generated*; python gen/out*; csharp RpcAbi.cs). The encode
+  context's buffer becomes the request body, owned by the core (Bytes::from_owner; nothing
+  borrows host memory, so h2 may poll the body after the response); when the transport
+  drops the body its buffer returns through a lock-guarded slot on the context and the next
+  such call reuses it (two buffers alternate). A context in error is refused with its
+  error; its encoded bytes are consumed. tonic's Encoder still copies the body into its
+  EncodeBuf (the Codec API), so what goes is the copy at the ABI, not every copy. Cell C
+  direction b uses it (rpc header line `cell C request`); cell D still copies into a tonic
+  Bytes. c_variant.sh: both headers compile C99 / C++11, facts agree, mismatches caught.
+- Measured (s7 vs s6): every RPC cell/A row flagged noise (rounds' min/max bands overlap).
+  Cell C direction b in the full client is 0.02-0.08 of A lower at every in-flight on both
+  transports, but C-nounk (the same code in the other client) is unchanged and cell B
+  (untouched) moved by as much, so no gain is attributable at 12 rounds x 24 calls; the
+  expected size (one 540 KB memcpy against ~1.3 ms of client CPU per call) is 3-5%. Codec
+  groups noise (no codec change).
