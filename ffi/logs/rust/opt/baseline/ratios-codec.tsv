@@ -1,0 +1,1007 @@
+# CONTAINER INSTRUMENTATION (gen/opt_bench.sh); ratios of per-case medians inside one process (and, *_min, of per-case minima); < 1 means fewer CPU ns than the denominator; empty = arm not run
+file	input	dir	mode	incumbent_prod_median_ns	armonik/inc	core-native/inc	core-ffi/inc	core-ffi-pull/inc	core-ffi/core-native	core-native/inc_min	core-ffi/inc_min
+codec-P	P1.1	encode	drop	1121.4	1.025	0.183	0.324		1.774	0.183	0.316
+codec-P	P1.1	encode	retain	1121.4	1.025	0.222	0.348		1.570	0.222	0.334
+codec-P	P1.1	decode	drop	1175.5	1.079	0.925	1.433	1.181	1.549	0.919	1.421
+codec-P	P1.1	decode	retain	1175.5	1.079	0.914	1.152	1.155	1.261	0.903	1.129
+codec-P	P1.1	decode-read	drop	1231.2	1.115	0.929	1.391	1.256	1.497	0.930	1.250
+codec-P	P1.1	decode-read	retain	1231.2	1.115	0.945	1.408	1.118	1.490	0.947	1.113
+codec-P	P1.2	encode	drop	297179.6	1.047	0.194	0.357		1.835	0.194	0.354
+codec-P	P1.2	encode	retain	297179.6	1.047	0.246	0.368		1.497	0.244	0.364
+codec-P	P1.2	decode	drop	385689.0	0.904	0.812	1.166	0.907	1.436	0.802	1.154
+codec-P	P1.2	decode	retain	385689.0	0.904	0.817	1.162	0.905	1.422	0.785	1.150
+codec-P	P1.2	decode-read	drop	401826.7	0.927	0.811	1.161	0.940	1.432	0.807	1.158
+codec-P	P1.2	decode-read	retain	401826.7	0.927	0.671	1.158	0.904	1.727	0.657	1.137
+codec-P	P1.2/latin1	encode	drop	293468.4	1.055	0.199	0.356		1.787	0.198	0.343
+codec-P	P1.2/latin1	encode	retain	293468.4	1.055	0.237	0.377		1.591	0.236	0.376
+codec-P	P1.2/latin1	decode	drop	588926.1	0.965	0.687	1.258	0.955	1.831	0.741	1.372
+codec-P	P1.2/latin1	decode	retain	588926.1	0.965	0.871	1.253	1.033	1.439	0.961	1.364
+codec-P	P1.2/latin1	decode-read	drop	618215.7	0.960	0.854	1.216	0.969	1.423	0.847	1.217
+codec-P	P1.2/latin1	decode-read	retain	618215.7	0.960	0.681	1.202	1.064	1.764	0.672	1.074
+codec-P	P1.2/wide	encode	drop	299663.4	0.827	0.177	0.369		2.086	0.178	0.364
+codec-P	P1.2/wide	encode	retain	299663.4	0.827	0.188	0.379		2.021	0.189	0.374
+codec-P	P1.2/wide	decode	drop	691919.2	0.776	0.859	1.424	1.202	1.658	0.861	1.410
+codec-P	P1.2/wide	decode	retain	691919.2	0.776	0.879	1.427	1.359	1.623	0.836	1.411
+codec-P	P1.2/wide	decode-read	drop	707255.1	0.984	0.878	1.448	1.400	1.649	0.866	1.412
+codec-P	P1.2/wide	decode-read	retain	707255.1	0.984	0.893	1.415	1.463	1.585	0.880	1.407
+codec-P	P1.3	encode	drop	5842.1	1.169	0.299	0.856		2.861	0.305	0.892
+codec-P	P1.3	encode	retain	5842.1	1.169	0.418	0.929		2.223	0.433	0.968
+codec-P	P1.3	decode	drop	6417.9	2.380	1.917	2.782	2.639	1.451	1.947	2.829
+codec-P	P1.3	decode	retain	6417.9	2.380	1.922	2.829	3.043	1.472	1.937	2.872
+codec-P	P1.3	decode-read	drop	9604.2	1.827	1.499	2.090	1.974	1.395	1.514	2.091
+codec-P	P1.3	decode-read	retain	9604.2	1.827	1.169	2.103	2.183	1.799	1.174	2.067
+codec-P	P2.1	encode	drop	1290.7	1.020	0.159	0.440		2.760	0.160	0.430
+codec-P	P2.1	encode	retain	1290.7	1.020	0.245	0.472		1.929	0.245	0.365
+codec-P	P2.1	decode	drop	2269.4	0.836	0.683	1.079	1.333	1.579	0.681	1.069
+codec-P	P2.1	decode	retain	2269.4	0.836	0.676	1.395	1.323	2.063	0.681	1.400
+codec-P	P2.1	decode-read	drop	2399.3	0.812	0.647	1.302	1.330	2.011	0.643	1.205
+codec-P	P2.1	decode-read	retain	2399.3	0.812	0.687	1.344	1.099	1.955	0.686	1.273
+codec-P	P2.2	encode	drop	886353.0	1.035	0.245	0.402		1.639	0.249	0.397
+codec-P	P2.2	encode	retain	886353.0	1.035	0.237	0.451		1.902	0.213	0.450
+codec-P	P2.2	decode	drop	1401730.8	0.788	0.801	1.408	1.356	1.758	0.731	1.397
+codec-P	P2.2	decode	retain	1401730.8	0.788	0.737	1.411	1.287	1.916	0.732	1.398
+codec-P	P2.2	decode-read	drop	1467785.7	0.802	0.742	1.402	1.313	1.888	0.746	1.396
+codec-P	P2.2	decode-read	retain	1467785.7	0.802	0.749	1.389	1.317	1.855	0.751	1.373
+codec-P	P2.2/latin1	encode	drop	918160.0	1.025	0.249	0.429		1.726	0.231	0.360
+codec-P	P2.2/latin1	encode	retain	918160.0	1.025	0.224	0.449		2.003	0.223	0.450
+codec-P	P2.2/latin1	decode	drop	2036141.9	0.991	0.841	1.378	1.319	1.638	0.863	1.408
+codec-P	P2.2/latin1	decode	retain	2036141.9	0.991	0.848	1.375	1.294	1.622	0.866	1.387
+codec-P	P2.2/latin1	decode-read	drop	1755160.6	1.182	1.031	1.674	1.561	1.623	1.062	1.698
+codec-P	P2.2/latin1	decode-read	retain	1755160.6	1.182	1.043	1.645	1.519	1.577	1.057	1.693
+codec-P	P2.2/wide	encode	drop	770704.0	1.232	0.366	0.518		1.417	0.318	0.518
+codec-P	P2.2/wide	encode	retain	770704.0	1.232	0.369	0.538		1.457	0.356	0.537
+codec-P	P2.2/wide	decode	drop	2095998.6	1.121	1.048	1.563	1.672	1.492	1.073	1.597
+codec-P	P2.2/wide	decode	retain	2095998.6	1.121	1.062	1.736	1.579	1.635	1.081	1.776
+codec-P	P2.2/wide	decode-read	drop	2565247.6	0.840	0.884	1.396	1.355	1.579	0.908	1.406
+codec-P	P2.2/wide	decode-read	retain	2565247.6	0.840	0.890	1.432	1.296	1.609	0.867	1.444
+codec-P	P2.3	encode	drop	463502.1	1.022	0.256	0.533		2.078	0.256	0.536
+codec-P	P2.3	encode	retain	463502.1	1.022	0.262	0.533		2.033	0.268	0.522
+codec-P	P2.3	decode	drop	1178321.9	1.035	0.937	1.284	1.252	1.371	1.107	1.532
+codec-P	P2.3	decode	retain	1178321.9	1.035	0.949	1.275	1.236	1.344	1.127	1.532
+codec-P	P2.3	decode-read	drop	1321021.6	0.972	0.876	1.166	1.153	1.332	0.886	1.212
+codec-P	P2.3	decode-read	retain	1321021.6	0.972	0.888	1.160	1.130	1.306	0.910	1.182
+codec-P	P2.4	encode	drop	601707.9	0.977	0.289	0.548		1.895	0.290	0.554
+codec-P	P2.4	encode	retain	601707.9	0.977	0.290	0.535		1.844	0.289	0.530
+codec-P	P2.4	decode	drop	1690681.4	0.965	0.892	1.218	1.222	1.366	0.865	1.236
+codec-P	P2.4	decode	retain	1690681.4	0.965	0.900	1.182	1.199	1.313	0.910	1.070
+codec-P	P2.4	decode-read	drop	1765691.2	0.975	0.954	1.230	1.200	1.290	0.923	1.240
+codec-P	P2.4	decode-read	retain	1765691.2	0.975	0.933	1.233	1.207	1.321	0.924	1.244
+codec-P	P2.5	encode	drop	25337.0	0.999	0.215	0.439		2.044	0.237	0.489
+codec-P	P2.5	encode	retain	25337.0	0.999	0.237	0.459		1.937	0.262	0.511
+codec-P	P2.5	decode	drop	48057.5	0.963	0.835	1.302	1.281	1.559	0.843	1.190
+codec-P	P2.5	decode	retain	48057.5	0.963	0.832	1.284	1.052	1.543	0.840	1.264
+codec-P	P2.5	decode-read	drop	40079.1	1.216	1.074	1.606	1.344	1.495	1.097	1.683
+codec-P	P2.5	decode-read	retain	40079.1	1.216	1.091	1.320	1.291	1.210	1.106	1.379
+codec-P	P3.1	encode	drop	20649.1	1.061	0.184	0.304		1.654	0.183	0.304
+codec-P	P3.1	encode	retain	20649.1	1.061	0.206	0.330		1.601	0.202	0.328
+codec-P	P3.1	decode	drop	29993.3	0.981	0.785	0.892	1.036	1.137	0.758	0.872
+codec-P	P3.1	decode	retain	29993.3	0.981	0.767	0.870	1.175	1.135	0.764	0.869
+codec-P	P3.1	decode-read	drop	31154.5	0.990	0.804	0.925	0.914	1.150	0.801	0.881
+codec-P	P3.1	decode-read	retain	31154.5	0.990	0.799	0.879	1.167	1.100	0.764	0.881
+codec-P	P4.1	encode	drop	130491.8	1.009	0.204	0.414		2.026	0.202	0.354
+codec-P	P4.1	encode	retain	130491.8	1.009	0.230	0.452		1.969	0.227	0.448
+codec-P	P4.1	decode	drop	256029.1	1.029	0.923	1.257	1.213	1.362	0.932	1.256
+codec-P	P4.1	decode	retain	256029.1	1.029	0.925	1.223	1.206	1.322	0.934	1.242
+codec-P	P4.1	decode-read	drop	233174.5	1.250	1.051	1.152	1.322	1.096	0.882	1.224
+codec-P	P4.1	decode-read	retain	233174.5	1.250	1.056	1.389	1.364	1.315	1.127	1.485
+codec-P	P5.1	encode	drop	50.4	1.289	0.319	0.632		1.979	0.333	0.642
+codec-P	P5.1	encode	retain	50.4	1.289	0.385	0.680		1.769	0.398	0.691
+codec-P	P5.1	decode	drop	76.4	0.941	1.162	1.922	2.043	1.654	1.174	1.881
+codec-P	P5.1	decode	retain	76.4	0.941	1.158	2.111	2.176	1.823	1.159	2.123
+codec-P	P5.1	decode-read	drop	100.8	0.856	0.919	1.551	1.587	1.687	1.108	1.851
+codec-P	P5.1	decode-read	retain	100.8	0.856	0.916	1.631	1.723	1.780	1.096	1.958
+codec-P	P5.2	encode	drop	1639.4	0.989	0.929	0.959		1.033	0.930	0.958
+codec-P	P5.2	encode	retain	1639.4	0.989	0.972	0.930		0.957	0.964	0.928
+codec-P	P5.2	decode	drop	1649.9	0.053	1.021	1.020	1.042	0.998	1.017	1.021
+codec-P	P5.2	decode	retain	1649.9	0.053	1.009	1.060	1.052	1.050	1.011	1.061
+codec-P	P5.2	decode-read	drop	1665.5	0.055	0.970	1.055	1.033	1.087	0.970	1.042
+codec-P	P5.2	decode-read	retain	1665.5	0.055	0.974	1.049	1.046	1.077	0.956	1.029
+codec-P	P5.3	encode	drop	41950.3	1.099	0.959	1.001		1.044	0.935	0.927
+codec-P	P5.3	encode	retain	41950.3	1.099	1.093	1.109		1.014	1.084	1.103
+codec-P	P5.3	decode	drop	44881.8	0.002	0.982	1.055	1.029	1.075	0.990	1.037
+codec-P	P5.3	decode	retain	44881.8	0.002	1.030	1.045	1.021	1.014	1.000	1.040
+codec-P	P5.3	decode-read	drop	45170.2	0.002	0.927	1.033	1.004	1.115	0.919	1.030
+codec-P	P5.3	decode-read	retain	45170.2	0.002	1.004	1.014	0.981	1.010	0.979	1.027
+codec-P	P5.4	encode	drop	325985.4	1.063	1.056	1.046		0.990	1.133	1.135
+codec-P	P5.4	encode	retain	325985.4	1.063	1.068	1.096		1.027	1.145	1.171
+codec-P	P5.4	decode	drop	316097.6	0.000	1.086	1.088	0.992	1.002	0.979	1.094
+codec-P	P5.4	decode	retain	316097.6	0.000	0.979	1.092	1.003	1.115	0.977	1.098
+codec-P	P5.4	decode-read	drop	315818.1	0.000	1.116	1.090	0.994	0.977	1.100	1.086
+codec-P	P5.4	decode-read	retain	315818.1	0.000	1.094	1.103	1.016	1.008	1.074	1.090
+codec-P	P6.1	encode	drop	369874.6	1.016	0.191	0.226		1.179	0.162	0.226
+codec-P	P6.1	encode	retain	369874.6	1.016	0.189	0.230		1.215	0.187	0.226
+codec-P	P6.1	decode	drop	274209.9	1.164	0.750	0.679	0.615	0.905	0.764	0.690
+codec-P	P6.1	decode	retain	274209.9	1.164	0.745	0.683	0.613	0.918	0.758	0.696
+codec-P	P6.1	decode-read	drop	305080.4	1.137	0.671	0.700	0.632	1.044	0.622	0.694
+codec-P	P6.1	decode-read	retain	305080.4	1.137	0.777	0.696	0.631	0.895	0.776	0.683
+codec-P	P7.1	decode	drop	329.2	0.948	0.756	1.109	1.205	1.467	0.772	1.132
+codec-P	P7.1	decode	retain	329.2	0.948	0.713	1.154	1.324	1.618	0.708	1.160
+codec-P	P7.1	decode-read	drop	341.4	0.958	0.783	0.874	1.201	1.117	0.779	0.874
+codec-P	P7.1	decode-read	retain	341.4	0.958	0.753	0.975	1.323	1.295	0.739	0.950
+codec-U	U-deep-all	encode	drop	1216.6	1.003	0.192	0.589		3.070	0.196	0.495
+codec-U	U-deep-all	encode	retain	1216.6	1.003	0.228	1.117		4.888	0.232	0.992
+codec-U	U-deep-all	decode	drop	2077.8	1.017	0.656	4.375	1.275	6.668	0.647	3.085
+codec-U	U-deep-all	decode	retain	2077.8	1.017	0.717	3.869	1.514	5.396	0.695	2.814
+codec-U	U-deep-all	decode-read	drop	2167.7	0.994	0.713	1.636	1.321	2.295	0.717	1.636
+codec-U	U-deep-all	decode-read	retain	2167.7	0.994	0.754	1.801	1.523	2.388	0.753	1.708
+codec-U	U-deep-u-fixed32	encode	drop	1166.7	1.049	0.213	0.578		2.710	0.214	0.580
+codec-U	U-deep-u-fixed32	encode	retain	1166.7	1.049	0.259	0.608		2.350	0.259	0.602
+codec-U	U-deep-u-fixed32	decode	drop	1998.3	0.999	0.708	1.573	1.335	2.222	0.712	1.579
+codec-U	U-deep-u-fixed32	decode	retain	1998.3	0.999	0.717	6.693	1.412	9.336	0.718	1.848
+codec-U	U-deep-u-fixed32	decode-read	drop	2062.4	1.005	0.731	7.287	1.484	9.973	0.730	5.153
+codec-U	U-deep-u-fixed32	decode-read	retain	2062.4	1.005	0.743	2.105	1.429	2.835	0.742	1.509
+codec-U	U-deep-u-fixed64	encode	drop	1163.0	1.052	0.220	0.461		2.097	0.213	0.457
+codec-U	U-deep-u-fixed64	encode	retain	1163.0	1.052	0.279	0.492		1.763	0.252	0.481
+codec-U	U-deep-u-fixed64	decode	drop	1983.2	1.001	0.711	1.315	1.337	1.849	0.714	1.328
+codec-U	U-deep-u-fixed64	decode	retain	1983.2	1.001	0.712	1.429	1.219	2.008	0.709	1.451
+codec-U	U-deep-u-fixed64	decode-read	drop	2027.1	1.024	0.709	1.215	1.104	1.715	0.723	1.234
+codec-U	U-deep-u-fixed64	decode-read	retain	2027.1	1.024	0.762	1.212	1.170	1.590	0.768	1.236
+codec-U	U-deep-u-len	encode	drop	1209.4	1.006	0.209	0.357		1.709	0.207	0.363
+codec-U	U-deep-u-len	encode	retain	1209.4	1.006	0.250	0.382		1.525	0.248	0.377
+codec-U	U-deep-u-len	decode	drop	2035.2	0.972	0.686	1.092	1.009	1.591	0.688	1.057
+codec-U	U-deep-u-len	decode	retain	2035.2	0.972	0.703	1.145	1.069	1.629	0.704	1.133
+codec-U	U-deep-u-len	decode-read	drop	2137.1	0.968	0.706	1.067	0.982	1.511	0.709	1.063
+codec-U	U-deep-u-len	decode-read	retain	2137.1	0.968	0.707	1.106	1.045	1.564	0.713	1.099
+codec-U	U-deep-u-msg	encode	drop	1201.8	1.015	0.206	0.365		1.773	0.208	0.365
+codec-U	U-deep-u-msg	encode	retain	1201.8	1.015	0.247	0.399		1.614	0.240	0.388
+codec-U	U-deep-u-msg	decode	drop	2011.2	0.980	0.671	1.388	1.044	2.068	0.668	1.389
+codec-U	U-deep-u-msg	decode	retain	2011.2	0.980	0.690	1.382	1.084	2.004	0.679	1.389
+codec-U	U-deep-u-msg	decode-read	drop	2120.1	0.981	0.558	1.313	1.020	2.352	0.559	1.302
+codec-U	U-deep-u-msg	decode-read	retain	2120.1	0.981	0.558	1.381	1.079	2.475	0.564	1.371
+codec-U	U-deep-u-packed	encode	drop	1240.2	0.990	0.168	0.425		2.522	0.172	0.437
+codec-U	U-deep-u-packed	encode	retain	1240.2	0.990	0.195	0.461		2.364	0.197	0.473
+codec-U	U-deep-u-packed	decode	drop	2059.4	0.958	0.694	1.294	1.297	1.864	0.712	1.346
+codec-U	U-deep-u-packed	decode	retain	2059.4	0.958	0.677	1.432	1.343	2.114	0.704	1.458
+codec-U	U-deep-u-packed	decode-read	drop	2139.5	0.989	0.697	1.283	1.282	1.841	0.698	1.292
+codec-U	U-deep-u-packed	decode-read	retain	2139.5	0.989	0.707	1.401	1.371	1.982	0.712	1.398
+codec-U	U-deep-u-repeated	encode	drop	1196.8	1.028	0.207	0.444		2.144	0.205	0.439
+codec-U	U-deep-u-repeated	encode	retain	1196.8	1.028	0.252	0.463		1.835	0.245	0.456
+codec-U	U-deep-u-repeated	decode	drop	2042.1	0.986	0.695	1.314	1.316	1.891	0.699	1.322
+codec-U	U-deep-u-repeated	decode	retain	2042.1	0.986	0.772	1.463	1.444	1.896	0.750	1.462
+codec-U	U-deep-u-repeated	decode-read	drop	2120.3	0.995	0.734	1.254	1.291	1.707	0.724	1.262
+codec-U	U-deep-u-repeated	decode-read	retain	2120.3	0.995	0.718	1.367	1.264	1.905	0.713	1.327
+codec-U	U-deep-u-varint	encode	drop	1199.6	1.051	0.209	0.441		2.111	0.206	0.440
+codec-U	U-deep-u-varint	encode	retain	1199.6	1.051	0.249	0.461		1.856	0.246	0.459
+codec-U	U-deep-u-varint	decode	drop	2023.0	0.987	0.703	1.340	1.103	1.907	0.698	1.318
+codec-U	U-deep-u-varint	decode	retain	2023.0	0.987	0.625	1.434	1.124	2.295	0.625	1.425
+codec-U	U-deep-u-varint	decode-read	drop	2111.4	1.106	0.632	1.340	1.065	2.119	0.640	1.342
+codec-U	U-deep-u-varint	decode-read	retain	2111.4	1.106	0.593	1.373	1.069	2.316	0.596	1.381
+codec-U	U-element-all	encode	drop	1204.2	1.014	0.162	0.439		2.702	0.164	0.440
+codec-U	U-element-all	encode	retain	1204.2	1.014	0.197	0.460		2.337	0.195	0.464
+codec-U	U-element-all	decode	drop	2113.6	1.024	0.532	1.314	1.327	2.472	0.529	1.297
+codec-U	U-element-all	decode	retain	2113.6	1.024	0.604	1.468	1.499	2.430	0.599	1.466
+codec-U	U-element-all	decode-read	drop	2188.7	1.058	0.550	1.275	1.280	2.320	0.552	1.271
+codec-U	U-element-all	decode-read	retain	2188.7	1.058	0.611	1.493	1.476	2.445	0.614	1.478
+codec-U	U-element-u-fixed32	encode	drop	1194.6	1.039	0.163	0.448		2.753	0.165	0.447
+codec-U	U-element-u-fixed32	encode	retain	1194.6	1.039	0.246	0.484		1.969	0.247	0.473
+codec-U	U-element-u-fixed32	decode	drop	2003.3	0.987	0.701	1.395	1.322	1.991	0.721	1.404
+codec-U	U-element-u-fixed32	decode	retain	2003.3	0.987	0.701	1.433	1.416	2.044	0.722	1.430
+codec-U	U-element-u-fixed32	decode-read	drop	2095.1	0.866	0.713	1.326	1.329	1.861	0.713	1.323
+codec-U	U-element-u-fixed32	decode-read	retain	2095.1	0.866	0.719	1.431	1.391	1.990	0.720	1.421
+codec-U	U-element-u-fixed64	encode	drop	1199.5	1.018	0.206	0.440		2.135	0.206	0.442
+codec-U	U-element-u-fixed64	encode	retain	1199.5	1.018	0.252	0.468		1.859	0.252	0.468
+codec-U	U-element-u-fixed64	decode	drop	2033.8	0.844	0.687	1.330	1.295	1.937	0.699	1.358
+codec-U	U-element-u-fixed64	decode	retain	2033.8	0.844	0.692	1.431	1.378	2.068	0.697	1.431
+codec-U	U-element-u-fixed64	decode-read	drop	2154.3	0.892	0.700	1.288	1.283	1.840	0.702	1.295
+codec-U	U-element-u-fixed64	decode-read	retain	2154.3	0.892	0.696	1.386	1.318	1.990	0.700	1.387
+codec-U	U-element-u-len	encode	drop	1211.9	0.790	0.206	0.435		2.105	0.206	0.433
+codec-U	U-element-u-len	encode	retain	1211.9	0.790	0.243	0.456		1.878	0.242	0.455
+codec-U	U-element-u-len	decode	drop	1763.4	0.809	0.789	1.523	1.488	1.932	0.813	1.570
+codec-U	U-element-u-len	decode	retain	1763.4	0.809	0.806	1.624	1.620	2.015	0.822	1.675
+codec-U	U-element-u-len	decode-read	drop	1832.0	0.852	0.817	1.501	1.497	1.836	0.830	1.510
+codec-U	U-element-u-len	decode-read	retain	1832.0	0.852	0.827	1.652	1.625	1.998	0.833	1.663
+codec-U	U-element-u-msg	encode	drop	1200.0	1.053	0.205	0.439		2.140	0.205	0.442
+codec-U	U-element-u-msg	encode	retain	1200.0	1.053	0.249	0.466		1.876	0.246	0.467
+codec-U	U-element-u-msg	decode	drop	1730.8	0.969	0.809	1.561	1.545	1.929	0.817	1.561
+codec-U	U-element-u-msg	decode	retain	1730.8	0.969	0.817	1.661	1.657	2.032	0.827	1.685
+codec-U	U-element-u-msg	decode-read	drop	2070.8	0.874	0.740	1.341	1.368	1.813	0.751	1.360
+codec-U	U-element-u-msg	decode-read	retain	2070.8	0.874	0.772	1.452	1.445	1.879	0.760	1.495
+codec-U	U-element-u-packed	encode	drop	1192.8	1.062	0.209	0.445		2.131	0.209	0.437
+codec-U	U-element-u-packed	encode	retain	1192.8	1.062	0.246	0.472		1.919	0.247	0.466
+codec-U	U-element-u-packed	decode	drop	1999.9	0.855	0.654	1.369	1.408	2.092	0.662	1.359
+codec-U	U-element-u-packed	decode	retain	1999.9	0.855	0.676	1.442	1.418	2.131	0.680	1.435
+codec-U	U-element-u-packed	decode-read	drop	2073.7	0.874	0.701	1.219	1.379	1.740	0.709	1.195
+codec-U	U-element-u-packed	decode-read	retain	2073.7	0.874	0.706	1.179	1.415	1.669	0.708	1.185
+codec-U	U-element-u-repeated	encode	drop	1210.0	1.030	0.203	0.363		1.788	0.199	0.362
+codec-U	U-element-u-repeated	encode	retain	1210.0	1.030	0.247	0.375		1.517	0.253	0.383
+codec-U	U-element-u-repeated	decode	drop	2022.3	0.867	0.697	1.090	1.241	1.563	0.709	1.106
+codec-U	U-element-u-repeated	decode	retain	2022.3	0.867	0.720	1.168	1.332	1.623	0.727	1.132
+codec-U	U-element-u-repeated	decode-read	drop	1682.8	1.098	0.898	1.436	1.456	1.598	0.904	1.362
+codec-U	U-element-u-repeated	decode-read	retain	1682.8	1.098	0.945	1.778	1.574	1.880	0.958	1.790
+codec-U	U-element-u-varint	encode	drop	1208.3	1.016	0.209	0.445		2.134	0.237	0.490
+codec-U	U-element-u-varint	encode	retain	1208.3	1.016	0.244	0.465		1.905	0.279	0.527
+codec-U	U-element-u-varint	decode	drop	2006.6	0.846	0.701	1.335	1.084	1.904	0.699	1.337
+codec-U	U-element-u-varint	decode	retain	2006.6	0.846	0.704	1.471	1.163	2.088	0.702	1.450
+codec-U	U-element-u-varint	decode-read	drop	2106.7	0.856	0.700	1.346	1.066	1.923	0.702	1.312
+codec-U	U-element-u-varint	decode-read	retain	2106.7	0.856	0.819	1.528	1.126	1.866	0.729	1.432
+codec-U	U-enum-value-127	encode	drop	51.5	1.101	0.300	0.691		2.304	0.289	0.686
+codec-U	U-enum-value-127	encode	retain	51.5	1.101	0.398	0.775		1.946	0.392	0.766
+codec-U	U-enum-value-127	decode	drop	72.0	1.435	1.182	1.763	1.597	1.491	1.181	1.729
+codec-U	U-enum-value-127	decode	retain	72.0	1.435	1.228	1.968	1.743	1.602	1.230	1.958
+codec-U	U-enum-value-127	decode-read	drop	79.5	1.342	1.198	1.688	1.468	1.409	1.196	1.703
+codec-U	U-enum-value-127	decode-read	retain	79.5	1.342	1.224	1.860	1.589	1.519	1.237	1.890
+codec-U	U-enum-value-2147483647	encode	drop	67.8	0.831	0.257	0.569		2.212	0.252	0.550
+codec-U	U-enum-value-2147483647	encode	retain	67.8	0.831	0.351	0.614		1.749	0.342	0.610
+codec-U	U-enum-value-2147483647	decode	drop	74.6	1.193	1.134	1.548	1.869	1.365	1.117	1.510
+codec-U	U-enum-value-2147483647	decode	retain	74.6	1.193	1.210	1.744	2.057	1.441	1.210	1.716
+codec-U	U-enum-value-2147483647	decode-read	drop	82.2	1.366	1.166	1.502	1.815	1.288	1.163	1.491
+codec-U	U-enum-value-2147483647	decode-read	retain	82.2	1.366	1.225	1.831	2.014	1.495	1.227	1.827
+codec-U	U-enum-value-999	encode	drop	55.9	1.079	0.291	0.803		2.756	0.277	0.715
+codec-U	U-enum-value-999	encode	retain	55.9	1.079	0.418	0.724		1.731	0.398	0.686
+codec-U	U-enum-value-999	decode	drop	73.0	1.422	1.184	1.677	1.903	1.417	1.170	1.642
+codec-U	U-enum-value-999	decode	retain	73.0	1.422	1.220	1.920	2.088	1.573	1.192	1.871
+codec-U	U-enum-value-999	decode-read	drop	82.1	1.334	1.154	1.604	1.817	1.390	1.160	1.559
+codec-U	U-enum-value-999	decode-read	retain	82.1	1.334	1.185	1.811	1.998	1.528	1.084	1.783
+codec-U	U-enum-value-packed	encode	drop	94.9	1.512	0.251	0.807		3.208	0.259	0.841
+codec-U	U-enum-value-packed	encode	retain	94.9	1.512	0.302	0.785		2.598	0.310	0.819
+codec-U	U-enum-value-packed	decode	drop	98.8	1.256	0.832	2.370	2.551	2.849	0.823	2.381
+codec-U	U-enum-value-packed	decode	retain	98.8	1.256	0.826	2.459	2.143	2.978	0.833	2.467
+codec-U	U-enum-value-packed	decode-read	drop	105.1	1.303	0.889	2.388	1.952	2.686	0.882	2.339
+codec-U	U-enum-value-packed	decode-read	retain	105.1	1.303	0.849	2.416	2.177	2.844	0.839	2.427
+codec-U	U-leaf-all	encode	drop	239.7	1.047	0.191	0.427		2.235	0.187	0.423
+codec-U	U-leaf-all	encode	retain	239.7	1.047	0.312	0.513		1.644	0.307	0.512
+codec-U	U-leaf-all	decode	drop	453.0	1.067	0.674	1.069	0.872	1.587	0.681	1.073
+codec-U	U-leaf-all	decode	retain	453.0	1.067	1.695	2.351	1.996	1.387	1.716	2.351
+codec-U	U-leaf-all	decode-read	drop	467.0	1.030	0.665	1.102	1.127	1.658	0.659	1.090
+codec-U	U-leaf-all	decode-read	retain	467.0	1.030	1.668	2.371	2.595	1.421	1.661	2.353
+codec-U	U-leaf-u-fixed32	encode	drop	237.7	1.052	0.190	0.426		2.249	0.186	0.413
+codec-U	U-leaf-u-fixed32	encode	retain	237.7	1.052	0.266	0.453		1.704	0.265	0.448
+codec-U	U-leaf-u-fixed32	decode	drop	288.1	1.015	0.865	1.454	1.568	1.681	0.887	1.492
+codec-U	U-leaf-u-fixed32	decode	retain	288.1	1.015	1.037	1.749	1.772	1.686	1.069	1.795
+codec-U	U-leaf-u-fixed32	decode-read	drop	296.4	1.058	0.867	1.437	1.528	1.657	0.866	1.454
+codec-U	U-leaf-u-fixed32	decode-read	retain	296.4	1.058	1.079	1.745	1.746	1.618	1.094	1.765
+codec-U	U-leaf-u-fixed64	encode	drop	241.9	1.038	0.185	0.422		2.279	0.179	0.396
+codec-U	U-leaf-u-fixed64	encode	retain	241.9	1.038	0.264	0.367		1.393	0.259	0.360
+codec-U	U-leaf-u-fixed64	decode	drop	289.9	1.003	0.856	1.198	1.410	1.400	0.845	1.196
+codec-U	U-leaf-u-fixed64	decode	retain	289.9	1.003	1.043	1.529	1.867	1.467	1.034	1.427
+codec-U	U-leaf-u-fixed64	decode-read	drop	302.2	1.045	0.861	1.159	1.490	1.345	0.883	1.184
+codec-U	U-leaf-u-fixed64	decode-read	retain	302.2	1.045	1.043	1.403	1.761	1.345	1.067	1.434
+codec-U	U-leaf-u-len	encode	drop	239.9	1.030	0.188	0.340		1.811	0.188	0.338
+codec-U	U-leaf-u-len	encode	retain	239.9	1.030	0.271	0.353		1.303	0.272	0.358
+codec-U	U-leaf-u-len	decode	drop	295.8	1.027	0.860	1.110	1.484	1.290	0.882	1.149
+codec-U	U-leaf-u-len	decode	retain	295.8	1.027	1.031	1.368	1.819	1.327	1.058	1.370
+codec-U	U-leaf-u-len	decode-read	drop	307.3	1.036	0.688	1.405	1.473	2.041	0.691	1.415
+codec-U	U-leaf-u-len	decode-read	retain	307.3	1.036	0.816	1.681	1.751	2.061	0.829	1.694
+codec-U	U-leaf-u-msg	encode	drop	243.6	1.006	0.180	0.418		2.316	0.182	0.429
+codec-U	U-leaf-u-msg	encode	retain	243.6	1.006	0.250	0.433		1.734	0.252	0.446
+codec-U	U-leaf-u-msg	decode	drop	292.6	1.054	0.837	1.435	1.505	1.714	0.843	1.428
+codec-U	U-leaf-u-msg	decode	retain	292.6	1.054	0.977	1.698	1.379	1.737	0.989	1.700
+codec-U	U-leaf-u-msg	decode-read	drop	308.1	1.052	0.869	1.362	1.147	1.568	0.882	1.387
+codec-U	U-leaf-u-msg	decode-read	retain	308.1	1.052	0.998	1.702	1.360	1.706	1.009	1.715
+codec-U	U-leaf-u-packed	encode	drop	245.0	1.018	0.190	0.413		2.168	0.193	0.407
+codec-U	U-leaf-u-packed	encode	retain	245.0	1.018	0.255	0.435		1.703	0.263	0.443
+codec-U	U-leaf-u-packed	decode	drop	307.8	0.985	0.814	1.370	1.266	1.683	0.851	1.425
+codec-U	U-leaf-u-packed	decode	retain	307.8	0.985	0.976	1.647	1.508	1.687	1.033	1.715
+codec-U	U-leaf-u-packed	decode-read	drop	301.1	1.049	0.874	1.460	1.342	1.670	0.874	1.408
+codec-U	U-leaf-u-packed	decode-read	retain	301.1	1.049	1.048	1.721	1.504	1.642	1.039	1.689
+codec-U	U-leaf-u-repeated	encode	drop	239.9	1.035	0.183	0.428		2.337	0.185	0.416
+codec-U	U-leaf-u-repeated	encode	retain	239.9	1.035	0.263	0.455		1.732	0.265	0.442
+codec-U	U-leaf-u-repeated	decode	drop	314.6	1.053	0.820	1.362	1.157	1.660	0.822	1.362
+codec-U	U-leaf-u-repeated	decode	retain	314.6	1.053	1.061	1.650	1.495	1.555	1.072	1.645
+codec-U	U-leaf-u-repeated	decode-read	drop	321.2	1.045	0.842	1.355	1.330	1.609	0.828	1.362
+codec-U	U-leaf-u-repeated	decode-read	retain	321.2	1.045	1.086	1.712	1.851	1.577	1.099	1.690
+codec-U	U-leaf-u-varint	encode	drop	245.2	0.824	0.177	0.402		2.268	0.178	0.402
+codec-U	U-leaf-u-varint	encode	retain	245.2	0.824	0.265	0.443		1.674	0.270	0.451
+codec-U	U-leaf-u-varint	decode	drop	300.5	0.877	0.841	1.390	1.435	1.653	0.846	1.419
+codec-U	U-leaf-u-varint	decode	retain	300.5	0.877	1.016	1.683	1.733	1.658	1.039	1.721
+codec-U	U-leaf-u-varint	decode-read	drop	312.0	0.814	0.865	1.387	1.117	1.603	0.885	1.390
+codec-U	U-leaf-u-varint	decode-read	retain	312.0	0.814	1.050	1.673	1.342	1.594	1.076	1.690
+codec-U	U-nested-all	encode	drop	240.8	0.818	0.192	0.415		2.164	0.190	0.403
+codec-U	U-nested-all	encode	retain	240.8	0.818	0.263	0.422		1.605	0.263	0.415
+codec-U	U-nested-all	decode	drop	359.0	0.806	0.781	1.311	1.018	1.678	0.741	1.281
+codec-U	U-nested-all	decode	retain	359.0	0.806	1.330	2.004	1.793	1.507	1.325	2.013
+codec-U	U-nested-all	decode-read	drop	365.6	0.814	0.806	1.286	1.031	1.595	0.823	1.287
+codec-U	U-nested-all	decode-read	retain	365.6	0.814	1.368	2.096	1.781	1.532	1.383	2.154
+codec-U	U-nested-before	encode	drop	237.8	0.805	0.208	0.434		2.086	0.206	0.418
+codec-U	U-nested-before	encode	retain	237.8	0.805	0.267	0.433		1.622	0.263	0.432
+codec-U	U-nested-before	decode	drop	369.0	0.776	0.789	1.245	1.287	1.578	0.823	1.299
+codec-U	U-nested-before	decode	retain	369.0	0.776	1.307	2.126	2.233	1.627	1.358	2.175
+codec-U	U-nested-before	decode-read	drop	359.9	0.832	0.840	1.317	1.150	1.567	0.843	1.302
+codec-U	U-nested-before	decode-read	retain	359.9	0.832	1.397	2.169	1.987	1.553	1.400	2.164
+codec-U	U-nested-group	encode	drop	239.9	0.800	0.192	0.420		2.184	0.190	0.416
+codec-U	U-nested-group	encode	retain	239.9	0.800	0.260	0.432		1.663	0.265	0.440
+codec-U	U-nested-group	decode	drop	313.0	0.807	0.834	1.396	1.106	1.674	0.848	1.384
+codec-U	U-nested-group	decode	retain	313.0	0.807	0.914	1.561	1.272	1.707	0.926	1.584
+codec-U	U-nested-group	decode-read	drop	321.2	0.813	0.858	1.369	1.135	1.595	0.853	1.376
+codec-U	U-nested-group	decode-read	retain	321.2	0.813	0.998	1.565	1.284	1.568	1.006	1.575
+codec-U	U-nested-interleaved	encode	drop	240.0	0.800	0.152	0.431		2.829	0.145	0.417
+codec-U	U-nested-interleaved	encode	retain	240.0	0.800	0.204	0.425		2.079	0.205	0.427
+codec-U	U-nested-interleaved	decode	drop	355.0	0.825	0.622	1.244	1.019	1.998	0.640	1.264
+codec-U	U-nested-interleaved	decode	retain	355.0	0.825	1.112	1.655	1.741	1.489	1.144	1.698
+codec-U	U-nested-interleaved	decode-read	drop	287.5	1.051	0.807	1.233	1.283	1.527	0.812	1.236
+codec-U	U-nested-interleaved	decode-read	retain	287.5	1.051	1.416	2.119	2.162	1.497	1.431	2.115
+codec-U	U-nested-u-fixed32	encode	drop	188.3	1.050	0.190	0.408		2.152	0.189	0.407
+codec-U	U-nested-u-fixed32	encode	retain	188.3	1.050	0.263	0.555		2.111	0.266	0.557
+codec-U	U-nested-u-fixed32	decode	drop	221.2	1.038	0.855	1.849	1.497	2.161	0.859	1.864
+codec-U	U-nested-u-fixed32	decode	retain	221.2	1.038	0.965	2.143	1.715	2.220	0.974	2.146
+codec-U	U-nested-u-fixed32	decode-read	drop	225.3	1.053	0.891	1.909	1.513	2.143	0.893	1.894
+codec-U	U-nested-u-fixed32	decode-read	retain	225.3	1.053	0.993	2.174	1.735	2.190	0.999	2.157
+codec-U	U-nested-u-fixed64	encode	drop	191.2	1.005	0.192	0.531		2.767	0.186	0.508
+codec-U	U-nested-u-fixed64	encode	retain	191.2	1.005	0.273	0.546		1.998	0.265	0.548
+codec-U	U-nested-u-fixed64	decode	drop	219.4	1.041	0.961	1.882	1.528	1.957	0.865	1.884
+codec-U	U-nested-u-fixed64	decode	retain	219.4	1.041	0.971	2.156	1.735	2.220	0.970	2.186
+codec-U	U-nested-u-fixed64	decode-read	drop	230.1	1.023	0.906	1.867	1.492	2.060	0.927	1.872
+codec-U	U-nested-u-fixed64	decode-read	retain	230.1	1.023	1.060	2.206	1.698	2.080	1.090	2.169
+codec-U	U-nested-u-len	encode	drop	199.5	0.967	0.188	0.510		2.712	0.181	0.502
+codec-U	U-nested-u-len	encode	retain	199.5	0.967	0.284	0.527		1.860	0.289	0.526
+codec-U	U-nested-u-len	decode	drop	227.2	0.994	0.956	1.815	1.498	1.898	1.013	1.694
+codec-U	U-nested-u-len	decode	retain	227.2	0.994	1.109	1.721	1.776	1.551	1.162	1.786
+codec-U	U-nested-u-len	decode-read	drop	226.2	1.052	1.151	1.529	1.766	1.329	1.143	1.537
+codec-U	U-nested-u-len	decode-read	retain	226.2	1.052	1.259	1.889	1.985	1.500	1.267	1.784
+codec-U	U-nested-u-msg	encode	drop	194.4	0.983	0.239	0.426		1.781	0.242	0.423
+codec-U	U-nested-u-msg	encode	retain	194.4	0.983	0.328	0.439		1.338	0.337	0.448
+codec-U	U-nested-u-msg	decode	drop	285.3	1.014	0.845	1.170	1.492	1.384	0.845	1.186
+codec-U	U-nested-u-msg	decode	retain	285.3	1.014	0.933	1.358	1.695	1.455	0.948	1.375
+codec-U	U-nested-u-msg	decode-read	drop	291.1	1.032	0.870	1.424	1.540	1.637	0.872	1.393
+codec-U	U-nested-u-msg	decode-read	retain	291.1	1.032	0.968	1.662	1.788	1.716	0.963	1.658
+codec-U	U-nested-u-packed	encode	drop	243.5	1.011	0.190	0.416		2.197	0.190	0.412
+codec-U	U-nested-u-packed	encode	retain	243.5	1.011	0.263	0.425		1.614	0.262	0.427
+codec-U	U-nested-u-packed	decode	drop	285.1	1.046	0.837	1.425	1.491	1.703	0.860	1.446
+codec-U	U-nested-u-packed	decode	retain	285.1	1.046	0.966	1.662	1.717	1.721	0.958	1.712
+codec-U	U-nested-u-packed	decode-read	drop	290.7	1.064	0.919	1.468	1.503	1.597	0.924	1.484
+codec-U	U-nested-u-packed	decode-read	retain	290.7	1.064	1.053	1.701	1.714	1.615	1.043	1.703
+codec-U	U-nested-u-repeated	encode	drop	240.7	1.028	0.200	0.420		2.101	0.194	0.410
+codec-U	U-nested-u-repeated	encode	retain	240.7	1.028	0.263	0.433		1.645	0.265	0.428
+codec-U	U-nested-u-repeated	decode	drop	293.1	1.067	0.858	1.448	1.484	1.689	0.859	1.462
+codec-U	U-nested-u-repeated	decode	retain	293.1	1.067	1.196	1.707	1.742	1.427	1.191	1.716
+codec-U	U-nested-u-repeated	decode-read	drop	302.2	1.075	0.879	1.434	1.500	1.632	0.874	1.433
+codec-U	U-nested-u-repeated	decode-read	retain	302.2	1.075	1.246	1.687	1.751	1.354	1.253	1.706
+codec-U	U-nested-u-varint	encode	drop	238.3	1.054	0.189	0.429		2.269	0.188	0.420
+codec-U	U-nested-u-varint	encode	retain	238.3	1.054	0.262	0.440		1.682	0.261	0.438
+codec-U	U-nested-u-varint	decode	drop	286.3	1.049	0.829	1.440	1.468	1.738	0.835	1.470
+codec-U	U-nested-u-varint	decode	retain	286.3	1.049	0.902	1.655	1.698	1.835	0.920	1.680
+codec-U	U-nested-u-varint	decode-read	drop	289.1	1.071	0.842	1.473	1.518	1.751	0.865	1.497
+codec-U	U-nested-u-varint	decode-read	retain	289.1	1.071	0.969	1.686	1.736	1.739	0.989	1.746
+codec-U	U-oneof-all	encode	drop	107.2	1.029	0.213	0.458		2.153	0.210	0.457
+codec-U	U-oneof-all	encode	retain	107.2	1.029	0.248	0.500		2.019	0.243	0.504
+codec-U	U-oneof-all	decode	drop	190.7	1.054	0.648	1.025	1.079	1.582	0.651	1.026
+codec-U	U-oneof-all	decode	retain	190.7	1.054	1.413	2.245	2.642	1.588	1.419	2.275
+codec-U	U-oneof-all	decode-read	drop	194.5	1.086	0.675	1.021	1.085	1.512	0.693	1.061
+codec-U	U-oneof-all	decode-read	retain	194.5	1.086	1.400	2.555	2.548	1.825	1.455	2.638
+codec-U	U-oneof-before	encode	drop	106.1	1.070	0.212	0.456		2.147	0.219	0.490
+codec-U	U-oneof-before	encode	retain	106.1	1.070	0.251	0.509		2.022	0.259	0.539
+codec-U	U-oneof-before	decode	drop	191.0	1.052	0.641	1.071	1.165	1.669	0.671	1.108
+codec-U	U-oneof-before	decode	retain	191.0	1.052	1.393	2.539	2.566	1.822	1.451	2.621
+codec-U	U-oneof-before	decode-read	drop	194.6	1.040	0.647	1.082	1.174	1.671	0.686	1.132
+codec-U	U-oneof-before	decode-read	retain	194.6	1.040	1.398	2.420	2.612	1.732	1.474	2.542
+codec-U	U-oneof-group	encode	drop	110.4	1.023	0.201	0.427		2.126	0.209	0.448
+codec-U	U-oneof-group	encode	retain	110.4	1.023	0.232	0.475		2.047	0.238	0.504
+codec-U	U-oneof-group	decode	drop	156.6	1.024	0.688	1.136	1.199	1.651	0.681	1.122
+codec-U	U-oneof-group	decode	retain	156.6	1.024	0.810	1.471	1.535	1.816	0.804	1.456
+codec-U	U-oneof-group	decode-read	drop	157.3	1.054	0.712	1.172	1.248	1.646	0.723	1.180
+codec-U	U-oneof-group	decode-read	retain	157.3	1.054	0.831	1.505	1.574	1.811	0.821	1.527
+codec-U	U-oneof-interleaved	encode	drop	111.2	0.997	0.202	0.440		2.177	0.206	0.455
+codec-U	U-oneof-interleaved	encode	retain	111.2	0.997	0.233	0.480		2.062	0.234	0.505
+codec-U	U-oneof-interleaved	decode	drop	188.5	1.052	0.653	1.022	1.132	1.566	0.655	1.029
+codec-U	U-oneof-interleaved	decode	retain	188.5	1.052	1.432	2.596	2.626	1.813	1.433	2.550
+codec-U	U-oneof-interleaved	decode-read	drop	201.5	1.010	0.637	0.978	1.076	1.535	0.644	1.014
+codec-U	U-oneof-interleaved	decode-read	retain	201.5	1.010	1.377	2.096	2.241	1.522	1.402	2.153
+codec-U	U-oneof-member-after-known	encode	drop	112.8	1.005	0.207	0.417		2.016	0.207	0.424
+codec-U	U-oneof-member-after-known	encode	retain	112.8	1.005	0.238	0.476		1.998	0.239	0.482
+codec-U	U-oneof-member-after-known	decode	drop	128.1	0.931	0.730	1.224	1.321	1.677	0.734	1.236
+codec-U	U-oneof-member-after-known	decode	retain	128.1	0.931	0.876	1.631	1.376	1.861	0.873	1.663
+codec-U	U-oneof-member-after-known	decode-read	drop	132.6	0.950	0.759	1.230	1.049	1.620	0.767	1.250
+codec-U	U-oneof-member-after-known	decode-read	retain	132.6	0.950	0.898	1.622	1.371	1.807	0.903	1.651
+codec-U	U-oneof-member-alone	encode	drop	76.2	1.009	0.217	0.580		2.680	0.210	0.576
+codec-U	U-oneof-member-alone	encode	retain	76.2	1.009	0.307	0.625		2.038	0.288	0.621
+codec-U	U-oneof-member-alone	decode	drop	121.2	0.902	0.743	1.228	1.344	1.653	0.759	1.294
+codec-U	U-oneof-member-alone	decode	retain	121.2	0.902	0.898	1.670	1.804	1.860	0.936	1.747
+codec-U	U-oneof-member-alone	decode-read	drop	118.6	0.964	0.786	1.312	1.424	1.669	0.800	1.356
+codec-U	U-oneof-member-alone	decode-read	retain	118.6	0.964	0.945	1.748	1.898	1.849	0.978	1.801
+codec-U	U-oneof-member-before-known	encode	drop	113.8	0.993	0.202	0.423		2.095	0.194	0.432
+codec-U	U-oneof-member-before-known	encode	retain	113.8	0.993	0.234	0.462		1.975	0.229	0.469
+codec-U	U-oneof-member-before-known	decode	drop	100.3	1.209	0.929	1.261	1.741	1.358	0.944	1.237
+codec-U	U-oneof-member-before-known	decode	retain	100.3	1.209	1.137	1.641	2.233	1.443	1.134	1.663
+codec-U	U-oneof-member-before-known	decode-read	drop	101.6	1.242	0.974	1.270	1.786	1.303	0.982	1.256
+codec-U	U-oneof-member-before-known	decode-read	retain	101.6	1.242	1.189	1.664	2.271	1.400	1.198	1.688
+codec-U	U-oneof-u-fixed32	encode	drop	114.9	0.966	0.203	0.329		1.620	0.206	0.341
+codec-U	U-oneof-u-fixed32	encode	retain	114.9	0.966	0.229	0.369		1.610	0.230	0.378
+codec-U	U-oneof-u-fixed32	decode	drop	132.2	0.927	0.708	0.946	1.282	1.337	0.706	0.933
+codec-U	U-oneof-u-fixed32	decode	retain	132.2	0.927	0.866	1.251	1.700	1.445	0.864	1.268
+codec-U	U-oneof-u-fixed32	decode-read	drop	133.3	0.965	0.755	0.953	1.314	1.263	0.761	0.969
+codec-U	U-oneof-u-fixed32	decode-read	retain	133.3	0.965	0.900	1.287	1.753	1.430	0.910	1.299
+codec-U	U-oneof-u-fixed64	encode	drop	113.3	1.001	0.218	0.345		1.587	0.201	0.344
+codec-U	U-oneof-u-fixed64	encode	retain	113.3	1.001	0.235	0.366		1.559	0.229	0.373
+codec-U	U-oneof-u-fixed64	decode	drop	133.0	0.935	0.692	0.933	1.283	1.349	0.708	0.948
+codec-U	U-oneof-u-fixed64	decode	retain	133.0	0.935	0.840	1.234	1.692	1.470	0.862	1.259
+codec-U	U-oneof-u-fixed64	decode-read	drop	131.3	0.983	0.755	1.157	1.350	1.534	0.749	1.154
+codec-U	U-oneof-u-fixed64	decode-read	retain	131.3	0.983	0.911	1.602	1.759	1.760	0.909	1.517
+codec-U	U-oneof-u-len	encode	drop	114.1	0.985	0.206	0.427		2.072	0.209	0.431
+codec-U	U-oneof-u-len	encode	retain	114.1	0.985	0.233	0.466		1.999	0.240	0.485
+codec-U	U-oneof-u-len	decode	drop	130.7	0.965	0.728	1.201	1.306	1.651	0.724	1.213
+codec-U	U-oneof-u-len	decode	retain	130.7	0.965	0.865	1.589	1.693	1.838	0.863	1.585
+codec-U	U-oneof-u-len	decode-read	drop	135.1	0.978	0.735	1.178	1.343	1.603	0.746	1.194
+codec-U	U-oneof-u-len	decode-read	retain	135.1	0.978	0.881	1.604	1.724	1.821	0.884	1.631
+codec-U	U-oneof-u-msg	encode	drop	112.9	1.006	0.208	0.433		2.080	0.205	0.434
+codec-U	U-oneof-u-msg	encode	retain	112.9	1.006	0.234	0.470		2.010	0.230	0.476
+codec-U	U-oneof-u-msg	decode	drop	130.6	0.958	0.719	1.223	1.296	1.700	0.712	1.212
+codec-U	U-oneof-u-msg	decode	retain	130.6	0.958	0.872	1.611	1.731	1.847	0.873	1.617
+codec-U	U-oneof-u-msg	decode-read	drop	133.9	0.987	0.751	1.212	1.323	1.614	0.744	1.224
+codec-U	U-oneof-u-msg	decode-read	retain	133.9	0.987	0.894	1.622	1.725	1.814	0.890	1.618
+codec-U	U-oneof-u-packed	encode	drop	113.7	0.975	0.207	0.431		2.086	0.215	0.446
+codec-U	U-oneof-u-packed	encode	retain	113.7	0.975	0.229	0.464		2.022	0.232	0.479
+codec-U	U-oneof-u-packed	decode	drop	133.7	0.935	0.703	1.187	1.004	1.689	0.704	1.205
+codec-U	U-oneof-u-packed	decode	retain	133.7	0.935	0.846	1.570	1.694	1.855	0.849	1.594
+codec-U	U-oneof-u-packed	decode-read	drop	135.3	0.976	0.731	1.213	1.313	1.659	0.729	1.217
+codec-U	U-oneof-u-packed	decode-read	retain	135.3	0.976	0.881	1.586	1.741	1.801	0.874	1.606
+codec-U	U-oneof-u-repeated	encode	drop	115.2	0.976	0.200	0.422		2.109	0.193	0.436
+codec-U	U-oneof-u-repeated	encode	retain	115.2	0.976	0.224	0.458		2.046	0.226	0.477
+codec-U	U-oneof-u-repeated	decode	drop	142.7	0.946	0.692	1.138	1.241	1.645	0.692	1.136
+codec-U	U-oneof-u-repeated	decode	retain	142.7	0.946	0.905	1.648	1.791	1.820	0.907	1.626
+codec-U	U-oneof-u-repeated	decode-read	drop	144.4	0.847	0.728	1.166	1.039	1.601	0.720	1.179
+codec-U	U-oneof-u-repeated	decode-read	retain	144.4	0.847	0.965	1.667	1.461	1.727	0.966	1.685
+codec-U	U-oneof-u-varint	encode	drop	111.3	0.943	0.209	0.435		2.084	0.214	0.442
+codec-U	U-oneof-u-varint	encode	retain	111.3	0.943	0.236	0.479		2.031	0.235	0.489
+codec-U	U-oneof-u-varint	decode	drop	137.5	0.880	0.689	1.150	1.004	1.670	0.702	1.161
+codec-U	U-oneof-u-varint	decode	retain	137.5	0.880	0.828	1.585	1.279	1.913	0.846	1.581
+codec-U	U-oneof-u-varint	decode-read	drop	137.8	0.954	0.731	1.200	1.008	1.642	0.741	1.196
+codec-U	U-oneof-u-varint	decode-read	retain	137.8	0.954	0.867	1.597	1.316	1.841	0.883	1.615
+codec-U	U-root-all	encode	drop	565.4	0.933	0.169	0.334		1.977	0.173	0.341
+codec-U	U-root-all	encode	retain	565.4	0.933	0.226	0.357		1.582	0.233	0.369
+codec-U	U-root-all	decode	drop	679.7	0.970	0.876	1.391	1.056	1.589	0.876	1.353
+codec-U	U-root-all	decode	retain	679.7	0.970	1.120	1.768	1.396	1.578	1.109	1.760
+codec-U	U-root-all	decode-read	drop	689.4	0.993	0.873	1.331	1.079	1.524	0.867	1.350
+codec-U	U-root-all	decode-read	retain	689.4	0.993	1.191	1.814	1.475	1.523	1.185	1.806
+codec-U	U-root-before	encode	drop	550.6	1.056	0.176	0.340		1.933	0.174	0.335
+codec-U	U-root-before	encode	retain	550.6	1.056	0.235	0.369		1.572	0.239	0.369
+codec-U	U-root-before	decode	drop	673.8	1.044	0.883	1.377	1.076	1.559	0.921	1.427
+codec-U	U-root-before	decode	retain	673.8	1.044	1.095	1.807	1.505	1.650	1.141	1.874
+codec-U	U-root-before	decode-read	drop	665.5	1.086	0.937	1.443	1.274	1.540	0.947	1.442
+codec-U	U-root-before	decode-read	retain	665.5	1.086	1.163	1.874	1.702	1.611	1.176	1.862
+codec-U	U-root-group	encode	drop	550.8	1.038	0.177	0.343		1.942	0.178	0.340
+codec-U	U-root-group	encode	retain	550.8	1.038	0.232	0.370		1.593	0.233	0.369
+codec-U	U-root-group	decode	drop	615.0	1.072	0.930	1.460	1.212	1.571	0.898	1.450
+codec-U	U-root-group	decode	retain	615.0	1.072	0.932	1.607	1.243	1.724	0.932	1.572
+codec-U	U-root-group	decode-read	drop	636.9	0.888	0.936	1.408	1.173	1.505	0.919	1.391
+codec-U	U-root-group	decode-read	retain	636.9	0.888	0.940	1.613	1.233	1.715	0.942	1.590
+codec-U	U-root-interleaved	encode	drop	555.5	0.840	0.173	0.339		1.963	0.176	0.345
+codec-U	U-root-interleaved	encode	retain	555.5	0.840	0.254	0.364		1.432	0.248	0.371
+codec-U	U-root-interleaved	decode	drop	667.4	0.834	0.822	1.410	1.062	1.715	0.821	1.395
+codec-U	U-root-interleaved	decode	retain	667.4	0.834	1.075	1.860	1.434	1.730	1.067	1.852
+codec-U	U-root-interleaved	decode-read	drop	699.3	0.933	0.877	1.360	1.054	1.550	0.878	1.349
+codec-U	U-root-interleaved	decode-read	retain	699.3	0.933	1.143	1.838	1.417	1.608	1.155	1.849
+codec-U	U-root-max-tag	encode	drop	555.7	0.916	0.172	0.338		1.968	0.170	0.336
+codec-U	U-root-max-tag	encode	retain	555.7	0.916	0.231	0.363		1.572	0.232	0.362
+codec-U	U-root-max-tag	decode	drop	578.7	0.977	0.954	1.509	1.185	1.582	0.931	1.502
+codec-U	U-root-max-tag	decode	retain	578.7	0.977	1.025	1.691	1.269	1.650	1.006	1.670
+codec-U	U-root-max-tag	decode-read	drop	604.4	0.893	0.984	1.477	1.157	1.501	0.981	1.495
+codec-U	U-root-max-tag	decode-read	retain	604.4	0.893	1.007	1.567	1.205	1.556	1.010	1.587
+codec-U	U-root-u-fixed32	encode	drop	554.3	0.849	0.173	0.339		1.956	0.173	0.341
+codec-U	U-root-u-fixed32	encode	retain	554.3	0.849	0.236	0.369		1.561	0.234	0.364
+codec-U	U-root-u-fixed32	decode	drop	585.1	0.880	0.959	1.489	1.168	1.553	0.953	1.505
+codec-U	U-root-u-fixed32	decode	retain	585.1	0.880	0.951	1.580	1.250	1.661	0.965	1.584
+codec-U	U-root-u-fixed32	decode-read	drop	599.4	0.954	1.048	1.488	1.169	1.420	0.993	1.463
+codec-U	U-root-u-fixed32	decode-read	retain	599.4	0.954	1.006	1.574	1.267	1.565	0.995	1.551
+codec-U	U-root-u-fixed64	encode	drop	548.9	0.855	0.178	0.345		1.937	0.176	0.344
+codec-U	U-root-u-fixed64	encode	retain	548.9	0.855	0.236	0.376		1.595	0.233	0.372
+codec-U	U-root-u-fixed64	decode	drop	581.5	0.846	0.955	1.535	1.177	1.608	0.963	1.520
+codec-U	U-root-u-fixed64	decode	retain	581.5	0.846	0.965	1.672	1.282	1.732	0.955	1.680
+codec-U	U-root-u-fixed64	decode-read	drop	599.2	0.840	0.964	1.418	1.179	1.470	0.959	1.412
+codec-U	U-root-u-fixed64	decode-read	retain	599.2	0.840	0.969	1.499	1.253	1.547	0.960	1.476
+codec-U	U-root-u-len	encode	drop	552.7	0.805	0.178	0.319		1.796	0.173	0.314
+codec-U	U-root-u-len	encode	retain	552.7	0.805	0.237	0.333		1.406	0.232	0.333
+codec-U	U-root-u-len	decode	drop	587.6	0.830	0.962	1.395	1.179	1.449	0.963	1.409
+codec-U	U-root-u-len	decode	retain	587.6	0.830	0.754	1.472	1.240	1.952	0.753	1.495
+codec-U	U-root-u-len	decode-read	drop	604.9	0.841	0.727	1.443	1.168	1.984	0.731	1.444
+codec-U	U-root-u-len	decode-read	retain	604.9	0.841	0.865	1.541	1.572	1.782	0.842	1.543
+codec-U	U-root-u-msg	encode	drop	573.7	0.773	0.155	0.327		2.111	0.158	0.328
+codec-U	U-root-u-msg	encode	retain	573.7	0.773	0.214	0.350		1.631	0.216	0.355
+codec-U	U-root-u-msg	decode	drop	598.4	0.844	0.795	1.480	1.510	1.862	0.813	1.507
+codec-U	U-root-u-msg	decode	retain	598.4	0.844	0.815	1.535	1.564	1.883	0.850	1.593
+codec-U	U-root-u-msg	decode-read	drop	615.3	0.825	0.814	1.452	1.471	1.783	0.829	1.471
+codec-U	U-root-u-msg	decode-read	retain	615.3	0.825	0.804	1.628	1.573	2.026	0.809	1.651
+codec-U	U-root-u-packed	encode	drop	558.5	0.798	0.152	0.324		2.133	0.148	0.322
+codec-U	U-root-u-packed	encode	retain	558.5	0.798	0.190	0.351		1.843	0.190	0.349
+codec-U	U-root-u-packed	decode	drop	590.3	0.870	0.769	1.484	1.533	1.930	0.786	1.530
+codec-U	U-root-u-packed	decode	retain	590.3	0.870	0.961	1.639	1.581	1.705	0.989	1.680
+codec-U	U-root-u-packed	decode-read	drop	604.3	0.884	0.953	1.429	1.529	1.499	0.945	1.429
+codec-U	U-root-u-packed	decode-read	retain	604.3	0.884	0.994	1.636	1.594	1.645	0.986	1.623
+codec-U	U-root-u-repeated	encode	drop	556.0	0.921	0.193	0.337		1.746	0.192	0.337
+codec-U	U-root-u-repeated	encode	retain	556.0	0.921	0.233	0.363		1.559	0.230	0.365
+codec-U	U-root-u-repeated	decode	drop	606.1	0.984	0.883	1.454	1.470	1.647	0.876	1.475
+codec-U	U-root-u-repeated	decode	retain	606.1	0.984	1.074	1.665	1.616	1.550	1.056	1.679
+codec-U	U-root-u-repeated	decode-read	drop	622.3	1.074	0.929	1.456	1.497	1.567	0.913	1.451
+codec-U	U-root-u-repeated	decode-read	retain	622.3	1.074	1.105	1.579	1.616	1.429	1.112	1.586
+codec-U	U-root-u-varint	encode	drop	551.1	0.988	0.173	0.338		1.950	0.173	0.337
+codec-U	U-root-u-varint	encode	retain	551.1	0.988	0.237	0.366		1.546	0.238	0.369
+codec-U	U-root-u-varint	decode	drop	588.9	1.021	0.891	1.478	1.517	1.659	0.908	1.516
+codec-U	U-root-u-varint	decode	retain	588.9	1.021	0.937	1.573	1.612	1.679	0.958	1.604
+codec-U	U-root-u-varint	decode-read	drop	609.2	1.014	0.984	1.451	1.491	1.475	0.983	1.458
+codec-U	U-root-u-varint	decode-read	retain	609.2	1.014	0.971	1.532	1.593	1.578	0.976	1.545
+codec-U	U-wire-DualResponse-left-as-wt0	encode	drop						1.820		
+codec-U	U-wire-DualResponse-left-as-wt0	encode	retain						1.540		
+codec-U	U-wire-DualResponse-left-as-wt0	decode	drop						1.408		
+codec-U	U-wire-DualResponse-left-as-wt0	decode	retain						1.545		
+codec-U	U-wire-DualResponse-left-as-wt0	decode-read	drop						1.378		
+codec-U	U-wire-DualResponse-left-as-wt0	decode-read	retain						1.557		
+codec-U	U-wire-DualResponse-left-as-wt1	encode	drop						1.840		
+codec-U	U-wire-DualResponse-left-as-wt1	encode	retain						1.556		
+codec-U	U-wire-DualResponse-left-as-wt1	decode	drop						1.413		
+codec-U	U-wire-DualResponse-left-as-wt1	decode	retain						1.587		
+codec-U	U-wire-DualResponse-left-as-wt1	decode-read	drop						1.387		
+codec-U	U-wire-DualResponse-left-as-wt1	decode-read	retain						1.547		
+codec-U	U-wire-DualResponse-left-as-wt5	encode	drop						1.811		
+codec-U	U-wire-DualResponse-left-as-wt5	encode	retain						1.530		
+codec-U	U-wire-DualResponse-left-as-wt5	decode	drop						1.421		
+codec-U	U-wire-DualResponse-left-as-wt5	decode	retain						1.614		
+codec-U	U-wire-DualResponse-left-as-wt5	decode-read	drop						1.385		
+codec-U	U-wire-DualResponse-left-as-wt5	decode-read	retain						1.568		
+codec-U	U-wire-ListMetricsResponse-batches-as-wt0	encode	drop						1.224		
+codec-U	U-wire-ListMetricsResponse-batches-as-wt0	encode	retain						1.329		
+codec-U	U-wire-ListMetricsResponse-batches-as-wt0	decode	drop						1.088		
+codec-U	U-wire-ListMetricsResponse-batches-as-wt0	decode	retain						1.013		
+codec-U	U-wire-ListMetricsResponse-batches-as-wt0	decode-read	drop						1.016		
+codec-U	U-wire-ListMetricsResponse-batches-as-wt0	decode-read	retain						0.984		
+codec-U	U-wire-ListMetricsResponse-batches-as-wt1	encode	drop						1.229		
+codec-U	U-wire-ListMetricsResponse-batches-as-wt1	encode	retain						1.316		
+codec-U	U-wire-ListMetricsResponse-batches-as-wt1	decode	drop						1.032		
+codec-U	U-wire-ListMetricsResponse-batches-as-wt1	decode	retain						0.959		
+codec-U	U-wire-ListMetricsResponse-batches-as-wt1	decode-read	drop						1.020		
+codec-U	U-wire-ListMetricsResponse-batches-as-wt1	decode-read	retain						0.973		
+codec-U	U-wire-ListMetricsResponse-batches-as-wt5	encode	drop						1.066		
+codec-U	U-wire-ListMetricsResponse-batches-as-wt5	encode	retain						1.295		
+codec-U	U-wire-ListMetricsResponse-batches-as-wt5	decode	drop						1.000		
+codec-U	U-wire-ListMetricsResponse-batches-as-wt5	decode	retain						0.979		
+codec-U	U-wire-ListMetricsResponse-batches-as-wt5	decode-read	drop						0.963		
+codec-U	U-wire-ListMetricsResponse-batches-as-wt5	decode-read	retain						0.981		
+codec-U	U-wire-ListProbeResponse-probes-as-wt0	encode	drop						1.949		
+codec-U	U-wire-ListProbeResponse-probes-as-wt0	encode	retain						1.788		
+codec-U	U-wire-ListProbeResponse-probes-as-wt0	decode	drop						1.594		
+codec-U	U-wire-ListProbeResponse-probes-as-wt0	decode	retain						1.675		
+codec-U	U-wire-ListProbeResponse-probes-as-wt0	decode-read	drop						1.576		
+codec-U	U-wire-ListProbeResponse-probes-as-wt0	decode-read	retain						1.631		
+codec-U	U-wire-ListProbeResponse-probes-as-wt1	encode	drop						2.054		
+codec-U	U-wire-ListProbeResponse-probes-as-wt1	encode	retain						2.129		
+codec-U	U-wire-ListProbeResponse-probes-as-wt1	decode	drop						1.602		
+codec-U	U-wire-ListProbeResponse-probes-as-wt1	decode	retain						1.666		
+codec-U	U-wire-ListProbeResponse-probes-as-wt1	decode-read	drop						1.569		
+codec-U	U-wire-ListProbeResponse-probes-as-wt1	decode-read	retain						1.667		
+codec-U	U-wire-ListProbeResponse-probes-as-wt5	encode	drop						2.024		
+codec-U	U-wire-ListProbeResponse-probes-as-wt5	encode	retain						2.085		
+codec-U	U-wire-ListProbeResponse-probes-as-wt5	decode	drop						1.583		
+codec-U	U-wire-ListProbeResponse-probes-as-wt5	decode	retain						1.695		
+codec-U	U-wire-ListProbeResponse-probes-as-wt5	decode-read	drop						1.581		
+codec-U	U-wire-ListProbeResponse-probes-as-wt5	decode-read	retain						1.651		
+codec-U	U-wire-ListResultsResponse-page-as-wt1	encode	drop						1.956		
+codec-U	U-wire-ListResultsResponse-page-as-wt1	encode	retain						1.555		
+codec-U	U-wire-ListResultsResponse-page-as-wt1	decode	drop						1.699		
+codec-U	U-wire-ListResultsResponse-page-as-wt1	decode	retain						1.678		
+codec-U	U-wire-ListResultsResponse-page-as-wt1	decode-read	drop						1.486		
+codec-U	U-wire-ListResultsResponse-page-as-wt1	decode-read	retain						1.636		
+codec-U	U-wire-ListResultsResponse-page-as-wt2	encode	drop						1.926		
+codec-U	U-wire-ListResultsResponse-page-as-wt2	encode	retain						1.595		
+codec-U	U-wire-ListResultsResponse-page-as-wt2	decode	drop						1.675		
+codec-U	U-wire-ListResultsResponse-page-as-wt2	decode	retain						1.683		
+codec-U	U-wire-ListResultsResponse-page-as-wt2	decode-read	drop						1.672		
+codec-U	U-wire-ListResultsResponse-page-as-wt2	decode-read	retain						1.747		
+codec-U	U-wire-ListResultsResponse-page-as-wt5	encode	drop						1.956		
+codec-U	U-wire-ListResultsResponse-page-as-wt5	encode	retain						1.570		
+codec-U	U-wire-ListResultsResponse-page-as-wt5	decode	drop						2.132		
+codec-U	U-wire-ListResultsResponse-page-as-wt5	decode	retain						2.110		
+codec-U	U-wire-ListResultsResponse-page-as-wt5	decode-read	drop						1.976		
+codec-U	U-wire-ListResultsResponse-page-as-wt5	decode-read	retain						1.972		
+codec-U	U-wire-ListResultsResponse-results-as-wt0	encode	drop						2.187		
+codec-U	U-wire-ListResultsResponse-results-as-wt0	encode	retain						1.853		
+codec-U	U-wire-ListResultsResponse-results-as-wt0	decode	drop						1.886		
+codec-U	U-wire-ListResultsResponse-results-as-wt0	decode	retain						2.121		
+codec-U	U-wire-ListResultsResponse-results-as-wt0	decode-read	drop						1.960		
+codec-U	U-wire-ListResultsResponse-results-as-wt0	decode-read	retain						2.040		
+codec-U	U-wire-ListResultsResponse-results-as-wt1	encode	drop						2.385		
+codec-U	U-wire-ListResultsResponse-results-as-wt1	encode	retain						1.990		
+codec-U	U-wire-ListResultsResponse-results-as-wt1	decode	drop						1.658		
+codec-U	U-wire-ListResultsResponse-results-as-wt1	decode	retain						1.661		
+codec-U	U-wire-ListResultsResponse-results-as-wt1	decode-read	drop						1.600		
+codec-U	U-wire-ListResultsResponse-results-as-wt1	decode-read	retain						2.049		
+codec-U	U-wire-ListResultsResponse-results-as-wt5	encode	drop						2.382		
+codec-U	U-wire-ListResultsResponse-results-as-wt5	encode	retain						1.912		
+codec-U	U-wire-ListResultsResponse-results-as-wt5	decode	drop						2.117		
+codec-U	U-wire-ListResultsResponse-results-as-wt5	decode	retain						1.983		
+codec-U	U-wire-ListResultsResponse-results-as-wt5	decode-read	drop						1.777		
+codec-U	U-wire-ListResultsResponse-results-as-wt5	decode-read	retain						1.865		
+codec-U	U-wire-ListTaskSummaryResponse-tasks-as-wt0	encode	drop						2.337		
+codec-U	U-wire-ListTaskSummaryResponse-tasks-as-wt0	encode	retain						2.207		
+codec-U	U-wire-ListTaskSummaryResponse-tasks-as-wt0	decode	drop						1.265		
+codec-U	U-wire-ListTaskSummaryResponse-tasks-as-wt0	decode	retain						1.309		
+codec-U	U-wire-ListTaskSummaryResponse-tasks-as-wt0	decode-read	drop						1.279		
+codec-U	U-wire-ListTaskSummaryResponse-tasks-as-wt0	decode-read	retain						1.375		
+codec-U	U-wire-ListTaskSummaryResponse-tasks-as-wt1	encode	drop						2.119		
+codec-U	U-wire-ListTaskSummaryResponse-tasks-as-wt1	encode	retain						1.894		
+codec-U	U-wire-ListTaskSummaryResponse-tasks-as-wt1	decode	drop						1.687		
+codec-U	U-wire-ListTaskSummaryResponse-tasks-as-wt1	decode	retain						1.398		
+codec-U	U-wire-ListTaskSummaryResponse-tasks-as-wt1	decode-read	drop						1.492		
+codec-U	U-wire-ListTaskSummaryResponse-tasks-as-wt1	decode-read	retain						1.425		
+codec-U	U-wire-ListTaskSummaryResponse-tasks-as-wt5	encode	drop						2.185		
+codec-U	U-wire-ListTaskSummaryResponse-tasks-as-wt5	encode	retain						1.974		
+codec-U	U-wire-ListTaskSummaryResponse-tasks-as-wt5	decode	drop						1.440		
+codec-U	U-wire-ListTaskSummaryResponse-tasks-as-wt5	decode	retain						1.356		
+codec-U	U-wire-ListTaskSummaryResponse-tasks-as-wt5	decode-read	drop						1.205		
+codec-U	U-wire-ListTaskSummaryResponse-tasks-as-wt5	decode-read	retain						1.409		
+codec-U	U-wire-ListTasksDetailedResponse-page-as-wt1	encode	drop						2.008		
+codec-U	U-wire-ListTasksDetailedResponse-page-as-wt1	encode	retain						1.821		
+codec-U	U-wire-ListTasksDetailedResponse-page-as-wt1	decode	drop						1.581		
+codec-U	U-wire-ListTasksDetailedResponse-page-as-wt1	decode	retain						1.504		
+codec-U	U-wire-ListTasksDetailedResponse-page-as-wt1	decode-read	drop						1.467		
+codec-U	U-wire-ListTasksDetailedResponse-page-as-wt1	decode-read	retain						1.482		
+codec-U	U-wire-ListTasksDetailedResponse-page-as-wt2	encode	drop						2.050		
+codec-U	U-wire-ListTasksDetailedResponse-page-as-wt2	encode	retain						1.830		
+codec-U	U-wire-ListTasksDetailedResponse-page-as-wt2	decode	drop						1.330		
+codec-U	U-wire-ListTasksDetailedResponse-page-as-wt2	decode	retain						1.378		
+codec-U	U-wire-ListTasksDetailedResponse-page-as-wt2	decode-read	drop						1.358		
+codec-U	U-wire-ListTasksDetailedResponse-page-as-wt2	decode-read	retain						1.399		
+codec-U	U-wire-ListTasksDetailedResponse-page-as-wt5	encode	drop						1.668		
+codec-U	U-wire-ListTasksDetailedResponse-page-as-wt5	encode	retain						1.537		
+codec-U	U-wire-ListTasksDetailedResponse-page-as-wt5	decode	drop						1.722		
+codec-U	U-wire-ListTasksDetailedResponse-page-as-wt5	decode	retain						1.744		
+codec-U	U-wire-ListTasksDetailedResponse-page-as-wt5	decode-read	drop						1.715		
+codec-U	U-wire-ListTasksDetailedResponse-page-as-wt5	decode-read	retain						1.738		
+codec-U	U-wire-ListTasksDetailedResponse-tasks-as-wt0	encode	drop						2.058		
+codec-U	U-wire-ListTasksDetailedResponse-tasks-as-wt0	encode	retain						1.861		
+codec-U	U-wire-ListTasksDetailedResponse-tasks-as-wt0	decode	drop						1.683		
+codec-U	U-wire-ListTasksDetailedResponse-tasks-as-wt0	decode	retain						1.757		
+codec-U	U-wire-ListTasksDetailedResponse-tasks-as-wt0	decode-read	drop						1.728		
+codec-U	U-wire-ListTasksDetailedResponse-tasks-as-wt0	decode-read	retain						1.819		
+codec-U	U-wire-ListTasksDetailedResponse-tasks-as-wt1	encode	drop						2.076		
+codec-U	U-wire-ListTasksDetailedResponse-tasks-as-wt1	encode	retain						1.918		
+codec-U	U-wire-ListTasksDetailedResponse-tasks-as-wt1	decode	drop						2.213		
+codec-U	U-wire-ListTasksDetailedResponse-tasks-as-wt1	decode	retain						2.207		
+codec-U	U-wire-ListTasksDetailedResponse-tasks-as-wt1	decode-read	drop						2.025		
+codec-U	U-wire-ListTasksDetailedResponse-tasks-as-wt1	decode-read	retain						1.936		
+codec-U	U-wire-ListTasksDetailedResponse-tasks-as-wt5	encode	drop						2.297		
+codec-U	U-wire-ListTasksDetailedResponse-tasks-as-wt5	encode	retain						1.835		
+codec-U	U-wire-ListTasksDetailedResponse-tasks-as-wt5	decode	drop						1.664		
+codec-U	U-wire-ListTasksDetailedResponse-tasks-as-wt5	decode	retain						1.733		
+codec-U	U-wire-ListTasksDetailedResponse-tasks-as-wt5	decode-read	drop						1.636		
+codec-U	U-wire-ListTasksDetailedResponse-tasks-as-wt5	decode-read	retain						1.714		
+codec-U	U-wire-UploadResultDataMessage-upload-as-wt0	encode	drop						2.049		
+codec-U	U-wire-UploadResultDataMessage-upload-as-wt0	encode	retain						1.799		
+codec-U	U-wire-UploadResultDataMessage-upload-as-wt0	decode	drop						1.675		
+codec-U	U-wire-UploadResultDataMessage-upload-as-wt0	decode	retain						1.843		
+codec-U	U-wire-UploadResultDataMessage-upload-as-wt0	decode-read	drop						1.650		
+codec-U	U-wire-UploadResultDataMessage-upload-as-wt0	decode-read	retain						1.785		
+codec-U	U-wire-UploadResultDataMessage-upload-as-wt1	encode	drop						2.043		
+codec-U	U-wire-UploadResultDataMessage-upload-as-wt1	encode	retain						1.814		
+codec-U	U-wire-UploadResultDataMessage-upload-as-wt1	decode	drop						1.674		
+codec-U	U-wire-UploadResultDataMessage-upload-as-wt1	decode	retain						1.971		
+codec-U	U-wire-UploadResultDataMessage-upload-as-wt1	decode-read	drop						1.844		
+codec-U	U-wire-UploadResultDataMessage-upload-as-wt1	decode-read	retain						2.093		
+codec-U	U-wire-UploadResultDataMessage-upload-as-wt5	encode	drop						1.726		
+codec-U	U-wire-UploadResultDataMessage-upload-as-wt5	encode	retain						1.578		
+codec-U	U-wire-UploadResultDataMessage-upload-as-wt5	decode	drop						1.548		
+codec-U	U-wire-UploadResultDataMessage-upload-as-wt5	decode	retain						1.746		
+codec-U	U-wire-UploadResultDataMessage-upload-as-wt5	decode-read	drop						1.577		
+codec-U	U-wire-UploadResultDataMessage-upload-as-wt5	decode-read	retain						1.792		
+codec-nounk-P	P1.1	encode	no-unknown	1249.9	1.009	0.120	0.309		2.575	0.120	0.304
+codec-nounk-P	P1.1	decode	no-unknown	1243.5	1.044	0.726	1.348	1.365	1.857	0.857	1.663
+codec-nounk-P	P1.1	decode-read	no-unknown	1265.7	1.072	0.728	1.358	1.405	1.866	0.741	1.357
+codec-nounk-P	P1.2	encode	no-unknown	329702.3	1.037	0.141	0.322		2.292	0.145	0.330
+codec-nounk-P	P1.2	decode	no-unknown	372641.8	0.947	0.855	1.211	1.226	1.416	1.019	1.449
+codec-nounk-P	P1.2	decode-read	no-unknown	319773.1	1.169	1.072	1.477	1.502	1.377	1.064	1.472
+codec-nounk-P	P1.2/latin1	encode	no-unknown	281726.5	1.225	0.174	0.375		2.150	0.187	0.402
+codec-nounk-P	P1.2/latin1	decode	no-unknown	468842.4	1.174	0.889	1.537	1.630	1.729	0.853	1.519
+codec-nounk-P	P1.2/latin1	decode-read	no-unknown	607609.7	0.942	0.850	1.258	1.263	1.479	0.852	1.236
+codec-nounk-P	P1.2/wide	encode	no-unknown	334965.1	1.024	0.193	0.272		1.404	0.191	0.268
+codec-nounk-P	P1.2/wide	decode	no-unknown	719322.3	0.923	0.842	1.334	1.334	1.584	0.851	1.352
+codec-nounk-P	P1.2/wide	decode-read	no-unknown	725260.6	0.949	0.861	1.343	1.054	1.559	0.861	1.347
+codec-nounk-P	P1.3	encode	no-unknown	5829.4	1.328	0.253	0.723		2.859	0.235	0.642
+codec-nounk-P	P1.3	decode	no-unknown	7735.1	1.855	1.232	1.459	1.670	1.184	1.190	1.448
+codec-nounk-P	P1.3	decode-read	no-unknown	9252.6	1.765	1.451	1.481	1.625	1.021	1.473	1.468
+codec-nounk-P	P2.1	encode	no-unknown	1099.5	1.274	0.240	0.536		2.233	0.203	0.533
+codec-nounk-P	P2.1	decode	no-unknown	2289.9	0.807	0.675	1.334	1.341	1.975	0.683	1.304
+codec-nounk-P	P2.1	decode-read	no-unknown	2045.2	0.951	0.821	1.542	1.562	1.878	0.982	1.452
+codec-nounk-P	P2.2	encode	no-unknown	919021.0	1.067	0.207	0.413		1.996	0.235	0.471
+codec-nounk-P	P2.2	decode	no-unknown	1469983.4	0.791	0.847	1.276	1.259	1.507	0.727	1.323
+codec-nounk-P	P2.2	decode-read	no-unknown	1490464.8	0.809	0.877	1.224	1.294	1.396	0.910	1.149
+codec-nounk-P	P2.2/latin1	encode	no-unknown	997311.2	1.021	0.231	0.347		1.503	0.271	0.392
+codec-nounk-P	P2.2/latin1	decode	no-unknown	1995696.1	0.889	0.855	1.366	1.311	1.598	0.863	1.383
+codec-nounk-P	P2.2/latin1	decode-read	no-unknown	1917948.2	1.099	0.768	1.467	1.419	1.910	0.778	1.397
+codec-nounk-P	P2.2/wide	encode	no-unknown	867360.9	1.197	0.266	0.456		1.709	0.270	0.432
+codec-nounk-P	P2.2/wide	decode	no-unknown	1943478.7	1.253	1.088	1.744	1.724	1.603	1.073	1.702
+codec-nounk-P	P2.2/wide	decode-read	no-unknown	2061038.9	0.995	1.108	1.406	1.685	1.269	1.087	1.415
+codec-nounk-P	P2.3	encode	no-unknown	397520.0	1.002	0.262	0.543		2.071	0.264	0.551
+codec-nounk-P	P2.3	decode	no-unknown	974664.1	1.204	1.029	1.416	1.586	1.376	0.965	1.352
+codec-nounk-P	P2.3	decode-read	no-unknown	1015541.5	1.243	0.921	1.597	1.608	1.733	0.926	1.572
+codec-nounk-P	P2.4	encode	no-unknown	500091.8	1.218	0.348	0.683		1.964	0.340	0.670
+codec-nounk-P	P2.4	decode	no-unknown	1342864.6	1.221	0.972	1.615	1.620	1.662	0.973	1.380
+codec-nounk-P	P2.4	decode-read	no-unknown	1426197.1	1.230	0.952	1.569	1.579	1.648	0.938	1.535
+codec-nounk-P	P2.5	encode	no-unknown	24429.9	1.126	0.176	0.476		2.706	0.175	0.474
+codec-nounk-P	P2.5	decode	no-unknown	37763.2	1.226	1.076	1.657	1.653	1.539	1.079	1.671
+codec-nounk-P	P2.5	decode-read	no-unknown	44507.5	1.076	0.950	1.452	1.436	1.528	1.087	1.652
+codec-nounk-P	P3.1	encode	no-unknown	17725.5	1.207	0.210	0.362		1.726	0.210	0.355
+codec-nounk-P	P3.1	decode	no-unknown	25728.3	0.918	0.901	1.287	1.311	1.428	0.907	1.296
+codec-nounk-P	P3.1	decode-read	no-unknown	26739.5	0.884	0.928	1.279	1.302	1.378	1.192	1.588
+codec-nounk-P	P4.1	encode	no-unknown	142396.1	0.782	0.187	0.418		2.240	0.186	0.416
+codec-nounk-P	P4.1	decode	no-unknown	260862.4	0.771	0.860	1.187	1.003	1.381	0.684	1.199
+codec-nounk-P	P4.1	decode-read	no-unknown	209774.9	0.980	0.867	1.541	1.358	1.776	0.876	1.243
+codec-nounk-P	P5.1	encode	no-unknown	67.4	0.812	0.197	0.382		1.937	0.235	0.452
+codec-nounk-P	P5.1	decode	no-unknown	98.5	0.698	0.817	1.477	1.719	1.807	0.809	1.342
+codec-nounk-P	P5.1	decode-read	no-unknown	100.4	0.692	0.859	1.380	1.724	1.607	0.898	1.438
+codec-nounk-P	P5.2	encode	no-unknown	1643.0	0.954	0.927	0.927		1.000	0.933	0.893
+codec-nounk-P	P5.2	decode	no-unknown	1660.4	0.042	1.005	1.050	1.041	1.044	1.009	1.050
+codec-nounk-P	P5.2	decode-read	no-unknown	1642.8	0.044	1.018	1.066	1.054	1.048	1.033	1.078
+codec-nounk-P	P5.3	encode	no-unknown	45092.1	1.071	1.037	1.000		0.964	0.912	1.057
+codec-nounk-P	P5.3	decode	no-unknown	41910.5	0.002	1.029	0.990	1.063	0.962	1.002	0.958
+codec-nounk-P	P5.3	decode-read	no-unknown	42645.1	0.002	1.001	0.985	1.042	0.984	0.994	0.981
+codec-nounk-P	P5.4	encode	no-unknown	306419.5	1.062	1.142	1.106		0.969	1.077	1.131
+codec-nounk-P	P5.4	decode	no-unknown	348103.4	0.000	1.014	0.967	1.003	0.954	1.086	0.905
+codec-nounk-P	P5.4	decode-read	no-unknown	304616.5	0.000	1.158	1.139	1.137	0.984	1.146	1.141
+codec-nounk-P	P6.1	encode	no-unknown	411601.3	0.804	0.173	0.198		1.140	0.173	0.197
+codec-nounk-P	P6.1	decode	no-unknown	291975.3	0.928	0.653	0.589	0.562	0.902	0.664	0.598
+codec-nounk-P	P6.1	decode-read	no-unknown	317778.5	0.823	0.693	0.628	0.592	0.906	0.708	0.624
+codec-nounk-P	P7.1	decode	no-unknown	338.1	0.713	0.713	1.106	1.190	1.552	0.705	1.104
+codec-nounk-P	P7.1	decode-read	no-unknown	348.5	0.723	0.759	1.127	1.199	1.485	0.756	1.119
+codec-nounk-U	U-deep-all	encode	no-unknown	1313.6	1.036	0.186	0.415		2.232	0.187	0.413
+codec-nounk-U	U-deep-all	decode	no-unknown	2145.6	0.998	0.679	1.274	1.273	1.877	0.685	1.286
+codec-nounk-U	U-deep-all	decode-read	no-unknown	2225.0	0.996	0.705	1.267	1.278	1.798	0.704	1.253
+codec-nounk-U	U-deep-u-fixed32	encode	no-unknown	1310.1	1.036	0.186	0.416		2.233	0.186	0.412
+codec-nounk-U	U-deep-u-fixed32	decode	no-unknown	2108.5	0.947	0.673	1.256	1.272	1.866	0.673	1.254
+codec-nounk-U	U-deep-u-fixed32	decode-read	no-unknown	2189.8	0.950	0.704	1.292	1.253	1.834	0.712	1.330
+codec-nounk-U	U-deep-u-fixed64	encode	no-unknown	1335.7	1.003	0.184	0.403		2.189	0.189	0.413
+codec-nounk-U	U-deep-u-fixed64	decode	no-unknown	2013.7	0.997	0.698	1.277	1.230	1.831	0.693	1.261
+codec-nounk-U	U-deep-u-fixed64	decode-read	no-unknown	2161.5	0.965	0.700	1.282	1.195	1.832	0.697	1.270
+codec-nounk-U	U-deep-u-len	encode	no-unknown	1321.2	1.010	0.185	0.412		2.230	0.192	0.423
+codec-nounk-U	U-deep-u-len	decode	no-unknown	2070.8	0.966	0.683	1.048	1.292	1.534	0.691	1.001
+codec-nounk-U	U-deep-u-len	decode-read	no-unknown	2135.4	0.977	0.706	1.285	1.301	1.820	0.711	1.022
+codec-nounk-U	U-deep-u-msg	encode	no-unknown	1333.3	1.011	0.181	0.402		2.216	0.185	0.410
+codec-nounk-U	U-deep-u-msg	decode	no-unknown	2052.8	0.998	0.681	1.283	1.303	1.883	0.681	1.288
+codec-nounk-U	U-deep-u-msg	decode-read	no-unknown	2140.0	0.997	0.698	1.484	1.283	2.126	0.703	1.423
+codec-nounk-U	U-deep-u-packed	encode	no-unknown	1327.2	1.025	0.185	0.414		2.232	0.187	0.408
+codec-nounk-U	U-deep-u-packed	decode	no-unknown	2008.6	1.027	0.705	1.336	1.338	1.894	0.728	1.371
+codec-nounk-U	U-deep-u-packed	decode-read	no-unknown	2061.8	1.039	0.736	1.349	1.267	1.834	0.737	1.350
+codec-nounk-U	U-deep-u-repeated	encode	no-unknown	1269.5	1.060	0.193	0.435		2.256	0.192	0.429
+codec-nounk-U	U-deep-u-repeated	decode	no-unknown	2019.2	1.008	0.704	1.287	1.273	1.828	0.702	1.291
+codec-nounk-U	U-deep-u-repeated	decode-read	no-unknown	2104.8	1.012	0.723	1.352	1.289	1.870	0.718	1.328
+codec-nounk-U	U-deep-u-varint	encode	no-unknown	1300.2	1.046	0.190	0.422		2.220	0.190	0.408
+codec-nounk-U	U-deep-u-varint	decode	no-unknown	1993.4	1.061	0.705	1.347	1.286	1.910	0.709	1.339
+codec-nounk-U	U-deep-u-varint	decode-read	no-unknown	2128.6	1.017	0.711	1.311	1.279	1.844	0.708	1.300
+codec-nounk-U	U-element-all	encode	no-unknown	1322.5	1.015	0.187	0.415		2.217	0.189	0.409
+codec-nounk-U	U-element-all	decode	no-unknown	2095.9	1.008	0.698	1.292	1.288	1.851	0.703	1.296
+codec-nounk-U	U-element-all	decode-read	no-unknown	1758.3	1.247	0.884	1.676	1.570	1.896	0.903	1.687
+codec-nounk-U	U-element-u-fixed32	encode	no-unknown	1032.9	1.307	0.237	0.522		2.201	0.239	0.531
+codec-nounk-U	U-element-u-fixed32	decode	no-unknown	1552.4	1.294	0.917	1.664	1.718	1.814	0.905	1.644
+codec-nounk-U	U-element-u-fixed32	decode-read	no-unknown	1652.3	1.104	0.918	1.686	1.672	1.837	0.919	1.684
+codec-nounk-U	U-element-u-fixed64	encode	no-unknown	1024.2	1.325	0.242	0.533		2.202	0.241	0.528
+codec-nounk-U	U-element-u-fixed64	decode	no-unknown	1561.1	1.101	0.906	1.711	1.707	1.888	0.903	1.689
+codec-nounk-U	U-element-u-fixed64	decode-read	no-unknown	1647.8	1.085	0.921	1.696	1.658	1.840	0.919	1.711
+codec-nounk-U	U-element-u-len	encode	no-unknown	1031.7	1.301	0.239	0.524		2.194	0.239	0.525
+codec-nounk-U	U-element-u-len	decode	no-unknown	1391.9	1.227	1.024	1.863	1.834	1.819	1.035	1.867
+codec-nounk-U	U-element-u-len	decode-read	no-unknown	1463.0	1.230	1.065	1.887	1.804	1.772	1.032	1.870
+codec-nounk-U	U-element-u-msg	encode	no-unknown	1315.3	1.016	0.188	0.406		2.157	0.191	0.413
+codec-nounk-U	U-element-u-msg	decode	no-unknown	2012.7	0.843	0.739	1.321	1.319	1.788	0.719	1.314
+codec-nounk-U	U-element-u-msg	decode-read	no-unknown	2089.7	0.864	0.746	1.337	1.303	1.791	0.731	1.344
+codec-nounk-U	U-element-u-packed	encode	no-unknown	1314.6	1.024	0.183	0.408		2.233	0.175	0.410
+codec-nounk-U	U-element-u-packed	decode	no-unknown	2050.4	0.825	0.691	1.262	1.291	1.826	0.694	1.278
+codec-nounk-U	U-element-u-packed	decode-read	no-unknown	2063.5	0.878	0.740	1.343	1.342	1.816	0.737	1.334
+codec-nounk-U	U-element-u-repeated	encode	no-unknown	1311.8	1.032	0.187	0.409		2.184	0.188	0.409
+codec-nounk-U	U-element-u-repeated	decode	no-unknown	2012.3	0.746	0.691	1.324	1.322	1.914	0.693	1.337
+codec-nounk-U	U-element-u-repeated	decode-read	no-unknown	2000.5	0.710	0.745	1.395	1.385	1.874	0.730	1.398
+codec-nounk-U	U-element-u-varint	encode	no-unknown	1314.0	0.800	0.188	0.408		2.168	0.189	0.409
+codec-nounk-U	U-element-u-varint	decode	no-unknown	2014.6	0.668	0.602	1.343	1.312	2.232	0.582	1.345
+codec-nounk-U	U-element-u-varint	decode-read	no-unknown	2095.5	0.671	0.568	1.323	1.309	2.328	0.574	1.326
+codec-nounk-U	U-enum-value-127	encode	no-unknown	54.9	1.060	0.217	0.650		2.998	0.214	0.631
+codec-nounk-U	U-enum-value-127	decode	no-unknown	73.4	1.348	1.574	2.342	1.605	1.488	1.576	2.298
+codec-nounk-U	U-enum-value-127	decode-read	no-unknown	81.4	1.307	0.916	1.499	1.583	1.636	0.919	1.490
+codec-nounk-U	U-enum-value-2147483647	encode	no-unknown	72.4	1.058	0.194	0.529		2.733	0.190	0.518
+codec-nounk-U	U-enum-value-2147483647	decode	no-unknown	76.0	1.335	0.918	1.501	1.602	1.635	0.913	1.511
+codec-nounk-U	U-enum-value-2147483647	decode-read	no-unknown	84.4	1.389	1.136	1.478	1.563	1.301	1.127	1.466
+codec-nounk-U	U-enum-value-999	encode	no-unknown	57.7	1.107	0.277	0.633		2.288	0.273	0.626
+codec-nounk-U	U-enum-value-999	decode	no-unknown	76.0	1.319	1.159	1.480	1.524	1.277	1.176	1.503
+codec-nounk-U	U-enum-value-999	decode-read	no-unknown	83.8	1.268	1.128	1.462	1.502	1.296	1.126	1.449
+codec-nounk-U	U-enum-value-packed	encode	no-unknown	102.8	1.490	0.237	0.741		3.126	0.236	0.745
+codec-nounk-U	U-enum-value-packed	decode	no-unknown	106.3	1.165	0.741	1.937	2.119	2.612	0.759	1.974
+codec-nounk-U	U-enum-value-packed	decode-read	no-unknown	103.6	1.306	0.867	2.053	2.217	2.369	0.888	2.080
+codec-nounk-U	U-leaf-all	encode	no-unknown	255.3	1.051	0.176	0.417		2.370	0.178	0.396
+codec-nounk-U	U-leaf-all	decode	no-unknown	469.2	1.022	0.664	1.013	1.022	1.524	0.669	1.018
+codec-nounk-U	U-leaf-all	decode-read	no-unknown	406.0	1.257	0.810	1.205	1.207	1.489	0.816	1.218
+codec-nounk-U	U-leaf-u-fixed32	encode	no-unknown	220.0	1.235	0.206	0.472		2.291	0.206	0.451
+codec-nounk-U	U-leaf-u-fixed32	decode	no-unknown	257.2	1.188	0.984	1.586	1.631	1.611	1.000	1.598
+codec-nounk-U	U-leaf-u-fixed32	decode-read	no-unknown	252.1	1.266	1.052	1.669	1.597	1.587	1.073	1.692
+codec-nounk-U	U-leaf-u-fixed64	encode	no-unknown	216.7	1.270	0.210	0.484		2.312	0.211	0.465
+codec-nounk-U	U-leaf-u-fixed64	decode	no-unknown	239.7	1.333	1.077	1.727	1.667	1.604	1.090	1.738
+codec-nounk-U	U-leaf-u-fixed64	decode-read	no-unknown	249.5	1.293	1.073	1.707	1.729	1.590	1.098	1.724
+codec-nounk-U	U-leaf-u-len	encode	no-unknown	211.4	1.300	0.219	0.486		2.218	0.218	0.476
+codec-nounk-U	U-leaf-u-len	decode	no-unknown	241.7	1.287	1.055	1.698	1.811	1.610	1.061	1.718
+codec-nounk-U	U-leaf-u-len	decode-read	no-unknown	252.2	1.318	1.071	1.671	1.357	1.561	1.097	1.678
+codec-nounk-U	U-leaf-u-msg	encode	no-unknown	210.2	1.318	0.214	0.376		1.755	0.213	0.370
+codec-nounk-U	U-leaf-u-msg	decode	no-unknown	239.7	1.034	0.996	1.405	1.766	1.411	1.004	1.401
+codec-nounk-U	U-leaf-u-msg	decode-read	no-unknown	249.1	1.006	0.997	1.398	1.721	1.403	1.007	1.400
+codec-nounk-U	U-leaf-u-packed	encode	no-unknown	212.3	1.296	0.208	0.397		1.914	0.208	0.391
+codec-nounk-U	U-leaf-u-packed	decode	no-unknown	238.7	1.308	1.035	1.408	1.769	1.360	1.031	1.409
+codec-nounk-U	U-leaf-u-packed	decode-read	no-unknown	246.4	1.312	1.057	1.529	1.758	1.447	1.045	1.520
+codec-nounk-U	U-leaf-u-repeated	encode	no-unknown	209.4	1.012	0.204	0.434		2.123	0.202	0.427
+codec-nounk-U	U-leaf-u-repeated	decode	no-unknown	255.3	0.998	1.028	1.476	1.695	1.436	1.009	1.476
+codec-nounk-U	U-leaf-u-repeated	decode-read	no-unknown	263.2	1.291	1.055	1.388	1.681	1.315	1.060	1.377
+codec-nounk-U	U-leaf-u-varint	encode	no-unknown	208.9	1.305	0.217	0.497		2.286	0.219	0.495
+codec-nounk-U	U-leaf-u-varint	decode	no-unknown	246.8	1.288	1.046	1.653	1.716	1.580	1.057	1.643
+codec-nounk-U	U-leaf-u-varint	decode-read	no-unknown	255.1	1.299	1.083	1.674	1.699	1.545	1.066	1.660
+codec-nounk-U	U-nested-all	encode	no-unknown	212.7	1.284	0.211	0.474		2.251	0.212	0.460
+codec-nounk-U	U-nested-all	decode	no-unknown	294.5	1.292	0.959	1.461	1.544	1.523	0.984	1.486
+codec-nounk-U	U-nested-all	decode-read	no-unknown	303.2	1.336	0.977	1.471	1.546	1.505	0.962	1.451
+codec-nounk-U	U-nested-before	encode	no-unknown	210.5	1.302	0.219	0.492		2.244	0.216	0.469
+codec-nounk-U	U-nested-before	decode	no-unknown	294.3	1.310	0.973	1.472	1.573	1.513	0.967	1.461
+codec-nounk-U	U-nested-before	decode-read	no-unknown	343.3	1.148	0.871	1.374	1.386	1.577	0.945	1.464
+codec-nounk-U	U-nested-group	encode	no-unknown	237.2	1.171	0.200	0.452		2.258	0.207	0.475
+codec-nounk-U	U-nested-group	decode	no-unknown	296.8	1.156	0.871	1.437	1.463	1.651	0.876	1.450
+codec-nounk-U	U-nested-group	decode-read	no-unknown	305.0	1.180	0.930	1.447	1.464	1.557	0.927	1.434
+codec-nounk-U	U-nested-interleaved	encode	no-unknown	245.1	1.104	0.183	0.431		2.363	0.182	0.400
+codec-nounk-U	U-nested-interleaved	decode	no-unknown	335.1	1.152	0.838	1.318	1.361	1.573	0.845	1.323
+codec-nounk-U	U-nested-interleaved	decode-read	no-unknown	320.4	1.228	0.920	1.441	1.452	1.566	0.922	1.431
+codec-nounk-U	U-nested-u-fixed32	encode	no-unknown	237.8	1.158	0.188	0.436		2.321	0.189	0.424
+codec-nounk-U	U-nested-u-fixed32	decode	no-unknown	261.4	1.166	0.947	1.546	1.596	1.632	1.002	1.622
+codec-nounk-U	U-nested-u-fixed32	decode-read	no-unknown	251.5	1.243	1.053	1.792	1.718	1.701	1.048	1.669
+codec-nounk-U	U-nested-u-fixed64	encode	no-unknown	219.7	1.230	0.208	0.478		2.301	0.205	0.471
+codec-nounk-U	U-nested-u-fixed64	decode	no-unknown	243.5	1.231	1.030	1.661	1.738	1.613	1.037	1.654
+codec-nounk-U	U-nested-u-fixed64	decode-read	no-unknown	248.8	0.982	1.053	1.697	1.743	1.612	1.057	1.691
+codec-nounk-U	U-nested-u-len	encode	no-unknown	208.8	1.150	0.218	0.499		2.290	0.216	0.464
+codec-nounk-U	U-nested-u-len	decode	no-unknown	239.8	1.256	0.824	1.726	1.732	2.093	0.836	1.712
+codec-nounk-U	U-nested-u-len	decode-read	no-unknown	239.0	1.304	0.912	1.784	1.788	1.956	0.910	1.773
+codec-nounk-U	U-nested-u-msg	encode	no-unknown	208.6	1.307	0.170	0.512		3.010	0.168	0.483
+codec-nounk-U	U-nested-u-msg	decode	no-unknown	245.6	1.238	0.800	1.657	1.695	2.072	0.814	1.725
+codec-nounk-U	U-nested-u-msg	decode-read	no-unknown	308.2	1.010	0.855	1.360	1.130	1.590	0.861	1.357
+codec-nounk-U	U-nested-u-packed	encode	no-unknown	275.7	0.991	0.192	0.372		1.932	0.177	0.363
+codec-nounk-U	U-nested-u-packed	decode	no-unknown	309.6	0.970	0.798	1.302	1.068	1.632	0.834	1.354
+codec-nounk-U	U-nested-u-packed	decode-read	no-unknown	308.6	1.013	0.856	1.353	1.085	1.579	0.850	1.339
+codec-nounk-U	U-nested-u-repeated	encode	no-unknown	272.8	0.991	0.166	0.377		2.274	0.168	0.374
+codec-nounk-U	U-nested-u-repeated	decode	no-unknown	305.6	1.031	0.843	1.334	1.150	1.582	0.829	1.338
+codec-nounk-U	U-nested-u-repeated	decode-read	no-unknown	320.1	0.998	0.834	1.327	1.384	1.592	0.851	1.344
+codec-nounk-U	U-nested-u-varint	encode	no-unknown	268.0	1.023	0.168	0.377		2.244	0.169	0.367
+codec-nounk-U	U-nested-u-varint	decode	no-unknown	302.4	1.018	0.823	1.342	1.404	1.631	0.824	1.332
+codec-nounk-U	U-nested-u-varint	decode-read	no-unknown	312.1	1.015	0.840	1.343	1.413	1.599	0.837	1.347
+codec-nounk-U	U-oneof-all	encode	no-unknown	97.9	1.246	0.225	0.526		2.342	0.225	0.547
+codec-nounk-U	U-oneof-all	decode	no-unknown	158.2	1.338	0.779	1.090	1.184	1.400	0.791	1.097
+codec-nounk-U	U-oneof-all	decode-read	no-unknown	162.1	1.354	0.802	1.100	1.204	1.371	0.800	1.126
+codec-nounk-U	U-oneof-before	encode	no-unknown	100.9	1.218	0.222	0.495		2.233	0.236	0.527
+codec-nounk-U	U-oneof-before	decode	no-unknown	157.8	1.331	0.765	1.114	1.191	1.456	0.749	1.107
+codec-nounk-U	U-oneof-before	decode-read	no-unknown	163.1	1.340	0.800	1.058	1.176	1.322	0.801	1.092
+codec-nounk-U	U-oneof-group	encode	no-unknown	103.5	1.212	0.214	0.471		2.203	0.230	0.500
+codec-nounk-U	U-oneof-group	decode	no-unknown	148.0	1.151	0.771	1.126	1.206	1.461	0.822	1.210
+codec-nounk-U	U-oneof-group	decode-read	no-unknown	142.9	1.213	0.787	1.212	1.279	1.539	0.717	1.240
+codec-nounk-U	U-oneof-interleaved	encode	no-unknown	126.6	1.021	0.154	0.403		2.625	0.158	0.431
+codec-nounk-U	U-oneof-interleaved	decode	no-unknown	202.2	1.034	0.549	0.855	0.928	1.556	0.550	0.864
+codec-nounk-U	U-oneof-interleaved	decode-read	no-unknown	206.5	1.041	0.638	0.851	0.931	1.334	0.617	0.859
+codec-nounk-U	U-oneof-member-after-known	encode	no-unknown	131.5	0.938	0.167	0.380		2.268	0.174	0.411
+codec-nounk-U	U-oneof-member-after-known	decode	no-unknown	125.3	1.002	0.745	1.160	1.254	1.557	0.753	1.174
+codec-nounk-U	U-oneof-member-after-known	decode-read	no-unknown	128.1	1.015	0.781	0.947	1.287	1.213	0.779	0.949
+codec-nounk-U	U-oneof-member-alone	encode	no-unknown	82.7	1.026	0.224	0.423		1.886	0.209	0.425
+codec-nounk-U	U-oneof-member-alone	decode	no-unknown	116.0	0.982	0.760	0.973	1.182	1.280	0.794	1.016
+codec-nounk-U	U-oneof-member-alone	decode-read	no-unknown	115.2	1.023	0.801	0.999	1.209	1.247	0.792	1.001
+codec-nounk-U	U-oneof-member-before-known	encode	no-unknown	131.1	0.930	0.167	0.305		1.829	0.177	0.331
+codec-nounk-U	U-oneof-member-before-known	decode	no-unknown	125.8	1.001	0.745	0.928	1.117	1.246	0.762	0.956
+codec-nounk-U	U-oneof-member-before-known	decode-read	no-unknown	130.9	1.002	0.761	0.930	1.112	1.223	0.764	0.953
+codec-nounk-U	U-oneof-u-fixed32	encode	no-unknown	125.5	0.995	0.173	0.318		1.831	0.177	0.329
+codec-nounk-U	U-oneof-u-fixed32	decode	no-unknown	132.8	0.964	0.707	0.883	0.985	1.249	0.738	0.919
+codec-nounk-U	U-oneof-u-fixed32	decode-read	no-unknown	134.5	0.994	0.759	0.902	1.005	1.188	0.753	0.908
+codec-nounk-U	U-oneof-u-fixed64	encode	no-unknown	126.9	0.974	0.171	0.316		1.848	0.172	0.325
+codec-nounk-U	U-oneof-u-fixed64	decode	no-unknown	126.6	1.001	0.699	0.923	1.028	1.320	0.697	0.935
+codec-nounk-U	U-oneof-u-fixed64	decode-read	no-unknown	131.3	1.013	0.759	0.969	0.974	1.276	0.758	0.930
+codec-nounk-U	U-oneof-u-len	encode	no-unknown	124.8	0.999	0.176	0.340		1.937	0.167	0.346
+codec-nounk-U	U-oneof-u-len	decode	no-unknown	130.0	0.998	0.727	0.948	0.959	1.304	0.734	0.953
+codec-nounk-U	U-oneof-u-len	decode-read	no-unknown	133.1	1.012	0.756	1.179	0.961	1.559	0.754	1.179
+codec-nounk-U	U-oneof-u-msg	encode	no-unknown	128.6	0.944	0.171	0.401		2.344	0.164	0.411
+codec-nounk-U	U-oneof-u-msg	decode	no-unknown	127.3	1.022	0.738	1.174	0.980	1.590	0.736	1.183
+codec-nounk-U	U-oneof-u-msg	decode-read	no-unknown	132.9	1.014	0.747	1.168	0.964	1.564	0.742	1.170
+codec-nounk-U	U-oneof-u-packed	encode	no-unknown	126.9	0.962	0.176	0.406		2.310	0.176	0.417
+codec-nounk-U	U-oneof-u-packed	decode	no-unknown	134.4	0.974	0.702	1.111	0.923	1.584	0.727	1.164
+codec-nounk-U	U-oneof-u-packed	decode-read	no-unknown	134.2	1.019	0.757	1.162	1.222	1.535	0.741	1.154
+codec-nounk-U	U-oneof-u-repeated	encode	no-unknown	121.5	1.012	0.180	0.422		2.347	0.177	0.430
+codec-nounk-U	U-oneof-u-repeated	decode	no-unknown	143.2	1.003	0.680	1.073	1.147	1.579	0.677	1.081
+codec-nounk-U	U-oneof-u-repeated	decode-read	no-unknown	147.6	0.998	0.712	1.079	1.140	1.514	0.714	1.092
+codec-nounk-U	U-oneof-u-varint	encode	no-unknown	128.3	0.953	0.169	0.402		2.377	0.175	0.422
+codec-nounk-U	U-oneof-u-varint	decode	no-unknown	131.2	1.003	0.733	1.168	0.952	1.593	0.739	1.175
+codec-nounk-U	U-oneof-u-varint	decode-read	no-unknown	137.0	0.999	0.738	1.156	0.948	1.566	0.737	1.166
+codec-nounk-U	U-root-all	encode	no-unknown	639.1	0.980	0.159	0.299		1.878	0.140	0.305
+codec-nounk-U	U-root-all	decode	no-unknown	689.6	1.048	0.689	1.318	0.998	1.915	0.694	1.346
+codec-nounk-U	U-root-all	decode-read	no-unknown	719.6	1.034	0.697	1.317	0.981	1.889	0.823	1.614
+codec-nounk-U	U-root-before	encode	no-unknown	489.0	1.279	0.164	0.382		2.328	0.164	0.386
+codec-nounk-U	U-root-before	decode	no-unknown	558.3	1.285	0.876	1.634	1.236	1.864	0.887	1.674
+codec-nounk-U	U-root-before	decode-read	no-unknown	727.9	1.018	0.675	1.290	0.995	1.913	0.684	1.304
+codec-nounk-U	U-root-group	encode	no-unknown	626.5	1.004	0.121	0.309		2.563	0.123	0.299
+codec-nounk-U	U-root-group	decode	no-unknown	669.4	1.014	0.679	1.093	1.017	1.611	0.684	1.111
+codec-nounk-U	U-root-group	decode-read	no-unknown	671.2	1.042	0.719	1.129	1.040	1.571	0.714	1.126
+codec-nounk-U	U-root-interleaved	encode	no-unknown	614.7	1.017	0.126	0.242		1.925	0.123	0.239
+codec-nounk-U	U-root-interleaved	decode	no-unknown	713.3	1.019	0.630	0.999	0.972	1.586	0.642	1.013
+codec-nounk-U	U-root-interleaved	decode-read	no-unknown	729.3	1.024	0.854	0.998	0.991	1.168	0.860	1.010
+codec-nounk-U	U-root-max-tag	encode	no-unknown	642.9	0.981	0.155	0.233		1.504	0.159	0.244
+codec-nounk-U	U-root-max-tag	decode	no-unknown	610.5	1.050	0.935	1.106	1.090	1.183	0.928	1.110
+codec-nounk-U	U-root-max-tag	decode-read	no-unknown	650.8	1.029	0.937	1.089	1.102	1.162	0.968	1.123
+codec-nounk-U	U-root-u-fixed32	encode	no-unknown	487.7	1.293	0.206	0.341		1.652	0.201	0.308
+codec-nounk-U	U-root-u-fixed32	decode	no-unknown	486.4	1.305	1.177	1.779	1.580	1.511	1.163	1.777
+codec-nounk-U	U-root-u-fixed32	decode-read	no-unknown	503.3	1.314	1.200	1.774	1.600	1.479	1.214	1.807
+codec-nounk-U	U-root-u-fixed64	encode	no-unknown	488.7	1.288	0.199	0.394		1.981	0.202	0.405
+codec-nounk-U	U-root-u-fixed64	decode	no-unknown	480.7	1.312	1.171	1.792	1.694	1.530	1.165	1.804
+codec-nounk-U	U-root-u-fixed64	decode-read	no-unknown	508.3	1.300	1.204	1.757	1.594	1.459	1.193	1.788
+codec-nounk-U	U-root-u-len	encode	no-unknown	509.7	1.227	0.192	0.376		1.963	0.192	0.377
+codec-nounk-U	U-root-u-len	decode	no-unknown	514.5	1.245	1.100	1.581	1.499	1.437	1.128	1.626
+codec-nounk-U	U-root-u-len	decode-read	no-unknown	535.5	1.176	1.084	1.573	1.366	1.451	1.088	1.605
+codec-nounk-U	U-root-u-msg	encode	no-unknown	505.6	1.177	0.196	0.356		1.815	0.189	0.346
+codec-nounk-U	U-root-u-msg	decode	no-unknown	499.2	1.193	1.119	1.630	1.435	1.457	1.174	1.695
+codec-nounk-U	U-root-u-msg	decode-read	no-unknown	494.8	1.217	1.223	1.817	1.479	1.486	1.233	1.804
+codec-nounk-U	U-root-u-packed	encode	no-unknown	493.4	1.270	0.198	0.385		1.943	0.200	0.377
+codec-nounk-U	U-root-u-packed	decode	no-unknown	503.5	1.256	1.126	1.722	1.528	1.530	1.118	1.723
+codec-nounk-U	U-root-u-packed	decode-read	no-unknown	567.8	1.167	1.072	1.570	1.287	1.465	1.073	1.588
+codec-nounk-U	U-root-u-repeated	encode	no-unknown	547.7	1.136	0.148	0.346		2.344	0.140	0.340
+codec-nounk-U	U-root-u-repeated	decode	no-unknown	557.0	1.185	0.787	1.579	1.274	2.007	0.783	1.569
+codec-nounk-U	U-root-u-repeated	decode-read	no-unknown	532.8	1.259	0.885	1.692	1.535	1.912	0.935	1.783
+codec-nounk-U	U-root-u-varint	encode	no-unknown	479.6	1.309	0.204	0.403		1.974	0.199	0.394
+codec-nounk-U	U-root-u-varint	decode	no-unknown	613.5	1.045	0.911	1.423	1.424	1.562	1.152	1.802
+codec-nounk-U	U-root-u-varint	decode-read	no-unknown	653.0	1.026	0.939	1.375	1.381	1.464	0.941	1.415
+codec-nounk-U	U-wire-DualResponse-left-as-wt0	encode	no-unknown						2.062		
+codec-nounk-U	U-wire-DualResponse-left-as-wt0	decode	no-unknown						1.482		
+codec-nounk-U	U-wire-DualResponse-left-as-wt0	decode-read	no-unknown						1.328		
+codec-nounk-U	U-wire-DualResponse-left-as-wt1	encode	no-unknown						2.019		
+codec-nounk-U	U-wire-DualResponse-left-as-wt1	decode	no-unknown						1.692		
+codec-nounk-U	U-wire-DualResponse-left-as-wt1	decode-read	no-unknown						1.655		
+codec-nounk-U	U-wire-DualResponse-left-as-wt5	encode	no-unknown						1.921		
+codec-nounk-U	U-wire-DualResponse-left-as-wt5	decode	no-unknown						1.324		
+codec-nounk-U	U-wire-DualResponse-left-as-wt5	decode-read	no-unknown						1.282		
+codec-nounk-U	U-wire-ListMetricsResponse-batches-as-wt0	encode	no-unknown						1.166		
+codec-nounk-U	U-wire-ListMetricsResponse-batches-as-wt0	decode	no-unknown						0.939		
+codec-nounk-U	U-wire-ListMetricsResponse-batches-as-wt0	decode-read	no-unknown						0.903		
+codec-nounk-U	U-wire-ListMetricsResponse-batches-as-wt1	encode	no-unknown						1.172		
+codec-nounk-U	U-wire-ListMetricsResponse-batches-as-wt1	decode	no-unknown						0.913		
+codec-nounk-U	U-wire-ListMetricsResponse-batches-as-wt1	decode-read	no-unknown						0.876		
+codec-nounk-U	U-wire-ListMetricsResponse-batches-as-wt5	encode	no-unknown						1.237		
+codec-nounk-U	U-wire-ListMetricsResponse-batches-as-wt5	decode	no-unknown						0.995		
+codec-nounk-U	U-wire-ListMetricsResponse-batches-as-wt5	decode-read	no-unknown						0.919		
+codec-nounk-U	U-wire-ListProbeResponse-probes-as-wt0	encode	no-unknown						2.032		
+codec-nounk-U	U-wire-ListProbeResponse-probes-as-wt0	decode	no-unknown						1.503		
+codec-nounk-U	U-wire-ListProbeResponse-probes-as-wt0	decode-read	no-unknown						1.491		
+codec-nounk-U	U-wire-ListProbeResponse-probes-as-wt1	encode	no-unknown						2.096		
+codec-nounk-U	U-wire-ListProbeResponse-probes-as-wt1	decode	no-unknown						1.510		
+codec-nounk-U	U-wire-ListProbeResponse-probes-as-wt1	decode-read	no-unknown						1.454		
+codec-nounk-U	U-wire-ListProbeResponse-probes-as-wt5	encode	no-unknown						2.081		
+codec-nounk-U	U-wire-ListProbeResponse-probes-as-wt5	decode	no-unknown						1.480		
+codec-nounk-U	U-wire-ListProbeResponse-probes-as-wt5	decode-read	no-unknown						1.902		
+codec-nounk-U	U-wire-ListResultsResponse-page-as-wt1	encode	no-unknown						2.549		
+codec-nounk-U	U-wire-ListResultsResponse-page-as-wt1	decode	no-unknown						1.883		
+codec-nounk-U	U-wire-ListResultsResponse-page-as-wt1	decode-read	no-unknown						1.428		
+codec-nounk-U	U-wire-ListResultsResponse-page-as-wt2	encode	no-unknown						1.896		
+codec-nounk-U	U-wire-ListResultsResponse-page-as-wt2	decode	no-unknown						1.457		
+codec-nounk-U	U-wire-ListResultsResponse-page-as-wt2	decode-read	no-unknown						1.505		
+codec-nounk-U	U-wire-ListResultsResponse-page-as-wt5	encode	no-unknown						1.909		
+codec-nounk-U	U-wire-ListResultsResponse-page-as-wt5	decode	no-unknown						1.461		
+codec-nounk-U	U-wire-ListResultsResponse-page-as-wt5	decode-read	no-unknown						1.490		
+codec-nounk-U	U-wire-ListResultsResponse-results-as-wt0	encode	no-unknown						1.886		
+codec-nounk-U	U-wire-ListResultsResponse-results-as-wt0	decode	no-unknown						1.552		
+codec-nounk-U	U-wire-ListResultsResponse-results-as-wt0	decode-read	no-unknown						1.471		
+codec-nounk-U	U-wire-ListResultsResponse-results-as-wt1	encode	no-unknown						1.852		
+codec-nounk-U	U-wire-ListResultsResponse-results-as-wt1	decode	no-unknown						1.449		
+codec-nounk-U	U-wire-ListResultsResponse-results-as-wt1	decode-read	no-unknown						1.395		
+codec-nounk-U	U-wire-ListResultsResponse-results-as-wt5	encode	no-unknown						1.858		
+codec-nounk-U	U-wire-ListResultsResponse-results-as-wt5	decode	no-unknown						1.436		
+codec-nounk-U	U-wire-ListResultsResponse-results-as-wt5	decode-read	no-unknown						1.423		
+codec-nounk-U	U-wire-ListTaskSummaryResponse-tasks-as-wt0	encode	no-unknown						2.172		
+codec-nounk-U	U-wire-ListTaskSummaryResponse-tasks-as-wt0	decode	no-unknown						1.454		
+codec-nounk-U	U-wire-ListTaskSummaryResponse-tasks-as-wt0	decode-read	no-unknown						1.315		
+codec-nounk-U	U-wire-ListTaskSummaryResponse-tasks-as-wt1	encode	no-unknown						2.216		
+codec-nounk-U	U-wire-ListTaskSummaryResponse-tasks-as-wt1	decode	no-unknown						1.463		
+codec-nounk-U	U-wire-ListTaskSummaryResponse-tasks-as-wt1	decode-read	no-unknown						1.781		
+codec-nounk-U	U-wire-ListTaskSummaryResponse-tasks-as-wt5	encode	no-unknown						2.606		
+codec-nounk-U	U-wire-ListTaskSummaryResponse-tasks-as-wt5	decode	no-unknown						1.759		
+codec-nounk-U	U-wire-ListTaskSummaryResponse-tasks-as-wt5	decode-read	no-unknown						1.788		
+codec-nounk-U	U-wire-ListTasksDetailedResponse-page-as-wt1	encode	no-unknown						2.652		
+codec-nounk-U	U-wire-ListTasksDetailedResponse-page-as-wt1	decode	no-unknown						1.664		
+codec-nounk-U	U-wire-ListTasksDetailedResponse-page-as-wt1	decode-read	no-unknown						1.652		
+codec-nounk-U	U-wire-ListTasksDetailedResponse-page-as-wt2	encode	no-unknown						1.950		
+codec-nounk-U	U-wire-ListTasksDetailedResponse-page-as-wt2	decode	no-unknown						1.658		
+codec-nounk-U	U-wire-ListTasksDetailedResponse-page-as-wt2	decode-read	no-unknown						1.635		
+codec-nounk-U	U-wire-ListTasksDetailedResponse-page-as-wt5	encode	no-unknown						2.587		
+codec-nounk-U	U-wire-ListTasksDetailedResponse-page-as-wt5	decode	no-unknown						1.628		
+codec-nounk-U	U-wire-ListTasksDetailedResponse-page-as-wt5	decode-read	no-unknown						1.708		
+codec-nounk-U	U-wire-ListTasksDetailedResponse-tasks-as-wt0	encode	no-unknown						2.017		
+codec-nounk-U	U-wire-ListTasksDetailedResponse-tasks-as-wt0	decode	no-unknown						1.783		
+codec-nounk-U	U-wire-ListTasksDetailedResponse-tasks-as-wt0	decode-read	no-unknown						1.703		
+codec-nounk-U	U-wire-ListTasksDetailedResponse-tasks-as-wt1	encode	no-unknown						2.112		
+codec-nounk-U	U-wire-ListTasksDetailedResponse-tasks-as-wt1	decode	no-unknown						1.686		
+codec-nounk-U	U-wire-ListTasksDetailedResponse-tasks-as-wt1	decode-read	no-unknown						1.777		
+codec-nounk-U	U-wire-ListTasksDetailedResponse-tasks-as-wt5	encode	no-unknown						2.043		
+codec-nounk-U	U-wire-ListTasksDetailedResponse-tasks-as-wt5	decode	no-unknown						1.871		
+codec-nounk-U	U-wire-ListTasksDetailedResponse-tasks-as-wt5	decode-read	no-unknown						1.798		
+codec-nounk-U	U-wire-UploadResultDataMessage-upload-as-wt0	encode	no-unknown						2.013		
+codec-nounk-U	U-wire-UploadResultDataMessage-upload-as-wt0	decode	no-unknown						1.792		
+codec-nounk-U	U-wire-UploadResultDataMessage-upload-as-wt0	decode-read	no-unknown						1.403		
+codec-nounk-U	U-wire-UploadResultDataMessage-upload-as-wt1	encode	no-unknown						1.986		
+codec-nounk-U	U-wire-UploadResultDataMessage-upload-as-wt1	decode	no-unknown						1.795		
+codec-nounk-U	U-wire-UploadResultDataMessage-upload-as-wt1	decode-read	no-unknown						1.831		
+codec-nounk-U	U-wire-UploadResultDataMessage-upload-as-wt5	encode	no-unknown						1.860		
+codec-nounk-U	U-wire-UploadResultDataMessage-upload-as-wt5	decode	no-unknown						1.820		
+codec-nounk-U	U-wire-UploadResultDataMessage-upload-as-wt5	decode-read	no-unknown						1.775		

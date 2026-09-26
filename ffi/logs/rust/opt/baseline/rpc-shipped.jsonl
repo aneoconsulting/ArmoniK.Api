@@ -1,0 +1,139 @@
+# rust slice OPTIMISATION BENCHMARK (gen/opt_bench.sh), suite rpc, core variant full
+# CONTAINER INSTRUMENTATION: not a campaign result (CAMPAIGN.md section 2), not gated by gen/gate.sh (the gate runs at the end of the experiment); the codec process's own byte-identity pre-check is on
+# commit     de8b286   tree-id ac0d4f97796b9b16
+# date       2026-09-26T10:29:10Z
+# machine    Intel(R) Xeon(R) Processor @ 2.10GHz; 4 CPUs online; kernel 6.18.44-fc-v37
+# smt        active=0 control=notsupported
+# governor   n/a
+# turbo      intel_pstate/no_turbo=n/a cpufreq/boost=n/a
+# isolation  cmdline: cgroup: n/a
+# cpu sets   CLIENT=1 SERVER=2,3 OS=the rest
+# runtime    rustc 1.94.1 (e408947bf 2026-03-25); cargo 1.94.1 (29ea6fb6a 2026-03-24)
+# incumbent  prost 0.14.4, tonic 0.14.6, tonic-prost 0.14.6; criterion 0.5.1
+# build      cargo --release (opt-level 3, lto off, codegen-units default), core ak-core as a cdylib linked through the dynamic linker, core features rpc,init-guard,unknown-fields (the full variant, target/); harness guard on; transcoder ak_tc_utf8_trusted (a Rust String is UTF-8)
+# repeats    launches=1 (launch number 1)
+# settings   codec P(P*): samples=20 warmup_iters=100 warmup_ms=50 measure_ms=250; codec U(U-*): samples=10 warmup_iters=20 warmup_ms=5 measure_ms=20; calib rounds=5 iters=20000000; rpc rounds=3 calls=32 warmup=16; launch=1
+# slice: rust   suite: rpc
+# INSTRUMENTATION unless run on the campaign machine (CAMPAIGN.md section 2); a container figure is not a result
+# incumbent: prost 0.14 / tonic 0.14 (tonic-prost), as pinned in poc/rust/Cargo.lock
+# build: release profile, core ak-core cdylib (shared, linked by the dynamic linker), features rpc,init-guard; harness guard on
+# rustc: see run header
+# transport: shipped: tonic endpoint defaults with TCP nodelay (packages/rust's GrpcClient__TcpNagleAlgorithm=false), ak_client_new, server defaults
+# link: loopback TCP; server = rpc_server, a separate process (requirement 13), pre-serialised P2.2
+# cells: A prost+tonic, B prost+core (blocking), C core+core (blocking), D core+tonic; C and D per unknown-field mode (-retain: every decision 11 position armed and u-group encode; -drop: nothing armed; -nounk: the build with unknown-field support compiled out); callback/queue deliveries not run in this suite
+# build: unknown-fields (retain/drop)
+# launch: 1
+# cell order: A,B,C-retain,C-drop,D-retain,D-drop
+# rounds: 3
+# calls per round: 32 rounded up to a multiple of in-flight
+# warm-up: 16 calls per (cell, dir, in-flight) before round 1
+# clocks: cpu_ns = getrusage(RUSAGE_SELF) utime+stime of the client per round; wall_ns = monotonic
+# runtimes: tonic cells: tokio multi-thread, 2 workers; core cells: ak_runtime_new(2)
+{"cell":"A","cpu_ns":79529000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":92052175}
+{"cell":"A","cpu_ns":74630000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":84466429}
+{"cell":"A","cpu_ns":75975000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":91420825}
+{"cell":"A","cpu_ns":87751000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":92462271}
+{"cell":"A","cpu_ns":86349000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":89146385}
+{"cell":"A","cpu_ns":84802000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":85538797}
+{"cell":"A","cpu_ns":102563000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":106482862}
+{"cell":"A","cpu_ns":93165000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":96055092}
+{"cell":"A","cpu_ns":94040000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":95570629}
+{"cell":"A","cpu_ns":45245000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":121893939}
+{"cell":"A","cpu_ns":43317000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":117609037}
+{"cell":"A","cpu_ns":42562000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":115444253}
+{"cell":"A","cpu_ns":57126000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":76705333}
+{"cell":"A","cpu_ns":58328000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":89663891}
+{"cell":"A","cpu_ns":52443000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":80812890}
+{"cell":"A","cpu_ns":48586000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":65446011}
+{"cell":"A","cpu_ns":46193000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":83591347}
+{"cell":"A","cpu_ns":51761000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":68292154}
+{"cell":"B","cpu_ns":65691000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":74322525}
+{"cell":"B","cpu_ns":84063000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":91700268}
+{"cell":"B","cpu_ns":63383000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":71038094}
+{"cell":"B","cpu_ns":81885000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":82583111}
+{"cell":"B","cpu_ns":71167000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":71587786}
+{"cell":"B","cpu_ns":72791000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":73090264}
+{"cell":"B","cpu_ns":80199000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":90765247}
+{"cell":"B","cpu_ns":79506000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":80891162}
+{"cell":"B","cpu_ns":79786000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":80464831}
+{"cell":"B","cpu_ns":36451000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":119768949}
+{"cell":"B","cpu_ns":39286000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":121062141}
+{"cell":"B","cpu_ns":37494000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":117375994}
+{"cell":"B","cpu_ns":40557000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":71827032}
+{"cell":"B","cpu_ns":37951000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":73349283}
+{"cell":"B","cpu_ns":40721000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":67525649}
+{"cell":"B","cpu_ns":43128000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":89986399}
+{"cell":"B","cpu_ns":44049000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":77145804}
+{"cell":"B","cpu_ns":43650000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":78661445}
+{"cell":"C-retain","cpu_ns":82879000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":92225404}
+{"cell":"C-retain","cpu_ns":85166000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":104486020}
+{"cell":"C-retain","cpu_ns":83592000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":91609937}
+{"cell":"C-retain","cpu_ns":95325000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":96259595}
+{"cell":"C-retain","cpu_ns":86746000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":87227707}
+{"cell":"C-retain","cpu_ns":87267000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":87472007}
+{"cell":"C-retain","cpu_ns":96351000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":97152618}
+{"cell":"C-retain","cpu_ns":96376000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":99088677}
+{"cell":"C-retain","cpu_ns":97762000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":98120986}
+{"cell":"C-retain","cpu_ns":35232000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":127874005}
+{"cell":"C-retain","cpu_ns":32333000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":121514801}
+{"cell":"C-retain","cpu_ns":32063000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":105231996}
+{"cell":"C-retain","cpu_ns":33687000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":71605188}
+{"cell":"C-retain","cpu_ns":38142000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":81164825}
+{"cell":"C-retain","cpu_ns":33955000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":74643449}
+{"cell":"C-retain","cpu_ns":41066000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":81587369}
+{"cell":"C-retain","cpu_ns":39073000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":87380567}
+{"cell":"C-retain","cpu_ns":41022000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":72430373}
+{"cell":"C-drop","cpu_ns":115883000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":132868179}
+{"cell":"C-drop","cpu_ns":114987000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":128841078}
+{"cell":"C-drop","cpu_ns":84956000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":107273543}
+{"cell":"C-drop","cpu_ns":89712000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":90506735}
+{"cell":"C-drop","cpu_ns":102562000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":114013606}
+{"cell":"C-drop","cpu_ns":102627000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":103848380}
+{"cell":"C-drop","cpu_ns":106421000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":110238127}
+{"cell":"C-drop","cpu_ns":112207000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":121001969}
+{"cell":"C-drop","cpu_ns":115234000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":126714381}
+{"cell":"C-drop","cpu_ns":33009000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":113320954}
+{"cell":"C-drop","cpu_ns":33436000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":118875800}
+{"cell":"C-drop","cpu_ns":31423000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":111311429}
+{"cell":"C-drop","cpu_ns":34893000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":63964283}
+{"cell":"C-drop","cpu_ns":31659000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":62738671}
+{"cell":"C-drop","cpu_ns":36640000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":83032549}
+{"cell":"C-drop","cpu_ns":38743000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":83927767}
+{"cell":"C-drop","cpu_ns":37737000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":78705787}
+{"cell":"C-drop","cpu_ns":36923000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":79776686}
+{"cell":"D-retain","cpu_ns":84231000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":93138051}
+{"cell":"D-retain","cpu_ns":77802000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":85839065}
+{"cell":"D-retain","cpu_ns":72609000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":81782189}
+{"cell":"D-retain","cpu_ns":75368000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":76924761}
+{"cell":"D-retain","cpu_ns":74615000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":75733314}
+{"cell":"D-retain","cpu_ns":75400000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":76110305}
+{"cell":"D-retain","cpu_ns":103117000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":107206057}
+{"cell":"D-retain","cpu_ns":98978000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":102592490}
+{"cell":"D-retain","cpu_ns":105789000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":117064335}
+{"cell":"D-retain","cpu_ns":34618000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":102168212}
+{"cell":"D-retain","cpu_ns":32523000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":93661488}
+{"cell":"D-retain","cpu_ns":31900000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":93658088}
+{"cell":"D-retain","cpu_ns":37368000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":68143972}
+{"cell":"D-retain","cpu_ns":35615000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":78901166}
+{"cell":"D-retain","cpu_ns":35921000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":72773166}
+{"cell":"D-retain","cpu_ns":39826000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":85772554}
+{"cell":"D-retain","cpu_ns":37903000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":71659336}
+{"cell":"D-retain","cpu_ns":36698000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":67314763}
+{"cell":"D-drop","cpu_ns":85893000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":100774845}
+{"cell":"D-drop","cpu_ns":86126000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":100389751}
+{"cell":"D-drop","cpu_ns":85206000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":102960111}
+{"cell":"D-drop","cpu_ns":97192000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":98576387}
+{"cell":"D-drop","cpu_ns":97796000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":101763417}
+{"cell":"D-drop","cpu_ns":99834000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":105880703}
+{"cell":"D-drop","cpu_ns":104646000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":108232361}
+{"cell":"D-drop","cpu_ns":101317000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":102283205}
+{"cell":"D-drop","cpu_ns":97985000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":98355991}
+{"cell":"D-drop","cpu_ns":32579000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":94234547}
+{"cell":"D-drop","cpu_ns":32774000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":93319668}
+{"cell":"D-drop","cpu_ns":32123000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":91279219}
+{"cell":"D-drop","cpu_ns":36018000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":66753930}
+{"cell":"D-drop","cpu_ns":41821000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":104022161}
+{"cell":"D-drop","cpu_ns":39277000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":84215431}
+{"cell":"D-drop","cpu_ns":33724000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":79079070}
+{"cell":"D-drop","cpu_ns":34171000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":75337527}
+{"cell":"D-drop","cpu_ns":33720000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"shipped","wall_ns":63453929}

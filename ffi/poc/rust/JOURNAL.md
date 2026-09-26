@@ -2318,3 +2318,40 @@ corpus's own merge (`spec.load()`), so `fixed32` and the corpus-only messages ex
   was already gone; no timing figure remains in STATE. The checklist now covers 22a and
   req 20 is marked not met (perf not installed); the reset calls' absence from the counts is
   stated where the counts are described.
+
+## 2026-09-26 -- optimisation experiment, unit 0: the baseline (instrumentation)
+
+- Owner's request (via the aggregating session): explore optimisation opportunities in this
+  slice; this unit only takes the baseline later units compare against. The correctness
+  gate is NOT run in the experiment (it runs once at the end); the codec process's own
+  byte-identity pre-check stays on. No codec, core or generator code changed.
+- Added `gen/opt_bench.sh OUT_DIR` (and `gen/opt_summary.py`): run_campaign.sh's build()
+  verbatim (target/ full, target-nounk/ no-unknown, bench executables from
+  `cargo bench --no-run`, the variant check by `ak_uencode_*` exports), the crossing
+  counts of both builds compared with the committed files (recorded, not fatal), then one
+  launch (AK_LAUNCH=1) pinned CLIENT=1 SERVER=2,3: codec payload inputs (AK_ONLY=P, 20
+  inputs) samples 20, warm-up 100 iterations + 50 ms, measure 250 ms, full then no-unknown;
+  codec U-* rows (AK_ONLY=U-, 92 rows) at REDUCED settings, samples 10, warm-up 20
+  iterations + 5 ms, measure 20 ms, full then no-unknown; calib 5 rounds x 20M; rpc both
+  transports x both clients, plant control each, 3 rounds x 32 calls, warm-up 16. Settings
+  are fixed in the script and printed in every header (the runner's req-27 header plus a
+  `settings` line, marked container instrumentation, "not gated by gen/gate.sh").
+- Sizing probes before the run: per criterion case ~40 ms of fixed overhead (analysis) at
+  10 samples; P2.2's 100 fixed warm-up iterations add 0.1-0.25 s per case. Both kept.
+- Baseline run on de8b286 (clean tree): logs/rust/opt/baseline/. Crossings: 671 and 336
+  rows identical to gen/crossings.txt and gen/crossings-nounk.txt. Pre-check 0 failures in
+  all four codec processes (226 / 152 / 736 / 368 checks). Benchmark wall 558 s (codec P
+  324 s, codec U 189 s, calib 1 s, rpc 44 s); crossings builds 118 s before it. Summaries:
+  summary-codec.tsv (3,698 cases), ratios-codec.tsv (1,005 rows), summary-rpc.tsv,
+  summary-calib.tsv.
+- Observed, not acted on: (1) armonik's decode on P5.2-P5.4 is a constant ~87-92 ns
+  regardless of size: packages/rust's leaves decode `bytes` fields as `bytes::Bytes`
+  borrowing the input buffer (armonik/src/codec/leaves.rs), and the harness hands it a
+  `Bytes`; every other decode arm copies. decode-read does not read payload bytes either.
+  So armonik/inc on P5.2-P5.4 decode is a copy-vs-no-copy comparison. (2) The same arm on
+  the same input differs up to ~20% between the full and no-unknown processes (e.g. P2.3
+  incumbent decode 1.18 ms vs 0.97 ms): cross-process absolutes do not compare, as R4
+  says. (3) One launch only, so the arm order (incumbent-prod first, core-ffi-pull last)
+  is not rotated; drift inside the process lands on the ratios uncancelled. (4) Per-case
+  spread (max-min)/median: median 0.06-0.08, p90 0.15-0.27, a few outliers above 1
+  (e.g. nounk P2.2/latin1 armonik decode-read max 3x its median).
