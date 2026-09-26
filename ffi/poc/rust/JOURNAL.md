@@ -2595,3 +2595,23 @@ kept step. Step 0 fixes the harness first.
   shell would have resumed at a stale offset). Stopped after its first codec process, its
   directory deleted, the Z1 edits set aside (they would have entered the build), and the
   run restarted from the committed tree. Rule kept since: no edit to a running script.
+
+## 2026-09-26 -- optimisation step 10 (Z1) (ef65732, kept as a labelled extra arm)
+
+- rust_binding.py: decode_with_<root>_zc(ctxs, &Bytes) (+ _unk_zc): every `bytes` field a
+  slice of the input Bytes (shared allocation, refcount) instead of a copy, through a
+  thread-local pointer to the input that b_of consults; core-ffi keeps ABI v1 decision
+  13's copy semantics and pays one thread-local load per non-empty bytes field. The arm
+  `core-ffi-zc` (AK_ZC input prefixes; opt_bench sets P5.), decode and decode-read, every
+  mode; the pre-check requires core-ffi-zc == core-ffi on every input (1186 / 632 checks).
+- What it measures: the cost of the core-ffi decode MINUS the copy of each bytes field
+  out of the input, for a host whose input is already a refcounted buffer (a tonic
+  DecodeBuf gives a Bytes). It is what armonik (packages/rust) already does on decode:
+  armonik/inc on P5.2-P5.4 has been ~0.05 / 0.002 / 0.0003 since the first baseline.
+- Measured (s10): core-ffi-zc/core-ffi decode 0.84 (P5.1, 36 B), 0.042 (P5.2, 64 KB),
+  0.002 (P5.3, 1 MB), < 0.001 (P5.4, 4 MB), the same in retain and no-unknown. Headline
+  groups (s10 vs s9): noise except codec-U core-ffi/core-native decode drop 1.065 (32 of 92
+  rows higher, the small ListProbeResponse / ListResultsResponse rows), which is
+  core-ffi/inc 1.034 against core-native/inc 0.964 in the opposite direction (core-native
+  untouched), each inside the layout experiment's 3.4% band; not attributed. The
+  thread-local load is ~1 ns against those rows' ~0.5-1 us.
