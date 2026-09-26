@@ -1,0 +1,111 @@
+# U2 geometric growth in unk_grow (want.max(2*cap).max(64), capped at INT32_MAX), counting build, full variant:
+# diff gen/crossings.txt (committed) vs the counts with it. 36 changed lines, all retain decode / decode-pull reverse counts
+# (fewer grow upcalls). NOT applied: held back pending the aggregating session (a crossing count changes).
+124,125c124,125
+< U-deep-all                                       decode       retain        1       16
+< U-deep-all                                       decode-pull  retain        2        8
+---
+> U-deep-all                                       decode       retain        1       10
+> U-deep-all                                       decode-pull  retain        2        2
+160,161c160,161
+< U-deep-u-repeated                                decode       retain        1       10
+< U-deep-u-repeated                                decode-pull  retain        2        2
+---
+> U-deep-u-repeated                                decode       retain        1        9
+> U-deep-u-repeated                                decode-pull  retain        2        1
+172,173c172,173
+< U-element-all                                    decode       retain        1       16
+< U-element-all                                    decode-pull  retain        2        8
+---
+> U-element-all                                    decode       retain        1       10
+> U-element-all                                    decode-pull  retain        2        2
+208,209c208,209
+< U-element-u-repeated                             decode       retain        1       10
+< U-element-u-repeated                             decode-pull  retain        2        2
+---
+> U-element-u-repeated                             decode       retain        1        9
+> U-element-u-repeated                             decode-pull  retain        2        1
+244,245c244,245
+< U-leaf-all                                       decode       retain        1       18
+< U-leaf-all                                       decode-pull  retain        2       16
+---
+> U-leaf-all                                       decode       retain        1        8
+> U-leaf-all                                       decode-pull  retain        2        6
+280,281c280,281
+< U-leaf-u-repeated                                decode       retain        1        6
+< U-leaf-u-repeated                                decode-pull  retain        2        4
+---
+> U-leaf-u-repeated                                decode       retain        1        4
+> U-leaf-u-repeated                                decode-pull  retain        2        2
+292,293c292,293
+< U-nested-all                                     decode       retain        1       10
+< U-nested-all                                     decode-pull  retain        2        8
+---
+> U-nested-all                                     decode       retain        1        4
+> U-nested-all                                     decode-pull  retain        2        2
+298,299c298,299
+< U-nested-before                                  decode       retain        1       10
+< U-nested-before                                  decode-pull  retain        2        8
+---
+> U-nested-before                                  decode       retain        1        4
+> U-nested-before                                  decode-pull  retain        2        2
+310,311c310,311
+< U-nested-interleaved                             decode       retain        1       10
+< U-nested-interleaved                             decode-pull  retain        2        8
+---
+> U-nested-interleaved                             decode       retain        1        4
+> U-nested-interleaved                             decode-pull  retain        2        2
+346,347c346,347
+< U-nested-u-repeated                              decode       retain        1        4
+< U-nested-u-repeated                              decode-pull  retain        2        2
+---
+> U-nested-u-repeated                              decode       retain        1        3
+> U-nested-u-repeated                              decode-pull  retain        2        1
+358,359c358,359
+< U-oneof-all                                      decode       retain        1       10
+< U-oneof-all                                      decode-pull  retain        2        8
+---
+> U-oneof-all                                      decode       retain        1        4
+> U-oneof-all                                      decode-pull  retain        2        2
+364,365c364,365
+< U-oneof-before                                   decode       retain        1       10
+< U-oneof-before                                   decode-pull  retain        2        8
+---
+> U-oneof-before                                   decode       retain        1        4
+> U-oneof-before                                   decode-pull  retain        2        2
+376,377c376,377
+< U-oneof-interleaved                              decode       retain        1       10
+< U-oneof-interleaved                              decode-pull  retain        2        8
+---
+> U-oneof-interleaved                              decode       retain        1        4
+> U-oneof-interleaved                              decode-pull  retain        2        2
+430,431c430,431
+< U-oneof-u-repeated                               decode       retain        1        4
+< U-oneof-u-repeated                               decode-pull  retain        2        2
+---
+> U-oneof-u-repeated                               decode       retain        1        3
+> U-oneof-u-repeated                               decode-pull  retain        2        1
+442,443c442,443
+< U-root-all                                       decode       retain        1       10
+< U-root-all                                       decode-pull  retain        2        8
+---
+> U-root-all                                       decode       retain        1        4
+> U-root-all                                       decode-pull  retain        2        2
+448,449c448,449
+< U-root-before                                    decode       retain        1       10
+< U-root-before                                    decode-pull  retain        2        8
+---
+> U-root-before                                    decode       retain        1        4
+> U-root-before                                    decode-pull  retain        2        2
+460,461c460,461
+< U-root-interleaved                               decode       retain        1       10
+< U-root-interleaved                               decode-pull  retain        2        8
+---
+> U-root-interleaved                               decode       retain        1        4
+> U-root-interleaved                               decode-pull  retain        2        2
+502,503c502,503
+< U-root-u-repeated                                decode       retain        1        4
+< U-root-u-repeated                                decode-pull  retain        2        2
+---
+> U-root-u-repeated                                decode       retain        1        3
+> U-root-u-repeated                                decode-pull  retain        2        1

@@ -31,9 +31,30 @@ use facade::*;
 // the group carrying it is delivered; `take_unk` turns it into the facade's bag. What the
 // core placed but never delivered -- an inactive oneof member's, a map entry's (the facade
 // map has no bag), everything of a failed decode -- is reclaimed by `unk_reclaim`.
+// Optimisation U2: the live set is a map keyed by the buffer's address (a multiplicative
+// hash of the pointer), so `take_unk` and a regrow are O(1) instead of a linear search of
+// every buffer placed so far in the decode (quadratic over a message with many positions).
+#[derive(Default)]
+pub struct PtrHasher(u64);
+impl ::core::hash::Hasher for PtrHasher {
+    #[inline]
+    fn finish(&self) -> u64 {
+        self.0
+    }
+    #[inline]
+    fn write(&mut self, b: &[u8]) {
+        for &x in b {
+            self.0 = (self.0.rotate_left(8) ^ x as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15);
+        }
+    }
+    #[inline]
+    fn write_usize(&mut self, x: usize) {
+        self.0 = (x as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15).rotate_left(29);
+    }
+}
+type UnkLive = ::std::collections::HashMap<usize, usize, ::core::hash::BuildHasherDefault<PtrHasher>>;
 thread_local! {
-    static UNK_LIVE: ::core::cell::RefCell<Vec<(usize, usize)>> =
-        const { ::core::cell::RefCell::new(Vec::new()) };
+    static UNK_LIVE: ::core::cell::RefCell<UnkLive> = ::core::cell::RefCell::new(UnkLive::default());
 }
 
 /// `ak_grow_fn` for an unknown-field buffer: a fresh buffer when `*dst` is NULL, else a
@@ -54,11 +75,9 @@ pub unsafe extern "C" fn unk_grow(_host: *mut c_void, want: i32, dst: *mut *mut 
     UNK_LIVE.with(|l| {
         let mut l = l.borrow_mut();
         if !old.is_null() {
-            if let Some(i) = l.iter().position(|e| e.0 == old as usize) {
-                l.swap_remove(i);
-            }
+            l.remove(&(old as usize));
         }
-        l.push((p as usize, want));
+        l.insert(p as usize, want);
     });
     *dst = p;
     *cap = want as i32;
@@ -72,10 +91,7 @@ pub(crate) fn take_unk(b: &ak_unk_buf) -> Vec<u8> {
         return Vec::new();
     }
     UNK_LIVE.with(|l| {
-        let mut l = l.borrow_mut();
-        if let Some(i) = l.iter().position(|e| e.0 == b.data as usize) {
-            l.swap_remove(i);
-        }
+        l.borrow_mut().remove(&(b.data as usize));
     });
     unsafe { Vec::from_raw_parts(b.data as *mut u8, b.len as usize, b.cap as usize) }
 }
@@ -110,11 +126,13 @@ pub struct UnkReport {
 /// Free every buffer `unk_grow` handed out that was never delivered. Returns how many.
 pub fn unk_reclaim() -> usize {
     UNK_LIVE.with(|l| {
-        let v = ::core::mem::take(&mut *l.borrow_mut());
-        for &(p, c) in &v {
+        let mut l = l.borrow_mut();
+        let n = l.len();
+        // drain() keeps the table's capacity for the next decode.
+        for (p, c) in l.drain() {
             unsafe { ::std::alloc::dealloc(p as *mut u8, ::std::alloc::Layout::from_size_align_unchecked(c, 1)) };
         }
-        v.len()
+        n
     })
 }
 
@@ -310,6 +328,25 @@ pub fn ak_init_once() -> i32 {
     }
 }
 
+/// Optimisation U1: the retain options of every root at a stable address, and
+/// whether this binding left each root's context armed with them.
+pub struct UnkState {
+    pub list_results_response_opts: ::core::cell::UnsafeCell<ak_dec_ListResultsResponse_opts>,
+    pub list_results_response_armed: ::core::cell::Cell<bool>,
+    pub list_tasks_detailed_response_opts: ::core::cell::UnsafeCell<ak_dec_ListTasksDetailedResponse_opts>,
+    pub list_tasks_detailed_response_armed: ::core::cell::Cell<bool>,
+    pub list_probe_response_opts: ::core::cell::UnsafeCell<ak_dec_ListProbeResponse_opts>,
+    pub list_probe_response_armed: ::core::cell::Cell<bool>,
+    pub list_task_summary_response_opts: ::core::cell::UnsafeCell<ak_dec_ListTaskSummaryResponse_opts>,
+    pub list_task_summary_response_armed: ::core::cell::Cell<bool>,
+    pub upload_result_data_message_opts: ::core::cell::UnsafeCell<ak_dec_UploadResultDataMessage_opts>,
+    pub upload_result_data_message_armed: ::core::cell::Cell<bool>,
+    pub list_metrics_response_opts: ::core::cell::UnsafeCell<ak_dec_ListMetricsResponse_opts>,
+    pub list_metrics_response_armed: ::core::cell::Cell<bool>,
+    pub dual_response_opts: ::core::cell::UnsafeCell<ak_dec_DualResponse_opts>,
+    pub dual_response_armed: ::core::cell::Cell<bool>,
+}
+
 /// One decode context per root (decision 11 rule 6: contexts are root-bound).
 #[derive(Clone, Copy)]
 pub struct DecCtxs {
@@ -320,6 +357,8 @@ pub struct DecCtxs {
     pub upload_result_data_message: *mut ak_dec_ctx,
     pub list_metrics_response: *mut ak_dec_ctx,
     pub dual_response: *mut ak_dec_ctx,
+    /// Optimisation U1 (owned; freed by `free`).
+    pub unk: *mut UnkState,
 }
 impl DecCtxs {
     /// Every root's context, bound, in drop mode. Requires `ak_init` first.
@@ -333,6 +372,22 @@ impl DecCtxs {
                 upload_result_data_message: ak_dec_ctx_new_UploadResultDataMessage(::core::ptr::null_mut()),
                 list_metrics_response: ak_dec_ctx_new_ListMetricsResponse(::core::ptr::null_mut()),
                 dual_response: ak_dec_ctx_new_DualResponse(::core::ptr::null_mut()),
+                unk: Box::into_raw(Box::new(UnkState {
+                    list_results_response_opts: ::core::cell::UnsafeCell::new(unk_opts_list_results_response(None)),
+                    list_results_response_armed: ::core::cell::Cell::new(false),
+                    list_tasks_detailed_response_opts: ::core::cell::UnsafeCell::new(unk_opts_list_tasks_detailed_response(None)),
+                    list_tasks_detailed_response_armed: ::core::cell::Cell::new(false),
+                    list_probe_response_opts: ::core::cell::UnsafeCell::new(unk_opts_list_probe_response(None)),
+                    list_probe_response_armed: ::core::cell::Cell::new(false),
+                    list_task_summary_response_opts: ::core::cell::UnsafeCell::new(unk_opts_list_task_summary_response(None)),
+                    list_task_summary_response_armed: ::core::cell::Cell::new(false),
+                    upload_result_data_message_opts: ::core::cell::UnsafeCell::new(unk_opts_upload_result_data_message(None)),
+                    upload_result_data_message_armed: ::core::cell::Cell::new(false),
+                    list_metrics_response_opts: ::core::cell::UnsafeCell::new(unk_opts_list_metrics_response(None)),
+                    list_metrics_response_armed: ::core::cell::Cell::new(false),
+                    dual_response_opts: ::core::cell::UnsafeCell::new(unk_opts_dual_response(None)),
+                    dual_response_armed: ::core::cell::Cell::new(false),
+                })),
             };
             assert!(!d.list_results_response.is_null(), "ak_dec_ctx_new_ListResultsResponse");
             assert!(!d.list_tasks_detailed_response.is_null(), "ak_dec_ctx_new_ListTasksDetailedResponse");
@@ -352,6 +407,7 @@ impl DecCtxs {
         ak_dec_ctx_free(self.upload_result_data_message);
         ak_dec_ctx_free(self.list_metrics_response);
         ak_dec_ctx_free(self.dual_response);
+        drop(Box::from_raw(self.unk));
     }
 }
 
@@ -3574,7 +3630,16 @@ unsafe extern "C" fn add_list_results_response_results(
     })
 }
 
+/// Drop mode (decision 11): disarms the context if a retaining decode left it
+/// armed (optimisation U1), then decodes.
 pub fn decode_with_list_results_response(ctxs: DecCtxs, b: &[u8]) -> Result<ListResultsResponse, i32> {
+    disarm_list_results_response(ctxs);
+    decode_with_list_results_response_armed(ctxs, b)
+}
+
+/// The decode with the context as it is armed now.
+#[inline(always)]
+fn decode_with_list_results_response_armed(ctxs: DecCtxs, b: &[u8]) -> Result<ListResultsResponse, i32> {
     let ctx = ctxs.list_results_response;
     let mut out = ListResultsResponse::default();
     let rc = unsafe {
@@ -3612,24 +3677,54 @@ pub const UNK_POSITIONS_LISTRESULTSRESPONSE: usize = 4;
 pub fn decode_with_list_results_response_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_ListResultsResponse_opts) -> Result<ListResultsResponse, i32> {
     let rc = unsafe { ak_dec_reset_ListResultsResponse(ctxs.list_results_response, opts) };
     if rc != AK_OK { return Err(rc); }
-    let r = decode_with_list_results_response(ctxs, b);
+    let r = decode_with_list_results_response_armed(ctxs, b);
     unsafe { ak_dec_reset_ListResultsResponse(ctxs.list_results_response, ::core::ptr::null_mut()); }
+    unsafe { (*ctxs.unk).list_results_response_armed.set(false); }
     unk_reclaim();
     r
 }
 
+/// Optimisation U1: arm this root's context with the options at their STABLE address
+/// in `DecCtxs` (every position grow-backed: nothing in them is consumed, so they
+/// need no refill), one reset per decode (decision 11 rule 7). The context stays
+/// armed afterwards; the drop-mode entries disarm it when they next run.
+#[inline(always)]
+fn arm_list_results_response(ctxs: DecCtxs) -> i32 {
+    unsafe {
+        let st = &*ctxs.unk;
+        let rc = ak_dec_reset_ListResultsResponse(ctxs.list_results_response, st.list_results_response_opts.get());
+        if rc == AK_OK { st.list_results_response_armed.set(true); }
+        rc
+    }
+}
+
+/// Drop mode for the next decode: one reset to NULL, only if a retaining decode
+/// through this binding left the context armed (optimisation U1).
+#[inline(always)]
+fn disarm_list_results_response(ctxs: DecCtxs) {
+    unsafe {
+        let st = &*ctxs.unk;
+        if st.list_results_response_armed.get() {
+            ak_dec_reset_ListResultsResponse(ctxs.list_results_response, ::core::ptr::null_mut());
+            st.list_results_response_armed.set(false);
+        }
+    }
+}
+
 /// Decision 11: retain everywhere.
 pub fn decode_with_list_results_response_unk(ctxs: DecCtxs, b: &[u8]) -> Result<ListResultsResponse, i32> {
-    decode_with_list_results_response_opts(ctxs, b, &mut unk_opts_list_results_response(None))
+    let rc = arm_list_results_response(ctxs);
+    if rc != AK_OK { return Err(rc); }
+    let r = decode_with_list_results_response_armed(ctxs, b);
+    unk_reclaim();
+    r
 }
 
 /// Decision 11: the pull family (walk in place) with every position retained.
 pub fn parse_walk_with_list_results_response_unk(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<ListResultsResponse, i32> {
-    let mut opts = unk_opts_list_results_response(None);
-    let rc = unsafe { ak_dec_reset_ListResultsResponse(ctxs.list_results_response, &mut opts) };
+    let rc = arm_list_results_response(ctxs);
     if rc != AK_OK { return Err(rc); }
-    let r = parse_walk_with_list_results_response(ctxs, b, toks);
-    unsafe { ak_dec_reset_ListResultsResponse(ctxs.list_results_response, ::core::ptr::null_mut()); }
+    let r = parse_walk_with_list_results_response_armed(ctxs, b, toks);
     unk_reclaim();
     r
 }
@@ -3741,6 +3836,7 @@ pub fn parse_drain_with_list_results_response(
     scratch: &mut Vec<u64>,
     toks: &mut Vec<i64>,
 ) -> Result<ListResultsResponse, i32> {
+    disarm_list_results_response(ctxs);
     let ctx = ctxs.list_results_response;
     let mut out = ListResultsResponse::default();
     if scratch.len() * 8 < ak_rt::bdr::BDR_MIN_CHUNK {
@@ -3779,7 +3875,14 @@ pub fn parse_drain_with_list_results_response(
 /// It is not a shortcut around the drain but the other half of the
 /// decomposition: the difference between this arm and the one above IS the
 /// copy, measured rather than estimated.
-pub fn parse_walk_with_list_results_response(
+pub fn parse_walk_with_list_results_response(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<ListResultsResponse, i32> {
+    disarm_list_results_response(ctxs);
+    parse_walk_with_list_results_response_armed(ctxs, b, toks)
+}
+
+/// The walk with the context as it is armed now.
+#[inline(always)]
+fn parse_walk_with_list_results_response_armed(
     ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
@@ -3818,6 +3921,7 @@ pub fn parse_walk_opaque_with_list_results_response(
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<ListResultsResponse, i32> {
+    disarm_list_results_response(ctxs);
     let ctx = ctxs.list_results_response;
     let mut out = ListResultsResponse::default();
     toks.clear();
@@ -3977,7 +4081,16 @@ unsafe extern "C" fn add_list_tasks_detailed_response_tasks_options_options(
     })
 }
 
+/// Drop mode (decision 11): disarms the context if a retaining decode left it
+/// armed (optimisation U1), then decodes.
 pub fn decode_with_list_tasks_detailed_response(ctxs: DecCtxs, b: &[u8]) -> Result<ListTasksDetailedResponse, i32> {
+    disarm_list_tasks_detailed_response(ctxs);
+    decode_with_list_tasks_detailed_response_armed(ctxs, b)
+}
+
+/// The decode with the context as it is armed now.
+#[inline(always)]
+fn decode_with_list_tasks_detailed_response_armed(ctxs: DecCtxs, b: &[u8]) -> Result<ListTasksDetailedResponse, i32> {
     let ctx = ctxs.list_tasks_detailed_response;
     let mut out = ListTasksDetailedResponse::default();
     let rc = unsafe {
@@ -4035,24 +4148,54 @@ pub const UNK_POSITIONS_LISTTASKSDETAILEDRESPONSE: usize = 18;
 pub fn decode_with_list_tasks_detailed_response_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_ListTasksDetailedResponse_opts) -> Result<ListTasksDetailedResponse, i32> {
     let rc = unsafe { ak_dec_reset_ListTasksDetailedResponse(ctxs.list_tasks_detailed_response, opts) };
     if rc != AK_OK { return Err(rc); }
-    let r = decode_with_list_tasks_detailed_response(ctxs, b);
+    let r = decode_with_list_tasks_detailed_response_armed(ctxs, b);
     unsafe { ak_dec_reset_ListTasksDetailedResponse(ctxs.list_tasks_detailed_response, ::core::ptr::null_mut()); }
+    unsafe { (*ctxs.unk).list_tasks_detailed_response_armed.set(false); }
     unk_reclaim();
     r
 }
 
+/// Optimisation U1: arm this root's context with the options at their STABLE address
+/// in `DecCtxs` (every position grow-backed: nothing in them is consumed, so they
+/// need no refill), one reset per decode (decision 11 rule 7). The context stays
+/// armed afterwards; the drop-mode entries disarm it when they next run.
+#[inline(always)]
+fn arm_list_tasks_detailed_response(ctxs: DecCtxs) -> i32 {
+    unsafe {
+        let st = &*ctxs.unk;
+        let rc = ak_dec_reset_ListTasksDetailedResponse(ctxs.list_tasks_detailed_response, st.list_tasks_detailed_response_opts.get());
+        if rc == AK_OK { st.list_tasks_detailed_response_armed.set(true); }
+        rc
+    }
+}
+
+/// Drop mode for the next decode: one reset to NULL, only if a retaining decode
+/// through this binding left the context armed (optimisation U1).
+#[inline(always)]
+fn disarm_list_tasks_detailed_response(ctxs: DecCtxs) {
+    unsafe {
+        let st = &*ctxs.unk;
+        if st.list_tasks_detailed_response_armed.get() {
+            ak_dec_reset_ListTasksDetailedResponse(ctxs.list_tasks_detailed_response, ::core::ptr::null_mut());
+            st.list_tasks_detailed_response_armed.set(false);
+        }
+    }
+}
+
 /// Decision 11: retain everywhere.
 pub fn decode_with_list_tasks_detailed_response_unk(ctxs: DecCtxs, b: &[u8]) -> Result<ListTasksDetailedResponse, i32> {
-    decode_with_list_tasks_detailed_response_opts(ctxs, b, &mut unk_opts_list_tasks_detailed_response(None))
+    let rc = arm_list_tasks_detailed_response(ctxs);
+    if rc != AK_OK { return Err(rc); }
+    let r = decode_with_list_tasks_detailed_response_armed(ctxs, b);
+    unk_reclaim();
+    r
 }
 
 /// Decision 11: the pull family (walk in place) with every position retained.
 pub fn parse_walk_with_list_tasks_detailed_response_unk(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<ListTasksDetailedResponse, i32> {
-    let mut opts = unk_opts_list_tasks_detailed_response(None);
-    let rc = unsafe { ak_dec_reset_ListTasksDetailedResponse(ctxs.list_tasks_detailed_response, &mut opts) };
+    let rc = arm_list_tasks_detailed_response(ctxs);
     if rc != AK_OK { return Err(rc); }
-    let r = parse_walk_with_list_tasks_detailed_response(ctxs, b, toks);
-    unsafe { ak_dec_reset_ListTasksDetailedResponse(ctxs.list_tasks_detailed_response, ::core::ptr::null_mut()); }
+    let r = parse_walk_with_list_tasks_detailed_response_armed(ctxs, b, toks);
     unk_reclaim();
     r
 }
@@ -4213,6 +4356,7 @@ pub fn parse_drain_with_list_tasks_detailed_response(
     scratch: &mut Vec<u64>,
     toks: &mut Vec<i64>,
 ) -> Result<ListTasksDetailedResponse, i32> {
+    disarm_list_tasks_detailed_response(ctxs);
     let ctx = ctxs.list_tasks_detailed_response;
     let mut out = ListTasksDetailedResponse::default();
     if scratch.len() * 8 < ak_rt::bdr::BDR_MIN_CHUNK {
@@ -4251,7 +4395,14 @@ pub fn parse_drain_with_list_tasks_detailed_response(
 /// It is not a shortcut around the drain but the other half of the
 /// decomposition: the difference between this arm and the one above IS the
 /// copy, measured rather than estimated.
-pub fn parse_walk_with_list_tasks_detailed_response(
+pub fn parse_walk_with_list_tasks_detailed_response(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<ListTasksDetailedResponse, i32> {
+    disarm_list_tasks_detailed_response(ctxs);
+    parse_walk_with_list_tasks_detailed_response_armed(ctxs, b, toks)
+}
+
+/// The walk with the context as it is armed now.
+#[inline(always)]
+fn parse_walk_with_list_tasks_detailed_response_armed(
     ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
@@ -4290,6 +4441,7 @@ pub fn parse_walk_opaque_with_list_tasks_detailed_response(
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<ListTasksDetailedResponse, i32> {
+    disarm_list_tasks_detailed_response(ctxs);
     let ctx = ctxs.list_tasks_detailed_response;
     let mut out = ListTasksDetailedResponse::default();
     toks.clear();
@@ -4352,7 +4504,16 @@ unsafe extern "C" fn add_list_probe_response_probes(
     })
 }
 
+/// Drop mode (decision 11): disarms the context if a retaining decode left it
+/// armed (optimisation U1), then decodes.
 pub fn decode_with_list_probe_response(ctxs: DecCtxs, b: &[u8]) -> Result<ListProbeResponse, i32> {
+    disarm_list_probe_response(ctxs);
+    decode_with_list_probe_response_armed(ctxs, b)
+}
+
+/// The decode with the context as it is armed now.
+#[inline(always)]
+fn decode_with_list_probe_response_armed(ctxs: DecCtxs, b: &[u8]) -> Result<ListProbeResponse, i32> {
     let ctx = ctxs.list_probe_response;
     let mut out = ListProbeResponse::default();
     let rc = unsafe {
@@ -4389,24 +4550,54 @@ pub const UNK_POSITIONS_LISTPROBERESPONSE: usize = 3;
 pub fn decode_with_list_probe_response_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_ListProbeResponse_opts) -> Result<ListProbeResponse, i32> {
     let rc = unsafe { ak_dec_reset_ListProbeResponse(ctxs.list_probe_response, opts) };
     if rc != AK_OK { return Err(rc); }
-    let r = decode_with_list_probe_response(ctxs, b);
+    let r = decode_with_list_probe_response_armed(ctxs, b);
     unsafe { ak_dec_reset_ListProbeResponse(ctxs.list_probe_response, ::core::ptr::null_mut()); }
+    unsafe { (*ctxs.unk).list_probe_response_armed.set(false); }
     unk_reclaim();
     r
 }
 
+/// Optimisation U1: arm this root's context with the options at their STABLE address
+/// in `DecCtxs` (every position grow-backed: nothing in them is consumed, so they
+/// need no refill), one reset per decode (decision 11 rule 7). The context stays
+/// armed afterwards; the drop-mode entries disarm it when they next run.
+#[inline(always)]
+fn arm_list_probe_response(ctxs: DecCtxs) -> i32 {
+    unsafe {
+        let st = &*ctxs.unk;
+        let rc = ak_dec_reset_ListProbeResponse(ctxs.list_probe_response, st.list_probe_response_opts.get());
+        if rc == AK_OK { st.list_probe_response_armed.set(true); }
+        rc
+    }
+}
+
+/// Drop mode for the next decode: one reset to NULL, only if a retaining decode
+/// through this binding left the context armed (optimisation U1).
+#[inline(always)]
+fn disarm_list_probe_response(ctxs: DecCtxs) {
+    unsafe {
+        let st = &*ctxs.unk;
+        if st.list_probe_response_armed.get() {
+            ak_dec_reset_ListProbeResponse(ctxs.list_probe_response, ::core::ptr::null_mut());
+            st.list_probe_response_armed.set(false);
+        }
+    }
+}
+
 /// Decision 11: retain everywhere.
 pub fn decode_with_list_probe_response_unk(ctxs: DecCtxs, b: &[u8]) -> Result<ListProbeResponse, i32> {
-    decode_with_list_probe_response_opts(ctxs, b, &mut unk_opts_list_probe_response(None))
+    let rc = arm_list_probe_response(ctxs);
+    if rc != AK_OK { return Err(rc); }
+    let r = decode_with_list_probe_response_armed(ctxs, b);
+    unk_reclaim();
+    r
 }
 
 /// Decision 11: the pull family (walk in place) with every position retained.
 pub fn parse_walk_with_list_probe_response_unk(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<ListProbeResponse, i32> {
-    let mut opts = unk_opts_list_probe_response(None);
-    let rc = unsafe { ak_dec_reset_ListProbeResponse(ctxs.list_probe_response, &mut opts) };
+    let rc = arm_list_probe_response(ctxs);
     if rc != AK_OK { return Err(rc); }
-    let r = parse_walk_with_list_probe_response(ctxs, b, toks);
-    unsafe { ak_dec_reset_ListProbeResponse(ctxs.list_probe_response, ::core::ptr::null_mut()); }
+    let r = parse_walk_with_list_probe_response_armed(ctxs, b, toks);
     unk_reclaim();
     r
 }
@@ -4517,6 +4708,7 @@ pub fn parse_drain_with_list_probe_response(
     scratch: &mut Vec<u64>,
     toks: &mut Vec<i64>,
 ) -> Result<ListProbeResponse, i32> {
+    disarm_list_probe_response(ctxs);
     let ctx = ctxs.list_probe_response;
     let mut out = ListProbeResponse::default();
     if scratch.len() * 8 < ak_rt::bdr::BDR_MIN_CHUNK {
@@ -4555,7 +4747,14 @@ pub fn parse_drain_with_list_probe_response(
 /// It is not a shortcut around the drain but the other half of the
 /// decomposition: the difference between this arm and the one above IS the
 /// copy, measured rather than estimated.
-pub fn parse_walk_with_list_probe_response(
+pub fn parse_walk_with_list_probe_response(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<ListProbeResponse, i32> {
+    disarm_list_probe_response(ctxs);
+    parse_walk_with_list_probe_response_armed(ctxs, b, toks)
+}
+
+/// The walk with the context as it is armed now.
+#[inline(always)]
+fn parse_walk_with_list_probe_response_armed(
     ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
@@ -4594,6 +4793,7 @@ pub fn parse_walk_opaque_with_list_probe_response(
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<ListProbeResponse, i32> {
+    disarm_list_probe_response(ctxs);
     let ctx = ctxs.list_probe_response;
     let mut out = ListProbeResponse::default();
     toks.clear();
@@ -4683,7 +4883,16 @@ unsafe extern "C" fn add_list_task_summary_response_tasks_options_options(
     })
 }
 
+/// Drop mode (decision 11): disarms the context if a retaining decode left it
+/// armed (optimisation U1), then decodes.
 pub fn decode_with_list_task_summary_response(ctxs: DecCtxs, b: &[u8]) -> Result<ListTaskSummaryResponse, i32> {
+    disarm_list_task_summary_response(ctxs);
+    decode_with_list_task_summary_response_armed(ctxs, b)
+}
+
+/// The decode with the context as it is armed now.
+#[inline(always)]
+fn decode_with_list_task_summary_response_armed(ctxs: DecCtxs, b: &[u8]) -> Result<ListTaskSummaryResponse, i32> {
     let ctx = ctxs.list_task_summary_response;
     let mut out = ListTaskSummaryResponse::default();
     let rc = unsafe {
@@ -4725,24 +4934,54 @@ pub const UNK_POSITIONS_LISTTASKSUMMARYRESPONSE: usize = 6;
 pub fn decode_with_list_task_summary_response_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_ListTaskSummaryResponse_opts) -> Result<ListTaskSummaryResponse, i32> {
     let rc = unsafe { ak_dec_reset_ListTaskSummaryResponse(ctxs.list_task_summary_response, opts) };
     if rc != AK_OK { return Err(rc); }
-    let r = decode_with_list_task_summary_response(ctxs, b);
+    let r = decode_with_list_task_summary_response_armed(ctxs, b);
     unsafe { ak_dec_reset_ListTaskSummaryResponse(ctxs.list_task_summary_response, ::core::ptr::null_mut()); }
+    unsafe { (*ctxs.unk).list_task_summary_response_armed.set(false); }
     unk_reclaim();
     r
 }
 
+/// Optimisation U1: arm this root's context with the options at their STABLE address
+/// in `DecCtxs` (every position grow-backed: nothing in them is consumed, so they
+/// need no refill), one reset per decode (decision 11 rule 7). The context stays
+/// armed afterwards; the drop-mode entries disarm it when they next run.
+#[inline(always)]
+fn arm_list_task_summary_response(ctxs: DecCtxs) -> i32 {
+    unsafe {
+        let st = &*ctxs.unk;
+        let rc = ak_dec_reset_ListTaskSummaryResponse(ctxs.list_task_summary_response, st.list_task_summary_response_opts.get());
+        if rc == AK_OK { st.list_task_summary_response_armed.set(true); }
+        rc
+    }
+}
+
+/// Drop mode for the next decode: one reset to NULL, only if a retaining decode
+/// through this binding left the context armed (optimisation U1).
+#[inline(always)]
+fn disarm_list_task_summary_response(ctxs: DecCtxs) {
+    unsafe {
+        let st = &*ctxs.unk;
+        if st.list_task_summary_response_armed.get() {
+            ak_dec_reset_ListTaskSummaryResponse(ctxs.list_task_summary_response, ::core::ptr::null_mut());
+            st.list_task_summary_response_armed.set(false);
+        }
+    }
+}
+
 /// Decision 11: retain everywhere.
 pub fn decode_with_list_task_summary_response_unk(ctxs: DecCtxs, b: &[u8]) -> Result<ListTaskSummaryResponse, i32> {
-    decode_with_list_task_summary_response_opts(ctxs, b, &mut unk_opts_list_task_summary_response(None))
+    let rc = arm_list_task_summary_response(ctxs);
+    if rc != AK_OK { return Err(rc); }
+    let r = decode_with_list_task_summary_response_armed(ctxs, b);
+    unk_reclaim();
+    r
 }
 
 /// Decision 11: the pull family (walk in place) with every position retained.
 pub fn parse_walk_with_list_task_summary_response_unk(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<ListTaskSummaryResponse, i32> {
-    let mut opts = unk_opts_list_task_summary_response(None);
-    let rc = unsafe { ak_dec_reset_ListTaskSummaryResponse(ctxs.list_task_summary_response, &mut opts) };
+    let rc = arm_list_task_summary_response(ctxs);
     if rc != AK_OK { return Err(rc); }
-    let r = parse_walk_with_list_task_summary_response(ctxs, b, toks);
-    unsafe { ak_dec_reset_ListTaskSummaryResponse(ctxs.list_task_summary_response, ::core::ptr::null_mut()); }
+    let r = parse_walk_with_list_task_summary_response_armed(ctxs, b, toks);
     unk_reclaim();
     r
 }
@@ -4863,6 +5102,7 @@ pub fn parse_drain_with_list_task_summary_response(
     scratch: &mut Vec<u64>,
     toks: &mut Vec<i64>,
 ) -> Result<ListTaskSummaryResponse, i32> {
+    disarm_list_task_summary_response(ctxs);
     let ctx = ctxs.list_task_summary_response;
     let mut out = ListTaskSummaryResponse::default();
     if scratch.len() * 8 < ak_rt::bdr::BDR_MIN_CHUNK {
@@ -4901,7 +5141,14 @@ pub fn parse_drain_with_list_task_summary_response(
 /// It is not a shortcut around the drain but the other half of the
 /// decomposition: the difference between this arm and the one above IS the
 /// copy, measured rather than estimated.
-pub fn parse_walk_with_list_task_summary_response(
+pub fn parse_walk_with_list_task_summary_response(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<ListTaskSummaryResponse, i32> {
+    disarm_list_task_summary_response(ctxs);
+    parse_walk_with_list_task_summary_response_armed(ctxs, b, toks)
+}
+
+/// The walk with the context as it is armed now.
+#[inline(always)]
+fn parse_walk_with_list_task_summary_response_armed(
     ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
@@ -4940,6 +5187,7 @@ pub fn parse_walk_opaque_with_list_task_summary_response(
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<ListTaskSummaryResponse, i32> {
+    disarm_list_task_summary_response(ctxs);
     let ctx = ctxs.list_task_summary_response;
     let mut out = ListTaskSummaryResponse::default();
     toks.clear();
@@ -4990,7 +5238,16 @@ unsafe extern "C" fn apply_upload_result_data_message(
     })
 }
 
+/// Drop mode (decision 11): disarms the context if a retaining decode left it
+/// armed (optimisation U1), then decodes.
 pub fn decode_with_upload_result_data_message(ctxs: DecCtxs, b: &[u8]) -> Result<UploadResultDataMessage, i32> {
+    disarm_upload_result_data_message(ctxs);
+    decode_with_upload_result_data_message_armed(ctxs, b)
+}
+
+/// The decode with the context as it is armed now.
+#[inline(always)]
+fn decode_with_upload_result_data_message_armed(ctxs: DecCtxs, b: &[u8]) -> Result<UploadResultDataMessage, i32> {
     let ctx = ctxs.upload_result_data_message;
     let mut out = UploadResultDataMessage::default();
     let rc = unsafe {
@@ -5025,24 +5282,54 @@ pub const UNK_POSITIONS_UPLOADRESULTDATAMESSAGE: usize = 2;
 pub fn decode_with_upload_result_data_message_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_UploadResultDataMessage_opts) -> Result<UploadResultDataMessage, i32> {
     let rc = unsafe { ak_dec_reset_UploadResultDataMessage(ctxs.upload_result_data_message, opts) };
     if rc != AK_OK { return Err(rc); }
-    let r = decode_with_upload_result_data_message(ctxs, b);
+    let r = decode_with_upload_result_data_message_armed(ctxs, b);
     unsafe { ak_dec_reset_UploadResultDataMessage(ctxs.upload_result_data_message, ::core::ptr::null_mut()); }
+    unsafe { (*ctxs.unk).upload_result_data_message_armed.set(false); }
     unk_reclaim();
     r
 }
 
+/// Optimisation U1: arm this root's context with the options at their STABLE address
+/// in `DecCtxs` (every position grow-backed: nothing in them is consumed, so they
+/// need no refill), one reset per decode (decision 11 rule 7). The context stays
+/// armed afterwards; the drop-mode entries disarm it when they next run.
+#[inline(always)]
+fn arm_upload_result_data_message(ctxs: DecCtxs) -> i32 {
+    unsafe {
+        let st = &*ctxs.unk;
+        let rc = ak_dec_reset_UploadResultDataMessage(ctxs.upload_result_data_message, st.upload_result_data_message_opts.get());
+        if rc == AK_OK { st.upload_result_data_message_armed.set(true); }
+        rc
+    }
+}
+
+/// Drop mode for the next decode: one reset to NULL, only if a retaining decode
+/// through this binding left the context armed (optimisation U1).
+#[inline(always)]
+fn disarm_upload_result_data_message(ctxs: DecCtxs) {
+    unsafe {
+        let st = &*ctxs.unk;
+        if st.upload_result_data_message_armed.get() {
+            ak_dec_reset_UploadResultDataMessage(ctxs.upload_result_data_message, ::core::ptr::null_mut());
+            st.upload_result_data_message_armed.set(false);
+        }
+    }
+}
+
 /// Decision 11: retain everywhere.
 pub fn decode_with_upload_result_data_message_unk(ctxs: DecCtxs, b: &[u8]) -> Result<UploadResultDataMessage, i32> {
-    decode_with_upload_result_data_message_opts(ctxs, b, &mut unk_opts_upload_result_data_message(None))
+    let rc = arm_upload_result_data_message(ctxs);
+    if rc != AK_OK { return Err(rc); }
+    let r = decode_with_upload_result_data_message_armed(ctxs, b);
+    unk_reclaim();
+    r
 }
 
 /// Decision 11: the pull family (walk in place) with every position retained.
 pub fn parse_walk_with_upload_result_data_message_unk(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<UploadResultDataMessage, i32> {
-    let mut opts = unk_opts_upload_result_data_message(None);
-    let rc = unsafe { ak_dec_reset_UploadResultDataMessage(ctxs.upload_result_data_message, &mut opts) };
+    let rc = arm_upload_result_data_message(ctxs);
     if rc != AK_OK { return Err(rc); }
-    let r = parse_walk_with_upload_result_data_message(ctxs, b, toks);
-    unsafe { ak_dec_reset_UploadResultDataMessage(ctxs.upload_result_data_message, ::core::ptr::null_mut()); }
+    let r = parse_walk_with_upload_result_data_message_armed(ctxs, b, toks);
     unk_reclaim();
     r
 }
@@ -5145,6 +5432,7 @@ pub fn parse_drain_with_upload_result_data_message(
     scratch: &mut Vec<u64>,
     toks: &mut Vec<i64>,
 ) -> Result<UploadResultDataMessage, i32> {
+    disarm_upload_result_data_message(ctxs);
     let ctx = ctxs.upload_result_data_message;
     let mut out = UploadResultDataMessage::default();
     if scratch.len() * 8 < ak_rt::bdr::BDR_MIN_CHUNK {
@@ -5183,7 +5471,14 @@ pub fn parse_drain_with_upload_result_data_message(
 /// It is not a shortcut around the drain but the other half of the
 /// decomposition: the difference between this arm and the one above IS the
 /// copy, measured rather than estimated.
-pub fn parse_walk_with_upload_result_data_message(
+pub fn parse_walk_with_upload_result_data_message(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<UploadResultDataMessage, i32> {
+    disarm_upload_result_data_message(ctxs);
+    parse_walk_with_upload_result_data_message_armed(ctxs, b, toks)
+}
+
+/// The walk with the context as it is armed now.
+#[inline(always)]
+fn parse_walk_with_upload_result_data_message_armed(
     ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
@@ -5222,6 +5517,7 @@ pub fn parse_walk_opaque_with_upload_result_data_message(
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<UploadResultDataMessage, i32> {
+    disarm_upload_result_data_message(ctxs);
     let ctx = ctxs.upload_result_data_message;
     let mut out = UploadResultDataMessage::default();
     toks.clear();
@@ -5373,7 +5669,16 @@ unsafe extern "C" fn add_list_metrics_response_batches_statuses(
     })
 }
 
+/// Drop mode (decision 11): disarms the context if a retaining decode left it
+/// armed (optimisation U1), then decodes.
 pub fn decode_with_list_metrics_response(ctxs: DecCtxs, b: &[u8]) -> Result<ListMetricsResponse, i32> {
+    disarm_list_metrics_response(ctxs);
+    decode_with_list_metrics_response_armed(ctxs, b)
+}
+
+/// The decode with the context as it is armed now.
+#[inline(always)]
+fn decode_with_list_metrics_response_armed(ctxs: DecCtxs, b: &[u8]) -> Result<ListMetricsResponse, i32> {
     let ctx = ctxs.list_metrics_response;
     let mut out = ListMetricsResponse::default();
     let rc = unsafe {
@@ -5415,24 +5720,54 @@ pub const UNK_POSITIONS_LISTMETRICSRESPONSE: usize = 2;
 pub fn decode_with_list_metrics_response_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_ListMetricsResponse_opts) -> Result<ListMetricsResponse, i32> {
     let rc = unsafe { ak_dec_reset_ListMetricsResponse(ctxs.list_metrics_response, opts) };
     if rc != AK_OK { return Err(rc); }
-    let r = decode_with_list_metrics_response(ctxs, b);
+    let r = decode_with_list_metrics_response_armed(ctxs, b);
     unsafe { ak_dec_reset_ListMetricsResponse(ctxs.list_metrics_response, ::core::ptr::null_mut()); }
+    unsafe { (*ctxs.unk).list_metrics_response_armed.set(false); }
     unk_reclaim();
     r
 }
 
+/// Optimisation U1: arm this root's context with the options at their STABLE address
+/// in `DecCtxs` (every position grow-backed: nothing in them is consumed, so they
+/// need no refill), one reset per decode (decision 11 rule 7). The context stays
+/// armed afterwards; the drop-mode entries disarm it when they next run.
+#[inline(always)]
+fn arm_list_metrics_response(ctxs: DecCtxs) -> i32 {
+    unsafe {
+        let st = &*ctxs.unk;
+        let rc = ak_dec_reset_ListMetricsResponse(ctxs.list_metrics_response, st.list_metrics_response_opts.get());
+        if rc == AK_OK { st.list_metrics_response_armed.set(true); }
+        rc
+    }
+}
+
+/// Drop mode for the next decode: one reset to NULL, only if a retaining decode
+/// through this binding left the context armed (optimisation U1).
+#[inline(always)]
+fn disarm_list_metrics_response(ctxs: DecCtxs) {
+    unsafe {
+        let st = &*ctxs.unk;
+        if st.list_metrics_response_armed.get() {
+            ak_dec_reset_ListMetricsResponse(ctxs.list_metrics_response, ::core::ptr::null_mut());
+            st.list_metrics_response_armed.set(false);
+        }
+    }
+}
+
 /// Decision 11: retain everywhere.
 pub fn decode_with_list_metrics_response_unk(ctxs: DecCtxs, b: &[u8]) -> Result<ListMetricsResponse, i32> {
-    decode_with_list_metrics_response_opts(ctxs, b, &mut unk_opts_list_metrics_response(None))
+    let rc = arm_list_metrics_response(ctxs);
+    if rc != AK_OK { return Err(rc); }
+    let r = decode_with_list_metrics_response_armed(ctxs, b);
+    unk_reclaim();
+    r
 }
 
 /// Decision 11: the pull family (walk in place) with every position retained.
 pub fn parse_walk_with_list_metrics_response_unk(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<ListMetricsResponse, i32> {
-    let mut opts = unk_opts_list_metrics_response(None);
-    let rc = unsafe { ak_dec_reset_ListMetricsResponse(ctxs.list_metrics_response, &mut opts) };
+    let rc = arm_list_metrics_response(ctxs);
     if rc != AK_OK { return Err(rc); }
-    let r = parse_walk_with_list_metrics_response(ctxs, b, toks);
-    unsafe { ak_dec_reset_ListMetricsResponse(ctxs.list_metrics_response, ::core::ptr::null_mut()); }
+    let r = parse_walk_with_list_metrics_response_armed(ctxs, b, toks);
     unk_reclaim();
     r
 }
@@ -5577,6 +5912,7 @@ pub fn parse_drain_with_list_metrics_response(
     scratch: &mut Vec<u64>,
     toks: &mut Vec<i64>,
 ) -> Result<ListMetricsResponse, i32> {
+    disarm_list_metrics_response(ctxs);
     let ctx = ctxs.list_metrics_response;
     let mut out = ListMetricsResponse::default();
     if scratch.len() * 8 < ak_rt::bdr::BDR_MIN_CHUNK {
@@ -5615,7 +5951,14 @@ pub fn parse_drain_with_list_metrics_response(
 /// It is not a shortcut around the drain but the other half of the
 /// decomposition: the difference between this arm and the one above IS the
 /// copy, measured rather than estimated.
-pub fn parse_walk_with_list_metrics_response(
+pub fn parse_walk_with_list_metrics_response(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<ListMetricsResponse, i32> {
+    disarm_list_metrics_response(ctxs);
+    parse_walk_with_list_metrics_response_armed(ctxs, b, toks)
+}
+
+/// The walk with the context as it is armed now.
+#[inline(always)]
+fn parse_walk_with_list_metrics_response_armed(
     ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
@@ -5654,6 +5997,7 @@ pub fn parse_walk_opaque_with_list_metrics_response(
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<ListMetricsResponse, i32> {
+    disarm_list_metrics_response(ctxs);
     let ctx = ctxs.list_metrics_response;
     let mut out = ListMetricsResponse::default();
     toks.clear();
@@ -5733,7 +6077,16 @@ unsafe extern "C" fn add_dual_response_right(
     })
 }
 
+/// Drop mode (decision 11): disarms the context if a retaining decode left it
+/// armed (optimisation U1), then decodes.
 pub fn decode_with_dual_response(ctxs: DecCtxs, b: &[u8]) -> Result<DualResponse, i32> {
+    disarm_dual_response(ctxs);
+    decode_with_dual_response_armed(ctxs, b)
+}
+
+/// The decode with the context as it is armed now.
+#[inline(always)]
+fn decode_with_dual_response_armed(ctxs: DecCtxs, b: &[u8]) -> Result<DualResponse, i32> {
     let ctx = ctxs.dual_response;
     let mut out = DualResponse::default();
     let rc = unsafe {
@@ -5771,24 +6124,54 @@ pub const UNK_POSITIONS_DUALRESPONSE: usize = 3;
 pub fn decode_with_dual_response_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_DualResponse_opts) -> Result<DualResponse, i32> {
     let rc = unsafe { ak_dec_reset_DualResponse(ctxs.dual_response, opts) };
     if rc != AK_OK { return Err(rc); }
-    let r = decode_with_dual_response(ctxs, b);
+    let r = decode_with_dual_response_armed(ctxs, b);
     unsafe { ak_dec_reset_DualResponse(ctxs.dual_response, ::core::ptr::null_mut()); }
+    unsafe { (*ctxs.unk).dual_response_armed.set(false); }
     unk_reclaim();
     r
 }
 
+/// Optimisation U1: arm this root's context with the options at their STABLE address
+/// in `DecCtxs` (every position grow-backed: nothing in them is consumed, so they
+/// need no refill), one reset per decode (decision 11 rule 7). The context stays
+/// armed afterwards; the drop-mode entries disarm it when they next run.
+#[inline(always)]
+fn arm_dual_response(ctxs: DecCtxs) -> i32 {
+    unsafe {
+        let st = &*ctxs.unk;
+        let rc = ak_dec_reset_DualResponse(ctxs.dual_response, st.dual_response_opts.get());
+        if rc == AK_OK { st.dual_response_armed.set(true); }
+        rc
+    }
+}
+
+/// Drop mode for the next decode: one reset to NULL, only if a retaining decode
+/// through this binding left the context armed (optimisation U1).
+#[inline(always)]
+fn disarm_dual_response(ctxs: DecCtxs) {
+    unsafe {
+        let st = &*ctxs.unk;
+        if st.dual_response_armed.get() {
+            ak_dec_reset_DualResponse(ctxs.dual_response, ::core::ptr::null_mut());
+            st.dual_response_armed.set(false);
+        }
+    }
+}
+
 /// Decision 11: retain everywhere.
 pub fn decode_with_dual_response_unk(ctxs: DecCtxs, b: &[u8]) -> Result<DualResponse, i32> {
-    decode_with_dual_response_opts(ctxs, b, &mut unk_opts_dual_response(None))
+    let rc = arm_dual_response(ctxs);
+    if rc != AK_OK { return Err(rc); }
+    let r = decode_with_dual_response_armed(ctxs, b);
+    unk_reclaim();
+    r
 }
 
 /// Decision 11: the pull family (walk in place) with every position retained.
 pub fn parse_walk_with_dual_response_unk(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<DualResponse, i32> {
-    let mut opts = unk_opts_dual_response(None);
-    let rc = unsafe { ak_dec_reset_DualResponse(ctxs.dual_response, &mut opts) };
+    let rc = arm_dual_response(ctxs);
     if rc != AK_OK { return Err(rc); }
-    let r = parse_walk_with_dual_response(ctxs, b, toks);
-    unsafe { ak_dec_reset_DualResponse(ctxs.dual_response, ::core::ptr::null_mut()); }
+    let r = parse_walk_with_dual_response_armed(ctxs, b, toks);
     unk_reclaim();
     r
 }
@@ -5906,6 +6289,7 @@ pub fn parse_drain_with_dual_response(
     scratch: &mut Vec<u64>,
     toks: &mut Vec<i64>,
 ) -> Result<DualResponse, i32> {
+    disarm_dual_response(ctxs);
     let ctx = ctxs.dual_response;
     let mut out = DualResponse::default();
     if scratch.len() * 8 < ak_rt::bdr::BDR_MIN_CHUNK {
@@ -5944,7 +6328,14 @@ pub fn parse_drain_with_dual_response(
 /// It is not a shortcut around the drain but the other half of the
 /// decomposition: the difference between this arm and the one above IS the
 /// copy, measured rather than estimated.
-pub fn parse_walk_with_dual_response(
+pub fn parse_walk_with_dual_response(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<DualResponse, i32> {
+    disarm_dual_response(ctxs);
+    parse_walk_with_dual_response_armed(ctxs, b, toks)
+}
+
+/// The walk with the context as it is armed now.
+#[inline(always)]
+fn parse_walk_with_dual_response_armed(
     ctxs: DecCtxs,
     b: &[u8],
     toks: &mut Vec<i64>,
@@ -5983,6 +6374,7 @@ pub fn parse_walk_opaque_with_dual_response(
     b: &[u8],
     toks: &mut Vec<i64>,
 ) -> Result<DualResponse, i32> {
+    disarm_dual_response(ctxs);
     let ctx = ctxs.dual_response;
     let mut out = DualResponse::default();
     toks.clear();
