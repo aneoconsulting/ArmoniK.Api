@@ -290,8 +290,9 @@ def emit_c(p, entry):
                      " (struct ak_dec_%s_opts *)(intptr_t) opts);" % (root, root))
             o.append("}")
         o.append("")
-        o.append("/* PULL. `ak_parse_%s` deposits records and calls nobody, so the wire is pinned" % root)
-        o.append(" * rather than copied; there is no ak_push frame to make an upcall from. */")
+        o.append("/* PULL. `ak_parse_%s` deposits records and calls no Java, so the wire is pinned" % root)
+        o.append(" * rather than copied; there is no ak_push frame to make an upcall from. With retain")
+        o.append(" * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */")
         o.append("JNIEXPORT jint JNICALL %sparse%s(JNIEnv *env, jclass cls, jobject self,"
                  " jlong ctx, jbyteArray wire, jint off, jint len) {" % (J, root))
         o.append("  (void) cls; (void) self;")
@@ -674,7 +675,7 @@ def emit_java(p, entry):
                 o.append("  public static native long uencodeDirect%s(Object self, long ctx, long vt,"
                          " long fix, byte[] data, int dlen);" % root)
         o.append("  public static native int decode%s(Object self, long ctx, long buf, long len, long vt);" % root)
-        o.append("  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */")
+        o.append("  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall into Java). */")
         o.append("  public static native int parse%s(Object self, long ctx, byte[] wire, int off, int len);" % root)
     o.append("")
     for et in sorted(element_types(p)):

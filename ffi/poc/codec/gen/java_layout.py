@@ -13,28 +13,39 @@ offsets; no member is added, dropped, reordered or re-typed.
 Two checks keep it honest, and both are rendered here:
   * run time: `Layout.assertAgreement()` compares every offset with the core's own
     `ak_layout_facts` (ABI v1 section 10), naming the fact that disagrees;
-  * compile time: the C header the JNI shim compiles against carries a static assertion of
-    every one of these numbers against the C compiler's (`java_cabi.emit`), so the shim
-    does not build if this engine is wrong.
+  * compile time: the C header the JNI shim compiles against (`c_abi.emit`, with these
+    numbers appended by `java_backend.offset_asserts`) carries a static assertion of every
+    one of them against the C compiler's, so the shim does not build if this engine is wrong.
+The fixed structs (`ak_str`, `ak_span`, `ak_blob`, `ak_unk_buf`, `ak_unk_opts`,
+`ak_unk_pool`) are laid out from `plan.FIXED.structs` by the same rule and checked against
+`plan.FIXED.sizes` at generation (R-H15); only C's primitive sizes are this module's.
 The pre-WP5 `poc/java/gen/java_layout.py` re-derived the member list itself from
 `rust_abi.group_fields` and patched the u-group by string replacement; it retires.
 """
-from plan import (abi_order_topo, group_fields, ugroup_fields, unk_opts_layout, unk_opts_name,
-                  unknown_compiled_out)
+from plan import (FIXED, abi_order_topo, group_fields, ugroup_fields, unk_opts_layout,
+                  unk_opts_name, unknown_compiled_out)
 import cpp_layout
 import java_names as N
 
 WHO = "java_layout.py"
 
-# (size, align) on the SysV x86-64 C ABI of every leaf of the plan's abi vocabulary.
-# `ak_str` is {const void*, size_t, fn ptr}; `ak_span` is three u32; `ak_blob` is two words;
-# `ak_unk_buf` is a pointer and two u32.
+# (size, align) on the SysV x86-64 C ABI of the plan's primitive types. Every struct --
+# the fixed ones of plan.FIXED and the groups -- is laid out from these by C's rule.
 LEAF = {
     "i32": (4, 4), "i64": (8, 8), "u8": (1, 1), "f64": (8, 8), "u32": (4, 4),
     "u64": (8, 8), "usize": (8, 8), "ptr": (8, 8),
-    "ak_str": (24, 8), "ak_span": (12, 4), "ak_blob": (16, 8),
-    "ak_unk_buf": (16, 8),   # decision 11 (WP5 step 7): {void *data; u32 len; u32 cap}
 }
+
+# The fixed structs a group or an options struct is built from (plan.FIXED.structs).
+FIXED_USED = ["ak_str", "ak_span", "ak_blob", "ak_unk_buf", "ak_unk_opts", "ak_unk_pool"]
+
+
+def _fixed_type(ty):
+    """A plan.FIXED member type as this module's vocabulary: pointers, optional function
+    pointers and named function types are `ptr`; a fixed struct is itself."""
+    if ty.startswith("*") or ty.endswith("?") or ty.endswith("_fn"):
+        return "ptr"
+    return ty
 
 
 class Layout(object):
@@ -79,15 +90,19 @@ def build(p):
     (plan.group_fields). The fixed entry types stay (plan.FIXED declares them in both)."""
     nounk = unknown_compiled_out(p)
     lay = Layout()
+    fixed = {n: ms for n, _doc, ms in FIXED.structs}
+    for n in FIXED_USED:
+        size = lay.add(n, [(m, _fixed_type(t)) for m, t in fixed[n]])[0]
+        if size != FIXED.sizes[n]:
+            raise ValueError("java_layout: %s laid out at %d bytes, plan.FIXED.sizes says %d"
+                             % (n, size, FIXED.sizes[n]))
     for name in abi_order_topo(p):
         m = p.msg(name)
         for pre in (("e", "d") if nounk else ("e", "d", "u")):
             lay.add("ak_%sfix_%s" % (pre, name), group_members(m, pre))
-    # Decision 11 (WP5 steps 7-9): the two entry types and each root's options struct, in the
-    # plan's order (plan.unk_opts_layout). A Java binding writes the options into native
-    # memory at these numbers; the header static-asserts them against the C compiler.
-    lay.add("ak_unk_opts", [("buf", "ak_unk_buf"), ("grow", "ptr")])
-    lay.add("ak_unk_pool", [("bufs", "ptr"), ("n", "u32"), ("grow", "ptr")])
+    # Decision 11 (WP5 steps 7-9): each root's options struct, in the plan's order
+    # (plan.unk_opts_layout), over the two fixed entry types laid out above. A Java binding
+    # writes the options into native memory at these numbers; the header static-asserts them.
     for root in ([] if nounk else p.roots):
         lay.add(unk_opts_name(root), [("host", "ptr")] + [(mn, ty) for mn, _m, ty in unk_opts_layout(p, root)])
     return lay
