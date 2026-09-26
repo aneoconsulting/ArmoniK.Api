@@ -2,7 +2,8 @@
 # against the binding at 1e489eb40 plus the new d11_reuse case (two pre-allocated pool buffers, a decode with no
 # unknowns, then a decode of d11_results() with the SAME options). ASan reports heap-use-after-free in unk_put
 # (the core writing into a buffer the first decode's unk_reclaim had freed). Taken 2026-09-26 in the main tree
-# (the core crates had another agent's uncommitted changes, which do not touch the unknown-field path).
+# (the core crates carried another agent's uncommitted R-H21 change to the capacity checks in unk_put; the free in
+# question is the binding's unk_reclaim, see the second stack, which that change does not touch).
 
 [libprotobuf ERROR google/protobuf/wire_format_lite.cc:618] String field 'armonik.ffi.shapes.v1.ResultRaw.name' contains invalid UTF-8 data when parsing a protocol buffer. Use the 'bytes' type if you intend to send raw bytes. 
 =================================================================
