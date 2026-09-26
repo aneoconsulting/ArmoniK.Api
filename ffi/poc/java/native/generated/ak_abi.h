@@ -1757,6 +1757,10 @@ AK_SASSERT(sizeof(struct ak_ufix_UploadResultDataMessage) == 120, "sizeof ak_ufi
 AK_SASSERT(offsetof(struct ak_ufix_UploadResultDataMessage, upload) == 0, "ak_ufix_UploadResultDataMessage.upload");
 AK_SASSERT(offsetof(struct ak_ufix_UploadResultDataMessage, unknown) == 96, "ak_ufix_UploadResultDataMessage.unknown");
 AK_SASSERT(offsetof(struct ak_ufix_UploadResultDataMessage, presence) == 112, "ak_ufix_UploadResultDataMessage.presence");
+AK_SASSERT(sizeof(struct ak_unk_buf) == 16, "sizeof ak_unk_buf");
+AK_SASSERT(offsetof(struct ak_unk_buf, data) == 0, "ak_unk_buf.data");
+AK_SASSERT(offsetof(struct ak_unk_buf, len) == 8, "ak_unk_buf.len");
+AK_SASSERT(offsetof(struct ak_unk_buf, cap) == 12, "ak_unk_buf.cap");
 AK_SASSERT(sizeof(struct ak_unk_opts) == 24, "sizeof ak_unk_opts");
 AK_SASSERT(offsetof(struct ak_unk_opts, buf) == 0, "ak_unk_opts.buf");
 AK_SASSERT(offsetof(struct ak_unk_opts, grow) == 16, "ak_unk_opts.grow");

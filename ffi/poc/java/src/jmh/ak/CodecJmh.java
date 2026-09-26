@@ -42,6 +42,13 @@ import org.openjdk.jmh.runner.IterationType;
  * setup runs the cell's correctness check (req 26) and throws on a mismatch, which with
  * {@code -foe true} stops the whole run before a figure is written.
  *
+ * <p><b>Compilation state</b> (req 24's managed clause, R-H19): the JVM's cumulative JIT
+ * compile time ({@code CompilationMXBean}) is read at each iteration's setup and teardown,
+ * and the difference goes beside the CPU figure; {@code jit_ms_during} = 0 on a sample means
+ * no method was compiled while it ran. The JIT itself is HotSpot's tiered default (C1 then C2,
+ * default thresholds); which tier each method reached is not recorded (no WhiteBox API in a
+ * product JVM without -XX:+WhiteBoxAPI).
+ *
  * <p><b>Blackhole</b>: every operation folds its result into {@code CampaignCodec.sink}
  * (identity hashes, lengths, walked sums), and the method hands that to the Blackhole.
  */
@@ -58,6 +65,9 @@ public class CodecJmh {
   byte[] wire;
   boolean measuring;
   long cpu;
+  long jit0;
+  static final java.lang.management.CompilationMXBean JIT =
+      java.lang.management.ManagementFactory.getCompilationMXBean();
   final StringBuilder cpuLines = new StringBuilder();
   int measured;
 
@@ -87,6 +97,7 @@ public class CodecJmh {
     measuring = ip.getType() == IterationType.MEASUREMENT;
     if (dir.equals("encode")) arm.prepare(id, cs, n);       // untimed (req 11)
     CampaignCodec.SINK.reset(2 * wire.length + 4096);      // untimed: no arm grows the sink
+    jit0 = JIT.getTotalCompilationTime();
   }
 
   @Benchmark
@@ -101,7 +112,8 @@ public class CodecJmh {
   @TearDown(Level.Iteration)
   public void after() {
     cpuLines.append(cell).append('\t').append(measuring ? "m" : "w").append('\t')
-        .append(measuring ? measured++ : -1).append('\t').append(cpu).append('\t').append(n).append('\n');
+        .append(measuring ? measured++ : -1).append('\t').append(cpu).append('\t').append(n).append('\t')
+        .append(JIT.getTotalCompilationTime() - jit0).append('\n');
   }
 
   @TearDown(Level.Trial)

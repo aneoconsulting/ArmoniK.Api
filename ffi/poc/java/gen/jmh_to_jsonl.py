@@ -22,9 +22,11 @@ def main():
     build = sys.argv[5] if len(sys.argv) > 5 else "full"
     cpu = {}
     for line in open(sys.argv[2]):
-        cell, kind, idx, c, n = line.rstrip("\n").split("\t")
+        f = line.rstrip("\n").split("\t")
+        cell, kind, idx, c, n = f[:5]
+        jit = int(f[5]) if len(f) > 5 else None     # ms of JIT compilation during the iteration
         if kind == "m":
-            cpu[(cell, int(idx))] = (int(c), int(n))
+            cpu[(cell, int(idx))] = (int(c), int(n), jit)
     out = []
     for b in res:
         cell = b["params"]["cell"]
@@ -42,7 +44,7 @@ def main():
             for i, wall in enumerate(fork):
                 if (cell, i) not in cpu:
                     raise SystemExit("no CPU sample for %s measurement %d" % (cell, i))
-                c, n = cpu[(cell, i)]
+                c, n, jit = cpu[(cell, i)]
                 extra = {}
                 cont = content
                 if content.startswith("corpus:"):
@@ -51,6 +53,8 @@ def main():
                     "content": cont, "dir": d, "unknown_mode": mode, "build": build, "coder": coder,
                     "engine": "jmh", "launch": launch, "round": i + 1, "cpu_ns": c,
                     "wall_ns": int(round(wall)), "iters": n}
+                if jit is not None:
+                    rec["jit_ms_during"] = jit
                 rec.update(extra)
                 out.append(json.dumps(rec, separators=(",", ":")))
     print("\n".join(out))

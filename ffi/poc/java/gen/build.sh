@@ -169,7 +169,7 @@ say "classes: the no-unknown build (java17 on JDK 17)"
 rm -rf build/cls17-nounk && mkdir -p build/cls17-nounk
 "$J17/bin/javac" -nowarn -encoding UTF-8 -d build/cls17-nounk -cp "$CP" \
   $(find src/java src/generated_nounk/java17 src/generated_nounk/shared src/generated_corpus_nounk/java17 \
-       src/generated_corpus_nounk/shared -name '*.java' ! -name 'Pin.java' ! -name 'RunUnkControls.java' ! -name 'RunUnkLeak.java') \
+       src/generated_corpus_nounk/shared -name '*.java' ! -name 'Pin.java' ! -name 'RunUnkControls.java' ! -name 'RunUnkLeak.java' ! -name 'RunUnkOneof.java') \
   $(find build/pbjava -name '*.java')
 
 # ---- 5b. the codec suite on JMH (CAMPAIGN.md req 22a), target only: the annotation
@@ -208,7 +208,7 @@ rm -rf build/cls8-nounk && mkdir -p build/cls8-nounk
   $(find src/java src/generated_nounk/java8 src/generated_nounk/shared src/generated_corpus_nounk/java8 \
        src/generated_corpus_nounk/shared -name '*.java' \
        ! -name 'Ffm*.java' ! -name 'Pin.java' ! -name 'RunR14.java' \
-       ! -name 'Campaign*.java' ! -name 'RunUnkControls.java' ! -name 'RunUnkLeak.java') \
+       ! -name 'Campaign*.java' ! -name 'RunUnkControls.java' ! -name 'RunUnkLeak.java' ! -name 'RunUnkOneof.java') \
   $(find build/pbjava -name '*.java')
 
 # ---- 7. the two secondary probes, both newer than the target and built separately

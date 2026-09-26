@@ -209,6 +209,10 @@ public final class CampaignRpc {
 
   static void fail(String why) { Campaign.abort("req 18: " + why); }
 
+  /** protobuf-java's parser for the payload's root, for cell B's in-place parse. */
+  static final com.google.protobuf.Parser<? extends Message> PB_PARSER =
+      PbArms.build(PAYLOAD, Values.ASCII).getParserForType();
+
   abstract static class Cell {
     final String name;
     final boolean incumbentCodec;
@@ -327,14 +331,28 @@ public final class CampaignRpc {
       if (rc != 0) fail(name + "/a: ak_call_unary returned " + rc);
       int n = (int) o[1];
       if (n != EXPECT_A.length) { NativeRpc.bytesFree(o[0], o[1], o[2]); fail(name + "/a: response " + n + " B"); }
-      byte[] b = BUF.get();
-      if (b.length < n) { b = new byte[Integer.highestOneBit(n - 1) * 2]; BUF.set(b); }
-      Mem.copyToBytes(o[0], b, 0, n);
-      NativeRpc.bytesFree(o[0], o[1], o[2]);
       Object x;
       try {
-        x = incumbentCodec ? PbArms.parseArray(PAYLOAD, n == b.length ? b : Arrays.copyOf(b, n))
-                           : FfiArms.decode(bind(), PAYLOAD, b, 0, n);
+        if (incumbentCodec) {
+          // R-H17: cell B parses the core's response IN PLACE, as the C++ and C# hosts do: a
+          // direct ByteBuffer over the core's bytes (one JNI call, no copy), which
+          // protobuf-java reads through its Unsafe direct-buffer decoder. The parsed message
+          // owns its strings and bytes (aliasing is off), so the buffer is freed after.
+          try {
+            x = PB_PARSER.parseFrom(NativeRpc.directBuffer(o[0], n));
+          } finally {
+            NativeRpc.bytesFree(o[0], o[1], o[2]);
+          }
+        } else {
+          // Cell C: the binding's decode entry takes a Java array (it resolves spans against
+          // it, ABI v1 7.4), so the core's bytes are copied once into one, and the binding
+          // copies them once more into its native scratch for the core to parse.
+          byte[] b = BUF.get();
+          if (b.length < n) { b = new byte[Integer.highestOneBit(n - 1) * 2]; BUF.set(b); }
+          Mem.copyToBytes(o[0], b, 0, n);
+          NativeRpc.bytesFree(o[0], o[1], o[2]);
+          x = FfiArms.decode(bind(), PAYLOAD, b, 0, n);
+        }
       } catch (Exception e) {
         throw new IllegalStateException(e);
       }

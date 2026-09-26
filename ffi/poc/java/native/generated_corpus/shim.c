@@ -994,8 +994,9 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetTimestamp(JNIEnv *e, j
   return (jint) ak_dec_reset_Timestamp((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_Timestamp_opts *)(intptr_t) opts);
 }
 
-/* PULL. `ak_parse_Timestamp` deposits records and calls nobody, so the wire is pinned
- * rather than copied; there is no ak_push frame to make an upcall from. */
+/* PULL. `ak_parse_Timestamp` deposits records and calls no Java, so the wire is pinned
+ * rather than copied; there is no ak_push frame to make an upcall from. With retain
+ * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseTimestamp(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
   (void) cls; (void) self;
   AK_TAX();
@@ -1027,8 +1028,9 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetDuration(JNIEnv *e, jc
   return (jint) ak_dec_reset_Duration((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_Duration_opts *)(intptr_t) opts);
 }
 
-/* PULL. `ak_parse_Duration` deposits records and calls nobody, so the wire is pinned
- * rather than copied; there is no ak_push frame to make an upcall from. */
+/* PULL. `ak_parse_Duration` deposits records and calls no Java, so the wire is pinned
+ * rather than copied; there is no ak_push frame to make an upcall from. With retain
+ * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseDuration(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
   (void) cls; (void) self;
   AK_TAX();
@@ -1060,8 +1062,9 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetResultRaw(JNIEnv *e, j
   return (jint) ak_dec_reset_ResultRaw((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_ResultRaw_opts *)(intptr_t) opts);
 }
 
-/* PULL. `ak_parse_ResultRaw` deposits records and calls nobody, so the wire is pinned
- * rather than copied; there is no ak_push frame to make an upcall from. */
+/* PULL. `ak_parse_ResultRaw` deposits records and calls no Java, so the wire is pinned
+ * rather than copied; there is no ak_push frame to make an upcall from. With retain
+ * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseResultRaw(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
   (void) cls; (void) self;
   AK_TAX();
@@ -1093,8 +1096,9 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetTaskOptions(JNIEnv *e,
   return (jint) ak_dec_reset_TaskOptions((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_TaskOptions_opts *)(intptr_t) opts);
 }
 
-/* PULL. `ak_parse_TaskOptions` deposits records and calls nobody, so the wire is pinned
- * rather than copied; there is no ak_push frame to make an upcall from. */
+/* PULL. `ak_parse_TaskOptions` deposits records and calls no Java, so the wire is pinned
+ * rather than copied; there is no ak_push frame to make an upcall from. With retain
+ * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseTaskOptions(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
   (void) cls; (void) self;
   AK_TAX();
@@ -1126,8 +1130,9 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetTaskOutput(JNIEnv *e, 
   return (jint) ak_dec_reset_TaskOutput((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_TaskOutput_opts *)(intptr_t) opts);
 }
 
-/* PULL. `ak_parse_TaskOutput` deposits records and calls nobody, so the wire is pinned
- * rather than copied; there is no ak_push frame to make an upcall from. */
+/* PULL. `ak_parse_TaskOutput` deposits records and calls no Java, so the wire is pinned
+ * rather than copied; there is no ak_push frame to make an upcall from. With retain
+ * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseTaskOutput(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
   (void) cls; (void) self;
   AK_TAX();
@@ -1159,8 +1164,9 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetTaskDetailed(JNIEnv *e
   return (jint) ak_dec_reset_TaskDetailed((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_TaskDetailed_opts *)(intptr_t) opts);
 }
 
-/* PULL. `ak_parse_TaskDetailed` deposits records and calls nobody, so the wire is pinned
- * rather than copied; there is no ak_push frame to make an upcall from. */
+/* PULL. `ak_parse_TaskDetailed` deposits records and calls no Java, so the wire is pinned
+ * rather than copied; there is no ak_push frame to make an upcall from. With retain
+ * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseTaskDetailed(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
   (void) cls; (void) self;
   AK_TAX();
@@ -1192,8 +1198,9 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetTaskSummary(JNIEnv *e,
   return (jint) ak_dec_reset_TaskSummary((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_TaskSummary_opts *)(intptr_t) opts);
 }
 
-/* PULL. `ak_parse_TaskSummary` deposits records and calls nobody, so the wire is pinned
- * rather than copied; there is no ak_push frame to make an upcall from. */
+/* PULL. `ak_parse_TaskSummary` deposits records and calls no Java, so the wire is pinned
+ * rather than copied; there is no ak_push frame to make an upcall from. With retain
+ * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseTaskSummary(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
   (void) cls; (void) self;
   AK_TAX();
@@ -1225,8 +1232,9 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetProbe(JNIEnv *e, jclas
   return (jint) ak_dec_reset_Probe((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_Probe_opts *)(intptr_t) opts);
 }
 
-/* PULL. `ak_parse_Probe` deposits records and calls nobody, so the wire is pinned
- * rather than copied; there is no ak_push frame to make an upcall from. */
+/* PULL. `ak_parse_Probe` deposits records and calls no Java, so the wire is pinned
+ * rather than copied; there is no ak_push frame to make an upcall from. With retain
+ * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseProbe(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
   (void) cls; (void) self;
   AK_TAX();
@@ -1258,8 +1266,9 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetEmpty(JNIEnv *e, jclas
   return (jint) ak_dec_reset_Empty((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_Empty_opts *)(intptr_t) opts);
 }
 
-/* PULL. `ak_parse_Empty` deposits records and calls nobody, so the wire is pinned
- * rather than copied; there is no ak_push frame to make an upcall from. */
+/* PULL. `ak_parse_Empty` deposits records and calls no Java, so the wire is pinned
+ * rather than copied; there is no ak_push frame to make an upcall from. With retain
+ * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseEmpty(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
   (void) cls; (void) self;
   AK_TAX();
@@ -1291,8 +1300,9 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetUploadResultData(JNIEn
   return (jint) ak_dec_reset_UploadResultData((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_UploadResultData_opts *)(intptr_t) opts);
 }
 
-/* PULL. `ak_parse_UploadResultData` deposits records and calls nobody, so the wire is pinned
- * rather than copied; there is no ak_push frame to make an upcall from. */
+/* PULL. `ak_parse_UploadResultData` deposits records and calls no Java, so the wire is pinned
+ * rather than copied; there is no ak_push frame to make an upcall from. With retain
+ * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseUploadResultData(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
   (void) cls; (void) self;
   AK_TAX();
@@ -1324,8 +1334,9 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetMetricsBatch(JNIEnv *e
   return (jint) ak_dec_reset_MetricsBatch((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_MetricsBatch_opts *)(intptr_t) opts);
 }
 
-/* PULL. `ak_parse_MetricsBatch` deposits records and calls nobody, so the wire is pinned
- * rather than copied; there is no ak_push frame to make an upcall from. */
+/* PULL. `ak_parse_MetricsBatch` deposits records and calls no Java, so the wire is pinned
+ * rather than copied; there is no ak_push frame to make an upcall from. With retain
+ * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseMetricsBatch(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
   (void) cls; (void) self;
   AK_TAX();
@@ -1357,8 +1368,9 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetPair(JNIEnv *e, jclass
   return (jint) ak_dec_reset_Pair((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_Pair_opts *)(intptr_t) opts);
 }
 
-/* PULL. `ak_parse_Pair` deposits records and calls nobody, so the wire is pinned
- * rather than copied; there is no ak_push frame to make an upcall from. */
+/* PULL. `ak_parse_Pair` deposits records and calls no Java, so the wire is pinned
+ * rather than copied; there is no ak_push frame to make an upcall from. With retain
+ * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parsePair(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
   (void) cls; (void) self;
   AK_TAX();
@@ -1390,8 +1402,9 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetListResultsResponse(JN
   return (jint) ak_dec_reset_ListResultsResponse((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_ListResultsResponse_opts *)(intptr_t) opts);
 }
 
-/* PULL. `ak_parse_ListResultsResponse` deposits records and calls nobody, so the wire is pinned
- * rather than copied; there is no ak_push frame to make an upcall from. */
+/* PULL. `ak_parse_ListResultsResponse` deposits records and calls no Java, so the wire is pinned
+ * rather than copied; there is no ak_push frame to make an upcall from. With retain
+ * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseListResultsResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
   (void) cls; (void) self;
   AK_TAX();
@@ -1423,8 +1436,9 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetListTasksDetailedRespo
   return (jint) ak_dec_reset_ListTasksDetailedResponse((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_ListTasksDetailedResponse_opts *)(intptr_t) opts);
 }
 
-/* PULL. `ak_parse_ListTasksDetailedResponse` deposits records and calls nobody, so the wire is pinned
- * rather than copied; there is no ak_push frame to make an upcall from. */
+/* PULL. `ak_parse_ListTasksDetailedResponse` deposits records and calls no Java, so the wire is pinned
+ * rather than copied; there is no ak_push frame to make an upcall from. With retain
+ * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseListTasksDetailedResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
   (void) cls; (void) self;
   AK_TAX();
@@ -1456,8 +1470,9 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetListTaskSummaryRespons
   return (jint) ak_dec_reset_ListTaskSummaryResponse((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_ListTaskSummaryResponse_opts *)(intptr_t) opts);
 }
 
-/* PULL. `ak_parse_ListTaskSummaryResponse` deposits records and calls nobody, so the wire is pinned
- * rather than copied; there is no ak_push frame to make an upcall from. */
+/* PULL. `ak_parse_ListTaskSummaryResponse` deposits records and calls no Java, so the wire is pinned
+ * rather than copied; there is no ak_push frame to make an upcall from. With retain
+ * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseListTaskSummaryResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
   (void) cls; (void) self;
   AK_TAX();
@@ -1489,8 +1504,9 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetListProbeResponse(JNIE
   return (jint) ak_dec_reset_ListProbeResponse((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_ListProbeResponse_opts *)(intptr_t) opts);
 }
 
-/* PULL. `ak_parse_ListProbeResponse` deposits records and calls nobody, so the wire is pinned
- * rather than copied; there is no ak_push frame to make an upcall from. */
+/* PULL. `ak_parse_ListProbeResponse` deposits records and calls no Java, so the wire is pinned
+ * rather than copied; there is no ak_push frame to make an upcall from. With retain
+ * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseListProbeResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
   (void) cls; (void) self;
   AK_TAX();
@@ -1522,8 +1538,9 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetListMetricsResponse(JN
   return (jint) ak_dec_reset_ListMetricsResponse((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_ListMetricsResponse_opts *)(intptr_t) opts);
 }
 
-/* PULL. `ak_parse_ListMetricsResponse` deposits records and calls nobody, so the wire is pinned
- * rather than copied; there is no ak_push frame to make an upcall from. */
+/* PULL. `ak_parse_ListMetricsResponse` deposits records and calls no Java, so the wire is pinned
+ * rather than copied; there is no ak_push frame to make an upcall from. With retain
+ * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseListMetricsResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
   (void) cls; (void) self;
   AK_TAX();
@@ -1555,8 +1572,9 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetUploadResultDataMessag
   return (jint) ak_dec_reset_UploadResultDataMessage((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_UploadResultDataMessage_opts *)(intptr_t) opts);
 }
 
-/* PULL. `ak_parse_UploadResultDataMessage` deposits records and calls nobody, so the wire is pinned
- * rather than copied; there is no ak_push frame to make an upcall from. */
+/* PULL. `ak_parse_UploadResultDataMessage` deposits records and calls no Java, so the wire is pinned
+ * rather than copied; there is no ak_push frame to make an upcall from. With retain
+ * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseUploadResultDataMessage(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
   (void) cls; (void) self;
   AK_TAX();
@@ -1588,8 +1606,9 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetDualResponse(JNIEnv *e
   return (jint) ak_dec_reset_DualResponse((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_DualResponse_opts *)(intptr_t) opts);
 }
 
-/* PULL. `ak_parse_DualResponse` deposits records and calls nobody, so the wire is pinned
- * rather than copied; there is no ak_push frame to make an upcall from. */
+/* PULL. `ak_parse_DualResponse` deposits records and calls no Java, so the wire is pinned
+ * rather than copied; there is no ak_push frame to make an upcall from. With retain
+ * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseDualResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
   (void) cls; (void) self;
   AK_TAX();
@@ -1621,8 +1640,9 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetChunkLeaf(JNIEnv *e, j
   return (jint) ak_dec_reset_ChunkLeaf((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_ChunkLeaf_opts *)(intptr_t) opts);
 }
 
-/* PULL. `ak_parse_ChunkLeaf` deposits records and calls nobody, so the wire is pinned
- * rather than copied; there is no ak_push frame to make an upcall from. */
+/* PULL. `ak_parse_ChunkLeaf` deposits records and calls no Java, so the wire is pinned
+ * rather than copied; there is no ak_push frame to make an upcall from. With retain
+ * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseChunkLeaf(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
   (void) cls; (void) self;
   AK_TAX();
@@ -1654,8 +1674,9 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetChunkInner(JNIEnv *e, 
   return (jint) ak_dec_reset_ChunkInner((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_ChunkInner_opts *)(intptr_t) opts);
 }
 
-/* PULL. `ak_parse_ChunkInner` deposits records and calls nobody, so the wire is pinned
- * rather than copied; there is no ak_push frame to make an upcall from. */
+/* PULL. `ak_parse_ChunkInner` deposits records and calls no Java, so the wire is pinned
+ * rather than copied; there is no ak_push frame to make an upcall from. With retain
+ * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseChunkInner(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
   (void) cls; (void) self;
   AK_TAX();
@@ -1687,8 +1708,9 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetChunkElement(JNIEnv *e
   return (jint) ak_dec_reset_ChunkElement((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_ChunkElement_opts *)(intptr_t) opts);
 }
 
-/* PULL. `ak_parse_ChunkElement` deposits records and calls nobody, so the wire is pinned
- * rather than copied; there is no ak_push frame to make an upcall from. */
+/* PULL. `ak_parse_ChunkElement` deposits records and calls no Java, so the wire is pinned
+ * rather than copied; there is no ak_push frame to make an upcall from. With retain
+ * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseChunkElement(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
   (void) cls; (void) self;
   AK_TAX();
@@ -1720,8 +1742,9 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetChunkedResponse(JNIEnv
   return (jint) ak_dec_reset_ChunkedResponse((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_ChunkedResponse_opts *)(intptr_t) opts);
 }
 
-/* PULL. `ak_parse_ChunkedResponse` deposits records and calls nobody, so the wire is pinned
- * rather than copied; there is no ak_push frame to make an upcall from. */
+/* PULL. `ak_parse_ChunkedResponse` deposits records and calls no Java, so the wire is pinned
+ * rather than copied; there is no ak_push frame to make an upcall from. With retain
+ * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseChunkedResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
   (void) cls; (void) self;
   AK_TAX();
@@ -1753,8 +1776,9 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetChunkedResponseWide(JN
   return (jint) ak_dec_reset_ChunkedResponseWide((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_ChunkedResponseWide_opts *)(intptr_t) opts);
 }
 
-/* PULL. `ak_parse_ChunkedResponseWide` deposits records and calls nobody, so the wire is pinned
- * rather than copied; there is no ak_push frame to make an upcall from. */
+/* PULL. `ak_parse_ChunkedResponseWide` deposits records and calls no Java, so the wire is pinned
+ * rather than copied; there is no ak_push frame to make an upcall from. With retain
+ * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseChunkedResponseWide(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
   (void) cls; (void) self;
   AK_TAX();
@@ -1786,8 +1810,9 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetLeafElement(JNIEnv *e,
   return (jint) ak_dec_reset_LeafElement((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_LeafElement_opts *)(intptr_t) opts);
 }
 
-/* PULL. `ak_parse_LeafElement` deposits records and calls nobody, so the wire is pinned
- * rather than copied; there is no ak_push frame to make an upcall from. */
+/* PULL. `ak_parse_LeafElement` deposits records and calls no Java, so the wire is pinned
+ * rather than copied; there is no ak_push frame to make an upcall from. With retain
+ * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseLeafElement(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
   (void) cls; (void) self;
   AK_TAX();
@@ -1819,8 +1844,9 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetLeafResponse(JNIEnv *e
   return (jint) ak_dec_reset_LeafResponse((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_LeafResponse_opts *)(intptr_t) opts);
 }
 
-/* PULL. `ak_parse_LeafResponse` deposits records and calls nobody, so the wire is pinned
- * rather than copied; there is no ak_push frame to make an upcall from. */
+/* PULL. `ak_parse_LeafResponse` deposits records and calls no Java, so the wire is pinned
+ * rather than copied; there is no ak_push frame to make an upcall from. With retain
+ * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseLeafResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
   (void) cls; (void) self;
   AK_TAX();
@@ -1852,8 +1878,9 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetSurrogate(JNIEnv *e, j
   return (jint) ak_dec_reset_Surrogate((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_Surrogate_opts *)(intptr_t) opts);
 }
 
-/* PULL. `ak_parse_Surrogate` deposits records and calls nobody, so the wire is pinned
- * rather than copied; there is no ak_push frame to make an upcall from. */
+/* PULL. `ak_parse_Surrogate` deposits records and calls no Java, so the wire is pinned
+ * rather than copied; there is no ak_push frame to make an upcall from. With retain
+ * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseSurrogate(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
   (void) cls; (void) self;
   AK_TAX();
@@ -1885,8 +1912,9 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetSurrogateInner(JNIEnv 
   return (jint) ak_dec_reset_SurrogateInner((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_SurrogateInner_opts *)(intptr_t) opts);
 }
 
-/* PULL. `ak_parse_SurrogateInner` deposits records and calls nobody, so the wire is pinned
- * rather than copied; there is no ak_push frame to make an upcall from. */
+/* PULL. `ak_parse_SurrogateInner` deposits records and calls no Java, so the wire is pinned
+ * rather than copied; there is no ak_push frame to make an upcall from. With retain
+ * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseSurrogateInner(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
   (void) cls; (void) self;
   AK_TAX();
@@ -1918,8 +1946,9 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetWireZoo(JNIEnv *e, jcl
   return (jint) ak_dec_reset_WireZoo((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_WireZoo_opts *)(intptr_t) opts);
 }
 
-/* PULL. `ak_parse_WireZoo` deposits records and calls nobody, so the wire is pinned
- * rather than copied; there is no ak_push frame to make an upcall from. */
+/* PULL. `ak_parse_WireZoo` deposits records and calls no Java, so the wire is pinned
+ * rather than copied; there is no ak_push frame to make an upcall from. With retain
+ * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseWireZoo(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
   (void) cls; (void) self;
   AK_TAX();
