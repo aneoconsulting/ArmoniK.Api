@@ -2639,3 +2639,20 @@ kept step. Step 0 fixes the harness first.
   str::from_utf8's ASCII fast path was already fast). Other single rows moved 10-25% both
   ways (P1.3, P3.1, P5.2), within the run-to-run bounce those rows show over the whole
   series (e.g. P3.1 core-ffi/inc 0.74-0.94 across steps 4-11 with no change to it).
+
+## 2026-09-26 -- optimisation step 12 (C1): codegen-units = 1 (e804e0d, REVERTED by 46d14f8)
+
+- [profile.release] codegen-units = 1 (lto off) in poc/rust (so prost, tonic and the
+  incumbent arms too), its corpus workspace, and poc/codec (the root other slices build the
+  core from); build lines of run_campaign.sh / opt_bench.sh / the campaign header updated.
+  Pre-check, conformance, shapes and both crossing files held.
+- Measured (s12 vs s11): every core-ffi/core-native group noise (0.94-1.02); /inc groups
+  both ways (core-native/inc U decode 1.065 higher, P encode retain 0.978 lower); the
+  arms' absolute medians moved inside the A/A pair's own absolute drift (0.96-1.04), except
+  the incumbent's (and armonik's) encode in the no-unknown process, ~0.91 (prost encode
+  faster), which is why the no-unknown core-ffi/inc and core-native/inc encode groups rose
+  to 1.09-1.11. The build of the two variants took ~2 min against ~1 min before.
+- Kept or not: no resolved gain for the core arms, and it is not a correctness or
+  cleanliness change, so by the step rules it is reverted (git revert, history kept). The
+  owner may want it anyway for fairness (it is a build flag every arm shares); the data is
+  in logs/rust/opt/s12-c1.
