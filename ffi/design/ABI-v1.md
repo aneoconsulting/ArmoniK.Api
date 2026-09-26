@@ -1389,7 +1389,11 @@ Each blocks something. None is settled by a measurement that exists today.
       copy. When it consumes a buffer it clears that entry in the host's struct, and
       the host may refill any entry between two deliveries by writing its own memory,
       with no call. Without batching the host refills an element position in `new` or
-      `applyelem`. **A repeated position carries a pool**,
+      `applyelem`. **Whether a decode retains at all is decided once, when the
+      context is created or reset**, from the options passed then (owner,
+      2026-09-26): options with no buffer and no `grow` anywhere mean drop for the
+      whole decode, and a later refill is not read until the next reset. Within a
+      retaining decode, refilled entries are read. **A repeated position carries a pool**,
       `ak_unk_pool { ak_unk_buf *bufs; uint32_t n; ak_grow_fn grow; }`, taken in order
       and refilled by the host after each batch; a singular position keeps
       `ak_unk_opts { ak_unk_buf buf; ak_grow_fn grow; }`. `grow` is the fallback when a
@@ -1406,7 +1410,10 @@ Each blocks something. None is settled by a measurement that exists today.
       host sharing one buffer across members would otherwise hold stale copies of the
       inlined descriptor after a grow, so sharing has one definition, in the core.
    5. **`ak_grow_fn` keeps its `i32` sizes**: a buffer above 2 GiB is refused with
-      `AK_ERR_LIMIT`.
+      `AK_ERR_LIMIT`. Amended by the owner 2026-09-26: every capacity is capped at
+      `INT32_MAX` (2 GiB - 1), whether the host placed the buffer or the core asked
+      `grow` for it; a message whose unknown runs need more fails with `AK_ERR_LIMIT`,
+      with or without `grow`.
    6. **A decode context is bound to its root.** `ak_dec_ctx_new_<Root>(opts)` binds it
       (`NULL` opts is drop mode); `ak_dec_reset_<Root>` accepts only a context of that
       root; decoding another root with it is refused with an error. The untyped
