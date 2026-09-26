@@ -10,8 +10,12 @@
 //!                    (requirement 24, identical for every arm; also warms the allocator, 25)
 //!   AK_WARMUP_MS     criterion's own warm-up time per case
 //!   AK_MEASURE_MS    criterion's measurement time per case
+//!   AK_LLC_BYTES     the last-level cache (default 13.75 MiB, the reference i9-7900X)
+//!   AK_POOL_BYTES    requirement 11's pool input: wire bytes of distinct graphs (default
+//!                    2 x AK_LLC_BYTES)
 //!
-//! Criterion measures with `campaign::ThreadCpu` (CLOCK_THREAD_CPUTIME_ID, requirement 21)
+//! Criterion measures with `campaign::ProcessCpu` (CLOCK_PROCESS_CPUTIME_ID, requirement 21
+//! as amended 2026-09-26)
 //! in `SamplingMode::Flat`, so every sample (round) of a case has the same iteration count.
 //! Every raw sample criterion saved (`<CRITERION_HOME>/codec/<case>/new/sample.json`) is
 //! converted to one JSON line; criterion's outlier classification touches only its console
@@ -66,6 +70,23 @@ fn main() {
         });
         assert!(ok, "no root {}", inp.root);
     }
+    // Requirement 11's variants write the same bytes: every (arm, input, mode) returns the
+    // same length from each of its end-state x input variants (the pool built and freed).
+    {
+        let mut want: std::collections::HashMap<(String, &str, &str, &str), u64> = Default::default();
+        for cs in cases.iter_mut().filter(|c| !c.end_state.is_empty()) {
+            if let Some(p) = cs.prep.as_mut() { p(); }
+            let (a, b) = ((cs.op)(), (cs.op)());
+            if let Some(d) = cs.done.as_mut() { d(); }
+            let key = (cs.payload.clone(), cs.content, cs.arm, cs.unknown_mode);
+            let w = *want.entry(key).or_insert(a);
+            checks += 1;
+            if a != w || b != w {
+                fails.push(format!("{} {} {} {}/{}: {} B, {} B where the hot reused-buffer row wrote {} B",
+                                   cs.payload, cs.arm, cs.unknown_mode, cs.end_state, cs.input, a, b, w));
+            }
+        }
+    }
     // Requirement 26: nothing is timed if any timed arm is wrong on any input.
     eprintln!("# precheck: {checks} checks, {} failures, {} inputs, {} cases", fails.len(), inputs.len(), cases.len());
     if !fails.is_empty() {
@@ -84,7 +105,7 @@ fn main() {
 
     let order = arm_order(launch);
     let mut c = Criterion::default()
-        .with_measurement(ThreadCpu)
+        .with_measurement(ProcessCpu)
         .sample_size(samples.max(10))
         .warm_up_time(Duration::from_millis(warm_ms))
         .measurement_time(Duration::from_millis(meas_ms))
@@ -104,12 +125,20 @@ fn main() {
         g.sampling_mode(SamplingMode::Flat);
         for &i in &idx_of {
             let cs = &mut cases[i];
+            // Requirement 11: a pool input's graphs are built here, before the warm-up and
+            // outside every timed window, and freed after the case.
+            if let Some(p) = cs.prep.as_mut() {
+                p();
+            }
             // Requirement 24: a fixed number of iterations of THIS case before criterion's
             // own warm-up, identical for every arm.
             for _ in 0..warm_iters {
                 black_box((cs.op)());
             }
             g.bench_function(format!("{i:05}"), |b| b.iter(|| (cs.op)()));
+            if let Some(d) = cs.done.as_mut() {
+                d();
+            }
         }
         g.finish();
     }
@@ -120,7 +149,9 @@ fn main() {
     // Section 7: one JSON line per raw criterion sample.
     let mut f = std::fs::File::create(&out_path).unwrap();
     for h in header("codec", &[
-        ("engine", "criterion 0.5, measurement = thread CPU (CLOCK_THREAD_CPUTIME_ID), SamplingMode::Flat, raw samples exported, none dropped".into()),
+        ("engine", "criterion 0.5, measurement = PROCESS CPU (CLOCK_PROCESS_CPUTIME_ID, requirement 21 as amended), SamplingMode::Flat, raw samples exported, none dropped".into()),
+        ("threads", "1 measuring thread (criterion, in-process); no runtime, no worker pool in the codec suite".into()),
+        ("encode variants", format!("every encode arm x mode in 4 rows (requirement 11): end_state reused-buffer | transport-ready (incumbent-prod, armonik: a frozen Bytes split from a reused BytesMut, tonic's encode buffer; core-native, core-ffi: a Bytes copy of their buffer, what cells F and D hand tonic -- over the core's transport the form is the reused buffer itself) x input hot (one graph) | pool (distinct graphs cloned until the heap they hold, measured with glibc mallinfo2, reaches AK_POOL_BYTES; at least 2, at most 2^20; built before the case's warm-up and freed after; each pool row records pool_graphs and pool_heap_bytes; AK_POOL_BYTES = {}, AK_LLC_BYTES = {})", pool_bytes(), llc_bytes())),
         ("build", if cfg!(feature = "unknown-fields") {
             "unknown-fields: core-ffi / core-native / core-ffi-pull in modes drop and retain".to_string()
         } else {
@@ -130,7 +161,7 @@ fn main() {
         ("arm order", format!("{} (arm blocks and the cases inside each block in a seeded random order, seed = launch; criterion runs them in this registration order)", order.join(","))),
         ("samples (rounds) per case", samples.max(10).to_string()),
         ("warm-up", format!("{warm_iters} fixed iterations per case, then criterion warm-up {warm_ms} ms; measurement {meas_ms} ms")),
-        ("wall", "not recorded for the codec suite (criterion measures one quantity; thread CPU is requirement 21's)".into()),
+        ("wall", "not recorded for the codec suite (criterion measures one quantity; process CPU is requirement 21's)".into()),
         ("unknown modes", format!("core-native, core-ffi, core-ffi-pull: {} (retain = every position armed); incumbent-prod and armonik: default (prost drops unknown fields). core-native's drop rendering has no unknown-field code in either build", MODES.iter().map(|m| m.0).collect::<Vec<_>>().join(", "))),
         ("precheck", format!("{checks} checks passed")),
         ("inputs", inputs.len().to_string()),
@@ -157,6 +188,15 @@ fn main() {
             });
             if cs.unknown_mode != "default" {
                 o["unknown_mode"] = cs.unknown_mode.into();
+            }
+            if !cs.end_state.is_empty() {
+                o["end_state"] = cs.end_state.into();
+                o["input"] = cs.input.into();
+            }
+            if let Some(pi) = &cs.pool_info {
+                let (n, held) = pi.get();
+                o["pool_graphs"] = n.into();
+                o["pool_heap_bytes"] = held.into();
             }
             writeln!(f, "{o}").unwrap();
             rows += 1;

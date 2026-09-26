@@ -2,7 +2,9 @@
 //!
 //! What lives here: the per-root arm table (`Ops`, rendered by `gen/rust_campaign.py`), the
 //! case list of the codec suite (payloads, content sets, `U-*` rows; arms; directions;
-//! unknown-field modes), the thread-CPU measurement criterion runs with, the JSON-lines
+//! unknown-field modes; the encode variants of requirement 11), the process-CPU measurement
+//! criterion runs with (requirement 21 as amended), the RPC grid's cells and server (`grid`,
+//! `server`), the JSON-lines
 //! writer of section 7, and the header of every log (requirement 27).
 //!
 //! Arms (requirement 8), as rows:
@@ -19,6 +21,8 @@
 pub mod generated {
     pub mod roots;
 }
+pub mod grid;
+pub mod server;
 
 use criterion::measurement::{Measurement, ValueFormatter};
 use criterion::Throughput;
@@ -41,32 +45,41 @@ pub fn process_cpu_ns() -> u64 {
     tv(ru.ru_utime) + tv(ru.ru_stime)
 }
 
-/// criterion's measurement, replaced by thread CPU time (requirement 21: criterion's
-/// default is wall time). One value per criterion sample, in ns.
-pub struct ThreadCpu;
+/// Requirement 21 as amended 2026-09-26 (R-H25): the codec suite's CPU is PROCESS CPU,
+/// `CLOCK_PROCESS_CPUTIME_ID`, so any helper thread counts for every arm. In ns.
+#[inline]
+pub fn process_clock_ns() -> u64 {
+    let mut ts = libc::timespec { tv_sec: 0, tv_nsec: 0 };
+    unsafe { libc::clock_gettime(libc::CLOCK_PROCESS_CPUTIME_ID, &mut ts) };
+    ts.tv_sec as u64 * 1_000_000_000 + ts.tv_nsec as u64
+}
+
+/// criterion's measurement, replaced by process CPU time (requirement 21: criterion's
+/// default is wall time). One value per criterion sample (= round), in ns.
+pub struct ProcessCpu;
 
 pub struct NsFormatter;
 
 impl ValueFormatter for NsFormatter {
     fn scale_values(&self, _typical: f64, _values: &mut [f64]) -> &'static str {
-        "ns (thread CPU)"
+        "ns (process CPU)"
     }
     fn scale_throughputs(&self, _t: f64, _th: &Throughput, _v: &mut [f64]) -> &'static str {
-        "ns (thread CPU)"
+        "ns (process CPU)"
     }
     fn scale_for_machines(&self, _values: &mut [f64]) -> &'static str {
         "ns"
     }
 }
 
-impl Measurement for ThreadCpu {
+impl Measurement for ProcessCpu {
     type Intermediate = u64;
     type Value = u64;
     fn start(&self) -> u64 {
-        thread_cpu_ns()
+        process_clock_ns()
     }
     fn end(&self, i: u64) -> u64 {
-        thread_cpu_ns() - i
+        process_clock_ns() - i
     }
     fn add(&self, a: &u64, b: &u64) -> u64 {
         a + b
@@ -116,6 +129,14 @@ pub const MODES: &[(&str, bool)] = &[("drop", false), ("retain", true)];
 #[cfg(not(feature = "unknown-fields"))]
 pub const MODES: &[(&str, bool)] = &[("no-unknown", false)];
 
+/// Requirement 11's encode variants: (end state, input).
+pub const VARIANTS: &[(&str, &str)] = &[
+    ("reused-buffer", "hot"),
+    ("reused-buffer", "pool"),
+    ("transport-ready", "hot"),
+    ("transport-ready", "pool"),
+];
+
 pub const ARMS: [&str; 5] = ["incumbent-prod", "armonik", "core-native", "core-ffi", "core-ffi-pull"];
 
 /// Requirement 22 as amended 2026-09-26 (FIX-PLAN R-H23): the order is RANDOMISED per
@@ -153,7 +174,79 @@ pub struct Case {
     pub payload: String,
     pub content: &'static str,
     pub unknown_mode: &'static str,
+    /// Requirement 11 (R-H29), encode rows only: `reused-buffer` or `transport-ready`.
+    pub end_state: &'static str,
+    /// Requirement 11, encode rows only: `hot` (one graph) or `pool` (distinct graphs
+    /// beyond the last-level cache).
+    pub input: &'static str,
     pub op: Box<dyn FnMut() -> u64>,
+    /// Built before the case's warm-up and freed after its measurement (the pool): graph
+    /// construction outside every timed window, and one pool alive at a time.
+    pub prep: Option<Box<dyn FnMut()>>,
+    pub done: Option<Box<dyn FnMut()>>,
+    /// A pool case's (graphs, heap bytes they hold), measured when `prep` built it.
+    pub pool_info: Option<std::rc::Rc<std::cell::Cell<(usize, usize)>>>,
+}
+
+/// Requirement 11's pool input: at least this many wire bytes of distinct graphs.
+/// `AK_POOL_BYTES`, else twice `AK_LLC_BYTES` (the last-level cache, 13.75 MiB on the
+/// reference i9-7900X by default); both from the environment, stated in the header.
+pub fn llc_bytes() -> usize {
+    std::env::var("AK_LLC_BYTES").ok().and_then(|v| v.parse().ok()).unwrap_or(14_417_920)
+}
+pub fn pool_bytes() -> usize {
+    std::env::var("AK_POOL_BYTES").ok().and_then(|v| v.parse().ok()).unwrap_or(2 * llc_bytes())
+}
+/// The heap bytes in use (glibc `mallinfo2`: arena bytes in use plus mmapped blocks). Read
+/// only while a pool is built, never inside a timed window.
+pub fn heap_in_use() -> usize {
+    let m = unsafe { libc::mallinfo2() };
+    m.uordblks + m.hblkhd
+}
+
+/// Graphs are cloned into a pool until the HEAP they hold reaches `pool_bytes()` (measured
+/// with `heap_in_use`, so the pool is beyond the last-level cache by what it occupies, not
+/// by an estimate from its wire size), at least 2 and at most 2^20 graphs.
+pub const POOL_MAX: usize = 1 << 20;
+
+/// A pool of distinct graphs, built by `prep`, read by the op, freed by `done`.
+struct Pool<T>(std::rc::Rc<std::cell::UnsafeCell<Vec<T>>>);
+impl<T> Clone for Pool<T> {
+    fn clone(&self) -> Self {
+        Pool(self.0.clone())
+    }
+}
+impl<T: Clone + 'static> Pool<T> {
+    fn new() -> Self {
+        Pool(std::rc::Rc::new(std::cell::UnsafeCell::new(Vec::new())))
+    }
+    fn hooks(&self, v: &'static T, info: std::rc::Rc<std::cell::Cell<(usize, usize)>>) -> (Box<dyn FnMut()>, Box<dyn FnMut()>) {
+        let (a, b) = (self.clone(), self.clone());
+        (Box::new(move || unsafe {
+            let target = pool_bytes();
+            let h0 = heap_in_use();
+            let p = &mut *a.0.get();
+            *p = Vec::new();
+            loop {
+                for _ in 0..64 {
+                    p.push(v.clone());
+                }
+                let held = heap_in_use().saturating_sub(h0);
+                if (held >= target && p.len() >= 2) || p.len() >= POOL_MAX {
+                    info.set((p.len(), held));
+                    break;
+                }
+            }
+         }),
+         Box::new(move || unsafe { *b.0.get() = Vec::new() }))
+    }
+    #[inline(always)]
+    fn get(&self, i: usize) -> &T {
+        unsafe {
+            let v = &*self.0.get();
+            v.get_unchecked(i % v.len())
+        }
+    }
 }
 
 /// One input of the codec suite: a payload (with a content set) or a corpus `U-*` row.
@@ -181,8 +274,9 @@ pub fn sha(b: &[u8]) -> String {
     harness::manifest::sha(b)
 }
 
-/// Requirement 7: the 16 payloads (ASCII), the latin1 and wide content sets on P1.2 and
-/// P2.2, and every non-disputed corpus `U-*` row whose root this slice's ABI carries.
+/// Requirement 7: the 16 payloads (ASCII), the latin1 and wide content sets on P1.2, P2.2
+/// and P2.4, and every accepted, non-disputed corpus `U-*` row whose root is one of the
+/// shapes core's 7 ABI roots (92 rows; the owner's R-H27 answer).
 /// `only`: comma-separated id prefixes (smoke runs narrow a launch).
 pub fn inputs(only: &[String]) -> Vec<Input> {
     use shapes_values::{set_content_set, ContentSet};
@@ -193,7 +287,8 @@ pub fn inputs(only: &[String]) -> Vec<Input> {
         [(ContentSet::Ascii, "ascii"), (ContentSet::Latin1, "latin1"), (ContentSet::Wide, "wide")];
     for (pid, row) in &man.0 {
         for (cs, cname) in sets {
-            if cname != "ascii" && pid != "P1.2" && pid != "P2.2" {
+            // Requirement 7 (R-H26): Latin-1 and wide on P1.2, P2.2 and P2.4.
+            if cname != "ascii" && pid != "P1.2" && pid != "P2.2" && pid != "P2.4" {
                 continue;
             }
             let id = if cname == "ascii" { pid.clone() } else { format!("{pid}/{cname}") };
@@ -276,8 +371,13 @@ pub fn cases_for<R: Ops>(ctx: &'static Ctx, inp: &Input) -> Vec<Case> {
     let wire: &'static [u8] = Box::leak(inp.bytes.clone().into_boxed_slice());
     let wire_b = Bytes::from_static(wire);
     let (content, pid) = (inp.content, inp.id.clone());
-    let mut push = |arm: &'static str, dir: &'static str, mode: &'static str, op: Box<dyn FnMut() -> u64>| {
-        out.push(Case { arm, dir, payload: pid.clone(), content, unknown_mode: mode, op });
+    let mut push_full = |arm: &'static str, dir: &'static str, mode: &'static str, end_state: &'static str,
+                         input: &'static str, op: Box<dyn FnMut() -> u64>,
+                         hooks: Option<(Box<dyn FnMut()>, Box<dyn FnMut()>)>,
+                         info: Option<std::rc::Rc<std::cell::Cell<(usize, usize)>>>| {
+        let pool_info = if hooks.is_some() { info } else { None };
+        let (prep, done) = match hooks { Some((p, d)) => (Some(p), Some(d)), None => (None, None) };
+        out.push(Case { arm, dir, payload: pid.clone(), content, unknown_mode: mode, end_state, input, op, prep, done, pool_info });
     };
     // The objects each encode arm writes: for a payload, the builder's value (the prost arm
     // gets prost's decode of its canonical bytes); for a U-* row, each arm's own decode.
@@ -297,36 +397,101 @@ pub fn cases_for<R: Ops>(ctx: &'static Ctx, inp: &Input) -> Vec<Case> {
         }))
     };
     let modes: &'static [(&'static str, bool)] = MODES;
+    // Requirement 11 (R-H29): every encode arm in four labelled variants, graph
+    // construction outside the timed window:
+    //   end state  reused-buffer    the bytes left in a buffer the arm reuses (no allocation)
+    //              transport-ready  the form the arm's RPC path hands its transport: a frozen
+    //                               `Bytes` split from a reused `BytesMut` (tonic's encode
+    //                               buffer) for incumbent-prod and armonik; for core-native and
+    //                               core-ffi a `Bytes` copy of their buffer, which is what cells
+    //                               F and D hand tonic (over the core's transport, cells E and
+    //                               C, the form IS the reused buffer, row reused-buffer)
+    //   input      hot   one graph re-encoded; pool  distinct graphs, in turn, cloned until
+    //                    the heap they hold reaches `pool_bytes()` (`Pool::hooks`)
     if inp.encode && p_run {
-        let mut buf = BytesMut::with_capacity(wire.len() * 2 + 64);
-        push("incumbent-prod", "encode", "default", Box::new(move || {
-            buf.clear();
-            p_val.encode(&mut buf).unwrap();
-            buf.len() as u64
-        }));
+        for (end, input) in VARIANTS {
+            let pool = Pool::<R::P>::new();
+            let info = std::rc::Rc::new(std::cell::Cell::new((0, 0)));
+            let hooks = (*input == "pool").then(|| pool.hooks(p_val, info.clone()));
+            let mut buf = BytesMut::with_capacity(wire.len() * 2 + 64);
+            let tr = *end == "transport-ready";
+            let hot = *input == "hot";
+            let mut i = 0usize;
+            push_full("incumbent-prod", "encode", "default", end, input, Box::new(move || {
+                let v = if hot { p_val } else { i += 1; pool.get(i) };
+                if tr {
+                    buf.reserve(v.encoded_len());
+                    v.encode(&mut buf).unwrap();
+                    let b = buf.split().freeze();
+                    b.len() as u64
+                } else {
+                    buf.clear();
+                    v.encode(&mut buf).unwrap();
+                    buf.len() as u64
+                }
+            }), hooks, Some(info));
+        }
     }
     if inp.encode && a_run {
-        let mut buf = BytesMut::with_capacity(wire.len() * 2 + 64);
-        push("armonik", "encode", "default", Box::new(move || {
-            buf.clear();
-            a_val.encode(&mut buf).unwrap();
-            buf.len() as u64
-        }));
+        for (end, input) in VARIANTS {
+            let pool = Pool::<R::F>::new();
+            let info = std::rc::Rc::new(std::cell::Cell::new((0, 0)));
+            let hooks = (*input == "pool").then(|| pool.hooks(a_val, info.clone()));
+            let mut buf = BytesMut::with_capacity(wire.len() * 2 + 64);
+            let tr = *end == "transport-ready";
+            let hot = *input == "hot";
+            let mut i = 0usize;
+            push_full("armonik", "encode", "default", end, input, Box::new(move || {
+                let v = if hot { a_val } else { i += 1; pool.get(i) };
+                if tr {
+                    buf.reserve(v.encoded_len());
+                    v.encode(&mut buf).unwrap();
+                    let b = buf.split().freeze();
+                    b.len() as u64
+                } else {
+                    buf.clear();
+                    v.encode(&mut buf).unwrap();
+                    buf.len() as u64
+                }
+            }), hooks, Some(info));
+        }
     }
     if inp.encode {
         for &(mname, retain) in modes {
-            let v = f_val(retain);
-            let mut e = ak_rt::Enc::new(facade::generated::core_native::SITES);
-            push("core-native", "encode", mname, Box::new(move || {
-                R::n_encode(v, &mut e, retain);
-                e.buf.len() as u64
-            }));
-            let v = f_val(retain);
-            push("core-ffi", "encode", mname, Box::new(move || {
-                R::f_encode(ctx, v, retain).expect("core-ffi encode") as u64
-            }));
+            for (end, input) in VARIANTS {
+                let tr = *end == "transport-ready";
+                let hot = *input == "hot";
+                let v = f_val(retain);
+                let pool = Pool::<R::F>::new();
+                let info = std::rc::Rc::new(std::cell::Cell::new((0, 0)));
+                let hooks = (*input == "pool").then(|| pool.hooks(v, info.clone()));
+                let mut e = ak_rt::Enc::new(facade::generated::core_native::SITES);
+                let mut i = 0usize;
+                push_full("core-native", "encode", mname, end, input, Box::new(move || {
+                    let x = if hot { v } else { i += 1; pool.get(i) };
+                    R::n_encode(x, &mut e, retain);
+                    if tr { Bytes::copy_from_slice(&e.buf).len() as u64 } else { e.buf.len() as u64 }
+                }), hooks, Some(info));
+                let v = f_val(retain);
+                let pool = Pool::<R::F>::new();
+                let info = std::rc::Rc::new(std::cell::Cell::new((0, 0)));
+                let hooks = (*input == "pool").then(|| pool.hooks(v, info.clone()));
+                let mut i = 0usize;
+                push_full("core-ffi", "encode", mname, end, input, Box::new(move || {
+                    let x = if hot { v } else { i += 1; pool.get(i) };
+                    let n = R::f_encode(ctx, x, retain).expect("core-ffi encode") as u64;
+                    if tr {
+                        Bytes::copy_from_slice(unsafe { harness::generated::binding::encoded(ctx.enc) }).len() as u64
+                    } else {
+                        n
+                    }
+                }), hooks, Some(info));
+            }
         }
     }
+    let mut push = |arm: &'static str, dir: &'static str, mode: &'static str, op: Box<dyn FnMut() -> u64>| {
+        push_full(arm, dir, mode, "", "", op, None, None);
+    };
     for (dir, read) in [("decode", false), ("decode-read", true)] {
         let b = wire_b.clone();
         if p_run {

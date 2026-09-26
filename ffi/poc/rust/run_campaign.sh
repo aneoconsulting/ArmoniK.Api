@@ -12,6 +12,9 @@
 #   AK_SMOKE=1      requirement 32's smoke run: 1 launch, 1 round (codec: 10 samples, the
 #                   criterion floor), reduced iterations
 #   AK_ONLY         codec: comma-separated input id prefixes (narrows a launch)
+#   AK_LLC_BYTES    codec: the last-level cache in bytes (default 14417920, the i9-7900X's 13.75 MiB)
+#   AK_POOL_BYTES   codec: requirement 11's pool input (default 2 x AK_LLC_BYTES; smoke 1 MiB)
+#   AK_SERVER_THREADS  rpc: the server's tokio workers (default 4, the SERVER set size)
 #   AK_ALLOW_DIRTY=1  run on a dirty tree (recorded in every header; requirement 27 refuses
 #                   a dirty tree, so the campaign never sets it)
 #
@@ -27,12 +30,14 @@
 # in the FULL build (target/), the third mode no-unknown in a SEPARATE build with
 # ak-core/ak-abi's `unknown-fields` feature off (target-nounk/, its own target directory: a
 # shared one would overwrite libak_core.so). Each codec launch runs both binaries, the
-# order alternating by launch (odd: full first); each rpc transport runs both clients
-# against the same server, also alternating. Files: codec-launchN.jsonl (retain, drop) and
-# codec-nounk-launchN.jsonl (no-unknown); rpc-T-launchN.jsonl (A, B, C-retain, C-drop,
-# D-retain, D-drop) and rpc-T-nounk-launchN.jsonl (A, B as in-process controls, C-nounk,
-# D-nounk). No figure compares across the two binaries without the in-process control
-# columns each carries.
+# order alternating by launch (odd: full first); each rpc launch starts ONE server (per
+# transport) that both clients call, also alternating. Files: codec-launchN.jsonl (retain,
+# drop) and codec-nounk-launchN.jsonl (no-unknown); rpc-T-launchN.jsonl (A, B, C/D/E/F in
+# retain and drop) and rpc-T-nounk-launchN.jsonl (A, B, C/D/E/F-nounk). Ratios are formed
+# from per-launch medians (requirement 30 as amended); each binary carries A and B.
+#
+# CPU sets (requirement 4): ffi/campaign.sh exports AK_CPU_CLIENT / AK_CPU_SERVER from
+# ffi/campaign.machine; run alone, this runner reads that file when they are unset.
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$HERE"
@@ -46,6 +51,10 @@ while [ $# -gt 0 ]; do
 done
 [ -n "$SUITE" ] && [ -n "$OUT" ] || { echo "usage: $0 --suite codec|rpc|calib|gate --out DIR" >&2; exit 2; }
 mkdir -p "$OUT"; OUT="$(cd "$OUT" && pwd)"
+if { [ -z "${AK_CPU_CLIENT:-}" ] || [ -z "${AK_CPU_SERVER:-}" ]; } && [ -f "$HERE/../../campaign.machine" ]; then
+  # shellcheck source=/dev/null
+  . "$HERE/../../campaign.machine"
+fi
 LAUNCHES=${AK_LAUNCHES:-3}; ROUNDS=${AK_ROUNDS:-5}
 if [ "${AK_SMOKE:-0}" = 1 ]; then LAUNCHES=1; ROUNDS=1; fi
 SCRATCH=${AK_SCRATCH:-$(mktemp -d)}
@@ -73,7 +82,8 @@ header() {  # header SUITE [VARIANT]
   echo "# governor   $(sysf /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor)"
   echo "# turbo      intel_pstate/no_turbo=$(sysf /sys/devices/system/cpu/intel_pstate/no_turbo) cpufreq/boost=$(sysf /sys/devices/system/cpu/cpufreq/boost)"
   echo "# isolation  cmdline: $(tr ' ' '\n' < /proc/cmdline | grep -E '^(isolcpus|nohz_full|rcu_nocbs)=' | tr '\n' ' ' || true)cgroup: $(sysf /sys/fs/cgroup/cpuset.cpus.effective)"
-  echo "# cpu sets   CLIENT=${AK_CPU_CLIENT:-unset} SERVER=${AK_CPU_SERVER:-unset} OS=the rest"
+  echo "# cpu sets   CLIENT=${AK_CPU_CLIENT:-unset} SERVER=${AK_CPU_SERVER:-unset} OS=the rest; set size ${AK_SET_SIZE:-unset} (ffi/campaign.machine ${AK_MACHINE_NAME:-not read})"
+  echo "# threads    codec: 1 measuring thread; rpc client: tokio 2 workers per A/D/F cell, ak_runtime_new(2) per B/C/E client, k = 1/8/16 callers; rpc server: tokio ${AK_SERVER_THREADS:-4} workers (AK_SERVER_THREADS); calib: 1 thread"
   echo "# runtime    $(rustc --version); $(cargo --version)"
   echo "# incumbent  prost $(awk '/^name = "prost"$/{getline; print $3}' Cargo.lock | tr -d '"'), tonic $(awk '/^name = "tonic"$/{getline; print $3}' Cargo.lock | tr -d '"'), tonic-prost $(awk '/^name = "tonic-prost"$/{getline; print $3}' Cargo.lock | tr -d '"'); criterion $(awk '/^name = "criterion"$/{getline; print $3}' Cargo.lock | tr -d '"')"
   echo "# build      cargo --release (opt-level 3, lto off, codegen-units default), core ak-core as a cdylib linked through the dynamic linker, core features $( [ "$variant" = nounk ] && echo "rpc,init-guard WITHOUT unknown-fields (the no-unknown variant, target-nounk/)" || echo "rpc,init-guard,unknown-fields (the full variant, target/)"); harness guard on; transcoder ak_tc_utf8_trusted (a Rust String is UTF-8)"
@@ -162,6 +172,9 @@ case "$SUITE" in
     build
     if [ "${AK_SMOKE:-0}" = 1 ]; then
       export AK_SAMPLES=10 AK_WARMUP_ITERS=${AK_WARMUP_ITERS:-3} AK_WARMUP_MS=${AK_WARMUP_MS:-5} AK_MEASURE_MS=${AK_MEASURE_MS:-10}
+      # requirement 11's pool input, reduced for the smoke (the campaign default is twice
+      # the last-level cache, AK_LLC_BYTES, 13.75 MiB unless set)
+      export AK_POOL_BYTES=${AK_POOL_BYTES:-1048576}
     fi
     codec_run() {  # codec_run L VARIANT EXE
       local L=$1 v=$2 exe=$3 tag="codec"; [ "$v" = nounk ] && tag="codec-nounk"
@@ -184,43 +197,53 @@ case "$SUITE" in
     cpus_required AK_CPU_CLIENT AK_CPU_SERVER
     need_gate
     build
-    CALLS=${AK_RPC_CALLS:-96}; WARM=${AK_RPC_WARMUP:-64}
-    if [ "${AK_SMOKE:-0}" = 1 ]; then CALLS=16; WARM=16; fi
-    for T in shipped pinned; do
-      PF="$SCRATCH/port-$T"; rm -f "$PF"
-      taskset -c "$AK_CPU_SERVER" target/release/rpc_server --transport "$T" --port-file "$PF" \
-        2> "$OUT/rpc-$T-server.log" &
+    CALLS=${AK_RPC_CALLS:-96}; WARM=${AK_RPC_WARMUP:-64}; SWARM=${AK_RPC_SERVER_WARMUP:-64}
+    if [ "${AK_SMOKE:-0}" = 1 ]; then CALLS=16; WARM=16; SWARM=16; fi
+    export AK_SERVER_THREADS=${AK_SERVER_THREADS:-4}
+    # Requirement 13 as amended (R-H33): ONE server process and configuration per launch,
+    # serving every cell of BOTH builds' clients, on a Unix domain socket (requirement 17,
+    # R-H28). Each client warms it by $SWARM checked calls from each of its transports before
+    # round 1, and opens one channel per cell.
+    start_server() {  # start_server T L -> SP, SOCK
+      SOCK="$SCRATCH/grid-$1-$2.sock"; local RF="$SCRATCH/ready-$1-$2"; rm -f "$RF" "$SOCK"
+      taskset -c "$AK_CPU_SERVER" target/release/rpc_server --transport "$1" --socket "$SOCK" --ready-file "$RF" \
+        2> "$OUT/rpc-$1-launch$2.server.log" &
       SP=$!
-      for _ in $(seq 100); do [ -s "$PF" ] && break; sleep 0.1; done
-      [ -s "$PF" ] || { echo "rpc_server ($T) did not start" >&2; kill $SP; exit 1; }
-      PORT=$(head -1 "$PF")
-      # Requirement 18's control, per client binary: a wrong expected length must abort
-      # with no figure.
+      for _ in $(seq 100); do [ -s "$RF" ] && break; sleep 0.1; done
+      [ -s "$RF" ] || { echo "rpc_server ($1, launch $2) did not start" >&2; kill $SP; exit 1; }
+    }
+    CLARGS=(--server-warm "$SWARM")
+    for T in shipped pinned; do
+      # Requirement 18's control, per client binary, against its own server: a wrong
+      # expected length must abort with no figure.
+      start_server "$T" plant
       for v in full nounk; do
         CL=target/release/rpc_client; [ "$v" = nounk ] && CL=target-nounk/release/rpc_client
         rm -f "$SCRATCH/plant.jsonl"
-        if taskset -c "$AK_CPU_CLIENT" "$CL" --port "$PORT" --transport "$T" \
+        if taskset -c "$AK_CPU_CLIENT" "$CL" --socket "$SOCK" --transport "$T" "${CLARGS[@]}" \
              --rounds 1 --calls 16 --warmup 16 --out "$SCRATCH/plant.jsonl" --plant > "$OUT/rpc-$T-$v-PLANT.log" 2>&1 \
            || [ -e "$SCRATCH/plant.jsonl" ]; then
           echo "CONTROL FAILED: the planted wrong length did not abort ($T, $v client)" >&2; kill $SP; exit 1
         fi
         echo "rpc $T ($v client): control (planted wrong length) aborted with no output: $(tail -1 "$OUT/rpc-$T-$v-PLANT.log")"
       done
+      kill $SP; wait $SP 2>/dev/null || true
       rpc_run() {  # rpc_run L VARIANT
         local L=$1 v=$2 CL=target/release/rpc_client F="$OUT/rpc-$T-launch$1.jsonl"
         [ "$v" = nounk ] && { CL=target-nounk/release/rpc_client; F="$OUT/rpc-$T-nounk-launch$L.jsonl"; }
         header rpc "$v" > "$F.head"
-        taskset -c "$AK_CPU_CLIENT" "$CL" --port "$PORT" --transport "$T" --launch "$L" \
+        taskset -c "$AK_CPU_CLIENT" "$CL" --socket "$SOCK" --transport "$T" --launch "$L" "${CLARGS[@]}" \
           --rounds "$ROUNDS" --calls "$CALLS" --warmup "$WARM" --out "$F.body" \
           || { echo "rpc $T launch $L ($v) ABORTED (requirement 18): no figure" >&2; kill $SP; rm -f "$F.head" "$F.body"; exit 1; }
         cat "$F.head" "$F.body" > "$F"; rm -f "$F.head" "$F.body"
         echo "rpc $T launch $L ($v): $(grep -vc '^#' "$F") sample rows -> $F"
       }
       for L in $(seq 1 "$LAUNCHES"); do
+        start_server "$T" "$L"
         if [ $((L % 2)) = 1 ]; then rpc_run "$L" full; rpc_run "$L" nounk
         else rpc_run "$L" nounk; rpc_run "$L" full; fi
+        kill $SP; wait $SP 2>/dev/null || true
       done
-      kill $SP; wait $SP 2>/dev/null || true
     done ;;
 
   calib)
