@@ -2615,3 +2615,27 @@ kept step. Step 0 fixes the harness first.
   core-ffi/inc 1.034 against core-native/inc 0.964 in the opposite direction (core-native
   untouched), each inside the layout experiment's 3.4% band; not attributed. The
   thread-local load is ~1 ns against those rows' ~0.5-1 us.
+
+## 2026-09-26 -- optimisation step 11 (C2) (49b928a, kept)
+
+- ak-rt: a DEFAULT feature `simd-utf8`; strings::check_utf8 (every `string` field the
+  core decodes under utf8="reject", and core-native's decode_str_reject) uses
+  simdutf8::basic with it. On ak-rt rather than ak-core because ak-core depends on ak-rt
+  with default features, so every slice's core build gets it whatever it passes to
+  ak-core. Checked in the other slices' scripts: cpp CMakeLists (no-unknown targets
+  --no-default-features --features ...; the others explicit --features lists), csharp
+  gen/build_core.sh (three --no-default-features targets and the abi probe), python
+  build.sh (plain-nounk, count-nounk, ... --no-default-features), java gen/build.sh
+  (--features lists): none of them turns off ak-rt's defaults, and `cargo tree -p ak-core
+  --no-default-features -e features` shows simd-utf8 enabled. Nothing to change in their
+  scripts. ak_rt::strings::CHECK_UTF8 names the validator in the campaign header.
+- Checked: pre-check 1186 / 632 0 failures, conformance and shapes pass, both crossing
+  files identical, gen/corpus.sh passes (transcode class 53/53 on every arm), core unit
+  tests pass.
+- Measured (s11 vs s10): decode on the non-ASCII content sets, in both core arms:
+  core-ffi/inc P1.2/latin1 0.844 -> 0.544, P1.2/wide 0.881 -> 0.447, P2.2/latin1 0.954 ->
+  0.753, P2.2/wide 0.984 -> 0.695 (retain and no-unknown the same; core-native/inc the same
+  sizes, so core-ffi/core-native does not move). ASCII rows: no resolved change (core
+  str::from_utf8's ASCII fast path was already fast). Other single rows moved 10-25% both
+  ways (P1.3, P3.1, P5.2), within the run-to-run bounce those rows show over the whole
+  series (e.g. P3.1 core-ffi/inc 0.74-0.94 across steps 4-11 with no change to it).
