@@ -1,6 +1,6 @@
 # python slice: conformance on _akffi_rpc, py3.7
-# date:      2026-09-26T06:32:40Z
-# commit:    d2cd0b02f
+# date:      2026-09-26T09:42:18Z
+# commit:    b5f5bcfc4
 # phase:     correctness only; nothing here is a timing
 
 # python slice, work unit 2: conformance on the COMPOSED arm (README R2)
@@ -366,6 +366,12 @@ generated tree is current with the plans (18 files)
         ok*   core-ffi / C ext type  (a permutation of the same triples; SHAPES.md P7.1)
         ok*   core-ffi / pyacc (python fn)  (a permutation of the same triples; SHAPES.md P7.1)
         ok*   core-ffi / pyacc (C attrgetter)  (a permutation of the same triples; SHAPES.md P7.1)
+
+## oneof: an undeclared case, and a selected member holding None (R-H14)
+   pycodec / plain            undeclared case -> code -11 (want -11); selected None member -> empty body, bytes == upb
+   pycodec-retain / plain     undeclared case -> code -11 (want -11); selected None member -> empty body, bytes == upb
+   core-ffi / C ext type      undeclared case -> code -11 (want -11); selected None member -> empty body, bytes == upb
+   core-ffi / plain           undeclared case -> code -11 (want -11); selected None member -> empty body, bytes == upb
 
 ## crossing counts, counting build, BOTH halves (README R5)
 #  shim: _akffi_count; core loaded: poc/python/build/cargo/count/release/libak_core.so

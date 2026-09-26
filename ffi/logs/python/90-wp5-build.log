@@ -1,12 +1,12 @@
 # python slice: build, WP5 step 5 (plan-rendered shim, init-guard cores)
-# date:      2026-09-26T06:20:06Z
-# commit:    d2cd0b02f
+# date:      2026-09-26T09:32:38Z
+# commit:    b5f5bcfc4
 # phase:     correctness only; nothing here is a timing
 
-   core source: /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py/ffi/poc/codec
-   commit:      d2cd0b02f
-   core tree:   6c73f38829280dae
-   targets:     /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py/ffi/poc/python/build/cargo/{plain,count,rpc,corpus} and the no-unknown variant's /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py/ffi/poc/python/build/cargo/{plain,count,rpc,corpus}-nounk
+   core source: /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py2/ffi/poc/codec
+   commit:      b5f5bcfc4
+   core tree:   3a8df7803c02e7be
+   targets:     /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py2/ffi/poc/python/build/cargo/{plain,count,rpc,corpus} and the no-unknown variant's /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py2/ffi/poc/python/build/cargo/{plain,count,rpc,corpus}-nounk
 == 1. R0: one core, at poc/codec, reached by path ==
   [ok]   codec/gen/generate.py --check: 15 files ok
 
@@ -17,17 +17,17 @@ guard 2 python backend modules import plans only; a planted IR import is caught
 generated tree is current with the plans (18 files)
 
 == 3. the shared core, every build WITH init-guard (R-G7) ==
-   cargo (plain --features init-guard): 16 warnings, in /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py/ffi/poc/python/build/cargo/plain.stderr
+   cargo (plain --features init-guard): 16 warnings, in /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py2/ffi/poc/python/build/cargo/plain.stderr
    exported ak_* entry points: 99
-   cargo (count --features count,init-guard): 16 warnings, in /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py/ffi/poc/python/build/cargo/count.stderr
-   cargo (rpc --features rpc,init-guard): 16 warnings, in /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py/ffi/poc/python/build/cargo/rpc.stderr
+   cargo (count --features count,init-guard): 16 warnings, in /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py2/ffi/poc/python/build/cargo/count.stderr
+   cargo (rpc --features rpc,init-guard): 16 warnings, in /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py2/ffi/poc/python/build/cargo/rpc.stderr
    the rpc core: 14 section 9 entry points
-   cargo (corpus --features corpus,init-guard): 38 warnings, in /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py/ffi/poc/python/build/cargo/corpus.stderr
+   cargo (corpus --features corpus,init-guard): 38 warnings, in /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py2/ffi/poc/python/build/cargo/corpus.stderr
    the corpus core: 1 ak_decode_WireZoo export(s)
-   cargo (plain-nounk --no-default-features --features init-guard): 9 warnings, in /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py/ffi/poc/python/build/cargo/plain-nounk.stderr
-   cargo (count-nounk --no-default-features --features count,init-guard): 9 warnings, in /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py/ffi/poc/python/build/cargo/count-nounk.stderr
-   cargo (rpc-nounk --no-default-features --features rpc,init-guard): 9 warnings, in /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py/ffi/poc/python/build/cargo/rpc-nounk.stderr
-   cargo (corpus-nounk --no-default-features --features corpus,init-guard): 20 warnings, in /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py/ffi/poc/python/build/cargo/corpus-nounk.stderr
+   cargo (plain-nounk --no-default-features --features init-guard): 9 warnings, in /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py2/ffi/poc/python/build/cargo/plain-nounk.stderr
+   cargo (count-nounk --no-default-features --features count,init-guard): 9 warnings, in /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py2/ffi/poc/python/build/cargo/count-nounk.stderr
+   cargo (rpc-nounk --no-default-features --features rpc,init-guard): 9 warnings, in /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py2/ffi/poc/python/build/cargo/rpc-nounk.stderr
+   cargo (corpus-nounk --no-default-features --features corpus,init-guard): 20 warnings, in /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py2/ffi/poc/python/build/cargo/corpus-nounk.stderr
    no-unknown cores: 0 u-family exports (ak_uencode_*, ak_uelem*, ak_dec_reset_*) in each of 4; the full cores export 21
 
 == python 3.12 (3.12.3, sys.hexversion 0x30c03f0) ==
