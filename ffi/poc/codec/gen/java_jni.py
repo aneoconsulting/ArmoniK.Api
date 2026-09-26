@@ -21,6 +21,8 @@ shapes description, `ak.corpus.NativeEntry` for the corpus's), which is also the
 prefix; the fixed natives are `ak.Native`'s in every build.
 """
 from plan import direct_fields, element_types, slot_name, unknown_compiled_out
+import re
+import c_abi
 import plan as A
 import java_names as N
 
@@ -82,6 +84,18 @@ static inline ak_frame *ak_top(void) { return &g_stack[g_depth - 1]; }
       ak_fail((ctx), AK_ERR_HOST, (const uint8_t *) kMsg, (uint32_t)(sizeof(kMsg) - 1)); \
     }                                                                            \
   } while (0)
+#endif
+
+/* CAMPAIGN req 19 (R-H31): the counting build of the shim (-DAK_HOST_COUNT) counts every
+ * JNI entry that calls an exported core function -- the codec, the resets, the take, the
+ * pull family's drain and walk, the RPC entry points in rpc.c -- so a count covers every
+ * entry point the timed loop calls, not only those the core counts itself. `ak_hc_grow`
+ * counts the core's calls to the shim's C grow (a reverse call, into C, not Java). */
+#ifdef AK_HOST_COUNT
+int64_t ak_hc_fwd, ak_hc_grow;
+#define AK_HC() (ak_hc_fwd++)
+#else
+#define AK_HC() ((void) 0)
 #endif
 
 #ifdef AK_CROSSING_TAX
@@ -325,15 +339,49 @@ def emit_c(p, entry):
             o.append("      (const struct ak_%sfix_%s *)(intptr_t) elems, (int32_t) n, (int64_t) tok0);" % (G, et))
             o.append("}")
 
+    fixed_text = FIXED
     if nounk:
         # The host side of the unknown-field buffers exists only where there are buffers.
         a = FIXED.index(UNK_BLOCK_START)
         b = FIXED.index(UNK_BLOCK_END)
-        o.append(FIXED[:a] + "/* (WP5 step 10: the no-unknown variant has no unknown-field"
-                 " buffers, so no grow and no delivery helpers.) */\n" + FIXED[b:])
-    else:
-        o.append(FIXED)
-    return "\n".join(o)
+        fixed_text = (FIXED[:a] + "/* (WP5 step 10: the no-unknown variant has no unknown-field"
+                      " buffers, so no grow and no delivery helpers.) */\n" + FIXED[b:])
+    o.append(fixed_text)
+    return host_count("\n".join(o), p)
+
+
+# JNI entries that call a core export but are not part of any timed loop: the counters
+# themselves, the layout facts, the lifecycle probes. Everything else is counted.
+HC_EXCLUDE = re.compile(r"Counters|layoutFacts|abiVersion|initialized|hostCount")
+
+
+def host_count(text, p):
+    """Insert `AK_HC();` as the first statement of every JNI entry whose body calls an
+    exported core function (a prototype of c_abi's header for this plan)."""
+    exported = set(re.findall(r"\b(ak_[a-z0-9_A-Z]+)\s*\(", c_abi.emit(p)[0]))
+    lines = text.split("\n")
+    out, i = [], 0
+    while i < len(lines):
+        ln = lines[i]
+        if ln.startswith("JNIEXPORT "):
+            k = i                                  # the signature may span lines
+            while not lines[k].rstrip().endswith("{"):
+                k += 1
+            j = k + 1
+            while lines[j] != "}":
+                j += 1
+            body = "\n".join(lines[k + 1:j])
+            name = re.search(r"JNICALL (\w+)\(", ln).group(1)
+            calls = set(re.findall(r"\b(ak_[a-z0-9_A-Z]+)\s*\(", body)) & exported
+            out.extend(lines[i:k + 1])
+            if calls and not HC_EXCLUDE.search(name):
+                out.append("  AK_HC();")
+            out.extend(lines[k + 1:j + 1])
+            i = j + 1
+            continue
+        out.append(ln)
+        i += 1
+    return "\n".join(out)
 
 
 UNK_BLOCK_START = "/* ---- decision 11: the host side of the unknown-field buffers"
@@ -439,8 +487,14 @@ static void ak_jbuf_unlink(ak_jbuf *b) {
   b->prev = b->next = b;
 }
 
+/* `g_grow_exact` (set by the counting harness, CAMPAIGN req 19): allocate exactly the size
+ * the core asked for, so a count of grow calls does not depend on this host's policy. */
+static int g_grow_exact;
 static int32_t ak_java_grow(void *sink, int32_t want, uint8_t **dst, int32_t *cap) {
   ak_jbuf *list = (ak_jbuf *) sink;
+#ifdef AK_HOST_COUNT
+  ak_hc_grow++;
+#endif
   if (want < 0) return AK_ERR_LIMIT;
   if (list == NULL) return AK_ERR_HOST;
   int64_t c = *dst == NULL ? 0 : (int64_t) *cap;
@@ -448,6 +502,7 @@ static int32_t ak_java_grow(void *sink, int32_t want, uint8_t **dst, int32_t *ca
   if (n < want) n = want;
   if (n < 64) n = 64;
   if (n > 0x7fffffff) n = want;
+  if (g_grow_exact) n = want;
   ak_jbuf *old = *dst == NULL ? NULL : ((ak_jbuf *) *dst) - 1;
   if (old != NULL) ak_jbuf_unlink(old);
   ak_jbuf *b = (ak_jbuf *) realloc(old, sizeof(ak_jbuf) + (size_t) n);
@@ -467,6 +522,9 @@ static void ak_jbuf_free(void *data) {
   ak_jbuf_unlink(b);
   free(b);
   __atomic_sub_fetch(&g_unk_live, 1, __ATOMIC_RELAXED);
+}
+JNIEXPORT void JNICALL Java_ak_Native_unkGrowExact(JNIEnv *e, jclass c, jboolean on) {
+  (void) e; (void) c;  g_grow_exact = on ? 1 : 0;
 }
 JNIEXPORT jlong JNICALL Java_ak_Native_unkGrow(JNIEnv *e, jclass c) {
   (void) e; (void) c;  return (jlong)(intptr_t) ak_java_grow;
@@ -614,6 +672,30 @@ JNIEXPORT jint JNICALL Java_ak_Native_layoutFacts(JNIEnv *env, jclass c, jintArr
   return (jint) have;
 }
 
+/* {forward entries into the core, grow calls} since the last reset; 0 unless AK_HOST_COUNT. */
+JNIEXPORT void JNICALL Java_ak_Native_hostCounts(JNIEnv *env, jclass c, jlongArray out) {
+  (void) c;
+#ifdef AK_HOST_COUNT
+  jlong v[2] = {(jlong) ak_hc_fwd, (jlong) ak_hc_grow};
+#else
+  jlong v[2] = {0, 0};
+#endif
+  (*env)->SetLongArrayRegion(env, out, 0, 2, v);
+}
+JNIEXPORT void JNICALL Java_ak_Native_hostCountsReset(JNIEnv *e, jclass c) {
+  (void) e; (void) c;
+#ifdef AK_HOST_COUNT
+  ak_hc_fwd = 0; ak_hc_grow = 0;
+#endif
+}
+JNIEXPORT jint JNICALL Java_ak_Native_hostCounting(JNIEnv *e, jclass c) {
+  (void) e; (void) c;
+#ifdef AK_HOST_COUNT
+  return 1;
+#else
+  return 0;
+#endif
+}
 JNIEXPORT jlong JNICALL Java_ak_Native_noop(JNIEnv *e, jclass c, jlong x) {
   (void) e; (void) c;  return (jlong) ak_noop((uint64_t) x);
 }
