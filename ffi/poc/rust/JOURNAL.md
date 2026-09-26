@@ -2550,3 +2550,27 @@ kept step. Step 0 fixes the harness first.
   (untouched) moved by as much, so no gain is attributable at 12 rounds x 24 calls; the
   expected size (one 540 KB memcpy against ~1.3 ms of client CPU per call) is 3-5%. Codec
   groups noise (no codec change).
+
+## 2026-09-26 -- optimisation step 8 (F1) (f2a88d3, kept)
+
+- The facade crates (main, corpus) get an `unknown-fields` feature (default on); the
+  `unknown_fields` member and core_native_retain exist only with it (owner decision
+  R-H22). harness, campaign and corpus-harness depend on the facade with
+  default-features = false and forward their own unknown-fields feature, so the no-unknown
+  build (campaign --no-default-features) has the member compiled out. Generators changed:
+  rust_facade.py, rust_build.py, rust_campaign.py, rust_corpus.py (poc/rust), and the
+  shared rust_binding.py (binding_nounk no longer writes the member). The corpus
+  no-unknown build now has 2 arms (ffi-nounk, native-drop): native-retain has nothing to
+  retain into. The codec and rpc headers of the no-unknown binary state that the armonik
+  control arm changes with it (it uses the same facade types; accepted by the owner).
+- Checked: generate --check, one_core.sh, conformance and shapes VERDICT pass on both
+  builds, pre-check 962 / 520 0 failures, both crossing files identical, gen/corpus.sh
+  passes (4 and 2 arms, every control failing as required; logs/rust/opt/s8-sanity).
+- Measured (s8 vs s7), no-unknown build: decode core-native/inc 0.940 (P), 0.887 (U);
+  core-ffi/inc 0.957 (P), 0.903 (U); core-ffi-pull/inc 0.958 / 0.905; armonik/inc 0.961 /
+  0.923 (the control arm moves with the facade, as stated); core-ffi/core-native 1.017 /
+  1.015 (both got faster); encode noise. Full build: decode groups noise; the /inc encode
+  groups 1.06-1.07 with core-ffi/core-native encode noise (the incumbent-drift hazard).
+  Per payload (no-unknown, decode): P1.3 core-native/inc 1.705 -> 0.806, core-ffi/inc
+  1.674 -> 1.140 (the absent path: every empty message was 24 bytes larger); P1.1
+  core-ffi/inc 0.818 -> 0.668.
