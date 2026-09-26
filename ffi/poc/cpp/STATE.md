@@ -12,11 +12,11 @@ defect. What this file reports as results are correctness outcomes and crossing 
 
 | | |
 |---|---|
-| **Status** | 2026-09-26, register H (WP6 re-review) worked for the findings assigned to cpp; per-finding dispositions below. Both builds are gated from a clean checkout at `8f5b575c0` (core `31fc3eecf`: R-H21 capacity cap, R-H10 parse order), 0 failed steps (`logs/cpp/wp5-*.log`, `wp5s10-nounk.log`); ASan+LSan clean on both builds (`asan.log`); campaign smoke (gate, codec, rpc, calib) green and marked `"smoke": true` |
+| **Status** | 2026-09-26, FIX-PLAN WP7: the harness conforms to the owner's 2026-09-26 contract (process CPU, content sets and U rows in three directions, encode end/input rows, cells E and F, one server per launch on Unix sockets, a and a+read, counts with resets, retain and RPC cells B-E). Both builds gated from a clean checkout at `a03b06ab2`, 0 failed steps (`logs/cpp/wp5-*.log`, `wp5s10-nounk.log`), C++17, C++14 and C++11; ASan+LSan clean on both builds (`asan.log`); campaign smoke (gate, codec, rpc, calib) green, every new row present, figures stripped, `"smoke": true` |
 | **Core** | the shared one at `ffi/poc/codec/crates/ak-core` (R0). CMake builds it with cargo, `init-guard` in every configuration. Full-build flavours: plain, `count`, `corpus`, `rpc`, `rpc,count`, and three planted cores (`pad-widths`, `global-widths`, both). No-unknown flavours: `--no-default-features` plus `init-guard` alone, `count`, `corpus` or `rpc`. Each flavour has its own target dir under `core-build/` |
 | **Generator** | one generator (W14). `poc/codec/gen/plan.py` holds the rules. This slice's backend modules in `poc/codec/gen/` are `cpp_binding.py`, `cpp_native.py`, `cpp_facade.py`, `cpp_names.py` and `cpp_layout.py`, plus `c_abi.py`, which renders the C header for every slice. `gen/generate.py` is glue: it renders the targets from plans and imports no IR (the guard in `generate.py --check`) |
 | **Floor / target** | C++11 floor, C++17 target, both builds. C++14 also builds and is gated (full build) |
-| **Incumbent** | protobuf C++ 3.21.12 and grpc++ 1.51.1, apt's, the only versions in this container. `packages/cpp` pins neither. CAMPAIGN.md section 3 asks for gRPC v1.54.0 and a current version; see the checklist |
+| **Incumbent** | protobuf C++ 3.21.12 and grpc++ 1.51.1, apt's, the only versions in this container. `packages/cpp` pins neither. The runner builds against gRPC v1.54.0 and a current version through AK_INCUMBENT_PREFIX, one run per prefix (section 3); neither prefix exists here (checklist row 3) |
 | **Compiler** | g++ 13.3.0, `-O2 -g -DNDEBUG`; rustc 1.94.1 |
 
 ## What exists
@@ -66,12 +66,12 @@ The harness binaries, one source each (`CMakeLists.txt`):
 |---|---|---|
 | `src/conformance.cpp` | `conformance_{a17,b17,c14,c11}_shared`, `conformance_a17_static`, `conformance_a17_noinit` (plant); `conformance_nounk_{a17,c11,static}` | payload byte identity against `ffi/schema/generated/manifest.json` on every encoder and decoder arm, the layout table against the core's `ak_layout_facts`, absent/unknown/malformed vectors; decision 11's pool, refill, oneof, error and wrong-root cases (full); rule 6 and the drop of unknowns (no-unknown) |
 | `corpus/src/corpus_main.cpp` | `corpus_all_{a17,c14,c11,a17_static}`, `corpus_all_noinit` (plant); `corpus_nounk_{a17,c11}`, `corpus_nounk_noinit` (plant) | one corpus row per process, four arms (ffi-drop, ffi-retain, native-drop, native-retain); `--unk` runs decision 11's controls on one row |
-| `src/counts.cpp` | `counts_a17_shared`, `counts_a17_static`, `counts_a17_static_lto`; `counts_nounk` | crossing counts from a counting core (R5) |
+| `src/counts.cpp` | `counts_a17_shared`, `counts_a17_static`, `counts_a17_static_lto`; `counts_nounk` | crossing counts from a counting core plus the binding's host counter (resets) and `ak_enc_take`: payloads and, with `--corpus DIR --rows TSV`, the 92 U rows; drop and retain (R5, req 19) |
 | `src/bench.cpp` | `bench_*` (levels, linkages, guard off, perturbation, crossing tax, LTO, and the `bench_a17_gateplant` plant) | the pre-campaign codec timing harness; its arms are gated before timing |
 | `src/contentsets.cpp`, `src/concurrency.cpp`, `src/groupskip.cpp`, `src/utf8check.cpp`, `src/odr_*.cpp`, `src/fusion_probe.cpp` | `contentsets_a17`, `conc_*` (incl. four planted), `groupskip_*` (incl. two planted), `utf8check_*`, `odrcheck`, `fusion_probe` | content sets, concurrency suite, group skip, UTF-8 validator differential, ODR across levels, the boundary checker's control |
 | `src/rpcbench.cpp`, `rpcflow.cpp`, `rpccounts.cpp` | `rpcbench`, `rpcflow`, `rpccounts` | the pre-campaign RPC grid, the flow-control probe, RPC crossing counts |
 | `src/campaign_codec.cpp` | `campaign_codec`, `campaign_codec_nounk` | campaign codec suite (Google Benchmark), with its own gate and plant |
-| `src/campaign_rpc.cpp`, `campaign_server.cpp`, `campaign_calib.cpp` | `campaign_rpc`, `campaign_rpc_nounk`, `campaign_server`, `campaign_calib` | campaign RPC client (two builds), server (own process), crossing-cost loops |
+| `src/campaign_rpc.cpp`, `campaign_server.cpp`, `campaign_calib.cpp` | `campaign_rpc(_nounk)`, `campaign_rpc_count(_nounk)`, `campaign_server`, `campaign_calib` | campaign RPC client, cells A-F, directions a, a+read, b (two builds; `--warm-server N` warms the server; the `_count` builds print per-call counts for B-E with `--count N`); server in its own process on two Unix sockets (shipped, pinned), one per launch; crossing-cost loops |
 | `src/upbbench.cpp` | `upbbench` (needs `gen/fetch_upb.sh`) | the upb ceiling arm |
 
 Scripts (`gen/`):
@@ -97,7 +97,8 @@ Scripts (`gen/`):
 - `d11_asan.sh`: both builds' conformance and corpus under ASan+LSan.
 - `run_campaign.sh --suite codec|rpc|calib|gate --out <dir>`: the campaign runner (see the
   checklist).
-- `campaign_summary.py`: requirement 30's summaries.
+- `campaign_summary.py`: requirement 30's summaries, ratios from per-launch medians.
+- `u_rows.py`: the 92 U rows (accepted, non-disputed, at the seven shapes roots) from the corpus manifest, as the TSV the codec suite and counts read.
 - `gbench_to_jsonl.py`: Google Benchmark JSON to section 7's lines.
 - `corpus_all.py`: the corpus driver, with `--unk-controls`, `--expect-dropped`,
   `--max-retain-gap`, `--plant`, `--record` and `--compare`.
@@ -132,22 +133,32 @@ options entry per oneof, and the core fills it in the active member's decode gro
 binding takes the active message member's slot into that member's bag and frees any other
 member's non-NULL slot. This is unchanged by the amendment.
 
-## Crossing counts (R5; counts, not timings)
+## Crossing counts (R5, req 19; counts, not timings)
 
-- **Full build, drop mode:** `logs/cpp/counts-baseline.log`, 87 rows. This is the gate's
-  reference, re-taken once when decision 11 enlarged the decode groups. The reason is in
-  its header, and the stop it caused is in `logs/cpp/wp3-gate-count-stop.log`.
-- **No-unknown build:** `logs/cpp/counts-nounk-baseline.log`, 87 rows. It differs from the
-  full build in one row only: **P1.2 decode reverse, 8 in the full build, 5 without
-  unknown-field support**. Each decode group is 16 bytes smaller without the `ak_unk_buf`
-  slot, so the 1,000-element run arrives in fewer arena chunks.
-- **Retain and pool decodes on the payloads** (`AK_COUNTS_RETAIN=1`, in `wp5-gates.log`):
-  the same counts as drop, since the payloads carry no unknown field. The two
-  `ak_dec_reset_<Root>` calls of an armed decode are forward calls that the core's counters
-  do not see.
-- **RPC delivery counts:** `logs/cpp/rd2-rpccounts.log`, from a `rpc,count` core. Blocking
-  2/0, callback 3/1, queue 4/0 forward/reverse per call, counting `ak_call_destroy`.
-  `wp5-gates.log` re-runs `rpccounts`.
+Every count is forward = core entry points + host-counted resets (`ak_enc_reset`,
+`ak_dec_reset_<Root>`, counted in the binding under AK_COUNTING) + `ak_enc_take`, with the
+breakdown on each row. Reset places: encode resets once before the encode; a retain decode
+resets twice (before, arming the options; after, disarming); a drop decode makes none.
+Retain: no pre-placed buffer, `unk_grow` allocates exactly the size requested.
+
+- **Full build:** `logs/cpp/counts-baseline.log`, 485 rows: 117 payload rows (encode,
+  its unbatched, zeroed-fill and host variants, decode, and retain decode and encode) and 368 U rows
+  (92 rows x 4) (decode,
+  encode, decode retain, encode retain). The core-counted part of the 87 payload rows is
+  identical to the previous baseline; the re-take added the host and take columns and the
+  retain and U rows (reason in its header).
+- **No-unknown build:** `logs/cpp/counts-nounk-baseline.log`, 271 rows (no retain rows).
+  It still differs from the full build in one core-counted payload row: P1.2 decode
+  reverse, 8 full against 5 without unknown-field support (smaller decode groups, fewer
+  arena chunks).
+- **RPC cells, per call:** `logs/cpp/rpc-counts.log` (B, C-retain, C-drop, D-retain,
+  D-drop, E-retain, E-drop) and `rpc-counts-nounk.log` (B, C/D/E-nounk), directions a and b,
+  from `campaign_rpc_count(_nounk) --count 4`. Examples: B 2/0 both directions; C-drop a
+  3/3501 (2 rpc + 1 decode), C-retain a 5/3501 (+2 resets); C b 2515 or 2521 forward (rpc 2,
+  codec, 1 reset, 1 take); D is C without the 2 rpc calls; E is 2/0 (the codec is the
+  host's). a+read adds no boundary call. The campaign gate diffs both files.
+- **Pre-campaign RPC delivery counts:** `logs/cpp/rd2-rpccounts.log`. Blocking 2/0,
+  callback 3/1, queue 4/0 forward/reverse per call, counting `ak_call_destroy`.
 
 ## Timing logs in the tree (instrumentation only)
 
@@ -166,7 +177,11 @@ listed so that nobody re-derives them. **No figure from them is quoted here.**
 - `calibration-r13.log`: the rust slice's crossing bench on the 2.80 GHz container.
 - `campaign/*.jsonl`, `campaign/*.gbench.json`: campaign smoke runs.
   - `codec-*`, `rpc-*`, `calib-*`: 1 launch, 1 round, reduced sizes, both builds, at
-    `8f5b575c0`, `"smoke": true`. Every timing is stripped (`"figures": "stripped (smoke)"`).
+    `a03b06ab2` (WP7), `"smoke": true`. Every timing is stripped (`"figures": "stripped
+    (smoke)"`, gbench `*_time` = "stripped", the server's CPU line replaced). Rows: codec
+    full 3820 and no-unknown 2388 samples (encode end x input, set=required/extra, row=U in
+    three directions, `cpu_clock: process`); rpc 288 samples (A-F per mode, a, a+read, b,
+    socket uds, shipped and pinned, one server for the launch).
 
 ## CAMPAIGN.md section 10 checklist
 
@@ -175,26 +190,26 @@ listed so that nobody re-derives them. **No figure from them is quoted here.**
 | 1 | one machine, slices sequential | **met** on the runner's side: suites run one after another and nothing runs concurrently. The machine is the owner's |
 | 2 | governor, turbo, SMT | **met (recorded)**: the header reads scaling_governor, intel_pstate/no_turbo, cpufreq/boost and smt/active. The runner does not set them (owner) |
 | 3 | isolation | **met (recorded)**: `/sys/devices/system/cpu/isolated`, isolcpus/nohz_full from the kernel cmdline, the runner's cpuset |
-| 4 | three disjoint CPU sets, one NUMA node, no shared SMT siblings, parameters | **met**: AK_CPU_CLIENT and AK_CPU_SERVER are required; overlap, a shared SMT sibling and a NUMA span are refused (`campaign/runner-controls.log`). The OS set is "everything else" and is not checked |
-| 3 (table) | incumbent at gRPC v1.54.0 and at a current version | **not met here**: this container has grpc++ 1.51.1 / protobuf 3.21.12 only. The runner builds against another install through AK_INCUMBENT_PREFIX, but no such install exists here. The owner provides the two prefixes |
+| 4 | three disjoint CPU sets, one NUMA node, no shared SMT siblings, parameters; sizes fixed; worker thread counts in every header | **met** on the runner's side: AK_CPU_CLIENT and AK_CPU_SERVER are required (from `ffi/campaign.machine` through `ffi/campaign.sh`, which exports them; the sizes 4+4 are checked there, not here); overlap, a shared SMT sibling and a NUMA span are refused (`campaign/runner-controls.log`). Thread counts: the runner header carries a `threads` object; the codec header its process thread count; the RPC client header `caller_threads`, `core_runtime_workers` and `process_threads_after_warmup` (grpc-core sizes its own pollers, counted in the process total); the server's thread count is in READY and in its exit line. The OS set is "everything else" and is not checked |
+| 3 (table) | incumbent at gRPC v1.54.0 and at a current version | **not met here**. The runner builds against the incumbent under AK_INCUMBENT_PREFIX (CMAKE_PREFIX_PATH, PKG_CONFIG_PATH and PATH, recorded as `incumbent_prefix` in every header); the campaign runs it twice, once with a gRPC v1.54.0 prefix (ArmoniK's level) and once with a current one. This container has only apt's grpc++ 1.51.1 / protobuf 3.21.12, so neither prefix exists and every run here used the system install. The owner provides the two prefixes |
 | 5 | floors gated, no timing | **met**: the C++11 (and C++14) conformance and the C++11 corpus in the gate, for the full build; C++11 conformance and corpus for the no-unknown build |
 | 6 | build flags printed | **met**: flags from the build, shared linkage, LTO off, core features, and the build variant (full or no-unknown) in every header |
-| 7 | 16 payloads, content sets, U-* rows | **met**, with one reading to confirm. Content sets run on P1.2, P2.2, P3.1, P4.1 and P6.1; SHAPES.md names no list, so this is the committed content-set gate's. The U-* rows are the 92 non-disputed rows at the seven roots the timed codec implements. Rows at other corpus roots are implemented only by the corpus build, a different ABI that is not timed |
+| 7 | 16 payloads, content sets, U-* rows | **met**. Latin-1 and wide run on P1.2, P2.2 and P2.4, tagged `set=required`; P3.1, P4.1 and P6.1 run too, tagged `set=extra` (R-H26). The U-* rows are the 92 at the seven shapes roots (`gen/u_rows.py` from the manifest), tagged `row=U`, in all three directions: encode (host-gen re-encode as the check), decode and decode_read, for core-ffi drop and retain (retain in the full build only), host-gen and the incumbent (R-H27). Rows at other roots run only in the corpus build, for correctness |
 | 8 | arms | **met**: incumbent-prod (grpc++ SerializationTraits), incumbent-best, core-ffi (push), host-gen. The pull family is not in this slice. The Rust-only arms are not applicable |
 | 9 | encode, decode twice | **met**: `decode` and `decode_read` (the generated read-every-field traversal) |
 | 10 | three modes for core-ffi and host-gen | **met**: core-ffi drop and retain in `campaign_codec`, no-unknown in `campaign_codec_nounk`; host-gen drop and retain in `campaign_codec`, no-unknown in `campaign_codec_nounk` (the drop rendering over the facade without `unknown_fields`, R-H22). The no-unknown build has no retain arm of either kind. Every sample carries `unknown_mode` and `build` |
-| 11 | serialise once per iteration, fresh object | **met**: decode goes into a fresh object every iteration, and protobuf C++ recomputes ByteSizeLong on every Serialize |
-| 12 | cells A-D; C and D in each mode | **met**: the full client runs A, B, C-retain, C-drop, D-retain and D-drop; the no-unknown client runs A and B (in-process controls), C-nounk and D-nounk. A pre-run check in every C/D mode compares the decoded and re-encoded message with the incumbent's re-serialisation. The caller threads are created once, before any timed window, and reused (R-H2) |
-| 13 | server out of process, pre-serialised | **met** for direction a. In direction b the server decodes with the incumbent in every cell |
-| 14 | directions a and b | **met**. The optional streamed upload is not built |
+| 11 | serialise once per iteration, fresh object; encode variants | **met**. Decode goes into a fresh object every iteration; protobuf C++ recomputes ByteSizeLong on every Serialize. Encode rows are tagged `end` and `input` (R-H29), graphs built in setup, outside the timed window. end=reused: bytes in a reused buffer (incumbent-best `SerializeToString` into a reused string, core-ffi `ak_enc_take` of the context's buffer, host-gen into its reused `ak::Enc`). end=transport: the form handed to grpc++ (incumbent-prod `SerializationTraits<Message>::Serialize` to a `grpc::ByteBuffer`; core-ffi and host-gen copy their bytes into a `grpc::Slice` wrapped as a `ByteBuffer`, what cells D and F do). Cell C hands the core's own buffer to the transport, which is the end=reused row, stated. input=hot: one graph; input=pool: distinct copies totalling `--pool-bytes` (runner: 2 x AK_LLC_BYTES, default LLC 13.75 MiB), round-robin |
+| 12 | cells A-F; C, D, E, F in each mode | **met**: the full client runs A, B, C/D/E/F-retain and -drop; the no-unknown client runs A, B and C/D/E/F-nounk. E is host-gen over the core's transport, F host-gen over grpc++ (R-H35). A pre-run check in every C-F mode compares the decoded and re-encoded message with the incumbent's re-serialisation. Caller threads are created once and reused (R-H2) |
+| 13 | server out of process, pre-serialised; one server per launch; one channel per cell | **met**. One `campaign_server` per launch serves both builds' clients and every cell on two Unix sockets (shipped and pinned configuration), warmed before round 1 by AK_CAMPAIGN_SERVER_WARMUP (default 200) calls per direction from each client transport (grpc++ and core) per socket (`--warm-server`), stated in the header. Each cell opens its own channel (a distinct channel arg for grpc++, its own `ak_client` for the core) at start and warms it. In direction b the server decodes with the incumbent in every cell |
+| 14 | directions a, a+read and b | **met**: `a` (decode), `a+read` (decode, then read every field) and `b` (R-H36). The optional streamed upload is not built |
 | 15 | 1, 8, 16 in flight | **met** |
-| 16 | B and C blocking | **met**. The callback and queue rows exist only in the pre-campaign `rpcbench`, not in the campaign client |
-| 17 | shipped and pinned | **met**, stated. grpc++ shipped = packages/cpp's channel args minus its retry service config. grpc++ pinned has no connection-window argument, so only the stream half is pinned. core shipped = ak_client_new defaults |
+| 16 | B and C blocking; A, D, F idiomatic | **met**. B, C and E use the core's blocking `ak_call_unary`; A, D and F use grpc++'s synchronous generic call, packages/cpp's idiom (R-H30), stated in the header's `delivery`. The callback and queue rows exist only in the pre-campaign `rpcbench` |
+| 17 | shipped and pinned; Unix domain socket | **met**, stated. Every cell dials `unix:<path>` (grpc++ and the core, R-H28). grpc++ shipped = packages/cpp's channel args minus its retry service config. grpc++ pinned has no connection-window argument, so only the stream half is pinned. core shipped = ak_client_new defaults |
 | 18 | every call checked | **met**: status and length on every call (cell A: content on every call, wire length once before the rounds); the first failure aborts and **leaves no sample** (R-H4): samples are buffered in the client and written only on success, and the runner deletes a failed launch file. The gate checks "no sample" for a wrong length, for an abort after two samples (`--fail-after 2`) and for the runner's discard. A failing `campaign_calib` is propagated the same way (R-H5) |
-| 19 | crossing counts gate | **met**: `counts_a17_shared` against `counts-baseline.log`, `counts_nounk` against `counts-nounk-baseline.log` |
+| 19 | crossing counts gate, every entry point, RPC B-E, retain | **met**. `counts_a17_shared` (and static) against `counts-baseline.log`, `counts_nounk` against `counts-nounk-baseline.log`: forward = core + host resets + `ak_enc_take`, with the reset's place in the header; payloads and the 92 U rows, drop and retain (retain: no pre-placed buffer, `unk_grow` allocates exactly the size asked). RPC cells B, C, D, E per call, per mode, directions a and b: `campaign_rpc_count(_nounk)` against `rpc-counts.log` / `rpc-counts-nounk.log`, compared in the campaign gate (R-H31) |
 | 20 | crossing cost, fwd and rev, perf stat | **not met here**: perf is not installed. The runner builds and runs the rust slice's crossing bench, which did not build in the WP3 out-of-tree snapshot, and has not been re-run since. Reverse is reported as a fwd+rev row, from which the forward row is subtracted |
-| 21 | CPU time | **met**. Codec: Google Benchmark cpu_time (the benchmark thread) and real_time. Calib: CLOCK_THREAD_CPUTIME_ID. RPC: getrusage(RUSAGE_SELF) of the client, plus wall |
-| 22 | order rotated between launches | **met**. Codec: Google Benchmark's `--benchmark_enable_random_interleaving` (repetitions of all benchmarks interleaved at random; every repetition still exported raw) plus registration order rotated by launch (R-H23). RPC: the cell order of every (launch, round, dir, in-flight) group is a seeded shuffle, recorded per sample as `order_pos` (R-H18/R-H23), and the two builds' binaries alternate by launch |
+| 21 | process CPU per round | **met** for codec and RPC. Codec: Google Benchmark with `MeasureProcessCPUTime()`, every sample `"cpu_clock":"process"`, real_time beside it. RPC: getrusage(RUSAGE_SELF) of the client per round, plus wall. Calib (req 20's stand-in) still reads CLOCK_THREAD_CPUTIME_ID on one thread |
+| 22 | order | **met**, stated. Codec: Google Benchmark's `--benchmark_enable_random_interleaving` plus registration order rotated by launch. RPC: the cell order of every (launch, round, dir, in-flight) group is a seeded shuffle, recorded as `order_pos`, and the two builds' binaries alternate by launch |
 | 22a | benchmark engine | **met** for the codec suite: Google Benchmark v1.8.3, a Release build made by the runner from the upstream tag with its commit checked. Every repetition is exported raw and converted to section 7's lines. The RPC and calib suites stay on the runner, because a separate server process and abort-on-first-failure do not fit a Google Benchmark registration |
 | 23 | 5 rounds x 3 launches, every round committed | **met** (runner defaults; the smokes used fewer, stated) |
 | 24 | warm-up fixed and identical | **met**: a byte budget per codec arm and a call count per RPC cell, before round 1. Google Benchmark adds none (`--benchmark_min_warmup_time=0`). JIT is not applicable |
@@ -203,7 +218,7 @@ listed so that nobody re-derives them. **No figure from them is quoted here.**
 | 27 | header; dirty tree refused | **met**: a dirty tree is refused unless AK_CAMPAIGN_ALLOW_DIRTY=1 (smoke only). The header's `"instrumentation"` is true on a dirty tree or with AK_CAMPAIGN_SMOKE=1, which also sets `"smoke": true`, so a clean-tree smoke is marked (R-H19) |
 | 28 | one JSON object per sample | **met**, plus a `build` field |
 | 29 | logs in `ffi/logs/cpp/campaign/` | **met** |
-| 30 | summaries only as specified | **met** (`gen/campaign_summary.py`, keyed per build; no committed summary) |
+| 30 | summaries only as specified | **met**: `gen/campaign_summary.py` keys on (build, arm or cell, payload, content, direction, mode, end, input, set, row) and forms ratios to incumbent-prod (end=transport for encode) or cell A from per-launch medians; no committed summary |
 | 31 | runner interface; top-level `ffi/campaign.sh` | **met** for the slice runner. `ffi/campaign.sh` belongs to the aggregating session |
 | 32 | smoke committed, marked | **met**: the WP5 step 10 smoke, figures stripped |
 
@@ -319,7 +334,7 @@ minutes here), then `gen/d11_asan.sh`. `gen/run_all.sh` takes timings and is not
 
 ## Log index
 
-Current gate (clean checkout at `8f5b575c0`):
+Current gate (clean checkout at `a03b06ab2`):
 
 | Log | What it contains |
 |---|---|
@@ -338,13 +353,14 @@ Committed references and earlier correctness logs:
 
 | Log | What it contains |
 |---|---|
-| `counts-baseline.log`, `counts-nounk-baseline.log` | the committed crossing counts, full (drop mode) and no-unknown |
+| `counts-baseline.log`, `counts-nounk-baseline.log` | the committed crossing counts, full (payloads and U rows, drop and retain) and no-unknown |
+| `rpc-counts.log`, `rpc-counts-nounk.log` | the committed per-call RPC counts, cells B-E per mode, directions a and b |
 | `wp3-gate-count-stop.log` | the campaign gate stopping on the P1.2 count change decision 11 caused |
 | `wp5s9-asan.log` | the WP5 step 9 ASan run (full build only), superseded by `asan.log` |
 | `d38-probe-before.log`, `d39-stale-refusal.log` | D38 (field number above 2^29-1 in a skipped group) before the fix; D39's stale-binary refusal control |
 | `rd1-lenwrap.log`, `rd2-guard.log`, `rd2-history.log`, `rd2-rpccounts.log`, `rd5-gate.log`, `rd5-before.log`, `rd7-before.log`, `rd-generator.log` | the R-D1, R-D2, R-D5 and R-D7 findings, before and after |
 | `groupskip.log`, `odr.log`, `boundary.log`, `concurrency.log`, `conformance.log`, `generator.log` | earlier runs of checks the current gate re-runs (C24's group skip, the ODR check, R5, the concurrency suite, R2); superseded by the `wp5-*` logs |
 | `corpus.log`, `corpus-native.log` | the retired subset corpus harness; superseded by `wp5-corpus.log` |
-| `campaign/gate.log`, `campaign/counts.log`, `campaign/runner-controls.log`, `campaign/campaign_unknown_rows.tsv` | the campaign gate of the last smoke, its counts, the runner's CPU-set/dirty-tree refusals, the U-* rows the codec suite times |
+| `campaign/gate.log`, `campaign/counts.log`, `campaign/rpc-counts.log`, `campaign/rpc-counts_nounk.log`, `campaign/runner-controls.log`, `campaign/campaign_unknown_rows.tsv` | the campaign gate of the last smoke, its payload/U and RPC counts, the runner's CPU-set/dirty-tree refusals, the U-* rows the codec suite times |
 
 Timing logs (instrumentation only): see "Timing logs in the tree" above.

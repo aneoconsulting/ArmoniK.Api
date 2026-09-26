@@ -1,8 +1,8 @@
 # cpp slice, WP5 step 2: the other gates (nothing timed)
-#   date       2026-09-26T12:53:16Z
-#   machine    Linux 6.18.44-fc-v37 x86_64, 4 vCPU, Intel(R) Xeon(R) Processor @ 2.10GHz
+#   date       2026-09-26T16:49:50Z
+#   machine    Linux 6.18.44-fc-v37 x86_64, 4 vCPU, Intel(R) Xeon(R) Processor @ 2.80GHz
 #   compiler   g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0; rustc 1.94.1 (e408947bf 2026-03-25)
-#   commit     8f5b575c0
+#   commit     a03b06ab2
 #   core       ffi/poc/codec at that commit, built --features init-guard (and corpus,init-guard
 #              for the corpus ABI); no timing is taken by anything in this log
 
@@ -160,11 +160,11 @@ groupskip: 0 build(s) did not do what they must
 
 ===== concurrency.sh (AK_CONC_NO_T7=1; planted cores must fail) =====
 == ABI v1 obligation 12.5 ==
-date: 2026-09-26T12:53:17Z  nproc = 4  build dir: ./build
+date: 2026-09-26T16:49:50Z  nproc = 4  build dir: ./build
 
 =========== conc_a17_shared 4 6   (must PASS) ===========
 $ ldd ./build/conc_a17_shared | grep ak_core
-	libak_core.so => /tmp/claude-0/sp/wt18/ffi/poc/cpp/core-build/target/release/libak_core.so
+	libak_core.so => /tmp/claude-0/sp/wt19/ffi/poc/cpp/core-build/target/release/libak_core.so
 == ABI v1 obligation 12.5: the concurrency suite ==
 -std=201703  impl=target  guard=on  linkage=shared  threads=4  rounds=6
 plants: AK_CONC_PAD=0  AK_CONC_GLOBAL=0   (the shipped design)
@@ -240,7 +240,7 @@ whole run, distinct wrong operations: native-encoder 0  core-encoder 0  decoder 
 
 =========== conc_c11_shared 4 6   (must PASS) ===========
 $ ldd ./build/conc_c11_shared | grep ak_core
-	libak_core.so => /tmp/claude-0/sp/wt18/ffi/poc/cpp/core-build/target/release/libak_core.so
+	libak_core.so => /tmp/claude-0/sp/wt19/ffi/poc/cpp/core-build/target/release/libak_core.so
 == ABI v1 obligation 12.5: the concurrency suite ==
 -std=201103  impl=floor  guard=on  linkage=shared  threads=4  rounds=6
 plants: AK_CONC_PAD=0  AK_CONC_GLOBAL=0   (the shipped design)
@@ -391,7 +391,7 @@ whole run, distinct wrong operations: native-encoder 0  core-encoder 0  decoder 
 
 =========== conc_a17_shared 16 4   (must PASS) ===========
 $ ldd ./build/conc_a17_shared | grep ak_core
-	libak_core.so => /tmp/claude-0/sp/wt18/ffi/poc/cpp/core-build/target/release/libak_core.so
+	libak_core.so => /tmp/claude-0/sp/wt19/ffi/poc/cpp/core-build/target/release/libak_core.so
 == ABI v1 obligation 12.5: the concurrency suite ==
 -std=201703  impl=target  guard=on  linkage=shared  threads=16  rounds=4
 plants: AK_CONC_PAD=0  AK_CONC_GLOBAL=0   (the shipped design)
@@ -467,7 +467,7 @@ whole run, distinct wrong operations: native-encoder 0  core-encoder 0  decoder 
 
 =========== conc_a17_pad 4 6   (a REFUSED design: must FAIL) ===========
 $ ldd ./build/conc_a17_pad | grep ak_core
-	libak_core.so => /tmp/claude-0/sp/wt18/ffi/poc/cpp/core-build/target-pad/release/libak_core.so
+	libak_core.so => /tmp/claude-0/sp/wt19/ffi/poc/cpp/core-build/target-pad/release/libak_core.so
 == ABI v1 obligation 12.5: the concurrency suite ==
 -std=201703  impl=target  guard=on  linkage=shared  threads=4  rounds=6
 plants: AK_CONC_PAD=1  AK_CONC_GLOBAL=0   <-- in ak::Enc: a REFUSED design from ABI v1 section 6, built on purpose
@@ -557,7 +557,7 @@ the exit code is inverted by gen/concurrency.sh, not by this binary.
 
 =========== conc_a17_both 4 6   (a REFUSED design: must FAIL) ===========
 $ ldd ./build/conc_a17_both | grep ak_core
-	libak_core.so => /tmp/claude-0/sp/wt18/ffi/poc/cpp/core-build/target-both/release/libak_core.so
+	libak_core.so => /tmp/claude-0/sp/wt19/ffi/poc/cpp/core-build/target-both/release/libak_core.so
 == ABI v1 obligation 12.5: the concurrency suite ==
 -std=201703  impl=target  guard=on  linkage=shared  threads=4  rounds=6
 plants: AK_CONC_PAD=1  AK_CONC_GLOBAL=1   <-- in ak::Enc: a REFUSED design from ABI v1 section 6, built on purpose
@@ -648,7 +648,7 @@ the exit code is inverted by gen/concurrency.sh, not by this binary.
 
 =========== conc_a17_corepad 4 6   (a REFUSED design: must FAIL) ===========
 $ ldd ./build/conc_a17_corepad | grep ak_core
-	libak_core.so => /tmp/claude-0/sp/wt18/ffi/poc/cpp/core-build/target-pad/release/libak_core.so
+	libak_core.so => /tmp/claude-0/sp/wt19/ffi/poc/cpp/core-build/target-pad/release/libak_core.so
 == ABI v1 obligation 12.5: the concurrency suite ==
 -std=201703  impl=target  guard=on  linkage=shared  threads=4  rounds=6
 plants: AK_CONC_PAD=0  AK_CONC_GLOBAL=0   (the shipped design)
@@ -731,7 +731,7 @@ the exit code is inverted by gen/concurrency.sh, not by this binary.
 
 =========== conc_a17_global 4 6   (a REFUSED design that is byte-CLEAN: must PASS) ===========
 $ ldd ./build/conc_a17_global | grep ak_core
-	libak_core.so => /tmp/claude-0/sp/wt18/ffi/poc/cpp/core-build/target-global/release/libak_core.so
+	libak_core.so => /tmp/claude-0/sp/wt19/ffi/poc/cpp/core-build/target-global/release/libak_core.so
 == ABI v1 obligation 12.5: the concurrency suite ==
 -std=201703  impl=target  guard=on  linkage=shared  threads=4  rounds=6
 plants: AK_CONC_PAD=0  AK_CONC_GLOBAL=1   <-- in ak::Enc: a REFUSED design from ABI v1 section 6, built on purpose
@@ -937,83 +937,486 @@ narrowing transcoder. Not comparable with a managed slice's (SHAPES.md).
 
 ===== crossing counts (the COUNTING core, R5) =====
 counting build, linkage=shared, -std=201703
-Per-element columns are forward / reverse.
+Per-element columns are forward / reverse. forward = core + host + take (req 19):
+host = ak_enc_reset inside each encode_into_* (before the encode entry point) and the
+two ak_dec_reset_<Root> of an armed (retain) decode (before and after it); take = the
+timed loop's ak_enc_take after an encode. Retain: no pre-placed buffer, exact-size grow.
 
-  P1.1   encode                 forward      2  reverse      1  transcode       24   per element  0.500 /  0.250
-  P1.1   encode zeroed-fill     forward      2  reverse      1  transcode       24   per element  0.500 /  0.250
-  P1.1   encode UNBATCHED       forward      5  reverse      1  transcode       24   per element  1.250 /  0.250
-  P1.1   encode host transcoder forward      2  reverse     25  transcode       24   per element  0.500 /  6.250
-  P1.1   decode                 forward      1  reverse      2  transcode        0   per element  0.250 /  0.500
-  P1.2   encode                 forward      8  reverse      1  transcode     6000   per element  0.008 /  0.001
-  P1.2   encode zeroed-fill     forward      8  reverse      1  transcode     6000   per element  0.008 /  0.001
-  P1.2   encode UNBATCHED       forward   1001  reverse      1  transcode     6000   per element  1.001 /  0.001
-  P1.2   encode host transcoder forward      8  reverse   6001  transcode     6000   per element  0.008 /  6.001
-  P1.2   decode                 forward      1  reverse      8  transcode        0   per element  0.001 /  0.008
-  P1.3   encode                 forward      3  reverse      1  transcode        0   per element  0.010 /  0.003
-  P1.3   encode zeroed-fill     forward      3  reverse      1  transcode        0   per element  0.010 /  0.003
-  P1.3   encode UNBATCHED       forward    301  reverse      1  transcode        0   per element  1.003 /  0.003
-  P1.3   encode host transcoder forward      3  reverse      1  transcode        0   per element  0.010 /  0.003
-  P1.3   decode                 forward      1  reverse      3  transcode        0   per element  0.003 /  0.010
-  P2.1   encode                 forward      7  reverse      6  transcode       35   per element  7.000 /  6.000
-  P2.1   encode zeroed-fill     forward      7  reverse      6  transcode       35   per element  7.000 /  6.000
-  P2.1   encode UNBATCHED       forward     18  reverse      6  transcode       35   per element 18.000 /  6.000
-  P2.1   encode host transcoder forward      7  reverse     41  transcode       35   per element  7.000 / 41.000
-  P2.1   decode                 forward      1  reverse      8  transcode        0   per element  1.000 /  8.000
-  P2.2   encode                 forward   2511  reverse   2501  transcode    17167   per element  5.022 /  5.002
-  P2.2   encode zeroed-fill     forward   2511  reverse   2501  transcode    17167   per element  5.022 /  5.002
-  P2.2   encode UNBATCHED       forward   8501  reverse   2501  transcode    17167   per element 17.002 /  5.002
-  P2.2   encode host transcoder forward   2511  reverse  19668  transcode    17167   per element  5.022 / 39.336
-  P2.2   decode                 forward      1  reverse   3501  transcode        0   per element  0.002 /  7.002
-  P2.3   encode                 forward    629  reverse    626  transcode    17792   per element  5.032 /  5.008
-  P2.3   encode zeroed-fill     forward    629  reverse    626  transcode    17792   per element  5.032 /  5.008
-  P2.3   encode UNBATCHED       forward  15626  reverse    626  transcode    17792   per element 125.008 /  5.008
-  P2.3   encode host transcoder forward    629  reverse  18418  transcode    17792   per element  5.032 / 147.344
-  P2.3   decode                 forward      1  reverse    876  transcode        0   per element  0.008 /  7.008
-  P2.4   encode                 forward    403  reverse    401  transcode    26267   per element  5.037 /  5.013
-  P2.4   encode zeroed-fill     forward    403  reverse    401  transcode    26267   per element  5.037 /  5.013
-  P2.4   encode UNBATCHED       forward  24881  reverse    401  transcode    26267   per element 311.012 /  5.013
-  P2.4   encode host transcoder forward    403  reverse  26668  transcode    26267   per element  5.037 / 333.350
-  P2.4   decode                 forward      1  reverse    561  transcode        0   per element  0.013 /  7.013
-  P2.5   encode                 forward    102  reverse    101  transcode      640   per element  5.100 /  5.050
-  P2.5   encode zeroed-fill     forward    102  reverse    101  transcode      640   per element  5.100 /  5.050
-  P2.5   encode UNBATCHED       forward    341  reverse    101  transcode      640   per element 17.050 /  5.050
-  P2.5   encode host transcoder forward    102  reverse    741  transcode      640   per element  5.100 / 37.050
-  P2.5   decode                 forward      1  reverse    141  transcode        0   per element  0.050 /  7.050
-  P3.1   encode                 forward      2  reverse      1  transcode      430   per element  0.010 /  0.005
-  P3.1   encode zeroed-fill     forward      2  reverse      1  transcode      430   per element  0.010 /  0.005
-  P3.1   encode UNBATCHED       forward    201  reverse      1  transcode      430   per element  1.005 /  0.005
-  P3.1   encode host transcoder forward      2  reverse    431  transcode      430   per element  0.010 /  2.155
-  P3.1   decode                 forward      1  reverse      2  transcode        0   per element  0.005 /  0.010
-  P4.1   encode                 forward    203  reverse    201  transcode     3467   per element  1.015 /  1.005
-  P4.1   encode zeroed-fill     forward    203  reverse    201  transcode     3467   per element  1.015 /  1.005
-  P4.1   encode UNBATCHED       forward   1001  reverse    201  transcode     3467   per element  5.005 /  1.005
-  P4.1   encode host transcoder forward    203  reverse   3668  transcode     3467   per element  1.015 / 18.340
-  P4.1   decode                 forward      1  reverse    601  transcode        0   per element  0.005 /  3.005
-  P5.1   encode                 forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
-  P5.1   encode zeroed-fill     forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
-  P5.1   encode UNBATCHED       forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
-  P5.1   encode host transcoder forward      1  reverse      2  transcode        2   per element  1.000 /  2.000
-  P5.1   decode                 forward      1  reverse      1  transcode        0   per element  1.000 /  1.000
-  P5.2   encode                 forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
-  P5.2   encode zeroed-fill     forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
-  P5.2   encode UNBATCHED       forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
-  P5.2   encode host transcoder forward      1  reverse      2  transcode        2   per element  1.000 /  2.000
-  P5.2   decode                 forward      1  reverse      1  transcode        0   per element  1.000 /  1.000
-  P5.3   encode                 forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
-  P5.3   encode zeroed-fill     forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
-  P5.3   encode UNBATCHED       forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
-  P5.3   encode host transcoder forward      1  reverse      2  transcode        2   per element  1.000 /  2.000
-  P5.3   decode                 forward      1  reverse      1  transcode        0   per element  1.000 /  1.000
-  P5.4   encode                 forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
-  P5.4   encode zeroed-fill     forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
-  P5.4   encode UNBATCHED       forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
-  P5.4   encode host transcoder forward      1  reverse      2  transcode        2   per element  1.000 /  2.000
-  P5.4   decode                 forward      1  reverse      1  transcode        0   per element  1.000 /  1.000
-  P6.1   encode                 forward   1002  reverse   1001  transcode      200   per element  5.010 /  5.005
-  P6.1   encode zeroed-fill     forward   1002  reverse   1001  transcode      200   per element  5.010 /  5.005
-  P6.1   encode UNBATCHED       forward   1201  reverse   1001  transcode      200   per element  6.005 /  5.005
-  P6.1   encode host transcoder forward   1002  reverse   1201  transcode      200   per element  5.010 /  6.005
-  P6.1   decode                 forward      1  reverse   1401  transcode        0   per element  0.005 /  7.005
+  P1.1   encode                 forward      4  reverse      1  transcode       24   per element  1.000 /  0.250   (core 2 + host 1 + take 1)
+  P1.1   encode zeroed-fill     forward      4  reverse      1  transcode       24   per element  1.000 /  0.250   (core 2 + host 1 + take 1)
+  P1.1   encode UNBATCHED       forward      7  reverse      1  transcode       24   per element  1.750 /  0.250   (core 5 + host 1 + take 1)
+  P1.1   encode host transcoder forward      4  reverse     25  transcode       24   per element  1.000 /  6.250   (core 2 + host 1 + take 1)
+  P1.1   encode retain          forward      4  reverse      1  transcode       24   per element  1.000 /  0.250   (core 2 + host 1 + take 1)
+  P1.1   decode                 forward      1  reverse      2  transcode        0   per element  0.250 /  0.500   (core 1 + host 0 + take 0)
+  P1.1   decode retain          forward      3  reverse      2  transcode        0   per element  0.750 /  0.500   (core 1 + host 2 + take 0)
+  P1.2   encode                 forward     10  reverse      1  transcode     6000   per element  0.010 /  0.001   (core 8 + host 1 + take 1)
+  P1.2   encode zeroed-fill     forward     10  reverse      1  transcode     6000   per element  0.010 /  0.001   (core 8 + host 1 + take 1)
+  P1.2   encode UNBATCHED       forward   1003  reverse      1  transcode     6000   per element  1.003 /  0.001   (core 1001 + host 1 + take 1)
+  P1.2   encode host transcoder forward     10  reverse   6001  transcode     6000   per element  0.010 /  6.001   (core 8 + host 1 + take 1)
+  P1.2   encode retain          forward     12  reverse      1  transcode     6000   per element  0.012 /  0.001   (core 10 + host 1 + take 1)
+  P1.2   decode                 forward      1  reverse      8  transcode        0   per element  0.001 /  0.008   (core 1 + host 0 + take 0)
+  P1.2   decode retain          forward      3  reverse      8  transcode        0   per element  0.003 /  0.008   (core 1 + host 2 + take 0)
+  P1.3   encode                 forward      5  reverse      1  transcode        0   per element  0.017 /  0.003   (core 3 + host 1 + take 1)
+  P1.3   encode zeroed-fill     forward      5  reverse      1  transcode        0   per element  0.017 /  0.003   (core 3 + host 1 + take 1)
+  P1.3   encode UNBATCHED       forward    303  reverse      1  transcode        0   per element  1.010 /  0.003   (core 301 + host 1 + take 1)
+  P1.3   encode host transcoder forward      5  reverse      1  transcode        0   per element  0.017 /  0.003   (core 3 + host 1 + take 1)
+  P1.3   encode retain          forward      6  reverse      1  transcode        0   per element  0.020 /  0.003   (core 4 + host 1 + take 1)
+  P1.3   decode                 forward      1  reverse      3  transcode        0   per element  0.003 /  0.010   (core 1 + host 0 + take 0)
+  P1.3   decode retain          forward      3  reverse      3  transcode        0   per element  0.010 /  0.010   (core 1 + host 2 + take 0)
+  P2.1   encode                 forward      9  reverse      6  transcode       35   per element  9.000 /  6.000   (core 7 + host 1 + take 1)
+  P2.1   encode zeroed-fill     forward      9  reverse      6  transcode       35   per element  9.000 /  6.000   (core 7 + host 1 + take 1)
+  P2.1   encode UNBATCHED       forward     20  reverse      6  transcode       35   per element 20.000 /  6.000   (core 18 + host 1 + take 1)
+  P2.1   encode host transcoder forward      9  reverse     41  transcode       35   per element  9.000 / 41.000   (core 7 + host 1 + take 1)
+  P2.1   encode retain          forward      9  reverse      6  transcode       35   per element  9.000 /  6.000   (core 7 + host 1 + take 1)
+  P2.1   decode                 forward      1  reverse      8  transcode        0   per element  1.000 /  8.000   (core 1 + host 0 + take 0)
+  P2.1   decode retain          forward      3  reverse      8  transcode        0   per element  3.000 /  8.000   (core 1 + host 2 + take 0)
+  P2.2   encode                 forward   2513  reverse   2501  transcode    17167   per element  5.026 /  5.002   (core 2511 + host 1 + take 1)
+  P2.2   encode zeroed-fill     forward   2513  reverse   2501  transcode    17167   per element  5.026 /  5.002   (core 2511 + host 1 + take 1)
+  P2.2   encode UNBATCHED       forward   8503  reverse   2501  transcode    17167   per element 17.006 /  5.002   (core 8501 + host 1 + take 1)
+  P2.2   encode host transcoder forward   2513  reverse  19668  transcode    17167   per element  5.026 / 39.336   (core 2511 + host 1 + take 1)
+  P2.2   encode retain          forward   2519  reverse   2501  transcode    17167   per element  5.038 /  5.002   (core 2517 + host 1 + take 1)
+  P2.2   decode                 forward      1  reverse   3501  transcode        0   per element  0.002 /  7.002   (core 1 + host 0 + take 0)
+  P2.2   decode retain          forward      3  reverse   3501  transcode        0   per element  0.006 /  7.002   (core 1 + host 2 + take 0)
+  P2.3   encode                 forward    631  reverse    626  transcode    17792   per element  5.048 /  5.008   (core 629 + host 1 + take 1)
+  P2.3   encode zeroed-fill     forward    631  reverse    626  transcode    17792   per element  5.048 /  5.008   (core 629 + host 1 + take 1)
+  P2.3   encode UNBATCHED       forward  15628  reverse    626  transcode    17792   per element 125.024 /  5.008   (core 15626 + host 1 + take 1)
+  P2.3   encode host transcoder forward    631  reverse  18418  transcode    17792   per element  5.048 / 147.344   (core 629 + host 1 + take 1)
+  P2.3   encode retain          forward    632  reverse    626  transcode    17792   per element  5.056 /  5.008   (core 630 + host 1 + take 1)
+  P2.3   decode                 forward      1  reverse    876  transcode        0   per element  0.008 /  7.008   (core 1 + host 0 + take 0)
+  P2.3   decode retain          forward      3  reverse    876  transcode        0   per element  0.024 /  7.008   (core 1 + host 2 + take 0)
+  P2.4   encode                 forward    405  reverse    401  transcode    26267   per element  5.062 /  5.013   (core 403 + host 1 + take 1)
+  P2.4   encode zeroed-fill     forward    405  reverse    401  transcode    26267   per element  5.062 /  5.013   (core 403 + host 1 + take 1)
+  P2.4   encode UNBATCHED       forward  24883  reverse    401  transcode    26267   per element 311.038 /  5.013   (core 24881 + host 1 + take 1)
+  P2.4   encode host transcoder forward    405  reverse  26668  transcode    26267   per element  5.062 / 333.350   (core 403 + host 1 + take 1)
+  P2.4   encode retain          forward    406  reverse    401  transcode    26267   per element  5.075 /  5.013   (core 404 + host 1 + take 1)
+  P2.4   decode                 forward      1  reverse    561  transcode        0   per element  0.013 /  7.013   (core 1 + host 0 + take 0)
+  P2.4   decode retain          forward      3  reverse    561  transcode        0   per element  0.037 /  7.013   (core 1 + host 2 + take 0)
+  P2.5   encode                 forward    104  reverse    101  transcode      640   per element  5.200 /  5.050   (core 102 + host 1 + take 1)
+  P2.5   encode zeroed-fill     forward    104  reverse    101  transcode      640   per element  5.200 /  5.050   (core 102 + host 1 + take 1)
+  P2.5   encode UNBATCHED       forward    343  reverse    101  transcode      640   per element 17.150 /  5.050   (core 341 + host 1 + take 1)
+  P2.5   encode host transcoder forward    104  reverse    741  transcode      640   per element  5.200 / 37.050   (core 102 + host 1 + take 1)
+  P2.5   encode retain          forward    104  reverse    101  transcode      640   per element  5.200 /  5.050   (core 102 + host 1 + take 1)
+  P2.5   decode                 forward      1  reverse    141  transcode        0   per element  0.050 /  7.050   (core 1 + host 0 + take 0)
+  P2.5   decode retain          forward      3  reverse    141  transcode        0   per element  0.150 /  7.050   (core 1 + host 2 + take 0)
+  P3.1   encode                 forward      4  reverse      1  transcode      430   per element  0.020 /  0.005   (core 2 + host 1 + take 1)
+  P3.1   encode zeroed-fill     forward      4  reverse      1  transcode      430   per element  0.020 /  0.005   (core 2 + host 1 + take 1)
+  P3.1   encode UNBATCHED       forward    203  reverse      1  transcode      430   per element  1.015 /  0.005   (core 201 + host 1 + take 1)
+  P3.1   encode host transcoder forward      4  reverse    431  transcode      430   per element  0.020 /  2.155   (core 2 + host 1 + take 1)
+  P3.1   encode retain          forward      5  reverse      1  transcode      430   per element  0.025 /  0.005   (core 3 + host 1 + take 1)
+  P3.1   decode                 forward      1  reverse      2  transcode        0   per element  0.005 /  0.010   (core 1 + host 0 + take 0)
+  P3.1   decode retain          forward      3  reverse      2  transcode        0   per element  0.015 /  0.010   (core 1 + host 2 + take 0)
+  P4.1   encode                 forward    205  reverse    201  transcode     3467   per element  1.025 /  1.005   (core 203 + host 1 + take 1)
+  P4.1   encode zeroed-fill     forward    205  reverse    201  transcode     3467   per element  1.025 /  1.005   (core 203 + host 1 + take 1)
+  P4.1   encode UNBATCHED       forward   1003  reverse    201  transcode     3467   per element  5.015 /  1.005   (core 1001 + host 1 + take 1)
+  P4.1   encode host transcoder forward    205  reverse   3668  transcode     3467   per element  1.025 / 18.340   (core 203 + host 1 + take 1)
+  P4.1   encode retain          forward    206  reverse    201  transcode     3467   per element  1.030 /  1.005   (core 204 + host 1 + take 1)
+  P4.1   decode                 forward      1  reverse    601  transcode        0   per element  0.005 /  3.005   (core 1 + host 0 + take 0)
+  P4.1   decode retain          forward      3  reverse    601  transcode        0   per element  0.015 /  3.005   (core 1 + host 2 + take 0)
+  P5.1   encode                 forward      3  reverse      0  transcode        2   per element  3.000 /  0.000   (core 1 + host 1 + take 1)
+  P5.1   encode zeroed-fill     forward      3  reverse      0  transcode        2   per element  3.000 /  0.000   (core 1 + host 1 + take 1)
+  P5.1   encode UNBATCHED       forward      3  reverse      0  transcode        2   per element  3.000 /  0.000   (core 1 + host 1 + take 1)
+  P5.1   encode host transcoder forward      3  reverse      2  transcode        2   per element  3.000 /  2.000   (core 1 + host 1 + take 1)
+  P5.1   encode retain          forward      3  reverse      0  transcode        2   per element  3.000 /  0.000   (core 1 + host 1 + take 1)
+  P5.1   decode                 forward      1  reverse      1  transcode        0   per element  1.000 /  1.000   (core 1 + host 0 + take 0)
+  P5.1   decode retain          forward      3  reverse      1  transcode        0   per element  3.000 /  1.000   (core 1 + host 2 + take 0)
+  P5.2   encode                 forward      3  reverse      0  transcode        2   per element  3.000 /  0.000   (core 1 + host 1 + take 1)
+  P5.2   encode zeroed-fill     forward      3  reverse      0  transcode        2   per element  3.000 /  0.000   (core 1 + host 1 + take 1)
+  P5.2   encode UNBATCHED       forward      3  reverse      0  transcode        2   per element  3.000 /  0.000   (core 1 + host 1 + take 1)
+  P5.2   encode host transcoder forward      3  reverse      2  transcode        2   per element  3.000 /  2.000   (core 1 + host 1 + take 1)
+  P5.2   encode retain          forward      3  reverse      0  transcode        2   per element  3.000 /  0.000   (core 1 + host 1 + take 1)
+  P5.2   decode                 forward      1  reverse      1  transcode        0   per element  1.000 /  1.000   (core 1 + host 0 + take 0)
+  P5.2   decode retain          forward      3  reverse      1  transcode        0   per element  3.000 /  1.000   (core 1 + host 2 + take 0)
+  P5.3   encode                 forward      3  reverse      0  transcode        2   per element  3.000 /  0.000   (core 1 + host 1 + take 1)
+  P5.3   encode zeroed-fill     forward      3  reverse      0  transcode        2   per element  3.000 /  0.000   (core 1 + host 1 + take 1)
+  P5.3   encode UNBATCHED       forward      3  reverse      0  transcode        2   per element  3.000 /  0.000   (core 1 + host 1 + take 1)
+  P5.3   encode host transcoder forward      3  reverse      2  transcode        2   per element  3.000 /  2.000   (core 1 + host 1 + take 1)
+  P5.3   encode retain          forward      3  reverse      0  transcode        2   per element  3.000 /  0.000   (core 1 + host 1 + take 1)
+  P5.3   decode                 forward      1  reverse      1  transcode        0   per element  1.000 /  1.000   (core 1 + host 0 + take 0)
+  P5.3   decode retain          forward      3  reverse      1  transcode        0   per element  3.000 /  1.000   (core 1 + host 2 + take 0)
+  P5.4   encode                 forward      3  reverse      0  transcode        2   per element  3.000 /  0.000   (core 1 + host 1 + take 1)
+  P5.4   encode zeroed-fill     forward      3  reverse      0  transcode        2   per element  3.000 /  0.000   (core 1 + host 1 + take 1)
+  P5.4   encode UNBATCHED       forward      3  reverse      0  transcode        2   per element  3.000 /  0.000   (core 1 + host 1 + take 1)
+  P5.4   encode host transcoder forward      3  reverse      2  transcode        2   per element  3.000 /  2.000   (core 1 + host 1 + take 1)
+  P5.4   encode retain          forward      3  reverse      0  transcode        2   per element  3.000 /  0.000   (core 1 + host 1 + take 1)
+  P5.4   decode                 forward      1  reverse      1  transcode        0   per element  1.000 /  1.000   (core 1 + host 0 + take 0)
+  P5.4   decode retain          forward      3  reverse      1  transcode        0   per element  3.000 /  1.000   (core 1 + host 2 + take 0)
+  P6.1   encode                 forward   1004  reverse   1001  transcode      200   per element  5.020 /  5.005   (core 1002 + host 1 + take 1)
+  P6.1   encode zeroed-fill     forward   1004  reverse   1001  transcode      200   per element  5.020 /  5.005   (core 1002 + host 1 + take 1)
+  P6.1   encode UNBATCHED       forward   1203  reverse   1001  transcode      200   per element  6.015 /  5.005   (core 1201 + host 1 + take 1)
+  P6.1   encode host transcoder forward   1004  reverse   1201  transcode      200   per element  5.020 /  6.005   (core 1002 + host 1 + take 1)
+  P6.1   encode retain          forward   1004  reverse   1001  transcode      200   per element  5.020 /  5.005   (core 1002 + host 1 + take 1)
+  P6.1   decode                 forward      1  reverse   1401  transcode        0   per element  0.005 /  7.005   (core 1 + host 0 + take 0)
+  P6.1   decode retain          forward      3  reverse   1401  transcode        0   per element  0.015 /  7.005   (core 1 + host 2 + take 0)
+
+-- the corpus's U-* rows at the shapes roots (req 7, req 19) --
+  U-deep-all decode                 forward      1  reverse      8  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-deep-all encode                 forward      9  reverse      6  transcode       31   per element  0.000 /  0.000   (core 7 + host 1 + take 1)
+  U-deep-all decode retain          forward      3  reverse     16  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-deep-all encode retain          forward      9  reverse      6  transcode       31   per element  0.000 /  0.000   (core 7 + host 1 + take 1)
+  U-deep-u-fixed32 decode                 forward      1  reverse      8  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-deep-u-fixed32 encode                 forward      9  reverse      6  transcode       31   per element  0.000 /  0.000   (core 7 + host 1 + take 1)
+  U-deep-u-fixed32 decode retain          forward      3  reverse      9  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-deep-u-fixed32 encode retain          forward      9  reverse      6  transcode       31   per element  0.000 /  0.000   (core 7 + host 1 + take 1)
+  U-deep-u-fixed64 decode                 forward      1  reverse      8  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-deep-u-fixed64 encode                 forward      9  reverse      6  transcode       31   per element  0.000 /  0.000   (core 7 + host 1 + take 1)
+  U-deep-u-fixed64 decode retain          forward      3  reverse      9  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-deep-u-fixed64 encode retain          forward      9  reverse      6  transcode       31   per element  0.000 /  0.000   (core 7 + host 1 + take 1)
+  U-deep-u-len decode                 forward      1  reverse      8  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-deep-u-len encode                 forward      9  reverse      6  transcode       31   per element  0.000 /  0.000   (core 7 + host 1 + take 1)
+  U-deep-u-len decode retain          forward      3  reverse      9  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-deep-u-len encode retain          forward      9  reverse      6  transcode       31   per element  0.000 /  0.000   (core 7 + host 1 + take 1)
+  U-deep-u-msg decode                 forward      1  reverse      8  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-deep-u-msg encode                 forward      9  reverse      6  transcode       31   per element  0.000 /  0.000   (core 7 + host 1 + take 1)
+  U-deep-u-msg decode retain          forward      3  reverse      9  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-deep-u-msg encode retain          forward      9  reverse      6  transcode       31   per element  0.000 /  0.000   (core 7 + host 1 + take 1)
+  U-deep-u-packed decode                 forward      1  reverse      8  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-deep-u-packed encode                 forward      9  reverse      6  transcode       31   per element  0.000 /  0.000   (core 7 + host 1 + take 1)
+  U-deep-u-packed decode retain          forward      3  reverse      9  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-deep-u-packed encode retain          forward      9  reverse      6  transcode       31   per element  0.000 /  0.000   (core 7 + host 1 + take 1)
+  U-deep-u-repeated decode                 forward      1  reverse      8  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-deep-u-repeated encode                 forward      9  reverse      6  transcode       31   per element  0.000 /  0.000   (core 7 + host 1 + take 1)
+  U-deep-u-repeated decode retain          forward      3  reverse     10  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-deep-u-repeated encode retain          forward      9  reverse      6  transcode       31   per element  0.000 /  0.000   (core 7 + host 1 + take 1)
+  U-deep-u-varint decode                 forward      1  reverse      8  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-deep-u-varint encode                 forward      9  reverse      6  transcode       31   per element  0.000 /  0.000   (core 7 + host 1 + take 1)
+  U-deep-u-varint decode retain          forward      3  reverse      9  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-deep-u-varint encode retain          forward      9  reverse      6  transcode       31   per element  0.000 /  0.000   (core 7 + host 1 + take 1)
+  U-element-all decode                 forward      1  reverse      8  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-element-all encode                 forward      9  reverse      6  transcode       31   per element  0.000 /  0.000   (core 7 + host 1 + take 1)
+  U-element-all decode retain          forward      3  reverse     16  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-element-all encode retain          forward      9  reverse      6  transcode       31   per element  0.000 /  0.000   (core 7 + host 1 + take 1)
+  U-element-u-fixed32 decode                 forward      1  reverse      8  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-element-u-fixed32 encode                 forward      9  reverse      6  transcode       31   per element  0.000 /  0.000   (core 7 + host 1 + take 1)
+  U-element-u-fixed32 decode retain          forward      3  reverse      9  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-element-u-fixed32 encode retain          forward      9  reverse      6  transcode       31   per element  0.000 /  0.000   (core 7 + host 1 + take 1)
+  U-element-u-fixed64 decode                 forward      1  reverse      8  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-element-u-fixed64 encode                 forward      9  reverse      6  transcode       31   per element  0.000 /  0.000   (core 7 + host 1 + take 1)
+  U-element-u-fixed64 decode retain          forward      3  reverse      9  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-element-u-fixed64 encode retain          forward      9  reverse      6  transcode       31   per element  0.000 /  0.000   (core 7 + host 1 + take 1)
+  U-element-u-len decode                 forward      1  reverse      8  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-element-u-len encode                 forward      9  reverse      6  transcode       31   per element  0.000 /  0.000   (core 7 + host 1 + take 1)
+  U-element-u-len decode retain          forward      3  reverse      9  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-element-u-len encode retain          forward      9  reverse      6  transcode       31   per element  0.000 /  0.000   (core 7 + host 1 + take 1)
+  U-element-u-msg decode                 forward      1  reverse      8  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-element-u-msg encode                 forward      9  reverse      6  transcode       31   per element  0.000 /  0.000   (core 7 + host 1 + take 1)
+  U-element-u-msg decode retain          forward      3  reverse      9  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-element-u-msg encode retain          forward      9  reverse      6  transcode       31   per element  0.000 /  0.000   (core 7 + host 1 + take 1)
+  U-element-u-packed decode                 forward      1  reverse      8  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-element-u-packed encode                 forward      9  reverse      6  transcode       31   per element  0.000 /  0.000   (core 7 + host 1 + take 1)
+  U-element-u-packed decode retain          forward      3  reverse      9  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-element-u-packed encode retain          forward      9  reverse      6  transcode       31   per element  0.000 /  0.000   (core 7 + host 1 + take 1)
+  U-element-u-repeated decode                 forward      1  reverse      8  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-element-u-repeated encode                 forward      9  reverse      6  transcode       31   per element  0.000 /  0.000   (core 7 + host 1 + take 1)
+  U-element-u-repeated decode retain          forward      3  reverse     10  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-element-u-repeated encode retain          forward      9  reverse      6  transcode       31   per element  0.000 /  0.000   (core 7 + host 1 + take 1)
+  U-element-u-varint decode                 forward      1  reverse      8  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-element-u-varint encode                 forward      9  reverse      6  transcode       31   per element  0.000 /  0.000   (core 7 + host 1 + take 1)
+  U-element-u-varint decode retain          forward      3  reverse      9  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-element-u-varint encode retain          forward      9  reverse      6  transcode       31   per element  0.000 /  0.000   (core 7 + host 1 + take 1)
+  U-enum-value-127 decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-enum-value-127 encode                 forward      4  reverse      1  transcode        1   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-enum-value-127 decode retain          forward      3  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-enum-value-127 encode retain          forward      4  reverse      1  transcode        1   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-enum-value-2147483647 decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-enum-value-2147483647 encode                 forward      4  reverse      1  transcode        1   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-enum-value-2147483647 decode retain          forward      3  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-enum-value-2147483647 encode retain          forward      4  reverse      1  transcode        1   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-enum-value-999 decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-enum-value-999 encode                 forward      4  reverse      1  transcode        1   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-enum-value-999 decode retain          forward      3  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-enum-value-999 encode retain          forward      4  reverse      1  transcode        1   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-enum-value-packed decode                 forward      1  reverse      4  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-enum-value-packed encode                 forward      5  reverse      6  transcode        1   per element  0.000 /  0.000   (core 3 + host 1 + take 1)
+  U-enum-value-packed decode retain          forward      3  reverse      4  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-enum-value-packed encode retain          forward      5  reverse      6  transcode        1   per element  0.000 /  0.000   (core 3 + host 1 + take 1)
+  U-leaf-all decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-leaf-all encode                 forward      4  reverse      1  transcode        6   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-leaf-all decode retain          forward      3  reverse     18  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-leaf-all encode retain          forward      4  reverse      1  transcode        6   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-leaf-u-fixed32 decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-leaf-u-fixed32 encode                 forward      4  reverse      1  transcode        6   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-leaf-u-fixed32 decode retain          forward      3  reverse      4  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-leaf-u-fixed32 encode retain          forward      4  reverse      1  transcode        6   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-leaf-u-fixed64 decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-leaf-u-fixed64 encode                 forward      4  reverse      1  transcode        6   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-leaf-u-fixed64 decode retain          forward      3  reverse      4  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-leaf-u-fixed64 encode retain          forward      4  reverse      1  transcode        6   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-leaf-u-len decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-leaf-u-len encode                 forward      4  reverse      1  transcode        6   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-leaf-u-len decode retain          forward      3  reverse      4  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-leaf-u-len encode retain          forward      4  reverse      1  transcode        6   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-leaf-u-msg decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-leaf-u-msg encode                 forward      4  reverse      1  transcode        6   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-leaf-u-msg decode retain          forward      3  reverse      4  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-leaf-u-msg encode retain          forward      4  reverse      1  transcode        6   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-leaf-u-packed decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-leaf-u-packed encode                 forward      4  reverse      1  transcode        6   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-leaf-u-packed decode retain          forward      3  reverse      4  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-leaf-u-packed encode retain          forward      4  reverse      1  transcode        6   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-leaf-u-repeated decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-leaf-u-repeated encode                 forward      4  reverse      1  transcode        6   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-leaf-u-repeated decode retain          forward      3  reverse      6  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-leaf-u-repeated encode retain          forward      4  reverse      1  transcode        6   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-leaf-u-varint decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-leaf-u-varint encode                 forward      4  reverse      1  transcode        6   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-leaf-u-varint decode retain          forward      3  reverse      4  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-leaf-u-varint encode retain          forward      4  reverse      1  transcode        6   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-nested-all decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-nested-all encode                 forward      4  reverse      1  transcode        6   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-nested-all decode retain          forward      3  reverse     10  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-nested-all encode retain          forward      4  reverse      1  transcode        6   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-nested-before decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-nested-before encode                 forward      4  reverse      1  transcode        6   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-nested-before decode retain          forward      3  reverse     10  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-nested-before encode retain          forward      4  reverse      1  transcode        6   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-nested-group decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-nested-group encode                 forward      4  reverse      1  transcode        6   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-nested-group decode retain          forward      3  reverse      3  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-nested-group encode retain          forward      4  reverse      1  transcode        6   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-nested-interleaved decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-nested-interleaved encode                 forward      4  reverse      1  transcode        6   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-nested-interleaved decode retain          forward      3  reverse     10  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-nested-interleaved encode retain          forward      4  reverse      1  transcode        6   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-nested-u-fixed32 decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-nested-u-fixed32 encode                 forward      4  reverse      1  transcode        6   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-nested-u-fixed32 decode retain          forward      3  reverse      3  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-nested-u-fixed32 encode retain          forward      4  reverse      1  transcode        6   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-nested-u-fixed64 decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-nested-u-fixed64 encode                 forward      4  reverse      1  transcode        6   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-nested-u-fixed64 decode retain          forward      3  reverse      3  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-nested-u-fixed64 encode retain          forward      4  reverse      1  transcode        6   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-nested-u-len decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-nested-u-len encode                 forward      4  reverse      1  transcode        6   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-nested-u-len decode retain          forward      3  reverse      3  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-nested-u-len encode retain          forward      4  reverse      1  transcode        6   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-nested-u-msg decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-nested-u-msg encode                 forward      4  reverse      1  transcode        6   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-nested-u-msg decode retain          forward      3  reverse      3  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-nested-u-msg encode retain          forward      4  reverse      1  transcode        6   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-nested-u-packed decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-nested-u-packed encode                 forward      4  reverse      1  transcode        6   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-nested-u-packed decode retain          forward      3  reverse      3  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-nested-u-packed encode retain          forward      4  reverse      1  transcode        6   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-nested-u-repeated decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-nested-u-repeated encode                 forward      4  reverse      1  transcode        6   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-nested-u-repeated decode retain          forward      3  reverse      4  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-nested-u-repeated encode retain          forward      4  reverse      1  transcode        6   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-nested-u-varint decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-nested-u-varint encode                 forward      4  reverse      1  transcode        6   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-nested-u-varint decode retain          forward      3  reverse      3  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-nested-u-varint encode retain          forward      4  reverse      1  transcode        6   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-oneof-all decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-oneof-all encode                 forward      4  reverse      1  transcode        2   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-oneof-all decode retain          forward      3  reverse     10  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-oneof-all encode retain          forward      4  reverse      1  transcode        2   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-oneof-before decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-oneof-before encode                 forward      4  reverse      1  transcode        2   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-oneof-before decode retain          forward      3  reverse     10  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-oneof-before encode retain          forward      4  reverse      1  transcode        2   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-oneof-group decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-oneof-group encode                 forward      4  reverse      1  transcode        2   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-oneof-group decode retain          forward      3  reverse      3  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-oneof-group encode retain          forward      4  reverse      1  transcode        2   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-oneof-interleaved decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-oneof-interleaved encode                 forward      4  reverse      1  transcode        2   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-oneof-interleaved decode retain          forward      3  reverse     10  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-oneof-interleaved encode retain          forward      4  reverse      1  transcode        2   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-oneof-member-after-known decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-oneof-member-after-known encode                 forward      4  reverse      1  transcode        2   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-oneof-member-after-known decode retain          forward      3  reverse      3  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-oneof-member-after-known encode retain          forward      4  reverse      1  transcode        2   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-oneof-member-alone decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-oneof-member-alone encode                 forward      4  reverse      1  transcode        2   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-oneof-member-alone decode retain          forward      3  reverse      3  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-oneof-member-alone encode retain          forward      4  reverse      1  transcode        2   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-oneof-member-before-known decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-oneof-member-before-known encode                 forward      4  reverse      1  transcode        2   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-oneof-member-before-known decode retain          forward      3  reverse      3  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-oneof-member-before-known encode retain          forward      4  reverse      1  transcode        2   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-oneof-u-fixed32 decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-oneof-u-fixed32 encode                 forward      4  reverse      1  transcode        2   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-oneof-u-fixed32 decode retain          forward      3  reverse      3  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-oneof-u-fixed32 encode retain          forward      4  reverse      1  transcode        2   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-oneof-u-fixed64 decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-oneof-u-fixed64 encode                 forward      4  reverse      1  transcode        2   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-oneof-u-fixed64 decode retain          forward      3  reverse      3  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-oneof-u-fixed64 encode retain          forward      4  reverse      1  transcode        2   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-oneof-u-len decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-oneof-u-len encode                 forward      4  reverse      1  transcode        2   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-oneof-u-len decode retain          forward      3  reverse      3  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-oneof-u-len encode retain          forward      4  reverse      1  transcode        2   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-oneof-u-msg decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-oneof-u-msg encode                 forward      4  reverse      1  transcode        2   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-oneof-u-msg decode retain          forward      3  reverse      3  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-oneof-u-msg encode retain          forward      4  reverse      1  transcode        2   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-oneof-u-packed decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-oneof-u-packed encode                 forward      4  reverse      1  transcode        2   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-oneof-u-packed decode retain          forward      3  reverse      3  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-oneof-u-packed encode retain          forward      4  reverse      1  transcode        2   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-oneof-u-repeated decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-oneof-u-repeated encode                 forward      4  reverse      1  transcode        2   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-oneof-u-repeated decode retain          forward      3  reverse      4  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-oneof-u-repeated encode retain          forward      4  reverse      1  transcode        2   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-oneof-u-varint decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-oneof-u-varint encode                 forward      4  reverse      1  transcode        2   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-oneof-u-varint decode retain          forward      3  reverse      3  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-oneof-u-varint encode retain          forward      4  reverse      1  transcode        2   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-root-all decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-root-all encode                 forward      4  reverse      1  transcode       12   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-root-all decode retain          forward      3  reverse     10  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-root-all encode retain          forward      4  reverse      1  transcode       12   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-root-before decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-root-before encode                 forward      4  reverse      1  transcode       12   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-root-before decode retain          forward      3  reverse     10  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-root-before encode retain          forward      4  reverse      1  transcode       12   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-root-group decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-root-group encode                 forward      4  reverse      1  transcode       12   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-root-group decode retain          forward      3  reverse      3  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-root-group encode retain          forward      4  reverse      1  transcode       12   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-root-interleaved decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-root-interleaved encode                 forward      4  reverse      1  transcode       12   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-root-interleaved decode retain          forward      3  reverse     10  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-root-interleaved encode retain          forward      4  reverse      1  transcode       12   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-root-max-tag decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-root-max-tag encode                 forward      4  reverse      1  transcode       12   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-root-max-tag decode retain          forward      3  reverse      3  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-root-max-tag encode retain          forward      4  reverse      1  transcode       12   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-root-u-fixed32 decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-root-u-fixed32 encode                 forward      4  reverse      1  transcode       12   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-root-u-fixed32 decode retain          forward      3  reverse      3  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-root-u-fixed32 encode retain          forward      4  reverse      1  transcode       12   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-root-u-fixed64 decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-root-u-fixed64 encode                 forward      4  reverse      1  transcode       12   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-root-u-fixed64 decode retain          forward      3  reverse      3  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-root-u-fixed64 encode retain          forward      4  reverse      1  transcode       12   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-root-u-len decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-root-u-len encode                 forward      4  reverse      1  transcode       12   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-root-u-len decode retain          forward      3  reverse      3  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-root-u-len encode retain          forward      4  reverse      1  transcode       12   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-root-u-msg decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-root-u-msg encode                 forward      4  reverse      1  transcode       12   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-root-u-msg decode retain          forward      3  reverse      3  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-root-u-msg encode retain          forward      4  reverse      1  transcode       12   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-root-u-packed decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-root-u-packed encode                 forward      4  reverse      1  transcode       12   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-root-u-packed decode retain          forward      3  reverse      3  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-root-u-packed encode retain          forward      4  reverse      1  transcode       12   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-root-u-repeated decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-root-u-repeated encode                 forward      4  reverse      1  transcode       12   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-root-u-repeated decode retain          forward      3  reverse      4  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-root-u-repeated encode retain          forward      4  reverse      1  transcode       12   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-root-u-varint decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-root-u-varint encode                 forward      4  reverse      1  transcode       12   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-root-u-varint decode retain          forward      3  reverse      3  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-root-u-varint encode retain          forward      4  reverse      1  transcode       12   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-wire-DualResponse-left-as-wt0 decode                 forward      1  reverse      3  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-wire-DualResponse-left-as-wt0 encode                 forward      5  reverse      2  transcode        4   per element  0.000 /  0.000   (core 3 + host 1 + take 1)
+  U-wire-DualResponse-left-as-wt0 decode retain          forward      3  reverse      4  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-wire-DualResponse-left-as-wt0 encode retain          forward      5  reverse      2  transcode        4   per element  0.000 /  0.000   (core 3 + host 1 + take 1)
+  U-wire-DualResponse-left-as-wt1 decode                 forward      1  reverse      3  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-wire-DualResponse-left-as-wt1 encode                 forward      5  reverse      2  transcode        4   per element  0.000 /  0.000   (core 3 + host 1 + take 1)
+  U-wire-DualResponse-left-as-wt1 decode retain          forward      3  reverse      4  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-wire-DualResponse-left-as-wt1 encode retain          forward      5  reverse      2  transcode        4   per element  0.000 /  0.000   (core 3 + host 1 + take 1)
+  U-wire-DualResponse-left-as-wt5 decode                 forward      1  reverse      3  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-wire-DualResponse-left-as-wt5 encode                 forward      5  reverse      2  transcode        4   per element  0.000 /  0.000   (core 3 + host 1 + take 1)
+  U-wire-DualResponse-left-as-wt5 decode retain          forward      3  reverse      4  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-wire-DualResponse-left-as-wt5 encode retain          forward      5  reverse      2  transcode        4   per element  0.000 /  0.000   (core 3 + host 1 + take 1)
+  U-wire-ListMetricsResponse-batches-as-wt0 decode                 forward      1  reverse     15  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-wire-ListMetricsResponse-batches-as-wt0 encode                 forward     14  reverse     11  transcode        2   per element  0.000 /  0.000   (core 12 + host 1 + take 1)
+  U-wire-ListMetricsResponse-batches-as-wt0 decode retain          forward      3  reverse     16  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-wire-ListMetricsResponse-batches-as-wt0 encode retain          forward     14  reverse     11  transcode        2   per element  0.000 /  0.000   (core 12 + host 1 + take 1)
+  U-wire-ListMetricsResponse-batches-as-wt1 decode                 forward      1  reverse     15  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-wire-ListMetricsResponse-batches-as-wt1 encode                 forward     14  reverse     11  transcode        2   per element  0.000 /  0.000   (core 12 + host 1 + take 1)
+  U-wire-ListMetricsResponse-batches-as-wt1 decode retain          forward      3  reverse     16  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-wire-ListMetricsResponse-batches-as-wt1 encode retain          forward     14  reverse     11  transcode        2   per element  0.000 /  0.000   (core 12 + host 1 + take 1)
+  U-wire-ListMetricsResponse-batches-as-wt5 decode                 forward      1  reverse     15  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-wire-ListMetricsResponse-batches-as-wt5 encode                 forward     14  reverse     11  transcode        2   per element  0.000 /  0.000   (core 12 + host 1 + take 1)
+  U-wire-ListMetricsResponse-batches-as-wt5 decode retain          forward      3  reverse     16  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-wire-ListMetricsResponse-batches-as-wt5 encode retain          forward     14  reverse     11  transcode        2   per element  0.000 /  0.000   (core 12 + host 1 + take 1)
+  U-wire-ListProbeResponse-probes-as-wt0 decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-wire-ListProbeResponse-probes-as-wt0 encode                 forward      4  reverse      1  transcode        5   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-wire-ListProbeResponse-probes-as-wt0 decode retain          forward      3  reverse      3  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-wire-ListProbeResponse-probes-as-wt0 encode retain          forward      4  reverse      1  transcode        5   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-wire-ListProbeResponse-probes-as-wt1 decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-wire-ListProbeResponse-probes-as-wt1 encode                 forward      4  reverse      1  transcode        5   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-wire-ListProbeResponse-probes-as-wt1 decode retain          forward      3  reverse      3  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-wire-ListProbeResponse-probes-as-wt1 encode retain          forward      4  reverse      1  transcode        5   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-wire-ListProbeResponse-probes-as-wt5 decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-wire-ListProbeResponse-probes-as-wt5 encode                 forward      4  reverse      1  transcode        5   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-wire-ListProbeResponse-probes-as-wt5 decode retain          forward      3  reverse      3  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-wire-ListProbeResponse-probes-as-wt5 encode retain          forward      4  reverse      1  transcode        5   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-wire-ListResultsResponse-page-as-wt1 decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-wire-ListResultsResponse-page-as-wt1 encode                 forward      4  reverse      1  transcode       12   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-wire-ListResultsResponse-page-as-wt1 decode retain          forward      3  reverse      3  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-wire-ListResultsResponse-page-as-wt1 encode retain          forward      4  reverse      1  transcode       12   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-wire-ListResultsResponse-page-as-wt2 decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-wire-ListResultsResponse-page-as-wt2 encode                 forward      4  reverse      1  transcode       12   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-wire-ListResultsResponse-page-as-wt2 decode retain          forward      3  reverse      3  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-wire-ListResultsResponse-page-as-wt2 encode retain          forward      4  reverse      1  transcode       12   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-wire-ListResultsResponse-page-as-wt5 decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-wire-ListResultsResponse-page-as-wt5 encode                 forward      4  reverse      1  transcode       12   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-wire-ListResultsResponse-page-as-wt5 decode retain          forward      3  reverse      3  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-wire-ListResultsResponse-page-as-wt5 encode retain          forward      4  reverse      1  transcode       12   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-wire-ListResultsResponse-results-as-wt0 decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-wire-ListResultsResponse-results-as-wt0 encode                 forward      4  reverse      1  transcode       12   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-wire-ListResultsResponse-results-as-wt0 decode retain          forward      3  reverse      3  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-wire-ListResultsResponse-results-as-wt0 encode retain          forward      4  reverse      1  transcode       12   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-wire-ListResultsResponse-results-as-wt1 decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-wire-ListResultsResponse-results-as-wt1 encode                 forward      4  reverse      1  transcode       12   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-wire-ListResultsResponse-results-as-wt1 decode retain          forward      3  reverse      3  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-wire-ListResultsResponse-results-as-wt1 encode retain          forward      4  reverse      1  transcode       12   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-wire-ListResultsResponse-results-as-wt5 decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-wire-ListResultsResponse-results-as-wt5 encode                 forward      4  reverse      1  transcode       12   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-wire-ListResultsResponse-results-as-wt5 decode retain          forward      3  reverse      3  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-wire-ListResultsResponse-results-as-wt5 encode retain          forward      4  reverse      1  transcode       12   per element  0.000 /  0.000   (core 2 + host 1 + take 1)
+  U-wire-ListTaskSummaryResponse-tasks-as-wt0 decode                 forward      1  reverse      7  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-wire-ListTaskSummaryResponse-tasks-as-wt0 encode                 forward      6  reverse      3  transcode       36   per element  0.000 /  0.000   (core 4 + host 1 + take 1)
+  U-wire-ListTaskSummaryResponse-tasks-as-wt0 decode retain          forward      3  reverse      8  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-wire-ListTaskSummaryResponse-tasks-as-wt0 encode retain          forward      6  reverse      3  transcode       36   per element  0.000 /  0.000   (core 4 + host 1 + take 1)
+  U-wire-ListTaskSummaryResponse-tasks-as-wt1 decode                 forward      1  reverse      7  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-wire-ListTaskSummaryResponse-tasks-as-wt1 encode                 forward      6  reverse      3  transcode       36   per element  0.000 /  0.000   (core 4 + host 1 + take 1)
+  U-wire-ListTaskSummaryResponse-tasks-as-wt1 decode retain          forward      3  reverse      8  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-wire-ListTaskSummaryResponse-tasks-as-wt1 encode retain          forward      6  reverse      3  transcode       36   per element  0.000 /  0.000   (core 4 + host 1 + take 1)
+  U-wire-ListTaskSummaryResponse-tasks-as-wt5 decode                 forward      1  reverse      7  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-wire-ListTaskSummaryResponse-tasks-as-wt5 encode                 forward      6  reverse      3  transcode       36   per element  0.000 /  0.000   (core 4 + host 1 + take 1)
+  U-wire-ListTaskSummaryResponse-tasks-as-wt5 decode retain          forward      3  reverse      8  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-wire-ListTaskSummaryResponse-tasks-as-wt5 encode retain          forward      6  reverse      3  transcode       36   per element  0.000 /  0.000   (core 4 + host 1 + take 1)
+  U-wire-ListTasksDetailedResponse-page-as-wt1 decode                 forward      1  reverse     15  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-wire-ListTasksDetailedResponse-page-as-wt1 encode                 forward     14  reverse     11  transcode       62   per element  0.000 /  0.000   (core 12 + host 1 + take 1)
+  U-wire-ListTasksDetailedResponse-page-as-wt1 decode retain          forward      3  reverse     16  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-wire-ListTasksDetailedResponse-page-as-wt1 encode retain          forward     14  reverse     11  transcode       62   per element  0.000 /  0.000   (core 12 + host 1 + take 1)
+  U-wire-ListTasksDetailedResponse-page-as-wt2 decode                 forward      1  reverse     15  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-wire-ListTasksDetailedResponse-page-as-wt2 encode                 forward     14  reverse     11  transcode       62   per element  0.000 /  0.000   (core 12 + host 1 + take 1)
+  U-wire-ListTasksDetailedResponse-page-as-wt2 decode retain          forward      3  reverse     16  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-wire-ListTasksDetailedResponse-page-as-wt2 encode retain          forward     14  reverse     11  transcode       62   per element  0.000 /  0.000   (core 12 + host 1 + take 1)
+  U-wire-ListTasksDetailedResponse-page-as-wt5 decode                 forward      1  reverse     15  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-wire-ListTasksDetailedResponse-page-as-wt5 encode                 forward     14  reverse     11  transcode       62   per element  0.000 /  0.000   (core 12 + host 1 + take 1)
+  U-wire-ListTasksDetailedResponse-page-as-wt5 decode retain          forward      3  reverse     16  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-wire-ListTasksDetailedResponse-page-as-wt5 encode retain          forward     14  reverse     11  transcode       62   per element  0.000 /  0.000   (core 12 + host 1 + take 1)
+  U-wire-ListTasksDetailedResponse-tasks-as-wt0 decode                 forward      1  reverse     15  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-wire-ListTasksDetailedResponse-tasks-as-wt0 encode                 forward     14  reverse     11  transcode       62   per element  0.000 /  0.000   (core 12 + host 1 + take 1)
+  U-wire-ListTasksDetailedResponse-tasks-as-wt0 decode retain          forward      3  reverse     16  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-wire-ListTasksDetailedResponse-tasks-as-wt0 encode retain          forward     14  reverse     11  transcode       62   per element  0.000 /  0.000   (core 12 + host 1 + take 1)
+  U-wire-ListTasksDetailedResponse-tasks-as-wt1 decode                 forward      1  reverse     15  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-wire-ListTasksDetailedResponse-tasks-as-wt1 encode                 forward     14  reverse     11  transcode       62   per element  0.000 /  0.000   (core 12 + host 1 + take 1)
+  U-wire-ListTasksDetailedResponse-tasks-as-wt1 decode retain          forward      3  reverse     16  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-wire-ListTasksDetailedResponse-tasks-as-wt1 encode retain          forward     14  reverse     11  transcode       62   per element  0.000 /  0.000   (core 12 + host 1 + take 1)
+  U-wire-ListTasksDetailedResponse-tasks-as-wt5 decode                 forward      1  reverse     15  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-wire-ListTasksDetailedResponse-tasks-as-wt5 encode                 forward     14  reverse     11  transcode       62   per element  0.000 /  0.000   (core 12 + host 1 + take 1)
+  U-wire-ListTasksDetailedResponse-tasks-as-wt5 decode retain          forward      3  reverse     16  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-wire-ListTasksDetailedResponse-tasks-as-wt5 encode retain          forward     14  reverse     11  transcode       62   per element  0.000 /  0.000   (core 12 + host 1 + take 1)
+  U-wire-UploadResultDataMessage-upload-as-wt0 decode                 forward      1  reverse      1  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-wire-UploadResultDataMessage-upload-as-wt0 encode                 forward      3  reverse      0  transcode        2   per element  0.000 /  0.000   (core 1 + host 1 + take 1)
+  U-wire-UploadResultDataMessage-upload-as-wt0 decode retain          forward      3  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-wire-UploadResultDataMessage-upload-as-wt0 encode retain          forward      3  reverse      0  transcode        2   per element  0.000 /  0.000   (core 1 + host 1 + take 1)
+  U-wire-UploadResultDataMessage-upload-as-wt1 decode                 forward      1  reverse      1  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-wire-UploadResultDataMessage-upload-as-wt1 encode                 forward      3  reverse      0  transcode        2   per element  0.000 /  0.000   (core 1 + host 1 + take 1)
+  U-wire-UploadResultDataMessage-upload-as-wt1 decode retain          forward      3  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-wire-UploadResultDataMessage-upload-as-wt1 encode retain          forward      3  reverse      0  transcode        2   per element  0.000 /  0.000   (core 1 + host 1 + take 1)
+  U-wire-UploadResultDataMessage-upload-as-wt5 decode                 forward      1  reverse      1  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-wire-UploadResultDataMessage-upload-as-wt5 encode                 forward      3  reverse      0  transcode        2   per element  0.000 /  0.000   (core 1 + host 1 + take 1)
+  U-wire-UploadResultDataMessage-upload-as-wt5 decode retain          forward      3  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 2 + take 0)
+  U-wire-UploadResultDataMessage-upload-as-wt5 encode retain          forward      3  reverse      0  transcode        2   per element  0.000 /  0.000   (core 1 + host 1 + take 1)
 
 -- the batching predicate's decomposition (ABI v1 decision 1) --
   payload element group      sizeof  chunk cap       used  chunk bytes
@@ -1034,154 +1437,9 @@ Per-element columns are forward / reverse.
   bytes touched, not the crossing count.
 >>> ok: counts shared (exit 0)
 
-counting build, linkage=static, -std=201703
-Per-element columns are forward / reverse.
-
-  P1.1   encode                 forward      2  reverse      1  transcode       24   per element  0.500 /  0.250
-  P1.1   encode zeroed-fill     forward      2  reverse      1  transcode       24   per element  0.500 /  0.250
-  P1.1   encode UNBATCHED       forward      5  reverse      1  transcode       24   per element  1.250 /  0.250
-  P1.1   encode host transcoder forward      2  reverse     25  transcode       24   per element  0.500 /  6.250
-  P1.1   decode                 forward      1  reverse      2  transcode        0   per element  0.250 /  0.500
-  P1.2   encode                 forward      8  reverse      1  transcode     6000   per element  0.008 /  0.001
-  P1.2   encode zeroed-fill     forward      8  reverse      1  transcode     6000   per element  0.008 /  0.001
-  P1.2   encode UNBATCHED       forward   1001  reverse      1  transcode     6000   per element  1.001 /  0.001
-  P1.2   encode host transcoder forward      8  reverse   6001  transcode     6000   per element  0.008 /  6.001
-  P1.2   decode                 forward      1  reverse      8  transcode        0   per element  0.001 /  0.008
-  P1.3   encode                 forward      3  reverse      1  transcode        0   per element  0.010 /  0.003
-  P1.3   encode zeroed-fill     forward      3  reverse      1  transcode        0   per element  0.010 /  0.003
-  P1.3   encode UNBATCHED       forward    301  reverse      1  transcode        0   per element  1.003 /  0.003
-  P1.3   encode host transcoder forward      3  reverse      1  transcode        0   per element  0.010 /  0.003
-  P1.3   decode                 forward      1  reverse      3  transcode        0   per element  0.003 /  0.010
-  P2.1   encode                 forward      7  reverse      6  transcode       35   per element  7.000 /  6.000
-  P2.1   encode zeroed-fill     forward      7  reverse      6  transcode       35   per element  7.000 /  6.000
-  P2.1   encode UNBATCHED       forward     18  reverse      6  transcode       35   per element 18.000 /  6.000
-  P2.1   encode host transcoder forward      7  reverse     41  transcode       35   per element  7.000 / 41.000
-  P2.1   decode                 forward      1  reverse      8  transcode        0   per element  1.000 /  8.000
-  P2.2   encode                 forward   2511  reverse   2501  transcode    17167   per element  5.022 /  5.002
-  P2.2   encode zeroed-fill     forward   2511  reverse   2501  transcode    17167   per element  5.022 /  5.002
-  P2.2   encode UNBATCHED       forward   8501  reverse   2501  transcode    17167   per element 17.002 /  5.002
-  P2.2   encode host transcoder forward   2511  reverse  19668  transcode    17167   per element  5.022 / 39.336
-  P2.2   decode                 forward      1  reverse   3501  transcode        0   per element  0.002 /  7.002
-  P2.3   encode                 forward    629  reverse    626  transcode    17792   per element  5.032 /  5.008
-  P2.3   encode zeroed-fill     forward    629  reverse    626  transcode    17792   per element  5.032 /  5.008
-  P2.3   encode UNBATCHED       forward  15626  reverse    626  transcode    17792   per element 125.008 /  5.008
-  P2.3   encode host transcoder forward    629  reverse  18418  transcode    17792   per element  5.032 / 147.344
-  P2.3   decode                 forward      1  reverse    876  transcode        0   per element  0.008 /  7.008
-  P2.4   encode                 forward    403  reverse    401  transcode    26267   per element  5.037 /  5.013
-  P2.4   encode zeroed-fill     forward    403  reverse    401  transcode    26267   per element  5.037 /  5.013
-  P2.4   encode UNBATCHED       forward  24881  reverse    401  transcode    26267   per element 311.012 /  5.013
-  P2.4   encode host transcoder forward    403  reverse  26668  transcode    26267   per element  5.037 / 333.350
-  P2.4   decode                 forward      1  reverse    561  transcode        0   per element  0.013 /  7.013
-  P2.5   encode                 forward    102  reverse    101  transcode      640   per element  5.100 /  5.050
-  P2.5   encode zeroed-fill     forward    102  reverse    101  transcode      640   per element  5.100 /  5.050
-  P2.5   encode UNBATCHED       forward    341  reverse    101  transcode      640   per element 17.050 /  5.050
-  P2.5   encode host transcoder forward    102  reverse    741  transcode      640   per element  5.100 / 37.050
-  P2.5   decode                 forward      1  reverse    141  transcode        0   per element  0.050 /  7.050
-  P3.1   encode                 forward      2  reverse      1  transcode      430   per element  0.010 /  0.005
-  P3.1   encode zeroed-fill     forward      2  reverse      1  transcode      430   per element  0.010 /  0.005
-  P3.1   encode UNBATCHED       forward    201  reverse      1  transcode      430   per element  1.005 /  0.005
-  P3.1   encode host transcoder forward      2  reverse    431  transcode      430   per element  0.010 /  2.155
-  P3.1   decode                 forward      1  reverse      2  transcode        0   per element  0.005 /  0.010
-  P4.1   encode                 forward    203  reverse    201  transcode     3467   per element  1.015 /  1.005
-  P4.1   encode zeroed-fill     forward    203  reverse    201  transcode     3467   per element  1.015 /  1.005
-  P4.1   encode UNBATCHED       forward   1001  reverse    201  transcode     3467   per element  5.005 /  1.005
-  P4.1   encode host transcoder forward    203  reverse   3668  transcode     3467   per element  1.015 / 18.340
-  P4.1   decode                 forward      1  reverse    601  transcode        0   per element  0.005 /  3.005
-  P5.1   encode                 forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
-  P5.1   encode zeroed-fill     forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
-  P5.1   encode UNBATCHED       forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
-  P5.1   encode host transcoder forward      1  reverse      2  transcode        2   per element  1.000 /  2.000
-  P5.1   decode                 forward      1  reverse      1  transcode        0   per element  1.000 /  1.000
-  P5.2   encode                 forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
-  P5.2   encode zeroed-fill     forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
-  P5.2   encode UNBATCHED       forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
-  P5.2   encode host transcoder forward      1  reverse      2  transcode        2   per element  1.000 /  2.000
-  P5.2   decode                 forward      1  reverse      1  transcode        0   per element  1.000 /  1.000
-  P5.3   encode                 forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
-  P5.3   encode zeroed-fill     forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
-  P5.3   encode UNBATCHED       forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
-  P5.3   encode host transcoder forward      1  reverse      2  transcode        2   per element  1.000 /  2.000
-  P5.3   decode                 forward      1  reverse      1  transcode        0   per element  1.000 /  1.000
-  P5.4   encode                 forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
-  P5.4   encode zeroed-fill     forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
-  P5.4   encode UNBATCHED       forward      1  reverse      0  transcode        2   per element  1.000 /  0.000
-  P5.4   encode host transcoder forward      1  reverse      2  transcode        2   per element  1.000 /  2.000
-  P5.4   decode                 forward      1  reverse      1  transcode        0   per element  1.000 /  1.000
-  P6.1   encode                 forward   1002  reverse   1001  transcode      200   per element  5.010 /  5.005
-  P6.1   encode zeroed-fill     forward   1002  reverse   1001  transcode      200   per element  5.010 /  5.005
-  P6.1   encode UNBATCHED       forward   1201  reverse   1001  transcode      200   per element  6.005 /  5.005
-  P6.1   encode host transcoder forward   1002  reverse   1201  transcode      200   per element  5.010 /  6.005
-  P6.1   decode                 forward      1  reverse   1401  transcode        0   per element  0.005 /  7.005
-
--- the batching predicate's decomposition (ABI v1 decision 1) --
-  payload element group      sizeof  chunk cap       used  chunk bytes
-  P1.1   ResultRaw             200        163          4          800   fits L1?
-  P1.2   ResultRaw             200        163        163        32600           
-  P1.3   ResultRaw             200        163        163        32600           
-  P2.1   TaskDetailed          616         53          1          616   fits L1?
-  P2.2   TaskDetailed          616         53         53        32648           
-  P2.3   TaskDetailed          616         53         53        32648           
-  P2.4   TaskDetailed          616         53         53        32648           
-  P2.5   TaskDetailed          616         53         20        12320   fits L1?
-  P3.1   Probe                 144        227        200        28800           
-  P4.1   TaskSummary           312        105        105        32760           
-  P6.1   MetricsBatch           32       1024        200         6400   fits L1?
-  P2.3 and P2.4 are the two payloads where UNBATCHING adds 125 and 311
-  forward crossings per element rather than 1, and they are the two where
-  batching wins decisively. Everywhere else the delta tracks the chunk
-  bytes touched, not the crossing count.
->>> ok: counts static (exit 0)
-
-===== crossing counts against the committed baseline (logs/cpp/counts-baseline.log) =====
-  87 count rows identical
+===== crossing counts against the committed baseline (logs/cpp/counts-baseline.log), shared and static =====
+  485 count rows identical (shared and static)
 >>> ok: counts unchanged
-===== crossing counts of the retain arms (AK_COUNTS_RETAIN=1: decode_with_*_unk and *_pool) =====
-  P1.1   decode                 forward      1  reverse      2  transcode        0   per element  0.250 /  0.500
-  P1.1   decode retain (+2 rst) forward      1  reverse      2  transcode        0   per element  0.250 /  0.500
-  P1.1   decode pool (+2 rst)   forward      1  reverse      2  transcode        0   per element  0.250 /  0.500
-  P1.2   decode                 forward      1  reverse      8  transcode        0   per element  0.001 /  0.008
-  P1.2   decode retain (+2 rst) forward      1  reverse      8  transcode        0   per element  0.001 /  0.008
-  P1.2   decode pool (+2 rst)   forward      1  reverse      8  transcode        0   per element  0.001 /  0.008
-  P1.3   decode                 forward      1  reverse      3  transcode        0   per element  0.003 /  0.010
-  P1.3   decode retain (+2 rst) forward      1  reverse      3  transcode        0   per element  0.003 /  0.010
-  P1.3   decode pool (+2 rst)   forward      1  reverse      3  transcode        0   per element  0.003 /  0.010
-  P2.1   decode                 forward      1  reverse      8  transcode        0   per element  1.000 /  8.000
-  P2.1   decode retain (+2 rst) forward      1  reverse      8  transcode        0   per element  1.000 /  8.000
-  P2.1   decode pool (+2 rst)   forward      1  reverse      8  transcode        0   per element  1.000 /  8.000
-  P2.2   decode                 forward      1  reverse   3501  transcode        0   per element  0.002 /  7.002
-  P2.2   decode retain (+2 rst) forward      1  reverse   3501  transcode        0   per element  0.002 /  7.002
-  P2.2   decode pool (+2 rst)   forward      1  reverse   3501  transcode        0   per element  0.002 /  7.002
-  P2.3   decode                 forward      1  reverse    876  transcode        0   per element  0.008 /  7.008
-  P2.3   decode retain (+2 rst) forward      1  reverse    876  transcode        0   per element  0.008 /  7.008
-  P2.3   decode pool (+2 rst)   forward      1  reverse    876  transcode        0   per element  0.008 /  7.008
-  P2.4   decode                 forward      1  reverse    561  transcode        0   per element  0.013 /  7.013
-  P2.4   decode retain (+2 rst) forward      1  reverse    561  transcode        0   per element  0.013 /  7.013
-  P2.4   decode pool (+2 rst)   forward      1  reverse    561  transcode        0   per element  0.013 /  7.013
-  P2.5   decode                 forward      1  reverse    141  transcode        0   per element  0.050 /  7.050
-  P2.5   decode retain (+2 rst) forward      1  reverse    141  transcode        0   per element  0.050 /  7.050
-  P2.5   decode pool (+2 rst)   forward      1  reverse    141  transcode        0   per element  0.050 /  7.050
-  P3.1   decode                 forward      1  reverse      2  transcode        0   per element  0.005 /  0.010
-  P3.1   decode retain (+2 rst) forward      1  reverse      2  transcode        0   per element  0.005 /  0.010
-  P3.1   decode pool (+2 rst)   forward      1  reverse      2  transcode        0   per element  0.005 /  0.010
-  P4.1   decode                 forward      1  reverse    601  transcode        0   per element  0.005 /  3.005
-  P4.1   decode retain (+2 rst) forward      1  reverse    601  transcode        0   per element  0.005 /  3.005
-  P4.1   decode pool (+2 rst)   forward      1  reverse    601  transcode        0   per element  0.005 /  3.005
-  P5.1   decode                 forward      1  reverse      1  transcode        0   per element  1.000 /  1.000
-  P5.1   decode retain (+2 rst) forward      1  reverse      1  transcode        0   per element  1.000 /  1.000
-  P5.1   decode pool (+2 rst)   forward      1  reverse      1  transcode        0   per element  1.000 /  1.000
-  P5.2   decode                 forward      1  reverse      1  transcode        0   per element  1.000 /  1.000
-  P5.2   decode retain (+2 rst) forward      1  reverse      1  transcode        0   per element  1.000 /  1.000
-  P5.2   decode pool (+2 rst)   forward      1  reverse      1  transcode        0   per element  1.000 /  1.000
-  P5.3   decode                 forward      1  reverse      1  transcode        0   per element  1.000 /  1.000
-  P5.3   decode retain (+2 rst) forward      1  reverse      1  transcode        0   per element  1.000 /  1.000
-  P5.3   decode pool (+2 rst)   forward      1  reverse      1  transcode        0   per element  1.000 /  1.000
-  P5.4   decode                 forward      1  reverse      1  transcode        0   per element  1.000 /  1.000
-  P5.4   decode retain (+2 rst) forward      1  reverse      1  transcode        0   per element  1.000 /  1.000
-  P5.4   decode pool (+2 rst)   forward      1  reverse      1  transcode        0   per element  1.000 /  1.000
-  P6.1   decode                 forward      1  reverse   1401  transcode        0   per element  0.005 /  7.005
-  P6.1   decode retain (+2 rst) forward      1  reverse   1401  transcode        0   per element  0.005 /  7.005
-  P6.1   decode pool (+2 rst)   forward      1  reverse   1401  transcode        0   per element  0.005 /  7.005
->>> ok: counts retain (exit 0)
 ===== RPC crossing counts (the binding's ak_init_once before the first RPC) =====
 counting core: ak_rpc_counting() = 1
 configuration: grpc++ 1.51.1 server, UDS, transport pinned, 5 RPCs per cell

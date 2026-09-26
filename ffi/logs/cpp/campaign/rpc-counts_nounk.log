@@ -1,0 +1,9 @@
+# {"campaign_rpc_counts": {"build": "no-unknown", "calls": 4, "retain": "every position armed, no pre-placed buffer, unk_grow allocates exactly the size requested"}}
+  B          a  forward/call    2.000  reverse/call    0.000   (rpc 2.000/0.000 + codec 0.000/0.000 + host 0.000 + take 0.000)
+  B          b  forward/call    2.000  reverse/call    0.000   (rpc 2.000/0.000 + codec 0.000/0.000 + host 0.000 + take 0.000)
+  C-nounk    a  forward/call    3.000  reverse/call 3501.000   (rpc 2.000/0.000 + codec 1.000/3501.000 + host 0.000 + take 0.000)
+  C-nounk    b  forward/call 2515.000  reverse/call 2501.000   (rpc 2.000/0.000 + codec 2511.000/2501.000 + host 1.000 + take 1.000)
+  D-nounk    a  forward/call    1.000  reverse/call 3501.000   (rpc 0.000/0.000 + codec 1.000/3501.000 + host 0.000 + take 0.000)
+  D-nounk    b  forward/call 2513.000  reverse/call 2501.000   (rpc 0.000/0.000 + codec 2511.000/2501.000 + host 1.000 + take 1.000)
+  E-nounk    a  forward/call    2.000  reverse/call    0.000   (rpc 2.000/0.000 + codec 0.000/0.000 + host 0.000 + take 0.000)
+  E-nounk    b  forward/call    2.000  reverse/call    0.000   (rpc 2.000/0.000 + codec 0.000/0.000 + host 0.000 + take 0.000)
