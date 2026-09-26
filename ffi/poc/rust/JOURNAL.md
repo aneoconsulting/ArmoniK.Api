@@ -2574,3 +2574,24 @@ kept step. Step 0 fixes the harness first.
   Per payload (no-unknown, decode): P1.3 core-native/inc 1.705 -> 0.806, core-ffi/inc
   1.674 -> 1.140 (the absent path: every empty message was 24 bytes larger); P1.1
   core-ffi/inc 0.818 -> 0.668.
+
+## 2026-09-26 -- optimisation step 9 (E5) (4bbaefe, kept)
+
+- ak-rt Enc: varint, varint_field and blob_field reserve once (10, 20, 20 + len) and store
+  through a raw pointer + set_len; new varint_run (one reservation of 10 bytes an element)
+  and f64_run (one copy of the host's array on little-endian). ak_run_i32/i64/u8/f64
+  (rust_abi.py) and core-native's packed encode (rust_native.py) use them. Same bytes:
+  pre-check, conformance, shapes, both crossing files, core unit tests.
+- Measured (s9 vs s8): core-native/inc encode 0.751 (P drop), 0.765 (P retain), 0.701 (U),
+  0.725 / 0.647 (no-unknown P / U); core-ffi/inc encode 0.835 / 0.838 (P), 0.85 (U), 0.823 /
+  0.790 (no-unknown). core-ffi/core-native encode rose to 1.10-1.23 because core-native
+  (which calls Enc for every field) gained more than core-ffi (whose fields mostly go
+  through enc_blob's E1 path, already one pass). Per payload (drop): core-ffi/inc P1.2
+  0.28 -> 0.22, P2.2 0.35 -> 0.28, P6.1 0.22 -> 0.15; core-native/inc P1.2 0.19 -> 0.13,
+  P6.1 0.20 -> 0.13. Decode noise. The incumbent's encode median moved 1.05 (drift), which
+  the /inc ratios carry in the other direction.
+- Process defect (mine): the first step-9 run was started, then I edited
+  gen/opt_bench.sh while it ran (bash reads a script as it executes it, so the running
+  shell would have resumed at a stale offset). Stopped after its first codec process, its
+  directory deleted, the Z1 edits set aside (they would have entered the build), and the
+  run restarted from the committed tree. Rule kept since: no edit to a running script.
