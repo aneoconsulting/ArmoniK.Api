@@ -1325,3 +1325,42 @@ it holds no timing.
 because the committed smoke (5652847) predated the facade without `_unknown`. It is committed
 with its timing figures stripped. The snapshot's target directory was made inside the
 worktree and deleted with it.
+
+### J48. WP6 re-review, register H: python's findings
+
+Each finding was confirmed from the code before it was fixed (dispositions in STATE).
+- **R-H1.** Confirmed by reading the old `camp_summary.py`: `base` was keyed on (payload,
+  content, dir, launch, round), groups had no build, and `sorted(glob)` puts
+  `codec-shapes-nounk-launch1.jsonl` after `codec-shapes-launch1.jsonl`, so the no-unknown
+  incumbent overwrote the full build's reference.
+  - Fix: every sample now carries `build`; references and groups are keyed on it; ratios come
+    from per-launch medians (R-H24).
+  - Test (gate 104): two builds whose incumbents are 100 and 400 ns give 2.0 and 0.5. The twin
+    with `build` removed gives the pooled 0.8.
+- **R-H16.** Confirmed: host-gen ran over the plain facade, core-ffi over the C type.
+  - First I checked that pycodec encodes and decodes the C-extension objects byte-identically
+    on all 16 payloads, drop and retain (0 failures).
+  - Then host-gen's headline arms moved to the C type, and `host-gen-plain` became the
+    labelled extra.
+- **R-H8.** poc/cpp's three `d11_oneof` sequences (field 100 runs, Probe members 13/14/10)
+  through the corpus shim's retain arm. The bags are exact, the scalar switch leaves no bag,
+  and every sequence has `last_reclaimed() == 0`.
+- **R-H9.** The `AK_PLANT_SKIP_RELEASE` twin makes the leak check flag 307 of 311 rows and the
+  oneof control fail on 3 of 3 sequences. The oneof control therefore also shows that the
+  inactive slots go through release.
+- **R-H14.**
+  - py_pure's `ERR` now reads `plan.FIXED.codes`.
+  - The undeclared case: pure raises `EncodeError(ERR_ABI)`. The shim now stores the case and
+    lets the core refuse it (AK_ERR_ABI), raising `ValueError` with `.code`, as it now does for
+    every encode or decode refusal.
+  - A selected None member is written as an empty body: the plan's ENCODE RULES say a member
+    is "written iff the case selects it, whatever its value". Checked on every arm against upb.
+- **R-H2.** `camp_rpc` now keeps one pool of 16 client threads created before the first timed
+  window. Not run in a smoke yet.
+- **R-H19.** calib calls `need_gate`; "in-process control" corrected for the pyperf suite.
+- **R-H23.** The arm order is rotated inside each block per launch, and the order is stated.
+
+A first local build failed in `one_core.sh`, because `poc/codec`'s working tree carries another
+agent's uncommitted core edits. So the gate ran in a clean worktree at b5f5bcfc4, built from the
+committed core: `gate exit 0` at 3.12 and 3.7, all 23 logs `# commit: b5f5bcfc4`. The worktree
+and its builds were deleted after the run.
