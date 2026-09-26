@@ -24,8 +24,10 @@ The owner approved a list of optimisation candidates, core and shared generator 
 the A/A pair `baseline2` / `baseline2-aa`). The codec pre-check (0 failures) and both
 crossing-count files hold on every step; the full gate runs once at the end. Harness v3:
 the interleaved sampler (AK_ORDER=interleave), not criterion (JOURNAL, step 0).
-Hazard: a step that relinks the binary moves code layout, and the incumbent's encode has
-moved by up to 9% with no change to its code (step 1); core-ffi/core-native is the check.
+Hazard: between steps the incumbent's encode median has moved 7-10% (steps 1, 3, 4) with no
+change to its code, so the /inc encode ratios carry it; core-ffi/core-native is the check.
+A deliberate 32-byte layout shift (`opt/layout-exp`, A/B/A/B) moved group means by at most
+3.4% (A/A: 1.8%), so a small shift does not explain it; the cause is not identified.
 
 | Step | Commit | What | Kept | Main change (in-process ratios, group geometric means) | Log |
 |---|---|---|---|---|---|
@@ -33,6 +35,7 @@ moved by up to 9% with no change to its code (step 1); core-ffi/core-native is t
 | 1 | e25da96 | D1: binding s_of follows the plan's utf8 (no host re-validation) | yes | core-ffi/inc decode 0.74-0.78 x (P), 0.70-0.77 x (U); core-native/inc decode noise | `opt/s1-d1` |
 | 2 | 59b16ec | E1: one-pass write of a passthrough blob (ak-core enc_blob) | yes | core-ffi/inc encode 0.84-0.87 x (P, U, all modes); core-ffi/core-native encode 0.83-0.86 x; core-native/inc noise | `opt/s2-e1` |
 | 3 | fdecae0 | E2: sparse fill clears min(n, chunk); core-ffi encode arm (and RPC C/D) on the sparse path | yes | core-ffi/core-native encode: P1.3 2.40 -> 2.08 (drop), 2.43 -> 1.67 (retain), 2.66 -> 2.10 (no-unknown); groups 0.96-1.00; the /inc groups moved 0.88 with core-native/inc (incumbent layout drift) | `opt/s3-e2` |
+| 4 | ab133a3 | E4 + N1: packed bool/enum without a heap Vec (binding); core-native packed decode reserves | yes | core-native/inc P6.1 decode 0.62 -> 0.44 (drop), 0.65 -> 0.40 (no-unknown); core-ffi/core-native P6.1 encode 1.11 -> 1.02 (drop), 1.11 -> 1.00 (retain); core-ffi P6.1 decode ratio up 10-19% with no decode change (see JOURNAL) | `opt/s4-e4n1` |
 
 ## What exists
 

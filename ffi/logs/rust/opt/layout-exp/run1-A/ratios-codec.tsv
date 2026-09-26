@@ -1,0 +1,128 @@
+# CONTAINER INSTRUMENTATION (gen/opt_bench.sh); ratios of per-case medians inside one process (and, *_min, of per-case minima); < 1 means fewer CPU ns than the denominator; empty = arm not run
+file	input	dir	mode	incumbent_prod_median_ns	armonik/inc	core-native/inc	core-ffi/inc	core-ffi-pull/inc	core-ffi/core-native	core-native/inc_min	core-ffi/inc_min
+codec-P	P7.1	decode	drop	332.3	0.996	0.739	0.939	1.014	1.271	0.738	0.930
+codec-P	P7.1	decode	retain	332.3	0.996	0.750	0.956	1.049	1.273	0.690	0.822
+codec-P	P1.3	decode-read	drop	9091.9	1.487	1.433	2.011	2.171	1.403	1.431	2.016
+codec-P	P1.3	decode-read	retain	9091.9	1.487	1.414	1.923	2.060	1.360	1.413	1.925
+codec-P	P2.2	encode	drop	907129.2	1.022	0.260	0.367		1.409	0.266	0.368
+codec-P	P2.2	encode	retain	907129.2	1.022	0.266	0.377		1.418	0.267	0.385
+codec-P	P4.1	decode	drop	262635.6	0.995	0.884	0.937	0.902	1.059	0.902	0.935
+codec-P	P4.1	decode	retain	262635.6	0.995	0.890	0.928	0.893	1.043	0.900	0.934
+codec-P	P5.2	decode	drop	1689.4	0.055	0.994	1.002	1.017	1.008	0.951	0.980
+codec-P	P5.2	decode	retain	1689.4	0.055	1.000	1.005	1.010	1.005	0.958	0.984
+codec-P	P5.3	encode	drop	48128.9	0.972	0.865	0.950		1.099	0.877	0.954
+codec-P	P5.3	encode	retain	48128.9	0.972	0.961	1.018		1.060	0.954	1.026
+codec-P	P2.4	encode	drop	601602.1	0.983	0.326	0.433		1.327	0.364	0.450
+codec-P	P2.4	encode	retain	601602.1	0.983	0.306	0.434		1.418	0.331	0.450
+codec-P	P2.2/wide	decode-read	drop	2558975.0	1.023	0.899	1.012	0.970	1.126	0.897	1.013
+codec-P	P2.2/wide	decode-read	retain	2558975.0	1.023	0.900	1.004	0.963	1.116	0.912	0.978
+codec-P	P3.1	decode-read	drop	26767.6	1.179	0.906	0.944	0.962	1.042	0.890	0.920
+codec-P	P3.1	decode-read	retain	26767.6	1.179	0.902	0.939	0.972	1.041	0.893	0.936
+codec-P	P1.2/latin1	decode	drop	600566.2	0.969	0.834	0.843	0.861	1.011	0.847	0.863
+codec-P	P1.2/latin1	decode	retain	600566.2	0.969	0.832	0.843	0.861	1.012	0.870	0.854
+codec-P	P1.2	encode	drop	300253.4	1.091	0.215	0.288		1.339	0.214	0.288
+codec-P	P1.2	encode	retain	300253.4	1.091	0.238	0.297		1.248	0.238	0.295
+codec-P	P5.4	decode-read	drop	325831.3	0.000	1.010	1.011	1.013	1.001	1.003	0.996
+codec-P	P5.4	decode-read	retain	325831.3	0.000	1.014	1.002	1.007	0.988	0.991	1.006
+codec-P	P1.1	decode-read	drop	1486.6	1.054	0.844	0.861	0.908	1.020	0.918	0.967
+codec-P	P1.1	decode-read	retain	1486.6	1.054	0.863	0.899	0.917	1.042	0.919	0.994
+codec-P	P2.1	decode	drop	2250.7	1.019	0.829	1.216	1.220	1.467	0.788	1.120
+codec-P	P2.1	decode	retain	2250.7	1.019	0.820	1.318	1.245	1.607	0.792	1.179
+codec-P	P1.3	decode	drop	8216.5	1.559	1.472	2.159	2.307	1.467	1.516	2.314
+codec-P	P1.3	decode	retain	8216.5	1.559	1.472	2.097	2.199	1.425	1.457	2.056
+codec-P	P4.1	encode	drop	135218.2	1.024	0.208	0.339		1.628	0.244	0.400
+codec-P	P4.1	encode	retain	135218.2	1.024	0.244	0.364		1.490	0.276	0.417
+codec-P	P3.1	decode	drop	25523.9	1.156	0.874	0.934	0.971	1.069	0.870	0.971
+codec-P	P3.1	decode	retain	25523.9	1.156	0.880	0.927	0.965	1.052	0.917	0.970
+codec-P	P1.2/wide	encode	drop	309432.8	1.082	0.199	0.311		1.562	0.202	0.310
+codec-P	P1.2/wide	encode	retain	309432.8	1.082	0.231	0.307		1.332	0.229	0.310
+codec-P	P2.1	encode	drop	1289.2	1.008	0.215	0.362		1.685	0.214	0.365
+codec-P	P2.1	encode	retain	1289.2	1.008	0.245	0.380		1.553	0.249	0.376
+codec-P	P6.1	encode	drop	373084.7	1.032	0.199	0.204		1.024	0.198	0.204
+codec-P	P6.1	encode	retain	373084.7	1.032	0.206	0.203		0.986	0.206	0.203
+codec-P	P2.5	decode-read	drop	49880.5	1.017	0.836	0.962	0.920	1.151	0.839	0.958
+codec-P	P2.5	decode-read	retain	49880.5	1.017	0.851	0.962	0.924	1.130	0.849	0.963
+codec-P	P1.2	decode-read	drop	410919.7	0.919	0.811	0.822	0.836	1.013	0.806	0.824
+codec-P	P1.2	decode-read	retain	410919.7	0.919	0.812	0.825	0.837	1.016	0.810	0.821
+codec-P	P4.1	decode-read	drop	271499.0	1.018	0.927	0.998	0.905	1.077	0.927	0.948
+codec-P	P4.1	decode-read	retain	271499.0	1.018	0.943	0.956	0.905	1.013	0.941	0.945
+codec-P	P5.3	decode	drop	46748.5	0.002	1.023	1.017	1.002	0.994	1.019	1.034
+codec-P	P5.3	decode	retain	46748.5	0.002	1.012	1.009	1.030	0.997	1.006	1.023
+codec-P	P1.3	encode	drop	6522.8	1.272	0.375	0.637		1.700	0.385	0.553
+codec-P	P1.3	encode	retain	6522.8	1.272	0.411	0.668		1.627	0.417	0.687
+codec-P	P1.2/latin1	encode	drop	354174.0	1.104	0.207	0.299		1.445	0.188	0.279
+codec-P	P1.2/latin1	encode	retain	354174.0	1.104	0.234	0.309		1.322	0.227	0.304
+codec-P	P5.2	encode	drop	1981.1	0.967	0.913	0.918		1.006	0.864	0.905
+codec-P	P5.2	encode	retain	1981.1	0.967	0.909	0.911		1.002	0.884	0.883
+codec-P	P1.2	decode	drop	462392.0	0.917	0.795	0.798	0.813	1.004	0.738	0.760
+codec-P	P1.2	decode	retain	462392.0	0.917	0.802	0.773	0.835	0.964	0.724	0.738
+codec-P	P4.1	decode-nodrop	drop	248625.2	1.012	0.897	0.947		1.055	0.867	0.897
+codec-P	P4.1	decode-nodrop	retain	248625.2	1.012	0.958	0.945		0.986	0.992	0.941
+codec-P	P6.1	decode	drop	325351.0	1.063	0.417	0.679	0.603	1.629	0.404	0.710
+codec-P	P6.1	decode	retain	325351.0	1.063	0.440	0.677	0.581	1.538	0.422	0.689
+codec-P	P6.1	decode-nodrop	drop	299825.0	0.986	0.343	0.543		1.587	0.360	0.573
+codec-P	P6.1	decode-nodrop	retain	299825.0	0.986	0.357	0.582		1.630	0.370	0.573
+codec-P	P2.4	decode-read	drop	1798426.2	1.005	0.913	0.792	0.761	0.868	0.991	0.821
+codec-P	P2.4	decode-read	retain	1798426.2	1.005	0.946	0.774	0.759	0.818	0.948	0.790
+codec-P	P1.1	decode	drop	1254.5	1.137	0.903	0.954	0.955	1.056	0.908	0.939
+codec-P	P1.1	decode	retain	1254.5	1.137	0.902	0.957	0.977	1.061	0.903	0.953
+codec-P	P2.2	decode	drop	1419424.9	0.973	0.879	1.020	0.973	1.161	0.899	1.046
+codec-P	P2.2	decode	retain	1419424.9	0.973	0.884	1.006	0.976	1.138	0.920	1.035
+codec-P	P2.2/wide	encode	drop	993236.5	0.997	0.276	0.364		1.320	0.306	0.370
+codec-P	P2.2/wide	encode	retain	993236.5	0.997	0.285	0.370		1.300	0.303	0.375
+codec-P	P5.1	decode-read	drop	91.6	0.905	0.900	0.921	1.010	1.023	0.921	0.944
+codec-P	P5.1	decode-read	retain	91.6	0.905	0.889	1.017	1.075	1.144	0.914	1.035
+codec-P	P5.4	encode	drop	382345.1	0.982	1.004	0.981		0.977	0.996	0.974
+codec-P	P5.4	encode	retain	382345.1	0.982	1.001	0.967		0.966	1.006	0.964
+codec-P	P2.2/latin1	decode-read	drop	2142762.9	1.037	0.895	1.009	0.985	1.128	0.887	0.967
+codec-P	P2.2/latin1	decode-read	retain	2142762.9	1.037	0.899	0.996	0.971	1.108	0.894	0.979
+codec-P	P2.4	decode	drop	1697980.9	1.012	0.921	0.774	0.764	0.841	0.945	0.788
+codec-P	P2.4	decode	retain	1697980.9	1.012	0.933	0.779	0.764	0.835	0.946	0.775
+codec-P	P2.5	decode	drop	49825.4	1.040	0.832	0.966	0.917	1.160	0.828	0.947
+codec-P	P2.5	decode	retain	49825.4	1.040	0.848	0.955	0.915	1.126	0.847	0.940
+codec-P	P5.4	decode	drop	322747.6	0.000	0.963	1.019	0.999	1.058	1.015	1.023
+codec-P	P5.4	decode	retain	322747.6	0.000	1.002	1.014	0.996	1.012	1.011	1.014
+codec-P	P1.2	decode-nodrop	drop	324470.0	0.951	0.745	0.753		1.011	0.756	0.760
+codec-P	P1.2	decode-nodrop	retain	324470.0	0.951	0.752	0.747		0.993	0.757	0.761
+codec-P	P6.1	decode-read	drop	312540.8	1.078	0.459	0.648	0.574	1.412	0.463	0.660
+codec-P	P6.1	decode-read	retain	312540.8	1.078	0.472	0.645	0.577	1.365	0.483	0.640
+codec-P	P5.3	decode-read	drop	53468.8	0.002	1.001	0.999	1.000	0.998	1.004	1.001
+codec-P	P5.3	decode-read	retain	53468.8	0.002	0.993	0.999	1.004	1.006	0.998	1.004
+codec-P	P2.3	encode	drop	503064.3	0.984	0.267	0.405		1.518	0.270	0.413
+codec-P	P2.3	encode	retain	503064.3	0.984	0.272	0.415		1.528	0.275	0.420
+codec-P	P1.2/latin1	decode-read	drop	684075.6	1.001	0.834	0.826	0.860	0.990	0.832	0.899
+codec-P	P1.2/latin1	decode-read	retain	684075.6	1.001	0.848	0.842	0.877	0.993	0.889	0.835
+codec-P	P2.2/latin1	decode	drop	2076340.4	1.028	0.911	0.998	1.003	1.096	1.024	1.151
+codec-P	P2.2/latin1	decode	retain	2076340.4	1.028	0.949	1.054	0.997	1.111	1.061	1.161
+codec-P	P1.2/wide	decode	drop	717146.9	0.972	0.858	0.865	0.879	1.008	0.849	0.863
+codec-P	P1.2/wide	decode	retain	717146.9	0.972	0.843	0.869	0.886	1.031	0.843	0.865
+codec-P	P5.2	decode-read	drop	1658.8	0.057	0.992	1.001	1.005	1.009	0.925	0.949
+codec-P	P5.2	decode-read	retain	1658.8	0.057	0.987	1.010	1.019	1.024	1.101	1.039
+codec-P	P2.2	decode-nodrop	drop	1165522.2	1.030	0.887	1.040		1.173	0.879	0.986
+codec-P	P2.2	decode-nodrop	retain	1165522.2	1.030	0.901	1.137		1.263	0.860	0.994
+codec-P	P3.1	encode	drop	20913.0	1.028	0.181	0.296		1.637	0.181	0.286
+codec-P	P3.1	encode	retain	20913.0	1.028	0.216	0.291		1.349	0.214	0.291
+codec-P	P2.3	decode	drop	1246906.8	1.020	0.939	0.801	0.784	0.854	0.941	0.803
+codec-P	P2.3	decode	retain	1246906.8	1.020	0.964	0.811	0.771	0.841	0.959	0.804
+codec-P	P2.2/wide	decode	drop	2228794.8	1.052	0.940	1.069	1.010	1.138	0.915	1.040
+codec-P	P2.2/wide	decode	retain	2228794.8	1.052	0.933	1.045	0.996	1.120	0.939	1.024
+codec-P	P5.1	decode	drop	100.8	0.874	0.891	0.903	0.966	1.014	0.881	0.899
+codec-P	P5.1	decode	retain	100.8	0.874	0.877	0.993	1.061	1.133	0.878	1.014
+codec-P	P1.1	encode	drop	1022.0	1.038	0.172	0.255		1.486	0.183	0.263
+codec-P	P1.1	encode	retain	1022.0	1.038	0.207	0.258		1.245	0.214	0.270
+codec-P	P5.1	encode	drop	61.5	1.082	0.258	0.472		1.829	0.267	0.468
+codec-P	P5.1	encode	retain	61.5	1.082	0.316	0.489		1.548	0.318	0.470
+codec-P	P2.2	decode-read	drop	1529885.6	1.018	0.929	1.049	1.003	1.130	0.924	1.041
+codec-P	P2.2	decode-read	retain	1529885.6	1.018	0.948	1.048	1.002	1.106	0.939	1.047
+codec-P	P2.1	decode-read	drop	2307.7	0.976	0.817	0.954	0.963	1.168	0.825	0.956
+codec-P	P2.1	decode-read	retain	2307.7	0.976	0.771	0.983	0.988	1.275	0.906	1.228
+codec-P	P2.3	decode-read	drop	1322395.1	1.104	0.975	0.870	0.793	0.892	0.939	0.817
+codec-P	P2.3	decode-read	retain	1322395.1	1.104	0.984	0.812	0.828	0.825	0.957	0.813
+codec-P	P2.5	encode	drop	26102.0	1.015	0.215	0.354		1.648	0.214	0.342
+codec-P	P2.5	encode	retain	26102.0	1.015	0.236	0.357		1.515	0.234	0.352
+codec-P	P1.2/wide	decode-read	drop	730397.2	0.965	0.861	0.873	0.900	1.015	0.861	0.864
+codec-P	P1.2/wide	decode-read	retain	730397.2	0.965	0.860	0.862	0.874	1.002	0.850	0.869
+codec-P	P7.1	decode-read	drop	400.9	1.017	0.759	0.933	1.025	1.229	0.835	0.973
+codec-P	P7.1	decode-read	retain	400.9	1.017	0.766	0.941	1.072	1.230	0.845	1.031
+codec-P	P2.2/latin1	encode	drop	1109102.2	0.965	0.277	0.385		1.392	0.265	0.362
+codec-P	P2.2/latin1	encode	retain	1109102.2	0.965	0.283	0.388		1.368	0.285	0.368

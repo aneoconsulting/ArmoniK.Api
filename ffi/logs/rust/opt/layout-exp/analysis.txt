@@ -1,0 +1,90 @@
+# layout experiment (CONTAINER INSTRUMENTATION): the step-4 tree (ab133a3) built as A, and as B with two
+# unused-in-the-timed-path pad functions (campaign lib, called once from inputs(); ak-core, exported), which
+# shifts prost's decode functions by 0x20 in the exe and the ak_* entries by 0x160 in libak_core.so;
+# codec-P full build, harness v3 P settings, runs A, B, A, B. Group lines: geometric mean of the ratio change
+# and the median / p90 of |log change| over the rows.
+A/A (run1 vs run3)
+   armonik/inc            decode        n= 40 gmean 0.995 |row| median 0.011 p90 0.119
+   armonik/inc            decode-nodrop n=  8 gmean 0.990 |row| median 0.046 p90 0.046
+   armonik/inc            decode-read   n= 40 gmean 0.996 |row| median 0.016 p90 0.116
+   armonik/inc            encode        n= 38 gmean 1.005 |row| median 0.013 p90 0.034
+   core-ffi-pull/inc      decode        n= 40 gmean 0.982 |row| median 0.013 p90 0.063
+   core-ffi-pull/inc      decode-read   n= 40 gmean 0.991 |row| median 0.010 p90 0.044
+   core-ffi/core-native   decode        n= 40 gmean 0.994 |row| median 0.014 p90 0.044
+   core-ffi/core-native   decode-nodrop n=  8 gmean 0.973 |row| median 0.044 p90 0.098
+   core-ffi/core-native   decode-read   n= 40 gmean 1.006 |row| median 0.013 p90 0.042
+   core-ffi/core-native   encode        n= 38 gmean 1.010 |row| median 0.019 p90 0.053
+   core-ffi/inc           decode        n= 40 gmean 0.982 |row| median 0.008 p90 0.086
+   core-ffi/inc           decode-nodrop n=  8 gmean 0.969 |row| median 0.048 p90 0.089
+   core-ffi/inc           decode-read   n= 40 gmean 0.997 |row| median 0.017 p90 0.078
+   core-ffi/inc           encode        n= 38 gmean 1.010 |row| median 0.022 p90 0.058
+   core-native/inc        decode        n= 40 gmean 0.988 |row| median 0.011 p90 0.054
+   core-native/inc        decode-nodrop n=  8 gmean 0.996 |row| median 0.034 p90 0.044
+   core-native/inc        decode-read   n= 40 gmean 0.990 |row| median 0.010 p90 0.045
+   core-native/inc        encode        n= 38 gmean 1.000 |row| median 0.020 p90 0.050
+B/B (run2 vs run4)
+   armonik/inc            decode        n= 40 gmean 1.002 |row| median 0.019 p90 0.107
+   armonik/inc            decode-nodrop n=  8 gmean 1.005 |row| median 0.013 p90 0.017
+   armonik/inc            decode-read   n= 40 gmean 0.973 |row| median 0.023 p90 0.154
+   armonik/inc            encode        n= 38 gmean 0.988 |row| median 0.017 p90 0.137
+   core-ffi-pull/inc      decode        n= 40 gmean 0.998 |row| median 0.012 p90 0.042
+   core-ffi-pull/inc      decode-read   n= 40 gmean 0.998 |row| median 0.014 p90 0.047
+   core-ffi/core-native   decode        n= 40 gmean 1.001 |row| median 0.013 p90 0.062
+   core-ffi/core-native   decode-nodrop n=  8 gmean 0.995 |row| median 0.014 p90 0.022
+   core-ffi/core-native   decode-read   n= 40 gmean 1.001 |row| median 0.013 p90 0.046
+   core-ffi/core-native   encode        n= 38 gmean 1.001 |row| median 0.015 p90 0.052
+   core-ffi/inc           decode        n= 40 gmean 1.000 |row| median 0.010 p90 0.041
+   core-ffi/inc           decode-nodrop n=  8 gmean 1.003 |row| median 0.012 p90 0.038
+   core-ffi/inc           decode-read   n= 40 gmean 0.996 |row| median 0.023 p90 0.051
+   core-ffi/inc           encode        n= 38 gmean 0.992 |row| median 0.021 p90 0.093
+   core-native/inc        decode        n= 40 gmean 0.999 |row| median 0.013 p90 0.053
+   core-native/inc        decode-nodrop n=  8 gmean 1.008 |row| median 0.018 p90 0.051
+   core-native/inc        decode-read   n= 40 gmean 0.995 |row| median 0.023 p90 0.054
+   core-native/inc        encode        n= 38 gmean 0.991 |row| median 0.021 p90 0.068
+A vs B (run1 vs run2)
+   armonik/inc            decode        n= 40 gmean 0.991 |row| median 0.019 p90 0.059
+   armonik/inc            decode-nodrop n=  8 gmean 0.986 |row| median 0.013 p90 0.035
+   armonik/inc            decode-read   n= 40 gmean 0.997 |row| median 0.042 p90 0.178
+   armonik/inc            encode        n= 38 gmean 0.994 |row| median 0.018 p90 0.065
+   core-ffi-pull/inc      decode        n= 40 gmean 0.979 |row| median 0.018 p90 0.076
+   core-ffi-pull/inc      decode-read   n= 40 gmean 0.981 |row| median 0.026 p90 0.088
+   core-ffi/core-native   decode        n= 40 gmean 1.013 |row| median 0.038 p90 0.073
+   core-ffi/core-native   decode-nodrop n=  8 gmean 1.012 |row| median 0.043 p90 0.089
+   core-ffi/core-native   decode-read   n= 40 gmean 1.022 |row| median 0.026 p90 0.079
+   core-ffi/core-native   encode        n= 38 gmean 1.028 |row| median 0.035 p90 0.102
+   core-ffi/inc           decode        n= 40 gmean 0.979 |row| median 0.016 p90 0.086
+   core-ffi/inc           decode-nodrop n=  8 gmean 0.969 |row| median 0.016 p90 0.101
+   core-ffi/inc           decode-read   n= 40 gmean 0.989 |row| median 0.017 p90 0.096
+   core-ffi/inc           encode        n= 38 gmean 1.024 |row| median 0.026 p90 0.091
+   core-native/inc        decode        n= 40 gmean 0.966 |row| median 0.043 p90 0.072
+   core-native/inc        decode-nodrop n=  8 gmean 0.958 |row| median 0.053 p90 0.094
+   core-native/inc        decode-read   n= 40 gmean 0.968 |row| median 0.035 p90 0.107
+   core-native/inc        encode        n= 38 gmean 0.996 |row| median 0.020 p90 0.050
+A vs B (run3 vs run4)
+   armonik/inc            decode        n= 40 gmean 0.999 |row| median 0.017 p90 0.088
+   armonik/inc            decode-nodrop n=  8 gmean 1.000 |row| median 0.042 p90 0.048
+   armonik/inc            decode-read   n= 40 gmean 0.974 |row| median 0.028 p90 0.102
+   armonik/inc            encode        n= 38 gmean 0.977 |row| median 0.019 p90 0.142
+   core-ffi-pull/inc      decode        n= 40 gmean 0.995 |row| median 0.015 p90 0.135
+   core-ffi-pull/inc      decode-read   n= 40 gmean 0.987 |row| median 0.018 p90 0.061
+   core-ffi/core-native   decode        n= 40 gmean 1.021 |row| median 0.028 p90 0.078
+   core-ffi/core-native   decode-nodrop n=  8 gmean 1.034 |row| median 0.029 p90 0.148
+   core-ffi/core-native   decode-read   n= 40 gmean 1.016 |row| median 0.023 p90 0.074
+   core-ffi/core-native   encode        n= 38 gmean 1.019 |row| median 0.028 p90 0.093
+   core-ffi/inc           decode        n= 40 gmean 0.997 |row| median 0.015 p90 0.128
+   core-ffi/inc           decode-nodrop n=  8 gmean 1.003 |row| median 0.033 p90 0.065
+   core-ffi/inc           decode-read   n= 40 gmean 0.988 |row| median 0.024 p90 0.046
+   core-ffi/inc           encode        n= 38 gmean 1.006 |row| median 0.034 p90 0.097
+   core-native/inc        decode        n= 40 gmean 0.977 |row| median 0.031 p90 0.110
+   core-native/inc        decode-nodrop n=  8 gmean 0.970 |row| median 0.021 p90 0.083
+   core-native/inc        decode-read   n= 40 gmean 0.972 |row| median 0.026 p90 0.085
+   core-native/inc        encode        n= 38 gmean 0.987 |row| median 0.029 p90 0.122
+absolute medians, B over A (geometric mean of runs), per arm and direction, drop/default mode
+   incumbent-prod  encode  gmean 0.959
+   incumbent-prod  decode  gmean 0.968
+   armonik         encode  gmean 0.946
+   armonik         decode  gmean 0.963
+   core-native     encode  gmean 0.943
+   core-native     decode  gmean 0.949
+   core-ffi        encode  gmean 0.970
+   core-ffi        decode  gmean 0.957
