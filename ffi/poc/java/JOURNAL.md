@@ -734,3 +734,27 @@ Harness: run_campaign.sh gates both builds; codec (JMH) and RPC run each build p
 order alternating by launch. Smoke at 3fdcc3a in logs/java/campaign-wp5s10/ (instrumentation,
 figures stripped). The gate ran twice: another slice committed poc/codec between the gate
 and the codec suite, so the codec suite re-gated on the same build (both pass).
+
+### J29. FIX-PLAN WP6 step 1: STATE rewritten, clean gate (2026-09-26)
+
+Gate from a fresh git worktree at origin HEAD d2cd0b02f (no uncommitted change, no reused
+build directory; the only untracked inputs are the gitignored `deps/cp.txt` and
+`deps/jmh/cp.txt`, resolved offline by `mvn dependency:build-classpath`): `run_campaign.sh
+--suite gate`, both builds, 8 and 17. GATE PASSED; header commit d2cd0b02f with no DIRTY
+marker; logs in logs/java/wp6-clean/. Worktree and its builds deleted after.
+
+STATE.md rewritten to what is true now. Removed: the status line's history (kept here);
+the WP5-step-3 correctness and corpus tables (superseded by later gates, logs kept); the
+claim that a `java_abi` module renders the C header (it was removed in WP5 step 6; the
+header is c_abi's) and "nine" backend modules (there are 8); "RPC arm not run" (the
+campaign RPC client runs; the older `RunRpc` is what has not run since before WP5); plan
+gaps G1 and G2 and the request about two C headers (closed by WP5 step 6: the vtable order
+and record numbering are plan.enc_vtable / dec_vtable / pull_records, the header is one
+backend's); the stale "WP3: conform Bench, RunR14, RunRpc" next step; the RPC crossing
+figures quoted from `rpc.log`. Req 20 is now "not met" (was "partly met"): the perf stat
+path never ran here. Req 30 "not applicable" (optional).
+
+R-C9: `logs/java/rpc.log` deleted -- a curated RPC grid summary (four cells in four JVMs,
+pre-WP5) with no raw runner output behind it. The campaign RPC grid's raw lines are in
+logs/java/campaign/ and campaign-wp5s10/ (figures stripped). README.md and findings/java.md
+still cite rpc.log (aggregating session's files).
