@@ -137,9 +137,11 @@ case "$SUITE" in
         if [ "$bld" = full ]; then BX="$B8"; else BX="$BN8"; fi
         for u in $(dotnet "$BX/BenchDotNet.dll" --launch "$l" --list-units); do
           ul="$OUT/codec-launch$l.${u/:/-}.bdn.log"
+          # R-H19: BDN's console log carries figures; a smoke's is headed as instrumentation.
+          { [ $SMOKE = 1 ] && echo "# SMOKE RUN in a container: EVERY FIGURE IN THIS LOG IS INSTRUMENTATION, NOT A RESULT (README 1.1)"; } > "$ul"
+          # R-H18: a unit whose JIT check fails exits non-zero, so the launch stops here.
           taskset -c "$AK_CPU_CLIENT" dotnet "$BX/BenchDotNet.dll" --launch "$l" --unit "$u" --out "$f" --artifacts "$SCRATCH/bdn-launch$l" "${EXTRA[@]}" \
-            > "$ul" 2>&1 || { echo "codec launch $l unit $u ($bld) failed ($f, $ul)" >&2; exit 1; }
-          if tail -n 3 "$f" | grep -q "^# jit check:      FAIL"; then echo "codec launch $l unit $u: JIT tier check FAILED (see $f)" >&2; fi
+            >> "$ul" 2>&1 || { echo "codec launch $l unit $u ($bld) failed, or its JIT check failed ($f, $ul)" >&2; exit 1; }
         done
       done
     done ;;

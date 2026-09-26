@@ -448,7 +448,7 @@ public abstract unsafe class RootOps
     public abstract byte[] IncumbentBytes();
     public abstract int EncIncProd(BufWriter w);
     public abstract int EncIncBest(BufWriter w);
-    public abstract int EncHost(ref Enc e);
+    public abstract int EncHost(ref Enc e, bool retain);
     public abstract int EncFfi(bool retain);
     public abstract byte[] EncFfiBytes(bool retain);
     public abstract long DecIncProd(ReadOnlySequence<byte> seq, bool read);
@@ -463,6 +463,44 @@ public abstract unsafe class RootOps
     public abstract byte[] RtIncBytes(byte[] b);
 }
 
+#if AK_NO_UNKNOWN_FIELDS
+internal static class HostR
+{
+    public static void ReadListResultsResponse(ref Dec d, ListResultsResponse m, int depth) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteListResultsResponse(ref Enc e, ListResultsResponse m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void ReadListTasksDetailedResponse(ref Dec d, ListTasksDetailedResponse m, int depth) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteListTasksDetailedResponse(ref Enc e, ListTasksDetailedResponse m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void ReadListProbeResponse(ref Dec d, ListProbeResponse m, int depth) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteListProbeResponse(ref Enc e, ListProbeResponse m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void ReadListTaskSummaryResponse(ref Dec d, ListTaskSummaryResponse m, int depth) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteListTaskSummaryResponse(ref Enc e, ListTaskSummaryResponse m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void ReadUploadResultDataMessage(ref Dec d, UploadResultDataMessage m, int depth) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteUploadResultDataMessage(ref Enc e, UploadResultDataMessage m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void ReadListMetricsResponse(ref Dec d, ListMetricsResponse m, int depth) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteListMetricsResponse(ref Enc e, ListMetricsResponse m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void ReadDualResponse(ref Dec d, DualResponse m, int depth) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteDualResponse(ref Enc e, DualResponse m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+}
+#else
+internal static class HostR
+{
+    public static void ReadListResultsResponse(ref Dec d, ListResultsResponse m, int depth) => CodecRetain.ReadListResultsResponse(ref d, m, depth);
+    public static void WriteListResultsResponse(ref Enc e, ListResultsResponse m) => CodecRetain.WriteListResultsResponse(ref e, m);
+    public static void ReadListTasksDetailedResponse(ref Dec d, ListTasksDetailedResponse m, int depth) => CodecRetain.ReadListTasksDetailedResponse(ref d, m, depth);
+    public static void WriteListTasksDetailedResponse(ref Enc e, ListTasksDetailedResponse m) => CodecRetain.WriteListTasksDetailedResponse(ref e, m);
+    public static void ReadListProbeResponse(ref Dec d, ListProbeResponse m, int depth) => CodecRetain.ReadListProbeResponse(ref d, m, depth);
+    public static void WriteListProbeResponse(ref Enc e, ListProbeResponse m) => CodecRetain.WriteListProbeResponse(ref e, m);
+    public static void ReadListTaskSummaryResponse(ref Dec d, ListTaskSummaryResponse m, int depth) => CodecRetain.ReadListTaskSummaryResponse(ref d, m, depth);
+    public static void WriteListTaskSummaryResponse(ref Enc e, ListTaskSummaryResponse m) => CodecRetain.WriteListTaskSummaryResponse(ref e, m);
+    public static void ReadUploadResultDataMessage(ref Dec d, UploadResultDataMessage m, int depth) => CodecRetain.ReadUploadResultDataMessage(ref d, m, depth);
+    public static void WriteUploadResultDataMessage(ref Enc e, UploadResultDataMessage m) => CodecRetain.WriteUploadResultDataMessage(ref e, m);
+    public static void ReadListMetricsResponse(ref Dec d, ListMetricsResponse m, int depth) => CodecRetain.ReadListMetricsResponse(ref d, m, depth);
+    public static void WriteListMetricsResponse(ref Enc e, ListMetricsResponse m) => CodecRetain.WriteListMetricsResponse(ref e, m);
+    public static void ReadDualResponse(ref Dec d, DualResponse m, int depth) => CodecRetain.ReadDualResponse(ref d, m, depth);
+    public static void WriteDualResponse(ref Enc e, DualResponse m) => CodecRetain.WriteDualResponse(ref e, m);
+}
+#endif
+
 public sealed unsafe class Ops_ListResultsResponse : RootOps
 {
     private readonly ListResultsResponse _f;
@@ -473,16 +511,16 @@ public sealed unsafe class Ops_ListResultsResponse : RootOps
     public override byte[] IncumbentBytes() => _g.ToByteArray();
     public override int EncIncProd(BufWriter w) { int n = _g.CalculateSize(); w.Reset(); _g.WriteTo(w); return n | w.WrittenCount; }
     public override int EncIncBest(BufWriter w) { w.Reset(); _g.WriteTo(w); return w.WrittenCount; }
-    public override int EncHost(ref Enc e) { e.Reset(); Codec.WriteListResultsResponse(ref e, _f); if (e.Err != 0) throw new InvalidOperationException("managed encode " + e.Err); return e.Pos; }
+    public override int EncHost(ref Enc e, bool retain) { e.Reset(); if (retain) HostR.WriteListResultsResponse(ref e, _f); else Codec.WriteListResultsResponse(ref e, _f); if (e.Err != 0) throw new InvalidOperationException("managed encode " + e.Err); return e.Pos; }
     public override int EncFfi(bool retain) { int rc = _c.TryEncode(_f, retain, out byte* p, out int n); if (rc < 0) throw new InvalidOperationException("core encode " + rc); return n; }
     public override byte[] EncFfiBytes(bool retain) => _c.EncodeToArray(_f, retain);
     public override long DecIncProd(ReadOnlySequence<byte> seq, bool read) { var m = Gp.ListResultsResponse.Parser.ParseFrom(seq); return read ? Touch.G_ListResultsResponse(m) : 1; }
     public override long DecIncBest(byte[] b, int len, bool read) { var m = Gp.ListResultsResponse.Parser.ParseFrom(new ReadOnlySpan<byte>(b, 0, len)); return read ? Touch.G_ListResultsResponse(m) : 1; }
     public override long DecHost(byte[] b, int len, bool retain, bool read)
     {
-        var d = new Dec { Buf = b, Pos = 0, End = len, Err = 0, Retain = retain };
+        var d = new Dec { Buf = b, Pos = 0, End = len, Err = 0 };
         var m = new ListResultsResponse();
-        Codec.ReadListResultsResponse(ref d, m, 0);
+        if (retain) HostR.ReadListResultsResponse(ref d, m, 0); else Codec.ReadListResultsResponse(ref d, m, 0);
         if (d.Err != 0) throw new InvalidOperationException("managed decode " + d.Err);
         return read ? Touch.F_ListResultsResponse(m) : 1;
     }
@@ -497,12 +535,12 @@ public sealed unsafe class Ops_ListResultsResponse : RootOps
     public override byte[] RtIncBytes(byte[] b) => Gp.ListResultsResponse.Parser.ParseFrom(b).ToByteArray();
     public override byte[] RtHost(byte[] b, int len, bool retain)
     {
-        var d = new Dec { Buf = b, Pos = 0, End = len, Err = 0, Retain = retain };
+        var d = new Dec { Buf = b, Pos = 0, End = len, Err = 0 };
         var m = new ListResultsResponse();
-        Codec.ReadListResultsResponse(ref d, m, 0);
+        if (retain) HostR.ReadListResultsResponse(ref d, m, 0); else Codec.ReadListResultsResponse(ref d, m, 0);
         if (d.Err != 0) throw new InvalidOperationException("managed decode " + d.Err);
         var e = Enc.New(Codec.Sites, len + 4096);
-        Codec.WriteListResultsResponse(ref e, m);
+        if (retain) HostR.WriteListResultsResponse(ref e, m); else Codec.WriteListResultsResponse(ref e, m);
         return e.ToArray();
     }
     public override byte[] RtFfi(byte[] b, int len, bool retain)
@@ -523,16 +561,16 @@ public sealed unsafe class Ops_ListTasksDetailedResponse : RootOps
     public override byte[] IncumbentBytes() => _g.ToByteArray();
     public override int EncIncProd(BufWriter w) { int n = _g.CalculateSize(); w.Reset(); _g.WriteTo(w); return n | w.WrittenCount; }
     public override int EncIncBest(BufWriter w) { w.Reset(); _g.WriteTo(w); return w.WrittenCount; }
-    public override int EncHost(ref Enc e) { e.Reset(); Codec.WriteListTasksDetailedResponse(ref e, _f); if (e.Err != 0) throw new InvalidOperationException("managed encode " + e.Err); return e.Pos; }
+    public override int EncHost(ref Enc e, bool retain) { e.Reset(); if (retain) HostR.WriteListTasksDetailedResponse(ref e, _f); else Codec.WriteListTasksDetailedResponse(ref e, _f); if (e.Err != 0) throw new InvalidOperationException("managed encode " + e.Err); return e.Pos; }
     public override int EncFfi(bool retain) { int rc = _c.TryEncode(_f, retain, out byte* p, out int n); if (rc < 0) throw new InvalidOperationException("core encode " + rc); return n; }
     public override byte[] EncFfiBytes(bool retain) => _c.EncodeToArray(_f, retain);
     public override long DecIncProd(ReadOnlySequence<byte> seq, bool read) { var m = Gp.ListTasksDetailedResponse.Parser.ParseFrom(seq); return read ? Touch.G_ListTasksDetailedResponse(m) : 1; }
     public override long DecIncBest(byte[] b, int len, bool read) { var m = Gp.ListTasksDetailedResponse.Parser.ParseFrom(new ReadOnlySpan<byte>(b, 0, len)); return read ? Touch.G_ListTasksDetailedResponse(m) : 1; }
     public override long DecHost(byte[] b, int len, bool retain, bool read)
     {
-        var d = new Dec { Buf = b, Pos = 0, End = len, Err = 0, Retain = retain };
+        var d = new Dec { Buf = b, Pos = 0, End = len, Err = 0 };
         var m = new ListTasksDetailedResponse();
-        Codec.ReadListTasksDetailedResponse(ref d, m, 0);
+        if (retain) HostR.ReadListTasksDetailedResponse(ref d, m, 0); else Codec.ReadListTasksDetailedResponse(ref d, m, 0);
         if (d.Err != 0) throw new InvalidOperationException("managed decode " + d.Err);
         return read ? Touch.F_ListTasksDetailedResponse(m) : 1;
     }
@@ -547,12 +585,12 @@ public sealed unsafe class Ops_ListTasksDetailedResponse : RootOps
     public override byte[] RtIncBytes(byte[] b) => Gp.ListTasksDetailedResponse.Parser.ParseFrom(b).ToByteArray();
     public override byte[] RtHost(byte[] b, int len, bool retain)
     {
-        var d = new Dec { Buf = b, Pos = 0, End = len, Err = 0, Retain = retain };
+        var d = new Dec { Buf = b, Pos = 0, End = len, Err = 0 };
         var m = new ListTasksDetailedResponse();
-        Codec.ReadListTasksDetailedResponse(ref d, m, 0);
+        if (retain) HostR.ReadListTasksDetailedResponse(ref d, m, 0); else Codec.ReadListTasksDetailedResponse(ref d, m, 0);
         if (d.Err != 0) throw new InvalidOperationException("managed decode " + d.Err);
         var e = Enc.New(Codec.Sites, len + 4096);
-        Codec.WriteListTasksDetailedResponse(ref e, m);
+        if (retain) HostR.WriteListTasksDetailedResponse(ref e, m); else Codec.WriteListTasksDetailedResponse(ref e, m);
         return e.ToArray();
     }
     public override byte[] RtFfi(byte[] b, int len, bool retain)
@@ -573,16 +611,16 @@ public sealed unsafe class Ops_ListProbeResponse : RootOps
     public override byte[] IncumbentBytes() => _g.ToByteArray();
     public override int EncIncProd(BufWriter w) { int n = _g.CalculateSize(); w.Reset(); _g.WriteTo(w); return n | w.WrittenCount; }
     public override int EncIncBest(BufWriter w) { w.Reset(); _g.WriteTo(w); return w.WrittenCount; }
-    public override int EncHost(ref Enc e) { e.Reset(); Codec.WriteListProbeResponse(ref e, _f); if (e.Err != 0) throw new InvalidOperationException("managed encode " + e.Err); return e.Pos; }
+    public override int EncHost(ref Enc e, bool retain) { e.Reset(); if (retain) HostR.WriteListProbeResponse(ref e, _f); else Codec.WriteListProbeResponse(ref e, _f); if (e.Err != 0) throw new InvalidOperationException("managed encode " + e.Err); return e.Pos; }
     public override int EncFfi(bool retain) { int rc = _c.TryEncode(_f, retain, out byte* p, out int n); if (rc < 0) throw new InvalidOperationException("core encode " + rc); return n; }
     public override byte[] EncFfiBytes(bool retain) => _c.EncodeToArray(_f, retain);
     public override long DecIncProd(ReadOnlySequence<byte> seq, bool read) { var m = Gp.ListProbeResponse.Parser.ParseFrom(seq); return read ? Touch.G_ListProbeResponse(m) : 1; }
     public override long DecIncBest(byte[] b, int len, bool read) { var m = Gp.ListProbeResponse.Parser.ParseFrom(new ReadOnlySpan<byte>(b, 0, len)); return read ? Touch.G_ListProbeResponse(m) : 1; }
     public override long DecHost(byte[] b, int len, bool retain, bool read)
     {
-        var d = new Dec { Buf = b, Pos = 0, End = len, Err = 0, Retain = retain };
+        var d = new Dec { Buf = b, Pos = 0, End = len, Err = 0 };
         var m = new ListProbeResponse();
-        Codec.ReadListProbeResponse(ref d, m, 0);
+        if (retain) HostR.ReadListProbeResponse(ref d, m, 0); else Codec.ReadListProbeResponse(ref d, m, 0);
         if (d.Err != 0) throw new InvalidOperationException("managed decode " + d.Err);
         return read ? Touch.F_ListProbeResponse(m) : 1;
     }
@@ -597,12 +635,12 @@ public sealed unsafe class Ops_ListProbeResponse : RootOps
     public override byte[] RtIncBytes(byte[] b) => Gp.ListProbeResponse.Parser.ParseFrom(b).ToByteArray();
     public override byte[] RtHost(byte[] b, int len, bool retain)
     {
-        var d = new Dec { Buf = b, Pos = 0, End = len, Err = 0, Retain = retain };
+        var d = new Dec { Buf = b, Pos = 0, End = len, Err = 0 };
         var m = new ListProbeResponse();
-        Codec.ReadListProbeResponse(ref d, m, 0);
+        if (retain) HostR.ReadListProbeResponse(ref d, m, 0); else Codec.ReadListProbeResponse(ref d, m, 0);
         if (d.Err != 0) throw new InvalidOperationException("managed decode " + d.Err);
         var e = Enc.New(Codec.Sites, len + 4096);
-        Codec.WriteListProbeResponse(ref e, m);
+        if (retain) HostR.WriteListProbeResponse(ref e, m); else Codec.WriteListProbeResponse(ref e, m);
         return e.ToArray();
     }
     public override byte[] RtFfi(byte[] b, int len, bool retain)
@@ -623,16 +661,16 @@ public sealed unsafe class Ops_ListTaskSummaryResponse : RootOps
     public override byte[] IncumbentBytes() => _g.ToByteArray();
     public override int EncIncProd(BufWriter w) { int n = _g.CalculateSize(); w.Reset(); _g.WriteTo(w); return n | w.WrittenCount; }
     public override int EncIncBest(BufWriter w) { w.Reset(); _g.WriteTo(w); return w.WrittenCount; }
-    public override int EncHost(ref Enc e) { e.Reset(); Codec.WriteListTaskSummaryResponse(ref e, _f); if (e.Err != 0) throw new InvalidOperationException("managed encode " + e.Err); return e.Pos; }
+    public override int EncHost(ref Enc e, bool retain) { e.Reset(); if (retain) HostR.WriteListTaskSummaryResponse(ref e, _f); else Codec.WriteListTaskSummaryResponse(ref e, _f); if (e.Err != 0) throw new InvalidOperationException("managed encode " + e.Err); return e.Pos; }
     public override int EncFfi(bool retain) { int rc = _c.TryEncode(_f, retain, out byte* p, out int n); if (rc < 0) throw new InvalidOperationException("core encode " + rc); return n; }
     public override byte[] EncFfiBytes(bool retain) => _c.EncodeToArray(_f, retain);
     public override long DecIncProd(ReadOnlySequence<byte> seq, bool read) { var m = Gp.ListTaskSummaryResponse.Parser.ParseFrom(seq); return read ? Touch.G_ListTaskSummaryResponse(m) : 1; }
     public override long DecIncBest(byte[] b, int len, bool read) { var m = Gp.ListTaskSummaryResponse.Parser.ParseFrom(new ReadOnlySpan<byte>(b, 0, len)); return read ? Touch.G_ListTaskSummaryResponse(m) : 1; }
     public override long DecHost(byte[] b, int len, bool retain, bool read)
     {
-        var d = new Dec { Buf = b, Pos = 0, End = len, Err = 0, Retain = retain };
+        var d = new Dec { Buf = b, Pos = 0, End = len, Err = 0 };
         var m = new ListTaskSummaryResponse();
-        Codec.ReadListTaskSummaryResponse(ref d, m, 0);
+        if (retain) HostR.ReadListTaskSummaryResponse(ref d, m, 0); else Codec.ReadListTaskSummaryResponse(ref d, m, 0);
         if (d.Err != 0) throw new InvalidOperationException("managed decode " + d.Err);
         return read ? Touch.F_ListTaskSummaryResponse(m) : 1;
     }
@@ -647,12 +685,12 @@ public sealed unsafe class Ops_ListTaskSummaryResponse : RootOps
     public override byte[] RtIncBytes(byte[] b) => Gp.ListTaskSummaryResponse.Parser.ParseFrom(b).ToByteArray();
     public override byte[] RtHost(byte[] b, int len, bool retain)
     {
-        var d = new Dec { Buf = b, Pos = 0, End = len, Err = 0, Retain = retain };
+        var d = new Dec { Buf = b, Pos = 0, End = len, Err = 0 };
         var m = new ListTaskSummaryResponse();
-        Codec.ReadListTaskSummaryResponse(ref d, m, 0);
+        if (retain) HostR.ReadListTaskSummaryResponse(ref d, m, 0); else Codec.ReadListTaskSummaryResponse(ref d, m, 0);
         if (d.Err != 0) throw new InvalidOperationException("managed decode " + d.Err);
         var e = Enc.New(Codec.Sites, len + 4096);
-        Codec.WriteListTaskSummaryResponse(ref e, m);
+        if (retain) HostR.WriteListTaskSummaryResponse(ref e, m); else Codec.WriteListTaskSummaryResponse(ref e, m);
         return e.ToArray();
     }
     public override byte[] RtFfi(byte[] b, int len, bool retain)
@@ -673,16 +711,16 @@ public sealed unsafe class Ops_UploadResultDataMessage : RootOps
     public override byte[] IncumbentBytes() => _g.ToByteArray();
     public override int EncIncProd(BufWriter w) { int n = _g.CalculateSize(); w.Reset(); _g.WriteTo(w); return n | w.WrittenCount; }
     public override int EncIncBest(BufWriter w) { w.Reset(); _g.WriteTo(w); return w.WrittenCount; }
-    public override int EncHost(ref Enc e) { e.Reset(); Codec.WriteUploadResultDataMessage(ref e, _f); if (e.Err != 0) throw new InvalidOperationException("managed encode " + e.Err); return e.Pos; }
+    public override int EncHost(ref Enc e, bool retain) { e.Reset(); if (retain) HostR.WriteUploadResultDataMessage(ref e, _f); else Codec.WriteUploadResultDataMessage(ref e, _f); if (e.Err != 0) throw new InvalidOperationException("managed encode " + e.Err); return e.Pos; }
     public override int EncFfi(bool retain) { int rc = _c.TryEncode(_f, retain, out byte* p, out int n); if (rc < 0) throw new InvalidOperationException("core encode " + rc); return n; }
     public override byte[] EncFfiBytes(bool retain) => _c.EncodeToArray(_f, retain);
     public override long DecIncProd(ReadOnlySequence<byte> seq, bool read) { var m = Gp.UploadResultDataMessage.Parser.ParseFrom(seq); return read ? Touch.G_UploadResultDataMessage(m) : 1; }
     public override long DecIncBest(byte[] b, int len, bool read) { var m = Gp.UploadResultDataMessage.Parser.ParseFrom(new ReadOnlySpan<byte>(b, 0, len)); return read ? Touch.G_UploadResultDataMessage(m) : 1; }
     public override long DecHost(byte[] b, int len, bool retain, bool read)
     {
-        var d = new Dec { Buf = b, Pos = 0, End = len, Err = 0, Retain = retain };
+        var d = new Dec { Buf = b, Pos = 0, End = len, Err = 0 };
         var m = new UploadResultDataMessage();
-        Codec.ReadUploadResultDataMessage(ref d, m, 0);
+        if (retain) HostR.ReadUploadResultDataMessage(ref d, m, 0); else Codec.ReadUploadResultDataMessage(ref d, m, 0);
         if (d.Err != 0) throw new InvalidOperationException("managed decode " + d.Err);
         return read ? Touch.F_UploadResultDataMessage(m) : 1;
     }
@@ -697,12 +735,12 @@ public sealed unsafe class Ops_UploadResultDataMessage : RootOps
     public override byte[] RtIncBytes(byte[] b) => Gp.UploadResultDataMessage.Parser.ParseFrom(b).ToByteArray();
     public override byte[] RtHost(byte[] b, int len, bool retain)
     {
-        var d = new Dec { Buf = b, Pos = 0, End = len, Err = 0, Retain = retain };
+        var d = new Dec { Buf = b, Pos = 0, End = len, Err = 0 };
         var m = new UploadResultDataMessage();
-        Codec.ReadUploadResultDataMessage(ref d, m, 0);
+        if (retain) HostR.ReadUploadResultDataMessage(ref d, m, 0); else Codec.ReadUploadResultDataMessage(ref d, m, 0);
         if (d.Err != 0) throw new InvalidOperationException("managed decode " + d.Err);
         var e = Enc.New(Codec.Sites, len + 4096);
-        Codec.WriteUploadResultDataMessage(ref e, m);
+        if (retain) HostR.WriteUploadResultDataMessage(ref e, m); else Codec.WriteUploadResultDataMessage(ref e, m);
         return e.ToArray();
     }
     public override byte[] RtFfi(byte[] b, int len, bool retain)
@@ -723,16 +761,16 @@ public sealed unsafe class Ops_ListMetricsResponse : RootOps
     public override byte[] IncumbentBytes() => _g.ToByteArray();
     public override int EncIncProd(BufWriter w) { int n = _g.CalculateSize(); w.Reset(); _g.WriteTo(w); return n | w.WrittenCount; }
     public override int EncIncBest(BufWriter w) { w.Reset(); _g.WriteTo(w); return w.WrittenCount; }
-    public override int EncHost(ref Enc e) { e.Reset(); Codec.WriteListMetricsResponse(ref e, _f); if (e.Err != 0) throw new InvalidOperationException("managed encode " + e.Err); return e.Pos; }
+    public override int EncHost(ref Enc e, bool retain) { e.Reset(); if (retain) HostR.WriteListMetricsResponse(ref e, _f); else Codec.WriteListMetricsResponse(ref e, _f); if (e.Err != 0) throw new InvalidOperationException("managed encode " + e.Err); return e.Pos; }
     public override int EncFfi(bool retain) { int rc = _c.TryEncode(_f, retain, out byte* p, out int n); if (rc < 0) throw new InvalidOperationException("core encode " + rc); return n; }
     public override byte[] EncFfiBytes(bool retain) => _c.EncodeToArray(_f, retain);
     public override long DecIncProd(ReadOnlySequence<byte> seq, bool read) { var m = Gp.ListMetricsResponse.Parser.ParseFrom(seq); return read ? Touch.G_ListMetricsResponse(m) : 1; }
     public override long DecIncBest(byte[] b, int len, bool read) { var m = Gp.ListMetricsResponse.Parser.ParseFrom(new ReadOnlySpan<byte>(b, 0, len)); return read ? Touch.G_ListMetricsResponse(m) : 1; }
     public override long DecHost(byte[] b, int len, bool retain, bool read)
     {
-        var d = new Dec { Buf = b, Pos = 0, End = len, Err = 0, Retain = retain };
+        var d = new Dec { Buf = b, Pos = 0, End = len, Err = 0 };
         var m = new ListMetricsResponse();
-        Codec.ReadListMetricsResponse(ref d, m, 0);
+        if (retain) HostR.ReadListMetricsResponse(ref d, m, 0); else Codec.ReadListMetricsResponse(ref d, m, 0);
         if (d.Err != 0) throw new InvalidOperationException("managed decode " + d.Err);
         return read ? Touch.F_ListMetricsResponse(m) : 1;
     }
@@ -747,12 +785,12 @@ public sealed unsafe class Ops_ListMetricsResponse : RootOps
     public override byte[] RtIncBytes(byte[] b) => Gp.ListMetricsResponse.Parser.ParseFrom(b).ToByteArray();
     public override byte[] RtHost(byte[] b, int len, bool retain)
     {
-        var d = new Dec { Buf = b, Pos = 0, End = len, Err = 0, Retain = retain };
+        var d = new Dec { Buf = b, Pos = 0, End = len, Err = 0 };
         var m = new ListMetricsResponse();
-        Codec.ReadListMetricsResponse(ref d, m, 0);
+        if (retain) HostR.ReadListMetricsResponse(ref d, m, 0); else Codec.ReadListMetricsResponse(ref d, m, 0);
         if (d.Err != 0) throw new InvalidOperationException("managed decode " + d.Err);
         var e = Enc.New(Codec.Sites, len + 4096);
-        Codec.WriteListMetricsResponse(ref e, m);
+        if (retain) HostR.WriteListMetricsResponse(ref e, m); else Codec.WriteListMetricsResponse(ref e, m);
         return e.ToArray();
     }
     public override byte[] RtFfi(byte[] b, int len, bool retain)
@@ -773,16 +811,16 @@ public sealed unsafe class Ops_DualResponse : RootOps
     public override byte[] IncumbentBytes() => _g.ToByteArray();
     public override int EncIncProd(BufWriter w) { int n = _g.CalculateSize(); w.Reset(); _g.WriteTo(w); return n | w.WrittenCount; }
     public override int EncIncBest(BufWriter w) { w.Reset(); _g.WriteTo(w); return w.WrittenCount; }
-    public override int EncHost(ref Enc e) { e.Reset(); Codec.WriteDualResponse(ref e, _f); if (e.Err != 0) throw new InvalidOperationException("managed encode " + e.Err); return e.Pos; }
+    public override int EncHost(ref Enc e, bool retain) { e.Reset(); if (retain) HostR.WriteDualResponse(ref e, _f); else Codec.WriteDualResponse(ref e, _f); if (e.Err != 0) throw new InvalidOperationException("managed encode " + e.Err); return e.Pos; }
     public override int EncFfi(bool retain) { int rc = _c.TryEncode(_f, retain, out byte* p, out int n); if (rc < 0) throw new InvalidOperationException("core encode " + rc); return n; }
     public override byte[] EncFfiBytes(bool retain) => _c.EncodeToArray(_f, retain);
     public override long DecIncProd(ReadOnlySequence<byte> seq, bool read) { var m = Gp.DualResponse.Parser.ParseFrom(seq); return read ? Touch.G_DualResponse(m) : 1; }
     public override long DecIncBest(byte[] b, int len, bool read) { var m = Gp.DualResponse.Parser.ParseFrom(new ReadOnlySpan<byte>(b, 0, len)); return read ? Touch.G_DualResponse(m) : 1; }
     public override long DecHost(byte[] b, int len, bool retain, bool read)
     {
-        var d = new Dec { Buf = b, Pos = 0, End = len, Err = 0, Retain = retain };
+        var d = new Dec { Buf = b, Pos = 0, End = len, Err = 0 };
         var m = new DualResponse();
-        Codec.ReadDualResponse(ref d, m, 0);
+        if (retain) HostR.ReadDualResponse(ref d, m, 0); else Codec.ReadDualResponse(ref d, m, 0);
         if (d.Err != 0) throw new InvalidOperationException("managed decode " + d.Err);
         return read ? Touch.F_DualResponse(m) : 1;
     }
@@ -797,12 +835,12 @@ public sealed unsafe class Ops_DualResponse : RootOps
     public override byte[] RtIncBytes(byte[] b) => Gp.DualResponse.Parser.ParseFrom(b).ToByteArray();
     public override byte[] RtHost(byte[] b, int len, bool retain)
     {
-        var d = new Dec { Buf = b, Pos = 0, End = len, Err = 0, Retain = retain };
+        var d = new Dec { Buf = b, Pos = 0, End = len, Err = 0 };
         var m = new DualResponse();
-        Codec.ReadDualResponse(ref d, m, 0);
+        if (retain) HostR.ReadDualResponse(ref d, m, 0); else Codec.ReadDualResponse(ref d, m, 0);
         if (d.Err != 0) throw new InvalidOperationException("managed decode " + d.Err);
         var e = Enc.New(Codec.Sites, len + 4096);
-        Codec.WriteDualResponse(ref e, m);
+        if (retain) HostR.WriteDualResponse(ref e, m); else Codec.WriteDualResponse(ref e, m);
         return e.ToArray();
     }
     public override byte[] RtFfi(byte[] b, int len, bool retain)

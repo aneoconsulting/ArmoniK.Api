@@ -120,7 +120,7 @@ public abstract unsafe class RootOps
     public abstract byte[] IncumbentBytes();
     public abstract int EncIncProd(BufWriter w);
     public abstract int EncIncBest(BufWriter w);
-    public abstract int EncHost(ref Enc e);
+    public abstract int EncHost(ref Enc e, bool retain);
     public abstract int EncFfi(bool retain);
     public abstract byte[] EncFfiBytes(bool retain);
     public abstract long DecIncProd(ReadOnlySequence<byte> seq, bool read);
@@ -149,16 +149,18 @@ def _ops(o, root):
     o += "    public override byte[] IncumbentBytes() => _g.ToByteArray();"
     o += "    public override int EncIncProd(BufWriter w) { int n = _g.CalculateSize(); w.Reset(); _g.WriteTo(w); return n | w.WrittenCount; }"
     o += "    public override int EncIncBest(BufWriter w) { w.Reset(); _g.WriteTo(w); return w.WrittenCount; }"
-    o += "    public override int EncHost(ref Enc e) { e.Reset(); Codec.Write%s(ref e, _f); if (e.Err != 0) throw new InvalidOperationException(\"managed encode \" + e.Err); return e.Pos; }" % root
+    # R-H11: host-gen drop is the drop codec (`Codec`), host-gen retain the retain codec
+    # (`CodecRetain`, absent from the no-unknown build).
+    o += "    public override int EncHost(ref Enc e, bool retain) { e.Reset(); if (retain) HostR.Write%s(ref e, _f); else Codec.Write%s(ref e, _f); if (e.Err != 0) throw new InvalidOperationException(\"managed encode \" + e.Err); return e.Pos; }" % (root, root)
     o += "    public override int EncFfi(bool retain) { int rc = _c.TryEncode(_f, retain, out byte* p, out int n); if (rc < 0) throw new InvalidOperationException(\"core encode \" + rc); return n; }"
     o += "    public override byte[] EncFfiBytes(bool retain) => _c.EncodeToArray(_f, retain);"
     o += "    public override long DecIncProd(ReadOnlySequence<byte> seq, bool read) { var m = %s.Parser.ParseFrom(seq); return read ? Touch.G_%s(m) : 1; }" % (g, root)
     o += "    public override long DecIncBest(byte[] b, int len, bool read) { var m = %s.Parser.ParseFrom(new ReadOnlySpan<byte>(b, 0, len)); return read ? Touch.G_%s(m) : 1; }" % (g, root)
     o += "    public override long DecHost(byte[] b, int len, bool retain, bool read)"
     o += "    {"
-    o += "        var d = new Dec { Buf = b, Pos = 0, End = len, Err = 0, Retain = retain };"
+    o += "        var d = new Dec { Buf = b, Pos = 0, End = len, Err = 0 };"
     o += "        var m = new %s();" % root
-    o += "        Codec.Read%s(ref d, m, 0);" % root
+    o += "        if (retain) HostR.Read%s(ref d, m, 0); else Codec.Read%s(ref d, m, 0);" % (root, root)
     o += "        if (d.Err != 0) throw new InvalidOperationException(\"managed decode \" + d.Err);"
     o += "        return read ? Touch.F_%s(m) : 1;" % root
     o += "    }"
@@ -173,12 +175,12 @@ def _ops(o, root):
     o += "    public override byte[] RtIncBytes(byte[] b) => %s.Parser.ParseFrom(b).ToByteArray();" % g
     o += "    public override byte[] RtHost(byte[] b, int len, bool retain)"
     o += "    {"
-    o += "        var d = new Dec { Buf = b, Pos = 0, End = len, Err = 0, Retain = retain };"
+    o += "        var d = new Dec { Buf = b, Pos = 0, End = len, Err = 0 };"
     o += "        var m = new %s();" % root
-    o += "        Codec.Read%s(ref d, m, 0);" % root
+    o += "        if (retain) HostR.Read%s(ref d, m, 0); else Codec.Read%s(ref d, m, 0);" % (root, root)
     o += "        if (d.Err != 0) throw new InvalidOperationException(\"managed decode \" + d.Err);"
     o += "        var e = Enc.New(Codec.Sites, len + 4096);"
-    o += "        Codec.Write%s(ref e, m);" % root
+    o += "        if (retain) HostR.Write%s(ref e, m); else Codec.Write%s(ref e, m);" % (root, root)
     o += "        return e.ToArray();"
     o += "    }"
     o += "    public override byte[] RtFfi(byte[] b, int len, bool retain)"
@@ -211,6 +213,23 @@ def emit(p, payloads):
     o += "}"
     for ln in OPS_BASE.strip("\n").split("\n"):
         o += ln
+    o += ""
+    # R-H11: the retain codec of host-gen, absent from the no-unknown build (refused there).
+    o += "#if AK_NO_UNKNOWN_FIELDS"
+    o += "internal static class HostR"
+    o += "{"
+    for r in p.roots:
+        o += "    public static void Read%s(ref Dec d, %s m, int depth) => throw new NotSupportedException(\"unknown fields are compiled out of this build\");" % (r, r)
+        o += "    public static void Write%s(ref Enc e, %s m) => throw new NotSupportedException(\"unknown fields are compiled out of this build\");" % (r, r)
+    o += "}"
+    o += "#else"
+    o += "internal static class HostR"
+    o += "{"
+    for r in p.roots:
+        o += "    public static void Read%s(ref Dec d, %s m, int depth) => CodecRetain.Read%s(ref d, m, depth);" % (r, r, r)
+        o += "    public static void Write%s(ref Enc e, %s m) => CodecRetain.Write%s(ref e, m);" % (r, r, r)
+    o += "}"
+    o += "#endif"
     o += ""
     for r in p.roots:
         _ops(o, r)

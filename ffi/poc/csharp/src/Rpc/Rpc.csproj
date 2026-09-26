@@ -47,6 +47,8 @@
          from the in-process one.
     -->
     <ProjectReference Include="../Harness/Harness.csproj" />
+    <!-- The JIT tier read back (req 24, R-H2): the same listener the codec suite uses. -->
+    <Compile Include="../BenchDotNet/JitTiers.cs" Link="Linked/JitTiers.cs" />
   </ItemGroup>
 
 </Project>

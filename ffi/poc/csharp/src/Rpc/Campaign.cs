@@ -82,7 +82,7 @@ internal static unsafe class Clock
 /// One sample, one JSON line (requirement 28). Fields not applicable are left out.
 internal sealed class Sample
 {
-    public string Suite, Arm, Cell, Payload, Content, Dir, Mode, Transport;
+    public string Suite, Arm, Cell, Payload, Content, Dir, Mode, Transport, Build, Extra;
     public int Inflight = -1, Launch, Round;
     public long CpuNs, WallNs, Iters;
 
@@ -92,9 +92,10 @@ internal sealed class Sample
         void S(string k, string v) { if (v != null) sb.Append(",\"").Append(k).Append("\":\"").Append(v).Append('"'); }
         void N(string k, long v) { sb.Append(",\"").Append(k).Append("\":").Append(v.ToString(CultureInfo.InvariantCulture)); }
         S("suite", Suite); S("arm", Arm); S("cell", Cell); S("payload", Payload); S("content", Content);
-        S("dir", Dir); S("unknown_mode", Mode); S("transport", Transport);
+        S("dir", Dir); S("unknown_mode", Mode); S("transport", Transport); S("build", Build);
         if (Inflight >= 0) N("inflight", Inflight);
         N("launch", Launch); N("round", Round); N("cpu_ns", CpuNs); N("wall_ns", WallNs); N("iters", Iters);
+        if (Extra != null) sb.Append(',').Append(Extra);
         return sb.Append('}').ToString();
     }
 }
@@ -239,6 +240,7 @@ public static class CampaignMain
 
     private static async Task<int> Rpc(string[] a)
     {
+        Armonik.Ffi.Bdn.JitTiers.Start();   // the JIT tier read back (R-H2, req 24)
         // WP5 step 10: the client's binding variant must match the core it loaded.
         var vwhy = AbiVariant.CheckLoadedCore();
         if (vwhy != null) { Console.WriteLine("# ABORT: core variant mismatch: " + vwhy); Console.WriteLine("# no samples written"); return 1; }
@@ -316,30 +318,15 @@ public static class CampaignMain
         var upPath = Encoding.UTF8.GetBytes("/" + Svc + "/Up");
         byte[] gUpBytes = g22.ToByteArray();
 
-        async Task AsyncOp(Func<Task> one, int n, int inflight)
-        {
-            var ts = new Task[inflight];
-            for (int t = 0; t < inflight; t++)
-            {
-                int mine = n / inflight + (t < n % inflight ? 1 : 0);
-                ts[t] = Task.Run(async () => { for (int i = 0; i < mine; i++) await one(); });
-            }
-            await Task.WhenAll(ts);
-        }
-        Task BlockingOp(Action one, int n, int inflight)
-        {
-            var th = new Thread[inflight];
-            Exception err = null;
-            for (int t = 0; t < inflight; t++)
-            {
-                int mine = n / inflight + (t < n % inflight ? 1 : 0);
-                th[t] = new Thread(() => { try { for (int i = 0; i < mine; i++) one(); } catch (Exception e) { err = e; } });
-                th[t].Start();
-            }
-            foreach (var t in th) t.Join();
-            if (err != null) throw err;
-            return Task.CompletedTask;
-        }
+        // R-H2: every cell calls from the SAME caller threads, created once before the warm-up
+        // and reused by every sample (no thread is created inside a timed window). Each caller
+        // makes blocking calls: B and C through the core's blocking delivery, A and D through
+        // grpc-dotnet's BlockingUnaryCall (the stack has no synchronous transport: the call
+        // blocks its caller while the HTTP/2 I/O runs on the thread pool), the core's callback
+        // and queue rows by blocking on their completion (requirement 16).
+        using var pool = new CallerPool(levels.Max());
+        Task BlockingOp(Action one, int n, int inflight) { pool.Run(one, n, inflight); return Task.CompletedTask; }
+        Task AsyncOp(Func<Task> one, int n, int inflight) { pool.Run(() => one().GetAwaiter().GetResult(), n, inflight); return Task.CompletedTask; }
 
         // B/C: the core's BLOCKING delivery (requirement 16).
         unsafe void BDown()
@@ -393,11 +380,12 @@ public static class CampaignMain
             try { if (rc != AkRpc.AK_OK) throw new Abort("C up: status " + rc); CheckLen((int)r.len, 0, "C up"); }
             finally { AkRpc.ak_bytes_free(&r); }
         }
-        async Task Grpc<TReq, TRes>(Method<TReq, TRes> m, TReq req) where TReq : class where TRes : class
+        // A and D: a blocking unary call on the caller thread; a non-OK status throws
+        // RpcException (the response length is checked by the method's deserializer).
+        Task Grpc<TReq, TRes>(Method<TReq, TRes> m, TReq req) where TReq : class where TRes : class
         {
-            using var c = inv.AsyncUnaryCall(m, null, new CallOptions(), req);
-            await c.ResponseAsync;
-            if (c.GetStatus().StatusCode != StatusCode.OK) throw new Abort(m.FullName + ": status " + c.GetStatus());
+            inv.BlockingUnaryCall(m, null, new CallOptions(), req);
+            return Task.CompletedTask;
         }
         async Task UpRaw(Method<byte[], byte[]> m, byte[] req)
         {
@@ -472,32 +460,49 @@ public static class CampaignMain
 #endif
         var cells = (from o in ops from k in levels select (o.Cell, o.Dir, k, o.Run)).ToList();
         Header("rpc", string.Format(CultureInfo.InvariantCulture,
-            "build " + AbiVariant.Name + " (WP5 step 10); launch {0}, rounds {1}, {2} calls per sample, in flight {3}; transport {4} (client: DisableDynamicWindowSizing{5}; Kestrel {6}; core: ak_client_opts stream {7} connection {8} adaptive 0 nagle {9}); Unix socket {10}; the server is a separate process; B/C blocking delivery, .callback/.queue extra rows (C.* in drop mode); C and D in each unknown-field mode (req 12 amended): C-retain/D-retain = decision 11's options armed at every position and ak_uencode_*, C-drop/D-drop = reset with NULL and ak_encode_* (C-nounk/D-nounk: the no-unknown client, its own build and core; A and B are its in-process controls); a retained decode that leaves a grown buffer undelivered fails its call; direction a: empty request, P2.2 response ({11} B); b: P2.2 request decoded by the server, empty response; warm-up {12} calls per cell; every call checked (status and length)",
+            "build " + AbiVariant.Name + " (WP5 step 10); launch {0}, rounds {1}, {2} calls per sample, in flight {3}; transport {4} (client: DisableDynamicWindowSizing{5}; Kestrel {6}; core: ak_client_opts stream {7} connection {8} adaptive 0 nagle {9}); Unix socket {10}; the server is a separate process; B/C blocking delivery, .callback/.queue extra rows (C.* in drop mode); C and D in each unknown-field mode (req 12 amended): C-retain/D-retain = decision 11's options armed at every position and ak_uencode_*, C-drop/D-drop = reset with NULL and ak_encode_* (C-nounk/D-nounk: the no-unknown client, its own build and core; A and B are its in-process controls); a retained decode that leaves a grown buffer undelivered fails its call; direction a: empty request, P2.2 response ({11} B); b: P2.2 request decoded by the server, empty response; caller threads: {12}, created before the warm-up and shared by every cell (blocking calls: B/C the core's blocking delivery, A/D BlockingUnaryCall, the core's callback/queue rows blocking on completion); cell order per round: a seeded shuffle of launch and round; every call checked (status and length)",
             launch, rounds, calls, string.Join("/", levels), transport, pinned ? " + InitialHttp2StreamWindowSize 4 MiB" : ", no window set",
-            pinned ? "stream/connection window 4 MiB" : "defaults", opts.stream_window, opts.connection_window, opts.tcp_nagle, sock, want, 2 * levels.Max()));
+            pinned ? "stream/connection window 4 MiB" : "defaults", opts.stream_window, opts.connection_window, opts.tcp_nagle, sock, want, levels.Max()));
 
-        var lines = new List<string>();
+        var samples = new List<(Sample S, DateTime T0, DateTime T1)>();
+        int warmRounds = 0; long lastWarmJits = -1;
         try
         {
-            foreach (var c in cells) await c.Run(2 * levels.Max(), c.k);          // warm-up
+            // R-H2 / req 24: warm-up rounds over every cell (64 calls each, 0.5 s apart) until a
+            // round compiles nothing of the measured code (runtime JIT events), at most 10.
+            while (warmRounds < 10)
+            {
+                warmRounds++;
+                long before = Armonik.Ffi.Bdn.JitTiers.Received;
+                foreach (var c in cells) await c.Run(64, c.k);
+                long seen;
+                do { seen = Armonik.Ffi.Bdn.JitTiers.Received; Thread.Sleep(500); } while (seen != Armonik.Ffi.Bdn.JitTiers.Received);
+                lastWarmJits = Armonik.Ffi.Bdn.JitTiers.Received - before;
+                if (lastWarmJits == 0) break;
+            }
+            Console.WriteLine("# warm-up:        {0} round(s) of 64 calls per cell, 0.5 s apart; the last round compiled {1} method(s) of measured code (JIT events read back)", warmRounds, lastWarmJits);
             for (int r = 1; r <= rounds; r++)
             {
                 GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
-                int start = (int)((long)(r - 1) * cells.Count / rounds);
-                for (int j = 0; j < cells.Count; j++)
+                // R-H18 / R-H23: the cell order of each round is a seeded shuffle of launch and
+                // round, so no two launches share a schedule; the order is the file's row order.
+                var rng = new Random(launch * 1009 + r);
+                var order = cells.OrderBy(_ => rng.Next()).ToList();
+                foreach (var c in order)
                 {
-                    var c = cells[(start + j) % cells.Count];
+                    var t0 = DateTime.UtcNow;
                     long w0 = Clock.WallNs(), c0 = Clock.ProcessCpuNs();
                     await c.Run(calls, c.k);
                     long c1 = Clock.ProcessCpuNs(), w1 = Clock.WallNs();
-                    lines.Add(new Sample
+                    var t1 = DateTime.UtcNow;
+                    samples.Add((new Sample
                     {
                         Suite = "rpc", Cell = c.Cell, Payload = "P2.2", Dir = c.Dir, Transport = transport, Inflight = c.k,
                         Mode = c.Cell.EndsWith("-retain", StringComparison.Ordinal) ? "retain"
                              : c.Cell.EndsWith("-nounk", StringComparison.Ordinal) ? "no-unknown"
                              : c.Cell.StartsWith("C", StringComparison.Ordinal) || c.Cell.StartsWith("D", StringComparison.Ordinal) ? "drop" : "default",
-                        Launch = launch, Round = r, CpuNs = c1 - c0, WallNs = w1 - w0, Iters = calls,
-                    }.Json());
+                        Launch = launch, Round = r, CpuNs = c1 - c0, WallNs = w1 - w0, Iters = calls, Build = AbiVariant.Name,
+                    }, t0, t1));
                 }
             }
         }
@@ -508,7 +513,19 @@ public static class CampaignMain
             Console.WriteLine("# no samples written");
             return 1;
         }
-        foreach (var l in lines) Console.WriteLine(l);
+        // The JIT tier read back per sample: compilations of measured code inside its window.
+        { long seen; do { seen = Armonik.Ffi.Bdn.JitTiers.Received; Thread.Sleep(300); } while (seen != Armonik.Ffi.Bdn.JitTiers.Received); }
+        var jits = Armonik.Ffi.Bdn.JitTiers.Events.ToArray();
+        int quiet = 0;
+        foreach (var (smp, t0, t1) in samples)
+        {
+            var inw = jits.Where(j => j.T >= t0 && j.T <= t1).ToList();
+            if (inw.Count == 0) quiet++;
+            smp.Extra = "\"jit_in_window\":{" + string.Join(",", inw.GroupBy(j => j.Tier).OrderBy(g => g.Key)
+                .Select(g => "\"" + Armonik.Ffi.Bdn.JitTiers.TierName[g.Key] + "\":" + g.Count())) + "}";
+            Console.WriteLine(smp.Json());
+        }
+        Console.WriteLine("# jit read back:  {0} of {1} samples compiled nothing of the measured code inside their window", quiet, samples.Count);
         return 0;
     }
 
@@ -536,5 +553,64 @@ public sealed class CampaignProvider : IServiceMethodProvider<CampaignService>
     {
         ctx.AddUnaryMethod<byte[], byte[]>(new Method<byte[], byte[]>(MethodType.Unary, CampaignMain.Svc, "Down", Raw, Raw), Array.Empty<object>(), (s, r, c) => s.DownH(r, c));
         ctx.AddUnaryMethod<byte[], byte[]>(new Method<byte[], byte[]>(MethodType.Unary, CampaignMain.Svc, "Up", Raw, Raw), Array.Empty<object>(), (s, r, c) => s.UpH(r, c));
+    }
+}
+
+/// R-H2: a fixed set of caller threads, created once and reused by every sample, so no thread
+/// is created inside a timed window. Run(one, n, k) splits n calls over the first k threads,
+/// each making its calls back to back, and returns when all are done; the first exception is
+/// rethrown (requirement 18 aborts the run on it).
+internal sealed class CallerPool : IDisposable
+{
+    private readonly Thread[] _t;
+    private readonly SemaphoreSlim[] _go;
+    private readonly int[] _count;
+    private readonly CountdownEvent _done = new CountdownEvent(1);
+    private Action _work;
+    private Exception _err;
+    private volatile bool _stop;
+
+    public CallerPool(int n)
+    {
+        _t = new Thread[n];
+        _go = new SemaphoreSlim[n];
+        _count = new int[n];
+        for (int i = 0; i < n; i++)
+        {
+            _go[i] = new SemaphoreSlim(0);
+            _t[i] = new Thread(Loop) { IsBackground = true, Name = "caller-" + i };
+            _t[i].Start(i);
+        }
+    }
+
+    private void Loop(object o)
+    {
+        int i = (int)o;
+        while (true)
+        {
+            _go[i].Wait();
+            if (_stop) return;
+            try { var w = _work; for (int k = 0; k < _count[i]; k++) w(); }
+            catch (Exception e) { Interlocked.CompareExchange(ref _err, e, null); }
+            _done.Signal();
+        }
+    }
+
+    public void Run(Action one, int n, int k)
+    {
+        if (k > _t.Length) throw new ArgumentOutOfRangeException(nameof(k));
+        _work = one;
+        _err = null;
+        _done.Reset(k);
+        for (int i = 0; i < k; i++) _count[i] = n / k + (i < n % k ? 1 : 0);
+        for (int i = 0; i < k; i++) _go[i].Release();
+        _done.Wait();
+        if (_err != null) throw _err;
+    }
+
+    public void Dispose()
+    {
+        _stop = true;
+        foreach (var g in _go) g.Release();
     }
 }

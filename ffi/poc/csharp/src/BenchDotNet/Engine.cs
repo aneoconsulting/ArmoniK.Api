@@ -89,16 +89,18 @@ public sealed class CpuDiagnoser : IDiagnoser
 /// Requirement 22 (amended): blocks by arm, the arm order rotated between launches.
 public sealed class RotatingOrderer : IOrderer
 {
-    private readonly string[] _arms;
-    public RotatingOrderer(int launch)
-    {
-        int k = (launch - 1) % Cases.Arms.Length;
-        _arms = Cases.Arms.Skip(k).Concat(Cases.Arms.Take(k)).ToArray();
-    }
-    public string[] ArmOrder => _arms;
-    private int Rank(BenchmarkCase b) => Array.IndexOf(_arms, Case.Parse(b.Parameters["Case"].ToString()).Arm);
+    /// R-H23: BenchmarkDotNet has no built-in random order, but an IOrderer decides the
+    /// execution order, so this one RANDOMISES it: the prime cases first (they must run first),
+    /// then every case in a seeded shuffle (seed = launch), recorded in the header.
+    private readonly int _seed;
+    public RotatingOrderer(int launch) { _seed = launch * 104729; }
+    public int Seed => _seed;
     public IEnumerable<BenchmarkCase> GetExecutionOrder(ImmutableArray<BenchmarkCase> benchmarksCase, IEnumerable<BenchmarkLogicalGroupRule> order = null)
-        => benchmarksCase.Select((b, i) => (b, i)).OrderBy(t => Rank(t.b)).ThenBy(t => t.i).Select(t => t.b);
+    {
+        var rng = new Random(_seed);
+        var keyed = benchmarksCase.Select(b => (b, k: rng.Next())).ToList();
+        return keyed.OrderBy(t => Case.Parse(t.b.Parameters["Case"].ToString()).Content == Cases.Prime ? 0 : 1).ThenBy(t => t.k).Select(t => t.b);
+    }
     public IEnumerable<BenchmarkCase> GetSummaryOrder(ImmutableArray<BenchmarkCase> benchmarksCases, Summary summary) => GetExecutionOrder(benchmarksCases);
     public string GetHighlightGroupKey(BenchmarkCase benchmarkCase) => null;
     public string GetLogicalGroupKey(ImmutableArray<BenchmarkCase> allBenchmarksCases, BenchmarkCase benchmarkCase) => "codec";
@@ -120,6 +122,7 @@ public sealed class JsonLinesExporter : IExporter
         var sb = new StringBuilder("{\"slice\":\"csharp\",\"suite\":\"codec\"");
         sb.Append(",\"arm\":\"").Append(c.Arm).Append("\",\"payload\":\"").Append(c.Payload).Append("\",\"content\":\"").Append(c.Content)
           .Append("\",\"dir\":\"").Append(c.Dir).Append("\",\"unknown_mode\":\"").Append(c.Mode).Append('"');
+        sb.Append(",\"build\":\"").Append(Armonik.Ffi.Harness.AbiVariant.Name).Append('"');   // R-H6
         sb.Append(",\"launch\":").Append(launch).Append(",\"round\":").Append(round);
         if (cpu >= 0) sb.Append(",\"cpu_ns\":").Append(cpu);
         sb.Append(",\"wall_ns\":").Append(wall).Append(",\"iters\":").Append(iters);
