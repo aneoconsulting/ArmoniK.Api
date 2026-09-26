@@ -2977,6 +2977,18 @@ void unk_opts_list_results_response(struct ak_dec_ListResultsResponse_opts *o, i
   if (zero != 3) o->results_completed_at.grow = unk_grow;
 }
 
+// R-H7: every buffer still in the options is the host's: off the live set, so no
+// reclaim frees it.
+static void unk_untrack_opts_list_results_response(struct ak_dec_ListResultsResponse_opts *opts) {
+  unk_untrack(opts->self.buf.data);
+  if (opts->results.bufs != NULL)
+    for (uint32_t i = 0; i < opts->results.n; ++i) unk_untrack(opts->results.bufs[i].data);
+  if (opts->results_created_at.bufs != NULL)
+    for (uint32_t i = 0; i < opts->results_created_at.n; ++i) unk_untrack(opts->results_created_at.bufs[i].data);
+  if (opts->results_completed_at.bufs != NULL)
+    for (uint32_t i = 0; i < opts->results_completed_at.n; ++i) unk_untrack(opts->results_completed_at.bufs[i].data);
+}
+
 // The decode with the context armed with `opts`, read IN PLACE by the core until the
 // disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,
 // is called with `hold` after every element delivery (rule 1). A buffer the core
@@ -2986,17 +2998,16 @@ void unk_opts_list_results_response(struct ak_dec_ListResultsResponse_opts *o, i
 int32_t decode_with_list_results_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out, struct ak_dec_ListResultsResponse_opts *opts, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   int32_t rc = ak_dec_reset_ListResultsResponse(ctx, opts);
-  if (rc != AK_OK) return rc;
+  if (rc != AK_OK) {
+    // Refused (another root's context, or the core uninitialized): nothing was
+    // consumed, so every buffer in the options stays the host's (R-H7).
+    unk_untrack_opts_list_results_response(opts);
+    return rc;
+  }
   rc = decode_impl_list_results_response(ctx, b, n, out, refill, hold);
   int32_t rc2 = ak_dec_reset_ListResultsResponse(ctx, NULL);
   // R-H7: what is still in the options was not consumed and stays the host's.
-  unk_untrack(opts->self.buf.data);
-  if (opts->results.bufs != NULL)
-    for (uint32_t i = 0; i < opts->results.n; ++i) unk_untrack(opts->results.bufs[i].data);
-  if (opts->results_created_at.bufs != NULL)
-    for (uint32_t i = 0; i < opts->results_created_at.n; ++i) unk_untrack(opts->results_created_at.bufs[i].data);
-  if (opts->results_completed_at.bufs != NULL)
-    for (uint32_t i = 0; i < opts->results_completed_at.n; ++i) unk_untrack(opts->results_completed_at.bufs[i].data);
+  unk_untrack_opts_list_results_response(opts);
   unk_reclaim();
   if (rc >= 0 && rc2 != AK_OK) rc = rc2;
   return rc;
@@ -3251,19 +3262,9 @@ void unk_opts_list_tasks_detailed_response(struct ak_dec_ListTasksDetailedRespon
   if (zero != 17) o->tasks_fetched_at.grow = unk_grow;
 }
 
-// The decode with the context armed with `opts`, read IN PLACE by the core until the
-// disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,
-// is called with `hold` after every element delivery (rule 1). A buffer the core
-// consumed and this binding did not deliver (a failed decode, a map entry) is freed
-// before return; a buffer still in `opts` was not consumed and is left there, the
-// host's, for the next decode with the same options (rule 7, R-H7).
-int32_t decode_with_list_tasks_detailed_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out, struct ak_dec_ListTasksDetailedResponse_opts *opts, void (*refill)(void *), void *hold) {
-  AK_INIT_OR_RETURN();
-  int32_t rc = ak_dec_reset_ListTasksDetailedResponse(ctx, opts);
-  if (rc != AK_OK) return rc;
-  rc = decode_impl_list_tasks_detailed_response(ctx, b, n, out, refill, hold);
-  int32_t rc2 = ak_dec_reset_ListTasksDetailedResponse(ctx, NULL);
-  // R-H7: what is still in the options was not consumed and stays the host's.
+// R-H7: every buffer still in the options is the host's: off the live set, so no
+// reclaim frees it.
+static void unk_untrack_opts_list_tasks_detailed_response(struct ak_dec_ListTasksDetailedResponse_opts *opts) {
   unk_untrack(opts->self.buf.data);
   if (opts->tasks.bufs != NULL)
     for (uint32_t i = 0; i < opts->tasks.n; ++i) unk_untrack(opts->tasks.bufs[i].data);
@@ -3299,6 +3300,27 @@ int32_t decode_with_list_tasks_detailed_response_opts(ak_dec_ctx *ctx, const uin
     for (uint32_t i = 0; i < opts->tasks_processed_at.n; ++i) unk_untrack(opts->tasks_processed_at.bufs[i].data);
   if (opts->tasks_fetched_at.bufs != NULL)
     for (uint32_t i = 0; i < opts->tasks_fetched_at.n; ++i) unk_untrack(opts->tasks_fetched_at.bufs[i].data);
+}
+
+// The decode with the context armed with `opts`, read IN PLACE by the core until the
+// disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,
+// is called with `hold` after every element delivery (rule 1). A buffer the core
+// consumed and this binding did not deliver (a failed decode, a map entry) is freed
+// before return; a buffer still in `opts` was not consumed and is left there, the
+// host's, for the next decode with the same options (rule 7, R-H7).
+int32_t decode_with_list_tasks_detailed_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out, struct ak_dec_ListTasksDetailedResponse_opts *opts, void (*refill)(void *), void *hold) {
+  AK_INIT_OR_RETURN();
+  int32_t rc = ak_dec_reset_ListTasksDetailedResponse(ctx, opts);
+  if (rc != AK_OK) {
+    // Refused (another root's context, or the core uninitialized): nothing was
+    // consumed, so every buffer in the options stays the host's (R-H7).
+    unk_untrack_opts_list_tasks_detailed_response(opts);
+    return rc;
+  }
+  rc = decode_impl_list_tasks_detailed_response(ctx, b, n, out, refill, hold);
+  int32_t rc2 = ak_dec_reset_ListTasksDetailedResponse(ctx, NULL);
+  // R-H7: what is still in the options was not consumed and stays the host's.
+  unk_untrack_opts_list_tasks_detailed_response(opts);
   unk_reclaim();
   if (rc >= 0 && rc2 != AK_OK) rc = rc2;
   return rc;
@@ -3484,6 +3506,16 @@ void unk_opts_list_probe_response(struct ak_dec_ListProbeResponse_opts *o, int z
   if (zero != 2) o->probes_body.grow = unk_grow;
 }
 
+// R-H7: every buffer still in the options is the host's: off the live set, so no
+// reclaim frees it.
+static void unk_untrack_opts_list_probe_response(struct ak_dec_ListProbeResponse_opts *opts) {
+  unk_untrack(opts->self.buf.data);
+  if (opts->probes.bufs != NULL)
+    for (uint32_t i = 0; i < opts->probes.n; ++i) unk_untrack(opts->probes.bufs[i].data);
+  if (opts->probes_body.bufs != NULL)
+    for (uint32_t i = 0; i < opts->probes_body.n; ++i) unk_untrack(opts->probes_body.bufs[i].data);
+}
+
 // The decode with the context armed with `opts`, read IN PLACE by the core until the
 // disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,
 // is called with `hold` after every element delivery (rule 1). A buffer the core
@@ -3493,15 +3525,16 @@ void unk_opts_list_probe_response(struct ak_dec_ListProbeResponse_opts *o, int z
 int32_t decode_with_list_probe_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out, struct ak_dec_ListProbeResponse_opts *opts, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   int32_t rc = ak_dec_reset_ListProbeResponse(ctx, opts);
-  if (rc != AK_OK) return rc;
+  if (rc != AK_OK) {
+    // Refused (another root's context, or the core uninitialized): nothing was
+    // consumed, so every buffer in the options stays the host's (R-H7).
+    unk_untrack_opts_list_probe_response(opts);
+    return rc;
+  }
   rc = decode_impl_list_probe_response(ctx, b, n, out, refill, hold);
   int32_t rc2 = ak_dec_reset_ListProbeResponse(ctx, NULL);
   // R-H7: what is still in the options was not consumed and stays the host's.
-  unk_untrack(opts->self.buf.data);
-  if (opts->probes.bufs != NULL)
-    for (uint32_t i = 0; i < opts->probes.n; ++i) unk_untrack(opts->probes.bufs[i].data);
-  if (opts->probes_body.bufs != NULL)
-    for (uint32_t i = 0; i < opts->probes_body.n; ++i) unk_untrack(opts->probes_body.bufs[i].data);
+  unk_untrack_opts_list_probe_response(opts);
   unk_reclaim();
   if (rc >= 0 && rc2 != AK_OK) rc = rc2;
   return rc;
@@ -3666,19 +3699,9 @@ void unk_opts_list_task_summary_response(struct ak_dec_ListTaskSummaryResponse_o
   if (zero != 5) o->tasks_created_at.grow = unk_grow;
 }
 
-// The decode with the context armed with `opts`, read IN PLACE by the core until the
-// disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,
-// is called with `hold` after every element delivery (rule 1). A buffer the core
-// consumed and this binding did not deliver (a failed decode, a map entry) is freed
-// before return; a buffer still in `opts` was not consumed and is left there, the
-// host's, for the next decode with the same options (rule 7, R-H7).
-int32_t decode_with_list_task_summary_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out, struct ak_dec_ListTaskSummaryResponse_opts *opts, void (*refill)(void *), void *hold) {
-  AK_INIT_OR_RETURN();
-  int32_t rc = ak_dec_reset_ListTaskSummaryResponse(ctx, opts);
-  if (rc != AK_OK) return rc;
-  rc = decode_impl_list_task_summary_response(ctx, b, n, out, refill, hold);
-  int32_t rc2 = ak_dec_reset_ListTaskSummaryResponse(ctx, NULL);
-  // R-H7: what is still in the options was not consumed and stays the host's.
+// R-H7: every buffer still in the options is the host's: off the live set, so no
+// reclaim frees it.
+static void unk_untrack_opts_list_task_summary_response(struct ak_dec_ListTaskSummaryResponse_opts *opts) {
   unk_untrack(opts->self.buf.data);
   if (opts->tasks.bufs != NULL)
     for (uint32_t i = 0; i < opts->tasks.n; ++i) unk_untrack(opts->tasks.bufs[i].data);
@@ -3690,6 +3713,27 @@ int32_t decode_with_list_task_summary_response_opts(ak_dec_ctx *ctx, const uint8
     for (uint32_t i = 0; i < opts->tasks_options_max_duration.n; ++i) unk_untrack(opts->tasks_options_max_duration.bufs[i].data);
   if (opts->tasks_created_at.bufs != NULL)
     for (uint32_t i = 0; i < opts->tasks_created_at.n; ++i) unk_untrack(opts->tasks_created_at.bufs[i].data);
+}
+
+// The decode with the context armed with `opts`, read IN PLACE by the core until the
+// disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,
+// is called with `hold` after every element delivery (rule 1). A buffer the core
+// consumed and this binding did not deliver (a failed decode, a map entry) is freed
+// before return; a buffer still in `opts` was not consumed and is left there, the
+// host's, for the next decode with the same options (rule 7, R-H7).
+int32_t decode_with_list_task_summary_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out, struct ak_dec_ListTaskSummaryResponse_opts *opts, void (*refill)(void *), void *hold) {
+  AK_INIT_OR_RETURN();
+  int32_t rc = ak_dec_reset_ListTaskSummaryResponse(ctx, opts);
+  if (rc != AK_OK) {
+    // Refused (another root's context, or the core uninitialized): nothing was
+    // consumed, so every buffer in the options stays the host's (R-H7).
+    unk_untrack_opts_list_task_summary_response(opts);
+    return rc;
+  }
+  rc = decode_impl_list_task_summary_response(ctx, b, n, out, refill, hold);
+  int32_t rc2 = ak_dec_reset_ListTaskSummaryResponse(ctx, NULL);
+  // R-H7: what is still in the options was not consumed and stays the host's.
+  unk_untrack_opts_list_task_summary_response(opts);
   unk_reclaim();
   if (rc >= 0 && rc2 != AK_OK) rc = rc2;
   return rc;
@@ -3817,6 +3861,13 @@ void unk_opts_upload_result_data_message(struct ak_dec_UploadResultDataMessage_o
   if (zero != 1) o->upload.grow = unk_grow;
 }
 
+// R-H7: every buffer still in the options is the host's: off the live set, so no
+// reclaim frees it.
+static void unk_untrack_opts_upload_result_data_message(struct ak_dec_UploadResultDataMessage_opts *opts) {
+  unk_untrack(opts->self.buf.data);
+  unk_untrack(opts->upload.buf.data);
+}
+
 // The decode with the context armed with `opts`, read IN PLACE by the core until the
 // disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,
 // is called with `hold` after every element delivery (rule 1). A buffer the core
@@ -3826,12 +3877,16 @@ void unk_opts_upload_result_data_message(struct ak_dec_UploadResultDataMessage_o
 int32_t decode_with_upload_result_data_message_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out, struct ak_dec_UploadResultDataMessage_opts *opts, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   int32_t rc = ak_dec_reset_UploadResultDataMessage(ctx, opts);
-  if (rc != AK_OK) return rc;
+  if (rc != AK_OK) {
+    // Refused (another root's context, or the core uninitialized): nothing was
+    // consumed, so every buffer in the options stays the host's (R-H7).
+    unk_untrack_opts_upload_result_data_message(opts);
+    return rc;
+  }
   rc = decode_impl_upload_result_data_message(ctx, b, n, out, refill, hold);
   int32_t rc2 = ak_dec_reset_UploadResultDataMessage(ctx, NULL);
   // R-H7: what is still in the options was not consumed and stays the host's.
-  unk_untrack(opts->self.buf.data);
-  unk_untrack(opts->upload.buf.data);
+  unk_untrack_opts_upload_result_data_message(opts);
   unk_reclaim();
   if (rc >= 0 && rc2 != AK_OK) rc = rc2;
   return rc;
@@ -4022,6 +4077,14 @@ void unk_opts_list_metrics_response(struct ak_dec_ListMetricsResponse_opts *o, i
   if (zero != 1) o->batches.grow = unk_grow;
 }
 
+// R-H7: every buffer still in the options is the host's: off the live set, so no
+// reclaim frees it.
+static void unk_untrack_opts_list_metrics_response(struct ak_dec_ListMetricsResponse_opts *opts) {
+  unk_untrack(opts->self.buf.data);
+  if (opts->batches.bufs != NULL)
+    for (uint32_t i = 0; i < opts->batches.n; ++i) unk_untrack(opts->batches.bufs[i].data);
+}
+
 // The decode with the context armed with `opts`, read IN PLACE by the core until the
 // disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,
 // is called with `hold` after every element delivery (rule 1). A buffer the core
@@ -4031,13 +4094,16 @@ void unk_opts_list_metrics_response(struct ak_dec_ListMetricsResponse_opts *o, i
 int32_t decode_with_list_metrics_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out, struct ak_dec_ListMetricsResponse_opts *opts, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   int32_t rc = ak_dec_reset_ListMetricsResponse(ctx, opts);
-  if (rc != AK_OK) return rc;
+  if (rc != AK_OK) {
+    // Refused (another root's context, or the core uninitialized): nothing was
+    // consumed, so every buffer in the options stays the host's (R-H7).
+    unk_untrack_opts_list_metrics_response(opts);
+    return rc;
+  }
   rc = decode_impl_list_metrics_response(ctx, b, n, out, refill, hold);
   int32_t rc2 = ak_dec_reset_ListMetricsResponse(ctx, NULL);
   // R-H7: what is still in the options was not consumed and stays the host's.
-  unk_untrack(opts->self.buf.data);
-  if (opts->batches.bufs != NULL)
-    for (uint32_t i = 0; i < opts->batches.n; ++i) unk_untrack(opts->batches.bufs[i].data);
+  unk_untrack_opts_list_metrics_response(opts);
   unk_reclaim();
   if (rc >= 0 && rc2 != AK_OK) rc = rc2;
   return rc;
@@ -4170,6 +4236,16 @@ void unk_opts_dual_response(struct ak_dec_DualResponse_opts *o, int zero) {
   if (zero != 2) o->right.grow = unk_grow;
 }
 
+// R-H7: every buffer still in the options is the host's: off the live set, so no
+// reclaim frees it.
+static void unk_untrack_opts_dual_response(struct ak_dec_DualResponse_opts *opts) {
+  unk_untrack(opts->self.buf.data);
+  if (opts->left.bufs != NULL)
+    for (uint32_t i = 0; i < opts->left.n; ++i) unk_untrack(opts->left.bufs[i].data);
+  if (opts->right.bufs != NULL)
+    for (uint32_t i = 0; i < opts->right.n; ++i) unk_untrack(opts->right.bufs[i].data);
+}
+
 // The decode with the context armed with `opts`, read IN PLACE by the core until the
 // disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,
 // is called with `hold` after every element delivery (rule 1). A buffer the core
@@ -4179,15 +4255,16 @@ void unk_opts_dual_response(struct ak_dec_DualResponse_opts *o, int zero) {
 int32_t decode_with_dual_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out, struct ak_dec_DualResponse_opts *opts, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   int32_t rc = ak_dec_reset_DualResponse(ctx, opts);
-  if (rc != AK_OK) return rc;
+  if (rc != AK_OK) {
+    // Refused (another root's context, or the core uninitialized): nothing was
+    // consumed, so every buffer in the options stays the host's (R-H7).
+    unk_untrack_opts_dual_response(opts);
+    return rc;
+  }
   rc = decode_impl_dual_response(ctx, b, n, out, refill, hold);
   int32_t rc2 = ak_dec_reset_DualResponse(ctx, NULL);
   // R-H7: what is still in the options was not consumed and stays the host's.
-  unk_untrack(opts->self.buf.data);
-  if (opts->left.bufs != NULL)
-    for (uint32_t i = 0; i < opts->left.n; ++i) unk_untrack(opts->left.bufs[i].data);
-  if (opts->right.bufs != NULL)
-    for (uint32_t i = 0; i < opts->right.n; ++i) unk_untrack(opts->right.bufs[i].data);
+  unk_untrack_opts_dual_response(opts);
   unk_reclaim();
   if (rc >= 0 && rc2 != AK_OK) rc = rc2;
   return rc;

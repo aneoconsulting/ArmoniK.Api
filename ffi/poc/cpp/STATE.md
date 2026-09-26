@@ -12,7 +12,7 @@ defect. What this file reports as results are correctness outcomes and crossing 
 
 | | |
 |---|---|
-| **Status** | 2026-09-26, FIX-PLAN WP6 step 1. The C++ backend renders both builds from the shared plan: the **full** build (ABI v1 decision 11) and the **no-unknown** build (unknown fields compiled out). Both builds are gated from a clean checkout at `662cd3bd4` (`logs/cpp/wp5-*.log`, `logs/cpp/wp5s10-nounk.log`: 0 failed steps, header clean). Both builds pass under ASan+LSan (`logs/cpp/asan.log`: 0 failures, no sanitizer report). The campaign harness runs both builds; its checklist is below |
+| **Status** | 2026-09-26, register H (WP6 re-review) worked for the findings assigned to cpp; per-finding dispositions below. Both builds are gated from a clean checkout at `b758b2737` (core `31fc3eecf`: R-H21 capacity cap, R-H10 parse order), 0 failed steps (`logs/cpp/wp5-*.log`, `wp5s10-nounk.log`); ASan+LSan clean on both builds (`asan.log`); campaign smoke (gate, codec, rpc, calib) green and marked `"smoke": true` |
 | **Core** | the shared one at `ffi/poc/codec/crates/ak-core` (R0). CMake builds it with cargo, `init-guard` in every configuration. Full-build flavours: plain, `count`, `corpus`, `rpc`, `rpc,count`, and three planted cores (`pad-widths`, `global-widths`, both). No-unknown flavours: `--no-default-features` plus `init-guard` alone, `count`, `corpus` or `rpc`. Each flavour has its own target dir under `core-build/` |
 | **Generator** | one generator (W14). `poc/codec/gen/plan.py` holds the rules. This slice's backend modules in `poc/codec/gen/` are `cpp_binding.py`, `cpp_native.py`, `cpp_facade.py`, `cpp_names.py` and `cpp_layout.py`, plus `c_abi.py`, which renders the C header for every slice. `gen/generate.py` is glue: it renders the targets from plans and imports no IR (the guard in `generate.py --check`) |
 | **Floor / target** | C++11 floor, C++17 target, both builds. C++14 also builds and is gated (full build) |
@@ -33,12 +33,21 @@ poc/codec/gen/cpp_binding.py   the C++ host binding over the C ABI (arm core-ffi
                                    to their root, rule 6).
                                No-unknown build (plan relowered with unknown="drop"): none of
                                the unknown-field family; ak_dec_ctx_new_<Root>(void).
+                               Buffers still in the options after a decode are the host's
+                               and are left there (R-H7: reusable options, rule 7).
+poc/codec/gen/cpp_facade.py    the facade; in the no-unknown build without `unknown_fields`
+                               (owner decision R-H22). That build is a separate configuration
+                               with its own header directory, so no installed header changes
+                               layout under a consumer's -std (README 5.1)
 poc/codec/gen/cpp_native.py    arm host-gen: the codec generated into C++ from the same plan,
                                drop and retain renderings
 include/ak_abi.h, include/generated/ak_layout*.h   full-build C header (c_abi.py, 400 facts)
 nounk/include/...                                  no-unknown header (AK_NO_UNKNOWN_FIELDS,
                                                    240 facts)
 corpus/include/..., corpus/nounk/include/...       the same two for the corpus reader schema
+nounk/src/generated/types*.{h,cpp}, corpus/nounk/src/generated/types.{h,cpp}
+                               the no-unknown facades (no unknown_fields), found first on the
+                               nounk targets' include path (sources include <generated/types.h>)
 src/generated/                 facade types, binding(_nounk), borrowed-facade binding(_nounk),
                                core_native(_retain), builders (facade and protobuf), cases,
                                projection, touch (read-every-field traversal)
@@ -101,14 +110,14 @@ Scripts (`gen/`):
 
 ## What was checked, and where the log is
 
-From a fresh `git worktree` at `662cd3bd4`, with no uncommitted changes and new build
+From a fresh `git worktree` at `b758b2737`, with no uncommitted changes and new build
 directories (`CLEAN=1 gen/wp5_gate.sh build`, then `gen/d11_asan.sh`):
 
 | Check | Result | Log |
 |---|---|---|
 | build | every target configured and built from scratch; every gated binary newer than its sources | `wp5-build.log` |
 | generator | `generate.py --check` every target current; guard: the shared C++ modules import plans only, glue imports no IR, a planted import is caught; the shared `--check` over every slice; `refusal_test.py`, `rd2_guard.sh`, `audit_tracked.sh`, `one_core.sh` and `one_core.sh --selftest` (0 controls failed to fire) | `wp5-generator.log` |
-| payload byte identity, full build | 574 checks, 0 failures at C++17 target, C++17 floor, C++14, C++11 and static; the noinit plant fails (300 failures) | `wp5-conformance.log` |
+| payload byte identity, full build | 576 checks, 0 failures at C++17 target, C++17 floor, C++14, C++11 and static; the noinit plant fails (300 failures) | `wp5-conformance.log` |
 | full corpus, full build | 702 rows, four builds (C++17, C++14, C++11, static): ffi 680/0, native 696/0, 6 disputed (excluded), 16 roots not in the C ABI; 2808 (row, arm) outcomes identical across the four builds; retain arms write the dropped form only on `U-map-entry`; plants proj/reenc/accept/noinit fail; `--compare` sees a planted difference | `wp5-corpus.log` |
 | decision 11 controls | four builds: 686 rows, 2290 positions, 0 failing rows (pool = retain, drop = retain cleared, each position zeroed drops exactly it, map-entry bytes right); the plant fails 307 rows | `wp5-corpus.log` |
 | oracle-probe rows | 11/11 on all four arms, C++17 and C++11 | `wp5-probe.log` |
@@ -116,7 +125,7 @@ directories (`CLEAN=1 gen/wp5_gate.sh build`, then `gen/d11_asan.sh`):
 | boundary, layout | 23 checks, 0 failed; 574 corpus layout facts agree, shared and static | `wp5-boundary.log` |
 | other gates | groupskip (with its two plants failing), concurrency (T7 off; the planted cores fail), ODR, bench gates and the gate plant, content sets, crossing counts 87 rows identical to `counts-baseline.log`, RPC counts | `wp5-gates.log` |
 | no-unknown build | every variant binary loads a core with 0 u-family exports, every full one a core with them; both headers against both cores (matched agree, mismatched caught); 478 checks, 0 failures at C++17, C++11 and static (240 layout facts); corpus C++17 and C++11: ffi 680/0, native 696/0, 0 unknown rows written non-dropped, outcomes identical; plants fail; 87 count rows identical to `counts-nounk-baseline.log` | `wp5s10-nounk.log` |
-| ASan + LSan | full build: conformance 574/0, decision 11 controls 0 failing rows, corpus green; no-unknown build: conformance 478/0, corpus green with every unknown row dropped; 0 sanitizer reports | `asan.log` |
+| ASan + LSan | full build: conformance 576/0 (incl. the R-H7 options-reuse control), decision 11 controls 0 failing rows, corpus green; no-unknown build: conformance 478/0, corpus green with every unknown row dropped; 0 sanitizer reports | `asan.log` |
 
 **Decision 11, as the owner confirmed it** (ABI-v1 rule 4 amended 2026-09-26): there is one
 options entry per oneof, and the core fills it in the active member's decode group. The
@@ -156,9 +165,8 @@ listed so that nobody re-derives them. **No figure from them is quoted here.**
   GHz). They were taken before the 6-field `ak_client_opts` existed (`rd2-history.log`).
 - `calibration-r13.log`: the rust slice's crossing bench on the 2.80 GHz container.
 - `campaign/*.jsonl`, `campaign/*.gbench.json`: campaign smoke runs.
-  - `codec-*`, `rpc-*`: 2 launches, 1 round, reduced sizes, both builds, at `9bb622d`.
-    Every timing is stripped (`"figures": "stripped (smoke)"`).
-  - `calib-launch1.jsonl`: the WP3 smoke at `32d69b0`, marked `"instrumentation": true`.
+  - `codec-*`, `rpc-*`, `calib-*`: 1 launch, 1 round, reduced sizes, both builds, at
+    `b758b2737`, `"smoke": true`. Every timing is stripped (`"figures": "stripped (smoke)"`).
 
 ## CAMPAIGN.md section 10 checklist
 
@@ -174,30 +182,48 @@ listed so that nobody re-derives them. **No figure from them is quoted here.**
 | 7 | 16 payloads, content sets, U-* rows | **met**, with one reading to confirm. Content sets run on P1.2, P2.2, P3.1, P4.1 and P6.1; SHAPES.md names no list, so this is the committed content-set gate's. The U-* rows are the 92 non-disputed rows at the seven roots the timed codec implements. Rows at other corpus roots are implemented only by the corpus build, a different ABI that is not timed |
 | 8 | arms | **met**: incumbent-prod (grpc++ SerializationTraits), incumbent-best, core-ffi (push), host-gen. The pull family is not in this slice. The Rust-only arms are not applicable |
 | 9 | encode, decode twice | **met**: `decode` and `decode_read` (the generated read-every-field traversal) |
-| 10 | three modes for core-ffi and host-gen | **met** for core-ffi: drop and retain in `campaign_codec`, no-unknown in `campaign_codec_nounk`. host-gen: drop and retain. Its drop codec is already the drop plan's rendering, with no capture code, in both builds, so it has no separate no-unknown arm and runs in the no-unknown binary as a `drop` control. Every sample carries `unknown_mode` and `build` |
+| 10 | three modes for core-ffi and host-gen | **met**: core-ffi drop and retain in `campaign_codec`, no-unknown in `campaign_codec_nounk`; host-gen drop and retain in `campaign_codec`, no-unknown in `campaign_codec_nounk` (the drop rendering over the facade without `unknown_fields`, R-H22). The no-unknown build has no retain arm of either kind. Every sample carries `unknown_mode` and `build` |
 | 11 | serialise once per iteration, fresh object | **met**: decode goes into a fresh object every iteration, and protobuf C++ recomputes ByteSizeLong on every Serialize |
-| 12 | cells A-D; C and D in each mode | **met**: the full client runs A, B, C-retain, C-drop, D-retain and D-drop; the no-unknown client runs A and B (in-process controls), C-nounk and D-nounk. A pre-run check in every C/D mode compares the decoded and re-encoded message with the incumbent's re-serialisation |
+| 12 | cells A-D; C and D in each mode | **met**: the full client runs A, B, C-retain, C-drop, D-retain and D-drop; the no-unknown client runs A and B (in-process controls), C-nounk and D-nounk. A pre-run check in every C/D mode compares the decoded and re-encoded message with the incumbent's re-serialisation. The caller threads are created once, before any timed window, and reused (R-H2) |
 | 13 | server out of process, pre-serialised | **met** for direction a. In direction b the server decodes with the incumbent in every cell |
 | 14 | directions a and b | **met**. The optional streamed upload is not built |
 | 15 | 1, 8, 16 in flight | **met** |
 | 16 | B and C blocking | **met**. The callback and queue rows exist only in the pre-campaign `rpcbench`, not in the campaign client |
 | 17 | shipped and pinned | **met**, stated. grpc++ shipped = packages/cpp's channel args minus its retry service config. grpc++ pinned has no connection-window argument, so only the stream half is pinned. core shipped = ak_client_new defaults |
-| 18 | every call checked | **met**: status and length on every call (cell A: content on every call, wire length once before the rounds); the first failure aborts. Both clients' abort is exercised in the gate |
+| 18 | every call checked | **met**: status and length on every call (cell A: content on every call, wire length once before the rounds); the first failure aborts and **leaves no sample** (R-H4): samples are buffered in the client and written only on success, and the runner deletes a failed launch file. The gate checks "no sample" for a wrong length, for an abort after two samples (`--fail-after 2`) and for the runner's discard. A failing `campaign_calib` is propagated the same way (R-H5) |
 | 19 | crossing counts gate | **met**: `counts_a17_shared` against `counts-baseline.log`, `counts_nounk` against `counts-nounk-baseline.log` |
 | 20 | crossing cost, fwd and rev, perf stat | **not met here**: perf is not installed. The runner builds and runs the rust slice's crossing bench, which did not build in the WP3 out-of-tree snapshot, and has not been re-run since. Reverse is reported as a fwd+rev row, from which the forward row is subtracted |
 | 21 | CPU time | **met**. Codec: Google Benchmark cpu_time (the benchmark thread) and real_time. Calib: CLOCK_THREAD_CPUTIME_ID. RPC: getrusage(RUSAGE_SELF) of the client, plus wall |
-| 22 | order rotated between launches | **met**. Codec: registration order rotated by launch, plus Google Benchmark's random interleaving. RPC: rounds rotated, and the two builds' binaries alternated by launch |
+| 22 | order rotated between launches | **met**. Codec: Google Benchmark's `--benchmark_enable_random_interleaving` (repetitions of all benchmarks interleaved at random; every repetition still exported raw) plus registration order rotated by launch (R-H23). RPC: the cell order of every (launch, round, dir, in-flight) group is a seeded shuffle, recorded per sample as `order_pos` (R-H18/R-H23), and the two builds' binaries alternate by launch |
 | 22a | benchmark engine | **met** for the codec suite: Google Benchmark v1.8.3, a Release build made by the runner from the upstream tag with its commit checked. Every repetition is exported raw and converted to section 7's lines. The RPC and calib suites stay on the runner, because a separate server process and abort-on-first-failure do not fit a Google Benchmark registration |
 | 23 | 5 rounds x 3 launches, every round committed | **met** (runner defaults; the smokes used fewer, stated) |
 | 24 | warm-up fixed and identical | **met**: a byte budget per codec arm and a call count per RPC cell, before round 1. Google Benchmark adds none (`--benchmark_min_warmup_time=0`). JIT is not applicable |
 | 25 | allocator warmed identically | **met**: every arm's warm-up precedes round 1. GC is not applicable |
 | 26 | correctness gate first | **met**: the campaign gate runs the full build's conformance, corpus, plants and counts, `nounk_gate.sh`, each codec binary's own gate and plant, and both RPC clients' length abort |
-| 27 | header; dirty tree refused | **met**: a dirty tree is refused unless AK_CAMPAIGN_ALLOW_DIRTY=1 (smoke only, recorded in the header as instrumentation) |
+| 27 | header; dirty tree refused | **met**: a dirty tree is refused unless AK_CAMPAIGN_ALLOW_DIRTY=1 (smoke only). The header's `"instrumentation"` is true on a dirty tree or with AK_CAMPAIGN_SMOKE=1, which also sets `"smoke": true`, so a clean-tree smoke is marked (R-H19) |
 | 28 | one JSON object per sample | **met**, plus a `build` field |
 | 29 | logs in `ffi/logs/cpp/campaign/` | **met** |
 | 30 | summaries only as specified | **met** (`gen/campaign_summary.py`, keyed per build; no committed summary) |
 | 31 | runner interface; top-level `ffi/campaign.sh` | **met** for the slice runner. `ffi/campaign.sh` belongs to the aggregating session |
 | 32 | smoke committed, marked | **met**: the WP5 step 10 smoke, figures stripped |
+
+## Register H (WP6 re-review): findings for cpp, proposed dispositions
+
+| Finding | Evidence | Proposed disposition |
+|---|---|---|
+| R-H7 options reused after a decode: freed buffers left in the options | reproduced under ASan before the fix: heap-use-after-free in `unk_put` on the second decode with the same options (`logs/cpp/rh7-before.log`) | **confirmed, fixed** (`95c399de9`): `decode_with_<root>_opts` untracks every buffer still in the options, so reclaim frees only buffers the core consumed and the binding did not deliver; `_pool` frees its own leftovers. The reproduction is kept as a conformance control (`d11_reuse`), clean under ASan (`asan.log`) |
+| R-H4 aborted RPC run leaves samples; control checks only rc | the client printed each sample as it was taken and the runner appended its output; the control grepped nothing | **confirmed, fixed** (`7875a980b`): samples buffered and written only on success; the runner deletes a failed launch file; three gate controls check "no sample" (`campaign/gate.log`) |
+| R-H5 `campaign_calib` failure not propagated | the runner ignored its exit status; calib had no failure path | **confirmed, fixed**: calib refuses malformed arguments (exit 2) and writes only after every round; the runner propagates and deletes the file; gate control (`campaign/gate.log`) |
+| R-H22 no-unknown keeps the facade member (owner decision) | `unknown_fields` rendered unconditionally | **done**: `cpp_facade` omits it under `unknown_compiled_out`; variant facades under `nounk/src`; host-gen no-unknown arm; retain arms not built in that build; full build unchanged |
+| R-H2 RPC threads spawned per batch inside the window | `batch()` created k threads per call | **confirmed, fixed**: a pool created before the rounds, one condition-variable round trip per thread in the window |
+| R-H23 order of arms (owner decision) | codec already used Google Benchmark's random interleaving (22a); RPC rotated with one schedule | **done**: codec unchanged (stated); RPC seeded shuffle per (launch, round, dir, in-flight) with `order_pos` (covers C++'s part of R-H18) |
+| R-H19 `"instrumentation"` true only on a dirty tree | `run_campaign.sh` header | **confirmed, fixed**: AK_CAMPAIGN_SMOKE=1 marks a clean-tree smoke (`"smoke": true`) |
+| R-H15 `cpp_layout.py` tests `options.unknown == "drop"` | as reported | **fixed by the rust agent** in `31fc3eecf` (with `c_abi.py`); `cpp_native.py`'s `unknown` argument is the host-gen mode, not the ABI variant, and was left |
+
+Found while gating: `nounk_gate.sh`'s dropped-form control ran on the no-unknown build's
+native-retain arm, which R-H22 removed, so the control could no longer fail. The gate at
+`3a211100c` reported it as blind; it now runs on the full build's native-retain
+(`b758b2737`).
 
 ## Open defects
 
@@ -236,7 +262,11 @@ and the record is in JOURNAL.md. The items reported against other owners were re
 **Unknown fields.**
 - **Map entries.** A map entry's unknown fields have no facade bag. They are counted,
   freed and dropped (the `U-map-entry` retention gap, a disputed corpus row).
-- **Rule 5**: a buffer above 2 GiB giving AK_ERR_LIMIT is not exercised.
+- **Rule 5** (every capacity capped at INT32_MAX, amended 2026-09-26, core `31fc3eecf`):
+  not exercised from C++. It needs a message whose unknown runs exceed 2 GiB; the core's
+  own unit tests cover `unk_room`.
+- **host-gen retain in the no-unknown build**: not built (its facade has no bag), so the
+  no-unknown corpus reports native-retain and ffi-retain NOT BUILT.
 - **The RPC server side.** The server decodes with the incumbent in every cell, so no
   cell runs the core's decoder on the server.
 
@@ -283,7 +313,7 @@ minutes here), then `gen/d11_asan.sh`. `gen/run_all.sh` takes timings and is not
 
 ## Log index
 
-Current gate (clean checkout at `662cd3bd4`):
+Current gate (clean checkout at `b758b2737`):
 
 | Log | What it contains |
 |---|---|

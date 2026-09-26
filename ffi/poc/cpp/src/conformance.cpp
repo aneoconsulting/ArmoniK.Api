@@ -884,6 +884,12 @@ static void d11_wrong_root() {
   shapes::ListTasksDetailedResponse t1, t2;
   int32_t bd = shapes::ffi::decode_with_list_tasks_detailed_response(c, e, 0, &t1);
   int32_t bu = shapes::ffi::decode_with_list_tasks_detailed_response_unk(c, e, 0, &t2);
+  // The same refusal through the PRE-ALLOCATED path: its buffers must come back to the
+  // pool holder untouched and be freed once (the noinit build found a double free here).
+  shapes::ListTasksDetailedResponse t3;
+  int32_t bp = shapes::ffi::decode_with_list_tasks_detailed_response_pool(c, e, 0, &t3, 2, 16, NULL);
+  check(bp == AK_ERR_INVALID_STATE && shapes::ffi::unk_reclaim() == 0,
+        "d11 wrong root through the pool decode: refused, nothing left live, no double free");
   shapes::ListResultsResponse own;
   int32_t ok_own = shapes::ffi::decode_with_list_results_response_unk(c, e, 0, &own);
   std::printf("  wrong root: decode %d, parse %d, reset %d, binding decode %d, binding armed decode %d"
