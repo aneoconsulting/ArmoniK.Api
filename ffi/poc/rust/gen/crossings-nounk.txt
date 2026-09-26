@@ -1,336 +1,354 @@
-# input                                            direction    mode    forward  reverse
-P1.1                                             encode       no-unknown        2        1
-P1.1                                             decode       no-unknown        1        2
-P1.1                                             decode-pull  no-unknown        2        0
-P1.2                                             encode       no-unknown        8        1
-P1.2                                             decode       no-unknown        1        5
-P1.2                                             decode-pull  no-unknown        2        0
-P1.2/latin1                                      encode       no-unknown        8        1
-P1.2/latin1                                      decode       no-unknown        1        5
-P1.2/latin1                                      decode-pull  no-unknown        2        0
-P1.2/wide                                        encode       no-unknown        8        1
-P1.2/wide                                        decode       no-unknown        1        5
-P1.2/wide                                        decode-pull  no-unknown        2        0
-P1.3                                             encode       no-unknown        3        1
-P1.3                                             decode       no-unknown        1        3
-P1.3                                             decode-pull  no-unknown        2        0
-P2.1                                             encode       no-unknown        7        6
-P2.1                                             decode       no-unknown        1        8
-P2.1                                             decode-pull  no-unknown        2        0
-P2.2                                             encode       no-unknown     2511     2501
-P2.2                                             decode       no-unknown        1     3501
-P2.2                                             decode-pull  no-unknown        2        0
-P2.2/latin1                                      encode       no-unknown     2511     2501
-P2.2/latin1                                      decode       no-unknown        1     3501
-P2.2/latin1                                      decode-pull  no-unknown        2        0
-P2.2/wide                                        encode       no-unknown     2511     2501
-P2.2/wide                                        decode       no-unknown        1     3501
-P2.2/wide                                        decode-pull  no-unknown        2        0
-P2.3                                             encode       no-unknown      629      626
-P2.3                                             decode       no-unknown        1      876
-P2.3                                             decode-pull  no-unknown        2        0
-P2.4                                             encode       no-unknown      403      401
-P2.4                                             decode       no-unknown        1      561
-P2.4                                             decode-pull  no-unknown        2        0
-P2.5                                             encode       no-unknown      102      101
-P2.5                                             decode       no-unknown        1      141
-P2.5                                             decode-pull  no-unknown        2        0
-P3.1                                             encode       no-unknown        2        1
-P3.1                                             decode       no-unknown        1        2
-P3.1                                             decode-pull  no-unknown        2        0
-P4.1                                             encode       no-unknown      203      201
-P4.1                                             decode       no-unknown        1      601
-P4.1                                             decode-pull  no-unknown        2        0
-P5.1                                             encode       no-unknown        1        0
-P5.1                                             decode       no-unknown        1        1
-P5.1                                             decode-pull  no-unknown        2        0
-P5.2                                             encode       no-unknown        1        0
-P5.2                                             decode       no-unknown        1        1
-P5.2                                             decode-pull  no-unknown        2        0
-P5.3                                             encode       no-unknown        1        0
-P5.3                                             decode       no-unknown        1        1
-P5.3                                             decode-pull  no-unknown        2        0
-P5.4                                             encode       no-unknown        1        0
-P5.4                                             decode       no-unknown        1        1
-P5.4                                             decode-pull  no-unknown        2        0
-P6.1                                             encode       no-unknown     1002     1001
-P6.1                                             decode       no-unknown        1     1401
-P6.1                                             decode-pull  no-unknown        2        0
-P7.1                                             decode       no-unknown        1        7
-P7.1                                             decode-pull  no-unknown        2        0
-U-deep-all                                       encode       no-unknown        7        6
-U-deep-all                                       decode       no-unknown        1        8
-U-deep-all                                       decode-pull  no-unknown        2        0
-U-deep-u-fixed32                                 encode       no-unknown        7        6
-U-deep-u-fixed32                                 decode       no-unknown        1        8
-U-deep-u-fixed32                                 decode-pull  no-unknown        2        0
-U-deep-u-fixed64                                 encode       no-unknown        7        6
-U-deep-u-fixed64                                 decode       no-unknown        1        8
-U-deep-u-fixed64                                 decode-pull  no-unknown        2        0
-U-deep-u-len                                     encode       no-unknown        7        6
-U-deep-u-len                                     decode       no-unknown        1        8
-U-deep-u-len                                     decode-pull  no-unknown        2        0
-U-deep-u-msg                                     encode       no-unknown        7        6
-U-deep-u-msg                                     decode       no-unknown        1        8
-U-deep-u-msg                                     decode-pull  no-unknown        2        0
-U-deep-u-packed                                  encode       no-unknown        7        6
-U-deep-u-packed                                  decode       no-unknown        1        8
-U-deep-u-packed                                  decode-pull  no-unknown        2        0
-U-deep-u-repeated                                encode       no-unknown        7        6
-U-deep-u-repeated                                decode       no-unknown        1        8
-U-deep-u-repeated                                decode-pull  no-unknown        2        0
-U-deep-u-varint                                  encode       no-unknown        7        6
-U-deep-u-varint                                  decode       no-unknown        1        8
-U-deep-u-varint                                  decode-pull  no-unknown        2        0
-U-element-all                                    encode       no-unknown        7        6
-U-element-all                                    decode       no-unknown        1        8
-U-element-all                                    decode-pull  no-unknown        2        0
-U-element-u-fixed32                              encode       no-unknown        7        6
-U-element-u-fixed32                              decode       no-unknown        1        8
-U-element-u-fixed32                              decode-pull  no-unknown        2        0
-U-element-u-fixed64                              encode       no-unknown        7        6
-U-element-u-fixed64                              decode       no-unknown        1        8
-U-element-u-fixed64                              decode-pull  no-unknown        2        0
-U-element-u-len                                  encode       no-unknown        7        6
-U-element-u-len                                  decode       no-unknown        1        8
-U-element-u-len                                  decode-pull  no-unknown        2        0
-U-element-u-msg                                  encode       no-unknown        7        6
-U-element-u-msg                                  decode       no-unknown        1        8
-U-element-u-msg                                  decode-pull  no-unknown        2        0
-U-element-u-packed                               encode       no-unknown        7        6
-U-element-u-packed                               decode       no-unknown        1        8
-U-element-u-packed                               decode-pull  no-unknown        2        0
-U-element-u-repeated                             encode       no-unknown        7        6
-U-element-u-repeated                             decode       no-unknown        1        8
-U-element-u-repeated                             decode-pull  no-unknown        2        0
-U-element-u-varint                               encode       no-unknown        7        6
-U-element-u-varint                               decode       no-unknown        1        8
-U-element-u-varint                               decode-pull  no-unknown        2        0
-U-enum-value-127                                 encode       no-unknown        2        1
-U-enum-value-127                                 decode       no-unknown        1        2
-U-enum-value-127                                 decode-pull  no-unknown        2        0
-U-enum-value-2147483647                          encode       no-unknown        2        1
-U-enum-value-2147483647                          decode       no-unknown        1        2
-U-enum-value-2147483647                          decode-pull  no-unknown        2        0
-U-enum-value-999                                 encode       no-unknown        2        1
-U-enum-value-999                                 decode       no-unknown        1        2
-U-enum-value-999                                 decode-pull  no-unknown        2        0
-U-enum-value-packed                              encode       no-unknown        7        6
-U-enum-value-packed                              decode       no-unknown        1        4
-U-enum-value-packed                              decode-pull  no-unknown        2        0
-U-leaf-all                                       encode       no-unknown        2        1
-U-leaf-all                                       decode       no-unknown        1        2
-U-leaf-all                                       decode-pull  no-unknown        2        0
-U-leaf-u-fixed32                                 encode       no-unknown        2        1
-U-leaf-u-fixed32                                 decode       no-unknown        1        2
-U-leaf-u-fixed32                                 decode-pull  no-unknown        2        0
-U-leaf-u-fixed64                                 encode       no-unknown        2        1
-U-leaf-u-fixed64                                 decode       no-unknown        1        2
-U-leaf-u-fixed64                                 decode-pull  no-unknown        2        0
-U-leaf-u-len                                     encode       no-unknown        2        1
-U-leaf-u-len                                     decode       no-unknown        1        2
-U-leaf-u-len                                     decode-pull  no-unknown        2        0
-U-leaf-u-msg                                     encode       no-unknown        2        1
-U-leaf-u-msg                                     decode       no-unknown        1        2
-U-leaf-u-msg                                     decode-pull  no-unknown        2        0
-U-leaf-u-packed                                  encode       no-unknown        2        1
-U-leaf-u-packed                                  decode       no-unknown        1        2
-U-leaf-u-packed                                  decode-pull  no-unknown        2        0
-U-leaf-u-repeated                                encode       no-unknown        2        1
-U-leaf-u-repeated                                decode       no-unknown        1        2
-U-leaf-u-repeated                                decode-pull  no-unknown        2        0
-U-leaf-u-varint                                  encode       no-unknown        2        1
-U-leaf-u-varint                                  decode       no-unknown        1        2
-U-leaf-u-varint                                  decode-pull  no-unknown        2        0
-U-nested-all                                     encode       no-unknown        2        1
-U-nested-all                                     decode       no-unknown        1        2
-U-nested-all                                     decode-pull  no-unknown        2        0
-U-nested-before                                  encode       no-unknown        2        1
-U-nested-before                                  decode       no-unknown        1        2
-U-nested-before                                  decode-pull  no-unknown        2        0
-U-nested-group                                   encode       no-unknown        2        1
-U-nested-group                                   decode       no-unknown        1        2
-U-nested-group                                   decode-pull  no-unknown        2        0
-U-nested-interleaved                             encode       no-unknown        2        1
-U-nested-interleaved                             decode       no-unknown        1        2
-U-nested-interleaved                             decode-pull  no-unknown        2        0
-U-nested-u-fixed32                               encode       no-unknown        2        1
-U-nested-u-fixed32                               decode       no-unknown        1        2
-U-nested-u-fixed32                               decode-pull  no-unknown        2        0
-U-nested-u-fixed64                               encode       no-unknown        2        1
-U-nested-u-fixed64                               decode       no-unknown        1        2
-U-nested-u-fixed64                               decode-pull  no-unknown        2        0
-U-nested-u-len                                   encode       no-unknown        2        1
-U-nested-u-len                                   decode       no-unknown        1        2
-U-nested-u-len                                   decode-pull  no-unknown        2        0
-U-nested-u-msg                                   encode       no-unknown        2        1
-U-nested-u-msg                                   decode       no-unknown        1        2
-U-nested-u-msg                                   decode-pull  no-unknown        2        0
-U-nested-u-packed                                encode       no-unknown        2        1
-U-nested-u-packed                                decode       no-unknown        1        2
-U-nested-u-packed                                decode-pull  no-unknown        2        0
-U-nested-u-repeated                              encode       no-unknown        2        1
-U-nested-u-repeated                              decode       no-unknown        1        2
-U-nested-u-repeated                              decode-pull  no-unknown        2        0
-U-nested-u-varint                                encode       no-unknown        2        1
-U-nested-u-varint                                decode       no-unknown        1        2
-U-nested-u-varint                                decode-pull  no-unknown        2        0
-U-oneof-all                                      encode       no-unknown        2        1
-U-oneof-all                                      decode       no-unknown        1        2
-U-oneof-all                                      decode-pull  no-unknown        2        0
-U-oneof-before                                   encode       no-unknown        2        1
-U-oneof-before                                   decode       no-unknown        1        2
-U-oneof-before                                   decode-pull  no-unknown        2        0
-U-oneof-group                                    encode       no-unknown        2        1
-U-oneof-group                                    decode       no-unknown        1        2
-U-oneof-group                                    decode-pull  no-unknown        2        0
-U-oneof-interleaved                              encode       no-unknown        2        1
-U-oneof-interleaved                              decode       no-unknown        1        2
-U-oneof-interleaved                              decode-pull  no-unknown        2        0
-U-oneof-member-after-known                       encode       no-unknown        2        1
-U-oneof-member-after-known                       decode       no-unknown        1        2
-U-oneof-member-after-known                       decode-pull  no-unknown        2        0
-U-oneof-member-alone                             encode       no-unknown        2        1
-U-oneof-member-alone                             decode       no-unknown        1        2
-U-oneof-member-alone                             decode-pull  no-unknown        2        0
-U-oneof-member-before-known                      encode       no-unknown        2        1
-U-oneof-member-before-known                      decode       no-unknown        1        2
-U-oneof-member-before-known                      decode-pull  no-unknown        2        0
-U-oneof-u-fixed32                                encode       no-unknown        2        1
-U-oneof-u-fixed32                                decode       no-unknown        1        2
-U-oneof-u-fixed32                                decode-pull  no-unknown        2        0
-U-oneof-u-fixed64                                encode       no-unknown        2        1
-U-oneof-u-fixed64                                decode       no-unknown        1        2
-U-oneof-u-fixed64                                decode-pull  no-unknown        2        0
-U-oneof-u-len                                    encode       no-unknown        2        1
-U-oneof-u-len                                    decode       no-unknown        1        2
-U-oneof-u-len                                    decode-pull  no-unknown        2        0
-U-oneof-u-msg                                    encode       no-unknown        2        1
-U-oneof-u-msg                                    decode       no-unknown        1        2
-U-oneof-u-msg                                    decode-pull  no-unknown        2        0
-U-oneof-u-packed                                 encode       no-unknown        2        1
-U-oneof-u-packed                                 decode       no-unknown        1        2
-U-oneof-u-packed                                 decode-pull  no-unknown        2        0
-U-oneof-u-repeated                               encode       no-unknown        2        1
-U-oneof-u-repeated                               decode       no-unknown        1        2
-U-oneof-u-repeated                               decode-pull  no-unknown        2        0
-U-oneof-u-varint                                 encode       no-unknown        2        1
-U-oneof-u-varint                                 decode       no-unknown        1        2
-U-oneof-u-varint                                 decode-pull  no-unknown        2        0
-U-root-all                                       encode       no-unknown        2        1
-U-root-all                                       decode       no-unknown        1        2
-U-root-all                                       decode-pull  no-unknown        2        0
-U-root-before                                    encode       no-unknown        2        1
-U-root-before                                    decode       no-unknown        1        2
-U-root-before                                    decode-pull  no-unknown        2        0
-U-root-group                                     encode       no-unknown        2        1
-U-root-group                                     decode       no-unknown        1        2
-U-root-group                                     decode-pull  no-unknown        2        0
-U-root-interleaved                               encode       no-unknown        2        1
-U-root-interleaved                               decode       no-unknown        1        2
-U-root-interleaved                               decode-pull  no-unknown        2        0
-U-root-max-tag                                   encode       no-unknown        2        1
-U-root-max-tag                                   decode       no-unknown        1        2
-U-root-max-tag                                   decode-pull  no-unknown        2        0
-U-root-u-fixed32                                 encode       no-unknown        2        1
-U-root-u-fixed32                                 decode       no-unknown        1        2
-U-root-u-fixed32                                 decode-pull  no-unknown        2        0
-U-root-u-fixed64                                 encode       no-unknown        2        1
-U-root-u-fixed64                                 decode       no-unknown        1        2
-U-root-u-fixed64                                 decode-pull  no-unknown        2        0
-U-root-u-len                                     encode       no-unknown        2        1
-U-root-u-len                                     decode       no-unknown        1        2
-U-root-u-len                                     decode-pull  no-unknown        2        0
-U-root-u-msg                                     encode       no-unknown        2        1
-U-root-u-msg                                     decode       no-unknown        1        2
-U-root-u-msg                                     decode-pull  no-unknown        2        0
-U-root-u-packed                                  encode       no-unknown        2        1
-U-root-u-packed                                  decode       no-unknown        1        2
-U-root-u-packed                                  decode-pull  no-unknown        2        0
-U-root-u-repeated                                encode       no-unknown        2        1
-U-root-u-repeated                                decode       no-unknown        1        2
-U-root-u-repeated                                decode-pull  no-unknown        2        0
-U-root-u-varint                                  encode       no-unknown        2        1
-U-root-u-varint                                  decode       no-unknown        1        2
-U-root-u-varint                                  decode-pull  no-unknown        2        0
-U-wire-DualResponse-left-as-wt0                  encode       no-unknown        3        2
-U-wire-DualResponse-left-as-wt0                  decode       no-unknown        1        3
-U-wire-DualResponse-left-as-wt0                  decode-pull  no-unknown        2        0
-U-wire-DualResponse-left-as-wt1                  encode       no-unknown        3        2
-U-wire-DualResponse-left-as-wt1                  decode       no-unknown        1        3
-U-wire-DualResponse-left-as-wt1                  decode-pull  no-unknown        2        0
-U-wire-DualResponse-left-as-wt5                  encode       no-unknown        3        2
-U-wire-DualResponse-left-as-wt5                  decode       no-unknown        1        3
-U-wire-DualResponse-left-as-wt5                  decode-pull  no-unknown        2        0
-U-wire-ListMetricsResponse-batches-as-wt0        encode       no-unknown       12       11
-U-wire-ListMetricsResponse-batches-as-wt0        decode       no-unknown        1       15
-U-wire-ListMetricsResponse-batches-as-wt0        decode-pull  no-unknown        2        0
-U-wire-ListMetricsResponse-batches-as-wt1        encode       no-unknown       12       11
-U-wire-ListMetricsResponse-batches-as-wt1        decode       no-unknown        1       15
-U-wire-ListMetricsResponse-batches-as-wt1        decode-pull  no-unknown        2        0
-U-wire-ListMetricsResponse-batches-as-wt5        encode       no-unknown       12       11
-U-wire-ListMetricsResponse-batches-as-wt5        decode       no-unknown        1       15
-U-wire-ListMetricsResponse-batches-as-wt5        decode-pull  no-unknown        2        0
-U-wire-ListProbeResponse-probes-as-wt0           encode       no-unknown        2        1
-U-wire-ListProbeResponse-probes-as-wt0           decode       no-unknown        1        2
-U-wire-ListProbeResponse-probes-as-wt0           decode-pull  no-unknown        2        0
-U-wire-ListProbeResponse-probes-as-wt1           encode       no-unknown        2        1
-U-wire-ListProbeResponse-probes-as-wt1           decode       no-unknown        1        2
-U-wire-ListProbeResponse-probes-as-wt1           decode-pull  no-unknown        2        0
-U-wire-ListProbeResponse-probes-as-wt5           encode       no-unknown        2        1
-U-wire-ListProbeResponse-probes-as-wt5           decode       no-unknown        1        2
-U-wire-ListProbeResponse-probes-as-wt5           decode-pull  no-unknown        2        0
-U-wire-ListResultsResponse-page-as-wt1           encode       no-unknown        2        1
-U-wire-ListResultsResponse-page-as-wt1           decode       no-unknown        1        2
-U-wire-ListResultsResponse-page-as-wt1           decode-pull  no-unknown        2        0
-U-wire-ListResultsResponse-page-as-wt2           encode       no-unknown        2        1
-U-wire-ListResultsResponse-page-as-wt2           decode       no-unknown        1        2
-U-wire-ListResultsResponse-page-as-wt2           decode-pull  no-unknown        2        0
-U-wire-ListResultsResponse-page-as-wt5           encode       no-unknown        2        1
-U-wire-ListResultsResponse-page-as-wt5           decode       no-unknown        1        2
-U-wire-ListResultsResponse-page-as-wt5           decode-pull  no-unknown        2        0
-U-wire-ListResultsResponse-results-as-wt0        encode       no-unknown        2        1
-U-wire-ListResultsResponse-results-as-wt0        decode       no-unknown        1        2
-U-wire-ListResultsResponse-results-as-wt0        decode-pull  no-unknown        2        0
-U-wire-ListResultsResponse-results-as-wt1        encode       no-unknown        2        1
-U-wire-ListResultsResponse-results-as-wt1        decode       no-unknown        1        2
-U-wire-ListResultsResponse-results-as-wt1        decode-pull  no-unknown        2        0
-U-wire-ListResultsResponse-results-as-wt5        encode       no-unknown        2        1
-U-wire-ListResultsResponse-results-as-wt5        decode       no-unknown        1        2
-U-wire-ListResultsResponse-results-as-wt5        decode-pull  no-unknown        2        0
-U-wire-ListTaskSummaryResponse-tasks-as-wt0      encode       no-unknown        4        3
-U-wire-ListTaskSummaryResponse-tasks-as-wt0      decode       no-unknown        1        7
-U-wire-ListTaskSummaryResponse-tasks-as-wt0      decode-pull  no-unknown        2        0
-U-wire-ListTaskSummaryResponse-tasks-as-wt1      encode       no-unknown        4        3
-U-wire-ListTaskSummaryResponse-tasks-as-wt1      decode       no-unknown        1        7
-U-wire-ListTaskSummaryResponse-tasks-as-wt1      decode-pull  no-unknown        2        0
-U-wire-ListTaskSummaryResponse-tasks-as-wt5      encode       no-unknown        4        3
-U-wire-ListTaskSummaryResponse-tasks-as-wt5      decode       no-unknown        1        7
-U-wire-ListTaskSummaryResponse-tasks-as-wt5      decode-pull  no-unknown        2        0
-U-wire-ListTasksDetailedResponse-page-as-wt1     encode       no-unknown       12       11
-U-wire-ListTasksDetailedResponse-page-as-wt1     decode       no-unknown        1       15
-U-wire-ListTasksDetailedResponse-page-as-wt1     decode-pull  no-unknown        2        0
-U-wire-ListTasksDetailedResponse-page-as-wt2     encode       no-unknown       12       11
-U-wire-ListTasksDetailedResponse-page-as-wt2     decode       no-unknown        1       15
-U-wire-ListTasksDetailedResponse-page-as-wt2     decode-pull  no-unknown        2        0
-U-wire-ListTasksDetailedResponse-page-as-wt5     encode       no-unknown       12       11
-U-wire-ListTasksDetailedResponse-page-as-wt5     decode       no-unknown        1       15
-U-wire-ListTasksDetailedResponse-page-as-wt5     decode-pull  no-unknown        2        0
-U-wire-ListTasksDetailedResponse-tasks-as-wt0    encode       no-unknown       12       11
-U-wire-ListTasksDetailedResponse-tasks-as-wt0    decode       no-unknown        1       15
-U-wire-ListTasksDetailedResponse-tasks-as-wt0    decode-pull  no-unknown        2        0
-U-wire-ListTasksDetailedResponse-tasks-as-wt1    encode       no-unknown       12       11
-U-wire-ListTasksDetailedResponse-tasks-as-wt1    decode       no-unknown        1       15
-U-wire-ListTasksDetailedResponse-tasks-as-wt1    decode-pull  no-unknown        2        0
-U-wire-ListTasksDetailedResponse-tasks-as-wt5    encode       no-unknown       12       11
-U-wire-ListTasksDetailedResponse-tasks-as-wt5    decode       no-unknown        1       15
-U-wire-ListTasksDetailedResponse-tasks-as-wt5    decode-pull  no-unknown        2        0
-U-wire-UploadResultDataMessage-upload-as-wt0     encode       no-unknown        1        0
-U-wire-UploadResultDataMessage-upload-as-wt0     decode       no-unknown        1        1
-U-wire-UploadResultDataMessage-upload-as-wt0     decode-pull  no-unknown        2        0
-U-wire-UploadResultDataMessage-upload-as-wt1     encode       no-unknown        1        0
-U-wire-UploadResultDataMessage-upload-as-wt1     decode       no-unknown        1        1
-U-wire-UploadResultDataMessage-upload-as-wt1     decode-pull  no-unknown        2        0
-U-wire-UploadResultDataMessage-upload-as-wt5     encode       no-unknown        1        0
-U-wire-UploadResultDataMessage-upload-as-wt5     decode       no-unknown        1        1
-U-wire-UploadResultDataMessage-upload-as-wt5     decode-pull  no-unknown        2        0
+# CAMPAIGN req 19 (as amended 2026-09-26): forward = every exported entry point called (core-counted + the
+# binding's ak_enc_reset / ak_dec_reset_<Root> / ak_enc_take / ak_dec_err); resets = ak_enc_reset before each
+# encode + ak_dec_reset_<Root> before and after each retain decode or pull. Retain: no pre-placed buffer, exact-size grow.
+# rpc:<cell> rows: one call of cell B, C, D or E (P2.2; a = Fetch + decode, b = encode + Push), core RPC counters included.
+# input                                            direction    mode        forward  reverse resets
+P1.1                                             encode       no-unknown        3        1      1
+P1.1                                             decode       no-unknown        1        2      0
+P1.1                                             decode-pull  no-unknown        3        0      0
+P1.2                                             encode       no-unknown        9        1      1
+P1.2                                             decode       no-unknown        1        5      0
+P1.2                                             decode-pull  no-unknown        3        0      0
+P1.2/latin1                                      encode       no-unknown        9        1      1
+P1.2/latin1                                      decode       no-unknown        1        5      0
+P1.2/latin1                                      decode-pull  no-unknown        3        0      0
+P1.2/wide                                        encode       no-unknown        9        1      1
+P1.2/wide                                        decode       no-unknown        1        5      0
+P1.2/wide                                        decode-pull  no-unknown        3        0      0
+P1.3                                             encode       no-unknown        4        1      1
+P1.3                                             decode       no-unknown        1        3      0
+P1.3                                             decode-pull  no-unknown        3        0      0
+P2.1                                             encode       no-unknown        8        6      1
+P2.1                                             decode       no-unknown        1        8      0
+P2.1                                             decode-pull  no-unknown        3        0      0
+P2.2                                             encode       no-unknown     2512     2501      1
+P2.2                                             decode       no-unknown        1     3501      0
+P2.2                                             decode-pull  no-unknown        3        0      0
+P2.2/latin1                                      encode       no-unknown     2512     2501      1
+P2.2/latin1                                      decode       no-unknown        1     3501      0
+P2.2/latin1                                      decode-pull  no-unknown        3        0      0
+P2.2/wide                                        encode       no-unknown     2512     2501      1
+P2.2/wide                                        decode       no-unknown        1     3501      0
+P2.2/wide                                        decode-pull  no-unknown        3        0      0
+P2.3                                             encode       no-unknown      630      626      1
+P2.3                                             decode       no-unknown        1      876      0
+P2.3                                             decode-pull  no-unknown        3        0      0
+P2.4                                             encode       no-unknown      404      401      1
+P2.4                                             decode       no-unknown        1      561      0
+P2.4                                             decode-pull  no-unknown        3        0      0
+P2.4/latin1                                      encode       no-unknown      404      401      1
+P2.4/latin1                                      decode       no-unknown        1      561      0
+P2.4/latin1                                      decode-pull  no-unknown        3        0      0
+P2.4/wide                                        encode       no-unknown      404      401      1
+P2.4/wide                                        decode       no-unknown        1      561      0
+P2.4/wide                                        decode-pull  no-unknown        3        0      0
+P2.5                                             encode       no-unknown      103      101      1
+P2.5                                             decode       no-unknown        1      141      0
+P2.5                                             decode-pull  no-unknown        3        0      0
+P3.1                                             encode       no-unknown        3        1      1
+P3.1                                             decode       no-unknown        1        2      0
+P3.1                                             decode-pull  no-unknown        3        0      0
+P4.1                                             encode       no-unknown      204      201      1
+P4.1                                             decode       no-unknown        1      601      0
+P4.1                                             decode-pull  no-unknown        3        0      0
+P5.1                                             encode       no-unknown        2        0      1
+P5.1                                             decode       no-unknown        1        1      0
+P5.1                                             decode-pull  no-unknown        3        0      0
+P5.2                                             encode       no-unknown        2        0      1
+P5.2                                             decode       no-unknown        1        1      0
+P5.2                                             decode-pull  no-unknown        3        0      0
+P5.3                                             encode       no-unknown        2        0      1
+P5.3                                             decode       no-unknown        1        1      0
+P5.3                                             decode-pull  no-unknown        3        0      0
+P5.4                                             encode       no-unknown        2        0      1
+P5.4                                             decode       no-unknown        1        1      0
+P5.4                                             decode-pull  no-unknown        3        0      0
+P6.1                                             encode       no-unknown     1003     1001      1
+P6.1                                             decode       no-unknown        1     1401      0
+P6.1                                             decode-pull  no-unknown        3        0      0
+P7.1                                             decode       no-unknown        1        7      0
+P7.1                                             decode-pull  no-unknown        3        0      0
+U-deep-all                                       encode       no-unknown        8        6      1
+U-deep-all                                       decode       no-unknown        1        8      0
+U-deep-all                                       decode-pull  no-unknown        3        0      0
+U-deep-u-fixed32                                 encode       no-unknown        8        6      1
+U-deep-u-fixed32                                 decode       no-unknown        1        8      0
+U-deep-u-fixed32                                 decode-pull  no-unknown        3        0      0
+U-deep-u-fixed64                                 encode       no-unknown        8        6      1
+U-deep-u-fixed64                                 decode       no-unknown        1        8      0
+U-deep-u-fixed64                                 decode-pull  no-unknown        3        0      0
+U-deep-u-len                                     encode       no-unknown        8        6      1
+U-deep-u-len                                     decode       no-unknown        1        8      0
+U-deep-u-len                                     decode-pull  no-unknown        3        0      0
+U-deep-u-msg                                     encode       no-unknown        8        6      1
+U-deep-u-msg                                     decode       no-unknown        1        8      0
+U-deep-u-msg                                     decode-pull  no-unknown        3        0      0
+U-deep-u-packed                                  encode       no-unknown        8        6      1
+U-deep-u-packed                                  decode       no-unknown        1        8      0
+U-deep-u-packed                                  decode-pull  no-unknown        3        0      0
+U-deep-u-repeated                                encode       no-unknown        8        6      1
+U-deep-u-repeated                                decode       no-unknown        1        8      0
+U-deep-u-repeated                                decode-pull  no-unknown        3        0      0
+U-deep-u-varint                                  encode       no-unknown        8        6      1
+U-deep-u-varint                                  decode       no-unknown        1        8      0
+U-deep-u-varint                                  decode-pull  no-unknown        3        0      0
+U-element-all                                    encode       no-unknown        8        6      1
+U-element-all                                    decode       no-unknown        1        8      0
+U-element-all                                    decode-pull  no-unknown        3        0      0
+U-element-u-fixed32                              encode       no-unknown        8        6      1
+U-element-u-fixed32                              decode       no-unknown        1        8      0
+U-element-u-fixed32                              decode-pull  no-unknown        3        0      0
+U-element-u-fixed64                              encode       no-unknown        8        6      1
+U-element-u-fixed64                              decode       no-unknown        1        8      0
+U-element-u-fixed64                              decode-pull  no-unknown        3        0      0
+U-element-u-len                                  encode       no-unknown        8        6      1
+U-element-u-len                                  decode       no-unknown        1        8      0
+U-element-u-len                                  decode-pull  no-unknown        3        0      0
+U-element-u-msg                                  encode       no-unknown        8        6      1
+U-element-u-msg                                  decode       no-unknown        1        8      0
+U-element-u-msg                                  decode-pull  no-unknown        3        0      0
+U-element-u-packed                               encode       no-unknown        8        6      1
+U-element-u-packed                               decode       no-unknown        1        8      0
+U-element-u-packed                               decode-pull  no-unknown        3        0      0
+U-element-u-repeated                             encode       no-unknown        8        6      1
+U-element-u-repeated                             decode       no-unknown        1        8      0
+U-element-u-repeated                             decode-pull  no-unknown        3        0      0
+U-element-u-varint                               encode       no-unknown        8        6      1
+U-element-u-varint                               decode       no-unknown        1        8      0
+U-element-u-varint                               decode-pull  no-unknown        3        0      0
+U-enum-value-127                                 encode       no-unknown        3        1      1
+U-enum-value-127                                 decode       no-unknown        1        2      0
+U-enum-value-127                                 decode-pull  no-unknown        3        0      0
+U-enum-value-2147483647                          encode       no-unknown        3        1      1
+U-enum-value-2147483647                          decode       no-unknown        1        2      0
+U-enum-value-2147483647                          decode-pull  no-unknown        3        0      0
+U-enum-value-999                                 encode       no-unknown        3        1      1
+U-enum-value-999                                 decode       no-unknown        1        2      0
+U-enum-value-999                                 decode-pull  no-unknown        3        0      0
+U-enum-value-packed                              encode       no-unknown        8        6      1
+U-enum-value-packed                              decode       no-unknown        1        4      0
+U-enum-value-packed                              decode-pull  no-unknown        3        0      0
+U-leaf-all                                       encode       no-unknown        3        1      1
+U-leaf-all                                       decode       no-unknown        1        2      0
+U-leaf-all                                       decode-pull  no-unknown        3        0      0
+U-leaf-u-fixed32                                 encode       no-unknown        3        1      1
+U-leaf-u-fixed32                                 decode       no-unknown        1        2      0
+U-leaf-u-fixed32                                 decode-pull  no-unknown        3        0      0
+U-leaf-u-fixed64                                 encode       no-unknown        3        1      1
+U-leaf-u-fixed64                                 decode       no-unknown        1        2      0
+U-leaf-u-fixed64                                 decode-pull  no-unknown        3        0      0
+U-leaf-u-len                                     encode       no-unknown        3        1      1
+U-leaf-u-len                                     decode       no-unknown        1        2      0
+U-leaf-u-len                                     decode-pull  no-unknown        3        0      0
+U-leaf-u-msg                                     encode       no-unknown        3        1      1
+U-leaf-u-msg                                     decode       no-unknown        1        2      0
+U-leaf-u-msg                                     decode-pull  no-unknown        3        0      0
+U-leaf-u-packed                                  encode       no-unknown        3        1      1
+U-leaf-u-packed                                  decode       no-unknown        1        2      0
+U-leaf-u-packed                                  decode-pull  no-unknown        3        0      0
+U-leaf-u-repeated                                encode       no-unknown        3        1      1
+U-leaf-u-repeated                                decode       no-unknown        1        2      0
+U-leaf-u-repeated                                decode-pull  no-unknown        3        0      0
+U-leaf-u-varint                                  encode       no-unknown        3        1      1
+U-leaf-u-varint                                  decode       no-unknown        1        2      0
+U-leaf-u-varint                                  decode-pull  no-unknown        3        0      0
+U-nested-all                                     encode       no-unknown        3        1      1
+U-nested-all                                     decode       no-unknown        1        2      0
+U-nested-all                                     decode-pull  no-unknown        3        0      0
+U-nested-before                                  encode       no-unknown        3        1      1
+U-nested-before                                  decode       no-unknown        1        2      0
+U-nested-before                                  decode-pull  no-unknown        3        0      0
+U-nested-group                                   encode       no-unknown        3        1      1
+U-nested-group                                   decode       no-unknown        1        2      0
+U-nested-group                                   decode-pull  no-unknown        3        0      0
+U-nested-interleaved                             encode       no-unknown        3        1      1
+U-nested-interleaved                             decode       no-unknown        1        2      0
+U-nested-interleaved                             decode-pull  no-unknown        3        0      0
+U-nested-u-fixed32                               encode       no-unknown        3        1      1
+U-nested-u-fixed32                               decode       no-unknown        1        2      0
+U-nested-u-fixed32                               decode-pull  no-unknown        3        0      0
+U-nested-u-fixed64                               encode       no-unknown        3        1      1
+U-nested-u-fixed64                               decode       no-unknown        1        2      0
+U-nested-u-fixed64                               decode-pull  no-unknown        3        0      0
+U-nested-u-len                                   encode       no-unknown        3        1      1
+U-nested-u-len                                   decode       no-unknown        1        2      0
+U-nested-u-len                                   decode-pull  no-unknown        3        0      0
+U-nested-u-msg                                   encode       no-unknown        3        1      1
+U-nested-u-msg                                   decode       no-unknown        1        2      0
+U-nested-u-msg                                   decode-pull  no-unknown        3        0      0
+U-nested-u-packed                                encode       no-unknown        3        1      1
+U-nested-u-packed                                decode       no-unknown        1        2      0
+U-nested-u-packed                                decode-pull  no-unknown        3        0      0
+U-nested-u-repeated                              encode       no-unknown        3        1      1
+U-nested-u-repeated                              decode       no-unknown        1        2      0
+U-nested-u-repeated                              decode-pull  no-unknown        3        0      0
+U-nested-u-varint                                encode       no-unknown        3        1      1
+U-nested-u-varint                                decode       no-unknown        1        2      0
+U-nested-u-varint                                decode-pull  no-unknown        3        0      0
+U-oneof-all                                      encode       no-unknown        3        1      1
+U-oneof-all                                      decode       no-unknown        1        2      0
+U-oneof-all                                      decode-pull  no-unknown        3        0      0
+U-oneof-before                                   encode       no-unknown        3        1      1
+U-oneof-before                                   decode       no-unknown        1        2      0
+U-oneof-before                                   decode-pull  no-unknown        3        0      0
+U-oneof-group                                    encode       no-unknown        3        1      1
+U-oneof-group                                    decode       no-unknown        1        2      0
+U-oneof-group                                    decode-pull  no-unknown        3        0      0
+U-oneof-interleaved                              encode       no-unknown        3        1      1
+U-oneof-interleaved                              decode       no-unknown        1        2      0
+U-oneof-interleaved                              decode-pull  no-unknown        3        0      0
+U-oneof-member-after-known                       encode       no-unknown        3        1      1
+U-oneof-member-after-known                       decode       no-unknown        1        2      0
+U-oneof-member-after-known                       decode-pull  no-unknown        3        0      0
+U-oneof-member-alone                             encode       no-unknown        3        1      1
+U-oneof-member-alone                             decode       no-unknown        1        2      0
+U-oneof-member-alone                             decode-pull  no-unknown        3        0      0
+U-oneof-member-before-known                      encode       no-unknown        3        1      1
+U-oneof-member-before-known                      decode       no-unknown        1        2      0
+U-oneof-member-before-known                      decode-pull  no-unknown        3        0      0
+U-oneof-u-fixed32                                encode       no-unknown        3        1      1
+U-oneof-u-fixed32                                decode       no-unknown        1        2      0
+U-oneof-u-fixed32                                decode-pull  no-unknown        3        0      0
+U-oneof-u-fixed64                                encode       no-unknown        3        1      1
+U-oneof-u-fixed64                                decode       no-unknown        1        2      0
+U-oneof-u-fixed64                                decode-pull  no-unknown        3        0      0
+U-oneof-u-len                                    encode       no-unknown        3        1      1
+U-oneof-u-len                                    decode       no-unknown        1        2      0
+U-oneof-u-len                                    decode-pull  no-unknown        3        0      0
+U-oneof-u-msg                                    encode       no-unknown        3        1      1
+U-oneof-u-msg                                    decode       no-unknown        1        2      0
+U-oneof-u-msg                                    decode-pull  no-unknown        3        0      0
+U-oneof-u-packed                                 encode       no-unknown        3        1      1
+U-oneof-u-packed                                 decode       no-unknown        1        2      0
+U-oneof-u-packed                                 decode-pull  no-unknown        3        0      0
+U-oneof-u-repeated                               encode       no-unknown        3        1      1
+U-oneof-u-repeated                               decode       no-unknown        1        2      0
+U-oneof-u-repeated                               decode-pull  no-unknown        3        0      0
+U-oneof-u-varint                                 encode       no-unknown        3        1      1
+U-oneof-u-varint                                 decode       no-unknown        1        2      0
+U-oneof-u-varint                                 decode-pull  no-unknown        3        0      0
+U-root-all                                       encode       no-unknown        3        1      1
+U-root-all                                       decode       no-unknown        1        2      0
+U-root-all                                       decode-pull  no-unknown        3        0      0
+U-root-before                                    encode       no-unknown        3        1      1
+U-root-before                                    decode       no-unknown        1        2      0
+U-root-before                                    decode-pull  no-unknown        3        0      0
+U-root-group                                     encode       no-unknown        3        1      1
+U-root-group                                     decode       no-unknown        1        2      0
+U-root-group                                     decode-pull  no-unknown        3        0      0
+U-root-interleaved                               encode       no-unknown        3        1      1
+U-root-interleaved                               decode       no-unknown        1        2      0
+U-root-interleaved                               decode-pull  no-unknown        3        0      0
+U-root-max-tag                                   encode       no-unknown        3        1      1
+U-root-max-tag                                   decode       no-unknown        1        2      0
+U-root-max-tag                                   decode-pull  no-unknown        3        0      0
+U-root-u-fixed32                                 encode       no-unknown        3        1      1
+U-root-u-fixed32                                 decode       no-unknown        1        2      0
+U-root-u-fixed32                                 decode-pull  no-unknown        3        0      0
+U-root-u-fixed64                                 encode       no-unknown        3        1      1
+U-root-u-fixed64                                 decode       no-unknown        1        2      0
+U-root-u-fixed64                                 decode-pull  no-unknown        3        0      0
+U-root-u-len                                     encode       no-unknown        3        1      1
+U-root-u-len                                     decode       no-unknown        1        2      0
+U-root-u-len                                     decode-pull  no-unknown        3        0      0
+U-root-u-msg                                     encode       no-unknown        3        1      1
+U-root-u-msg                                     decode       no-unknown        1        2      0
+U-root-u-msg                                     decode-pull  no-unknown        3        0      0
+U-root-u-packed                                  encode       no-unknown        3        1      1
+U-root-u-packed                                  decode       no-unknown        1        2      0
+U-root-u-packed                                  decode-pull  no-unknown        3        0      0
+U-root-u-repeated                                encode       no-unknown        3        1      1
+U-root-u-repeated                                decode       no-unknown        1        2      0
+U-root-u-repeated                                decode-pull  no-unknown        3        0      0
+U-root-u-varint                                  encode       no-unknown        3        1      1
+U-root-u-varint                                  decode       no-unknown        1        2      0
+U-root-u-varint                                  decode-pull  no-unknown        3        0      0
+U-wire-DualResponse-left-as-wt0                  encode       no-unknown        4        2      1
+U-wire-DualResponse-left-as-wt0                  decode       no-unknown        1        3      0
+U-wire-DualResponse-left-as-wt0                  decode-pull  no-unknown        3        0      0
+U-wire-DualResponse-left-as-wt1                  encode       no-unknown        4        2      1
+U-wire-DualResponse-left-as-wt1                  decode       no-unknown        1        3      0
+U-wire-DualResponse-left-as-wt1                  decode-pull  no-unknown        3        0      0
+U-wire-DualResponse-left-as-wt5                  encode       no-unknown        4        2      1
+U-wire-DualResponse-left-as-wt5                  decode       no-unknown        1        3      0
+U-wire-DualResponse-left-as-wt5                  decode-pull  no-unknown        3        0      0
+U-wire-ListMetricsResponse-batches-as-wt0        encode       no-unknown       13       11      1
+U-wire-ListMetricsResponse-batches-as-wt0        decode       no-unknown        1       15      0
+U-wire-ListMetricsResponse-batches-as-wt0        decode-pull  no-unknown        3        0      0
+U-wire-ListMetricsResponse-batches-as-wt1        encode       no-unknown       13       11      1
+U-wire-ListMetricsResponse-batches-as-wt1        decode       no-unknown        1       15      0
+U-wire-ListMetricsResponse-batches-as-wt1        decode-pull  no-unknown        3        0      0
+U-wire-ListMetricsResponse-batches-as-wt5        encode       no-unknown       13       11      1
+U-wire-ListMetricsResponse-batches-as-wt5        decode       no-unknown        1       15      0
+U-wire-ListMetricsResponse-batches-as-wt5        decode-pull  no-unknown        3        0      0
+U-wire-ListProbeResponse-probes-as-wt0           encode       no-unknown        3        1      1
+U-wire-ListProbeResponse-probes-as-wt0           decode       no-unknown        1        2      0
+U-wire-ListProbeResponse-probes-as-wt0           decode-pull  no-unknown        3        0      0
+U-wire-ListProbeResponse-probes-as-wt1           encode       no-unknown        3        1      1
+U-wire-ListProbeResponse-probes-as-wt1           decode       no-unknown        1        2      0
+U-wire-ListProbeResponse-probes-as-wt1           decode-pull  no-unknown        3        0      0
+U-wire-ListProbeResponse-probes-as-wt5           encode       no-unknown        3        1      1
+U-wire-ListProbeResponse-probes-as-wt5           decode       no-unknown        1        2      0
+U-wire-ListProbeResponse-probes-as-wt5           decode-pull  no-unknown        3        0      0
+U-wire-ListResultsResponse-page-as-wt1           encode       no-unknown        3        1      1
+U-wire-ListResultsResponse-page-as-wt1           decode       no-unknown        1        2      0
+U-wire-ListResultsResponse-page-as-wt1           decode-pull  no-unknown        3        0      0
+U-wire-ListResultsResponse-page-as-wt2           encode       no-unknown        3        1      1
+U-wire-ListResultsResponse-page-as-wt2           decode       no-unknown        1        2      0
+U-wire-ListResultsResponse-page-as-wt2           decode-pull  no-unknown        3        0      0
+U-wire-ListResultsResponse-page-as-wt5           encode       no-unknown        3        1      1
+U-wire-ListResultsResponse-page-as-wt5           decode       no-unknown        1        2      0
+U-wire-ListResultsResponse-page-as-wt5           decode-pull  no-unknown        3        0      0
+U-wire-ListResultsResponse-results-as-wt0        encode       no-unknown        3        1      1
+U-wire-ListResultsResponse-results-as-wt0        decode       no-unknown        1        2      0
+U-wire-ListResultsResponse-results-as-wt0        decode-pull  no-unknown        3        0      0
+U-wire-ListResultsResponse-results-as-wt1        encode       no-unknown        3        1      1
+U-wire-ListResultsResponse-results-as-wt1        decode       no-unknown        1        2      0
+U-wire-ListResultsResponse-results-as-wt1        decode-pull  no-unknown        3        0      0
+U-wire-ListResultsResponse-results-as-wt5        encode       no-unknown        3        1      1
+U-wire-ListResultsResponse-results-as-wt5        decode       no-unknown        1        2      0
+U-wire-ListResultsResponse-results-as-wt5        decode-pull  no-unknown        3        0      0
+U-wire-ListTaskSummaryResponse-tasks-as-wt0      encode       no-unknown        5        3      1
+U-wire-ListTaskSummaryResponse-tasks-as-wt0      decode       no-unknown        1        7      0
+U-wire-ListTaskSummaryResponse-tasks-as-wt0      decode-pull  no-unknown        3        0      0
+U-wire-ListTaskSummaryResponse-tasks-as-wt1      encode       no-unknown        5        3      1
+U-wire-ListTaskSummaryResponse-tasks-as-wt1      decode       no-unknown        1        7      0
+U-wire-ListTaskSummaryResponse-tasks-as-wt1      decode-pull  no-unknown        3        0      0
+U-wire-ListTaskSummaryResponse-tasks-as-wt5      encode       no-unknown        5        3      1
+U-wire-ListTaskSummaryResponse-tasks-as-wt5      decode       no-unknown        1        7      0
+U-wire-ListTaskSummaryResponse-tasks-as-wt5      decode-pull  no-unknown        3        0      0
+U-wire-ListTasksDetailedResponse-page-as-wt1     encode       no-unknown       13       11      1
+U-wire-ListTasksDetailedResponse-page-as-wt1     decode       no-unknown        1       15      0
+U-wire-ListTasksDetailedResponse-page-as-wt1     decode-pull  no-unknown        3        0      0
+U-wire-ListTasksDetailedResponse-page-as-wt2     encode       no-unknown       13       11      1
+U-wire-ListTasksDetailedResponse-page-as-wt2     decode       no-unknown        1       15      0
+U-wire-ListTasksDetailedResponse-page-as-wt2     decode-pull  no-unknown        3        0      0
+U-wire-ListTasksDetailedResponse-page-as-wt5     encode       no-unknown       13       11      1
+U-wire-ListTasksDetailedResponse-page-as-wt5     decode       no-unknown        1       15      0
+U-wire-ListTasksDetailedResponse-page-as-wt5     decode-pull  no-unknown        3        0      0
+U-wire-ListTasksDetailedResponse-tasks-as-wt0    encode       no-unknown       13       11      1
+U-wire-ListTasksDetailedResponse-tasks-as-wt0    decode       no-unknown        1       15      0
+U-wire-ListTasksDetailedResponse-tasks-as-wt0    decode-pull  no-unknown        3        0      0
+U-wire-ListTasksDetailedResponse-tasks-as-wt1    encode       no-unknown       13       11      1
+U-wire-ListTasksDetailedResponse-tasks-as-wt1    decode       no-unknown        1       15      0
+U-wire-ListTasksDetailedResponse-tasks-as-wt1    decode-pull  no-unknown        3        0      0
+U-wire-ListTasksDetailedResponse-tasks-as-wt5    encode       no-unknown       13       11      1
+U-wire-ListTasksDetailedResponse-tasks-as-wt5    decode       no-unknown        1       15      0
+U-wire-ListTasksDetailedResponse-tasks-as-wt5    decode-pull  no-unknown        3        0      0
+U-wire-UploadResultDataMessage-upload-as-wt0     encode       no-unknown        2        0      1
+U-wire-UploadResultDataMessage-upload-as-wt0     decode       no-unknown        1        1      0
+U-wire-UploadResultDataMessage-upload-as-wt0     decode-pull  no-unknown        3        0      0
+U-wire-UploadResultDataMessage-upload-as-wt1     encode       no-unknown        2        0      1
+U-wire-UploadResultDataMessage-upload-as-wt1     decode       no-unknown        1        1      0
+U-wire-UploadResultDataMessage-upload-as-wt1     decode-pull  no-unknown        3        0      0
+U-wire-UploadResultDataMessage-upload-as-wt5     encode       no-unknown        2        0      1
+U-wire-UploadResultDataMessage-upload-as-wt5     decode       no-unknown        1        1      0
+U-wire-UploadResultDataMessage-upload-as-wt5     decode-pull  no-unknown        3        0      0
+rpc:B                                            a            default           2        0      0
+rpc:B                                            b            default           2        0      0
+rpc:C                                            a            nounk             3     3501      0
+rpc:C                                            b            nounk          2515     2501      1
+rpc:D                                            a            nounk             1     3501      0
+rpc:D                                            b            nounk          2513     2501      1
+rpc:E                                            a            nounk             2        0      0
+rpc:E                                            b            nounk             2        0      0

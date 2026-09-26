@@ -9,10 +9,10 @@
 //! A reverse crossing cannot be made without the forward one that carries it, so the
 //! reverse cost is `forward-reverse` minus `forward`, row by row in the same round. Both
 //! arms go through the dynamic linker (the core is a cdylib), as every core-ffi arm does.
-//! Thread CPU (CLOCK_THREAD_CPUTIME_ID) per round; the order of the two arms rotates by
+//! Process CPU (CLOCK_PROCESS_CPUTIME_ID, requirement 21 as amended) per round; the order of the two arms rotates by
 //! launch (requirement 22).
 
-use campaign::thread_cpu_ns;
+use campaign::process_clock_ns;
 use std::io::Write;
 
 extern "C" fn host_cb(x: u64) -> u64 {
@@ -63,9 +63,9 @@ fn main() {
     let mut lines = Vec::new();
     for r in 1..=rounds {
         for &i in &order {
-            let t0 = thread_cpu_ns();
+            let t0 = process_clock_ns();
             std::hint::black_box((arms[i].1)(iters));
-            let cpu = thread_cpu_ns() - t0;
+            let cpu = process_clock_ns() - t0;
             lines.push(serde_json::json!({
                 "slice": "rust", "suite": "calib", "arm": arms[i].0, "launch": launch,
                 "round": r, "cpu_ns": cpu, "iters": iters,
@@ -80,7 +80,8 @@ fn main() {
         ("rounds", rounds.to_string()),
         ("iterations per round", iters.to_string()),
         ("warm-up", format!("{} iterations of each arm", iters / 10)),
-        ("clock", "CLOCK_THREAD_CPUTIME_ID".into()),
+        ("clock", "CLOCK_PROCESS_CPUTIME_ID (process CPU, requirement 21 as amended 2026-09-26)".into()),
+        ("threads", "1 measuring thread, no runtime".into()),
     ]) {
         writeln!(f, "{h}").unwrap();
     }
