@@ -67,7 +67,7 @@ public static class Program
             "# managed codec:  plan utf8=" + Armonik.Ffi.Facade.Codec.Utf8Policy + " unknown=" + Armonik.Ffi.Facade.Codec.UnknownMode,
             string.Format(CultureInfo.InvariantCulture, "# job:            launch {0}; {1} actual iterations (rounds) per case, {2} warm-up iterations (the same for every case) after BDN's jitting stage (1 overhead + 1 workload jitting invocation per case, logged by BDN in the .bdn.log, not exported) and pilot, iteration time {3} ms (the pilot picks the invocation count per case), strategy Throughput, EvaluateOverhead=false (no overhead subtraction anywhere)", launch, rounds, warm, itMs),
             "# clocks:         wall per iteration (BDN, Stopwatch; exported RAW, no outlier removal, no overhead subtraction); process CPU per case (getrusage(RUSAGE_SELF)) across BDN's BeforeActualRun..AfterActualRun = the actual stage including the GCs BDN forces between iterations (their pause time beside it), round 0; per-iteration and thread CPU are NOT available from BDN (no diagnoser or column gives them)",
-            "# process unit:   " + (Cases.Unit ?? "all cases") + "; this launch's unit order: " + string.Join(", ", Cases.Units(launch)) + " (arms rotated by launch, modes within an arm too; requirement 22)",
+            "# process unit:   " + (Cases.Unit ?? "all cases") + "; this launch's unit order: " + string.Join(", ", Cases.Units(launch)) + " (a seeded shuffle, seed " + Cases.UnitSeed(launch) + "; within this process the cases run in a seeded shuffle too, seed " + order.Seed + ", the 2 prime cases first; requirement 22 as amended, R-H23)",
             string.Format(CultureInfo.InvariantCulture, "# pre-warm:       {0} round(s) of 64 calls to every case of this process, 0.5 s apart, before BDN starts; the last round compiled {1} method(s) of measured code (JIT events read back)", prewarmRounds, lastRoundJits),
 #if AK_NO_UNKNOWN_FIELDS
             "# correctness:    " + checks + " pre-timing checks passed (byte identity of every encode arm per payload and content set; every arm accepts every unknown row; on every unknown row core-ffi no-unknown and host-gen no-unknown re-encode to the same DROPPED form)",
@@ -107,7 +107,8 @@ public static class Program
             "# jit check:      " + (JsonLinesExporter.JitTier0Cases == 0 ? "PASS: no exported case measured hot code at tier 0" : "FAIL: " + JsonLinesExporter.JitTier0Cases + " case(s) measured hot code at tier 0; their rows are marked by hot_tier0 > 0"),
             "# end: " + summary.Reports.Length + " BDN cases (" + nprime + " prime), " + failed + " failed",
         });
-        return failed == 0 && summary.Reports.Length == ncases + nprime ? 0 : 1;
+        // R-H18: a JIT-check failure fails the unit (and so the launch), not only a warning.
+        return failed == 0 && summary.Reports.Length == ncases + nprime && JsonLinesExporter.JitTier0Cases == 0 ? 0 : 1;
     }
 
     private static (int, long) Prewarm()

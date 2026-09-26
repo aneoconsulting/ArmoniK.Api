@@ -89,6 +89,25 @@ def emit(ir):
           "Generated for the same reason everything else here is: a hand-written "
           "switch over thirty roots is a place for one of them to be missing, and a "
           "missing root would read as a vector the slice \"cannot run\".")
+    o += "#if AK_NO_UNKNOWN_FIELDS"
+    o += "/// The no-unknown build has no retain codec: asking for it is refused."
+    o += "internal static class RetainCodec"
+    o += "{"
+    for m in facade_messages(ir):
+        o += "    public static void Read%s(ref Dec d, %s m, int depth) => throw new NotSupportedException(\"unknown fields are compiled out of this build\");" % (m.name, m.name)
+        o += "    public static void Write%s(ref Enc e, %s m) => throw new NotSupportedException(\"unknown fields are compiled out of this build\");" % (m.name, m.name)
+        o += "    public static void WriteSized%s(ref Enc e, %s m) => throw new NotSupportedException(\"unknown fields are compiled out of this build\");" % (m.name, m.name)
+    o += "}"
+    o += "#else"
+    o += "internal static class RetainCodec"
+    o += "{"
+    for m in facade_messages(ir):
+        o += "    public static void Read%s(ref Dec d, %s m, int depth) => CodecRetain.Read%s(ref d, m, depth);" % (m.name, m.name, m.name)
+        o += "    public static void Write%s(ref Enc e, %s m) => CodecRetain.Write%s(ref e, m);" % (m.name, m.name, m.name)
+        o += "    public static void WriteSized%s(ref Enc e, %s m) => CodecRetain.WriteSized%s(ref e, m);" % (m.name, m.name, m.name)
+    o += "}"
+    o += "#endif"
+    o += ""
     o += "public static class Roots"
     o += "{"
     o += "    public static readonly string[] All = { %s };" % ", ".join(
@@ -104,34 +123,37 @@ def emit(ir):
     o += "        }"
     o += "    }"
     o += ""
-    o += "    public static void Read(string root, ref Dec d, object m)"
+    o += "    /// `retain`: the retain codec (CodecRetain, R-H11); refused in the no-unknown build."
+    o += "    public static void Read(string root, ref Dec d, object m, bool retain = false)"
     o += "    {"
     o += "        switch (root)"
     o += "        {"
     for m in facade_messages(ir):
-        o += "            case \"%s\": Codec.Read%s(ref d, (%s)m, 0); break;" % (m.name, m.name, m.name)
+        o += "            case \"%s\": if (retain) RetainCodec.Read%s(ref d, (%s)m, 0); else Codec.Read%s(ref d, (%s)m, 0); break;" % (m.name, m.name, m.name, m.name, m.name)
     o += "            default: throw new ArgumentException(\"unknown root \" + root);"
     o += "        }"
     o += "    }"
     o += ""
-    o += "    public static void Write(string root, ref Enc e, object m)"
+    o += "    /// `retain`: the retain codec (CodecRetain, R-H11); refused in the no-unknown build."
+    o += "    public static void Write(string root, ref Enc e, object m, bool retain = false)"
     o += "    {"
     o += "        switch (root)"
     o += "        {"
     for m in facade_messages(ir):
-        o += "            case \"%s\": Codec.Write%s(ref e, (%s)m); break;" % (m.name, m.name, m.name)
+        o += "            case \"%s\": if (retain) RetainCodec.Write%s(ref e, (%s)m); else Codec.Write%s(ref e, (%s)m); break;" % (m.name, m.name, m.name, m.name, m.name)
     o += "            default: throw new ArgumentException(\"unknown root \" + root);"
     o += "        }"
     o += "    }"
     o += ""
     o.doc("The two-pass encoder, so C3 can say which encode path produced the "
           "bytes it is claiming. Both must land on an accepted form.", "    ")
-    o += "    public static void WriteSized(string root, ref Enc e, object m)"
+    o += "    /// `retain`: the retain codec (CodecRetain, R-H11); refused in the no-unknown build."
+    o += "    public static void WriteSized(string root, ref Enc e, object m, bool retain = false)"
     o += "    {"
     o += "        switch (root)"
     o += "        {"
     for m in facade_messages(ir):
-        o += "            case \"%s\": Codec.WriteSized%s(ref e, (%s)m); break;" % (m.name, m.name, m.name)
+        o += "            case \"%s\": if (retain) RetainCodec.WriteSized%s(ref e, (%s)m); else Codec.WriteSized%s(ref e, (%s)m); break;" % (m.name, m.name, m.name, m.name, m.name)
     o += "            default: throw new ArgumentException(\"unknown root \" + root);"
     o += "        }"
     o += "    }"

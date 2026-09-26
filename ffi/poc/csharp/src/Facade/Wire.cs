@@ -29,19 +29,19 @@ public static class W
     /// case and this slice rejected all three until they were run.
     public const int WireGroup = 3, WireEndGroup = 4;
 
-    /// **These are the FACADE's own error codes and they are not the ABI's.**
-    /// `ak-rt` numbers malformed -2 and depth -4; this numbers malformed -4.
-    /// Nothing converts between them and nothing should: the managed control
-    /// does not go through the C ABI at all. Said here because -4 meaning two
-    /// different things in one repository is a trap worth naming once.
-    public const int ErrTruncated = -3, ErrMalformed = -4, ErrTranscode = -6;
+    /// The managed codec's error codes carry plan.FIXED's numbering (AK_ERR_MALFORMED -2,
+    /// AK_ERR_TRUNCATED -3, AK_ERR_DEPTH -4, AK_ERR_TRANSCODE -6, AK_ERR_ABI -11), so one
+    /// number means one thing in the whole slice and the corpus's C4 compares the managed
+    /// code and the core's against the same expectation (R-H14; this runtime numbered
+    /// malformed -4 and depth -8 before). The corpus runner checks the equality at start.
+    public const int ErrTruncated = -3, ErrMalformed = -2, ErrTranscode = -6;
 
     /// The recursion limit, hit before the stack is. Two callers: the
     /// unknown-group skipper, and the generated decoder's nested-message
     /// descent. The LIMIT itself is the plan's (`Options.recursion_limit`),
     /// rendered into the generated codec as `Codec.Limit` and passed to `Skip`
     /// by it; this runtime carries no depth constant of its own (FIX-PLAN WP5).
-    public const int ErrDepth = -8;
+    public const int ErrDepth = -4;
 
     /// plan.oneof_checks: an encode refused because a oneof case is neither
     /// zero nor a member tag (a host generated against a newer descriptor).
@@ -377,9 +377,6 @@ public struct Dec
     public int Pos;
     public int End;
     public int Err;
-    /// Unknown fields: captured into the facade's `UnknownFields` when set, by a
-    /// codec generated with Options.unknown = "both" (the host picks per call).
-    public bool Retain;
 
     public static Dec Over(byte[] b) => new Dec { Buf = b, Pos = 0, End = b.Length, Err = 0 };
 

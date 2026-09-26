@@ -57,7 +57,7 @@ core() {  # dir variant  -- put a core build next to a harness
   echo "# core in $(basename "$(dirname "$1")")/$(basename "$1"): $2 ($(sha256sum "$1/libak_core.so" | cut -c1-16))"
 }
 
-echo "# csharp slice gate (FIX-PLAN WP5 steps 4 and 9). CORRECTNESS ONLY: no timing is taken."
+echo "# csharp slice gate (FIX-PLAN WP5 and WP6). CORRECTNESS ONLY: no timing is taken."
 echo "# date:        $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 echo "# branch HEAD: $(git -C "$REPO" rev-parse --short HEAD)$(git -C "$REPO" diff --quiet HEAD -- ffi/poc/csharp ffi/poc/codec/gen/cs_*.py || echo ' + the uncommitted slice changes this log is committed with')"
 echo "# dotnet:      SDK $(dotnet --version); runtimes: $(dotnet --list-runtimes | grep NETCore | awk '{print $2}' | tr '\n' ' ')+ Microsoft.NETCore.App.Runtime.linux-x64 6.0.36 from NuGet (self-contained)"
@@ -103,6 +103,11 @@ for lvl in 8 6; do
   AK_LAYOUT_PROBE="$LAY" run "net$lvl coreffi" "${HX[@]}" coreffi
   core "$H" target-core-count
   AK_CROSSINGS_EXPECT="$SLICE/gen/crossings.txt" run "net$lvl coreffi counting (R5, counts = gen/crossings.txt)" "${HX[@]}" coreffi
+  # R-H3: the crossing gate must fail on a committed row this run does not produce, and on
+  # an empty expect file.
+  { cat "$SLICE/gen/crossings.txt"; echo "P9.9 1 1 1 1 1 1"; } > "$SCRATCH/cx-extra.txt"; : > "$SCRATCH/cx-empty.txt"
+  AK_CROSSINGS_EXPECT="$SCRATCH/cx-extra.txt" control "net$lvl crossing gate, a committed row not produced (R-H3)" "${HX[@]}" coreffi
+  AK_CROSSINGS_EXPECT="$SCRATCH/cx-empty.txt" control "net$lvl crossing gate, an empty expect file (R-H3)" "${HX[@]}" coreffi
   core "$H" target-core
   AK_GATE_PLANT_NO_INIT=1 control "net$lvl coreffi without ak_init (init-guard core)" "${HX[@]}" coreffi
 done
@@ -123,10 +128,12 @@ for lvl in 8 6; do
   AK_CORPUS_RETAIN_STRICT=1 AK_CORPUS_PLANT=unkdrop control "net$lvl corpus unkdrop (ffi-retain in drop mode, strict retain)" "${CX[@]}" --only "U-"
   run "net$lvl decision 11 controls (discard per position, pull == push, wrong root)" "${CX[@]}" --unk-controls
   control "net$lvl decision 11 plant (the expectation's clearing skipped)" "${CX[@]}" --unk-controls --plant
+  AK_GATE_PLANT_SKIP_RELEASE=1 control "net$lvl decision 11 skipped release (the undelivered check's twin, R-H9)" "${CX[@]}" --only U- --unk-controls
   SUB="S-Probe,U-root,X-lenwrap-lrr,E-map,T-dec-root"
   AK_CORPUS_PLANT=proj control "net$lvl corpus proj" "${CX[@]}" --only "$SUB"
   AK_CORPUS_PLANT=reenc control "net$lvl corpus reenc" "${CX[@]}" --only "$SUB"
   AK_CORPUS_PLANT=accept control "net$lvl corpus accept" "${CX[@]}" --only "$SUB"
+  AK_CORPUS_PLANT=code control "net$lvl corpus code (C4 compares the refusal code, R-H14)" "${CX[@]}" --only "$SUB"
   AK_GATE_PLANT_NO_INIT=1 control "net$lvl corpus noinit" "${CX[@]}" --only "$SUB"
   # The oracle-probe rows (poc/rust/gen/probe_corpus.py, the majority reading of upb and
   # protobuf C++): the varint 10th byte, the field-number limit at the top and inside a

@@ -1,3 +1,4 @@
+# INSTRUMENTATION (R-H19, headed 2026-09-26): a container run; every figure in this BenchDotNet console log is instrumentation, not a result (README 1.1).
 # engine:         BenchmarkDotNet 0.15.8.0 (CAMPAIGN.md 22a), toolchain InProcessEmit (this process, pinned by the runner)
 # runtime:        .NET 8.0.31; TieredCompilation=default TieredPGO=default (net8.0 defaults unless set); GC server=False, concurrent (default)
 # incumbent:      Google.Protobuf 3.32.0

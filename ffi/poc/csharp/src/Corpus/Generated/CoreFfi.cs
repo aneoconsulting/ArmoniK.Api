@@ -201,11 +201,17 @@ public static unsafe class G
 
     /// A delivered message's buffer into its facade bag (null when none or empty); the
     /// native buffer is freed and the slot cleared.
+    /// A GATE CONTROL, not a feature (R-H9): set, Take copies the bag but skips the
+    /// release (the buffer is neither freed nor untracked), so the UNDELIVERED check of a
+    /// retained decode must fail (Disarm finds the buffer outstanding, frees it, reports it).
+    internal static readonly bool PlantSkipRelease = Environment.GetEnvironmentVariable("AK_GATE_PLANT_SKIP_RELEASE") == "1";
+
     internal static byte[] Take(ref ak_unk_buf u)
     {
         if (u.data == IntPtr.Zero) return null;
         byte[] r = null;
         if (u.len != 0) { r = new byte[u.len]; new ReadOnlySpan<byte>((void*)u.data, (int)u.len).CopyTo(r); }
+        if (PlantSkipRelease) { u = default; return r; }
         Live?.Remove(u.data);
         NativeMemory.Free((void*)u.data);
         u = default;

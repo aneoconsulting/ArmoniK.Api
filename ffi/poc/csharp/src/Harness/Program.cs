@@ -21,7 +21,12 @@ public static class Program
             case "conformance":
                 return Conformance.Run();
             case "unknown":
+#if AK_NO_UNKNOWN_FIELDS
+                Console.WriteLine("harness unknown: not in the no-unknown build (unknown fields compiled out)");
+                return 0;
+#else
                 return UnknownFields.Run();
+#endif
             case "groups":
                 return GroupVectors.Run(argv.Skip(1).ToArray());
             case "corpus":

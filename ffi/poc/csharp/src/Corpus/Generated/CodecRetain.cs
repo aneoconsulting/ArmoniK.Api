@@ -10,11 +10,11 @@ using Armonik.Ffi.Facade;
 
 namespace Armonik.Ffi.Corpus;
 
-public static class Codec
+public static class CodecRetain
 {
-    /// The plan's options, for a log to name (Options: Options(unknown='drop', utf8='reject', recursion_limit=100)).
+    /// The plan's options, for a log to name (Options: Options(unknown='retain', utf8='reject', recursion_limit=100)).
     public const string Utf8Policy = "reject";
-    public const string UnknownMode = "drop";
+    public const string UnknownMode = "retain";
     public const int Limit = 100;
     /// plan.GROUP_DEPTH_LIMIT and plan.MAX_FIELD_NUMBER, handed to the runtime's skipper.
     public const int GroupDepthLimit = 100;
@@ -54,12 +54,14 @@ public static class Codec
     {
         if (m.Seconds != 0) e.VarintField(1, (ulong)(m.Seconds));
         if (m.Nanos != 0) e.VarintField(2, (ulong)(long)(int)(m.Nanos));
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);   // plan: unknown_tail, after every known field
     }
 
     public static void WriteDuration(ref Enc e, Duration m)
     {
         if (m.Seconds != 0) e.VarintField(1, (ulong)(m.Seconds));
         if (m.Nanos != 0) e.VarintField(2, (ulong)(long)(int)(m.Nanos));
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);   // plan: unknown_tail, after every known field
     }
 
     public static void WriteResultRaw(ref Enc e, ResultRaw m)
@@ -85,6 +87,7 @@ public static class Codec
         if (m.CreatedBy != null && m.CreatedBy.Length != 0) e.StringField(10, m.CreatedBy, 6);
         if (m.OpaqueId != null && m.OpaqueId.Length != 0) e.BlobField(11, m.OpaqueId);
         if (m.ManualDeletion) e.VarintField(12, (m.ManualDeletion ? 1UL : 0UL));
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);   // plan: unknown_tail, after every known field
     }
 
     public static void WriteTaskOptions(ref Enc e, TaskOptions m)
@@ -112,12 +115,14 @@ public static class Codec
         if (m.ApplicationNamespace != null && m.ApplicationNamespace.Length != 0) e.StringField(8, m.ApplicationNamespace, 14);
         if (m.ApplicationService != null && m.ApplicationService.Length != 0) e.StringField(9, m.ApplicationService, 15);
         if (m.EngineType != null && m.EngineType.Length != 0) e.StringField(10, m.EngineType, 16);
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);   // plan: unknown_tail, after every known field
     }
 
     public static void WriteTaskOutput(ref Enc e, TaskOutput m)
     {
         if (m.Success) e.VarintField(1, (m.Success ? 1UL : 0UL));
         if (m.Error != null && m.Error.Length != 0) e.StringField(2, m.Error, 17);
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);   // plan: unknown_tail, after every known field
     }
 
     public static void WriteTaskDetailed(ref Enc e, TaskDetailed m)
@@ -219,6 +224,7 @@ public static class Codec
         }
         if (m.PayloadId != null && m.PayloadId.Length != 0) e.StringField(26, m.PayloadId, 42);
         if (m.CreatedBy != null && m.CreatedBy.Length != 0) e.StringField(27, m.CreatedBy, 43);
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);   // plan: unknown_tail, after every known field
     }
 
     public static void WriteTaskSummary(ref Enc e, TaskSummary m)
@@ -241,6 +247,7 @@ public static class Codec
         if (m.Error != null && m.Error.Length != 0) e.StringField(8, m.Error, 48);
         if (m.StatusMessage != null && m.StatusMessage.Length != 0) e.StringField(9, m.StatusMessage, 49);
         if (m.CountDataDependencies != 0) e.VarintField(11, (ulong)(m.CountDataDependencies));
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);   // plan: unknown_tail, after every known field
     }
 
     public static void WriteProbe(ref Enc e, Probe m)
@@ -265,10 +272,12 @@ public static class Codec
             WriteEmpty(ref e, (m.AsNothing ?? new Empty()));
             e.End(mk);
         }
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);   // plan: unknown_tail, after every known field
     }
 
     public static void WriteEmpty(ref Enc e, Empty m)
     {
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);   // plan: unknown_tail, after every known field
     }
 
     public static void WriteUploadResultData(ref Enc e, UploadResultData m)
@@ -276,6 +285,7 @@ public static class Codec
         if (m.SessionId != null && m.SessionId.Length != 0) e.StringField(1, m.SessionId, 55);
         if (m.ResultId != null && m.ResultId.Length != 0) e.StringField(2, m.ResultId, 56);
         if (m.DataChunk != null && m.DataChunk.Length != 0) e.BlobField(3, m.DataChunk);
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);   // plan: unknown_tail, after every known field
     }
 
     public static void WriteMetricsBatch(ref Enc e, MetricsBatch m)
@@ -311,12 +321,14 @@ public static class Codec
             for (int i = 0; i < m.Statuses.Count; i++) e.Varint((ulong)(long)(int)(m.Statuses[i]));
             e.End(mk);
         }
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);   // plan: unknown_tail, after every known field
     }
 
     public static void WritePair(ref Enc e, Pair m)
     {
         if (m.Key != null && m.Key.Length != 0) e.StringField(1, m.Key, 63);
         if (m.Value != 0) e.VarintField(2, (ulong)(long)(int)(m.Value));
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);   // plan: unknown_tail, after every known field
     }
 
     public static void WriteListResultsResponse(ref Enc e, ListResultsResponse m)
@@ -329,6 +341,7 @@ public static class Codec
         }
         if (m.Page != 0) e.VarintField(2, (ulong)(long)(int)(m.Page));
         if (m.Total != 0) e.VarintField(3, (ulong)(long)(int)(m.Total));
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);   // plan: unknown_tail, after every known field
     }
 
     public static void WriteListTasksDetailedResponse(ref Enc e, ListTasksDetailedResponse m)
@@ -341,6 +354,7 @@ public static class Codec
         }
         if (m.Page != 0) e.VarintField(2, (ulong)(long)(int)(m.Page));
         if (m.Total != 0) e.VarintField(3, (ulong)(long)(int)(m.Total));
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);   // plan: unknown_tail, after every known field
     }
 
     public static void WriteListTaskSummaryResponse(ref Enc e, ListTaskSummaryResponse m)
@@ -351,6 +365,7 @@ public static class Codec
             WriteTaskSummary(ref e, m.Tasks[i]);
             e.End(mk);
         }
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);   // plan: unknown_tail, after every known field
     }
 
     public static void WriteListProbeResponse(ref Enc e, ListProbeResponse m)
@@ -361,6 +376,7 @@ public static class Codec
             WriteProbe(ref e, m.Probes[i]);
             e.End(mk);
         }
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);   // plan: unknown_tail, after every known field
     }
 
     public static void WriteListMetricsResponse(ref Enc e, ListMetricsResponse m)
@@ -371,6 +387,7 @@ public static class Codec
             WriteMetricsBatch(ref e, m.Batches[i]);
             e.End(mk);
         }
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);   // plan: unknown_tail, after every known field
     }
 
     public static void WriteUploadResultDataMessage(ref Enc e, UploadResultDataMessage m)
@@ -381,6 +398,7 @@ public static class Codec
             WriteUploadResultData(ref e, m.Upload);
             e.End(mk);
         }
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);   // plan: unknown_tail, after every known field
     }
 
     public static void WriteDualResponse(ref Enc e, DualResponse m)
@@ -397,12 +415,14 @@ public static class Codec
             WritePair(ref e, m.Right[i]);
             e.End(mk);
         }
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);   // plan: unknown_tail, after every known field
     }
 
     public static void WriteChunkLeaf(ref Enc e, ChunkLeaf m)
     {
         if (m.K != null && m.K.Length != 0) e.StringField(1, m.K, 72);
         if (m.V != 0) e.VarintField(2, (ulong)(long)(int)(m.V));
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);   // plan: unknown_tail, after every known field
     }
 
     public static void WriteChunkInner(ref Enc e, ChunkInner m)
@@ -419,6 +439,7 @@ public static class Codec
             WriteChunkLeaf(ref e, m.Leaves[i]);
             e.End(mk);
         }
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);   // plan: unknown_tail, after every known field
     }
 
     public static void WriteChunkElement(ref Enc e, ChunkElement m)
@@ -440,6 +461,7 @@ public static class Codec
             WriteChunkInner(ref e, m.Inner);
             e.End(mk);
         }
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);   // plan: unknown_tail, after every known field
     }
 
     public static void WriteChunkedResponse(ref Enc e, ChunkedResponse m)
@@ -451,6 +473,7 @@ public static class Codec
             e.End(mk);
         }
         if (m.Page != 0) e.VarintField(8, (ulong)(long)(int)(m.Page));
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);   // plan: unknown_tail, after every known field
     }
 
     public static void WriteChunkedResponseWide(ref Enc e, ChunkedResponseWide m)
@@ -461,6 +484,7 @@ public static class Codec
             WriteChunkElement(ref e, m.Items[i]);
             e.End(mk);
         }
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);   // plan: unknown_tail, after every known field
     }
 
     public static void WriteLeafElement(ref Enc e, LeafElement m)
@@ -473,6 +497,7 @@ public static class Codec
             WriteTimestamp(ref e, m.Stamp);
             e.End(mk);
         }
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);   // plan: unknown_tail, after every known field
     }
 
     public static void WriteLeafResponse(ref Enc e, LeafResponse m)
@@ -483,6 +508,7 @@ public static class Codec
             WriteLeafElement(ref e, m.Items[i]);
             e.End(mk);
         }
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);   // plan: unknown_tail, after every known field
     }
 
     public static void WriteSurrogate(ref Enc e, Surrogate m)
@@ -505,11 +531,13 @@ public static class Codec
         }
         for (int i = 0; i < m.Texts.Count; i++) e.StringField(4, m.Texts[i] ?? "", 91);
         if (m.Raw != null && m.Raw.Length != 0) e.BlobField(5, m.Raw);
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);   // plan: unknown_tail, after every known field
     }
 
     public static void WriteSurrogateInner(ref Enc e, SurrogateInner m)
     {
         if (m.Text != null && m.Text.Length != 0) e.StringField(1, m.Text, 92);
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);   // plan: unknown_tail, after every known field
     }
 
     public static void WriteNest(ref Enc e, Nest m)
@@ -521,6 +549,7 @@ public static class Codec
             e.End(mk);
         }
         if (m.Leaf != null && m.Leaf.Length != 0) e.StringField(2, m.Leaf, 94);
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);   // plan: unknown_tail, after every known field
     }
 
     public static void WriteWireZoo(ref Enc e, WireZoo m)
@@ -540,6 +569,7 @@ public static class Codec
             e.End(mk);
         }
         if (m.VBigTag != 0) e.VarintField(536870911, (ulong)(long)(int)(m.VBigTag));
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);   // plan: unknown_tail, after every known field
     }
 
     public static int SizeOfTimestamp(Timestamp m)
@@ -547,6 +577,7 @@ public static class Codec
         int n = 0;
         if (m.Seconds != 0) n += W.VarintLen(8UL) + W.VarintLen((ulong)(m.Seconds));
         if (m.Nanos != 0) n += W.VarintLen(16UL) + W.VarintLen((ulong)(long)(int)(m.Nanos));
+        if (m.UnknownFields != null) n += m.UnknownFields.Length;
         return n;
     }
 
@@ -555,6 +586,7 @@ public static class Codec
         int n = 0;
         if (m.Seconds != 0) n += W.VarintLen(8UL) + W.VarintLen((ulong)(m.Seconds));
         if (m.Nanos != 0) n += W.VarintLen(16UL) + W.VarintLen((ulong)(long)(int)(m.Nanos));
+        if (m.UnknownFields != null) n += m.UnknownFields.Length;
         return n;
     }
 
@@ -572,6 +604,7 @@ public static class Codec
         if (m.CreatedBy != null && m.CreatedBy.Length != 0) { int L = Enc.Utf8Len(m.CreatedBy); n += W.VarintLen(82UL) + W.VarintLen((ulong)(uint)L) + L; }
         if (m.OpaqueId != null && m.OpaqueId.Length != 0) { int L = m.OpaqueId.Length; n += W.VarintLen(90UL) + W.VarintLen((ulong)(uint)L) + L; }
         if (m.ManualDeletion) n += W.VarintLen(96UL) + W.VarintLen((m.ManualDeletion ? 1UL : 0UL));
+        if (m.UnknownFields != null) n += m.UnknownFields.Length;
         return n;
     }
 
@@ -596,6 +629,7 @@ public static class Codec
         if (m.ApplicationNamespace != null && m.ApplicationNamespace.Length != 0) { int L = Enc.Utf8Len(m.ApplicationNamespace); n += W.VarintLen(66UL) + W.VarintLen((ulong)(uint)L) + L; }
         if (m.ApplicationService != null && m.ApplicationService.Length != 0) { int L = Enc.Utf8Len(m.ApplicationService); n += W.VarintLen(74UL) + W.VarintLen((ulong)(uint)L) + L; }
         if (m.EngineType != null && m.EngineType.Length != 0) { int L = Enc.Utf8Len(m.EngineType); n += W.VarintLen(82UL) + W.VarintLen((ulong)(uint)L) + L; }
+        if (m.UnknownFields != null) n += m.UnknownFields.Length;
         return n;
     }
 
@@ -604,6 +638,7 @@ public static class Codec
         int n = 0;
         if (m.Success) n += W.VarintLen(8UL) + W.VarintLen((m.Success ? 1UL : 0UL));
         if (m.Error != null && m.Error.Length != 0) { int L = Enc.Utf8Len(m.Error); n += W.VarintLen(18UL) + W.VarintLen((ulong)(uint)L) + L; }
+        if (m.UnknownFields != null) n += m.UnknownFields.Length;
         return n;
     }
 
@@ -637,6 +672,7 @@ public static class Codec
         if (m.FetchedAt != null) { int b = SizeOfTimestamp(m.FetchedAt); n += W.VarintLen(202UL) + W.VarintLen((ulong)(uint)b) + b; }
         if (m.PayloadId != null && m.PayloadId.Length != 0) { int L = Enc.Utf8Len(m.PayloadId); n += W.VarintLen(210UL) + W.VarintLen((ulong)(uint)L) + L; }
         if (m.CreatedBy != null && m.CreatedBy.Length != 0) { int L = Enc.Utf8Len(m.CreatedBy); n += W.VarintLen(218UL) + W.VarintLen((ulong)(uint)L) + L; }
+        if (m.UnknownFields != null) n += m.UnknownFields.Length;
         return n;
     }
 
@@ -651,6 +687,7 @@ public static class Codec
         if (m.Error != null && m.Error.Length != 0) { int L = Enc.Utf8Len(m.Error); n += W.VarintLen(66UL) + W.VarintLen((ulong)(uint)L) + L; }
         if (m.StatusMessage != null && m.StatusMessage.Length != 0) { int L = Enc.Utf8Len(m.StatusMessage); n += W.VarintLen(74UL) + W.VarintLen((ulong)(uint)L) + L; }
         if (m.CountDataDependencies != 0) n += W.VarintLen(88UL) + W.VarintLen((ulong)(m.CountDataDependencies));
+        if (m.UnknownFields != null) n += m.UnknownFields.Length;
         return n;
     }
 
@@ -666,12 +703,14 @@ public static class Codec
         if (m.BodyCase == ProbeBodyCase.AsBlob) { int L = (m.AsBlob ?? W.EmptyBytes).Length; n += W.VarintLen(98UL) + W.VarintLen((ulong)(uint)L) + L; }
         if (m.BodyCase == ProbeBodyCase.AsStamp) { int b = SizeOfTimestamp((m.AsStamp ?? new Timestamp())); n += W.VarintLen(106UL) + W.VarintLen((ulong)(uint)b) + b; }
         if (m.BodyCase == ProbeBodyCase.AsNothing) { int b = SizeOfEmpty((m.AsNothing ?? new Empty())); n += W.VarintLen(114UL) + W.VarintLen((ulong)(uint)b) + b; }
+        if (m.UnknownFields != null) n += m.UnknownFields.Length;
         return n;
     }
 
     public static int SizeOfEmpty(Empty m)
     {
         int n = 0;
+        if (m.UnknownFields != null) n += m.UnknownFields.Length;
         return n;
     }
 
@@ -681,6 +720,7 @@ public static class Codec
         if (m.SessionId != null && m.SessionId.Length != 0) { int L = Enc.Utf8Len(m.SessionId); n += W.VarintLen(10UL) + W.VarintLen((ulong)(uint)L) + L; }
         if (m.ResultId != null && m.ResultId.Length != 0) { int L = Enc.Utf8Len(m.ResultId); n += W.VarintLen(18UL) + W.VarintLen((ulong)(uint)L) + L; }
         if (m.DataChunk != null && m.DataChunk.Length != 0) { int L = m.DataChunk.Length; n += W.VarintLen(26UL) + W.VarintLen((ulong)(uint)L) + L; }
+        if (m.UnknownFields != null) n += m.UnknownFields.Length;
         return n;
     }
 
@@ -718,6 +758,7 @@ public static class Codec
             for (int i = 0; i < m.Statuses.Count; i++) b += W.VarintLen((ulong)(long)(int)(m.Statuses[i]));
             n += W.VarintLen(50UL) + W.VarintLen((ulong)(uint)b) + b;
         }
+        if (m.UnknownFields != null) n += m.UnknownFields.Length;
         return n;
     }
 
@@ -726,6 +767,7 @@ public static class Codec
         int n = 0;
         if (m.Key != null && m.Key.Length != 0) { int L = Enc.Utf8Len(m.Key); n += W.VarintLen(10UL) + W.VarintLen((ulong)(uint)L) + L; }
         if (m.Value != 0) n += W.VarintLen(16UL) + W.VarintLen((ulong)(long)(int)(m.Value));
+        if (m.UnknownFields != null) n += m.UnknownFields.Length;
         return n;
     }
 
@@ -735,6 +777,7 @@ public static class Codec
         for (int i = 0; i < m.Results.Count; i++) { int b = SizeOfResultRaw(m.Results[i]); n += W.VarintLen(10UL) + W.VarintLen((ulong)(uint)b) + b; }
         if (m.Page != 0) n += W.VarintLen(16UL) + W.VarintLen((ulong)(long)(int)(m.Page));
         if (m.Total != 0) n += W.VarintLen(24UL) + W.VarintLen((ulong)(long)(int)(m.Total));
+        if (m.UnknownFields != null) n += m.UnknownFields.Length;
         return n;
     }
 
@@ -744,6 +787,7 @@ public static class Codec
         for (int i = 0; i < m.Tasks.Count; i++) { int b = SizeOfTaskDetailed(m.Tasks[i]); n += W.VarintLen(10UL) + W.VarintLen((ulong)(uint)b) + b; }
         if (m.Page != 0) n += W.VarintLen(16UL) + W.VarintLen((ulong)(long)(int)(m.Page));
         if (m.Total != 0) n += W.VarintLen(24UL) + W.VarintLen((ulong)(long)(int)(m.Total));
+        if (m.UnknownFields != null) n += m.UnknownFields.Length;
         return n;
     }
 
@@ -751,6 +795,7 @@ public static class Codec
     {
         int n = 0;
         for (int i = 0; i < m.Tasks.Count; i++) { int b = SizeOfTaskSummary(m.Tasks[i]); n += W.VarintLen(10UL) + W.VarintLen((ulong)(uint)b) + b; }
+        if (m.UnknownFields != null) n += m.UnknownFields.Length;
         return n;
     }
 
@@ -758,6 +803,7 @@ public static class Codec
     {
         int n = 0;
         for (int i = 0; i < m.Probes.Count; i++) { int b = SizeOfProbe(m.Probes[i]); n += W.VarintLen(10UL) + W.VarintLen((ulong)(uint)b) + b; }
+        if (m.UnknownFields != null) n += m.UnknownFields.Length;
         return n;
     }
 
@@ -765,6 +811,7 @@ public static class Codec
     {
         int n = 0;
         for (int i = 0; i < m.Batches.Count; i++) { int b = SizeOfMetricsBatch(m.Batches[i]); n += W.VarintLen(10UL) + W.VarintLen((ulong)(uint)b) + b; }
+        if (m.UnknownFields != null) n += m.UnknownFields.Length;
         return n;
     }
 
@@ -772,6 +819,7 @@ public static class Codec
     {
         int n = 0;
         if (m.Upload != null) { int b = SizeOfUploadResultData(m.Upload); n += W.VarintLen(10UL) + W.VarintLen((ulong)(uint)b) + b; }
+        if (m.UnknownFields != null) n += m.UnknownFields.Length;
         return n;
     }
 
@@ -780,6 +828,7 @@ public static class Codec
         int n = 0;
         for (int i = 0; i < m.Left.Count; i++) { int b = SizeOfPair(m.Left[i]); n += W.VarintLen(10UL) + W.VarintLen((ulong)(uint)b) + b; }
         for (int i = 0; i < m.Right.Count; i++) { int b = SizeOfPair(m.Right[i]); n += W.VarintLen(18UL) + W.VarintLen((ulong)(uint)b) + b; }
+        if (m.UnknownFields != null) n += m.UnknownFields.Length;
         return n;
     }
 
@@ -788,6 +837,7 @@ public static class Codec
         int n = 0;
         if (m.K != null && m.K.Length != 0) { int L = Enc.Utf8Len(m.K); n += W.VarintLen(10UL) + W.VarintLen((ulong)(uint)L) + L; }
         if (m.V != 0) n += W.VarintLen(16UL) + W.VarintLen((ulong)(long)(int)(m.V));
+        if (m.UnknownFields != null) n += m.UnknownFields.Length;
         return n;
     }
 
@@ -801,6 +851,7 @@ public static class Codec
             n += W.VarintLen(10UL) + W.VarintLen((ulong)(uint)b) + b;
         }
         for (int i = 0; i < m.Leaves.Count; i++) { int b = SizeOfChunkLeaf(m.Leaves[i]); n += W.VarintLen(18UL) + W.VarintLen((ulong)(uint)b) + b; }
+        if (m.UnknownFields != null) n += m.UnknownFields.Length;
         return n;
     }
 
@@ -819,6 +870,7 @@ public static class Codec
         }
         if (m.Id != null && m.Id.Length != 0) { int L = Enc.Utf8Len(m.Id); n += W.VarintLen(26UL) + W.VarintLen((ulong)(uint)L) + L; }
         if (m.Inner != null) { int b = SizeOfChunkInner(m.Inner); n += W.VarintLen(34UL) + W.VarintLen((ulong)(uint)b) + b; }
+        if (m.UnknownFields != null) n += m.UnknownFields.Length;
         return n;
     }
 
@@ -827,6 +879,7 @@ public static class Codec
         int n = 0;
         for (int i = 0; i < m.Items.Count; i++) { int b = SizeOfChunkElement(m.Items[i]); n += W.VarintLen(58UL) + W.VarintLen((ulong)(uint)b) + b; }
         if (m.Page != 0) n += W.VarintLen(64UL) + W.VarintLen((ulong)(long)(int)(m.Page));
+        if (m.UnknownFields != null) n += m.UnknownFields.Length;
         return n;
     }
 
@@ -834,6 +887,7 @@ public static class Codec
     {
         int n = 0;
         for (int i = 0; i < m.Items.Count; i++) { int b = SizeOfChunkElement(m.Items[i]); n += W.VarintLen(560002UL) + W.VarintLen((ulong)(uint)b) + b; }
+        if (m.UnknownFields != null) n += m.UnknownFields.Length;
         return n;
     }
 
@@ -843,6 +897,7 @@ public static class Codec
         if (m.Id != null && m.Id.Length != 0) { int L = Enc.Utf8Len(m.Id); n += W.VarintLen(10UL) + W.VarintLen((ulong)(uint)L) + L; }
         if (m.N != 0) n += W.VarintLen(16UL) + W.VarintLen((ulong)(m.N));
         if (m.Stamp != null) { int b = SizeOfTimestamp(m.Stamp); n += W.VarintLen(26UL) + W.VarintLen((ulong)(uint)b) + b; }
+        if (m.UnknownFields != null) n += m.UnknownFields.Length;
         return n;
     }
 
@@ -850,6 +905,7 @@ public static class Codec
     {
         int n = 0;
         for (int i = 0; i < m.Items.Count; i++) { int b = SizeOfLeafElement(m.Items[i]); n += W.VarintLen(74UL) + W.VarintLen((ulong)(uint)b) + b; }
+        if (m.UnknownFields != null) n += m.UnknownFields.Length;
         return n;
     }
 
@@ -869,6 +925,7 @@ public static class Codec
         }
         for (int i = 0; i < m.Texts.Count; i++) { int L = Enc.Utf8Len(m.Texts[i] ?? ""); n += W.VarintLen(34UL) + W.VarintLen((ulong)(uint)L) + L; }
         if (m.Raw != null && m.Raw.Length != 0) { int L = m.Raw.Length; n += W.VarintLen(42UL) + W.VarintLen((ulong)(uint)L) + L; }
+        if (m.UnknownFields != null) n += m.UnknownFields.Length;
         return n;
     }
 
@@ -876,6 +933,7 @@ public static class Codec
     {
         int n = 0;
         if (m.Text != null && m.Text.Length != 0) { int L = Enc.Utf8Len(m.Text); n += W.VarintLen(10UL) + W.VarintLen((ulong)(uint)L) + L; }
+        if (m.UnknownFields != null) n += m.UnknownFields.Length;
         return n;
     }
 
@@ -884,6 +942,7 @@ public static class Codec
         int n = 0;
         if (m.Child != null) { int b = SizeOfNest(m.Child); n += W.VarintLen(10UL) + W.VarintLen((ulong)(uint)b) + b; }
         if (m.Leaf != null && m.Leaf.Length != 0) { int L = Enc.Utf8Len(m.Leaf); n += W.VarintLen(18UL) + W.VarintLen((ulong)(uint)L) + L; }
+        if (m.UnknownFields != null) n += m.UnknownFields.Length;
         return n;
     }
 
@@ -900,6 +959,7 @@ public static class Codec
         if ((int)m.VEnum != 0) n += W.VarintLen(64UL) + W.VarintLen((ulong)(long)(int)(m.VEnum));
         if (m.VMsg != null) { int b = SizeOfTimestamp(m.VMsg); n += W.VarintLen(74UL) + W.VarintLen((ulong)(uint)b) + b; }
         if (m.VBigTag != 0) n += W.VarintLen(4294967288UL) + W.VarintLen((ulong)(long)(int)(m.VBigTag));
+        if (m.UnknownFields != null) n += m.UnknownFields.Length;
         return n;
     }
 
@@ -907,12 +967,14 @@ public static class Codec
     {
         if (m.Seconds != 0) e.VarintField(1, (ulong)(m.Seconds));
         if (m.Nanos != 0) e.VarintField(2, (ulong)(long)(int)(m.Nanos));
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);
     }
 
     public static void WriteSizedDuration(ref Enc e, Duration m)
     {
         if (m.Seconds != 0) e.VarintField(1, (ulong)(m.Seconds));
         if (m.Nanos != 0) e.VarintField(2, (ulong)(long)(int)(m.Nanos));
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);
     }
 
     public static void WriteSizedResultRaw(ref Enc e, ResultRaw m)
@@ -928,6 +990,7 @@ public static class Codec
         if (m.CreatedBy != null && m.CreatedBy.Length != 0) { var s = m.CreatedBy; int L = Enc.Utf8Len(s); e.SizedHeader(10, L); e.StringBodySized(s, L); }
         if (m.OpaqueId != null && m.OpaqueId.Length != 0) e.BlobField(11, m.OpaqueId);
         if (m.ManualDeletion) e.VarintField(12, (m.ManualDeletion ? 1UL : 0UL));
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);
     }
 
     public static void WriteSizedTaskOptions(ref Enc e, TaskOptions m)
@@ -954,12 +1017,14 @@ public static class Codec
         if (m.ApplicationNamespace != null && m.ApplicationNamespace.Length != 0) { var s = m.ApplicationNamespace; int L = Enc.Utf8Len(s); e.SizedHeader(8, L); e.StringBodySized(s, L); }
         if (m.ApplicationService != null && m.ApplicationService.Length != 0) { var s = m.ApplicationService; int L = Enc.Utf8Len(s); e.SizedHeader(9, L); e.StringBodySized(s, L); }
         if (m.EngineType != null && m.EngineType.Length != 0) { var s = m.EngineType; int L = Enc.Utf8Len(s); e.SizedHeader(10, L); e.StringBodySized(s, L); }
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);
     }
 
     public static void WriteSizedTaskOutput(ref Enc e, TaskOutput m)
     {
         if (m.Success) e.VarintField(1, (m.Success ? 1UL : 0UL));
         if (m.Error != null && m.Error.Length != 0) { var s = m.Error; int L = Enc.Utf8Len(s); e.SizedHeader(2, L); e.StringBodySized(s, L); }
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);
     }
 
     public static void WriteSizedTaskDetailed(ref Enc e, TaskDetailed m)
@@ -991,6 +1056,7 @@ public static class Codec
         if (m.FetchedAt != null) { var c = m.FetchedAt; e.SizedHeader(25, SizeOfTimestamp(c)); WriteSizedTimestamp(ref e, c); }
         if (m.PayloadId != null && m.PayloadId.Length != 0) { var s = m.PayloadId; int L = Enc.Utf8Len(s); e.SizedHeader(26, L); e.StringBodySized(s, L); }
         if (m.CreatedBy != null && m.CreatedBy.Length != 0) { var s = m.CreatedBy; int L = Enc.Utf8Len(s); e.SizedHeader(27, L); e.StringBodySized(s, L); }
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);
     }
 
     public static void WriteSizedTaskSummary(ref Enc e, TaskSummary m)
@@ -1003,6 +1069,7 @@ public static class Codec
         if (m.Error != null && m.Error.Length != 0) { var s = m.Error; int L = Enc.Utf8Len(s); e.SizedHeader(8, L); e.StringBodySized(s, L); }
         if (m.StatusMessage != null && m.StatusMessage.Length != 0) { var s = m.StatusMessage; int L = Enc.Utf8Len(s); e.SizedHeader(9, L); e.StringBodySized(s, L); }
         if (m.CountDataDependencies != 0) e.VarintField(11, (ulong)(m.CountDataDependencies));
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);
     }
 
     public static void WriteSizedProbe(ref Enc e, Probe m)
@@ -1017,10 +1084,12 @@ public static class Codec
         if (m.BodyCase == ProbeBodyCase.AsBlob) e.BlobField(12, (m.AsBlob ?? W.EmptyBytes));
         if (m.BodyCase == ProbeBodyCase.AsStamp) { var c = (m.AsStamp ?? new Timestamp()); e.SizedHeader(13, SizeOfTimestamp(c)); WriteSizedTimestamp(ref e, c); }
         if (m.BodyCase == ProbeBodyCase.AsNothing) { var c = (m.AsNothing ?? new Empty()); e.SizedHeader(14, SizeOfEmpty(c)); WriteSizedEmpty(ref e, c); }
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);
     }
 
     public static void WriteSizedEmpty(ref Enc e, Empty m)
     {
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);
     }
 
     public static void WriteSizedUploadResultData(ref Enc e, UploadResultData m)
@@ -1028,6 +1097,7 @@ public static class Codec
         if (m.SessionId != null && m.SessionId.Length != 0) { var s = m.SessionId; int L = Enc.Utf8Len(s); e.SizedHeader(1, L); e.StringBodySized(s, L); }
         if (m.ResultId != null && m.ResultId.Length != 0) { var s = m.ResultId; int L = Enc.Utf8Len(s); e.SizedHeader(2, L); e.StringBodySized(s, L); }
         if (m.DataChunk != null && m.DataChunk.Length != 0) e.BlobField(3, m.DataChunk);
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);
     }
 
     public static void WriteSizedMetricsBatch(ref Enc e, MetricsBatch m)
@@ -1068,12 +1138,14 @@ public static class Codec
             e.SizedHeader(6, b);
             for (int i = 0; i < m.Statuses.Count; i++) e.Varint((ulong)(long)(int)(m.Statuses[i]));
         }
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);
     }
 
     public static void WriteSizedPair(ref Enc e, Pair m)
     {
         if (m.Key != null && m.Key.Length != 0) { var s = m.Key; int L = Enc.Utf8Len(s); e.SizedHeader(1, L); e.StringBodySized(s, L); }
         if (m.Value != 0) e.VarintField(2, (ulong)(long)(int)(m.Value));
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);
     }
 
     public static void WriteSizedListResultsResponse(ref Enc e, ListResultsResponse m)
@@ -1081,6 +1153,7 @@ public static class Codec
         for (int i = 0; i < m.Results.Count; i++) { e.SizedHeader(1, SizeOfResultRaw(m.Results[i])); WriteSizedResultRaw(ref e, m.Results[i]); }
         if (m.Page != 0) e.VarintField(2, (ulong)(long)(int)(m.Page));
         if (m.Total != 0) e.VarintField(3, (ulong)(long)(int)(m.Total));
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);
     }
 
     public static void WriteSizedListTasksDetailedResponse(ref Enc e, ListTasksDetailedResponse m)
@@ -1088,38 +1161,45 @@ public static class Codec
         for (int i = 0; i < m.Tasks.Count; i++) { e.SizedHeader(1, SizeOfTaskDetailed(m.Tasks[i])); WriteSizedTaskDetailed(ref e, m.Tasks[i]); }
         if (m.Page != 0) e.VarintField(2, (ulong)(long)(int)(m.Page));
         if (m.Total != 0) e.VarintField(3, (ulong)(long)(int)(m.Total));
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);
     }
 
     public static void WriteSizedListTaskSummaryResponse(ref Enc e, ListTaskSummaryResponse m)
     {
         for (int i = 0; i < m.Tasks.Count; i++) { e.SizedHeader(1, SizeOfTaskSummary(m.Tasks[i])); WriteSizedTaskSummary(ref e, m.Tasks[i]); }
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);
     }
 
     public static void WriteSizedListProbeResponse(ref Enc e, ListProbeResponse m)
     {
         for (int i = 0; i < m.Probes.Count; i++) { e.SizedHeader(1, SizeOfProbe(m.Probes[i])); WriteSizedProbe(ref e, m.Probes[i]); }
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);
     }
 
     public static void WriteSizedListMetricsResponse(ref Enc e, ListMetricsResponse m)
     {
         for (int i = 0; i < m.Batches.Count; i++) { e.SizedHeader(1, SizeOfMetricsBatch(m.Batches[i])); WriteSizedMetricsBatch(ref e, m.Batches[i]); }
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);
     }
 
     public static void WriteSizedUploadResultDataMessage(ref Enc e, UploadResultDataMessage m)
     {
         if (m.Upload != null) { var c = m.Upload; e.SizedHeader(1, SizeOfUploadResultData(c)); WriteSizedUploadResultData(ref e, c); }
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);
     }
 
     public static void WriteSizedDualResponse(ref Enc e, DualResponse m)
     {
         for (int i = 0; i < m.Left.Count; i++) { e.SizedHeader(1, SizeOfPair(m.Left[i])); WriteSizedPair(ref e, m.Left[i]); }
         for (int i = 0; i < m.Right.Count; i++) { e.SizedHeader(2, SizeOfPair(m.Right[i])); WriteSizedPair(ref e, m.Right[i]); }
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);
     }
 
     public static void WriteSizedChunkLeaf(ref Enc e, ChunkLeaf m)
     {
         if (m.K != null && m.K.Length != 0) { var s = m.K; int L = Enc.Utf8Len(s); e.SizedHeader(1, L); e.StringBodySized(s, L); }
         if (m.V != 0) e.VarintField(2, (ulong)(long)(int)(m.V));
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);
     }
 
     public static void WriteSizedChunkInner(ref Enc e, ChunkInner m)
@@ -1132,6 +1212,7 @@ public static class Codec
             for (int i = 0; i < m.Marks.Count; i++) e.Varint((ulong)(m.Marks[i]));
         }
         for (int i = 0; i < m.Leaves.Count; i++) { e.SizedHeader(2, SizeOfChunkLeaf(m.Leaves[i])); WriteSizedChunkLeaf(ref e, m.Leaves[i]); }
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);
     }
 
     public static void WriteSizedChunkElement(ref Enc e, ChunkElement m)
@@ -1152,17 +1233,20 @@ public static class Codec
         }
         if (m.Id != null && m.Id.Length != 0) { var s = m.Id; int L = Enc.Utf8Len(s); e.SizedHeader(3, L); e.StringBodySized(s, L); }
         if (m.Inner != null) { var c = m.Inner; e.SizedHeader(4, SizeOfChunkInner(c)); WriteSizedChunkInner(ref e, c); }
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);
     }
 
     public static void WriteSizedChunkedResponse(ref Enc e, ChunkedResponse m)
     {
         for (int i = 0; i < m.Items.Count; i++) { e.SizedHeader(7, SizeOfChunkElement(m.Items[i])); WriteSizedChunkElement(ref e, m.Items[i]); }
         if (m.Page != 0) e.VarintField(8, (ulong)(long)(int)(m.Page));
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);
     }
 
     public static void WriteSizedChunkedResponseWide(ref Enc e, ChunkedResponseWide m)
     {
         for (int i = 0; i < m.Items.Count; i++) { e.SizedHeader(70000, SizeOfChunkElement(m.Items[i])); WriteSizedChunkElement(ref e, m.Items[i]); }
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);
     }
 
     public static void WriteSizedLeafElement(ref Enc e, LeafElement m)
@@ -1170,11 +1254,13 @@ public static class Codec
         if (m.Id != null && m.Id.Length != 0) { var s = m.Id; int L = Enc.Utf8Len(s); e.SizedHeader(1, L); e.StringBodySized(s, L); }
         if (m.N != 0) e.VarintField(2, (ulong)(m.N));
         if (m.Stamp != null) { var c = m.Stamp; e.SizedHeader(3, SizeOfTimestamp(c)); WriteSizedTimestamp(ref e, c); }
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);
     }
 
     public static void WriteSizedLeafResponse(ref Enc e, LeafResponse m)
     {
         for (int i = 0; i < m.Items.Count; i++) { e.SizedHeader(9, SizeOfLeafElement(m.Items[i])); WriteSizedLeafElement(ref e, m.Items[i]); }
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);
     }
 
     public static void WriteSizedSurrogate(ref Enc e, Surrogate m)
@@ -1196,17 +1282,20 @@ public static class Codec
         }
         for (int i = 0; i < m.Texts.Count; i++) { var s = m.Texts[i] ?? ""; int L = Enc.Utf8Len(s); e.SizedHeader(4, L); e.StringBodySized(s, L); }
         if (m.Raw != null && m.Raw.Length != 0) e.BlobField(5, m.Raw);
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);
     }
 
     public static void WriteSizedSurrogateInner(ref Enc e, SurrogateInner m)
     {
         if (m.Text != null && m.Text.Length != 0) { var s = m.Text; int L = Enc.Utf8Len(s); e.SizedHeader(1, L); e.StringBodySized(s, L); }
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);
     }
 
     public static void WriteSizedNest(ref Enc e, Nest m)
     {
         if (m.Child != null) { var c = m.Child; e.SizedHeader(1, SizeOfNest(c)); WriteSizedNest(ref e, c); }
         if (m.Leaf != null && m.Leaf.Length != 0) { var s = m.Leaf; int L = Enc.Utf8Len(s); e.SizedHeader(2, L); e.StringBodySized(s, L); }
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);
     }
 
     public static void WriteSizedWireZoo(ref Enc e, WireZoo m)
@@ -1221,6 +1310,7 @@ public static class Codec
         if ((int)m.VEnum != 0) e.VarintField(8, (ulong)(long)(int)(m.VEnum));
         if (m.VMsg != null) { var c = m.VMsg; e.SizedHeader(9, SizeOfTimestamp(c)); WriteSizedTimestamp(ref e, c); }
         if (m.VBigTag != 0) e.VarintField(536870911, (ulong)(long)(int)(m.VBigTag));
+        if (m.UnknownFields != null) e.Raw(m.UnknownFields);
     }
 
     public static void ReadTimestamp(ref Dec d, Timestamp m, int depth)
@@ -1252,9 +1342,9 @@ public static class Codec
                 }
                 default:
                 {
-                    // plan (drop): an unknown field -- including a known number at a wire type
-                    // the table has no entry for (R-E2) -- is skipped.
+                    // plan (retain): an unknown field is captured verbatim, key included.
                     d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
+                    if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0);
                     break;
                 }
             }
@@ -1290,9 +1380,9 @@ public static class Codec
                 }
                 default:
                 {
-                    // plan (drop): an unknown field -- including a known number at a wire type
-                    // the table has no entry for (R-E2) -- is skipped.
+                    // plan (retain): an unknown field is captured verbatim, key included.
                     d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
+                    if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0);
                     break;
                 }
             }
@@ -1394,9 +1484,9 @@ public static class Codec
                 }
                 default:
                 {
-                    // plan (drop): an unknown field -- including a known number at a wire type
-                    // the table has no entry for (R-E2) -- is skipped.
+                    // plan (retain): an unknown field is captured verbatim, key included.
                     d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
+                    if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0);
                     break;
                 }
             }
@@ -1506,9 +1596,9 @@ public static class Codec
                 }
                 default:
                 {
-                    // plan (drop): an unknown field -- including a known number at a wire type
-                    // the table has no entry for (R-E2) -- is skipped.
+                    // plan (retain): an unknown field is captured verbatim, key included.
                     d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
+                    if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0);
                     break;
                 }
             }
@@ -1544,9 +1634,9 @@ public static class Codec
                 }
                 default:
                 {
-                    // plan (drop): an unknown field -- including a known number at a wire type
-                    // the table has no entry for (R-E2) -- is skipped.
+                    // plan (retain): an unknown field is captured verbatim, key included.
                     d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
+                    if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0);
                     break;
                 }
             }
@@ -1816,9 +1906,9 @@ public static class Codec
                 }
                 default:
                 {
-                    // plan (drop): an unknown field -- including a known number at a wire type
-                    // the table has no entry for (R-E2) -- is skipped.
+                    // plan (retain): an unknown field is captured verbatim, key included.
                     d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
+                    if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0);
                     break;
                 }
             }
@@ -1902,9 +1992,9 @@ public static class Codec
                 }
                 default:
                 {
-                    // plan (drop): an unknown field -- including a known number at a wire type
-                    // the table has no entry for (R-E2) -- is skipped.
+                    // plan (retain): an unknown field is captured verbatim, key included.
                     d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
+                    if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0);
                     break;
                 }
             }
@@ -1994,9 +2084,9 @@ public static class Codec
                 }
                 default:
                 {
-                    // plan (drop): an unknown field -- including a known number at a wire type
-                    // the table has no entry for (R-E2) -- is skipped.
+                    // plan (retain): an unknown field is captured verbatim, key included.
                     d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
+                    if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0);
                     break;
                 }
             }
@@ -2020,9 +2110,9 @@ public static class Codec
             {
                 default:
                 {
-                    // plan (drop): an unknown field -- including a known number at a wire type
-                    // the table has no entry for (R-E2) -- is skipped.
+                    // plan (retain): an unknown field is captured verbatim, key included.
                     d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
+                    if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0);
                     break;
                 }
             }
@@ -2064,9 +2154,9 @@ public static class Codec
                 }
                 default:
                 {
-                    // plan (drop): an unknown field -- including a known number at a wire type
-                    // the table has no entry for (R-E2) -- is skipped.
+                    // plan (retain): an unknown field is captured verbatim, key included.
                     d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
+                    if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0);
                     break;
                 }
             }
@@ -2176,9 +2266,9 @@ public static class Codec
                 }
                 default:
                 {
-                    // plan (drop): an unknown field -- including a known number at a wire type
-                    // the table has no entry for (R-E2) -- is skipped.
+                    // plan (retain): an unknown field is captured verbatim, key included.
                     d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
+                    if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0);
                     break;
                 }
             }
@@ -2214,9 +2304,9 @@ public static class Codec
                 }
                 default:
                 {
-                    // plan (drop): an unknown field -- including a known number at a wire type
-                    // the table has no entry for (R-E2) -- is skipped.
+                    // plan (retain): an unknown field is captured verbatim, key included.
                     d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
+                    if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0);
                     break;
                 }
             }
@@ -2263,9 +2353,9 @@ public static class Codec
                 }
                 default:
                 {
-                    // plan (drop): an unknown field -- including a known number at a wire type
-                    // the table has no entry for (R-E2) -- is skipped.
+                    // plan (retain): an unknown field is captured verbatim, key included.
                     d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
+                    if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0);
                     break;
                 }
             }
@@ -2312,9 +2402,9 @@ public static class Codec
                 }
                 default:
                 {
-                    // plan (drop): an unknown field -- including a known number at a wire type
-                    // the table has no entry for (R-E2) -- is skipped.
+                    // plan (retain): an unknown field is captured verbatim, key included.
                     d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
+                    if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0);
                     break;
                 }
             }
@@ -2349,9 +2439,9 @@ public static class Codec
                 }
                 default:
                 {
-                    // plan (drop): an unknown field -- including a known number at a wire type
-                    // the table has no entry for (R-E2) -- is skipped.
+                    // plan (retain): an unknown field is captured verbatim, key included.
                     d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
+                    if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0);
                     break;
                 }
             }
@@ -2386,9 +2476,9 @@ public static class Codec
                 }
                 default:
                 {
-                    // plan (drop): an unknown field -- including a known number at a wire type
-                    // the table has no entry for (R-E2) -- is skipped.
+                    // plan (retain): an unknown field is captured verbatim, key included.
                     d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
+                    if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0);
                     break;
                 }
             }
@@ -2423,9 +2513,9 @@ public static class Codec
                 }
                 default:
                 {
-                    // plan (drop): an unknown field -- including a known number at a wire type
-                    // the table has no entry for (R-E2) -- is skipped.
+                    // plan (retain): an unknown field is captured verbatim, key included.
                     d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
+                    if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0);
                     break;
                 }
             }
@@ -2461,9 +2551,9 @@ public static class Codec
                 }
                 default:
                 {
-                    // plan (drop): an unknown field -- including a known number at a wire type
-                    // the table has no entry for (R-E2) -- is skipped.
+                    // plan (retain): an unknown field is captured verbatim, key included.
                     d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
+                    if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0);
                     break;
                 }
             }
@@ -2509,9 +2599,9 @@ public static class Codec
                 }
                 default:
                 {
-                    // plan (drop): an unknown field -- including a known number at a wire type
-                    // the table has no entry for (R-E2) -- is skipped.
+                    // plan (retain): an unknown field is captured verbatim, key included.
                     d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
+                    if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0);
                     break;
                 }
             }
@@ -2547,9 +2637,9 @@ public static class Codec
                 }
                 default:
                 {
-                    // plan (drop): an unknown field -- including a known number at a wire type
-                    // the table has no entry for (R-E2) -- is skipped.
+                    // plan (retain): an unknown field is captured verbatim, key included.
                     d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
+                    if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0);
                     break;
                 }
             }
@@ -2600,9 +2690,9 @@ public static class Codec
                 }
                 default:
                 {
-                    // plan (drop): an unknown field -- including a known number at a wire type
-                    // the table has no entry for (R-E2) -- is skipped.
+                    // plan (retain): an unknown field is captured verbatim, key included.
                     d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
+                    if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0);
                     break;
                 }
             }
@@ -2676,9 +2766,9 @@ public static class Codec
                 }
                 default:
                 {
-                    // plan (drop): an unknown field -- including a known number at a wire type
-                    // the table has no entry for (R-E2) -- is skipped.
+                    // plan (retain): an unknown field is captured verbatim, key included.
                     d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
+                    if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0);
                     break;
                 }
             }
@@ -2719,9 +2809,9 @@ public static class Codec
                 }
                 default:
                 {
-                    // plan (drop): an unknown field -- including a known number at a wire type
-                    // the table has no entry for (R-E2) -- is skipped.
+                    // plan (retain): an unknown field is captured verbatim, key included.
                     d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
+                    if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0);
                     break;
                 }
             }
@@ -2756,9 +2846,9 @@ public static class Codec
                 }
                 default:
                 {
-                    // plan (drop): an unknown field -- including a known number at a wire type
-                    // the table has no entry for (R-E2) -- is skipped.
+                    // plan (retain): an unknown field is captured verbatim, key included.
                     d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
+                    if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0);
                     break;
                 }
             }
@@ -2806,9 +2896,9 @@ public static class Codec
                 }
                 default:
                 {
-                    // plan (drop): an unknown field -- including a known number at a wire type
-                    // the table has no entry for (R-E2) -- is skipped.
+                    // plan (retain): an unknown field is captured verbatim, key included.
                     d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
+                    if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0);
                     break;
                 }
             }
@@ -2843,9 +2933,9 @@ public static class Codec
                 }
                 default:
                 {
-                    // plan (drop): an unknown field -- including a known number at a wire type
-                    // the table has no entry for (R-E2) -- is skipped.
+                    // plan (retain): an unknown field is captured verbatim, key included.
                     d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
+                    if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0);
                     break;
                 }
             }
@@ -2925,9 +3015,9 @@ public static class Codec
                 }
                 default:
                 {
-                    // plan (drop): an unknown field -- including a known number at a wire type
-                    // the table has no entry for (R-E2) -- is skipped.
+                    // plan (retain): an unknown field is captured verbatim, key included.
                     d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
+                    if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0);
                     break;
                 }
             }
@@ -2957,9 +3047,9 @@ public static class Codec
                 }
                 default:
                 {
-                    // plan (drop): an unknown field -- including a known number at a wire type
-                    // the table has no entry for (R-E2) -- is skipped.
+                    // plan (retain): an unknown field is captured verbatim, key included.
                     d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
+                    if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0);
                     break;
                 }
             }
@@ -3001,9 +3091,9 @@ public static class Codec
                 }
                 default:
                 {
-                    // plan (drop): an unknown field -- including a known number at a wire type
-                    // the table has no entry for (R-E2) -- is skipped.
+                    // plan (retain): an unknown field is captured verbatim, key included.
                     d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
+                    if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0);
                     break;
                 }
             }
@@ -3093,9 +3183,9 @@ public static class Codec
                 }
                 default:
                 {
-                    // plan (drop): an unknown field -- including a known number at a wire type
-                    // the table has no entry for (R-E2) -- is skipped.
+                    // plan (retain): an unknown field is captured verbatim, key included.
                     d.Skip((int)tag, wire, GroupDepthLimit, MaxFieldNumber);
+                    if (d.Err == 0) m.UnknownFields = W.Append(m.UnknownFields, d.Buf, s0, d.Pos - s0);
                     break;
                 }
             }

@@ -28,6 +28,9 @@ using Armonik.Ffi.Facade;
 using Google.Protobuf;
 using Gp = Armonik.Ffi.Shapes.V1;
 
+#if !AK_NO_UNKNOWN_FIELDS
+// R-H22: the no-unknown build has no UnknownFields member and no retain codec; this check
+// does not exist there.
 namespace Armonik.Ffi.Harness;
 
 public static class UnknownFields
@@ -182,28 +185,28 @@ public static class UnknownFields
             }
             catch (Exception ex) { manDec = "FAIL " + ex.GetType().Name; bad++; }
 
-            // RETAIN mode (the plan's Options.unknown = "both", host picks per call): the
+            // RETAIN mode (the retain codec, `CodecRetain`, rendered from the retain plan: R-H11): the
             // captured runs are written back after the known fields, as Google.Protobuf
             // writes its UnknownFieldSet. Byte identity with the incumbent's re-encode is
             // the retain-mode gate (FIX-PLAN WP3 item 21).
             string retMode;
             try
             {
-                var d = new Dec { Buf = v.Bytes, Pos = 0, End = v.Bytes.Length, Err = 0, Retain = true };
+                var d = new Dec { Buf = v.Bytes, Pos = 0, End = v.Bytes.Length, Err = 0 };
                 var e = Enc.New(Codec.Sites, v.Bytes.Length + 4096);
                 if (isProbe)
                 {
                     var m = new ListProbeResponse();
-                    Codec.ReadListProbeResponse(ref d, m, 0);
+                    CodecRetain.ReadListProbeResponse(ref d, m, 0);
                     if (d.Err != 0) throw new InvalidOperationException("err " + d.Err);
-                    Codec.WriteListProbeResponse(ref e, m);
+                    CodecRetain.WriteListProbeResponse(ref e, m);
                 }
                 else
                 {
                     var m = new ListResultsResponse();
-                    Codec.ReadListResultsResponse(ref d, m, 0);
+                    CodecRetain.ReadListResultsResponse(ref d, m, 0);
                     if (d.Err != 0) throw new InvalidOperationException("err " + d.Err);
-                    Codec.WriteListResultsResponse(ref e, m);
+                    CodecRetain.WriteListResultsResponse(ref e, m);
                 }
                 var r = e.ToArray();
                 retMode = gpOut != null && Same(r, gpOut) ? "ok (identical)" : "DIFFERS (" + r.Length + " B)";
@@ -266,3 +269,5 @@ public static class UnknownFields
         return true;
     }
 }
+
+#endif

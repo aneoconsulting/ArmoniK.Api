@@ -46,19 +46,15 @@ public static class Cases
 
     /// The units of a launch, in its order: the arm order rotated by launch - 1
     /// (requirement 22), and within an arm the modes rotated by launch - 1 too.
+    /// R-H23 (CAMPAIGN req 22 as amended 2026-09-26): the order is RANDOMISED where the
+    /// framework allows it. The unit order of a launch is a seeded shuffle (seed = launch), so
+    /// adjacency changes between launches; the seed and the order are in every header.
+    public static int UnitSeed(int launch) => launch * 7919;
     public static List<string> Units(int launch)
     {
-        int k = (launch - 1) % Arms.Length;
-        var arms = Arms.Skip(k).Concat(Arms.Take(k));
-        var all = EncArms.Concat(DecArms).Concat(UnkArms).Distinct().ToList();
-        var o = new List<string>();
-        foreach (var a in arms)
-        {
-            var modes = all.Where(x => x.StartsWith(a + ":", StringComparison.Ordinal)).ToList();
-            int r = (launch - 1) % modes.Count;
-            o.AddRange(modes.Skip(r).Concat(modes.Take(r)));
-        }
-        return o;
+        var all = EncArms.Concat(DecArms).Concat(UnkArms).Distinct().OrderBy(x => x, StringComparer.Ordinal).ToList();
+        var rng = new Random(UnitSeed(launch));
+        return all.OrderBy(_ => rng.Next()).ToList();
     }
 
     /// Two sacrificial cases run first in every process: copies of its first two cases, with
@@ -150,8 +146,12 @@ public static class Cases
                 Values.ContentSet = Values.Ascii;
                 var wire = ops.IncumbentBytes();
                 var e = Enc.New(Armonik.Ffi.Facade.Codec.Sites, wire.Length + 4096);
-                ops.EncHost(ref e);
-                Same(e.ToArray(), wire, pid + " host-gen");
+                ops.EncHost(ref e, false);
+                Same(e.ToArray(), wire, pid + " host-gen drop");
+#if !AK_NO_UNKNOWN_FIELDS
+                ops.EncHost(ref e, true);
+                Same(e.ToArray(), wire, pid + " host-gen retain");
+#endif
                 Same(ops.EncFfiBytes(false), wire, pid + " core-ffi drop");
 #if !AK_NO_UNKNOWN_FIELDS
                 Same(ops.EncFfiBytes(true), wire, pid + " core-ffi retain");
@@ -219,7 +219,7 @@ public static class Cases
         {
             case "incumbent-prod:encode": return () => ops.EncIncProd(w);
             case "incumbent-best:encode": return () => ops.EncIncBest(w);
-            case "host-gen:encode": { var box = new EncBox(len); return () => box.Run(ops); }
+            case "host-gen:encode": { var box = new EncBox(len); return () => box.Run(ops, retain); }
             case "core-ffi:encode": return () => ops.EncFfi(retain);
             case "incumbent-prod:decode": case "incumbent-prod:decode-read": return () => ops.DecIncProd(seq, read);
             case "incumbent-best:decode": case "incumbent-best:decode-read": return () => ops.DecIncBest(wire, len, read);
@@ -238,6 +238,6 @@ public static class Cases
     {
         private Enc _e;
         public EncBox(int len) { _e = Enc.New(Armonik.Ffi.Facade.Codec.Sites, len + 4096); }
-        public long Run(RootOps ops) => ops.EncHost(ref _e);
+        public long Run(RootOps ops, bool retain) => ops.EncHost(ref _e, retain);
     }
 }

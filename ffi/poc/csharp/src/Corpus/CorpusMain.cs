@@ -3,7 +3,8 @@
 //
 //   managed-drop    the managed codec (poc/codec/gen/cs_managed.py, rendered from the corpus
 //                   READER plan), unknown fields skipped
-//   managed-retain  the same codec with `Dec.Retain`: unknown runs captured and re-emitted
+//   managed-retain  the retain codec (`CodecRetain`, from the retain plan: R-H11): unknown runs
+//                   captured and re-emitted
 //   ffi-drop        core-ffi against the core generated for the corpus reader schema
 //                   (`ak-core --features corpus,init-guard`), `ak_decode_*` / `ak_encode_*`
 //   ffi-retain      the same, decision 11's options armed (every position retained through
@@ -29,6 +30,7 @@
 //   AK_CORPUS_PLANT=proj    a planted key in every projection      -> C2 must fail
 //   AK_CORPUS_PLANT=reenc   a byte appended to every re-encoding   -> C3 must fail
 //   AK_CORPUS_PLANT=accept  every refusal read as an acceptance    -> C4 must fail
+//   AK_CORPUS_PLANT=code    every expected refusal code swapped    -> C4's code check must fail
 //   AK_CORPUS_PLANT=unkdrop ffi-retain decodes in drop mode        -> with AK_CORPUS_RETAIN_STRICT=1
 //                                                                     (retention gaps fail) must fail
 //   AK_GATE_PLANT_NO_INIT=1 the binding skips ak_init (init-guard) -> the ffi arms must fail
@@ -88,6 +90,10 @@ public static class Program
             {
                 // WP5 step 10: which build this is, and whether the loaded core is the same one.
                 var why = AbiVariant.CheckLoadedCore();
+                // R-H22: the no-unknown facade has no unknown-field member.
+                bool hasBag = typeof(Duration).GetField("UnknownFields") != null;
+                if (hasBag == AbiVariant.UnknownCompiledOut) why = (why == null ? "" : why + "; ") + "the facade's UnknownFields member is " + (hasBag ? "present" : "absent") + " in the " + AbiVariant.Name + " build";
+                Console.WriteLine("facade member UnknownFields: {0}", hasBag ? "present" : "absent");
                 Console.WriteLine("binding variant {0}; loaded core: {1}; ak_layout_facts: {2} facts in this binding", AbiVariant.Name, why ?? "the same variant", AbiLayout.FactCount);
                 return why == null ? 0 : 1;
             }
@@ -204,6 +210,7 @@ public static class Program
         // ---- decode
         object msg = null;
         string err = null;
+        int code = 0;   // the refusal's code (C4): the core's rc, or the managed reader's Err
         if (ffi)
         {
             if (!Ffi.Roots.Contains(root)) { r.Verdict = "notinabi"; r.Detail = "root " + root + " is refused by the generator"; return r; }
@@ -213,16 +220,16 @@ public static class Program
             bool dretain = retain && !(plant == "unkdrop" && arm == "ffi-retain");
             try { rc = Ffi.Decode(root, bytes, dretain, out msg); }
             catch (Exception ex) { rc = int.MinValue; err = "THREW " + ex.GetType().Name + ": " + ex.Message; }
-            if (err == null && rc < 0) err = "core " + rc + CoreName(rc);
+            if (err == null && rc < 0) { err = "core " + rc + CoreName(rc); code = rc; }
         }
         else
         {
             try
             {
                 msg = Roots.New(root);
-                var d = new Dec { Buf = bytes, Pos = 0, End = bytes.Length, Err = 0, Retain = retain };
-                Roots.Read(root, ref d, msg);
-                if (d.Err != 0) err = "managed " + d.Err + ManagedName(d.Err);
+                var d = new Dec { Buf = bytes, Pos = 0, End = bytes.Length, Err = 0 };
+                Roots.Read(root, ref d, msg, retain);   // R-H11: the retain arm is the retain codec
+                if (d.Err != 0) { err = "managed " + d.Err + ManagedName(d.Err); code = d.Err; }
             }
             catch (Exception ex) { err = "THREW " + ex.GetType().Name + ": " + ex.Message; }
         }
@@ -244,6 +251,11 @@ public static class Program
             if (plant == "accept" && refused) { r.Verdict = "fail"; r.Detail = "C4: PLANTED acceptance"; return r; }
             if (err == null) { r.Verdict = "fail"; r.Detail = "C4: accepted a reject row"; return r; }
             if (!refused) { r.Verdict = "fail"; r.Detail = "C4: refused by an EXCEPTION, not an error code: " + err; return r; }
+            // R-H14: the code must be the one the row's reason calls for (plan DECODE RULES).
+            int want = ExpectedCode(v["reject"]?["reason"]?.AsString);
+            if (plant == "code" && want != 0) want = want == Abi.AK_ERR_MALFORMED ? Abi.AK_ERR_TRUNCATED : Abi.AK_ERR_MALFORMED;
+            if (want == 0) { r.Verdict = "fail"; r.Detail = "C4: no expected code for reason '" + v["reject"]?["reason"]?.AsString + "'"; return r; }
+            if (code != want) { r.Verdict = "fail"; r.Detail = "C4: refused with " + code + ", the row's reason calls for " + want + (plant == "code" ? " (PLANTED)" : ""); return r; }
             r.Verdict = "pass";
             return r;
         }
@@ -269,9 +281,9 @@ public static class Program
         else
         {
             var e = Enc.New(Codec.Sites, bytes.Length * 2 + 8192);
-            Roots.Write(root, ref e, msg);
+            Roots.Write(root, ref e, msg, retain);
             var e2 = Enc.New(Codec.Sites, bytes.Length * 2 + 8192);
-            Roots.WriteSized(root, ref e2, msg);
+            Roots.WriteSized(root, ref e2, msg, retain);
             if (e.Err != 0 || e2.Err != 0) { r.Detail = "C3: re-encode refused: " + e.Err + "/" + e2.Err; return r; }
             re = e.ToArray();
             var re2 = e2.ToArray();
@@ -295,6 +307,25 @@ public static class Program
         r.Form = form;
         r.Verdict = "pass";
         return r;
+    }
+
+    /// The code a reject row's `reject.reason` calls for, from plan.py's DECODE RULES and
+    /// UNKNOWN FIELDS contract (ABI numbering, plan.FIXED); 0 = a reason with no mapping,
+    /// which FAILS the row rather than passing it unchecked.
+    private static int ExpectedCode(string reason)
+    {
+        if (reason == null) return 0;
+        if (reason.StartsWith("invalid UTF-8", StringComparison.Ordinal)) return Abi.AK_ERR_TRANSCODE;
+        if (reason.StartsWith("the decode recursion limit", StringComparison.Ordinal)) return Abi.AK_ERR_DEPTH;
+        if (reason.StartsWith("field number 0", StringComparison.Ordinal)
+            || reason.StartsWith("field number above", StringComparison.Ordinal)
+            || reason.StartsWith("wire type ", StringComparison.Ordinal)
+            || reason.StartsWith("a varint longer than ten bytes", StringComparison.Ordinal)
+            || reason.StartsWith("a group end tag whose field number does not match", StringComparison.Ordinal))
+            return Abi.AK_ERR_MALFORMED;
+        if (reason.Contains("runs off the end") || reason.Contains("overruns") || reason.StartsWith("an unterminated group", StringComparison.Ordinal))
+            return Abi.AK_ERR_TRUNCATED;
+        return 0;
     }
 
     private static string CoreName(int e) => e switch
@@ -404,6 +435,12 @@ public static class Program
         Console.WriteLine("#              --features corpus,init-guard (the core generated for the reader schema)");
         foreach (var n in Ffi.NotInAbi) Console.WriteLine("#   NOT IN THE C ABI: {0}: {1}", n[0], n[1]);
         Console.WriteLine("#   each row in a child process, timeout {0} ms", timeout);
+        // R-H14: the managed runtime's codes are plan.FIXED's (checked, not assumed).
+        bool sameCodes = W.ErrMalformed == Abi.AK_ERR_MALFORMED && W.ErrTruncated == Abi.AK_ERR_TRUNCATED
+                         && W.ErrDepth == Abi.AK_ERR_DEPTH && W.ErrTranscode == Abi.AK_ERR_TRANSCODE && W.ErrAbi == Abi.AK_ERR_ABI;
+        Console.WriteLine("#   error codes: the managed runtime's {0} plan.FIXED's (malformed {1}, truncated {2}, depth {3}, transcode {4})",
+            sameCodes ? "equal" : "DIFFER FROM", W.ErrMalformed, W.ErrTruncated, W.ErrDepth, W.ErrTranscode);
+        if (!sameCodes) return 1;
         var plant = Environment.GetEnvironmentVariable("AK_CORPUS_PLANT");
         if (!string.IsNullOrEmpty(plant)) Console.WriteLine("#   PLANTED DEFECT: {0} (a control: it MUST fail)", plant);
         if (Environment.GetEnvironmentVariable("AK_GATE_PLANT_NO_INIT") == "1")

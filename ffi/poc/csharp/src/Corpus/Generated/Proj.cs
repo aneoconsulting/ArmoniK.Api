@@ -561,6 +561,197 @@ public static class Proj
 /// same reason everything else here is: a hand-written switch over thirty roots is a
 /// place for one of them to be missing, and a missing root would read as a vector the
 /// slice "cannot run".
+#if AK_NO_UNKNOWN_FIELDS
+/// The no-unknown build has no retain codec: asking for it is refused.
+internal static class RetainCodec
+{
+    public static void ReadTimestamp(ref Dec d, Timestamp m, int depth) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteTimestamp(ref Enc e, Timestamp m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteSizedTimestamp(ref Enc e, Timestamp m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void ReadDuration(ref Dec d, Duration m, int depth) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteDuration(ref Enc e, Duration m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteSizedDuration(ref Enc e, Duration m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void ReadResultRaw(ref Dec d, ResultRaw m, int depth) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteResultRaw(ref Enc e, ResultRaw m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteSizedResultRaw(ref Enc e, ResultRaw m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void ReadTaskOptions(ref Dec d, TaskOptions m, int depth) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteTaskOptions(ref Enc e, TaskOptions m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteSizedTaskOptions(ref Enc e, TaskOptions m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void ReadTaskOutput(ref Dec d, TaskOutput m, int depth) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteTaskOutput(ref Enc e, TaskOutput m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteSizedTaskOutput(ref Enc e, TaskOutput m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void ReadTaskDetailed(ref Dec d, TaskDetailed m, int depth) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteTaskDetailed(ref Enc e, TaskDetailed m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteSizedTaskDetailed(ref Enc e, TaskDetailed m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void ReadTaskSummary(ref Dec d, TaskSummary m, int depth) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteTaskSummary(ref Enc e, TaskSummary m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteSizedTaskSummary(ref Enc e, TaskSummary m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void ReadProbe(ref Dec d, Probe m, int depth) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteProbe(ref Enc e, Probe m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteSizedProbe(ref Enc e, Probe m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void ReadEmpty(ref Dec d, Empty m, int depth) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteEmpty(ref Enc e, Empty m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteSizedEmpty(ref Enc e, Empty m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void ReadUploadResultData(ref Dec d, UploadResultData m, int depth) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteUploadResultData(ref Enc e, UploadResultData m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteSizedUploadResultData(ref Enc e, UploadResultData m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void ReadMetricsBatch(ref Dec d, MetricsBatch m, int depth) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteMetricsBatch(ref Enc e, MetricsBatch m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteSizedMetricsBatch(ref Enc e, MetricsBatch m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void ReadPair(ref Dec d, Pair m, int depth) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WritePair(ref Enc e, Pair m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteSizedPair(ref Enc e, Pair m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void ReadListResultsResponse(ref Dec d, ListResultsResponse m, int depth) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteListResultsResponse(ref Enc e, ListResultsResponse m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteSizedListResultsResponse(ref Enc e, ListResultsResponse m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void ReadListTasksDetailedResponse(ref Dec d, ListTasksDetailedResponse m, int depth) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteListTasksDetailedResponse(ref Enc e, ListTasksDetailedResponse m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteSizedListTasksDetailedResponse(ref Enc e, ListTasksDetailedResponse m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void ReadListTaskSummaryResponse(ref Dec d, ListTaskSummaryResponse m, int depth) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteListTaskSummaryResponse(ref Enc e, ListTaskSummaryResponse m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteSizedListTaskSummaryResponse(ref Enc e, ListTaskSummaryResponse m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void ReadListProbeResponse(ref Dec d, ListProbeResponse m, int depth) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteListProbeResponse(ref Enc e, ListProbeResponse m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteSizedListProbeResponse(ref Enc e, ListProbeResponse m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void ReadListMetricsResponse(ref Dec d, ListMetricsResponse m, int depth) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteListMetricsResponse(ref Enc e, ListMetricsResponse m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteSizedListMetricsResponse(ref Enc e, ListMetricsResponse m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void ReadUploadResultDataMessage(ref Dec d, UploadResultDataMessage m, int depth) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteUploadResultDataMessage(ref Enc e, UploadResultDataMessage m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteSizedUploadResultDataMessage(ref Enc e, UploadResultDataMessage m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void ReadDualResponse(ref Dec d, DualResponse m, int depth) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteDualResponse(ref Enc e, DualResponse m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteSizedDualResponse(ref Enc e, DualResponse m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void ReadChunkLeaf(ref Dec d, ChunkLeaf m, int depth) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteChunkLeaf(ref Enc e, ChunkLeaf m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteSizedChunkLeaf(ref Enc e, ChunkLeaf m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void ReadChunkInner(ref Dec d, ChunkInner m, int depth) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteChunkInner(ref Enc e, ChunkInner m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteSizedChunkInner(ref Enc e, ChunkInner m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void ReadChunkElement(ref Dec d, ChunkElement m, int depth) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteChunkElement(ref Enc e, ChunkElement m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteSizedChunkElement(ref Enc e, ChunkElement m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void ReadChunkedResponse(ref Dec d, ChunkedResponse m, int depth) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteChunkedResponse(ref Enc e, ChunkedResponse m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteSizedChunkedResponse(ref Enc e, ChunkedResponse m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void ReadChunkedResponseWide(ref Dec d, ChunkedResponseWide m, int depth) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteChunkedResponseWide(ref Enc e, ChunkedResponseWide m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteSizedChunkedResponseWide(ref Enc e, ChunkedResponseWide m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void ReadLeafElement(ref Dec d, LeafElement m, int depth) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteLeafElement(ref Enc e, LeafElement m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteSizedLeafElement(ref Enc e, LeafElement m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void ReadLeafResponse(ref Dec d, LeafResponse m, int depth) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteLeafResponse(ref Enc e, LeafResponse m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteSizedLeafResponse(ref Enc e, LeafResponse m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void ReadSurrogate(ref Dec d, Surrogate m, int depth) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteSurrogate(ref Enc e, Surrogate m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteSizedSurrogate(ref Enc e, Surrogate m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void ReadSurrogateInner(ref Dec d, SurrogateInner m, int depth) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteSurrogateInner(ref Enc e, SurrogateInner m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteSizedSurrogateInner(ref Enc e, SurrogateInner m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void ReadNest(ref Dec d, Nest m, int depth) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteNest(ref Enc e, Nest m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteSizedNest(ref Enc e, Nest m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void ReadWireZoo(ref Dec d, WireZoo m, int depth) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteWireZoo(ref Enc e, WireZoo m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+    public static void WriteSizedWireZoo(ref Enc e, WireZoo m) => throw new NotSupportedException("unknown fields are compiled out of this build");
+}
+#else
+internal static class RetainCodec
+{
+    public static void ReadTimestamp(ref Dec d, Timestamp m, int depth) => CodecRetain.ReadTimestamp(ref d, m, depth);
+    public static void WriteTimestamp(ref Enc e, Timestamp m) => CodecRetain.WriteTimestamp(ref e, m);
+    public static void WriteSizedTimestamp(ref Enc e, Timestamp m) => CodecRetain.WriteSizedTimestamp(ref e, m);
+    public static void ReadDuration(ref Dec d, Duration m, int depth) => CodecRetain.ReadDuration(ref d, m, depth);
+    public static void WriteDuration(ref Enc e, Duration m) => CodecRetain.WriteDuration(ref e, m);
+    public static void WriteSizedDuration(ref Enc e, Duration m) => CodecRetain.WriteSizedDuration(ref e, m);
+    public static void ReadResultRaw(ref Dec d, ResultRaw m, int depth) => CodecRetain.ReadResultRaw(ref d, m, depth);
+    public static void WriteResultRaw(ref Enc e, ResultRaw m) => CodecRetain.WriteResultRaw(ref e, m);
+    public static void WriteSizedResultRaw(ref Enc e, ResultRaw m) => CodecRetain.WriteSizedResultRaw(ref e, m);
+    public static void ReadTaskOptions(ref Dec d, TaskOptions m, int depth) => CodecRetain.ReadTaskOptions(ref d, m, depth);
+    public static void WriteTaskOptions(ref Enc e, TaskOptions m) => CodecRetain.WriteTaskOptions(ref e, m);
+    public static void WriteSizedTaskOptions(ref Enc e, TaskOptions m) => CodecRetain.WriteSizedTaskOptions(ref e, m);
+    public static void ReadTaskOutput(ref Dec d, TaskOutput m, int depth) => CodecRetain.ReadTaskOutput(ref d, m, depth);
+    public static void WriteTaskOutput(ref Enc e, TaskOutput m) => CodecRetain.WriteTaskOutput(ref e, m);
+    public static void WriteSizedTaskOutput(ref Enc e, TaskOutput m) => CodecRetain.WriteSizedTaskOutput(ref e, m);
+    public static void ReadTaskDetailed(ref Dec d, TaskDetailed m, int depth) => CodecRetain.ReadTaskDetailed(ref d, m, depth);
+    public static void WriteTaskDetailed(ref Enc e, TaskDetailed m) => CodecRetain.WriteTaskDetailed(ref e, m);
+    public static void WriteSizedTaskDetailed(ref Enc e, TaskDetailed m) => CodecRetain.WriteSizedTaskDetailed(ref e, m);
+    public static void ReadTaskSummary(ref Dec d, TaskSummary m, int depth) => CodecRetain.ReadTaskSummary(ref d, m, depth);
+    public static void WriteTaskSummary(ref Enc e, TaskSummary m) => CodecRetain.WriteTaskSummary(ref e, m);
+    public static void WriteSizedTaskSummary(ref Enc e, TaskSummary m) => CodecRetain.WriteSizedTaskSummary(ref e, m);
+    public static void ReadProbe(ref Dec d, Probe m, int depth) => CodecRetain.ReadProbe(ref d, m, depth);
+    public static void WriteProbe(ref Enc e, Probe m) => CodecRetain.WriteProbe(ref e, m);
+    public static void WriteSizedProbe(ref Enc e, Probe m) => CodecRetain.WriteSizedProbe(ref e, m);
+    public static void ReadEmpty(ref Dec d, Empty m, int depth) => CodecRetain.ReadEmpty(ref d, m, depth);
+    public static void WriteEmpty(ref Enc e, Empty m) => CodecRetain.WriteEmpty(ref e, m);
+    public static void WriteSizedEmpty(ref Enc e, Empty m) => CodecRetain.WriteSizedEmpty(ref e, m);
+    public static void ReadUploadResultData(ref Dec d, UploadResultData m, int depth) => CodecRetain.ReadUploadResultData(ref d, m, depth);
+    public static void WriteUploadResultData(ref Enc e, UploadResultData m) => CodecRetain.WriteUploadResultData(ref e, m);
+    public static void WriteSizedUploadResultData(ref Enc e, UploadResultData m) => CodecRetain.WriteSizedUploadResultData(ref e, m);
+    public static void ReadMetricsBatch(ref Dec d, MetricsBatch m, int depth) => CodecRetain.ReadMetricsBatch(ref d, m, depth);
+    public static void WriteMetricsBatch(ref Enc e, MetricsBatch m) => CodecRetain.WriteMetricsBatch(ref e, m);
+    public static void WriteSizedMetricsBatch(ref Enc e, MetricsBatch m) => CodecRetain.WriteSizedMetricsBatch(ref e, m);
+    public static void ReadPair(ref Dec d, Pair m, int depth) => CodecRetain.ReadPair(ref d, m, depth);
+    public static void WritePair(ref Enc e, Pair m) => CodecRetain.WritePair(ref e, m);
+    public static void WriteSizedPair(ref Enc e, Pair m) => CodecRetain.WriteSizedPair(ref e, m);
+    public static void ReadListResultsResponse(ref Dec d, ListResultsResponse m, int depth) => CodecRetain.ReadListResultsResponse(ref d, m, depth);
+    public static void WriteListResultsResponse(ref Enc e, ListResultsResponse m) => CodecRetain.WriteListResultsResponse(ref e, m);
+    public static void WriteSizedListResultsResponse(ref Enc e, ListResultsResponse m) => CodecRetain.WriteSizedListResultsResponse(ref e, m);
+    public static void ReadListTasksDetailedResponse(ref Dec d, ListTasksDetailedResponse m, int depth) => CodecRetain.ReadListTasksDetailedResponse(ref d, m, depth);
+    public static void WriteListTasksDetailedResponse(ref Enc e, ListTasksDetailedResponse m) => CodecRetain.WriteListTasksDetailedResponse(ref e, m);
+    public static void WriteSizedListTasksDetailedResponse(ref Enc e, ListTasksDetailedResponse m) => CodecRetain.WriteSizedListTasksDetailedResponse(ref e, m);
+    public static void ReadListTaskSummaryResponse(ref Dec d, ListTaskSummaryResponse m, int depth) => CodecRetain.ReadListTaskSummaryResponse(ref d, m, depth);
+    public static void WriteListTaskSummaryResponse(ref Enc e, ListTaskSummaryResponse m) => CodecRetain.WriteListTaskSummaryResponse(ref e, m);
+    public static void WriteSizedListTaskSummaryResponse(ref Enc e, ListTaskSummaryResponse m) => CodecRetain.WriteSizedListTaskSummaryResponse(ref e, m);
+    public static void ReadListProbeResponse(ref Dec d, ListProbeResponse m, int depth) => CodecRetain.ReadListProbeResponse(ref d, m, depth);
+    public static void WriteListProbeResponse(ref Enc e, ListProbeResponse m) => CodecRetain.WriteListProbeResponse(ref e, m);
+    public static void WriteSizedListProbeResponse(ref Enc e, ListProbeResponse m) => CodecRetain.WriteSizedListProbeResponse(ref e, m);
+    public static void ReadListMetricsResponse(ref Dec d, ListMetricsResponse m, int depth) => CodecRetain.ReadListMetricsResponse(ref d, m, depth);
+    public static void WriteListMetricsResponse(ref Enc e, ListMetricsResponse m) => CodecRetain.WriteListMetricsResponse(ref e, m);
+    public static void WriteSizedListMetricsResponse(ref Enc e, ListMetricsResponse m) => CodecRetain.WriteSizedListMetricsResponse(ref e, m);
+    public static void ReadUploadResultDataMessage(ref Dec d, UploadResultDataMessage m, int depth) => CodecRetain.ReadUploadResultDataMessage(ref d, m, depth);
+    public static void WriteUploadResultDataMessage(ref Enc e, UploadResultDataMessage m) => CodecRetain.WriteUploadResultDataMessage(ref e, m);
+    public static void WriteSizedUploadResultDataMessage(ref Enc e, UploadResultDataMessage m) => CodecRetain.WriteSizedUploadResultDataMessage(ref e, m);
+    public static void ReadDualResponse(ref Dec d, DualResponse m, int depth) => CodecRetain.ReadDualResponse(ref d, m, depth);
+    public static void WriteDualResponse(ref Enc e, DualResponse m) => CodecRetain.WriteDualResponse(ref e, m);
+    public static void WriteSizedDualResponse(ref Enc e, DualResponse m) => CodecRetain.WriteSizedDualResponse(ref e, m);
+    public static void ReadChunkLeaf(ref Dec d, ChunkLeaf m, int depth) => CodecRetain.ReadChunkLeaf(ref d, m, depth);
+    public static void WriteChunkLeaf(ref Enc e, ChunkLeaf m) => CodecRetain.WriteChunkLeaf(ref e, m);
+    public static void WriteSizedChunkLeaf(ref Enc e, ChunkLeaf m) => CodecRetain.WriteSizedChunkLeaf(ref e, m);
+    public static void ReadChunkInner(ref Dec d, ChunkInner m, int depth) => CodecRetain.ReadChunkInner(ref d, m, depth);
+    public static void WriteChunkInner(ref Enc e, ChunkInner m) => CodecRetain.WriteChunkInner(ref e, m);
+    public static void WriteSizedChunkInner(ref Enc e, ChunkInner m) => CodecRetain.WriteSizedChunkInner(ref e, m);
+    public static void ReadChunkElement(ref Dec d, ChunkElement m, int depth) => CodecRetain.ReadChunkElement(ref d, m, depth);
+    public static void WriteChunkElement(ref Enc e, ChunkElement m) => CodecRetain.WriteChunkElement(ref e, m);
+    public static void WriteSizedChunkElement(ref Enc e, ChunkElement m) => CodecRetain.WriteSizedChunkElement(ref e, m);
+    public static void ReadChunkedResponse(ref Dec d, ChunkedResponse m, int depth) => CodecRetain.ReadChunkedResponse(ref d, m, depth);
+    public static void WriteChunkedResponse(ref Enc e, ChunkedResponse m) => CodecRetain.WriteChunkedResponse(ref e, m);
+    public static void WriteSizedChunkedResponse(ref Enc e, ChunkedResponse m) => CodecRetain.WriteSizedChunkedResponse(ref e, m);
+    public static void ReadChunkedResponseWide(ref Dec d, ChunkedResponseWide m, int depth) => CodecRetain.ReadChunkedResponseWide(ref d, m, depth);
+    public static void WriteChunkedResponseWide(ref Enc e, ChunkedResponseWide m) => CodecRetain.WriteChunkedResponseWide(ref e, m);
+    public static void WriteSizedChunkedResponseWide(ref Enc e, ChunkedResponseWide m) => CodecRetain.WriteSizedChunkedResponseWide(ref e, m);
+    public static void ReadLeafElement(ref Dec d, LeafElement m, int depth) => CodecRetain.ReadLeafElement(ref d, m, depth);
+    public static void WriteLeafElement(ref Enc e, LeafElement m) => CodecRetain.WriteLeafElement(ref e, m);
+    public static void WriteSizedLeafElement(ref Enc e, LeafElement m) => CodecRetain.WriteSizedLeafElement(ref e, m);
+    public static void ReadLeafResponse(ref Dec d, LeafResponse m, int depth) => CodecRetain.ReadLeafResponse(ref d, m, depth);
+    public static void WriteLeafResponse(ref Enc e, LeafResponse m) => CodecRetain.WriteLeafResponse(ref e, m);
+    public static void WriteSizedLeafResponse(ref Enc e, LeafResponse m) => CodecRetain.WriteSizedLeafResponse(ref e, m);
+    public static void ReadSurrogate(ref Dec d, Surrogate m, int depth) => CodecRetain.ReadSurrogate(ref d, m, depth);
+    public static void WriteSurrogate(ref Enc e, Surrogate m) => CodecRetain.WriteSurrogate(ref e, m);
+    public static void WriteSizedSurrogate(ref Enc e, Surrogate m) => CodecRetain.WriteSizedSurrogate(ref e, m);
+    public static void ReadSurrogateInner(ref Dec d, SurrogateInner m, int depth) => CodecRetain.ReadSurrogateInner(ref d, m, depth);
+    public static void WriteSurrogateInner(ref Enc e, SurrogateInner m) => CodecRetain.WriteSurrogateInner(ref e, m);
+    public static void WriteSizedSurrogateInner(ref Enc e, SurrogateInner m) => CodecRetain.WriteSizedSurrogateInner(ref e, m);
+    public static void ReadNest(ref Dec d, Nest m, int depth) => CodecRetain.ReadNest(ref d, m, depth);
+    public static void WriteNest(ref Enc e, Nest m) => CodecRetain.WriteNest(ref e, m);
+    public static void WriteSizedNest(ref Enc e, Nest m) => CodecRetain.WriteSizedNest(ref e, m);
+    public static void ReadWireZoo(ref Dec d, WireZoo m, int depth) => CodecRetain.ReadWireZoo(ref d, m, depth);
+    public static void WriteWireZoo(ref Enc e, WireZoo m) => CodecRetain.WriteWireZoo(ref e, m);
+    public static void WriteSizedWireZoo(ref Enc e, WireZoo m) => CodecRetain.WriteSizedWireZoo(ref e, m);
+}
+#endif
+
 public static class Roots
 {
     public static readonly string[] All = { "Timestamp", "Duration", "ResultRaw", "TaskOptions", "TaskOutput", "TaskDetailed", "TaskSummary", "Probe", "Empty", "UploadResultData", "MetricsBatch", "Pair", "ListResultsResponse", "ListTasksDetailedResponse", "ListTaskSummaryResponse", "ListProbeResponse", "ListMetricsResponse", "UploadResultDataMessage", "DualResponse", "ChunkLeaf", "ChunkInner", "ChunkElement", "ChunkedResponse", "ChunkedResponseWide", "LeafElement", "LeafResponse", "Surrogate", "SurrogateInner", "Nest", "WireZoo" };
@@ -603,118 +794,121 @@ public static class Roots
         }
     }
 
-    public static void Read(string root, ref Dec d, object m)
+    /// `retain`: the retain codec (CodecRetain, R-H11); refused in the no-unknown build.
+    public static void Read(string root, ref Dec d, object m, bool retain = false)
     {
         switch (root)
         {
-            case "Timestamp": Codec.ReadTimestamp(ref d, (Timestamp)m, 0); break;
-            case "Duration": Codec.ReadDuration(ref d, (Duration)m, 0); break;
-            case "ResultRaw": Codec.ReadResultRaw(ref d, (ResultRaw)m, 0); break;
-            case "TaskOptions": Codec.ReadTaskOptions(ref d, (TaskOptions)m, 0); break;
-            case "TaskOutput": Codec.ReadTaskOutput(ref d, (TaskOutput)m, 0); break;
-            case "TaskDetailed": Codec.ReadTaskDetailed(ref d, (TaskDetailed)m, 0); break;
-            case "TaskSummary": Codec.ReadTaskSummary(ref d, (TaskSummary)m, 0); break;
-            case "Probe": Codec.ReadProbe(ref d, (Probe)m, 0); break;
-            case "Empty": Codec.ReadEmpty(ref d, (Empty)m, 0); break;
-            case "UploadResultData": Codec.ReadUploadResultData(ref d, (UploadResultData)m, 0); break;
-            case "MetricsBatch": Codec.ReadMetricsBatch(ref d, (MetricsBatch)m, 0); break;
-            case "Pair": Codec.ReadPair(ref d, (Pair)m, 0); break;
-            case "ListResultsResponse": Codec.ReadListResultsResponse(ref d, (ListResultsResponse)m, 0); break;
-            case "ListTasksDetailedResponse": Codec.ReadListTasksDetailedResponse(ref d, (ListTasksDetailedResponse)m, 0); break;
-            case "ListTaskSummaryResponse": Codec.ReadListTaskSummaryResponse(ref d, (ListTaskSummaryResponse)m, 0); break;
-            case "ListProbeResponse": Codec.ReadListProbeResponse(ref d, (ListProbeResponse)m, 0); break;
-            case "ListMetricsResponse": Codec.ReadListMetricsResponse(ref d, (ListMetricsResponse)m, 0); break;
-            case "UploadResultDataMessage": Codec.ReadUploadResultDataMessage(ref d, (UploadResultDataMessage)m, 0); break;
-            case "DualResponse": Codec.ReadDualResponse(ref d, (DualResponse)m, 0); break;
-            case "ChunkLeaf": Codec.ReadChunkLeaf(ref d, (ChunkLeaf)m, 0); break;
-            case "ChunkInner": Codec.ReadChunkInner(ref d, (ChunkInner)m, 0); break;
-            case "ChunkElement": Codec.ReadChunkElement(ref d, (ChunkElement)m, 0); break;
-            case "ChunkedResponse": Codec.ReadChunkedResponse(ref d, (ChunkedResponse)m, 0); break;
-            case "ChunkedResponseWide": Codec.ReadChunkedResponseWide(ref d, (ChunkedResponseWide)m, 0); break;
-            case "LeafElement": Codec.ReadLeafElement(ref d, (LeafElement)m, 0); break;
-            case "LeafResponse": Codec.ReadLeafResponse(ref d, (LeafResponse)m, 0); break;
-            case "Surrogate": Codec.ReadSurrogate(ref d, (Surrogate)m, 0); break;
-            case "SurrogateInner": Codec.ReadSurrogateInner(ref d, (SurrogateInner)m, 0); break;
-            case "Nest": Codec.ReadNest(ref d, (Nest)m, 0); break;
-            case "WireZoo": Codec.ReadWireZoo(ref d, (WireZoo)m, 0); break;
+            case "Timestamp": if (retain) RetainCodec.ReadTimestamp(ref d, (Timestamp)m, 0); else Codec.ReadTimestamp(ref d, (Timestamp)m, 0); break;
+            case "Duration": if (retain) RetainCodec.ReadDuration(ref d, (Duration)m, 0); else Codec.ReadDuration(ref d, (Duration)m, 0); break;
+            case "ResultRaw": if (retain) RetainCodec.ReadResultRaw(ref d, (ResultRaw)m, 0); else Codec.ReadResultRaw(ref d, (ResultRaw)m, 0); break;
+            case "TaskOptions": if (retain) RetainCodec.ReadTaskOptions(ref d, (TaskOptions)m, 0); else Codec.ReadTaskOptions(ref d, (TaskOptions)m, 0); break;
+            case "TaskOutput": if (retain) RetainCodec.ReadTaskOutput(ref d, (TaskOutput)m, 0); else Codec.ReadTaskOutput(ref d, (TaskOutput)m, 0); break;
+            case "TaskDetailed": if (retain) RetainCodec.ReadTaskDetailed(ref d, (TaskDetailed)m, 0); else Codec.ReadTaskDetailed(ref d, (TaskDetailed)m, 0); break;
+            case "TaskSummary": if (retain) RetainCodec.ReadTaskSummary(ref d, (TaskSummary)m, 0); else Codec.ReadTaskSummary(ref d, (TaskSummary)m, 0); break;
+            case "Probe": if (retain) RetainCodec.ReadProbe(ref d, (Probe)m, 0); else Codec.ReadProbe(ref d, (Probe)m, 0); break;
+            case "Empty": if (retain) RetainCodec.ReadEmpty(ref d, (Empty)m, 0); else Codec.ReadEmpty(ref d, (Empty)m, 0); break;
+            case "UploadResultData": if (retain) RetainCodec.ReadUploadResultData(ref d, (UploadResultData)m, 0); else Codec.ReadUploadResultData(ref d, (UploadResultData)m, 0); break;
+            case "MetricsBatch": if (retain) RetainCodec.ReadMetricsBatch(ref d, (MetricsBatch)m, 0); else Codec.ReadMetricsBatch(ref d, (MetricsBatch)m, 0); break;
+            case "Pair": if (retain) RetainCodec.ReadPair(ref d, (Pair)m, 0); else Codec.ReadPair(ref d, (Pair)m, 0); break;
+            case "ListResultsResponse": if (retain) RetainCodec.ReadListResultsResponse(ref d, (ListResultsResponse)m, 0); else Codec.ReadListResultsResponse(ref d, (ListResultsResponse)m, 0); break;
+            case "ListTasksDetailedResponse": if (retain) RetainCodec.ReadListTasksDetailedResponse(ref d, (ListTasksDetailedResponse)m, 0); else Codec.ReadListTasksDetailedResponse(ref d, (ListTasksDetailedResponse)m, 0); break;
+            case "ListTaskSummaryResponse": if (retain) RetainCodec.ReadListTaskSummaryResponse(ref d, (ListTaskSummaryResponse)m, 0); else Codec.ReadListTaskSummaryResponse(ref d, (ListTaskSummaryResponse)m, 0); break;
+            case "ListProbeResponse": if (retain) RetainCodec.ReadListProbeResponse(ref d, (ListProbeResponse)m, 0); else Codec.ReadListProbeResponse(ref d, (ListProbeResponse)m, 0); break;
+            case "ListMetricsResponse": if (retain) RetainCodec.ReadListMetricsResponse(ref d, (ListMetricsResponse)m, 0); else Codec.ReadListMetricsResponse(ref d, (ListMetricsResponse)m, 0); break;
+            case "UploadResultDataMessage": if (retain) RetainCodec.ReadUploadResultDataMessage(ref d, (UploadResultDataMessage)m, 0); else Codec.ReadUploadResultDataMessage(ref d, (UploadResultDataMessage)m, 0); break;
+            case "DualResponse": if (retain) RetainCodec.ReadDualResponse(ref d, (DualResponse)m, 0); else Codec.ReadDualResponse(ref d, (DualResponse)m, 0); break;
+            case "ChunkLeaf": if (retain) RetainCodec.ReadChunkLeaf(ref d, (ChunkLeaf)m, 0); else Codec.ReadChunkLeaf(ref d, (ChunkLeaf)m, 0); break;
+            case "ChunkInner": if (retain) RetainCodec.ReadChunkInner(ref d, (ChunkInner)m, 0); else Codec.ReadChunkInner(ref d, (ChunkInner)m, 0); break;
+            case "ChunkElement": if (retain) RetainCodec.ReadChunkElement(ref d, (ChunkElement)m, 0); else Codec.ReadChunkElement(ref d, (ChunkElement)m, 0); break;
+            case "ChunkedResponse": if (retain) RetainCodec.ReadChunkedResponse(ref d, (ChunkedResponse)m, 0); else Codec.ReadChunkedResponse(ref d, (ChunkedResponse)m, 0); break;
+            case "ChunkedResponseWide": if (retain) RetainCodec.ReadChunkedResponseWide(ref d, (ChunkedResponseWide)m, 0); else Codec.ReadChunkedResponseWide(ref d, (ChunkedResponseWide)m, 0); break;
+            case "LeafElement": if (retain) RetainCodec.ReadLeafElement(ref d, (LeafElement)m, 0); else Codec.ReadLeafElement(ref d, (LeafElement)m, 0); break;
+            case "LeafResponse": if (retain) RetainCodec.ReadLeafResponse(ref d, (LeafResponse)m, 0); else Codec.ReadLeafResponse(ref d, (LeafResponse)m, 0); break;
+            case "Surrogate": if (retain) RetainCodec.ReadSurrogate(ref d, (Surrogate)m, 0); else Codec.ReadSurrogate(ref d, (Surrogate)m, 0); break;
+            case "SurrogateInner": if (retain) RetainCodec.ReadSurrogateInner(ref d, (SurrogateInner)m, 0); else Codec.ReadSurrogateInner(ref d, (SurrogateInner)m, 0); break;
+            case "Nest": if (retain) RetainCodec.ReadNest(ref d, (Nest)m, 0); else Codec.ReadNest(ref d, (Nest)m, 0); break;
+            case "WireZoo": if (retain) RetainCodec.ReadWireZoo(ref d, (WireZoo)m, 0); else Codec.ReadWireZoo(ref d, (WireZoo)m, 0); break;
             default: throw new ArgumentException("unknown root " + root);
         }
     }
 
-    public static void Write(string root, ref Enc e, object m)
+    /// `retain`: the retain codec (CodecRetain, R-H11); refused in the no-unknown build.
+    public static void Write(string root, ref Enc e, object m, bool retain = false)
     {
         switch (root)
         {
-            case "Timestamp": Codec.WriteTimestamp(ref e, (Timestamp)m); break;
-            case "Duration": Codec.WriteDuration(ref e, (Duration)m); break;
-            case "ResultRaw": Codec.WriteResultRaw(ref e, (ResultRaw)m); break;
-            case "TaskOptions": Codec.WriteTaskOptions(ref e, (TaskOptions)m); break;
-            case "TaskOutput": Codec.WriteTaskOutput(ref e, (TaskOutput)m); break;
-            case "TaskDetailed": Codec.WriteTaskDetailed(ref e, (TaskDetailed)m); break;
-            case "TaskSummary": Codec.WriteTaskSummary(ref e, (TaskSummary)m); break;
-            case "Probe": Codec.WriteProbe(ref e, (Probe)m); break;
-            case "Empty": Codec.WriteEmpty(ref e, (Empty)m); break;
-            case "UploadResultData": Codec.WriteUploadResultData(ref e, (UploadResultData)m); break;
-            case "MetricsBatch": Codec.WriteMetricsBatch(ref e, (MetricsBatch)m); break;
-            case "Pair": Codec.WritePair(ref e, (Pair)m); break;
-            case "ListResultsResponse": Codec.WriteListResultsResponse(ref e, (ListResultsResponse)m); break;
-            case "ListTasksDetailedResponse": Codec.WriteListTasksDetailedResponse(ref e, (ListTasksDetailedResponse)m); break;
-            case "ListTaskSummaryResponse": Codec.WriteListTaskSummaryResponse(ref e, (ListTaskSummaryResponse)m); break;
-            case "ListProbeResponse": Codec.WriteListProbeResponse(ref e, (ListProbeResponse)m); break;
-            case "ListMetricsResponse": Codec.WriteListMetricsResponse(ref e, (ListMetricsResponse)m); break;
-            case "UploadResultDataMessage": Codec.WriteUploadResultDataMessage(ref e, (UploadResultDataMessage)m); break;
-            case "DualResponse": Codec.WriteDualResponse(ref e, (DualResponse)m); break;
-            case "ChunkLeaf": Codec.WriteChunkLeaf(ref e, (ChunkLeaf)m); break;
-            case "ChunkInner": Codec.WriteChunkInner(ref e, (ChunkInner)m); break;
-            case "ChunkElement": Codec.WriteChunkElement(ref e, (ChunkElement)m); break;
-            case "ChunkedResponse": Codec.WriteChunkedResponse(ref e, (ChunkedResponse)m); break;
-            case "ChunkedResponseWide": Codec.WriteChunkedResponseWide(ref e, (ChunkedResponseWide)m); break;
-            case "LeafElement": Codec.WriteLeafElement(ref e, (LeafElement)m); break;
-            case "LeafResponse": Codec.WriteLeafResponse(ref e, (LeafResponse)m); break;
-            case "Surrogate": Codec.WriteSurrogate(ref e, (Surrogate)m); break;
-            case "SurrogateInner": Codec.WriteSurrogateInner(ref e, (SurrogateInner)m); break;
-            case "Nest": Codec.WriteNest(ref e, (Nest)m); break;
-            case "WireZoo": Codec.WriteWireZoo(ref e, (WireZoo)m); break;
+            case "Timestamp": if (retain) RetainCodec.WriteTimestamp(ref e, (Timestamp)m); else Codec.WriteTimestamp(ref e, (Timestamp)m); break;
+            case "Duration": if (retain) RetainCodec.WriteDuration(ref e, (Duration)m); else Codec.WriteDuration(ref e, (Duration)m); break;
+            case "ResultRaw": if (retain) RetainCodec.WriteResultRaw(ref e, (ResultRaw)m); else Codec.WriteResultRaw(ref e, (ResultRaw)m); break;
+            case "TaskOptions": if (retain) RetainCodec.WriteTaskOptions(ref e, (TaskOptions)m); else Codec.WriteTaskOptions(ref e, (TaskOptions)m); break;
+            case "TaskOutput": if (retain) RetainCodec.WriteTaskOutput(ref e, (TaskOutput)m); else Codec.WriteTaskOutput(ref e, (TaskOutput)m); break;
+            case "TaskDetailed": if (retain) RetainCodec.WriteTaskDetailed(ref e, (TaskDetailed)m); else Codec.WriteTaskDetailed(ref e, (TaskDetailed)m); break;
+            case "TaskSummary": if (retain) RetainCodec.WriteTaskSummary(ref e, (TaskSummary)m); else Codec.WriteTaskSummary(ref e, (TaskSummary)m); break;
+            case "Probe": if (retain) RetainCodec.WriteProbe(ref e, (Probe)m); else Codec.WriteProbe(ref e, (Probe)m); break;
+            case "Empty": if (retain) RetainCodec.WriteEmpty(ref e, (Empty)m); else Codec.WriteEmpty(ref e, (Empty)m); break;
+            case "UploadResultData": if (retain) RetainCodec.WriteUploadResultData(ref e, (UploadResultData)m); else Codec.WriteUploadResultData(ref e, (UploadResultData)m); break;
+            case "MetricsBatch": if (retain) RetainCodec.WriteMetricsBatch(ref e, (MetricsBatch)m); else Codec.WriteMetricsBatch(ref e, (MetricsBatch)m); break;
+            case "Pair": if (retain) RetainCodec.WritePair(ref e, (Pair)m); else Codec.WritePair(ref e, (Pair)m); break;
+            case "ListResultsResponse": if (retain) RetainCodec.WriteListResultsResponse(ref e, (ListResultsResponse)m); else Codec.WriteListResultsResponse(ref e, (ListResultsResponse)m); break;
+            case "ListTasksDetailedResponse": if (retain) RetainCodec.WriteListTasksDetailedResponse(ref e, (ListTasksDetailedResponse)m); else Codec.WriteListTasksDetailedResponse(ref e, (ListTasksDetailedResponse)m); break;
+            case "ListTaskSummaryResponse": if (retain) RetainCodec.WriteListTaskSummaryResponse(ref e, (ListTaskSummaryResponse)m); else Codec.WriteListTaskSummaryResponse(ref e, (ListTaskSummaryResponse)m); break;
+            case "ListProbeResponse": if (retain) RetainCodec.WriteListProbeResponse(ref e, (ListProbeResponse)m); else Codec.WriteListProbeResponse(ref e, (ListProbeResponse)m); break;
+            case "ListMetricsResponse": if (retain) RetainCodec.WriteListMetricsResponse(ref e, (ListMetricsResponse)m); else Codec.WriteListMetricsResponse(ref e, (ListMetricsResponse)m); break;
+            case "UploadResultDataMessage": if (retain) RetainCodec.WriteUploadResultDataMessage(ref e, (UploadResultDataMessage)m); else Codec.WriteUploadResultDataMessage(ref e, (UploadResultDataMessage)m); break;
+            case "DualResponse": if (retain) RetainCodec.WriteDualResponse(ref e, (DualResponse)m); else Codec.WriteDualResponse(ref e, (DualResponse)m); break;
+            case "ChunkLeaf": if (retain) RetainCodec.WriteChunkLeaf(ref e, (ChunkLeaf)m); else Codec.WriteChunkLeaf(ref e, (ChunkLeaf)m); break;
+            case "ChunkInner": if (retain) RetainCodec.WriteChunkInner(ref e, (ChunkInner)m); else Codec.WriteChunkInner(ref e, (ChunkInner)m); break;
+            case "ChunkElement": if (retain) RetainCodec.WriteChunkElement(ref e, (ChunkElement)m); else Codec.WriteChunkElement(ref e, (ChunkElement)m); break;
+            case "ChunkedResponse": if (retain) RetainCodec.WriteChunkedResponse(ref e, (ChunkedResponse)m); else Codec.WriteChunkedResponse(ref e, (ChunkedResponse)m); break;
+            case "ChunkedResponseWide": if (retain) RetainCodec.WriteChunkedResponseWide(ref e, (ChunkedResponseWide)m); else Codec.WriteChunkedResponseWide(ref e, (ChunkedResponseWide)m); break;
+            case "LeafElement": if (retain) RetainCodec.WriteLeafElement(ref e, (LeafElement)m); else Codec.WriteLeafElement(ref e, (LeafElement)m); break;
+            case "LeafResponse": if (retain) RetainCodec.WriteLeafResponse(ref e, (LeafResponse)m); else Codec.WriteLeafResponse(ref e, (LeafResponse)m); break;
+            case "Surrogate": if (retain) RetainCodec.WriteSurrogate(ref e, (Surrogate)m); else Codec.WriteSurrogate(ref e, (Surrogate)m); break;
+            case "SurrogateInner": if (retain) RetainCodec.WriteSurrogateInner(ref e, (SurrogateInner)m); else Codec.WriteSurrogateInner(ref e, (SurrogateInner)m); break;
+            case "Nest": if (retain) RetainCodec.WriteNest(ref e, (Nest)m); else Codec.WriteNest(ref e, (Nest)m); break;
+            case "WireZoo": if (retain) RetainCodec.WriteWireZoo(ref e, (WireZoo)m); else Codec.WriteWireZoo(ref e, (WireZoo)m); break;
             default: throw new ArgumentException("unknown root " + root);
         }
     }
 
     /// The two-pass encoder, so C3 can say which encode path produced the bytes it is
     /// claiming. Both must land on an accepted form.
-    public static void WriteSized(string root, ref Enc e, object m)
+    /// `retain`: the retain codec (CodecRetain, R-H11); refused in the no-unknown build.
+    public static void WriteSized(string root, ref Enc e, object m, bool retain = false)
     {
         switch (root)
         {
-            case "Timestamp": Codec.WriteSizedTimestamp(ref e, (Timestamp)m); break;
-            case "Duration": Codec.WriteSizedDuration(ref e, (Duration)m); break;
-            case "ResultRaw": Codec.WriteSizedResultRaw(ref e, (ResultRaw)m); break;
-            case "TaskOptions": Codec.WriteSizedTaskOptions(ref e, (TaskOptions)m); break;
-            case "TaskOutput": Codec.WriteSizedTaskOutput(ref e, (TaskOutput)m); break;
-            case "TaskDetailed": Codec.WriteSizedTaskDetailed(ref e, (TaskDetailed)m); break;
-            case "TaskSummary": Codec.WriteSizedTaskSummary(ref e, (TaskSummary)m); break;
-            case "Probe": Codec.WriteSizedProbe(ref e, (Probe)m); break;
-            case "Empty": Codec.WriteSizedEmpty(ref e, (Empty)m); break;
-            case "UploadResultData": Codec.WriteSizedUploadResultData(ref e, (UploadResultData)m); break;
-            case "MetricsBatch": Codec.WriteSizedMetricsBatch(ref e, (MetricsBatch)m); break;
-            case "Pair": Codec.WriteSizedPair(ref e, (Pair)m); break;
-            case "ListResultsResponse": Codec.WriteSizedListResultsResponse(ref e, (ListResultsResponse)m); break;
-            case "ListTasksDetailedResponse": Codec.WriteSizedListTasksDetailedResponse(ref e, (ListTasksDetailedResponse)m); break;
-            case "ListTaskSummaryResponse": Codec.WriteSizedListTaskSummaryResponse(ref e, (ListTaskSummaryResponse)m); break;
-            case "ListProbeResponse": Codec.WriteSizedListProbeResponse(ref e, (ListProbeResponse)m); break;
-            case "ListMetricsResponse": Codec.WriteSizedListMetricsResponse(ref e, (ListMetricsResponse)m); break;
-            case "UploadResultDataMessage": Codec.WriteSizedUploadResultDataMessage(ref e, (UploadResultDataMessage)m); break;
-            case "DualResponse": Codec.WriteSizedDualResponse(ref e, (DualResponse)m); break;
-            case "ChunkLeaf": Codec.WriteSizedChunkLeaf(ref e, (ChunkLeaf)m); break;
-            case "ChunkInner": Codec.WriteSizedChunkInner(ref e, (ChunkInner)m); break;
-            case "ChunkElement": Codec.WriteSizedChunkElement(ref e, (ChunkElement)m); break;
-            case "ChunkedResponse": Codec.WriteSizedChunkedResponse(ref e, (ChunkedResponse)m); break;
-            case "ChunkedResponseWide": Codec.WriteSizedChunkedResponseWide(ref e, (ChunkedResponseWide)m); break;
-            case "LeafElement": Codec.WriteSizedLeafElement(ref e, (LeafElement)m); break;
-            case "LeafResponse": Codec.WriteSizedLeafResponse(ref e, (LeafResponse)m); break;
-            case "Surrogate": Codec.WriteSizedSurrogate(ref e, (Surrogate)m); break;
-            case "SurrogateInner": Codec.WriteSizedSurrogateInner(ref e, (SurrogateInner)m); break;
-            case "Nest": Codec.WriteSizedNest(ref e, (Nest)m); break;
-            case "WireZoo": Codec.WriteSizedWireZoo(ref e, (WireZoo)m); break;
+            case "Timestamp": if (retain) RetainCodec.WriteSizedTimestamp(ref e, (Timestamp)m); else Codec.WriteSizedTimestamp(ref e, (Timestamp)m); break;
+            case "Duration": if (retain) RetainCodec.WriteSizedDuration(ref e, (Duration)m); else Codec.WriteSizedDuration(ref e, (Duration)m); break;
+            case "ResultRaw": if (retain) RetainCodec.WriteSizedResultRaw(ref e, (ResultRaw)m); else Codec.WriteSizedResultRaw(ref e, (ResultRaw)m); break;
+            case "TaskOptions": if (retain) RetainCodec.WriteSizedTaskOptions(ref e, (TaskOptions)m); else Codec.WriteSizedTaskOptions(ref e, (TaskOptions)m); break;
+            case "TaskOutput": if (retain) RetainCodec.WriteSizedTaskOutput(ref e, (TaskOutput)m); else Codec.WriteSizedTaskOutput(ref e, (TaskOutput)m); break;
+            case "TaskDetailed": if (retain) RetainCodec.WriteSizedTaskDetailed(ref e, (TaskDetailed)m); else Codec.WriteSizedTaskDetailed(ref e, (TaskDetailed)m); break;
+            case "TaskSummary": if (retain) RetainCodec.WriteSizedTaskSummary(ref e, (TaskSummary)m); else Codec.WriteSizedTaskSummary(ref e, (TaskSummary)m); break;
+            case "Probe": if (retain) RetainCodec.WriteSizedProbe(ref e, (Probe)m); else Codec.WriteSizedProbe(ref e, (Probe)m); break;
+            case "Empty": if (retain) RetainCodec.WriteSizedEmpty(ref e, (Empty)m); else Codec.WriteSizedEmpty(ref e, (Empty)m); break;
+            case "UploadResultData": if (retain) RetainCodec.WriteSizedUploadResultData(ref e, (UploadResultData)m); else Codec.WriteSizedUploadResultData(ref e, (UploadResultData)m); break;
+            case "MetricsBatch": if (retain) RetainCodec.WriteSizedMetricsBatch(ref e, (MetricsBatch)m); else Codec.WriteSizedMetricsBatch(ref e, (MetricsBatch)m); break;
+            case "Pair": if (retain) RetainCodec.WriteSizedPair(ref e, (Pair)m); else Codec.WriteSizedPair(ref e, (Pair)m); break;
+            case "ListResultsResponse": if (retain) RetainCodec.WriteSizedListResultsResponse(ref e, (ListResultsResponse)m); else Codec.WriteSizedListResultsResponse(ref e, (ListResultsResponse)m); break;
+            case "ListTasksDetailedResponse": if (retain) RetainCodec.WriteSizedListTasksDetailedResponse(ref e, (ListTasksDetailedResponse)m); else Codec.WriteSizedListTasksDetailedResponse(ref e, (ListTasksDetailedResponse)m); break;
+            case "ListTaskSummaryResponse": if (retain) RetainCodec.WriteSizedListTaskSummaryResponse(ref e, (ListTaskSummaryResponse)m); else Codec.WriteSizedListTaskSummaryResponse(ref e, (ListTaskSummaryResponse)m); break;
+            case "ListProbeResponse": if (retain) RetainCodec.WriteSizedListProbeResponse(ref e, (ListProbeResponse)m); else Codec.WriteSizedListProbeResponse(ref e, (ListProbeResponse)m); break;
+            case "ListMetricsResponse": if (retain) RetainCodec.WriteSizedListMetricsResponse(ref e, (ListMetricsResponse)m); else Codec.WriteSizedListMetricsResponse(ref e, (ListMetricsResponse)m); break;
+            case "UploadResultDataMessage": if (retain) RetainCodec.WriteSizedUploadResultDataMessage(ref e, (UploadResultDataMessage)m); else Codec.WriteSizedUploadResultDataMessage(ref e, (UploadResultDataMessage)m); break;
+            case "DualResponse": if (retain) RetainCodec.WriteSizedDualResponse(ref e, (DualResponse)m); else Codec.WriteSizedDualResponse(ref e, (DualResponse)m); break;
+            case "ChunkLeaf": if (retain) RetainCodec.WriteSizedChunkLeaf(ref e, (ChunkLeaf)m); else Codec.WriteSizedChunkLeaf(ref e, (ChunkLeaf)m); break;
+            case "ChunkInner": if (retain) RetainCodec.WriteSizedChunkInner(ref e, (ChunkInner)m); else Codec.WriteSizedChunkInner(ref e, (ChunkInner)m); break;
+            case "ChunkElement": if (retain) RetainCodec.WriteSizedChunkElement(ref e, (ChunkElement)m); else Codec.WriteSizedChunkElement(ref e, (ChunkElement)m); break;
+            case "ChunkedResponse": if (retain) RetainCodec.WriteSizedChunkedResponse(ref e, (ChunkedResponse)m); else Codec.WriteSizedChunkedResponse(ref e, (ChunkedResponse)m); break;
+            case "ChunkedResponseWide": if (retain) RetainCodec.WriteSizedChunkedResponseWide(ref e, (ChunkedResponseWide)m); else Codec.WriteSizedChunkedResponseWide(ref e, (ChunkedResponseWide)m); break;
+            case "LeafElement": if (retain) RetainCodec.WriteSizedLeafElement(ref e, (LeafElement)m); else Codec.WriteSizedLeafElement(ref e, (LeafElement)m); break;
+            case "LeafResponse": if (retain) RetainCodec.WriteSizedLeafResponse(ref e, (LeafResponse)m); else Codec.WriteSizedLeafResponse(ref e, (LeafResponse)m); break;
+            case "Surrogate": if (retain) RetainCodec.WriteSizedSurrogate(ref e, (Surrogate)m); else Codec.WriteSizedSurrogate(ref e, (Surrogate)m); break;
+            case "SurrogateInner": if (retain) RetainCodec.WriteSizedSurrogateInner(ref e, (SurrogateInner)m); else Codec.WriteSizedSurrogateInner(ref e, (SurrogateInner)m); break;
+            case "Nest": if (retain) RetainCodec.WriteSizedNest(ref e, (Nest)m); else Codec.WriteSizedNest(ref e, (Nest)m); break;
+            case "WireZoo": if (retain) RetainCodec.WriteSizedWireZoo(ref e, (WireZoo)m); else Codec.WriteSizedWireZoo(ref e, (WireZoo)m); break;
             default: throw new ArgumentException("unknown root " + root);
         }
     }
