@@ -1,0 +1,231 @@
+# commit 593c30e + uncommitted changes in poc/rust or poc/codec; rustc 1.94.1
+===== 1. generators current =====
+ok    corpus/crates/facade/src/generated/types.rs
+ok    corpus/crates/facade/src/generated/core_native.rs
+ok    corpus/crates/facade/src/generated/core_native_retain.rs
+ok    corpus/crates/facade/src/generated/project.rs
+ok    corpus/crates/harness/src/generated/binding.rs
+ok    corpus/crates/harness/src/generated/binding_nounk.rs
+ok    corpus/crates/harness/src/generated/dispatch.rs
+ok    ../codec/crates/ak-abi/src/generated_corpus/abi.rs
+ok    ../codec/crates/ak-core/src/generated_corpus/codec.rs
+===== 2. build =====
+# libak_core.so => /home/user/ArmoniK.Api/ffi/poc/rust/target-corpus/release/deps/libak_core.so
+# the loaded core is the corpus-schema build: 1 ak_decode_WireZoo export(s)
+===== 3. the corpus, four arms =====
+# the conformance corpus, C ABI and core-native, unknown fields dropped and retained
+#   manifest   /home/user/ArmoniK.Api/ffi/corpus/generated/manifest.json (702 rows)
+#   core       ak-core --features corpus,init-guard: the core generated for the corpus's
+#              READER schema by poc/codec/gen (plan.py + rust_abi.py); CONTRACT rule 0
+#   native     core_native / core_native_retain, rendered from the same plans
+#   decode utf8 policy: reject; recursion limit 100
+#   each row in a child process, timeout 10000 ms
+#   NOT IN THE C ABI: Nest: REFUSED: Nest reaches Nest again through Nest.child. ABI v1 section 6 inlines every singular child into its parent's group, so a recursive message has no finite group and cannot cross the C ABI.
+
+## ffi-drop
+   pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  107  fail   0
+     shape      pass  163  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  311  fail   0
+   forms written (C3):
+      183  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       46  unknown-dropped
+       25  unknown-dropped / unknown-dropped, map values always written
+      156  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   disputed: U-map-entry [ffi-drop]: accepted; projection matches the reading of null
+   disputed: X-field-2p32-plus-2 [ffi-drop]: refused (-2)
+   disputed: X-field-over-max [ffi-drop]: refused (-2)
+   disputed: X-field-over-max-in-group [ffi-drop]: refused (-2)
+   disputed: X-tag-zero-Empty [ffi-drop]: refused (-2)
+   disputed: X-tag-zero-nested-Empty [ffi-drop]: refused (-2)
+
+## ffi-retain
+   pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  107  fail   0
+     shape      pass  163  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  311  fail   0
+   forms written (C3):
+      378  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+      105  as committed / unknown-retained, map values always written
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        1  as upb writes it: the same message, encoded differently
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+        1  unknown-dropped / unknown-dropped, map values always written
+        6  unknown-retained, appended in tag order
+   disputed: U-map-entry [ffi-retain]: accepted; projection matches the reading of null
+   disputed: X-field-2p32-plus-2 [ffi-retain]: refused (-2)
+   disputed: X-field-over-max [ffi-retain]: refused (-2)
+   disputed: X-field-over-max-in-group [ffi-retain]: refused (-2)
+   disputed: X-tag-zero-Empty [ffi-retain]: refused (-2)
+   disputed: X-tag-zero-nested-Empty [ffi-retain]: refused (-2)
+   retain mode wrote the DROPPED form on 1 row(s) (accepted by the contract; a retention gap):
+     U-map-entry (ffi-retain)
+
+## native-drop
+   pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  110  fail   0
+     shape      pass  170  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  317  fail   0
+   forms written (C3):
+      190  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       46  unknown-dropped
+       25  unknown-dropped / unknown-dropped, map values always written
+      162  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   disputed: U-map-entry [native-drop]: accepted; projection matches the reading of null
+   disputed: X-field-2p32-plus-2 [native-drop]: refused (-2)
+   disputed: X-field-over-max [native-drop]: refused (-2)
+   disputed: X-field-over-max-in-group [native-drop]: refused (-2)
+   disputed: X-tag-zero-Empty [native-drop]: refused (-2)
+   disputed: X-tag-zero-nested-Empty [native-drop]: refused (-2)
+
+## native-retain
+   pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  110  fail   0
+     shape      pass  170  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  317  fail   0
+   forms written (C3):
+      391  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+      105  as committed / unknown-retained, map values always written
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        1  as upb writes it: the same message, encoded differently
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+        1  unknown-dropped / unknown-dropped, map values always written
+        6  unknown-retained, appended in tag order
+   disputed: U-map-entry [native-retain]: accepted; projection matches the reading of null
+   disputed: X-field-2p32-plus-2 [native-retain]: refused (-2)
+   disputed: X-field-over-max [native-retain]: refused (-2)
+   disputed: X-field-over-max-in-group [native-retain]: refused (-2)
+   disputed: X-tag-zero-Empty [native-retain]: refused (-2)
+   disputed: X-tag-zero-nested-Empty [native-retain]: refused (-2)
+   retain mode wrote the DROPPED form on 1 row(s) (accepted by the contract; a retention gap):
+     U-map-entry (native-retain)
+
+# rows that hung or crashed a child: 0
+CORPUS PASSES on all 4 arms
+===== 4. controls (each MUST FAIL) =====
+  control proj: failed as required (104 arm-row failures)
+  control reenc: failed as required (104 arm-row failures)
+  control accept: failed as required (228 arm-row failures)
+  control noinit: failed as required: 52 C ABI arm-row failures, 0 native (native has no ak_init to skip)
+       FAIL E-map-dup-key [ffi-drop]: C1: refused with -10
+       FAIL E-map-empty-value-written [ffi-drop]: C1: refused with -10
+===== 5. decision 11 (WP5 step 7): per-position discard, pull == push, placement =====
+  U-deep-all                         ListTasksDetailedResponse  positions 18, changed by zeroing  1, entry bytes 0
+  U-leaf-all                         ListResultsResponse        positions  4, changed by zeroing  2, entry bytes 0
+  U-map-entry                        ListTasksDetailedResponse  positions 18, changed by zeroing  0, entry bytes 8
+rows 543 (accept, root in the ABI), 2290 (row, position) pairs; rows with unknowns at some position 307 (315 pairs changed by zeroing); rows with map-entry bytes 1
+discard mismatches: 0 row(s); pull != push: 0 row(s)
+  placement: pool n=2, grow           elements 0,1 in the pool's buffers, element 2 from grow; grow calls 1 (fresh 1); host entries cleared: true; bags exact: true  PASS
+  placement: pool n=2, no grow        rc -7 (AK_ERR_CAPACITY when the pool is exhausted and there is no grow); host entries cleared: true  PASS
+  placement: in-place refill          rc 0; 3 elements, each in the buffer the host wrote into its struct in new_tasks (refills 2), bags exact  PASS
+  placement: no refill (control)      rc -7 (without the refill: AK_ERR_CAPACITY at the second element)  PASS
+  placement: oneof stamp -> nothing   final member's bag Some([160, 6, 2]) (want its own run only); fresh buffers 1  PASS
+  placement: oneof stamp -> nothing -> stamp final member's bag Some([160, 6, 3]) (want its own run only); fresh buffers 1  PASS
+  placement: wrong root (refused)     decode rc -8, parse rc -8, reset rc -8 (AK_ERR_INVALID_STATE = -8); own root still decodes: true  PASS
+  control unk-plant (bags not cleared): failed as required: discard mismatches: 307 row(s); pull != push: 0 row(s)   [PLANTED: clearing skipped]
+===== 6. the NO-UNKNOWN build (WP5 step 10): support compiled out, every unknown row dropped =====
+# /home/user/ArmoniK.Api/ffi/poc/rust/gen/../target-corpus-nounk/release/deps/libak_core.so: ak_uencode_* 0, ak_dec_reset_* 0, ak_decode_WireZoo 1
+# the conformance corpus, C ABI and core-native, unknown fields dropped and retained
+#   native     core_native / core_native_retain, rendered from the same plans
+## ffi-nounk
+   pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16
+## native-drop
+   pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0
+## native-retain
+   pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0
+   disputed: U-map-entry [native-retain]: accepted; projection matches the reading of null
+   disputed: X-field-2p32-plus-2 [native-retain]: refused (-2)
+   disputed: X-field-over-max [native-retain]: refused (-2)
+   disputed: X-field-over-max-in-group [native-retain]: refused (-2)
+   disputed: X-tag-zero-Empty [native-retain]: refused (-2)
+   disputed: X-tag-zero-nested-Empty [native-retain]: refused (-2)
+   retain mode wrote the DROPPED form on 1 row(s) (accepted by the contract; a retention gap):
+CORPUS PASSES on all 3 arms
+  ffi-nounk forms on unknown rows: 0 retained-form lines (must be 0)
+  control proj (no-unknown build): failed as required (78 arm-row failures)
+  control reenc (no-unknown build): failed as required (78 arm-row failures)
+  control accept (no-unknown build): failed as required (171 arm-row failures)
+  control noinit (no-unknown build): failed as required: 26 C ABI arm-row failures
+CORPUS GATE PASSED
+
+real	1m23.193s
+user	1m49.091s
+sys	0m16.387s

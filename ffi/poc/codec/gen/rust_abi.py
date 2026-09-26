@@ -1013,8 +1013,13 @@ def _emit_decode(ir, sites):
                 o.append("                if n_%s == N_%s { flush_%s!(); }" % (sn, sn.upper(), sn))
                 o.append("                let (off, n) = %s.len_body();" % rd)
                 o.append("                let mut es = Dec::new(&%s[off..off + n]);" % bufname)
-                o.append("                a_%s[n_%s].write(dec_%s_fix(&mut es, %s + off, %s));"
-                         % (sn, sn, snake(et), basename, ux(f)))
+                # Optimisation D3b: the element group is decoded IN PLACE in its slot
+                # (arena, or record buffer in the pull family) rather than returned by
+                # value and copied there.
+                o.append("                let p = at_%s!();" % sn)
+                o.append("                p.write(ak_dfix_%s::ZERO);" % et)
+                o.append("                dec_%s_fix_into(&mut es, %s + off, %s, &mut *p);"
+                         % (snake(et), basename, ux(f)))
                 o.append("                if es.err != 0 { %s.err = es.err; }" % rd)
                 o.append("                n_%s += 1;" % sn)
                 o.append("            }")
@@ -1025,8 +1030,8 @@ def _emit_decode(ir, sites):
                 o.append("                if n_%s == N_%s { flush_%s!(); }" % (sn, sn.upper(), sn))
                 o.append("                let (off, n) = %s.len_body();" % rd)
                 utf8_check(f, bufname, "off", "n", rd)
-                o.append("                a_%s[n_%s].write(ak_span { off: (%s + off) as u32, len: n as u32, coder: 0 });"
-                         % (sn, sn, basename))
+                o.append("                at_%s!().write(ak_span { off: (%s + off) as u32, len: n as u32, coder: 0 });"
+                         % (sn, basename))
                 o.append("                n_%s += 1;" % sn)
                 o.append("            }")
             elif op == "packed_run":
@@ -1042,7 +1047,7 @@ def _emit_decode(ir, sites):
                 o.append("                    if n_%s == N_%s { flush_%s!(); }" % (sn, sn.upper(), sn))
                 o.append("                    let v = %s;" % one)
                 o.append("                    if ps.err != 0 { break; }")
-                o.append("                    a_%s[n_%s].write(v);" % (sn, sn))
+                o.append("                    at_%s!().write(v);" % sn)
                 o.append("                    n_%s += 1;" % sn)
                 o.append("                }")
                 o.append("                if ps.err != 0 { %s.err = ps.err; }" % rd)
@@ -1053,7 +1058,7 @@ def _emit_decode(ir, sites):
                 o.append("                if cur != %d { flush!(); cur = %d; }" % (sid, sid))
                 o.append("                if n_%s == N_%s { flush_%s!(); }" % (sn, sn.upper(), sn))
                 o.append("                let v = %s;" % rd_expr(act.read, rd))
-                o.append("                if %s.err == 0 { a_%s[n_%s].write(v); n_%s += 1; }" % (rd, sn, sn, sn))
+                o.append("                if %s.err == 0 { at_%s!().write(v); n_%s += 1; }" % (rd, sn, sn))
                 o.append("            }")
             elif op == "oneof_set":
                 oname = act.oneof
@@ -1105,14 +1110,43 @@ def _emit_decode(ir, sites):
             else:
                 raise NotImplementedError("decode action %r (%s.%s)" % (op, name, f.name))
 
-    def arena_decl(sn, dty, o, indent="    "):
+    def shared_arena(o, family, n_slots, indent="    "):
+        """Optimisation D2: ONE 8-aligned arena per function for every loop slot it has
+        (push family). At most one slot holds elements at any time -- a tag of another
+        slot, a non-leaf element, an unknown field and the end of the message all flush
+        the open run first (`cur`) -- and each slot keeps its own element budget N_<slot>,
+        so every run, and so every crossing, is the one an arena per slot gave. Before
+        this, an element decoder with five inner slots put 5 x 32 KB on the stack per
+        ELEMENT. The pull family has no arena at all (D4, `arena_decl`)."""
+        if family == "push" and n_slots:
+            o.append("%s// Optimisation D2: one 8-aligned arena shared by every loop slot below (one" % indent)
+            o.append("%s// slot is open at a time; each keeps its own element budget)." % indent)
+            o.append("%slet mut arena: [::core::mem::MaybeUninit<u64>; ak_rt::ARENA_BYTES / 8] =" % indent)
+            o.append("%s    [const { ::core::mem::MaybeUninit::uninit() }; ak_rt::ARENA_BYTES / 8];" % indent)
+
+    def arena_decl(sn, dty, o, indent="    ", family="push"):
         o.append("%s// ABI v1 7.3: a byte budget divided by the group size, not an element" % indent)
         o.append("%s// count, so the scratch is the same 32 KB whatever the schema does." % indent)
         o.append("%sconst N_%s: usize = ak_rt::arena_n(::core::mem::size_of::<%s>());"
                  % (indent, sn.upper(), dty))
-        o.append("%slet mut a_%s: [::core::mem::MaybeUninit<%s>; N_%s] =" % (indent, sn, dty, sn.upper()))
-        o.append("%s    [const { ::core::mem::MaybeUninit::uninit() }; N_%s];" % (indent, sn.upper()))
+        o.append("%sconst _: () = assert!(N_%s * ::core::mem::size_of::<%s>() <= ak_rt::ARENA_BYTES"
+                 " && ::core::mem::align_of::<%s>() <= 8);" % (indent, sn.upper(), dty, dty))
         o.append("%slet mut n_%s: usize = 0;" % (indent, sn))
+        if family == "push":
+            o.append("%slet a_%s: *mut %s = arena.as_mut_ptr() as *mut %s;" % (indent, sn, dty, dty))
+            o.append("%s#[allow(unused_macros)]" % indent)
+            o.append("%smacro_rules! at_%s { () => { a_%s.add(n_%s) }; }" % (indent, sn, sn, sn))
+        else:
+            # Optimisation D4: the pull family decodes a run's elements STRAIGHT INTO the
+            # record buffer -- the run's record is opened at the end of the buffer when its
+            # first element arrives and closed by the flush -- instead of into an arena it
+            # then copies. Nothing else is appended while a run is open (every other
+            # deposit flushes it first), so the payload pointer stays valid.
+            o.append("%s// Optimisation D4: the run's elements go straight into the record buffer." % indent)
+            o.append("%slet mut a_%s: *mut %s = ::core::ptr::null_mut();" % (indent, sn, dty))
+            o.append("%s#[allow(unused_macros)]" % indent)
+            o.append("%smacro_rules! at_%s { () => {{ if n_%s == 0 { a_%s = (*dcx).bdr.open_run(N_%s * ::core::mem::size_of::<%s>()) as *mut %s; } a_%s.add(n_%s) }}; }"
+                     % (indent, sn, sn, sn, sn.upper(), dty, dty, sn, sn))
 
     def flush_macros(slots, tokarg, o, family="push"):
         """One macro per slot, and one that flushes them all.
@@ -1134,19 +1168,18 @@ def _emit_decode(ir, sites):
                 o.append("                if let Some(add) = (*vt).%s {" % extra)
                 o.append("                    if (*dcx).hdr.err == AK_OK {")
                 o.append("                        ak_rt::bump!((*dcx).c, reverse);")
-                o.append("                        add(ctx, obj, %s, a_%s.as_ptr() as *const %s, n_%s as i32);"
+                o.append("                        add(ctx, obj, %s, a_%s as *const %s, n_%s as i32);"
                          % (tokarg, sn, dty, sn))
                 o.append("                    }")
                 o.append("                }")
             else:
-                o.append("                // No call: the run is copied into the record buffer and the")
-                o.append("                // host reads it after `ak_parse_*` returns.")
-                o.append("                (*dcx).bdr.push(")
+                o.append("                // No call: the run was decoded into the record buffer (D4); close")
+                o.append("                // its record. The host reads it after `ak_parse_*` returns.")
+                o.append("                (*dcx).bdr.close_run(")
                 o.append("                    ak_rt::bdr::OP_ADD,")
                 o.append("                    %d," % extra)
                 o.append("                    %s," % tokarg)
                 o.append("                    n_%s as u32," % sn)
-                o.append("                    a_%s.as_ptr() as *const u8," % sn)
                 o.append("                    n_%s * ::core::mem::size_of::<%s>()," % (sn, dty))
                 o.append("                );")
             o.append("                n_%s = 0;" % sn)
@@ -1241,6 +1274,7 @@ def _emit_decode(ir, sites):
             out.append("    let buf0 = d.buf;")
             out.append("    let base0 = base;")
             slots = []
+            shared_arena(out, "push", len(inner_slots))
             for ipath, iff in inner_slots:
                 isn = slot_name(ipath)
                 idty, _ = slot_elem_rust(iff)
@@ -1314,6 +1348,7 @@ def _emit_decode(ir, sites):
         out.append("    let mut d = Dec::new(buf0);")
         out.append("    let mut out = ak_dfix_%s::ZERO;" % root)
         slots = []
+        shared_arena(out, "push", sum(1 for _, f in rslots if not (elem_type(f) and not ir.msg(elem_type(f)).leaf)))
         for path, f in rslots:
             et = elem_type(f)
             if et and not ir.msg(et).leaf:
@@ -1452,7 +1487,7 @@ def _emit_decode(ir, sites):
             for k, (ipath, iff) in enumerate(inner_slots):
                 isn = slot_name(ipath)
                 idty, _ = slot_elem_rust(iff)
-                arena_decl(isn, idty, out)
+                arena_decl(isn, idty, out, family="pull")
                 slots.append((isn, idty, pull_slot(j, k)))
             flush_macros(slots, "tok", out, family="pull")
             out.append("    let mut cur = 0u32;")
@@ -1526,7 +1561,7 @@ def _emit_decode(ir, sites):
                 continue
             sn = slot_name(path)
             dty, _ = slot_elem_rust(f)
-            arena_decl(sn, dty, out)
+            arena_decl(sn, dty, out, family="pull")
             slots.append((sn, dty, i + 1))
         flush_macros(slots, "AK_TOKEN_ROOT", out, family="pull")
         out.append("    let u = UnkCx::root(dcx);")
