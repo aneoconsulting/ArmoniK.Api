@@ -252,6 +252,15 @@ public static class Program
             if (err == null) { r.Verdict = "fail"; r.Detail = "C4: accepted a reject row"; return r; }
             if (!refused) { r.Verdict = "fail"; r.Detail = "C4: refused by an EXCEPTION, not an error code: " + err; return r; }
             // R-H14: the code must be the one the row's reason calls for (plan DECODE RULES).
+            // A manifest whose reject rows state no reason (the oracle-probe rows of
+            // poc/rust/gen/probe_corpus.py) cannot say which code is right: the code is then
+            // not checked, and the row says so in its form (it is counted, not hidden).
+            if (v["reject"] == null)
+            {
+                r.Verdict = "pass";
+                r.Form = "refused; code " + code + " not checked: the row states no reason";
+                return r;
+            }
             int want = ExpectedCode(v["reject"]?["reason"]?.AsString);
             if (plant == "code" && want != 0) want = want == Abi.AK_ERR_MALFORMED ? Abi.AK_ERR_TRUNCATED : Abi.AK_ERR_MALFORMED;
             if (want == 0) { r.Verdict = "fail"; r.Detail = "C4: no expected code for reason '" + v["reject"]?["reason"]?.AsString + "'"; return r; }
