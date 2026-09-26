@@ -164,8 +164,12 @@ in its container shows it executes (section 9).
     (R-H31): the counts include **every exported entry point the timed loop calls,
     resets included**, with the reset's place stated; they cover the **RPC cells B,
     C, D and E per call**; and they cover **retain mode**, with the initial buffer
-    sizes fixed: no pre-placed buffer, and a `grow` that allocates exactly the size
-    requested.
+    sizes fixed: no pre-placed buffer. Amended by the owner 2026-09-26, for every
+    slice: the counting build's `grow` is the same **geometric** grow the timed build
+    uses (capacity at least the request, clamped to `INT32_MAX`; ABI-v1 decision 11
+    rule 8), not an exact-size grow, so the counts are those of the code that is
+    timed. A slice whose counting build still grows to the exact size requested
+    switches it and regenerates its committed counts before its next timing.
 20. **Crossing cost**: the Rust slice's crossing benchmark, run in every host,
     reporting **forward and reverse separately**, with `perf stat` cycles and
     instructions per iteration.

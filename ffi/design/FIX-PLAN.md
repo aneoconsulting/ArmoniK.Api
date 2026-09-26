@@ -457,7 +457,11 @@ section 10 checklist again. The work per slice:
 6. direction (a) as `a` and `a+read` (req 14); A, D and F idiomatic, stated (req 16);
 7. UDS in every slice (req 17);
 8. crossing counts including resets, RPC cells B to E per call, and retain mode with
-   exact-size grow and no pre-placed buffer (req 19);
+   no pre-placed buffer (req 19). **Superseded in part by the owner 2026-09-26: the
+   counting build grows geometrically, as the timed build does, not to the exact size
+   requested.** The Rust slice follows it (`poc/rust/gen/crossings.txt` at 186bfee9);
+   the C++, C#, Java and Python counting builds have an exact-grow switch and must
+   switch it and regenerate their committed counts before their timings are redone;
 9. worker thread counts in every log header (req 4); order randomised or interleaved
    where the framework allows, else stated (req 22); ratios from per-launch medians
    (req 30);
