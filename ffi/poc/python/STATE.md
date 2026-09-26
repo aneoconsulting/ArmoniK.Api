@@ -10,7 +10,7 @@ labelled.
 
 | | |
 |---|---|
-| **Status** | The WP6 re-review findings assigned to python (register H) are addressed at b5f5bcfc4 (see "Register H" below), and gated from a clean worktree at that commit. Both builds are gated at 3.12 and 3.7: the full build (unknown fields drop and retain, decision 11) and the no-unknown build (unknown-field support compiled out, WP5 step 10). Pending: a rebuild and re-gate once the rust agent's core change (R-H21, R-H10) lands |
+| **Status** | Rebuilt and gated against the register H core changes (31fc3eecf: R-H21, R-H10, R-H15, R-H13), from a clean worktree at that commit, for both builds at 3.12 and 3.7; the campaign smoke was rerun there. The python slice's own register H findings are addressed (see "Register H" below). Next: WP7, not started |
 | **Target** (owner D1) | CPython 3.12.3; grpcio 1.84.0, protobuf 7.36.2 (upb) |
 | **Floor** (owner D1) | CPython 3.7.5 (Ubuntu 18.04's packages, `fetch_py37.sh`, sha256-pinned); protobuf 4.24.4 (upb) as the incumbent there. The floor runs the correctness gate only |
 | **Incumbent** (R14) | protobuf on upb through gRPC's generated marshaller path (`SerializeToString` / `FromString`); derived from `Protos/V1` by `verify_r14.py` (log 52) |
@@ -55,15 +55,21 @@ mech/                      the crossing-mechanism microbenchmark (no wire rule) 
 
 ## The clean gate
 
-Fresh `git worktree` at **b5f5bcfc4** (the register H fixes; `git status` empty), fresh build
+Fresh `git worktree` at **31fc3eecf** (origin HEAD, with the rust agent's register H core changes; `git status` empty), fresh build
 directories. Prerequisites run first in that worktree: `./fetch_py37.sh`, then
 `mech/build.sh python3.12` (it writes shapes_pb2 for 3.12). Then `./gate.sh python3.12
 build/py37/python3.7`. The worktree was built from the committed core, not from `poc/codec`'s
 working tree, which another agent is editing.
 
-Result: **`gate exit 0`**. All 23 logs carry `# commit: b5f5bcfc4`, and none says uncommitted.
-The worktree and its builds were deleted after the run. (The previous clean gate, at d2cd0b0,
-also passed; its logs are replaced by these.)
+Result: **`gate exit 0`**. All 23 logs carry `# commit: 31fc3eecf`, and none says uncommitted.
+The worktree and its builds were deleted after the run.
+- `gen/generate.py --check` is clean (18 files).
+- The shared `poc/codec/gen/generate.py --check` with the new slice guard (R-H13): the python
+  slice passes ("slice python --check: exit 0"; no module of `poc/python/gen/` carries a wire
+  token). The command's overall exit is 1, because the rust slice's check fails there; that is
+  not this slice's.
+- Crossing counts are unchanged by the core changes: 103 and 98 are identical.
+- The earlier clean gates (d2cd0b0, b5f5bcfc4) also passed; their logs are replaced by these.
 
 | step | what | 3.12 | 3.7 |
 |---|---|---|---|
@@ -226,7 +232,7 @@ reverse (counted by the core). Whole-number totals per call are in `counts/`.
 | R-H8 | confirmed | no corpus row put unknowns in a oneof member through ffi-retain | poc/cpp's three sequences in the d11 controls: exact bags, the scalar switch leaves no bag, `last_reclaimed() == 0` (log 93) | fixed |
 | R-H9 | confirmed | the leak check had no twin | `AK_PLANT_SKIP_RELEASE` shim: flagged on 307 of 311 rows and 3 of 3 sequences (log 93) | fixed |
 | R-H14 | confirmed, all three parts | py_pure had its own `ERR` table; the undeclared case raised a bare ValueError (pure and shim); a selected None member raised (pure and shim) | codes read from `plan.FIXED.codes`; an undeclared case is refused with -11 as `.code` (pure: `EncodeError`; the shim passes the case to the core, whose AK_ERR_ABI is raised with `.code`); a None member is written as an empty body, per plan ENCODE RULES ("written iff the case selects it, whatever its value"); checked on every arm (logs 91, 92, 100, 102) | fixed |
-| R-H2 (python part) | confirmed | `camp_rpc.sample` created and joined `inflight` threads inside the timed window | one pool of max(in flight) threads, created before the first window and reused (idle threads block on an Event) | fixed; not yet run in a smoke |
+| R-H2 (python part) | confirmed | `camp_rpc.sample` created and joined `inflight` threads inside the timed window | one pool of max(in flight) threads, created before the first window and reused (idle threads block on an Event); smoke at 31fc3eecf: 16 threads started, 32 contexts, 0 leaked, every call checked | fixed |
 | R-H19 (python part) | confirmed, both | `run_campaign.sh` calib never called `need_gate`; "in-process control" wording in `run_campaign.sh` and `camp_codec.py` | calib calls `need_gate`; wording corrected to "same-launch control" (pyperf spawns a worker per benchmark). The RPC client's "in-process controls" A and B are left as they are: they do share the client process | fixed |
 | R-H23 | owner decision | pyperf cannot interleave | order stated (checklist row 22); arms rotated inside each block per launch | stated; rotation added |
 
@@ -283,9 +289,9 @@ Fixed defects (D1-D14, the NULL module state in `mod_traverse`, the process-wide
 - **Content sets** are measured on P2.4 only; P1.2's crossing counts cover ASCII only.
 - **The facade's `_unknown` in the full build** is one slot per object. It is priced only
   through the full build against the no-unknown build.
-- **The campaign smoke** in `logs/python/campaign/` is from d2cd0b0. It predates the register H
-  harness changes: `build` in the samples, `host-gen-plain`, the RPC thread pool, and the arm
-  rotation. It has not been rerun since.
+- **The campaign smoke** in `logs/python/campaign/` is from the clean worktree at 31fc3eecf,
+  figures stripped. It carries `build` in every sample, the `host-gen-plain` arm, the RPC
+  thread pool (32 contexts over 16 pool threads per build) and the arm rotation.
 
 ## Next step
 
@@ -321,7 +327,7 @@ Fixed defects (D1-D14, the NULL module state in `mod_traverse`, the process-wide
 | `70`, `81`-`89`, `53`, `54`, `01` | superseded or older-commit correctness logs, kept as history |
 
 **Instrumentation** (container timings; not quoted): `campaign/` (the WP6 smoke of both
-builds from the clean worktree at d2cd0b02f: gate, codec, rpc, calib; headers marked
+builds from the clean worktree at 31fc3eecf: gate, codec, rpc, calib; headers marked
 INSTRUMENTATION, **figures stripped**: no cpu_ns/wall_ns, no timing column, no pyperf JSON), `00-r13-rust-crossing.log`,
 `10`, `20`, `30`/`31`, `40`/`41`, `50`/`51`/`60`/`61`, `55-allocator.log`, `56-concurrency.log`,
 `57-gc-bias.log`, `62`/`63`, `86-rpc-smoke-gated.log` (timing rows deleted). The `wall` line of

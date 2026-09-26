@@ -1364,3 +1364,23 @@ A first local build failed in `one_core.sh`, because `poc/codec`'s working tree 
 agent's uncommitted core edits. So the gate ran in a clean worktree at b5f5bcfc4, built from the
 committed core: `gate exit 0` at 3.12 and 3.7, all 23 logs `# commit: b5f5bcfc4`. The worktree
 and its builds were deleted after the run.
+
+### J49. Rebuild and re-gate against the register H core changes (31fc3eecf)
+
+- **Clean worktree** at origin HEAD 31fc3eecf (R-H21 capacity cap, R-H10 parse order, R-H15,
+  R-H13 slice guard). Prerequisites were run in the worktree (`fetch_py37.sh`,
+  `mech/build.sh`).
+- **Generator checks:**
+  - `gen/generate.py --check` is clean;
+  - the shared `generate.py --check` passes this slice's modules under the new guard (no wire
+    token in `poc/python/gen/`). Its overall exit is 1, from the rust slice's own check.
+- **Gate:** `gate exit 0` at 3.12 and 3.7 for both builds. All 23 logs carry
+  `# commit: 31fc3eecf`. Crossing counts are unchanged (103, 98).
+- **Campaign smoke** (codec, rpc, calib; the runner re-gated first) was rerun in the same
+  worktree and committed with its figures stripped.
+  - `build` is in every sample, and `host-gen-plain` is timed (codec full: 432 and 72 values,
+    up from 378 and 60).
+  - The RPC pool shows 16 threads started and 32 contexts per build, with 0 leaked.
+- **Stale reference:** the RPC header still cited `logs/python/80`, which was deleted under
+  R-C9. The citation is replaced in `camp_rpc.py` and `camp_server.py` (text only).
+- **Cleanup:** the worktree and its builds were deleted.
