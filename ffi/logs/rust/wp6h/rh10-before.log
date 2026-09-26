@@ -1,0 +1,12 @@
+# FIX-PLAN R-H10 before the fix: corpus --unk-controls with the new control, core at 1e489eb40 (codec.rs not yet regenerated; lib.rs carries the R-H21 change only). "refused parse keeps A" FAILS: the refused parse destroyed A's 480 record bytes.
+rows 543 (accept, root in the ABI), 2290 (row, position) pairs; rows with unknowns at some position 307 (315 pairs changed by zeroing); rows with map-entry bytes 1
+discard mismatches: 0 row(s); pull != push: 0 row(s)
+  placement: pool n=2, grow           elements 0,1 in the pool's buffers, element 2 from grow; grow calls 1 (fresh 1); host entries cleared: true; bags exact: true  PASS
+  placement: pool n=2, no grow        rc -7 (AK_ERR_CAPACITY when the pool is exhausted and there is no grow); host entries cleared: true  PASS
+  placement: in-place refill          rc 0; 3 elements, each in the buffer the host wrote into its struct in new_tasks (refills 2), bags exact  PASS
+  placement: no refill (control)      rc -7 (without the refill: AK_ERR_CAPACITY at the second element)  PASS
+  placement: oneof stamp -> nothing   final member's bag Some([160, 6, 2]) (want its own run only); fresh buffers 1  PASS
+  placement: oneof stamp -> nothing -> stamp final member's bag Some([160, 6, 3]) (want its own run only); fresh buffers 1  PASS
+  placement: wrong root (refused)     decode rc -8, parse rc -8, reset rc -8 (AK_ERR_INVALID_STATE = -8); own root still decodes: true  PASS
+  placement: refused parse keeps A    parse A rc 0, 480 record bytes (footprint 480); parse B on A's context rc -8; after: 0 record bytes (footprint 0), identical: false  FAIL
+  placement: decided at arm time      reset with all-zero options rc 0; root entry refilled after the reset; decode rc 0, root bag 0 bytes (want rc 0 and no bag)  PASS

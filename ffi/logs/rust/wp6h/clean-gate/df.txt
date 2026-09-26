@@ -1,0 +1,4 @@
+# df -h /: before the build; after the gate; after the worktree, its builds and the main checkout's rust target dirs were deleted
+/dev/vda        252G   20G   18G  53% /
+/dev/vda        252G   27G   11G  72% /
+/dev/vda        252G   20G   18G  53% /
