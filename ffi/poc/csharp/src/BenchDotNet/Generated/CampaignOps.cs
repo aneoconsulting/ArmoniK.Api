@@ -9,6 +9,7 @@ using System.Buffers;
 using Armonik.Ffi.Facade;
 using Armonik.Ffi.Harness;
 using Google.Protobuf;
+using Grpc.Core;
 using Gp = Armonik.Ffi.Shapes.V1;
 
 namespace Armonik.Ffi.Campaign;
@@ -451,6 +452,11 @@ public abstract unsafe class RootOps
     public abstract int EncHost(ref Enc e, bool retain);
     public abstract int EncFfi(bool retain);
     public abstract byte[] EncFfiBytes(bool retain);
+    /// CAMPAIGN req 11, end state (ii): the form each arm's gRPC path hands to Grpc.Net, built
+    /// by the SAME serializer the RPC grid's marshaller runs (Ser* below) into a GrpcFrame.
+    public abstract int EncIncTransport(GrpcFrame c);
+    public abstract int EncHostTransport(bool retain, GrpcFrame c);
+    public abstract int EncFfiTransport(bool retain, GrpcFrame c);
     public abstract long DecIncProd(ReadOnlySequence<byte> seq, bool read);
     public abstract long DecIncBest(byte[] b, int len, bool read);
     public abstract long DecHost(byte[] b, int len, bool retain, bool read);
@@ -461,6 +467,19 @@ public abstract unsafe class RootOps
     public abstract byte[] RtHost(byte[] b, int len, bool retain);
     public abstract byte[] RtFfi(byte[] b, int len, bool retain);
     public abstract byte[] RtIncBytes(byte[] b);
+    /// CAMPAIGN req 7 (R-H27): ops over graphs the named arm decoded from `b` (untimed), so
+    /// a corpus row can be ENCODED: `how` 0 = the incumbent's parse, 1/2 = host-gen drop/retain,
+    /// 3/4 = core-ffi drop/retain. A retaining decode keeps the row's unknown fields.
+    public abstract RootOps FromWire(byte[] b, int how);
+    /// CAMPAIGN req 11, input: a pool of distinct graphs (`fs` facade, `gs` incumbent; null
+    /// keeps the one graph). Next() moves to the next graph, round robin; a hot input is a
+    /// pool of one, so every encode row runs the same Next().
+    public abstract void SetPool(object[] fs, object[] gs);
+    public abstract void Next();
+    /// The counting run (CAMPAIGN req 19): this root's core-ffi host tally.
+    public abstract long FfiReverse();
+    public abstract void FfiCallsReset();
+    public abstract long FfiResets();
 }
 
 #if AK_NO_UNKNOWN_FIELDS
@@ -503,8 +522,8 @@ internal static class HostR
 
 public sealed unsafe class Ops_ListResultsResponse : RootOps
 {
-    private readonly ListResultsResponse _f;
-    private readonly Gp.ListResultsResponse _g;
+    private ListResultsResponse _f;
+    private Gp.ListResultsResponse _g;
     private readonly CoreFfi_ListResultsResponse _c = new CoreFfi_ListResultsResponse();
     public Ops_ListResultsResponse(ListResultsResponse f, Gp.ListResultsResponse g) { _f = f; _g = g; }
     public override string Root => "ListResultsResponse";
@@ -514,6 +533,85 @@ public sealed unsafe class Ops_ListResultsResponse : RootOps
     public override int EncHost(ref Enc e, bool retain) { e.Reset(); if (retain) HostR.WriteListResultsResponse(ref e, _f); else Codec.WriteListResultsResponse(ref e, _f); if (e.Err != 0) throw new InvalidOperationException("managed encode " + e.Err); return e.Pos; }
     public override int EncFfi(bool retain) { int rc = _c.TryEncode(_f, retain, out byte* p, out int n); if (rc < 0) throw new InvalidOperationException("core encode " + rc); return n; }
     public override byte[] EncFfiBytes(bool retain) => _c.EncodeToArray(_f, retain);
+    public static void SerInc(Gp.ListResultsResponse m, SerializationContext c) { c.SetPayloadLength(m.CalculateSize()); m.WriteTo(c.GetBufferWriter()); c.Complete(); }
+    [ThreadStatic] private static Enc _se;
+    public static void SerHost(ListResultsResponse m, bool retain, SerializationContext c)
+    {
+        if (_se.Buf == null) _se = Enc.New(Codec.Sites, 1 << 16);
+        _se.Reset();
+        if (retain) HostR.WriteListResultsResponse(ref _se, m); else Codec.WriteListResultsResponse(ref _se, m);
+        if (_se.Err != 0) throw new InvalidOperationException("managed encode " + _se.Err);
+        int n = _se.Pos;
+        c.SetPayloadLength(n);
+        var w = c.GetBufferWriter();
+        new ReadOnlySpan<byte>(_se.Buf, 0, n).CopyTo(w.GetSpan(n));
+        w.Advance(n);
+        c.Complete();
+    }
+    public static void SerFfi(CoreFfi_ListResultsResponse core, ListResultsResponse m, bool retain, SerializationContext c)
+    {
+        int rc = core.TryEncode(m, retain, out byte* p, out int n);
+        if (rc < 0) throw new InvalidOperationException("core encode " + rc);
+        c.SetPayloadLength(n);
+        var w = c.GetBufferWriter();
+        new ReadOnlySpan<byte>(p, n).CopyTo(w.GetSpan(n));
+        w.Advance(n);
+        c.Complete();
+    }
+    public static readonly Marshaller<Gp.ListResultsResponse> MInc = Marshallers.Create<Gp.ListResultsResponse>(SerInc, c => throw new NotSupportedException());
+    public static readonly Marshaller<ListResultsResponse> MHostDrop = Marshallers.Create<ListResultsResponse>((m, c) => SerHost(m, false, c), c => throw new NotSupportedException());
+    public static readonly Marshaller<ListResultsResponse> MHostRetain = Marshallers.Create<ListResultsResponse>((m, c) => SerHost(m, true, c), c => throw new NotSupportedException());
+    public override int EncIncTransport(GrpcFrame c) { MInc.ContextualSerializer(_g, c); int n = c.WrittenCount; c.Release(); return n; }
+    public override int EncHostTransport(bool retain, GrpcFrame c) { (retain ? MHostRetain : MHostDrop).ContextualSerializer(_f, c); int n = c.WrittenCount; c.Release(); return n; }
+    private Marshaller<ListResultsResponse> _mfd, _mfr;
+    public override int EncFfiTransport(bool retain, GrpcFrame c)
+    {
+        var mm = retain ? (_mfr ??= Marshallers.Create<ListResultsResponse>((m, x) => SerFfi(_c, m, true, x), x => throw new NotSupportedException()))
+                        : (_mfd ??= Marshallers.Create<ListResultsResponse>((m, x) => SerFfi(_c, m, false, x), x => throw new NotSupportedException()));
+        mm.ContextualSerializer(_f, c); int n = c.WrittenCount; c.Release(); return n;
+    }
+    public override RootOps FromWire(byte[] b, int how)
+    {
+        switch (how)
+        {
+            case 0: return new Ops_ListResultsResponse(null, Gp.ListResultsResponse.Parser.ParseFrom(b));
+            case 1: case 2:
+            {
+                var d = new Dec { Buf = b, Pos = 0, End = b.Length, Err = 0 };
+                var m = new ListResultsResponse();
+                if (how == 2) HostR.ReadListResultsResponse(ref d, m, 0); else Codec.ReadListResultsResponse(ref d, m, 0);
+                if (d.Err != 0) throw new InvalidOperationException("managed decode " + d.Err);
+                return new Ops_ListResultsResponse(m, null);
+            }
+            default:
+            {
+                int rc = _c.TryDecode(b, b.Length, how == 4, out var m);
+                if (rc < 0) throw new InvalidOperationException("core decode " + rc);
+                return new Ops_ListResultsResponse(m, null);
+            }
+        }
+    }
+    private ListResultsResponse[] _fs;
+    private Gp.ListResultsResponse[] _gs;
+    private int _i, _n = 1;
+    public override void SetPool(object[] fs, object[] gs)
+    {
+        _fs = fs == null ? null : Array.ConvertAll(fs, x => (ListResultsResponse)x);
+        _gs = gs == null ? null : Array.ConvertAll(gs, x => (Gp.ListResultsResponse)x);
+        _n = Math.Max(_fs?.Length ?? 1, _gs?.Length ?? 1);
+        _i = 0;
+        if (_fs != null) _f = _fs[0];
+        if (_gs != null) _g = _gs[0];
+    }
+    public override void Next()
+    {
+        if (++_i >= _n) _i = 0;
+        if (_fs != null) _f = _fs[_i];
+        if (_gs != null) _g = _gs[_i];
+    }
+    public override long FfiReverse() => _c.ReverseCalls;
+    public override void FfiCallsReset() => _c.CallsReset();
+    public override long FfiResets() => _c.ResetCalls;
     public override long DecIncProd(ReadOnlySequence<byte> seq, bool read) { var m = Gp.ListResultsResponse.Parser.ParseFrom(seq); return read ? Touch.G_ListResultsResponse(m) : 1; }
     public override long DecIncBest(byte[] b, int len, bool read) { var m = Gp.ListResultsResponse.Parser.ParseFrom(new ReadOnlySpan<byte>(b, 0, len)); return read ? Touch.G_ListResultsResponse(m) : 1; }
     public override long DecHost(byte[] b, int len, bool retain, bool read)
@@ -553,8 +651,8 @@ public sealed unsafe class Ops_ListResultsResponse : RootOps
 
 public sealed unsafe class Ops_ListTasksDetailedResponse : RootOps
 {
-    private readonly ListTasksDetailedResponse _f;
-    private readonly Gp.ListTasksDetailedResponse _g;
+    private ListTasksDetailedResponse _f;
+    private Gp.ListTasksDetailedResponse _g;
     private readonly CoreFfi_ListTasksDetailedResponse _c = new CoreFfi_ListTasksDetailedResponse();
     public Ops_ListTasksDetailedResponse(ListTasksDetailedResponse f, Gp.ListTasksDetailedResponse g) { _f = f; _g = g; }
     public override string Root => "ListTasksDetailedResponse";
@@ -564,6 +662,85 @@ public sealed unsafe class Ops_ListTasksDetailedResponse : RootOps
     public override int EncHost(ref Enc e, bool retain) { e.Reset(); if (retain) HostR.WriteListTasksDetailedResponse(ref e, _f); else Codec.WriteListTasksDetailedResponse(ref e, _f); if (e.Err != 0) throw new InvalidOperationException("managed encode " + e.Err); return e.Pos; }
     public override int EncFfi(bool retain) { int rc = _c.TryEncode(_f, retain, out byte* p, out int n); if (rc < 0) throw new InvalidOperationException("core encode " + rc); return n; }
     public override byte[] EncFfiBytes(bool retain) => _c.EncodeToArray(_f, retain);
+    public static void SerInc(Gp.ListTasksDetailedResponse m, SerializationContext c) { c.SetPayloadLength(m.CalculateSize()); m.WriteTo(c.GetBufferWriter()); c.Complete(); }
+    [ThreadStatic] private static Enc _se;
+    public static void SerHost(ListTasksDetailedResponse m, bool retain, SerializationContext c)
+    {
+        if (_se.Buf == null) _se = Enc.New(Codec.Sites, 1 << 16);
+        _se.Reset();
+        if (retain) HostR.WriteListTasksDetailedResponse(ref _se, m); else Codec.WriteListTasksDetailedResponse(ref _se, m);
+        if (_se.Err != 0) throw new InvalidOperationException("managed encode " + _se.Err);
+        int n = _se.Pos;
+        c.SetPayloadLength(n);
+        var w = c.GetBufferWriter();
+        new ReadOnlySpan<byte>(_se.Buf, 0, n).CopyTo(w.GetSpan(n));
+        w.Advance(n);
+        c.Complete();
+    }
+    public static void SerFfi(CoreFfi_ListTasksDetailedResponse core, ListTasksDetailedResponse m, bool retain, SerializationContext c)
+    {
+        int rc = core.TryEncode(m, retain, out byte* p, out int n);
+        if (rc < 0) throw new InvalidOperationException("core encode " + rc);
+        c.SetPayloadLength(n);
+        var w = c.GetBufferWriter();
+        new ReadOnlySpan<byte>(p, n).CopyTo(w.GetSpan(n));
+        w.Advance(n);
+        c.Complete();
+    }
+    public static readonly Marshaller<Gp.ListTasksDetailedResponse> MInc = Marshallers.Create<Gp.ListTasksDetailedResponse>(SerInc, c => throw new NotSupportedException());
+    public static readonly Marshaller<ListTasksDetailedResponse> MHostDrop = Marshallers.Create<ListTasksDetailedResponse>((m, c) => SerHost(m, false, c), c => throw new NotSupportedException());
+    public static readonly Marshaller<ListTasksDetailedResponse> MHostRetain = Marshallers.Create<ListTasksDetailedResponse>((m, c) => SerHost(m, true, c), c => throw new NotSupportedException());
+    public override int EncIncTransport(GrpcFrame c) { MInc.ContextualSerializer(_g, c); int n = c.WrittenCount; c.Release(); return n; }
+    public override int EncHostTransport(bool retain, GrpcFrame c) { (retain ? MHostRetain : MHostDrop).ContextualSerializer(_f, c); int n = c.WrittenCount; c.Release(); return n; }
+    private Marshaller<ListTasksDetailedResponse> _mfd, _mfr;
+    public override int EncFfiTransport(bool retain, GrpcFrame c)
+    {
+        var mm = retain ? (_mfr ??= Marshallers.Create<ListTasksDetailedResponse>((m, x) => SerFfi(_c, m, true, x), x => throw new NotSupportedException()))
+                        : (_mfd ??= Marshallers.Create<ListTasksDetailedResponse>((m, x) => SerFfi(_c, m, false, x), x => throw new NotSupportedException()));
+        mm.ContextualSerializer(_f, c); int n = c.WrittenCount; c.Release(); return n;
+    }
+    public override RootOps FromWire(byte[] b, int how)
+    {
+        switch (how)
+        {
+            case 0: return new Ops_ListTasksDetailedResponse(null, Gp.ListTasksDetailedResponse.Parser.ParseFrom(b));
+            case 1: case 2:
+            {
+                var d = new Dec { Buf = b, Pos = 0, End = b.Length, Err = 0 };
+                var m = new ListTasksDetailedResponse();
+                if (how == 2) HostR.ReadListTasksDetailedResponse(ref d, m, 0); else Codec.ReadListTasksDetailedResponse(ref d, m, 0);
+                if (d.Err != 0) throw new InvalidOperationException("managed decode " + d.Err);
+                return new Ops_ListTasksDetailedResponse(m, null);
+            }
+            default:
+            {
+                int rc = _c.TryDecode(b, b.Length, how == 4, out var m);
+                if (rc < 0) throw new InvalidOperationException("core decode " + rc);
+                return new Ops_ListTasksDetailedResponse(m, null);
+            }
+        }
+    }
+    private ListTasksDetailedResponse[] _fs;
+    private Gp.ListTasksDetailedResponse[] _gs;
+    private int _i, _n = 1;
+    public override void SetPool(object[] fs, object[] gs)
+    {
+        _fs = fs == null ? null : Array.ConvertAll(fs, x => (ListTasksDetailedResponse)x);
+        _gs = gs == null ? null : Array.ConvertAll(gs, x => (Gp.ListTasksDetailedResponse)x);
+        _n = Math.Max(_fs?.Length ?? 1, _gs?.Length ?? 1);
+        _i = 0;
+        if (_fs != null) _f = _fs[0];
+        if (_gs != null) _g = _gs[0];
+    }
+    public override void Next()
+    {
+        if (++_i >= _n) _i = 0;
+        if (_fs != null) _f = _fs[_i];
+        if (_gs != null) _g = _gs[_i];
+    }
+    public override long FfiReverse() => _c.ReverseCalls;
+    public override void FfiCallsReset() => _c.CallsReset();
+    public override long FfiResets() => _c.ResetCalls;
     public override long DecIncProd(ReadOnlySequence<byte> seq, bool read) { var m = Gp.ListTasksDetailedResponse.Parser.ParseFrom(seq); return read ? Touch.G_ListTasksDetailedResponse(m) : 1; }
     public override long DecIncBest(byte[] b, int len, bool read) { var m = Gp.ListTasksDetailedResponse.Parser.ParseFrom(new ReadOnlySpan<byte>(b, 0, len)); return read ? Touch.G_ListTasksDetailedResponse(m) : 1; }
     public override long DecHost(byte[] b, int len, bool retain, bool read)
@@ -603,8 +780,8 @@ public sealed unsafe class Ops_ListTasksDetailedResponse : RootOps
 
 public sealed unsafe class Ops_ListProbeResponse : RootOps
 {
-    private readonly ListProbeResponse _f;
-    private readonly Gp.ListProbeResponse _g;
+    private ListProbeResponse _f;
+    private Gp.ListProbeResponse _g;
     private readonly CoreFfi_ListProbeResponse _c = new CoreFfi_ListProbeResponse();
     public Ops_ListProbeResponse(ListProbeResponse f, Gp.ListProbeResponse g) { _f = f; _g = g; }
     public override string Root => "ListProbeResponse";
@@ -614,6 +791,85 @@ public sealed unsafe class Ops_ListProbeResponse : RootOps
     public override int EncHost(ref Enc e, bool retain) { e.Reset(); if (retain) HostR.WriteListProbeResponse(ref e, _f); else Codec.WriteListProbeResponse(ref e, _f); if (e.Err != 0) throw new InvalidOperationException("managed encode " + e.Err); return e.Pos; }
     public override int EncFfi(bool retain) { int rc = _c.TryEncode(_f, retain, out byte* p, out int n); if (rc < 0) throw new InvalidOperationException("core encode " + rc); return n; }
     public override byte[] EncFfiBytes(bool retain) => _c.EncodeToArray(_f, retain);
+    public static void SerInc(Gp.ListProbeResponse m, SerializationContext c) { c.SetPayloadLength(m.CalculateSize()); m.WriteTo(c.GetBufferWriter()); c.Complete(); }
+    [ThreadStatic] private static Enc _se;
+    public static void SerHost(ListProbeResponse m, bool retain, SerializationContext c)
+    {
+        if (_se.Buf == null) _se = Enc.New(Codec.Sites, 1 << 16);
+        _se.Reset();
+        if (retain) HostR.WriteListProbeResponse(ref _se, m); else Codec.WriteListProbeResponse(ref _se, m);
+        if (_se.Err != 0) throw new InvalidOperationException("managed encode " + _se.Err);
+        int n = _se.Pos;
+        c.SetPayloadLength(n);
+        var w = c.GetBufferWriter();
+        new ReadOnlySpan<byte>(_se.Buf, 0, n).CopyTo(w.GetSpan(n));
+        w.Advance(n);
+        c.Complete();
+    }
+    public static void SerFfi(CoreFfi_ListProbeResponse core, ListProbeResponse m, bool retain, SerializationContext c)
+    {
+        int rc = core.TryEncode(m, retain, out byte* p, out int n);
+        if (rc < 0) throw new InvalidOperationException("core encode " + rc);
+        c.SetPayloadLength(n);
+        var w = c.GetBufferWriter();
+        new ReadOnlySpan<byte>(p, n).CopyTo(w.GetSpan(n));
+        w.Advance(n);
+        c.Complete();
+    }
+    public static readonly Marshaller<Gp.ListProbeResponse> MInc = Marshallers.Create<Gp.ListProbeResponse>(SerInc, c => throw new NotSupportedException());
+    public static readonly Marshaller<ListProbeResponse> MHostDrop = Marshallers.Create<ListProbeResponse>((m, c) => SerHost(m, false, c), c => throw new NotSupportedException());
+    public static readonly Marshaller<ListProbeResponse> MHostRetain = Marshallers.Create<ListProbeResponse>((m, c) => SerHost(m, true, c), c => throw new NotSupportedException());
+    public override int EncIncTransport(GrpcFrame c) { MInc.ContextualSerializer(_g, c); int n = c.WrittenCount; c.Release(); return n; }
+    public override int EncHostTransport(bool retain, GrpcFrame c) { (retain ? MHostRetain : MHostDrop).ContextualSerializer(_f, c); int n = c.WrittenCount; c.Release(); return n; }
+    private Marshaller<ListProbeResponse> _mfd, _mfr;
+    public override int EncFfiTransport(bool retain, GrpcFrame c)
+    {
+        var mm = retain ? (_mfr ??= Marshallers.Create<ListProbeResponse>((m, x) => SerFfi(_c, m, true, x), x => throw new NotSupportedException()))
+                        : (_mfd ??= Marshallers.Create<ListProbeResponse>((m, x) => SerFfi(_c, m, false, x), x => throw new NotSupportedException()));
+        mm.ContextualSerializer(_f, c); int n = c.WrittenCount; c.Release(); return n;
+    }
+    public override RootOps FromWire(byte[] b, int how)
+    {
+        switch (how)
+        {
+            case 0: return new Ops_ListProbeResponse(null, Gp.ListProbeResponse.Parser.ParseFrom(b));
+            case 1: case 2:
+            {
+                var d = new Dec { Buf = b, Pos = 0, End = b.Length, Err = 0 };
+                var m = new ListProbeResponse();
+                if (how == 2) HostR.ReadListProbeResponse(ref d, m, 0); else Codec.ReadListProbeResponse(ref d, m, 0);
+                if (d.Err != 0) throw new InvalidOperationException("managed decode " + d.Err);
+                return new Ops_ListProbeResponse(m, null);
+            }
+            default:
+            {
+                int rc = _c.TryDecode(b, b.Length, how == 4, out var m);
+                if (rc < 0) throw new InvalidOperationException("core decode " + rc);
+                return new Ops_ListProbeResponse(m, null);
+            }
+        }
+    }
+    private ListProbeResponse[] _fs;
+    private Gp.ListProbeResponse[] _gs;
+    private int _i, _n = 1;
+    public override void SetPool(object[] fs, object[] gs)
+    {
+        _fs = fs == null ? null : Array.ConvertAll(fs, x => (ListProbeResponse)x);
+        _gs = gs == null ? null : Array.ConvertAll(gs, x => (Gp.ListProbeResponse)x);
+        _n = Math.Max(_fs?.Length ?? 1, _gs?.Length ?? 1);
+        _i = 0;
+        if (_fs != null) _f = _fs[0];
+        if (_gs != null) _g = _gs[0];
+    }
+    public override void Next()
+    {
+        if (++_i >= _n) _i = 0;
+        if (_fs != null) _f = _fs[_i];
+        if (_gs != null) _g = _gs[_i];
+    }
+    public override long FfiReverse() => _c.ReverseCalls;
+    public override void FfiCallsReset() => _c.CallsReset();
+    public override long FfiResets() => _c.ResetCalls;
     public override long DecIncProd(ReadOnlySequence<byte> seq, bool read) { var m = Gp.ListProbeResponse.Parser.ParseFrom(seq); return read ? Touch.G_ListProbeResponse(m) : 1; }
     public override long DecIncBest(byte[] b, int len, bool read) { var m = Gp.ListProbeResponse.Parser.ParseFrom(new ReadOnlySpan<byte>(b, 0, len)); return read ? Touch.G_ListProbeResponse(m) : 1; }
     public override long DecHost(byte[] b, int len, bool retain, bool read)
@@ -653,8 +909,8 @@ public sealed unsafe class Ops_ListProbeResponse : RootOps
 
 public sealed unsafe class Ops_ListTaskSummaryResponse : RootOps
 {
-    private readonly ListTaskSummaryResponse _f;
-    private readonly Gp.ListTaskSummaryResponse _g;
+    private ListTaskSummaryResponse _f;
+    private Gp.ListTaskSummaryResponse _g;
     private readonly CoreFfi_ListTaskSummaryResponse _c = new CoreFfi_ListTaskSummaryResponse();
     public Ops_ListTaskSummaryResponse(ListTaskSummaryResponse f, Gp.ListTaskSummaryResponse g) { _f = f; _g = g; }
     public override string Root => "ListTaskSummaryResponse";
@@ -664,6 +920,85 @@ public sealed unsafe class Ops_ListTaskSummaryResponse : RootOps
     public override int EncHost(ref Enc e, bool retain) { e.Reset(); if (retain) HostR.WriteListTaskSummaryResponse(ref e, _f); else Codec.WriteListTaskSummaryResponse(ref e, _f); if (e.Err != 0) throw new InvalidOperationException("managed encode " + e.Err); return e.Pos; }
     public override int EncFfi(bool retain) { int rc = _c.TryEncode(_f, retain, out byte* p, out int n); if (rc < 0) throw new InvalidOperationException("core encode " + rc); return n; }
     public override byte[] EncFfiBytes(bool retain) => _c.EncodeToArray(_f, retain);
+    public static void SerInc(Gp.ListTaskSummaryResponse m, SerializationContext c) { c.SetPayloadLength(m.CalculateSize()); m.WriteTo(c.GetBufferWriter()); c.Complete(); }
+    [ThreadStatic] private static Enc _se;
+    public static void SerHost(ListTaskSummaryResponse m, bool retain, SerializationContext c)
+    {
+        if (_se.Buf == null) _se = Enc.New(Codec.Sites, 1 << 16);
+        _se.Reset();
+        if (retain) HostR.WriteListTaskSummaryResponse(ref _se, m); else Codec.WriteListTaskSummaryResponse(ref _se, m);
+        if (_se.Err != 0) throw new InvalidOperationException("managed encode " + _se.Err);
+        int n = _se.Pos;
+        c.SetPayloadLength(n);
+        var w = c.GetBufferWriter();
+        new ReadOnlySpan<byte>(_se.Buf, 0, n).CopyTo(w.GetSpan(n));
+        w.Advance(n);
+        c.Complete();
+    }
+    public static void SerFfi(CoreFfi_ListTaskSummaryResponse core, ListTaskSummaryResponse m, bool retain, SerializationContext c)
+    {
+        int rc = core.TryEncode(m, retain, out byte* p, out int n);
+        if (rc < 0) throw new InvalidOperationException("core encode " + rc);
+        c.SetPayloadLength(n);
+        var w = c.GetBufferWriter();
+        new ReadOnlySpan<byte>(p, n).CopyTo(w.GetSpan(n));
+        w.Advance(n);
+        c.Complete();
+    }
+    public static readonly Marshaller<Gp.ListTaskSummaryResponse> MInc = Marshallers.Create<Gp.ListTaskSummaryResponse>(SerInc, c => throw new NotSupportedException());
+    public static readonly Marshaller<ListTaskSummaryResponse> MHostDrop = Marshallers.Create<ListTaskSummaryResponse>((m, c) => SerHost(m, false, c), c => throw new NotSupportedException());
+    public static readonly Marshaller<ListTaskSummaryResponse> MHostRetain = Marshallers.Create<ListTaskSummaryResponse>((m, c) => SerHost(m, true, c), c => throw new NotSupportedException());
+    public override int EncIncTransport(GrpcFrame c) { MInc.ContextualSerializer(_g, c); int n = c.WrittenCount; c.Release(); return n; }
+    public override int EncHostTransport(bool retain, GrpcFrame c) { (retain ? MHostRetain : MHostDrop).ContextualSerializer(_f, c); int n = c.WrittenCount; c.Release(); return n; }
+    private Marshaller<ListTaskSummaryResponse> _mfd, _mfr;
+    public override int EncFfiTransport(bool retain, GrpcFrame c)
+    {
+        var mm = retain ? (_mfr ??= Marshallers.Create<ListTaskSummaryResponse>((m, x) => SerFfi(_c, m, true, x), x => throw new NotSupportedException()))
+                        : (_mfd ??= Marshallers.Create<ListTaskSummaryResponse>((m, x) => SerFfi(_c, m, false, x), x => throw new NotSupportedException()));
+        mm.ContextualSerializer(_f, c); int n = c.WrittenCount; c.Release(); return n;
+    }
+    public override RootOps FromWire(byte[] b, int how)
+    {
+        switch (how)
+        {
+            case 0: return new Ops_ListTaskSummaryResponse(null, Gp.ListTaskSummaryResponse.Parser.ParseFrom(b));
+            case 1: case 2:
+            {
+                var d = new Dec { Buf = b, Pos = 0, End = b.Length, Err = 0 };
+                var m = new ListTaskSummaryResponse();
+                if (how == 2) HostR.ReadListTaskSummaryResponse(ref d, m, 0); else Codec.ReadListTaskSummaryResponse(ref d, m, 0);
+                if (d.Err != 0) throw new InvalidOperationException("managed decode " + d.Err);
+                return new Ops_ListTaskSummaryResponse(m, null);
+            }
+            default:
+            {
+                int rc = _c.TryDecode(b, b.Length, how == 4, out var m);
+                if (rc < 0) throw new InvalidOperationException("core decode " + rc);
+                return new Ops_ListTaskSummaryResponse(m, null);
+            }
+        }
+    }
+    private ListTaskSummaryResponse[] _fs;
+    private Gp.ListTaskSummaryResponse[] _gs;
+    private int _i, _n = 1;
+    public override void SetPool(object[] fs, object[] gs)
+    {
+        _fs = fs == null ? null : Array.ConvertAll(fs, x => (ListTaskSummaryResponse)x);
+        _gs = gs == null ? null : Array.ConvertAll(gs, x => (Gp.ListTaskSummaryResponse)x);
+        _n = Math.Max(_fs?.Length ?? 1, _gs?.Length ?? 1);
+        _i = 0;
+        if (_fs != null) _f = _fs[0];
+        if (_gs != null) _g = _gs[0];
+    }
+    public override void Next()
+    {
+        if (++_i >= _n) _i = 0;
+        if (_fs != null) _f = _fs[_i];
+        if (_gs != null) _g = _gs[_i];
+    }
+    public override long FfiReverse() => _c.ReverseCalls;
+    public override void FfiCallsReset() => _c.CallsReset();
+    public override long FfiResets() => _c.ResetCalls;
     public override long DecIncProd(ReadOnlySequence<byte> seq, bool read) { var m = Gp.ListTaskSummaryResponse.Parser.ParseFrom(seq); return read ? Touch.G_ListTaskSummaryResponse(m) : 1; }
     public override long DecIncBest(byte[] b, int len, bool read) { var m = Gp.ListTaskSummaryResponse.Parser.ParseFrom(new ReadOnlySpan<byte>(b, 0, len)); return read ? Touch.G_ListTaskSummaryResponse(m) : 1; }
     public override long DecHost(byte[] b, int len, bool retain, bool read)
@@ -703,8 +1038,8 @@ public sealed unsafe class Ops_ListTaskSummaryResponse : RootOps
 
 public sealed unsafe class Ops_UploadResultDataMessage : RootOps
 {
-    private readonly UploadResultDataMessage _f;
-    private readonly Gp.UploadResultDataMessage _g;
+    private UploadResultDataMessage _f;
+    private Gp.UploadResultDataMessage _g;
     private readonly CoreFfi_UploadResultDataMessage _c = new CoreFfi_UploadResultDataMessage();
     public Ops_UploadResultDataMessage(UploadResultDataMessage f, Gp.UploadResultDataMessage g) { _f = f; _g = g; }
     public override string Root => "UploadResultDataMessage";
@@ -714,6 +1049,85 @@ public sealed unsafe class Ops_UploadResultDataMessage : RootOps
     public override int EncHost(ref Enc e, bool retain) { e.Reset(); if (retain) HostR.WriteUploadResultDataMessage(ref e, _f); else Codec.WriteUploadResultDataMessage(ref e, _f); if (e.Err != 0) throw new InvalidOperationException("managed encode " + e.Err); return e.Pos; }
     public override int EncFfi(bool retain) { int rc = _c.TryEncode(_f, retain, out byte* p, out int n); if (rc < 0) throw new InvalidOperationException("core encode " + rc); return n; }
     public override byte[] EncFfiBytes(bool retain) => _c.EncodeToArray(_f, retain);
+    public static void SerInc(Gp.UploadResultDataMessage m, SerializationContext c) { c.SetPayloadLength(m.CalculateSize()); m.WriteTo(c.GetBufferWriter()); c.Complete(); }
+    [ThreadStatic] private static Enc _se;
+    public static void SerHost(UploadResultDataMessage m, bool retain, SerializationContext c)
+    {
+        if (_se.Buf == null) _se = Enc.New(Codec.Sites, 1 << 16);
+        _se.Reset();
+        if (retain) HostR.WriteUploadResultDataMessage(ref _se, m); else Codec.WriteUploadResultDataMessage(ref _se, m);
+        if (_se.Err != 0) throw new InvalidOperationException("managed encode " + _se.Err);
+        int n = _se.Pos;
+        c.SetPayloadLength(n);
+        var w = c.GetBufferWriter();
+        new ReadOnlySpan<byte>(_se.Buf, 0, n).CopyTo(w.GetSpan(n));
+        w.Advance(n);
+        c.Complete();
+    }
+    public static void SerFfi(CoreFfi_UploadResultDataMessage core, UploadResultDataMessage m, bool retain, SerializationContext c)
+    {
+        int rc = core.TryEncode(m, retain, out byte* p, out int n);
+        if (rc < 0) throw new InvalidOperationException("core encode " + rc);
+        c.SetPayloadLength(n);
+        var w = c.GetBufferWriter();
+        new ReadOnlySpan<byte>(p, n).CopyTo(w.GetSpan(n));
+        w.Advance(n);
+        c.Complete();
+    }
+    public static readonly Marshaller<Gp.UploadResultDataMessage> MInc = Marshallers.Create<Gp.UploadResultDataMessage>(SerInc, c => throw new NotSupportedException());
+    public static readonly Marshaller<UploadResultDataMessage> MHostDrop = Marshallers.Create<UploadResultDataMessage>((m, c) => SerHost(m, false, c), c => throw new NotSupportedException());
+    public static readonly Marshaller<UploadResultDataMessage> MHostRetain = Marshallers.Create<UploadResultDataMessage>((m, c) => SerHost(m, true, c), c => throw new NotSupportedException());
+    public override int EncIncTransport(GrpcFrame c) { MInc.ContextualSerializer(_g, c); int n = c.WrittenCount; c.Release(); return n; }
+    public override int EncHostTransport(bool retain, GrpcFrame c) { (retain ? MHostRetain : MHostDrop).ContextualSerializer(_f, c); int n = c.WrittenCount; c.Release(); return n; }
+    private Marshaller<UploadResultDataMessage> _mfd, _mfr;
+    public override int EncFfiTransport(bool retain, GrpcFrame c)
+    {
+        var mm = retain ? (_mfr ??= Marshallers.Create<UploadResultDataMessage>((m, x) => SerFfi(_c, m, true, x), x => throw new NotSupportedException()))
+                        : (_mfd ??= Marshallers.Create<UploadResultDataMessage>((m, x) => SerFfi(_c, m, false, x), x => throw new NotSupportedException()));
+        mm.ContextualSerializer(_f, c); int n = c.WrittenCount; c.Release(); return n;
+    }
+    public override RootOps FromWire(byte[] b, int how)
+    {
+        switch (how)
+        {
+            case 0: return new Ops_UploadResultDataMessage(null, Gp.UploadResultDataMessage.Parser.ParseFrom(b));
+            case 1: case 2:
+            {
+                var d = new Dec { Buf = b, Pos = 0, End = b.Length, Err = 0 };
+                var m = new UploadResultDataMessage();
+                if (how == 2) HostR.ReadUploadResultDataMessage(ref d, m, 0); else Codec.ReadUploadResultDataMessage(ref d, m, 0);
+                if (d.Err != 0) throw new InvalidOperationException("managed decode " + d.Err);
+                return new Ops_UploadResultDataMessage(m, null);
+            }
+            default:
+            {
+                int rc = _c.TryDecode(b, b.Length, how == 4, out var m);
+                if (rc < 0) throw new InvalidOperationException("core decode " + rc);
+                return new Ops_UploadResultDataMessage(m, null);
+            }
+        }
+    }
+    private UploadResultDataMessage[] _fs;
+    private Gp.UploadResultDataMessage[] _gs;
+    private int _i, _n = 1;
+    public override void SetPool(object[] fs, object[] gs)
+    {
+        _fs = fs == null ? null : Array.ConvertAll(fs, x => (UploadResultDataMessage)x);
+        _gs = gs == null ? null : Array.ConvertAll(gs, x => (Gp.UploadResultDataMessage)x);
+        _n = Math.Max(_fs?.Length ?? 1, _gs?.Length ?? 1);
+        _i = 0;
+        if (_fs != null) _f = _fs[0];
+        if (_gs != null) _g = _gs[0];
+    }
+    public override void Next()
+    {
+        if (++_i >= _n) _i = 0;
+        if (_fs != null) _f = _fs[_i];
+        if (_gs != null) _g = _gs[_i];
+    }
+    public override long FfiReverse() => _c.ReverseCalls;
+    public override void FfiCallsReset() => _c.CallsReset();
+    public override long FfiResets() => _c.ResetCalls;
     public override long DecIncProd(ReadOnlySequence<byte> seq, bool read) { var m = Gp.UploadResultDataMessage.Parser.ParseFrom(seq); return read ? Touch.G_UploadResultDataMessage(m) : 1; }
     public override long DecIncBest(byte[] b, int len, bool read) { var m = Gp.UploadResultDataMessage.Parser.ParseFrom(new ReadOnlySpan<byte>(b, 0, len)); return read ? Touch.G_UploadResultDataMessage(m) : 1; }
     public override long DecHost(byte[] b, int len, bool retain, bool read)
@@ -753,8 +1167,8 @@ public sealed unsafe class Ops_UploadResultDataMessage : RootOps
 
 public sealed unsafe class Ops_ListMetricsResponse : RootOps
 {
-    private readonly ListMetricsResponse _f;
-    private readonly Gp.ListMetricsResponse _g;
+    private ListMetricsResponse _f;
+    private Gp.ListMetricsResponse _g;
     private readonly CoreFfi_ListMetricsResponse _c = new CoreFfi_ListMetricsResponse();
     public Ops_ListMetricsResponse(ListMetricsResponse f, Gp.ListMetricsResponse g) { _f = f; _g = g; }
     public override string Root => "ListMetricsResponse";
@@ -764,6 +1178,85 @@ public sealed unsafe class Ops_ListMetricsResponse : RootOps
     public override int EncHost(ref Enc e, bool retain) { e.Reset(); if (retain) HostR.WriteListMetricsResponse(ref e, _f); else Codec.WriteListMetricsResponse(ref e, _f); if (e.Err != 0) throw new InvalidOperationException("managed encode " + e.Err); return e.Pos; }
     public override int EncFfi(bool retain) { int rc = _c.TryEncode(_f, retain, out byte* p, out int n); if (rc < 0) throw new InvalidOperationException("core encode " + rc); return n; }
     public override byte[] EncFfiBytes(bool retain) => _c.EncodeToArray(_f, retain);
+    public static void SerInc(Gp.ListMetricsResponse m, SerializationContext c) { c.SetPayloadLength(m.CalculateSize()); m.WriteTo(c.GetBufferWriter()); c.Complete(); }
+    [ThreadStatic] private static Enc _se;
+    public static void SerHost(ListMetricsResponse m, bool retain, SerializationContext c)
+    {
+        if (_se.Buf == null) _se = Enc.New(Codec.Sites, 1 << 16);
+        _se.Reset();
+        if (retain) HostR.WriteListMetricsResponse(ref _se, m); else Codec.WriteListMetricsResponse(ref _se, m);
+        if (_se.Err != 0) throw new InvalidOperationException("managed encode " + _se.Err);
+        int n = _se.Pos;
+        c.SetPayloadLength(n);
+        var w = c.GetBufferWriter();
+        new ReadOnlySpan<byte>(_se.Buf, 0, n).CopyTo(w.GetSpan(n));
+        w.Advance(n);
+        c.Complete();
+    }
+    public static void SerFfi(CoreFfi_ListMetricsResponse core, ListMetricsResponse m, bool retain, SerializationContext c)
+    {
+        int rc = core.TryEncode(m, retain, out byte* p, out int n);
+        if (rc < 0) throw new InvalidOperationException("core encode " + rc);
+        c.SetPayloadLength(n);
+        var w = c.GetBufferWriter();
+        new ReadOnlySpan<byte>(p, n).CopyTo(w.GetSpan(n));
+        w.Advance(n);
+        c.Complete();
+    }
+    public static readonly Marshaller<Gp.ListMetricsResponse> MInc = Marshallers.Create<Gp.ListMetricsResponse>(SerInc, c => throw new NotSupportedException());
+    public static readonly Marshaller<ListMetricsResponse> MHostDrop = Marshallers.Create<ListMetricsResponse>((m, c) => SerHost(m, false, c), c => throw new NotSupportedException());
+    public static readonly Marshaller<ListMetricsResponse> MHostRetain = Marshallers.Create<ListMetricsResponse>((m, c) => SerHost(m, true, c), c => throw new NotSupportedException());
+    public override int EncIncTransport(GrpcFrame c) { MInc.ContextualSerializer(_g, c); int n = c.WrittenCount; c.Release(); return n; }
+    public override int EncHostTransport(bool retain, GrpcFrame c) { (retain ? MHostRetain : MHostDrop).ContextualSerializer(_f, c); int n = c.WrittenCount; c.Release(); return n; }
+    private Marshaller<ListMetricsResponse> _mfd, _mfr;
+    public override int EncFfiTransport(bool retain, GrpcFrame c)
+    {
+        var mm = retain ? (_mfr ??= Marshallers.Create<ListMetricsResponse>((m, x) => SerFfi(_c, m, true, x), x => throw new NotSupportedException()))
+                        : (_mfd ??= Marshallers.Create<ListMetricsResponse>((m, x) => SerFfi(_c, m, false, x), x => throw new NotSupportedException()));
+        mm.ContextualSerializer(_f, c); int n = c.WrittenCount; c.Release(); return n;
+    }
+    public override RootOps FromWire(byte[] b, int how)
+    {
+        switch (how)
+        {
+            case 0: return new Ops_ListMetricsResponse(null, Gp.ListMetricsResponse.Parser.ParseFrom(b));
+            case 1: case 2:
+            {
+                var d = new Dec { Buf = b, Pos = 0, End = b.Length, Err = 0 };
+                var m = new ListMetricsResponse();
+                if (how == 2) HostR.ReadListMetricsResponse(ref d, m, 0); else Codec.ReadListMetricsResponse(ref d, m, 0);
+                if (d.Err != 0) throw new InvalidOperationException("managed decode " + d.Err);
+                return new Ops_ListMetricsResponse(m, null);
+            }
+            default:
+            {
+                int rc = _c.TryDecode(b, b.Length, how == 4, out var m);
+                if (rc < 0) throw new InvalidOperationException("core decode " + rc);
+                return new Ops_ListMetricsResponse(m, null);
+            }
+        }
+    }
+    private ListMetricsResponse[] _fs;
+    private Gp.ListMetricsResponse[] _gs;
+    private int _i, _n = 1;
+    public override void SetPool(object[] fs, object[] gs)
+    {
+        _fs = fs == null ? null : Array.ConvertAll(fs, x => (ListMetricsResponse)x);
+        _gs = gs == null ? null : Array.ConvertAll(gs, x => (Gp.ListMetricsResponse)x);
+        _n = Math.Max(_fs?.Length ?? 1, _gs?.Length ?? 1);
+        _i = 0;
+        if (_fs != null) _f = _fs[0];
+        if (_gs != null) _g = _gs[0];
+    }
+    public override void Next()
+    {
+        if (++_i >= _n) _i = 0;
+        if (_fs != null) _f = _fs[_i];
+        if (_gs != null) _g = _gs[_i];
+    }
+    public override long FfiReverse() => _c.ReverseCalls;
+    public override void FfiCallsReset() => _c.CallsReset();
+    public override long FfiResets() => _c.ResetCalls;
     public override long DecIncProd(ReadOnlySequence<byte> seq, bool read) { var m = Gp.ListMetricsResponse.Parser.ParseFrom(seq); return read ? Touch.G_ListMetricsResponse(m) : 1; }
     public override long DecIncBest(byte[] b, int len, bool read) { var m = Gp.ListMetricsResponse.Parser.ParseFrom(new ReadOnlySpan<byte>(b, 0, len)); return read ? Touch.G_ListMetricsResponse(m) : 1; }
     public override long DecHost(byte[] b, int len, bool retain, bool read)
@@ -803,8 +1296,8 @@ public sealed unsafe class Ops_ListMetricsResponse : RootOps
 
 public sealed unsafe class Ops_DualResponse : RootOps
 {
-    private readonly DualResponse _f;
-    private readonly Gp.DualResponse _g;
+    private DualResponse _f;
+    private Gp.DualResponse _g;
     private readonly CoreFfi_DualResponse _c = new CoreFfi_DualResponse();
     public Ops_DualResponse(DualResponse f, Gp.DualResponse g) { _f = f; _g = g; }
     public override string Root => "DualResponse";
@@ -814,6 +1307,85 @@ public sealed unsafe class Ops_DualResponse : RootOps
     public override int EncHost(ref Enc e, bool retain) { e.Reset(); if (retain) HostR.WriteDualResponse(ref e, _f); else Codec.WriteDualResponse(ref e, _f); if (e.Err != 0) throw new InvalidOperationException("managed encode " + e.Err); return e.Pos; }
     public override int EncFfi(bool retain) { int rc = _c.TryEncode(_f, retain, out byte* p, out int n); if (rc < 0) throw new InvalidOperationException("core encode " + rc); return n; }
     public override byte[] EncFfiBytes(bool retain) => _c.EncodeToArray(_f, retain);
+    public static void SerInc(Gp.DualResponse m, SerializationContext c) { c.SetPayloadLength(m.CalculateSize()); m.WriteTo(c.GetBufferWriter()); c.Complete(); }
+    [ThreadStatic] private static Enc _se;
+    public static void SerHost(DualResponse m, bool retain, SerializationContext c)
+    {
+        if (_se.Buf == null) _se = Enc.New(Codec.Sites, 1 << 16);
+        _se.Reset();
+        if (retain) HostR.WriteDualResponse(ref _se, m); else Codec.WriteDualResponse(ref _se, m);
+        if (_se.Err != 0) throw new InvalidOperationException("managed encode " + _se.Err);
+        int n = _se.Pos;
+        c.SetPayloadLength(n);
+        var w = c.GetBufferWriter();
+        new ReadOnlySpan<byte>(_se.Buf, 0, n).CopyTo(w.GetSpan(n));
+        w.Advance(n);
+        c.Complete();
+    }
+    public static void SerFfi(CoreFfi_DualResponse core, DualResponse m, bool retain, SerializationContext c)
+    {
+        int rc = core.TryEncode(m, retain, out byte* p, out int n);
+        if (rc < 0) throw new InvalidOperationException("core encode " + rc);
+        c.SetPayloadLength(n);
+        var w = c.GetBufferWriter();
+        new ReadOnlySpan<byte>(p, n).CopyTo(w.GetSpan(n));
+        w.Advance(n);
+        c.Complete();
+    }
+    public static readonly Marshaller<Gp.DualResponse> MInc = Marshallers.Create<Gp.DualResponse>(SerInc, c => throw new NotSupportedException());
+    public static readonly Marshaller<DualResponse> MHostDrop = Marshallers.Create<DualResponse>((m, c) => SerHost(m, false, c), c => throw new NotSupportedException());
+    public static readonly Marshaller<DualResponse> MHostRetain = Marshallers.Create<DualResponse>((m, c) => SerHost(m, true, c), c => throw new NotSupportedException());
+    public override int EncIncTransport(GrpcFrame c) { MInc.ContextualSerializer(_g, c); int n = c.WrittenCount; c.Release(); return n; }
+    public override int EncHostTransport(bool retain, GrpcFrame c) { (retain ? MHostRetain : MHostDrop).ContextualSerializer(_f, c); int n = c.WrittenCount; c.Release(); return n; }
+    private Marshaller<DualResponse> _mfd, _mfr;
+    public override int EncFfiTransport(bool retain, GrpcFrame c)
+    {
+        var mm = retain ? (_mfr ??= Marshallers.Create<DualResponse>((m, x) => SerFfi(_c, m, true, x), x => throw new NotSupportedException()))
+                        : (_mfd ??= Marshallers.Create<DualResponse>((m, x) => SerFfi(_c, m, false, x), x => throw new NotSupportedException()));
+        mm.ContextualSerializer(_f, c); int n = c.WrittenCount; c.Release(); return n;
+    }
+    public override RootOps FromWire(byte[] b, int how)
+    {
+        switch (how)
+        {
+            case 0: return new Ops_DualResponse(null, Gp.DualResponse.Parser.ParseFrom(b));
+            case 1: case 2:
+            {
+                var d = new Dec { Buf = b, Pos = 0, End = b.Length, Err = 0 };
+                var m = new DualResponse();
+                if (how == 2) HostR.ReadDualResponse(ref d, m, 0); else Codec.ReadDualResponse(ref d, m, 0);
+                if (d.Err != 0) throw new InvalidOperationException("managed decode " + d.Err);
+                return new Ops_DualResponse(m, null);
+            }
+            default:
+            {
+                int rc = _c.TryDecode(b, b.Length, how == 4, out var m);
+                if (rc < 0) throw new InvalidOperationException("core decode " + rc);
+                return new Ops_DualResponse(m, null);
+            }
+        }
+    }
+    private DualResponse[] _fs;
+    private Gp.DualResponse[] _gs;
+    private int _i, _n = 1;
+    public override void SetPool(object[] fs, object[] gs)
+    {
+        _fs = fs == null ? null : Array.ConvertAll(fs, x => (DualResponse)x);
+        _gs = gs == null ? null : Array.ConvertAll(gs, x => (Gp.DualResponse)x);
+        _n = Math.Max(_fs?.Length ?? 1, _gs?.Length ?? 1);
+        _i = 0;
+        if (_fs != null) _f = _fs[0];
+        if (_gs != null) _g = _gs[0];
+    }
+    public override void Next()
+    {
+        if (++_i >= _n) _i = 0;
+        if (_fs != null) _f = _fs[_i];
+        if (_gs != null) _g = _gs[_i];
+    }
+    public override long FfiReverse() => _c.ReverseCalls;
+    public override void FfiCallsReset() => _c.CallsReset();
+    public override long FfiResets() => _c.ResetCalls;
     public override long DecIncProd(ReadOnlySequence<byte> seq, bool read) { var m = Gp.DualResponse.Parser.ParseFrom(seq); return read ? Touch.G_DualResponse(m) : 1; }
     public override long DecIncBest(byte[] b, int len, bool read) { var m = Gp.DualResponse.Parser.ParseFrom(new ReadOnlySpan<byte>(b, 0, len)); return read ? Touch.G_DualResponse(m) : 1; }
     public override long DecHost(byte[] b, int len, bool retain, bool read)
@@ -874,6 +1446,48 @@ public static class OpsTable
         "P5.4" => new Ops_UploadResultDataMessage(BuildFacade.P5_4(), BuildGp.P5_4()),
         "P6.1" => new Ops_ListMetricsResponse(BuildFacade.P6_1(), BuildGp.P6_1()),
         "P7.1" => new Ops_DualResponse(BuildFacade.P7_1(), BuildGp.P7_1()),
+        _ => throw new ArgumentException(id),
+    };
+    /// CAMPAIGN req 11's pool input: one fresh graph of a payload per call (the current
+    /// Values.ContentSet), facade (host-gen, core-ffi) or incumbent object model.
+    public static object BuildF(string id) => id switch
+    {
+        "P1.1" => BuildFacade.P1_1(),
+        "P1.2" => BuildFacade.P1_2(),
+        "P1.3" => BuildFacade.P1_3(),
+        "P2.1" => BuildFacade.P2_1(),
+        "P2.2" => BuildFacade.P2_2(),
+        "P2.3" => BuildFacade.P2_3(),
+        "P2.4" => BuildFacade.P2_4(),
+        "P2.5" => BuildFacade.P2_5(),
+        "P3.1" => BuildFacade.P3_1(),
+        "P4.1" => BuildFacade.P4_1(),
+        "P5.1" => BuildFacade.P5_1(),
+        "P5.2" => BuildFacade.P5_2(),
+        "P5.3" => BuildFacade.P5_3(),
+        "P5.4" => BuildFacade.P5_4(),
+        "P6.1" => BuildFacade.P6_1(),
+        "P7.1" => BuildFacade.P7_1(),
+        _ => throw new ArgumentException(id),
+    };
+    public static object BuildG(string id) => id switch
+    {
+        "P1.1" => BuildGp.P1_1(),
+        "P1.2" => BuildGp.P1_2(),
+        "P1.3" => BuildGp.P1_3(),
+        "P2.1" => BuildGp.P2_1(),
+        "P2.2" => BuildGp.P2_2(),
+        "P2.3" => BuildGp.P2_3(),
+        "P2.4" => BuildGp.P2_4(),
+        "P2.5" => BuildGp.P2_5(),
+        "P3.1" => BuildGp.P3_1(),
+        "P4.1" => BuildGp.P4_1(),
+        "P5.1" => BuildGp.P5_1(),
+        "P5.2" => BuildGp.P5_2(),
+        "P5.3" => BuildGp.P5_3(),
+        "P5.4" => BuildGp.P5_4(),
+        "P6.1" => BuildGp.P6_1(),
+        "P7.1" => BuildGp.P7_1(),
         _ => throw new ArgumentException(id),
     };
     /// A root's ops for bytes only (a corpus row: decode, and decode then re-encode).

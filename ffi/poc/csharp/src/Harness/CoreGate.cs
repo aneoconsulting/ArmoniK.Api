@@ -92,21 +92,23 @@ public static class CoreGate
                 if (l.Length != 0 && l[0] != '#') { var f = l.Split(' ', 2); expect[f[0]] = f[1]; }
         var wrote = new List<string>();
         var covered = new HashSet<string>(CoreArms.Ids, StringComparer.Ordinal);
-        // WP6 step 1: P1.2 in the Latin-1 and wide content sets too (SHAPES.md), as the rust
-        // slice counts them. The expected bytes are the incumbent's for the same graph (the
-        // manifest has the ASCII set only); the arm's source graph is built under the set.
+        // WP6 step 1, WP7 (CAMPAIGN req 7 as amended, R-H26): P1.2, P2.2 and P2.4 in the Latin-1
+        // and wide content sets too (SHAPES.md). The expected bytes are the incumbent's for the
+        // same graph (the manifest has the ASCII set only); the arm's source graph is built
+        // under the set.
         var contentSets = new Dictionary<string, int>(StringComparer.Ordinal);
-        foreach (var (cs, name) in new[] { (Values.Latin1, "latin1"), (Values.Wide, "wide") })
-        {
-            if (!rows.TryGetValue("P1.2", out var baseRow)) break;
-            Values.ContentSet = cs;
-            var gp = BuildGp.P1_2().ToByteArray();
-            Values.ContentSet = Values.Ascii;
-            var cid = "P1.2/" + name;
-            rows[cid] = new PayloadRow { Id = cid, Root = baseRow.Root, Bytes = gp.Length, Sha256 = Manifest.Sha(gp, gp.Length), Vector = null };
-            contentSets[cid] = cs;
-            covered.Add(cid);
-        }
+        foreach (var (pid, build) in new (string, Func<byte[]>)[] { ("P1.2", () => BuildGp.P1_2().ToByteArray()), ("P2.2", () => BuildGp.P2_2().ToByteArray()), ("P2.4", () => BuildGp.P2_4().ToByteArray()) })
+            foreach (var (cs, name) in new[] { (Values.Latin1, "latin1"), (Values.Wide, "wide") })
+            {
+                if (!rows.TryGetValue(pid, out var baseRow)) break;
+                Values.ContentSet = cs;
+                var gp = build();
+                Values.ContentSet = Values.Ascii;
+                var cid = pid + "/" + name;
+                rows[cid] = new PayloadRow { Id = cid, Root = baseRow.Root, Bytes = gp.Length, Sha256 = Manifest.Sha(gp, gp.Length), Vector = null };
+                contentSets[cid] = cs;
+                covered.Add(cid);
+            }
         foreach (var id in rows.Keys.OrderBy(x => x, StringComparer.Ordinal))
         {
             var row = rows[id];

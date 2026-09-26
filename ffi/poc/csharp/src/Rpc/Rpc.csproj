@@ -49,6 +49,10 @@
     <ProjectReference Include="../Harness/Harness.csproj" />
     <!-- The JIT tier read back (req 24, R-H2): the same listener the codec suite uses. -->
     <Compile Include="../BenchDotNet/JitTiers.cs" Link="Linked/JitTiers.cs" />
+    <!-- WP7 (req 11, 12): the per-root ops and serializers, and the Grpc.Net frame, shared with
+         the codec suite, so its encode-transport rows time the serializers cells A, D, F run. -->
+    <Compile Include="../BenchDotNet/Generated/CampaignOps.cs" Link="Linked/CampaignOps.cs" />
+    <Compile Include="../BenchDotNet/GrpcFrame.cs" Link="Linked/GrpcFrame.cs" />
   </ItemGroup>
 
 </Project>

@@ -15,6 +15,9 @@
 #   7  the corpus, net8.0 and net6.0: managed-drop, managed-retain, ffi-drop, ffi-retain, each
 #      row in a child process under a timeout; then the controls that must FAIL; then the
 #      oracle-probe rows (poc/rust/gen/probe_corpus.py)
+#   8  the no-unknown variant (WP5 step 10): its own build, core, counts and corpus
+#   9  the counting builds (WP7, CAMPAIGN req 19 as amended): every entry point per codec
+#      case and per RPC call, against gen/counts*.txt and gen/rpc-counts*.txt
 #
 #   SCRATCH=dir gen/gate.sh      (SCRATCH holds the core snapshot; default: mktemp -d)
 set -uo pipefail
@@ -57,7 +60,7 @@ core() {  # dir variant  -- put a core build next to a harness
   echo "# core in $(basename "$(dirname "$1")")/$(basename "$1"): $2 ($(sha256sum "$1/libak_core.so" | cut -c1-16))"
 }
 
-echo "# csharp slice gate (FIX-PLAN WP5 and WP6). CORRECTNESS ONLY: no timing is taken."
+echo "# csharp slice gate (FIX-PLAN WP5, WP6 and WP7). CORRECTNESS ONLY: no timing is taken."
 echo "# date:        $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 echo "# branch HEAD: $(git -C "$REPO" rev-parse --short HEAD)$(git -C "$REPO" diff --quiet HEAD -- ffi/poc/csharp ffi/poc/codec/gen/cs_*.py || echo ' + the uncommitted slice changes this log is committed with')"
 echo "# dotnet:      SDK $(dotnet --version); runtimes: $(dotnet --list-runtimes | grep NETCore | awk '{print $2}' | tr '\n' ' ')+ Microsoft.NETCore.App.Runtime.linux-x64 6.0.36 from NuGet (self-contained)"
@@ -179,6 +182,40 @@ for lvl in 8 6; do
 done
 echo "# crossing counts, no-unknown against the full build's (gen/crossings-nounk.txt vs gen/crossings.txt):"
 diff <(grep -v '^#' "$SLICE/gen/crossings.txt") <(grep -v '^#' "$SLICE/gen/crossings-nounk.txt") | sed 's/^/#   /'
+
+# ============================================================== WP7, CAMPAIGN req 19 (R-H31)
+# The counts of EVERY exported entry point the timed code calls, resets included, from the
+# counting builds (/p:AkHostCount=true: each generated import counts itself by name): per
+# core-ffi case of the codec suite (the same closures BenchmarkDotNet times) and per call of
+# the RPC cells B to E (A and F listed, making none), retain with no pre-placed buffer and an
+# exact-size grow. Committed: gen/counts.txt, gen/counts-nounk.txt, gen/rpc-counts.txt,
+# gen/rpc-counts-nounk.txt; the whole file must be equal, row for row.
+step "9. the counting builds (CAMPAIGN req 19 as amended): every entry point, per case and per RPC call"
+BC="$SLICE/src/BenchDotNet/bin-count/Release/net8.0"; BCN="$SLICE/src/BenchDotNet/bin-count-nounk/Release/net8.0"
+RC="$SLICE/src/Rpc/bin-count/Release/net8.0"; RCN="$SLICE/src/Rpc/bin-count-nounk/Release/net8.0"
+b build src/BenchDotNet/BenchDotNet.csproj -c Release -p:AkHostCount=true
+b build src/BenchDotNet/BenchDotNet.csproj -c Release -p:AkHostCount=true -p:AkNounk=true
+b build src/Rpc/Rpc.csproj -c Release -p:AkHostCount=true
+b build src/Rpc/Rpc.csproj -c Release -p:AkHostCount=true -p:AkNounk=true
+core "$BC" target-core-count; core "$BCN" target-core-count-nounk; core "$RC" target-core-count; core "$RCN" target-core-count-nounk
+cmp_counts() {  # name committed produced
+  if diff "$2" "$3" > "$SCRATCH/counts.diff"; then echo "$1: equal to $(basename "$2"), $(grep -vc '^#' "$2") rows"; return 0; fi
+  echo "$1: DIFFERS from $(basename "$2"):"; head -20 "$SCRATCH/counts.diff"; return 1
+}
+run "codec counts, full build (= gen/counts.txt)" bash -c "dotnet '$BC/BenchDotNet.dll' --counts '$SCRATCH/counts.txt' && $(declare -f cmp_counts); SCRATCH='$SCRATCH' cmp_counts full '$SLICE/gen/counts.txt' '$SCRATCH/counts.txt'"
+run "codec counts, no-unknown build (= gen/counts-nounk.txt)" bash -c "dotnet '$BCN/BenchDotNet.dll' --counts '$SCRATCH/counts-nounk.txt' && $(declare -f cmp_counts); SCRATCH='$SCRATCH' cmp_counts nounk '$SLICE/gen/counts-nounk.txt' '$SCRATCH/counts-nounk.txt'"
+# The exact-size grow is live: with the timed runs' doubling growth the retain rows that
+# carry unknown fields count differently, and the comparison must fail.
+AK_COUNT_GROW=doubling control "codec counts with doubling growth (the exact-size grow must matter)" bash -c "dotnet '$BC/BenchDotNet.dll' --counts '$SCRATCH/counts-dbl.txt' && diff -q '$SLICE/gen/counts.txt' '$SCRATCH/counts-dbl.txt'"
+SOCK="/tmp/ak-cs-gate-$$.sock"; rm -f "$SOCK"
+dotnet "$RC/akrpc.dll" campaign --suite rpc-server --sock-shipped "$SOCK" > "$SCRATCH/gate-server.log" 2>&1 &
+GSPID=$!
+for i in $(seq 1 150); do [ -S "$SOCK" ] && break; sleep 0.1; done
+echo "# rpc counts: a server process ($RC, pid $GSPID) on $SOCK"
+run "rpc counts, full build (= gen/rpc-counts.txt)" bash -c "dotnet '$RC/akrpc.dll' campaign --suite rpc --sock '$SOCK' --transport shipped --counts '$SCRATCH/rpc-counts.txt' && $(declare -f cmp_counts); SCRATCH='$SCRATCH' cmp_counts rpc-full '$SLICE/gen/rpc-counts.txt' '$SCRATCH/rpc-counts.txt'"
+run "rpc counts, no-unknown build (= gen/rpc-counts-nounk.txt)" bash -c "dotnet '$RCN/akrpc.dll' campaign --suite rpc --sock '$SOCK' --transport shipped --counts '$SCRATCH/rpc-counts-nounk.txt' && $(declare -f cmp_counts); SCRATCH='$SCRATCH' cmp_counts rpc-nounk '$SLICE/gen/rpc-counts-nounk.txt' '$SCRATCH/rpc-counts-nounk.txt'"
+kill $GSPID; wait $GSPID 2>/dev/null
+echo "# counts, no-unknown against full: the files differ in mode names and in every push/pull decode row (no ak_dec_reset_* in the no-unknown build); the committed files carry every row"
 
 echo
 if [ $FAILS -eq 0 ]; then echo "GATE PASSED"; else echo "GATE FAILED: $FAILS"; fi

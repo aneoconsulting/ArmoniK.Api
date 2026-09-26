@@ -50,10 +50,27 @@ if ! git -C "$REPO" diff --quiet HEAD -- $CODE ffi/schema ffi/corpus \
   DIRTY=1
   if [ "${AK_ALLOW_DIRTY:-0}" != "1" ]; then echo "refused: the tree is dirty (requirement 27); commit, or AK_ALLOW_DIRTY=1" >&2; exit 3; fi
 fi
+# CAMPAIGN req 4 (R-H34): the CPU sets come from ffi/campaign.machine, which ffi/campaign.sh
+# sources and exports; run on its own, this runner reads the same file (outside --smoke).
+# Values already in the environment win, as in campaign.sh.
+CPUSRC="environment (ffi/campaign.sh exports ffi/campaign.machine's)"
 if [ -z "${AK_CPU_CLIENT:-}" ] || { [ "$SUITE" = rpc ] && [ -z "${AK_CPU_SERVER:-}" ]; }; then
-  if [ $SMOKE = 1 ]; then AK_CPU_CLIENT="${AK_CPU_CLIENT:-0}"; AK_CPU_SERVER="${AK_CPU_SERVER:-1}"; CPUNOTE=" (smoke defaults)"
+  if [ $SMOKE = 1 ]; then AK_CPU_CLIENT="${AK_CPU_CLIENT:-0}"; AK_CPU_SERVER="${AK_CPU_SERVER:-1}"; CPUSRC="smoke defaults (a container has no campaign CPU sets)"
+  elif [ -f "$REPO/ffi/campaign.machine" ]; then
+    # shellcheck source=/dev/null
+    . "$REPO/ffi/campaign.machine"; CPUSRC="ffi/campaign.machine (${AK_MACHINE_NAME:-unnamed})"
   else echo "AK_CPU_CLIENT (and AK_CPU_SERVER for rpc) must be set (requirement 4)" >&2; exit 2; fi
 fi
+ncpus() { local n=0 r; local IFS=,; for r in $1; do case "$r" in *-*) n=$((n + ${r#*-} - ${r%-*} + 1)) ;; *) n=$((n + 1)) ;; esac; done; echo $n; }
+if [ $SMOKE != 1 ] && [ -n "${AK_SET_SIZE:-}" ]; then
+  if [ "$(ncpus "$AK_CPU_CLIENT")" != "$AK_SET_SIZE" ] || { [ -n "${AK_CPU_SERVER:-}" ] && [ "$(ncpus "$AK_CPU_SERVER")" != "$AK_SET_SIZE" ]; }; then
+    echo "CLIENT=$AK_CPU_CLIENT SERVER=${AK_CPU_SERVER:-} : the campaign fixes $AK_SET_SIZE CPUs per set (CAMPAIGN req 4)" >&2; exit 2
+  fi
+fi
+# CAMPAIGN req 11 (R-H29): the pool input is sized from the last-level cache (2 x AK_LLC_BYTES
+# of retained graphs; default 13.75 MB, the reference i9-7900X). A smoke run uses a small pool.
+export AK_LLC_BYTES="${AK_LLC_BYTES:-14417920}"
+[ $SMOKE = 1 ] && export AK_POOL_BYTES="${AK_POOL_BYTES:-65536}"
 R8="$SLICE/src/Rpc/bin/Release/net8.0"
 # WP5 step 10: the NO-UNKNOWN build (/p:AkNounk=true, unknown fields compiled out of the
 # binding and of its core, target-core*-nounk), side by side with the full one.
@@ -74,10 +91,11 @@ header() {  # requirement 27: the machine and the build, in every log
   echo "# cpu:           $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2 | sed 's/^ //'); $(nproc --all) logical CPUs; kernel $(uname -r)"
   echo "# smt:           $(sysf /sys/devices/system/cpu/smt/active) (active); governor: $(sysf /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor); turbo: no_turbo=$(sysf /sys/devices/system/cpu/intel_pstate/no_turbo) boost=$(sysf /sys/devices/system/cpu/cpufreq/boost)"
   echo "# isolation:     cmdline isolcpus/nohz_full: $(tr ' ' '\n' < /proc/cmdline | grep -E '^(isolcpus|nohz_full)=' | tr '\n' ' ' || true)cpuset: $(sysf /sys/fs/cgroup/cpuset.cpus.effective)"
-  echo "# cpu sets:      CLIENT=$AK_CPU_CLIENT SERVER=${AK_CPU_SERVER:-n/a}${CPUNOTE:-}; pinning by taskset"
+  echo "# cpu sets:      CLIENT=$AK_CPU_CLIENT SERVER=${AK_CPU_SERVER:-n/a} ($(ncpus "$AK_CPU_CLIENT") and $([ -n "${AK_CPU_SERVER:-}" ] && ncpus "$AK_CPU_SERVER" || echo 0) CPUs; set size fixed at ${AK_SET_SIZE:-unset}); from $CPUSRC; pinning by taskset"
+  echo "# llc:           AK_LLC_BYTES=$AK_LLC_BYTES; pool input >= ${AK_POOL_BYTES:-$((2 * AK_LLC_BYTES))} bytes of retained graphs (req 11)"
   echo "# runtime:       .NET $(dotnet --list-runtimes | awk '/NETCore.App/{print $2}' | tr '\n' ' ')(SDK $(dotnet --version)); target net8.0, Release; tiering and PGO at their net8.0 defaults unless DOTNET_* is set: TieredCompilation=${DOTNET_TieredCompilation:-default} TieredPGO=${DOTNET_TieredPGO:-default}; workstation GC, concurrent (default)"
   echo "# core:          libak_core.so shared, cargo --release, features $1 (init-guard ON, as in every gate), built from git archive HEAD ffi/poc/codec"
-  if [ "$SUITE" = codec ]; then echo "# repeats:       $LAUNCHES launch(es) x $ROUNDS BDN actual iteration(s) per case; one process per arm:mode unit, unit order rotated per launch (req 22)"; else echo "# repeats:       $LAUNCHES launch(es) x $ROUNDS round(s); arms/cells interleaved per round, rotated"; fi
+  if [ "$SUITE" = codec ]; then echo "# repeats:       $LAUNCHES launch(es) x $ROUNDS BDN actual iteration(s) per case, each with its own process CPU and wall (req 21); one process per arm:mode unit, unit order a seeded shuffle per launch (req 22); ratios from per-launch medians (req 30)"; else echo "# repeats:       $LAUNCHES launch(es) x $ROUNDS round(s); cells in a seeded shuffle per round (req 22); ratios from per-launch medians (req 30)"; fi
 }
 
 ensure_core() {
@@ -130,6 +148,8 @@ case "$SUITE" in
     cp "$SLICE/target-core/release/libak_core.so" "$B8/"
     cp "$SLICE/target-core-nounk/release/libak_core.so" "$BN8/"
     EXTRA=(--rounds "$ROUNDS"); [ $SMOKE = 1 ] && EXTRA=(--smoke)
+    # A smoke run keeps 6 of the U-* rows (spread evenly), every direction and arm of each.
+    [ $SMOKE = 1 ] && export AK_BDN_UROWS="${AK_BDN_UROWS:-6}"
     for l in $(seq 1 "$LAUNCHES"); do
       f="$OUT/codec-launch$l.jsonl"
       { header "rpc,init-guard (full) and rpc,init-guard without unknown-fields (no-unknown)"; echo "$GATE"; echo "# builds, in this launch's order: $(builds_of "$l") (WP5 step 10; each process checks its core is its variant)"; } > "$f"
@@ -175,22 +195,34 @@ case "$SUITE" in
     GATE="$(gate_first)" || exit 1; ensure_core; build
     cp "$SLICE/target-core/release/libak_core.so" "$R8/"
     cp "$SLICE/target-core-nounk/release/libak_core.so" "$RN8/"
-    CALLS=64; [ $SMOKE = 1 ] && CALLS=16
-    # Req 12 (amended): the full client runs A B C-retain C-drop D-retain D-drop (+ extras),
-    # the no-unknown client A B C-nounk D-nounk (A and B its in-process controls), one after
-    # the other against the same server process, in an order alternated by launch.
-    for t in shipped pinned; do
-      for l in $(seq 1 "$LAUNCHES"); do
-        sock="/tmp/ak-cs-campaign-$$.sock"; rm -f "$sock"   # a Unix socket path is at most 108 bytes
-        taskset -c "$AK_CPU_SERVER" dotnet "$R8/akrpc.dll" campaign --suite rpc-server --sock "$sock" --transport "$t" > "$OUT/rpc-$t-launch$l.server.log" 2>&1 &
-        SPID=$!
-        for i in $(seq 1 100); do [ -S "$sock" ] && break; sleep 0.1; done
-        [ -S "$sock" ] || { echo "server did not start" >&2; kill $SPID; exit 1; }
+    CALLS=64; WARM=2000; [ $SMOKE = 1 ] && { CALLS=16; WARM=100; }
+    # Req 13 as amended (R-H33): ONE server process per launch, serving every cell of both
+    # builds over both transport configurations (two Kestrel hosts in it, one socket each),
+    # warmed by $WARM calls per direction from each client transport (Grpc.Net, the core's)
+    # on each socket before any client's round 1. Req 12 as amended: the full client runs
+    # A B C-retain C-drop D-retain D-drop E-retain E-drop F-retain F-drop (+ extras), the
+    # no-unknown client A B C-nounk D-nounk E-nounk F-nounk. Transports and builds in an order
+    # alternated by launch.
+    for l in $(seq 1 "$LAUNCHES"); do
+      ss="/tmp/ak-cs-$$-s.sock"; sp="/tmp/ak-cs-$$-p.sock"; rm -f "$ss" "$sp"   # a Unix socket path is at most 108 bytes
+      slog="$OUT/rpc-launch$l.server.log"
+      { [ $SMOKE = 1 ] && echo "# SMOKE RUN in a container: instrumentation, not a result"; header "none (the server uses no core)"; } > "$slog"
+      taskset -c "$AK_CPU_SERVER" dotnet "$R8/akrpc.dll" campaign --suite rpc-server --sock-shipped "$ss" --sock-pinned "$sp" >> "$slog" 2>&1 &
+      SPID=$!
+      for i in $(seq 1 150); do [ -S "$ss" ] && [ -S "$sp" ] && break; sleep 0.1; done
+      [ -S "$ss" ] && [ -S "$sp" ] || { echo "server did not start ($slog)" >&2; kill $SPID; exit 1; }
+      taskset -c "$AK_CPU_CLIENT" dotnet "$R8/akrpc.dll" campaign --suite rpc-warm --sock-shipped "$ss" --sock-pinned "$sp" --calls "$WARM" > "$OUT/rpc-launch$l.server-warm.log" 2>&1 \
+        || { echo "server warm-up failed ($OUT/rpc-launch$l.server-warm.log)" >&2; kill $SPID; exit 1; }
+      if [ $(( l % 2 )) = 1 ]; then TS="shipped pinned"; else TS="pinned shipped"; fi
+      for t in $TS; do
+        if [ "$t" = shipped ]; then sock="$ss"; else sock="$sp"; fi
         for bld in $(builds_of "$l"); do
           if [ "$bld" = full ]; then RX="$R8"; sfx=""; else RX="$RN8"; sfx=".nounk"; fi
           f="$OUT/rpc-$t-launch$l$sfx.jsonl"
           [ $PLANT = 1 ] && f="$OUT/rpc-$t-launch$l$sfx.PLANT.jsonl"
-          { header "rpc,init-guard$([ "$bld" = nounk ] && echo ' without unknown-fields (no-unknown build)')"; echo "$GATE"; echo "# client build: $bld (WP5 step 10); builds in this launch's order: $(builds_of "$l")"; } > "$f"
+          { header "rpc,init-guard$([ "$bld" = nounk ] && echo ' without unknown-fields (no-unknown build)')"; echo "$GATE";
+            echo "# client build: $bld (WP5 step 10); this launch's order: transports $TS, builds $(builds_of "$l")";
+            echo "# server:        one process for this launch (pid $SPID, $slog), both builds and both transports; warmed first: $(grep -c '^# server warm-up' "$OUT/rpc-launch$l.server-warm.log") socket(s) x $WARM calls per direction per client transport ($OUT/rpc-launch$l.server-warm.log)"; } > "$f"
           [ $PLANT = 1 ] && export AK_CAMPAIGN_PLANT=len
           taskset -c "$AK_CPU_CLIENT" dotnet "$RX/akrpc.dll" campaign --suite rpc --sock "$sock" --transport "$t" \
             --launch "$l" --rounds "$ROUNDS" --calls "$CALLS" >> "$f" 2>&1; rc=$?
@@ -202,8 +234,8 @@ case "$SUITE" in
           fi
           [ $rc -eq 0 ] || { echo "rpc $t launch $l ($bld) aborted ($f)" >&2; kill $SPID; exit 1; }
         done
-        kill $SPID; wait $SPID 2>/dev/null
       done
+      kill $SPID; wait $SPID 2>/dev/null
     done ;;
   *) echo "unknown suite $SUITE" >&2; exit 2 ;;
 esac
