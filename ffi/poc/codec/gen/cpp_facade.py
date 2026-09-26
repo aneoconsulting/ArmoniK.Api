@@ -4,7 +4,10 @@ FIX-PLAN WP5 step 2: moved from `poc/cpp/gen/cpp_facade.py` into the shared gene
 the rest of the C++ backend, because the native codec and the binding render against it.
 It reads `plan.MessagePlan`/`FieldPlan` (name, kind, cardinality, presence, `recursive`)
 and nothing from the IR. Every struct carries `std::string unknown_fields`: the retain
-mode's bag (plan Options.unknown), empty in drop mode, as the rust facade carries one.
+mode's bag (plan Options.unknown), empty in drop mode, as the rust facade carries one. In
+THE NO-UNKNOWN VARIANT (plan.unknown_compiled_out; owner decision R-H22, 2026-09-26) the
+member is not rendered: that build is a separate configuration with its own header, so no
+installed header changes layout under a consumer's -std (README 5.1).
 
 README 5.1.1 is the rule this file follows. `std::string`, `std::vector`, `std::map` are
 used directly: they exist at C++11 and mean the same thing at every level. Nothing here
@@ -18,7 +21,7 @@ owns -- README 5.1's hard stop. The two that are needed are OURS:
 Both are one concrete type at every standard level, which is what `gen/odr_check.sh` asserts
 mechanically rather than by reading.
 """
-from plan import as_plan
+from plan import as_plan, unknown_compiled_out
 import cpp_names as cppnames
 from cpp_names import FSCALAR, camel, facade_type, oneof_type, variant
 
@@ -180,9 +183,10 @@ typedef %(STR)s AkStrT;
             o.append("  %s %s%s;" % (ty, f.name, init))
         for oname in m.oneofs:
             o.append("  %s %s;" % (oneof_type(name, oname), oname))
-        o.append("  // The unknown-field bag (plan Options.unknown = retain): captured runs,")
-        o.append("  // key included, re-emitted after the known fields. Empty in drop mode.")
-        o.append("  std::string unknown_fields;")
+        if not unknown_compiled_out(ir):
+            o.append("  // The unknown-field bag (plan Options.unknown = retain): captured runs,")
+            o.append("  // key included, re-emitted after the known fields. Empty in drop mode.")
+            o.append("  std::string unknown_fields;")
         o.append("  bool operator==(const %s &o) const;" % name)
         o.append("  bool operator!=(const %s &o) const { return !(*this == o); }" % name)
         o.append("};")
@@ -281,7 +285,8 @@ def emit_types_impl(ir, ns="shapes", header="generated/types.h"):
             parts.append("%s == o.%s" % (f.name, f.name))
         for oname in m.oneofs:
             parts.append("%s == o.%s" % (oname, oname))
-        parts.append("unknown_fields == o.unknown_fields")
+        if not unknown_compiled_out(ir):
+            parts.append("unknown_fields == o.unknown_fields")
         o.append("  return %s;" % (" &&\n         ".join(parts) if parts else "true"))
         o.append("}")
         o.append("")
@@ -341,7 +346,8 @@ struct AkOdrFact { const char *what; uint32_t value; };
             if f.oneof:
                 continue
             add(t, "offsetof(%s, %s)" % (t, f.name), "%s.%s" % (t, f.name))
-        add(t, "offsetof(%s, unknown_fields)" % t, "%s.unknown_fields" % t)
+        if not unknown_compiled_out(ir):
+            add(t, "offsetof(%s, unknown_fields)" % t, "%s.unknown_fields" % t)
         for oname in m.oneofs:
             add(t, "offsetof(%s, %s)" % (t, oname), "%s.%s" % (t, oname))
             ot = "shapes::" + oneof_type(name, oname)
