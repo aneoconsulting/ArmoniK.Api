@@ -1606,6 +1606,18 @@ def _emit_decode_unk(ir, o, root):
         o.append("  if (zero != %d) o->%s.grow = unk_grow;" % (i, mn))
     o.append("}")
     o.append("")
+    o.append("// R-H7: every buffer still in the options is the host's: off the live set, so no")
+    o.append("// reclaim frees it.")
+    o.append("static void unk_untrack_opts_%s(struct %s *opts) {" % (rs, on))
+    for mn, _m, ty in lay:
+        if ty == "ak_unk_pool":
+            o.append("  if (opts->%s.bufs != NULL)" % mn)
+            o.append("    for (uint32_t i = 0; i < opts->%s.n; ++i) unk_untrack(opts->%s.bufs[i].data);"
+                     % (mn, mn))
+        else:
+            o.append("  unk_untrack(opts->%s.buf.data);" % mn)
+    o.append("}")
+    o.append("")
     o.append("// The decode with the context armed with `opts`, read IN PLACE by the core until the")
     o.append("// disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,")
     o.append("// is called with `hold` after every element delivery (rule 1). A buffer the core")
@@ -1616,17 +1628,16 @@ def _emit_decode_unk(ir, o, root):
              " struct %s *opts, void (*refill)(void *), void *hold) {" % (rs, root, on))
     o.append("  AK_INIT_OR_RETURN();")
     o.append("  int32_t rc = ak_dec_reset_%s(ctx, opts);" % root)
-    o.append("  if (rc != AK_OK) return rc;")
+    o.append("  if (rc != AK_OK) {")
+    o.append("    // Refused (another root's context, or the core uninitialized): nothing was")
+    o.append("    // consumed, so every buffer in the options stays the host's (R-H7).")
+    o.append("    unk_untrack_opts_%s(opts);" % rs)
+    o.append("    return rc;")
+    o.append("  }")
     o.append("  rc = decode_impl_%s(ctx, b, n, out, refill, hold);" % rs)
     o.append("  int32_t rc2 = ak_dec_reset_%s(ctx, NULL);" % root)
     o.append("  // R-H7: what is still in the options was not consumed and stays the host's.")
-    for mn, _m, ty in lay:
-        if ty == "ak_unk_pool":
-            o.append("  if (opts->%s.bufs != NULL)" % mn)
-            o.append("    for (uint32_t i = 0; i < opts->%s.n; ++i) unk_untrack(opts->%s.bufs[i].data);"
-                     % (mn, mn))
-        else:
-            o.append("  unk_untrack(opts->%s.buf.data);" % mn)
+    o.append("  unk_untrack_opts_%s(opts);" % rs)
     o.append("  unk_reclaim();")
     o.append("  if (rc >= 0 && rc2 != AK_OK) rc = rc2;")
     o.append("  return rc;")
