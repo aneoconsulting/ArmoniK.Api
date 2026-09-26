@@ -113,6 +113,10 @@ unsafe fn s_of(base: *const u8, s: ak_span, ctx: *mut ak_dec_ctx) -> String {
     ::core::str::from_utf8_unchecked(b).to_owned()
 }
 
+/// Optimisation E4: a packed enum field of at most this many elements is converted on the
+/// stack (1 KB) rather than in a heap Vec.
+const ENUM_STACK: usize = 256;
+
 #[inline(always)]
 unsafe fn b_of(base: *const u8, s: ak_span) -> ::bytes::Bytes {
     if s.len == 0 {
@@ -1672,11 +1676,8 @@ unsafe extern "C" fn loop_metrics_batch_flags(
         let o = &*(obj as *const MetricsBatch);
         let tc = tcs();
         let src = &o.flags;
-        // bool and enum have no contiguous host layout of their own, so
-        // the binding materialises one. A host that already stores the
-        // wire representation hands over a pointer and copies nothing.
-        let tmp: Vec<u8> = src.iter().map(|x| *x as u8).collect();
-        let rc = ak_run_u8(ctx, tmp.as_ptr(), tmp.len());
+        // A Rust bool is one byte, 0 or 1: the u8 run reads the host's own array.
+        let rc = ak_run_u8(ctx, src.as_ptr() as *const u8, src.len());
         if rc < 0 { return rc; }
         AK_OK
     })
@@ -1691,11 +1692,17 @@ unsafe extern "C" fn loop_metrics_batch_statuses(
         let o = &*(obj as *const MetricsBatch);
         let tc = tcs();
         let src = &o.statuses;
-        // bool and enum have no contiguous host layout of their own, so
-        // the binding materialises one. A host that already stores the
-        // wire representation hands over a pointer and copies nothing.
-        let tmp: Vec<i32> = src.iter().map(|x| x.to_i32()).collect();
-        let rc = ak_run_i32(ctx, tmp.as_ptr(), tmp.len());
+        // An open enum has no i32 layout of its own: materialise one, on the
+        // stack up to ENUM_STACK elements, and make ONE run call per field.
+        let rc = if src.len() <= ENUM_STACK {
+            let mut tmp: [::core::mem::MaybeUninit<i32>; ENUM_STACK] =
+                [const { ::core::mem::MaybeUninit::uninit() }; ENUM_STACK];
+            for (d, x) in tmp.iter_mut().zip(src.iter()) { d.write(x.to_i32()); }
+            ak_run_i32(ctx, tmp.as_ptr() as *const i32, src.len())
+        } else {
+            let tmp: Vec<i32> = src.iter().map(|x| x.to_i32()).collect();
+            ak_run_i32(ctx, tmp.as_ptr(), tmp.len())
+        };
         if rc < 0 { return rc; }
         AK_OK
     })
@@ -2507,11 +2514,8 @@ unsafe extern "C" fn loop_list_metrics_response_batches_flags(
         let tc = tcs();
         let e = &o.batches[token as usize];
         let src = &e.flags;
-        // bool and enum have no contiguous host layout of their own, so
-        // the binding materialises one. A host that already stores the
-        // wire representation hands over a pointer and copies nothing.
-        let tmp: Vec<u8> = src.iter().map(|x| *x as u8).collect();
-        let rc = ak_run_u8(ctx, tmp.as_ptr(), tmp.len());
+        // A Rust bool is one byte, 0 or 1: the u8 run reads the host's own array.
+        let rc = ak_run_u8(ctx, src.as_ptr() as *const u8, src.len());
         if rc < 0 { return rc; }
         AK_OK
     })
@@ -2527,11 +2531,17 @@ unsafe extern "C" fn loop_list_metrics_response_batches_statuses(
         let tc = tcs();
         let e = &o.batches[token as usize];
         let src = &e.statuses;
-        // bool and enum have no contiguous host layout of their own, so
-        // the binding materialises one. A host that already stores the
-        // wire representation hands over a pointer and copies nothing.
-        let tmp: Vec<i32> = src.iter().map(|x| x.to_i32()).collect();
-        let rc = ak_run_i32(ctx, tmp.as_ptr(), tmp.len());
+        // An open enum has no i32 layout of its own: materialise one, on the
+        // stack up to ENUM_STACK elements, and make ONE run call per field.
+        let rc = if src.len() <= ENUM_STACK {
+            let mut tmp: [::core::mem::MaybeUninit<i32>; ENUM_STACK] =
+                [const { ::core::mem::MaybeUninit::uninit() }; ENUM_STACK];
+            for (d, x) in tmp.iter_mut().zip(src.iter()) { d.write(x.to_i32()); }
+            ak_run_i32(ctx, tmp.as_ptr() as *const i32, src.len())
+        } else {
+            let tmp: Vec<i32> = src.iter().map(|x| x.to_i32()).collect();
+            ak_run_i32(ctx, tmp.as_ptr(), tmp.len())
+        };
         if rc < 0 { return rc; }
         AK_OK
     })

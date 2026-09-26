@@ -270,6 +270,10 @@ unsafe fn s_of(base: *const u8, s: ak_span, ctx: *mut ak_dec_ctx) -> String {
 @S_OF_UTF8@
 }
 
+/// Optimisation E4: a packed enum field of at most this many elements is converted on the
+/// stack (1 KB) rather than in a heap Vec.
+const ENUM_STACK: usize = 256;
+
 #[inline(always)]
 unsafe fn b_of(base: *const u8, s: ak_span) -> ::bytes::Bytes {
     if s.len == 0 {
@@ -1667,13 +1671,28 @@ def _emit_loop(ir, o, root, path, f, sn, top, elem_path=None, inner_path=None, e
         # lives in the context, so bool and enum need no cases. No chunk, no element loop:
         # this is the one shape that crosses once per FIELD however long it is.
         rty = {"int32": "i32", "int64": "i64", "double": "f64", "bool": "u8", "enum": "i32"}[f.kind]
-        if f.kind in ("bool", "enum"):
-            o.append("        // bool and enum have no contiguous host layout of their own, so")
-            o.append("        // the binding materialises one. A host that already stores the")
-            o.append("        // wire representation hands over a pointer and copies nothing.")
-            conv = "*x as u8" if f.kind == "bool" else "x.to_i32()"
-            o.append("        let tmp: Vec<%s> = src.iter().map(|x| %s).collect();" % (rty, conv))
-            o.append("        let rc = ak_run_%s(ctx, tmp.as_ptr(), tmp.len());" % rty)
+        if f.kind == "bool":
+            # Optimisation E4: a Rust `bool` is one byte holding 0x00 or 0x01 (size 1,
+            # align 1, guaranteed by the language), which is exactly the `u8` run's element:
+            # the host's own array is handed over and nothing is copied.
+            o.append("        // A Rust bool is one byte, 0 or 1: the u8 run reads the host's own array.")
+            o.append("        let rc = ak_run_u8(ctx, src.as_ptr() as *const u8, src.len());")
+        elif f.kind == "enum":
+            # Optimisation E4: an open enum has no i32 layout of its own, so the binding
+            # materialises one -- on the stack up to ENUM_STACK elements, on the heap past
+            # that -- and still makes ONE run call per field (two calls would be two packed
+            # runs: legal wire, different bytes).
+            o.append("        // An open enum has no i32 layout of its own: materialise one, on the")
+            o.append("        // stack up to ENUM_STACK elements, and make ONE run call per field.")
+            o.append("        let rc = if src.len() <= ENUM_STACK {")
+            o.append("            let mut tmp: [::core::mem::MaybeUninit<i32>; ENUM_STACK] =")
+            o.append("                [const { ::core::mem::MaybeUninit::uninit() }; ENUM_STACK];")
+            o.append("            for (d, x) in tmp.iter_mut().zip(src.iter()) { d.write(x.to_i32()); }")
+            o.append("            ak_run_i32(ctx, tmp.as_ptr() as *const i32, src.len())")
+            o.append("        } else {")
+            o.append("            let tmp: Vec<i32> = src.iter().map(|x| x.to_i32()).collect();")
+            o.append("            ak_run_i32(ctx, tmp.as_ptr(), tmp.len())")
+            o.append("        };")
         else:
             o.append("        let rc = ak_run_%s(ctx, src.as_ptr(), src.len());" % rty)
         o.append("        if rc < 0 { return rc; }")
