@@ -1489,3 +1489,41 @@ Found:
   Every sample now carries `build`, and the summary keys on it.
 
 Smoke: 2 launches; figures stripped.
+
+## 2026-09-26: FIX-PLAN WP6 step 1, STATE rewritten, gate from a clean checkout
+
+STATE.md was rewritten to say what is true of the tree now. What was removed, and why:
+
+- **Every timing table and timing figure.** This includes the C++ column (R-C1: the
+  headline table whose encode columns were "reproduced from the previous run", with no
+  log), the upb ceiling table, the borrowed-facade, decision 1, content-set, RPC-grid and
+  flow-control figures, and the crossing-cost absolutes. They are container
+  instrumentation, and most predate the port, decision 11, `init-guard` and the facade's
+  `unknown_fields` member. The logs stay committed and are listed as instrumentation, with
+  no figure quoted.
+- **The per-work-unit sections** (R-D1/2/5/7, WP5 steps 2/9/10, WP3, 22a, D38/D39). They
+  are recorded in the entries above.
+- **The "queue from before 2026-09-24" and its recommendations.**
+- **The fixed defects C1-C37 and the R-* rows.**
+- **Reported defects re-checked in the tree and now closed:**
+  - C19: the file is gone.
+  - C25: `U-map-entry` is disputed.
+  - C26: `B-P7_1` is permutation_accepted.
+  - C28: SHAPES.md is corrected.
+  - C29: the table no longer carries the counts.
+  - C38: `--selftest` passes in this gate.
+  - C39: `rust_core.py` appears only in a comment.
+- **Retired "not measured" items that are now built:** retain on the shapes payloads,
+  `ak_init`, and the unknown-field bag.
+
+The checklist was brought current with CAMPAIGN.md: req 22 (rotation between launches),
+22a, and the 3-mode req 10 / 12.
+
+**Gate.** Run from a fresh worktree at 662cd3bd4 (origin HEAD d2cd0b02f plus the
+d11_asan.sh commit), with `CLEAN=1 gen/wp5_gate.sh build`. Result: 0 failed steps, both
+builds, C++11 floor included. Every log header names the commit with no uncommitted
+changes.
+
+**ASan.** `gen/d11_asan.sh`, now covering both builds, reported 0 failures:
+- full build: 574/0;
+- no-unknown build: 478/0, with every unknown row dropped.

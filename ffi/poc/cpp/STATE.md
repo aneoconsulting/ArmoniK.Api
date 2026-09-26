@@ -1,1658 +1,312 @@
 # cpp slice: state
 
-**Read this first. Rewrite it at the end of every work unit.** It is the only
-thing that survives the end of a session. A stale entry here costs a whole
-session, which makes it the most expensive defect in this directory.
+**Read this first, and rewrite it at the end of every work unit.** It is the only thing
+that survives the end of a session. It says what is true of the tree now. The history of
+how it got here, including every refuted idea and every superseded figure, is in
+`JOURNAL.md`.
+
+**Phase.** The branch is in setup and design (README 1.1). No figure in this file or in
+any log listed here is a performance result. Every timing ever taken by this slice is
+**container instrumentation**: it shows that a harness runs, or it exposes a harness
+defect. What this file reports as results are correctness outcomes and crossing counts.
 
 | | |
 |---|---|
-| **Status** | **2026-09-25, FIX-PLAN WP5 step 10: the NO-UNKNOWN build (unknown fields compiled out) rendered, gated and in the campaign harness.** Header `nounk/include/ak_abi.h` (c_abi of the drop plan, AK_NO_UNKNOWN_FIELDS, 240 layout facts), binding rendered from the drop plan, ak-core `--no-default-features` cores in their own target dirs. Gate green (`wp5s10-nounk.log`, and `wp5_gate.sh` from a clean worktree build). Crossing counts: only P1.2 decode reverse 8 -> 5 against the full build in drop mode (`counts-nounk-baseline.log`). Campaign: codec suite core-ffi `no-unknown` (own binary), RPC cells C-nounk / D-nounk; smoke = instrumentation. Before: WP5 step 9 (decision 11 port), req 12 C/D retain/drop |
-| **Core** | **the shared one at `ffi/poc/codec/crates/ak-core` (README R0), not a copy**, built by CMake with `--features init-guard` in every configuration (timed, counting, the three planted cores) and once more with `--features corpus,init-guard` into `core-build/target-corpus` for the corpus harness (its own ABI and header, `corpus/include/ak_abi.h`). `-DAK_CORE_ROOT`/`-DAK_CORE_TGT` still point the build at a snapshot. This work unit ran against the shared tree at `882112c` (HEAD when gated) |
-| **Blocked on** | nothing |
-| **Floor** | **C++11, demonstrated not declared.** C++14 also builds and passes (README open question 3) |
-| **Target** | C++17 |
-| **Incumbent** | protobuf C++ 3.21.12 (`libprotobuf-dev`, apt), `SerializeToString` / `ParseFromString`, non-arena and arena. `packages/cpp` pins **no** protobuf and **no** grpc version (`Dependencies.cmake` pins only fmt, simdjson and gtest) and sets `CXX_STANDARD 14` |
-| **Ceiling** | upb from protobuf v25.3, built from source, **`UPB_FASTTABLE=0`, gcc 13.3.0**. A bound, never a candidate |
-| **Machine** | **TWO of them, and that is a fact about the logs rather than a footnote.** Everything except `rpc.log` and `rpcflow.log`: 4 vCPU Intel Xeon @ **2.80 GHz**. Those two: 4 vCPU Intel Xeon @ **2.10 GHz**, same kernel (Linux 6.18.44), same g++ 13.3.0 `-O2 -g -DNDEBUG`, same rustc 1.94.1. **No absolute crosses between them** (R13, R4) |
-| **R13 calibration** | the 2.80 GHz machine's rust-slice crossing is **1.5 ns** forward (`calibration-r13.log`), against 1.8 ns in the rust slice's own container. **On the 2.10 GHz machine it could not be re-taken: the rust slice does not build on this branch (C27).** What was re-taken there is this slice's OWN crossing, by the unchanged bench: **forward 0.59-0.65 ns, reverse 0.27-0.31 ns**, against 1.822-1.824 / 0.6 published from the 2.80 GHz box. A factor of about three, on a nominally slower clock. That is the whole reason R13 exists |
+| **Status** | 2026-09-26, FIX-PLAN WP6 step 1. The C++ backend renders both builds from the shared plan: the **full** build (ABI v1 decision 11) and the **no-unknown** build (unknown fields compiled out). Both builds are gated from a clean checkout at `662cd3bd4` (`logs/cpp/wp5-*.log`, `logs/cpp/wp5s10-nounk.log`: 0 failed steps, header clean). Both builds pass under ASan+LSan (`logs/cpp/asan.log`: 0 failures, no sanitizer report). The campaign harness runs both builds; its checklist is below |
+| **Core** | the shared one at `ffi/poc/codec/crates/ak-core` (R0). CMake builds it with cargo, `init-guard` in every configuration. Full-build flavours: plain, `count`, `corpus`, `rpc`, `rpc,count`, and three planted cores (`pad-widths`, `global-widths`, both). No-unknown flavours: `--no-default-features` plus `init-guard` alone, `count`, `corpus` or `rpc`. Each flavour has its own target dir under `core-build/` |
+| **Generator** | one generator (W14). `poc/codec/gen/plan.py` holds the rules. This slice's backend modules in `poc/codec/gen/` are `cpp_binding.py`, `cpp_native.py`, `cpp_facade.py`, `cpp_names.py` and `cpp_layout.py`, plus `c_abi.py`, which renders the C header for every slice. `gen/generate.py` is glue: it renders the targets from plans and imports no IR (the guard in `generate.py --check`) |
+| **Floor / target** | C++11 floor, C++17 target, both builds. C++14 also builds and is gated (full build) |
+| **Incumbent** | protobuf C++ 3.21.12 and grpc++ 1.51.1, apt's, the only versions in this container. `packages/cpp` pins neither. CAMPAIGN.md section 3 asks for gRPC v1.54.0 and a current version; see the checklist |
+| **Compiler** | g++ 13.3.0, `-O2 -g -DNDEBUG`; rustc 1.94.1 |
 
-## This work unit (2026-09-25): FIX-PLAN WP5 step 10, the no-unknown build
-
-Built on the codec at d89bdfc (plan.py "THE NO-UNKNOWN VARIANT"). Shared-module change:
-`poc/codec/gen/cpp_binding.py` only (16b78a4). When the plan is relowered with
-unknown="drop" (plan.unknown_compiled_out), the binding renders none of the following:
-delivery, retain encode, options/pool/clear, or the refill hook. Contexts are created with
-`ak_dec_ctx_new_<Root>(void)`. The full binding's text is byte-unchanged.
-
-What exists:
+## What exists
 
 ```
-nounk/include/{ak_abi.h, generated/ak_layout.h, ak_layout_names.h}   c_abi.emit(drop plan)
-corpus/nounk/include/...                                             the same for the corpus ABI
-src/generated/binding_nounk.*, binding_borrow_nounk.*, corpus/src/generated/binding_nounk.*,
-  dispatch_nounk.cpp (ffi-retain arm NOT BUILT)                      gen/generate.py
-cores   core-build/target-{nounk,count-nounk,corpus-nounk,camp-nounk}: ak-core
-        --no-default-features --features init-guard[,count|corpus|rpc]
-targets conformance_nounk_{a17,c11,static}, corpus_nounk_{a17,c11,noinit}, counts_nounk,
-        campaign_codec_nounk, campaign_rpc_nounk (nounk/include first; sources select the
-        variant binding on AK_NO_UNKNOWN_FIELDS, which the variant header defines)
-gen/nounk_gate.sh   the variant gate (wp5_gate.sh runs it; the campaign gate runs it)
-corpus_all.py --expect-dropped ARM
+poc/codec/gen/cpp_binding.py   the C++ host binding over the C ABI (arm core-ffi), rendered
+                               from a plan. Full build:
+                                 - encode_into_* (and _zeroed, _nobatch), encode_into_*_unk;
+                                 - decode_with_* (drop context), decode_with_*_opts (armed
+                                   in place), decode_with_*_unk (retain everywhere),
+                                   decode_with_*_pool (pre-allocated pools, refilled in place);
+                                 - unk_opts_*, unk_clear_*;
+                                 - DecRoot<T>, DecCtxs, dec_ctx_new_for<T>() (contexts bound
+                                   to their root, rule 6).
+                               No-unknown build (plan relowered with unknown="drop"): none of
+                               the unknown-field family; ak_dec_ctx_new_<Root>(void).
+poc/codec/gen/cpp_native.py    arm host-gen: the codec generated into C++ from the same plan,
+                               drop and retain renderings
+include/ak_abi.h, include/generated/ak_layout*.h   full-build C header (c_abi.py, 400 facts)
+nounk/include/...                                  no-unknown header (AK_NO_UNKNOWN_FIELDS,
+                                                   240 facts)
+corpus/include/..., corpus/nounk/include/...       the same two for the corpus reader schema
+src/generated/                 facade types, binding(_nounk), borrowed-facade binding(_nounk),
+                               core_native(_retain), builders (facade and protobuf), cases,
+                               projection, touch (read-every-field traversal)
+corpus/src/generated/          the corpus reader schema's facade, native codecs, binding(_nounk),
+                               projection, dispatch(_nounk)
+include/ak/rt.h, vocab.h, values.h, projjson.h    hand-written runtime for the native codec
+                               and the facade vocabulary (decode-rule constants come from
+                               include/generated/ak_rules.h, rendered from the plan)
 ```
 
-What was checked (`logs/cpp/wp5s10-nounk.log`):
+The harness binaries, one source each (`CMakeLists.txt`):
 
-| Check | Result |
-|---|---|
-| core per binary | every variant binary resolves a core with 0 u-family exports (ak_uencode_*, ak_uelem*, ak_dec_reset_*); the full binaries resolve cores with 21 (shapes) / 70 (corpus); the static variant has none |
-| headers against cores | `poc/rust/gen/c_variant.sh` run read-only: both headers compile as C99/C++11, matched pairs agree (400 / 240 facts), both mismatched pairs caught |
-| payload byte identity | conformance_nounk at C++17, C++11 floor and static: 478 checks, 0 failures each, 240 layout facts 0 disagreements; rule 6 (wrong root -8 on decode, parse, binding decode); an unknown field at the root and in an element is dropped |
-| full corpus | C++17 and C++11: ffi 680/0, native 696/0, ffi-retain not built; **ffi-drop writes 0 unknown rows in a non-dropped form**; the two levels' outcomes are identical; the proj/reenc/accept/noinit controls fail as required; the dropped-form check fails a retaining arm (313 rows) |
-| crossing counts | 87 rows identical to `counts-nounk-baseline.log`; against `counts-baseline.log` (full, drop) only **P1.2 decode reverse 8 -> 5** (the same as the rust slice) |
-| campaign | the gate runs the variant gate and the nounk codec gate (1044 slots, 0 failed; the plant fails 166 slots); both RPC clients abort on a wrong length; codec suite: `codec-nounk-launch*.jsonl` with core-ffi `no-unknown`; RPC: C-nounk and D-nounk plus A and B from the nounk client; the binary order alternates by launch; every sample carries `build` (full or no-unknown) and `unknown_mode` |
+| Source | Targets | What it does |
+|---|---|---|
+| `src/conformance.cpp` | `conformance_{a17,b17,c14,c11}_shared`, `conformance_a17_static`, `conformance_a17_noinit` (plant); `conformance_nounk_{a17,c11,static}` | payload byte identity against `ffi/schema/generated/manifest.json` on every encoder and decoder arm, the layout table against the core's `ak_layout_facts`, absent/unknown/malformed vectors; decision 11's pool, refill, oneof, error and wrong-root cases (full); rule 6 and the drop of unknowns (no-unknown) |
+| `corpus/src/corpus_main.cpp` | `corpus_all_{a17,c14,c11,a17_static}`, `corpus_all_noinit` (plant); `corpus_nounk_{a17,c11}`, `corpus_nounk_noinit` (plant) | one corpus row per process, four arms (ffi-drop, ffi-retain, native-drop, native-retain); `--unk` runs decision 11's controls on one row |
+| `src/counts.cpp` | `counts_a17_shared`, `counts_a17_static`, `counts_a17_static_lto`; `counts_nounk` | crossing counts from a counting core (R5) |
+| `src/bench.cpp` | `bench_*` (levels, linkages, guard off, perturbation, crossing tax, LTO, and the `bench_a17_gateplant` plant) | the pre-campaign codec timing harness; its arms are gated before timing |
+| `src/contentsets.cpp`, `src/concurrency.cpp`, `src/groupskip.cpp`, `src/utf8check.cpp`, `src/odr_*.cpp`, `src/fusion_probe.cpp` | `contentsets_a17`, `conc_*` (incl. four planted), `groupskip_*` (incl. two planted), `utf8check_*`, `odrcheck`, `fusion_probe` | content sets, concurrency suite, group skip, UTF-8 validator differential, ODR across levels, the boundary checker's control |
+| `src/rpcbench.cpp`, `rpcflow.cpp`, `rpccounts.cpp` | `rpcbench`, `rpcflow`, `rpccounts` | the pre-campaign RPC grid, the flow-control probe, RPC crossing counts |
+| `src/campaign_codec.cpp` | `campaign_codec`, `campaign_codec_nounk` | campaign codec suite (Google Benchmark), with its own gate and plant |
+| `src/campaign_rpc.cpp`, `campaign_server.cpp`, `campaign_calib.cpp` | `campaign_rpc`, `campaign_rpc_nounk`, `campaign_server`, `campaign_calib` | campaign RPC client (two builds), server (own process), crossing-cost loops |
+| `src/upbbench.cpp` | `upbbench` (needs `gen/fetch_upb.sh`) | the upb ceiling arm |
 
-How host-gen is handled: host-gen is generated from the plan (cpp_native). Its drop codec is
-the drop rendering and contains no capture code, in both builds. It therefore runs in the
-no-unknown binary only as a `drop` in-process control, and has no separate `no-unknown` arm.
-The incumbents, and RPC cells A and B, also run in the no-unknown binary as in-process
-controls.
+Scripts (`gen/`):
+- `wp5_gate.sh`: the correctness gate, both builds. It builds everything and refuses stale
+  binaries, then runs:
+  - the generator checks;
+  - conformance at five levels/linkages plus the noinit plant;
+  - the full corpus at four builds, with retention gaps bounded to `U-map-entry`;
+  - decision 11's controls at four builds, and their plant;
+  - corpus plants and `--compare`;
+  - the oracle-probe rows;
+  - the byte audit against the retired harness;
+  - boundary and layout;
+  - groupskip, concurrency, ODR, bench gates, content sets, crossing counts (against
+    `logs/cpp/counts-baseline.log`), RPC counts;
+  - `nounk_gate.sh`.
+- `nounk_gate.sh`: the no-unknown build's own gate.
+  - Each binary is checked to load the core of its variant.
+  - Both headers are checked against both cores (`poc/rust/gen/c_variant.sh`, read-only).
+  - Byte identity at C++17, C++11 and static.
+  - The corpus at C++17 and C++11, with every unknown row written in its dropped form.
+  - Plants, and counts against `logs/cpp/counts-nounk-baseline.log`.
+- `d11_asan.sh`: both builds' conformance and corpus under ASan+LSan.
+- `run_campaign.sh --suite codec|rpc|calib|gate --out <dir>`: the campaign runner (see the
+  checklist).
+- `campaign_summary.py`: requirement 30's summaries.
+- `gbench_to_jsonl.py`: Google Benchmark JSON to section 7's lines.
+- `corpus_all.py`: the corpus driver, with `--unk-controls`, `--expect-dropped`,
+  `--max-retain-gap`, `--plant`, `--record` and `--compare`.
+- Pre-campaign timing and probe scripts, which produce instrumentation only: `run_all.sh`,
+  `rpc.sh`, `rpcflow.sh`, `contentsets.sh`, `concurrency.sh`, `utf8.sh`, `tax.sh`,
+  `drift.sh`, `opt.sh`, `c16.sh`, `c24_timing.py`, `upb_ab.sh`, `calibrate.sh`,
+  `fetch_upb.sh`.
+- Checks: `boundary.sh`, `groupskip.sh`, `odr_check.sh`, `rd2_guard.sh`, `rd2_history.sh`,
+  `refusal_test.py`, `audit_tracked.sh`, `wp5_bytes.py`.
 
-Not done:
-- The first campaign gate stopped because nounk_gate.sh was given an absolute build dir;
-  fixed (db2762b).
-- A and B appear in both RPC clients, and incumbent-prod in both codec binaries, so samples
-  carry `build` and the summary keys on it (9bb622d).
-- No ASan run of the variant.
+## What was checked, and where the log is
 
-## Addendum (2026-09-25): CAMPAIGN req 12 amended (85cb00f), RPC cells per unknown-field mode
-
-`src/campaign_rpc.cpp`: cells C and D now run as `C-retain`, `C-drop`, `D-retain`, `D-drop`
-(`--cells ABCD` expands; labels selectable). retain = `decode_with_*_unk` (every position
-armed) and, direction b, `encode_into_*_unk`; drop = the drop context and the plain encode.
-Every call is still checked. Pre-run check per C/D mode: decode one Fetch response,
-re-encode it in the same mode, and require protobuf's deterministic re-serialisation of our
-bytes to equal protobuf's own re-serialisation of the wire (the incumbent's re-encode). A
-first draft also required byte identity with the wire and stopped the smoke: the server's
-pre-serialised P2.2 is protobuf's form, not the canonical one; the check now compares
-messages (commits `253f487`, `4d2a54b`). `C-nounk`/`D-nounk` wait for the compiled-out build
-the rust agent is adding. Smoke (gate + rpc, 1 launch, 1 round, shipped and pinned): all 24
-(cell, dir, transport) groups sampled, gate green; figures stripped from the committed
-`campaign/rpc-launch1.jsonl`.
-
-## This work unit (2026-09-25): FIX-PLAN WP5 step 9, decision 11 in the C++ binding
-
-Built against the core at `e897f57`/`4238d58` (ABI v1 decision 11 and its implementation
-rules confirmed 2026-09-25; plan.py's UNKNOWN FIELDS contract). Shared-module change
-(authorized): `poc/codec/gen/cpp_binding.py` only (commit `ec0a7c8`); slice in `6feff87`.
-
-What exists:
-
-```
-binding (both facades, both schemas), rendered per root from the plan:
-  DecRoot<T>, DecCtxs, dec_ctx_new_for<T>()   rule 6: one context per root, drop mode
-  decode_with_<r>(ctx,...)                     decode as armed (no reset: drop contexts)
-  unk_opts_<r>(opts*, zero)                    every entry grow-backed, entry `zero` all zero
-  decode_with_<r>_opts(ctx,...,opts*,refill,hold)  reset(&opts) (return checked) ->
-                                               decode -> reset(NULL) -> reclaim
-  decode_with_<r>_unk                          retain everywhere (grow only)
-  decode_with_<r>_pool(ctx,...,k,cap,&refills) k buffers per pool, cap bytes, refilled in
-                                               place after every delivery; one per singular
-  unk_clear_<r>(v, pos)                        the discard control's expected value
-  unk_grow / unk_track / unk_reclaim / unk_entry_bytes
-delivery: apply_<root>, fill_*/from_* take f.unknown into unknown_fields; absent child and
-  inactive oneof member slots freed; map entry slots counted and freed (no facade bag)
-harness: every ak_dec_ctx_new() site re-pointed (bench, counts, conformance, contentsets,
-  concurrency, rpcbench, campaign_codec, campaign_rpc, corpus); corpus child `--unk`;
-  corpus_all.py --unk-controls [--plant clear] and --max-retain-gap; conformance section
-  "decision 11"; counts AK_COUNTS_RETAIN=1; gen/d11_asan.sh; campaign core-ffi retain on
-```
-
-What was checked (all from a clean `git worktree` build at `6feff87`, CLEAN=1):
+From a fresh `git worktree` at `662cd3bd4`, with no uncommitted changes and new build
+directories (`CLEAN=1 gen/wp5_gate.sh build`, then `gen/d11_asan.sh`):
 
 | Check | Result | Log |
 |---|---|---|
-| payload identity, C++17 target/floor, C++14, C++11, static | 574 checks, 0 failures x5 (adds ffi-retain encode sha, retain and pool decode == built value, nothing left live); noinit plant fails | `wp5-conformance.log` |
-| full corpus, 4 arms x 4 builds | ffi 680/0, native 696/0, 6 disputed, 16 not in the C ABI; 2808 outcomes identical across builds; **retain arms write the dropped form only on `U-map-entry`** (was 17 rows) | `wp5-corpus.log` |
-| decision 11 controls, 4 builds | 686 rows through the ABI, 143 refused alike by retain/drop/pool, 2290 positions, 315 position-rows where zeroing changes the value, 0 failing rows (pool = retain, drop = retain cleared, each position zeroed drops exactly it, map-entry bytes right) | `wp5-corpus.log` |
-| its plant (expected clear skipped) | 307 rows fail, as required | `wp5-corpus.log` |
-| pool / refill / oneof / errors / wrong root / round trip | pool n=2: 1 fresh grow, entries cleared; no grow: -7; in-place refill in new_tasks: each element in the host's buffer, no refill: -7; oneof switches: 1 fresh buffer, final bag exact (incl. switch to scalar); discard, too small (-7), grow error propagated (-1), under-delivery (-7); wrong root: decode, parse, reset, binding decode and armed decode all -8, own root 0; retain decode then encode byte-identical | `wp5-conformance.log` |
-| crossing counts | 87 rows identical to `counts-baseline.log` (plain decode does not reset); retain and pool rows = drop rows on the payloads (no unknowns), plus 2 uncounted resets | `wp5-gates.log` |
-| ASan + LSan | conformance, controls and corpus: 0 sanitizer reports | `wp5s9-asan.log` |
-| everything else (generator, probe 4 arms, byte audit, boundary, groupskip, concurrency, ODR, bench gates, content sets, rpccounts) | green | `wp5-*.log` |
-| campaign: gate + codec smoke | gate passed; codec 261 samples per (arm, mode) incl. **core-ffi retain**; header `"ffi_retain": "built"`, `"instrumentation": true` | `campaign/{gate.log,codec-launch1.jsonl}` |
+| build | every target configured and built from scratch; every gated binary newer than its sources | `wp5-build.log` |
+| generator | `generate.py --check` every target current; guard: the shared C++ modules import plans only, glue imports no IR, a planted import is caught; the shared `--check` over every slice; `refusal_test.py`, `rd2_guard.sh`, `audit_tracked.sh`, `one_core.sh` and `one_core.sh --selftest` (0 controls failed to fire) | `wp5-generator.log` |
+| payload byte identity, full build | 574 checks, 0 failures at C++17 target, C++17 floor, C++14, C++11 and static; the noinit plant fails (300 failures) | `wp5-conformance.log` |
+| full corpus, full build | 702 rows, four builds (C++17, C++14, C++11, static): ffi 680/0, native 696/0, 6 disputed (excluded), 16 roots not in the C ABI; 2808 (row, arm) outcomes identical across the four builds; retain arms write the dropped form only on `U-map-entry`; plants proj/reenc/accept/noinit fail; `--compare` sees a planted difference | `wp5-corpus.log` |
+| decision 11 controls | four builds: 686 rows, 2290 positions, 0 failing rows (pool = retain, drop = retain cleared, each position zeroed drops exactly it, map-entry bytes right); the plant fails 307 rows | `wp5-corpus.log` |
+| oracle-probe rows | 11/11 on all four arms, C++17 and C++11 | `wp5-probe.log` |
+| byte audit | native and ffi identical in outcome and bytes on 213 of 213 rows against the retired harness (`aba944a`) | `wp5-bytes.log` |
+| boundary, layout | 23 checks, 0 failed; 574 corpus layout facts agree, shared and static | `wp5-boundary.log` |
+| other gates | groupskip (with its two plants failing), concurrency (T7 off; the planted cores fail), ODR, bench gates and the gate plant, content sets, crossing counts 87 rows identical to `counts-baseline.log`, RPC counts | `wp5-gates.log` |
+| no-unknown build | every variant binary loads a core with 0 u-family exports, every full one a core with them; both headers against both cores (matched agree, mismatched caught); 478 checks, 0 failures at C++17, C++11 and static (240 layout facts); corpus C++17 and C++11: ffi 680/0, native 696/0, 0 unknown rows written non-dropped, outcomes identical; plants fail; 87 count rows identical to `counts-nounk-baseline.log` | `wp5s10-nounk.log` |
+| ASan + LSan | full build: conformance 574/0, decision 11 controls 0 failing rows, corpus green; no-unknown build: conformance 478/0, corpus green with every unknown row dropped; 0 sanitizer reports | `asan.log` |
 
-Not done or not established:
-- Requirement 10 is met for the codec suite; the RPC suite's core cell decodes in drop mode.
-- Retained bags are copied from the core's buffer into `std::string` (the facade type);
-  Rust adopts the allocation. Priced nowhere yet.
-- Rule 5 (a buffer above 2 GiB -> AK_ERR_LIMIT) is not exercised.
-- The two `ak_dec_reset_<Root>` calls of an armed decode are not in the core's counters.
-- `gen/wp5_gate.sh`'s build-failure print used `tail -30` (invalid with two files); fixed
-  after the gated commit (`tail -n 30`); it only affects the failure path.
-- The first gate attempt failed on a full disk (my old snapshots); freed, re-run green.
+**Decision 11, as the owner confirmed it** (ABI-v1 rule 4 amended 2026-09-26): there is one
+options entry per oneof, and the core fills it in the active member's decode group. The
+binding takes the active message member's slot into that member's bag and frees any other
+member's non-NULL slot. This is unchanged by the amendment.
 
-## Previous work unit (2026-09-25): FIX-PLAN WP3, the campaign harness (design/CAMPAIGN.md)
+## Crossing counts (R5; counts, not timings)
 
-**Campaign-ready, with the exceptions listed as `not met` in the checklist below.**
-Smoke run in this container (4 vCPU Xeon @ 2.80 GHz, no isolation, no governor control,
-no perf): 1 launch, 1 round, reduced sizes, CLIENT = 0,1, SERVER = 2,3, commit `32d69b0`,
-clean tree. Logs in `ffi/logs/cpp/campaign/`, every header marked `"instrumentation": true`.
-**No figure in them is a result** (README 1.1); they show the harness runs.
+- **Full build, drop mode:** `logs/cpp/counts-baseline.log`, 87 rows. This is the gate's
+  reference, re-taken once when decision 11 enlarged the decode groups. The reason is in
+  its header, and the stop it caused is in `logs/cpp/wp3-gate-count-stop.log`.
+- **No-unknown build:** `logs/cpp/counts-nounk-baseline.log`, 87 rows. It differs from the
+  full build in one row only: **P1.2 decode reverse, 8 in the full build, 5 without
+  unknown-field support**. Each decode group is 16 bytes smaller without the `ak_unk_buf`
+  slot, so the 1,000-element run arrives in fewer arena chunks.
+- **Retain and pool decodes on the payloads** (`AK_COUNTS_RETAIN=1`, in `wp5-gates.log`):
+  the same counts as drop, since the payloads carry no unknown field. The two
+  `ak_dec_reset_<Root>` calls of an armed decode are forward calls that the core's counters
+  do not see.
+- **RPC delivery counts:** `logs/cpp/rd2-rpccounts.log`, from a `rpc,count` core. Blocking
+  2/0, callback 3/1, queue 4/0 forward/reverse per call, counting `ak_call_destroy`.
+  `wp5-gates.log` re-runs `rpccounts`.
 
-What exists:
+## Timing logs in the tree (instrumentation only)
 
-```
-gen/run_campaign.sh --suite codec|rpc|calib|gate --out <dir>   the runner (requirement 31)
-  reads AK_CPU_CLIENT / AK_CPU_SERVER (required, disjoint, no shared SMT sibling, one NUMA
-  node), refuses a dirty tree (AK_CAMPAIGN_ALLOW_DIRTY=1 for smoke only, recorded), runs the
-  gate before any suite (once per commit+build: <out>/gate.ok), writes one header line and
-  one JSON object per sample per file, one file per suite and launch
-src/campaign_codec.cpp   codec suite: incumbent-prod (grpc++ SerializationTraits),
-  incumbent-best (SerializeToString/ParseFromString), core-ffi (drop; retain hook), host-gen
-  (drop, retain); encode / decode / decode_read (gen/cpp_touch.py's generated traversal);
-  16 payloads + Latin-1 and wide on P1.2, P2.2, P3.1, P4.1, P6.1 + 92 corpus U-* rows at the
-  seven roots the timed codec implements (excluding disputed); its own byte/fold gate before
-  round 1 (AK_CAMPAIGN_PLANT=1 must fail it); rotated rounds; CLOCK_THREAD_CPUTIME_ID + wall
-src/campaign_server.cpp  the RPC server, its own process: pre-serialised P2.2 for Fetch,
-  Push decoded with grpc++'s SerializationTraits (identical for every cell)
-src/campaign_rpc.cpp     the RPC client: cells A-D, directions a (empty -> P2.2) and b
-  (P2.2 -> empty), 1/8/16 in flight, shipped|pinned for BOTH transports, B and C blocking,
-  every call checked (abort, exit 3), getrusage(RUSAGE_SELF) + wall, rotated rounds
-src/campaign_calib.cpp   ak_noop forward and ak_noop_reverse (fwd+rev) loops; the runner
-  wraps them in perf stat when perf exists and runs the rust slice's crossing bench
-gen/campaign_summary.py  requirement 30's summaries only (median/min/max per iteration,
-  per-round ratio to incumbent-prod or cell A)
-proto/shapes_svc.proto   + Push(ListTasksDetailedResponse) returns (Empty)
-logs/cpp/counts-baseline.log  the gate's crossing-count baseline (see below)
-```
+These logs exist and are committed raw. They were taken in containers: two machines, a
+4 vCPU Xeon at 2.80 GHz and another at 2.10 GHz, with no isolation and no governor
+control. Most predate the port to the shared plan, decision 11, `init-guard` and the
+facade's `unknown_fields` member, and none was re-taken after those changes. They are
+listed so that nobody re-derives them. **No figure from them is quoted here.**
 
-**The gate stopped the first smoke, and it was right** (`logs/cpp/wp3-gate-count-stop.log`):
-P1.2 decode reverse crossings 5 -> 8 against the pre-decision-11 `counts.log`. Every decode
-group gained `unknown: ak_unk_buf` (29d515e), `ak_dfix_ResultRaw` three times (itself and
-two inlined Timestamps), so fewer groups fit the 32 KB arena and the 1,000-element run
-arrives in more chunks. `counts-baseline.log` is the deliberate re-baseline with that reason
-in its header; nothing else moved (86 of 87 rows identical).
+- `bench_*.log`, `drift.log`, `tax.log`, `opt.log`, `c16.log`, `c24-timing.log`,
+  `utf8.log`, `contentsets.log`, `w10-one-core.log`: the pre-campaign codec bench and its
+  controls (2.80 GHz).
+- `upb.log`, `upb-fasttable.log`: the upb v25.3 ceiling arm (2.80 GHz).
+- `rpc.log`, `rpcflow.log`: the pre-campaign RPC grid and the flow-control probe (2.10
+  GHz). They were taken before the 6-field `ak_client_opts` existed (`rd2-history.log`).
+- `calibration-r13.log`: the rust slice's crossing bench on the 2.80 GHz container.
+- `campaign/*.jsonl`, `campaign/*.gbench.json`: campaign smoke runs.
+  - `codec-*`, `rpc-*`: 2 launches, 1 round, reduced sizes, both builds, at `9bb622d`.
+    Every timing is stripped (`"figures": "stripped (smoke)"`).
+  - `calib-launch1.jsonl`: the WP3 smoke at `32d69b0`, marked `"instrumentation": true`.
 
-Smoke results (correctness, the only kind reported): gate green -- payload set 476/0 at
-C++17/17-floor/14/11/static; corpus (702 rows) ffi 680/0 and native 696/0 at C++17 and
-C++11; controls proj/reenc/accept/noinit fail; 87 count rows equal to the baseline; the
-codec binary's gate 118 groups / 1305 slots 0 failed and its plant 166 slots failed; a wrong
-RPC response length aborts. Suites: codec 1305 samples, rpc 48 (24 per transport), calib 2.
-Runner refusals (overlap, missing set, dirty tree): `logs/cpp/campaign/runner-controls.log`.
-
-### Requirement 22a (owner, 2026-09-25): the codec suite on Google Benchmark
-
-`campaign_codec` keeps its in-process gate, the gate's plant and the identical warm-up.
-Its timing is now one Google Benchmark per slot, named `arm|payload|content|dir|unknown_mode`:
-- fixed `Iterations` per group, from the byte budget as before, with `Repetitions` =
-  `AK_CAMPAIGN_ROUNDS`;
-- `ReportAggregatesOnly(false)`, so every repetition is a raw row;
-- `--benchmark_enable_random_interleaving`, so repetitions are interleaved across all
-  benchmarks, and the registration order is rotated by launch;
-- `DoNotOptimize(fold)` and `ClobberMemory()` every iteration;
-- `cpu_time` is Google Benchmark's default CPU timer (the benchmark thread), with
-  `real_time` as wall beside it.
-
-`gen/gbench_to_jsonl.py` converts the JSON (run_type "iteration" only) into section 7's
-lines, as `cpu_ns = cpu_time x iterations` and `round = repetition_index`. The raw
-`codec-launchN.gbench.json` is committed beside the converted lines. The per-iteration
-call goes through a `std::function`, which costs the same for every arm (stated).
-
-Google Benchmark is a **Release build of v1.8.3**. The runner builds it from the upstream
-tag, checks the tag's commit (344117638c8f) and passes it as `-Dbenchmark_DIR`; CMake
-requires exactly 1.8.3. Apt's `libbenchmark-dev` is no longer used, because it reports
-`library_build_type: debug`. Every codec log prints the version in its header and
-Google Benchmark's own `library_build_type: release` in its context line. The smoke at
-833ea32 shows both.
-
-Checklist deltas: **21** codec CPU time = Google Benchmark `cpu_time` (thread) + `real_time`;
-**22** interleaving = Google Benchmark's random interleaving of repetitions + rotation by
-launch (blocks allowed); **22a** met for codec; RPC and calib stay on the runner, because a
-separate server process and abort-on-first-failure do not fit a Google Benchmark
-registration cleanly; **23** repetitions reported raw; **24** warm-up is still this
-binary's identical per-arm budget (`--benchmark_min_warmup_time=0`, so Google Benchmark
-adds none). Everything else unchanged.
-
-### Section 10 checklist
+## CAMPAIGN.md section 10 checklist
 
 | # | Requirement | Status |
 |---|---|---|
-| 1 | one machine, slices sequential | **met** on the runner's side (suites run one after another, nothing concurrent); the machine is the owner's |
-| 2 | governor, turbo, SMT | **met (recorded)**: header reads scaling_governor, intel_pstate/no_turbo, cpufreq/boost, smt/active; the runner does not set them (owner) |
-| 3 | isolation | **met (recorded)**: /sys/.../isolated, isolcpus/nohz_full on the cmdline, the runner's cpuset |
-| 4 | three disjoint CPU sets, one NUMA node, no shared SMT siblings, parameters | **met**: AK_CPU_CLIENT/AK_CPU_SERVER required, overlap / SMT sibling / NUMA span refused; the OS set is "everything else" and not checked |
-| 5 | floors gated, no timing | **met**: C++11 and C++14 conformance, C++11 corpus in the gate |
-| 6 | build flags printed | **met**: flags from the build, shared linkage, LTO off, core features (init-guard[,rpc]) |
-| 3 (table) | incumbent at gRPC v1.54.0 and a current version | **not met here**: the container has grpc++ 1.51.1 / protobuf 3.21.12 only. The runner builds against another install with AK_INCUMBENT_PREFIX; the owner provides the two prefixes |
-| 7 | 16 payloads, content sets, U-* rows | **met**, with a reading to confirm: content sets on P1.2, P2.2, P3.1, P4.1, P6.1 (SHAPES.md names no payload list; this is the committed content-set gate's); U-* rows at the seven roots the TIMED codec implements (92). Rows at other corpus roots are implemented only by the corpus build, a different ABI that is not a timed configuration |
-| 8 | arms | **met**: incumbent-prod, incumbent-best, core-ffi (push), host-gen; pull: not in this slice; Rust-only arms n/a |
-| 9 | encode, decode twice | **met**: decode and decode_read |
-| 10 | three modes (drop, retain, no-unknown) for core-ffi and host-gen | **met (WP5 steps 9-10)**: codec suite core-ffi drop and retain (full binary) and no-unknown (`campaign_codec_nounk`, ak-core without `unknown-fields`); host-gen drop and retain (its drop is the drop plan's rendering, no capture code, and runs in the no-unknown binary as a `drop` control); every sample carries `unknown_mode` and `build` |
-| 11 | serialise once per iteration, fresh object | **met**: decode into a fresh object every iteration; protobuf C++ recomputes ByteSizeLong on every Serialize (no memo) |
-| 12 | cells A-D, C and D per unknown-field mode | **met**: full client A, B, C-retain, C-drop, D-retain, D-drop; no-unknown client A, B (in-process controls), C-nounk, D-nounk; order alternated by launch; pre-run check against the incumbent in every C/D mode |
-| 13 | server out of process, pre-serialised | **met** (direction a); direction b's server decode is the incumbent's in every cell |
-| 14 | directions a and b | **met**; the optional streamed upload is not built |
+| 1 | one machine, slices sequential | **met** on the runner's side: suites run one after another and nothing runs concurrently. The machine is the owner's |
+| 2 | governor, turbo, SMT | **met (recorded)**: the header reads scaling_governor, intel_pstate/no_turbo, cpufreq/boost and smt/active. The runner does not set them (owner) |
+| 3 | isolation | **met (recorded)**: `/sys/devices/system/cpu/isolated`, isolcpus/nohz_full from the kernel cmdline, the runner's cpuset |
+| 4 | three disjoint CPU sets, one NUMA node, no shared SMT siblings, parameters | **met**: AK_CPU_CLIENT and AK_CPU_SERVER are required; overlap, a shared SMT sibling and a NUMA span are refused (`campaign/runner-controls.log`). The OS set is "everything else" and is not checked |
+| 3 (table) | incumbent at gRPC v1.54.0 and at a current version | **not met here**: this container has grpc++ 1.51.1 / protobuf 3.21.12 only. The runner builds against another install through AK_INCUMBENT_PREFIX, but no such install exists here. The owner provides the two prefixes |
+| 5 | floors gated, no timing | **met**: the C++11 (and C++14) conformance and the C++11 corpus in the gate, for the full build; C++11 conformance and corpus for the no-unknown build |
+| 6 | build flags printed | **met**: flags from the build, shared linkage, LTO off, core features, and the build variant (full or no-unknown) in every header |
+| 7 | 16 payloads, content sets, U-* rows | **met**, with one reading to confirm. Content sets run on P1.2, P2.2, P3.1, P4.1 and P6.1; SHAPES.md names no list, so this is the committed content-set gate's. The U-* rows are the 92 non-disputed rows at the seven roots the timed codec implements. Rows at other corpus roots are implemented only by the corpus build, a different ABI that is not timed |
+| 8 | arms | **met**: incumbent-prod (grpc++ SerializationTraits), incumbent-best, core-ffi (push), host-gen. The pull family is not in this slice. The Rust-only arms are not applicable |
+| 9 | encode, decode twice | **met**: `decode` and `decode_read` (the generated read-every-field traversal) |
+| 10 | three modes for core-ffi and host-gen | **met** for core-ffi: drop and retain in `campaign_codec`, no-unknown in `campaign_codec_nounk`. host-gen: drop and retain. Its drop codec is already the drop plan's rendering, with no capture code, in both builds, so it has no separate no-unknown arm and runs in the no-unknown binary as a `drop` control. Every sample carries `unknown_mode` and `build` |
+| 11 | serialise once per iteration, fresh object | **met**: decode goes into a fresh object every iteration, and protobuf C++ recomputes ByteSizeLong on every Serialize |
+| 12 | cells A-D; C and D in each mode | **met**: the full client runs A, B, C-retain, C-drop, D-retain and D-drop; the no-unknown client runs A and B (in-process controls), C-nounk and D-nounk. A pre-run check in every C/D mode compares the decoded and re-encoded message with the incumbent's re-serialisation |
+| 13 | server out of process, pre-serialised | **met** for direction a. In direction b the server decodes with the incumbent in every cell |
+| 14 | directions a and b | **met**. The optional streamed upload is not built |
 | 15 | 1, 8, 16 in flight | **met** |
-| 16 | B and C blocking | **met**; callback/queue rows exist only in the older rpcbench, not in the campaign binary |
-| 17 | shipped and pinned | **met**, stated: grpc++ shipped = packages/cpp's channel args minus its retry service config; grpc++ pinned has no connection-window argument (C31); core shipped = ak_client_new defaults |
-| 18 | every call checked | **met**: status + length per call (cell A: content per call, wire length once before the rounds), abort on first failure; control in the gate |
-| 19 | crossing counts gate | **met**: counts_a17_shared against logs/cpp/counts-baseline.log, and counts_nounk against logs/cpp/counts-nounk-baseline.log (differs from the full drop counts only in P1.2 decode reverse 8 -> 5) |
-| 20 | crossing cost, fwd and rev, perf stat | **met on a machine with perf**; here perf is absent (recorded) and the rust slice's bench did not build in the out-of-tree snapshot (it lacks `poc/rust/crates`); reverse is reported as the fwd+rev row, from which the aggregator subtracts the forward row |
-| 21 | CPU time | **met**: Google Benchmark cpu_time (thread) + real_time (codec); CLOCK_THREAD_CPUTIME_ID (calib); getrusage(RUSAGE_SELF) of the client + wall (RPC) |
-| 22 | interleaved, rotated | **met**: codec by Google Benchmark random interleaving + launch rotation; RPC by rotated rounds |
-| 23 | 5 rounds x 3 launches, every round committed | **met** (runner defaults) |
-| 24 | warm-up fixed and identical | **met**: a byte budget per codec arm, a call count per RPC cell, before round 1; JIT n/a |
-| 25 | allocator warmed identically | **met** (every arm's warm-up precedes round 1); GC n/a |
-| 26 | correctness gate first | **met**: the campaign gate includes gen/nounk_gate.sh (the no-unknown build's own byte identity, corpus with every unknown row dropped, core-per-binary check, counts) and the nounk codec binary's gate and plant |
-| 27 | header; dirty tree refused | **met** |
-| 28 | one JSON object per sample | **met** |
-| 29 | logs in ffi/logs/cpp/campaign/ | **met** (smoke there) |
-| 30 | summaries only as specified | **met** (gen/campaign_summary.py; not run into a committed file) |
-| 31 | runner interface; top-level ffi/campaign.sh | **met** for the slice runner; `ffi/campaign.sh` is outside this slice (aggregating session) |
-| 32 | smoke run committed, marked | **met**: the WP5 step 10 smoke (2 launches, 1 round, both builds) is committed with figures stripped |
-
-## Previous work unit (2026-09-24, fourth): WP5 tail, D38 and D39
-
-Against core and generator at `41eb485` (plan consolidation: `c_abi.py` is the one C header
-backend, `MAX_FIELD_NUMBER = 2^29-1`, `GROUP_DEPTH_LIMIT = 100`). The aggregating session had
-already switched this slice's `generate.py` from `cpp_abi` to `c_abi`.
-
-| item | what was wrong | fix | evidence |
-|---|---|---|---|
-| **D38** | `Dec::skip_group` checked only `t == 0` and narrowed `k >> 3` to 32 bits, so a key above 2^29-1 inside a skipped group was accepted (the generated decoders already refused it at message level) | refuse `(k >> 3) > MAX_FIELD_NUMBER` with `ERR_MALFORMED` before narrowing; `MAX_FIELD_NUMBER` and `MAX_GROUP_DEPTH` now come from `include/generated/ak_rules.h` (`AK_MAX_FIELD_NUMBER`, `AK_GROUP_DEPTH_LIMIT`), rendered from `plan.py` by the new `cpp_native.emit_rules`. `c_abi.py`/`plan.FIXED` do not carry these constants, so they are in a header of their own rather than in `ak_abi.h` | before: native-drop and native-retain fail `P-field-maxplus1-in-group` (C4 accepted), ffi passes (`d38-probe-before.log`, the pre-fix binary). After: 11/11 on all four arms at C++17 and C++11 (`wp5-probe.log`) |
-| **D39** | `wp5_gate.sh` never built, so it could gate binaries older than the sources it named | the gate runs `generate.py`, `cmake` configure and a full build (every core via cargo) and then compares every gated binary's mtime with the newest C++/Rust input, refusing to continue on any stale one; `CLEAN=1` deletes the build dir first | control `AK_GATE_NO_BUILD=1` on the pre-fix build: 24 binaries STALE, nothing gated, exit 1 (`d39-stale-refusal.log`); the real run: clean build, 47 executables linked, freshness ok (`wp5-build.log`) |
-
-Re-gate from a clean build (`CLEAN=1 gen/wp5_gate.sh build`, commit `fd3ec1a`; the log header
-says "+ uncommitted changes in poc/codec" because of the csharp agent's working-tree edits to
-`cs_binding.py`/`cs_managed.py`, which nothing in this build compiles): every step green.
-Corpus is 702 rows now (the corpus grew); ffi-drop/-retain 680 pass 0 fail, native-drop/
--retain 696 pass 0 fail, 6 disputed, 16 Nest rows not in the C ABI; outcomes identical across
-C++17/14/11/static (2808). Probe manifest (`poc/rust/gen/probe_corpus.py`, 11 rows): 11/11 x4.
-
-## Previous work unit (2026-09-24, third): FIX-PLAN WP5 step 2, the C++ backend on the plan
-
-Machine: 4 vCPU Intel Xeon @ 2.10 GHz container, g++ 13.3.0, rustc 1.94.1, protobuf
-3.21.12 and grpc++ 1.51.1 (apt). **No timing was taken**: every bench and content-set
-binary ran gate-only, the concurrency suite without T7, and nothing below is a figure.
-Gated at `882112c` (commit + the gate script itself, which is in the log commit).
-
-### What exists now
-
-```
-poc/codec/gen/  (the SHARED generator; these five import `plan` and nothing from the IR)
-  cpp_abi.py      include/ak_abi.h and the layout tables: groups from plan.group_fields /
-                  ugroup_fields / presence_bits, vtables from loop_slots / slot_elem /
-                  vtable_messages, entry points from direct_fields / element_types; the
-                  layout facts from cpp_layout.facts; section 9 from plan.rpc (handles,
-                  ak_bytes, ak_completion, ak_client_opts, AK_QUEUE_*, every prototype);
-                  section 3 from plan.lifecycle (ak_init, ak_init_opts)
-  cpp_native.py   core-native-cpp: MessagePlan.encode rendered step by step, MessagePlan
-                  .decode as a `switch` on the (number << 3 | wire) key; drop and retain are
-                  two outputs of one renderer; depth limit, UTF-8 policy (reject), tag 0,
-                  merge of a repeated singular / same-member oneof message, packed_one at
-                  the kind's own wire type only -- all the plan's. utf8="lossy" RAISES
-  cpp_binding.py  core-ffi (moved from gen/): group fills and span materialisers over the
-                  plan's layout functions; ak_init_once() from plan.lifecycle, called by
-                  every encode_into_* / decode_with_*; optional retain family
-                  (encode_into_*_unk over ak_ufix / ak_uencode / ak_uelem*, decode_with_*_unk
-                  with the unknown-capture callbacks), rendered for the corpus
-  cpp_facade.py   the facade (moved from gen/); every struct carries `unknown_fields`;
-                  a recursive field (`FieldPlan.recursive`, the corpus's Nest) is ak::Box
-  cpp_names.py    spellings (moved from gen/cppnames.py); C_OF maps the plan's abi types
-
-poc/cpp/gen/  (glue only)
-  generate.py     renders shapes/ and corpus/ from plans; --check = drift + the import guard
-                  over the five shared modules and this directory's glue (+ a planted miss)
-  cpp_build.py, cpp_pbbuild.py, cpp_cases.py, cpp_project.py   payload builders, arm table,
-                  CONTRACT.md section 3 projection -- read FieldPlans, no IR
-  corpus_all.py   the full corpus: one child per row under a timeout, four arms, C1-C4,
-                  forms, disputes, retention gaps, --record/--compare across builds, plants
-  wp5_bytes.py    before/after byte audit; wp5_gate.sh the gate; refusal_test.py on plans
-  cpp_header.py   a forwarding name only (the python slice's COMMITTED generator imports it)
-poc/cpp/corpus/   generated facade, native (drop, retain), binding, header, projection and
-                  dispatch for the corpus reader schema; corpus_main.cpp / corpus_harness.h
-                  (hand-written glue: run an arm, print JSON)
-```
-
-Retired: `gen/cpp_core.py` (its own decode/encode rules), `gen/cppnames.py`,
-`gen/cpp_facade.py`, `gen/cpp_binding.py` (moved), `gen/corpus.py` + `src/corpus.cpp` (the
-213-row subset harness), `gen/lenwrap_rows.sh` (its rows run per process in the full
-corpus now), the `conformance_a17_lossy` / `bench_a17_lossy` targets (the UTF-8 policy is a
-plan option rendered into the core and the native codec, not a host build switch).
-`include/ak/rt.h` gained `fixed32` read/write, `f64_raw`, `f64_bits` (the plan's bit test);
-`include/ak/vocab.h` gained `ak::Box` (a new type; no existing type's layout changed).
-
-### What was checked (each with its log)
-
-| gate | result | log |
-|---|---|---|
-| `gen/generate.py --check` | every target current; guard: 5 shared C++ modules import plans only, glue imports no IR, planted import caught | `campaign/gate.log`, `campaign/{codec,rpc,calib}-launch1.jsonl` | the WP3 smoke: 1 launch, 1 round, reduced sizes, commit 32d69b0, headers marked instrumentation | the campaign harness runs; the gate passes; **no figure is a result** |
-| `campaign/runner-controls.log` | run_campaign.sh with overlapping / missing CPU sets and a dirty tree | each refused before anything runs |
-| `wp3-gate-count-stop.log` | the first smoke's gate | requirement 19's stop on P1.2 decode reverse 5 -> 8 (decision 11's layout) |
-| `counts-baseline.log` | counts_a17_shared at 60f7661 (core 29d515e) | the gate's count baseline, with the reason for its one difference in its header |
-| `wp5-build.log` | D39: generate, clean configure + build, mtime freshness of every gated binary | the gated binaries are the tree's; refused otherwise |
-| `d39-stale-refusal.log` | the same step with `AK_GATE_NO_BUILD=1` on the pre-fix build | the freshness check refuses 24 stale binaries (the D39 control) |
-| `wp5-probe.log` | the rust slice's oracle-probe manifest, four arms, C++17 and C++11 | D38 after: 11/11 on every arm |
-| `d38-probe-before.log` | the probe manifest through the pre-fix `corpus_all_a17` | D38 before: native-drop and native-retain accept `P-field-maxplus1-in-group` |
-| `wp5-generator.log` |
-| `poc/codec/gen/generate.py --check` | green (the shared core this slice gates) | `wp5-generator.log` |
-| `refusal_test.py` | 17 of 17 refused / emitted as required, incl. `cpp_native` on `utf8="lossy"` (must raise) | `wp5-generator.log` |
-| `rd2_guard.sh` | header at C++11/14/17, four RPC sources compile; plant A (field dropped) and plant B (a seventh field added to `plan.rpc`) refused | `wp5-generator.log` |
-| payload set, byte identity vs `manifest.json` | **476 checks, 0 failures** at C++17 target, C++17 floor, C++14, C++11, static (core with init-guard) | `wp5-conformance.log` |
-| planted: binding skips ak_init | `conformance_a17_noinit` **fails** (205 of 476 checks: every ffi arm), so init-guard is in the core and the binding's call is what passes | `wp5-conformance.log` |
-| full corpus, 691 rows, 4 arms | ffi-drop and ffi-retain **672 pass, 0 fail**, 3 disputed, 16 not in the C ABI (Nest); native-drop and native-retain **688 pass, 0 fail**, 3 disputed; at C++17, C++14, C++11 and static; 0 hangs or crashes | `wp5-corpus.log` |
-| across builds | 2764 (row, arm) outcomes, C++17 vs C++14 vs C++11 vs static: **0 differ** (the `--compare` control, a planted re-encode, differs) | `wp5-corpus.log` |
-| controls, each must fail | on a 96-row subset (`S-Probe`, `U-root`, `X-lenwrap-lrr`, `E-map`, `T-dec-root`, `U-wire-MetricsBatch`): `proj` 156, `reenc` 156, `accept` 228 arm-row failures; `noinit` 78 ffi arm-row failures (-10), 0 native | `wp5-corpus.log` |
-| byte audit, before vs after | the retired harness at `aba944a` against the new arms, one process per row: **native and ffi identical outcome, refusal code and bytes on 213 of 213 rows**; 0 changes | `wp5-bytes.log` |
-| boundary | `boundary.sh` 23 checks 0 failed; corpus core's **542 layout facts** = the corpus header's, shared and static | `wp5-boundary.log` |
-| other gates | groupskip 0 wrong builds; concurrency all expectations met (planted cores fail); ODR ok; bench gate-only 0 arms failed x5 and the gate plant refuses (exit 1); content sets 95 checks 0 failures; crossing counts identical to `counts.log` line for line; RPC counts 2/0, 3/1, 4/0 with the binding's ak_init | `wp5-gates.log` |
-
-**The corpus's four arms match the rust slice's WP5 run row for row**: the same pass counts
-per class, the same forms written, the same three disputed rows, and ffi-retain writes the
-unknown-DROPPED form on the same 17 rows (`U-deep-*`, `U-leaf-*`, `U-map-entry`: an inlined
-child's unknowns, D34, and map entries), native-retain on `U-map-entry` only.
-
-**Byte changes**: none on the payload set and none on the 213 rows the old harness reached.
-The rule fixes the port brings -- a packed field's unpacked form at a foreign wire type is
-now an unknown field (R-E2, was read as the kind; C35), a repeated singular message and a
-repeated same-member oneof message now MERGE (R-E4, were replaced), `-0.0` is written by
-bit test (R-E3), a tag 0 inside a map entry is refused, a message depth limit (100) exists,
-`fixed32` exists -- change no byte on any row the old harness could root. The rows that
-exercise them (`U-wire-MetricsBatch-*`, `U-wire-ChunkInner-*`, the Nest depth rows, WireZoo)
-root at messages the old C++ codec was never generated for, so they have no "before"; they
-pass now. That is an absence of evidence about the old rules on those rows, not evidence
-the old rules were right.
-
-### Plan and shared-tree gaps (for the aggregating session; not decided here)
-
-1. **`plan.lifecycle` names but does not define** `ak_err` (the core has `{i32 code; u32
-   detail}`, ABI-v1.md section 5 has `{int32 code; uint32 msg_len; const char *msg}`), the
-   `ak_log_fn` signature, and the numeric values of `AK_INIT_*`. `cpp_abi.py` states them
-   as fixed text matching `ak-abi/src/lib.rs`, pinned by `sizeof` asserts. The ABI-v1 vs
-   ak-abi `ak_err` difference is a fact for the owner.
-2. **`plan.rpc` lacks the counting build's RPC counters** (`ak_rpc_counting`,
-   `ak_rpc_counters`, `ak_rpc_counters_reset`, `struct ak_rpc_counters`), so
-   `src/rpc_common.h` still hand-declares those four (and nothing else).
-3. **Section 4/5 fixed vocabulary and exports** (`ak_str`, `ak_span`, `ak_blob`, `ak_uspan`,
-   callback types, context lifetime, transcoders, counters, `ak_noop`) and the packed-run
-   symbol list (`ak_run_i32/i64/f64/u8`) are not in the plan; both `rust_abi.py` and
-   `cpp_abi.py` state them as text.
-4. **Field numbers above 2^29 - 1** (a key whose `k >> 3` exceeds 32 bits) are not ruled by
-   the DECODE RULES. `cpp_native.py` truncates to `uint32_t` as `rust_native.py` does, so
-   the two agree; neither refuses as protobuf does.
-5. **`utf8="lossy"`** has no C++ native rendering (U+FFFD substitution into `std::string`);
-   the backend raises. The binding's `s_of` still re-validates a span through
-   `ak::decode_str` after the core already did (defence in depth, never fires under reject),
-   as `rust_binding.py`'s does.
-6. **`rust_core.py` could not be deleted** without editing files this slice may not:
-   `poc/codec/gen/generate.py` lists it in `BACKENDS` (its guard `open()`s it: `--check`
-   would raise), `poc/codec/gen/one_core.sh` lists it, and `poc/rust/gen/corpus_before.py`
-   imports it. Nothing generates through it any more.
-7. **The five shared C++ modules are not in `generate.py`'s `BACKENDS`**; this slice's
-   `--check` runs the same guard over them until they are added.
-8. **`one_core.sh --selftest` fails before planting anything**, independent of this work:
-   its scratch copy holds `ffi/poc` and `ffi/schema` only, and since WP5 step 1 the shared
-   `generate.py --check` also loads `ffi/corpus`. A scratch copy that includes `ffi/corpus`
-   passes (`wp5-generator.log`).
-9. `refusal_test.py`'s B2/B3 (unpacked repeated enum, repeated double) now raise in
-   `plan.lower` ("no plan for ..."), before any backend sees them, so the per-backend rows
-   for those two shapes test the plan, not the backend.
-
-## Previous work unit (2026-09-24, second): R-D5 (C++ half) and R-D7
-
-Machine: 4 vCPU Intel Xeon @ 2.10 GHz container, g++ 13.3.0, protobuf 3.21.12 (apt, already
-present). **No timing was taken or reported**: the bench and content-set gates were run
-with `AK_BENCH_GATE_ONLY=1` / `AK_CS_GATE_ONLY=1`, the concurrency suite with
-`AK_CONC_NO_T7=1`, three switches added for that. The one exception is deliberate and
-labelled: `rd5-before.log` and the last block of `rd5-gate.log` run the planted bench in
-timing mode on P1.1 for one round, to show that before the fix a refused arm got a row and
-after it does not. Those figures are instrumentation.
-
-**The core is a snapshot.** `git archive 817174f ffi/poc/codec` into scratch, configured
-with `-DAK_CORE_ROOT=<snapshot>/ffi/poc/codec -DAK_CORE_TGT=<scratch>/core-tgt` and an
-out-of-tree build directory. The codec tree at `817174f` is the one last changed in
-`6ede244`, the core every earlier gate of the day ran against. Every log header names it.
-The in-tree `build/` was NOT rebuilt and is stale against these sources: rebuild it
-before running any script with its default `B=./build`.
-
-### R-D5: `ffi-valtc` was timed and gated nowhere. Confirmed and fixed
-
-Confirmed (`rd5-before.log`): at `817174f` the committed `conformance.log` contains no
-`valtc`, `conformance.cpp` never builds the validating transcoder, `contentsets.cpp`
-builds it only for the timed lambda, and `bench.cpp` sinks every arm's return code. The
-same plant as the new fixture (a validating transcoder that refuses every string), applied
-to the bench as committed and nothing else: the refused encode got a P1.1 row at about
-0.16 of protobuf and the process exited 0.
-
-Fixed:
-- `conformance.cpp` `run_case`: `ffi-valtc` rc (and `ak_enc_take`, `ak_enc_err`) and sha
-  against the manifest on every payload. Plus, in the malformed-UTF-8 block: `ffi`
-  (spec transcoder) must ACCEPT the bad string on encode and write the native bytes;
-  `ffi-valtc` must refuse it with `AK_ERR_TRANSCODE` (it does: rc -6, take -6, err -6);
-  a good encode on the same context after `ak_enc_reset` must succeed. That last pair is
-  what shows the validating arm is running its check, not the same arm under a second name.
-  **476 checks, 0 failures** at C++17 target, C++17 floor, C++14, C++11 and static; **474**
-  for the lossy build (443/441 before: 15 payloads x 2 + 3).
-- `contentsets.cpp`: `ffi-valtc` byte identity per payload per set, **95 checks** (80 + 15).
-- `bench.cpp`: every arm carries a `gate` (the pb arms against `wire`, the codec arms
-  against the manifest sha, decode arms by rc and value equality, `ffi-borrow` by its
-  re-encode, which used to run AFTER timing). `gate_arms` runs them once before
-  calibration, removes a failing arm (and an arm with no gate), and main exits 1.
-  `bench_a17_gateplant` is the planted fixture: 14 of 15 payloads' `ffi-valtc` refused
-  and not timed, exit 1; **P1.3 passes under the plant because it carries no present
-  string** (a transcoder that is never called cannot fail). Real benches, gate only:
-  `bench_a17_shared`, `bench_a17_static`, `bench_c11_shared`, 0 arms failed.
-
-### R-D7: the concurrency plants never reached the core. Confirmed and fixed
-
-Confirmed (`rd7-before.log`, the HEAD tree built unchanged): the plants were `AK_CONC_*`
-defines in `include/ak/rt.h` and every planted binary linked `core-build/target/release`,
-the UNPLANTED core; `ffi 0` and `ffi-hosttc 0` in every row of both must-fail builds.
-Also confirmed: `roundtrip` decoded through the core and RE-ENCODED WITH `ak::Enc`, so it
-was the planted native encoder observed a second time (native N = roundtrip N in every
-row), and the T6 labels were typed strings that no longer matched the table
-(`g_shapes` is P1.1, P1.3, P1.2, P2.2 since T0; "P1.2 alone" was P1.3 alone, "P1.1 +
-P1.2" was P1.1 + P1.3).
-
-Fixed: CMake builds three planted cores from the shared crate's existing test-only
-features (`pad-widths`, `global-widths`, both); `conc_a17_pad`, `_global` and `_both`
-plant `ak::Enc` by define AND link the matching planted core; `conc_a17_corepad` plants
-the core alone. `roundtrip` is now a decode check (value equality with the built object)
-and T4's poisoned threads use a separate `accepts`, so each counter is one distinct
-operation. The T6 labels are built from the table. The binary prints a whole-run line per
-encoder and `gen/concurrency.sh` requires, per build, which encoder must be wrong and
-which must not (and `decoder 0` everywhere). `concurrency.log`, all expectations met:
-
-| build | distinct wrong encodes, T3 (96 iterations): native / ffi / ffi-hosttc | T6 two shapes (48): native / ffi / hosttc | whole run: native / core / decoder | exit |
-|---|---|---|---|---|
-| shipped (C++17, C++11, static, 16 threads) | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 0 |
-| `pad` (both encoders) | 23 / 23 / 23 | 22 / 22 / 22 | 93 / 184 / 0 | 1 |
-| `both` (both encoders) | 24 / 24 / 24 | 24 / 24 / 24 | 123 / 243 / 0 | 1 |
-| `corepad` (core only) | **0 / 23 / 23** | **0 / 22 / 22** | 0 / 184 / 0 | 1 |
-| `global` (both encoders) | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 0 |
-
-Two runs gave identical counts. "Whole run" sums T1, T2, T3 and T6, each a distinct
-operation; the core column counts ffi and ffi-hosttc encodes separately because they are
-two calls. **What the table establishes**: the suite's ffi arm can fail, the shared
-core's `pad-widths` plant produces the same number of wrong encodes as the C++ one on the
-same schedule, and the core's `global-widths` is byte-clean alone as `ak::Enc`'s is.
-**What it does not**: T5 (two threads, one message) and T7 run the native encoder only,
-so the "two threads agree while both are wrong" reading of the `both` build is still a
-native-encoder reading; and no TSan run exists.
-
-## Previous work unit (2026-09-24, first): R-D1 (C++ half) and R-D2
-
-Machine: 4 vCPU Intel Xeon @ 2.10 GHz container, g++ 13.3.0, protobuf 3.21.12 and grpc++
-1.51.1 from apt, python3-protobuf 4.21.12 (apt, for `gen/corpus.py`'s oracle). **No timing
-was taken or re-taken.** The final gates run against the shared core at `6ede244` (the core's
-own R-D1 fix, landed by the aggregating session), working tree identical and cargo
-reporting `ak-core` Fresh; every log says so in its header. An earlier pass ran against the
-rust agent's uncommitted core work; its logs were overwritten by the re-gate.
-
-### R-D1: the length-varint wrap, C++ half. Confirmed and fixed
-
-`include/ak/rt.h` `len_body` compared `pos + k > len` with `k` straight off the wire. A
-length near 2^64 wraps the sum, the check passes, and `pos += k` moves the cursor
-backwards. **Reproduced with the corpus's own vectors** (WP4 item 2, written by the corpus
-agent; `X-lenwrap-lrr-unknown-zero` is byte for byte the reviewer's
-`7A F5 FF FF FF FF FF FF FF FF 01`), one row per process, `timeout 5`, native arm, the
-UNFIXED `rt.h` built in a scratch directory (`gen/lenwrap_rows.sh`, `logs/cpp/rd1-lenwrap.log`):
-
-| build | rows not refused promptly, of 55 | what they were |
-|---|---|---|
-| before, plain | **9** | all HANG: the unknown-field skip (root, after a known field, nested, and the schema-free walker) and the zoo string/msg rows where the wrapped cursor lands at or before its start |
-| before, ASan | **13** | the 9 hangs plus **4 out-of-bounds reads** (`nested-string-{abs-start,rel-max,rel-one,rel-zero}`): the plain build "refused" them with -6 only because the UTF-8 validator eventually met an invalid byte PAST THE BUFFER |
-| after, plain | **0** | every row refused with `AK_ERR_TRUNCATED` (-3) |
-| after, ASan | **0** | no out-of-bounds access on any row |
-| ffi arm, core `6ede244` | **0** | every root row refused with -3, the same code as native; the 13 WireZoo rows have no ffi arm (walker only) |
-
-protobuf C++ refuses every `lrr` row with a parse failure (reported as -2). The reviewer's
-three cases map onto the corpus as: unknown field = `X-lenwrap-lrr-unknown-*` (and
-`-after-*`, `-nested-unknown-*`); string length = `X-lenwrap-lrr-nested-string-*`;
-nested-message length = `X-lenwrap-lrr-results-*` and `-nested-msg-*`.
-
-The fix: `k` is read as `uint64_t` and compared against the REMAINING length,
-`k64 > (uint64_t)(len - pos)`, with `pos <= len` checked, before any narrowing to
-`size_t`; `f64()` got the same checked form. **The sweep**: every length the generated
-native codec takes from the wire goes through `len_body` -- 11 emission sites in
-`gen/cpp_core.py` (child, repeated message, blob, repeated blob, packed, oneof string and
-message, map entry and both map halves) and three in `src/conformance.cpp` -- and `skip`'s
-fixed-width arms add constants and are post-checked. So the one function is the whole fix
-and no generated file changed (`generate.py --check` 23 of 23 ok, `rd-generator.log`).
-
-Gates after the fix, against core `6ede244`: `conformance.log` 443 checks 0 failures x5 (the log as committed at `817174f`; re-taken at 476 in the second work unit, R-D5)
-(C++17 target, C++17 floor, C++14, C++11, static), 441 x1 (the lossy build), exactly as
-before; `groupskip.log` 0 builds wrong; `corpus.log` (all three arms) and
-`corpus-native.log` (native + the pb oracle), C++17 and the C++11 floor, **213 in-scope rows
-of 691, 0 failures, 0 disputed, 0 permuted**: C1 161/161, C2 158/158, C3 161/161, C4 52/52
-on every arm, 213/213 arm agreement, walker 103/103; `boundary.log` 21 checks 0 failed;
-`rd-generator.log` `--check` 23/23, refusal 16/16, audit green.
-
-**Two harness defects found on the way, both fixed** (C32, C33 below): the corpus
-binary runs every row in ONE process and nobody read its exit status, so a panic in the
-shared core (`U-wire-UploadResultDataMessage-upload-as-wt1`, `codec.rs:2537`, "slice index
-starts at 11 but ends at 0", which aborts because it cannot unwind through `extern "C"`)
-silently turned every later row of EVERY arm into "no result". And the between-arms
-agreement compared the facade left behind after a REFUSAL, which nothing specifies.
-
-### R-D2: `ak_client_opts`. Confirmed and fixed; the RPC logs predate it
-
-Confirmed from source: `src/rpc_common.h` declared 3 fields, the core reads 6. Fix:
-`gen/cpp_header.py` renders `struct ak_client_opts` into the generated `include/ak_abi.h`
-FROM `poc/codec/crates/ak-abi/src/lib.rs` (the declaration the core asserts field by field
-against its own), with `AK_SASSERT` on `sizeof == 24` and on every offset; a field added in
-Rust makes `--check` call `ak_abi.h` STALE. `rpc_common.h` includes it, declares nothing,
-asserts `sizeof == 24` and `AK_CLIENT_OPTS_FIELDS == 6`, and sets all six fields through
-one `core_opts()` helper used by `rpcbench`, `rpccounts` and `rpcflow` (max messages =
-the grpc++ cells' 2 MiB, `tcp_nagle = 0`, stated). `logs/cpp/rd2-guard.log`: compiles at
-C++11/14/17 and in all four RPC sources; **plant A** (a field dropped from the header) and
-**plant B** (a seventh field added to the Rust declaration) are both refused at compile
-time. `rd2-rpccounts.log`: the counting binary dials with the six-field options and counts
-2/0, 3/1, 4/0 as before.
-
-**The history** (`gen/rd2_history.sh`, `logs/cpp/rd2-history.log`): `rpcflow.log` was
-taken 2026-09-20T17:43:53Z and `rpc.log` 18:33:12Z, both at `bccff35` plus this slice's
-uncommitted work, and committed in `af2b100` (18:38:46), whose tree's core struct has
-exactly the host's 3 fields. The union grew to 5 fields in `908dc24` (18:47:27) and to 6
-with `tcp_nagle` in `ef8fea9` (18:55:15, `git log -S tcp_nagle` also lists `e0b708b`
-19:07:36); none of them is an ancestor of `af2b100`, and no RPC log of this slice was
-committed after `908dc24`. **So both logs were taken when host and core agreed, and their
-loopback-TCP rows are NOT invalidated by R-D2.** What the history cannot show is the
-uncommitted working tree at 17:43; the only core versions of the struct in this slice's
-lineage are the 3-field one.
-
-**Absolutes here are instrumentation** (README section 8, after `4aec4e8`): the
-cross-language comparison is re-taken on a controlled physical machine. What this slice
-is for is correctness, crossing counts, the within-process deltas that settle an ABI
-decision, and feasibility.
-
-## The question this slice answers
-
-**ABI v1 open decision 1**, which blocks freezing the specification: is every amendment
-free under the C++11 floor?
-
-## Arms
-
-| arm | what it is |
-|---|---|
-| `pb` | protobuf C++ `SerializeToString`/`ParseFromString` — **the incumbent, and every ratio is against it** |
-| `pb-det` | the same forced to deterministic map ordering, which byte identity needs. Its own row |
-| `pb-arena` | the same on a `google::protobuf::Arena` |
-| `memcpy` | **R2's floor**: one copy of the finished payload into a reused buffer |
-| `upb` | **the ceiling** (separate binary and table, `upb.log`) |
-| `native` | the generated codec emitted into C++: R3's no-boundary control |
-| `ffi` | the same codec through the C ABI, spec transcoders (no UTF-8 check on encode) |
-| `ffi-valtc` | the same with a validating transcoder — the check protobuf does on serialize |
-| `ffi-zeroed` | ABI v1 open decision 9's candidate element fill |
-| `ffi-nobat` | the host declines to batch |
-| `ffi-hosttc` | the transcoder in the HOST: what a string-as-a-CALL form costs |
-| `groupfill` | the by-value group's host-side fill alone, no codec |
-| `ffi-borrow` | **decode only**: the same ABI and the same entry point over a facade whose string fields are `ak::StringView` over the input buffer. A measurement arm, never a proposal |
-
-Linkage: **shared library is the primary arm**, static is a second, separately labelled
-one. **Never a ratio across the two** (R7); they are separate processes and separate
-mechanisms. The arm order **rotates every round**.
-
-## What is measured
-
-### The C++ column, shared library — `logs/cpp/bench_a17_shared.log`
-
-Ratios to `pb`, formed inside one process, 9 rounds, each the minimum of five sub-batches.
-`spr%` is the **denominator's own** round-to-round spread; a row above about 5 percent is
-noise-dominated and is marked below.
-
-**The decode columns below are re-taken with the borrowed arm present; the encode columns
-are unchanged from the previous run and are reproduced from it.**
-
-| payload | enc `memcpy` | enc `native` | enc `ffi` | enc `ffi-valtc` | dec `pb-arena` | dec `native` | dec `ffi` |
-|---|---|---|---|---|---|---|---|
-| P1.1 | 0.024 | 0.527-0.537 | 1.104-1.126 | 1.406-1.443 | 0.834-0.903 | 0.820-0.834 | 0.762-0.781 |
-| P1.2 | 0.043-0.049 | 0.507-0.536 | 0.944-0.988 | 1.202-1.261 | 0.630-0.646 | 0.669-0.789 | 0.582-0.790 † |
-| P1.3 | 0.002 | 0.674-0.682 | **1.770-1.806** | 1.770-1.814 | 0.424-0.432 | 0.995-1.014 | 1.053-1.073 |
-| P2.1 | 0.019 | 0.434-0.443 | 0.873-0.884 | 1.158-1.183 | 0.784-0.809 | 0.783-0.802 | 0.715-0.733 |
-| **P2.2** | 0.029-0.033 | 0.420-0.428 | **0.772-0.795** | 1.042-1.073 | 0.652-0.684 | 0.748-0.806 | **0.676-0.722** |
-| P2.3 | 0.053-0.056 | 0.274-0.286 | 0.605-0.618 | 0.867-0.878 | 0.890-0.916 | 1.053-1.079 | 0.943-0.965 |
-| P2.4 | 0.063-0.069 | 0.254-0.267 | 0.584-0.602 | 0.819-0.863 | 0.703-0.766 | 0.849-0.923 | 0.747-0.814 |
-| P2.5 | 0.027-0.031 | 0.437-0.625 | 0.894-0.906 | 1.183-1.201 | — | 1.029-1.095 | 0.934-0.995 |
-| P3.1 | 0.006 | 0.485-0.496 | 1.060-1.082 | 1.400-1.423 | — | 0.635-0.644 | 0.608-0.613 |
-| P4.1 | 0.018-0.022 | 0.373-0.382 | 0.710-0.718 | 1.111-1.132 | — | 0.730-0.746 | 0.678-0.692 |
-| P5.1 | 0.091-0.097 | 0.346-0.358 | 0.621-0.643 | 0.850-0.882 | — | 0.637-0.642 | 0.661-0.669 |
-| P5.2 ‡ | 0.425-0.620 | 0.493-0.697 | 0.489-0.661 | 0.477-0.606 | — | 0.843-1.072 | 0.795-1.023 |
-| P5.3 ‡ | 0.561-0.623 | 0.519-0.624 | 0.523-0.588 | 0.522-0.592 | — | 0.966-1.016 | 0.974-1.004 |
-| P5.4 ‡ | 0.643-0.673 | 0.631-0.688 | 0.626-0.701 | 0.632-0.689 | — | 0.908-1.089 | 0.909-1.043 |
-| P6.1 | 0.040-0.047 | 0.893-0.913 | **1.252-1.269** | 1.263-1.284 | 0.762 | 0.866-0.898 | 0.637-0.703 |
-
-† **P1.2 decode carries a systematic outlier**, not a spread: one round in nine sits about
-34 percent high, in every bench log this slice has produced, always P1.2 decode, for both
-`ffi` and `native`. The per-round ratios are printed in the log
-(`0.781,0.784,0.582,0.583,0.790,0.763,0.719,0.724,0.727`). **Read 0.58-0.73 and treat
-0.790 as the artifact it is.** Unexplained.
-
-‡ **P5.2, P5.3 and P5.4 have an 11 to 32 percent spread in the `pb` denominator itself**
-and are not comparable to three decimals with the rows above.
-
-**Three rows that are not good news and are not smoothed.** P1.3 encode is 1.77-1.81 —
-the absent-path inversion, larger in C++ than in Rust. P6.1 encode is 1.25-1.27 — the
-packed control, where `vector<TaskStatus>` and `vector<bool>` are not the wire layout so
-the binding materialises a contiguous array first, which is the cost ABI v1 section 6
-names. P1.1 and P3.1 encode are above 1 because the per-element work is small enough that
-the fixed cost of the group dominates.
-
-### The ceiling: upb — `logs/cpp/upb.log`
-
-Separate table, separate binary, separate configuration line. protobuf C++ remains the
-incumbent; upb bounds how fast a C protobuf can be, from the direction the memcpy floor
-does not reach. **upb v25.3 built from source by `gen/fetch_upb.sh`; minitables from upb
-reflection over `protoc`'s descriptor set, so no Bazel, no `protoc-gen-upb` and no
-hand-written codec.**
-
-| payload | upb enc / pb | upb dec / pb | the core's `ffi` dec / pb |
-|---|---|---|---|
-| P1.1 | 1.97 | **0.44** | 0.76-0.78 |
-| P1.2 | 1.55 | **0.33** | 0.58-0.73 |
-| P1.3 | 1.88 | **0.29** | 1.05-1.07 |
-| P2.1 | 1.32 | **0.42** | 0.72-0.73 |
-| P2.2 | 1.18 | **0.35** | 0.68-0.72 |
-| P2.3 | 0.52 | **0.31** | 0.94-0.97 |
-| P2.4 | 0.43 | **0.22** | 0.75-0.81 |
-| P2.5 | 1.19 | **0.41** | 0.93-1.00 |
-| P3.1 | 1.60 | **0.37** | 0.61 |
-| P4.1 | 0.91 | **0.45** | 0.68-0.69 |
-| P5.2-P5.4 | 1.32-1.42 | 0.94-1.00 | 0.80-1.04 |
-| P6.1 | 1.67 | **0.58** | 0.64-0.70 |
-
-**On decode upb is 0.22 to 0.58 of protobuf C++ on every element-bearing payload, and the
-core is nowhere near it.** That is the most useful thing this arm says: the core's decode
-win against protobuf C++ is real and is roughly half of what a C protobuf can do, so
-"faster than the incumbent" and "as fast as C can go" are different claims and only the
-first is supported.
-
-**The upb ENCODE column is not a clean ceiling and is reported as measured.** With a
-reused arena block it is still 1.18 to 1.97 of protobuf C++ on the string-dense payloads
-and 0.43 to 0.91 on the repeated-string ones. protobuf C++ sizes its output once
-(`ByteSizeLong`) and writes forward; upb grows a backward buffer geometrically. **Do not
-quote upb as an encode ceiling from this slice.**
-
-**P2.5: upb writes 19,712 B, the same form protobuf C++ writes**, which `design/SHAPES.md`
-now records as one of two valid encodings. Two independent Google runtimes, the same +80 B.
-
-### Experiment 1: `UPB_FASTTABLE` — `logs/cpp/upb-fasttable.log`
-
-**A correction to this slice's own log first.** `upb/port/def.inc:227-239` defaults
-`UPB_FASTTABLE` to **0**; it is 1 only under `-DUPB_ENABLE_FASTTABLE`, or under
-`-DUPB_TRY_ENABLE_FASTTABLE` where `UPB_MUSTTAIL` exists. `gen/fetch_upb.sh` defined
-neither, so **the published upb column was measured with the tail-call fast decoder
-compiled out and did not say so** — an R7 omission. `upb.log`'s configuration line now
-names it.
-
-**The A/B is a null result, and the reason is reachability rather than a build that did
-nothing.** `_upb_Decoder_TryFastDispatch` (`upb/wire/decode.c:766`) fires only when
-`layout->table_mask != (unsigned char)-1`, and `upb/mini_descriptor/decode.c:698,712`
-sets `table_mask = -1` on **every** minitable it builds. The fasttable entries come from
-`protoc-gen-upb`'s `UPB_FASTTABLE_INIT` and from nothing else, so a reflection-built
-minitable can never take the fast path. Both halves are proved from artifacts:
-`upbbench` prints the runtime `table_mask` (**−1**), and `gen/fetch_upb.sh` prints the
-fast-parse function count from the archive (**0** without the define, **42** with it).
-
-Three builds of identical sources, so the compiler and the define are separated:
-
-| build | P1.2 dec | P2.2 dec | P2.3 dec | P3.1 dec | P6.1 dec |
-|---|---|---|---|---|---|
-| gcc 13.3.0, `UPB_FASTTABLE=0` | 0.317 | 0.349 | 0.306 | 0.353 | 0.552 |
-| clang 18, `UPB_FASTTABLE=0` | **0.245** | **0.283** | **0.245** | **0.277** | **0.522** |
-| clang 18, `UPB_FASTTABLE=1` | 0.291 | 0.320 | 0.262 | 0.309 | 0.538 |
-
-**clang is worth 6 to 23 percent of upb's decode**, so the published column understated
-upb. **`UPB_FASTTABLE=1` is 3 to 19 percent SLOWER** on the same compiler, because the
-`#if UPB_FASTTABLE` branch at the top of the decode loop is pure added cost when the
-dispatch can never fire.
-
-**What it settles: none of upb's measured decode advantage is `UPB_MUSTTAIL` tail-call
-dispatch** — the mechanism a Rust core is structurally locked out of (`become` is
-unstable, so there is no guaranteed tail call). All of it is the generic decoder: the
-epsilon-copy input stream's one bounds check per field
-(`upb/wire/eps_copy_input_stream.h:20-25`), arena allocation, minitable dispatch, and not
-copying strings. Every one of those is a work item rather than headroom. **What is not
-measured is what a `protoc-gen-upb` minitable would add on top**, which needs Bazel.
-
-### Experiment 2: the borrowed-string facade — `logs/cpp/bench_a17_shared.log`
-
-The facade and the binding are re-emitted with **`ak::StringView` in place of
-`std::string`**, into `shapes_borrow`, by the same emitters parameterised on (namespace,
-string type); the decode and encode helpers are overloaded so the generated call text is
-identical and the shipping facade's emitted text is unchanged (`--check` green on all 21
-files). **No ABI change is needed**: `ak_span` is already an offset into the buffer the
-host handed in (ABI v1 section 4), section 7 says the span points into that buffer, and
-7.4 tells the host to resolve it against the base pointer it already holds. It is exactly
-upb's aliasing contract (`upb/wire/decode.h:29`). **UTF-8 is still validated**, so the arm
-isolates the copy and nothing else. Singular strings, repeated strings, bytes and map keys
-and values are all borrowed.
-
-**Byte identity gates it** (R2): decode into the borrowed facade, re-encode, compare with
-the manifest — every payload, including P2.5 from the incumbent's 19,712 B form.
-
-| payload | dec `ffi` | dec **`ffi-borrow`** | upb (gcc) | upb (clang) | delta, % of a protobuf decode |
-|---|---|---|---|---|---|
-| P1.1 | 0.765-0.791 | **0.303-0.310** | 0.44 | — | −47.7 |
-| P1.2 | 0.562-0.790 | **0.234-0.241** | 0.317 | 0.245 | −33.8 |
-| P1.3 | 1.014-1.027 | **0.582-0.591** | 0.29 | — | −43.3 |
-| P2.1 | 0.707-0.720 | **0.433-0.438** | 0.42 | — | −27.8 |
-| **P2.2** | 0.661-0.696 | **0.387-0.407** | 0.349 | 0.283 | **−28.4** |
-| P2.3 | 0.855-0.921 | **0.383-0.396** | 0.306 | 0.245 | −49.5 |
-| P2.4 | 0.680-0.724 | **0.286-0.305** | 0.22 | — | −41.2 |
-| P2.5 | 0.950-0.965 | **0.526-0.534** | 0.41 | — | −43.0 |
-| P3.1 | 0.601-0.615 | **0.326-0.330** | 0.353 | 0.277 | −27.9 |
-| P4.1 | 0.686-0.705 | **0.445-0.455** | 0.45 | — | −24.5 |
-| P5.2-P5.4 | 0.80-1.04 | **0.000-0.035** | 0.94-1.00 | — | −85.9 to −99.5 |
-| P6.1 | 0.639-0.654 | 0.599-0.646 | 0.553 | 0.522 | **−4.3** |
-
-**Borrowing takes the core from about twice upb to level with or below it.** On P1.2 the
-borrowed core (0.234-0.241) is below even the clang upb build (0.245). So **"the core's
-decode is half of what a C protobuf can do" is largely a statement about `std::string`,
-not about the codec.**
-
-**P6.1 is the internal control that says the arm measures what it claims**: `MetricsBatch`
-is one string and five packed scalar arrays, so there is almost no copy to remove, and it
-barely moves (−4.3 %).
-
-**What it does not isolate**, and the residual gap on P2.2 and P2.3 is exactly this:
-vectors, maps and message children are still constructed. This separates the string copy
-specifically, not host-side container construction in general.
-
-**It is a measurement arm, not a proposal.** The views are valid only while the input
-buffer lives, which is not what a facade ships by default; the main facade is untouched.
-
-### Crossing counts, from the counting core — `logs/cpp/counts.log`
-
-Identical to the rust slice's to the digit on every shared payload.
-
-| payload | encode fwd / rev | decode fwd / rev | per element |
-|---|---|---|---|
-| P1.2 (M1, 1000) | 8 / 1 | 1 / 5 | 9 and 6 in total, not per element |
-| **P2.2 (M2, 500)** | 2511 / 2501 | 1 / 3501 | **5.022 + 5.002 = 10.024 enc; 0.002 + 7.004 = 7.004 dec** |
-| P3.1 (M3, 200) | 2 / 1 | 1 / 2 | 3 per 200, both directions |
-
-Per-element columns are printed **forward / reverse separately** in the log; the summed
-figure is given only where it is labelled as summed.
-
-**The host-transcoder arm's crossings are now COUNTED, not argued** (R5). The counter
-lives in the core and cannot see which image `tc` points into, so the host reports them
-through a counting-build-only entry point: P2.2 encode goes from 2,501 to **19,668**
-reverse crossings, **+34.3 per element**; P1.2 from 1 to 6,001, **+6.0 per element**.
-
-Unbatched, forward per element: P1.2 1.001, P2.2 17.002, **P2.3 125.008, P2.4 311.012**.
-
-### ABI v1 open decision 1: the verdict
-
-Each as a within-round delta between two arms (R4). **Every row of every table is printed
-with whether its lo and hi share a sign**, so a range cannot be quoted over the subset
-with the wanted sign.
-
-**1. The group is what costs, and it costs the HOST, not the boundary.** `groupfill`:
-**22.5 ns/element on M1 (P1.2), 74.1 on M2 (P2.2), and 22.6 on M1's absent path (P1.3)
-where a whole protobuf encode is 16.5 ns/element.** That is the P1.3 inversion
-(`ffi` 1.77-1.81 of protobuf against `native` 0.67-0.68). **Decision 9's candidate fixes
-it**: P1.3 −10.9 ns/element, **−66.8 % of a protobuf encode**, and it is a win or neutral
-on 13 of 15 rows (P1.1 −2.9 %, P1.2 −1.2 %, P2.2 −1.8 %, P2.5 −4.2 %, P3.1 −8.7 %,
-P4.1 −2.2 %), losing only on P5.1 (+14.9 %, one tiny message). **C++ agrees with Rust.**
-
-**2. String as data is a WIN in C++, on every payload with strings in quantity.**
-`ffi-hosttc` − `ffi` is positive with a consistent sign on 10 of 15 rows: **+1.42 % to
-+3.89 % of an encode**, which is **0.3 to 1.2 ns per string**, one reverse crossing.
-It straddles zero where there are no strings (P1.3) or few (P6.1, P5.3, P5.4). **One row
-has the opposite sign and it is named rather than dropped: P5.2 at −3.70 %**, which is
-M5's 64 KB `bytes` field on the direct-argument path — it makes two transcoder calls in
-total and its denominator's spread is 32 percent, so it is noise, not a counterexample.
-
-**3. The batching predicate loses in C++ and the crossover is now a number.** Unbatched is
-faster by 1.87 % to 5.93 % on P1.1, P2.1, **P2.2**, P2.5, P4.1 and P5.2; batching wins on
-P2.3 (+4.85 %), P2.4 (+5.87 %) and P3.1 (+4.24 %); P1.2, P1.3, P6.1, P5.3 and P5.4
-straddle zero.
-
-**The stated mechanism was wrong and is withdrawn.** "Batching wins where the crossing
-count per element explodes" does not survive its own table: P3.1 wins and P1.2 straddles
-at an identical +1.00 forward crossings per element unbatched. The measurement that
-settles it is `logs/cpp/tax.log`: a calibrated delay in front of every forward entry-point
-call, so the crossing is priced up. On P2.2 the delta is
-
-| added tax | −0 ns | +2.0 | +4.4 | +6.9 / +8.1 / +10.5 | +12.9 | +24.6 |
-|---|---|---|---|---|---|---|
-| (nobat − ffi) ns/element | **−20.9** | +2.7 | +25.4 | +25 to +28 | +47.5 | +147.1 |
-
-**The crossover is at a forward crossing of roughly 2 to 4 ns.** So batching loses in C++
-at 1.82 ns and wins comfortably on .NET 8 (7.5-12 ns), FFM (33.8) and JNI (98.4). The
-verdict is a statement about the crossing price, not about C++, and it transfers.
-(`tax.log`'s 8 ns row read −2.22 %; the re-run appended to that log gives +1.4 to +1.9 %,
-so that point was an outlier and the curve is monotone.)
-
-**4. A fourth mechanism nobody listed: the two-pass blob write.** ABI v1 section 4 removed
-the declared expansion bound, so the core opens a prefix of a learned width, hands the
-transcoder the rest of the buffer and resolves the prefix afterwards; a host that already
-holds the bytes writes key, length and body in one pass. Measured on P1.2's 6,000 strings
-in one process: **5.04 ns against 9.53 ns per string, +4.49 ns.** A `tc == ak_tc_bytes`
-fast path in the core would remove it for every host whose representation is already
-UTF-8. **This slice cannot make that change: the core emitter is shared.**
-
-### README 5.2's arms a, b and c
-
-**The three-binary table cannot answer this**, and that is the finding rather than the
-table. `gen/drift.sh` builds the same source twice with a neutral layout perturbation and
-reports **worst across-build RATIO drift 0.240**, which is larger than the effect. And
-`AK_CXX17` reaches exactly **11 sites** in the whole emitted tree, all on the decode side,
-so every encode row and most decode rows of arm b compile identical source.
-
-So the two constructs the switch actually selects are measured **inside one process**
-(`bench_a17_shared.log`, "README 5.2 arm b, INSIDE one process"):
-
-| construct | items | floor ns | target ns | target/floor |
-|---|---|---|---|---|
-| `m[k] = v` vs `insert_or_assign` | 2,000 | 424,371 | 455,564 | **1.074** |
-| `push_back` + `back()` vs `emplace_back()` | 3,750 | 161,351 | 156,060 | **0.967** |
-
-**The C++11 floor costs nothing, and on the map construct the C++17 form is a 7 percent
-regression.** That is why arm b measured *faster* than arm a on P2.2 decode. The three
-binaries agree within the drift bar and are reported as a consistency check, not as a
-measurement: `ffi` P1.2 encode a 0.944-0.988, b 0.940-0.972, c 0.942-0.978.
-
-### Correctness — `logs/cpp/conformance.log`
-
-**476 checks, 0 failures**, five times (C++17 target, C++17 floor, C++14 floor, C++11
-floor, C++17 static) and **474 once** — the non-validating decode build, where two
-UTF-8-rejection checks are compiled out. The difference is named rather than flattened.
-(443/441 until R-D5 added `ffi-valtc`: 15 payloads x rc and sha, and 3 encode-side
-malformed-UTF-8 checks.)
-
-Covers: every payload of `SHAPES.md`; six encoders byte-identical to `manifest.json`
-(native, ffi, ffi-zeroed, ffi-nobatch, ffi-hosttc, ffi-valtc); the
-headline `SerializeToString` path's bytes as well as the deterministic one; the memcpy
-floor's bytes; decoded values identical between the two facade decoders and equal to the
-built value; round trips; P7.1 by decode and by permutation of its (tag, wire type, body)
-triples; **unknown fields at the root, INSIDE a nested message, and on the message that
-has the oneof** (where the case stays at the last known member and the payload is
-dropped); the unknown enum value 999; malformed UTF-8 on decode, and on ENCODE, where `ffi` accepts
-it and `ffi-valtc` must refuse it with `AK_ERR_TRANSCODE`.
-
-**protobuf C++ rejects malformed UTF-8** in a proto3 `string`, so the rejecting decode is
-the like-for-like policy and is this slice's default. **protobuf C++ needs deterministic
-serialisation to be byte-stable** on a message with a map, which costs it **2.9 to 7.5
-percent on P2.2**; it is a separate row and is not inside the incumbent's headline.
-
-**P2.5 has two valid encodings** and this slice matches the protobuf/upb one (19,712 B) in
-its timed rows, which is named in the log per `design/SHAPES.md`.
-
-### C24: the GROUP skip, and the oracle that could not see it -- `logs/cpp/groupskip.log`
-
-**`ak::Dec::skip` had no case for wire type 3, so this slice's arms REFUSED a legal
-message**: an unknown field of the deprecated GROUP form. protobuf C++ and upb both accept
-it. 443 conformance checks passed over the defect, five times, at every standard level,
-and that is the finding rather than the fix.
-
-**Byte identity against `ffi/schema/generated/manifest.json` cannot reach this code at
-all.** The manifest is generated from the same proto3 description the codec is generated
-from; proto3 cannot express a group; so nothing the generator emits ever puts wire type 3
-on the wire. An oracle built from the schema that reads it can never execute the
-unknown-field skip on the one shape the skip exists for.
-
-The fix follows the shared core's (`poc/codec/crates/ak-rt/src/dec.rs`) rather than
-inventing a second one:
-
-- **`skip` takes the field number as well as the wire type.** A group carries no length,
-  so the only way to find its end is to read fields until an `END_GROUP` whose field
-  number MATCHES the one that opened it. A depth counter accepts
-  `X-group-mismatched-end` and mis-nests every group after it.
-- **Bounded recursion**: 100, protobuf's own default limit, returning `AK_ERR_DEPTH` (-4,
-  now in `ak::` beside the other codes). A payload of nothing but start tags is an error,
-  not a stack overflow inside the host's process.
-- `END_GROUP` with nothing open stays malformed, as do wire types 6 and 7.
-
-**The test was written before the change and is required to fail on a plant** (R10).
-11 checks at C++17 target, C++17 floor, C++14 floor and C++11 floor -- 44 runs, 0
-failures -- and two planted builds of `include/ak/rt.h` that must FAIL:
-
-| build | what it plants | what it fails |
-|---|---|---|
-| `AK_GROUP_PLANT=1` | count nesting depth instead of matching the field number | T4 and T5, the two mismatched-end cases |
-| `AK_GROUP_PLANT=2` | the `case 5:` 32-bit arm dropped while `case 3:` was added | T8 and T10, every buffer carrying a `fixed32` |
-
-Plant 2 is not hypothetical: it is what the first run of the SHARED core's tests caught,
-and no group test would have noticed it.
-
-**The signature change was swept across the generator, not patched where it was found**:
-13 emission sites in `gen/cpp_core.py` including the `sub.skip(et, ew)` inside the map
-entry loop, plus two in `src/conformance.cpp`. `src/generated/core_native.cpp` was
-REGENERATED; `generate.py --check` is green on all 23 files, the shared core's two
-included.
-
-### W8: the conformance corpus -- `logs/cpp/corpus.log`
-
-**Superseded by the 2026-09-24 section at the top**: the corpus is now 691 rows, 213 in
-scope, 0 disputed, 0 permuted. The text below describes the 336-row corpus.
-
-The oracle byte identity cannot be. **128 of the corpus's 336 rows** root at a message
-this slice's codec covers; the scope is read out of `AK_ROOTS` in the generated
-`cases.h`, so it cannot exceed the scope the codec has. Run at **C++17 target and at the
-C++11 floor**, identical results.
-
-Three arms, every row through all three: `native` (no boundary), `ffi` (the C ABI over the
-shared core), and `pb` -- **protobuf C++, as an ORACLE rather than a claimant**, projecting
-through its own reflection `ListFields`, which is what CONTRACT.md section 3's presence
-rule actually is.
-
-| arm | C1 parse | C2 project | C3 re-encode | C4 refuse |
-|---|---|---|---|---|
-| `native` | 126/126 | 123/124 | 125/126 | 2/2 |
-| `ffi` | 126/126 | 123/124 | 125/126 | 2/2 |
-| `pb` (the incumbent, an oracle) | 126/126 | 123/124 | 124/126 | 2/2 |
-
-**0 failures**, 128 of 128 rows with the two arms agreeing on the decoded facade
-(CONTRACT.md 5.5, which is what R2 protects). Three rows are named rather than counted:
-
-1. **`U-map-entry` is a disagreement with the CORPUS, and the corpus is outvoted 3 to 1.**
-   The vector puts an unknown field inside every map entry. This slice reads the four
-   entries into the map; the corpus's projection puts them under `_unknown` at
-   `TaskOptions`. **protobuf C++ 3.21.12 and protobuf-python 4.25.9's pure-Python backend
-   agree with this slice; upb drops the entries, and the corpus's projection is upb's.**
-   Two Google runtimes disagree with each other on the same bytes. **`corpus/**` is not
-   this slice's to write**, so it is reported, not fixed.
-2. **`B-P7_1` is the interleaved payload**, whose bytes no canonical writer can reproduce.
-   Every arm, protobuf C++ included, writes each repeated field contiguously; the driver
-   parses both byte strings into (tag, wire type, body) triples and shows they are the
-   same multiset. The manifest lists one accepted form. Reported, never counted as a pass.
-3. **`B-P2_5` is the incumbent's own C3 miss**, which is design/SHAPES.md's two valid
-   encodings and already recorded here.
-
-**Plus a fourth thing the corpus can reach and the schema cannot.** The corpus's 62
-`WireZoo` vectors root at a message this slice has no type for, so they are out of scope
-for C1-C3 -- but their wire FORMS are exactly what C24 fixed. They are run through the
-**unknown-field walker**: `ak::Dec::skip` over a buffer with no schema at all, which is
-the path a root decoder takes for a field it does not know. **62 of 62 agree with the
-corpus's verdict**, including `X-group-unterminated` (`AK_ERR_TRUNCATED`) and
-`X-group-mismatched-end` (`AK_ERR_MALFORMED`) refusing for the right reason rather than
-because wire type 3 was unknown. Labelled as a walker everywhere it appears: it parses
-nothing and projects nothing.
-
-**ABI v1 open decision 11, answered**: this slice **DROPS** unknown fields in both arms
-(62 rows written in the `unknown-dropped` form, 17 more `unknown-dropped, map values
-always written`). protobuf C++ RETAINS them, so adopting the core removes a proto3
-guarantee a C++ caller has today.
-
-**C5 (produce) is a PARTIAL claim and is stated as one.** 49 in-scope rows name `cpp`;
-the 8 `baseline` rows are `ffi/schema`'s own payloads and `conformance` already builds
-each from two independent routes and checks them against `manifest.json`. The other 41
-are not produced -- see "what is not measured".
-
-### C24's effect on the clock -- `logs/cpp/c24-timing.log`
-
-The fix changed a signature, so every decode function in the control TU was recompiled and
-gcc's inlining moved with it. "It should not move" is a prediction. **225 ratio rows
-compared against the published `bench_a17_shared.log`: worst move 0.164, median 0.009,
-0 rows over R4's 0.240 across-build drift bar.** The largest movers are P5.2-P5.4, whose
-own `pb` denominator has an 11-32 percent spread. **The published timing tables stand and
-are not re-taken.**
-
-### The proofs that the arms are what they say
-
-- **R5 half one** (`boundary.log`, 13 checks, 0 failures): the shared arm's 37 `ak_*`
-  symbols are undefined dynamic imports; the static arm has them defined **and called**.
-  `-flto` over a statically linked core cannot inline them away, because gcc's LTO only
-  inlines across GIMPLE it produced and a Rust staticlib's members are native objects —
-  a fact about the toolchain pair, not a general result.
-- **R5 half two, now in BOTH directions**: the encode and decode traversals are out of
-  line and larger than any timing closure, and the control is reached through a function
-  pointer so its address is taken. **The `-flto` positive control fires on 2 symbols**,
-  which is what says the check is capable of failing. No figure comes from that binary.
-  **After C24 the count is 21 checks, 0 failed, not 23**: `dec_list_results_response` is
-  now inlined into its caller WITHIN the control TU, which the checker reports and does
-  not fail, because the question is whether the benchmark LOOP carries it and the loop is
-  in another TU. The load-bearing line is unchanged -- all 10 timing closures still call
-  out.
-- **README 5.1's hard stop** (`odr.log`): 144 layout facts compared between a `-std=c++11`
-  TU and a `-std=c++17` TU that are linked together, objects passed both ways. **0 moved**;
-  the `-DAK_ODR_BREAK` positive control moves **49**.
-- **ABI v1 section 10 / obligation 12.3**: the core exports **380 group-layout facts** and
-  the host compares them with its own compiler's. **0 disagreements**, and a mismatch is
-  now NAMED and not merely counted.
-- **R1 as a gate, not a claim** (`generator.log`, run first by `run_all.sh`):
-  `generate.py --check` green on all 17 emitted files; `refusal_test.py` **16 must-fail
-  cases, 16 refused** (ABI v1 section 8's direct-argument refusal over this slice's own
-  invocation, a repeated `bytes`, an unpacked repeated enum, a repeated `double`, a
-  `map<string, int32>`, each against every backend separately); `audit_tracked.sh` green.
-
-### The RPC arm, re-taken as a GRID — `logs/cpp/rpc.log`, `logs/cpp/rpcflow.log`
-
-**The arm published before was a pair and it has been replaced, not amended.** "The host's
-stack against the core's" moves the codec and the transport at once; `design/SHAPES.md` now
-makes the arm a grid and this is that grid. **Its figures come from the 2.10 GHz container
-and do not join any other table here.**
-
-| cell | codec | transport | what it is |
-|---|---|---|---|
-| **A** | protobuf C++ | grpc++ | the incumbent, R14 |
-| **B** | protobuf C++ | the core | **README 13's outcome 2**, priced directly |
-| **C** | the core | the core | outcome 1 |
-| **D** | the core | grpc++ | so the codec difference can be taken under each transport |
-
-Cells B and C in each of section 9's three deliveries, plus a **control** (`cb x N`: the
-callback delivery with blocking's thread shape). Twelve configurations: 2 transports (UDS
-primary, loopback TCP labelled second) x 2 pinnings x 3 in-flight levels, 9 rounds each,
-80 RPCs per round per arm. **Every difference is a WITHIN-ROUND delta** (R4), because the
-arms' own round-to-round spread is 5 to 25 percent, and a difference is counted as
-separated only where lo and hi share a sign.
-
-| difference | separates in | range where it does, % of cell A |
-|---|---|---|
-| **B − A**, the transport | **1 / 12** | +1.4 % to +13.8 % |
-| **C − B**, the codec under the core's transport | **12 / 12** | −38.4 % to −8.5 % |
-| **D − A**, the codec under grpc++'s transport | **12 / 12** | −28.5 % to −9.2 % |
-| **C − A**, both halves together | **12 / 12** | −25.8 % to −5.4 % |
-| **(C − B) − (D − A)**, do the halves add up? | **0 / 12** | — |
-| cb − blocking, cell C | 6 / 12 | −15.9 % to −0.1 % |
-| queue − blocking, cell C | 6 / 12 | −21.8 % to −0.2 % |
-| **queue − callback, cell C** | **0 / 12** | — |
-| `cb x N` − blocking, cell C (control) | 2 / 12 | −11.4 % to −2.7 % |
-| `cb x N` − callback, cell C (control) | 1 / 12 | +1.2 % to +11.6 % |
-| cb − blocking, cell B | 4 / 12 | −22.4 % to −0.2 % |
-| queue − blocking, cell B | 4 / 12 | −26.1 % to −0.1 % |
-
-**And a second block with the codec taken out of both sides**, because a 540 KB response is
-about 4 ms of CPU and a reverse crossing is 0.30 ns: nothing about a delivery could show
-through that. `Ping` returns an empty message. UDS, pinned, 3 in-flight levels, 9 rounds,
-500 RPCs a round.
-
-| difference | separates in | range where it does, % of cell A |
-|---|---|---|
-| **the core's transport − grpc++'s, blocking** | **1 / 3**, at 1 in flight | **+43.7 % to +89.1 %** |
-| cb − blocking | 1 / 3 | −26.1 % to −4.6 % |
-| queue − blocking | 0 / 3 | — |
-| **queue − callback** | **0 / 3** | — |
-| `cb x N` − blocking (control) | 0 / 3 | — |
-| `cb x N` − callback (control) | 0 / 3 | — |
-
-**Four things it settles.**
-
-**1. On P2.2 the transport is a wash and the codec is the whole of the difference; on an
-EMPTY call the transport is 44 to 89 percent against the core.** B − A separates in 1 of the
-twelve grid configurations, which is what a difference that is not there looks like, while
-C − B and D − A separate in 12 of 12 out of the same nine rounds of the same data, both
-negative and both large. **The 0.856-0.870 ratio this slice published as an RPC result
-was a codec result**, and the grid says so directly rather than by inference. But the Ping
-block says the grid could not see the transport rather than that there is nothing to see:
-with the codec removed, one empty call in flight costs the core **61 to 111 µs more CPU than
-grpc++** on a 121 µs baseline, a 44 to 89 percent difference, and it stops separating at 8
-and 16 in flight where the spread widens. Two statements, and the report needs both:
-**on a 540 KB call the core's transport is free, and on a small one it is not.**
-For README section 13 that sharpens rather than settles outcome 2 — adopt the RPC layer,
-generate the codec. In C++ it gives away the half that is worth 8 to 38 percent and adopts
-the half that is a wash on big calls and a loss on small ones. ArmoniK's traffic is not all
-540 KB responses, and **what this slice cannot say is where the crossover is**: that needs a
-payload sweep, not two points.
-
-**2. The two halves ARE additive, which nobody had checked.** (C − B) − (D − A) straddles
-zero in 12 of 12: the codec is worth the same under the core's transport as under grpc++'s.
-So the report may present the halves as adding, in C++, and that is now a measurement.
-
-**3. The callback and the queue are indistinguishable in C++, and section 9's "the callback
-suits C++ and C#" is REFUSED as a per-call claim.** Queue against callback separates in
-**0 of 12** grid configurations and **0 of 3** Ping ones. Callback and queue each beat
-blocking in 6 of 12 grid configurations (and 1 and 0 of 3 on Ping), so the non-blocking
-deliveries are somewhat cheaper than blocking and the effect is not reliable enough to quote
-as a number. **The control says what that difference is made of, and it is not the
-boundary.** `cb x N` runs the CALLBACK delivery in BLOCKING's thread shape (N host threads,
-one call outstanding each): it lands on blocking (separating in 2 of 12 grid and 0 of 3
-Ping) rather than on the callback, and where it separates from the one-thread callback it is
-SLOWER (1 of 12, +1.2 % to +11.6 %). So what the callback and the queue buy in C++ is **the host thread count** —
-N calls outstanding from one thread instead of N — and the delivery mechanism itself is at
-or under the noise.
-
-The arithmetic says it had to be. A reverse crossing measures **0.30 ns** on this machine
-and a forward one 0.63 ns, so the three deliveries differ by under a nanosecond of boundary
-against a call of 121 µs (Ping) to 4 ms (P2.2): between two parts in a hundred thousand and
-seven parts in a hundred million. **No arm on any payload this slice can build could see it.**
-**So section 9 carries three deliveries for the managed hosts' sake, and its sentence about
-C++ is right by accident.** In C++ the choice is a threading-model choice, which is still a
-reason to export all three and is not the reason section 9 gives.
-
-**4. A Unix domain socket does not move the number.** UDS is the primary row and loopback
-TCP the labelled second one, as `design/SHAPES.md` requires, and cell A at 1 in flight is
-4.82-4.90 M ns on UDS against 4.60-4.68 M on TCP — a 4 percent difference the wrong way
-round from the one SHAPES.md expects, and inside these arms' own 6 to 12 percent spread. At 540 KB per call the codec dominates by so
-much that the kernel path is not visible. That is a result about this payload, not about
-UDS.
-
-**SHAPES.md's third RPC question — can the language's idiomatic wait be satisfied without
-pinning a carrier thread — is still answered trivially in C++, and now with the other two
-deliveries built rather than by their absence.** C++ has no carrier thread to pin; the
-idiomatic wait is a blocking call on a thread the host owns, and the grid says it costs the
-same as the two deliveries that do not block. A C++20 coroutine surface over
-`ak_call_unary_cb` remains a sketch (see "what is not measured").
-
-**Cell D pays something cell A does not, and it is priced rather than hidden**: grpc++'s
-generic path hands over a slice list and the core's decoder needs one contiguous buffer,
-where protobuf parses straight off the list. The concatenation is timed per level and
-printed (45 to 125 µs per RPC, 1 to 3 percent of the call); D − A with it removed is that
-much more negative.
-
-### R5: the crossing counts, from a counting core — in `logs/cpp/rpc.log`
-
-A separate binary (`rpccounts`) links `ak-core` built `--features rpc,count`; the timed
-binary links the core without it, which is what R5 requires. Two methods three orders of
-magnitude apart in field count, so "two crossings per call, zero per field" is counted
-rather than read out of `rpc.rs`.
-
-| delivery | counted fwd / rev | ABI v1 section 9 says |
-|---|---|---|
-| `ak_call_unary` | 2 / 0 | 2 / 0 ✔ |
-| `ak_call_unary_cb` | **3 / 1** | 2 / 1 |
-| `ak_call_unary_q` | **4 / 0** | 3 / 0 |
-
-Identical on `Fetch` (540,422 B, about 4,500 fields) and on `Ping` (0 bytes, 0 fields), so
-the count is not a function of field count. **Section 9's table is one forward crossing
-light on both non-blocking deliveries: it does not count `ak_call_destroy`**, which the host
-must call or leak a handle per RPC. Logged as C29 and not fixed here — `design/**` is not
-this slice's. It does not change the conclusion (four crossings at 0.63 ns against a 4 ms
-call) and it is wrong, which is exactly what a counting build is for.
-
-### Flow control: what the two stacks actually do — `logs/cpp/rpcflow.log`
-
-`design/SHAPES.md` requires each arm to state its stream and connection window and whether
-auto-tuning is on, and names two traps "a slice establishes from its own runtime's source
-rather than inheriting". It has those answers for grpc-java and .NET and not for these two.
-Nine configurations, each a child process with grpc's own tracers on, the answers read out
-of the trace.
-
-**1. Separate settings? Two different answers, and neither is grpc-java's.** On grpc++ the
-two windows are separate quantities and **only one is reachable**: `grpc_types.h` exposes
-`GRPC_ARG_HTTP2_STREAM_LOOKAHEAD_BYTES` and no connection-window argument at all. Observed,
-not argued: with the stream window at 4 MiB and BDP off there are hundreds of stalls at
-`t_win=0` with `s_win=3,653,887` — the connection window exhausted while the stream window
-is idle — and **raising the stream window sixteenfold to 64 MiB leaves the stalls where they
-were**. On tonic/hyper both are reachable and behave as two: same 4 MiB stream window, the
-connection window at 4 MiB gives a handful of stalls and at 65,535 gives thousands.
-
-**2. Does an explicit window disable BDP probing on grpc++? No, and worse.** Setting the
-window and leaving the probe alone keeps the estimator running AND the configured value is
-not what gets announced (4,194,304 asked for, 4,194,303 announced, then re-announced upward
-over two or three SETTINGS frames). Only `GRPC_ARG_HTTP2_BDP_PROBE=0` stops it. That is
-grpc-java's behaviour inverted.
-
-**3. A third trap nobody had: on grpc++, turning auto-tuning off SHRINKS the window to 64
-KiB.** `bdp_probe=0` with no window set announces **65,535**, against 4,194,303 by default,
-and stalls about a hundred times where the default stalls once or twice. grpc-core's ~4 MiB
-default initial window is the estimator's doing; switch the estimator off and the window
-falls back to the documented 64 kb `lookahead_bytes` default. "Turn auto-tuning off so the
-arm is deterministic" is, on its own, a 64x reduction in the stream window.
-
-**4. `design/SHAPES.md`'s table is wrong about tonic, and this slice's own published log was
-wrong with it.** tonic 0.14 over hyper 1.11 announces **2 MiB** (hyper's
-`DEFAULT_STREAM_WINDOW`, `src/proto/h2/client.rs:48-50`) with a **5 MiB** connection window
-and adaptive sizing off — not the 65,535 the table states. grpc++ announces about **4 MiB**
-with auto-tuning **on**, not 65,535 either. **The previous `rpc.log` said a 540 KB response
-"against a 64 KB default stream window means a single call in flight spends most of its wall
-clock waiting for WINDOW_UPDATE". Neither stack was at 64 KB, 540 KB fits inside both
-defaults with no stall, and that sentence is WITHDRAWN.** C28 and C30.
-
-**5. So SHAPES.md's pinning instruction is not reachable on grpc++, and both configurations
-are published.** Pinning the stream window at 4 MiB with the probe off leaves the connection
-window un-tuned and produces stalls the DEFAULT configuration does not have. Making that the
-headline would handicap the incumbent from its own harness, which is an R14 defect pointed
-the wrong way. `rpc.log` therefore carries pinned and unpinned in full, and the grid's
-verdict is the same in both — which is itself the answer to whether the pinning mattered.
-
-### What this slice ADDED to the shared core (R0), and why it had to
-
-Additions, never changes to existing behaviour, all inside `--features rpc` so the default
-artifact stays at 86 `ak_` exports:
-
-- **`ak_client_new_opts` + `ak_client_opts`.** The core could not be pinned at all:
-  `ak_client_new` took a URI and nothing else, so cells B and C ran at hyper's defaults
-  while cell A ran at grpc-core's, and the two were compared as if that were one transport.
-  `ak_client_new` is now one line calling the new entry point with NULL options, which is
-  byte-for-byte the old behaviour, so there is one connect path and not two.
-- **`ak_rpc_counters`, `ak_rpc_counters_reset`, `ak_rpc_counting`**, with the increments
-  under `#[cfg(feature = "count")]`. `ak_rpc_counting()` exists so a harness cannot read
-  zeroes out of a non-counting build and publish "the boundary is free"; `rpccounts` refuses
-  to run if it returns 0.
-- A **`Ping`** method in this slice's own `proto/shapes_svc.proto` (not the frozen schema):
-  zero fields in and out, so the per-field claim has a second point to be checked at.
-- A core test that a **pinned** endpoint still dials and still answers, beside the existing
-  UDS one. A builder that rejects a setting fails at `connect()`, which from a harness looks
-  exactly like "the server is not up yet".
-
-### The decode UTF-8 policy — `bench_a17_shared.log`, "decision 3, decode side"
-
-Priced **on the string path alone, in one process, over all three content sets**, which is
-how the rust slice priced it. 6,000 strings of P1.2:
-
-**Re-priced.** 5,000 strings of P1.2 per set -- the FIVE `string` fields, not six -- with
-three validators in one process (`utf8.log`, `bench_a17_shared.log`):
-
-| set | bytes | raw ns/str | scalar | **table** | protobuf | scalar/raw | **table/raw** | protobuf/raw |
-|---|---|---|---|---|---|---|---|---|
-| ascii | 151,989 | 6.38 | 28.12 | **14.49** | 16.36 | 4.39-4.42 | **2.27-2.28** | 2.56-2.59 |
-| latin1 | 303,978 | 6.99 | 117.31 | **112.39** | 138.70 | 16.68-16.99 | **15.91-16.16** | 19.63-20.00 |
-| wide | 455,967 | 6.09 | 139.93 | **119.95** | 210.59 | 22.83-23.16 | **19.58-19.71** | 34.44-34.68 |
-
-**On ASCII the check costs 2.27x a raw copy, not 4.4x**, and **the core's validator is
-cheaper than the incumbent's own on all three sets** -- `protobuf` is protobuf C++'s
-`IsStructurallyValidUTF8`, the validator it runs on every `string` field it parses, which
-is the comparison R14 asks for. So decision 3's check is not a cost the core imposes on a
-host that did not have one: it is cheaper than the check the host already pays.
-
-Two corrections got it there. **C20**: the set was six fields and `ResultRaw.opaque_id` is
-`bytes`, which no validator ever sees -- and in the ASCII set its 1,000 values are
-arbitrary bytes the check arm rejected on the first byte, so the old row *understated* the
-cost. **The validator**: a lead-byte table replaced the decode-then-range-check scalar.
-A textbook DFA was tried first and is slower than the scalar version on wide content,
-because its state is a serial dependency; it is kept, and in the differential test, as the
-evidence for that sentence.
-
-Read the latin1 and wide multipliers with their denominator in view: `raw` is 6-7 ns for a
-whole string, so 16x is +105 ns. The ratio is large because copying 60 bytes is nearly
-free, not because validating them is slow.
-
-The earlier "22 to 28 percent of a decode" figure stays **withdrawn**, and the same
-reasoning now applies to this change: the whole-payload effect is arithmetic (about 18% of
-an ffi decode) and is inside R4's 0.240 across-build bar, so it is not claimed as measured.
-
-`ffi-valtc` is **not** affected: it reaches `ak_tc_utf8()`, the core's Rust transcoder.
-Whether the core's encode-side validator has the same 2x available is open, and R0 makes
-it the aggregating session's rather than a slice's.
-
-### The guard, the linkages, and the crossing
-
-- **The guard is not measurable.** `bench_a17_noguard.log` against `bench_a17_shared.log`
-  — but the two are different binaries, so the claim is bounded by the 0.24 drift bar and
-  is a statement that nothing larger than that was found. In C++ the guard is a `try`/
-  `catch` with no throw on the path.
-- **The crossing**: shared **1.822-1.824 ns** forward, static **1.219-1.221 ns**, with a
-  register-only barrier. The barrier hypothesis is **refuted**: changing from a full memory
-  clobber to a register-only one did not move the shared figure toward the rust harness's
-  1.5 ns on the same machine and the same `.so`. **A C++ host pays about 1.82 ns where a
-  Rust host pays 1.5 ns through the same shared library**, and that is itself a result.
-- **Static against shared is NOT attributed to the crossing count.** P1.2 encode makes 9
-  forward crossings in TOTAL, so 0.6 ns of saving cannot explain an 11 µs move. The
-  `native` arm, which makes zero crossings, moves between the two binaries too, so the
-  difference is the build and not the boundary. The earlier causal sentence is withdrawn.
-
-### The content sets, on whole payloads — `logs/cpp/contentsets.log`
-
-SHAPES.md: "a slice that reports one string-path number without saying which content set it
-came from has reported half a number." This slice had priced the *string path* over all
-three sets and every *whole-payload* row over ASCII only, so the whole-payload rows were
-the half number.
-
-Correctness first and per set, because no manifest oracle covers latin1 or wide: **80
-checks, 0 failures** — every arm byte-identical to the **incumbent**, which is itself
-anchored to `manifest.json` on ASCII, plus a decode round trip per set.
-
-Wire size: latin1 **1.687–1.748×** ASCII, wide **2.373–2.495×**. The rust slice published
-1.70–1.75 and 2.39–2.50 from its own generator over the same description; the two agree to
-three digits, which is a cheap R1 check that two slices' value rules produce the same
-strings.
-
-**The answer is different for the two directions, and that is the finding:**
-
-| | ascii | latin1 | wide |
-|---|---|---|---|
-| P1.2 encode, `ffi`/`pb` | 0.988 | 0.167 | **0.114** |
-| P1.2 decode, `ffi`/`pb` | 0.656 | 0.671 | 0.546 |
-
-**The encode ratio is almost entirely a fact about the content set. The decode ratio is
-not** — no payload's decode ratio moves by more than about 0.15 across all three sets. The
-published C++ encode column is an ASCII column and nothing else; the decode column survives
-being read without its content set.
-
-**Why, and this keeps the encode number honest.** protobuf C++ **validates UTF-8 when it
-serialises** a `string` — verified in the generated code, not inferred: `shapes.pb.cc` calls
-`WireFormatLite::VerifyUtf8String(..., SERIALIZE)` unconditionally, 37 call sites. ABI v1
-says the core does not. So most of that column is a check the core *skips*, and reporting
-`ffi` against `pb` alone would publish a policy difference as codec speed. The like-for-like
-row is `ffi-valtc`:
-
-| payload | valtc/pb ascii | latin1 | wide |
-|---|---|---|---|
-| P1.2 | 1.179 | 0.422 | 0.365 |
-| P2.2 | 1.043 | 0.479 | 0.421 |
-| P3.1 | 1.389 | 0.551 | 0.505 |
-| P4.1 | 0.995 | 0.626 | 0.530 |
-
-Doing the same work, the core is at parity or slightly worse on ASCII and **about twice as
-fast on latin1 and wide** — which agrees with `utf8.log` measuring the two validators
-directly. Growth against each arm's own ASCII row separates the three effects: `ffi`
-1.04–1.05 (width only), `ffi-valtc` 2.20–2.82 (width + the core's validator), `pb`
-6.13–9.12 (width + protobuf's validator + its per-string costs).
-
-**P6.1 is the control and behaves like one**: packed scalars with one string per batch, so
-its wire size moves 1.058/1.117 where the others move 1.7/2.4. A table where every payload
-moved by the same factor would be measuring the harness.
-
-### ABI v1 obligation 12.5: the concurrency suite — `logs/cpp/concurrency.log`
-
-No slice in the branch had one. Four payload shapes across two message types, threads in
-sequence and threads together, every encode memcmp'd against a reference that protobuf
-produces (so no plant can corrupt the oracle), at C++17, at the C++11 floor, on both
-linkages, and with four times more threads than the machine has cores. **Zero wrong bytes
-on every axis**, and no error leaks between contexts.
-
-**Corrected 2026-09-24 (R-D7), read this first.** The table and item 1 below were
-written when the planted builds planted `ak::Enc` only and linked the UNPLANTED core, and
-when `roundtrip` re-encoded with `ak::Enc`. So the ffi arm read 0 in every planted build
-(nothing showed it could fail), and every wrong native encode was counted twice. The
-corrected figures, with the core planted too, are in "This work unit" at the top and in
-the current `concurrency.log`: pad **23 of 96** distinct wrong encodes per encoder (was
-"46 of 96"), two shapes **22 of 48** (was "44 of 48"). The scaling column is T7 from the
-version of `concurrency.log` at `4af8d2b` (2.80 GHz container), instrumentation, and T7
-was not re-run.
-
-**The suite is shown to work rather than assumed to.** Planted builds carry the two
-designs ABI v1 section 6 refused, in both encoders since R-D7, and `gen/concurrency.sh`
-requires each to do what section 6 says it does:
-
-| build | distinct wrong encodes per encoder (T3, of 96) | two threads disagree (T5, native) | scaling, contended (4af8d2b, instrumentation) |
-|---|---|---|---|
-| shipped | 0 | 0 | 3.63-3.96x |
-| pad (pad the prefix to the learned width) | 23 native, 23 ffi, 23 hosttc | 16 of 16 | — |
-| global (the width table process-global) | **0** | 0 | 2.80-2.87x |
-| both | 24 native, 24 ffi, 24 hosttc | **0** | — |
-| core-only pad | 0 native, 23 ffi, 23 hosttc | 0 | — |
-
-Four things this settles:
-
-1. **12.5's own claim, measured.** "A suite with one shape reports zero wrong bytes with a
-   per-thread-state defect present and absent alike." On the pad build: one shape 0 of 24,
-   two shapes **22 of 48 distinct wrong native encodes** (and 22 ffi, 22 hosttc since the
-   core is planted too; the figure published here before was 44, which counted each wrong
-   native encode twice). It holds — and the mechanism is narrower than the sentence. It
-   is not two shapes that matters but two shapes that want **different widths at a shared
-   length-prefix site**. P1.1 (858 B) and P1.2 (218 KB) learn the *same* table, and two
-   different message types touch disjoint sites. The pair that works is P1.1 and P1.3.
-   **This slice's first suite used P1.1/P1.2/P2.1/P2.2 and passed on all three plants.**
-   T0 exists because of that: it asks the encoder which ordered pairs have a history
-   surface at all and prints the answer even when it is empty.
-2. **Section 6's two refusals are independent and only the combination corrupts.** A
-   global width table is a data race and a throughput defect but **not** a byte defect,
-   because an unpadded prefix is rewritten to the width the body needs whatever the guess
-   was. So `conc_a17_global` is in the must-**pass** list, and that is the finding.
-3. **Both together is the case a naive suite would miss**: the threads *agree* (0
-   disagreements) because they share the polluted table, and are both wrong. Only the
-   independent reference catches it.
-4. **Section 6's throughput claim, reproduced from C++ and refined.** Under contention the
-   global table is **1.83-2.05x** slower in aggregate — inside the java slice's measured
-   1.32-2.23x, from another language and machine. But uncontended it is 1.13-1.23x and its
-   *scaling does not degrade at all*. The cost is a function of how often the table is
-   **written**, not of sharing.
-
-## Next step
-
-WP5 step 9 is done for this slice. Open for the aggregating session: whether the RPC
-suite needs a retain cell; the copy of retained bags into `std::string` (a facade
-choice, not priced); `one_core.sh --selftest` (C38) is still the shared script's defect.
-To re-run: `CLEAN=1 gen/wp5_gate.sh build`, then `gen/d11_asan.sh`. Earlier text follows.
-
-### Before WP5 step 9
-
-
-WP5 step 2 is done for this slice. What remains from FIX-PLAN: the aggregating session's
-side of the gaps listed in this work unit (add the five `cpp_*.py` modules to
-`generate.py`'s `BACKENDS`, drop `rust_core.py` there and in `one_core.sh`, fix
-`one_core.sh --selftest`'s scratch copy, and decide items 1 to 4 of "Plan and shared-tree
-gaps"); then WP3 (the campaign harness contract) and WP6. When the python slice commits its
-own port, `gen/cpp_header.py` (a forwarding name) can be deleted.
-
-To re-run this work unit's gate: `cmake -S . -B build -DAK_RPC=ON && cmake --build build
--j4`, then `gen/wp5_gate.sh build` (about 10 minutes; it rebuilds the "before" tree for
-the byte audit out of tree unless `OLD_CORPUS_BIN` names one). Nothing in it is timed.
-`gen/run_all.sh` is the TIMING run and must not be used as a gate: it takes container
-instrumentation.
-
-### The queue from before 2026-09-24
-
-**Read the Machine row first.** This work unit ran on a 2.10 GHz container and every other
-figure in this file came from a 2.80 GHz one, where the same unchanged bench measures a
-forward crossing of 1.822 ns against 0.63 ns here. **Nothing in the codec tables above was
-re-taken and nothing in them should be compared with `rpc.log`.** If a later session needs
-one set of absolutes it has to re-take the codec tables on whatever machine it has, and
-`gen/run_all.sh` is what does that.
-
-Five things are reported and not fixed because they are not this slice's to write: C27 (the
-rust slice does not build, which takes R13's calibration with it), C28 and C31
-(`design/SHAPES.md`), C29 (`design/ABI-v1.md` section 9's crossing table), and C25/C26 (the
-corpus). C30 is this slice's own and is fixed. In the order I would do it:
-
-0. **Re-take the codec tables on THIS machine, or move back to a 2.80 GHz one.** The slice
-   currently publishes two machines' absolutes in one file and says so in every place it
-   matters, which is honest and is not good. Everything else below is smaller than this.
-
-1. **Borrowed spans as a real facade option**, now that the arm says what they are worth
-   (−24 to −50 % of a protobuf decode, and the core level with upb). The lifetime contract
-   is the hard part and it is a design question, not a measurement one. **Decision 13, and
-   the coordinator has said it is not this slice's.**
-2. ~~A table-driven or SIMD UTF-8 validator~~ **done**, `logs/cpp/utf8.log`. What remains
-   is a true SIMD one: `utf8_range` is **not** in this tree (STATE.md said it was and that
-   was wrong — it was in a scratch directory from the upb arm that does not survive).
-   protobuf's own validator is the ceiling instead, which is a better one for R14 and costs
-   nothing. Honest expectation for SIMD on top: another 3x to 5x on ASCII.
-3. **A core fast path for `tc == ak_tc_bytes`**, worth +4.49 ns per string. This is now
-   a *change to existing behaviour* in the shared core, which R0 says is the
-   aggregating session's to make rather than a slice's -- it moves every slice's gate
-   at once. A slice may still ADD to `poc/codec`; this is not an addition.
-4. ~~The content sets on whole payloads~~ **done**, `logs/cpp/contentsets.log`.
-5. ~~A concurrency suite (ABI v1 obligation 12.5)~~ **done**, `logs/cpp/concurrency.log`.
-   What remains is a TSan run (the core is a Rust cdylib built without it, so a TSan host
-   would report the core's internals as uninstrumented) and the RPC half — the rust slice's
-   shared-mutable-client defect is what motivated 12.5 and this suite covers the codec.
-6. ~~Explain the P1.2 decode outlier round~~ **characterised**, `logs/cpp/c16.log`: it is
-   glibc's mmap path, demonstrated by removal. One residual named there, and it is a
-   question about glibc rather than about the ABI.
-7. **A `protoc-gen-upb` build**, if the ceiling ever needs to include the fast decoder.
-   That needs Bazel and is the one thing this slice stopped short of.
-8. **More of the corpus.** The cheapest next row is the `chunking` class: it needs a
-   `ChunkedResponse` codec, and this slice DOES batch element runs, so it is the one
-   slice that can report a chunk count for `C-elemu-512` rather than a gap. After that,
-   C5 for the 41 `E-*`/`S-*` rows, which needs the corpus's value rules in C++.
-9. **The corpus's two disputed rows** (C25, C26) want a decision from the corpus agent,
-   not from here.
+| 16 | B and C blocking | **met**. The callback and queue rows exist only in the pre-campaign `rpcbench`, not in the campaign client |
+| 17 | shipped and pinned | **met**, stated. grpc++ shipped = packages/cpp's channel args minus its retry service config. grpc++ pinned has no connection-window argument, so only the stream half is pinned. core shipped = ak_client_new defaults |
+| 18 | every call checked | **met**: status and length on every call (cell A: content on every call, wire length once before the rounds); the first failure aborts. Both clients' abort is exercised in the gate |
+| 19 | crossing counts gate | **met**: `counts_a17_shared` against `counts-baseline.log`, `counts_nounk` against `counts-nounk-baseline.log` |
+| 20 | crossing cost, fwd and rev, perf stat | **not met here**: perf is not installed. The runner builds and runs the rust slice's crossing bench, which did not build in the WP3 out-of-tree snapshot, and has not been re-run since. Reverse is reported as a fwd+rev row, from which the forward row is subtracted |
+| 21 | CPU time | **met**. Codec: Google Benchmark cpu_time (the benchmark thread) and real_time. Calib: CLOCK_THREAD_CPUTIME_ID. RPC: getrusage(RUSAGE_SELF) of the client, plus wall |
+| 22 | order rotated between launches | **met**. Codec: registration order rotated by launch, plus Google Benchmark's random interleaving. RPC: rounds rotated, and the two builds' binaries alternated by launch |
+| 22a | benchmark engine | **met** for the codec suite: Google Benchmark v1.8.3, a Release build made by the runner from the upstream tag with its commit checked. Every repetition is exported raw and converted to section 7's lines. The RPC and calib suites stay on the runner, because a separate server process and abort-on-first-failure do not fit a Google Benchmark registration |
+| 23 | 5 rounds x 3 launches, every round committed | **met** (runner defaults; the smokes used fewer, stated) |
+| 24 | warm-up fixed and identical | **met**: a byte budget per codec arm and a call count per RPC cell, before round 1. Google Benchmark adds none (`--benchmark_min_warmup_time=0`). JIT is not applicable |
+| 25 | allocator warmed identically | **met**: every arm's warm-up precedes round 1. GC is not applicable |
+| 26 | correctness gate first | **met**: the campaign gate runs the full build's conformance, corpus, plants and counts, `nounk_gate.sh`, each codec binary's own gate and plant, and both RPC clients' length abort |
+| 27 | header; dirty tree refused | **met**: a dirty tree is refused unless AK_CAMPAIGN_ALLOW_DIRTY=1 (smoke only, recorded in the header as instrumentation) |
+| 28 | one JSON object per sample | **met**, plus a `build` field |
+| 29 | logs in `ffi/logs/cpp/campaign/` | **met** |
+| 30 | summaries only as specified | **met** (`gen/campaign_summary.py`, keyed per build; no committed summary) |
+| 31 | runner interface; top-level `ffi/campaign.sh` | **met** for the slice runner. `ffi/campaign.sh` belongs to the aggregating session |
+| 32 | smoke committed, marked | **met**: the WP5 step 10 smoke, figures stripped |
 
 ## Open defects
 
 | # | Where | What | Status |
 |---|---|---|---|
-| C1 | `include/ak/rt.h` | `ak::Enc` used `std::vector::push_back`, so the no-boundary control was SLOWER than the arm it controls for | **fixed**: a raw cursor over a reserved block |
-| C2 | `gen/cpp_binding.py` | decision 9's clear was applied to blob-run and map chunks that are filled in full, once per element | **fixed** |
-| C3 | `gen/cpp_binding.py` | that clear was O(arena) where the fill is O(elements) | **fixed here.** Reported as a property of decision 9's candidate: `rust_abi.py:2370` still clears the whole chunk |
-| C4 | `include/ak/vocab.h` | `Optional::set` took `const T&` only, copying a decoded child | **fixed**: an rvalue overload |
-| C5 | `gen/cpp_header.py`, `cpp_layout.py` | two separate enumerations of the 380 layout facts | **fixed**: one `cpp_layout.facts` feeds both, so a permutation at constant count is impossible |
-| C6 | this container | `libgrpc++` 1.51.1 and protobuf 3.21.12 are apt's; `packages/cpp` pins neither | open, cannot be fixed here |
-| C7 | `src/harness.h` | the incumbent was handicapped three ways on encode: `clear()` before `resize()` (a full zero-fill per call), a hand-rolled `CodedOutputStream`, and deterministic ordering charged to the headline. **Worth about 8 points of every encode ratio** | **fixed**: `pb` is `SerializeToString` |
-| C8 | `src/generated/core_native.cpp` | the control never reserved on a packed run, while the binding reserves at every batched fill. **P6.1 decode 1.241-1.273 → 0.861-0.873** | **fixed** |
-| C9 | `CMakeLists.txt` | `-O2` with no `NDEBUG`, so protobuf's `GOOGLE_DCHECK`s were compiled into the incumbent | **fixed**; and `gen/opt.sh` shows `-O3` does not close what remains |
-| C10 | `src/bench.cpp` | a fixed arm order every round; the rust slice hit this and fixed it with rotation | **fixed**: rotation |
-| C11 | `src/rpcbench.cpp` | client CPU summed the harness's threads, counting grpc++'s transport and missing the core's tokio workers. **Biased the ratio by about 0.2** | **fixed** |
-| C12 | `gen/generate.py` | both gen directories contain a `generate.py` and RUSTGEN was first on `sys.path`, so `import generate` got the RUST slice's | **fixed**: HERE first |
-| C13 | five backends | every shape dispatch ended in an unconditional scalar assignment instead of raising; `cpp_build` and `cpp_pbbuild` stopped testing cardinality after the repeated-string arm, so a repeated `bytes` would have emitted a scalar store against a `std::vector` | **fixed** and tested by `gen/refusal_test.py` |
-| C14 | `gen/cpp_binding.py`, `cpp_core.py` | the map path hardcoded `t.utf8` and the validating reader for both halves, so `map<string, bytes>` would have had UTF-8 validation applied to its value | **fixed**: derived from the pair message's declared kinds, and swept |
-| C15 | `src/bench.cpp` | `groupfill` exceeds the (`ffi` − `native`) delta it is a component of on P1.3 (22.6 against about 18.3 ns/element) | **open.** The suspected cause is refuted: a direct-call variant measures the same as the indirect one to 0.3 percent. `groupfill` is reported as an UPPER BOUND on the group's cost, not as a component |
-| C16 | the harness, not the core | the `ffi` arm's first two rounds on P1.2 decode ran 25-40 % high in every log, rounds 3-9 flat | **characterised, cause demonstrated, one residual named** (`logs/cpp/c16.log`). It is page-fault cost on **glibc's mmap path**: pinning `MALLOC_MMAP_THRESHOLD_` and `MALLOC_TRIM_THRESHOLD_` removes the outlier AND keeps the steady state, forcing always-mmap reproduces its value in every round, and the default allocator takes an order of magnitude more minor page faults (**10.8x** in the committed run, 10.8-13.1x across runs). Refuted: machine load (deterministic 6/6 on an idle box, both linkages) and the arm rotation. Not the cause but the reason it became visible now: the faster validator — with the old scalar one the row is flat at 0.62, because validation swamped a fixed per-iteration allocator cost. **Unexplained**: exactly *when* the threshold adapts. A different allocation history moves the outlier to a later round or removes it, and this does not predict which. What would settle it: a malloc hook logging size and mmap-or-not per call — a question about glibc, not about the ABI. **No figure withdrawn**: min-of-rounds plus the per-round list is exactly why |
-| C17 | `../rust/crates/harness/build.rs` | the rust harness searched `<profile>` before `<profile>/deps` for `libak_core.so`. Cargo only uplifts a workspace MEMBER's cdylib, so after R0 moved `ak-core` out of that workspace the harness would have linked the STALE pre-move copy still sitting in `<profile>` -- a change measuring the same because it is not in the build | **fixed** in W10: order flipped, stale copy deleted, and `ldd` shows the arm loading `deps/libak_core.so` |
-| C18 | `gen/boundary.sh` | half two asked whether a control function was LARGER than the largest timing closure and took that as evidence it was not copied into one. Size is a proxy for fusion, not a test of it, and its positive control was `-flto`, which fires only when the optimiser happens to fuse something. After W10 the largest closure went from 1433 B to 911 B and the control went quiet | **fixed.** Two direct properties instead: every timing closure still contains a call instruction, and every control traversal still has an out-of-line body. The control is now `src/fusion_probe.cpp` -- one function that MUST be called and one that MUST be fused, guaranteed by `noinline` + a volatile function pointer and by `always_inline`, not by optimisation level. 23 checks, 0 failed |
-| C23 | `gen/boundary.sh` | the new call counter used `/\<call\>/`. **mawk is what is installed and `\<` `\>` are gawk-only word boundaries**, so it silently matched nothing and half two reported that 10 of 10 timing closures were fused | **fixed**: `/[ \t]call/`. This is the SECOND gawk-only construct in this one file -- `strtonum` was the first -- and both failed silently rather than erroring. Worth a grep before the next awk line |
-| C20 | `src/bench.cpp`, the string-path table | the set of strings the decode-side UTF-8 policy was priced over included `ResultRaw.opaque_id`, a **`bytes`** field that no validator ever sees. In the ASCII set its 1,000 values are arbitrary bytes the check arm rejected on the first byte, so the row **understated** the cost | **fixed**: five fields, one definition in `harness.h` shared with the validator gate. Found by `src/utf8check.cpp` asserting that every string it validates IS valid, which the table never did |
-| C21 | `src/concurrency.cpp`, the first version | the suite used P1.1, P1.2, P2.1 and P2.2 and **passed on all three planted builds**: two shapes of one message type can learn the same width table, and two message types touch disjoint sites, so no site ever over-reserved | **fixed**: the pair with a history surface is P1.1 and P1.3, and T0 now asks the encoder which ordered pairs have one and prints the answer even when it is empty |
-| C22 | `src/concurrency.cpp`, the reference | the oracle was built by re-encoding with `ak::Enc`, which is where the plants live, so on the pad+global build the reference itself was wrong and every arm was compared against a corrupted oracle | **fixed**: the oracle is protobuf's encoder, which no plant can reach. The sha anchor caught it, which is what an anchor is for |
-| C24 | `include/ak/rt.h`, `gen/cpp_core.py`, `src/conformance.cpp` | `skip(wire)` had no case for wire type 3, so every arm of this slice **refused a legal message**: an unknown field of the deprecated GROUP form, which protobuf C++ and upb both accept. 443 conformance checks passed over it because the manifest is generated from the proto3 description the codec is generated from and proto3 cannot express a group | **fixed**: `skip(tag, wire)` plus a field-number-matching `skip_group` bounded at 100 with `ERR_DEPTH`, swept across 13 emission sites and regenerated. Tested by `src/groupskip.cpp` at four (std, impl) pairs against two PLANTED defects, and by the corpus's five group vectors |
-| C25 | `ffi/corpus/generated/projections/U-map-entry.json` | the corpus's projection puts the four map entries under `_unknown` at `TaskOptions`, where a map entry carries an unknown field. **protobuf C++ 3.21.12, protobuf-python's pure-Python backend and both of this slice's arms read them into the map; only upb does not, and the corpus followed upb.** Two Google runtimes disagree on the same bytes | **open, and deliberately not fixed here**: `corpus/**` is not this slice's to write. For the corpus agent. Evidence is in `logs/cpp/corpus.log`, which prints who says what |
-| C26 | `ffi/corpus/generated/manifest.json`, row `B-P7_1` | the interleaved payload's only accepted encoding is the committed one, and no canonical writer can produce it -- every conformant encoder writes each repeated field contiguously, protobuf C++ included. A slice that re-encodes it correctly still fails C3 | **open, not fixed here**: same ownership. `gen/corpus.py` shows the two byte strings are the same (tag, wire type, body) multiset and reports the row separately rather than as a pass |
-| C19 | `../csharp/gen/cs_abi.py` | its docstring still says "`ffi/poc/rust/crates/ak-core` is a cdylib exporting 68 `ak_` functions". The path no longer exists and the count is now 66 without `rpc` | **open, and deliberately not fixed here**: it is another slice's source, not a build file. For the csharp session |
-| C27 | `../rust/crates/facade/src/generated/core_native.rs` | the rust slice **does not build on this branch**. C24 changed the shared runtime's `skip(wire)` to `skip(tag, wire)` and swept this slice's 13 emission sites; the rust slice's generated tree was never regenerated, so `cargo build --bin bench` fails with 20 E0061 errors. **R13's calibration -- every slice quotes the rust slice's crossing benchmark on its own machine -- is therefore unavailable on the 2.10 GHz container**, and it is unavailable to every future slice on every future machine until it is fixed | **open, and deliberately not fixed here**: `poc/rust/**` is another slice's source. For the rust session or the aggregating one. Worked around by quoting this slice's OWN crossing (0.59-0.65 ns forward), which is not the same yardstick |
-| C28 | `design/SHAPES.md`, the flow-control table | the row for tonic/hyper says "initial stream window 65,535, auto-tuning off by default". Measured from the stack's own SETTINGS frame: **2 MiB** stream and **5 MiB** connection (`hyper/src/proto/h2/client.rs:48-50`), adaptive off. The auto-tuning half is right; the window is wrong by 32x. The grpc++ row does not exist and is ~4 MiB with auto-tuning ON. **The consequence is not cosmetic**: the table is why two slices believed a 540 KB P2.2 response stalls on the default window, and it does not | **open, not fixed here**: `design/**` is the aggregating session's. Evidence is `logs/cpp/rpcflow.log`, which prints the announced window per configuration |
-| C29 | `design/ABI-v1.md` section 9, the delivery table | "2 fwd / 1 rev" for `ak_call_unary_cb` and "3 fwd / 0 rev" for `ak_call_unary_q`. **Counted from a `--features rpc,count` core: 3 / 1 and 4 / 0.** Both return an `ak_call*` the host must release and the table does not count `ak_call_destroy`; a host that matches the table leaks a handle per RPC | **open, not fixed here**: `design/**` is the aggregating session's. `logs/cpp/rpc.log` prints counted against claimed, side by side, on two methods |
-| C30 | this slice's own `logs/cpp/rpc.log`, the version before this work unit | it asserted "540 KB per response against a 64 KB default stream window means a single call in flight spends most of its wall clock waiting for WINDOW_UPDATE". **Neither stack was at 64 KB** -- grpc++ announces ~4 MiB and tonic 2 MiB -- and the probe sees no stall at all in any DEFAULT configuration. The sentence was inherited from SHAPES.md's table (C28) and repeated without checking | **fixed**: withdrawn, and the log now establishes both stacks' behaviour from their own traces rather than from a table |
-| C31 | `design/SHAPES.md`'s pinning instruction, against grpc++ | "every arm pins the same configuration ... a 4 MiB stream window", with the pinned arm as the headline. **On grpc++ that configuration is not reachable**: grpc-core exposes no connection-window argument, so pinning the stream window and switching BDP off leaves the connection window un-tuned and produces hundreds of stalls the DEFAULT configuration does not have. Making it the headline would handicap the incumbent from its own harness -- an R14 defect pointed the wrong way | **handled, not fixed**: `logs/cpp/rpc.log` publishes pinned AND unpinned in full and the grid's verdict is the same in both. Flagged for the aggregating session because SHAPES.md already anticipates the shape of this ("where pinning configures something the shipped client cannot ... the arm says so") and does not anticipate it landing on the INCUMBENT |
-| C32 | `src/corpus.cpp`, `gen/corpus.py` | every corpus row runs in ONE process and the driver never read the binary's exit status, so a panic in the shared core on one row (an abort: it cannot unwind through `extern "C"`) turned every later row of every arm, native included, into "no result". Found when the WP4 item 2 vectors landed | **fixed**: the driver prints and fails on a nonzero exit, names the panic line, and `--no-ffi` (`AK_CORPUS_NO_FFI=1`) gates native and the pb oracle with the ffi arm left out, saying so on the line it would have been counted. `gen/lenwrap_rows.sh` runs one row per process |
-| C33 | `src/corpus.cpp`, the between-arms agreement | on a row both arms REFUSE it compared the facade left in the output object after the error, which neither ABI v1 nor CONTRACT.md specifies. It began to differ on 46 rows when the core stopped flushing groups after an error (the rust agent's R-D1 work) while the native codec keeps what it built before the error | **fixed**: on a refusal the arms agree when the error CODE agrees (it does, 52 of 52); the left-behind object is printed as a separate fact ("L" lines, 46 of 52 differ), for the aggregating session to decide whether it becomes a rule in the shared plan |
-| R-D1 | `include/ak/rt.h` `len_body` | `pos + k > len` wraps on a length near 2^64: 9 corpus rows hang, 4 read out of bounds (ASan) | **fixed**: checked comparison against the remaining length; `rd1-lenwrap.log` 0 of 55 after, plain and ASan |
-| R-D2 | `src/rpc_common.h` | hand-declared a 3-field `ak_client_opts` against the core's 6 | **fixed**: rendered into `include/ak_abi.h` from ak-abi, size/offset/field-count guards, all six fields set; `rd2-guard.log`. `rpc.log`/`rpcflow.log` predate the 6-field struct (`rd2-history.log`) |
-| C34 | `poc/codec/crates/ak-abi/src/lib.rs` vs `ak-core/src/rpc.rs` | **observed, not this slice's**: ak-abi declares `ak_queue_next(..., timeout_ms: i32)` while the core exports `timeout_ms: u64` (this slice's hand prototype matches the core); and `ak_bytes`/`ak_completion` exist twice in Rust with no layout assert tying them, unlike `ak_client_opts`. The remaining RPC prototypes and those two structs are still hand-declared in `rpc_common.h` | **fixed** (WP5 step 2, `882112c`): the header renders `plan.rpc` (`ak_queue_next` with `uint64_t`, `ak_bytes`, `ak_completion`, every prototype) and `rpc_common.h` declares none of them; the counting build's four RPC counter declarations remain, not being in the plan |
-| C36 | `src/concurrency.cpp`, `CMakeLists.txt` (R-D7) | the planted builds planted `ak::Enc` and linked the unplanted core, so the ffi arm was never seen failing; `roundtrip` re-encoded with `ak::Enc`, so each wrong native encode was counted twice ("44 of 48" = 22); the T6 labels were typed and named the wrong windows after T0 reordered the table | **fixed**: planted cores linked, a core-only plant added, `roundtrip` is a decode check, labels built from the table, `gen/concurrency.sh` requires per-encoder counts (`concurrency.log`) |
-| C37 | `src/bench.cpp`, `src/conformance.cpp`, `src/contentsets.cpp` (R-D5) | `ffi-valtc` was timed in two binaries and gated in none; the bench sank every return code, so a refused encode would have been timed as fast (it was, under a plant: `rd5-before.log`) | **fixed**: gated in conformance and contentsets; every bench arm has a gate run before calibration, a failing arm is not timed and the bench exits 1; `bench_a17_gateplant` shows it (`rd5-gate.log`) |
-| C35 | `gen/cpp_core.py` `packed` | **observed while reading for R-D1, not fixed**: the non-wire-2 arm of a packed field reads the value with the field's own reader whatever wire type arrived (a packed int field at wire type 1 or 5 is read as a varint, a double at wire type 0 as 8 bytes) instead of skipping a known field at the wrong wire type. This is R-E2, which WP5 moves into the shared plan. **From reading the emitter, not from a run**: the in-scope `U-wire-*` rows pass on native, and whether any of them puts a packed field at a wrong wire type was not checked | **fixed** (WP5 step 2): the native decoder renders the plan's decode table, so a packed field's unpacked form is accepted at the kind's own wire type only; the `U-wire-MetricsBatch-*` / `U-wire-ChunkInner-*` rows pass on native-drop and native-retain (`wp5-corpus.log`). The old emitter never ran on those roots, so the defect itself was never observed in a C++ run |
+| C6 | this container | grpc++ 1.51.1 and protobuf 3.21.12 are apt's; `packages/cpp` pins neither, and CAMPAIGN.md asks for v1.54.0 and a current version | open; this container cannot fix it |
+| C15 | `src/bench.cpp` | the `groupfill` arm has measured larger than the (`ffi` - `native`) delta it is a component of, on P1.3 (instrumentation, `bench_a17_shared.log`) | open; the direct-call hypothesis is refuted (JOURNAL). `groupfill` is labelled an upper bound |
+| C40 | `design/ABI-v1.md` section 5 vs `ak-abi` | `ak_err` is `{code, msg_len, msg}` in the specification's text and `{code, detail}` in the core; the C header follows the core | open, for the aggregating session |
 
-| C38 | `poc/codec/gen/one_core.sh` (shared) | `--selftest` fails before planting: its scratch copy lacks `ffi/corpus`, which the shared `generate.py --check` loads since WP5 step 1, so the R0 positive controls have not run since | **open, not this slice's file**: reported. A scratch copy with `ffi/corpus` passes (`wp5-generator.log`) |
-| C39 | `poc/codec/gen/generate.py`, `one_core.sh`, `poc/rust/gen/corpus_before.py` | still name `rust_core.py`, which no generator uses any more; deleting it would make the shared `--check` raise | **open, not this slice's files**: reported |
-| C40 | `design/ABI-v1.md` section 5 vs `ak-abi/src/lib.rs` | `ak_err` is `{code, msg_len, msg}` in the specification and `{code, detail}` in the core; `plan.lifecycle` defines neither. The C header follows the core | **open**, for the aggregating session |
-| R-G7 | this slice's binding | never called `ak_init`; every gate passed because the core was built without `init-guard` | **fixed** (WP5 step 2): rendered from `plan.lifecycle`, called by every binding entry point and by the RPC binaries; every core built with `init-guard`; two planted builds (`conformance_a17_noinit`, `corpus_all_noinit`) fail as required |
+The retired defects C1-C37, R-D1, R-D2 and R-G7 were fixed, or were closed by their owners,
+and the record is in JOURNAL.md. The items reported against other owners were re-checked on
+2026-09-26 and are closed:
+- C19: the file no longer exists.
+- C25: `U-map-entry` is now a disputed row.
+- C26: `B-P7_1` now has `permutation_accepted`.
+- C28: SHAPES.md's window table is corrected.
+- C29: ABI-v1 section 9's delivery table no longer carries the counts.
+- C38: `one_core.sh --selftest` passes in this gate (0 controls failed to fire), though
+  `wp5_gate.sh` still labels that step as a known defect.
+- C39: `rust_core.py` is named only in a comment.
 
 ## What is not measured
 
-- **The C++ ffi arm's retain mode on the shapes payload set**: the retain family is
-  rendered for the corpus binding only (`cpp_binding.emit(..., retain=True)`); the shapes
-  binding the benches link is drop-only, as before.
-- **A lossy (U+FFFD) decode policy in the C++ native codec**: not rendered; the backend
-  raises. The two lossy build targets are retired.
-- **Timings of anything built in this work unit.** The facade grew a `std::string
-  unknown_fields` per struct and every binding entry point checks a function-local static
-  for `ak_init`, against a core that now checks `init-guard` too: every committed timing
-  log predates all three and none was re-taken (owner position 2).
+**Timing, in general.**
+- **Any timing on the campaign machine.** Every timing in the tree is container
+  instrumentation (above).
+- **Any timing of the current tree.** No timing log was re-taken after the port to the
+  shared plan, decision 11, the no-unknown build, `init-guard` and the facade's
+  `unknown_fields` member.
+- **The price of unknown-field support.** The campaign codec suite has core-ffi drop,
+  retain and no-unknown, and the RPC grid has C/D per mode, but the only runs so far are
+  smokes with their figures stripped.
+- **The copy of a retained bag into `std::string`.** Rust adopts the core's buffer; C++
+  copies it, because the facade type is `std::string`. This is not priced.
 
-- **Exactly when glibc's mmap threshold adapts**, which is C16's residual. The *cause* of
-  the outlier is demonstrated by removal; what a different allocation history does to its
-  *timing* is not predicted. A malloc hook logging size and mmap-or-not per call would
-  settle it, and it is a question about glibc rather than about the ABI.
-- **A thread sanitizer run.** The core is a Rust cdylib built without TSan, so a TSan
-  host would report its internals as uninstrumented and the result would be noise. The
-  `AK_CONC_GLOBAL` race is argued from the code and its throughput, not from a detector.
-- **A shared `ak_enc_ctx`.** ABI v1 makes the context host-owned and every thread in the
-  suite owns its own; passing one context to two threads is not a supported use and is
-  not tested as though it were.
-- **The RPC half under concurrency.** The rust slice's shared-mutable-client defect is
-  what motivated 12.5, and this suite covers the codec. The grid DOES drive one client
-  handle from 16 host threads at once and from tokio workers at once, and nothing wrong
-  came out of it, but no byte is checked under contention there and no plant exists, so it
-  is an absence of failure and not a suite.
-- **The ENCODE direction of the RPC grid.** The request is an empty message, so C − B and
-  D − A are decode differences and nothing else. A grid carrying a large request would be a
-  different measurement and this one does not stand in for it.
-- **Allocation per RPC**, which `design/SHAPES.md`'s RPC arm asks for beside CPU. Nothing
-  counts allocations; a page-fault or RSS proxy presented as an allocation count would be
-  worse than the gap.
-- **`ak_call_cancel` under load, and the cancellation path generally.** The entry point is
-  exported and counted, and no arm calls it.
-- **Streaming, TLS, retry, backoff, deadlines, metadata and the gRPC status code as a
-  number.** Section 9's case is behavioural and no arm here tests it.
-- **Where the transport crossover is.** The core's transport is free on a 540 KB call and
-  41 to 95 percent against it on an empty one. Two points do not give a crossover, and the
-  payload sweep that would is not built.
-- **Cell B and cell D on a small payload.** The Ping block has cell A and the core's
-  transport and nothing else, because with no codec on either side cells B and C collapse
-  into one another. Pricing outcome 2 on small calls needs a payload in between, which is
-  the sweep above.
-- **A true SIMD UTF-8 validator.** protobuf's own is the ceiling; what SIMD would add on
-  top is open.
-- **The validator's effect on a whole-payload decode ratio.** About 18% of an ffi decode
-  by arithmetic, which is inside R4's 0.240 across-build bar, so it is not claimed.
-- **The java and csharp slices' own gates after W10.** Only JDK 21 is installed here and
-  java's build needs JDK 17 and JDK 8; dotnet is not installed at all. What was verified
-  is that both builds RESOLVE the shared core -- java's core and JNI shim link against it,
-  csharp's layout probe builds -- and nothing beyond that. `logs/cpp/w10-one-core.log`.
-- **upb encode is not a ceiling** (see above), and no upb arm exists for the core's own
-  shapes beyond encode/decode of the whole message.
-- **What a `protoc-gen-upb` minitable would add** on top of upb's generic decoder. The
-  fast decoder is unreachable from reflection minitables and the generator is Bazel-only,
-  so the ceiling measured here is upb's generic decoder and nothing above it.
-- **The borrowed facade's lifetime contract.** The arm measures the copy; it does not
-  price what a host pays to keep the input buffer alive, nor a hybrid facade that borrows
-  some fields and owns others.
-- **Content sets** are measured on the string path only, not on whole payloads.
-- **`ak_init` and the lifecycle**, **the pull decode family**, **the unknown-field bag**,
-  **`ak_span.coder`**, **message-size and recursion limits**: unbuilt or unexercised, as in
-  the rust slice.
-- **The direct-argument path** is built and byte-identical; C++ has nothing to pin, so it
-  says nothing about the JVM claim.
-- **A C++20 coroutine surface** (README 5.1.2): a sketch only. `ak_call_unary_cb`'s
-  completion callback is the one primitive such a surface needs — `co_await` over an
-  awaiter whose `await_suspend` stores the `coroutine_handle` in `user_data` and whose
-  completion resumes it, as free functions and an adapter type beside the installed class
-  rather than as members of it. No new C entry point, and the floor keeps the blocking call
-  as a complete alternative. **Not built**, by instruction.
-- **Concurrency in the timed arms**: every bench timing is one thread. The concurrency
-  suite (`concurrency.log`) is a correctness gate; its one timing (T7) is skipped in the
-  gate run and was last taken at `4af8d2b`. T5 (two threads, one message) and T7 drive the
-  native encoder only, so neither has seen the planted core; T1, T2, T3 and T6 have.
-- **Allocation and footprint**: nothing counts allocations or peak memory.
-- **One compiler** (g++ 13.3.0); clang++ 18 is installed and unused.
-- **Nesting past depth 3**, the adapter's non-injective states, and P7.1 being decode-only:
-  structural gaps inherited from the payload set.
-- **CONTRACT.md C5 (produce) on 41 of the 49 in-scope rows that name `cpp`.** Listed by
-  id, per R11: `E-adapter-nested-error`, `E-adapter-nested-invalid`, `E-adapter-nested-ok`,
-  `E-adapter-plain-error`, `E-adapter-plain-invalid`, `E-adapter-plain-ok`,
-  `E-all-absent`, `E-elem-empty`, `E-elems-empty-3`, `E-explicit-absent`,
-  `E-explicit-empty-string`, `E-explicit-zero`, `E-half-absent`, `E-map-entry-empty`,
-  `E-map-key-only`, `E-map-value-only`, `E-msg-empty-present`, `E-oneof-empty-string`,
-  `E-oneof-payload-free`, `E-root-empty`, and `S-<Root>-{full,alt,min}` for all seven
-  roots (21 rows). Producing them needs the CORPUS's own value rules implemented a second
-  time in C++; this slice has `ffi/schema`'s value rules and nothing else. The 8
-  `baseline` rows that name `cpp` ARE produced, from two independent routes, by
-  `conformance`.
-- **The corpus's other 208 rows**, by root: `Surrogate` 56 (the transcode class; this
-  slice has no `Surrogate` type and its own UTF-8 reject policy is measured in
-  `utf8.log`), `ChunkedResponse`/`ChunkedResponseWide`/`ChunkElement`/`ChunkInner`/
-  `ChunkLeaf` 29 (the chunking class, which needs a `ChunkedResponse` codec), `Nest` 9
-  (including `X-depth-101` and `X-depth-300`, which are ABI v1 open decision 7 and which
-  the unknown-field walker cannot reach because it does not recurse into a
-  length-delimited body), `LeafResponse`/`LeafElement` 8, and 44 rows rooted at messages
-  that are element types here rather than roots (`Probe`, `TaskOptions`, `Timestamp`,
-  `Pair`, ...). `WireZoo`'s 62 are out of scope for C1-C3 but ARE run through the
-  unknown-field walker, 62 of 62 agreeing.
-- **The C++11 floor of the corpus consumer covers the same 128 rows**, not more: the
-  floor is a correctness gate here and not a second scope.
+**Unknown fields.**
+- **Map entries.** A map entry's unknown fields have no facade bag. They are counted,
+  freed and dropped (the `U-map-entry` retention gap, a disputed corpus row).
+- **Rule 5**: a buffer above 2 GiB giving AK_ERR_LIMIT is not exercised.
+- **The RPC server side.** The server decodes with the incumbent in every cell, so no
+  cell runs the core's decoder on the server.
+
+**Coverage.**
+- **The pull decode family.** It is not rendered for C++.
+- **A lossy (U+FFFD) decode policy** in the C++ native codec. It is not rendered, and the
+  backend raises.
+- **The chunking class, `Surrogate` and similar roots in timing.** The corpus build runs
+  every row for correctness only. The timed codec covers the seven shapes roots.
+- **CONTRACT.md C5 (produce)** for the `E-*` and `S-*` rows. It needs the corpus's value
+  rules in C++. The 8 `baseline` rows are produced, by `conformance`.
+- **Nesting past depth 3** and P7.1 being decode-only: gaps inherited from the payload set.
+- **A C++20 coroutine surface.** A sketch only, not built.
+
+**Campaign requirements this container cannot meet.**
+- **The two incumbent versions** CAMPAIGN.md asks for (C6).
+- **`perf stat` cycles and instructions** (req 20): perf is absent.
+- **The rust slice's crossing bench** (R13, req 20): not re-run on this container since
+  2026-09-24.
+
+**Sanitizers and allocation.**
+- **A thread sanitizer run.** The core is a Rust cdylib built without TSan, so the result
+  would be noise.
+- **Allocation counts and peak memory.** Nothing counts them.
+- **Concurrency on the RPC half, and cancellation.** The RPC half has no byte-checked
+  suite under contention and no plant. `ak_call_cancel` is exported and counted but never
+  called.
+- **Streaming, TLS, retry, deadlines, metadata** on the RPC path.
+- **A second compiler.** clang++ 18 is installed and unused for the gates.
+
+**Other open questions.**
+- **When glibc's mmap threshold adapts**: the residual of C16. The cause of the P1.2
+  outlier round was demonstrated by removal (`c16.log`); its timing is not predicted.
+- **What a `protoc-gen-upb` minitable would add** above upb's generic decoder: it needs
+  Bazel.
+
+## Next step
+
+Nothing is queued for this slice. The open items belong to others: the incumbent versions
+and perf (the owner's machine), C40 (the aggregating session), and whether the RPC server
+should decode with the core in C/D cells (a harness question for the aggregating session).
+To re-run the gate: `CLEAN=1 gen/wp5_gate.sh build` (it builds everything, about 40
+minutes here), then `gen/d11_asan.sh`. `gen/run_all.sh` takes timings and is not a gate.
 
 ## Log index
 
-| Log | Configuration | What it establishes |
-|---|---|---|
-| `wp5s10-nounk.log` | `gen/nounk_gate.sh`: the no-unknown build (ak-core --no-default-features, nounk/include) | **WP5 step 10**: core per binary, both headers against both cores, byte identity x3, corpus x2 with every unknown row dropped + controls, counts |
-| `counts-nounk-baseline.log` | counts_nounk, counting no-unknown core | the variant's committed crossing counts (P1.2 decode reverse 5 against 8 in the full build) |
-| `campaign/codec-nounk-launch*.jsonl`, `campaign/rpc-launch*.jsonl` (WP5 step 10 smoke) | 2 launches, 1 round, reduced sizes, figures stripped | the harness runs both builds; instrumentation only |
-| `wp5s9-asan.log` | `gen/d11_asan.sh`: conformance and corpus_all_a17 built with -fsanitize=address, LSan on | **WP5 step 9**: conformance 574/0, decision 11 controls 0 failing rows, corpus four arms green: no double free, use after free or leak in the unknown-field buffers |
-| `wp5-*.log` (re-taken 2026-09-25 at `6feff87`) | the WP5 gate, clean worktree build | **WP5 step 9**: see "This work unit"; supersedes the WP5 step 2 figures in the rows below |
-| `wp5-generator.log` | `generate.py --check` (+ guard), the shared `--check`, `refusal_test.py`, `rd2_guard.sh`, audit, `one_core.sh` | **WP5 step 2's generator gates**: every target current, the five shared C++ modules import plans only, 17 of 17 refusals, both RD2 plants refused (plant B now in `plan.rpc`), audit green; the `one_core.sh --selftest` defect (C38) shown and reproduced |
-| `wp5-conformance.log` | five conformance builds against the init-guard core, plus the planted `conformance_a17_noinit` | **payload set byte identity after the port**: 476 checks 0 failures x5; the planted build fails (205 checks) |
-| `wp5-corpus.log` | the FULL corpus (691 rows), four arms, one child per row, 10 s timeout, C++17/14/11/static; `--compare`; controls proj/reenc/accept/noinit | **WP5 item 6.1 for C++**: ffi 672/0, native 688/0, 3 disputed, 16 not in the C ABI; identical outcomes across four builds; every control fails |
-| `wp5-bytes.log` | the retired harness built at `aba944a` out of tree against `corpus_all_a17`, one process per row | **0 byte changes** on the 213 rows the old harness could root, native and ffi |
-| `wp5-boundary.log` | `boundary.sh`; `corpus_all_* --layout` | 23 checks 0 failed; 542 corpus layout facts agree, shared and static |
-| `wp5-gates.log` | groupskip, concurrency (no T7), ODR, five benches gate-only + the gate plant, content sets gate-only, counts (shared, static), `rpccounts` | every expectation met; counts identical to `counts.log` |
-| `rd1-lenwrap.log` | the corpus's 55 `X-lenwrap-*` rows, one process per row, `timeout 5`, native arm (walker for WireZoo rows), unfixed `rt.h` (scratch build) against the tree, plain and under ASan, plus the ffi arm into core `6ede244` | **R-D1.** Native before: 9 hangs, plus 4 out-of-bounds reads under ASan. Native after: 0 of 55, plain and ASan. ffi: 0 of 55. `X-lenwrap-lrr-unknown-zero` is the reviewer's 11 bytes |
-| `rd2-history.log` | git only (`gen/rd2_history.sh`) | **R-D2.** `rpc.log` and `rpcflow.log` were taken (17:43, 18:33) and committed (`af2b100`, 18:38) when the core had the host's 3 fields; 5 fields at `908dc24` 18:47, 6 at `ef8fea9` 18:55. The TCP rows are not invalidated by R-D2 |
-| `rd2-guard.log` | `gen/rd2_guard.sh`: `ak_abi.h` at C++11/14/17, the four RPC sources, two plants | **R-D2's guard** compiles, and refuses a header missing a field and a Rust declaration with a seventh |
-| `rd2-rpccounts.log` | `rpccounts`, counting core, all six options set | the six-field options dial; counts 2/0, 3/1, 4/0 as in `rpc.log`. Counts, not a timing |
-| `rd-generator.log` | `generate.py --check`, `refusal_test.py`, `audit_tracked.sh` after the change | 23 of 23 ok, 16 of 16 refused, audit green once the new scripts are tracked |
-| `corpus-native.log` | **superseded by `wp5-corpus.log`.** The corpus, native + pb only (`--no-ffi`), C++17 and C++11 | 213 in-scope rows of 691, 0 failures; the native arm alone, 0 failures; the form of the gate to use whenever the core is in flux |
-| `generator.log` | — | R1 as a gate: `--check` green on **23** files, 16 must-fail guards refused, the tracked-file audit green |
-| `groupskip.log` | `ak::Dec::skip` alone, at C++17 target, C++17 floor, C++14 floor and C++11 floor, plus TWO PLANTED builds | **C24.** 11 checks x 4 configurations, 0 failures; the depth-counting plant fails the two mismatched-end cases and the dropped-`case 5:` plant fails the two that carry a `fixed32`. The decode path a schema-generated manifest can never reach |
-| `corpus.log` | **SUPERSEDED by `wp5-corpus.log`** (the subset harness is retired). **Re-taken 2026-09-24 against core `6ede244`**: 213 of 691 rows, 0 failures, 0 disputed, 0 permuted, C1 161/161, C2 158/158, C3 161/161, C4 52/52 on all three arms, walker 103/103; the old description follows. 128 of 336 corpus rows, three arms (`native`, `ffi`, and protobuf C++ as an ORACLE), at C++17 and at the C++11 floor, plus the 62 `WireZoo` rows through the unknown-field walker | **W8.** 0 failures; C1 126/126, C2 123/124, C3 125/126, C4 2/2 on both arms; 128/128 arm agreement; walker 62/62. Two rows named rather than counted (C25 `U-map-entry`, where protobuf C++ and pure-Python side with this slice against upb and the corpus; C26 `B-P7_1`, a permutation). Decision 11 answered: this slice DROPS |
-| `c24-timing.log` | a fresh `bench_a17_shared` against the published one | **C24 moved nothing.** 225 ratio rows, worst move 0.164, median 0.009, 0 over R4's 0.240 across-build bar. The published tables stand |
-| `concurrency.log` | **re-taken 2026-09-24 for R-D7, core snapshot `817174f`, T7 skipped.** 4 shapes x 2 message types, threads in sequence and together, C++17 + C++11 floor + both linkages, plus FOUR PLANTED builds, each linking the matching planted core | **ABI v1 obligation 12.5.** Zero wrong operations on every shipped axis. Planted: pad 23 of 96 distinct wrong encodes on each of native, ffi, hosttc; core-only pad 0/23/23; global byte-clean on both encoders; decoder 0 everywhere. 12.5's claim: 0 on one shape, 22 of 48 per encoder on two (the earlier "44" double-counted). The 1.83-2.05x global-table scaling cost is T7 from this file's version at `4af8d2b`, instrumentation |
-| `rd7-before.log` | the HEAD (`817174f`) tree built unchanged in scratch, `conc_a17_pad` and `conc_a17_both` | **R-D7 before**: both link the unplanted core; ffi 0 and hosttc 0 in every row; native N = roundtrip N (the double count); the T6 labels name the wrong windows |
-| `rd5-gate.log` | `contentsets_a17` gate only, the three benches gate only, `bench_a17_gateplant` gate only and in timing mode on P1.1 | **R-D5 after**: 95 content-set checks 0 failures; every timed codec arm gated, 0 failed; the planted `ffi-valtc` refused on 14 of 15 payloads (P1.3 has no string), not timed, exit 1 |
-| `rd5-before.log` | git evidence at `817174f`, and the same plant applied to the committed bench | **R-D5 before**: no gate names `ffi-valtc`; a refused encode was timed (about 0.16 of pb, instrumentation) and the bench exited 0 |
-| `utf8.log` | four validators, 17.78 M differential checks against an independent oracle, then timed in one process | **Decision 3's decode-side check re-priced: 2.27x a raw copy on ASCII, not 4.4x**, and the core's validator is cheaper than the INCUMBENT'S OWN on all three sets (R14). C20: the old set validated a `bytes` field |
-| `c16.log` | one payload, one arm, six conditions incl. two `MALLOC_` tunings and a page-fault count | **C16 characterised.** The outlier is glibc's mmap page-fault cost, removed by pinning two thresholds; 13x more minor faults by default. Machine load refuted. One residual named |
-| `contentsets.log` | 5 payloads x 3 content sets, one process, oracle = the incumbent per set | **SHAPES.md's sentence answered, and differently for the two directions.** The encode ratio is almost entirely a fact about the content set (0.988 → 0.114 on P1.2); the decode ratio is not (moves ≤ 0.15). Most of the encode column is protobuf validating UTF-8 on serialize, so `ffi-valtc` is the like-for-like row |
-| `conformance.log` | six builds, **re-run 2026-09-24 for R-D5 against a core snapshot at `817174f` (codec last changed `6ede244`)** | R2. 476 checks, 0 failures, five times; 474 once and why. Six encoders incl. `ffi-valtc`; `ffi-valtc` refuses malformed UTF-8 on encode with -6; P2.5's two valid forms; protobuf C++ rejects malformed UTF-8 |
-| `boundary.log` | the built artifacts, plus `fusion_probe`; **re-run 2026-09-24 against core `6ede244`: 21 checks, 0 failed** | R5 both halves and both directions, **21 checks after C24** (two symbols are now inlined inside the control TU, which the checker reports and does not fail). Half two rebuilt after C18: it tests call sites and out-of-line bodies rather than a size relation, and its control is a fixture that cannot stop firing |
-| `odr.log` | a C++11 TU and a C++17 TU, linked | README 5.1's hard stop: 144 facts, 0 moved; 49 under the positive control |
-| `calibration-r13.log` | the rust slice's own bench, here | R13: this machine's rust crossing is 1.5 ns |
-| `counts.log` | the counting core, both linkages | R5. 9/6 for 1,000 M1 rows; 10.024/7.004 per M2 element; the host transcoder's +34.3 reverse crossings per element, COUNTED; the batching decomposition |
-| `bench_a17_shared.log` | **arm a**, C++17, shared, guard on, reject, ASCII, 9 rounds. **Re-taken in W11**: the decode path now calls the table validator, and the string-path table carries three validators | **the C++ column**, decision 1's four mechanisms, the group fill, the two-pass blob write, the string path's three content sets, arm b inside one process, protobuf's determinism cost |
-| `bench_a17_static.log` | arm a, **static linkage** | the second column. Crossing 1.219-1.221 ns against 1.822-1.824 |
-| `bench_b17_shared.log`, `bench_c11_shared.log`, `bench_c14_shared.log` | floor implementation at C++17, C++11, C++14 | a consistency check inside the 0.24 drift bar, not a measurement |
-| `bench_a17_noguard.log` | the guard off | nothing larger than the drift bar |
-| `bench_a17_lossy.log` | the decode UTF-8 check off. **The target is retired (WP5 step 2)**; the log is history | superseded by the in-process string-path table; kept because it is what the whole-payload claim came from |
-| `drift.log` | the same source, a neutral layout perturbation | **R4's across-build control: worst ratio drift 0.240.** Any cross-binary claim carries this bar |
-| `tax.log` | the crossing priced up | **the batching crossover: 2 to 4 ns**, with the 8 ns outlier re-run |
-| `opt.log` | `-O2 -DNDEBUG` against `-O3 -DNDEBUG` | the control's decode gap is not a function of the optimisation level |
-| `w10-one-core.log` | the pre-move commit built in a worktree and run minutes apart, same machine | **W10 / R0: folding three copies of the core into one moved no number.** Worst ratio move 0.023 against a 0.240 drift bar, and the arms the core cannot touch move by the same amount. Every gate green; the `-flto` positive control no longer fires and is recorded as unproven |
-| `rpc.log` | **Taken BEFORE the 6-field `ak_client_opts` existed (`rd2-history.log`), so R-D2 does not touch it; container instrumentation.** **the 2.10 GHz machine.** grpc++ 1.51.1, tonic 0.14 / hyper 1.11, the four-cell grid x 3 deliveries + a control, UDS and loopback TCP, pinned and unpinned, 3 in-flight levels, 9 rounds, 80 RPCs a round. Plus R5's crossing counts from a `--features rpc,count` core in a separate binary | **the transport is a wash (B−A separates in 2 of 12 and the two disagree in sign) and the codec is the whole of the difference (C−B and D−A, 12 of 12).** The halves add up (0 of 12 against). Every delivery indistinguishable from every other, callback against queue 0 of 12, with a thread-shape control. Section 9's crossing table is one forward crossing light on both non-blocking deliveries |
-| `rpcflow.log` | **Taken BEFORE the 6-field `ak_client_opts` existed (`rd2-history.log`).** **the 2.10 GHz machine.** nine client configurations, each a child process under `GRPC_TRACE=http,flowctl,bdp_estimator` | **what the two stacks actually do.** grpc++ announces ~4 MiB with BDP on and no connection-window argument exists; turning BDP off SHRINKS the window to 64 KiB; tonic/hyper is 2 MiB stream / 5 MiB connection, adaptive off. SHAPES.md's table and this slice's own previous rpc.log were both wrong about it |
-| `upb.log` | upb v25.3 from source, reflection minitables, **`UPB_FASTTABLE=0`, gcc** | **the ceiling: upb decode is 0.22 to 0.58 of protobuf C++.** The encode column is not a ceiling and says so |
-| `upb-fasttable.log` | three builds of identical upb sources: gcc/FT=0, clang/FT=0, clang/FT=1 | **the fast decoder is unreachable from a reflection minitable** (`table_mask = −1`, proved at run time and from the archive), so none of upb's advantage is `UPB_MUSTTAIL`. clang is worth 6-23 %; `FT=1` is 3-19 % slower |
+Current gate (clean checkout at `662cd3bd4`):
+
+| Log | What it contains |
+|---|---|
+| `wp5-build.log` | generate, configure and build every target, freshness check |
+| `wp5-generator.log` | `generate.py --check` and the one-generator guard, the shared `--check`, `refusal_test.py`, `rd2_guard.sh`, `audit_tracked.sh`, `one_core.sh` |
+| `wp5-conformance.log` | payload byte identity at C++17 target/floor, C++14, C++11, static (full build), decision 11's cases; the noinit plant |
+| `wp5-corpus.log` | full corpus x4 builds, retention-gap bound, decision 11 controls x4 and their plant, corpus plants, `--compare` |
+| `wp5-probe.log` | the rust slice's oracle-probe rows, four arms |
+| `wp5-bytes.log` | the C++ arms before the port (`aba944a`) against after, row by row |
+| `wp5-boundary.log` | `boundary.sh` (R5 from the artifact), corpus layout facts |
+| `wp5-gates.log` | groupskip, concurrency (T7 off), ODR, bench gates and plant, content sets, crossing counts (+ retain rows), RPC counts |
+| `wp5s10-nounk.log` | the no-unknown build's gate |
+| `asan.log` | both builds under ASan+LSan |
+
+Committed references and earlier correctness logs:
+
+| Log | What it contains |
+|---|---|
+| `counts-baseline.log`, `counts-nounk-baseline.log` | the committed crossing counts, full (drop mode) and no-unknown |
+| `wp3-gate-count-stop.log` | the campaign gate stopping on the P1.2 count change decision 11 caused |
+| `wp5s9-asan.log` | the WP5 step 9 ASan run (full build only), superseded by `asan.log` |
+| `d38-probe-before.log`, `d39-stale-refusal.log` | D38 (field number above 2^29-1 in a skipped group) before the fix; D39's stale-binary refusal control |
+| `rd1-lenwrap.log`, `rd2-guard.log`, `rd2-history.log`, `rd2-rpccounts.log`, `rd5-gate.log`, `rd5-before.log`, `rd7-before.log`, `rd-generator.log` | the R-D1, R-D2, R-D5 and R-D7 findings, before and after |
+| `groupskip.log`, `odr.log`, `boundary.log`, `concurrency.log`, `conformance.log`, `generator.log` | earlier runs of checks the current gate re-runs (C24's group skip, the ODR check, R5, the concurrency suite, R2); superseded by the `wp5-*` logs |
+| `corpus.log`, `corpus-native.log` | the retired subset corpus harness; superseded by `wp5-corpus.log` |
+| `campaign/gate.log`, `campaign/counts.log`, `campaign/runner-controls.log`, `campaign/campaign_unknown_rows.tsv` | the campaign gate of the last smoke, its counts, the runner's CPU-set/dirty-tree refusals, the U-* rows the codec suite times |
+
+Timing logs (instrumentation only): see "Timing logs in the tree" above.

@@ -1,8 +1,8 @@
 # cpp slice, WP5 step 10: the no-unknown build
-#   date       2026-09-25T22:51:20Z
-#   machine    Linux 6.18.44-fc-v37 x86_64, 4 vCPU, Intel(R) Xeon(R) Processor @ 2.10GHz
+#   date       2026-09-26T06:58:12Z
+#   machine    Linux 6.18.44-fc-v37 x86_64, 4 vCPU, Intel(R) Xeon(R) Processor @ 2.80GHz
 #   compiler   g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0; rustc 1.94.1 (e408947bf 2026-03-25)
-#   commit     9bb622d
+#   commit     662cd3bd4
 #   variant    plan relowered with unknown="drop" (plan.py THE NO-UNKNOWN VARIANT); core
 #              ak-core --no-default-features --features init-guard(+count|corpus|rpc),
 #              own target dirs core-build/target-*-nounk; no timing in this log
