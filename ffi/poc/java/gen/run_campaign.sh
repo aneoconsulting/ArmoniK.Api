@@ -66,6 +66,10 @@ fi
 # serialised bytes (default 13.75 MB, the reference machine's L3, when campaign.machine
 # does not set it).
 AK_LLC_BYTES=${AK_LLC_BYTES:-14417920}
+# Unix sockets live in a short directory of their own: a socket path is limited to 107
+# bytes, which a deep checkout (a worktree under a scratch directory) exceeds.
+SOCKDIR=$(mktemp -d /tmp/akj.XXXXXX)
+trap 'rm -rf "$SOCKDIR"' EXIT
 if [ -z "${AK_CPU_CLIENT:-}" ] || [ -z "${AK_CPU_SERVER:-}" ]; then
   if [ "$SMOKE" != 1 ] && [ "$SUITE" != gate ]; then
     echo "REFUSED: AK_CPU_CLIENT and AK_CPU_SERVER must be set (req 4)"; exit 1
@@ -144,11 +148,12 @@ run_gate() {
   fi
   # Req 19 (R-H31): the RPC cells B, C, D and E, crossings per call, both builds, against
   # one server (the pinned socket), from the counting core and the counting shim.
-  local ss="$HERE/build/gate-$$-shipped.sock" sp="$HERE/build/gate-$$-pinned.sock"
+  local ss="$SOCKDIR/gate-shipped.sock" sp="$SOCKDIR/gate-pinned.sock"
   "$J17/bin/java" -cp "build/cls17:$CP" -Dak.lib="$HERE/build/jnirpc/libakjni.so" \
     ak.CampaignRpc --serve "$ss" "$sp" > "$OUT/gate-rpc-server.txt" 2>&1 &
   local spid=$!
   for i in $(seq 1 120); do grep -q "SERVING $sp" "$OUT/gate-rpc-server.txt" 2>/dev/null && break; sleep 0.5; done
+  grep -q "SERVING $sp" "$OUT/gate-rpc-server.txt" || { echo "## rpc counts: the server did not start (gate-rpc-server.txt)" >> "$f"; rc=1; }
   for v in "" -nounk; do
     "$J17/bin/java" -cp "build/cls17$v:$CP" -Dak.lib="$HERE/build/jnirpccnt$v/libakjni.so" \
       -Dak.rpclib="$HERE/build/jnirpccnt$v/libakjni.so" -Dak.camp.count=1 -Dak.camp.transport=pinned \
@@ -243,7 +248,7 @@ rpc)
   # (stated in each client's meta line: warmup_calls_total) before its round 1.
   server_up() {  # $1 = launch
     local l=$1
-    SS="$HERE/build/campaign-$$-shipped-$l.sock"; SP="$HERE/build/campaign-$$-pinned-$l.sock"
+    SS="$SOCKDIR/shipped-$l.sock"; SP="$SOCKDIR/pinned-$l.sock"
     $PIN_S $JAVA -Dak.lib="$HERE/build/jnirpc/libakjni.so" ak.CampaignRpc --serve "$SS" "$SP" \
       > "$OUT/rpc-server-launch-$l.txt" 2>&1 &
     SPID=$!
