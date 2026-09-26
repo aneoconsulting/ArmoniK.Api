@@ -37,6 +37,7 @@ A deliberate 32-byte layout shift (`opt/layout-exp`, A/B/A/B) moved group means 
 | 3 | fdecae0 | E2: sparse fill clears min(n, chunk); core-ffi encode arm (and RPC C/D) on the sparse path | yes | core-ffi/core-native encode: P1.3 2.40 -> 2.08 (drop), 2.43 -> 1.67 (retain), 2.66 -> 2.10 (no-unknown); groups 0.96-1.00; the /inc groups moved 0.88 with core-native/inc (incumbent layout drift) | `opt/s3-e2` |
 | 4 | ab133a3 | E4 + N1: packed bool/enum without a heap Vec (binding); core-native packed decode reserves | yes | core-native/inc P6.1 decode 0.62 -> 0.44 (drop), 0.65 -> 0.40 (no-unknown); core-ffi/core-native P6.1 encode 1.11 -> 1.02 (drop), 1.11 -> 1.00 (retain); core-ffi P6.1 decode ratio up 10-19% with no decode change (see JOURNAL) | `opt/s4-e4n1` |
 | 5 | 56ca80c | U1 + U2: retain options at a stable address, one reset per decode, no disarm; UNK_LIVE a map (geometric growth HELD BACK: it changes 36 crossing counts) | yes (cleanliness: rule 7, O(1) buffer tracking) | no group beyond noise; in-process core-ffi retain/drop decode on U rows 1.281 -> 1.263 | `opt/s5-u1u2`, `opt/s5-u1u2-heldback` |
+| 6 | b259af0 | E3 + D2 + D3b + D4: small encode chunk + out-of-line big path; one shared decode arena; in-place element groups; pull runs straight into the record buffer | yes | core-ffi/core-native decode 0.950 (P drop), 0.956 (P retain), 0.946 (U drop); P1.3 1.41 -> 1.05, P6.1 1.55 -> 1.34, P7.1 1.33 -> 1.16; core-ffi-pull/inc decode 0.94 (P), 0.90 (U); no-unknown decode 0.986; encode (E3) noise | `opt/s6-e3d2d3d4`, `opt/s6-sanity` |
 
 ## What exists
 

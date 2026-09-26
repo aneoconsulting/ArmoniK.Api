@@ -2502,3 +2502,28 @@ kept step. Step 0 fixes the harness first.
   in-process core-ffi retain/drop decode ratio on the U rows 1.281 -> 1.263 (P rows 1.011
   -> 1.009). The benchmark has at most a few unknown buffers per decode, so the linear
   search was never long. Kept: rule 7's one reset per decode, and no quadratic tracking.
+
+## 2026-09-26 -- optimisation step 6 (E3 + D2 + D3b + D4) (b259af0, kept)
+
+- E3 (rust_binding.py, swept over every chunked loop callback: top-level, zeroed, unk,
+  unk_zeroed, inner): a 2 KB stack chunk, and a field longer than that goes to an
+  out-of-line copy of the callback with the 32 KB arena. D2 (rust_abi.py): one 8-aligned
+  32 KB arena per decode function for all its loop slots, each slot keeping its own
+  element budget (one slot is open at a time: every other tag, a non-leaf element, an
+  unknown field and the end flush it), so every run and crossing is the one per-slot
+  arenas gave; a compile-time assert per slot. D3b: leaf element groups decoded in place
+  (dec_<T>_fix_into). D4: ak-rt Bdr::open_run / close_run; the pull family decodes a run
+  straight into the record buffer (every other deposit flushes the open run first, so the
+  pointer stays valid).
+- Checked: generate --check, one_core.sh; pre-check 962 / 520, 0 failures; both crossing
+  files identical; gen/corpus.sh passes on both builds with every control failing as
+  required (logs/rust/opt/s6-sanity/corpus.log) -- run because D4 rewrites the pull
+  family's deposit.
+- Measured (s6 vs s5): core-ffi/core-native decode 0.950 (P drop), 0.956 (P retain), 0.946
+  (U drop, lower), 0.986 (P no-unknown); per payload (drop) P1.3 1.41 -> 1.05 (the absent
+  path: five 32 KB arenas per element were the cost), P6.1 1.55 -> 1.34, P7.1 1.33 -> 1.16,
+  P2.1 1.44 -> 1.35, P3.1 1.07 -> 0.98. core-ffi-pull/inc decode 0.943 (P), 0.902 (U);
+  P1.3 2.11 -> 1.54, P7.1 1.06 -> 0.83. Encode (E3): core-ffi/core-native groups noise
+  (1.019, 0.995, U 0.994); P5.1 1.77 -> 2.01 is one 36-byte row; E3 shows no gain on this
+  payload set (no encode field here is long enough for the 32 KB probe to dominate a loop
+  callback); kept as part of the step, whose decode half is the gain.
