@@ -1,9 +1,9 @@
 # python slice: the 3.7 source check, and every other CPython header set here
-# date:      2026-09-26T12:22:49Z
-# commit:    3f2574775
+# date:      2026-09-26T13:50:30Z
+# commit:    c7c083f68
 # phase:     correctness only; nothing here is a timing
 
-# 3.7.5 headers: /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py4/ffi/poc/python/build/py37/root/usr/include/python3.7m (#define PY_VERSION              "3.7.5")
+# 3.7.5 headers: /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py5/ffi/poc/python/build/py37/root/usr/include/python3.7m (#define PY_VERSION              "3.7.5")
 
 ## this tree
    ok    gen/out 

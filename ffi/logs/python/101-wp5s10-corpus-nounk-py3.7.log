@@ -1,6 +1,6 @@
 # python slice: the whole corpus through the no-unknown variant (WP5 step 10), py3.7
-# date:      2026-09-26T11:59:02Z
-# commit:    3f2574775
+# date:      2026-09-26T13:31:15Z
+# commit:    c7c083f68
 # phase:     correctness only; nothing here is a timing
 
 # python slice: the conformance corpus, every row, every arm (FIX-PLAN WP5 item 6.1)
@@ -360,7 +360,7 @@
    X-wire-type-7                            ValueError(-2) | ValueError(-2) | ValueError(-2) | DecodeError(-2)
 
 # rows that hung or crashed a worker: 0
-# wall 2 s (instrumentation)
+# wall 1 s (instrumentation)
 CORPUS PASSES on all 4 arms
 
 ===== controls (each MUST FAIL) =====

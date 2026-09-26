@@ -1,7 +1,7 @@
 # FIGURES STRIPPED (FIX-PLAN WP6): every timing column removed; the row list is kept
 # the rust slice's crossing benchmark (CAMPAIGN.md 20; README R13), run on this machine
-# source: /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py4/ffi/poc/python/build/snap/3f2574775/ffi/poc/rust
-# command: AK_BENCH_ONLY=P1.1 /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py4/ffi/poc/python/build/cargo-rustbench/release/bench
+# source: /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py5/ffi/poc/python/build/snap/c7c083f68/ffi/poc/rust
+# command: AK_BENCH_ONLY=P1.1 /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py5/ffi/poc/python/build/cargo-rustbench/release/bench
 # stage 2 timings
 #   arms:   prost | armonik | core-native | core-ffi-rust, one process
 #   guard:  ON (ABI v1 section 5)

@@ -1,6 +1,6 @@
 # python slice: conformance on the no-unknown variant _akffi_nounk (WP5 step 10), py3.7
-# date:      2026-09-26T11:58:48Z
-# commit:    3f2574775
+# date:      2026-09-26T13:31:03Z
+# commit:    c7c083f68
 # phase:     correctness only; nothing here is a timing
 
 # python slice, work unit 2: conformance on the COMPOSED arm (README R2)

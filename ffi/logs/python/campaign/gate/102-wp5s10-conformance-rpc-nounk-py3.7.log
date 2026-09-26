@@ -1,6 +1,6 @@
 # python slice: conformance on _akffi_rpc_nounk, py3.7
-# date:      2026-09-26T12:22:33Z
-# commit:    3f2574775
+# date:      2026-09-26T13:50:18Z
+# commit:    c7c083f68
 # phase:     correctness only; nothing here is a timing
 
 # python slice, work unit 2: conformance on the COMPOSED arm (README R2)
@@ -9,7 +9,7 @@
 # manifest:    validated against prost 0.14.4 and a second encoder (W2)
 # shim:        _akffi_rpc_nounk (_akffi_rpc_nounk.cpython-37m-x86_64-linux-gnu.so)
 # section 9:   present (call_unary, call_unary_q, call_unary_cb)
-# core loaded: poc/python/build/cargo-3f2574775/rpc-nounk/release/libak_core.so
+# core loaded: poc/python/build/cargo-c7c083f68/rpc-nounk/release/libak_core.so
 
 ## R1: the generated tree is current with shapes.json
    guard 2 python backend modules import plans only; a planted IR import is caught
@@ -344,7 +344,7 @@ generated tree is current with the plans (18 files)
    0 finding(s) over 38 Plain/Slots classes, 19 C types, 32 decoded objects
 
 ## crossing counts, counting build, BOTH halves (README R5)
-#  shim: _akffi_count_nounk; core loaded: poc/python/build/cargo-3f2574775/count-nounk/release/libak_core.so
+#  shim: _akffi_count_nounk; core loaded: poc/python/build/cargo-c7c083f68/count-nounk/release/libak_core.so
 #  The core counts its own crossings and the shim counts what it does to
 #  CPython. Neither half can count the other's, which is why both are here.
 #  'shim' = calls the shim makes INTO CPython (value reads, list access, attribute
