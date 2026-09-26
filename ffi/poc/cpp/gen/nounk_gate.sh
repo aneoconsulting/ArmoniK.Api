@@ -91,12 +91,13 @@ ufam() { nm -D --defined-only "$1" 2>/dev/null | grep -cE ' (ak_uencode_|ak_uele
   [ $rc != 0 ] && ok "the dropped-form check fails on a retaining arm (seen failing)" || bad "dropped-form check blind"
   echo
   echo "===== 5. crossing counts ====="
-  (cd "$PAY" && "$B/counts_nounk" > "$S/counts.log" 2>&1) || bad "counts_nounk exit"
-  grep -E '^  P' "$L/counts-nounk-baseline.log" > "$S/want"; grep -E '^  P' "$S/counts.log" > "$S/got"
+  python3 gen/u_rows.py ../../corpus/generated "$S/rows.tsv" 2>/dev/null
+  (cd "$PAY" && "$B/counts_nounk" --corpus "$OLDPWD/../../corpus/generated" --rows "$S/rows.tsv" > "$S/counts.log" 2>&1) || bad "counts_nounk exit"
+  grep -E '^  [PU]' "$L/counts-nounk-baseline.log" > "$S/want"; grep -E '^  [PU]' "$S/counts.log" > "$S/got"
   if diff "$S/want" "$S/got" > "$S/d"; then ok "$(wc -l < "$S/got") rows identical to counts-nounk-baseline.log"
   else head "$S/d"; bad "counts differ from counts-nounk-baseline.log"; fi
   echo "  against the full build in drop mode (counts-baseline.log):"
-  grep -E '^  P' "$L/counts-baseline.log" > "$S/full"
+  grep -E '^  [PU]' "$L/counts-baseline.log" | grep -v ' retain ' > "$S/full"
   diff "$S/full" "$S/got" | sed 's/^/    /'
   echo
   echo "nounk_gate: $FAILS failure(s)"

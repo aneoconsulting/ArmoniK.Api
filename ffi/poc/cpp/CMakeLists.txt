@@ -418,6 +418,24 @@ if(AK_RPC)
     BYPRODUCTS ${CORE_CAMP_OUT}/libak_core.so
     COMMENT "cargo build the shared ak-core --features rpc,init-guard (campaign)")
   ak_rpc_bin(campaign_rpc    ${CMAKE_CURRENT_SOURCE_DIR}/src/campaign_rpc.cpp    ${CORE_CAMP_OUT} core_camp)
+  # WP7 (req. 12): cells E and F run host-gen; a+read reads every field (touch.cpp).
+  set(CAMP_RPC_EXTRA
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/core_native.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/touch.cpp)
+  target_sources(campaign_rpc PRIVATE ${CAMP_RPC_EXTRA}
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/core_native_retain.cpp)
+  # req. 19 (amended): the RPC cells' counts come from a COUNTING core (rpc,count,init-guard)
+  # in a separate binary, never from the timed one.
+  set(CORE_CAMP_COUNT_OUT "${CORE_TGT}/target-camp-count/release")
+  add_custom_target(core_camp_count ALL
+    COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_TGT}/target-camp-count
+            cargo build --release --features rpc,count,${AK_CORE_FEATURES} --manifest-path ${CORE_DIR}/Cargo.toml
+    BYPRODUCTS ${CORE_CAMP_COUNT_OUT}/libak_core.so
+    COMMENT "cargo build the shared ak-core --features rpc,count,init-guard (campaign counts)")
+  ak_rpc_bin(campaign_rpc_count ${CMAKE_CURRENT_SOURCE_DIR}/src/campaign_rpc.cpp ${CORE_CAMP_COUNT_OUT} core_camp_count)
+  target_sources(campaign_rpc_count PRIVATE ${CAMP_RPC_EXTRA}
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/core_native_retain.cpp)
+  target_compile_definitions(campaign_rpc_count PRIVATE AK_COUNTING=1)
   ak_rpc_bin(campaign_server ${CMAKE_CURRENT_SOURCE_DIR}/src/campaign_server.cpp ${CORE_CAMP_OUT} core_camp)
   ak_rpc_bin(campaign_calib  ${CMAKE_CURRENT_SOURCE_DIR}/src/campaign_calib.cpp  ${CORE_CAMP_OUT} core_camp)
   # The codec suite links the same core as the codec gates (CORE_OUT: init-guard, no rpc)
@@ -611,16 +629,34 @@ if(AK_RPC)
     COMMENT "cargo build ak-core, no-unknown variant, --features rpc (campaign)")
   string(REPLACE "generated/binding.cpp" "generated/binding_nounk.cpp" RPC_COMMON_NOUNK "${RPC_COMMON}")
   string(REPLACE "src/generated/types.cpp" "nounk/src/generated/types.cpp" RPC_COMMON_NOUNK "${RPC_COMMON_NOUNK}")
-  add_executable(campaign_rpc_nounk ${CMAKE_CURRENT_SOURCE_DIR}/src/campaign_rpc.cpp ${RPC_COMMON_NOUNK})
-  add_dependencies(campaign_rpc_nounk core_camp_nounk)
-  target_include_directories(campaign_rpc_nounk PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/nounk/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/nounk/src ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/src ${GEN} ${GRPCPP_INCLUDE_DIRS})
-  target_link_libraries(campaign_rpc_nounk PRIVATE shapes_pb Threads::Threads
-    ${GRPCPP_LIBRARIES} ${CORE_CAMP_NOUNK_OUT}/libak_core.so)
-  target_link_directories(campaign_rpc_nounk PRIVATE ${GRPCPP_LIBRARY_DIRS})
-  set_property(TARGET campaign_rpc_nounk PROPERTY CXX_STANDARD 17)
-  target_compile_definitions(campaign_rpc_nounk PRIVATE AK_LINKAGE="shared")
-  set_property(TARGET campaign_rpc_nounk APPEND_STRING PROPERTY LINK_FLAGS " -Wl,-rpath,${CORE_CAMP_NOUNK_OUT}")
+  set(CORE_CAMP_COUNT_NOUNK_OUT "${CORE_TGT}/target-camp-count-nounk/release")
+  add_custom_target(core_camp_count_nounk ALL
+    COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_TGT}/target-camp-count-nounk
+            cargo build --release ${NOUNK_FEATURES} rpc,count,${AK_CORE_FEATURES} --manifest-path ${CORE_DIR}/Cargo.toml
+    BYPRODUCTS ${CORE_CAMP_COUNT_NOUNK_OUT}/libak_core.so
+    COMMENT "cargo build ak-core, no-unknown variant, --features rpc,count (campaign counts)")
+  # campaign_rpc_nounk and its counting twin: the same source against the no-unknown build.
+  foreach(tgt campaign_rpc_nounk campaign_rpc_count_nounk)
+    if(tgt STREQUAL "campaign_rpc_nounk")
+      set(_core ${CORE_CAMP_NOUNK_OUT})
+      set(_dep core_camp_nounk)
+    else()
+      set(_core ${CORE_CAMP_COUNT_NOUNK_OUT})
+      set(_dep core_camp_count_nounk)
+    endif()
+    add_executable(${tgt} ${CMAKE_CURRENT_SOURCE_DIR}/src/campaign_rpc.cpp ${RPC_COMMON_NOUNK}
+      ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/core_native.cpp
+      ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/touch.cpp)
+    add_dependencies(${tgt} ${_dep})
+    target_include_directories(${tgt} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/nounk/include
+      ${CMAKE_CURRENT_SOURCE_DIR}/nounk/src ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/src ${GEN} ${GRPCPP_INCLUDE_DIRS})
+    target_link_libraries(${tgt} PRIVATE shapes_pb Threads::Threads ${GRPCPP_LIBRARIES} ${_core}/libak_core.so)
+    target_link_directories(${tgt} PRIVATE ${GRPCPP_LIBRARY_DIRS})
+    set_property(TARGET ${tgt} PROPERTY CXX_STANDARD 17)
+    target_compile_definitions(${tgt} PRIVATE AK_LINKAGE="shared")
+    set_property(TARGET ${tgt} APPEND_STRING PROPERTY LINK_FLAGS " -Wl,-rpath,${_core}")
+  endforeach()
+  target_compile_definitions(campaign_rpc_count_nounk PRIVATE AK_COUNTING=1)
 
   ak_arm_nounk(campaign_codec_nounk ${CMAKE_CURRENT_SOURCE_DIR}/src/campaign_codec.cpp 17 shared
                ${CORE_NOUNK_OUT} core_nounk)

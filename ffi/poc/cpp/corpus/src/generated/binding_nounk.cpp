@@ -36,6 +36,20 @@ namespace ffi {
   }
 #endif
 
+// CAMPAIGN req 19 (R-H31): the exported calls the core's counters cannot see, counted in
+// the counting build only (a timed binary carries no counting code).
+#ifdef AK_COUNTING
+static thread_local uint64_t t_host_calls = 0;
+#define AK_HOST_CALL() (++t_host_calls)
+uint64_t host_calls_take() {
+  uint64_t r = t_host_calls;
+  t_host_calls = 0;
+  return r;
+}
+#else
+#define AK_HOST_CALL() ((void)0)
+#endif
+
 static inline struct ak_str ak_str_absent() {
   struct ak_str s;
   s.data = NULL;
@@ -1234,7 +1248,7 @@ static inline WireZoo from_wire_zoo(const struct ak_dfix_WireZoo &f, const uint8
 
 intptr_t encode_into_timestamp(ak_enc_ctx *ctx, const Timestamp &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_Timestamp h;
   h.o = &o;
   h.t = t;
@@ -1247,7 +1261,7 @@ intptr_t encode_into_timestamp(ak_enc_ctx *ctx, const Timestamp &o, const Tcs &t
 
 intptr_t encode_into_timestamp_zeroed(ak_enc_ctx *ctx, const Timestamp &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_Timestamp h;
   h.o = &o;
   h.t = t;
@@ -1262,7 +1276,7 @@ intptr_t encode_into_timestamp_zeroed(ak_enc_ctx *ctx, const Timestamp &o, const
 
 intptr_t encode_into_timestamp_nobatch(ak_enc_ctx *ctx, const Timestamp &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_Timestamp h;
   h.o = &o;
   h.t = t;
@@ -1275,7 +1289,7 @@ intptr_t encode_into_timestamp_nobatch(ak_enc_ctx *ctx, const Timestamp &o, cons
 
 intptr_t encode_into_duration(ak_enc_ctx *ctx, const Duration &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_Duration h;
   h.o = &o;
   h.t = t;
@@ -1288,7 +1302,7 @@ intptr_t encode_into_duration(ak_enc_ctx *ctx, const Duration &o, const Tcs &t) 
 
 intptr_t encode_into_duration_zeroed(ak_enc_ctx *ctx, const Duration &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_Duration h;
   h.o = &o;
   h.t = t;
@@ -1303,7 +1317,7 @@ intptr_t encode_into_duration_zeroed(ak_enc_ctx *ctx, const Duration &o, const T
 
 intptr_t encode_into_duration_nobatch(ak_enc_ctx *ctx, const Duration &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_Duration h;
   h.o = &o;
   h.t = t;
@@ -1316,7 +1330,7 @@ intptr_t encode_into_duration_nobatch(ak_enc_ctx *ctx, const Duration &o, const 
 
 intptr_t encode_into_result_raw(ak_enc_ctx *ctx, const ResultRaw &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ResultRaw h;
   h.o = &o;
   h.t = t;
@@ -1329,7 +1343,7 @@ intptr_t encode_into_result_raw(ak_enc_ctx *ctx, const ResultRaw &o, const Tcs &
 
 intptr_t encode_into_result_raw_zeroed(ak_enc_ctx *ctx, const ResultRaw &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ResultRaw h;
   h.o = &o;
   h.t = t;
@@ -1344,7 +1358,7 @@ intptr_t encode_into_result_raw_zeroed(ak_enc_ctx *ctx, const ResultRaw &o, cons
 
 intptr_t encode_into_result_raw_nobatch(ak_enc_ctx *ctx, const ResultRaw &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ResultRaw h;
   h.o = &o;
   h.t = t;
@@ -1389,7 +1403,7 @@ static int32_t loop_task_options_options(ak_enc_ctx *ctx, const void *obj, int64
 
 intptr_t encode_into_task_options(ak_enc_ctx *ctx, const TaskOptions &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_TaskOptions h;
   h.o = &o;
   h.t = t;
@@ -1434,7 +1448,7 @@ static int32_t loop_task_options_options_zeroed(ak_enc_ctx *ctx, const void *obj
 
 intptr_t encode_into_task_options_zeroed(ak_enc_ctx *ctx, const TaskOptions &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_TaskOptions h;
   h.o = &o;
   h.t = t;
@@ -1481,7 +1495,7 @@ static int32_t loop_task_options_options_nobatch(ak_enc_ctx *ctx, const void *ob
 
 intptr_t encode_into_task_options_nobatch(ak_enc_ctx *ctx, const TaskOptions &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_TaskOptions h;
   h.o = &o;
   h.t = t;
@@ -1494,7 +1508,7 @@ intptr_t encode_into_task_options_nobatch(ak_enc_ctx *ctx, const TaskOptions &o,
 
 intptr_t encode_into_task_output(ak_enc_ctx *ctx, const TaskOutput &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_TaskOutput h;
   h.o = &o;
   h.t = t;
@@ -1507,7 +1521,7 @@ intptr_t encode_into_task_output(ak_enc_ctx *ctx, const TaskOutput &o, const Tcs
 
 intptr_t encode_into_task_output_zeroed(ak_enc_ctx *ctx, const TaskOutput &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_TaskOutput h;
   h.o = &o;
   h.t = t;
@@ -1522,7 +1536,7 @@ intptr_t encode_into_task_output_zeroed(ak_enc_ctx *ctx, const TaskOutput &o, co
 
 intptr_t encode_into_task_output_nobatch(ak_enc_ctx *ctx, const TaskOutput &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_TaskOutput h;
   h.o = &o;
   h.t = t;
@@ -1688,7 +1702,7 @@ static int32_t loop_task_detailed_options_options(ak_enc_ctx *ctx, const void *o
 
 intptr_t encode_into_task_detailed(ak_enc_ctx *ctx, const TaskDetailed &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_TaskDetailed h;
   h.o = &o;
   h.t = t;
@@ -1858,7 +1872,7 @@ static int32_t loop_task_detailed_options_options_zeroed(ak_enc_ctx *ctx, const 
 
 intptr_t encode_into_task_detailed_zeroed(ak_enc_ctx *ctx, const TaskDetailed &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_TaskDetailed h;
   h.o = &o;
   h.t = t;
@@ -2030,7 +2044,7 @@ static int32_t loop_task_detailed_options_options_nobatch(ak_enc_ctx *ctx, const
 
 intptr_t encode_into_task_detailed_nobatch(ak_enc_ctx *ctx, const TaskDetailed &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_TaskDetailed h;
   h.o = &o;
   h.t = t;
@@ -2080,7 +2094,7 @@ static int32_t loop_task_summary_options_options(ak_enc_ctx *ctx, const void *ob
 
 intptr_t encode_into_task_summary(ak_enc_ctx *ctx, const TaskSummary &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_TaskSummary h;
   h.o = &o;
   h.t = t;
@@ -2126,7 +2140,7 @@ static int32_t loop_task_summary_options_options_zeroed(ak_enc_ctx *ctx, const v
 
 intptr_t encode_into_task_summary_zeroed(ak_enc_ctx *ctx, const TaskSummary &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_TaskSummary h;
   h.o = &o;
   h.t = t;
@@ -2174,7 +2188,7 @@ static int32_t loop_task_summary_options_options_nobatch(ak_enc_ctx *ctx, const 
 
 intptr_t encode_into_task_summary_nobatch(ak_enc_ctx *ctx, const TaskSummary &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_TaskSummary h;
   h.o = &o;
   h.t = t;
@@ -2187,7 +2201,7 @@ intptr_t encode_into_task_summary_nobatch(ak_enc_ctx *ctx, const TaskSummary &o,
 
 intptr_t encode_into_probe(ak_enc_ctx *ctx, const Probe &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_Probe h;
   h.o = &o;
   h.t = t;
@@ -2200,7 +2214,7 @@ intptr_t encode_into_probe(ak_enc_ctx *ctx, const Probe &o, const Tcs &t) {
 
 intptr_t encode_into_probe_zeroed(ak_enc_ctx *ctx, const Probe &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_Probe h;
   h.o = &o;
   h.t = t;
@@ -2215,7 +2229,7 @@ intptr_t encode_into_probe_zeroed(ak_enc_ctx *ctx, const Probe &o, const Tcs &t)
 
 intptr_t encode_into_probe_nobatch(ak_enc_ctx *ctx, const Probe &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_Probe h;
   h.o = &o;
   h.t = t;
@@ -2228,7 +2242,7 @@ intptr_t encode_into_probe_nobatch(ak_enc_ctx *ctx, const Probe &o, const Tcs &t
 
 intptr_t encode_into_empty(ak_enc_ctx *ctx, const Empty &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_Empty h;
   h.o = &o;
   h.t = t;
@@ -2241,7 +2255,7 @@ intptr_t encode_into_empty(ak_enc_ctx *ctx, const Empty &o, const Tcs &t) {
 
 intptr_t encode_into_empty_zeroed(ak_enc_ctx *ctx, const Empty &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_Empty h;
   h.o = &o;
   h.t = t;
@@ -2256,7 +2270,7 @@ intptr_t encode_into_empty_zeroed(ak_enc_ctx *ctx, const Empty &o, const Tcs &t)
 
 intptr_t encode_into_empty_nobatch(ak_enc_ctx *ctx, const Empty &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_Empty h;
   h.o = &o;
   h.t = t;
@@ -2269,7 +2283,7 @@ intptr_t encode_into_empty_nobatch(ak_enc_ctx *ctx, const Empty &o, const Tcs &t
 
 intptr_t encode_into_upload_result_data(ak_enc_ctx *ctx, const UploadResultData &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_UploadResultData h;
   h.o = &o;
   h.t = t;
@@ -2283,7 +2297,7 @@ intptr_t encode_into_upload_result_data(ak_enc_ctx *ctx, const UploadResultData 
 
 intptr_t encode_into_upload_result_data_zeroed(ak_enc_ctx *ctx, const UploadResultData &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_UploadResultData h;
   h.o = &o;
   h.t = t;
@@ -2299,7 +2313,7 @@ intptr_t encode_into_upload_result_data_zeroed(ak_enc_ctx *ctx, const UploadResu
 
 intptr_t encode_into_upload_result_data_nobatch(ak_enc_ctx *ctx, const UploadResultData &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_UploadResultData h;
   h.o = &o;
   h.t = t;
@@ -2374,7 +2388,7 @@ static int32_t loop_metrics_batch_statuses(ak_enc_ctx *ctx, const void *obj, int
 
 intptr_t encode_into_metrics_batch(ak_enc_ctx *ctx, const MetricsBatch &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_MetricsBatch h;
   h.o = &o;
   h.t = t;
@@ -2452,7 +2466,7 @@ static int32_t loop_metrics_batch_statuses_zeroed(ak_enc_ctx *ctx, const void *o
 
 intptr_t encode_into_metrics_batch_zeroed(ak_enc_ctx *ctx, const MetricsBatch &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_MetricsBatch h;
   h.o = &o;
   h.t = t;
@@ -2532,7 +2546,7 @@ static int32_t loop_metrics_batch_statuses_nobatch(ak_enc_ctx *ctx, const void *
 
 intptr_t encode_into_metrics_batch_nobatch(ak_enc_ctx *ctx, const MetricsBatch &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_MetricsBatch h;
   h.o = &o;
   h.t = t;
@@ -2549,7 +2563,7 @@ intptr_t encode_into_metrics_batch_nobatch(ak_enc_ctx *ctx, const MetricsBatch &
 
 intptr_t encode_into_pair(ak_enc_ctx *ctx, const Pair &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_Pair h;
   h.o = &o;
   h.t = t;
@@ -2562,7 +2576,7 @@ intptr_t encode_into_pair(ak_enc_ctx *ctx, const Pair &o, const Tcs &t) {
 
 intptr_t encode_into_pair_zeroed(ak_enc_ctx *ctx, const Pair &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_Pair h;
   h.o = &o;
   h.t = t;
@@ -2577,7 +2591,7 @@ intptr_t encode_into_pair_zeroed(ak_enc_ctx *ctx, const Pair &o, const Tcs &t) {
 
 intptr_t encode_into_pair_nobatch(ak_enc_ctx *ctx, const Pair &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_Pair h;
   h.o = &o;
   h.t = t;
@@ -2620,7 +2634,7 @@ static int32_t loop_list_results_response_results(ak_enc_ctx *ctx, const void *o
 
 intptr_t encode_into_list_results_response(ak_enc_ctx *ctx, const ListResultsResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ListResultsResponse h;
   h.o = &o;
   h.t = t;
@@ -2679,7 +2693,7 @@ static int32_t loop_list_results_response_results_zeroed(ak_enc_ctx *ctx, const 
 
 intptr_t encode_into_list_results_response_zeroed(ak_enc_ctx *ctx, const ListResultsResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ListResultsResponse h;
   h.o = &o;
   h.t = t;
@@ -2724,7 +2738,7 @@ static int32_t loop_list_results_response_results_nobatch(ak_enc_ctx *ctx, const
 
 intptr_t encode_into_list_results_response_nobatch(ak_enc_ctx *ctx, const ListResultsResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ListResultsResponse h;
   h.o = &o;
   h.t = t;
@@ -2933,7 +2947,7 @@ static const struct ak_evt_TaskDetailed kElemVt_ListTasksDetailedResponse_tasks 
 
 intptr_t encode_into_list_tasks_detailed_response(ak_enc_ctx *ctx, const ListTasksDetailedResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ListTasksDetailedResponse h;
   h.o = &o;
   h.t = t;
@@ -3159,7 +3173,7 @@ static const struct ak_evt_TaskDetailed kElemVt_ListTasksDetailedResponse_tasks_
 
 intptr_t encode_into_list_tasks_detailed_response_zeroed(ak_enc_ctx *ctx, const ListTasksDetailedResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ListTasksDetailedResponse h;
   h.o = &o;
   h.t = t;
@@ -3371,7 +3385,7 @@ static const struct ak_evt_TaskDetailed kElemVt_ListTasksDetailedResponse_tasks_
 
 intptr_t encode_into_list_tasks_detailed_response_nobatch(ak_enc_ctx *ctx, const ListTasksDetailedResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ListTasksDetailedResponse h;
   h.o = &o;
   h.t = t;
@@ -3453,7 +3467,7 @@ static const struct ak_evt_TaskSummary kElemVt_ListTaskSummaryResponse_tasks = {
 
 intptr_t encode_into_list_task_summary_response(ak_enc_ctx *ctx, const ListTaskSummaryResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ListTaskSummaryResponse h;
   h.o = &o;
   h.t = t;
@@ -3551,7 +3565,7 @@ static const struct ak_evt_TaskSummary kElemVt_ListTaskSummaryResponse_tasks_zer
 
 intptr_t encode_into_list_task_summary_response_zeroed(ak_enc_ctx *ctx, const ListTaskSummaryResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ListTaskSummaryResponse h;
   h.o = &o;
   h.t = t;
@@ -3635,7 +3649,7 @@ static const struct ak_evt_TaskSummary kElemVt_ListTaskSummaryResponse_tasks_nob
 
 intptr_t encode_into_list_task_summary_response_nobatch(ak_enc_ctx *ctx, const ListTaskSummaryResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ListTaskSummaryResponse h;
   h.o = &o;
   h.t = t;
@@ -3679,7 +3693,7 @@ static int32_t loop_list_probe_response_probes(ak_enc_ctx *ctx, const void *obj,
 
 intptr_t encode_into_list_probe_response(ak_enc_ctx *ctx, const ListProbeResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ListProbeResponse h;
   h.o = &o;
   h.t = t;
@@ -3738,7 +3752,7 @@ static int32_t loop_list_probe_response_probes_zeroed(ak_enc_ctx *ctx, const voi
 
 intptr_t encode_into_list_probe_response_zeroed(ak_enc_ctx *ctx, const ListProbeResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ListProbeResponse h;
   h.o = &o;
   h.t = t;
@@ -3783,7 +3797,7 @@ static int32_t loop_list_probe_response_probes_nobatch(ak_enc_ctx *ctx, const vo
 
 intptr_t encode_into_list_probe_response_nobatch(ak_enc_ctx *ctx, const ListProbeResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ListProbeResponse h;
   h.o = &o;
   h.t = t;
@@ -3900,7 +3914,7 @@ static const struct ak_evt_MetricsBatch kElemVt_ListMetricsResponse_batches = {
 
 intptr_t encode_into_list_metrics_response(ak_enc_ctx *ctx, const ListMetricsResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ListMetricsResponse h;
   h.o = &o;
   h.t = t;
@@ -4034,7 +4048,7 @@ static const struct ak_evt_MetricsBatch kElemVt_ListMetricsResponse_batches_zero
 
 intptr_t encode_into_list_metrics_response_zeroed(ak_enc_ctx *ctx, const ListMetricsResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ListMetricsResponse h;
   h.o = &o;
   h.t = t;
@@ -4154,7 +4168,7 @@ static const struct ak_evt_MetricsBatch kElemVt_ListMetricsResponse_batches_noba
 
 intptr_t encode_into_list_metrics_response_nobatch(ak_enc_ctx *ctx, const ListMetricsResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ListMetricsResponse h;
   h.o = &o;
   h.t = t;
@@ -4168,7 +4182,7 @@ intptr_t encode_into_list_metrics_response_nobatch(ak_enc_ctx *ctx, const ListMe
 
 intptr_t encode_into_upload_result_data_message(ak_enc_ctx *ctx, const UploadResultDataMessage &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_UploadResultDataMessage h;
   h.o = &o;
   h.t = t;
@@ -4182,7 +4196,7 @@ intptr_t encode_into_upload_result_data_message(ak_enc_ctx *ctx, const UploadRes
 
 intptr_t encode_into_upload_result_data_message_zeroed(ak_enc_ctx *ctx, const UploadResultDataMessage &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_UploadResultDataMessage h;
   h.o = &o;
   h.t = t;
@@ -4198,7 +4212,7 @@ intptr_t encode_into_upload_result_data_message_zeroed(ak_enc_ctx *ctx, const Up
 
 intptr_t encode_into_upload_result_data_message_nobatch(ak_enc_ctx *ctx, const UploadResultDataMessage &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_UploadResultDataMessage h;
   h.o = &o;
   h.t = t;
@@ -4272,7 +4286,7 @@ static int32_t loop_dual_response_right(ak_enc_ctx *ctx, const void *obj, int64_
 
 intptr_t encode_into_dual_response(ak_enc_ctx *ctx, const DualResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_DualResponse h;
   h.o = &o;
   h.t = t;
@@ -4378,7 +4392,7 @@ static int32_t loop_dual_response_right_zeroed(ak_enc_ctx *ctx, const void *obj,
 
 intptr_t encode_into_dual_response_zeroed(ak_enc_ctx *ctx, const DualResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_DualResponse h;
   h.o = &o;
   h.t = t;
@@ -4454,7 +4468,7 @@ static int32_t loop_dual_response_right_nobatch(ak_enc_ctx *ctx, const void *obj
 
 intptr_t encode_into_dual_response_nobatch(ak_enc_ctx *ctx, const DualResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_DualResponse h;
   h.o = &o;
   h.t = t;
@@ -4468,7 +4482,7 @@ intptr_t encode_into_dual_response_nobatch(ak_enc_ctx *ctx, const DualResponse &
 
 intptr_t encode_into_chunk_leaf(ak_enc_ctx *ctx, const ChunkLeaf &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ChunkLeaf h;
   h.o = &o;
   h.t = t;
@@ -4481,7 +4495,7 @@ intptr_t encode_into_chunk_leaf(ak_enc_ctx *ctx, const ChunkLeaf &o, const Tcs &
 
 intptr_t encode_into_chunk_leaf_zeroed(ak_enc_ctx *ctx, const ChunkLeaf &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ChunkLeaf h;
   h.o = &o;
   h.t = t;
@@ -4496,7 +4510,7 @@ intptr_t encode_into_chunk_leaf_zeroed(ak_enc_ctx *ctx, const ChunkLeaf &o, cons
 
 intptr_t encode_into_chunk_leaf_nobatch(ak_enc_ctx *ctx, const ChunkLeaf &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ChunkLeaf h;
   h.o = &o;
   h.t = t;
@@ -4550,7 +4564,7 @@ static int32_t loop_chunk_inner_leaves(ak_enc_ctx *ctx, const void *obj, int64_t
 
 intptr_t encode_into_chunk_inner(ak_enc_ctx *ctx, const ChunkInner &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ChunkInner h;
   h.o = &o;
   h.t = t;
@@ -4621,7 +4635,7 @@ static int32_t loop_chunk_inner_leaves_zeroed(ak_enc_ctx *ctx, const void *obj, 
 
 intptr_t encode_into_chunk_inner_zeroed(ak_enc_ctx *ctx, const ChunkInner &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ChunkInner h;
   h.o = &o;
   h.t = t;
@@ -4678,7 +4692,7 @@ static int32_t loop_chunk_inner_leaves_nobatch(ak_enc_ctx *ctx, const void *obj,
 
 intptr_t encode_into_chunk_inner_nobatch(ak_enc_ctx *ctx, const ChunkInner &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ChunkInner h;
   h.o = &o;
   h.t = t;
@@ -4797,7 +4811,7 @@ static int32_t loop_chunk_element_inner_leaves(ak_enc_ctx *ctx, const void *obj,
 
 intptr_t encode_into_chunk_element(ak_enc_ctx *ctx, const ChunkElement &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ChunkElement h;
   h.o = &o;
   h.t = t;
@@ -4934,7 +4948,7 @@ static int32_t loop_chunk_element_inner_leaves_zeroed(ak_enc_ctx *ctx, const voi
 
 intptr_t encode_into_chunk_element_zeroed(ak_enc_ctx *ctx, const ChunkElement &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ChunkElement h;
   h.o = &o;
   h.t = t;
@@ -5057,7 +5071,7 @@ static int32_t loop_chunk_element_inner_leaves_nobatch(ak_enc_ctx *ctx, const vo
 
 intptr_t encode_into_chunk_element_nobatch(ak_enc_ctx *ctx, const ChunkElement &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ChunkElement h;
   h.o = &o;
   h.t = t;
@@ -5219,7 +5233,7 @@ static const struct ak_evt_ChunkElement kElemVt_ChunkedResponse_items = {
 
 intptr_t encode_into_chunked_response(ak_enc_ctx *ctx, const ChunkedResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ChunkedResponse h;
   h.o = &o;
   h.t = t;
@@ -5411,7 +5425,7 @@ static const struct ak_evt_ChunkElement kElemVt_ChunkedResponse_items_zeroed = {
 
 intptr_t encode_into_chunked_response_zeroed(ak_enc_ctx *ctx, const ChunkedResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ChunkedResponse h;
   h.o = &o;
   h.t = t;
@@ -5573,7 +5587,7 @@ static const struct ak_evt_ChunkElement kElemVt_ChunkedResponse_items_nobatch = 
 
 intptr_t encode_into_chunked_response_nobatch(ak_enc_ctx *ctx, const ChunkedResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ChunkedResponse h;
   h.o = &o;
   h.t = t;
@@ -5733,7 +5747,7 @@ static const struct ak_evt_ChunkElement kElemVt_ChunkedResponseWide_items = {
 
 intptr_t encode_into_chunked_response_wide(ak_enc_ctx *ctx, const ChunkedResponseWide &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ChunkedResponseWide h;
   h.o = &o;
   h.t = t;
@@ -5925,7 +5939,7 @@ static const struct ak_evt_ChunkElement kElemVt_ChunkedResponseWide_items_zeroed
 
 intptr_t encode_into_chunked_response_wide_zeroed(ak_enc_ctx *ctx, const ChunkedResponseWide &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ChunkedResponseWide h;
   h.o = &o;
   h.t = t;
@@ -6087,7 +6101,7 @@ static const struct ak_evt_ChunkElement kElemVt_ChunkedResponseWide_items_nobatc
 
 intptr_t encode_into_chunked_response_wide_nobatch(ak_enc_ctx *ctx, const ChunkedResponseWide &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ChunkedResponseWide h;
   h.o = &o;
   h.t = t;
@@ -6101,7 +6115,7 @@ intptr_t encode_into_chunked_response_wide_nobatch(ak_enc_ctx *ctx, const Chunke
 
 intptr_t encode_into_leaf_element(ak_enc_ctx *ctx, const LeafElement &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_LeafElement h;
   h.o = &o;
   h.t = t;
@@ -6114,7 +6128,7 @@ intptr_t encode_into_leaf_element(ak_enc_ctx *ctx, const LeafElement &o, const T
 
 intptr_t encode_into_leaf_element_zeroed(ak_enc_ctx *ctx, const LeafElement &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_LeafElement h;
   h.o = &o;
   h.t = t;
@@ -6129,7 +6143,7 @@ intptr_t encode_into_leaf_element_zeroed(ak_enc_ctx *ctx, const LeafElement &o, 
 
 intptr_t encode_into_leaf_element_nobatch(ak_enc_ctx *ctx, const LeafElement &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_LeafElement h;
   h.o = &o;
   h.t = t;
@@ -6172,7 +6186,7 @@ static int32_t loop_leaf_response_items(ak_enc_ctx *ctx, const void *obj, int64_
 
 intptr_t encode_into_leaf_response(ak_enc_ctx *ctx, const LeafResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_LeafResponse h;
   h.o = &o;
   h.t = t;
@@ -6231,7 +6245,7 @@ static int32_t loop_leaf_response_items_zeroed(ak_enc_ctx *ctx, const void *obj,
 
 intptr_t encode_into_leaf_response_zeroed(ak_enc_ctx *ctx, const LeafResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_LeafResponse h;
   h.o = &o;
   h.t = t;
@@ -6276,7 +6290,7 @@ static int32_t loop_leaf_response_items_nobatch(ak_enc_ctx *ctx, const void *obj
 
 intptr_t encode_into_leaf_response_nobatch(ak_enc_ctx *ctx, const LeafResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_LeafResponse h;
   h.o = &o;
   h.t = t;
@@ -6351,7 +6365,7 @@ static int32_t loop_surrogate_texts(ak_enc_ctx *ctx, const void *obj, int64_t to
 
 intptr_t encode_into_surrogate(ak_enc_ctx *ctx, const Surrogate &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_Surrogate h;
   h.o = &o;
   h.t = t;
@@ -6427,7 +6441,7 @@ static int32_t loop_surrogate_texts_zeroed(ak_enc_ctx *ctx, const void *obj, int
 
 intptr_t encode_into_surrogate_zeroed(ak_enc_ctx *ctx, const Surrogate &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_Surrogate h;
   h.o = &o;
   h.t = t;
@@ -6505,7 +6519,7 @@ static int32_t loop_surrogate_texts_nobatch(ak_enc_ctx *ctx, const void *obj, in
 
 intptr_t encode_into_surrogate_nobatch(ak_enc_ctx *ctx, const Surrogate &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_Surrogate h;
   h.o = &o;
   h.t = t;
@@ -6519,7 +6533,7 @@ intptr_t encode_into_surrogate_nobatch(ak_enc_ctx *ctx, const Surrogate &o, cons
 
 intptr_t encode_into_surrogate_inner(ak_enc_ctx *ctx, const SurrogateInner &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_SurrogateInner h;
   h.o = &o;
   h.t = t;
@@ -6532,7 +6546,7 @@ intptr_t encode_into_surrogate_inner(ak_enc_ctx *ctx, const SurrogateInner &o, c
 
 intptr_t encode_into_surrogate_inner_zeroed(ak_enc_ctx *ctx, const SurrogateInner &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_SurrogateInner h;
   h.o = &o;
   h.t = t;
@@ -6547,7 +6561,7 @@ intptr_t encode_into_surrogate_inner_zeroed(ak_enc_ctx *ctx, const SurrogateInne
 
 intptr_t encode_into_surrogate_inner_nobatch(ak_enc_ctx *ctx, const SurrogateInner &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_SurrogateInner h;
   h.o = &o;
   h.t = t;
@@ -6560,7 +6574,7 @@ intptr_t encode_into_surrogate_inner_nobatch(ak_enc_ctx *ctx, const SurrogateInn
 
 intptr_t encode_into_wire_zoo(ak_enc_ctx *ctx, const WireZoo &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_WireZoo h;
   h.o = &o;
   h.t = t;
@@ -6573,7 +6587,7 @@ intptr_t encode_into_wire_zoo(ak_enc_ctx *ctx, const WireZoo &o, const Tcs &t) {
 
 intptr_t encode_into_wire_zoo_zeroed(ak_enc_ctx *ctx, const WireZoo &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_WireZoo h;
   h.o = &o;
   h.t = t;
@@ -6588,7 +6602,7 @@ intptr_t encode_into_wire_zoo_zeroed(ak_enc_ctx *ctx, const WireZoo &o, const Tc
 
 intptr_t encode_into_wire_zoo_nobatch(ak_enc_ctx *ctx, const WireZoo &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_WireZoo h;
   h.o = &o;
   h.t = t;

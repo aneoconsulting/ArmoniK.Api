@@ -32,6 +32,12 @@ Tcs tcs_host();      // string as a CALL: a transcoder in the host binary
 // also call it up front. Returns AK_OK or the refusal.
 int32_t ak_init_once();
 
+// CAMPAIGN req 19 (R-H31): exported entry points this binding calls that the core's
+// counters do not see (ak_enc_reset inside every encode_into_*, the two
+// ak_dec_reset_<Root> of an armed decode). Counted in the counting build
+// (AK_COUNTING) only; returns the count since the last call and restarts it.
+uint64_t host_calls_take();
+
 struct EncObj_ListResultsResponse {
   const ListResultsResponse *o;
   Tcs t;

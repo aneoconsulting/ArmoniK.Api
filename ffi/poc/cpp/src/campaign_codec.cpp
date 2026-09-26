@@ -19,10 +19,24 @@
 //   `decode_with_*_unk`, a decode with every position of `ak_dec_<Root>_opts` armed through
 //   ak_dec_reset_<Root>, grow-backed, then disarmed); the incumbent in its default mode
 //   (protobuf C++ 3.x RETAINS unknown fields), stated as unknown_mode "default".
-// Payloads (req. 7): the 15 buildable payloads of SHAPES.md plus P7.1 (decode only, from its
-//   vector), the Latin-1 and wide content sets on P1.2, P2.2, P3.1, P4.1 and P6.1 (the set
-//   the committed content-set gate covers; SHAPES.md: string-path payloads, P6.1 the
-//   control), and the corpus's unknown-class rows rooted at a shapes root (decode only).
+// Payloads (req. 7, amended 2026-09-26): the 15 buildable payloads of SHAPES.md plus P7.1
+//   (decode only, from its vector); the Latin-1 and wide content sets on P1.2, P2.2 and P2.4
+//   (required, tag set=required) and on P3.1, P4.1 and P6.1 (tag set=extra); the corpus's 92
+//   accepted, non-disputed unknown-class rows at the shapes core's 7 ABI roots (tag row=U) in
+//   all three directions: decode and decode_read read the row's bytes; encode re-encodes the
+//   graph each arm decoded from them (the incumbent's parsed message, which retains; the
+//   facade decoded in drop mode for drop/no-unknown arms, in retain mode for retain arms).
+// Encode variants (req. 11, amended 2026-09-26), tags end=... and input=...: end=reused is
+//   the bytes in a reused buffer (core-ffi: the context's buffer via ak_enc_take; host-gen:
+//   a reused ak::Enc; the incumbent: incumbent-best's SerializeToString into a reused string);
+//   end=transport is what the arm's RPC path hands to grpc++ (the incumbent: incumbent-prod's
+//   SerializationTraits ByteBuffer; core-ffi and host-gen: their bytes copied into a
+//   grpc::Slice and a ByteBuffer, exactly as cells D and F do; cells C and E hand the core's
+//   transport the end=reused bytes). input=hot re-encodes one graph; input=pool cycles
+//   through distinct copies of it whose total encoded size is --pool-bytes (default 2 x the
+//   13.75 MB L3 of the reference machine), built before the timed loop and freed after.
+// CPU (req. 21, amended 2026-09-26): Google Benchmark's MeasureProcessCPUTime(): cpu_time is
+//   the PROCESS's CPU time (CLOCK_PROCESS_CPUTIME_ID) over each repetition's timed loop.
 // Timing (req. 22a): Google Benchmark, see the end of main(). This file prints no sample;
 // the samples are Google Benchmark's per-repetition JSON, converted by gen/gbench_to_jsonl.py.
 // Correctness first (req. 26): before round 1, every arm of every group is run once and
@@ -36,6 +50,7 @@
 //
 //   campaign_codec --launch L --rounds R --bytes B --warmup W [--only ID,ID]
 //                  [--corpus DIR --rows TSV] [--payloads DIR] [--gbench-out FILE]
+//                  [--pool-bytes N]
 #include <benchmark/benchmark.h>
 #ifndef AK_GBENCH_VERSION
 #define AK_GBENCH_VERSION "unknown"
@@ -51,6 +66,7 @@
 #include <fstream>
 #include <functional>
 #include <iterator>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -109,6 +125,7 @@ struct Cfg {
   std::vector<std::string> only;
   std::string corpus, payloads, rows;
   std::string gbout = "campaign_codec_gbench.json";  // Google Benchmark's JSON output
+  double pool_bytes = 2.0 * 13.75 * 1024 * 1024;      // req. 11: the beyond-LLC input pool
 };
 Cfg g_cfg;
 
@@ -123,13 +140,78 @@ struct Slot {
   std::string arm, dir, mode;
   std::function<uint64_t(long)> run;
   std::function<std::string()> check;
+  // Outside the timed loop: the input=pool graphs are built before and freed after.
+  std::function<void()> setup, teardown;
+  std::string tags;  // "k=v,..." (req. 11 end=/input=, req. 7 set=/row=)
 };
 
 struct Group {
-  std::string payload, content;
+  std::string payload, content, tags;
   size_t wire = 0;
   std::vector<Slot> slots;
 };
+
+std::string join_tags(const std::string &a, const std::string &b) {
+  if (a.empty()) return b;
+  if (b.empty()) return a;
+  return a + "," + b;
+}
+
+// One encode arm in both inputs (req. 11): input=hot re-encodes `hot`; input=pool cycles
+// through k distinct copies of it, built in setup (outside the timed loop).
+template <class G>
+void add_encode(Group &g, const char *arm, const char *mode, const char *end, const G *hot,
+                size_t wire, const std::function<size_t(const G &)> &enc,
+                const std::function<std::string(const G &)> &check) {
+  {
+    Slot sl;
+    sl.arm = arm; sl.dir = "encode"; sl.mode = mode;
+    sl.tags = std::string("end=") + end + ",input=hot";
+    sl.run = [hot, enc](long n) {
+      uint64_t h = 0;
+      for (long i = 0; i < n; ++i) h += enc(*hot);
+      return h;
+    };
+    sl.check = [hot, check]() { return check(*hot); };
+    g.slots.push_back(sl);
+  }
+  {
+    size_t k = (size_t)(g_cfg.pool_bytes / (double)(wire ? wire : 1)) + 1;
+    if (k < 2) k = 2;
+    std::shared_ptr<std::vector<G *> > pool(new std::vector<G *>());
+    Slot sl;
+    sl.arm = arm; sl.dir = "encode"; sl.mode = mode;
+    sl.tags = std::string("end=") + end + ",input=pool";
+    sl.setup = [pool, hot, k]() {
+      pool->reserve(k);
+      for (size_t i = 0; i < k; ++i) pool->push_back(new G(*hot));
+    };
+    sl.teardown = [pool]() {
+      for (size_t i = 0; i < pool->size(); ++i) delete (*pool)[i];
+      pool->clear();
+    };
+    sl.run = [pool, enc](long n) {
+      uint64_t h = 0;
+      const size_t m = pool->size();
+      for (long i = 0; i < n; ++i) h += enc(*(*pool)[(size_t)i % m]);
+      return h;
+    };
+    sl.check = [pool, check]() {
+      std::string a = check(*pool->front());
+      return a.empty() ? check(*pool->back()) : a;
+    };
+    g.slots.push_back(sl);
+  }
+}
+
+// A ByteBuffer's bytes, for the checks.
+std::string bb_bytes(grpc::ByteBuffer &bb) {
+  std::vector<grpc::Slice> sl;
+  bb.Dump(&sl);
+  std::string s;
+  for (size_t i = 0; i < sl.size(); ++i) s.append((const char *)sl[i].begin(), sl[i].size());
+  return s;
+}
 
 std::string read_file(const std::string &p) {
   std::ifstream f(p.c_str(), std::ios::binary);
@@ -166,14 +248,20 @@ struct Ctx {
   ak::Enc *ne, *nre;
 };
 
-// `fac` / `pb`: the object graph encoders start from (null for a decode-only group);
-// `canon`: the canonical bytes decoders read and encoders must reproduce.
+// `fac` / `pb`: the object graphs encoders start from (null for a decode-only group);
+// `fac_ret`: the graph the retain arms encode (the facade decoded in retain mode for a U-*
+// row; the same graph as `fac` for a payload); `canon`: the bytes decoders read;
+// `want` / `want_ret`: the bytes the core's and host-gen's encoders must write in drop /
+// retain mode (the canonical bytes for a payload).
 template <class Fac, class Pb>
-Group make_group(const std::string &payload, const std::string &content, const Fns<Fac, Pb> &F,
-                 const Fac *fac, const Pb *pb, const std::string &canon, Ctx *cx) {
+Group make_group(const std::string &payload, const std::string &content, const std::string &tags,
+                 const Fns<Fac, Pb> &F, const Fac *fac, const Fac *fac_ret, const Pb *pb,
+                 const std::string &canon, const std::string &want_in, const std::string &want_ret_in,
+                 Ctx *cx) {
   Group g;
   g.payload = payload;
   g.content = content;
+  g.tags = tags;
   g.wire = canon.size();
   // grpc++'s production decode reads a ByteBuffer. One slice holding the canonical bytes,
   // referenced (not copied) into a fresh ByteBuffer every iteration.
@@ -181,15 +269,20 @@ Group make_group(const std::string &payload, const std::string &content, const F
   const std::string *cp = new std::string(canon);  // lives for the process
   const uint8_t *cb = (const uint8_t *)cp->data();
   size_t cn = cp->size();
+  const std::string *want = new std::string(want_in);
+  const std::string *want_ret = new std::string(want_ret_in);
   // AK_CAMPAIGN_PLANT=1: the gate seen failing. core-ffi's decoders read, and its encoder is
-  // compared against, a copy of the canonical bytes with one byte changed; every core-ffi
-  // slot must then fail its check and nothing may be timed.
-  const std::string *cpf = cp;
+  // compared against, a copy of the bytes with one byte changed; every core-ffi slot must
+  // then fail its check and nothing may be timed.
+  const std::string *cpf = cp, *wantf = want;
   if (std::getenv("AK_CAMPAIGN_PLANT") && !canon.empty()) {
     std::string *x = new std::string(canon);
     (*x)[x->size() / 2] ^= 0x01;
     (*x)[x->size() - 1] ^= 0x01;
     cpf = x;
+    std::string *y = new std::string(want_in);
+    if (!y->empty()) { (*y)[y->size() / 2] ^= 0x01; (*y)[y->size() - 1] ^= 0x01; }
+    wantf = y;
   }
   const uint8_t *cbf = (const uint8_t *)cpf->data();
   shapes::ffi::Tcs tc = shapes::ffi::tcs_core();
@@ -200,87 +293,110 @@ Group make_group(const std::string &payload, const std::string &content, const F
   const uint64_t want_fold = pbtouch::touch(ref);
 
   if (fac && pb) {
-    // ---- encode
-    g.slots.push_back({"incumbent-prod", "encode", "default", [pb](long n) {
-      uint64_t h = 0;
-      for (long i = 0; i < n; ++i) {
-        grpc::ByteBuffer bb;
-        bool own = false;
-        grpc::SerializationTraits<Pb>::Serialize(*pb, &bb, &own);
-        h += bb.Length();
-      }
-      return h;
-    }, [pb, want_fold]() -> std::string {
-      grpc::ByteBuffer bb;
-      bool own = false;
-      if (!grpc::SerializationTraits<Pb>::Serialize(*pb, &bb, &own).ok()) return "Serialize failed";
-      std::vector<grpc::Slice> sl;
-      bb.Dump(&sl);
-      std::string s;
-      for (auto &x : sl) s.append((const char *)x.begin(), x.size());
-      Pb m;
-      if (!m.ParseFromString(s) || pbtouch::touch(m) != want_fold) return "output does not decode to the canonical message";
+    // ---- encode: every arm in its end states x {hot, pool} (req. 11)
+    const size_t wsz = want->size() ? want->size() : 1;
+    std::function<std::string(const Pb &)> pb_check = [want_fold](const Pb &m0) -> std::string {
+      (void)m0;
       return "";
-    }});
-    g.slots.push_back({"incumbent-best", "encode", "default", [pb](long n) {
-      uint64_t h = 0;
-      std::string s;
-      for (long i = 0; i < n; ++i) { pb->SerializeToString(&s); h += s.size(); }
-      return h;
-    }, [pb, want_fold]() -> std::string {
-      std::string s;
-      pb->SerializeToString(&s);
-      Pb m;
-      if (!m.ParseFromString(s) || pbtouch::touch(m) != want_fold) return "output does not decode to the canonical message";
-      if (pbtouch::touch(*pb) != want_fold) return "the incumbent's own builder and the facade builder disagree";
-      return "";
-    }});
-    g.slots.push_back({"core-ffi", "encode", AK_FFI_DROP_MODE, [F, fac, cx, tc](long n) {
-      uint64_t h = 0;
-      for (long i = 0; i < n; ++i) {
-        F.ffi_enc(cx->ec, *fac, tc);
-        const uint8_t *p; size_t len;
-        ak_enc_take(cx->ec, &p, &len);
-        h += len;
+    };
+    // incumbent-prod: SerializationTraits into a ByteBuffer (end=transport, what the stub does)
+    add_encode<Pb>(g, "incumbent-prod", "default", "transport", pb, wsz,
+        [](const Pb &m) -> size_t {
+          grpc::ByteBuffer bb;
+          bool own = false;
+          grpc::SerializationTraits<Pb>::Serialize(m, &bb, &own);
+          return bb.Length();
+        },
+        [want_fold](const Pb &m) -> std::string {
+          grpc::ByteBuffer bb;
+          bool own = false;
+          if (!grpc::SerializationTraits<Pb>::Serialize(m, &bb, &own).ok()) return "Serialize failed";
+          Pb back;
+          if (!back.ParseFromString(bb_bytes(bb)) || pbtouch::touch(back) != want_fold)
+            return "output does not decode to the canonical message";
+          return "";
+        });
+    // incumbent-best: SerializeToString into a reused string (end=reused)
+    std::shared_ptr<std::string> sbuf(new std::string());
+    add_encode<Pb>(g, "incumbent-best", "default", "reused", pb, wsz,
+        [sbuf](const Pb &m) -> size_t { m.SerializeToString(sbuf.get()); return sbuf->size(); },
+        [want_fold](const Pb &m) -> std::string {
+          std::string s2;
+          m.SerializeToString(&s2);
+          Pb back;
+          if (!back.ParseFromString(s2) || pbtouch::touch(back) != want_fold)
+            return "output does not decode to the canonical message";
+          if (pbtouch::touch(m) != want_fold) return "the incumbent's own builder and the facade builder disagree";
+          return "";
+        });
+    (void)pb_check;
+    // core-ffi, drop (no-unknown in that build) and retain; end=reused and end=transport
+    struct CoreEnc {
+      const char *mode;
+      intptr_t (*fn)(ak_enc_ctx *, const Fac &, const shapes::ffi::Tcs &);
+      const Fac *graph;
+      const std::string *expect;
+    };
+    std::vector<CoreEnc> ce;
+    ce.push_back(CoreEnc{AK_FFI_DROP_MODE, F.ffi_enc, fac, wantf});
+    if (F.ffi_enc_retain) ce.push_back(CoreEnc{"retain", F.ffi_enc_retain, fac_ret, want_ret});
+    for (size_t k = 0; k < ce.size(); ++k) {
+      CoreEnc e = ce[k];
+      for (int t = 0; t < 2; ++t) {
+        const bool transport = t == 1;
+        add_encode<Fac>(g, "core-ffi", e.mode, transport ? "transport" : "reused", e.graph, wsz,
+            [e, cx, tc, transport](const Fac &v) -> size_t {
+              e.fn(cx->ec, v, tc);
+              const uint8_t *p; size_t len;
+              ak_enc_take(cx->ec, &p, &len);
+              if (!transport) return len;
+              grpc::Slice sl(p, len);  // as cell D hands the core's bytes to grpc++
+              grpc::ByteBuffer bb(&sl, 1);
+              return bb.Length();
+            },
+            [e, cx, tc, transport](const Fac &v) -> std::string {
+              intptr_t rc = e.fn(cx->ec, v, tc);
+              const uint8_t *p = NULL; size_t len = 0;
+              if (rc < 0 || ak_enc_take(cx->ec, &p, &len) != 0) return "encode refused";
+              std::string got((const char *)p, len);
+              if (transport) {
+                grpc::Slice sl(p, len);
+                grpc::ByteBuffer bb(&sl, 1);
+                got = bb_bytes(bb);
+              }
+              return got == *e.expect ? "" : "bytes differ from the expected encoding";
+            });
       }
-      return h;
-    }, [F, fac, cx, tc, cpf]() -> std::string {
-      intptr_t rc = F.ffi_enc(cx->ec, *fac, tc);
-      const uint8_t *p = NULL; size_t len = 0;
-      if (rc < 0 || ak_enc_take(cx->ec, &p, &len) != 0) return "encode refused";
-      return std::string((const char *)p, len) == *cpf ? "" : "bytes differ from the canonical";
-    }});
-    if (F.ffi_enc_retain) {
-      g.slots.push_back({"core-ffi", "encode", "retain", [F, fac, cx, tc](long n) {
-        uint64_t h = 0;
-        for (long i = 0; i < n; ++i) {
-          F.ffi_enc_retain(cx->ec, *fac, tc);
-          const uint8_t *p; size_t len;
-          ak_enc_take(cx->ec, &p, &len);
-          h += len;
-        }
-        return h;
-      }, [F, fac, cx, tc, cp]() -> std::string {
-        intptr_t rc = F.ffi_enc_retain(cx->ec, *fac, tc);
-        const uint8_t *p = NULL; size_t len = 0;
-        if (rc < 0 || ak_enc_take(cx->ec, &p, &len) != 0) return "encode refused";
-        return std::string((const char *)p, len) == *cp ? "" : "bytes differ from the canonical";
-      }});
     }
+    // host-gen, drop (no-unknown in that build) and retain; end=reused and end=transport
     for (int r = 0; r < AK_HOSTGEN_MODES; ++r) {
-      bool ret = r == 1;
-      g.slots.push_back({"host-gen", "encode", ret ? "retain" : AK_HOSTGEN_DROP_MODE, [F, fac, cx, ret](long n) {
-        uint64_t h = 0;
-        for (long i = 0; i < n; ++i) {
-          if (ret) { F.natr_enc(*fac, cx->nre); h += cx->nre->size(); }
-          else { F.nat_enc(*fac, cx->ne); h += cx->ne->size(); }
-        }
-        return h;
-      }, [F, fac, cx, ret, cp]() -> std::string {
-        ak::Enc *e = ret ? cx->nre : cx->ne;
-        if (ret) F.natr_enc(*fac, e); else F.nat_enc(*fac, e);
-        return std::string((const char *)e->data(), e->size()) == *cp ? "" : "bytes differ from the canonical";
-      }});
+      const bool ret = r == 1;
+      const Fac *graph = ret ? fac_ret : fac;
+      const std::string *expect = ret ? want_ret : want;
+      for (int t = 0; t < 2; ++t) {
+        const bool transport = t == 1;
+        add_encode<Fac>(g, "host-gen", ret ? "retain" : AK_HOSTGEN_DROP_MODE,
+            transport ? "transport" : "reused", graph, wsz,
+            [F, cx, ret, transport](const Fac &v) -> size_t {
+              ak::Enc *e = ret ? cx->nre : cx->ne;
+              if (ret) F.natr_enc(v, e); else F.nat_enc(v, e);
+              if (!transport) return e->size();
+              grpc::Slice sl(e->data(), e->size());  // as cell F hands host-gen's bytes to grpc++
+              grpc::ByteBuffer bb(&sl, 1);
+              return bb.Length();
+            },
+            [F, cx, ret, transport, expect](const Fac &v) -> std::string {
+              ak::Enc *e = ret ? cx->nre : cx->ne;
+              if (ret) F.natr_enc(v, e); else F.nat_enc(v, e);
+              std::string got((const char *)e->data(), e->size());
+              if (transport) {
+                grpc::Slice sl(e->data(), e->size());
+                grpc::ByteBuffer bb(&sl, 1);
+                got = bb_bytes(bb);
+              }
+              return got == *expect ? "" : "bytes differ from the expected encoding";
+            });
+      }
     }
   }
   // ---- decode and decode_read
@@ -363,7 +479,16 @@ Group make_group(const std::string &payload, const std::string &content, const F
       }});
     }
   }
+  for (size_t i = 0; i < g.slots.size(); ++i) g.slots[i].tags = join_tags(g.tags, g.slots[i].tags);
   return g;
+}
+
+int proc_threads() {
+  std::ifstream f("/proc/self/status");
+  std::string line;
+  while (std::getline(f, line))
+    if (line.compare(0, 8, "Threads:") == 0) return std::atoi(line.c_str() + 8);
+  return -1;
 }
 
 bool wanted(const std::string &id) {
@@ -406,6 +531,7 @@ int main(int argc, char **argv) {
     else if (a == "--payloads") g_cfg.payloads = v;
     else if (a == "--rows") g_cfg.rows = v;
     else if (a == "--gbench-out") g_cfg.gbout = v;
+    else if (a == "--pool-bytes") g_cfg.pool_bytes = std::atof(v);
     else if (a == "--only") {
       std::string s(v);
       size_t p = 0;
@@ -447,7 +573,10 @@ int main(int argc, char **argv) {
                                      AK_NATR_DEC(sroot),                    \
                                      AK_FFI_RETAIN_ENC(sroot), AK_FFI_RETAIN_DEC(sroot)};       \
     std::string pid(id);                                                                        \
-    bool cs = pid == "P1.2" || pid == "P2.2" || pid == "P3.1" || pid == "P4.1" || pid == "P6.1"; \
+    /* req. 7 (amended): Latin-1 and wide are required on P1.2, P2.2 and P2.4; extras on   \
+       P3.1, P4.1 and P6.1 (the content-set gate's earlier choice), tagged set=extra. */      \
+    bool req_cs = pid == "P1.2" || pid == "P2.2" || pid == "P2.4";                             \
+    bool cs = req_cs || pid == "P3.1" || pid == "P4.1" || pid == "P6.1";                      \
     for (int s = 0; s < (cs ? 3 : 1); ++s) {                                                    \
       if (!wanted(pid)) break;                                                                  \
       ak::values::ScopedContentSet scope(sets[s]);                                              \
@@ -460,7 +589,9 @@ int main(int argc, char **argv) {
         std::printf("GATE FAIL %s ascii: the canonical bytes are not the manifest's\n", id);   \
         ++gate_fail;                                                                            \
       }                                                                                         \
-      groups.push_back(make_group<shapes::Root, ns::Root>(pid, setname[s], F, fac, pb, canon, &cx)); \
+      std::string ctag = s == 0 ? std::string() : std::string(req_cs ? "set=required" : "set=extra"); \
+      groups.push_back(make_group<shapes::Root, ns::Root>(pid, setname[s], ctag, F, fac, fac, pb,  \
+                                                          canon, canon, canon, &cx));              \
     }                                                                                           \
   }
   AK_CASES(X)
@@ -479,10 +610,15 @@ int main(int argc, char **argv) {
           &shapes::native::encode_into_dual_response, &shapes::native::decode_dual_response,
           AK_NATR_ENC(dual_response), AK_NATR_DEC(dual_response),
           AK_FFI_RETAIN_ENC(dual_response), AK_FFI_RETAIN_DEC(dual_response)};
-      groups.push_back(make_group<shapes::DualResponse, ns::DualResponse>("P7.1", "ascii", F, NULL, NULL, v, &cx));
+      groups.push_back(make_group<shapes::DualResponse, ns::DualResponse>("P7.1", "ascii", "", F, NULL, NULL,
+                                                                          NULL, v, v, v, &cx));
     }
   }
-  // The corpus's unknown-class rows at a shapes root: decode only.
+  // The corpus's unknown-class rows at a shapes root (req. 7, amended): all three directions.
+  // Decode reads the row's bytes; encode re-encodes what each arm decoded from them (see the
+  // header). The expected encodings are host-gen's re-encodings of its own decodes, drop and
+  // retain; the core's encoders must write exactly those, the incumbent's must decode to
+  // the same message.
   if (!g_cfg.corpus.empty() && !g_cfg.rows.empty()) {
     std::vector<CorpusRow> rows = corpus_rows(g_cfg.rows);
     for (size_t i = 0; i < rows.size(); ++i) {
@@ -495,7 +631,23 @@ int main(int argc, char **argv) {
             &shapes::native::decode_##sroot, AK_NATR_ENC(sroot),       \
             AK_NATR_DEC(sroot),                                             \
             AK_FFI_RETAIN_ENC(sroot), AK_FFI_RETAIN_DEC(sroot)};                                \
-        groups.push_back(make_group<shapes::Root, ns::Root>(rows[i].id, "ascii", F, NULL, NULL, v, &cx)); \
+        shapes::Root *fd = new shapes::Root();                                                  \
+        shapes::Root *fr = fd;                                                                  \
+        ns::Root *pbm = new ns::Root();                                                         \
+        int32_t d1 = F.nat_dec((const uint8_t *)v.data(), v.size(), fd), d2 = 0;                \
+        if (F.natr_dec) { fr = new shapes::Root(); d2 = F.natr_dec((const uint8_t *)v.data(), v.size(), fr); } \
+        if (d1 != 0 || d2 != 0 || !pbm->ParseFromString(v)) {                                  \
+          std::printf("GATE FAIL %s: host-gen or the incumbent refuses the row (%d, %d)\n",   \
+                      rows[i].id.c_str(), d1, d2);                                            \
+          ++gate_fail;                                                                          \
+        } else {                                                                                \
+          F.nat_enc(*fd, cx.ne);                                                                \
+          std::string wd((const char *)cx.ne->data(), cx.ne->size());                          \
+          std::string wr = wd;                                                                  \
+          if (F.natr_enc) { F.natr_enc(*fr, cx.nre); wr.assign((const char *)cx.nre->data(), cx.nre->size()); } \
+          groups.push_back(make_group<shapes::Root, ns::Root>(rows[i].id, "ascii", "row=U", F, fd, fr, \
+                                                              pbm, v, wd, wr, &cx));             \
+        }                                                                                       \
       }
       AK_ROOTS(R)
 #undef R
@@ -507,12 +659,16 @@ int main(int argc, char **argv) {
   for (size_t gi = 0; gi < groups.size(); ++gi) {
     for (size_t s = 0; s < groups[gi].slots.size(); ++s) {
       ++nslots;
-      std::string why = groups[gi].slots[s].check();
+      Slot &sl0 = groups[gi].slots[s];
+      if (sl0.setup) sl0.setup();
+      std::string why = sl0.check();
+      if (sl0.teardown) sl0.teardown();
       if (!why.empty()) {
         ++gate_fail;
         std::printf("GATE FAIL %s %s %s %s %s: %s\n", groups[gi].payload.c_str(),
                     groups[gi].content.c_str(), groups[gi].slots[s].arm.c_str(),
-                    groups[gi].slots[s].dir.c_str(), groups[gi].slots[s].mode.c_str(), why.c_str());
+                    (groups[gi].slots[s].dir + " " + groups[gi].slots[s].tags).c_str(),
+                    groups[gi].slots[s].mode.c_str(), why.c_str());
       }
     }
   }
@@ -529,14 +685,23 @@ int main(int argc, char **argv) {
   for (int c = 0; c < CPU_SETSIZE; ++c)
     if (CPU_ISSET(c, &set)) cpus += (cpus.empty() ? "" : ",") + std::to_string(c);
   std::printf("# {\"campaign_codec\": {\"launch\": %d, \"rounds\": %d, \"bytes_per_sample\": %.0f,"
-              " \"warmup_bytes_per_slot\": %.0f, \"affinity\": \"%s\", \"timer\": \"Google Benchmark %s: cpu_time (benchmark thread) and real_time\"}}\n",
-              g_cfg.launch, g_cfg.rounds, g_cfg.bytes, g_cfg.warmup, cpus.c_str(), AK_GBENCH_VERSION);
+              " \"warmup_bytes_per_slot\": %.0f, \"affinity\": \"%s\", \"timer\": \"Google Benchmark %s:"
+              " cpu_time = PROCESS CPU (MeasureProcessCPUTime, CLOCK_PROCESS_CPUTIME_ID) per repetition, real_time = wall\","
+              " \"pool_bytes\": %.0f, \"threads\": {\"process_threads_at_start\": %d, \"measuring_threads\": 1,"
+              " \"note\": \"the codec suite runs every arm on the one benchmark thread; the core starts no thread for codec calls\"}}}\n",
+              g_cfg.launch, g_cfg.rounds, g_cfg.bytes, g_cfg.warmup, cpus.c_str(), AK_GBENCH_VERSION,
+              g_cfg.pool_bytes, proc_threads());
 
   // ---- warm-up: every slot, the same byte budget, before round 1 (req. 24, 25) ----
   for (size_t gi = 0; gi < groups.size(); ++gi) {
     long n = (long)(g_cfg.warmup / (double)(groups[gi].wire ? groups[gi].wire : 1));
     if (n < 1) n = 1;
-    for (size_t s = 0; s < groups[gi].slots.size(); ++s) g_sink += groups[gi].slots[s].run(n);
+    for (size_t s = 0; s < groups[gi].slots.size(); ++s) {
+      Slot &sl0 = groups[gi].slots[s];
+      if (sl0.setup) sl0.setup();
+      g_sink += sl0.run(n);
+      if (sl0.teardown) sl0.teardown();
+    }
   }
   // ---- timing: Google Benchmark (CAMPAIGN.md requirement 22a, owner 2026-09-25) ----
   // One benchmark per slot, name "arm|payload|content|dir|unknown_mode". Fixed iterations
@@ -554,7 +719,8 @@ int main(int argc, char **argv) {
       if (n < 1) n = 1;
       for (size_t s = 0; s < g.slots.size(); ++s) {
         Slot *sl = &g.slots[s];
-        regs.push_back(std::make_pair(sl->arm + "|" + g.payload + "|" + g.content + "|" + sl->dir + "|" + sl->mode,
+        regs.push_back(std::make_pair(sl->arm + "|" + g.payload + "|" + g.content + "|" + sl->dir + "|" + sl->mode +
+                                          "|" + sl->tags,
                                       std::make_pair(sl, n)));
       }
     }
@@ -563,13 +729,15 @@ int main(int argc, char **argv) {
       const std::pair<std::string, std::pair<Slot *, long> > &r = regs[(k + rot) % nr];
       Slot *sl = r.second.first;
       benchmark::RegisterBenchmark(r.first.c_str(), [sl](benchmark::State &st) {
+        if (sl->setup) sl->setup();  // before the timed loop (req. 11: graph construction outside)
         for (auto _ : st) {
           uint64_t h = sl->run(1);
           benchmark::DoNotOptimize(h);
           benchmark::ClobberMemory();
         }
+        if (sl->teardown) sl->teardown();
       })->Iterations(r.second.second)->Repetitions(g_cfg.rounds)->Unit(benchmark::kNanosecond)
-        ->ReportAggregatesOnly(false);
+        ->MeasureProcessCPUTime()->ReportAggregatesOnly(false);
     }
     std::string out = "--benchmark_out=" + g_cfg.gbout;
     std::vector<std::string> args = {"campaign_codec", out, "--benchmark_out_format=json",
