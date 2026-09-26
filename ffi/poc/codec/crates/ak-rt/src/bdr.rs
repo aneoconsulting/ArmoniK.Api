@@ -142,6 +142,33 @@ impl Bdr {
         self.buf.set_len(at + words);
     }
 
+    /// Optimisation D4: open a run record at the end of the buffer and return where its
+    /// payload starts (8-aligned: the buffer is words and the header is 24 bytes), with
+    /// capacity for `max_bytes` of payload. The pull family decodes the run's elements
+    /// straight into it instead of into an arena it would then copy with `push`. **Nothing
+    /// else may be appended until `close_run`**: the generated decoders flush (close) the
+    /// open run before every other deposit, which is what keeps the pointer valid.
+    #[inline(always)]
+    pub unsafe fn open_run(&mut self, max_bytes: usize) -> *mut u8 {
+        let words = (REC_BYTES + pad8(max_bytes)) / 8;
+        self.buf.reserve(words);
+        (self.buf.as_mut_ptr().add(self.buf.len()) as *mut u8).add(REC_BYTES)
+    }
+
+    /// Close the run `open_run` opened, whose payload holds `bytes` bytes of `n` elements:
+    /// write its header, zero the padding, and append it. The same record `push` writes.
+    #[inline(always)]
+    pub unsafe fn close_run(&mut self, op: u32, slot: u32, token: i64, n: u32, bytes: usize) {
+        let padded = pad8(bytes);
+        let at = self.buf.len();
+        let p = self.buf.as_mut_ptr().add(at) as *mut u8;
+        (p as *mut Rec).write(Rec { op, slot, token, n, bytes: padded as u32 });
+        if padded != bytes {
+            core::ptr::write_bytes(p.add(REC_BYTES + bytes), 0, padded - bytes);
+        }
+        self.buf.set_len(at + (REC_BYTES + padded) / 8);
+    }
+
     /// The token a `new_<slot>` would have returned.
     #[inline(always)]
     pub fn mint(&mut self) -> i64 {

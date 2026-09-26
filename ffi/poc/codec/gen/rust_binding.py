@@ -292,6 +292,18 @@ unsafe fn s_of(base: *const u8, s: ak_span, ctx: *mut ak_dec_ctx) -> String {
 /// stack (1 KB) rather than in a heap Vec.
 const ENUM_STACK: usize = 256;
 
+/// Optimisation E3: the stack budget of a loop callback's SMALL chunk. A field with at most
+/// `ak_small_n(group size)` elements is filled there; a longer one takes the callback's
+/// out-of-line copy with the 32 KB arena (ABI v1 7.3). 2 KB <= 32 KB, so a field that fits
+/// the small chunk is one run on either path.
+const AK_SMALL_BYTES: usize = 2048;
+
+#[inline(always)]
+const fn ak_small_n(group_size: usize) -> usize {
+    let n = AK_SMALL_BYTES / group_size;
+    if n == 0 { 1 } else { n }
+}
+
 #[inline(always)]
 unsafe fn b_of(base: *const u8, s: ak_span) -> ::bytes::Bytes {
     if s.len == 0 {
@@ -1573,11 +1585,48 @@ def _emit_add(ir, o, root, et, sn, path, f):
     o.append("")
 
 
+def _split_small(o, st):
+    """Optimisation E3, swept over every chunked loop callback (top-level, zeroed, unk,
+    unk_zeroed and the inner loops): the callback keeps a SMALL chunk on its stack (a 2 KB
+    budget, `ak_small_n`) and hands a field longer than that to an out-of-line copy of
+    itself with the 32 KB arena. Before this, every call -- one per ELEMENT for an inner
+    loop -- reserved and probed a 32 KB frame however short the field. A field that fits
+    the small chunk also fits the arena, so both paths make one run call for it and the
+    crossings do not change; a longer field takes exactly the old path."""
+    cb = o[st:]
+    try:
+        c = next(i for i, l in enumerate(cb) if l.lstrip().startswith("const CHUNK: usize = ak_rt::arena_n("))
+    except StopIteration:
+        return
+    head = next(i for i, l in enumerate(cb) if l.startswith("unsafe extern \"C\" fn loop_"))
+    name = cb[head].split("fn ", 1)[1].split("(", 1)[0]
+    g = next(i for i, l in enumerate(cb) if l == "    guard(ctx, || {")
+    close = max(i for i, l in enumerate(cb) if l == "    })")
+    prologue = cb[g + 1:c]
+    chunk = cb[c]
+    size = chunk.split("ak_rt::arena_n(", 1)[1].rsplit(");", 1)[0]
+    body = cb[c + 1:close]
+    small = chunk.replace("ak_rt::arena_n(", "ak_small_n(")
+    new = cb[:g + 1] + prologue + [
+        "        // Optimisation E3: a small chunk on the stack; a longer field goes out of line.",
+        "        if src.len() > ak_small_n(%s) { return %s_big(ctx, obj, token); }" % (size, name),
+        small,
+    ] + body + cb[close:]
+    new += [
+        "/// Optimisation E3: `%s` for a field longer than the small chunk, with the" % name,
+        "/// 32 KB arena (called inside that callback's guard).",
+        "#[inline(never)]",
+        "unsafe fn %s_big(ctx: *mut ak_enc_ctx, obj: *const c_void, token: i64) -> i32 {" % name,
+    ] + [l[4:] for l in prologue] + [chunk[4:]] + [l[4:] for l in body] + ["}", ""]
+    o[st:] = new
+
+
 def _emit_loop_unk_zeroed(ir, o, root, path, f, sn):
     """Decisions 9 and 11 together: the zeroed-group fill over the group that carries the
     unknown-field bag. The bag adds one `ak_str` to every group, so the memset this variant
     does per chunk grows with it -- which is the interaction worth measuring rather than
     reasoning about."""
+    st = len(o)
     rs = snake(root)
     et = f.of
     o.append("unsafe extern \"C\" fn loop_%s_%s_unk_zeroed(" % (rs, sn))
@@ -1616,6 +1665,7 @@ def _emit_loop_unk_zeroed(ir, o, root, path, f, sn):
     o.append("    })")
     o.append("}")
     o.append("")
+    _split_small(o, st)
 
 
 def _emit_loop_unk(ir, o, root, path, f, sn):
@@ -1624,6 +1674,7 @@ def _emit_loop_unk(ir, o, root, path, f, sn):
     size and the run call are the same shape, which is the point: the bag is ONE more
     `ak_str` slot and not a repeated field, so ABI v1 7.2's batched run survives it
     (`gen/unknown_predicate.py`)."""
+    st = len(o)
     rs = snake(root)
     et = f.of
     o.append("unsafe extern \"C\" fn loop_%s_%s_unk(" % (rs, sn))
@@ -1656,6 +1707,7 @@ def _emit_loop_unk(ir, o, root, path, f, sn):
     o.append("    })")
     o.append("}")
     o.append("")
+    _split_small(o, st)
 
 
 def _emit_loop_zeroed(ir, o, root, path, f, sn):
@@ -1665,6 +1717,7 @@ def _emit_loop_zeroed(ir, o, root, path, f, sn):
     Only the top-level element group is built this way. A nested loop inside an element
     keeps the total fill, so this arm prices the OUTER group and nothing else, and the log
     says so."""
+    st = len(o)
     rs = snake(root)
     et = f.of
     o.append("unsafe extern \"C\" fn loop_%s_%s_zeroed(" % (rs, sn))
@@ -1705,12 +1758,14 @@ def _emit_loop_zeroed(ir, o, root, path, f, sn):
     o.append("    })")
     o.append("}")
     o.append("")
+    _split_small(o, st)
 
 
 def _emit_loop(ir, o, root, path, f, sn, top, elem_path=None, inner_path=None, elem_type=None):
     """One host-driven loop callback. The host fills an array of element groups from objects
     it is already walking and hands over extracted data; the codec never names a host object,
     never dereferences one, and nothing is pinned (ABI v1 section 6)."""
+    st = len(o)
     rs = snake(root)
     et = globals()["elem_type"](f) if not top or True else None
     et = None
@@ -1814,6 +1869,7 @@ def _emit_loop(ir, o, root, path, f, sn, top, elem_path=None, inner_path=None, e
     o.append("    })")
     o.append("}")
     o.append("")
+    _split_small(o, st)
 
 
 def _run_call(ir, f, et, n, done, bag=False):

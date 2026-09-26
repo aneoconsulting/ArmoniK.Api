@@ -6429,43 +6429,57 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
     #[allow(unused_variables)]
     let buf0 = d.buf;
     let base0 = base;
+    // Optimisation D2: one 8-aligned arena shared by every loop slot below (one
+    // slot is open at a time; each keeps its own element budget).
+    let mut arena: [::core::mem::MaybeUninit<u64>; ak_rt::ARENA_BYTES / 8] =
+        [const { ::core::mem::MaybeUninit::uninit() }; ak_rt::ARENA_BYTES / 8];
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_PARENT_TASK_IDS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
-    let mut a_parent_task_ids: [::core::mem::MaybeUninit<ak_span>; N_PARENT_TASK_IDS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_PARENT_TASK_IDS];
+    const _: () = assert!(N_PARENT_TASK_IDS * ::core::mem::size_of::<ak_span>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_span>() <= 8);
     let mut n_parent_task_ids: usize = 0;
+    let a_parent_task_ids: *mut ak_span = arena.as_mut_ptr() as *mut ak_span;
+    #[allow(unused_macros)]
+    macro_rules! at_parent_task_ids { () => { a_parent_task_ids.add(n_parent_task_ids) }; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_DATA_DEPENDENCIES: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
-    let mut a_data_dependencies: [::core::mem::MaybeUninit<ak_span>; N_DATA_DEPENDENCIES] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_DATA_DEPENDENCIES];
+    const _: () = assert!(N_DATA_DEPENDENCIES * ::core::mem::size_of::<ak_span>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_span>() <= 8);
     let mut n_data_dependencies: usize = 0;
+    let a_data_dependencies: *mut ak_span = arena.as_mut_ptr() as *mut ak_span;
+    #[allow(unused_macros)]
+    macro_rules! at_data_dependencies { () => { a_data_dependencies.add(n_data_dependencies) }; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_EXPECTED_OUTPUT_IDS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
-    let mut a_expected_output_ids: [::core::mem::MaybeUninit<ak_span>; N_EXPECTED_OUTPUT_IDS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_EXPECTED_OUTPUT_IDS];
+    const _: () = assert!(N_EXPECTED_OUTPUT_IDS * ::core::mem::size_of::<ak_span>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_span>() <= 8);
     let mut n_expected_output_ids: usize = 0;
+    let a_expected_output_ids: *mut ak_span = arena.as_mut_ptr() as *mut ak_span;
+    #[allow(unused_macros)]
+    macro_rules! at_expected_output_ids { () => { a_expected_output_ids.add(n_expected_output_ids) }; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_RETRY_OF_IDS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
-    let mut a_retry_of_ids: [::core::mem::MaybeUninit<ak_span>; N_RETRY_OF_IDS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_RETRY_OF_IDS];
+    const _: () = assert!(N_RETRY_OF_IDS * ::core::mem::size_of::<ak_span>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_span>() <= 8);
     let mut n_retry_of_ids: usize = 0;
+    let a_retry_of_ids: *mut ak_span = arena.as_mut_ptr() as *mut ak_span;
+    #[allow(unused_macros)]
+    macro_rules! at_retry_of_ids { () => { a_retry_of_ids.add(n_retry_of_ids) }; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_OPTIONS_OPTIONS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>());
-    let mut a_options_options: [::core::mem::MaybeUninit<ak_dfix_TaskOptionsOptionsEntry>; N_OPTIONS_OPTIONS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_OPTIONS_OPTIONS];
+    const _: () = assert!(N_OPTIONS_OPTIONS * ::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_TaskOptionsOptionsEntry>() <= 8);
     let mut n_options_options: usize = 0;
+    let a_options_options: *mut ak_dfix_TaskOptionsOptionsEntry = arena.as_mut_ptr() as *mut ak_dfix_TaskOptionsOptionsEntry;
+    #[allow(unused_macros)]
+    macro_rules! at_options_options { () => { a_options_options.add(n_options_options) }; }
     macro_rules! flush_parent_task_ids {
         () => {
             if n_parent_task_ids > 0 {
                 if let Some(add) = (*vt).add_tasks_parent_task_ids {
                     if (*dcx).hdr.err == AK_OK {
                         ak_rt::bump!((*dcx).c, reverse);
-                        add(ctx, obj, tok, a_parent_task_ids.as_ptr() as *const ak_span, n_parent_task_ids as i32);
+                        add(ctx, obj, tok, a_parent_task_ids as *const ak_span, n_parent_task_ids as i32);
                     }
                 }
                 n_parent_task_ids = 0;
@@ -6479,7 +6493,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                 if let Some(add) = (*vt).add_tasks_data_dependencies {
                     if (*dcx).hdr.err == AK_OK {
                         ak_rt::bump!((*dcx).c, reverse);
-                        add(ctx, obj, tok, a_data_dependencies.as_ptr() as *const ak_span, n_data_dependencies as i32);
+                        add(ctx, obj, tok, a_data_dependencies as *const ak_span, n_data_dependencies as i32);
                     }
                 }
                 n_data_dependencies = 0;
@@ -6493,7 +6507,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                 if let Some(add) = (*vt).add_tasks_expected_output_ids {
                     if (*dcx).hdr.err == AK_OK {
                         ak_rt::bump!((*dcx).c, reverse);
-                        add(ctx, obj, tok, a_expected_output_ids.as_ptr() as *const ak_span, n_expected_output_ids as i32);
+                        add(ctx, obj, tok, a_expected_output_ids as *const ak_span, n_expected_output_ids as i32);
                     }
                 }
                 n_expected_output_ids = 0;
@@ -6507,7 +6521,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                 if let Some(add) = (*vt).add_tasks_retry_of_ids {
                     if (*dcx).hdr.err == AK_OK {
                         ak_rt::bump!((*dcx).c, reverse);
-                        add(ctx, obj, tok, a_retry_of_ids.as_ptr() as *const ak_span, n_retry_of_ids as i32);
+                        add(ctx, obj, tok, a_retry_of_ids as *const ak_span, n_retry_of_ids as i32);
                     }
                 }
                 n_retry_of_ids = 0;
@@ -6521,7 +6535,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                 if let Some(add) = (*vt).add_tasks_options_options {
                     if (*dcx).hdr.err == AK_OK {
                         ak_rt::bump!((*dcx).c, reverse);
-                        add(ctx, obj, tok, a_options_options.as_ptr() as *const ak_dfix_TaskOptionsOptionsEntry, n_options_options as i32);
+                        add(ctx, obj, tok, a_options_options as *const ak_dfix_TaskOptionsOptionsEntry, n_options_options as i32);
                     }
                 }
                 n_options_options = 0;
@@ -6569,7 +6583,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                 if n_parent_task_ids == N_PARENT_TASK_IDS { flush_parent_task_ids!(); }
                 let (off, n) = d.len_body();
                 if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
-                a_parent_task_ids[n_parent_task_ids].write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
+                at_parent_task_ids!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
                 n_parent_task_ids += 1;
             }
             5 if wire == 2 => {
@@ -6577,7 +6591,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                 if n_data_dependencies == N_DATA_DEPENDENCIES { flush_data_dependencies!(); }
                 let (off, n) = d.len_body();
                 if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
-                a_data_dependencies[n_data_dependencies].write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
+                at_data_dependencies!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
                 n_data_dependencies += 1;
             }
             6 if wire == 2 => {
@@ -6585,7 +6599,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                 if n_expected_output_ids == N_EXPECTED_OUTPUT_IDS { flush_expected_output_ids!(); }
                 let (off, n) = d.len_body();
                 if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
-                a_expected_output_ids[n_expected_output_ids].write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
+                at_expected_output_ids!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
                 n_expected_output_ids += 1;
             }
             7 if wire == 2 => {
@@ -6593,7 +6607,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                 if n_retry_of_ids == N_RETRY_OF_IDS { flush_retry_of_ids!(); }
                 let (off, n) = d.len_body();
                 if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
-                a_retry_of_ids[n_retry_of_ids].write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
+                at_retry_of_ids!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
                 n_retry_of_ids += 1;
             }
             8 if wire == 0 => {
@@ -6625,7 +6639,9 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                         if n_options_options == N_OPTIONS_OPTIONS { flush_options_options!(); }
                         let (off, n) = c1.len_body();
                         let mut es = Dec::new(&buf1[off..off + n]);
-                        a_options_options[n_options_options].write(dec_task_options_options_entry_fix(&mut es, base1 + off, u.at(2)));
+                        let p = at_options_options!();
+                        p.write(ak_dfix_TaskOptionsOptionsEntry::ZERO);
+                        dec_task_options_options_entry_fix_into(&mut es, base1 + off, u.at(2), &mut *p);
                         if es.err != 0 { c1.err = es.err; }
                         n_options_options += 1;
                     }
@@ -7235,19 +7251,25 @@ unsafe fn dec_list_task_summary_response_tasks_element(
     #[allow(unused_variables)]
     let buf0 = d.buf;
     let base0 = base;
+    // Optimisation D2: one 8-aligned arena shared by every loop slot below (one
+    // slot is open at a time; each keeps its own element budget).
+    let mut arena: [::core::mem::MaybeUninit<u64>; ak_rt::ARENA_BYTES / 8] =
+        [const { ::core::mem::MaybeUninit::uninit() }; ak_rt::ARENA_BYTES / 8];
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_OPTIONS_OPTIONS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>());
-    let mut a_options_options: [::core::mem::MaybeUninit<ak_dfix_TaskOptionsOptionsEntry>; N_OPTIONS_OPTIONS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_OPTIONS_OPTIONS];
+    const _: () = assert!(N_OPTIONS_OPTIONS * ::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_TaskOptionsOptionsEntry>() <= 8);
     let mut n_options_options: usize = 0;
+    let a_options_options: *mut ak_dfix_TaskOptionsOptionsEntry = arena.as_mut_ptr() as *mut ak_dfix_TaskOptionsOptionsEntry;
+    #[allow(unused_macros)]
+    macro_rules! at_options_options { () => { a_options_options.add(n_options_options) }; }
     macro_rules! flush_options_options {
         () => {
             if n_options_options > 0 {
                 if let Some(add) = (*vt).add_tasks_options_options {
                     if (*dcx).hdr.err == AK_OK {
                         ak_rt::bump!((*dcx).c, reverse);
-                        add(ctx, obj, tok, a_options_options.as_ptr() as *const ak_dfix_TaskOptionsOptionsEntry, n_options_options as i32);
+                        add(ctx, obj, tok, a_options_options as *const ak_dfix_TaskOptionsOptionsEntry, n_options_options as i32);
                     }
                 }
                 n_options_options = 0;
@@ -7299,7 +7321,9 @@ unsafe fn dec_list_task_summary_response_tasks_element(
                         if n_options_options == N_OPTIONS_OPTIONS { flush_options_options!(); }
                         let (off, n) = c1.len_body();
                         let mut es = Dec::new(&buf1[off..off + n]);
-                        a_options_options[n_options_options].write(dec_task_options_options_entry_fix(&mut es, base1 + off, u.at(2)));
+                        let p = at_options_options!();
+                        p.write(ak_dfix_TaskOptionsOptionsEntry::ZERO);
+                        dec_task_options_options_entry_fix_into(&mut es, base1 + off, u.at(2), &mut *p);
                         if es.err != 0 { c1.err = es.err; }
                         n_options_options += 1;
                     }
@@ -7495,43 +7519,57 @@ unsafe fn dec_list_metrics_response_batches_element(
     #[allow(unused_variables)]
     let buf0 = d.buf;
     let base0 = base;
+    // Optimisation D2: one 8-aligned arena shared by every loop slot below (one
+    // slot is open at a time; each keeps its own element budget).
+    let mut arena: [::core::mem::MaybeUninit<u64>; ak_rt::ARENA_BYTES / 8] =
+        [const { ::core::mem::MaybeUninit::uninit() }; ak_rt::ARENA_BYTES / 8];
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_TICKS: usize = ak_rt::arena_n(::core::mem::size_of::<i64>());
-    let mut a_ticks: [::core::mem::MaybeUninit<i64>; N_TICKS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_TICKS];
+    const _: () = assert!(N_TICKS * ::core::mem::size_of::<i64>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<i64>() <= 8);
     let mut n_ticks: usize = 0;
+    let a_ticks: *mut i64 = arena.as_mut_ptr() as *mut i64;
+    #[allow(unused_macros)]
+    macro_rules! at_ticks { () => { a_ticks.add(n_ticks) }; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_VALUES: usize = ak_rt::arena_n(::core::mem::size_of::<f64>());
-    let mut a_values: [::core::mem::MaybeUninit<f64>; N_VALUES] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_VALUES];
+    const _: () = assert!(N_VALUES * ::core::mem::size_of::<f64>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<f64>() <= 8);
     let mut n_values: usize = 0;
+    let a_values: *mut f64 = arena.as_mut_ptr() as *mut f64;
+    #[allow(unused_macros)]
+    macro_rules! at_values { () => { a_values.add(n_values) }; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_CODES: usize = ak_rt::arena_n(::core::mem::size_of::<i32>());
-    let mut a_codes: [::core::mem::MaybeUninit<i32>; N_CODES] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_CODES];
+    const _: () = assert!(N_CODES * ::core::mem::size_of::<i32>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<i32>() <= 8);
     let mut n_codes: usize = 0;
+    let a_codes: *mut i32 = arena.as_mut_ptr() as *mut i32;
+    #[allow(unused_macros)]
+    macro_rules! at_codes { () => { a_codes.add(n_codes) }; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_FLAGS: usize = ak_rt::arena_n(::core::mem::size_of::<u8>());
-    let mut a_flags: [::core::mem::MaybeUninit<u8>; N_FLAGS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_FLAGS];
+    const _: () = assert!(N_FLAGS * ::core::mem::size_of::<u8>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<u8>() <= 8);
     let mut n_flags: usize = 0;
+    let a_flags: *mut u8 = arena.as_mut_ptr() as *mut u8;
+    #[allow(unused_macros)]
+    macro_rules! at_flags { () => { a_flags.add(n_flags) }; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_STATUSES: usize = ak_rt::arena_n(::core::mem::size_of::<i32>());
-    let mut a_statuses: [::core::mem::MaybeUninit<i32>; N_STATUSES] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_STATUSES];
+    const _: () = assert!(N_STATUSES * ::core::mem::size_of::<i32>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<i32>() <= 8);
     let mut n_statuses: usize = 0;
+    let a_statuses: *mut i32 = arena.as_mut_ptr() as *mut i32;
+    #[allow(unused_macros)]
+    macro_rules! at_statuses { () => { a_statuses.add(n_statuses) }; }
     macro_rules! flush_ticks {
         () => {
             if n_ticks > 0 {
                 if let Some(add) = (*vt).add_batches_ticks {
                     if (*dcx).hdr.err == AK_OK {
                         ak_rt::bump!((*dcx).c, reverse);
-                        add(ctx, obj, tok, a_ticks.as_ptr() as *const i64, n_ticks as i32);
+                        add(ctx, obj, tok, a_ticks as *const i64, n_ticks as i32);
                     }
                 }
                 n_ticks = 0;
@@ -7545,7 +7583,7 @@ unsafe fn dec_list_metrics_response_batches_element(
                 if let Some(add) = (*vt).add_batches_values {
                     if (*dcx).hdr.err == AK_OK {
                         ak_rt::bump!((*dcx).c, reverse);
-                        add(ctx, obj, tok, a_values.as_ptr() as *const f64, n_values as i32);
+                        add(ctx, obj, tok, a_values as *const f64, n_values as i32);
                     }
                 }
                 n_values = 0;
@@ -7559,7 +7597,7 @@ unsafe fn dec_list_metrics_response_batches_element(
                 if let Some(add) = (*vt).add_batches_codes {
                     if (*dcx).hdr.err == AK_OK {
                         ak_rt::bump!((*dcx).c, reverse);
-                        add(ctx, obj, tok, a_codes.as_ptr() as *const i32, n_codes as i32);
+                        add(ctx, obj, tok, a_codes as *const i32, n_codes as i32);
                     }
                 }
                 n_codes = 0;
@@ -7573,7 +7611,7 @@ unsafe fn dec_list_metrics_response_batches_element(
                 if let Some(add) = (*vt).add_batches_flags {
                     if (*dcx).hdr.err == AK_OK {
                         ak_rt::bump!((*dcx).c, reverse);
-                        add(ctx, obj, tok, a_flags.as_ptr() as *const u8, n_flags as i32);
+                        add(ctx, obj, tok, a_flags as *const u8, n_flags as i32);
                     }
                 }
                 n_flags = 0;
@@ -7587,7 +7625,7 @@ unsafe fn dec_list_metrics_response_batches_element(
                 if let Some(add) = (*vt).add_batches_statuses {
                     if (*dcx).hdr.err == AK_OK {
                         ak_rt::bump!((*dcx).c, reverse);
-                        add(ctx, obj, tok, a_statuses.as_ptr() as *const i32, n_statuses as i32);
+                        add(ctx, obj, tok, a_statuses as *const i32, n_statuses as i32);
                     }
                 }
                 n_statuses = 0;
@@ -7622,7 +7660,7 @@ unsafe fn dec_list_metrics_response_batches_element(
                 if cur != 1 { flush!(); cur = 1; }
                 if n_ticks == N_TICKS { flush_ticks!(); }
                 let v = d.varint() as i64;
-                if d.err == 0 { a_ticks[n_ticks].write(v); n_ticks += 1; }
+                if d.err == 0 { at_ticks!().write(v); n_ticks += 1; }
             }
             2 if wire == 2 => {
                 if cur != 1 { flush!(); cur = 1; }
@@ -7632,7 +7670,7 @@ unsafe fn dec_list_metrics_response_batches_element(
                     if n_ticks == N_TICKS { flush_ticks!(); }
                     let v = ps.varint() as i64;
                     if ps.err != 0 { break; }
-                    a_ticks[n_ticks].write(v);
+                    at_ticks!().write(v);
                     n_ticks += 1;
                 }
                 if ps.err != 0 { d.err = ps.err; }
@@ -7641,7 +7679,7 @@ unsafe fn dec_list_metrics_response_batches_element(
                 if cur != 2 { flush!(); cur = 2; }
                 if n_values == N_VALUES { flush_values!(); }
                 let v = d.f64();
-                if d.err == 0 { a_values[n_values].write(v); n_values += 1; }
+                if d.err == 0 { at_values!().write(v); n_values += 1; }
             }
             3 if wire == 2 => {
                 if cur != 2 { flush!(); cur = 2; }
@@ -7651,7 +7689,7 @@ unsafe fn dec_list_metrics_response_batches_element(
                     if n_values == N_VALUES { flush_values!(); }
                     let v = ps.f64();
                     if ps.err != 0 { break; }
-                    a_values[n_values].write(v);
+                    at_values!().write(v);
                     n_values += 1;
                 }
                 if ps.err != 0 { d.err = ps.err; }
@@ -7660,7 +7698,7 @@ unsafe fn dec_list_metrics_response_batches_element(
                 if cur != 3 { flush!(); cur = 3; }
                 if n_codes == N_CODES { flush_codes!(); }
                 let v = d.varint() as i32;
-                if d.err == 0 { a_codes[n_codes].write(v); n_codes += 1; }
+                if d.err == 0 { at_codes!().write(v); n_codes += 1; }
             }
             4 if wire == 2 => {
                 if cur != 3 { flush!(); cur = 3; }
@@ -7670,7 +7708,7 @@ unsafe fn dec_list_metrics_response_batches_element(
                     if n_codes == N_CODES { flush_codes!(); }
                     let v = ps.varint() as i32;
                     if ps.err != 0 { break; }
-                    a_codes[n_codes].write(v);
+                    at_codes!().write(v);
                     n_codes += 1;
                 }
                 if ps.err != 0 { d.err = ps.err; }
@@ -7679,7 +7717,7 @@ unsafe fn dec_list_metrics_response_batches_element(
                 if cur != 4 { flush!(); cur = 4; }
                 if n_flags == N_FLAGS { flush_flags!(); }
                 let v = (d.varint() != 0) as u8;
-                if d.err == 0 { a_flags[n_flags].write(v); n_flags += 1; }
+                if d.err == 0 { at_flags!().write(v); n_flags += 1; }
             }
             5 if wire == 2 => {
                 if cur != 4 { flush!(); cur = 4; }
@@ -7689,7 +7727,7 @@ unsafe fn dec_list_metrics_response_batches_element(
                     if n_flags == N_FLAGS { flush_flags!(); }
                     let v = (ps.varint() != 0) as u8;
                     if ps.err != 0 { break; }
-                    a_flags[n_flags].write(v);
+                    at_flags!().write(v);
                     n_flags += 1;
                 }
                 if ps.err != 0 { d.err = ps.err; }
@@ -7698,7 +7736,7 @@ unsafe fn dec_list_metrics_response_batches_element(
                 if cur != 5 { flush!(); cur = 5; }
                 if n_statuses == N_STATUSES { flush_statuses!(); }
                 let v = d.varint() as i32;
-                if d.err == 0 { a_statuses[n_statuses].write(v); n_statuses += 1; }
+                if d.err == 0 { at_statuses!().write(v); n_statuses += 1; }
             }
             6 if wire == 2 => {
                 if cur != 5 { flush!(); cur = 5; }
@@ -7708,7 +7746,7 @@ unsafe fn dec_list_metrics_response_batches_element(
                     if n_statuses == N_STATUSES { flush_statuses!(); }
                     let v = ps.varint() as i32;
                     if ps.err != 0 { break; }
-                    a_statuses[n_statuses].write(v);
+                    at_statuses!().write(v);
                     n_statuses += 1;
                 }
                 if ps.err != 0 { d.err = ps.err; }
@@ -7761,37 +7799,49 @@ unsafe fn dec_chunked_response_items_element(
     #[allow(unused_variables)]
     let buf0 = d.buf;
     let base0 = base;
+    // Optimisation D2: one 8-aligned arena shared by every loop slot below (one
+    // slot is open at a time; each keeps its own element budget).
+    let mut arena: [::core::mem::MaybeUninit<u64>; ak_rt::ARENA_BYTES / 8] =
+        [const { ::core::mem::MaybeUninit::uninit() }; ak_rt::ARENA_BYTES / 8];
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_LABELS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
-    let mut a_labels: [::core::mem::MaybeUninit<ak_span>; N_LABELS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_LABELS];
+    const _: () = assert!(N_LABELS * ::core::mem::size_of::<ak_span>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_span>() <= 8);
     let mut n_labels: usize = 0;
+    let a_labels: *mut ak_span = arena.as_mut_ptr() as *mut ak_span;
+    #[allow(unused_macros)]
+    macro_rules! at_labels { () => { a_labels.add(n_labels) }; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_ATTRS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_ChunkElementAttrsEntry>());
-    let mut a_attrs: [::core::mem::MaybeUninit<ak_dfix_ChunkElementAttrsEntry>; N_ATTRS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_ATTRS];
+    const _: () = assert!(N_ATTRS * ::core::mem::size_of::<ak_dfix_ChunkElementAttrsEntry>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_ChunkElementAttrsEntry>() <= 8);
     let mut n_attrs: usize = 0;
+    let a_attrs: *mut ak_dfix_ChunkElementAttrsEntry = arena.as_mut_ptr() as *mut ak_dfix_ChunkElementAttrsEntry;
+    #[allow(unused_macros)]
+    macro_rules! at_attrs { () => { a_attrs.add(n_attrs) }; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_INNER_MARKS: usize = ak_rt::arena_n(::core::mem::size_of::<i64>());
-    let mut a_inner_marks: [::core::mem::MaybeUninit<i64>; N_INNER_MARKS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_INNER_MARKS];
+    const _: () = assert!(N_INNER_MARKS * ::core::mem::size_of::<i64>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<i64>() <= 8);
     let mut n_inner_marks: usize = 0;
+    let a_inner_marks: *mut i64 = arena.as_mut_ptr() as *mut i64;
+    #[allow(unused_macros)]
+    macro_rules! at_inner_marks { () => { a_inner_marks.add(n_inner_marks) }; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_INNER_LEAVES: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_ChunkLeaf>());
-    let mut a_inner_leaves: [::core::mem::MaybeUninit<ak_dfix_ChunkLeaf>; N_INNER_LEAVES] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_INNER_LEAVES];
+    const _: () = assert!(N_INNER_LEAVES * ::core::mem::size_of::<ak_dfix_ChunkLeaf>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_ChunkLeaf>() <= 8);
     let mut n_inner_leaves: usize = 0;
+    let a_inner_leaves: *mut ak_dfix_ChunkLeaf = arena.as_mut_ptr() as *mut ak_dfix_ChunkLeaf;
+    #[allow(unused_macros)]
+    macro_rules! at_inner_leaves { () => { a_inner_leaves.add(n_inner_leaves) }; }
     macro_rules! flush_labels {
         () => {
             if n_labels > 0 {
                 if let Some(add) = (*vt).add_items_labels {
                     if (*dcx).hdr.err == AK_OK {
                         ak_rt::bump!((*dcx).c, reverse);
-                        add(ctx, obj, tok, a_labels.as_ptr() as *const ak_span, n_labels as i32);
+                        add(ctx, obj, tok, a_labels as *const ak_span, n_labels as i32);
                     }
                 }
                 n_labels = 0;
@@ -7805,7 +7855,7 @@ unsafe fn dec_chunked_response_items_element(
                 if let Some(add) = (*vt).add_items_attrs {
                     if (*dcx).hdr.err == AK_OK {
                         ak_rt::bump!((*dcx).c, reverse);
-                        add(ctx, obj, tok, a_attrs.as_ptr() as *const ak_dfix_ChunkElementAttrsEntry, n_attrs as i32);
+                        add(ctx, obj, tok, a_attrs as *const ak_dfix_ChunkElementAttrsEntry, n_attrs as i32);
                     }
                 }
                 n_attrs = 0;
@@ -7819,7 +7869,7 @@ unsafe fn dec_chunked_response_items_element(
                 if let Some(add) = (*vt).add_items_inner_marks {
                     if (*dcx).hdr.err == AK_OK {
                         ak_rt::bump!((*dcx).c, reverse);
-                        add(ctx, obj, tok, a_inner_marks.as_ptr() as *const i64, n_inner_marks as i32);
+                        add(ctx, obj, tok, a_inner_marks as *const i64, n_inner_marks as i32);
                     }
                 }
                 n_inner_marks = 0;
@@ -7833,7 +7883,7 @@ unsafe fn dec_chunked_response_items_element(
                 if let Some(add) = (*vt).add_items_inner_leaves {
                     if (*dcx).hdr.err == AK_OK {
                         ak_rt::bump!((*dcx).c, reverse);
-                        add(ctx, obj, tok, a_inner_leaves.as_ptr() as *const ak_dfix_ChunkLeaf, n_inner_leaves as i32);
+                        add(ctx, obj, tok, a_inner_leaves as *const ak_dfix_ChunkLeaf, n_inner_leaves as i32);
                     }
                 }
                 n_inner_leaves = 0;
@@ -7862,7 +7912,7 @@ unsafe fn dec_chunked_response_items_element(
                 if n_labels == N_LABELS { flush_labels!(); }
                 let (off, n) = d.len_body();
                 if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
-                a_labels[n_labels].write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
+                at_labels!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
                 n_labels += 1;
             }
             2 if wire == 2 => {
@@ -7870,7 +7920,9 @@ unsafe fn dec_chunked_response_items_element(
                 if n_attrs == N_ATTRS { flush_attrs!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
-                a_attrs[n_attrs].write(dec_chunk_element_attrs_entry_fix(&mut es, base0 + off, u.at(1)));
+                let p = at_attrs!();
+                p.write(ak_dfix_ChunkElementAttrsEntry::ZERO);
+                dec_chunk_element_attrs_entry_fix_into(&mut es, base0 + off, u.at(1), &mut *p);
                 if es.err != 0 { d.err = es.err; }
                 n_attrs += 1;
             }
@@ -7898,7 +7950,7 @@ unsafe fn dec_chunked_response_items_element(
                         if cur != 3 { flush!(); cur = 3; }
                         if n_inner_marks == N_INNER_MARKS { flush_inner_marks!(); }
                         let v = c1.varint() as i64;
-                        if c1.err == 0 { a_inner_marks[n_inner_marks].write(v); n_inner_marks += 1; }
+                        if c1.err == 0 { at_inner_marks!().write(v); n_inner_marks += 1; }
                     }
                     1 if wire == 2 => {
                         if cur != 3 { flush!(); cur = 3; }
@@ -7908,7 +7960,7 @@ unsafe fn dec_chunked_response_items_element(
                             if n_inner_marks == N_INNER_MARKS { flush_inner_marks!(); }
                             let v = ps.varint() as i64;
                             if ps.err != 0 { break; }
-                            a_inner_marks[n_inner_marks].write(v);
+                            at_inner_marks!().write(v);
                             n_inner_marks += 1;
                         }
                         if ps.err != 0 { c1.err = ps.err; }
@@ -7918,7 +7970,9 @@ unsafe fn dec_chunked_response_items_element(
                         if n_inner_leaves == N_INNER_LEAVES { flush_inner_leaves!(); }
                         let (off, n) = c1.len_body();
                         let mut es = Dec::new(&buf1[off..off + n]);
-                        a_inner_leaves[n_inner_leaves].write(dec_chunk_leaf_fix(&mut es, base1 + off, u.at(3)));
+                        let p = at_inner_leaves!();
+                        p.write(ak_dfix_ChunkLeaf::ZERO);
+                        dec_chunk_leaf_fix_into(&mut es, base1 + off, u.at(3), &mut *p);
                         if es.err != 0 { c1.err = es.err; }
                         n_inner_leaves += 1;
                     }
@@ -7982,37 +8036,49 @@ unsafe fn dec_chunked_response_wide_items_element(
     #[allow(unused_variables)]
     let buf0 = d.buf;
     let base0 = base;
+    // Optimisation D2: one 8-aligned arena shared by every loop slot below (one
+    // slot is open at a time; each keeps its own element budget).
+    let mut arena: [::core::mem::MaybeUninit<u64>; ak_rt::ARENA_BYTES / 8] =
+        [const { ::core::mem::MaybeUninit::uninit() }; ak_rt::ARENA_BYTES / 8];
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_LABELS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
-    let mut a_labels: [::core::mem::MaybeUninit<ak_span>; N_LABELS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_LABELS];
+    const _: () = assert!(N_LABELS * ::core::mem::size_of::<ak_span>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_span>() <= 8);
     let mut n_labels: usize = 0;
+    let a_labels: *mut ak_span = arena.as_mut_ptr() as *mut ak_span;
+    #[allow(unused_macros)]
+    macro_rules! at_labels { () => { a_labels.add(n_labels) }; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_ATTRS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_ChunkElementAttrsEntry>());
-    let mut a_attrs: [::core::mem::MaybeUninit<ak_dfix_ChunkElementAttrsEntry>; N_ATTRS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_ATTRS];
+    const _: () = assert!(N_ATTRS * ::core::mem::size_of::<ak_dfix_ChunkElementAttrsEntry>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_ChunkElementAttrsEntry>() <= 8);
     let mut n_attrs: usize = 0;
+    let a_attrs: *mut ak_dfix_ChunkElementAttrsEntry = arena.as_mut_ptr() as *mut ak_dfix_ChunkElementAttrsEntry;
+    #[allow(unused_macros)]
+    macro_rules! at_attrs { () => { a_attrs.add(n_attrs) }; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_INNER_MARKS: usize = ak_rt::arena_n(::core::mem::size_of::<i64>());
-    let mut a_inner_marks: [::core::mem::MaybeUninit<i64>; N_INNER_MARKS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_INNER_MARKS];
+    const _: () = assert!(N_INNER_MARKS * ::core::mem::size_of::<i64>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<i64>() <= 8);
     let mut n_inner_marks: usize = 0;
+    let a_inner_marks: *mut i64 = arena.as_mut_ptr() as *mut i64;
+    #[allow(unused_macros)]
+    macro_rules! at_inner_marks { () => { a_inner_marks.add(n_inner_marks) }; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_INNER_LEAVES: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_ChunkLeaf>());
-    let mut a_inner_leaves: [::core::mem::MaybeUninit<ak_dfix_ChunkLeaf>; N_INNER_LEAVES] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_INNER_LEAVES];
+    const _: () = assert!(N_INNER_LEAVES * ::core::mem::size_of::<ak_dfix_ChunkLeaf>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_ChunkLeaf>() <= 8);
     let mut n_inner_leaves: usize = 0;
+    let a_inner_leaves: *mut ak_dfix_ChunkLeaf = arena.as_mut_ptr() as *mut ak_dfix_ChunkLeaf;
+    #[allow(unused_macros)]
+    macro_rules! at_inner_leaves { () => { a_inner_leaves.add(n_inner_leaves) }; }
     macro_rules! flush_labels {
         () => {
             if n_labels > 0 {
                 if let Some(add) = (*vt).add_items_labels {
                     if (*dcx).hdr.err == AK_OK {
                         ak_rt::bump!((*dcx).c, reverse);
-                        add(ctx, obj, tok, a_labels.as_ptr() as *const ak_span, n_labels as i32);
+                        add(ctx, obj, tok, a_labels as *const ak_span, n_labels as i32);
                     }
                 }
                 n_labels = 0;
@@ -8026,7 +8092,7 @@ unsafe fn dec_chunked_response_wide_items_element(
                 if let Some(add) = (*vt).add_items_attrs {
                     if (*dcx).hdr.err == AK_OK {
                         ak_rt::bump!((*dcx).c, reverse);
-                        add(ctx, obj, tok, a_attrs.as_ptr() as *const ak_dfix_ChunkElementAttrsEntry, n_attrs as i32);
+                        add(ctx, obj, tok, a_attrs as *const ak_dfix_ChunkElementAttrsEntry, n_attrs as i32);
                     }
                 }
                 n_attrs = 0;
@@ -8040,7 +8106,7 @@ unsafe fn dec_chunked_response_wide_items_element(
                 if let Some(add) = (*vt).add_items_inner_marks {
                     if (*dcx).hdr.err == AK_OK {
                         ak_rt::bump!((*dcx).c, reverse);
-                        add(ctx, obj, tok, a_inner_marks.as_ptr() as *const i64, n_inner_marks as i32);
+                        add(ctx, obj, tok, a_inner_marks as *const i64, n_inner_marks as i32);
                     }
                 }
                 n_inner_marks = 0;
@@ -8054,7 +8120,7 @@ unsafe fn dec_chunked_response_wide_items_element(
                 if let Some(add) = (*vt).add_items_inner_leaves {
                     if (*dcx).hdr.err == AK_OK {
                         ak_rt::bump!((*dcx).c, reverse);
-                        add(ctx, obj, tok, a_inner_leaves.as_ptr() as *const ak_dfix_ChunkLeaf, n_inner_leaves as i32);
+                        add(ctx, obj, tok, a_inner_leaves as *const ak_dfix_ChunkLeaf, n_inner_leaves as i32);
                     }
                 }
                 n_inner_leaves = 0;
@@ -8083,7 +8149,7 @@ unsafe fn dec_chunked_response_wide_items_element(
                 if n_labels == N_LABELS { flush_labels!(); }
                 let (off, n) = d.len_body();
                 if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
-                a_labels[n_labels].write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
+                at_labels!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
                 n_labels += 1;
             }
             2 if wire == 2 => {
@@ -8091,7 +8157,9 @@ unsafe fn dec_chunked_response_wide_items_element(
                 if n_attrs == N_ATTRS { flush_attrs!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
-                a_attrs[n_attrs].write(dec_chunk_element_attrs_entry_fix(&mut es, base0 + off, u.at(1)));
+                let p = at_attrs!();
+                p.write(ak_dfix_ChunkElementAttrsEntry::ZERO);
+                dec_chunk_element_attrs_entry_fix_into(&mut es, base0 + off, u.at(1), &mut *p);
                 if es.err != 0 { d.err = es.err; }
                 n_attrs += 1;
             }
@@ -8119,7 +8187,7 @@ unsafe fn dec_chunked_response_wide_items_element(
                         if cur != 3 { flush!(); cur = 3; }
                         if n_inner_marks == N_INNER_MARKS { flush_inner_marks!(); }
                         let v = c1.varint() as i64;
-                        if c1.err == 0 { a_inner_marks[n_inner_marks].write(v); n_inner_marks += 1; }
+                        if c1.err == 0 { at_inner_marks!().write(v); n_inner_marks += 1; }
                     }
                     1 if wire == 2 => {
                         if cur != 3 { flush!(); cur = 3; }
@@ -8129,7 +8197,7 @@ unsafe fn dec_chunked_response_wide_items_element(
                             if n_inner_marks == N_INNER_MARKS { flush_inner_marks!(); }
                             let v = ps.varint() as i64;
                             if ps.err != 0 { break; }
-                            a_inner_marks[n_inner_marks].write(v);
+                            at_inner_marks!().write(v);
                             n_inner_marks += 1;
                         }
                         if ps.err != 0 { c1.err = ps.err; }
@@ -8139,7 +8207,9 @@ unsafe fn dec_chunked_response_wide_items_element(
                         if n_inner_leaves == N_INNER_LEAVES { flush_inner_leaves!(); }
                         let (off, n) = c1.len_body();
                         let mut es = Dec::new(&buf1[off..off + n]);
-                        a_inner_leaves[n_inner_leaves].write(dec_chunk_leaf_fix(&mut es, base1 + off, u.at(3)));
+                        let p = at_inner_leaves!();
+                        p.write(ak_dfix_ChunkLeaf::ZERO);
+                        dec_chunk_leaf_fix_into(&mut es, base1 + off, u.at(3), &mut *p);
                         if es.err != 0 { c1.err = es.err; }
                         n_inner_leaves += 1;
                     }
@@ -8564,19 +8634,25 @@ pub unsafe extern "C" fn ak_decode_TaskOptions(
     let base0 = 0usize;
     let mut d = Dec::new(buf0);
     let mut out = ak_dfix_TaskOptions::ZERO;
+    // Optimisation D2: one 8-aligned arena shared by every loop slot below (one
+    // slot is open at a time; each keeps its own element budget).
+    let mut arena: [::core::mem::MaybeUninit<u64>; ak_rt::ARENA_BYTES / 8] =
+        [const { ::core::mem::MaybeUninit::uninit() }; ak_rt::ARENA_BYTES / 8];
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_OPTIONS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>());
-    let mut a_options: [::core::mem::MaybeUninit<ak_dfix_TaskOptionsOptionsEntry>; N_OPTIONS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_OPTIONS];
+    const _: () = assert!(N_OPTIONS * ::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_TaskOptionsOptionsEntry>() <= 8);
     let mut n_options: usize = 0;
+    let a_options: *mut ak_dfix_TaskOptionsOptionsEntry = arena.as_mut_ptr() as *mut ak_dfix_TaskOptionsOptionsEntry;
+    #[allow(unused_macros)]
+    macro_rules! at_options { () => { a_options.add(n_options) }; }
     macro_rules! flush_options {
         () => {
             if n_options > 0 {
                 if let Some(add) = (*vt).add_options {
                     if (*dcx).hdr.err == AK_OK {
                         ak_rt::bump!((*dcx).c, reverse);
-                        add(ctx, obj, AK_TOKEN_ROOT, a_options.as_ptr() as *const ak_dfix_TaskOptionsOptionsEntry, n_options as i32);
+                        add(ctx, obj, AK_TOKEN_ROOT, a_options as *const ak_dfix_TaskOptionsOptionsEntry, n_options as i32);
                     }
                 }
                 n_options = 0;
@@ -8605,7 +8681,9 @@ pub unsafe extern "C" fn ak_decode_TaskOptions(
                 if n_options == N_OPTIONS { flush_options!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
-                a_options[n_options].write(dec_task_options_options_entry_fix(&mut es, base0 + off, u.at(1)));
+                let p = at_options!();
+                p.write(ak_dfix_TaskOptionsOptionsEntry::ZERO);
+                dec_task_options_options_entry_fix_into(&mut es, base0 + off, u.at(1), &mut *p);
                 if es.err != 0 { d.err = es.err; }
                 n_options += 1;
             }
@@ -8830,43 +8908,57 @@ pub unsafe extern "C" fn ak_decode_TaskDetailed(
     let base0 = 0usize;
     let mut d = Dec::new(buf0);
     let mut out = ak_dfix_TaskDetailed::ZERO;
+    // Optimisation D2: one 8-aligned arena shared by every loop slot below (one
+    // slot is open at a time; each keeps its own element budget).
+    let mut arena: [::core::mem::MaybeUninit<u64>; ak_rt::ARENA_BYTES / 8] =
+        [const { ::core::mem::MaybeUninit::uninit() }; ak_rt::ARENA_BYTES / 8];
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_PARENT_TASK_IDS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
-    let mut a_parent_task_ids: [::core::mem::MaybeUninit<ak_span>; N_PARENT_TASK_IDS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_PARENT_TASK_IDS];
+    const _: () = assert!(N_PARENT_TASK_IDS * ::core::mem::size_of::<ak_span>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_span>() <= 8);
     let mut n_parent_task_ids: usize = 0;
+    let a_parent_task_ids: *mut ak_span = arena.as_mut_ptr() as *mut ak_span;
+    #[allow(unused_macros)]
+    macro_rules! at_parent_task_ids { () => { a_parent_task_ids.add(n_parent_task_ids) }; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_DATA_DEPENDENCIES: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
-    let mut a_data_dependencies: [::core::mem::MaybeUninit<ak_span>; N_DATA_DEPENDENCIES] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_DATA_DEPENDENCIES];
+    const _: () = assert!(N_DATA_DEPENDENCIES * ::core::mem::size_of::<ak_span>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_span>() <= 8);
     let mut n_data_dependencies: usize = 0;
+    let a_data_dependencies: *mut ak_span = arena.as_mut_ptr() as *mut ak_span;
+    #[allow(unused_macros)]
+    macro_rules! at_data_dependencies { () => { a_data_dependencies.add(n_data_dependencies) }; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_EXPECTED_OUTPUT_IDS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
-    let mut a_expected_output_ids: [::core::mem::MaybeUninit<ak_span>; N_EXPECTED_OUTPUT_IDS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_EXPECTED_OUTPUT_IDS];
+    const _: () = assert!(N_EXPECTED_OUTPUT_IDS * ::core::mem::size_of::<ak_span>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_span>() <= 8);
     let mut n_expected_output_ids: usize = 0;
+    let a_expected_output_ids: *mut ak_span = arena.as_mut_ptr() as *mut ak_span;
+    #[allow(unused_macros)]
+    macro_rules! at_expected_output_ids { () => { a_expected_output_ids.add(n_expected_output_ids) }; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_RETRY_OF_IDS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
-    let mut a_retry_of_ids: [::core::mem::MaybeUninit<ak_span>; N_RETRY_OF_IDS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_RETRY_OF_IDS];
+    const _: () = assert!(N_RETRY_OF_IDS * ::core::mem::size_of::<ak_span>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_span>() <= 8);
     let mut n_retry_of_ids: usize = 0;
+    let a_retry_of_ids: *mut ak_span = arena.as_mut_ptr() as *mut ak_span;
+    #[allow(unused_macros)]
+    macro_rules! at_retry_of_ids { () => { a_retry_of_ids.add(n_retry_of_ids) }; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_OPTIONS_OPTIONS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>());
-    let mut a_options_options: [::core::mem::MaybeUninit<ak_dfix_TaskOptionsOptionsEntry>; N_OPTIONS_OPTIONS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_OPTIONS_OPTIONS];
+    const _: () = assert!(N_OPTIONS_OPTIONS * ::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_TaskOptionsOptionsEntry>() <= 8);
     let mut n_options_options: usize = 0;
+    let a_options_options: *mut ak_dfix_TaskOptionsOptionsEntry = arena.as_mut_ptr() as *mut ak_dfix_TaskOptionsOptionsEntry;
+    #[allow(unused_macros)]
+    macro_rules! at_options_options { () => { a_options_options.add(n_options_options) }; }
     macro_rules! flush_parent_task_ids {
         () => {
             if n_parent_task_ids > 0 {
                 if let Some(add) = (*vt).add_parent_task_ids {
                     if (*dcx).hdr.err == AK_OK {
                         ak_rt::bump!((*dcx).c, reverse);
-                        add(ctx, obj, AK_TOKEN_ROOT, a_parent_task_ids.as_ptr() as *const ak_span, n_parent_task_ids as i32);
+                        add(ctx, obj, AK_TOKEN_ROOT, a_parent_task_ids as *const ak_span, n_parent_task_ids as i32);
                     }
                 }
                 n_parent_task_ids = 0;
@@ -8880,7 +8972,7 @@ pub unsafe extern "C" fn ak_decode_TaskDetailed(
                 if let Some(add) = (*vt).add_data_dependencies {
                     if (*dcx).hdr.err == AK_OK {
                         ak_rt::bump!((*dcx).c, reverse);
-                        add(ctx, obj, AK_TOKEN_ROOT, a_data_dependencies.as_ptr() as *const ak_span, n_data_dependencies as i32);
+                        add(ctx, obj, AK_TOKEN_ROOT, a_data_dependencies as *const ak_span, n_data_dependencies as i32);
                     }
                 }
                 n_data_dependencies = 0;
@@ -8894,7 +8986,7 @@ pub unsafe extern "C" fn ak_decode_TaskDetailed(
                 if let Some(add) = (*vt).add_expected_output_ids {
                     if (*dcx).hdr.err == AK_OK {
                         ak_rt::bump!((*dcx).c, reverse);
-                        add(ctx, obj, AK_TOKEN_ROOT, a_expected_output_ids.as_ptr() as *const ak_span, n_expected_output_ids as i32);
+                        add(ctx, obj, AK_TOKEN_ROOT, a_expected_output_ids as *const ak_span, n_expected_output_ids as i32);
                     }
                 }
                 n_expected_output_ids = 0;
@@ -8908,7 +9000,7 @@ pub unsafe extern "C" fn ak_decode_TaskDetailed(
                 if let Some(add) = (*vt).add_retry_of_ids {
                     if (*dcx).hdr.err == AK_OK {
                         ak_rt::bump!((*dcx).c, reverse);
-                        add(ctx, obj, AK_TOKEN_ROOT, a_retry_of_ids.as_ptr() as *const ak_span, n_retry_of_ids as i32);
+                        add(ctx, obj, AK_TOKEN_ROOT, a_retry_of_ids as *const ak_span, n_retry_of_ids as i32);
                     }
                 }
                 n_retry_of_ids = 0;
@@ -8922,7 +9014,7 @@ pub unsafe extern "C" fn ak_decode_TaskDetailed(
                 if let Some(add) = (*vt).add_options_options {
                     if (*dcx).hdr.err == AK_OK {
                         ak_rt::bump!((*dcx).c, reverse);
-                        add(ctx, obj, AK_TOKEN_ROOT, a_options_options.as_ptr() as *const ak_dfix_TaskOptionsOptionsEntry, n_options_options as i32);
+                        add(ctx, obj, AK_TOKEN_ROOT, a_options_options as *const ak_dfix_TaskOptionsOptionsEntry, n_options_options as i32);
                     }
                 }
                 n_options_options = 0;
@@ -8973,7 +9065,7 @@ pub unsafe extern "C" fn ak_decode_TaskDetailed(
                 if n_parent_task_ids == N_PARENT_TASK_IDS { flush_parent_task_ids!(); }
                 let (off, n) = d.len_body();
                 if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
-                a_parent_task_ids[n_parent_task_ids].write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
+                at_parent_task_ids!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
                 n_parent_task_ids += 1;
             }
             5 if wire == 2 => {
@@ -8981,7 +9073,7 @@ pub unsafe extern "C" fn ak_decode_TaskDetailed(
                 if n_data_dependencies == N_DATA_DEPENDENCIES { flush_data_dependencies!(); }
                 let (off, n) = d.len_body();
                 if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
-                a_data_dependencies[n_data_dependencies].write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
+                at_data_dependencies!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
                 n_data_dependencies += 1;
             }
             6 if wire == 2 => {
@@ -8989,7 +9081,7 @@ pub unsafe extern "C" fn ak_decode_TaskDetailed(
                 if n_expected_output_ids == N_EXPECTED_OUTPUT_IDS { flush_expected_output_ids!(); }
                 let (off, n) = d.len_body();
                 if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
-                a_expected_output_ids[n_expected_output_ids].write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
+                at_expected_output_ids!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
                 n_expected_output_ids += 1;
             }
             7 if wire == 2 => {
@@ -8997,7 +9089,7 @@ pub unsafe extern "C" fn ak_decode_TaskDetailed(
                 if n_retry_of_ids == N_RETRY_OF_IDS { flush_retry_of_ids!(); }
                 let (off, n) = d.len_body();
                 if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
-                a_retry_of_ids[n_retry_of_ids].write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
+                at_retry_of_ids!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
                 n_retry_of_ids += 1;
             }
             8 if wire == 0 => {
@@ -9029,7 +9121,9 @@ pub unsafe extern "C" fn ak_decode_TaskDetailed(
                         if n_options_options == N_OPTIONS_OPTIONS { flush_options_options!(); }
                         let (off, n) = c1.len_body();
                         let mut es = Dec::new(&buf1[off..off + n]);
-                        a_options_options[n_options_options].write(dec_task_options_options_entry_fix(&mut es, base1 + off, u.at(2)));
+                        let p = at_options_options!();
+                        p.write(ak_dfix_TaskOptionsOptionsEntry::ZERO);
+                        dec_task_options_options_entry_fix_into(&mut es, base1 + off, u.at(2), &mut *p);
                         if es.err != 0 { c1.err = es.err; }
                         n_options_options += 1;
                     }
@@ -9650,19 +9744,25 @@ pub unsafe extern "C" fn ak_decode_TaskSummary(
     let base0 = 0usize;
     let mut d = Dec::new(buf0);
     let mut out = ak_dfix_TaskSummary::ZERO;
+    // Optimisation D2: one 8-aligned arena shared by every loop slot below (one
+    // slot is open at a time; each keeps its own element budget).
+    let mut arena: [::core::mem::MaybeUninit<u64>; ak_rt::ARENA_BYTES / 8] =
+        [const { ::core::mem::MaybeUninit::uninit() }; ak_rt::ARENA_BYTES / 8];
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_OPTIONS_OPTIONS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>());
-    let mut a_options_options: [::core::mem::MaybeUninit<ak_dfix_TaskOptionsOptionsEntry>; N_OPTIONS_OPTIONS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_OPTIONS_OPTIONS];
+    const _: () = assert!(N_OPTIONS_OPTIONS * ::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_TaskOptionsOptionsEntry>() <= 8);
     let mut n_options_options: usize = 0;
+    let a_options_options: *mut ak_dfix_TaskOptionsOptionsEntry = arena.as_mut_ptr() as *mut ak_dfix_TaskOptionsOptionsEntry;
+    #[allow(unused_macros)]
+    macro_rules! at_options_options { () => { a_options_options.add(n_options_options) }; }
     macro_rules! flush_options_options {
         () => {
             if n_options_options > 0 {
                 if let Some(add) = (*vt).add_options_options {
                     if (*dcx).hdr.err == AK_OK {
                         ak_rt::bump!((*dcx).c, reverse);
-                        add(ctx, obj, AK_TOKEN_ROOT, a_options_options.as_ptr() as *const ak_dfix_TaskOptionsOptionsEntry, n_options_options as i32);
+                        add(ctx, obj, AK_TOKEN_ROOT, a_options_options as *const ak_dfix_TaskOptionsOptionsEntry, n_options_options as i32);
                     }
                 }
                 n_options_options = 0;
@@ -9717,7 +9817,9 @@ pub unsafe extern "C" fn ak_decode_TaskSummary(
                         if n_options_options == N_OPTIONS_OPTIONS { flush_options_options!(); }
                         let (off, n) = c1.len_body();
                         let mut es = Dec::new(&buf1[off..off + n]);
-                        a_options_options[n_options_options].write(dec_task_options_options_entry_fix(&mut es, base1 + off, u.at(2)));
+                        let p = at_options_options!();
+                        p.write(ak_dfix_TaskOptionsOptionsEntry::ZERO);
+                        dec_task_options_options_entry_fix_into(&mut es, base1 + off, u.at(2), &mut *p);
                         if es.err != 0 { c1.err = es.err; }
                         n_options_options += 1;
                     }
@@ -10249,43 +10351,57 @@ pub unsafe extern "C" fn ak_decode_MetricsBatch(
     let base0 = 0usize;
     let mut d = Dec::new(buf0);
     let mut out = ak_dfix_MetricsBatch::ZERO;
+    // Optimisation D2: one 8-aligned arena shared by every loop slot below (one
+    // slot is open at a time; each keeps its own element budget).
+    let mut arena: [::core::mem::MaybeUninit<u64>; ak_rt::ARENA_BYTES / 8] =
+        [const { ::core::mem::MaybeUninit::uninit() }; ak_rt::ARENA_BYTES / 8];
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_TICKS: usize = ak_rt::arena_n(::core::mem::size_of::<i64>());
-    let mut a_ticks: [::core::mem::MaybeUninit<i64>; N_TICKS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_TICKS];
+    const _: () = assert!(N_TICKS * ::core::mem::size_of::<i64>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<i64>() <= 8);
     let mut n_ticks: usize = 0;
+    let a_ticks: *mut i64 = arena.as_mut_ptr() as *mut i64;
+    #[allow(unused_macros)]
+    macro_rules! at_ticks { () => { a_ticks.add(n_ticks) }; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_VALUES: usize = ak_rt::arena_n(::core::mem::size_of::<f64>());
-    let mut a_values: [::core::mem::MaybeUninit<f64>; N_VALUES] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_VALUES];
+    const _: () = assert!(N_VALUES * ::core::mem::size_of::<f64>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<f64>() <= 8);
     let mut n_values: usize = 0;
+    let a_values: *mut f64 = arena.as_mut_ptr() as *mut f64;
+    #[allow(unused_macros)]
+    macro_rules! at_values { () => { a_values.add(n_values) }; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_CODES: usize = ak_rt::arena_n(::core::mem::size_of::<i32>());
-    let mut a_codes: [::core::mem::MaybeUninit<i32>; N_CODES] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_CODES];
+    const _: () = assert!(N_CODES * ::core::mem::size_of::<i32>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<i32>() <= 8);
     let mut n_codes: usize = 0;
+    let a_codes: *mut i32 = arena.as_mut_ptr() as *mut i32;
+    #[allow(unused_macros)]
+    macro_rules! at_codes { () => { a_codes.add(n_codes) }; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_FLAGS: usize = ak_rt::arena_n(::core::mem::size_of::<u8>());
-    let mut a_flags: [::core::mem::MaybeUninit<u8>; N_FLAGS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_FLAGS];
+    const _: () = assert!(N_FLAGS * ::core::mem::size_of::<u8>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<u8>() <= 8);
     let mut n_flags: usize = 0;
+    let a_flags: *mut u8 = arena.as_mut_ptr() as *mut u8;
+    #[allow(unused_macros)]
+    macro_rules! at_flags { () => { a_flags.add(n_flags) }; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_STATUSES: usize = ak_rt::arena_n(::core::mem::size_of::<i32>());
-    let mut a_statuses: [::core::mem::MaybeUninit<i32>; N_STATUSES] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_STATUSES];
+    const _: () = assert!(N_STATUSES * ::core::mem::size_of::<i32>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<i32>() <= 8);
     let mut n_statuses: usize = 0;
+    let a_statuses: *mut i32 = arena.as_mut_ptr() as *mut i32;
+    #[allow(unused_macros)]
+    macro_rules! at_statuses { () => { a_statuses.add(n_statuses) }; }
     macro_rules! flush_ticks {
         () => {
             if n_ticks > 0 {
                 if let Some(add) = (*vt).add_ticks {
                     if (*dcx).hdr.err == AK_OK {
                         ak_rt::bump!((*dcx).c, reverse);
-                        add(ctx, obj, AK_TOKEN_ROOT, a_ticks.as_ptr() as *const i64, n_ticks as i32);
+                        add(ctx, obj, AK_TOKEN_ROOT, a_ticks as *const i64, n_ticks as i32);
                     }
                 }
                 n_ticks = 0;
@@ -10299,7 +10415,7 @@ pub unsafe extern "C" fn ak_decode_MetricsBatch(
                 if let Some(add) = (*vt).add_values {
                     if (*dcx).hdr.err == AK_OK {
                         ak_rt::bump!((*dcx).c, reverse);
-                        add(ctx, obj, AK_TOKEN_ROOT, a_values.as_ptr() as *const f64, n_values as i32);
+                        add(ctx, obj, AK_TOKEN_ROOT, a_values as *const f64, n_values as i32);
                     }
                 }
                 n_values = 0;
@@ -10313,7 +10429,7 @@ pub unsafe extern "C" fn ak_decode_MetricsBatch(
                 if let Some(add) = (*vt).add_codes {
                     if (*dcx).hdr.err == AK_OK {
                         ak_rt::bump!((*dcx).c, reverse);
-                        add(ctx, obj, AK_TOKEN_ROOT, a_codes.as_ptr() as *const i32, n_codes as i32);
+                        add(ctx, obj, AK_TOKEN_ROOT, a_codes as *const i32, n_codes as i32);
                     }
                 }
                 n_codes = 0;
@@ -10327,7 +10443,7 @@ pub unsafe extern "C" fn ak_decode_MetricsBatch(
                 if let Some(add) = (*vt).add_flags {
                     if (*dcx).hdr.err == AK_OK {
                         ak_rt::bump!((*dcx).c, reverse);
-                        add(ctx, obj, AK_TOKEN_ROOT, a_flags.as_ptr() as *const u8, n_flags as i32);
+                        add(ctx, obj, AK_TOKEN_ROOT, a_flags as *const u8, n_flags as i32);
                     }
                 }
                 n_flags = 0;
@@ -10341,7 +10457,7 @@ pub unsafe extern "C" fn ak_decode_MetricsBatch(
                 if let Some(add) = (*vt).add_statuses {
                     if (*dcx).hdr.err == AK_OK {
                         ak_rt::bump!((*dcx).c, reverse);
-                        add(ctx, obj, AK_TOKEN_ROOT, a_statuses.as_ptr() as *const i32, n_statuses as i32);
+                        add(ctx, obj, AK_TOKEN_ROOT, a_statuses as *const i32, n_statuses as i32);
                     }
                 }
                 n_statuses = 0;
@@ -10379,7 +10495,7 @@ pub unsafe extern "C" fn ak_decode_MetricsBatch(
                 if cur != 1 { flush!(); cur = 1; }
                 if n_ticks == N_TICKS { flush_ticks!(); }
                 let v = d.varint() as i64;
-                if d.err == 0 { a_ticks[n_ticks].write(v); n_ticks += 1; }
+                if d.err == 0 { at_ticks!().write(v); n_ticks += 1; }
             }
             2 if wire == 2 => {
                 if cur != 1 { flush!(); cur = 1; }
@@ -10389,7 +10505,7 @@ pub unsafe extern "C" fn ak_decode_MetricsBatch(
                     if n_ticks == N_TICKS { flush_ticks!(); }
                     let v = ps.varint() as i64;
                     if ps.err != 0 { break; }
-                    a_ticks[n_ticks].write(v);
+                    at_ticks!().write(v);
                     n_ticks += 1;
                 }
                 if ps.err != 0 { d.err = ps.err; }
@@ -10398,7 +10514,7 @@ pub unsafe extern "C" fn ak_decode_MetricsBatch(
                 if cur != 2 { flush!(); cur = 2; }
                 if n_values == N_VALUES { flush_values!(); }
                 let v = d.f64();
-                if d.err == 0 { a_values[n_values].write(v); n_values += 1; }
+                if d.err == 0 { at_values!().write(v); n_values += 1; }
             }
             3 if wire == 2 => {
                 if cur != 2 { flush!(); cur = 2; }
@@ -10408,7 +10524,7 @@ pub unsafe extern "C" fn ak_decode_MetricsBatch(
                     if n_values == N_VALUES { flush_values!(); }
                     let v = ps.f64();
                     if ps.err != 0 { break; }
-                    a_values[n_values].write(v);
+                    at_values!().write(v);
                     n_values += 1;
                 }
                 if ps.err != 0 { d.err = ps.err; }
@@ -10417,7 +10533,7 @@ pub unsafe extern "C" fn ak_decode_MetricsBatch(
                 if cur != 3 { flush!(); cur = 3; }
                 if n_codes == N_CODES { flush_codes!(); }
                 let v = d.varint() as i32;
-                if d.err == 0 { a_codes[n_codes].write(v); n_codes += 1; }
+                if d.err == 0 { at_codes!().write(v); n_codes += 1; }
             }
             4 if wire == 2 => {
                 if cur != 3 { flush!(); cur = 3; }
@@ -10427,7 +10543,7 @@ pub unsafe extern "C" fn ak_decode_MetricsBatch(
                     if n_codes == N_CODES { flush_codes!(); }
                     let v = ps.varint() as i32;
                     if ps.err != 0 { break; }
-                    a_codes[n_codes].write(v);
+                    at_codes!().write(v);
                     n_codes += 1;
                 }
                 if ps.err != 0 { d.err = ps.err; }
@@ -10436,7 +10552,7 @@ pub unsafe extern "C" fn ak_decode_MetricsBatch(
                 if cur != 4 { flush!(); cur = 4; }
                 if n_flags == N_FLAGS { flush_flags!(); }
                 let v = (d.varint() != 0) as u8;
-                if d.err == 0 { a_flags[n_flags].write(v); n_flags += 1; }
+                if d.err == 0 { at_flags!().write(v); n_flags += 1; }
             }
             5 if wire == 2 => {
                 if cur != 4 { flush!(); cur = 4; }
@@ -10446,7 +10562,7 @@ pub unsafe extern "C" fn ak_decode_MetricsBatch(
                     if n_flags == N_FLAGS { flush_flags!(); }
                     let v = (ps.varint() != 0) as u8;
                     if ps.err != 0 { break; }
-                    a_flags[n_flags].write(v);
+                    at_flags!().write(v);
                     n_flags += 1;
                 }
                 if ps.err != 0 { d.err = ps.err; }
@@ -10455,7 +10571,7 @@ pub unsafe extern "C" fn ak_decode_MetricsBatch(
                 if cur != 5 { flush!(); cur = 5; }
                 if n_statuses == N_STATUSES { flush_statuses!(); }
                 let v = d.varint() as i32;
-                if d.err == 0 { a_statuses[n_statuses].write(v); n_statuses += 1; }
+                if d.err == 0 { at_statuses!().write(v); n_statuses += 1; }
             }
             6 if wire == 2 => {
                 if cur != 5 { flush!(); cur = 5; }
@@ -10465,7 +10581,7 @@ pub unsafe extern "C" fn ak_decode_MetricsBatch(
                     if n_statuses == N_STATUSES { flush_statuses!(); }
                     let v = ps.varint() as i32;
                     if ps.err != 0 { break; }
-                    a_statuses[n_statuses].write(v);
+                    at_statuses!().write(v);
                     n_statuses += 1;
                 }
                 if ps.err != 0 { d.err = ps.err; }
@@ -10613,19 +10729,25 @@ pub unsafe extern "C" fn ak_decode_ListResultsResponse(
     let base0 = 0usize;
     let mut d = Dec::new(buf0);
     let mut out = ak_dfix_ListResultsResponse::ZERO;
+    // Optimisation D2: one 8-aligned arena shared by every loop slot below (one
+    // slot is open at a time; each keeps its own element budget).
+    let mut arena: [::core::mem::MaybeUninit<u64>; ak_rt::ARENA_BYTES / 8] =
+        [const { ::core::mem::MaybeUninit::uninit() }; ak_rt::ARENA_BYTES / 8];
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_RESULTS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_ResultRaw>());
-    let mut a_results: [::core::mem::MaybeUninit<ak_dfix_ResultRaw>; N_RESULTS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_RESULTS];
+    const _: () = assert!(N_RESULTS * ::core::mem::size_of::<ak_dfix_ResultRaw>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_ResultRaw>() <= 8);
     let mut n_results: usize = 0;
+    let a_results: *mut ak_dfix_ResultRaw = arena.as_mut_ptr() as *mut ak_dfix_ResultRaw;
+    #[allow(unused_macros)]
+    macro_rules! at_results { () => { a_results.add(n_results) }; }
     macro_rules! flush_results {
         () => {
             if n_results > 0 {
                 if let Some(add) = (*vt).add_results {
                     if (*dcx).hdr.err == AK_OK {
                         ak_rt::bump!((*dcx).c, reverse);
-                        add(ctx, obj, AK_TOKEN_ROOT, a_results.as_ptr() as *const ak_dfix_ResultRaw, n_results as i32);
+                        add(ctx, obj, AK_TOKEN_ROOT, a_results as *const ak_dfix_ResultRaw, n_results as i32);
                     }
                 }
                 n_results = 0;
@@ -10654,7 +10776,9 @@ pub unsafe extern "C" fn ak_decode_ListResultsResponse(
                 if n_results == N_RESULTS { flush_results!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
-                a_results[n_results].write(dec_result_raw_fix(&mut es, base0 + off, u.at(1)));
+                let p = at_results!();
+                p.write(ak_dfix_ResultRaw::ZERO);
+                dec_result_raw_fix_into(&mut es, base0 + off, u.at(1), &mut *p);
                 if es.err != 0 { d.err = es.err; }
                 n_results += 1;
             }
@@ -10895,19 +11019,25 @@ pub unsafe extern "C" fn ak_decode_ListProbeResponse(
     let base0 = 0usize;
     let mut d = Dec::new(buf0);
     let mut out = ak_dfix_ListProbeResponse::ZERO;
+    // Optimisation D2: one 8-aligned arena shared by every loop slot below (one
+    // slot is open at a time; each keeps its own element budget).
+    let mut arena: [::core::mem::MaybeUninit<u64>; ak_rt::ARENA_BYTES / 8] =
+        [const { ::core::mem::MaybeUninit::uninit() }; ak_rt::ARENA_BYTES / 8];
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_PROBES: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_Probe>());
-    let mut a_probes: [::core::mem::MaybeUninit<ak_dfix_Probe>; N_PROBES] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_PROBES];
+    const _: () = assert!(N_PROBES * ::core::mem::size_of::<ak_dfix_Probe>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_Probe>() <= 8);
     let mut n_probes: usize = 0;
+    let a_probes: *mut ak_dfix_Probe = arena.as_mut_ptr() as *mut ak_dfix_Probe;
+    #[allow(unused_macros)]
+    macro_rules! at_probes { () => { a_probes.add(n_probes) }; }
     macro_rules! flush_probes {
         () => {
             if n_probes > 0 {
                 if let Some(add) = (*vt).add_probes {
                     if (*dcx).hdr.err == AK_OK {
                         ak_rt::bump!((*dcx).c, reverse);
-                        add(ctx, obj, AK_TOKEN_ROOT, a_probes.as_ptr() as *const ak_dfix_Probe, n_probes as i32);
+                        add(ctx, obj, AK_TOKEN_ROOT, a_probes as *const ak_dfix_Probe, n_probes as i32);
                     }
                 }
                 n_probes = 0;
@@ -10936,7 +11066,9 @@ pub unsafe extern "C" fn ak_decode_ListProbeResponse(
                 if n_probes == N_PROBES { flush_probes!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
-                a_probes[n_probes].write(dec_probe_fix(&mut es, base0 + off, u.at(1)));
+                let p = at_probes!();
+                p.write(ak_dfix_Probe::ZERO);
+                dec_probe_fix_into(&mut es, base0 + off, u.at(1), &mut *p);
                 if es.err != 0 { d.err = es.err; }
                 n_probes += 1;
             }
@@ -11197,25 +11329,33 @@ pub unsafe extern "C" fn ak_decode_DualResponse(
     let base0 = 0usize;
     let mut d = Dec::new(buf0);
     let mut out = ak_dfix_DualResponse::ZERO;
+    // Optimisation D2: one 8-aligned arena shared by every loop slot below (one
+    // slot is open at a time; each keeps its own element budget).
+    let mut arena: [::core::mem::MaybeUninit<u64>; ak_rt::ARENA_BYTES / 8] =
+        [const { ::core::mem::MaybeUninit::uninit() }; ak_rt::ARENA_BYTES / 8];
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_LEFT: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_Pair>());
-    let mut a_left: [::core::mem::MaybeUninit<ak_dfix_Pair>; N_LEFT] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_LEFT];
+    const _: () = assert!(N_LEFT * ::core::mem::size_of::<ak_dfix_Pair>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_Pair>() <= 8);
     let mut n_left: usize = 0;
+    let a_left: *mut ak_dfix_Pair = arena.as_mut_ptr() as *mut ak_dfix_Pair;
+    #[allow(unused_macros)]
+    macro_rules! at_left { () => { a_left.add(n_left) }; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_RIGHT: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_Pair>());
-    let mut a_right: [::core::mem::MaybeUninit<ak_dfix_Pair>; N_RIGHT] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_RIGHT];
+    const _: () = assert!(N_RIGHT * ::core::mem::size_of::<ak_dfix_Pair>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_Pair>() <= 8);
     let mut n_right: usize = 0;
+    let a_right: *mut ak_dfix_Pair = arena.as_mut_ptr() as *mut ak_dfix_Pair;
+    #[allow(unused_macros)]
+    macro_rules! at_right { () => { a_right.add(n_right) }; }
     macro_rules! flush_left {
         () => {
             if n_left > 0 {
                 if let Some(add) = (*vt).add_left {
                     if (*dcx).hdr.err == AK_OK {
                         ak_rt::bump!((*dcx).c, reverse);
-                        add(ctx, obj, AK_TOKEN_ROOT, a_left.as_ptr() as *const ak_dfix_Pair, n_left as i32);
+                        add(ctx, obj, AK_TOKEN_ROOT, a_left as *const ak_dfix_Pair, n_left as i32);
                     }
                 }
                 n_left = 0;
@@ -11229,7 +11369,7 @@ pub unsafe extern "C" fn ak_decode_DualResponse(
                 if let Some(add) = (*vt).add_right {
                     if (*dcx).hdr.err == AK_OK {
                         ak_rt::bump!((*dcx).c, reverse);
-                        add(ctx, obj, AK_TOKEN_ROOT, a_right.as_ptr() as *const ak_dfix_Pair, n_right as i32);
+                        add(ctx, obj, AK_TOKEN_ROOT, a_right as *const ak_dfix_Pair, n_right as i32);
                     }
                 }
                 n_right = 0;
@@ -11259,7 +11399,9 @@ pub unsafe extern "C" fn ak_decode_DualResponse(
                 if n_left == N_LEFT { flush_left!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
-                a_left[n_left].write(dec_pair_fix(&mut es, base0 + off, u.at(1)));
+                let p = at_left!();
+                p.write(ak_dfix_Pair::ZERO);
+                dec_pair_fix_into(&mut es, base0 + off, u.at(1), &mut *p);
                 if es.err != 0 { d.err = es.err; }
                 n_left += 1;
             }
@@ -11268,7 +11410,9 @@ pub unsafe extern "C" fn ak_decode_DualResponse(
                 if n_right == N_RIGHT { flush_right!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
-                a_right[n_right].write(dec_pair_fix(&mut es, base0 + off, u.at(2)));
+                let p = at_right!();
+                p.write(ak_dfix_Pair::ZERO);
+                dec_pair_fix_into(&mut es, base0 + off, u.at(2), &mut *p);
                 if es.err != 0 { d.err = es.err; }
                 n_right += 1;
             }
@@ -11415,25 +11559,33 @@ pub unsafe extern "C" fn ak_decode_ChunkInner(
     let base0 = 0usize;
     let mut d = Dec::new(buf0);
     let mut out = ak_dfix_ChunkInner::ZERO;
+    // Optimisation D2: one 8-aligned arena shared by every loop slot below (one
+    // slot is open at a time; each keeps its own element budget).
+    let mut arena: [::core::mem::MaybeUninit<u64>; ak_rt::ARENA_BYTES / 8] =
+        [const { ::core::mem::MaybeUninit::uninit() }; ak_rt::ARENA_BYTES / 8];
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_MARKS: usize = ak_rt::arena_n(::core::mem::size_of::<i64>());
-    let mut a_marks: [::core::mem::MaybeUninit<i64>; N_MARKS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_MARKS];
+    const _: () = assert!(N_MARKS * ::core::mem::size_of::<i64>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<i64>() <= 8);
     let mut n_marks: usize = 0;
+    let a_marks: *mut i64 = arena.as_mut_ptr() as *mut i64;
+    #[allow(unused_macros)]
+    macro_rules! at_marks { () => { a_marks.add(n_marks) }; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_LEAVES: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_ChunkLeaf>());
-    let mut a_leaves: [::core::mem::MaybeUninit<ak_dfix_ChunkLeaf>; N_LEAVES] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_LEAVES];
+    const _: () = assert!(N_LEAVES * ::core::mem::size_of::<ak_dfix_ChunkLeaf>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_ChunkLeaf>() <= 8);
     let mut n_leaves: usize = 0;
+    let a_leaves: *mut ak_dfix_ChunkLeaf = arena.as_mut_ptr() as *mut ak_dfix_ChunkLeaf;
+    #[allow(unused_macros)]
+    macro_rules! at_leaves { () => { a_leaves.add(n_leaves) }; }
     macro_rules! flush_marks {
         () => {
             if n_marks > 0 {
                 if let Some(add) = (*vt).add_marks {
                     if (*dcx).hdr.err == AK_OK {
                         ak_rt::bump!((*dcx).c, reverse);
-                        add(ctx, obj, AK_TOKEN_ROOT, a_marks.as_ptr() as *const i64, n_marks as i32);
+                        add(ctx, obj, AK_TOKEN_ROOT, a_marks as *const i64, n_marks as i32);
                     }
                 }
                 n_marks = 0;
@@ -11447,7 +11599,7 @@ pub unsafe extern "C" fn ak_decode_ChunkInner(
                 if let Some(add) = (*vt).add_leaves {
                     if (*dcx).hdr.err == AK_OK {
                         ak_rt::bump!((*dcx).c, reverse);
-                        add(ctx, obj, AK_TOKEN_ROOT, a_leaves.as_ptr() as *const ak_dfix_ChunkLeaf, n_leaves as i32);
+                        add(ctx, obj, AK_TOKEN_ROOT, a_leaves as *const ak_dfix_ChunkLeaf, n_leaves as i32);
                     }
                 }
                 n_leaves = 0;
@@ -11476,7 +11628,7 @@ pub unsafe extern "C" fn ak_decode_ChunkInner(
                 if cur != 1 { flush!(); cur = 1; }
                 if n_marks == N_MARKS { flush_marks!(); }
                 let v = d.varint() as i64;
-                if d.err == 0 { a_marks[n_marks].write(v); n_marks += 1; }
+                if d.err == 0 { at_marks!().write(v); n_marks += 1; }
             }
             1 if wire == 2 => {
                 if cur != 1 { flush!(); cur = 1; }
@@ -11486,7 +11638,7 @@ pub unsafe extern "C" fn ak_decode_ChunkInner(
                     if n_marks == N_MARKS { flush_marks!(); }
                     let v = ps.varint() as i64;
                     if ps.err != 0 { break; }
-                    a_marks[n_marks].write(v);
+                    at_marks!().write(v);
                     n_marks += 1;
                 }
                 if ps.err != 0 { d.err = ps.err; }
@@ -11496,7 +11648,9 @@ pub unsafe extern "C" fn ak_decode_ChunkInner(
                 if n_leaves == N_LEAVES { flush_leaves!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
-                a_leaves[n_leaves].write(dec_chunk_leaf_fix(&mut es, base0 + off, u.at(1)));
+                let p = at_leaves!();
+                p.write(ak_dfix_ChunkLeaf::ZERO);
+                dec_chunk_leaf_fix_into(&mut es, base0 + off, u.at(1), &mut *p);
                 if es.err != 0 { d.err = es.err; }
                 n_leaves += 1;
             }
@@ -11559,37 +11713,49 @@ pub unsafe extern "C" fn ak_decode_ChunkElement(
     let base0 = 0usize;
     let mut d = Dec::new(buf0);
     let mut out = ak_dfix_ChunkElement::ZERO;
+    // Optimisation D2: one 8-aligned arena shared by every loop slot below (one
+    // slot is open at a time; each keeps its own element budget).
+    let mut arena: [::core::mem::MaybeUninit<u64>; ak_rt::ARENA_BYTES / 8] =
+        [const { ::core::mem::MaybeUninit::uninit() }; ak_rt::ARENA_BYTES / 8];
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_LABELS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
-    let mut a_labels: [::core::mem::MaybeUninit<ak_span>; N_LABELS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_LABELS];
+    const _: () = assert!(N_LABELS * ::core::mem::size_of::<ak_span>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_span>() <= 8);
     let mut n_labels: usize = 0;
+    let a_labels: *mut ak_span = arena.as_mut_ptr() as *mut ak_span;
+    #[allow(unused_macros)]
+    macro_rules! at_labels { () => { a_labels.add(n_labels) }; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_ATTRS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_ChunkElementAttrsEntry>());
-    let mut a_attrs: [::core::mem::MaybeUninit<ak_dfix_ChunkElementAttrsEntry>; N_ATTRS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_ATTRS];
+    const _: () = assert!(N_ATTRS * ::core::mem::size_of::<ak_dfix_ChunkElementAttrsEntry>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_ChunkElementAttrsEntry>() <= 8);
     let mut n_attrs: usize = 0;
+    let a_attrs: *mut ak_dfix_ChunkElementAttrsEntry = arena.as_mut_ptr() as *mut ak_dfix_ChunkElementAttrsEntry;
+    #[allow(unused_macros)]
+    macro_rules! at_attrs { () => { a_attrs.add(n_attrs) }; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_INNER_MARKS: usize = ak_rt::arena_n(::core::mem::size_of::<i64>());
-    let mut a_inner_marks: [::core::mem::MaybeUninit<i64>; N_INNER_MARKS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_INNER_MARKS];
+    const _: () = assert!(N_INNER_MARKS * ::core::mem::size_of::<i64>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<i64>() <= 8);
     let mut n_inner_marks: usize = 0;
+    let a_inner_marks: *mut i64 = arena.as_mut_ptr() as *mut i64;
+    #[allow(unused_macros)]
+    macro_rules! at_inner_marks { () => { a_inner_marks.add(n_inner_marks) }; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_INNER_LEAVES: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_ChunkLeaf>());
-    let mut a_inner_leaves: [::core::mem::MaybeUninit<ak_dfix_ChunkLeaf>; N_INNER_LEAVES] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_INNER_LEAVES];
+    const _: () = assert!(N_INNER_LEAVES * ::core::mem::size_of::<ak_dfix_ChunkLeaf>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_ChunkLeaf>() <= 8);
     let mut n_inner_leaves: usize = 0;
+    let a_inner_leaves: *mut ak_dfix_ChunkLeaf = arena.as_mut_ptr() as *mut ak_dfix_ChunkLeaf;
+    #[allow(unused_macros)]
+    macro_rules! at_inner_leaves { () => { a_inner_leaves.add(n_inner_leaves) }; }
     macro_rules! flush_labels {
         () => {
             if n_labels > 0 {
                 if let Some(add) = (*vt).add_labels {
                     if (*dcx).hdr.err == AK_OK {
                         ak_rt::bump!((*dcx).c, reverse);
-                        add(ctx, obj, AK_TOKEN_ROOT, a_labels.as_ptr() as *const ak_span, n_labels as i32);
+                        add(ctx, obj, AK_TOKEN_ROOT, a_labels as *const ak_span, n_labels as i32);
                     }
                 }
                 n_labels = 0;
@@ -11603,7 +11769,7 @@ pub unsafe extern "C" fn ak_decode_ChunkElement(
                 if let Some(add) = (*vt).add_attrs {
                     if (*dcx).hdr.err == AK_OK {
                         ak_rt::bump!((*dcx).c, reverse);
-                        add(ctx, obj, AK_TOKEN_ROOT, a_attrs.as_ptr() as *const ak_dfix_ChunkElementAttrsEntry, n_attrs as i32);
+                        add(ctx, obj, AK_TOKEN_ROOT, a_attrs as *const ak_dfix_ChunkElementAttrsEntry, n_attrs as i32);
                     }
                 }
                 n_attrs = 0;
@@ -11617,7 +11783,7 @@ pub unsafe extern "C" fn ak_decode_ChunkElement(
                 if let Some(add) = (*vt).add_inner_marks {
                     if (*dcx).hdr.err == AK_OK {
                         ak_rt::bump!((*dcx).c, reverse);
-                        add(ctx, obj, AK_TOKEN_ROOT, a_inner_marks.as_ptr() as *const i64, n_inner_marks as i32);
+                        add(ctx, obj, AK_TOKEN_ROOT, a_inner_marks as *const i64, n_inner_marks as i32);
                     }
                 }
                 n_inner_marks = 0;
@@ -11631,7 +11797,7 @@ pub unsafe extern "C" fn ak_decode_ChunkElement(
                 if let Some(add) = (*vt).add_inner_leaves {
                     if (*dcx).hdr.err == AK_OK {
                         ak_rt::bump!((*dcx).c, reverse);
-                        add(ctx, obj, AK_TOKEN_ROOT, a_inner_leaves.as_ptr() as *const ak_dfix_ChunkLeaf, n_inner_leaves as i32);
+                        add(ctx, obj, AK_TOKEN_ROOT, a_inner_leaves as *const ak_dfix_ChunkLeaf, n_inner_leaves as i32);
                     }
                 }
                 n_inner_leaves = 0;
@@ -11663,7 +11829,7 @@ pub unsafe extern "C" fn ak_decode_ChunkElement(
                 if n_labels == N_LABELS { flush_labels!(); }
                 let (off, n) = d.len_body();
                 if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
-                a_labels[n_labels].write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
+                at_labels!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
                 n_labels += 1;
             }
             2 if wire == 2 => {
@@ -11671,7 +11837,9 @@ pub unsafe extern "C" fn ak_decode_ChunkElement(
                 if n_attrs == N_ATTRS { flush_attrs!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
-                a_attrs[n_attrs].write(dec_chunk_element_attrs_entry_fix(&mut es, base0 + off, u.at(1)));
+                let p = at_attrs!();
+                p.write(ak_dfix_ChunkElementAttrsEntry::ZERO);
+                dec_chunk_element_attrs_entry_fix_into(&mut es, base0 + off, u.at(1), &mut *p);
                 if es.err != 0 { d.err = es.err; }
                 n_attrs += 1;
             }
@@ -11699,7 +11867,7 @@ pub unsafe extern "C" fn ak_decode_ChunkElement(
                         if cur != 3 { flush!(); cur = 3; }
                         if n_inner_marks == N_INNER_MARKS { flush_inner_marks!(); }
                         let v = c1.varint() as i64;
-                        if c1.err == 0 { a_inner_marks[n_inner_marks].write(v); n_inner_marks += 1; }
+                        if c1.err == 0 { at_inner_marks!().write(v); n_inner_marks += 1; }
                     }
                     1 if wire == 2 => {
                         if cur != 3 { flush!(); cur = 3; }
@@ -11709,7 +11877,7 @@ pub unsafe extern "C" fn ak_decode_ChunkElement(
                             if n_inner_marks == N_INNER_MARKS { flush_inner_marks!(); }
                             let v = ps.varint() as i64;
                             if ps.err != 0 { break; }
-                            a_inner_marks[n_inner_marks].write(v);
+                            at_inner_marks!().write(v);
                             n_inner_marks += 1;
                         }
                         if ps.err != 0 { c1.err = ps.err; }
@@ -11719,7 +11887,9 @@ pub unsafe extern "C" fn ak_decode_ChunkElement(
                         if n_inner_leaves == N_INNER_LEAVES { flush_inner_leaves!(); }
                         let (off, n) = c1.len_body();
                         let mut es = Dec::new(&buf1[off..off + n]);
-                        a_inner_leaves[n_inner_leaves].write(dec_chunk_leaf_fix(&mut es, base1 + off, u.at(3)));
+                        let p = at_inner_leaves!();
+                        p.write(ak_dfix_ChunkLeaf::ZERO);
+                        dec_chunk_leaf_fix_into(&mut es, base1 + off, u.at(3), &mut *p);
                         if es.err != 0 { c1.err = es.err; }
                         n_inner_leaves += 1;
                     }
@@ -12078,19 +12248,25 @@ pub unsafe extern "C" fn ak_decode_LeafResponse(
     let base0 = 0usize;
     let mut d = Dec::new(buf0);
     let mut out = ak_dfix_LeafResponse::ZERO;
+    // Optimisation D2: one 8-aligned arena shared by every loop slot below (one
+    // slot is open at a time; each keeps its own element budget).
+    let mut arena: [::core::mem::MaybeUninit<u64>; ak_rt::ARENA_BYTES / 8] =
+        [const { ::core::mem::MaybeUninit::uninit() }; ak_rt::ARENA_BYTES / 8];
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_ITEMS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_LeafElement>());
-    let mut a_items: [::core::mem::MaybeUninit<ak_dfix_LeafElement>; N_ITEMS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_ITEMS];
+    const _: () = assert!(N_ITEMS * ::core::mem::size_of::<ak_dfix_LeafElement>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_LeafElement>() <= 8);
     let mut n_items: usize = 0;
+    let a_items: *mut ak_dfix_LeafElement = arena.as_mut_ptr() as *mut ak_dfix_LeafElement;
+    #[allow(unused_macros)]
+    macro_rules! at_items { () => { a_items.add(n_items) }; }
     macro_rules! flush_items {
         () => {
             if n_items > 0 {
                 if let Some(add) = (*vt).add_items {
                     if (*dcx).hdr.err == AK_OK {
                         ak_rt::bump!((*dcx).c, reverse);
-                        add(ctx, obj, AK_TOKEN_ROOT, a_items.as_ptr() as *const ak_dfix_LeafElement, n_items as i32);
+                        add(ctx, obj, AK_TOKEN_ROOT, a_items as *const ak_dfix_LeafElement, n_items as i32);
                     }
                 }
                 n_items = 0;
@@ -12119,7 +12295,9 @@ pub unsafe extern "C" fn ak_decode_LeafResponse(
                 if n_items == N_ITEMS { flush_items!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
-                a_items[n_items].write(dec_leaf_element_fix(&mut es, base0 + off, u.at(1)));
+                let p = at_items!();
+                p.write(ak_dfix_LeafElement::ZERO);
+                dec_leaf_element_fix_into(&mut es, base0 + off, u.at(1), &mut *p);
                 if es.err != 0 { d.err = es.err; }
                 n_items += 1;
             }
@@ -12182,25 +12360,33 @@ pub unsafe extern "C" fn ak_decode_Surrogate(
     let base0 = 0usize;
     let mut d = Dec::new(buf0);
     let mut out = ak_dfix_Surrogate::ZERO;
+    // Optimisation D2: one 8-aligned arena shared by every loop slot below (one
+    // slot is open at a time; each keeps its own element budget).
+    let mut arena: [::core::mem::MaybeUninit<u64>; ak_rt::ARENA_BYTES / 8] =
+        [const { ::core::mem::MaybeUninit::uninit() }; ak_rt::ARENA_BYTES / 8];
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_ATTRS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_SurrogateAttrsEntry>());
-    let mut a_attrs: [::core::mem::MaybeUninit<ak_dfix_SurrogateAttrsEntry>; N_ATTRS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_ATTRS];
+    const _: () = assert!(N_ATTRS * ::core::mem::size_of::<ak_dfix_SurrogateAttrsEntry>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_SurrogateAttrsEntry>() <= 8);
     let mut n_attrs: usize = 0;
+    let a_attrs: *mut ak_dfix_SurrogateAttrsEntry = arena.as_mut_ptr() as *mut ak_dfix_SurrogateAttrsEntry;
+    #[allow(unused_macros)]
+    macro_rules! at_attrs { () => { a_attrs.add(n_attrs) }; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_TEXTS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
-    let mut a_texts: [::core::mem::MaybeUninit<ak_span>; N_TEXTS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_TEXTS];
+    const _: () = assert!(N_TEXTS * ::core::mem::size_of::<ak_span>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_span>() <= 8);
     let mut n_texts: usize = 0;
+    let a_texts: *mut ak_span = arena.as_mut_ptr() as *mut ak_span;
+    #[allow(unused_macros)]
+    macro_rules! at_texts { () => { a_texts.add(n_texts) }; }
     macro_rules! flush_attrs {
         () => {
             if n_attrs > 0 {
                 if let Some(add) = (*vt).add_attrs {
                     if (*dcx).hdr.err == AK_OK {
                         ak_rt::bump!((*dcx).c, reverse);
-                        add(ctx, obj, AK_TOKEN_ROOT, a_attrs.as_ptr() as *const ak_dfix_SurrogateAttrsEntry, n_attrs as i32);
+                        add(ctx, obj, AK_TOKEN_ROOT, a_attrs as *const ak_dfix_SurrogateAttrsEntry, n_attrs as i32);
                     }
                 }
                 n_attrs = 0;
@@ -12214,7 +12400,7 @@ pub unsafe extern "C" fn ak_decode_Surrogate(
                 if let Some(add) = (*vt).add_texts {
                     if (*dcx).hdr.err == AK_OK {
                         ak_rt::bump!((*dcx).c, reverse);
-                        add(ctx, obj, AK_TOKEN_ROOT, a_texts.as_ptr() as *const ak_span, n_texts as i32);
+                        add(ctx, obj, AK_TOKEN_ROOT, a_texts as *const ak_span, n_texts as i32);
                     }
                 }
                 n_texts = 0;
@@ -12282,7 +12468,9 @@ pub unsafe extern "C" fn ak_decode_Surrogate(
                 if n_attrs == N_ATTRS { flush_attrs!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
-                a_attrs[n_attrs].write(dec_surrogate_attrs_entry_fix(&mut es, base0 + off, u.at(2)));
+                let p = at_attrs!();
+                p.write(ak_dfix_SurrogateAttrsEntry::ZERO);
+                dec_surrogate_attrs_entry_fix_into(&mut es, base0 + off, u.at(2), &mut *p);
                 if es.err != 0 { d.err = es.err; }
                 n_attrs += 1;
             }
@@ -12291,7 +12479,7 @@ pub unsafe extern "C" fn ak_decode_Surrogate(
                 if n_texts == N_TEXTS { flush_texts!(); }
                 let (off, n) = d.len_body();
                 if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
-                a_texts[n_texts].write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
+                at_texts!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
                 n_texts += 1;
             }
             5 if wire == 2 => {
@@ -13528,44 +13716,58 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_PARENT_TASK_IDS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
-    let mut a_parent_task_ids: [::core::mem::MaybeUninit<ak_span>; N_PARENT_TASK_IDS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_PARENT_TASK_IDS];
+    const _: () = assert!(N_PARENT_TASK_IDS * ::core::mem::size_of::<ak_span>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_span>() <= 8);
     let mut n_parent_task_ids: usize = 0;
+    // Optimisation D4: the run's elements go straight into the record buffer.
+    let mut a_parent_task_ids: *mut ak_span = ::core::ptr::null_mut();
+    #[allow(unused_macros)]
+    macro_rules! at_parent_task_ids { () => {{ if n_parent_task_ids == 0 { a_parent_task_ids = (*dcx).bdr.open_run(N_PARENT_TASK_IDS * ::core::mem::size_of::<ak_span>()) as *mut ak_span; } a_parent_task_ids.add(n_parent_task_ids) }}; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_DATA_DEPENDENCIES: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
-    let mut a_data_dependencies: [::core::mem::MaybeUninit<ak_span>; N_DATA_DEPENDENCIES] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_DATA_DEPENDENCIES];
+    const _: () = assert!(N_DATA_DEPENDENCIES * ::core::mem::size_of::<ak_span>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_span>() <= 8);
     let mut n_data_dependencies: usize = 0;
+    // Optimisation D4: the run's elements go straight into the record buffer.
+    let mut a_data_dependencies: *mut ak_span = ::core::ptr::null_mut();
+    #[allow(unused_macros)]
+    macro_rules! at_data_dependencies { () => {{ if n_data_dependencies == 0 { a_data_dependencies = (*dcx).bdr.open_run(N_DATA_DEPENDENCIES * ::core::mem::size_of::<ak_span>()) as *mut ak_span; } a_data_dependencies.add(n_data_dependencies) }}; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_EXPECTED_OUTPUT_IDS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
-    let mut a_expected_output_ids: [::core::mem::MaybeUninit<ak_span>; N_EXPECTED_OUTPUT_IDS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_EXPECTED_OUTPUT_IDS];
+    const _: () = assert!(N_EXPECTED_OUTPUT_IDS * ::core::mem::size_of::<ak_span>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_span>() <= 8);
     let mut n_expected_output_ids: usize = 0;
+    // Optimisation D4: the run's elements go straight into the record buffer.
+    let mut a_expected_output_ids: *mut ak_span = ::core::ptr::null_mut();
+    #[allow(unused_macros)]
+    macro_rules! at_expected_output_ids { () => {{ if n_expected_output_ids == 0 { a_expected_output_ids = (*dcx).bdr.open_run(N_EXPECTED_OUTPUT_IDS * ::core::mem::size_of::<ak_span>()) as *mut ak_span; } a_expected_output_ids.add(n_expected_output_ids) }}; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_RETRY_OF_IDS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
-    let mut a_retry_of_ids: [::core::mem::MaybeUninit<ak_span>; N_RETRY_OF_IDS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_RETRY_OF_IDS];
+    const _: () = assert!(N_RETRY_OF_IDS * ::core::mem::size_of::<ak_span>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_span>() <= 8);
     let mut n_retry_of_ids: usize = 0;
+    // Optimisation D4: the run's elements go straight into the record buffer.
+    let mut a_retry_of_ids: *mut ak_span = ::core::ptr::null_mut();
+    #[allow(unused_macros)]
+    macro_rules! at_retry_of_ids { () => {{ if n_retry_of_ids == 0 { a_retry_of_ids = (*dcx).bdr.open_run(N_RETRY_OF_IDS * ::core::mem::size_of::<ak_span>()) as *mut ak_span; } a_retry_of_ids.add(n_retry_of_ids) }}; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_OPTIONS_OPTIONS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>());
-    let mut a_options_options: [::core::mem::MaybeUninit<ak_dfix_TaskOptionsOptionsEntry>; N_OPTIONS_OPTIONS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_OPTIONS_OPTIONS];
+    const _: () = assert!(N_OPTIONS_OPTIONS * ::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_TaskOptionsOptionsEntry>() <= 8);
     let mut n_options_options: usize = 0;
+    // Optimisation D4: the run's elements go straight into the record buffer.
+    let mut a_options_options: *mut ak_dfix_TaskOptionsOptionsEntry = ::core::ptr::null_mut();
+    #[allow(unused_macros)]
+    macro_rules! at_options_options { () => {{ if n_options_options == 0 { a_options_options = (*dcx).bdr.open_run(N_OPTIONS_OPTIONS * ::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>()) as *mut ak_dfix_TaskOptionsOptionsEntry; } a_options_options.add(n_options_options) }}; }
     macro_rules! flush_parent_task_ids {
         () => {
             if n_parent_task_ids > 0 {
-                // No call: the run is copied into the record buffer and the
-                // host reads it after `ak_parse_*` returns.
-                (*dcx).bdr.push(
+                // No call: the run was decoded into the record buffer (D4); close
+                // its record. The host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.close_run(
                     ak_rt::bdr::OP_ADD,
                     65537,
                     tok,
                     n_parent_task_ids as u32,
-                    a_parent_task_ids.as_ptr() as *const u8,
                     n_parent_task_ids * ::core::mem::size_of::<ak_span>(),
                 );
                 n_parent_task_ids = 0;
@@ -13575,14 +13777,13 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
     macro_rules! flush_data_dependencies {
         () => {
             if n_data_dependencies > 0 {
-                // No call: the run is copied into the record buffer and the
-                // host reads it after `ak_parse_*` returns.
-                (*dcx).bdr.push(
+                // No call: the run was decoded into the record buffer (D4); close
+                // its record. The host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.close_run(
                     ak_rt::bdr::OP_ADD,
                     65538,
                     tok,
                     n_data_dependencies as u32,
-                    a_data_dependencies.as_ptr() as *const u8,
                     n_data_dependencies * ::core::mem::size_of::<ak_span>(),
                 );
                 n_data_dependencies = 0;
@@ -13592,14 +13793,13 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
     macro_rules! flush_expected_output_ids {
         () => {
             if n_expected_output_ids > 0 {
-                // No call: the run is copied into the record buffer and the
-                // host reads it after `ak_parse_*` returns.
-                (*dcx).bdr.push(
+                // No call: the run was decoded into the record buffer (D4); close
+                // its record. The host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.close_run(
                     ak_rt::bdr::OP_ADD,
                     65539,
                     tok,
                     n_expected_output_ids as u32,
-                    a_expected_output_ids.as_ptr() as *const u8,
                     n_expected_output_ids * ::core::mem::size_of::<ak_span>(),
                 );
                 n_expected_output_ids = 0;
@@ -13609,14 +13809,13 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
     macro_rules! flush_retry_of_ids {
         () => {
             if n_retry_of_ids > 0 {
-                // No call: the run is copied into the record buffer and the
-                // host reads it after `ak_parse_*` returns.
-                (*dcx).bdr.push(
+                // No call: the run was decoded into the record buffer (D4); close
+                // its record. The host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.close_run(
                     ak_rt::bdr::OP_ADD,
                     65540,
                     tok,
                     n_retry_of_ids as u32,
-                    a_retry_of_ids.as_ptr() as *const u8,
                     n_retry_of_ids * ::core::mem::size_of::<ak_span>(),
                 );
                 n_retry_of_ids = 0;
@@ -13626,14 +13825,13 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
     macro_rules! flush_options_options {
         () => {
             if n_options_options > 0 {
-                // No call: the run is copied into the record buffer and the
-                // host reads it after `ak_parse_*` returns.
-                (*dcx).bdr.push(
+                // No call: the run was decoded into the record buffer (D4); close
+                // its record. The host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.close_run(
                     ak_rt::bdr::OP_ADD,
                     65541,
                     tok,
                     n_options_options as u32,
-                    a_options_options.as_ptr() as *const u8,
                     n_options_options * ::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>(),
                 );
                 n_options_options = 0;
@@ -13680,7 +13878,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                 if n_parent_task_ids == N_PARENT_TASK_IDS { flush_parent_task_ids!(); }
                 let (off, n) = d.len_body();
                 if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
-                a_parent_task_ids[n_parent_task_ids].write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
+                at_parent_task_ids!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
                 n_parent_task_ids += 1;
             }
             5 if wire == 2 => {
@@ -13688,7 +13886,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                 if n_data_dependencies == N_DATA_DEPENDENCIES { flush_data_dependencies!(); }
                 let (off, n) = d.len_body();
                 if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
-                a_data_dependencies[n_data_dependencies].write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
+                at_data_dependencies!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
                 n_data_dependencies += 1;
             }
             6 if wire == 2 => {
@@ -13696,7 +13894,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                 if n_expected_output_ids == N_EXPECTED_OUTPUT_IDS { flush_expected_output_ids!(); }
                 let (off, n) = d.len_body();
                 if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
-                a_expected_output_ids[n_expected_output_ids].write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
+                at_expected_output_ids!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
                 n_expected_output_ids += 1;
             }
             7 if wire == 2 => {
@@ -13704,7 +13902,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                 if n_retry_of_ids == N_RETRY_OF_IDS { flush_retry_of_ids!(); }
                 let (off, n) = d.len_body();
                 if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
-                a_retry_of_ids[n_retry_of_ids].write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
+                at_retry_of_ids!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
                 n_retry_of_ids += 1;
             }
             8 if wire == 0 => {
@@ -13736,7 +13934,9 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                         if n_options_options == N_OPTIONS_OPTIONS { flush_options_options!(); }
                         let (off, n) = c1.len_body();
                         let mut es = Dec::new(&buf1[off..off + n]);
-                        a_options_options[n_options_options].write(dec_task_options_options_entry_fix(&mut es, base1 + off, u.at(2)));
+                        let p = at_options_options!();
+                        p.write(ak_dfix_TaskOptionsOptionsEntry::ZERO);
+                        dec_task_options_options_entry_fix_into(&mut es, base1 + off, u.at(2), &mut *p);
                         if es.err != 0 { c1.err = es.err; }
                         n_options_options += 1;
                     }
@@ -14343,20 +14543,22 @@ unsafe fn dec_list_task_summary_response_tasks_element_pull(
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_OPTIONS_OPTIONS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>());
-    let mut a_options_options: [::core::mem::MaybeUninit<ak_dfix_TaskOptionsOptionsEntry>; N_OPTIONS_OPTIONS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_OPTIONS_OPTIONS];
+    const _: () = assert!(N_OPTIONS_OPTIONS * ::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_TaskOptionsOptionsEntry>() <= 8);
     let mut n_options_options: usize = 0;
+    // Optimisation D4: the run's elements go straight into the record buffer.
+    let mut a_options_options: *mut ak_dfix_TaskOptionsOptionsEntry = ::core::ptr::null_mut();
+    #[allow(unused_macros)]
+    macro_rules! at_options_options { () => {{ if n_options_options == 0 { a_options_options = (*dcx).bdr.open_run(N_OPTIONS_OPTIONS * ::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>()) as *mut ak_dfix_TaskOptionsOptionsEntry; } a_options_options.add(n_options_options) }}; }
     macro_rules! flush_options_options {
         () => {
             if n_options_options > 0 {
-                // No call: the run is copied into the record buffer and the
-                // host reads it after `ak_parse_*` returns.
-                (*dcx).bdr.push(
+                // No call: the run was decoded into the record buffer (D4); close
+                // its record. The host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.close_run(
                     ak_rt::bdr::OP_ADD,
                     65537,
                     tok,
                     n_options_options as u32,
-                    a_options_options.as_ptr() as *const u8,
                     n_options_options * ::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>(),
                 );
                 n_options_options = 0;
@@ -14407,7 +14609,9 @@ unsafe fn dec_list_task_summary_response_tasks_element_pull(
                         if n_options_options == N_OPTIONS_OPTIONS { flush_options_options!(); }
                         let (off, n) = c1.len_body();
                         let mut es = Dec::new(&buf1[off..off + n]);
-                        a_options_options[n_options_options].write(dec_task_options_options_entry_fix(&mut es, base1 + off, u.at(2)));
+                        let p = at_options_options!();
+                        p.write(ak_dfix_TaskOptionsOptionsEntry::ZERO);
+                        dec_task_options_options_entry_fix_into(&mut es, base1 + off, u.at(2), &mut *p);
                         if es.err != 0 { c1.err = es.err; }
                         n_options_options += 1;
                     }
@@ -14600,44 +14804,58 @@ unsafe fn dec_list_metrics_response_batches_element_pull(
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_TICKS: usize = ak_rt::arena_n(::core::mem::size_of::<i64>());
-    let mut a_ticks: [::core::mem::MaybeUninit<i64>; N_TICKS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_TICKS];
+    const _: () = assert!(N_TICKS * ::core::mem::size_of::<i64>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<i64>() <= 8);
     let mut n_ticks: usize = 0;
+    // Optimisation D4: the run's elements go straight into the record buffer.
+    let mut a_ticks: *mut i64 = ::core::ptr::null_mut();
+    #[allow(unused_macros)]
+    macro_rules! at_ticks { () => {{ if n_ticks == 0 { a_ticks = (*dcx).bdr.open_run(N_TICKS * ::core::mem::size_of::<i64>()) as *mut i64; } a_ticks.add(n_ticks) }}; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_VALUES: usize = ak_rt::arena_n(::core::mem::size_of::<f64>());
-    let mut a_values: [::core::mem::MaybeUninit<f64>; N_VALUES] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_VALUES];
+    const _: () = assert!(N_VALUES * ::core::mem::size_of::<f64>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<f64>() <= 8);
     let mut n_values: usize = 0;
+    // Optimisation D4: the run's elements go straight into the record buffer.
+    let mut a_values: *mut f64 = ::core::ptr::null_mut();
+    #[allow(unused_macros)]
+    macro_rules! at_values { () => {{ if n_values == 0 { a_values = (*dcx).bdr.open_run(N_VALUES * ::core::mem::size_of::<f64>()) as *mut f64; } a_values.add(n_values) }}; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_CODES: usize = ak_rt::arena_n(::core::mem::size_of::<i32>());
-    let mut a_codes: [::core::mem::MaybeUninit<i32>; N_CODES] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_CODES];
+    const _: () = assert!(N_CODES * ::core::mem::size_of::<i32>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<i32>() <= 8);
     let mut n_codes: usize = 0;
+    // Optimisation D4: the run's elements go straight into the record buffer.
+    let mut a_codes: *mut i32 = ::core::ptr::null_mut();
+    #[allow(unused_macros)]
+    macro_rules! at_codes { () => {{ if n_codes == 0 { a_codes = (*dcx).bdr.open_run(N_CODES * ::core::mem::size_of::<i32>()) as *mut i32; } a_codes.add(n_codes) }}; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_FLAGS: usize = ak_rt::arena_n(::core::mem::size_of::<u8>());
-    let mut a_flags: [::core::mem::MaybeUninit<u8>; N_FLAGS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_FLAGS];
+    const _: () = assert!(N_FLAGS * ::core::mem::size_of::<u8>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<u8>() <= 8);
     let mut n_flags: usize = 0;
+    // Optimisation D4: the run's elements go straight into the record buffer.
+    let mut a_flags: *mut u8 = ::core::ptr::null_mut();
+    #[allow(unused_macros)]
+    macro_rules! at_flags { () => {{ if n_flags == 0 { a_flags = (*dcx).bdr.open_run(N_FLAGS * ::core::mem::size_of::<u8>()) as *mut u8; } a_flags.add(n_flags) }}; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_STATUSES: usize = ak_rt::arena_n(::core::mem::size_of::<i32>());
-    let mut a_statuses: [::core::mem::MaybeUninit<i32>; N_STATUSES] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_STATUSES];
+    const _: () = assert!(N_STATUSES * ::core::mem::size_of::<i32>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<i32>() <= 8);
     let mut n_statuses: usize = 0;
+    // Optimisation D4: the run's elements go straight into the record buffer.
+    let mut a_statuses: *mut i32 = ::core::ptr::null_mut();
+    #[allow(unused_macros)]
+    macro_rules! at_statuses { () => {{ if n_statuses == 0 { a_statuses = (*dcx).bdr.open_run(N_STATUSES * ::core::mem::size_of::<i32>()) as *mut i32; } a_statuses.add(n_statuses) }}; }
     macro_rules! flush_ticks {
         () => {
             if n_ticks > 0 {
-                // No call: the run is copied into the record buffer and the
-                // host reads it after `ak_parse_*` returns.
-                (*dcx).bdr.push(
+                // No call: the run was decoded into the record buffer (D4); close
+                // its record. The host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.close_run(
                     ak_rt::bdr::OP_ADD,
                     65537,
                     tok,
                     n_ticks as u32,
-                    a_ticks.as_ptr() as *const u8,
                     n_ticks * ::core::mem::size_of::<i64>(),
                 );
                 n_ticks = 0;
@@ -14647,14 +14865,13 @@ unsafe fn dec_list_metrics_response_batches_element_pull(
     macro_rules! flush_values {
         () => {
             if n_values > 0 {
-                // No call: the run is copied into the record buffer and the
-                // host reads it after `ak_parse_*` returns.
-                (*dcx).bdr.push(
+                // No call: the run was decoded into the record buffer (D4); close
+                // its record. The host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.close_run(
                     ak_rt::bdr::OP_ADD,
                     65538,
                     tok,
                     n_values as u32,
-                    a_values.as_ptr() as *const u8,
                     n_values * ::core::mem::size_of::<f64>(),
                 );
                 n_values = 0;
@@ -14664,14 +14881,13 @@ unsafe fn dec_list_metrics_response_batches_element_pull(
     macro_rules! flush_codes {
         () => {
             if n_codes > 0 {
-                // No call: the run is copied into the record buffer and the
-                // host reads it after `ak_parse_*` returns.
-                (*dcx).bdr.push(
+                // No call: the run was decoded into the record buffer (D4); close
+                // its record. The host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.close_run(
                     ak_rt::bdr::OP_ADD,
                     65539,
                     tok,
                     n_codes as u32,
-                    a_codes.as_ptr() as *const u8,
                     n_codes * ::core::mem::size_of::<i32>(),
                 );
                 n_codes = 0;
@@ -14681,14 +14897,13 @@ unsafe fn dec_list_metrics_response_batches_element_pull(
     macro_rules! flush_flags {
         () => {
             if n_flags > 0 {
-                // No call: the run is copied into the record buffer and the
-                // host reads it after `ak_parse_*` returns.
-                (*dcx).bdr.push(
+                // No call: the run was decoded into the record buffer (D4); close
+                // its record. The host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.close_run(
                     ak_rt::bdr::OP_ADD,
                     65540,
                     tok,
                     n_flags as u32,
-                    a_flags.as_ptr() as *const u8,
                     n_flags * ::core::mem::size_of::<u8>(),
                 );
                 n_flags = 0;
@@ -14698,14 +14913,13 @@ unsafe fn dec_list_metrics_response_batches_element_pull(
     macro_rules! flush_statuses {
         () => {
             if n_statuses > 0 {
-                // No call: the run is copied into the record buffer and the
-                // host reads it after `ak_parse_*` returns.
-                (*dcx).bdr.push(
+                // No call: the run was decoded into the record buffer (D4); close
+                // its record. The host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.close_run(
                     ak_rt::bdr::OP_ADD,
                     65541,
                     tok,
                     n_statuses as u32,
-                    a_statuses.as_ptr() as *const u8,
                     n_statuses * ::core::mem::size_of::<i32>(),
                 );
                 n_statuses = 0;
@@ -14739,7 +14953,7 @@ unsafe fn dec_list_metrics_response_batches_element_pull(
                 if cur != 1 { flush!(); cur = 1; }
                 if n_ticks == N_TICKS { flush_ticks!(); }
                 let v = d.varint() as i64;
-                if d.err == 0 { a_ticks[n_ticks].write(v); n_ticks += 1; }
+                if d.err == 0 { at_ticks!().write(v); n_ticks += 1; }
             }
             2 if wire == 2 => {
                 if cur != 1 { flush!(); cur = 1; }
@@ -14749,7 +14963,7 @@ unsafe fn dec_list_metrics_response_batches_element_pull(
                     if n_ticks == N_TICKS { flush_ticks!(); }
                     let v = ps.varint() as i64;
                     if ps.err != 0 { break; }
-                    a_ticks[n_ticks].write(v);
+                    at_ticks!().write(v);
                     n_ticks += 1;
                 }
                 if ps.err != 0 { d.err = ps.err; }
@@ -14758,7 +14972,7 @@ unsafe fn dec_list_metrics_response_batches_element_pull(
                 if cur != 2 { flush!(); cur = 2; }
                 if n_values == N_VALUES { flush_values!(); }
                 let v = d.f64();
-                if d.err == 0 { a_values[n_values].write(v); n_values += 1; }
+                if d.err == 0 { at_values!().write(v); n_values += 1; }
             }
             3 if wire == 2 => {
                 if cur != 2 { flush!(); cur = 2; }
@@ -14768,7 +14982,7 @@ unsafe fn dec_list_metrics_response_batches_element_pull(
                     if n_values == N_VALUES { flush_values!(); }
                     let v = ps.f64();
                     if ps.err != 0 { break; }
-                    a_values[n_values].write(v);
+                    at_values!().write(v);
                     n_values += 1;
                 }
                 if ps.err != 0 { d.err = ps.err; }
@@ -14777,7 +14991,7 @@ unsafe fn dec_list_metrics_response_batches_element_pull(
                 if cur != 3 { flush!(); cur = 3; }
                 if n_codes == N_CODES { flush_codes!(); }
                 let v = d.varint() as i32;
-                if d.err == 0 { a_codes[n_codes].write(v); n_codes += 1; }
+                if d.err == 0 { at_codes!().write(v); n_codes += 1; }
             }
             4 if wire == 2 => {
                 if cur != 3 { flush!(); cur = 3; }
@@ -14787,7 +15001,7 @@ unsafe fn dec_list_metrics_response_batches_element_pull(
                     if n_codes == N_CODES { flush_codes!(); }
                     let v = ps.varint() as i32;
                     if ps.err != 0 { break; }
-                    a_codes[n_codes].write(v);
+                    at_codes!().write(v);
                     n_codes += 1;
                 }
                 if ps.err != 0 { d.err = ps.err; }
@@ -14796,7 +15010,7 @@ unsafe fn dec_list_metrics_response_batches_element_pull(
                 if cur != 4 { flush!(); cur = 4; }
                 if n_flags == N_FLAGS { flush_flags!(); }
                 let v = (d.varint() != 0) as u8;
-                if d.err == 0 { a_flags[n_flags].write(v); n_flags += 1; }
+                if d.err == 0 { at_flags!().write(v); n_flags += 1; }
             }
             5 if wire == 2 => {
                 if cur != 4 { flush!(); cur = 4; }
@@ -14806,7 +15020,7 @@ unsafe fn dec_list_metrics_response_batches_element_pull(
                     if n_flags == N_FLAGS { flush_flags!(); }
                     let v = (ps.varint() != 0) as u8;
                     if ps.err != 0 { break; }
-                    a_flags[n_flags].write(v);
+                    at_flags!().write(v);
                     n_flags += 1;
                 }
                 if ps.err != 0 { d.err = ps.err; }
@@ -14815,7 +15029,7 @@ unsafe fn dec_list_metrics_response_batches_element_pull(
                 if cur != 5 { flush!(); cur = 5; }
                 if n_statuses == N_STATUSES { flush_statuses!(); }
                 let v = d.varint() as i32;
-                if d.err == 0 { a_statuses[n_statuses].write(v); n_statuses += 1; }
+                if d.err == 0 { at_statuses!().write(v); n_statuses += 1; }
             }
             6 if wire == 2 => {
                 if cur != 5 { flush!(); cur = 5; }
@@ -14825,7 +15039,7 @@ unsafe fn dec_list_metrics_response_batches_element_pull(
                     if n_statuses == N_STATUSES { flush_statuses!(); }
                     let v = ps.varint() as i32;
                     if ps.err != 0 { break; }
-                    a_statuses[n_statuses].write(v);
+                    at_statuses!().write(v);
                     n_statuses += 1;
                 }
                 if ps.err != 0 { d.err = ps.err; }
@@ -14875,38 +15089,49 @@ unsafe fn dec_chunked_response_items_element_pull(
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_LABELS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
-    let mut a_labels: [::core::mem::MaybeUninit<ak_span>; N_LABELS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_LABELS];
+    const _: () = assert!(N_LABELS * ::core::mem::size_of::<ak_span>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_span>() <= 8);
     let mut n_labels: usize = 0;
+    // Optimisation D4: the run's elements go straight into the record buffer.
+    let mut a_labels: *mut ak_span = ::core::ptr::null_mut();
+    #[allow(unused_macros)]
+    macro_rules! at_labels { () => {{ if n_labels == 0 { a_labels = (*dcx).bdr.open_run(N_LABELS * ::core::mem::size_of::<ak_span>()) as *mut ak_span; } a_labels.add(n_labels) }}; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_ATTRS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_ChunkElementAttrsEntry>());
-    let mut a_attrs: [::core::mem::MaybeUninit<ak_dfix_ChunkElementAttrsEntry>; N_ATTRS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_ATTRS];
+    const _: () = assert!(N_ATTRS * ::core::mem::size_of::<ak_dfix_ChunkElementAttrsEntry>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_ChunkElementAttrsEntry>() <= 8);
     let mut n_attrs: usize = 0;
+    // Optimisation D4: the run's elements go straight into the record buffer.
+    let mut a_attrs: *mut ak_dfix_ChunkElementAttrsEntry = ::core::ptr::null_mut();
+    #[allow(unused_macros)]
+    macro_rules! at_attrs { () => {{ if n_attrs == 0 { a_attrs = (*dcx).bdr.open_run(N_ATTRS * ::core::mem::size_of::<ak_dfix_ChunkElementAttrsEntry>()) as *mut ak_dfix_ChunkElementAttrsEntry; } a_attrs.add(n_attrs) }}; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_INNER_MARKS: usize = ak_rt::arena_n(::core::mem::size_of::<i64>());
-    let mut a_inner_marks: [::core::mem::MaybeUninit<i64>; N_INNER_MARKS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_INNER_MARKS];
+    const _: () = assert!(N_INNER_MARKS * ::core::mem::size_of::<i64>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<i64>() <= 8);
     let mut n_inner_marks: usize = 0;
+    // Optimisation D4: the run's elements go straight into the record buffer.
+    let mut a_inner_marks: *mut i64 = ::core::ptr::null_mut();
+    #[allow(unused_macros)]
+    macro_rules! at_inner_marks { () => {{ if n_inner_marks == 0 { a_inner_marks = (*dcx).bdr.open_run(N_INNER_MARKS * ::core::mem::size_of::<i64>()) as *mut i64; } a_inner_marks.add(n_inner_marks) }}; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_INNER_LEAVES: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_ChunkLeaf>());
-    let mut a_inner_leaves: [::core::mem::MaybeUninit<ak_dfix_ChunkLeaf>; N_INNER_LEAVES] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_INNER_LEAVES];
+    const _: () = assert!(N_INNER_LEAVES * ::core::mem::size_of::<ak_dfix_ChunkLeaf>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_ChunkLeaf>() <= 8);
     let mut n_inner_leaves: usize = 0;
+    // Optimisation D4: the run's elements go straight into the record buffer.
+    let mut a_inner_leaves: *mut ak_dfix_ChunkLeaf = ::core::ptr::null_mut();
+    #[allow(unused_macros)]
+    macro_rules! at_inner_leaves { () => {{ if n_inner_leaves == 0 { a_inner_leaves = (*dcx).bdr.open_run(N_INNER_LEAVES * ::core::mem::size_of::<ak_dfix_ChunkLeaf>()) as *mut ak_dfix_ChunkLeaf; } a_inner_leaves.add(n_inner_leaves) }}; }
     macro_rules! flush_labels {
         () => {
             if n_labels > 0 {
-                // No call: the run is copied into the record buffer and the
-                // host reads it after `ak_parse_*` returns.
-                (*dcx).bdr.push(
+                // No call: the run was decoded into the record buffer (D4); close
+                // its record. The host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.close_run(
                     ak_rt::bdr::OP_ADD,
                     65537,
                     tok,
                     n_labels as u32,
-                    a_labels.as_ptr() as *const u8,
                     n_labels * ::core::mem::size_of::<ak_span>(),
                 );
                 n_labels = 0;
@@ -14916,14 +15141,13 @@ unsafe fn dec_chunked_response_items_element_pull(
     macro_rules! flush_attrs {
         () => {
             if n_attrs > 0 {
-                // No call: the run is copied into the record buffer and the
-                // host reads it after `ak_parse_*` returns.
-                (*dcx).bdr.push(
+                // No call: the run was decoded into the record buffer (D4); close
+                // its record. The host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.close_run(
                     ak_rt::bdr::OP_ADD,
                     65538,
                     tok,
                     n_attrs as u32,
-                    a_attrs.as_ptr() as *const u8,
                     n_attrs * ::core::mem::size_of::<ak_dfix_ChunkElementAttrsEntry>(),
                 );
                 n_attrs = 0;
@@ -14933,14 +15157,13 @@ unsafe fn dec_chunked_response_items_element_pull(
     macro_rules! flush_inner_marks {
         () => {
             if n_inner_marks > 0 {
-                // No call: the run is copied into the record buffer and the
-                // host reads it after `ak_parse_*` returns.
-                (*dcx).bdr.push(
+                // No call: the run was decoded into the record buffer (D4); close
+                // its record. The host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.close_run(
                     ak_rt::bdr::OP_ADD,
                     65539,
                     tok,
                     n_inner_marks as u32,
-                    a_inner_marks.as_ptr() as *const u8,
                     n_inner_marks * ::core::mem::size_of::<i64>(),
                 );
                 n_inner_marks = 0;
@@ -14950,14 +15173,13 @@ unsafe fn dec_chunked_response_items_element_pull(
     macro_rules! flush_inner_leaves {
         () => {
             if n_inner_leaves > 0 {
-                // No call: the run is copied into the record buffer and the
-                // host reads it after `ak_parse_*` returns.
-                (*dcx).bdr.push(
+                // No call: the run was decoded into the record buffer (D4); close
+                // its record. The host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.close_run(
                     ak_rt::bdr::OP_ADD,
                     65540,
                     tok,
                     n_inner_leaves as u32,
-                    a_inner_leaves.as_ptr() as *const u8,
                     n_inner_leaves * ::core::mem::size_of::<ak_dfix_ChunkLeaf>(),
                 );
                 n_inner_leaves = 0;
@@ -14985,7 +15207,7 @@ unsafe fn dec_chunked_response_items_element_pull(
                 if n_labels == N_LABELS { flush_labels!(); }
                 let (off, n) = d.len_body();
                 if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
-                a_labels[n_labels].write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
+                at_labels!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
                 n_labels += 1;
             }
             2 if wire == 2 => {
@@ -14993,7 +15215,9 @@ unsafe fn dec_chunked_response_items_element_pull(
                 if n_attrs == N_ATTRS { flush_attrs!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
-                a_attrs[n_attrs].write(dec_chunk_element_attrs_entry_fix(&mut es, base0 + off, u.at(1)));
+                let p = at_attrs!();
+                p.write(ak_dfix_ChunkElementAttrsEntry::ZERO);
+                dec_chunk_element_attrs_entry_fix_into(&mut es, base0 + off, u.at(1), &mut *p);
                 if es.err != 0 { d.err = es.err; }
                 n_attrs += 1;
             }
@@ -15021,7 +15245,7 @@ unsafe fn dec_chunked_response_items_element_pull(
                         if cur != 3 { flush!(); cur = 3; }
                         if n_inner_marks == N_INNER_MARKS { flush_inner_marks!(); }
                         let v = c1.varint() as i64;
-                        if c1.err == 0 { a_inner_marks[n_inner_marks].write(v); n_inner_marks += 1; }
+                        if c1.err == 0 { at_inner_marks!().write(v); n_inner_marks += 1; }
                     }
                     1 if wire == 2 => {
                         if cur != 3 { flush!(); cur = 3; }
@@ -15031,7 +15255,7 @@ unsafe fn dec_chunked_response_items_element_pull(
                             if n_inner_marks == N_INNER_MARKS { flush_inner_marks!(); }
                             let v = ps.varint() as i64;
                             if ps.err != 0 { break; }
-                            a_inner_marks[n_inner_marks].write(v);
+                            at_inner_marks!().write(v);
                             n_inner_marks += 1;
                         }
                         if ps.err != 0 { c1.err = ps.err; }
@@ -15041,7 +15265,9 @@ unsafe fn dec_chunked_response_items_element_pull(
                         if n_inner_leaves == N_INNER_LEAVES { flush_inner_leaves!(); }
                         let (off, n) = c1.len_body();
                         let mut es = Dec::new(&buf1[off..off + n]);
-                        a_inner_leaves[n_inner_leaves].write(dec_chunk_leaf_fix(&mut es, base1 + off, u.at(3)));
+                        let p = at_inner_leaves!();
+                        p.write(ak_dfix_ChunkLeaf::ZERO);
+                        dec_chunk_leaf_fix_into(&mut es, base1 + off, u.at(3), &mut *p);
                         if es.err != 0 { c1.err = es.err; }
                         n_inner_leaves += 1;
                     }
@@ -15102,38 +15328,49 @@ unsafe fn dec_chunked_response_wide_items_element_pull(
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_LABELS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
-    let mut a_labels: [::core::mem::MaybeUninit<ak_span>; N_LABELS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_LABELS];
+    const _: () = assert!(N_LABELS * ::core::mem::size_of::<ak_span>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_span>() <= 8);
     let mut n_labels: usize = 0;
+    // Optimisation D4: the run's elements go straight into the record buffer.
+    let mut a_labels: *mut ak_span = ::core::ptr::null_mut();
+    #[allow(unused_macros)]
+    macro_rules! at_labels { () => {{ if n_labels == 0 { a_labels = (*dcx).bdr.open_run(N_LABELS * ::core::mem::size_of::<ak_span>()) as *mut ak_span; } a_labels.add(n_labels) }}; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_ATTRS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_ChunkElementAttrsEntry>());
-    let mut a_attrs: [::core::mem::MaybeUninit<ak_dfix_ChunkElementAttrsEntry>; N_ATTRS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_ATTRS];
+    const _: () = assert!(N_ATTRS * ::core::mem::size_of::<ak_dfix_ChunkElementAttrsEntry>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_ChunkElementAttrsEntry>() <= 8);
     let mut n_attrs: usize = 0;
+    // Optimisation D4: the run's elements go straight into the record buffer.
+    let mut a_attrs: *mut ak_dfix_ChunkElementAttrsEntry = ::core::ptr::null_mut();
+    #[allow(unused_macros)]
+    macro_rules! at_attrs { () => {{ if n_attrs == 0 { a_attrs = (*dcx).bdr.open_run(N_ATTRS * ::core::mem::size_of::<ak_dfix_ChunkElementAttrsEntry>()) as *mut ak_dfix_ChunkElementAttrsEntry; } a_attrs.add(n_attrs) }}; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_INNER_MARKS: usize = ak_rt::arena_n(::core::mem::size_of::<i64>());
-    let mut a_inner_marks: [::core::mem::MaybeUninit<i64>; N_INNER_MARKS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_INNER_MARKS];
+    const _: () = assert!(N_INNER_MARKS * ::core::mem::size_of::<i64>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<i64>() <= 8);
     let mut n_inner_marks: usize = 0;
+    // Optimisation D4: the run's elements go straight into the record buffer.
+    let mut a_inner_marks: *mut i64 = ::core::ptr::null_mut();
+    #[allow(unused_macros)]
+    macro_rules! at_inner_marks { () => {{ if n_inner_marks == 0 { a_inner_marks = (*dcx).bdr.open_run(N_INNER_MARKS * ::core::mem::size_of::<i64>()) as *mut i64; } a_inner_marks.add(n_inner_marks) }}; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_INNER_LEAVES: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_ChunkLeaf>());
-    let mut a_inner_leaves: [::core::mem::MaybeUninit<ak_dfix_ChunkLeaf>; N_INNER_LEAVES] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_INNER_LEAVES];
+    const _: () = assert!(N_INNER_LEAVES * ::core::mem::size_of::<ak_dfix_ChunkLeaf>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_ChunkLeaf>() <= 8);
     let mut n_inner_leaves: usize = 0;
+    // Optimisation D4: the run's elements go straight into the record buffer.
+    let mut a_inner_leaves: *mut ak_dfix_ChunkLeaf = ::core::ptr::null_mut();
+    #[allow(unused_macros)]
+    macro_rules! at_inner_leaves { () => {{ if n_inner_leaves == 0 { a_inner_leaves = (*dcx).bdr.open_run(N_INNER_LEAVES * ::core::mem::size_of::<ak_dfix_ChunkLeaf>()) as *mut ak_dfix_ChunkLeaf; } a_inner_leaves.add(n_inner_leaves) }}; }
     macro_rules! flush_labels {
         () => {
             if n_labels > 0 {
-                // No call: the run is copied into the record buffer and the
-                // host reads it after `ak_parse_*` returns.
-                (*dcx).bdr.push(
+                // No call: the run was decoded into the record buffer (D4); close
+                // its record. The host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.close_run(
                     ak_rt::bdr::OP_ADD,
                     65537,
                     tok,
                     n_labels as u32,
-                    a_labels.as_ptr() as *const u8,
                     n_labels * ::core::mem::size_of::<ak_span>(),
                 );
                 n_labels = 0;
@@ -15143,14 +15380,13 @@ unsafe fn dec_chunked_response_wide_items_element_pull(
     macro_rules! flush_attrs {
         () => {
             if n_attrs > 0 {
-                // No call: the run is copied into the record buffer and the
-                // host reads it after `ak_parse_*` returns.
-                (*dcx).bdr.push(
+                // No call: the run was decoded into the record buffer (D4); close
+                // its record. The host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.close_run(
                     ak_rt::bdr::OP_ADD,
                     65538,
                     tok,
                     n_attrs as u32,
-                    a_attrs.as_ptr() as *const u8,
                     n_attrs * ::core::mem::size_of::<ak_dfix_ChunkElementAttrsEntry>(),
                 );
                 n_attrs = 0;
@@ -15160,14 +15396,13 @@ unsafe fn dec_chunked_response_wide_items_element_pull(
     macro_rules! flush_inner_marks {
         () => {
             if n_inner_marks > 0 {
-                // No call: the run is copied into the record buffer and the
-                // host reads it after `ak_parse_*` returns.
-                (*dcx).bdr.push(
+                // No call: the run was decoded into the record buffer (D4); close
+                // its record. The host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.close_run(
                     ak_rt::bdr::OP_ADD,
                     65539,
                     tok,
                     n_inner_marks as u32,
-                    a_inner_marks.as_ptr() as *const u8,
                     n_inner_marks * ::core::mem::size_of::<i64>(),
                 );
                 n_inner_marks = 0;
@@ -15177,14 +15412,13 @@ unsafe fn dec_chunked_response_wide_items_element_pull(
     macro_rules! flush_inner_leaves {
         () => {
             if n_inner_leaves > 0 {
-                // No call: the run is copied into the record buffer and the
-                // host reads it after `ak_parse_*` returns.
-                (*dcx).bdr.push(
+                // No call: the run was decoded into the record buffer (D4); close
+                // its record. The host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.close_run(
                     ak_rt::bdr::OP_ADD,
                     65540,
                     tok,
                     n_inner_leaves as u32,
-                    a_inner_leaves.as_ptr() as *const u8,
                     n_inner_leaves * ::core::mem::size_of::<ak_dfix_ChunkLeaf>(),
                 );
                 n_inner_leaves = 0;
@@ -15212,7 +15446,7 @@ unsafe fn dec_chunked_response_wide_items_element_pull(
                 if n_labels == N_LABELS { flush_labels!(); }
                 let (off, n) = d.len_body();
                 if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
-                a_labels[n_labels].write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
+                at_labels!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
                 n_labels += 1;
             }
             2 if wire == 2 => {
@@ -15220,7 +15454,9 @@ unsafe fn dec_chunked_response_wide_items_element_pull(
                 if n_attrs == N_ATTRS { flush_attrs!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
-                a_attrs[n_attrs].write(dec_chunk_element_attrs_entry_fix(&mut es, base0 + off, u.at(1)));
+                let p = at_attrs!();
+                p.write(ak_dfix_ChunkElementAttrsEntry::ZERO);
+                dec_chunk_element_attrs_entry_fix_into(&mut es, base0 + off, u.at(1), &mut *p);
                 if es.err != 0 { d.err = es.err; }
                 n_attrs += 1;
             }
@@ -15248,7 +15484,7 @@ unsafe fn dec_chunked_response_wide_items_element_pull(
                         if cur != 3 { flush!(); cur = 3; }
                         if n_inner_marks == N_INNER_MARKS { flush_inner_marks!(); }
                         let v = c1.varint() as i64;
-                        if c1.err == 0 { a_inner_marks[n_inner_marks].write(v); n_inner_marks += 1; }
+                        if c1.err == 0 { at_inner_marks!().write(v); n_inner_marks += 1; }
                     }
                     1 if wire == 2 => {
                         if cur != 3 { flush!(); cur = 3; }
@@ -15258,7 +15494,7 @@ unsafe fn dec_chunked_response_wide_items_element_pull(
                             if n_inner_marks == N_INNER_MARKS { flush_inner_marks!(); }
                             let v = ps.varint() as i64;
                             if ps.err != 0 { break; }
-                            a_inner_marks[n_inner_marks].write(v);
+                            at_inner_marks!().write(v);
                             n_inner_marks += 1;
                         }
                         if ps.err != 0 { c1.err = ps.err; }
@@ -15268,7 +15504,9 @@ unsafe fn dec_chunked_response_wide_items_element_pull(
                         if n_inner_leaves == N_INNER_LEAVES { flush_inner_leaves!(); }
                         let (off, n) = c1.len_body();
                         let mut es = Dec::new(&buf1[off..off + n]);
-                        a_inner_leaves[n_inner_leaves].write(dec_chunk_leaf_fix(&mut es, base1 + off, u.at(3)));
+                        let p = at_inner_leaves!();
+                        p.write(ak_dfix_ChunkLeaf::ZERO);
+                        dec_chunk_leaf_fix_into(&mut es, base1 + off, u.at(3), &mut *p);
                         if es.err != 0 { c1.err = es.err; }
                         n_inner_leaves += 1;
                     }
@@ -15696,20 +15934,22 @@ pub unsafe extern "C" fn ak_parse_TaskOptions(
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_OPTIONS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>());
-    let mut a_options: [::core::mem::MaybeUninit<ak_dfix_TaskOptionsOptionsEntry>; N_OPTIONS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_OPTIONS];
+    const _: () = assert!(N_OPTIONS * ::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_TaskOptionsOptionsEntry>() <= 8);
     let mut n_options: usize = 0;
+    // Optimisation D4: the run's elements go straight into the record buffer.
+    let mut a_options: *mut ak_dfix_TaskOptionsOptionsEntry = ::core::ptr::null_mut();
+    #[allow(unused_macros)]
+    macro_rules! at_options { () => {{ if n_options == 0 { a_options = (*dcx).bdr.open_run(N_OPTIONS * ::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>()) as *mut ak_dfix_TaskOptionsOptionsEntry; } a_options.add(n_options) }}; }
     macro_rules! flush_options {
         () => {
             if n_options > 0 {
-                // No call: the run is copied into the record buffer and the
-                // host reads it after `ak_parse_*` returns.
-                (*dcx).bdr.push(
+                // No call: the run was decoded into the record buffer (D4); close
+                // its record. The host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.close_run(
                     ak_rt::bdr::OP_ADD,
                     1,
                     AK_TOKEN_ROOT,
                     n_options as u32,
-                    a_options.as_ptr() as *const u8,
                     n_options * ::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>(),
                 );
                 n_options = 0;
@@ -15735,7 +15975,9 @@ pub unsafe extern "C" fn ak_parse_TaskOptions(
                 if n_options == N_OPTIONS { flush_options!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
-                a_options[n_options].write(dec_task_options_options_entry_fix(&mut es, base0 + off, u.at(1)));
+                let p = at_options!();
+                p.write(ak_dfix_TaskOptionsOptionsEntry::ZERO);
+                dec_task_options_options_entry_fix_into(&mut es, base0 + off, u.at(1), &mut *p);
                 if es.err != 0 { d.err = es.err; }
                 n_options += 1;
             }
@@ -15965,44 +16207,58 @@ pub unsafe extern "C" fn ak_parse_TaskDetailed(
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_PARENT_TASK_IDS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
-    let mut a_parent_task_ids: [::core::mem::MaybeUninit<ak_span>; N_PARENT_TASK_IDS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_PARENT_TASK_IDS];
+    const _: () = assert!(N_PARENT_TASK_IDS * ::core::mem::size_of::<ak_span>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_span>() <= 8);
     let mut n_parent_task_ids: usize = 0;
+    // Optimisation D4: the run's elements go straight into the record buffer.
+    let mut a_parent_task_ids: *mut ak_span = ::core::ptr::null_mut();
+    #[allow(unused_macros)]
+    macro_rules! at_parent_task_ids { () => {{ if n_parent_task_ids == 0 { a_parent_task_ids = (*dcx).bdr.open_run(N_PARENT_TASK_IDS * ::core::mem::size_of::<ak_span>()) as *mut ak_span; } a_parent_task_ids.add(n_parent_task_ids) }}; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_DATA_DEPENDENCIES: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
-    let mut a_data_dependencies: [::core::mem::MaybeUninit<ak_span>; N_DATA_DEPENDENCIES] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_DATA_DEPENDENCIES];
+    const _: () = assert!(N_DATA_DEPENDENCIES * ::core::mem::size_of::<ak_span>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_span>() <= 8);
     let mut n_data_dependencies: usize = 0;
+    // Optimisation D4: the run's elements go straight into the record buffer.
+    let mut a_data_dependencies: *mut ak_span = ::core::ptr::null_mut();
+    #[allow(unused_macros)]
+    macro_rules! at_data_dependencies { () => {{ if n_data_dependencies == 0 { a_data_dependencies = (*dcx).bdr.open_run(N_DATA_DEPENDENCIES * ::core::mem::size_of::<ak_span>()) as *mut ak_span; } a_data_dependencies.add(n_data_dependencies) }}; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_EXPECTED_OUTPUT_IDS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
-    let mut a_expected_output_ids: [::core::mem::MaybeUninit<ak_span>; N_EXPECTED_OUTPUT_IDS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_EXPECTED_OUTPUT_IDS];
+    const _: () = assert!(N_EXPECTED_OUTPUT_IDS * ::core::mem::size_of::<ak_span>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_span>() <= 8);
     let mut n_expected_output_ids: usize = 0;
+    // Optimisation D4: the run's elements go straight into the record buffer.
+    let mut a_expected_output_ids: *mut ak_span = ::core::ptr::null_mut();
+    #[allow(unused_macros)]
+    macro_rules! at_expected_output_ids { () => {{ if n_expected_output_ids == 0 { a_expected_output_ids = (*dcx).bdr.open_run(N_EXPECTED_OUTPUT_IDS * ::core::mem::size_of::<ak_span>()) as *mut ak_span; } a_expected_output_ids.add(n_expected_output_ids) }}; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_RETRY_OF_IDS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
-    let mut a_retry_of_ids: [::core::mem::MaybeUninit<ak_span>; N_RETRY_OF_IDS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_RETRY_OF_IDS];
+    const _: () = assert!(N_RETRY_OF_IDS * ::core::mem::size_of::<ak_span>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_span>() <= 8);
     let mut n_retry_of_ids: usize = 0;
+    // Optimisation D4: the run's elements go straight into the record buffer.
+    let mut a_retry_of_ids: *mut ak_span = ::core::ptr::null_mut();
+    #[allow(unused_macros)]
+    macro_rules! at_retry_of_ids { () => {{ if n_retry_of_ids == 0 { a_retry_of_ids = (*dcx).bdr.open_run(N_RETRY_OF_IDS * ::core::mem::size_of::<ak_span>()) as *mut ak_span; } a_retry_of_ids.add(n_retry_of_ids) }}; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_OPTIONS_OPTIONS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>());
-    let mut a_options_options: [::core::mem::MaybeUninit<ak_dfix_TaskOptionsOptionsEntry>; N_OPTIONS_OPTIONS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_OPTIONS_OPTIONS];
+    const _: () = assert!(N_OPTIONS_OPTIONS * ::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_TaskOptionsOptionsEntry>() <= 8);
     let mut n_options_options: usize = 0;
+    // Optimisation D4: the run's elements go straight into the record buffer.
+    let mut a_options_options: *mut ak_dfix_TaskOptionsOptionsEntry = ::core::ptr::null_mut();
+    #[allow(unused_macros)]
+    macro_rules! at_options_options { () => {{ if n_options_options == 0 { a_options_options = (*dcx).bdr.open_run(N_OPTIONS_OPTIONS * ::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>()) as *mut ak_dfix_TaskOptionsOptionsEntry; } a_options_options.add(n_options_options) }}; }
     macro_rules! flush_parent_task_ids {
         () => {
             if n_parent_task_ids > 0 {
-                // No call: the run is copied into the record buffer and the
-                // host reads it after `ak_parse_*` returns.
-                (*dcx).bdr.push(
+                // No call: the run was decoded into the record buffer (D4); close
+                // its record. The host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.close_run(
                     ak_rt::bdr::OP_ADD,
                     1,
                     AK_TOKEN_ROOT,
                     n_parent_task_ids as u32,
-                    a_parent_task_ids.as_ptr() as *const u8,
                     n_parent_task_ids * ::core::mem::size_of::<ak_span>(),
                 );
                 n_parent_task_ids = 0;
@@ -16012,14 +16268,13 @@ pub unsafe extern "C" fn ak_parse_TaskDetailed(
     macro_rules! flush_data_dependencies {
         () => {
             if n_data_dependencies > 0 {
-                // No call: the run is copied into the record buffer and the
-                // host reads it after `ak_parse_*` returns.
-                (*dcx).bdr.push(
+                // No call: the run was decoded into the record buffer (D4); close
+                // its record. The host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.close_run(
                     ak_rt::bdr::OP_ADD,
                     2,
                     AK_TOKEN_ROOT,
                     n_data_dependencies as u32,
-                    a_data_dependencies.as_ptr() as *const u8,
                     n_data_dependencies * ::core::mem::size_of::<ak_span>(),
                 );
                 n_data_dependencies = 0;
@@ -16029,14 +16284,13 @@ pub unsafe extern "C" fn ak_parse_TaskDetailed(
     macro_rules! flush_expected_output_ids {
         () => {
             if n_expected_output_ids > 0 {
-                // No call: the run is copied into the record buffer and the
-                // host reads it after `ak_parse_*` returns.
-                (*dcx).bdr.push(
+                // No call: the run was decoded into the record buffer (D4); close
+                // its record. The host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.close_run(
                     ak_rt::bdr::OP_ADD,
                     3,
                     AK_TOKEN_ROOT,
                     n_expected_output_ids as u32,
-                    a_expected_output_ids.as_ptr() as *const u8,
                     n_expected_output_ids * ::core::mem::size_of::<ak_span>(),
                 );
                 n_expected_output_ids = 0;
@@ -16046,14 +16300,13 @@ pub unsafe extern "C" fn ak_parse_TaskDetailed(
     macro_rules! flush_retry_of_ids {
         () => {
             if n_retry_of_ids > 0 {
-                // No call: the run is copied into the record buffer and the
-                // host reads it after `ak_parse_*` returns.
-                (*dcx).bdr.push(
+                // No call: the run was decoded into the record buffer (D4); close
+                // its record. The host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.close_run(
                     ak_rt::bdr::OP_ADD,
                     4,
                     AK_TOKEN_ROOT,
                     n_retry_of_ids as u32,
-                    a_retry_of_ids.as_ptr() as *const u8,
                     n_retry_of_ids * ::core::mem::size_of::<ak_span>(),
                 );
                 n_retry_of_ids = 0;
@@ -16063,14 +16316,13 @@ pub unsafe extern "C" fn ak_parse_TaskDetailed(
     macro_rules! flush_options_options {
         () => {
             if n_options_options > 0 {
-                // No call: the run is copied into the record buffer and the
-                // host reads it after `ak_parse_*` returns.
-                (*dcx).bdr.push(
+                // No call: the run was decoded into the record buffer (D4); close
+                // its record. The host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.close_run(
                     ak_rt::bdr::OP_ADD,
                     5,
                     AK_TOKEN_ROOT,
                     n_options_options as u32,
-                    a_options_options.as_ptr() as *const u8,
                     n_options_options * ::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>(),
                 );
                 n_options_options = 0;
@@ -16118,7 +16370,7 @@ pub unsafe extern "C" fn ak_parse_TaskDetailed(
                 if n_parent_task_ids == N_PARENT_TASK_IDS { flush_parent_task_ids!(); }
                 let (off, n) = d.len_body();
                 if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
-                a_parent_task_ids[n_parent_task_ids].write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
+                at_parent_task_ids!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
                 n_parent_task_ids += 1;
             }
             5 if wire == 2 => {
@@ -16126,7 +16378,7 @@ pub unsafe extern "C" fn ak_parse_TaskDetailed(
                 if n_data_dependencies == N_DATA_DEPENDENCIES { flush_data_dependencies!(); }
                 let (off, n) = d.len_body();
                 if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
-                a_data_dependencies[n_data_dependencies].write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
+                at_data_dependencies!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
                 n_data_dependencies += 1;
             }
             6 if wire == 2 => {
@@ -16134,7 +16386,7 @@ pub unsafe extern "C" fn ak_parse_TaskDetailed(
                 if n_expected_output_ids == N_EXPECTED_OUTPUT_IDS { flush_expected_output_ids!(); }
                 let (off, n) = d.len_body();
                 if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
-                a_expected_output_ids[n_expected_output_ids].write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
+                at_expected_output_ids!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
                 n_expected_output_ids += 1;
             }
             7 if wire == 2 => {
@@ -16142,7 +16394,7 @@ pub unsafe extern "C" fn ak_parse_TaskDetailed(
                 if n_retry_of_ids == N_RETRY_OF_IDS { flush_retry_of_ids!(); }
                 let (off, n) = d.len_body();
                 if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
-                a_retry_of_ids[n_retry_of_ids].write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
+                at_retry_of_ids!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
                 n_retry_of_ids += 1;
             }
             8 if wire == 0 => {
@@ -16174,7 +16426,9 @@ pub unsafe extern "C" fn ak_parse_TaskDetailed(
                         if n_options_options == N_OPTIONS_OPTIONS { flush_options_options!(); }
                         let (off, n) = c1.len_body();
                         let mut es = Dec::new(&buf1[off..off + n]);
-                        a_options_options[n_options_options].write(dec_task_options_options_entry_fix(&mut es, base1 + off, u.at(2)));
+                        let p = at_options_options!();
+                        p.write(ak_dfix_TaskOptionsOptionsEntry::ZERO);
+                        dec_task_options_options_entry_fix_into(&mut es, base1 + off, u.at(2), &mut *p);
                         if es.err != 0 { c1.err = es.err; }
                         n_options_options += 1;
                     }
@@ -16800,20 +17054,22 @@ pub unsafe extern "C" fn ak_parse_TaskSummary(
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_OPTIONS_OPTIONS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>());
-    let mut a_options_options: [::core::mem::MaybeUninit<ak_dfix_TaskOptionsOptionsEntry>; N_OPTIONS_OPTIONS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_OPTIONS_OPTIONS];
+    const _: () = assert!(N_OPTIONS_OPTIONS * ::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_TaskOptionsOptionsEntry>() <= 8);
     let mut n_options_options: usize = 0;
+    // Optimisation D4: the run's elements go straight into the record buffer.
+    let mut a_options_options: *mut ak_dfix_TaskOptionsOptionsEntry = ::core::ptr::null_mut();
+    #[allow(unused_macros)]
+    macro_rules! at_options_options { () => {{ if n_options_options == 0 { a_options_options = (*dcx).bdr.open_run(N_OPTIONS_OPTIONS * ::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>()) as *mut ak_dfix_TaskOptionsOptionsEntry; } a_options_options.add(n_options_options) }}; }
     macro_rules! flush_options_options {
         () => {
             if n_options_options > 0 {
-                // No call: the run is copied into the record buffer and the
-                // host reads it after `ak_parse_*` returns.
-                (*dcx).bdr.push(
+                // No call: the run was decoded into the record buffer (D4); close
+                // its record. The host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.close_run(
                     ak_rt::bdr::OP_ADD,
                     1,
                     AK_TOKEN_ROOT,
                     n_options_options as u32,
-                    a_options_options.as_ptr() as *const u8,
                     n_options_options * ::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>(),
                 );
                 n_options_options = 0;
@@ -16865,7 +17121,9 @@ pub unsafe extern "C" fn ak_parse_TaskSummary(
                         if n_options_options == N_OPTIONS_OPTIONS { flush_options_options!(); }
                         let (off, n) = c1.len_body();
                         let mut es = Dec::new(&buf1[off..off + n]);
-                        a_options_options[n_options_options].write(dec_task_options_options_entry_fix(&mut es, base1 + off, u.at(2)));
+                        let p = at_options_options!();
+                        p.write(ak_dfix_TaskOptionsOptionsEntry::ZERO);
+                        dec_task_options_options_entry_fix_into(&mut es, base1 + off, u.at(2), &mut *p);
                         if es.err != 0 { c1.err = es.err; }
                         n_options_options += 1;
                     }
@@ -17402,44 +17660,58 @@ pub unsafe extern "C" fn ak_parse_MetricsBatch(
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_TICKS: usize = ak_rt::arena_n(::core::mem::size_of::<i64>());
-    let mut a_ticks: [::core::mem::MaybeUninit<i64>; N_TICKS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_TICKS];
+    const _: () = assert!(N_TICKS * ::core::mem::size_of::<i64>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<i64>() <= 8);
     let mut n_ticks: usize = 0;
+    // Optimisation D4: the run's elements go straight into the record buffer.
+    let mut a_ticks: *mut i64 = ::core::ptr::null_mut();
+    #[allow(unused_macros)]
+    macro_rules! at_ticks { () => {{ if n_ticks == 0 { a_ticks = (*dcx).bdr.open_run(N_TICKS * ::core::mem::size_of::<i64>()) as *mut i64; } a_ticks.add(n_ticks) }}; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_VALUES: usize = ak_rt::arena_n(::core::mem::size_of::<f64>());
-    let mut a_values: [::core::mem::MaybeUninit<f64>; N_VALUES] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_VALUES];
+    const _: () = assert!(N_VALUES * ::core::mem::size_of::<f64>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<f64>() <= 8);
     let mut n_values: usize = 0;
+    // Optimisation D4: the run's elements go straight into the record buffer.
+    let mut a_values: *mut f64 = ::core::ptr::null_mut();
+    #[allow(unused_macros)]
+    macro_rules! at_values { () => {{ if n_values == 0 { a_values = (*dcx).bdr.open_run(N_VALUES * ::core::mem::size_of::<f64>()) as *mut f64; } a_values.add(n_values) }}; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_CODES: usize = ak_rt::arena_n(::core::mem::size_of::<i32>());
-    let mut a_codes: [::core::mem::MaybeUninit<i32>; N_CODES] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_CODES];
+    const _: () = assert!(N_CODES * ::core::mem::size_of::<i32>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<i32>() <= 8);
     let mut n_codes: usize = 0;
+    // Optimisation D4: the run's elements go straight into the record buffer.
+    let mut a_codes: *mut i32 = ::core::ptr::null_mut();
+    #[allow(unused_macros)]
+    macro_rules! at_codes { () => {{ if n_codes == 0 { a_codes = (*dcx).bdr.open_run(N_CODES * ::core::mem::size_of::<i32>()) as *mut i32; } a_codes.add(n_codes) }}; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_FLAGS: usize = ak_rt::arena_n(::core::mem::size_of::<u8>());
-    let mut a_flags: [::core::mem::MaybeUninit<u8>; N_FLAGS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_FLAGS];
+    const _: () = assert!(N_FLAGS * ::core::mem::size_of::<u8>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<u8>() <= 8);
     let mut n_flags: usize = 0;
+    // Optimisation D4: the run's elements go straight into the record buffer.
+    let mut a_flags: *mut u8 = ::core::ptr::null_mut();
+    #[allow(unused_macros)]
+    macro_rules! at_flags { () => {{ if n_flags == 0 { a_flags = (*dcx).bdr.open_run(N_FLAGS * ::core::mem::size_of::<u8>()) as *mut u8; } a_flags.add(n_flags) }}; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_STATUSES: usize = ak_rt::arena_n(::core::mem::size_of::<i32>());
-    let mut a_statuses: [::core::mem::MaybeUninit<i32>; N_STATUSES] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_STATUSES];
+    const _: () = assert!(N_STATUSES * ::core::mem::size_of::<i32>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<i32>() <= 8);
     let mut n_statuses: usize = 0;
+    // Optimisation D4: the run's elements go straight into the record buffer.
+    let mut a_statuses: *mut i32 = ::core::ptr::null_mut();
+    #[allow(unused_macros)]
+    macro_rules! at_statuses { () => {{ if n_statuses == 0 { a_statuses = (*dcx).bdr.open_run(N_STATUSES * ::core::mem::size_of::<i32>()) as *mut i32; } a_statuses.add(n_statuses) }}; }
     macro_rules! flush_ticks {
         () => {
             if n_ticks > 0 {
-                // No call: the run is copied into the record buffer and the
-                // host reads it after `ak_parse_*` returns.
-                (*dcx).bdr.push(
+                // No call: the run was decoded into the record buffer (D4); close
+                // its record. The host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.close_run(
                     ak_rt::bdr::OP_ADD,
                     1,
                     AK_TOKEN_ROOT,
                     n_ticks as u32,
-                    a_ticks.as_ptr() as *const u8,
                     n_ticks * ::core::mem::size_of::<i64>(),
                 );
                 n_ticks = 0;
@@ -17449,14 +17721,13 @@ pub unsafe extern "C" fn ak_parse_MetricsBatch(
     macro_rules! flush_values {
         () => {
             if n_values > 0 {
-                // No call: the run is copied into the record buffer and the
-                // host reads it after `ak_parse_*` returns.
-                (*dcx).bdr.push(
+                // No call: the run was decoded into the record buffer (D4); close
+                // its record. The host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.close_run(
                     ak_rt::bdr::OP_ADD,
                     2,
                     AK_TOKEN_ROOT,
                     n_values as u32,
-                    a_values.as_ptr() as *const u8,
                     n_values * ::core::mem::size_of::<f64>(),
                 );
                 n_values = 0;
@@ -17466,14 +17737,13 @@ pub unsafe extern "C" fn ak_parse_MetricsBatch(
     macro_rules! flush_codes {
         () => {
             if n_codes > 0 {
-                // No call: the run is copied into the record buffer and the
-                // host reads it after `ak_parse_*` returns.
-                (*dcx).bdr.push(
+                // No call: the run was decoded into the record buffer (D4); close
+                // its record. The host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.close_run(
                     ak_rt::bdr::OP_ADD,
                     3,
                     AK_TOKEN_ROOT,
                     n_codes as u32,
-                    a_codes.as_ptr() as *const u8,
                     n_codes * ::core::mem::size_of::<i32>(),
                 );
                 n_codes = 0;
@@ -17483,14 +17753,13 @@ pub unsafe extern "C" fn ak_parse_MetricsBatch(
     macro_rules! flush_flags {
         () => {
             if n_flags > 0 {
-                // No call: the run is copied into the record buffer and the
-                // host reads it after `ak_parse_*` returns.
-                (*dcx).bdr.push(
+                // No call: the run was decoded into the record buffer (D4); close
+                // its record. The host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.close_run(
                     ak_rt::bdr::OP_ADD,
                     4,
                     AK_TOKEN_ROOT,
                     n_flags as u32,
-                    a_flags.as_ptr() as *const u8,
                     n_flags * ::core::mem::size_of::<u8>(),
                 );
                 n_flags = 0;
@@ -17500,14 +17769,13 @@ pub unsafe extern "C" fn ak_parse_MetricsBatch(
     macro_rules! flush_statuses {
         () => {
             if n_statuses > 0 {
-                // No call: the run is copied into the record buffer and the
-                // host reads it after `ak_parse_*` returns.
-                (*dcx).bdr.push(
+                // No call: the run was decoded into the record buffer (D4); close
+                // its record. The host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.close_run(
                     ak_rt::bdr::OP_ADD,
                     5,
                     AK_TOKEN_ROOT,
                     n_statuses as u32,
-                    a_statuses.as_ptr() as *const u8,
                     n_statuses * ::core::mem::size_of::<i32>(),
                 );
                 n_statuses = 0;
@@ -17542,7 +17810,7 @@ pub unsafe extern "C" fn ak_parse_MetricsBatch(
                 if cur != 1 { flush!(); cur = 1; }
                 if n_ticks == N_TICKS { flush_ticks!(); }
                 let v = d.varint() as i64;
-                if d.err == 0 { a_ticks[n_ticks].write(v); n_ticks += 1; }
+                if d.err == 0 { at_ticks!().write(v); n_ticks += 1; }
             }
             2 if wire == 2 => {
                 if cur != 1 { flush!(); cur = 1; }
@@ -17552,7 +17820,7 @@ pub unsafe extern "C" fn ak_parse_MetricsBatch(
                     if n_ticks == N_TICKS { flush_ticks!(); }
                     let v = ps.varint() as i64;
                     if ps.err != 0 { break; }
-                    a_ticks[n_ticks].write(v);
+                    at_ticks!().write(v);
                     n_ticks += 1;
                 }
                 if ps.err != 0 { d.err = ps.err; }
@@ -17561,7 +17829,7 @@ pub unsafe extern "C" fn ak_parse_MetricsBatch(
                 if cur != 2 { flush!(); cur = 2; }
                 if n_values == N_VALUES { flush_values!(); }
                 let v = d.f64();
-                if d.err == 0 { a_values[n_values].write(v); n_values += 1; }
+                if d.err == 0 { at_values!().write(v); n_values += 1; }
             }
             3 if wire == 2 => {
                 if cur != 2 { flush!(); cur = 2; }
@@ -17571,7 +17839,7 @@ pub unsafe extern "C" fn ak_parse_MetricsBatch(
                     if n_values == N_VALUES { flush_values!(); }
                     let v = ps.f64();
                     if ps.err != 0 { break; }
-                    a_values[n_values].write(v);
+                    at_values!().write(v);
                     n_values += 1;
                 }
                 if ps.err != 0 { d.err = ps.err; }
@@ -17580,7 +17848,7 @@ pub unsafe extern "C" fn ak_parse_MetricsBatch(
                 if cur != 3 { flush!(); cur = 3; }
                 if n_codes == N_CODES { flush_codes!(); }
                 let v = d.varint() as i32;
-                if d.err == 0 { a_codes[n_codes].write(v); n_codes += 1; }
+                if d.err == 0 { at_codes!().write(v); n_codes += 1; }
             }
             4 if wire == 2 => {
                 if cur != 3 { flush!(); cur = 3; }
@@ -17590,7 +17858,7 @@ pub unsafe extern "C" fn ak_parse_MetricsBatch(
                     if n_codes == N_CODES { flush_codes!(); }
                     let v = ps.varint() as i32;
                     if ps.err != 0 { break; }
-                    a_codes[n_codes].write(v);
+                    at_codes!().write(v);
                     n_codes += 1;
                 }
                 if ps.err != 0 { d.err = ps.err; }
@@ -17599,7 +17867,7 @@ pub unsafe extern "C" fn ak_parse_MetricsBatch(
                 if cur != 4 { flush!(); cur = 4; }
                 if n_flags == N_FLAGS { flush_flags!(); }
                 let v = (d.varint() != 0) as u8;
-                if d.err == 0 { a_flags[n_flags].write(v); n_flags += 1; }
+                if d.err == 0 { at_flags!().write(v); n_flags += 1; }
             }
             5 if wire == 2 => {
                 if cur != 4 { flush!(); cur = 4; }
@@ -17609,7 +17877,7 @@ pub unsafe extern "C" fn ak_parse_MetricsBatch(
                     if n_flags == N_FLAGS { flush_flags!(); }
                     let v = (ps.varint() != 0) as u8;
                     if ps.err != 0 { break; }
-                    a_flags[n_flags].write(v);
+                    at_flags!().write(v);
                     n_flags += 1;
                 }
                 if ps.err != 0 { d.err = ps.err; }
@@ -17618,7 +17886,7 @@ pub unsafe extern "C" fn ak_parse_MetricsBatch(
                 if cur != 5 { flush!(); cur = 5; }
                 if n_statuses == N_STATUSES { flush_statuses!(); }
                 let v = d.varint() as i32;
-                if d.err == 0 { a_statuses[n_statuses].write(v); n_statuses += 1; }
+                if d.err == 0 { at_statuses!().write(v); n_statuses += 1; }
             }
             6 if wire == 2 => {
                 if cur != 5 { flush!(); cur = 5; }
@@ -17628,7 +17896,7 @@ pub unsafe extern "C" fn ak_parse_MetricsBatch(
                     if n_statuses == N_STATUSES { flush_statuses!(); }
                     let v = ps.varint() as i32;
                     if ps.err != 0 { break; }
-                    a_statuses[n_statuses].write(v);
+                    at_statuses!().write(v);
                     n_statuses += 1;
                 }
                 if ps.err != 0 { d.err = ps.err; }
@@ -17781,20 +18049,22 @@ pub unsafe extern "C" fn ak_parse_ListResultsResponse(
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_RESULTS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_ResultRaw>());
-    let mut a_results: [::core::mem::MaybeUninit<ak_dfix_ResultRaw>; N_RESULTS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_RESULTS];
+    const _: () = assert!(N_RESULTS * ::core::mem::size_of::<ak_dfix_ResultRaw>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_ResultRaw>() <= 8);
     let mut n_results: usize = 0;
+    // Optimisation D4: the run's elements go straight into the record buffer.
+    let mut a_results: *mut ak_dfix_ResultRaw = ::core::ptr::null_mut();
+    #[allow(unused_macros)]
+    macro_rules! at_results { () => {{ if n_results == 0 { a_results = (*dcx).bdr.open_run(N_RESULTS * ::core::mem::size_of::<ak_dfix_ResultRaw>()) as *mut ak_dfix_ResultRaw; } a_results.add(n_results) }}; }
     macro_rules! flush_results {
         () => {
             if n_results > 0 {
-                // No call: the run is copied into the record buffer and the
-                // host reads it after `ak_parse_*` returns.
-                (*dcx).bdr.push(
+                // No call: the run was decoded into the record buffer (D4); close
+                // its record. The host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.close_run(
                     ak_rt::bdr::OP_ADD,
                     1,
                     AK_TOKEN_ROOT,
                     n_results as u32,
-                    a_results.as_ptr() as *const u8,
                     n_results * ::core::mem::size_of::<ak_dfix_ResultRaw>(),
                 );
                 n_results = 0;
@@ -17820,7 +18090,9 @@ pub unsafe extern "C" fn ak_parse_ListResultsResponse(
                 if n_results == N_RESULTS { flush_results!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
-                a_results[n_results].write(dec_result_raw_fix(&mut es, base0 + off, u.at(1)));
+                let p = at_results!();
+                p.write(ak_dfix_ResultRaw::ZERO);
+                dec_result_raw_fix_into(&mut es, base0 + off, u.at(1), &mut *p);
                 if es.err != 0 { d.err = es.err; }
                 n_results += 1;
             }
@@ -18066,20 +18338,22 @@ pub unsafe extern "C" fn ak_parse_ListProbeResponse(
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_PROBES: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_Probe>());
-    let mut a_probes: [::core::mem::MaybeUninit<ak_dfix_Probe>; N_PROBES] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_PROBES];
+    const _: () = assert!(N_PROBES * ::core::mem::size_of::<ak_dfix_Probe>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_Probe>() <= 8);
     let mut n_probes: usize = 0;
+    // Optimisation D4: the run's elements go straight into the record buffer.
+    let mut a_probes: *mut ak_dfix_Probe = ::core::ptr::null_mut();
+    #[allow(unused_macros)]
+    macro_rules! at_probes { () => {{ if n_probes == 0 { a_probes = (*dcx).bdr.open_run(N_PROBES * ::core::mem::size_of::<ak_dfix_Probe>()) as *mut ak_dfix_Probe; } a_probes.add(n_probes) }}; }
     macro_rules! flush_probes {
         () => {
             if n_probes > 0 {
-                // No call: the run is copied into the record buffer and the
-                // host reads it after `ak_parse_*` returns.
-                (*dcx).bdr.push(
+                // No call: the run was decoded into the record buffer (D4); close
+                // its record. The host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.close_run(
                     ak_rt::bdr::OP_ADD,
                     1,
                     AK_TOKEN_ROOT,
                     n_probes as u32,
-                    a_probes.as_ptr() as *const u8,
                     n_probes * ::core::mem::size_of::<ak_dfix_Probe>(),
                 );
                 n_probes = 0;
@@ -18105,7 +18379,9 @@ pub unsafe extern "C" fn ak_parse_ListProbeResponse(
                 if n_probes == N_PROBES { flush_probes!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
-                a_probes[n_probes].write(dec_probe_fix(&mut es, base0 + off, u.at(1)));
+                let p = at_probes!();
+                p.write(ak_dfix_Probe::ZERO);
+                dec_probe_fix_into(&mut es, base0 + off, u.at(1), &mut *p);
                 if es.err != 0 { d.err = es.err; }
                 n_probes += 1;
             }
@@ -18371,26 +18647,31 @@ pub unsafe extern "C" fn ak_parse_DualResponse(
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_LEFT: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_Pair>());
-    let mut a_left: [::core::mem::MaybeUninit<ak_dfix_Pair>; N_LEFT] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_LEFT];
+    const _: () = assert!(N_LEFT * ::core::mem::size_of::<ak_dfix_Pair>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_Pair>() <= 8);
     let mut n_left: usize = 0;
+    // Optimisation D4: the run's elements go straight into the record buffer.
+    let mut a_left: *mut ak_dfix_Pair = ::core::ptr::null_mut();
+    #[allow(unused_macros)]
+    macro_rules! at_left { () => {{ if n_left == 0 { a_left = (*dcx).bdr.open_run(N_LEFT * ::core::mem::size_of::<ak_dfix_Pair>()) as *mut ak_dfix_Pair; } a_left.add(n_left) }}; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_RIGHT: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_Pair>());
-    let mut a_right: [::core::mem::MaybeUninit<ak_dfix_Pair>; N_RIGHT] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_RIGHT];
+    const _: () = assert!(N_RIGHT * ::core::mem::size_of::<ak_dfix_Pair>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_Pair>() <= 8);
     let mut n_right: usize = 0;
+    // Optimisation D4: the run's elements go straight into the record buffer.
+    let mut a_right: *mut ak_dfix_Pair = ::core::ptr::null_mut();
+    #[allow(unused_macros)]
+    macro_rules! at_right { () => {{ if n_right == 0 { a_right = (*dcx).bdr.open_run(N_RIGHT * ::core::mem::size_of::<ak_dfix_Pair>()) as *mut ak_dfix_Pair; } a_right.add(n_right) }}; }
     macro_rules! flush_left {
         () => {
             if n_left > 0 {
-                // No call: the run is copied into the record buffer and the
-                // host reads it after `ak_parse_*` returns.
-                (*dcx).bdr.push(
+                // No call: the run was decoded into the record buffer (D4); close
+                // its record. The host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.close_run(
                     ak_rt::bdr::OP_ADD,
                     1,
                     AK_TOKEN_ROOT,
                     n_left as u32,
-                    a_left.as_ptr() as *const u8,
                     n_left * ::core::mem::size_of::<ak_dfix_Pair>(),
                 );
                 n_left = 0;
@@ -18400,14 +18681,13 @@ pub unsafe extern "C" fn ak_parse_DualResponse(
     macro_rules! flush_right {
         () => {
             if n_right > 0 {
-                // No call: the run is copied into the record buffer and the
-                // host reads it after `ak_parse_*` returns.
-                (*dcx).bdr.push(
+                // No call: the run was decoded into the record buffer (D4); close
+                // its record. The host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.close_run(
                     ak_rt::bdr::OP_ADD,
                     2,
                     AK_TOKEN_ROOT,
                     n_right as u32,
-                    a_right.as_ptr() as *const u8,
                     n_right * ::core::mem::size_of::<ak_dfix_Pair>(),
                 );
                 n_right = 0;
@@ -18434,7 +18714,9 @@ pub unsafe extern "C" fn ak_parse_DualResponse(
                 if n_left == N_LEFT { flush_left!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
-                a_left[n_left].write(dec_pair_fix(&mut es, base0 + off, u.at(1)));
+                let p = at_left!();
+                p.write(ak_dfix_Pair::ZERO);
+                dec_pair_fix_into(&mut es, base0 + off, u.at(1), &mut *p);
                 if es.err != 0 { d.err = es.err; }
                 n_left += 1;
             }
@@ -18443,7 +18725,9 @@ pub unsafe extern "C" fn ak_parse_DualResponse(
                 if n_right == N_RIGHT { flush_right!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
-                a_right[n_right].write(dec_pair_fix(&mut es, base0 + off, u.at(2)));
+                let p = at_right!();
+                p.write(ak_dfix_Pair::ZERO);
+                dec_pair_fix_into(&mut es, base0 + off, u.at(2), &mut *p);
                 if es.err != 0 { d.err = es.err; }
                 n_right += 1;
             }
@@ -18595,26 +18879,31 @@ pub unsafe extern "C" fn ak_parse_ChunkInner(
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_MARKS: usize = ak_rt::arena_n(::core::mem::size_of::<i64>());
-    let mut a_marks: [::core::mem::MaybeUninit<i64>; N_MARKS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_MARKS];
+    const _: () = assert!(N_MARKS * ::core::mem::size_of::<i64>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<i64>() <= 8);
     let mut n_marks: usize = 0;
+    // Optimisation D4: the run's elements go straight into the record buffer.
+    let mut a_marks: *mut i64 = ::core::ptr::null_mut();
+    #[allow(unused_macros)]
+    macro_rules! at_marks { () => {{ if n_marks == 0 { a_marks = (*dcx).bdr.open_run(N_MARKS * ::core::mem::size_of::<i64>()) as *mut i64; } a_marks.add(n_marks) }}; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_LEAVES: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_ChunkLeaf>());
-    let mut a_leaves: [::core::mem::MaybeUninit<ak_dfix_ChunkLeaf>; N_LEAVES] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_LEAVES];
+    const _: () = assert!(N_LEAVES * ::core::mem::size_of::<ak_dfix_ChunkLeaf>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_ChunkLeaf>() <= 8);
     let mut n_leaves: usize = 0;
+    // Optimisation D4: the run's elements go straight into the record buffer.
+    let mut a_leaves: *mut ak_dfix_ChunkLeaf = ::core::ptr::null_mut();
+    #[allow(unused_macros)]
+    macro_rules! at_leaves { () => {{ if n_leaves == 0 { a_leaves = (*dcx).bdr.open_run(N_LEAVES * ::core::mem::size_of::<ak_dfix_ChunkLeaf>()) as *mut ak_dfix_ChunkLeaf; } a_leaves.add(n_leaves) }}; }
     macro_rules! flush_marks {
         () => {
             if n_marks > 0 {
-                // No call: the run is copied into the record buffer and the
-                // host reads it after `ak_parse_*` returns.
-                (*dcx).bdr.push(
+                // No call: the run was decoded into the record buffer (D4); close
+                // its record. The host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.close_run(
                     ak_rt::bdr::OP_ADD,
                     1,
                     AK_TOKEN_ROOT,
                     n_marks as u32,
-                    a_marks.as_ptr() as *const u8,
                     n_marks * ::core::mem::size_of::<i64>(),
                 );
                 n_marks = 0;
@@ -18624,14 +18913,13 @@ pub unsafe extern "C" fn ak_parse_ChunkInner(
     macro_rules! flush_leaves {
         () => {
             if n_leaves > 0 {
-                // No call: the run is copied into the record buffer and the
-                // host reads it after `ak_parse_*` returns.
-                (*dcx).bdr.push(
+                // No call: the run was decoded into the record buffer (D4); close
+                // its record. The host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.close_run(
                     ak_rt::bdr::OP_ADD,
                     2,
                     AK_TOKEN_ROOT,
                     n_leaves as u32,
-                    a_leaves.as_ptr() as *const u8,
                     n_leaves * ::core::mem::size_of::<ak_dfix_ChunkLeaf>(),
                 );
                 n_leaves = 0;
@@ -18657,7 +18945,7 @@ pub unsafe extern "C" fn ak_parse_ChunkInner(
                 if cur != 1 { flush!(); cur = 1; }
                 if n_marks == N_MARKS { flush_marks!(); }
                 let v = d.varint() as i64;
-                if d.err == 0 { a_marks[n_marks].write(v); n_marks += 1; }
+                if d.err == 0 { at_marks!().write(v); n_marks += 1; }
             }
             1 if wire == 2 => {
                 if cur != 1 { flush!(); cur = 1; }
@@ -18667,7 +18955,7 @@ pub unsafe extern "C" fn ak_parse_ChunkInner(
                     if n_marks == N_MARKS { flush_marks!(); }
                     let v = ps.varint() as i64;
                     if ps.err != 0 { break; }
-                    a_marks[n_marks].write(v);
+                    at_marks!().write(v);
                     n_marks += 1;
                 }
                 if ps.err != 0 { d.err = ps.err; }
@@ -18677,7 +18965,9 @@ pub unsafe extern "C" fn ak_parse_ChunkInner(
                 if n_leaves == N_LEAVES { flush_leaves!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
-                a_leaves[n_leaves].write(dec_chunk_leaf_fix(&mut es, base0 + off, u.at(1)));
+                let p = at_leaves!();
+                p.write(ak_dfix_ChunkLeaf::ZERO);
+                dec_chunk_leaf_fix_into(&mut es, base0 + off, u.at(1), &mut *p);
                 if es.err != 0 { d.err = es.err; }
                 n_leaves += 1;
             }
@@ -18745,38 +19035,49 @@ pub unsafe extern "C" fn ak_parse_ChunkElement(
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_LABELS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
-    let mut a_labels: [::core::mem::MaybeUninit<ak_span>; N_LABELS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_LABELS];
+    const _: () = assert!(N_LABELS * ::core::mem::size_of::<ak_span>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_span>() <= 8);
     let mut n_labels: usize = 0;
+    // Optimisation D4: the run's elements go straight into the record buffer.
+    let mut a_labels: *mut ak_span = ::core::ptr::null_mut();
+    #[allow(unused_macros)]
+    macro_rules! at_labels { () => {{ if n_labels == 0 { a_labels = (*dcx).bdr.open_run(N_LABELS * ::core::mem::size_of::<ak_span>()) as *mut ak_span; } a_labels.add(n_labels) }}; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_ATTRS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_ChunkElementAttrsEntry>());
-    let mut a_attrs: [::core::mem::MaybeUninit<ak_dfix_ChunkElementAttrsEntry>; N_ATTRS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_ATTRS];
+    const _: () = assert!(N_ATTRS * ::core::mem::size_of::<ak_dfix_ChunkElementAttrsEntry>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_ChunkElementAttrsEntry>() <= 8);
     let mut n_attrs: usize = 0;
+    // Optimisation D4: the run's elements go straight into the record buffer.
+    let mut a_attrs: *mut ak_dfix_ChunkElementAttrsEntry = ::core::ptr::null_mut();
+    #[allow(unused_macros)]
+    macro_rules! at_attrs { () => {{ if n_attrs == 0 { a_attrs = (*dcx).bdr.open_run(N_ATTRS * ::core::mem::size_of::<ak_dfix_ChunkElementAttrsEntry>()) as *mut ak_dfix_ChunkElementAttrsEntry; } a_attrs.add(n_attrs) }}; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_INNER_MARKS: usize = ak_rt::arena_n(::core::mem::size_of::<i64>());
-    let mut a_inner_marks: [::core::mem::MaybeUninit<i64>; N_INNER_MARKS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_INNER_MARKS];
+    const _: () = assert!(N_INNER_MARKS * ::core::mem::size_of::<i64>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<i64>() <= 8);
     let mut n_inner_marks: usize = 0;
+    // Optimisation D4: the run's elements go straight into the record buffer.
+    let mut a_inner_marks: *mut i64 = ::core::ptr::null_mut();
+    #[allow(unused_macros)]
+    macro_rules! at_inner_marks { () => {{ if n_inner_marks == 0 { a_inner_marks = (*dcx).bdr.open_run(N_INNER_MARKS * ::core::mem::size_of::<i64>()) as *mut i64; } a_inner_marks.add(n_inner_marks) }}; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_INNER_LEAVES: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_ChunkLeaf>());
-    let mut a_inner_leaves: [::core::mem::MaybeUninit<ak_dfix_ChunkLeaf>; N_INNER_LEAVES] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_INNER_LEAVES];
+    const _: () = assert!(N_INNER_LEAVES * ::core::mem::size_of::<ak_dfix_ChunkLeaf>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_ChunkLeaf>() <= 8);
     let mut n_inner_leaves: usize = 0;
+    // Optimisation D4: the run's elements go straight into the record buffer.
+    let mut a_inner_leaves: *mut ak_dfix_ChunkLeaf = ::core::ptr::null_mut();
+    #[allow(unused_macros)]
+    macro_rules! at_inner_leaves { () => {{ if n_inner_leaves == 0 { a_inner_leaves = (*dcx).bdr.open_run(N_INNER_LEAVES * ::core::mem::size_of::<ak_dfix_ChunkLeaf>()) as *mut ak_dfix_ChunkLeaf; } a_inner_leaves.add(n_inner_leaves) }}; }
     macro_rules! flush_labels {
         () => {
             if n_labels > 0 {
-                // No call: the run is copied into the record buffer and the
-                // host reads it after `ak_parse_*` returns.
-                (*dcx).bdr.push(
+                // No call: the run was decoded into the record buffer (D4); close
+                // its record. The host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.close_run(
                     ak_rt::bdr::OP_ADD,
                     1,
                     AK_TOKEN_ROOT,
                     n_labels as u32,
-                    a_labels.as_ptr() as *const u8,
                     n_labels * ::core::mem::size_of::<ak_span>(),
                 );
                 n_labels = 0;
@@ -18786,14 +19087,13 @@ pub unsafe extern "C" fn ak_parse_ChunkElement(
     macro_rules! flush_attrs {
         () => {
             if n_attrs > 0 {
-                // No call: the run is copied into the record buffer and the
-                // host reads it after `ak_parse_*` returns.
-                (*dcx).bdr.push(
+                // No call: the run was decoded into the record buffer (D4); close
+                // its record. The host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.close_run(
                     ak_rt::bdr::OP_ADD,
                     2,
                     AK_TOKEN_ROOT,
                     n_attrs as u32,
-                    a_attrs.as_ptr() as *const u8,
                     n_attrs * ::core::mem::size_of::<ak_dfix_ChunkElementAttrsEntry>(),
                 );
                 n_attrs = 0;
@@ -18803,14 +19103,13 @@ pub unsafe extern "C" fn ak_parse_ChunkElement(
     macro_rules! flush_inner_marks {
         () => {
             if n_inner_marks > 0 {
-                // No call: the run is copied into the record buffer and the
-                // host reads it after `ak_parse_*` returns.
-                (*dcx).bdr.push(
+                // No call: the run was decoded into the record buffer (D4); close
+                // its record. The host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.close_run(
                     ak_rt::bdr::OP_ADD,
                     3,
                     AK_TOKEN_ROOT,
                     n_inner_marks as u32,
-                    a_inner_marks.as_ptr() as *const u8,
                     n_inner_marks * ::core::mem::size_of::<i64>(),
                 );
                 n_inner_marks = 0;
@@ -18820,14 +19119,13 @@ pub unsafe extern "C" fn ak_parse_ChunkElement(
     macro_rules! flush_inner_leaves {
         () => {
             if n_inner_leaves > 0 {
-                // No call: the run is copied into the record buffer and the
-                // host reads it after `ak_parse_*` returns.
-                (*dcx).bdr.push(
+                // No call: the run was decoded into the record buffer (D4); close
+                // its record. The host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.close_run(
                     ak_rt::bdr::OP_ADD,
                     4,
                     AK_TOKEN_ROOT,
                     n_inner_leaves as u32,
-                    a_inner_leaves.as_ptr() as *const u8,
                     n_inner_leaves * ::core::mem::size_of::<ak_dfix_ChunkLeaf>(),
                 );
                 n_inner_leaves = 0;
@@ -18856,7 +19154,7 @@ pub unsafe extern "C" fn ak_parse_ChunkElement(
                 if n_labels == N_LABELS { flush_labels!(); }
                 let (off, n) = d.len_body();
                 if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
-                a_labels[n_labels].write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
+                at_labels!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
                 n_labels += 1;
             }
             2 if wire == 2 => {
@@ -18864,7 +19162,9 @@ pub unsafe extern "C" fn ak_parse_ChunkElement(
                 if n_attrs == N_ATTRS { flush_attrs!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
-                a_attrs[n_attrs].write(dec_chunk_element_attrs_entry_fix(&mut es, base0 + off, u.at(1)));
+                let p = at_attrs!();
+                p.write(ak_dfix_ChunkElementAttrsEntry::ZERO);
+                dec_chunk_element_attrs_entry_fix_into(&mut es, base0 + off, u.at(1), &mut *p);
                 if es.err != 0 { d.err = es.err; }
                 n_attrs += 1;
             }
@@ -18892,7 +19192,7 @@ pub unsafe extern "C" fn ak_parse_ChunkElement(
                         if cur != 3 { flush!(); cur = 3; }
                         if n_inner_marks == N_INNER_MARKS { flush_inner_marks!(); }
                         let v = c1.varint() as i64;
-                        if c1.err == 0 { a_inner_marks[n_inner_marks].write(v); n_inner_marks += 1; }
+                        if c1.err == 0 { at_inner_marks!().write(v); n_inner_marks += 1; }
                     }
                     1 if wire == 2 => {
                         if cur != 3 { flush!(); cur = 3; }
@@ -18902,7 +19202,7 @@ pub unsafe extern "C" fn ak_parse_ChunkElement(
                             if n_inner_marks == N_INNER_MARKS { flush_inner_marks!(); }
                             let v = ps.varint() as i64;
                             if ps.err != 0 { break; }
-                            a_inner_marks[n_inner_marks].write(v);
+                            at_inner_marks!().write(v);
                             n_inner_marks += 1;
                         }
                         if ps.err != 0 { c1.err = ps.err; }
@@ -18912,7 +19212,9 @@ pub unsafe extern "C" fn ak_parse_ChunkElement(
                         if n_inner_leaves == N_INNER_LEAVES { flush_inner_leaves!(); }
                         let (off, n) = c1.len_body();
                         let mut es = Dec::new(&buf1[off..off + n]);
-                        a_inner_leaves[n_inner_leaves].write(dec_chunk_leaf_fix(&mut es, base1 + off, u.at(3)));
+                        let p = at_inner_leaves!();
+                        p.write(ak_dfix_ChunkLeaf::ZERO);
+                        dec_chunk_leaf_fix_into(&mut es, base1 + off, u.at(3), &mut *p);
                         if es.err != 0 { c1.err = es.err; }
                         n_inner_leaves += 1;
                     }
@@ -19276,20 +19578,22 @@ pub unsafe extern "C" fn ak_parse_LeafResponse(
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_ITEMS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_LeafElement>());
-    let mut a_items: [::core::mem::MaybeUninit<ak_dfix_LeafElement>; N_ITEMS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_ITEMS];
+    const _: () = assert!(N_ITEMS * ::core::mem::size_of::<ak_dfix_LeafElement>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_LeafElement>() <= 8);
     let mut n_items: usize = 0;
+    // Optimisation D4: the run's elements go straight into the record buffer.
+    let mut a_items: *mut ak_dfix_LeafElement = ::core::ptr::null_mut();
+    #[allow(unused_macros)]
+    macro_rules! at_items { () => {{ if n_items == 0 { a_items = (*dcx).bdr.open_run(N_ITEMS * ::core::mem::size_of::<ak_dfix_LeafElement>()) as *mut ak_dfix_LeafElement; } a_items.add(n_items) }}; }
     macro_rules! flush_items {
         () => {
             if n_items > 0 {
-                // No call: the run is copied into the record buffer and the
-                // host reads it after `ak_parse_*` returns.
-                (*dcx).bdr.push(
+                // No call: the run was decoded into the record buffer (D4); close
+                // its record. The host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.close_run(
                     ak_rt::bdr::OP_ADD,
                     1,
                     AK_TOKEN_ROOT,
                     n_items as u32,
-                    a_items.as_ptr() as *const u8,
                     n_items * ::core::mem::size_of::<ak_dfix_LeafElement>(),
                 );
                 n_items = 0;
@@ -19315,7 +19619,9 @@ pub unsafe extern "C" fn ak_parse_LeafResponse(
                 if n_items == N_ITEMS { flush_items!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
-                a_items[n_items].write(dec_leaf_element_fix(&mut es, base0 + off, u.at(1)));
+                let p = at_items!();
+                p.write(ak_dfix_LeafElement::ZERO);
+                dec_leaf_element_fix_into(&mut es, base0 + off, u.at(1), &mut *p);
                 if es.err != 0 { d.err = es.err; }
                 n_items += 1;
             }
@@ -19383,26 +19689,31 @@ pub unsafe extern "C" fn ak_parse_Surrogate(
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_ATTRS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_SurrogateAttrsEntry>());
-    let mut a_attrs: [::core::mem::MaybeUninit<ak_dfix_SurrogateAttrsEntry>; N_ATTRS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_ATTRS];
+    const _: () = assert!(N_ATTRS * ::core::mem::size_of::<ak_dfix_SurrogateAttrsEntry>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_SurrogateAttrsEntry>() <= 8);
     let mut n_attrs: usize = 0;
+    // Optimisation D4: the run's elements go straight into the record buffer.
+    let mut a_attrs: *mut ak_dfix_SurrogateAttrsEntry = ::core::ptr::null_mut();
+    #[allow(unused_macros)]
+    macro_rules! at_attrs { () => {{ if n_attrs == 0 { a_attrs = (*dcx).bdr.open_run(N_ATTRS * ::core::mem::size_of::<ak_dfix_SurrogateAttrsEntry>()) as *mut ak_dfix_SurrogateAttrsEntry; } a_attrs.add(n_attrs) }}; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_TEXTS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
-    let mut a_texts: [::core::mem::MaybeUninit<ak_span>; N_TEXTS] =
-        [const { ::core::mem::MaybeUninit::uninit() }; N_TEXTS];
+    const _: () = assert!(N_TEXTS * ::core::mem::size_of::<ak_span>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_span>() <= 8);
     let mut n_texts: usize = 0;
+    // Optimisation D4: the run's elements go straight into the record buffer.
+    let mut a_texts: *mut ak_span = ::core::ptr::null_mut();
+    #[allow(unused_macros)]
+    macro_rules! at_texts { () => {{ if n_texts == 0 { a_texts = (*dcx).bdr.open_run(N_TEXTS * ::core::mem::size_of::<ak_span>()) as *mut ak_span; } a_texts.add(n_texts) }}; }
     macro_rules! flush_attrs {
         () => {
             if n_attrs > 0 {
-                // No call: the run is copied into the record buffer and the
-                // host reads it after `ak_parse_*` returns.
-                (*dcx).bdr.push(
+                // No call: the run was decoded into the record buffer (D4); close
+                // its record. The host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.close_run(
                     ak_rt::bdr::OP_ADD,
                     1,
                     AK_TOKEN_ROOT,
                     n_attrs as u32,
-                    a_attrs.as_ptr() as *const u8,
                     n_attrs * ::core::mem::size_of::<ak_dfix_SurrogateAttrsEntry>(),
                 );
                 n_attrs = 0;
@@ -19412,14 +19723,13 @@ pub unsafe extern "C" fn ak_parse_Surrogate(
     macro_rules! flush_texts {
         () => {
             if n_texts > 0 {
-                // No call: the run is copied into the record buffer and the
-                // host reads it after `ak_parse_*` returns.
-                (*dcx).bdr.push(
+                // No call: the run was decoded into the record buffer (D4); close
+                // its record. The host reads it after `ak_parse_*` returns.
+                (*dcx).bdr.close_run(
                     ak_rt::bdr::OP_ADD,
                     2,
                     AK_TOKEN_ROOT,
                     n_texts as u32,
-                    a_texts.as_ptr() as *const u8,
                     n_texts * ::core::mem::size_of::<ak_span>(),
                 );
                 n_texts = 0;
@@ -19484,7 +19794,9 @@ pub unsafe extern "C" fn ak_parse_Surrogate(
                 if n_attrs == N_ATTRS { flush_attrs!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
-                a_attrs[n_attrs].write(dec_surrogate_attrs_entry_fix(&mut es, base0 + off, u.at(2)));
+                let p = at_attrs!();
+                p.write(ak_dfix_SurrogateAttrsEntry::ZERO);
+                dec_surrogate_attrs_entry_fix_into(&mut es, base0 + off, u.at(2), &mut *p);
                 if es.err != 0 { d.err = es.err; }
                 n_attrs += 1;
             }
@@ -19493,7 +19805,7 @@ pub unsafe extern "C" fn ak_parse_Surrogate(
                 if n_texts == N_TEXTS { flush_texts!(); }
                 let (off, n) = d.len_body();
                 if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
-                a_texts[n_texts].write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
+                at_texts!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
                 n_texts += 1;
             }
             5 if wire == 2 => {

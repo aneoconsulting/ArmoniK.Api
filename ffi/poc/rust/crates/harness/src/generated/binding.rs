@@ -229,6 +229,18 @@ unsafe fn s_of(base: *const u8, s: ak_span, ctx: *mut ak_dec_ctx) -> String {
 /// stack (1 KB) rather than in a heap Vec.
 const ENUM_STACK: usize = 256;
 
+/// Optimisation E3: the stack budget of a loop callback's SMALL chunk. A field with at most
+/// `ak_small_n(group size)` elements is filled there; a longer one takes the callback's
+/// out-of-line copy with the 32 KB arena (ABI v1 7.3). 2 KB <= 32 KB, so a field that fits
+/// the small chunk is one run on either path.
+const AK_SMALL_BYTES: usize = 2048;
+
+#[inline(always)]
+const fn ak_small_n(group_size: usize) -> usize {
+    let n = AK_SMALL_BYTES / group_size;
+    if n == 0 { 1 } else { n }
+}
+
 #[inline(always)]
 unsafe fn b_of(base: *const u8, s: ak_span) -> ::bytes::Bytes {
     if s.len == 0 {
@@ -1594,7 +1606,9 @@ unsafe extern "C" fn loop_list_results_response_results(
         let o = &*(obj as *const ListResultsResponse);
         let tc = tcs();
         let src = &o.results;
-        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_efix_ResultRaw>());
+        // Optimisation E3: a small chunk on the stack; a longer field goes out of line.
+        if src.len() > ak_small_n(::core::mem::size_of::<ak_efix_ResultRaw>()) { return loop_list_results_response_results_big(ctx, obj, token); }
+        const CHUNK: usize = ak_small_n(::core::mem::size_of::<ak_efix_ResultRaw>());
         let mut chunk: [::core::mem::MaybeUninit<ak_efix_ResultRaw>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
         let mut i = 0usize;
@@ -1617,6 +1631,35 @@ unsafe extern "C" fn loop_list_results_response_results(
     })
 }
 
+/// Optimisation E3: `loop_list_results_response_results` for a field longer than the small chunk, with the
+/// 32 KB arena (called inside that callback's guard).
+#[inline(never)]
+unsafe fn loop_list_results_response_results_big(ctx: *mut ak_enc_ctx, obj: *const c_void, token: i64) -> i32 {
+    let o = &*(obj as *const ListResultsResponse);
+    let tc = tcs();
+    let src = &o.results;
+    const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_efix_ResultRaw>());
+    let mut chunk: [::core::mem::MaybeUninit<ak_efix_ResultRaw>; CHUNK] =
+        [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+    let mut i = 0usize;
+    let mut done = 0usize;
+    for v in src.iter() {
+        chunk[i].write(make_result_raw(v, tc));
+        i += 1;
+        if i == CHUNK {
+            let rc = ak_elem_ResultRaw(ctx, chunk.as_ptr() as *const ak_efix_ResultRaw, i as i32);
+            if rc < 0 { return rc; }
+            done += i;
+            i = 0;
+        }
+    }
+    if i > 0 {
+        let rc = ak_elem_ResultRaw(ctx, chunk.as_ptr() as *const ak_efix_ResultRaw, i as i32);
+        if rc < 0 { return rc; }
+    }
+    AK_OK
+}
+
 unsafe extern "C" fn loop_list_results_response_results_zeroed(
     ctx: *mut ak_enc_ctx,
     obj: *const c_void,
@@ -1626,7 +1669,9 @@ unsafe extern "C" fn loop_list_results_response_results_zeroed(
         let o = &*(obj as *const ListResultsResponse);
         let tc = tcs();
         let src = &o.results;
-        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_efix_ResultRaw>());
+        // Optimisation E3: a small chunk on the stack; a longer field goes out of line.
+        if src.len() > ak_small_n(::core::mem::size_of::<ak_efix_ResultRaw>()) { return loop_list_results_response_results_zeroed_big(ctx, obj, token); }
+        const CHUNK: usize = ak_small_n(::core::mem::size_of::<ak_efix_ResultRaw>());
         const SZ: usize = ::core::mem::size_of::<ak_efix_ResultRaw>();
         let mut chunk: [::core::mem::MaybeUninit<ak_efix_ResultRaw>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
@@ -1657,6 +1702,43 @@ unsafe extern "C" fn loop_list_results_response_results_zeroed(
     })
 }
 
+/// Optimisation E3: `loop_list_results_response_results_zeroed` for a field longer than the small chunk, with the
+/// 32 KB arena (called inside that callback's guard).
+#[inline(never)]
+unsafe fn loop_list_results_response_results_zeroed_big(ctx: *mut ak_enc_ctx, obj: *const c_void, token: i64) -> i32 {
+    let o = &*(obj as *const ListResultsResponse);
+    let tc = tcs();
+    let src = &o.results;
+    const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_efix_ResultRaw>());
+    const SZ: usize = ::core::mem::size_of::<ak_efix_ResultRaw>();
+    let mut chunk: [::core::mem::MaybeUninit<ak_efix_ResultRaw>; CHUNK] =
+        [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+    // All-zero is a valid group: `ak_efix_ResultRaw::ZERO` is exactly this bit pattern.
+    // Decision 9 as corrected: clear the elements you will fill, min(n, CHUNK), not
+    // the whole arena (O(elements), not O(arena)).
+    let total = src.len();
+    ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, total.min(CHUNK) * SZ);
+    let mut i = 0usize;
+    let mut done = 0usize;
+    for v in src.iter() {
+        fill_result_raw_sparse(&mut *chunk[i].as_mut_ptr(), v, tc);
+        i += 1;
+        if i == CHUNK {
+            let rc = ak_elem_ResultRaw(ctx, chunk.as_ptr() as *const ak_efix_ResultRaw, i as i32);
+            if rc < 0 { return rc; }
+            done += i;
+            // Only what the next chunk will fill is put back.
+            ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, (total - done).min(CHUNK) * SZ);
+            i = 0;
+        }
+    }
+    if i > 0 {
+        let rc = ak_elem_ResultRaw(ctx, chunk.as_ptr() as *const ak_efix_ResultRaw, i as i32);
+        if rc < 0 { return rc; }
+    }
+    AK_OK
+}
+
 unsafe extern "C" fn loop_list_results_response_results_unk(
     ctx: *mut ak_enc_ctx,
     obj: *const c_void,
@@ -1666,7 +1748,9 @@ unsafe extern "C" fn loop_list_results_response_results_unk(
         let o = &*(obj as *const ListResultsResponse);
         let tc = tcs();
         let src = &o.results;
-        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_ufix_ResultRaw>());
+        // Optimisation E3: a small chunk on the stack; a longer field goes out of line.
+        if src.len() > ak_small_n(::core::mem::size_of::<ak_ufix_ResultRaw>()) { return loop_list_results_response_results_unk_big(ctx, obj, token); }
+        const CHUNK: usize = ak_small_n(::core::mem::size_of::<ak_ufix_ResultRaw>());
         let mut chunk: [::core::mem::MaybeUninit<ak_ufix_ResultRaw>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
         let mut i = 0usize;
@@ -1689,6 +1773,35 @@ unsafe extern "C" fn loop_list_results_response_results_unk(
     })
 }
 
+/// Optimisation E3: `loop_list_results_response_results_unk` for a field longer than the small chunk, with the
+/// 32 KB arena (called inside that callback's guard).
+#[inline(never)]
+unsafe fn loop_list_results_response_results_unk_big(ctx: *mut ak_enc_ctx, obj: *const c_void, token: i64) -> i32 {
+    let o = &*(obj as *const ListResultsResponse);
+    let tc = tcs();
+    let src = &o.results;
+    const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_ufix_ResultRaw>());
+    let mut chunk: [::core::mem::MaybeUninit<ak_ufix_ResultRaw>; CHUNK] =
+        [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+    let mut i = 0usize;
+    let mut done = 0usize;
+    for v in src.iter() {
+        chunk[i].write(make_result_raw_unk(v, tc));
+        i += 1;
+        if i == CHUNK {
+            let rc = ak_uelem_ResultRaw(ctx, chunk.as_ptr() as *const ak_ufix_ResultRaw, i as i32);
+            if rc < 0 { return rc; }
+            done += i;
+            i = 0;
+        }
+    }
+    if i > 0 {
+        let rc = ak_uelem_ResultRaw(ctx, chunk.as_ptr() as *const ak_ufix_ResultRaw, i as i32);
+        if rc < 0 { return rc; }
+    }
+    AK_OK
+}
+
 unsafe extern "C" fn loop_list_results_response_results_unk_zeroed(
     ctx: *mut ak_enc_ctx,
     obj: *const c_void,
@@ -1698,7 +1811,9 @@ unsafe extern "C" fn loop_list_results_response_results_unk_zeroed(
         let o = &*(obj as *const ListResultsResponse);
         let tc = tcs();
         let src = &o.results;
-        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_ufix_ResultRaw>());
+        // Optimisation E3: a small chunk on the stack; a longer field goes out of line.
+        if src.len() > ak_small_n(::core::mem::size_of::<ak_ufix_ResultRaw>()) { return loop_list_results_response_results_unk_zeroed_big(ctx, obj, token); }
+        const CHUNK: usize = ak_small_n(::core::mem::size_of::<ak_ufix_ResultRaw>());
         const SZ: usize = ::core::mem::size_of::<ak_ufix_ResultRaw>();
         let mut chunk: [::core::mem::MaybeUninit<ak_ufix_ResultRaw>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
@@ -1725,6 +1840,41 @@ unsafe extern "C" fn loop_list_results_response_results_unk_zeroed(
         }
         AK_OK
     })
+}
+
+/// Optimisation E3: `loop_list_results_response_results_unk_zeroed` for a field longer than the small chunk, with the
+/// 32 KB arena (called inside that callback's guard).
+#[inline(never)]
+unsafe fn loop_list_results_response_results_unk_zeroed_big(ctx: *mut ak_enc_ctx, obj: *const c_void, token: i64) -> i32 {
+    let o = &*(obj as *const ListResultsResponse);
+    let tc = tcs();
+    let src = &o.results;
+    const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_ufix_ResultRaw>());
+    const SZ: usize = ::core::mem::size_of::<ak_ufix_ResultRaw>();
+    let mut chunk: [::core::mem::MaybeUninit<ak_ufix_ResultRaw>; CHUNK] =
+        [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+    // Decision 9 as corrected: clear the elements you will fill, min(n, CHUNK), not
+    // the whole arena (O(elements), not O(arena)).
+    let total = src.len();
+    ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, total.min(CHUNK) * SZ);
+    let mut i = 0usize;
+    let mut done = 0usize;
+    for v in src.iter() {
+        fill_result_raw_unk_sparse(&mut *chunk[i].as_mut_ptr(), v, tc);
+        i += 1;
+        if i == CHUNK {
+            let rc = ak_uelem_ResultRaw(ctx, chunk.as_ptr() as *const ak_ufix_ResultRaw, i as i32);
+            if rc < 0 { return rc; }
+            done += i;
+            ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, (total - done).min(CHUNK) * SZ);
+            i = 0;
+        }
+    }
+    if i > 0 {
+        let rc = ak_uelem_ResultRaw(ctx, chunk.as_ptr() as *const ak_ufix_ResultRaw, i as i32);
+        if rc < 0 { return rc; }
+    }
+    AK_OK
 }
 
 pub fn encode_into_list_results_response(ctx: *mut ak_enc_ctx, o: &ListResultsResponse, t: &Tcs) -> Result<usize, i32> {
@@ -1788,7 +1938,9 @@ unsafe extern "C" fn loop_list_tasks_detailed_response_tasks(
         let o = &*(obj as *const ListTasksDetailedResponse);
         let tc = tcs();
         let src = &o.tasks;
-        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_efix_TaskDetailed>());
+        // Optimisation E3: a small chunk on the stack; a longer field goes out of line.
+        if src.len() > ak_small_n(::core::mem::size_of::<ak_efix_TaskDetailed>()) { return loop_list_tasks_detailed_response_tasks_big(ctx, obj, token); }
+        const CHUNK: usize = ak_small_n(::core::mem::size_of::<ak_efix_TaskDetailed>());
         let mut chunk: [::core::mem::MaybeUninit<ak_efix_TaskDetailed>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
         let mut i = 0usize;
@@ -1811,6 +1963,35 @@ unsafe extern "C" fn loop_list_tasks_detailed_response_tasks(
     })
 }
 
+/// Optimisation E3: `loop_list_tasks_detailed_response_tasks` for a field longer than the small chunk, with the
+/// 32 KB arena (called inside that callback's guard).
+#[inline(never)]
+unsafe fn loop_list_tasks_detailed_response_tasks_big(ctx: *mut ak_enc_ctx, obj: *const c_void, token: i64) -> i32 {
+    let o = &*(obj as *const ListTasksDetailedResponse);
+    let tc = tcs();
+    let src = &o.tasks;
+    const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_efix_TaskDetailed>());
+    let mut chunk: [::core::mem::MaybeUninit<ak_efix_TaskDetailed>; CHUNK] =
+        [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+    let mut i = 0usize;
+    let mut done = 0usize;
+    for v in src.iter() {
+        chunk[i].write(make_task_detailed(v, tc));
+        i += 1;
+        if i == CHUNK {
+            let rc = ak_elemu_TaskDetailed(ctx, chunk.as_ptr() as *const ak_efix_TaskDetailed, i as i32, done as i64);
+            if rc < 0 { return rc; }
+            done += i;
+            i = 0;
+        }
+    }
+    if i > 0 {
+        let rc = ak_elemu_TaskDetailed(ctx, chunk.as_ptr() as *const ak_efix_TaskDetailed, i as i32, done as i64);
+        if rc < 0 { return rc; }
+    }
+    AK_OK
+}
+
 unsafe extern "C" fn loop_list_tasks_detailed_response_tasks_zeroed(
     ctx: *mut ak_enc_ctx,
     obj: *const c_void,
@@ -1820,7 +2001,9 @@ unsafe extern "C" fn loop_list_tasks_detailed_response_tasks_zeroed(
         let o = &*(obj as *const ListTasksDetailedResponse);
         let tc = tcs();
         let src = &o.tasks;
-        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_efix_TaskDetailed>());
+        // Optimisation E3: a small chunk on the stack; a longer field goes out of line.
+        if src.len() > ak_small_n(::core::mem::size_of::<ak_efix_TaskDetailed>()) { return loop_list_tasks_detailed_response_tasks_zeroed_big(ctx, obj, token); }
+        const CHUNK: usize = ak_small_n(::core::mem::size_of::<ak_efix_TaskDetailed>());
         const SZ: usize = ::core::mem::size_of::<ak_efix_TaskDetailed>();
         let mut chunk: [::core::mem::MaybeUninit<ak_efix_TaskDetailed>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
@@ -1851,6 +2034,43 @@ unsafe extern "C" fn loop_list_tasks_detailed_response_tasks_zeroed(
     })
 }
 
+/// Optimisation E3: `loop_list_tasks_detailed_response_tasks_zeroed` for a field longer than the small chunk, with the
+/// 32 KB arena (called inside that callback's guard).
+#[inline(never)]
+unsafe fn loop_list_tasks_detailed_response_tasks_zeroed_big(ctx: *mut ak_enc_ctx, obj: *const c_void, token: i64) -> i32 {
+    let o = &*(obj as *const ListTasksDetailedResponse);
+    let tc = tcs();
+    let src = &o.tasks;
+    const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_efix_TaskDetailed>());
+    const SZ: usize = ::core::mem::size_of::<ak_efix_TaskDetailed>();
+    let mut chunk: [::core::mem::MaybeUninit<ak_efix_TaskDetailed>; CHUNK] =
+        [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+    // All-zero is a valid group: `ak_efix_TaskDetailed::ZERO` is exactly this bit pattern.
+    // Decision 9 as corrected: clear the elements you will fill, min(n, CHUNK), not
+    // the whole arena (O(elements), not O(arena)).
+    let total = src.len();
+    ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, total.min(CHUNK) * SZ);
+    let mut i = 0usize;
+    let mut done = 0usize;
+    for v in src.iter() {
+        fill_task_detailed_sparse(&mut *chunk[i].as_mut_ptr(), v, tc);
+        i += 1;
+        if i == CHUNK {
+            let rc = ak_elemu_TaskDetailed(ctx, chunk.as_ptr() as *const ak_efix_TaskDetailed, i as i32, done as i64);
+            if rc < 0 { return rc; }
+            done += i;
+            // Only what the next chunk will fill is put back.
+            ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, (total - done).min(CHUNK) * SZ);
+            i = 0;
+        }
+    }
+    if i > 0 {
+        let rc = ak_elemu_TaskDetailed(ctx, chunk.as_ptr() as *const ak_efix_TaskDetailed, i as i32, done as i64);
+        if rc < 0 { return rc; }
+    }
+    AK_OK
+}
+
 unsafe extern "C" fn loop_list_tasks_detailed_response_tasks_unk(
     ctx: *mut ak_enc_ctx,
     obj: *const c_void,
@@ -1860,7 +2080,9 @@ unsafe extern "C" fn loop_list_tasks_detailed_response_tasks_unk(
         let o = &*(obj as *const ListTasksDetailedResponse);
         let tc = tcs();
         let src = &o.tasks;
-        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_ufix_TaskDetailed>());
+        // Optimisation E3: a small chunk on the stack; a longer field goes out of line.
+        if src.len() > ak_small_n(::core::mem::size_of::<ak_ufix_TaskDetailed>()) { return loop_list_tasks_detailed_response_tasks_unk_big(ctx, obj, token); }
+        const CHUNK: usize = ak_small_n(::core::mem::size_of::<ak_ufix_TaskDetailed>());
         let mut chunk: [::core::mem::MaybeUninit<ak_ufix_TaskDetailed>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
         let mut i = 0usize;
@@ -1883,6 +2105,35 @@ unsafe extern "C" fn loop_list_tasks_detailed_response_tasks_unk(
     })
 }
 
+/// Optimisation E3: `loop_list_tasks_detailed_response_tasks_unk` for a field longer than the small chunk, with the
+/// 32 KB arena (called inside that callback's guard).
+#[inline(never)]
+unsafe fn loop_list_tasks_detailed_response_tasks_unk_big(ctx: *mut ak_enc_ctx, obj: *const c_void, token: i64) -> i32 {
+    let o = &*(obj as *const ListTasksDetailedResponse);
+    let tc = tcs();
+    let src = &o.tasks;
+    const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_ufix_TaskDetailed>());
+    let mut chunk: [::core::mem::MaybeUninit<ak_ufix_TaskDetailed>; CHUNK] =
+        [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+    let mut i = 0usize;
+    let mut done = 0usize;
+    for v in src.iter() {
+        chunk[i].write(make_task_detailed_unk(v, tc));
+        i += 1;
+        if i == CHUNK {
+            let rc = ak_uelemu_TaskDetailed(ctx, chunk.as_ptr() as *const ak_ufix_TaskDetailed, i as i32, done as i64);
+            if rc < 0 { return rc; }
+            done += i;
+            i = 0;
+        }
+    }
+    if i > 0 {
+        let rc = ak_uelemu_TaskDetailed(ctx, chunk.as_ptr() as *const ak_ufix_TaskDetailed, i as i32, done as i64);
+        if rc < 0 { return rc; }
+    }
+    AK_OK
+}
+
 unsafe extern "C" fn loop_list_tasks_detailed_response_tasks_unk_zeroed(
     ctx: *mut ak_enc_ctx,
     obj: *const c_void,
@@ -1892,7 +2143,9 @@ unsafe extern "C" fn loop_list_tasks_detailed_response_tasks_unk_zeroed(
         let o = &*(obj as *const ListTasksDetailedResponse);
         let tc = tcs();
         let src = &o.tasks;
-        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_ufix_TaskDetailed>());
+        // Optimisation E3: a small chunk on the stack; a longer field goes out of line.
+        if src.len() > ak_small_n(::core::mem::size_of::<ak_ufix_TaskDetailed>()) { return loop_list_tasks_detailed_response_tasks_unk_zeroed_big(ctx, obj, token); }
+        const CHUNK: usize = ak_small_n(::core::mem::size_of::<ak_ufix_TaskDetailed>());
         const SZ: usize = ::core::mem::size_of::<ak_ufix_TaskDetailed>();
         let mut chunk: [::core::mem::MaybeUninit<ak_ufix_TaskDetailed>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
@@ -1921,6 +2174,41 @@ unsafe extern "C" fn loop_list_tasks_detailed_response_tasks_unk_zeroed(
     })
 }
 
+/// Optimisation E3: `loop_list_tasks_detailed_response_tasks_unk_zeroed` for a field longer than the small chunk, with the
+/// 32 KB arena (called inside that callback's guard).
+#[inline(never)]
+unsafe fn loop_list_tasks_detailed_response_tasks_unk_zeroed_big(ctx: *mut ak_enc_ctx, obj: *const c_void, token: i64) -> i32 {
+    let o = &*(obj as *const ListTasksDetailedResponse);
+    let tc = tcs();
+    let src = &o.tasks;
+    const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_ufix_TaskDetailed>());
+    const SZ: usize = ::core::mem::size_of::<ak_ufix_TaskDetailed>();
+    let mut chunk: [::core::mem::MaybeUninit<ak_ufix_TaskDetailed>; CHUNK] =
+        [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+    // Decision 9 as corrected: clear the elements you will fill, min(n, CHUNK), not
+    // the whole arena (O(elements), not O(arena)).
+    let total = src.len();
+    ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, total.min(CHUNK) * SZ);
+    let mut i = 0usize;
+    let mut done = 0usize;
+    for v in src.iter() {
+        fill_task_detailed_unk_sparse(&mut *chunk[i].as_mut_ptr(), v, tc);
+        i += 1;
+        if i == CHUNK {
+            let rc = ak_uelemu_TaskDetailed(ctx, chunk.as_ptr() as *const ak_ufix_TaskDetailed, i as i32, done as i64);
+            if rc < 0 { return rc; }
+            done += i;
+            ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, (total - done).min(CHUNK) * SZ);
+            i = 0;
+        }
+    }
+    if i > 0 {
+        let rc = ak_uelemu_TaskDetailed(ctx, chunk.as_ptr() as *const ak_ufix_TaskDetailed, i as i32, done as i64);
+        if rc < 0 { return rc; }
+    }
+    AK_OK
+}
+
 unsafe extern "C" fn loop_list_tasks_detailed_response_tasks_parent_task_ids(
     ctx: *mut ak_enc_ctx,
     obj: *const c_void,
@@ -1931,7 +2219,9 @@ unsafe extern "C" fn loop_list_tasks_detailed_response_tasks_parent_task_ids(
         let tc = tcs();
         let e = &o.tasks[token as usize];
         let src = &e.parent_task_ids;
-        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_str>());
+        // Optimisation E3: a small chunk on the stack; a longer field goes out of line.
+        if src.len() > ak_small_n(::core::mem::size_of::<ak_str>()) { return loop_list_tasks_detailed_response_tasks_parent_task_ids_big(ctx, obj, token); }
+        const CHUNK: usize = ak_small_n(::core::mem::size_of::<ak_str>());
         let mut chunk: [::core::mem::MaybeUninit<ak_str>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
         let mut i = 0usize;
@@ -1952,6 +2242,36 @@ unsafe extern "C" fn loop_list_tasks_detailed_response_tasks_parent_task_ids(
         }
         AK_OK
     })
+}
+
+/// Optimisation E3: `loop_list_tasks_detailed_response_tasks_parent_task_ids` for a field longer than the small chunk, with the
+/// 32 KB arena (called inside that callback's guard).
+#[inline(never)]
+unsafe fn loop_list_tasks_detailed_response_tasks_parent_task_ids_big(ctx: *mut ak_enc_ctx, obj: *const c_void, token: i64) -> i32 {
+    let o = &*(obj as *const ListTasksDetailedResponse);
+    let tc = tcs();
+    let e = &o.tasks[token as usize];
+    let src = &e.parent_task_ids;
+    const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_str>());
+    let mut chunk: [::core::mem::MaybeUninit<ak_str>; CHUNK] =
+        [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+    let mut i = 0usize;
+    let mut done = 0usize;
+    for v in src.iter() {
+        chunk[i].write(str_arg(v, tc.0));
+        i += 1;
+        if i == CHUNK {
+            let rc = ak_blob_run(ctx, chunk.as_ptr() as *const ak_str, i as i32);
+            if rc < 0 { return rc; }
+            done += i;
+            i = 0;
+        }
+    }
+    if i > 0 {
+        let rc = ak_blob_run(ctx, chunk.as_ptr() as *const ak_str, i as i32);
+        if rc < 0 { return rc; }
+    }
+    AK_OK
 }
 
 unsafe extern "C" fn loop_list_tasks_detailed_response_tasks_data_dependencies(
@@ -1964,7 +2284,9 @@ unsafe extern "C" fn loop_list_tasks_detailed_response_tasks_data_dependencies(
         let tc = tcs();
         let e = &o.tasks[token as usize];
         let src = &e.data_dependencies;
-        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_str>());
+        // Optimisation E3: a small chunk on the stack; a longer field goes out of line.
+        if src.len() > ak_small_n(::core::mem::size_of::<ak_str>()) { return loop_list_tasks_detailed_response_tasks_data_dependencies_big(ctx, obj, token); }
+        const CHUNK: usize = ak_small_n(::core::mem::size_of::<ak_str>());
         let mut chunk: [::core::mem::MaybeUninit<ak_str>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
         let mut i = 0usize;
@@ -1985,6 +2307,36 @@ unsafe extern "C" fn loop_list_tasks_detailed_response_tasks_data_dependencies(
         }
         AK_OK
     })
+}
+
+/// Optimisation E3: `loop_list_tasks_detailed_response_tasks_data_dependencies` for a field longer than the small chunk, with the
+/// 32 KB arena (called inside that callback's guard).
+#[inline(never)]
+unsafe fn loop_list_tasks_detailed_response_tasks_data_dependencies_big(ctx: *mut ak_enc_ctx, obj: *const c_void, token: i64) -> i32 {
+    let o = &*(obj as *const ListTasksDetailedResponse);
+    let tc = tcs();
+    let e = &o.tasks[token as usize];
+    let src = &e.data_dependencies;
+    const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_str>());
+    let mut chunk: [::core::mem::MaybeUninit<ak_str>; CHUNK] =
+        [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+    let mut i = 0usize;
+    let mut done = 0usize;
+    for v in src.iter() {
+        chunk[i].write(str_arg(v, tc.0));
+        i += 1;
+        if i == CHUNK {
+            let rc = ak_blob_run(ctx, chunk.as_ptr() as *const ak_str, i as i32);
+            if rc < 0 { return rc; }
+            done += i;
+            i = 0;
+        }
+    }
+    if i > 0 {
+        let rc = ak_blob_run(ctx, chunk.as_ptr() as *const ak_str, i as i32);
+        if rc < 0 { return rc; }
+    }
+    AK_OK
 }
 
 unsafe extern "C" fn loop_list_tasks_detailed_response_tasks_expected_output_ids(
@@ -1997,7 +2349,9 @@ unsafe extern "C" fn loop_list_tasks_detailed_response_tasks_expected_output_ids
         let tc = tcs();
         let e = &o.tasks[token as usize];
         let src = &e.expected_output_ids;
-        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_str>());
+        // Optimisation E3: a small chunk on the stack; a longer field goes out of line.
+        if src.len() > ak_small_n(::core::mem::size_of::<ak_str>()) { return loop_list_tasks_detailed_response_tasks_expected_output_ids_big(ctx, obj, token); }
+        const CHUNK: usize = ak_small_n(::core::mem::size_of::<ak_str>());
         let mut chunk: [::core::mem::MaybeUninit<ak_str>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
         let mut i = 0usize;
@@ -2020,6 +2374,36 @@ unsafe extern "C" fn loop_list_tasks_detailed_response_tasks_expected_output_ids
     })
 }
 
+/// Optimisation E3: `loop_list_tasks_detailed_response_tasks_expected_output_ids` for a field longer than the small chunk, with the
+/// 32 KB arena (called inside that callback's guard).
+#[inline(never)]
+unsafe fn loop_list_tasks_detailed_response_tasks_expected_output_ids_big(ctx: *mut ak_enc_ctx, obj: *const c_void, token: i64) -> i32 {
+    let o = &*(obj as *const ListTasksDetailedResponse);
+    let tc = tcs();
+    let e = &o.tasks[token as usize];
+    let src = &e.expected_output_ids;
+    const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_str>());
+    let mut chunk: [::core::mem::MaybeUninit<ak_str>; CHUNK] =
+        [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+    let mut i = 0usize;
+    let mut done = 0usize;
+    for v in src.iter() {
+        chunk[i].write(str_arg(v, tc.0));
+        i += 1;
+        if i == CHUNK {
+            let rc = ak_blob_run(ctx, chunk.as_ptr() as *const ak_str, i as i32);
+            if rc < 0 { return rc; }
+            done += i;
+            i = 0;
+        }
+    }
+    if i > 0 {
+        let rc = ak_blob_run(ctx, chunk.as_ptr() as *const ak_str, i as i32);
+        if rc < 0 { return rc; }
+    }
+    AK_OK
+}
+
 unsafe extern "C" fn loop_list_tasks_detailed_response_tasks_retry_of_ids(
     ctx: *mut ak_enc_ctx,
     obj: *const c_void,
@@ -2030,7 +2414,9 @@ unsafe extern "C" fn loop_list_tasks_detailed_response_tasks_retry_of_ids(
         let tc = tcs();
         let e = &o.tasks[token as usize];
         let src = &e.retry_of_ids;
-        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_str>());
+        // Optimisation E3: a small chunk on the stack; a longer field goes out of line.
+        if src.len() > ak_small_n(::core::mem::size_of::<ak_str>()) { return loop_list_tasks_detailed_response_tasks_retry_of_ids_big(ctx, obj, token); }
+        const CHUNK: usize = ak_small_n(::core::mem::size_of::<ak_str>());
         let mut chunk: [::core::mem::MaybeUninit<ak_str>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
         let mut i = 0usize;
@@ -2051,6 +2437,36 @@ unsafe extern "C" fn loop_list_tasks_detailed_response_tasks_retry_of_ids(
         }
         AK_OK
     })
+}
+
+/// Optimisation E3: `loop_list_tasks_detailed_response_tasks_retry_of_ids` for a field longer than the small chunk, with the
+/// 32 KB arena (called inside that callback's guard).
+#[inline(never)]
+unsafe fn loop_list_tasks_detailed_response_tasks_retry_of_ids_big(ctx: *mut ak_enc_ctx, obj: *const c_void, token: i64) -> i32 {
+    let o = &*(obj as *const ListTasksDetailedResponse);
+    let tc = tcs();
+    let e = &o.tasks[token as usize];
+    let src = &e.retry_of_ids;
+    const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_str>());
+    let mut chunk: [::core::mem::MaybeUninit<ak_str>; CHUNK] =
+        [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+    let mut i = 0usize;
+    let mut done = 0usize;
+    for v in src.iter() {
+        chunk[i].write(str_arg(v, tc.0));
+        i += 1;
+        if i == CHUNK {
+            let rc = ak_blob_run(ctx, chunk.as_ptr() as *const ak_str, i as i32);
+            if rc < 0 { return rc; }
+            done += i;
+            i = 0;
+        }
+    }
+    if i > 0 {
+        let rc = ak_blob_run(ctx, chunk.as_ptr() as *const ak_str, i as i32);
+        if rc < 0 { return rc; }
+    }
+    AK_OK
 }
 
 unsafe extern "C" fn loop_list_tasks_detailed_response_tasks_options_options(
@@ -2064,7 +2480,9 @@ unsafe extern "C" fn loop_list_tasks_detailed_response_tasks_options_options(
         let e = &o.tasks[token as usize];
         let Some(c0) = &e.options else { return AK_OK };
         let src = &c0.options;
-        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_efix_TaskOptionsOptionsEntry>());
+        // Optimisation E3: a small chunk on the stack; a longer field goes out of line.
+        if src.len() > ak_small_n(::core::mem::size_of::<ak_efix_TaskOptionsOptionsEntry>()) { return loop_list_tasks_detailed_response_tasks_options_options_big(ctx, obj, token); }
+        const CHUNK: usize = ak_small_n(::core::mem::size_of::<ak_efix_TaskOptionsOptionsEntry>());
         let mut chunk: [::core::mem::MaybeUninit<ak_efix_TaskOptionsOptionsEntry>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
         let mut i = 0usize;
@@ -2089,6 +2507,41 @@ unsafe extern "C" fn loop_list_tasks_detailed_response_tasks_options_options(
         }
         AK_OK
     })
+}
+
+/// Optimisation E3: `loop_list_tasks_detailed_response_tasks_options_options` for a field longer than the small chunk, with the
+/// 32 KB arena (called inside that callback's guard).
+#[inline(never)]
+unsafe fn loop_list_tasks_detailed_response_tasks_options_options_big(ctx: *mut ak_enc_ctx, obj: *const c_void, token: i64) -> i32 {
+    let o = &*(obj as *const ListTasksDetailedResponse);
+    let tc = tcs();
+    let e = &o.tasks[token as usize];
+    let Some(c0) = &e.options else { return AK_OK };
+    let src = &c0.options;
+    const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_efix_TaskOptionsOptionsEntry>());
+    let mut chunk: [::core::mem::MaybeUninit<ak_efix_TaskOptionsOptionsEntry>; CHUNK] =
+        [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+    let mut i = 0usize;
+    let mut done = 0usize;
+    for (k, v) in src.iter() {
+        chunk[i].write(ak_efix_TaskOptionsOptionsEntry {
+            key: str_arg(k, tc.0),
+            value: str_arg(v, tc.0),
+            presence: 0,
+        });
+        i += 1;
+        if i == CHUNK {
+            let rc = ak_elem_TaskOptionsOptionsEntry(ctx, chunk.as_ptr() as *const ak_efix_TaskOptionsOptionsEntry, i as i32);
+            if rc < 0 { return rc; }
+            done += i;
+            i = 0;
+        }
+    }
+    if i > 0 {
+        let rc = ak_elem_TaskOptionsOptionsEntry(ctx, chunk.as_ptr() as *const ak_efix_TaskOptionsOptionsEntry, i as i32);
+        if rc < 0 { return rc; }
+    }
+    AK_OK
 }
 
 static ELEM_VT_ListTasksDetailedResponse_tasks: ak_evt_TaskDetailed = ak_evt_TaskDetailed {
@@ -2164,7 +2617,9 @@ unsafe extern "C" fn loop_list_probe_response_probes(
         let o = &*(obj as *const ListProbeResponse);
         let tc = tcs();
         let src = &o.probes;
-        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_efix_Probe>());
+        // Optimisation E3: a small chunk on the stack; a longer field goes out of line.
+        if src.len() > ak_small_n(::core::mem::size_of::<ak_efix_Probe>()) { return loop_list_probe_response_probes_big(ctx, obj, token); }
+        const CHUNK: usize = ak_small_n(::core::mem::size_of::<ak_efix_Probe>());
         let mut chunk: [::core::mem::MaybeUninit<ak_efix_Probe>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
         let mut i = 0usize;
@@ -2187,6 +2642,35 @@ unsafe extern "C" fn loop_list_probe_response_probes(
     })
 }
 
+/// Optimisation E3: `loop_list_probe_response_probes` for a field longer than the small chunk, with the
+/// 32 KB arena (called inside that callback's guard).
+#[inline(never)]
+unsafe fn loop_list_probe_response_probes_big(ctx: *mut ak_enc_ctx, obj: *const c_void, token: i64) -> i32 {
+    let o = &*(obj as *const ListProbeResponse);
+    let tc = tcs();
+    let src = &o.probes;
+    const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_efix_Probe>());
+    let mut chunk: [::core::mem::MaybeUninit<ak_efix_Probe>; CHUNK] =
+        [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+    let mut i = 0usize;
+    let mut done = 0usize;
+    for v in src.iter() {
+        chunk[i].write(make_probe(v, tc));
+        i += 1;
+        if i == CHUNK {
+            let rc = ak_elem_Probe(ctx, chunk.as_ptr() as *const ak_efix_Probe, i as i32);
+            if rc < 0 { return rc; }
+            done += i;
+            i = 0;
+        }
+    }
+    if i > 0 {
+        let rc = ak_elem_Probe(ctx, chunk.as_ptr() as *const ak_efix_Probe, i as i32);
+        if rc < 0 { return rc; }
+    }
+    AK_OK
+}
+
 unsafe extern "C" fn loop_list_probe_response_probes_zeroed(
     ctx: *mut ak_enc_ctx,
     obj: *const c_void,
@@ -2196,7 +2680,9 @@ unsafe extern "C" fn loop_list_probe_response_probes_zeroed(
         let o = &*(obj as *const ListProbeResponse);
         let tc = tcs();
         let src = &o.probes;
-        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_efix_Probe>());
+        // Optimisation E3: a small chunk on the stack; a longer field goes out of line.
+        if src.len() > ak_small_n(::core::mem::size_of::<ak_efix_Probe>()) { return loop_list_probe_response_probes_zeroed_big(ctx, obj, token); }
+        const CHUNK: usize = ak_small_n(::core::mem::size_of::<ak_efix_Probe>());
         const SZ: usize = ::core::mem::size_of::<ak_efix_Probe>();
         let mut chunk: [::core::mem::MaybeUninit<ak_efix_Probe>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
@@ -2227,6 +2713,43 @@ unsafe extern "C" fn loop_list_probe_response_probes_zeroed(
     })
 }
 
+/// Optimisation E3: `loop_list_probe_response_probes_zeroed` for a field longer than the small chunk, with the
+/// 32 KB arena (called inside that callback's guard).
+#[inline(never)]
+unsafe fn loop_list_probe_response_probes_zeroed_big(ctx: *mut ak_enc_ctx, obj: *const c_void, token: i64) -> i32 {
+    let o = &*(obj as *const ListProbeResponse);
+    let tc = tcs();
+    let src = &o.probes;
+    const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_efix_Probe>());
+    const SZ: usize = ::core::mem::size_of::<ak_efix_Probe>();
+    let mut chunk: [::core::mem::MaybeUninit<ak_efix_Probe>; CHUNK] =
+        [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+    // All-zero is a valid group: `ak_efix_Probe::ZERO` is exactly this bit pattern.
+    // Decision 9 as corrected: clear the elements you will fill, min(n, CHUNK), not
+    // the whole arena (O(elements), not O(arena)).
+    let total = src.len();
+    ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, total.min(CHUNK) * SZ);
+    let mut i = 0usize;
+    let mut done = 0usize;
+    for v in src.iter() {
+        fill_probe_sparse(&mut *chunk[i].as_mut_ptr(), v, tc);
+        i += 1;
+        if i == CHUNK {
+            let rc = ak_elem_Probe(ctx, chunk.as_ptr() as *const ak_efix_Probe, i as i32);
+            if rc < 0 { return rc; }
+            done += i;
+            // Only what the next chunk will fill is put back.
+            ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, (total - done).min(CHUNK) * SZ);
+            i = 0;
+        }
+    }
+    if i > 0 {
+        let rc = ak_elem_Probe(ctx, chunk.as_ptr() as *const ak_efix_Probe, i as i32);
+        if rc < 0 { return rc; }
+    }
+    AK_OK
+}
+
 unsafe extern "C" fn loop_list_probe_response_probes_unk(
     ctx: *mut ak_enc_ctx,
     obj: *const c_void,
@@ -2236,7 +2759,9 @@ unsafe extern "C" fn loop_list_probe_response_probes_unk(
         let o = &*(obj as *const ListProbeResponse);
         let tc = tcs();
         let src = &o.probes;
-        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_ufix_Probe>());
+        // Optimisation E3: a small chunk on the stack; a longer field goes out of line.
+        if src.len() > ak_small_n(::core::mem::size_of::<ak_ufix_Probe>()) { return loop_list_probe_response_probes_unk_big(ctx, obj, token); }
+        const CHUNK: usize = ak_small_n(::core::mem::size_of::<ak_ufix_Probe>());
         let mut chunk: [::core::mem::MaybeUninit<ak_ufix_Probe>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
         let mut i = 0usize;
@@ -2259,6 +2784,35 @@ unsafe extern "C" fn loop_list_probe_response_probes_unk(
     })
 }
 
+/// Optimisation E3: `loop_list_probe_response_probes_unk` for a field longer than the small chunk, with the
+/// 32 KB arena (called inside that callback's guard).
+#[inline(never)]
+unsafe fn loop_list_probe_response_probes_unk_big(ctx: *mut ak_enc_ctx, obj: *const c_void, token: i64) -> i32 {
+    let o = &*(obj as *const ListProbeResponse);
+    let tc = tcs();
+    let src = &o.probes;
+    const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_ufix_Probe>());
+    let mut chunk: [::core::mem::MaybeUninit<ak_ufix_Probe>; CHUNK] =
+        [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+    let mut i = 0usize;
+    let mut done = 0usize;
+    for v in src.iter() {
+        chunk[i].write(make_probe_unk(v, tc));
+        i += 1;
+        if i == CHUNK {
+            let rc = ak_uelem_Probe(ctx, chunk.as_ptr() as *const ak_ufix_Probe, i as i32);
+            if rc < 0 { return rc; }
+            done += i;
+            i = 0;
+        }
+    }
+    if i > 0 {
+        let rc = ak_uelem_Probe(ctx, chunk.as_ptr() as *const ak_ufix_Probe, i as i32);
+        if rc < 0 { return rc; }
+    }
+    AK_OK
+}
+
 unsafe extern "C" fn loop_list_probe_response_probes_unk_zeroed(
     ctx: *mut ak_enc_ctx,
     obj: *const c_void,
@@ -2268,7 +2822,9 @@ unsafe extern "C" fn loop_list_probe_response_probes_unk_zeroed(
         let o = &*(obj as *const ListProbeResponse);
         let tc = tcs();
         let src = &o.probes;
-        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_ufix_Probe>());
+        // Optimisation E3: a small chunk on the stack; a longer field goes out of line.
+        if src.len() > ak_small_n(::core::mem::size_of::<ak_ufix_Probe>()) { return loop_list_probe_response_probes_unk_zeroed_big(ctx, obj, token); }
+        const CHUNK: usize = ak_small_n(::core::mem::size_of::<ak_ufix_Probe>());
         const SZ: usize = ::core::mem::size_of::<ak_ufix_Probe>();
         let mut chunk: [::core::mem::MaybeUninit<ak_ufix_Probe>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
@@ -2295,6 +2851,41 @@ unsafe extern "C" fn loop_list_probe_response_probes_unk_zeroed(
         }
         AK_OK
     })
+}
+
+/// Optimisation E3: `loop_list_probe_response_probes_unk_zeroed` for a field longer than the small chunk, with the
+/// 32 KB arena (called inside that callback's guard).
+#[inline(never)]
+unsafe fn loop_list_probe_response_probes_unk_zeroed_big(ctx: *mut ak_enc_ctx, obj: *const c_void, token: i64) -> i32 {
+    let o = &*(obj as *const ListProbeResponse);
+    let tc = tcs();
+    let src = &o.probes;
+    const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_ufix_Probe>());
+    const SZ: usize = ::core::mem::size_of::<ak_ufix_Probe>();
+    let mut chunk: [::core::mem::MaybeUninit<ak_ufix_Probe>; CHUNK] =
+        [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+    // Decision 9 as corrected: clear the elements you will fill, min(n, CHUNK), not
+    // the whole arena (O(elements), not O(arena)).
+    let total = src.len();
+    ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, total.min(CHUNK) * SZ);
+    let mut i = 0usize;
+    let mut done = 0usize;
+    for v in src.iter() {
+        fill_probe_unk_sparse(&mut *chunk[i].as_mut_ptr(), v, tc);
+        i += 1;
+        if i == CHUNK {
+            let rc = ak_uelem_Probe(ctx, chunk.as_ptr() as *const ak_ufix_Probe, i as i32);
+            if rc < 0 { return rc; }
+            done += i;
+            ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, (total - done).min(CHUNK) * SZ);
+            i = 0;
+        }
+    }
+    if i > 0 {
+        let rc = ak_uelem_Probe(ctx, chunk.as_ptr() as *const ak_ufix_Probe, i as i32);
+        if rc < 0 { return rc; }
+    }
+    AK_OK
 }
 
 pub fn encode_into_list_probe_response(ctx: *mut ak_enc_ctx, o: &ListProbeResponse, t: &Tcs) -> Result<usize, i32> {
@@ -2358,7 +2949,9 @@ unsafe extern "C" fn loop_list_task_summary_response_tasks(
         let o = &*(obj as *const ListTaskSummaryResponse);
         let tc = tcs();
         let src = &o.tasks;
-        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_efix_TaskSummary>());
+        // Optimisation E3: a small chunk on the stack; a longer field goes out of line.
+        if src.len() > ak_small_n(::core::mem::size_of::<ak_efix_TaskSummary>()) { return loop_list_task_summary_response_tasks_big(ctx, obj, token); }
+        const CHUNK: usize = ak_small_n(::core::mem::size_of::<ak_efix_TaskSummary>());
         let mut chunk: [::core::mem::MaybeUninit<ak_efix_TaskSummary>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
         let mut i = 0usize;
@@ -2381,6 +2974,35 @@ unsafe extern "C" fn loop_list_task_summary_response_tasks(
     })
 }
 
+/// Optimisation E3: `loop_list_task_summary_response_tasks` for a field longer than the small chunk, with the
+/// 32 KB arena (called inside that callback's guard).
+#[inline(never)]
+unsafe fn loop_list_task_summary_response_tasks_big(ctx: *mut ak_enc_ctx, obj: *const c_void, token: i64) -> i32 {
+    let o = &*(obj as *const ListTaskSummaryResponse);
+    let tc = tcs();
+    let src = &o.tasks;
+    const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_efix_TaskSummary>());
+    let mut chunk: [::core::mem::MaybeUninit<ak_efix_TaskSummary>; CHUNK] =
+        [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+    let mut i = 0usize;
+    let mut done = 0usize;
+    for v in src.iter() {
+        chunk[i].write(make_task_summary(v, tc));
+        i += 1;
+        if i == CHUNK {
+            let rc = ak_elemu_TaskSummary(ctx, chunk.as_ptr() as *const ak_efix_TaskSummary, i as i32, done as i64);
+            if rc < 0 { return rc; }
+            done += i;
+            i = 0;
+        }
+    }
+    if i > 0 {
+        let rc = ak_elemu_TaskSummary(ctx, chunk.as_ptr() as *const ak_efix_TaskSummary, i as i32, done as i64);
+        if rc < 0 { return rc; }
+    }
+    AK_OK
+}
+
 unsafe extern "C" fn loop_list_task_summary_response_tasks_zeroed(
     ctx: *mut ak_enc_ctx,
     obj: *const c_void,
@@ -2390,7 +3012,9 @@ unsafe extern "C" fn loop_list_task_summary_response_tasks_zeroed(
         let o = &*(obj as *const ListTaskSummaryResponse);
         let tc = tcs();
         let src = &o.tasks;
-        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_efix_TaskSummary>());
+        // Optimisation E3: a small chunk on the stack; a longer field goes out of line.
+        if src.len() > ak_small_n(::core::mem::size_of::<ak_efix_TaskSummary>()) { return loop_list_task_summary_response_tasks_zeroed_big(ctx, obj, token); }
+        const CHUNK: usize = ak_small_n(::core::mem::size_of::<ak_efix_TaskSummary>());
         const SZ: usize = ::core::mem::size_of::<ak_efix_TaskSummary>();
         let mut chunk: [::core::mem::MaybeUninit<ak_efix_TaskSummary>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
@@ -2421,6 +3045,43 @@ unsafe extern "C" fn loop_list_task_summary_response_tasks_zeroed(
     })
 }
 
+/// Optimisation E3: `loop_list_task_summary_response_tasks_zeroed` for a field longer than the small chunk, with the
+/// 32 KB arena (called inside that callback's guard).
+#[inline(never)]
+unsafe fn loop_list_task_summary_response_tasks_zeroed_big(ctx: *mut ak_enc_ctx, obj: *const c_void, token: i64) -> i32 {
+    let o = &*(obj as *const ListTaskSummaryResponse);
+    let tc = tcs();
+    let src = &o.tasks;
+    const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_efix_TaskSummary>());
+    const SZ: usize = ::core::mem::size_of::<ak_efix_TaskSummary>();
+    let mut chunk: [::core::mem::MaybeUninit<ak_efix_TaskSummary>; CHUNK] =
+        [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+    // All-zero is a valid group: `ak_efix_TaskSummary::ZERO` is exactly this bit pattern.
+    // Decision 9 as corrected: clear the elements you will fill, min(n, CHUNK), not
+    // the whole arena (O(elements), not O(arena)).
+    let total = src.len();
+    ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, total.min(CHUNK) * SZ);
+    let mut i = 0usize;
+    let mut done = 0usize;
+    for v in src.iter() {
+        fill_task_summary_sparse(&mut *chunk[i].as_mut_ptr(), v, tc);
+        i += 1;
+        if i == CHUNK {
+            let rc = ak_elemu_TaskSummary(ctx, chunk.as_ptr() as *const ak_efix_TaskSummary, i as i32, done as i64);
+            if rc < 0 { return rc; }
+            done += i;
+            // Only what the next chunk will fill is put back.
+            ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, (total - done).min(CHUNK) * SZ);
+            i = 0;
+        }
+    }
+    if i > 0 {
+        let rc = ak_elemu_TaskSummary(ctx, chunk.as_ptr() as *const ak_efix_TaskSummary, i as i32, done as i64);
+        if rc < 0 { return rc; }
+    }
+    AK_OK
+}
+
 unsafe extern "C" fn loop_list_task_summary_response_tasks_unk(
     ctx: *mut ak_enc_ctx,
     obj: *const c_void,
@@ -2430,7 +3091,9 @@ unsafe extern "C" fn loop_list_task_summary_response_tasks_unk(
         let o = &*(obj as *const ListTaskSummaryResponse);
         let tc = tcs();
         let src = &o.tasks;
-        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_ufix_TaskSummary>());
+        // Optimisation E3: a small chunk on the stack; a longer field goes out of line.
+        if src.len() > ak_small_n(::core::mem::size_of::<ak_ufix_TaskSummary>()) { return loop_list_task_summary_response_tasks_unk_big(ctx, obj, token); }
+        const CHUNK: usize = ak_small_n(::core::mem::size_of::<ak_ufix_TaskSummary>());
         let mut chunk: [::core::mem::MaybeUninit<ak_ufix_TaskSummary>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
         let mut i = 0usize;
@@ -2453,6 +3116,35 @@ unsafe extern "C" fn loop_list_task_summary_response_tasks_unk(
     })
 }
 
+/// Optimisation E3: `loop_list_task_summary_response_tasks_unk` for a field longer than the small chunk, with the
+/// 32 KB arena (called inside that callback's guard).
+#[inline(never)]
+unsafe fn loop_list_task_summary_response_tasks_unk_big(ctx: *mut ak_enc_ctx, obj: *const c_void, token: i64) -> i32 {
+    let o = &*(obj as *const ListTaskSummaryResponse);
+    let tc = tcs();
+    let src = &o.tasks;
+    const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_ufix_TaskSummary>());
+    let mut chunk: [::core::mem::MaybeUninit<ak_ufix_TaskSummary>; CHUNK] =
+        [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+    let mut i = 0usize;
+    let mut done = 0usize;
+    for v in src.iter() {
+        chunk[i].write(make_task_summary_unk(v, tc));
+        i += 1;
+        if i == CHUNK {
+            let rc = ak_uelemu_TaskSummary(ctx, chunk.as_ptr() as *const ak_ufix_TaskSummary, i as i32, done as i64);
+            if rc < 0 { return rc; }
+            done += i;
+            i = 0;
+        }
+    }
+    if i > 0 {
+        let rc = ak_uelemu_TaskSummary(ctx, chunk.as_ptr() as *const ak_ufix_TaskSummary, i as i32, done as i64);
+        if rc < 0 { return rc; }
+    }
+    AK_OK
+}
+
 unsafe extern "C" fn loop_list_task_summary_response_tasks_unk_zeroed(
     ctx: *mut ak_enc_ctx,
     obj: *const c_void,
@@ -2462,7 +3154,9 @@ unsafe extern "C" fn loop_list_task_summary_response_tasks_unk_zeroed(
         let o = &*(obj as *const ListTaskSummaryResponse);
         let tc = tcs();
         let src = &o.tasks;
-        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_ufix_TaskSummary>());
+        // Optimisation E3: a small chunk on the stack; a longer field goes out of line.
+        if src.len() > ak_small_n(::core::mem::size_of::<ak_ufix_TaskSummary>()) { return loop_list_task_summary_response_tasks_unk_zeroed_big(ctx, obj, token); }
+        const CHUNK: usize = ak_small_n(::core::mem::size_of::<ak_ufix_TaskSummary>());
         const SZ: usize = ::core::mem::size_of::<ak_ufix_TaskSummary>();
         let mut chunk: [::core::mem::MaybeUninit<ak_ufix_TaskSummary>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
@@ -2491,6 +3185,41 @@ unsafe extern "C" fn loop_list_task_summary_response_tasks_unk_zeroed(
     })
 }
 
+/// Optimisation E3: `loop_list_task_summary_response_tasks_unk_zeroed` for a field longer than the small chunk, with the
+/// 32 KB arena (called inside that callback's guard).
+#[inline(never)]
+unsafe fn loop_list_task_summary_response_tasks_unk_zeroed_big(ctx: *mut ak_enc_ctx, obj: *const c_void, token: i64) -> i32 {
+    let o = &*(obj as *const ListTaskSummaryResponse);
+    let tc = tcs();
+    let src = &o.tasks;
+    const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_ufix_TaskSummary>());
+    const SZ: usize = ::core::mem::size_of::<ak_ufix_TaskSummary>();
+    let mut chunk: [::core::mem::MaybeUninit<ak_ufix_TaskSummary>; CHUNK] =
+        [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+    // Decision 9 as corrected: clear the elements you will fill, min(n, CHUNK), not
+    // the whole arena (O(elements), not O(arena)).
+    let total = src.len();
+    ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, total.min(CHUNK) * SZ);
+    let mut i = 0usize;
+    let mut done = 0usize;
+    for v in src.iter() {
+        fill_task_summary_unk_sparse(&mut *chunk[i].as_mut_ptr(), v, tc);
+        i += 1;
+        if i == CHUNK {
+            let rc = ak_uelemu_TaskSummary(ctx, chunk.as_ptr() as *const ak_ufix_TaskSummary, i as i32, done as i64);
+            if rc < 0 { return rc; }
+            done += i;
+            ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, (total - done).min(CHUNK) * SZ);
+            i = 0;
+        }
+    }
+    if i > 0 {
+        let rc = ak_uelemu_TaskSummary(ctx, chunk.as_ptr() as *const ak_ufix_TaskSummary, i as i32, done as i64);
+        if rc < 0 { return rc; }
+    }
+    AK_OK
+}
+
 unsafe extern "C" fn loop_list_task_summary_response_tasks_options_options(
     ctx: *mut ak_enc_ctx,
     obj: *const c_void,
@@ -2502,7 +3231,9 @@ unsafe extern "C" fn loop_list_task_summary_response_tasks_options_options(
         let e = &o.tasks[token as usize];
         let Some(c0) = &e.options else { return AK_OK };
         let src = &c0.options;
-        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_efix_TaskOptionsOptionsEntry>());
+        // Optimisation E3: a small chunk on the stack; a longer field goes out of line.
+        if src.len() > ak_small_n(::core::mem::size_of::<ak_efix_TaskOptionsOptionsEntry>()) { return loop_list_task_summary_response_tasks_options_options_big(ctx, obj, token); }
+        const CHUNK: usize = ak_small_n(::core::mem::size_of::<ak_efix_TaskOptionsOptionsEntry>());
         let mut chunk: [::core::mem::MaybeUninit<ak_efix_TaskOptionsOptionsEntry>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
         let mut i = 0usize;
@@ -2527,6 +3258,41 @@ unsafe extern "C" fn loop_list_task_summary_response_tasks_options_options(
         }
         AK_OK
     })
+}
+
+/// Optimisation E3: `loop_list_task_summary_response_tasks_options_options` for a field longer than the small chunk, with the
+/// 32 KB arena (called inside that callback's guard).
+#[inline(never)]
+unsafe fn loop_list_task_summary_response_tasks_options_options_big(ctx: *mut ak_enc_ctx, obj: *const c_void, token: i64) -> i32 {
+    let o = &*(obj as *const ListTaskSummaryResponse);
+    let tc = tcs();
+    let e = &o.tasks[token as usize];
+    let Some(c0) = &e.options else { return AK_OK };
+    let src = &c0.options;
+    const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_efix_TaskOptionsOptionsEntry>());
+    let mut chunk: [::core::mem::MaybeUninit<ak_efix_TaskOptionsOptionsEntry>; CHUNK] =
+        [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+    let mut i = 0usize;
+    let mut done = 0usize;
+    for (k, v) in src.iter() {
+        chunk[i].write(ak_efix_TaskOptionsOptionsEntry {
+            key: str_arg(k, tc.0),
+            value: str_arg(v, tc.0),
+            presence: 0,
+        });
+        i += 1;
+        if i == CHUNK {
+            let rc = ak_elem_TaskOptionsOptionsEntry(ctx, chunk.as_ptr() as *const ak_efix_TaskOptionsOptionsEntry, i as i32);
+            if rc < 0 { return rc; }
+            done += i;
+            i = 0;
+        }
+    }
+    if i > 0 {
+        let rc = ak_elem_TaskOptionsOptionsEntry(ctx, chunk.as_ptr() as *const ak_efix_TaskOptionsOptionsEntry, i as i32);
+        if rc < 0 { return rc; }
+    }
+    AK_OK
 }
 
 static ELEM_VT_ListTaskSummaryResponse_tasks: ak_evt_TaskSummary = ak_evt_TaskSummary {
@@ -2654,7 +3420,9 @@ unsafe extern "C" fn loop_list_metrics_response_batches(
         let o = &*(obj as *const ListMetricsResponse);
         let tc = tcs();
         let src = &o.batches;
-        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_efix_MetricsBatch>());
+        // Optimisation E3: a small chunk on the stack; a longer field goes out of line.
+        if src.len() > ak_small_n(::core::mem::size_of::<ak_efix_MetricsBatch>()) { return loop_list_metrics_response_batches_big(ctx, obj, token); }
+        const CHUNK: usize = ak_small_n(::core::mem::size_of::<ak_efix_MetricsBatch>());
         let mut chunk: [::core::mem::MaybeUninit<ak_efix_MetricsBatch>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
         let mut i = 0usize;
@@ -2677,6 +3445,35 @@ unsafe extern "C" fn loop_list_metrics_response_batches(
     })
 }
 
+/// Optimisation E3: `loop_list_metrics_response_batches` for a field longer than the small chunk, with the
+/// 32 KB arena (called inside that callback's guard).
+#[inline(never)]
+unsafe fn loop_list_metrics_response_batches_big(ctx: *mut ak_enc_ctx, obj: *const c_void, token: i64) -> i32 {
+    let o = &*(obj as *const ListMetricsResponse);
+    let tc = tcs();
+    let src = &o.batches;
+    const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_efix_MetricsBatch>());
+    let mut chunk: [::core::mem::MaybeUninit<ak_efix_MetricsBatch>; CHUNK] =
+        [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+    let mut i = 0usize;
+    let mut done = 0usize;
+    for v in src.iter() {
+        chunk[i].write(make_metrics_batch(v, tc));
+        i += 1;
+        if i == CHUNK {
+            let rc = ak_elemu_MetricsBatch(ctx, chunk.as_ptr() as *const ak_efix_MetricsBatch, i as i32, done as i64);
+            if rc < 0 { return rc; }
+            done += i;
+            i = 0;
+        }
+    }
+    if i > 0 {
+        let rc = ak_elemu_MetricsBatch(ctx, chunk.as_ptr() as *const ak_efix_MetricsBatch, i as i32, done as i64);
+        if rc < 0 { return rc; }
+    }
+    AK_OK
+}
+
 unsafe extern "C" fn loop_list_metrics_response_batches_zeroed(
     ctx: *mut ak_enc_ctx,
     obj: *const c_void,
@@ -2686,7 +3483,9 @@ unsafe extern "C" fn loop_list_metrics_response_batches_zeroed(
         let o = &*(obj as *const ListMetricsResponse);
         let tc = tcs();
         let src = &o.batches;
-        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_efix_MetricsBatch>());
+        // Optimisation E3: a small chunk on the stack; a longer field goes out of line.
+        if src.len() > ak_small_n(::core::mem::size_of::<ak_efix_MetricsBatch>()) { return loop_list_metrics_response_batches_zeroed_big(ctx, obj, token); }
+        const CHUNK: usize = ak_small_n(::core::mem::size_of::<ak_efix_MetricsBatch>());
         const SZ: usize = ::core::mem::size_of::<ak_efix_MetricsBatch>();
         let mut chunk: [::core::mem::MaybeUninit<ak_efix_MetricsBatch>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
@@ -2717,6 +3516,43 @@ unsafe extern "C" fn loop_list_metrics_response_batches_zeroed(
     })
 }
 
+/// Optimisation E3: `loop_list_metrics_response_batches_zeroed` for a field longer than the small chunk, with the
+/// 32 KB arena (called inside that callback's guard).
+#[inline(never)]
+unsafe fn loop_list_metrics_response_batches_zeroed_big(ctx: *mut ak_enc_ctx, obj: *const c_void, token: i64) -> i32 {
+    let o = &*(obj as *const ListMetricsResponse);
+    let tc = tcs();
+    let src = &o.batches;
+    const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_efix_MetricsBatch>());
+    const SZ: usize = ::core::mem::size_of::<ak_efix_MetricsBatch>();
+    let mut chunk: [::core::mem::MaybeUninit<ak_efix_MetricsBatch>; CHUNK] =
+        [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+    // All-zero is a valid group: `ak_efix_MetricsBatch::ZERO` is exactly this bit pattern.
+    // Decision 9 as corrected: clear the elements you will fill, min(n, CHUNK), not
+    // the whole arena (O(elements), not O(arena)).
+    let total = src.len();
+    ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, total.min(CHUNK) * SZ);
+    let mut i = 0usize;
+    let mut done = 0usize;
+    for v in src.iter() {
+        fill_metrics_batch_sparse(&mut *chunk[i].as_mut_ptr(), v, tc);
+        i += 1;
+        if i == CHUNK {
+            let rc = ak_elemu_MetricsBatch(ctx, chunk.as_ptr() as *const ak_efix_MetricsBatch, i as i32, done as i64);
+            if rc < 0 { return rc; }
+            done += i;
+            // Only what the next chunk will fill is put back.
+            ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, (total - done).min(CHUNK) * SZ);
+            i = 0;
+        }
+    }
+    if i > 0 {
+        let rc = ak_elemu_MetricsBatch(ctx, chunk.as_ptr() as *const ak_efix_MetricsBatch, i as i32, done as i64);
+        if rc < 0 { return rc; }
+    }
+    AK_OK
+}
+
 unsafe extern "C" fn loop_list_metrics_response_batches_unk(
     ctx: *mut ak_enc_ctx,
     obj: *const c_void,
@@ -2726,7 +3562,9 @@ unsafe extern "C" fn loop_list_metrics_response_batches_unk(
         let o = &*(obj as *const ListMetricsResponse);
         let tc = tcs();
         let src = &o.batches;
-        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_ufix_MetricsBatch>());
+        // Optimisation E3: a small chunk on the stack; a longer field goes out of line.
+        if src.len() > ak_small_n(::core::mem::size_of::<ak_ufix_MetricsBatch>()) { return loop_list_metrics_response_batches_unk_big(ctx, obj, token); }
+        const CHUNK: usize = ak_small_n(::core::mem::size_of::<ak_ufix_MetricsBatch>());
         let mut chunk: [::core::mem::MaybeUninit<ak_ufix_MetricsBatch>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
         let mut i = 0usize;
@@ -2749,6 +3587,35 @@ unsafe extern "C" fn loop_list_metrics_response_batches_unk(
     })
 }
 
+/// Optimisation E3: `loop_list_metrics_response_batches_unk` for a field longer than the small chunk, with the
+/// 32 KB arena (called inside that callback's guard).
+#[inline(never)]
+unsafe fn loop_list_metrics_response_batches_unk_big(ctx: *mut ak_enc_ctx, obj: *const c_void, token: i64) -> i32 {
+    let o = &*(obj as *const ListMetricsResponse);
+    let tc = tcs();
+    let src = &o.batches;
+    const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_ufix_MetricsBatch>());
+    let mut chunk: [::core::mem::MaybeUninit<ak_ufix_MetricsBatch>; CHUNK] =
+        [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+    let mut i = 0usize;
+    let mut done = 0usize;
+    for v in src.iter() {
+        chunk[i].write(make_metrics_batch_unk(v, tc));
+        i += 1;
+        if i == CHUNK {
+            let rc = ak_uelemu_MetricsBatch(ctx, chunk.as_ptr() as *const ak_ufix_MetricsBatch, i as i32, done as i64);
+            if rc < 0 { return rc; }
+            done += i;
+            i = 0;
+        }
+    }
+    if i > 0 {
+        let rc = ak_uelemu_MetricsBatch(ctx, chunk.as_ptr() as *const ak_ufix_MetricsBatch, i as i32, done as i64);
+        if rc < 0 { return rc; }
+    }
+    AK_OK
+}
+
 unsafe extern "C" fn loop_list_metrics_response_batches_unk_zeroed(
     ctx: *mut ak_enc_ctx,
     obj: *const c_void,
@@ -2758,7 +3625,9 @@ unsafe extern "C" fn loop_list_metrics_response_batches_unk_zeroed(
         let o = &*(obj as *const ListMetricsResponse);
         let tc = tcs();
         let src = &o.batches;
-        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_ufix_MetricsBatch>());
+        // Optimisation E3: a small chunk on the stack; a longer field goes out of line.
+        if src.len() > ak_small_n(::core::mem::size_of::<ak_ufix_MetricsBatch>()) { return loop_list_metrics_response_batches_unk_zeroed_big(ctx, obj, token); }
+        const CHUNK: usize = ak_small_n(::core::mem::size_of::<ak_ufix_MetricsBatch>());
         const SZ: usize = ::core::mem::size_of::<ak_ufix_MetricsBatch>();
         let mut chunk: [::core::mem::MaybeUninit<ak_ufix_MetricsBatch>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
@@ -2785,6 +3654,41 @@ unsafe extern "C" fn loop_list_metrics_response_batches_unk_zeroed(
         }
         AK_OK
     })
+}
+
+/// Optimisation E3: `loop_list_metrics_response_batches_unk_zeroed` for a field longer than the small chunk, with the
+/// 32 KB arena (called inside that callback's guard).
+#[inline(never)]
+unsafe fn loop_list_metrics_response_batches_unk_zeroed_big(ctx: *mut ak_enc_ctx, obj: *const c_void, token: i64) -> i32 {
+    let o = &*(obj as *const ListMetricsResponse);
+    let tc = tcs();
+    let src = &o.batches;
+    const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_ufix_MetricsBatch>());
+    const SZ: usize = ::core::mem::size_of::<ak_ufix_MetricsBatch>();
+    let mut chunk: [::core::mem::MaybeUninit<ak_ufix_MetricsBatch>; CHUNK] =
+        [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+    // Decision 9 as corrected: clear the elements you will fill, min(n, CHUNK), not
+    // the whole arena (O(elements), not O(arena)).
+    let total = src.len();
+    ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, total.min(CHUNK) * SZ);
+    let mut i = 0usize;
+    let mut done = 0usize;
+    for v in src.iter() {
+        fill_metrics_batch_unk_sparse(&mut *chunk[i].as_mut_ptr(), v, tc);
+        i += 1;
+        if i == CHUNK {
+            let rc = ak_uelemu_MetricsBatch(ctx, chunk.as_ptr() as *const ak_ufix_MetricsBatch, i as i32, done as i64);
+            if rc < 0 { return rc; }
+            done += i;
+            ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, (total - done).min(CHUNK) * SZ);
+            i = 0;
+        }
+    }
+    if i > 0 {
+        let rc = ak_uelemu_MetricsBatch(ctx, chunk.as_ptr() as *const ak_ufix_MetricsBatch, i as i32, done as i64);
+        if rc < 0 { return rc; }
+    }
+    AK_OK
 }
 
 unsafe extern "C" fn loop_list_metrics_response_batches_ticks(
@@ -2951,7 +3855,9 @@ unsafe extern "C" fn loop_dual_response_left(
         let o = &*(obj as *const DualResponse);
         let tc = tcs();
         let src = &o.left;
-        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_efix_Pair>());
+        // Optimisation E3: a small chunk on the stack; a longer field goes out of line.
+        if src.len() > ak_small_n(::core::mem::size_of::<ak_efix_Pair>()) { return loop_dual_response_left_big(ctx, obj, token); }
+        const CHUNK: usize = ak_small_n(::core::mem::size_of::<ak_efix_Pair>());
         let mut chunk: [::core::mem::MaybeUninit<ak_efix_Pair>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
         let mut i = 0usize;
@@ -2972,6 +3878,35 @@ unsafe extern "C" fn loop_dual_response_left(
         }
         AK_OK
     })
+}
+
+/// Optimisation E3: `loop_dual_response_left` for a field longer than the small chunk, with the
+/// 32 KB arena (called inside that callback's guard).
+#[inline(never)]
+unsafe fn loop_dual_response_left_big(ctx: *mut ak_enc_ctx, obj: *const c_void, token: i64) -> i32 {
+    let o = &*(obj as *const DualResponse);
+    let tc = tcs();
+    let src = &o.left;
+    const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_efix_Pair>());
+    let mut chunk: [::core::mem::MaybeUninit<ak_efix_Pair>; CHUNK] =
+        [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+    let mut i = 0usize;
+    let mut done = 0usize;
+    for v in src.iter() {
+        chunk[i].write(make_pair(v, tc));
+        i += 1;
+        if i == CHUNK {
+            let rc = ak_elem_Pair(ctx, chunk.as_ptr() as *const ak_efix_Pair, i as i32);
+            if rc < 0 { return rc; }
+            done += i;
+            i = 0;
+        }
+    }
+    if i > 0 {
+        let rc = ak_elem_Pair(ctx, chunk.as_ptr() as *const ak_efix_Pair, i as i32);
+        if rc < 0 { return rc; }
+    }
+    AK_OK
 }
 
 unsafe extern "C" fn loop_dual_response_left_zeroed(
@@ -2983,7 +3918,9 @@ unsafe extern "C" fn loop_dual_response_left_zeroed(
         let o = &*(obj as *const DualResponse);
         let tc = tcs();
         let src = &o.left;
-        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_efix_Pair>());
+        // Optimisation E3: a small chunk on the stack; a longer field goes out of line.
+        if src.len() > ak_small_n(::core::mem::size_of::<ak_efix_Pair>()) { return loop_dual_response_left_zeroed_big(ctx, obj, token); }
+        const CHUNK: usize = ak_small_n(::core::mem::size_of::<ak_efix_Pair>());
         const SZ: usize = ::core::mem::size_of::<ak_efix_Pair>();
         let mut chunk: [::core::mem::MaybeUninit<ak_efix_Pair>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
@@ -3014,6 +3951,43 @@ unsafe extern "C" fn loop_dual_response_left_zeroed(
     })
 }
 
+/// Optimisation E3: `loop_dual_response_left_zeroed` for a field longer than the small chunk, with the
+/// 32 KB arena (called inside that callback's guard).
+#[inline(never)]
+unsafe fn loop_dual_response_left_zeroed_big(ctx: *mut ak_enc_ctx, obj: *const c_void, token: i64) -> i32 {
+    let o = &*(obj as *const DualResponse);
+    let tc = tcs();
+    let src = &o.left;
+    const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_efix_Pair>());
+    const SZ: usize = ::core::mem::size_of::<ak_efix_Pair>();
+    let mut chunk: [::core::mem::MaybeUninit<ak_efix_Pair>; CHUNK] =
+        [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+    // All-zero is a valid group: `ak_efix_Pair::ZERO` is exactly this bit pattern.
+    // Decision 9 as corrected: clear the elements you will fill, min(n, CHUNK), not
+    // the whole arena (O(elements), not O(arena)).
+    let total = src.len();
+    ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, total.min(CHUNK) * SZ);
+    let mut i = 0usize;
+    let mut done = 0usize;
+    for v in src.iter() {
+        fill_pair_sparse(&mut *chunk[i].as_mut_ptr(), v, tc);
+        i += 1;
+        if i == CHUNK {
+            let rc = ak_elem_Pair(ctx, chunk.as_ptr() as *const ak_efix_Pair, i as i32);
+            if rc < 0 { return rc; }
+            done += i;
+            // Only what the next chunk will fill is put back.
+            ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, (total - done).min(CHUNK) * SZ);
+            i = 0;
+        }
+    }
+    if i > 0 {
+        let rc = ak_elem_Pair(ctx, chunk.as_ptr() as *const ak_efix_Pair, i as i32);
+        if rc < 0 { return rc; }
+    }
+    AK_OK
+}
+
 unsafe extern "C" fn loop_dual_response_left_unk(
     ctx: *mut ak_enc_ctx,
     obj: *const c_void,
@@ -3023,7 +3997,9 @@ unsafe extern "C" fn loop_dual_response_left_unk(
         let o = &*(obj as *const DualResponse);
         let tc = tcs();
         let src = &o.left;
-        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_ufix_Pair>());
+        // Optimisation E3: a small chunk on the stack; a longer field goes out of line.
+        if src.len() > ak_small_n(::core::mem::size_of::<ak_ufix_Pair>()) { return loop_dual_response_left_unk_big(ctx, obj, token); }
+        const CHUNK: usize = ak_small_n(::core::mem::size_of::<ak_ufix_Pair>());
         let mut chunk: [::core::mem::MaybeUninit<ak_ufix_Pair>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
         let mut i = 0usize;
@@ -3046,6 +4022,35 @@ unsafe extern "C" fn loop_dual_response_left_unk(
     })
 }
 
+/// Optimisation E3: `loop_dual_response_left_unk` for a field longer than the small chunk, with the
+/// 32 KB arena (called inside that callback's guard).
+#[inline(never)]
+unsafe fn loop_dual_response_left_unk_big(ctx: *mut ak_enc_ctx, obj: *const c_void, token: i64) -> i32 {
+    let o = &*(obj as *const DualResponse);
+    let tc = tcs();
+    let src = &o.left;
+    const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_ufix_Pair>());
+    let mut chunk: [::core::mem::MaybeUninit<ak_ufix_Pair>; CHUNK] =
+        [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+    let mut i = 0usize;
+    let mut done = 0usize;
+    for v in src.iter() {
+        chunk[i].write(make_pair_unk(v, tc));
+        i += 1;
+        if i == CHUNK {
+            let rc = ak_uelem_Pair(ctx, chunk.as_ptr() as *const ak_ufix_Pair, i as i32);
+            if rc < 0 { return rc; }
+            done += i;
+            i = 0;
+        }
+    }
+    if i > 0 {
+        let rc = ak_uelem_Pair(ctx, chunk.as_ptr() as *const ak_ufix_Pair, i as i32);
+        if rc < 0 { return rc; }
+    }
+    AK_OK
+}
+
 unsafe extern "C" fn loop_dual_response_left_unk_zeroed(
     ctx: *mut ak_enc_ctx,
     obj: *const c_void,
@@ -3055,7 +4060,9 @@ unsafe extern "C" fn loop_dual_response_left_unk_zeroed(
         let o = &*(obj as *const DualResponse);
         let tc = tcs();
         let src = &o.left;
-        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_ufix_Pair>());
+        // Optimisation E3: a small chunk on the stack; a longer field goes out of line.
+        if src.len() > ak_small_n(::core::mem::size_of::<ak_ufix_Pair>()) { return loop_dual_response_left_unk_zeroed_big(ctx, obj, token); }
+        const CHUNK: usize = ak_small_n(::core::mem::size_of::<ak_ufix_Pair>());
         const SZ: usize = ::core::mem::size_of::<ak_ufix_Pair>();
         let mut chunk: [::core::mem::MaybeUninit<ak_ufix_Pair>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
@@ -3084,6 +4091,41 @@ unsafe extern "C" fn loop_dual_response_left_unk_zeroed(
     })
 }
 
+/// Optimisation E3: `loop_dual_response_left_unk_zeroed` for a field longer than the small chunk, with the
+/// 32 KB arena (called inside that callback's guard).
+#[inline(never)]
+unsafe fn loop_dual_response_left_unk_zeroed_big(ctx: *mut ak_enc_ctx, obj: *const c_void, token: i64) -> i32 {
+    let o = &*(obj as *const DualResponse);
+    let tc = tcs();
+    let src = &o.left;
+    const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_ufix_Pair>());
+    const SZ: usize = ::core::mem::size_of::<ak_ufix_Pair>();
+    let mut chunk: [::core::mem::MaybeUninit<ak_ufix_Pair>; CHUNK] =
+        [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+    // Decision 9 as corrected: clear the elements you will fill, min(n, CHUNK), not
+    // the whole arena (O(elements), not O(arena)).
+    let total = src.len();
+    ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, total.min(CHUNK) * SZ);
+    let mut i = 0usize;
+    let mut done = 0usize;
+    for v in src.iter() {
+        fill_pair_unk_sparse(&mut *chunk[i].as_mut_ptr(), v, tc);
+        i += 1;
+        if i == CHUNK {
+            let rc = ak_uelem_Pair(ctx, chunk.as_ptr() as *const ak_ufix_Pair, i as i32);
+            if rc < 0 { return rc; }
+            done += i;
+            ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, (total - done).min(CHUNK) * SZ);
+            i = 0;
+        }
+    }
+    if i > 0 {
+        let rc = ak_uelem_Pair(ctx, chunk.as_ptr() as *const ak_ufix_Pair, i as i32);
+        if rc < 0 { return rc; }
+    }
+    AK_OK
+}
+
 unsafe extern "C" fn loop_dual_response_right(
     ctx: *mut ak_enc_ctx,
     obj: *const c_void,
@@ -3093,7 +4135,9 @@ unsafe extern "C" fn loop_dual_response_right(
         let o = &*(obj as *const DualResponse);
         let tc = tcs();
         let src = &o.right;
-        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_efix_Pair>());
+        // Optimisation E3: a small chunk on the stack; a longer field goes out of line.
+        if src.len() > ak_small_n(::core::mem::size_of::<ak_efix_Pair>()) { return loop_dual_response_right_big(ctx, obj, token); }
+        const CHUNK: usize = ak_small_n(::core::mem::size_of::<ak_efix_Pair>());
         let mut chunk: [::core::mem::MaybeUninit<ak_efix_Pair>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
         let mut i = 0usize;
@@ -3116,6 +4160,35 @@ unsafe extern "C" fn loop_dual_response_right(
     })
 }
 
+/// Optimisation E3: `loop_dual_response_right` for a field longer than the small chunk, with the
+/// 32 KB arena (called inside that callback's guard).
+#[inline(never)]
+unsafe fn loop_dual_response_right_big(ctx: *mut ak_enc_ctx, obj: *const c_void, token: i64) -> i32 {
+    let o = &*(obj as *const DualResponse);
+    let tc = tcs();
+    let src = &o.right;
+    const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_efix_Pair>());
+    let mut chunk: [::core::mem::MaybeUninit<ak_efix_Pair>; CHUNK] =
+        [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+    let mut i = 0usize;
+    let mut done = 0usize;
+    for v in src.iter() {
+        chunk[i].write(make_pair(v, tc));
+        i += 1;
+        if i == CHUNK {
+            let rc = ak_elem_Pair(ctx, chunk.as_ptr() as *const ak_efix_Pair, i as i32);
+            if rc < 0 { return rc; }
+            done += i;
+            i = 0;
+        }
+    }
+    if i > 0 {
+        let rc = ak_elem_Pair(ctx, chunk.as_ptr() as *const ak_efix_Pair, i as i32);
+        if rc < 0 { return rc; }
+    }
+    AK_OK
+}
+
 unsafe extern "C" fn loop_dual_response_right_zeroed(
     ctx: *mut ak_enc_ctx,
     obj: *const c_void,
@@ -3125,7 +4198,9 @@ unsafe extern "C" fn loop_dual_response_right_zeroed(
         let o = &*(obj as *const DualResponse);
         let tc = tcs();
         let src = &o.right;
-        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_efix_Pair>());
+        // Optimisation E3: a small chunk on the stack; a longer field goes out of line.
+        if src.len() > ak_small_n(::core::mem::size_of::<ak_efix_Pair>()) { return loop_dual_response_right_zeroed_big(ctx, obj, token); }
+        const CHUNK: usize = ak_small_n(::core::mem::size_of::<ak_efix_Pair>());
         const SZ: usize = ::core::mem::size_of::<ak_efix_Pair>();
         let mut chunk: [::core::mem::MaybeUninit<ak_efix_Pair>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
@@ -3156,6 +4231,43 @@ unsafe extern "C" fn loop_dual_response_right_zeroed(
     })
 }
 
+/// Optimisation E3: `loop_dual_response_right_zeroed` for a field longer than the small chunk, with the
+/// 32 KB arena (called inside that callback's guard).
+#[inline(never)]
+unsafe fn loop_dual_response_right_zeroed_big(ctx: *mut ak_enc_ctx, obj: *const c_void, token: i64) -> i32 {
+    let o = &*(obj as *const DualResponse);
+    let tc = tcs();
+    let src = &o.right;
+    const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_efix_Pair>());
+    const SZ: usize = ::core::mem::size_of::<ak_efix_Pair>();
+    let mut chunk: [::core::mem::MaybeUninit<ak_efix_Pair>; CHUNK] =
+        [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+    // All-zero is a valid group: `ak_efix_Pair::ZERO` is exactly this bit pattern.
+    // Decision 9 as corrected: clear the elements you will fill, min(n, CHUNK), not
+    // the whole arena (O(elements), not O(arena)).
+    let total = src.len();
+    ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, total.min(CHUNK) * SZ);
+    let mut i = 0usize;
+    let mut done = 0usize;
+    for v in src.iter() {
+        fill_pair_sparse(&mut *chunk[i].as_mut_ptr(), v, tc);
+        i += 1;
+        if i == CHUNK {
+            let rc = ak_elem_Pair(ctx, chunk.as_ptr() as *const ak_efix_Pair, i as i32);
+            if rc < 0 { return rc; }
+            done += i;
+            // Only what the next chunk will fill is put back.
+            ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, (total - done).min(CHUNK) * SZ);
+            i = 0;
+        }
+    }
+    if i > 0 {
+        let rc = ak_elem_Pair(ctx, chunk.as_ptr() as *const ak_efix_Pair, i as i32);
+        if rc < 0 { return rc; }
+    }
+    AK_OK
+}
+
 unsafe extern "C" fn loop_dual_response_right_unk(
     ctx: *mut ak_enc_ctx,
     obj: *const c_void,
@@ -3165,7 +4277,9 @@ unsafe extern "C" fn loop_dual_response_right_unk(
         let o = &*(obj as *const DualResponse);
         let tc = tcs();
         let src = &o.right;
-        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_ufix_Pair>());
+        // Optimisation E3: a small chunk on the stack; a longer field goes out of line.
+        if src.len() > ak_small_n(::core::mem::size_of::<ak_ufix_Pair>()) { return loop_dual_response_right_unk_big(ctx, obj, token); }
+        const CHUNK: usize = ak_small_n(::core::mem::size_of::<ak_ufix_Pair>());
         let mut chunk: [::core::mem::MaybeUninit<ak_ufix_Pair>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
         let mut i = 0usize;
@@ -3188,6 +4302,35 @@ unsafe extern "C" fn loop_dual_response_right_unk(
     })
 }
 
+/// Optimisation E3: `loop_dual_response_right_unk` for a field longer than the small chunk, with the
+/// 32 KB arena (called inside that callback's guard).
+#[inline(never)]
+unsafe fn loop_dual_response_right_unk_big(ctx: *mut ak_enc_ctx, obj: *const c_void, token: i64) -> i32 {
+    let o = &*(obj as *const DualResponse);
+    let tc = tcs();
+    let src = &o.right;
+    const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_ufix_Pair>());
+    let mut chunk: [::core::mem::MaybeUninit<ak_ufix_Pair>; CHUNK] =
+        [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+    let mut i = 0usize;
+    let mut done = 0usize;
+    for v in src.iter() {
+        chunk[i].write(make_pair_unk(v, tc));
+        i += 1;
+        if i == CHUNK {
+            let rc = ak_uelem_Pair(ctx, chunk.as_ptr() as *const ak_ufix_Pair, i as i32);
+            if rc < 0 { return rc; }
+            done += i;
+            i = 0;
+        }
+    }
+    if i > 0 {
+        let rc = ak_uelem_Pair(ctx, chunk.as_ptr() as *const ak_ufix_Pair, i as i32);
+        if rc < 0 { return rc; }
+    }
+    AK_OK
+}
+
 unsafe extern "C" fn loop_dual_response_right_unk_zeroed(
     ctx: *mut ak_enc_ctx,
     obj: *const c_void,
@@ -3197,7 +4340,9 @@ unsafe extern "C" fn loop_dual_response_right_unk_zeroed(
         let o = &*(obj as *const DualResponse);
         let tc = tcs();
         let src = &o.right;
-        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_ufix_Pair>());
+        // Optimisation E3: a small chunk on the stack; a longer field goes out of line.
+        if src.len() > ak_small_n(::core::mem::size_of::<ak_ufix_Pair>()) { return loop_dual_response_right_unk_zeroed_big(ctx, obj, token); }
+        const CHUNK: usize = ak_small_n(::core::mem::size_of::<ak_ufix_Pair>());
         const SZ: usize = ::core::mem::size_of::<ak_ufix_Pair>();
         let mut chunk: [::core::mem::MaybeUninit<ak_ufix_Pair>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
@@ -3224,6 +4369,41 @@ unsafe extern "C" fn loop_dual_response_right_unk_zeroed(
         }
         AK_OK
     })
+}
+
+/// Optimisation E3: `loop_dual_response_right_unk_zeroed` for a field longer than the small chunk, with the
+/// 32 KB arena (called inside that callback's guard).
+#[inline(never)]
+unsafe fn loop_dual_response_right_unk_zeroed_big(ctx: *mut ak_enc_ctx, obj: *const c_void, token: i64) -> i32 {
+    let o = &*(obj as *const DualResponse);
+    let tc = tcs();
+    let src = &o.right;
+    const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_ufix_Pair>());
+    const SZ: usize = ::core::mem::size_of::<ak_ufix_Pair>();
+    let mut chunk: [::core::mem::MaybeUninit<ak_ufix_Pair>; CHUNK] =
+        [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
+    // Decision 9 as corrected: clear the elements you will fill, min(n, CHUNK), not
+    // the whole arena (O(elements), not O(arena)).
+    let total = src.len();
+    ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, total.min(CHUNK) * SZ);
+    let mut i = 0usize;
+    let mut done = 0usize;
+    for v in src.iter() {
+        fill_pair_unk_sparse(&mut *chunk[i].as_mut_ptr(), v, tc);
+        i += 1;
+        if i == CHUNK {
+            let rc = ak_uelem_Pair(ctx, chunk.as_ptr() as *const ak_ufix_Pair, i as i32);
+            if rc < 0 { return rc; }
+            done += i;
+            ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, (total - done).min(CHUNK) * SZ);
+            i = 0;
+        }
+    }
+    if i > 0 {
+        let rc = ak_uelem_Pair(ctx, chunk.as_ptr() as *const ak_ufix_Pair, i as i32);
+        if rc < 0 { return rc; }
+    }
+    AK_OK
 }
 
 pub fn encode_into_dual_response(ctx: *mut ak_enc_ctx, o: &DualResponse, t: &Tcs) -> Result<usize, i32> {
