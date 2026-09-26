@@ -5,6 +5,13 @@ rust-version.workspace = true
 version.workspace = true
 publish.workspace = true
 
+[features]
+# FIX-PLAN R-H22 (owner 2026-09-26): the no-unknown build removes the facade's
+# `unknown_fields` member too. Default on; off selects `generated/types_nounk.rs` (rendered
+# from the no-unknown plan) and drops the retain rendering of core-native.
+default = ["unknown-fields"]
+unknown-fields = []
+
 [lib]
 # The generated binding says `use facade::*;`, as it does in the shapes.json harness.
 name = "facade"

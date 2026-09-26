@@ -99,6 +99,8 @@ fn prealloc_cases(cx: &Cx) -> bool {
     ok &= refill_cases();
     ok &= oneof_cases(cx);
     ok &= wrong_root_cases(cx);
+    ok &= refused_parse_keeps_records(cx);
+    ok &= decided_at_arm_time(cx);
     ok
 }
 
@@ -270,6 +272,42 @@ fn oneof_cases(cx: &Cx) -> bool {
         };
         println!("  placement: {name:<24} {line}");
     }
+    // FIX-PLAN R-H8: a switch from a MESSAGE member (carrying unknowns) to a SCALAR member.
+    // The core leaves the buffer in the now inactive member's slot, which the binding never
+    // delivers; it must come back through `unk_reclaim` (exactly one), and nothing may
+    // stay live after (0 leaked). The value is the scalar member, with no bag anywhere.
+    {
+        let mut p = Vec::new();
+        ld(1, b"p", &mut p);
+        ld(13, &run(1), &mut p);
+        p.extend_from_slice(&[0x50, 0x07]); // as_int (10) = 7
+        let mut b = Vec::new();
+        ld(1, &p, &mut b);
+        let mut gc = GrowCount::default();
+        let mut o = binding::unk_opts_list_probe_response(None);
+        o.host = &mut gc as *mut GrowCount as *mut std::ffi::c_void;
+        o.probes_body.grow = Some(counting_grow);
+        binding::unk_reclaim();
+        let ctx = cx.dec.list_probe_response;
+        let r0 = unsafe { ak_dec_reset_ListProbeResponse(ctx, &mut o) };
+        let r = binding::decode_with_list_probe_response(cx.dec, &b);
+        unsafe { ak_dec_reset_ListProbeResponse(ctx, std::ptr::null_mut()) };
+        let reclaimed = binding::unk_reclaim();
+        let leaked = binding::unk_reclaim();
+        let line = match r {
+            Ok(v) => {
+                let body = v.probes.first().and_then(|p| p.body.clone());
+                let bags: usize = v.probes.iter().map(|p| p.unknown_fields.len()).sum::<usize>() + v.unknown_fields.len();
+                let pass = r0 == AK_OK && body == Some(facade::ProbeBody::AsInt(7)) && bags == 0
+                    && gc.fresh == 1 && reclaimed == 1 && leaked == 0;
+                ok &= pass;
+                format!("body {:?}, bags delivered {} bytes; buffers grown {} (fresh), reclaimed from the inactive slot {}, live after {}  {}",
+                        body, bags, gc.fresh, reclaimed, leaked, verdict(pass))
+            }
+            Err(e) => { ok = false; format!("rc {e}  FAIL") }
+        };
+        println!("  placement: {:<24} {line}", "oneof stamp -> int");
+    }
     ok
 }
 
@@ -287,6 +325,71 @@ fn wrong_root_cases(cx: &Cx) -> bool {
         let pass = d == AK_ERR_INVALID_STATE && p == AK_ERR_INVALID_STATE && r == AK_ERR_INVALID_STATE && own;
         println!("  placement: {:<24} decode rc {d}, parse rc {p}, reset rc {r} (AK_ERR_INVALID_STATE = {AK_ERR_INVALID_STATE}); own root still decodes: {own}  {}",
                  "wrong root (refused)", verdict(pass));
+        pass
+    }
+}
+
+/// FIX-PLAN R-H10: a parse refused for the wrong root (-8) must leave the records of an
+/// earlier, unread parse on that context intact: parse A, then parse B on A's context,
+/// then A's records byte for byte (footprint and the record bytes).
+fn refused_parse_keeps_records(cx: &Cx) -> bool {
+    let ctx = cx.dec.list_results_response;
+    // Two ResultRaw elements, each with a string field, so the parse leaves records.
+    let mut el = Vec::new();
+    ld(1, b"session", &mut el);
+    let mut b = Vec::new();
+    ld(1, &el, &mut b);
+    ld(1, &el, &mut b);
+    unsafe {
+        let pa = ak_parse_ListResultsResponse(ctx, b.as_ptr(), b.len());
+        let snap = |ctx| {
+            let (mut p, mut n) = (std::ptr::null::<u8>(), 0usize);
+            ak_bdr_ptr(ctx, &mut p, &mut n);
+            (ak_bdr_footprint(ctx), if n == 0 { Vec::new() } else { std::slice::from_raw_parts(p, n).to_vec() })
+        };
+        let (fa, ra) = snap(ctx);
+        let pb = ak_parse_ListTasksDetailedResponse(ctx, b.as_ptr(), b.len());
+        let (fb, rb) = snap(ctx);
+        let pass = pa >= 0 && !ra.is_empty() && pb == AK_ERR_INVALID_STATE && ra == rb;
+        println!("  placement: {:<24} parse A rc {pa}, {} record bytes (footprint {fa}); parse B on A's context rc {pb}; after: {} record bytes (footprint {fb}), identical: {}  {}",
+                 "refused parse keeps A", ra.len(), rb.len(), ra == rb, verdict(pass));
+        ak_bdr_reset(ctx);
+        pass
+    }
+}
+
+/// FIX-PLAN R-H20 / ABI-v1 rule 1 as amended 2026-09-26: whether a decode retains is decided
+/// when the context is reset. Options all zero at reset, an entry refilled AFTER the reset
+/// and before the decode: the decode succeeds (rc 0) and delivers no bag.
+fn decided_at_arm_time(cx: &Cx) -> bool {
+    let ctx = cx.dec.list_results_response;
+    let mut o = binding::unk_opts_list_results_response(None);
+    o.self_.grow = None;
+    o.results.grow = None;
+    o.results_created_at.grow = None;
+    o.results_completed_at.grow = None;
+    // The root carries one unknown field (99, varint 1).
+    let mut b = vec![0x98u8, 0x06, 0x01];
+    ld(1, b"", &mut b);
+    unsafe {
+        let r0 = ak_dec_reset_ListResultsResponse(ctx, &mut o);
+        o.self_.grow = Some(binding::unk_grow); // the refill, after the decision
+        let r = binding::decode_with_list_results_response(cx.dec, &b);
+        ak_dec_reset_ListResultsResponse(ctx, std::ptr::null_mut());
+        let (rc, bag) = match &r {
+            Ok(v) => (0, v.unknown_fields.len()),
+            Err(e) => (*e, usize::MAX),
+        };
+        // The twin that must see a bag: the same entry armed BEFORE the reset.
+        let mut o2 = binding::unk_opts_list_results_response(Some(1));
+        o2.results_created_at.grow = None;
+        o2.results_completed_at.grow = None;
+        let r2 = binding::decode_with_list_results_response_opts(cx.dec, &b, &mut o2);
+        let bag2 = r2.as_ref().map(|v| v.unknown_fields.len()).unwrap_or(usize::MAX);
+        binding::unk_reclaim();
+        let pass = r0 == AK_OK && rc == 0 && bag == 0 && bag2 == 3;
+        println!("  placement: {:<24} reset with all-zero options rc {r0}; root entry refilled after the reset; decode rc {rc}, root bag {} bytes (want rc 0 and no bag); twin armed at reset: bag {} bytes (want 3)  {}",
+                 "decided at arm time", if bag == usize::MAX { 0 } else { bag }, bag2, verdict(pass));
         pass
     }
 }

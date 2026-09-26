@@ -11,6 +11,8 @@ this slice.
 What it emits, and which arm each file serves:
 
   crates/facade/src/generated/types.rs        the facade types (arms armonik, core-native, core-ffi-rust)
+  crates/facade/src/generated/types_nounk.rs  the same without `unknown_fields` (no-unknown build, R-H22);
+                                              both rendered by codec/gen/rust_facade.py from the plan
   crates/facade/src/generated/prost_impl.rs   arm `armonik`
   crates/facade/src/generated/build.rs        payload construction over the facade
   crates/facade/src/generated/core_native.rs  arm `core-native`: the no-boundary control (R3),
@@ -73,6 +75,9 @@ def targets(ir):
     codec = rust_abi.emit_codec(ir)
     return {
         "crates/facade/src/generated/types.rs": rust_facade.emit_types(ir),
+        # FIX-PLAN R-H22: the no-unknown variant's facade (facade feature `unknown-fields` off).
+        "crates/facade/src/generated/types_nounk.rs":
+            rust_facade.emit_types(P.relower(ir, ir.options.with_unknown("drop"))),
         "crates/facade/src/generated/prost_impl.rs": rust_facade.emit_prost_impl(ir),
         "crates/facade/src/generated/build.rs": rust_build.emit(ir),
         "crates/facade/src/generated/core_native.rs": rust_native.emit_core_native(ir, "drop"),
@@ -104,6 +109,8 @@ def corpus_targets():
     ccodec = rust_abi.emit_codec(abi)
     return {
         "corpus/crates/facade/src/generated/types.rs": rust_facade.emit_types(full),
+        "corpus/crates/facade/src/generated/types_nounk.rs":
+            rust_facade.emit_types(P.relower(full, full.options.with_unknown("drop"))),
         "corpus/crates/facade/src/generated/core_native.rs":
             rust_native.emit_core_native(full, "drop"),
         "corpus/crates/facade/src/generated/core_native_retain.rs":

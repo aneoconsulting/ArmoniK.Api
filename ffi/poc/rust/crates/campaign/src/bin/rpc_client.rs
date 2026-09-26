@@ -12,7 +12,9 @@
 //!   D  the core's codec through the C ABI, tonic's transport (raw-bytes codec)
 //!   (a) empty request, P2.2 response; (b) P2.2 request the server decodes, empty response.
 //! In flight k = k host threads, each making calls back to back (the blocking shape; the
-//! tonic cells block on a shared runtime per call, the same shape).
+//! tonic cells block on a shared runtime per call, the same shape). The k threads are a pool
+//! created before the warm-up and reused by every round (FIX-PLAN R-H2): no thread is
+//! spawned inside a timed window.
 //! Every call is checked (requirement 18): status OK and the response length equal to the
 //! expected one; cells C and D also require the core's decode to succeed. The first failure
 //! aborts the process with no output at all (samples are kept in memory and written only at
@@ -258,23 +260,66 @@ fn make(cell: &str, dir: &'static str, k: usize, target: &str, pinned: bool, wan
     }
 }
 
-/// k threads, `per` calls each; the first error of any thread is returned.
-fn batch(f: &CallFn, k: usize, per: usize) -> Result<(), String> {
-    std::thread::scope(|s| {
-        let hs: Vec<_> = (0..k).map(|i| {
-            let f = f.clone();
-            s.spawn(move || -> Result<(), String> {
-                for _ in 0..per {
-                    f(i)?;
+/// FIX-PLAN R-H2: the k client threads of one (cell, dir, in-flight k) are created ONCE,
+/// before its warm-up and outside every timed window, and reused for every batch. A batch
+/// is one job per thread (`per` calls back to back); the first error of any thread is
+/// returned. A panic in a thread comes back as an error (never a hang), and dropping the
+/// pool joins its threads.
+struct Pool {
+    jobs: Vec<std::sync::mpsc::Sender<usize>>,
+    done: std::sync::mpsc::Receiver<Result<(), String>>,
+    threads: Vec<std::thread::JoinHandle<()>>,
+}
+
+impl Pool {
+    fn new(f: &CallFn, k: usize) -> Pool {
+        let (dtx, done) = std::sync::mpsc::channel();
+        let mut jobs = Vec::with_capacity(k);
+        let mut threads = Vec::with_capacity(k);
+        for i in 0..k {
+            let (jtx, jrx) = std::sync::mpsc::channel::<usize>();
+            let (f, dtx) = (f.clone(), dtx.clone());
+            threads.push(std::thread::spawn(move || {
+                for per in jrx {
+                    let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                        for _ in 0..per {
+                            f(i)?;
+                        }
+                        Ok(())
+                    }))
+                    .unwrap_or_else(|_| Err("a client thread panicked".to_string()));
+                    if dtx.send(r).is_err() {
+                        break;
+                    }
                 }
-                Ok(())
-            })
-        }).collect();
-        for h in hs {
-            h.join().map_err(|_| "a client thread panicked".to_string())??;
+            }));
+            jobs.push(jtx);
         }
-        Ok(())
-    })
+        Pool { jobs, done, threads }
+    }
+
+    fn batch(&self, per: usize) -> Result<(), String> {
+        for j in &self.jobs {
+            j.send(per).map_err(|_| "a client thread is gone".to_string())?;
+        }
+        let mut first = Ok(());
+        for _ in 0..self.jobs.len() {
+            let r = self.done.recv().map_err(|_| "a client thread is gone".to_string())?;
+            if first.is_ok() {
+                first = r;
+            }
+        }
+        first
+    }
+}
+
+impl Drop for Pool {
+    fn drop(&mut self) {
+        self.jobs.clear();
+        for t in self.threads.drain(..) {
+            let _ = t.join();
+        }
+    }
 }
 
 fn main() {
@@ -302,23 +347,27 @@ fn main() {
     let cells: &[&str] = &["A", "B", "C-retain", "C-drop", "D-retain", "D-drop"];
     #[cfg(not(feature = "unknown-fields"))]
     let cells: &[&str] = &["A", "B", "C-nounk", "D-nounk"];
-    let nc = cells.len();
-    let order: Vec<&str> = (0..nc).map(|i| cells[(i + launch - 1) % nc]).collect();
+    // Requirement 22 as amended (FIX-PLAN R-H23): the cell order is a seeded random
+    // permutation per launch (seed = launch, written in the header), so no cell always
+    // precedes another; directions and in-flight counts stay nested inside a cell.
+    let mut order: Vec<&str> = cells.to_vec();
+    campaign::shuffle(&mut order, launch as u64);
     let mut lines = Vec::new();
     for cell in &order {
         for dir in ["a", "b"] {
             for k in [1usize, 8, 16] {
                 let per = calls.div_ceil(k);
                 let f = make(cell, dir, k, &target, pinned, want_a);
+                let pool = Pool::new(&f, k);
                 // Warm-up, identical for every cell (requirement 24): connection up,
-                // runtime threads started, allocator grown.
-                if let Err(e) = batch(&f, k, warm.div_ceil(k)) {
+                // runtime threads started, allocator grown, the pool's threads running.
+                if let Err(e) = pool.batch(warm.div_ceil(k)) {
                     eprintln!("ABORT (requirement 18): cell {cell} dir {dir} inflight {k} warm-up: {e}");
                     std::process::exit(3);
                 }
                 for r in 1..=rounds {
                     let (c0, t0) = (process_cpu_ns(), Instant::now());
-                    if let Err(e) = batch(&f, k, per) {
+                    if let Err(e) = pool.batch(per) {
                         eprintln!("ABORT (requirement 18): cell {cell} dir {dir} inflight {k} round {r}: {e}");
                         std::process::exit(3);
                     }
@@ -343,7 +392,7 @@ fn main() {
         ("cells", "A prost+tonic, B prost+core (blocking), C core+core (blocking), D core+tonic; C and D per unknown-field mode (-retain: every decision 11 position armed and u-group encode; -drop: nothing armed; -nounk: the build with unknown-field support compiled out); callback/queue deliveries not run in this suite".into()),
         ("build", if cfg!(feature = "unknown-fields") { "unknown-fields (retain/drop)".into() } else { "NO-UNKNOWN (unknown-field support compiled out)".to_string() }),
         ("launch", launch.to_string()),
-        ("cell order", order.join(",")),
+        ("cell order", format!("{} (seeded random permutation, seed = launch)", order.join(","))),
         ("rounds", rounds.to_string()),
         ("calls per round", format!("{calls} rounded up to a multiple of in-flight")),
         ("warm-up", format!("{warm} calls per (cell, dir, in-flight) before round 1")),

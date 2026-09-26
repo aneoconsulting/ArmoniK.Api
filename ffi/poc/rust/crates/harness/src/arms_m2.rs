@@ -151,6 +151,7 @@ pub mod added {
                 .collect(),
             page: 1,
             total: 80,
+            #[cfg(feature = "unknown-fields")]
             unknown_fields: Vec::new(),
         }
     }

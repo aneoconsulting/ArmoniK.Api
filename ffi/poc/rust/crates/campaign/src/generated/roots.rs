@@ -4,14 +4,21 @@
 use crate::{mix, Ops};
 use harness::arms::core_ffi_arm::Ctx;
 use harness::generated::binding;
-use facade::generated::{build, core_native, core_native_retain};
+use facade::generated::{build, core_native};
+#[cfg(feature = "unknown-fields")]
+use facade::generated::core_native_retain;
+// The no-unknown build has no retain rendering; MODES there has no retain mode, so
+// `retain` is never true and the name resolves to the drop rendering.
+#[cfg(not(feature = "unknown-fields"))]
+use facade::generated::core_native as core_native_retain;
 use shapes_prost::shapes as p;
 
 #[inline(never)]
 pub fn touch_f_timestamp(o: &facade::Timestamp, mut h: u64) -> u64 {
     h = mix(h, (o.seconds) as u64);
     h = mix(h, (o.nanos) as u64);
-    h = mix(h, o.unknown_fields.len() as u64);
+    #[cfg(feature = "unknown-fields")]
+    { h = mix(h, o.unknown_fields.len() as u64); }
     h
 }
 
@@ -19,7 +26,8 @@ pub fn touch_f_timestamp(o: &facade::Timestamp, mut h: u64) -> u64 {
 pub fn touch_f_duration(o: &facade::Duration, mut h: u64) -> u64 {
     h = mix(h, (o.seconds) as u64);
     h = mix(h, (o.nanos) as u64);
-    h = mix(h, o.unknown_fields.len() as u64);
+    #[cfg(feature = "unknown-fields")]
+    { h = mix(h, o.unknown_fields.len() as u64); }
     h
 }
 
@@ -36,7 +44,8 @@ pub fn touch_f_result_raw(o: &facade::ResultRaw, mut h: u64) -> u64 {
     { let b: &[u8] = o.created_by.as_bytes().as_ref(); h = mix(h, b.len() as u64); if let (Some(f), Some(l)) = (b.first(), b.last()) { h = mix(h, *f as u64); h = mix(h, *l as u64); } }
     { let b: &[u8] = o.opaque_id.as_ref(); h = mix(h, b.len() as u64); if let (Some(f), Some(l)) = (b.first(), b.last()) { h = mix(h, *f as u64); h = mix(h, *l as u64); } }
     h = mix(h, (o.manual_deletion) as u64);
-    h = mix(h, o.unknown_fields.len() as u64);
+    #[cfg(feature = "unknown-fields")]
+    { h = mix(h, o.unknown_fields.len() as u64); }
     h
 }
 
@@ -52,7 +61,8 @@ pub fn touch_f_task_options(o: &facade::TaskOptions, mut h: u64) -> u64 {
     { let b: &[u8] = o.application_namespace.as_bytes().as_ref(); h = mix(h, b.len() as u64); if let (Some(f), Some(l)) = (b.first(), b.last()) { h = mix(h, *f as u64); h = mix(h, *l as u64); } }
     { let b: &[u8] = o.application_service.as_bytes().as_ref(); h = mix(h, b.len() as u64); if let (Some(f), Some(l)) = (b.first(), b.last()) { h = mix(h, *f as u64); h = mix(h, *l as u64); } }
     { let b: &[u8] = o.engine_type.as_bytes().as_ref(); h = mix(h, b.len() as u64); if let (Some(f), Some(l)) = (b.first(), b.last()) { h = mix(h, *f as u64); h = mix(h, *l as u64); } }
-    h = mix(h, o.unknown_fields.len() as u64);
+    #[cfg(feature = "unknown-fields")]
+    { h = mix(h, o.unknown_fields.len() as u64); }
     h
 }
 
@@ -60,7 +70,8 @@ pub fn touch_f_task_options(o: &facade::TaskOptions, mut h: u64) -> u64 {
 pub fn touch_f_task_output(o: &facade::TaskOutput, mut h: u64) -> u64 {
     h = mix(h, (o.success) as u64);
     { let b: &[u8] = o.error.as_bytes().as_ref(); h = mix(h, b.len() as u64); if let (Some(f), Some(l)) = (b.first(), b.last()) { h = mix(h, *f as u64); h = mix(h, *l as u64); } }
-    h = mix(h, o.unknown_fields.len() as u64);
+    #[cfg(feature = "unknown-fields")]
+    { h = mix(h, o.unknown_fields.len() as u64); }
     h
 }
 
@@ -97,7 +108,8 @@ pub fn touch_f_task_detailed(o: &facade::TaskDetailed, mut h: u64) -> u64 {
     if let Some(c) = o.fetched_at.as_ref() { h = touch_f_timestamp(&(*c), h); }
     { let b: &[u8] = o.payload_id.as_bytes().as_ref(); h = mix(h, b.len() as u64); if let (Some(f), Some(l)) = (b.first(), b.last()) { h = mix(h, *f as u64); h = mix(h, *l as u64); } }
     { let b: &[u8] = o.created_by.as_bytes().as_ref(); h = mix(h, b.len() as u64); if let (Some(f), Some(l)) = (b.first(), b.last()) { h = mix(h, *f as u64); h = mix(h, *l as u64); } }
-    h = mix(h, o.unknown_fields.len() as u64);
+    #[cfg(feature = "unknown-fields")]
+    { h = mix(h, o.unknown_fields.len() as u64); }
     h
 }
 
@@ -111,7 +123,8 @@ pub fn touch_f_task_summary(o: &facade::TaskSummary, mut h: u64) -> u64 {
     { let b: &[u8] = o.error.as_bytes().as_ref(); h = mix(h, b.len() as u64); if let (Some(f), Some(l)) = (b.first(), b.last()) { h = mix(h, *f as u64); h = mix(h, *l as u64); } }
     { let b: &[u8] = o.status_message.as_bytes().as_ref(); h = mix(h, b.len() as u64); if let (Some(f), Some(l)) = (b.first(), b.last()) { h = mix(h, *f as u64); h = mix(h, *l as u64); } }
     h = mix(h, (o.count_data_dependencies) as u64);
-    h = mix(h, o.unknown_fields.len() as u64);
+    #[cfg(feature = "unknown-fields")]
+    { h = mix(h, o.unknown_fields.len() as u64); }
     h
 }
 
@@ -129,13 +142,15 @@ pub fn touch_f_probe(o: &facade::Probe, mut h: u64) -> u64 {
         Some(facade::ProbeBody::AsNothing(x)) => { h = mix(h, 14); h = touch_f_empty(&(*x), h); }
         None => {}
     }
-    h = mix(h, o.unknown_fields.len() as u64);
+    #[cfg(feature = "unknown-fields")]
+    { h = mix(h, o.unknown_fields.len() as u64); }
     h
 }
 
 #[inline(never)]
 pub fn touch_f_empty(o: &facade::Empty, mut h: u64) -> u64 {
-    h = mix(h, o.unknown_fields.len() as u64);
+    #[cfg(feature = "unknown-fields")]
+    { h = mix(h, o.unknown_fields.len() as u64); }
     h
 }
 
@@ -144,7 +159,8 @@ pub fn touch_f_upload_result_data(o: &facade::UploadResultData, mut h: u64) -> u
     { let b: &[u8] = o.session_id.as_bytes().as_ref(); h = mix(h, b.len() as u64); if let (Some(f), Some(l)) = (b.first(), b.last()) { h = mix(h, *f as u64); h = mix(h, *l as u64); } }
     { let b: &[u8] = o.result_id.as_bytes().as_ref(); h = mix(h, b.len() as u64); if let (Some(f), Some(l)) = (b.first(), b.last()) { h = mix(h, *f as u64); h = mix(h, *l as u64); } }
     { let b: &[u8] = o.data_chunk.as_ref(); h = mix(h, b.len() as u64); if let (Some(f), Some(l)) = (b.first(), b.last()) { h = mix(h, *f as u64); h = mix(h, *l as u64); } }
-    h = mix(h, o.unknown_fields.len() as u64);
+    #[cfg(feature = "unknown-fields")]
+    { h = mix(h, o.unknown_fields.len() as u64); }
     h
 }
 
@@ -161,7 +177,8 @@ pub fn touch_f_metrics_batch(o: &facade::MetricsBatch, mut h: u64) -> u64 {
     for x in o.flags.iter() { h = mix(h, ((*x)) as u64); }
     h = mix(h, o.statuses.len() as u64);
     for x in o.statuses.iter() { h = mix(h, ((*x)).to_i32() as u64); }
-    h = mix(h, o.unknown_fields.len() as u64);
+    #[cfg(feature = "unknown-fields")]
+    { h = mix(h, o.unknown_fields.len() as u64); }
     h
 }
 
@@ -169,7 +186,8 @@ pub fn touch_f_metrics_batch(o: &facade::MetricsBatch, mut h: u64) -> u64 {
 pub fn touch_f_pair(o: &facade::Pair, mut h: u64) -> u64 {
     { let b: &[u8] = o.key.as_bytes().as_ref(); h = mix(h, b.len() as u64); if let (Some(f), Some(l)) = (b.first(), b.last()) { h = mix(h, *f as u64); h = mix(h, *l as u64); } }
     h = mix(h, (o.value) as u64);
-    h = mix(h, o.unknown_fields.len() as u64);
+    #[cfg(feature = "unknown-fields")]
+    { h = mix(h, o.unknown_fields.len() as u64); }
     h
 }
 
@@ -179,7 +197,8 @@ pub fn touch_f_list_results_response(o: &facade::ListResultsResponse, mut h: u64
     for x in o.results.iter() { h = touch_f_result_raw(&(*x), h); }
     h = mix(h, (o.page) as u64);
     h = mix(h, (o.total) as u64);
-    h = mix(h, o.unknown_fields.len() as u64);
+    #[cfg(feature = "unknown-fields")]
+    { h = mix(h, o.unknown_fields.len() as u64); }
     h
 }
 
@@ -189,7 +208,8 @@ pub fn touch_f_list_tasks_detailed_response(o: &facade::ListTasksDetailedRespons
     for x in o.tasks.iter() { h = touch_f_task_detailed(&(*x), h); }
     h = mix(h, (o.page) as u64);
     h = mix(h, (o.total) as u64);
-    h = mix(h, o.unknown_fields.len() as u64);
+    #[cfg(feature = "unknown-fields")]
+    { h = mix(h, o.unknown_fields.len() as u64); }
     h
 }
 
@@ -197,7 +217,8 @@ pub fn touch_f_list_tasks_detailed_response(o: &facade::ListTasksDetailedRespons
 pub fn touch_f_list_task_summary_response(o: &facade::ListTaskSummaryResponse, mut h: u64) -> u64 {
     h = mix(h, o.tasks.len() as u64);
     for x in o.tasks.iter() { h = touch_f_task_summary(&(*x), h); }
-    h = mix(h, o.unknown_fields.len() as u64);
+    #[cfg(feature = "unknown-fields")]
+    { h = mix(h, o.unknown_fields.len() as u64); }
     h
 }
 
@@ -205,7 +226,8 @@ pub fn touch_f_list_task_summary_response(o: &facade::ListTaskSummaryResponse, m
 pub fn touch_f_list_probe_response(o: &facade::ListProbeResponse, mut h: u64) -> u64 {
     h = mix(h, o.probes.len() as u64);
     for x in o.probes.iter() { h = touch_f_probe(&(*x), h); }
-    h = mix(h, o.unknown_fields.len() as u64);
+    #[cfg(feature = "unknown-fields")]
+    { h = mix(h, o.unknown_fields.len() as u64); }
     h
 }
 
@@ -213,14 +235,16 @@ pub fn touch_f_list_probe_response(o: &facade::ListProbeResponse, mut h: u64) ->
 pub fn touch_f_list_metrics_response(o: &facade::ListMetricsResponse, mut h: u64) -> u64 {
     h = mix(h, o.batches.len() as u64);
     for x in o.batches.iter() { h = touch_f_metrics_batch(&(*x), h); }
-    h = mix(h, o.unknown_fields.len() as u64);
+    #[cfg(feature = "unknown-fields")]
+    { h = mix(h, o.unknown_fields.len() as u64); }
     h
 }
 
 #[inline(never)]
 pub fn touch_f_upload_result_data_message(o: &facade::UploadResultDataMessage, mut h: u64) -> u64 {
     if let Some(c) = o.upload.as_ref() { h = touch_f_upload_result_data(&(*c), h); }
-    h = mix(h, o.unknown_fields.len() as u64);
+    #[cfg(feature = "unknown-fields")]
+    { h = mix(h, o.unknown_fields.len() as u64); }
     h
 }
 
@@ -230,7 +254,8 @@ pub fn touch_f_dual_response(o: &facade::DualResponse, mut h: u64) -> u64 {
     for x in o.left.iter() { h = touch_f_pair(&(*x), h); }
     h = mix(h, o.right.len() as u64);
     for x in o.right.iter() { h = touch_f_pair(&(*x), h); }
-    h = mix(h, o.unknown_fields.len() as u64);
+    #[cfg(feature = "unknown-fields")]
+    { h = mix(h, o.unknown_fields.len() as u64); }
     h
 }
 

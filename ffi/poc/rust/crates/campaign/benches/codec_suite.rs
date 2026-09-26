@@ -2,7 +2,7 @@
 //!
 //! One process per launch (the runner pins it to `AK_CPU_CLIENT` with `taskset` and starts
 //! it three times). Configuration from the environment, recorded in the header:
-//!   AK_LAUNCH        1..=3; the arm order is rotated by launch (requirement 22)
+//!   AK_LAUNCH        1..=3; the seed of the launch's random arm and case order (req 22)
 //!   AK_OUT           the JSON-lines file to write (section 7)
 //!   AK_ONLY          comma-separated input id prefixes (smoke runs), empty = everything
 //!   AK_SAMPLES       criterion samples per case = rounds (requirement 23; >= 10, criterion's floor)
@@ -89,15 +89,15 @@ fn main() {
         .warm_up_time(Duration::from_millis(warm_ms))
         .measurement_time(Duration::from_millis(meas_ms))
         .without_plots();
-    // Blocks by arm, the arm order rotated by launch (requirement 22).
+    // Blocks by arm (requirement 22), in a seeded random order per launch, and the cases
+    // inside a block in a seeded random order too (R-H23): criterion runs benchmarks in
+    // registration order, so the order is decided here.
     let mut ran: Vec<(usize, &Case)> = Vec::new();
     let mut idx_of = Vec::new();
-    for arm in &order {
-        for (i, cs) in cases.iter().enumerate() {
-            if cs.arm == *arm {
-                idx_of.push(i);
-            }
-        }
+    for (b, arm) in order.iter().enumerate() {
+        let mut block: Vec<usize> = cases.iter().enumerate().filter(|(_, cs)| cs.arm == *arm).map(|(i, _)| i).collect();
+        campaign::shuffle(&mut block, (launch as u64) << 8 | b as u64);
+        idx_of.extend(block);
     }
     {
         let mut g = c.benchmark_group("codec");
@@ -127,7 +127,7 @@ fn main() {
             "NO-UNKNOWN (unknown-field support compiled out, CAMPAIGN.md req 10): core-ffi / core-native / core-ffi-pull in mode no-unknown; incumbent-prod and armonik as in-process controls".to_string()
         }),
         ("launch", launch.to_string()),
-        ("arm order", order.join(",")),
+        ("arm order", format!("{} (arm blocks and the cases inside each block in a seeded random order, seed = launch; criterion runs them in this registration order)", order.join(","))),
         ("samples (rounds) per case", samples.max(10).to_string()),
         ("warm-up", format!("{warm_iters} fixed iterations per case, then criterion warm-up {warm_ms} ms; measurement {meas_ms} ms")),
         ("wall", "not recorded for the codec suite (criterion measures one quantity; thread CPU is requirement 21's)".into()),

@@ -17,7 +17,7 @@ publish.workspace = true
 default = ["init-guard", "unknown-fields"]
 # WP5 step 10 / CAMPAIGN.md req 10: OFF builds the NO-UNKNOWN variant (the codec suite's
 # third mode, `no-unknown`, and cells C-nounk / D-nounk): a separate build and binary.
-unknown-fields = ["harness/unknown-fields", "ak-core/unknown-fields", "ak-abi/unknown-fields"]
+unknown-fields = ["harness/unknown-fields", "ak-core/unknown-fields", "ak-abi/unknown-fields", "facade/unknown-fields"]
 # CAMPAIGN.md requirement 6: init-guard ON, as in every gate.
 init-guard = ["harness/init-guard"]
 # README R5 / CAMPAIGN.md requirement 19: the counting build, for bin `crossings` only.
@@ -25,7 +25,7 @@ count = ["harness/count"]
 
 [dependencies]
 harness = { path = "../harness", default-features = false, features = ["guard"] }
-facade = { path = "../facade" }
+facade = { path = "../facade", default-features = false }
 shapes-prost = { path = "../shapes-prost" }
 shapes-values = { path = "../shapes-values" }
 ak-abi = { path = "../../../codec/crates/ak-abi", default-features = false }
