@@ -3,8 +3,13 @@ moved from poc/java/gen/java_pull.py).
 
 The push family has the codec call the host once per field group (7.004 reverse crossings
 per element on P2.2, counted: logs/java/rd5-counts.log). The pull family has the codec deposit the same
-handovers as records into the host-owned context, make **no reverse call at all**, and
-return; the host reads them afterwards.
+handovers as records into the host-owned context, make **no reverse call into Java**, and
+return; the host reads them afterwards. With decision 11's retain armed, the core does make
+one kind of reverse call during the parse: the shim's `grow` (plain C, malloc/realloc, no
+JNI call), once per buffer it grows (R-H19). And because nothing calls the host between two
+records, the host cannot refill a pool during a parse: a pool with no `grow` in the pull
+family must hold enough buffers for the whole response, or the parse fails with
+AK_ERR_CAPACITY (rule 2). This binding arms every position with `grow` and no pool.
 
 Three things this file is careful about, each because getting it wrong would measure
 something other than the family.
@@ -22,8 +27,9 @@ a root-level batchable run is the bare index (`plan.pull_records`, from
 
 **Parse runs under a critical section and the wire is never copied.** A push entry point
 makes upcalls, and an upcall inside `GetPrimitiveArrayCritical` is illegal, so the push arm
-has to copy the wire into native scratch first. `ak_parse_*` makes no upcall by
-construction, so the pull arm hands the core the host's own array and spans resolve against
+has to copy the wire into native scratch first. `ak_parse_*` makes no upcall into Java by
+construction (the shim's C `grow` makes no JNI call, so it is legal inside the critical
+section), so the pull arm hands the core the host's own array and spans resolve against
 that array directly (7.4). That copy is one of the two things the family is supposed to
 save, and it is saved here rather than argued for.
 """
