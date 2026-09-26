@@ -1,0 +1,1 @@
+# perf is not installed on this machine: no cycles/instructions (requirement 20)

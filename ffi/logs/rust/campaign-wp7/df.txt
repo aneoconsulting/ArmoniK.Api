@@ -1,0 +1,8 @@
+# df -h /: before the gate; after the stable gate; after the floor gate; after TSan; after the smoke; (ALL DONE); after the worktree and its builds were deleted
+/dev/vda        252G   21G   17G  55% /
+/dev/vda        252G   27G   11G  72% /
+/dev/vda        252G   28G  9.2G  76% /
+/dev/vda        252G   30G  7.8G  80% /
+/dev/vda        252G   31G  6.8G  82% /
+ALL DONE
+/dev/vda        252G   18G   21G  47% /

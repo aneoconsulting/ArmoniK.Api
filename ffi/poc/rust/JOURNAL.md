@@ -2376,3 +2376,33 @@ the new content. Nothing is left staged between commands now.
   count changed (the parse-order and capacity changes do not move a crossing; the facade
   changes are host-side), so gen/crossings*.txt are untouched. Floor 1.88 and TSan were not
   re-run; the campaign smoke was not re-run after the pool and order changes.
+
+## 2026-09-26 -- FIX-PLAN WP7: the harness conformed to the 2026-09-26 contract
+
+- req 21: criterion's measurement is now process CPU (CLOCK_PROCESS_CPUTIME_ID); calib
+  too. RPC was already getrusage(RUSAGE_SELF).
+- req 7: content sets added on P2.4. The U-* question (92 rows at the 7 ABI roots, or the
+  213 whose root is a shapes message) went to the coordinator; answer: the 92, no core
+  change (CAMPAIGN req 7 corrected, 3210f28e0).
+- req 11: four encode variants per arm and mode. The first pool sizing (wire bytes with a
+  64-byte floor per graph) put 430k graphs of a tiny U-* row in one pool and the pre-check
+  peaked at 4.5 GB RSS in 171 s: a small wire size says nothing about the heap a facade
+  graph holds. Refuted and replaced: graphs are cloned until the heap they hold (glibc
+  mallinfo2, read only while building) reaches AK_POOL_BYTES; the pre-check then took 85 s,
+  about 1 GB RSS (mostly the leaked per-case values).
+- req 12-17: campaign::grid holds cells A-F (E, F: core-native over the core's transport and
+  over tonic), campaign::server the Unix-socket server (tokio-stream's UnixListenerStream);
+  A/D/F are tonic's async call from k tasks, B/C/E the blocking core call from a reused
+  thread pool; directions a, a+read, b; one server per (transport, launch) for both builds,
+  warmed from each client transport; one channel per cell per launch.
+- req 19: the binding tallies ak_enc_reset, ak_dec_reset_<Root>, ak_enc_take and ak_dec_err
+  in the counting build (rust_binding.py, no core change); `crossings` adds a resets column
+  and per-call rpc:<cell> rows for B-E over an in-process server. Every existing row's
+  reverse is unchanged; forward moved by exactly the tallied calls
+  (logs/rust/wp7/crossings-change.txt). Files re-committed.
+- req 4: worker thread counts in every header; the runner reads ffi/campaign.machine when
+  the CPU sets are unset.
+- Clean worktree at c8e8694eb: gate (stable, both builds) PASSED, floor 1.88.0 PASSED, TSan
+  0 in the suite / 190 on the plant; smoke of codec, rpc and calib shows every new row,
+  figures stripped by gen/strip_figures.py (logs/rust/campaign-wp7/). Two interruptions by
+  the API spend limit; the run's script had finished before the second, so nothing re-ran.

@@ -1,0 +1,124 @@
+# FIGURES STRIPPED (CAMPAIGN req 32): cpu_ns and wall_ns removed from every sample; labels kept
+# rust slice campaign runner, suite rpc, core variant full
+# INSTRUMENTATION unless on the campaign machine of CAMPAIGN.md section 2 (a container figure is not a result)
+# commit     c8e8694eb   tree-id bfc485889708304f
+# date       2026-09-26T13:50:47Z
+# machine    Intel(R) Xeon(R) Processor @ 2.10GHz; 4 CPUs online; kernel 6.18.44-fc-v37
+# smt        active=0 control=notsupported
+# governor   n/a
+# turbo      intel_pstate/no_turbo=n/a cpufreq/boost=n/a
+# isolation  cmdline: cgroup: n/a
+# cpu sets   CLIENT=1 SERVER=2,3 OS=the rest; set size unset (ffi/campaign.machine not read)
+# threads    codec: 1 measuring thread; rpc client: tokio 2 workers per A/D/F cell, ak_runtime_new(2) per B/C/E client, k = 1/8/16 callers; rpc server: tokio 4 workers (AK_SERVER_THREADS); calib: 1 thread
+# runtime    rustc 1.94.1 (e408947bf 2026-03-25); cargo 1.94.1 (29ea6fb6a 2026-03-24)
+# incumbent  prost 0.14.4, tonic 0.14.6, tonic-prost 0.14.6; criterion 0.5.1
+# build      cargo --release (opt-level 3, lto off, codegen-units default), core ak-core as a cdylib linked through the dynamic linker, core features rpc,init-guard,unknown-fields (the full variant, target/); harness guard on; transcoder ak_tc_utf8_trusted (a Rust String is UTF-8)
+# repeats    launches=1 rounds=1 smoke=1
+# slice: rust   suite: rpc
+# INSTRUMENTATION unless run on the campaign machine (CAMPAIGN.md section 2); a container figure is not a result
+# incumbent: prost 0.14 / tonic 0.14 (tonic-prost), as pinned in poc/rust/Cargo.lock
+# build: release profile, core ak-core cdylib (shared, linked by the dynamic linker), features rpc,init-guard; harness guard on
+# rustc: see run header
+# transport: shipped: tonic endpoint defaults, ak_client_new, server defaults
+# link: Unix domain socket /tmp/tmp.YCjY2N5bup/grid-shipped-1.sock (requirement 17 as amended, R-H28); server = rpc_server, a separate process, one per launch for every cell of both builds, pre-serialised P2.2
+# cells: A prost+tonic, B prost+core, C core-ffi+core, D core-ffi+tonic, E core-native+core, F core-native+tonic; C-F per unknown-field mode (-retain: every decision 11 position armed and u-group encode; -drop: nothing armed; -nounk: the build with unknown-field support compiled out); callback/queue deliveries not run in this suite
+# delivery: B, C, E: the core's blocking ak_call_unary from k host threads (a pool created before the warm-up, reused); A, D, F: tonic's idiomatic async unary call from k tokio tasks (packages/rust's shape)
+# directions: a = Fetch then decode; a+read = Fetch, decode, read every field; b = encode then Push (the server decodes with prost)
+# build: unknown-fields (retain/drop)
+# launch: 1
+# cell order: B,C-retain,E-drop,C-drop,A,E-retain,D-retain,F-retain,F-drop,D-drop (seeded random permutation, seed = launch)
+# rounds: 1
+# calls per round: 16 rounded up to a multiple of in-flight
+# warm-up: server: 16 checked Fetch calls from each client transport (tonic, core) before the first cell; then 16 calls per (cell, dir, in-flight) before its rounds; one channel per cell per launch
+# clocks: cpu_ns = getrusage(RUSAGE_SELF) utime+stime of the client per round (process CPU); wall_ns = monotonic
+# worker threads: client: tokio multi-thread 2 workers per A/D/F cell runtime; ak_runtime_new(2) per B/C/E core client; k = 1/8/16 caller threads (B/C/E) or tasks (A/D/F); server: tokio multi-thread 4 workers (AK_SERVER_THREADS)
+{"cell": "B", "dir": "a", "figures": "stripped", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "B", "dir": "a", "figures": "stripped", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "B", "dir": "a", "figures": "stripped", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "B", "dir": "a+read", "figures": "stripped", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "B", "dir": "a+read", "figures": "stripped", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "B", "dir": "a+read", "figures": "stripped", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "B", "dir": "b", "figures": "stripped", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "B", "dir": "b", "figures": "stripped", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "B", "dir": "b", "figures": "stripped", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "C-retain", "dir": "a", "figures": "stripped", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "C-retain", "dir": "a", "figures": "stripped", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "C-retain", "dir": "a", "figures": "stripped", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "C-retain", "dir": "a+read", "figures": "stripped", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "C-retain", "dir": "a+read", "figures": "stripped", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "C-retain", "dir": "a+read", "figures": "stripped", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "C-retain", "dir": "b", "figures": "stripped", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "C-retain", "dir": "b", "figures": "stripped", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "C-retain", "dir": "b", "figures": "stripped", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "E-drop", "dir": "a", "figures": "stripped", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "E-drop", "dir": "a", "figures": "stripped", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "E-drop", "dir": "a", "figures": "stripped", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "E-drop", "dir": "a+read", "figures": "stripped", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "E-drop", "dir": "a+read", "figures": "stripped", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "E-drop", "dir": "a+read", "figures": "stripped", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "E-drop", "dir": "b", "figures": "stripped", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "E-drop", "dir": "b", "figures": "stripped", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "E-drop", "dir": "b", "figures": "stripped", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "C-drop", "dir": "a", "figures": "stripped", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "C-drop", "dir": "a", "figures": "stripped", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "C-drop", "dir": "a", "figures": "stripped", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "C-drop", "dir": "a+read", "figures": "stripped", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "C-drop", "dir": "a+read", "figures": "stripped", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "C-drop", "dir": "a+read", "figures": "stripped", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "C-drop", "dir": "b", "figures": "stripped", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "C-drop", "dir": "b", "figures": "stripped", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "C-drop", "dir": "b", "figures": "stripped", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "A", "dir": "a", "figures": "stripped", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "A", "dir": "a", "figures": "stripped", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "A", "dir": "a", "figures": "stripped", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "A", "dir": "a+read", "figures": "stripped", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "A", "dir": "a+read", "figures": "stripped", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "A", "dir": "a+read", "figures": "stripped", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "A", "dir": "b", "figures": "stripped", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "A", "dir": "b", "figures": "stripped", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "A", "dir": "b", "figures": "stripped", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "E-retain", "dir": "a", "figures": "stripped", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "E-retain", "dir": "a", "figures": "stripped", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "E-retain", "dir": "a", "figures": "stripped", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "E-retain", "dir": "a+read", "figures": "stripped", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "E-retain", "dir": "a+read", "figures": "stripped", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "E-retain", "dir": "a+read", "figures": "stripped", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "E-retain", "dir": "b", "figures": "stripped", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "E-retain", "dir": "b", "figures": "stripped", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "E-retain", "dir": "b", "figures": "stripped", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "D-retain", "dir": "a", "figures": "stripped", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "D-retain", "dir": "a", "figures": "stripped", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "D-retain", "dir": "a", "figures": "stripped", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "D-retain", "dir": "a+read", "figures": "stripped", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "D-retain", "dir": "a+read", "figures": "stripped", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "D-retain", "dir": "a+read", "figures": "stripped", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "D-retain", "dir": "b", "figures": "stripped", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "D-retain", "dir": "b", "figures": "stripped", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "D-retain", "dir": "b", "figures": "stripped", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "F-retain", "dir": "a", "figures": "stripped", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "F-retain", "dir": "a", "figures": "stripped", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "F-retain", "dir": "a", "figures": "stripped", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "F-retain", "dir": "a+read", "figures": "stripped", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "F-retain", "dir": "a+read", "figures": "stripped", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "F-retain", "dir": "a+read", "figures": "stripped", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "F-retain", "dir": "b", "figures": "stripped", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "F-retain", "dir": "b", "figures": "stripped", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "F-retain", "dir": "b", "figures": "stripped", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "F-drop", "dir": "a", "figures": "stripped", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "F-drop", "dir": "a", "figures": "stripped", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "F-drop", "dir": "a", "figures": "stripped", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "F-drop", "dir": "a+read", "figures": "stripped", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "F-drop", "dir": "a+read", "figures": "stripped", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "F-drop", "dir": "a+read", "figures": "stripped", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "F-drop", "dir": "b", "figures": "stripped", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "F-drop", "dir": "b", "figures": "stripped", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "F-drop", "dir": "b", "figures": "stripped", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "D-drop", "dir": "a", "figures": "stripped", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "D-drop", "dir": "a", "figures": "stripped", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "D-drop", "dir": "a", "figures": "stripped", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "D-drop", "dir": "a+read", "figures": "stripped", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "D-drop", "dir": "a+read", "figures": "stripped", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "D-drop", "dir": "a+read", "figures": "stripped", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "D-drop", "dir": "b", "figures": "stripped", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "D-drop", "dir": "b", "figures": "stripped", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
+{"cell": "D-drop", "dir": "b", "figures": "stripped", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "rust", "suite": "rpc", "transport": "shipped"}
