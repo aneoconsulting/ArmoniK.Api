@@ -243,27 +243,27 @@ fn enc_metrics_batch(o: &MetricsBatch, e: &mut Enc) {
     if !o.id.is_empty() { e.blob_field(1, o.id.as_bytes()); }
     if !o.ticks.is_empty() {
         let mk = e.begin(2, 22);
-        for x in &o.ticks { e.varint(*x as u64); }
+        e.varint_run(o.ticks.len(), o.ticks.iter().map(|x| *x as u64));
         e.end(mk);
     }
     if !o.values.is_empty() {
         let mk = e.begin(3, 23);
-        for x in &o.values { e.buf.extend_from_slice(&x.to_le_bytes()); }
+        e.f64_run(&o.values);
         e.end(mk);
     }
     if !o.codes.is_empty() {
         let mk = e.begin(4, 24);
-        for x in &o.codes { e.varint((*x) as i64 as u64); }
+        e.varint_run(o.codes.len(), o.codes.iter().map(|x| (*x) as i64 as u64));
         e.end(mk);
     }
     if !o.flags.is_empty() {
         let mk = e.begin(5, 25);
-        for x in &o.flags { e.varint(*x as u64); }
+        e.varint_run(o.flags.len(), o.flags.iter().map(|x| *x as u64));
         e.end(mk);
     }
     if !o.statuses.is_empty() {
         let mk = e.begin(6, 26);
-        for x in &o.statuses { e.varint((*x).to_i32() as i64 as u64); }
+        e.varint_run(o.statuses.len(), o.statuses.iter().map(|x| (*x).to_i32() as i64 as u64));
         e.end(mk);
     }
 }

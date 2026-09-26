@@ -37,6 +37,19 @@ pub struct Mark {
 pub static GLOBAL_WIDTHS: [core::sync::atomic::AtomicU8; 4096] =
     [const { core::sync::atomic::AtomicU8::new(1) }; 4096];
 
+/// Store `v` as a varint at `p` (which must have 10 writable bytes); returns its length.
+#[inline(always)]
+unsafe fn put_varint(p: *mut u8, mut v: u64) -> usize {
+    let mut i = 0usize;
+    while v >= 0x80 {
+        *p.add(i) = (v as u8) | 0x80;
+        v >>= 7;
+        i += 1;
+    }
+    *p.add(i) = v as u8;
+    i + 1
+}
+
 pub struct Enc {
     pub buf: Vec<u8>,
     /// One learned width per length-prefix site in the generated code. Per context: a
@@ -111,13 +124,47 @@ impl Enc {
         }
     }
 
+    /// Optimisation E5: every writer below reserves ONCE for what it writes and then stores
+    /// through a raw pointer and `set_len`, instead of a capacity check per byte (`push`).
+    /// The bytes are the ones the byte-at-a-time form wrote.
     #[inline(always)]
-    pub fn varint(&mut self, mut v: u64) {
-        while v >= 0x80 {
-            self.buf.push((v as u8) | 0x80);
-            v >>= 7;
+    pub fn varint(&mut self, v: u64) {
+        self.buf.reserve(10);
+        unsafe {
+            let len = self.buf.len();
+            let n = put_varint(self.buf.as_mut_ptr().add(len), v);
+            self.buf.set_len(len + n);
         }
-        self.buf.push(v as u8);
+    }
+
+    /// A packed run of varints (E5): one reservation for the whole run (at most 10 bytes an
+    /// element), then raw stores.
+    #[inline(always)]
+    pub fn varint_run<I: Iterator<Item = u64>>(&mut self, n: usize, it: I) {
+        self.buf.reserve(n.saturating_mul(10));
+        unsafe {
+            let base = self.buf.as_mut_ptr();
+            let mut at = self.buf.len();
+            for v in it.take(n) {
+                at += put_varint(base.add(at), v);
+            }
+            self.buf.set_len(at);
+        }
+    }
+
+    /// A packed run of doubles (E5): little-endian, so on a little-endian target it is one
+    /// copy of the host's array.
+    #[inline(always)]
+    pub fn f64_run(&mut self, v: &[f64]) {
+        #[cfg(target_endian = "little")]
+        {
+            let b = unsafe { core::slice::from_raw_parts(v.as_ptr() as *const u8, v.len() * 8) };
+            self.buf.extend_from_slice(b);
+        }
+        #[cfg(not(target_endian = "little"))]
+        for x in v {
+            self.buf.extend_from_slice(&x.to_le_bytes());
+        }
     }
 
     #[inline(always)]
@@ -127,8 +174,15 @@ impl Enc {
 
     #[inline(always)]
     pub fn varint_field(&mut self, tag: u32, v: u64) {
-        self.key(tag, crate::WIRE_VARINT);
-        self.varint(v);
+        // E5: one reservation for key and value.
+        self.buf.reserve(20);
+        unsafe {
+            let len = self.buf.len();
+            let p = self.buf.as_mut_ptr().add(len);
+            let k = put_varint(p, key(tag, crate::WIRE_VARINT));
+            let n = put_varint(p.add(k), v);
+            self.buf.set_len(len + k + n);
+        }
     }
 
     #[inline(always)]
@@ -151,9 +205,16 @@ impl Enc {
     /// which is what `begin`/`end` exist for.
     #[inline(always)]
     pub fn blob_field(&mut self, tag: u32, b: &[u8]) {
-        self.key(tag, WIRE_LEN);
-        self.varint(b.len() as u64);
-        self.buf.extend_from_slice(b);
+        // E5: one reservation for key, length and body.
+        self.buf.reserve(20 + b.len());
+        unsafe {
+            let len = self.buf.len();
+            let p = self.buf.as_mut_ptr().add(len);
+            let k = put_varint(p, key(tag, WIRE_LEN));
+            let n = put_varint(p.add(k), b.len() as u64);
+            core::ptr::copy_nonoverlapping(b.as_ptr(), p.add(k + n), b.len());
+            self.buf.set_len(len + k + n + b.len());
+        }
     }
 
     /// Open a length-delimited field whose body length is not yet known.

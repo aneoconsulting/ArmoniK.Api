@@ -792,15 +792,15 @@ def emit_codec(ir):
         body.append("    let mk = (*cx).e.begin(tag, site);")
         body.append("    // The wire encoding comes from the schema and lives in the context,")
         body.append("    // so bool and enum need no symbols of their own.")
-        body.append("    for i in 0..n {")
-        body.append("        let v = *p.add(i);")
+        # Optimisation E5: one reservation per run, raw stores (ak-rt Enc::varint_run /
+        # f64_run: one copy of the host's array for f64 on a little-endian target).
+        body.append("    let src = ::core::slice::from_raw_parts(p, n);")
         if ty == "f64":
-            body.append("        (*cx).e.buf.extend_from_slice(&v.to_le_bytes());")
+            body.append("    (*cx).e.f64_run(src);")
         elif ty == "i32":
-            body.append("        (*cx).e.varint(v as i64 as u64);")
+            body.append("    (*cx).e.varint_run(n, src.iter().map(|&v| v as i64 as u64));")
         else:
-            body.append("        (*cx).e.varint(v as u64);")
-        body.append("    }")
+            body.append("    (*cx).e.varint_run(n, src.iter().map(|&v| v as u64));")
         body.append("    (*cx).e.end(mk);")
         body.append("    AK_OK")
         body.append("}")

@@ -5657,10 +5657,8 @@ pub unsafe extern "C" fn ak_run_i32(ctx: *mut ak_enc_ctx, p: *const i32, n: usiz
     let mk = (*cx).e.begin(tag, site);
     // The wire encoding comes from the schema and lives in the context,
     // so bool and enum need no symbols of their own.
-    for i in 0..n {
-        let v = *p.add(i);
-        (*cx).e.varint(v as i64 as u64);
-    }
+    let src = ::core::slice::from_raw_parts(p, n);
+    (*cx).e.varint_run(n, src.iter().map(|&v| v as i64 as u64));
     (*cx).e.end(mk);
     AK_OK
 }
@@ -5680,10 +5678,8 @@ pub unsafe extern "C" fn ak_run_i64(ctx: *mut ak_enc_ctx, p: *const i64, n: usiz
     let mk = (*cx).e.begin(tag, site);
     // The wire encoding comes from the schema and lives in the context,
     // so bool and enum need no symbols of their own.
-    for i in 0..n {
-        let v = *p.add(i);
-        (*cx).e.varint(v as u64);
-    }
+    let src = ::core::slice::from_raw_parts(p, n);
+    (*cx).e.varint_run(n, src.iter().map(|&v| v as u64));
     (*cx).e.end(mk);
     AK_OK
 }
@@ -5703,10 +5699,8 @@ pub unsafe extern "C" fn ak_run_f64(ctx: *mut ak_enc_ctx, p: *const f64, n: usiz
     let mk = (*cx).e.begin(tag, site);
     // The wire encoding comes from the schema and lives in the context,
     // so bool and enum need no symbols of their own.
-    for i in 0..n {
-        let v = *p.add(i);
-        (*cx).e.buf.extend_from_slice(&v.to_le_bytes());
-    }
+    let src = ::core::slice::from_raw_parts(p, n);
+    (*cx).e.f64_run(src);
     (*cx).e.end(mk);
     AK_OK
 }
@@ -5726,10 +5720,8 @@ pub unsafe extern "C" fn ak_run_u8(ctx: *mut ak_enc_ctx, p: *const u8, n: usize)
     let mk = (*cx).e.begin(tag, site);
     // The wire encoding comes from the schema and lives in the context,
     // so bool and enum need no symbols of their own.
-    for i in 0..n {
-        let v = *p.add(i);
-        (*cx).e.varint(v as u64);
-    }
+    let src = ::core::slice::from_raw_parts(p, n);
+    (*cx).e.varint_run(n, src.iter().map(|&v| v as u64));
     (*cx).e.end(mk);
     AK_OK
 }

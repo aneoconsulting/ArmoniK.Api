@@ -130,14 +130,15 @@ def _enc_message(p, m, o, sites, acc="o"):
             s = sites.id(("packed", m.name, f.name))
             o.append("    if !%s.is_empty() {" % v)
             o.append("        let mk = e.begin(%d, %d);" % (f.tag, s))
+            # Optimisation E5: one reservation per run (ak-rt Enc::varint_run / f64_run).
             if f.value == "fixed64_f64":
-                o.append("        for x in &%s { e.buf.extend_from_slice(&x.to_le_bytes()); }" % v)
+                o.append("        e.f64_run(&%s);" % v)
             elif f.value == "fixed32_u32":
                 o.append("        for x in &%s { e.buf.extend_from_slice(&x.to_le_bytes()); }" % v)
             elif f.value == "varint_i32":
-                o.append("        for x in &%s { e.varint(%s as i64 as u64); }" % (v, _raw(f, "(*x)")))
+                o.append("        e.varint_run(%s.len(), %s.iter().map(|x| %s as i64 as u64));" % (v, v, _raw(f, "(*x)")))
             else:
-                o.append("        for x in &%s { e.varint(*x as u64); }" % v)
+                o.append("        e.varint_run(%s.len(), %s.iter().map(|x| *x as u64));" % (v, v))
             o.append("        e.end(mk);")
             o.append("    }")
         elif st.op == "repeated_blob":
