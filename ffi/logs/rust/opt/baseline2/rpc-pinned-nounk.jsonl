@@ -1,0 +1,319 @@
+# rust slice OPTIMISATION BENCHMARK (gen/opt_bench.sh), suite rpc, core variant nounk
+# CONTAINER INSTRUMENTATION: not a campaign result (CAMPAIGN.md section 2), not gated by gen/gate.sh (the gate runs at the end of the experiment); the codec process's own byte-identity pre-check is on
+# commit     51662ef   tree-id abd0b2ff43ad12e5
+# date       2026-09-26T11:41:57Z
+# machine    Intel(R) Xeon(R) Processor @ 2.10GHz; 4 CPUs online; kernel 6.18.44-fc-v37
+# smt        active=0 control=notsupported
+# governor   n/a
+# turbo      intel_pstate/no_turbo=n/a cpufreq/boost=n/a
+# isolation  cmdline: cgroup: n/a
+# cpu sets   CLIENT=1 SERVER=2,3 OS=the rest
+# runtime    rustc 1.94.1 (e408947bf 2026-03-25); cargo 1.94.1 (29ea6fb6a 2026-03-24)
+# incumbent  prost 0.14.4, tonic 0.14.6, tonic-prost 0.14.6; criterion 0.5.1
+# build      cargo --release (opt-level 3, lto off, codegen-units default), core ak-core as a cdylib linked through the dynamic linker, core features rpc,init-guard WITHOUT unknown-fields (the no-unknown variant, target-nounk/); harness guard on; transcoder ak_tc_utf8_trusted (a Rust String is UTF-8)
+# repeats    launches=1 (launch number 1)
+# settings   harness v2; codec order=shuffle seed=1 criterion_resamples=1000; codec P(P*): samples=20 warmup_iters=100 warmup_ms=50 measure_ms=200 decode-nodrop extra rows on P1.2,P2.2,P4.1,P6.1; codec U(U-*): samples=20 warmup_iters=20 warmup_ms=10 measure_ms=60; calib rounds=5 iters=20000000; rpc order=interleave rounds=12 calls=32 warmup=16; launch=1
+# slice: rust   suite: rpc
+# INSTRUMENTATION unless run on the campaign machine (CAMPAIGN.md section 2); a container figure is not a result
+# incumbent: prost 0.14 / tonic 0.14 (tonic-prost), as pinned in poc/rust/Cargo.lock
+# build: release profile, core ak-core cdylib (shared, linked by the dynamic linker), features rpc,init-guard; harness guard on
+# rustc: see run header
+# transport: pinned: 4 MiB stream + connection windows, adaptive off, Nagle off, both transports and the server
+# link: loopback TCP; server = rpc_server, a separate process (requirement 13), pre-serialised P2.2
+# cells: A prost+tonic, B prost+core (blocking), C core+core (blocking), D core+tonic; C and D per unknown-field mode (-retain: every decision 11 position armed and u-group encode; -drop: nothing armed; -nounk: the build with unknown-field support compiled out); callback/queue deliveries not run in this suite
+# build: NO-UNKNOWN (unknown-field support compiled out)
+# launch: 1
+# cell order: interleave: per (dir, in-flight) every cell built and warmed, round r runs A,B,C-nounk,D-nounk rotated by r-1
+# rounds: 12
+# calls per round: 32 rounded up to a multiple of in-flight
+# warm-up: 16 calls per (cell, dir, in-flight) before round 1
+# clocks: cpu_ns = getrusage(RUSAGE_SELF) utime+stime of the client per round; wall_ns = monotonic
+# runtimes: tonic cells: tokio multi-thread, 2 workers; core cells: ak_runtime_new(2)
+{"cell":"A","cpu_ns":71927000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":77799308}
+{"cell":"B","cpu_ns":86428000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":97836597}
+{"cell":"C-nounk","cpu_ns":103757000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":148251885}
+{"cell":"D-nounk","cpu_ns":113765000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":125369548}
+{"cell":"B","cpu_ns":88888000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":98346200}
+{"cell":"C-nounk","cpu_ns":105071000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":132506846}
+{"cell":"D-nounk","cpu_ns":94498000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":106381360}
+{"cell":"A","cpu_ns":73578000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":80159580}
+{"cell":"C-nounk","cpu_ns":85052000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":95706408}
+{"cell":"D-nounk","cpu_ns":80631000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":90773329}
+{"cell":"A","cpu_ns":68488000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":81945757}
+{"cell":"B","cpu_ns":63910000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":73628326}
+{"cell":"D-nounk","cpu_ns":77103000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":4,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":89164677}
+{"cell":"A","cpu_ns":73589000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":4,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":81901021}
+{"cell":"B","cpu_ns":64354000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":4,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":72296156}
+{"cell":"C-nounk","cpu_ns":86029000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":4,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":95191801}
+{"cell":"A","cpu_ns":75423000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":5,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":81327474}
+{"cell":"B","cpu_ns":64487000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":5,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":70470126}
+{"cell":"C-nounk","cpu_ns":84085000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":5,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":91429236}
+{"cell":"D-nounk","cpu_ns":85067000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":5,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":106371063}
+{"cell":"B","cpu_ns":63604000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":6,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":71035950}
+{"cell":"C-nounk","cpu_ns":82852000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":6,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":89351066}
+{"cell":"D-nounk","cpu_ns":85791000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":6,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":102236240}
+{"cell":"A","cpu_ns":73563000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":6,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":85832039}
+{"cell":"C-nounk","cpu_ns":80271000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":7,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":91303474}
+{"cell":"D-nounk","cpu_ns":74962000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":7,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":86135708}
+{"cell":"A","cpu_ns":69751000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":7,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":79655004}
+{"cell":"B","cpu_ns":64440000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":7,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":72127186}
+{"cell":"D-nounk","cpu_ns":85247000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":8,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":99338438}
+{"cell":"A","cpu_ns":78424000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":8,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":94616666}
+{"cell":"B","cpu_ns":64974000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":8,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":76055377}
+{"cell":"C-nounk","cpu_ns":82930000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":8,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":98386838}
+{"cell":"A","cpu_ns":73169000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":9,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":84263301}
+{"cell":"B","cpu_ns":64946000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":9,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":73615894}
+{"cell":"C-nounk","cpu_ns":85437000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":9,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":97488508}
+{"cell":"D-nounk","cpu_ns":83844000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":9,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":91887675}
+{"cell":"B","cpu_ns":64207000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":10,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":71274806}
+{"cell":"C-nounk","cpu_ns":82022000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":10,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":88873137}
+{"cell":"D-nounk","cpu_ns":79378000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":10,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":92420205}
+{"cell":"A","cpu_ns":72146000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":10,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":79866078}
+{"cell":"C-nounk","cpu_ns":84408000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":11,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":96479126}
+{"cell":"D-nounk","cpu_ns":81568000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":11,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":89290848}
+{"cell":"A","cpu_ns":73281000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":11,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":79994839}
+{"cell":"B","cpu_ns":63358000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":11,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":70842367}
+{"cell":"D-nounk","cpu_ns":81952000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":12,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":88180657}
+{"cell":"A","cpu_ns":74390000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":12,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":83051622}
+{"cell":"B","cpu_ns":61028000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":12,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":70231086}
+{"cell":"C-nounk","cpu_ns":81132000,"dir":"a","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":12,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":91268931}
+{"cell":"A","cpu_ns":83038000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":88269591}
+{"cell":"B","cpu_ns":85114000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":86998493}
+{"cell":"C-nounk","cpu_ns":111401000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":112480035}
+{"cell":"D-nounk","cpu_ns":111287000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":111468822}
+{"cell":"B","cpu_ns":83267000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":83948308}
+{"cell":"C-nounk","cpu_ns":112181000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":117449537}
+{"cell":"D-nounk","cpu_ns":109511000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":111139966}
+{"cell":"A","cpu_ns":83270000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":87184897}
+{"cell":"C-nounk","cpu_ns":110491000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":113212525}
+{"cell":"D-nounk","cpu_ns":95660000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":99899643}
+{"cell":"A","cpu_ns":81283000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":84153479}
+{"cell":"B","cpu_ns":87174000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":89765710}
+{"cell":"D-nounk","cpu_ns":113428000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":4,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":117903077}
+{"cell":"A","cpu_ns":87304000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":4,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":92269180}
+{"cell":"B","cpu_ns":88172000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":4,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":91652221}
+{"cell":"C-nounk","cpu_ns":106709000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":4,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":110342249}
+{"cell":"A","cpu_ns":87330000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":5,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":88926793}
+{"cell":"B","cpu_ns":86959000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":5,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":92968581}
+{"cell":"C-nounk","cpu_ns":116851000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":5,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":121882333}
+{"cell":"D-nounk","cpu_ns":117399000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":5,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":136608063}
+{"cell":"B","cpu_ns":91498000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":6,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":94983273}
+{"cell":"C-nounk","cpu_ns":107959000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":6,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":112718218}
+{"cell":"D-nounk","cpu_ns":114728000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":6,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":125308272}
+{"cell":"A","cpu_ns":88720000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":6,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":89866904}
+{"cell":"C-nounk","cpu_ns":106769000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":7,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":109716816}
+{"cell":"D-nounk","cpu_ns":106993000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":7,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":108641026}
+{"cell":"A","cpu_ns":81546000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":7,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":82265959}
+{"cell":"B","cpu_ns":74055000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":7,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":76038700}
+{"cell":"D-nounk","cpu_ns":89928000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":8,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":90262039}
+{"cell":"A","cpu_ns":76977000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":8,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":80074769}
+{"cell":"B","cpu_ns":85911000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":8,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":91352478}
+{"cell":"C-nounk","cpu_ns":111550000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":8,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":111890073}
+{"cell":"A","cpu_ns":88400000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":9,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":89474954}
+{"cell":"B","cpu_ns":85090000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":9,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":86204356}
+{"cell":"C-nounk","cpu_ns":111363000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":9,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":112622900}
+{"cell":"D-nounk","cpu_ns":112535000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":9,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":120526692}
+{"cell":"B","cpu_ns":95099000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":10,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":99525288}
+{"cell":"C-nounk","cpu_ns":114607000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":10,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":116173133}
+{"cell":"D-nounk","cpu_ns":116801000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":10,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":120287083}
+{"cell":"A","cpu_ns":91018000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":10,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":94211345}
+{"cell":"C-nounk","cpu_ns":113393000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":11,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":115574185}
+{"cell":"D-nounk","cpu_ns":115569000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":11,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":116411936}
+{"cell":"A","cpu_ns":91549000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":11,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":96680797}
+{"cell":"B","cpu_ns":85238000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":11,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":87628478}
+{"cell":"D-nounk","cpu_ns":106671000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":12,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":114419642}
+{"cell":"A","cpu_ns":83175000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":12,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":84586805}
+{"cell":"B","cpu_ns":85022000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":12,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":88276443}
+{"cell":"C-nounk","cpu_ns":118843000,"dir":"a","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":12,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":126294184}
+{"cell":"A","cpu_ns":102125000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":104073954}
+{"cell":"B","cpu_ns":93671000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":97045193}
+{"cell":"C-nounk","cpu_ns":117894000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":119484099}
+{"cell":"D-nounk","cpu_ns":111713000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":113034170}
+{"cell":"B","cpu_ns":91452000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":91871928}
+{"cell":"C-nounk","cpu_ns":119660000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":121286432}
+{"cell":"D-nounk","cpu_ns":120624000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":124031487}
+{"cell":"A","cpu_ns":98330000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":99173038}
+{"cell":"C-nounk","cpu_ns":117527000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":124573054}
+{"cell":"D-nounk","cpu_ns":97899000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":104230340}
+{"cell":"A","cpu_ns":94185000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":94429969}
+{"cell":"B","cpu_ns":90639000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":91345873}
+{"cell":"D-nounk","cpu_ns":113437000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":4,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":114146913}
+{"cell":"A","cpu_ns":96940000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":4,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":97409316}
+{"cell":"B","cpu_ns":87177000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":4,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":87902030}
+{"cell":"C-nounk","cpu_ns":118723000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":4,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":120455898}
+{"cell":"A","cpu_ns":98769000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":5,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":101474564}
+{"cell":"B","cpu_ns":91504000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":5,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":97989209}
+{"cell":"C-nounk","cpu_ns":121029000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":5,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":122220202}
+{"cell":"D-nounk","cpu_ns":115994000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":5,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":116723076}
+{"cell":"B","cpu_ns":94570000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":6,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":96851823}
+{"cell":"C-nounk","cpu_ns":116419000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":6,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":124480882}
+{"cell":"D-nounk","cpu_ns":117606000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":6,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":119135425}
+{"cell":"A","cpu_ns":98452000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":6,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":105047981}
+{"cell":"C-nounk","cpu_ns":113798000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":7,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":115603144}
+{"cell":"D-nounk","cpu_ns":101810000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":7,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":105001991}
+{"cell":"A","cpu_ns":93366000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":7,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":94887496}
+{"cell":"B","cpu_ns":91417000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":7,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":95018301}
+{"cell":"D-nounk","cpu_ns":118671000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":8,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":127501286}
+{"cell":"A","cpu_ns":94978000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":8,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":98123087}
+{"cell":"B","cpu_ns":97470000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":8,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":129394274}
+{"cell":"C-nounk","cpu_ns":121720000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":8,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":137017706}
+{"cell":"A","cpu_ns":82705000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":9,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":86096445}
+{"cell":"B","cpu_ns":76923000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":9,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":79221936}
+{"cell":"C-nounk","cpu_ns":96637000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":9,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":98245890}
+{"cell":"D-nounk","cpu_ns":95470000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":9,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":96935532}
+{"cell":"B","cpu_ns":91794000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":10,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":99469241}
+{"cell":"C-nounk","cpu_ns":118746000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":10,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":123156230}
+{"cell":"D-nounk","cpu_ns":115366000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":10,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":117510379}
+{"cell":"A","cpu_ns":98766000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":10,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":104611133}
+{"cell":"C-nounk","cpu_ns":116623000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":11,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":120364513}
+{"cell":"D-nounk","cpu_ns":101514000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":11,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":103576714}
+{"cell":"A","cpu_ns":81334000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":11,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":84998647}
+{"cell":"B","cpu_ns":91613000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":11,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":96710225}
+{"cell":"D-nounk","cpu_ns":117603000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":12,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":123696575}
+{"cell":"A","cpu_ns":101594000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":12,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":104836481}
+{"cell":"B","cpu_ns":98521000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":12,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":101424633}
+{"cell":"C-nounk","cpu_ns":125900000,"dir":"a","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":12,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":126657212}
+{"cell":"A","cpu_ns":56037000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":125307155}
+{"cell":"B","cpu_ns":36900000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":116293387}
+{"cell":"C-nounk","cpu_ns":32263000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":94766022}
+{"cell":"D-nounk","cpu_ns":35738000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":94216109}
+{"cell":"B","cpu_ns":36428000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":95489496}
+{"cell":"C-nounk","cpu_ns":33325000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":92521184}
+{"cell":"D-nounk","cpu_ns":37699000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":96514080}
+{"cell":"A","cpu_ns":59649000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":127607988}
+{"cell":"C-nounk","cpu_ns":34977000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":99883891}
+{"cell":"D-nounk","cpu_ns":34536000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":99356009}
+{"cell":"A","cpu_ns":58283000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":128958927}
+{"cell":"B","cpu_ns":38647000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":104433879}
+{"cell":"D-nounk","cpu_ns":44865000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":4,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":117093331}
+{"cell":"A","cpu_ns":56471000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":4,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":136245103}
+{"cell":"B","cpu_ns":38492000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":4,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":103596790}
+{"cell":"C-nounk","cpu_ns":32282000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":4,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":94794889}
+{"cell":"A","cpu_ns":58762000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":5,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":122410657}
+{"cell":"B","cpu_ns":38851000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":5,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":104911269}
+{"cell":"C-nounk","cpu_ns":33629000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":5,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":94212796}
+{"cell":"D-nounk","cpu_ns":35795000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":5,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":96564262}
+{"cell":"B","cpu_ns":37807000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":6,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":99133455}
+{"cell":"C-nounk","cpu_ns":32168000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":6,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":108564968}
+{"cell":"D-nounk","cpu_ns":34835000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":6,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":96111794}
+{"cell":"A","cpu_ns":57828000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":6,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":119775361}
+{"cell":"C-nounk","cpu_ns":33231000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":7,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":98720469}
+{"cell":"D-nounk","cpu_ns":36393000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":7,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":105813021}
+{"cell":"A","cpu_ns":53460000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":7,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":112788670}
+{"cell":"B","cpu_ns":39389000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":7,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":99973659}
+{"cell":"D-nounk","cpu_ns":36647000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":8,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":95255258}
+{"cell":"A","cpu_ns":58222000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":8,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":118799288}
+{"cell":"B","cpu_ns":39163000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":8,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":103203502}
+{"cell":"C-nounk","cpu_ns":33958000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":8,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":94814591}
+{"cell":"A","cpu_ns":56224000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":9,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":119293299}
+{"cell":"B","cpu_ns":38459000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":9,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":106831819}
+{"cell":"C-nounk","cpu_ns":34026000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":9,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":96226776}
+{"cell":"D-nounk","cpu_ns":35774000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":9,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":97076143}
+{"cell":"B","cpu_ns":38540000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":10,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":99044739}
+{"cell":"C-nounk","cpu_ns":32268000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":10,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":88220204}
+{"cell":"D-nounk","cpu_ns":37100000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":10,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":98029561}
+{"cell":"A","cpu_ns":58427000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":10,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":120639751}
+{"cell":"C-nounk","cpu_ns":32625000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":11,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":95802008}
+{"cell":"D-nounk","cpu_ns":37146000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":11,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":102449604}
+{"cell":"A","cpu_ns":58126000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":11,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":124456749}
+{"cell":"B","cpu_ns":38139000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":11,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":111836560}
+{"cell":"D-nounk","cpu_ns":35759000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":12,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":100467526}
+{"cell":"A","cpu_ns":56998000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":12,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":134546770}
+{"cell":"B","cpu_ns":37894000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":12,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":100929073}
+{"cell":"C-nounk","cpu_ns":33927000,"dir":"b","inflight":1,"iters":32,"launch":1,"payload":"P2.2","round":12,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":95997409}
+{"cell":"A","cpu_ns":74950000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":78198313}
+{"cell":"B","cpu_ns":43195000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":68526386}
+{"cell":"C-nounk","cpu_ns":31461000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":55549793}
+{"cell":"D-nounk","cpu_ns":35644000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":49710585}
+{"cell":"B","cpu_ns":38165000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":65960357}
+{"cell":"C-nounk","cpu_ns":31762000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":48840074}
+{"cell":"D-nounk","cpu_ns":30758000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":60184135}
+{"cell":"A","cpu_ns":61047000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":125926682}
+{"cell":"C-nounk","cpu_ns":32571000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":53998714}
+{"cell":"D-nounk","cpu_ns":31361000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":57023766}
+{"cell":"A","cpu_ns":54226000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":62924164}
+{"cell":"B","cpu_ns":35851000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":49575987}
+{"cell":"D-nounk","cpu_ns":34441000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":4,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":73247636}
+{"cell":"A","cpu_ns":66389000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":4,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":73523670}
+{"cell":"B","cpu_ns":36009000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":4,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":55443434}
+{"cell":"C-nounk","cpu_ns":31576000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":4,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":58786519}
+{"cell":"A","cpu_ns":56073000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":5,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":64099580}
+{"cell":"B","cpu_ns":35759000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":5,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":58147845}
+{"cell":"C-nounk","cpu_ns":28791000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":5,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":52428935}
+{"cell":"D-nounk","cpu_ns":34811000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":5,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":64429980}
+{"cell":"B","cpu_ns":35785000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":6,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":78915529}
+{"cell":"C-nounk","cpu_ns":35284000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":6,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":60077330}
+{"cell":"D-nounk","cpu_ns":33148000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":6,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":56720088}
+{"cell":"A","cpu_ns":59449000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":6,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":67315851}
+{"cell":"C-nounk","cpu_ns":30493000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":7,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":58376326}
+{"cell":"D-nounk","cpu_ns":33706000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":7,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":60521602}
+{"cell":"A","cpu_ns":53930000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":7,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":61544725}
+{"cell":"B","cpu_ns":35649000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":7,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":58489121}
+{"cell":"D-nounk","cpu_ns":31887000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":8,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":56523726}
+{"cell":"A","cpu_ns":59581000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":8,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":63298937}
+{"cell":"B","cpu_ns":34453000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":8,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":53842655}
+{"cell":"C-nounk","cpu_ns":29192000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":8,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":58119135}
+{"cell":"A","cpu_ns":49075000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":9,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":54267862}
+{"cell":"B","cpu_ns":34292000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":9,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":52708156}
+{"cell":"C-nounk","cpu_ns":32190000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":9,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":48158832}
+{"cell":"D-nounk","cpu_ns":35037000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":9,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":65393117}
+{"cell":"B","cpu_ns":39860000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":10,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":63832404}
+{"cell":"C-nounk","cpu_ns":31075000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":10,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":52340065}
+{"cell":"D-nounk","cpu_ns":31703000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":10,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":52037535}
+{"cell":"A","cpu_ns":59620000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":10,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":69030742}
+{"cell":"C-nounk","cpu_ns":32669000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":11,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":68371192}
+{"cell":"D-nounk","cpu_ns":32332000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":11,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":63960694}
+{"cell":"A","cpu_ns":58992000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":11,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":66332778}
+{"cell":"B","cpu_ns":36656000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":11,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":52314351}
+{"cell":"D-nounk","cpu_ns":33944000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":12,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":58785401}
+{"cell":"A","cpu_ns":64117000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":12,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":68679252}
+{"cell":"B","cpu_ns":33223000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":12,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":54606172}
+{"cell":"C-nounk","cpu_ns":32753000,"dir":"b","inflight":8,"iters":32,"launch":1,"payload":"P2.2","round":12,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":63628495}
+{"cell":"A","cpu_ns":56148000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":60522334}
+{"cell":"B","cpu_ns":38143000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":57181109}
+{"cell":"C-nounk","cpu_ns":34420000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":53636677}
+{"cell":"D-nounk","cpu_ns":34728000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":1,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":58142433}
+{"cell":"B","cpu_ns":42303000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":69412625}
+{"cell":"C-nounk","cpu_ns":34205000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":67691881}
+{"cell":"D-nounk","cpu_ns":36245000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":65190347}
+{"cell":"A","cpu_ns":67999000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":2,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":74415288}
+{"cell":"C-nounk","cpu_ns":43194000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":69622314}
+{"cell":"D-nounk","cpu_ns":39565000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":73818089}
+{"cell":"A","cpu_ns":54992000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":57225221}
+{"cell":"B","cpu_ns":37032000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":3,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":56482342}
+{"cell":"D-nounk","cpu_ns":37059000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":4,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":55910980}
+{"cell":"A","cpu_ns":60296000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":4,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":62533885}
+{"cell":"B","cpu_ns":39590000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":4,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":60172057}
+{"cell":"C-nounk","cpu_ns":38202000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":4,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":65659085}
+{"cell":"A","cpu_ns":63793000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":5,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":67878598}
+{"cell":"B","cpu_ns":37312000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":5,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":53233282}
+{"cell":"C-nounk","cpu_ns":32618000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":5,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":54379590}
+{"cell":"D-nounk","cpu_ns":34299000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":5,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":55032225}
+{"cell":"B","cpu_ns":40069000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":6,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":71573736}
+{"cell":"C-nounk","cpu_ns":31742000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":6,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":57029685}
+{"cell":"D-nounk","cpu_ns":37424000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":6,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":59746757}
+{"cell":"A","cpu_ns":58141000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":6,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":62559052}
+{"cell":"C-nounk","cpu_ns":35527000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":7,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":57240133}
+{"cell":"D-nounk","cpu_ns":36016000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":7,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":62968367}
+{"cell":"A","cpu_ns":58397000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":7,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":66082692}
+{"cell":"B","cpu_ns":39329000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":7,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":55982305}
+{"cell":"D-nounk","cpu_ns":33710000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":8,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":65660721}
+{"cell":"A","cpu_ns":63161000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":8,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":70842217}
+{"cell":"B","cpu_ns":37576000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":8,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":70163487}
+{"cell":"C-nounk","cpu_ns":34507000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":8,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":57423711}
+{"cell":"A","cpu_ns":59460000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":9,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":66880170}
+{"cell":"B","cpu_ns":36802000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":9,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":62146715}
+{"cell":"C-nounk","cpu_ns":39917000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":9,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":55065375}
+{"cell":"D-nounk","cpu_ns":42674000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":9,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":53188085}
+{"cell":"B","cpu_ns":48286000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":10,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":74135451}
+{"cell":"C-nounk","cpu_ns":46028000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":10,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":69105429}
+{"cell":"D-nounk","cpu_ns":41442000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":10,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":56291135}
+{"cell":"A","cpu_ns":58454000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":10,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":65914580}
+{"cell":"C-nounk","cpu_ns":43405000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":11,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":60161974}
+{"cell":"D-nounk","cpu_ns":39261000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":11,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":62652287}
+{"cell":"A","cpu_ns":59127000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":11,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":64879525}
+{"cell":"B","cpu_ns":42679000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":11,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":68549479}
+{"cell":"D-nounk","cpu_ns":35886000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":12,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":70523034}
+{"cell":"A","cpu_ns":60899000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":12,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":64822987}
+{"cell":"B","cpu_ns":38509000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":12,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":65470151}
+{"cell":"C-nounk","cpu_ns":36565000,"dir":"b","inflight":16,"iters":32,"launch":1,"payload":"P2.2","round":12,"slice":"rust","suite":"rpc","transport":"pinned","wall_ns":69805293}
