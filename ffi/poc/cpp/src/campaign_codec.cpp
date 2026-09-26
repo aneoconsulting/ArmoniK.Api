@@ -56,7 +56,9 @@
 #include <vector>
 
 #include "harness.h"
+#ifndef AK_NO_UNKNOWN_FIELDS
 #include "generated/core_native_retain.h"
+#endif
 #include "generated/touch.h"
 
 // Requirement 10's switch: on since the binding exports decision 11's retain entry points
@@ -83,6 +85,15 @@
 #ifndef AK_FFI_DROP_MODE
 #define AK_FFI_DROP_MODE "drop"
 #define AK_HOSTGEN_MODES 2
+#endif
+// host-gen retain: rendered from the plan's retain options in the full build only (R-H22:
+// the no-unknown facade has no unknown_fields member for a retain codec to fill).
+#ifdef AK_NO_UNKNOWN_FIELDS
+#define AK_NATR_ENC(s) NULL
+#define AK_NATR_DEC(s) NULL
+#else
+#define AK_NATR_ENC(s) &shapes::native_retain::encode_into_##s
+#define AK_NATR_DEC(s) &shapes::native_retain::decode_##s
 #endif
 
 namespace {
@@ -411,7 +422,11 @@ int main(int argc, char **argv) {
   cx.dcs = new shapes::ffi::DecCtxs();
   if (!cx.dcs->ok()) { std::fprintf(stderr, "ak_dec_ctx_new_<Root> refused\n"); return 2; }
   cx.ne = new ak::Enc(shapes::native::kSites);
+#ifdef AK_NO_UNKNOWN_FIELDS
+  cx.nre = NULL;  // no host-gen retain in the no-unknown build
+#else
   cx.nre = new ak::Enc(shapes::native_retain::kSites);
+#endif
 
   std::vector<Group> groups;
   static const ak::values::ContentSet sets[3] = {ak::values::kAscii, ak::values::kLatin1, ak::values::kWide};
@@ -424,8 +439,8 @@ int main(int argc, char **argv) {
                                      &shapes::ffi::decode_with_##sroot,                         \
                                      &shapes::native::encode_into_##sroot,                      \
                                      &shapes::native::decode_##sroot,                           \
-                                     &shapes::native_retain::encode_into_##sroot,               \
-                                     &shapes::native_retain::decode_##sroot,                    \
+                                     AK_NATR_ENC(sroot),               \
+                                     AK_NATR_DEC(sroot),                    \
                                      AK_FFI_RETAIN_ENC(sroot), AK_FFI_RETAIN_DEC(sroot)};       \
     std::string pid(id);                                                                        \
     bool cs = pid == "P1.2" || pid == "P2.2" || pid == "P3.1" || pid == "P4.1" || pid == "P6.1"; \
@@ -458,7 +473,7 @@ int main(int argc, char **argv) {
       Fns<shapes::DualResponse, ns::DualResponse> F = {
           &shapes::ffi::encode_into_dual_response, &shapes::ffi::decode_with_dual_response,
           &shapes::native::encode_into_dual_response, &shapes::native::decode_dual_response,
-          &shapes::native_retain::encode_into_dual_response, &shapes::native_retain::decode_dual_response,
+          AK_NATR_ENC(dual_response), AK_NATR_DEC(dual_response),
           AK_FFI_RETAIN_ENC(dual_response), AK_FFI_RETAIN_DEC(dual_response)};
       groups.push_back(make_group<shapes::DualResponse, ns::DualResponse>("P7.1", "ascii", F, NULL, NULL, v, &cx));
     }
@@ -473,8 +488,8 @@ int main(int argc, char **argv) {
       if (rows[i].root == #Root) {                                                              \
         Fns<shapes::Root, ns::Root> F = {&shapes::ffi::encode_into_##sroot,                     \
             &shapes::ffi::decode_with_##sroot, &shapes::native::encode_into_##sroot,            \
-            &shapes::native::decode_##sroot, &shapes::native_retain::encode_into_##sroot,       \
-            &shapes::native_retain::decode_##sroot,                                             \
+            &shapes::native::decode_##sroot, AK_NATR_ENC(sroot),       \
+            AK_NATR_DEC(sroot),                                             \
             AK_FFI_RETAIN_ENC(sroot), AK_FFI_RETAIN_DEC(sroot)};                                \
         groups.push_back(make_group<shapes::Root, ns::Root>(rows[i].id, "ascii", F, NULL, NULL, v, &cx)); \
       }

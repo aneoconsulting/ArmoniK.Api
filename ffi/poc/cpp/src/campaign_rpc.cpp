@@ -24,8 +24,11 @@
 //                         payload; the first failure aborts the process (no figure)
 //   samples    (req. 21): CPU = getrusage(RUSAGE_SELF) of this client process across the
 //                         batch (the server is another process), wall = CLOCK_MONOTONIC
-//   rounds     (req. 22/23): every (dir, inflight) group runs its four cells in an order
-//                         rotated by round; one JSON line per sample (req. 28)
+//   rounds     (req. 22/23): every (dir, inflight) group runs its cells in an order shuffled
+//                         per (launch, round, dir, inflight), recorded as order_pos; one JSON
+//                         line per sample (req. 28), buffered and written only if the whole
+//                         run succeeded (R-H4)
+//   threads    (R-H2): the k caller threads are created once, before any timed window
 //
 // Cell A's generated stub does not expose the wire length. Its response is checked by
 // content on every call (500 tasks), and its wire length once, before the rounds, by
@@ -39,6 +42,10 @@
 #include <cstdlib>
 #include <cstring>
 #include <string>
+#include <algorithm>
+#include <condition_variable>
+#include <mutex>
+#include <random>
 #include <thread>
 #include <vector>
 
@@ -116,6 +123,7 @@ struct Cfg {
   std::string target, transport = "shipped", cells = "ABCD", dirs = "ab";
   std::vector<int> inflight = {1, 8, 16};
   int launch = 0, rounds = 5, calls = 96, warmup = 32, workers = 2;
+  int fail_after = -1;  // test only: abort after this many samples (the gate's R-H4 control)
 };
 
 [[noreturn]] void die(const char *what, long v) {
@@ -279,27 +287,64 @@ long cell_call(World &w, const Cell &cl, char dir, int t, ak_enc_ctx *ec, ak_dec
   return (long)f.tasks.size();
 }
 
-// k threads, `total` calls between them, each thread a blocking caller.
-long batch(World &w, const Cell &cell, char dir, int k, int total) {
-  int per = (total + k - 1) / k;
+// R-H2: the caller threads are created ONCE, before any timed window, each with its own
+// encode context and its own root-bound decode context, and reused by every batch. A batch
+// hands the first k of them `per` calls each and waits for them: the window holds the calls
+// and one condition-variable round trip per thread, never a thread creation.
+struct Pool {
+  World *w;
   std::vector<std::thread> ts;
-  std::vector<long> acc((size_t)k, 0);
-  for (int t = 0; t < k; ++t) {
-    ts.push_back(std::thread([&, t]() {
-      ak_enc_ctx *ec = ak_enc_ctx_new();
-      ak_dec_ctx *dc = shapes::ffi::dec_ctx_new_for<shapes::ListTasksDetailedResponse>();  // decision 11 rule 6: bound to the one root cells decode
-      long n = 0;
-      for (int i = 0; i < per; ++i) n += cell_call(w, cell, dir, t, ec, dc);
-      ak_enc_ctx_free(ec);
-      ak_dec_ctx_free(dc);
-      acc[(size_t)t] = n;
-    }));
+  std::mutex m;
+  std::condition_variable go, done;
+  uint64_t gen = 0;
+  int k = 0, per = 0, pending = 0;
+  const Cell *cell = nullptr;
+  char dir = 'a';
+  bool quit = false;
+  std::vector<long> acc;
+
+  Pool(World &wr, int n) : w(&wr), acc((size_t)n, 0) {
+    for (int t = 0; t < n; ++t) ts.push_back(std::thread([this, t]() { run(t); }));
   }
-  for (size_t i = 0; i < ts.size(); ++i) ts[i].join();
-  long s = 0;
-  for (size_t i = 0; i < acc.size(); ++i) s += acc[i];
-  return s + (long)per * 0;
-}
+  ~Pool() {
+    { std::lock_guard<std::mutex> l(m); quit = true; ++gen; }
+    go.notify_all();
+    for (size_t i = 0; i < ts.size(); ++i) ts[i].join();
+  }
+  void run(int t) {
+    ak_enc_ctx *ec = ak_enc_ctx_new();
+    ak_dec_ctx *dc = shapes::ffi::dec_ctx_new_for<shapes::ListTasksDetailedResponse>();  // rule 6
+    uint64_t seen = 0;
+    for (;;) {
+      int myk, myper; const Cell *c; char d;
+      {
+        std::unique_lock<std::mutex> l(m);
+        go.wait(l, [&] { return gen != seen; });
+        seen = gen;
+        if (quit) break;
+        myk = k; myper = per; c = cell; d = dir;
+      }
+      if (t >= myk) continue;
+      long n = 0;
+      for (int i = 0; i < myper; ++i) n += cell_call(*w, *c, d, t, ec, dc);
+      std::lock_guard<std::mutex> l(m);
+      acc[(size_t)t] = n;
+      if (--pending == 0) done.notify_one();
+    }
+    ak_enc_ctx_free(ec);
+    ak_dec_ctx_free(dc);
+  }
+  // k of the threads, `total` calls between them, each thread a blocking caller.
+  long batch(const Cell &c, char d, int kk, int total) {
+    std::unique_lock<std::mutex> l(m);
+    k = kk; per = (total + kk - 1) / kk; cell = &c; dir = d; pending = kk; ++gen;
+    go.notify_all();
+    done.wait(l, [&] { return pending == 0; });
+    long s = 0;
+    for (int i = 0; i < kk; ++i) s += acc[(size_t)i];
+    return s;
+  }
+};
 
 std::vector<int> parse_list(const char *s) {
   std::vector<int> v;
@@ -334,6 +379,7 @@ int main(int argc, char **argv) {
     else if (a == "--warmup") c.warmup = std::atoi(v);
     else if (a == "--workers") c.workers = std::atoi(v);
     else if (a == "--expect") w.expect_a = (size_t)std::atoll(v);
+    else if (a == "--fail-after") c.fail_after = std::atoi(v);
   }
   if (c.target.empty() || (c.transport != "shipped" && c.transport != "pinned") || !w.expect_a) {
     std::fprintf(stderr, "usage: campaign_rpc --target host:port --expect BYTES --transport shipped|pinned ...\n");
@@ -442,30 +488,49 @@ int main(int argc, char **argv) {
               " A and B default"
 #endif
               );
+  Pool pool(w, maxk);  // R-H2: the caller threads, created before any timed window
   for (char d : c.dirs)
     for (int k : c.inflight)
-      for (size_t j = 0; j < cells.size(); ++j) batch(w, cells[j], d, k, c.warmup);  // warm-up, identical per cell
+      for (size_t j = 0; j < cells.size(); ++j) pool.batch(cells[j], d, k, c.warmup);  // warm-up, identical per cell
+
+  // R-H4 / req 18: samples are BUFFERED and written only when the whole run succeeded, so an
+  // aborted run (die -> _Exit(3)) leaves no sample at all, not the cells before the failure.
+  std::string samples;
+  int nsamples = 0;
 
   for (int r = 0; r < c.rounds; ++r) {
     for (char d : c.dirs) {
       for (int k : c.inflight) {
         size_t nc = cells.size();
+        // R-H18 / R-H23 (req 22): the cell order of every (round, dir, in-flight) group is a
+        // shuffle seeded by (launch, round, dir, in-flight), so positions and adjacencies
+        // change between launches as well as rounds; each sample records its position.
+        std::vector<size_t> order(nc);
+        for (size_t j = 0; j < nc; ++j) order[j] = j;
+        std::mt19937 rng((uint32_t)(c.launch * 1000003 + r * 1009 + d * 31 + k));
+        std::shuffle(order.begin(), order.end(), rng);
         for (size_t j = 0; j < nc; ++j) {
-          const Cell &cell = cells[(j + (size_t)r) % nc];  // rotated order
+          const Cell &cell = cells[order[j]];
           double c0 = rusage_ns(), w0 = wall_ns();
-          batch(w, cell, d, k, c.calls);
+          pool.batch(cell, d, k, c.calls);
           double c1 = rusage_ns(), w1 = wall_ns();
           int iters = ((c.calls + k - 1) / k) * k;
-          std::printf("{\"slice\":\"cpp\",\"suite\":\"rpc\",\"build\":\"%s\",\"cell\":\"%s\",\"unknown_mode\":\"%s\","
-                      "\"payload\":\"P2.2\","
-                      "\"dir\":\"%c\",\"transport\":\"%s\",\"inflight\":%d,\"launch\":%d,"
-                      "\"round\":%d,\"cpu_ns\":%.0f,\"wall_ns\":%.0f,\"iters\":%d}\n",
-                      kBuild, cell.label.c_str(), mode_name(cell.mode), d, c.transport.c_str(), k, c.launch, r, c1 - c0, w1 - w0, iters);
-          std::fflush(stdout);
+          char line[512];
+          std::snprintf(line, sizeof(line),
+                        "{\"slice\":\"cpp\",\"suite\":\"rpc\",\"build\":\"%s\",\"cell\":\"%s\",\"unknown_mode\":\"%s\","
+                        "\"payload\":\"P2.2\","
+                        "\"dir\":\"%c\",\"transport\":\"%s\",\"inflight\":%d,\"launch\":%d,"
+                        "\"round\":%d,\"order_pos\":%zu,\"cpu_ns\":%.0f,\"wall_ns\":%.0f,\"iters\":%d}\n",
+                        kBuild, cell.label.c_str(), mode_name(cell.mode), d, c.transport.c_str(), k, c.launch, r,
+                        j, c1 - c0, w1 - w0, iters);
+          samples += line;
+          if (++nsamples == c.fail_after) die("--fail-after (test control)", nsamples);
         }
       }
     }
   }
+  std::fwrite(samples.data(), 1, samples.size(), stdout);
+  std::fflush(stdout);
   ak_client_destroy(w.cl);
   ak_runtime_destroy(w.rt);
   return 0;

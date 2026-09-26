@@ -14,9 +14,11 @@
 
 #include "ak_abi.h"
 #include "ak/rt.h"
-#include "generated/types.h"
+#include <generated/types.h>  // include path: corpus/nounk/src first in the no-unknown build (R-H22)
 #include "generated/core_native.h"
+#ifndef AK_NO_UNKNOWN_FIELDS
 #include "generated/core_native_retain.h"
+#endif
 #ifdef AK_NO_UNKNOWN_FIELDS  // WP5 step 10: the no-unknown build (corpus/nounk/include)
 #include "generated/binding_nounk.h"
 #else

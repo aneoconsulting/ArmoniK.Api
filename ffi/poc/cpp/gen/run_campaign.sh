@@ -15,6 +15,8 @@
 #   AK_CAMPAIGN_CALIB_ITERS calib: crossings per sample        (default 100000000)
 #   AK_CAMPAIGN_ALLOW_DIRTY=1  SMOKE RUNS ONLY: run on a dirty tree; the header says so and
 #                        every figure is container instrumentation (requirement 27 refuses it)
+#   AK_CAMPAIGN_SMOKE=1  a smoke run on a CLEAN tree (R-H19): the header's "instrumentation"
+#                        is true and "smoke" is true; a campaign run leaves both unset
 #   AK_INCUMBENT_PREFIX  build against a protobuf/grpc++ installed under this prefix (the
 #                        campaign builds twice: gRPC v1.54.0, ArmoniK's, and a current one;
 #                        requirement 3). Unset: the system's.
@@ -122,7 +124,9 @@ cmd = rd('/proc/cmdline') or ''
 h = {
  "slice": "cpp", "suite": sys.argv[1], "launch": int(sys.argv[2]),
  "commit": "$COMMIT", "dirty": bool("""$DIRTY"""), "dirty_files": """$DIRTY""".splitlines()[:20],
- "instrumentation": bool("""$DIRTY""") or os.environ.get("AK_CAMPAIGN_ALLOW_DIRTY") == "1",
+ "instrumentation": bool("""$DIRTY""") or os.environ.get("AK_CAMPAIGN_ALLOW_DIRTY") == "1"
+                    or os.environ.get("AK_CAMPAIGN_SMOKE") == "1",
+ "smoke": os.environ.get("AK_CAMPAIGN_SMOKE") == "1",
  "machine": {
    "cpu_model": sh("grep -m1 'model name' /proc/cpuinfo | cut -d: -f2-").strip(),
    "cpus_online": rd('/sys/devices/system/cpu/online'), "nproc": sh("nproc"),
@@ -225,15 +229,32 @@ run_gate() {
         && echo ">>> FAIL: the planted $cb gate passed" \
         || echo "  control $cb plant: $(grep -c 'GATE FAIL' "$TMPD/g.log") slots failed as required"
     done
-    echo "===== the RPC call check (requirement 18) seen failing: a wrong expected length ====="
+    echo "===== the RPC call check (requirement 18) seen failing, and leaving NO sample (R-H4) ====="
     start_server shipped
     for rb in campaign_rpc campaign_rpc_nounk; do
       timeout 120 taskset -c "$AK_CPU_CLIENT" "$B/$rb" --target 127.0.0.1:$PORT --expect $((EXP + 1)) \
         --transport shipped --cells C --dirs a --inflight 1 --rounds 1 --calls 2 --warmup 1 > "$TMPD/r.log" 2>&1; rc=$?
-      [ $rc != 0 ] && echo "  control rpc length ($rb): aborted as required (exit $rc: $(grep -m1 'CALL CHECK' "$TMPD/r.log"))" \
-                   || echo ">>> FAIL: a wrong response length did not abort ($rb)"
+      ns=$(grep -c '^{' "$TMPD/r.log")
+      [ $rc != 0 ] && [ "$ns" = 0 ] && echo "  control rpc length ($rb): aborted as required (exit $rc, $ns samples: $(grep -m1 'CALL CHECK' "$TMPD/r.log"))" \
+                   || echo ">>> FAIL: a wrong response length did not abort, or left $ns sample(s) ($rb)"
+      # An abort AFTER samples were taken (--fail-after 2): the samples already measured must
+      # not reach the output either (buffered in the client, written only on success).
+      timeout 120 taskset -c "$AK_CPU_CLIENT" "$B/$rb" --target 127.0.0.1:$PORT --expect "$EXP" \
+        --transport shipped --cells AB --dirs a --inflight 1 --rounds 2 --calls 2 --warmup 1 --fail-after 2 > "$TMPD/r.log" 2>&1; rc=$?
+      ns=$(grep -c '^{' "$TMPD/r.log")
+      [ $rc != 0 ] && [ "$ns" = 0 ] && echo "  control rpc abort after 2 samples ($rb): exit $rc, $ns samples written, as required" \
+                   || echo ">>> FAIL: an abort after 2 samples left $ns sample(s) (exit $rc, $rb)"
     done
+    # The runner's own discard (R-H4): a client that fails leaves no launch file.
+    rpc_launch_file "$TMPD/rpcctl.jsonl" 1 shipped "--fail-after 1" > /dev/null 2>&1; rc=$?
+    [ $rc != 0 ] && [ ! -e "$TMPD/rpcctl.jsonl" ] && echo "  control runner rpc discard: exit $rc, no file, as required" \
+                 || echo ">>> FAIL: the runner kept a failed rpc launch file (exit $rc)"
     stop_server
+    echo "===== campaign_calib failure propagated (R-H5) ====="
+    calib_one "$TMPD/calctl.jsonl" bogus 1 > /dev/null 2>&1; rc=$?
+    [ $rc != 0 ] && [ "$(grep -c '^{' "$TMPD/calctl.jsonl" 2>/dev/null || echo 0)" = 0 ] \
+      && echo "  control calib failure: exit $rc, no sample, as required" \
+      || echo ">>> FAIL: a failing campaign_calib was not propagated (exit $rc)"
   } > "$log" 2>&1
   if grep -q '>>> FAIL' "$log"; then
     echo "GATE FAILED (requirement 26): see $log; no figure is produced" >&2; return 1
@@ -274,6 +295,43 @@ gbench_release() {
     -DBENCHMARK_ENABLE_GTEST_TESTS=OFF -DCMAKE_INSTALL_PREFIX="$GBPREFIX" > /dev/null 2>&1 \
     && cmake --build "$B/gbench-build" -j"$(nproc)" > /dev/null 2>&1 \
     && cmake --install "$B/gbench-build" > /dev/null 2>&1
+}
+
+# One RPC launch file for one transport, both clients (R-H4): each client's samples go to a
+# scratch file and are appended only if it succeeded; on any failure the launch file is
+# deleted, so an aborted run leaves no sample. Usage: rpc_launch_file FILE LAUNCH TRANSPORT
+# [EXTRA-ARGS]; the server must be running. Returns nonzero on failure.
+rpc_launch_file() {
+  local f=$1 l=$2 t=$3 extra=${4:-} rb rc
+  if [ $((l % 2)) = 1 ]; then RBS="campaign_rpc campaign_rpc_nounk"; else RBS="campaign_rpc_nounk campaign_rpc"; fi
+  for rb in $RBS; do
+    timeout 7200 taskset -c "$AK_CPU_CLIENT" "$B/$rb" --target 127.0.0.1:$PORT --expect "$EXP" \
+      --transport "$t" --launch "$l" --rounds "$ROUNDS" --calls "$CALLS" --warmup "$RPCWARM" $extra \
+      > "$TMPD/client.out" 2>&1; rc=$?
+    if [ $rc != 0 ]; then
+      echo "rpc client $rb ($t) failed (exit $rc): $(grep -m1 'CALL CHECK' "$TMPD/client.out")" >&2
+      rm -f "$f"; return 1
+    fi
+    { echo "# client $rb"; cat "$TMPD/client.out"; } >> "$f"
+  done
+  return 0
+}
+
+# One campaign_calib direction into FILE (R-H5): appended only on success; on failure the
+# file is deleted and the rc returned. Usage: calib_one FILE DIR LAUNCH.
+calib_one() {
+  local f=$1 d=$2 l=$3 rc
+  if [ -n "${PERF:-}" ]; then
+    taskset -c "$AK_CPU_CLIENT" "$PERF" stat -x, -e cycles,instructions -o "$TMPD/perf" \
+      "$B/campaign_calib" --dir "$d" --launch "$l" --rounds "$ROUNDS" --iters "$CITERS" > "$TMPD/calib.out" 2>&1; rc=$?
+  else
+    taskset -c "$AK_CPU_CLIENT" "$B/campaign_calib" --dir "$d" --launch "$l" --rounds "$ROUNDS" --iters "$CITERS" \
+      > "$TMPD/calib.out" 2>&1; rc=$?
+  fi
+  if [ $rc != 0 ]; then echo "campaign_calib --dir $d failed (exit $rc)" >&2; rm -f "$f"; return $rc; fi
+  cat "$TMPD/calib.out" >> "$f"
+  [ -n "${PERF:-}" ] && sed 's/^/# perf '"$d"': /' "$TMPD/perf" >> "$f"
+  return 0
 }
 
 PORT=""; EXP=""; SPID=""
@@ -317,7 +375,8 @@ case "$SUITE" in
         grep '^#' "$TMPD/gb.console"
         python3 "$SLICE/gen/gbench_to_jsonl.py" "$gb" "$l" "$([ "$cb" = campaign_codec_nounk ] && echo no-unknown || echo full)"; } > "$f" 2>/dev/null
       if [ "$(cat "$TMPD/gb.rc")" != 0 ] || ! grep -q '^{' "$f"; then
-        echo "codec launch $l failed: $f" >&2; tail -20 "$TMPD/gb.console" >&2; exit 1
+        echo "codec launch $l failed: $f removed (no sample from a failed run)" >&2; tail -20 "$TMPD/gb.console" >&2
+        rm -f "$f" "$gb"; exit 1
       fi
       echo "wrote $f"
      done
@@ -329,19 +388,14 @@ case "$SUITE" in
       header rpc "$l" > "$f"
       # WP5 step 10: the full client (A B C-retain C-drop D-retain D-drop) and the no-unknown
       # client (A B C-nounk D-nounk; A and B its in-process controls), order alternated by
-      # launch, against the same server process per transport.
-      if [ $((l % 2)) = 1 ]; then RBS="campaign_rpc campaign_rpc_nounk"; else RBS="campaign_rpc_nounk campaign_rpc"; fi
+      # launch, against the same server process per transport. R-H4: a failed client
+      # deletes the launch file (rpc_launch_file), so no sample of a failed run survives.
       for t in shipped pinned; do
         start_server "$t"
-        rc=0
-        for rb in $RBS; do
-          echo "# client $rb" >> "$f"
-          timeout 7200 taskset -c "$AK_CPU_CLIENT" "$B/$rb" --target 127.0.0.1:$PORT --expect "$EXP" \
-            --transport "$t" --launch "$l" --rounds "$ROUNDS" --calls "$CALLS" --warmup "$RPCWARM" >> "$f" 2>&1 || rc=$?
-        done
+        rpc_launch_file "$f" "$l" "$t"; rc=$?
         stop_server
+        [ $rc = 0 ] || { echo "rpc launch $l ($t) failed: no file kept" >&2; exit 1; }
         echo "# server ($t): $(cat "$TMPD/srv.err")" >> "$f"
-        [ $rc = 0 ] || { echo "rpc launch $l ($t) failed: $f" >&2; exit 1; }
       done
       echo "wrote $f"
     done ;;
@@ -351,15 +405,9 @@ case "$SUITE" in
     for l in $(seq 1 "$LAUNCHES"); do
       f=$OUT/calib-launch$l.jsonl
       header calib "$l" > "$f"
+      [ -n "$PERF" ] || echo "# perf unavailable on this machine: cycles and instructions not recorded (requirement 20)" >> "$f"
       for d in forward reverse; do
-        if [ -n "$PERF" ]; then
-          taskset -c "$AK_CPU_CLIENT" "$PERF" stat -x, -e cycles,instructions -o "$TMPD/perf" \
-            "$B/campaign_calib" --dir $d --launch "$l" --rounds "$ROUNDS" --iters "$CITERS" >> "$f" 2>&1
-          sed 's/^/# perf '"$d"': /' "$TMPD/perf" >> "$f"
-        else
-          echo "# perf unavailable on this machine: cycles and instructions not recorded (requirement 20)" >> "$f"
-          taskset -c "$AK_CPU_CLIENT" "$B/campaign_calib" --dir $d --launch "$l" --rounds "$ROUNDS" --iters "$CITERS" >> "$f" 2>&1
-        fi
+        calib_one "$f" "$d" "$l" || { echo "calib launch $l ($d) failed: no file kept" >&2; exit 1; }
       done
       # The Rust slice's own crossing benchmark, on this machine (R13, requirement 20).
       ( cd "$SLICE/../rust" && CARGO_TARGET_DIR=$B/rustcal cargo build --release --bin bench > /dev/null 2>&1 \

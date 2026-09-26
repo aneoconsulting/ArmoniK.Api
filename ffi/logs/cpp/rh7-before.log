@@ -1,0 +1,80 @@
+# R-H7 reproduction BEFORE the fix: conformance_a17_shared built with -fsanitize=address (ASAN_OPTIONS=detect_leaks=1),
+# against the binding at 1e489eb40 plus the new d11_reuse case (two pre-allocated pool buffers, a decode with no
+# unknowns, then a decode of d11_results() with the SAME options). ASan reports heap-use-after-free in unk_put
+# (the core writing into a buffer the first decode's unk_reclaim had freed). Taken 2026-09-26 in the main tree
+# (the core crates had another agent's uncommitted changes, which do not touch the unknown-field path).
+
+[libprotobuf ERROR google/protobuf/wire_format_lite.cc:618] String field 'armonik.ffi.shapes.v1.ResultRaw.name' contains invalid UTF-8 data when parsing a protocol buffer. Use the 'bytes' type if you intend to send raw bytes. 
+=================================================================
+==2435==ERROR: AddressSanitizer: heap-use-after-free on address 0x506000f853a0 at pc 0x7f0714afb303 bp 0x7ffeba4afd30 sp 0x7ffeba4af4d8
+WRITE of size 3 at 0x506000f853a0 thread T0
+    #0 0x7f0714afb302 in memcpy ../../../../src/libsanitizer/sanitizer_common/sanitizer_common_interceptors_memintrinsics.inc:115
+    #1 0x7f071516bfd9 in ak_core::unk_put::h8ff022252c9aa329 (/tmp/claude-0/sp/asan13/core/target/release/libak_core.so+0x7bfd9) (BuildId: 0fc7f868b27cf3f9dc24f50e1e7311fe6c052886)
+    #2 0x7f071510c9e2 in ak_core::generated::codec::dec_result_raw_fix_into::hb6ee6bb300a1ae92 (/tmp/claude-0/sp/asan13/core/target/release/libak_core.so+0x1c9e2) (BuildId: 0fc7f868b27cf3f9dc24f50e1e7311fe6c052886)
+    #3 0x7f071515a700 in ak_decode_ListResultsResponse (/tmp/claude-0/sp/asan13/core/target/release/libak_core.so+0x6a700) (BuildId: 0fc7f868b27cf3f9dc24f50e1e7311fe6c052886)
+    #4 0x5642948f3d5f in decode_impl_list_results_response /home/user/ArmoniK.Api/ffi/poc/cpp/src/generated/binding.cpp:3557
+    #5 0x5642948f3d5f in shapes::ffi::decode_with_list_results_response_opts(ak_dec_ctx*, unsigned char const*, unsigned long, shapes::ListResultsResponse*, ak_dec_ListResultsResponse_opts*, void (*)(void*), void*) /home/user/ArmoniK.Api/ffi/poc/cpp/src/generated/binding.cpp:3586
+    #6 0x5642948f3d5f in shapes::ffi::decode_with_list_results_response_opts(ak_dec_ctx*, unsigned char const*, unsigned long, shapes::ListResultsResponse*, ak_dec_ListResultsResponse_opts*, void (*)(void*), void*) /home/user/ArmoniK.Api/ffi/poc/cpp/src/generated/binding.cpp:3582
+    #7 0x5642947e5652 in d11_reuse /home/user/ArmoniK.Api/ffi/poc/cpp/src/conformance.cpp:946
+    #8 0x5642947d93fa in run_decision11 /home/user/ArmoniK.Api/ffi/poc/cpp/src/conformance.cpp:960
+    #9 0x5642947d93fa in main /home/user/ArmoniK.Api/ffi/poc/cpp/src/conformance.cpp:1048
+    #10 0x7f0713e2a1c9 in __libc_start_call_main ../sysdeps/nptl/libc_start_call_main.h:58
+    #11 0x7f0713e2a28a in __libc_start_main_impl ../csu/libc-start.c:360
+    #12 0x5642947dad34 in _start (/tmp/claude-0/sp/asan13/conformance_a17_shared+0x3bd34) (BuildId: 9d364c78109e6736a1d7ea3faf224a61dacfb74b)
+
+0x506000f853a0 is located 0 bytes inside of 64-byte region [0x506000f853a0,0x506000f853e0)
+freed by thread T0 here:
+    #0 0x7f0714afc4d8 in free ../../../../src/libsanitizer/asan/asan_malloc_linux.cpp:52
+    #1 0x5642948e2a65 in shapes::ffi::unk_reclaim() /home/user/ArmoniK.Api/ffi/poc/cpp/src/generated/binding.cpp:161
+    #2 0x5642948f3c58 in shapes::ffi::decode_with_list_results_response_opts(ak_dec_ctx*, unsigned char const*, unsigned long, shapes::ListResultsResponse*, ak_dec_ListResultsResponse_opts*, void (*)(void*), void*) /home/user/ArmoniK.Api/ffi/poc/cpp/src/generated/binding.cpp:3588
+    #3 0x5642948f3c58 in shapes::ffi::decode_with_list_results_response_opts(ak_dec_ctx*, unsigned char const*, unsigned long, shapes::ListResultsResponse*, ak_dec_ListResultsResponse_opts*, void (*)(void*), void*) /home/user/ArmoniK.Api/ffi/poc/cpp/src/generated/binding.cpp:3582
+    #4 0x5642947e55ab in d11_reuse /home/user/ArmoniK.Api/ffi/poc/cpp/src/conformance.cpp:943
+    #5 0x5642947d93fa in run_decision11 /home/user/ArmoniK.Api/ffi/poc/cpp/src/conformance.cpp:960
+    #6 0x5642947d93fa in main /home/user/ArmoniK.Api/ffi/poc/cpp/src/conformance.cpp:1048
+    #7 0x7f0713e2a1c9 in __libc_start_call_main ../sysdeps/nptl/libc_start_call_main.h:58
+    #8 0x7f0713e2a28a in __libc_start_main_impl ../csu/libc-start.c:360
+    #9 0x5642947dad34 in _start (/tmp/claude-0/sp/asan13/conformance_a17_shared+0x3bd34) (BuildId: 9d364c78109e6736a1d7ea3faf224a61dacfb74b)
+
+previously allocated by thread T0 here:
+    #0 0x7f0714afd9c7 in malloc ../../../../src/libsanitizer/asan/asan_malloc_linux.cpp:69
+    #1 0x5642947dae80 in d11_buf /home/user/ArmoniK.Api/ffi/poc/cpp/src/conformance.cpp:633
+    #2 0x5642947e5145 in d11_reuse /home/user/ArmoniK.Api/ffi/poc/cpp/src/conformance.cpp:935
+    #3 0x5642947d93fa in run_decision11 /home/user/ArmoniK.Api/ffi/poc/cpp/src/conformance.cpp:960
+    #4 0x5642947d93fa in main /home/user/ArmoniK.Api/ffi/poc/cpp/src/conformance.cpp:1048
+    #5 0x7f0713e2a1c9 in __libc_start_call_main ../sysdeps/nptl/libc_start_call_main.h:58
+    #6 0x7f0713e2a28a in __libc_start_main_impl ../csu/libc-start.c:360
+    #7 0x5642947dad34 in _start (/tmp/claude-0/sp/asan13/conformance_a17_shared+0x3bd34) (BuildId: 9d364c78109e6736a1d7ea3faf224a61dacfb74b)
+
+SUMMARY: AddressSanitizer: heap-use-after-free ../../../../src/libsanitizer/sanitizer_common/sanitizer_common_interceptors_memintrinsics.inc:115 in memcpy
+Shadow bytes around the buggy address:
+  0x506000f85100: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+  0x506000f85180: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+  0x506000f85200: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+  0x506000f85280: fa fa fa fa fa fa fa fa fa fa fa fa 00 00 00 00
+  0x506000f85300: 00 00 00 00 fa fa fa fa fd fd fd fd fd fd fd fd
+=>0x506000f85380: fa fa fa fa[fd]fd fd fd fd fd fd fd fa fa fa fa
+  0x506000f85400: fd fd fd fd fd fd fd fd fa fa fa fa fd fd fd fd
+  0x506000f85480: fd fd fd fd fa fa fa fa fd fd fd fd fd fd fd fd
+  0x506000f85500: fa fa fa fa fd fd fd fd fd fd fd fd fa fa fa fa
+  0x506000f85580: fd fd fd fd fd fd fd fd fa fa fa fa fd fd fd fd
+  0x506000f85600: fd fd fd fd fa fa fa fa fd fd fd fd fd fd fd fd
+Shadow byte legend (one shadow byte represents 8 application bytes):
+  Addressable:           00
+  Partially addressable: 01 02 03 04 05 06 07 
+  Heap left redzone:       fa
+  Freed heap region:       fd
+  Stack left redzone:      f1
+  Stack mid redzone:       f2
+  Stack right redzone:     f3
+  Stack after return:      f5
+  Stack use after scope:   f8
+  Global redzone:          f9
+  Global init order:       f6
+  Poisoned by user:        f7
+  Container overflow:      fc
+  Array cookie:            ac
+  Intra object redzone:    bb
+  ASan internal:           fe
+  Left alloca redzone:     ca
+  Right alloca redzone:    cb
+==2435==ABORTING

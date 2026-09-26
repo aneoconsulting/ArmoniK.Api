@@ -32,9 +32,16 @@ int main(int argc, char **argv) {
     else if (!std::strcmp(argv[i], "--rounds")) rounds = std::atoi(argv[i + 1]);
     else if (!std::strcmp(argv[i], "--iters")) iters = std::atol(argv[i + 1]);
   }
+  // R-H5: a malformed invocation is a failure (nonzero), never an empty success.
+  if ((dir != "forward" && dir != "reverse") || iters <= 0 || rounds <= 0) {
+    std::fprintf(stderr, "campaign_calib: --dir forward|reverse, --iters > 0, --rounds > 0\n");
+    return 2;
+  }
   bool rev = dir == "reverse";
   volatile uint64_t sink = 0;
   for (long i = 0; i < iters / 10; ++i) sink = rev ? ak_noop_reverse(host_cb, sink) : ak_noop(sink);
+  // Samples are buffered and written only once every round ran (R-H5, as R-H4 for RPC).
+  std::string out;
   for (int r = 0; r < rounds; ++r) {
     uint64_t x = sink;
     double c0 = cpu_ns();
@@ -42,9 +49,13 @@ int main(int argc, char **argv) {
     else for (long i = 0; i < iters; ++i) x = ak_noop(x);
     double c1 = cpu_ns();
     sink = x;
-    std::printf("{\"slice\":\"cpp\",\"suite\":\"calib\",\"arm\":\"crossing-%s\",\"dir\":\"%s\","
-                "\"launch\":%d,\"round\":%d,\"cpu_ns\":%.0f,\"iters\":%ld}\n",
-                rev ? "fwd+rev" : "fwd", dir.c_str(), launch, r, c1 - c0, iters);
+    char line[256];
+    std::snprintf(line, sizeof(line),
+                  "{\"slice\":\"cpp\",\"suite\":\"calib\",\"arm\":\"crossing-%s\",\"dir\":\"%s\","
+                  "\"launch\":%d,\"round\":%d,\"cpu_ns\":%.0f,\"iters\":%ld}\n",
+                  rev ? "fwd+rev" : "fwd", dir.c_str(), launch, r, c1 - c0, iters);
+    out += line;
   }
-  return sink == 42 ? 1 : 0;
+  std::fwrite(out.data(), 1, out.size(), stdout);
+  return 0;
 }
