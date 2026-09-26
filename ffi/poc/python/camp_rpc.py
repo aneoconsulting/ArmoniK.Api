@@ -385,7 +385,7 @@ def main():
                                  "defaults; core: ak_client_new (tonic defaults)",
                transport_pinned="grpcio client and server: grpc.http2.lookahead_bytes=4 MiB, bdp_probe=0, "
                                 "message limits 16 MiB; no connection-window argument exists in grpcio; "
-                                "grpcio sets TCP_NODELAY itself (logs/python/80). core: ak_client_new_opts "
+                                "grpcio sets TCP_NODELAY itself (stated; log 80, which showed it, was deleted under R-C9). core: ak_client_new_opts "
                                 "stream=connection=4 MiB, adaptive=0, limits 16 MiB, tcp_nagle=0 (off)",
                network="loopback TCP 127.0.0.1", server="camp_server.py, separate process, AK_CPU_SERVER, "
                "pre-serialised P2.2 on Get; Put decodes with upb and checks",

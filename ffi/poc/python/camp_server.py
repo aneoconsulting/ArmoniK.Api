@@ -39,7 +39,7 @@ MSG_LIMIT = 16 << 20
 def options(transport):
     """The server half of requirement 17. `shipped`: grpcio's defaults (packages/python
     configures no server or channel option beyond an authority). `pinned`: a 4 MiB stream
-    window with BDP probing OFF (grpcio's lookahead is a floor while BDP runs, logs/python/80),
+    window with BDP probing OFF (grpcio's lookahead is a floor while BDP runs; log 80, which showed it, was deleted under R-C9),
     message limits raised. grpcio has no connection-window argument and sets TCP_NODELAY
     itself; both stated in the client's header."""
     if transport == "shipped":

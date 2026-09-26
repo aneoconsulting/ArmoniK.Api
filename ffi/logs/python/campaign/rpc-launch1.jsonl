@@ -1,10 +1,10 @@
 # FIGURES STRIPPED (FIX-PLAN WP6): cpu_ns, wall_ns and perf_* removed from every sample; the sample count, keys and every header line are kept
 # slice:           python
 # suite:           rpc
-# commit:          d2cd0b02f
-# date:            2026-09-26T06:57:39Z
-# snapshot:        d2cd0b02f (HEAD)
-# cpu_model:       Intel(R) Xeon(R) Processor @ 2.80GHz
+# commit:          31fc3eecf
+# date:            2026-09-26T10:31:31Z
+# snapshot:        31fc3eecf (HEAD)
+# cpu_model:       Intel(R) Xeon(R) Processor @ 2.10GHz
 # cpus_online:     4
 # smt:             0
 # governor:        unknown
@@ -18,7 +18,7 @@
 # implementation:  CPython
 # protobuf:        7.36.2 (upb)
 # grpcio:          1.84.0
-# build:           {"cc": "cc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0", "cflags": "-O2 -fPIC -Wall -Wextra -Werror -Wno-unused-parameter -fvisibility=hidden", "core_features": {"_akffi": "init-guard", "_akffi_corpus": "corpus,init-guard", "_akffi_corpus_nounk": "--no-default-features corpus,init-guard", "_akffi_count": "count,init-guard", "_akffi_count_nounk": "--no-default-features count,init-guard", "_akffi_nounk": "--no-default-features init-guard", "_akffi_rpc": "rpc,init-guard", "_akffi_rpc_nounk": "--no-default-features rpc,init-guard"}, "core_linkage": "shared (libak_core.so through the dynamic linker)", "core_profile_release": "lto = false", "core_source": "/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py/ffi/poc/python/build/snap/d2cd0b02f/ffi/poc/codec", "rustc": "rustc 1.94.1 (e408947bf 2026-03-25)", "snapshot": "HEAD"}
+# build:           {"cc": "cc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0", "cflags": "-O2 -fPIC -Wall -Wextra -Werror -Wno-unused-parameter -fvisibility=hidden", "core_features": {"_akffi": "init-guard", "_akffi_corpus": "corpus,init-guard", "_akffi_corpus_nounk": "--no-default-features corpus,init-guard", "_akffi_count": "count,init-guard", "_akffi_count_nounk": "--no-default-features count,init-guard", "_akffi_nounk": "--no-default-features init-guard", "_akffi_rpc": "rpc,init-guard", "_akffi_rpc_nounk": "--no-default-features rpc,init-guard"}, "core_linkage": "shared (libak_core.so through the dynamic linker)", "core_profile_release": "lto = false", "core_source": "/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py3/ffi/poc/python/build/snap/31fc3eecf/ffi/poc/codec", "rustc": "rustc 1.94.1 (e408947bf 2026-03-25)", "snapshot": "HEAD"}
 # launch:          1
 # rounds:          1
 # calls_per_sample: 16
@@ -34,145 +34,146 @@
 # warmup:          one sample's calls per cell before round 1
 # clock:           CLOCK_PROCESS_CPUTIME_ID of the client (cpu_ns), perf_counter_ns (wall_ns)
 # delivery:        B and C blocking; queue and callback are labelled extra cells, direction a only
+# threads:         a pool of max(in flight) client threads created once, before the first timed window, reused by every sample of every cell (R-H2)
 # variant_build:   full build (unknown-fields on): _akffi_rpc
 # unknown_modes:   C and D: retain (decision 11, every position armed, per-thread contexts) and drop (every entry zero); A and B: incumbent default; C-queue and C-callback: drop
 # INSTRUMENTATION: a container smoke run (CAMPAIGN.md requirement 32). No figure below is a result.
-# server (shipped): pid 25496, port 40497, affinity 0,1,2,3
+# server (shipped): pid 14658, port 43231, affinity 0,1,2,3
 # retain control: P2.2 + field 1000 re-emitted by retain (540425 bytes), dropped by drop; 0 leaked
-# shipped: core-ffi decodes drop 576, retain 384, leaked buffers 0; contexts created 700 over 1100 threads started
-# server (pinned): pid 27449, port 34725, affinity 0,1,2,3
+# shipped: core-ffi decodes drop 576, retain 384, leaked buffers 0; contexts created 32 over 16 threads started
+# server (pinned): pid 21408, port 40395, affinity 0,1,2,3
 # retain control: P2.2 + field 1000 re-emitted by retain (540425 bytes), dropped by drop; 0 leaked
-# pinned: core-ffi decodes drop 576, retain 384, leaked buffers 0; contexts created 700 over 1100 threads started
-{"cell": "A", "dir": "a", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default"}
-{"cell": "B", "dir": "a", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default"}
-{"cell": "C-retain", "dir": "a", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "retain"}
-{"cell": "C-drop", "dir": "a", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "drop"}
-{"cell": "D-retain", "dir": "a", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "retain"}
-{"cell": "D-drop", "dir": "a", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "drop"}
-{"cell": "B-queue", "dir": "a", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default"}
-{"cell": "C-queue", "dir": "a", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "drop"}
-{"cell": "B-callback", "dir": "a", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default"}
-{"cell": "C-callback", "dir": "a", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "drop"}
-{"cell": "A", "dir": "a", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default"}
-{"cell": "B", "dir": "a", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default"}
-{"cell": "C-retain", "dir": "a", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "retain"}
-{"cell": "C-drop", "dir": "a", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "drop"}
-{"cell": "D-retain", "dir": "a", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "retain"}
-{"cell": "D-drop", "dir": "a", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "drop"}
-{"cell": "B-queue", "dir": "a", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default"}
-{"cell": "C-queue", "dir": "a", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "drop"}
-{"cell": "B-callback", "dir": "a", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default"}
-{"cell": "C-callback", "dir": "a", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "drop"}
-{"cell": "A", "dir": "a", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default"}
-{"cell": "B", "dir": "a", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default"}
-{"cell": "C-retain", "dir": "a", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "retain"}
-{"cell": "C-drop", "dir": "a", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "drop"}
-{"cell": "D-retain", "dir": "a", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "retain"}
-{"cell": "D-drop", "dir": "a", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "drop"}
-{"cell": "B-queue", "dir": "a", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default"}
-{"cell": "C-queue", "dir": "a", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "drop"}
-{"cell": "B-callback", "dir": "a", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default"}
-{"cell": "C-callback", "dir": "a", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "drop"}
-{"cell": "A", "dir": "a+read", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default"}
-{"cell": "B", "dir": "a+read", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default"}
-{"cell": "C-retain", "dir": "a+read", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "retain"}
-{"cell": "C-drop", "dir": "a+read", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "drop"}
-{"cell": "D-retain", "dir": "a+read", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "retain"}
-{"cell": "D-drop", "dir": "a+read", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "drop"}
-{"cell": "A", "dir": "a+read", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default"}
-{"cell": "B", "dir": "a+read", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default"}
-{"cell": "C-retain", "dir": "a+read", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "retain"}
-{"cell": "C-drop", "dir": "a+read", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "drop"}
-{"cell": "D-retain", "dir": "a+read", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "retain"}
-{"cell": "D-drop", "dir": "a+read", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "drop"}
-{"cell": "A", "dir": "a+read", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default"}
-{"cell": "B", "dir": "a+read", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default"}
-{"cell": "C-retain", "dir": "a+read", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "retain"}
-{"cell": "C-drop", "dir": "a+read", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "drop"}
-{"cell": "D-retain", "dir": "a+read", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "retain"}
-{"cell": "D-drop", "dir": "a+read", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "drop"}
-{"cell": "A", "dir": "b", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default"}
-{"cell": "B", "dir": "b", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default"}
-{"cell": "C-retain", "dir": "b", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "retain"}
-{"cell": "C-drop", "dir": "b", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "drop"}
-{"cell": "D-retain", "dir": "b", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "retain"}
-{"cell": "D-drop", "dir": "b", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "drop"}
-{"cell": "A", "dir": "b", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default"}
-{"cell": "B", "dir": "b", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default"}
-{"cell": "C-retain", "dir": "b", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "retain"}
-{"cell": "C-drop", "dir": "b", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "drop"}
-{"cell": "D-retain", "dir": "b", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "retain"}
-{"cell": "D-drop", "dir": "b", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "drop"}
-{"cell": "A", "dir": "b", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default"}
-{"cell": "B", "dir": "b", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default"}
-{"cell": "C-retain", "dir": "b", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "retain"}
-{"cell": "C-drop", "dir": "b", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "drop"}
-{"cell": "D-retain", "dir": "b", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "retain"}
-{"cell": "D-drop", "dir": "b", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "drop"}
-{"cell": "A", "dir": "a", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default"}
-{"cell": "B", "dir": "a", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default"}
-{"cell": "C-retain", "dir": "a", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "retain"}
-{"cell": "C-drop", "dir": "a", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "drop"}
-{"cell": "D-retain", "dir": "a", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "retain"}
-{"cell": "D-drop", "dir": "a", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "drop"}
-{"cell": "B-queue", "dir": "a", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default"}
-{"cell": "C-queue", "dir": "a", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "drop"}
-{"cell": "B-callback", "dir": "a", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default"}
-{"cell": "C-callback", "dir": "a", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "drop"}
-{"cell": "A", "dir": "a", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default"}
-{"cell": "B", "dir": "a", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default"}
-{"cell": "C-retain", "dir": "a", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "retain"}
-{"cell": "C-drop", "dir": "a", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "drop"}
-{"cell": "D-retain", "dir": "a", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "retain"}
-{"cell": "D-drop", "dir": "a", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "drop"}
-{"cell": "B-queue", "dir": "a", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default"}
-{"cell": "C-queue", "dir": "a", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "drop"}
-{"cell": "B-callback", "dir": "a", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default"}
-{"cell": "C-callback", "dir": "a", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "drop"}
-{"cell": "A", "dir": "a", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default"}
-{"cell": "B", "dir": "a", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default"}
-{"cell": "C-retain", "dir": "a", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "retain"}
-{"cell": "C-drop", "dir": "a", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "drop"}
-{"cell": "D-retain", "dir": "a", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "retain"}
-{"cell": "D-drop", "dir": "a", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "drop"}
-{"cell": "B-queue", "dir": "a", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default"}
-{"cell": "C-queue", "dir": "a", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "drop"}
-{"cell": "B-callback", "dir": "a", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default"}
-{"cell": "C-callback", "dir": "a", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "drop"}
-{"cell": "A", "dir": "a+read", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default"}
-{"cell": "B", "dir": "a+read", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default"}
-{"cell": "C-retain", "dir": "a+read", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "retain"}
-{"cell": "C-drop", "dir": "a+read", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "drop"}
-{"cell": "D-retain", "dir": "a+read", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "retain"}
-{"cell": "D-drop", "dir": "a+read", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "drop"}
-{"cell": "A", "dir": "a+read", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default"}
-{"cell": "B", "dir": "a+read", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default"}
-{"cell": "C-retain", "dir": "a+read", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "retain"}
-{"cell": "C-drop", "dir": "a+read", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "drop"}
-{"cell": "D-retain", "dir": "a+read", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "retain"}
-{"cell": "D-drop", "dir": "a+read", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "drop"}
-{"cell": "A", "dir": "a+read", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default"}
-{"cell": "B", "dir": "a+read", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default"}
-{"cell": "C-retain", "dir": "a+read", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "retain"}
-{"cell": "C-drop", "dir": "a+read", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "drop"}
-{"cell": "D-retain", "dir": "a+read", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "retain"}
-{"cell": "D-drop", "dir": "a+read", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "drop"}
-{"cell": "A", "dir": "b", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default"}
-{"cell": "B", "dir": "b", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default"}
-{"cell": "C-retain", "dir": "b", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "retain"}
-{"cell": "C-drop", "dir": "b", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "drop"}
-{"cell": "D-retain", "dir": "b", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "retain"}
-{"cell": "D-drop", "dir": "b", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "drop"}
-{"cell": "A", "dir": "b", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default"}
-{"cell": "B", "dir": "b", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default"}
-{"cell": "C-retain", "dir": "b", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "retain"}
-{"cell": "C-drop", "dir": "b", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "drop"}
-{"cell": "D-retain", "dir": "b", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "retain"}
-{"cell": "D-drop", "dir": "b", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "drop"}
-{"cell": "A", "dir": "b", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default"}
-{"cell": "B", "dir": "b", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default"}
-{"cell": "C-retain", "dir": "b", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "retain"}
-{"cell": "C-drop", "dir": "b", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "drop"}
-{"cell": "D-retain", "dir": "b", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "retain"}
-{"cell": "D-drop", "dir": "b", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "drop"}
+# pinned: core-ffi decodes drop 576, retain 384, leaked buffers 0; contexts created 0 over 0 threads started
+{"build": "full", "cell": "A", "dir": "a", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default"}
+{"build": "full", "cell": "B", "dir": "a", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default"}
+{"build": "full", "cell": "C-retain", "dir": "a", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "retain"}
+{"build": "full", "cell": "C-drop", "dir": "a", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "drop"}
+{"build": "full", "cell": "D-retain", "dir": "a", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "retain"}
+{"build": "full", "cell": "D-drop", "dir": "a", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "drop"}
+{"build": "full", "cell": "B-queue", "dir": "a", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default"}
+{"build": "full", "cell": "C-queue", "dir": "a", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "drop"}
+{"build": "full", "cell": "B-callback", "dir": "a", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default"}
+{"build": "full", "cell": "C-callback", "dir": "a", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "drop"}
+{"build": "full", "cell": "A", "dir": "a", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default"}
+{"build": "full", "cell": "B", "dir": "a", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default"}
+{"build": "full", "cell": "C-retain", "dir": "a", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "retain"}
+{"build": "full", "cell": "C-drop", "dir": "a", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "drop"}
+{"build": "full", "cell": "D-retain", "dir": "a", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "retain"}
+{"build": "full", "cell": "D-drop", "dir": "a", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "drop"}
+{"build": "full", "cell": "B-queue", "dir": "a", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default"}
+{"build": "full", "cell": "C-queue", "dir": "a", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "drop"}
+{"build": "full", "cell": "B-callback", "dir": "a", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default"}
+{"build": "full", "cell": "C-callback", "dir": "a", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "drop"}
+{"build": "full", "cell": "A", "dir": "a", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default"}
+{"build": "full", "cell": "B", "dir": "a", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default"}
+{"build": "full", "cell": "C-retain", "dir": "a", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "retain"}
+{"build": "full", "cell": "C-drop", "dir": "a", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "drop"}
+{"build": "full", "cell": "D-retain", "dir": "a", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "retain"}
+{"build": "full", "cell": "D-drop", "dir": "a", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "drop"}
+{"build": "full", "cell": "B-queue", "dir": "a", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default"}
+{"build": "full", "cell": "C-queue", "dir": "a", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "drop"}
+{"build": "full", "cell": "B-callback", "dir": "a", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default"}
+{"build": "full", "cell": "C-callback", "dir": "a", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "drop"}
+{"build": "full", "cell": "A", "dir": "a+read", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default"}
+{"build": "full", "cell": "B", "dir": "a+read", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default"}
+{"build": "full", "cell": "C-retain", "dir": "a+read", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "retain"}
+{"build": "full", "cell": "C-drop", "dir": "a+read", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "drop"}
+{"build": "full", "cell": "D-retain", "dir": "a+read", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "retain"}
+{"build": "full", "cell": "D-drop", "dir": "a+read", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "drop"}
+{"build": "full", "cell": "A", "dir": "a+read", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default"}
+{"build": "full", "cell": "B", "dir": "a+read", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default"}
+{"build": "full", "cell": "C-retain", "dir": "a+read", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "retain"}
+{"build": "full", "cell": "C-drop", "dir": "a+read", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "drop"}
+{"build": "full", "cell": "D-retain", "dir": "a+read", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "retain"}
+{"build": "full", "cell": "D-drop", "dir": "a+read", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "drop"}
+{"build": "full", "cell": "A", "dir": "a+read", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default"}
+{"build": "full", "cell": "B", "dir": "a+read", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default"}
+{"build": "full", "cell": "C-retain", "dir": "a+read", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "retain"}
+{"build": "full", "cell": "C-drop", "dir": "a+read", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "drop"}
+{"build": "full", "cell": "D-retain", "dir": "a+read", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "retain"}
+{"build": "full", "cell": "D-drop", "dir": "a+read", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "drop"}
+{"build": "full", "cell": "A", "dir": "b", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default"}
+{"build": "full", "cell": "B", "dir": "b", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default"}
+{"build": "full", "cell": "C-retain", "dir": "b", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "retain"}
+{"build": "full", "cell": "C-drop", "dir": "b", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "drop"}
+{"build": "full", "cell": "D-retain", "dir": "b", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "retain"}
+{"build": "full", "cell": "D-drop", "dir": "b", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "drop"}
+{"build": "full", "cell": "A", "dir": "b", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default"}
+{"build": "full", "cell": "B", "dir": "b", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default"}
+{"build": "full", "cell": "C-retain", "dir": "b", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "retain"}
+{"build": "full", "cell": "C-drop", "dir": "b", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "drop"}
+{"build": "full", "cell": "D-retain", "dir": "b", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "retain"}
+{"build": "full", "cell": "D-drop", "dir": "b", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "drop"}
+{"build": "full", "cell": "A", "dir": "b", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default"}
+{"build": "full", "cell": "B", "dir": "b", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "incumbent-default"}
+{"build": "full", "cell": "C-retain", "dir": "b", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "retain"}
+{"build": "full", "cell": "C-drop", "dir": "b", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "drop"}
+{"build": "full", "cell": "D-retain", "dir": "b", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "retain"}
+{"build": "full", "cell": "D-drop", "dir": "b", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "shipped", "unknown_mode": "drop"}
+{"build": "full", "cell": "A", "dir": "a", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default"}
+{"build": "full", "cell": "B", "dir": "a", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default"}
+{"build": "full", "cell": "C-retain", "dir": "a", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "retain"}
+{"build": "full", "cell": "C-drop", "dir": "a", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "drop"}
+{"build": "full", "cell": "D-retain", "dir": "a", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "retain"}
+{"build": "full", "cell": "D-drop", "dir": "a", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "drop"}
+{"build": "full", "cell": "B-queue", "dir": "a", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default"}
+{"build": "full", "cell": "C-queue", "dir": "a", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "drop"}
+{"build": "full", "cell": "B-callback", "dir": "a", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default"}
+{"build": "full", "cell": "C-callback", "dir": "a", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "drop"}
+{"build": "full", "cell": "A", "dir": "a", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default"}
+{"build": "full", "cell": "B", "dir": "a", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default"}
+{"build": "full", "cell": "C-retain", "dir": "a", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "retain"}
+{"build": "full", "cell": "C-drop", "dir": "a", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "drop"}
+{"build": "full", "cell": "D-retain", "dir": "a", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "retain"}
+{"build": "full", "cell": "D-drop", "dir": "a", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "drop"}
+{"build": "full", "cell": "B-queue", "dir": "a", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default"}
+{"build": "full", "cell": "C-queue", "dir": "a", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "drop"}
+{"build": "full", "cell": "B-callback", "dir": "a", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default"}
+{"build": "full", "cell": "C-callback", "dir": "a", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "drop"}
+{"build": "full", "cell": "A", "dir": "a", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default"}
+{"build": "full", "cell": "B", "dir": "a", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default"}
+{"build": "full", "cell": "C-retain", "dir": "a", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "retain"}
+{"build": "full", "cell": "C-drop", "dir": "a", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "drop"}
+{"build": "full", "cell": "D-retain", "dir": "a", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "retain"}
+{"build": "full", "cell": "D-drop", "dir": "a", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "drop"}
+{"build": "full", "cell": "B-queue", "dir": "a", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default"}
+{"build": "full", "cell": "C-queue", "dir": "a", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "drop"}
+{"build": "full", "cell": "B-callback", "dir": "a", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default"}
+{"build": "full", "cell": "C-callback", "dir": "a", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "drop"}
+{"build": "full", "cell": "A", "dir": "a+read", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default"}
+{"build": "full", "cell": "B", "dir": "a+read", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default"}
+{"build": "full", "cell": "C-retain", "dir": "a+read", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "retain"}
+{"build": "full", "cell": "C-drop", "dir": "a+read", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "drop"}
+{"build": "full", "cell": "D-retain", "dir": "a+read", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "retain"}
+{"build": "full", "cell": "D-drop", "dir": "a+read", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "drop"}
+{"build": "full", "cell": "A", "dir": "a+read", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default"}
+{"build": "full", "cell": "B", "dir": "a+read", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default"}
+{"build": "full", "cell": "C-retain", "dir": "a+read", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "retain"}
+{"build": "full", "cell": "C-drop", "dir": "a+read", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "drop"}
+{"build": "full", "cell": "D-retain", "dir": "a+read", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "retain"}
+{"build": "full", "cell": "D-drop", "dir": "a+read", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "drop"}
+{"build": "full", "cell": "A", "dir": "a+read", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default"}
+{"build": "full", "cell": "B", "dir": "a+read", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default"}
+{"build": "full", "cell": "C-retain", "dir": "a+read", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "retain"}
+{"build": "full", "cell": "C-drop", "dir": "a+read", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "drop"}
+{"build": "full", "cell": "D-retain", "dir": "a+read", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "retain"}
+{"build": "full", "cell": "D-drop", "dir": "a+read", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "drop"}
+{"build": "full", "cell": "A", "dir": "b", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default"}
+{"build": "full", "cell": "B", "dir": "b", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default"}
+{"build": "full", "cell": "C-retain", "dir": "b", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "retain"}
+{"build": "full", "cell": "C-drop", "dir": "b", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "drop"}
+{"build": "full", "cell": "D-retain", "dir": "b", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "retain"}
+{"build": "full", "cell": "D-drop", "dir": "b", "inflight": 1, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "drop"}
+{"build": "full", "cell": "A", "dir": "b", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default"}
+{"build": "full", "cell": "B", "dir": "b", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default"}
+{"build": "full", "cell": "C-retain", "dir": "b", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "retain"}
+{"build": "full", "cell": "C-drop", "dir": "b", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "drop"}
+{"build": "full", "cell": "D-retain", "dir": "b", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "retain"}
+{"build": "full", "cell": "D-drop", "dir": "b", "inflight": 8, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "drop"}
+{"build": "full", "cell": "A", "dir": "b", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default"}
+{"build": "full", "cell": "B", "dir": "b", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "incumbent-default"}
+{"build": "full", "cell": "C-retain", "dir": "b", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "retain"}
+{"build": "full", "cell": "C-drop", "dir": "b", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "drop"}
+{"build": "full", "cell": "D-retain", "dir": "b", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "retain"}
+{"build": "full", "cell": "D-drop", "dir": "b", "inflight": 16, "iters": 16, "launch": 1, "payload": "P2.2", "round": 1, "slice": "python", "suite": "rpc", "transport": "pinned", "unknown_mode": "drop"}
 # samples: 132
