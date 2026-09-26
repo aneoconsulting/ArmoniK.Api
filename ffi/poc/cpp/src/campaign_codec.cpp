@@ -65,14 +65,17 @@
 // (WP5 step 9). -DAK_CAMPAIGN_NO_FFI_RETAIN removes the arm (the gate line says so).
 #if defined(AK_NO_UNKNOWN_FIELDS)
 // WP5 step 10, the NO-UNKNOWN build (a separate binary, campaign_codec_nounk): unknown-field
-// support compiled out of the core and the binding. core-ffi runs in mode "no-unknown";
-// host-gen runs its drop codec only (it is generated from the drop plan in both binaries:
-// no capture code), the incumbents in their default mode: in-process controls.
+// support compiled out of the core, the binding and (R-H22) the facade. core-ffi and host-gen
+// both run in mode "no-unknown" (host-gen: the drop rendering over the facade without
+// unknown_fields); the incumbents run in their default mode.
 #define AK_FFI_RETAIN_ENC(s) NULL
 #define AK_FFI_RETAIN_DEC(s) NULL
 #define AK_FFI_RETAIN_STATE "compiled out (no-unknown build)"
 #define AK_FFI_DROP_MODE "no-unknown"
 #define AK_HOSTGEN_MODES 1
+// R-H22: host-gen here is the drop rendering compiled against the facade WITHOUT
+// unknown_fields, i.e. host-gen's no-unknown mode (CAMPAIGN req 10).
+#define AK_HOSTGEN_DROP_MODE "no-unknown"
 #elif !defined(AK_CAMPAIGN_NO_FFI_RETAIN)
 #define AK_FFI_RETAIN_ENC(s) &shapes::ffi::encode_into_##s##_unk
 #define AK_FFI_RETAIN_DEC(s) &shapes::ffi::decode_with_##s##_unk
@@ -85,6 +88,7 @@
 #ifndef AK_FFI_DROP_MODE
 #define AK_FFI_DROP_MODE "drop"
 #define AK_HOSTGEN_MODES 2
+#define AK_HOSTGEN_DROP_MODE "drop"
 #endif
 // host-gen retain: rendered from the plan's retain options in the full build only (R-H22:
 // the no-unknown facade has no unknown_fields member for a retain codec to fill).
@@ -265,7 +269,7 @@ Group make_group(const std::string &payload, const std::string &content, const F
     }
     for (int r = 0; r < AK_HOSTGEN_MODES; ++r) {
       bool ret = r == 1;
-      g.slots.push_back({"host-gen", "encode", ret ? "retain" : "drop", [F, fac, cx, ret](long n) {
+      g.slots.push_back({"host-gen", "encode", ret ? "retain" : AK_HOSTGEN_DROP_MODE, [F, fac, cx, ret](long n) {
         uint64_t h = 0;
         for (long i = 0; i < n; ++i) {
           if (ret) { F.natr_enc(*fac, cx->nre); h += cx->nre->size(); }
@@ -343,7 +347,7 @@ Group make_group(const std::string &payload, const std::string &content, const F
     }
     for (int r = 0; r < AK_HOSTGEN_MODES; ++r) {
       bool ret = r == 1;
-      g.slots.push_back({"host-gen", dir, ret ? "retain" : "drop", [F, cb, cn, read, ret](long n) {
+      g.slots.push_back({"host-gen", dir, ret ? "retain" : AK_HOSTGEN_DROP_MODE, [F, cb, cn, read, ret](long n) {
         uint64_t h = 0;
         for (long i = 0; i < n; ++i) {
           Fac v;
