@@ -147,8 +147,13 @@ class Log:
     until `close(ok=True)`: a run that aborts writes its header, the abort, and NO sample
     (requirement 18)."""
 
-    def __init__(self, path, suite, allow_dirty=False, smoke=False):
-        self.path, self.suite, self.smoke = path, suite, smoke
+    def __init__(self, path, suite, allow_dirty=False, smoke=False, build="full"):
+        """`build`: "full" (unknown-fields on) or "nounk" (the no-unknown build, WP5 step
+        10); written into EVERY sample so a summary never pools or pairs across builds
+        (R-H1)."""
+        if build not in ("full", "nounk"):
+            raise ValueError("build must be full or nounk, not %r" % build)
+        self.path, self.suite, self.smoke, self.build = path, suite, smoke, build
         self.samples = []
         self.head = []
         sha, dirty = commit_state()
@@ -170,7 +175,7 @@ class Log:
                              "No figure below is a result.")
 
     def sample(self, **kv):
-        d = {"slice": SLICE, "suite": self.suite}
+        d = {"slice": SLICE, "suite": self.suite, "build": self.build}
         d.update({k: v for k, v in kv.items() if v is not None})
         self.samples.append(d)
 

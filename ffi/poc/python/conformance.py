@@ -215,6 +215,36 @@ def counts_only():
     return 0
 
 
+def oneof_refusals():
+    """R-H14, the same answer from every arm. A oneof case naming no member is refused with
+    AK_ERR_ABI (-11) carried as `.code` (plan `oneof_checks`); a selected message member that
+    holds None is the empty message and is written as an empty body (plan ENCODE RULES: "a
+    oneof member: written iff the case selects it, whatever its value"), byte-identical to upb
+    with that member set to an empty message."""
+    print("\n## oneof: an undeclared case, and a selected member holding None (R-H14)")
+    R = arms._pb2.ListProbeResponse
+    want = R(probes=[arms._pb2.Probe(id="p", as_stamp=arms._pb2.Timestamp())]).SerializeToString()
+    bad = 0
+    encs = [("pycodec / plain", arms.CT_PLAIN, lambda o: arms.pycodec.encode_root_ListProbeResponse(o))]
+    if arms.pycodec_retain is not None:
+        encs.append(("pycodec-retain / plain", arms.CT_PLAIN, lambda o: arms.pycodec_retain.encode_root_ListProbeResponse(o)))
+    if arms._ffi is not None:
+        encs += [("core-ffi / C ext type", arms.CT_CEXT, lambda o: arms._ffi.encode("cext", "ListProbeResponse", o)),
+                 ("core-ffi / plain", arms.CT_PLAIN, lambda o: arms._ffi.encode("attr", "ListProbeResponse", o))]
+    for name, C, enc in encs:
+        try:
+            enc(C["ListProbeResponse"](probes=[C["Probe"](id="p", body_case=99)]))
+            code = None
+        except ValueError as e:
+            code = getattr(e, "code", None)
+        got = enc(C["ListProbeResponse"](probes=[C["Probe"](id="p", body_case=13, as_stamp=None)]))
+        ok = code == -11 and got == want
+        print("   %-26s undeclared case -> code %s (want -11); selected None member -> %s"
+              % (name, code, "empty body, bytes == upb" if got == want else "DIFFERS %r" % got))
+        bad += 0 if ok else 1
+    return bad
+
+
 def main():
     if "--counts-only" in sys.argv:
         return counts_only()
@@ -333,6 +363,8 @@ def main():
                 print("        FAIL  %-32s %s%s"
                       % (name, "" if back == want else first_diff(back, want), extra))
                 fails += 1
+
+    fails += oneof_refusals()
 
     if arms.NOUNK_VARIANT:
         # WP5 step 10 / CAMPAIGN req 10: the no-unknown variant carries no `_unknown` on any

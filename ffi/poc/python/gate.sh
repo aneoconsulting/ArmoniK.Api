@@ -21,6 +21,7 @@
 #       byte identity against the full build's drop arms at the same level, the controls
 #       and the variant's own (retain refused, no positions, wrong root, per-thread contexts)
 #   102 conformance on _akffi_rpc_nounk
+#   104 camp_summary's test (R-H1): references and groups keyed by build, per-launch medians
 #   103 crossing counts, whole numbers per call, full (drop) and no-unknown builds, each
 #       against its committed file (counts/crossings-drop.txt, counts/crossings-nounk.txt),
 #       and the difference between the two
@@ -101,6 +102,11 @@ echo "===== 103. crossing counts, whole numbers per call: full (drop) and no-unk
 } > "$LOGS/103-wp5s10-counts-drop-vs-nounk.log" 2>&1
 grep -E 'IDENTICAL|DIFFERS|rows differ' "$LOGS/103-wp5s10-counts-drop-vs-nounk.log"
 grep -q "DIFFERS from counts/" "$LOGS/103-wp5s10-counts-drop-vs-nounk.log" && rc=1
+
+echo "===== 104. camp_summary keyed by build, ratios from per-launch medians (R-H1) ====="
+{ hdr "python slice: camp_summary's test, two builds whose incumbents differ (R-H1, R-H24)"; python3.12 test_camp_summary.py; } \
+  > "$LOGS/104-wp6-camp-summary-test.log" 2>&1 || rc=1
+tail -1 "$LOGS/104-wp6-camp-summary-test.log"
 
 echo "===== 97. the 3.7 source check ====="
 { hdr "python slice: the 3.7 source check, and every other CPython header set here"; ./floor_check.sh; } > "$LOGS/97-wp5-floor-source.log" 2>&1 || rc=1

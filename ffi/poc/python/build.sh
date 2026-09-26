@@ -143,6 +143,8 @@ for PY in "$@"; do
   echo "   built _akffi, _akffi_count, _akffi_rpc, _akffi_corpus, _akffi_corpus_chunk in $D; the noinit control in $D/ctl"
   # The per-thread AK_LAST_RECLAIMED check's must-fail twin: one process-wide slot.
   shim _akffi_corpus_globalreclaim gen/out/corpus "$CORPUSLIB" "$D/ctl" -DAK_CORPUS -DAK_THREAD_LOCAL=
+  # The leak check's must-fail twin (R-H9): ak_py_release skipped, every delivered slot leaks.
+  shim _akffi_corpus_skiprelease gen/out/corpus "$CORPUSLIB" "$D/ctl" -DAK_CORPUS -DAK_PLANT_SKIP_RELEASE
   # WP5 step 10: the no-unknown variant, separately built modules over the variant cores.
   shim _akffi_nounk gen/out/nounk "$NCORELIB" "$D" -DAK_NOUNK
   shim _akffi_count_nounk gen/out/nounk "$NCOUNTLIB" "$D" -DAK_NOUNK -DAK_COUNT

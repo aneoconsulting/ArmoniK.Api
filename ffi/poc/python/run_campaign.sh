@@ -18,7 +18,8 @@
 #        unknown, one process per family per launch
 # rpc    (refuses without gate.ok) the RPC grid, one client process per launch, the server
 #        in its own pinned process
-# calib  crossing counts (a gate: a difference stops it) and crossing cost, host and rust
+# calib  (refuses without gate.ok) crossing counts (a gate: a difference stops it) and
+#        crossing cost, host and rust
 # Every suite ends with camp_summary.py over <out> (requirement 30). The floor is gated,
 # never timed.
 set -euo pipefail
@@ -101,7 +102,9 @@ case "$SUITE" in
     fi
     # WP5 step 10: the full build (drop, retain) and the no-unknown build (a separately built
     # extension over ak-core without unknown-fields) are separate pyperf invocations, in an
-    # order alternated by launch; each carries the incumbent as its in-process control.
+    # order alternated by launch; each invocation times the incumbent too. pyperf runs EVERY
+    # benchmark in its own worker process, so no arm shares a process with its baseline: the
+    # incumbent is a same-launch control, not an in-process one (R-H19).
     codec_run() {  # codec_run <launch> <full|nounk>
       local l=$1 v=$2 fam O1 ONLY sfx=""
       [ "$v" = nounk ] && sfx="-nounk"
@@ -142,6 +145,7 @@ case "$SUITE" in
     "$PY" camp_summary.py "$OUT" > "$OUT/summary.txt"
     ;;
   calib)
+    need_gate     # requirement 26: calib too refuses to time without a gate.ok (R-H19)
     for l in $(seq 1 "$LAUNCHES"); do
       R=""; [ "$l" = 1 ] && R="--rust-log $OUT/calib-rust-crossing.log"
       "$PY" camp_calib.py --launch "$l" --rounds "$ROUNDS" --iters "$CITERS" --out "$OUT/calib-launch$l.jsonl" $R $SMOKE $DIRTY

@@ -27,11 +27,16 @@ Arms (requirement 8) and unknown-field modes (requirement 10):
                    drop and retain (decision 11: every position armed with the host's grow on
                    decode, the ak_uencode_* family on encode)
   core-ffi-attr    labelled extra: the same shim over the plain facade (GetAttr/SetAttr)
-  host-gen         the pure-Python codec generated from the same plan: drop AND retain
+  host-gen         the pure-Python codec generated from the same plan: drop AND retain, over
+                   the SAME C-extension facade objects as core-ffi (R3; R-H16). The C type is
+                   the headline facade because it is the one the composed binding ships
+                   (a field is a struct member to the shim, no crossing to read it)
+  host-gen-plain   labelled extra: host-gen over the plain facade (as core-ffi-attr is for core-ffi)
 The no-unknown build (requirement 10's third mode, WP5 step 10): with AK_VARIANT=nounk the
 process imports the variant's shims (`_akffi_nounk`, and `_akffi_corpus_nounk` for the
 unknown family), a separately built module over ak-core without `unknown-fields`, and the
-arms are the incumbent (the in-process control) and core-ffi in mode `no-unknown`. host-gen
+arms are the incumbent (the same-launch control; under pyperf every benchmark is its own
+worker process) and core-ffi in mode `no-unknown`. host-gen
 has no third mode: `py_pure.emit_pycodec` renders the SAME text for drop from the full plan
 and from the relowered one (checked by `gen/generate.py`'s sibling check in STATE), so
 host-gen drop already is the compiled-out form.
@@ -181,8 +186,12 @@ def shapes_cases(log, only=None):
                 ("core-ffi", "drop"): lambda _f=fc, _r=root: arms._ffi.encode("cext", _r, _f),
                 ("core-ffi", "retain"): lambda _f=fc, _r=root: arms._ffi.encode("cext", _r, _f, None, True),
                 ("core-ffi-attr", "drop"): lambda _f=fp, _r=root: arms._ffi.encode("attr", _r, _f),
-                ("host-gen", "drop"): lambda _f=fp, _r=root: getattr(arms.pycodec, "encode_root_" + _r)(_f),
-                ("host-gen", "retain"): lambda _f=fp, _r=root: getattr(arms.pycodec_retain, "encode_root_" + _r)(_f),
+                # R-H16 (R3, the same facade objects): host-gen's headline arms run over the
+                # SAME C-extension facade objects as core-ffi's; host-gen over the plain facade
+                # is the labelled extra `host-gen-plain`, as `core-ffi-attr` is for core-ffi.
+                ("host-gen", "drop"): lambda _f=fc, _r=root: getattr(arms.pycodec, "encode_root_" + _r)(_f),
+                ("host-gen", "retain"): lambda _f=fc, _r=root: getattr(arms.pycodec_retain, "encode_root_" + _r)(_f),
+                ("host-gen-plain", "drop"): lambda _f=fp, _r=root: getattr(arms.pycodec, "encode_root_" + _r)(_f),
             }
             if VARIANT == "nounk":
                 enc = {k: v for k, v in enc.items() if k[0].startswith("incumbent")}
@@ -198,8 +207,9 @@ def shapes_cases(log, only=None):
                 ("core-ffi", "drop"): lambda _b=ref, _r=root: arms._ffi.decode("cext", _r, _b, arms.TY_CEXT),
                 ("core-ffi", "retain"): lambda _b=ref, _r=root: arms._ffi.decode("cext", _r, _b, arms.TY_CEXT, None, True),
                 ("core-ffi-attr", "drop"): lambda _b=ref, _r=root: arms._ffi.decode("attr", _r, _b, arms.TY_PLAIN),
-                ("host-gen", "drop"): lambda _b=ref, _r=root: getattr(arms.pycodec, "decode_root_" + _r)(_b, arms.CT_PLAIN),
-                ("host-gen", "retain"): lambda _b=ref, _r=root: getattr(arms.pycodec_retain, "decode_root_" + _r)(_b, arms.CT_PLAIN),
+                ("host-gen", "drop"): lambda _b=ref, _r=root: getattr(arms.pycodec, "decode_root_" + _r)(_b, arms.CT_CEXT),
+                ("host-gen", "retain"): lambda _b=ref, _r=root: getattr(arms.pycodec_retain, "decode_root_" + _r)(_b, arms.CT_CEXT),
+                ("host-gen-plain", "drop"): lambda _b=ref, _r=root: getattr(arms.pycodec, "decode_root_" + _r)(_b, arms.CT_PLAIN),
             }
             if VARIANT == "nounk":
                 dec = {k: v for k, v in dec.items() if k[0].startswith("incumbent")}
@@ -217,7 +227,7 @@ def shapes_cases(log, only=None):
                 if arm.startswith("incumbent"):
                     back = o.SerializeToString(deterministic=True)
                     okb = back == ref or R.FromString(back) == R.FromString(ref)
-                elif arm == "core-ffi":
+                elif arm in ("core-ffi", "host-gen"):     # the C-extension facade objects
                     back = arms._ffi.encode("cext", root, o)
                     okb = back == ref or (pid in arms.DECODE_ONLY and R.FromString(back) == R.FromString(ref))
                 else:
@@ -255,6 +265,8 @@ def unknown_cases(log, only=None):
     CP = {n: getattr(fac, "Plain" + n) for n in fac.MESSAGES}
     CC = {n: getattr(ffi, "C" + n) for n in names}
     TC = tuple(CC[n] for n in names)
+    CX = dict(CP)     # R-H16: host-gen decodes into the C-extension facade core-ffi uses (every
+    CX.update(CC)     # message the C ABI carries; the rest, e.g. Nest, is never reached from a U- root)
     man = json.load(open(os.path.join(L.FFI, "corpus", "generated", "manifest.json")))["vectors"]
     cases, gates = [], []
     if bool(ffi.nounk()) != (VARIANT == "nounk"):
@@ -271,8 +283,9 @@ def unknown_cases(log, only=None):
         R = getattr(pb, root)
         plan = arms_plan.plan(fac, root)
         m = R.FromString(buf)
-        op = pyd.__dict__["decode_root_" + root](buf, CP)
-        opr = None if pyr is None else pyr.__dict__["decode_root_" + root](buf, CP)
+        op = pyd.__dict__["decode_root_" + root](buf, CX)
+        opr = None if pyr is None else pyr.__dict__["decode_root_" + root](buf, CX)
+        opp = pyd.__dict__["decode_root_" + root](buf, CP)
         oc = ffi.decode("cext", root, buf, TC)
         ocr = None if VARIANT == "nounk" else ffi.decode("cext", root, buf, TC, None, True)
         accepted = {a["sha256"] for a in r.get("accepted_encodings", [])}
@@ -283,13 +296,15 @@ def unknown_cases(log, only=None):
             ("core-ffi", "retain"): lambda _o=ocr, _r=root: ffi.encode("cext", _r, _o, None, True),
             ("host-gen", "drop"): lambda _o=op, _r=root: pyd.__dict__["encode_root_" + _r](_o),
             ("host-gen", "retain"): lambda _o=opr, _r=root: pyr.__dict__["encode_root_" + _r](_o),
+            ("host-gen-plain", "drop"): lambda _o=opp, _r=root: pyd.__dict__["encode_root_" + _r](_o),
         }
         dec = {
             ("incumbent-prod", "incumbent-default"): lambda _b=buf, _R=R: _R.FromString(_b),
             ("core-ffi", "drop"): lambda _b=buf, _r=root: ffi.decode("cext", _r, _b, TC),
             ("core-ffi", "retain"): lambda _b=buf, _r=root: ffi.decode("cext", _r, _b, TC, None, True),
-            ("host-gen", "drop"): lambda _b=buf, _r=root: pyd.__dict__["decode_root_" + _r](_b, CP),
-            ("host-gen", "retain"): lambda _b=buf, _r=root: pyr.__dict__["decode_root_" + _r](_b, CP),
+            ("host-gen", "drop"): lambda _b=buf, _r=root: pyd.__dict__["decode_root_" + _r](_b, CX),
+            ("host-gen", "retain"): lambda _b=buf, _r=root: pyr.__dict__["decode_root_" + _r](_b, CX),
+            ("host-gen-plain", "drop"): lambda _b=buf, _r=root: pyd.__dict__["decode_root_" + _r](_b, CP),
         }
         enc, dec = _variant(enc, dec, lambda _o=oc, _r=root: ffi.encode("cext", _r, _o),
                             lambda _b=buf, _r=root: ffi.decode("cext", _r, _b, TC))
@@ -334,7 +349,8 @@ def calibrate(c, target_ns):
 def main():
     launch = opt("--launch", 1, int)
     rounds = opt("--rounds", 5, int)
-    log = L.Log(opt("--out"), "codec", allow_dirty="--allow-dirty" in ARGS, smoke="--smoke" in ARGS)
+    log = L.Log(opt("--out"), "codec", allow_dirty="--allow-dirty" in ARGS, smoke="--smoke" in ARGS,
+                build=VARIANT)
     log.header(family=FAMILY, launch=launch, rounds=rounds, target_ms_per_sample=TARGET_MS,
                affinity=AFFINITY, allocator="mallopt(M_TOP_PAD, 8 MiB) %s" % ("applied" if _WARM else "NOT AVAILABLE"),
                gc="ON; gc.collect() before every sample",

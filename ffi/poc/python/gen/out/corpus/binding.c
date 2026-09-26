@@ -42,6 +42,20 @@ static struct AkCounters CORE_ENC, CORE_DEC;
 #define BUMP(i) ((void)0)
 #endif
 
+/* A refused call: ValueError("<entry> returned <rc>") carrying the ABI v1 section 5 code as
+ * `.code`, the same attribute the pure-Python codec's DecodeError/EncodeError carry. */
+static void ak_py_fail(const char *entry, long rc) {
+  PyObject *msg = PyUnicode_FromFormat("%s returned %ld", entry, rc);
+  if (!msg) return;
+  PyObject *e = PyObject_CallFunctionObjArgs(PyExc_ValueError, msg, NULL);
+  Py_DECREF(msg);
+  if (!e) return;
+  PyObject *c = PyLong_FromLong(rc);
+  if (c) { PyObject_SetAttrString(e, "code", c); Py_DECREF(c); }
+  PyErr_SetObject(PyExc_ValueError, e);
+  Py_DECREF(e);
+}
+
 /* Resolved once at module init: ak_tc_utf8() is a call across the boundary. */
 static ak_transcode_fn TC_UTF8, TC_BYTES;
 
@@ -3441,6 +3455,9 @@ static int32_t ak_py_grow(void *sink, int32_t want, uint8_t **dst, int32_t *cap)
 }
 
 static void ak_py_release(HostCtx *h, void *data) {
+#ifdef AK_PLANT_SKIP_RELEASE
+  (void)h; (void)data; return;   /* the leak check's must-fail twin ONLY: a skipped release */
+#endif
   struct ak_py_buf *b = ((struct ak_py_buf *)data) - 1;
   ak_py_unlink(h, b);
   free(b);
@@ -5187,23 +5204,18 @@ static int fill_attr_Probe(struct ak_efix_Probe *e, PyObject *ob, HostCtx *h) {
       BUMP(C_ATTR);
       PyObject *mv = PyObject_GetAttr(ob, K_as_stamp); const int own_mv = 1;
       if (!mv) { return -1; }
-      if (mv == Py_None) { if (own_mv) Py_DECREF(mv);
-        PyErr_SetString(PyExc_ValueError, "Probe.as_stamp is selected but None"); return -1; }
-      if (fill_attr_Timestamp(&e->body_as_stamp, mv, h)) { if (own_mv) Py_DECREF(mv); return -1; }
+      if (mv != Py_None && fill_attr_Timestamp(&e->body_as_stamp, mv, h)) { if (own_mv) Py_DECREF(mv); return -1; }
       if (own_mv) Py_DECREF(mv);
       break; }
     case 14: {
       BUMP(C_ATTR);
       PyObject *mv = PyObject_GetAttr(ob, K_as_nothing); const int own_mv = 1;
       if (!mv) { return -1; }
-      if (mv == Py_None) { if (own_mv) Py_DECREF(mv);
-        PyErr_SetString(PyExc_ValueError, "Probe.as_nothing is selected but None"); return -1; }
-      if (fill_attr_Empty(&e->body_as_nothing, mv, h)) { if (own_mv) Py_DECREF(mv); return -1; }
+      if (mv != Py_None && fill_attr_Empty(&e->body_as_nothing, mv, h)) { if (own_mv) Py_DECREF(mv); return -1; }
       if (own_mv) Py_DECREF(mv);
       break; }
     case 0: break;
-    default:
-      PyErr_Format(PyExc_ValueError, "Probe.body_case = %ld is not a member's tag", (long)cs); return -1;
+    default: break;
     }
   }
   return 0;
@@ -5306,23 +5318,18 @@ static int fillu_attr_Probe(struct ak_ufix_Probe *e, PyObject *ob, HostCtx *h) {
       BUMP(C_ATTR);
       PyObject *mv = PyObject_GetAttr(ob, K_as_stamp); const int own_mv = 1;
       if (!mv) { return -1; }
-      if (mv == Py_None) { if (own_mv) Py_DECREF(mv);
-        PyErr_SetString(PyExc_ValueError, "Probe.as_stamp is selected but None"); return -1; }
-      if (fillu_attr_Timestamp(&e->body_as_stamp, mv, h)) { if (own_mv) Py_DECREF(mv); return -1; }
+      if (mv != Py_None && fillu_attr_Timestamp(&e->body_as_stamp, mv, h)) { if (own_mv) Py_DECREF(mv); return -1; }
       if (own_mv) Py_DECREF(mv);
       break; }
     case 14: {
       BUMP(C_ATTR);
       PyObject *mv = PyObject_GetAttr(ob, K_as_nothing); const int own_mv = 1;
       if (!mv) { return -1; }
-      if (mv == Py_None) { if (own_mv) Py_DECREF(mv);
-        PyErr_SetString(PyExc_ValueError, "Probe.as_nothing is selected but None"); return -1; }
-      if (fillu_attr_Empty(&e->body_as_nothing, mv, h)) { if (own_mv) Py_DECREF(mv); return -1; }
+      if (mv != Py_None && fillu_attr_Empty(&e->body_as_nothing, mv, h)) { if (own_mv) Py_DECREF(mv); return -1; }
       if (own_mv) Py_DECREF(mv);
       break; }
     case 0: break;
-    default:
-      PyErr_Format(PyExc_ValueError, "Probe.body_case = %ld is not a member's tag", (long)cs); return -1;
+    default: break;
     }
   }
   { /* decision 11: this message's retained runs, written after its known fields */
@@ -7224,7 +7231,7 @@ static PyObject *encode_attr_Timestamp(PyObject *rootobj, PyObject *acc, int ret
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_Timestamp returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_Timestamp", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -7263,7 +7270,7 @@ static PyObject *encode_attr_Duration(PyObject *rootobj, PyObject *acc, int reta
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_Duration returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_Duration", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -7302,7 +7309,7 @@ static PyObject *encode_attr_ResultRaw(PyObject *rootobj, PyObject *acc, int ret
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_ResultRaw returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_ResultRaw", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -7433,7 +7440,7 @@ static PyObject *encode_attr_TaskOptions(PyObject *rootobj, PyObject *acc, int r
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_TaskOptions returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_TaskOptions", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -7472,7 +7479,7 @@ static PyObject *encode_attr_TaskOutput(PyObject *rootobj, PyObject *acc, int re
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_TaskOutput returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_TaskOutput", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -7739,7 +7746,7 @@ static PyObject *encode_attr_TaskDetailed(PyObject *rootobj, PyObject *acc, int 
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_TaskDetailed returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_TaskDetailed", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -7878,7 +7885,7 @@ static PyObject *encode_attr_TaskSummary(PyObject *rootobj, PyObject *acc, int r
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_TaskSummary returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_TaskSummary", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -7917,7 +7924,7 @@ static PyObject *encode_attr_Probe(PyObject *rootobj, PyObject *acc, int retain)
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_Probe returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_Probe", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -7956,7 +7963,7 @@ static PyObject *encode_attr_Empty(PyObject *rootobj, PyObject *acc, int retain)
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_Empty returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_Empty", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -7995,7 +8002,7 @@ static PyObject *encode_attr_UploadResultData(PyObject *rootobj, PyObject *acc, 
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_UploadResultData returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_UploadResultData", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -8204,7 +8211,7 @@ static PyObject *encode_attr_MetricsBatch(PyObject *rootobj, PyObject *acc, int 
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_MetricsBatch returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_MetricsBatch", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -8243,7 +8250,7 @@ static PyObject *encode_attr_Pair(PyObject *rootobj, PyObject *acc, int retain) 
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_Pair returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_Pair", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -8346,7 +8353,7 @@ static PyObject *encode_attr_ListResultsResponse(PyObject *rootobj, PyObject *ac
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_ListResultsResponse returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_ListResultsResponse", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -8459,7 +8466,7 @@ static PyObject *encode_attr_ListTasksDetailedResponse(PyObject *rootobj, PyObje
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_ListTasksDetailedResponse returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_ListTasksDetailedResponse", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -8572,7 +8579,7 @@ static PyObject *encode_attr_ListTaskSummaryResponse(PyObject *rootobj, PyObject
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_ListTaskSummaryResponse returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_ListTaskSummaryResponse", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -8675,7 +8682,7 @@ static PyObject *encode_attr_ListProbeResponse(PyObject *rootobj, PyObject *acc,
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_ListProbeResponse returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_ListProbeResponse", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -8788,7 +8795,7 @@ static PyObject *encode_attr_ListMetricsResponse(PyObject *rootobj, PyObject *ac
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_ListMetricsResponse returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_ListMetricsResponse", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -8827,7 +8834,7 @@ static PyObject *encode_attr_UploadResultDataMessage(PyObject *rootobj, PyObject
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_UploadResultDataMessage returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_UploadResultDataMessage", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -8994,7 +9001,7 @@ static PyObject *encode_attr_DualResponse(PyObject *rootobj, PyObject *acc, int 
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_DualResponse returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_DualResponse", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -9033,7 +9040,7 @@ static PyObject *encode_attr_ChunkLeaf(PyObject *rootobj, PyObject *acc, int ret
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_ChunkLeaf returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_ChunkLeaf", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -9170,7 +9177,7 @@ static PyObject *encode_attr_ChunkInner(PyObject *rootobj, PyObject *acc, int re
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_ChunkInner returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_ChunkInner", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -9443,7 +9450,7 @@ static PyObject *encode_attr_ChunkElement(PyObject *rootobj, PyObject *acc, int 
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_ChunkElement returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_ChunkElement", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -9556,7 +9563,7 @@ static PyObject *encode_attr_ChunkedResponse(PyObject *rootobj, PyObject *acc, i
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_ChunkedResponse returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_ChunkedResponse", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -9669,7 +9676,7 @@ static PyObject *encode_attr_ChunkedResponseWide(PyObject *rootobj, PyObject *ac
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_ChunkedResponseWide returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_ChunkedResponseWide", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -9708,7 +9715,7 @@ static PyObject *encode_attr_LeafElement(PyObject *rootobj, PyObject *acc, int r
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_LeafElement returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_LeafElement", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -9811,7 +9818,7 @@ static PyObject *encode_attr_LeafResponse(PyObject *rootobj, PyObject *acc, int 
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_LeafResponse returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_LeafResponse", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -9974,7 +9981,7 @@ static PyObject *encode_attr_Surrogate(PyObject *rootobj, PyObject *acc, int ret
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_Surrogate returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_Surrogate", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -10013,7 +10020,7 @@ static PyObject *encode_attr_SurrogateInner(PyObject *rootobj, PyObject *acc, in
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_SurrogateInner returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_SurrogateInner", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -10052,7 +10059,7 @@ static PyObject *encode_attr_WireZoo(PyObject *rootobj, PyObject *acc, int retai
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_WireZoo returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_WireZoo", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -11538,7 +11545,7 @@ static PyObject *decode_attr_Timestamp(PyObject *buf, PyObject *acc, HostTypes *
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
      Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_Timestamp returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_Timestamp", (long)rc);
     return NULL;
   }
   
@@ -11584,7 +11591,7 @@ static PyObject *decode_attr_Duration(PyObject *buf, PyObject *acc, HostTypes *T
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
      Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_Duration returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_Duration", (long)rc);
     return NULL;
   }
   
@@ -11632,7 +11639,7 @@ static PyObject *decode_attr_ResultRaw(PyObject *buf, PyObject *acc, HostTypes *
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
      Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_ResultRaw returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_ResultRaw", (long)rc);
     return NULL;
   }
   
@@ -11703,7 +11710,7 @@ static PyObject *decode_attr_TaskOptions(PyObject *buf, PyObject *acc, HostTypes
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
      Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_TaskOptions returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_TaskOptions", (long)rc);
     return NULL;
   }
   
@@ -11749,7 +11756,7 @@ static PyObject *decode_attr_TaskOutput(PyObject *buf, PyObject *acc, HostTypes 
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
      Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_TaskOutput returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_TaskOutput", (long)rc);
     return NULL;
   }
   
@@ -11943,7 +11950,7 @@ static PyObject *decode_attr_TaskDetailed(PyObject *buf, PyObject *acc, HostType
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
     Py_DECREF(h.lists[0]); Py_DECREF(h.lists[1]); Py_DECREF(h.lists[2]); Py_DECREF(h.lists[3]); Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_TaskDetailed returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_TaskDetailed", (long)rc);
     return NULL;
   }
   if (setlist_attr_RTaskDetailed_parent_task_ids(rootobj, h.lists[0], &h)) { Py_DECREF(h.lists[0]); Py_DECREF(h.lists[1]); Py_DECREF(h.lists[2]); Py_DECREF(h.lists[3]); Py_DECREF(rootobj); return NULL; }
@@ -12033,7 +12040,7 @@ static PyObject *decode_attr_TaskSummary(PyObject *buf, PyObject *acc, HostTypes
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
      Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_TaskSummary returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_TaskSummary", (long)rc);
     return NULL;
   }
   
@@ -12080,7 +12087,7 @@ static PyObject *decode_attr_Probe(PyObject *buf, PyObject *acc, HostTypes *T, i
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
      Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_Probe returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_Probe", (long)rc);
     return NULL;
   }
   
@@ -12126,7 +12133,7 @@ static PyObject *decode_attr_Empty(PyObject *buf, PyObject *acc, HostTypes *T, i
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
      Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_Empty returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_Empty", (long)rc);
     return NULL;
   }
   
@@ -12172,7 +12179,7 @@ static PyObject *decode_attr_UploadResultData(PyObject *buf, PyObject *acc, Host
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
      Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_UploadResultData returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_UploadResultData", (long)rc);
     return NULL;
   }
   
@@ -12338,7 +12345,7 @@ static PyObject *decode_attr_MetricsBatch(PyObject *buf, PyObject *acc, HostType
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
     Py_DECREF(h.lists[0]); Py_DECREF(h.lists[1]); Py_DECREF(h.lists[2]); Py_DECREF(h.lists[3]); Py_DECREF(h.lists[4]); Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_MetricsBatch returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_MetricsBatch", (long)rc);
     return NULL;
   }
   if (setlist_attr_RMetricsBatch_ticks(rootobj, h.lists[0], &h)) { Py_DECREF(h.lists[0]); Py_DECREF(h.lists[1]); Py_DECREF(h.lists[2]); Py_DECREF(h.lists[3]); Py_DECREF(h.lists[4]); Py_DECREF(rootobj); return NULL; }
@@ -12389,7 +12396,7 @@ static PyObject *decode_attr_Pair(PyObject *buf, PyObject *acc, HostTypes *T, in
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
      Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_Pair returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_Pair", (long)rc);
     return NULL;
   }
   
@@ -12465,7 +12472,7 @@ static PyObject *decode_attr_ListResultsResponse(PyObject *buf, PyObject *acc, H
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
     Py_DECREF(h.lists[0]); Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_ListResultsResponse returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_ListResultsResponse", (long)rc);
     return NULL;
   }
   if (setlist_attr_RListResultsResponse_results(rootobj, h.lists[0], &h)) { Py_DECREF(h.lists[0]); Py_DECREF(rootobj); return NULL; }
@@ -12679,7 +12686,7 @@ static PyObject *decode_attr_ListTasksDetailedResponse(PyObject *buf, PyObject *
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
     Py_DECREF(h.lists[0]); Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_ListTasksDetailedResponse returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_ListTasksDetailedResponse", (long)rc);
     return NULL;
   }
   if (setlist_attr_RListTasksDetailedResponse_tasks(rootobj, h.lists[0], &h)) { Py_DECREF(h.lists[0]); Py_DECREF(rootobj); return NULL; }
@@ -12797,7 +12804,7 @@ static PyObject *decode_attr_ListTaskSummaryResponse(PyObject *buf, PyObject *ac
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
     Py_DECREF(h.lists[0]); Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_ListTaskSummaryResponse returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_ListTaskSummaryResponse", (long)rc);
     return NULL;
   }
   if (setlist_attr_RListTaskSummaryResponse_tasks(rootobj, h.lists[0], &h)) { Py_DECREF(h.lists[0]); Py_DECREF(rootobj); return NULL; }
@@ -12873,7 +12880,7 @@ static PyObject *decode_attr_ListProbeResponse(PyObject *buf, PyObject *acc, Hos
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
     Py_DECREF(h.lists[0]); Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_ListProbeResponse returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_ListProbeResponse", (long)rc);
     return NULL;
   }
   if (setlist_attr_RListProbeResponse_probes(rootobj, h.lists[0], &h)) { Py_DECREF(h.lists[0]); Py_DECREF(rootobj); return NULL; }
@@ -13055,7 +13062,7 @@ static PyObject *decode_attr_ListMetricsResponse(PyObject *buf, PyObject *acc, H
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
     Py_DECREF(h.lists[0]); Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_ListMetricsResponse returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_ListMetricsResponse", (long)rc);
     return NULL;
   }
   if (setlist_attr_RListMetricsResponse_batches(rootobj, h.lists[0], &h)) { Py_DECREF(h.lists[0]); Py_DECREF(rootobj); return NULL; }
@@ -13103,7 +13110,7 @@ static PyObject *decode_attr_UploadResultDataMessage(PyObject *buf, PyObject *ac
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
      Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_UploadResultDataMessage returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_UploadResultDataMessage", (long)rc);
     return NULL;
   }
   
@@ -13205,7 +13212,7 @@ static PyObject *decode_attr_DualResponse(PyObject *buf, PyObject *acc, HostType
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
     Py_DECREF(h.lists[0]); Py_DECREF(h.lists[1]); Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_DualResponse returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_DualResponse", (long)rc);
     return NULL;
   }
   if (setlist_attr_RDualResponse_left(rootobj, h.lists[0], &h)) { Py_DECREF(h.lists[0]); Py_DECREF(h.lists[1]); Py_DECREF(rootobj); return NULL; }
@@ -13253,7 +13260,7 @@ static PyObject *decode_attr_ChunkLeaf(PyObject *buf, PyObject *acc, HostTypes *
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
      Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_ChunkLeaf returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_ChunkLeaf", (long)rc);
     return NULL;
   }
   
@@ -13351,7 +13358,7 @@ static PyObject *decode_attr_ChunkInner(PyObject *buf, PyObject *acc, HostTypes 
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
     Py_DECREF(h.lists[0]); Py_DECREF(h.lists[1]); Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_ChunkInner returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_ChunkInner", (long)rc);
     return NULL;
   }
   if (setlist_attr_RChunkInner_marks(rootobj, h.lists[0], &h)) { Py_DECREF(h.lists[0]); Py_DECREF(h.lists[1]); Py_DECREF(rootobj); return NULL; }
@@ -13518,7 +13525,7 @@ static PyObject *decode_attr_ChunkElement(PyObject *buf, PyObject *acc, HostType
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
     Py_DECREF(h.lists[0]); Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_ChunkElement returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_ChunkElement", (long)rc);
     return NULL;
   }
   if (setlist_attr_RChunkElement_labels(rootobj, h.lists[0], &h)) { Py_DECREF(h.lists[0]); Py_DECREF(rootobj); return NULL; }
@@ -13714,7 +13721,7 @@ static PyObject *decode_attr_ChunkedResponse(PyObject *buf, PyObject *acc, HostT
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
     Py_DECREF(h.lists[0]); Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_ChunkedResponse returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_ChunkedResponse", (long)rc);
     return NULL;
   }
   if (setlist_attr_RChunkedResponse_items(rootobj, h.lists[0], &h)) { Py_DECREF(h.lists[0]); Py_DECREF(rootobj); return NULL; }
@@ -13910,7 +13917,7 @@ static PyObject *decode_attr_ChunkedResponseWide(PyObject *buf, PyObject *acc, H
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
     Py_DECREF(h.lists[0]); Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_ChunkedResponseWide returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_ChunkedResponseWide", (long)rc);
     return NULL;
   }
   if (setlist_attr_RChunkedResponseWide_items(rootobj, h.lists[0], &h)) { Py_DECREF(h.lists[0]); Py_DECREF(rootobj); return NULL; }
@@ -13958,7 +13965,7 @@ static PyObject *decode_attr_LeafElement(PyObject *buf, PyObject *acc, HostTypes
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
      Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_LeafElement returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_LeafElement", (long)rc);
     return NULL;
   }
   
@@ -14033,7 +14040,7 @@ static PyObject *decode_attr_LeafResponse(PyObject *buf, PyObject *acc, HostType
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
     Py_DECREF(h.lists[0]); Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_LeafResponse returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_LeafResponse", (long)rc);
     return NULL;
   }
   if (setlist_attr_RLeafResponse_items(rootobj, h.lists[0], &h)) { Py_DECREF(h.lists[0]); Py_DECREF(rootobj); return NULL; }
@@ -14129,7 +14136,7 @@ static PyObject *decode_attr_Surrogate(PyObject *buf, PyObject *acc, HostTypes *
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
     Py_DECREF(h.lists[0]); Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_Surrogate returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_Surrogate", (long)rc);
     return NULL;
   }
   if (setlist_attr_RSurrogate_texts(rootobj, h.lists[0], &h)) { Py_DECREF(h.lists[0]); Py_DECREF(rootobj); return NULL; }
@@ -14176,7 +14183,7 @@ static PyObject *decode_attr_SurrogateInner(PyObject *buf, PyObject *acc, HostTy
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
      Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_SurrogateInner returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_SurrogateInner", (long)rc);
     return NULL;
   }
   
@@ -14223,7 +14230,7 @@ static PyObject *decode_attr_WireZoo(PyObject *buf, PyObject *acc, HostTypes *T,
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
      Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_WireZoo returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_WireZoo", (long)rc);
     return NULL;
   }
   
@@ -15369,21 +15376,16 @@ static int fill_cext_Probe(struct ak_efix_Probe *e, PyObject *ob, HostCtx *h) {
       break; }
     case 13: {
       PyObject *mv = ((CProbe *)ob)->as_stamp; const int own_mv = 0;
-      if (mv == Py_None) { if (own_mv) Py_DECREF(mv);
-        PyErr_SetString(PyExc_ValueError, "Probe.as_stamp is selected but None"); return -1; }
-      if (fill_cext_Timestamp(&e->body_as_stamp, mv, h)) { if (own_mv) Py_DECREF(mv); return -1; }
+      if (mv != Py_None && fill_cext_Timestamp(&e->body_as_stamp, mv, h)) { if (own_mv) Py_DECREF(mv); return -1; }
       if (own_mv) Py_DECREF(mv);
       break; }
     case 14: {
       PyObject *mv = ((CProbe *)ob)->as_nothing; const int own_mv = 0;
-      if (mv == Py_None) { if (own_mv) Py_DECREF(mv);
-        PyErr_SetString(PyExc_ValueError, "Probe.as_nothing is selected but None"); return -1; }
-      if (fill_cext_Empty(&e->body_as_nothing, mv, h)) { if (own_mv) Py_DECREF(mv); return -1; }
+      if (mv != Py_None && fill_cext_Empty(&e->body_as_nothing, mv, h)) { if (own_mv) Py_DECREF(mv); return -1; }
       if (own_mv) Py_DECREF(mv);
       break; }
     case 0: break;
-    default:
-      PyErr_Format(PyExc_ValueError, "Probe.body_case = %ld is not a member's tag", (long)cs); return -1;
+    default: break;
     }
   }
   return 0;
@@ -15460,21 +15462,16 @@ static int fillu_cext_Probe(struct ak_ufix_Probe *e, PyObject *ob, HostCtx *h) {
       break; }
     case 13: {
       PyObject *mv = ((CProbe *)ob)->as_stamp; const int own_mv = 0;
-      if (mv == Py_None) { if (own_mv) Py_DECREF(mv);
-        PyErr_SetString(PyExc_ValueError, "Probe.as_stamp is selected but None"); return -1; }
-      if (fillu_cext_Timestamp(&e->body_as_stamp, mv, h)) { if (own_mv) Py_DECREF(mv); return -1; }
+      if (mv != Py_None && fillu_cext_Timestamp(&e->body_as_stamp, mv, h)) { if (own_mv) Py_DECREF(mv); return -1; }
       if (own_mv) Py_DECREF(mv);
       break; }
     case 14: {
       PyObject *mv = ((CProbe *)ob)->as_nothing; const int own_mv = 0;
-      if (mv == Py_None) { if (own_mv) Py_DECREF(mv);
-        PyErr_SetString(PyExc_ValueError, "Probe.as_nothing is selected but None"); return -1; }
-      if (fillu_cext_Empty(&e->body_as_nothing, mv, h)) { if (own_mv) Py_DECREF(mv); return -1; }
+      if (mv != Py_None && fillu_cext_Empty(&e->body_as_nothing, mv, h)) { if (own_mv) Py_DECREF(mv); return -1; }
       if (own_mv) Py_DECREF(mv);
       break; }
     case 0: break;
-    default:
-      PyErr_Format(PyExc_ValueError, "Probe.body_case = %ld is not a member's tag", (long)cs); return -1;
+    default: break;
     }
   }
   { /* decision 11: this message's retained runs, written after its known fields */
@@ -17035,7 +17032,7 @@ static PyObject *encode_cext_Timestamp(PyObject *rootobj, PyObject *acc, int ret
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_Timestamp returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_Timestamp", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -17074,7 +17071,7 @@ static PyObject *encode_cext_Duration(PyObject *rootobj, PyObject *acc, int reta
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_Duration returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_Duration", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -17113,7 +17110,7 @@ static PyObject *encode_cext_ResultRaw(PyObject *rootobj, PyObject *acc, int ret
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_ResultRaw returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_ResultRaw", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -17240,7 +17237,7 @@ static PyObject *encode_cext_TaskOptions(PyObject *rootobj, PyObject *acc, int r
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_TaskOptions returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_TaskOptions", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -17279,7 +17276,7 @@ static PyObject *encode_cext_TaskOutput(PyObject *rootobj, PyObject *acc, int re
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_TaskOutput returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_TaskOutput", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -17532,7 +17529,7 @@ static PyObject *encode_cext_TaskDetailed(PyObject *rootobj, PyObject *acc, int 
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_TaskDetailed returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_TaskDetailed", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -17665,7 +17662,7 @@ static PyObject *encode_cext_TaskSummary(PyObject *rootobj, PyObject *acc, int r
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_TaskSummary returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_TaskSummary", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -17704,7 +17701,7 @@ static PyObject *encode_cext_Probe(PyObject *rootobj, PyObject *acc, int retain)
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_Probe returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_Probe", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -17743,7 +17740,7 @@ static PyObject *encode_cext_Empty(PyObject *rootobj, PyObject *acc, int retain)
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_Empty returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_Empty", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -17782,7 +17779,7 @@ static PyObject *encode_cext_UploadResultData(PyObject *rootobj, PyObject *acc, 
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_UploadResultData returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_UploadResultData", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -17981,7 +17978,7 @@ static PyObject *encode_cext_MetricsBatch(PyObject *rootobj, PyObject *acc, int 
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_MetricsBatch returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_MetricsBatch", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -18020,7 +18017,7 @@ static PyObject *encode_cext_Pair(PyObject *rootobj, PyObject *acc, int retain) 
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_Pair returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_Pair", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -18119,7 +18116,7 @@ static PyObject *encode_cext_ListResultsResponse(PyObject *rootobj, PyObject *ac
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_ListResultsResponse returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_ListResultsResponse", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -18228,7 +18225,7 @@ static PyObject *encode_cext_ListTasksDetailedResponse(PyObject *rootobj, PyObje
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_ListTasksDetailedResponse returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_ListTasksDetailedResponse", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -18337,7 +18334,7 @@ static PyObject *encode_cext_ListTaskSummaryResponse(PyObject *rootobj, PyObject
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_ListTaskSummaryResponse returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_ListTaskSummaryResponse", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -18436,7 +18433,7 @@ static PyObject *encode_cext_ListProbeResponse(PyObject *rootobj, PyObject *acc,
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_ListProbeResponse returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_ListProbeResponse", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -18545,7 +18542,7 @@ static PyObject *encode_cext_ListMetricsResponse(PyObject *rootobj, PyObject *ac
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_ListMetricsResponse returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_ListMetricsResponse", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -18584,7 +18581,7 @@ static PyObject *encode_cext_UploadResultDataMessage(PyObject *rootobj, PyObject
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_UploadResultDataMessage returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_UploadResultDataMessage", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -18743,7 +18740,7 @@ static PyObject *encode_cext_DualResponse(PyObject *rootobj, PyObject *acc, int 
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_DualResponse returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_DualResponse", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -18782,7 +18779,7 @@ static PyObject *encode_cext_ChunkLeaf(PyObject *rootobj, PyObject *acc, int ret
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_ChunkLeaf returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_ChunkLeaf", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -18913,7 +18910,7 @@ static PyObject *encode_cext_ChunkInner(PyObject *rootobj, PyObject *acc, int re
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_ChunkInner returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_ChunkInner", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -19171,7 +19168,7 @@ static PyObject *encode_cext_ChunkElement(PyObject *rootobj, PyObject *acc, int 
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_ChunkElement returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_ChunkElement", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -19280,7 +19277,7 @@ static PyObject *encode_cext_ChunkedResponse(PyObject *rootobj, PyObject *acc, i
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_ChunkedResponse returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_ChunkedResponse", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -19389,7 +19386,7 @@ static PyObject *encode_cext_ChunkedResponseWide(PyObject *rootobj, PyObject *ac
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_ChunkedResponseWide returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_ChunkedResponseWide", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -19428,7 +19425,7 @@ static PyObject *encode_cext_LeafElement(PyObject *rootobj, PyObject *acc, int r
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_LeafElement returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_LeafElement", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -19527,7 +19524,7 @@ static PyObject *encode_cext_LeafResponse(PyObject *rootobj, PyObject *acc, int 
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_LeafResponse returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_LeafResponse", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -19684,7 +19681,7 @@ static PyObject *encode_cext_Surrogate(PyObject *rootobj, PyObject *acc, int ret
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_Surrogate returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_Surrogate", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -19723,7 +19720,7 @@ static PyObject *encode_cext_SurrogateInner(PyObject *rootobj, PyObject *acc, in
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_SurrogateInner returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_SurrogateInner", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -19762,7 +19759,7 @@ static PyObject *encode_cext_WireZoo(PyObject *rootobj, PyObject *acc, int retai
   }
   if (rc < 0) {
     ak_py_tls_enc_release(ctx, tmp_);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, "ak_encode_WireZoo returned %ld", (long)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_encode_WireZoo", (long)rc);
     return NULL;
   }
 #ifdef AK_COUNT
@@ -20826,7 +20823,7 @@ static PyObject *decode_cext_Timestamp(PyObject *buf, PyObject *acc, HostTypes *
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
      Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_Timestamp returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_Timestamp", (long)rc);
     return NULL;
   }
   
@@ -20872,7 +20869,7 @@ static PyObject *decode_cext_Duration(PyObject *buf, PyObject *acc, HostTypes *T
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
      Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_Duration returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_Duration", (long)rc);
     return NULL;
   }
   
@@ -20920,7 +20917,7 @@ static PyObject *decode_cext_ResultRaw(PyObject *buf, PyObject *acc, HostTypes *
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
      Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_ResultRaw returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_ResultRaw", (long)rc);
     return NULL;
   }
   
@@ -20989,7 +20986,7 @@ static PyObject *decode_cext_TaskOptions(PyObject *buf, PyObject *acc, HostTypes
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
      Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_TaskOptions returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_TaskOptions", (long)rc);
     return NULL;
   }
   
@@ -21035,7 +21032,7 @@ static PyObject *decode_cext_TaskOutput(PyObject *buf, PyObject *acc, HostTypes 
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
      Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_TaskOutput returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_TaskOutput", (long)rc);
     return NULL;
   }
   
@@ -21211,7 +21208,7 @@ static PyObject *decode_cext_TaskDetailed(PyObject *buf, PyObject *acc, HostType
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
     Py_DECREF(h.lists[0]); Py_DECREF(h.lists[1]); Py_DECREF(h.lists[2]); Py_DECREF(h.lists[3]); Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_TaskDetailed returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_TaskDetailed", (long)rc);
     return NULL;
   }
   if (setlist_cext_RTaskDetailed_parent_task_ids(rootobj, h.lists[0], &h)) { Py_DECREF(h.lists[0]); Py_DECREF(h.lists[1]); Py_DECREF(h.lists[2]); Py_DECREF(h.lists[3]); Py_DECREF(rootobj); return NULL; }
@@ -21295,7 +21292,7 @@ static PyObject *decode_cext_TaskSummary(PyObject *buf, PyObject *acc, HostTypes
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
      Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_TaskSummary returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_TaskSummary", (long)rc);
     return NULL;
   }
   
@@ -21342,7 +21339,7 @@ static PyObject *decode_cext_Probe(PyObject *buf, PyObject *acc, HostTypes *T, i
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
      Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_Probe returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_Probe", (long)rc);
     return NULL;
   }
   
@@ -21388,7 +21385,7 @@ static PyObject *decode_cext_Empty(PyObject *buf, PyObject *acc, HostTypes *T, i
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
      Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_Empty returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_Empty", (long)rc);
     return NULL;
   }
   
@@ -21434,7 +21431,7 @@ static PyObject *decode_cext_UploadResultData(PyObject *buf, PyObject *acc, Host
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
      Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_UploadResultData returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_UploadResultData", (long)rc);
     return NULL;
   }
   
@@ -21585,7 +21582,7 @@ static PyObject *decode_cext_MetricsBatch(PyObject *buf, PyObject *acc, HostType
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
     Py_DECREF(h.lists[0]); Py_DECREF(h.lists[1]); Py_DECREF(h.lists[2]); Py_DECREF(h.lists[3]); Py_DECREF(h.lists[4]); Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_MetricsBatch returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_MetricsBatch", (long)rc);
     return NULL;
   }
   if (setlist_cext_RMetricsBatch_ticks(rootobj, h.lists[0], &h)) { Py_DECREF(h.lists[0]); Py_DECREF(h.lists[1]); Py_DECREF(h.lists[2]); Py_DECREF(h.lists[3]); Py_DECREF(h.lists[4]); Py_DECREF(rootobj); return NULL; }
@@ -21636,7 +21633,7 @@ static PyObject *decode_cext_Pair(PyObject *buf, PyObject *acc, HostTypes *T, in
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
      Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_Pair returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_Pair", (long)rc);
     return NULL;
   }
   
@@ -21709,7 +21706,7 @@ static PyObject *decode_cext_ListResultsResponse(PyObject *buf, PyObject *acc, H
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
     Py_DECREF(h.lists[0]); Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_ListResultsResponse returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_ListResultsResponse", (long)rc);
     return NULL;
   }
   if (setlist_cext_RListResultsResponse_results(rootobj, h.lists[0], &h)) { Py_DECREF(h.lists[0]); Py_DECREF(rootobj); return NULL; }
@@ -21906,7 +21903,7 @@ static PyObject *decode_cext_ListTasksDetailedResponse(PyObject *buf, PyObject *
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
     Py_DECREF(h.lists[0]); Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_ListTasksDetailedResponse returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_ListTasksDetailedResponse", (long)rc);
     return NULL;
   }
   if (setlist_cext_RListTasksDetailedResponse_tasks(rootobj, h.lists[0], &h)) { Py_DECREF(h.lists[0]); Py_DECREF(rootobj); return NULL; }
@@ -22015,7 +22012,7 @@ static PyObject *decode_cext_ListTaskSummaryResponse(PyObject *buf, PyObject *ac
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
     Py_DECREF(h.lists[0]); Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_ListTaskSummaryResponse returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_ListTaskSummaryResponse", (long)rc);
     return NULL;
   }
   if (setlist_cext_RListTaskSummaryResponse_tasks(rootobj, h.lists[0], &h)) { Py_DECREF(h.lists[0]); Py_DECREF(rootobj); return NULL; }
@@ -22088,7 +22085,7 @@ static PyObject *decode_cext_ListProbeResponse(PyObject *buf, PyObject *acc, Hos
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
     Py_DECREF(h.lists[0]); Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_ListProbeResponse returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_ListProbeResponse", (long)rc);
     return NULL;
   }
   if (setlist_cext_RListProbeResponse_probes(rootobj, h.lists[0], &h)) { Py_DECREF(h.lists[0]); Py_DECREF(rootobj); return NULL; }
@@ -22257,7 +22254,7 @@ static PyObject *decode_cext_ListMetricsResponse(PyObject *buf, PyObject *acc, H
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
     Py_DECREF(h.lists[0]); Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_ListMetricsResponse returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_ListMetricsResponse", (long)rc);
     return NULL;
   }
   if (setlist_cext_RListMetricsResponse_batches(rootobj, h.lists[0], &h)) { Py_DECREF(h.lists[0]); Py_DECREF(rootobj); return NULL; }
@@ -22305,7 +22302,7 @@ static PyObject *decode_cext_UploadResultDataMessage(PyObject *buf, PyObject *ac
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
      Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_UploadResultDataMessage returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_UploadResultDataMessage", (long)rc);
     return NULL;
   }
   
@@ -22401,7 +22398,7 @@ static PyObject *decode_cext_DualResponse(PyObject *buf, PyObject *acc, HostType
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
     Py_DECREF(h.lists[0]); Py_DECREF(h.lists[1]); Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_DualResponse returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_DualResponse", (long)rc);
     return NULL;
   }
   if (setlist_cext_RDualResponse_left(rootobj, h.lists[0], &h)) { Py_DECREF(h.lists[0]); Py_DECREF(h.lists[1]); Py_DECREF(rootobj); return NULL; }
@@ -22449,7 +22446,7 @@ static PyObject *decode_cext_ChunkLeaf(PyObject *buf, PyObject *acc, HostTypes *
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
      Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_ChunkLeaf returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_ChunkLeaf", (long)rc);
     return NULL;
   }
   
@@ -22541,7 +22538,7 @@ static PyObject *decode_cext_ChunkInner(PyObject *buf, PyObject *acc, HostTypes 
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
     Py_DECREF(h.lists[0]); Py_DECREF(h.lists[1]); Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_ChunkInner returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_ChunkInner", (long)rc);
     return NULL;
   }
   if (setlist_cext_RChunkInner_marks(rootobj, h.lists[0], &h)) { Py_DECREF(h.lists[0]); Py_DECREF(h.lists[1]); Py_DECREF(rootobj); return NULL; }
@@ -22691,7 +22688,7 @@ static PyObject *decode_cext_ChunkElement(PyObject *buf, PyObject *acc, HostType
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
     Py_DECREF(h.lists[0]); Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_ChunkElement returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_ChunkElement", (long)rc);
     return NULL;
   }
   if (setlist_cext_RChunkElement_labels(rootobj, h.lists[0], &h)) { Py_DECREF(h.lists[0]); Py_DECREF(rootobj); return NULL; }
@@ -22868,7 +22865,7 @@ static PyObject *decode_cext_ChunkedResponse(PyObject *buf, PyObject *acc, HostT
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
     Py_DECREF(h.lists[0]); Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_ChunkedResponse returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_ChunkedResponse", (long)rc);
     return NULL;
   }
   if (setlist_cext_RChunkedResponse_items(rootobj, h.lists[0], &h)) { Py_DECREF(h.lists[0]); Py_DECREF(rootobj); return NULL; }
@@ -23045,7 +23042,7 @@ static PyObject *decode_cext_ChunkedResponseWide(PyObject *buf, PyObject *acc, H
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
     Py_DECREF(h.lists[0]); Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_ChunkedResponseWide returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_ChunkedResponseWide", (long)rc);
     return NULL;
   }
   if (setlist_cext_RChunkedResponseWide_items(rootobj, h.lists[0], &h)) { Py_DECREF(h.lists[0]); Py_DECREF(rootobj); return NULL; }
@@ -23093,7 +23090,7 @@ static PyObject *decode_cext_LeafElement(PyObject *buf, PyObject *acc, HostTypes
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
      Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_LeafElement returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_LeafElement", (long)rc);
     return NULL;
   }
   
@@ -23165,7 +23162,7 @@ static PyObject *decode_cext_LeafResponse(PyObject *buf, PyObject *acc, HostType
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
     Py_DECREF(h.lists[0]); Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_LeafResponse returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_LeafResponse", (long)rc);
     return NULL;
   }
   if (setlist_cext_RLeafResponse_items(rootobj, h.lists[0], &h)) { Py_DECREF(h.lists[0]); Py_DECREF(rootobj); return NULL; }
@@ -23256,7 +23253,7 @@ static PyObject *decode_cext_Surrogate(PyObject *buf, PyObject *acc, HostTypes *
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
     Py_DECREF(h.lists[0]); Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_Surrogate returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_Surrogate", (long)rc);
     return NULL;
   }
   if (setlist_cext_RSurrogate_texts(rootobj, h.lists[0], &h)) { Py_DECREF(h.lists[0]); Py_DECREF(rootobj); return NULL; }
@@ -23303,7 +23300,7 @@ static PyObject *decode_cext_SurrogateInner(PyObject *buf, PyObject *acc, HostTy
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
      Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_SurrogateInner returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_SurrogateInner", (long)rc);
     return NULL;
   }
   
@@ -23350,7 +23347,7 @@ static PyObject *decode_cext_WireZoo(PyObject *buf, PyObject *acc, HostTypes *T,
   AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */
   if (rc || h.failed) {
      Py_DECREF(rootobj);
-    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, "ak_decode_WireZoo returned %d", (int)rc);
+    if (!PyErr_Occurred()) ak_py_fail("ak_decode_WireZoo", (long)rc);
     return NULL;
   }
   
