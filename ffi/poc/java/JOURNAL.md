@@ -800,3 +800,21 @@ corpus; since R-H13 the shared `generate.py --check` guards every `poc/<slice>/g
 so the corpus gate's generator check failed on the snapshot (first clean gate at 21a007087:
 GATE FAILED on that check alone, everything else passing). The snapshot now carries every
 slice's gen/*.py (8339265cb). Clean gate at 8339265cb: GATE PASSED, logs/java/wp6-h/.
+
+### J31. FIX-PLAN WP7: the harness on the 2026-09-26 contract (2026-09-26)
+
+Done: process CPU in the codec suite and calib (tax.c's CLOCK_PROCESS_CPUTIME_ID); the 92
+accepted U-* rows at the shapes core's roots through the timed shapes core (new generated
+ak.shapes.Dispatch), extras labelled by `row_class`; four encode variants (buf / transport end
+state, hot / pool input, pool > 2 x AK_LLC_BYTES); cells E and F (host-gen over the core and
+over grpc-java) in every host-gen mode; a and a+read; one server JVM per launch on two sockets
+for both builds and transports; shipped = grpc-java defaults over epoll on UDS; thread counts,
+order and ratio basis in every header; CPU sets from ffi/campaign.machine outside smoke.
+Req 19: the counting shim (-DAK_HOST_COUNT, rendered by java_jni) counts every JNI entry into
+the core; EP rows per payload and per shapes-root U-* row show the resets (encode +2 host
+entries over the core's own count on P1.2: ak_enc_reset and ak_enc_take; retain decode +2:
+the two ak_dec_reset calls) and, retain with exact-size grow, the grow calls (U-deep-all: 8).
+RPC per call (rpc,count cores): B and E 2 (call + free), C-drop a 3 / C-retain a 5, D-drop a 1.
+The first clean gate at d70c6bf28 failed on the RPC counts only: the server's socket path under
+the worktree exceeded 107 bytes; sockets now live in a short mktemp dir (f5cba4acf). Clean gate
+at f5cba4acf: GATE PASSED, all four count files identical; smoke complete (logs/java/campaign-wp7).
