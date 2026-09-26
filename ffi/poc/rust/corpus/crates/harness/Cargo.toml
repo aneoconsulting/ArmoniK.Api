@@ -6,6 +6,8 @@ version.workspace = true
 publish.workspace = true
 
 [features]
+# The binding's counting hooks (CAMPAIGN req 19) test this name; the corpus never counts.
+count = []
 # ON: ABI v1 section 3 as specified, so a binding that skipped ak_init would fail here
 # rather than pass silently (R-G7). `corpus` is what selects the corpus-schema core.
 default = ["init-guard", "unknown-fields"]

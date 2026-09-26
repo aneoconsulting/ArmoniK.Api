@@ -1,1 +1,1 @@
-# INSTRUMENTATION smoke (FIX-PLAN WP6, clean worktree at d2cd0b02f); summary figures stripped.
+# INSTRUMENTATION smoke (clean worktree at c7c083f68); summary figures stripped.

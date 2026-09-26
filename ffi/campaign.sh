@@ -19,6 +19,9 @@
 #   --allow-dirty                            pass the slices' dirty-tree override (smoke only)
 #   --dry-run                                print what would run, run nothing
 #
+# Without --smoke, AK_CPU_CLIENT / AK_CPU_SERVER default to ffi/campaign.machine,
+# whose set size is enforced (CAMPAIGN req 4).
+#
 # The runners do not share one spelling for launches, rounds, smoke and the dirty-tree
 # override, so the table below maps each option onto each runner. The shared interface
 # is `--suite S --out DIR` plus AK_CPU_CLIENT / AK_CPU_SERVER in the environment.
@@ -47,7 +50,7 @@ while [ $# -gt 0 ]; do
     --smoke)       SMOKE=1; shift ;;
     --allow-dirty) ALLOW_DIRTY=1; shift ;;
     --dry-run)     DRY=1; shift ;;
-    -h|--help)     sed -n '2,27p' "$0"; exit 0 ;;
+    -h|--help)     sed -n '2,29p' "$0"; exit 0 ;;
     *) echo "campaign.sh: unknown option $1" >&2; exit 2 ;;
   esac
 done
@@ -99,6 +102,48 @@ knobs_of() {
   return 0
 }
 
+# --- the machine profile (CAMPAIGN.md section 2, req 4) ------------------------------
+# campaign.machine holds the CPU sets and their fixed size; the environment wins, and
+# --smoke does not use it (a container has no such CPUs).
+if [ "$SMOKE" != 1 ] && [ -f "$FFI/campaign.machine" ]; then
+  # shellcheck source=/dev/null
+  . "$FFI/campaign.machine"
+  export AK_CPU_CLIENT AK_CPU_SERVER
+fi
+
+# expand a cpu list such as "1-4,9" into one cpu per line
+cpus_of() {
+  local IFS=,; for r in $1; do
+    case "$r" in *-*) seq "${r%-*}" "${r#*-}" ;; *) echo "$r" ;; esac
+  done
+}
+# the SMT siblings of a cpu (itself included), one per line
+siblings_of() {
+  local f="/sys/devices/system/cpu/cpu$1/topology/thread_siblings_list"
+  if [ -r "$f" ]; then cpus_of "$(cat "$f")"; else echo "$1"; fi
+}
+check_sets() {
+  local c s n_c n_s
+  n_c=$(cpus_of "$AK_CPU_CLIENT" | wc -l); n_s=$(cpus_of "$AK_CPU_SERVER" | wc -l)
+  if [ -n "${AK_SET_SIZE:-}" ] && { [ "$n_c" -ne "$AK_SET_SIZE" ] || [ "$n_s" -ne "$AK_SET_SIZE" ]; }; then
+    echo "campaign.sh: CLIENT has $n_c cpus and SERVER $n_s; the campaign fixes $AK_SET_SIZE each (CAMPAIGN req 4)" >&2
+    return 1
+  fi
+  local sib_c sib_s
+  sib_c=$(for c in $(cpus_of "$AK_CPU_CLIENT"); do siblings_of "$c"; done | sort -un)
+  sib_s=$(for s in $(cpus_of "$AK_CPU_SERVER"); do siblings_of "$s"; done | sort -un)
+  if [ -n "$(comm -12 <(echo "$sib_c") <(echo "$sib_s"))" ]; then
+    echo "campaign.sh: CLIENT and SERVER share a core or SMT siblings (CAMPAIGN req 4)" >&2
+    return 1
+  fi
+  # two cpus of one set on the same core would put the measured threads on siblings
+  if [ "$(for c in $(cpus_of "$AK_CPU_CLIENT"); do siblings_of "$c" | head -1; done | sort -u | wc -l)" -ne "$n_c" ]; then
+    echo "campaign.sh: CLIENT holds two SMT siblings of one core (CAMPAIGN req 4)" >&2
+    return 1
+  fi
+  return 0
+}
+
 # --- preconditions ------------------------------------------------------------------
 if [ "$SMOKE" = 1 ] && { [ -z "${AK_CPU_CLIENT:-}" ] || [ -z "${AK_CPU_SERVER:-}" ]; }; then
   # A smoke run checks the plumbing, so any two disjoint sets will do.
@@ -111,6 +156,7 @@ if [ "$SMOKE" != 1 ] && { [ -z "${AK_CPU_CLIENT:-}" ] || [ -z "${AK_CPU_SERVER:-
   echo "campaign.sh: AK_CPU_CLIENT and AK_CPU_SERVER are required outside --smoke (CAMPAIGN.md req 4)" >&2
   exit 2
 fi
+if [ "$SMOKE" != 1 ] && ! check_sets; then exit 2; fi
 if [ "$ALLOW_DIRTY" = 1 ] && [ "$SMOKE" != 1 ]; then
   echo "campaign.sh: --allow-dirty is for --smoke only (req 27 refuses a dirty tree)" >&2
   exit 2
@@ -140,7 +186,9 @@ say "governor $(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 2>/dev
     "no_turbo $(cat /sys/devices/system/cpu/intel_pstate/no_turbo 2>/dev/null || echo n/a)" \
     "smt $(cat /sys/devices/system/cpu/smt/active 2>/dev/null || echo n/a)" \
     "isolated $(cat /sys/devices/system/cpu/isolated 2>/dev/null || echo n/a)"
-say "CLIENT=${AK_CPU_CLIENT:-unset} SERVER=${AK_CPU_SERVER:-unset}"
+say "machine ${AK_MACHINE_NAME:-unnamed} model $(grep -m1 'model name' /proc/cpuinfo 2>/dev/null | cut -d: -f2- | sed 's/^ //')"
+say "CLIENT=${AK_CPU_CLIENT:-unset} SERVER=${AK_CPU_SERVER:-unset} set size ${AK_SET_SIZE:-unfixed}"
+say "siblings: $(for c in $(cpus_of "${AK_CPU_CLIENT:-}") $(cpus_of "${AK_CPU_SERVER:-}"); do printf '%s:%s ' "$c" "$(siblings_of "$c" | paste -sd, -)"; done)"
 say "slices: $SLICES  suites: $ORDERED  launches: ${LAUNCHES:-default}  rounds: ${ROUNDS:-default}"
 
 FAILED=""

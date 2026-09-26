@@ -24,6 +24,41 @@ use ak_abi::*;
 use core::ffi::c_void;
 use facade::*;
 
+// ---- CAMPAIGN req 19 as amended (R-H31): every exported entry point the timed loop calls --
+//
+// The core's context counters see the codec's own entry points (`ak_encode_*`,
+// `ak_decode_*`, `ak_parse_*`, the runs, the drains) and every reverse call. They do not
+// see a handful of plain exports the binding also calls: `ak_enc_reset` (before every
+// encode), `ak_dec_reset_<Root>` (before a retain decode, arming the options, and after it,
+// disarming with NULL), `ak_enc_take` (reading the encoded bytes) and `ak_dec_err` (after a
+// pull). The counting build (`count` feature) tallies those here, at the call site, so the
+// counts cover every exported call; in any other build these are empty inline functions.
+#[cfg(feature = "count")]
+thread_local! {
+    static HOST_RESETS: ::core::cell::Cell<u64> = const { ::core::cell::Cell::new(0) };
+    static HOST_OTHER: ::core::cell::Cell<u64> = const { ::core::cell::Cell::new(0) };
+}
+#[inline(always)]
+pub(crate) fn host_reset() {
+    #[cfg(feature = "count")]
+    HOST_RESETS.with(|c| c.set(c.get() + 1));
+}
+#[inline(always)]
+pub(crate) fn host_call() {
+    #[cfg(feature = "count")]
+    HOST_OTHER.with(|c| c.set(c.get() + 1));
+}
+/// (resets, other uncounted exports) the binding called since the last take; (0, 0) outside
+/// the counting build.
+pub fn host_calls_take() -> (u64, u64) {
+    #[cfg(feature = "count")]
+    {
+        return (HOST_RESETS.with(|c| c.replace(0)), HOST_OTHER.with(|c| c.replace(0)));
+    }
+    #[cfg(not(feature = "count"))]
+    (0, 0)
+}
+
 /// ABI v1 section 5. Rust's analogue of the managed guard: a panic crossing `extern "C"`
 /// aborts the process, so the binding catches it and reports it through the context it was
 /// handed. On by default; the `no-guard` build exists only to price it, because every
@@ -989,7 +1024,7 @@ unsafe fn loop_list_results_response_results_zeroed_big(ctx: *mut ak_enc_ctx, ob
 pub fn encode_into_list_results_response(ctx: *mut ak_enc_ctx, o: &ListResultsResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_ListResultsResponse {
             loop_results: Some(loop_list_results_response_results),
         };
@@ -1002,7 +1037,7 @@ pub fn encode_into_list_results_response(ctx: *mut ak_enc_ctx, o: &ListResultsRe
 pub fn encode_into_list_results_response_zeroed(ctx: *mut ak_enc_ctx, o: &ListResultsResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_ListResultsResponse {
             loop_results: Some(loop_list_results_response_results_zeroed),
         };
@@ -1500,7 +1535,7 @@ static ELEM_VT_ListTasksDetailedResponse_tasks: ak_evt_TaskDetailed = ak_evt_Tas
 pub fn encode_into_list_tasks_detailed_response(ctx: *mut ak_enc_ctx, o: &ListTasksDetailedResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_ListTasksDetailedResponse {
             loop_tasks: Some(loop_list_tasks_detailed_response_tasks),
             elem_tasks: &ELEM_VT_ListTasksDetailedResponse_tasks,
@@ -1514,7 +1549,7 @@ pub fn encode_into_list_tasks_detailed_response(ctx: *mut ak_enc_ctx, o: &ListTa
 pub fn encode_into_list_tasks_detailed_response_zeroed(ctx: *mut ak_enc_ctx, o: &ListTasksDetailedResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_ListTasksDetailedResponse {
             loop_tasks: Some(loop_list_tasks_detailed_response_tasks_zeroed),
             elem_tasks: &ELEM_VT_ListTasksDetailedResponse_tasks,
@@ -1670,7 +1705,7 @@ unsafe fn loop_list_probe_response_probes_zeroed_big(ctx: *mut ak_enc_ctx, obj: 
 pub fn encode_into_list_probe_response(ctx: *mut ak_enc_ctx, o: &ListProbeResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_ListProbeResponse {
             loop_probes: Some(loop_list_probe_response_probes),
         };
@@ -1683,7 +1718,7 @@ pub fn encode_into_list_probe_response(ctx: *mut ak_enc_ctx, o: &ListProbeRespon
 pub fn encode_into_list_probe_response_zeroed(ctx: *mut ak_enc_ctx, o: &ListProbeResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_ListProbeResponse {
             loop_probes: Some(loop_list_probe_response_probes_zeroed),
         };
@@ -1917,7 +1952,7 @@ static ELEM_VT_ListTaskSummaryResponse_tasks: ak_evt_TaskSummary = ak_evt_TaskSu
 pub fn encode_into_list_task_summary_response(ctx: *mut ak_enc_ctx, o: &ListTaskSummaryResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_ListTaskSummaryResponse {
             loop_tasks: Some(loop_list_task_summary_response_tasks),
             elem_tasks: &ELEM_VT_ListTaskSummaryResponse_tasks,
@@ -1931,7 +1966,7 @@ pub fn encode_into_list_task_summary_response(ctx: *mut ak_enc_ctx, o: &ListTask
 pub fn encode_into_list_task_summary_response_zeroed(ctx: *mut ak_enc_ctx, o: &ListTaskSummaryResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_ListTaskSummaryResponse {
             loop_tasks: Some(loop_list_task_summary_response_tasks_zeroed),
             elem_tasks: &ELEM_VT_ListTaskSummaryResponse_tasks,
@@ -1945,7 +1980,7 @@ pub fn encode_into_list_task_summary_response_zeroed(ctx: *mut ak_enc_ctx, o: &L
 pub fn encode_into_upload_result_data_message(ctx: *mut ak_enc_ctx, o: &UploadResultDataMessage, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_UploadResultDataMessage {
             _reserved: ::core::ptr::null(),
         };
@@ -1959,7 +1994,7 @@ pub fn encode_into_upload_result_data_message(ctx: *mut ak_enc_ctx, o: &UploadRe
 pub fn encode_into_upload_result_data_message_zeroed(ctx: *mut ak_enc_ctx, o: &UploadResultDataMessage, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_UploadResultDataMessage {
             _reserved: ::core::ptr::null(),
         };
@@ -2214,7 +2249,7 @@ static ELEM_VT_ListMetricsResponse_batches: ak_evt_MetricsBatch = ak_evt_Metrics
 pub fn encode_into_list_metrics_response(ctx: *mut ak_enc_ctx, o: &ListMetricsResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_ListMetricsResponse {
             loop_batches: Some(loop_list_metrics_response_batches),
             elem_batches: &ELEM_VT_ListMetricsResponse_batches,
@@ -2228,7 +2263,7 @@ pub fn encode_into_list_metrics_response(ctx: *mut ak_enc_ctx, o: &ListMetricsRe
 pub fn encode_into_list_metrics_response_zeroed(ctx: *mut ak_enc_ctx, o: &ListMetricsResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_ListMetricsResponse {
             loop_batches: Some(loop_list_metrics_response_batches_zeroed),
             elem_batches: &ELEM_VT_ListMetricsResponse_batches,
@@ -2526,7 +2561,7 @@ unsafe fn loop_dual_response_right_zeroed_big(ctx: *mut ak_enc_ctx, obj: *const 
 pub fn encode_into_dual_response(ctx: *mut ak_enc_ctx, o: &DualResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_DualResponse {
             loop_left: Some(loop_dual_response_left),
             loop_right: Some(loop_dual_response_right),
@@ -2540,7 +2575,7 @@ pub fn encode_into_dual_response(ctx: *mut ak_enc_ctx, o: &DualResponse, t: &Tcs
 pub fn encode_into_dual_response_zeroed(ctx: *mut ak_enc_ctx, o: &DualResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_DualResponse {
             loop_left: Some(loop_dual_response_left_zeroed),
             loop_right: Some(loop_dual_response_right_zeroed),
@@ -2554,7 +2589,7 @@ pub fn encode_into_dual_response_zeroed(ctx: *mut ak_enc_ctx, o: &DualResponse, 
 pub unsafe fn encoded<'a>(ctx: *mut ak_enc_ctx) -> &'a [u8] {
     let mut p: *const u8 = ::core::ptr::null();
     let mut n: usize = 0;
-    ak_enc_take(ctx, &mut p, &mut n);
+    host_call(); ak_enc_take(ctx, &mut p, &mut n);
     ::core::slice::from_raw_parts(p, n)
 }
 
@@ -2563,7 +2598,6 @@ unsafe fn from_timestamp(f: &ak_dfix_Timestamp, base: *const u8, ctx: *mut ak_de
     Timestamp {
         seconds: f.seconds,
         nanos: f.nanos,
-        // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
     }
 }
 
@@ -2572,7 +2606,6 @@ unsafe fn from_duration(f: &ak_dfix_Duration, base: *const u8, ctx: *mut ak_dec_
     Duration {
         seconds: f.seconds,
         nanos: f.nanos,
-        // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
     }
 }
 
@@ -2590,7 +2623,6 @@ unsafe fn from_result_raw(f: &ak_dfix_ResultRaw, base: *const u8, ctx: *mut ak_d
         created_by: s_of(base, f.created_by, ctx),
         opaque_id: b_of(base, f.opaque_id),
         manual_deletion: f.manual_deletion != 0,
-        // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
     }
 }
 
@@ -2619,7 +2651,6 @@ unsafe fn from_task_output(f: &ak_dfix_TaskOutput, base: *const u8, ctx: *mut ak
     TaskOutput {
         success: f.success != 0,
         error: s_of(base, f.error, ctx),
-        // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
     }
 }
 
@@ -2749,14 +2780,12 @@ unsafe fn from_probe(f: &ak_dfix_Probe, base: *const u8, ctx: *mut ak_dec_ctx) -
             14 => Some(ProbeBody::AsNothing(from_empty(&f.body_as_nothing, base, ctx))),
             _ => None,
         },
-        // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
     }
 }
 
 #[inline(always)]
 unsafe fn from_empty(f: &ak_dfix_Empty, base: *const u8, ctx: *mut ak_dec_ctx) -> Empty {
     Empty {
-        // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
     }
 }
 
@@ -2766,7 +2795,6 @@ unsafe fn from_upload_result_data(f: &ak_dfix_UploadResultData, base: *const u8,
         session_id: s_of(base, f.session_id, ctx),
         result_id: s_of(base, f.result_id, ctx),
         data_chunk: b_of(base, f.data_chunk),
-        // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
     }
 }
 
@@ -2783,7 +2811,6 @@ unsafe fn from_pair(f: &ak_dfix_Pair, base: *const u8, ctx: *mut ak_dec_ctx) -> 
     Pair {
         key: s_of(base, f.key, ctx),
         value: f.value,
-        // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
     }
 }
 
@@ -2830,7 +2857,6 @@ unsafe fn fill_list_metrics_response(dst: &mut ListMetricsResponse, f: &ak_dfix_
 unsafe fn from_upload_result_data_message(f: &ak_dfix_UploadResultDataMessage, base: *const u8, ctx: *mut ak_dec_ctx) -> UploadResultDataMessage {
     UploadResultDataMessage {
         upload: if f.presence & AK_DFIX_UPLOADRESULTDATAMESSAGE_PRESENT_UPLOAD != 0 { Some(from_upload_result_data(&f.upload, base, ctx)) } else { None },
-        // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
     }
 }
 
@@ -3001,7 +3027,7 @@ pub fn parse_drain_with_list_results_response(
                 if n == 0 { break; }
                 replay_list_results_response(ctx, obj, &scratch[..(n as usize) / 8], toks);
             }
-            if rc == AK_OK { ak_dec_err(ctx) } else { rc }
+            if rc == AK_OK { host_call(); ak_dec_err(ctx) } else { rc }
         }
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
@@ -3037,7 +3063,7 @@ pub fn parse_walk_with_list_results_response(
                 // 8-aligned by construction: the core's buffer is a `Vec<u64>`.
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_list_results_response(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -3070,7 +3096,7 @@ pub fn parse_walk_opaque_with_list_results_response(
             } else {
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_list_results_response_opaque(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -3371,7 +3397,7 @@ pub fn parse_drain_with_list_tasks_detailed_response(
                 if n == 0 { break; }
                 replay_list_tasks_detailed_response(ctx, obj, &scratch[..(n as usize) / 8], toks);
             }
-            if rc == AK_OK { ak_dec_err(ctx) } else { rc }
+            if rc == AK_OK { host_call(); ak_dec_err(ctx) } else { rc }
         }
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
@@ -3407,7 +3433,7 @@ pub fn parse_walk_with_list_tasks_detailed_response(
                 // 8-aligned by construction: the core's buffer is a `Vec<u64>`.
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_list_tasks_detailed_response(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -3440,7 +3466,7 @@ pub fn parse_walk_opaque_with_list_tasks_detailed_response(
             } else {
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_list_tasks_detailed_response_opaque(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -3605,7 +3631,7 @@ pub fn parse_drain_with_list_probe_response(
                 if n == 0 { break; }
                 replay_list_probe_response(ctx, obj, &scratch[..(n as usize) / 8], toks);
             }
-            if rc == AK_OK { ak_dec_err(ctx) } else { rc }
+            if rc == AK_OK { host_call(); ak_dec_err(ctx) } else { rc }
         }
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
@@ -3641,7 +3667,7 @@ pub fn parse_walk_with_list_probe_response(
                 // 8-aligned by construction: the core's buffer is a `Vec<u64>`.
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_list_probe_response(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -3674,7 +3700,7 @@ pub fn parse_walk_opaque_with_list_probe_response(
             } else {
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_list_probe_response_opaque(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -3873,7 +3899,7 @@ pub fn parse_drain_with_list_task_summary_response(
                 if n == 0 { break; }
                 replay_list_task_summary_response(ctx, obj, &scratch[..(n as usize) / 8], toks);
             }
-            if rc == AK_OK { ak_dec_err(ctx) } else { rc }
+            if rc == AK_OK { host_call(); ak_dec_err(ctx) } else { rc }
         }
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
@@ -3909,7 +3935,7 @@ pub fn parse_walk_with_list_task_summary_response(
                 // 8-aligned by construction: the core's buffer is a `Vec<u64>`.
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_list_task_summary_response(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -3942,7 +3968,7 @@ pub fn parse_walk_opaque_with_list_task_summary_response(
             } else {
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_list_task_summary_response_opaque(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -4087,7 +4113,7 @@ pub fn parse_drain_with_upload_result_data_message(
                 if n == 0 { break; }
                 replay_upload_result_data_message(ctx, obj, &scratch[..(n as usize) / 8], toks);
             }
-            if rc == AK_OK { ak_dec_err(ctx) } else { rc }
+            if rc == AK_OK { host_call(); ak_dec_err(ctx) } else { rc }
         }
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
@@ -4123,7 +4149,7 @@ pub fn parse_walk_with_upload_result_data_message(
                 // 8-aligned by construction: the core's buffer is a `Vec<u64>`.
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_upload_result_data_message(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -4156,7 +4182,7 @@ pub fn parse_walk_opaque_with_upload_result_data_message(
             } else {
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_upload_result_data_message_opaque(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -4451,7 +4477,7 @@ pub fn parse_drain_with_list_metrics_response(
                 if n == 0 { break; }
                 replay_list_metrics_response(ctx, obj, &scratch[..(n as usize) / 8], toks);
             }
-            if rc == AK_OK { ak_dec_err(ctx) } else { rc }
+            if rc == AK_OK { host_call(); ak_dec_err(ctx) } else { rc }
         }
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
@@ -4487,7 +4513,7 @@ pub fn parse_walk_with_list_metrics_response(
                 // 8-aligned by construction: the core's buffer is a `Vec<u64>`.
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_list_metrics_response(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -4520,7 +4546,7 @@ pub fn parse_walk_opaque_with_list_metrics_response(
             } else {
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_list_metrics_response_opaque(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -4710,7 +4736,7 @@ pub fn parse_drain_with_dual_response(
                 if n == 0 { break; }
                 replay_dual_response(ctx, obj, &scratch[..(n as usize) / 8], toks);
             }
-            if rc == AK_OK { ak_dec_err(ctx) } else { rc }
+            if rc == AK_OK { host_call(); ak_dec_err(ctx) } else { rc }
         }
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
@@ -4746,7 +4772,7 @@ pub fn parse_walk_with_dual_response(
                 // 8-aligned by construction: the core's buffer is a `Vec<u64>`.
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_dual_response(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -4779,7 +4805,7 @@ pub fn parse_walk_opaque_with_dual_response(
             } else {
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_dual_response_opaque(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };

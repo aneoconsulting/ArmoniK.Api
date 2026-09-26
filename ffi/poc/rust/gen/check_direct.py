@@ -50,6 +50,29 @@ def main():
         except NotImplementedError as e:
             print("%-52s refused" % label)
             print("%-52s   %s" % ("", str(e).replace("\n", " ")[:150]))
+
+    # FIX-PLAN R-H15: a packed fixed32 has no run symbol (no ak_run_u32), so
+    # plan.check_expressible refuses it at generator time, before any backend renders.
+    print()
+    print("# ABI v1 section 6: packed kinds without a run symbol (plan.check_expressible)")
+    try:
+        P.check_expressible(P.load(["ListMetricsResponse"]), "ListMetricsResponse")
+        print("%-52s %s" % ("M6 as the schema declares it", "accepted, as it must be"))
+    except NotImplementedError as e:
+        print("%-52s %s" % ("M6 as the schema declares it", "WRONGLY REFUSED: %s" % e))
+        bad += 1
+    sc = P.shapes_schema()
+    sc["messages"]["MetricsBatch"]["fields"].append(
+        {"name": "crc32s", "tag": 99, "kind": "fixed32", "card": "packed", "count": 3})
+    i = P.load_schema(sc, ["ListMetricsResponse"])
+    label = "a packed fixed32 in M6's element"
+    try:
+        P.check_expressible(i, "ListMetricsResponse")
+        print("%-52s NOT REFUSED -- the check does not work" % label)
+        bad += 1
+    except NotImplementedError as e:
+        print("%-52s refused" % label)
+        print("%-52s   %s" % ("", str(e).replace("\n", " ")[:150]))
     print()
     print("%d case(s) wrong" % bad)
     return 1 if bad else 0

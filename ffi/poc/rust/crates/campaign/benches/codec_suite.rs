@@ -2,7 +2,7 @@
 //!
 //! One process per launch (the runner pins it to `AK_CPU_CLIENT` with `taskset` and starts
 //! it three times). Configuration from the environment, recorded in the header:
-//!   AK_LAUNCH        1..=3; the arm order is rotated by launch (requirement 22)
+//!   AK_LAUNCH        1..=3; the seed of the launch's random arm and case order (req 22)
 //!   AK_OUT           the JSON-lines file to write (section 7)
 //!   AK_ONLY          comma-separated input id prefixes (smoke runs), empty = everything
 //!   AK_SAMPLES       criterion samples per case = rounds (requirement 23; >= 10, criterion's floor)
@@ -10,19 +10,17 @@
 //!                    (requirement 24, identical for every arm; also warms the allocator, 25)
 //!   AK_WARMUP_MS     criterion's own warm-up time per case
 //!   AK_MEASURE_MS    criterion's measurement time per case
-//!   AK_ORDER         `blocks` (default; requirement 22: blocks by arm, the arm order rotated
-//!                    by launch) or `shuffle`: every case of the process in one seeded random
-//!                    order (AK_SEED, default 1), so no arm is always first or last. Criterion
-//!                    runs all samples of one case back to back (it cannot interleave samples
-//!                    of different cases), so the order is interleaved per case, not per sample.
-//!   AK_NRESAMPLES    criterion's bootstrap resamples for its console summary (default 100000,
-//!                    criterion's own); it touches no exported sample, only analysis time
-//!   AK_NODROP        comma-separated EXACT input ids that also get the labelled extra
-//!                    `decode-nodrop` rows (the decoded graph dropped outside the timed region)
+//!   AK_LLC_BYTES     the last-level cache (default 13.75 MiB, the reference i9-7900X)
+//!   AK_POOL_BYTES    requirement 11's pool input: wire bytes of distinct graphs (default
+//!                    2 x AK_LLC_BYTES)
+//!   AK_NRESAMPLES    criterion's bootstrap resamples for its console summary (default
+//!                    100000, criterion's own); analysis only, no exported sample depends on it
 //!   AK_ZC            comma-separated input id PREFIXES that get the labelled extra arm
-//!                    `core-ffi-zc` (optimisation Z1: `bytes` fields share the input buffer)
+//!                    `core-ffi-zc` (optimisation Z1: `bytes` fields share the input buffer);
+//!                    labelled extra arms run after the arm blocks
 //!
-//! Criterion measures with `campaign::ThreadCpu` (CLOCK_THREAD_CPUTIME_ID, requirement 21)
+//! Criterion measures with `campaign::ProcessCpu` (CLOCK_PROCESS_CPUTIME_ID, requirement 21
+//! as amended 2026-09-26)
 //! in `SamplingMode::Flat`, so every sample (round) of a case has the same iteration count.
 //! Every raw sample criterion saved (`<CRITERION_HOME>/codec/<case>/new/sample.json`) is
 //! converted to one JSON line; criterion's outlier classification touches only its console
@@ -39,9 +37,8 @@ fn env<T: std::str::FromStr>(k: &str, d: T) -> T {
 
 struct Collect<'a> {
     ctx: &'static harness::arms::core_ffi_arm::Ctx,
-    nodrop: &'a [String],
-    zc: &'a [String],
     inp: &'a Input,
+    zc: &'a [String],
     cases: &'a mut Vec<Case>,
     checks: &'a mut usize,
     fails: &'a mut Vec<String>,
@@ -54,8 +51,7 @@ impl Visit for Collect<'_> {
         *self.checks += n;
         self.fails.extend(f);
         self.refused.extend(r);
-        self.cases.extend(cases_for::<R>(self.ctx, self.inp, self.nodrop.iter().any(|x| *x == self.inp.id),
-                                         self.zc.iter().any(|x| self.inp.id.starts_with(x.as_str()))));
+        self.cases.extend(cases_for::<R>(self.ctx, self.inp, self.zc.iter().any(|x| self.inp.id.starts_with(x.as_str()))));
     }
 }
 
@@ -68,15 +64,9 @@ fn main() {
     let warm_iters: u64 = env("AK_WARMUP_ITERS", 100);
     let warm_ms: u64 = env("AK_WARMUP_MS", 500);
     let meas_ms: u64 = env("AK_MEASURE_MS", 2000);
-    let order_mode: String = env("AK_ORDER", "blocks".to_string());
-    let seed: u64 = env("AK_SEED", 1);
     let nresamples: usize = env("AK_NRESAMPLES", 100_000);
-    let nodrop: Vec<String> = std::env::var("AK_NODROP").unwrap_or_default()
-        .split(',').filter(|s| !s.is_empty()).map(String::from).collect();
-    // Optimisation Z1: input id PREFIXES that get the labelled extra `core-ffi-zc` arm.
     let zc: Vec<String> = std::env::var("AK_ZC").unwrap_or_default()
         .split(',').filter(|s| !s.is_empty()).map(String::from).collect();
-    assert!(order_mode == "blocks" || order_mode == "shuffle", "AK_ORDER: blocks | shuffle");
     let home = std::env::var("CRITERION_HOME").expect("CRITERION_HOME (the runner sets it per launch)");
 
     let ctx: &'static _ = Box::leak(Box::new(harness::arms::core_ffi_arm::Ctx::new()));
@@ -85,9 +75,26 @@ fn main() {
     let (mut checks, mut fails, mut refused) = (0usize, Vec::new(), Vec::new());
     for inp in &inputs {
         let ok = generated::roots::with_root(&inp.root, &mut Collect {
-            ctx, nodrop: &nodrop, zc: &zc, inp: inp, cases: &mut cases, checks: &mut checks, fails: &mut fails, refused: &mut refused,
+            ctx, inp: inp, zc: &zc, cases: &mut cases, checks: &mut checks, fails: &mut fails, refused: &mut refused,
         });
         assert!(ok, "no root {}", inp.root);
+    }
+    // Requirement 11's variants write the same bytes: every (arm, input, mode) returns the
+    // same length from each of its end-state x input variants (the pool built and freed).
+    {
+        let mut want: std::collections::HashMap<(String, &str, &str, &str), u64> = Default::default();
+        for cs in cases.iter_mut().filter(|c| !c.end_state.is_empty()) {
+            if let Some(p) = cs.prep.as_mut() { p(); }
+            let (a, b) = ((cs.op)(), (cs.op)());
+            if let Some(d) = cs.done.as_mut() { d(); }
+            let key = (cs.payload.clone(), cs.content, cs.arm, cs.unknown_mode);
+            let w = *want.entry(key).or_insert(a);
+            checks += 1;
+            if a != w || b != w {
+                fails.push(format!("{} {} {} {}/{}: {} B, {} B where the hot reused-buffer row wrote {} B",
+                                   cs.payload, cs.arm, cs.unknown_mode, cs.end_state, cs.input, a, b, w));
+            }
+        }
     }
     // Requirement 26: nothing is timed if any timed arm is wrong on any input.
     eprintln!("# precheck: {checks} checks, {} failures, {} inputs, {} cases", fails.len(), inputs.len(), cases.len());
@@ -107,43 +114,26 @@ fn main() {
 
     let order = arm_order(launch);
     let mut c = Criterion::default()
-        .with_measurement(ThreadCpu)
+        .with_measurement(ProcessCpu)
         .sample_size(samples.max(10))
         .warm_up_time(Duration::from_millis(warm_ms))
         .measurement_time(Duration::from_millis(meas_ms))
         .nresamples(nresamples)
         .without_plots();
-    // Blocks by arm, the arm order rotated by launch (requirement 22).
+    // Blocks by arm (requirement 22), in a seeded random order per launch, and the cases
+    // inside a block in a seeded random order too (R-H23): criterion runs benchmarks in
+    // registration order, so the order is decided here.
     let mut ran: Vec<(usize, &Case)> = Vec::new();
     let mut idx_of = Vec::new();
-    if order_mode == "blocks" {
-        for arm in &order {
-            for (i, cs) in cases.iter().enumerate() {
-                if cs.arm == *arm {
-                    idx_of.push(i);
-                }
-            }
-        }
-        // Labelled extra arms (core-ffi-zc) are not in the rotation: they run last.
-        for (i, cs) in cases.iter().enumerate() {
-            if !order.contains(&cs.arm) {
-                idx_of.push(i);
-            }
-        }
-    } else {
-        // Seeded Fisher-Yates over every case (splitmix64).
-        idx_of = (0..cases.len()).collect();
-        let mut st = seed;
-        let mut next = || {
-            st = st.wrapping_add(0x9E37_79B9_7F4A_7C15);
-            let mut z = st;
-            z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
-            z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
-            z ^ (z >> 31)
-        };
-        for i in (1..idx_of.len()).rev() {
-            let j = (next() % (i as u64 + 1)) as usize;
-            idx_of.swap(i, j);
+    for (b, arm) in order.iter().enumerate() {
+        let mut block: Vec<usize> = cases.iter().enumerate().filter(|(_, cs)| cs.arm == *arm).map(|(i, _)| i).collect();
+        campaign::shuffle(&mut block, (launch as u64) << 8 | b as u64);
+        idx_of.extend(block);
+    }
+    // Labelled extra arms (core-ffi-zc) are not in the requirement-22 blocks: after them.
+    for (i, cs) in cases.iter().enumerate() {
+        if !order.contains(&cs.arm) {
+            idx_of.push(i);
         }
     }
     {
@@ -151,15 +141,20 @@ fn main() {
         g.sampling_mode(SamplingMode::Flat);
         for &i in &idx_of {
             let cs = &mut cases[i];
+            // Requirement 11: a pool input's graphs are built here, before the warm-up and
+            // outside every timed window, and freed after the case.
+            if let Some(p) = cs.prep.as_mut() {
+                p();
+            }
             // Requirement 24: a fixed number of iterations of THIS case before criterion's
             // own warm-up, identical for every arm.
             for _ in 0..warm_iters {
                 black_box((cs.op)());
             }
-            match cs.bench.as_mut() {
-                Some(bf) => g.bench_function(format!("{i:05}"), |b| bf(b)),
-                None => g.bench_function(format!("{i:05}"), |b| b.iter(|| (cs.op)())),
-            };
+            g.bench_function(format!("{i:05}"), |b| b.iter(|| (cs.op)()));
+            if let Some(d) = cs.done.as_mut() {
+                d();
+            }
         }
         g.finish();
     }
@@ -170,22 +165,23 @@ fn main() {
     // Section 7: one JSON line per raw criterion sample.
     let mut f = std::fs::File::create(&out_path).unwrap();
     for h in header("codec", &[
-        ("engine", "criterion 0.5, measurement = thread CPU (CLOCK_THREAD_CPUTIME_ID), SamplingMode::Flat, raw samples exported, none dropped".into()),
-        ("build", build_line()),
-        ("launch", launch.to_string()),
-        ("arm order", if order_mode == "blocks" {
-            format!("blocks by arm: {}", order.join(","))
+        ("engine", "criterion 0.5, measurement = PROCESS CPU (CLOCK_PROCESS_CPUTIME_ID, requirement 21 as amended), SamplingMode::Flat, raw samples exported, none dropped".into()),
+        ("threads", "1 measuring thread (criterion, in-process); no runtime, no worker pool in the codec suite".into()),
+        ("encode variants", format!("every encode arm x mode in 4 rows (requirement 11): end_state reused-buffer | transport-ready (incumbent-prod, armonik: a frozen Bytes split from a reused BytesMut, tonic's encode buffer; core-native, core-ffi: a Bytes copy of their buffer, what cells F and D hand tonic -- over the core's transport the form is the reused buffer itself) x input hot (one graph) | pool (distinct graphs cloned until the heap they hold, measured with glibc mallinfo2, reaches AK_POOL_BYTES; at least 2, at most 2^20; built before the case's warm-up and freed after; each pool row records pool_graphs and pool_heap_bytes; AK_POOL_BYTES = {}, AK_LLC_BYTES = {})", pool_bytes(), llc_bytes())),
+        ("build", if cfg!(feature = "unknown-fields") {
+            "unknown-fields: core-ffi / core-native / core-ffi-pull in modes drop and retain".to_string()
         } else {
-            format!("shuffle: every case in one seeded random order, seed {seed} (splitmix64 Fisher-Yates); criterion runs one case's samples back to back")
+            "NO-UNKNOWN (unknown-field support compiled out, CAMPAIGN.md req 10): core-ffi / core-native / core-ffi-pull in mode no-unknown; incumbent-prod and armonik as in-process controls".to_string()
         }),
-        ("criterion resamples", format!("{nresamples} (analysis only; no exported sample depends on it)")),
-        ("decode-nodrop", nodrop_line(&nodrop)),
-            ("core-ffi-zc", if zc.is_empty() { "none".to_string() } else { format!("labelled extra arm on inputs {}*: the core-ffi decode with every bytes field a slice of the input Bytes (optimisation Z1; not ABI v1 decision 13's copy semantics, which core-ffi keeps; the other decodes pay one thread-local load per non-empty bytes field for it)", zc.join("*,")) }),
+        ("launch", launch.to_string()),
+        ("arm order", format!("{} (arm blocks and the cases inside each block in a seeded random order, seed = launch; criterion runs them in this registration order)", order.join(","))),
         ("samples (rounds) per case", samples.max(10).to_string()),
-        ("warm-up", format!("{warm_iters} fixed iterations per case, then criterion warm-up {warm_ms} ms; measurement {meas_ms} ms")),
-        ("wall", "not recorded for the codec suite (criterion measures one quantity; thread CPU is requirement 21's)".into()),
-        ("unknown modes", modes_line()),
+        ("criterion resamples", format!("{nresamples} (analysis only; no exported sample depends on it)")),
         ("core-ffi encode fill", FFI_ENCODE_FILL.into()),
+        ("core-ffi-zc", if zc.is_empty() { "none".to_string() } else { format!("labelled extra arm on inputs {}*: the core-ffi decode with every bytes field a slice of the input Bytes (optimisation Z1; not ABI v1 decision 13's copy semantics, which core-ffi keeps); run after the arm blocks", zc.join("*,")) }),
+        ("warm-up", format!("{warm_iters} fixed iterations per case, then criterion warm-up {warm_ms} ms; measurement {meas_ms} ms")),
+        ("wall", "not recorded for the codec suite (criterion measures one quantity; process CPU is requirement 21's)".into()),
+        ("unknown modes", format!("core-native, core-ffi, core-ffi-pull: {} (retain = every position armed); incumbent-prod and armonik: default (prost drops unknown fields). core-native's drop rendering has no unknown-field code in either build", MODES.iter().map(|m| m.0).collect::<Vec<_>>().join(", "))),
         ("precheck", format!("{checks} checks passed")),
         ("inputs", inputs.len().to_string()),
         ("cases", cases.len().to_string()),
@@ -212,30 +208,18 @@ fn main() {
             if cs.unknown_mode != "default" {
                 o["unknown_mode"] = cs.unknown_mode.into();
             }
+            if !cs.end_state.is_empty() {
+                o["end_state"] = cs.end_state.into();
+                o["input"] = cs.input.into();
+            }
+            if let Some(pi) = &cs.pool_info {
+                let (n, held) = pi.get();
+                o["pool_graphs"] = n.into();
+                o["pool_heap_bytes"] = held.into();
+            }
             writeln!(f, "{o}").unwrap();
             rows += 1;
         }
     }
     eprintln!("# wrote {rows} sample rows to {out_path}");
 }
-
-fn build_line() -> String {
-    if cfg!(feature = "unknown-fields") {
-        "unknown-fields: core-ffi / core-native / core-ffi-pull in modes drop and retain".to_string()
-    } else {
-        "NO-UNKNOWN (unknown-field support compiled out, CAMPAIGN.md req 10): core-ffi / core-native / core-ffi-pull in mode no-unknown; incumbent-prod and armonik as in-process controls. The facade types have NO unknown_fields member in this build (optimisation step 8, F1, owner decision R-H22), which changes the armonik control arm too (it decodes into and encodes from the same facade types); accepted by the owner".to_string()
-    }
-}
-
-fn modes_line() -> String {
-    format!("core-native, core-ffi, core-ffi-pull: {} (retain = every position armed); incumbent-prod and armonik: default (prost drops unknown fields). core-native's drop rendering has no unknown-field code in either build", MODES.iter().map(|m| m.0).collect::<Vec<_>>().join(", "))
-}
-
-fn nodrop_line(nodrop: &[String]) -> String {
-    if nodrop.is_empty() {
-        "none".to_string()
-    } else {
-        format!("labelled extra rows on {}: the decoded graph dropped outside the timed region (criterion's iter_custom: each operation timed alone, its output dropped after its clock stops), incumbent-prod, armonik, core-native, core-ffi; the headline decode rows keep the drop inside", nodrop.join(","))
-    }
-}
-

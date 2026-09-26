@@ -66,6 +66,10 @@ public static class CoreGate
         var vwhy = AbiVariant.CheckLoadedCore();
         Console.WriteLine("binding variant: {0}; loaded core: {1}", AbiVariant.Name, vwhy ?? "the same variant (checked by its u-family exports)");
         if (vwhy != null) bad++;
+        // R-H22 / CAMPAIGN req 10: the no-unknown build's facade has NO unknown-field member.
+        bool hasBag = typeof(ListResultsResponse).GetField("UnknownFields") != null;
+        Console.WriteLine("facade member UnknownFields: {0} (this build: {1})", hasBag ? "present" : "absent", AbiVariant.Name);
+        if (hasBag == AbiVariant.UnknownCompiledOut) { Console.WriteLine("  FAIL the facade does not match the build variant"); bad++; }
         Console.WriteLine("core-ffi through the C ABI, every shape. Strings are handed over as {0}.",
             utf16 ? "the host's own UTF-16 with ak_tc_utf16 (AK_UTF16=1)"
                   : "staged UTF-8 with ak_tc_bytes");
@@ -82,26 +86,29 @@ public static class CoreGate
         // AK_CROSSINGS_EXPECT set, every row's six counts must equal the committed ones.
         var expect = new Dictionary<string, string>(StringComparer.Ordinal);
         var xpath = Environment.GetEnvironmentVariable("AK_CROSSINGS_EXPECT");
+        bool checkCounts = !string.IsNullOrEmpty(xpath);
         if (!string.IsNullOrEmpty(xpath))
             foreach (var l in System.IO.File.ReadAllLines(xpath))
                 if (l.Length != 0 && l[0] != '#') { var f = l.Split(' ', 2); expect[f[0]] = f[1]; }
         var wrote = new List<string>();
         var covered = new HashSet<string>(CoreArms.Ids, StringComparer.Ordinal);
-        // WP6 step 1: P1.2 in the Latin-1 and wide content sets too (SHAPES.md), as the rust
-        // slice counts them. The expected bytes are the incumbent's for the same graph (the
-        // manifest has the ASCII set only); the arm's source graph is built under the set.
+        // WP6 step 1, WP7 (CAMPAIGN req 7 as amended, R-H26): P1.2, P2.2 and P2.4 in the Latin-1
+        // and wide content sets too (SHAPES.md). The expected bytes are the incumbent's for the
+        // same graph (the manifest has the ASCII set only); the arm's source graph is built
+        // under the set.
         var contentSets = new Dictionary<string, int>(StringComparer.Ordinal);
-        foreach (var (cs, name) in new[] { (Values.Latin1, "latin1"), (Values.Wide, "wide") })
-        {
-            if (!rows.TryGetValue("P1.2", out var baseRow)) break;
-            Values.ContentSet = cs;
-            var gp = BuildGp.P1_2().ToByteArray();
-            Values.ContentSet = Values.Ascii;
-            var cid = "P1.2/" + name;
-            rows[cid] = new PayloadRow { Id = cid, Root = baseRow.Root, Bytes = gp.Length, Sha256 = Manifest.Sha(gp, gp.Length), Vector = null };
-            contentSets[cid] = cs;
-            covered.Add(cid);
-        }
+        foreach (var (pid, build) in new (string, Func<byte[]>)[] { ("P1.2", () => BuildGp.P1_2().ToByteArray()), ("P2.2", () => BuildGp.P2_2().ToByteArray()), ("P2.4", () => BuildGp.P2_4().ToByteArray()) })
+            foreach (var (cs, name) in new[] { (Values.Latin1, "latin1"), (Values.Wide, "wide") })
+            {
+                if (!rows.TryGetValue(pid, out var baseRow)) break;
+                Values.ContentSet = cs;
+                var gp = build();
+                Values.ContentSet = Values.Ascii;
+                var cid = pid + "/" + name;
+                rows[cid] = new PayloadRow { Id = cid, Root = baseRow.Root, Bytes = gp.Length, Sha256 = Manifest.Sha(gp, gp.Length), Vector = null };
+                contentSets[cid] = cs;
+                covered.Add(cid);
+            }
         foreach (var id in rows.Keys.OrderBy(x => x, StringComparer.Ordinal))
         {
             var row = rows[id];
@@ -213,7 +220,7 @@ public static class CoreGate
             }
             var counts = string.Join(" ", ef, er, df, dr, pf, pr);
             wrote.Add(id + " " + counts);
-            if (expect.Count != 0 && (!expect.TryGetValue(id, out var want) || want != counts))
+            if (checkCounts && (!expect.TryGetValue(id, out var want) || want != counts))
             {
                 Console.WriteLine("  {0}: CROSSINGS {1}, committed {2}", id, counts, want ?? "(none)");
                 bad++;
@@ -227,8 +234,16 @@ public static class CoreGate
         var missing = rows.Keys.Where(k => !covered.Contains(k)).OrderBy(x => x, StringComparer.Ordinal).ToArray();
         if (missing.Length != 0)
             Console.WriteLine("NOT COVERED: {0}", string.Join(", ", missing));
-        if (expect.Count != 0)
-            Console.WriteLine("Crossing counts against {0}: {1}", xpath, expect.Count == wrote.Count ? "compared on every row" : "row count differs");
+        if (checkCounts)
+        {
+            // R-H3: a committed row this run did not produce FAILS, as does an empty file.
+            var produced = new HashSet<string>(wrote.Select(w => w.Split(' ')[0]), StringComparer.Ordinal);
+            var absent = expect.Keys.Where(k => !produced.Contains(k)).OrderBy(k => k, StringComparer.Ordinal).ToList();
+            foreach (var k in absent) { Console.WriteLine("  {0}: CROSSINGS committed ({1}) but not produced by this run", k, expect[k]); bad++; }
+            if (expect.Count == 0) { Console.WriteLine("  CROSSINGS: {0} has no rows: nothing to compare against", xpath); bad++; }
+            Console.WriteLine("Crossing counts against {0}: {1}", xpath,
+                expect.Count != 0 && absent.Count == 0 && expect.Count == wrote.Count ? "compared on every row, every committed row produced" : "INCOMPLETE (see above)");
+        }
         var wr = Environment.GetEnvironmentVariable("AK_CROSSINGS_WRITE");
         if (!string.IsNullOrEmpty(wr))
             System.IO.File.WriteAllLines(wr, new[] { "# payload  encode fwd rev  push-decode fwd rev  pull-decode fwd rev (whole run per element call; counting core)" }.Concat(wrote));

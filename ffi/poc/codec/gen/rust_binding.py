@@ -13,7 +13,7 @@ renderer only. The emitted text is unchanged by the move.
 """
 from plan import (as_plan, direct_fields, elem_type, loop_slots, presence_bits,  # noqa: F401
                   slot_elem as slot_elem_rust, slot_name, unk_opts_name, unk_opts_members,
-                  unk_positions, unk_opts_layout)
+                  unk_positions, unk_opts_layout, unknown_compiled_out)
 from rustnames import SCALAR  # noqa: F401
 from rust_abi import rust_member
 
@@ -241,6 +241,41 @@ BINDING_PRELUDE = '''//! Arm `core-ffi-rust`: the generated host binding.
 use ak_abi::*;
 use core::ffi::c_void;
 use facade::*;
+
+// ---- CAMPAIGN req 19 as amended (R-H31): every exported entry point the timed loop calls --
+//
+// The core's context counters see the codec's own entry points (`ak_encode_*`,
+// `ak_decode_*`, `ak_parse_*`, the runs, the drains) and every reverse call. They do not
+// see a handful of plain exports the binding also calls: `ak_enc_reset` (before every
+// encode), `ak_dec_reset_<Root>` (before a retain decode, arming the options, and after it,
+// disarming with NULL), `ak_enc_take` (reading the encoded bytes) and `ak_dec_err` (after a
+// pull). The counting build (`count` feature) tallies those here, at the call site, so the
+// counts cover every exported call; in any other build these are empty inline functions.
+#[cfg(feature = "count")]
+thread_local! {
+    static HOST_RESETS: ::core::cell::Cell<u64> = const { ::core::cell::Cell::new(0) };
+    static HOST_OTHER: ::core::cell::Cell<u64> = const { ::core::cell::Cell::new(0) };
+}
+#[inline(always)]
+pub(crate) fn host_reset() {
+    #[cfg(feature = "count")]
+    HOST_RESETS.with(|c| c.set(c.get() + 1));
+}
+#[inline(always)]
+pub(crate) fn host_call() {
+    #[cfg(feature = "count")]
+    HOST_OTHER.with(|c| c.set(c.get() + 1));
+}
+/// (resets, other uncounted exports) the binding called since the last take; (0, 0) outside
+/// the counting build.
+pub fn host_calls_take() -> (u64, u64) {
+    #[cfg(feature = "count")]
+    {
+        return (HOST_RESETS.with(|c| c.replace(0)), HOST_OTHER.with(|c| c.replace(0)));
+    }
+    #[cfg(not(feature = "count"))]
+    (0, 0)
+}
 
 /// ABI v1 section 5. Rust's analogue of the managed guard: a panic crossing `extern "C"`
 /// aborts the process, so the binding catches it and reports it through the context it was
@@ -489,7 +524,7 @@ def emit_binding(ir):
     global NOUNK
     # WP5 step 10: the NO-UNKNOWN variant's binding (plan: THE NO-UNKNOWN VARIANT): no
     # u-groups, no bags handed to the core or taken from it, no options, no `_unk` family.
-    NOUNK = ir.options.unknown == "drop"
+    NOUNK = unknown_compiled_out(ir)
     # The unknown-field prelude sits right after the `use` lines, where it always did, so
     # the full variant's text is unchanged by the split.
     # D1 (optimisation step 1): the string materialiser follows the plan's utf8 option, as
@@ -908,7 +943,7 @@ def emit_binding(ir):
                  % (rs, root))
         o.append("    unsafe {")
         o.append("        TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));")
-        o.append("        ak_enc_reset(ctx);")
+        o.append("        host_reset(); ak_enc_reset(ctx);")
         o.append("        let vt = ak_evt_%s {" % root)
         if not loop_slots(ir, root):
             o.append("            _reserved: ::core::ptr::null(),")
@@ -937,7 +972,7 @@ def emit_binding(ir):
                  % (rs, root))
         o.append("    unsafe {")
         o.append("        TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));")
-        o.append("        ak_enc_reset(ctx);")
+        o.append("        host_reset(); ak_enc_reset(ctx);")
         o.append("        let vt = ak_evt_%s {" % root)
         if not loop_slots(ir, root):
             o.append("            _reserved: ::core::ptr::null(),")
@@ -965,7 +1000,7 @@ def emit_binding(ir):
                  % (rs, root))
         o.append("    unsafe {")
         o.append("        TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));")
-        o.append("        ak_enc_reset(ctx);")
+        o.append("        host_reset(); ak_enc_reset(ctx);")
         o.append("        let vt = ak_evt_%s {" % root)
         if not loop_slots(ir, root):
             o.append("            _reserved: ::core::ptr::null(),")
@@ -994,7 +1029,7 @@ def emit_binding(ir):
                  % (rs, root))
         o.append("    unsafe {")
         o.append("        TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));")
-        o.append("        ak_enc_reset(ctx);")
+        o.append("        host_reset(); ak_enc_reset(ctx);")
         o.append("        let vt = ak_evt_%s {" % root)
         if not loop_slots(ir, root):
             o.append("            _reserved: ::core::ptr::null(),")
@@ -1020,7 +1055,7 @@ def emit_binding(ir):
     o.append("pub unsafe fn encoded<'a>(ctx: *mut ak_enc_ctx) -> &'a [u8] {")
     o.append("    let mut p: *const u8 = ::core::ptr::null();")
     o.append("    let mut n: usize = 0;")
-    o.append("    ak_enc_take(ctx, &mut p, &mut n);")
+    o.append("    host_call(); ak_enc_take(ctx, &mut p, &mut n);")
     o.append("    ::core::slice::from_raw_parts(p, n)")
     o.append("}")
     o.append("")
@@ -1065,9 +1100,9 @@ def emit_binding(ir):
                 o.append("        %s: %s" % (oname, lines[0]))
                 o.extend("        " + ln for ln in lines[1:-1])
                 o.append("        },")
-            o.append("        // Decision 11 (WP5 step 7): the message's own buffer, the host's now.")
             if not NOUNK:
-                # Optimisation step 8 (F1): the no-unknown facade has no bag member.
+                # The no-unknown facade has no member to fill (FIX-PLAN R-H22).
+                o.append("        // Decision 11 (WP5 step 7): the message's own buffer, the host's now.")
                 o.append("        unknown_fields: take_unk(&f.unknown),")
             o.append("    }")
             o.append("}")
@@ -1220,10 +1255,10 @@ def emit_binding(ir):
         o.append("/// delivered (an inactive oneof member, a map entry, a failed decode) are reclaimed.")
         o.append("pub fn decode_with_%s_opts(ctxs: DecCtxs, b: &[u8], opts: &mut %s) -> Result<%s, i32> {"
                  % (rs, on, root))
-        o.append("    let rc = unsafe { ak_dec_reset_%s(ctxs.%s, opts) };" % (root, rs))
+        o.append("    let rc = unsafe { host_reset(); ak_dec_reset_%s(ctxs.%s, opts) };" % (root, rs))
         o.append("    if rc != AK_OK { return Err(rc); }")
         o.append("    let r = decode_with_%s_armed(ctxs, b);" % rs)
-        o.append("    unsafe { ak_dec_reset_%s(ctxs.%s, ::core::ptr::null_mut()); }" % (root, rs))
+        o.append("    unsafe { host_reset(); ak_dec_reset_%s(ctxs.%s, ::core::ptr::null_mut()); }" % (root, rs))
         o.append("    unsafe { (*ctxs.unk).%s_armed.set(false); }" % rs)
         o.append("    unk_reclaim();")
         o.append("    r")
@@ -1237,6 +1272,7 @@ def emit_binding(ir):
         o.append("fn arm_%s(ctxs: DecCtxs) -> i32 {" % rs)
         o.append("    unsafe {")
         o.append("        let st = &*ctxs.unk;")
+        o.append("        host_reset();")
         o.append("        let rc = ak_dec_reset_%s(ctxs.%s, st.%s_opts.get());" % (root, rs, rs))
         o.append("        if rc == AK_OK { st.%s_armed.set(true); }" % rs)
         o.append("        rc")
@@ -1250,7 +1286,7 @@ def emit_binding(ir):
         o.append("    unsafe {")
         o.append("        let st = &*ctxs.unk;")
         o.append("        if st.%s_armed.get() {" % rs)
-        o.append("            ak_dec_reset_%s(ctxs.%s, ::core::ptr::null_mut());" % (root, rs))
+        o.append("            host_reset(); ak_dec_reset_%s(ctxs.%s, ::core::ptr::null_mut());" % (root, rs))
         o.append("            st.%s_armed.set(false);" % rs)
         o.append("        }")
         o.append("    }")
@@ -1416,7 +1452,7 @@ def emit_binding(ir):
         o.append("                if n == 0 { break; }")
         o.append("                replay_%s(ctx, obj, &scratch[..(n as usize) / 8], toks);" % rs)
         o.append("            }")
-        o.append("            if rc == AK_OK { ak_dec_err(ctx) } else { rc }")
+        o.append("            if rc == AK_OK { host_call(); ak_dec_err(ctx) } else { rc }")
         o.append("        }")
         o.append("    };")
         o.append("    if rc < 0 { Err(rc) } else { Ok(out) }")
@@ -1463,7 +1499,7 @@ def emit_binding(ir):
         o.append("                // 8-aligned by construction: the core's buffer is a `Vec<u64>`.")
         o.append("                let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);")
         o.append("                replay_%s(ctx, obj, recs, toks);" % rs)
-        o.append("                ak_dec_err(ctx)")
+        o.append("                { host_call(); ak_dec_err(ctx) }")
         o.append("            }")
         o.append("        }")
         o.append("    };")
@@ -1499,7 +1535,7 @@ def emit_binding(ir):
         o.append("            } else {")
         o.append("                let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);")
         o.append("                replay_%s_opaque(ctx, obj, recs, toks);" % rs)
-        o.append("                ak_dec_err(ctx)")
+        o.append("                { host_call(); ak_dec_err(ctx) }")
         o.append("            }")
         o.append("        }")
         o.append("    };")

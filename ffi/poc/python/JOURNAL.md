@@ -1325,3 +1325,113 @@ it holds no timing.
 because the committed smoke (5652847) predated the facade without `_unknown`. It is committed
 with its timing figures stripped. The snapshot's target directory was made inside the
 worktree and deleted with it.
+
+### J48. WP6 re-review, register H: python's findings
+
+Each finding was confirmed from the code before it was fixed (dispositions in STATE).
+- **R-H1.** Confirmed by reading the old `camp_summary.py`: `base` was keyed on (payload,
+  content, dir, launch, round), groups had no build, and `sorted(glob)` puts
+  `codec-shapes-nounk-launch1.jsonl` after `codec-shapes-launch1.jsonl`, so the no-unknown
+  incumbent overwrote the full build's reference.
+  - Fix: every sample now carries `build`; references and groups are keyed on it; ratios come
+    from per-launch medians (R-H24).
+  - Test (gate 104): two builds whose incumbents are 100 and 400 ns give 2.0 and 0.5. The twin
+    with `build` removed gives the pooled 0.8.
+- **R-H16.** Confirmed: host-gen ran over the plain facade, core-ffi over the C type.
+  - First I checked that pycodec encodes and decodes the C-extension objects byte-identically
+    on all 16 payloads, drop and retain (0 failures).
+  - Then host-gen's headline arms moved to the C type, and `host-gen-plain` became the
+    labelled extra.
+- **R-H8.** poc/cpp's three `d11_oneof` sequences (field 100 runs, Probe members 13/14/10)
+  through the corpus shim's retain arm. The bags are exact, the scalar switch leaves no bag,
+  and every sequence has `last_reclaimed() == 0`.
+- **R-H9.** The `AK_PLANT_SKIP_RELEASE` twin makes the leak check flag 307 of 311 rows and the
+  oneof control fail on 3 of 3 sequences. The oneof control therefore also shows that the
+  inactive slots go through release.
+- **R-H14.**
+  - py_pure's `ERR` now reads `plan.FIXED.codes`.
+  - The undeclared case: pure raises `EncodeError(ERR_ABI)`. The shim now stores the case and
+    lets the core refuse it (AK_ERR_ABI), raising `ValueError` with `.code`, as it now does for
+    every encode or decode refusal.
+  - A selected None member is written as an empty body: the plan's ENCODE RULES say a member
+    is "written iff the case selects it, whatever its value". Checked on every arm against upb.
+- **R-H2.** `camp_rpc` now keeps one pool of 16 client threads created before the first timed
+  window. Not run in a smoke yet.
+- **R-H19.** calib calls `need_gate`; "in-process control" corrected for the pyperf suite.
+- **R-H23.** The arm order is rotated inside each block per launch, and the order is stated.
+
+A first local build failed in `one_core.sh`, because `poc/codec`'s working tree carries another
+agent's uncommitted core edits. So the gate ran in a clean worktree at b5f5bcfc4, built from the
+committed core: `gate exit 0` at 3.12 and 3.7, all 23 logs `# commit: b5f5bcfc4`. The worktree
+and its builds were deleted after the run.
+
+### J49. Rebuild and re-gate against the register H core changes (31fc3eecf)
+
+- **Clean worktree** at origin HEAD 31fc3eecf (R-H21 capacity cap, R-H10 parse order, R-H15,
+  R-H13 slice guard). Prerequisites were run in the worktree (`fetch_py37.sh`,
+  `mech/build.sh`).
+- **Generator checks:**
+  - `gen/generate.py --check` is clean;
+  - the shared `generate.py --check` passes this slice's modules under the new guard (no wire
+    token in `poc/python/gen/`). Its overall exit is 1, from the rust slice's own check.
+- **Gate:** `gate exit 0` at 3.12 and 3.7 for both builds. All 23 logs carry
+  `# commit: 31fc3eecf`. Crossing counts are unchanged (103, 98).
+- **Campaign smoke** (codec, rpc, calib; the runner re-gated first) was rerun in the same
+  worktree and committed with its figures stripped.
+  - `build` is in every sample, and `host-gen-plain` is timed (codec full: 432 and 72 values,
+    up from 378 and 60).
+  - The RPC pool shows 16 threads started and 32 contexts per build, with 0 leaked.
+- **Stale reference:** the RPC header still cited `logs/python/80`, which was deleted under
+  R-C9. The citation is replaced in `camp_rpc.py` and `camp_server.py` (text only).
+- **Cleanup:** the worktree and its builds were deleted.
+
+### J50. FIX-PLAN WP7: the 2026-09-26 contract
+
+- **Req 21:** process CPU (CLOCK_PROCESS_CPUTIME_ID) in pyperf's time_func, the by-hand codec
+  loop and calib.
+- **Req 7:** Latin-1 and wide on P1.2, P2.2 and P2.4.
+  - Family `unknown` is now the 92 accepted U-* rows at the shapes core's 7 roots, through
+    `_akffi` / `_akffi_nounk`, three directions.
+  - Checked first: all 92 re-encode to an accepted form through core-ffi and host-gen, drop
+    and retain.
+  - The corpus-core family is kept as `unknown-corpus`, a labelled extra.
+- **Req 11:** `encode` (hot, transport `bytes`), `encode-pool` (distinct graphs, at least
+  AK_POOL_BYTES of wire bytes, built and checked outside the window), and for core-ffi only
+  `encode-reused` / `encode-pool-reused`.
+  - The reused variants use the shim's new `into`: a copy into a writable buffer sized once.
+  - Neither upb-python nor host-gen has a no-allocation reused buffer (stated).
+  - A late-binding closure made every pool come from the last payload; the pool gate caught
+    it, and the pool builder is now bound per case.
+- **Req 12:** cells E and F (host-gen over the core's transport and over grpcio), drop and
+  retain, full build only.
+- **Reqs 13 and 17:** `camp_server.py` hosts both transport configurations as two grpcio
+  servers on two Unix sockets in one process. `run_campaign.sh` starts one per launch (coproc)
+  and passes it to both builds' clients. Each client warms it with 64 calls per client
+  transport, and there is one channel or core client per cell.
+- **Req 16:** A, D and F use grpcio's blocking unary multicallable (stated).
+- **Req 19:** in the counting build, every ABI call is counted by function-like macros of the
+  functions' own names, taken from the plan and the rendered calls, with resets apart. Counts
+  are taken after one warm call, and grow is exact-size.
+  - Committed: `abi-full` (560 rows: 16 payloads x 5 backends in drop, retain on the C type,
+    and the 92 U-* rows in drop and retain) and `abi-nounk` (344).
+  - The RPC cells B-E are counted per call on new rpc counting builds (`rpc_counts.py`,
+    gate 105; `rpc-full` 21 rows, `rpc-nounk` 9).
+  - The per-element table and log 98 are unchanged.
+- **Req 4:** thread counts in every campaign header, and the CPU sets read from
+  `ffi/campaign.machine` when unset.
+- **Clean gate** at 3f2574775: `gate exit 0` at 3.12 and 3.7; all 24 logs clean. The smoke
+  there shows every new row.
+- Noted, not fixed (scope rule): with `AK_CAMP_PLANT=short`, the gate's RPC must-fail control
+  is now caught by the server warm-up's length check rather than by a cell. The run still
+  aborts with no sample.
+
+### J51. The no-unknown host-gen arm and cells E-nounk / F-nounk
+
+Since R-H22, the no-unknown build's facade has no `_unknown`. So host-gen drop over that facade,
+in the no-unknown process, is the no-unknown host-gen arm, and the other four slices time it.
+- **Added:** `host-gen` with `unknown_mode=no-unknown` in the nounk codec suite (shapes and
+  unknown families), and cells E-nounk / F-nounk in the nounk RPC client.
+- **Counts:** `counts/rpc-nounk.txt` now has 12 rows (E-nounk added).
+- **Clean gate** at c7c083f68 (origin HEAD): `gate exit 0` at 3.12 and 3.7, 24 logs clean.
+- **Smoke:** codec nounk 396 shape and 45 unknown values; RPC nounk 108 samples with E-nounk
+  and F-nounk.

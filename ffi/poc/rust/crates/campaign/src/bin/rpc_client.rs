@@ -1,413 +1,210 @@
-//! CAMPAIGN.md 4.2: the RPC grid's client, pinned by the runner to `AK_CPU_CLIENT`; the
-//! server is `rpc_server`, another process on `AK_CPU_SERVER` (requirement 13).
+//! CAMPAIGN.md 4.2: the RPC grid's client (requirements 12-18 as amended 2026-09-26). One
+//! process per launch and build, pinned by the runner to `AK_CPU_CLIENT`; the server is
+//! another process (`rpc_server`), ONE per launch, serving both builds' clients.
 //!
-//!   rpc_client --port N --transport shipped|pinned --launch L --rounds R --calls C
-//!              --warmup W --out FILE [--plant] [--order blocks|interleave]
+//!   rpc_client --socket PATH --transport shipped|pinned --launch N --rounds R --calls C
+//!              --warmup W --server-warm S --out FILE [--plant]
 //!
-//! Cells (requirement 12), directions (14), in-flight 1/8/16 (15):
-//!   A  prost through tonic's codec calls (`Message::encode` into the EncodeBuf, `decode`
-//!      from the DecodeBuf), tonic's transport
-//!   B  prost, the core's transport, BLOCKING delivery (`ak_call_unary`, requirement 16)
-//!   C  the core's codec through the C ABI (generated binding), the core's transport, blocking
-//!   D  the core's codec through the C ABI, tonic's transport (raw-bytes codec)
-//!   (a) empty request, P2.2 response; (b) P2.2 request the server decodes, empty response.
-//! In flight k = k host threads, each making calls back to back (the blocking shape; the
-//! tonic cells block on a shared runtime per call, the same shape).
+//! Cells (`campaign::grid`): A prost+tonic, B prost+core, C core-ffi+core, D core-ffi+tonic,
+//! E core-native+core, F core-native+tonic; C to F per unknown-field mode of this build.
+//! Directions `a`, `a+read`, `b`; in flight 1, 8, 16. B, C and E: k host threads from a pool
+//! created before the warm-up and reused (blocking `ak_call_unary`, requirement 16); A, D
+//! and F: k tokio tasks (tonic's idiomatic async client, requirement 16 as amended).
+//! Before round 1 of the first cell the server is warmed by S checked calls from each client
+//! transport; each cell opens ONE channel for the launch and warms it by W calls per
+//! (dir, in-flight) before that combination's rounds.
 //! Every call is checked (requirement 18): status OK and the response length equal to the
-//! expected one; cells C and D also require the core's decode to succeed. The first failure
-//! aborts the process with no output at all (samples are kept in memory and written only at
-//! the end). `--plant` expects a wrong length, so the run must abort (the runner's control).
+//! expected one; C, D, E and F also require their decode to succeed. The first failure
+//! aborts the process with no output (samples are written only at the end). `--plant`
+//! expects a wrong length, so the run must abort (the runner's control).
 //! CPU: getrusage(RUSAGE_SELF) of this process per round, wall beside it (requirement 21).
-//! Transport (17): `shipped` = what packages/rust configures (tonic's endpoint defaults, TCP
-//! nodelay since `GrpcClient__TcpNagleAlgorithm` defaults to false; `ak_client_new`), `pinned`
-//! = 4 MiB stream and connection windows, adaptive off, Nagle off, on both transports.
 
-use ak_abi::*;
-use bytes::Bytes;
+use campaign::grid::{self, Call, Conn, CELLS, DIRS};
 use campaign::process_cpu_ns;
-use harness::arms_m2 as m2;
 use std::io::Write;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
-use tonic::codec::{Codec, DecodeBuf, Decoder, EncodeBuf, Encoder};
 
-const FETCH: &str = "/armonik.ffi.campaign.v1.Grid/Fetch";
-const PUSH: &str = "/armonik.ffi.campaign.v1.Grid/Push";
-const WIN: u32 = 4 * 1024 * 1024;
-
-// ---- cell A's codec: tonic-prost's encoder and decoder bodies, with the request held in an
-// Arc (tonic takes the request by value; cloning a P2.2 graph per call would be work
-// production does not do) and the response's wire length recorded for requirement 18.
-struct PCodec<Q, S> {
-    len: Arc<AtomicU64>,
-    _p: std::marker::PhantomData<(Q, S)>,
-}
-struct PEnc<Q>(std::marker::PhantomData<Q>);
-struct PDec<S>(Arc<AtomicU64>, std::marker::PhantomData<S>);
-impl<Q: prost::Message + Send + Sync + 'static> Encoder for PEnc<Q> {
-    type Item = Arc<Q>;
-    type Error = tonic::Status;
-    fn encode(&mut self, item: Arc<Q>, dst: &mut EncodeBuf<'_>) -> Result<(), Self::Error> {
-        item.encode(dst).expect("Message only errors if not enough space");
-        Ok(())
-    }
-}
-impl<S: prost::Message + Default + Send + 'static> Decoder for PDec<S> {
-    type Item = S;
-    type Error = tonic::Status;
-    fn decode(&mut self, src: &mut DecodeBuf<'_>) -> Result<Option<S>, Self::Error> {
-        use bytes::Buf;
-        self.0.store(src.remaining() as u64, Ordering::Relaxed);
-        S::decode(src).map(Some).map_err(|e| tonic::Status::internal(e.to_string()))
-    }
-}
-impl<Q, S> Codec for PCodec<Q, S>
-where
-    Q: prost::Message + Send + Sync + 'static,
-    S: prost::Message + Default + Send + 'static,
-{
-    type Encode = Arc<Q>;
-    type Decode = S;
-    type Encoder = PEnc<Q>;
-    type Decoder = PDec<S>;
-    fn encoder(&mut self) -> PEnc<Q> {
-        PEnc(std::marker::PhantomData)
-    }
-    fn decoder(&mut self) -> PDec<S> {
-        PDec(self.len.clone(), std::marker::PhantomData)
-    }
+/// The k callers of one (cell, dir, in-flight k). Blocking cells: k OS threads created once,
+/// before the warm-up and outside every timed window, and reused (R-H2); a batch is one job
+/// per thread. Async cells: k tasks spawned on the cell's runtime per batch (spawning a task
+/// is the idiomatic client's own per-request cost). The first error of any caller is
+/// returned; a panic comes back as an error, never a hang.
+enum Callers {
+    Threads {
+        jobs: Vec<std::sync::mpsc::Sender<usize>>,
+        done: std::sync::mpsc::Receiver<Result<(), String>>,
+        threads: Vec<std::thread::JoinHandle<()>>,
+    },
+    Tasks {
+        rt: Arc<tokio::runtime::Runtime>,
+        f: Arc<dyn Fn(usize) -> grid::Fut + Send + Sync>,
+        k: usize,
+    },
 }
 
-struct CoreClient {
-    rt: *mut ak_runtime,
-    client: *mut ak_client,
-}
-unsafe impl Send for CoreClient {}
-unsafe impl Sync for CoreClient {}
-impl CoreClient {
-    fn new(target: &str, pinned: bool) -> Self {
-        unsafe {
-            let rt = ak_runtime_new(2);
-            let client = if pinned {
-                let o = ak_client_opts {
-                    stream_window: WIN,
-                    connection_window: WIN,
-                    adaptive_window: 0,
-                    max_recv_message: 0,
-                    max_send_message: 0,
-                    tcp_nagle: 0,
-                };
-                ak_client_new_opts(rt, target.as_ptr(), target.len(), &o)
-            } else {
-                ak_client_new(rt, target.as_ptr(), target.len())
-            };
-            assert!(!client.is_null(), "core client for {target}");
-            CoreClient { rt, client }
-        }
-    }
-    /// Optimisation R2: one blocking call whose request is `enc`'s encoded output, moved
-    /// into the core (`ak_call_unary_enc`), not copied.
-    fn call_enc<T>(&self, path: &str, enc: *mut ak_enc_ctx, f: impl FnOnce(&[u8]) -> Result<T, String>) -> Result<T, String> {
-        unsafe {
-            let mut out = ak_bytes::default();
-            let rc = ak_call_unary_enc(self.client, path.as_ptr(), path.len(), enc, &mut out);
-            if rc != AK_OK {
-                return Err(format!("ak_call_unary_enc rc {rc}"));
+impl Callers {
+    fn new(call: &Call, k: usize) -> Callers {
+        match call {
+            Call::Blocking(f) => {
+                let (dtx, done) = std::sync::mpsc::channel();
+                let mut jobs = Vec::with_capacity(k);
+                let mut threads = Vec::with_capacity(k);
+                for i in 0..k {
+                    let (jtx, jrx) = std::sync::mpsc::channel::<usize>();
+                    let (f, dtx) = (f.clone(), dtx.clone());
+                    threads.push(std::thread::spawn(move || {
+                        for per in jrx {
+                            let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                                for _ in 0..per {
+                                    f(i)?;
+                                }
+                                Ok(())
+                            }))
+                            .unwrap_or_else(|_| Err("a client thread panicked".to_string()));
+                            if dtx.send(r).is_err() {
+                                break;
+                            }
+                        }
+                    }));
+                    jobs.push(jtx);
+                }
+                Callers::Threads { jobs, done, threads }
             }
-            let r = f(if out.len == 0 { &[] } else { std::slice::from_raw_parts(out.ptr, out.len) });
-            ak_bytes_free(&mut out);
-            r
+            Call::Async(rt, f) => Callers::Tasks { rt: rt.clone(), f: f.clone(), k },
         }
     }
-    /// One blocking call; the response bytes are handed to `f` and freed after.
-    fn call<T>(&self, path: &str, req: &[u8], f: impl FnOnce(&[u8]) -> Result<T, String>) -> Result<T, String> {
-        unsafe {
-            let mut out = ak_bytes::default();
-            let rc = ak_call_unary(self.client, path.as_ptr(), path.len(), req.as_ptr(), req.len(), &mut out);
-            if rc != AK_OK {
-                return Err(format!("ak_call_unary rc {rc}"));
+
+    fn batch(&self, per: usize) -> Result<(), String> {
+        match self {
+            Callers::Threads { jobs, done, .. } => {
+                for j in jobs {
+                    j.send(per).map_err(|_| "a client thread is gone".to_string())?;
+                }
+                let mut first = Ok(());
+                for _ in 0..jobs.len() {
+                    let r = done.recv().map_err(|_| "a client thread is gone".to_string())?;
+                    if first.is_ok() {
+                        first = r;
+                    }
+                }
+                first
             }
-            let r = f(if out.len == 0 { &[] } else { std::slice::from_raw_parts(out.ptr, out.len) });
-            ak_bytes_free(&mut out);
-            r
+            Callers::Tasks { rt, f, k } => rt.block_on(async {
+                let hs: Vec<_> = (0..*k).map(|i| {
+                    let f = f.clone();
+                    tokio::spawn(async move {
+                        for _ in 0..per {
+                            f(i).await?;
+                        }
+                        Ok::<(), String>(())
+                    })
+                }).collect();
+                let mut first = Ok(());
+                for h in hs {
+                    let r = h.await.unwrap_or_else(|_| Err("a client task panicked".to_string()));
+                    if first.is_ok() {
+                        first = r;
+                    }
+                }
+                first
+            }),
         }
     }
 }
-impl Drop for CoreClient {
+
+impl Drop for Callers {
     fn drop(&mut self) {
-        unsafe {
-            ak_client_destroy(self.client);
-            ak_runtime_destroy(self.rt);
+        if let Callers::Threads { jobs, threads, .. } = self {
+            jobs.clear();
+            for t in threads.drain(..) {
+                let _ = t.join();
+            }
         }
     }
 }
 
-struct Slot(harness::arms::core_ffi_arm::Ctx);
-unsafe impl Send for Slot {}
-unsafe impl Sync for Slot {}
-
-type CallFn = Arc<dyn Fn(usize) -> Result<(), String> + Send + Sync>;
-
-fn tonic_channel(rt: &tokio::runtime::Runtime, target: &str, pinned: bool) -> tonic::transport::Channel {
-    let t = target.to_string();
-    rt.block_on(async move {
-        let mut e = tonic::transport::Endpoint::from_shared(t).unwrap().tcp_nodelay(true);
-        if pinned {
-            e = e
-                .initial_stream_window_size(Some(WIN))
-                .initial_connection_window_size(Some(WIN))
-                .http2_adaptive_window(false);
-        }
-        e.connect().await.unwrap()
-    })
-}
-
-/// The call function of one (cell, direction) at in-flight k: thread i uses slot i.
-/// The core codec's calls in cells C and D, per unknown-field mode (CAMPAIGN.md req 12):
-/// `retain` arms every decision 11 position and encodes through the u-groups, `drop`
-/// arms nothing, `nounk` is this binary built without `unknown-fields` (compiled out).
-fn core_encode<'a>(ctx: &'a harness::arms::core_ffi_arm::Ctx, v: &facade::ListTasksDetailedResponse, retain: bool) -> &'a [u8] {
-    #[cfg(feature = "unknown-fields")]
-    if retain {
-        harness::generated::binding::encode_into_list_tasks_detailed_response_unk_zeroed(ctx.enc, v, &ctx.tcs).expect("core-ffi encode");
-        return unsafe { harness::generated::binding::encoded(ctx.enc) };
-    }
-    let _ = retain;
-    // Optimisation step 3 (E2): the sparse fill of ABI v1 decision 9, as the codec suite.
-    m2::core_ffi_zeroed::encode_into(ctx, v)
-}
-fn core_decode(ctx: &harness::arms::core_ffi_arm::Ctx, b: &[u8], retain: bool) -> Result<facade::ListTasksDetailedResponse, i32> {
-    #[cfg(feature = "unknown-fields")]
-    if retain {
-        return harness::generated::binding::decode_with_list_tasks_detailed_response_unk(ctx.dec, b);
-    }
-    let _ = retain;
-    harness::generated::binding::decode_with_list_tasks_detailed_response(ctx.dec, b)
-}
-
-fn make(cell: &str, dir: &'static str, k: usize, target: &str, pinned: bool, want_a: u64) -> CallFn {
-    let (cell, mode) = cell.split_once('-').unwrap_or((cell, ""));
-    let retain = mode == "retain";
-    let want = if dir == "a" { want_a } else { 0 };
-    let p_val = Arc::new(m2::prost_arm::value(m2::P2_2));
-    let f_val: &'static _ = Box::leak(Box::new(m2::armonik_arm::value(m2::P2_2)));
-    let slots: &'static [Slot] = Box::leak((0..k).map(|_| Slot(harness::arms::core_ffi_arm::Ctx::new()))
-        .collect::<Vec<_>>().into_boxed_slice());
-    let path = if dir == "a" { FETCH } else { PUSH };
-    match cell {
-        "A" => {
-            let rt = Arc::new(tokio::runtime::Builder::new_multi_thread().worker_threads(2).enable_all().build().unwrap());
-            let ch = tonic_channel(&rt, target, pinned);
-            let empty = Arc::new(shapes_prost::shapes::Empty {});
-            Arc::new(move |_i| {
-                let len = Arc::new(AtomicU64::new(u64::MAX));
-                let mut g = tonic::client::Grpc::new(ch.clone());
-                let pq = http::uri::PathAndQuery::from_static(path);
-                let r = rt.block_on(async {
-                    g.ready().await.map_err(|e| e.to_string())?;
-                    if dir == "a" {
-                        let c = PCodec::<shapes_prost::shapes::Empty, shapes_prost::shapes::ListTasksDetailedResponse> { len: len.clone(), _p: Default::default() };
-                        g.unary(tonic::Request::new(empty.clone()), pq, c).await.map(|r| { std::hint::black_box(r.into_inner()); }).map_err(|s| s.to_string())
-                    } else {
-                        let c = PCodec::<shapes_prost::shapes::ListTasksDetailedResponse, shapes_prost::shapes::Empty> { len: len.clone(), _p: Default::default() };
-                        g.unary(tonic::Request::new(p_val.clone()), pq, c).await.map(|r| { std::hint::black_box(r.into_inner()); }).map_err(|s| s.to_string())
-                    }
-                });
-                r?;
-                let got = len.load(Ordering::Relaxed);
-                if got != want { return Err(format!("cell A response {got} B, expected {want}")); }
-                Ok(())
-            })
-        }
-        "B" => {
-            let cc = Arc::new(CoreClient::new(target, pinned));
-            Arc::new(move |_i| {
-                let body = if dir == "a" { Vec::new() } else { prost::Message::encode_to_vec(&*p_val) };
-                cc.call(path, &body, |resp| {
-                    if resp.len() as u64 != want { return Err(format!("cell B response {} B, expected {want}", resp.len())); }
-                    if dir == "a" {
-                        let v = <shapes_prost::shapes::ListTasksDetailedResponse as prost::Message>::decode(resp).map_err(|e| e.to_string())?;
-                        std::hint::black_box(v);
-                    }
-                    Ok(())
-                })
-            })
-        }
-        "C" => {
-            let cc = Arc::new(CoreClient::new(target, pinned));
-            Arc::new(move |i| {
-                let ctx = &slots[i].0;
-                let check = |resp: &[u8]| {
-                    if resp.len() as u64 != want { return Err(format!("cell C response {} B, expected {want}", resp.len())); }
-                    if dir == "a" {
-                        let v = core_decode(ctx, resp, retain).map_err(|e| format!("core-ffi decode {e}"))?;
-                        std::hint::black_box(v);
-                    }
-                    Ok(())
-                };
-                if dir == "a" {
-                    cc.call(path, &[], check)
-                } else {
-                    // Optimisation R2: the core's encode output is moved into the call.
-                    let _ = core_encode(ctx, f_val, retain);
-                    cc.call_enc(path, ctx.enc, check)
-                }
-            })
-        }
-        "D" => {
-            let rt = Arc::new(tokio::runtime::Builder::new_multi_thread().worker_threads(2).enable_all().build().unwrap());
-            let ch = tonic_channel(&rt, target, pinned);
-            Arc::new(move |i| {
-                let ctx = &slots[i].0;
-                let body = if dir == "a" { Bytes::new() } else { Bytes::copy_from_slice(core_encode(ctx, f_val, retain)) };
-                let mut g = tonic::client::Grpc::new(ch.clone());
-                let pq = http::uri::PathAndQuery::from_static(path);
-                let resp: Bytes = rt.block_on(async {
-                    g.ready().await.map_err(|e| e.to_string())?;
-                    g.unary(tonic::Request::new(body), pq, rpc::RawCodec).await.map(|r| r.into_inner()).map_err(|s| s.to_string())
-                })?;
-                if resp.len() as u64 != want { return Err(format!("cell D response {} B, expected {want}", resp.len())); }
-                if dir == "a" {
-                    let v = core_decode(ctx, &resp, retain).map_err(|e| format!("core-ffi decode {e}"))?;
-                    std::hint::black_box(v);
-                }
-                Ok(())
-            })
-        }
-        c => panic!("cell {c}"),
-    }
-}
-
-/// k threads, `per` calls each; the first error of any thread is returned.
-fn batch(f: &CallFn, k: usize, per: usize) -> Result<(), String> {
-    std::thread::scope(|s| {
-        let hs: Vec<_> = (0..k).map(|i| {
-            let f = f.clone();
-            s.spawn(move || -> Result<(), String> {
-                for _ in 0..per {
-                    f(i)?;
-                }
-                Ok(())
-            })
-        }).collect();
-        for h in hs {
-            h.join().map_err(|_| "a client thread panicked".to_string())??;
-        }
-        Ok(())
-    })
+fn abort(msg: String) -> ! {
+    eprintln!("ABORT (requirement 18): {msg}");
+    std::process::exit(3);
 }
 
 fn main() {
     let a: Vec<String> = std::env::args().collect();
     let arg = |k: &str| a.iter().position(|x| x == k).map(|i| a[i + 1].clone());
-    let port: u16 = arg("--port").expect("--port").parse().unwrap();
+    let socket = arg("--socket").expect("--socket");
     let transport = arg("--transport").unwrap_or_else(|| "shipped".into());
     let pinned = transport == "pinned";
     let launch: usize = arg("--launch").map(|v| v.parse().unwrap()).unwrap_or(1);
     let rounds: usize = arg("--rounds").map(|v| v.parse().unwrap()).unwrap_or(5);
     let calls: usize = arg("--calls").map(|v| v.parse().unwrap()).unwrap_or(96);
     let warm: usize = arg("--warmup").map(|v| v.parse().unwrap()).unwrap_or(64);
+    let server_warm: usize = arg("--server-warm").map(|v| v.parse().unwrap()).unwrap_or(64);
     let out = arg("--out").expect("--out");
     let plant = a.iter().any(|x| x == "--plant");
-    let interleave = match arg("--order").as_deref() {
-        None | Some("blocks") => false,
-        Some("interleave") => true,
-        Some(o) => panic!("--order {o}: blocks | interleave"),
-    };
-    let target = format!("http://127.0.0.1:{port}");
-    let p22 = prost::Message::encode_to_vec(&m2::prost_arm::value(m2::P2_2)).len() as u64;
+    let target = format!("unix:{socket}");
+    let p22 = prost::Message::encode_to_vec(&harness::arms_m2::prost_arm::value(harness::arms_m2::P2_2)).len() as u64;
     let want_a = if plant { p22 + 1 } else { p22 };
     assert!(harness::generated::binding::ak_init_once() >= 0);
 
-    // CAMPAIGN.md req 12 (amended): C and D in each unknown-field mode; the no-unknown
-    // build (`unknown-fields` off) is a separate binary that runs C-nounk and D-nounk, and
-    // A and B again as its IN-PROCESS CONTROL columns: neither touches the codec's unknown
-    // path, so a C-nounk/C-drop ratio is read against the A and B of the same process.
-    #[cfg(feature = "unknown-fields")]
-    let cells: &[&str] = &["A", "B", "C-retain", "C-drop", "D-retain", "D-drop"];
-    #[cfg(not(feature = "unknown-fields"))]
-    let cells: &[&str] = &["A", "B", "C-nounk", "D-nounk"];
-    let nc = cells.len();
-    let order: Vec<&str> = (0..nc).map(|i| cells[(i + launch - 1) % nc]).collect();
+    // Requirement 13 as amended: the server warmed from each client transport first.
+    if let Err(e) = grid::warm_server(&target, pinned, server_warm, want_a) {
+        abort(format!("server warm-up: {e}"));
+    }
+    // Requirement 22 as amended (R-H23): the cell order is a seeded random permutation per
+    // launch (seed = launch); directions and in-flight counts stay nested inside a cell.
+    let mut order: Vec<&str> = CELLS.to_vec();
+    campaign::shuffle(&mut order, launch as u64);
     let mut lines = Vec::new();
-    let run_round = |f: &CallFn, cell: &str, dir: &str, k: usize, r: usize, lines: &mut Vec<String>| {
-        let per = calls.div_ceil(k);
-        let (c0, t0) = (process_cpu_ns(), Instant::now());
-        if let Err(e) = batch(f, k, per) {
-            eprintln!("ABORT (requirement 18): cell {cell} dir {dir} inflight {k} round {r}: {e}");
-            std::process::exit(3);
-        }
-        let (wall, cpu) = (t0.elapsed().as_nanos() as u64, process_cpu_ns() - c0);
-        lines.push(serde_json::json!({
-            "slice": "rust", "suite": "rpc", "cell": cell, "payload": "P2.2", "dir": dir,
-            "transport": transport, "inflight": k, "launch": launch, "round": r,
-            "cpu_ns": cpu, "wall_ns": wall, "iters": per * k,
-        }).to_string());
-    };
-    let warm_up = |f: &CallFn, cell: &str, dir: &str, k: usize| {
-        // Warm-up, identical for every cell (requirement 24): connection up,
-        // runtime threads started, allocator grown.
-        if let Err(e) = batch(f, k, warm.div_ceil(k)) {
-            eprintln!("ABORT (requirement 18): cell {cell} dir {dir} inflight {k} warm-up: {e}");
-            std::process::exit(3);
-        }
-    };
-    if interleave {
-        // `--order interleave` (the optimisation benchmark, gen/opt_bench.sh): per (dir,
-        // in-flight), every cell's client is built and warmed, then round r runs the cells
-        // in the launch order rotated by r - 1, so over a multiple of the cell count every
-        // cell takes every position equally often (counterbalanced; no cell always first).
-        for dir in ["a", "b"] {
+    for cell in &order {
+        // ONE channel per cell per launch (requirement 13 as amended, R-H33).
+        let conn = Conn::open(cell, &target, pinned);
+        for &dir in DIRS {
             for k in [1usize, 8, 16] {
-                let fs: Vec<CallFn> = order.iter().map(|cell| make(cell, dir, k, &target, pinned, want_a)).collect();
-                for (cell, f) in order.iter().zip(&fs) {
-                    warm_up(f, cell, dir, k);
+                let per = calls.div_ceil(k);
+                let callers = Callers::new(&grid::call_of(cell, &conn, dir, grid::slots(k), want_a), k);
+                // Warm-up, identical for every cell (requirement 24): the channel and the
+                // callers exercised, allocator grown.
+                if let Err(e) = callers.batch(warm.div_ceil(k)) {
+                    abort(format!("cell {cell} dir {dir} inflight {k} warm-up: {e}"));
                 }
                 for r in 1..=rounds {
-                    for j in 0..nc {
-                        let i = (j + r - 1) % nc;
-                        run_round(&fs[i], order[i], dir, k, r, &mut lines);
+                    let (c0, t0) = (process_cpu_ns(), Instant::now());
+                    if let Err(e) = callers.batch(per) {
+                        abort(format!("cell {cell} dir {dir} inflight {k} round {r}: {e}"));
                     }
-                }
-            }
-        }
-    } else {
-        for cell in &order {
-            for dir in ["a", "b"] {
-                for k in [1usize, 8, 16] {
-                    let f = make(cell, dir, k, &target, pinned, want_a);
-                    warm_up(&f, cell, dir, k);
-                    for r in 1..=rounds {
-                        run_round(&f, cell, dir, k, r, &mut lines);
-                    }
+                    let (wall, cpu) = (t0.elapsed().as_nanos() as u64, process_cpu_ns() - c0);
+                    lines.push(serde_json::json!({
+                        "slice": "rust", "suite": "rpc", "cell": cell, "payload": "P2.2", "dir": dir,
+                        "transport": transport, "inflight": k, "launch": launch, "round": r,
+                        "cpu_ns": cpu, "wall_ns": wall, "iters": per * k,
+                    }).to_string());
                 }
             }
         }
     }
+    let server_threads = std::env::var("AK_SERVER_THREADS").unwrap_or_else(|_| "4".into());
     let mut f = std::fs::File::create(&out).unwrap();
     for h in campaign::header("rpc", &[
         ("transport", format!("{transport}: {}", if pinned {
-            "4 MiB stream + connection windows, adaptive off, Nagle off, both transports and the server"
+            "4 MiB stream + connection windows, adaptive off, on tonic, the core client and the server (Nagle does not apply to a Unix socket)"
         } else {
-            "tonic endpoint defaults with TCP nodelay (packages/rust's GrpcClient__TcpNagleAlgorithm=false), ak_client_new, server defaults"
+            "tonic endpoint defaults, ak_client_new, server defaults"
         })),
-        ("link", "loopback TCP; server = rpc_server, a separate process (requirement 13), pre-serialised P2.2".into()),
-        ("cells", "A prost+tonic, B prost+core (blocking), C core+core (blocking), D core+tonic; C and D per unknown-field mode (-retain: every decision 11 position armed and u-group encode; -drop: nothing armed; -nounk: the build with unknown-field support compiled out); callback/queue deliveries not run in this suite".into()),
-        ("build", if cfg!(feature = "unknown-fields") { "unknown-fields (retain/drop)".into() } else { "NO-UNKNOWN (unknown-field support compiled out; the facade types have no unknown_fields member, optimisation step 8 F1)".to_string() }),
+        ("link", format!("Unix domain socket {socket} (requirement 17 as amended, R-H28); server = rpc_server, a separate process, one per launch for every cell of both builds, pre-serialised P2.2")),
+        ("cells", "A prost+tonic, B prost+core, C core-ffi+core, D core-ffi+tonic, E core-native+core, F core-native+tonic; C-F per unknown-field mode (-retain: every decision 11 position armed and u-group encode; -drop: nothing armed; -nounk: the build with unknown-field support compiled out); callback/queue deliveries not run in this suite".into()),
+        ("delivery", "B, C, E: the core's blocking ak_call_unary from k host threads (a pool created before the warm-up, reused); A, D, F: tonic's idiomatic async unary call from k tokio tasks (packages/rust's shape)".into()),
+        ("cell C request", "direction b: the core encode context's output MOVED into the call (ak_call_unary_enc, optimisation R2); a and a+read: empty request through ak_call_unary. Cell D copies the encoded bytes into a tonic Bytes".into()),
         ("core-ffi encode fill", campaign::FFI_ENCODE_FILL.into()),
-        ("cell C request", "direction b: the core encode context's output MOVED into the call (ak_call_unary_enc, optimisation R2); direction a: empty request through ak_call_unary. Cell D copies the encoded bytes into a tonic Bytes (unchanged)".into()),
+        ("directions", "a = Fetch then decode; a+read = Fetch, decode, read every field; b = encode then Push (the server decodes with prost)".into()),
+        ("build", if cfg!(feature = "unknown-fields") { "unknown-fields (retain/drop)".into() } else { "NO-UNKNOWN (unknown-field support compiled out; facade without unknown_fields)".to_string() }),
         ("launch", launch.to_string()),
-        ("cell order", if interleave {
-            format!("interleave: per (dir, in-flight) every cell built and warmed, round r runs {} rotated by r-1", order.join(","))
-        } else {
-            format!("blocks: {}", order.join(","))
-        }),
+        ("cell order", format!("{} (seeded random permutation, seed = launch)", order.join(","))),
         ("rounds", rounds.to_string()),
         ("calls per round", format!("{calls} rounded up to a multiple of in-flight")),
-        ("warm-up", format!("{warm} calls per (cell, dir, in-flight) before round 1")),
-        ("clocks", "cpu_ns = getrusage(RUSAGE_SELF) utime+stime of the client per round; wall_ns = monotonic".into()),
-        ("runtimes", "tonic cells: tokio multi-thread, 2 workers; core cells: ak_runtime_new(2)".into()),
+        ("warm-up", format!("server: {server_warm} checked Fetch calls from each client transport (tonic, core) before the first cell; then {warm} calls per (cell, dir, in-flight) before its rounds; one channel per cell per launch")),
+        ("clocks", "cpu_ns = getrusage(RUSAGE_SELF) utime+stime of the client per round (process CPU); wall_ns = monotonic".into()),
+        ("worker threads", format!("client: tokio multi-thread {} workers per A/D/F cell runtime; ak_runtime_new({}) per B/C/E core client; k = 1/8/16 caller threads (B/C/E) or tasks (A/D/F); server: tokio multi-thread {server_threads} workers (AK_SERVER_THREADS)", grid::TOKIO_WORKERS, grid::CORE_WORKERS)),
     ]) {
         writeln!(f, "{h}").unwrap();
     }

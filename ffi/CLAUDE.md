@@ -105,6 +105,10 @@ classifier is right to refuse when someone else tries.
   never race on the same branch.
 - Commit raw logs. A figure with no log behind it does not go in the report.
 
+## Scope of findings
+
+From 2026-09-26 (owner): a defect is worth raising and fixing only if it could affect the runtime performance the campaign measures: what a timed arm or cell does or costs, whether two arms or slices do the same work, or a gate that would let a wrong output be timed. Anything else (wording, stated-fact slips in documents, guard hygiene, style, latent defects on paths the campaign never times) gets at most one line in the finder's JOURNAL and no fix.
+
 ## Invariants
 
 - **One core, not one emitter** (R0). The core lives once at `poc/codec/` and

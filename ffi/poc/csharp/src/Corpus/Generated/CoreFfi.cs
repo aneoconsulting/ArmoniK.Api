@@ -161,6 +161,10 @@ public static unsafe class Arr
 public static unsafe class UnkHost
 {
     public static long Grows;
+    /// CAMPAIGN req 19 (R-H31): the counting run sets this, so every grow allocates EXACTLY
+    /// the size the core asked for (no doubling, no 64-byte floor), and the committed retain
+    /// counts do not depend on this host's growth policy. The timed runs leave it false.
+    public static bool Exact;
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static int Grow(IntPtr sink, int want, byte** dst, int* cap)
@@ -169,7 +173,7 @@ public static unsafe class UnkHost
         {
             if (want < 0) return Abi.AK_ERR_LIMIT;
             int c = *cap;
-            long nc = Math.Max((long)want, Math.Max(64L, 2L * c));
+            long nc = Exact ? want : Math.Max((long)want, Math.Max(64L, 2L * c));
             if (nc > int.MaxValue) nc = want;
             void* old = *dst;
             void* np = NativeMemory.Realloc(old, (nuint)nc);
@@ -201,11 +205,17 @@ public static unsafe class G
 
     /// A delivered message's buffer into its facade bag (null when none or empty); the
     /// native buffer is freed and the slot cleared.
+    /// A GATE CONTROL, not a feature (R-H9): set, Take copies the bag but skips the
+    /// release (the buffer is neither freed nor untracked), so the UNDELIVERED check of a
+    /// retained decode must fail (Disarm finds the buffer outstanding, frees it, reports it).
+    internal static readonly bool PlantSkipRelease = Environment.GetEnvironmentVariable("AK_GATE_PLANT_SKIP_RELEASE") == "1";
+
     internal static byte[] Take(ref ak_unk_buf u)
     {
         if (u.data == IntPtr.Zero) return null;
         byte[] r = null;
         if (u.len != 0) { r = new byte[u.len]; new ReadOnlySpan<byte>((void*)u.data, (int)u.len).CopyTo(r); }
+        if (PlantSkipRelease) { u = default; return r; }
         Live?.Remove(u.data);
         NativeMemory.Free((void*)u.data);
         u = default;

@@ -77,4 +77,8 @@ public final class NativeRpc {
   /** CLOCK_PROCESS_CPUTIME_ID in ns (CAMPAIGN.md req 21: the RPC client process's CPU at a
    *  resolution finer than 1 us; the JDK's getProcessCpuTime reads times(), 10 ms ticks). */
   public static native long processCpuNs();
+
+  /** A direct ByteBuffer over `len` bytes at `ptr` (JNI NewDirectByteBuffer): no copy. The
+   *  memory stays the core's; the caller frees it with {@link #bytesFree} once done. */
+  public static native java.nio.ByteBuffer directBuffer(long ptr, long len);
 }

@@ -1,0 +1,21 @@
+# crossings-nounk.txt, theirs (-) vs merged (+): rpc:C direction b loses 1 forward (R2, no ak_enc_take).
+--- /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/their_crossings_nounk.txt	2026-09-26 22:05:33.601178358 +0000
++++ gen/crossings-nounk.txt	2026-09-26 22:07:37.118981793 +0000
+@@ -1,6 +1,7 @@
+ # CAMPAIGN req 19 (as amended 2026-09-26): forward = every exported entry point called (core-counted + the
+ # binding's ak_enc_reset / ak_dec_reset_<Root> / ak_enc_take / ak_dec_err); resets = ak_enc_reset before each
+-# encode + ak_dec_reset_<Root> before and after each retain decode or pull. Retain: no pre-placed buffer, exact-size grow.
++# encode + one ak_dec_reset_<Root> before each retain decode or pull (the context stays armed, U1). Retain: no pre-placed buffer,
++# geometric grow (unk_grow: max(want, 2 x capacity, 64), capped at INT32_MAX; U2, the owner's decision for every build).
+ # rpc:<cell> rows: one call of cell B, C, D or E (P2.2; a = Fetch + decode, b = encode + Push), core RPC counters included.
+ # input                                            direction    mode        forward  reverse resets
+ P1.1                                             encode       no-unknown        3        1      1
+@@ -347,7 +348,7 @@
+ rpc:B                                            a            default           2        0      0
+ rpc:B                                            b            default           2        0      0
+ rpc:C                                            a            nounk             3     3501      0
+-rpc:C                                            b            nounk          2515     2501      1
++rpc:C                                            b            nounk          2514     2501      1
+ rpc:D                                            a            nounk             1     3501      0
+ rpc:D                                            b            nounk          2513     2501      1
+ rpc:E                                            a            nounk             2        0      0

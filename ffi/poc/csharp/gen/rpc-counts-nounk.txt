@@ -1,0 +1,21 @@
+# CAMPAIGN req 19 (R-H31): one call per RPC cell and direction (no-unknown build, P2.2), counted by name in the host (AK_HOST_COUNT), after one untimed call on the cell's own channel.
+# fields: RPC cell dir mode | fwd N (every exported entry point called: codec and transport, resets included) rev N (core->host codec callbacks, grow excluded) grow N (ak_grow_fn calls, exact-size) reset N (of fwd: ak_dec_reset_<Root>, one before and one after each decode) | entry=count ...
+# the extras (.callback, .queue) are not counted here (labelled extra rows; not built in this run, so their queue drainer cannot enter a count); D's marshaller takes a core-ffi context from a pool, so no context is created inside a counted call
+RPC A a default | fwd 0 rev 0 grow 0 reset 0 | 
+RPC A a+read default | fwd 0 rev 0 grow 0 reset 0 | 
+RPC A b default | fwd 0 rev 0 grow 0 reset 0 | 
+RPC B a default | fwd 2 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary=1
+RPC B a+read default | fwd 2 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary=1
+RPC B b default | fwd 2 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary=1
+RPC C-nounk a no-unknown | fwd 5 rev 3501 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary=1 ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+RPC C-nounk a+read no-unknown | fwd 5 rev 3501 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary=1 ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+RPC C-nounk b no-unknown | fwd 2506 rev 2501 grow 0 reset 0 | ak_blob_run=2000 ak_bytes_free=1 ak_call_unary=1 ak_elem_TaskOptionsOptionsEntry=500 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+RPC D-nounk a no-unknown | fwd 3 rev 3501 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+RPC D-nounk a+read no-unknown | fwd 3 rev 3501 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+RPC D-nounk b no-unknown | fwd 2504 rev 2501 grow 0 reset 0 | ak_blob_run=2000 ak_elem_TaskOptionsOptionsEntry=500 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+RPC E-nounk a no-unknown | fwd 2 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary=1
+RPC E-nounk a+read no-unknown | fwd 2 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary=1
+RPC E-nounk b no-unknown | fwd 2 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary=1
+RPC F-nounk a no-unknown | fwd 0 rev 0 grow 0 reset 0 | 
+RPC F-nounk a+read no-unknown | fwd 0 rev 0 grow 0 reset 0 | 
+RPC F-nounk b no-unknown | fwd 0 rev 0 grow 0 reset 0 | 

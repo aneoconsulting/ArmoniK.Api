@@ -16,15 +16,32 @@ import json
 import sys
 
 
+# CAMPAIGN req 7 as amended 2026-09-26 (R-H26, R-H27): what every slice must report; the
+# rest are labelled extras.
+REQUIRED_SETS = {"P1.2", "P2.2", "P2.4"}
+
+
+def row_class(payload, content):
+    if content.startswith("shapes:"):
+        return "required"
+    if content.startswith("corpus:"):
+        return "extra"
+    if content == "ascii" or payload in REQUIRED_SETS:
+        return "required"
+    return "extra"
+
+
 def main():
     res = json.load(open(sys.argv[1]))
     launch, coder = int(sys.argv[3]), sys.argv[4]
     build = sys.argv[5] if len(sys.argv) > 5 else "full"
     cpu = {}
     for line in open(sys.argv[2]):
-        cell, kind, idx, c, n = line.rstrip("\n").split("\t")
+        f = line.rstrip("\n").split("\t")
+        cell, kind, idx, c, n = f[:5]
+        jit = int(f[5]) if len(f) > 5 else None     # ms of JIT compilation during the iteration
         if kind == "m":
-            cpu[(cell, int(idx))] = (int(c), int(n))
+            cpu[(cell, int(idx))] = (int(c), int(n), jit)
     out = []
     for b in res:
         cell = b["params"]["cell"]
@@ -42,15 +59,26 @@ def main():
             for i, wall in enumerate(fork):
                 if (cell, i) not in cpu:
                     raise SystemExit("no CPU sample for %s measurement %d" % (cell, i))
-                c, n = cpu[(cell, i)]
+                c, n, jit = cpu[(cell, i)]
                 extra = {}
                 cont = content
                 if content.startswith("corpus:"):
-                    cont, extra = "corpus", {"root": content[7:]}
+                    cont, extra = "corpus", {"root": content[7:], "core": "corpus"}
+                elif content.startswith("shapes:"):
+                    cont, extra = "corpus", {"root": content[7:], "core": "shapes"}
+                # Req 11 (R-H29): the encode variant, split out of the cell's dir.
+                dd = d
+                if d.startswith("encode"):
+                    dd = "encode"
+                    extra["end"] = "transport" if d.startswith("encode-transport") else "buf"
+                    extra["input"] = "hot" if d.endswith("-hot") else ("pool" if cont != "corpus" else "row")
+                extra["row_class"] = row_class(payload, content)
                 rec = {"slice": "java", "suite": "codec", "arm": arm, "payload": payload,
-                    "content": cont, "dir": d, "unknown_mode": mode, "build": build, "coder": coder,
+                    "content": cont, "dir": dd, "unknown_mode": mode, "build": build, "coder": coder,
                     "engine": "jmh", "launch": launch, "round": i + 1, "cpu_ns": c,
                     "wall_ns": int(round(wall)), "iters": n}
+                if jit is not None:
+                    rec["jit_ms_during"] = jit
                 rec.update(extra)
                 out.append(json.dumps(rec, separators=(",", ":")))
     print("\n".join(out))

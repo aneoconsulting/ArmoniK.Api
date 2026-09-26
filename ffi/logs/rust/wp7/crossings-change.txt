@@ -1,0 +1,61 @@
+# WP7 (CAMPAIGN req 19 as amended, R-H31): gen/crossings.txt vs the committed file before WP7, build full
+# old rows 670, new rows 696; rows only in new: 26 (content sets on P2.4 and rpc:<cell> rows)
+# existing rows whose REVERSE changed: 0
+# forward delta per (direction, mode): (delta, of which resets) -> rows
+  decode       drop       forward +0 (resets 0, other 0)  112 rows
+  decode       retain     forward +2 (resets 2, other 0)  112 rows
+  decode-pull  drop       forward +1 (resets 0, other 1)  112 rows
+  decode-pull  retain     forward +3 (resets 2, other 1)  112 rows
+  encode       drop       forward +1 (resets 1, other 0)  111 rows
+  encode       retain     forward +1 (resets 1, other 0)  111 rows
+# new rows:
+  P2.4/latin1                                      decode       drop              1      561      0
+  P2.4/latin1                                      decode       retain            3      561      2
+  P2.4/latin1                                      decode-pull  drop              3        0      0
+  P2.4/latin1                                      decode-pull  retain            5        0      2
+  P2.4/latin1                                      encode       drop            404      401      1
+  P2.4/latin1                                      encode       retain          405      401      1
+  P2.4/wide                                        decode       drop              1      561      0
+  P2.4/wide                                        decode       retain            3      561      2
+  P2.4/wide                                        decode-pull  drop              3        0      0
+  P2.4/wide                                        decode-pull  retain            5        0      2
+  P2.4/wide                                        encode       drop            404      401      1
+  P2.4/wide                                        encode       retain          405      401      1
+  rpc:B                                            a            default           2        0      0
+  rpc:B                                            b            default           2        0      0
+  rpc:C                                            a            drop              3     3501      0
+  rpc:C                                            a            retain            5     3501      2
+  rpc:C                                            b            drop           2515     2501      1
+  rpc:C                                            b            retain         2521     2501      1
+  rpc:D                                            a            drop              1     3501      0
+  rpc:D                                            a            retain            3     3501      2
+  rpc:D                                            b            drop           2513     2501      1
+  rpc:D                                            b            retain         2519     2501      1
+  rpc:E                                            a            drop              2        0      0
+  rpc:E                                            a            retain            2        0      0
+  rpc:E                                            b            drop              2        0      0
+  rpc:E                                            b            retain            2        0      0
+
+# WP7 (CAMPAIGN req 19 as amended, R-H31): gen/crossings-nounk.txt vs the committed file before WP7, build no-unknown
+# old rows 335, new rows 349; rows only in new: 14 (content sets on P2.4 and rpc:<cell> rows)
+# existing rows whose REVERSE changed: 0
+# forward delta per (direction, mode): (delta, of which resets) -> rows
+  decode       no-unknown forward +0 (resets 0, other 0)  112 rows
+  decode-pull  no-unknown forward +1 (resets 0, other 1)  112 rows
+  encode       no-unknown forward +1 (resets 1, other 0)  111 rows
+# new rows:
+  P2.4/latin1                                      decode       no-unknown        1      561      0
+  P2.4/latin1                                      decode-pull  no-unknown        3        0      0
+  P2.4/latin1                                      encode       no-unknown      404      401      1
+  P2.4/wide                                        decode       no-unknown        1      561      0
+  P2.4/wide                                        decode-pull  no-unknown        3        0      0
+  P2.4/wide                                        encode       no-unknown      404      401      1
+  rpc:B                                            a            default           2        0      0
+  rpc:B                                            b            default           2        0      0
+  rpc:C                                            a            nounk             3     3501      0
+  rpc:C                                            b            nounk          2515     2501      1
+  rpc:D                                            a            nounk             1     3501      0
+  rpc:D                                            b            nounk          2513     2501      1
+  rpc:E                                            a            nounk             2        0      0
+  rpc:E                                            b            nounk             2        0      0
+

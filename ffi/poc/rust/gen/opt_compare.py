@@ -65,7 +65,8 @@ def codec(d):
         sys.exit(f"{p} has no q25/q75 columns: run python3 gen/opt_summary.py {d} first")
     out = {}
     for r in rows:
-        k = (r["file"], r["input"], r["dir"], r["arm"], r["mode"])
+        d = r["dir"] if r.get("variant", "-") == "-" else "%s:%s" % (r["dir"], r["variant"])
+        k = (r["file"], r["input"], d, r["arm"], r["mode"])
         out[k] = tuple(float(r[c]) for c in ("median_ns", "q25_ns", "q75_ns"))
     return out
 

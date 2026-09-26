@@ -2730,3 +2730,151 @@ kept step. Step 0 fixes the harness first.
   (AK_PRECHECK_ONLY) 1186 / 632 checks, 0 failures; the regenerated gen/crossings.txt
   reproduces from the counting build; crossings-nounk identical. The final gate at 3c737d1
   predates both changes, so the current HEAD is not gated.
+
+## 2026-09-26 -- WP6 register H: the findings assigned to rust, two core changes
+
+Each finding was confirmed or refuted before a change; the evidence is named per line.
+
+- **R-H21** (core, owner decision): confirmed on the core at 1e489eb40 by two scratch unit
+  tests (logs/rust/wp6h/rh21-before.log): INT32_MAX + 1 without grow returned
+  AK_ERR_CAPACITY (-7), and a host cap of 2^32-1 let `len` pass INT32_MAX (rc 0). Fixed
+  (31fc3eecf): `unk_room` caps every capacity at INT32_MAX; the slot's `cap` is never
+  rewritten (the host frees with it). Unit tests in ak-core, run by gate step 2.
+- **R-H10** (core): confirmed with a new corpus control before regenerating the codec
+  (logs/rust/wp6h/rh10-before.log: a refused parse took A's 480 record bytes to 0). Fixed
+  through rust_abi (the root check moved above `bdr.reset()`), all four generated codecs;
+  the control passes.
+- **R-H20** (owner decision, no code change): a control shows the rule: all-zero options
+  at reset, refill after, rc 0 and no bag; its twin armed at reset gets the 3-byte bag.
+- **R-H15**: confirmed: packed fixed32 was refused in rust_abi at render; rust_abi,
+  rust_binding, c_abi and cpp_layout tested `options.unknown == "drop"`. Fixed in plan and
+  the four renderers; gen/check_direct.py plants a packed fixed32 and sees the refusal.
+  PACKED_KIND: refuted as an ABI fact -- it sets `open_kind`, which no run symbol reads and
+  no host sees; left in rust_abi with that stated. (RUN_FN and java_layout are other
+  slices' backends.)
+- **R-H13**: confirmed (imports only, over codec/gen; rust and python gen/ unguarded;
+  one_core.sh named csharp/gen/ir.py, which no longer exists). Fixed: the slice guard
+  (every poc/<slice>/gen/*.py on disk; front-end imports; wire tokens in emitted strings
+  outside a listed renderer; renamed copies; three plants), one_core's stale exception
+  removed and a renamed-emitter plant added. On its first run it flagged
+  rust/gen/rust_facade.py, which is R-H12.
+- **R-H12**: confirmed (oneofs written after plain fields; no prost-build check). Chose
+  rendering from the plan: rust_facade.py moved to codec/gen, prost_impl.rs walks the
+  plan's encode steps with the plan's implicit presence. shapes.json's bytes are unchanged
+  (every oneof tag there is above every plain tag; conformance passes on every arm); on a
+  planted description with a plain field above Probe's oneof, the order is tag order where
+  the old renderer wrote the oneof last (logs/rust/wp6h/rh12-rh15-generator.log). A
+  prost-build diff was not done (not needed once the order is the plan's; prost-build is
+  not in this workspace).
+- **R-H22** (owner decision): confirmed for Rust (types.rs kept `unknown_fields` in the
+  no-unknown build). Fixed: types_nounk.rs from the no-unknown plan, facade feature, the
+  retain rendering compiled out there; the no-unknown corpus runs ffi-nounk and
+  native-nounk. The full build's types are unchanged (header line only).
+- **R-H2**: confirmed for Rust (thread::scope spawned k threads per batch inside the
+  window). Fixed: a pool per (cell, dir, k), created before the warm-up, reused.
+- **R-H8**: confirmed (no switch from a message member to a scalar member). Added: the
+  value is the scalar, no bag is delivered, the inactive slot's buffer is reclaimed (1),
+  0 live after.
+- **R-H23** (owner decision): the codec suite's arm blocks and the cases inside them, and
+  the RPC cell order, are now a seeded random permutation per launch (seed = launch,
+  written in the header). Criterion has no shuffle of its own but runs benchmarks in
+  registration order, which the suite controls, so randomising was possible.
+
+Found on the way: my `git mv` of rust_facade.py sat staged in the shared index and went
+into the aggregating session's docs commit a9d96f87c (content unchanged); 31fc3eecf carries
+the new content. Nothing is left staged between commands now.
+- Gate from a clean worktree at 766f8dcd9, both builds: GATE PASSED
+  (logs/rust/wp6h/clean-gate/). Crossing counts identical to both committed files: no
+  count changed (the parse-order and capacity changes do not move a crossing; the facade
+  changes are host-side), so gen/crossings*.txt are untouched. Floor 1.88 and TSan were not
+  re-run; the campaign smoke was not re-run after the pool and order changes.
+
+## 2026-09-26 -- FIX-PLAN WP7: the harness conformed to the 2026-09-26 contract
+
+- req 21: criterion's measurement is now process CPU (CLOCK_PROCESS_CPUTIME_ID); calib
+  too. RPC was already getrusage(RUSAGE_SELF).
+- req 7: content sets added on P2.4. The U-* question (92 rows at the 7 ABI roots, or the
+  213 whose root is a shapes message) went to the coordinator; answer: the 92, no core
+  change (CAMPAIGN req 7 corrected, 3210f28e0).
+- req 11: four encode variants per arm and mode. The first pool sizing (wire bytes with a
+  64-byte floor per graph) put 430k graphs of a tiny U-* row in one pool and the pre-check
+  peaked at 4.5 GB RSS in 171 s: a small wire size says nothing about the heap a facade
+  graph holds. Refuted and replaced: graphs are cloned until the heap they hold (glibc
+  mallinfo2, read only while building) reaches AK_POOL_BYTES; the pre-check then took 85 s,
+  about 1 GB RSS (mostly the leaked per-case values).
+- req 12-17: campaign::grid holds cells A-F (E, F: core-native over the core's transport and
+  over tonic), campaign::server the Unix-socket server (tokio-stream's UnixListenerStream);
+  A/D/F are tonic's async call from k tasks, B/C/E the blocking core call from a reused
+  thread pool; directions a, a+read, b; one server per (transport, launch) for both builds,
+  warmed from each client transport; one channel per cell per launch.
+- req 19: the binding tallies ak_enc_reset, ak_dec_reset_<Root>, ak_enc_take and ak_dec_err
+  in the counting build (rust_binding.py, no core change); `crossings` adds a resets column
+  and per-call rpc:<cell> rows for B-E over an in-process server. Every existing row's
+  reverse is unchanged; forward moved by exactly the tallied calls
+  (logs/rust/wp7/crossings-change.txt). Files re-committed.
+- req 4: worker thread counts in every header; the runner reads ffi/campaign.machine when
+  the CPU sets are unset.
+- Clean worktree at c8e8694eb: gate (stable, both builds) PASSED, floor 1.88.0 PASSED, TSan
+  0 in the suite / 190 on the plant; smoke of codec, rpc and calib shows every new row,
+  figures stripped by gen/strip_figures.py (logs/rust/campaign-wp7/). Two interruptions by
+  the API spend limit; the run's script had finished before the second, so nothing re-ran.
+
+## 2026-09-26 -- merge of origin/rust/native-core-ffi-poc (baa173a2) into the optimisation branch
+
+The owner: "The branch rust poc has been updated with fixes. Can you merge it, and redo the
+measurements and analysis?" 52 commits (WP7 harness conformance, register H fixes, R-H31
+counting, the other slices' WP7). 21 conflicts, resolved:
+
+- poc/codec/gen/rust_binding.py (3 hunks): the member comment (theirs, same content);
+  decode_with_<root>_opts keeps our U1 body with their `host_reset()` tally on the disarm;
+  parse_walk_with_<root>_unk keeps our U1 body (arm_<root> once, no disarm). Their R-H31
+  tally (`host_reset` / `host_call`) is added to our arm_<root> and disarm_<root> too, so
+  every ak_dec_reset the binding makes is counted.
+- rust_facade.py (moved to poc/codec/gen by them; our F1 edit merged into it): THEIRS
+  (R-H22 renders a separate types_nounk.rs from the no-unknown plan; our F1 used a cfg on
+  the member). One result: theirs. The facade manifests, lib.rs files, rust_build.py (the
+  same cfg literals on both sides), rust_corpus.py and the corpus main.rs (theirs names the
+  no-unknown native arm native-nounk; ours had native-drop): THEIRS. rust_campaign.py:
+  theirs plus our E2 (the core-ffi encode arm on the _zeroed entry points) and Z1
+  (f_decode_zc).
+- crates/campaign/src/lib.rs and benches/codec_suite.rs: THEIRS (process CPU R-H25,
+  requirement-11 encode variants with pools, R-H23 seeded arm/case order) plus ours:
+  FFI_ENCODE_FILL, the core-ffi-zc labelled extra arm (AK_ZC, run after the arm blocks,
+  pre-check core-ffi-zc == core-ffi), AK_NRESAMPLES, the UTF-8 validator header line. Our
+  decode-nodrop rows and the AK_ORDER shuffle are dropped: the merged campaign suite is
+  the reference (same clock, arms and order) and R-H23 already randomises the order.
+- rpc_client.rs / rpc_server.rs: THEIRS (grid.rs, server.rs, cells A-F, Unix socket, one
+  server per launch, R-H23 cell order). Our per-round interleaved cell rotation is gone with
+  our rpc_client (theirs replaces it). Re-applied on their code: R1 in server.rs's raw
+  decoder (copy_to_bytes, no second buffer) and R2 in grid.rs cell C direction b
+  (CoreClient::call_enc -> ak_call_unary_enc); header lines `cell C request`, `core-ffi
+  encode fill`.
+- crossings.rs (theirs): its text says what the merged binding does (one reset per retain
+  decode or pull; geometric grow, the owner's override of R-H31's exact-size grow for this
+  slice). No code change: the Rust binding's unk_grow was the only grow (no exact-grow
+  switch exists for Rust in poc/codec), so geometric everywhere needed nothing else.
+- Generated files (both bindings in both workspaces, dispatch.rs, roots.rs, C#
+  RpcAbi.cs): regenerated with poc/codec/gen/generate.py, never hand-merged. Other slices'
+  regenerated output differs from their branch only by the additive ak_call_unary_enc
+  (cpp/java/python ak_abi.h variants, python binding.c counting macro, C# RpcAbi.cs).
+- STATE.md: theirs, plus our optimisation section and a status line saying HEAD is not
+  gated. JOURNAL.md: both sides kept (ours first, then theirs), this entry after.
+
+Crossing counts regenerated from the merged counting builds (R-H31 as amended by the
+owner: geometric grow everywhere). Against THEIR committed files (logs/rust/opt/
+merge-counts/): gen/crossings.txt 232 of 696 rows differ -- every retain decode and
+decode-pull row (228) has 1 fewer forward call and 1 fewer reset (U1: one ak_dec_reset per
+retain decode; they count two, arm and disarm); 36 of those (18 decode, 18 pull, the U-*
+rows whose unknown runs regrow a buffer) also have fewer reverse calls (U2 geometric grow:
+16 -> 10, 18 -> 8, 10 -> 4, 8 -> 2, ...); rpc:C a retain 5 -> 4 forward, resets 2 -> 1 and
+rpc:D a retain 3 -> 2, 2 -> 1 (U1); rpc:C b retain 2521 -> 2520 and b drop 2515 -> 2514
+forward (R2: the moved request needs no ak_enc_take). gen/crossings-nounk.txt: 1 of 349
+rows, rpc:C b nounk 2515 -> 2514 (R2). No other row, no encode row (E2 changes the fill,
+not the calls). Z1's core-ffi-zc is not in the counts (a labelled extra arm; it makes the
+calls core-ffi decode makes).
+
+Checks (no gate, as the owner asked): builds of both variants, the bench executables and
+the corpus workspace (both builds); generate --check and one_core.sh pass; pre-check alone
+3706 checks (full, 114 inputs, 4228 cases) and 2240 (no-unknown, 2632 cases), 0 failures;
+both regenerated crossing files reproduce from the counting builds; the unk_grow clamp test
+passes.

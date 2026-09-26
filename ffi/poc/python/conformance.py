@@ -186,7 +186,7 @@ def counts_only():
     print("#  get/set, calls into Python), per element. 'core fwd' = host->core ABI calls,")
     print("#  'core rev' = core->host callbacks, per element. Different edges: never add them.")
     m = arms._ffi
-    absrows = []
+    absrows, abirows = [], []
     print("   %-5s %-7s %-22s %s" % ("", "dir", "backend", "per element"))
     for pid in arms.PAYLOADS:
         n = max(MANIFEST["payloads"][pid]["elements"], 1)
@@ -195,8 +195,10 @@ def counts_only():
             for name, fn in mk(pid, mod=m):
                 if not name.startswith("core-ffi"):
                     continue
+                fn()                 # one warm call: the thread's contexts exist (steady state)
                 m.reset_counts()
                 fn()
+                abi = m.abi_counts()
                 shim = m.shim_counts()
                 core = m.core_counters("enc" if direction == "encode" else "dec")
                 st = sum(shim.values())
@@ -206,13 +208,91 @@ def counts_only():
                          ", ".join("%s=%d" % (k, v) for k, v in sorted(shim.items())
                                    if v)))
                 absrows.append((pid, direction, name[len("core-ffi / "):], core["forward"], core["reverse"]))
+                abirows.append((pid, direction, "no-unknown" if arms.NOUNK_VARIANT else "drop",
+                                name[len("core-ffi / "):], abi["calls"], abi["resets"], core["grows"],
+                                core["forward"], core["reverse"]))
+        # Retain mode (full build), C ext type: no pre-placed buffer, and the counting build's
+        # grow allocates exactly the size requested (req 19 as amended, R-H31).
+        if not arms.NOUNK_VARIANT:
+            root = arms.ROOT_OF[pid]
+            ref = arms.reference(pid)
+            for direction, fn in (("encode", lambda: m.encode("cext", root, arms.build_facade(pid, arms.CT_CEXT), None, True)),
+                                  ("decode", lambda: m.decode("cext", root, ref, arms.TY_CEXT, None, True))):
+                fn()
+                m.reset_counts()
+                fn()
+                abi = m.abi_counts()
+                core = m.core_counters("enc" if direction == "encode" else "dec")
+                abirows.append((pid, direction, "retain", "C ext type", abi["calls"], abi["resets"],
+                                core["grows"], core["forward"], core["reverse"]))
     # The per-element figures above round a few crossings over a thousand elements away (P1.2:
     # 5 and 8 reverse crossings both print 0.01), so the committed crossing-count files
     # (WP5 step 10, requirement 19) take these whole-call totals.
     print("\n## core crossings per call, whole numbers (the committed crossing-count files)")
     for pid, direction, bk, fwd, rev in absrows:
         print("   abs %-5s %-7s %-22s fwd %6d rev %6d" % (pid, direction, bk, fwd, rev))
+    # Req 19 as amended (R-H31): EVERY exported entry point the timed call makes, counted by
+    # the shim (resets included and shown apart), per call, after one warm call. The resets'
+    # place: decode, ak_dec_reset_<R> before every decode (and once more after it in retain,
+    # the disarm); encode, ak_enc_reset before every encode but the thread's first (so once
+    # per call in the steady state). Retain: no pre-placed buffer, exact-size grow.
+    # The unknown-field rows at the shapes roots (req 7's 92), C ext type, where retain has
+    # buffers to grow: every ABI call per call in each mode this build has.
+    import json as _json
+    man = _json.load(open(os.path.join(HERE, "..", "..", "corpus", "generated", "manifest.json")))["vectors"]
+    rows = sorted(k for k, r in man.items() if k.startswith("U-") and r["expect"] == "accept"
+                  and r.get("verdict") != "disputed" and r["root"] in set(m.roots()))
+    modes = [("no-unknown", False)] if arms.NOUNK_VARIANT else [("drop", False), ("retain", True)]
+    for vid in rows:
+        r = man[vid]
+        root = r["root"]
+        buf = open(os.path.join(HERE, "..", "..", "corpus", "generated", r["file"]), "rb").read()
+        for mode, ret in modes:
+            obj = m.decode("cext", root, buf, arms.TY_CEXT, None, ret)
+            for direction, fn in (("encode", lambda: m.encode("cext", root, obj, None, ret)),
+                                  ("decode", lambda: m.decode("cext", root, buf, arms.TY_CEXT, None, ret))):
+                fn()
+                m.reset_counts()
+                fn()
+                abi = m.abi_counts()
+                core = m.core_counters("enc" if direction == "encode" else "dec")
+                abirows.append((vid, direction, mode, "C ext type", abi["calls"], abi["resets"],
+                                core["grows"], core["forward"], core["reverse"]))
+    print("\n## every ABI call per call (req 19): calls, resets among them, core grows, core fwd/rev")
+    for pid, direction, mode, bk, calls, resets, grows, fwd, rev in abirows:
+        print("   abi %-26s %-7s %-10s %-22s calls %6d resets %3d grows %4d fwd %6d rev %6d"
+              % (pid, direction, mode, bk, calls, resets, grows, fwd, rev))
     return 0
+
+
+def oneof_refusals():
+    """R-H14, the same answer from every arm. A oneof case naming no member is refused with
+    AK_ERR_ABI (-11) carried as `.code` (plan `oneof_checks`); a selected message member that
+    holds None is the empty message and is written as an empty body (plan ENCODE RULES: "a
+    oneof member: written iff the case selects it, whatever its value"), byte-identical to upb
+    with that member set to an empty message."""
+    print("\n## oneof: an undeclared case, and a selected member holding None (R-H14)")
+    R = arms._pb2.ListProbeResponse
+    want = R(probes=[arms._pb2.Probe(id="p", as_stamp=arms._pb2.Timestamp())]).SerializeToString()
+    bad = 0
+    encs = [("pycodec / plain", arms.CT_PLAIN, lambda o: arms.pycodec.encode_root_ListProbeResponse(o))]
+    if arms.pycodec_retain is not None:
+        encs.append(("pycodec-retain / plain", arms.CT_PLAIN, lambda o: arms.pycodec_retain.encode_root_ListProbeResponse(o)))
+    if arms._ffi is not None:
+        encs += [("core-ffi / C ext type", arms.CT_CEXT, lambda o: arms._ffi.encode("cext", "ListProbeResponse", o)),
+                 ("core-ffi / plain", arms.CT_PLAIN, lambda o: arms._ffi.encode("attr", "ListProbeResponse", o))]
+    for name, C, enc in encs:
+        try:
+            enc(C["ListProbeResponse"](probes=[C["Probe"](id="p", body_case=99)]))
+            code = None
+        except ValueError as e:
+            code = getattr(e, "code", None)
+        got = enc(C["ListProbeResponse"](probes=[C["Probe"](id="p", body_case=13, as_stamp=None)]))
+        ok = code == -11 and got == want
+        print("   %-26s undeclared case -> code %s (want -11); selected None member -> %s"
+              % (name, code, "empty body, bytes == upb" if got == want else "DIFFERS %r" % got))
+        bad += 0 if ok else 1
+    return bad
 
 
 def main():
@@ -333,6 +413,8 @@ def main():
                 print("        FAIL  %-32s %s%s"
                       % (name, "" if back == want else first_diff(back, want), extra))
                 fails += 1
+
+    fails += oneof_refusals()
 
     if arms.NOUNK_VARIANT:
         # WP5 step 10 / CAMPAIGN req 10: the no-unknown variant carries no `_unknown` on any

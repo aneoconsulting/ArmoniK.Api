@@ -41,7 +41,7 @@ unknown="drop") is rendered from the same functions with every retain path left 
 U_ fills and no `ak_uencode_*`/`ak_uelem*_*` calls, no options, no resets, no grow, no bag
 taken or freed, `ak_dec_ctx_new_<Root>()`; `retain` = true is refused (NotSupported).
 """
-from plan import (as_plan, direct_fields, elem_type, loop_slots, presence_bits, slot_elem,
+from plan import (FIXED, as_plan, direct_fields, elem_type, loop_slots, presence_bits, slot_elem,
                   slot_name, unknown_compiled_out)
 import cs_names as N
 from cs_types import BAG
@@ -51,7 +51,9 @@ from cs_types import BAG
 # capture, `ak_dec_ctx_new_<Root>()`. Set by emit_host from plan.unknown_compiled_out.
 _NO = False
 
-RUN_FN = {"i32": "ak_run_i32", "i64": "ak_run_i64", "f64": "ak_run_f64", "u8": "ak_run_u8"}
+# The packed-run entry points, one per host array layout, read from plan.FIXED.run_types
+# (R-H15): no backend-local table.
+RUN_FN = {t: "ak_run_%s" % t for t in FIXED.run_types}
 UCO = "[UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]"
 
 
@@ -172,11 +174,17 @@ def _emit_unk_helpers(o):
     o += ""
     o += "    /// A delivered message's buffer into its facade bag (null when none or empty); the"
     o += "    /// native buffer is freed and the slot cleared."
+    o += "    /// A GATE CONTROL, not a feature (R-H9): set, Take copies the bag but skips the"
+    o += "    /// release (the buffer is neither freed nor untracked), so the UNDELIVERED check of a"
+    o += "    /// retained decode must fail (Disarm finds the buffer outstanding, frees it, reports it)."
+    o += "    internal static readonly bool PlantSkipRelease = Environment.GetEnvironmentVariable(\"AK_GATE_PLANT_SKIP_RELEASE\") == \"1\";"
+    o += ""
     o += "    internal static byte[] Take(ref ak_unk_buf u)"
     o += "    {"
     o += "        if (u.data == IntPtr.Zero) return null;"
     o += "        byte[] r = null;"
     o += "        if (u.len != 0) { r = new byte[u.len]; new ReadOnlySpan<byte>((void*)u.data, (int)u.len).CopyTo(r); }"
+    o += "        if (PlantSkipRelease) { u = default; return r; }"
     o += "        Live?.Remove(u.data);"
     o += "        NativeMemory.Free((void*)u.data);"
     o += "        u = default;"
@@ -334,6 +342,10 @@ UNKHOST = r'''
 public static unsafe class UnkHost
 {
     public static long Grows;
+    /// CAMPAIGN req 19 (R-H31): the counting run sets this, so every grow allocates EXACTLY
+    /// the size the core asked for (no doubling, no 64-byte floor), and the committed retain
+    /// counts do not depend on this host's growth policy. The timed runs leave it false.
+    public static bool Exact;
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static int Grow(IntPtr sink, int want, byte** dst, int* cap)
@@ -342,7 +354,7 @@ public static unsafe class UnkHost
         {
             if (want < 0) return Abi.AK_ERR_LIMIT;
             int c = *cap;
-            long nc = Math.Max((long)want, Math.Max(64L, 2L * c));
+            long nc = Exact ? want : Math.Max((long)want, Math.Max(64L, 2L * c));
             if (nc > int.MaxValue) nc = want;
             void* old = *dst;
             void* np = NativeMemory.Realloc(old, (nuint)nc);

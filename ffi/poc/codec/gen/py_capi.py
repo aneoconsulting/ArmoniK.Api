@@ -35,7 +35,7 @@ call with `retain` set is refused. Which members exist comes from the plan
 
 A backend: imports `plan` only.
 """
-from plan import (abi_order_topo, as_plan, direct_fields, elem_type, loop_slots, presence_bits,
+from plan import (FIXED, abi_order_topo, as_plan, direct_fields, elem_type, loop_slots, presence_bits,
                   slot_name, unk_opts_layout, unk_opts_name, unk_positions, unknown_compiled_out)
 import cpp_layout
 
@@ -402,20 +402,20 @@ def emit_fill(p, name, b, u=False):
                          % (gn, gn, gn, tc(g.kind)))
                 L.append("      " + dec_mv)
             elif g.kind == "message":
+                # Plan ENCODE RULES: a selected member is written whatever its value; None is
+                # the empty message, so its group stays zeroed and the core writes an empty
+                # body (R-H14, as the core, Java and C#).
                 L.append(read_obj(b, name, g.name, "mv", "ob", "      "))
-                L.append("      if (mv == Py_None) { %s" % dec_mv)
-                L.append("        PyErr_SetString(PyExc_ValueError, \"%s.%s is selected but None\"); return -1; }"
-                         % (name, g.name))
-                L.append("      if (%s_%s_%s(&e->%s, mv, h)) { %s return -1; }" % (fn, b, g.of, gn, dec_mv))
+                L.append("      if (mv != Py_None && %s_%s_%s(&e->%s, mv, h)) { %s return -1; }" % (fn, b, g.of, gn, dec_mv))
                 L.append("      " + dec_mv)
             else:
                 L.append(read_scalar(b, name, ga, "mv", "ob", "      "))
                 L.append("      e->%s = (%s)mv;" % (gn, GSCALAR[g.kind]))
             L.append("      break; }")
         L.append("    case 0: break;")
-        L.append("    default:")
-        L.append("      PyErr_Format(PyExc_ValueError, \"%s.%s_case = %%ld is not a member's tag\","
-                 " (long)cs); return -1;" % (name, oname))
+        # A case naming no member is passed on as is: the core refuses it with AK_ERR_ABI
+        # (plan `oneof_checks`), and the encode raises with that code (R-H14).
+        L.append("    default: break;")
         L.append("    }")
         L.append("  }")
     if u:
@@ -639,7 +639,7 @@ def emit_encode_entry(p, root, b):
     d = ", h->direct, h->direct_len" if direct_fields(p, root) else ""
     if NOUNK[0]:
         return _emit_encode_entry_nounk(p, root, b, d)
-    L = ["static PyObject *encode_%s_%s(PyObject *rootobj, PyObject *acc, int retain) {" % (b, root),
+    L = ["static PyObject *encode_%s_%s(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {" % (b, root),
          "  HostCtx hs; memset(&hs, 0, sizeof hs);",
          "  hs.root = rootobj; hs.acc = acc;",
          "  HostCtx *h = &hs;",
@@ -666,7 +666,7 @@ def emit_encode_entry(p, root, b):
          "  }",
          "  if (rc < 0) {",
          "    ak_py_tls_enc_release(ctx, tmp_);",
-         "    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, \"ak_encode_%s returned %%ld\", (long)rc);" % root,
+         "    if (!PyErr_Occurred()) ak_py_fail(\"ak_encode_%s\", (long)rc);" % root,
          "    return NULL;",
          "  }",
          "#ifdef AK_COUNT",
@@ -675,7 +675,7 @@ def emit_encode_entry(p, root, b):
          "  const uint8_t *pp = NULL; size_t len = 0;",
          "  if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);",
          "    PyErr_SetString(PyExc_RuntimeError, \"ak_enc_take\"); return NULL; }",
-         "  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);",
+         "  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);",
          "  ak_py_tls_enc_release(ctx, tmp_);",
          "  return out;\n}"]
     return "\n".join(L)
@@ -683,7 +683,7 @@ def emit_encode_entry(p, root, b):
 
 def _emit_encode_entry_nounk(p, root, b, d):
     """The no-unknown variant's encode: `ak_encode_R` only; `retain` is refused."""
-    L = ["static PyObject *encode_%s_%s(PyObject *rootobj, PyObject *acc, int retain) {" % (b, root),
+    L = ["static PyObject *encode_%s_%s(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {" % (b, root),
          "  if (retain) { PyErr_SetString(PyExc_ValueError, \"unknown fields are compiled out of this build\"); return NULL; }",
          "  HostCtx hs; memset(&hs, 0, sizeof hs);",
          "  hs.root = rootobj; hs.acc = acc;",
@@ -701,7 +701,7 @@ def _emit_encode_entry_nounk(p, root, b, d):
          "  intptr_t rc = ak_encode_%s(h, ctx, &VT, &fix%s);" % (root, d),
          "  if (rc < 0) {",
          "    ak_py_tls_enc_release(ctx, tmp_);",
-         "    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, \"ak_encode_%s returned %%ld\", (long)rc);" % root,
+         "    if (!PyErr_Occurred()) ak_py_fail(\"ak_encode_%s\", (long)rc);" % root,
          "    return NULL;",
          "  }",
          "#ifdef AK_COUNT",
@@ -710,7 +710,7 @@ def _emit_encode_entry_nounk(p, root, b, d):
          "  const uint8_t *pp = NULL; size_t len = 0;",
          "  if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);",
          "    PyErr_SetString(PyExc_RuntimeError, \"ak_enc_take\"); return NULL; }",
-         "  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);",
+         "  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);",
          "  ak_py_tls_enc_release(ctx, tmp_);",
          "  return out;\n}"]
     return "\n".join(L)
@@ -1099,7 +1099,7 @@ def emit_root_decode(p, root, b):
           "  AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */",
           "  if (rc || h.failed) {",
           "    %s Py_DECREF(rootobj);" % free,
-          "    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, \"ak_decode_%s returned %%d\", (int)rc);" % root,
+          "    if (!PyErr_Occurred()) ak_py_fail(\"ak_decode_%s\", (long)rc);" % root,
           "    return NULL;",
           "  }"]
     for i, (path, f) in enumerate(lists):
@@ -1144,7 +1144,7 @@ def _decode_body_nounk(p, root, b, lists, free, vt, R):
           "  ak_py_tls_release(%d, ctx, tmp_);" % p.roots.index(root),
           "  if (rc || h.failed) {",
           "    %s Py_DECREF(rootobj);" % free,
-          "    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, \"ak_decode_%s returned %%d\", (int)rc);" % root,
+          "    if (!PyErr_Occurred()) ak_py_fail(\"ak_decode_%s\", (long)rc);" % root,
           "    return NULL;",
           "  }"]
     for i, (path, f) in enumerate(lists):
@@ -1195,8 +1195,12 @@ static void ak_py_unlink(HostCtx *h, struct ak_py_buf *b) {
 static int32_t ak_py_grow(void *sink, int32_t want, uint8_t **dst, int32_t *cap) {
   HostCtx *h = (HostCtx *)sink;
   if (want <= 0) return AK_ERR_LIMIT;
+#ifdef AK_COUNT
+  int64_t n = want;   /* req 19 (R-H31): the counting build grows to EXACTLY the size requested */
+#else
   int64_t n = *dst ? 2 * (int64_t)*cap : 64;
   if (n < want) n = want;
+#endif
   if (n > INT32_MAX) n = want;
   struct ak_py_buf *old = *dst ? ((struct ak_py_buf *)(void *)*dst) - 1 : NULL;
   if (old) ak_py_unlink(h, old);
@@ -1209,6 +1213,9 @@ static int32_t ak_py_grow(void *sink, int32_t want, uint8_t **dst, int32_t *cap)
 }
 
 static void ak_py_release(HostCtx *h, void *data) {
+#ifdef AK_PLANT_SKIP_RELEASE
+  (void)h; (void)data; return;   /* the leak check's must-fail twin ONLY: a skipped release */
+#endif
   struct ak_py_buf *b = ((struct ak_py_buf *)data) - 1;
   ak_py_unlink(h, b);
   free(b);
@@ -1267,6 +1274,35 @@ static struct AkCounters CORE_ENC, CORE_DEC;
 #else
 #define BUMP(i) ((void)0)
 #endif
+
+/* A refused call: ValueError("<entry> returned <rc>") carrying the ABI v1 section 5 code as
+ * `.code`, the same attribute the pure-Python codec's DecodeError/EncodeError carry. */
+static void ak_py_fail(const char *entry, long rc) {
+  PyObject *msg = PyUnicode_FromFormat("%%s returned %%ld", entry, rc);
+  if (!msg) return;
+  PyObject *e = PyObject_CallFunctionObjArgs(PyExc_ValueError, msg, NULL);
+  Py_DECREF(msg);
+  if (!e) return;
+  PyObject *c = PyLong_FromLong(rc);
+  if (c) { PyObject_SetAttrString(e, "code", c); Py_DECREF(c); }
+  PyErr_SetObject(PyExc_ValueError, e);
+  Py_DECREF(e);
+}
+
+/* CAMPAIGN req 11's reused-buffer end state: the encoding copied into a caller's writable
+ * buffer (a bytearray or memoryview sized once), no allocation; returns the length. */
+static PyObject *ak_py_copy_into(PyObject *into, const uint8_t *p, size_t n) {
+  Py_buffer v;
+  if (PyObject_GetBuffer(into, &v, PyBUF_WRITABLE)) return NULL;
+  if ((size_t)v.len < n) {
+    PyBuffer_Release(&v);
+    PyErr_Format(PyExc_ValueError, "the buffer holds %%zd bytes, the encoding needs %%zu", v.len, n);
+    return NULL;
+  }
+  memcpy(v.buf, p, n);
+  PyBuffer_Release(&v);
+  return PyLong_FromSize_t(n);
+}
 
 /* Resolved once at module init: ak_tc_utf8() is a call across the boundary. */
 static ak_transcode_fn TC_UTF8, TC_BYTES;
@@ -1499,7 +1535,7 @@ def emit(x, modname="_akffi", backends=("attr", "cext", "pyacc")):
           "  }",
           "  return 0;\n}",
           ""]
-    L.append("typedef PyObject *(*ak_enc_f)(PyObject *, PyObject *, int);")
+    L.append("typedef PyObject *(*ak_enc_f)(PyObject *, PyObject *, int, PyObject *);")
     L.append("typedef PyObject *(*ak_dec_f)(PyObject *, PyObject *, HostTypes *, int, unsigned long long);")
     L.append("#define AK_NBACKENDS %d" % len(backends))
     L.append("static const char *AK_BACKENDS[AK_NBACKENDS] = {%s};" % ", ".join('"%s"' % b for b in backends))
@@ -1520,7 +1556,35 @@ def emit(x, modname="_akffi", backends=("attr", "cext", "pyacc")):
     L.append("};")
     L.append("")
     L += emit_unk_tables(p)
-    return "\n".join(L)
+    text = "\n".join(L)
+    return _abi_counting(p, text)
+
+
+ABI_COUNT_ANCHOR = "#define BUMP(i) ((void)0)\n#endif\n"
+
+
+def _abi_counting(p, text):
+    """CAMPAIGN req 19 as amended (R-H31): in the counting build, EVERY exported entry point
+    the shim (and native/binding.c, which includes this file) calls is counted, resets
+    included. Each ABI function gets a function-like macro of its own name that bumps the
+    count and then calls it (a macro does not re-expand inside its own expansion). The names
+    are the plan's: FIXED.all_functions, plan.rpc.functions, and every `ak_*(` call this file
+    renders; the counting build's own instrumentation (`*counters*`) is not counted."""
+    import re
+    names = set(n for _g, n, *_r in FIXED.all_functions())
+    names |= set(f[0] for f in p.rpc.functions)
+    names |= set(re.findall(r"\b(ak_[A-Za-z0-9_]+)\(", text))
+    names = sorted(n for n in names if not n.startswith("ak_py_") and "counters" not in n
+                   and n not in ("ak_rpc_counting",))
+    blk = ["/* ---- req 19 (R-H31), counting build: every ABI call counted, resets separately ---- */",
+           "#ifdef AK_COUNT",
+           "static uint64_t ABICNT[2];   /* [0] every ak_* call, [1] the resets among them */",
+           "#define AK_ABI_CALL(r) (ABICNT[0]++, ABICNT[1] += (r))"]
+    for n in names:
+        blk.append("#define %s(...) (AK_ABI_CALL(%d), %s(__VA_ARGS__))" % (n, 1 if "reset" in n else 0, n))
+    blk.append("#endif")
+    assert text.count(ABI_COUNT_ANCHOR) == 1
+    return text.replace(ABI_COUNT_ANCHOR, ABI_COUNT_ANCHOR + "\n".join(blk) + "\n", 1)
 
 
 def emit_unk_tables(p):

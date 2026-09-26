@@ -44,7 +44,11 @@ else
   SNAP=$HERE/build/snap
   rm -rf "$SNAP" && mkdir -p "$SNAP"
   TOP=$(git rev-parse --show-toplevel)
-  ( cd "$TOP" && git archive "$REV" ffi/poc/codec ffi/schema ffi/corpus ) | tar -x -C "$SNAP"
+  # Every slice's gen/*.py too: poc/codec/gen/generate.py --check guards every
+  # poc/<slice>/gen/ module (R-H13), and a snapshot without them fails that guard.
+  ( cd "$TOP" && git archive "$REV" ffi/poc/codec ffi/schema ffi/corpus \
+      $(git ls-tree -r --name-only "$REV" ffi/poc | grep -E '^ffi/poc/[^/]+/gen/[^/]+\.py$' | grep -v '^ffi/poc/codec/') ) \
+    | tar -x -C "$SNAP"
   CODEC=$SNAP/ffi/poc/codec
   export AK_CODECGEN=${AK_CODECGEN:-$CODEC/gen}   # a preset one (development) wins
   KEY=tree-$(cd "$TOP" && git rev-parse "$REV:ffi/poc/codec" | cut -c1-16)
@@ -95,13 +99,13 @@ shim() {   # $1 = output dir, $2 = core target dir, $3 = generated native dir, $
       -L"$core/release" -lak_core -Wl,-rpath,"$HERE/$core/release"
 }
 shim jni       $CB/target        native/generated
-shim jnicnt    $CB/target-count  native/generated
+shim jnicnt    $CB/target-count  native/generated         -DAK_HOST_COUNT
 shim jnong     $CB/target        native/generated         -DAK_NO_GUARD
 shim jnitax    $CB/target        native/generated         -DAK_CROSSING_TAX
 shim jnicorpus $CB/target-corpus native/generated_corpus
 # The no-unknown build's shims, over c_abi's second header (native/generated*_nounk).
 shim jni-nounk       $CB/target-nounk        native/generated_nounk
-shim jnicnt-nounk    $CB/target-count-nounk  native/generated_nounk
+shim jnicnt-nounk    $CB/target-count-nounk  native/generated_nounk  -DAK_HOST_COUNT
 shim jnicorpus-nounk $CB/target-corpus-nounk native/generated_corpus_nounk
 # Each shim must resolve to THIS build's core, never another key's -- and to the core of ITS
 # variant: a full core exports the u-family (ak_uencode_*), a no-unknown core none.
@@ -133,6 +137,18 @@ gcc -O2 -fPIC -shared -std=c11 -Wall -Wextra -Wno-unused-parameter \
     -o build/jnirpc-nounk/libakjni.so native/generated_nounk/shim.c native/tax.c native/rpc.c \
     -L"$CB/target-rpc-nounk/release" -lak_core \
     -Wl,-rpath,"$HERE/$CB/target-rpc-nounk/release"
+# CAMPAIGN req 19 (R-H31): the RPC cells' crossings per call, from a core built with
+# rpc,count and a shim counting every JNI entry into the core (-DAK_HOST_COUNT).
+for v in "" -nounk; do
+  F=(--features rpc,count,init-guard); [ "$v" = -nounk ] && F=("${NOUNK[@]}" --features rpc,count,init-guard)
+  G=native/generated; [ "$v" = -nounk ] && G=native/generated_nounk
+  CARGO_TARGET_DIR=$HERE/$CB/target-rpc-count$v cargo build --release "${F[@]}" --manifest-path $CORE >/dev/null
+  mkdir -p build/jnirpccnt$v
+  gcc -O2 -fPIC -shared -std=c11 -Wall -Wextra -Wno-unused-parameter -DAK_HOST_COUNT \
+      -I"$J17/include" -I"$J17/include/linux" -I$G \
+      -o build/jnirpccnt$v/libakjni.so $G/shim.c native/tax.c native/rpc.c \
+      -L"$CB/target-rpc-count$v/release" -lak_core -Wl,-rpath,"$HERE/$CB/target-rpc-count$v/release"
+done
 
 # ---- 4. the incumbent's generated Java
 say "protoc"
@@ -169,7 +185,7 @@ say "classes: the no-unknown build (java17 on JDK 17)"
 rm -rf build/cls17-nounk && mkdir -p build/cls17-nounk
 "$J17/bin/javac" -nowarn -encoding UTF-8 -d build/cls17-nounk -cp "$CP" \
   $(find src/java src/generated_nounk/java17 src/generated_nounk/shared src/generated_corpus_nounk/java17 \
-       src/generated_corpus_nounk/shared -name '*.java' ! -name 'Pin.java' ! -name 'RunUnkControls.java' ! -name 'RunUnkLeak.java') \
+       src/generated_corpus_nounk/shared -name '*.java' ! -name 'Pin.java' ! -name 'RunUnkControls.java' ! -name 'RunUnkLeak.java' ! -name 'RunUnkOneof.java') \
   $(find build/pbjava -name '*.java')
 
 # ---- 5b. the codec suite on JMH (CAMPAIGN.md req 22a), target only: the annotation
@@ -208,7 +224,7 @@ rm -rf build/cls8-nounk && mkdir -p build/cls8-nounk
   $(find src/java src/generated_nounk/java8 src/generated_nounk/shared src/generated_corpus_nounk/java8 \
        src/generated_corpus_nounk/shared -name '*.java' \
        ! -name 'Ffm*.java' ! -name 'Pin.java' ! -name 'RunR14.java' \
-       ! -name 'Campaign*.java' ! -name 'RunUnkControls.java' ! -name 'RunUnkLeak.java') \
+       ! -name 'Campaign*.java' ! -name 'RunUnkControls.java' ! -name 'RunUnkLeak.java' ! -name 'RunUnkOneof.java') \
   $(find build/pbjava -name '*.java')
 
 # ---- 7. the two secondary probes, both newer than the target and built separately

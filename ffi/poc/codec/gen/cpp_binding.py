@@ -603,6 +603,20 @@ namespace ffi {
   }
 #endif
 
+// CAMPAIGN req 19 (R-H31): the exported calls the core's counters cannot see, counted in
+// the counting build only (a timed binary carries no counting code).
+#ifdef AK_COUNTING
+static thread_local uint64_t t_host_calls = 0;
+#define AK_HOST_CALL() (++t_host_calls)
+uint64_t host_calls_take() {
+  uint64_t r = t_host_calls;
+  t_host_calls = 0;
+  return r;
+}
+#else
+#define AK_HOST_CALL() ((void)0)
+#endif
+
 static inline struct ak_str ak_str_absent() {
   struct ak_str s;
   s.data = NULL;
@@ -721,6 +735,12 @@ def emit_header(ir, ns="shapes", guard="AK_BINDING_H", types_h="generated/types.
          "// calls it before its first codec call, so a binding cannot skip it; a host may",
          "// also call it up front. Returns AK_OK or the refusal.",
          "int32_t ak_init_once();",
+         "",
+         "// CAMPAIGN req 19 (R-H31): exported entry points this binding calls that the core's",
+         "// counters do not see (ak_enc_reset inside every encode_into_*, the two",
+         "// ak_dec_reset_<Root> of an armed decode). Counted in the counting build",
+         "// (AK_COUNTING) only; returns the count since the last call and restarts it.",
+         "uint64_t host_calls_take();",
          ""]
     for root in ir.roots:
         o.append("struct EncObj_%s {" % root)
@@ -1120,7 +1140,7 @@ Tcs tcs_host() {
             o.append("intptr_t encode_into_%s%s(ak_enc_ctx *ctx, const %s &o, const Tcs &t) {"
                      % (snake(root), suffix, root))
             o.append("  AK_INIT_OR_RETURN();")
-            o.append("  ak_enc_reset(ctx);")
+            o.append("  AK_HOST_CALL(); ak_enc_reset(ctx);")
             o.append("  EncObj_%s h;" % root)
             o.append("  h.o = &o;")
             o.append("  h.t = t;")
@@ -1478,6 +1498,13 @@ void unk_track(void *p) {
   if (p != NULL) unk_live().insert(p);
 }
 
+// R-H7: a buffer still sitting in an options entry after the decode was never consumed; it
+// stays the host's, in the host's struct, for the next decode with the same options (rule
+// 7). It is taken off the live set so the reclaim below never frees it.
+static inline void unk_untrack(void *p) {
+  if (p != NULL) unk_live().erase(p);
+}
+
 size_t unk_reclaim() {
   std::unordered_set<void *> &l = unk_live();
   size_t n = l.size();
@@ -1554,7 +1581,7 @@ def _emit_encode_unk(ir, o, root):
             fns[sn] = "loop_%s_%s" % (rs, sn)
     o.append("intptr_t encode_into_%s_unk(ak_enc_ctx *ctx, const %s &o, const Tcs &t) {" % (rs, root))
     o.append("  AK_INIT_OR_RETURN();")
-    o.append("  ak_enc_reset(ctx);")
+    o.append("  AK_HOST_CALL(); ak_enc_reset(ctx);")
     o.append("  EncObj_%s h;" % root)
     o.append("  h.o = &o;")
     o.append("  h.t = t;")
@@ -1599,17 +1626,38 @@ def _emit_decode_unk(ir, o, root):
         o.append("  if (zero != %d) o->%s.grow = unk_grow;" % (i, mn))
     o.append("}")
     o.append("")
+    o.append("// R-H7: every buffer still in the options is the host's: off the live set, so no")
+    o.append("// reclaim frees it.")
+    o.append("static void unk_untrack_opts_%s(struct %s *opts) {" % (rs, on))
+    for mn, _m, ty in lay:
+        if ty == "ak_unk_pool":
+            o.append("  if (opts->%s.bufs != NULL)" % mn)
+            o.append("    for (uint32_t i = 0; i < opts->%s.n; ++i) unk_untrack(opts->%s.bufs[i].data);"
+                     % (mn, mn))
+        else:
+            o.append("  unk_untrack(opts->%s.buf.data);" % mn)
+    o.append("}")
+    o.append("")
     o.append("// The decode with the context armed with `opts`, read IN PLACE by the core until the")
     o.append("// disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,")
-    o.append("// is called with `hold` after every element delivery (rule 1). Every buffer this")
-    o.append("// binding allocated and did not deliver is freed before return.")
+    o.append("// is called with `hold` after every element delivery (rule 1). A buffer the core")
+    o.append("// consumed and this binding did not deliver (a failed decode, a map entry) is freed")
+    o.append("// before return; a buffer still in `opts` was not consumed and is left there, the")
+    o.append("// host's, for the next decode with the same options (rule 7, R-H7).")
     o.append("int32_t decode_with_%s_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, %s *out,"
              " struct %s *opts, void (*refill)(void *), void *hold) {" % (rs, root, on))
     o.append("  AK_INIT_OR_RETURN();")
-    o.append("  int32_t rc = ak_dec_reset_%s(ctx, opts);" % root)
-    o.append("  if (rc != AK_OK) return rc;")
+    o.append("  AK_HOST_CALL(); int32_t rc = ak_dec_reset_%s(ctx, opts);  // reset 1: arms, before the decode" % root)
+    o.append("  if (rc != AK_OK) {")
+    o.append("    // Refused (another root's context, or the core uninitialized): nothing was")
+    o.append("    // consumed, so every buffer in the options stays the host's (R-H7).")
+    o.append("    unk_untrack_opts_%s(opts);" % rs)
+    o.append("    return rc;")
+    o.append("  }")
     o.append("  rc = decode_impl_%s(ctx, b, n, out, refill, hold);" % rs)
-    o.append("  int32_t rc2 = ak_dec_reset_%s(ctx, NULL);" % root)
+    o.append("  AK_HOST_CALL(); int32_t rc2 = ak_dec_reset_%s(ctx, NULL);  // reset 2: disarms, after it" % root)
+    o.append("  // R-H7: what is still in the options was not consumed and stays the host's.")
+    o.append("  unk_untrack_opts_%s(opts);" % rs)
     o.append("  unk_reclaim();")
     o.append("  if (rc >= 0 && rc2 != AK_OK) rc = rc2;")
     o.append("  return rc;")
@@ -1627,7 +1675,7 @@ def _emit_decode_unk(ir, o, root):
     singles = [(i, mn) for i, (mn, _m, ty) in enumerate(lay) if ty != "ak_unk_pool"]
     o.append("// Decision 11 rule 1, pre-allocated: every singular position gets one buffer of `cap`")
     o.append("// bytes, every pool `k`, refilled in place after each delivery; `unk_grow` is the")
-    o.append("// fallback. Unconsumed buffers are freed by the decode's reclaim.")
+    o.append("// fallback. Unconsumed buffers stay in the holder's options and are freed here.")
     o.append("struct UnkPool_%s {" % root)
     o.append("  struct %s opts;" % on)
     o.append("  std::vector<struct ak_unk_buf> bufs;")
@@ -1662,6 +1710,10 @@ def _emit_decode_unk(ir, o, root):
     o.append("  h.refills = 0;")
     o.append("  int32_t rc = decode_with_%s_opts(ctx, b, n, out, &h.opts, unk_refill_%s, &h);"
              % (rs, rs))
+    o.append("  // The pre-allocated buffers the decode did not consume are still ours (R-H7).")
+    o.append("  for (size_t i = 0; i < h.bufs.size(); ++i) std::free(h.bufs[i].data);")
+    for _i, mn in singles:
+        o.append("  std::free(h.opts.%s.buf.data);" % mn)
     o.append("  if (refills) *refills = h.refills;")
     o.append("  return rc;")
     o.append("}")

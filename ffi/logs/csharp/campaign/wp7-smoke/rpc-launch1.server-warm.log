@@ -1,0 +1,2 @@
+# server warm-up: shipped (/tmp/ak-cs-29580-s.sock): 100 calls per direction (a, b) from Grpc.Net and 100 from the core's transport, every call checked
+# server warm-up: pinned (/tmp/ak-cs-29580-p.sock): 100 calls per direction (a, b) from Grpc.Net and 100 from the core's transport, every call checked

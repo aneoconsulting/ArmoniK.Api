@@ -8,7 +8,7 @@ publish.workspace = true
 # FIX-PLAN WP3: the rust slice's campaign harness (design/CAMPAIGN.md).
 #   benches/codec_suite.rs  the codec suite on criterion (requirement 22a)
 #   bin/rpc_server     the RPC grid's server, a separate process (requirement 13)
-#   bin/rpc_client     the RPC grid's client, cells A-D (requirements 12-18)
+#   bin/rpc_client     the RPC grid's client, cells A-F (requirements 12-18)
 #   bin/calib          the crossing benchmark, forward and reverse (requirement 20)
 #   bin/crossings      crossing counts of every core-ffi case, counting build (19)
 # Driven by poc/rust/run_campaign.sh.
@@ -43,6 +43,8 @@ http.workspace = true
 http-body.workspace = true
 tower-service.workspace = true
 libc = "0.2"
+# CAMPAIGN req 17 (R-H28): the server's Unix socket listener stream for tonic.
+tokio-stream = { version = "0.1", features = ["net"] }
 criterion = { version = "0.5", default-features = false }
 
 [[bench]]

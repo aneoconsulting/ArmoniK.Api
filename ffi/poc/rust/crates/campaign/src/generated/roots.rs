@@ -7,6 +7,10 @@ use harness::generated::binding;
 use facade::generated::{build, core_native};
 #[cfg(feature = "unknown-fields")]
 use facade::generated::core_native_retain;
+// The no-unknown build has no retain rendering; MODES there has no retain mode, so
+// `retain` is never true and the name resolves to the drop rendering.
+#[cfg(not(feature = "unknown-fields"))]
+use facade::generated::core_native as core_native_retain;
 use shapes_prost::shapes as p;
 
 #[inline(never)]
@@ -477,16 +481,10 @@ impl Ops for R_ListResultsResponse {
         }
     }
     fn n_decode(b: &[u8], retain: bool) -> Result<Self::F, i32> {
-        #[cfg(feature = "unknown-fields")]
-        if retain { return core_native_retain::decode_list_results_response(b); }
-        let _ = retain;
-        core_native::decode_list_results_response(b)
+        if retain { core_native_retain::decode_list_results_response(b) } else { core_native::decode_list_results_response(b) }
     }
     fn n_encode(v: &Self::F, e: &mut ak_rt::Enc, retain: bool) {
-        #[cfg(feature = "unknown-fields")]
-        if retain { return core_native_retain::encode_into_list_results_response(v, e); }
-        let _ = retain;
-        core_native::encode_into_list_results_response(v, e)
+        if retain { core_native_retain::encode_into_list_results_response(v, e) } else { core_native::encode_into_list_results_response(v, e) }
     }
     fn f_decode(c: &Ctx, b: &[u8], retain: bool) -> Result<Self::F, i32> {
         #[cfg(feature = "unknown-fields")]
@@ -533,16 +531,10 @@ impl Ops for R_ListTasksDetailedResponse {
         }
     }
     fn n_decode(b: &[u8], retain: bool) -> Result<Self::F, i32> {
-        #[cfg(feature = "unknown-fields")]
-        if retain { return core_native_retain::decode_list_tasks_detailed_response(b); }
-        let _ = retain;
-        core_native::decode_list_tasks_detailed_response(b)
+        if retain { core_native_retain::decode_list_tasks_detailed_response(b) } else { core_native::decode_list_tasks_detailed_response(b) }
     }
     fn n_encode(v: &Self::F, e: &mut ak_rt::Enc, retain: bool) {
-        #[cfg(feature = "unknown-fields")]
-        if retain { return core_native_retain::encode_into_list_tasks_detailed_response(v, e); }
-        let _ = retain;
-        core_native::encode_into_list_tasks_detailed_response(v, e)
+        if retain { core_native_retain::encode_into_list_tasks_detailed_response(v, e) } else { core_native::encode_into_list_tasks_detailed_response(v, e) }
     }
     fn f_decode(c: &Ctx, b: &[u8], retain: bool) -> Result<Self::F, i32> {
         #[cfg(feature = "unknown-fields")]
@@ -585,16 +577,10 @@ impl Ops for R_ListProbeResponse {
         }
     }
     fn n_decode(b: &[u8], retain: bool) -> Result<Self::F, i32> {
-        #[cfg(feature = "unknown-fields")]
-        if retain { return core_native_retain::decode_list_probe_response(b); }
-        let _ = retain;
-        core_native::decode_list_probe_response(b)
+        if retain { core_native_retain::decode_list_probe_response(b) } else { core_native::decode_list_probe_response(b) }
     }
     fn n_encode(v: &Self::F, e: &mut ak_rt::Enc, retain: bool) {
-        #[cfg(feature = "unknown-fields")]
-        if retain { return core_native_retain::encode_into_list_probe_response(v, e); }
-        let _ = retain;
-        core_native::encode_into_list_probe_response(v, e)
+        if retain { core_native_retain::encode_into_list_probe_response(v, e) } else { core_native::encode_into_list_probe_response(v, e) }
     }
     fn f_decode(c: &Ctx, b: &[u8], retain: bool) -> Result<Self::F, i32> {
         #[cfg(feature = "unknown-fields")]
@@ -637,16 +623,10 @@ impl Ops for R_ListTaskSummaryResponse {
         }
     }
     fn n_decode(b: &[u8], retain: bool) -> Result<Self::F, i32> {
-        #[cfg(feature = "unknown-fields")]
-        if retain { return core_native_retain::decode_list_task_summary_response(b); }
-        let _ = retain;
-        core_native::decode_list_task_summary_response(b)
+        if retain { core_native_retain::decode_list_task_summary_response(b) } else { core_native::decode_list_task_summary_response(b) }
     }
     fn n_encode(v: &Self::F, e: &mut ak_rt::Enc, retain: bool) {
-        #[cfg(feature = "unknown-fields")]
-        if retain { return core_native_retain::encode_into_list_task_summary_response(v, e); }
-        let _ = retain;
-        core_native::encode_into_list_task_summary_response(v, e)
+        if retain { core_native_retain::encode_into_list_task_summary_response(v, e) } else { core_native::encode_into_list_task_summary_response(v, e) }
     }
     fn f_decode(c: &Ctx, b: &[u8], retain: bool) -> Result<Self::F, i32> {
         #[cfg(feature = "unknown-fields")]
@@ -692,16 +672,10 @@ impl Ops for R_UploadResultDataMessage {
         }
     }
     fn n_decode(b: &[u8], retain: bool) -> Result<Self::F, i32> {
-        #[cfg(feature = "unknown-fields")]
-        if retain { return core_native_retain::decode_upload_result_data_message(b); }
-        let _ = retain;
-        core_native::decode_upload_result_data_message(b)
+        if retain { core_native_retain::decode_upload_result_data_message(b) } else { core_native::decode_upload_result_data_message(b) }
     }
     fn n_encode(v: &Self::F, e: &mut ak_rt::Enc, retain: bool) {
-        #[cfg(feature = "unknown-fields")]
-        if retain { return core_native_retain::encode_into_upload_result_data_message(v, e); }
-        let _ = retain;
-        core_native::encode_into_upload_result_data_message(v, e)
+        if retain { core_native_retain::encode_into_upload_result_data_message(v, e) } else { core_native::encode_into_upload_result_data_message(v, e) }
     }
     fn f_decode(c: &Ctx, b: &[u8], retain: bool) -> Result<Self::F, i32> {
         #[cfg(feature = "unknown-fields")]
@@ -744,16 +718,10 @@ impl Ops for R_ListMetricsResponse {
         }
     }
     fn n_decode(b: &[u8], retain: bool) -> Result<Self::F, i32> {
-        #[cfg(feature = "unknown-fields")]
-        if retain { return core_native_retain::decode_list_metrics_response(b); }
-        let _ = retain;
-        core_native::decode_list_metrics_response(b)
+        if retain { core_native_retain::decode_list_metrics_response(b) } else { core_native::decode_list_metrics_response(b) }
     }
     fn n_encode(v: &Self::F, e: &mut ak_rt::Enc, retain: bool) {
-        #[cfg(feature = "unknown-fields")]
-        if retain { return core_native_retain::encode_into_list_metrics_response(v, e); }
-        let _ = retain;
-        core_native::encode_into_list_metrics_response(v, e)
+        if retain { core_native_retain::encode_into_list_metrics_response(v, e) } else { core_native::encode_into_list_metrics_response(v, e) }
     }
     fn f_decode(c: &Ctx, b: &[u8], retain: bool) -> Result<Self::F, i32> {
         #[cfg(feature = "unknown-fields")]
@@ -795,16 +763,10 @@ impl Ops for R_DualResponse {
         }
     }
     fn n_decode(b: &[u8], retain: bool) -> Result<Self::F, i32> {
-        #[cfg(feature = "unknown-fields")]
-        if retain { return core_native_retain::decode_dual_response(b); }
-        let _ = retain;
-        core_native::decode_dual_response(b)
+        if retain { core_native_retain::decode_dual_response(b) } else { core_native::decode_dual_response(b) }
     }
     fn n_encode(v: &Self::F, e: &mut ak_rt::Enc, retain: bool) {
-        #[cfg(feature = "unknown-fields")]
-        if retain { return core_native_retain::encode_into_dual_response(v, e); }
-        let _ = retain;
-        core_native::encode_into_dual_response(v, e)
+        if retain { core_native_retain::encode_into_dual_response(v, e) } else { core_native::encode_into_dual_response(v, e) }
     }
     fn f_decode(c: &Ctx, b: &[u8], retain: bool) -> Result<Self::F, i32> {
         #[cfg(feature = "unknown-fields")]

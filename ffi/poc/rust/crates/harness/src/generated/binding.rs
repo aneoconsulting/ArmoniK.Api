@@ -172,6 +172,41 @@ pub fn unk_reclaim() -> usize {
     })
 }
 
+// ---- CAMPAIGN req 19 as amended (R-H31): every exported entry point the timed loop calls --
+//
+// The core's context counters see the codec's own entry points (`ak_encode_*`,
+// `ak_decode_*`, `ak_parse_*`, the runs, the drains) and every reverse call. They do not
+// see a handful of plain exports the binding also calls: `ak_enc_reset` (before every
+// encode), `ak_dec_reset_<Root>` (before a retain decode, arming the options, and after it,
+// disarming with NULL), `ak_enc_take` (reading the encoded bytes) and `ak_dec_err` (after a
+// pull). The counting build (`count` feature) tallies those here, at the call site, so the
+// counts cover every exported call; in any other build these are empty inline functions.
+#[cfg(feature = "count")]
+thread_local! {
+    static HOST_RESETS: ::core::cell::Cell<u64> = const { ::core::cell::Cell::new(0) };
+    static HOST_OTHER: ::core::cell::Cell<u64> = const { ::core::cell::Cell::new(0) };
+}
+#[inline(always)]
+pub(crate) fn host_reset() {
+    #[cfg(feature = "count")]
+    HOST_RESETS.with(|c| c.set(c.get() + 1));
+}
+#[inline(always)]
+pub(crate) fn host_call() {
+    #[cfg(feature = "count")]
+    HOST_OTHER.with(|c| c.set(c.get() + 1));
+}
+/// (resets, other uncounted exports) the binding called since the last take; (0, 0) outside
+/// the counting build.
+pub fn host_calls_take() -> (u64, u64) {
+    #[cfg(feature = "count")]
+    {
+        return (HOST_RESETS.with(|c| c.replace(0)), HOST_OTHER.with(|c| c.replace(0)));
+    }
+    #[cfg(not(feature = "count"))]
+    (0, 0)
+}
+
 /// ABI v1 section 5. Rust's analogue of the managed guard: a panic crossing `extern "C"`
 /// aborts the process, so the binding catches it and reports it through the context it was
 /// handed. On by default; the `no-guard` build exists only to price it, because every
@@ -1938,7 +1973,7 @@ unsafe fn loop_list_results_response_results_unk_zeroed_big(ctx: *mut ak_enc_ctx
 pub fn encode_into_list_results_response(ctx: *mut ak_enc_ctx, o: &ListResultsResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_ListResultsResponse {
             loop_results: Some(loop_list_results_response_results),
         };
@@ -1951,7 +1986,7 @@ pub fn encode_into_list_results_response(ctx: *mut ak_enc_ctx, o: &ListResultsRe
 pub fn encode_into_list_results_response_unk_zeroed(ctx: *mut ak_enc_ctx, o: &ListResultsResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_ListResultsResponse {
             loop_results: Some(loop_list_results_response_results_unk_zeroed),
         };
@@ -1964,7 +1999,7 @@ pub fn encode_into_list_results_response_unk_zeroed(ctx: *mut ak_enc_ctx, o: &Li
 pub fn encode_into_list_results_response_unk(ctx: *mut ak_enc_ctx, o: &ListResultsResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_ListResultsResponse {
             loop_results: Some(loop_list_results_response_results_unk),
         };
@@ -1977,7 +2012,7 @@ pub fn encode_into_list_results_response_unk(ctx: *mut ak_enc_ctx, o: &ListResul
 pub fn encode_into_list_results_response_zeroed(ctx: *mut ak_enc_ctx, o: &ListResultsResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_ListResultsResponse {
             loop_results: Some(loop_list_results_response_results_zeroed),
         };
@@ -2613,7 +2648,7 @@ static ELEM_VT_ListTasksDetailedResponse_tasks: ak_evt_TaskDetailed = ak_evt_Tas
 pub fn encode_into_list_tasks_detailed_response(ctx: *mut ak_enc_ctx, o: &ListTasksDetailedResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_ListTasksDetailedResponse {
             loop_tasks: Some(loop_list_tasks_detailed_response_tasks),
             elem_tasks: &ELEM_VT_ListTasksDetailedResponse_tasks,
@@ -2627,7 +2662,7 @@ pub fn encode_into_list_tasks_detailed_response(ctx: *mut ak_enc_ctx, o: &ListTa
 pub fn encode_into_list_tasks_detailed_response_unk_zeroed(ctx: *mut ak_enc_ctx, o: &ListTasksDetailedResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_ListTasksDetailedResponse {
             loop_tasks: Some(loop_list_tasks_detailed_response_tasks_unk_zeroed),
             elem_tasks: &ELEM_VT_ListTasksDetailedResponse_tasks,
@@ -2641,7 +2676,7 @@ pub fn encode_into_list_tasks_detailed_response_unk_zeroed(ctx: *mut ak_enc_ctx,
 pub fn encode_into_list_tasks_detailed_response_unk(ctx: *mut ak_enc_ctx, o: &ListTasksDetailedResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_ListTasksDetailedResponse {
             loop_tasks: Some(loop_list_tasks_detailed_response_tasks_unk),
             elem_tasks: &ELEM_VT_ListTasksDetailedResponse_tasks,
@@ -2655,7 +2690,7 @@ pub fn encode_into_list_tasks_detailed_response_unk(ctx: *mut ak_enc_ctx, o: &Li
 pub fn encode_into_list_tasks_detailed_response_zeroed(ctx: *mut ak_enc_ctx, o: &ListTasksDetailedResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_ListTasksDetailedResponse {
             loop_tasks: Some(loop_list_tasks_detailed_response_tasks_zeroed),
             elem_tasks: &ELEM_VT_ListTasksDetailedResponse_tasks,
@@ -2949,7 +2984,7 @@ unsafe fn loop_list_probe_response_probes_unk_zeroed_big(ctx: *mut ak_enc_ctx, o
 pub fn encode_into_list_probe_response(ctx: *mut ak_enc_ctx, o: &ListProbeResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_ListProbeResponse {
             loop_probes: Some(loop_list_probe_response_probes),
         };
@@ -2962,7 +2997,7 @@ pub fn encode_into_list_probe_response(ctx: *mut ak_enc_ctx, o: &ListProbeRespon
 pub fn encode_into_list_probe_response_unk_zeroed(ctx: *mut ak_enc_ctx, o: &ListProbeResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_ListProbeResponse {
             loop_probes: Some(loop_list_probe_response_probes_unk_zeroed),
         };
@@ -2975,7 +3010,7 @@ pub fn encode_into_list_probe_response_unk_zeroed(ctx: *mut ak_enc_ctx, o: &List
 pub fn encode_into_list_probe_response_unk(ctx: *mut ak_enc_ctx, o: &ListProbeResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_ListProbeResponse {
             loop_probes: Some(loop_list_probe_response_probes_unk),
         };
@@ -2988,7 +3023,7 @@ pub fn encode_into_list_probe_response_unk(ctx: *mut ak_enc_ctx, o: &ListProbeRe
 pub fn encode_into_list_probe_response_zeroed(ctx: *mut ak_enc_ctx, o: &ListProbeResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_ListProbeResponse {
             loop_probes: Some(loop_list_probe_response_probes_zeroed),
         };
@@ -3360,7 +3395,7 @@ static ELEM_VT_ListTaskSummaryResponse_tasks: ak_evt_TaskSummary = ak_evt_TaskSu
 pub fn encode_into_list_task_summary_response(ctx: *mut ak_enc_ctx, o: &ListTaskSummaryResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_ListTaskSummaryResponse {
             loop_tasks: Some(loop_list_task_summary_response_tasks),
             elem_tasks: &ELEM_VT_ListTaskSummaryResponse_tasks,
@@ -3374,7 +3409,7 @@ pub fn encode_into_list_task_summary_response(ctx: *mut ak_enc_ctx, o: &ListTask
 pub fn encode_into_list_task_summary_response_unk_zeroed(ctx: *mut ak_enc_ctx, o: &ListTaskSummaryResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_ListTaskSummaryResponse {
             loop_tasks: Some(loop_list_task_summary_response_tasks_unk_zeroed),
             elem_tasks: &ELEM_VT_ListTaskSummaryResponse_tasks,
@@ -3388,7 +3423,7 @@ pub fn encode_into_list_task_summary_response_unk_zeroed(ctx: *mut ak_enc_ctx, o
 pub fn encode_into_list_task_summary_response_unk(ctx: *mut ak_enc_ctx, o: &ListTaskSummaryResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_ListTaskSummaryResponse {
             loop_tasks: Some(loop_list_task_summary_response_tasks_unk),
             elem_tasks: &ELEM_VT_ListTaskSummaryResponse_tasks,
@@ -3402,7 +3437,7 @@ pub fn encode_into_list_task_summary_response_unk(ctx: *mut ak_enc_ctx, o: &List
 pub fn encode_into_list_task_summary_response_zeroed(ctx: *mut ak_enc_ctx, o: &ListTaskSummaryResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_ListTaskSummaryResponse {
             loop_tasks: Some(loop_list_task_summary_response_tasks_zeroed),
             elem_tasks: &ELEM_VT_ListTaskSummaryResponse_tasks,
@@ -3416,7 +3451,7 @@ pub fn encode_into_list_task_summary_response_zeroed(ctx: *mut ak_enc_ctx, o: &L
 pub fn encode_into_upload_result_data_message(ctx: *mut ak_enc_ctx, o: &UploadResultDataMessage, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_UploadResultDataMessage {
             _reserved: ::core::ptr::null(),
         };
@@ -3430,7 +3465,7 @@ pub fn encode_into_upload_result_data_message(ctx: *mut ak_enc_ctx, o: &UploadRe
 pub fn encode_into_upload_result_data_message_unk_zeroed(ctx: *mut ak_enc_ctx, o: &UploadResultDataMessage, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_UploadResultDataMessage {
             _reserved: ::core::ptr::null(),
         };
@@ -3444,7 +3479,7 @@ pub fn encode_into_upload_result_data_message_unk_zeroed(ctx: *mut ak_enc_ctx, o
 pub fn encode_into_upload_result_data_message_unk(ctx: *mut ak_enc_ctx, o: &UploadResultDataMessage, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_UploadResultDataMessage {
             _reserved: ::core::ptr::null(),
         };
@@ -3458,7 +3493,7 @@ pub fn encode_into_upload_result_data_message_unk(ctx: *mut ak_enc_ctx, o: &Uplo
 pub fn encode_into_upload_result_data_message_zeroed(ctx: *mut ak_enc_ctx, o: &UploadResultDataMessage, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_UploadResultDataMessage {
             _reserved: ::core::ptr::null(),
         };
@@ -3851,7 +3886,7 @@ static ELEM_VT_ListMetricsResponse_batches: ak_evt_MetricsBatch = ak_evt_Metrics
 pub fn encode_into_list_metrics_response(ctx: *mut ak_enc_ctx, o: &ListMetricsResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_ListMetricsResponse {
             loop_batches: Some(loop_list_metrics_response_batches),
             elem_batches: &ELEM_VT_ListMetricsResponse_batches,
@@ -3865,7 +3900,7 @@ pub fn encode_into_list_metrics_response(ctx: *mut ak_enc_ctx, o: &ListMetricsRe
 pub fn encode_into_list_metrics_response_unk_zeroed(ctx: *mut ak_enc_ctx, o: &ListMetricsResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_ListMetricsResponse {
             loop_batches: Some(loop_list_metrics_response_batches_unk_zeroed),
             elem_batches: &ELEM_VT_ListMetricsResponse_batches,
@@ -3879,7 +3914,7 @@ pub fn encode_into_list_metrics_response_unk_zeroed(ctx: *mut ak_enc_ctx, o: &Li
 pub fn encode_into_list_metrics_response_unk(ctx: *mut ak_enc_ctx, o: &ListMetricsResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_ListMetricsResponse {
             loop_batches: Some(loop_list_metrics_response_batches_unk),
             elem_batches: &ELEM_VT_ListMetricsResponse_batches,
@@ -3893,7 +3928,7 @@ pub fn encode_into_list_metrics_response_unk(ctx: *mut ak_enc_ctx, o: &ListMetri
 pub fn encode_into_list_metrics_response_zeroed(ctx: *mut ak_enc_ctx, o: &ListMetricsResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_ListMetricsResponse {
             loop_batches: Some(loop_list_metrics_response_batches_zeroed),
             elem_batches: &ELEM_VT_ListMetricsResponse_batches,
@@ -4467,7 +4502,7 @@ unsafe fn loop_dual_response_right_unk_zeroed_big(ctx: *mut ak_enc_ctx, obj: *co
 pub fn encode_into_dual_response(ctx: *mut ak_enc_ctx, o: &DualResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_DualResponse {
             loop_left: Some(loop_dual_response_left),
             loop_right: Some(loop_dual_response_right),
@@ -4481,7 +4516,7 @@ pub fn encode_into_dual_response(ctx: *mut ak_enc_ctx, o: &DualResponse, t: &Tcs
 pub fn encode_into_dual_response_unk_zeroed(ctx: *mut ak_enc_ctx, o: &DualResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_DualResponse {
             loop_left: Some(loop_dual_response_left_unk_zeroed),
             loop_right: Some(loop_dual_response_right_unk_zeroed),
@@ -4495,7 +4530,7 @@ pub fn encode_into_dual_response_unk_zeroed(ctx: *mut ak_enc_ctx, o: &DualRespon
 pub fn encode_into_dual_response_unk(ctx: *mut ak_enc_ctx, o: &DualResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_DualResponse {
             loop_left: Some(loop_dual_response_left_unk),
             loop_right: Some(loop_dual_response_right_unk),
@@ -4509,7 +4544,7 @@ pub fn encode_into_dual_response_unk(ctx: *mut ak_enc_ctx, o: &DualResponse, t: 
 pub fn encode_into_dual_response_zeroed(ctx: *mut ak_enc_ctx, o: &DualResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_DualResponse {
             loop_left: Some(loop_dual_response_left_zeroed),
             loop_right: Some(loop_dual_response_right_zeroed),
@@ -4523,7 +4558,7 @@ pub fn encode_into_dual_response_zeroed(ctx: *mut ak_enc_ctx, o: &DualResponse, 
 pub unsafe fn encoded<'a>(ctx: *mut ak_enc_ctx) -> &'a [u8] {
     let mut p: *const u8 = ::core::ptr::null();
     let mut n: usize = 0;
-    ak_enc_take(ctx, &mut p, &mut n);
+    host_call(); ak_enc_take(ctx, &mut p, &mut n);
     ::core::slice::from_raw_parts(p, n)
 }
 
@@ -4929,10 +4964,10 @@ pub const UNK_POSITIONS_LISTRESULTSRESPONSE: usize = 4;
 /// until the disarming reset), then disarmed; buffers the core placed but never
 /// delivered (an inactive oneof member, a map entry, a failed decode) are reclaimed.
 pub fn decode_with_list_results_response_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_ListResultsResponse_opts) -> Result<ListResultsResponse, i32> {
-    let rc = unsafe { ak_dec_reset_ListResultsResponse(ctxs.list_results_response, opts) };
+    let rc = unsafe { host_reset(); ak_dec_reset_ListResultsResponse(ctxs.list_results_response, opts) };
     if rc != AK_OK { return Err(rc); }
     let r = decode_with_list_results_response_armed(ctxs, b);
-    unsafe { ak_dec_reset_ListResultsResponse(ctxs.list_results_response, ::core::ptr::null_mut()); }
+    unsafe { host_reset(); ak_dec_reset_ListResultsResponse(ctxs.list_results_response, ::core::ptr::null_mut()); }
     unsafe { (*ctxs.unk).list_results_response_armed.set(false); }
     unk_reclaim();
     r
@@ -4946,6 +4981,7 @@ pub fn decode_with_list_results_response_opts(ctxs: DecCtxs, b: &[u8], opts: &mu
 fn arm_list_results_response(ctxs: DecCtxs) -> i32 {
     unsafe {
         let st = &*ctxs.unk;
+        host_reset();
         let rc = ak_dec_reset_ListResultsResponse(ctxs.list_results_response, st.list_results_response_opts.get());
         if rc == AK_OK { st.list_results_response_armed.set(true); }
         rc
@@ -4959,7 +4995,7 @@ fn disarm_list_results_response(ctxs: DecCtxs) {
     unsafe {
         let st = &*ctxs.unk;
         if st.list_results_response_armed.get() {
-            ak_dec_reset_ListResultsResponse(ctxs.list_results_response, ::core::ptr::null_mut());
+            host_reset(); ak_dec_reset_ListResultsResponse(ctxs.list_results_response, ::core::ptr::null_mut());
             st.list_results_response_armed.set(false);
         }
     }
@@ -5117,7 +5153,7 @@ pub fn parse_drain_with_list_results_response(
                 if n == 0 { break; }
                 replay_list_results_response(ctx, obj, &scratch[..(n as usize) / 8], toks);
             }
-            if rc == AK_OK { ak_dec_err(ctx) } else { rc }
+            if rc == AK_OK { host_call(); ak_dec_err(ctx) } else { rc }
         }
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
@@ -5160,7 +5196,7 @@ fn parse_walk_with_list_results_response_armed(
                 // 8-aligned by construction: the core's buffer is a `Vec<u64>`.
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_list_results_response(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -5194,7 +5230,7 @@ pub fn parse_walk_opaque_with_list_results_response(
             } else {
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_list_results_response_opaque(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -5416,10 +5452,10 @@ pub const UNK_POSITIONS_LISTTASKSDETAILEDRESPONSE: usize = 18;
 /// until the disarming reset), then disarmed; buffers the core placed but never
 /// delivered (an inactive oneof member, a map entry, a failed decode) are reclaimed.
 pub fn decode_with_list_tasks_detailed_response_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_ListTasksDetailedResponse_opts) -> Result<ListTasksDetailedResponse, i32> {
-    let rc = unsafe { ak_dec_reset_ListTasksDetailedResponse(ctxs.list_tasks_detailed_response, opts) };
+    let rc = unsafe { host_reset(); ak_dec_reset_ListTasksDetailedResponse(ctxs.list_tasks_detailed_response, opts) };
     if rc != AK_OK { return Err(rc); }
     let r = decode_with_list_tasks_detailed_response_armed(ctxs, b);
-    unsafe { ak_dec_reset_ListTasksDetailedResponse(ctxs.list_tasks_detailed_response, ::core::ptr::null_mut()); }
+    unsafe { host_reset(); ak_dec_reset_ListTasksDetailedResponse(ctxs.list_tasks_detailed_response, ::core::ptr::null_mut()); }
     unsafe { (*ctxs.unk).list_tasks_detailed_response_armed.set(false); }
     unk_reclaim();
     r
@@ -5433,6 +5469,7 @@ pub fn decode_with_list_tasks_detailed_response_opts(ctxs: DecCtxs, b: &[u8], op
 fn arm_list_tasks_detailed_response(ctxs: DecCtxs) -> i32 {
     unsafe {
         let st = &*ctxs.unk;
+        host_reset();
         let rc = ak_dec_reset_ListTasksDetailedResponse(ctxs.list_tasks_detailed_response, st.list_tasks_detailed_response_opts.get());
         if rc == AK_OK { st.list_tasks_detailed_response_armed.set(true); }
         rc
@@ -5446,7 +5483,7 @@ fn disarm_list_tasks_detailed_response(ctxs: DecCtxs) {
     unsafe {
         let st = &*ctxs.unk;
         if st.list_tasks_detailed_response_armed.get() {
-            ak_dec_reset_ListTasksDetailedResponse(ctxs.list_tasks_detailed_response, ::core::ptr::null_mut());
+            host_reset(); ak_dec_reset_ListTasksDetailedResponse(ctxs.list_tasks_detailed_response, ::core::ptr::null_mut());
             st.list_tasks_detailed_response_armed.set(false);
         }
     }
@@ -5653,7 +5690,7 @@ pub fn parse_drain_with_list_tasks_detailed_response(
                 if n == 0 { break; }
                 replay_list_tasks_detailed_response(ctx, obj, &scratch[..(n as usize) / 8], toks);
             }
-            if rc == AK_OK { ak_dec_err(ctx) } else { rc }
+            if rc == AK_OK { host_call(); ak_dec_err(ctx) } else { rc }
         }
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
@@ -5696,7 +5733,7 @@ fn parse_walk_with_list_tasks_detailed_response_armed(
                 // 8-aligned by construction: the core's buffer is a `Vec<u64>`.
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_list_tasks_detailed_response(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -5730,7 +5767,7 @@ pub fn parse_walk_opaque_with_list_tasks_detailed_response(
             } else {
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_list_tasks_detailed_response_opaque(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -5834,10 +5871,10 @@ pub const UNK_POSITIONS_LISTPROBERESPONSE: usize = 3;
 /// until the disarming reset), then disarmed; buffers the core placed but never
 /// delivered (an inactive oneof member, a map entry, a failed decode) are reclaimed.
 pub fn decode_with_list_probe_response_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_ListProbeResponse_opts) -> Result<ListProbeResponse, i32> {
-    let rc = unsafe { ak_dec_reset_ListProbeResponse(ctxs.list_probe_response, opts) };
+    let rc = unsafe { host_reset(); ak_dec_reset_ListProbeResponse(ctxs.list_probe_response, opts) };
     if rc != AK_OK { return Err(rc); }
     let r = decode_with_list_probe_response_armed(ctxs, b);
-    unsafe { ak_dec_reset_ListProbeResponse(ctxs.list_probe_response, ::core::ptr::null_mut()); }
+    unsafe { host_reset(); ak_dec_reset_ListProbeResponse(ctxs.list_probe_response, ::core::ptr::null_mut()); }
     unsafe { (*ctxs.unk).list_probe_response_armed.set(false); }
     unk_reclaim();
     r
@@ -5851,6 +5888,7 @@ pub fn decode_with_list_probe_response_opts(ctxs: DecCtxs, b: &[u8], opts: &mut 
 fn arm_list_probe_response(ctxs: DecCtxs) -> i32 {
     unsafe {
         let st = &*ctxs.unk;
+        host_reset();
         let rc = ak_dec_reset_ListProbeResponse(ctxs.list_probe_response, st.list_probe_response_opts.get());
         if rc == AK_OK { st.list_probe_response_armed.set(true); }
         rc
@@ -5864,7 +5902,7 @@ fn disarm_list_probe_response(ctxs: DecCtxs) {
     unsafe {
         let st = &*ctxs.unk;
         if st.list_probe_response_armed.get() {
-            ak_dec_reset_ListProbeResponse(ctxs.list_probe_response, ::core::ptr::null_mut());
+            host_reset(); ak_dec_reset_ListProbeResponse(ctxs.list_probe_response, ::core::ptr::null_mut());
             st.list_probe_response_armed.set(false);
         }
     }
@@ -6021,7 +6059,7 @@ pub fn parse_drain_with_list_probe_response(
                 if n == 0 { break; }
                 replay_list_probe_response(ctx, obj, &scratch[..(n as usize) / 8], toks);
             }
-            if rc == AK_OK { ak_dec_err(ctx) } else { rc }
+            if rc == AK_OK { host_call(); ak_dec_err(ctx) } else { rc }
         }
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
@@ -6064,7 +6102,7 @@ fn parse_walk_with_list_probe_response_armed(
                 // 8-aligned by construction: the core's buffer is a `Vec<u64>`.
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_list_probe_response(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -6098,7 +6136,7 @@ pub fn parse_walk_opaque_with_list_probe_response(
             } else {
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_list_probe_response_opaque(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -6234,10 +6272,10 @@ pub const UNK_POSITIONS_LISTTASKSUMMARYRESPONSE: usize = 6;
 /// until the disarming reset), then disarmed; buffers the core placed but never
 /// delivered (an inactive oneof member, a map entry, a failed decode) are reclaimed.
 pub fn decode_with_list_task_summary_response_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_ListTaskSummaryResponse_opts) -> Result<ListTaskSummaryResponse, i32> {
-    let rc = unsafe { ak_dec_reset_ListTaskSummaryResponse(ctxs.list_task_summary_response, opts) };
+    let rc = unsafe { host_reset(); ak_dec_reset_ListTaskSummaryResponse(ctxs.list_task_summary_response, opts) };
     if rc != AK_OK { return Err(rc); }
     let r = decode_with_list_task_summary_response_armed(ctxs, b);
-    unsafe { ak_dec_reset_ListTaskSummaryResponse(ctxs.list_task_summary_response, ::core::ptr::null_mut()); }
+    unsafe { host_reset(); ak_dec_reset_ListTaskSummaryResponse(ctxs.list_task_summary_response, ::core::ptr::null_mut()); }
     unsafe { (*ctxs.unk).list_task_summary_response_armed.set(false); }
     unk_reclaim();
     r
@@ -6251,6 +6289,7 @@ pub fn decode_with_list_task_summary_response_opts(ctxs: DecCtxs, b: &[u8], opts
 fn arm_list_task_summary_response(ctxs: DecCtxs) -> i32 {
     unsafe {
         let st = &*ctxs.unk;
+        host_reset();
         let rc = ak_dec_reset_ListTaskSummaryResponse(ctxs.list_task_summary_response, st.list_task_summary_response_opts.get());
         if rc == AK_OK { st.list_task_summary_response_armed.set(true); }
         rc
@@ -6264,7 +6303,7 @@ fn disarm_list_task_summary_response(ctxs: DecCtxs) {
     unsafe {
         let st = &*ctxs.unk;
         if st.list_task_summary_response_armed.get() {
-            ak_dec_reset_ListTaskSummaryResponse(ctxs.list_task_summary_response, ::core::ptr::null_mut());
+            host_reset(); ak_dec_reset_ListTaskSummaryResponse(ctxs.list_task_summary_response, ::core::ptr::null_mut());
             st.list_task_summary_response_armed.set(false);
         }
     }
@@ -6431,7 +6470,7 @@ pub fn parse_drain_with_list_task_summary_response(
                 if n == 0 { break; }
                 replay_list_task_summary_response(ctx, obj, &scratch[..(n as usize) / 8], toks);
             }
-            if rc == AK_OK { ak_dec_err(ctx) } else { rc }
+            if rc == AK_OK { host_call(); ak_dec_err(ctx) } else { rc }
         }
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
@@ -6474,7 +6513,7 @@ fn parse_walk_with_list_task_summary_response_armed(
                 // 8-aligned by construction: the core's buffer is a `Vec<u64>`.
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_list_task_summary_response(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -6508,7 +6547,7 @@ pub fn parse_walk_opaque_with_list_task_summary_response(
             } else {
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_list_task_summary_response_opaque(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -6598,10 +6637,10 @@ pub const UNK_POSITIONS_UPLOADRESULTDATAMESSAGE: usize = 2;
 /// until the disarming reset), then disarmed; buffers the core placed but never
 /// delivered (an inactive oneof member, a map entry, a failed decode) are reclaimed.
 pub fn decode_with_upload_result_data_message_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_UploadResultDataMessage_opts) -> Result<UploadResultDataMessage, i32> {
-    let rc = unsafe { ak_dec_reset_UploadResultDataMessage(ctxs.upload_result_data_message, opts) };
+    let rc = unsafe { host_reset(); ak_dec_reset_UploadResultDataMessage(ctxs.upload_result_data_message, opts) };
     if rc != AK_OK { return Err(rc); }
     let r = decode_with_upload_result_data_message_armed(ctxs, b);
-    unsafe { ak_dec_reset_UploadResultDataMessage(ctxs.upload_result_data_message, ::core::ptr::null_mut()); }
+    unsafe { host_reset(); ak_dec_reset_UploadResultDataMessage(ctxs.upload_result_data_message, ::core::ptr::null_mut()); }
     unsafe { (*ctxs.unk).upload_result_data_message_armed.set(false); }
     unk_reclaim();
     r
@@ -6615,6 +6654,7 @@ pub fn decode_with_upload_result_data_message_opts(ctxs: DecCtxs, b: &[u8], opts
 fn arm_upload_result_data_message(ctxs: DecCtxs) -> i32 {
     unsafe {
         let st = &*ctxs.unk;
+        host_reset();
         let rc = ak_dec_reset_UploadResultDataMessage(ctxs.upload_result_data_message, st.upload_result_data_message_opts.get());
         if rc == AK_OK { st.upload_result_data_message_armed.set(true); }
         rc
@@ -6628,7 +6668,7 @@ fn disarm_upload_result_data_message(ctxs: DecCtxs) {
     unsafe {
         let st = &*ctxs.unk;
         if st.upload_result_data_message_armed.get() {
-            ak_dec_reset_UploadResultDataMessage(ctxs.upload_result_data_message, ::core::ptr::null_mut());
+            host_reset(); ak_dec_reset_UploadResultDataMessage(ctxs.upload_result_data_message, ::core::ptr::null_mut());
             st.upload_result_data_message_armed.set(false);
         }
     }
@@ -6777,7 +6817,7 @@ pub fn parse_drain_with_upload_result_data_message(
                 if n == 0 { break; }
                 replay_upload_result_data_message(ctx, obj, &scratch[..(n as usize) / 8], toks);
             }
-            if rc == AK_OK { ak_dec_err(ctx) } else { rc }
+            if rc == AK_OK { host_call(); ak_dec_err(ctx) } else { rc }
         }
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
@@ -6820,7 +6860,7 @@ fn parse_walk_with_upload_result_data_message_armed(
                 // 8-aligned by construction: the core's buffer is a `Vec<u64>`.
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_upload_result_data_message(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -6854,7 +6894,7 @@ pub fn parse_walk_opaque_with_upload_result_data_message(
             } else {
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_upload_result_data_message_opaque(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -7052,10 +7092,10 @@ pub const UNK_POSITIONS_LISTMETRICSRESPONSE: usize = 2;
 /// until the disarming reset), then disarmed; buffers the core placed but never
 /// delivered (an inactive oneof member, a map entry, a failed decode) are reclaimed.
 pub fn decode_with_list_metrics_response_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_ListMetricsResponse_opts) -> Result<ListMetricsResponse, i32> {
-    let rc = unsafe { ak_dec_reset_ListMetricsResponse(ctxs.list_metrics_response, opts) };
+    let rc = unsafe { host_reset(); ak_dec_reset_ListMetricsResponse(ctxs.list_metrics_response, opts) };
     if rc != AK_OK { return Err(rc); }
     let r = decode_with_list_metrics_response_armed(ctxs, b);
-    unsafe { ak_dec_reset_ListMetricsResponse(ctxs.list_metrics_response, ::core::ptr::null_mut()); }
+    unsafe { host_reset(); ak_dec_reset_ListMetricsResponse(ctxs.list_metrics_response, ::core::ptr::null_mut()); }
     unsafe { (*ctxs.unk).list_metrics_response_armed.set(false); }
     unk_reclaim();
     r
@@ -7069,6 +7109,7 @@ pub fn decode_with_list_metrics_response_opts(ctxs: DecCtxs, b: &[u8], opts: &mu
 fn arm_list_metrics_response(ctxs: DecCtxs) -> i32 {
     unsafe {
         let st = &*ctxs.unk;
+        host_reset();
         let rc = ak_dec_reset_ListMetricsResponse(ctxs.list_metrics_response, st.list_metrics_response_opts.get());
         if rc == AK_OK { st.list_metrics_response_armed.set(true); }
         rc
@@ -7082,7 +7123,7 @@ fn disarm_list_metrics_response(ctxs: DecCtxs) {
     unsafe {
         let st = &*ctxs.unk;
         if st.list_metrics_response_armed.get() {
-            ak_dec_reset_ListMetricsResponse(ctxs.list_metrics_response, ::core::ptr::null_mut());
+            host_reset(); ak_dec_reset_ListMetricsResponse(ctxs.list_metrics_response, ::core::ptr::null_mut());
             st.list_metrics_response_armed.set(false);
         }
     }
@@ -7273,7 +7314,7 @@ pub fn parse_drain_with_list_metrics_response(
                 if n == 0 { break; }
                 replay_list_metrics_response(ctx, obj, &scratch[..(n as usize) / 8], toks);
             }
-            if rc == AK_OK { ak_dec_err(ctx) } else { rc }
+            if rc == AK_OK { host_call(); ak_dec_err(ctx) } else { rc }
         }
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
@@ -7316,7 +7357,7 @@ fn parse_walk_with_list_metrics_response_armed(
                 // 8-aligned by construction: the core's buffer is a `Vec<u64>`.
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_list_metrics_response(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -7350,7 +7391,7 @@ pub fn parse_walk_opaque_with_list_metrics_response(
             } else {
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_list_metrics_response_opaque(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -7472,10 +7513,10 @@ pub const UNK_POSITIONS_DUALRESPONSE: usize = 3;
 /// until the disarming reset), then disarmed; buffers the core placed but never
 /// delivered (an inactive oneof member, a map entry, a failed decode) are reclaimed.
 pub fn decode_with_dual_response_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_DualResponse_opts) -> Result<DualResponse, i32> {
-    let rc = unsafe { ak_dec_reset_DualResponse(ctxs.dual_response, opts) };
+    let rc = unsafe { host_reset(); ak_dec_reset_DualResponse(ctxs.dual_response, opts) };
     if rc != AK_OK { return Err(rc); }
     let r = decode_with_dual_response_armed(ctxs, b);
-    unsafe { ak_dec_reset_DualResponse(ctxs.dual_response, ::core::ptr::null_mut()); }
+    unsafe { host_reset(); ak_dec_reset_DualResponse(ctxs.dual_response, ::core::ptr::null_mut()); }
     unsafe { (*ctxs.unk).dual_response_armed.set(false); }
     unk_reclaim();
     r
@@ -7489,6 +7530,7 @@ pub fn decode_with_dual_response_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec
 fn arm_dual_response(ctxs: DecCtxs) -> i32 {
     unsafe {
         let st = &*ctxs.unk;
+        host_reset();
         let rc = ak_dec_reset_DualResponse(ctxs.dual_response, st.dual_response_opts.get());
         if rc == AK_OK { st.dual_response_armed.set(true); }
         rc
@@ -7502,7 +7544,7 @@ fn disarm_dual_response(ctxs: DecCtxs) {
     unsafe {
         let st = &*ctxs.unk;
         if st.dual_response_armed.get() {
-            ak_dec_reset_DualResponse(ctxs.dual_response, ::core::ptr::null_mut());
+            host_reset(); ak_dec_reset_DualResponse(ctxs.dual_response, ::core::ptr::null_mut());
             st.dual_response_armed.set(false);
         }
     }
@@ -7666,7 +7708,7 @@ pub fn parse_drain_with_dual_response(
                 if n == 0 { break; }
                 replay_dual_response(ctx, obj, &scratch[..(n as usize) / 8], toks);
             }
-            if rc == AK_OK { ak_dec_err(ctx) } else { rc }
+            if rc == AK_OK { host_call(); ak_dec_err(ctx) } else { rc }
         }
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
@@ -7709,7 +7751,7 @@ fn parse_walk_with_dual_response_armed(
                 // 8-aligned by construction: the core's buffer is a `Vec<u64>`.
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_dual_response(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -7743,7 +7785,7 @@ pub fn parse_walk_opaque_with_dual_response(
             } else {
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_dual_response_opaque(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };

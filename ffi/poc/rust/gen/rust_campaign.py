@@ -115,6 +115,10 @@ def emit(p):
          "use facade::generated::{build, core_native};",
          "#[cfg(feature = \"unknown-fields\")]",
          "use facade::generated::core_native_retain;",
+         "// The no-unknown build has no retain rendering; MODES there has no retain mode, so",
+         "// `retain` is never true and the name resolves to the drop rendering.",
+         "#[cfg(not(feature = \"unknown-fields\"))]",
+         "use facade::generated::core_native as core_native_retain;",
          "use shapes_prost::shapes as p;",
          ""]
     o += emit_touch(p, "f")
@@ -139,19 +143,11 @@ def emit(p):
         o.append("            _ => None,")
         o.append("        }")
         o.append("    }")
-        # Optimisation step 8 (F1): core_native_retain exists only with `unknown-fields`
-        # (the no-unknown facade has no bag to retain into).
         o.append("    fn n_decode(b: &[u8], retain: bool) -> Result<Self::F, i32> {")
-        o.append("        #[cfg(feature = \"unknown-fields\")]")
-        o.append("        if retain { return core_native_retain::decode_%s(b); }" % s)
-        o.append("        let _ = retain;")
-        o.append("        core_native::decode_%s(b)" % s)
+        o.append("        if retain { core_native_retain::decode_%s(b) } else { core_native::decode_%s(b) }" % (s, s))
         o.append("    }")
         o.append("    fn n_encode(v: &Self::F, e: &mut ak_rt::Enc, retain: bool) {")
-        o.append("        #[cfg(feature = \"unknown-fields\")]")
-        o.append("        if retain { return core_native_retain::encode_into_%s(v, e); }" % s)
-        o.append("        let _ = retain;")
-        o.append("        core_native::encode_into_%s(v, e)" % s)
+        o.append("        if retain { core_native_retain::encode_into_%s(v, e) } else { core_native::encode_into_%s(v, e) }" % (s, s))
         o.append("    }")
         # WP5 step 10: the retain calls exist only in the build with `unknown-fields`; the
         # no-unknown build never asks for them (campaign::MODES).

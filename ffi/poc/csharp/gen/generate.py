@@ -87,13 +87,20 @@ def targets():
     p = P.load(ROOTS)
     for root in p.roots:
         P.check_direct(p, root)
-    codec, _ = cs_managed.emit(p, "Armonik.Ffi.Facade")
+    # R-H11: one managed codec per unknown-field mode, from the plan relowered with each;
+    # cs_managed refuses "both". The drop codec is `Codec`, the retain codec `CodecRetain`.
+    codec, csites = cs_managed.emit(P.relower(p, p.options.with_unknown("drop")), "Armonik.Ffi.Facade")
+    rcodec, rsites = cs_managed.emit(P.relower(p, p.options.with_unknown("retain")), "Armonik.Ffi.Facade", cls="CodecRetain")
     full, abi, refused = corpus_plans()
-    ccodec, _ = cs_managed.emit(full, "Armonik.Ffi.Corpus", ["Armonik.Ffi.Facade"])
+    ccodec, ccsites = cs_managed.emit(P.relower(full, full.options.with_unknown("drop")), "Armonik.Ffi.Corpus", ["Armonik.Ffi.Facade"])
+    crcodec, crsites = cs_managed.emit(P.relower(full, full.options.with_unknown("retain")), "Armonik.Ffi.Corpus", ["Armonik.Ffi.Facade"], cls="CodecRetain")
+    # Both codecs of a message set share the learned-width sites (Enc.New(Codec.Sites) serves both).
+    assert csites == rsites and ccsites == crsites, "drop and retain codecs disagree on their sites"
     return {
         "src/Facade/Generated/Types.cs": cs_types.emit_types(p, "Armonik.Ffi.Facade"),
         "src/Facade/Generated/Eq.cs": cs_types.emit_eq(p, "Armonik.Ffi.Facade"),
         "src/Facade/Generated/Codec.cs": codec,
+        "src/Facade/Generated/CodecRetain.cs": rcodec,
         "src/Facade/Generated/Values.cs": cs_values.emit(p),
         "src/Facade/Generated/Build.cs": cs_build.emit(p, cs_build.FacadeSink(), ROOTS),
         "src/Harness/Generated/BuildGp.cs": cs_build.emit(p, cs_build.GpSink(), ROOTS),
@@ -106,6 +113,7 @@ def targets():
         "src/Corpus/Generated/Types.cs": cs_types.emit_types(full, "Armonik.Ffi.Corpus"),
         "src/Corpus/Generated/Eq.cs": cs_types.emit_eq(full, "Armonik.Ffi.Corpus"),
         "src/Corpus/Generated/Codec.cs": ccodec,
+        "src/Corpus/Generated/CodecRetain.cs": crcodec,
         "src/Corpus/Generated/Proj.cs": cs_proj.emit(full),
         "src/Corpus/Generated/Abi.cs": cs_binding.emit_abi(abi, "Armonik.Ffi.Corpus"),
         "src/Corpus/Generated/CoreFfi.cs": cs_host.emit_host(abi, "Armonik.Ffi.Corpus", "Armonik.Ffi.Corpus"),
@@ -126,10 +134,15 @@ def nounk_targets(p, full, abi, refused):
     ccodec, _ = cs_managed.emit(fulld, "Armonik.Ffi.Corpus", ["Armonik.Ffi.Facade"])
     return {
         "src/Facade/GeneratedNounk/Codec.cs": codec,
+        # R-H22: the no-unknown facade has no UnknownFields member (CAMPAIGN req 10).
+        "src/Facade/GeneratedNounk/Types.cs": cs_types.emit_types(pd, "Armonik.Ffi.Facade"),
+        "src/Facade/GeneratedNounk/Eq.cs": cs_types.emit_eq(pd, "Armonik.Ffi.Facade"),
         "src/Harness/GeneratedNounk/Abi.cs": cs_binding.emit_abi(pd, "Armonik.Ffi.Harness"),
         "src/Harness/GeneratedNounk/CoreFfi.cs": cs_host.emit_host(pd, "Armonik.Ffi.Harness", "Armonik.Ffi.Facade"),
         "src/Harness/GeneratedNounk/CoreArms.cs": cs_registry.emit_registry(pd, payload_roots()),
         "src/Corpus/GeneratedNounk/Codec.cs": ccodec,
+        "src/Corpus/GeneratedNounk/Types.cs": cs_types.emit_types(fulld, "Armonik.Ffi.Corpus"),
+        "src/Corpus/GeneratedNounk/Eq.cs": cs_types.emit_eq(fulld, "Armonik.Ffi.Corpus"),
         "src/Corpus/GeneratedNounk/Abi.cs": cs_binding.emit_abi(abid, "Armonik.Ffi.Corpus"),
         "src/Corpus/GeneratedNounk/CoreFfi.cs": cs_host.emit_host(abid, "Armonik.Ffi.Corpus", "Armonik.Ffi.Corpus"),
         "src/Corpus/GeneratedNounk/Dispatch.cs": cs_registry.emit_corpus_dispatch(abid, refused),

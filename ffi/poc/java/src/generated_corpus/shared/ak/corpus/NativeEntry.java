@@ -40,7 +40,7 @@ public final class NativeEntry {
   public static native long decCtxNewTimestamp(long opts);
   public static native int decResetTimestamp(long ctx, long opts);
   public static native int decodeTimestamp(Object self, long ctx, long buf, long len, long vt);
-  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
+  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall into Java). */
   public static native int parseTimestamp(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeDuration(Object self, long ctx, long vt, long fix);
@@ -50,7 +50,7 @@ public final class NativeEntry {
   public static native long decCtxNewDuration(long opts);
   public static native int decResetDuration(long ctx, long opts);
   public static native int decodeDuration(Object self, long ctx, long buf, long len, long vt);
-  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
+  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall into Java). */
   public static native int parseDuration(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeResultRaw(Object self, long ctx, long vt, long fix);
@@ -60,7 +60,7 @@ public final class NativeEntry {
   public static native long decCtxNewResultRaw(long opts);
   public static native int decResetResultRaw(long ctx, long opts);
   public static native int decodeResultRaw(Object self, long ctx, long buf, long len, long vt);
-  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
+  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall into Java). */
   public static native int parseResultRaw(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeTaskOptions(Object self, long ctx, long vt, long fix);
@@ -70,7 +70,7 @@ public final class NativeEntry {
   public static native long decCtxNewTaskOptions(long opts);
   public static native int decResetTaskOptions(long ctx, long opts);
   public static native int decodeTaskOptions(Object self, long ctx, long buf, long len, long vt);
-  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
+  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall into Java). */
   public static native int parseTaskOptions(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeTaskOutput(Object self, long ctx, long vt, long fix);
@@ -80,7 +80,7 @@ public final class NativeEntry {
   public static native long decCtxNewTaskOutput(long opts);
   public static native int decResetTaskOutput(long ctx, long opts);
   public static native int decodeTaskOutput(Object self, long ctx, long buf, long len, long vt);
-  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
+  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall into Java). */
   public static native int parseTaskOutput(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeTaskDetailed(Object self, long ctx, long vt, long fix);
@@ -90,7 +90,7 @@ public final class NativeEntry {
   public static native long decCtxNewTaskDetailed(long opts);
   public static native int decResetTaskDetailed(long ctx, long opts);
   public static native int decodeTaskDetailed(Object self, long ctx, long buf, long len, long vt);
-  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
+  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall into Java). */
   public static native int parseTaskDetailed(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeTaskSummary(Object self, long ctx, long vt, long fix);
@@ -100,7 +100,7 @@ public final class NativeEntry {
   public static native long decCtxNewTaskSummary(long opts);
   public static native int decResetTaskSummary(long ctx, long opts);
   public static native int decodeTaskSummary(Object self, long ctx, long buf, long len, long vt);
-  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
+  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall into Java). */
   public static native int parseTaskSummary(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeProbe(Object self, long ctx, long vt, long fix);
@@ -110,7 +110,7 @@ public final class NativeEntry {
   public static native long decCtxNewProbe(long opts);
   public static native int decResetProbe(long ctx, long opts);
   public static native int decodeProbe(Object self, long ctx, long buf, long len, long vt);
-  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
+  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall into Java). */
   public static native int parseProbe(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeEmpty(Object self, long ctx, long vt, long fix);
@@ -120,7 +120,7 @@ public final class NativeEntry {
   public static native long decCtxNewEmpty(long opts);
   public static native int decResetEmpty(long ctx, long opts);
   public static native int decodeEmpty(Object self, long ctx, long buf, long len, long vt);
-  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
+  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall into Java). */
   public static native int parseEmpty(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeUploadResultData(Object self, long ctx, long vt, long fix);
@@ -133,7 +133,7 @@ public final class NativeEntry {
   public static native long encodeDirectUploadResultData(Object self, long ctx, long vt, long fix, byte[] data, int dlen);
   public static native long uencodeDirectUploadResultData(Object self, long ctx, long vt, long fix, byte[] data, int dlen);
   public static native int decodeUploadResultData(Object self, long ctx, long buf, long len, long vt);
-  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
+  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall into Java). */
   public static native int parseUploadResultData(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeMetricsBatch(Object self, long ctx, long vt, long fix);
@@ -143,7 +143,7 @@ public final class NativeEntry {
   public static native long decCtxNewMetricsBatch(long opts);
   public static native int decResetMetricsBatch(long ctx, long opts);
   public static native int decodeMetricsBatch(Object self, long ctx, long buf, long len, long vt);
-  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
+  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall into Java). */
   public static native int parseMetricsBatch(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodePair(Object self, long ctx, long vt, long fix);
@@ -153,7 +153,7 @@ public final class NativeEntry {
   public static native long decCtxNewPair(long opts);
   public static native int decResetPair(long ctx, long opts);
   public static native int decodePair(Object self, long ctx, long buf, long len, long vt);
-  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
+  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall into Java). */
   public static native int parsePair(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeListResultsResponse(Object self, long ctx, long vt, long fix);
@@ -163,7 +163,7 @@ public final class NativeEntry {
   public static native long decCtxNewListResultsResponse(long opts);
   public static native int decResetListResultsResponse(long ctx, long opts);
   public static native int decodeListResultsResponse(Object self, long ctx, long buf, long len, long vt);
-  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
+  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall into Java). */
   public static native int parseListResultsResponse(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeListTasksDetailedResponse(Object self, long ctx, long vt, long fix);
@@ -173,7 +173,7 @@ public final class NativeEntry {
   public static native long decCtxNewListTasksDetailedResponse(long opts);
   public static native int decResetListTasksDetailedResponse(long ctx, long opts);
   public static native int decodeListTasksDetailedResponse(Object self, long ctx, long buf, long len, long vt);
-  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
+  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall into Java). */
   public static native int parseListTasksDetailedResponse(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeListTaskSummaryResponse(Object self, long ctx, long vt, long fix);
@@ -183,7 +183,7 @@ public final class NativeEntry {
   public static native long decCtxNewListTaskSummaryResponse(long opts);
   public static native int decResetListTaskSummaryResponse(long ctx, long opts);
   public static native int decodeListTaskSummaryResponse(Object self, long ctx, long buf, long len, long vt);
-  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
+  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall into Java). */
   public static native int parseListTaskSummaryResponse(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeListProbeResponse(Object self, long ctx, long vt, long fix);
@@ -193,7 +193,7 @@ public final class NativeEntry {
   public static native long decCtxNewListProbeResponse(long opts);
   public static native int decResetListProbeResponse(long ctx, long opts);
   public static native int decodeListProbeResponse(Object self, long ctx, long buf, long len, long vt);
-  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
+  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall into Java). */
   public static native int parseListProbeResponse(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeListMetricsResponse(Object self, long ctx, long vt, long fix);
@@ -203,7 +203,7 @@ public final class NativeEntry {
   public static native long decCtxNewListMetricsResponse(long opts);
   public static native int decResetListMetricsResponse(long ctx, long opts);
   public static native int decodeListMetricsResponse(Object self, long ctx, long buf, long len, long vt);
-  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
+  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall into Java). */
   public static native int parseListMetricsResponse(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeUploadResultDataMessage(Object self, long ctx, long vt, long fix);
@@ -216,7 +216,7 @@ public final class NativeEntry {
   public static native long encodeDirectUploadResultDataMessage(Object self, long ctx, long vt, long fix, byte[] data, int dlen);
   public static native long uencodeDirectUploadResultDataMessage(Object self, long ctx, long vt, long fix, byte[] data, int dlen);
   public static native int decodeUploadResultDataMessage(Object self, long ctx, long buf, long len, long vt);
-  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
+  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall into Java). */
   public static native int parseUploadResultDataMessage(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeDualResponse(Object self, long ctx, long vt, long fix);
@@ -226,7 +226,7 @@ public final class NativeEntry {
   public static native long decCtxNewDualResponse(long opts);
   public static native int decResetDualResponse(long ctx, long opts);
   public static native int decodeDualResponse(Object self, long ctx, long buf, long len, long vt);
-  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
+  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall into Java). */
   public static native int parseDualResponse(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeChunkLeaf(Object self, long ctx, long vt, long fix);
@@ -236,7 +236,7 @@ public final class NativeEntry {
   public static native long decCtxNewChunkLeaf(long opts);
   public static native int decResetChunkLeaf(long ctx, long opts);
   public static native int decodeChunkLeaf(Object self, long ctx, long buf, long len, long vt);
-  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
+  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall into Java). */
   public static native int parseChunkLeaf(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeChunkInner(Object self, long ctx, long vt, long fix);
@@ -246,7 +246,7 @@ public final class NativeEntry {
   public static native long decCtxNewChunkInner(long opts);
   public static native int decResetChunkInner(long ctx, long opts);
   public static native int decodeChunkInner(Object self, long ctx, long buf, long len, long vt);
-  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
+  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall into Java). */
   public static native int parseChunkInner(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeChunkElement(Object self, long ctx, long vt, long fix);
@@ -256,7 +256,7 @@ public final class NativeEntry {
   public static native long decCtxNewChunkElement(long opts);
   public static native int decResetChunkElement(long ctx, long opts);
   public static native int decodeChunkElement(Object self, long ctx, long buf, long len, long vt);
-  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
+  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall into Java). */
   public static native int parseChunkElement(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeChunkedResponse(Object self, long ctx, long vt, long fix);
@@ -266,7 +266,7 @@ public final class NativeEntry {
   public static native long decCtxNewChunkedResponse(long opts);
   public static native int decResetChunkedResponse(long ctx, long opts);
   public static native int decodeChunkedResponse(Object self, long ctx, long buf, long len, long vt);
-  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
+  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall into Java). */
   public static native int parseChunkedResponse(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeChunkedResponseWide(Object self, long ctx, long vt, long fix);
@@ -276,7 +276,7 @@ public final class NativeEntry {
   public static native long decCtxNewChunkedResponseWide(long opts);
   public static native int decResetChunkedResponseWide(long ctx, long opts);
   public static native int decodeChunkedResponseWide(Object self, long ctx, long buf, long len, long vt);
-  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
+  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall into Java). */
   public static native int parseChunkedResponseWide(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeLeafElement(Object self, long ctx, long vt, long fix);
@@ -286,7 +286,7 @@ public final class NativeEntry {
   public static native long decCtxNewLeafElement(long opts);
   public static native int decResetLeafElement(long ctx, long opts);
   public static native int decodeLeafElement(Object self, long ctx, long buf, long len, long vt);
-  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
+  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall into Java). */
   public static native int parseLeafElement(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeLeafResponse(Object self, long ctx, long vt, long fix);
@@ -296,7 +296,7 @@ public final class NativeEntry {
   public static native long decCtxNewLeafResponse(long opts);
   public static native int decResetLeafResponse(long ctx, long opts);
   public static native int decodeLeafResponse(Object self, long ctx, long buf, long len, long vt);
-  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
+  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall into Java). */
   public static native int parseLeafResponse(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeSurrogate(Object self, long ctx, long vt, long fix);
@@ -306,7 +306,7 @@ public final class NativeEntry {
   public static native long decCtxNewSurrogate(long opts);
   public static native int decResetSurrogate(long ctx, long opts);
   public static native int decodeSurrogate(Object self, long ctx, long buf, long len, long vt);
-  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
+  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall into Java). */
   public static native int parseSurrogate(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeSurrogateInner(Object self, long ctx, long vt, long fix);
@@ -316,7 +316,7 @@ public final class NativeEntry {
   public static native long decCtxNewSurrogateInner(long opts);
   public static native int decResetSurrogateInner(long ctx, long opts);
   public static native int decodeSurrogateInner(Object self, long ctx, long buf, long len, long vt);
-  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
+  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall into Java). */
   public static native int parseSurrogateInner(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native long encodeWireZoo(Object self, long ctx, long vt, long fix);
@@ -326,7 +326,7 @@ public final class NativeEntry {
   public static native long decCtxNewWireZoo(long opts);
   public static native int decResetWireZoo(long ctx, long opts);
   public static native int decodeWireZoo(Object self, long ctx, long buf, long len, long vt);
-  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall). */
+  /** ABI v1 7.1's pull family, over the host's OWN array (no upcall into Java). */
   public static native int parseWireZoo(Object self, long ctx, byte[] wire, int off, int len);
 
   public static native int elemuChunkElement(long ctx, long elems, int n, long tok0);

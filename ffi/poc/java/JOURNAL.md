@@ -758,3 +758,63 @@ R-C9: `logs/java/rpc.log` deleted -- a curated RPC grid summary (four cells in f
 pre-WP5) with no raw runner output behind it. The campaign RPC grid's raw lines are in
 logs/java/campaign/ and campaign-wp5s10/ (figures stripped). README.md and findings/java.md
 still cite rpc.log (aggregating session's files).
+
+### J30. Register H findings assigned to java (2026-09-26)
+
+Each finding checked against the code, then:
+- **R-H8 confirmed, fixed.** No corpus row puts unknowns inside a oneof member, so rule 4's
+  delivery (buffer in the active member's group, an inactive slot freed) never ran. New
+  `ak.RunUnkOneof`: the C++ slice's three sequences on ListProbeResponse through ffi-retain,
+  ffi-pull-retain and ffi-pull-walk-retain, on 17 and 8: final case and bag exact,
+  unkLeftAfterSuccess 0, unkLive 0 in all 9 pairs; the planted unarmed decode fails the 6 pairs
+  whose final member is a message (the 3 scalar-final pairs have no bag in either mode).
+  The gate log at 8339265cb prints "7 failing" because corpus.sh counted the summary line
+  too; it now counts "FAIL:" lines only (after that gate). Corpus gate section 3b'.
+- **R-H17 confirmed, fixed.** Cell B copied the core's bytes into a Java array and then
+  `Arrays.copyOf`ed it before `parseFrom`. It now parses in place: a direct ByteBuffer over
+  the core's buffer (new `NativeRpc.directBuffer`, JNI NewDirectByteBuffer, in rpc.c), read
+  by protobuf-java's Unsafe direct-buffer decoder; freed after the parse. Cell C still copies
+  twice (core -> Java array -> the binding's native scratch), because the binding's decode
+  entry takes a Java array; stated in STATE.
+- **R-H15 confirmed, fixed** (Java part): `java_layout` restated the sizes of ak_str,
+  ak_span, ak_blob, ak_unk_buf and the members of ak_unk_opts / ak_unk_pool. They are now
+  laid out from plan.FIXED.structs and checked against plan.FIXED.sizes at generation; the
+  stale `java_cabi.emit` docstring names c_abi.emit. The Java backend already used
+  `unknown_compiled_out` (java_rcodec's `options.unknown` test picks drop vs retain arm R,
+  which is a different question).
+- **R-H19 confirmed, fixed** (Java parts): codec wording (JMH forks per cell: the incumbent
+  arms are a control across processes, not in-process; RPC cells of one build do share one
+  client process, so "in-process" stays true there); java_pull / java_jni now say the parse
+  makes no reverse call into Java, the shim's C grow is one when retain is armed, and a pool
+  without grow in the pull family must cover the whole response; the codec suite records
+  `jit_ms_during` per sample (CompilationMXBean delta over the iteration), and states the
+  tier per method is not recorded.
+- **R-H23**: order stated in run_campaign.sh and STATE req 22 (JMH cannot randomise across
+  forks; one-step rotation per launch; builds alternate by launch).
+- **R-H22 confirmed already done**: no `unknownFields` anywhere in src/generated_nounk or
+  src/generated_corpus_nounk.
+- **R-H24**: STATE req 30 states ratios from per-launch medians.
+
+Found on the way: `gen/build.sh`'s `git archive` snapshot carried only poc/codec, schema and
+corpus; since R-H13 the shared `generate.py --check` guards every `poc/<slice>/gen/*.py`,
+so the corpus gate's generator check failed on the snapshot (first clean gate at 21a007087:
+GATE FAILED on that check alone, everything else passing). The snapshot now carries every
+slice's gen/*.py (8339265cb). Clean gate at 8339265cb: GATE PASSED, logs/java/wp6-h/.
+
+### J31. FIX-PLAN WP7: the harness on the 2026-09-26 contract (2026-09-26)
+
+Done: process CPU in the codec suite and calib (tax.c's CLOCK_PROCESS_CPUTIME_ID); the 92
+accepted U-* rows at the shapes core's roots through the timed shapes core (new generated
+ak.shapes.Dispatch), extras labelled by `row_class`; four encode variants (buf / transport end
+state, hot / pool input, pool > 2 x AK_LLC_BYTES); cells E and F (host-gen over the core and
+over grpc-java) in every host-gen mode; a and a+read; one server JVM per launch on two sockets
+for both builds and transports; shipped = grpc-java defaults over epoll on UDS; thread counts,
+order and ratio basis in every header; CPU sets from ffi/campaign.machine outside smoke.
+Req 19: the counting shim (-DAK_HOST_COUNT, rendered by java_jni) counts every JNI entry into
+the core; EP rows per payload and per shapes-root U-* row show the resets (encode +2 host
+entries over the core's own count on P1.2: ak_enc_reset and ak_enc_take; retain decode +2:
+the two ak_dec_reset calls) and, retain with exact-size grow, the grow calls (U-deep-all: 8).
+RPC per call (rpc,count cores): B and E 2 (call + free), C-drop a 3 / C-retain a 5, D-drop a 1.
+The first clean gate at d70c6bf28 failed on the RPC counts only: the server's socket path under
+the worktree exceeded 107 bytes; sockets now live in a short mktemp dir (f5cba4acf). Clean gate
+at f5cba4acf: GATE PASSED, all four count files identical; smoke complete (logs/java/campaign-wp7).

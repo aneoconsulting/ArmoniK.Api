@@ -1,0 +1,83 @@
+# harness: coreffi
+# utc:                 2026-09-26T14:16:46Z
+# runtime:             .NET 8.0.31
+# os:                  Ubuntu 24.04.4 LTS
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.32.0.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       no
+# managed codec:       plan options utf8=reject unknown=drop recursion_limit=100 (rendered by poc/codec/gen/cs_managed.py)
+# facade TFM:          net8.0
+# transcoder:          Encoding.UTF8.GetBytes(ReadOnlySpan<char>, Span<byte>) -- net6.0+
+# length-prefix sites: 72
+#
+# timings:             any timing a container prints is instrumentation (README 1.1)
+#
+section 10 (ak_layout_facts): agree; AK_LAYOUT_PROBE unset, the by-name check was not run
+
+binding variant: full; loaded core: the same variant (checked by its u-family exports)
+facade member UnknownFields: present (this build: full)
+core-ffi through the C ABI, every shape. Strings are handed over as staged UTF-8 with ak_tc_bytes.
+  chunk = the whole run elements per element-entry call
+
+                                                   encode crossings    decode crossings
+                                                   encode xings  push dec     pull dec
+payload  root                          bytes  enc  dec  val  pull ret  R5    fwd  rev   fwd  rev   fwd  rev   pull buf
+-----------------------------------------------------------------------------------------------------------------
+P1.1     ListResultsResponse            858  ok   ok   ok   ok   ok   ok      2    1     1    2     2    0       880
+P1.2     ListResultsResponse         218121  ok   ok   ok   ok   ok   ok      2    1     1    8     2    0    200224
+P1.2/latin1 ListResultsResponse         370110  ok   ok   ok   ok   ok   ok      2    1     1    8     2    0    200224
+P1.2/wide ListResultsResponse         522099  ok   ok   ok   ok   ok   ok      2    1     1    8     2    0    200224
+P1.3     ListResultsResponse            605  ok   ok   ok   ok   ok   ok      2    1     1    3     2    0     60104
+P2.1     ListTasksDetailedResponse     1037  ok   ok   ok   ok   ok   ok      7    6     1    8     2    0      1376
+P2.2     ListTasksDetailedResponse   540422  ok   ok   ok   ok   ok   ok   2502 2501     1 3501     2    0    660056
+P2.2/latin1 ListTasksDetailedResponse   944454  ok   ok   ok   ok   ok   ok   2502 2501     1 3501     2    0    660056
+P2.2/wide ListTasksDetailedResponse  1348486  ok   ok   ok   ok   ok   ok   2502 2501     1 3501     2    0    660056
+P2.3     ListTasksDetailedResponse   647024  ok   ok   ok   ok   ok   ok    627  626     1  876     2    0    325056
+P2.4     ListTasksDetailedResponse   979465  ok   ok   ok   ok   ok   ok    402  401     1  561     2    0    387256
+P2.4/latin1 ListTasksDetailedResponse  1890741  ok   ok   ok   ok   ok   ok    402  401     1  561     2    0    387256
+P2.4/wide ListTasksDetailedResponse  2802017  ok   ok   ok   ok   ok   ok    402  401     1  561     2    0    387256
+P2.5     ListTasksDetailedResponse    19632  ok   ok   ok   ok   ok   ok    102  101     1  141     2    0     26456
+P3.1     ListProbeResponse            12097  ok   ok   ok   ok   ok   ok      2    1     1    2     2    0     32072
+P4.1     ListTaskSummaryResponse      65321  ok   ok   ok   ok   ok   ok    202  201     1  601     2    0    107248
+P5.1     UploadResultDataMessage        116  ok   ok   ok   ok   ok   ok      1    0     1    1     2    0       112
+P5.2     UploadResultDataMessage      65620  ok   ok   ok   ok   ok   ok      1    0     1    1     2    0       112
+P5.3     UploadResultDataMessage    1048660  ok   ok   ok   ok   ok   ok      1    0     1    1     2    0       112
+P5.4     UploadResultDataMessage    4194390  ok   ok   ok   ok   ok   ok      1    0     1    1     2    0       112
+P6.1     ListMetricsResponse         123354  ok   ok   ok   ok   ok   ok   1002 1001     1 1401     2    0    192048
+P7.1     DualResponse                    98  perm ok   ok   ok   ok   ok      3    2     1    3     2    0       336
+
+Crossing counts against /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-7/ffi/poc/csharp/gen/crossings.txt: compared on every row, every committed row produced
+R5: the host's tally and the core's counters are compared above and equal on every row.
+
+Reading the crossing columns. THEY ARE THE SAME QUANTITY as the core's own,
+and this slice said otherwise once. The only thing the core counts that a
+host tally cannot see is a TRANSCODER call, and both string forms this
+binding offers are pointers into the core, so it invokes none of its own.
+The gap once reported against the rust slice was a CHUNK SIZE: set
+AK_CHUNK=150 and the columns match to the digit. See JOURNAL.md 19.
+
+What the counts mean, and the whole reason the shapes differ:
+  THE PULL COLUMN IS THE POINT OF THE LAST TWO. `ak_parse_*` makes no
+  reverse call at all: it appends a record per deposit to a buffer in the
+  host-owned decode context, and the host replays it afterwards. So pull's
+  reverse count is ZERO on every shape, where push's is 2 to 3,501, and the
+  two forward calls are ak_parse_* and ak_bdr_ptr. design/ABI-v1.md decision
+  2 says four of five slices have only measured push; this is the managed
+  pull arm it asks for, gated against push on the same bytes and the same
+  comparer. `pull buf` is what it trades the upcalls FOR: the record
+  buffer's high-water mark in the decode context (ak_bdr_footprint), so
+  the trade reads in both directions and not only in time.
+
+  A LEAF element batches (ABI v1 section 6), so the run crosses once
+  whatever its length and the count is CONSTANT in the element count.
+  A non-leaf cannot: section 7.2 refuses it, and the count becomes
+  LINEAR -- a reverse call per loop slot per element on encode, and
+  new+apply per element plus a run per inner field on decode.
+
+0 failure(s)
