@@ -93,6 +93,7 @@ pub unsafe extern "C" fn unk_grow(_host: *mut c_void, want: i32, dst: *mut *mut 
         return AK_ERR_LIMIT;
     }
     let (want, old, oc) = (want as usize, *dst, (*cap).max(0) as usize);
+    let want = unk_grow_cap(want, oc);
     let p = if old.is_null() {
         ::std::alloc::alloc(::std::alloc::Layout::from_size_align_unchecked(want, 1))
     } else {
@@ -111,6 +112,41 @@ pub unsafe extern "C" fn unk_grow(_host: *mut c_void, want: i32, dst: *mut *mut 
     *dst = p;
     *cap = want as i32;
     AK_OK
+}
+
+/// Optimisation U2 (accepted by the owner): the capacity `unk_grow` allocates for a request
+/// of `want` bytes over a buffer of `old_cap`: at least double the old capacity (and at
+/// least 64 bytes), so a message with many unknown runs regrows O(log n) times instead of
+/// once per run (a copy of the whole buffer each time: quadratic). Computed in `usize`, so
+/// doubling cannot overflow `i32`, and clamped to INT32_MAX (ABI v1 decision 11 rule 5,
+/// every capacity capped at INT32_MAX), never below `want`. `want` itself is at most
+/// INT32_MAX: it arrives as a positive `i32`, and the core refuses a need above INT32_MAX
+/// with AK_ERR_LIMIT before it asks.
+#[inline]
+pub fn unk_grow_cap(want: usize, old_cap: usize) -> usize {
+    const CAP: usize = i32::MAX as usize;
+    want.max(old_cap.saturating_mul(2)).max(64).min(CAP).max(want.min(CAP))
+}
+
+#[cfg(test)]
+mod unk_grow_cap_tests {
+    use super::unk_grow_cap;
+    const CAP: usize = i32::MAX as usize;
+
+    #[test]
+    fn doubles_and_clamps_to_int32_max() {
+        assert_eq!(unk_grow_cap(10, 0), 64);
+        assert_eq!(unk_grow_cap(100, 64), 128);
+        assert_eq!(unk_grow_cap(1000, 64), 1000);
+        // Doubling past INT32_MAX clamps, never overflows, never goes below `want`.
+        assert_eq!(unk_grow_cap(CAP / 2 + 10, CAP / 2 + 1), CAP);
+        assert_eq!(unk_grow_cap(CAP, CAP - 1), CAP);
+        assert_eq!(unk_grow_cap(5, usize::MAX / 2 + 1), CAP);
+        for (w, o) in [(1usize, 0usize), (64, 64), (CAP - 3, 1 << 30), (CAP, 0)] {
+            let c = unk_grow_cap(w, o);
+            assert!(c >= w && c <= CAP, "want {w} old {o} -> {c}");
+        }
+    }
 }
 
 /// A delivered slot's buffer, as the facade's bag (the host owns it from here).
