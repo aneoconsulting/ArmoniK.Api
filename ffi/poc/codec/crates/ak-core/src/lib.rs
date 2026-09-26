@@ -999,6 +999,24 @@ pub(crate) unsafe fn enc_blob(cx: *mut EncCtxImpl, tag: u32, site: u32, s: &ak_s
         Some(tc) => tc,
         None => return true,
     };
+    // Optimisation E1: the passthrough transcoder (`ak_tc_utf8_trusted`, which is also what
+    // `ak_tc_bytes` returns) is a memcpy of a length the core already knows, so the field
+    // is written in one pass -- key, exact varint length, bytes -- with no placeholder, no
+    // indirect call and no prefix resolution. The bytes are the ones the general path
+    // writes (`end` always rewrites the prefix to the minimal width). A length the i32 cap
+    // of ABI v1 section 4 refuses keeps the general path, so it fails as before.
+    if tc as usize == tc_utf8_trusted as usize && s.len <= i32::MAX as usize {
+        let e = &mut (*cx).e;
+        ak_rt::bump!(e.c, transcode);
+        e.key(tag, ak_rt::WIRE_LEN);
+        e.varint(s.len as u64);
+        // R-D9: an empty host string may arrive as (NULL, 0).
+        if s.len != 0 {
+            e.buf.extend_from_slice(core::slice::from_raw_parts(s.data as *const u8, s.len));
+        }
+        let _ = site;
+        return true;
+    }
     let e = &mut (*cx).e;
     let mk = e.begin(tag, site);
     let (dst, cap) = e.space();
