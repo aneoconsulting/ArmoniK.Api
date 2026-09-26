@@ -23,6 +23,8 @@ whether the claimed figures are in the logs at all.
 
 ## What to hunt for
 
+**Scope of a finding (owner, 2026-09-26).** From now on a finding is kept only if it could affect the runtime performance the campaign measures: what a timed arm or cell does or costs, whether two arms or slices do the same work, or a gate that would let a wrong output be timed. Wording, stated-fact errors in documents, guard hygiene, style and latent defects on paths the campaign never times are not raised; if seen, they get one line in the agent's own JOURNAL and no fix.
+
 Ordered by how often each has actually been the answer in this work.
 
 - **An arm that is not running.** A combination of two changes that measures
@@ -56,8 +58,9 @@ A list of findings, most severe first, each with:
 - **why it does not hold**, concretely, in terms of what the code or the log
   actually says;
 - **what would refute you**, stated as something the slice agent can run or read;
-- **severity**: does this change a correctness result, a harness's ability to
-  measure the question in the campaign, or a stated fact?
+- **severity**: how it changes what the campaign measures (a timed arm's work or
+  cost, parity between arms or slices, or a gate letting a wrong output be timed).
+  A finding with no effect on measured performance is not reported.
 
 The branch is in its setup and design phase (`ffi/README.md` section 1.1):
 container timings are instrumentation. A finding against a container figure is

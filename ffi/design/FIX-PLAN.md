@@ -48,6 +48,7 @@ turns into rules:
 
 ## 1. Rules the implementer follows
 
+- **Scope of a finding (owner, 2026-09-26).** From now on a finding is kept only if it could affect the runtime performance the campaign measures: what a timed arm or cell does or costs, whether two arms or slices do the same work, or a gate that would let a wrong output be timed. Wording, stated-fact errors in documents, guard hygiene, style and latent defects on paths the campaign never times are not raised; if seen, they get one line in the agent's own JOURNAL and no fix.
 - **Roles stay as `CLAUDE.md` defines them.** The aggregating session writes
   `README.md`, `CLAUDE.md`, `design/**`, `findings/**`, `REPORT.md`. Slice agents
   (`ffi-slice`, one per language) write `poc/<lang>/**` and `logs/<lang>/**`. The
