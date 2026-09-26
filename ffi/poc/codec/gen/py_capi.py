@@ -35,7 +35,7 @@ call with `retain` set is refused. Which members exist comes from the plan
 
 A backend: imports `plan` only.
 """
-from plan import (abi_order_topo, as_plan, direct_fields, elem_type, loop_slots, presence_bits,
+from plan import (FIXED, abi_order_topo, as_plan, direct_fields, elem_type, loop_slots, presence_bits,
                   slot_name, unk_opts_layout, unk_opts_name, unk_positions, unknown_compiled_out)
 import cpp_layout
 
@@ -639,7 +639,7 @@ def emit_encode_entry(p, root, b):
     d = ", h->direct, h->direct_len" if direct_fields(p, root) else ""
     if NOUNK[0]:
         return _emit_encode_entry_nounk(p, root, b, d)
-    L = ["static PyObject *encode_%s_%s(PyObject *rootobj, PyObject *acc, int retain) {" % (b, root),
+    L = ["static PyObject *encode_%s_%s(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {" % (b, root),
          "  HostCtx hs; memset(&hs, 0, sizeof hs);",
          "  hs.root = rootobj; hs.acc = acc;",
          "  HostCtx *h = &hs;",
@@ -675,7 +675,7 @@ def emit_encode_entry(p, root, b):
          "  const uint8_t *pp = NULL; size_t len = 0;",
          "  if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);",
          "    PyErr_SetString(PyExc_RuntimeError, \"ak_enc_take\"); return NULL; }",
-         "  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);",
+         "  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);",
          "  ak_py_tls_enc_release(ctx, tmp_);",
          "  return out;\n}"]
     return "\n".join(L)
@@ -683,7 +683,7 @@ def emit_encode_entry(p, root, b):
 
 def _emit_encode_entry_nounk(p, root, b, d):
     """The no-unknown variant's encode: `ak_encode_R` only; `retain` is refused."""
-    L = ["static PyObject *encode_%s_%s(PyObject *rootobj, PyObject *acc, int retain) {" % (b, root),
+    L = ["static PyObject *encode_%s_%s(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {" % (b, root),
          "  if (retain) { PyErr_SetString(PyExc_ValueError, \"unknown fields are compiled out of this build\"); return NULL; }",
          "  HostCtx hs; memset(&hs, 0, sizeof hs);",
          "  hs.root = rootobj; hs.acc = acc;",
@@ -710,7 +710,7 @@ def _emit_encode_entry_nounk(p, root, b, d):
          "  const uint8_t *pp = NULL; size_t len = 0;",
          "  if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);",
          "    PyErr_SetString(PyExc_RuntimeError, \"ak_enc_take\"); return NULL; }",
-         "  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);",
+         "  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);",
          "  ak_py_tls_enc_release(ctx, tmp_);",
          "  return out;\n}"]
     return "\n".join(L)
@@ -1195,8 +1195,12 @@ static void ak_py_unlink(HostCtx *h, struct ak_py_buf *b) {
 static int32_t ak_py_grow(void *sink, int32_t want, uint8_t **dst, int32_t *cap) {
   HostCtx *h = (HostCtx *)sink;
   if (want <= 0) return AK_ERR_LIMIT;
+#ifdef AK_COUNT
+  int64_t n = want;   /* req 19 (R-H31): the counting build grows to EXACTLY the size requested */
+#else
   int64_t n = *dst ? 2 * (int64_t)*cap : 64;
   if (n < want) n = want;
+#endif
   if (n > INT32_MAX) n = want;
   struct ak_py_buf *old = *dst ? ((struct ak_py_buf *)(void *)*dst) - 1 : NULL;
   if (old) ak_py_unlink(h, old);
@@ -1283,6 +1287,21 @@ static void ak_py_fail(const char *entry, long rc) {
   if (c) { PyObject_SetAttrString(e, "code", c); Py_DECREF(c); }
   PyErr_SetObject(PyExc_ValueError, e);
   Py_DECREF(e);
+}
+
+/* CAMPAIGN req 11's reused-buffer end state: the encoding copied into a caller's writable
+ * buffer (a bytearray or memoryview sized once), no allocation; returns the length. */
+static PyObject *ak_py_copy_into(PyObject *into, const uint8_t *p, size_t n) {
+  Py_buffer v;
+  if (PyObject_GetBuffer(into, &v, PyBUF_WRITABLE)) return NULL;
+  if ((size_t)v.len < n) {
+    PyBuffer_Release(&v);
+    PyErr_Format(PyExc_ValueError, "the buffer holds %%zd bytes, the encoding needs %%zu", v.len, n);
+    return NULL;
+  }
+  memcpy(v.buf, p, n);
+  PyBuffer_Release(&v);
+  return PyLong_FromSize_t(n);
 }
 
 /* Resolved once at module init: ak_tc_utf8() is a call across the boundary. */
@@ -1516,7 +1535,7 @@ def emit(x, modname="_akffi", backends=("attr", "cext", "pyacc")):
           "  }",
           "  return 0;\n}",
           ""]
-    L.append("typedef PyObject *(*ak_enc_f)(PyObject *, PyObject *, int);")
+    L.append("typedef PyObject *(*ak_enc_f)(PyObject *, PyObject *, int, PyObject *);")
     L.append("typedef PyObject *(*ak_dec_f)(PyObject *, PyObject *, HostTypes *, int, unsigned long long);")
     L.append("#define AK_NBACKENDS %d" % len(backends))
     L.append("static const char *AK_BACKENDS[AK_NBACKENDS] = {%s};" % ", ".join('"%s"' % b for b in backends))
@@ -1537,7 +1556,35 @@ def emit(x, modname="_akffi", backends=("attr", "cext", "pyacc")):
     L.append("};")
     L.append("")
     L += emit_unk_tables(p)
-    return "\n".join(L)
+    text = "\n".join(L)
+    return _abi_counting(p, text)
+
+
+ABI_COUNT_ANCHOR = "#define BUMP(i) ((void)0)\n#endif\n"
+
+
+def _abi_counting(p, text):
+    """CAMPAIGN req 19 as amended (R-H31): in the counting build, EVERY exported entry point
+    the shim (and native/binding.c, which includes this file) calls is counted, resets
+    included. Each ABI function gets a function-like macro of its own name that bumps the
+    count and then calls it (a macro does not re-expand inside its own expansion). The names
+    are the plan's: FIXED.all_functions, plan.rpc.functions, and every `ak_*(` call this file
+    renders; the counting build's own instrumentation (`*counters*`) is not counted."""
+    import re
+    names = set(n for _g, n, *_r in FIXED.all_functions())
+    names |= set(f[0] for f in p.rpc.functions)
+    names |= set(re.findall(r"\b(ak_[A-Za-z0-9_]+)\(", text))
+    names = sorted(n for n in names if not n.startswith("ak_py_") and "counters" not in n
+                   and n not in ("ak_rpc_counting",))
+    blk = ["/* ---- req 19 (R-H31), counting build: every ABI call counted, resets separately ---- */",
+           "#ifdef AK_COUNT",
+           "static uint64_t ABICNT[2];   /* [0] every ak_* call, [1] the resets among them */",
+           "#define AK_ABI_CALL(r) (ABICNT[0]++, ABICNT[1] += (r))"]
+    for n in names:
+        blk.append("#define %s(...) (AK_ABI_CALL(%d), %s(__VA_ARGS__))" % (n, 1 if "reset" in n else 0, n))
+    blk.append("#endif")
+    assert text.count(ABI_COUNT_ANCHOR) == 1
+    return text.replace(ABI_COUNT_ANCHOR, ABI_COUNT_ANCHOR + "\n".join(blk) + "\n", 1)
 
 
 def emit_unk_tables(p):
