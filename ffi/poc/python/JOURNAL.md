@@ -1384,3 +1384,43 @@ and its builds were deleted after the run.
 - **Stale reference:** the RPC header still cited `logs/python/80`, which was deleted under
   R-C9. The citation is replaced in `camp_rpc.py` and `camp_server.py` (text only).
 - **Cleanup:** the worktree and its builds were deleted.
+
+### J50. FIX-PLAN WP7: the 2026-09-26 contract
+
+- **Req 21:** process CPU (CLOCK_PROCESS_CPUTIME_ID) in pyperf's time_func, the by-hand codec
+  loop and calib.
+- **Req 7:** Latin-1 and wide on P1.2, P2.2 and P2.4.
+  - Family `unknown` is now the 92 accepted U-* rows at the shapes core's 7 roots, through
+    `_akffi` / `_akffi_nounk`, three directions.
+  - Checked first: all 92 re-encode to an accepted form through core-ffi and host-gen, drop
+    and retain.
+  - The corpus-core family is kept as `unknown-corpus`, a labelled extra.
+- **Req 11:** `encode` (hot, transport `bytes`), `encode-pool` (distinct graphs, at least
+  AK_POOL_BYTES of wire bytes, built and checked outside the window), and for core-ffi only
+  `encode-reused` / `encode-pool-reused`.
+  - The reused variants use the shim's new `into`: a copy into a writable buffer sized once.
+  - Neither upb-python nor host-gen has a no-allocation reused buffer (stated).
+  - A late-binding closure made every pool come from the last payload; the pool gate caught
+    it, and the pool builder is now bound per case.
+- **Req 12:** cells E and F (host-gen over the core's transport and over grpcio), drop and
+  retain, full build only.
+- **Reqs 13 and 17:** `camp_server.py` hosts both transport configurations as two grpcio
+  servers on two Unix sockets in one process. `run_campaign.sh` starts one per launch (coproc)
+  and passes it to both builds' clients. Each client warms it with 64 calls per client
+  transport, and there is one channel or core client per cell.
+- **Req 16:** A, D and F use grpcio's blocking unary multicallable (stated).
+- **Req 19:** in the counting build, every ABI call is counted by function-like macros of the
+  functions' own names, taken from the plan and the rendered calls, with resets apart. Counts
+  are taken after one warm call, and grow is exact-size.
+  - Committed: `abi-full` (560 rows: 16 payloads x 5 backends in drop, retain on the C type,
+    and the 92 U-* rows in drop and retain) and `abi-nounk` (344).
+  - The RPC cells B-E are counted per call on new rpc counting builds (`rpc_counts.py`,
+    gate 105; `rpc-full` 21 rows, `rpc-nounk` 9).
+  - The per-element table and log 98 are unchanged.
+- **Req 4:** thread counts in every campaign header, and the CPU sets read from
+  `ffi/campaign.machine` when unset.
+- **Clean gate** at 3f2574775: `gate exit 0` at 3.12 and 3.7; all 24 logs clean. The smoke
+  there shows every new row.
+- Noted, not fixed (scope rule): with `AK_CAMP_PLANT=short`, the gate's RPC must-fail control
+  is now caught by the server warm-up's length check rather than by a cell. The run still
+  aborts with no sample.

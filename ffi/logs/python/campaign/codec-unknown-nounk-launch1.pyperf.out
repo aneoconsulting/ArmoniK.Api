@@ -1,4 +1,10 @@
 # FIGURES STRIPPED (FIX-PLAN WP6); the raw pyperf JSON is not committed
+unknown|U-deep-all|ascii|encode|incumbent-prod|incumbent-default: [stripped]
+unknown|U-deep-all|ascii|encode|core-ffi|no-unknown: [stripped]
+unknown|U-deep-all|ascii|decode|incumbent-prod|incumbent-default: [stripped]
+unknown|U-deep-all|ascii|decode|core-ffi|no-unknown: [stripped]
+unknown|U-deep-all|ascii|decode+read|incumbent-prod|incumbent-default: [stripped]
+unknown|U-deep-all|ascii|decode+read|core-ffi|no-unknown: [stripped]
 unknown|U-enum-value-999|ascii|encode|incumbent-prod|incumbent-default: [stripped]
 unknown|U-enum-value-999|ascii|encode|core-ffi|no-unknown: [stripped]
 unknown|U-enum-value-999|ascii|decode|incumbent-prod|incumbent-default: [stripped]
