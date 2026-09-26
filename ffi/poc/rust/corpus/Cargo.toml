@@ -14,3 +14,5 @@ publish = false
 
 [profile.release]
 lto = false
+# Optimisation step 12 (C1), as poc/rust/Cargo.toml.
+codegen-units = 1
