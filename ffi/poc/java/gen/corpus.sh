@@ -111,7 +111,7 @@ done
 if "$J17/bin/java" -cp "build/cls17:$CP" -Dak.lib="$PWD/build/jni/libakjni.so" -Dak.unk.oneofplant=1 ak.RunUnkOneof > build/unk-oneofplant.txt 2>&1; then
   echo "  control unk-oneofplant (not armed): PASSED -- the oneof check is blind"; fail=1
 else
-  echo "  control unk-oneofplant (not armed): failed as required: $(grep -c FAIL build/unk-oneofplant.txt) failing (sequence, arm) pair(s)"
+  echo "  control unk-oneofplant (not armed): failed as required: $(grep -c "FAIL:" build/unk-oneofplant.txt) failing (sequence, arm) pair(s)"
 fi
 
 echo
