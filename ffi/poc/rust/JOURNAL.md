@@ -2479,3 +2479,26 @@ kept step. Step 0 fixes the harness first.
   incumbent moves seen between steps; that cause is not identified. Consequence for reading
   the steps: a change is attributed only when core-ffi/core-native (or core-native/inc for
   a core-native change) moves beyond this band, and the /inc ratios are reported beside it.
+
+## 2026-09-26 -- optimisation step 5 (U1 + U2) (56ca80c, kept as cleanliness; geometric growth held back)
+
+- rust_binding.py, full variant: DecCtxs owns an UnkState (each root's retain options,
+  every position grow-backed, at a stable address, and an armed flag). The retaining
+  entries make ONE reset per decode with those options (rule 7) and leave the context
+  armed; the drop-mode entries (decode_with, parse_walk_with, parse_drain_with,
+  parse_walk_opaque_with) reset to NULL first only if the binding left it armed; _opts
+  (the decision 11 controls) still arms, decodes and disarms. Harness code that arms a
+  context itself (stickyerr, the corpus unkctl) calls the raw entry points or _opts and is
+  unaffected. UNK_LIVE is a HashMap keyed by the buffer address (a multiplicative pointer
+  hash): O(1) take / regrow instead of a linear search (quadratic over a message with many
+  positions); unk_reclaim drains in place.
+- U2's geometric growth in unk_grow (want.max(2 cap).max(64)) was built and counted: it
+  changes 36 lines of gen/crossings.txt (retain decode and decode-pull reverse counts, e.g.
+  U-deep-all decode 16 -> 10, decode-pull 8 -> 2). Per the rule "a legitimate count change
+  stops the step", it is NOT applied and the committed counts are untouched; the diff is
+  logs/rust/opt/s5-u1u2-heldback/crossings-geometric-growth.diff, for the aggregating
+  session.
+- Measured (s5-u1u2 vs s4-e4n1): every decode group noise (P and U, all modes); the
+  in-process core-ffi retain/drop decode ratio on the U rows 1.281 -> 1.263 (P rows 1.011
+  -> 1.009). The benchmark has at most a few unknown buffers per decode, so the linear
+  search was never long. Kept: rule 7's one reset per decode, and no quadratic tracking.
