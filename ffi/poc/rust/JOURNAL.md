@@ -2318,3 +2318,61 @@ corpus's own merge (`spec.load()`), so `fixed32` and the corpus-only messages ex
   was already gone; no timing figure remains in STATE. The checklist now covers 22a and
   req 20 is marked not met (perf not installed); the reset calls' absence from the counts is
   stated where the counts are described.
+
+## 2026-09-26 -- WP6 register H: the findings assigned to rust, two core changes
+
+Each finding was confirmed or refuted before a change; the evidence is named per line.
+
+- **R-H21** (core, owner decision): confirmed on the core at 1e489eb40 by two scratch unit
+  tests (logs/rust/wp6h/rh21-before.log): INT32_MAX + 1 without grow returned
+  AK_ERR_CAPACITY (-7), and a host cap of 2^32-1 let `len` pass INT32_MAX (rc 0). Fixed
+  (31fc3eecf): `unk_room` caps every capacity at INT32_MAX; the slot's `cap` is never
+  rewritten (the host frees with it). Unit tests in ak-core, run by gate step 2.
+- **R-H10** (core): confirmed with a new corpus control before regenerating the codec
+  (logs/rust/wp6h/rh10-before.log: a refused parse took A's 480 record bytes to 0). Fixed
+  through rust_abi (the root check moved above `bdr.reset()`), all four generated codecs;
+  the control passes.
+- **R-H20** (owner decision, no code change): a control shows the rule: all-zero options
+  at reset, refill after, rc 0 and no bag; its twin armed at reset gets the 3-byte bag.
+- **R-H15**: confirmed: packed fixed32 was refused in rust_abi at render; rust_abi,
+  rust_binding, c_abi and cpp_layout tested `options.unknown == "drop"`. Fixed in plan and
+  the four renderers; gen/check_direct.py plants a packed fixed32 and sees the refusal.
+  PACKED_KIND: refuted as an ABI fact -- it sets `open_kind`, which no run symbol reads and
+  no host sees; left in rust_abi with that stated. (RUN_FN and java_layout are other
+  slices' backends.)
+- **R-H13**: confirmed (imports only, over codec/gen; rust and python gen/ unguarded;
+  one_core.sh named csharp/gen/ir.py, which no longer exists). Fixed: the slice guard
+  (every poc/<slice>/gen/*.py on disk; front-end imports; wire tokens in emitted strings
+  outside a listed renderer; renamed copies; three plants), one_core's stale exception
+  removed and a renamed-emitter plant added. On its first run it flagged
+  rust/gen/rust_facade.py, which is R-H12.
+- **R-H12**: confirmed (oneofs written after plain fields; no prost-build check). Chose
+  rendering from the plan: rust_facade.py moved to codec/gen, prost_impl.rs walks the
+  plan's encode steps with the plan's implicit presence. shapes.json's bytes are unchanged
+  (every oneof tag there is above every plain tag; conformance passes on every arm); on a
+  planted description with a plain field above Probe's oneof, the order is tag order where
+  the old renderer wrote the oneof last (logs/rust/wp6h/rh12-rh15-generator.log). A
+  prost-build diff was not done (not needed once the order is the plan's; prost-build is
+  not in this workspace).
+- **R-H22** (owner decision): confirmed for Rust (types.rs kept `unknown_fields` in the
+  no-unknown build). Fixed: types_nounk.rs from the no-unknown plan, facade feature, the
+  retain rendering compiled out there; the no-unknown corpus runs ffi-nounk and
+  native-nounk. The full build's types are unchanged (header line only).
+- **R-H2**: confirmed for Rust (thread::scope spawned k threads per batch inside the
+  window). Fixed: a pool per (cell, dir, k), created before the warm-up, reused.
+- **R-H8**: confirmed (no switch from a message member to a scalar member). Added: the
+  value is the scalar, no bag is delivered, the inactive slot's buffer is reclaimed (1),
+  0 live after.
+- **R-H23** (owner decision): the codec suite's arm blocks and the cases inside them, and
+  the RPC cell order, are now a seeded random permutation per launch (seed = launch,
+  written in the header). Criterion has no shuffle of its own but runs benchmarks in
+  registration order, which the suite controls, so randomising was possible.
+
+Found on the way: my `git mv` of rust_facade.py sat staged in the shared index and went
+into the aggregating session's docs commit a9d96f87c (content unchanged); 31fc3eecf carries
+the new content. Nothing is left staged between commands now.
+- Gate from a clean worktree at 766f8dcd9, both builds: GATE PASSED
+  (logs/rust/wp6h/clean-gate/). Crossing counts identical to both committed files: no
+  count changed (the parse-order and capacity changes do not move a crossing; the facade
+  changes are host-side), so gen/crossings*.txt are untouched. Floor 1.88 and TSan were not
+  re-run; the campaign smoke was not re-run after the pool and order changes.

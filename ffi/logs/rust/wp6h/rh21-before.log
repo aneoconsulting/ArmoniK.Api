@@ -1,0 +1,4 @@
+# FIX-PLAN R-H21 before the fix: unk_put of the core at 1e489eb40 (git archive into scratch), driven by two unit tests added only to that scratch copy. rc -7 = AK_ERR_CAPACITY where the amended rule 5 wants AK_ERR_LIMIT; the second test shows a host cap of 2^32-1 letting len pass INT32_MAX.
+BEFORE: INT32_MAX + 1 without grow -> rc -7 (AK_ERR_CAPACITY=-7, AK_ERR_LIMIT=-5)
+BEFORE: host cap 2^32-1, len INT32_MAX, +1 byte -> rc 0, len now 2147483648 (> INT32_MAX: accepted)
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s

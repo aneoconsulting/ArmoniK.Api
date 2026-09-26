@@ -1,0 +1,25 @@
+# FIX-PLAN R-H12: gen/facade_order.py at 766f8dcd9, with the pre-R-H12 renderer (git show 1e489eb40:ffi/poc/rust/gen/rust_facade.py) as the comparison
+# R-H12: Probe with a plain field (20) above its oneof (10-14)
+plan-rendered encode_raw tag order: [1, 2, 3, 4, 10, 11, 12, 13, 14, 20]
+pre-R-H12 renderer's order:          [1, 2, 3, 4, 20, 10, 11, 12, 13, 14]
+shapes.json Probe (unchanged bytes):  [1, 2, 3, 4, 10, 11, 12, 13, 14]
+tag order: yes
+exit 0
+
+# gen/check_direct.py (R-H15 packed fixed32 case at the end)
+# ABI v1 section 8: the generator-time refusal
+
+case                                                 outcome
+M5 as the schema declares it                         accepted, as it must be
+a direct field on a message that needs a reverse call refused
+                                                       REFUSED: ListTasksDetailedResponse declares a direct-argument field (tasks_payload_blob) and also needs a reverse call for tasks, parent_task_ids, dat
+a second direct field in the same tree               refused
+                                                       REFUSED: UploadResultDataMessage declares 2 direct-argument fields (upload_data_chunk, upload_payload_blob). ABI v1 section 8 builds the path for ONE 
+
+# ABI v1 section 6: packed kinds without a run symbol (plan.check_expressible)
+M6 as the schema declares it                         accepted, as it must be
+a packed fixed32 in M6's element                     refused
+                                                       REFUSED: MetricsBatch.crc32s is a packed fixed32: its host element type u32 has no run symbol in the C ABI (FIXED.run_types = i32, i64, f64, u8), so i
+
+0 case(s) wrong
+exit 0
