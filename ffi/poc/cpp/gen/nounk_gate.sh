@@ -15,7 +15,7 @@
 #   4. the full corpus on the variant, C++17 and C++11: every arm passes and ffi-drop writes
 #      every unknown row in its DROPPED form (--expect-dropped); outcomes identical across
 #      the two levels; controls proj/reenc/accept and noinit must fail; the dropped-form
-#      check seen failing (native-retain must fail it)
+#      check seen failing (the full build's native-retain must fail it)
 #   5. crossing counts against the committed logs/cpp/counts-nounk-baseline.log, and the
 #      difference against the full build's drop counts (logs/cpp/counts-baseline.log)
 set -u
@@ -84,7 +84,9 @@ ufam() { nm -D --defined-only "$1" 2>/dev/null | grep -cE ' (ak_uencode_|ak_uele
   py gen/corpus_all.py "$B/corpus_nounk_noinit" --only "$SUB" > "$S/p.log"; rc=$?
   echo "  noinit: ffi arm-row failures $(grep -c 'FAIL .*\[ffi-' "$S/p.log")"
   [ $rc != 0 ] && ok "control noinit failed as required" || bad "control noinit passed"
-  py gen/corpus_all.py "$B/corpus_nounk_a17" --only U- --expect-dropped native-retain > "$S/p.log"; rc=$?
+  # R-H22: the no-unknown build has no retaining arm left, so the check is seen failing on
+  # the FULL build's native-retain arm (corpus_all_a17), which retains.
+  py gen/corpus_all.py "$B/corpus_all_a17" --only U- --expect-dropped native-retain > "$S/p.log"; rc=$?
   grep -E 'dropped form' "$S/p.log" | sed 's/^/  /'
   [ $rc != 0 ] && ok "the dropped-form check fails on a retaining arm (seen failing)" || bad "dropped-form check blind"
   echo
