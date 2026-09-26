@@ -153,8 +153,10 @@ fi
   step "conformance_a17_noinit: the binding skips ak_init (PLANTED) -- must FAIL"
   (cd "$PAY" && timeout 300 "$OLDPWD/$B/conformance_a17_noinit" payloads > "$S/c.log" 2>&1; echo $? > "$S/rc")
   grep -m5 'FAIL' "$S/c.log"; tail -1 "$S/c.log"
-  rc=$(cat "$S/rc"); [ "$rc" != 0 ] && echo ">>> ok: the planted build failed (exit $rc): init-guard is in the core" \
-                                     || { echo ">>> FAIL: the planted build passed"; FAILS=$((FAILS+1)); }
+  # Exit 1 = checks failed. A crash (a signal, exit > 128) is NOT the planted failure: it hid
+  # a double free once (R-H7 follow-up, logs/cpp/rh7-noinit-doublefree.log).
+  rc=$(cat "$S/rc"); [ "$rc" = 1 ] && echo ">>> ok: the planted build failed its checks (exit 1): init-guard is in the core" \
+                                   || { echo ">>> FAIL: the planted build exited $rc (0 = passed, >1 = crashed)"; FAILS=$((FAILS+1)); }
 } > "$L/wp5-conformance.log" 2>&1
 
 {
