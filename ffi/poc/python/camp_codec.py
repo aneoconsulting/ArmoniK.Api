@@ -46,7 +46,7 @@ row is like for like).
 
 Samples (requirements 21-25, 28): per round, per (payload, content, direction), the arms in
 an order rotated by one each round; one sample = `iters` iterations timed with
-CLOCK_THREAD_CPUTIME_ID (and wall beside it). `iters` is calibrated once per arm to the
+CLOCK_PROCESS_CPUTIME_ID (req 21 as amended; wall beside it). `iters` is calibrated once per arm to the
 target, before round 1, and then one full sample's worth of iterations is run per arm as
 the warm-up (the same rule for every arm). The allocator is put in the long-lived state
 first (M_TOP_PAD, allocator.py, J26). The collector is ON; `gc.collect()` runs before every
@@ -94,7 +94,13 @@ def _variant(enc, dec, ffi_enc, ffi_dec):
     e[("core-ffi", "no-unknown")] = ffi_enc
     d[("core-ffi", "no-unknown")] = ffi_dec
     return e, d
-CONTENT_PAYLOADS = ["P2.4"]
+# CAMPAIGN req 7 as amended (R-H26): Latin-1 and wide on P1.2, P2.2 and P2.4.
+CONTENT_PAYLOADS = ["P1.2", "P2.2", "P2.4"]
+# CAMPAIGN req 11 (R-H29): the beyond-cache input is a pool of distinct graphs whose wire bytes
+# add up to at least AK_POOL_BYTES (default 13.75 MiB, the i9-7900X's last-level cache), capped
+# at AK_POOL_MAX graphs; a graph's facade objects occupy several times its wire bytes.
+POOL_BYTES = int(os.environ.get("AK_POOL_BYTES", str(int(13.75 * 1024 * 1024))))
+POOL_MAX = int(os.environ.get("AK_POOL_MAX", "65536"))
 TARGET_MS = opt("--target-ms", 50.0, float)
 
 
@@ -107,6 +113,8 @@ def recode(s, cs):
     and values included."""
     if cs == "ascii" or not s:
         return s
+    if cs == "copy":            # a distinct str object with the same value (the pool's graphs)
+        return (s + "\x00")[:-1]
     if cs == "latin1":
         return "".join(chr(0xA0 + ((ord(c) - 0x20) & 0xFFFFFFFF) % 0x60) for c in s)
     return "".join(chr(0x4E00 + ord(c) * 37 % 0x1000) for c in s)
@@ -129,6 +137,8 @@ def transform(fac, obj, msg, ctors, cs):
             kw[f["name"]] = transform(fac, v, f["of"], ctors, cs)
         elif k == "string":
             kw[f["name"]] = recode(v, cs)
+        elif k == "bytes" and cs == "copy":
+            kw[f["name"]] = bytes(bytearray(v))
         else:
             kw[f["name"]] = v
     for o in F.oneof_groups(fac, msg):
@@ -139,11 +149,36 @@ def transform(fac, obj, msg, ctors, cs):
 # ------------------------------------------------------------------ the cases
 
 class Case:
-    __slots__ = ("payload", "content", "dir", "arm", "mode", "fn", "iters")
+    """`prep`, when set, is run once before the first timed call (outside every timed window):
+    it builds the case's beyond-cache pool and checks it (req 11)."""
+    __slots__ = ("payload", "content", "dir", "arm", "mode", "fn", "iters", "prep")
 
-    def __init__(self, payload, content, d, arm, mode, fn):
+    def __init__(self, payload, content, d, arm, mode, fn, prep=None):
         self.payload, self.content, self.dir, self.arm, self.mode, self.fn = payload, content, d, arm, mode, fn
         self.iters = 1
+        self.prep = prep
+
+
+# Encode directions (req 11, all measured, labelled): the input (hot graph or pool) and the end
+# state (transport-ready bytes, or the bytes copied into a reused buffer).
+ENCODE_DIRS = {"encode": ("hot", "transport"), "encode-pool": ("pool", "transport"),
+               "encode-reused": ("hot", "reused"), "encode-pool-reused": ("pool", "reused")}
+
+
+def pool_loop(f, holder):
+    """Encode the pool's graphs in turn; `holder` = [pool] once prep has built it."""
+    idx = [0]
+
+    def run(n):
+        pool = holder[0]
+        i, m = idx[0], len(pool)
+        for _ in range(n):
+            f(pool[i])
+            i += 1
+            if i == m:
+                i = 0
+        idx[0] = i
+    return run
 
 
 def loop(f):
@@ -180,22 +215,35 @@ def shapes_cases(log, only=None):
                 # No manifest covers these sets (SHAPES.md): the reference is the incumbent's
                 # deterministic encoding, and every arm is checked against it.
                 ref = upb.SerializeToString(deterministic=True)
-            enc = {
-                ("incumbent-prod", "incumbent-default"): upb.SerializeToString,
-                ("incumbent-best", "incumbent-default"): upb.SerializePartialToString,
-                ("core-ffi", "drop"): lambda _f=fc, _r=root: arms._ffi.encode("cext", _r, _f),
-                ("core-ffi", "retain"): lambda _f=fc, _r=root: arms._ffi.encode("cext", _r, _f, None, True),
-                ("core-ffi-attr", "drop"): lambda _f=fp, _r=root: arms._ffi.encode("attr", _r, _f),
+            # Encoders of one object, the hot object, and the pool kind the arm encodes
+            # (req 11): "upb" (built through protobuf's setters), "cext" or "plain" facade.
+            enc_obj = {
+                ("incumbent-prod", "incumbent-default"): (lambda o: o.SerializeToString(), upb, "upb"),
+                ("incumbent-best", "incumbent-default"): (lambda o: o.SerializePartialToString(), upb, "upb"),
+                ("core-ffi", "drop"): (lambda o, _r=root: arms._ffi.encode("cext", _r, o), fc, "cext"),
+                ("core-ffi", "retain"): (lambda o, _r=root: arms._ffi.encode("cext", _r, o, None, True), fc, "cext"),
+                ("core-ffi-attr", "drop"): (lambda o, _r=root: arms._ffi.encode("attr", _r, o), fp, "plain"),
                 # R-H16 (R3, the same facade objects): host-gen's headline arms run over the
                 # SAME C-extension facade objects as core-ffi's; host-gen over the plain facade
                 # is the labelled extra `host-gen-plain`, as `core-ffi-attr` is for core-ffi.
-                ("host-gen", "drop"): lambda _f=fc, _r=root: getattr(arms.pycodec, "encode_root_" + _r)(_f),
-                ("host-gen", "retain"): lambda _f=fc, _r=root: getattr(arms.pycodec_retain, "encode_root_" + _r)(_f),
-                ("host-gen-plain", "drop"): lambda _f=fp, _r=root: getattr(arms.pycodec, "encode_root_" + _r)(_f),
+                ("host-gen", "drop"): (lambda o, _r=root: getattr(arms.pycodec, "encode_root_" + _r)(o), fc, "cext"),
+                ("host-gen", "retain"): (lambda o, _r=root: getattr(arms.pycodec_retain, "encode_root_" + _r)(o), fc, "cext"),
+                ("host-gen-plain", "drop"): (lambda o, _r=root: getattr(arms.pycodec, "encode_root_" + _r)(o), fp, "plain"),
+            }
+            # The reused-buffer end state exists for core-ffi only: the shim copies the core's
+            # encoding into a caller's bytearray sized once. upb-python has no serialise-into
+            # entry point, and host-gen appends to a bytearray that CPython reallocates when it
+            # is cleared, so neither has a no-allocation reused buffer (stated in the header).
+            into_obj = {
+                ("core-ffi", "drop"): lambda o, b, _r=root: arms._ffi.encode("cext", _r, o, None, False, b),
+                ("core-ffi", "retain"): lambda o, b, _r=root: arms._ffi.encode("cext", _r, o, None, True, b),
+                ("core-ffi-attr", "drop"): lambda o, b, _r=root: arms._ffi.encode("attr", _r, o, None, False, b),
             }
             if VARIANT == "nounk":
-                enc = {k: v for k, v in enc.items() if k[0].startswith("incumbent")}
-                enc[("core-ffi", "no-unknown")] = lambda _f=fc, _r=root: arms._ffi.encode("cext", _r, _f)
+                enc_obj = {k: v for k, v in enc_obj.items() if k[0].startswith("incumbent")}
+                enc_obj[("core-ffi", "no-unknown")] = (lambda o, _r=root: arms._ffi.encode("cext", _r, o), fc, "cext")
+                into_obj = {("core-ffi", "no-unknown"): lambda o, b, _r=root: arms._ffi.encode("cext", _r, o, None, False, b)}
+            enc = {k: (lambda _f=f, _o=o: _f(_o)) for k, (f, o, _kind) in enc_obj.items()}
             reuse = R()
 
             def best_dec(_b=ref, _m=reuse):
@@ -235,8 +283,53 @@ def shapes_cases(log, only=None):
                     okb = back == ref or (pid in arms.DECODE_ONLY and R.FromString(back) == R.FromString(ref))
                 if not okb:
                     gates.append("%s %s decode %s/%s: does not re-encode to the reference" % (pid, cs, arm, mode))
-            for (arm, mode), f in enc.items():
-                cases.append(Case(pid, cs, "encode", arm, mode, loop(f)))
+            pools = {}
+
+            def pool_of(kind, _fp=fp, _root=root, _plan=plan, _R=R, _ref=ref, _pools=pools):
+                if kind not in _pools:
+                    n = min(POOL_MAX, max(2, -(-POOL_BYTES // max(1, len(_ref)))))
+                    if kind == "upb":
+                        out = []
+                        for _ in range(n):
+                            u = _R()
+                            arms._fill_pb(u, _fp, _plan)
+                            out.append(u)
+                    else:
+                        ct = arms.CT_CEXT if kind == "cext" else arms.CT_PLAIN
+                        out = [transform(fac, _fp, _root, ct, "copy") for _ in range(n)]
+                    _pools[kind] = out
+                return _pools[kind]
+            for (arm, mode), (f, o, kind) in enc_obj.items():
+                cases.append(Case(pid, cs, "encode", arm, mode, loop(enc[(arm, mode)])))
+                holder = []
+
+                def prep(_f=f, _kind=kind, _h=holder, _pid=pid, _cs=cs, _arm=arm, _mode=mode, _R=R, _ref=ref,
+                         _pool_of=pool_of):   # bound now: pool_of is redefined per (payload, content)
+                    if _h:
+                        return
+                    pool = _pool_of(_kind)
+                    for g in (pool[0], pool[-1]):   # the pool's graphs encode to the reference
+                        b = _f(g)
+                        if b != _ref and _R.FromString(b) != _R.FromString(_ref):
+                            raise SystemExit("correctness gate failed: %s %s encode-pool %s/%s" % (_pid, _cs, _arm, _mode))
+                    _h.append(pool)
+                cases.append(Case(pid, cs, "encode-pool", arm, mode, pool_loop(f, holder), prep=prep))
+                fi = into_obj.get((arm, mode))
+                if fi is not None:
+                    buf = bytearray(len(ref) + 64)
+                    n = fi(o, buf)
+                    if bytes(buf[:n]) != ref and not (pid in arms.DECODE_ONLY and R.FromString(bytes(buf[:n])) == R.FromString(ref)):
+                        gates.append("%s %s encode-reused %s/%s: bytes differ from the reference" % (pid, cs, arm, mode))
+                    cases.append(Case(pid, cs, "encode-reused", arm, mode,
+                                      loop(lambda _fi=fi, _o=o, _b=buf: _fi(_o, _b))))
+                    holder2 = []
+
+                    def prep2(_h=holder2, _kind=kind, _pool_of=pool_of):
+                        if not _h:
+                            _h.append(_pool_of(_kind))
+                    bufp = bytearray(len(ref) + 64)
+                    cases.append(Case(pid, cs, "encode-pool-reused", arm, mode,
+                                      pool_loop(lambda g, _fi=fi, _b=bufp: _fi(g, _b), holder2), prep=prep2))
             for (arm, mode), f in dec.items():
                 cases.append(Case(pid, cs, "decode", arm, mode, loop(f)))
                 if arm.startswith("incumbent"):
@@ -248,8 +341,77 @@ def shapes_cases(log, only=None):
     return cases, gates
 
 
+def shapes_unknown_rows(roots):
+    """CAMPAIGN req 7 as amended (R-H27): the accepted, undisputed U-* rows whose root is one of
+    the shapes core's ABI roots (92 rows at the 7 roots)."""
+    import json
+    man = json.load(open(os.path.join(L.FFI, "corpus", "generated", "manifest.json")))["vectors"]
+    return man, sorted(k for k, r in man.items() if k.startswith("U-") and r["expect"] == "accept"
+                       and r.get("verdict") != "disputed" and r["root"] in roots)
+
+
 def unknown_cases(log, only=None):
-    """The unknown-field rows, through the corpus-schema core and the corpus plan's codec."""
+    """The unknown-field rows of req 7 (R-H27): the 92 accepted rows at the shapes roots,
+    encode, decode and decode+read, through the TIMED shapes core (`_akffi`, or `_akffi_nounk`)
+    and the shapes plan's host-gen, over the same facade objects as the shapes family."""
+    import hashlib
+    import arms
+    cases, gates = [], []
+    if bool(arms._ffi.nounk()) != (VARIANT == "nounk"):
+        gates.append("%s is not the %s build" % (arms._ffi.__name__, VARIANT))
+    man, rows = shapes_unknown_rows(set(arms._ffi.roots()))
+    ffi, TC, CX, CP = arms._ffi, arms.TY_CEXT, arms.CT_CEXT, arms.CT_PLAIN
+    pyd, pyr = arms.pycodec, arms.pycodec_retain
+    for vid in rows:
+        if only is not None and vid != only:
+            continue
+        r = man[vid]
+        root = r["root"]
+        buf = open(os.path.normpath(os.path.join(L.FFI, "corpus", "generated", r["file"])), "rb").read()
+        R = getattr(arms._pb2, root)
+        plan = arms._PLANS[root]
+        m = R.FromString(buf)
+        accepted = {a["sha256"] for a in r.get("accepted_encodings", [])}
+        oc = ffi.decode("cext", root, buf, TC)
+        enc = {("incumbent-prod", "incumbent-default"): m.SerializeToString,
+               ("core-ffi", "drop" if VARIANT != "nounk" else "no-unknown"): lambda _o=oc, _r=root: ffi.encode("cext", _r, _o)}
+        dec = {("incumbent-prod", "incumbent-default"): lambda _b=buf, _R=R: _R.FromString(_b),
+               ("core-ffi", "drop" if VARIANT != "nounk" else "no-unknown"): lambda _b=buf, _r=root: ffi.decode("cext", _r, _b, TC)}
+        if VARIANT != "nounk":
+            ocr = ffi.decode("cext", root, buf, TC, None, True)
+            op = getattr(pyd, "decode_root_" + root)(buf, CX)
+            opr = getattr(pyr, "decode_root_" + root)(buf, CX)
+            opp = getattr(pyd, "decode_root_" + root)(buf, CP)
+            enc.update({
+                ("core-ffi", "retain"): lambda _o=ocr, _r=root: ffi.encode("cext", _r, _o, None, True),
+                ("host-gen", "drop"): lambda _o=op, _r=root: getattr(pyd, "encode_root_" + _r)(_o),
+                ("host-gen", "retain"): lambda _o=opr, _r=root: getattr(pyr, "encode_root_" + _r)(_o),
+                ("host-gen-plain", "drop"): lambda _o=opp, _r=root: getattr(pyd, "encode_root_" + _r)(_o)})
+            dec.update({
+                ("core-ffi", "retain"): lambda _b=buf, _r=root: ffi.decode("cext", _r, _b, TC, None, True),
+                ("host-gen", "drop"): lambda _b=buf, _r=root: getattr(pyd, "decode_root_" + _r)(_b, CX),
+                ("host-gen", "retain"): lambda _b=buf, _r=root: getattr(pyr, "decode_root_" + _r)(_b, CX),
+                ("host-gen-plain", "drop"): lambda _b=buf, _r=root: getattr(pyd, "decode_root_" + _r)(_b, CP)})
+        for (arm, mode), f in enc.items():
+            b = f()
+            if arm.startswith("incumbent") and R.FromString(b) == m:
+                continue
+            if accepted and hashlib.sha256(b).hexdigest() not in accepted:
+                gates.append("%s encode %s/%s: not an accepted encoding" % (vid, arm, mode))
+        for (arm, mode), f in enc.items():
+            cases.append(Case(vid, "ascii", "encode", arm, mode, loop(f)))
+        for (arm, mode), f in dec.items():
+            cases.append(Case(vid, "ascii", "decode", arm, mode, loop(f)))
+            rd = ((lambda _f=f, _p=plan: arms._read_pb(_f(), _p, True)) if arm.startswith("incumbent")
+                  else (lambda _f=f, _p=plan: arms._read(_f(), _p)))
+            cases.append(Case(vid, "ascii", "decode+read", arm, mode, loop(rd)))
+    log.note("unknown-field rows through the shapes core (%d): %s" % (len(rows), ", ".join(rows)))
+    return cases, gates
+
+
+def unknown_corpus_cases(log, only=None):
+    """LABELLED EXTRA (req 7 as amended): the unknown-field rows through the corpus-schema core
+    and the corpus plan's codec (every U-* root the C ABI carries, 311 rows)."""
     import json
     tag = "py%d.%d" % sys.version_info[:2]
     gen = os.path.join(HERE, "gen", "out", "corpus-nounk" if VARIANT == "nounk" else "corpus")
@@ -337,9 +499,9 @@ def unknown_cases(log, only=None):
 def calibrate(c, target_ns):
     n = 1
     while True:
-        t = L.thread_cpu_ns()
+        t = L.proc_cpu_ns()
         c.fn(n)
-        dt = L.thread_cpu_ns() - t
+        dt = L.proc_cpu_ns() - t
         if dt >= target_ns or n >= 1 << 24:
             c.iters = n
             return
@@ -355,16 +517,19 @@ def main():
                affinity=AFFINITY, allocator="mallopt(M_TOP_PAD, 8 MiB) %s" % ("applied" if _WARM else "NOT AVAILABLE"),
                gc="ON; gc.collect() before every sample",
                warmup="per arm, before round 1: calibration to the target, then one sample's iterations",
-               clock="CLOCK_THREAD_CPUTIME_ID (cpu_ns), perf_counter_ns (wall_ns), totals over iters",
+               clock="CLOCK_PROCESS_CPUTIME_ID (cpu_ns, req 21 as amended), perf_counter_ns (wall_ns), totals over iters",
                incumbent_path="Message.SerializeToString / Message.FromString (grpcio's generated marshaller)",
                core_ffi_unknown="drop and retain (decision 11, every position armed)")
-    cases, gates = (shapes_cases if FAMILY == "shapes" else unknown_cases)(log)
+    cases, gates = {"shapes": shapes_cases, "unknown": unknown_cases,
+                    "unknown-corpus": unknown_corpus_cases}[FAMILY](log)
     if gates:
         log.close(False, "correctness gate failed before timing: " + "; ".join(gates[:5]))
         print("\n".join(gates))
         return 1
     target = int(TARGET_MS * 1e6)
     for c in cases:
+        if c.prep:
+            c.prep()
         calibrate(c, target)
         c.fn(c.iters)                      # the warm-up: one sample's worth, every arm alike
     groups = {}
@@ -374,9 +539,9 @@ def main():
         for key, cs in groups.items():
             for c in L.rotated(cs, r):
                 gc.collect()
-                t0, w0 = L.thread_cpu_ns(), L.wall_ns()
+                t0, w0 = L.proc_cpu_ns(), L.wall_ns()
                 c.fn(c.iters)
-                t1, w1 = L.thread_cpu_ns(), L.wall_ns()
+                t1, w1 = L.proc_cpu_ns(), L.wall_ns()
                 log.sample(arm=c.arm, payload=c.payload, content=c.content, dir=c.dir,
                            unknown_mode=c.mode, launch=launch, round=r + 1,
                            cpu_ns=t1 - t0, wall_ns=w1 - w0, iters=c.iters)

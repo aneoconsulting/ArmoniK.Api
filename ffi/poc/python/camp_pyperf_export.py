@@ -6,7 +6,7 @@
 Every raw measurement pyperf holds is exported, nothing dropped: each run's calibration values
 (`phase` "calibration"), its warm-up values (`phase` "warmup") and its values (`phase`
 "value", `round` = the value's index in its worker, 1-based). `cpu_ns` = value x loops (the
-time_func returned CLOCK_THREAD_CPUTIME_ID), `wall_ns` from the side file of the same call,
+time_func returned CLOCK_PROCESS_CPUTIME_ID, req 21 as amended), `wall_ns` from the side file of the same call,
 `iters` = loops. A value with no matching side record is a harness defect and stops the export.
 """
 import glob
@@ -21,6 +21,9 @@ import pyperf  # noqa: E402
 import camp_lib as L  # noqa: E402
 
 A = sys.argv[1:]
+# req 11: the encode directions' input and end state (camp_codec.ENCODE_DIRS)
+ENC = {"encode": ("hot", "transport"), "encode-pool": ("pool", "transport"),
+       "encode-reused": ("hot", "reused"), "encode-pool-reused": ("pool", "reused")}
 
 
 def opt(n, d=None):
@@ -56,14 +59,16 @@ def main():
                         missing += 1
                     if phase == "value":
                         rnd += 1
+                    inp, end = ENC.get(d, (None, None))
                     log.sample(arm=arm, payload=pid, content=content, dir=d, unknown_mode=mode,
+                               input=inp, end_state=end,
                                launch=launch, round=rnd if phase == "value" else None, phase=phase,
                                cpu_ns=int(round(v * loops * 1e9)),
                                wall_ns=int(round(wall * 1e9)) if wall is not None else None,
                                iters=loops)
     log.header(engine="pyperf %s (CAMPAIGN.md 22a)" % pyperf.__version__, family=fam, launch=launch,
                pyperf_args=opt("--pyperf-args", "?"),
-               clock="pyperf values are CLOCK_THREAD_CPUTIME_ID per loop (the time_func's return); wall "
+               clock="pyperf values are CLOCK_PROCESS_CPUTIME_ID per loop (process CPU, req 21 as amended) (the time_func's return); wall "
                      "(perf_counter) of the same call from the side file",
                warmup_calibration="pyperf's: warm-up values and the loop-calibration run are exported "
                                   "with phase warmup / calibration",
@@ -75,7 +80,22 @@ def main():
                       else "full build (unknown-fields on)"),
                core_ffi_unknown=("no-unknown (compiled out)" if opt("--variant") == "nounk" else
                                  "drop and retain (decision 11: every position armed; ak_uencode_* on encode)"),
-               raw_json=os.path.basename(opt("--json")))
+               raw_json=os.path.basename(opt("--json")),
+               encode_variants="req 11: encode = hot graph, transport-ready bytes (grpcio's form); encode-pool = "
+                               "a pool of distinct graphs of >= AK_POOL_BYTES wire bytes (%s, cap AK_POOL_MAX %s), "
+                               "built and checked outside the window; encode-reused / encode-pool-reused = the "
+                               "bytes copied into a bytearray sized once (core-ffi only: upb-python has no "
+                               "serialise-into entry point, host-gen appends to a bytearray CPython reallocates)"
+                               % (os.environ.get("AK_POOL_BYTES", "14417920"), os.environ.get("AK_POOL_MAX", "65536")),
+               content_sets="latin1 and wide on P1.2, P2.2, P2.4 (req 7 as amended)",
+               unknown_rows="family unknown: the 92 accepted U-* rows at the shapes core's 7 roots, through the "
+                            "timed shapes core (req 7 as amended); family unknown-corpus: the corpus-schema core, "
+                            "a labelled extra",
+               order="pyperf runs benchmarks one after another (no interleaving): blocks of (payload, content, "
+                     "direction), the arms rotated by one per launch inside a block, the list rotated by a third "
+                     "per launch (req 22)",
+               worker_threads="1: a pyperf worker runs one benchmark in its main thread and starts no other "
+                              "thread; the codec suite uses no gRPC stack and no core runtime (req 4)")
     if missing:
         log.close(False, "%d pyperf values have no side record (wall): harness defect" % missing)
         return 1

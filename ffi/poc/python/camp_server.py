@@ -1,8 +1,12 @@
 """CAMPAIGN.md 13: the RPC grid's server, a SEPARATE process pinned to AK_CPU_SERVER.
 
-  python3.12 camp_server.py --transport shipped|pinned
+  python3.12 camp_server.py --dir DIR [--workers N]
 
-Prints `PORT <n>` once listening on 127.0.0.1, serves until its stdin closes.
+CAMPAIGN req 13 as amended (R-H33): ONE server process per launch, serving every cell of both
+builds. It hosts the two transport configurations of req 17 as two grpcio servers in this one
+process, each on a Unix domain socket (req 17 as amended, R-H28): DIR/shipped.sock and
+DIR/pinned.sock. Prints `SOCKETS shipped=unix:... pinned=unix:... AFFINITY ... WORKERS n` once
+both listen, and serves until its stdin closes.
 
   /ffi.Bench/Get   direction (a): an empty request; returns P2.2's PRE-SERIALISED bytes, so
                    the server's work is identical whatever cell the client is
@@ -50,7 +54,8 @@ def options(transport):
 
 
 def main():
-    transport = sys.argv[sys.argv.index("--transport") + 1]
+    d = sys.argv[sys.argv.index("--dir") + 1]
+    workers = int(sys.argv[sys.argv.index("--workers") + 1]) if "--workers" in sys.argv else 32
     body = V.reference(PID)
     R = shapes_pb2.ListTasksDetailedResponse
 
@@ -78,11 +83,20 @@ def main():
     ident = (lambda b: b)
     h = {"Get": grpc.unary_unary_rpc_method_handler(get, request_deserializer=ident, response_serializer=ident),
          "Put": grpc.unary_unary_rpc_method_handler(put, request_deserializer=ident, response_serializer=ident)}
-    srv = grpc.server(futures.ThreadPoolExecutor(max_workers=32), options=options(transport))
-    srv.add_generic_rpc_handlers((grpc.method_handlers_generic_handler("ffi.Bench", h),))
-    port = srv.add_insecure_port("127.0.0.1:0")
-    srv.start()
-    print("PORT %d AFFINITY %s" % (port, ",".join(map(str, AFFINITY))), flush=True)
+    srvs, socks = [], []
+    for transport in ("shipped", "pinned"):
+        path = os.path.join(d, transport + ".sock")
+        if os.path.exists(path):
+            os.unlink(path)
+        srv = grpc.server(futures.ThreadPoolExecutor(max_workers=workers), options=options(transport))
+        srv.add_generic_rpc_handlers((grpc.method_handlers_generic_handler("ffi.Bench", h),))
+        if not srv.add_insecure_port("unix:" + path):
+            raise SystemExit("cannot listen on unix:" + path)
+        srv.start()
+        srvs.append(srv)
+        socks.append("%s=unix:%s" % (transport, path))
+    print("SOCKETS %s AFFINITY %s WORKERS %d THREADS %d" % (" ".join(socks), ",".join(map(str, AFFINITY)), workers,
+                                                           threading.active_count()), flush=True)
     done = threading.Event()
 
     def watch():
@@ -90,7 +104,9 @@ def main():
         done.set()
     threading.Thread(target=watch, daemon=True).start()
     done.wait()
-    srv.stop(0).wait()
+    print("SERVED %d Get calls" % count[0], flush=True)
+    for srv in srvs:
+        srv.stop(0).wait()
 
 
 if __name__ == "__main__":

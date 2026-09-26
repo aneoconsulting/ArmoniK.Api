@@ -19,8 +19,9 @@ Warm-up and calibration are pyperf's: `--warmups W` values discarded per worker,
 calibrated to `--min-time` in the calibration worker; both are in the JSON and are exported
 as `phase` "warmup" / "calibration" lines, never dropped.
 
-Clock: the time_func returns CLOCK_THREAD_CPUTIME_ID seconds, so pyperf's values ARE CPU
-time per loop (requirement 21). Wall (perf_counter) for the same call is written to a side
+Clock: the time_func returns CLOCK_PROCESS_CPUTIME_ID seconds (requirement 21 as amended:
+process CPU per round), so pyperf's values ARE process CPU per loop. A worker runs one
+benchmark and starts no thread; its process CPU is that benchmark's. Wall (perf_counter) for the same call is written to a side
 file (--side) and joined back by the exporter. GC stays ON (bench_time_func does not touch it);
 `gc.collect()` runs before every timed call, untimed.
 
@@ -53,13 +54,24 @@ ARMS = {
                ("host-gen", "drop"), ("host-gen", "retain"), ("host-gen-plain", "drop")],
     "unknown": [("incumbent-prod", "incumbent-default"), ("core-ffi", "drop"), ("core-ffi", "retain"),
                 ("host-gen", "drop"), ("host-gen", "retain"), ("host-gen-plain", "drop")],
+    "unknown-corpus": [("incumbent-prod", "incumbent-default"), ("core-ffi", "drop"), ("core-ffi", "retain"),
+                       ("host-gen", "drop"), ("host-gen", "retain"), ("host-gen-plain", "drop")],
 }
 ARMS_NOUNK = {
     "shapes": [("incumbent-prod", "incumbent-default"), ("incumbent-best", "incumbent-default"),
                ("core-ffi", "no-unknown")],
     "unknown": [("incumbent-prod", "incumbent-default"), ("core-ffi", "no-unknown")],
+    "unknown-corpus": [("incumbent-prod", "incumbent-default"), ("core-ffi", "no-unknown")],
 }
 DIRS = ["encode", "decode", "decode+read"]
+# Req 11's encode variants (shapes family): the pool input for every encode arm, the reused-
+# buffer end state for core-ffi's arms only (camp_codec.ENCODE_DIRS says why).
+SHAPES_DIRS = ["encode", "encode-pool", "encode-reused", "encode-pool-reused", "decode", "decode+read"]
+CONTENT = ["P1.2", "P2.2", "P2.4"]   # req 7 as amended: Latin-1 and wide on these three
+
+
+def dir_applies(d, arm):
+    return not d.endswith("reused") or arm.startswith("core-ffi")
 
 
 def add_args(cmd, args):
@@ -77,12 +89,15 @@ def payloads(family, only):
         out = []
         for p in pids:
             out.append((p, "ascii"))
-            if p == "P2.4":
+            if p in CONTENT:
                 out += [(p, "latin1"), (p, "wide")]
     else:
         tag = "py%d.%d" % sys.version_info[:2]
         sys.path.insert(0, os.path.join(HERE, "build", tag))
-        ffi = __import__("_akffi_corpus_nounk" if VARIANT == "nounk" else "_akffi_corpus")
+        if family == "unknown":      # req 7 (R-H27): the rows at the TIMED shapes core's roots
+            ffi = __import__("_akffi_nounk" if VARIANT == "nounk" else "_akffi")
+        else:                        # labelled extra: the corpus-schema core
+            ffi = __import__("_akffi_corpus_nounk" if VARIANT == "nounk" else "_akffi_corpus")
         man = json.load(open(os.path.join(HERE, "..", "..", "corpus", "generated", "manifest.json")))["vectors"]
         roots = set(ffi.roots())
         out = [(k, "ascii") for k, r in sorted(man.items()) if k.startswith("U-") and r["expect"] == "accept"
@@ -105,7 +120,8 @@ def case(family, pid, content, d, arm, mode):
     key = (pid,)
     if key not in _CASES:
         import camp_codec as CC
-        cs, gates = (CC.shapes_cases if family == "shapes" else CC.unknown_cases)(_Quiet(), only=pid)
+        cs, gates = {"shapes": CC.shapes_cases, "unknown": CC.unknown_cases,
+                     "unknown-corpus": CC.unknown_corpus_cases}[family](_Quiet(), only=pid)
         if gates:
             raise SystemExit("correctness gate failed before timing: %s" % "; ".join(gates[:3]))
         _CASES[key] = {(c.content, c.dir, c.arm, c.mode): c for c in cs}
@@ -114,10 +130,12 @@ def case(family, pid, content, d, arm, mode):
 
 def time_func(loops, family, pid, content, d, arm, mode, side, name):
     c = case(family, pid, content, d, arm, mode)
+    if c.prep:
+        c.prep()        # the beyond-cache pool, built and checked outside the timed window (req 11)
     gc.collect()
-    t0, w0 = time.clock_gettime(time.CLOCK_THREAD_CPUTIME_ID), time.perf_counter()
+    t0, w0 = time.clock_gettime(time.CLOCK_PROCESS_CPUTIME_ID), time.perf_counter()
     c.fn(loops)
-    t1, w1 = time.clock_gettime(time.CLOCK_THREAD_CPUTIME_ID), time.perf_counter()
+    t1, w1 = time.clock_gettime(time.CLOCK_PROCESS_CPUTIME_ID), time.perf_counter()
     cpu = t1 - t0
     with open(os.path.join(side, "side-%d.jsonl" % os.getpid()), "a") as f:
         f.write(json.dumps({"name": name, "loops": loops, "cpu_s": cpu, "wall_s": w1 - w0}) + "\n")
@@ -136,7 +154,7 @@ def main():
     os.makedirs(args.side, exist_ok=True)
     names = []
     for pid, content in payloads(args.family, args.only):
-        for d in DIRS:
+        for d in (SHAPES_DIRS if args.family == "shapes" else DIRS):
             # R-H23 / req 22: pyperf cannot interleave, so the arms of one (payload, content,
             # direction) block run one after another; their order is rotated by one per
             # launch (launch l starts at arm (l-1) mod n), so no arm always runs first or always
@@ -144,7 +162,8 @@ def main():
             al = list((ARMS_NOUNK if VARIANT == "nounk" else ARMS)[args.family])
             r = (args.launch - 1) % len(al)
             for arm, mode in al[r:] + al[:r]:
-                names.append((pid, content, d, arm, mode))
+                if dir_applies(d, arm):
+                    names.append((pid, content, d, arm, mode))
     # The order rotated between launches: launch l starts (l-1)/3 of the way through the list.
     k = ((args.launch - 1) * max(1, len(names) // 3)) % len(names) if names else 0
     names = names[k:] + names[:k]
