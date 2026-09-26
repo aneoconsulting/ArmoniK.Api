@@ -1,0 +1,912 @@
+# opt_compare  before=/home/user/ArmoniK.Api/ffi/poc/rust/../../logs/rust/opt/s3-e2  after=/home/user/ArmoniK.Api/ffi/poc/rust/../../logs/rust/opt/s4-e4n1  (CONTAINER INSTRUMENTATION)
+# 3849 codec ratio rows in both runs (0 only before, 0 only after)
+
+file	input	dir	mode	ratio	before	after	change	flag
+codec-P	P1.1	encode	drop	core-ffi/inc	0.253	0.276	+9.1%	higher
+codec-P	P1.1	encode	drop	core-native/inc	0.159	0.186	+16.6%	higher
+codec-P	P1.1	encode	retain	core-ffi/inc	0.245	0.274	+11.9%	higher
+codec-P	P1.1	encode	retain	core-native/inc	0.196	0.216	+10.0%	higher
+codec-P	P1.2	encode	drop	core-ffi/inc	0.259	0.287	+11.0%	higher
+codec-P	P1.2	encode	drop	core-native/inc	0.185	0.214	+16.1%	higher
+codec-P	P1.2	encode	retain	core-ffi/inc	0.267	0.295	+10.3%	higher
+codec-P	P1.2	encode	retain	core-native/inc	0.217	0.237	+9.0%	higher
+codec-P	P1.2/latin1	encode	drop	core-ffi/inc	0.262	0.294	+12.4%	higher
+codec-P	P1.2/latin1	encode	drop	core-native/inc	0.181	0.211	+16.5%	higher
+codec-P	P1.2/latin1	encode	retain	core-ffi/inc	0.269	0.305	+13.4%	higher
+codec-P	P1.2/latin1	encode	retain	core-native/inc	0.206	0.233	+12.9%	higher
+codec-P	P1.2/wide	encode	drop	core-ffi/inc	0.264	0.310	+17.6%	higher
+codec-P	P1.2/wide	encode	drop	core-native/inc	0.196	0.218	+11.0%	higher
+codec-P	P1.2/wide	encode	retain	core-ffi/inc	0.275	0.315	+14.6%	higher
+codec-P	P1.2/wide	encode	retain	core-native/inc	0.221	0.237	+7.0%	higher
+codec-P	P1.3	encode	drop	core-ffi/core-native	2.080	1.754	-15.7%	lower
+codec-P	P1.3	encode	drop	core-native/inc	0.306	0.384	+25.5%	higher
+codec-P	P2.1	encode	drop	core-ffi/inc	0.327	0.362	+10.7%	higher
+codec-P	P2.1	encode	drop	core-native/inc	0.185	0.210	+13.2%	higher
+codec-P	P2.1	encode	retain	core-ffi/inc	0.337	0.379	+12.4%	higher
+codec-P	P2.1	encode	retain	core-native/inc	0.215	0.244	+13.6%	higher
+codec-P	P2.2	encode	drop	core-ffi/inc	0.324	0.367	+13.1%	higher
+codec-P	P2.2	encode	drop	core-native/inc	0.222	0.259	+16.9%	higher
+codec-P	P2.2	encode	retain	core-ffi/inc	0.332	0.375	+12.8%	higher
+codec-P	P2.2	encode	retain	core-native/inc	0.230	0.264	+15.1%	higher
+codec-P	P2.2/wide	encode	drop	core-ffi/inc	0.320	0.374	+16.9%	higher
+codec-P	P2.2/wide	encode	drop	core-native/inc	0.238	0.293	+23.5%	higher
+codec-P	P2.2/wide	encode	retain	core-ffi/inc	0.331	0.380	+15.0%	higher
+codec-P	P2.2/wide	encode	retain	core-native/inc	0.252	0.296	+17.5%	higher
+codec-P	P2.4	encode	drop	core-ffi/inc	0.383	0.433	+13.1%	higher
+codec-P	P2.4	encode	drop	core-native/inc	0.283	0.320	+12.9%	higher
+codec-P	P2.4	encode	retain	core-ffi/inc	0.387	0.436	+12.8%	higher
+codec-P	P2.4	encode	retain	core-native/inc	0.270	0.302	+11.8%	higher
+codec-P	P2.5	encode	drop	core-ffi/inc	0.309	0.343	+10.9%	higher
+codec-P	P2.5	encode	drop	core-native/inc	0.192	0.216	+12.6%	higher
+codec-P	P2.5	encode	retain	core-ffi/inc	0.323	0.353	+9.5%	higher
+codec-P	P2.5	encode	retain	core-native/inc	0.214	0.236	+10.5%	higher
+codec-P	P3.1	decode	drop	core-native/inc	0.894	0.767	-14.2%	lower
+codec-P	P3.1	decode	retain	core-ffi-pull/inc	0.960	0.822	-14.4%	lower
+codec-P	P3.1	encode	drop	core-ffi/core-native	1.767	1.625	-8.1%	lower
+codec-P	P3.1	encode	drop	core-ffi/inc	0.276	0.298	+8.1%	higher
+codec-P	P3.1	encode	drop	core-native/inc	0.156	0.183	+17.6%	higher
+codec-P	P3.1	encode	retain	core-ffi/inc	0.269	0.291	+8.4%	higher
+codec-P	P3.1	encode	retain	core-native/inc	0.195	0.217	+11.1%	higher
+codec-P	P5.1	decode-read	drop	core-native/inc	0.836	0.902	+8.0%	higher
+codec-P	P5.1	encode	drop	armonik/inc	1.007	1.089	+8.1%	higher
+codec-P	P5.1	encode	drop	core-ffi/inc	0.407	0.478	+17.5%	higher
+codec-P	P5.1	encode	drop	core-native/inc	0.232	0.262	+12.8%	higher
+codec-P	P5.1	encode	retain	armonik/inc	1.007	1.089	+8.1%	higher
+codec-P	P5.1	encode	retain	core-ffi/inc	0.416	0.491	+18.0%	higher
+codec-P	P5.1	encode	retain	core-native/inc	0.284	0.320	+12.8%	higher
+codec-P	P5.3	decode	drop	armonik/inc	0.002	0.002	+17.2%	higher
+codec-P	P5.3	decode	retain	armonik/inc	0.002	0.002	+17.2%	higher
+codec-P	P5.3	decode-read	drop	armonik/inc	0.002	0.002	-6.8%	lower
+codec-P	P5.3	decode-read	retain	armonik/inc	0.002	0.002	-6.8%	lower
+codec-P	P5.3	encode	drop	core-ffi/core-native	1.144	0.958	-16.3%	lower
+codec-P	P5.3	encode	drop	core-native/inc	0.935	1.038	+11.0%	higher
+codec-P	P5.3	encode	retain	core-ffi/core-native	1.150	0.929	-19.3%	lower
+codec-P	P5.3	encode	retain	core-native/inc	0.922	1.058	+14.8%	higher
+codec-P	P5.4	decode-read	drop	armonik/inc	0.000	0.000	+12.0%	higher
+codec-P	P5.4	decode-read	retain	armonik/inc	0.000	0.000	+12.0%	higher
+codec-P	P6.1	decode	drop	core-ffi/core-native	0.928	1.557	+67.9%	higher
+codec-P	P6.1	decode	drop	core-native/inc	0.622	0.440	-29.3%	lower
+codec-P	P6.1	decode	retain	core-ffi/core-native	0.947	1.492	+57.6%	higher
+codec-P	P6.1	decode	retain	core-native/inc	0.607	0.457	-24.7%	lower
+codec-P	P6.1	decode-nodrop	drop	armonik/inc	1.129	1.018	-9.8%	lower
+codec-P	P6.1	decode-nodrop	drop	core-ffi/core-native	0.939	1.561	+66.3%	higher
+codec-P	P6.1	decode-nodrop	drop	core-native/inc	0.643	0.367	-42.9%	lower
+codec-P	P6.1	decode-nodrop	retain	armonik/inc	1.129	1.018	-9.8%	lower
+codec-P	P6.1	decode-nodrop	retain	core-ffi/core-native	0.931	1.544	+65.8%	higher
+codec-P	P6.1	decode-nodrop	retain	core-native/inc	0.645	0.371	-42.5%	lower
+codec-P	P6.1	decode-read	drop	core-ffi/core-native	0.921	1.397	+51.6%	higher
+codec-P	P6.1	decode-read	drop	core-native/inc	0.661	0.460	-30.4%	lower
+codec-P	P6.1	decode-read	retain	core-ffi/core-native	0.908	1.375	+51.5%	higher
+codec-P	P6.1	decode-read	retain	core-native/inc	0.675	0.474	-29.8%	lower
+codec-U	U-deep-all	encode	drop	core-native/inc	0.182	0.212	+16.1%	higher
+codec-U	U-deep-all	encode	retain	core-native/inc	0.212	0.241	+13.7%	higher
+codec-U	U-deep-u-fixed32	decode-read	drop	core-ffi/core-native	1.311	1.176	-10.3%	lower
+codec-U	U-deep-u-fixed32	decode-read	drop	core-native/inc	0.778	0.823	+5.9%	higher
+codec-U	U-deep-u-fixed32	decode-read	retain	core-ffi/core-native	1.375	1.212	-11.9%	lower
+codec-U	U-deep-u-fixed32	decode-read	retain	core-native/inc	0.812	0.878	+8.2%	higher
+codec-U	U-deep-u-fixed32	encode	drop	core-native/inc	0.186	0.206	+10.7%	higher
+codec-U	U-deep-u-fixed32	encode	retain	core-native/inc	0.214	0.240	+12.1%	higher
+codec-U	U-deep-u-fixed64	encode	drop	core-native/inc	0.181	0.207	+14.4%	higher
+codec-U	U-deep-u-fixed64	encode	retain	core-native/inc	0.210	0.247	+17.3%	higher
+codec-U	U-deep-u-len	encode	drop	core-native/inc	0.183	0.205	+12.4%	higher
+codec-U	U-deep-u-len	encode	retain	core-native/inc	0.212	0.239	+12.7%	higher
+codec-U	U-deep-u-msg	decode	retain	core-ffi-pull/inc	1.146	1.302	+13.6%	higher
+codec-U	U-deep-u-msg	decode	retain	core-native/inc	0.794	0.889	+12.0%	higher
+codec-U	U-deep-u-msg	encode	drop	core-native/inc	0.184	0.211	+14.3%	higher
+codec-U	U-deep-u-msg	encode	retain	core-native/inc	0.214	0.247	+15.5%	higher
+codec-U	U-deep-u-packed	decode-read	retain	core-ffi-pull/inc	1.008	1.158	+14.9%	higher
+codec-U	U-deep-u-packed	encode	drop	core-native/inc	0.182	0.204	+12.1%	higher
+codec-U	U-deep-u-packed	encode	retain	core-native/inc	0.214	0.238	+11.0%	higher
+codec-U	U-deep-u-repeated	decode-read	drop	core-ffi/inc	1.073	0.967	-9.8%	lower
+codec-U	U-deep-u-repeated	encode	drop	core-native/inc	0.183	0.203	+11.2%	higher
+codec-U	U-deep-u-repeated	encode	retain	core-native/inc	0.210	0.235	+11.7%	higher
+codec-U	U-deep-u-varint	decode	drop	core-ffi-pull/inc	0.933	1.045	+11.9%	higher
+codec-U	U-deep-u-varint	decode	drop	core-ffi/inc	0.963	1.066	+10.8%	higher
+codec-U	U-deep-u-varint	decode	retain	core-ffi-pull/inc	1.038	1.146	+10.5%	higher
+codec-U	U-deep-u-varint	decode-read	retain	core-ffi-pull/inc	1.036	1.187	+14.6%	higher
+codec-U	U-element-all	decode	drop	core-ffi/core-native	1.337	1.184	-11.4%	lower
+codec-U	U-element-all	decode	retain	core-native/inc	0.870	0.943	+8.4%	higher
+codec-U	U-element-all	encode	drop	core-native/inc	0.181	0.207	+14.2%	higher
+codec-U	U-element-all	encode	retain	core-native/inc	0.211	0.258	+22.4%	higher
+codec-U	U-element-u-fixed32	decode-read	drop	core-native/inc	0.774	0.814	+5.2%	higher
+codec-U	U-element-u-fixed32	encode	drop	core-native/inc	0.185	0.204	+10.2%	higher
+codec-U	U-element-u-fixed32	encode	retain	core-native/inc	0.213	0.239	+12.0%	higher
+codec-U	U-element-u-fixed64	decode	drop	core-native/inc	0.780	0.814	+4.4%	higher
+codec-U	U-element-u-fixed64	encode	drop	core-native/inc	0.182	0.205	+12.8%	higher
+codec-U	U-element-u-fixed64	encode	retain	core-native/inc	0.212	0.239	+12.7%	higher
+codec-U	U-element-u-len	encode	drop	core-native/inc	0.180	0.213	+18.5%	higher
+codec-U	U-element-u-len	encode	retain	core-native/inc	0.212	0.244	+15.1%	higher
+codec-U	U-element-u-packed	decode	retain	core-ffi-pull/inc	1.011	1.146	+13.3%	higher
+codec-U	U-element-u-repeated	encode	drop	core-native/inc	0.184	0.203	+10.6%	higher
+codec-U	U-element-u-repeated	encode	retain	core-native/inc	0.212	0.242	+14.5%	higher
+codec-U	U-element-u-varint	encode	drop	core-native/inc	0.182	0.204	+12.0%	higher
+codec-U	U-element-u-varint	encode	retain	core-native/inc	0.233	0.261	+12.2%	higher
+codec-U	U-enum-value-127	encode	drop	core-native/inc	0.263	0.295	+12.0%	higher
+codec-U	U-enum-value-127	encode	retain	core-native/inc	0.338	0.369	+9.2%	higher
+codec-U	U-enum-value-2147483647	decode-read	drop	armonik/inc	1.357	1.170	-13.8%	lower
+codec-U	U-enum-value-2147483647	decode-read	drop	core-native/inc	1.091	0.971	-11.0%	lower
+codec-U	U-enum-value-2147483647	decode-read	retain	armonik/inc	1.357	1.170	-13.8%	lower
+codec-U	U-enum-value-2147483647	decode-read	retain	core-native/inc	1.164	1.000	-14.1%	lower
+codec-U	U-enum-value-2147483647	encode	drop	core-native/inc	0.249	0.300	+20.4%	higher
+codec-U	U-enum-value-2147483647	encode	retain	core-native/inc	0.312	0.352	+12.7%	higher
+codec-U	U-enum-value-999	decode	drop	armonik/inc	1.215	1.153	-5.1%	lower
+codec-U	U-enum-value-999	decode	retain	armonik/inc	1.215	1.153	-5.1%	lower
+codec-U	U-enum-value-999	decode	retain	core-native/inc	1.028	0.899	-12.5%	lower
+codec-U	U-enum-value-999	decode-read	retain	core-ffi/core-native	1.378	1.549	+12.4%	higher
+codec-U	U-enum-value-999	encode	drop	core-native/inc	0.265	0.311	+17.3%	higher
+codec-U	U-enum-value-999	encode	retain	core-native/inc	0.335	0.373	+11.4%	higher
+codec-U	U-leaf-all	encode	drop	core-native/inc	0.176	0.205	+16.1%	higher
+codec-U	U-leaf-u-fixed32	decode	drop	core-native/inc	0.831	0.752	-9.5%	lower
+codec-U	U-leaf-u-fixed32	decode	retain	core-native/inc	0.951	0.876	-7.9%	lower
+codec-U	U-leaf-u-fixed32	encode	drop	core-native/inc	0.176	0.205	+16.7%	higher
+codec-U	U-leaf-u-fixed32	encode	retain	core-native/inc	0.226	0.250	+11.0%	higher
+codec-U	U-leaf-u-fixed64	encode	retain	core-native/inc	0.222	0.238	+7.1%	higher
+codec-U	U-leaf-u-len	decode-read	drop	core-native/inc	0.838	0.787	-6.2%	lower
+codec-U	U-leaf-u-msg	encode	drop	core-native/inc	0.176	0.201	+13.9%	higher
+codec-U	U-leaf-u-packed	encode	drop	core-native/inc	0.180	0.231	+28.5%	higher
+codec-U	U-leaf-u-packed	encode	retain	core-native/inc	0.221	0.257	+16.2%	higher
+codec-U	U-leaf-u-repeated	encode	drop	core-native/inc	0.176	0.203	+14.9%	higher
+codec-U	U-leaf-u-repeated	encode	retain	core-native/inc	0.220	0.263	+19.4%	higher
+codec-U	U-leaf-u-varint	decode	drop	core-native/inc	0.831	0.773	-7.0%	lower
+codec-U	U-leaf-u-varint	encode	drop	core-native/inc	0.177	0.204	+15.2%	higher
+codec-U	U-leaf-u-varint	encode	retain	core-native/inc	0.224	0.266	+18.7%	higher
+codec-U	U-nested-all	encode	drop	core-native/inc	0.176	0.200	+13.3%	higher
+codec-U	U-nested-all	encode	retain	core-native/inc	0.216	0.238	+10.5%	higher
+codec-U	U-nested-before	encode	drop	core-native/inc	0.179	0.233	+30.3%	higher
+codec-U	U-nested-before	encode	retain	core-native/inc	0.219	0.262	+19.7%	higher
+codec-U	U-nested-group	encode	drop	core-native/inc	0.178	0.204	+14.2%	higher
+codec-U	U-nested-group	encode	retain	core-native/inc	0.223	0.252	+13.2%	higher
+codec-U	U-nested-interleaved	encode	drop	core-native/inc	0.176	0.194	+10.4%	higher
+codec-U	U-nested-u-fixed32	encode	drop	core-native/inc	0.177	0.201	+13.2%	higher
+codec-U	U-nested-u-fixed32	encode	retain	core-native/inc	0.225	0.251	+11.6%	higher
+codec-U	U-nested-u-fixed64	decode	drop	core-native/inc	0.885	0.844	-4.7%	lower
+codec-U	U-nested-u-len	encode	drop	core-native/inc	0.175	0.202	+15.5%	higher
+codec-U	U-nested-u-len	encode	retain	core-native/inc	0.223	0.261	+17.3%	higher
+codec-U	U-nested-u-msg	decode	drop	core-native/inc	0.801	0.771	-3.8%	lower
+codec-U	U-nested-u-msg	encode	drop	core-native/inc	0.178	0.202	+13.7%	higher
+codec-U	U-nested-u-msg	encode	retain	core-native/inc	0.221	0.250	+13.3%	higher
+codec-U	U-nested-u-packed	decode	drop	core-native/inc	0.798	0.767	-3.9%	lower
+codec-U	U-nested-u-packed	encode	drop	core-native/inc	0.176	0.201	+14.3%	higher
+codec-U	U-nested-u-packed	encode	retain	core-native/inc	0.219	0.248	+13.1%	higher
+codec-U	U-nested-u-repeated	decode-read	retain	core-native/inc	1.085	1.152	+6.2%	higher
+codec-U	U-oneof-all	decode-read	retain	core-native/inc	1.164	1.100	-5.5%	lower
+codec-U	U-oneof-all	encode	drop	core-native/inc	0.159	0.203	+27.7%	higher
+codec-U	U-oneof-all	encode	retain	core-native/inc	0.210	0.243	+15.8%	higher
+codec-U	U-oneof-before	decode	drop	core-native/inc	0.619	0.581	-6.1%	lower
+codec-U	U-oneof-before	decode	retain	core-native/inc	1.163	1.115	-4.1%	lower
+codec-U	U-oneof-before	encode	drop	core-native/inc	0.160	0.213	+32.8%	higher
+codec-U	U-oneof-group	encode	drop	core-native/inc	0.161	0.209	+29.3%	higher
+codec-U	U-oneof-group	encode	retain	core-native/inc	0.214	0.246	+14.9%	higher
+codec-U	U-oneof-interleaved	encode	drop	core-ffi/core-native	2.123	1.333	-37.2%	lower
+codec-U	U-oneof-interleaved	encode	drop	core-native/inc	0.160	0.291	+81.6%	higher
+codec-U	U-oneof-interleaved	encode	retain	core-ffi/core-native	1.755	1.285	-26.8%	lower
+codec-U	U-oneof-interleaved	encode	retain	core-native/inc	0.209	0.325	+55.4%	higher
+codec-U	U-oneof-member-after-known	encode	drop	core-native/inc	0.161	0.203	+26.0%	higher
+codec-U	U-oneof-member-alone	encode	drop	core-native/inc	0.187	0.215	+15.0%	higher
+codec-U	U-oneof-member-alone	encode	retain	core-native/inc	0.242	0.271	+12.1%	higher
+codec-U	U-oneof-member-before-known	decode-read	drop	core-native/inc	0.761	0.722	-5.2%	lower
+codec-U	U-oneof-member-before-known	encode	drop	core-native/inc	0.155	0.199	+28.0%	higher
+codec-U	U-oneof-member-before-known	encode	retain	core-native/inc	0.213	0.240	+12.6%	higher
+codec-U	U-oneof-u-fixed64	encode	drop	core-native/inc	0.162	0.209	+28.9%	higher
+codec-U	U-oneof-u-fixed64	encode	retain	core-native/inc	0.217	0.252	+15.7%	higher
+codec-U	U-oneof-u-len	encode	drop	core-native/inc	0.161	0.205	+27.4%	higher
+codec-U	U-oneof-u-len	encode	retain	core-native/inc	0.218	0.249	+14.5%	higher
+codec-U	U-oneof-u-msg	encode	drop	core-ffi/core-native	1.300	1.939	+49.2%	higher
+codec-U	U-oneof-u-msg	encode	drop	core-native/inc	0.268	0.203	-24.1%	lower
+codec-U	U-oneof-u-msg	encode	retain	core-native/inc	0.219	0.246	+12.5%	higher
+codec-U	U-oneof-u-packed	encode	drop	core-native/inc	0.158	0.207	+31.5%	higher
+codec-U	U-oneof-u-packed	encode	retain	core-native/inc	0.217	0.251	+15.8%	higher
+codec-U	U-oneof-u-repeated	encode	drop	core-native/inc	0.165	0.198	+19.9%	higher
+codec-U	U-oneof-u-repeated	encode	retain	core-native/inc	0.223	0.242	+8.5%	higher
+codec-U	U-oneof-u-varint	encode	drop	core-native/inc	0.159	0.216	+35.9%	higher
+codec-U	U-oneof-u-varint	encode	retain	core-ffi/inc	0.358	0.426	+18.9%	higher
+codec-U	U-oneof-u-varint	encode	retain	core-native/inc	0.217	0.258	+19.0%	higher
+codec-U	U-root-all	decode-read	retain	core-native/inc	1.012	1.065	+5.3%	higher
+codec-U	U-root-all	encode	drop	core-native/inc	0.160	0.191	+19.2%	higher
+codec-U	U-root-all	encode	retain	core-native/inc	0.202	0.219	+8.2%	higher
+codec-U	U-root-before	encode	drop	core-native/inc	0.161	0.190	+18.0%	higher
+codec-U	U-root-before	encode	retain	core-native/inc	0.195	0.219	+12.5%	higher
+codec-U	U-root-group	encode	drop	core-native/inc	0.163	0.189	+15.7%	higher
+codec-U	U-root-group	encode	retain	core-native/inc	0.199	0.222	+11.5%	higher
+codec-U	U-root-interleaved	decode	retain	core-native/inc	0.968	1.018	+5.2%	higher
+codec-U	U-root-interleaved	encode	drop	core-native/inc	0.161	0.188	+16.5%	higher
+codec-U	U-root-interleaved	encode	retain	core-native/inc	0.195	0.218	+11.7%	higher
+codec-U	U-root-max-tag	encode	drop	core-native/inc	0.162	0.189	+16.7%	higher
+codec-U	U-root-max-tag	encode	retain	core-native/inc	0.198	0.217	+9.4%	higher
+codec-U	U-root-u-fixed64	decode	drop	core-native/inc	0.860	0.817	-4.9%	lower
+codec-U	U-root-u-fixed64	encode	drop	core-native/inc	0.161	0.190	+17.8%	higher
+codec-U	U-root-u-fixed64	encode	retain	core-native/inc	0.197	0.222	+12.5%	higher
+codec-U	U-root-u-len	encode	drop	core-native/inc	0.163	0.189	+15.9%	higher
+codec-U	U-root-u-len	encode	retain	core-native/inc	0.200	0.219	+9.6%	higher
+codec-U	U-root-u-msg	encode	drop	core-native/inc	0.161	0.189	+17.5%	higher
+codec-U	U-root-u-msg	encode	retain	core-native/inc	0.196	0.219	+11.9%	higher
+codec-U	U-root-u-packed	encode	drop	core-native/inc	0.162	0.179	+10.6%	higher
+codec-U	U-root-u-repeated	encode	drop	core-native/inc	0.161	0.188	+17.0%	higher
+codec-U	U-root-u-repeated	encode	retain	core-native/inc	0.200	0.220	+9.7%	higher
+codec-U	U-root-u-varint	encode	drop	core-native/inc	0.161	0.186	+15.5%	higher
+codec-U	U-root-u-varint	encode	retain	core-native/inc	0.195	0.220	+12.4%	higher
+codec-U	U-wire-ListMetricsResponse-batches-as-wt0	decode	drop	core-ffi/core-native	0.909	1.636	+80.0%	higher
+codec-U	U-wire-ListMetricsResponse-batches-as-wt0	decode	retain	core-ffi/core-native	0.939	1.713	+82.3%	higher
+codec-U	U-wire-ListMetricsResponse-batches-as-wt0	decode-read	drop	core-ffi/core-native	0.895	1.553	+73.4%	higher
+codec-U	U-wire-ListMetricsResponse-batches-as-wt0	decode-read	retain	core-ffi/core-native	0.908	1.634	+80.0%	higher
+codec-U	U-wire-ListMetricsResponse-batches-as-wt1	decode	drop	core-ffi/core-native	0.892	1.659	+86.1%	higher
+codec-U	U-wire-ListMetricsResponse-batches-as-wt1	decode	retain	core-ffi/core-native	0.928	1.794	+93.3%	higher
+codec-U	U-wire-ListMetricsResponse-batches-as-wt1	decode-read	drop	core-ffi/core-native	0.894	1.489	+66.6%	higher
+codec-U	U-wire-ListMetricsResponse-batches-as-wt1	decode-read	retain	core-ffi/core-native	0.938	1.514	+61.5%	higher
+codec-U	U-wire-ListMetricsResponse-batches-as-wt5	decode	drop	core-ffi/core-native	1.060	1.692	+59.6%	higher
+codec-U	U-wire-ListMetricsResponse-batches-as-wt5	decode	retain	core-ffi/core-native	1.148	1.791	+56.1%	higher
+codec-U	U-wire-ListMetricsResponse-batches-as-wt5	decode-read	drop	core-ffi/core-native	0.922	1.528	+65.7%	higher
+codec-U	U-wire-ListMetricsResponse-batches-as-wt5	decode-read	retain	core-ffi/core-native	0.992	1.549	+56.3%	higher
+codec-U	U-wire-ListMetricsResponse-batches-as-wt5	encode	retain	core-ffi/core-native	1.212	1.030	-15.0%	lower
+codec-U	U-wire-UploadResultDataMessage-upload-as-wt0	encode	drop	core-ffi/core-native	1.776	0.976	-45.1%	lower
+codec-U	U-wire-UploadResultDataMessage-upload-as-wt0	encode	retain	core-ffi/core-native	1.510	1.014	-32.9%	lower
+codec-nounk-P	P1.2	encode	no-unknown	core-ffi/inc	0.257	0.280	+8.9%	higher
+codec-nounk-P	P1.2	encode	no-unknown	core-native/inc	0.188	0.214	+14.2%	higher
+codec-nounk-P	P1.2/wide	encode	no-unknown	core-ffi/inc	0.271	0.302	+11.3%	higher
+codec-nounk-P	P1.3	encode	no-unknown	core-ffi/core-native	2.102	1.675	-20.3%	lower
+codec-nounk-P	P1.3	encode	no-unknown	core-native/inc	0.288	0.372	+29.1%	higher
+codec-nounk-P	P2.2	encode	no-unknown	core-ffi/inc	0.334	0.367	+9.9%	higher
+codec-nounk-P	P2.2	encode	no-unknown	core-native/inc	0.236	0.268	+13.7%	higher
+codec-nounk-P	P2.2/wide	encode	no-unknown	core-ffi/inc	0.331	0.372	+12.4%	higher
+codec-nounk-P	P2.2/wide	encode	no-unknown	core-native/inc	0.246	0.285	+15.8%	higher
+codec-nounk-P	P2.3	encode	no-unknown	core-ffi/inc	0.371	0.422	+13.6%	higher
+codec-nounk-P	P2.5	encode	no-unknown	core-ffi/inc	0.314	0.349	+11.3%	higher
+codec-nounk-P	P2.5	encode	no-unknown	core-native/inc	0.194	0.221	+13.8%	higher
+codec-nounk-P	P3.1	decode-read	no-unknown	armonik/inc	1.183	0.972	-17.8%	lower
+codec-nounk-P	P3.1	decode-read	no-unknown	core-ffi-pull/inc	0.934	0.736	-21.2%	lower
+codec-nounk-P	P3.1	decode-read	no-unknown	core-ffi/inc	0.926	0.726	-21.6%	lower
+codec-nounk-P	P3.1	decode-read	no-unknown	core-native/inc	0.906	0.734	-19.0%	lower
+codec-nounk-P	P3.1	encode	no-unknown	core-ffi/inc	0.258	0.295	+14.0%	higher
+codec-nounk-P	P3.1	encode	no-unknown	core-native/inc	0.162	0.181	+12.1%	higher
+codec-nounk-P	P4.1	decode-nodrop	no-unknown	core-ffi/core-native	1.070	0.996	-6.9%	lower
+codec-nounk-P	P4.1	decode-nodrop	no-unknown	core-native/inc	0.833	0.886	+6.3%	higher
+codec-nounk-P	P4.1	encode	no-unknown	core-ffi/inc	0.311	0.341	+9.6%	higher
+codec-nounk-P	P5.2	encode	no-unknown	core-ffi/core-native	0.952	1.015	+6.6%	higher
+codec-nounk-P	P6.1	decode	no-unknown	core-ffi/core-native	0.903	1.612	+78.6%	higher
+codec-nounk-P	P6.1	decode	no-unknown	core-native/inc	0.653	0.402	-38.5%	lower
+codec-nounk-P	P6.1	decode-nodrop	no-unknown	core-ffi/core-native	0.975	1.541	+58.1%	higher
+codec-nounk-P	P6.1	decode-nodrop	no-unknown	core-native/inc	0.605	0.377	-37.6%	lower
+codec-nounk-P	P6.1	decode-read	no-unknown	core-ffi/core-native	0.931	1.358	+45.9%	higher
+codec-nounk-P	P6.1	decode-read	no-unknown	core-native/inc	0.677	0.446	-34.1%	lower
+codec-nounk-U	U-deep-all	decode	no-unknown	core-ffi-pull/inc	0.810	0.895	+10.5%	higher
+codec-nounk-U	U-deep-all	decode	no-unknown	core-ffi/inc	0.815	0.898	+10.2%	higher
+codec-nounk-U	U-deep-all	decode	no-unknown	core-native/inc	0.678	0.766	+12.9%	higher
+codec-nounk-U	U-deep-all	encode	no-unknown	core-ffi/inc	0.315	0.353	+11.9%	higher
+codec-nounk-U	U-deep-all	encode	no-unknown	core-native/inc	0.186	0.210	+12.8%	higher
+codec-nounk-U	U-deep-u-fixed32	decode	no-unknown	core-ffi/inc	0.838	0.906	+8.1%	higher
+codec-nounk-U	U-deep-u-fixed32	decode-read	no-unknown	core-ffi-pull/inc	0.849	0.956	+12.6%	higher
+codec-nounk-U	U-deep-u-fixed32	decode-read	no-unknown	core-ffi/inc	0.850	0.941	+10.7%	higher
+codec-nounk-U	U-deep-u-fixed32	decode-read	no-unknown	core-native/inc	0.726	0.815	+12.2%	higher
+codec-nounk-U	U-deep-u-fixed32	encode	no-unknown	core-ffi/inc	0.314	0.348	+10.9%	higher
+codec-nounk-U	U-deep-u-fixed32	encode	no-unknown	core-native/inc	0.186	0.206	+11.2%	higher
+codec-nounk-U	U-deep-u-fixed64	decode	no-unknown	core-ffi-pull/inc	0.823	0.921	+11.9%	higher
+codec-nounk-U	U-deep-u-fixed64	decode	no-unknown	core-ffi/inc	0.842	0.924	+9.7%	higher
+codec-nounk-U	U-deep-u-fixed64	decode-read	no-unknown	core-ffi-pull/inc	0.854	0.936	+9.6%	higher
+codec-nounk-U	U-deep-u-fixed64	decode-read	no-unknown	core-ffi/inc	0.865	0.919	+6.2%	higher
+codec-nounk-U	U-deep-u-fixed64	decode-read	no-unknown	core-native/inc	0.733	0.798	+8.8%	higher
+codec-nounk-U	U-deep-u-fixed64	encode	no-unknown	core-ffi/inc	0.312	0.347	+11.3%	higher
+codec-nounk-U	U-deep-u-fixed64	encode	no-unknown	core-native/inc	0.189	0.206	+8.9%	higher
+codec-nounk-U	U-deep-u-len	decode-read	no-unknown	core-ffi-pull/inc	0.852	0.938	+10.1%	higher
+codec-nounk-U	U-deep-u-len	decode-read	no-unknown	core-native/inc	0.728	0.797	+9.4%	higher
+codec-nounk-U	U-deep-u-msg	decode-read	no-unknown	core-ffi-pull/inc	0.847	0.922	+8.8%	higher
+codec-nounk-U	U-deep-u-msg	decode-read	no-unknown	core-ffi/inc	0.852	0.926	+8.7%	higher
+codec-nounk-U	U-deep-u-msg	decode-read	no-unknown	core-native/inc	0.727	0.790	+8.7%	higher
+codec-nounk-U	U-deep-u-msg	encode	no-unknown	core-ffi/inc	0.310	0.350	+12.6%	higher
+codec-nounk-U	U-deep-u-msg	encode	no-unknown	core-native/inc	0.188	0.208	+10.6%	higher
+codec-nounk-U	U-deep-u-packed	decode	no-unknown	core-ffi-pull/inc	0.833	0.916	+9.9%	higher
+codec-nounk-U	U-deep-u-packed	decode	no-unknown	core-native/inc	0.708	0.764	+7.9%	higher
+codec-nounk-U	U-deep-u-packed	decode-read	no-unknown	core-ffi-pull/inc	0.846	0.932	+10.2%	higher
+codec-nounk-U	U-deep-u-packed	decode-read	no-unknown	core-ffi/inc	0.847	0.930	+9.8%	higher
+codec-nounk-U	U-deep-u-packed	decode-read	no-unknown	core-native/inc	0.730	0.793	+8.7%	higher
+codec-nounk-U	U-deep-u-repeated	decode	no-unknown	core-ffi/core-native	1.333	1.244	-6.7%	lower
+codec-nounk-U	U-deep-u-repeated	decode	no-unknown	core-native/inc	0.695	0.769	+10.7%	higher
+codec-nounk-U	U-deep-u-repeated	decode-read	no-unknown	core-ffi-pull/inc	0.854	0.924	+8.3%	higher
+codec-nounk-U	U-deep-u-repeated	decode-read	no-unknown	core-ffi/inc	0.859	0.932	+8.5%	higher
+codec-nounk-U	U-deep-u-repeated	decode-read	no-unknown	core-native/inc	0.727	0.795	+9.3%	higher
+codec-nounk-U	U-deep-u-repeated	encode	no-unknown	core-ffi/inc	0.314	0.354	+12.4%	higher
+codec-nounk-U	U-deep-u-repeated	encode	no-unknown	core-native/inc	0.187	0.208	+11.6%	higher
+codec-nounk-U	U-deep-u-varint	encode	no-unknown	core-ffi/inc	0.317	0.351	+10.7%	higher
+codec-nounk-U	U-deep-u-varint	encode	no-unknown	core-native/inc	0.187	0.208	+11.7%	higher
+codec-nounk-U	U-element-all	decode-read	no-unknown	core-ffi-pull/inc	0.849	0.908	+6.9%	higher
+codec-nounk-U	U-element-all	decode-read	no-unknown	core-ffi/inc	0.849	0.920	+8.3%	higher
+codec-nounk-U	U-element-all	decode-read	no-unknown	core-native/inc	0.724	0.785	+8.3%	higher
+codec-nounk-U	U-element-u-fixed32	decode	no-unknown	core-ffi-pull/inc	0.828	0.906	+9.5%	higher
+codec-nounk-U	U-element-u-fixed32	decode	no-unknown	core-ffi/inc	0.847	0.911	+7.5%	higher
+codec-nounk-U	U-element-u-fixed32	decode	no-unknown	core-native/inc	0.705	0.769	+9.0%	higher
+codec-nounk-U	U-element-u-fixed32	decode-read	no-unknown	core-ffi/core-native	1.366	1.223	-10.4%	lower
+codec-nounk-U	U-element-u-fixed32	decode-read	no-unknown	core-native/inc	0.700	0.793	+13.3%	higher
+codec-nounk-U	U-element-u-fixed32	encode	no-unknown	core-ffi/inc	0.316	0.347	+9.9%	higher
+codec-nounk-U	U-element-u-fixed32	encode	no-unknown	core-native/inc	0.185	0.206	+11.8%	higher
+codec-nounk-U	U-element-u-fixed64	decode	no-unknown	core-ffi/core-native	1.357	1.248	-8.0%	lower
+codec-nounk-U	U-element-u-fixed64	decode	no-unknown	core-native/inc	0.682	0.764	+12.1%	higher
+codec-nounk-U	U-element-u-fixed64	decode-read	no-unknown	core-native/inc	0.726	0.784	+8.0%	higher
+codec-nounk-U	U-element-u-len	decode	no-unknown	core-ffi-pull/inc	0.833	1.023	+22.8%	higher
+codec-nounk-U	U-element-u-len	decode	no-unknown	core-ffi/core-native	1.178	1.370	+16.3%	higher
+codec-nounk-U	U-element-u-len	decode	no-unknown	core-ffi/inc	0.835	1.023	+22.5%	higher
+codec-nounk-U	U-element-u-len	decode	no-unknown	core-native/inc	0.709	0.747	+5.3%	higher
+codec-nounk-U	U-element-u-len	decode-read	no-unknown	core-ffi-pull/inc	0.910	0.982	+7.9%	higher
+codec-nounk-U	U-element-u-len	decode-read	no-unknown	core-native/inc	0.688	0.776	+12.8%	higher
+codec-nounk-U	U-element-u-msg	decode	no-unknown	core-ffi-pull/inc	0.848	1.017	+19.9%	higher
+codec-nounk-U	U-element-u-msg	decode	no-unknown	core-ffi/inc	0.852	0.986	+15.8%	higher
+codec-nounk-U	U-element-u-msg	decode-read	no-unknown	core-ffi-pull/inc	0.844	0.929	+10.0%	higher
+codec-nounk-U	U-element-u-msg	decode-read	no-unknown	core-ffi/inc	0.859	0.935	+8.9%	higher
+codec-nounk-U	U-element-u-msg	decode-read	no-unknown	core-native/inc	0.733	0.800	+9.2%	higher
+codec-nounk-U	U-element-u-msg	encode	no-unknown	core-ffi/inc	0.313	0.354	+12.9%	higher
+codec-nounk-U	U-element-u-msg	encode	no-unknown	core-native/inc	0.185	0.207	+11.9%	higher
+codec-nounk-U	U-element-u-packed	decode	no-unknown	core-ffi-pull/inc	0.854	0.918	+7.4%	higher
+codec-nounk-U	U-element-u-packed	decode	no-unknown	core-native/inc	0.709	0.780	+10.0%	higher
+codec-nounk-U	U-element-u-packed	decode-read	no-unknown	core-ffi/core-native	1.358	1.204	-11.4%	lower
+codec-nounk-U	U-element-u-packed	decode-read	no-unknown	core-native/inc	0.694	0.793	+14.3%	higher
+codec-nounk-U	U-element-u-packed	encode	no-unknown	core-ffi/inc	0.316	0.348	+10.4%	higher
+codec-nounk-U	U-element-u-repeated	decode-read	no-unknown	core-ffi/core-native	1.352	1.160	-14.2%	lower
+codec-nounk-U	U-element-u-repeated	decode-read	no-unknown	core-native/inc	0.695	0.793	+14.1%	higher
+codec-nounk-U	U-element-u-repeated	encode	no-unknown	core-ffi/inc	0.316	0.358	+13.1%	higher
+codec-nounk-U	U-element-u-repeated	encode	no-unknown	core-native/inc	0.187	0.208	+11.4%	higher
+codec-nounk-U	U-element-u-varint	decode	no-unknown	core-ffi-pull/inc	0.826	0.902	+9.2%	higher
+codec-nounk-U	U-element-u-varint	decode-read	no-unknown	core-ffi-pull/inc	0.845	1.018	+20.5%	higher
+codec-nounk-U	U-element-u-varint	decode-read	no-unknown	core-ffi/inc	0.854	1.026	+20.2%	higher
+codec-nounk-U	U-element-u-varint	decode-read	no-unknown	core-native/inc	0.730	0.836	+14.5%	higher
+codec-nounk-U	U-element-u-varint	encode	no-unknown	core-ffi/inc	0.314	0.344	+9.7%	higher
+codec-nounk-U	U-element-u-varint	encode	no-unknown	core-native/inc	0.188	0.205	+9.1%	higher
+codec-nounk-U	U-enum-value-127	decode	no-unknown	armonik/inc	1.536	1.421	-7.5%	lower
+codec-nounk-U	U-enum-value-127	decode	no-unknown	core-ffi-pull/inc	1.220	1.483	+21.5%	higher
+codec-nounk-U	U-enum-value-127	decode	no-unknown	core-ffi/inc	1.182	1.404	+18.8%	higher
+codec-nounk-U	U-enum-value-127	decode	no-unknown	core-native/inc	1.012	1.243	+22.9%	higher
+codec-nounk-U	U-enum-value-127	decode-read	no-unknown	core-ffi-pull/inc	1.194	1.541	+29.1%	higher
+codec-nounk-U	U-enum-value-127	decode-read	no-unknown	core-ffi/inc	1.121	1.447	+29.1%	higher
+codec-nounk-U	U-enum-value-127	decode-read	no-unknown	core-native/inc	0.963	1.294	+34.3%	higher
+codec-nounk-U	U-enum-value-127	encode	no-unknown	core-native/inc	0.273	0.303	+11.3%	higher
+codec-nounk-U	U-enum-value-2147483647	decode	no-unknown	core-ffi-pull/inc	1.000	1.197	+19.7%	higher
+codec-nounk-U	U-enum-value-2147483647	decode	no-unknown	core-ffi/inc	0.916	1.152	+25.8%	higher
+codec-nounk-U	U-enum-value-2147483647	decode	no-unknown	core-native/inc	0.754	0.970	+28.6%	higher
+codec-nounk-U	U-enum-value-2147483647	decode-read	no-unknown	armonik/inc	1.244	1.157	-7.0%	lower
+codec-nounk-U	U-enum-value-2147483647	decode-read	no-unknown	core-ffi-pull/inc	0.987	1.210	+22.6%	higher
+codec-nounk-U	U-enum-value-2147483647	decode-read	no-unknown	core-ffi/inc	0.948	1.185	+25.0%	higher
+codec-nounk-U	U-enum-value-2147483647	decode-read	no-unknown	core-native/inc	0.784	1.012	+29.0%	higher
+codec-nounk-U	U-enum-value-2147483647	encode	no-unknown	core-ffi/inc	0.478	0.521	+9.1%	higher
+codec-nounk-U	U-enum-value-2147483647	encode	no-unknown	core-native/inc	0.265	0.295	+11.1%	higher
+codec-nounk-U	U-enum-value-999	decode	no-unknown	armonik/inc	1.514	1.412	-6.7%	lower
+codec-nounk-U	U-enum-value-999	decode	no-unknown	core-ffi-pull/inc	1.211	1.448	+19.6%	higher
+codec-nounk-U	U-enum-value-999	decode	no-unknown	core-ffi/inc	1.163	1.405	+20.8%	higher
+codec-nounk-U	U-enum-value-999	decode	no-unknown	core-native/inc	0.982	1.210	+23.2%	higher
+codec-nounk-U	U-enum-value-999	decode-read	no-unknown	core-native/inc	0.808	1.005	+24.5%	higher
+codec-nounk-U	U-enum-value-999	encode	no-unknown	core-ffi/inc	0.530	0.584	+10.1%	higher
+codec-nounk-U	U-enum-value-999	encode	no-unknown	core-native/inc	0.269	0.307	+14.0%	higher
+codec-nounk-U	U-enum-value-packed	decode-read	no-unknown	core-ffi-pull/inc	1.925	2.133	+10.8%	higher
+codec-nounk-U	U-enum-value-packed	decode-read	no-unknown	core-ffi/core-native	2.388	2.284	-4.3%	lower
+codec-nounk-U	U-enum-value-packed	decode-read	no-unknown	core-ffi/inc	1.712	1.916	+11.9%	higher
+codec-nounk-U	U-enum-value-packed	decode-read	no-unknown	core-native/inc	0.717	0.839	+17.0%	higher
+codec-nounk-U	U-leaf-all	decode	no-unknown	core-ffi-pull/inc	0.632	0.671	+6.3%	higher
+codec-nounk-U	U-leaf-all	encode	no-unknown	core-native/inc	0.175	0.195	+11.5%	higher
+codec-nounk-U	U-leaf-u-fixed32	decode	no-unknown	core-ffi-pull/inc	0.793	0.858	+8.1%	higher
+codec-nounk-U	U-leaf-u-fixed32	decode	no-unknown	core-ffi/inc	0.776	0.831	+7.1%	higher
+codec-nounk-U	U-leaf-u-fixed32	decode	no-unknown	core-native/inc	0.764	0.795	+4.0%	higher
+codec-nounk-U	U-leaf-u-fixed32	decode-read	no-unknown	core-ffi-pull/inc	0.806	0.878	+8.9%	higher
+codec-nounk-U	U-leaf-u-fixed32	decode-read	no-unknown	core-ffi/inc	0.786	0.862	+9.6%	higher
+codec-nounk-U	U-leaf-u-fixed32	decode-read	no-unknown	core-native/inc	0.774	0.830	+7.3%	higher
+codec-nounk-U	U-leaf-u-fixed32	encode	no-unknown	core-ffi/inc	0.290	0.335	+15.7%	higher
+codec-nounk-U	U-leaf-u-fixed32	encode	no-unknown	core-native/inc	0.176	0.196	+11.3%	higher
+codec-nounk-U	U-leaf-u-fixed64	decode	no-unknown	core-ffi-pull/inc	0.803	0.861	+7.3%	higher
+codec-nounk-U	U-leaf-u-fixed64	decode	no-unknown	core-ffi/inc	0.795	0.839	+5.6%	higher
+codec-nounk-U	U-leaf-u-fixed64	encode	no-unknown	core-ffi/inc	0.288	0.337	+17.2%	higher
+codec-nounk-U	U-leaf-u-fixed64	encode	no-unknown	core-native/inc	0.172	0.195	+13.2%	higher
+codec-nounk-U	U-leaf-u-len	decode	no-unknown	armonik/inc	1.047	0.978	-6.5%	lower
+codec-nounk-U	U-leaf-u-len	decode	no-unknown	core-ffi-pull/inc	0.719	0.784	+9.0%	higher
+codec-nounk-U	U-leaf-u-len	decode	no-unknown	core-ffi/inc	0.698	0.756	+8.4%	higher
+codec-nounk-U	U-leaf-u-len	decode	no-unknown	core-native/inc	0.688	0.736	+7.1%	higher
+codec-nounk-U	U-leaf-u-len	encode	no-unknown	core-ffi/inc	0.288	0.341	+18.3%	higher
+codec-nounk-U	U-leaf-u-len	encode	no-unknown	core-native/inc	0.172	0.197	+14.1%	higher
+codec-nounk-U	U-leaf-u-msg	decode-read	no-unknown	armonik/inc	1.048	0.984	-6.1%	lower
+codec-nounk-U	U-leaf-u-msg	decode-read	no-unknown	core-ffi-pull/inc	0.718	0.780	+8.7%	higher
+codec-nounk-U	U-leaf-u-msg	decode-read	no-unknown	core-ffi/inc	0.693	0.758	+9.5%	higher
+codec-nounk-U	U-leaf-u-msg	decode-read	no-unknown	core-native/inc	0.686	0.739	+7.8%	higher
+codec-nounk-U	U-leaf-u-msg	encode	no-unknown	core-ffi/inc	0.291	0.333	+14.4%	higher
+codec-nounk-U	U-leaf-u-msg	encode	no-unknown	core-native/inc	0.174	0.195	+12.4%	higher
+codec-nounk-U	U-leaf-u-packed	decode	no-unknown	core-ffi/inc	0.757	0.831	+9.8%	higher
+codec-nounk-U	U-leaf-u-packed	decode-read	no-unknown	armonik/inc	1.090	1.043	-4.4%	lower
+codec-nounk-U	U-leaf-u-packed	decode-read	no-unknown	core-ffi-pull/inc	0.810	0.873	+7.8%	higher
+codec-nounk-U	U-leaf-u-packed	decode-read	no-unknown	core-ffi/inc	0.795	0.863	+8.7%	higher
+codec-nounk-U	U-leaf-u-packed	decode-read	no-unknown	core-native/inc	0.774	0.819	+5.8%	higher
+codec-nounk-U	U-leaf-u-packed	encode	no-unknown	core-ffi/inc	0.291	0.340	+17.1%	higher
+codec-nounk-U	U-leaf-u-packed	encode	no-unknown	core-native/inc	0.173	0.203	+17.1%	higher
+codec-nounk-U	U-leaf-u-repeated	decode	no-unknown	core-ffi-pull/inc	0.756	0.823	+8.9%	higher
+codec-nounk-U	U-leaf-u-repeated	decode	no-unknown	core-ffi/inc	0.735	0.794	+8.1%	higher
+codec-nounk-U	U-leaf-u-repeated	decode	no-unknown	core-native/inc	0.720	0.779	+8.3%	higher
+codec-nounk-U	U-leaf-u-repeated	decode-read	no-unknown	armonik/inc	1.047	1.001	-4.5%	lower
+codec-nounk-U	U-leaf-u-repeated	decode-read	no-unknown	core-ffi-pull/inc	0.721	0.771	+7.0%	higher
+codec-nounk-U	U-leaf-u-repeated	decode-read	no-unknown	core-ffi/inc	0.700	0.754	+7.7%	higher
+codec-nounk-U	U-leaf-u-repeated	decode-read	no-unknown	core-native/inc	0.691	0.742	+7.5%	higher
+codec-nounk-U	U-leaf-u-repeated	encode	no-unknown	core-ffi/inc	0.294	0.339	+15.1%	higher
+codec-nounk-U	U-leaf-u-repeated	encode	no-unknown	core-native/inc	0.175	0.197	+12.6%	higher
+codec-nounk-U	U-leaf-u-varint	decode	no-unknown	armonik/inc	1.078	1.037	-3.9%	lower
+codec-nounk-U	U-leaf-u-varint	decode	no-unknown	core-ffi-pull/inc	0.761	0.818	+7.4%	higher
+codec-nounk-U	U-leaf-u-varint	decode-read	no-unknown	core-ffi-pull/inc	0.781	0.860	+10.1%	higher
+codec-nounk-U	U-leaf-u-varint	decode-read	no-unknown	core-ffi/inc	0.759	0.837	+10.3%	higher
+codec-nounk-U	U-leaf-u-varint	decode-read	no-unknown	core-native/inc	0.751	0.803	+6.9%	higher
+codec-nounk-U	U-leaf-u-varint	encode	no-unknown	core-ffi/inc	0.288	0.334	+16.0%	higher
+codec-nounk-U	U-leaf-u-varint	encode	no-unknown	core-native/inc	0.171	0.196	+14.6%	higher
+codec-nounk-U	U-nested-all	decode-read	no-unknown	core-ffi-pull/inc	0.731	0.788	+7.8%	higher
+codec-nounk-U	U-nested-all	decode-read	no-unknown	core-ffi/inc	0.718	0.779	+8.6%	higher
+codec-nounk-U	U-nested-all	decode-read	no-unknown	core-native/inc	0.722	0.767	+6.3%	higher
+codec-nounk-U	U-nested-all	encode	no-unknown	core-ffi/inc	0.297	0.338	+13.6%	higher
+codec-nounk-U	U-nested-all	encode	no-unknown	core-native/inc	0.174	0.197	+13.0%	higher
+codec-nounk-U	U-nested-before	decode	no-unknown	core-ffi/inc	0.744	0.786	+5.6%	higher
+codec-nounk-U	U-nested-before	decode-read	no-unknown	core-ffi-pull/inc	0.770	0.833	+8.2%	higher
+codec-nounk-U	U-nested-before	decode-read	no-unknown	core-ffi/inc	0.756	0.816	+7.9%	higher
+codec-nounk-U	U-nested-before	decode-read	no-unknown	core-native/inc	0.761	0.825	+8.4%	higher
+codec-nounk-U	U-nested-before	encode	no-unknown	core-ffi/inc	0.288	0.337	+17.1%	higher
+codec-nounk-U	U-nested-before	encode	no-unknown	core-native/inc	0.174	0.204	+16.9%	higher
+codec-nounk-U	U-nested-group	decode-read	no-unknown	core-ffi-pull/inc	0.794	0.858	+8.1%	higher
+codec-nounk-U	U-nested-group	decode-read	no-unknown	core-ffi/inc	0.781	0.846	+8.3%	higher
+codec-nounk-U	U-nested-group	decode-read	no-unknown	core-native/inc	0.770	0.812	+5.5%	higher
+codec-nounk-U	U-nested-interleaved	decode	no-unknown	core-ffi-pull/inc	0.726	0.777	+7.1%	higher
+codec-nounk-U	U-nested-interleaved	decode	no-unknown	core-ffi/inc	0.708	0.757	+6.8%	higher
+codec-nounk-U	U-nested-interleaved	decode-read	no-unknown	core-ffi-pull/inc	0.739	0.800	+8.2%	higher
+codec-nounk-U	U-nested-interleaved	decode-read	no-unknown	core-ffi/core-native	0.982	1.030	+4.9%	higher
+codec-nounk-U	U-nested-interleaved	decode-read	no-unknown	core-ffi/inc	0.723	0.768	+6.2%	higher
+codec-nounk-U	U-nested-interleaved	encode	no-unknown	core-ffi/inc	0.293	0.336	+14.3%	higher
+codec-nounk-U	U-nested-interleaved	encode	no-unknown	core-native/inc	0.173	0.193	+11.7%	higher
+codec-nounk-U	U-nested-u-fixed32	decode	no-unknown	armonik/inc	1.079	1.021	-5.4%	lower
+codec-nounk-U	U-nested-u-fixed32	decode	no-unknown	core-ffi-pull/inc	0.788	0.849	+7.7%	higher
+codec-nounk-U	U-nested-u-fixed32	decode	no-unknown	core-ffi/inc	0.763	0.823	+7.9%	higher
+codec-nounk-U	U-nested-u-fixed32	decode-read	no-unknown	core-ffi-pull/inc	0.827	0.867	+4.8%	higher
+codec-nounk-U	U-nested-u-fixed32	decode-read	no-unknown	core-native/inc	0.796	0.833	+4.6%	higher
+codec-nounk-U	U-nested-u-fixed32	encode	no-unknown	core-ffi/inc	0.292	0.339	+16.1%	higher
+codec-nounk-U	U-nested-u-fixed32	encode	no-unknown	core-native/inc	0.169	0.196	+15.5%	higher
+codec-nounk-U	U-nested-u-fixed64	decode	no-unknown	armonik/inc	1.058	0.968	-8.5%	lower
+codec-nounk-U	U-nested-u-fixed64	decode	no-unknown	core-ffi-pull/inc	0.737	0.795	+7.9%	higher
+codec-nounk-U	U-nested-u-fixed64	decode	no-unknown	core-ffi/inc	0.711	0.768	+8.0%	higher
+codec-nounk-U	U-nested-u-len	decode	no-unknown	armonik/inc	1.044	0.985	-5.6%	lower
+codec-nounk-U	U-nested-u-len	decode	no-unknown	core-ffi-pull/inc	0.743	0.814	+9.6%	higher
+codec-nounk-U	U-nested-u-len	decode	no-unknown	core-ffi/inc	0.720	0.782	+8.5%	higher
+codec-nounk-U	U-nested-u-len	decode	no-unknown	core-native/inc	0.712	0.759	+6.6%	higher
+codec-nounk-U	U-nested-u-len	encode	no-unknown	core-ffi/inc	0.298	0.330	+10.7%	higher
+codec-nounk-U	U-nested-u-len	encode	no-unknown	core-native/inc	0.175	0.194	+10.7%	higher
+codec-nounk-U	U-nested-u-msg	decode-read	no-unknown	armonik/inc	1.074	1.000	-6.9%	lower
+codec-nounk-U	U-nested-u-msg	encode	no-unknown	core-ffi/inc	0.288	0.339	+17.6%	higher
+codec-nounk-U	U-nested-u-msg	encode	no-unknown	core-native/inc	0.176	0.197	+12.2%	higher
+codec-nounk-U	U-nested-u-packed	decode	no-unknown	armonik/inc	1.071	0.976	-8.8%	lower
+codec-nounk-U	U-nested-u-packed	encode	no-unknown	core-ffi/inc	0.292	0.333	+13.7%	higher
+codec-nounk-U	U-nested-u-packed	encode	no-unknown	core-native/inc	0.177	0.196	+10.8%	higher
+codec-nounk-U	U-nested-u-repeated	decode	no-unknown	armonik/inc	1.056	0.981	-7.1%	lower
+codec-nounk-U	U-nested-u-repeated	decode	no-unknown	core-ffi-pull/inc	0.720	0.771	+7.0%	higher
+codec-nounk-U	U-nested-u-repeated	decode	no-unknown	core-ffi/inc	0.696	0.749	+7.6%	higher
+codec-nounk-U	U-nested-u-repeated	decode	no-unknown	core-native/inc	0.690	0.725	+5.0%	higher
+codec-nounk-U	U-nested-u-repeated	decode-read	no-unknown	armonik/inc	1.077	1.028	-4.6%	lower
+codec-nounk-U	U-nested-u-repeated	decode-read	no-unknown	core-ffi-pull/inc	0.808	0.862	+6.7%	higher
+codec-nounk-U	U-nested-u-repeated	decode-read	no-unknown	core-ffi/inc	0.785	0.853	+8.7%	higher
+codec-nounk-U	U-nested-u-repeated	decode-read	no-unknown	core-native/inc	0.768	0.813	+5.8%	higher
+codec-nounk-U	U-nested-u-repeated	encode	no-unknown	core-ffi/inc	0.289	0.329	+13.5%	higher
+codec-nounk-U	U-nested-u-repeated	encode	no-unknown	core-native/inc	0.174	0.197	+13.2%	higher
+codec-nounk-U	U-nested-u-varint	decode-read	no-unknown	armonik/inc	1.071	1.023	-4.5%	lower
+codec-nounk-U	U-nested-u-varint	decode-read	no-unknown	core-ffi-pull/inc	0.781	0.847	+8.4%	higher
+codec-nounk-U	U-nested-u-varint	decode-read	no-unknown	core-ffi/inc	0.765	0.820	+7.1%	higher
+codec-nounk-U	U-nested-u-varint	decode-read	no-unknown	core-native/inc	0.757	0.801	+5.9%	higher
+codec-nounk-U	U-nested-u-varint	encode	no-unknown	core-ffi/inc	0.289	0.336	+16.1%	higher
+codec-nounk-U	U-oneof-all	decode	no-unknown	core-ffi-pull/inc	0.566	0.634	+12.0%	higher
+codec-nounk-U	U-oneof-all	decode	no-unknown	core-ffi/inc	0.536	0.594	+10.8%	higher
+codec-nounk-U	U-oneof-all	decode	no-unknown	core-native/inc	0.516	0.573	+11.2%	higher
+codec-nounk-U	U-oneof-all	encode	no-unknown	core-ffi/core-native	2.133	1.883	-11.7%	lower
+codec-nounk-U	U-oneof-all	encode	no-unknown	core-ffi/inc	0.354	0.394	+11.5%	higher
+codec-nounk-U	U-oneof-all	encode	no-unknown	core-native/inc	0.166	0.209	+26.4%	higher
+codec-nounk-U	U-oneof-before	decode	no-unknown	core-ffi-pull/inc	0.548	0.657	+19.9%	higher
+codec-nounk-U	U-oneof-before	decode	no-unknown	core-ffi/core-native	0.995	1.050	+5.5%	higher
+codec-nounk-U	U-oneof-before	decode	no-unknown	core-ffi/inc	0.518	0.599	+15.7%	higher
+codec-nounk-U	U-oneof-before	decode	no-unknown	core-native/inc	0.520	0.571	+9.7%	higher
+codec-nounk-U	U-oneof-before	decode-read	no-unknown	core-ffi-pull/inc	0.556	0.658	+18.3%	higher
+codec-nounk-U	U-oneof-before	decode-read	no-unknown	core-ffi/inc	0.527	0.594	+12.8%	higher
+codec-nounk-U	U-oneof-before	decode-read	no-unknown	core-native/inc	0.525	0.569	+8.3%	higher
+codec-nounk-U	U-oneof-before	encode	no-unknown	core-ffi/core-native	2.148	1.898	-11.6%	lower
+codec-nounk-U	U-oneof-before	encode	no-unknown	core-native/inc	0.164	0.206	+25.8%	higher
+codec-nounk-U	U-oneof-group	decode	no-unknown	core-ffi-pull/inc	0.655	0.767	+17.2%	higher
+codec-nounk-U	U-oneof-group	decode	no-unknown	core-ffi/inc	0.609	0.710	+16.5%	higher
+codec-nounk-U	U-oneof-group	decode	no-unknown	core-native/inc	0.549	0.632	+15.0%	higher
+codec-nounk-U	U-oneof-group	decode-read	no-unknown	core-ffi-pull/inc	0.650	0.777	+19.7%	higher
+codec-nounk-U	U-oneof-group	decode-read	no-unknown	core-ffi/inc	0.608	0.723	+19.0%	higher
+codec-nounk-U	U-oneof-group	decode-read	no-unknown	core-native/inc	0.555	0.641	+15.6%	higher
+codec-nounk-U	U-oneof-group	encode	no-unknown	core-ffi/core-native	2.122	1.890	-10.9%	lower
+codec-nounk-U	U-oneof-group	encode	no-unknown	core-ffi/inc	0.345	0.392	+13.6%	higher
+codec-nounk-U	U-oneof-group	encode	no-unknown	core-native/inc	0.163	0.208	+27.5%	higher
+codec-nounk-U	U-oneof-interleaved	decode	no-unknown	core-ffi-pull/inc	0.557	0.664	+19.2%	higher
+codec-nounk-U	U-oneof-interleaved	decode	no-unknown	core-ffi/inc	0.522	0.602	+15.3%	higher
+codec-nounk-U	U-oneof-interleaved	decode	no-unknown	core-native/inc	0.518	0.577	+11.3%	higher
+codec-nounk-U	U-oneof-interleaved	encode	no-unknown	core-ffi/core-native	2.075	1.889	-9.0%	lower
+codec-nounk-U	U-oneof-interleaved	encode	no-unknown	core-ffi/inc	0.348	0.400	+14.8%	higher
+codec-nounk-U	U-oneof-interleaved	encode	no-unknown	core-native/inc	0.168	0.212	+26.2%	higher
+codec-nounk-U	U-oneof-member-after-known	decode	no-unknown	core-ffi-pull/inc	0.690	0.857	+24.2%	higher
+codec-nounk-U	U-oneof-member-after-known	decode	no-unknown	core-ffi/inc	0.642	0.782	+22.0%	higher
+codec-nounk-U	U-oneof-member-after-known	decode	no-unknown	core-native/inc	0.573	0.692	+20.7%	higher
+codec-nounk-U	U-oneof-member-after-known	decode-read	no-unknown	core-ffi-pull/inc	0.695	0.848	+22.0%	higher
+codec-nounk-U	U-oneof-member-after-known	decode-read	no-unknown	core-ffi/inc	0.653	0.788	+20.7%	higher
+codec-nounk-U	U-oneof-member-after-known	decode-read	no-unknown	core-native/inc	0.593	0.698	+17.8%	higher
+codec-nounk-U	U-oneof-member-after-known	encode	no-unknown	core-ffi/core-native	2.138	1.885	-11.8%	lower
+codec-nounk-U	U-oneof-member-after-known	encode	no-unknown	core-ffi/inc	0.345	0.390	+12.9%	higher
+codec-nounk-U	U-oneof-member-after-known	encode	no-unknown	core-native/inc	0.162	0.207	+28.1%	higher
+codec-nounk-U	U-oneof-member-alone	decode	no-unknown	core-ffi-pull/inc	0.830	0.928	+11.7%	higher
+codec-nounk-U	U-oneof-member-alone	decode	no-unknown	core-ffi/inc	0.758	0.852	+12.4%	higher
+codec-nounk-U	U-oneof-member-alone	decode	no-unknown	core-native/inc	0.663	0.748	+12.8%	higher
+codec-nounk-U	U-oneof-member-alone	decode-read	no-unknown	core-ffi-pull/inc	0.820	0.939	+14.4%	higher
+codec-nounk-U	U-oneof-member-alone	decode-read	no-unknown	core-ffi/inc	0.770	0.863	+12.1%	higher
+codec-nounk-U	U-oneof-member-alone	decode-read	no-unknown	core-native/inc	0.689	0.757	+9.8%	higher
+codec-nounk-U	U-oneof-member-alone	encode	no-unknown	core-ffi/inc	0.459	0.512	+11.7%	higher
+codec-nounk-U	U-oneof-member-alone	encode	no-unknown	core-native/inc	0.188	0.219	+16.4%	higher
+codec-nounk-U	U-oneof-member-before-known	decode	no-unknown	core-ffi-pull/inc	0.698	0.849	+21.6%	higher
+codec-nounk-U	U-oneof-member-before-known	decode	no-unknown	core-ffi/inc	0.645	0.774	+20.0%	higher
+codec-nounk-U	U-oneof-member-before-known	decode	no-unknown	core-native/inc	0.578	0.683	+18.0%	higher
+codec-nounk-U	U-oneof-member-before-known	decode-read	no-unknown	core-ffi-pull/inc	0.700	1.045	+49.2%	higher
+codec-nounk-U	U-oneof-member-before-known	decode-read	no-unknown	core-ffi/inc	0.654	0.797	+21.9%	higher
+codec-nounk-U	U-oneof-member-before-known	decode-read	no-unknown	core-native/inc	0.587	0.706	+20.2%	higher
+codec-nounk-U	U-oneof-member-before-known	encode	no-unknown	core-ffi/core-native	2.118	1.861	-12.1%	lower
+codec-nounk-U	U-oneof-member-before-known	encode	no-unknown	core-ffi/inc	0.347	0.392	+13.1%	higher
+codec-nounk-U	U-oneof-member-before-known	encode	no-unknown	core-native/inc	0.164	0.211	+28.8%	higher
+codec-nounk-U	U-oneof-u-fixed32	decode	no-unknown	core-ffi-pull/inc	0.687	0.833	+21.2%	higher
+codec-nounk-U	U-oneof-u-fixed32	decode	no-unknown	core-ffi/inc	0.640	0.768	+19.9%	higher
+codec-nounk-U	U-oneof-u-fixed32	decode	no-unknown	core-native/inc	0.566	0.674	+18.9%	higher
+codec-nounk-U	U-oneof-u-fixed32	encode	no-unknown	core-ffi/core-native	2.158	1.886	-12.6%	lower
+codec-nounk-U	U-oneof-u-fixed32	encode	no-unknown	core-ffi/inc	0.351	0.389	+10.8%	higher
+codec-nounk-U	U-oneof-u-fixed32	encode	no-unknown	core-native/inc	0.163	0.206	+26.8%	higher
+codec-nounk-U	U-oneof-u-fixed64	decode	no-unknown	core-ffi-pull/inc	0.678	0.809	+19.4%	higher
+codec-nounk-U	U-oneof-u-fixed64	decode	no-unknown	core-ffi/inc	0.634	0.752	+18.7%	higher
+codec-nounk-U	U-oneof-u-fixed64	decode	no-unknown	core-native/inc	0.563	0.668	+18.6%	higher
+codec-nounk-U	U-oneof-u-fixed64	decode-read	no-unknown	core-ffi-pull/inc	0.682	0.837	+22.6%	higher
+codec-nounk-U	U-oneof-u-fixed64	decode-read	no-unknown	core-ffi/inc	0.642	0.778	+21.2%	higher
+codec-nounk-U	U-oneof-u-fixed64	decode-read	no-unknown	core-native/inc	0.579	0.681	+17.6%	higher
+codec-nounk-U	U-oneof-u-fixed64	encode	no-unknown	core-ffi/core-native	2.088	1.873	-10.3%	lower
+codec-nounk-U	U-oneof-u-fixed64	encode	no-unknown	core-ffi/inc	0.348	0.389	+11.7%	higher
+codec-nounk-U	U-oneof-u-fixed64	encode	no-unknown	core-native/inc	0.167	0.208	+24.6%	higher
+codec-nounk-U	U-oneof-u-len	decode	no-unknown	core-ffi-pull/inc	0.669	0.808	+20.8%	higher
+codec-nounk-U	U-oneof-u-len	decode	no-unknown	core-ffi/inc	0.625	0.742	+18.6%	higher
+codec-nounk-U	U-oneof-u-len	decode	no-unknown	core-native/inc	0.556	0.671	+20.6%	higher
+codec-nounk-U	U-oneof-u-len	decode-read	no-unknown	core-ffi-pull/inc	0.684	0.833	+21.7%	higher
+codec-nounk-U	U-oneof-u-len	decode-read	no-unknown	core-ffi/inc	0.638	0.769	+20.6%	higher
+codec-nounk-U	U-oneof-u-len	decode-read	no-unknown	core-native/inc	0.582	0.689	+18.3%	higher
+codec-nounk-U	U-oneof-u-len	encode	no-unknown	core-native/inc	0.169	0.205	+20.9%	higher
+codec-nounk-U	U-oneof-u-msg	decode-read	no-unknown	core-ffi-pull/inc	0.683	0.843	+23.4%	higher
+codec-nounk-U	U-oneof-u-msg	decode-read	no-unknown	core-ffi/inc	0.641	0.780	+21.7%	higher
+codec-nounk-U	U-oneof-u-msg	decode-read	no-unknown	core-native/inc	0.586	0.692	+18.2%	higher
+codec-nounk-U	U-oneof-u-packed	decode	no-unknown	core-ffi-pull/inc	0.681	0.822	+20.8%	higher
+codec-nounk-U	U-oneof-u-packed	decode-read	no-unknown	core-ffi-pull/inc	0.690	0.839	+21.5%	higher
+codec-nounk-U	U-oneof-u-packed	decode-read	no-unknown	core-ffi/inc	0.644	0.772	+19.9%	higher
+codec-nounk-U	U-oneof-u-packed	decode-read	no-unknown	core-native/inc	0.586	0.694	+18.5%	higher
+codec-nounk-U	U-oneof-u-packed	encode	no-unknown	core-native/inc	0.170	0.202	+18.7%	higher
+codec-nounk-U	U-oneof-u-repeated	decode	no-unknown	core-ffi-pull/inc	0.669	0.802	+19.9%	higher
+codec-nounk-U	U-oneof-u-repeated	decode	no-unknown	core-ffi/inc	0.622	0.742	+19.3%	higher
+codec-nounk-U	U-oneof-u-repeated	decode	no-unknown	core-native/inc	0.568	0.677	+19.3%	higher
+codec-nounk-U	U-oneof-u-repeated	decode-read	no-unknown	core-ffi-pull/inc	0.675	0.811	+20.2%	higher
+codec-nounk-U	U-oneof-u-repeated	encode	no-unknown	core-ffi/core-native	2.161	1.882	-12.9%	lower
+codec-nounk-U	U-oneof-u-repeated	encode	no-unknown	core-ffi/inc	0.350	0.394	+12.3%	higher
+codec-nounk-U	U-oneof-u-repeated	encode	no-unknown	core-native/inc	0.162	0.209	+29.0%	higher
+codec-nounk-U	U-oneof-u-varint	decode	no-unknown	core-ffi-pull/inc	0.662	0.795	+20.1%	higher
+codec-nounk-U	U-oneof-u-varint	decode	no-unknown	core-ffi/inc	0.618	0.737	+19.4%	higher
+codec-nounk-U	U-oneof-u-varint	decode	no-unknown	core-native/inc	0.552	0.648	+17.4%	higher
+codec-nounk-U	U-oneof-u-varint	decode-read	no-unknown	core-ffi-pull/inc	0.688	0.812	+18.1%	higher
+codec-nounk-U	U-oneof-u-varint	decode-read	no-unknown	core-ffi/inc	0.641	0.745	+16.2%	higher
+codec-nounk-U	U-oneof-u-varint	decode-read	no-unknown	core-native/inc	0.580	0.665	+14.8%	higher
+codec-nounk-U	U-oneof-u-varint	encode	no-unknown	core-ffi/core-native	2.093	1.897	-9.4%	lower
+codec-nounk-U	U-oneof-u-varint	encode	no-unknown	core-ffi/inc	0.345	0.390	+13.1%	higher
+codec-nounk-U	U-oneof-u-varint	encode	no-unknown	core-native/inc	0.165	0.206	+24.8%	higher
+codec-nounk-U	U-root-all	decode-read	no-unknown	core-ffi-pull/inc	0.731	0.823	+12.7%	higher
+codec-nounk-U	U-root-all	decode-read	no-unknown	core-ffi/inc	0.728	0.795	+9.2%	higher
+codec-nounk-U	U-root-all	decode-read	no-unknown	core-native/inc	0.738	0.801	+8.5%	higher
+codec-nounk-U	U-root-all	encode	no-unknown	core-ffi/inc	0.244	0.273	+12.2%	higher
+codec-nounk-U	U-root-all	encode	no-unknown	core-native/inc	0.159	0.181	+13.4%	higher
+codec-nounk-U	U-root-before	encode	no-unknown	core-ffi/inc	0.240	0.271	+13.1%	higher
+codec-nounk-U	U-root-before	encode	no-unknown	core-native/inc	0.160	0.183	+14.7%	higher
+codec-nounk-U	U-root-group	decode	no-unknown	armonik/inc	1.087	1.014	-6.7%	lower
+codec-nounk-U	U-root-group	decode-read	no-unknown	core-ffi-pull/inc	0.780	0.835	+7.0%	higher
+codec-nounk-U	U-root-group	decode-read	no-unknown	core-ffi/inc	0.770	0.817	+6.0%	higher
+codec-nounk-U	U-root-group	decode-read	no-unknown	core-native/inc	0.782	0.821	+5.0%	higher
+codec-nounk-U	U-root-group	encode	no-unknown	core-ffi/inc	0.243	0.276	+13.9%	higher
+codec-nounk-U	U-root-group	encode	no-unknown	core-native/inc	0.160	0.185	+15.7%	higher
+codec-nounk-U	U-root-interleaved	decode	no-unknown	core-ffi/inc	0.739	0.812	+9.8%	higher
+codec-nounk-U	U-root-interleaved	encode	no-unknown	core-ffi/inc	0.242	0.275	+13.5%	higher
+codec-nounk-U	U-root-interleaved	encode	no-unknown	core-native/inc	0.159	0.184	+15.6%	higher
+codec-nounk-U	U-root-max-tag	decode	no-unknown	core-ffi-pull/inc	0.772	0.821	+6.4%	higher
+codec-nounk-U	U-root-max-tag	decode	no-unknown	core-ffi/inc	0.758	0.811	+7.0%	higher
+codec-nounk-U	U-root-max-tag	encode	no-unknown	core-ffi/inc	0.248	0.273	+10.3%	higher
+codec-nounk-U	U-root-max-tag	encode	no-unknown	core-native/inc	0.167	0.187	+12.0%	higher
+codec-nounk-U	U-root-u-fixed32	decode	no-unknown	core-ffi-pull/inc	0.759	0.817	+7.6%	higher
+codec-nounk-U	U-root-u-fixed32	decode	no-unknown	core-ffi/inc	0.745	0.805	+8.1%	higher
+codec-nounk-U	U-root-u-fixed32	decode	no-unknown	core-native/inc	0.762	0.809	+6.1%	higher
+codec-nounk-U	U-root-u-fixed32	decode-read	no-unknown	core-ffi-pull/inc	0.777	0.875	+12.6%	higher
+codec-nounk-U	U-root-u-fixed32	decode-read	no-unknown	core-ffi/inc	0.769	0.846	+10.0%	higher
+codec-nounk-U	U-root-u-fixed32	decode-read	no-unknown	core-native/inc	0.794	0.861	+8.4%	higher
+codec-nounk-U	U-root-u-fixed32	encode	no-unknown	core-ffi/inc	0.247	0.277	+12.0%	higher
+codec-nounk-U	U-root-u-fixed32	encode	no-unknown	core-native/inc	0.172	0.189	+10.0%	higher
+codec-nounk-U	U-root-u-fixed64	decode	no-unknown	core-ffi-pull/inc	0.783	0.836	+6.7%	higher
+codec-nounk-U	U-root-u-fixed64	decode	no-unknown	core-ffi/inc	0.773	0.823	+6.4%	higher
+codec-nounk-U	U-root-u-fixed64	decode-read	no-unknown	core-ffi-pull/inc	0.775	0.872	+12.6%	higher
+codec-nounk-U	U-root-u-fixed64	decode-read	no-unknown	core-ffi/inc	0.761	0.849	+11.5%	higher
+codec-nounk-U	U-root-u-fixed64	decode-read	no-unknown	core-native/inc	0.794	0.857	+8.0%	higher
+codec-nounk-U	U-root-u-fixed64	encode	no-unknown	core-ffi/inc	0.238	0.272	+14.3%	higher
+codec-nounk-U	U-root-u-fixed64	encode	no-unknown	core-native/inc	0.166	0.184	+11.2%	higher
+codec-nounk-U	U-root-u-len	decode	no-unknown	core-ffi-pull/inc	0.746	0.799	+7.0%	higher
+codec-nounk-U	U-root-u-len	decode	no-unknown	core-ffi/inc	0.741	0.789	+6.6%	higher
+codec-nounk-U	U-root-u-len	decode	no-unknown	core-native/inc	0.757	0.790	+4.5%	higher
+codec-nounk-U	U-root-u-len	decode-read	no-unknown	core-ffi-pull/inc	0.799	0.859	+7.5%	higher
+codec-nounk-U	U-root-u-len	decode-read	no-unknown	core-ffi/inc	0.791	0.832	+5.1%	higher
+codec-nounk-U	U-root-u-msg	decode-read	no-unknown	core-ffi-pull/inc	0.787	0.860	+9.3%	higher
+codec-nounk-U	U-root-u-msg	decode-read	no-unknown	core-ffi/inc	0.781	0.848	+8.6%	higher
+codec-nounk-U	U-root-u-msg	decode-read	no-unknown	core-native/inc	0.801	0.858	+7.2%	higher
+codec-nounk-U	U-root-u-msg	encode	no-unknown	core-ffi/inc	0.240	0.272	+13.2%	higher
+codec-nounk-U	U-root-u-msg	encode	no-unknown	core-native/inc	0.157	0.187	+18.8%	higher
+codec-nounk-U	U-root-u-packed	decode	no-unknown	core-ffi-pull/inc	0.726	0.802	+10.5%	higher
+codec-nounk-U	U-root-u-packed	decode	no-unknown	core-ffi/inc	0.723	0.788	+9.0%	higher
+codec-nounk-U	U-root-u-packed	decode	no-unknown	core-native/inc	0.748	0.811	+8.5%	higher
+codec-nounk-U	U-root-u-packed	encode	no-unknown	core-ffi/inc	0.242	0.276	+14.1%	higher
+codec-nounk-U	U-root-u-packed	encode	no-unknown	core-native/inc	0.160	0.185	+15.8%	higher
+codec-nounk-U	U-root-u-repeated	decode	no-unknown	core-ffi/inc	0.749	0.807	+7.6%	higher
+codec-nounk-U	U-root-u-repeated	decode-read	no-unknown	core-ffi-pull/inc	0.812	0.861	+6.0%	higher
+codec-nounk-U	U-root-u-repeated	decode-read	no-unknown	core-ffi/inc	0.805	0.844	+4.7%	higher
+codec-nounk-U	U-root-u-repeated	encode	no-unknown	core-ffi/inc	0.244	0.274	+12.3%	higher
+codec-nounk-U	U-root-u-repeated	encode	no-unknown	core-native/inc	0.160	0.187	+16.6%	higher
+codec-nounk-U	U-root-u-varint	decode	no-unknown	core-ffi-pull/inc	0.780	0.825	+5.8%	higher
+codec-nounk-U	U-root-u-varint	decode-read	no-unknown	core-ffi/core-native	0.958	0.996	+4.1%	higher
+codec-nounk-U	U-root-u-varint	decode-read	no-unknown	core-ffi/inc	0.746	0.799	+7.1%	higher
+codec-nounk-U	U-root-u-varint	encode	no-unknown	core-ffi/inc	0.242	0.279	+15.2%	higher
+codec-nounk-U	U-root-u-varint	encode	no-unknown	core-native/inc	0.161	0.190	+18.1%	higher
+codec-nounk-U	U-wire-DualResponse-left-as-wt0	encode	no-unknown	core-ffi/core-native	1.792	1.642	-8.4%	lower
+codec-nounk-U	U-wire-DualResponse-left-as-wt1	decode-read	no-unknown	core-ffi/core-native	1.274	1.225	-3.8%	lower
+codec-nounk-U	U-wire-DualResponse-left-as-wt1	encode	no-unknown	core-ffi/core-native	1.768	1.642	-7.1%	lower
+codec-nounk-U	U-wire-DualResponse-left-as-wt5	decode-read	no-unknown	core-ffi/core-native	1.291	1.211	-6.2%	lower
+codec-nounk-U	U-wire-DualResponse-left-as-wt5	encode	no-unknown	core-ffi/core-native	1.781	1.622	-8.9%	lower
+codec-nounk-U	U-wire-ListMetricsResponse-batches-as-wt0	decode	no-unknown	core-ffi/core-native	0.915	1.606	+75.5%	higher
+codec-nounk-U	U-wire-ListMetricsResponse-batches-as-wt0	decode-read	no-unknown	core-ffi/core-native	0.851	1.478	+73.5%	higher
+codec-nounk-U	U-wire-ListMetricsResponse-batches-as-wt0	encode	no-unknown	core-ffi/core-native	1.197	1.090	-9.0%	lower
+codec-nounk-U	U-wire-ListMetricsResponse-batches-as-wt1	decode	no-unknown	core-ffi/core-native	0.908	1.546	+70.3%	higher
+codec-nounk-U	U-wire-ListMetricsResponse-batches-as-wt1	decode-read	no-unknown	core-ffi/core-native	1.012	1.570	+55.1%	higher
+codec-nounk-U	U-wire-ListMetricsResponse-batches-as-wt1	encode	no-unknown	core-ffi/core-native	1.157	1.092	-5.7%	lower
+codec-nounk-U	U-wire-ListMetricsResponse-batches-as-wt5	decode	no-unknown	core-ffi/core-native	0.903	1.595	+76.6%	higher
+codec-nounk-U	U-wire-ListMetricsResponse-batches-as-wt5	decode-read	no-unknown	core-ffi/core-native	0.930	1.461	+57.1%	higher
+codec-nounk-U	U-wire-ListMetricsResponse-batches-as-wt5	encode	no-unknown	core-ffi/core-native	1.145	1.064	-7.1%	lower
+codec-nounk-U	U-wire-ListProbeResponse-probes-as-wt0	encode	no-unknown	core-ffi/core-native	1.790	1.678	-6.3%	lower
+codec-nounk-U	U-wire-ListProbeResponse-probes-as-wt5	encode	no-unknown	core-ffi/core-native	1.774	1.637	-7.7%	lower
+codec-nounk-U	U-wire-ListResultsResponse-results-as-wt1	decode-read	no-unknown	core-ffi/core-native	0.940	0.990	+5.4%	higher
+codec-nounk-U	U-wire-ListTaskSummaryResponse-tasks-as-wt0	decode-read	no-unknown	core-ffi/core-native	1.044	1.097	+5.1%	higher
+codec-nounk-U	U-wire-ListTasksDetailedResponse-tasks-as-wt1	decode-read	no-unknown	core-ffi/core-native	1.283	1.149	-10.5%	lower
+
+# per group: geometric mean of after/before over inputs; counts lower / higher / noise; aa_band = the A/A 2-sigma band of a group mean, verdict noise inside it
+file	ratio	dir	mode	n	gmean_after/before	lower	higher	noise	aa_band	group
+codec-P	armonik/inc	decode	drop	20	1.021	0	1	19	+-3.2%	noise
+codec-P	armonik/inc	decode	retain	20	1.021	0	1	19	+-3.2%	noise
+codec-P	armonik/inc	decode-nodrop	drop	4	0.975	1	0	3	+-1.4%	lower
+codec-P	armonik/inc	decode-nodrop	retain	4	0.975	1	0	3	+-1.4%	lower
+codec-P	armonik/inc	decode-read	drop	20	1.008	1	1	18	+-2.8%	noise
+codec-P	armonik/inc	decode-read	retain	20	1.008	1	1	18	+-2.8%	noise
+codec-P	armonik/inc	encode	drop	19	1.014	0	1	18	+-0.9%	higher
+codec-P	armonik/inc	encode	retain	19	1.014	0	1	18	+-0.9%	higher
+codec-P	core-ffi-pull/inc	decode	drop	20	1.009	0	0	20	+-3.5%	noise
+codec-P	core-ffi-pull/inc	decode	retain	20	1.002	1	0	19	+-2.2%	noise
+codec-P	core-ffi-pull/inc	decode-read	drop	20	1.007	0	0	20	+-3.3%	noise
+codec-P	core-ffi-pull/inc	decode-read	retain	20	1.008	0	0	20	+-2.9%	noise
+codec-P	core-ffi/core-native	decode	drop	20	1.015	0	1	19	+-2.6%	noise
+codec-P	core-ffi/core-native	decode	retain	20	1.012	0	1	19	+-1.6%	noise
+codec-P	core-ffi/core-native	decode-nodrop	drop	4	1.107	0	1	3	+-12.7%	noise
+codec-P	core-ffi/core-native	decode-nodrop	retain	4	1.109	0	1	3	+-12.3%	noise
+codec-P	core-ffi/core-native	decode-read	drop	20	1.020	0	1	19	+-3.6%	noise
+codec-P	core-ffi/core-native	decode-read	retain	20	1.013	0	1	19	+-5.7%	noise
+codec-P	core-ffi/core-native	encode	drop	19	0.963	3	0	16	+-3.0%	lower
+codec-P	core-ffi/core-native	encode	retain	19	0.986	1	0	18	+-1.3%	lower
+codec-P	core-ffi/inc	decode	drop	20	1.006	0	0	20	+-3.1%	noise
+codec-P	core-ffi/inc	decode	retain	20	1.009	0	0	20	+-2.3%	noise
+codec-P	core-ffi/inc	decode-nodrop	drop	4	0.971	0	0	4	+-5.9%	noise
+codec-P	core-ffi/inc	decode-nodrop	retain	4	0.976	0	0	4	+-4.3%	noise
+codec-P	core-ffi/inc	decode-read	drop	20	1.002	0	0	20	+-2.8%	noise
+codec-P	core-ffi/inc	decode-read	retain	20	1.009	0	0	20	+-3.3%	noise
+codec-P	core-ffi/inc	encode	drop	19	1.086	0	11	8	+-1.9%	higher
+codec-P	core-ffi/inc	encode	retain	19	1.084	0	11	8	+-1.7%	higher
+codec-P	core-native/inc	decode	drop	20	0.992	2	0	18	+-2.0%	noise
+codec-P	core-native/inc	decode	retain	20	0.997	1	0	19	+-2.4%	noise
+codec-P	core-native/inc	decode-nodrop	drop	4	0.877	1	0	3	+-6.4%	lower
+codec-P	core-native/inc	decode-nodrop	retain	4	0.880	1	0	3	+-7.6%	lower
+codec-P	core-native/inc	decode-read	drop	20	0.982	1	1	18	+-3.8%	noise
+codec-P	core-native/inc	decode-read	retain	20	0.996	1	0	19	+-7.5%	noise
+codec-P	core-native/inc	encode	drop	19	1.128	0	13	6	+-2.1%	higher
+codec-P	core-native/inc	encode	retain	19	1.100	0	12	7	+-1.5%	higher
+codec-U	armonik/inc	decode	drop	65	1.003	1	0	64	+-1.1%	noise
+codec-U	armonik/inc	decode	retain	65	1.003	1	0	64	+-1.1%	noise
+codec-U	armonik/inc	decode-read	drop	65	0.996	1	0	64	+-1.6%	noise
+codec-U	armonik/inc	decode-read	retain	65	0.996	1	0	64	+-1.6%	noise
+codec-U	armonik/inc	encode	drop	65	1.006	0	0	65	+-0.4%	higher
+codec-U	armonik/inc	encode	retain	65	1.006	0	0	65	+-0.4%	higher
+codec-U	core-ffi-pull/inc	decode	drop	65	1.003	0	1	64	+-9.9%	noise
+codec-U	core-ffi-pull/inc	decode	retain	65	1.013	0	3	62	+-9.1%	noise
+codec-U	core-ffi-pull/inc	decode-read	drop	65	0.999	0	0	65	+-9.2%	noise
+codec-U	core-ffi-pull/inc	decode-read	retain	65	1.009	0	2	63	+-9.1%	noise
+codec-U	core-ffi/core-native	decode	drop	92	1.026	1	3	88	+-5.0%	noise
+codec-U	core-ffi/core-native	decode	retain	92	1.013	0	3	89	+-8.1%	noise
+codec-U	core-ffi/core-native	decode-read	drop	92	1.024	1	3	88	+-3.7%	noise
+codec-U	core-ffi/core-native	decode-read	retain	92	1.006	1	4	87	+-7.6%	noise
+codec-U	core-ffi/core-native	encode	drop	92	0.945	2	1	89	+-12.7%	noise
+codec-U	core-ffi/core-native	encode	retain	92	0.980	3	0	89	+-4.0%	noise
+codec-U	core-ffi/inc	decode	drop	65	1.002	0	1	64	+-8.8%	noise
+codec-U	core-ffi/inc	decode	retain	65	1.007	0	0	65	+-13.8%	noise
+codec-U	core-ffi/inc	decode-read	drop	65	1.002	1	0	64	+-8.8%	noise
+codec-U	core-ffi/inc	decode-read	retain	65	1.002	0	0	65	+-12.8%	noise
+codec-U	core-ffi/inc	encode	drop	65	1.109	0	0	65	+-16.5%	noise
+codec-U	core-ffi/inc	encode	retain	65	1.111	0	1	64	+-7.3%	higher
+codec-U	core-native/inc	decode	drop	65	0.990	7	1	57	+-2.5%	noise
+codec-U	core-native/inc	decode	retain	65	1.008	3	3	59	+-2.7%	noise
+codec-U	core-native/inc	decode-read	drop	65	0.990	3	2	60	+-3.5%	noise
+codec-U	core-native/inc	decode-read	retain	65	1.008	2	3	60	+-1.9%	noise
+codec-U	core-native/inc	encode	drop	65	1.166	1	53	11	+-1.5%	higher
+codec-U	core-native/inc	encode	retain	65	1.131	0	49	16	+-3.2%	higher
+codec-nounk-P	armonik/inc	decode	no-unknown	20	0.993	0	0	20	+-2.8%	noise
+codec-nounk-P	armonik/inc	decode-nodrop	no-unknown	4	0.992	0	0	4	+-4.8%	noise
+codec-nounk-P	armonik/inc	decode-read	no-unknown	20	1.001	1	0	19	+-2.2%	noise
+codec-nounk-P	armonik/inc	encode	no-unknown	19	0.988	0	0	19	+-4.3%	noise
+codec-nounk-P	core-ffi-pull/inc	decode	no-unknown	20	1.000	0	0	20	+-4.1%	noise
+codec-nounk-P	core-ffi-pull/inc	decode-read	no-unknown	20	0.985	1	0	19	+-2.4%	noise
+codec-nounk-P	core-ffi/core-native	decode	no-unknown	20	1.024	0	1	19	+-1.3%	higher
+codec-nounk-P	core-ffi/core-native	decode-nodrop	no-unknown	4	1.096	1	1	2	+-3.4%	higher
+codec-nounk-P	core-ffi/core-native	decode-read	no-unknown	20	1.000	0	1	19	+-4.3%	noise
+codec-nounk-P	core-ffi/core-native	encode	no-unknown	19	0.978	1	1	17	+-2.0%	lower
+codec-nounk-P	core-ffi/inc	decode	no-unknown	20	1.006	0	0	20	+-3.8%	noise
+codec-nounk-P	core-ffi/inc	decode-nodrop	no-unknown	4	0.990	0	0	4	+-3.3%	noise
+codec-nounk-P	core-ffi/inc	decode-read	no-unknown	20	0.987	1	0	19	+-2.8%	noise
+codec-nounk-P	core-ffi/inc	encode	no-unknown	19	1.084	0	8	11	+-4.4%	higher
+codec-nounk-P	core-native/inc	decode	no-unknown	20	0.982	1	0	19	+-3.2%	noise
+codec-nounk-P	core-native/inc	decode-nodrop	no-unknown	4	0.903	1	1	2	+-2.5%	lower
+codec-nounk-P	core-native/inc	decode-read	no-unknown	20	0.987	2	0	18	+-2.2%	noise
+codec-nounk-P	core-native/inc	encode	no-unknown	19	1.107	0	6	13	+-2.3%	higher
+codec-nounk-U	armonik/inc	decode	no-unknown	65	0.981	10	0	55	+-1.4%	lower
+codec-nounk-U	armonik/inc	decode-read	no-unknown	65	0.983	7	0	58	+-0.9%	lower
+codec-nounk-U	armonik/inc	encode	no-unknown	65	1.005	0	0	65	+-0.9%	noise
+codec-nounk-U	core-ffi-pull/inc	decode	no-unknown	65	1.111	0	41	24	+-0.5%	higher
+codec-nounk-U	core-ffi-pull/inc	decode-read	no-unknown	65	1.111	0	43	22	+-0.8%	higher
+codec-nounk-U	core-ffi/core-native	decode	no-unknown	92	1.022	2	5	85	+-1.2%	higher
+codec-nounk-U	core-ffi/core-native	decode-read	no-unknown	92	1.021	7	7	78	+-2.7%	noise
+codec-nounk-U	core-ffi/core-native	encode	no-unknown	92	0.977	18	0	74	+-4.2%	noise
+codec-nounk-U	core-ffi/inc	decode	no-unknown	65	1.104	0	39	26	+-0.9%	higher
+codec-nounk-U	core-ffi/inc	decode-read	no-unknown	65	1.105	0	40	25	+-1.7%	higher
+codec-nounk-U	core-ffi/inc	encode	no-unknown	65	1.126	0	50	15	+-3.0%	higher
+codec-nounk-U	core-native/inc	decode	no-unknown	65	1.095	0	30	35	+-0.6%	higher
+codec-nounk-U	core-native/inc	decode-read	no-unknown	65	1.096	0	44	21	+-1.5%	higher
+codec-nounk-U	core-native/inc	encode	no-unknown	65	1.149	0	53	12	+-2.5%	higher
+
+# in-process control drift: incumbent-prod median after/before, per file and direction (geometric mean over inputs)
+codec-P	decode	n=20	gmean 0.998	range [0.796, 1.160]
+codec-P	decode-nodrop	n=4	gmean 1.078	range [0.932, 1.366]
+codec-P	decode-read	n=20	gmean 1.025	range [0.904, 1.200]
+codec-P	encode	n=19	gmean 0.926	range [0.782, 1.140]
+codec-U	decode	n=65	gmean 1.018	range [0.782, 1.249]
+codec-U	decode-read	n=65	gmean 1.005	range [0.780, 1.243]
+codec-U	encode	n=65	gmean 0.899	range [0.678, 1.149]
+codec-nounk-P	decode	n=20	gmean 1.056	range [0.833, 1.435]
+codec-nounk-P	decode-nodrop	n=4	gmean 0.963	range [0.823, 1.023]
+codec-nounk-P	decode-read	n=20	gmean 1.089	range [0.847, 1.245]
+codec-nounk-P	encode	n=19	gmean 0.981	range [0.765, 1.094]
+codec-nounk-U	decode	n=65	gmean 0.913	range [0.599, 1.180]
+codec-nounk-U	decode-read	n=65	gmean 0.931	range [0.607, 1.243]
+codec-nounk-U	encode	n=65	gmean 0.927	range [0.735, 1.243]
+
+# per-case drift along the run order: sd of log(after/before) and its autocorrelation
+codec-P	n=458	sd 0.091	lag1 0.45	lag5 0.30	lag20 -0.06
+codec-U	n=1862	sd 0.128	lag1 0.71	lag5 0.50	lag20 0.23
+codec-nounk-P	n=292	sd 0.133	lag1 0.69	lag5 0.40	lag20 0.07
+codec-nounk-U	n=1126	sd 0.144	lag1 0.72	lag5 0.53	lag20 0.14
+
+# RPC: client CPU per call, cell / cell A of the same process; band from the rounds' min/max
+file	transport	dir	inflight	cell	before	after	change	flag
+rpc-pinned	pinned	a	1	B	0.879	0.880	+0.2%	noise
+rpc-pinned	pinned	a	1	C-drop	0.952	0.958	+0.6%	noise
+rpc-pinned	pinned	a	1	C-retain	0.946	0.956	+1.1%	noise
+rpc-pinned	pinned	a	1	D-drop	0.951	0.952	+0.1%	noise
+rpc-pinned	pinned	a	1	D-retain	0.939	0.958	+1.9%	noise
+rpc-pinned	pinned	a	16	B	0.950	0.902	-5.0%	noise
+rpc-pinned	pinned	a	16	C-drop	1.053	1.053	+0.0%	noise
+rpc-pinned	pinned	a	16	C-retain	0.999	0.969	-3.0%	noise
+rpc-pinned	pinned	a	16	D-drop	1.043	1.072	+2.8%	noise
+rpc-pinned	pinned	a	16	D-retain	0.959	0.981	+2.3%	noise
+rpc-pinned	pinned	a	8	B	0.996	1.046	+5.0%	noise
+rpc-pinned	pinned	a	8	C-drop	1.096	1.146	+4.6%	noise
+rpc-pinned	pinned	a	8	C-retain	1.030	1.055	+2.5%	noise
+rpc-pinned	pinned	a	8	D-drop	1.062	1.114	+4.9%	noise
+rpc-pinned	pinned	a	8	D-retain	0.991	0.969	-2.1%	noise
+rpc-pinned	pinned	b	1	B	0.655	0.649	-0.9%	noise
+rpc-pinned	pinned	b	1	C-drop	0.555	0.558	+0.6%	noise
+rpc-pinned	pinned	b	1	C-retain	0.535	0.529	-1.2%	noise
+rpc-pinned	pinned	b	1	D-drop	0.568	0.553	-2.6%	noise
+rpc-pinned	pinned	b	1	D-retain	0.563	0.575	+2.2%	noise
+rpc-pinned	pinned	b	16	B	0.632	0.587	-7.2%	noise
+rpc-pinned	pinned	b	16	C-drop	0.540	0.511	-5.3%	noise
+rpc-pinned	pinned	b	16	C-retain	0.540	0.469	-13.2%	noise
+rpc-pinned	pinned	b	16	D-drop	0.520	0.478	-8.1%	noise
+rpc-pinned	pinned	b	16	D-retain	0.528	0.528	+0.0%	noise
+rpc-pinned	pinned	b	8	B	0.640	0.576	-10.0%	noise
+rpc-pinned	pinned	b	8	C-drop	0.530	0.474	-10.5%	noise
+rpc-pinned	pinned	b	8	C-retain	0.501	0.432	-13.8%	noise
+rpc-pinned	pinned	b	8	D-drop	0.532	0.490	-7.8%	noise
+rpc-pinned	pinned	b	8	D-retain	0.538	0.476	-11.5%	noise
+rpc-pinned-nounk	pinned	a	1	B	0.858	0.852	-0.7%	noise
+rpc-pinned-nounk	pinned	a	1	C-nounk	0.963	0.945	-1.9%	noise
+rpc-pinned-nounk	pinned	a	1	D-nounk	0.929	0.919	-1.1%	noise
+rpc-pinned-nounk	pinned	a	16	B	0.914	0.969	+6.1%	noise
+rpc-pinned-nounk	pinned	a	16	C-nounk	1.058	1.086	+2.6%	noise
+rpc-pinned-nounk	pinned	a	16	D-nounk	1.056	1.048	-0.8%	noise
+rpc-pinned-nounk	pinned	a	8	B	1.001	0.974	-2.7%	noise
+rpc-pinned-nounk	pinned	a	8	C-nounk	1.092	1.062	-2.7%	noise
+rpc-pinned-nounk	pinned	a	8	D-nounk	1.092	1.070	-2.0%	noise
+rpc-pinned-nounk	pinned	b	1	B	0.670	0.703	+4.8%	noise
+rpc-pinned-nounk	pinned	b	1	C-nounk	0.532	0.561	+5.4%	noise
+rpc-pinned-nounk	pinned	b	1	D-nounk	0.548	0.581	+6.1%	noise
+rpc-pinned-nounk	pinned	b	16	B	0.644	0.623	-3.2%	noise
+rpc-pinned-nounk	pinned	b	16	C-nounk	0.519	0.511	-1.4%	noise
+rpc-pinned-nounk	pinned	b	16	D-nounk	0.521	0.512	-1.9%	noise
+rpc-pinned-nounk	pinned	b	8	B	0.635	0.584	-8.0%	noise
+rpc-pinned-nounk	pinned	b	8	C-nounk	0.498	0.512	+2.9%	noise
+rpc-pinned-nounk	pinned	b	8	D-nounk	0.545	0.511	-6.3%	noise
+rpc-shipped	shipped	a	1	B	0.866	0.857	-1.0%	noise
+rpc-shipped	shipped	a	1	C-drop	0.946	0.926	-2.2%	noise
+rpc-shipped	shipped	a	1	C-retain	0.926	0.926	-0.1%	noise
+rpc-shipped	shipped	a	1	D-drop	0.937	0.931	-0.6%	noise
+rpc-shipped	shipped	a	1	D-retain	0.931	0.929	-0.3%	noise
+rpc-shipped	shipped	a	16	B	0.954	0.926	-2.9%	noise
+rpc-shipped	shipped	a	16	C-drop	1.088	1.046	-3.9%	noise
+rpc-shipped	shipped	a	16	C-retain	1.024	1.011	-1.3%	noise
+rpc-shipped	shipped	a	16	D-drop	1.034	1.055	+2.0%	noise
+rpc-shipped	shipped	a	16	D-retain	0.991	0.976	-1.5%	noise
+rpc-shipped	shipped	a	8	B	0.995	0.998	+0.3%	noise
+rpc-shipped	shipped	a	8	C-drop	1.075	1.074	-0.1%	noise
+rpc-shipped	shipped	a	8	C-retain	0.999	1.004	+0.4%	noise
+rpc-shipped	shipped	a	8	D-drop	1.059	1.036	-2.2%	noise
+rpc-shipped	shipped	a	8	D-retain	1.007	0.947	-5.9%	noise
+rpc-shipped	shipped	b	1	B	0.677	0.652	-3.7%	noise
+rpc-shipped	shipped	b	1	C-drop	0.567	0.553	-2.4%	noise
+rpc-shipped	shipped	b	1	C-retain	0.534	0.526	-1.5%	noise
+rpc-shipped	shipped	b	1	D-drop	0.562	0.534	-4.9%	noise
+rpc-shipped	shipped	b	1	D-retain	0.570	0.545	-4.5%	noise
+rpc-shipped	shipped	b	16	B	0.649	0.627	-3.3%	noise
+rpc-shipped	shipped	b	16	C-drop	0.553	0.557	+0.7%	noise
+rpc-shipped	shipped	b	16	C-retain	0.543	0.522	-4.0%	noise
+rpc-shipped	shipped	b	16	D-drop	0.546	0.512	-6.3%	noise
+rpc-shipped	shipped	b	16	D-retain	0.555	0.546	-1.6%	noise
+rpc-shipped	shipped	b	8	B	0.679	0.642	-5.5%	noise
+rpc-shipped	shipped	b	8	C-drop	0.529	0.540	+2.1%	noise
+rpc-shipped	shipped	b	8	C-retain	0.534	0.522	-2.1%	noise
+rpc-shipped	shipped	b	8	D-drop	0.552	0.525	-5.0%	noise
+rpc-shipped	shipped	b	8	D-retain	0.551	0.544	-1.3%	noise
+rpc-shipped-nounk	shipped	a	1	B	0.882	0.881	-0.0%	noise
+rpc-shipped-nounk	shipped	a	1	C-nounk	0.926	1.013	+9.5%	noise
+rpc-shipped-nounk	shipped	a	1	D-nounk	0.951	1.048	+10.2%	noise
+rpc-shipped-nounk	shipped	a	16	B	0.938	0.952	+1.5%	noise
+rpc-shipped-nounk	shipped	a	16	C-nounk	1.044	1.048	+0.4%	noise
+rpc-shipped-nounk	shipped	a	16	D-nounk	1.043	1.054	+1.0%	noise
+rpc-shipped-nounk	shipped	a	8	B	0.966	0.934	-3.3%	noise
+rpc-shipped-nounk	shipped	a	8	C-nounk	1.090	1.080	-0.9%	noise
+rpc-shipped-nounk	shipped	a	8	D-nounk	1.063	1.090	+2.6%	noise
+rpc-shipped-nounk	shipped	b	1	B	0.654	0.703	+7.6%	noise
+rpc-shipped-nounk	shipped	b	1	C-nounk	0.514	0.587	+14.1%	noise
+rpc-shipped-nounk	shipped	b	1	D-nounk	0.551	0.600	+9.0%	noise
+rpc-shipped-nounk	shipped	b	16	B	0.665	0.647	-2.7%	noise
+rpc-shipped-nounk	shipped	b	16	C-nounk	0.546	0.530	-3.0%	noise
+rpc-shipped-nounk	shipped	b	16	D-nounk	0.565	0.556	-1.6%	noise
+rpc-shipped-nounk	shipped	b	8	B	0.669	0.698	+4.4%	noise
+rpc-shipped-nounk	shipped	b	8	C-nounk	0.577	0.579	+0.3%	noise
+rpc-shipped-nounk	shipped	b	8	D-nounk	0.581	0.618	+6.3%	noise
+
+# RPC control drift: cell A client CPU per call, after/before
+rpc-pinned	pinned	a	1	1.019
+rpc-pinned	pinned	a	16	1.142
+rpc-pinned	pinned	a	8	1.129
+rpc-pinned	pinned	b	1	1.052
+rpc-pinned	pinned	b	16	1.056
+rpc-pinned	pinned	b	8	1.113
+rpc-pinned-nounk	pinned	a	1	0.994
+rpc-pinned-nounk	pinned	a	16	0.971
+rpc-pinned-nounk	pinned	a	8	1.080
+rpc-pinned-nounk	pinned	b	1	0.978
+rpc-pinned-nounk	pinned	b	16	1.036
+rpc-pinned-nounk	pinned	b	8	1.135
+rpc-shipped	shipped	a	1	1.038
+rpc-shipped	shipped	a	16	1.017
+rpc-shipped	shipped	a	8	1.063
+rpc-shipped	shipped	b	1	1.039
+rpc-shipped	shipped	b	16	1.079
+rpc-shipped	shipped	b	8	1.062
+rpc-shipped-nounk	shipped	a	1	1.028
+rpc-shipped-nounk	shipped	a	16	1.050
+rpc-shipped-nounk	shipped	a	8	1.027
+rpc-shipped-nounk	shipped	b	1	0.981
+rpc-shipped-nounk	shipped	b	16	1.094
+rpc-shipped-nounk	shipped	b	8	0.966

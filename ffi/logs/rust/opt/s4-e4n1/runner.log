@@ -1,0 +1,48 @@
+# rust slice OPTIMISATION BENCHMARK (gen/opt_bench.sh), suite runner, core variant full
+# CONTAINER INSTRUMENTATION: not a campaign result (CAMPAIGN.md section 2), not gated by gen/gate.sh (the gate runs at the end of the experiment); the codec process's own byte-identity pre-check is on
+# commit     ab133a3   tree-id 42f1f44d6161b710
+# date       2026-09-26T12:53:54Z
+# machine    Intel(R) Xeon(R) Processor @ 2.10GHz; 4 CPUs online; kernel 6.18.44-fc-v37
+# smt        active=0 control=notsupported
+# governor   n/a
+# turbo      intel_pstate/no_turbo=n/a cpufreq/boost=n/a
+# isolation  cmdline: cgroup: n/a
+# cpu sets   CLIENT=1 SERVER=2,3 OS=the rest
+# runtime    rustc 1.94.1 (e408947bf 2026-03-25); cargo 1.94.1 (29ea6fb6a 2026-03-24)
+# incumbent  prost 0.14.4, tonic 0.14.6, tonic-prost 0.14.6; criterion 0.5.1
+# build      cargo --release (opt-level 3, lto off, codegen-units default), core ak-core as a cdylib linked through the dynamic linker, core features rpc,init-guard,unknown-fields (the full variant, target/); harness guard on; transcoder ak_tc_utf8_trusted (a Rust String is UTF-8)
+# repeats    launches=1 (launch number 1)
+# settings   harness v3; codec engine=interleaved sampler (AK_ORDER=interleave) seed=1; codec P(P*): samples=20 warmup_iters=100 warmup_ms=50 measure_ms=200 decode-nodrop extra rows on P1.2,P2.2,P4.1,P6.1; codec U(U-*): samples=20 warmup_iters=20 warmup_ms=8 measure_ms=45; calib rounds=5 iters=20000000; rpc order=interleave rounds=12 calls=24 warmup=16; launch=1
+[1s] build: full (target/) and no-unknown (target-nounk/)
+  variant ok: /home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/codec_suite-e72a2e21a0b4e4b6 -> /home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/libak_core.so (7 ak_uencode_* exports)
+  variant ok: /home/user/ArmoniK.Api/ffi/poc/rust/target-nounk/release/deps/codec_suite-d48669c12d0bdbb7 -> /home/user/ArmoniK.Api/ffi/poc/rust/target-nounk/release/deps/libak_core.so (0 ak_uencode_* exports)
+  variant ok: target/release/rpc_client -> /home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/libak_core.so (7 ak_uencode_* exports)
+  variant ok: target-nounk/release/rpc_client -> /home/user/ArmoniK.Api/ffi/poc/rust/target-nounk/release/deps/libak_core.so (0 ak_uencode_* exports)
+[9s] crossings: counting builds, both variants
+  crossings: 671 rows identical to gen/crossings.txt
+  crossings-nounk: 336 rows identical to gen/crossings-nounk.txt
+[20s] codec: payloads, full build
+  codec codec-P: precheck: 226 checks, 0 failures, 20 inputs, 458 cases; 9160 sample rows; 156s -> codec-P.jsonl
+[176s] codec: payloads, no-unknown build
+  codec codec-nounk-P: precheck: 152 checks, 0 failures, 20 inputs, 292 cases; 5840 sample rows; 101s -> codec-nounk-P.jsonl
+[277s] codec: U-* rows, full build (reduced settings)
+  codec codec-U: precheck: 736 checks, 0 failures, 92 inputs, 1862 cases; 37240 sample rows; 111s -> codec-U.jsonl
+[388s] codec: U-* rows, no-unknown build (reduced settings)
+  codec codec-nounk-U: precheck: 368 checks, 0 failures, 92 inputs, 1126 cases; 22520 sample rows; 67s -> codec-nounk-U.jsonl
+[455s] calib
+  calib: 10 rows
+[455s] rpc: transport shipped
+  rpc shipped (full client): control aborted with no output: ABORT (requirement 18): cell A dir a inflight 1 warm-up: cell A response 540422 B, expected 540423
+  rpc shipped (full client): 432 rows -> rpc-shipped.jsonl
+  rpc shipped (nounk client): control aborted with no output: ABORT (requirement 18): cell A dir a inflight 1 warm-up: cell A response 540422 B, expected 540423
+  rpc shipped (nounk client): 288 rows -> rpc-shipped-nounk.jsonl
+[519s] rpc: transport pinned
+  rpc pinned (full client): control aborted with no output: ABORT (requirement 18): cell A dir a inflight 1 warm-up: cell A response 540422 B, expected 540423
+  rpc pinned (full client): 432 rows -> rpc-pinned.jsonl
+  rpc pinned (nounk client): control aborted with no output: ABORT (requirement 18): cell A dir a inflight 1 warm-up: cell A response 540422 B, expected 540423
+  rpc pinned (nounk client): 288 rows -> rpc-pinned-nounk.jsonl
+[581s] summary
+summary-codec.tsv: 3738 cases; ratios-codec.tsv: 1017 rows
+summary-rpc.tsv: 120 rows
+summary-calib.tsv: 2 arms
+[581s] done

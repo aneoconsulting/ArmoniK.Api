@@ -2454,3 +2454,28 @@ kept step. Step 0 fixes the harness first.
   the A/A p90. core-ffi/inc AND core-native/inc encode both moved to 0.88-0.91 in the full
   build (core-native untouched): the incumbent's encode got slower in this binary (control
   drift 1.07), the layout hazard again.
+
+## 2026-09-26 -- optimisation step 4 (E4 + N1) (ab133a3, kept) and a layout experiment
+
+- rust_binding.py (E4): a packed bool field passes the host's own Vec<bool> to ak_run_u8
+  (a Rust bool is one byte, 0 or 1); a packed enum is converted on the stack up to 256
+  elements (heap past that); still one run call per field (two would be two packed runs,
+  legal wire and different bytes). rust_native.py (N1): a packed run reserves its element
+  count once (exact for fixed width; the byte count bounds a varint run).
+- Measured (s4-e4n1 vs s3-e2): core-native/inc P6.1 decode 0.622 -> 0.440 (drop), 0.607 ->
+  0.457 (retain), 0.653 -> 0.402 (no-unknown): N1. core-ffi/core-native P6.1 encode 1.112 ->
+  1.023 (drop), 1.107 -> 0.998 (retain): E4 (nounk 1.145 -> 1.114, inside noise). Groups:
+  core-ffi/core-native encode 0.963 (P drop), 0.986 (P retain), 0.978 (P no-unknown).
+- Not explained: core-ffi/inc P6.1 decode 0.577 -> 0.685 and core-ffi-pull/inc 0.506 ->
+  0.587, although neither decode path changed (absolute core-ffi 143k -> 150k while the
+  incumbent went 248k -> 218k in these two processes). Again the incumbent's own median
+  moved (encode control drift 0.93 P, 0.90 U; the /inc encode groups rose 8-16% together
+  with core-native/inc, which E4/N1 do not touch on encode).
+- Layout experiment (logs/rust/opt/layout-exp, analysis.txt): the step-4 tree built as A
+  and as B with two pad functions (prost's decode functions shifted by 0x20 in the exe, the
+  ak_* entries by 0x160 in the .so), codec-P full build, run A, B, A, B. Group means moved
+  at most 3.4% between A and B (A/A at most 1.8%, B/B 1.2%); row |change| p90 0.05-0.14 vs
+  0.03-0.14. So a small layout shift is worth a few percent on group means, not the 7-10%
+  incumbent moves seen between steps; that cause is not identified. Consequence for reading
+  the steps: a change is attributed only when core-ffi/core-native (or core-native/inc for
+  a core-native change) moves beyond this band, and the /inc ratios are reported beside it.
