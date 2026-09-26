@@ -402,20 +402,20 @@ def emit_fill(p, name, b, u=False):
                          % (gn, gn, gn, tc(g.kind)))
                 L.append("      " + dec_mv)
             elif g.kind == "message":
+                # Plan ENCODE RULES: a selected member is written whatever its value; None is
+                # the empty message, so its group stays zeroed and the core writes an empty
+                # body (R-H14, as the core, Java and C#).
                 L.append(read_obj(b, name, g.name, "mv", "ob", "      "))
-                L.append("      if (mv == Py_None) { %s" % dec_mv)
-                L.append("        PyErr_SetString(PyExc_ValueError, \"%s.%s is selected but None\"); return -1; }"
-                         % (name, g.name))
-                L.append("      if (%s_%s_%s(&e->%s, mv, h)) { %s return -1; }" % (fn, b, g.of, gn, dec_mv))
+                L.append("      if (mv != Py_None && %s_%s_%s(&e->%s, mv, h)) { %s return -1; }" % (fn, b, g.of, gn, dec_mv))
                 L.append("      " + dec_mv)
             else:
                 L.append(read_scalar(b, name, ga, "mv", "ob", "      "))
                 L.append("      e->%s = (%s)mv;" % (gn, GSCALAR[g.kind]))
             L.append("      break; }")
         L.append("    case 0: break;")
-        L.append("    default:")
-        L.append("      PyErr_Format(PyExc_ValueError, \"%s.%s_case = %%ld is not a member's tag\","
-                 " (long)cs); return -1;" % (name, oname))
+        # A case naming no member is passed on as is: the core refuses it with AK_ERR_ABI
+        # (plan `oneof_checks`), and the encode raises with that code (R-H14).
+        L.append("    default: break;")
         L.append("    }")
         L.append("  }")
     if u:
@@ -666,7 +666,7 @@ def emit_encode_entry(p, root, b):
          "  }",
          "  if (rc < 0) {",
          "    ak_py_tls_enc_release(ctx, tmp_);",
-         "    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, \"ak_encode_%s returned %%ld\", (long)rc);" % root,
+         "    if (!PyErr_Occurred()) ak_py_fail(\"ak_encode_%s\", (long)rc);" % root,
          "    return NULL;",
          "  }",
          "#ifdef AK_COUNT",
@@ -701,7 +701,7 @@ def _emit_encode_entry_nounk(p, root, b, d):
          "  intptr_t rc = ak_encode_%s(h, ctx, &VT, &fix%s);" % (root, d),
          "  if (rc < 0) {",
          "    ak_py_tls_enc_release(ctx, tmp_);",
-         "    if (!PyErr_Occurred()) PyErr_Format(PyExc_RuntimeError, \"ak_encode_%s returned %%ld\", (long)rc);" % root,
+         "    if (!PyErr_Occurred()) ak_py_fail(\"ak_encode_%s\", (long)rc);" % root,
          "    return NULL;",
          "  }",
          "#ifdef AK_COUNT",
@@ -1099,7 +1099,7 @@ def emit_root_decode(p, root, b):
           "  AK_LAST_RECLAIMED = ak_py_reclaim(&h);   /* undelivered buffers: a failed decode's */",
           "  if (rc || h.failed) {",
           "    %s Py_DECREF(rootobj);" % free,
-          "    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, \"ak_decode_%s returned %%d\", (int)rc);" % root,
+          "    if (!PyErr_Occurred()) ak_py_fail(\"ak_decode_%s\", (long)rc);" % root,
           "    return NULL;",
           "  }"]
     for i, (path, f) in enumerate(lists):
@@ -1144,7 +1144,7 @@ def _decode_body_nounk(p, root, b, lists, free, vt, R):
           "  ak_py_tls_release(%d, ctx, tmp_);" % p.roots.index(root),
           "  if (rc || h.failed) {",
           "    %s Py_DECREF(rootobj);" % free,
-          "    if (!PyErr_Occurred()) PyErr_Format(PyExc_ValueError, \"ak_decode_%s returned %%d\", (int)rc);" % root,
+          "    if (!PyErr_Occurred()) ak_py_fail(\"ak_decode_%s\", (long)rc);" % root,
           "    return NULL;",
           "  }"]
     for i, (path, f) in enumerate(lists):
@@ -1209,6 +1209,9 @@ static int32_t ak_py_grow(void *sink, int32_t want, uint8_t **dst, int32_t *cap)
 }
 
 static void ak_py_release(HostCtx *h, void *data) {
+#ifdef AK_PLANT_SKIP_RELEASE
+  (void)h; (void)data; return;   /* the leak check's must-fail twin ONLY: a skipped release */
+#endif
   struct ak_py_buf *b = ((struct ak_py_buf *)data) - 1;
   ak_py_unlink(h, b);
   free(b);
@@ -1267,6 +1270,20 @@ static struct AkCounters CORE_ENC, CORE_DEC;
 #else
 #define BUMP(i) ((void)0)
 #endif
+
+/* A refused call: ValueError("<entry> returned <rc>") carrying the ABI v1 section 5 code as
+ * `.code`, the same attribute the pure-Python codec's DecodeError/EncodeError carry. */
+static void ak_py_fail(const char *entry, long rc) {
+  PyObject *msg = PyUnicode_FromFormat("%%s returned %%ld", entry, rc);
+  if (!msg) return;
+  PyObject *e = PyObject_CallFunctionObjArgs(PyExc_ValueError, msg, NULL);
+  Py_DECREF(msg);
+  if (!e) return;
+  PyObject *c = PyLong_FromLong(rc);
+  if (c) { PyObject_SetAttrString(e, "code", c); Py_DECREF(c); }
+  PyErr_SetObject(PyExc_ValueError, e);
+  Py_DECREF(e);
+}
 
 /* Resolved once at module init: ak_tc_utf8() is a call across the boundary. */
 static ak_transcode_fn TC_UTF8, TC_BYTES;
