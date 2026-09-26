@@ -1333,7 +1333,8 @@ Each blocks something. None is settled by a measurement that exists today.
      carries its own `unknown: ak_blob`, written verbatim after the known fields.
    - **Decode: one buffer per message position, as data in the decode group.**
      Every message position in a decode group (the root or element itself, each
-     inlined singular child, each oneof message member, each map entry, a map
+     inlined singular child, each oneof (its one buffer delivered in the active
+     message member's group, rule 4), each map entry, a map
      being a repeated entry message to the codec) carries one slot
      `ak_unk_buf { void *data; uint32_t len; uint32_t cap; }`. The core copies that
      message's unknown runs into it (runs need not be contiguous in the input, so
@@ -1399,6 +1400,11 @@ Each blocks something. None is settled by a measurement that exists today.
       the core never rolls back.
    4. **A oneof is one position with one slot**, shared by its message members; when
       the case switches the core empties that buffer and reuses it for the new member.
+      The host hands the buffer once, in the root's options struct (one entry per
+      oneof, not per member); after decoding it is found in the active member's
+      decode group. Confirmed by the owner 2026-09-26, over one entry per member: a
+      host sharing one buffer across members would otherwise hold stale copies of the
+      inlined descriptor after a grow, so sharing has one definition, in the core.
    5. **`ak_grow_fn` keeps its `i32` sizes**: a buffer above 2 GiB is refused with
       `AK_ERR_LIMIT`.
    6. **A decode context is bound to its root.** `ak_dec_ctx_new_<Root>(opts)` binds it
