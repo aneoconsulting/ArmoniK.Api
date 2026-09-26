@@ -1296,6 +1296,7 @@ fn dec_metrics_batch(d: &mut Dec, out: &mut MetricsBatch, depth: u32) {
             }
             (2, 2) => {
                 let (off, n) = d.len_body();
+                out.ticks.reserve(n);
                 let mut sub = Dec::new(&buf[off..off + n]);
                 while !sub.at_end() {
                     let v = sub.varint() as i64;
@@ -1310,6 +1311,7 @@ fn dec_metrics_batch(d: &mut Dec, out: &mut MetricsBatch, depth: u32) {
             }
             (3, 2) => {
                 let (off, n) = d.len_body();
+                out.values.reserve(n / 8);
                 let mut sub = Dec::new(&buf[off..off + n]);
                 while !sub.at_end() {
                     let v = sub.f64();
@@ -1324,6 +1326,7 @@ fn dec_metrics_batch(d: &mut Dec, out: &mut MetricsBatch, depth: u32) {
             }
             (4, 2) => {
                 let (off, n) = d.len_body();
+                out.codes.reserve(n);
                 let mut sub = Dec::new(&buf[off..off + n]);
                 while !sub.at_end() {
                     let v = sub.varint() as i32;
@@ -1338,6 +1341,7 @@ fn dec_metrics_batch(d: &mut Dec, out: &mut MetricsBatch, depth: u32) {
             }
             (5, 2) => {
                 let (off, n) = d.len_body();
+                out.flags.reserve(n);
                 let mut sub = Dec::new(&buf[off..off + n]);
                 while !sub.at_end() {
                     let v = sub.varint() != 0;
@@ -1352,6 +1356,7 @@ fn dec_metrics_batch(d: &mut Dec, out: &mut MetricsBatch, depth: u32) {
             }
             (6, 2) => {
                 let (off, n) = d.len_body();
+                out.statuses.reserve(n);
                 let mut sub = Dec::new(&buf[off..off + n]);
                 while !sub.at_end() {
                     let v = TaskStatus::from_i32(sub.varint() as i32);
@@ -1698,6 +1703,7 @@ fn dec_chunk_inner(d: &mut Dec, out: &mut ChunkInner, depth: u32) {
             }
             (1, 2) => {
                 let (off, n) = d.len_body();
+                out.marks.reserve(n);
                 let mut sub = Dec::new(&buf[off..off + n]);
                 while !sub.at_end() {
                     let v = sub.varint() as i64;

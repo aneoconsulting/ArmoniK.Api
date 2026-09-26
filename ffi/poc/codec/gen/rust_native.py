@@ -242,8 +242,12 @@ def _dec_message(p, m, o):
                 o.append("                out.%s.push(::bytes::Bytes::copy_from_slice(&buf[off..off + n]));" % f.name)
             o.append("            }")
         elif op == "packed_run":
+            # Optimisation N1: reserve once per run. A fixed-width run's element count is
+            # exact; a varint run's is at most its byte count (every varint is >= 1 byte).
+            per = {"fixed64_f64": 8, "fixed32_u32": 4}.get(f.value, 1)
             o.append(pat)
             o.append("                let (off, n) = d.len_body();")
+            o.append("                out.%s.reserve(%s);" % (f.name, "n" if per == 1 else "n / %d" % per))
             o.append("                let mut sub = Dec::new(&buf[off..off + n]);")
             o.append("                while !sub.at_end() {")
             o.append("                    let v = %s;" % _read(f, "sub"))
