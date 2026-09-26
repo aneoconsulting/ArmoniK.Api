@@ -2395,3 +2395,30 @@ kept step. Step 0 fixes the harness first.
   crossings identical (671 / 336 rows) in all four runs.
 - The original baseline (harness v1: criterion, blocks by arm) compared with baseline2 is in
   baseline2/compare-vs-baseline-DIFFERENT-HARNESS.txt: a different harness, not a change.
+
+## 2026-09-26 -- optimisation step 1 (D1): no host-side UTF-8 re-check (e25da96, kept)
+
+- rust_binding.py: `s_of` renders from the plan's utf8 option, as rust_native.py does.
+  utf8="reject": `from_utf8_unchecked(b).to_owned()` with a debug_assert. Checked before
+  relying on it: the core's decode groups run `check_utf8` on every `string` set_blob,
+  append_blob and oneof member (rust_abi.py utf8_check), map entries included (an entry is
+  an element message with its own plan); a failure sets the reader's error, the loop stops
+  (`at_end` is true once err != 0), the post-loop flush and every `apply` run only when
+  d.err == 0, the in-loop flushes only deliver elements decoded before the failing one, and
+  the pull replay runs only when `ak_parse_*` returned >= 0. So no invalid span reaches
+  s_of. utf8="lossy": from_utf8_lossy (the core does not validate then).
+- Consequence: the harness features dec-reject / dec-reject-simd no longer change the
+  binding's decode (they still pick ak-rt's decode_str policy, which only the stage
+  harness decpolicy.sh reads).
+- generate --check and one_core.sh pass; only poc/rust's binding.rs / binding_nounk.rs
+  (main and corpus workspaces) changed.
+- Measured (logs/rust/opt/s1-d1, vs baseline2, A/A-calibrated): core-ffi/inc decode
+  geometric mean 0.745 (P, drop), 0.740 (P, retain), 0.778 (P, no-unknown), 0.70-0.76 (U);
+  per payload drop e.g. P1.1 1.39 -> 0.85, P1.2 1.14 -> 0.78, P2.2 1.36 -> 1.01, P5.1
+  1.61 -> 0.90, P6.1 0.70 -> 0.58, P5.2-P5.4 unchanged. core-ffi-pull the same. The
+  control core-native/inc decode: noise.
+- Encode moved although D1 touches no encode code: core-ffi/inc encode 1.09 (full) and
+  0.94 (no-unknown), core-native/inc encode 1.09 / 0.92 likewise, while core-ffi/core-native
+  encode is noise (1.00). The incumbent's encode median moved (drift 0.96 P, 0.91 U): a
+  relinked binary moves code layout. Hazard recorded in STATE; core-ffi/core-native is the
+  check for a change that touches core-ffi only.
