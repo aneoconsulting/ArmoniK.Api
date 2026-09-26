@@ -603,6 +603,20 @@ namespace ffi {
   }
 #endif
 
+// CAMPAIGN req 19 (R-H31): the exported calls the core's counters cannot see, counted in
+// the counting build only (a timed binary carries no counting code).
+#ifdef AK_COUNTING
+static thread_local uint64_t t_host_calls = 0;
+#define AK_HOST_CALL() (++t_host_calls)
+uint64_t host_calls_take() {
+  uint64_t r = t_host_calls;
+  t_host_calls = 0;
+  return r;
+}
+#else
+#define AK_HOST_CALL() ((void)0)
+#endif
+
 static inline struct ak_str ak_str_absent() {
   struct ak_str s;
   s.data = NULL;
@@ -721,6 +735,12 @@ def emit_header(ir, ns="shapes", guard="AK_BINDING_H", types_h="generated/types.
          "// calls it before its first codec call, so a binding cannot skip it; a host may",
          "// also call it up front. Returns AK_OK or the refusal.",
          "int32_t ak_init_once();",
+         "",
+         "// CAMPAIGN req 19 (R-H31): exported entry points this binding calls that the core's",
+         "// counters do not see (ak_enc_reset inside every encode_into_*, the two",
+         "// ak_dec_reset_<Root> of an armed decode). Counted in the counting build",
+         "// (AK_COUNTING) only; returns the count since the last call and restarts it.",
+         "uint64_t host_calls_take();",
          ""]
     for root in ir.roots:
         o.append("struct EncObj_%s {" % root)
@@ -1120,7 +1140,7 @@ Tcs tcs_host() {
             o.append("intptr_t encode_into_%s%s(ak_enc_ctx *ctx, const %s &o, const Tcs &t) {"
                      % (snake(root), suffix, root))
             o.append("  AK_INIT_OR_RETURN();")
-            o.append("  ak_enc_reset(ctx);")
+            o.append("  AK_HOST_CALL(); ak_enc_reset(ctx);")
             o.append("  EncObj_%s h;" % root)
             o.append("  h.o = &o;")
             o.append("  h.t = t;")
@@ -1561,7 +1581,7 @@ def _emit_encode_unk(ir, o, root):
             fns[sn] = "loop_%s_%s" % (rs, sn)
     o.append("intptr_t encode_into_%s_unk(ak_enc_ctx *ctx, const %s &o, const Tcs &t) {" % (rs, root))
     o.append("  AK_INIT_OR_RETURN();")
-    o.append("  ak_enc_reset(ctx);")
+    o.append("  AK_HOST_CALL(); ak_enc_reset(ctx);")
     o.append("  EncObj_%s h;" % root)
     o.append("  h.o = &o;")
     o.append("  h.t = t;")
@@ -1627,7 +1647,7 @@ def _emit_decode_unk(ir, o, root):
     o.append("int32_t decode_with_%s_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, %s *out,"
              " struct %s *opts, void (*refill)(void *), void *hold) {" % (rs, root, on))
     o.append("  AK_INIT_OR_RETURN();")
-    o.append("  int32_t rc = ak_dec_reset_%s(ctx, opts);" % root)
+    o.append("  AK_HOST_CALL(); int32_t rc = ak_dec_reset_%s(ctx, opts);  // reset 1: arms, before the decode" % root)
     o.append("  if (rc != AK_OK) {")
     o.append("    // Refused (another root's context, or the core uninitialized): nothing was")
     o.append("    // consumed, so every buffer in the options stays the host's (R-H7).")
@@ -1635,7 +1655,7 @@ def _emit_decode_unk(ir, o, root):
     o.append("    return rc;")
     o.append("  }")
     o.append("  rc = decode_impl_%s(ctx, b, n, out, refill, hold);" % rs)
-    o.append("  int32_t rc2 = ak_dec_reset_%s(ctx, NULL);" % root)
+    o.append("  AK_HOST_CALL(); int32_t rc2 = ak_dec_reset_%s(ctx, NULL);  // reset 2: disarms, after it" % root)
     o.append("  // R-H7: what is still in the options was not consumed and stays the host's.")
     o.append("  unk_untrack_opts_%s(opts);" % rs)
     o.append("  unk_reclaim();")
