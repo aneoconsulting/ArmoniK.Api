@@ -59,8 +59,8 @@ ARMS = {
 }
 ARMS_NOUNK = {
     "shapes": [("incumbent-prod", "incumbent-default"), ("incumbent-best", "incumbent-default"),
-               ("core-ffi", "no-unknown")],
-    "unknown": [("incumbent-prod", "incumbent-default"), ("core-ffi", "no-unknown")],
+               ("core-ffi", "no-unknown"), ("host-gen", "no-unknown")],
+    "unknown": [("incumbent-prod", "incumbent-default"), ("core-ffi", "no-unknown"), ("host-gen", "no-unknown")],
     "unknown-corpus": [("incumbent-prod", "incumbent-default"), ("core-ffi", "no-unknown")],
 }
 DIRS = ["encode", "decode", "decode+read"]

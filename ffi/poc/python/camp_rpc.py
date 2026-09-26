@@ -17,8 +17,9 @@ Cells (requirement 12 as amended), P2.2, over a Unix domain socket (req 17 as am
   C and D run in each unknown-field mode this build has: C-retain / D-retain and C-drop /
   D-drop in the full build, C-nounk / D-nounk in the no-unknown build (`--variant nounk`,
   `_akffi_rpc_nounk`, its own process: both cores are `libak_core.so`). E and F run in
-  host-gen's modes, drop and retain, in the full build only (host-gen has no no-unknown arm:
-  its drop text is identical from both plans). A and B run the incumbent in its default
+  host-gen's modes: E-retain / F-retain and E-drop / F-drop in the full build; E-nounk /
+  F-nounk in the no-unknown build (host-gen drop over the no-unknown facade, which has no
+  `_unknown`). A and B run the incumbent in its default
   mode. Labelled extras (full build, direction a): B-queue, C-queue, B-callback, C-callback.
   A, D and F use grpcio's idiomatic blocking unary call (req 16 as amended).
 Server (req 13 as amended): one camp_server.py per launch, both transports on two sockets,
@@ -142,7 +143,7 @@ def cells(target, transport):
     ret_enc = (lambda o: arms._ffi.encode("cext", root, o, None, True))
     # host-gen (cells E and F, req 12 as amended): the pure-Python codec over the same
     # C-extension facade objects (R-H16), in each mode host-gen has in the codec suite
-    hg = {"drop": arms.pycodec, "retain": arms.pycodec_retain}
+    hg = {"drop": arms.pycodec, "retain": arms.pycodec_retain, "nounk": arms.pycodec}
     hg_dec = {k: (lambda b, _m=m: getattr(_m, "decode_root_" + root)(b, arms.CT_CEXT)) for k, m in hg.items() if m}
     hg_enc = {k: (lambda o, _m=m: getattr(_m, "encode_root_" + root)(o)) for k, m in hg.items() if m}
     read_pb = (lambda o: arms._read_pb(o, plan, True))
@@ -220,9 +221,9 @@ def cells(target, transport):
         out["a+read"] += [("C-" + m, lambda _g=cg, _d=cdec[m]: read_fa(_d(_g()))),
                           ("D-" + m, lambda _g=dg: read_fa(_g(b"")))]
         out["b"] += [("C-" + m, lambda _p=cp, _e=cenc[m]: _p(_e(fc))), ("D-" + m, lambda _p=dp: _p(fc))]
-    # E and F: host-gen has no no-unknown arm (its drop text is identical from both plans), so
-    # they run in the full build only, in drop and retain.
-    for m in ([] if NOUNK else ["retain", "drop"]):
+    # E and F in host-gen's modes: retain and drop in the full build; in the no-unknown build,
+    # host-gen drop over the no-unknown facade (no `_unknown`, R-H22) is its no-unknown mode.
+    for m in (["nounk"] if NOUNK else ["retain", "drop"]):
         eg, ep = core_get("E-" + m), core_put("E-" + m)
         fg, fpu = grpc_get("F-" + m, hg_dec[m]), grpc_put("F-" + m, hg_enc[m])
         out["a"] += [("E-" + m, lambda _g=eg, _d=hg_dec[m]: _d(_g())), ("F-" + m, lambda _g=fg: _g(b""))]
@@ -487,7 +488,8 @@ def main():
                variant_build=("no-unknown variant (WP5 step 10): _akffi_rpc_nounk over ak-core --no-default-features "
                       "--features rpc,init-guard; A and B are this process's controls" if NOUNK
                       else "full build (unknown-fields on): _akffi_rpc"),
-               unknown_modes=("C-nounk and D-nounk: no-unknown (compiled out); A and B: incumbent default" if NOUNK else
+               unknown_modes=("C-nounk, D-nounk, E-nounk, F-nounk: no-unknown (compiled out; E and F: host-gen drop over the "
+                              "no-unknown facade); A and B: incumbent default" if NOUNK else
                               "C and D: retain (decision 11, every position armed, per-thread contexts) and "
                               "drop (every entry zero); A and B: incumbent default; C-queue and C-callback: drop"))
     try:
