@@ -2,7 +2,7 @@
 //! server is `rpc_server`, another process on `AK_CPU_SERVER` (requirement 13).
 //!
 //!   rpc_client --port N --transport shipped|pinned --launch L --rounds R --calls C
-//!              --warmup W --out FILE [--plant]
+//!              --warmup W --out FILE [--plant] [--order blocks|interleave]
 //!
 //! Cells (requirement 12), directions (14), in-flight 1/8/16 (15):
 //!   A  prost through tonic's codec calls (`Message::encode` into the EncodeBuf, `decode`
@@ -289,6 +289,11 @@ fn main() {
     let warm: usize = arg("--warmup").map(|v| v.parse().unwrap()).unwrap_or(64);
     let out = arg("--out").expect("--out");
     let plant = a.iter().any(|x| x == "--plant");
+    let interleave = match arg("--order").as_deref() {
+        None | Some("blocks") => false,
+        Some("interleave") => true,
+        Some(o) => panic!("--order {o}: blocks | interleave"),
+    };
     let target = format!("http://127.0.0.1:{port}");
     let p22 = prost::Message::encode_to_vec(&m2::prost_arm::value(m2::P2_2)).len() as u64;
     let want_a = if plant { p22 + 1 } else { p22 };
@@ -305,29 +310,56 @@ fn main() {
     let nc = cells.len();
     let order: Vec<&str> = (0..nc).map(|i| cells[(i + launch - 1) % nc]).collect();
     let mut lines = Vec::new();
-    for cell in &order {
+    let run_round = |f: &CallFn, cell: &str, dir: &str, k: usize, r: usize, lines: &mut Vec<String>| {
+        let per = calls.div_ceil(k);
+        let (c0, t0) = (process_cpu_ns(), Instant::now());
+        if let Err(e) = batch(f, k, per) {
+            eprintln!("ABORT (requirement 18): cell {cell} dir {dir} inflight {k} round {r}: {e}");
+            std::process::exit(3);
+        }
+        let (wall, cpu) = (t0.elapsed().as_nanos() as u64, process_cpu_ns() - c0);
+        lines.push(serde_json::json!({
+            "slice": "rust", "suite": "rpc", "cell": cell, "payload": "P2.2", "dir": dir,
+            "transport": transport, "inflight": k, "launch": launch, "round": r,
+            "cpu_ns": cpu, "wall_ns": wall, "iters": per * k,
+        }).to_string());
+    };
+    let warm_up = |f: &CallFn, cell: &str, dir: &str, k: usize| {
+        // Warm-up, identical for every cell (requirement 24): connection up,
+        // runtime threads started, allocator grown.
+        if let Err(e) = batch(f, k, warm.div_ceil(k)) {
+            eprintln!("ABORT (requirement 18): cell {cell} dir {dir} inflight {k} warm-up: {e}");
+            std::process::exit(3);
+        }
+    };
+    if interleave {
+        // `--order interleave` (the optimisation benchmark, gen/opt_bench.sh): per (dir,
+        // in-flight), every cell's client is built and warmed, then round r runs the cells
+        // in the launch order rotated by r - 1, so over a multiple of the cell count every
+        // cell takes every position equally often (counterbalanced; no cell always first).
         for dir in ["a", "b"] {
             for k in [1usize, 8, 16] {
-                let per = calls.div_ceil(k);
-                let f = make(cell, dir, k, &target, pinned, want_a);
-                // Warm-up, identical for every cell (requirement 24): connection up,
-                // runtime threads started, allocator grown.
-                if let Err(e) = batch(&f, k, warm.div_ceil(k)) {
-                    eprintln!("ABORT (requirement 18): cell {cell} dir {dir} inflight {k} warm-up: {e}");
-                    std::process::exit(3);
+                let fs: Vec<CallFn> = order.iter().map(|cell| make(cell, dir, k, &target, pinned, want_a)).collect();
+                for (cell, f) in order.iter().zip(&fs) {
+                    warm_up(f, cell, dir, k);
                 }
                 for r in 1..=rounds {
-                    let (c0, t0) = (process_cpu_ns(), Instant::now());
-                    if let Err(e) = batch(&f, k, per) {
-                        eprintln!("ABORT (requirement 18): cell {cell} dir {dir} inflight {k} round {r}: {e}");
-                        std::process::exit(3);
+                    for j in 0..nc {
+                        let i = (j + r - 1) % nc;
+                        run_round(&fs[i], order[i], dir, k, r, &mut lines);
                     }
-                    let (wall, cpu) = (t0.elapsed().as_nanos() as u64, process_cpu_ns() - c0);
-                    lines.push(serde_json::json!({
-                        "slice": "rust", "suite": "rpc", "cell": cell, "payload": "P2.2", "dir": dir,
-                        "transport": transport, "inflight": k, "launch": launch, "round": r,
-                        "cpu_ns": cpu, "wall_ns": wall, "iters": per * k,
-                    }).to_string());
+                }
+            }
+        }
+    } else {
+        for cell in &order {
+            for dir in ["a", "b"] {
+                for k in [1usize, 8, 16] {
+                    let f = make(cell, dir, k, &target, pinned, want_a);
+                    warm_up(&f, cell, dir, k);
+                    for r in 1..=rounds {
+                        run_round(&f, cell, dir, k, r, &mut lines);
+                    }
                 }
             }
         }
@@ -343,7 +375,11 @@ fn main() {
         ("cells", "A prost+tonic, B prost+core (blocking), C core+core (blocking), D core+tonic; C and D per unknown-field mode (-retain: every decision 11 position armed and u-group encode; -drop: nothing armed; -nounk: the build with unknown-field support compiled out); callback/queue deliveries not run in this suite".into()),
         ("build", if cfg!(feature = "unknown-fields") { "unknown-fields (retain/drop)".into() } else { "NO-UNKNOWN (unknown-field support compiled out)".to_string() }),
         ("launch", launch.to_string()),
-        ("cell order", order.join(",")),
+        ("cell order", if interleave {
+            format!("interleave: per (dir, in-flight) every cell built and warmed, round r runs {} rotated by r-1", order.join(","))
+        } else {
+            format!("blocks: {}", order.join(","))
+        }),
         ("rounds", rounds.to_string()),
         ("calls per round", format!("{calls} rounded up to a multiple of in-flight")),
         ("warm-up", format!("{warm} calls per (cell, dir, in-flight) before round 1")),

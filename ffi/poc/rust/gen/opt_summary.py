@@ -8,7 +8,7 @@ Reads OUT_DIR/codec-*.jsonl, rpc-*.jsonl, calib.jsonl (the raw samples) and writ
   summary-codec.tsv  one row per case: file (= process), input id, payload, content, arm,
                      direction, unknown mode, samples, median / min / max ns per operation
                      (thread CPU of one criterion sample divided by its iteration count),
-                     spread = (max - min) / median
+                     spread = (max - min) / median, q25 / q75 (the noise band gen/opt_compare.py uses)
   ratios-codec.tsv   one row per (file, input, direction, core mode): ratios of MEDIANS formed
                      inside that one process -- armonik, core-native, core-ffi, core-ffi-pull
                      over incumbent-prod, and core-ffi over core-native -- plus the same
@@ -41,6 +41,17 @@ def stats(xs):
     return med, xs[0], xs[-1], (xs[-1] - xs[0]) / med if med else float("nan")
 
 
+def quartiles(xs):
+    """(q25, q75), linear interpolation between order statistics."""
+    xs = sorted(xs)
+    def q(p):
+        k = (len(xs) - 1) * p
+        i = int(k)
+        j = min(i + 1, len(xs) - 1)
+        return xs[i] + (xs[j] - xs[i]) * (k - i)
+    return q(0.25), q(0.75)
+
+
 def fmt(x, nd=1):
     return f"{x:.{nd}f}"
 
@@ -62,13 +73,14 @@ def main(out):
     med = {}
     with open(os.path.join(out, "summary-codec.tsv"), "w") as f:
         f.write("# CONTAINER INSTRUMENTATION (gen/opt_bench.sh); ns per operation = thread CPU per criterion sample / iterations\n")
-        f.write("file\tinput\tpayload\tcontent\tarm\tdir\tmode\tsamples\tmedian_ns\tmin_ns\tmax_ns\tspread\n")
+        f.write("file\tinput\tpayload\tcontent\tarm\tdir\tmode\tsamples\tmedian_ns\tmin_ns\tmax_ns\tspread\tq25_ns\tq75_ns\n")
         for k in order:
             tag, inp, content, arm, d, mode = k
             m, lo, hi, sp = stats(cases[k])
+            q1, q3 = quartiles(cases[k])
             med[k] = (m, lo)
             payload = inp.split("/")[0]
-            f.write(f"{tag}\t{inp}\t{payload}\t{content}\t{arm}\t{d}\t{mode}\t{len(cases[k])}\t{fmt(m)}\t{fmt(lo)}\t{fmt(hi)}\t{fmt(sp, 3)}\n")
+            f.write(f"{tag}\t{inp}\t{payload}\t{content}\t{arm}\t{d}\t{mode}\t{len(cases[k])}\t{fmt(m)}\t{fmt(lo)}\t{fmt(hi)}\t{fmt(sp, 3)}\t{fmt(q1)}\t{fmt(q3)}\n")
     # ratios per (file, input, dir, core mode), against the same process's incumbent-prod
     groups = defaultdict(dict)
     for (tag, inp, content, arm, d, mode), v in med.items():

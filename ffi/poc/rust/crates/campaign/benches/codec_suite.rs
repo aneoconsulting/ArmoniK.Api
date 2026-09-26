@@ -10,6 +10,15 @@
 //!                    (requirement 24, identical for every arm; also warms the allocator, 25)
 //!   AK_WARMUP_MS     criterion's own warm-up time per case
 //!   AK_MEASURE_MS    criterion's measurement time per case
+//!   AK_ORDER         `blocks` (default; requirement 22: blocks by arm, the arm order rotated
+//!                    by launch) or `shuffle`: every case of the process in one seeded random
+//!                    order (AK_SEED, default 1), so no arm is always first or last. Criterion
+//!                    runs all samples of one case back to back (it cannot interleave samples
+//!                    of different cases), so the order is interleaved per case, not per sample.
+//!   AK_NRESAMPLES    criterion's bootstrap resamples for its console summary (default 100000,
+//!                    criterion's own); it touches no exported sample, only analysis time
+//!   AK_NODROP        comma-separated EXACT input ids that also get the labelled extra
+//!                    `decode-nodrop` rows (the decoded graph dropped outside the timed region)
 //!
 //! Criterion measures with `campaign::ThreadCpu` (CLOCK_THREAD_CPUTIME_ID, requirement 21)
 //! in `SamplingMode::Flat`, so every sample (round) of a case has the same iteration count.
@@ -28,6 +37,7 @@ fn env<T: std::str::FromStr>(k: &str, d: T) -> T {
 
 struct Collect<'a> {
     ctx: &'static harness::arms::core_ffi_arm::Ctx,
+    nodrop: &'a [String],
     inp: &'a Input,
     cases: &'a mut Vec<Case>,
     checks: &'a mut usize,
@@ -41,7 +51,7 @@ impl Visit for Collect<'_> {
         *self.checks += n;
         self.fails.extend(f);
         self.refused.extend(r);
-        self.cases.extend(cases_for::<R>(self.ctx, self.inp));
+        self.cases.extend(cases_for::<R>(self.ctx, self.inp, self.nodrop.iter().any(|x| *x == self.inp.id)));
     }
 }
 
@@ -54,6 +64,12 @@ fn main() {
     let warm_iters: u64 = env("AK_WARMUP_ITERS", 100);
     let warm_ms: u64 = env("AK_WARMUP_MS", 500);
     let meas_ms: u64 = env("AK_MEASURE_MS", 2000);
+    let order_mode: String = env("AK_ORDER", "blocks".to_string());
+    let seed: u64 = env("AK_SEED", 1);
+    let nresamples: usize = env("AK_NRESAMPLES", 100_000);
+    let nodrop: Vec<String> = std::env::var("AK_NODROP").unwrap_or_default()
+        .split(',').filter(|s| !s.is_empty()).map(String::from).collect();
+    assert!(order_mode == "blocks" || order_mode == "shuffle", "AK_ORDER: blocks | shuffle");
     let home = std::env::var("CRITERION_HOME").expect("CRITERION_HOME (the runner sets it per launch)");
 
     let ctx: &'static _ = Box::leak(Box::new(harness::arms::core_ffi_arm::Ctx::new()));
@@ -62,7 +78,7 @@ fn main() {
     let (mut checks, mut fails, mut refused) = (0usize, Vec::new(), Vec::new());
     for inp in &inputs {
         let ok = generated::roots::with_root(&inp.root, &mut Collect {
-            ctx, inp: inp, cases: &mut cases, checks: &mut checks, fails: &mut fails, refused: &mut refused,
+            ctx, nodrop: &nodrop, inp: inp, cases: &mut cases, checks: &mut checks, fails: &mut fails, refused: &mut refused,
         });
         assert!(ok, "no root {}", inp.root);
     }
@@ -88,15 +104,33 @@ fn main() {
         .sample_size(samples.max(10))
         .warm_up_time(Duration::from_millis(warm_ms))
         .measurement_time(Duration::from_millis(meas_ms))
+        .nresamples(nresamples)
         .without_plots();
     // Blocks by arm, the arm order rotated by launch (requirement 22).
     let mut ran: Vec<(usize, &Case)> = Vec::new();
     let mut idx_of = Vec::new();
-    for arm in &order {
-        for (i, cs) in cases.iter().enumerate() {
-            if cs.arm == *arm {
-                idx_of.push(i);
+    if order_mode == "blocks" {
+        for arm in &order {
+            for (i, cs) in cases.iter().enumerate() {
+                if cs.arm == *arm {
+                    idx_of.push(i);
+                }
             }
+        }
+    } else {
+        // Seeded Fisher-Yates over every case (splitmix64).
+        idx_of = (0..cases.len()).collect();
+        let mut st = seed;
+        let mut next = || {
+            st = st.wrapping_add(0x9E37_79B9_7F4A_7C15);
+            let mut z = st;
+            z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+            z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+            z ^ (z >> 31)
+        };
+        for i in (1..idx_of.len()).rev() {
+            let j = (next() % (i as u64 + 1)) as usize;
+            idx_of.swap(i, j);
         }
     }
     {
@@ -109,7 +143,10 @@ fn main() {
             for _ in 0..warm_iters {
                 black_box((cs.op)());
             }
-            g.bench_function(format!("{i:05}"), |b| b.iter(|| (cs.op)()));
+            match cs.bench.as_mut() {
+                Some(bf) => g.bench_function(format!("{i:05}"), |b| bf(b)),
+                None => g.bench_function(format!("{i:05}"), |b| b.iter(|| (cs.op)())),
+            };
         }
         g.finish();
     }
@@ -127,7 +164,15 @@ fn main() {
             "NO-UNKNOWN (unknown-field support compiled out, CAMPAIGN.md req 10): core-ffi / core-native / core-ffi-pull in mode no-unknown; incumbent-prod and armonik as in-process controls".to_string()
         }),
         ("launch", launch.to_string()),
-        ("arm order", order.join(",")),
+        ("arm order", if order_mode == "blocks" {
+            format!("blocks by arm: {}", order.join(","))
+        } else {
+            format!("shuffle: every case in one seeded random order, seed {seed} (splitmix64 Fisher-Yates); criterion runs one case's samples back to back")
+        }),
+        ("criterion resamples", format!("{nresamples} (analysis only; no exported sample depends on it)")),
+        ("decode-nodrop", if nodrop.is_empty() { "none".to_string() } else {
+            format!("labelled extra rows on {}: iter_with_large_drop (graph dropped outside the timed region), incumbent-prod, armonik, core-native, core-ffi; the headline decode rows keep the drop inside", nodrop.join(","))
+        }),
         ("samples (rounds) per case", samples.max(10).to_string()),
         ("warm-up", format!("{warm_iters} fixed iterations per case, then criterion warm-up {warm_ms} ms; measurement {meas_ms} ms")),
         ("wall", "not recorded for the codec suite (criterion measures one quantity; thread CPU is requirement 21's)".into()),
