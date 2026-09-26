@@ -24,12 +24,13 @@ Length arithmetic on decode is the runtime's `Dec.LenEnd`: the prefix is read as
 64-bit varint and compared with the bytes LEFT (`n > End - Pos`), never `Pos + n > End` on a
 narrowed `n` (R-D1, R-G8); a fixed-width read compares the bytes left with its width.
 
-Unknown fields. Options.unknown = "drop" skips; "retain" captures the whole run (key
-included) into `UnknownFields` and the encoder writes it after the known fields; "both" (the
-default plan) emits the capture behind the reader's `Dec.Retain` flag, so the host picks per
-call, as the C ABI core's two entry families do. A map entry has no facade class and so no
-bag: an unknown field inside an entry is skipped in every mode (the rust backends do the
-same; `U-map-entry` is a disputed corpus row).
+Unknown fields. ONE MODE PER CODEC (R-H11): Options.unknown = "drop" skips and writes no
+bag; "retain" captures the whole run (key included) into `UnknownFields` and the encoder
+writes it after the known fields. "both" is REFUSED here, as the other languages' managed
+backends refuse it: a host that wants both renders two codecs, from the plan relowered with
+"drop" and with "retain", under two class names (`emit(..., cls=)`), so the drop codec
+carries no capture code at all. A map entry has no facade class and so no bag: an unknown
+field inside an entry is skipped in every mode (`U-map-entry` is a disputed corpus row).
 """
 from plan import GROUP_DEPTH_LIMIT, LEN, MAX_FIELD_NUMBER, as_plan
 import cs_names as N
@@ -414,9 +415,7 @@ class Codec:
         if self.retain == "retain":
             return ["// plan (retain): an unknown field is captured verbatim, key included.",
                     skip, grab]
-        return ["// plan (both): skipped, and captured verbatim (key included) when the host",
-                "// asked for retention on this reader (Dec.Retain).",
-                skip, "if (d.Retain) { %s }" % grab]
+        raise ValueError("unknown mode %r: refused (R-H11), render one codec per mode" % self.retain)
 
     def emit_read(self, o, m):
         o += "    public static void Read%s(ref Dec d, %s m, int depth)" % (m.name, m.name)
@@ -543,8 +542,14 @@ class Codec:
         o += "                }"
 
 
-def emit(x, ns, extra_using=()):
+def emit(x, ns, extra_using=(), cls="Codec"):
+    """The managed codec of plan `x` as class `cls`. `x` must be a drop or a retain plan:
+    "both" is refused (R-H11), render one codec per mode from `relower`ed plans."""
     p = as_plan(x)
+    if p.options.unknown not in ("drop", "retain"):
+        raise ValueError("cs_managed renders one unknown-field mode per codec; got %r (R-H11): "
+                         "render the drop and the retain codec from plans relowered with each"
+                         % p.options.unknown)
     c = Codec(p)
     o = N.Head("The managed codec: the plan's encode and decode plans over the facade.",
                p.source, "cs_managed")
@@ -555,7 +560,7 @@ def emit(x, ns, extra_using=()):
     o += ""
     o += "namespace %s;" % ns
     o += ""
-    o += "public static class Codec"
+    o += "public static class %s" % cls
     o += "{"
     o += "    /// The plan's options, for a log to name (Options: %r)." % p.options
     o += "    public const string Utf8Policy = \"%s\";" % p.options.utf8

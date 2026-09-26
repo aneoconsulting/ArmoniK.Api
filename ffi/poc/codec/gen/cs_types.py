@@ -17,7 +17,7 @@ facade class carries `UnknownFields`: the raw tag-and-value runs a decoder in RE
 captured, null when there are none. A drop-mode decode leaves it null; an encode writes it
 where the plan says (`unknown_tail`). A map entry has no facade class and so no bag.
 """
-from plan import as_plan
+from plan import as_plan, unknown_compiled_out
 import cs_names as N
 
 BAG = "UnknownFields"
@@ -130,9 +130,11 @@ def emit_types(x, ns):
             o += "    public %s %s;" % (N.oneof_case_type(m.name, oname), N.oneof_case_field(oname))
             for g in members:
                 o += "    public %s %s;" % (field_type(g), N.field(g.name))
-        o += "    /// The unknown-field bag: captured by a RETAIN-mode decode, written back by an"
-        o += "    /// encode after the known fields (plan: unknown_tail). Null when empty."
-        o += "    public byte[] %s;" % BAG
+        if not unknown_compiled_out(p):
+            # R-H22 / CAMPAIGN req 10 (owner 2026-09-26): the NO-UNKNOWN build has no member.
+            o += "    /// The unknown-field bag: captured by a RETAIN-mode decode, written back by an"
+            o += "    /// encode after the known fields (plan: unknown_tail). Null when empty."
+            o += "    public byte[] %s;" % BAG
         o += "}"
         o += ""
     return str(o)
@@ -213,7 +215,8 @@ def emit_eq(x, ns):
                     N.oneof_case_type(m.name, oname), N.pascal(g.name), _eq_expr(g, "a." + gn, "b." + gn))
             o += "            default: break;"
             o += "        }"
-        o += "        if (!Eq.Bytes(a.%s, b.%s)) return false;" % (BAG, BAG)
+        if not unknown_compiled_out(p):
+            o += "        if (!Eq.Bytes(a.%s, b.%s)) return false;" % (BAG, BAG)
         o += "        return true;"
         o += "    }"
     o += "}"
