@@ -1,0 +1,22 @@
+# The campaign machine's parameters (design/CAMPAIGN.md section 2). ffi/campaign.sh
+# sources this file; edit it to run the campaign on another machine. Values already
+# set in the environment win.
+#
+# Reference machine (owner, 2026-09-26): Intel Core i9-7900X, 10 cores / 20 threads,
+# one socket. Linux usually numbers the first thread of each core 0-9 and the SMT
+# siblings 10-19; campaign.sh checks the sibling layout from sysfs, so a different
+# numbering is caught, not silently accepted.
+#
+#   core 0     OS and the runner (with its sibling)
+#   cores 1-4  CLIENT (the measured process)
+#   cores 5-8  SERVER (the RPC server)
+#   core 9     spare
+#
+# With SMT on, the siblings of CLIENT and SERVER cores (11-14, 15-18) are left idle:
+# isolate them with the measured CPUs and do not schedule on them.
+
+AK_MACHINE_NAME="${AK_MACHINE_NAME:-i9-7900X}"
+AK_CPU_CLIENT="${AK_CPU_CLIENT:-1-4}"
+AK_CPU_SERVER="${AK_CPU_SERVER:-5-8}"
+# CAMPAIGN req 4 (R-H34): set sizes are fixed for the whole campaign.
+AK_SET_SIZE="${AK_SET_SIZE:-4}"
