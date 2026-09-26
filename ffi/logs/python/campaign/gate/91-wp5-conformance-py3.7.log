@@ -1,6 +1,6 @@
 # python slice: conformance on _akffi, py3.7
-# date:      2026-09-26T10:18:13Z
-# commit:    31fc3eecf
+# date:      2026-09-26T12:21:33Z
+# commit:    3f2574775
 # phase:     correctness only; nothing here is a timing
 
 # python slice, work unit 2: conformance on the COMPOSED arm (README R2)
@@ -9,7 +9,7 @@
 # manifest:    validated against prost 0.14.4 and a second encoder (W2)
 # shim:        _akffi (_akffi.cpython-37m-x86_64-linux-gnu.so)
 # section 9:   absent
-# core loaded: poc/python/build/cargo-31fc3eecf/plain/release/libak_core.so
+# core loaded: poc/python/build/cargo-3f2574775/plain/release/libak_core.so
 
 ## R1: the generated tree is current with shapes.json
    guard 2 python backend modules import plans only; a planted IR import is caught
@@ -374,7 +374,7 @@ generated tree is current with the plans (18 files)
    core-ffi / plain           undeclared case -> code -11 (want -11); selected None member -> empty body, bytes == upb
 
 ## crossing counts, counting build, BOTH halves (README R5)
-#  shim: _akffi_count; core loaded: poc/python/build/cargo-31fc3eecf/count/release/libak_core.so
+#  shim: _akffi_count; core loaded: poc/python/build/cargo-3f2574775/count/release/libak_core.so
 #  The core counts its own crossings and the shim counts what it does to
 #  CPython. Neither half can count the other's, which is why both are here.
 #  'shim' = calls the shim makes INTO CPython (value reads, list access, attribute
@@ -703,5 +703,567 @@ generated tree is current with the plans (18 files)
    abs P7.1  decode  C ext type             fwd      1 rev      7
    abs P7.1  decode  pyacc (python fn)      fwd      1 rev      7
    abs P7.1  decode  pyacc (C attrgetter)   fwd      1 rev      7
+
+## every ABI call per call (req 19): calls, resets among them, core grows, core fwd/rev
+   abi P1.1                       encode  drop       plain                  calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi P1.1                       encode  drop       __slots__              calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi P1.1                       encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi P1.1                       encode  drop       pyacc (python fn)      calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi P1.1                       encode  drop       pyacc (C attrgetter)   calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi P1.1                       decode  drop       plain                  calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi P1.1                       decode  drop       __slots__              calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi P1.1                       decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi P1.1                       decode  drop       pyacc (python fn)      calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi P1.1                       decode  drop       pyacc (C attrgetter)   calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi P1.1                       encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi P1.1                       decode  retain     C ext type             calls      3 resets   2 grows    0 fwd      1 rev      2
+   abi P1.2                       encode  drop       plain                  calls     10 resets   1 grows    0 fwd      8 rev      1
+   abi P1.2                       encode  drop       __slots__              calls     10 resets   1 grows    0 fwd      8 rev      1
+   abi P1.2                       encode  drop       C ext type             calls     10 resets   1 grows    0 fwd      8 rev      1
+   abi P1.2                       encode  drop       pyacc (python fn)      calls     10 resets   1 grows    0 fwd      8 rev      1
+   abi P1.2                       encode  drop       pyacc (C attrgetter)   calls     10 resets   1 grows    0 fwd      8 rev      1
+   abi P1.2                       decode  drop       plain                  calls      2 resets   1 grows    0 fwd      1 rev      8
+   abi P1.2                       decode  drop       __slots__              calls      2 resets   1 grows    0 fwd      1 rev      8
+   abi P1.2                       decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      8
+   abi P1.2                       decode  drop       pyacc (python fn)      calls      2 resets   1 grows    0 fwd      1 rev      8
+   abi P1.2                       decode  drop       pyacc (C attrgetter)   calls      2 resets   1 grows    0 fwd      1 rev      8
+   abi P1.2                       encode  retain     C ext type             calls     12 resets   1 grows    0 fwd     10 rev      1
+   abi P1.2                       decode  retain     C ext type             calls      3 resets   2 grows    0 fwd      1 rev      8
+   abi P1.3                       encode  drop       plain                  calls      5 resets   1 grows    0 fwd      3 rev      1
+   abi P1.3                       encode  drop       __slots__              calls      5 resets   1 grows    0 fwd      3 rev      1
+   abi P1.3                       encode  drop       C ext type             calls      5 resets   1 grows    0 fwd      3 rev      1
+   abi P1.3                       encode  drop       pyacc (python fn)      calls      5 resets   1 grows    0 fwd      3 rev      1
+   abi P1.3                       encode  drop       pyacc (C attrgetter)   calls      5 resets   1 grows    0 fwd      3 rev      1
+   abi P1.3                       decode  drop       plain                  calls      2 resets   1 grows    0 fwd      1 rev      3
+   abi P1.3                       decode  drop       __slots__              calls      2 resets   1 grows    0 fwd      1 rev      3
+   abi P1.3                       decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      3
+   abi P1.3                       decode  drop       pyacc (python fn)      calls      2 resets   1 grows    0 fwd      1 rev      3
+   abi P1.3                       decode  drop       pyacc (C attrgetter)   calls      2 resets   1 grows    0 fwd      1 rev      3
+   abi P1.3                       encode  retain     C ext type             calls      6 resets   1 grows    0 fwd      4 rev      1
+   abi P1.3                       decode  retain     C ext type             calls      3 resets   2 grows    0 fwd      1 rev      3
+   abi P2.1                       encode  drop       plain                  calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi P2.1                       encode  drop       __slots__              calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi P2.1                       encode  drop       C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi P2.1                       encode  drop       pyacc (python fn)      calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi P2.1                       encode  drop       pyacc (C attrgetter)   calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi P2.1                       decode  drop       plain                  calls      2 resets   1 grows    0 fwd      1 rev      8
+   abi P2.1                       decode  drop       __slots__              calls      2 resets   1 grows    0 fwd      1 rev      8
+   abi P2.1                       decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      8
+   abi P2.1                       decode  drop       pyacc (python fn)      calls      2 resets   1 grows    0 fwd      1 rev      8
+   abi P2.1                       decode  drop       pyacc (C attrgetter)   calls      2 resets   1 grows    0 fwd      1 rev      8
+   abi P2.1                       encode  retain     C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi P2.1                       decode  retain     C ext type             calls      3 resets   2 grows    0 fwd      1 rev      8
+   abi P2.2                       encode  drop       plain                  calls   2513 resets   1 grows    0 fwd   2511 rev   2501
+   abi P2.2                       encode  drop       __slots__              calls   2513 resets   1 grows    0 fwd   2511 rev   2501
+   abi P2.2                       encode  drop       C ext type             calls   2513 resets   1 grows    0 fwd   2511 rev   2501
+   abi P2.2                       encode  drop       pyacc (python fn)      calls   2513 resets   1 grows    0 fwd   2511 rev   2501
+   abi P2.2                       encode  drop       pyacc (C attrgetter)   calls   2513 resets   1 grows    0 fwd   2511 rev   2501
+   abi P2.2                       decode  drop       plain                  calls      2 resets   1 grows    0 fwd      1 rev   3501
+   abi P2.2                       decode  drop       __slots__              calls      2 resets   1 grows    0 fwd      1 rev   3501
+   abi P2.2                       decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev   3501
+   abi P2.2                       decode  drop       pyacc (python fn)      calls      2 resets   1 grows    0 fwd      1 rev   3501
+   abi P2.2                       decode  drop       pyacc (C attrgetter)   calls      2 resets   1 grows    0 fwd      1 rev   3501
+   abi P2.2                       encode  retain     C ext type             calls   2519 resets   1 grows    0 fwd   2517 rev   2501
+   abi P2.2                       decode  retain     C ext type             calls      3 resets   2 grows    0 fwd      1 rev   3501
+   abi P2.3                       encode  drop       plain                  calls    631 resets   1 grows    0 fwd    629 rev    626
+   abi P2.3                       encode  drop       __slots__              calls    631 resets   1 grows    0 fwd    629 rev    626
+   abi P2.3                       encode  drop       C ext type             calls    631 resets   1 grows    0 fwd    629 rev    626
+   abi P2.3                       encode  drop       pyacc (python fn)      calls    631 resets   1 grows    0 fwd    629 rev    626
+   abi P2.3                       encode  drop       pyacc (C attrgetter)   calls    631 resets   1 grows    0 fwd    629 rev    626
+   abi P2.3                       decode  drop       plain                  calls      2 resets   1 grows    0 fwd      1 rev    876
+   abi P2.3                       decode  drop       __slots__              calls      2 resets   1 grows    0 fwd      1 rev    876
+   abi P2.3                       decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev    876
+   abi P2.3                       decode  drop       pyacc (python fn)      calls      2 resets   1 grows    0 fwd      1 rev    876
+   abi P2.3                       decode  drop       pyacc (C attrgetter)   calls      2 resets   1 grows    0 fwd      1 rev    876
+   abi P2.3                       encode  retain     C ext type             calls    632 resets   1 grows    0 fwd    630 rev    626
+   abi P2.3                       decode  retain     C ext type             calls      3 resets   2 grows    0 fwd      1 rev    876
+   abi P2.4                       encode  drop       plain                  calls    405 resets   1 grows    0 fwd    403 rev    401
+   abi P2.4                       encode  drop       __slots__              calls    405 resets   1 grows    0 fwd    403 rev    401
+   abi P2.4                       encode  drop       C ext type             calls    405 resets   1 grows    0 fwd    403 rev    401
+   abi P2.4                       encode  drop       pyacc (python fn)      calls    405 resets   1 grows    0 fwd    403 rev    401
+   abi P2.4                       encode  drop       pyacc (C attrgetter)   calls    405 resets   1 grows    0 fwd    403 rev    401
+   abi P2.4                       decode  drop       plain                  calls      2 resets   1 grows    0 fwd      1 rev    561
+   abi P2.4                       decode  drop       __slots__              calls      2 resets   1 grows    0 fwd      1 rev    561
+   abi P2.4                       decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev    561
+   abi P2.4                       decode  drop       pyacc (python fn)      calls      2 resets   1 grows    0 fwd      1 rev    561
+   abi P2.4                       decode  drop       pyacc (C attrgetter)   calls      2 resets   1 grows    0 fwd      1 rev    561
+   abi P2.4                       encode  retain     C ext type             calls    406 resets   1 grows    0 fwd    404 rev    401
+   abi P2.4                       decode  retain     C ext type             calls      3 resets   2 grows    0 fwd      1 rev    561
+   abi P2.5                       encode  drop       plain                  calls    104 resets   1 grows    0 fwd    102 rev    101
+   abi P2.5                       encode  drop       __slots__              calls    104 resets   1 grows    0 fwd    102 rev    101
+   abi P2.5                       encode  drop       C ext type             calls    104 resets   1 grows    0 fwd    102 rev    101
+   abi P2.5                       encode  drop       pyacc (python fn)      calls    104 resets   1 grows    0 fwd    102 rev    101
+   abi P2.5                       encode  drop       pyacc (C attrgetter)   calls    104 resets   1 grows    0 fwd    102 rev    101
+   abi P2.5                       decode  drop       plain                  calls      2 resets   1 grows    0 fwd      1 rev    141
+   abi P2.5                       decode  drop       __slots__              calls      2 resets   1 grows    0 fwd      1 rev    141
+   abi P2.5                       decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev    141
+   abi P2.5                       decode  drop       pyacc (python fn)      calls      2 resets   1 grows    0 fwd      1 rev    141
+   abi P2.5                       decode  drop       pyacc (C attrgetter)   calls      2 resets   1 grows    0 fwd      1 rev    141
+   abi P2.5                       encode  retain     C ext type             calls    104 resets   1 grows    0 fwd    102 rev    101
+   abi P2.5                       decode  retain     C ext type             calls      3 resets   2 grows    0 fwd      1 rev    141
+   abi P3.1                       encode  drop       plain                  calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi P3.1                       encode  drop       __slots__              calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi P3.1                       encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi P3.1                       encode  drop       pyacc (python fn)      calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi P3.1                       encode  drop       pyacc (C attrgetter)   calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi P3.1                       decode  drop       plain                  calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi P3.1                       decode  drop       __slots__              calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi P3.1                       decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi P3.1                       decode  drop       pyacc (python fn)      calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi P3.1                       decode  drop       pyacc (C attrgetter)   calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi P3.1                       encode  retain     C ext type             calls      5 resets   1 grows    0 fwd      3 rev      1
+   abi P3.1                       decode  retain     C ext type             calls      3 resets   2 grows    0 fwd      1 rev      2
+   abi P4.1                       encode  drop       plain                  calls    205 resets   1 grows    0 fwd    203 rev    201
+   abi P4.1                       encode  drop       __slots__              calls    205 resets   1 grows    0 fwd    203 rev    201
+   abi P4.1                       encode  drop       C ext type             calls    205 resets   1 grows    0 fwd    203 rev    201
+   abi P4.1                       encode  drop       pyacc (python fn)      calls    205 resets   1 grows    0 fwd    203 rev    201
+   abi P4.1                       encode  drop       pyacc (C attrgetter)   calls    205 resets   1 grows    0 fwd    203 rev    201
+   abi P4.1                       decode  drop       plain                  calls      2 resets   1 grows    0 fwd      1 rev    601
+   abi P4.1                       decode  drop       __slots__              calls      2 resets   1 grows    0 fwd      1 rev    601
+   abi P4.1                       decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev    601
+   abi P4.1                       decode  drop       pyacc (python fn)      calls      2 resets   1 grows    0 fwd      1 rev    601
+   abi P4.1                       decode  drop       pyacc (C attrgetter)   calls      2 resets   1 grows    0 fwd      1 rev    601
+   abi P4.1                       encode  retain     C ext type             calls    206 resets   1 grows    0 fwd    204 rev    201
+   abi P4.1                       decode  retain     C ext type             calls      3 resets   2 grows    0 fwd      1 rev    601
+   abi P5.1                       encode  drop       plain                  calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.1                       encode  drop       __slots__              calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.1                       encode  drop       C ext type             calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.1                       encode  drop       pyacc (python fn)      calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.1                       encode  drop       pyacc (C attrgetter)   calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.1                       decode  drop       plain                  calls      2 resets   1 grows    0 fwd      1 rev      1
+   abi P5.1                       decode  drop       __slots__              calls      2 resets   1 grows    0 fwd      1 rev      1
+   abi P5.1                       decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      1
+   abi P5.1                       decode  drop       pyacc (python fn)      calls      2 resets   1 grows    0 fwd      1 rev      1
+   abi P5.1                       decode  drop       pyacc (C attrgetter)   calls      2 resets   1 grows    0 fwd      1 rev      1
+   abi P5.1                       encode  retain     C ext type             calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.1                       decode  retain     C ext type             calls      3 resets   2 grows    0 fwd      1 rev      1
+   abi P5.2                       encode  drop       plain                  calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.2                       encode  drop       __slots__              calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.2                       encode  drop       C ext type             calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.2                       encode  drop       pyacc (python fn)      calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.2                       encode  drop       pyacc (C attrgetter)   calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.2                       decode  drop       plain                  calls      2 resets   1 grows    0 fwd      1 rev      1
+   abi P5.2                       decode  drop       __slots__              calls      2 resets   1 grows    0 fwd      1 rev      1
+   abi P5.2                       decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      1
+   abi P5.2                       decode  drop       pyacc (python fn)      calls      2 resets   1 grows    0 fwd      1 rev      1
+   abi P5.2                       decode  drop       pyacc (C attrgetter)   calls      2 resets   1 grows    0 fwd      1 rev      1
+   abi P5.2                       encode  retain     C ext type             calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.2                       decode  retain     C ext type             calls      3 resets   2 grows    0 fwd      1 rev      1
+   abi P5.3                       encode  drop       plain                  calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.3                       encode  drop       __slots__              calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.3                       encode  drop       C ext type             calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.3                       encode  drop       pyacc (python fn)      calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.3                       encode  drop       pyacc (C attrgetter)   calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.3                       decode  drop       plain                  calls      2 resets   1 grows    0 fwd      1 rev      1
+   abi P5.3                       decode  drop       __slots__              calls      2 resets   1 grows    0 fwd      1 rev      1
+   abi P5.3                       decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      1
+   abi P5.3                       decode  drop       pyacc (python fn)      calls      2 resets   1 grows    0 fwd      1 rev      1
+   abi P5.3                       decode  drop       pyacc (C attrgetter)   calls      2 resets   1 grows    0 fwd      1 rev      1
+   abi P5.3                       encode  retain     C ext type             calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.3                       decode  retain     C ext type             calls      3 resets   2 grows    0 fwd      1 rev      1
+   abi P5.4                       encode  drop       plain                  calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.4                       encode  drop       __slots__              calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.4                       encode  drop       C ext type             calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.4                       encode  drop       pyacc (python fn)      calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.4                       encode  drop       pyacc (C attrgetter)   calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.4                       decode  drop       plain                  calls      2 resets   1 grows    0 fwd      1 rev      1
+   abi P5.4                       decode  drop       __slots__              calls      2 resets   1 grows    0 fwd      1 rev      1
+   abi P5.4                       decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      1
+   abi P5.4                       decode  drop       pyacc (python fn)      calls      2 resets   1 grows    0 fwd      1 rev      1
+   abi P5.4                       decode  drop       pyacc (C attrgetter)   calls      2 resets   1 grows    0 fwd      1 rev      1
+   abi P5.4                       encode  retain     C ext type             calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.4                       decode  retain     C ext type             calls      3 resets   2 grows    0 fwd      1 rev      1
+   abi P6.1                       encode  drop       plain                  calls   1004 resets   1 grows    0 fwd   1002 rev   1001
+   abi P6.1                       encode  drop       __slots__              calls   1004 resets   1 grows    0 fwd   1002 rev   1001
+   abi P6.1                       encode  drop       C ext type             calls   1004 resets   1 grows    0 fwd   1002 rev   1001
+   abi P6.1                       encode  drop       pyacc (python fn)      calls   1004 resets   1 grows    0 fwd   1002 rev   1001
+   abi P6.1                       encode  drop       pyacc (C attrgetter)   calls   1004 resets   1 grows    0 fwd   1002 rev   1001
+   abi P6.1                       decode  drop       plain                  calls      2 resets   1 grows    0 fwd      1 rev   1401
+   abi P6.1                       decode  drop       __slots__              calls      2 resets   1 grows    0 fwd      1 rev   1401
+   abi P6.1                       decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev   1401
+   abi P6.1                       decode  drop       pyacc (python fn)      calls      2 resets   1 grows    0 fwd      1 rev   1401
+   abi P6.1                       decode  drop       pyacc (C attrgetter)   calls      2 resets   1 grows    0 fwd      1 rev   1401
+   abi P6.1                       encode  retain     C ext type             calls   1004 resets   1 grows    0 fwd   1002 rev   1001
+   abi P6.1                       decode  retain     C ext type             calls      3 resets   2 grows    0 fwd      1 rev   1401
+   abi P7.1                       encode  drop       plain                  calls      5 resets   1 grows    0 fwd      3 rev      2
+   abi P7.1                       encode  drop       __slots__              calls      5 resets   1 grows    0 fwd      3 rev      2
+   abi P7.1                       encode  drop       C ext type             calls      5 resets   1 grows    0 fwd      3 rev      2
+   abi P7.1                       encode  drop       pyacc (python fn)      calls      5 resets   1 grows    0 fwd      3 rev      2
+   abi P7.1                       encode  drop       pyacc (C attrgetter)   calls      5 resets   1 grows    0 fwd      3 rev      2
+   abi P7.1                       decode  drop       plain                  calls      2 resets   1 grows    0 fwd      1 rev      7
+   abi P7.1                       decode  drop       __slots__              calls      2 resets   1 grows    0 fwd      1 rev      7
+   abi P7.1                       decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      7
+   abi P7.1                       decode  drop       pyacc (python fn)      calls      2 resets   1 grows    0 fwd      1 rev      7
+   abi P7.1                       decode  drop       pyacc (C attrgetter)   calls      2 resets   1 grows    0 fwd      1 rev      7
+   abi P7.1                       encode  retain     C ext type             calls      5 resets   1 grows    0 fwd      3 rev      2
+   abi P7.1                       decode  retain     C ext type             calls      3 resets   2 grows    0 fwd      1 rev      7
+   abi U-deep-all                 encode  drop       C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-deep-all                 decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      8
+   abi U-deep-all                 encode  retain     C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-deep-all                 decode  retain     C ext type             calls      3 resets   2 grows    8 fwd      1 rev     16
+   abi U-deep-u-fixed32           encode  drop       C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-deep-u-fixed32           decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      8
+   abi U-deep-u-fixed32           encode  retain     C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-deep-u-fixed32           decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      9
+   abi U-deep-u-fixed64           encode  drop       C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-deep-u-fixed64           decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      8
+   abi U-deep-u-fixed64           encode  retain     C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-deep-u-fixed64           decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      9
+   abi U-deep-u-len               encode  drop       C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-deep-u-len               decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      8
+   abi U-deep-u-len               encode  retain     C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-deep-u-len               decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      9
+   abi U-deep-u-msg               encode  drop       C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-deep-u-msg               decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      8
+   abi U-deep-u-msg               encode  retain     C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-deep-u-msg               decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      9
+   abi U-deep-u-packed            encode  drop       C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-deep-u-packed            decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      8
+   abi U-deep-u-packed            encode  retain     C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-deep-u-packed            decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      9
+   abi U-deep-u-repeated          encode  drop       C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-deep-u-repeated          decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      8
+   abi U-deep-u-repeated          encode  retain     C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-deep-u-repeated          decode  retain     C ext type             calls      3 resets   2 grows    2 fwd      1 rev     10
+   abi U-deep-u-varint            encode  drop       C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-deep-u-varint            decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      8
+   abi U-deep-u-varint            encode  retain     C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-deep-u-varint            decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      9
+   abi U-element-all              encode  drop       C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-element-all              decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      8
+   abi U-element-all              encode  retain     C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-element-all              decode  retain     C ext type             calls      3 resets   2 grows    8 fwd      1 rev     16
+   abi U-element-u-fixed32        encode  drop       C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-element-u-fixed32        decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      8
+   abi U-element-u-fixed32        encode  retain     C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-element-u-fixed32        decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      9
+   abi U-element-u-fixed64        encode  drop       C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-element-u-fixed64        decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      8
+   abi U-element-u-fixed64        encode  retain     C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-element-u-fixed64        decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      9
+   abi U-element-u-len            encode  drop       C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-element-u-len            decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      8
+   abi U-element-u-len            encode  retain     C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-element-u-len            decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      9
+   abi U-element-u-msg            encode  drop       C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-element-u-msg            decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      8
+   abi U-element-u-msg            encode  retain     C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-element-u-msg            decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      9
+   abi U-element-u-packed         encode  drop       C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-element-u-packed         decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      8
+   abi U-element-u-packed         encode  retain     C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-element-u-packed         decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      9
+   abi U-element-u-repeated       encode  drop       C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-element-u-repeated       decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      8
+   abi U-element-u-repeated       encode  retain     C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-element-u-repeated       decode  retain     C ext type             calls      3 resets   2 grows    2 fwd      1 rev     10
+   abi U-element-u-varint         encode  drop       C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-element-u-varint         decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      8
+   abi U-element-u-varint         encode  retain     C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-element-u-varint         decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      9
+   abi U-enum-value-127           encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-enum-value-127           decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-enum-value-127           encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-enum-value-127           decode  retain     C ext type             calls      3 resets   2 grows    0 fwd      1 rev      2
+   abi U-enum-value-2147483647    encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-enum-value-2147483647    decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-enum-value-2147483647    encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-enum-value-2147483647    decode  retain     C ext type             calls      3 resets   2 grows    0 fwd      1 rev      2
+   abi U-enum-value-999           encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-enum-value-999           decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-enum-value-999           encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-enum-value-999           decode  retain     C ext type             calls      3 resets   2 grows    0 fwd      1 rev      2
+   abi U-enum-value-packed        encode  drop       C ext type             calls      5 resets   1 grows    0 fwd      3 rev      6
+   abi U-enum-value-packed        decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      4
+   abi U-enum-value-packed        encode  retain     C ext type             calls      5 resets   1 grows    0 fwd      3 rev      6
+   abi U-enum-value-packed        decode  retain     C ext type             calls      3 resets   2 grows    0 fwd      1 rev      4
+   abi U-leaf-all                 encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-leaf-all                 decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-leaf-all                 encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-leaf-all                 decode  retain     C ext type             calls      3 resets   2 grows   16 fwd      1 rev     18
+   abi U-leaf-u-fixed32           encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-leaf-u-fixed32           decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-leaf-u-fixed32           encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-leaf-u-fixed32           decode  retain     C ext type             calls      3 resets   2 grows    2 fwd      1 rev      4
+   abi U-leaf-u-fixed64           encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-leaf-u-fixed64           decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-leaf-u-fixed64           encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-leaf-u-fixed64           decode  retain     C ext type             calls      3 resets   2 grows    2 fwd      1 rev      4
+   abi U-leaf-u-len               encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-leaf-u-len               decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-leaf-u-len               encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-leaf-u-len               decode  retain     C ext type             calls      3 resets   2 grows    2 fwd      1 rev      4
+   abi U-leaf-u-msg               encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-leaf-u-msg               decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-leaf-u-msg               encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-leaf-u-msg               decode  retain     C ext type             calls      3 resets   2 grows    2 fwd      1 rev      4
+   abi U-leaf-u-packed            encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-leaf-u-packed            decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-leaf-u-packed            encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-leaf-u-packed            decode  retain     C ext type             calls      3 resets   2 grows    2 fwd      1 rev      4
+   abi U-leaf-u-repeated          encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-leaf-u-repeated          decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-leaf-u-repeated          encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-leaf-u-repeated          decode  retain     C ext type             calls      3 resets   2 grows    4 fwd      1 rev      6
+   abi U-leaf-u-varint            encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-leaf-u-varint            decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-leaf-u-varint            encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-leaf-u-varint            decode  retain     C ext type             calls      3 resets   2 grows    2 fwd      1 rev      4
+   abi U-nested-all               encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-nested-all               decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-nested-all               encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-nested-all               decode  retain     C ext type             calls      3 resets   2 grows    8 fwd      1 rev     10
+   abi U-nested-before            encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-nested-before            decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-nested-before            encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-nested-before            decode  retain     C ext type             calls      3 resets   2 grows    8 fwd      1 rev     10
+   abi U-nested-group             encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-nested-group             decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-nested-group             encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-nested-group             decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      3
+   abi U-nested-interleaved       encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-nested-interleaved       decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-nested-interleaved       encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-nested-interleaved       decode  retain     C ext type             calls      3 resets   2 grows    8 fwd      1 rev     10
+   abi U-nested-u-fixed32         encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-nested-u-fixed32         decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-nested-u-fixed32         encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-nested-u-fixed32         decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      3
+   abi U-nested-u-fixed64         encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-nested-u-fixed64         decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-nested-u-fixed64         encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-nested-u-fixed64         decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      3
+   abi U-nested-u-len             encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-nested-u-len             decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-nested-u-len             encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-nested-u-len             decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      3
+   abi U-nested-u-msg             encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-nested-u-msg             decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-nested-u-msg             encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-nested-u-msg             decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      3
+   abi U-nested-u-packed          encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-nested-u-packed          decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-nested-u-packed          encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-nested-u-packed          decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      3
+   abi U-nested-u-repeated        encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-nested-u-repeated        decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-nested-u-repeated        encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-nested-u-repeated        decode  retain     C ext type             calls      3 resets   2 grows    2 fwd      1 rev      4
+   abi U-nested-u-varint          encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-nested-u-varint          decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-nested-u-varint          encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-nested-u-varint          decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      3
+   abi U-oneof-all                encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-all                decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-oneof-all                encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-all                decode  retain     C ext type             calls      3 resets   2 grows    8 fwd      1 rev     10
+   abi U-oneof-before             encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-before             decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-oneof-before             encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-before             decode  retain     C ext type             calls      3 resets   2 grows    8 fwd      1 rev     10
+   abi U-oneof-group              encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-group              decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-oneof-group              encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-group              decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      3
+   abi U-oneof-interleaved        encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-interleaved        decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-oneof-interleaved        encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-interleaved        decode  retain     C ext type             calls      3 resets   2 grows    8 fwd      1 rev     10
+   abi U-oneof-member-after-known encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-member-after-known decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-oneof-member-after-known encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-member-after-known decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      3
+   abi U-oneof-member-alone       encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-member-alone       decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-oneof-member-alone       encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-member-alone       decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      3
+   abi U-oneof-member-before-known encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-member-before-known decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-oneof-member-before-known encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-member-before-known decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      3
+   abi U-oneof-u-fixed32          encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-u-fixed32          decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-oneof-u-fixed32          encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-u-fixed32          decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      3
+   abi U-oneof-u-fixed64          encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-u-fixed64          decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-oneof-u-fixed64          encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-u-fixed64          decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      3
+   abi U-oneof-u-len              encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-u-len              decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-oneof-u-len              encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-u-len              decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      3
+   abi U-oneof-u-msg              encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-u-msg              decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-oneof-u-msg              encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-u-msg              decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      3
+   abi U-oneof-u-packed           encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-u-packed           decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-oneof-u-packed           encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-u-packed           decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      3
+   abi U-oneof-u-repeated         encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-u-repeated         decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-oneof-u-repeated         encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-u-repeated         decode  retain     C ext type             calls      3 resets   2 grows    2 fwd      1 rev      4
+   abi U-oneof-u-varint           encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-u-varint           decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-oneof-u-varint           encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-u-varint           decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      3
+   abi U-root-all                 encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-root-all                 decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-root-all                 encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-root-all                 decode  retain     C ext type             calls      3 resets   2 grows    8 fwd      1 rev     10
+   abi U-root-before              encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-root-before              decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-root-before              encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-root-before              decode  retain     C ext type             calls      3 resets   2 grows    8 fwd      1 rev     10
+   abi U-root-group               encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-root-group               decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-root-group               encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-root-group               decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      3
+   abi U-root-interleaved         encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-root-interleaved         decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-root-interleaved         encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-root-interleaved         decode  retain     C ext type             calls      3 resets   2 grows    8 fwd      1 rev     10
+   abi U-root-max-tag             encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-root-max-tag             decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-root-max-tag             encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-root-max-tag             decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      3
+   abi U-root-u-fixed32           encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-root-u-fixed32           decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-root-u-fixed32           encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-root-u-fixed32           decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      3
+   abi U-root-u-fixed64           encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-root-u-fixed64           decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-root-u-fixed64           encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-root-u-fixed64           decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      3
+   abi U-root-u-len               encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-root-u-len               decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-root-u-len               encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-root-u-len               decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      3
+   abi U-root-u-msg               encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-root-u-msg               decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-root-u-msg               encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-root-u-msg               decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      3
+   abi U-root-u-packed            encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-root-u-packed            decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-root-u-packed            encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-root-u-packed            decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      3
+   abi U-root-u-repeated          encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-root-u-repeated          decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-root-u-repeated          encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-root-u-repeated          decode  retain     C ext type             calls      3 resets   2 grows    2 fwd      1 rev      4
+   abi U-root-u-varint            encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-root-u-varint            decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-root-u-varint            encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-root-u-varint            decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      3
+   abi U-wire-DualResponse-left-as-wt0 encode  drop       C ext type             calls      5 resets   1 grows    0 fwd      3 rev      2
+   abi U-wire-DualResponse-left-as-wt0 decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      3
+   abi U-wire-DualResponse-left-as-wt0 encode  retain     C ext type             calls      5 resets   1 grows    0 fwd      3 rev      2
+   abi U-wire-DualResponse-left-as-wt0 decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      4
+   abi U-wire-DualResponse-left-as-wt1 encode  drop       C ext type             calls      5 resets   1 grows    0 fwd      3 rev      2
+   abi U-wire-DualResponse-left-as-wt1 decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      3
+   abi U-wire-DualResponse-left-as-wt1 encode  retain     C ext type             calls      5 resets   1 grows    0 fwd      3 rev      2
+   abi U-wire-DualResponse-left-as-wt1 decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      4
+   abi U-wire-DualResponse-left-as-wt5 encode  drop       C ext type             calls      5 resets   1 grows    0 fwd      3 rev      2
+   abi U-wire-DualResponse-left-as-wt5 decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      3
+   abi U-wire-DualResponse-left-as-wt5 encode  retain     C ext type             calls      5 resets   1 grows    0 fwd      3 rev      2
+   abi U-wire-DualResponse-left-as-wt5 decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      4
+   abi U-wire-ListMetricsResponse-batches-as-wt0 encode  drop       C ext type             calls     14 resets   1 grows    0 fwd     12 rev     11
+   abi U-wire-ListMetricsResponse-batches-as-wt0 decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev     15
+   abi U-wire-ListMetricsResponse-batches-as-wt0 encode  retain     C ext type             calls     14 resets   1 grows    0 fwd     12 rev     11
+   abi U-wire-ListMetricsResponse-batches-as-wt0 decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev     16
+   abi U-wire-ListMetricsResponse-batches-as-wt1 encode  drop       C ext type             calls     14 resets   1 grows    0 fwd     12 rev     11
+   abi U-wire-ListMetricsResponse-batches-as-wt1 decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev     15
+   abi U-wire-ListMetricsResponse-batches-as-wt1 encode  retain     C ext type             calls     14 resets   1 grows    0 fwd     12 rev     11
+   abi U-wire-ListMetricsResponse-batches-as-wt1 decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev     16
+   abi U-wire-ListMetricsResponse-batches-as-wt5 encode  drop       C ext type             calls     14 resets   1 grows    0 fwd     12 rev     11
+   abi U-wire-ListMetricsResponse-batches-as-wt5 decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev     15
+   abi U-wire-ListMetricsResponse-batches-as-wt5 encode  retain     C ext type             calls     14 resets   1 grows    0 fwd     12 rev     11
+   abi U-wire-ListMetricsResponse-batches-as-wt5 decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev     16
+   abi U-wire-ListProbeResponse-probes-as-wt0 encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-wire-ListProbeResponse-probes-as-wt0 decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-wire-ListProbeResponse-probes-as-wt0 encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-wire-ListProbeResponse-probes-as-wt0 decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      3
+   abi U-wire-ListProbeResponse-probes-as-wt1 encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-wire-ListProbeResponse-probes-as-wt1 decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-wire-ListProbeResponse-probes-as-wt1 encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-wire-ListProbeResponse-probes-as-wt1 decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      3
+   abi U-wire-ListProbeResponse-probes-as-wt5 encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-wire-ListProbeResponse-probes-as-wt5 decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-wire-ListProbeResponse-probes-as-wt5 encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-wire-ListProbeResponse-probes-as-wt5 decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      3
+   abi U-wire-ListResultsResponse-page-as-wt1 encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-wire-ListResultsResponse-page-as-wt1 decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-wire-ListResultsResponse-page-as-wt1 encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-wire-ListResultsResponse-page-as-wt1 decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      3
+   abi U-wire-ListResultsResponse-page-as-wt2 encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-wire-ListResultsResponse-page-as-wt2 decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-wire-ListResultsResponse-page-as-wt2 encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-wire-ListResultsResponse-page-as-wt2 decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      3
+   abi U-wire-ListResultsResponse-page-as-wt5 encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-wire-ListResultsResponse-page-as-wt5 decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-wire-ListResultsResponse-page-as-wt5 encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-wire-ListResultsResponse-page-as-wt5 decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      3
+   abi U-wire-ListResultsResponse-results-as-wt0 encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-wire-ListResultsResponse-results-as-wt0 decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-wire-ListResultsResponse-results-as-wt0 encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-wire-ListResultsResponse-results-as-wt0 decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      3
+   abi U-wire-ListResultsResponse-results-as-wt1 encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-wire-ListResultsResponse-results-as-wt1 decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-wire-ListResultsResponse-results-as-wt1 encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-wire-ListResultsResponse-results-as-wt1 decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      3
+   abi U-wire-ListResultsResponse-results-as-wt5 encode  drop       C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-wire-ListResultsResponse-results-as-wt5 decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      2
+   abi U-wire-ListResultsResponse-results-as-wt5 encode  retain     C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-wire-ListResultsResponse-results-as-wt5 decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      3
+   abi U-wire-ListTaskSummaryResponse-tasks-as-wt0 encode  drop       C ext type             calls      6 resets   1 grows    0 fwd      4 rev      3
+   abi U-wire-ListTaskSummaryResponse-tasks-as-wt0 decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      7
+   abi U-wire-ListTaskSummaryResponse-tasks-as-wt0 encode  retain     C ext type             calls      6 resets   1 grows    0 fwd      4 rev      3
+   abi U-wire-ListTaskSummaryResponse-tasks-as-wt0 decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      8
+   abi U-wire-ListTaskSummaryResponse-tasks-as-wt1 encode  drop       C ext type             calls      6 resets   1 grows    0 fwd      4 rev      3
+   abi U-wire-ListTaskSummaryResponse-tasks-as-wt1 decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      7
+   abi U-wire-ListTaskSummaryResponse-tasks-as-wt1 encode  retain     C ext type             calls      6 resets   1 grows    0 fwd      4 rev      3
+   abi U-wire-ListTaskSummaryResponse-tasks-as-wt1 decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      8
+   abi U-wire-ListTaskSummaryResponse-tasks-as-wt5 encode  drop       C ext type             calls      6 resets   1 grows    0 fwd      4 rev      3
+   abi U-wire-ListTaskSummaryResponse-tasks-as-wt5 decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      7
+   abi U-wire-ListTaskSummaryResponse-tasks-as-wt5 encode  retain     C ext type             calls      6 resets   1 grows    0 fwd      4 rev      3
+   abi U-wire-ListTaskSummaryResponse-tasks-as-wt5 decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      8
+   abi U-wire-ListTasksDetailedResponse-page-as-wt1 encode  drop       C ext type             calls     14 resets   1 grows    0 fwd     12 rev     11
+   abi U-wire-ListTasksDetailedResponse-page-as-wt1 decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev     15
+   abi U-wire-ListTasksDetailedResponse-page-as-wt1 encode  retain     C ext type             calls     14 resets   1 grows    0 fwd     12 rev     11
+   abi U-wire-ListTasksDetailedResponse-page-as-wt1 decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev     16
+   abi U-wire-ListTasksDetailedResponse-page-as-wt2 encode  drop       C ext type             calls     14 resets   1 grows    0 fwd     12 rev     11
+   abi U-wire-ListTasksDetailedResponse-page-as-wt2 decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev     15
+   abi U-wire-ListTasksDetailedResponse-page-as-wt2 encode  retain     C ext type             calls     14 resets   1 grows    0 fwd     12 rev     11
+   abi U-wire-ListTasksDetailedResponse-page-as-wt2 decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev     16
+   abi U-wire-ListTasksDetailedResponse-page-as-wt5 encode  drop       C ext type             calls     14 resets   1 grows    0 fwd     12 rev     11
+   abi U-wire-ListTasksDetailedResponse-page-as-wt5 decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev     15
+   abi U-wire-ListTasksDetailedResponse-page-as-wt5 encode  retain     C ext type             calls     14 resets   1 grows    0 fwd     12 rev     11
+   abi U-wire-ListTasksDetailedResponse-page-as-wt5 decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev     16
+   abi U-wire-ListTasksDetailedResponse-tasks-as-wt0 encode  drop       C ext type             calls     14 resets   1 grows    0 fwd     12 rev     11
+   abi U-wire-ListTasksDetailedResponse-tasks-as-wt0 decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev     15
+   abi U-wire-ListTasksDetailedResponse-tasks-as-wt0 encode  retain     C ext type             calls     14 resets   1 grows    0 fwd     12 rev     11
+   abi U-wire-ListTasksDetailedResponse-tasks-as-wt0 decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev     16
+   abi U-wire-ListTasksDetailedResponse-tasks-as-wt1 encode  drop       C ext type             calls     14 resets   1 grows    0 fwd     12 rev     11
+   abi U-wire-ListTasksDetailedResponse-tasks-as-wt1 decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev     15
+   abi U-wire-ListTasksDetailedResponse-tasks-as-wt1 encode  retain     C ext type             calls     14 resets   1 grows    0 fwd     12 rev     11
+   abi U-wire-ListTasksDetailedResponse-tasks-as-wt1 decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev     16
+   abi U-wire-ListTasksDetailedResponse-tasks-as-wt5 encode  drop       C ext type             calls     14 resets   1 grows    0 fwd     12 rev     11
+   abi U-wire-ListTasksDetailedResponse-tasks-as-wt5 decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev     15
+   abi U-wire-ListTasksDetailedResponse-tasks-as-wt5 encode  retain     C ext type             calls     14 resets   1 grows    0 fwd     12 rev     11
+   abi U-wire-ListTasksDetailedResponse-tasks-as-wt5 decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev     16
+   abi U-wire-UploadResultDataMessage-upload-as-wt0 encode  drop       C ext type             calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi U-wire-UploadResultDataMessage-upload-as-wt0 decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      1
+   abi U-wire-UploadResultDataMessage-upload-as-wt0 encode  retain     C ext type             calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi U-wire-UploadResultDataMessage-upload-as-wt0 decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      2
+   abi U-wire-UploadResultDataMessage-upload-as-wt1 encode  drop       C ext type             calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi U-wire-UploadResultDataMessage-upload-as-wt1 decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      1
+   abi U-wire-UploadResultDataMessage-upload-as-wt1 encode  retain     C ext type             calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi U-wire-UploadResultDataMessage-upload-as-wt1 decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      2
+   abi U-wire-UploadResultDataMessage-upload-as-wt5 encode  drop       C ext type             calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi U-wire-UploadResultDataMessage-upload-as-wt5 decode  drop       C ext type             calls      2 resets   1 grows    0 fwd      1 rev      1
+   abi U-wire-UploadResultDataMessage-upload-as-wt5 encode  retain     C ext type             calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi U-wire-UploadResultDataMessage-upload-as-wt5 decode  retain     C ext type             calls      3 resets   2 grows    1 fwd      1 rev      2
 
 ALL CHECKS PASS

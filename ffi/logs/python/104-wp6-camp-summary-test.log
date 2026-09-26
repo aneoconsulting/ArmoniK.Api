@@ -1,6 +1,6 @@
 # python slice: camp_summary's test, two builds whose incumbents differ (R-H1, R-H24)
-# date:      2026-09-26T10:03:47Z
-# commit:    31fc3eecf
+# date:      2026-09-26T11:59:23Z
+# commit:    3f2574775
 # phase:     correctness only; nothing here is a timing
 
    codec full  core-ffi ratios per launch [[2.0, 2.0]] (want [[2.0, 2.0]]): ok
