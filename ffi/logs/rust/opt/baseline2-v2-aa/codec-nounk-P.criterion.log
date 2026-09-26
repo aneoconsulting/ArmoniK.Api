@@ -1,0 +1,1877 @@
+# rust slice OPTIMISATION BENCHMARK (gen/opt_bench.sh), suite codec, core variant nounk
+# CONTAINER INSTRUMENTATION: not a campaign result (CAMPAIGN.md section 2), not gated by gen/gate.sh (the gate runs at the end of the experiment); the codec process's own byte-identity pre-check is on
+# commit     b5afc9f   tree-id c28a2012b3ba8f54
+# date       2026-09-26T11:45:44Z
+# machine    Intel(R) Xeon(R) Processor @ 2.10GHz; 4 CPUs online; kernel 6.18.44-fc-v37
+# smt        active=0 control=notsupported
+# governor   n/a
+# turbo      intel_pstate/no_turbo=n/a cpufreq/boost=n/a
+# isolation  cmdline: cgroup: n/a
+# cpu sets   CLIENT=1 SERVER=2,3 OS=the rest
+# runtime    rustc 1.94.1 (e408947bf 2026-03-25); cargo 1.94.1 (29ea6fb6a 2026-03-24)
+# incumbent  prost 0.14.4, tonic 0.14.6, tonic-prost 0.14.6; criterion 0.5.1
+# build      cargo --release (opt-level 3, lto off, codegen-units default), core ak-core as a cdylib linked through the dynamic linker, core features rpc,init-guard WITHOUT unknown-fields (the no-unknown variant, target-nounk/); harness guard on; transcoder ak_tc_utf8_trusted (a Rust String is UTF-8)
+# repeats    launches=1 (launch number 1)
+# settings   harness v2; codec order=shuffle seed=1 criterion_resamples=1000; codec P(P*): samples=20 warmup_iters=100 warmup_ms=50 measure_ms=200 decode-nodrop extra rows on P1.2,P2.2,P4.1,P6.1; codec U(U-*): samples=20 warmup_iters=20 warmup_ms=10 measure_ms=60; calib rounds=5 iters=20000000; rpc order=interleave rounds=12 calls=32 warmup=16; launch=1
+# this file  AK_ONLY=P AK_SAMPLES=20 AK_WARMUP_ITERS=100 AK_WARMUP_MS=50 AK_MEASURE_MS=200 AK_LAUNCH=1 AK_ORDER=shuffle AK_SEED=1 AK_NRESAMPLES=1000 AK_NODROP=P1.2,P2.2,P4.1,P6.1
+# criterion's console output (its own summary; the samples are in codec-nounk-P.jsonl)
+# precheck: 152 checks, 0 failures, 20 inputs, 292 cases
+
+Warning: It is not recommended to reduce nresamples below 1000.
+Benchmarking codec/00131
+Benchmarking codec/00131: Warming up for 50.000 ms
+Benchmarking codec/00131: Collecting 20 samples in estimated 226.03 ms (100 iterations)
+Benchmarking codec/00131: Analyzing
+codec/00131             time:   [2240447 ns (thread CPU) 2268133 ns (thread CPU) 2304496 ns (thread CPU)]
+Found 2 outliers among 20 measurements (10.00%)
+  1 (5.00%) high mild
+  1 (5.00%) high severe
+Benchmarking codec/00000
+Benchmarking codec/00000: Warming up for 50.000 ms
+Benchmarking codec/00000: Collecting 20 samples in estimated 200.02 ms (177k iterations)
+Benchmarking codec/00000: Analyzing
+codec/00000             time:   [1132.4 ns (thread CPU) 1137.9 ns (thread CPU) 1144.0 ns (thread CPU)]
+Benchmarking codec/00275
+Benchmarking codec/00275: Warming up for 50.000 ms
+Benchmarking codec/00275: Collecting 20 samples in estimated 203.06 ms (880 iterations)
+Benchmarking codec/00275: Analyzing
+codec/00275             time:   [191952 ns (thread CPU) 197986 ns (thread CPU) 204223 ns (thread CPU)]
+Found 2 outliers among 20 measurements (10.00%)
+  1 (5.00%) high mild
+  1 (5.00%) high severe
+Benchmarking codec/00288
+Benchmarking codec/00288: Warming up for 50.000 ms
+Benchmarking codec/00288: Collecting 20 samples in estimated 200.00 ms (710k iterations)
+Benchmarking codec/00288: Analyzing
+codec/00288             time:   [273.07 ns (thread CPU) 273.97 ns (thread CPU) 274.95 ns (thread CPU)]
+Benchmarking codec/00012
+Benchmarking codec/00012: Warming up for 50.000 ms
+Benchmarking codec/00012: Collecting 20 samples in estimated 200.01 ms (147k iterations)
+Benchmarking codec/00012: Analyzing
+codec/00012             time:   [1361.5 ns (thread CPU) 1366.4 ns (thread CPU) 1371.8 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+Benchmarking codec/00184
+Benchmarking codec/00184: Warming up for 50.000 ms
+Benchmarking codec/00184: Collecting 20 samples in estimated 200.35 ms (5460 iterations)
+Benchmarking codec/00184: Analyzing
+codec/00184             time:   [ 33138 ns (thread CPU)  33544 ns (thread CPU)  34050 ns (thread CPU)]
+Found 2 outliers among 20 measurements (10.00%)
+  1 (5.00%) high mild
+  1 (5.00%) high severe
+Benchmarking codec/00220
+Benchmarking codec/00220: Warming up for 50.000 ms
+Benchmarking codec/00220: Collecting 20 samples in estimated 200.00 ms (1.3M iterations)
+Benchmarking codec/00220: Analyzing
+codec/00220             time:   [130.83 ns (thread CPU) 133.02 ns (thread CPU) 135.49 ns (thread CPU)]
+Benchmarking codec/00056
+Benchmarking codec/00056: Warming up for 50.000 ms
+Benchmarking codec/00056: Collecting 20 samples in estimated 200.74 ms (280 iterations)
+Benchmarking codec/00056: Analyzing
+codec/00056             time:   [709047 ns (thread CPU) 717814 ns (thread CPU) 728508 ns (thread CPU)]
+Found 2 outliers among 20 measurements (10.00%)
+  1 (5.00%) high mild
+  1 (5.00%) high severe
+Benchmarking codec/00155
+Benchmarking codec/00155: Warming up for 50.000 ms
+Benchmarking codec/00155: Collecting 20 samples in estimated 223.70 ms (100 iterations)
+Benchmarking codec/00155: Analyzing
+codec/00155             time:   [2083933 ns (thread CPU) 2104655 ns (thread CPU) 2126017 ns (thread CPU)]
+Found 3 outliers among 20 measurements (15.00%)
+  2 (10.00%) high mild
+  1 (5.00%) high severe
+Benchmarking codec/00052
+Benchmarking codec/00052: Warming up for 50.000 ms
+Benchmarking codec/00052: Collecting 20 samples in estimated 206.38 ms (340 iterations)
+Benchmarking codec/00052: Analyzing
+codec/00052             time:   [598123 ns (thread CPU) 600469 ns (thread CPU) 603035 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+Benchmarking codec/00111
+Benchmarking codec/00111: Warming up for 50.000 ms
+Benchmarking codec/00111: Collecting 20 samples in estimated 204.79 ms (100 iterations)
+Benchmarking codec/00111: Analyzing
+codec/00111             time:   [2046696 ns (thread CPU) 2059921 ns (thread CPU) 2076641 ns (thread CPU)]
+Found 2 outliers among 20 measurements (10.00%)
+  1 (5.00%) high mild
+  1 (5.00%) high severe
+Benchmarking codec/00272
+Benchmarking codec/00272: Warming up for 50.000 ms
+Benchmarking codec/00272: Collecting 20 samples in estimated 202.95 ms (1220 iterations)
+Benchmarking codec/00272: Analyzing
+codec/00272             time:   [164035 ns (thread CPU) 164791 ns (thread CPU) 165533 ns (thread CPU)]
+Benchmarking codec/00007
+Benchmarking codec/00007: Warming up for 50.000 ms
+Benchmarking codec/00007: Collecting 20 samples in estimated 200.00 ms (113k iterations)
+Benchmarking codec/00007: Analyzing
+codec/00007             time:   [1652.0 ns (thread CPU) 1655.7 ns (thread CPU) 1660.4 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+Benchmarking codec/00261
+Benchmarking codec/00261: Warming up for 50.000 ms
+Benchmarking codec/00261: Collecting 20 samples in estimated 202.47 ms (540 iterations)
+Benchmarking codec/00261: Analyzing
+codec/00261             time:   [362770 ns (thread CPU) 365188 ns (thread CPU) 367905 ns (thread CPU)]
+Benchmarking codec/00218
+Benchmarking codec/00218: Warming up for 50.000 ms
+Benchmarking codec/00218: Collecting 20 samples in estimated 200.00 ms (2.1M iterations)
+Benchmarking codec/00218: Analyzing
+codec/00218             time:   [92.104 ns (thread CPU) 92.846 ns (thread CPU) 93.735 ns (thread CPU)]
+Found 3 outliers among 20 measurements (15.00%)
+  3 (15.00%) high severe
+Benchmarking codec/00055
+Benchmarking codec/00055: Warming up for 50.000 ms
+Benchmarking codec/00055: Collecting 20 samples in estimated 205.02 ms (280 iterations)
+Benchmarking codec/00055: Analyzing
+codec/00055             time:   [722008 ns (thread CPU) 723770 ns (thread CPU) 725805 ns (thread CPU)]
+Benchmarking codec/00158
+Benchmarking codec/00158: Warming up for 50.000 ms
+Benchmarking codec/00158: Collecting 20 samples in estimated 224.05 ms (120 iterations)
+Benchmarking codec/00158: Analyzing
+codec/00158             time:   [1754959 ns (thread CPU) 1780732 ns (thread CPU) 1813338 ns (thread CPU)]
+Found 2 outliers among 20 measurements (10.00%)
+  1 (5.00%) high mild
+  1 (5.00%) high severe
+Benchmarking codec/00109
+Benchmarking codec/00109: Warming up for 50.000 ms
+Benchmarking codec/00109: Collecting 20 samples in estimated 207.16 ms (460 iterations)
+Benchmarking codec/00109: Analyzing
+codec/00109             time:   [387785 ns (thread CPU) 391342 ns (thread CPU) 396138 ns (thread CPU)]
+Found 3 outliers among 20 measurements (15.00%)
+  1 (5.00%) high mild
+  2 (10.00%) high severe
+Benchmarking codec/00211
+Benchmarking codec/00211: Warming up for 50.000 ms
+Benchmarking codec/00211: Collecting 20 samples in estimated 200.00 ms (5.7M iterations)
+Benchmarking codec/00211: Analyzing
+codec/00211             time:   [34.186 ns (thread CPU) 34.901 ns (thread CPU) 35.811 ns (thread CPU)]
+Found 2 outliers among 20 measurements (10.00%)
+  1 (5.00%) high mild
+  1 (5.00%) high severe
+Benchmarking codec/00058
+Benchmarking codec/00058: Warming up for 50.000 ms
+Benchmarking codec/00058: Collecting 20 samples in estimated 215.85 ms (220 iterations)
+Benchmarking codec/00058: Analyzing
+codec/00058             time:   [966323 ns (thread CPU) 978154 ns (thread CPU) 991475 ns (thread CPU)]
+Found 3 outliers among 20 measurements (15.00%)
+  2 (10.00%) high mild
+  1 (5.00%) high severe
+Benchmarking codec/00038
+Benchmarking codec/00038: Warming up for 50.000 ms
+Benchmarking codec/00038: Collecting 20 samples in estimated 208.70 ms (460 iterations)
+Benchmarking codec/00038: Analyzing
+codec/00038             time:   [471128 ns (thread CPU) 482063 ns (thread CPU) 492749 ns (thread CPU)]
+Benchmarking codec/00242
+Benchmarking codec/00242: Warming up for 50.000 ms
+Benchmarking codec/00242: Collecting 20 samples in estimated 200.64 ms (4660 iterations)
+Benchmarking codec/00242: Analyzing
+codec/00242             time:   [ 39118 ns (thread CPU)  40034 ns (thread CPU)  41037 ns (thread CPU)]
+Benchmarking codec/00188
+Benchmarking codec/00188: Warming up for 50.000 ms
+Benchmarking codec/00188: Collecting 20 samples in estimated 200.68 ms (5220 iterations)
+Benchmarking codec/00188: Analyzing
+codec/00188             time:   [ 34380 ns (thread CPU)  34651 ns (thread CPU)  34928 ns (thread CPU)]
+Benchmarking codec/00060
+Benchmarking codec/00060: Warming up for 50.000 ms
+Benchmarking codec/00060: Collecting 20 samples in estimated 200.10 ms (33k iterations)
+Benchmarking codec/00060: Analyzing
+codec/00060             time:   [5689.2 ns (thread CPU) 5707.1 ns (thread CPU) 5725.0 ns (thread CPU)]
+Benchmarking codec/00143
+Benchmarking codec/00143: Warming up for 50.000 ms
+Benchmarking codec/00143: Collecting 20 samples in estimated 203.15 ms (160 iterations)
+Benchmarking codec/00143: Analyzing
+codec/00143             time:   [1266398 ns (thread CPU) 1271770 ns (thread CPU) 1276816 ns (thread CPU)]
+Benchmarking codec/00063
+Benchmarking codec/00063: Warming up for 50.000 ms
+Benchmarking codec/00063: Collecting 20 samples in estimated 200.06 ms (41k iterations)
+Benchmarking codec/00063: Analyzing
+codec/00063             time:   [4956.2 ns (thread CPU) 5016.6 ns (thread CPU) 5068.5 ns (thread CPU)]
+Found 3 outliers among 20 measurements (15.00%)
+  2 (10.00%) low mild
+  1 (5.00%) high mild
+Benchmarking codec/00048
+Benchmarking codec/00048: Warming up for 50.000 ms
+Benchmarking codec/00048: Collecting 20 samples in estimated 200.18 ms (2660 iterations)
+Benchmarking codec/00048: Analyzing
+codec/00048             time:   [ 58604 ns (thread CPU)  59303 ns (thread CPU)  60018 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+Benchmarking codec/00141
+Benchmarking codec/00141: Warming up for 50.000 ms
+Benchmarking codec/00141: Collecting 20 samples in estimated 228.13 ms (160 iterations)
+Benchmarking codec/00141: Analyzing
+codec/00141             time:   [1440924 ns (thread CPU) 1454431 ns (thread CPU) 1468432 ns (thread CPU)]
+Benchmarking codec/00172
+Benchmarking codec/00172: Warming up for 50.000 ms
+Benchmarking codec/00172: Collecting 20 samples in estimated 200.40 ms (3980 iterations)
+Benchmarking codec/00172: Analyzing
+codec/00172             time:   [ 51092 ns (thread CPU)  51712 ns (thread CPU)  52340 ns (thread CPU)]
+Found 3 outliers among 20 measurements (15.00%)
+  2 (10.00%) low mild
+  1 (5.00%) high mild
+Benchmarking codec/00290
+Benchmarking codec/00290: Warming up for 50.000 ms
+Benchmarking codec/00290: Collecting 20 samples in estimated 200.01 ms (465k iterations)
+Benchmarking codec/00290: Analyzing
+codec/00290             time:   [388.39 ns (thread CPU) 390.93 ns (thread CPU) 394.32 ns (thread CPU)]
+Found 2 outliers among 20 measurements (10.00%)
+  1 (5.00%) high mild
+  1 (5.00%) high severe
+Benchmarking codec/00173
+Benchmarking codec/00173: Warming up for 50.000 ms
+Benchmarking codec/00173: Collecting 20 samples in estimated 200.25 ms (3980 iterations)
+Benchmarking codec/00173: Analyzing
+codec/00173             time:   [ 42539 ns (thread CPU)  42702 ns (thread CPU)  42871 ns (thread CPU)]
+Benchmarking codec/00081
+Benchmarking codec/00081: Warming up for 50.000 ms
+Benchmarking codec/00081: Collecting 20 samples in estimated 200.04 ms (64k iterations)
+Benchmarking codec/00081: Analyzing
+codec/00081             time:   [3044.8 ns (thread CPU) 3068.2 ns (thread CPU) 3095.2 ns (thread CPU)]
+Benchmarking codec/00164
+Benchmarking codec/00164: Warming up for 50.000 ms
+Benchmarking codec/00164: Collecting 20 samples in estimated 200.05 ms (35k iterations)
+Benchmarking codec/00164: Analyzing
+codec/00164             time:   [5353.8 ns (thread CPU) 5381.4 ns (thread CPU) 5418.0 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high severe
+Benchmarking codec/00094
+Benchmarking codec/00094: Warming up for 50.000 ms
+Benchmarking codec/00094: Collecting 20 samples in estimated 205.97 ms (160 iterations)
+Benchmarking codec/00094: Analyzing
+codec/00094             time:   [1288011 ns (thread CPU) 1301810 ns (thread CPU) 1316137 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+Benchmarking codec/00278
+Benchmarking codec/00278: Warming up for 50.000 ms
+Benchmarking codec/00278: Collecting 20 samples in estimated 201.01 ms (640 iterations)
+Benchmarking codec/00278: Analyzing
+codec/00278             time:   [285416 ns (thread CPU) 289735 ns (thread CPU) 294955 ns (thread CPU)]
+Found 3 outliers among 20 measurements (15.00%)
+  1 (5.00%) low mild
+  1 (5.00%) high mild
+  1 (5.00%) high severe
+Benchmarking codec/00107
+Benchmarking codec/00107: Warming up for 50.000 ms
+Benchmarking codec/00107: Collecting 20 samples in estimated 224.78 ms (180 iterations)
+Benchmarking codec/00107: Analyzing
+codec/00107             time:   [944859 ns (thread CPU) 952661 ns (thread CPU) 961723 ns (thread CPU)]
+Found 2 outliers among 20 measurements (10.00%)
+  2 (10.00%) high mild
+Benchmarking codec/00252
+Benchmarking codec/00252: Warming up for 50.000 ms
+Benchmarking codec/00252: Collecting 20 samples in estimated 202.13 ms (580 iterations)
+Benchmarking codec/00252: Analyzing
+codec/00252             time:   [341596 ns (thread CPU) 342847 ns (thread CPU) 344066 ns (thread CPU)]
+Benchmarking codec/00059
+Benchmarking codec/00059: Warming up for 50.000 ms
+Benchmarking codec/00059: Collecting 20 samples in estimated 209.87 ms (260 iterations)
+Benchmarking codec/00059: Analyzing
+codec/00059             time:   [869938 ns (thread CPU) 912169 ns (thread CPU) 948923 ns (thread CPU)]
+Benchmarking codec/00074
+Benchmarking codec/00074: Warming up for 50.000 ms
+Benchmarking codec/00074: Collecting 20 samples in estimated 200.02 ms (150k iterations)
+Benchmarking codec/00074: Analyzing
+codec/00074             time:   [1318.1 ns (thread CPU) 1330.2 ns (thread CPU) 1341.9 ns (thread CPU)]
+Found 2 outliers among 20 measurements (10.00%)
+  1 (5.00%) low mild
+  1 (5.00%) high mild
+Benchmarking codec/00213
+Benchmarking codec/00213: Warming up for 50.000 ms
+Benchmarking codec/00213: Collecting 20 samples in estimated 200.00 ms (2.3M iterations)
+Benchmarking codec/00213: Analyzing
+codec/00213             time:   [88.684 ns (thread CPU) 89.569 ns (thread CPU) 90.457 ns (thread CPU)]
+Benchmarking codec/00042
+Benchmarking codec/00042: Warming up for 50.000 ms
+Benchmarking codec/00042: Collecting 20 samples in estimated 208.50 ms (340 iterations)
+Benchmarking codec/00042: Analyzing
+codec/00042             time:   [601364 ns (thread CPU) 604583 ns (thread CPU) 608073 ns (thread CPU)]
+Found 2 outliers among 20 measurements (10.00%)
+  2 (10.00%) high mild
+Benchmarking codec/00264
+Benchmarking codec/00264: Warming up for 50.000 ms
+Benchmarking codec/00264: Collecting 20 samples in estimated 202.19 ms (460 iterations)
+Benchmarking codec/00264: Analyzing
+codec/00264             time:   [304316 ns (thread CPU) 318218 ns (thread CPU) 334029 ns (thread CPU)]
+Found 3 outliers among 20 measurements (15.00%)
+  3 (15.00%) high mild
+Benchmarking codec/00256
+Benchmarking codec/00256: Warming up for 50.000 ms
+Benchmarking codec/00256: Collecting 20 samples in estimated 205.24 ms (640 iterations)
+Benchmarking codec/00256: Analyzing
+codec/00256             time:   [316556 ns (thread CPU) 322374 ns (thread CPU) 329386 ns (thread CPU)]
+Found 2 outliers among 20 measurements (10.00%)
+  2 (10.00%) high mild
+Benchmarking codec/00138
+Benchmarking codec/00138: Warming up for 50.000 ms
+Benchmarking codec/00138: Collecting 20 samples in estimated 203.01 ms (140 iterations)
+Benchmarking codec/00138: Analyzing
+codec/00138             time:   [1257661 ns (thread CPU) 1270829 ns (thread CPU) 1283299 ns (thread CPU)]
+Benchmarking codec/00018
+Benchmarking codec/00018: Warming up for 50.000 ms
+Benchmarking codec/00018: Collecting 20 samples in estimated 207.89 ms (500 iterations)
+Benchmarking codec/00018: Analyzing
+codec/00018             time:   [312288 ns (thread CPU) 315597 ns (thread CPU) 319101 ns (thread CPU)]
+Found 2 outliers among 20 measurements (10.00%)
+  2 (10.00%) high mild
+Benchmarking codec/00239
+Benchmarking codec/00239: Warming up for 50.000 ms
+Benchmarking codec/00239: Collecting 20 samples in estimated 200.12 ms (5240 iterations)
+Benchmarking codec/00239: Analyzing
+codec/00239             time:   [ 36601 ns (thread CPU)  37010 ns (thread CPU)  37466 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high severe
+Benchmarking codec/00234
+Benchmarking codec/00234: Warming up for 50.000 ms
+Benchmarking codec/00234: Collecting 20 samples in estimated 200.03 ms (108k iterations)
+Benchmarking codec/00234: Analyzing
+codec/00234             time:   [1812.8 ns (thread CPU) 1875.0 ns (thread CPU) 1988.5 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high severe
+Benchmarking codec/00225
+Benchmarking codec/00225: Warming up for 50.000 ms
+Benchmarking codec/00225: Collecting 20 samples in estimated 200.03 ms (126k iterations)
+Benchmarking codec/00225: Analyzing
+codec/00225             time:   [1572.3 ns (thread CPU) 1576.0 ns (thread CPU) 1580.8 ns (thread CPU)]
+Benchmarking codec/00102
+Benchmarking codec/00102: Warming up for 50.000 ms
+Benchmarking codec/00102: Collecting 20 samples in estimated 218.42 ms (140 iterations)
+Benchmarking codec/00102: Analyzing
+codec/00102             time:   [1145380 ns (thread CPU) 1156226 ns (thread CPU) 1168486 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+Benchmarking codec/00082
+Benchmarking codec/00082: Warming up for 50.000 ms
+Benchmarking codec/00082: Collecting 20 samples in estimated 200.05 ms (65k iterations)
+Benchmarking codec/00082: Analyzing
+codec/00082             time:   [3042.1 ns (thread CPU) 3055.3 ns (thread CPU) 3068.6 ns (thread CPU)]
+Benchmarking codec/00241
+Benchmarking codec/00241: Warming up for 50.000 ms
+Benchmarking codec/00241: Collecting 20 samples in estimated 200.00 ms (2.1M iterations)
+Benchmarking codec/00241: Analyzing
+codec/00241             time:   [76.120 ns (thread CPU) 80.383 ns (thread CPU) 84.979 ns (thread CPU)]
+Benchmarking codec/00244
+Benchmarking codec/00244: Warming up for 50.000 ms
+Benchmarking codec/00244: Collecting 20 samples in estimated 200.91 ms (4280 iterations)
+Benchmarking codec/00244: Analyzing
+codec/00244             time:   [ 47554 ns (thread CPU)  51902 ns (thread CPU)  59616 ns (thread CPU)]
+Found 2 outliers among 20 measurements (10.00%)
+  1 (5.00%) high mild
+  1 (5.00%) high severe
+Benchmarking codec/00108
+Benchmarking codec/00108: Warming up for 50.000 ms
+Benchmarking codec/00108: Collecting 20 samples in estimated 205.51 ms (700 iterations)
+Benchmarking codec/00108: Analyzing
+codec/00108             time:   [243975 ns (thread CPU) 249788 ns (thread CPU) 254473 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) low severe
+Benchmarking codec/00016
+Benchmarking codec/00016: Warming up for 50.000 ms
+Benchmarking codec/00016: Collecting 20 samples in estimated 200.72 ms (3000 iterations)
+Benchmarking codec/00016: Analyzing
+codec/00016             time:   [ 60332 ns (thread CPU)  60953 ns (thread CPU)  61643 ns (thread CPU)]
+Benchmarking codec/00282
+Benchmarking codec/00282: Warming up for 50.000 ms
+Benchmarking codec/00282: Collecting 20 samples in estimated 200.00 ms (594k iterations)
+Benchmarking codec/00282: Analyzing
+codec/00282             time:   [360.58 ns (thread CPU) 374.92 ns (thread CPU) 389.53 ns (thread CPU)]
+Benchmarking codec/00249
+Benchmarking codec/00249: Warming up for 50.000 ms
+Benchmarking codec/00249: Collecting 20 samples in estimated 200.26 ms (4400 iterations)
+Benchmarking codec/00249: Analyzing
+codec/00249             time:   [ 41811 ns (thread CPU)  42152 ns (thread CPU)  42576 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high severe
+Benchmarking codec/00104
+Benchmarking codec/00104: Warming up for 50.000 ms
+Benchmarking codec/00104: Collecting 20 samples in estimated 225.26 ms (160 iterations)
+Benchmarking codec/00104: Analyzing
+codec/00104             time:   [946369 ns (thread CPU) 952857 ns (thread CPU) 959790 ns (thread CPU)]
+Benchmarking codec/00217
+Benchmarking codec/00217: Warming up for 50.000 ms
+Benchmarking codec/00217: Collecting 20 samples in estimated 200.00 ms (1.9M iterations)
+Benchmarking codec/00217: Analyzing
+codec/00217             time:   [100.54 ns (thread CPU) 101.60 ns (thread CPU) 102.81 ns (thread CPU)]
+Found 2 outliers among 20 measurements (10.00%)
+  2 (10.00%) high mild
+Benchmarking codec/00144
+Benchmarking codec/00144: Warming up for 50.000 ms
+Benchmarking codec/00144: Collecting 20 samples in estimated 215.08 ms (160 iterations)
+Benchmarking codec/00144: Analyzing
+codec/00144             time:   [1290126 ns (thread CPU) 1295325 ns (thread CPU) 1301268 ns (thread CPU)]
+Benchmarking codec/00036
+Benchmarking codec/00036: Warming up for 50.000 ms
+Benchmarking codec/00036: Collecting 20 samples in estimated 204.42 ms (340 iterations)
+Benchmarking codec/00036: Analyzing
+codec/00036             time:   [608421 ns (thread CPU) 622092 ns (thread CPU) 639179 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high severe
+Benchmarking codec/00269
+Benchmarking codec/00269: Warming up for 50.000 ms
+Benchmarking codec/00269: Collecting 20 samples in estimated 201.81 ms (620 iterations)
+Benchmarking codec/00269: Analyzing
+codec/00269             time:   [301958 ns (thread CPU) 306425 ns (thread CPU) 311021 ns (thread CPU)]
+Benchmarking codec/00246
+Benchmarking codec/00246: Warming up for 50.000 ms
+Benchmarking codec/00246: Collecting 20 samples in estimated 200.00 ms (1.8M iterations)
+Benchmarking codec/00246: Analyzing
+codec/00246             time:   [98.378 ns (thread CPU) 99.287 ns (thread CPU) 100.18 ns (thread CPU)]
+Benchmarking codec/00215
+Benchmarking codec/00215: Warming up for 50.000 ms
+Benchmarking codec/00215: Collecting 20 samples in estimated 200.00 ms (1.0M iterations)
+Benchmarking codec/00215: Analyzing
+codec/00215             time:   [153.40 ns (thread CPU) 154.76 ns (thread CPU) 156.44 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+Benchmarking codec/00222
+Benchmarking codec/00222: Warming up for 50.000 ms
+Benchmarking codec/00222: Collecting 20 samples in estimated 200.02 ms (90k iterations)
+Benchmarking codec/00222: Analyzing
+codec/00222             time:   [1656.7 ns (thread CPU) 1672.8 ns (thread CPU) 1689.7 ns (thread CPU)]
+Found 4 outliers among 20 measurements (20.00%)
+  2 (10.00%) high mild
+  2 (10.00%) high severe
+Benchmarking codec/00096
+Benchmarking codec/00096: Warming up for 50.000 ms
+Benchmarking codec/00096: Collecting 20 samples in estimated 225.43 ms (120 iterations)
+Benchmarking codec/00096: Analyzing
+codec/00096             time:   [1822388 ns (thread CPU) 1833191 ns (thread CPU) 1849842 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high severe
+Benchmarking codec/00276
+Benchmarking codec/00276: Warming up for 50.000 ms
+Benchmarking codec/00276: Collecting 20 samples in estimated 201.98 ms (880 iterations)
+Benchmarking codec/00276: Analyzing
+codec/00276             time:   [210179 ns (thread CPU) 211200 ns (thread CPU) 212208 ns (thread CPU)]
+Benchmarking codec/00189
+Benchmarking codec/00189: Warming up for 50.000 ms
+Benchmarking codec/00189: Collecting 20 samples in estimated 200.62 ms (5720 iterations)
+Benchmarking codec/00189: Analyzing
+codec/00189             time:   [ 34840 ns (thread CPU)  35005 ns (thread CPU)  35172 ns (thread CPU)]
+Benchmarking codec/00169
+Benchmarking codec/00169: Warming up for 50.000 ms
+Benchmarking codec/00169: Collecting 20 samples in estimated 200.59 ms (3200 iterations)
+Benchmarking codec/00169: Analyzing
+codec/00169             time:   [ 60923 ns (thread CPU)  61992 ns (thread CPU)  63900 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high severe
+Benchmarking codec/00161
+Benchmarking codec/00161: Warming up for 50.000 ms
+Benchmarking codec/00161: Collecting 20 samples in estimated 201.29 ms (100 iterations)
+Benchmarking codec/00161: Analyzing
+codec/00161             time:   [2086086 ns (thread CPU) 2121454 ns (thread CPU) 2166317 ns (thread CPU)]
+Found 2 outliers among 20 measurements (10.00%)
+  2 (10.00%) high severe
+Benchmarking codec/00095
+Benchmarking codec/00095: Warming up for 50.000 ms
+Benchmarking codec/00095: Collecting 20 samples in estimated 230.58 ms (120 iterations)
+Benchmarking codec/00095: Analyzing
+codec/00095             time:   [1851976 ns (thread CPU) 1876790 ns (thread CPU) 1901440 ns (thread CPU)]
+Benchmarking codec/00176
+Benchmarking codec/00176: Warming up for 50.000 ms
+Benchmarking codec/00176: Collecting 20 samples in estimated 200.13 ms (9920 iterations)
+Benchmarking codec/00176: Analyzing
+codec/00176             time:   [ 20400 ns (thread CPU)  20612 ns (thread CPU)  20851 ns (thread CPU)]
+Found 2 outliers among 20 measurements (10.00%)
+  2 (10.00%) high mild
+Benchmarking codec/00126
+Benchmarking codec/00126: Warming up for 50.000 ms
+Benchmarking codec/00126: Collecting 20 samples in estimated 221.03 ms (100 iterations)
+Benchmarking codec/00126: Analyzing
+codec/00126             time:   [2189833 ns (thread CPU) 2219532 ns (thread CPU) 2252762 ns (thread CPU)]
+Benchmarking codec/00047
+Benchmarking codec/00047: Warming up for 50.000 ms
+Benchmarking codec/00047: Collecting 20 samples in estimated 203.87 ms (620 iterations)
+Benchmarking codec/00047: Analyzing
+codec/00047             time:   [324449 ns (thread CPU) 326343 ns (thread CPU) 328556 ns (thread CPU)]
+Benchmarking codec/00197
+Benchmarking codec/00197: Warming up for 50.000 ms
+Benchmarking codec/00197: Collecting 20 samples in estimated 202.87 ms (640 iterations)
+Benchmarking codec/00197: Analyzing
+codec/00197             time:   [311438 ns (thread CPU) 312650 ns (thread CPU) 314193 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high severe
+Benchmarking codec/00196
+Benchmarking codec/00196: Warming up for 50.000 ms
+Benchmarking codec/00196: Collecting 20 samples in estimated 200.45 ms (860 iterations)
+Benchmarking codec/00196: Analyzing
+codec/00196             time:   [232398 ns (thread CPU) 236718 ns (thread CPU) 241856 ns (thread CPU)]
+Found 4 outliers among 20 measurements (20.00%)
+  3 (15.00%) high mild
+  1 (5.00%) high severe
+Benchmarking codec/00077
+Benchmarking codec/00077: Warming up for 50.000 ms
+Benchmarking codec/00077: Collecting 20 samples in estimated 200.00 ms (336k iterations)
+Benchmarking codec/00077: Analyzing
+codec/00077             time:   [588.53 ns (thread CPU) 593.24 ns (thread CPU) 600.48 ns (thread CPU)]
+Found 3 outliers among 20 measurements (15.00%)
+  2 (10.00%) high mild
+  1 (5.00%) high severe
+Benchmarking codec/00050
+Benchmarking codec/00050: Warming up for 50.000 ms
+Benchmarking codec/00050: Collecting 20 samples in estimated 213.88 ms (300 iterations)
+Benchmarking codec/00050: Analyzing
+codec/00050             time:   [715972 ns (thread CPU) 729942 ns (thread CPU) 747598 ns (thread CPU)]
+Found 4 outliers among 20 measurements (20.00%)
+  1 (5.00%) high mild
+  3 (15.00%) high severe
+Benchmarking codec/00240
+Benchmarking codec/00240: Warming up for 50.000 ms
+Benchmarking codec/00240: Collecting 20 samples in estimated 200.57 ms (4720 iterations)
+Benchmarking codec/00240: Analyzing
+codec/00240             time:   [ 42402 ns (thread CPU)  42829 ns (thread CPU)  43318 ns (thread CPU)]
+Found 3 outliers among 20 measurements (15.00%)
+  2 (10.00%) high mild
+  1 (5.00%) high severe
+Benchmarking codec/00110
+Benchmarking codec/00110: Warming up for 50.000 ms
+Benchmarking codec/00110: Collecting 20 samples in estimated 206.61 ms (100 iterations)
+Benchmarking codec/00110: Analyzing
+codec/00110             time:   [2011971 ns (thread CPU) 2025577 ns (thread CPU) 2040644 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+Benchmarking codec/00061
+Benchmarking codec/00061: Warming up for 50.000 ms
+Benchmarking codec/00061: Collecting 20 samples in estimated 200.09 ms (29k iterations)
+Benchmarking codec/00061: Analyzing
+codec/00061             time:   [6842.1 ns (thread CPU) 6887.2 ns (thread CPU) 6935.9 ns (thread CPU)]
+Benchmarking codec/00251
+Benchmarking codec/00251: Warming up for 50.000 ms
+Benchmarking codec/00251: Collecting 20 samples in estimated 206.44 ms (560 iterations)
+Benchmarking codec/00251: Analyzing
+codec/00251             time:   [334633 ns (thread CPU) 337683 ns (thread CPU) 341246 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+Benchmarking codec/00071
+Benchmarking codec/00071: Warming up for 50.000 ms
+Benchmarking codec/00071: Collecting 20 samples in estimated 200.09 ms (16k iterations)
+Benchmarking codec/00071: Analyzing
+codec/00071             time:   [ 13052 ns (thread CPU)  13068 ns (thread CPU)  13087 ns (thread CPU)]
+Found 3 outliers among 20 measurements (15.00%)
+  3 (15.00%) high mild
+Benchmarking codec/00281
+Benchmarking codec/00281: Warming up for 50.000 ms
+Benchmarking codec/00281: Collecting 20 samples in estimated 200.34 ms (1160 iterations)
+Benchmarking codec/00281: Analyzing
+codec/00281             time:   [143910 ns (thread CPU) 146023 ns (thread CPU) 148251 ns (thread CPU)]
+Benchmarking codec/00004
+Benchmarking codec/00004: Warming up for 50.000 ms
+Benchmarking codec/00004: Collecting 20 samples in estimated 200.00 ms (198k iterations)
+Benchmarking codec/00004: Analyzing
+codec/00004             time:   [1047.1 ns (thread CPU) 1072.1 ns (thread CPU) 1094.3 ns (thread CPU)]
+Benchmarking codec/00192
+Benchmarking codec/00192: Warming up for 50.000 ms
+Benchmarking codec/00192: Collecting 20 samples in estimated 200.41 ms (8860 iterations)
+Benchmarking codec/00192: Analyzing
+codec/00192             time:   [ 22365 ns (thread CPU)  22831 ns (thread CPU)  23247 ns (thread CPU)]
+Benchmarking codec/00051
+Benchmarking codec/00051: Warming up for 50.000 ms
+Benchmarking codec/00051: Collecting 20 samples in estimated 201.15 ms (280 iterations)
+Benchmarking codec/00051: Analyzing
+codec/00051             time:   [672515 ns (thread CPU) 682063 ns (thread CPU) 692073 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+Benchmarking codec/00207
+Benchmarking codec/00207: Warming up for 50.000 ms
+Benchmarking codec/00207: Collecting 20 samples in estimated 205.03 ms (560 iterations)
+Benchmarking codec/00207: Analyzing
+codec/00207             time:   [259993 ns (thread CPU) 266391 ns (thread CPU) 275510 ns (thread CPU)]
+Found 2 outliers among 20 measurements (10.00%)
+  2 (10.00%) high severe
+Benchmarking codec/00011
+Benchmarking codec/00011: Warming up for 50.000 ms
+Benchmarking codec/00011: Collecting 20 samples in estimated 200.00 ms (168k iterations)
+Benchmarking codec/00011: Analyzing
+codec/00011             time:   [1141.6 ns (thread CPU) 1159.3 ns (thread CPU) 1188.6 ns (thread CPU)]
+Found 3 outliers among 20 measurements (15.00%)
+  2 (10.00%) high mild
+  1 (5.00%) high severe
+Benchmarking codec/00177
+Benchmarking codec/00177: Warming up for 50.000 ms
+Benchmarking codec/00177: Collecting 20 samples in estimated 200.06 ms (9460 iterations)
+Benchmarking codec/00177: Analyzing
+codec/00177             time:   [ 16950 ns (thread CPU)  17752 ns (thread CPU)  18665 ns (thread CPU)]
+Benchmarking codec/00029
+Benchmarking codec/00029: Warming up for 50.000 ms
+Benchmarking codec/00029: Collecting 20 samples in estimated 205.95 ms (580 iterations)
+Benchmarking codec/00029: Analyzing
+codec/00029             time:   [310791 ns (thread CPU) 313577 ns (thread CPU) 316904 ns (thread CPU)]
+Benchmarking codec/00041
+Benchmarking codec/00041: Warming up for 50.000 ms
+Benchmarking codec/00041: Collecting 20 samples in estimated 203.58 ms (280 iterations)
+Benchmarking codec/00041: Analyzing
+codec/00041             time:   [627893 ns (thread CPU) 634743 ns (thread CPU) 641939 ns (thread CPU)]
+Benchmarking codec/00154
+Benchmarking codec/00154: Warming up for 50.000 ms
+Benchmarking codec/00154: Collecting 20 samples in estimated 212.17 ms (140 iterations)
+Benchmarking codec/00154: Analyzing
+codec/00154             time:   [1518759 ns (thread CPU) 1533092 ns (thread CPU) 1548879 ns (thread CPU)]
+Benchmarking codec/00160
+Benchmarking codec/00160: Warming up for 50.000 ms
+Benchmarking codec/00160: Collecting 20 samples in estimated 226.27 ms (100 iterations)
+Benchmarking codec/00160: Analyzing
+codec/00160             time:   [2200050 ns (thread CPU) 2221330 ns (thread CPU) 2246940 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high severe
+Benchmarking codec/00046
+Benchmarking codec/00046: Warming up for 50.000 ms
+Benchmarking codec/00046: Collecting 20 samples in estimated 201.09 ms (660 iterations)
+Benchmarking codec/00046: Analyzing
+codec/00046             time:   [302493 ns (thread CPU) 303872 ns (thread CPU) 305248 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+Benchmarking codec/00183
+Benchmarking codec/00183: Warming up for 50.000 ms
+Benchmarking codec/00183: Collecting 20 samples in estimated 200.09 ms (5640 iterations)
+Benchmarking codec/00183: Analyzing
+codec/00183             time:   [ 31881 ns (thread CPU)  32272 ns (thread CPU)  32679 ns (thread CPU)]
+Benchmarking codec/00187
+Benchmarking codec/00187: Warming up for 50.000 ms
+Benchmarking codec/00187: Collecting 20 samples in estimated 200.11 ms (8140 iterations)
+Benchmarking codec/00187: Analyzing
+codec/00187             time:   [ 24443 ns (thread CPU)  24554 ns (thread CPU)  24693 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+Benchmarking codec/00015
+Benchmarking codec/00015: Warming up for 50.000 ms
+Benchmarking codec/00015: Collecting 20 samples in estimated 204.90 ms (640 iterations)
+Benchmarking codec/00015: Analyzing
+codec/00015             time:   [315893 ns (thread CPU) 317354 ns (thread CPU) 318906 ns (thread CPU)]
+Benchmarking codec/00032
+Benchmarking codec/00032: Warming up for 50.000 ms
+Benchmarking codec/00032: Collecting 20 samples in estimated 204.57 ms (680 iterations)
+Benchmarking codec/00032: Analyzing
+codec/00032             time:   [299371 ns (thread CPU) 300207 ns (thread CPU) 301096 ns (thread CPU)]
+Found 5 outliers among 20 measurements (25.00%)
+  1 (5.00%) low mild
+  4 (20.00%) high mild
+Benchmarking codec/00091
+Benchmarking codec/00091: Warming up for 50.000 ms
+Benchmarking codec/00091: Collecting 20 samples in estimated 201.36 ms (520 iterations)
+Benchmarking codec/00091: Analyzing
+codec/00091             time:   [382477 ns (thread CPU) 383932 ns (thread CPU) 385196 ns (thread CPU)]
+Benchmarking codec/00181
+Benchmarking codec/00181: Warming up for 50.000 ms
+Benchmarking codec/00181: Collecting 20 samples in estimated 200.09 ms (6640 iterations)
+Benchmarking codec/00181: Analyzing
+codec/00181             time:   [ 29894 ns (thread CPU)  29968 ns (thread CPU)  30059 ns (thread CPU)]
+Benchmarking codec/00053
+Benchmarking codec/00053: Warming up for 50.000 ms
+Benchmarking codec/00053: Collecting 20 samples in estimated 205.29 ms (220 iterations)
+Benchmarking codec/00053: Analyzing
+codec/00053             time:   [932260 ns (thread CPU) 934821 ns (thread CPU) 937793 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+Benchmarking codec/00277
+Benchmarking codec/00277: Warming up for 50.000 ms
+Benchmarking codec/00277: Collecting 20 samples in estimated 201.22 ms (1080 iterations)
+Benchmarking codec/00277: Analyzing
+codec/00277             time:   [186040 ns (thread CPU) 187132 ns (thread CPU) 188464 ns (thread CPU)]
+Found 2 outliers among 20 measurements (10.00%)
+  2 (10.00%) high mild
+Benchmarking codec/00182
+Benchmarking codec/00182: Warming up for 50.000 ms
+Benchmarking codec/00182: Collecting 20 samples in estimated 200.01 ms (8620 iterations)
+Benchmarking codec/00182: Analyzing
+codec/00182             time:   [ 23068 ns (thread CPU)  23192 ns (thread CPU)  23316 ns (thread CPU)]
+Benchmarking codec/00122
+Benchmarking codec/00122: Warming up for 50.000 ms
+Benchmarking codec/00122: Collecting 20 samples in estimated 202.17 ms (820 iterations)
+Benchmarking codec/00122: Analyzing
+codec/00122             time:   [243024 ns (thread CPU) 244306 ns (thread CPU) 245651 ns (thread CPU)]
+Benchmarking codec/00202
+Benchmarking codec/00202: Warming up for 50.000 ms
+Benchmarking codec/00202: Collecting 20 samples in estimated 202.44 ms (620 iterations)
+Benchmarking codec/00202: Analyzing
+codec/00202             time:   [316706 ns (thread CPU) 318824 ns (thread CPU) 321175 ns (thread CPU)]
+Benchmarking codec/00223
+Benchmarking codec/00223: Warming up for 50.000 ms
+Benchmarking codec/00223: Collecting 20 samples in estimated 200.02 ms (123k iterations)
+Benchmarking codec/00223: Analyzing
+codec/00223             time:   [1624.6 ns (thread CPU) 1633.2 ns (thread CPU) 1644.6 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+Benchmarking codec/00221
+Benchmarking codec/00221: Warming up for 50.000 ms
+Benchmarking codec/00221: Collecting 20 samples in estimated 200.00 ms (927k iterations)
+Benchmarking codec/00221: Analyzing
+codec/00221             time:   [163.79 ns (thread CPU) 164.76 ns (thread CPU) 165.62 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) low mild
+Benchmarking codec/00065
+Benchmarking codec/00065: Warming up for 50.000 ms
+Benchmarking codec/00065: Collecting 20 samples in estimated 200.04 ms (16k iterations)
+Benchmarking codec/00065: Analyzing
+codec/00065             time:   [ 12841 ns (thread CPU)  12911 ns (thread CPU)  12971 ns (thread CPU)]
+Found 2 outliers among 20 measurements (10.00%)
+  2 (10.00%) low mild
+Benchmarking codec/00185
+Benchmarking codec/00185: Warming up for 50.000 ms
+Benchmarking codec/00185: Collecting 20 samples in estimated 200.45 ms (6300 iterations)
+Benchmarking codec/00185: Analyzing
+codec/00185             time:   [ 31899 ns (thread CPU)  31989 ns (thread CPU)  32075 ns (thread CPU)]
+Benchmarking codec/00003
+Benchmarking codec/00003: Warming up for 50.000 ms
+Benchmarking codec/00003: Collecting 20 samples in estimated 200.01 ms (586k iterations)
+Benchmarking codec/00003: Analyzing
+codec/00003             time:   [299.52 ns (thread CPU) 301.68 ns (thread CPU) 304.06 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+Benchmarking codec/00270
+Benchmarking codec/00270: Warming up for 50.000 ms
+Benchmarking codec/00270: Collecting 20 samples in estimated 200.04 ms (1300 iterations)
+Benchmarking codec/00270: Analyzing
+codec/00270             time:   [153962 ns (thread CPU) 155172 ns (thread CPU) 156873 ns (thread CPU)]
+Found 2 outliers among 20 measurements (10.00%)
+  1 (5.00%) high mild
+  1 (5.00%) high severe
+Benchmarking codec/00043
+Benchmarking codec/00043: Warming up for 50.000 ms
+Benchmarking codec/00043: Collecting 20 samples in estimated 204.18 ms (500 iterations)
+Benchmarking codec/00043: Analyzing
+codec/00043             time:   [405825 ns (thread CPU) 409015 ns (thread CPU) 412798 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+Benchmarking codec/00020
+Benchmarking codec/00020: Warming up for 50.000 ms
+Benchmarking codec/00020: Collecting 20 samples in estimated 202.07 ms (680 iterations)
+Benchmarking codec/00020: Analyzing
+codec/00020             time:   [293680 ns (thread CPU) 295941 ns (thread CPU) 298239 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) low mild
+Benchmarking codec/00044
+Benchmarking codec/00044: Warming up for 50.000 ms
+Benchmarking codec/00044: Collecting 20 samples in estimated 206.73 ms (300 iterations)
+Benchmarking codec/00044: Analyzing
+codec/00044             time:   [628681 ns (thread CPU) 638904 ns (thread CPU) 649140 ns (thread CPU)]
+Benchmarking codec/00049
+Benchmarking codec/00049: Warming up for 50.000 ms
+Benchmarking codec/00049: Collecting 20 samples in estimated 200.50 ms (2140 iterations)
+Benchmarking codec/00049: Analyzing
+codec/00049             time:   [ 91705 ns (thread CPU)  92323 ns (thread CPU)  92892 ns (thread CPU)]
+Found 3 outliers among 20 measurements (15.00%)
+  2 (10.00%) low mild
+  1 (5.00%) high mild
+Benchmarking codec/00087
+Benchmarking codec/00087: Warming up for 50.000 ms
+Benchmarking codec/00087: Collecting 20 samples in estimated 200.05 ms (77k iterations)
+Benchmarking codec/00087: Analyzing
+codec/00087             time:   [2661.9 ns (thread CPU) 2682.4 ns (thread CPU) 2704.3 ns (thread CPU)]
+Benchmarking codec/00149
+Benchmarking codec/00149: Warming up for 50.000 ms
+Benchmarking codec/00149: Collecting 20 samples in estimated 200.46 ms (420 iterations)
+Benchmarking codec/00149: Analyzing
+codec/00149             time:   [453971 ns (thread CPU) 457719 ns (thread CPU) 462204 ns (thread CPU)]
+Found 3 outliers among 20 measurements (15.00%)
+  3 (15.00%) high mild
+Benchmarking codec/00014
+Benchmarking codec/00014: Warming up for 50.000 ms
+Benchmarking codec/00014: Collecting 20 samples in estimated 200.76 ms (860 iterations)
+Benchmarking codec/00014: Analyzing
+codec/00014             time:   [234386 ns (thread CPU) 235762 ns (thread CPU) 237441 ns (thread CPU)]
+Benchmarking codec/00123
+Benchmarking codec/00123: Warming up for 50.000 ms
+Benchmarking codec/00123: Collecting 20 samples in estimated 206.62 ms (560 iterations)
+Benchmarking codec/00123: Analyzing
+codec/00123             time:   [361398 ns (thread CPU) 366109 ns (thread CPU) 370940 ns (thread CPU)]
+Found 2 outliers among 20 measurements (10.00%)
+  1 (5.00%) low mild
+  1 (5.00%) high mild
+Benchmarking codec/00124
+Benchmarking codec/00124: Warming up for 50.000 ms
+Benchmarking codec/00124: Collecting 20 samples in estimated 209.74 ms (100 iterations)
+Benchmarking codec/00124: Analyzing
+codec/00124             time:   [1964234 ns (thread CPU) 1975790 ns (thread CPU) 1989409 ns (thread CPU)]
+Benchmarking codec/00097
+Benchmarking codec/00097: Warming up for 50.000 ms
+Benchmarking codec/00097: Collecting 20 samples in estimated 223.89 ms (180 iterations)
+Benchmarking codec/00097: Analyzing
+codec/00097             time:   [1313853 ns (thread CPU) 1332504 ns (thread CPU) 1351385 ns (thread CPU)]
+Benchmarking codec/00287
+Benchmarking codec/00287: Warming up for 50.000 ms
+Benchmarking codec/00287: Collecting 20 samples in estimated 200.01 ms (658k iterations)
+Benchmarking codec/00287: Analyzing
+codec/00287             time:   [296.87 ns (thread CPU) 301.81 ns (thread CPU) 306.31 ns (thread CPU)]
+Benchmarking codec/00170
+Benchmarking codec/00170: Warming up for 50.000 ms
+Benchmarking codec/00170: Collecting 20 samples in estimated 200.61 ms (3980 iterations)
+Benchmarking codec/00170: Analyzing
+codec/00170             time:   [ 48574 ns (thread CPU)  49082 ns (thread CPU)  49663 ns (thread CPU)]
+Benchmarking codec/00045
+Benchmarking codec/00045: Warming up for 50.000 ms
+Benchmarking codec/00045: Collecting 20 samples in estimated 207.88 ms (360 iterations)
+Benchmarking codec/00045: Analyzing
+codec/00045             time:   [615922 ns (thread CPU) 625343 ns (thread CPU) 635452 ns (thread CPU)]
+Benchmarking codec/00139
+Benchmarking codec/00139: Warming up for 50.000 ms
+Benchmarking codec/00139: Collecting 20 samples in estimated 205.78 ms (200 iterations)
+Benchmarking codec/00139: Analyzing
+codec/00139             time:   [1030894 ns (thread CPU) 1034089 ns (thread CPU) 1037863 ns (thread CPU)]
+Found 2 outliers among 20 measurements (10.00%)
+  1 (5.00%) high mild
+  1 (5.00%) high severe
+Benchmarking codec/00209
+Benchmarking codec/00209: Warming up for 50.000 ms
+Benchmarking codec/00209: Collecting 20 samples in estimated 200.00 ms (3.9M iterations)
+Benchmarking codec/00209: Analyzing
+codec/00209             time:   [50.052 ns (thread CPU) 50.432 ns (thread CPU) 50.794 ns (thread CPU)]
+Found 2 outliers among 20 measurements (10.00%)
+  1 (5.00%) low mild
+  1 (5.00%) high mild
+Benchmarking codec/00233
+Benchmarking codec/00233: Warming up for 50.000 ms
+Benchmarking codec/00233: Collecting 20 samples in estimated 200.01 ms (127k iterations)
+Benchmarking codec/00233: Analyzing
+codec/00233             time:   [1647.8 ns (thread CPU) 1650.9 ns (thread CPU) 1654.4 ns (thread CPU)]
+Found 2 outliers among 20 measurements (10.00%)
+  2 (10.00%) high mild
+Benchmarking codec/00090
+Benchmarking codec/00090: Warming up for 50.000 ms
+Benchmarking codec/00090: Collecting 20 samples in estimated 200.71 ms (1140 iterations)
+Benchmarking codec/00090: Analyzing
+codec/00090             time:   [182146 ns (thread CPU) 186435 ns (thread CPU) 190412 ns (thread CPU)]
+Benchmarking codec/00250
+Benchmarking codec/00250: Warming up for 50.000 ms
+Benchmarking codec/00250: Collecting 20 samples in estimated 201.27 ms (600 iterations)
+Benchmarking codec/00250: Analyzing
+codec/00250             time:   [331240 ns (thread CPU) 331818 ns (thread CPU) 332435 ns (thread CPU)]
+Benchmarking codec/00257
+Benchmarking codec/00257: Warming up for 50.000 ms
+Benchmarking codec/00257: Collecting 20 samples in estimated 205.08 ms (620 iterations)
+Benchmarking codec/00257: Analyzing
+codec/00257             time:   [332841 ns (thread CPU) 335246 ns (thread CPU) 338034 ns (thread CPU)]
+Benchmarking codec/00286
+Benchmarking codec/00286: Warming up for 50.000 ms
+Benchmarking codec/00286: Collecting 20 samples in estimated 200.00 ms (606k iterations)
+Benchmarking codec/00286: Analyzing
+codec/00286             time:   [356.87 ns (thread CPU) 358.79 ns (thread CPU) 360.67 ns (thread CPU)]
+Benchmarking codec/00206
+Benchmarking codec/00206: Warming up for 50.000 ms
+Benchmarking codec/00206: Collecting 20 samples in estimated 200.44 ms (920 iterations)
+Benchmarking codec/00206: Analyzing
+codec/00206             time:   [167241 ns (thread CPU) 171400 ns (thread CPU) 175546 ns (thread CPU)]
+Found 3 outliers among 20 measurements (15.00%)
+  3 (15.00%) low mild
+Benchmarking codec/00190
+Benchmarking codec/00190: Warming up for 50.000 ms
+Benchmarking codec/00190: Collecting 20 samples in estimated 201.06 ms (1600 iterations)
+Benchmarking codec/00190: Analyzing
+codec/00190             time:   [129624 ns (thread CPU) 130228 ns (thread CPU) 130828 ns (thread CPU)]
+Found 5 outliers among 20 measurements (25.00%)
+  3 (15.00%) low severe
+  1 (5.00%) low mild
+  1 (5.00%) high mild
+Benchmarking codec/00026
+Benchmarking codec/00026: Warming up for 50.000 ms
+Benchmarking codec/00026: Collecting 20 samples in estimated 208.09 ms (460 iterations)
+Benchmarking codec/00026: Analyzing
+codec/00026             time:   [459848 ns (thread CPU) 461047 ns (thread CPU) 461983 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) low severe
+Benchmarking codec/00204
+Benchmarking codec/00204: Warming up for 50.000 ms
+Benchmarking codec/00204: Collecting 20 samples in estimated 204.71 ms (720 iterations)
+Benchmarking codec/00204: Analyzing
+codec/00204             time:   [190686 ns (thread CPU) 197776 ns (thread CPU) 205806 ns (thread CPU)]
+Benchmarking codec/00145
+Benchmarking codec/00145: Warming up for 50.000 ms
+Benchmarking codec/00145: Collecting 20 samples in estimated 211.22 ms (180 iterations)
+Benchmarking codec/00145: Analyzing
+codec/00145             time:   [1140499 ns (thread CPU) 1164075 ns (thread CPU) 1180281 ns (thread CPU)]
+Found 2 outliers among 20 measurements (10.00%)
+  2 (10.00%) low severe
+Benchmarking codec/00271
+Benchmarking codec/00271: Warming up for 50.000 ms
+Benchmarking codec/00271: Collecting 20 samples in estimated 201.87 ms (1360 iterations)
+Benchmarking codec/00271: Analyzing
+codec/00271             time:   [149295 ns (thread CPU) 150332 ns (thread CPU) 151257 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) low mild
+Benchmarking codec/00092
+Benchmarking codec/00092: Warming up for 50.000 ms
+Benchmarking codec/00092: Collecting 20 samples in estimated 205.11 ms (180 iterations)
+Benchmarking codec/00092: Analyzing
+codec/00092             time:   [1132542 ns (thread CPU) 1135209 ns (thread CPU) 1138105 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+Benchmarking codec/00133
+Benchmarking codec/00133: Warming up for 50.000 ms
+Benchmarking codec/00133: Collecting 20 samples in estimated 230.56 ms (80 iterations)
+Benchmarking codec/00133: Analyzing
+codec/00133             time:   [2987528 ns (thread CPU) 3071556 ns (thread CPU) 3150419 ns (thread CPU)]
+Benchmarking codec/00054
+Benchmarking codec/00054: Warming up for 50.000 ms
+Benchmarking codec/00054: Collecting 20 samples in estimated 216.13 ms (260 iterations)
+Benchmarking codec/00054: Analyzing
+codec/00054             time:   [738848 ns (thread CPU) 746926 ns (thread CPU) 757060 ns (thread CPU)]
+Found 3 outliers among 20 measurements (15.00%)
+  2 (10.00%) high mild
+  1 (5.00%) high severe
+Benchmarking codec/00157
+Benchmarking codec/00157: Warming up for 50.000 ms
+Benchmarking codec/00157: Collecting 20 samples in estimated 223.57 ms (160 iterations)
+Benchmarking codec/00157: Analyzing
+codec/00157             time:   [1397036 ns (thread CPU) 1401299 ns (thread CPU) 1406526 ns (thread CPU)]
+Found 2 outliers among 20 measurements (10.00%)
+  1 (5.00%) high mild
+  1 (5.00%) high severe
+Benchmarking codec/00163
+Benchmarking codec/00163: Warming up for 50.000 ms
+Benchmarking codec/00163: Collecting 20 samples in estimated 200.18 ms (10k iterations)
+Benchmarking codec/00163: Analyzing
+codec/00163             time:   [ 20085 ns (thread CPU)  20247 ns (thread CPU)  20447 ns (thread CPU)]
+Benchmarking codec/00013
+Benchmarking codec/00013: Warming up for 50.000 ms
+Benchmarking codec/00013: Collecting 20 samples in estimated 200.02 ms (131k iterations)
+Benchmarking codec/00013: Analyzing
+codec/00013             time:   [1546.2 ns (thread CPU) 1562.2 ns (thread CPU) 1576.1 ns (thread CPU)]
+Found 2 outliers among 20 measurements (10.00%)
+  2 (10.00%) low severe
+Benchmarking codec/00100
+Benchmarking codec/00100: Warming up for 50.000 ms
+Benchmarking codec/00100: Collecting 20 samples in estimated 223.76 ms (140 iterations)
+Benchmarking codec/00100: Analyzing
+codec/00100             time:   [1588800 ns (thread CPU) 1592571 ns (thread CPU) 1596930 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+Benchmarking codec/00002
+Benchmarking codec/00002: Warming up for 50.000 ms
+Benchmarking codec/00002: Collecting 20 samples in estimated 200.00 ms (1.4M iterations)
+Benchmarking codec/00002: Analyzing
+codec/00002             time:   [148.73 ns (thread CPU) 150.21 ns (thread CPU) 151.93 ns (thread CPU)]
+Benchmarking codec/00125
+Benchmarking codec/00125: Warming up for 50.000 ms
+Benchmarking codec/00125: Collecting 20 samples in estimated 201.00 ms (100 iterations)
+Benchmarking codec/00125: Analyzing
+codec/00125             time:   [1992952 ns (thread CPU) 1998491 ns (thread CPU) 2004172 ns (thread CPU)]
+Benchmarking codec/00106
+Benchmarking codec/00106: Warming up for 50.000 ms
+Benchmarking codec/00106: Collecting 20 samples in estimated 202.73 ms (260 iterations)
+Benchmarking codec/00106: Analyzing
+codec/00106             time:   [833111 ns (thread CPU) 849779 ns (thread CPU) 864984 ns (thread CPU)]
+Benchmarking codec/00259
+Benchmarking codec/00259: Warming up for 50.000 ms
+Benchmarking codec/00259: Collecting 20 samples in estimated 200.87 ms (580 iterations)
+Benchmarking codec/00259: Analyzing
+codec/00259             time:   [332617 ns (thread CPU) 333236 ns (thread CPU) 333841 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+Benchmarking codec/00200
+Benchmarking codec/00200: Warming up for 50.000 ms
+Benchmarking codec/00200: Collecting 20 samples in estimated 200.22 ms (940 iterations)
+Benchmarking codec/00200: Analyzing
+codec/00200             time:   [212193 ns (thread CPU) 212609 ns (thread CPU) 213046 ns (thread CPU)]
+Benchmarking codec/00027
+Benchmarking codec/00027: Warming up for 50.000 ms
+Benchmarking codec/00027: Collecting 20 samples in estimated 201.31 ms (540 iterations)
+Benchmarking codec/00027: Analyzing
+codec/00027             time:   [396412 ns (thread CPU) 406218 ns (thread CPU) 416074 ns (thread CPU)]
+Benchmarking codec/00093
+Benchmarking codec/00093: Warming up for 50.000 ms
+Benchmarking codec/00093: Collecting 20 samples in estimated 203.44 ms (180 iterations)
+Benchmarking codec/00093: Analyzing
+codec/00093             time:   [1126050 ns (thread CPU) 1135776 ns (thread CPU) 1152659 ns (thread CPU)]
+Found 2 outliers among 20 measurements (10.00%)
+  1 (5.00%) high mild
+  1 (5.00%) high severe
+Benchmarking codec/00291
+Benchmarking codec/00291: Warming up for 50.000 ms
+Benchmarking codec/00291: Collecting 20 samples in estimated 200.00 ms (485k iterations)
+Benchmarking codec/00291: Analyzing
+codec/00291             time:   [412.83 ns (thread CPU) 414.11 ns (thread CPU) 415.61 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+Benchmarking codec/00283
+Benchmarking codec/00283: Warming up for 50.000 ms
+Benchmarking codec/00283: Collecting 20 samples in estimated 200.01 ms (615k iterations)
+Benchmarking codec/00283: Analyzing
+codec/00283             time:   [320.01 ns (thread CPU) 325.78 ns (thread CPU) 332.68 ns (thread CPU)]
+Found 3 outliers among 20 measurements (15.00%)
+  3 (15.00%) high severe
+Benchmarking codec/00194
+Benchmarking codec/00194: Warming up for 50.000 ms
+Benchmarking codec/00194: Collecting 20 samples in estimated 200.96 ms (740 iterations)
+Benchmarking codec/00194: Analyzing
+codec/00194             time:   [264855 ns (thread CPU) 265348 ns (thread CPU) 265875 ns (thread CPU)]
+Benchmarking codec/00078
+Benchmarking codec/00078: Warming up for 50.000 ms
+Benchmarking codec/00078: Collecting 20 samples in estimated 200.02 ms (114k iterations)
+Benchmarking codec/00078: Analyzing
+codec/00078             time:   [1594.1 ns (thread CPU) 1663.6 ns (thread CPU) 1744.1 ns (thread CPU)]
+Benchmarking codec/00006
+Benchmarking codec/00006: Warming up for 50.000 ms
+Benchmarking codec/00006: Collecting 20 samples in estimated 200.01 ms (172k iterations)
+Benchmarking codec/00006: Analyzing
+codec/00006             time:   [1066.6 ns (thread CPU) 1076.3 ns (thread CPU) 1084.7 ns (thread CPU)]
+Benchmarking codec/00086
+Benchmarking codec/00086: Warming up for 50.000 ms
+Benchmarking codec/00086: Collecting 20 samples in estimated 200.03 ms (66k iterations)
+Benchmarking codec/00086: Analyzing
+codec/00086             time:   [3102.0 ns (thread CPU) 3111.1 ns (thread CPU) 3119.0 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+Benchmarking codec/00253
+Benchmarking codec/00253: Warming up for 50.000 ms
+Benchmarking codec/00253: Collecting 20 samples in estimated 205.55 ms (640 iterations)
+Benchmarking codec/00253: Analyzing
+codec/00253             time:   [325401 ns (thread CPU) 327150 ns (thread CPU) 328838 ns (thread CPU)]
+Benchmarking codec/00254
+Benchmarking codec/00254: Warming up for 50.000 ms
+Benchmarking codec/00254: Collecting 20 samples in estimated 202.89 ms (620 iterations)
+Benchmarking codec/00254: Analyzing
+codec/00254             time:   [328733 ns (thread CPU) 334680 ns (thread CPU) 341999 ns (thread CPU)]
+Found 2 outliers among 20 measurements (10.00%)
+  2 (10.00%) high severe
+Benchmarking codec/00226
+Benchmarking codec/00226: Warming up for 50.000 ms
+Benchmarking codec/00226: Collecting 20 samples in estimated 200.00 ms (116k iterations)
+Benchmarking codec/00226: Analyzing
+codec/00226             time:   [1716.8 ns (thread CPU) 1739.9 ns (thread CPU) 1772.7 ns (thread CPU)]
+Found 3 outliers among 20 measurements (15.00%)
+  1 (5.00%) high mild
+  2 (10.00%) high severe
+Benchmarking codec/00152
+Benchmarking codec/00152: Warming up for 50.000 ms
+Benchmarking codec/00152: Collecting 20 samples in estimated 235.98 ms (120 iterations)
+Benchmarking codec/00152: Analyzing
+codec/00152             time:   [1674400 ns (thread CPU) 1698586 ns (thread CPU) 1728561 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+Benchmarking codec/00115
+Benchmarking codec/00115: Warming up for 50.000 ms
+Benchmarking codec/00115: Collecting 20 samples in estimated 236.41 ms (120 iterations)
+Benchmarking codec/00115: Analyzing
+codec/00115             time:   [2019865 ns (thread CPU) 2041520 ns (thread CPU) 2061335 ns (thread CPU)]
+Benchmarking codec/00140
+Benchmarking codec/00140: Warming up for 50.000 ms
+Benchmarking codec/00140: Collecting 20 samples in estimated 201.82 ms (180 iterations)
+Benchmarking codec/00140: Analyzing
+codec/00140             time:   [1044598 ns (thread CPU) 1050664 ns (thread CPU) 1057584 ns (thread CPU)]
+Benchmarking codec/00033
+Benchmarking codec/00033: Warming up for 50.000 ms
+Benchmarking codec/00033: Collecting 20 samples in estimated 201.02 ms (620 iterations)
+Benchmarking codec/00033: Analyzing
+codec/00033             time:   [318344 ns (thread CPU) 320069 ns (thread CPU) 321655 ns (thread CPU)]
+Found 2 outliers among 20 measurements (10.00%)
+  2 (10.00%) low mild
+Benchmarking codec/00062
+Benchmarking codec/00062: Warming up for 50.000 ms
+Benchmarking codec/00062: Collecting 20 samples in estimated 200.01 ms (116k iterations)
+Benchmarking codec/00062: Analyzing
+codec/00062             time:   [1728.6 ns (thread CPU) 1735.0 ns (thread CPU) 1741.7 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) low mild
+Benchmarking codec/00174
+Benchmarking codec/00174: Warming up for 50.000 ms
+Benchmarking codec/00174: Collecting 20 samples in estimated 200.62 ms (3120 iterations)
+Benchmarking codec/00174: Analyzing
+codec/00174             time:   [ 64375 ns (thread CPU)  64638 ns (thread CPU)  64937 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+Benchmarking codec/00021
+Benchmarking codec/00021: Warming up for 50.000 ms
+Benchmarking codec/00021: Collecting 20 samples in estimated 202.61 ms (440 iterations)
+Benchmarking codec/00021: Analyzing
+codec/00021             time:   [446228 ns (thread CPU) 449989 ns (thread CPU) 454151 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+Benchmarking codec/00080
+Benchmarking codec/00080: Warming up for 50.000 ms
+Benchmarking codec/00080: Collecting 20 samples in estimated 200.01 ms (126k iterations)
+Benchmarking codec/00080: Analyzing
+codec/00080             time:   [1543.3 ns (thread CPU) 1555.7 ns (thread CPU) 1569.7 ns (thread CPU)]
+Found 3 outliers among 20 measurements (15.00%)
+  2 (10.00%) high mild
+  1 (5.00%) high severe
+Benchmarking codec/00147
+Benchmarking codec/00147: Warming up for 50.000 ms
+Benchmarking codec/00147: Collecting 20 samples in estimated 214.21 ms (140 iterations)
+Benchmarking codec/00147: Analyzing
+codec/00147             time:   [1521756 ns (thread CPU) 1537705 ns (thread CPU) 1558283 ns (thread CPU)]
+Found 2 outliers among 20 measurements (10.00%)
+  1 (5.00%) high mild
+  1 (5.00%) high severe
+Benchmarking codec/00019
+Benchmarking codec/00019: Warming up for 50.000 ms
+Benchmarking codec/00019: Collecting 20 samples in estimated 204.09 ms (540 iterations)
+Benchmarking codec/00019: Analyzing
+codec/00019             time:   [291392 ns (thread CPU) 303137 ns (thread CPU) 319145 ns (thread CPU)]
+Found 3 outliers among 20 measurements (15.00%)
+  3 (15.00%) high severe
+Benchmarking codec/00280
+Benchmarking codec/00280: Warming up for 50.000 ms
+Benchmarking codec/00280: Collecting 20 samples in estimated 200.37 ms (1280 iterations)
+Benchmarking codec/00280: Analyzing
+codec/00280             time:   [150333 ns (thread CPU) 153381 ns (thread CPU) 156130 ns (thread CPU)]
+Benchmarking codec/00231
+Benchmarking codec/00231: Warming up for 50.000 ms
+Benchmarking codec/00231: Collecting 20 samples in estimated 200.00 ms (121k iterations)
+Benchmarking codec/00231: Analyzing
+codec/00231             time:   [1653.9 ns (thread CPU) 1668.1 ns (thread CPU) 1685.0 ns (thread CPU)]
+Found 2 outliers among 20 measurements (10.00%)
+  2 (10.00%) high mild
+Benchmarking codec/00178
+Benchmarking codec/00178: Warming up for 50.000 ms
+Benchmarking codec/00178: Collecting 20 samples in estimated 200.03 ms (53k iterations)
+Benchmarking codec/00178: Analyzing
+codec/00178             time:   [3763.4 ns (thread CPU) 3784.2 ns (thread CPU) 3807.2 ns (thread CPU)]
+Found 3 outliers among 20 measurements (15.00%)
+  2 (10.00%) high mild
+  1 (5.00%) high severe
+Benchmarking codec/00232
+Benchmarking codec/00232: Warming up for 50.000 ms
+Benchmarking codec/00232: Collecting 20 samples in estimated 200.00 ms (2.0M iterations)
+Benchmarking codec/00232: Analyzing
+codec/00232             time:   [97.259 ns (thread CPU) 97.624 ns (thread CPU) 98.018 ns (thread CPU)]
+Benchmarking codec/00274
+Benchmarking codec/00274: Warming up for 50.000 ms
+Benchmarking codec/00274: Collecting 20 samples in estimated 200.46 ms (600 iterations)
+Benchmarking codec/00274: Analyzing
+codec/00274             time:   [336128 ns (thread CPU) 336997 ns (thread CPU) 337988 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+Benchmarking codec/00127
+Benchmarking codec/00127: Warming up for 50.000 ms
+Benchmarking codec/00127: Collecting 20 samples in estimated 208.63 ms (60 iterations)
+Benchmarking codec/00127: Analyzing
+codec/00127             time:   [3449647 ns (thread CPU) 3465417 ns (thread CPU) 3483781 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+Benchmarking codec/00191
+Benchmarking codec/00191: Warming up for 50.000 ms
+Benchmarking codec/00191: Collecting 20 samples in estimated 200.36 ms (1520 iterations)
+Benchmarking codec/00191: Analyzing
+codec/00191             time:   [131124 ns (thread CPU) 131422 ns (thread CPU) 131760 ns (thread CPU)]
+Benchmarking codec/00117
+Benchmarking codec/00117: Warming up for 50.000 ms
+Benchmarking codec/00117: Collecting 20 samples in estimated 221.92 ms (120 iterations)
+Benchmarking codec/00117: Analyzing
+codec/00117             time:   [1836809 ns (thread CPU) 1842910 ns (thread CPU) 1849639 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+Benchmarking codec/00079
+Benchmarking codec/00079: Warming up for 50.000 ms
+Benchmarking codec/00079: Collecting 20 samples in estimated 200.00 ms (107k iterations)
+Benchmarking codec/00079: Analyzing
+codec/00079             time:   [1856.4 ns (thread CPU) 1860.4 ns (thread CPU) 1864.2 ns (thread CPU)]
+Benchmarking codec/00150
+Benchmarking codec/00150: Warming up for 50.000 ms
+Benchmarking codec/00150: Collecting 20 samples in estimated 202.05 ms (1040 iterations)
+Benchmarking codec/00150: Analyzing
+codec/00150             time:   [188279 ns (thread CPU) 193571 ns (thread CPU) 199921 ns (thread CPU)]
+Found 5 outliers among 20 measurements (25.00%)
+  4 (20.00%) low severe
+  1 (5.00%) high severe
+Benchmarking codec/00243
+Benchmarking codec/00243: Warming up for 50.000 ms
+Benchmarking codec/00243: Collecting 20 samples in estimated 200.91 ms (4380 iterations)
+Benchmarking codec/00243: Analyzing
+codec/00243             time:   [ 45236 ns (thread CPU)  46574 ns (thread CPU)  48207 ns (thread CPU)]
+Found 2 outliers among 20 measurements (10.00%)
+  2 (10.00%) high severe
+Benchmarking codec/00030
+Benchmarking codec/00030: Warming up for 50.000 ms
+Benchmarking codec/00030: Collecting 20 samples in estimated 201.68 ms (520 iterations)
+Benchmarking codec/00030: Analyzing
+codec/00030             time:   [251876 ns (thread CPU) 256460 ns (thread CPU) 261501 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+Benchmarking codec/00285
+Benchmarking codec/00285: Warming up for 50.000 ms
+Benchmarking codec/00285: Collecting 20 samples in estimated 200.00 ms (524k iterations)
+Benchmarking codec/00285: Analyzing
+codec/00285             time:   [373.77 ns (thread CPU) 375.37 ns (thread CPU) 377.17 ns (thread CPU)]
+Benchmarking codec/00068
+Benchmarking codec/00068: Warming up for 50.000 ms
+Benchmarking codec/00068: Collecting 20 samples in estimated 200.22 ms (13k iterations)
+Benchmarking codec/00068: Analyzing
+codec/00068             time:   [ 15266 ns (thread CPU)  15367 ns (thread CPU)  15493 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high severe
+Benchmarking codec/00076
+Benchmarking codec/00076: Warming up for 50.000 ms
+Benchmarking codec/00076: Collecting 20 samples in estimated 200.00 ms (710k iterations)
+Benchmarking codec/00076: Analyzing
+codec/00076             time:   [281.03 ns (thread CPU) 283.01 ns (thread CPU) 285.32 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+Benchmarking codec/00159
+Benchmarking codec/00159: Warming up for 50.000 ms
+Benchmarking codec/00159: Collecting 20 samples in estimated 204.36 ms (120 iterations)
+Benchmarking codec/00159: Analyzing
+codec/00159             time:   [1648517 ns (thread CPU) 1663875 ns (thread CPU) 1681397 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high severe
+Benchmarking codec/00151
+Benchmarking codec/00151: Warming up for 50.000 ms
+Benchmarking codec/00151: Collecting 20 samples in estimated 204.73 ms (500 iterations)
+Benchmarking codec/00151: Analyzing
+codec/00151             time:   [349374 ns (thread CPU) 354338 ns (thread CPU) 359745 ns (thread CPU)]
+Benchmarking codec/00037
+Benchmarking codec/00037: Warming up for 50.000 ms
+Benchmarking codec/00037: Collecting 20 samples in estimated 206.40 ms (360 iterations)
+Benchmarking codec/00037: Analyzing
+codec/00037             time:   [575645 ns (thread CPU) 577418 ns (thread CPU) 579449 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+Benchmarking codec/00103
+Benchmarking codec/00103: Warming up for 50.000 ms
+Benchmarking codec/00103: Collecting 20 samples in estimated 208.12 ms (140 iterations)
+Benchmarking codec/00103: Analyzing
+codec/00103             time:   [1081898 ns (thread CPU) 1086156 ns (thread CPU) 1090400 ns (thread CPU)]
+Benchmarking codec/00165
+Benchmarking codec/00165: Warming up for 50.000 ms
+Benchmarking codec/00165: Collecting 20 samples in estimated 200.18 ms (18k iterations)
+Benchmarking codec/00165: Analyzing
+codec/00165             time:   [ 11293 ns (thread CPU)  11392 ns (thread CPU)  11520 ns (thread CPU)]
+Found 2 outliers among 20 measurements (10.00%)
+  1 (5.00%) high mild
+  1 (5.00%) high severe
+Benchmarking codec/00098
+Benchmarking codec/00098: Warming up for 50.000 ms
+Benchmarking codec/00098: Collecting 20 samples in estimated 206.39 ms (120 iterations)
+Benchmarking codec/00098: Analyzing
+codec/00098             time:   [1553297 ns (thread CPU) 1592575 ns (thread CPU) 1642979 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high severe
+Benchmarking codec/00129
+Benchmarking codec/00129: Warming up for 50.000 ms
+Benchmarking codec/00129: Collecting 20 samples in estimated 246.46 ms (80 iterations)
+Benchmarking codec/00129: Analyzing
+codec/00129             time:   [2463924 ns (thread CPU) 2473983 ns (thread CPU) 2487790 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high severe
+Benchmarking codec/00114
+Benchmarking codec/00114: Warming up for 50.000 ms
+Benchmarking codec/00114: Collecting 20 samples in estimated 209.89 ms (80 iterations)
+Benchmarking codec/00114: Analyzing
+codec/00114             time:   [2584775 ns (thread CPU) 2596946 ns (thread CPU) 2612409 ns (thread CPU)]
+Found 3 outliers among 20 measurements (15.00%)
+  3 (15.00%) high mild
+Benchmarking codec/00227
+Benchmarking codec/00227: Warming up for 50.000 ms
+Benchmarking codec/00227: Collecting 20 samples in estimated 200.00 ms (2.1M iterations)
+Benchmarking codec/00227: Analyzing
+codec/00227             time:   [91.531 ns (thread CPU) 91.859 ns (thread CPU) 92.182 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+Benchmarking codec/00179
+Benchmarking codec/00179: Warming up for 50.000 ms
+Benchmarking codec/00179: Collecting 20 samples in estimated 200.12 ms (25k iterations)
+Benchmarking codec/00179: Analyzing
+codec/00179             time:   [7920.2 ns (thread CPU) 7968.2 ns (thread CPU) 8011.5 ns (thread CPU)]
+Benchmarking codec/00001
+Benchmarking codec/00001: Warming up for 50.000 ms
+Benchmarking codec/00001: Collecting 20 samples in estimated 200.02 ms (166k iterations)
+Benchmarking codec/00001: Analyzing
+codec/00001             time:   [1185.0 ns (thread CPU) 1189.9 ns (thread CPU) 1195.4 ns (thread CPU)]
+Benchmarking codec/00069
+Benchmarking codec/00069: Warming up for 50.000 ms
+Benchmarking codec/00069: Collecting 20 samples in estimated 200.12 ms (17k iterations)
+Benchmarking codec/00069: Analyzing
+codec/00069             time:   [ 11818 ns (thread CPU)  11901 ns (thread CPU)  11979 ns (thread CPU)]
+Benchmarking codec/00136
+Benchmarking codec/00136: Warming up for 50.000 ms
+Benchmarking codec/00136: Collecting 20 samples in estimated 200.00 ms (1500 iterations)
+Benchmarking codec/00136: Analyzing
+codec/00136             time:   [130358 ns (thread CPU) 132559 ns (thread CPU) 135012 ns (thread CPU)]
+Found 2 outliers among 20 measurements (10.00%)
+  2 (10.00%) high mild
+Benchmarking codec/00236
+Benchmarking codec/00236: Warming up for 50.000 ms
+Benchmarking codec/00236: Collecting 20 samples in estimated 200.62 ms (4480 iterations)
+Benchmarking codec/00236: Analyzing
+codec/00236             time:   [ 41562 ns (thread CPU)  42353 ns (thread CPU)  43137 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) low mild
+Benchmarking codec/00066
+Benchmarking codec/00066: Warming up for 50.000 ms
+Benchmarking codec/00066: Collecting 20 samples in estimated 200.05 ms (18k iterations)
+Benchmarking codec/00066: Analyzing
+codec/00066             time:   [ 11349 ns (thread CPU)  11387 ns (thread CPU)  11424 ns (thread CPU)]
+Benchmarking codec/00072
+Benchmarking codec/00072: Warming up for 50.000 ms
+Benchmarking codec/00072: Collecting 20 samples in estimated 200.13 ms (16k iterations)
+Benchmarking codec/00072: Analyzing
+codec/00072             time:   [ 13057 ns (thread CPU)  13424 ns (thread CPU)  13796 ns (thread CPU)]
+Benchmarking codec/00118
+Benchmarking codec/00118: Warming up for 50.000 ms
+Benchmarking codec/00118: Collecting 20 samples in estimated 232.85 ms (80 iterations)
+Benchmarking codec/00118: Analyzing
+codec/00118             time:   [2411608 ns (thread CPU) 2440437 ns (thread CPU) 2472903 ns (thread CPU)]
+Found 2 outliers among 20 measurements (10.00%)
+  2 (10.00%) high mild
+Benchmarking codec/00022
+Benchmarking codec/00022: Warming up for 50.000 ms
+Benchmarking codec/00022: Collecting 20 samples in estimated 205.20 ms (560 iterations)
+Benchmarking codec/00022: Analyzing
+codec/00022             time:   [357671 ns (thread CPU) 366541 ns (thread CPU) 378342 ns (thread CPU)]
+Found 2 outliers among 20 measurements (10.00%)
+  2 (10.00%) high severe
+Benchmarking codec/00180
+Benchmarking codec/00180: Warming up for 50.000 ms
+Benchmarking codec/00180: Collecting 20 samples in estimated 200.42 ms (8020 iterations)
+Benchmarking codec/00180: Analyzing
+codec/00180             time:   [ 25214 ns (thread CPU)  25856 ns (thread CPU)  26685 ns (thread CPU)]
+Found 3 outliers among 20 measurements (15.00%)
+  1 (5.00%) high mild
+  2 (10.00%) high severe
+Benchmarking codec/00083
+Benchmarking codec/00083: Warming up for 50.000 ms
+Benchmarking codec/00083: Collecting 20 samples in estimated 200.02 ms (123k iterations)
+Benchmarking codec/00083: Analyzing
+codec/00083             time:   [1614.9 ns (thread CPU) 1622.5 ns (thread CPU) 1630.5 ns (thread CPU)]
+Found 3 outliers among 20 measurements (15.00%)
+  2 (10.00%) high mild
+  1 (5.00%) high severe
+Benchmarking codec/00153
+Benchmarking codec/00153: Warming up for 50.000 ms
+Benchmarking codec/00153: Collecting 20 samples in estimated 219.03 ms (160 iterations)
+Benchmarking codec/00153: Analyzing
+codec/00153             time:   [1406650 ns (thread CPU) 1455357 ns (thread CPU) 1511072 ns (thread CPU)]
+Found 4 outliers among 20 measurements (20.00%)
+  2 (10.00%) high mild
+  2 (10.00%) high severe
+Benchmarking codec/00116
+Benchmarking codec/00116: Warming up for 50.000 ms
+Benchmarking codec/00116: Collecting 20 samples in estimated 208.45 ms (120 iterations)
+Benchmarking codec/00116: Analyzing
+codec/00116             time:   [1723909 ns (thread CPU) 1731135 ns (thread CPU) 1738730 ns (thread CPU)]
+Benchmarking codec/00025
+Benchmarking codec/00025: Warming up for 50.000 ms
+Benchmarking codec/00025: Collecting 20 samples in estimated 202.03 ms (760 iterations)
+Benchmarking codec/00025: Analyzing
+codec/00025             time:   [263967 ns (thread CPU) 265704 ns (thread CPU) 267704 ns (thread CPU)]
+Found 3 outliers among 20 measurements (15.00%)
+  3 (15.00%) high mild
+Benchmarking codec/00263
+Benchmarking codec/00263: Warming up for 50.000 ms
+Benchmarking codec/00263: Collecting 20 samples in estimated 205.27 ms (600 iterations)
+Benchmarking codec/00263: Analyzing
+codec/00263             time:   [353031 ns (thread CPU) 360064 ns (thread CPU) 369346 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+Benchmarking codec/00099
+Benchmarking codec/00099: Warming up for 50.000 ms
+Benchmarking codec/00099: Collecting 20 samples in estimated 221.76 ms (160 iterations)
+Benchmarking codec/00099: Analyzing
+codec/00099             time:   [1189292 ns (thread CPU) 1232305 ns (thread CPU) 1270915 ns (thread CPU)]
+Benchmarking codec/00289
+Benchmarking codec/00289: Warming up for 50.000 ms
+Benchmarking codec/00289: Collecting 20 samples in estimated 200.00 ms (769k iterations)
+Benchmarking codec/00289: Analyzing
+codec/00289             time:   [237.73 ns (thread CPU) 249.55 ns (thread CPU) 258.50 ns (thread CPU)]
+Found 4 outliers among 20 measurements (20.00%)
+  4 (20.00%) low severe
+Benchmarking codec/00101
+Benchmarking codec/00101: Warming up for 50.000 ms
+Benchmarking codec/00101: Collecting 20 samples in estimated 239.00 ms (100 iterations)
+Benchmarking codec/00101: Analyzing
+codec/00101             time:   [1705022 ns (thread CPU) 1784978 ns (thread CPU) 1863864 ns (thread CPU)]
+Benchmarking codec/00167
+Benchmarking codec/00167: Warming up for 50.000 ms
+Benchmarking codec/00167: Collecting 20 samples in estimated 200.48 ms (3740 iterations)
+Benchmarking codec/00167: Analyzing
+codec/00167             time:   [ 50208 ns (thread CPU)  50646 ns (thread CPU)  51089 ns (thread CPU)]
+Benchmarking codec/00039
+Benchmarking codec/00039: Warming up for 50.000 ms
+Benchmarking codec/00039: Collecting 20 samples in estimated 203.03 ms (280 iterations)
+Benchmarking codec/00039: Analyzing
+codec/00039             time:   [726296 ns (thread CPU) 731759 ns (thread CPU) 738794 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high severe
+Benchmarking codec/00142
+Benchmarking codec/00142: Warming up for 50.000 ms
+Benchmarking codec/00142: Collecting 20 samples in estimated 212.32 ms (140 iterations)
+Benchmarking codec/00142: Analyzing
+codec/00142             time:   [1371352 ns (thread CPU) 1425074 ns (thread CPU) 1474235 ns (thread CPU)]
+Found 4 outliers among 20 measurements (20.00%)
+  4 (20.00%) low mild
+Benchmarking codec/00203
+Benchmarking codec/00203: Warming up for 50.000 ms
+Benchmarking codec/00203: Collecting 20 samples in estimated 204.18 ms (800 iterations)
+Benchmarking codec/00203: Analyzing
+codec/00203             time:   [285189 ns (thread CPU) 293507 ns (thread CPU) 300930 ns (thread CPU)]
+Found 3 outliers among 20 measurements (15.00%)
+  3 (15.00%) low severe
+Benchmarking codec/00073
+Benchmarking codec/00073: Warming up for 50.000 ms
+Benchmarking codec/00073: Collecting 20 samples in estimated 200.07 ms (12k iterations)
+Benchmarking codec/00073: Analyzing
+codec/00073             time:   [ 13602 ns (thread CPU)  13739 ns (thread CPU)  13874 ns (thread CPU)]
+Benchmarking codec/00212
+Benchmarking codec/00212: Warming up for 50.000 ms
+Benchmarking codec/00212: Collecting 20 samples in estimated 200.00 ms (2.3M iterations)
+Benchmarking codec/00212: Analyzing
+codec/00212             time:   [86.176 ns (thread CPU) 86.430 ns (thread CPU) 86.714 ns (thread CPU)]
+Benchmarking codec/00260
+Benchmarking codec/00260: Warming up for 50.000 ms
+Benchmarking codec/00260: Collecting 20 samples in estimated 200.00 ms (2.2M iterations)
+Benchmarking codec/00260: Analyzing
+codec/00260             time:   [78.593 ns (thread CPU) 79.446 ns (thread CPU) 80.438 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+Benchmarking codec/00005
+Benchmarking codec/00005: Warming up for 50.000 ms
+Benchmarking codec/00005: Collecting 20 samples in estimated 200.00 ms (190k iterations)
+Benchmarking codec/00005: Analyzing
+codec/00005             time:   [1033.1 ns (thread CPU) 1035.8 ns (thread CPU) 1038.6 ns (thread CPU)]
+Benchmarking codec/00235
+Benchmarking codec/00235: Warming up for 50.000 ms
+Benchmarking codec/00235: Collecting 20 samples in estimated 200.03 ms (118k iterations)
+Benchmarking codec/00235: Analyzing
+codec/00235             time:   [1694.2 ns (thread CPU) 1719.3 ns (thread CPU) 1740.8 ns (thread CPU)]
+Found 4 outliers among 20 measurements (20.00%)
+  2 (10.00%) low severe
+  1 (5.00%) low mild
+  1 (5.00%) high severe
+Benchmarking codec/00248
+Benchmarking codec/00248: Warming up for 50.000 ms
+Benchmarking codec/00248: Collecting 20 samples in estimated 200.59 ms (4380 iterations)
+Benchmarking codec/00248: Analyzing
+codec/00248             time:   [ 43153 ns (thread CPU)  43723 ns (thread CPU)  44315 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+Benchmarking codec/00148
+Benchmarking codec/00148: Warming up for 50.000 ms
+Benchmarking codec/00148: Collecting 20 samples in estimated 201.66 ms (360 iterations)
+Benchmarking codec/00148: Analyzing
+codec/00148             time:   [559678 ns (thread CPU) 562735 ns (thread CPU) 566287 ns (thread CPU)]
+Found 2 outliers among 20 measurements (10.00%)
+  1 (5.00%) high mild
+  1 (5.00%) high severe
+Benchmarking codec/00201
+Benchmarking codec/00201: Warming up for 50.000 ms
+Benchmarking codec/00201: Collecting 20 samples in estimated 203.95 ms (840 iterations)
+Benchmarking codec/00201: Analyzing
+codec/00201             time:   [242949 ns (thread CPU) 244033 ns (thread CPU) 245347 ns (thread CPU)]
+Found 3 outliers among 20 measurements (15.00%)
+  2 (10.00%) high mild
+  1 (5.00%) high severe
+Benchmarking codec/00128
+Benchmarking codec/00128: Warming up for 50.000 ms
+Benchmarking codec/00128: Collecting 20 samples in estimated 206.03 ms (60 iterations)
+Benchmarking codec/00128: Analyzing
+codec/00128             time:   [3345267 ns (thread CPU) 3366526 ns (thread CPU) 3388660 ns (thread CPU)]
+Benchmarking codec/00035
+Benchmarking codec/00035: Warming up for 50.000 ms
+Benchmarking codec/00035: Collecting 20 samples in estimated 201.41 ms (1900 iterations)
+Benchmarking codec/00035: Analyzing
+codec/00035             time:   [105306 ns (thread CPU) 106047 ns (thread CPU) 106898 ns (thread CPU)]
+Found 2 outliers among 20 measurements (10.00%)
+  2 (10.00%) high mild
+Benchmarking codec/00112
+Benchmarking codec/00112: Warming up for 50.000 ms
+Benchmarking codec/00112: Collecting 20 samples in estimated 213.05 ms (120 iterations)
+Benchmarking codec/00112: Analyzing
+codec/00112             time:   [1738382 ns (thread CPU) 1744177 ns (thread CPU) 1751314 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high severe
+Benchmarking codec/00198
+Benchmarking codec/00198: Warming up for 50.000 ms
+Benchmarking codec/00198: Collecting 20 samples in estimated 201.27 ms (680 iterations)
+Benchmarking codec/00198: Analyzing
+codec/00198             time:   [284053 ns (thread CPU) 284974 ns (thread CPU) 286173 ns (thread CPU)]
+Found 2 outliers among 20 measurements (10.00%)
+  2 (10.00%) high mild
+Benchmarking codec/00268
+Benchmarking codec/00268: Warming up for 50.000 ms
+Benchmarking codec/00268: Collecting 20 samples in estimated 203.50 ms (700 iterations)
+Benchmarking codec/00268: Analyzing
+codec/00268             time:   [293236 ns (thread CPU) 294423 ns (thread CPU) 295598 ns (thread CPU)]
+Benchmarking codec/00273
+Benchmarking codec/00273: Warming up for 50.000 ms
+Benchmarking codec/00273: Collecting 20 samples in estimated 203.26 ms (640 iterations)
+Benchmarking codec/00273: Analyzing
+codec/00273             time:   [318107 ns (thread CPU) 319199 ns (thread CPU) 320296 ns (thread CPU)]
+Benchmarking codec/00017
+Benchmarking codec/00017: Warming up for 50.000 ms
+Benchmarking codec/00017: Collecting 20 samples in estimated 201.12 ms (1880 iterations)
+Benchmarking codec/00017: Analyzing
+codec/00017             time:   [ 99942 ns (thread CPU) 101010 ns (thread CPU) 101984 ns (thread CPU)]
+Benchmarking codec/00284
+Benchmarking codec/00284: Warming up for 50.000 ms
+Benchmarking codec/00284: Collecting 20 samples in estimated 200.00 ms (807k iterations)
+Benchmarking codec/00284: Analyzing
+codec/00284             time:   [244.94 ns (thread CPU) 246.49 ns (thread CPU) 247.68 ns (thread CPU)]
+Found 3 outliers among 20 measurements (15.00%)
+  3 (15.00%) low mild
+Benchmarking codec/00034
+Benchmarking codec/00034: Warming up for 50.000 ms
+Benchmarking codec/00034: Collecting 20 samples in estimated 200.80 ms (3500 iterations)
+Benchmarking codec/00034: Analyzing
+codec/00034             time:   [ 57717 ns (thread CPU)  58264 ns (thread CPU)  59244 ns (thread CPU)]
+Found 2 outliers among 20 measurements (10.00%)
+  1 (5.00%) high mild
+  1 (5.00%) high severe
+Benchmarking codec/00070
+Benchmarking codec/00070: Warming up for 50.000 ms
+Benchmarking codec/00070: Collecting 20 samples in estimated 200.20 ms (12k iterations)
+Benchmarking codec/00070: Analyzing
+codec/00070             time:   [ 16862 ns (thread CPU)  16922 ns (thread CPU)  16987 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high severe
+Benchmarking codec/00137
+Benchmarking codec/00137: Warming up for 50.000 ms
+Benchmarking codec/00137: Collecting 20 samples in estimated 200.37 ms (820 iterations)
+Benchmarking codec/00137: Analyzing
+codec/00137             time:   [236103 ns (thread CPU) 237654 ns (thread CPU) 239212 ns (thread CPU)]
+Benchmarking codec/00262
+Benchmarking codec/00262: Warming up for 50.000 ms
+Benchmarking codec/00262: Collecting 20 samples in estimated 203.91 ms (640 iterations)
+Benchmarking codec/00262: Analyzing
+codec/00262             time:   [329846 ns (thread CPU) 336333 ns (thread CPU) 342737 ns (thread CPU)]
+Benchmarking codec/00258
+Benchmarking codec/00258: Warming up for 50.000 ms
+Benchmarking codec/00258: Collecting 20 samples in estimated 203.91 ms (560 iterations)
+Benchmarking codec/00258: Analyzing
+codec/00258             time:   [351239 ns (thread CPU) 355995 ns (thread CPU) 363726 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high severe
+Benchmarking codec/00199
+Benchmarking codec/00199: Warming up for 50.000 ms
+Benchmarking codec/00199: Collecting 20 samples in estimated 201.17 ms (700 iterations)
+Benchmarking codec/00199: Analyzing
+codec/00199             time:   [280415 ns (thread CPU) 282030 ns (thread CPU) 283760 ns (thread CPU)]
+Benchmarking codec/00028
+Benchmarking codec/00028: Warming up for 50.000 ms
+Benchmarking codec/00028: Collecting 20 samples in estimated 203.86 ms (440 iterations)
+Benchmarking codec/00028: Analyzing
+codec/00028             time:   [332580 ns (thread CPU) 335124 ns (thread CPU) 337941 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+Benchmarking codec/00088
+Benchmarking codec/00088: Warming up for 50.000 ms
+Benchmarking codec/00088: Collecting 20 samples in estimated 215.57 ms (240 iterations)
+Benchmarking codec/00088: Analyzing
+codec/00088             time:   [880375 ns (thread CPU) 888429 ns (thread CPU) 897723 ns (thread CPU)]
+Benchmarking codec/00067
+Benchmarking codec/00067: Warming up for 50.000 ms
+Benchmarking codec/00067: Collecting 20 samples in estimated 200.08 ms (13k iterations)
+Benchmarking codec/00067: Analyzing
+codec/00067             time:   [ 13873 ns (thread CPU)  14060 ns (thread CPU)  14300 ns (thread CPU)]
+Found 2 outliers among 20 measurements (10.00%)
+  2 (10.00%) high severe
+Benchmarking codec/00255
+Benchmarking codec/00255: Warming up for 50.000 ms
+Benchmarking codec/00255: Collecting 20 samples in estimated 200.00 ms (2.0M iterations)
+Benchmarking codec/00255: Analyzing
+codec/00255             time:   [94.043 ns (thread CPU) 95.046 ns (thread CPU) 96.028 ns (thread CPU)]
+Benchmarking codec/00230
+Benchmarking codec/00230: Warming up for 50.000 ms
+Benchmarking codec/00230: Collecting 20 samples in estimated 200.03 ms (111k iterations)
+Benchmarking codec/00230: Analyzing
+codec/00230             time:   [1761.2 ns (thread CPU) 1776.1 ns (thread CPU) 1791.2 ns (thread CPU)]
+Found 2 outliers among 20 measurements (10.00%)
+  1 (5.00%) low mild
+  1 (5.00%) high mild
+Benchmarking codec/00175
+Benchmarking codec/00175: Warming up for 50.000 ms
+Benchmarking codec/00175: Collecting 20 samples in estimated 200.70 ms (2800 iterations)
+Benchmarking codec/00175: Analyzing
+codec/00175             time:   [ 63464 ns (thread CPU)  63816 ns (thread CPU)  64264 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+Benchmarking codec/00008
+Benchmarking codec/00008: Warming up for 50.000 ms
+Benchmarking codec/00008: Collecting 20 samples in estimated 200.03 ms (113k iterations)
+Benchmarking codec/00008: Analyzing
+codec/00008             time:   [1734.5 ns (thread CPU) 1741.8 ns (thread CPU) 1749.1 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+Benchmarking codec/00084
+Benchmarking codec/00084: Warming up for 50.000 ms
+Benchmarking codec/00084: Collecting 20 samples in estimated 200.03 ms (97k iterations)
+Benchmarking codec/00084: Analyzing
+codec/00084             time:   [1979.3 ns (thread CPU) 2003.1 ns (thread CPU) 2035.6 ns (thread CPU)]
+Found 2 outliers among 20 measurements (10.00%)
+  1 (5.00%) high mild
+  1 (5.00%) high severe
+Benchmarking codec/00009
+Benchmarking codec/00009: Warming up for 50.000 ms
+Benchmarking codec/00009: Collecting 20 samples in estimated 200.01 ms (146k iterations)
+Benchmarking codec/00009: Analyzing
+codec/00009             time:   [1326.8 ns (thread CPU) 1342.3 ns (thread CPU) 1356.8 ns (thread CPU)]
+Benchmarking codec/00089
+Benchmarking codec/00089: Warming up for 50.000 ms
+Benchmarking codec/00089: Collecting 20 samples in estimated 216.48 ms (240 iterations)
+Benchmarking codec/00089: Analyzing
+codec/00089             time:   [893726 ns (thread CPU) 900148 ns (thread CPU) 907000 ns (thread CPU)]
+Benchmarking codec/00119
+Benchmarking codec/00119: Warming up for 50.000 ms
+Benchmarking codec/00119: Collecting 20 samples in estimated 223.08 ms (80 iterations)
+Benchmarking codec/00119: Analyzing
+codec/00119             time:   [2750307 ns (thread CPU) 2787916 ns (thread CPU) 2837320 ns (thread CPU)]
+Found 2 outliers among 20 measurements (10.00%)
+  1 (5.00%) high mild
+  1 (5.00%) high severe
+Benchmarking codec/00266
+Benchmarking codec/00266: Warming up for 50.000 ms
+Benchmarking codec/00266: Collecting 20 samples in estimated 200.19 ms (2820 iterations)
+Benchmarking codec/00266: Analyzing
+codec/00266             time:   [ 70512 ns (thread CPU)  70856 ns (thread CPU)  71181 ns (thread CPU)]
+Benchmarking codec/00229
+Benchmarking codec/00229: Warming up for 50.000 ms
+Benchmarking codec/00229: Collecting 20 samples in estimated 200.03 ms (115k iterations)
+Benchmarking codec/00229: Analyzing
+codec/00229             time:   [1734.6 ns (thread CPU) 1741.2 ns (thread CPU) 1748.5 ns (thread CPU)]
+Benchmarking codec/00134
+Benchmarking codec/00134: Warming up for 50.000 ms
+Benchmarking codec/00134: Collecting 20 samples in estimated 204.14 ms (320 iterations)
+Benchmarking codec/00134: Analyzing
+codec/00134             time:   [463800 ns (thread CPU) 466683 ns (thread CPU) 469561 ns (thread CPU)]
+Benchmarking codec/00085
+Benchmarking codec/00085: Warming up for 50.000 ms
+Benchmarking codec/00085: Collecting 20 samples in estimated 200.00 ms (122k iterations)
+Benchmarking codec/00085: Analyzing
+codec/00085             time:   [1641.7 ns (thread CPU) 1661.6 ns (thread CPU) 1686.0 ns (thread CPU)]
+Found 4 outliers among 20 measurements (20.00%)
+  2 (10.00%) high mild
+  2 (10.00%) high severe
+Benchmarking codec/00168
+Benchmarking codec/00168: Warming up for 50.000 ms
+Benchmarking codec/00168: Collecting 20 samples in estimated 200.16 ms (4480 iterations)
+Benchmarking codec/00168: Analyzing
+codec/00168             time:   [ 40317 ns (thread CPU)  40684 ns (thread CPU)  41047 ns (thread CPU)]
+Benchmarking codec/00267
+Benchmarking codec/00267: Warming up for 50.000 ms
+Benchmarking codec/00267: Collecting 20 samples in estimated 200.59 ms (2320 iterations)
+Benchmarking codec/00267: Analyzing
+codec/00267             time:   [ 81828 ns (thread CPU)  82224 ns (thread CPU)  82664 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high severe
+Benchmarking codec/00245
+Benchmarking codec/00245: Warming up for 50.000 ms
+Benchmarking codec/00245: Collecting 20 samples in estimated 200.68 ms (4740 iterations)
+Benchmarking codec/00245: Analyzing
+codec/00245             time:   [ 44489 ns (thread CPU)  46538 ns (thread CPU)  49415 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high severe
+Benchmarking codec/00193
+Benchmarking codec/00193: Warming up for 50.000 ms
+Benchmarking codec/00193: Collecting 20 samples in estimated 200.62 ms (2880 iterations)
+Benchmarking codec/00193: Analyzing
+codec/00193             time:   [ 57422 ns (thread CPU)  57764 ns (thread CPU)  58194 ns (thread CPU)]
+Found 2 outliers among 20 measurements (10.00%)
+  2 (10.00%) high mild
+Benchmarking codec/00135
+Benchmarking codec/00135: Warming up for 50.000 ms
+Benchmarking codec/00135: Collecting 20 samples in estimated 207.44 ms (440 iterations)
+Benchmarking codec/00135: Analyzing
+codec/00135             time:   [465763 ns (thread CPU) 470132 ns (thread CPU) 475164 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+Benchmarking codec/00130
+Benchmarking codec/00130: Warming up for 50.000 ms
+Benchmarking codec/00130: Collecting 20 samples in estimated 236.53 ms (80 iterations)
+Benchmarking codec/00130: Analyzing
+codec/00130             time:   [2571278 ns (thread CPU) 2604816 ns (thread CPU) 2649656 ns (thread CPU)]
+Found 3 outliers among 20 measurements (15.00%)
+  1 (5.00%) high mild
+  2 (10.00%) high severe
+Benchmarking codec/00113
+Benchmarking codec/00113: Warming up for 50.000 ms
+Benchmarking codec/00113: Collecting 20 samples in estimated 224.82 ms (80 iterations)
+Benchmarking codec/00113: Analyzing
+codec/00113             time:   [2761946 ns (thread CPU) 2776301 ns (thread CPU) 2790139 ns (thread CPU)]
+Benchmarking codec/00162
+Benchmarking codec/00162: Warming up for 50.000 ms
+Benchmarking codec/00162: Collecting 20 samples in estimated 200.24 ms (7280 iterations)
+Benchmarking codec/00162: Analyzing
+codec/00162             time:   [ 25931 ns (thread CPU)  26522 ns (thread CPU)  27374 ns (thread CPU)]
+Found 3 outliers among 20 measurements (15.00%)
+  2 (10.00%) high mild
+  1 (5.00%) high severe
+Benchmarking codec/00040
+Benchmarking codec/00040: Warming up for 50.000 ms
+Benchmarking codec/00040: Collecting 20 samples in estimated 203.59 ms (280 iterations)
+Benchmarking codec/00040: Analyzing
+codec/00040             time:   [719175 ns (thread CPU) 722042 ns (thread CPU) 725472 ns (thread CPU)]
+Found 2 outliers among 20 measurements (10.00%)
+  2 (10.00%) high mild
+Benchmarking codec/00265
+Benchmarking codec/00265: Warming up for 50.000 ms
+Benchmarking codec/00265: Collecting 20 samples in estimated 206.02 ms (540 iterations)
+Benchmarking codec/00265: Analyzing
+codec/00265             time:   [343264 ns (thread CPU) 358850 ns (thread CPU) 371448 ns (thread CPU)]
+Found 5 outliers among 20 measurements (25.00%)
+  4 (20.00%) low severe
+  1 (5.00%) low mild
+Benchmarking codec/00031
+Benchmarking codec/00031: Warming up for 50.000 ms
+Benchmarking codec/00031: Collecting 20 samples in estimated 204.78 ms (500 iterations)
+Benchmarking codec/00031: Analyzing
+codec/00031             time:   [329187 ns (thread CPU) 334132 ns (thread CPU) 338384 ns (thread CPU)]
+Found 4 outliers among 20 measurements (20.00%)
+  4 (20.00%) low mild
+Benchmarking codec/00186
+Benchmarking codec/00186: Warming up for 50.000 ms
+Benchmarking codec/00186: Collecting 20 samples in estimated 200.49 ms (7680 iterations)
+Benchmarking codec/00186: Analyzing
+codec/00186             time:   [ 25444 ns (thread CPU)  25686 ns (thread CPU)  25887 ns (thread CPU)]
+Found 5 outliers among 20 measurements (25.00%)
+  4 (20.00%) low severe
+  1 (5.00%) high mild
+Benchmarking codec/00023
+Benchmarking codec/00023: Warming up for 50.000 ms
+Benchmarking codec/00023: Collecting 20 samples in estimated 205.11 ms (620 iterations)
+Benchmarking codec/00023: Analyzing
+codec/00023             time:   [326046 ns (thread CPU) 326641 ns (thread CPU) 327203 ns (thread CPU)]
+Benchmarking codec/00205
+Benchmarking codec/00205: Warming up for 50.000 ms
+Benchmarking codec/00205: Collecting 20 samples in estimated 200.13 ms (900 iterations)
+Benchmarking codec/00205: Analyzing
+codec/00205             time:   [167003 ns (thread CPU) 168195 ns (thread CPU) 169339 ns (thread CPU)]
+Benchmarking codec/00171
+Benchmarking codec/00171: Warming up for 50.000 ms
+Benchmarking codec/00171: Collecting 20 samples in estimated 200.65 ms (5000 iterations)
+Benchmarking codec/00171: Analyzing
+codec/00171             time:   [ 41765 ns (thread CPU)  42392 ns (thread CPU)  43142 ns (thread CPU)]
+Found 4 outliers among 20 measurements (20.00%)
+  2 (10.00%) low mild
+  2 (10.00%) high severe
+Benchmarking codec/00146
+Benchmarking codec/00146: Warming up for 50.000 ms
+Benchmarking codec/00146: Collecting 20 samples in estimated 216.37 ms (160 iterations)
+Benchmarking codec/00146: Analyzing
+codec/00146             time:   [1275342 ns (thread CPU) 1288759 ns (thread CPU) 1303115 ns (thread CPU)]
+Benchmarking codec/00195
+Benchmarking codec/00195: Warming up for 50.000 ms
+Benchmarking codec/00195: Collecting 20 samples in estimated 203.68 ms (960 iterations)
+Benchmarking codec/00195: Analyzing
+codec/00195             time:   [238016 ns (thread CPU) 250475 ns (thread CPU) 262953 ns (thread CPU)]
+Benchmarking codec/00208
+Benchmarking codec/00208: Warming up for 50.000 ms
+Benchmarking codec/00208: Collecting 20 samples in estimated 200.00 ms (3.4M iterations)
+Benchmarking codec/00208: Analyzing
+codec/00208             time:   [59.614 ns (thread CPU) 60.301 ns (thread CPU) 61.429 ns (thread CPU)]
+Found 2 outliers among 20 measurements (10.00%)
+  1 (5.00%) high mild
+  1 (5.00%) high severe
+Benchmarking codec/00214
+Benchmarking codec/00214: Warming up for 50.000 ms
+Benchmarking codec/00214: Collecting 20 samples in estimated 200.00 ms (2.0M iterations)
+Benchmarking codec/00214: Analyzing
+codec/00214             time:   [92.027 ns (thread CPU) 93.691 ns (thread CPU) 95.719 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high severe
+Benchmarking codec/00120
+Benchmarking codec/00120: Warming up for 50.000 ms
+Benchmarking codec/00120: Collecting 20 samples in estimated 213.22 ms (220 iterations)
+Benchmarking codec/00120: Analyzing
+codec/00120             time:   [920243 ns (thread CPU) 926176 ns (thread CPU) 931981 ns (thread CPU)]
+Benchmarking codec/00210
+Benchmarking codec/00210: Warming up for 50.000 ms
+Benchmarking codec/00210: Collecting 20 samples in estimated 200.00 ms (12M iterations)
+Benchmarking codec/00210: Analyzing
+codec/00210             time:   [16.069 ns (thread CPU) 16.323 ns (thread CPU) 16.617 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+Benchmarking codec/00166
+Benchmarking codec/00166: Warming up for 50.000 ms
+Benchmarking codec/00166: Collecting 20 samples in estimated 200.01 ms (4040 iterations)
+Benchmarking codec/00166: Analyzing
+codec/00166             time:   [ 49433 ns (thread CPU)  52112 ns (thread CPU)  56004 ns (thread CPU)]
+Found 2 outliers among 20 measurements (10.00%)
+  2 (10.00%) high severe
+Benchmarking codec/00219
+Benchmarking codec/00219: Warming up for 50.000 ms
+Benchmarking codec/00219: Collecting 20 samples in estimated 200.00 ms (2.1M iterations)
+Benchmarking codec/00219: Analyzing
+codec/00219             time:   [94.888 ns (thread CPU) 97.642 ns (thread CPU) 100.86 ns (thread CPU)]
+Found 4 outliers among 20 measurements (20.00%)
+  4 (20.00%) high severe
+Benchmarking codec/00075
+Benchmarking codec/00075: Warming up for 50.000 ms
+Benchmarking codec/00075: Collecting 20 samples in estimated 200.03 ms (140k iterations)
+Benchmarking codec/00075: Analyzing
+codec/00075             time:   [1325.1 ns (thread CPU) 1338.0 ns (thread CPU) 1354.9 ns (thread CPU)]
+Found 2 outliers among 20 measurements (10.00%)
+  1 (5.00%) high mild
+  1 (5.00%) high severe
+Benchmarking codec/00132
+Benchmarking codec/00132: Warming up for 50.000 ms
+Benchmarking codec/00132: Collecting 20 samples in estimated 229.46 ms (60 iterations)
+Benchmarking codec/00132: Analyzing
+codec/00132             time:   [3575550 ns (thread CPU) 3612311 ns (thread CPU) 3646705 ns (thread CPU)]
+Benchmarking codec/00064
+Benchmarking codec/00064: Warming up for 50.000 ms
+Benchmarking codec/00064: Collecting 20 samples in estimated 200.13 ms (20k iterations)
+Benchmarking codec/00064: Analyzing
+codec/00064             time:   [9895.8 ns (thread CPU) 9927.8 ns (thread CPU) 9967.2 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+Benchmarking codec/00224
+Benchmarking codec/00224: Warming up for 50.000 ms
+Benchmarking codec/00224: Collecting 20 samples in estimated 200.02 ms (122k iterations)
+Benchmarking codec/00224: Analyzing
+codec/00224             time:   [1569.1 ns (thread CPU) 1572.3 ns (thread CPU) 1575.7 ns (thread CPU)]
+Benchmarking codec/00247
+Benchmarking codec/00247: Warming up for 50.000 ms
+Benchmarking codec/00247: Collecting 20 samples in estimated 200.70 ms (4440 iterations)
+Benchmarking codec/00247: Analyzing
+codec/00247             time:   [ 45437 ns (thread CPU)  45855 ns (thread CPU)  46292 ns (thread CPU)]
+Benchmarking codec/00105
+Benchmarking codec/00105: Warming up for 50.000 ms
+Benchmarking codec/00105: Collecting 20 samples in estimated 212.01 ms (100 iterations)
+Benchmarking codec/00105: Analyzing
+codec/00105             time:   [1609469 ns (thread CPU) 1626456 ns (thread CPU) 1645033 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+Benchmarking codec/00279
+Benchmarking codec/00279: Warming up for 50.000 ms
+Benchmarking codec/00279: Collecting 20 samples in estimated 202.75 ms (620 iterations)
+Benchmarking codec/00279: Analyzing
+codec/00279             time:   [302232 ns (thread CPU) 304615 ns (thread CPU) 307221 ns (thread CPU)]
+Benchmarking codec/00024
+Benchmarking codec/00024: Warming up for 50.000 ms
+Benchmarking codec/00024: Collecting 20 samples in estimated 203.71 ms (520 iterations)
+Benchmarking codec/00024: Analyzing
+codec/00024             time:   [398121 ns (thread CPU) 403534 ns (thread CPU) 408843 ns (thread CPU)]
+Benchmarking codec/00228
+Benchmarking codec/00228: Warming up for 50.000 ms
+Benchmarking codec/00228: Collecting 20 samples in estimated 200.02 ms (115k iterations)
+Benchmarking codec/00228: Analyzing
+codec/00228             time:   [1700.0 ns (thread CPU) 1710.2 ns (thread CPU) 1720.5 ns (thread CPU)]
+Benchmarking codec/00121
+Benchmarking codec/00121: Warming up for 50.000 ms
+Benchmarking codec/00121: Collecting 20 samples in estimated 209.13 ms (200 iterations)
+Benchmarking codec/00121: Analyzing
+codec/00121             time:   [951554 ns (thread CPU) 966224 ns (thread CPU) 980769 ns (thread CPU)]
+Benchmarking codec/00156
+Benchmarking codec/00156: Warming up for 50.000 ms
+Benchmarking codec/00156: Collecting 20 samples in estimated 224.66 ms (100 iterations)
+Benchmarking codec/00156: Analyzing
+codec/00156             time:   [2067442 ns (thread CPU) 2079198 ns (thread CPU) 2090673 ns (thread CPU)]
+Benchmarking codec/00057
+Benchmarking codec/00057: Warming up for 50.000 ms
+Benchmarking codec/00057: Collecting 20 samples in estimated 207.79 ms (300 iterations)
+Benchmarking codec/00057: Analyzing
+codec/00057             time:   [636638 ns (thread CPU) 641848 ns (thread CPU) 647619 ns (thread CPU)]
+Benchmarking codec/00216
+Benchmarking codec/00216: Warming up for 50.000 ms
+Benchmarking codec/00216: Collecting 20 samples in estimated 200.00 ms (1.2M iterations)
+Benchmarking codec/00216: Analyzing
+codec/00216             time:   [160.54 ns (thread CPU) 161.69 ns (thread CPU) 163.18 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high severe
+Benchmarking codec/00010
+Benchmarking codec/00010: Warming up for 50.000 ms
+Benchmarking codec/00010: Collecting 20 samples in estimated 200.01 ms (127k iterations)
+Benchmarking codec/00010: Analyzing
+codec/00010             time:   [1424.7 ns (thread CPU) 1432.7 ns (thread CPU) 1443.4 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high severe
+Benchmarking codec/00238
+Benchmarking codec/00238: Warming up for 50.000 ms
+Benchmarking codec/00238: Collecting 20 samples in estimated 200.95 ms (3480 iterations)
+Benchmarking codec/00238: Analyzing
+codec/00238             time:   [ 45765 ns (thread CPU)  46367 ns (thread CPU)  46997 ns (thread CPU)]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+Benchmarking codec/00237
+Benchmarking codec/00237: Warming up for 50.000 ms
+Benchmarking codec/00237: Collecting 20 samples in estimated 200.71 ms (4740 iterations)
+Benchmarking codec/00237: Analyzing
+codec/00237             time:   [ 42007 ns (thread CPU)  42386 ns (thread CPU)  42787 ns (thread CPU)]
+
+# wrote 5840 sample rows to /home/user/ArmoniK.Api/ffi/logs/rust/opt/baseline2-aa/codec-nounk-P.jsonl.body

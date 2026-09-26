@@ -1,0 +1,248 @@
+# opt_compare  before=baseline2-v2  after=baseline2-v2-aa  (CONTAINER INSTRUMENTATION)
+# 3849 codec ratio rows in both runs (0 only before, 0 only after)
+
+# per group: geometric mean of after/before over inputs; counts lower / higher / noise
+file	ratio	dir	mode	n	gmean_after/before	lower	higher	noise
+codec-P	armonik/inc	decode	drop	20	0.996	7	7	6
+codec-P	armonik/inc	decode	retain	20	0.996	7	7	6
+codec-P	armonik/inc	decode-nodrop	drop	4	0.969	2	1	1
+codec-P	armonik/inc	decode-nodrop	retain	4	0.969	2	1	1
+codec-P	armonik/inc	decode-read	drop	20	0.967	8	3	9
+codec-P	armonik/inc	decode-read	retain	20	0.967	8	3	9
+codec-P	armonik/inc	encode	drop	19	0.969	9	6	4
+codec-P	armonik/inc	encode	retain	19	0.969	9	6	4
+codec-P	core-ffi-pull/inc	decode	drop	20	1.015	7	7	6
+codec-P	core-ffi-pull/inc	decode	retain	20	1.018	8	6	6
+codec-P	core-ffi-pull/inc	decode-read	drop	20	0.975	8	5	7
+codec-P	core-ffi-pull/inc	decode-read	retain	20	1.022	4	6	10
+codec-P	core-ffi/core-native	decode	drop	20	1.005	7	6	7
+codec-P	core-ffi/core-native	decode	retain	20	1.009	7	8	5
+codec-P	core-ffi/core-native	decode-nodrop	drop	4	0.928	1	0	3
+codec-P	core-ffi/core-native	decode-nodrop	retain	4	1.140	1	2	1
+codec-P	core-ffi/core-native	decode-read	drop	20	0.996	5	7	8
+codec-P	core-ffi/core-native	decode-read	retain	20	0.972	7	4	9
+codec-P	core-ffi/core-native	encode	drop	19	0.974	4	4	11
+codec-P	core-ffi/core-native	encode	retain	19	0.944	7	6	6
+codec-P	core-ffi/inc	decode	drop	20	0.972	6	5	9
+codec-P	core-ffi/inc	decode	retain	20	1.053	3	9	8
+codec-P	core-ffi/inc	decode-nodrop	drop	4	0.911	2	1	1
+codec-P	core-ffi/inc	decode-nodrop	retain	4	0.962	2	1	1
+codec-P	core-ffi/inc	decode-read	drop	20	0.998	4	5	11
+codec-P	core-ffi/inc	decode-read	retain	20	0.947	8	4	8
+codec-P	core-ffi/inc	encode	drop	19	1.003	6	7	6
+codec-P	core-ffi/inc	encode	retain	19	0.939	10	5	4
+codec-P	core-native/inc	decode	drop	20	0.967	8	7	5
+codec-P	core-native/inc	decode	retain	20	1.044	8	8	4
+codec-P	core-native/inc	decode-nodrop	drop	4	0.981	1	2	1
+codec-P	core-native/inc	decode-nodrop	retain	4	0.844	3	1	0
+codec-P	core-native/inc	decode-read	drop	20	1.002	6	5	9
+codec-P	core-native/inc	decode-read	retain	20	0.974	6	3	11
+codec-P	core-native/inc	encode	drop	19	1.030	7	4	8
+codec-P	core-native/inc	encode	retain	19	0.994	11	5	3
+codec-U	armonik/inc	decode	drop	65	0.996	16	20	29
+codec-U	armonik/inc	decode	retain	65	0.996	16	20	29
+codec-U	armonik/inc	decode-read	drop	65	1.002	16	13	36
+codec-U	armonik/inc	decode-read	retain	65	1.002	16	13	36
+codec-U	armonik/inc	encode	drop	65	0.994	18	15	32
+codec-U	armonik/inc	encode	retain	65	0.994	18	15	32
+codec-U	core-ffi-pull/inc	decode	drop	65	0.998	16	17	32
+codec-U	core-ffi-pull/inc	decode	retain	65	1.025	14	21	30
+codec-U	core-ffi-pull/inc	decode-read	drop	65	1.003	21	24	20
+codec-U	core-ffi-pull/inc	decode-read	retain	65	0.993	18	18	29
+codec-U	core-ffi/core-native	decode	drop	92	0.966	31	19	42
+codec-U	core-ffi/core-native	decode	retain	92	0.980	33	25	34
+codec-U	core-ffi/core-native	decode-read	drop	92	1.001	32	28	32
+codec-U	core-ffi/core-native	decode-read	retain	92	0.976	35	20	37
+codec-U	core-ffi/core-native	encode	drop	92	1.035	15	32	45
+codec-U	core-ffi/core-native	encode	retain	92	0.995	24	26	42
+codec-U	core-ffi/inc	decode	drop	65	0.990	16	15	34
+codec-U	core-ffi/inc	decode	retain	65	0.993	18	18	29
+codec-U	core-ffi/inc	decode-read	drop	65	0.971	21	11	33
+codec-U	core-ffi/inc	decode-read	retain	65	0.978	21	18	26
+codec-U	core-ffi/inc	encode	drop	65	1.020	17	18	30
+codec-U	core-ffi/inc	encode	retain	65	0.987	16	14	35
+codec-U	core-native/inc	decode	drop	65	1.029	10	23	32
+codec-U	core-native/inc	decode	retain	65	1.012	14	19	32
+codec-U	core-native/inc	decode-read	drop	65	0.976	23	16	26
+codec-U	core-native/inc	decode-read	retain	65	1.004	18	23	24
+codec-U	core-native/inc	encode	drop	65	0.984	18	18	29
+codec-U	core-native/inc	encode	retain	65	0.997	16	16	33
+codec-nounk-P	armonik/inc	decode	no-unknown	20	0.986	7	5	8
+codec-nounk-P	armonik/inc	decode-nodrop	no-unknown	4	0.869	2	0	2
+codec-nounk-P	armonik/inc	decode-read	no-unknown	20	1.004	8	8	4
+codec-nounk-P	armonik/inc	encode	no-unknown	19	0.972	8	4	7
+codec-nounk-P	core-ffi-pull/inc	decode	no-unknown	20	1.002	6	7	7
+codec-nounk-P	core-ffi-pull/inc	decode-read	no-unknown	20	1.032	9	7	4
+codec-nounk-P	core-ffi/core-native	decode	no-unknown	20	1.027	2	7	11
+codec-nounk-P	core-ffi/core-native	decode-nodrop	no-unknown	4	1.026	1	1	2
+codec-nounk-P	core-ffi/core-native	decode-read	no-unknown	20	0.966	6	7	7
+codec-nounk-P	core-ffi/core-native	encode	no-unknown	19	0.999	8	2	9
+codec-nounk-P	core-ffi/inc	decode	no-unknown	20	1.017	8	5	7
+codec-nounk-P	core-ffi/inc	decode-nodrop	no-unknown	4	0.902	2	1	1
+codec-nounk-P	core-ffi/inc	decode-read	no-unknown	20	0.985	10	9	1
+codec-nounk-P	core-ffi/inc	encode	no-unknown	19	1.003	7	3	9
+codec-nounk-P	core-native/inc	decode	no-unknown	20	0.990	8	6	6
+codec-nounk-P	core-native/inc	decode-nodrop	no-unknown	4	0.879	1	0	3
+codec-nounk-P	core-native/inc	decode-read	no-unknown	20	1.020	8	8	4
+codec-nounk-P	core-native/inc	encode	no-unknown	19	1.004	4	7	8
+codec-nounk-U	armonik/inc	decode	no-unknown	65	1.028	14	24	27
+codec-nounk-U	armonik/inc	decode-read	no-unknown	65	0.978	22	21	22
+codec-nounk-U	armonik/inc	encode	no-unknown	65	0.997	19	19	27
+codec-nounk-U	core-ffi-pull/inc	decode	no-unknown	65	1.010	22	22	21
+codec-nounk-U	core-ffi-pull/inc	decode-read	no-unknown	65	0.985	26	19	20
+codec-nounk-U	core-ffi/core-native	decode	no-unknown	92	0.991	29	25	38
+codec-nounk-U	core-ffi/core-native	decode-read	no-unknown	92	0.998	32	33	27
+codec-nounk-U	core-ffi/core-native	encode	no-unknown	92	1.048	22	37	33
+codec-nounk-U	core-ffi/inc	decode	no-unknown	65	1.019	15	24	26
+codec-nounk-U	core-ffi/inc	decode-read	no-unknown	65	0.998	23	23	19
+codec-nounk-U	core-ffi/inc	encode	no-unknown	65	1.025	13	27	25
+codec-nounk-U	core-native/inc	decode	no-unknown	65	1.024	17	24	24
+codec-nounk-U	core-native/inc	decode-read	no-unknown	65	0.992	22	21	22
+codec-nounk-U	core-native/inc	encode	no-unknown	65	0.975	21	19	25
+
+# in-process control drift: incumbent-prod median after/before, per file and direction (geometric mean over inputs)
+codec-P	decode	n=20	gmean 0.992	range [0.777, 1.273]
+codec-P	decode-nodrop	n=4	gmean 1.031	range [0.794, 1.266]
+codec-P	decode-read	n=20	gmean 1.003	range [0.785, 1.289]
+codec-P	encode	n=19	gmean 1.011	range [0.790, 1.248]
+codec-U	decode	n=65	gmean 0.994	range [0.761, 1.271]
+codec-U	decode-read	n=65	gmean 0.995	range [0.764, 1.268]
+codec-U	encode	n=65	gmean 0.995	range [0.745, 1.290]
+codec-nounk-P	decode	n=20	gmean 0.990	range [0.770, 1.283]
+codec-nounk-P	decode-nodrop	n=4	gmean 1.080	range [0.977, 1.345]
+codec-nounk-P	decode-read	n=20	gmean 0.968	range [0.778, 1.173]
+codec-nounk-P	encode	n=19	gmean 0.991	range [0.792, 1.246]
+codec-nounk-U	decode	n=65	gmean 0.968	range [0.776, 1.356]
+codec-nounk-U	decode-read	n=65	gmean 0.980	range [0.744, 1.300]
+codec-nounk-U	encode	n=65	gmean 0.983	range [0.778, 1.288]
+
+# per-case drift along the run order: sd of log(after/before) and its autocorrelation
+codec-P	n=458	sd 0.137	lag1 0.53	lag5 0.22	lag20 0.02
+codec-U	n=1862	sd 0.113	lag1 0.77	lag5 0.35	lag20 0.13
+codec-nounk-P	n=292	sd 0.115	lag1 0.55	lag5 0.20	lag20 0.11
+codec-nounk-U	n=1126	sd 0.137	lag1 0.76	lag5 0.41	lag20 -0.02
+
+# RPC: client CPU per call, cell / cell A of the same process; band from the rounds' min/max
+file	transport	dir	inflight	cell	before	after	change	flag
+rpc-pinned	pinned	a	1	B	0.858	0.890	+3.6%	noise
+rpc-pinned	pinned	a	1	C-drop	1.040	1.088	+4.6%	noise
+rpc-pinned	pinned	a	1	C-retain	1.055	1.102	+4.5%	noise
+rpc-pinned	pinned	a	1	D-drop	1.041	1.070	+2.8%	noise
+rpc-pinned	pinned	a	1	D-retain	1.086	1.093	+0.6%	noise
+rpc-pinned	pinned	a	16	B	0.957	0.964	+0.7%	noise
+rpc-pinned	pinned	a	16	C-drop	1.156	1.179	+2.0%	noise
+rpc-pinned	pinned	a	16	C-retain	1.054	1.115	+5.7%	noise
+rpc-pinned	pinned	a	16	D-drop	1.132	1.174	+3.7%	noise
+rpc-pinned	pinned	a	16	D-retain	1.098	1.083	-1.4%	noise
+rpc-pinned	pinned	a	8	B	1.037	0.996	-4.0%	noise
+rpc-pinned	pinned	a	8	C-drop	1.234	1.198	-2.9%	noise
+rpc-pinned	pinned	a	8	C-retain	1.097	1.060	-3.4%	noise
+rpc-pinned	pinned	a	8	D-drop	1.213	1.227	+1.1%	noise
+rpc-pinned	pinned	a	8	D-retain	1.067	1.093	+2.5%	noise
+rpc-pinned	pinned	b	1	B	0.661	0.665	+0.6%	noise
+rpc-pinned	pinned	b	1	C-drop	0.584	0.574	-1.7%	noise
+rpc-pinned	pinned	b	1	C-retain	0.579	0.566	-2.3%	noise
+rpc-pinned	pinned	b	1	D-drop	0.586	0.576	-1.7%	noise
+rpc-pinned	pinned	b	1	D-retain	0.610	0.603	-1.1%	noise
+rpc-pinned	pinned	b	16	B	0.700	0.606	-13.5%	noise
+rpc-pinned	pinned	b	16	C-drop	0.671	0.557	-17.1%	noise
+rpc-pinned	pinned	b	16	C-retain	0.660	0.568	-13.9%	noise
+rpc-pinned	pinned	b	16	D-drop	0.688	0.558	-18.9%	noise
+rpc-pinned	pinned	b	16	D-retain	0.696	0.568	-18.5%	noise
+rpc-pinned	pinned	b	8	B	0.640	0.613	-4.2%	noise
+rpc-pinned	pinned	b	8	C-drop	0.554	0.558	+0.8%	noise
+rpc-pinned	pinned	b	8	C-retain	0.531	0.523	-1.5%	noise
+rpc-pinned	pinned	b	8	D-drop	0.542	0.540	-0.2%	noise
+rpc-pinned	pinned	b	8	D-retain	0.592	0.549	-7.3%	noise
+rpc-pinned-nounk	pinned	a	1	B	0.877	0.866	-1.3%	noise
+rpc-pinned-nounk	pinned	a	1	C-nounk	1.147	1.130	-1.6%	noise
+rpc-pinned-nounk	pinned	a	1	D-nounk	1.129	1.120	-0.8%	noise
+rpc-pinned-nounk	pinned	a	16	B	0.938	0.958	+2.1%	noise
+rpc-pinned-nounk	pinned	a	16	C-nounk	1.212	1.208	-0.3%	noise
+rpc-pinned-nounk	pinned	a	16	D-nounk	1.172	1.202	+2.6%	noise
+rpc-pinned-nounk	pinned	a	8	B	1.003	1.002	-0.1%	noise
+rpc-pinned-nounk	pinned	a	8	C-nounk	1.307	1.313	+0.5%	noise
+rpc-pinned-nounk	pinned	a	8	D-nounk	1.312	1.279	-2.5%	noise
+rpc-pinned-nounk	pinned	b	1	B	0.664	0.652	-1.7%	noise
+rpc-pinned-nounk	pinned	b	1	C-nounk	0.574	0.573	-0.2%	noise
+rpc-pinned-nounk	pinned	b	1	D-nounk	0.623	0.596	-4.2%	noise
+rpc-pinned-nounk	pinned	b	16	B	0.656	0.626	-4.7%	noise
+rpc-pinned-nounk	pinned	b	16	C-nounk	0.608	0.543	-10.7%	noise
+rpc-pinned-nounk	pinned	b	16	D-nounk	0.618	0.571	-7.7%	noise
+rpc-pinned-nounk	pinned	b	8	B	0.602	0.656	+8.9%	noise
+rpc-pinned-nounk	pinned	b	8	C-nounk	0.532	0.563	+5.8%	noise
+rpc-pinned-nounk	pinned	b	8	D-nounk	0.562	0.544	-3.2%	noise
+rpc-shipped	shipped	a	1	B	0.980	0.879	-10.3%	noise
+rpc-shipped	shipped	a	1	C-drop	1.122	1.091	-2.8%	noise
+rpc-shipped	shipped	a	1	C-retain	1.065	1.078	+1.2%	noise
+rpc-shipped	shipped	a	1	D-drop	1.368	1.062	-22.4%	noise
+rpc-shipped	shipped	a	1	D-retain	1.107	1.059	-4.3%	noise
+rpc-shipped	shipped	a	16	B	0.944	0.928	-1.7%	noise
+rpc-shipped	shipped	a	16	C-drop	1.168	1.210	+3.6%	noise
+rpc-shipped	shipped	a	16	C-retain	1.139	1.100	-3.4%	noise
+rpc-shipped	shipped	a	16	D-drop	1.142	1.158	+1.4%	noise
+rpc-shipped	shipped	a	16	D-retain	1.117	1.095	-2.0%	noise
+rpc-shipped	shipped	a	8	B	1.010	1.007	-0.3%	noise
+rpc-shipped	shipped	a	8	C-drop	1.188	1.189	+0.1%	noise
+rpc-shipped	shipped	a	8	C-retain	1.164	1.106	-5.0%	noise
+rpc-shipped	shipped	a	8	D-drop	1.183	1.213	+2.5%	noise
+rpc-shipped	shipped	a	8	D-retain	1.061	1.114	+5.0%	noise
+rpc-shipped	shipped	b	1	B	0.658	0.675	+2.5%	noise
+rpc-shipped	shipped	b	1	C-drop	0.599	0.591	-1.3%	noise
+rpc-shipped	shipped	b	1	C-retain	0.583	0.573	-1.7%	noise
+rpc-shipped	shipped	b	1	D-drop	0.584	0.608	+4.1%	noise
+rpc-shipped	shipped	b	1	D-retain	0.605	0.618	+2.2%	noise
+rpc-shipped	shipped	b	16	B	0.671	0.658	-2.0%	noise
+rpc-shipped	shipped	b	16	C-drop	0.602	0.598	-0.8%	noise
+rpc-shipped	shipped	b	16	C-retain	0.595	0.585	-1.6%	noise
+rpc-shipped	shipped	b	16	D-drop	0.597	0.618	+3.5%	noise
+rpc-shipped	shipped	b	16	D-retain	0.623	0.628	+0.9%	noise
+rpc-shipped	shipped	b	8	B	0.683	0.671	-1.8%	noise
+rpc-shipped	shipped	b	8	C-drop	0.622	0.603	-2.9%	noise
+rpc-shipped	shipped	b	8	C-retain	0.600	0.604	+0.7%	noise
+rpc-shipped	shipped	b	8	D-drop	0.586	0.572	-2.4%	noise
+rpc-shipped	shipped	b	8	D-retain	0.622	0.634	+1.9%	noise
+rpc-shipped-nounk	shipped	a	1	B	0.865	0.849	-1.9%	noise
+rpc-shipped-nounk	shipped	a	1	C-nounk	1.124	1.132	+0.7%	noise
+rpc-shipped-nounk	shipped	a	1	D-nounk	1.132	1.141	+0.8%	noise
+rpc-shipped-nounk	shipped	a	16	B	0.923	0.940	+1.9%	noise
+rpc-shipped-nounk	shipped	a	16	C-nounk	1.202	1.213	+1.0%	noise
+rpc-shipped-nounk	shipped	a	16	D-nounk	1.223	1.193	-2.5%	noise
+rpc-shipped-nounk	shipped	a	8	B	1.011	1.012	+0.1%	noise
+rpc-shipped-nounk	shipped	a	8	C-nounk	1.294	1.334	+3.1%	noise
+rpc-shipped-nounk	shipped	a	8	D-nounk	1.309	1.308	-0.1%	noise
+rpc-shipped-nounk	shipped	b	1	B	0.662	0.672	+1.6%	noise
+rpc-shipped-nounk	shipped	b	1	C-nounk	0.587	0.572	-2.5%	noise
+rpc-shipped-nounk	shipped	b	1	D-nounk	0.598	0.606	+1.4%	noise
+rpc-shipped-nounk	shipped	b	16	B	0.682	0.682	+0.0%	noise
+rpc-shipped-nounk	shipped	b	16	C-nounk	0.605	0.648	+7.0%	noise
+rpc-shipped-nounk	shipped	b	16	D-nounk	0.623	0.658	+5.7%	noise
+rpc-shipped-nounk	shipped	b	8	B	0.676	0.664	-1.8%	noise
+rpc-shipped-nounk	shipped	b	8	C-nounk	0.610	0.579	-5.0%	noise
+rpc-shipped-nounk	shipped	b	8	D-nounk	0.627	0.595	-5.2%	noise
+
+# RPC control drift: cell A client CPU per call, after/before
+rpc-pinned	pinned	a	1	0.972
+rpc-pinned	pinned	a	16	0.995
+rpc-pinned	pinned	a	8	0.999
+rpc-pinned	pinned	b	1	1.029
+rpc-pinned	pinned	b	16	1.025
+rpc-pinned	pinned	b	8	1.025
+rpc-pinned-nounk	pinned	a	1	1.010
+rpc-pinned-nounk	pinned	a	16	0.975
+rpc-pinned-nounk	pinned	a	8	1.033
+rpc-pinned-nounk	pinned	b	1	1.011
+rpc-pinned-nounk	pinned	b	16	1.093
+rpc-pinned-nounk	pinned	b	8	0.951
+rpc-shipped	shipped	a	1	1.026
+rpc-shipped	shipped	a	16	1.018
+rpc-shipped	shipped	a	8	0.986
+rpc-shipped	shipped	b	1	0.977
+rpc-shipped	shipped	b	16	0.972
+rpc-shipped	shipped	b	8	1.008
+rpc-shipped-nounk	shipped	a	1	0.995
+rpc-shipped-nounk	shipped	a	16	1.024
+rpc-shipped-nounk	shipped	a	8	1.003
+rpc-shipped-nounk	shipped	b	1	1.012
+rpc-shipped-nounk	shipped	b	16	0.983
+rpc-shipped-nounk	shipped	b	8	1.043

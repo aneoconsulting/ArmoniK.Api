@@ -1,0 +1,4 @@
+# CONTAINER INSTRUMENTATION (gen/opt_bench.sh); ns per iteration, thread CPU; reverse = forward-reverse - forward
+arm	rounds	median_ns	min_ns	max_ns
+forward	5	1.260	1.241	1.336
+forward-reverse	5	1.886	1.874	1.992
