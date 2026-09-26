@@ -5,6 +5,8 @@
 
 pub mod generated {
     pub mod core_native;
+    /// Optimisation step 8 (F1): only with `unknown-fields` (the no-unknown facade has no bag).
+    #[cfg(feature = "unknown-fields")]
     pub mod core_native_retain;
     pub mod project;
     pub mod types;

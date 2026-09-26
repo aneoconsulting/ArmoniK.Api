@@ -128,6 +128,10 @@ pub struct Timestamp {
     /// It is ONE `Vec<u8>` and not a list, and that is load-bearing: see
     /// `gen/unknown_predicate.py`. A repeated bag takes the schema from 9 leaf
     /// messages to 0 and ABI v1 7.2's batched run fails everywhere.
+    ///
+    /// Optimisation step 8 (F1, owner decision R-H22): absent in the NO-UNKNOWN build
+    /// (the facade crate's `unknown-fields` feature off), where nothing can fill it.
+    #[cfg(feature = "unknown-fields")]
     pub unknown_fields: Vec<u8>,
 }
 
@@ -148,6 +152,10 @@ pub struct Duration {
     /// It is ONE `Vec<u8>` and not a list, and that is load-bearing: see
     /// `gen/unknown_predicate.py`. A repeated bag takes the schema from 9 leaf
     /// messages to 0 and ABI v1 7.2's batched run fails everywhere.
+    ///
+    /// Optimisation step 8 (F1, owner decision R-H22): absent in the NO-UNKNOWN build
+    /// (the facade crate's `unknown-fields` feature off), where nothing can fill it.
+    #[cfg(feature = "unknown-fields")]
     pub unknown_fields: Vec<u8>,
 }
 
@@ -177,6 +185,10 @@ pub struct ResultRaw {
     /// It is ONE `Vec<u8>` and not a list, and that is load-bearing: see
     /// `gen/unknown_predicate.py`. A repeated bag takes the schema from 9 leaf
     /// messages to 0 and ABI v1 7.2's batched run fails everywhere.
+    ///
+    /// Optimisation step 8 (F1, owner decision R-H22): absent in the NO-UNKNOWN build
+    /// (the facade crate's `unknown-fields` feature off), where nothing can fill it.
+    #[cfg(feature = "unknown-fields")]
     pub unknown_fields: Vec<u8>,
 }
 
@@ -205,6 +217,10 @@ pub struct TaskOptions {
     /// It is ONE `Vec<u8>` and not a list, and that is load-bearing: see
     /// `gen/unknown_predicate.py`. A repeated bag takes the schema from 9 leaf
     /// messages to 0 and ABI v1 7.2's batched run fails everywhere.
+    ///
+    /// Optimisation step 8 (F1, owner decision R-H22): absent in the NO-UNKNOWN build
+    /// (the facade crate's `unknown-fields` feature off), where nothing can fill it.
+    #[cfg(feature = "unknown-fields")]
     pub unknown_fields: Vec<u8>,
 }
 
@@ -225,6 +241,10 @@ pub struct TaskOutput {
     /// It is ONE `Vec<u8>` and not a list, and that is load-bearing: see
     /// `gen/unknown_predicate.py`. A repeated bag takes the schema from 9 leaf
     /// messages to 0 and ABI v1 7.2's batched run fails everywhere.
+    ///
+    /// Optimisation step 8 (F1, owner decision R-H22): absent in the NO-UNKNOWN build
+    /// (the facade crate's `unknown-fields` feature off), where nothing can fill it.
+    #[cfg(feature = "unknown-fields")]
     pub unknown_fields: Vec<u8>,
 }
 
@@ -270,6 +290,10 @@ pub struct TaskDetailed {
     /// It is ONE `Vec<u8>` and not a list, and that is load-bearing: see
     /// `gen/unknown_predicate.py`. A repeated bag takes the schema from 9 leaf
     /// messages to 0 and ABI v1 7.2's batched run fails everywhere.
+    ///
+    /// Optimisation step 8 (F1, owner decision R-H22): absent in the NO-UNKNOWN build
+    /// (the facade crate's `unknown-fields` feature off), where nothing can fill it.
+    #[cfg(feature = "unknown-fields")]
     pub unknown_fields: Vec<u8>,
 }
 
@@ -296,6 +320,10 @@ pub struct TaskSummary {
     /// It is ONE `Vec<u8>` and not a list, and that is load-bearing: see
     /// `gen/unknown_predicate.py`. A repeated bag takes the schema from 9 leaf
     /// messages to 0 and ABI v1 7.2's batched run fails everywhere.
+    ///
+    /// Optimisation step 8 (F1, owner decision R-H22): absent in the NO-UNKNOWN build
+    /// (the facade crate's `unknown-fields` feature off), where nothing can fill it.
+    #[cfg(feature = "unknown-fields")]
     pub unknown_fields: Vec<u8>,
 }
 
@@ -331,6 +359,10 @@ pub struct Probe {
     /// It is ONE `Vec<u8>` and not a list, and that is load-bearing: see
     /// `gen/unknown_predicate.py`. A repeated bag takes the schema from 9 leaf
     /// messages to 0 and ABI v1 7.2's batched run fails everywhere.
+    ///
+    /// Optimisation step 8 (F1, owner decision R-H22): absent in the NO-UNKNOWN build
+    /// (the facade crate's `unknown-fields` feature off), where nothing can fill it.
+    #[cfg(feature = "unknown-fields")]
     pub unknown_fields: Vec<u8>,
 }
 
@@ -349,6 +381,10 @@ pub struct Empty {
     /// It is ONE `Vec<u8>` and not a list, and that is load-bearing: see
     /// `gen/unknown_predicate.py`. A repeated bag takes the schema from 9 leaf
     /// messages to 0 and ABI v1 7.2's batched run fails everywhere.
+    ///
+    /// Optimisation step 8 (F1, owner decision R-H22): absent in the NO-UNKNOWN build
+    /// (the facade crate's `unknown-fields` feature off), where nothing can fill it.
+    #[cfg(feature = "unknown-fields")]
     pub unknown_fields: Vec<u8>,
 }
 
@@ -370,6 +406,10 @@ pub struct UploadResultData {
     /// It is ONE `Vec<u8>` and not a list, and that is load-bearing: see
     /// `gen/unknown_predicate.py`. A repeated bag takes the schema from 9 leaf
     /// messages to 0 and ABI v1 7.2's batched run fails everywhere.
+    ///
+    /// Optimisation step 8 (F1, owner decision R-H22): absent in the NO-UNKNOWN build
+    /// (the facade crate's `unknown-fields` feature off), where nothing can fill it.
+    #[cfg(feature = "unknown-fields")]
     pub unknown_fields: Vec<u8>,
 }
 
@@ -394,6 +434,10 @@ pub struct MetricsBatch {
     /// It is ONE `Vec<u8>` and not a list, and that is load-bearing: see
     /// `gen/unknown_predicate.py`. A repeated bag takes the schema from 9 leaf
     /// messages to 0 and ABI v1 7.2's batched run fails everywhere.
+    ///
+    /// Optimisation step 8 (F1, owner decision R-H22): absent in the NO-UNKNOWN build
+    /// (the facade crate's `unknown-fields` feature off), where nothing can fill it.
+    #[cfg(feature = "unknown-fields")]
     pub unknown_fields: Vec<u8>,
 }
 
@@ -414,6 +458,10 @@ pub struct Pair {
     /// It is ONE `Vec<u8>` and not a list, and that is load-bearing: see
     /// `gen/unknown_predicate.py`. A repeated bag takes the schema from 9 leaf
     /// messages to 0 and ABI v1 7.2's batched run fails everywhere.
+    ///
+    /// Optimisation step 8 (F1, owner decision R-H22): absent in the NO-UNKNOWN build
+    /// (the facade crate's `unknown-fields` feature off), where nothing can fill it.
+    #[cfg(feature = "unknown-fields")]
     pub unknown_fields: Vec<u8>,
 }
 
@@ -434,6 +482,10 @@ pub struct ListResultsResponse {
     /// It is ONE `Vec<u8>` and not a list, and that is load-bearing: see
     /// `gen/unknown_predicate.py`. A repeated bag takes the schema from 9 leaf
     /// messages to 0 and ABI v1 7.2's batched run fails everywhere.
+    ///
+    /// Optimisation step 8 (F1, owner decision R-H22): absent in the NO-UNKNOWN build
+    /// (the facade crate's `unknown-fields` feature off), where nothing can fill it.
+    #[cfg(feature = "unknown-fields")]
     pub unknown_fields: Vec<u8>,
 }
 
@@ -454,6 +506,10 @@ pub struct ListTasksDetailedResponse {
     /// It is ONE `Vec<u8>` and not a list, and that is load-bearing: see
     /// `gen/unknown_predicate.py`. A repeated bag takes the schema from 9 leaf
     /// messages to 0 and ABI v1 7.2's batched run fails everywhere.
+    ///
+    /// Optimisation step 8 (F1, owner decision R-H22): absent in the NO-UNKNOWN build
+    /// (the facade crate's `unknown-fields` feature off), where nothing can fill it.
+    #[cfg(feature = "unknown-fields")]
     pub unknown_fields: Vec<u8>,
 }
 
@@ -472,6 +528,10 @@ pub struct ListTaskSummaryResponse {
     /// It is ONE `Vec<u8>` and not a list, and that is load-bearing: see
     /// `gen/unknown_predicate.py`. A repeated bag takes the schema from 9 leaf
     /// messages to 0 and ABI v1 7.2's batched run fails everywhere.
+    ///
+    /// Optimisation step 8 (F1, owner decision R-H22): absent in the NO-UNKNOWN build
+    /// (the facade crate's `unknown-fields` feature off), where nothing can fill it.
+    #[cfg(feature = "unknown-fields")]
     pub unknown_fields: Vec<u8>,
 }
 
@@ -490,6 +550,10 @@ pub struct ListProbeResponse {
     /// It is ONE `Vec<u8>` and not a list, and that is load-bearing: see
     /// `gen/unknown_predicate.py`. A repeated bag takes the schema from 9 leaf
     /// messages to 0 and ABI v1 7.2's batched run fails everywhere.
+    ///
+    /// Optimisation step 8 (F1, owner decision R-H22): absent in the NO-UNKNOWN build
+    /// (the facade crate's `unknown-fields` feature off), where nothing can fill it.
+    #[cfg(feature = "unknown-fields")]
     pub unknown_fields: Vec<u8>,
 }
 
@@ -508,6 +572,10 @@ pub struct ListMetricsResponse {
     /// It is ONE `Vec<u8>` and not a list, and that is load-bearing: see
     /// `gen/unknown_predicate.py`. A repeated bag takes the schema from 9 leaf
     /// messages to 0 and ABI v1 7.2's batched run fails everywhere.
+    ///
+    /// Optimisation step 8 (F1, owner decision R-H22): absent in the NO-UNKNOWN build
+    /// (the facade crate's `unknown-fields` feature off), where nothing can fill it.
+    #[cfg(feature = "unknown-fields")]
     pub unknown_fields: Vec<u8>,
 }
 
@@ -526,6 +594,10 @@ pub struct UploadResultDataMessage {
     /// It is ONE `Vec<u8>` and not a list, and that is load-bearing: see
     /// `gen/unknown_predicate.py`. A repeated bag takes the schema from 9 leaf
     /// messages to 0 and ABI v1 7.2's batched run fails everywhere.
+    ///
+    /// Optimisation step 8 (F1, owner decision R-H22): absent in the NO-UNKNOWN build
+    /// (the facade crate's `unknown-fields` feature off), where nothing can fill it.
+    #[cfg(feature = "unknown-fields")]
     pub unknown_fields: Vec<u8>,
 }
 
@@ -546,6 +618,10 @@ pub struct DualResponse {
     /// It is ONE `Vec<u8>` and not a list, and that is load-bearing: see
     /// `gen/unknown_predicate.py`. A repeated bag takes the schema from 9 leaf
     /// messages to 0 and ABI v1 7.2's batched run fails everywhere.
+    ///
+    /// Optimisation step 8 (F1, owner decision R-H22): absent in the NO-UNKNOWN build
+    /// (the facade crate's `unknown-fields` feature off), where nothing can fill it.
+    #[cfg(feature = "unknown-fields")]
     pub unknown_fields: Vec<u8>,
 }
 
@@ -566,6 +642,10 @@ pub struct ChunkLeaf {
     /// It is ONE `Vec<u8>` and not a list, and that is load-bearing: see
     /// `gen/unknown_predicate.py`. A repeated bag takes the schema from 9 leaf
     /// messages to 0 and ABI v1 7.2's batched run fails everywhere.
+    ///
+    /// Optimisation step 8 (F1, owner decision R-H22): absent in the NO-UNKNOWN build
+    /// (the facade crate's `unknown-fields` feature off), where nothing can fill it.
+    #[cfg(feature = "unknown-fields")]
     pub unknown_fields: Vec<u8>,
 }
 
@@ -586,6 +666,10 @@ pub struct ChunkInner {
     /// It is ONE `Vec<u8>` and not a list, and that is load-bearing: see
     /// `gen/unknown_predicate.py`. A repeated bag takes the schema from 9 leaf
     /// messages to 0 and ABI v1 7.2's batched run fails everywhere.
+    ///
+    /// Optimisation step 8 (F1, owner decision R-H22): absent in the NO-UNKNOWN build
+    /// (the facade crate's `unknown-fields` feature off), where nothing can fill it.
+    #[cfg(feature = "unknown-fields")]
     pub unknown_fields: Vec<u8>,
 }
 
@@ -608,6 +692,10 @@ pub struct ChunkElement {
     /// It is ONE `Vec<u8>` and not a list, and that is load-bearing: see
     /// `gen/unknown_predicate.py`. A repeated bag takes the schema from 9 leaf
     /// messages to 0 and ABI v1 7.2's batched run fails everywhere.
+    ///
+    /// Optimisation step 8 (F1, owner decision R-H22): absent in the NO-UNKNOWN build
+    /// (the facade crate's `unknown-fields` feature off), where nothing can fill it.
+    #[cfg(feature = "unknown-fields")]
     pub unknown_fields: Vec<u8>,
 }
 
@@ -628,6 +716,10 @@ pub struct ChunkedResponse {
     /// It is ONE `Vec<u8>` and not a list, and that is load-bearing: see
     /// `gen/unknown_predicate.py`. A repeated bag takes the schema from 9 leaf
     /// messages to 0 and ABI v1 7.2's batched run fails everywhere.
+    ///
+    /// Optimisation step 8 (F1, owner decision R-H22): absent in the NO-UNKNOWN build
+    /// (the facade crate's `unknown-fields` feature off), where nothing can fill it.
+    #[cfg(feature = "unknown-fields")]
     pub unknown_fields: Vec<u8>,
 }
 
@@ -647,6 +739,10 @@ pub struct ChunkedResponseWide {
     /// It is ONE `Vec<u8>` and not a list, and that is load-bearing: see
     /// `gen/unknown_predicate.py`. A repeated bag takes the schema from 9 leaf
     /// messages to 0 and ABI v1 7.2's batched run fails everywhere.
+    ///
+    /// Optimisation step 8 (F1, owner decision R-H22): absent in the NO-UNKNOWN build
+    /// (the facade crate's `unknown-fields` feature off), where nothing can fill it.
+    #[cfg(feature = "unknown-fields")]
     pub unknown_fields: Vec<u8>,
 }
 
@@ -668,6 +764,10 @@ pub struct LeafElement {
     /// It is ONE `Vec<u8>` and not a list, and that is load-bearing: see
     /// `gen/unknown_predicate.py`. A repeated bag takes the schema from 9 leaf
     /// messages to 0 and ABI v1 7.2's batched run fails everywhere.
+    ///
+    /// Optimisation step 8 (F1, owner decision R-H22): absent in the NO-UNKNOWN build
+    /// (the facade crate's `unknown-fields` feature off), where nothing can fill it.
+    #[cfg(feature = "unknown-fields")]
     pub unknown_fields: Vec<u8>,
 }
 
@@ -687,6 +787,10 @@ pub struct LeafResponse {
     /// It is ONE `Vec<u8>` and not a list, and that is load-bearing: see
     /// `gen/unknown_predicate.py`. A repeated bag takes the schema from 9 leaf
     /// messages to 0 and ABI v1 7.2's batched run fails everywhere.
+    ///
+    /// Optimisation step 8 (F1, owner decision R-H22): absent in the NO-UNKNOWN build
+    /// (the facade crate's `unknown-fields` feature off), where nothing can fill it.
+    #[cfg(feature = "unknown-fields")]
     pub unknown_fields: Vec<u8>,
 }
 
@@ -710,6 +814,10 @@ pub struct Surrogate {
     /// It is ONE `Vec<u8>` and not a list, and that is load-bearing: see
     /// `gen/unknown_predicate.py`. A repeated bag takes the schema from 9 leaf
     /// messages to 0 and ABI v1 7.2's batched run fails everywhere.
+    ///
+    /// Optimisation step 8 (F1, owner decision R-H22): absent in the NO-UNKNOWN build
+    /// (the facade crate's `unknown-fields` feature off), where nothing can fill it.
+    #[cfg(feature = "unknown-fields")]
     pub unknown_fields: Vec<u8>,
 }
 
@@ -729,6 +837,10 @@ pub struct SurrogateInner {
     /// It is ONE `Vec<u8>` and not a list, and that is load-bearing: see
     /// `gen/unknown_predicate.py`. A repeated bag takes the schema from 9 leaf
     /// messages to 0 and ABI v1 7.2's batched run fails everywhere.
+    ///
+    /// Optimisation step 8 (F1, owner decision R-H22): absent in the NO-UNKNOWN build
+    /// (the facade crate's `unknown-fields` feature off), where nothing can fill it.
+    #[cfg(feature = "unknown-fields")]
     pub unknown_fields: Vec<u8>,
 }
 
@@ -749,6 +861,10 @@ pub struct Nest {
     /// It is ONE `Vec<u8>` and not a list, and that is load-bearing: see
     /// `gen/unknown_predicate.py`. A repeated bag takes the schema from 9 leaf
     /// messages to 0 and ABI v1 7.2's batched run fails everywhere.
+    ///
+    /// Optimisation step 8 (F1, owner decision R-H22): absent in the NO-UNKNOWN build
+    /// (the facade crate's `unknown-fields` feature off), where nothing can fill it.
+    #[cfg(feature = "unknown-fields")]
     pub unknown_fields: Vec<u8>,
 }
 
@@ -777,5 +893,9 @@ pub struct WireZoo {
     /// It is ONE `Vec<u8>` and not a list, and that is load-bearing: see
     /// `gen/unknown_predicate.py`. A repeated bag takes the schema from 9 leaf
     /// messages to 0 and ABI v1 7.2's batched run fails everywhere.
+    ///
+    /// Optimisation step 8 (F1, owner decision R-H22): absent in the NO-UNKNOWN build
+    /// (the facade crate's `unknown-fields` feature off), where nothing can fill it.
+    #[cfg(feature = "unknown-fields")]
     pub unknown_fields: Vec<u8>,
 }

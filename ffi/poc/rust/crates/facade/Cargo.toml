@@ -5,6 +5,13 @@ rust-version.workspace = true
 version.workspace = true
 publish.workspace = true
 
+[features]
+# Optimisation step 8 (F1, owner decision R-H22): the unknown-field bag member and the
+# retain rendering of core-native exist only with this feature; the NO-UNKNOWN build turns
+# it off (dependents use default-features = false and forward their own unknown-fields).
+default = ["unknown-fields"]
+unknown-fields = []
+
 [dependencies]
 prost.workspace = true
 bytes.workspace = true

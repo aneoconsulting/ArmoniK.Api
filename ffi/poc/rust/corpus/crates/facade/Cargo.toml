@@ -9,6 +9,11 @@ publish.workspace = true
 # The generated binding says `use facade::*;`, as it does in the shapes.json harness.
 name = "facade"
 
+[features]
+# Optimisation step 8 (F1): see poc/rust/crates/facade/Cargo.toml.
+default = ["unknown-fields"]
+unknown-fields = []
+
 [dependencies]
 ak-rt = { path = "../../../../codec/crates/ak-rt" }
 bytes = "1"

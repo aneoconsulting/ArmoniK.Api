@@ -31,7 +31,9 @@ def emit_dispatch(full, abi_roots, refused):
          "#![allow(clippy::all)]",
          "use crate::{ffi, native, Arm, Cx, Outcome};",
          "use crate::generated::binding;",
-         "use facade::generated::{core_native, core_native_retain, project};",
+         "use facade::generated::{core_native, project};",
+         "#[cfg(feature = \"unknown-fields\")]",
+         "use facade::generated::core_native_retain;",
          "",
          "/// Roots the C ABI refuses at generator time, with the refusal.",
          "pub const NOT_IN_ABI: &[(&str, &str)] = &["]
@@ -56,7 +58,10 @@ def emit_dispatch(full, abi_roots, refused):
         else:
             o.append("            Arm::FfiDrop | Arm::FfiRetain => Outcome::NotInAbi,")
         o.append("            Arm::NativeDrop => native(b, core_native::decode_%s, core_native::encode_%s, project::project_%s)," % (s, s, s))
+        o.append("            #[cfg(feature = \"unknown-fields\")]")
         o.append("            Arm::NativeRetain => native(b, core_native_retain::decode_%s, core_native_retain::encode_%s, project::project_%s)," % (s, s, s))
+        o.append("            #[cfg(not(feature = \"unknown-fields\"))]")
+        o.append("            Arm::NativeRetain => Outcome::NotInAbi,")
         o.append("        },")
     o.append("        _ => Outcome::UnknownRoot,")
     o.append("    }")

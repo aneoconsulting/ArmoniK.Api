@@ -54,12 +54,13 @@ const ARMS: [(Arm, &str); 4] = [
     (Arm::NativeRetain, "native-retain"),
 ];
 /// WP5 step 10: the no-unknown build (unknown-field support compiled out) has one C ABI
-/// arm, which writes every unknown row in the dropped form.
+/// arm, which writes every unknown row in the dropped form. Optimisation step 8 (F1,
+/// owner decision R-H22): the no-unknown facade has no unknown-field member, so its
+/// core-native has no retain rendering either and the arm is gone from this build.
 #[cfg(not(feature = "unknown-fields"))]
-const ARMS: [(Arm, &str); 3] = [
+const ARMS: [(Arm, &str); 2] = [
     (Arm::FfiDrop, "ffi-nounk"),
     (Arm::NativeDrop, "native-drop"),
-    (Arm::NativeRetain, "native-retain"),
 ];
 
 pub struct Cx {

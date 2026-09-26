@@ -21,7 +21,7 @@ default = ["guard", "init-guard", "unknown-fields"]
 # WP5 step 10: decision 11's unknown-field support in the core and the binding. OFF builds
 # the NO-UNKNOWN variant (support compiled out; `src/generated/binding_nounk.rs`). Only
 # the lib and the campaign crate are built that way; the stage bins use the `_unk` family.
-unknown-fields = ["ak-core/unknown-fields", "ak-abi/unknown-fields"]
+unknown-fields = ["ak-core/unknown-fields", "ak-abi/unknown-fields", "facade/unknown-fields"]
 # ABI v1 section 5. On by default, because every published managed figure was taken
 # WITHOUT it and this slice is not going to repeat that.
 guard = []
@@ -48,7 +48,7 @@ init-guard = ["ak-core/init-guard"]
 # it; before the move the module was unconditional, so this keeps the artifact the
 # same as the one every figure in ffi/logs/rust was taken against.
 ak-core = { path = "../../../codec/crates/ak-core", default-features = false, features = ["rpc"] }
-facade = { path = "../facade" }
+facade = { path = "../facade", default-features = false }
 shapes-prost = { path = "../shapes-prost" }
 shapes-values = { path = "../shapes-values" }
 stage1-validate = { path = "../stage1-validate" }

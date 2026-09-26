@@ -98,7 +98,8 @@ def emit_touch(p, model):
             o.append("        None => {}")
             o.append("    }")
         if model == "f":
-            o.append("    h = mix(h, o.unknown_fields.len() as u64);")
+            o.append("    #[cfg(feature = \"unknown-fields\")]")
+            o.append("    { h = mix(h, o.unknown_fields.len() as u64); }")
         o.append("    h")
         o.append("}")
         o.append("")
@@ -111,7 +112,9 @@ def emit(p):
          "use crate::{mix, Ops};",
          "use harness::arms::core_ffi_arm::Ctx;",
          "use harness::generated::binding;",
-         "use facade::generated::{build, core_native, core_native_retain};",
+         "use facade::generated::{build, core_native};",
+         "#[cfg(feature = \"unknown-fields\")]",
+         "use facade::generated::core_native_retain;",
          "use shapes_prost::shapes as p;",
          ""]
     o += emit_touch(p, "f")
@@ -136,11 +139,19 @@ def emit(p):
         o.append("            _ => None,")
         o.append("        }")
         o.append("    }")
+        # Optimisation step 8 (F1): core_native_retain exists only with `unknown-fields`
+        # (the no-unknown facade has no bag to retain into).
         o.append("    fn n_decode(b: &[u8], retain: bool) -> Result<Self::F, i32> {")
-        o.append("        if retain { core_native_retain::decode_%s(b) } else { core_native::decode_%s(b) }" % (s, s))
+        o.append("        #[cfg(feature = \"unknown-fields\")]")
+        o.append("        if retain { return core_native_retain::decode_%s(b); }" % s)
+        o.append("        let _ = retain;")
+        o.append("        core_native::decode_%s(b)" % s)
         o.append("    }")
         o.append("    fn n_encode(v: &Self::F, e: &mut ak_rt::Enc, retain: bool) {")
-        o.append("        if retain { core_native_retain::encode_into_%s(v, e) } else { core_native::encode_into_%s(v, e) }" % (s, s))
+        o.append("        #[cfg(feature = \"unknown-fields\")]")
+        o.append("        if retain { return core_native_retain::encode_into_%s(v, e); }" % s)
+        o.append("        let _ = retain;")
+        o.append("        core_native::encode_into_%s(v, e)" % s)
         o.append("    }")
         # WP5 step 10: the retain calls exist only in the build with `unknown-fields`; the
         # no-unknown build never asks for them (campaign::MODES).

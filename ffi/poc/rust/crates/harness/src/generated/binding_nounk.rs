@@ -2542,7 +2542,6 @@ unsafe fn from_timestamp(f: &ak_dfix_Timestamp, base: *const u8, ctx: *mut ak_de
         seconds: f.seconds,
         nanos: f.nanos,
         // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
-        unknown_fields: Vec::new(),
     }
 }
 
@@ -2552,7 +2551,6 @@ unsafe fn from_duration(f: &ak_dfix_Duration, base: *const u8, ctx: *mut ak_dec_
         seconds: f.seconds,
         nanos: f.nanos,
         // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
-        unknown_fields: Vec::new(),
     }
 }
 
@@ -2571,7 +2569,6 @@ unsafe fn from_result_raw(f: &ak_dfix_ResultRaw, base: *const u8, ctx: *mut ak_d
         opaque_id: b_of(base, f.opaque_id),
         manual_deletion: f.manual_deletion != 0,
         // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
-        unknown_fields: Vec::new(),
     }
 }
 
@@ -2601,7 +2598,6 @@ unsafe fn from_task_output(f: &ak_dfix_TaskOutput, base: *const u8, ctx: *mut ak
         success: f.success != 0,
         error: s_of(base, f.error, ctx),
         // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
-        unknown_fields: Vec::new(),
     }
 }
 
@@ -2732,7 +2728,6 @@ unsafe fn from_probe(f: &ak_dfix_Probe, base: *const u8, ctx: *mut ak_dec_ctx) -
             _ => None,
         },
         // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
-        unknown_fields: Vec::new(),
     }
 }
 
@@ -2740,7 +2735,6 @@ unsafe fn from_probe(f: &ak_dfix_Probe, base: *const u8, ctx: *mut ak_dec_ctx) -
 unsafe fn from_empty(f: &ak_dfix_Empty, base: *const u8, ctx: *mut ak_dec_ctx) -> Empty {
     Empty {
         // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
-        unknown_fields: Vec::new(),
     }
 }
 
@@ -2751,7 +2745,6 @@ unsafe fn from_upload_result_data(f: &ak_dfix_UploadResultData, base: *const u8,
         result_id: s_of(base, f.result_id, ctx),
         data_chunk: b_of(base, f.data_chunk),
         // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
-        unknown_fields: Vec::new(),
     }
 }
 
@@ -2769,7 +2762,6 @@ unsafe fn from_pair(f: &ak_dfix_Pair, base: *const u8, ctx: *mut ak_dec_ctx) -> 
         key: s_of(base, f.key, ctx),
         value: f.value,
         // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
-        unknown_fields: Vec::new(),
     }
 }
 
@@ -2817,7 +2809,6 @@ unsafe fn from_upload_result_data_message(f: &ak_dfix_UploadResultDataMessage, b
     UploadResultDataMessage {
         upload: if f.presence & AK_DFIX_UPLOADRESULTDATAMESSAGE_PRESENT_UPLOAD != 0 { Some(from_upload_result_data(&f.upload, base, ctx)) } else { None },
         // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
-        unknown_fields: Vec::new(),
     }
 }
 

@@ -3,7 +3,9 @@
 #![allow(clippy::all)]
 use crate::{ffi, native, Arm, Cx, Outcome};
 use crate::generated::binding;
-use facade::generated::{core_native, core_native_retain, project};
+use facade::generated::{core_native, project};
+#[cfg(feature = "unknown-fields")]
+use facade::generated::core_native_retain;
 
 /// Roots the C ABI refuses at generator time, with the refusal.
 pub const NOT_IN_ABI: &[(&str, &str)] = &[
@@ -19,7 +21,10 @@ pub fn run(root: &str, arm: Arm, b: &[u8], cx: &Cx) -> Outcome {
             #[cfg(not(feature = "unknown-fields"))]
             Arm::FfiRetain => Outcome::NotInAbi,
             Arm::NativeDrop => native(b, core_native::decode_timestamp, core_native::encode_timestamp, project::project_timestamp),
+            #[cfg(feature = "unknown-fields")]
             Arm::NativeRetain => native(b, core_native_retain::decode_timestamp, core_native_retain::encode_timestamp, project::project_timestamp),
+            #[cfg(not(feature = "unknown-fields"))]
+            Arm::NativeRetain => Outcome::NotInAbi,
         },
         "Duration" => match arm {
             Arm::FfiDrop => ffi(b, cx, binding::decode_with_duration, binding::encode_into_duration, project::project_duration),
@@ -28,7 +33,10 @@ pub fn run(root: &str, arm: Arm, b: &[u8], cx: &Cx) -> Outcome {
             #[cfg(not(feature = "unknown-fields"))]
             Arm::FfiRetain => Outcome::NotInAbi,
             Arm::NativeDrop => native(b, core_native::decode_duration, core_native::encode_duration, project::project_duration),
+            #[cfg(feature = "unknown-fields")]
             Arm::NativeRetain => native(b, core_native_retain::decode_duration, core_native_retain::encode_duration, project::project_duration),
+            #[cfg(not(feature = "unknown-fields"))]
+            Arm::NativeRetain => Outcome::NotInAbi,
         },
         "ResultRaw" => match arm {
             Arm::FfiDrop => ffi(b, cx, binding::decode_with_result_raw, binding::encode_into_result_raw, project::project_result_raw),
@@ -37,7 +45,10 @@ pub fn run(root: &str, arm: Arm, b: &[u8], cx: &Cx) -> Outcome {
             #[cfg(not(feature = "unknown-fields"))]
             Arm::FfiRetain => Outcome::NotInAbi,
             Arm::NativeDrop => native(b, core_native::decode_result_raw, core_native::encode_result_raw, project::project_result_raw),
+            #[cfg(feature = "unknown-fields")]
             Arm::NativeRetain => native(b, core_native_retain::decode_result_raw, core_native_retain::encode_result_raw, project::project_result_raw),
+            #[cfg(not(feature = "unknown-fields"))]
+            Arm::NativeRetain => Outcome::NotInAbi,
         },
         "TaskOptions" => match arm {
             Arm::FfiDrop => ffi(b, cx, binding::decode_with_task_options, binding::encode_into_task_options, project::project_task_options),
@@ -46,7 +57,10 @@ pub fn run(root: &str, arm: Arm, b: &[u8], cx: &Cx) -> Outcome {
             #[cfg(not(feature = "unknown-fields"))]
             Arm::FfiRetain => Outcome::NotInAbi,
             Arm::NativeDrop => native(b, core_native::decode_task_options, core_native::encode_task_options, project::project_task_options),
+            #[cfg(feature = "unknown-fields")]
             Arm::NativeRetain => native(b, core_native_retain::decode_task_options, core_native_retain::encode_task_options, project::project_task_options),
+            #[cfg(not(feature = "unknown-fields"))]
+            Arm::NativeRetain => Outcome::NotInAbi,
         },
         "TaskOutput" => match arm {
             Arm::FfiDrop => ffi(b, cx, binding::decode_with_task_output, binding::encode_into_task_output, project::project_task_output),
@@ -55,7 +69,10 @@ pub fn run(root: &str, arm: Arm, b: &[u8], cx: &Cx) -> Outcome {
             #[cfg(not(feature = "unknown-fields"))]
             Arm::FfiRetain => Outcome::NotInAbi,
             Arm::NativeDrop => native(b, core_native::decode_task_output, core_native::encode_task_output, project::project_task_output),
+            #[cfg(feature = "unknown-fields")]
             Arm::NativeRetain => native(b, core_native_retain::decode_task_output, core_native_retain::encode_task_output, project::project_task_output),
+            #[cfg(not(feature = "unknown-fields"))]
+            Arm::NativeRetain => Outcome::NotInAbi,
         },
         "TaskDetailed" => match arm {
             Arm::FfiDrop => ffi(b, cx, binding::decode_with_task_detailed, binding::encode_into_task_detailed, project::project_task_detailed),
@@ -64,7 +81,10 @@ pub fn run(root: &str, arm: Arm, b: &[u8], cx: &Cx) -> Outcome {
             #[cfg(not(feature = "unknown-fields"))]
             Arm::FfiRetain => Outcome::NotInAbi,
             Arm::NativeDrop => native(b, core_native::decode_task_detailed, core_native::encode_task_detailed, project::project_task_detailed),
+            #[cfg(feature = "unknown-fields")]
             Arm::NativeRetain => native(b, core_native_retain::decode_task_detailed, core_native_retain::encode_task_detailed, project::project_task_detailed),
+            #[cfg(not(feature = "unknown-fields"))]
+            Arm::NativeRetain => Outcome::NotInAbi,
         },
         "TaskSummary" => match arm {
             Arm::FfiDrop => ffi(b, cx, binding::decode_with_task_summary, binding::encode_into_task_summary, project::project_task_summary),
@@ -73,7 +93,10 @@ pub fn run(root: &str, arm: Arm, b: &[u8], cx: &Cx) -> Outcome {
             #[cfg(not(feature = "unknown-fields"))]
             Arm::FfiRetain => Outcome::NotInAbi,
             Arm::NativeDrop => native(b, core_native::decode_task_summary, core_native::encode_task_summary, project::project_task_summary),
+            #[cfg(feature = "unknown-fields")]
             Arm::NativeRetain => native(b, core_native_retain::decode_task_summary, core_native_retain::encode_task_summary, project::project_task_summary),
+            #[cfg(not(feature = "unknown-fields"))]
+            Arm::NativeRetain => Outcome::NotInAbi,
         },
         "Probe" => match arm {
             Arm::FfiDrop => ffi(b, cx, binding::decode_with_probe, binding::encode_into_probe, project::project_probe),
@@ -82,7 +105,10 @@ pub fn run(root: &str, arm: Arm, b: &[u8], cx: &Cx) -> Outcome {
             #[cfg(not(feature = "unknown-fields"))]
             Arm::FfiRetain => Outcome::NotInAbi,
             Arm::NativeDrop => native(b, core_native::decode_probe, core_native::encode_probe, project::project_probe),
+            #[cfg(feature = "unknown-fields")]
             Arm::NativeRetain => native(b, core_native_retain::decode_probe, core_native_retain::encode_probe, project::project_probe),
+            #[cfg(not(feature = "unknown-fields"))]
+            Arm::NativeRetain => Outcome::NotInAbi,
         },
         "Empty" => match arm {
             Arm::FfiDrop => ffi(b, cx, binding::decode_with_empty, binding::encode_into_empty, project::project_empty),
@@ -91,7 +117,10 @@ pub fn run(root: &str, arm: Arm, b: &[u8], cx: &Cx) -> Outcome {
             #[cfg(not(feature = "unknown-fields"))]
             Arm::FfiRetain => Outcome::NotInAbi,
             Arm::NativeDrop => native(b, core_native::decode_empty, core_native::encode_empty, project::project_empty),
+            #[cfg(feature = "unknown-fields")]
             Arm::NativeRetain => native(b, core_native_retain::decode_empty, core_native_retain::encode_empty, project::project_empty),
+            #[cfg(not(feature = "unknown-fields"))]
+            Arm::NativeRetain => Outcome::NotInAbi,
         },
         "UploadResultData" => match arm {
             Arm::FfiDrop => ffi(b, cx, binding::decode_with_upload_result_data, binding::encode_into_upload_result_data, project::project_upload_result_data),
@@ -100,7 +129,10 @@ pub fn run(root: &str, arm: Arm, b: &[u8], cx: &Cx) -> Outcome {
             #[cfg(not(feature = "unknown-fields"))]
             Arm::FfiRetain => Outcome::NotInAbi,
             Arm::NativeDrop => native(b, core_native::decode_upload_result_data, core_native::encode_upload_result_data, project::project_upload_result_data),
+            #[cfg(feature = "unknown-fields")]
             Arm::NativeRetain => native(b, core_native_retain::decode_upload_result_data, core_native_retain::encode_upload_result_data, project::project_upload_result_data),
+            #[cfg(not(feature = "unknown-fields"))]
+            Arm::NativeRetain => Outcome::NotInAbi,
         },
         "MetricsBatch" => match arm {
             Arm::FfiDrop => ffi(b, cx, binding::decode_with_metrics_batch, binding::encode_into_metrics_batch, project::project_metrics_batch),
@@ -109,7 +141,10 @@ pub fn run(root: &str, arm: Arm, b: &[u8], cx: &Cx) -> Outcome {
             #[cfg(not(feature = "unknown-fields"))]
             Arm::FfiRetain => Outcome::NotInAbi,
             Arm::NativeDrop => native(b, core_native::decode_metrics_batch, core_native::encode_metrics_batch, project::project_metrics_batch),
+            #[cfg(feature = "unknown-fields")]
             Arm::NativeRetain => native(b, core_native_retain::decode_metrics_batch, core_native_retain::encode_metrics_batch, project::project_metrics_batch),
+            #[cfg(not(feature = "unknown-fields"))]
+            Arm::NativeRetain => Outcome::NotInAbi,
         },
         "Pair" => match arm {
             Arm::FfiDrop => ffi(b, cx, binding::decode_with_pair, binding::encode_into_pair, project::project_pair),
@@ -118,7 +153,10 @@ pub fn run(root: &str, arm: Arm, b: &[u8], cx: &Cx) -> Outcome {
             #[cfg(not(feature = "unknown-fields"))]
             Arm::FfiRetain => Outcome::NotInAbi,
             Arm::NativeDrop => native(b, core_native::decode_pair, core_native::encode_pair, project::project_pair),
+            #[cfg(feature = "unknown-fields")]
             Arm::NativeRetain => native(b, core_native_retain::decode_pair, core_native_retain::encode_pair, project::project_pair),
+            #[cfg(not(feature = "unknown-fields"))]
+            Arm::NativeRetain => Outcome::NotInAbi,
         },
         "ListResultsResponse" => match arm {
             Arm::FfiDrop => ffi(b, cx, binding::decode_with_list_results_response, binding::encode_into_list_results_response, project::project_list_results_response),
@@ -127,7 +165,10 @@ pub fn run(root: &str, arm: Arm, b: &[u8], cx: &Cx) -> Outcome {
             #[cfg(not(feature = "unknown-fields"))]
             Arm::FfiRetain => Outcome::NotInAbi,
             Arm::NativeDrop => native(b, core_native::decode_list_results_response, core_native::encode_list_results_response, project::project_list_results_response),
+            #[cfg(feature = "unknown-fields")]
             Arm::NativeRetain => native(b, core_native_retain::decode_list_results_response, core_native_retain::encode_list_results_response, project::project_list_results_response),
+            #[cfg(not(feature = "unknown-fields"))]
+            Arm::NativeRetain => Outcome::NotInAbi,
         },
         "ListTasksDetailedResponse" => match arm {
             Arm::FfiDrop => ffi(b, cx, binding::decode_with_list_tasks_detailed_response, binding::encode_into_list_tasks_detailed_response, project::project_list_tasks_detailed_response),
@@ -136,7 +177,10 @@ pub fn run(root: &str, arm: Arm, b: &[u8], cx: &Cx) -> Outcome {
             #[cfg(not(feature = "unknown-fields"))]
             Arm::FfiRetain => Outcome::NotInAbi,
             Arm::NativeDrop => native(b, core_native::decode_list_tasks_detailed_response, core_native::encode_list_tasks_detailed_response, project::project_list_tasks_detailed_response),
+            #[cfg(feature = "unknown-fields")]
             Arm::NativeRetain => native(b, core_native_retain::decode_list_tasks_detailed_response, core_native_retain::encode_list_tasks_detailed_response, project::project_list_tasks_detailed_response),
+            #[cfg(not(feature = "unknown-fields"))]
+            Arm::NativeRetain => Outcome::NotInAbi,
         },
         "ListTaskSummaryResponse" => match arm {
             Arm::FfiDrop => ffi(b, cx, binding::decode_with_list_task_summary_response, binding::encode_into_list_task_summary_response, project::project_list_task_summary_response),
@@ -145,7 +189,10 @@ pub fn run(root: &str, arm: Arm, b: &[u8], cx: &Cx) -> Outcome {
             #[cfg(not(feature = "unknown-fields"))]
             Arm::FfiRetain => Outcome::NotInAbi,
             Arm::NativeDrop => native(b, core_native::decode_list_task_summary_response, core_native::encode_list_task_summary_response, project::project_list_task_summary_response),
+            #[cfg(feature = "unknown-fields")]
             Arm::NativeRetain => native(b, core_native_retain::decode_list_task_summary_response, core_native_retain::encode_list_task_summary_response, project::project_list_task_summary_response),
+            #[cfg(not(feature = "unknown-fields"))]
+            Arm::NativeRetain => Outcome::NotInAbi,
         },
         "ListProbeResponse" => match arm {
             Arm::FfiDrop => ffi(b, cx, binding::decode_with_list_probe_response, binding::encode_into_list_probe_response, project::project_list_probe_response),
@@ -154,7 +201,10 @@ pub fn run(root: &str, arm: Arm, b: &[u8], cx: &Cx) -> Outcome {
             #[cfg(not(feature = "unknown-fields"))]
             Arm::FfiRetain => Outcome::NotInAbi,
             Arm::NativeDrop => native(b, core_native::decode_list_probe_response, core_native::encode_list_probe_response, project::project_list_probe_response),
+            #[cfg(feature = "unknown-fields")]
             Arm::NativeRetain => native(b, core_native_retain::decode_list_probe_response, core_native_retain::encode_list_probe_response, project::project_list_probe_response),
+            #[cfg(not(feature = "unknown-fields"))]
+            Arm::NativeRetain => Outcome::NotInAbi,
         },
         "ListMetricsResponse" => match arm {
             Arm::FfiDrop => ffi(b, cx, binding::decode_with_list_metrics_response, binding::encode_into_list_metrics_response, project::project_list_metrics_response),
@@ -163,7 +213,10 @@ pub fn run(root: &str, arm: Arm, b: &[u8], cx: &Cx) -> Outcome {
             #[cfg(not(feature = "unknown-fields"))]
             Arm::FfiRetain => Outcome::NotInAbi,
             Arm::NativeDrop => native(b, core_native::decode_list_metrics_response, core_native::encode_list_metrics_response, project::project_list_metrics_response),
+            #[cfg(feature = "unknown-fields")]
             Arm::NativeRetain => native(b, core_native_retain::decode_list_metrics_response, core_native_retain::encode_list_metrics_response, project::project_list_metrics_response),
+            #[cfg(not(feature = "unknown-fields"))]
+            Arm::NativeRetain => Outcome::NotInAbi,
         },
         "UploadResultDataMessage" => match arm {
             Arm::FfiDrop => ffi(b, cx, binding::decode_with_upload_result_data_message, binding::encode_into_upload_result_data_message, project::project_upload_result_data_message),
@@ -172,7 +225,10 @@ pub fn run(root: &str, arm: Arm, b: &[u8], cx: &Cx) -> Outcome {
             #[cfg(not(feature = "unknown-fields"))]
             Arm::FfiRetain => Outcome::NotInAbi,
             Arm::NativeDrop => native(b, core_native::decode_upload_result_data_message, core_native::encode_upload_result_data_message, project::project_upload_result_data_message),
+            #[cfg(feature = "unknown-fields")]
             Arm::NativeRetain => native(b, core_native_retain::decode_upload_result_data_message, core_native_retain::encode_upload_result_data_message, project::project_upload_result_data_message),
+            #[cfg(not(feature = "unknown-fields"))]
+            Arm::NativeRetain => Outcome::NotInAbi,
         },
         "DualResponse" => match arm {
             Arm::FfiDrop => ffi(b, cx, binding::decode_with_dual_response, binding::encode_into_dual_response, project::project_dual_response),
@@ -181,7 +237,10 @@ pub fn run(root: &str, arm: Arm, b: &[u8], cx: &Cx) -> Outcome {
             #[cfg(not(feature = "unknown-fields"))]
             Arm::FfiRetain => Outcome::NotInAbi,
             Arm::NativeDrop => native(b, core_native::decode_dual_response, core_native::encode_dual_response, project::project_dual_response),
+            #[cfg(feature = "unknown-fields")]
             Arm::NativeRetain => native(b, core_native_retain::decode_dual_response, core_native_retain::encode_dual_response, project::project_dual_response),
+            #[cfg(not(feature = "unknown-fields"))]
+            Arm::NativeRetain => Outcome::NotInAbi,
         },
         "ChunkLeaf" => match arm {
             Arm::FfiDrop => ffi(b, cx, binding::decode_with_chunk_leaf, binding::encode_into_chunk_leaf, project::project_chunk_leaf),
@@ -190,7 +249,10 @@ pub fn run(root: &str, arm: Arm, b: &[u8], cx: &Cx) -> Outcome {
             #[cfg(not(feature = "unknown-fields"))]
             Arm::FfiRetain => Outcome::NotInAbi,
             Arm::NativeDrop => native(b, core_native::decode_chunk_leaf, core_native::encode_chunk_leaf, project::project_chunk_leaf),
+            #[cfg(feature = "unknown-fields")]
             Arm::NativeRetain => native(b, core_native_retain::decode_chunk_leaf, core_native_retain::encode_chunk_leaf, project::project_chunk_leaf),
+            #[cfg(not(feature = "unknown-fields"))]
+            Arm::NativeRetain => Outcome::NotInAbi,
         },
         "ChunkInner" => match arm {
             Arm::FfiDrop => ffi(b, cx, binding::decode_with_chunk_inner, binding::encode_into_chunk_inner, project::project_chunk_inner),
@@ -199,7 +261,10 @@ pub fn run(root: &str, arm: Arm, b: &[u8], cx: &Cx) -> Outcome {
             #[cfg(not(feature = "unknown-fields"))]
             Arm::FfiRetain => Outcome::NotInAbi,
             Arm::NativeDrop => native(b, core_native::decode_chunk_inner, core_native::encode_chunk_inner, project::project_chunk_inner),
+            #[cfg(feature = "unknown-fields")]
             Arm::NativeRetain => native(b, core_native_retain::decode_chunk_inner, core_native_retain::encode_chunk_inner, project::project_chunk_inner),
+            #[cfg(not(feature = "unknown-fields"))]
+            Arm::NativeRetain => Outcome::NotInAbi,
         },
         "ChunkElement" => match arm {
             Arm::FfiDrop => ffi(b, cx, binding::decode_with_chunk_element, binding::encode_into_chunk_element, project::project_chunk_element),
@@ -208,7 +273,10 @@ pub fn run(root: &str, arm: Arm, b: &[u8], cx: &Cx) -> Outcome {
             #[cfg(not(feature = "unknown-fields"))]
             Arm::FfiRetain => Outcome::NotInAbi,
             Arm::NativeDrop => native(b, core_native::decode_chunk_element, core_native::encode_chunk_element, project::project_chunk_element),
+            #[cfg(feature = "unknown-fields")]
             Arm::NativeRetain => native(b, core_native_retain::decode_chunk_element, core_native_retain::encode_chunk_element, project::project_chunk_element),
+            #[cfg(not(feature = "unknown-fields"))]
+            Arm::NativeRetain => Outcome::NotInAbi,
         },
         "ChunkedResponse" => match arm {
             Arm::FfiDrop => ffi(b, cx, binding::decode_with_chunked_response, binding::encode_into_chunked_response, project::project_chunked_response),
@@ -217,7 +285,10 @@ pub fn run(root: &str, arm: Arm, b: &[u8], cx: &Cx) -> Outcome {
             #[cfg(not(feature = "unknown-fields"))]
             Arm::FfiRetain => Outcome::NotInAbi,
             Arm::NativeDrop => native(b, core_native::decode_chunked_response, core_native::encode_chunked_response, project::project_chunked_response),
+            #[cfg(feature = "unknown-fields")]
             Arm::NativeRetain => native(b, core_native_retain::decode_chunked_response, core_native_retain::encode_chunked_response, project::project_chunked_response),
+            #[cfg(not(feature = "unknown-fields"))]
+            Arm::NativeRetain => Outcome::NotInAbi,
         },
         "ChunkedResponseWide" => match arm {
             Arm::FfiDrop => ffi(b, cx, binding::decode_with_chunked_response_wide, binding::encode_into_chunked_response_wide, project::project_chunked_response_wide),
@@ -226,7 +297,10 @@ pub fn run(root: &str, arm: Arm, b: &[u8], cx: &Cx) -> Outcome {
             #[cfg(not(feature = "unknown-fields"))]
             Arm::FfiRetain => Outcome::NotInAbi,
             Arm::NativeDrop => native(b, core_native::decode_chunked_response_wide, core_native::encode_chunked_response_wide, project::project_chunked_response_wide),
+            #[cfg(feature = "unknown-fields")]
             Arm::NativeRetain => native(b, core_native_retain::decode_chunked_response_wide, core_native_retain::encode_chunked_response_wide, project::project_chunked_response_wide),
+            #[cfg(not(feature = "unknown-fields"))]
+            Arm::NativeRetain => Outcome::NotInAbi,
         },
         "LeafElement" => match arm {
             Arm::FfiDrop => ffi(b, cx, binding::decode_with_leaf_element, binding::encode_into_leaf_element, project::project_leaf_element),
@@ -235,7 +309,10 @@ pub fn run(root: &str, arm: Arm, b: &[u8], cx: &Cx) -> Outcome {
             #[cfg(not(feature = "unknown-fields"))]
             Arm::FfiRetain => Outcome::NotInAbi,
             Arm::NativeDrop => native(b, core_native::decode_leaf_element, core_native::encode_leaf_element, project::project_leaf_element),
+            #[cfg(feature = "unknown-fields")]
             Arm::NativeRetain => native(b, core_native_retain::decode_leaf_element, core_native_retain::encode_leaf_element, project::project_leaf_element),
+            #[cfg(not(feature = "unknown-fields"))]
+            Arm::NativeRetain => Outcome::NotInAbi,
         },
         "LeafResponse" => match arm {
             Arm::FfiDrop => ffi(b, cx, binding::decode_with_leaf_response, binding::encode_into_leaf_response, project::project_leaf_response),
@@ -244,7 +321,10 @@ pub fn run(root: &str, arm: Arm, b: &[u8], cx: &Cx) -> Outcome {
             #[cfg(not(feature = "unknown-fields"))]
             Arm::FfiRetain => Outcome::NotInAbi,
             Arm::NativeDrop => native(b, core_native::decode_leaf_response, core_native::encode_leaf_response, project::project_leaf_response),
+            #[cfg(feature = "unknown-fields")]
             Arm::NativeRetain => native(b, core_native_retain::decode_leaf_response, core_native_retain::encode_leaf_response, project::project_leaf_response),
+            #[cfg(not(feature = "unknown-fields"))]
+            Arm::NativeRetain => Outcome::NotInAbi,
         },
         "Surrogate" => match arm {
             Arm::FfiDrop => ffi(b, cx, binding::decode_with_surrogate, binding::encode_into_surrogate, project::project_surrogate),
@@ -253,7 +333,10 @@ pub fn run(root: &str, arm: Arm, b: &[u8], cx: &Cx) -> Outcome {
             #[cfg(not(feature = "unknown-fields"))]
             Arm::FfiRetain => Outcome::NotInAbi,
             Arm::NativeDrop => native(b, core_native::decode_surrogate, core_native::encode_surrogate, project::project_surrogate),
+            #[cfg(feature = "unknown-fields")]
             Arm::NativeRetain => native(b, core_native_retain::decode_surrogate, core_native_retain::encode_surrogate, project::project_surrogate),
+            #[cfg(not(feature = "unknown-fields"))]
+            Arm::NativeRetain => Outcome::NotInAbi,
         },
         "SurrogateInner" => match arm {
             Arm::FfiDrop => ffi(b, cx, binding::decode_with_surrogate_inner, binding::encode_into_surrogate_inner, project::project_surrogate_inner),
@@ -262,12 +345,18 @@ pub fn run(root: &str, arm: Arm, b: &[u8], cx: &Cx) -> Outcome {
             #[cfg(not(feature = "unknown-fields"))]
             Arm::FfiRetain => Outcome::NotInAbi,
             Arm::NativeDrop => native(b, core_native::decode_surrogate_inner, core_native::encode_surrogate_inner, project::project_surrogate_inner),
+            #[cfg(feature = "unknown-fields")]
             Arm::NativeRetain => native(b, core_native_retain::decode_surrogate_inner, core_native_retain::encode_surrogate_inner, project::project_surrogate_inner),
+            #[cfg(not(feature = "unknown-fields"))]
+            Arm::NativeRetain => Outcome::NotInAbi,
         },
         "Nest" => match arm {
             Arm::FfiDrop | Arm::FfiRetain => Outcome::NotInAbi,
             Arm::NativeDrop => native(b, core_native::decode_nest, core_native::encode_nest, project::project_nest),
+            #[cfg(feature = "unknown-fields")]
             Arm::NativeRetain => native(b, core_native_retain::decode_nest, core_native_retain::encode_nest, project::project_nest),
+            #[cfg(not(feature = "unknown-fields"))]
+            Arm::NativeRetain => Outcome::NotInAbi,
         },
         "WireZoo" => match arm {
             Arm::FfiDrop => ffi(b, cx, binding::decode_with_wire_zoo, binding::encode_into_wire_zoo, project::project_wire_zoo),
@@ -276,7 +365,10 @@ pub fn run(root: &str, arm: Arm, b: &[u8], cx: &Cx) -> Outcome {
             #[cfg(not(feature = "unknown-fields"))]
             Arm::FfiRetain => Outcome::NotInAbi,
             Arm::NativeDrop => native(b, core_native::decode_wire_zoo, core_native::encode_wire_zoo, project::project_wire_zoo),
+            #[cfg(feature = "unknown-fields")]
             Arm::NativeRetain => native(b, core_native_retain::decode_wire_zoo, core_native_retain::encode_wire_zoo, project::project_wire_zoo),
+            #[cfg(not(feature = "unknown-fields"))]
+            Arm::NativeRetain => Outcome::NotInAbi,
         },
         _ => Outcome::UnknownRoot,
     }

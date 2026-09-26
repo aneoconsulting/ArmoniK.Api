@@ -1008,7 +1008,9 @@ def emit_binding(ir):
                 o.extend("        " + ln for ln in lines[1:-1])
                 o.append("        },")
             o.append("        // Decision 11 (WP5 step 7): the message's own buffer, the host's now.")
-            o.append("        unknown_fields: %s," % ("Vec::new()" if NOUNK else "take_unk(&f.unknown)"))
+            if not NOUNK:
+                # Optimisation step 8 (F1): the no-unknown facade has no bag member.
+                o.append("        unknown_fields: take_unk(&f.unknown),")
             o.append("    }")
             o.append("}")
         o.append("")

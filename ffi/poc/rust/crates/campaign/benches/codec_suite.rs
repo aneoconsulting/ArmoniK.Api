@@ -252,7 +252,7 @@ fn build_line() -> String {
     if cfg!(feature = "unknown-fields") {
         "unknown-fields: core-ffi / core-native / core-ffi-pull in modes drop and retain".to_string()
     } else {
-        "NO-UNKNOWN (unknown-field support compiled out, CAMPAIGN.md req 10): core-ffi / core-native / core-ffi-pull in mode no-unknown; incumbent-prod and armonik as in-process controls".to_string()
+        "NO-UNKNOWN (unknown-field support compiled out, CAMPAIGN.md req 10): core-ffi / core-native / core-ffi-pull in mode no-unknown; incumbent-prod and armonik as in-process controls. The facade types have NO unknown_fields member in this build (optimisation step 8, F1, owner decision R-H22), which changes the armonik control arm too (it decodes into and encodes from the same facade types); accepted by the owner".to_string()
     }
 }
 

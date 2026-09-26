@@ -394,7 +394,7 @@ fn main() {
         })),
         ("link", "loopback TCP; server = rpc_server, a separate process (requirement 13), pre-serialised P2.2".into()),
         ("cells", "A prost+tonic, B prost+core (blocking), C core+core (blocking), D core+tonic; C and D per unknown-field mode (-retain: every decision 11 position armed and u-group encode; -drop: nothing armed; -nounk: the build with unknown-field support compiled out); callback/queue deliveries not run in this suite".into()),
-        ("build", if cfg!(feature = "unknown-fields") { "unknown-fields (retain/drop)".into() } else { "NO-UNKNOWN (unknown-field support compiled out)".to_string() }),
+        ("build", if cfg!(feature = "unknown-fields") { "unknown-fields (retain/drop)".into() } else { "NO-UNKNOWN (unknown-field support compiled out; the facade types have no unknown_fields member, optimisation step 8 F1)".to_string() }),
         ("core-ffi encode fill", campaign::FFI_ENCODE_FILL.into()),
         ("cell C request", "direction b: the core encode context's output MOVED into the call (ak_call_unary_enc, optimisation R2); direction a: empty request through ak_call_unary. Cell D copies the encoded bytes into a tonic Bytes (unchanged)".into()),
         ("launch", launch.to_string()),
