@@ -24,6 +24,41 @@ use ak_abi::*;
 use core::ffi::c_void;
 use facade::*;
 
+// ---- CAMPAIGN req 19 as amended (R-H31): every exported entry point the timed loop calls --
+//
+// The core's context counters see the codec's own entry points (`ak_encode_*`,
+// `ak_decode_*`, `ak_parse_*`, the runs, the drains) and every reverse call. They do not
+// see a handful of plain exports the binding also calls: `ak_enc_reset` (before every
+// encode), `ak_dec_reset_<Root>` (before a retain decode, arming the options, and after it,
+// disarming with NULL), `ak_enc_take` (reading the encoded bytes) and `ak_dec_err` (after a
+// pull). The counting build (`count` feature) tallies those here, at the call site, so the
+// counts cover every exported call; in any other build these are empty inline functions.
+#[cfg(feature = "count")]
+thread_local! {
+    static HOST_RESETS: ::core::cell::Cell<u64> = const { ::core::cell::Cell::new(0) };
+    static HOST_OTHER: ::core::cell::Cell<u64> = const { ::core::cell::Cell::new(0) };
+}
+#[inline(always)]
+pub(crate) fn host_reset() {
+    #[cfg(feature = "count")]
+    HOST_RESETS.with(|c| c.set(c.get() + 1));
+}
+#[inline(always)]
+pub(crate) fn host_call() {
+    #[cfg(feature = "count")]
+    HOST_OTHER.with(|c| c.set(c.get() + 1));
+}
+/// (resets, other uncounted exports) the binding called since the last take; (0, 0) outside
+/// the counting build.
+pub fn host_calls_take() -> (u64, u64) {
+    #[cfg(feature = "count")]
+    {
+        return (HOST_RESETS.with(|c| c.replace(0)), HOST_OTHER.with(|c| c.replace(0)));
+    }
+    #[cfg(not(feature = "count"))]
+    (0, 0)
+}
+
 /// ABI v1 section 5. Rust's analogue of the managed guard: a panic crossing `extern "C"`
 /// aborts the process, so the binding catches it and reports it through the context it was
 /// handed. On by default; the `no-guard` build exists only to price it, because every
@@ -1117,7 +1152,7 @@ pub(crate) fn fill_wire_zoo_sparse(d: &mut ak_efix_WireZoo, o: &WireZoo, tc: (ak
 pub fn encode_into_timestamp(ctx: *mut ak_enc_ctx, o: &Timestamp, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_Timestamp {
             _reserved: ::core::ptr::null(),
         };
@@ -1130,7 +1165,7 @@ pub fn encode_into_timestamp(ctx: *mut ak_enc_ctx, o: &Timestamp, t: &Tcs) -> Re
 pub fn encode_into_timestamp_zeroed(ctx: *mut ak_enc_ctx, o: &Timestamp, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_Timestamp {
             _reserved: ::core::ptr::null(),
         };
@@ -1143,7 +1178,7 @@ pub fn encode_into_timestamp_zeroed(ctx: *mut ak_enc_ctx, o: &Timestamp, t: &Tcs
 pub fn encode_into_duration(ctx: *mut ak_enc_ctx, o: &Duration, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_Duration {
             _reserved: ::core::ptr::null(),
         };
@@ -1156,7 +1191,7 @@ pub fn encode_into_duration(ctx: *mut ak_enc_ctx, o: &Duration, t: &Tcs) -> Resu
 pub fn encode_into_duration_zeroed(ctx: *mut ak_enc_ctx, o: &Duration, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_Duration {
             _reserved: ::core::ptr::null(),
         };
@@ -1169,7 +1204,7 @@ pub fn encode_into_duration_zeroed(ctx: *mut ak_enc_ctx, o: &Duration, t: &Tcs) 
 pub fn encode_into_result_raw(ctx: *mut ak_enc_ctx, o: &ResultRaw, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_ResultRaw {
             _reserved: ::core::ptr::null(),
         };
@@ -1182,7 +1217,7 @@ pub fn encode_into_result_raw(ctx: *mut ak_enc_ctx, o: &ResultRaw, t: &Tcs) -> R
 pub fn encode_into_result_raw_zeroed(ctx: *mut ak_enc_ctx, o: &ResultRaw, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_ResultRaw {
             _reserved: ::core::ptr::null(),
         };
@@ -1231,7 +1266,7 @@ unsafe extern "C" fn loop_task_options_options(
 pub fn encode_into_task_options(ctx: *mut ak_enc_ctx, o: &TaskOptions, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_TaskOptions {
             loop_options: Some(loop_task_options_options),
         };
@@ -1244,7 +1279,7 @@ pub fn encode_into_task_options(ctx: *mut ak_enc_ctx, o: &TaskOptions, t: &Tcs) 
 pub fn encode_into_task_options_zeroed(ctx: *mut ak_enc_ctx, o: &TaskOptions, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_TaskOptions {
             loop_options: Some(loop_task_options_options),
         };
@@ -1257,7 +1292,7 @@ pub fn encode_into_task_options_zeroed(ctx: *mut ak_enc_ctx, o: &TaskOptions, t:
 pub fn encode_into_task_output(ctx: *mut ak_enc_ctx, o: &TaskOutput, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_TaskOutput {
             _reserved: ::core::ptr::null(),
         };
@@ -1270,7 +1305,7 @@ pub fn encode_into_task_output(ctx: *mut ak_enc_ctx, o: &TaskOutput, t: &Tcs) ->
 pub fn encode_into_task_output_zeroed(ctx: *mut ak_enc_ctx, o: &TaskOutput, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_TaskOutput {
             _reserved: ::core::ptr::null(),
         };
@@ -1448,7 +1483,7 @@ unsafe extern "C" fn loop_task_detailed_options_options(
 pub fn encode_into_task_detailed(ctx: *mut ak_enc_ctx, o: &TaskDetailed, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_TaskDetailed {
             loop_parent_task_ids: Some(loop_task_detailed_parent_task_ids),
             loop_data_dependencies: Some(loop_task_detailed_data_dependencies),
@@ -1465,7 +1500,7 @@ pub fn encode_into_task_detailed(ctx: *mut ak_enc_ctx, o: &TaskDetailed, t: &Tcs
 pub fn encode_into_task_detailed_zeroed(ctx: *mut ak_enc_ctx, o: &TaskDetailed, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_TaskDetailed {
             loop_parent_task_ids: Some(loop_task_detailed_parent_task_ids),
             loop_data_dependencies: Some(loop_task_detailed_data_dependencies),
@@ -1519,7 +1554,7 @@ unsafe extern "C" fn loop_task_summary_options_options(
 pub fn encode_into_task_summary(ctx: *mut ak_enc_ctx, o: &TaskSummary, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_TaskSummary {
             loop_options_options: Some(loop_task_summary_options_options),
         };
@@ -1532,7 +1567,7 @@ pub fn encode_into_task_summary(ctx: *mut ak_enc_ctx, o: &TaskSummary, t: &Tcs) 
 pub fn encode_into_task_summary_zeroed(ctx: *mut ak_enc_ctx, o: &TaskSummary, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_TaskSummary {
             loop_options_options: Some(loop_task_summary_options_options),
         };
@@ -1545,7 +1580,7 @@ pub fn encode_into_task_summary_zeroed(ctx: *mut ak_enc_ctx, o: &TaskSummary, t:
 pub fn encode_into_probe(ctx: *mut ak_enc_ctx, o: &Probe, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_Probe {
             _reserved: ::core::ptr::null(),
         };
@@ -1558,7 +1593,7 @@ pub fn encode_into_probe(ctx: *mut ak_enc_ctx, o: &Probe, t: &Tcs) -> Result<usi
 pub fn encode_into_probe_zeroed(ctx: *mut ak_enc_ctx, o: &Probe, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_Probe {
             _reserved: ::core::ptr::null(),
         };
@@ -1571,7 +1606,7 @@ pub fn encode_into_probe_zeroed(ctx: *mut ak_enc_ctx, o: &Probe, t: &Tcs) -> Res
 pub fn encode_into_empty(ctx: *mut ak_enc_ctx, o: &Empty, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_Empty {
             _reserved: ::core::ptr::null(),
         };
@@ -1584,7 +1619,7 @@ pub fn encode_into_empty(ctx: *mut ak_enc_ctx, o: &Empty, t: &Tcs) -> Result<usi
 pub fn encode_into_empty_zeroed(ctx: *mut ak_enc_ctx, o: &Empty, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_Empty {
             _reserved: ::core::ptr::null(),
         };
@@ -1597,7 +1632,7 @@ pub fn encode_into_empty_zeroed(ctx: *mut ak_enc_ctx, o: &Empty, t: &Tcs) -> Res
 pub fn encode_into_upload_result_data(ctx: *mut ak_enc_ctx, o: &UploadResultData, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_UploadResultData {
             _reserved: ::core::ptr::null(),
         };
@@ -1611,7 +1646,7 @@ pub fn encode_into_upload_result_data(ctx: *mut ak_enc_ctx, o: &UploadResultData
 pub fn encode_into_upload_result_data_zeroed(ctx: *mut ak_enc_ctx, o: &UploadResultData, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_UploadResultData {
             _reserved: ::core::ptr::null(),
         };
@@ -1708,7 +1743,7 @@ unsafe extern "C" fn loop_metrics_batch_statuses(
 pub fn encode_into_metrics_batch(ctx: *mut ak_enc_ctx, o: &MetricsBatch, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_MetricsBatch {
             loop_ticks: Some(loop_metrics_batch_ticks),
             loop_values: Some(loop_metrics_batch_values),
@@ -1725,7 +1760,7 @@ pub fn encode_into_metrics_batch(ctx: *mut ak_enc_ctx, o: &MetricsBatch, t: &Tcs
 pub fn encode_into_metrics_batch_zeroed(ctx: *mut ak_enc_ctx, o: &MetricsBatch, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_MetricsBatch {
             loop_ticks: Some(loop_metrics_batch_ticks),
             loop_values: Some(loop_metrics_batch_values),
@@ -1742,7 +1777,7 @@ pub fn encode_into_metrics_batch_zeroed(ctx: *mut ak_enc_ctx, o: &MetricsBatch, 
 pub fn encode_into_pair(ctx: *mut ak_enc_ctx, o: &Pair, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_Pair {
             _reserved: ::core::ptr::null(),
         };
@@ -1755,7 +1790,7 @@ pub fn encode_into_pair(ctx: *mut ak_enc_ctx, o: &Pair, t: &Tcs) -> Result<usize
 pub fn encode_into_pair_zeroed(ctx: *mut ak_enc_ctx, o: &Pair, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_Pair {
             _reserved: ::core::ptr::null(),
         };
@@ -1838,7 +1873,7 @@ unsafe extern "C" fn loop_list_results_response_results_zeroed(
 pub fn encode_into_list_results_response(ctx: *mut ak_enc_ctx, o: &ListResultsResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_ListResultsResponse {
             loop_results: Some(loop_list_results_response_results),
         };
@@ -1851,7 +1886,7 @@ pub fn encode_into_list_results_response(ctx: *mut ak_enc_ctx, o: &ListResultsRe
 pub fn encode_into_list_results_response_zeroed(ctx: *mut ak_enc_ctx, o: &ListResultsResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_ListResultsResponse {
             loop_results: Some(loop_list_results_response_results_zeroed),
         };
@@ -2112,7 +2147,7 @@ static ELEM_VT_ListTasksDetailedResponse_tasks: ak_evt_TaskDetailed = ak_evt_Tas
 pub fn encode_into_list_tasks_detailed_response(ctx: *mut ak_enc_ctx, o: &ListTasksDetailedResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_ListTasksDetailedResponse {
             loop_tasks: Some(loop_list_tasks_detailed_response_tasks),
             elem_tasks: &ELEM_VT_ListTasksDetailedResponse_tasks,
@@ -2126,7 +2161,7 @@ pub fn encode_into_list_tasks_detailed_response(ctx: *mut ak_enc_ctx, o: &ListTa
 pub fn encode_into_list_tasks_detailed_response_zeroed(ctx: *mut ak_enc_ctx, o: &ListTasksDetailedResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_ListTasksDetailedResponse {
             loop_tasks: Some(loop_list_tasks_detailed_response_tasks_zeroed),
             elem_tasks: &ELEM_VT_ListTasksDetailedResponse_tasks,
@@ -2252,7 +2287,7 @@ static ELEM_VT_ListTaskSummaryResponse_tasks: ak_evt_TaskSummary = ak_evt_TaskSu
 pub fn encode_into_list_task_summary_response(ctx: *mut ak_enc_ctx, o: &ListTaskSummaryResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_ListTaskSummaryResponse {
             loop_tasks: Some(loop_list_task_summary_response_tasks),
             elem_tasks: &ELEM_VT_ListTaskSummaryResponse_tasks,
@@ -2266,7 +2301,7 @@ pub fn encode_into_list_task_summary_response(ctx: *mut ak_enc_ctx, o: &ListTask
 pub fn encode_into_list_task_summary_response_zeroed(ctx: *mut ak_enc_ctx, o: &ListTaskSummaryResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_ListTaskSummaryResponse {
             loop_tasks: Some(loop_list_task_summary_response_tasks_zeroed),
             elem_tasks: &ELEM_VT_ListTaskSummaryResponse_tasks,
@@ -2350,7 +2385,7 @@ unsafe extern "C" fn loop_list_probe_response_probes_zeroed(
 pub fn encode_into_list_probe_response(ctx: *mut ak_enc_ctx, o: &ListProbeResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_ListProbeResponse {
             loop_probes: Some(loop_list_probe_response_probes),
         };
@@ -2363,7 +2398,7 @@ pub fn encode_into_list_probe_response(ctx: *mut ak_enc_ctx, o: &ListProbeRespon
 pub fn encode_into_list_probe_response_zeroed(ctx: *mut ak_enc_ctx, o: &ListProbeResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_ListProbeResponse {
             loop_probes: Some(loop_list_probe_response_probes_zeroed),
         };
@@ -2542,7 +2577,7 @@ static ELEM_VT_ListMetricsResponse_batches: ak_evt_MetricsBatch = ak_evt_Metrics
 pub fn encode_into_list_metrics_response(ctx: *mut ak_enc_ctx, o: &ListMetricsResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_ListMetricsResponse {
             loop_batches: Some(loop_list_metrics_response_batches),
             elem_batches: &ELEM_VT_ListMetricsResponse_batches,
@@ -2556,7 +2591,7 @@ pub fn encode_into_list_metrics_response(ctx: *mut ak_enc_ctx, o: &ListMetricsRe
 pub fn encode_into_list_metrics_response_zeroed(ctx: *mut ak_enc_ctx, o: &ListMetricsResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_ListMetricsResponse {
             loop_batches: Some(loop_list_metrics_response_batches_zeroed),
             elem_batches: &ELEM_VT_ListMetricsResponse_batches,
@@ -2570,7 +2605,7 @@ pub fn encode_into_list_metrics_response_zeroed(ctx: *mut ak_enc_ctx, o: &ListMe
 pub fn encode_into_upload_result_data_message(ctx: *mut ak_enc_ctx, o: &UploadResultDataMessage, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_UploadResultDataMessage {
             _reserved: ::core::ptr::null(),
         };
@@ -2584,7 +2619,7 @@ pub fn encode_into_upload_result_data_message(ctx: *mut ak_enc_ctx, o: &UploadRe
 pub fn encode_into_upload_result_data_message_zeroed(ctx: *mut ak_enc_ctx, o: &UploadResultDataMessage, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_UploadResultDataMessage {
             _reserved: ::core::ptr::null(),
         };
@@ -2738,7 +2773,7 @@ unsafe extern "C" fn loop_dual_response_right_zeroed(
 pub fn encode_into_dual_response(ctx: *mut ak_enc_ctx, o: &DualResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_DualResponse {
             loop_left: Some(loop_dual_response_left),
             loop_right: Some(loop_dual_response_right),
@@ -2752,7 +2787,7 @@ pub fn encode_into_dual_response(ctx: *mut ak_enc_ctx, o: &DualResponse, t: &Tcs
 pub fn encode_into_dual_response_zeroed(ctx: *mut ak_enc_ctx, o: &DualResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_DualResponse {
             loop_left: Some(loop_dual_response_left_zeroed),
             loop_right: Some(loop_dual_response_right_zeroed),
@@ -2766,7 +2801,7 @@ pub fn encode_into_dual_response_zeroed(ctx: *mut ak_enc_ctx, o: &DualResponse, 
 pub fn encode_into_chunk_leaf(ctx: *mut ak_enc_ctx, o: &ChunkLeaf, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_ChunkLeaf {
             _reserved: ::core::ptr::null(),
         };
@@ -2779,7 +2814,7 @@ pub fn encode_into_chunk_leaf(ctx: *mut ak_enc_ctx, o: &ChunkLeaf, t: &Tcs) -> R
 pub fn encode_into_chunk_leaf_zeroed(ctx: *mut ak_enc_ctx, o: &ChunkLeaf, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_ChunkLeaf {
             _reserved: ::core::ptr::null(),
         };
@@ -2877,7 +2912,7 @@ unsafe extern "C" fn loop_chunk_inner_leaves_zeroed(
 pub fn encode_into_chunk_inner(ctx: *mut ak_enc_ctx, o: &ChunkInner, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_ChunkInner {
             loop_marks: Some(loop_chunk_inner_marks),
             loop_leaves: Some(loop_chunk_inner_leaves),
@@ -2891,7 +2926,7 @@ pub fn encode_into_chunk_inner(ctx: *mut ak_enc_ctx, o: &ChunkInner, t: &Tcs) ->
 pub fn encode_into_chunk_inner_zeroed(ctx: *mut ak_enc_ctx, o: &ChunkInner, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_ChunkInner {
             loop_marks: Some(loop_chunk_inner_marks),
             loop_leaves: Some(loop_chunk_inner_leaves_zeroed),
@@ -3061,7 +3096,7 @@ unsafe extern "C" fn loop_chunk_element_inner_leaves_zeroed(
 pub fn encode_into_chunk_element(ctx: *mut ak_enc_ctx, o: &ChunkElement, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_ChunkElement {
             loop_labels: Some(loop_chunk_element_labels),
             loop_attrs: Some(loop_chunk_element_attrs),
@@ -3077,7 +3112,7 @@ pub fn encode_into_chunk_element(ctx: *mut ak_enc_ctx, o: &ChunkElement, t: &Tcs
 pub fn encode_into_chunk_element_zeroed(ctx: *mut ak_enc_ctx, o: &ChunkElement, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_ChunkElement {
             loop_labels: Some(loop_chunk_element_labels),
             loop_attrs: Some(loop_chunk_element_attrs),
@@ -3291,7 +3326,7 @@ static ELEM_VT_ChunkedResponse_items: ak_evt_ChunkElement = ak_evt_ChunkElement 
 pub fn encode_into_chunked_response(ctx: *mut ak_enc_ctx, o: &ChunkedResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_ChunkedResponse {
             loop_items: Some(loop_chunked_response_items),
             elem_items: &ELEM_VT_ChunkedResponse_items,
@@ -3305,7 +3340,7 @@ pub fn encode_into_chunked_response(ctx: *mut ak_enc_ctx, o: &ChunkedResponse, t
 pub fn encode_into_chunked_response_zeroed(ctx: *mut ak_enc_ctx, o: &ChunkedResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_ChunkedResponse {
             loop_items: Some(loop_chunked_response_items_zeroed),
             elem_items: &ELEM_VT_ChunkedResponse_items,
@@ -3517,7 +3552,7 @@ static ELEM_VT_ChunkedResponseWide_items: ak_evt_ChunkElement = ak_evt_ChunkElem
 pub fn encode_into_chunked_response_wide(ctx: *mut ak_enc_ctx, o: &ChunkedResponseWide, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_ChunkedResponseWide {
             loop_items: Some(loop_chunked_response_wide_items),
             elem_items: &ELEM_VT_ChunkedResponseWide_items,
@@ -3531,7 +3566,7 @@ pub fn encode_into_chunked_response_wide(ctx: *mut ak_enc_ctx, o: &ChunkedRespon
 pub fn encode_into_chunked_response_wide_zeroed(ctx: *mut ak_enc_ctx, o: &ChunkedResponseWide, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_ChunkedResponseWide {
             loop_items: Some(loop_chunked_response_wide_items_zeroed),
             elem_items: &ELEM_VT_ChunkedResponseWide_items,
@@ -3545,7 +3580,7 @@ pub fn encode_into_chunked_response_wide_zeroed(ctx: *mut ak_enc_ctx, o: &Chunke
 pub fn encode_into_leaf_element(ctx: *mut ak_enc_ctx, o: &LeafElement, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_LeafElement {
             _reserved: ::core::ptr::null(),
         };
@@ -3558,7 +3593,7 @@ pub fn encode_into_leaf_element(ctx: *mut ak_enc_ctx, o: &LeafElement, t: &Tcs) 
 pub fn encode_into_leaf_element_zeroed(ctx: *mut ak_enc_ctx, o: &LeafElement, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_LeafElement {
             _reserved: ::core::ptr::null(),
         };
@@ -3641,7 +3676,7 @@ unsafe extern "C" fn loop_leaf_response_items_zeroed(
 pub fn encode_into_leaf_response(ctx: *mut ak_enc_ctx, o: &LeafResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_LeafResponse {
             loop_items: Some(loop_leaf_response_items),
         };
@@ -3654,7 +3689,7 @@ pub fn encode_into_leaf_response(ctx: *mut ak_enc_ctx, o: &LeafResponse, t: &Tcs
 pub fn encode_into_leaf_response_zeroed(ctx: *mut ak_enc_ctx, o: &LeafResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_LeafResponse {
             loop_items: Some(loop_leaf_response_items_zeroed),
         };
@@ -3735,7 +3770,7 @@ unsafe extern "C" fn loop_surrogate_texts(
 pub fn encode_into_surrogate(ctx: *mut ak_enc_ctx, o: &Surrogate, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_Surrogate {
             loop_attrs: Some(loop_surrogate_attrs),
             loop_texts: Some(loop_surrogate_texts),
@@ -3749,7 +3784,7 @@ pub fn encode_into_surrogate(ctx: *mut ak_enc_ctx, o: &Surrogate, t: &Tcs) -> Re
 pub fn encode_into_surrogate_zeroed(ctx: *mut ak_enc_ctx, o: &Surrogate, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_Surrogate {
             loop_attrs: Some(loop_surrogate_attrs),
             loop_texts: Some(loop_surrogate_texts),
@@ -3763,7 +3798,7 @@ pub fn encode_into_surrogate_zeroed(ctx: *mut ak_enc_ctx, o: &Surrogate, t: &Tcs
 pub fn encode_into_surrogate_inner(ctx: *mut ak_enc_ctx, o: &SurrogateInner, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_SurrogateInner {
             _reserved: ::core::ptr::null(),
         };
@@ -3776,7 +3811,7 @@ pub fn encode_into_surrogate_inner(ctx: *mut ak_enc_ctx, o: &SurrogateInner, t: 
 pub fn encode_into_surrogate_inner_zeroed(ctx: *mut ak_enc_ctx, o: &SurrogateInner, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_SurrogateInner {
             _reserved: ::core::ptr::null(),
         };
@@ -3789,7 +3824,7 @@ pub fn encode_into_surrogate_inner_zeroed(ctx: *mut ak_enc_ctx, o: &SurrogateInn
 pub fn encode_into_wire_zoo(ctx: *mut ak_enc_ctx, o: &WireZoo, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_WireZoo {
             _reserved: ::core::ptr::null(),
         };
@@ -3802,7 +3837,7 @@ pub fn encode_into_wire_zoo(ctx: *mut ak_enc_ctx, o: &WireZoo, t: &Tcs) -> Resul
 pub fn encode_into_wire_zoo_zeroed(ctx: *mut ak_enc_ctx, o: &WireZoo, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        ak_enc_reset(ctx);
+        host_reset(); ak_enc_reset(ctx);
         let vt = ak_evt_WireZoo {
             _reserved: ::core::ptr::null(),
         };
@@ -3815,7 +3850,7 @@ pub fn encode_into_wire_zoo_zeroed(ctx: *mut ak_enc_ctx, o: &WireZoo, t: &Tcs) -
 pub unsafe fn encoded<'a>(ctx: *mut ak_enc_ctx) -> &'a [u8] {
     let mut p: *const u8 = ::core::ptr::null();
     let mut n: usize = 0;
-    ak_enc_take(ctx, &mut p, &mut n);
+    host_call(); ak_enc_take(ctx, &mut p, &mut n);
     ::core::slice::from_raw_parts(p, n)
 }
 
@@ -4316,7 +4351,7 @@ pub fn parse_drain_with_timestamp(
                 if n == 0 { break; }
                 replay_timestamp(ctx, obj, &scratch[..(n as usize) / 8], toks);
             }
-            if rc == AK_OK { ak_dec_err(ctx) } else { rc }
+            if rc == AK_OK { host_call(); ak_dec_err(ctx) } else { rc }
         }
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
@@ -4352,7 +4387,7 @@ pub fn parse_walk_with_timestamp(
                 // 8-aligned by construction: the core's buffer is a `Vec<u64>`.
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_timestamp(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -4385,7 +4420,7 @@ pub fn parse_walk_opaque_with_timestamp(
             } else {
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_timestamp_opaque(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -4518,7 +4553,7 @@ pub fn parse_drain_with_duration(
                 if n == 0 { break; }
                 replay_duration(ctx, obj, &scratch[..(n as usize) / 8], toks);
             }
-            if rc == AK_OK { ak_dec_err(ctx) } else { rc }
+            if rc == AK_OK { host_call(); ak_dec_err(ctx) } else { rc }
         }
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
@@ -4554,7 +4589,7 @@ pub fn parse_walk_with_duration(
                 // 8-aligned by construction: the core's buffer is a `Vec<u64>`.
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_duration(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -4587,7 +4622,7 @@ pub fn parse_walk_opaque_with_duration(
             } else {
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_duration_opaque(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -4737,7 +4772,7 @@ pub fn parse_drain_with_result_raw(
                 if n == 0 { break; }
                 replay_result_raw(ctx, obj, &scratch[..(n as usize) / 8], toks);
             }
-            if rc == AK_OK { ak_dec_err(ctx) } else { rc }
+            if rc == AK_OK { host_call(); ak_dec_err(ctx) } else { rc }
         }
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
@@ -4773,7 +4808,7 @@ pub fn parse_walk_with_result_raw(
                 // 8-aligned by construction: the core's buffer is a `Vec<u64>`.
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_result_raw(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -4806,7 +4841,7 @@ pub fn parse_walk_opaque_with_result_raw(
             } else {
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_result_raw_opaque(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -4979,7 +5014,7 @@ pub fn parse_drain_with_task_options(
                 if n == 0 { break; }
                 replay_task_options(ctx, obj, &scratch[..(n as usize) / 8], toks);
             }
-            if rc == AK_OK { ak_dec_err(ctx) } else { rc }
+            if rc == AK_OK { host_call(); ak_dec_err(ctx) } else { rc }
         }
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
@@ -5015,7 +5050,7 @@ pub fn parse_walk_with_task_options(
                 // 8-aligned by construction: the core's buffer is a `Vec<u64>`.
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_task_options(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -5048,7 +5083,7 @@ pub fn parse_walk_opaque_with_task_options(
             } else {
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_task_options_opaque(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -5181,7 +5216,7 @@ pub fn parse_drain_with_task_output(
                 if n == 0 { break; }
                 replay_task_output(ctx, obj, &scratch[..(n as usize) / 8], toks);
             }
-            if rc == AK_OK { ak_dec_err(ctx) } else { rc }
+            if rc == AK_OK { host_call(); ak_dec_err(ctx) } else { rc }
         }
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
@@ -5217,7 +5252,7 @@ pub fn parse_walk_with_task_output(
                 // 8-aligned by construction: the core's buffer is a `Vec<u64>`.
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_task_output(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -5250,7 +5285,7 @@ pub fn parse_walk_opaque_with_task_output(
             } else {
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_task_output_opaque(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -5590,7 +5625,7 @@ pub fn parse_drain_with_task_detailed(
                 if n == 0 { break; }
                 replay_task_detailed(ctx, obj, &scratch[..(n as usize) / 8], toks);
             }
-            if rc == AK_OK { ak_dec_err(ctx) } else { rc }
+            if rc == AK_OK { host_call(); ak_dec_err(ctx) } else { rc }
         }
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
@@ -5626,7 +5661,7 @@ pub fn parse_walk_with_task_detailed(
                 // 8-aligned by construction: the core's buffer is a `Vec<u64>`.
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_task_detailed(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -5659,7 +5694,7 @@ pub fn parse_walk_opaque_with_task_detailed(
             } else {
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_task_detailed_opaque(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -5836,7 +5871,7 @@ pub fn parse_drain_with_task_summary(
                 if n == 0 { break; }
                 replay_task_summary(ctx, obj, &scratch[..(n as usize) / 8], toks);
             }
-            if rc == AK_OK { ak_dec_err(ctx) } else { rc }
+            if rc == AK_OK { host_call(); ak_dec_err(ctx) } else { rc }
         }
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
@@ -5872,7 +5907,7 @@ pub fn parse_walk_with_task_summary(
                 // 8-aligned by construction: the core's buffer is a `Vec<u64>`.
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_task_summary(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -5905,7 +5940,7 @@ pub fn parse_walk_opaque_with_task_summary(
             } else {
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_task_summary_opaque(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -6048,7 +6083,7 @@ pub fn parse_drain_with_probe(
                 if n == 0 { break; }
                 replay_probe(ctx, obj, &scratch[..(n as usize) / 8], toks);
             }
-            if rc == AK_OK { ak_dec_err(ctx) } else { rc }
+            if rc == AK_OK { host_call(); ak_dec_err(ctx) } else { rc }
         }
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
@@ -6084,7 +6119,7 @@ pub fn parse_walk_with_probe(
                 // 8-aligned by construction: the core's buffer is a `Vec<u64>`.
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_probe(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -6117,7 +6152,7 @@ pub fn parse_walk_opaque_with_probe(
             } else {
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_probe_opaque(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -6248,7 +6283,7 @@ pub fn parse_drain_with_empty(
                 if n == 0 { break; }
                 replay_empty(ctx, obj, &scratch[..(n as usize) / 8], toks);
             }
-            if rc == AK_OK { ak_dec_err(ctx) } else { rc }
+            if rc == AK_OK { host_call(); ak_dec_err(ctx) } else { rc }
         }
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
@@ -6284,7 +6319,7 @@ pub fn parse_walk_with_empty(
                 // 8-aligned by construction: the core's buffer is a `Vec<u64>`.
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_empty(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -6317,7 +6352,7 @@ pub fn parse_walk_opaque_with_empty(
             } else {
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_empty_opaque(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -6451,7 +6486,7 @@ pub fn parse_drain_with_upload_result_data(
                 if n == 0 { break; }
                 replay_upload_result_data(ctx, obj, &scratch[..(n as usize) / 8], toks);
             }
-            if rc == AK_OK { ak_dec_err(ctx) } else { rc }
+            if rc == AK_OK { host_call(); ak_dec_err(ctx) } else { rc }
         }
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
@@ -6487,7 +6522,7 @@ pub fn parse_walk_with_upload_result_data(
                 // 8-aligned by construction: the core's buffer is a `Vec<u64>`.
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_upload_result_data(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -6520,7 +6555,7 @@ pub fn parse_walk_opaque_with_upload_result_data(
             } else {
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_upload_result_data_opaque(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -6777,7 +6812,7 @@ pub fn parse_drain_with_metrics_batch(
                 if n == 0 { break; }
                 replay_metrics_batch(ctx, obj, &scratch[..(n as usize) / 8], toks);
             }
-            if rc == AK_OK { ak_dec_err(ctx) } else { rc }
+            if rc == AK_OK { host_call(); ak_dec_err(ctx) } else { rc }
         }
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
@@ -6813,7 +6848,7 @@ pub fn parse_walk_with_metrics_batch(
                 // 8-aligned by construction: the core's buffer is a `Vec<u64>`.
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_metrics_batch(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -6846,7 +6881,7 @@ pub fn parse_walk_opaque_with_metrics_batch(
             } else {
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_metrics_batch_opaque(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -6979,7 +7014,7 @@ pub fn parse_drain_with_pair(
                 if n == 0 { break; }
                 replay_pair(ctx, obj, &scratch[..(n as usize) / 8], toks);
             }
-            if rc == AK_OK { ak_dec_err(ctx) } else { rc }
+            if rc == AK_OK { host_call(); ak_dec_err(ctx) } else { rc }
         }
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
@@ -7015,7 +7050,7 @@ pub fn parse_walk_with_pair(
                 // 8-aligned by construction: the core's buffer is a `Vec<u64>`.
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_pair(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -7048,7 +7083,7 @@ pub fn parse_walk_opaque_with_pair(
             } else {
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_pair_opaque(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -7206,7 +7241,7 @@ pub fn parse_drain_with_list_results_response(
                 if n == 0 { break; }
                 replay_list_results_response(ctx, obj, &scratch[..(n as usize) / 8], toks);
             }
-            if rc == AK_OK { ak_dec_err(ctx) } else { rc }
+            if rc == AK_OK { host_call(); ak_dec_err(ctx) } else { rc }
         }
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
@@ -7242,7 +7277,7 @@ pub fn parse_walk_with_list_results_response(
                 // 8-aligned by construction: the core's buffer is a `Vec<u64>`.
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_list_results_response(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -7275,7 +7310,7 @@ pub fn parse_walk_opaque_with_list_results_response(
             } else {
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_list_results_response_opaque(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -7567,7 +7602,7 @@ pub fn parse_drain_with_list_tasks_detailed_response(
                 if n == 0 { break; }
                 replay_list_tasks_detailed_response(ctx, obj, &scratch[..(n as usize) / 8], toks);
             }
-            if rc == AK_OK { ak_dec_err(ctx) } else { rc }
+            if rc == AK_OK { host_call(); ak_dec_err(ctx) } else { rc }
         }
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
@@ -7603,7 +7638,7 @@ pub fn parse_walk_with_list_tasks_detailed_response(
                 // 8-aligned by construction: the core's buffer is a `Vec<u64>`.
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_list_tasks_detailed_response(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -7636,7 +7671,7 @@ pub fn parse_walk_opaque_with_list_tasks_detailed_response(
             } else {
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_list_tasks_detailed_response_opaque(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -7826,7 +7861,7 @@ pub fn parse_drain_with_list_task_summary_response(
                 if n == 0 { break; }
                 replay_list_task_summary_response(ctx, obj, &scratch[..(n as usize) / 8], toks);
             }
-            if rc == AK_OK { ak_dec_err(ctx) } else { rc }
+            if rc == AK_OK { host_call(); ak_dec_err(ctx) } else { rc }
         }
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
@@ -7862,7 +7897,7 @@ pub fn parse_walk_with_list_task_summary_response(
                 // 8-aligned by construction: the core's buffer is a `Vec<u64>`.
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_list_task_summary_response(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -7895,7 +7930,7 @@ pub fn parse_walk_opaque_with_list_task_summary_response(
             } else {
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_list_task_summary_response_opaque(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -8051,7 +8086,7 @@ pub fn parse_drain_with_list_probe_response(
                 if n == 0 { break; }
                 replay_list_probe_response(ctx, obj, &scratch[..(n as usize) / 8], toks);
             }
-            if rc == AK_OK { ak_dec_err(ctx) } else { rc }
+            if rc == AK_OK { host_call(); ak_dec_err(ctx) } else { rc }
         }
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
@@ -8087,7 +8122,7 @@ pub fn parse_walk_with_list_probe_response(
                 // 8-aligned by construction: the core's buffer is a `Vec<u64>`.
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_list_probe_response(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -8120,7 +8155,7 @@ pub fn parse_walk_opaque_with_list_probe_response(
             } else {
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_list_probe_response_opaque(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -8406,7 +8441,7 @@ pub fn parse_drain_with_list_metrics_response(
                 if n == 0 { break; }
                 replay_list_metrics_response(ctx, obj, &scratch[..(n as usize) / 8], toks);
             }
-            if rc == AK_OK { ak_dec_err(ctx) } else { rc }
+            if rc == AK_OK { host_call(); ak_dec_err(ctx) } else { rc }
         }
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
@@ -8442,7 +8477,7 @@ pub fn parse_walk_with_list_metrics_response(
                 // 8-aligned by construction: the core's buffer is a `Vec<u64>`.
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_list_metrics_response(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -8475,7 +8510,7 @@ pub fn parse_walk_opaque_with_list_metrics_response(
             } else {
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_list_metrics_response_opaque(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -8611,7 +8646,7 @@ pub fn parse_drain_with_upload_result_data_message(
                 if n == 0 { break; }
                 replay_upload_result_data_message(ctx, obj, &scratch[..(n as usize) / 8], toks);
             }
-            if rc == AK_OK { ak_dec_err(ctx) } else { rc }
+            if rc == AK_OK { host_call(); ak_dec_err(ctx) } else { rc }
         }
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
@@ -8647,7 +8682,7 @@ pub fn parse_walk_with_upload_result_data_message(
                 // 8-aligned by construction: the core's buffer is a `Vec<u64>`.
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_upload_result_data_message(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -8680,7 +8715,7 @@ pub fn parse_walk_opaque_with_upload_result_data_message(
             } else {
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_upload_result_data_message_opaque(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -8861,7 +8896,7 @@ pub fn parse_drain_with_dual_response(
                 if n == 0 { break; }
                 replay_dual_response(ctx, obj, &scratch[..(n as usize) / 8], toks);
             }
-            if rc == AK_OK { ak_dec_err(ctx) } else { rc }
+            if rc == AK_OK { host_call(); ak_dec_err(ctx) } else { rc }
         }
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
@@ -8897,7 +8932,7 @@ pub fn parse_walk_with_dual_response(
                 // 8-aligned by construction: the core's buffer is a `Vec<u64>`.
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_dual_response(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -8930,7 +8965,7 @@ pub fn parse_walk_opaque_with_dual_response(
             } else {
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_dual_response_opaque(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -9063,7 +9098,7 @@ pub fn parse_drain_with_chunk_leaf(
                 if n == 0 { break; }
                 replay_chunk_leaf(ctx, obj, &scratch[..(n as usize) / 8], toks);
             }
-            if rc == AK_OK { ak_dec_err(ctx) } else { rc }
+            if rc == AK_OK { host_call(); ak_dec_err(ctx) } else { rc }
         }
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
@@ -9099,7 +9134,7 @@ pub fn parse_walk_with_chunk_leaf(
                 // 8-aligned by construction: the core's buffer is a `Vec<u64>`.
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_chunk_leaf(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -9132,7 +9167,7 @@ pub fn parse_walk_opaque_with_chunk_leaf(
             } else {
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_chunk_leaf_opaque(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -9313,7 +9348,7 @@ pub fn parse_drain_with_chunk_inner(
                 if n == 0 { break; }
                 replay_chunk_inner(ctx, obj, &scratch[..(n as usize) / 8], toks);
             }
-            if rc == AK_OK { ak_dec_err(ctx) } else { rc }
+            if rc == AK_OK { host_call(); ak_dec_err(ctx) } else { rc }
         }
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
@@ -9349,7 +9384,7 @@ pub fn parse_walk_with_chunk_inner(
                 // 8-aligned by construction: the core's buffer is a `Vec<u64>`.
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_chunk_inner(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -9382,7 +9417,7 @@ pub fn parse_walk_opaque_with_chunk_inner(
             } else {
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_chunk_inner_opaque(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -9624,7 +9659,7 @@ pub fn parse_drain_with_chunk_element(
                 if n == 0 { break; }
                 replay_chunk_element(ctx, obj, &scratch[..(n as usize) / 8], toks);
             }
-            if rc == AK_OK { ak_dec_err(ctx) } else { rc }
+            if rc == AK_OK { host_call(); ak_dec_err(ctx) } else { rc }
         }
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
@@ -9660,7 +9695,7 @@ pub fn parse_walk_with_chunk_element(
                 // 8-aligned by construction: the core's buffer is a `Vec<u64>`.
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_chunk_element(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -9693,7 +9728,7 @@ pub fn parse_walk_opaque_with_chunk_element(
             } else {
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_chunk_element_opaque(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -9959,7 +9994,7 @@ pub fn parse_drain_with_chunked_response(
                 if n == 0 { break; }
                 replay_chunked_response(ctx, obj, &scratch[..(n as usize) / 8], toks);
             }
-            if rc == AK_OK { ak_dec_err(ctx) } else { rc }
+            if rc == AK_OK { host_call(); ak_dec_err(ctx) } else { rc }
         }
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
@@ -9995,7 +10030,7 @@ pub fn parse_walk_with_chunked_response(
                 // 8-aligned by construction: the core's buffer is a `Vec<u64>`.
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_chunked_response(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -10028,7 +10063,7 @@ pub fn parse_walk_opaque_with_chunked_response(
             } else {
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_chunked_response_opaque(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -10293,7 +10328,7 @@ pub fn parse_drain_with_chunked_response_wide(
                 if n == 0 { break; }
                 replay_chunked_response_wide(ctx, obj, &scratch[..(n as usize) / 8], toks);
             }
-            if rc == AK_OK { ak_dec_err(ctx) } else { rc }
+            if rc == AK_OK { host_call(); ak_dec_err(ctx) } else { rc }
         }
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
@@ -10329,7 +10364,7 @@ pub fn parse_walk_with_chunked_response_wide(
                 // 8-aligned by construction: the core's buffer is a `Vec<u64>`.
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_chunked_response_wide(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -10362,7 +10397,7 @@ pub fn parse_walk_opaque_with_chunked_response_wide(
             } else {
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_chunked_response_wide_opaque(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -10500,7 +10535,7 @@ pub fn parse_drain_with_leaf_element(
                 if n == 0 { break; }
                 replay_leaf_element(ctx, obj, &scratch[..(n as usize) / 8], toks);
             }
-            if rc == AK_OK { ak_dec_err(ctx) } else { rc }
+            if rc == AK_OK { host_call(); ak_dec_err(ctx) } else { rc }
         }
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
@@ -10536,7 +10571,7 @@ pub fn parse_walk_with_leaf_element(
                 // 8-aligned by construction: the core's buffer is a `Vec<u64>`.
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_leaf_element(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -10569,7 +10604,7 @@ pub fn parse_walk_opaque_with_leaf_element(
             } else {
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_leaf_element_opaque(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -10725,7 +10760,7 @@ pub fn parse_drain_with_leaf_response(
                 if n == 0 { break; }
                 replay_leaf_response(ctx, obj, &scratch[..(n as usize) / 8], toks);
             }
-            if rc == AK_OK { ak_dec_err(ctx) } else { rc }
+            if rc == AK_OK { host_call(); ak_dec_err(ctx) } else { rc }
         }
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
@@ -10761,7 +10796,7 @@ pub fn parse_walk_with_leaf_response(
                 // 8-aligned by construction: the core's buffer is a `Vec<u64>`.
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_leaf_response(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -10794,7 +10829,7 @@ pub fn parse_walk_opaque_with_leaf_response(
             } else {
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_leaf_response_opaque(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -10986,7 +11021,7 @@ pub fn parse_drain_with_surrogate(
                 if n == 0 { break; }
                 replay_surrogate(ctx, obj, &scratch[..(n as usize) / 8], toks);
             }
-            if rc == AK_OK { ak_dec_err(ctx) } else { rc }
+            if rc == AK_OK { host_call(); ak_dec_err(ctx) } else { rc }
         }
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
@@ -11022,7 +11057,7 @@ pub fn parse_walk_with_surrogate(
                 // 8-aligned by construction: the core's buffer is a `Vec<u64>`.
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_surrogate(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -11055,7 +11090,7 @@ pub fn parse_walk_opaque_with_surrogate(
             } else {
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_surrogate_opaque(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -11187,7 +11222,7 @@ pub fn parse_drain_with_surrogate_inner(
                 if n == 0 { break; }
                 replay_surrogate_inner(ctx, obj, &scratch[..(n as usize) / 8], toks);
             }
-            if rc == AK_OK { ak_dec_err(ctx) } else { rc }
+            if rc == AK_OK { host_call(); ak_dec_err(ctx) } else { rc }
         }
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
@@ -11223,7 +11258,7 @@ pub fn parse_walk_with_surrogate_inner(
                 // 8-aligned by construction: the core's buffer is a `Vec<u64>`.
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_surrogate_inner(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -11256,7 +11291,7 @@ pub fn parse_walk_opaque_with_surrogate_inner(
             } else {
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_surrogate_inner_opaque(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -11401,7 +11436,7 @@ pub fn parse_drain_with_wire_zoo(
                 if n == 0 { break; }
                 replay_wire_zoo(ctx, obj, &scratch[..(n as usize) / 8], toks);
             }
-            if rc == AK_OK { ak_dec_err(ctx) } else { rc }
+            if rc == AK_OK { host_call(); ak_dec_err(ctx) } else { rc }
         }
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
@@ -11437,7 +11472,7 @@ pub fn parse_walk_with_wire_zoo(
                 // 8-aligned by construction: the core's buffer is a `Vec<u64>`.
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_wire_zoo(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
@@ -11470,7 +11505,7 @@ pub fn parse_walk_opaque_with_wire_zoo(
             } else {
                 let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
                 replay_wire_zoo_opaque(ctx, obj, recs, toks);
-                ak_dec_err(ctx)
+                { host_call(); ak_dec_err(ctx) }
             }
         }
     };
