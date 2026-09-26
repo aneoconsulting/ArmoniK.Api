@@ -28,7 +28,7 @@ Every finding listed in section 8 is unconfirmed until the slice answers it.
   interpreter, which is what README 9.1 avoids. PyO3 was also built as an arm.
   ctypes and cffi remain untested candidates for the RPC layer, where there are
   two crossings per call rather than one per field.
-- **The RPC arm, as a three-cell grid** (`logs/python/80-rpc-grid.log`) against one
+- **The RPC arm, as a three-cell grid** (the former `logs/python/80-rpc-grid.log`, withdrawn in fd5da9475 under R-C9: it ran on uncommitted code; the current grid is the campaign harness, `logs/python/campaign/`, instrumentation) against one
   grpcio server that returns pre-serialised bytes: A upb + grpcio, B upb + the
   core's transport, C the core's codec + the core's transport. Both arms decode at
   the client. Three builds of the core exist in the slice (plain, counting, and
