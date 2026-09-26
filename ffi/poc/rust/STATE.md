@@ -15,6 +15,23 @@ here. This file states what exists and what was checked; the choice is the owner
 | **Incumbent** | prost 0.14.4, tonic 0.14.6, tonic-prost 0.14.6 (from Cargo.lock, printed in every campaign header). R14: tonic-prost's codec calls `Message::encode`/`decode`, so the production path and the library entry point are the same call |
 | **Questions this slice has open for the aggregating session** | (1) the proposed corpus rows of `gen/probe_corpus.py` (field numbers above 2^29-1, the 10th varint byte, two map-order rows) are not in `corpus/`; (2) no corpus row or payload has a repeated singular message with differing content, so merge-on-repeat (R-E4) is rendered and never observed; (3) a map entry has no unknown-field bag in the Rust facade (D42) |
 
+## Optimisation experiment (in progress; every figure is container instrumentation)
+
+The owner approved a list of optimisation candidates, core and shared generator included
+(the other slices' timings will be redone). One commit per step; each step measured with
+`gen/opt_step.sh NAME PREV` (= `gen/opt_bench.sh` into `logs/rust/opt/NAME`, then
+`gen/opt_compare.py` against the previous kept step and against `baseline2`, calibrated by
+the A/A pair `baseline2` / `baseline2-aa`). The codec pre-check (0 failures) and both
+crossing-count files hold on every step; the full gate runs once at the end. Harness v3:
+the interleaved sampler (AK_ORDER=interleave), not criterion (JOURNAL, step 0).
+Hazard: a step that relinks the binary moves code layout, and the incumbent's encode has
+moved by up to 9% with no change to its code (step 1); core-ffi/core-native is the check.
+
+| Step | Commit | What | Kept | Main change (in-process ratios, group geometric means) | Log |
+|---|---|---|---|---|---|
+| 0 | f08a3d9 | harness v3, A/A pair | yes | A/A ratio rows: median 1.2-4%, p90 4-13% | `opt/baseline2`, `opt/baseline2-aa` |
+| 1 | e25da96 | D1: binding s_of follows the plan's utf8 (no host re-validation) | yes | core-ffi/inc decode 0.74-0.78 x (P), 0.70-0.77 x (U); core-native/inc decode noise | `opt/s1-d1` |
+
 ## What exists
 
 ### The shared generator (`poc/codec/gen/`)
