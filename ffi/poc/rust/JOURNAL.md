@@ -2355,3 +2355,43 @@ corpus's own merge (`spec.load()`), so `fixed32` and the corpus-only messages ex
   is not rotated; drift inside the process lands on the ratios uncancelled. (4) Per-case
   spread (max-min)/median: median 0.06-0.08, p90 0.15-0.27, a few outliers above 1
   (e.g. nounk P2.2/latin1 armonik decode-read max 3x its median).
+
+## 2026-09-26 -- optimisation experiment, step 0: harness fixes, baseline2 (instrumentation)
+
+The owner approved the optimisation candidates (core and shared generator included); this
+unit implements them one per step, each measured with gen/opt_bench.sh against the previous
+kept step. Step 0 fixes the harness first.
+
+- H2, first attempt (harness v2, 51662ef): criterion kept, the cases in one seeded shuffle
+  (AK_ORDER=shuffle; criterion cannot interleave samples of different benchmarks, only
+  their order), criterion resamples 1000 (analysis only; it was ~40 ms of every case).
+  Run twice on one tree (logs/rust/opt/baseline2-v2, baseline2-v2-aa): single cases moved
+  up to +-25% between the two processes, ratio rows by a median 6-12% and a p90 of 25-28%.
+  The per-case drift is autocorrelated along the run order (lag 1: 0.53-0.77, lag 5:
+  0.2-0.4, lag 20: ~0), so the container's speed drifts over seconds, and a ratio whose two
+  arms criterion times seconds apart carries that drift. REFUTED as sufficient.
+- H2, harness v3 (f08a3d9): AK_ORDER=interleave, the codec suite's own interleaved sampler
+  (not criterion): clusters (input, direction) in a seeded order, each case warmed (fixed
+  iterations, then a timed warm-up that sets iterations per sample), then round r times one
+  sample of every case in the cluster, rotated by r. A/A pair (baseline2, baseline2-aa):
+  ratio rows move by a median 1.2-4% and a p90 4-13% (5x tighter); per-case absolutes still
+  drift (sd 0.10-0.14 of log), which the ratios no longer carry. Criterion stays the
+  campaign's engine (AK_ORDER=blocks is still the default; run_campaign.sh unchanged).
+- H3: rpc_client --order interleave: per (dir, in-flight) every cell built and warmed, then
+  12 rounds, cell order rotated per round (6 and 4 cells both divide 12); 24 calls/round.
+  A/A: 96 of 96 cell/A ratio rows inside the rounds' min/max bands. The first baseline's
+  C-drop vs C-retain +30% (direction a) is gone (1.075 vs 1.047 of cell A): it was order.
+- H4: U-* rows 20 samples, 45 ms measured (was 10 x 20 ms under criterion).
+- H5: decode-nodrop rows on P1.2, P2.2, P4.1, P6.1 (incumbent, armonik, core-native,
+  core-ffi). First form (outputs kept alive, dropped at the end = criterion's
+  iter_with_large_drop) measured decode SLOWER than with the drop inside (P1.2 incumbent
+  484 vs 402 us): cold allocation instead of reuse. REFUTED; the rows now time each
+  operation alone and drop after its clock stops. The headline decode rows are unchanged.
+- gen/opt_compare.py BEFORE AFTER [--aa A1 A2]: per ratio row before/after/change, flagged
+  noise when the quartile bands overlap or (with --aa) when |change| is inside the A/A
+  pair's p90 for its group; per group a geometric mean with an A/A 2-sigma band; control
+  drift; the drift autocorrelation; RPC cell/A ratios.
+- Wall: 560-575 s per opt_bench run (codec 435 s, rpc 125 s). Pre-check 0 failures and
+  crossings identical (671 / 336 rows) in all four runs.
+- The original baseline (harness v1: criterion, blocks by arm) compared with baseline2 is in
+  baseline2/compare-vs-baseline-DIFFERENT-HARNESS.txt: a different harness, not a change.
