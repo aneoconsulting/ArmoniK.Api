@@ -44,6 +44,8 @@ src/generated/                 facade types, binding(_nounk), borrowed-facade bi
                                projection, touch (read-every-field traversal)
 corpus/src/generated/          the corpus reader schema's facade, native codecs, binding(_nounk),
                                projection, dispatch(_nounk)
+build-upbclang/, build-upbft/     TRACKED build configurations of the upb FASTTABLE experiment
+                               (upb-fasttable.log); not used by any gate
 include/ak/rt.h, vocab.h, values.h, projjson.h    hand-written runtime for the native codec
                                and the facade vocabulary (decode-rule constants come from
                                include/generated/ak_rules.h, rendered from the plan)
