@@ -168,7 +168,7 @@ h = {
  "repeats": {"launches": $LAUNCHES, "rounds": $ROUNDS},
  "warmup": {"codec_bytes_per_arm": $WARM, "rpc_calls_per_cell": $RPCWARM, "rpc_server_calls_per_direction_per_client_transport_per_socket": $SRVWARM, "allocator": "every arm runs its warm-up before round 1"},
  "sample": {"codec_bytes": $BYTES, "codec_pool_bytes": $POOL, "llc_bytes": $LLC, "rpc_calls": $CALLS, "calib_iters": $CITERS,
-            "codec_clock": "Google Benchmark " + "v1.8.3 (344117638c8f, Release, built by the runner)" + ": cpu_time = process CPU per repetition (MeasureProcessCPUTime) and real_time, repetitions randomly interleaved", "rpc_clock": "getrusage(RUSAGE_SELF) of the client process + CLOCK_MONOTONIC"},
+            "codec_clock": "Google Benchmark " + "v1.8.3 (344117638c8f, Release, built by the runner)" + ": cpu_time = process CPU per repetition (MeasureProcessCPUTime) and real_time, repetitions randomly interleaved", "rpc_clock": "getrusage(RUSAGE_SELF) of the client process + CLOCK_MONOTONIC", "calib_clock": "CLOCK_PROCESS_CPUTIME_ID of campaign_calib per round"},
 }
 print("# " + json.dumps(h, sort_keys=True))
 EOF
