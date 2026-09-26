@@ -31,6 +31,7 @@ moved by up to 9% with no change to its code (step 1); core-ffi/core-native is t
 |---|---|---|---|---|---|
 | 0 | f08a3d9 | harness v3, A/A pair | yes | A/A ratio rows: median 1.2-4%, p90 4-13% | `opt/baseline2`, `opt/baseline2-aa` |
 | 1 | e25da96 | D1: binding s_of follows the plan's utf8 (no host re-validation) | yes | core-ffi/inc decode 0.74-0.78 x (P), 0.70-0.77 x (U); core-native/inc decode noise | `opt/s1-d1` |
+| 2 | 59b16ec | E1: one-pass write of a passthrough blob (ak-core enc_blob) | yes | core-ffi/inc encode 0.84-0.87 x (P, U, all modes); core-ffi/core-native encode 0.83-0.86 x; core-native/inc noise | `opt/s2-e1` |
 
 ## What exists
 

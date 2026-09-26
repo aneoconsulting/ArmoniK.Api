@@ -2422,3 +2422,18 @@ kept step. Step 0 fixes the harness first.
   encode is noise (1.00). The incumbent's encode median moved (drift 0.96 P, 0.91 U): a
   relinked binary moves code layout. Hazard recorded in STATE; core-ffi/core-native is the
   check for a change that touches core-ffi only.
+
+## 2026-09-26 -- optimisation step 2 (E1): one-pass passthrough blob write (59b16ec, kept)
+
+- ak-core enc_blob: when the ak_str's transcoder IS tc_utf8_trusted (what
+  ak_tc_utf8_trusted and ak_tc_bytes both return), write key, exact varint(len), bytes;
+  no placeholder, no indirect call, no prefix resolution. Same bytes as the general path
+  (its `end` always rewrites the prefix to the minimal width); ak_blob_run calls enc_blob
+  and gets it too; lengths above INT32_MAX keep the general path (fail as before); the
+  transcode counter is still bumped. Not covered: prefix_moves / grows counters of the
+  stage harnesses no longer count these fields (not in the crossing counts).
+- Measured (s2-e1 vs s1-d1): core-ffi/inc encode 0.859 (P drop), 0.865 (P retain), 0.863
+  (P no-unknown), 0.83-0.84 (U); core-ffi/core-native encode the same (0.83-0.86), so it is
+  core-ffi's own change; core-native/inc noise; decode noise. Per payload (drop): P1.2 0.36
+  -> 0.29, P2.2 0.44 -> 0.37, P2.4 0.59 -> 0.47, P4.1 0.45 -> 0.35, P5.1 0.57 -> 0.47, P1.3
+  and P5.3-P5.4 unchanged. Crossings identical, pre-check 0 failures.
