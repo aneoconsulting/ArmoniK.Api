@@ -7,15 +7,15 @@ here. This file states what exists and what was checked; the choice is the owner
 
 | | |
 |---|---|
-| **Status** | Built and gated: four codec arms plus the pull family over the 16 payloads, the RPC arm, the full conformance corpus through the C ABI and core-native, decision 11's unknown-field mechanism (ABI-v1 rules 1 to 7, rule 4 as amended 2026-09-26), the no-unknown build (unknown-field support compiled out), and the campaign harness of `design/CAMPAIGN.md` (criterion codec suite, separate-process RPC grid, calib, runner). The gate passes from a clean worktree at d2cd0b02f on stable 1.94.1 and on the MSRV floor 1.88.0, both builds (`logs/rust/wp6-clean-gate/`) |
-| **Next step** | optimisation experiment (owner's request): baseline taken, `logs/rust/opt/baseline/` on de8b286 by `gen/opt_bench.sh` (container instrumentation, not gated; the gate runs at the end of the experiment). Each optimisation is re-measured with the same script into `logs/rust/opt/<name>/` |
+| **Status** | Built and gated: four codec arms plus the pull family over the 16 payloads, the RPC arm, the full conformance corpus through the C ABI and core-native, decision 11's unknown-field mechanism (ABI-v1 rules 1 to 7, rule 4 as amended 2026-09-26), the no-unknown build (unknown-field support compiled out), and the campaign harness of `design/CAMPAIGN.md` (criterion codec suite, separate-process RPC grid, calib, runner). The optimisation experiment (owner-approved, core and shared generator included) is done: steps 0-12, 11 kept, 1 reverted (table below). The gate passes on its final code (3c737d1, clean tree) on stable 1.94.1 and on the MSRV floor 1.88.0, both builds (`logs/rust/opt/final-gate/`) |
+| **Next step** | none assigned. Held for the aggregating session: U2's geometric growth (changes 36 committed crossing counts), C1 (reverted, no resolved gain), design-doc wording (JOURNAL, final entry) |
 | **Blocked on** | nothing |
-| **Floor** (must build and pass correctness) | MSRV 1.88.0: verified: the full gate, both builds, passes on rustc 1.88.0 from the clean worktree (`logs/rust/wp6-clean-gate/gate-floor-1.88.log`) |
+| **Floor** (must build and pass correctness) | MSRV 1.88.0: verified: the full gate, both builds, passes on rustc 1.88.0 on the final code (`logs/rust/opt/final-gate/gate-floor-1.88.log`) |
 | **Target** | stable 1.94.1 in this container; README section 5: for Rust the floor is the target language level, one configuration |
 | **Incumbent** | prost 0.14.4, tonic 0.14.6, tonic-prost 0.14.6 (from Cargo.lock, printed in every campaign header). R14: tonic-prost's codec calls `Message::encode`/`decode`, so the production path and the library entry point are the same call |
 | **Questions this slice has open for the aggregating session** | (1) the proposed corpus rows of `gen/probe_corpus.py` (field numbers above 2^29-1, the 10th varint byte, two map-order rows) are not in `corpus/`; (2) no corpus row or payload has a repeated singular message with differing content, so merge-on-repeat (R-E4) is rendered and never observed; (3) a map entry has no unknown-field bag in the Rust facade (D42) |
 
-## Optimisation experiment (in progress; every figure is container instrumentation)
+## Optimisation experiment (done; every figure is container instrumentation)
 
 The owner approved a list of optimisation candidates, core and shared generator included
 (the other slices' timings will be redone). One commit per step; each step measured with
@@ -44,6 +44,14 @@ A deliberate 32-byte layout shift (`opt/layout-exp`, A/B/A/B) moved group means 
 | 10 | ef65732 | Z1: zero-copy bulk bytes decode as a LABELLED EXTRA arm `core-ffi-zc` (AK_ZC=P5.) | yes (extra arm) | core-ffi-zc/core-ffi decode: P5.1 0.84, P5.2 0.042, P5.3 0.002, P5.4 < 0.001 (a slice instead of a copy: O(1) in the payload size); headline groups noise except U core-ffi/core-native decode drop 1.065 (core-native/inc 0.964 the other way; layout band) | `opt/s10-z1` |
 | 11 | 49b928a | C2: the decoder's UTF-8 check (ak-rt check_utf8) uses simdutf8, an ak-rt DEFAULT feature (so every slice's core build gets it) | yes | decode on the non-ASCII content sets, both core arms: core-ffi/inc P1.2/latin1 0.84 -> 0.54, P1.2/wide 0.88 -> 0.45, P2.2/latin1 0.95 -> 0.75, P2.2/wide 0.98 -> 0.69 (core-native/inc the same, so core-ffi/core-native unchanged); ASCII rows no resolved change | `opt/s11-c2`, `opt/s11-sanity` |
 | 12 | e804e0d, reverted by 46d14f8 | C1: codegen-units = 1 (poc/rust, corpus, poc/codec), no LTO | **reverted** | every core-ffi/core-native group noise; core arms' absolute medians inside the A/A absolute drift; incumbent encode ~10% faster in the no-unknown process only (so the no-unknown /inc encode groups rose 1.09-1.11); builds take ~2x as long | `opt/s12-c1` |
+
+Final run (`opt/final`, code of 3c737d1, same harness) against `baseline2`, group geometric
+means of in-process ratios, full build drop / no-unknown: core-ffi/inc decode 0.66 / 0.70
+(P), 0.68 / 0.69 (U); encode 0.80 / 0.68 (P), 0.86 / 0.68 (U); core-ffi-pull/inc decode
+0.68 / 0.70 (P); core-ffi/core-native decode 0.74 / 0.80 (P), 0.72 / 0.75 (U). RPC, cell C and
+D client CPU over cell A: direction a 1.05-1.31 -> 0.87-1.01, direction b 0.55-0.65 ->
+0.42-0.52. Per payload: `opt/final/per-payload-vs-baseline2.txt`. Against the first
+baseline (a different harness): `opt/final/compare-vs-baseline-DIFFERENT-HARNESS.txt`.
 
 ## What exists
 
@@ -88,8 +96,11 @@ gen/corpus.sh          the corpus on the full build (4 arms) and on the no-unkno
                        (3 arms), each with its planted controls
 gen/c_variant.sh       both C headers against both cores (section 10's check from a C++ host)
 gen/tsan.sh            the concurrency suite under ThreadSanitizer (nightly) with a planted race
-gen/opt_bench.sh       the short fixed optimisation benchmark (instrumentation, no gate; the
-                       codec pre-check on); gen/opt_summary.py derives the TSV summaries
+gen/opt_bench.sh       the short fixed optimisation benchmark (harness v3: the codec suite's
+                       interleaved sampler AK_ORDER=interleave, rpc_client --order interleave;
+                       instrumentation, no gate; the codec pre-check on). gen/opt_summary.py
+                       derives the TSVs, gen/opt_compare.py compares two runs (--aa A1 A2
+                       calibrates with an A/A pair), gen/opt_step.sh NAME PREV = both
 gen/crossings.txt      committed crossing counts, full build (drop, retain)
 gen/crossings-nounk.txt  committed crossing counts, no-unknown build
 gen/check_direct.py, oracle_probe.py, probe_corpus.py, probe_pycodec.py, corpus_before.py
@@ -112,40 +123,33 @@ Codec arms: `incumbent-prod` (prost through tonic's codec calls), `armonik`
 
 ## What was checked
 
-**The gate from a clean checkout** (WP6 step 1): a fresh `git worktree` at d2cd0b02f
-(origin HEAD, 0 changed paths, no build directory reused), `run_campaign.sh --suite gate`,
-whose header records the commit with no "uncommitted" mark (`logs/rust/wp6-clean-gate/gate.log`):
+**The gate on the final code** (end of the optimisation experiment): the main checkout at
+3c737d1 with no changed path, `run_campaign.sh --suite gate` (header with no "uncommitted"
+mark; `logs/rust/opt/final-gate/gate.log`), then `RUSTUP_TOOLCHAIN=1.88.0 bash gen/gate.sh`
+(`gate-floor-1.88.log`, rustc 1.88.0 printed by the gate's steps). Build directories were
+reused, not deleted (the earlier clean-worktree run is `logs/rust/wp6-clean-gate/`). Both:
 
-| Step | What | Result (line in `gate.log`) |
+| Step | What | Result |
 |---|---|---|
 | 1 | generators current, one core | `generate.py --check` every slice, guard over 26 backend modules with its planted import caught; one_core clean |
 | 2 | core unit tests (debug build) | 13 passed, 0 failed |
-| 3, 4 | byte identity on the 16 payloads (P1.3, P2.5 included); presence, oneof, unknown-field vectors | VERDICT pass on every arm (lines 93, 120) |
+| 3, 4 | byte identity on the 16 payloads (P1.3, P2.5 included); presence, oneof, unknown-field vectors | VERDICT pass on every arm |
 | 5 | crossing counts, counting build | printed per payload; compared in 11c and 12 |
-| 6 | content sets, every payload | every payload and set "ok" (identity against the incumbent; timing sections skipped) |
-| 7 | concurrency suite, four builds | shipped and global-widths 0 wrong; the padded and padded+global builds caught; the planted shared-context race fires (a panic inside `Enc` in its child process, the expected shape); "all four builds behaved as required" |
-| 8 | lifecycle, guard off and on | VERDICT pass (lines 948, 1023) |
-| 9, 10 | R-D1 length-wrap reproductions (and the depth-2 error); R-D6 sticky error slot | every case returned promptly (0 hangs, aborts or crashes) and the depth-2 error came back as an error on both arms; R-D6 7 of 7 ("ALL PASS") |
+| 6 | content sets, every payload | every payload and set "ok" |
+| 7 | concurrency suite, four builds | shipped and global-widths pass; the padded and padded+global builds caught; "all four builds behaved as required" |
+| 8 | lifecycle, guard off and on | VERDICT pass |
+| 9, 10 | R-D1 length-wrap reproductions; R-D6 sticky error slot | every case returned (0 hangs, aborts or crashes); R-D6 7 of 7 ("ALL PASS") |
 | 11 | corpus, full build | ffi-drop and ffi-retain 680 pass / 0 fail (16 `Nest` rows not in the C ABI), native-drop and native-retain 696 / 0; 6 disputed rows excluded; controls proj, reenc, accept, noinit fail as required |
-| 11 | decision 11 controls | 543 rows, 2,290 (row, position) pairs; zeroing a position drops exactly that position (0 mismatches; 307 rows carry unknowns); pull == push; pool with and without grow, in-place refill and its no-refill control, the oneof switch (one position, the buffer in the active member's group: ABI-v1 rule 4 as amended), wrong root refused with -8: all PASS; the planted "bags not cleared" fails on 307 rows |
-| 11 | corpus, no-unknown build | ffi-nounk 680 / 0, native-drop and native-retain 696 / 0; 0 retained-form lines from ffi-nounk; the four controls fail as required |
-| 11b | codec harness pre-check, full build | 962 checks, 112 inputs, 2,296 cases, 0 failures |
+| 11 | decision 11 controls | 543 rows, 2,290 (row, position) pairs, 0 discard mismatches, pull == push; the seven placement cases PASS; the planted "bags not cleared" fails on 307 rows |
+| 11 | corpus, no-unknown build | ffi-nounk 680 / 0, native-drop 696 / 0 (**2 arms**: native-retain is gone from this build since step 8, F1); 0 retained-form lines from ffi-nounk; the four controls fail as required |
+| 11b | codec harness pre-check, full build | **1186** checks (was 962: step 10 adds core-ffi-zc == core-ffi on every input and mode), 112 inputs, 2,296 cases, 0 failures |
 | 11c | crossing counts vs `gen/crossings.txt` | 671 lines identical |
-| 12 | no-unknown build | 0 `ak_uencode_*`/`ak_dec_reset_*` exports; conformance and shapes VERDICT pass; pre-check 520 checks, 0 failures; 336 lines identical to `gen/crossings-nounk.txt`; `c_variant.sh`: both headers compile C99/C++11 -Wall -Werror, 400 and 240 layout facts agree with their cores, both mismatched pairs caught |
-| | verdict | GATE PASSED; the runner re-ran both crossing-count comparisons after it (identical) |
+| 12 | no-unknown build | 0 `ak_uencode_*`/`ak_dec_reset_*` exports; conformance and shapes VERDICT pass; pre-check **632** checks (was 520), 0 failures; 336 lines identical to `gen/crossings-nounk.txt`; `c_variant.sh`: both headers compile C99/C++11 -Wall -Werror (with step 7's `ak_call_unary_enc`), 400 and 240 layout facts agree with their cores, both mismatched pairs caught |
+| | verdict | GATE PASSED on both toolchains; the runner re-ran both crossing-count comparisons (identical) |
 
-ThreadSanitizer in the same worktree (`tsan.log`, nightly 1.100): 0 warnings in the
-concurrency suite; 123 on the planted shared-context race.
-
-The floor, 1.88.0, in the same worktree (`gate-floor-1.88.log`): the same gate, steps 0-12, under `RUSTUP_TOOLCHAIN=1.88.0`
-(rustc 1.88.0 printed by the gate's own steps): GATE PASSED, with the same results as on
-stable -- byte identity and shapes VERDICT pass, both corpora (680 / 696 / 696 per build),
-pre-checks 962 and 520, crossing counts identical to both committed files, both header
-pairs agreeing and both mismatches caught. The Cargo.lock builds unchanged on 1.88.0.
-
-Disk (`df.txt`): 42% before the builds, 66% at the peak, 41% after the worktree and
-every build directory in it were deleted. The stale `target-*` directories of the main
-checkout were deleted before the run.
+Not re-run in this unit: ThreadSanitizer (`gen/tsan.sh`, last in `logs/rust/wp6-clean-gate/tsan.log`,
+before the optimisation steps; steps 5 and 6 change thread-local and arena code, so it is
+stale for them).
 
 **Evidence kept from earlier units, still current** (the code it checks has not changed
 since; each log is committed):
@@ -195,18 +199,18 @@ Every figure in both is instrumentation.
 | 13 | separate server, pre-serialised | met: `rpc_server` on `AK_CPU_SERVER`, P2.2 pre-serialised at start and checked against the manifest hash; direction (b) decoded by prost in every cell |
 | 14 | directions a and b | met; the optional streamed upload is not built |
 | 15 | 1/8/16 in flight | met (k host threads, each blocking per call) |
-| 16 | B/C blocking; callback/queue labelled | met for the blocking rows: B and C use `ak_call_unary`. The callback and queue deliveries are not in the campaign runner (they exist in the stage 6 harness `rpcgrid`); this is allowed ("labelled extra rows where a slice has them") and stated |
+| 16 | B/C blocking; callback/queue labelled | met for the blocking rows: B and C use `ak_call_unary` (cell C direction b uses the additive `ak_call_unary_enc` since optimisation step 7: the encode context's output moved into the call). The callback and queue deliveries are not in the campaign runner (they exist in the stage 6 harness `rpcgrid`); this is allowed ("labelled extra rows where a slice has them") and stated |
 | 17 | shipped and pinned | met: shipped = tonic endpoint defaults + nodelay (packages/rust's default), `ak_client_new`, server defaults; pinned = 4 MiB stream and connection windows, adaptive off, Nagle off on tonic, the core client and the server |
 | 18 | every call checked, abort | met: status and response length on every call, C and D also the core's decode; the first failure exits with no output file; the planted wrong length is run per transport and per client binary and must abort with no file |
 | 19 | crossing counts gate | met: see "Crossing counts: what they cover" (the two `ak_dec_reset_<Root>` calls are not counted); both files compared in the gate and by the runner before codec and calib; a difference stops the run |
 | 20 | crossing cost fwd/rev, perf stat | **not met**: `calib` reports forward (`ak_noop`) and forward+reverse (`ak_noop_reverse`) in the same round; `perf stat` cycles and instructions are collected by the runner when perf exists, and **perf is not installed in this container** (the smoke's `calib-perf-launch1.txt` says so). Needs the campaign machine with perf |
 | 21 | CPU clocks | met for CPU: codec CLOCK_THREAD_CPUTIME_ID per criterion sample (a custom criterion Measurement); rpc getrusage(RUSAGE_SELF) of the client with wall beside it; calib CLOCK_THREAD_CPUTIME_ID. The codec suite records no wall time (not required for codec; stated in its header) |
-| 22 | blocks, order rotated between launches | met: codec in blocks by arm with the order rotated by launch, and the two builds' order alternated by launch; rpc cells rotated by launch and the two clients alternated; calib's two arms alternate |
+| 22 | blocks, order rotated between launches | met: codec in blocks by arm with the order rotated by launch, and the two builds' order alternated by launch; rpc cells rotated by launch and the two clients alternated; calib's two arms alternate. The optimisation benchmark uses the non-default AK_ORDER=interleave / rpc --order interleave instead (not the campaign's requirement-22 form) |
 | 22a | benchmark engine | met: the codec suite runs on criterion 0.5 with every sample exported from criterion's `sample.json` to JSON lines; the RPC grid and calib stay on the runner (req 18's abort-with-no-output and req 13's separate server process, and one RPC sample is a batch of k concurrent calls timed with process CPU), stated |
 | 23 | 5 rounds x 3 launches, every round committed | met by default: codec 10 criterion samples per case (criterion's floor) x 3 launches; rpc and calib 5 rounds x 3 launches. The smoke is 1 launch, 1 round |
 | 24 | warm-up stated, identical | met: codec a fixed iteration count per case (100; smoke 3) then criterion warm-up (500 ms; smoke 5 ms), identical per arm, recorded; rpc 64 calls per (cell, dir, in-flight) (smoke 16); calib iters/10. No JIT |
 | 25 | allocator warmed, GC stated | met: the fixed warm-up runs each case's own allocations before timing; no GC (Rust), stated |
-| 26 | correctness before timing | met: every timing suite requires a gate PASS recorded for the same tree-id (runs the gate otherwise), and the codec process re-checks every timed arm on every input before criterion starts (full build 962 checks, no-unknown build 520) |
+| 26 | correctness before timing | met: every timing suite requires a gate PASS recorded for the same tree-id (runs the gate otherwise), and the codec process re-checks every timed arm on every input before criterion starts (full build 1186 checks, no-unknown build 632) |
 | 27 | header | met: commit and tree-id (a dirty tree is refused unless `AK_ALLOW_DIRTY=1`, which is recorded), machine, SMT, governor, turbo, kernel, isolation, CPU sets, rustc/cargo, incumbent versions, build flags, core variant and features, transport, warm-up, repeats |
 | 28 | JSON lines, raw | met: one line per criterion sample, rpc round and calib round, with the req-28 field names (`unknown_mode` included) |
 | 29 | logs per suite and launch in `ffi/logs/rust/campaign/` | met by the runner (one file per suite, transport, build and launch under `--out`); the campaign run is to be pointed at `ffi/logs/rust/campaign/`. The current harness's smoke is in `logs/rust/campaign-wp5s10/`, the earlier smoke in `logs/rust/campaign/` |
@@ -219,6 +223,8 @@ Every figure in both is instrumentation.
 | # | Where | What | Status |
 |---|---|---|---|
 | D42 | rust facade | a map entry has no unknown-field bag in the facade, so `U-map-entry` is written in the dropped form by ffi-retain and native-retain although the core delivers the entry's bytes (accepted by the contract) | open, a facade question |
+| D43 | opt harness | the incumbent's own median moves 5-10% between two processes of different builds (seen at steps 1, 3, 4, 8, 12) with no change to its code; a 32-byte layout shift explains at most 3.4% of a group mean (`opt/layout-exp`). The /inc ratios carry it; core-ffi/core-native is the check for a core-ffi-only change | open, cause not identified |
+| D44 | shared core | U2's geometric growth in `unk_grow` changes 36 committed retain crossing counts (`opt/s5-u1u2-heldback/crossings-geometric-growth.diff`); held back, not applied | for the aggregating session |
 
 Closed since the last rewrite (evidence in `JOURNAL.md`): D2 (the 1.88 floor now runs,
 the gate passes on it); D34 (retention inside inlined children, closed by decision 11 for the C
@@ -228,6 +234,14 @@ FIX-PLAN R-G17); D41 (every slice's generated tree is current: `generate.py --ch
 
 ## What is not measured
 
+- **The optimisation steps on the campaign machine**: every opt figure is container
+  instrumentation (harness v3, one launch, interleaved sampler), not a result.
+- **R2's gain**: `ak_call_unary_enc` measured no change beyond the RPC grid's noise (12
+  rounds x 24 calls); the expected size is 3-5% of a direction-b call.
+- **E3's gain**: no encode field in the payload set is long enough for the 32 KB frame to
+  dominate a loop callback; the small-chunk split measured noise.
+- **ThreadSanitizer after steps 5 and 6** (thread-local buffer tracking, shared arena):
+  not re-run.
 - **Timings.** None are results in this phase; every timing log is container
   instrumentation, and no figure is quoted in this file.
 - **perf counters** (req 20): perf is not installed here.
@@ -263,6 +277,12 @@ FIX-PLAN R-G17); D41 (every slice's generated tree is current: `generate.py --ch
 
 | Log | What it establishes |
 |---|---|
+| `logs/rust/opt/final-gate/` | the gate on the final code (3c737d1): stable (`gate.log`) and the 1.88.0 floor (`gate-floor-1.88.log`), both GATE PASSED |
+| `logs/rust/opt/final/` | the final opt_bench run (instrumentation) and its comparisons with baseline2, s11 and (a different harness) the first baseline; `per-payload-vs-baseline2.txt` |
+| `logs/rust/opt/s1-d1` ... `s12-c1` | one opt_bench run per optimisation step, each with `compare-vs-<previous>.txt` and `compare-vs-baseline2.txt` (A/A-calibrated); `s6-sanity`, `s8-sanity`, `s11-sanity` are corpus runs for the steps that touched decode, the facade and UTF-8 |
+| `logs/rust/opt/baseline2`, `baseline2-aa` | harness-v3 baseline and its A/A repeat (the noise calibration every comparison uses) |
+| `logs/rust/opt/baseline2-v2`, `baseline2-v2-aa` | harness v2 (criterion, shuffled) A/A pair that refuted it (per-case drift autocorrelated over the run) |
+| `logs/rust/opt/layout-exp/` | A/B/A/B code-layout experiment (`analysis.txt`) |
 | `logs/rust/opt/baseline/` | optimisation experiment baseline (instrumentation, `gen/opt_bench.sh`, de8b286): one launch, CLIENT=1 SERVER=2,3; codec payloads samples 20 / warm-up 100 it + 50 ms / measure 250 ms, U-* rows reduced (samples 10 / 20 it + 5 ms / 20 ms); calib 5 x 20M; rpc 3 rounds x 32 calls; pre-check 0 failures in all four codec processes; crossings identical to both committed files; `summary-*.tsv`, `ratios-codec.tsv` |
 | `logs/rust/wp6-clean-gate/` | the gate from a clean worktree at d2cd0b02f: stable (`gate.log`, both builds, crossing counts), floor 1.88.0 (`gate-floor-1.88.log`), ThreadSanitizer (`tsan.log`), disk before/after (`df.txt`) |
 | `logs/rust/campaign-wp5s10/` | smoke run of the current harness (instrumentation): codec both builds, rpc both clients x both transports, plant controls |

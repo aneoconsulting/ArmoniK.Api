@@ -2656,3 +2656,33 @@ kept step. Step 0 fixes the harness first.
   cleanliness change, so by the step rules it is reverted (git revert, history kept). The
   owner may want it anyway for fairness (it is a build flag every arm shares); the data is
   in logs/rust/opt/s12-c1.
+
+## 2026-09-26 -- optimisation experiment: final gate and final run
+
+- Gate on the final code, 3c737d1, main checkout with no changed path: `run_campaign.sh
+  --suite gate --out logs/rust/opt/final-gate` GATE PASSED (stable 1.94.1), then
+  `RUSTUP_TOOLCHAIN=1.88.0 bash gen/gate.sh` GATE PASSED (1.88.0 reinstalled with rustup;
+  the container had lost it). Differences from the WP6 gate, all expected: pre-check 1186 /
+  632 checks (step 10's zc equality), the corpus no-unknown build 2 arms (step 8), the
+  headers carry `ak_call_unary_enc` (step 7). Crossing counts identical on both files;
+  every control failed as required. ThreadSanitizer not re-run.
+- Final opt_bench (logs/rust/opt/final, commit d7ee631 = 3c737d1 plus the gate logs) vs
+  baseline2, A/A-calibrated group geometric means (full drop / no-unknown):
+  core-ffi/inc decode 0.662 / 0.699 (P), 0.684 / 0.694 (U); encode 0.804 / 0.678 (P),
+  0.859 / 0.675 (U); core-ffi-pull/inc decode 0.677 / 0.704 (P); core-ffi/core-native decode
+  0.735 / 0.800 (P), 0.715 / 0.749 (U); core-native/inc decode 0.901 / 0.874 (P), encode
+  0.854 / 0.701 (P). Per payload (drop, core-ffi/inc decode): P1.1 1.39 -> 0.86, P1.2
+  1.14 -> 0.78, P1.2/wide 1.40 -> 0.45, P2.2 1.36 -> 1.00, P1.3 2.10 -> 1.38, P5.1 1.61 ->
+  0.96, P6.1 0.70 -> 0.58, P5.2-P5.4 ~1.0 (a copy either way; core-ffi-zc 0.04 / 0.002 /
+  <0.001). RPC cells C and D over A: direction a 1.05-1.31 -> 0.87-1.01, direction b
+  0.55-0.65 -> 0.42-0.52. The first baseline (harness v1) against final is in
+  final/compare-vs-baseline-DIFFERENT-HARNESS.txt, a different harness.
+- Design-doc wording the aggregating session may want to change (not edited here):
+  ABI-v1 decision 9's "clear the elements you will fill" is now what the Rust binding does
+  (min(n, chunk) per chunk); decision 11 rule 7 "a reset per decode" is what the binding
+  now makes (one reset, no disarming reset after); decision 13's copy semantics stay the
+  default and a zero-copy entry exists as a labelled extra in the Rust binding;
+  section 9 gains `ak_call_unary_enc` (additive); section 4 / decision 3 could say the
+  core's decode-side check is simdutf8 by default. CAMPAIGN.md req 22a describes the codec
+  engine as criterion; the optimisation benchmark uses the suite's own interleaved sampler
+  (the campaign default is unchanged).
