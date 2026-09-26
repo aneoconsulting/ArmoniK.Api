@@ -1,0 +1,12 @@
+# R-H7 follow-up, BEFORE: the WP5 gate at b758b2737 (clean worktree). conformance_a17_noinit (a planted build whose
+# binding skips ak_init) aborted with 'free(): double free' instead of reporting failures: with the reset refused,
+# decode_with_*_opts returned before untracking the options' buffers, so decode_with_*_pool freed its leftovers and a
+# later unk_reclaim freed them again. Fixed by untracking on the refused path too; control: d11 wrong root through the
+# pool decode. Excerpt of logs/cpp/wp5-conformance.log as gated at b758b2737:
+
+>>> ok: conformance_a17_static
+
+===== conformance_a17_noinit: the binding skips ak_init (PLANTED) -- must FAIL =====
+gen/wp5_gate.sh: line 150:  4313 Aborted                 timeout 300 "$OLDPWD/$B/conformance_a17_noinit" payloads > "$S/c.log" 2>&1
+free(): double free detected in tcache 2
+>>> ok: the planted build failed (exit 134): init-guard is in the core

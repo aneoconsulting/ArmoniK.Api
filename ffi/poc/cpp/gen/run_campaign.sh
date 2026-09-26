@@ -152,7 +152,7 @@ h = {
  "transport": {"shipped": "grpc++: keepalive 30 s, max idle 5 min, local subchannel pool (packages/cpp getChannelArguments; its retry service config not applied); core: ak_client_new defaults",
                "pinned": "grpc++: 4 MiB stream window, BDP off (no connection-window argument exists, C31); core: 4 MiB stream and connection windows, adaptive off, Nagle off; both: 2 MiB max message"},
  "variants": {"full": "ak-core default features (unknown-fields: decision 11), binaries campaign_codec / campaign_rpc: core-ffi drop and retain, C/D-retain and -drop",
-              "no-unknown": "ak-core --no-default-features (unknown fields compiled out; plan relowered with unknown=drop), nounk/include/ak_abi.h, binaries campaign_codec_nounk (codec-nounk-launch*.jsonl) / campaign_rpc_nounk: core-ffi no-unknown, C/D-nounk; A, B, host-gen drop and the incumbents are in-process controls there"},
+              "no-unknown": "ak-core --no-default-features (unknown fields compiled out; plan relowered with unknown=drop), nounk/include/ak_abi.h, binaries campaign_codec_nounk (codec-nounk-launch*.jsonl) / campaign_rpc_nounk: core-ffi and host-gen no-unknown (the facade without unknown_fields, R-H22), C/D-nounk; A, B and the incumbents run there too"},
  "repeats": {"launches": $LAUNCHES, "rounds": $ROUNDS},
  "warmup": {"codec_bytes_per_arm": $WARM, "rpc_calls_per_cell": $RPCWARM, "allocator": "every arm runs its warm-up before round 1"},
  "sample": {"codec_bytes": $BYTES, "rpc_calls": $CALLS, "calib_iters": $CITERS,
