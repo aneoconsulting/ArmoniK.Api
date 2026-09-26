@@ -2878,3 +2878,38 @@ the corpus workspace (both builds); generate --check and one_core.sh pass; pre-c
 3706 checks (full, 114 inputs, 4228 cases) and 2240 (no-unknown, 2632 cases), 0 failures;
 both regenerated crossing files reproduce from the counting builds; the unk_grow clamp test
 passes.
+
+## 2026-09-26 -- measurements after the merge (instrumentation)
+
+- gen/opt_bench.sh v5 follows the merged campaign harness: the same codec suite (criterion,
+  process CPU, requirement-11 encode variants with the pool input at the campaign default
+  AK_POOL_BYTES = 2 x 13.75 MiB, which is inside this container's 260 MiB L3; R-H23 seeded
+  arm-block and case order, launch 1), the core-ffi-zc extra arm on P5.*, AK_NRESAMPLES=1000
+  (analysis only); P 10 samples / 20 it + 20 ms / 60 ms, U 10 / 5 it + 3 ms / 10 ms; calib
+  5 x 20M; RPC the runner's grid (cells A-F, a / a+read / b, k 1/8/16, one server per
+  transport on a Unix socket, plant control per client) at 3 rounds x 24 calls, server
+  warm-up 16, server threads 2 (the SERVER set's size here; the runner's default is 4).
+  gen/opt_summary.py writes absolute tables: summary-codec.tsv (per case, with the encode
+  variant), variants-codec.tsv/.txt (one column per variant), unknown-retain-vs-drop.tsv.
+  gen/opt_variants_compare.py prints before -> after per variant.
+- (a) logs/rust/opt/merged, the merged HEAD dda65e6e: 450 s (build 0 s, reused; crossings
+  identical to the committed files; codec 358 s; calib 1 s; rpc 86 s). Pre-check 0
+  failures in the four processes (794 / 524 / 2912 / 1716 checks).
+- (b) logs/rust/opt/merged-before, a clean worktree of origin/rust/native-core-ffi-poc
+  baa173a2 with the SAME opt_bench.sh and opt_summary.py copied in (no other change;
+  the header says "+ UNCOMMITTED CHANGES" for those two files): 983 s (build and counting
+  builds 267 s, fresh; codec 623 s, longer because their suite has no AK_NRESAMPLES, so
+  criterion's 100000-resample analysis runs after every case -- no sample depends on it;
+  rpc 92 s). Their counting build reproduced their committed counts (696 / 349 identical).
+  Pre-check 0 failures (750 / 502 / 2728 / 1624 checks; no zc arm there, so its columns
+  are empty). The worktree and its 2.1 GB of target directories were deleted after.
+- Before -> after, geometric mean of after/before over the 128 payload rows (input x
+  direction x encode variant): prost 0.974 (the control; range 0.82-1.26), armonik 0.979,
+  native-drop 0.835, native-retain 0.849, ffi-drop 0.739, ffi-retain 0.728, pull-drop
+  0.700, pull-retain 0.724, prost@nounk 0.981, native-nounk 0.833, ffi-nounk 0.719,
+  pull-nounk 0.684. Headline cells (us, encode reused-buffer/hot / decode): P1.2 ffi-drop
+  encode 127 -> 87, decode 564 -> 427; P2.2 ffi-drop encode 433 -> 283, decode 2402 ->
+  1879; P2.2/wide decode 4069 -> 2058; P1.3 ffi decode 21.0 -> 17.2; P6.1 native decode 214
+  -> 137. RPC (pinned, in-flight 1, client CPU per call): cell C direction b 945 -> 755 us
+  (drop), A 1710 -> 1740 (control). Tables: merged/variants-before-after.txt,
+  merged/headline-before-after.txt.

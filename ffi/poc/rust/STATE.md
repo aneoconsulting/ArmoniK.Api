@@ -25,8 +25,16 @@ the A/A pair `baseline2` / `baseline2-aa`). The codec pre-check (0 failures) and
 crossing-count files hold on every step; the full gate runs once at the end. Harness v3:
 the interleaved sampler (AK_ORDER=interleave), not criterion (JOURNAL, step 0). **Since
 removed by the owner** ("if criterion cannot interleave, forget about interleaving"):
-gen/opt_bench.sh is now on criterion (harness v4), so every opt run below was taken with a
-harness that no longer exists and a new opt run would not compare with them directly.
+gen/opt_bench.sh is now harness v5: the MERGED campaign harness (criterion, process CPU,
+requirement-11 encode variants, R-H23 order, RPC cells A-F), fewer samples, one launch, so
+every opt run in the table below was taken with a harness that no longer exists. The two
+runs on harness v5: `opt/merged` (the merged HEAD) and `opt/merged-before` (a clean
+worktree of origin/rust/native-core-ffi-poc baa173a2, their fixes and none of our
+optimisations, the same script). Absolute times per variant: `variants-codec.txt` in
+each; before -> after: `opt/merged/variants-before-after.txt`,
+`opt/merged/headline-before-after.txt`. Geometric mean after/before over the 128 payload
+rows: prost 0.97 (the control, unchanged code), armonik 0.98, native-drop 0.84, ffi-drop
+0.74, ffi-retain 0.73, pull-drop 0.70, native-nounk 0.83, ffi-nounk 0.72.
 Hazard: between steps the incumbent's encode median has moved 7-10% (steps 1, 3, 4) with no
 change to its code, so the /inc encode ratios carry it; core-ffi/core-native is the check.
 A deliberate 32-byte layout shift (`opt/layout-exp`, A/B/A/B) moved group means by at most
@@ -207,15 +215,22 @@ decode / decode-pull x mode), **every exported entry point the loop calls** (CAM
 19 as amended, R-H31): the core's per-context counters plus the plain exports the binding
 tallies in the counting build (`ak_enc_reset`, `ak_dec_reset_<Root>`, `ak_enc_take`,
 `ak_dec_err`). A `resets` column says how many of the forward calls are resets and where:
-one `ak_enc_reset` before every encode; two `ak_dec_reset_<Root>` around a retain decode or
-pull (before, arming the options; after, disarming with NULL). Retain runs with no
-pre-placed buffer and a grow that allocates exactly the size requested. `rpc:<cell>` rows
+one `ak_enc_reset` before every encode; ONE `ak_dec_reset_<Root>` before a retain decode or
+pull (arming; the binding leaves the context armed, optimisation U1) and one before a drop
+decode only if a retaining decode left it armed (the counted call runs warm, so none).
+Retain runs with no pre-placed buffer and the binding's GEOMETRIC grow (optimisation U2,
+max(want, 2 x capacity, 64) capped at INT32_MAX; the owner's override of R-H31's exact-size
+grow for this slice). `rpc:<cell>` rows
 count ONE call of cells B, C, D and E per direction and mode (P2.2, in-process server on a
 Unix socket), the core's RPC counters included. `gen/crossings.txt` 696 rows,
 `gen/crossings-nounk.txt` 349 rows; the change from the pre-WP7 files (every existing
 row's reverse unchanged; forward +1 per encode, +2 per retain decode, +1 / +3 per pull;
 new rows for P2.4's content sets and the RPC cells) is in
-`logs/rust/wp7/crossings-change.txt`. Not counted: `ak_dec_ctx_new_<Root>` /
+`logs/rust/wp7/crossings-change.txt`; the merge with the optimisations changed 232 rows of
+`gen/crossings.txt` and 1 of `gen/crossings-nounk.txt` against that branch's files (U1 -1
+reset per retain decode/pull, U2 fewer grow upcalls on 36 rows, R2 -1 forward on rpc:C b),
+row by row in `logs/rust/opt/merge-counts/`. Not counted: the labelled extra `core-ffi-zc`
+arm (the same calls as core-ffi decode); `ak_dec_ctx_new_<Root>` /
 `ak_enc_ctx_new` (setup, outside the timed call); cells A and F have no core crossing.
 
 ## Campaign readiness (design/CAMPAIGN.md section 10)
@@ -247,7 +262,7 @@ Every figure in both is instrumentation.
 | 16 | B/C blocking; A/D/F idiomatic | met: B, C and E use the core's blocking `ak_call_unary`; A, D and F use tonic's async unary call from k tokio tasks on a 2-worker runtime, the shape of packages/rust's client (stated in the header). Callback and queue deliveries are not in the campaign runner (stage 6 harness `rpcgrid` only), stated |
 | 17 | shipped and pinned; Unix socket | met: every cell over a Unix domain socket (R-H28; the core dials `unix:`, tonic serves a `UnixListenerStream`); shipped = tonic endpoint and server defaults, `ak_client_new`; pinned = 4 MiB stream and connection windows, adaptive off, on tonic, the core client and the server (Nagle does not apply to a Unix socket) |
 | 18 | every call checked, abort | met: status and response length on every call (the server warm-up included), C-F also their decode; the first failure exits with no output file; the planted wrong length is run per transport and per client binary and must abort with no file |
-| 19 | crossing counts gate | met: see "Crossing counts: what they cover" (resets and every exported call included; RPC cells B-E per call; retain with no pre-placed buffer and exact grow); both files compared in the gate and by the runner before codec and calib; a difference stops the run |
+| 19 | crossing counts gate | met: see "Crossing counts: what they cover" (resets and every exported call included; RPC cells B-E per call; retain with no pre-placed buffer and geometric grow, the owner's override); both files compared in the gate and by the runner before codec and calib; a difference stops the run |
 | 20 | crossing cost fwd/rev, perf stat | **not met**: `calib` reports forward (`ak_noop`) and forward+reverse (`ak_noop_reverse`) in the same round; `perf stat` cycles and instructions are collected by the runner when perf exists, and **perf is not installed in this container** (the smoke's `calib-perf-launch1.txt` says so). Needs the campaign machine with perf |
 | 21 | process CPU per round | met: codec and calib `CLOCK_PROCESS_CPUTIME_ID` per criterion sample / round (a custom criterion Measurement, R-H25); RPC `getrusage(RUSAGE_SELF)` of the client per round with wall beside it. The codec suite records no wall time (not required), stated |
 | 22 | order randomised as far as the engine allows | met: codec in blocks by arm, arm blocks and the cases inside each block in a seeded random order per launch (seed = launch, in the header; criterion runs benchmarks in the order the suite registers them), the two builds alternated by launch; RPC cells in a seeded random order per launch, directions and in-flight counts nested inside a cell, the two clients alternated; calib's two arms alternate |
@@ -282,6 +297,7 @@ Every figure in both is instrumentation.
 
 | # | Where | What | Status |
 |---|---|---|---|
+| D43 | opt harness | the incumbent's own median moves 5-10% between two processes of different builds with no change to its code (optimisation experiment; e.g. prost P1.2/wide decode 856 -> 1045 us between the two harness-v5 runs); a 32-byte layout shift explains at most 3.4% of a group mean (`opt/layout-exp`). Cross-run absolutes carry it; prost's column is the control | open, cause not identified |
 | D42 | rust facade | a map entry has no unknown-field bag in the facade, so `U-map-entry` is written in the dropped form by ffi-retain and native-retain although the core delivers the entry's bytes (accepted by the contract) | open, a facade question |
 
 Closed since the last rewrite (evidence in `JOURNAL.md`): D2 (the 1.88 floor now runs,
@@ -332,6 +348,8 @@ FIX-PLAN R-G17); D41 (every slice's generated tree is current: `generate.py --ch
 
 | Log | What it establishes |
 |---|---|
+| `logs/rust/opt/merged/`, `logs/rust/opt/merged-before/` | opt_bench v5 (the merged campaign harness) on the merged HEAD and on their branch without our optimisations: per-case `summary-codec.tsv`, absolute `variants-codec.tsv/.txt`, `unknown-retain-vs-drop.tsv`, RPC and calib summaries; before/after tables in `merged/` |
+| `logs/rust/opt/merge-counts/` | the merged counting build's crossing files against that branch's committed ones, with the reason per row class |
 | `logs/rust/campaign-wp7/` | WP7: gate (stable, both builds), floor 1.88.0 gate, ThreadSanitizer, and the smoke of codec, rpc and calib from a clean worktree at c8e8694eb; figures stripped; disk (`df.txt`) |
 | `logs/rust/wp7/crossings-change.txt` | the crossing files before and after WP7, row by row |
 | `logs/rust/wp6h/clean-gate/` | the gate from a clean worktree at 766f8dcd9 after register H: both builds, crossing counts, disk |
