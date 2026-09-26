@@ -1723,3 +1723,25 @@ occurs twice), and its error output was suppressed; the build succeeded because 
 referenced the missing code. The no-unknown client ran the full cell list and aborted on its first
 retain call, no sample written. Fixed in 3a9b67c. I checked the other edits of this unit by their
 output (every one shows in a log); from here on no edit script runs with its errors hidden.
+
+### 56. FIX-PLAN WP6 step 1: STATE rewritten, content sets in the counts, R-C9, a clean gate
+
+- **STATE.md rewritten** to say what is true now. Removed: the status line's history (WP3, BDN,
+  decision 11, step 10 narratives: they are in entries 47 to 55); the retired-files list of step 4;
+  the step-4 and WP5-tail "what was checked" sections (superseded by the clean gate); the
+  closed-defect paragraphs (D1, D2, D3, D7 to D10, D38, D40, D41: closed, recorded here); the
+  step-9 decision 11 paragraph and the smoke narratives (superseded); the engine-cost figures
+  that came from traces never committed (per-case seconds at 20/60/400/1,780 cases, GC pause
+  shares, heap sizes: their raw traces were scratch files, so the figures go); the RPC-to-BDN
+  evaluation reduced to the reason req 22a asks for. Kept, labelled instrumentation: the smoke
+  counts (committed logs) and the default-job unit's duration (committed log). The checklist
+  is current against CAMPAIGN.md at 85cb00f, with 22a as its own row; rows 1 to 3 are marked
+  not applicable in the container (the owner's machine) rather than met.
+- **Content sets in the counts:** CoreGate now counts P1.2 in the Latin-1 and wide sets (the
+  expected bytes are the incumbent's for the graph built under the set). Both crossing files
+  gain two rows: full 2 1 1 8 2 0, no-unknown 2 1 1 5 2 0, the same as the ASCII row of each
+  and as the rust slice's.
+- **R-C9:** stages 18 and 19 were built against a core not on the branch. Nothing in STATE
+  rests on them; their log headers now say no figure in them is usable.
+- **The clean gate:** a fresh worktree at the committed HEAD, no reused build directory, both
+  builds on net8.0 and net6.0 (wp6s1-gate.log).
