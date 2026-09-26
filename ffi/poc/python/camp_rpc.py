@@ -2,23 +2,29 @@
 `camp_server.py`, its OWN process pinned to AK_CPU_SERVER (R-C3/R-C4: the client and the
 server no longer share one GIL or one CPU set).
 
-  python3.12 camp_rpc.py --launch N --rounds R --calls C --out FILE [--allow-dirty] [--smoke]
+  python3.12 camp_rpc.py --launch N --rounds R --calls C --out FILE [--variant nounk]
+                        [--server shipped=unix:...,pinned=unix:...] [--allow-dirty] [--smoke]
 
-Cells (requirement 12), P2.2, loopback TCP:
+Cells (requirement 12 as amended), P2.2, over a Unix domain socket (req 17 as amended):
   A  incumbent codec (SerializeToString / FromString, as grpcio's generated stub calls them)
      + grpcio's channel
   B  incumbent codec + the core's transport, BLOCKING delivery (ak_call_unary)
   C  core codec through the C ABI (the C extension facade) + the core's transport, blocking
   D  core codec through the C ABI + grpcio's channel
-  C and D run in each unknown-field mode (req 12 as amended, 85cb00f): C-retain / D-retain
-  (decision 11, every position armed, on the per-thread contexts) and C-drop / D-drop (the
-  same build, every entry zero). C-nounk / D-nounk wait for the compiled-out build. A and B
-  run the incumbent in its default mode. The extra rows C-queue / C-callback are drop.
-  `--variant nounk` (WP5 step 10): the no-unknown build's client, `_akffi_rpc_nounk` over
-  ak-core without `unknown-fields` (a separately built module; it cannot share a process
-  with the full build's, both cores being `libak_core.so`): cells A, B (the in-process
-  controls), C-nounk and D-nounk in a, a+read and b.
-  labelled extra rows (requirement 16): B-queue, C-queue, B-callback, C-callback
+  E  host-gen (the generated pure-Python codec, same C-extension facade objects) + the core's
+     transport, blocking
+  F  host-gen + grpcio's channel
+  C and D run in each unknown-field mode this build has: C-retain / D-retain and C-drop /
+  D-drop in the full build, C-nounk / D-nounk in the no-unknown build (`--variant nounk`,
+  `_akffi_rpc_nounk`, its own process: both cores are `libak_core.so`). E and F run in
+  host-gen's modes, drop and retain, in the full build only (host-gen has no no-unknown arm:
+  its drop text is identical from both plans). A and B run the incumbent in its default
+  mode. Labelled extras (full build, direction a): B-queue, C-queue, B-callback, C-callback.
+  A, D and F use grpcio's idiomatic blocking unary call (req 16 as amended).
+Server (req 13 as amended): one camp_server.py per launch, both transports on two sockets,
+shared by both builds (`--server`, from run_campaign.sh), warmed by AK_CAMPAIGN_SERVER_WARMUP
+calls from each client transport; one channel (grpcio channel or core client) per cell.
+Without `--server` the client starts its own (the gate's must-fail control, by-hand runs).
 Directions (14): (a) empty request, P2.2 response, reported bare (`a`) and followed by
 reading every field (`a+read`, R-C2; upb's FromString is lazy); (b) P2.2 request the server
 decodes, empty response. In flight (15): 1, 8, 16. Transport (17): `shipped` and `pinned`,
@@ -50,7 +56,7 @@ _WARM = allocator.warm_up()
 VARIANT = sys.argv[sys.argv.index("--variant") + 1] if "--variant" in sys.argv else "full"
 NOUNK = VARIANT == "nounk"
 if NOUNK:
-    os.environ["AK_FFI_MODULE"] = "_akffi_rpc_nounk"
+    os.environ.setdefault("AK_FFI_MODULE", "_akffi_rpc_nounk")   # rpc_counts.py sets the counting build
 os.environ.setdefault("AK_FFI_MODULE", "_akffi_rpc")
 import arms  # noqa: E402
 import grpc  # noqa: E402
@@ -80,26 +86,50 @@ def grpc_options(transport):
             ("grpc.max_send_message_length", MSG_LIMIT)]
 
 
-def core_client(port, transport):
-    rt = arms._ffi.rt_new(0)
-    uri = "http://127.0.0.1:%d" % port
+CORE_WORKERS = int(os.environ.get("AK_CORE_WORKERS", "2"))   # the core runtime's worker threads (req 4)
+SERVER_WARMUP = int(os.environ.get("AK_CAMPAIGN_SERVER_WARMUP", "64"))  # calls per client transport (req 13)
+RT = []
+
+
+def runtime():
+    """ONE core runtime per client process, shared by every core client (stated: its worker
+    thread count is AK_CORE_WORKERS, the core's default when the host passes 0 being 2)."""
+    if not RT:
+        RT.append(arms._ffi.rt_new(CORE_WORKERS))
+    return RT[0]
+
+
+def core_client(target, transport):
+    """A core client dialling `target` (`unix:/path`, req 17 as amended: tonic's
+    Endpoint::from_shared dials a Unix domain socket for a `unix:` target)."""
     if transport == "shipped":
-        return rt, arms._ffi.client_new(rt, uri)        # tonic's defaults: the core ships no pin
+        return arms._ffi.client_new(runtime(), target)        # tonic's defaults: the core ships no pin
     # ak_client_opts: stream and connection windows 4 MiB, adaptive OFF, limits raised,
-    # Nagle OFF (0).
-    return rt, arms._ffi.client_new_opts(rt, uri, WINDOW, WINDOW, 0, MSG_LIMIT, MSG_LIMIT, 0)
+    # Nagle OFF (0; no effect on a Unix socket, stated).
+    return arms._ffi.client_new_opts(runtime(), target, WINDOW, WINDOW, 0, MSG_LIMIT, MSG_LIMIT, 0)
 
 
-def cells(port, transport):
-    """{direction: [(cell, fn)]}; every fn makes ONE checked call."""
+def cells(target, transport):
+    """{direction: [(cell, fn)]}; every fn makes ONE checked call. Req 13 as amended: ONE
+    channel per cell per launch (a grpcio channel for A, D-*, F-*; a core client for B, C-*,
+    E-* and each labelled extra), opened here, before round 1, and warmed by the warm-up."""
     root = arms.ROOT_OF[PID]
     R = arms._pb_root(PID)
     plan = arms._PLANS[root]
     body_len = len(arms.reference(PID))
     msg = arms.build_upb_native(PID)                    # built through protobuf's setters
     fc = arms.build_facade(PID, arms.CT_CEXT)
-    ch = grpc.insecure_channel("127.0.0.1:%d" % port, options=grpc_options(transport))
-    rt, cl = core_client(port, transport)
+    chans, clis = {}, {}
+
+    def chan(cell):
+        if cell not in chans:
+            chans[cell] = grpc.insecure_channel(target, options=grpc_options(transport))
+        return chans[cell]
+
+    def cli(cell):
+        if cell not in clis:
+            clis[cell] = core_client(target, transport)
+        return clis[cell]
 
     def need(b, n):
         if b is None or len(b) != n:
@@ -110,100 +140,117 @@ def cells(port, transport):
     core_enc = (lambda o: arms._ffi.encode("cext", root, o, None, False))
     ret_dec = (lambda b: arms._ffi.decode("cext", root, b, arms.TY_CEXT, None, True))
     ret_enc = (lambda o: arms._ffi.encode("cext", root, o, None, True))
+    # host-gen (cells E and F, req 12 as amended): the pure-Python codec over the same
+    # C-extension facade objects (R-H16), in each mode host-gen has in the codec suite
+    hg = {"drop": arms.pycodec, "retain": arms.pycodec_retain}
+    hg_dec = {k: (lambda b, _m=m: getattr(_m, "decode_root_" + root)(b, arms.CT_CEXT)) for k, m in hg.items() if m}
+    hg_enc = {k: (lambda o, _m=m: getattr(_m, "encode_root_" + root)(o)) for k, m in hg.items() if m}
     read_pb = (lambda o: arms._read_pb(o, plan, True))
     read_fa = (lambda o: arms._read(o, plan))
     ident = (lambda b: b)
 
-    def grpc_get(deser):
-        return ch.unary_unary(GET, request_serializer=ident,
-                              response_deserializer=lambda b: deser(need(b, body_len)))
+    # A, D and F use grpcio's idiomatic call (req 16 as amended): the generated-stub style
+    # blocking unary multicallable, with the codec as its (de)serializer.
+    def grpc_get(cell, deser):
+        return chan(cell).unary_unary(GET, request_serializer=ident,
+                                      response_deserializer=lambda b: deser(need(b, body_len)))
 
-    A_get = grpc_get(R.FromString)
-    D_get = grpc_get(core_dec)
-    Dr_get = grpc_get(ret_dec)
-    A_put = ch.unary_unary(PUT, request_serializer=R.SerializeToString,
-                           response_deserializer=lambda b: need(b, 0))
-    D_put = ch.unary_unary(PUT, request_serializer=core_enc,
-                           response_deserializer=lambda b: need(b, 0))
-    Dr_put = ch.unary_unary(PUT, request_serializer=ret_enc,
-                            response_deserializer=lambda b: need(b, 0))
+    def grpc_put(cell, ser):
+        return chan(cell).unary_unary(PUT, request_serializer=ser,
+                                      response_deserializer=lambda b: need(b, 0))
 
-    def core_get():
-        return need(arms._ffi.call_unary(cl, GET, b""), body_len)   # raises on status != 0
+    def core_get(cell):
+        c = cli(cell)
+        return lambda: need(arms._ffi.call_unary(c, GET, b""), body_len)   # raises on status != 0
 
-    def core_put(req):
-        return need(arms._ffi.call_unary(cl, PUT, req), 0)
+    def core_put(cell):
+        c = cli(cell)
+        return lambda req: need(arms._ffi.call_unary(c, PUT, req), 0)
 
     local = threading.local()
 
-    def queued_get():
-        q = getattr(local, "q", None)
-        if q is None:
-            q = local.q = arms._ffi.queue_new()
-        arms._ffi.call_unary_q(cl, GET, b"", q, 1)
-        c = arms._ffi.queue_next(q, TIMEOUT_MS)
-        if c is None:
-            raise CallFailed("no completion")
-        _t, status, b = c
-        if status != 0:
-            raise CallFailed("completion status %d" % status)
-        return need(b, body_len)
+    def queued_get(cell):
+        c = cli(cell)
 
-    def callback_get():
-        ev, box = threading.Event(), []
+        def run():
+            q = getattr(local, "q", None)
+            if q is None:
+                q = local.q = arms._ffi.queue_new()
+            arms._ffi.call_unary_q(c, GET, b"", q, 1)
+            r = arms._ffi.queue_next(q, TIMEOUT_MS)
+            if r is None:
+                raise CallFailed("no completion")
+            _t, status, b = r
+            if status != 0:
+                raise CallFailed("completion status %d" % status)
+            return need(b, body_len)
+        return run
 
-        def cb(tag, status, b):
-            box.append((status, b))
-            ev.set()
-        arms._ffi.call_unary_cb(cl, GET, b"", cb, 1)
-        if not ev.wait(TIMEOUT_MS / 1000.0):
-            raise CallFailed("no completion")
-        status, b = box[0]
-        if status != 0:
-            raise CallFailed("completion status %d" % status)
-        return need(b, body_len)
+    def callback_get(cell):
+        c = cli(cell)
 
-    out = {
-        "a": [("A", lambda: A_get(b"")),
-              ("B", lambda: R.FromString(core_get())),
-              ("C-retain", lambda: ret_dec(core_get())),
-              ("C-drop", lambda: core_dec(core_get())),
-              ("D-retain", lambda: Dr_get(b"")),
-              ("D-drop", lambda: D_get(b"")),
-              ("B-queue", lambda: R.FromString(queued_get())),
-              ("C-queue", lambda: core_dec(queued_get())),
-              ("B-callback", lambda: R.FromString(callback_get())),
-              ("C-callback", lambda: core_dec(callback_get()))],
-        "a+read": [("A", lambda: read_pb(A_get(b""))),
-                   ("B", lambda: read_pb(R.FromString(core_get()))),
-                   ("C-retain", lambda: read_fa(ret_dec(core_get()))),
-                   ("C-drop", lambda: read_fa(core_dec(core_get()))),
-                   ("D-retain", lambda: read_fa(Dr_get(b""))),
-                   ("D-drop", lambda: read_fa(D_get(b"")))],
-        "b": [("A", lambda: A_put(msg)),
-              ("B", lambda: core_put(R.SerializeToString(msg))),
-              ("C-retain", lambda: core_put(ret_enc(fc))),
-              ("C-drop", lambda: core_put(core_enc(fc))),
-              ("D-retain", lambda: Dr_put(fc)),
-              ("D-drop", lambda: D_put(fc))],
-    }
-    if NOUNK:
-        out = {
-            "a": [("A", lambda: A_get(b"")),
-                  ("B", lambda: R.FromString(core_get())),
-                  ("C-nounk", lambda: core_dec(core_get())),
-                  ("D-nounk", lambda: D_get(b""))],
-            "a+read": [("A", lambda: read_pb(A_get(b""))),
-                       ("B", lambda: read_pb(R.FromString(core_get()))),
-                       ("C-nounk", lambda: read_fa(core_dec(core_get()))),
-                       ("D-nounk", lambda: read_fa(D_get(b"")))],
-            "b": [("A", lambda: A_put(msg)),
-                  ("B", lambda: core_put(R.SerializeToString(msg))),
-                  ("C-nounk", lambda: core_put(core_enc(fc))),
-                  ("D-nounk", lambda: D_put(fc))],
-        }
-    keep = (ch, rt, cl)
+        def run():
+            ev, box = threading.Event(), []
+
+            def cb(tag, status, b):
+                box.append((status, b))
+                ev.set()
+            arms._ffi.call_unary_cb(c, GET, b"", cb, 1)
+            if not ev.wait(TIMEOUT_MS / 1000.0):
+                raise CallFailed("no completion")
+            status, b = box[0]
+            if status != 0:
+                raise CallFailed("completion status %d" % status)
+            return need(b, body_len)
+        return run
+
+    modes_c = ["nounk"] if NOUNK else ["retain", "drop"]
+    cdec = {"retain": ret_dec, "drop": core_dec, "nounk": core_dec}
+    cenc = {"retain": ret_enc, "drop": core_enc, "nounk": core_enc}
+    out = {"a": [], "a+read": [], "b": []}
+    A_get, A_put = grpc_get("A", R.FromString), grpc_put("A", R.SerializeToString)
+    B_get, B_put = core_get("B"), core_put("B")
+    out["a"] += [("A", lambda: A_get(b"")), ("B", lambda: R.FromString(B_get()))]
+    out["a+read"] += [("A", lambda: read_pb(A_get(b""))), ("B", lambda: read_pb(R.FromString(B_get())))]
+    out["b"] += [("A", lambda: A_put(msg)), ("B", lambda: B_put(R.SerializeToString(msg)))]
+    for m in modes_c:
+        cg, cp = core_get("C-" + m), core_put("C-" + m)
+        dg, dp = grpc_get("D-" + m, cdec[m]), grpc_put("D-" + m, cenc[m])
+        out["a"] += [("C-" + m, lambda _g=cg, _d=cdec[m]: _d(_g())), ("D-" + m, lambda _g=dg: _g(b""))]
+        out["a+read"] += [("C-" + m, lambda _g=cg, _d=cdec[m]: read_fa(_d(_g()))),
+                          ("D-" + m, lambda _g=dg: read_fa(_g(b"")))]
+        out["b"] += [("C-" + m, lambda _p=cp, _e=cenc[m]: _p(_e(fc))), ("D-" + m, lambda _p=dp: _p(fc))]
+    # E and F: host-gen has no no-unknown arm (its drop text is identical from both plans), so
+    # they run in the full build only, in drop and retain.
+    for m in ([] if NOUNK else ["retain", "drop"]):
+        eg, ep = core_get("E-" + m), core_put("E-" + m)
+        fg, fpu = grpc_get("F-" + m, hg_dec[m]), grpc_put("F-" + m, hg_enc[m])
+        out["a"] += [("E-" + m, lambda _g=eg, _d=hg_dec[m]: _d(_g())), ("F-" + m, lambda _g=fg: _g(b""))]
+        out["a+read"] += [("E-" + m, lambda _g=eg, _d=hg_dec[m]: read_fa(_d(_g()))),
+                          ("F-" + m, lambda _g=fg: read_fa(_g(b"")))]
+        out["b"] += [("E-" + m, lambda _p=ep, _e=hg_enc[m]: _p(_e(fc))), ("F-" + m, lambda _p=fpu: _p(fc))]
+    if not NOUNK:
+        qg, kg = queued_get("B-queue"), callback_get("B-callback")
+        qc, kc = queued_get("C-queue"), callback_get("C-callback")
+        out["a"] += [("B-queue", lambda: R.FromString(qg())), ("C-queue", lambda: core_dec(qc())),
+                     ("B-callback", lambda: R.FromString(kg())), ("C-callback", lambda: core_dec(kc()))]
+    keep = (chans, clis)
     return out, keep
+
+
+def warm_server(target, transport):
+    """Req 13 as amended: before round 1 the server is warmed by SERVER_WARMUP calls from each
+    client transport (a grpcio channel and a core client of this process), on connections that
+    are then closed; each cell's own channel is warmed by the per-cell warm-up after this."""
+    ch = grpc.insecure_channel(target, options=grpc_options(transport))
+    g = ch.unary_unary(GET, request_serializer=lambda b: b, response_deserializer=lambda b: b)
+    c = core_client(target, transport)
+    n = len(arms.reference(PID))
+    for _ in range(SERVER_WARMUP):
+        if len(g(b"")) != n or len(arms._ffi.call_unary(c, GET, b"")) != n:
+            raise CallFailed("server warm-up: a short response")
+    ch.close()
+    return "%d Get calls from grpcio and %d from the core client, %s" % (SERVER_WARMUP, SERVER_WARMUP, transport)
 
 
 def gate(cs):
@@ -362,14 +409,38 @@ def sample(fn, calls, inflight):
     return c1 - c0, w1 - w0, per * inflight
 
 
-def start_server(transport):
-    p = subprocess.Popen([sys.executable, os.path.join(HERE, "camp_server.py"), "--transport", transport],
+def start_server(d):
+    """This process's own server (camp_server.py, both transports, UDS in `d`), for a run with
+    no --server: the gate's must-fail control and by-hand runs. run_campaign.sh starts ONE
+    server per launch instead and passes it to both builds' clients (req 13 as amended)."""
+    p = subprocess.Popen([sys.executable, os.path.join(HERE, "camp_server.py"), "--dir", d],
                          stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
     line = p.stdout.readline().split()
-    if not line or line[0] != "PORT":
+    if not line or line[0] != "SOCKETS":
         p.kill()
         raise CallFailed("the server did not start")
-    return p, int(line[1]), line[3] if len(line) > 3 else "?"
+    return p, parse_server(" ".join(line))
+
+
+def parse_server(line):
+    """`SOCKETS shipped=unix:... pinned=unix:... AFFINITY a WORKERS n THREADS t` -> dict."""
+    f = line.split()
+    out = {"affinity": "?", "workers": "?", "threads": "?"}
+    for x in f[1:]:
+        if "=" in x:
+            k, v = x.split("=", 1)
+            out[k] = v
+    for key in ("AFFINITY", "WORKERS", "THREADS"):
+        if key in f:
+            out[key.lower()] = f[f.index(key) + 1]
+    return out
+
+
+def os_threads():
+    try:
+        return len(os.listdir("/proc/self/task"))
+    except OSError:
+        return -1
 
 
 def main():
@@ -377,6 +448,13 @@ def main():
     rounds = opt("--rounds", 5, int)
     calls = opt("--calls", 400, int)
     transports = opt("--transports", "shipped,pinned").split(",")
+    own = None
+    if opt("--server"):
+        srvinfo = parse_server("SOCKETS " + opt("--server").replace(",", " "))
+    else:
+        import tempfile
+        tmpd = tempfile.mkdtemp(prefix="akrpc")
+        own, srvinfo = start_server(tmpd)
     log = L.Log(opt("--out"), "rpc", allow_dirty="--allow-dirty" in ARGS, smoke="--smoke" in ARGS,
                 build=VARIANT)
     log.header(launch=launch, rounds=rounds, calls_per_sample=calls, inflight=INFLIGHT,
@@ -387,10 +465,21 @@ def main():
                                 "message limits 16 MiB; no connection-window argument exists in grpcio; "
                                 "grpcio sets TCP_NODELAY itself (stated; log 80, which showed it, was deleted under R-C9). core: ak_client_new_opts "
                                 "stream=connection=4 MiB, adaptive=0, limits 16 MiB, tcp_nagle=0 (off)",
-               network="loopback TCP 127.0.0.1", server="camp_server.py, separate process, AK_CPU_SERVER, "
-               "pre-serialised P2.2 on Get; Put decodes with upb and checks",
+               network="Unix domain socket (req 17 as amended): %s" % ", ".join(
+                   "%s=%s" % (t, srvinfo.get(t, "?")) for t in ("shipped", "pinned")),
+               server=("camp_server.py, ONE separate process for this launch (%s), both transports, AK_CPU_SERVER "
+                       "affinity %s, grpcio executor workers %s, server threads at start %s; pre-serialised P2.2 on "
+                       "Get; Put decodes with upb and checks"
+                       % ("shared by both builds, started by run_campaign.sh" if own is None else "this client's own",
+                          srvinfo.get("affinity"), srvinfo.get("workers"), srvinfo.get("threads"))),
+               order="per round, per (transport, direction, in flight), the cells rotated by one (req 22)",
+               idiomatic="A, D and F: grpcio's blocking unary multicallable (the generated stub's call), the "
+                         "codec as its (de)serializer (req 16 as amended)",
                allocator="M_TOP_PAD %s" % ("applied" if _WARM else "not available"),
-               gc="ON; gc.collect() before every sample", warmup="one sample's calls per cell before round 1",
+               gc="ON; gc.collect() before every sample",
+               warmup="the server: %d Get calls from each client transport (grpcio, core) per server transport; "
+                      "then one sample's calls per cell and in-flight value before round 1, on the cell's own "
+                      "channel (one channel per cell per launch, req 13)" % SERVER_WARMUP,
                clock="CLOCK_PROCESS_CPUTIME_ID of the client (cpu_ns), perf_counter_ns (wall_ns)",
                delivery="B and C blocking; queue and callback are labelled extra cells, direction a only",
                threads="a pool of max(in flight) client threads created once, before the first timed window, "
@@ -403,10 +492,11 @@ def main():
                               "drop (every entry zero); A and B: incumbent default; C-queue and C-callback: drop"))
     try:
         for transport in transports:
-            srv, port, saff = start_server(transport)
-            log.note("server (%s): pid %d, port %d, affinity %s" % (transport, srv.pid, port, saff))
-            try:
-                cs, keep = cells(port, transport)
+            target = srvinfo[transport]
+            t0th = os_threads()
+            if True:
+                log.note("server warm-up: " + warm_server(target, transport))
+                cs, keep = cells(target, transport)
                 log.note(gate(cs))
                 u0, tl0, th0 = arms._ffi.unk_totals(), arms._ffi.tls_created(), threading_starts[0]
                 for d, lst in cs.items():
@@ -434,16 +524,22 @@ def main():
                     raise CallFailed("a mode did not run: drop %d, retain %d decodes" % du[:2])
                 if tl1 - tl0 > 2 * (th1 - th0) + 64:
                     raise CallFailed("contexts created %d for %d threads: not per thread" % (tl1 - tl0, th1 - th0))
+                log.note("%s: worker threads (req 4): client pool %d, core runtime workers %d (one runtime for "
+                         "%d core clients), grpcio channels %d; OS threads in this process %d before the "
+                         "channels, %d after the run" % (transport, max(INFLIGHT), CORE_WORKERS, len(keep[1]),
+                                                        len(keep[0]), t0th, os_threads()))
                 del keep
-            finally:
-                srv.stdin.close()
-                srv.wait(timeout=30)
     except Exception as e:  # noqa: BLE001  (grpc.RpcError included: any failure aborts)
         log.close(False, "%s: %s" % (type(e).__name__, (str(e).splitlines() or [""])[0][:200]))
         print("ABORTED: %s" % e)
+        if own is not None:
+            own.kill()
         return 1
     if POOL:
         POOL[0].close()
+    if own is not None:
+        own.stdin.close()
+        own.wait(timeout=30)
     log.close(True)
     return 0
 

@@ -58,14 +58,17 @@ static int backend_index(const char *name) {
 static PyObject *py_encode(PyObject *m, PyObject *args) {
   (void)m;
   const char *backend, *rootname;
-  PyObject *root, *acc = NULL;
+  PyObject *root, *acc = NULL, *into = NULL;
   int retain = 0;
-  if (!PyArg_ParseTuple(args, "ssO|Op", &backend, &rootname, &root, &acc, &retain)) return NULL;
+  /* into: a writable buffer (bytearray, memoryview) to copy the encoding into; the call
+   * then returns the length instead of a new bytes object (CAMPAIGN req 11). */
+  if (!PyArg_ParseTuple(args, "ssO|OpO", &backend, &rootname, &root, &acc, &retain, &into)) return NULL;
   int b = backend_index(backend);
   int r = root_index(rootname);
   if (b < 0 || r < 0) return NULL;
   if (acc == Py_None) acc = NULL;
-  return AK_ENC[b][r](root, acc, retain);
+  if (into == Py_None) into = NULL;
+  return AK_ENC[b][r](root, acc, retain, into);
 }
 
 static unsigned long long AK_UNK_OK[2];  /* successful decodes: [0] drop, [1] retain */
@@ -127,6 +130,15 @@ static PyObject *py_core_counters(PyObject *m, PyObject *args) {
   (void)m;
   const char *which = "enc";
   if (!PyArg_ParseTuple(args, "|s", &which)) return NULL;
+#if defined(AK_COUNT) && defined(AK_RPC)
+  if (strcmp(which, "rpc") == 0) {   /* the RPC half's counters (process-global in the core) */
+    struct ak_rpc_counters rc;
+    memset(&rc, 0, sizeof rc);
+    ak_rpc_counters(&rc);
+    return Py_BuildValue("{s:K,s:K}", "forward", (unsigned long long)rc.forward,
+                         "reverse", (unsigned long long)rc.reverse);
+  }
+#endif
 #ifdef AK_COUNT
   const struct AkCounters *c = (strcmp(which, "dec") == 0) ? &CORE_DEC : &CORE_ENC;
   return Py_BuildValue("{s:K,s:K,s:K,s:K,s:K,s:K}",
@@ -160,10 +172,26 @@ static PyObject *py_shim_counts(PyObject *m, PyObject *unused) {
 #endif
 }
 
+/* req 19 (R-H31): every ak_* call the shim and this file made since the last reset_counts,
+ * and the resets among them (counted by the macros the generated file defines). */
+static PyObject *py_abi_counts(PyObject *m, PyObject *unused) {
+  (void)m;
+  (void)unused;
+#ifdef AK_COUNT
+  return Py_BuildValue("{s:K,s:K}", "calls", (unsigned long long)ABICNT[0], "resets", (unsigned long long)ABICNT[1]);
+#else
+  Py_RETURN_NONE;
+#endif
+}
+
 static PyObject *py_reset_counts(PyObject *m, PyObject *unused) {
   (void)m;
   (void)unused;
 #ifdef AK_COUNT
+  memset(ABICNT, 0, sizeof ABICNT);
+#ifdef AK_RPC
+  ak_rpc_counters_reset();
+#endif
   memset(CNT, 0, sizeof CNT);
   memset(&CORE_ENC, 0, sizeof CORE_ENC);
   memset(&CORE_DEC, 0, sizeof CORE_DEC);
@@ -570,6 +598,7 @@ static PyMethodDef methods[] = {
      "the core's own view of every group layout (ABI v1 section 10)"},
     {"core_counters", py_core_counters, METH_VARARGS, "reserved"},
     {"shim_counts", py_shim_counts, METH_NOARGS, "what the shim did to CPython"},
+    {"abi_counts", py_abi_counts, METH_NOARGS, "every ak_* call and the resets among them (counting build)"},
     {"reset_counts", py_reset_counts, METH_NOARGS, "zero the shim's counters"},
     {"counting", py_counting, METH_NOARGS, "is this the counting build"},
     {"abi_version", py_abi_version, METH_NOARGS, "ak_abi_version() from the core"},

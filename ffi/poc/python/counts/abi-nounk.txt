@@ -1,0 +1,344 @@
+   abi P1.1                       encode  no-unknown plain                  calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi P1.1                       encode  no-unknown __slots__              calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi P1.1                       encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi P1.1                       encode  no-unknown pyacc (python fn)      calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi P1.1                       encode  no-unknown pyacc (C attrgetter)   calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi P1.1                       decode  no-unknown plain                  calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi P1.1                       decode  no-unknown __slots__              calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi P1.1                       decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi P1.1                       decode  no-unknown pyacc (python fn)      calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi P1.1                       decode  no-unknown pyacc (C attrgetter)   calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi P1.2                       encode  no-unknown plain                  calls     10 resets   1 grows    0 fwd      8 rev      1
+   abi P1.2                       encode  no-unknown __slots__              calls     10 resets   1 grows    0 fwd      8 rev      1
+   abi P1.2                       encode  no-unknown C ext type             calls     10 resets   1 grows    0 fwd      8 rev      1
+   abi P1.2                       encode  no-unknown pyacc (python fn)      calls     10 resets   1 grows    0 fwd      8 rev      1
+   abi P1.2                       encode  no-unknown pyacc (C attrgetter)   calls     10 resets   1 grows    0 fwd      8 rev      1
+   abi P1.2                       decode  no-unknown plain                  calls      1 resets   0 grows    0 fwd      1 rev      5
+   abi P1.2                       decode  no-unknown __slots__              calls      1 resets   0 grows    0 fwd      1 rev      5
+   abi P1.2                       decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      5
+   abi P1.2                       decode  no-unknown pyacc (python fn)      calls      1 resets   0 grows    0 fwd      1 rev      5
+   abi P1.2                       decode  no-unknown pyacc (C attrgetter)   calls      1 resets   0 grows    0 fwd      1 rev      5
+   abi P1.3                       encode  no-unknown plain                  calls      5 resets   1 grows    0 fwd      3 rev      1
+   abi P1.3                       encode  no-unknown __slots__              calls      5 resets   1 grows    0 fwd      3 rev      1
+   abi P1.3                       encode  no-unknown C ext type             calls      5 resets   1 grows    0 fwd      3 rev      1
+   abi P1.3                       encode  no-unknown pyacc (python fn)      calls      5 resets   1 grows    0 fwd      3 rev      1
+   abi P1.3                       encode  no-unknown pyacc (C attrgetter)   calls      5 resets   1 grows    0 fwd      3 rev      1
+   abi P1.3                       decode  no-unknown plain                  calls      1 resets   0 grows    0 fwd      1 rev      3
+   abi P1.3                       decode  no-unknown __slots__              calls      1 resets   0 grows    0 fwd      1 rev      3
+   abi P1.3                       decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      3
+   abi P1.3                       decode  no-unknown pyacc (python fn)      calls      1 resets   0 grows    0 fwd      1 rev      3
+   abi P1.3                       decode  no-unknown pyacc (C attrgetter)   calls      1 resets   0 grows    0 fwd      1 rev      3
+   abi P2.1                       encode  no-unknown plain                  calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi P2.1                       encode  no-unknown __slots__              calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi P2.1                       encode  no-unknown C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi P2.1                       encode  no-unknown pyacc (python fn)      calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi P2.1                       encode  no-unknown pyacc (C attrgetter)   calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi P2.1                       decode  no-unknown plain                  calls      1 resets   0 grows    0 fwd      1 rev      8
+   abi P2.1                       decode  no-unknown __slots__              calls      1 resets   0 grows    0 fwd      1 rev      8
+   abi P2.1                       decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      8
+   abi P2.1                       decode  no-unknown pyacc (python fn)      calls      1 resets   0 grows    0 fwd      1 rev      8
+   abi P2.1                       decode  no-unknown pyacc (C attrgetter)   calls      1 resets   0 grows    0 fwd      1 rev      8
+   abi P2.2                       encode  no-unknown plain                  calls   2513 resets   1 grows    0 fwd   2511 rev   2501
+   abi P2.2                       encode  no-unknown __slots__              calls   2513 resets   1 grows    0 fwd   2511 rev   2501
+   abi P2.2                       encode  no-unknown C ext type             calls   2513 resets   1 grows    0 fwd   2511 rev   2501
+   abi P2.2                       encode  no-unknown pyacc (python fn)      calls   2513 resets   1 grows    0 fwd   2511 rev   2501
+   abi P2.2                       encode  no-unknown pyacc (C attrgetter)   calls   2513 resets   1 grows    0 fwd   2511 rev   2501
+   abi P2.2                       decode  no-unknown plain                  calls      1 resets   0 grows    0 fwd      1 rev   3501
+   abi P2.2                       decode  no-unknown __slots__              calls      1 resets   0 grows    0 fwd      1 rev   3501
+   abi P2.2                       decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev   3501
+   abi P2.2                       decode  no-unknown pyacc (python fn)      calls      1 resets   0 grows    0 fwd      1 rev   3501
+   abi P2.2                       decode  no-unknown pyacc (C attrgetter)   calls      1 resets   0 grows    0 fwd      1 rev   3501
+   abi P2.3                       encode  no-unknown plain                  calls    631 resets   1 grows    0 fwd    629 rev    626
+   abi P2.3                       encode  no-unknown __slots__              calls    631 resets   1 grows    0 fwd    629 rev    626
+   abi P2.3                       encode  no-unknown C ext type             calls    631 resets   1 grows    0 fwd    629 rev    626
+   abi P2.3                       encode  no-unknown pyacc (python fn)      calls    631 resets   1 grows    0 fwd    629 rev    626
+   abi P2.3                       encode  no-unknown pyacc (C attrgetter)   calls    631 resets   1 grows    0 fwd    629 rev    626
+   abi P2.3                       decode  no-unknown plain                  calls      1 resets   0 grows    0 fwd      1 rev    876
+   abi P2.3                       decode  no-unknown __slots__              calls      1 resets   0 grows    0 fwd      1 rev    876
+   abi P2.3                       decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev    876
+   abi P2.3                       decode  no-unknown pyacc (python fn)      calls      1 resets   0 grows    0 fwd      1 rev    876
+   abi P2.3                       decode  no-unknown pyacc (C attrgetter)   calls      1 resets   0 grows    0 fwd      1 rev    876
+   abi P2.4                       encode  no-unknown plain                  calls    405 resets   1 grows    0 fwd    403 rev    401
+   abi P2.4                       encode  no-unknown __slots__              calls    405 resets   1 grows    0 fwd    403 rev    401
+   abi P2.4                       encode  no-unknown C ext type             calls    405 resets   1 grows    0 fwd    403 rev    401
+   abi P2.4                       encode  no-unknown pyacc (python fn)      calls    405 resets   1 grows    0 fwd    403 rev    401
+   abi P2.4                       encode  no-unknown pyacc (C attrgetter)   calls    405 resets   1 grows    0 fwd    403 rev    401
+   abi P2.4                       decode  no-unknown plain                  calls      1 resets   0 grows    0 fwd      1 rev    561
+   abi P2.4                       decode  no-unknown __slots__              calls      1 resets   0 grows    0 fwd      1 rev    561
+   abi P2.4                       decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev    561
+   abi P2.4                       decode  no-unknown pyacc (python fn)      calls      1 resets   0 grows    0 fwd      1 rev    561
+   abi P2.4                       decode  no-unknown pyacc (C attrgetter)   calls      1 resets   0 grows    0 fwd      1 rev    561
+   abi P2.5                       encode  no-unknown plain                  calls    104 resets   1 grows    0 fwd    102 rev    101
+   abi P2.5                       encode  no-unknown __slots__              calls    104 resets   1 grows    0 fwd    102 rev    101
+   abi P2.5                       encode  no-unknown C ext type             calls    104 resets   1 grows    0 fwd    102 rev    101
+   abi P2.5                       encode  no-unknown pyacc (python fn)      calls    104 resets   1 grows    0 fwd    102 rev    101
+   abi P2.5                       encode  no-unknown pyacc (C attrgetter)   calls    104 resets   1 grows    0 fwd    102 rev    101
+   abi P2.5                       decode  no-unknown plain                  calls      1 resets   0 grows    0 fwd      1 rev    141
+   abi P2.5                       decode  no-unknown __slots__              calls      1 resets   0 grows    0 fwd      1 rev    141
+   abi P2.5                       decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev    141
+   abi P2.5                       decode  no-unknown pyacc (python fn)      calls      1 resets   0 grows    0 fwd      1 rev    141
+   abi P2.5                       decode  no-unknown pyacc (C attrgetter)   calls      1 resets   0 grows    0 fwd      1 rev    141
+   abi P3.1                       encode  no-unknown plain                  calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi P3.1                       encode  no-unknown __slots__              calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi P3.1                       encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi P3.1                       encode  no-unknown pyacc (python fn)      calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi P3.1                       encode  no-unknown pyacc (C attrgetter)   calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi P3.1                       decode  no-unknown plain                  calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi P3.1                       decode  no-unknown __slots__              calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi P3.1                       decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi P3.1                       decode  no-unknown pyacc (python fn)      calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi P3.1                       decode  no-unknown pyacc (C attrgetter)   calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi P4.1                       encode  no-unknown plain                  calls    205 resets   1 grows    0 fwd    203 rev    201
+   abi P4.1                       encode  no-unknown __slots__              calls    205 resets   1 grows    0 fwd    203 rev    201
+   abi P4.1                       encode  no-unknown C ext type             calls    205 resets   1 grows    0 fwd    203 rev    201
+   abi P4.1                       encode  no-unknown pyacc (python fn)      calls    205 resets   1 grows    0 fwd    203 rev    201
+   abi P4.1                       encode  no-unknown pyacc (C attrgetter)   calls    205 resets   1 grows    0 fwd    203 rev    201
+   abi P4.1                       decode  no-unknown plain                  calls      1 resets   0 grows    0 fwd      1 rev    601
+   abi P4.1                       decode  no-unknown __slots__              calls      1 resets   0 grows    0 fwd      1 rev    601
+   abi P4.1                       decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev    601
+   abi P4.1                       decode  no-unknown pyacc (python fn)      calls      1 resets   0 grows    0 fwd      1 rev    601
+   abi P4.1                       decode  no-unknown pyacc (C attrgetter)   calls      1 resets   0 grows    0 fwd      1 rev    601
+   abi P5.1                       encode  no-unknown plain                  calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.1                       encode  no-unknown __slots__              calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.1                       encode  no-unknown C ext type             calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.1                       encode  no-unknown pyacc (python fn)      calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.1                       encode  no-unknown pyacc (C attrgetter)   calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.1                       decode  no-unknown plain                  calls      1 resets   0 grows    0 fwd      1 rev      1
+   abi P5.1                       decode  no-unknown __slots__              calls      1 resets   0 grows    0 fwd      1 rev      1
+   abi P5.1                       decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      1
+   abi P5.1                       decode  no-unknown pyacc (python fn)      calls      1 resets   0 grows    0 fwd      1 rev      1
+   abi P5.1                       decode  no-unknown pyacc (C attrgetter)   calls      1 resets   0 grows    0 fwd      1 rev      1
+   abi P5.2                       encode  no-unknown plain                  calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.2                       encode  no-unknown __slots__              calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.2                       encode  no-unknown C ext type             calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.2                       encode  no-unknown pyacc (python fn)      calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.2                       encode  no-unknown pyacc (C attrgetter)   calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.2                       decode  no-unknown plain                  calls      1 resets   0 grows    0 fwd      1 rev      1
+   abi P5.2                       decode  no-unknown __slots__              calls      1 resets   0 grows    0 fwd      1 rev      1
+   abi P5.2                       decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      1
+   abi P5.2                       decode  no-unknown pyacc (python fn)      calls      1 resets   0 grows    0 fwd      1 rev      1
+   abi P5.2                       decode  no-unknown pyacc (C attrgetter)   calls      1 resets   0 grows    0 fwd      1 rev      1
+   abi P5.3                       encode  no-unknown plain                  calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.3                       encode  no-unknown __slots__              calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.3                       encode  no-unknown C ext type             calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.3                       encode  no-unknown pyacc (python fn)      calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.3                       encode  no-unknown pyacc (C attrgetter)   calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.3                       decode  no-unknown plain                  calls      1 resets   0 grows    0 fwd      1 rev      1
+   abi P5.3                       decode  no-unknown __slots__              calls      1 resets   0 grows    0 fwd      1 rev      1
+   abi P5.3                       decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      1
+   abi P5.3                       decode  no-unknown pyacc (python fn)      calls      1 resets   0 grows    0 fwd      1 rev      1
+   abi P5.3                       decode  no-unknown pyacc (C attrgetter)   calls      1 resets   0 grows    0 fwd      1 rev      1
+   abi P5.4                       encode  no-unknown plain                  calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.4                       encode  no-unknown __slots__              calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.4                       encode  no-unknown C ext type             calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.4                       encode  no-unknown pyacc (python fn)      calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.4                       encode  no-unknown pyacc (C attrgetter)   calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.4                       decode  no-unknown plain                  calls      1 resets   0 grows    0 fwd      1 rev      1
+   abi P5.4                       decode  no-unknown __slots__              calls      1 resets   0 grows    0 fwd      1 rev      1
+   abi P5.4                       decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      1
+   abi P5.4                       decode  no-unknown pyacc (python fn)      calls      1 resets   0 grows    0 fwd      1 rev      1
+   abi P5.4                       decode  no-unknown pyacc (C attrgetter)   calls      1 resets   0 grows    0 fwd      1 rev      1
+   abi P6.1                       encode  no-unknown plain                  calls   1004 resets   1 grows    0 fwd   1002 rev   1001
+   abi P6.1                       encode  no-unknown __slots__              calls   1004 resets   1 grows    0 fwd   1002 rev   1001
+   abi P6.1                       encode  no-unknown C ext type             calls   1004 resets   1 grows    0 fwd   1002 rev   1001
+   abi P6.1                       encode  no-unknown pyacc (python fn)      calls   1004 resets   1 grows    0 fwd   1002 rev   1001
+   abi P6.1                       encode  no-unknown pyacc (C attrgetter)   calls   1004 resets   1 grows    0 fwd   1002 rev   1001
+   abi P6.1                       decode  no-unknown plain                  calls      1 resets   0 grows    0 fwd      1 rev   1401
+   abi P6.1                       decode  no-unknown __slots__              calls      1 resets   0 grows    0 fwd      1 rev   1401
+   abi P6.1                       decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev   1401
+   abi P6.1                       decode  no-unknown pyacc (python fn)      calls      1 resets   0 grows    0 fwd      1 rev   1401
+   abi P6.1                       decode  no-unknown pyacc (C attrgetter)   calls      1 resets   0 grows    0 fwd      1 rev   1401
+   abi P7.1                       encode  no-unknown plain                  calls      5 resets   1 grows    0 fwd      3 rev      2
+   abi P7.1                       encode  no-unknown __slots__              calls      5 resets   1 grows    0 fwd      3 rev      2
+   abi P7.1                       encode  no-unknown C ext type             calls      5 resets   1 grows    0 fwd      3 rev      2
+   abi P7.1                       encode  no-unknown pyacc (python fn)      calls      5 resets   1 grows    0 fwd      3 rev      2
+   abi P7.1                       encode  no-unknown pyacc (C attrgetter)   calls      5 resets   1 grows    0 fwd      3 rev      2
+   abi P7.1                       decode  no-unknown plain                  calls      1 resets   0 grows    0 fwd      1 rev      7
+   abi P7.1                       decode  no-unknown __slots__              calls      1 resets   0 grows    0 fwd      1 rev      7
+   abi P7.1                       decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      7
+   abi P7.1                       decode  no-unknown pyacc (python fn)      calls      1 resets   0 grows    0 fwd      1 rev      7
+   abi P7.1                       decode  no-unknown pyacc (C attrgetter)   calls      1 resets   0 grows    0 fwd      1 rev      7
+   abi U-deep-all                 encode  no-unknown C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-deep-all                 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      8
+   abi U-deep-u-fixed32           encode  no-unknown C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-deep-u-fixed32           decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      8
+   abi U-deep-u-fixed64           encode  no-unknown C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-deep-u-fixed64           decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      8
+   abi U-deep-u-len               encode  no-unknown C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-deep-u-len               decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      8
+   abi U-deep-u-msg               encode  no-unknown C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-deep-u-msg               decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      8
+   abi U-deep-u-packed            encode  no-unknown C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-deep-u-packed            decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      8
+   abi U-deep-u-repeated          encode  no-unknown C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-deep-u-repeated          decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      8
+   abi U-deep-u-varint            encode  no-unknown C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-deep-u-varint            decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      8
+   abi U-element-all              encode  no-unknown C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-element-all              decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      8
+   abi U-element-u-fixed32        encode  no-unknown C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-element-u-fixed32        decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      8
+   abi U-element-u-fixed64        encode  no-unknown C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-element-u-fixed64        decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      8
+   abi U-element-u-len            encode  no-unknown C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-element-u-len            decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      8
+   abi U-element-u-msg            encode  no-unknown C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-element-u-msg            decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      8
+   abi U-element-u-packed         encode  no-unknown C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-element-u-packed         decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      8
+   abi U-element-u-repeated       encode  no-unknown C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-element-u-repeated       decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      8
+   abi U-element-u-varint         encode  no-unknown C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-element-u-varint         decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      8
+   abi U-enum-value-127           encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-enum-value-127           decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-enum-value-2147483647    encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-enum-value-2147483647    decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-enum-value-999           encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-enum-value-999           decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-enum-value-packed        encode  no-unknown C ext type             calls      5 resets   1 grows    0 fwd      3 rev      6
+   abi U-enum-value-packed        decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      4
+   abi U-leaf-all                 encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-leaf-all                 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-leaf-u-fixed32           encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-leaf-u-fixed32           decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-leaf-u-fixed64           encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-leaf-u-fixed64           decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-leaf-u-len               encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-leaf-u-len               decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-leaf-u-msg               encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-leaf-u-msg               decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-leaf-u-packed            encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-leaf-u-packed            decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-leaf-u-repeated          encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-leaf-u-repeated          decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-leaf-u-varint            encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-leaf-u-varint            decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-nested-all               encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-nested-all               decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-nested-before            encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-nested-before            decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-nested-group             encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-nested-group             decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-nested-interleaved       encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-nested-interleaved       decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-nested-u-fixed32         encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-nested-u-fixed32         decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-nested-u-fixed64         encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-nested-u-fixed64         decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-nested-u-len             encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-nested-u-len             decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-nested-u-msg             encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-nested-u-msg             decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-nested-u-packed          encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-nested-u-packed          decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-nested-u-repeated        encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-nested-u-repeated        decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-nested-u-varint          encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-nested-u-varint          decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-oneof-all                encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-all                decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-oneof-before             encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-before             decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-oneof-group              encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-group              decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-oneof-interleaved        encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-interleaved        decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-oneof-member-after-known encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-member-after-known decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-oneof-member-alone       encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-member-alone       decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-oneof-member-before-known encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-member-before-known decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-oneof-u-fixed32          encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-u-fixed32          decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-oneof-u-fixed64          encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-u-fixed64          decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-oneof-u-len              encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-u-len              decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-oneof-u-msg              encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-u-msg              decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-oneof-u-packed           encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-u-packed           decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-oneof-u-repeated         encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-u-repeated         decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-oneof-u-varint           encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-u-varint           decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-root-all                 encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-root-all                 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-root-before              encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-root-before              decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-root-group               encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-root-group               decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-root-interleaved         encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-root-interleaved         decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-root-max-tag             encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-root-max-tag             decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-root-u-fixed32           encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-root-u-fixed32           decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-root-u-fixed64           encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-root-u-fixed64           decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-root-u-len               encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-root-u-len               decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-root-u-msg               encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-root-u-msg               decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-root-u-packed            encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-root-u-packed            decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-root-u-repeated          encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-root-u-repeated          decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-root-u-varint            encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-root-u-varint            decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-wire-DualResponse-left-as-wt0 encode  no-unknown C ext type             calls      5 resets   1 grows    0 fwd      3 rev      2
+   abi U-wire-DualResponse-left-as-wt0 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      3
+   abi U-wire-DualResponse-left-as-wt1 encode  no-unknown C ext type             calls      5 resets   1 grows    0 fwd      3 rev      2
+   abi U-wire-DualResponse-left-as-wt1 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      3
+   abi U-wire-DualResponse-left-as-wt5 encode  no-unknown C ext type             calls      5 resets   1 grows    0 fwd      3 rev      2
+   abi U-wire-DualResponse-left-as-wt5 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      3
+   abi U-wire-ListMetricsResponse-batches-as-wt0 encode  no-unknown C ext type             calls     14 resets   1 grows    0 fwd     12 rev     11
+   abi U-wire-ListMetricsResponse-batches-as-wt0 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev     15
+   abi U-wire-ListMetricsResponse-batches-as-wt1 encode  no-unknown C ext type             calls     14 resets   1 grows    0 fwd     12 rev     11
+   abi U-wire-ListMetricsResponse-batches-as-wt1 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev     15
+   abi U-wire-ListMetricsResponse-batches-as-wt5 encode  no-unknown C ext type             calls     14 resets   1 grows    0 fwd     12 rev     11
+   abi U-wire-ListMetricsResponse-batches-as-wt5 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev     15
+   abi U-wire-ListProbeResponse-probes-as-wt0 encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-wire-ListProbeResponse-probes-as-wt0 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-wire-ListProbeResponse-probes-as-wt1 encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-wire-ListProbeResponse-probes-as-wt1 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-wire-ListProbeResponse-probes-as-wt5 encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-wire-ListProbeResponse-probes-as-wt5 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-wire-ListResultsResponse-page-as-wt1 encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-wire-ListResultsResponse-page-as-wt1 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-wire-ListResultsResponse-page-as-wt2 encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-wire-ListResultsResponse-page-as-wt2 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-wire-ListResultsResponse-page-as-wt5 encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-wire-ListResultsResponse-page-as-wt5 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-wire-ListResultsResponse-results-as-wt0 encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-wire-ListResultsResponse-results-as-wt0 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-wire-ListResultsResponse-results-as-wt1 encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-wire-ListResultsResponse-results-as-wt1 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-wire-ListResultsResponse-results-as-wt5 encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-wire-ListResultsResponse-results-as-wt5 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-wire-ListTaskSummaryResponse-tasks-as-wt0 encode  no-unknown C ext type             calls      6 resets   1 grows    0 fwd      4 rev      3
+   abi U-wire-ListTaskSummaryResponse-tasks-as-wt0 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      7
+   abi U-wire-ListTaskSummaryResponse-tasks-as-wt1 encode  no-unknown C ext type             calls      6 resets   1 grows    0 fwd      4 rev      3
+   abi U-wire-ListTaskSummaryResponse-tasks-as-wt1 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      7
+   abi U-wire-ListTaskSummaryResponse-tasks-as-wt5 encode  no-unknown C ext type             calls      6 resets   1 grows    0 fwd      4 rev      3
+   abi U-wire-ListTaskSummaryResponse-tasks-as-wt5 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      7
+   abi U-wire-ListTasksDetailedResponse-page-as-wt1 encode  no-unknown C ext type             calls     14 resets   1 grows    0 fwd     12 rev     11
+   abi U-wire-ListTasksDetailedResponse-page-as-wt1 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev     15
+   abi U-wire-ListTasksDetailedResponse-page-as-wt2 encode  no-unknown C ext type             calls     14 resets   1 grows    0 fwd     12 rev     11
+   abi U-wire-ListTasksDetailedResponse-page-as-wt2 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev     15
+   abi U-wire-ListTasksDetailedResponse-page-as-wt5 encode  no-unknown C ext type             calls     14 resets   1 grows    0 fwd     12 rev     11
+   abi U-wire-ListTasksDetailedResponse-page-as-wt5 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev     15
+   abi U-wire-ListTasksDetailedResponse-tasks-as-wt0 encode  no-unknown C ext type             calls     14 resets   1 grows    0 fwd     12 rev     11
+   abi U-wire-ListTasksDetailedResponse-tasks-as-wt0 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev     15
+   abi U-wire-ListTasksDetailedResponse-tasks-as-wt1 encode  no-unknown C ext type             calls     14 resets   1 grows    0 fwd     12 rev     11
+   abi U-wire-ListTasksDetailedResponse-tasks-as-wt1 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev     15
+   abi U-wire-ListTasksDetailedResponse-tasks-as-wt5 encode  no-unknown C ext type             calls     14 resets   1 grows    0 fwd     12 rev     11
+   abi U-wire-ListTasksDetailedResponse-tasks-as-wt5 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev     15
+   abi U-wire-UploadResultDataMessage-upload-as-wt0 encode  no-unknown C ext type             calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi U-wire-UploadResultDataMessage-upload-as-wt0 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      1
+   abi U-wire-UploadResultDataMessage-upload-as-wt1 encode  no-unknown C ext type             calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi U-wire-UploadResultDataMessage-upload-as-wt1 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      1
+   abi U-wire-UploadResultDataMessage-upload-as-wt5 encode  no-unknown C ext type             calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi U-wire-UploadResultDataMessage-upload-as-wt5 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      1

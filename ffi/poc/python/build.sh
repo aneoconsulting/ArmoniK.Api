@@ -89,6 +89,11 @@ cargo_q plain-nounk --no-default-features --features init-guard
 cargo_q count-nounk --no-default-features --features count,init-guard
 cargo_q rpc-nounk --no-default-features --features rpc,init-guard
 cargo_q corpus-nounk --no-default-features --features corpus,init-guard
+# Req 19 (R-H31): the RPC cells are counted per call, so the rpc core has a counting build too,
+# in both variants.
+cargo_q rpc-count --features rpc,count,init-guard
+cargo_q rpc-count-nounk --no-default-features --features rpc,count,init-guard
+RPCCOUNTLIB="$TBASE/rpc-count/release"; NRPCCOUNTLIB="$TBASE/rpc-count-nounk/release"
 NCORELIB="$TBASE/plain-nounk/release"; NCOUNTLIB="$TBASE/count-nounk/release"
 NRPCLIB="$TBASE/rpc-nounk/release"; NCORPUSLIB="$TBASE/corpus-nounk/release"
 UFAM=' T ak_(uencode_|uelem|dec_reset_)'
@@ -149,6 +154,13 @@ for PY in "$@"; do
   shim _akffi_nounk gen/out/nounk "$NCORELIB" "$D" -DAK_NOUNK
   shim _akffi_count_nounk gen/out/nounk "$NCOUNTLIB" "$D" -DAK_NOUNK -DAK_COUNT
   shim _akffi_rpc_nounk gen/out/nounk "$NRPCLIB" "$D" -DAK_NOUNK -DAK_RPC
+  shim _akffi_rpc_count gen/out "$RPCCOUNTLIB" "$D" -DAK_RPC -DAK_COUNT
+  shim _akffi_rpc_count_nounk gen/out/nounk "$NRPCCOUNTLIB" "$D" -DAK_NOUNK -DAK_RPC -DAK_COUNT
+  for m in _akffi_rpc_count _akffi_rpc_count_nounk; do
+    f=$( (cd "$D" && "$PYABS" -c "import $m; print($m.counting(), $m.abi_counts() is not None, $m.nounk())") 2>&1) \
+      || { echo "   FAIL: $m does not import: $f"; exit 1; }
+    echo "   $m (the RPC counting build, req 19): counting, abi counts, variant: $f"
+  done
   shim _akffi_corpus_nounk gen/out/corpus-nounk "$NCORPUSLIB" "$D" -DAK_NOUNK -DAK_CORPUS
   shim _akffi_corpus_chunk_nounk gen/out/corpus-nounk "$NCORPUSLIB" "$D" -DAK_NOUNK -DAK_CORPUS -DAK_CHUNK_BYTES=256 -DAK_CHUNK_PACKED=3
   shim _akffi_corpus_noinit_nounk gen/out/corpus-nounk "$NCORPUSLIB" "$D/ctl" -DAK_NOUNK -DAK_CORPUS -DAK_SKIP_INIT

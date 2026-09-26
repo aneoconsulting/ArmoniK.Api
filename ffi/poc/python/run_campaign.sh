@@ -4,7 +4,8 @@
 #   ./run_campaign.sh --suite codec|rpc|calib|gate --out <dir>   (CAMPAIGN.md 29: --out ffi/logs/python/campaign) [--launches 3] [--rounds 5]
 #                     [--smoke] [--allow-dirty]
 #
-# Environment: AK_CPU_CLIENT, AK_CPU_SERVER (required for codec/rpc/calib unless --smoke),
+# Environment: AK_CPU_CLIENT, AK_CPU_SERVER (from ffi/campaign.machine via ffi/campaign.sh, or
+#   read here from that file when unset; required for codec/rpc/calib unless --smoke),
 #   AK_ISOLATION (the isolation mechanism, printed in every header), AK_PY (target, default
 #   python3.12), AK_FLOOR_PY (floor, default build/py37/python3.7 when ./fetch_py37.sh ran),
 #   AK_SNAPSHOT (commit to build the core from, default HEAD: a `git archive`, never the
@@ -14,8 +15,9 @@
 #        (payload-set byte identity on every arm, the whole corpus on every codec arm in both
 #        unknown-field modes where built, the planted controls), plus the RPC runner's
 #        must-fail control. Writes <out>/gate.ok on success.
-# codec  (refuses without a gate.ok for this commit) the codec suite, families shapes and
-#        unknown, one process per family per launch
+# codec  (refuses without a gate.ok for this commit) the codec suite, families shapes,
+#        unknown (the 92 U-* rows at the shapes core's roots) and unknown-corpus (extra), and
+#        one pyperf invocation per family per build per launch
 # rpc    (refuses without gate.ok) the RPC grid, one client process per launch, the server
 #        in its own pinned process
 # calib  (refuses without gate.ok) crossing counts (a gate: a difference stops it) and
@@ -56,6 +58,11 @@ if [ -n "$SMOKE" ]; then
 else
   TARGET_MS=50; CALLS=400; CITERS=2000000
   if [ "$SUITE" != gate ]; then
+    # Req 4 as amended (R-H34): the CPU sets come from ffi/campaign.machine, which
+    # ffi/campaign.sh sources and exports (and checks: sizes 4 and 4, SMT siblings). Run on
+    # its own, this runner reads the same file; values already in the environment win.
+    M="$HERE/../../campaign.machine"
+    if [ -f "$M" ] && { [ -z "${AK_CPU_CLIENT:-}" ] || [ -z "${AK_CPU_SERVER:-}" ]; }; then . "$M"; export AK_CPU_CLIENT AK_CPU_SERVER; fi
     [ -n "${AK_CPU_CLIENT:-}" ] && [ -n "${AK_CPU_SERVER:-}" ] || { echo "AK_CPU_CLIENT and AK_CPU_SERVER are required"; exit 2; }
   fi
 fi
@@ -95,7 +102,10 @@ case "$SUITE" in
     AFF="${AK_CPU_CLIENT:-$("$PY" -c 'import os;print(",".join(map(str,sorted(os.sched_getaffinity(0)))))')}"
     if [ -n "$SMOKE" ]; then
       PP="--processes 1 --values 1 --warmups 1 --min-time 0.002"
-      ONLY_UNKNOWN="--only U-root-all,U-nested-all,U-oneof-all,U-wire-Probe-name-as-wt0,U-enum-value-999"
+      ONLY_UNKNOWN="--only U-root-all,U-nested-all,U-oneof-all,U-deep-all,U-enum-value-999"
+      # A smoke builds each beyond-cache pool at 1 MiB of wire bytes (stated in the header);
+      # the campaign uses the default, 13.75 MiB (req 11).
+      export AK_POOL_BYTES="${AK_POOL_BYTES:-1048576}"
     else
       PP="--processes 1 --values $ROUNDS --warmups 3 --min-time 0.1"
       ONLY_UNKNOWN=""
@@ -108,10 +118,12 @@ case "$SUITE" in
     codec_run() {  # codec_run <launch> <full|nounk>
       local l=$1 v=$2 fam O1 ONLY sfx=""
       [ "$v" = nounk ] && sfx="-nounk"
-      for fam in shapes unknown; do
+      # shapes; unknown = the 92 rows at the shapes core's roots (req 7); unknown-corpus = the
+      # corpus-schema core, a labelled extra
+      for fam in shapes unknown unknown-corpus; do
         O1="$OUT/codec-$fam$sfx-launch$l"
         rm -rf "$O1.side" "$O1.pyperf.json"
-        ONLY=""; [ $fam = unknown ] && ONLY="$ONLY_UNKNOWN"
+        ONLY=""; [ $fam != shapes ] && ONLY="$ONLY_UNKNOWN"
         PYTHONPATH="$HERE/build/pyperf" "$PY" camp_pyperf.py --family $fam --launch "$l" --variant "$v" $ONLY --side "$O1.side" \
           -o "$O1.pyperf.json" $PP --affinity "$AFF" --copy-env --quiet > "$O1.pyperf.out" 2>&1 \
           || { tail -20 "$O1.pyperf.out"; echo "   pyperf failed: codec $fam ($v) launch $l"; exit 1; }
@@ -129,18 +141,32 @@ case "$SUITE" in
     ;;
   rpc)
     need_gate
-    # WP5 step 10: the full build's client (A B C-retain C-drop D-retain D-drop) and the
-    # no-unknown build's (A B C-nounk D-nounk; A and B are its in-process controls), one
-    # process each, in an order alternated by launch.
-    rpc_run() {  # rpc_run <launch> <full|nounk>
-      local l=$1 v=$2 F="$OUT/rpc-launch$1"
+    # The full build's client (A, B, C and D in retain and drop, E and F in host-gen's drop
+    # and retain, the labelled extras) and the no-unknown build's (A, B, C-nounk, D-nounk; A
+    # and B share its client process), one process each, in an order alternated by launch.
+    # Req 13 as amended (R-H33): ONE server process per launch (camp_server.py, pinned to
+    # AK_CPU_SERVER, both transport configurations on two Unix sockets), serving every cell
+    # of both builds; each client warms it from each of its transports before round 1.
+    rpc_run() {  # rpc_run <launch> <full|nounk> <server sockets>
+      local l=$1 v=$2 S=$3 F="$OUT/rpc-launch$1"
       [ "$v" = nounk ] && F="$OUT/rpc-nounk-launch$1"
-      "$PY" camp_rpc.py --launch "$l" --rounds "$ROUNDS" --calls "$CALLS" --variant "$v" --out "$F.jsonl" $SMOKE $DIRTY 2>"$F.stderr"
+      "$PY" camp_rpc.py --launch "$l" --rounds "$ROUNDS" --calls "$CALLS" --variant "$v" --server "$S" \
+        --out "$F.jsonl" $SMOKE $DIRTY 2>"$F.stderr"
       echo "   rpc ($v) launch $l: $(grep -c '^{' "$F.jsonl" || true) samples$(grep -q '^# ABORTED' "$F.jsonl" && echo ", $(grep '^# ABORTED' "$F.jsonl")")"
     }
     for l in $(seq 1 "$LAUNCHES"); do
-      if [ $((l % 2)) = 1 ]; then rpc_run "$l" full; rpc_run "$l" nounk
-      else rpc_run "$l" nounk; rpc_run "$l" full; fi
+      SD=$(mktemp -d /tmp/akrpc-srv.XXXXXX)
+      coproc SRV { exec "$PY" camp_server.py --dir "$SD"; }
+      read -r SLINE <&"${SRV[0]}"
+      case "$SLINE" in SOCKETS*) ;; *) echo "   the server did not start: $SLINE"; exit 1;; esac
+      SOCKS=$(echo "$SLINE" | tr ' ' '\n' | grep '=unix:' | paste -sd, -)
+      echo "   launch $l server: pid $SRV_PID, $SLINE"
+      if [ $((l % 2)) = 1 ]; then rpc_run "$l" full "$SOCKS"; rpc_run "$l" nounk "$SOCKS"
+      else rpc_run "$l" nounk "$SOCKS"; rpc_run "$l" full "$SOCKS"; fi
+      SPID=$SRV_PID
+      eval "exec ${SRV[1]}>&-"
+      wait "$SPID" || true
+      rm -rf "$SD"
     done
     "$PY" camp_summary.py "$OUT" > "$OUT/summary.txt"
     ;;

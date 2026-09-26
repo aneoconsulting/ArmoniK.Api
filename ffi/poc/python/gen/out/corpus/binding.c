@@ -41,6 +41,234 @@ static struct AkCounters CORE_ENC, CORE_DEC;
 #else
 #define BUMP(i) ((void)0)
 #endif
+/* ---- req 19 (R-H31), counting build: every ABI call counted, resets separately ---- */
+#ifdef AK_COUNT
+static uint64_t ABICNT[2];   /* [0] every ak_* call, [1] the resets among them */
+#define AK_ABI_CALL(r) (ABICNT[0]++, ABICNT[1] += (r))
+#define ak_abi_version(...) (AK_ABI_CALL(0), ak_abi_version(__VA_ARGS__))
+#define ak_bdr_count_forward(...) (AK_ABI_CALL(0), ak_bdr_count_forward(__VA_ARGS__))
+#define ak_bdr_drain(...) (AK_ABI_CALL(0), ak_bdr_drain(__VA_ARGS__))
+#define ak_bdr_footprint(...) (AK_ABI_CALL(0), ak_bdr_footprint(__VA_ARGS__))
+#define ak_bdr_ptr(...) (AK_ABI_CALL(0), ak_bdr_ptr(__VA_ARGS__))
+#define ak_bdr_reserve(...) (AK_ABI_CALL(0), ak_bdr_reserve(__VA_ARGS__))
+#define ak_bdr_reset(...) (AK_ABI_CALL(1), ak_bdr_reset(__VA_ARGS__))
+#define ak_blob_run(...) (AK_ABI_CALL(0), ak_blob_run(__VA_ARGS__))
+#define ak_build_id(...) (AK_ABI_CALL(0), ak_build_id(__VA_ARGS__))
+#define ak_bytes_free(...) (AK_ABI_CALL(0), ak_bytes_free(__VA_ARGS__))
+#define ak_call_cancel(...) (AK_ABI_CALL(0), ak_call_cancel(__VA_ARGS__))
+#define ak_call_destroy(...) (AK_ABI_CALL(0), ak_call_destroy(__VA_ARGS__))
+#define ak_call_unary(...) (AK_ABI_CALL(0), ak_call_unary(__VA_ARGS__))
+#define ak_call_unary_cb(...) (AK_ABI_CALL(0), ak_call_unary_cb(__VA_ARGS__))
+#define ak_call_unary_q(...) (AK_ABI_CALL(0), ak_call_unary_q(__VA_ARGS__))
+#define ak_client_destroy(...) (AK_ABI_CALL(0), ak_client_destroy(__VA_ARGS__))
+#define ak_client_new(...) (AK_ABI_CALL(0), ak_client_new(__VA_ARGS__))
+#define ak_client_new_opts(...) (AK_ABI_CALL(0), ak_client_new_opts(__VA_ARGS__))
+#define ak_dec_ctx_free(...) (AK_ABI_CALL(0), ak_dec_ctx_free(__VA_ARGS__))
+#define ak_dec_ctx_new_ChunkElement(...) (AK_ABI_CALL(0), ak_dec_ctx_new_ChunkElement(__VA_ARGS__))
+#define ak_dec_ctx_new_ChunkInner(...) (AK_ABI_CALL(0), ak_dec_ctx_new_ChunkInner(__VA_ARGS__))
+#define ak_dec_ctx_new_ChunkLeaf(...) (AK_ABI_CALL(0), ak_dec_ctx_new_ChunkLeaf(__VA_ARGS__))
+#define ak_dec_ctx_new_ChunkedResponse(...) (AK_ABI_CALL(0), ak_dec_ctx_new_ChunkedResponse(__VA_ARGS__))
+#define ak_dec_ctx_new_ChunkedResponseWide(...) (AK_ABI_CALL(0), ak_dec_ctx_new_ChunkedResponseWide(__VA_ARGS__))
+#define ak_dec_ctx_new_DualResponse(...) (AK_ABI_CALL(0), ak_dec_ctx_new_DualResponse(__VA_ARGS__))
+#define ak_dec_ctx_new_Duration(...) (AK_ABI_CALL(0), ak_dec_ctx_new_Duration(__VA_ARGS__))
+#define ak_dec_ctx_new_Empty(...) (AK_ABI_CALL(0), ak_dec_ctx_new_Empty(__VA_ARGS__))
+#define ak_dec_ctx_new_LeafElement(...) (AK_ABI_CALL(0), ak_dec_ctx_new_LeafElement(__VA_ARGS__))
+#define ak_dec_ctx_new_LeafResponse(...) (AK_ABI_CALL(0), ak_dec_ctx_new_LeafResponse(__VA_ARGS__))
+#define ak_dec_ctx_new_ListMetricsResponse(...) (AK_ABI_CALL(0), ak_dec_ctx_new_ListMetricsResponse(__VA_ARGS__))
+#define ak_dec_ctx_new_ListProbeResponse(...) (AK_ABI_CALL(0), ak_dec_ctx_new_ListProbeResponse(__VA_ARGS__))
+#define ak_dec_ctx_new_ListResultsResponse(...) (AK_ABI_CALL(0), ak_dec_ctx_new_ListResultsResponse(__VA_ARGS__))
+#define ak_dec_ctx_new_ListTaskSummaryResponse(...) (AK_ABI_CALL(0), ak_dec_ctx_new_ListTaskSummaryResponse(__VA_ARGS__))
+#define ak_dec_ctx_new_ListTasksDetailedResponse(...) (AK_ABI_CALL(0), ak_dec_ctx_new_ListTasksDetailedResponse(__VA_ARGS__))
+#define ak_dec_ctx_new_MetricsBatch(...) (AK_ABI_CALL(0), ak_dec_ctx_new_MetricsBatch(__VA_ARGS__))
+#define ak_dec_ctx_new_Pair(...) (AK_ABI_CALL(0), ak_dec_ctx_new_Pair(__VA_ARGS__))
+#define ak_dec_ctx_new_Probe(...) (AK_ABI_CALL(0), ak_dec_ctx_new_Probe(__VA_ARGS__))
+#define ak_dec_ctx_new_ResultRaw(...) (AK_ABI_CALL(0), ak_dec_ctx_new_ResultRaw(__VA_ARGS__))
+#define ak_dec_ctx_new_Surrogate(...) (AK_ABI_CALL(0), ak_dec_ctx_new_Surrogate(__VA_ARGS__))
+#define ak_dec_ctx_new_SurrogateInner(...) (AK_ABI_CALL(0), ak_dec_ctx_new_SurrogateInner(__VA_ARGS__))
+#define ak_dec_ctx_new_TaskDetailed(...) (AK_ABI_CALL(0), ak_dec_ctx_new_TaskDetailed(__VA_ARGS__))
+#define ak_dec_ctx_new_TaskOptions(...) (AK_ABI_CALL(0), ak_dec_ctx_new_TaskOptions(__VA_ARGS__))
+#define ak_dec_ctx_new_TaskOutput(...) (AK_ABI_CALL(0), ak_dec_ctx_new_TaskOutput(__VA_ARGS__))
+#define ak_dec_ctx_new_TaskSummary(...) (AK_ABI_CALL(0), ak_dec_ctx_new_TaskSummary(__VA_ARGS__))
+#define ak_dec_ctx_new_Timestamp(...) (AK_ABI_CALL(0), ak_dec_ctx_new_Timestamp(__VA_ARGS__))
+#define ak_dec_ctx_new_UploadResultData(...) (AK_ABI_CALL(0), ak_dec_ctx_new_UploadResultData(__VA_ARGS__))
+#define ak_dec_ctx_new_UploadResultDataMessage(...) (AK_ABI_CALL(0), ak_dec_ctx_new_UploadResultDataMessage(__VA_ARGS__))
+#define ak_dec_ctx_new_WireZoo(...) (AK_ABI_CALL(0), ak_dec_ctx_new_WireZoo(__VA_ARGS__))
+#define ak_dec_err(...) (AK_ABI_CALL(0), ak_dec_err(__VA_ARGS__))
+#define ak_dec_err_reset(...) (AK_ABI_CALL(1), ak_dec_err_reset(__VA_ARGS__))
+#define ak_dec_reset_ChunkElement(...) (AK_ABI_CALL(1), ak_dec_reset_ChunkElement(__VA_ARGS__))
+#define ak_dec_reset_ChunkInner(...) (AK_ABI_CALL(1), ak_dec_reset_ChunkInner(__VA_ARGS__))
+#define ak_dec_reset_ChunkLeaf(...) (AK_ABI_CALL(1), ak_dec_reset_ChunkLeaf(__VA_ARGS__))
+#define ak_dec_reset_ChunkedResponse(...) (AK_ABI_CALL(1), ak_dec_reset_ChunkedResponse(__VA_ARGS__))
+#define ak_dec_reset_ChunkedResponseWide(...) (AK_ABI_CALL(1), ak_dec_reset_ChunkedResponseWide(__VA_ARGS__))
+#define ak_dec_reset_DualResponse(...) (AK_ABI_CALL(1), ak_dec_reset_DualResponse(__VA_ARGS__))
+#define ak_dec_reset_Duration(...) (AK_ABI_CALL(1), ak_dec_reset_Duration(__VA_ARGS__))
+#define ak_dec_reset_Empty(...) (AK_ABI_CALL(1), ak_dec_reset_Empty(__VA_ARGS__))
+#define ak_dec_reset_LeafElement(...) (AK_ABI_CALL(1), ak_dec_reset_LeafElement(__VA_ARGS__))
+#define ak_dec_reset_LeafResponse(...) (AK_ABI_CALL(1), ak_dec_reset_LeafResponse(__VA_ARGS__))
+#define ak_dec_reset_ListMetricsResponse(...) (AK_ABI_CALL(1), ak_dec_reset_ListMetricsResponse(__VA_ARGS__))
+#define ak_dec_reset_ListProbeResponse(...) (AK_ABI_CALL(1), ak_dec_reset_ListProbeResponse(__VA_ARGS__))
+#define ak_dec_reset_ListResultsResponse(...) (AK_ABI_CALL(1), ak_dec_reset_ListResultsResponse(__VA_ARGS__))
+#define ak_dec_reset_ListTaskSummaryResponse(...) (AK_ABI_CALL(1), ak_dec_reset_ListTaskSummaryResponse(__VA_ARGS__))
+#define ak_dec_reset_ListTasksDetailedResponse(...) (AK_ABI_CALL(1), ak_dec_reset_ListTasksDetailedResponse(__VA_ARGS__))
+#define ak_dec_reset_MetricsBatch(...) (AK_ABI_CALL(1), ak_dec_reset_MetricsBatch(__VA_ARGS__))
+#define ak_dec_reset_Pair(...) (AK_ABI_CALL(1), ak_dec_reset_Pair(__VA_ARGS__))
+#define ak_dec_reset_Probe(...) (AK_ABI_CALL(1), ak_dec_reset_Probe(__VA_ARGS__))
+#define ak_dec_reset_ResultRaw(...) (AK_ABI_CALL(1), ak_dec_reset_ResultRaw(__VA_ARGS__))
+#define ak_dec_reset_Surrogate(...) (AK_ABI_CALL(1), ak_dec_reset_Surrogate(__VA_ARGS__))
+#define ak_dec_reset_SurrogateInner(...) (AK_ABI_CALL(1), ak_dec_reset_SurrogateInner(__VA_ARGS__))
+#define ak_dec_reset_TaskDetailed(...) (AK_ABI_CALL(1), ak_dec_reset_TaskDetailed(__VA_ARGS__))
+#define ak_dec_reset_TaskOptions(...) (AK_ABI_CALL(1), ak_dec_reset_TaskOptions(__VA_ARGS__))
+#define ak_dec_reset_TaskOutput(...) (AK_ABI_CALL(1), ak_dec_reset_TaskOutput(__VA_ARGS__))
+#define ak_dec_reset_TaskSummary(...) (AK_ABI_CALL(1), ak_dec_reset_TaskSummary(__VA_ARGS__))
+#define ak_dec_reset_Timestamp(...) (AK_ABI_CALL(1), ak_dec_reset_Timestamp(__VA_ARGS__))
+#define ak_dec_reset_UploadResultData(...) (AK_ABI_CALL(1), ak_dec_reset_UploadResultData(__VA_ARGS__))
+#define ak_dec_reset_UploadResultDataMessage(...) (AK_ABI_CALL(1), ak_dec_reset_UploadResultDataMessage(__VA_ARGS__))
+#define ak_dec_reset_WireZoo(...) (AK_ABI_CALL(1), ak_dec_reset_WireZoo(__VA_ARGS__))
+#define ak_decode_ChunkElement(...) (AK_ABI_CALL(0), ak_decode_ChunkElement(__VA_ARGS__))
+#define ak_decode_ChunkInner(...) (AK_ABI_CALL(0), ak_decode_ChunkInner(__VA_ARGS__))
+#define ak_decode_ChunkLeaf(...) (AK_ABI_CALL(0), ak_decode_ChunkLeaf(__VA_ARGS__))
+#define ak_decode_ChunkedResponse(...) (AK_ABI_CALL(0), ak_decode_ChunkedResponse(__VA_ARGS__))
+#define ak_decode_ChunkedResponseWide(...) (AK_ABI_CALL(0), ak_decode_ChunkedResponseWide(__VA_ARGS__))
+#define ak_decode_DualResponse(...) (AK_ABI_CALL(0), ak_decode_DualResponse(__VA_ARGS__))
+#define ak_decode_Duration(...) (AK_ABI_CALL(0), ak_decode_Duration(__VA_ARGS__))
+#define ak_decode_Empty(...) (AK_ABI_CALL(0), ak_decode_Empty(__VA_ARGS__))
+#define ak_decode_LeafElement(...) (AK_ABI_CALL(0), ak_decode_LeafElement(__VA_ARGS__))
+#define ak_decode_LeafResponse(...) (AK_ABI_CALL(0), ak_decode_LeafResponse(__VA_ARGS__))
+#define ak_decode_ListMetricsResponse(...) (AK_ABI_CALL(0), ak_decode_ListMetricsResponse(__VA_ARGS__))
+#define ak_decode_ListProbeResponse(...) (AK_ABI_CALL(0), ak_decode_ListProbeResponse(__VA_ARGS__))
+#define ak_decode_ListResultsResponse(...) (AK_ABI_CALL(0), ak_decode_ListResultsResponse(__VA_ARGS__))
+#define ak_decode_ListTaskSummaryResponse(...) (AK_ABI_CALL(0), ak_decode_ListTaskSummaryResponse(__VA_ARGS__))
+#define ak_decode_ListTasksDetailedResponse(...) (AK_ABI_CALL(0), ak_decode_ListTasksDetailedResponse(__VA_ARGS__))
+#define ak_decode_MetricsBatch(...) (AK_ABI_CALL(0), ak_decode_MetricsBatch(__VA_ARGS__))
+#define ak_decode_Pair(...) (AK_ABI_CALL(0), ak_decode_Pair(__VA_ARGS__))
+#define ak_decode_Probe(...) (AK_ABI_CALL(0), ak_decode_Probe(__VA_ARGS__))
+#define ak_decode_ResultRaw(...) (AK_ABI_CALL(0), ak_decode_ResultRaw(__VA_ARGS__))
+#define ak_decode_Surrogate(...) (AK_ABI_CALL(0), ak_decode_Surrogate(__VA_ARGS__))
+#define ak_decode_SurrogateInner(...) (AK_ABI_CALL(0), ak_decode_SurrogateInner(__VA_ARGS__))
+#define ak_decode_TaskDetailed(...) (AK_ABI_CALL(0), ak_decode_TaskDetailed(__VA_ARGS__))
+#define ak_decode_TaskOptions(...) (AK_ABI_CALL(0), ak_decode_TaskOptions(__VA_ARGS__))
+#define ak_decode_TaskOutput(...) (AK_ABI_CALL(0), ak_decode_TaskOutput(__VA_ARGS__))
+#define ak_decode_TaskSummary(...) (AK_ABI_CALL(0), ak_decode_TaskSummary(__VA_ARGS__))
+#define ak_decode_Timestamp(...) (AK_ABI_CALL(0), ak_decode_Timestamp(__VA_ARGS__))
+#define ak_decode_UploadResultData(...) (AK_ABI_CALL(0), ak_decode_UploadResultData(__VA_ARGS__))
+#define ak_decode_UploadResultDataMessage(...) (AK_ABI_CALL(0), ak_decode_UploadResultDataMessage(__VA_ARGS__))
+#define ak_decode_WireZoo(...) (AK_ABI_CALL(0), ak_decode_WireZoo(__VA_ARGS__))
+#define ak_elem_ChunkElementAttrsEntry(...) (AK_ABI_CALL(0), ak_elem_ChunkElementAttrsEntry(__VA_ARGS__))
+#define ak_elem_ChunkLeaf(...) (AK_ABI_CALL(0), ak_elem_ChunkLeaf(__VA_ARGS__))
+#define ak_elem_LeafElement(...) (AK_ABI_CALL(0), ak_elem_LeafElement(__VA_ARGS__))
+#define ak_elem_Pair(...) (AK_ABI_CALL(0), ak_elem_Pair(__VA_ARGS__))
+#define ak_elem_Probe(...) (AK_ABI_CALL(0), ak_elem_Probe(__VA_ARGS__))
+#define ak_elem_ResultRaw(...) (AK_ABI_CALL(0), ak_elem_ResultRaw(__VA_ARGS__))
+#define ak_elem_SurrogateAttrsEntry(...) (AK_ABI_CALL(0), ak_elem_SurrogateAttrsEntry(__VA_ARGS__))
+#define ak_elem_TaskOptionsOptionsEntry(...) (AK_ABI_CALL(0), ak_elem_TaskOptionsOptionsEntry(__VA_ARGS__))
+#define ak_elemu_ChunkElement(...) (AK_ABI_CALL(0), ak_elemu_ChunkElement(__VA_ARGS__))
+#define ak_elemu_MetricsBatch(...) (AK_ABI_CALL(0), ak_elemu_MetricsBatch(__VA_ARGS__))
+#define ak_elemu_TaskDetailed(...) (AK_ABI_CALL(0), ak_elemu_TaskDetailed(__VA_ARGS__))
+#define ak_elemu_TaskSummary(...) (AK_ABI_CALL(0), ak_elemu_TaskSummary(__VA_ARGS__))
+#define ak_enc_count_reverse(...) (AK_ABI_CALL(0), ak_enc_count_reverse(__VA_ARGS__))
+#define ak_enc_ctx_free(...) (AK_ABI_CALL(0), ak_enc_ctx_free(__VA_ARGS__))
+#define ak_enc_ctx_new(...) (AK_ABI_CALL(0), ak_enc_ctx_new(__VA_ARGS__))
+#define ak_enc_err(...) (AK_ABI_CALL(0), ak_enc_err(__VA_ARGS__))
+#define ak_enc_reset(...) (AK_ABI_CALL(1), ak_enc_reset(__VA_ARGS__))
+#define ak_enc_site_moves(...) (AK_ABI_CALL(0), ak_enc_site_moves(__VA_ARGS__))
+#define ak_enc_take(...) (AK_ABI_CALL(0), ak_enc_take(__VA_ARGS__))
+#define ak_encode_ChunkElement(...) (AK_ABI_CALL(0), ak_encode_ChunkElement(__VA_ARGS__))
+#define ak_encode_ChunkInner(...) (AK_ABI_CALL(0), ak_encode_ChunkInner(__VA_ARGS__))
+#define ak_encode_ChunkLeaf(...) (AK_ABI_CALL(0), ak_encode_ChunkLeaf(__VA_ARGS__))
+#define ak_encode_ChunkedResponse(...) (AK_ABI_CALL(0), ak_encode_ChunkedResponse(__VA_ARGS__))
+#define ak_encode_ChunkedResponseWide(...) (AK_ABI_CALL(0), ak_encode_ChunkedResponseWide(__VA_ARGS__))
+#define ak_encode_DualResponse(...) (AK_ABI_CALL(0), ak_encode_DualResponse(__VA_ARGS__))
+#define ak_encode_Duration(...) (AK_ABI_CALL(0), ak_encode_Duration(__VA_ARGS__))
+#define ak_encode_Empty(...) (AK_ABI_CALL(0), ak_encode_Empty(__VA_ARGS__))
+#define ak_encode_LeafElement(...) (AK_ABI_CALL(0), ak_encode_LeafElement(__VA_ARGS__))
+#define ak_encode_LeafResponse(...) (AK_ABI_CALL(0), ak_encode_LeafResponse(__VA_ARGS__))
+#define ak_encode_ListMetricsResponse(...) (AK_ABI_CALL(0), ak_encode_ListMetricsResponse(__VA_ARGS__))
+#define ak_encode_ListProbeResponse(...) (AK_ABI_CALL(0), ak_encode_ListProbeResponse(__VA_ARGS__))
+#define ak_encode_ListResultsResponse(...) (AK_ABI_CALL(0), ak_encode_ListResultsResponse(__VA_ARGS__))
+#define ak_encode_ListTaskSummaryResponse(...) (AK_ABI_CALL(0), ak_encode_ListTaskSummaryResponse(__VA_ARGS__))
+#define ak_encode_ListTasksDetailedResponse(...) (AK_ABI_CALL(0), ak_encode_ListTasksDetailedResponse(__VA_ARGS__))
+#define ak_encode_MetricsBatch(...) (AK_ABI_CALL(0), ak_encode_MetricsBatch(__VA_ARGS__))
+#define ak_encode_Pair(...) (AK_ABI_CALL(0), ak_encode_Pair(__VA_ARGS__))
+#define ak_encode_Probe(...) (AK_ABI_CALL(0), ak_encode_Probe(__VA_ARGS__))
+#define ak_encode_ResultRaw(...) (AK_ABI_CALL(0), ak_encode_ResultRaw(__VA_ARGS__))
+#define ak_encode_Surrogate(...) (AK_ABI_CALL(0), ak_encode_Surrogate(__VA_ARGS__))
+#define ak_encode_SurrogateInner(...) (AK_ABI_CALL(0), ak_encode_SurrogateInner(__VA_ARGS__))
+#define ak_encode_TaskDetailed(...) (AK_ABI_CALL(0), ak_encode_TaskDetailed(__VA_ARGS__))
+#define ak_encode_TaskOptions(...) (AK_ABI_CALL(0), ak_encode_TaskOptions(__VA_ARGS__))
+#define ak_encode_TaskOutput(...) (AK_ABI_CALL(0), ak_encode_TaskOutput(__VA_ARGS__))
+#define ak_encode_TaskSummary(...) (AK_ABI_CALL(0), ak_encode_TaskSummary(__VA_ARGS__))
+#define ak_encode_Timestamp(...) (AK_ABI_CALL(0), ak_encode_Timestamp(__VA_ARGS__))
+#define ak_encode_UploadResultData(...) (AK_ABI_CALL(0), ak_encode_UploadResultData(__VA_ARGS__))
+#define ak_encode_UploadResultDataMessage(...) (AK_ABI_CALL(0), ak_encode_UploadResultDataMessage(__VA_ARGS__))
+#define ak_encode_WireZoo(...) (AK_ABI_CALL(0), ak_encode_WireZoo(__VA_ARGS__))
+#define ak_fail(...) (AK_ABI_CALL(0), ak_fail(__VA_ARGS__))
+#define ak_init(...) (AK_ABI_CALL(0), ak_init(__VA_ARGS__))
+#define ak_initialized(...) (AK_ABI_CALL(0), ak_initialized(__VA_ARGS__))
+#define ak_layout_facts(...) (AK_ABI_CALL(0), ak_layout_facts(__VA_ARGS__))
+#define ak_log_test(...) (AK_ABI_CALL(0), ak_log_test(__VA_ARGS__))
+#define ak_noop(...) (AK_ABI_CALL(0), ak_noop(__VA_ARGS__))
+#define ak_noop2(...) (AK_ABI_CALL(0), ak_noop2(__VA_ARGS__))
+#define ak_noop_guarded(...) (AK_ABI_CALL(0), ak_noop_guarded(__VA_ARGS__))
+#define ak_noop_reverse(...) (AK_ABI_CALL(0), ak_noop_reverse(__VA_ARGS__))
+#define ak_panic_test(...) (AK_ABI_CALL(0), ak_panic_test(__VA_ARGS__))
+#define ak_queue_destroy(...) (AK_ABI_CALL(0), ak_queue_destroy(__VA_ARGS__))
+#define ak_queue_new(...) (AK_ABI_CALL(0), ak_queue_new(__VA_ARGS__))
+#define ak_queue_next(...) (AK_ABI_CALL(0), ak_queue_next(__VA_ARGS__))
+#define ak_queue_shutdown(...) (AK_ABI_CALL(0), ak_queue_shutdown(__VA_ARGS__))
+#define ak_run_f64(...) (AK_ABI_CALL(0), ak_run_f64(__VA_ARGS__))
+#define ak_run_i32(...) (AK_ABI_CALL(0), ak_run_i32(__VA_ARGS__))
+#define ak_run_i64(...) (AK_ABI_CALL(0), ak_run_i64(__VA_ARGS__))
+#define ak_run_u8(...) (AK_ABI_CALL(0), ak_run_u8(__VA_ARGS__))
+#define ak_runtime_destroy(...) (AK_ABI_CALL(0), ak_runtime_destroy(__VA_ARGS__))
+#define ak_runtime_new(...) (AK_ABI_CALL(0), ak_runtime_new(__VA_ARGS__))
+#define ak_tc_bytes(...) (AK_ABI_CALL(0), ak_tc_bytes(__VA_ARGS__))
+#define ak_tc_latin1(...) (AK_ABI_CALL(0), ak_tc_latin1(__VA_ARGS__))
+#define ak_tc_utf16(...) (AK_ABI_CALL(0), ak_tc_utf16(__VA_ARGS__))
+#define ak_tc_utf8(...) (AK_ABI_CALL(0), ak_tc_utf8(__VA_ARGS__))
+#define ak_tc_utf8_simd(...) (AK_ABI_CALL(0), ak_tc_utf8_simd(__VA_ARGS__))
+#define ak_tc_utf8_trusted(...) (AK_ABI_CALL(0), ak_tc_utf8_trusted(__VA_ARGS__))
+#define ak_uelem_ChunkElementAttrsEntry(...) (AK_ABI_CALL(0), ak_uelem_ChunkElementAttrsEntry(__VA_ARGS__))
+#define ak_uelem_ChunkLeaf(...) (AK_ABI_CALL(0), ak_uelem_ChunkLeaf(__VA_ARGS__))
+#define ak_uelem_LeafElement(...) (AK_ABI_CALL(0), ak_uelem_LeafElement(__VA_ARGS__))
+#define ak_uelem_Pair(...) (AK_ABI_CALL(0), ak_uelem_Pair(__VA_ARGS__))
+#define ak_uelem_Probe(...) (AK_ABI_CALL(0), ak_uelem_Probe(__VA_ARGS__))
+#define ak_uelem_ResultRaw(...) (AK_ABI_CALL(0), ak_uelem_ResultRaw(__VA_ARGS__))
+#define ak_uelem_SurrogateAttrsEntry(...) (AK_ABI_CALL(0), ak_uelem_SurrogateAttrsEntry(__VA_ARGS__))
+#define ak_uelem_TaskOptionsOptionsEntry(...) (AK_ABI_CALL(0), ak_uelem_TaskOptionsOptionsEntry(__VA_ARGS__))
+#define ak_uelemu_ChunkElement(...) (AK_ABI_CALL(0), ak_uelemu_ChunkElement(__VA_ARGS__))
+#define ak_uelemu_MetricsBatch(...) (AK_ABI_CALL(0), ak_uelemu_MetricsBatch(__VA_ARGS__))
+#define ak_uelemu_TaskDetailed(...) (AK_ABI_CALL(0), ak_uelemu_TaskDetailed(__VA_ARGS__))
+#define ak_uelemu_TaskSummary(...) (AK_ABI_CALL(0), ak_uelemu_TaskSummary(__VA_ARGS__))
+#define ak_uencode_ChunkElement(...) (AK_ABI_CALL(0), ak_uencode_ChunkElement(__VA_ARGS__))
+#define ak_uencode_ChunkInner(...) (AK_ABI_CALL(0), ak_uencode_ChunkInner(__VA_ARGS__))
+#define ak_uencode_ChunkLeaf(...) (AK_ABI_CALL(0), ak_uencode_ChunkLeaf(__VA_ARGS__))
+#define ak_uencode_ChunkedResponse(...) (AK_ABI_CALL(0), ak_uencode_ChunkedResponse(__VA_ARGS__))
+#define ak_uencode_ChunkedResponseWide(...) (AK_ABI_CALL(0), ak_uencode_ChunkedResponseWide(__VA_ARGS__))
+#define ak_uencode_DualResponse(...) (AK_ABI_CALL(0), ak_uencode_DualResponse(__VA_ARGS__))
+#define ak_uencode_Duration(...) (AK_ABI_CALL(0), ak_uencode_Duration(__VA_ARGS__))
+#define ak_uencode_Empty(...) (AK_ABI_CALL(0), ak_uencode_Empty(__VA_ARGS__))
+#define ak_uencode_LeafElement(...) (AK_ABI_CALL(0), ak_uencode_LeafElement(__VA_ARGS__))
+#define ak_uencode_LeafResponse(...) (AK_ABI_CALL(0), ak_uencode_LeafResponse(__VA_ARGS__))
+#define ak_uencode_ListMetricsResponse(...) (AK_ABI_CALL(0), ak_uencode_ListMetricsResponse(__VA_ARGS__))
+#define ak_uencode_ListProbeResponse(...) (AK_ABI_CALL(0), ak_uencode_ListProbeResponse(__VA_ARGS__))
+#define ak_uencode_ListResultsResponse(...) (AK_ABI_CALL(0), ak_uencode_ListResultsResponse(__VA_ARGS__))
+#define ak_uencode_ListTaskSummaryResponse(...) (AK_ABI_CALL(0), ak_uencode_ListTaskSummaryResponse(__VA_ARGS__))
+#define ak_uencode_ListTasksDetailedResponse(...) (AK_ABI_CALL(0), ak_uencode_ListTasksDetailedResponse(__VA_ARGS__))
+#define ak_uencode_MetricsBatch(...) (AK_ABI_CALL(0), ak_uencode_MetricsBatch(__VA_ARGS__))
+#define ak_uencode_Pair(...) (AK_ABI_CALL(0), ak_uencode_Pair(__VA_ARGS__))
+#define ak_uencode_Probe(...) (AK_ABI_CALL(0), ak_uencode_Probe(__VA_ARGS__))
+#define ak_uencode_ResultRaw(...) (AK_ABI_CALL(0), ak_uencode_ResultRaw(__VA_ARGS__))
+#define ak_uencode_Surrogate(...) (AK_ABI_CALL(0), ak_uencode_Surrogate(__VA_ARGS__))
+#define ak_uencode_SurrogateInner(...) (AK_ABI_CALL(0), ak_uencode_SurrogateInner(__VA_ARGS__))
+#define ak_uencode_TaskDetailed(...) (AK_ABI_CALL(0), ak_uencode_TaskDetailed(__VA_ARGS__))
+#define ak_uencode_TaskOptions(...) (AK_ABI_CALL(0), ak_uencode_TaskOptions(__VA_ARGS__))
+#define ak_uencode_TaskOutput(...) (AK_ABI_CALL(0), ak_uencode_TaskOutput(__VA_ARGS__))
+#define ak_uencode_TaskSummary(...) (AK_ABI_CALL(0), ak_uencode_TaskSummary(__VA_ARGS__))
+#define ak_uencode_Timestamp(...) (AK_ABI_CALL(0), ak_uencode_Timestamp(__VA_ARGS__))
+#define ak_uencode_UploadResultData(...) (AK_ABI_CALL(0), ak_uencode_UploadResultData(__VA_ARGS__))
+#define ak_uencode_UploadResultDataMessage(...) (AK_ABI_CALL(0), ak_uencode_UploadResultDataMessage(__VA_ARGS__))
+#define ak_uencode_WireZoo(...) (AK_ABI_CALL(0), ak_uencode_WireZoo(__VA_ARGS__))
+#endif
 
 /* A refused call: ValueError("<entry> returned <rc>") carrying the ABI v1 section 5 code as
  * `.code`, the same attribute the pure-Python codec's DecodeError/EncodeError carry. */
@@ -54,6 +282,21 @@ static void ak_py_fail(const char *entry, long rc) {
   if (c) { PyObject_SetAttrString(e, "code", c); Py_DECREF(c); }
   PyErr_SetObject(PyExc_ValueError, e);
   Py_DECREF(e);
+}
+
+/* CAMPAIGN req 11's reused-buffer end state: the encoding copied into a caller's writable
+ * buffer (a bytearray or memoryview sized once), no allocation; returns the length. */
+static PyObject *ak_py_copy_into(PyObject *into, const uint8_t *p, size_t n) {
+  Py_buffer v;
+  if (PyObject_GetBuffer(into, &v, PyBUF_WRITABLE)) return NULL;
+  if ((size_t)v.len < n) {
+    PyBuffer_Release(&v);
+    PyErr_Format(PyExc_ValueError, "the buffer holds %zd bytes, the encoding needs %zu", v.len, n);
+    return NULL;
+  }
+  memcpy(v.buf, p, n);
+  PyBuffer_Release(&v);
+  return PyLong_FromSize_t(n);
 }
 
 /* Resolved once at module init: ak_tc_utf8() is a call across the boundary. */
@@ -3441,8 +3684,12 @@ static void ak_py_unlink(HostCtx *h, struct ak_py_buf *b) {
 static int32_t ak_py_grow(void *sink, int32_t want, uint8_t **dst, int32_t *cap) {
   HostCtx *h = (HostCtx *)sink;
   if (want <= 0) return AK_ERR_LIMIT;
+#ifdef AK_COUNT
+  int64_t n = want;   /* req 19 (R-H31): the counting build grows to EXACTLY the size requested */
+#else
   int64_t n = *dst ? 2 * (int64_t)*cap : 64;
   if (n < want) n = want;
+#endif
   if (n > INT32_MAX) n = want;
   struct ak_py_buf *old = *dst ? ((struct ak_py_buf *)(void *)*dst) - 1 : NULL;
   if (old) ak_py_unlink(h, old);
@@ -7205,7 +7452,7 @@ out:
 }
 static const struct ak_evt_ChunkElement EVT_attr_ChunkElement = {.loop_labels = loop_attr_EChunkElement_labels, .loop_attrs = loop_attr_EChunkElement_attrs, .loop_inner_marks = loop_attr_EChunkElement_inner_marks, .loop_inner_leaves = loop_attr_EChunkElement_inner_leaves};
 static const struct ak_evt_ChunkElement EVTU_attr_ChunkElement = {.loop_labels = loop_attr_EChunkElement_labels, .loop_attrs = loopu_attr_EChunkElement_attrs, .loop_inner_marks = loop_attr_EChunkElement_inner_marks, .loop_inner_leaves = loopu_attr_EChunkElement_inner_leaves};
-static PyObject *encode_attr_Timestamp(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_attr_Timestamp(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -7240,11 +7487,11 @@ static PyObject *encode_attr_Timestamp(PyObject *rootobj, PyObject *acc, int ret
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
-static PyObject *encode_attr_Duration(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_attr_Duration(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -7279,11 +7526,11 @@ static PyObject *encode_attr_Duration(PyObject *rootobj, PyObject *acc, int reta
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
-static PyObject *encode_attr_ResultRaw(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_attr_ResultRaw(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -7318,7 +7565,7 @@ static PyObject *encode_attr_ResultRaw(PyObject *rootobj, PyObject *acc, int ret
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
@@ -7414,7 +7661,7 @@ out:
   Py_DECREF(cur);
   return rc;
 }
-static PyObject *encode_attr_TaskOptions(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_attr_TaskOptions(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -7449,11 +7696,11 @@ static PyObject *encode_attr_TaskOptions(PyObject *rootobj, PyObject *acc, int r
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
-static PyObject *encode_attr_TaskOutput(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_attr_TaskOutput(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -7488,7 +7735,7 @@ static PyObject *encode_attr_TaskOutput(PyObject *rootobj, PyObject *acc, int re
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
@@ -7720,7 +7967,7 @@ out:
   Py_DECREF(cur);
   return rc;
 }
-static PyObject *encode_attr_TaskDetailed(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_attr_TaskDetailed(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -7755,7 +8002,7 @@ static PyObject *encode_attr_TaskDetailed(PyObject *rootobj, PyObject *acc, int 
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
@@ -7859,7 +8106,7 @@ out:
   Py_DECREF(cur);
   return rc;
 }
-static PyObject *encode_attr_TaskSummary(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_attr_TaskSummary(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -7894,11 +8141,11 @@ static PyObject *encode_attr_TaskSummary(PyObject *rootobj, PyObject *acc, int r
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
-static PyObject *encode_attr_Probe(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_attr_Probe(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -7933,11 +8180,11 @@ static PyObject *encode_attr_Probe(PyObject *rootobj, PyObject *acc, int retain)
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
-static PyObject *encode_attr_Empty(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_attr_Empty(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -7972,11 +8219,11 @@ static PyObject *encode_attr_Empty(PyObject *rootobj, PyObject *acc, int retain)
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
-static PyObject *encode_attr_UploadResultData(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_attr_UploadResultData(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -8011,7 +8258,7 @@ static PyObject *encode_attr_UploadResultData(PyObject *rootobj, PyObject *acc, 
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
@@ -8185,7 +8432,7 @@ out:
   Py_DECREF(cur);
   return rc;
 }
-static PyObject *encode_attr_MetricsBatch(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_attr_MetricsBatch(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -8220,11 +8467,11 @@ static PyObject *encode_attr_MetricsBatch(PyObject *rootobj, PyObject *acc, int 
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
-static PyObject *encode_attr_Pair(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_attr_Pair(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -8259,7 +8506,7 @@ static PyObject *encode_attr_Pair(PyObject *rootobj, PyObject *acc, int retain) 
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
@@ -8327,7 +8574,7 @@ out:
   Py_DECREF(cur);
   return rc;
 }
-static PyObject *encode_attr_ListResultsResponse(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_attr_ListResultsResponse(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -8362,7 +8609,7 @@ static PyObject *encode_attr_ListResultsResponse(PyObject *rootobj, PyObject *ac
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
@@ -8440,7 +8687,7 @@ out:
   Py_DECREF(cur);
   return rc;
 }
-static PyObject *encode_attr_ListTasksDetailedResponse(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_attr_ListTasksDetailedResponse(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -8475,7 +8722,7 @@ static PyObject *encode_attr_ListTasksDetailedResponse(PyObject *rootobj, PyObje
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
@@ -8553,7 +8800,7 @@ out:
   Py_DECREF(cur);
   return rc;
 }
-static PyObject *encode_attr_ListTaskSummaryResponse(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_attr_ListTaskSummaryResponse(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -8588,7 +8835,7 @@ static PyObject *encode_attr_ListTaskSummaryResponse(PyObject *rootobj, PyObject
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
@@ -8656,7 +8903,7 @@ out:
   Py_DECREF(cur);
   return rc;
 }
-static PyObject *encode_attr_ListProbeResponse(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_attr_ListProbeResponse(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -8691,7 +8938,7 @@ static PyObject *encode_attr_ListProbeResponse(PyObject *rootobj, PyObject *acc,
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
@@ -8769,7 +9016,7 @@ out:
   Py_DECREF(cur);
   return rc;
 }
-static PyObject *encode_attr_ListMetricsResponse(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_attr_ListMetricsResponse(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -8804,11 +9051,11 @@ static PyObject *encode_attr_ListMetricsResponse(PyObject *rootobj, PyObject *ac
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
-static PyObject *encode_attr_UploadResultDataMessage(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_attr_UploadResultDataMessage(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -8843,7 +9090,7 @@ static PyObject *encode_attr_UploadResultDataMessage(PyObject *rootobj, PyObject
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
@@ -8975,7 +9222,7 @@ out:
   Py_DECREF(cur);
   return rc;
 }
-static PyObject *encode_attr_DualResponse(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_attr_DualResponse(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -9010,11 +9257,11 @@ static PyObject *encode_attr_DualResponse(PyObject *rootobj, PyObject *acc, int 
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
-static PyObject *encode_attr_ChunkLeaf(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_attr_ChunkLeaf(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -9049,7 +9296,7 @@ static PyObject *encode_attr_ChunkLeaf(PyObject *rootobj, PyObject *acc, int ret
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
@@ -9151,7 +9398,7 @@ out:
   Py_DECREF(cur);
   return rc;
 }
-static PyObject *encode_attr_ChunkInner(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_attr_ChunkInner(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -9186,7 +9433,7 @@ static PyObject *encode_attr_ChunkInner(PyObject *rootobj, PyObject *acc, int re
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
@@ -9424,7 +9671,7 @@ out:
   Py_DECREF(cur);
   return rc;
 }
-static PyObject *encode_attr_ChunkElement(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_attr_ChunkElement(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -9459,7 +9706,7 @@ static PyObject *encode_attr_ChunkElement(PyObject *rootobj, PyObject *acc, int 
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
@@ -9537,7 +9784,7 @@ out:
   Py_DECREF(cur);
   return rc;
 }
-static PyObject *encode_attr_ChunkedResponse(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_attr_ChunkedResponse(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -9572,7 +9819,7 @@ static PyObject *encode_attr_ChunkedResponse(PyObject *rootobj, PyObject *acc, i
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
@@ -9650,7 +9897,7 @@ out:
   Py_DECREF(cur);
   return rc;
 }
-static PyObject *encode_attr_ChunkedResponseWide(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_attr_ChunkedResponseWide(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -9685,11 +9932,11 @@ static PyObject *encode_attr_ChunkedResponseWide(PyObject *rootobj, PyObject *ac
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
-static PyObject *encode_attr_LeafElement(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_attr_LeafElement(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -9724,7 +9971,7 @@ static PyObject *encode_attr_LeafElement(PyObject *rootobj, PyObject *acc, int r
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
@@ -9792,7 +10039,7 @@ out:
   Py_DECREF(cur);
   return rc;
 }
-static PyObject *encode_attr_LeafResponse(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_attr_LeafResponse(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -9827,7 +10074,7 @@ static PyObject *encode_attr_LeafResponse(PyObject *rootobj, PyObject *acc, int 
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
@@ -9955,7 +10202,7 @@ out:
   Py_DECREF(cur);
   return rc;
 }
-static PyObject *encode_attr_Surrogate(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_attr_Surrogate(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -9990,11 +10237,11 @@ static PyObject *encode_attr_Surrogate(PyObject *rootobj, PyObject *acc, int ret
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
-static PyObject *encode_attr_SurrogateInner(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_attr_SurrogateInner(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -10029,11 +10276,11 @@ static PyObject *encode_attr_SurrogateInner(PyObject *rootobj, PyObject *acc, in
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
-static PyObject *encode_attr_WireZoo(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_attr_WireZoo(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -10068,7 +10315,7 @@ static PyObject *encode_attr_WireZoo(PyObject *rootobj, PyObject *acc, int retai
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
@@ -17006,7 +17253,7 @@ out:
 }
 static const struct ak_evt_ChunkElement EVT_cext_ChunkElement = {.loop_labels = loop_cext_EChunkElement_labels, .loop_attrs = loop_cext_EChunkElement_attrs, .loop_inner_marks = loop_cext_EChunkElement_inner_marks, .loop_inner_leaves = loop_cext_EChunkElement_inner_leaves};
 static const struct ak_evt_ChunkElement EVTU_cext_ChunkElement = {.loop_labels = loop_cext_EChunkElement_labels, .loop_attrs = loopu_cext_EChunkElement_attrs, .loop_inner_marks = loop_cext_EChunkElement_inner_marks, .loop_inner_leaves = loopu_cext_EChunkElement_inner_leaves};
-static PyObject *encode_cext_Timestamp(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_cext_Timestamp(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -17041,11 +17288,11 @@ static PyObject *encode_cext_Timestamp(PyObject *rootobj, PyObject *acc, int ret
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
-static PyObject *encode_cext_Duration(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_cext_Duration(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -17080,11 +17327,11 @@ static PyObject *encode_cext_Duration(PyObject *rootobj, PyObject *acc, int reta
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
-static PyObject *encode_cext_ResultRaw(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_cext_ResultRaw(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -17119,7 +17366,7 @@ static PyObject *encode_cext_ResultRaw(PyObject *rootobj, PyObject *acc, int ret
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
@@ -17211,7 +17458,7 @@ out:
   Py_DECREF(cur);
   return rc;
 }
-static PyObject *encode_cext_TaskOptions(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_cext_TaskOptions(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -17246,11 +17493,11 @@ static PyObject *encode_cext_TaskOptions(PyObject *rootobj, PyObject *acc, int r
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
-static PyObject *encode_cext_TaskOutput(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_cext_TaskOutput(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -17285,7 +17532,7 @@ static PyObject *encode_cext_TaskOutput(PyObject *rootobj, PyObject *acc, int re
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
@@ -17503,7 +17750,7 @@ out:
   Py_DECREF(cur);
   return rc;
 }
-static PyObject *encode_cext_TaskDetailed(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_cext_TaskDetailed(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -17538,7 +17785,7 @@ static PyObject *encode_cext_TaskDetailed(PyObject *rootobj, PyObject *acc, int 
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
@@ -17636,7 +17883,7 @@ out:
   Py_DECREF(cur);
   return rc;
 }
-static PyObject *encode_cext_TaskSummary(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_cext_TaskSummary(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -17671,11 +17918,11 @@ static PyObject *encode_cext_TaskSummary(PyObject *rootobj, PyObject *acc, int r
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
-static PyObject *encode_cext_Probe(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_cext_Probe(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -17710,11 +17957,11 @@ static PyObject *encode_cext_Probe(PyObject *rootobj, PyObject *acc, int retain)
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
-static PyObject *encode_cext_Empty(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_cext_Empty(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -17749,11 +17996,11 @@ static PyObject *encode_cext_Empty(PyObject *rootobj, PyObject *acc, int retain)
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
-static PyObject *encode_cext_UploadResultData(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_cext_UploadResultData(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -17788,7 +18035,7 @@ static PyObject *encode_cext_UploadResultData(PyObject *rootobj, PyObject *acc, 
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
@@ -17952,7 +18199,7 @@ out:
   Py_DECREF(cur);
   return rc;
 }
-static PyObject *encode_cext_MetricsBatch(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_cext_MetricsBatch(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -17987,11 +18234,11 @@ static PyObject *encode_cext_MetricsBatch(PyObject *rootobj, PyObject *acc, int 
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
-static PyObject *encode_cext_Pair(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_cext_Pair(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -18026,7 +18273,7 @@ static PyObject *encode_cext_Pair(PyObject *rootobj, PyObject *acc, int retain) 
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
@@ -18090,7 +18337,7 @@ out:
   Py_DECREF(cur);
   return rc;
 }
-static PyObject *encode_cext_ListResultsResponse(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_cext_ListResultsResponse(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -18125,7 +18372,7 @@ static PyObject *encode_cext_ListResultsResponse(PyObject *rootobj, PyObject *ac
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
@@ -18199,7 +18446,7 @@ out:
   Py_DECREF(cur);
   return rc;
 }
-static PyObject *encode_cext_ListTasksDetailedResponse(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_cext_ListTasksDetailedResponse(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -18234,7 +18481,7 @@ static PyObject *encode_cext_ListTasksDetailedResponse(PyObject *rootobj, PyObje
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
@@ -18308,7 +18555,7 @@ out:
   Py_DECREF(cur);
   return rc;
 }
-static PyObject *encode_cext_ListTaskSummaryResponse(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_cext_ListTaskSummaryResponse(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -18343,7 +18590,7 @@ static PyObject *encode_cext_ListTaskSummaryResponse(PyObject *rootobj, PyObject
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
@@ -18407,7 +18654,7 @@ out:
   Py_DECREF(cur);
   return rc;
 }
-static PyObject *encode_cext_ListProbeResponse(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_cext_ListProbeResponse(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -18442,7 +18689,7 @@ static PyObject *encode_cext_ListProbeResponse(PyObject *rootobj, PyObject *acc,
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
@@ -18516,7 +18763,7 @@ out:
   Py_DECREF(cur);
   return rc;
 }
-static PyObject *encode_cext_ListMetricsResponse(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_cext_ListMetricsResponse(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -18551,11 +18798,11 @@ static PyObject *encode_cext_ListMetricsResponse(PyObject *rootobj, PyObject *ac
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
-static PyObject *encode_cext_UploadResultDataMessage(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_cext_UploadResultDataMessage(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -18590,7 +18837,7 @@ static PyObject *encode_cext_UploadResultDataMessage(PyObject *rootobj, PyObject
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
@@ -18714,7 +18961,7 @@ out:
   Py_DECREF(cur);
   return rc;
 }
-static PyObject *encode_cext_DualResponse(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_cext_DualResponse(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -18749,11 +18996,11 @@ static PyObject *encode_cext_DualResponse(PyObject *rootobj, PyObject *acc, int 
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
-static PyObject *encode_cext_ChunkLeaf(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_cext_ChunkLeaf(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -18788,7 +19035,7 @@ static PyObject *encode_cext_ChunkLeaf(PyObject *rootobj, PyObject *acc, int ret
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
@@ -18884,7 +19131,7 @@ out:
   Py_DECREF(cur);
   return rc;
 }
-static PyObject *encode_cext_ChunkInner(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_cext_ChunkInner(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -18919,7 +19166,7 @@ static PyObject *encode_cext_ChunkInner(PyObject *rootobj, PyObject *acc, int re
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
@@ -19142,7 +19389,7 @@ out:
   Py_DECREF(cur);
   return rc;
 }
-static PyObject *encode_cext_ChunkElement(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_cext_ChunkElement(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -19177,7 +19424,7 @@ static PyObject *encode_cext_ChunkElement(PyObject *rootobj, PyObject *acc, int 
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
@@ -19251,7 +19498,7 @@ out:
   Py_DECREF(cur);
   return rc;
 }
-static PyObject *encode_cext_ChunkedResponse(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_cext_ChunkedResponse(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -19286,7 +19533,7 @@ static PyObject *encode_cext_ChunkedResponse(PyObject *rootobj, PyObject *acc, i
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
@@ -19360,7 +19607,7 @@ out:
   Py_DECREF(cur);
   return rc;
 }
-static PyObject *encode_cext_ChunkedResponseWide(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_cext_ChunkedResponseWide(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -19395,11 +19642,11 @@ static PyObject *encode_cext_ChunkedResponseWide(PyObject *rootobj, PyObject *ac
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
-static PyObject *encode_cext_LeafElement(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_cext_LeafElement(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -19434,7 +19681,7 @@ static PyObject *encode_cext_LeafElement(PyObject *rootobj, PyObject *acc, int r
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
@@ -19498,7 +19745,7 @@ out:
   Py_DECREF(cur);
   return rc;
 }
-static PyObject *encode_cext_LeafResponse(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_cext_LeafResponse(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -19533,7 +19780,7 @@ static PyObject *encode_cext_LeafResponse(PyObject *rootobj, PyObject *acc, int 
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
@@ -19655,7 +19902,7 @@ out:
   Py_DECREF(cur);
   return rc;
 }
-static PyObject *encode_cext_Surrogate(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_cext_Surrogate(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -19690,11 +19937,11 @@ static PyObject *encode_cext_Surrogate(PyObject *rootobj, PyObject *acc, int ret
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
-static PyObject *encode_cext_SurrogateInner(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_cext_SurrogateInner(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -19729,11 +19976,11 @@ static PyObject *encode_cext_SurrogateInner(PyObject *rootobj, PyObject *acc, in
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
-static PyObject *encode_cext_WireZoo(PyObject *rootobj, PyObject *acc, int retain) {
+static PyObject *encode_cext_WireZoo(PyObject *rootobj, PyObject *acc, int retain, PyObject *into) {
   HostCtx hs; memset(&hs, 0, sizeof hs);
   hs.root = rootobj; hs.acc = acc;
   HostCtx *h = &hs;
@@ -19768,7 +20015,7 @@ static PyObject *encode_cext_WireZoo(PyObject *rootobj, PyObject *acc, int retai
   const uint8_t *pp = NULL; size_t len = 0;
   if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);
     PyErr_SetString(PyExc_RuntimeError, "ak_enc_take"); return NULL; }
-  PyObject *out = PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
+  PyObject *out = into ? ak_py_copy_into(into, pp, len) : PyBytes_FromStringAndSize((const char *)pp, (Py_ssize_t)len);
   ak_py_tls_enc_release(ctx, tmp_);
   return out;
 }
@@ -23374,7 +23621,7 @@ static int types_from_seq(HostTypes *T, PyObject *seq) {
   return 0;
 }
 
-typedef PyObject *(*ak_enc_f)(PyObject *, PyObject *, int);
+typedef PyObject *(*ak_enc_f)(PyObject *, PyObject *, int, PyObject *);
 typedef PyObject *(*ak_dec_f)(PyObject *, PyObject *, HostTypes *, int, unsigned long long);
 #define AK_NBACKENDS 2
 static const char *AK_BACKENDS[AK_NBACKENDS] = {"attr", "cext"};

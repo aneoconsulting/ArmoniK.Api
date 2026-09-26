@@ -9,7 +9,7 @@
 20  Crossing cost, in THIS host: the shim's `crossing(n, "forward")` (ak_noop) and
     `crossing(n, "reverse")` (ak_noop_reverse into a host function: a forward call that
     makes one reverse call, so reverse alone is the difference, left to the summary), each
-    a C loop timed with CLOCK_THREAD_CPUTIME_ID per round. With `perf` present, `perf stat`
+    a C loop timed with CLOCK_PROCESS_CPUTIME_ID per round. With `perf` present, `perf stat`
     cycles and instructions per iteration are taken for each (a loop of n minus a loop of 0,
     in separate processes) and recorded as samples with `perf_cycles`/`perf_instructions`.
     And the RUST slice's crossing benchmark (poc/rust `bench`, AK_BENCH_ONLY=P1.1, which
@@ -106,7 +106,8 @@ def main():
     n = opt("--iters", 2000000, int)
     log = L.Log(opt("--out"), "calib", allow_dirty="--allow-dirty" in ARGS, smoke="--smoke" in ARGS)
     log.header(launch=launch, rounds=rounds, iters=n, affinity=AFFINITY,
-               clock="CLOCK_THREAD_CPUTIME_ID around a C loop in the shim", perf=shutil.which("perf") or "absent")
+               clock="CLOCK_PROCESS_CPUTIME_ID around a C loop in the shim (req 21 as amended)", perf=shutil.which("perf") or "absent",
+               worker_threads="1: the crossing loop runs in the main thread; no gRPC stack, no core runtime (req 4)")
     got, diff = counts_gate()
     for ln in got:
         log.note("count " + ln)
@@ -122,9 +123,9 @@ def main():
     kinds = ["forward", "reverse"]
     for r in range(rounds):
         for kind in L.rotated(kinds, r):
-            t0, w0 = L.thread_cpu_ns(), L.wall_ns()
+            t0, w0 = L.proc_cpu_ns(), L.wall_ns()
             m.crossing(n, kind)
-            t1, w1 = L.thread_cpu_ns(), L.wall_ns()
+            t1, w1 = L.proc_cpu_ns(), L.wall_ns()
             log.sample(arm="crossing-" + ("forward" if kind == "forward" else "fwd+reverse"),
                        launch=launch, round=r + 1, cpu_ns=t1 - t0, wall_ns=w1 - w0, iters=n)
     for kind in kinds:

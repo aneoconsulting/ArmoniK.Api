@@ -21,6 +21,7 @@
 #       byte identity against the full build's drop arms at the same level, the controls
 #       and the variant's own (retain refused, no positions, wrong root, per-thread contexts)
 #   102 conformance on _akffi_rpc_nounk
+#   105 the RPC cells B-E per call on the rpc counting builds, against counts/rpc-{full,nounk}.txt
 #   104 camp_summary's test (R-H1): references and groups keyed by build, per-launch medians
 #   103 crossing counts, whole numbers per call, full (drop) and no-unknown builds, each
 #       against its committed file (counts/crossings-drop.txt, counts/crossings-nounk.txt),
@@ -87,6 +88,15 @@ echo "===== 103. crossing counts, whole numbers per call: full (drop) and no-unk
     T=$(tagof "$PY")
     grep '^   abs' "$LOGS/91-wp5-conformance-$T.log" > "$HERE/build/abs-drop-$T.txt"
     grep '^   abs' "$LOGS/100-wp5s10-conformance-nounk-$T.log" > "$HERE/build/abs-nounk-$T.txt"
+    grep '^   abi' "$LOGS/91-wp5-conformance-$T.log" > "$HERE/build/abi-full-$T.txt"
+    grep '^   abi' "$LOGS/100-wp5s10-conformance-nounk-$T.log" > "$HERE/build/abi-nounk-$T.txt"
+    for v in full nounk; do   # req 19 as amended: every ABI call per call, resets and retain included
+      if diff "$HERE/counts/abi-$v.txt" "$HERE/build/abi-$v-$T.txt"; then
+        echo "   $T abi $v: $(wc -l < "$HERE/build/abi-$v-$T.txt") rows, IDENTICAL to counts/abi-$v.txt"
+      else
+        echo "   $T abi $v: DIFFERS from counts/abi-$v.txt (above)"
+      fi
+    done
     for v in drop nounk; do
       if diff "$HERE/counts/crossings-$v.txt" "$HERE/build/abs-$v-$T.txt"; then
         echo "   $T $v: $(wc -l < "$HERE/build/abs-$v-$T.txt") rows, IDENTICAL to counts/crossings-$v.txt"
@@ -101,7 +111,25 @@ echo "===== 103. crossing counts, whole numbers per call: full (drop) and no-unk
   echo "   $(diff "$HERE/counts/crossings-drop.txt" "$HERE/counts/crossings-nounk.txt" | grep -c '^>' || true) of $(wc -l < "$HERE/counts/crossings-drop.txt") rows differ"
 } > "$LOGS/103-wp5s10-counts-drop-vs-nounk.log" 2>&1
 grep -E 'IDENTICAL|DIFFERS|rows differ' "$LOGS/103-wp5s10-counts-drop-vs-nounk.log"
-grep -q "DIFFERS from counts/" "$LOGS/103-wp5s10-counts-drop-vs-nounk.log" && rc=1
+grep -q "DIFFERS from counts/" "$LOGS/103-wp5s10-counts-drop-vs-nounk.log" && rc=1   # abi and abs rows alike
+
+echo "===== 105. the RPC cells B, C, D, E per call, both builds (req 19 as amended) ====="
+{
+  hdr "python slice: RPC crossing counts per call, the rpc counting builds (req 19, R-H31)"
+  for v in full nounk; do
+    A=""; [ "$v" = nounk ] && A="--variant nounk"
+    python3.12 rpc_counts.py $A > "$HERE/build/rpc-$v.out" 2>&1 || echo "   rpc_counts $v FAILED: $(tail -2 "$HERE/build/rpc-$v.out")"
+    cat "$HERE/build/rpc-$v.out"
+    grep '^   rpc ' "$HERE/build/rpc-$v.out" > "$HERE/build/rpc-$v.txt"
+    if diff "$HERE/counts/rpc-$v.txt" "$HERE/build/rpc-$v.txt"; then
+      echo "   rpc $v: $(wc -l < "$HERE/build/rpc-$v.txt") rows, IDENTICAL to counts/rpc-$v.txt"
+    else
+      echo "   rpc $v: DIFFERS from counts/rpc-$v.txt (above)"
+    fi
+  done
+} > "$LOGS/105-wp7-rpc-counts.log" 2>&1
+grep -E 'IDENTICAL|DIFFERS|FAILED' "$LOGS/105-wp7-rpc-counts.log"
+grep -qE "DIFFERS|FAILED" "$LOGS/105-wp7-rpc-counts.log" && rc=1
 
 echo "===== 104. camp_summary keyed by build, ratios from per-launch medians (R-H1) ====="
 { hdr "python slice: camp_summary's test, two builds whose incumbents differ (R-H1, R-H24)"; python3.12 test_camp_summary.py; } \

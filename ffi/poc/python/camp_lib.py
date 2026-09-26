@@ -5,7 +5,7 @@ Nothing here is a measurement policy of its own: every constant a sample depends
 printed in the header, and every sample is written, not a summary.
 
 Clocks (requirement 21):
-  codec   CLOCK_THREAD_CPUTIME_ID of the measuring thread (the codec suite is one thread)
+  codec   CLOCK_PROCESS_CPUTIME_ID of the measuring process (req 21 as amended)
   rpc     CLOCK_PROCESS_CPUTIME_ID of the client process (every client thread counted; the
           server is another process), with wall (perf_counter_ns) beside it
 Both are nanosecond clocks; nothing coarser than 1 us is used.
