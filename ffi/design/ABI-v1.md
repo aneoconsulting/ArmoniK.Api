@@ -255,6 +255,14 @@ because it is not only simplification:
   is a core-side optimisation with no ABI surface, so it needs no host change and
   no version bump.
 
+  **BUILT (2026-09-26, the Rust optimisation experiment, `logs/rust/opt/s2-e1/`).**
+  `enc_blob` in `ak-core/src/lib.rs` writes key, length and body in one pass when
+  the transcoder is `ak_tc_bytes` or `ak_tc_utf8_trusted`, in the per-field path
+  and in `ak_blob_run`; any other transcoder takes the two-pass path unchanged.
+  Wire bytes and crossing counts are unchanged (the committed counts compared
+  identical). It is in the shared core, so every host using a passthrough
+  transcoder gets it without a change of its own.
+
   **Worth reading beside upb, which takes the opposite route**: upb encodes
   *backwards* so that a length is always known by the time its prefix is written
   (`upb/wire/encode.c:8`, "We encode backwards, to avoid pre-computing lengths").
@@ -799,12 +807,23 @@ ak_call  *ak_call_unary_cb(ak_client*, ak_bytes_in path, ak_bytes_in req,
                            ak_call_opts*, ak_completion cb, void *user_data);
 ak_call  *ak_call_unary_q (ak_client*, ak_bytes_in path, ak_bytes_in req,
                            ak_call_opts*, ak_queue*, uint64_t tag);
+ak_status ak_call_unary_enc(ak_client*, ak_bytes_in path, ak_enc_ctx *enc,
+                           ak_bytes *out);   /* additive, below */
 ak_call  *ak_call_open(ak_client*, ak_bytes_in path, ak_call_kind, ak_call_opts*);
 ak_status ak_call_send(ak_call*, ak_bytes_in, bool last, ak_err*);
 ak_status ak_call_recv(ak_call*, ak_bytes *out, ak_err*);
 void      ak_call_close(ak_call*);    /* cancels, unblocks a pending recv, does NOT free */
 void      ak_call_destroy(ak_call*);  /* frees, only after every operation returned */
 ```
+
+**`ak_call_unary_enc` is additive (2026-09-26, the Rust optimisation
+experiment).** It is `ak_call_unary` whose request is the encode context's output,
+**moved, not copied**: the context's buffer becomes the request body and the
+context's encoded bytes are consumed; the buffer is recycled when the transport
+drops it. Borrowing host memory for the body instead is unsound, because the
+transport may poll the body after the response has arrived. The header in the
+generated C listing is the reference for its exact parameter types. A host that
+does not call it pays nothing.
 
 Four amendments to the base design, all from the Java finding, all closing gaps
 rather than changing shape:
@@ -1180,6 +1199,20 @@ Each blocks something. None is settled by a measurement that exists today.
    **Where a fast validator earns its place is decode**, not encode, which is where
    the `simdutf8` dependency and its runtime-dispatch floor question go with it.
 
+   **Two consequences, built 2026-09-26 (the Rust optimisation experiment).**
+   - **The core's decode-side check is `simdutf8` by default.** It is a default
+     feature of `ak-rt`, which `ak-core` depends on with default features, so every
+     slice's core build carries it, including the builds that pass
+     `--no-default-features` to `ak-core` (checked with `cargo tree`). Non-ASCII
+     content sets moved most (`logs/rust/opt/s11-c2/`; container instrumentation).
+     The runtime-dispatch floor question above is still open.
+   - **A host need not re-validate a string the core has already checked.**
+     With `utf8 = "reject"` a malformed span fails the decode before any group,
+     element or pull record holding it reaches the host, so a binding may copy the
+     span without a second scan. The Rust binding generator now follows the plan's
+     `utf8` option instead of a build feature (`logs/rust/opt/s1-d1/`); other
+     bindings that re-validate pay for a check the core has already made.
+
 4. **Is `ak_span.coder` in the shared struct or out?** It is a JVM-specific hint
    in a struct every language reads.
 5. **What the grow path actually costs now that nothing is reserved from a
@@ -1272,8 +1305,12 @@ Each blocks something. None is settled by a measurement that exists today.
    O(elements). That made the candidate look like a large loss on payloads with few
    elements per chunk (P1.1, P2.1) while it still won on P1.3, so the candidate
    looked refuted and was not. Clearing only `min(n, chunk)` elements removes the
-   inversion and keeps the wins (container instrumentation). **If
-   decision 9 is adopted, the sentence is "clear the elements you will fill".**
+   inversion and keeps the wins (container instrumentation). **The sentence is
+   "clear the elements you will fill".** Built in the Rust binding generator
+   (`rust_binding.py`, 2026-09-26, `logs/rust/opt/s3-e2/`): the sparse loops clear
+   `min(n, chunk)` element groups, and the Rust slice's `core-ffi` encode arm and
+   RPC cells C and D use the sparse fill (its log header names the fill). The
+   other backends keep their own fill until their slices change it.
    The rust slice could not see this: it ran P1.2, P1.3, P2.2 and P2.5, and the
    effect needs a payload with few elements per chunk.
 
@@ -1419,7 +1456,15 @@ Each blocks something. None is settled by a measurement that exists today.
       root; decoding another root with it is refused with an error. The untyped
       `ak_dec_ctx_new()` is removed.
    7. **A reset per decode** is expected whatever the unknown-field configuration; it
-      is how pre-allocated buffers are re-armed.
+      is how pre-allocated buffers are re-armed. One is enough: no disarming reset is
+      needed after the decode. The Rust binding makes exactly one, with its options
+      struct kept at a stable address across decodes (2026-09-26,
+      `logs/rust/opt/s5-u1u2/`).
+   8. **A host's `grow` grows geometrically**, never to the exact size asked (owner,
+      2026-09-26): an exact-size grow makes a message with many unknown runs
+      quadratic. The returned capacity is at least `want`, clamped to `INT32_MAX`
+      (rule 5). This changes the committed retain-mode reverse crossing counts,
+      because fewer grows are asked for; the counts were regenerated with it.
 
 12. **The diagnostic contract**, and it is worse than "five failures render as
    one string". `ak_init` now owns the log and tracing bridges (section 3), which
@@ -1481,6 +1526,14 @@ Each blocks something. None is settled by a measurement that exists today.
    today; it is an additive option. Which decode claim the campaign can support
    depends on it: the report states whether a decode figure was taken with
    borrowed or owned spans.**
+
+   **The same question for `bytes` fields has a Rust arm (2026-09-26).** A labelled
+   extra arm, `core-ffi-zc`, decodes bulk `bytes` fields by slicing a host `Bytes`
+   input instead of copying (`logs/rust/opt/s10-z1/`), which is what
+   `packages/rust` already does through prost. It measures a copy, not the codec:
+   on P5.2 to P5.4 it removes the copy and the ratio says so. Copy stays the
+   default of the `core-ffi` arm; the lifetime contract above applies to it
+   unchanged.
 
 **Settled since the first draft**, kept here so a reader of an earlier version
 does not look for them: the accessor error channel is now section 5 rather than a
