@@ -38,8 +38,10 @@ import java.util.Map;
  * ({@code ak.Variant.UNKNOWN_FIELDS == false}), linked to the core built without the
  * {@code unknown-fields} feature. Its cells are {@code core-ffi|no-unknown},
  * {@code core-ffi-pull|no-unknown} and {@code host-gen|no-unknown} (arm R in drop mode over a
- * facade with no {@code unknownFields} member), with the incumbent arms as in-process
- * controls. Absolutes never travel between the two builds' processes.
+ * facade with no {@code unknownFields} member), with the incumbent arms beside them. JMH
+ * forks one JVM per cell, so no arm shares a process with another in either build: the
+ * incumbent arms are a control across the two builds' invocations, not an in-process one,
+ * and ratios are formed from per-launch medians (req 30, owner R-H24).
  *
  * <p>Directions (req 9): {@code encode}, {@code decode} (the bare call) and
  * {@code decode-read} (decode, then {@code Walk}/{@code PbWalk} read every field).

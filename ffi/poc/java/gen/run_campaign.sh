@@ -155,8 +155,12 @@ codec)
   [ "$SMOKE" = 1 ] && { EXTRA="-Dak.camp.budget=${AK_SMOKE_BUDGET:-65536} -Dak.camp.maxiters=${AK_SMOKE_MAXITERS:-50}"; WARM=1; AK_SMOKE_UROWS=${AK_SMOKE_UROWS:-6}; }
   # WP5 step 10: two builds, each its own JMH invocation per launch (the no-unknown build is
   # another class tree and another core; one process cannot hold both), in alternating order
-  # by launch. The incumbent arms run in both, the in-process controls that carry a ratio
-  # across (absolutes do not travel between the two builds' processes).
+  # by launch. JMH forks one JVM per cell (-f 1), so NO arm shares a process with another:
+  # the incumbent arms run in both builds' invocations as a control across them, and ratios
+  # are formed from per-launch medians (CAMPAIGN req 30, owner R-H24), cross-process.
+  # Order (req 22 as amended, R-H23): JMH runs the cells in the order given and cannot
+  # randomise across forks; the arm order inside each (payload, content, dir) block is
+  # rotated one step per launch (ak.CampaignCodec), and the two builds alternate by launch.
   codec_run() {  # $1 = launch, $2 = full|nounk
     local l=$1 V=$2 SX= TAG= BUILD=full
     [ "$V" = nounk ] && { SX=-nounk; TAG=-nounk; BUILD=no-unknown; }

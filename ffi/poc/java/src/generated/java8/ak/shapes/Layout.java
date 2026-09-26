@@ -8,6 +8,34 @@ package ak.shapes;
 public final class Layout {
   private Layout() {}
 
+  public static final int AK_STR_SIZE = 24;   // align 8
+  public static final int AK_STR__DATA = 0;
+  public static final int AK_STR__LEN = 8;
+  public static final int AK_STR__TC = 16;
+
+  public static final int AK_SPAN_SIZE = 12;   // align 4
+  public static final int AK_SPAN__OFF = 0;
+  public static final int AK_SPAN__LEN = 4;
+  public static final int AK_SPAN__CODER = 8;
+
+  public static final int AK_BLOB_SIZE = 16;   // align 8
+  public static final int AK_BLOB__DATA = 0;
+  public static final int AK_BLOB__LEN = 8;
+
+  public static final int AK_UNK_BUF_SIZE = 16;   // align 8
+  public static final int AK_UNK_BUF__DATA = 0;
+  public static final int AK_UNK_BUF__LEN = 8;
+  public static final int AK_UNK_BUF__CAP = 12;
+
+  public static final int AK_UNK_OPTS_SIZE = 24;   // align 8
+  public static final int AK_UNK_OPTS__BUF = 0;
+  public static final int AK_UNK_OPTS__GROW = 16;
+
+  public static final int AK_UNK_POOL_SIZE = 24;   // align 8
+  public static final int AK_UNK_POOL__BUFS = 0;
+  public static final int AK_UNK_POOL__N = 8;
+  public static final int AK_UNK_POOL__GROW = 16;
+
   public static final int AK_EFIX_TASKOPTIONSOPTIONSENTRY_SIZE = 56;   // align 8
   public static final int AK_EFIX_TASKOPTIONSOPTIONSENTRY__KEY = 0;
   public static final int AK_EFIX_TASKOPTIONSOPTIONSENTRY__VALUE = 24;
@@ -467,15 +495,6 @@ public final class Layout {
   public static final int AK_UFIX_DUALRESPONSE_SIZE = 24;   // align 8
   public static final int AK_UFIX_DUALRESPONSE__UNKNOWN = 0;
   public static final int AK_UFIX_DUALRESPONSE__PRESENCE = 16;
-
-  public static final int AK_UNK_OPTS_SIZE = 24;   // align 8
-  public static final int AK_UNK_OPTS__BUF = 0;
-  public static final int AK_UNK_OPTS__GROW = 16;
-
-  public static final int AK_UNK_POOL_SIZE = 24;   // align 8
-  public static final int AK_UNK_POOL__BUFS = 0;
-  public static final int AK_UNK_POOL__N = 8;
-  public static final int AK_UNK_POOL__GROW = 16;
 
   public static final int AK_DEC_LISTRESULTSRESPONSE_OPTS_SIZE = 104;   // align 8
   public static final int AK_DEC_LISTRESULTSRESPONSE_OPTS__HOST = 0;

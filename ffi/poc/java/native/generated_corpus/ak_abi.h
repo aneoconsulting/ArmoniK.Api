@@ -2948,6 +2948,10 @@ AK_SASSERT(offsetof(struct ak_ufix_WireZoo, v_msg) == 96, "ak_ufix_WireZoo.v_msg
 AK_SASSERT(offsetof(struct ak_ufix_WireZoo, v_big_tag) == 136, "ak_ufix_WireZoo.v_big_tag");
 AK_SASSERT(offsetof(struct ak_ufix_WireZoo, unknown) == 144, "ak_ufix_WireZoo.unknown");
 AK_SASSERT(offsetof(struct ak_ufix_WireZoo, presence) == 160, "ak_ufix_WireZoo.presence");
+AK_SASSERT(sizeof(struct ak_unk_buf) == 16, "sizeof ak_unk_buf");
+AK_SASSERT(offsetof(struct ak_unk_buf, data) == 0, "ak_unk_buf.data");
+AK_SASSERT(offsetof(struct ak_unk_buf, len) == 8, "ak_unk_buf.len");
+AK_SASSERT(offsetof(struct ak_unk_buf, cap) == 12, "ak_unk_buf.cap");
 AK_SASSERT(sizeof(struct ak_unk_opts) == 24, "sizeof ak_unk_opts");
 AK_SASSERT(offsetof(struct ak_unk_opts, buf) == 0, "ak_unk_opts.buf");
 AK_SASSERT(offsetof(struct ak_unk_opts, grow) == 16, "ak_unk_opts.grow");

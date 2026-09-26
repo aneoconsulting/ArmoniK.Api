@@ -102,6 +102,19 @@ else
 fi
 
 echo
+echo "===== 3b'. decision 11 rule 4: unknowns inside oneof members (the C++ slice's three sequences; target, then floor) ====="
+for lv in "$J17 build/cls17" "$J8 build/cls8"; do
+  set -- $lv
+  "$1/bin/java" -cp "$2:$CP" -Dak.lib="$PWD/build/jni/libakjni.so" ak.RunUnkOneof 2>&1 | grep -v "^Picked up"
+  [ "${PIPESTATUS[0]}" -eq 0 ] || fail=1
+done
+if "$J17/bin/java" -cp "build/cls17:$CP" -Dak.lib="$PWD/build/jni/libakjni.so" -Dak.unk.oneofplant=1 ak.RunUnkOneof > build/unk-oneofplant.txt 2>&1; then
+  echo "  control unk-oneofplant (not armed): PASSED -- the oneof check is blind"; fail=1
+else
+  echo "  control unk-oneofplant (not armed): failed as required: $(grep -c FAIL build/unk-oneofplant.txt) failing (sequence, arm) pair(s)"
+fi
+
+echo
 echo "===== 3c. decision 11 rule 3: buffers of a failed retain decode are reclaimed (target, then floor) ====="
 for lv in "$J17 build/cls17" "$J8 build/cls8"; do
   set -- $lv

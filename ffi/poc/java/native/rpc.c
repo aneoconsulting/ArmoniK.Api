@@ -220,3 +220,10 @@ JNIEXPORT jlong JNICALL Java_ak_NativeRpc_processCpuNs(JNIEnv *e, jclass c) {
   if (clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts) != 0) return -1;
   return (jlong) ts.tv_sec * 1000000000LL + (jlong) ts.tv_nsec;
 }
+
+/* R-H17: cell B parses the core's response in place. A direct ByteBuffer over the core's
+ * bytes (no copy); the memory stays the core's and is freed with bytesFree after the parse. */
+JNIEXPORT jobject JNICALL Java_ak_NativeRpc_directBuffer(JNIEnv *env, jclass c, jlong ptr, jlong len) {
+  (void) c;
+  return (*env)->NewDirectByteBuffer(env, (void *)(intptr_t) ptr, len);
+}
