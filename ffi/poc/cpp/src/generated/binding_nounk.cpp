@@ -36,6 +36,20 @@ namespace ffi {
   }
 #endif
 
+// CAMPAIGN req 19 (R-H31): the exported calls the core's counters cannot see, counted in
+// the counting build only (a timed binary carries no counting code).
+#ifdef AK_COUNTING
+static thread_local uint64_t t_host_calls = 0;
+#define AK_HOST_CALL() (++t_host_calls)
+uint64_t host_calls_take() {
+  uint64_t r = t_host_calls;
+  t_host_calls = 0;
+  return r;
+}
+#else
+#define AK_HOST_CALL() ((void)0)
+#endif
+
 static inline struct ak_str ak_str_absent() {
   struct ak_str s;
   s.data = NULL;
@@ -954,7 +968,7 @@ static int32_t loop_list_results_response_results(ak_enc_ctx *ctx, const void *o
 
 intptr_t encode_into_list_results_response(ak_enc_ctx *ctx, const ListResultsResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ListResultsResponse h;
   h.o = &o;
   h.t = t;
@@ -1013,7 +1027,7 @@ static int32_t loop_list_results_response_results_zeroed(ak_enc_ctx *ctx, const 
 
 intptr_t encode_into_list_results_response_zeroed(ak_enc_ctx *ctx, const ListResultsResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ListResultsResponse h;
   h.o = &o;
   h.t = t;
@@ -1058,7 +1072,7 @@ static int32_t loop_list_results_response_results_nobatch(ak_enc_ctx *ctx, const
 
 intptr_t encode_into_list_results_response_nobatch(ak_enc_ctx *ctx, const ListResultsResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ListResultsResponse h;
   h.o = &o;
   h.t = t;
@@ -1267,7 +1281,7 @@ static const struct ak_evt_TaskDetailed kElemVt_ListTasksDetailedResponse_tasks 
 
 intptr_t encode_into_list_tasks_detailed_response(ak_enc_ctx *ctx, const ListTasksDetailedResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ListTasksDetailedResponse h;
   h.o = &o;
   h.t = t;
@@ -1493,7 +1507,7 @@ static const struct ak_evt_TaskDetailed kElemVt_ListTasksDetailedResponse_tasks_
 
 intptr_t encode_into_list_tasks_detailed_response_zeroed(ak_enc_ctx *ctx, const ListTasksDetailedResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ListTasksDetailedResponse h;
   h.o = &o;
   h.t = t;
@@ -1705,7 +1719,7 @@ static const struct ak_evt_TaskDetailed kElemVt_ListTasksDetailedResponse_tasks_
 
 intptr_t encode_into_list_tasks_detailed_response_nobatch(ak_enc_ctx *ctx, const ListTasksDetailedResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ListTasksDetailedResponse h;
   h.o = &o;
   h.t = t;
@@ -1749,7 +1763,7 @@ static int32_t loop_list_probe_response_probes(ak_enc_ctx *ctx, const void *obj,
 
 intptr_t encode_into_list_probe_response(ak_enc_ctx *ctx, const ListProbeResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ListProbeResponse h;
   h.o = &o;
   h.t = t;
@@ -1808,7 +1822,7 @@ static int32_t loop_list_probe_response_probes_zeroed(ak_enc_ctx *ctx, const voi
 
 intptr_t encode_into_list_probe_response_zeroed(ak_enc_ctx *ctx, const ListProbeResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ListProbeResponse h;
   h.o = &o;
   h.t = t;
@@ -1853,7 +1867,7 @@ static int32_t loop_list_probe_response_probes_nobatch(ak_enc_ctx *ctx, const vo
 
 intptr_t encode_into_list_probe_response_nobatch(ak_enc_ctx *ctx, const ListProbeResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ListProbeResponse h;
   h.o = &o;
   h.t = t;
@@ -1934,7 +1948,7 @@ static const struct ak_evt_TaskSummary kElemVt_ListTaskSummaryResponse_tasks = {
 
 intptr_t encode_into_list_task_summary_response(ak_enc_ctx *ctx, const ListTaskSummaryResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ListTaskSummaryResponse h;
   h.o = &o;
   h.t = t;
@@ -2032,7 +2046,7 @@ static const struct ak_evt_TaskSummary kElemVt_ListTaskSummaryResponse_tasks_zer
 
 intptr_t encode_into_list_task_summary_response_zeroed(ak_enc_ctx *ctx, const ListTaskSummaryResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ListTaskSummaryResponse h;
   h.o = &o;
   h.t = t;
@@ -2116,7 +2130,7 @@ static const struct ak_evt_TaskSummary kElemVt_ListTaskSummaryResponse_tasks_nob
 
 intptr_t encode_into_list_task_summary_response_nobatch(ak_enc_ctx *ctx, const ListTaskSummaryResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ListTaskSummaryResponse h;
   h.o = &o;
   h.t = t;
@@ -2130,7 +2144,7 @@ intptr_t encode_into_list_task_summary_response_nobatch(ak_enc_ctx *ctx, const L
 
 intptr_t encode_into_upload_result_data_message(ak_enc_ctx *ctx, const UploadResultDataMessage &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_UploadResultDataMessage h;
   h.o = &o;
   h.t = t;
@@ -2144,7 +2158,7 @@ intptr_t encode_into_upload_result_data_message(ak_enc_ctx *ctx, const UploadRes
 
 intptr_t encode_into_upload_result_data_message_zeroed(ak_enc_ctx *ctx, const UploadResultDataMessage &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_UploadResultDataMessage h;
   h.o = &o;
   h.t = t;
@@ -2160,7 +2174,7 @@ intptr_t encode_into_upload_result_data_message_zeroed(ak_enc_ctx *ctx, const Up
 
 intptr_t encode_into_upload_result_data_message_nobatch(ak_enc_ctx *ctx, const UploadResultDataMessage &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_UploadResultDataMessage h;
   h.o = &o;
   h.t = t;
@@ -2278,7 +2292,7 @@ static const struct ak_evt_MetricsBatch kElemVt_ListMetricsResponse_batches = {
 
 intptr_t encode_into_list_metrics_response(ak_enc_ctx *ctx, const ListMetricsResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ListMetricsResponse h;
   h.o = &o;
   h.t = t;
@@ -2412,7 +2426,7 @@ static const struct ak_evt_MetricsBatch kElemVt_ListMetricsResponse_batches_zero
 
 intptr_t encode_into_list_metrics_response_zeroed(ak_enc_ctx *ctx, const ListMetricsResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ListMetricsResponse h;
   h.o = &o;
   h.t = t;
@@ -2532,7 +2546,7 @@ static const struct ak_evt_MetricsBatch kElemVt_ListMetricsResponse_batches_noba
 
 intptr_t encode_into_list_metrics_response_nobatch(ak_enc_ctx *ctx, const ListMetricsResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ListMetricsResponse h;
   h.o = &o;
   h.t = t;
@@ -2606,7 +2620,7 @@ static int32_t loop_dual_response_right(ak_enc_ctx *ctx, const void *obj, int64_
 
 intptr_t encode_into_dual_response(ak_enc_ctx *ctx, const DualResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_DualResponse h;
   h.o = &o;
   h.t = t;
@@ -2712,7 +2726,7 @@ static int32_t loop_dual_response_right_zeroed(ak_enc_ctx *ctx, const void *obj,
 
 intptr_t encode_into_dual_response_zeroed(ak_enc_ctx *ctx, const DualResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_DualResponse h;
   h.o = &o;
   h.t = t;
@@ -2788,7 +2802,7 @@ static int32_t loop_dual_response_right_nobatch(ak_enc_ctx *ctx, const void *obj
 
 intptr_t encode_into_dual_response_nobatch(ak_enc_ctx *ctx, const DualResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_DualResponse h;
   h.o = &o;
   h.t = t;

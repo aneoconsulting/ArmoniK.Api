@@ -28,14 +28,18 @@ def main(path, launch, build="full"):
         if b.get("run_type") != "iteration":
             continue
         # run_name carries Google Benchmark's own suffixes ("/iterations:N/repeats:R").
-        arm, payload, content, direction, mode = b["run_name"].split("/")[0].split("|")
+        parts = b["run_name"].split("/")[0].split("|")
+        arm, payload, content, direction, mode = parts[:5]
+        # WP7: a sixth field carries the row's tags, "k=v,k=v" (req. 11's end= and input=,
+        # req. 7's set= and row=), each written as its own field.
+        tags = dict(kv.split("=", 1) for kv in parts[5].split(",") if "=" in kv) if len(parts) > 5 else {}
         it = int(b["iterations"])
         sc = SCALE[b.get("time_unit", "ns")]
         print(json.dumps({"slice": "cpp", "suite": "codec", "arm": arm, "payload": payload,
                           "content": content, "dir": direction, "unknown_mode": mode,
                           "build": build, "launch": int(launch), "round": int(b.get("repetition_index", 0)),
-                          "cpu_ns": round(b["cpu_time"] * sc * it), "wall_ns": round(b["real_time"] * sc * it),
-                          "iters": it}, separators=(",", ":")))
+                          "cpu_ns": round(b["cpu_time"] * sc * it), "cpu_clock": "process", "wall_ns": round(b["real_time"] * sc * it),
+                          "iters": it, **tags}, separators=(",", ":")))
         n += 1
     print("# " + json.dumps({"samples_converted": n}))
     return 0 if n else 1

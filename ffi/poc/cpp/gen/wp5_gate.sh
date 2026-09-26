@@ -257,14 +257,15 @@ fi
   step "contentsets_a17, AK_CS_GATE_ONLY=1"
   must "contentsets gate" 0 env AK_CS_GATE_ONLY=1 "$B/contentsets_a17" 0
   step "crossing counts (the COUNTING core, R5)"
-  (cd "$PAY" && must "counts shared" 0 "$OLDPWD/$B/counts_a17_shared") | tee "$S/counts.log"
-  (cd "$PAY" && must "counts static" 0 "$OLDPWD/$B/counts_a17_static")
-  step "crossing counts against the committed baseline (logs/cpp/counts-baseline.log)"
-  grep -E '^  P' "$L/counts-baseline.log" > "$S/cwant"; grep -E '^  P' "$S/counts.log" > "$S/cgot"
-  if diff "$S/cwant" "$S/cgot" > "$S/cdiff"; then echo "  $(wc -l < "$S/cgot") count rows identical"; echo ">>> ok: counts unchanged"
+  # req 19 (amended): payloads and the 92 U-* rows, drop and retain, resets and take counted.
+  py gen/u_rows.py ../../corpus/generated "$S/rows.tsv"
+  (cd "$PAY" && must "counts shared" 0 "$OLDPWD/$B/counts_a17_shared" --corpus "$OLDPWD/../../corpus/generated" --rows "$S/rows.tsv") | tee "$S/counts.log"
+  (cd "$PAY" && must "counts static" 0 "$OLDPWD/$B/counts_a17_static" --corpus "$OLDPWD/../../corpus/generated" --rows "$S/rows.tsv") > "$S/counts_static.log"
+  step "crossing counts against the committed baseline (logs/cpp/counts-baseline.log), shared and static"
+  grep -E '^  [PU]' "$L/counts-baseline.log" > "$S/cwant"; grep -E '^  [PU]' "$S/counts.log" > "$S/cgot"
+  grep -E '^  [PU]' "$S/counts_static.log" > "$S/cgot_s"
+  if diff "$S/cwant" "$S/cgot" > "$S/cdiff" && diff "$S/cwant" "$S/cgot_s" >> "$S/cdiff"; then echo "  $(wc -l < "$S/cgot") count rows identical (shared and static)"; echo ">>> ok: counts unchanged"
   else head -10 "$S/cdiff"; echo ">>> FAIL: crossing counts differ from the baseline"; FAILS=$((FAILS+1)); fi
-  step "crossing counts of the retain arms (AK_COUNTS_RETAIN=1: decode_with_*_unk and *_pool)"
-  (cd "$PAY" && must "counts retain" 0 env AK_COUNTS_RETAIN=1 "$OLDPWD/$B/counts_a17_shared") | grep -E 'decode|>>>' 
   if [ -x "$B/rpccounts" ]; then
     step "RPC crossing counts (the binding's ak_init_once before the first RPC)"
     must "rpccounts" 0 timeout 120 "$B/rpccounts" 5

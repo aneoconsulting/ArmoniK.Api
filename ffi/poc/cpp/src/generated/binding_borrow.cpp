@@ -36,6 +36,20 @@ namespace ffi {
   }
 #endif
 
+// CAMPAIGN req 19 (R-H31): the exported calls the core's counters cannot see, counted in
+// the counting build only (a timed binary carries no counting code).
+#ifdef AK_COUNTING
+static thread_local uint64_t t_host_calls = 0;
+#define AK_HOST_CALL() (++t_host_calls)
+uint64_t host_calls_take() {
+  uint64_t r = t_host_calls;
+  t_host_calls = 0;
+  return r;
+}
+#else
+#define AK_HOST_CALL() ((void)0)
+#endif
+
 static inline struct ak_str ak_str_absent() {
   struct ak_str s;
   s.data = NULL;
@@ -1068,7 +1082,7 @@ static int32_t loop_list_results_response_results(ak_enc_ctx *ctx, const void *o
 
 intptr_t encode_into_list_results_response(ak_enc_ctx *ctx, const ListResultsResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ListResultsResponse h;
   h.o = &o;
   h.t = t;
@@ -1127,7 +1141,7 @@ static int32_t loop_list_results_response_results_zeroed(ak_enc_ctx *ctx, const 
 
 intptr_t encode_into_list_results_response_zeroed(ak_enc_ctx *ctx, const ListResultsResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ListResultsResponse h;
   h.o = &o;
   h.t = t;
@@ -1172,7 +1186,7 @@ static int32_t loop_list_results_response_results_nobatch(ak_enc_ctx *ctx, const
 
 intptr_t encode_into_list_results_response_nobatch(ak_enc_ctx *ctx, const ListResultsResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ListResultsResponse h;
   h.o = &o;
   h.t = t;
@@ -1381,7 +1395,7 @@ static const struct ak_evt_TaskDetailed kElemVt_ListTasksDetailedResponse_tasks 
 
 intptr_t encode_into_list_tasks_detailed_response(ak_enc_ctx *ctx, const ListTasksDetailedResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ListTasksDetailedResponse h;
   h.o = &o;
   h.t = t;
@@ -1607,7 +1621,7 @@ static const struct ak_evt_TaskDetailed kElemVt_ListTasksDetailedResponse_tasks_
 
 intptr_t encode_into_list_tasks_detailed_response_zeroed(ak_enc_ctx *ctx, const ListTasksDetailedResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ListTasksDetailedResponse h;
   h.o = &o;
   h.t = t;
@@ -1819,7 +1833,7 @@ static const struct ak_evt_TaskDetailed kElemVt_ListTasksDetailedResponse_tasks_
 
 intptr_t encode_into_list_tasks_detailed_response_nobatch(ak_enc_ctx *ctx, const ListTasksDetailedResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ListTasksDetailedResponse h;
   h.o = &o;
   h.t = t;
@@ -1863,7 +1877,7 @@ static int32_t loop_list_probe_response_probes(ak_enc_ctx *ctx, const void *obj,
 
 intptr_t encode_into_list_probe_response(ak_enc_ctx *ctx, const ListProbeResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ListProbeResponse h;
   h.o = &o;
   h.t = t;
@@ -1922,7 +1936,7 @@ static int32_t loop_list_probe_response_probes_zeroed(ak_enc_ctx *ctx, const voi
 
 intptr_t encode_into_list_probe_response_zeroed(ak_enc_ctx *ctx, const ListProbeResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ListProbeResponse h;
   h.o = &o;
   h.t = t;
@@ -1967,7 +1981,7 @@ static int32_t loop_list_probe_response_probes_nobatch(ak_enc_ctx *ctx, const vo
 
 intptr_t encode_into_list_probe_response_nobatch(ak_enc_ctx *ctx, const ListProbeResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ListProbeResponse h;
   h.o = &o;
   h.t = t;
@@ -2048,7 +2062,7 @@ static const struct ak_evt_TaskSummary kElemVt_ListTaskSummaryResponse_tasks = {
 
 intptr_t encode_into_list_task_summary_response(ak_enc_ctx *ctx, const ListTaskSummaryResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ListTaskSummaryResponse h;
   h.o = &o;
   h.t = t;
@@ -2146,7 +2160,7 @@ static const struct ak_evt_TaskSummary kElemVt_ListTaskSummaryResponse_tasks_zer
 
 intptr_t encode_into_list_task_summary_response_zeroed(ak_enc_ctx *ctx, const ListTaskSummaryResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ListTaskSummaryResponse h;
   h.o = &o;
   h.t = t;
@@ -2230,7 +2244,7 @@ static const struct ak_evt_TaskSummary kElemVt_ListTaskSummaryResponse_tasks_nob
 
 intptr_t encode_into_list_task_summary_response_nobatch(ak_enc_ctx *ctx, const ListTaskSummaryResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ListTaskSummaryResponse h;
   h.o = &o;
   h.t = t;
@@ -2244,7 +2258,7 @@ intptr_t encode_into_list_task_summary_response_nobatch(ak_enc_ctx *ctx, const L
 
 intptr_t encode_into_upload_result_data_message(ak_enc_ctx *ctx, const UploadResultDataMessage &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_UploadResultDataMessage h;
   h.o = &o;
   h.t = t;
@@ -2258,7 +2272,7 @@ intptr_t encode_into_upload_result_data_message(ak_enc_ctx *ctx, const UploadRes
 
 intptr_t encode_into_upload_result_data_message_zeroed(ak_enc_ctx *ctx, const UploadResultDataMessage &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_UploadResultDataMessage h;
   h.o = &o;
   h.t = t;
@@ -2274,7 +2288,7 @@ intptr_t encode_into_upload_result_data_message_zeroed(ak_enc_ctx *ctx, const Up
 
 intptr_t encode_into_upload_result_data_message_nobatch(ak_enc_ctx *ctx, const UploadResultDataMessage &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_UploadResultDataMessage h;
   h.o = &o;
   h.t = t;
@@ -2392,7 +2406,7 @@ static const struct ak_evt_MetricsBatch kElemVt_ListMetricsResponse_batches = {
 
 intptr_t encode_into_list_metrics_response(ak_enc_ctx *ctx, const ListMetricsResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ListMetricsResponse h;
   h.o = &o;
   h.t = t;
@@ -2526,7 +2540,7 @@ static const struct ak_evt_MetricsBatch kElemVt_ListMetricsResponse_batches_zero
 
 intptr_t encode_into_list_metrics_response_zeroed(ak_enc_ctx *ctx, const ListMetricsResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ListMetricsResponse h;
   h.o = &o;
   h.t = t;
@@ -2646,7 +2660,7 @@ static const struct ak_evt_MetricsBatch kElemVt_ListMetricsResponse_batches_noba
 
 intptr_t encode_into_list_metrics_response_nobatch(ak_enc_ctx *ctx, const ListMetricsResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_ListMetricsResponse h;
   h.o = &o;
   h.t = t;
@@ -2720,7 +2734,7 @@ static int32_t loop_dual_response_right(ak_enc_ctx *ctx, const void *obj, int64_
 
 intptr_t encode_into_dual_response(ak_enc_ctx *ctx, const DualResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_DualResponse h;
   h.o = &o;
   h.t = t;
@@ -2826,7 +2840,7 @@ static int32_t loop_dual_response_right_zeroed(ak_enc_ctx *ctx, const void *obj,
 
 intptr_t encode_into_dual_response_zeroed(ak_enc_ctx *ctx, const DualResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_DualResponse h;
   h.o = &o;
   h.t = t;
@@ -2902,7 +2916,7 @@ static int32_t loop_dual_response_right_nobatch(ak_enc_ctx *ctx, const void *obj
 
 intptr_t encode_into_dual_response_nobatch(ak_enc_ctx *ctx, const DualResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  ak_enc_reset(ctx);
+  AK_HOST_CALL(); ak_enc_reset(ctx);
   EncObj_DualResponse h;
   h.o = &o;
   h.t = t;
@@ -2997,7 +3011,7 @@ static void unk_untrack_opts_list_results_response(struct ak_dec_ListResultsResp
 // host's, for the next decode with the same options (rule 7, R-H7).
 int32_t decode_with_list_results_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out, struct ak_dec_ListResultsResponse_opts *opts, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
-  int32_t rc = ak_dec_reset_ListResultsResponse(ctx, opts);
+  AK_HOST_CALL(); int32_t rc = ak_dec_reset_ListResultsResponse(ctx, opts);  // reset 1: arms, before the decode
   if (rc != AK_OK) {
     // Refused (another root's context, or the core uninitialized): nothing was
     // consumed, so every buffer in the options stays the host's (R-H7).
@@ -3005,7 +3019,7 @@ int32_t decode_with_list_results_response_opts(ak_dec_ctx *ctx, const uint8_t *b
     return rc;
   }
   rc = decode_impl_list_results_response(ctx, b, n, out, refill, hold);
-  int32_t rc2 = ak_dec_reset_ListResultsResponse(ctx, NULL);
+  AK_HOST_CALL(); int32_t rc2 = ak_dec_reset_ListResultsResponse(ctx, NULL);  // reset 2: disarms, after it
   // R-H7: what is still in the options was not consumed and stays the host's.
   unk_untrack_opts_list_results_response(opts);
   unk_reclaim();
@@ -3310,7 +3324,7 @@ static void unk_untrack_opts_list_tasks_detailed_response(struct ak_dec_ListTask
 // host's, for the next decode with the same options (rule 7, R-H7).
 int32_t decode_with_list_tasks_detailed_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out, struct ak_dec_ListTasksDetailedResponse_opts *opts, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
-  int32_t rc = ak_dec_reset_ListTasksDetailedResponse(ctx, opts);
+  AK_HOST_CALL(); int32_t rc = ak_dec_reset_ListTasksDetailedResponse(ctx, opts);  // reset 1: arms, before the decode
   if (rc != AK_OK) {
     // Refused (another root's context, or the core uninitialized): nothing was
     // consumed, so every buffer in the options stays the host's (R-H7).
@@ -3318,7 +3332,7 @@ int32_t decode_with_list_tasks_detailed_response_opts(ak_dec_ctx *ctx, const uin
     return rc;
   }
   rc = decode_impl_list_tasks_detailed_response(ctx, b, n, out, refill, hold);
-  int32_t rc2 = ak_dec_reset_ListTasksDetailedResponse(ctx, NULL);
+  AK_HOST_CALL(); int32_t rc2 = ak_dec_reset_ListTasksDetailedResponse(ctx, NULL);  // reset 2: disarms, after it
   // R-H7: what is still in the options was not consumed and stays the host's.
   unk_untrack_opts_list_tasks_detailed_response(opts);
   unk_reclaim();
@@ -3524,7 +3538,7 @@ static void unk_untrack_opts_list_probe_response(struct ak_dec_ListProbeResponse
 // host's, for the next decode with the same options (rule 7, R-H7).
 int32_t decode_with_list_probe_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out, struct ak_dec_ListProbeResponse_opts *opts, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
-  int32_t rc = ak_dec_reset_ListProbeResponse(ctx, opts);
+  AK_HOST_CALL(); int32_t rc = ak_dec_reset_ListProbeResponse(ctx, opts);  // reset 1: arms, before the decode
   if (rc != AK_OK) {
     // Refused (another root's context, or the core uninitialized): nothing was
     // consumed, so every buffer in the options stays the host's (R-H7).
@@ -3532,7 +3546,7 @@ int32_t decode_with_list_probe_response_opts(ak_dec_ctx *ctx, const uint8_t *b, 
     return rc;
   }
   rc = decode_impl_list_probe_response(ctx, b, n, out, refill, hold);
-  int32_t rc2 = ak_dec_reset_ListProbeResponse(ctx, NULL);
+  AK_HOST_CALL(); int32_t rc2 = ak_dec_reset_ListProbeResponse(ctx, NULL);  // reset 2: disarms, after it
   // R-H7: what is still in the options was not consumed and stays the host's.
   unk_untrack_opts_list_probe_response(opts);
   unk_reclaim();
@@ -3723,7 +3737,7 @@ static void unk_untrack_opts_list_task_summary_response(struct ak_dec_ListTaskSu
 // host's, for the next decode with the same options (rule 7, R-H7).
 int32_t decode_with_list_task_summary_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out, struct ak_dec_ListTaskSummaryResponse_opts *opts, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
-  int32_t rc = ak_dec_reset_ListTaskSummaryResponse(ctx, opts);
+  AK_HOST_CALL(); int32_t rc = ak_dec_reset_ListTaskSummaryResponse(ctx, opts);  // reset 1: arms, before the decode
   if (rc != AK_OK) {
     // Refused (another root's context, or the core uninitialized): nothing was
     // consumed, so every buffer in the options stays the host's (R-H7).
@@ -3731,7 +3745,7 @@ int32_t decode_with_list_task_summary_response_opts(ak_dec_ctx *ctx, const uint8
     return rc;
   }
   rc = decode_impl_list_task_summary_response(ctx, b, n, out, refill, hold);
-  int32_t rc2 = ak_dec_reset_ListTaskSummaryResponse(ctx, NULL);
+  AK_HOST_CALL(); int32_t rc2 = ak_dec_reset_ListTaskSummaryResponse(ctx, NULL);  // reset 2: disarms, after it
   // R-H7: what is still in the options was not consumed and stays the host's.
   unk_untrack_opts_list_task_summary_response(opts);
   unk_reclaim();
@@ -3876,7 +3890,7 @@ static void unk_untrack_opts_upload_result_data_message(struct ak_dec_UploadResu
 // host's, for the next decode with the same options (rule 7, R-H7).
 int32_t decode_with_upload_result_data_message_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out, struct ak_dec_UploadResultDataMessage_opts *opts, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
-  int32_t rc = ak_dec_reset_UploadResultDataMessage(ctx, opts);
+  AK_HOST_CALL(); int32_t rc = ak_dec_reset_UploadResultDataMessage(ctx, opts);  // reset 1: arms, before the decode
   if (rc != AK_OK) {
     // Refused (another root's context, or the core uninitialized): nothing was
     // consumed, so every buffer in the options stays the host's (R-H7).
@@ -3884,7 +3898,7 @@ int32_t decode_with_upload_result_data_message_opts(ak_dec_ctx *ctx, const uint8
     return rc;
   }
   rc = decode_impl_upload_result_data_message(ctx, b, n, out, refill, hold);
-  int32_t rc2 = ak_dec_reset_UploadResultDataMessage(ctx, NULL);
+  AK_HOST_CALL(); int32_t rc2 = ak_dec_reset_UploadResultDataMessage(ctx, NULL);  // reset 2: disarms, after it
   // R-H7: what is still in the options was not consumed and stays the host's.
   unk_untrack_opts_upload_result_data_message(opts);
   unk_reclaim();
@@ -4093,7 +4107,7 @@ static void unk_untrack_opts_list_metrics_response(struct ak_dec_ListMetricsResp
 // host's, for the next decode with the same options (rule 7, R-H7).
 int32_t decode_with_list_metrics_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out, struct ak_dec_ListMetricsResponse_opts *opts, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
-  int32_t rc = ak_dec_reset_ListMetricsResponse(ctx, opts);
+  AK_HOST_CALL(); int32_t rc = ak_dec_reset_ListMetricsResponse(ctx, opts);  // reset 1: arms, before the decode
   if (rc != AK_OK) {
     // Refused (another root's context, or the core uninitialized): nothing was
     // consumed, so every buffer in the options stays the host's (R-H7).
@@ -4101,7 +4115,7 @@ int32_t decode_with_list_metrics_response_opts(ak_dec_ctx *ctx, const uint8_t *b
     return rc;
   }
   rc = decode_impl_list_metrics_response(ctx, b, n, out, refill, hold);
-  int32_t rc2 = ak_dec_reset_ListMetricsResponse(ctx, NULL);
+  AK_HOST_CALL(); int32_t rc2 = ak_dec_reset_ListMetricsResponse(ctx, NULL);  // reset 2: disarms, after it
   // R-H7: what is still in the options was not consumed and stays the host's.
   unk_untrack_opts_list_metrics_response(opts);
   unk_reclaim();
@@ -4254,7 +4268,7 @@ static void unk_untrack_opts_dual_response(struct ak_dec_DualResponse_opts *opts
 // host's, for the next decode with the same options (rule 7, R-H7).
 int32_t decode_with_dual_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out, struct ak_dec_DualResponse_opts *opts, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
-  int32_t rc = ak_dec_reset_DualResponse(ctx, opts);
+  AK_HOST_CALL(); int32_t rc = ak_dec_reset_DualResponse(ctx, opts);  // reset 1: arms, before the decode
   if (rc != AK_OK) {
     // Refused (another root's context, or the core uninitialized): nothing was
     // consumed, so every buffer in the options stays the host's (R-H7).
@@ -4262,7 +4276,7 @@ int32_t decode_with_dual_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t
     return rc;
   }
   rc = decode_impl_dual_response(ctx, b, n, out, refill, hold);
-  int32_t rc2 = ak_dec_reset_DualResponse(ctx, NULL);
+  AK_HOST_CALL(); int32_t rc2 = ak_dec_reset_DualResponse(ctx, NULL);  // reset 2: disarms, after it
   // R-H7: what is still in the options was not consumed and stays the host's.
   unk_untrack_opts_dual_response(opts);
   unk_reclaim();

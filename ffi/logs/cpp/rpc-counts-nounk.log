@@ -1,0 +1,22 @@
+# RPC boundary-call counts per call (req 19), taken with campaign_rpc_count_nounk against campaign_server on a Unix socket,
+# 4 calls per cell and direction, averaged. The gate (run_campaign.sh gate) diffs the '^  [BCDE]' rows against this file.
+# forward = rpc + codec + host + take:
+#   rpc   : core RPC entry points (ak_call_unary and its release) counted by the core's counting build (target-camp-count);
+#   codec : core codec entry points (forward) and reverse calls into the host (reverse), same counters;
+#   host  : ak_enc_reset / ak_dec_reset counted in the binding under AK_COUNTING. Place: encode resets once before the
+#           encode; a retain decode resets twice, once before the decode (arms the options) and once after (disarms);
+#           a drop decode passes no options and makes no reset;
+#   take  : ak_enc_take after the encode, counted by the harness.
+# a = Fetch (server -> client payload, decode on the client); b = Push (encode on the client). a+read is direction a
+# plus a read of every field, which adds no boundary call, so it is not listed.
+# A and F make no core call (grpc++ only); D uses grpc++ for the call and the core codec, so rpc is 0; E uses the core
+# transport with the host-generated codec, so codec is 0.
+# {"campaign_rpc_counts": {"build": "no-unknown", "calls": 4, "retain": "every position armed, no pre-placed buffer, unk_grow allocates exactly the size requested"}}
+  B          a  forward/call    2.000  reverse/call    0.000   (rpc 2.000/0.000 + codec 0.000/0.000 + host 0.000 + take 0.000)
+  B          b  forward/call    2.000  reverse/call    0.000   (rpc 2.000/0.000 + codec 0.000/0.000 + host 0.000 + take 0.000)
+  C-nounk    a  forward/call    3.000  reverse/call 3501.000   (rpc 2.000/0.000 + codec 1.000/3501.000 + host 0.000 + take 0.000)
+  C-nounk    b  forward/call 2515.000  reverse/call 2501.000   (rpc 2.000/0.000 + codec 2511.000/2501.000 + host 1.000 + take 1.000)
+  D-nounk    a  forward/call    1.000  reverse/call 3501.000   (rpc 0.000/0.000 + codec 1.000/3501.000 + host 0.000 + take 0.000)
+  D-nounk    b  forward/call 2513.000  reverse/call 2501.000   (rpc 0.000/0.000 + codec 2511.000/2501.000 + host 1.000 + take 1.000)
+  E-nounk    a  forward/call    2.000  reverse/call    0.000   (rpc 2.000/0.000 + codec 0.000/0.000 + host 0.000 + take 0.000)
+  E-nounk    b  forward/call    2.000  reverse/call    0.000   (rpc 2.000/0.000 + codec 0.000/0.000 + host 0.000 + take 0.000)

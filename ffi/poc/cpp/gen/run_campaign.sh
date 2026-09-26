@@ -12,7 +12,11 @@
 #   AK_CAMPAIGN_WARMUP   codec: warm-up bytes per arm          (default = AK_CAMPAIGN_BYTES)
 #   AK_CAMPAIGN_CALLS    rpc: calls per sample                 (default 480)
 #   AK_CAMPAIGN_RPC_WARMUP rpc: warm-up calls per cell         (default 96)
+#   AK_CAMPAIGN_SERVER_WARMUP rpc: server warm-up calls per direction per client transport
+#                        per socket, before any client            (default 200)
 #   AK_CAMPAIGN_CALIB_ITERS calib: crossings per sample        (default 100000000)
+#   AK_LLC_BYTES         last-level cache size (default 14417920, the i9-7900X's 13.75 MB)
+#   AK_CAMPAIGN_POOL_BYTES codec: encode input pool, encoded bytes (default 2 x AK_LLC_BYTES)
 #   AK_CAMPAIGN_ALLOW_DIRTY=1  SMOKE RUNS ONLY: run on a dirty tree; the header says so and
 #                        every figure is container instrumentation (requirement 27 refuses it)
 #   AK_CAMPAIGN_SMOKE=1  a smoke run on a CLEAN tree (R-H19): the header's "instrumentation"
@@ -49,7 +53,12 @@ BYTES=${AK_CAMPAIGN_BYTES:-33554432}
 WARM=${AK_CAMPAIGN_WARMUP:-$BYTES}
 CALLS=${AK_CAMPAIGN_CALLS:-480}
 RPCWARM=${AK_CAMPAIGN_RPC_WARMUP:-96}
+SRVWARM=${AK_CAMPAIGN_SERVER_WARMUP:-200}
 CITERS=${AK_CAMPAIGN_CALIB_ITERS:-100000000}
+# req. 11: the encode suite's beyond-cache input pool, in encoded bytes: 2 x the machine's
+# last-level cache (AK_LLC_BYTES, default the reference i9-7900X's 13.75 MB), overridable.
+LLC=${AK_LLC_BYTES:-14417920}
+POOL=${AK_CAMPAIGN_POOL_BYTES:-$((2 * LLC))}
 B=${BUILD:-$SLICE/build-campaign}
 FFI=$(cd "$SLICE/../.." && pwd)
 # The repository whose commit the logs name. AK_REPO: a snapshot run (a `git archive` of a
@@ -153,10 +162,13 @@ h = {
                "pinned": "grpc++: 4 MiB stream window, BDP off (no connection-window argument exists, C31); core: 4 MiB stream and connection windows, adaptive off, Nagle off; both: 2 MiB max message"},
  "variants": {"full": "ak-core default features (unknown-fields: decision 11), binaries campaign_codec / campaign_rpc: core-ffi drop and retain, C/D-retain and -drop",
               "no-unknown": "ak-core --no-default-features (unknown fields compiled out; plan relowered with unknown=drop), nounk/include/ak_abi.h, binaries campaign_codec_nounk (codec-nounk-launch*.jsonl) / campaign_rpc_nounk: core-ffi and host-gen no-unknown (the facade without unknown_fields, R-H22), C/D-nounk; A, B and the incumbents run there too"},
+ "threads": {"codec": "one benchmark thread; the core starts none for codec calls (each codec log's own line has the process thread count)",
+             "rpc_client": "caller threads = the in-flight level (1, 8, 16), created before round 1; the core's runtime workers = 2 (campaign_rpc --workers default); grpc-core sizes its own pollers and executor, counted in each client's process_threads_after_warmup line",
+             "rpc_server": "grpc++ callback server, grpc-core's own threads; the server's thread count at start and at exit is in the rpc log"},
  "repeats": {"launches": $LAUNCHES, "rounds": $ROUNDS},
- "warmup": {"codec_bytes_per_arm": $WARM, "rpc_calls_per_cell": $RPCWARM, "allocator": "every arm runs its warm-up before round 1"},
- "sample": {"codec_bytes": $BYTES, "rpc_calls": $CALLS, "calib_iters": $CITERS,
-            "codec_clock": "Google Benchmark " + "v1.8.3 (344117638c8f, Release, built by the runner)" + ": cpu_time (benchmark thread) and real_time, repetitions randomly interleaved", "rpc_clock": "getrusage(RUSAGE_SELF) of the client process + CLOCK_MONOTONIC"},
+ "warmup": {"codec_bytes_per_arm": $WARM, "rpc_calls_per_cell": $RPCWARM, "rpc_server_calls_per_direction_per_client_transport_per_socket": $SRVWARM, "allocator": "every arm runs its warm-up before round 1"},
+ "sample": {"codec_bytes": $BYTES, "codec_pool_bytes": $POOL, "llc_bytes": $LLC, "rpc_calls": $CALLS, "calib_iters": $CITERS,
+            "codec_clock": "Google Benchmark " + "v1.8.3 (344117638c8f, Release, built by the runner)" + ": cpu_time = process CPU per repetition (MeasureProcessCPUTime) and real_time, repetitions randomly interleaved", "rpc_clock": "getrusage(RUSAGE_SELF) of the client process + CLOCK_MONOTONIC"},
 }
 print("# " + json.dumps(h, sort_keys=True))
 EOF
@@ -199,11 +211,12 @@ run_gate() {
     python3 gen/corpus_all.py "$B/corpus_all_noinit" --only "$SUB" > /dev/null 2>&1 \
       && echo ">>> FAIL: control noinit (corpus) passed" || echo "  control noinit (corpus): failed as required"
     echo "===== crossing counts (requirement 19): the counting core against the committed counts ====="
-    (cd "$FFI/schema/generated" && "$B/counts_a17_shared" > "$OUT/counts.log" 2>&1)
+    unknown_rows
+    (cd "$FFI/schema/generated" && "$B/counts_a17_shared" --corpus "$FFI/corpus/generated" --rows "$ROWS" > "$OUT/counts.log" 2>&1)
     # The committed baseline (logs/cpp/counts-baseline.log, re-taken deliberately when the
     # core's ABI changes a count, with the reason in its header).
-    grep -E '^  P' "$FFI/logs/cpp/counts-baseline.log" > "$TMPD/want"
-    grep -E '^  P' "$OUT/counts.log" > "$TMPD/got"
+    grep -E '^  [PU]' "$FFI/logs/cpp/counts-baseline.log" > "$TMPD/want"
+    grep -E '^  [PU]' "$OUT/counts.log" > "$TMPD/got"
     if diff "$TMPD/want" "$TMPD/got" > "$TMPD/diff"; then
       echo "  $(wc -l < "$TMPD/got") count rows identical to logs/cpp/counts-baseline.log"
     else
@@ -230,20 +243,32 @@ run_gate() {
         || echo "  control $cb plant: $(grep -c 'GATE FAIL' "$TMPD/g.log") slots failed as required"
     done
     echo "===== the RPC call check (requirement 18) seen failing, and leaving NO sample (R-H4) ====="
-    start_server shipped
+    start_server
+    warm_server "$TMPD/warm.log" && echo "  server warm-up: $(grep -c campaign_rpc_warm_server "$TMPD/warm.log") socket(s), $SRVWARM calls per direction per client transport" \
+      || echo ">>> FAIL: the server warm-up"
     for rb in campaign_rpc campaign_rpc_nounk; do
-      timeout 120 taskset -c "$AK_CPU_CLIENT" "$B/$rb" --target 127.0.0.1:$PORT --expect $((EXP + 1)) \
+      timeout 120 taskset -c "$AK_CPU_CLIENT" "$B/$rb" --target "$(sock_of shipped)" --expect $((EXP + 1)) \
         --transport shipped --cells C --dirs a --inflight 1 --rounds 1 --calls 2 --warmup 1 > "$TMPD/r.log" 2>&1; rc=$?
       ns=$(grep -c '^{' "$TMPD/r.log")
       [ $rc != 0 ] && [ "$ns" = 0 ] && echo "  control rpc length ($rb): aborted as required (exit $rc, $ns samples: $(grep -m1 'CALL CHECK' "$TMPD/r.log"))" \
                    || echo ">>> FAIL: a wrong response length did not abort, or left $ns sample(s) ($rb)"
       # An abort AFTER samples were taken (--fail-after 2): the samples already measured must
       # not reach the output either (buffered in the client, written only on success).
-      timeout 120 taskset -c "$AK_CPU_CLIENT" "$B/$rb" --target 127.0.0.1:$PORT --expect "$EXP" \
+      timeout 120 taskset -c "$AK_CPU_CLIENT" "$B/$rb" --target "$(sock_of shipped)" --expect "$EXP" \
         --transport shipped --cells AB --dirs a --inflight 1 --rounds 2 --calls 2 --warmup 1 --fail-after 2 > "$TMPD/r.log" 2>&1; rc=$?
       ns=$(grep -c '^{' "$TMPD/r.log")
       [ $rc != 0 ] && [ "$ns" = 0 ] && echo "  control rpc abort after 2 samples ($rb): exit $rc, $ns samples written, as required" \
                    || echo ">>> FAIL: an abort after 2 samples left $ns sample(s) (exit $rc, $rb)"
+    done
+    # req. 19 (amended 2026-09-26): the RPC cells' crossings per call, from the counting
+    # binaries, against the committed files (a difference stops the run).
+    for v in "" _nounk; do
+      want=$FFI/logs/cpp/rpc-counts$( [ -n "$v" ] && echo -nounk ).log
+      taskset -c "$AK_CPU_CLIENT" "$B/campaign_rpc_count$v" --target "$(sock_of shipped)" --expect "$EXP" \
+        --transport shipped --count 4 > "$OUT/rpc-counts$v.log" 2>&1
+      if diff <(grep -E '^  [BCDE]' "$want") <(grep -E '^  [BCDE]' "$OUT/rpc-counts$v.log") > "$TMPD/rd"; then
+        echo "  $(grep -cE '^  [BCDE]' "$OUT/rpc-counts$v.log") RPC count rows identical to logs/cpp/$(basename "$want")"
+      else head -8 "$TMPD/rd"; echo ">>> FAIL: RPC crossing counts differ from $(basename "$want")"; fi
     done
     # The runner's own discard (R-H4): a client that fails leaves no launch file.
     rpc_launch_file "$TMPD/rpcctl.jsonl" 1 shipped "--fail-after 1" > /dev/null 2>&1; rc=$?
@@ -265,19 +290,7 @@ run_gate() {
 
 ROWS=$OUT/campaign_unknown_rows.tsv
 unknown_rows() {  # the corpus's unknown-class accept rows at a shapes root (requirement 7)
-  python3 - "$FFI/corpus/generated" "$ROWS" <<'EOF'
-import json, os, sys
-d = sys.argv[1]
-roots = {"ListResultsResponse", "ListTasksDetailedResponse", "ListProbeResponse", "ListTaskSummaryResponse",
-         "UploadResultDataMessage", "ListMetricsResponse", "DualResponse"}
-m = json.load(open(os.path.join(d, "manifest.json")))["vectors"]
-with open(sys.argv[2], "w") as f:
-    for k in sorted(m):
-        r = m[k]
-        if r.get("class") == "unknown" and r.get("expect") == "accept" and r.get("root") in roots \
-                and r.get("verdict") != "disputed":
-            f.write("%s\t%s\t%s\n" % (k, r["root"], r["file"]))
-EOF
+  python3 "$SLICE/gen/u_rows.py" "$FFI/corpus/generated" "$ROWS" 2>/dev/null
 }
 
 # Google Benchmark v1.8.3, RELEASE (requirement 22a): built once from the upstream tag into
@@ -305,7 +318,7 @@ rpc_launch_file() {
   local f=$1 l=$2 t=$3 extra=${4:-} rb rc
   if [ $((l % 2)) = 1 ]; then RBS="campaign_rpc campaign_rpc_nounk"; else RBS="campaign_rpc_nounk campaign_rpc"; fi
   for rb in $RBS; do
-    timeout 7200 taskset -c "$AK_CPU_CLIENT" "$B/$rb" --target 127.0.0.1:$PORT --expect "$EXP" \
+    timeout 7200 taskset -c "$AK_CPU_CLIENT" "$B/$rb" --target "$(sock_of $t)" --expect "$EXP" \
       --transport "$t" --launch "$l" --rounds "$ROUNDS" --calls "$CALLS" --warmup "$RPCWARM" $extra \
       > "$TMPD/client.out" 2>&1; rc=$?
     if [ $rc != 0 ]; then
@@ -334,13 +347,28 @@ calib_one() {
   return 0
 }
 
-PORT=""; EXP=""; SPID=""
+# req. 13 / 17 (amended 2026-09-26): ONE server process per launch, serving every cell of both
+# builds on two Unix domain sockets (shipped and pinned configurations), warmed by
+# $SRVWARM calls per direction from each client transport (grpc++ and the core's) on each
+# socket before any client runs.
+EXP=""; SPID=""; SRVTHREADS=""
+SOCK_shipped=$TMPD/s.sock; SOCK_pinned=$TMPD/p.sock
+sock_of() { [ "$1" = pinned ] && echo "unix:$SOCK_pinned" || echo "unix:$SOCK_shipped"; }
 start_server() {
-  taskset -c "$AK_CPU_SERVER" "$B/campaign_server" --port 0 --transport "$1" > "$TMPD/srv.out" 2> "$TMPD/srv.err" &
+  rm -f "$SOCK_shipped" "$SOCK_pinned"
+  taskset -c "$AK_CPU_SERVER" "$B/campaign_server" --uds-shipped "$SOCK_shipped" --uds-pinned "$SOCK_pinned" \
+    > "$TMPD/srv.out" 2> "$TMPD/srv.err" &
   SPID=$!
   for _ in $(seq 100); do grep -q READY "$TMPD/srv.out" 2>/dev/null && break; sleep 0.1; done
-  PORT=$(awk '/READY/{print $2}' "$TMPD/srv.out"); EXP=$(awk '/READY/{print $3}' "$TMPD/srv.out")
-  [ -n "$PORT" ] || { echo "the server did not start"; cat "$TMPD/srv.err"; exit 1; }
+  EXP=$(awk '/READY/{print $4}' "$TMPD/srv.out"); SRVTHREADS=$(awk '/READY/{print $5}' "$TMPD/srv.out")
+  [ -n "$EXP" ] || { echo "the server did not start"; cat "$TMPD/srv.err"; exit 1; }
+}
+warm_server() {  # warm_server OUTFILE: every socket, both client transports, every call checked
+  local t
+  for t in shipped pinned; do
+    taskset -c "$AK_CPU_CLIENT" "$B/campaign_rpc" --target "$(sock_of $t)" --expect "$EXP" --transport "$t" \
+      --warm-server "$SRVWARM" >> "$1" 2>&1 || { echo "server warm-up failed ($t)" >&2; return 1; }
+  done
 }
 stop_server() { kill "$SPID" 2>/dev/null; wait "$SPID" 2>/dev/null; SPID=""; }
 trap 'stop_server; rm -rf "$TMPD"' EXIT
@@ -371,7 +399,7 @@ case "$SUITE" in
       { header codec "$l"
         (cd "$FFI/schema/generated" && taskset -c "$AK_CPU_CLIENT" "$B/$cb" --launch "$l" \
            --rounds "$ROUNDS" --bytes "$BYTES" --warmup "$WARM" --corpus "$FFI/corpus/generated" \
-           --rows "$ROWS" --gbench-out "$gb" > "$TMPD/gb.console" 2>&1; echo $? > "$TMPD/gb.rc")
+           --rows "$ROWS" --gbench-out "$gb" --pool-bytes "$POOL" > "$TMPD/gb.console" 2>&1; echo $? > "$TMPD/gb.rc")
         grep '^#' "$TMPD/gb.console"
         python3 "$SLICE/gen/gbench_to_jsonl.py" "$gb" "$l" "$([ "$cb" = campaign_codec_nounk ] && echo no-unknown || echo full)"; } > "$f" 2>/dev/null
       if [ "$(cat "$TMPD/gb.rc")" != 0 ] || ! grep -q '^{' "$f"; then
@@ -386,17 +414,19 @@ case "$SUITE" in
     for l in $(seq 1 "$LAUNCHES"); do
       f=$OUT/rpc-launch$l.jsonl
       header rpc "$l" > "$f"
-      # WP5 step 10: the full client (A B C-retain C-drop D-retain D-drop) and the no-unknown
-      # client (A B C-nounk D-nounk; A and B its in-process controls), order alternated by
-      # launch, against the same server process per transport. R-H4: a failed client
-      # deletes the launch file (rpc_launch_file), so no sample of a failed run survives.
+      # The full client (A B C-retain C-drop D-retain D-drop E-drop E-retain F-drop F-retain)
+      # and the no-unknown client (A B C-nounk D-nounk E-nounk F-nounk; A and B its
+      # in-process controls), order alternated by launch, against ONE server process for
+      # the launch (req. 13), warmed first. R-H4: a failed client deletes the launch file.
+      start_server
+      echo "# server: one process for the launch, sockets $SOCK_shipped (shipped) and $SOCK_pinned (pinned), threads at start $SRVTHREADS" >> "$f"
+      warm_server "$f" || { stop_server; rm -f "$f"; exit 1; }
       for t in shipped pinned; do
-        start_server "$t"
         rpc_launch_file "$f" "$l" "$t"; rc=$?
-        stop_server
-        [ $rc = 0 ] || { echo "rpc launch $l ($t) failed: no file kept" >&2; exit 1; }
-        echo "# server ($t): $(cat "$TMPD/srv.err")" >> "$f"
+        [ $rc = 0 ] || { stop_server; echo "rpc launch $l ($t) failed: no file kept" >&2; exit 1; }
       done
+      stop_server
+      echo "# server: $(cat "$TMPD/srv.err")" >> "$f"
       echo "wrote $f"
     done ;;
   calib)
