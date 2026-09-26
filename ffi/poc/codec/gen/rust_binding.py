@@ -150,6 +150,20 @@ pub fn unk_reclaim() -> usize {
 '''
 
 
+S_OF_REJECT = '''    // Plan utf8="reject" (ABI v1 open decision 3: the decoder carries the whole UTF-8
+    // guarantee): the CORE validated this span (the decode group's `check_utf8`,
+    // rust_abi.py) and a malformed one failed the decode before any group or element that
+    // holds it reached the host -- every flush, apply and the pull replay run only while the
+    // decode error is clear. So the host does not scan it a second time.
+    let _ = ctx;
+    debug_assert!(::core::str::from_utf8(b).is_ok(), "the core returned an unvalidated string span");
+    ::core::str::from_utf8_unchecked(b).to_owned()'''
+
+S_OF_LOSSY = '''    // Plan utf8="lossy": the core does not validate; U+FFFD substitution here, as
+    // core-native's decode_str_lossy does. Cannot fail.
+    let _ = ctx;
+    ::std::string::String::from_utf8_lossy(b).into_owned()'''
+
 BINDING_PRELUDE = '''//! Arm `core-ffi-rust`: the generated host binding.
 //!
 //! Two invariants from ABI v1 are load-bearing here and both are generated rather than left
@@ -253,18 +267,7 @@ unsafe fn s_of(base: *const u8, s: ak_span, ctx: *mut ak_dec_ctx) -> String {
         return String::new();
     }
     let b = ::core::slice::from_raw_parts(base.add(s.off as usize), s.len as usize);
-    // ABI v1 open decision 3: with the encode-side check gone the decoder carries the whole
-    // UTF-8 guarantee, so this takes the context in order to be able to say so. A malformed
-    // span goes through `ak_fail` on the decode context -- the error channel section 5
-    // specifies, and which nothing but a panic guard reached before this.
-    match ak_rt::strings::decode_str(b) {
-        Ok(v) => v,
-        Err(e) => {
-            let m = b"malformed UTF-8 in a decoded string";
-            ak_fail(ctx as *mut c_void, e, m.as_ptr(), m.len() as u32);
-            String::new()
-        }
-    }
+@S_OF_UTF8@
 }
 
 #[inline(always)]
@@ -397,7 +400,10 @@ def emit_binding(ir):
     NOUNK = ir.options.unknown == "drop"
     # The unknown-field prelude sits right after the `use` lines, where it always did, so
     # the full variant's text is unchanged by the split.
-    head, tail = BINDING_PRELUDE.split('use facade::*;\n\n', 1)
+    # D1 (optimisation step 1): the string materialiser follows the plan's utf8 option, as
+    # rust_native.py does; under "reject" the core has already validated every span.
+    prelude = BINDING_PRELUDE.replace("@S_OF_UTF8@", S_OF_REJECT if ir.options.utf8 == "reject" else S_OF_LOSSY)
+    head, tail = prelude.split('use facade::*;\n\n', 1)
     o = [HEAD, head + 'use facade::*;\n\n' + ("" if NOUNK else BINDING_UNK_PRELUDE) + tail, ""]
     o += _lifecycle(ir)
     o += _dec_ctxs(ir)

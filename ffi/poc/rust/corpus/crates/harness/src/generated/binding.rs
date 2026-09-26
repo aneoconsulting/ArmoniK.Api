@@ -197,18 +197,14 @@ unsafe fn s_of(base: *const u8, s: ak_span, ctx: *mut ak_dec_ctx) -> String {
         return String::new();
     }
     let b = ::core::slice::from_raw_parts(base.add(s.off as usize), s.len as usize);
-    // ABI v1 open decision 3: with the encode-side check gone the decoder carries the whole
-    // UTF-8 guarantee, so this takes the context in order to be able to say so. A malformed
-    // span goes through `ak_fail` on the decode context -- the error channel section 5
-    // specifies, and which nothing but a panic guard reached before this.
-    match ak_rt::strings::decode_str(b) {
-        Ok(v) => v,
-        Err(e) => {
-            let m = b"malformed UTF-8 in a decoded string";
-            ak_fail(ctx as *mut c_void, e, m.as_ptr(), m.len() as u32);
-            String::new()
-        }
-    }
+    // Plan utf8="reject" (ABI v1 open decision 3: the decoder carries the whole UTF-8
+    // guarantee): the CORE validated this span (the decode group's `check_utf8`,
+    // rust_abi.py) and a malformed one failed the decode before any group or element that
+    // holds it reached the host -- every flush, apply and the pull replay run only while the
+    // decode error is clear. So the host does not scan it a second time.
+    let _ = ctx;
+    debug_assert!(::core::str::from_utf8(b).is_ok(), "the core returned an unvalidated string span");
+    ::core::str::from_utf8_unchecked(b).to_owned()
 }
 
 #[inline(always)]
