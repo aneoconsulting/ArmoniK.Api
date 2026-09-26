@@ -132,14 +132,8 @@ for f in $(cd "$ROOT/codec/gen" && ls *.py | grep -vx generate.py); do
   hits=$(srcs "$f" | sort)
   n=$(printf '%s\n' "$hits" | grep -c .)
   if [ "$n" != 1 ]; then
-    # csharp/gen/ir.py is a DIFFERENT module (a C#-specific IR over the same shapes.py),
-    # not a copy of this one; it is named here so the exception is visible rather than
-    # silently tolerated by a looser pattern.
-    only_cs=$(printf '%s\n' "$hits" | grep -v '/csharp/gen/' | grep -c .)
-    if [ "$f" = "ir.py" ] && [ "$only_cs" = 1 ]; then
-      pass "$f: one shared copy; csharp/gen/ir.py is a separate C# IR, not a copy"
-      continue
-    fi
+    # No exception: csharp/gen/ir.py, once named here as a separate C# IR, was removed
+    # (FIX-PLAN R-H13). A renamed copy is gen/generate.py --check's to catch (slice guard).
     fail "$f exists in $n places:"; printf '%s\n' "$hits" | sed 's/^/           /'
   elif [ "$(rel "$hits")" != "codec/gen/$f" ]; then
     fail "$f lives at $(rel "$hits"), not in codec/gen"
@@ -217,6 +211,8 @@ plant "a slice pointing its core dependency somewhere else" \
       'mkdir -p java/mycore && cp -a codec/crates/ak-rt java/myrt && sed -i "s|path = \"../ak-rt\"|path = \"../../../java/myrt\"|" codec/crates/ak-core/Cargo.toml'
 plant "a second copy of a shared emitter" \
       'cp codec/gen/rust_abi.py cpp/gen/rust_abi.py'
+plant "a renamed copy of a shared emitter (R-H13: caught by generate.py's slice guard)" \
+      'cp codec/gen/rust_abi.py rust/gen/facade_codegen.py'
 plant "a build linking a per-slice core library" \
       'sed -i "s|libak_core\.so|libak_core_cpp.so|" cpp/CMakeLists.txt'
 plant "a stale shared core (the emitter and the committed file disagree)" \

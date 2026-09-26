@@ -13,7 +13,7 @@ renderer only. The emitted text is unchanged by the move.
 """
 from plan import (as_plan, direct_fields, elem_type, loop_slots, presence_bits,  # noqa: F401
                   slot_elem as slot_elem_rust, slot_name, unk_opts_name, unk_opts_members,
-                  unk_positions, unk_opts_layout)
+                  unk_positions, unk_opts_layout, unknown_compiled_out)
 from rustnames import SCALAR  # noqa: F401
 from rust_abi import rust_member
 
@@ -394,7 +394,7 @@ def emit_binding(ir):
     global NOUNK
     # WP5 step 10: the NO-UNKNOWN variant's binding (plan: THE NO-UNKNOWN VARIANT): no
     # u-groups, no bags handed to the core or taken from it, no options, no `_unk` family.
-    NOUNK = ir.options.unknown == "drop"
+    NOUNK = unknown_compiled_out(ir)
     # The unknown-field prelude sits right after the `use` lines, where it always did, so
     # the full variant's text is unchanged by the split.
     head, tail = BINDING_PRELUDE.split('use facade::*;\n\n', 1)
@@ -967,8 +967,10 @@ def emit_binding(ir):
                 o.append("        %s: %s" % (oname, lines[0]))
                 o.extend("        " + ln for ln in lines[1:-1])
                 o.append("        },")
-            o.append("        // Decision 11 (WP5 step 7): the message's own buffer, the host's now.")
-            o.append("        unknown_fields: %s," % ("Vec::new()" if NOUNK else "take_unk(&f.unknown)"))
+            if not NOUNK:
+                # The no-unknown facade has no member to fill (FIX-PLAN R-H22).
+                o.append("        // Decision 11 (WP5 step 7): the message's own buffer, the host's now.")
+                o.append("        unknown_fields: take_unk(&f.unknown),")
             o.append("    }")
             o.append("}")
         o.append("")
