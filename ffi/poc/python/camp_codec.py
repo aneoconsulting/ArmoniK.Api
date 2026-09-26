@@ -36,10 +36,9 @@ The no-unknown build (requirement 10's third mode, WP5 step 10): with AK_VARIANT
 process imports the variant's shims (`_akffi_nounk`, and `_akffi_corpus_nounk` for the
 unknown family), a separately built module over ak-core without `unknown-fields`, and the
 arms are the incumbent (the same-launch control; under pyperf every benchmark is its own
-worker process) and core-ffi in mode `no-unknown`. host-gen
-has no third mode: `py_pure.emit_pycodec` renders the SAME text for drop from the full plan
-and from the relowered one (checked by `gen/generate.py`'s sibling check in STATE), so
-host-gen drop already is the compiled-out form.
+worker process), core-ffi in mode `no-unknown`, and host-gen in mode `no-unknown`: host-gen
+drop (the same text from both plans) over the no-unknown build's facade, which has no
+`_unknown` (R-H22), in the no-unknown process.
 Directions (requirement 9): encode; decode (the bare call); decode+read (decode, then read
 every field through the same plan for every arm -- upb's FromString is lazy, so only this
 row is like for like).
@@ -242,6 +241,9 @@ def shapes_cases(log, only=None):
             if VARIANT == "nounk":
                 enc_obj = {k: v for k, v in enc_obj.items() if k[0].startswith("incumbent")}
                 enc_obj[("core-ffi", "no-unknown")] = (lambda o, _r=root: arms._ffi.encode("cext", _r, o), fc, "cext")
+                # host-gen drop over the no-unknown facade (no `_unknown`, R-H22), in this
+                # process: the no-unknown host-gen arm, as the other slices time it
+                enc_obj[("host-gen", "no-unknown")] = (lambda o, _r=root: getattr(arms.pycodec, "encode_root_" + _r)(o), fc, "cext")
                 into_obj = {("core-ffi", "no-unknown"): lambda o, b, _r=root: arms._ffi.encode("cext", _r, o, None, False, b)}
             enc = {k: (lambda _f=f, _o=o: _f(_o)) for k, (f, o, _kind) in enc_obj.items()}
             reuse = R()
@@ -262,6 +264,7 @@ def shapes_cases(log, only=None):
             if VARIANT == "nounk":
                 dec = {k: v for k, v in dec.items() if k[0].startswith("incumbent")}
                 dec[("core-ffi", "no-unknown")] = lambda _b=ref, _r=root: arms._ffi.decode("cext", _r, _b, arms.TY_CEXT)
+                dec[("host-gen", "no-unknown")] = lambda _b=ref, _r=root: getattr(arms.pycodec, "decode_root_" + _r)(_b, arms.CT_CEXT)
             # Correctness before timing, per case (requirement 26, in process): every encode
             # equals the reference (the incumbent may write another legal form: map order),
             # every decode re-encodes to it.
@@ -377,6 +380,10 @@ def unknown_cases(log, only=None):
                ("core-ffi", "drop" if VARIANT != "nounk" else "no-unknown"): lambda _o=oc, _r=root: ffi.encode("cext", _r, _o)}
         dec = {("incumbent-prod", "incumbent-default"): lambda _b=buf, _R=R: _R.FromString(_b),
                ("core-ffi", "drop" if VARIANT != "nounk" else "no-unknown"): lambda _b=buf, _r=root: ffi.decode("cext", _r, _b, TC)}
+        if VARIANT == "nounk":
+            opn = getattr(pyd, "decode_root_" + root)(buf, CX)
+            enc[("host-gen", "no-unknown")] = lambda _o=opn, _r=root: getattr(pyd, "encode_root_" + _r)(_o)
+            dec[("host-gen", "no-unknown")] = lambda _b=buf, _r=root: getattr(pyd, "decode_root_" + _r)(_b, CX)
         if VARIANT != "nounk":
             ocr = ffi.decode("cext", root, buf, TC, None, True)
             op = getattr(pyd, "decode_root_" + root)(buf, CX)

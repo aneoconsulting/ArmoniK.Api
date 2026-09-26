@@ -1,9 +1,12 @@
    rpc a       B         calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
    rpc a       C-nounk   calls    3 resets  0 rpc fwd   2 rev   0 codec fwd     1 rev  3501
    rpc a       D-nounk   calls    1 resets  0 rpc fwd   0 rev   0 codec fwd     1 rev  3501
+   rpc a       E-nounk   calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
    rpc a+read  B         calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
    rpc a+read  C-nounk   calls    3 resets  0 rpc fwd   2 rev   0 codec fwd     1 rev  3501
    rpc a+read  D-nounk   calls    1 resets  0 rpc fwd   0 rev   0 codec fwd     1 rev  3501
+   rpc a+read  E-nounk   calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
    rpc b       B         calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
    rpc b       C-nounk   calls 2515 resets  1 rpc fwd   2 rev   0 codec fwd  2511 rev  2501
    rpc b       D-nounk   calls 2513 resets  1 rpc fwd   0 rev   0 codec fwd  2511 rev  2501
+   rpc b       E-nounk   calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
