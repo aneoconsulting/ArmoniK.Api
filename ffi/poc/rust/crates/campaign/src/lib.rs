@@ -132,6 +132,11 @@ pub struct Case {
     pub content: &'static str,
     pub unknown_mode: &'static str,
     pub op: Box<dyn FnMut() -> u64>,
+    /// A labelled extra row (`dir` = `decode-nodrop`, gen/opt_bench.sh's AK_NODROP): the
+    /// same decode as `decode`, measured with criterion's `iter_with_large_drop`, so the
+    /// decoded graph's drop is OUTSIDE the timed region. `op` (with the drop) is only its
+    /// fixed warm-up. The headline `decode` row keeps the drop inside.
+    pub bench: Option<Box<dyn for<'a, 'b> FnMut(&'a mut criterion::Bencher<'b, ThreadCpu>)>>,
 }
 
 /// One input of the codec suite: a payload (with a content set) or a corpus `U-*` row.
@@ -247,7 +252,7 @@ fn root_of(pid: &str) -> String {
 /// once, outside every timed region; Rust's codecs keep no per-instance size memo
 /// (requirement 11: prost recomputes `encoded_len` on every encode), so re-encoding the same
 /// graph is a fresh serialisation each iteration.
-pub fn cases_for<R: Ops>(ctx: &'static Ctx, inp: &Input) -> Vec<Case> {
+pub fn cases_for<R: Ops>(ctx: &'static Ctx, inp: &Input, nodrop: bool) -> Vec<Case> {
     use bytes::{Bytes, BytesMut};
     use prost::Message;
     let mut out = Vec::new();
@@ -255,7 +260,7 @@ pub fn cases_for<R: Ops>(ctx: &'static Ctx, inp: &Input) -> Vec<Case> {
     let wire_b = Bytes::from_static(wire);
     let (content, pid) = (inp.content, inp.id.clone());
     let mut push = |arm: &'static str, dir: &'static str, mode: &'static str, op: Box<dyn FnMut() -> u64>| {
-        out.push(Case { arm, dir, payload: pid.clone(), content, unknown_mode: mode, op });
+        out.push(Case { arm, dir, payload: pid.clone(), content, unknown_mode: mode, op, bench: None });
     };
     // The objects each encode arm writes: for a payload, the builder's value (the prost arm
     // gets prost's decode of its canonical bytes); for a U-* row, each arm's own decode.
@@ -334,6 +339,33 @@ pub fn cases_for<R: Ops>(ctx: &'static Ctx, inp: &Input) -> Vec<Case> {
                 let v = R::f_pull(ctx, wire, retain, &mut toks).unwrap();
                 if read { R::touch_f(&v) } else { std::hint::black_box(&v); 0 }
             }));
+        }
+    }
+    if nodrop {
+        // The labelled extra `decode-nodrop` rows (see `Case::bench`).
+        type B = Box<dyn for<'a, 'b> FnMut(&'a mut criterion::Bencher<'b, ThreadCpu>)>;
+        let mut extra = |arm: &'static str, mode: &'static str, op: Box<dyn FnMut() -> u64>, bench: B| {
+            out.push(Case { arm, dir: "decode-nodrop", payload: pid.clone(), content, unknown_mode: mode, op, bench: Some(bench) });
+        };
+        if p_run {
+            let (b1, b2) = (wire_b.clone(), wire_b.clone());
+            extra("incumbent-prod", "default",
+                Box::new(move || { std::hint::black_box(R::P::decode(&mut b1.clone()).unwrap()); 0 }),
+                Box::new(move |b| b.iter_with_large_drop(|| R::P::decode(&mut b2.clone()).unwrap())));
+        }
+        if a_run {
+            let (b1, b2) = (wire_b.clone(), wire_b.clone());
+            extra("armonik", "default",
+                Box::new(move || { std::hint::black_box(R::F::decode(&mut b1.clone()).unwrap()); 0 }),
+                Box::new(move |b| b.iter_with_large_drop(|| R::F::decode(&mut b2.clone()).unwrap())));
+        }
+        for &(mname, retain) in modes {
+            extra("core-native", mname,
+                Box::new(move || { std::hint::black_box(R::n_decode(wire, retain).unwrap()); 0 }),
+                Box::new(move |b| b.iter_with_large_drop(|| R::n_decode(wire, retain).unwrap())));
+            extra("core-ffi", mname,
+                Box::new(move || { std::hint::black_box(R::f_decode(ctx, wire, retain).unwrap()); 0 }),
+                Box::new(move |b| b.iter_with_large_drop(|| R::f_decode(ctx, wire, retain).unwrap())));
         }
     }
     out

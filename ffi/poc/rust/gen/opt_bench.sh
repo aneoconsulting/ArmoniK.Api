@@ -25,7 +25,7 @@
 #   5. rpc: both transports, both client builds, the planted-wrong-length control per
 #      client (must abort with no file), then one launch at the reduced RPC settings.
 #   6. summary: gen/opt_summary.py -> summary-codec.tsv, ratios-codec.tsv,
-#      summary-rpc.tsv, summary-calib.tsv.
+#      summary-rpc.tsv, summary-calib.tsv. Compare two runs with gen/opt_compare.py.
 #
 # The correctness gate is deliberately not run (owner's instruction for the optimisation
 # experiment: it runs once at the end). The tree may be dirty; the header says so.
@@ -37,12 +37,19 @@ mkdir -p "$1"; OUT="$(cd "$1" && pwd)"
 
 # ---- fixed settings (change them and the run no longer compares with the baseline) ----
 export AK_CPU_CLIENT=${AK_CPU_CLIENT:-1} AK_CPU_SERVER=${AK_CPU_SERVER:-2,3}
-P_ONLY=P;  P_SAMPLES=20; P_WARMUP_ITERS=100; P_WARMUP_MS=50; P_MEASURE_MS=250
-U_ONLY=U-; U_SAMPLES=10; U_WARMUP_ITERS=20;  U_WARMUP_MS=5;  U_MEASURE_MS=20
+# Harness v2 (optimisation step 0): the case order is a seeded shuffle (H2; the same seed
+# in every run, so two runs time the cases in the same order), criterion's bootstrap is cut
+# to 1000 resamples (analysis only; it was ~40 ms of every case), the U-* rows get 20
+# samples of 3 ms (H4), four payloads carry the labelled extra decode-nodrop rows (H5),
+# and the RPC cells are interleaved and rotated per round over 12 rounds (H3).
+P_ONLY=P;  P_SAMPLES=20; P_WARMUP_ITERS=100; P_WARMUP_MS=50; P_MEASURE_MS=200
+U_ONLY=U-; U_SAMPLES=20; U_WARMUP_ITERS=20;  U_WARMUP_MS=10; U_MEASURE_MS=60
+export AK_ORDER=shuffle AK_SEED=1 AK_NRESAMPLES=1000
+NODROP=P1.2,P2.2,P4.1,P6.1
 CALIB_ROUNDS=5; CALIB_ITERS=20000000
-RPC_ROUNDS=3; RPC_CALLS=32; RPC_WARM=16
+RPC_ROUNDS=12; RPC_CALLS=32; RPC_WARM=16; RPC_ORDER=interleave
 LAUNCH=1
-SETTINGS="codec P(${P_ONLY}*): samples=$P_SAMPLES warmup_iters=$P_WARMUP_ITERS warmup_ms=$P_WARMUP_MS measure_ms=$P_MEASURE_MS; codec U(${U_ONLY}*): samples=$U_SAMPLES warmup_iters=$U_WARMUP_ITERS warmup_ms=$U_WARMUP_MS measure_ms=$U_MEASURE_MS; calib rounds=$CALIB_ROUNDS iters=$CALIB_ITERS; rpc rounds=$RPC_ROUNDS calls=$RPC_CALLS warmup=$RPC_WARM; launch=$LAUNCH"
+SETTINGS="harness v2; codec order=$AK_ORDER seed=$AK_SEED criterion_resamples=$AK_NRESAMPLES; codec P(${P_ONLY}*): samples=$P_SAMPLES warmup_iters=$P_WARMUP_ITERS warmup_ms=$P_WARMUP_MS measure_ms=$P_MEASURE_MS decode-nodrop extra rows on $NODROP; codec U(${U_ONLY}*): samples=$U_SAMPLES warmup_iters=$U_WARMUP_ITERS warmup_ms=$U_WARMUP_MS measure_ms=$U_MEASURE_MS; calib rounds=$CALIB_ROUNDS iters=$CALIB_ITERS; rpc order=$RPC_ORDER rounds=$RPC_ROUNDS calls=$RPC_CALLS warmup=$RPC_WARM; launch=$LAUNCH"
 
 SCRATCH=$(mktemp -d)
 LOG="$OUT/runner.log"; : > "$LOG"
@@ -123,14 +130,14 @@ if [ "${OPT_CROSSINGS:-1}" = 1 ]; then
 fi
 
 # ---- 3. codec ---------------------------------------------------------------------------
-codec_run() {  # codec_run TAG VARIANT EXE ONLY SAMPLES WARM_ITERS WARM_MS MEAS_MS
-  local tag=$1 v=$2 exe=$3
+codec_run() {  # codec_run TAG VARIANT EXE ONLY SAMPLES WARM_ITERS WARM_MS MEAS_MS [NODROP]
+  local tag=$1 v=$2 exe=$3 nodrop=${9:-}
   local F="$OUT/$tag.jsonl" C="$OUT/$tag.criterion.log"
   header codec "$v" > "$F.head"
-  echo "# this file  AK_ONLY=$4 AK_SAMPLES=$5 AK_WARMUP_ITERS=$6 AK_WARMUP_MS=$7 AK_MEASURE_MS=$8 AK_LAUNCH=$LAUNCH" >> "$F.head"
+  echo "# this file  AK_ONLY=$4 AK_SAMPLES=$5 AK_WARMUP_ITERS=$6 AK_WARMUP_MS=$7 AK_MEASURE_MS=$8 AK_LAUNCH=$LAUNCH AK_ORDER=$AK_ORDER AK_SEED=$AK_SEED AK_NRESAMPLES=$AK_NRESAMPLES AK_NODROP=$nodrop" >> "$F.head"
   local t=$(date +%s)
   CRITERION_HOME="$SCRATCH/criterion-$tag" AK_LAUNCH=$LAUNCH AK_OUT="$F.body" \
-    AK_ONLY=$4 AK_SAMPLES=$5 AK_WARMUP_ITERS=$6 AK_WARMUP_MS=$7 AK_MEASURE_MS=$8 \
+    AK_ONLY=$4 AK_SAMPLES=$5 AK_WARMUP_ITERS=$6 AK_WARMUP_MS=$7 AK_MEASURE_MS=$8 AK_NODROP=$nodrop \
     taskset -c "$AK_CPU_CLIENT" "$exe" > "$C" 2>&1 \
     || { say "codec $tag FAILED (pre-check or run): $C"; exit 1; }
   { cat "$F.head"; echo "# criterion's console output (its own summary; the samples are in $(basename "$F"))"; cat "$C"; } > "$C.tmp"
@@ -139,9 +146,9 @@ codec_run() {  # codec_run TAG VARIANT EXE ONLY SAMPLES WARM_ITERS WARM_MS MEAS_
   say "  codec $tag: $(grep -m1 '^# precheck:' "$C" | sed 's/^# //'); $(grep -vc '^#' "$F") sample rows; $(( $(date +%s) - t ))s -> $(basename "$F")"
 }
 step "codec: payloads, full build"
-codec_run codec-P full "$BENCH" "$P_ONLY" $P_SAMPLES $P_WARMUP_ITERS $P_WARMUP_MS $P_MEASURE_MS
+codec_run codec-P full "$BENCH" "$P_ONLY" $P_SAMPLES $P_WARMUP_ITERS $P_WARMUP_MS $P_MEASURE_MS "$NODROP"
 step "codec: payloads, no-unknown build"
-codec_run codec-nounk-P nounk "$BENCH_NOUNK" "$P_ONLY" $P_SAMPLES $P_WARMUP_ITERS $P_WARMUP_MS $P_MEASURE_MS
+codec_run codec-nounk-P nounk "$BENCH_NOUNK" "$P_ONLY" $P_SAMPLES $P_WARMUP_ITERS $P_WARMUP_MS $P_MEASURE_MS "$NODROP"
 step "codec: U-* rows, full build (reduced settings)"
 codec_run codec-U full "$BENCH" "$U_ONLY" $U_SAMPLES $U_WARMUP_ITERS $U_WARMUP_MS $U_MEASURE_MS
 step "codec: U-* rows, no-unknown build (reduced settings)"
@@ -180,7 +187,7 @@ for T in shipped pinned; do
     F="$OUT/rpc-$T.jsonl"; [ "$v" = nounk ] && F="$OUT/rpc-$T-nounk.jsonl"
     header rpc "$v" > "$F.head"
     taskset -c "$AK_CPU_CLIENT" "$CL" --port "$PORT" --transport "$T" --launch $LAUNCH \
-      --rounds $RPC_ROUNDS --calls $RPC_CALLS --warmup $RPC_WARM --out "$F.body" \
+      --rounds $RPC_ROUNDS --calls $RPC_CALLS --warmup $RPC_WARM --order $RPC_ORDER --out "$F.body" \
       || { say "rpc $T ($v) ABORTED (requirement 18): no figure"; rm -f "$F.head" "$F.body"; exit 1; }
     cat "$F.head" "$F.body" > "$F"; rm -f "$F.head" "$F.body"
     say "  rpc $T ($v client): $(grep -vc '^#' "$F") rows -> $(basename "$F")"
