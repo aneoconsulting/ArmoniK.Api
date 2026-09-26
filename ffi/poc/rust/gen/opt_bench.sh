@@ -51,10 +51,12 @@ P_ONLY=P;  P_SAMPLES=20; P_WARMUP_ITERS=100; P_WARMUP_MS=50; P_MEASURE_MS=200
 U_ONLY=U-; U_SAMPLES=20; U_WARMUP_ITERS=20;  U_WARMUP_MS=8;  U_MEASURE_MS=45
 export AK_ORDER=interleave AK_SEED=1
 NODROP=P1.2,P2.2,P4.1,P6.1
+# Step 10 (Z1): the labelled extra core-ffi-zc arm on the bulk-bytes payloads.
+export AK_ZC=P5.
 CALIB_ROUNDS=5; CALIB_ITERS=20000000
 RPC_ROUNDS=12; RPC_CALLS=24; RPC_WARM=16; RPC_ORDER=interleave
 LAUNCH=1
-SETTINGS="harness v3; codec engine=interleaved sampler (AK_ORDER=$AK_ORDER) seed=$AK_SEED; codec P(${P_ONLY}*): samples=$P_SAMPLES warmup_iters=$P_WARMUP_ITERS warmup_ms=$P_WARMUP_MS measure_ms=$P_MEASURE_MS decode-nodrop extra rows on $NODROP; codec U(${U_ONLY}*): samples=$U_SAMPLES warmup_iters=$U_WARMUP_ITERS warmup_ms=$U_WARMUP_MS measure_ms=$U_MEASURE_MS; calib rounds=$CALIB_ROUNDS iters=$CALIB_ITERS; rpc order=$RPC_ORDER rounds=$RPC_ROUNDS calls=$RPC_CALLS warmup=$RPC_WARM; launch=$LAUNCH"
+SETTINGS="harness v3; codec engine=interleaved sampler (AK_ORDER=$AK_ORDER) seed=$AK_SEED; codec P(${P_ONLY}*): samples=$P_SAMPLES warmup_iters=$P_WARMUP_ITERS warmup_ms=$P_WARMUP_MS measure_ms=$P_MEASURE_MS decode-nodrop extra rows on $NODROP; core-ffi-zc extra arm on $AK_ZC*; codec U(${U_ONLY}*): samples=$U_SAMPLES warmup_iters=$U_WARMUP_ITERS warmup_ms=$U_WARMUP_MS measure_ms=$U_MEASURE_MS; calib rounds=$CALIB_ROUNDS iters=$CALIB_ITERS; rpc order=$RPC_ORDER rounds=$RPC_ROUNDS calls=$RPC_CALLS warmup=$RPC_WARM; launch=$LAUNCH"
 
 SCRATCH=$(mktemp -d)
 LOG="$OUT/runner.log"; : > "$LOG"
@@ -139,7 +141,7 @@ codec_run() {  # codec_run TAG VARIANT EXE ONLY SAMPLES WARM_ITERS WARM_MS MEAS_
   local tag=$1 v=$2 exe=$3 nodrop=${9:-}
   local F="$OUT/$tag.jsonl" C="$OUT/$tag.console.log"
   header codec "$v" > "$F.head"
-  echo "# this file  AK_ONLY=$4 AK_SAMPLES=$5 AK_WARMUP_ITERS=$6 AK_WARMUP_MS=$7 AK_MEASURE_MS=$8 AK_LAUNCH=$LAUNCH AK_ORDER=$AK_ORDER AK_SEED=$AK_SEED AK_NODROP=$nodrop" >> "$F.head"
+  echo "# this file  AK_ONLY=$4 AK_SAMPLES=$5 AK_WARMUP_ITERS=$6 AK_WARMUP_MS=$7 AK_MEASURE_MS=$8 AK_LAUNCH=$LAUNCH AK_ORDER=$AK_ORDER AK_SEED=$AK_SEED AK_NODROP=$nodrop AK_ZC=$AK_ZC" >> "$F.head"
   local t=$(date +%s)
   AK_LAUNCH=$LAUNCH AK_OUT="$F.body" \
     AK_ONLY=$4 AK_SAMPLES=$5 AK_WARMUP_ITERS=$6 AK_WARMUP_MS=$7 AK_MEASURE_MS=$8 AK_NODROP=$nodrop \

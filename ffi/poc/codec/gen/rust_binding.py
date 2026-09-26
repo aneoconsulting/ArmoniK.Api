@@ -304,10 +304,32 @@ const fn ak_small_n(group_size: usize) -> usize {
     if n == 0 { 1 } else { n }
 }
 
+thread_local! {
+    /// Optimisation Z1 (a LABELLED EXTRA arm, `decode_with_*_zc`): the input `Bytes` of the
+    /// zero-copy decode in progress on this thread, or null. Every other decode keeps ABI v1
+    /// decision 13's copy semantics; this costs them one thread-local load per non-empty
+    /// `bytes` field.
+    static ZC_IN: ::core::cell::Cell<*const ::bytes::Bytes> = const { ::core::cell::Cell::new(::core::ptr::null()) };
+}
+
+/// Clears ZC_IN when the zero-copy decode returns (or unwinds).
+struct ZcReset;
+impl Drop for ZcReset {
+    fn drop(&mut self) {
+        ZC_IN.with(|c| c.set(::core::ptr::null()));
+    }
+}
+
 #[inline(always)]
 unsafe fn b_of(base: *const u8, s: ak_span) -> ::bytes::Bytes {
     if s.len == 0 {
         return ::bytes::Bytes::new();
+    }
+    // Z1: inside a `_zc` decode of this very buffer, the field SHARES the input's
+    // allocation (a refcount, no copy) instead of copying out of it.
+    let z = ZC_IN.with(|c| c.get());
+    if !z.is_null() && (*z).as_ptr() == base {
+        return (*z).slice(s.off as usize..s.off as usize + s.len as usize);
     }
     ::bytes::Bytes::copy_from_slice(
         ::core::slice::from_raw_parts(base.add(s.off as usize), s.len as usize),
@@ -1080,6 +1102,24 @@ def emit_binding(ir):
             else:
                 _emit_add(ir, o, root, None, sn, path, f)
 
+        # Optimisation Z1: the labelled extra zero-copy entry (both variants).
+        o.append("/// Optimisation Z1, a LABELLED EXTRA arm: the same decode as `decode_with_%s`, with" % rs)
+        o.append("/// every `bytes` field a slice of `b` (sharing its allocation) instead of a copy.")
+        o.append("/// Not ABI v1 decision 13's default (which copies); `b` must be the whole input.")
+        o.append("pub fn decode_with_%s_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Result<%s, i32> {" % (rs, root))
+        o.append("    ZC_IN.with(|c| c.set(b as *const ::bytes::Bytes));")
+        o.append("    let _z = ZcReset;")
+        o.append("    decode_with_%s(ctxs, &b[..])" % rs)
+        o.append("}")
+        o.append("")
+        if not NOUNK:
+            o.append("/// Z1 with every position retained (see `decode_with_%s_zc`)." % rs)
+            o.append("pub fn decode_with_%s_unk_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Result<%s, i32> {" % (rs, root))
+            o.append("    ZC_IN.with(|c| c.set(b as *const ::bytes::Bytes));")
+            o.append("    let _z = ZcReset;")
+            o.append("    decode_with_%s_unk(ctxs, &b[..])" % rs)
+            o.append("}")
+            o.append("")
         if not NOUNK:
             # Optimisation U1: the drop-mode entry disarms a context a retaining decode left
             # armed (decode_with_*_unk no longer disarms after itself), then decodes.

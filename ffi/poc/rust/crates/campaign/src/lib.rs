@@ -98,6 +98,8 @@ pub trait Ops {
     fn f_decode(c: &Ctx, b: &[u8], retain: bool) -> Result<Self::F, i32>;
     fn f_encode(c: &Ctx, v: &Self::F, retain: bool) -> Result<usize, i32>;
     fn f_pull(c: &Ctx, b: &[u8], retain: bool, toks: &mut Vec<i64>) -> Result<Self::F, i32>;
+    /// Optimisation Z1 (labelled extra arm `core-ffi-zc`): `bytes` fields share `b`.
+    fn f_decode_zc(c: &Ctx, b: &bytes::Bytes, retain: bool) -> Result<Self::F, i32>;
     /// Decision 11 rule 6: this root's (bound) decode context.
     fn dec_ctx(c: &Ctx) -> *mut ak_abi::ak_dec_ctx;
     fn touch_f(v: &Self::F) -> u64;
@@ -277,7 +279,7 @@ fn root_of(pid: &str) -> String {
 /// once, outside every timed region; Rust's codecs keep no per-instance size memo
 /// (requirement 11: prost recomputes `encoded_len` on every encode), so re-encoding the same
 /// graph is a fresh serialisation each iteration.
-pub fn cases_for<R: Ops>(ctx: &'static Ctx, inp: &Input, nodrop: bool) -> Vec<Case> {
+pub fn cases_for<R: Ops>(ctx: &'static Ctx, inp: &Input, nodrop: bool, zc: bool) -> Vec<Case> {
     use bytes::{Bytes, BytesMut};
     use prost::Message;
     let mut out = Vec::new();
@@ -364,6 +366,15 @@ pub fn cases_for<R: Ops>(ctx: &'static Ctx, inp: &Input, nodrop: bool) -> Vec<Ca
                 let v = R::f_pull(ctx, wire, retain, &mut toks).unwrap();
                 if read { R::touch_f(&v) } else { std::hint::black_box(&v); 0 }
             }));
+            if zc {
+                // Optimisation Z1, a labelled extra arm (AK_ZC): `bytes` fields share the
+                // input buffer instead of copying it (not decision 13's default).
+                let bz = wire_b.clone();
+                push("core-ffi-zc", dir, mname, Box::new(move || {
+                    let v = R::f_decode_zc(ctx, &bz, retain).unwrap();
+                    if read { R::touch_f(&v) } else { std::hint::black_box(&v); 0 }
+                }));
+            }
         }
     }
     if nodrop {
@@ -435,6 +446,10 @@ pub fn precheck<R: Ops>(ctx: &Ctx, inp: &Input) -> (usize, Vec<String>, Vec<Stri
         let fv = R::f_decode(ctx, wire, retain);
         let pl = R::f_pull(ctx, wire, retain, &mut toks);
         chk(nv.is_ok() && fv.is_ok() && pl.is_ok(), format!("native/ffi/pull decode (retain={retain})"));
+        // Optimisation Z1: the zero-copy decode gives the same value.
+        let zv = R::f_decode_zc(ctx, &bytes::Bytes::copy_from_slice(wire), retain);
+        chk(matches!((&fv, &zv), (Ok(a), Ok(b)) if format!("{a:?}") == format!("{b:?}")),
+            format!("core-ffi-zc == core-ffi (retain={retain})"));
         if let (Ok(a), Ok(b), Ok(c)) = (&nv, &fv, &pl) {
             chk(format!("{a:?}") == format!("{b:?}") && format!("{a:?}") == format!("{c:?}"),
                 format!("native == ffi == pull (retain={retain})"));

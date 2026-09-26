@@ -46,6 +46,8 @@ RATIOS = [
     ("core-ffi-pull/inc", "core-ffi-pull", "incumbent-prod"),
     ("armonik/inc", "armonik", "incumbent-prod"),
     ("core-ffi/core-native", "core-ffi", "core-native"),
+    ("core-ffi-zc/inc", "core-ffi-zc", "incumbent-prod"),
+    ("core-ffi-zc/core-ffi", "core-ffi-zc", "core-ffi"),
 ]
 
 

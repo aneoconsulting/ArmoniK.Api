@@ -30,6 +30,8 @@
 //!                    criterion's own); it touches no exported sample, only analysis time
 //!   AK_NODROP        comma-separated EXACT input ids that also get the labelled extra
 //!                    `decode-nodrop` rows (the decoded graph dropped outside the timed region)
+//!   AK_ZC            comma-separated input id PREFIXES that get the labelled extra arm
+//!                    `core-ffi-zc` (optimisation Z1: `bytes` fields share the input buffer)
 //!
 //! Criterion measures with `campaign::ThreadCpu` (CLOCK_THREAD_CPUTIME_ID, requirement 21)
 //! in `SamplingMode::Flat`, so every sample (round) of a case has the same iteration count.
@@ -49,6 +51,7 @@ fn env<T: std::str::FromStr>(k: &str, d: T) -> T {
 struct Collect<'a> {
     ctx: &'static harness::arms::core_ffi_arm::Ctx,
     nodrop: &'a [String],
+    zc: &'a [String],
     inp: &'a Input,
     cases: &'a mut Vec<Case>,
     checks: &'a mut usize,
@@ -62,7 +65,8 @@ impl Visit for Collect<'_> {
         *self.checks += n;
         self.fails.extend(f);
         self.refused.extend(r);
-        self.cases.extend(cases_for::<R>(self.ctx, self.inp, self.nodrop.iter().any(|x| *x == self.inp.id)));
+        self.cases.extend(cases_for::<R>(self.ctx, self.inp, self.nodrop.iter().any(|x| *x == self.inp.id),
+                                         self.zc.iter().any(|x| self.inp.id.starts_with(x.as_str()))));
     }
 }
 
@@ -80,6 +84,9 @@ fn main() {
     let nresamples: usize = env("AK_NRESAMPLES", 100_000);
     let nodrop: Vec<String> = std::env::var("AK_NODROP").unwrap_or_default()
         .split(',').filter(|s| !s.is_empty()).map(String::from).collect();
+    // Optimisation Z1: input id PREFIXES that get the labelled extra `core-ffi-zc` arm.
+    let zc: Vec<String> = std::env::var("AK_ZC").unwrap_or_default()
+        .split(',').filter(|s| !s.is_empty()).map(String::from).collect();
     assert!(order_mode == "blocks" || order_mode == "shuffle" || order_mode == "interleave",
             "AK_ORDER: blocks | shuffle | interleave");
     let home = std::env::var("CRITERION_HOME").unwrap_or_default();
@@ -91,7 +98,7 @@ fn main() {
     let (mut checks, mut fails, mut refused) = (0usize, Vec::new(), Vec::new());
     for inp in &inputs {
         let ok = generated::roots::with_root(&inp.root, &mut Collect {
-            ctx, nodrop: &nodrop, inp: inp, cases: &mut cases, checks: &mut checks, fails: &mut fails, refused: &mut refused,
+            ctx, nodrop: &nodrop, zc: &zc, inp: inp, cases: &mut cases, checks: &mut checks, fails: &mut fails, refused: &mut refused,
         });
         assert!(ok, "no root {}", inp.root);
     }
@@ -126,6 +133,7 @@ fn main() {
             ("unknown modes", modes_line()),
             ("core-ffi encode fill", FFI_ENCODE_FILL.into()),
             ("decode-nodrop", nodrop_line(&nodrop)),
+            ("core-ffi-zc", if zc.is_empty() { "none".to_string() } else { format!("labelled extra arm on inputs {}*: the core-ffi decode with every bytes field a slice of the input Bytes (optimisation Z1; not ABI v1 decision 13's copy semantics, which core-ffi keeps; the other decodes pay one thread-local load per non-empty bytes field for it)", zc.join("*,")) }),
             ("precheck", format!("{checks} checks passed")),
             ("inputs", inputs.len().to_string()),
             ("cases", cases.len().to_string()),
@@ -158,6 +166,12 @@ fn main() {
                 if cs.arm == *arm {
                     idx_of.push(i);
                 }
+            }
+        }
+        // Labelled extra arms (core-ffi-zc) are not in the rotation: they run last.
+        for (i, cs) in cases.iter().enumerate() {
+            if !order.contains(&cs.arm) {
+                idx_of.push(i);
             }
         }
     } else {
@@ -210,6 +224,7 @@ fn main() {
         }),
         ("criterion resamples", format!("{nresamples} (analysis only; no exported sample depends on it)")),
         ("decode-nodrop", nodrop_line(&nodrop)),
+            ("core-ffi-zc", if zc.is_empty() { "none".to_string() } else { format!("labelled extra arm on inputs {}*: the core-ffi decode with every bytes field a slice of the input Bytes (optimisation Z1; not ABI v1 decision 13's copy semantics, which core-ffi keeps; the other decodes pay one thread-local load per non-empty bytes field for it)", zc.join("*,")) }),
         ("samples (rounds) per case", samples.max(10).to_string()),
         ("warm-up", format!("{warm_iters} fixed iterations per case, then criterion warm-up {warm_ms} ms; measurement {meas_ms} ms")),
         ("wall", "not recorded for the codec suite (criterion measures one quantity; thread CPU is requirement 21's)".into()),

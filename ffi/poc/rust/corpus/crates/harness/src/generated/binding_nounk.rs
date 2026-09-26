@@ -129,10 +129,32 @@ const fn ak_small_n(group_size: usize) -> usize {
     if n == 0 { 1 } else { n }
 }
 
+thread_local! {
+    /// Optimisation Z1 (a LABELLED EXTRA arm, `decode_with_*_zc`): the input `Bytes` of the
+    /// zero-copy decode in progress on this thread, or null. Every other decode keeps ABI v1
+    /// decision 13's copy semantics; this costs them one thread-local load per non-empty
+    /// `bytes` field.
+    static ZC_IN: ::core::cell::Cell<*const ::bytes::Bytes> = const { ::core::cell::Cell::new(::core::ptr::null()) };
+}
+
+/// Clears ZC_IN when the zero-copy decode returns (or unwinds).
+struct ZcReset;
+impl Drop for ZcReset {
+    fn drop(&mut self) {
+        ZC_IN.with(|c| c.set(::core::ptr::null()));
+    }
+}
+
 #[inline(always)]
 unsafe fn b_of(base: *const u8, s: ak_span) -> ::bytes::Bytes {
     if s.len == 0 {
         return ::bytes::Bytes::new();
+    }
+    // Z1: inside a `_zc` decode of this very buffer, the field SHARES the input's
+    // allocation (a refcount, no copy) instead of copying out of it.
+    let z = ZC_IN.with(|c| c.get());
+    if !z.is_null() && (*z).as_ptr() == base {
+        return (*z).slice(s.off as usize..s.off as usize + s.len as usize);
     }
     ::bytes::Bytes::copy_from_slice(
         ::core::slice::from_raw_parts(base.add(s.off as usize), s.len as usize),
@@ -5875,6 +5897,15 @@ unsafe extern "C" fn apply_timestamp(
     })
 }
 
+/// Optimisation Z1, a LABELLED EXTRA arm: the same decode as `decode_with_timestamp`, with
+/// every `bytes` field a slice of `b` (sharing its allocation) instead of a copy.
+/// Not ABI v1 decision 13's default (which copies); `b` must be the whole input.
+pub fn decode_with_timestamp_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Result<Timestamp, i32> {
+    ZC_IN.with(|c| c.set(b as *const ::bytes::Bytes));
+    let _z = ZcReset;
+    decode_with_timestamp(ctxs, &b[..])
+}
+
 pub fn decode_with_timestamp(ctxs: DecCtxs, b: &[u8]) -> Result<Timestamp, i32> {
     let ctx = ctxs.timestamp;
     let mut out = Timestamp::default();
@@ -6075,6 +6106,15 @@ unsafe extern "C" fn apply_duration(
         s.out.nanos = f.nanos;
         // Decision 11 (WP5 step 7): the root's own buffer, the host's now.
     })
+}
+
+/// Optimisation Z1, a LABELLED EXTRA arm: the same decode as `decode_with_duration`, with
+/// every `bytes` field a slice of `b` (sharing its allocation) instead of a copy.
+/// Not ABI v1 decision 13's default (which copies); `b` must be the whole input.
+pub fn decode_with_duration_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Result<Duration, i32> {
+    ZC_IN.with(|c| c.set(b as *const ::bytes::Bytes));
+    let _z = ZcReset;
+    decode_with_duration(ctxs, &b[..])
 }
 
 pub fn decode_with_duration(ctxs: DecCtxs, b: &[u8]) -> Result<Duration, i32> {
@@ -6294,6 +6334,15 @@ unsafe extern "C" fn apply_result_raw(
         s.out.manual_deletion = f.manual_deletion != 0;
         // Decision 11 (WP5 step 7): the root's own buffer, the host's now.
     })
+}
+
+/// Optimisation Z1, a LABELLED EXTRA arm: the same decode as `decode_with_result_raw`, with
+/// every `bytes` field a slice of `b` (sharing its allocation) instead of a copy.
+/// Not ABI v1 decision 13's default (which copies); `b` must be the whole input.
+pub fn decode_with_result_raw_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Result<ResultRaw, i32> {
+    ZC_IN.with(|c| c.set(b as *const ::bytes::Bytes));
+    let _z = ZcReset;
+    decode_with_result_raw(ctxs, &b[..])
 }
 
 pub fn decode_with_result_raw(ctxs: DecCtxs, b: &[u8]) -> Result<ResultRaw, i32> {
@@ -6530,6 +6579,15 @@ unsafe extern "C" fn add_task_options_options(
     })
 }
 
+/// Optimisation Z1, a LABELLED EXTRA arm: the same decode as `decode_with_task_options`, with
+/// every `bytes` field a slice of `b` (sharing its allocation) instead of a copy.
+/// Not ABI v1 decision 13's default (which copies); `b` must be the whole input.
+pub fn decode_with_task_options_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Result<TaskOptions, i32> {
+    ZC_IN.with(|c| c.set(b as *const ::bytes::Bytes));
+    let _z = ZcReset;
+    decode_with_task_options(ctxs, &b[..])
+}
+
 pub fn decode_with_task_options(ctxs: DecCtxs, b: &[u8]) -> Result<TaskOptions, i32> {
     let ctx = ctxs.task_options;
     let mut out = TaskOptions::default();
@@ -6738,6 +6796,15 @@ unsafe extern "C" fn apply_task_output(
         s.out.error = s_of(s.base, f.error, ctx);
         // Decision 11 (WP5 step 7): the root's own buffer, the host's now.
     })
+}
+
+/// Optimisation Z1, a LABELLED EXTRA arm: the same decode as `decode_with_task_output`, with
+/// every `bytes` field a slice of `b` (sharing its allocation) instead of a copy.
+/// Not ABI v1 decision 13's default (which copies); `b` must be the whole input.
+pub fn decode_with_task_output_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Result<TaskOutput, i32> {
+    ZC_IN.with(|c| c.set(b as *const ::bytes::Bytes));
+    let _z = ZcReset;
+    decode_with_task_output(ctxs, &b[..])
 }
 
 pub fn decode_with_task_output(ctxs: DecCtxs, b: &[u8]) -> Result<TaskOutput, i32> {
@@ -7109,6 +7176,15 @@ unsafe extern "C" fn add_task_detailed_options_options(
     })
 }
 
+/// Optimisation Z1, a LABELLED EXTRA arm: the same decode as `decode_with_task_detailed`, with
+/// every `bytes` field a slice of `b` (sharing its allocation) instead of a copy.
+/// Not ABI v1 decision 13's default (which copies); `b` must be the whole input.
+pub fn decode_with_task_detailed_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Result<TaskDetailed, i32> {
+    ZC_IN.with(|c| c.set(b as *const ::bytes::Bytes));
+    let _z = ZcReset;
+    decode_with_task_detailed(ctxs, &b[..])
+}
+
 pub fn decode_with_task_detailed(ctxs: DecCtxs, b: &[u8]) -> Result<TaskDetailed, i32> {
     let ctx = ctxs.task_detailed;
     let mut out = TaskDetailed::default();
@@ -7387,6 +7463,15 @@ unsafe extern "C" fn add_task_summary_options_options(
     })
 }
 
+/// Optimisation Z1, a LABELLED EXTRA arm: the same decode as `decode_with_task_summary`, with
+/// every `bytes` field a slice of `b` (sharing its allocation) instead of a copy.
+/// Not ABI v1 decision 13's default (which copies); `b` must be the whole input.
+pub fn decode_with_task_summary_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Result<TaskSummary, i32> {
+    ZC_IN.with(|c| c.set(b as *const ::bytes::Bytes));
+    let _z = ZcReset;
+    decode_with_task_summary(ctxs, &b[..])
+}
+
 pub fn decode_with_task_summary(ctxs: DecCtxs, b: &[u8]) -> Result<TaskSummary, i32> {
     let ctx = ctxs.task_summary;
     let mut out = TaskSummary::default();
@@ -7607,6 +7692,15 @@ unsafe extern "C" fn apply_probe(
     })
 }
 
+/// Optimisation Z1, a LABELLED EXTRA arm: the same decode as `decode_with_probe`, with
+/// every `bytes` field a slice of `b` (sharing its allocation) instead of a copy.
+/// Not ABI v1 decision 13's default (which copies); `b` must be the whole input.
+pub fn decode_with_probe_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Result<Probe, i32> {
+    ZC_IN.with(|c| c.set(b as *const ::bytes::Bytes));
+    let _z = ZcReset;
+    decode_with_probe(ctxs, &b[..])
+}
+
 pub fn decode_with_probe(ctxs: DecCtxs, b: &[u8]) -> Result<Probe, i32> {
     let ctx = ctxs.probe;
     let mut out = Probe::default();
@@ -7805,6 +7899,15 @@ unsafe extern "C" fn apply_empty(
         let f = &*fx;
         // Decision 11 (WP5 step 7): the root's own buffer, the host's now.
     })
+}
+
+/// Optimisation Z1, a LABELLED EXTRA arm: the same decode as `decode_with_empty`, with
+/// every `bytes` field a slice of `b` (sharing its allocation) instead of a copy.
+/// Not ABI v1 decision 13's default (which copies); `b` must be the whole input.
+pub fn decode_with_empty_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Result<Empty, i32> {
+    ZC_IN.with(|c| c.set(b as *const ::bytes::Bytes));
+    let _z = ZcReset;
+    decode_with_empty(ctxs, &b[..])
 }
 
 pub fn decode_with_empty(ctxs: DecCtxs, b: &[u8]) -> Result<Empty, i32> {
@@ -8008,6 +8111,15 @@ unsafe extern "C" fn apply_upload_result_data(
         s.out.data_chunk = b_of(s.base, f.data_chunk);
         // Decision 11 (WP5 step 7): the root's own buffer, the host's now.
     })
+}
+
+/// Optimisation Z1, a LABELLED EXTRA arm: the same decode as `decode_with_upload_result_data`, with
+/// every `bytes` field a slice of `b` (sharing its allocation) instead of a copy.
+/// Not ABI v1 decision 13's default (which copies); `b` must be the whole input.
+pub fn decode_with_upload_result_data_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Result<UploadResultData, i32> {
+    ZC_IN.with(|c| c.set(b as *const ::bytes::Bytes));
+    let _z = ZcReset;
+    decode_with_upload_result_data(ctxs, &b[..])
 }
 
 pub fn decode_with_upload_result_data(ctxs: DecCtxs, b: &[u8]) -> Result<UploadResultData, i32> {
@@ -8296,6 +8408,15 @@ unsafe extern "C" fn add_metrics_batch_statuses(
     })
 }
 
+/// Optimisation Z1, a LABELLED EXTRA arm: the same decode as `decode_with_metrics_batch`, with
+/// every `bytes` field a slice of `b` (sharing its allocation) instead of a copy.
+/// Not ABI v1 decision 13's default (which copies); `b` must be the whole input.
+pub fn decode_with_metrics_batch_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Result<MetricsBatch, i32> {
+    ZC_IN.with(|c| c.set(b as *const ::bytes::Bytes));
+    let _z = ZcReset;
+    decode_with_metrics_batch(ctxs, &b[..])
+}
+
 pub fn decode_with_metrics_batch(ctxs: DecCtxs, b: &[u8]) -> Result<MetricsBatch, i32> {
     let ctx = ctxs.metrics_batch;
     let mut out = MetricsBatch::default();
@@ -8538,6 +8659,15 @@ unsafe extern "C" fn apply_pair(
     })
 }
 
+/// Optimisation Z1, a LABELLED EXTRA arm: the same decode as `decode_with_pair`, with
+/// every `bytes` field a slice of `b` (sharing its allocation) instead of a copy.
+/// Not ABI v1 decision 13's default (which copies); `b` must be the whole input.
+pub fn decode_with_pair_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Result<Pair, i32> {
+    ZC_IN.with(|c| c.set(b as *const ::bytes::Bytes));
+    let _z = ZcReset;
+    decode_with_pair(ctxs, &b[..])
+}
+
 pub fn decode_with_pair(ctxs: DecCtxs, b: &[u8]) -> Result<Pair, i32> {
     let ctx = ctxs.pair;
     let mut out = Pair::default();
@@ -8755,6 +8885,15 @@ unsafe extern "C" fn add_list_results_response_results(
         dst.reserve(n as usize);
         for i in 0..n as usize { dst.push(from_result_raw(&*elems.add(i), base, ctx)); }
     })
+}
+
+/// Optimisation Z1, a LABELLED EXTRA arm: the same decode as `decode_with_list_results_response`, with
+/// every `bytes` field a slice of `b` (sharing its allocation) instead of a copy.
+/// Not ABI v1 decision 13's default (which copies); `b` must be the whole input.
+pub fn decode_with_list_results_response_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Result<ListResultsResponse, i32> {
+    ZC_IN.with(|c| c.set(b as *const ::bytes::Bytes));
+    let _z = ZcReset;
+    decode_with_list_results_response(ctxs, &b[..])
 }
 
 pub fn decode_with_list_results_response(ctxs: DecCtxs, b: &[u8]) -> Result<ListResultsResponse, i32> {
@@ -9077,6 +9216,15 @@ unsafe extern "C" fn add_list_tasks_detailed_response_tasks_options_options(
     })
 }
 
+/// Optimisation Z1, a LABELLED EXTRA arm: the same decode as `decode_with_list_tasks_detailed_response`, with
+/// every `bytes` field a slice of `b` (sharing its allocation) instead of a copy.
+/// Not ABI v1 decision 13's default (which copies); `b` must be the whole input.
+pub fn decode_with_list_tasks_detailed_response_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Result<ListTasksDetailedResponse, i32> {
+    ZC_IN.with(|c| c.set(b as *const ::bytes::Bytes));
+    let _z = ZcReset;
+    decode_with_list_tasks_detailed_response(ctxs, &b[..])
+}
+
 pub fn decode_with_list_tasks_detailed_response(ctxs: DecCtxs, b: &[u8]) -> Result<ListTasksDetailedResponse, i32> {
     let ctx = ctxs.list_tasks_detailed_response;
     let mut out = ListTasksDetailedResponse::default();
@@ -9368,6 +9516,15 @@ unsafe extern "C" fn add_list_task_summary_response_tasks_options_options(
     })
 }
 
+/// Optimisation Z1, a LABELLED EXTRA arm: the same decode as `decode_with_list_task_summary_response`, with
+/// every `bytes` field a slice of `b` (sharing its allocation) instead of a copy.
+/// Not ABI v1 decision 13's default (which copies); `b` must be the whole input.
+pub fn decode_with_list_task_summary_response_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Result<ListTaskSummaryResponse, i32> {
+    ZC_IN.with(|c| c.set(b as *const ::bytes::Bytes));
+    let _z = ZcReset;
+    decode_with_list_task_summary_response(ctxs, &b[..])
+}
+
 pub fn decode_with_list_task_summary_response(ctxs: DecCtxs, b: &[u8]) -> Result<ListTaskSummaryResponse, i32> {
     let ctx = ctxs.list_task_summary_response;
     let mut out = ListTaskSummaryResponse::default();
@@ -9600,6 +9757,15 @@ unsafe extern "C" fn add_list_probe_response_probes(
         dst.reserve(n as usize);
         for i in 0..n as usize { dst.push(from_probe(&*elems.add(i), base, ctx)); }
     })
+}
+
+/// Optimisation Z1, a LABELLED EXTRA arm: the same decode as `decode_with_list_probe_response`, with
+/// every `bytes` field a slice of `b` (sharing its allocation) instead of a copy.
+/// Not ABI v1 decision 13's default (which copies); `b` must be the whole input.
+pub fn decode_with_list_probe_response_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Result<ListProbeResponse, i32> {
+    ZC_IN.with(|c| c.set(b as *const ::bytes::Bytes));
+    let _z = ZcReset;
+    decode_with_list_probe_response(ctxs, &b[..])
 }
 
 pub fn decode_with_list_probe_response(ctxs: DecCtxs, b: &[u8]) -> Result<ListProbeResponse, i32> {
@@ -9916,6 +10082,15 @@ unsafe extern "C" fn add_list_metrics_response_batches_statuses(
     })
 }
 
+/// Optimisation Z1, a LABELLED EXTRA arm: the same decode as `decode_with_list_metrics_response`, with
+/// every `bytes` field a slice of `b` (sharing its allocation) instead of a copy.
+/// Not ABI v1 decision 13's default (which copies); `b` must be the whole input.
+pub fn decode_with_list_metrics_response_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Result<ListMetricsResponse, i32> {
+    ZC_IN.with(|c| c.set(b as *const ::bytes::Bytes));
+    let _z = ZcReset;
+    decode_with_list_metrics_response(ctxs, &b[..])
+}
+
 pub fn decode_with_list_metrics_response(ctxs: DecCtxs, b: &[u8]) -> Result<ListMetricsResponse, i32> {
     let ctx = ctxs.list_metrics_response;
     let mut out = ListMetricsResponse::default();
@@ -10170,6 +10345,15 @@ unsafe extern "C" fn apply_upload_result_data_message(
     })
 }
 
+/// Optimisation Z1, a LABELLED EXTRA arm: the same decode as `decode_with_upload_result_data_message`, with
+/// every `bytes` field a slice of `b` (sharing its allocation) instead of a copy.
+/// Not ABI v1 decision 13's default (which copies); `b` must be the whole input.
+pub fn decode_with_upload_result_data_message_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Result<UploadResultDataMessage, i32> {
+    ZC_IN.with(|c| c.set(b as *const ::bytes::Bytes));
+    let _z = ZcReset;
+    decode_with_upload_result_data_message(ctxs, &b[..])
+}
+
 pub fn decode_with_upload_result_data_message(ctxs: DecCtxs, b: &[u8]) -> Result<UploadResultDataMessage, i32> {
     let ctx = ctxs.upload_result_data_message;
     let mut out = UploadResultDataMessage::default();
@@ -10404,6 +10588,15 @@ unsafe extern "C" fn add_dual_response_right(
     })
 }
 
+/// Optimisation Z1, a LABELLED EXTRA arm: the same decode as `decode_with_dual_response`, with
+/// every `bytes` field a slice of `b` (sharing its allocation) instead of a copy.
+/// Not ABI v1 decision 13's default (which copies); `b` must be the whole input.
+pub fn decode_with_dual_response_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Result<DualResponse, i32> {
+    ZC_IN.with(|c| c.set(b as *const ::bytes::Bytes));
+    let _z = ZcReset;
+    decode_with_dual_response(ctxs, &b[..])
+}
+
 pub fn decode_with_dual_response(ctxs: DecCtxs, b: &[u8]) -> Result<DualResponse, i32> {
     let ctx = ctxs.dual_response;
     let mut out = DualResponse::default();
@@ -10620,6 +10813,15 @@ unsafe extern "C" fn apply_chunk_leaf(
         s.out.v = f.v;
         // Decision 11 (WP5 step 7): the root's own buffer, the host's now.
     })
+}
+
+/// Optimisation Z1, a LABELLED EXTRA arm: the same decode as `decode_with_chunk_leaf`, with
+/// every `bytes` field a slice of `b` (sharing its allocation) instead of a copy.
+/// Not ABI v1 decision 13's default (which copies); `b` must be the whole input.
+pub fn decode_with_chunk_leaf_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Result<ChunkLeaf, i32> {
+    ZC_IN.with(|c| c.set(b as *const ::bytes::Bytes));
+    let _z = ZcReset;
+    decode_with_chunk_leaf(ctxs, &b[..])
 }
 
 pub fn decode_with_chunk_leaf(ctxs: DecCtxs, b: &[u8]) -> Result<ChunkLeaf, i32> {
@@ -10854,6 +11056,15 @@ unsafe extern "C" fn add_chunk_inner_leaves(
         dst.reserve(n as usize);
         for i in 0..n as usize { dst.push(from_chunk_leaf(&*elems.add(i), base, ctx)); }
     })
+}
+
+/// Optimisation Z1, a LABELLED EXTRA arm: the same decode as `decode_with_chunk_inner`, with
+/// every `bytes` field a slice of `b` (sharing its allocation) instead of a copy.
+/// Not ABI v1 decision 13's default (which copies); `b` must be the whole input.
+pub fn decode_with_chunk_inner_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Result<ChunkInner, i32> {
+    ZC_IN.with(|c| c.set(b as *const ::bytes::Bytes));
+    let _z = ZcReset;
+    decode_with_chunk_inner(ctxs, &b[..])
 }
 
 pub fn decode_with_chunk_inner(ctxs: DecCtxs, b: &[u8]) -> Result<ChunkInner, i32> {
@@ -11149,6 +11360,15 @@ unsafe extern "C" fn add_chunk_element_inner_leaves(
         dst.reserve(n as usize);
         for i in 0..n as usize { dst.push(from_chunk_leaf(&*elems.add(i), base, ctx)); }
     })
+}
+
+/// Optimisation Z1, a LABELLED EXTRA arm: the same decode as `decode_with_chunk_element`, with
+/// every `bytes` field a slice of `b` (sharing its allocation) instead of a copy.
+/// Not ABI v1 decision 13's default (which copies); `b` must be the whole input.
+pub fn decode_with_chunk_element_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Result<ChunkElement, i32> {
+    ZC_IN.with(|c| c.set(b as *const ::bytes::Bytes));
+    let _z = ZcReset;
+    decode_with_chunk_element(ctxs, &b[..])
 }
 
 pub fn decode_with_chunk_element(ctxs: DecCtxs, b: &[u8]) -> Result<ChunkElement, i32> {
@@ -11475,6 +11695,15 @@ unsafe extern "C" fn add_chunked_response_items_inner_leaves(
         dst.reserve(n as usize);
         for i in 0..n as usize { dst.push(from_chunk_leaf(&*elems.add(i), base, ctx)); }
     })
+}
+
+/// Optimisation Z1, a LABELLED EXTRA arm: the same decode as `decode_with_chunked_response`, with
+/// every `bytes` field a slice of `b` (sharing its allocation) instead of a copy.
+/// Not ABI v1 decision 13's default (which copies); `b` must be the whole input.
+pub fn decode_with_chunked_response_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Result<ChunkedResponse, i32> {
+    ZC_IN.with(|c| c.set(b as *const ::bytes::Bytes));
+    let _z = ZcReset;
+    decode_with_chunked_response(ctxs, &b[..])
 }
 
 pub fn decode_with_chunked_response(ctxs: DecCtxs, b: &[u8]) -> Result<ChunkedResponse, i32> {
@@ -11811,6 +12040,15 @@ unsafe extern "C" fn add_chunked_response_wide_items_inner_leaves(
     })
 }
 
+/// Optimisation Z1, a LABELLED EXTRA arm: the same decode as `decode_with_chunked_response_wide`, with
+/// every `bytes` field a slice of `b` (sharing its allocation) instead of a copy.
+/// Not ABI v1 decision 13's default (which copies); `b` must be the whole input.
+pub fn decode_with_chunked_response_wide_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Result<ChunkedResponseWide, i32> {
+    ZC_IN.with(|c| c.set(b as *const ::bytes::Bytes));
+    let _z = ZcReset;
+    decode_with_chunked_response_wide(ctxs, &b[..])
+}
+
 pub fn decode_with_chunked_response_wide(ctxs: DecCtxs, b: &[u8]) -> Result<ChunkedResponseWide, i32> {
     let ctx = ctxs.chunked_response_wide;
     let mut out = ChunkedResponseWide::default();
@@ -12059,6 +12297,15 @@ unsafe extern "C" fn apply_leaf_element(
     })
 }
 
+/// Optimisation Z1, a LABELLED EXTRA arm: the same decode as `decode_with_leaf_element`, with
+/// every `bytes` field a slice of `b` (sharing its allocation) instead of a copy.
+/// Not ABI v1 decision 13's default (which copies); `b` must be the whole input.
+pub fn decode_with_leaf_element_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Result<LeafElement, i32> {
+    ZC_IN.with(|c| c.set(b as *const ::bytes::Bytes));
+    let _z = ZcReset;
+    decode_with_leaf_element(ctxs, &b[..])
+}
+
 pub fn decode_with_leaf_element(ctxs: DecCtxs, b: &[u8]) -> Result<LeafElement, i32> {
     let ctx = ctxs.leaf_element;
     let mut out = LeafElement::default();
@@ -12274,6 +12521,15 @@ unsafe extern "C" fn add_leaf_response_items(
         dst.reserve(n as usize);
         for i in 0..n as usize { dst.push(from_leaf_element(&*elems.add(i), base, ctx)); }
     })
+}
+
+/// Optimisation Z1, a LABELLED EXTRA arm: the same decode as `decode_with_leaf_response`, with
+/// every `bytes` field a slice of `b` (sharing its allocation) instead of a copy.
+/// Not ABI v1 decision 13's default (which copies); `b` must be the whole input.
+pub fn decode_with_leaf_response_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Result<LeafResponse, i32> {
+    ZC_IN.with(|c| c.set(b as *const ::bytes::Bytes));
+    let _z = ZcReset;
+    decode_with_leaf_response(ctxs, &b[..])
 }
 
 pub fn decode_with_leaf_response(ctxs: DecCtxs, b: &[u8]) -> Result<LeafResponse, i32> {
@@ -12529,6 +12785,15 @@ unsafe extern "C" fn add_surrogate_texts(
     })
 }
 
+/// Optimisation Z1, a LABELLED EXTRA arm: the same decode as `decode_with_surrogate`, with
+/// every `bytes` field a slice of `b` (sharing its allocation) instead of a copy.
+/// Not ABI v1 decision 13's default (which copies); `b` must be the whole input.
+pub fn decode_with_surrogate_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Result<Surrogate, i32> {
+    ZC_IN.with(|c| c.set(b as *const ::bytes::Bytes));
+    let _z = ZcReset;
+    decode_with_surrogate(ctxs, &b[..])
+}
+
 pub fn decode_with_surrogate(ctxs: DecCtxs, b: &[u8]) -> Result<Surrogate, i32> {
     let ctx = ctxs.surrogate;
     let mut out = Surrogate::default();
@@ -12746,6 +13011,15 @@ unsafe extern "C" fn apply_surrogate_inner(
     })
 }
 
+/// Optimisation Z1, a LABELLED EXTRA arm: the same decode as `decode_with_surrogate_inner`, with
+/// every `bytes` field a slice of `b` (sharing its allocation) instead of a copy.
+/// Not ABI v1 decision 13's default (which copies); `b` must be the whole input.
+pub fn decode_with_surrogate_inner_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Result<SurrogateInner, i32> {
+    ZC_IN.with(|c| c.set(b as *const ::bytes::Bytes));
+    let _z = ZcReset;
+    decode_with_surrogate_inner(ctxs, &b[..])
+}
+
 pub fn decode_with_surrogate_inner(ctxs: DecCtxs, b: &[u8]) -> Result<SurrogateInner, i32> {
     let ctx = ctxs.surrogate_inner;
     let mut out = SurrogateInner::default();
@@ -12958,6 +13232,15 @@ unsafe extern "C" fn apply_wire_zoo(
         s.out.v_big_tag = f.v_big_tag;
         // Decision 11 (WP5 step 7): the root's own buffer, the host's now.
     })
+}
+
+/// Optimisation Z1, a LABELLED EXTRA arm: the same decode as `decode_with_wire_zoo`, with
+/// every `bytes` field a slice of `b` (sharing its allocation) instead of a copy.
+/// Not ABI v1 decision 13's default (which copies); `b` must be the whole input.
+pub fn decode_with_wire_zoo_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Result<WireZoo, i32> {
+    ZC_IN.with(|c| c.set(b as *const ::bytes::Bytes));
+    let _z = ZcReset;
+    decode_with_wire_zoo(ctxs, &b[..])
 }
 
 pub fn decode_with_wire_zoo(ctxs: DecCtxs, b: &[u8]) -> Result<WireZoo, i32> {
