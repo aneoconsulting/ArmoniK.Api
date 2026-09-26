@@ -281,7 +281,9 @@ ABI LAYOUT (derived here once; every language's declaration is rendered from it)
     direct_fields(p, name), check_direct(p, root)     ABI v1 section 8 and its refusals
     check_expressible(p, root)                        a recursive message has no finite
                             group (a group inlines its whole singular subtree), so it is
-                            REFUSED at generator time rather than emitted wrong
+                            REFUSED at generator time rather than emitted wrong;
+                            likewise a packed field whose element type has no
+                            FIXED.run_types symbol (packed fixed32: no ak_run_u32)
     The abi type vocabulary: i32 i64 u8 (bool) u32 (fixed32, oneof case) f64, ak_str
     (encode blob), ak_span (decode blob), ak_blob (unknown bag, encode), ak_unk_buf
     (unknown buffer, decode), ak_efix_M / ak_dfix_M /
@@ -842,12 +844,21 @@ def check_expressible(p, root):
     group, so it cannot cross this ABI. Refused here, by name, rather than recursed into
     until the generator's stack gives out or emitted as a type C cannot declare. The
     corpus's `Nest` is the one instance; it runs on the core-native control only, and the
-    rows rooted at it are reported as outside the ABI, never silently dropped."""
+    rows rooted at it are reported as outside the ABI, never silently dropped. A packed
+    field with no run symbol for its element type is refused the same way (R-H15)."""
     seen = set()
 
     def walk(name, trail):
         m = p.msg(name)
         for f in m.fields:
+            # FIX-PLAN R-H15: a packed field crosses as the host's own array through one
+            # of FIXED.run_types' symbols (`ak_run_<ty>`); a kind whose element type has
+            # none (fixed32 -> u32) cannot cross, and is refused here, not at render.
+            if f.card == "packed" and slot_elem(f)[1] not in FIXED.run_types:
+                raise NotExpressible(
+                    "REFUSED: %s.%s is a packed %s: its host element type %s has no run "
+                    "symbol in the C ABI (FIXED.run_types = %s), so it cannot cross."
+                    % (name, f.name, f.kind, slot_elem(f)[1], ", ".join(FIXED.run_types)))
             if f.kind != "message":
                 continue
             if f.of in trail:

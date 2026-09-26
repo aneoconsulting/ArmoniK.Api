@@ -437,7 +437,7 @@ def emit_codec(ir):
         # per position) or the NO-UNKNOWN variant ("drop": support compiled out, WP5 step
         # 10). "retain" alone would be a third ABI and is refused rather than emitted.
         raise NotImplementedError("the C ABI core renders unknown='both' or 'drop'; got %r" % ir.options.unknown)
-    NOUNK = ir.options.unknown == "drop"
+    NOUNK = unknown_compiled_out(ir)
     # Refused at generator time, never emitted wrong: a root the ABI cannot carry.
     for root in ir.roots:
         check_expressible(ir, root)
@@ -512,10 +512,9 @@ def emit_codec(ir):
                 o.append("    if %s { %s }" % (cond, _enc_value(f, v)))
             elif st.op in ("packed", "repeated_blob", "repeated_message", "map"):
                 assert vt_owner
-                if f.card == "packed" and f.kind not in PACKED_KIND:
-                    raise NotImplementedError(
-                        "packed %s (%s.%s): the C ABI has no run symbol for this host "
-                        "layout" % (f.kind, name, f.name))
+                # plan.check_expressible refuses a packed kind with no run symbol
+                # (R-H15); PACKED_KIND covers every kind that passes it.
+                assert f.card != "packed" or f.kind in PACKED_KIND, (name, f.name, f.kind)
                 s = _site(sites, ("loop", owner, path))
                 et = elem_type(f)
                 o.append("    if let Some(lp) = (*vt).loop_%s {" % sn)
@@ -831,6 +830,9 @@ def emit_codec(ir):
     return "\n".join(o)
 
 
+# The kind a packed run is opened with, stored in the encode context (`open_kind`). A
+# core-internal tag, not an ABI fact: no host sees it and no `ak_run_*` reads it; the ABI
+# fact is which element types have a run symbol, FIXED.run_types (R-H15).
 PACKED_KIND = {"int32": 1, "int64": 2, "bool": 3, "double": 4, "enum": 5}
 
 
@@ -1507,9 +1509,11 @@ def _emit_decode(ir, sites):
         out.append("    // Same rule as `ak_decode_*` (D17): a new operation clears the sticky slot,")
         out.append("    // so a rejected parse cannot poison every later one on this context.")
         out.append("    (*dcx).hdr.err = AK_OK;")
-        out.append("    (*dcx).bdr.reset();")
-        out.append("    // Decision 11 rule 6: the context is bound to its root; another root is refused.")
+        out.append("    // Decision 11 rule 6: the context is bound to its root; another root is refused,")
+        out.append("    // BEFORE the records are reset, so a refused parse leaves an earlier parse's")
+        out.append("    // records readable (FIX-PLAN R-H10).")
         out.append("    if (*dcx).root != %d { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }" % unk_root_id(ir, root))
+        out.append("    (*dcx).bdr.reset();")
         out.append("    // R-D9: reject a buffer longer than u32::MAX before it can alias a span.")
         out.append("    if len > u32::MAX as usize {")
         out.append("        (*dcx).hdr.err = AK_ERR_LIMIT;")

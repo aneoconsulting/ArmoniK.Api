@@ -4905,9 +4905,11 @@ pub unsafe extern "C" fn ak_parse_ListResultsResponse(
     // Same rule as `ak_decode_*` (D17): a new operation clears the sticky slot,
     // so a rejected parse cannot poison every later one on this context.
     (*dcx).hdr.err = AK_OK;
-    (*dcx).bdr.reset();
-    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    // Decision 11 rule 6: the context is bound to its root; another root is refused,
+    // BEFORE the records are reset, so a refused parse leaves an earlier parse's
+    // records readable (FIX-PLAN R-H10).
     if (*dcx).root != 1 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
+    (*dcx).bdr.reset();
     // R-D9: reject a buffer longer than u32::MAX before it can alias a span.
     if len > u32::MAX as usize {
         (*dcx).hdr.err = AK_ERR_LIMIT;
@@ -5016,9 +5018,11 @@ pub unsafe extern "C" fn ak_parse_ListTasksDetailedResponse(
     // Same rule as `ak_decode_*` (D17): a new operation clears the sticky slot,
     // so a rejected parse cannot poison every later one on this context.
     (*dcx).hdr.err = AK_OK;
-    (*dcx).bdr.reset();
-    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    // Decision 11 rule 6: the context is bound to its root; another root is refused,
+    // BEFORE the records are reset, so a refused parse leaves an earlier parse's
+    // records readable (FIX-PLAN R-H10).
     if (*dcx).root != 2 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
+    (*dcx).bdr.reset();
     // R-D9: reject a buffer longer than u32::MAX before it can alias a span.
     if len > u32::MAX as usize {
         (*dcx).hdr.err = AK_ERR_LIMIT;
@@ -5101,9 +5105,11 @@ pub unsafe extern "C" fn ak_parse_ListProbeResponse(
     // Same rule as `ak_decode_*` (D17): a new operation clears the sticky slot,
     // so a rejected parse cannot poison every later one on this context.
     (*dcx).hdr.err = AK_OK;
-    (*dcx).bdr.reset();
-    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    // Decision 11 rule 6: the context is bound to its root; another root is refused,
+    // BEFORE the records are reset, so a refused parse leaves an earlier parse's
+    // records readable (FIX-PLAN R-H10).
     if (*dcx).root != 3 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
+    (*dcx).bdr.reset();
     // R-D9: reject a buffer longer than u32::MAX before it can alias a span.
     if len > u32::MAX as usize {
         (*dcx).hdr.err = AK_ERR_LIMIT;
@@ -5204,9 +5210,11 @@ pub unsafe extern "C" fn ak_parse_ListTaskSummaryResponse(
     // Same rule as `ak_decode_*` (D17): a new operation clears the sticky slot,
     // so a rejected parse cannot poison every later one on this context.
     (*dcx).hdr.err = AK_OK;
-    (*dcx).bdr.reset();
-    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    // Decision 11 rule 6: the context is bound to its root; another root is refused,
+    // BEFORE the records are reset, so a refused parse leaves an earlier parse's
+    // records readable (FIX-PLAN R-H10).
     if (*dcx).root != 4 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
+    (*dcx).bdr.reset();
     // R-D9: reject a buffer longer than u32::MAX before it can alias a span.
     if len > u32::MAX as usize {
         (*dcx).hdr.err = AK_ERR_LIMIT;
@@ -5281,9 +5289,11 @@ pub unsafe extern "C" fn ak_parse_UploadResultDataMessage(
     // Same rule as `ak_decode_*` (D17): a new operation clears the sticky slot,
     // so a rejected parse cannot poison every later one on this context.
     (*dcx).hdr.err = AK_OK;
-    (*dcx).bdr.reset();
-    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    // Decision 11 rule 6: the context is bound to its root; another root is refused,
+    // BEFORE the records are reset, so a refused parse leaves an earlier parse's
+    // records readable (FIX-PLAN R-H10).
     if (*dcx).root != 5 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
+    (*dcx).bdr.reset();
     // R-D9: reject a buffer longer than u32::MAX before it can alias a span.
     if len > u32::MAX as usize {
         (*dcx).hdr.err = AK_ERR_LIMIT;
@@ -5389,9 +5399,11 @@ pub unsafe extern "C" fn ak_parse_ListMetricsResponse(
     // Same rule as `ak_decode_*` (D17): a new operation clears the sticky slot,
     // so a rejected parse cannot poison every later one on this context.
     (*dcx).hdr.err = AK_OK;
-    (*dcx).bdr.reset();
-    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    // Decision 11 rule 6: the context is bound to its root; another root is refused,
+    // BEFORE the records are reset, so a refused parse leaves an earlier parse's
+    // records readable (FIX-PLAN R-H10).
     if (*dcx).root != 6 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
+    (*dcx).bdr.reset();
     // R-D9: reject a buffer longer than u32::MAX before it can alias a span.
     if len > u32::MAX as usize {
         (*dcx).hdr.err = AK_ERR_LIMIT;
@@ -5466,9 +5478,11 @@ pub unsafe extern "C" fn ak_parse_DualResponse(
     // Same rule as `ak_decode_*` (D17): a new operation clears the sticky slot,
     // so a rejected parse cannot poison every later one on this context.
     (*dcx).hdr.err = AK_OK;
-    (*dcx).bdr.reset();
-    // Decision 11 rule 6: the context is bound to its root; another root is refused.
+    // Decision 11 rule 6: the context is bound to its root; another root is refused,
+    // BEFORE the records are reset, so a refused parse leaves an earlier parse's
+    // records readable (FIX-PLAN R-H10).
     if (*dcx).root != 7 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
+    (*dcx).bdr.reset();
     // R-D9: reject a buffer longer than u32::MAX before it can alias a span.
     if len > u32::MAX as usize {
         (*dcx).hdr.err = AK_ERR_LIMIT;

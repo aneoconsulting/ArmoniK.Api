@@ -1096,6 +1096,36 @@ pub(crate) unsafe fn unk_arm(dcx: *mut DecCtxImpl, opts: *mut u8, layout: &[(usi
     }
 }
 
+/// Rule 5 (amended by the owner 2026-09-26): every unknown-field capacity is capped at
+/// INT32_MAX, whether the host placed the buffer or `grow` returned it. A host `cap` of 2^31
+/// or more counts as INT32_MAX; a message whose runs need more than INT32_MAX bytes fails
+/// with AK_ERR_LIMIT, with or without `grow`. The slot's `cap` itself is never rewritten:
+/// it is the host's allocation size, which the host frees with.
+#[cfg(feature = "unknown-fields")]
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum UnkRoom {
+    /// The run fits in the slot as it is.
+    Fits,
+    /// It needs a buffer of this many bytes (at most INT32_MAX): `grow`, or CAPACITY.
+    Grow(i32),
+    /// It needs more than INT32_MAX bytes: AK_ERR_LIMIT.
+    Limit,
+}
+
+#[cfg(feature = "unknown-fields")]
+#[inline(always)]
+pub(crate) fn unk_room(len: u32, cap: u32, add: usize) -> UnkRoom {
+    const MAX: usize = i32::MAX as usize;
+    let need = (len as usize).saturating_add(add);
+    if need > MAX {
+        UnkRoom::Limit
+    } else if need > (cap as usize).min(MAX) {
+        UnkRoom::Grow(need as i32)
+    } else {
+        UnkRoom::Fits
+    }
+}
+
 /// Copy one unknown run of a message into that message's own buffer slot (plan: UNKNOWN
 /// FIELDS ON DECODE). Returns AK_OK or the error that fails the decode.
 #[cfg(feature = "unknown-fields")]
@@ -1133,19 +1163,21 @@ pub(crate) unsafe fn unk_put(u: UnkCx, slot: &mut ak_unk_buf, run: &[u8]) -> i32
             return AK_ERR_CAPACITY;
         }
     }
-    let need = slot.len as usize + run.len();
-    if need > slot.cap as usize {
+    let need = match unk_room(slot.len, slot.cap, run.len()) {
+        UnkRoom::Fits => None,
+        UnkRoom::Limit => return AK_ERR_LIMIT,
+        UnkRoom::Grow(need) => Some(need),
+    };
+    if let Some(need) = need {
         let Some(grow) = grow else { return AK_ERR_CAPACITY };
-        if need > i32::MAX as usize {
-            return AK_ERR_LIMIT;
-        }
         let mut dst = slot.data as *mut u8;
+        // Reached only when the slot's cap < need <= INT32_MAX, so it fits an i32.
         let mut cap = slot.cap as i32;
         let cx = &mut *u.dcx;
         ak_rt::bump!(cx.c, reverse);
         ak_rt::bump!(cx.c, grows);
         let host = *(cx.unk_opts as *const *mut c_void);
-        let rc = grow(host, need as i32, &mut dst, &mut cap);
+        let rc = grow(host, need, &mut dst, &mut cap);
         if rc < 0 {
             return rc;
         }
@@ -1276,5 +1308,78 @@ mod tc_empty_tests {
             };
             assert_eq!(n, 0, "{name}: an empty string transcodes to zero bytes");
         }
+    }
+}
+
+#[cfg(all(test, feature = "unknown-fields"))]
+mod unk_limit_tests {
+    //! FIX-PLAN R-H21 / ABI-v1 decision 11 rule 5 (amended 2026-09-26): every capacity is
+    //! capped at INT32_MAX; above it AK_ERR_LIMIT, with or without `grow`. The size logic
+    //! is tested directly (`unk_room`), and `unk_put` is driven on slots whose `len` is
+    //! already near the cap, so no test copies 2 GiB.
+    use super::*;
+    const MAX: u32 = i32::MAX as u32;
+
+    #[test]
+    fn room_arithmetic() {
+        assert_eq!(unk_room(0, MAX, MAX as usize), UnkRoom::Fits, "exactly INT32_MAX fits");
+        assert_eq!(unk_room(0, 0, MAX as usize), UnkRoom::Grow(i32::MAX), "exactly INT32_MAX may grow");
+        assert_eq!(unk_room(0, 0, MAX as usize + 1), UnkRoom::Limit, "INT32_MAX + 1");
+        assert_eq!(unk_room(MAX, MAX, 1), UnkRoom::Limit);
+        assert_eq!(unk_room(0, u32::MAX, MAX as usize + 1), UnkRoom::Limit, "a host cap >= 2^31 is capped");
+        assert_eq!(unk_room(0, 1u32 << 31, MAX as usize), UnkRoom::Fits);
+        assert_eq!(unk_room(10, 16, 6), UnkRoom::Fits);
+        assert_eq!(unk_room(10, 16, 7), UnkRoom::Grow(17));
+        assert_eq!(unk_room(u32::MAX, 0, usize::MAX), UnkRoom::Limit, "no overflow");
+    }
+
+    /// A singular position with the given grow, and its cursor.
+    unsafe fn put(slot: &mut ak_unk_buf, run: &[u8]) -> i32 {
+        let mut opts = ak_unk_opts { buf: NO_BUF, grow: None };
+        let mut pos = UnkPos { entry: &mut opts as *mut ak_unk_opts as *mut u8, pool: false, discard: false };
+        let u = UnkCx { dcx: core::ptr::null_mut(), pos: &mut pos };
+        unk_put(u, slot, run)
+    }
+
+    #[test]
+    fn limit_without_grow() {
+        // INT32_MAX + 1 without grow: AK_ERR_LIMIT (was AK_ERR_CAPACITY). Nothing is
+        // written: the refusal comes before the copy, so the dangling pointer is safe.
+        let mut b = [0u8; 1];
+        let mut slot = ak_unk_buf { data: b.as_mut_ptr() as *mut c_void, len: MAX, cap: MAX };
+        assert_eq!(unsafe { put(&mut slot, &[0xAA]) }, AK_ERR_LIMIT);
+        assert_eq!(slot.len, MAX);
+    }
+
+    #[test]
+    fn host_cap_at_or_above_2_31_is_capped() {
+        // A host that declares cap = 2^32 - 1 does not get more than INT32_MAX: before the
+        // fix this write was accepted (need 2^31 <= cap) and copied out of bounds.
+        let mut b = [0u8; 1];
+        for cap in [1u32 << 31, u32::MAX] {
+            let mut slot = ak_unk_buf { data: b.as_mut_ptr() as *mut c_void, len: MAX, cap };
+            assert_eq!(unsafe { put(&mut slot, &[0xAA]) }, AK_ERR_LIMIT, "cap {cap}");
+            assert_eq!(slot.cap, cap, "the host's cap is reported unchanged");
+        }
+    }
+
+    #[test]
+    fn exactly_int32_max_accepted() {
+        // A real INT32_MAX-byte host buffer (untouched pages are not committed); one run
+        // takes it from INT32_MAX - 1 to exactly INT32_MAX.
+        let mut v: Vec<u8> = Vec::with_capacity(MAX as usize);
+        let mut slot = ak_unk_buf { data: v.as_mut_ptr() as *mut c_void, len: MAX - 1, cap: MAX };
+        assert_eq!(unsafe { put(&mut slot, &[0xAA]) }, AK_OK);
+        assert_eq!(slot.len, MAX);
+        assert_eq!(unsafe { *v.as_ptr().add(MAX as usize - 1) }, 0xAA);
+    }
+
+    #[test]
+    fn capacity_without_grow_below_the_cap() {
+        // Below the cap the no-grow answer stays AK_ERR_CAPACITY (rule 2).
+        let mut b = [0u8; 4];
+        let mut slot = ak_unk_buf { data: b.as_mut_ptr() as *mut c_void, len: 0, cap: 4 };
+        assert_eq!(unsafe { put(&mut slot, &[1, 2, 3, 4, 5]) }, AK_ERR_CAPACITY);
+        assert_eq!(unsafe { put(&mut slot, &[1, 2, 3, 4]) }, AK_OK);
     }
 }
