@@ -16,9 +16,10 @@
 
 static uint64_t host_cb(uint64_t x) { return x + 1; }
 
+// Requirement 21 (owner, 2026-09-26, R-H25): process CPU, as every other suite and slice.
 static double cpu_ns() {
   struct timespec ts;
-  clock_gettime(CLOCK_THREAD_CPUTIME_ID, &ts);
+  clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts);
   return (double)ts.tv_sec * 1e9 + (double)ts.tv_nsec;
 }
 
@@ -52,7 +53,7 @@ int main(int argc, char **argv) {
     char line[256];
     std::snprintf(line, sizeof(line),
                   "{\"slice\":\"cpp\",\"suite\":\"calib\",\"arm\":\"crossing-%s\",\"dir\":\"%s\","
-                  "\"launch\":%d,\"round\":%d,\"cpu_ns\":%.0f,\"iters\":%ld}\n",
+                  "\"launch\":%d,\"round\":%d,\"cpu_ns\":%.0f,\"cpu_clock\":\"process\",\"iters\":%ld}\n",
                   rev ? "fwd+rev" : "fwd", dir.c_str(), launch, r, c1 - c0, iters);
     out += line;
   }
