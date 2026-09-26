@@ -18,6 +18,9 @@ dependencies = [
 [[package]]
 name = "ak-rt"
 version = "0.0.0"
+dependencies = [
+ "simdutf8",
+]
 
 [[package]]
 name = "block-buffer"
