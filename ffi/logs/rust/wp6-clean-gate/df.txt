@@ -1,0 +1,6 @@
+# df -h / : before the builds; after the stable gate; after TSan; after the floor gate; after the worktree and its builds were deleted
+/dev/vda        252G   16G   22G  42% /
+/dev/vda        252G   24G   14G  63% /
+/dev/vda        252G   25G   13G  66% /
+/dev/vda        252G   23G   15G  62% /
+/dev/vda        252G   15G   23G  41% /
