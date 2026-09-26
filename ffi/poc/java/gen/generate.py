@@ -118,6 +118,8 @@ def shapes_targets(nu=False):
         out["%s/PbArms.java" % d] = pbarms.emit(p)
         out["%s/FfiArms.java" % d] = java_ffiarms.emit(p, nounk=nu)
         out["%s/Walk.java" % d] = java_walk.emit_walk(p, "ak.shapes")
+        # CAMPAIGN req 7 (R-H27): the corpus U-* rows at the shapes core's ABI roots, by root.
+        out["%s/Dispatch.java" % d] = java_corpus.emit_dispatch(p, p, "ak.shapes", nounk=nu)
         out["%s/PbWalk.java" % d] = java_walk.emit_pbwalk(p, "ak.shapes")
         out["%s/%s/ak/floor/FfiArms.java" % (jroot, level_dir)] = java_ffiarms.emit(
             p, ns="ak.floor", facade=N.PKG, nounk=nu)

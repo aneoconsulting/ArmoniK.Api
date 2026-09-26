@@ -17,7 +17,7 @@
  * crossing and flattered the arm against its own specification.
  *
  * R-G5 (FIX-PLAN WP5 step 3): every struct and prototype below comes from the generated
- * header, rendered from `plan.rpc` by poc/codec/gen/java_abi.py with a static assertion of
+ * header, rendered from `plan.rpc` by poc/codec/gen/c_abi.py with a static assertion of
  * each struct's size and offsets. Before WP5 this file hand-declared `ak_bytes`,
  * `ak_completion` and every RPC prototype, with handles as `void *`.
  */
@@ -28,18 +28,31 @@
 
 #include "ak_abi.h"
 
+/* CAMPAIGN req 19 (R-H31): in the counting shim (-DAK_HOST_COUNT) every entry below that
+ * calls the core counts one forward crossing, beside the codec's (the counter lives in the
+ * generated shim.c). */
+#ifdef AK_HOST_COUNT
+extern int64_t ak_hc_fwd;
+#define AK_HC() (ak_hc_fwd++)
+#else
+#define AK_HC() ((void) 0)
+#endif
+
 JNIEXPORT jlong JNICALL Java_ak_NativeRpc_runtimeNew(JNIEnv *e, jclass c, jint threads) {
+  AK_HC();
   (void) e; (void) c;
   return (jlong)(intptr_t) ak_runtime_new((uint32_t) threads);
 }
 
 JNIEXPORT void JNICALL Java_ak_NativeRpc_runtimeDestroy(JNIEnv *e, jclass c, jlong r) {
+  AK_HC();
   (void) e; (void) c;
   ak_runtime_destroy((ak_runtime *)(intptr_t) r);
 }
 
 JNIEXPORT jlong JNICALL Java_ak_NativeRpc_clientNew(JNIEnv *env, jclass c, jlong r,
                                                     jbyteArray uri, jint len) {
+  AK_HC();
   (void) c;
   jbyte *u = (*env)->GetByteArrayElements(env, uri, NULL);
   if (u == NULL) return 0;   /* R-D9 sweep: OutOfMemoryError already pending */
@@ -49,6 +62,7 @@ JNIEXPORT jlong JNICALL Java_ak_NativeRpc_clientNew(JNIEnv *env, jclass c, jlong
 }
 
 JNIEXPORT void JNICALL Java_ak_NativeRpc_clientDestroy(JNIEnv *e, jclass c, jlong cl) {
+  AK_HC();
   (void) e; (void) c;
   ak_client_destroy((ak_client *)(intptr_t) cl);
 }
@@ -74,6 +88,7 @@ JNIEXPORT jint JNICALL Java_ak_NativeRpc_callUnary(JNIEnv *env, jclass c, jlong 
                                                    jlong pathPtr, jint pathLen,
                                                    jbyteArray req, jint reqOff, jint reqLen,
                                                    jlongArray out) {
+  AK_HC();
   (void) c;
   ak_bytes b = {NULL, 0, NULL};
   jbyte *base = (*env)->GetByteArrayElements(env, req, NULL);
@@ -95,6 +110,7 @@ JNIEXPORT jint JNICALL Java_ak_NativeRpc_callUnary(JNIEnv *env, jclass c, jlong 
 /* Crossing two, and the only other one. */
 JNIEXPORT void JNICALL Java_ak_NativeRpc_bytesFree(JNIEnv *e, jclass c, jlong ptr,
                                                    jlong len, jlong owner) {
+  AK_HC();
   (void) e; (void) c;
   ak_bytes b;
   b.ptr = (const uint8_t *)(intptr_t) ptr;
@@ -117,16 +133,19 @@ JNIEXPORT void JNICALL Java_ak_NativeRpc_bytesFree(JNIEnv *e, jclass c, jlong pt
  */
 
 JNIEXPORT jlong JNICALL Java_ak_NativeRpc_queueNew(JNIEnv *e, jclass c) {
+  AK_HC();
   (void) e; (void) c;
   return (jlong)(intptr_t) ak_queue_new();
 }
 
 JNIEXPORT void JNICALL Java_ak_NativeRpc_queueShutdown(JNIEnv *e, jclass c, jlong q) {
+  AK_HC();
   (void) e; (void) c;
   ak_queue_shutdown((ak_queue *)(intptr_t) q);
 }
 
 JNIEXPORT void JNICALL Java_ak_NativeRpc_queueDestroy(JNIEnv *e, jclass c, jlong q) {
+  AK_HC();
   (void) e; (void) c;
   ak_queue_destroy((ak_queue *)(intptr_t) q);
 }
@@ -138,6 +157,7 @@ JNIEXPORT jlong JNICALL Java_ak_NativeRpc_callUnaryQ(JNIEnv *env, jclass c, jlon
                                                      jlong pathPtr, jint pathLen,
                                                      jbyteArray req, jint reqOff, jint reqLen,
                                                      jlong q, jlong tag) {
+  AK_HC();
   (void) c;
   jbyte *base = (*env)->GetByteArrayElements(env, req, NULL);
   if (base == NULL) return 0;
@@ -153,6 +173,7 @@ JNIEXPORT jlong JNICALL Java_ak_NativeRpc_callUnaryQ(JNIEnv *env, jclass c, jlon
  * {status, tag, ptr, len, owner}; the rc is the queue status, not the call's. */
 JNIEXPORT jint JNICALL Java_ak_NativeRpc_queueNext(JNIEnv *env, jclass c, jlong q,
                                                    jlong timeoutMs, jlongArray out) {
+  AK_HC();
   (void) c;
   ak_completion comp;
   comp.tag = 0;
@@ -174,6 +195,7 @@ JNIEXPORT jint JNICALL Java_ak_NativeRpc_queueNext(JNIEnv *env, jclass c, jlong 
 }
 
 JNIEXPORT void JNICALL Java_ak_NativeRpc_callDestroy(JNIEnv *e, jclass c, jlong h) {
+  AK_HC();
   (void) e; (void) c;
   if (h != 0) ak_call_destroy((ak_call *)(intptr_t) h);
 }
@@ -196,6 +218,7 @@ JNIEXPORT jlong JNICALL Java_ak_NativeRpc_clientNewOpts(JNIEnv *env, jclass c, j
                                                         jint streamWin, jint connWin,
                                                         jint adaptive, jint maxRecv,
                                                         jint maxSend, jint nagle) {
+  AK_HC();
   (void) c;
   ak_client_opts o;
   o.stream_window = (uint32_t) streamWin;

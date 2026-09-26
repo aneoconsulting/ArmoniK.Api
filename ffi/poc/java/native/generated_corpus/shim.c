@@ -53,6 +53,18 @@ static inline ak_frame *ak_top(void) { return &g_stack[g_depth - 1]; }
   } while (0)
 #endif
 
+/* CAMPAIGN req 19 (R-H31): the counting build of the shim (-DAK_HOST_COUNT) counts every
+ * JNI entry that calls an exported core function -- the codec, the resets, the take, the
+ * pull family's drain and walk, the RPC entry points in rpc.c -- so a count covers every
+ * entry point the timed loop calls, not only those the core counts itself. `ak_hc_grow`
+ * counts the core's calls to the shim's C grow (a reverse call, into C, not Java). */
+#ifdef AK_HOST_COUNT
+int64_t ak_hc_fwd, ak_hc_grow;
+#define AK_HC() (ak_hc_fwd++)
+#else
+#define AK_HC() ((void) 0)
+#endif
+
 #ifdef AK_CROSSING_TAX
 void ak_crossing_tax(void);
 #define AK_TAX() ak_crossing_tax()
@@ -245,6 +257,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decTrampoline(JNIEnv *e, jcla
 
 /* ABI v1 section 3, rendered from plan.lifecycle (R-G7): ak_init before every codec and RPC entry point. */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_init(JNIEnv *e, jclass c) {
+  AK_HC();
   (void) e; (void) c;
   struct ak_init_opts o;
   memset(&o, 0, sizeof o);
@@ -257,6 +270,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_init(JNIEnv *e, jclass c) {
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeTimestamp(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -268,6 +282,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeTimestamp(JNIEnv *env, 
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeTimestamp(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -279,6 +294,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeTimestamp(JNIEnv *env,
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeDuration(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -290,6 +306,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeDuration(JNIEnv *env, j
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeDuration(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -301,6 +318,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeDuration(JNIEnv *env, 
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeResultRaw(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -312,6 +330,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeResultRaw(JNIEnv *env, 
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeResultRaw(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -323,6 +342,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeResultRaw(JNIEnv *env,
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeTaskOptions(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -334,6 +354,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeTaskOptions(JNIEnv *env
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeTaskOptions(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -345,6 +366,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeTaskOptions(JNIEnv *en
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeTaskOutput(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -356,6 +378,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeTaskOutput(JNIEnv *env,
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeTaskOutput(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -367,6 +390,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeTaskOutput(JNIEnv *env
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeTaskDetailed(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -378,6 +402,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeTaskDetailed(JNIEnv *en
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeTaskDetailed(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -389,6 +414,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeTaskDetailed(JNIEnv *e
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeTaskSummary(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -400,6 +426,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeTaskSummary(JNIEnv *env
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeTaskSummary(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -411,6 +438,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeTaskSummary(JNIEnv *en
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeProbe(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -422,6 +450,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeProbe(JNIEnv *env, jcla
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeProbe(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -433,6 +462,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeProbe(JNIEnv *env, jcl
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeEmpty(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -444,6 +474,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeEmpty(JNIEnv *env, jcla
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeEmpty(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -455,6 +486,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeEmpty(JNIEnv *env, jcl
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeUploadResultData(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -470,6 +502,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeUploadResultData(JNIEnv
  * (plan.check_direct) proved this tree makes no reverse call, which is what
  * makes a critical section legal here. */
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeDirectUploadResultData(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix, jbyteArray data, jint dlen) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   void *p = (*env)->GetPrimitiveArrayCritical(env, data, NULL);
@@ -486,6 +519,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeDirectUploadResultData(
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeUploadResultData(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -501,6 +535,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeUploadResultData(JNIEn
  * (plan.check_direct) proved this tree makes no reverse call, which is what
  * makes a critical section legal here. */
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeDirectUploadResultData(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix, jbyteArray data, jint dlen) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   void *p = (*env)->GetPrimitiveArrayCritical(env, data, NULL);
@@ -517,6 +552,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeDirectUploadResultData
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeMetricsBatch(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -528,6 +564,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeMetricsBatch(JNIEnv *en
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeMetricsBatch(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -539,6 +576,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeMetricsBatch(JNIEnv *e
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodePair(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -550,6 +588,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodePair(JNIEnv *env, jclas
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodePair(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -561,6 +600,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodePair(JNIEnv *env, jcla
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeListResultsResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -572,6 +612,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeListResultsResponse(JNI
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeListResultsResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -583,6 +624,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeListResultsResponse(JN
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeListTasksDetailedResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -594,6 +636,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeListTasksDetailedRespon
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeListTasksDetailedResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -605,6 +648,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeListTasksDetailedRespo
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeListTaskSummaryResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -616,6 +660,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeListTaskSummaryResponse
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeListTaskSummaryResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -627,6 +672,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeListTaskSummaryRespons
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeListProbeResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -638,6 +684,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeListProbeResponse(JNIEn
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeListProbeResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -649,6 +696,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeListProbeResponse(JNIE
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeListMetricsResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -660,6 +708,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeListMetricsResponse(JNI
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeListMetricsResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -671,6 +720,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeListMetricsResponse(JN
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeUploadResultDataMessage(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -686,6 +736,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeUploadResultDataMessage
  * (plan.check_direct) proved this tree makes no reverse call, which is what
  * makes a critical section legal here. */
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeDirectUploadResultDataMessage(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix, jbyteArray data, jint dlen) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   void *p = (*env)->GetPrimitiveArrayCritical(env, data, NULL);
@@ -702,6 +753,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeDirectUploadResultDataM
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeUploadResultDataMessage(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -717,6 +769,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeUploadResultDataMessag
  * (plan.check_direct) proved this tree makes no reverse call, which is what
  * makes a critical section legal here. */
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeDirectUploadResultDataMessage(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix, jbyteArray data, jint dlen) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   void *p = (*env)->GetPrimitiveArrayCritical(env, data, NULL);
@@ -733,6 +786,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeDirectUploadResultData
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeDualResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -744,6 +798,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeDualResponse(JNIEnv *en
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeDualResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -755,6 +810,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeDualResponse(JNIEnv *e
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeChunkLeaf(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -766,6 +822,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeChunkLeaf(JNIEnv *env, 
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeChunkLeaf(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -777,6 +834,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeChunkLeaf(JNIEnv *env,
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeChunkInner(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -788,6 +846,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeChunkInner(JNIEnv *env,
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeChunkInner(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -799,6 +858,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeChunkInner(JNIEnv *env
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeChunkElement(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -810,6 +870,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeChunkElement(JNIEnv *en
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeChunkElement(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -821,6 +882,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeChunkElement(JNIEnv *e
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeChunkedResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -832,6 +894,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeChunkedResponse(JNIEnv 
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeChunkedResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -843,6 +906,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeChunkedResponse(JNIEnv
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeChunkedResponseWide(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -854,6 +918,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeChunkedResponseWide(JNI
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeChunkedResponseWide(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -865,6 +930,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeChunkedResponseWide(JN
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeLeafElement(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -876,6 +942,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeLeafElement(JNIEnv *env
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeLeafElement(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -887,6 +954,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeLeafElement(JNIEnv *en
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeLeafResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -898,6 +966,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeLeafResponse(JNIEnv *en
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeLeafResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -909,6 +978,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeLeafResponse(JNIEnv *e
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeSurrogate(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -920,6 +990,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeSurrogate(JNIEnv *env, 
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeSurrogate(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -931,6 +1002,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeSurrogate(JNIEnv *env,
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeSurrogateInner(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -942,6 +1014,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeSurrogateInner(JNIEnv *
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeSurrogateInner(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -953,6 +1026,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeSurrogateInner(JNIEnv 
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeWireZoo(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -964,6 +1038,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_encodeWireZoo(JNIEnv *env, jc
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeWireZoo(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong vt, jlong fix) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jlong) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -975,6 +1050,7 @@ JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_uencodeWireZoo(JNIEnv *env, j
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeTimestamp(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -986,10 +1062,12 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeTimestamp(JNIEnv *env, j
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewTimestamp(JNIEnv *e, jclass c, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jlong)(intptr_t) ak_dec_ctx_new_Timestamp((struct ak_dec_Timestamp_opts *)(intptr_t) opts);
 }
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetTimestamp(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jint) ak_dec_reset_Timestamp((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_Timestamp_opts *)(intptr_t) opts);
 }
@@ -998,6 +1076,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetTimestamp(JNIEnv *e, j
  * rather than copied; there is no ak_push frame to make an upcall from. With retain
  * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseTimestamp(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  AK_HC();
   (void) cls; (void) self;
   AK_TAX();
   void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
@@ -1009,6 +1088,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseTimestamp(JNIEnv *env, jc
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeDuration(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -1020,10 +1100,12 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeDuration(JNIEnv *env, jc
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewDuration(JNIEnv *e, jclass c, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jlong)(intptr_t) ak_dec_ctx_new_Duration((struct ak_dec_Duration_opts *)(intptr_t) opts);
 }
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetDuration(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jint) ak_dec_reset_Duration((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_Duration_opts *)(intptr_t) opts);
 }
@@ -1032,6 +1114,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetDuration(JNIEnv *e, jc
  * rather than copied; there is no ak_push frame to make an upcall from. With retain
  * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseDuration(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  AK_HC();
   (void) cls; (void) self;
   AK_TAX();
   void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
@@ -1043,6 +1126,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseDuration(JNIEnv *env, jcl
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeResultRaw(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -1054,10 +1138,12 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeResultRaw(JNIEnv *env, j
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewResultRaw(JNIEnv *e, jclass c, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jlong)(intptr_t) ak_dec_ctx_new_ResultRaw((struct ak_dec_ResultRaw_opts *)(intptr_t) opts);
 }
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetResultRaw(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jint) ak_dec_reset_ResultRaw((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_ResultRaw_opts *)(intptr_t) opts);
 }
@@ -1066,6 +1152,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetResultRaw(JNIEnv *e, j
  * rather than copied; there is no ak_push frame to make an upcall from. With retain
  * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseResultRaw(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  AK_HC();
   (void) cls; (void) self;
   AK_TAX();
   void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
@@ -1077,6 +1164,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseResultRaw(JNIEnv *env, jc
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeTaskOptions(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -1088,10 +1176,12 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeTaskOptions(JNIEnv *env,
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewTaskOptions(JNIEnv *e, jclass c, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jlong)(intptr_t) ak_dec_ctx_new_TaskOptions((struct ak_dec_TaskOptions_opts *)(intptr_t) opts);
 }
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetTaskOptions(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jint) ak_dec_reset_TaskOptions((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_TaskOptions_opts *)(intptr_t) opts);
 }
@@ -1100,6 +1190,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetTaskOptions(JNIEnv *e,
  * rather than copied; there is no ak_push frame to make an upcall from. With retain
  * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseTaskOptions(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  AK_HC();
   (void) cls; (void) self;
   AK_TAX();
   void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
@@ -1111,6 +1202,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseTaskOptions(JNIEnv *env, 
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeTaskOutput(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -1122,10 +1214,12 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeTaskOutput(JNIEnv *env, 
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewTaskOutput(JNIEnv *e, jclass c, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jlong)(intptr_t) ak_dec_ctx_new_TaskOutput((struct ak_dec_TaskOutput_opts *)(intptr_t) opts);
 }
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetTaskOutput(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jint) ak_dec_reset_TaskOutput((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_TaskOutput_opts *)(intptr_t) opts);
 }
@@ -1134,6 +1228,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetTaskOutput(JNIEnv *e, 
  * rather than copied; there is no ak_push frame to make an upcall from. With retain
  * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseTaskOutput(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  AK_HC();
   (void) cls; (void) self;
   AK_TAX();
   void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
@@ -1145,6 +1240,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseTaskOutput(JNIEnv *env, j
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeTaskDetailed(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -1156,10 +1252,12 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeTaskDetailed(JNIEnv *env
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewTaskDetailed(JNIEnv *e, jclass c, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jlong)(intptr_t) ak_dec_ctx_new_TaskDetailed((struct ak_dec_TaskDetailed_opts *)(intptr_t) opts);
 }
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetTaskDetailed(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jint) ak_dec_reset_TaskDetailed((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_TaskDetailed_opts *)(intptr_t) opts);
 }
@@ -1168,6 +1266,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetTaskDetailed(JNIEnv *e
  * rather than copied; there is no ak_push frame to make an upcall from. With retain
  * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseTaskDetailed(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  AK_HC();
   (void) cls; (void) self;
   AK_TAX();
   void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
@@ -1179,6 +1278,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseTaskDetailed(JNIEnv *env,
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeTaskSummary(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -1190,10 +1290,12 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeTaskSummary(JNIEnv *env,
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewTaskSummary(JNIEnv *e, jclass c, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jlong)(intptr_t) ak_dec_ctx_new_TaskSummary((struct ak_dec_TaskSummary_opts *)(intptr_t) opts);
 }
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetTaskSummary(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jint) ak_dec_reset_TaskSummary((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_TaskSummary_opts *)(intptr_t) opts);
 }
@@ -1202,6 +1304,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetTaskSummary(JNIEnv *e,
  * rather than copied; there is no ak_push frame to make an upcall from. With retain
  * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseTaskSummary(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  AK_HC();
   (void) cls; (void) self;
   AK_TAX();
   void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
@@ -1213,6 +1316,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseTaskSummary(JNIEnv *env, 
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeProbe(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -1224,10 +1328,12 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeProbe(JNIEnv *env, jclas
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewProbe(JNIEnv *e, jclass c, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jlong)(intptr_t) ak_dec_ctx_new_Probe((struct ak_dec_Probe_opts *)(intptr_t) opts);
 }
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetProbe(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jint) ak_dec_reset_Probe((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_Probe_opts *)(intptr_t) opts);
 }
@@ -1236,6 +1342,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetProbe(JNIEnv *e, jclas
  * rather than copied; there is no ak_push frame to make an upcall from. With retain
  * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseProbe(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  AK_HC();
   (void) cls; (void) self;
   AK_TAX();
   void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
@@ -1247,6 +1354,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseProbe(JNIEnv *env, jclass
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeEmpty(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -1258,10 +1366,12 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeEmpty(JNIEnv *env, jclas
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewEmpty(JNIEnv *e, jclass c, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jlong)(intptr_t) ak_dec_ctx_new_Empty((struct ak_dec_Empty_opts *)(intptr_t) opts);
 }
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetEmpty(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jint) ak_dec_reset_Empty((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_Empty_opts *)(intptr_t) opts);
 }
@@ -1270,6 +1380,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetEmpty(JNIEnv *e, jclas
  * rather than copied; there is no ak_push frame to make an upcall from. With retain
  * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseEmpty(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  AK_HC();
   (void) cls; (void) self;
   AK_TAX();
   void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
@@ -1281,6 +1392,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseEmpty(JNIEnv *env, jclass
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeUploadResultData(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -1292,10 +1404,12 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeUploadResultData(JNIEnv 
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewUploadResultData(JNIEnv *e, jclass c, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jlong)(intptr_t) ak_dec_ctx_new_UploadResultData((struct ak_dec_UploadResultData_opts *)(intptr_t) opts);
 }
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetUploadResultData(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jint) ak_dec_reset_UploadResultData((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_UploadResultData_opts *)(intptr_t) opts);
 }
@@ -1304,6 +1418,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetUploadResultData(JNIEn
  * rather than copied; there is no ak_push frame to make an upcall from. With retain
  * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseUploadResultData(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  AK_HC();
   (void) cls; (void) self;
   AK_TAX();
   void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
@@ -1315,6 +1430,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseUploadResultData(JNIEnv *
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeMetricsBatch(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -1326,10 +1442,12 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeMetricsBatch(JNIEnv *env
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewMetricsBatch(JNIEnv *e, jclass c, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jlong)(intptr_t) ak_dec_ctx_new_MetricsBatch((struct ak_dec_MetricsBatch_opts *)(intptr_t) opts);
 }
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetMetricsBatch(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jint) ak_dec_reset_MetricsBatch((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_MetricsBatch_opts *)(intptr_t) opts);
 }
@@ -1338,6 +1456,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetMetricsBatch(JNIEnv *e
  * rather than copied; there is no ak_push frame to make an upcall from. With retain
  * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseMetricsBatch(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  AK_HC();
   (void) cls; (void) self;
   AK_TAX();
   void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
@@ -1349,6 +1468,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseMetricsBatch(JNIEnv *env,
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodePair(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -1360,10 +1480,12 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodePair(JNIEnv *env, jclass
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewPair(JNIEnv *e, jclass c, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jlong)(intptr_t) ak_dec_ctx_new_Pair((struct ak_dec_Pair_opts *)(intptr_t) opts);
 }
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetPair(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jint) ak_dec_reset_Pair((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_Pair_opts *)(intptr_t) opts);
 }
@@ -1372,6 +1494,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetPair(JNIEnv *e, jclass
  * rather than copied; there is no ak_push frame to make an upcall from. With retain
  * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parsePair(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  AK_HC();
   (void) cls; (void) self;
   AK_TAX();
   void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
@@ -1383,6 +1506,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parsePair(JNIEnv *env, jclass 
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeListResultsResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -1394,10 +1518,12 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeListResultsResponse(JNIE
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewListResultsResponse(JNIEnv *e, jclass c, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jlong)(intptr_t) ak_dec_ctx_new_ListResultsResponse((struct ak_dec_ListResultsResponse_opts *)(intptr_t) opts);
 }
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetListResultsResponse(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jint) ak_dec_reset_ListResultsResponse((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_ListResultsResponse_opts *)(intptr_t) opts);
 }
@@ -1406,6 +1532,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetListResultsResponse(JN
  * rather than copied; there is no ak_push frame to make an upcall from. With retain
  * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseListResultsResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  AK_HC();
   (void) cls; (void) self;
   AK_TAX();
   void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
@@ -1417,6 +1544,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseListResultsResponse(JNIEn
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeListTasksDetailedResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -1428,10 +1556,12 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeListTasksDetailedRespons
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewListTasksDetailedResponse(JNIEnv *e, jclass c, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jlong)(intptr_t) ak_dec_ctx_new_ListTasksDetailedResponse((struct ak_dec_ListTasksDetailedResponse_opts *)(intptr_t) opts);
 }
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetListTasksDetailedResponse(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jint) ak_dec_reset_ListTasksDetailedResponse((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_ListTasksDetailedResponse_opts *)(intptr_t) opts);
 }
@@ -1440,6 +1570,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetListTasksDetailedRespo
  * rather than copied; there is no ak_push frame to make an upcall from. With retain
  * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseListTasksDetailedResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  AK_HC();
   (void) cls; (void) self;
   AK_TAX();
   void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
@@ -1451,6 +1582,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseListTasksDetailedResponse
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeListTaskSummaryResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -1462,10 +1594,12 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeListTaskSummaryResponse(
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewListTaskSummaryResponse(JNIEnv *e, jclass c, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jlong)(intptr_t) ak_dec_ctx_new_ListTaskSummaryResponse((struct ak_dec_ListTaskSummaryResponse_opts *)(intptr_t) opts);
 }
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetListTaskSummaryResponse(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jint) ak_dec_reset_ListTaskSummaryResponse((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_ListTaskSummaryResponse_opts *)(intptr_t) opts);
 }
@@ -1474,6 +1608,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetListTaskSummaryRespons
  * rather than copied; there is no ak_push frame to make an upcall from. With retain
  * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseListTaskSummaryResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  AK_HC();
   (void) cls; (void) self;
   AK_TAX();
   void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
@@ -1485,6 +1620,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseListTaskSummaryResponse(J
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeListProbeResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -1496,10 +1632,12 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeListProbeResponse(JNIEnv
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewListProbeResponse(JNIEnv *e, jclass c, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jlong)(intptr_t) ak_dec_ctx_new_ListProbeResponse((struct ak_dec_ListProbeResponse_opts *)(intptr_t) opts);
 }
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetListProbeResponse(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jint) ak_dec_reset_ListProbeResponse((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_ListProbeResponse_opts *)(intptr_t) opts);
 }
@@ -1508,6 +1646,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetListProbeResponse(JNIE
  * rather than copied; there is no ak_push frame to make an upcall from. With retain
  * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseListProbeResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  AK_HC();
   (void) cls; (void) self;
   AK_TAX();
   void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
@@ -1519,6 +1658,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseListProbeResponse(JNIEnv 
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeListMetricsResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -1530,10 +1670,12 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeListMetricsResponse(JNIE
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewListMetricsResponse(JNIEnv *e, jclass c, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jlong)(intptr_t) ak_dec_ctx_new_ListMetricsResponse((struct ak_dec_ListMetricsResponse_opts *)(intptr_t) opts);
 }
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetListMetricsResponse(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jint) ak_dec_reset_ListMetricsResponse((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_ListMetricsResponse_opts *)(intptr_t) opts);
 }
@@ -1542,6 +1684,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetListMetricsResponse(JN
  * rather than copied; there is no ak_push frame to make an upcall from. With retain
  * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseListMetricsResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  AK_HC();
   (void) cls; (void) self;
   AK_TAX();
   void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
@@ -1553,6 +1696,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseListMetricsResponse(JNIEn
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeUploadResultDataMessage(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -1564,10 +1708,12 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeUploadResultDataMessage(
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewUploadResultDataMessage(JNIEnv *e, jclass c, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jlong)(intptr_t) ak_dec_ctx_new_UploadResultDataMessage((struct ak_dec_UploadResultDataMessage_opts *)(intptr_t) opts);
 }
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetUploadResultDataMessage(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jint) ak_dec_reset_UploadResultDataMessage((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_UploadResultDataMessage_opts *)(intptr_t) opts);
 }
@@ -1576,6 +1722,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetUploadResultDataMessag
  * rather than copied; there is no ak_push frame to make an upcall from. With retain
  * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseUploadResultDataMessage(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  AK_HC();
   (void) cls; (void) self;
   AK_TAX();
   void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
@@ -1587,6 +1734,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseUploadResultDataMessage(J
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeDualResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -1598,10 +1746,12 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeDualResponse(JNIEnv *env
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewDualResponse(JNIEnv *e, jclass c, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jlong)(intptr_t) ak_dec_ctx_new_DualResponse((struct ak_dec_DualResponse_opts *)(intptr_t) opts);
 }
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetDualResponse(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jint) ak_dec_reset_DualResponse((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_DualResponse_opts *)(intptr_t) opts);
 }
@@ -1610,6 +1760,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetDualResponse(JNIEnv *e
  * rather than copied; there is no ak_push frame to make an upcall from. With retain
  * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseDualResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  AK_HC();
   (void) cls; (void) self;
   AK_TAX();
   void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
@@ -1621,6 +1772,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseDualResponse(JNIEnv *env,
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeChunkLeaf(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -1632,10 +1784,12 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeChunkLeaf(JNIEnv *env, j
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewChunkLeaf(JNIEnv *e, jclass c, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jlong)(intptr_t) ak_dec_ctx_new_ChunkLeaf((struct ak_dec_ChunkLeaf_opts *)(intptr_t) opts);
 }
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetChunkLeaf(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jint) ak_dec_reset_ChunkLeaf((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_ChunkLeaf_opts *)(intptr_t) opts);
 }
@@ -1644,6 +1798,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetChunkLeaf(JNIEnv *e, j
  * rather than copied; there is no ak_push frame to make an upcall from. With retain
  * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseChunkLeaf(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  AK_HC();
   (void) cls; (void) self;
   AK_TAX();
   void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
@@ -1655,6 +1810,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseChunkLeaf(JNIEnv *env, jc
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeChunkInner(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -1666,10 +1822,12 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeChunkInner(JNIEnv *env, 
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewChunkInner(JNIEnv *e, jclass c, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jlong)(intptr_t) ak_dec_ctx_new_ChunkInner((struct ak_dec_ChunkInner_opts *)(intptr_t) opts);
 }
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetChunkInner(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jint) ak_dec_reset_ChunkInner((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_ChunkInner_opts *)(intptr_t) opts);
 }
@@ -1678,6 +1836,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetChunkInner(JNIEnv *e, 
  * rather than copied; there is no ak_push frame to make an upcall from. With retain
  * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseChunkInner(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  AK_HC();
   (void) cls; (void) self;
   AK_TAX();
   void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
@@ -1689,6 +1848,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseChunkInner(JNIEnv *env, j
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeChunkElement(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -1700,10 +1860,12 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeChunkElement(JNIEnv *env
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewChunkElement(JNIEnv *e, jclass c, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jlong)(intptr_t) ak_dec_ctx_new_ChunkElement((struct ak_dec_ChunkElement_opts *)(intptr_t) opts);
 }
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetChunkElement(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jint) ak_dec_reset_ChunkElement((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_ChunkElement_opts *)(intptr_t) opts);
 }
@@ -1712,6 +1874,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetChunkElement(JNIEnv *e
  * rather than copied; there is no ak_push frame to make an upcall from. With retain
  * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseChunkElement(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  AK_HC();
   (void) cls; (void) self;
   AK_TAX();
   void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
@@ -1723,6 +1886,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseChunkElement(JNIEnv *env,
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeChunkedResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -1734,10 +1898,12 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeChunkedResponse(JNIEnv *
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewChunkedResponse(JNIEnv *e, jclass c, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jlong)(intptr_t) ak_dec_ctx_new_ChunkedResponse((struct ak_dec_ChunkedResponse_opts *)(intptr_t) opts);
 }
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetChunkedResponse(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jint) ak_dec_reset_ChunkedResponse((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_ChunkedResponse_opts *)(intptr_t) opts);
 }
@@ -1746,6 +1912,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetChunkedResponse(JNIEnv
  * rather than copied; there is no ak_push frame to make an upcall from. With retain
  * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseChunkedResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  AK_HC();
   (void) cls; (void) self;
   AK_TAX();
   void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
@@ -1757,6 +1924,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseChunkedResponse(JNIEnv *e
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeChunkedResponseWide(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -1768,10 +1936,12 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeChunkedResponseWide(JNIE
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewChunkedResponseWide(JNIEnv *e, jclass c, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jlong)(intptr_t) ak_dec_ctx_new_ChunkedResponseWide((struct ak_dec_ChunkedResponseWide_opts *)(intptr_t) opts);
 }
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetChunkedResponseWide(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jint) ak_dec_reset_ChunkedResponseWide((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_ChunkedResponseWide_opts *)(intptr_t) opts);
 }
@@ -1780,6 +1950,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetChunkedResponseWide(JN
  * rather than copied; there is no ak_push frame to make an upcall from. With retain
  * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseChunkedResponseWide(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  AK_HC();
   (void) cls; (void) self;
   AK_TAX();
   void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
@@ -1791,6 +1962,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseChunkedResponseWide(JNIEn
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeLeafElement(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -1802,10 +1974,12 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeLeafElement(JNIEnv *env,
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewLeafElement(JNIEnv *e, jclass c, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jlong)(intptr_t) ak_dec_ctx_new_LeafElement((struct ak_dec_LeafElement_opts *)(intptr_t) opts);
 }
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetLeafElement(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jint) ak_dec_reset_LeafElement((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_LeafElement_opts *)(intptr_t) opts);
 }
@@ -1814,6 +1988,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetLeafElement(JNIEnv *e,
  * rather than copied; there is no ak_push frame to make an upcall from. With retain
  * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseLeafElement(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  AK_HC();
   (void) cls; (void) self;
   AK_TAX();
   void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
@@ -1825,6 +2000,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseLeafElement(JNIEnv *env, 
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeLeafResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -1836,10 +2012,12 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeLeafResponse(JNIEnv *env
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewLeafResponse(JNIEnv *e, jclass c, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jlong)(intptr_t) ak_dec_ctx_new_LeafResponse((struct ak_dec_LeafResponse_opts *)(intptr_t) opts);
 }
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetLeafResponse(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jint) ak_dec_reset_LeafResponse((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_LeafResponse_opts *)(intptr_t) opts);
 }
@@ -1848,6 +2026,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetLeafResponse(JNIEnv *e
  * rather than copied; there is no ak_push frame to make an upcall from. With retain
  * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseLeafResponse(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  AK_HC();
   (void) cls; (void) self;
   AK_TAX();
   void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
@@ -1859,6 +2038,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseLeafResponse(JNIEnv *env,
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeSurrogate(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -1870,10 +2050,12 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeSurrogate(JNIEnv *env, j
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewSurrogate(JNIEnv *e, jclass c, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jlong)(intptr_t) ak_dec_ctx_new_Surrogate((struct ak_dec_Surrogate_opts *)(intptr_t) opts);
 }
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetSurrogate(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jint) ak_dec_reset_Surrogate((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_Surrogate_opts *)(intptr_t) opts);
 }
@@ -1882,6 +2064,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetSurrogate(JNIEnv *e, j
  * rather than copied; there is no ak_push frame to make an upcall from. With retain
  * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseSurrogate(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  AK_HC();
   (void) cls; (void) self;
   AK_TAX();
   void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
@@ -1893,6 +2076,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseSurrogate(JNIEnv *env, jc
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeSurrogateInner(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -1904,10 +2088,12 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeSurrogateInner(JNIEnv *e
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewSurrogateInner(JNIEnv *e, jclass c, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jlong)(intptr_t) ak_dec_ctx_new_SurrogateInner((struct ak_dec_SurrogateInner_opts *)(intptr_t) opts);
 }
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetSurrogateInner(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jint) ak_dec_reset_SurrogateInner((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_SurrogateInner_opts *)(intptr_t) opts);
 }
@@ -1916,6 +2102,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetSurrogateInner(JNIEnv 
  * rather than copied; there is no ak_push frame to make an upcall from. With retain
  * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseSurrogateInner(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  AK_HC();
   (void) cls; (void) self;
   AK_TAX();
   void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
@@ -1927,6 +2114,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseSurrogateInner(JNIEnv *en
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeWireZoo(JNIEnv *env, jclass cls, jobject self, jlong ctx, jlong buf, jlong len, jlong vt) {
+  AK_HC();
   (void) cls;
   if (!ak_push(env, self)) return (jint) AK_ERR_INVALID_STATE;
   AK_TAX();
@@ -1938,10 +2126,12 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decodeWireZoo(JNIEnv *env, jcl
 }
 
 JNIEXPORT jlong JNICALL Java_ak_corpus_NativeEntry_decCtxNewWireZoo(JNIEnv *e, jclass c, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jlong)(intptr_t) ak_dec_ctx_new_WireZoo((struct ak_dec_WireZoo_opts *)(intptr_t) opts);
 }
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetWireZoo(JNIEnv *e, jclass c, jlong ctx, jlong opts) {
+  AK_HC();
   (void) e; (void) c;
   return (jint) ak_dec_reset_WireZoo((ak_dec_ctx *)(intptr_t) ctx, (struct ak_dec_WireZoo_opts *)(intptr_t) opts);
 }
@@ -1950,6 +2140,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_decResetWireZoo(JNIEnv *e, jcl
  * rather than copied; there is no ak_push frame to make an upcall from. With retain
  * armed it calls the shim's C grow, which makes no JNI call (legal in the critical section). */
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseWireZoo(JNIEnv *env, jclass cls, jobject self, jlong ctx, jbyteArray wire, jint off, jint len) {
+  AK_HC();
   (void) cls; (void) self;
   AK_TAX();
   void *base = (*env)->GetPrimitiveArrayCritical(env, wire, NULL);
@@ -1961,6 +2152,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_parseWireZoo(JNIEnv *env, jcla
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_elemuChunkElement(JNIEnv *env, jclass cls, jlong ctx, jlong elems, jint n, jlong tok0) {
+  AK_HC();
   (void) env; (void) cls;
   AK_TAX();
   return (jint) ak_elemu_ChunkElement((ak_enc_ctx *)(intptr_t) ctx,
@@ -1968,6 +2160,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_elemuChunkElement(JNIEnv *env,
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_uelemuChunkElement(JNIEnv *env, jclass cls, jlong ctx, jlong elems, jint n, jlong tok0) {
+  AK_HC();
   (void) env; (void) cls;
   AK_TAX();
   return (jint) ak_uelemu_ChunkElement((ak_enc_ctx *)(intptr_t) ctx,
@@ -1975,6 +2168,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_uelemuChunkElement(JNIEnv *env
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_elemChunkElementAttrsEntry(JNIEnv *env, jclass cls, jlong ctx, jlong elems, jint n) {
+  AK_HC();
   (void) env; (void) cls;
   AK_TAX();
   return (jint) ak_elem_ChunkElementAttrsEntry((ak_enc_ctx *)(intptr_t) ctx,
@@ -1982,6 +2176,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_elemChunkElementAttrsEntry(JNI
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_uelemChunkElementAttrsEntry(JNIEnv *env, jclass cls, jlong ctx, jlong elems, jint n) {
+  AK_HC();
   (void) env; (void) cls;
   AK_TAX();
   return (jint) ak_uelem_ChunkElementAttrsEntry((ak_enc_ctx *)(intptr_t) ctx,
@@ -1989,6 +2184,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_uelemChunkElementAttrsEntry(JN
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_elemChunkLeaf(JNIEnv *env, jclass cls, jlong ctx, jlong elems, jint n) {
+  AK_HC();
   (void) env; (void) cls;
   AK_TAX();
   return (jint) ak_elem_ChunkLeaf((ak_enc_ctx *)(intptr_t) ctx,
@@ -1996,6 +2192,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_elemChunkLeaf(JNIEnv *env, jcl
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_uelemChunkLeaf(JNIEnv *env, jclass cls, jlong ctx, jlong elems, jint n) {
+  AK_HC();
   (void) env; (void) cls;
   AK_TAX();
   return (jint) ak_uelem_ChunkLeaf((ak_enc_ctx *)(intptr_t) ctx,
@@ -2003,6 +2200,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_uelemChunkLeaf(JNIEnv *env, jc
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_elemLeafElement(JNIEnv *env, jclass cls, jlong ctx, jlong elems, jint n) {
+  AK_HC();
   (void) env; (void) cls;
   AK_TAX();
   return (jint) ak_elem_LeafElement((ak_enc_ctx *)(intptr_t) ctx,
@@ -2010,6 +2208,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_elemLeafElement(JNIEnv *env, j
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_uelemLeafElement(JNIEnv *env, jclass cls, jlong ctx, jlong elems, jint n) {
+  AK_HC();
   (void) env; (void) cls;
   AK_TAX();
   return (jint) ak_uelem_LeafElement((ak_enc_ctx *)(intptr_t) ctx,
@@ -2017,6 +2216,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_uelemLeafElement(JNIEnv *env, 
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_elemuMetricsBatch(JNIEnv *env, jclass cls, jlong ctx, jlong elems, jint n, jlong tok0) {
+  AK_HC();
   (void) env; (void) cls;
   AK_TAX();
   return (jint) ak_elemu_MetricsBatch((ak_enc_ctx *)(intptr_t) ctx,
@@ -2024,6 +2224,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_elemuMetricsBatch(JNIEnv *env,
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_uelemuMetricsBatch(JNIEnv *env, jclass cls, jlong ctx, jlong elems, jint n, jlong tok0) {
+  AK_HC();
   (void) env; (void) cls;
   AK_TAX();
   return (jint) ak_uelemu_MetricsBatch((ak_enc_ctx *)(intptr_t) ctx,
@@ -2031,6 +2232,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_uelemuMetricsBatch(JNIEnv *env
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_elemPair(JNIEnv *env, jclass cls, jlong ctx, jlong elems, jint n) {
+  AK_HC();
   (void) env; (void) cls;
   AK_TAX();
   return (jint) ak_elem_Pair((ak_enc_ctx *)(intptr_t) ctx,
@@ -2038,6 +2240,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_elemPair(JNIEnv *env, jclass c
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_uelemPair(JNIEnv *env, jclass cls, jlong ctx, jlong elems, jint n) {
+  AK_HC();
   (void) env; (void) cls;
   AK_TAX();
   return (jint) ak_uelem_Pair((ak_enc_ctx *)(intptr_t) ctx,
@@ -2045,6 +2248,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_uelemPair(JNIEnv *env, jclass 
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_elemProbe(JNIEnv *env, jclass cls, jlong ctx, jlong elems, jint n) {
+  AK_HC();
   (void) env; (void) cls;
   AK_TAX();
   return (jint) ak_elem_Probe((ak_enc_ctx *)(intptr_t) ctx,
@@ -2052,6 +2256,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_elemProbe(JNIEnv *env, jclass 
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_uelemProbe(JNIEnv *env, jclass cls, jlong ctx, jlong elems, jint n) {
+  AK_HC();
   (void) env; (void) cls;
   AK_TAX();
   return (jint) ak_uelem_Probe((ak_enc_ctx *)(intptr_t) ctx,
@@ -2059,6 +2264,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_uelemProbe(JNIEnv *env, jclass
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_elemResultRaw(JNIEnv *env, jclass cls, jlong ctx, jlong elems, jint n) {
+  AK_HC();
   (void) env; (void) cls;
   AK_TAX();
   return (jint) ak_elem_ResultRaw((ak_enc_ctx *)(intptr_t) ctx,
@@ -2066,6 +2272,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_elemResultRaw(JNIEnv *env, jcl
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_uelemResultRaw(JNIEnv *env, jclass cls, jlong ctx, jlong elems, jint n) {
+  AK_HC();
   (void) env; (void) cls;
   AK_TAX();
   return (jint) ak_uelem_ResultRaw((ak_enc_ctx *)(intptr_t) ctx,
@@ -2073,6 +2280,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_uelemResultRaw(JNIEnv *env, jc
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_elemSurrogateAttrsEntry(JNIEnv *env, jclass cls, jlong ctx, jlong elems, jint n) {
+  AK_HC();
   (void) env; (void) cls;
   AK_TAX();
   return (jint) ak_elem_SurrogateAttrsEntry((ak_enc_ctx *)(intptr_t) ctx,
@@ -2080,6 +2288,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_elemSurrogateAttrsEntry(JNIEnv
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_uelemSurrogateAttrsEntry(JNIEnv *env, jclass cls, jlong ctx, jlong elems, jint n) {
+  AK_HC();
   (void) env; (void) cls;
   AK_TAX();
   return (jint) ak_uelem_SurrogateAttrsEntry((ak_enc_ctx *)(intptr_t) ctx,
@@ -2087,6 +2296,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_uelemSurrogateAttrsEntry(JNIEn
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_elemuTaskDetailed(JNIEnv *env, jclass cls, jlong ctx, jlong elems, jint n, jlong tok0) {
+  AK_HC();
   (void) env; (void) cls;
   AK_TAX();
   return (jint) ak_elemu_TaskDetailed((ak_enc_ctx *)(intptr_t) ctx,
@@ -2094,6 +2304,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_elemuTaskDetailed(JNIEnv *env,
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_uelemuTaskDetailed(JNIEnv *env, jclass cls, jlong ctx, jlong elems, jint n, jlong tok0) {
+  AK_HC();
   (void) env; (void) cls;
   AK_TAX();
   return (jint) ak_uelemu_TaskDetailed((ak_enc_ctx *)(intptr_t) ctx,
@@ -2101,6 +2312,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_uelemuTaskDetailed(JNIEnv *env
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_elemTaskOptionsOptionsEntry(JNIEnv *env, jclass cls, jlong ctx, jlong elems, jint n) {
+  AK_HC();
   (void) env; (void) cls;
   AK_TAX();
   return (jint) ak_elem_TaskOptionsOptionsEntry((ak_enc_ctx *)(intptr_t) ctx,
@@ -2108,6 +2320,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_elemTaskOptionsOptionsEntry(JN
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_uelemTaskOptionsOptionsEntry(JNIEnv *env, jclass cls, jlong ctx, jlong elems, jint n) {
+  AK_HC();
   (void) env; (void) cls;
   AK_TAX();
   return (jint) ak_uelem_TaskOptionsOptionsEntry((ak_enc_ctx *)(intptr_t) ctx,
@@ -2115,6 +2328,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_uelemTaskOptionsOptionsEntry(J
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_elemuTaskSummary(JNIEnv *env, jclass cls, jlong ctx, jlong elems, jint n, jlong tok0) {
+  AK_HC();
   (void) env; (void) cls;
   AK_TAX();
   return (jint) ak_elemu_TaskSummary((ak_enc_ctx *)(intptr_t) ctx,
@@ -2122,6 +2336,7 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_elemuTaskSummary(JNIEnv *env, 
 }
 
 JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_uelemuTaskSummary(JNIEnv *env, jclass cls, jlong ctx, jlong elems, jint n, jlong tok0) {
+  AK_HC();
   (void) env; (void) cls;
   AK_TAX();
   return (jint) ak_uelemu_TaskSummary((ak_enc_ctx *)(intptr_t) ctx,
@@ -2131,30 +2346,35 @@ JNIEXPORT jint JNICALL Java_ak_corpus_NativeEntry_uelemuTaskSummary(JNIEnv *env,
 /* ---- the runs, and the fixed exports (sections 3, 4, 5): `ak.Native` ------------- */
 
 JNIEXPORT jint JNICALL Java_ak_Native_blobRun(JNIEnv *e, jclass s, jlong ctx, jlong p, jint n) {
+  AK_HC();
   (void) e; (void) s;
   AK_TAX();
   return (jint) ak_blob_run((ak_enc_ctx *)(intptr_t) ctx, (const struct ak_str *)(intptr_t) p, (int32_t) n);
 }
 
 JNIEXPORT jint JNICALL Java_ak_Native_runI32(JNIEnv *e, jclass s, jlong ctx, jlong p, jlong n) {
+  AK_HC();
   (void) e; (void) s;
   AK_TAX();
   return (jint) ak_run_i32((ak_enc_ctx *)(intptr_t) ctx, (const int32_t *)(intptr_t) p, (size_t) n);
 }
 
 JNIEXPORT jint JNICALL Java_ak_Native_runI64(JNIEnv *e, jclass s, jlong ctx, jlong p, jlong n) {
+  AK_HC();
   (void) e; (void) s;
   AK_TAX();
   return (jint) ak_run_i64((ak_enc_ctx *)(intptr_t) ctx, (const int64_t *)(intptr_t) p, (size_t) n);
 }
 
 JNIEXPORT jint JNICALL Java_ak_Native_runF64(JNIEnv *e, jclass s, jlong ctx, jlong p, jlong n) {
+  AK_HC();
   (void) e; (void) s;
   AK_TAX();
   return (jint) ak_run_f64((ak_enc_ctx *)(intptr_t) ctx, (const double *)(intptr_t) p, (size_t) n);
 }
 
 JNIEXPORT jint JNICALL Java_ak_Native_runU8(JNIEnv *e, jclass s, jlong ctx, jlong p, jlong n) {
+  AK_HC();
   (void) e; (void) s;
   AK_TAX();
   return (jint) ak_run_u8((ak_enc_ctx *)(intptr_t) ctx, (const uint8_t *)(intptr_t) p, (size_t) n);
@@ -2167,20 +2387,25 @@ JNIEXPORT jint JNICALL Java_ak_Native_initialized(JNIEnv *e, jclass c) {
   (void) e; (void) c;  return (jint) ak_initialized();
 }
 JNIEXPORT jlong JNICALL Java_ak_Native_encCtxNew(JNIEnv *e, jclass c) {
+  AK_HC();
   (void) e; (void) c;  return (jlong)(intptr_t) ak_enc_ctx_new();
 }
 JNIEXPORT void JNICALL Java_ak_Native_encCtxFree(JNIEnv *e, jclass c, jlong x) {
+  AK_HC();
   (void) e; (void) c;  ak_enc_ctx_free((ak_enc_ctx *)(intptr_t) x);
 }
 JNIEXPORT void JNICALL Java_ak_Native_encReset(JNIEnv *e, jclass c, jlong x) {
+  AK_HC();
   (void) e; (void) c;  ak_enc_reset((ak_enc_ctx *)(intptr_t) x);
 }
 JNIEXPORT jint JNICALL Java_ak_Native_encErr(JNIEnv *e, jclass c, jlong x) {
+  AK_HC();
   (void) e; (void) c;  return (jint) ak_enc_err((ak_enc_ctx *)(intptr_t) x);
 }
 /* The encoded bytes, copied into a Java array: the same place protobuf-java's
  * `toByteArray` leaves them. */
 JNIEXPORT jint JNICALL Java_ak_Native_encTake(JNIEnv *env, jclass c, jlong x, jbyteArray dst) {
+  AK_HC();
   (void) c;
   const uint8_t *p = NULL;
   size_t n = 0;
@@ -2194,6 +2419,7 @@ JNIEXPORT jint JNICALL Java_ak_Native_encTake(JNIEnv *env, jclass c, jlong x, jb
   return (jint) n;
 }
 JNIEXPORT jint JNICALL Java_ak_Native_encLen(JNIEnv *e, jclass c, jlong x) {
+  AK_HC();
   (void) e; (void) c;
   const uint8_t *p = NULL;
   size_t n = 0;
@@ -2226,8 +2452,14 @@ static void ak_jbuf_unlink(ak_jbuf *b) {
   b->prev = b->next = b;
 }
 
+/* `g_grow_exact` (set by the counting harness, CAMPAIGN req 19): allocate exactly the size
+ * the core asked for, so a count of grow calls does not depend on this host's policy. */
+static int g_grow_exact;
 static int32_t ak_java_grow(void *sink, int32_t want, uint8_t **dst, int32_t *cap) {
   ak_jbuf *list = (ak_jbuf *) sink;
+#ifdef AK_HOST_COUNT
+  ak_hc_grow++;
+#endif
   if (want < 0) return AK_ERR_LIMIT;
   if (list == NULL) return AK_ERR_HOST;
   int64_t c = *dst == NULL ? 0 : (int64_t) *cap;
@@ -2235,6 +2467,7 @@ static int32_t ak_java_grow(void *sink, int32_t want, uint8_t **dst, int32_t *ca
   if (n < want) n = want;
   if (n < 64) n = 64;
   if (n > 0x7fffffff) n = want;
+  if (g_grow_exact) n = want;
   ak_jbuf *old = *dst == NULL ? NULL : ((ak_jbuf *) *dst) - 1;
   if (old != NULL) ak_jbuf_unlink(old);
   ak_jbuf *b = (ak_jbuf *) realloc(old, sizeof(ak_jbuf) + (size_t) n);
@@ -2254,6 +2487,9 @@ static void ak_jbuf_free(void *data) {
   ak_jbuf_unlink(b);
   free(b);
   __atomic_sub_fetch(&g_unk_live, 1, __ATOMIC_RELAXED);
+}
+JNIEXPORT void JNICALL Java_ak_Native_unkGrowExact(JNIEnv *e, jclass c, jboolean on) {
+  (void) e; (void) c;  g_grow_exact = on ? 1 : 0;
 }
 JNIEXPORT jlong JNICALL Java_ak_Native_unkGrow(JNIEnv *e, jclass c) {
   (void) e; (void) c;  return (jlong)(intptr_t) ak_java_grow;
@@ -2295,29 +2531,37 @@ JNIEXPORT void JNICALL Java_ak_Native_unkFree(JNIEnv *e, jclass c, jlong data) {
   (void) e; (void) c;  ak_jbuf_free((void *)(intptr_t) data);
 }
 JNIEXPORT void JNICALL Java_ak_Native_decCtxFree(JNIEnv *e, jclass c, jlong x) {
+  AK_HC();
   (void) e; (void) c;  ak_dec_ctx_free((ak_dec_ctx *)(intptr_t) x);
 }
 JNIEXPORT jint JNICALL Java_ak_Native_decErr(JNIEnv *e, jclass c, jlong x) {
+  AK_HC();
   (void) e; (void) c;  return (jint) ak_dec_err((ak_dec_ctx *)(intptr_t) x);
 }
 JNIEXPORT void JNICALL Java_ak_Native_decErrReset(JNIEnv *e, jclass c, jlong x) {
+  AK_HC();
   (void) e; (void) c;  ak_dec_err_reset((ak_dec_ctx *)(intptr_t) x);
 }
 JNIEXPORT void JNICALL Java_ak_Native_fail(JNIEnv *e, jclass c, jlong ctx, jint code) {
+  AK_HC();
   (void) e; (void) c;  ak_fail((void *)(intptr_t) ctx, (int32_t) code, NULL, 0);
 }
 
 /* ---- ABI v1 7.1's record buffer. The pull family's forward half. */
 JNIEXPORT void JNICALL Java_ak_Native_bdrReset(JNIEnv *e, jclass c, jlong x) {
+  AK_HC();
   (void) e; (void) c;  ak_bdr_reset((ak_dec_ctx *)(intptr_t) x);
 }
 JNIEXPORT jlong JNICALL Java_ak_Native_bdrFootprint(JNIEnv *e, jclass c, jlong x) {
+  AK_HC();
   (void) e; (void) c;  return (jlong) ak_bdr_footprint((const ak_dec_ctx *)(intptr_t) x);
 }
 JNIEXPORT jint JNICALL Java_ak_Native_bdrReserve(JNIEnv *e, jclass c, jlong x, jlong n) {
+  AK_HC();
   (void) e; (void) c;  return (jint) ak_bdr_reserve((ak_dec_ctx *)(intptr_t) x, (size_t) n);
 }
 JNIEXPORT jint JNICALL Java_ak_Native_bdrPtr(JNIEnv *env, jclass c, jlong x, jlongArray out) {
+  AK_HC();
   (void) c;
   const uint8_t *p = NULL;
   size_t n = 0;
@@ -2331,6 +2575,7 @@ JNIEXPORT jint JNICALL Java_ak_Native_bdrPtr(JNIEnv *env, jclass c, jlong x, jlo
 }
 JNIEXPORT jlong JNICALL Java_ak_Native_bdrDrain(JNIEnv *env, jclass c, jlong x, jlong dst,
                                                 jlong cap, jlongArray cursor) {
+  AK_HC();
   (void) c;
   jlong cur = 0;
   (*env)->GetLongArrayRegion(env, cursor, 0, 1, &cur);
@@ -2346,15 +2591,19 @@ JNIEXPORT jlong JNICALL Java_ak_Native_bdrDrain(JNIEnv *env, jclass c, jlong x, 
 }
 
 JNIEXPORT jlong JNICALL Java_ak_Native_tcUtf16(JNIEnv *e, jclass c) {
+  AK_HC();
   (void) e; (void) c;  return (jlong)(intptr_t) ak_tc_utf16();
 }
 JNIEXPORT jlong JNICALL Java_ak_Native_tcLatin1(JNIEnv *e, jclass c) {
+  AK_HC();
   (void) e; (void) c;  return (jlong)(intptr_t) ak_tc_latin1();
 }
 JNIEXPORT jlong JNICALL Java_ak_Native_tcBytes(JNIEnv *e, jclass c) {
+  AK_HC();
   (void) e; (void) c;  return (jlong)(intptr_t) ak_tc_bytes();
 }
 JNIEXPORT jlong JNICALL Java_ak_Native_tcUtf8(JNIEnv *e, jclass c) {
+  AK_HC();
   (void) e; (void) c;  return (jlong)(intptr_t) ak_tc_utf8();
 }
 
@@ -2401,6 +2650,31 @@ JNIEXPORT jint JNICALL Java_ak_Native_layoutFacts(JNIEnv *env, jclass c, jintArr
   return (jint) have;
 }
 
+/* {forward entries into the core, grow calls} since the last reset; 0 unless AK_HOST_COUNT. */
+JNIEXPORT void JNICALL Java_ak_Native_hostCounts(JNIEnv *env, jclass c, jlongArray out) {
+  (void) c;
+#ifdef AK_HOST_COUNT
+  jlong v[2] = {(jlong) ak_hc_fwd, (jlong) ak_hc_grow};
+#else
+  jlong v[2] = {0, 0};
+#endif
+  (*env)->SetLongArrayRegion(env, out, 0, 2, v);
+}
+JNIEXPORT void JNICALL Java_ak_Native_hostCountsReset(JNIEnv *e, jclass c) {
+  (void) e; (void) c;
+#ifdef AK_HOST_COUNT
+  ak_hc_fwd = 0; ak_hc_grow = 0;
+#endif
+}
+JNIEXPORT jint JNICALL Java_ak_Native_hostCounting(JNIEnv *e, jclass c) {
+  (void) e; (void) c;
+#ifdef AK_HOST_COUNT
+  return 1;
+#else
+  return 0;
+#endif
+}
 JNIEXPORT jlong JNICALL Java_ak_Native_noop(JNIEnv *e, jclass c, jlong x) {
+  AK_HC();
   (void) e; (void) c;  return (jlong) ak_noop((uint64_t) x);
 }

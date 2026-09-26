@@ -32,6 +32,8 @@ public final class Campaign {
   }
 
   public static long threadCpuNs() { return TMX.getCurrentThreadCpuTime(); }
+  /** CAMPAIGN req 21 (amended 2026-09-26): the process's CPU, CLOCK_PROCESS_CPUTIME_ID, ns. */
+  public static long processCpuNs() { return Native.processCpuNs(); }
 
   public static final int LAUNCH = Integer.getInteger("ak.camp.launch", 1);
   public static final int ROUNDS = Integer.getInteger("ak.camp.rounds", 5);

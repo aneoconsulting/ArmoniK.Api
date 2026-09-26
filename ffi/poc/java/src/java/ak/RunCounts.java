@@ -145,6 +145,102 @@ public final class RunCounts {
       log.append(String.format("%-6s %10d %12d%n", id, Payloads.row(id).strings, k[2]));
       b.close();
     }
+    entryPoints(log);
     System.out.print(log);
+  }
+
+  // ---- CAMPAIGN req 19 as amended 2026-09-26 (R-H31) ---------------------------------
+  //
+  // Every exported entry point the timed loop calls, resets included, counted by the shim
+  // (-DAK_HOST_COUNT: every JNI entry that calls the core); beside it the core's own forward
+  // count, the reverse crossings (upcalls, counted by the core) and the grow calls (the core
+  // calling the shim's C grow). Per payload and direction in every mode of this build, and
+  // the U-* rows at the shapes core's roots. Retain mode: no pre-placed buffer, the shim's
+  // grow allocating exactly what the core asks for. One untimed operation first per row
+  // (context creation and the first learned widths are not the timed loop's).
+  //
+  // Where the resets fall (each counted in `host`): encode -- ak_enc_reset before every
+  // encode; decode, drop and no-unknown -- none (the root's context is reused, ak_decode_*
+  // starts clean); decode, retain -- ak_dec_reset_<Root>(opts) before and
+  // ak_dec_reset_<Root>(NULL) after every decode; decode-pull -- none (ak_parse_* resets
+  // the record buffer at entry), retain arms and disarms around it as in push.
+
+  interface Op { void run(); }
+
+  static String row(String input, String dir, String mode, Binding b, Op op, boolean dec, String root) {
+    op.run();                                                   // untimed first operation
+    long[] h = new long[2], c = new long[6];
+    if (dec) Native.decCountersReset(b.contextOf(root)); else Native.encCountersReset(b.encCtx);
+    Native.hostCountsReset();
+    op.run();
+    Native.hostCounts(h);
+    if (dec) Native.decCounters(b.contextOf(root), c); else Native.encCounters(b.encCtx, c);
+    return String.format("EP %-26s %-21s %-10s host %6d core %6d rev %6d grow %4d%n",
+        input, dir, mode, h[0], c[0], c[1], h[1]);
+  }
+
+  static void entryPoints(StringBuilder log) {
+    log.append("\n== every entry point per operation (CAMPAIGN req 19, R-H31) ==\n");
+    if (Native.hostCounting() != 1) {
+      log.append("  (not the counting shim: -DAK_HOST_COUNT absent, section skipped)\n");
+      return;
+    }
+    if (ak.Variant.UNKNOWN_FIELDS) Native.unkGrowExact(true);
+    log.append("# host = JNI entries into the core (resets, take, drain, walk included); core = the\n"
+        + "# core's own forward count; rev = upcalls; grow = calls of the shim's C grow.\n");
+    String[] modes = ak.Variant.UNKNOWN_FIELDS ? new String[] {"drop", "retain"} : new String[] {"no-unknown"};
+    for (String id : Arms.IDS) {
+      final String root = Arms.root(id);
+      byte[] w0 = Payloads.vector(id);
+      if (w0 == null) {
+        Binding t = new Binding();
+        FfiArms.encode(t, id, Arms.build(id, Values.ASCII));
+        w0 = t.take();
+        t.close();
+      }
+      final byte[] w = w0;
+      for (String m : modes) {
+        final Binding b = new Binding();
+        FfiArms.setRetain(b, m.equals("retain"));
+        if (FfiArms.encodable(id)) {
+          final Object o = Arms.build(id, Values.ASCII);
+          final byte[] sinkBuf = new byte[w.length + 64];
+          log.append(row(id, "encode (buf)", m, b, () -> { FfiArms.encode(b, id, o); Native.encTake(b.encCtx, sinkBuf); }, false, root));
+          log.append(row(id, "encode (transport)", m, b, () -> { FfiArms.encode(b, id, o); b.take(); }, false, root));
+        }
+        log.append(row(id, "decode", m, b, () -> FfiArms.decode(b, id, w, 0, w.length), true, root));
+        b.pullWalk = false;
+        log.append(row(id, "decode-pull (drain)", m, b, () -> FfiArms.parse(b, id, w, 0, w.length), true, root));
+        b.pullWalk = true;
+        log.append(row(id, "decode-pull (walk)", m, b, () -> FfiArms.parse(b, id, w, 0, w.length), true, root));
+        b.close();
+      }
+    }
+    // The U-* rows at the shapes core's ABI roots (req 7 as amended), accepted, class unknown.
+    java.io.File dir = new java.io.File(Payloads.SCHEMA_DIR, "../../corpus/generated");
+    @SuppressWarnings("unchecked")
+    java.util.Map<String, Object> vs = (java.util.Map<String, Object>) ((java.util.Map<String, Object>) Json.parse(
+        new String(Payloads.readFile(new java.io.File(dir, "manifest.json")),
+            java.nio.charset.Charset.forName("UTF-8")))).get("vectors");
+    java.util.Set<String> abi = new java.util.HashSet<String>(java.util.Arrays.asList(ak.shapes.Dispatch.ABI));
+    for (java.util.Map.Entry<String, Object> e : new java.util.TreeMap<String, Object>(vs).entrySet()) {
+      @SuppressWarnings("unchecked")
+      java.util.Map<String, Object> r = (java.util.Map<String, Object>) e.getValue();
+      final String root = (String) r.get("root");
+      if (!e.getKey().startsWith("U-") || !"unknown".equals(r.get("class")) || "disputed".equals(r.get("verdict"))
+          || !"accept".equals(r.get("expect")) || !abi.contains(root)) continue;
+      final byte[] w = Payloads.readFile(new java.io.File(dir, "vectors/" + e.getKey() + ".bin"));
+      for (String m : modes) {
+        final Binding b = new Binding();
+        FfiArms.setRetain(b, m.equals("retain"));
+        final Object o = ak.shapes.Dispatch.decFfi(b, root, w);
+        log.append(row(e.getKey(), "encode (transport)", m, b, () -> ak.shapes.Dispatch.encFfi(b, root, o), false, root));
+        log.append(row(e.getKey(), "decode", m, b, () -> ak.shapes.Dispatch.decFfi(b, root, w), true, root));
+        b.pullWalk = false;
+        log.append(row(e.getKey(), "decode-pull (drain)", m, b, () -> ak.shapes.Dispatch.parseFfi(b, root, w), true, root));
+        b.close();
+      }
+    }
+    if (ak.Variant.UNKNOWN_FIELDS) Native.unkGrowExact(false);
   }
 }
