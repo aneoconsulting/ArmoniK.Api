@@ -138,13 +138,10 @@ pub struct Case {
     pub unknown_mode: &'static str,
     pub op: Box<dyn FnMut() -> u64>,
     /// A labelled extra row (`dir` = `decode-nodrop`, gen/opt_bench.sh's AK_NODROP): the
-    /// same decode as `decode`, measured with criterion's `iter_with_large_drop`, so the
-    /// decoded graph's drop is OUTSIDE the timed region. `op` (with the drop) is only its
-    /// fixed warm-up. The headline `decode` row keeps the drop inside.
+    /// same decode as `decode`, measured through criterion's `iter_custom` with
+    /// `time_nodrop`, so the decoded graph's drop is OUTSIDE the timed region. `op` (with
+    /// the drop) is only its fixed warm-up. The headline `decode` row keeps the drop inside.
     pub bench: Option<Box<dyn for<'a, 'b> FnMut(&'a mut criterion::Bencher<'b, ThreadCpu>)>>,
-    /// The same extra row for the interleaved sampler (AK_ORDER=interleave): run `n`
-    /// operations, return the thread CPU ns of the operations only (see `time_nodrop`).
-    pub timed: Option<Box<dyn FnMut(u64) -> u64>>,
 }
 
 /// `n` operations of `f`, each timed on its own and its output dropped AFTER its clock
@@ -287,7 +284,7 @@ pub fn cases_for<R: Ops>(ctx: &'static Ctx, inp: &Input, nodrop: bool, zc: bool)
     let wire_b = Bytes::from_static(wire);
     let (content, pid) = (inp.content, inp.id.clone());
     let mut push = |arm: &'static str, dir: &'static str, mode: &'static str, op: Box<dyn FnMut() -> u64>| {
-        out.push(Case { arm, dir, payload: pid.clone(), content, unknown_mode: mode, op, bench: None, timed: None });
+        out.push(Case { arm, dir, payload: pid.clone(), content, unknown_mode: mode, op, bench: None });
     };
     // The objects each encode arm writes: for a payload, the builder's value (the prost arm
     // gets prost's decode of its canonical bytes); for a U-* row, each arm's own decode.
@@ -380,34 +377,29 @@ pub fn cases_for<R: Ops>(ctx: &'static Ctx, inp: &Input, nodrop: bool, zc: bool)
     if nodrop {
         // The labelled extra `decode-nodrop` rows (see `Case::bench`).
         type B = Box<dyn for<'a, 'b> FnMut(&'a mut criterion::Bencher<'b, ThreadCpu>)>;
-        type T = Box<dyn FnMut(u64) -> u64>;
-        let mut extra = |arm: &'static str, mode: &'static str, op: Box<dyn FnMut() -> u64>, bench: B, timed: T| {
+        let mut extra = |arm: &'static str, mode: &'static str, op: Box<dyn FnMut() -> u64>, bench: B| {
             out.push(Case { arm, dir: "decode-nodrop", payload: pid.clone(), content, unknown_mode: mode, op,
-                            bench: Some(bench), timed: Some(timed) });
+                            bench: Some(bench) });
         };
         if p_run {
-            let (b1, b2, b3) = (wire_b.clone(), wire_b.clone(), wire_b.clone());
+            let (b1, b2) = (wire_b.clone(), wire_b.clone());
             extra("incumbent-prod", "default",
                 Box::new(move || { std::hint::black_box(R::P::decode(&mut b1.clone()).unwrap()); 0 }),
-                Box::new(move |b| b.iter_with_large_drop(|| R::P::decode(&mut b2.clone()).unwrap())),
-                Box::new(move |n| time_nodrop(n, || R::P::decode(&mut b3.clone()).unwrap())));
+                Box::new(move |b| b.iter_custom(|n| time_nodrop(n, || R::P::decode(&mut b2.clone()).unwrap()))));
         }
         if a_run {
-            let (b1, b2, b3) = (wire_b.clone(), wire_b.clone(), wire_b.clone());
+            let (b1, b2) = (wire_b.clone(), wire_b.clone());
             extra("armonik", "default",
                 Box::new(move || { std::hint::black_box(R::F::decode(&mut b1.clone()).unwrap()); 0 }),
-                Box::new(move |b| b.iter_with_large_drop(|| R::F::decode(&mut b2.clone()).unwrap())),
-                Box::new(move |n| time_nodrop(n, || R::F::decode(&mut b3.clone()).unwrap())));
+                Box::new(move |b| b.iter_custom(|n| time_nodrop(n, || R::F::decode(&mut b2.clone()).unwrap()))));
         }
         for &(mname, retain) in modes {
             extra("core-native", mname,
                 Box::new(move || { std::hint::black_box(R::n_decode(wire, retain).unwrap()); 0 }),
-                Box::new(move |b| b.iter_with_large_drop(|| R::n_decode(wire, retain).unwrap())),
-                Box::new(move |n| time_nodrop(n, || R::n_decode(wire, retain).unwrap())));
+                Box::new(move |b| b.iter_custom(|n| time_nodrop(n, || R::n_decode(wire, retain).unwrap()))));
             extra("core-ffi", mname,
                 Box::new(move || { std::hint::black_box(R::f_decode(ctx, wire, retain).unwrap()); 0 }),
-                Box::new(move |b| b.iter_with_large_drop(|| R::f_decode(ctx, wire, retain).unwrap())),
-                Box::new(move |n| time_nodrop(n, || R::f_decode(ctx, wire, retain).unwrap())));
+                Box::new(move |b| b.iter_custom(|n| time_nodrop(n, || R::f_decode(ctx, wire, retain).unwrap()))));
         }
     }
     out

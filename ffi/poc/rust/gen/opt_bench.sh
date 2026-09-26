@@ -14,7 +14,7 @@
 #   2. crossings (req 19), both builds, compared with gen/crossings.txt and
 #      gen/crossings-nounk.txt. RECORDED, NOT FATAL: an optimisation may move a count on
 #      purpose, and the diff is kept in OUT_DIR for the reader. (OPT_CROSSINGS=0 skips it.)
-#   3. codec, one launch (AK_LAUNCH=1), the interleaved sampler, four processes, each pinned to
+#   3. codec, one launch (AK_LAUNCH=1), on criterion, four processes, each pinned to
 #      AK_CPU_CLIENT: the 20 payload inputs (16 SHAPES payloads + the latin1/wide content
 #      sets of P1.2 and P2.2) on the full build, then on the no-unknown build, with the
 #      P settings below; then the 92 U-* corpus rows on each build at the REDUCED U
@@ -37,26 +37,24 @@ mkdir -p "$1"; OUT="$(cd "$1" && pwd)"
 
 # ---- fixed settings (change them and the run no longer compares with the baseline) ----
 export AK_CPU_CLIENT=${AK_CPU_CLIENT:-1} AK_CPU_SERVER=${AK_CPU_SERVER:-2,3}
-# Harness v3 (optimisation step 0). v2 (a seeded shuffle of criterion cases) was run twice
-# on one tree (logs/rust/opt/baseline2-v2, baseline2-v2-aa): single cases moved by up to
-# +-25 percent between the two processes, with a lag-1 autocorrelation of 0.5-0.8 along the
-# run order -- the container's speed drifts over seconds, and criterion times each case's
-# samples back to back, so a ratio's two arms were seconds apart. v3 therefore uses the
-# codec suite's INTERLEAVED SAMPLER (AK_ORDER=interleave, not criterion): clusters (input,
-# direction) in a seeded order (the same seed in every run), and inside a cluster one
-# sample of every arm per round, rotated (H2). The U-* rows get 20 samples (H4), four
-# payloads carry the labelled extra decode-nodrop rows (H5), and the RPC cells are
-# interleaved and rotated per round over 12 rounds (H3).
+# Harness v4 (owner decision after the optimisation experiment: "if criterion cannot
+# interleave, forget about interleaving"): the codec suite runs on CRITERION as in the
+# campaign, with only what criterion itself supports: the cases in one seeded shuffled
+# order (AK_ORDER=shuffle, the same seed every run), criterion's bootstrap cut to 1000
+# resamples (analysis only), the U-* rows at 20 samples, the labelled extra decode-nodrop
+# rows (criterion iter_custom) and the labelled extra core-ffi-zc arm. The suite's own
+# interleaved sampler (harness v3) is removed. The RPC grid is the runner's own harness:
+# its cells rotate per round (--order interleave), unchanged.
 P_ONLY=P;  P_SAMPLES=20; P_WARMUP_ITERS=100; P_WARMUP_MS=50; P_MEASURE_MS=200
-U_ONLY=U-; U_SAMPLES=20; U_WARMUP_ITERS=20;  U_WARMUP_MS=8;  U_MEASURE_MS=45
-export AK_ORDER=interleave AK_SEED=1
+U_ONLY=U-; U_SAMPLES=20; U_WARMUP_ITERS=20;  U_WARMUP_MS=10; U_MEASURE_MS=60
+export AK_ORDER=shuffle AK_SEED=1 AK_NRESAMPLES=1000
 NODROP=P1.2,P2.2,P4.1,P6.1
 # Step 10 (Z1): the labelled extra core-ffi-zc arm on the bulk-bytes payloads.
 export AK_ZC=P5.
 CALIB_ROUNDS=5; CALIB_ITERS=20000000
 RPC_ROUNDS=12; RPC_CALLS=24; RPC_WARM=16; RPC_ORDER=interleave
 LAUNCH=1
-SETTINGS="harness v3; codec engine=interleaved sampler (AK_ORDER=$AK_ORDER) seed=$AK_SEED; codec P(${P_ONLY}*): samples=$P_SAMPLES warmup_iters=$P_WARMUP_ITERS warmup_ms=$P_WARMUP_MS measure_ms=$P_MEASURE_MS decode-nodrop extra rows on $NODROP; core-ffi-zc extra arm on $AK_ZC*; codec U(${U_ONLY}*): samples=$U_SAMPLES warmup_iters=$U_WARMUP_ITERS warmup_ms=$U_WARMUP_MS measure_ms=$U_MEASURE_MS; calib rounds=$CALIB_ROUNDS iters=$CALIB_ITERS; rpc order=$RPC_ORDER rounds=$RPC_ROUNDS calls=$RPC_CALLS warmup=$RPC_WARM; launch=$LAUNCH"
+SETTINGS="harness v4; codec engine=criterion order=$AK_ORDER seed=$AK_SEED criterion_resamples=$AK_NRESAMPLES; codec P(${P_ONLY}*): samples=$P_SAMPLES warmup_iters=$P_WARMUP_ITERS warmup_ms=$P_WARMUP_MS measure_ms=$P_MEASURE_MS decode-nodrop extra rows on $NODROP; core-ffi-zc extra arm on $AK_ZC*; codec U(${U_ONLY}*): samples=$U_SAMPLES warmup_iters=$U_WARMUP_ITERS warmup_ms=$U_WARMUP_MS measure_ms=$U_MEASURE_MS; calib rounds=$CALIB_ROUNDS iters=$CALIB_ITERS; rpc order=$RPC_ORDER rounds=$RPC_ROUNDS calls=$RPC_CALLS warmup=$RPC_WARM; launch=$LAUNCH"
 
 SCRATCH=$(mktemp -d)
 LOG="$OUT/runner.log"; : > "$LOG"
@@ -139,15 +137,15 @@ fi
 # ---- 3. codec ---------------------------------------------------------------------------
 codec_run() {  # codec_run TAG VARIANT EXE ONLY SAMPLES WARM_ITERS WARM_MS MEAS_MS [NODROP]
   local tag=$1 v=$2 exe=$3 nodrop=${9:-}
-  local F="$OUT/$tag.jsonl" C="$OUT/$tag.console.log"
+  local F="$OUT/$tag.jsonl" C="$OUT/$tag.criterion.log"
   header codec "$v" > "$F.head"
-  echo "# this file  AK_ONLY=$4 AK_SAMPLES=$5 AK_WARMUP_ITERS=$6 AK_WARMUP_MS=$7 AK_MEASURE_MS=$8 AK_LAUNCH=$LAUNCH AK_ORDER=$AK_ORDER AK_SEED=$AK_SEED AK_NODROP=$nodrop AK_ZC=$AK_ZC" >> "$F.head"
+  echo "# this file  AK_ONLY=$4 AK_SAMPLES=$5 AK_WARMUP_ITERS=$6 AK_WARMUP_MS=$7 AK_MEASURE_MS=$8 AK_LAUNCH=$LAUNCH AK_ORDER=$AK_ORDER AK_SEED=$AK_SEED AK_NRESAMPLES=$AK_NRESAMPLES AK_NODROP=$nodrop AK_ZC=$AK_ZC" >> "$F.head"
   local t=$(date +%s)
-  AK_LAUNCH=$LAUNCH AK_OUT="$F.body" \
+  CRITERION_HOME="$SCRATCH/criterion-$tag" AK_LAUNCH=$LAUNCH AK_OUT="$F.body" \
     AK_ONLY=$4 AK_SAMPLES=$5 AK_WARMUP_ITERS=$6 AK_WARMUP_MS=$7 AK_MEASURE_MS=$8 AK_NODROP=$nodrop \
     taskset -c "$AK_CPU_CLIENT" "$exe" > "$C" 2>&1 \
     || { say "codec $tag FAILED (pre-check or run): $C"; exit 1; }
-  { cat "$F.head"; echo "# the codec process's console output (the samples are in $(basename "$F"))"; cat "$C"; } > "$C.tmp"
+  { cat "$F.head"; echo "# criterion's console output (its own summary; the samples are in $(basename "$F"))"; cat "$C"; } > "$C.tmp"
   mv "$C.tmp" "$C"
   cat "$F.head" "$F.body" > "$F"; rm -f "$F.head" "$F.body"
   say "  codec $tag: $(grep -m1 '^# precheck:' "$C" | sed 's/^# //'); $(grep -vc '^#' "$F") sample rows; $(( $(date +%s) - t ))s -> $(basename "$F")"
