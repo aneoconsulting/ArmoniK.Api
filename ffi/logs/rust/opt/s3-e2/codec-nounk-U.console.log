@@ -1,0 +1,19 @@
+# rust slice OPTIMISATION BENCHMARK (gen/opt_bench.sh), suite codec, core variant nounk
+# CONTAINER INSTRUMENTATION: not a campaign result (CAMPAIGN.md section 2), not gated by gen/gate.sh (the gate runs at the end of the experiment); the codec process's own byte-identity pre-check is on
+# commit     fdecae0   tree-id 2a6b6d797ff26f5b
+# date       2026-09-26T12:49:26Z
+# machine    Intel(R) Xeon(R) Processor @ 2.10GHz; 4 CPUs online; kernel 6.18.44-fc-v37
+# smt        active=0 control=notsupported
+# governor   n/a
+# turbo      intel_pstate/no_turbo=n/a cpufreq/boost=n/a
+# isolation  cmdline: cgroup: n/a
+# cpu sets   CLIENT=1 SERVER=2,3 OS=the rest
+# runtime    rustc 1.94.1 (e408947bf 2026-03-25); cargo 1.94.1 (29ea6fb6a 2026-03-24)
+# incumbent  prost 0.14.4, tonic 0.14.6, tonic-prost 0.14.6; criterion 0.5.1
+# build      cargo --release (opt-level 3, lto off, codegen-units default), core ak-core as a cdylib linked through the dynamic linker, core features rpc,init-guard WITHOUT unknown-fields (the no-unknown variant, target-nounk/); harness guard on; transcoder ak_tc_utf8_trusted (a Rust String is UTF-8)
+# repeats    launches=1 (launch number 1)
+# settings   harness v3; codec engine=interleaved sampler (AK_ORDER=interleave) seed=1; codec P(P*): samples=20 warmup_iters=100 warmup_ms=50 measure_ms=200 decode-nodrop extra rows on P1.2,P2.2,P4.1,P6.1; codec U(U-*): samples=20 warmup_iters=20 warmup_ms=8 measure_ms=45; calib rounds=5 iters=20000000; rpc order=interleave rounds=12 calls=24 warmup=16; launch=1
+# this file  AK_ONLY=U- AK_SAMPLES=20 AK_WARMUP_ITERS=20 AK_WARMUP_MS=8 AK_MEASURE_MS=45 AK_LAUNCH=1 AK_ORDER=interleave AK_SEED=1 AK_NODROP=
+# the codec process's console output (the samples are in codec-nounk-U.jsonl)
+# precheck: 368 checks, 0 failures, 92 inputs, 1126 cases
+# wrote 22520 sample rows to /home/user/ArmoniK.Api/ffi/logs/rust/opt/s3-e2/codec-nounk-U.jsonl.body

@@ -2437,3 +2437,20 @@ kept step. Step 0 fixes the harness first.
   core-ffi's own change; core-native/inc noise; decode noise. Per payload (drop): P1.2 0.36
   -> 0.29, P2.2 0.44 -> 0.37, P2.4 0.59 -> 0.47, P4.1 0.45 -> 0.35, P5.1 0.57 -> 0.47, P1.3
   and P5.3-P5.4 unchanged. Crossings identical, pre-check 0 failures.
+
+## 2026-09-26 -- optimisation step 3 (E2): sparse fill with the corrected clear (fdecae0, kept)
+
+- rust_binding.py: the zeroed (sparse) top-level loops clear min(remaining, CHUNK) element
+  groups per chunk instead of the whole arena (decision 9's corrected wording). The codec
+  suite's core-ffi encode arm (rust_campaign.py -> roots.rs) and the RPC cells C/D encode
+  through encode_into_<root>_zeroed / _unk_zeroed; `core-ffi encode fill` is a header line
+  of every codec and rpc log (campaign::FFI_ENCODE_FILL). Nested groups and the root group
+  keep the total fill (only top-level element groups are sparse in this binding).
+- Measured (s3-e2 vs s2-e1): core-ffi/core-native encode (the check that excludes the
+  incumbent): P1.3, the absent path, 2.40 -> 2.08 (drop), 2.43 -> 1.67 (retain), 2.66 ->
+  2.10 (no-unknown); P3.1 retain 1.61 -> 1.38; group means 1.003 (P drop, noise), 0.961 (P
+  retain), 0.973 (P no-unknown), U noise. P5.3 moved 0.92 -> 1.14 (drop) and 0.96 -> 1.15
+  (retain), a 1 MB bytes field with no loop that E2 does not touch: single-row noise above
+  the A/A p90. core-ffi/inc AND core-native/inc encode both moved to 0.88-0.91 in the full
+  build (core-native untouched): the incumbent's encode got slower in this binary (control
+  drift 1.07), the layout hazard again.
