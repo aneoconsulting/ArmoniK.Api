@@ -116,6 +116,9 @@ pub const MODES: &[(&str, bool)] = &[("drop", false), ("retain", true)];
 #[cfg(not(feature = "unknown-fields"))]
 pub const MODES: &[(&str, bool)] = &[("no-unknown", false)];
 
+/// Which fill the core-ffi encode arm (and the RPC cells C and D) use, for every header.
+pub const FFI_ENCODE_FILL: &str = "sparse (ABI v1 decision 9: top-level element groups cleared, min(n, chunk) of them, then only non-default fields written; binding encode_into_<root>_zeroed / _unk_zeroed; nested groups and the root group keep the total fill)";
+
 pub const ARMS: [&str; 5] = ["incumbent-prod", "armonik", "core-native", "core-ffi", "core-ffi-pull"];
 
 /// Requirement 22: the arm order of launch `l` (1-based) is ARMS rotated by l - 1.

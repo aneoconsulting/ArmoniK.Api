@@ -156,11 +156,12 @@ fn tonic_channel(rt: &tokio::runtime::Runtime, target: &str, pinned: bool) -> to
 fn core_encode<'a>(ctx: &'a harness::arms::core_ffi_arm::Ctx, v: &facade::ListTasksDetailedResponse, retain: bool) -> &'a [u8] {
     #[cfg(feature = "unknown-fields")]
     if retain {
-        harness::generated::binding::encode_into_list_tasks_detailed_response_unk(ctx.enc, v, &ctx.tcs).expect("core-ffi encode");
+        harness::generated::binding::encode_into_list_tasks_detailed_response_unk_zeroed(ctx.enc, v, &ctx.tcs).expect("core-ffi encode");
         return unsafe { harness::generated::binding::encoded(ctx.enc) };
     }
     let _ = retain;
-    m2::core_ffi_arm::encode_into(ctx, v)
+    // Optimisation step 3 (E2): the sparse fill of ABI v1 decision 9, as the codec suite.
+    m2::core_ffi_zeroed::encode_into(ctx, v)
 }
 fn core_decode(ctx: &harness::arms::core_ffi_arm::Ctx, b: &[u8], retain: bool) -> Result<facade::ListTasksDetailedResponse, i32> {
     #[cfg(feature = "unknown-fields")]
@@ -374,6 +375,7 @@ fn main() {
         ("link", "loopback TCP; server = rpc_server, a separate process (requirement 13), pre-serialised P2.2".into()),
         ("cells", "A prost+tonic, B prost+core (blocking), C core+core (blocking), D core+tonic; C and D per unknown-field mode (-retain: every decision 11 position armed and u-group encode; -drop: nothing armed; -nounk: the build with unknown-field support compiled out); callback/queue deliveries not run in this suite".into()),
         ("build", if cfg!(feature = "unknown-fields") { "unknown-fields (retain/drop)".into() } else { "NO-UNKNOWN (unknown-field support compiled out)".to_string() }),
+        ("core-ffi encode fill", campaign::FFI_ENCODE_FILL.into()),
         ("launch", launch.to_string()),
         ("cell order", if interleave {
             format!("interleave: per (dir, in-flight) every cell built and warmed, round r runs {} rotated by r-1", order.join(","))

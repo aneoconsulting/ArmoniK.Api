@@ -150,11 +150,14 @@ def emit(p):
         o.append("        let _ = retain;")
         o.append("        binding::decode_with_%s(c.dec, b)" % s)
         o.append("    }")
+        # Optimisation step 3 (E2): the core-ffi encode arm uses the SPARSE fill ABI v1
+        # decision 9 specifies (top-level element groups cleared, min(n, chunk) of them,
+        # then only non-default fields written); the total fill stays in the binding.
         o.append("    fn f_encode(c: &Ctx, v: &Self::F, retain: bool) -> Result<usize, i32> {")
         o.append("        #[cfg(feature = \"unknown-fields\")]")
-        o.append("        if retain { return binding::encode_into_%s_unk(c.enc, v, &c.tcs); }" % s)
+        o.append("        if retain { return binding::encode_into_%s_unk_zeroed(c.enc, v, &c.tcs); }" % s)
         o.append("        let _ = retain;")
-        o.append("        binding::encode_into_%s(c.enc, v, &c.tcs)" % s)
+        o.append("        binding::encode_into_%s_zeroed(c.enc, v, &c.tcs)" % s)
         o.append("    }")
         o.append("    fn f_pull(c: &Ctx, b: &[u8], retain: bool, toks: &mut Vec<i64>) -> Result<Self::F, i32> {")
         o.append("        #[cfg(feature = \"unknown-fields\")]")
