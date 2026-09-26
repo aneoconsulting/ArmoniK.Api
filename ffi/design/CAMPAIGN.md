@@ -69,7 +69,8 @@ in its container shows it executes (section 9).
    slice implements, excluding disputed rows. Amended by the owner 2026-09-26:
    - **content sets** (R-H26): Latin-1 and wide are required on **P1.2, P2.2 and
      P2.4** in every slice; more payloads are labelled extras;
-   - **U-* rows** (R-H27): the accepted rows whose root is in the shapes schema, in
+   - **U-* rows** (R-H27): the accepted, non-disputed rows whose root is one of the
+     shapes core's 7 ABI roots (92 rows as of 2026-09-26; the owner chose "the 92"), in
      all three directions (encode, decode, decode-read), through the **timed shapes
      core** in every slice; other rows and the corpus-schema core are labelled
      extras.
