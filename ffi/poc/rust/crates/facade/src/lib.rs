@@ -9,8 +9,11 @@ pub mod generated {
     /// The same codec rendered with the plan's unknown-field option set to RETAIN
     /// (FIX-PLAN WP5, owner position 6): unknown fields captured into `unknown_fields` and
     /// re-emitted after the known ones. `core_native` is the DROP rendering.
+    #[cfg(feature = "unknown-fields")]
     pub mod core_native_retain;
     pub mod prost_impl;
+    // FIX-PLAN R-H22: the no-unknown build's facade has no `unknown_fields` member.
+    #[cfg_attr(not(feature = "unknown-fields"), path = "types_nounk.rs")]
     pub mod types;
 }
 

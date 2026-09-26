@@ -177,12 +177,12 @@ def _field(ir, m, f, o):
         o.append("        } else {")
         o.append("            match adapter_state(idx) {")
         o.append("                AdapterState::Invalid => None,")
-        o.append("                AdapterState::Ok => Some(%s { success: true, error: String::new(), unknown_fields: Vec::new() }),"
+        o.append("                AdapterState::Ok => Some(%s { success: true, error: String::new(), #[cfg(feature = \"unknown-fields\")] unknown_fields: Vec::new() }),"
                  % f.of)
         o.append("                AdapterState::Error => Some(%s {" % f.of)
         o.append("                    success: false,")
         o.append("                    error: v::sentence(&format!(\"{path}.%s.error\"), idx)," % f.name)
-        o.append("                    unknown_fields: Vec::new(),")
+        o.append("                    #[cfg(feature = \"unknown-fields\")] unknown_fields: Vec::new(),")
         o.append("                }),")
         o.append("            }")
         o.append("        },")
@@ -202,9 +202,9 @@ def _field(ir, m, f, o):
 
 def _msg_call(ir, f, path_expr, idx="idx"):
     if f.of == "Timestamp":
-        return "{ let (s, n) = v::timestamp(%s); Timestamp { seconds: s, nanos: n, unknown_fields: Vec::new() } }" % idx
+        return "{ let (s, n) = v::timestamp(%s); Timestamp { seconds: s, nanos: n, #[cfg(feature = \"unknown-fields\")] unknown_fields: Vec::new() } }" % idx
     if f.of == "Duration":
-        return "{ let (s, n) = v::duration(%s); Duration { seconds: s, nanos: n, unknown_fields: Vec::new() } }" % idx
+        return "{ let (s, n) = v::duration(%s); Duration { seconds: s, nanos: n, #[cfg(feature = \"unknown-fields\")] unknown_fields: Vec::new() } }" % idx
     return "build_%s(&%s, %s, mode, repeats, bulk)" % (snake(f.of), path_expr, idx)
 
 
@@ -229,9 +229,9 @@ def _oneof_value(ir, msg, g):
     if g.kind == "int32":
         return "v::scalar_i32(%s, idx)" % path
     if g.kind == "message" and g.of == "Empty":
-        return "Empty { unknown_fields: Vec::new() }"
+        return "Empty { #[cfg(feature = \"unknown-fields\")] unknown_fields: Vec::new() }"
     if g.kind == "message":
-        return "{ let (s, n) = v::timestamp(idx); Timestamp { seconds: s, nanos: n, unknown_fields: Vec::new() } }"
+        return "{ let (s, n) = v::timestamp(idx); Timestamp { seconds: s, nanos: n, #[cfg(feature = \"unknown-fields\")] unknown_fields: Vec::new() } }"
     raise NotImplementedError("oneof member %s" % g.kind)
 
 
@@ -255,7 +255,7 @@ def emit(ir):
                                                             _oneof_value(ir, name, g)))
             o.append("        }),")
         o.append("        // Decision 11's bag: a built payload has no unknown fields, by\n        //   construction -- it was built from this build's own descriptor.")
-        o.append("        unknown_fields: Vec::new(),")
+        o.append("        #[cfg(feature = \"unknown-fields\")] unknown_fields: Vec::new(),")
         o.append("    }")
         o.append("}")
         o.append("")
@@ -294,7 +294,7 @@ def emit_payloads(ir):
             o.append("    %s {" % root)
             o.append("        %s: Some(build_%s(\"%s\", 0, Mode::Full, 3, %d)),"
                      % (f.name, snake(f.of), f.of, spec["bulk"]))
-            o.append("        unknown_fields: Vec::new(),")
+            o.append("        #[cfg(feature = \"unknown-fields\")] unknown_fields: Vec::new(),")
             o.append("    }")
             o.append("}")
             o.append("")
@@ -315,7 +315,7 @@ def emit_payloads(ir):
                 o.append("        page: 1,")
             elif f.name == "total":
                 o.append("        total: %d," % spec["count"])
-        o.append("        unknown_fields: Vec::new(),")
+        o.append("        #[cfg(feature = \"unknown-fields\")] unknown_fields: Vec::new(),")
         o.append("    }")
         o.append("}")
         o.append("")

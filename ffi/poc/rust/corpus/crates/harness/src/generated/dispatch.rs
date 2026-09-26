@@ -3,7 +3,13 @@
 #![allow(clippy::all)]
 use crate::{ffi, native, Arm, Cx, Outcome};
 use crate::generated::binding;
-use facade::generated::{core_native, core_native_retain, project};
+use facade::generated::{core_native, project};
+#[cfg(feature = "unknown-fields")]
+use facade::generated::core_native_retain;
+// The no-unknown build has no retain rendering and no NativeRetain arm in ARMS; the
+// name resolves to the drop rendering so this table compiles once for both builds.
+#[cfg(not(feature = "unknown-fields"))]
+use facade::generated::core_native as core_native_retain;
 
 /// Roots the C ABI refuses at generator time, with the refusal.
 pub const NOT_IN_ABI: &[(&str, &str)] = &[

@@ -69,8 +69,8 @@ NL=$(ldd "$NB" | grep -o '/[^ ]*libak_core.so')
 echo "# $NL: ak_uencode_* $(nm -D --defined-only "$NL" | grep -c ' T ak_uencode_'), ak_dec_reset_* $(nm -D --defined-only "$NL" | grep -c ' T ak_dec_reset_'), ak_decode_WireZoo $(nm -D --defined-only "$NL" | grep -c ' T ak_decode_WireZoo')"
 if "$NB" > /tmp/corpus-nounk.$$ 2>&1; then
   grep -E '^## |^   pass|DROPPED|retain|CORPUS' /tmp/corpus-nounk.$$ | grep -v "^     "
-  echo "  ffi-nounk forms on unknown rows: $(sed -n '/## ffi-nounk/,/## native-drop/p' /tmp/corpus-nounk.$$ | grep -ciE '^ +[0-9]+ +unknown-retained') retained-form lines (must be 0)"
-  sed -n '/## ffi-nounk/,/## native-drop/p' /tmp/corpus-nounk.$$ | grep -qiE '^ +[0-9]+ +unknown-retained' && { echo "  the no-unknown build wrote a retained form"; bad=$((bad+1)); }
+  echo "  ffi-nounk and native-nounk forms on unknown rows: $(grep -ciE '^ +[0-9]+ +unknown-retained' /tmp/corpus-nounk.$$) retained-form lines (must be 0)"
+  grep -qiE '^ +[0-9]+ +unknown-retained' /tmp/corpus-nounk.$$ && { echo "  the no-unknown build wrote a retained form"; bad=$((bad+1)); }
 else
   cat /tmp/corpus-nounk.$$; echo "  NO-UNKNOWN CORPUS FAILED"; bad=$((bad+1))
 fi

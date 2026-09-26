@@ -118,10 +118,32 @@ pub const MODES: &[(&str, bool)] = &[("no-unknown", false)];
 
 pub const ARMS: [&str; 5] = ["incumbent-prod", "armonik", "core-native", "core-ffi", "core-ffi-pull"];
 
-/// Requirement 22: the arm order of launch `l` (1-based) is ARMS rotated by l - 1.
+/// Requirement 22 as amended 2026-09-26 (FIX-PLAN R-H23): the order is RANDOMISED per
+/// launch, as far as the engine allows. Criterion runs benchmarks in the order they are
+/// registered and has no shuffle of its own, so the suite registers them in a seeded random
+/// order: arm blocks permuted, and the cases inside each block permuted. The seed is the
+/// launch number, so a launch's order is reproducible and is written into its header.
 pub fn arm_order(launch: usize) -> Vec<&'static str> {
-    let n = ARMS.len();
-    (0..n).map(|i| ARMS[(i + launch.saturating_sub(1)) % n]).collect()
+    let mut v = ARMS.to_vec();
+    shuffle(&mut v, launch as u64);
+    v
+}
+
+/// A deterministic Fisher-Yates shuffle (splitmix64 from `seed`): the same seed gives the
+/// same order on every machine.
+pub fn shuffle<T>(v: &mut [T], seed: u64) {
+    let mut s = seed.wrapping_mul(0x9E37_79B9_7F4A_7C15) ^ 0xD1B5_4A32_D192_ED03;
+    let mut next = || {
+        s = s.wrapping_add(0x9E37_79B9_7F4A_7C15);
+        let mut z = s;
+        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+        z ^ (z >> 31)
+    };
+    for i in (1..v.len()).rev() {
+        let j = (next() % (i as u64 + 1)) as usize;
+        v.swap(i, j);
+    }
 }
 
 /// One timed case: `op` runs ONE operation and returns something to black-box.

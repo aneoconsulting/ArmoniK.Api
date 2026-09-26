@@ -5,8 +5,11 @@
 
 pub mod generated {
     pub mod core_native;
+    #[cfg(feature = "unknown-fields")]
     pub mod core_native_retain;
     pub mod project;
+    // FIX-PLAN R-H22: the no-unknown build's facade has no `unknown_fields` member.
+    #[cfg_attr(not(feature = "unknown-fields"), path = "types_nounk.rs")]
     pub mod types;
 }
 

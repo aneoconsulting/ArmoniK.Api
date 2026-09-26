@@ -35,6 +35,11 @@ python3 gen/generate.py --check 2>/dev/null
 # gated by their own gates (and by the one command, `generate.py --check`, run on its own).
 python3 ../codec/gen/generate.py --check --core-only 2>/dev/null
 ../codec/gen/one_core.sh | tail -2
+# Generator-time refusals (ABI v1 section 8; packed kinds with no run symbol, R-H15) and
+# the armonik arm's field order on a description where tag order and "oneofs last"
+# differ (R-H12).
+python3 gen/check_direct.py | tail -8
+PYTHONPATH=../codec/gen python3 gen/facade_order.py
 
 step "2. core unit tests (debug build: std's precondition checks on)"
 ( cd ../codec && CARGO_TARGET_DIR="$HERE/../target-codec-test" cargo test -q -p ak-core -p ak-rt 2>&1 \

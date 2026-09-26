@@ -52,7 +52,7 @@ pub fn build_timestamp(path: &str, idx: i64, mode: Mode, repeats: i64, bulk: usi
         nanos: if mode == Mode::AllAbsent { 0 } else { v::scalar_i32(&format!("{path}.nanos"), idx) },
         // Decision 11's bag: a built payload has no unknown fields, by
         //   construction -- it was built from this build's own descriptor.
-        unknown_fields: Vec::new(),
+        #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new(),
     }
 }
 
@@ -62,7 +62,7 @@ pub fn build_duration(path: &str, idx: i64, mode: Mode, repeats: i64, bulk: usiz
         nanos: if mode == Mode::AllAbsent { 0 } else { v::scalar_i32(&format!("{path}.nanos"), idx) },
         // Decision 11's bag: a built payload has no unknown fields, by
         //   construction -- it was built from this build's own descriptor.
-        unknown_fields: Vec::new(),
+        #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new(),
     }
 }
 
@@ -72,8 +72,8 @@ pub fn build_result_raw(path: &str, idx: i64, mode: Mode, repeats: i64, bulk: us
         name: if mode == Mode::AllAbsent { String::new() } else { v::word(&format!("{path}.name"), idx) },
         owner_task_id: if mode == Mode::AllAbsent { String::new() } else { v::guid(&format!("{path}.owner_task_id"), idx) },
         status: if mode == Mode::AllAbsent { Default::default() } else { ResultStatus::from_i32(v::enum_value(&v::RESULT_STATUS, idx)) },
-        created_at: if mode == Mode::AllAbsent { None } else { Some({ let (s, n) = v::timestamp(idx); Timestamp { seconds: s, nanos: n, unknown_fields: Vec::new() } }) },
-        completed_at: if mode == Mode::AllAbsent || mode == Mode::HalfAbsent { None } else { Some({ let (s, n) = v::timestamp(idx); Timestamp { seconds: s, nanos: n, unknown_fields: Vec::new() } }) },
+        created_at: if mode == Mode::AllAbsent { None } else { Some({ let (s, n) = v::timestamp(idx); Timestamp { seconds: s, nanos: n, #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new() } }) },
+        completed_at: if mode == Mode::AllAbsent || mode == Mode::HalfAbsent { None } else { Some({ let (s, n) = v::timestamp(idx); Timestamp { seconds: s, nanos: n, #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new() } }) },
         result_id: if mode == Mode::AllAbsent { String::new() } else { v::guid(&format!("{path}.result_id"), idx) },
         size: if mode == Mode::AllAbsent { 0 } else { v::scalar_i64(&format!("{path}.size"), idx) },
         created_by: if mode == Mode::AllAbsent { String::new() } else { v::guid(&format!("{path}.created_by"), idx) },
@@ -81,7 +81,7 @@ pub fn build_result_raw(path: &str, idx: i64, mode: Mode, repeats: i64, bulk: us
         manual_deletion: if mode == Mode::AllAbsent { false } else { v::scalar_bool(&format!("{path}.manual_deletion"), idx) },
         // Decision 11's bag: a built payload has no unknown fields, by
         //   construction -- it was built from this build's own descriptor.
-        unknown_fields: Vec::new(),
+        #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new(),
     }
 }
 
@@ -102,7 +102,7 @@ pub fn build_task_options(path: &str, idx: i64, mode: Mode, repeats: i64, bulk: 
             }
             m
         } },
-        max_duration: if mode == Mode::AllAbsent { None } else { Some({ let (s, n) = v::duration(idx); Duration { seconds: s, nanos: n, unknown_fields: Vec::new() } }) },
+        max_duration: if mode == Mode::AllAbsent { None } else { Some({ let (s, n) = v::duration(idx); Duration { seconds: s, nanos: n, #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new() } }) },
         max_retries: if mode == Mode::AllAbsent { 0 } else { v::scalar_i32(&format!("{path}.max_retries"), idx) },
         priority: if mode == Mode::AllAbsent { 0 } else { v::scalar_i32(&format!("{path}.priority"), idx) },
         partition_id: if mode == Mode::AllAbsent { String::new() } else { v::word(&format!("{path}.partition_id"), idx) },
@@ -113,7 +113,7 @@ pub fn build_task_options(path: &str, idx: i64, mode: Mode, repeats: i64, bulk: 
         engine_type: if mode == Mode::AllAbsent { String::new() } else { v::word(&format!("{path}.engine_type"), idx) },
         // Decision 11's bag: a built payload has no unknown fields, by
         //   construction -- it was built from this build's own descriptor.
-        unknown_fields: Vec::new(),
+        #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new(),
     }
 }
 
@@ -123,7 +123,7 @@ pub fn build_task_output(path: &str, idx: i64, mode: Mode, repeats: i64, bulk: u
         error: if mode == Mode::AllAbsent { String::new() } else { v::sentence(&format!("{path}.error"), idx) },
         // Decision 11's bag: a built payload has no unknown fields, by
         //   construction -- it was built from this build's own descriptor.
-        unknown_fields: Vec::new(),
+        #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new(),
     }
 }
 
@@ -139,38 +139,38 @@ pub fn build_task_detailed(path: &str, idx: i64, mode: Mode, repeats: i64, bulk:
         status: if mode == Mode::AllAbsent { Default::default() } else { TaskStatus::from_i32(v::enum_value(&v::TASK_STATUS, idx)) },
         status_message: if mode == Mode::AllAbsent { String::new() } else { v::sentence(&format!("{path}.status_message"), idx) },
         options: if mode == Mode::AllAbsent { None } else { Some(build_task_options(&format!("{path}.options"), idx, mode, repeats, bulk)) },
-        created_at: if mode == Mode::AllAbsent { None } else { Some({ let (s, n) = v::timestamp(idx); Timestamp { seconds: s, nanos: n, unknown_fields: Vec::new() } }) },
-        submitted_at: if mode == Mode::AllAbsent || mode == Mode::HalfAbsent { None } else { Some({ let (s, n) = v::timestamp(idx); Timestamp { seconds: s, nanos: n, unknown_fields: Vec::new() } }) },
-        started_at: if mode == Mode::AllAbsent { None } else { Some({ let (s, n) = v::timestamp(idx); Timestamp { seconds: s, nanos: n, unknown_fields: Vec::new() } }) },
-        ended_at: if mode == Mode::AllAbsent || mode == Mode::HalfAbsent { None } else { Some({ let (s, n) = v::timestamp(idx); Timestamp { seconds: s, nanos: n, unknown_fields: Vec::new() } }) },
-        pod_ttl: if mode == Mode::AllAbsent { None } else { Some({ let (s, n) = v::timestamp(idx); Timestamp { seconds: s, nanos: n, unknown_fields: Vec::new() } }) },
+        created_at: if mode == Mode::AllAbsent { None } else { Some({ let (s, n) = v::timestamp(idx); Timestamp { seconds: s, nanos: n, #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new() } }) },
+        submitted_at: if mode == Mode::AllAbsent || mode == Mode::HalfAbsent { None } else { Some({ let (s, n) = v::timestamp(idx); Timestamp { seconds: s, nanos: n, #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new() } }) },
+        started_at: if mode == Mode::AllAbsent { None } else { Some({ let (s, n) = v::timestamp(idx); Timestamp { seconds: s, nanos: n, #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new() } }) },
+        ended_at: if mode == Mode::AllAbsent || mode == Mode::HalfAbsent { None } else { Some({ let (s, n) = v::timestamp(idx); Timestamp { seconds: s, nanos: n, #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new() } }) },
+        pod_ttl: if mode == Mode::AllAbsent { None } else { Some({ let (s, n) = v::timestamp(idx); Timestamp { seconds: s, nanos: n, #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new() } }) },
         output: if mode == Mode::AllAbsent || mode == Mode::HalfAbsent {
             None
         } else {
             match adapter_state(idx) {
                 AdapterState::Invalid => None,
-                AdapterState::Ok => Some(TaskOutput { success: true, error: String::new(), unknown_fields: Vec::new() }),
+                AdapterState::Ok => Some(TaskOutput { success: true, error: String::new(), #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new() }),
                 AdapterState::Error => Some(TaskOutput {
                     success: false,
                     error: v::sentence(&format!("{path}.output.error"), idx),
-                    unknown_fields: Vec::new(),
+                    #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new(),
                 }),
             }
         },
         pod_hostname: if mode == Mode::AllAbsent { String::new() } else { v::word(&format!("{path}.pod_hostname"), idx) },
-        received_at: if mode == Mode::AllAbsent || mode == Mode::HalfAbsent { None } else { Some({ let (s, n) = v::timestamp(idx); Timestamp { seconds: s, nanos: n, unknown_fields: Vec::new() } }) },
-        acquired_at: if mode == Mode::AllAbsent { None } else { Some({ let (s, n) = v::timestamp(idx); Timestamp { seconds: s, nanos: n, unknown_fields: Vec::new() } }) },
-        creation_to_end_duration: if mode == Mode::AllAbsent { None } else { Some({ let (s, n) = v::duration(idx); Duration { seconds: s, nanos: n, unknown_fields: Vec::new() } }) },
-        processing_to_end_duration: if mode == Mode::AllAbsent { None } else { Some({ let (s, n) = v::duration(idx); Duration { seconds: s, nanos: n, unknown_fields: Vec::new() } }) },
+        received_at: if mode == Mode::AllAbsent || mode == Mode::HalfAbsent { None } else { Some({ let (s, n) = v::timestamp(idx); Timestamp { seconds: s, nanos: n, #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new() } }) },
+        acquired_at: if mode == Mode::AllAbsent { None } else { Some({ let (s, n) = v::timestamp(idx); Timestamp { seconds: s, nanos: n, #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new() } }) },
+        creation_to_end_duration: if mode == Mode::AllAbsent { None } else { Some({ let (s, n) = v::duration(idx); Duration { seconds: s, nanos: n, #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new() } }) },
+        processing_to_end_duration: if mode == Mode::AllAbsent { None } else { Some({ let (s, n) = v::duration(idx); Duration { seconds: s, nanos: n, #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new() } }) },
         initial_task_id: if mode == Mode::AllAbsent { String::new() } else { v::guid(&format!("{path}.initial_task_id"), idx) },
-        received_to_end_duration: if mode == Mode::AllAbsent { None } else { Some({ let (s, n) = v::duration(idx); Duration { seconds: s, nanos: n, unknown_fields: Vec::new() } }) },
-        processed_at: if mode == Mode::AllAbsent || mode == Mode::HalfAbsent { None } else { Some({ let (s, n) = v::timestamp(idx); Timestamp { seconds: s, nanos: n, unknown_fields: Vec::new() } }) },
-        fetched_at: if mode == Mode::AllAbsent { None } else { Some({ let (s, n) = v::timestamp(idx); Timestamp { seconds: s, nanos: n, unknown_fields: Vec::new() } }) },
+        received_to_end_duration: if mode == Mode::AllAbsent { None } else { Some({ let (s, n) = v::duration(idx); Duration { seconds: s, nanos: n, #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new() } }) },
+        processed_at: if mode == Mode::AllAbsent || mode == Mode::HalfAbsent { None } else { Some({ let (s, n) = v::timestamp(idx); Timestamp { seconds: s, nanos: n, #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new() } }) },
+        fetched_at: if mode == Mode::AllAbsent { None } else { Some({ let (s, n) = v::timestamp(idx); Timestamp { seconds: s, nanos: n, #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new() } }) },
         payload_id: if mode == Mode::AllAbsent { String::new() } else { v::guid(&format!("{path}.payload_id"), idx) },
         created_by: if mode == Mode::AllAbsent { String::new() } else { v::guid(&format!("{path}.created_by"), idx) },
         // Decision 11's bag: a built payload has no unknown fields, by
         //   construction -- it was built from this build's own descriptor.
-        unknown_fields: Vec::new(),
+        #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new(),
     }
 }
 
@@ -180,7 +180,7 @@ pub fn build_task_summary(path: &str, idx: i64, mode: Mode, repeats: i64, bulk: 
         session_id: if mode == Mode::AllAbsent { String::new() } else { v::guid(&format!("{path}.session_id"), idx) },
         options: if mode == Mode::AllAbsent { None } else { Some(build_task_options(&format!("{path}.options"), idx, mode, repeats, bulk)) },
         status: if mode == Mode::AllAbsent { Default::default() } else { TaskStatus::from_i32(v::enum_value(&v::TASK_STATUS, idx)) },
-        created_at: if mode == Mode::AllAbsent { None } else { Some({ let (s, n) = v::timestamp(idx); Timestamp { seconds: s, nanos: n, unknown_fields: Vec::new() } }) },
+        created_at: if mode == Mode::AllAbsent { None } else { Some({ let (s, n) = v::timestamp(idx); Timestamp { seconds: s, nanos: n, #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new() } }) },
         error: if mode == Mode::AllAbsent || adapter_state(idx) != AdapterState::Error {
             String::new()
         } else {
@@ -190,7 +190,7 @@ pub fn build_task_summary(path: &str, idx: i64, mode: Mode, repeats: i64, bulk: 
         count_data_dependencies: if mode == Mode::AllAbsent { 0 } else { v::scalar_i64(&format!("{path}.count_data_dependencies"), idx) },
         // Decision 11's bag: a built payload has no unknown fields, by
         //   construction -- it was built from this build's own descriptor.
-        unknown_fields: Vec::new(),
+        #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new(),
     }
 }
 
@@ -204,12 +204,12 @@ pub fn build_probe(path: &str, idx: i64, mode: Mode, repeats: i64, bulk: usize) 
             0 => ProbeBody::AsInt(v::scalar_i64("Probe.as_int", idx)),
             1 => ProbeBody::AsText(v::word("Probe.as_text", idx)),
             2 => ProbeBody::AsBlob(::bytes::Bytes::from(v::blob("Probe.as_blob", idx, 16))),
-            3 => ProbeBody::AsStamp({ let (s, n) = v::timestamp(idx); Timestamp { seconds: s, nanos: n, unknown_fields: Vec::new() } }),
-            _ => ProbeBody::AsNothing(Empty { unknown_fields: Vec::new() }),
+            3 => ProbeBody::AsStamp({ let (s, n) = v::timestamp(idx); Timestamp { seconds: s, nanos: n, #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new() } }),
+            _ => ProbeBody::AsNothing(Empty { #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new() }),
         }),
         // Decision 11's bag: a built payload has no unknown fields, by
         //   construction -- it was built from this build's own descriptor.
-        unknown_fields: Vec::new(),
+        #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new(),
     }
 }
 
@@ -217,7 +217,7 @@ pub fn build_empty(path: &str, idx: i64, mode: Mode, repeats: i64, bulk: usize) 
     Empty {
         // Decision 11's bag: a built payload has no unknown fields, by
         //   construction -- it was built from this build's own descriptor.
-        unknown_fields: Vec::new(),
+        #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new(),
     }
 }
 
@@ -228,7 +228,7 @@ pub fn build_upload_result_data(path: &str, idx: i64, mode: Mode, repeats: i64, 
         data_chunk: if mode == Mode::AllAbsent { Default::default() } else { ::bytes::Bytes::from(v::bulk(bulk)) },
         // Decision 11's bag: a built payload has no unknown fields, by
         //   construction -- it was built from this build's own descriptor.
-        unknown_fields: Vec::new(),
+        #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new(),
     }
 }
 
@@ -242,7 +242,7 @@ pub fn build_metrics_batch(path: &str, idx: i64, mode: Mode, repeats: i64, bulk:
         statuses: if mode == Mode::AllAbsent { Vec::new() } else { (0..30i64).map(|j| TaskStatus::from_i32(v::enum_value(&v::TASK_STATUS, idx * 97 + j))).collect() },
         // Decision 11's bag: a built payload has no unknown fields, by
         //   construction -- it was built from this build's own descriptor.
-        unknown_fields: Vec::new(),
+        #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new(),
     }
 }
 
@@ -252,7 +252,7 @@ pub fn build_pair(path: &str, idx: i64, mode: Mode, repeats: i64, bulk: usize) -
         value: if mode == Mode::AllAbsent { 0 } else { v::scalar_i32(&format!("{path}.value"), idx) },
         // Decision 11's bag: a built payload has no unknown fields, by
         //   construction -- it was built from this build's own descriptor.
-        unknown_fields: Vec::new(),
+        #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new(),
     }
 }
 
@@ -263,7 +263,7 @@ pub fn build_list_results_response(path: &str, idx: i64, mode: Mode, repeats: i6
         total: if mode == Mode::AllAbsent { 0 } else { v::scalar_i32(&format!("{path}.total"), idx) },
         // Decision 11's bag: a built payload has no unknown fields, by
         //   construction -- it was built from this build's own descriptor.
-        unknown_fields: Vec::new(),
+        #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new(),
     }
 }
 
@@ -274,7 +274,7 @@ pub fn build_list_tasks_detailed_response(path: &str, idx: i64, mode: Mode, repe
         total: if mode == Mode::AllAbsent { 0 } else { v::scalar_i32(&format!("{path}.total"), idx) },
         // Decision 11's bag: a built payload has no unknown fields, by
         //   construction -- it was built from this build's own descriptor.
-        unknown_fields: Vec::new(),
+        #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new(),
     }
 }
 
@@ -283,7 +283,7 @@ pub fn build_list_task_summary_response(path: &str, idx: i64, mode: Mode, repeat
         tasks: if mode == Mode::AllAbsent { Vec::new() } else { (0..repeats).map(|j| build_task_summary(&format!("{path}.tasks"), j, mode, repeats, bulk)).collect() },
         // Decision 11's bag: a built payload has no unknown fields, by
         //   construction -- it was built from this build's own descriptor.
-        unknown_fields: Vec::new(),
+        #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new(),
     }
 }
 
@@ -292,7 +292,7 @@ pub fn build_list_probe_response(path: &str, idx: i64, mode: Mode, repeats: i64,
         probes: if mode == Mode::AllAbsent { Vec::new() } else { (0..repeats).map(|j| build_probe(&format!("{path}.probes"), j, mode, repeats, bulk)).collect() },
         // Decision 11's bag: a built payload has no unknown fields, by
         //   construction -- it was built from this build's own descriptor.
-        unknown_fields: Vec::new(),
+        #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new(),
     }
 }
 
@@ -301,7 +301,7 @@ pub fn build_list_metrics_response(path: &str, idx: i64, mode: Mode, repeats: i6
         batches: if mode == Mode::AllAbsent { Vec::new() } else { (0..repeats).map(|j| build_metrics_batch(&format!("{path}.batches"), j, mode, repeats, bulk)).collect() },
         // Decision 11's bag: a built payload has no unknown fields, by
         //   construction -- it was built from this build's own descriptor.
-        unknown_fields: Vec::new(),
+        #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new(),
     }
 }
 
@@ -310,7 +310,7 @@ pub fn build_upload_result_data_message(path: &str, idx: i64, mode: Mode, repeat
         upload: if mode == Mode::AllAbsent { None } else { Some(build_upload_result_data(&format!("{path}.upload"), idx, mode, repeats, bulk)) },
         // Decision 11's bag: a built payload has no unknown fields, by
         //   construction -- it was built from this build's own descriptor.
-        unknown_fields: Vec::new(),
+        #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new(),
     }
 }
 
@@ -320,7 +320,7 @@ pub fn build_dual_response(path: &str, idx: i64, mode: Mode, repeats: i64, bulk:
         right: if mode == Mode::AllAbsent { Vec::new() } else { (0..repeats).map(|j| build_pair(&format!("{path}.right"), j, mode, repeats, bulk)).collect() },
         // Decision 11's bag: a built payload has no unknown fields, by
         //   construction -- it was built from this build's own descriptor.
-        unknown_fields: Vec::new(),
+        #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new(),
     }
 }
 
@@ -336,7 +336,7 @@ pub fn payload_p1_1() -> ListResultsResponse {
             .collect(),
         page: 1,
         total: 4,
-        unknown_fields: Vec::new(),
+        #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new(),
     }
 }
 
@@ -349,7 +349,7 @@ pub fn payload_p1_2() -> ListResultsResponse {
             .collect(),
         page: 1,
         total: 1000,
-        unknown_fields: Vec::new(),
+        #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new(),
     }
 }
 
@@ -362,7 +362,7 @@ pub fn payload_p1_3() -> ListResultsResponse {
             .collect(),
         page: 1,
         total: 300,
-        unknown_fields: Vec::new(),
+        #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new(),
     }
 }
 
@@ -375,7 +375,7 @@ pub fn payload_p2_1() -> ListTasksDetailedResponse {
             .collect(),
         page: 1,
         total: 1,
-        unknown_fields: Vec::new(),
+        #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new(),
     }
 }
 
@@ -388,7 +388,7 @@ pub fn payload_p2_2() -> ListTasksDetailedResponse {
             .collect(),
         page: 1,
         total: 500,
-        unknown_fields: Vec::new(),
+        #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new(),
     }
 }
 
@@ -401,7 +401,7 @@ pub fn payload_p2_3() -> ListTasksDetailedResponse {
             .collect(),
         page: 1,
         total: 125,
-        unknown_fields: Vec::new(),
+        #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new(),
     }
 }
 
@@ -414,7 +414,7 @@ pub fn payload_p2_4() -> ListTasksDetailedResponse {
             .collect(),
         page: 1,
         total: 80,
-        unknown_fields: Vec::new(),
+        #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new(),
     }
 }
 
@@ -427,7 +427,7 @@ pub fn payload_p2_5() -> ListTasksDetailedResponse {
             .collect(),
         page: 1,
         total: 20,
-        unknown_fields: Vec::new(),
+        #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new(),
     }
 }
 
@@ -438,7 +438,7 @@ pub fn payload_p3_1() -> ListProbeResponse {
         probes: (0..200i64)
             .map(|j| build_probe("Probe", j, Mode::Full, REPEATS[(j as usize) % REPEATS.len()], 0))
             .collect(),
-        unknown_fields: Vec::new(),
+        #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new(),
     }
 }
 
@@ -449,7 +449,7 @@ pub fn payload_p4_1() -> ListTaskSummaryResponse {
         tasks: (0..200i64)
             .map(|j| build_task_summary("TaskSummary", j, Mode::Full, REPEATS[(j as usize) % REPEATS.len()], 0))
             .collect(),
-        unknown_fields: Vec::new(),
+        #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new(),
     }
 }
 
@@ -457,7 +457,7 @@ pub fn payload_p4_1() -> ListTaskSummaryResponse {
 pub fn payload_p5_1() -> UploadResultDataMessage {
     UploadResultDataMessage {
         upload: Some(build_upload_result_data("UploadResultData", 0, Mode::Full, 3, 36)),
-        unknown_fields: Vec::new(),
+        #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new(),
     }
 }
 
@@ -465,7 +465,7 @@ pub fn payload_p5_1() -> UploadResultDataMessage {
 pub fn payload_p5_2() -> UploadResultDataMessage {
     UploadResultDataMessage {
         upload: Some(build_upload_result_data("UploadResultData", 0, Mode::Full, 3, 65536)),
-        unknown_fields: Vec::new(),
+        #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new(),
     }
 }
 
@@ -473,7 +473,7 @@ pub fn payload_p5_2() -> UploadResultDataMessage {
 pub fn payload_p5_3() -> UploadResultDataMessage {
     UploadResultDataMessage {
         upload: Some(build_upload_result_data("UploadResultData", 0, Mode::Full, 3, 1048576)),
-        unknown_fields: Vec::new(),
+        #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new(),
     }
 }
 
@@ -481,7 +481,7 @@ pub fn payload_p5_3() -> UploadResultDataMessage {
 pub fn payload_p5_4() -> UploadResultDataMessage {
     UploadResultDataMessage {
         upload: Some(build_upload_result_data("UploadResultData", 0, Mode::Full, 3, 4194304)),
-        unknown_fields: Vec::new(),
+        #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new(),
     }
 }
 
@@ -492,7 +492,7 @@ pub fn payload_p6_1() -> ListMetricsResponse {
         batches: (0..200i64)
             .map(|j| build_metrics_batch("MetricsBatch", j, Mode::Full, REPEATS[(j as usize) % REPEATS.len()], 0))
             .collect(),
-        unknown_fields: Vec::new(),
+        #[cfg(feature = "unknown-fields")] unknown_fields: Vec::new(),
     }
 }
 

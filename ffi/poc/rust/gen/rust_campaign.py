@@ -98,7 +98,8 @@ def emit_touch(p, model):
             o.append("        None => {}")
             o.append("    }")
         if model == "f":
-            o.append("    h = mix(h, o.unknown_fields.len() as u64);")
+            o.append("    #[cfg(feature = \"unknown-fields\")]")
+            o.append("    { h = mix(h, o.unknown_fields.len() as u64); }")
         o.append("    h")
         o.append("}")
         o.append("")
@@ -111,7 +112,13 @@ def emit(p):
          "use crate::{mix, Ops};",
          "use harness::arms::core_ffi_arm::Ctx;",
          "use harness::generated::binding;",
-         "use facade::generated::{build, core_native, core_native_retain};",
+         "use facade::generated::{build, core_native};",
+         "#[cfg(feature = \"unknown-fields\")]",
+         "use facade::generated::core_native_retain;",
+         "// The no-unknown build has no retain rendering; MODES there has no retain mode, so",
+         "// `retain` is never true and the name resolves to the drop rendering.",
+         "#[cfg(not(feature = \"unknown-fields\"))]",
+         "use facade::generated::core_native as core_native_retain;",
          "use shapes_prost::shapes as p;",
          ""]
     o += emit_touch(p, "f")
