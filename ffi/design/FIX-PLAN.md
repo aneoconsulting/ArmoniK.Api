@@ -626,3 +626,57 @@ Disposition column is filled in as work lands.
 | R-F1 | C#, Java, Python, C++ `STATE.md` contradict themselves on what exists | CM, X, CN || fixed for Java 1c69964 and C# e96e6ee; C++ corrected 937ae78; Rust pending |
 | R-F2 | Python `STATE.md` "concurrency still unanswered" vs suite present; `57-gc-bias.log` closing line contradicts `bench.py` | MM, CM || confirmed and fixed 46bf20f |
 | R-F3 | Python P2.2 crossing counts: `STATE.md` gives 10.02 / 7.00 (C extension type) and 32 (Python storages); `logs/python/53-conformance-all-shapes.log` gives 51.67 / 51.67 against 146.68 / 131.35. Found while rewriting `findings/python.md`, which now cites the log | WP2 || confirmed and fixed 46bf20f: 10.02 / 7.00 are core crossings, 51.67 / 51.67 shim crossings; "32" had no log |
+
+### H. WP6 re-review (2026-09-26): raised, not yet confirmed
+
+Five `ffi-review` agents, one angle each: measurement validity (MV), implementation
+correctness (IC), generator sweep (GS), comparability (CP), and CAMPAIGN.md sign
+hazards (CS). The findings are unconfirmed until the owning slice answers. Where two
+angles raised the same thing, both are named. "Owner" marks a finding that needs a
+decision rather than a fix.
+
+**H1. Harness defects (a fix, no decision)**
+
+| ID | Finding | Source | Disposition |
+|---|---|---|---|
+| R-H1 | Python `camp_summary.py` keys neither references nor groups by build, so full-build ratios use the no-unknown incumbent and pool A/B/incumbent rows across builds | MV1 | |
+| R-H2 | C# RPC: B and C create `inflight` OS threads inside the timed window (`BlockingOp`), while A and D use the thread pool. Warm-up of 32 calls, tier not read back. Rust, C++ and Python spawn threads per batch inside the window for every cell | MV2 | |
+| R-H3 | C# `CoreGate` crossing gate passes when a committed row is missing, or when the expect file is empty | MV5 | |
+| R-H4 | C++ RPC abort leaves earlier cells' samples in the jsonl (req 18); the gate control checks only the exit code | MV6 | |
+| R-H5 | C++ runner does not propagate a `campaign_calib` failure (rc 0) | MV7 | |
+| R-H6 | C# codec: both builds append to one file with no `build` field | MV9 | |
+| R-H7 | C++ binding `decode_with_<root>_opts` frees the caller's unconsumed pre-allocated buffers and leaves the pointers in the caller's options: use after free on the next decode with the same options (rule 7) | IC3 | |
+| R-H8 | Rule 4 delivery path unexercised in Java and Python (no corpus row puts unknowns in a oneof member); Rust has no switch to a scalar member | IC2 | |
+| R-H9 | C# "0 undelivered" and Python leak checks have no must-fail twin | IC7 | |
+| R-H10 | Core: `ak_parse_*` resets the context's records before the wrong-root check, so a refused parse (-8) destroys an unread earlier parse | IC5 | core change, via the aggregating session |
+| R-H11 | C# host-gen codec is rendered with unknown="both" and a run-time `Retain` flag; the other four render separate drop and retain codecs (the drop arm carries capture code in C# only) | GS1 | |
+| R-H12 | Rust slice `gen/rust_facade.py` generates `prost_impl.rs` with its own presence and oneof-order rules (oneofs after plain fields, not tag order); WP5 item 4's prost-build check was not done | GS3 | |
+| R-H13 | The one-generator guard tests imports only, over `codec/gen` plus hand-listed glue; rust and python slice `gen/` are unguarded; `one_core.sh` names a removed file | GS4 | |
+| R-H14 | Error-code and refusal divergence: Python hard-codes the code table; undeclared oneof case gives a bare `ValueError` in Python (Java, C# and the core give ABI); a selected null message member raises in Python and writes an empty body in Java and C#; C# managed numbering differs and C4 checks only that some code came back | GS5 | |
+| R-H15 | Backend-local tables (`PACKED_KIND`, `RUN_FN`, `java_layout` sizes and option-struct members); packed fixed32 refused at render, not in `check_expressible`; four backends test `options.unknown == "drop"` instead of `unknown_compiled_out` | GS6-8 | |
+| R-H16 | Python core-ffi runs over the C-extension facade, host-gen over the plain facade (R3: same facade objects) | CP5 | |
+| R-H17 | Java cell B copies the response twice before `parseFrom`; C++ and C# parse in place | CP8 | |
+| R-H18 | RPC rotation is per round with the same schedule in every launch (C++, C#, Java, Python); Python codec arm order inside a block never changes; C# JIT-check failure only warns | MV10, MV4 | |
+| R-H19 | Stated facts wrong: "in-process control" in the Java, C# and Python codec suites (every arm is its own process); C# smoke `.bdn.log` figures not stripped; Python STATE says calib needs a gate; C++ `instrumentation` flag true only on a dirty tree; Java codec suite records no JIT tier (req 24); `java_pull` docs say no reverse call (grow is one); C++ says rule 5 unexercised, the other four are silent; CAMPAIGN req 26 says "both" modes | MV3, MV11, MV12, IC4, IC6, CS | |
+
+**H2. Needs an owner decision (contract or design)**
+
+| ID | Question | Source |
+|---|---|---|
+| R-H20 | Rule 1 as implemented: the core decides "discard" when the context is armed, so an entry that was empty then and refilled later is ignored (rc 0, bag lost). Keep the behaviour and narrow the rule's text, or make the core read entries live | IC1 |
+| R-H21 | Rule 5 edges: exactly 2^31 is refused; LIMIT is checked only on the grow path (a host buffer with cap at or above 2^31 is accepted); above 2 GiB with no grow gives CAPACITY rather than LIMIT | IC4 |
+| R-H22 | What "no-unknown" removes: C++ and Rust keep the facade's unknown-field member; Java and Python remove it; C# is reported both ways (GS2 says kept, CP3 says removed). host-gen has a no-unknown arm in Rust, C# and Java, and not in C++ or Python. C++'s installed-header layout rule may be why it keeps it | GS2, CP3 |
+| R-H23 | Order of arms (req 22): a one-step rotation over 3 launches uses 3 of 6 positions and never changes adjacency, so C-retain always precedes C-drop and D-retain precedes D-drop. Options: counterbalanced order, interleaving, or accept it, stated | CS1, MV10 |
+| R-H24 | Ratios across processes (req 30): JMH forks per cell, BDN runs per unit, pyperf spawns per benchmark, so a "per-round ratio" pairs different processes in Java, C# and Python. The no-unknown build is always another binary and another process in every slice, and no in-process control goes through the core. Options: per-launch medians labelled cross-process; more launches; a layout control (k relinks, or fixed alignment); both cores in one process | CS2, CS3, CP6, MV3 |
+| R-H25 | CPU definition (req 21): the "or" lets an RPC cell count one thread; codec CPU is thread CPU in four slices and one process-wide value per case (GC forced by BDN included, no per-round CPU) in C# | CS4, CP2, MV4 |
+| R-H26 | Content sets: SHAPES.md does not say which payloads carry them; the slices share no (payload, non-ASCII set) pair (Python P2.4 only, Rust and C# P1.2 and P2.2, C++ five payloads, Java all) | CP1, MV8 |
+| R-H27 | U-* rows differ: C++ has no encode direction; Python and Java use the corpus-schema core; Java has no `accept` filter; counts 92 or 311 | CP4 |
+| R-H28 | RPC transport: UDS in C# and Java, loopback TCP elsewhere; Java's "shipped" has no source in `packages/java`; C# passes `adaptive_window = 0` in shipped | CP7 |
+| R-H29 | Timing scope (req 11): graph construction and the encode end state are not fixed per arm (C++ incumbent allocates a ByteBuffer and core-ffi reuses; Python core-ffi returns fresh `bytes`; Java encodes a new graph per iteration from a 32 MiB pool, the others one hot graph) | CS7, CP9 |
+| R-H30 | Req 16 fixes blocking delivery for B and C only; A and D may be async | CS5 |
+| R-H31 | Req 19: the gate does not count resets, runs on a counting build rather than the timed one, does not cover RPC cells, and leaves retain buffer sizing (so grow crossings) to the harness | CS6 |
+| R-H32 | GC and JIT state between blocks, warm-up placement, JIT tier with no consequence (req 24, 25) | CS8 |
+| R-H33 | Server identity per launch, server warm-up and connection lifetime unspecified (req 13, 17) | CS9 |
+| R-H34 | Idle states, SMT inside CLIENT, and CLIENT size not fixed for the campaign (req 2, 4) | CS10 |
+| R-H35 | No cell serves option 2 (host-gen codec over the core's transport), though README section 13 says option 2 depends on B-A with the generated codec | CS |
+| R-H36 | RPC direction (a): Python's like-for-like row is `a+read` (upb is lazy); a mapping is needed | CP10 |
