@@ -1577,3 +1577,10 @@ changes.
 - **Label only, not fixed (scope rule).** The runner header's `variants` text still says
   "C/D-retain and -drop" and the `rpc_server` thread text says "callback server"; the samples
   and the client headers name the actual cells.
+
+## 2026-09-26, req 21 parity: calib on process CPU
+
+- `campaign_calib` now reads CLOCK_PROCESS_CPUTIME_ID (was CLOCK_THREAD_CPUTIME_ID); samples carry
+  `cpu_clock: process`, the runner header `calib_clock`. Clean worktree at `e47b506d1`: campaign gate
+  0 FAIL lines (including the calib failure-propagation control, exit 2, no sample), calib suite
+  exit 0; smoke log committed with figures stripped.
