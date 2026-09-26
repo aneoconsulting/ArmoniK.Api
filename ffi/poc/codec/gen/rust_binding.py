@@ -60,9 +60,30 @@ BINDING_UNK_PRELUDE = '''// ---- decision 11 (WP5 step 7): the host side of the 
 // the group carrying it is delivered; `take_unk` turns it into the facade's bag. What the
 // core placed but never delivered -- an inactive oneof member's, a map entry's (the facade
 // map has no bag), everything of a failed decode -- is reclaimed by `unk_reclaim`.
+// Optimisation U2: the live set is a map keyed by the buffer's address (a multiplicative
+// hash of the pointer), so `take_unk` and a regrow are O(1) instead of a linear search of
+// every buffer placed so far in the decode (quadratic over a message with many positions).
+#[derive(Default)]
+pub struct PtrHasher(u64);
+impl ::core::hash::Hasher for PtrHasher {
+    #[inline]
+    fn finish(&self) -> u64 {
+        self.0
+    }
+    #[inline]
+    fn write(&mut self, b: &[u8]) {
+        for &x in b {
+            self.0 = (self.0.rotate_left(8) ^ x as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15);
+        }
+    }
+    #[inline]
+    fn write_usize(&mut self, x: usize) {
+        self.0 = (x as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15).rotate_left(29);
+    }
+}
+type UnkLive = ::std::collections::HashMap<usize, usize, ::core::hash::BuildHasherDefault<PtrHasher>>;
 thread_local! {
-    static UNK_LIVE: ::core::cell::RefCell<Vec<(usize, usize)>> =
-        const { ::core::cell::RefCell::new(Vec::new()) };
+    static UNK_LIVE: ::core::cell::RefCell<UnkLive> = ::core::cell::RefCell::new(UnkLive::default());
 }
 
 /// `ak_grow_fn` for an unknown-field buffer: a fresh buffer when `*dst` is NULL, else a
@@ -83,11 +104,9 @@ pub unsafe extern "C" fn unk_grow(_host: *mut c_void, want: i32, dst: *mut *mut 
     UNK_LIVE.with(|l| {
         let mut l = l.borrow_mut();
         if !old.is_null() {
-            if let Some(i) = l.iter().position(|e| e.0 == old as usize) {
-                l.swap_remove(i);
-            }
+            l.remove(&(old as usize));
         }
-        l.push((p as usize, want));
+        l.insert(p as usize, want);
     });
     *dst = p;
     *cap = want as i32;
@@ -101,10 +120,7 @@ pub(crate) fn take_unk(b: &ak_unk_buf) -> Vec<u8> {
         return Vec::new();
     }
     UNK_LIVE.with(|l| {
-        let mut l = l.borrow_mut();
-        if let Some(i) = l.iter().position(|e| e.0 == b.data as usize) {
-            l.swap_remove(i);
-        }
+        l.borrow_mut().remove(&(b.data as usize));
     });
     unsafe { Vec::from_raw_parts(b.data as *mut u8, b.len as usize, b.cap as usize) }
 }
@@ -139,11 +155,13 @@ pub struct UnkReport {
 /// Free every buffer `unk_grow` handed out that was never delivered. Returns how many.
 pub fn unk_reclaim() -> usize {
     UNK_LIVE.with(|l| {
-        let v = ::core::mem::take(&mut *l.borrow_mut());
-        for &(p, c) in &v {
+        let mut l = l.borrow_mut();
+        let n = l.len();
+        // drain() keeps the table's capacity for the next decode.
+        for (p, c) in l.drain() {
             unsafe { ::std::alloc::dealloc(p as *mut u8, ::std::alloc::Layout::from_size_align_unchecked(c, 1)) };
         }
-        v.len()
+        n
     })
 }
 
@@ -1048,7 +1066,21 @@ def emit_binding(ir):
             else:
                 _emit_add(ir, o, root, None, sn, path, f)
 
-        o.append("pub fn decode_with_%s(ctxs: DecCtxs, b: &[u8]) -> Result<%s, i32> {" % (rs, root))
+        if not NOUNK:
+            # Optimisation U1: the drop-mode entry disarms a context a retaining decode left
+            # armed (decode_with_*_unk no longer disarms after itself), then decodes.
+            o.append("/// Drop mode (decision 11): disarms the context if a retaining decode left it")
+            o.append("/// armed (optimisation U1), then decodes.")
+            o.append("pub fn decode_with_%s(ctxs: DecCtxs, b: &[u8]) -> Result<%s, i32> {" % (rs, root))
+            o.append("    disarm_%s(ctxs);" % rs)
+            o.append("    decode_with_%s_armed(ctxs, b)" % rs)
+            o.append("}")
+            o.append("")
+            o.append("/// The decode with the context as it is armed now.")
+            o.append("#[inline(always)]")
+            o.append("fn decode_with_%s_armed(ctxs: DecCtxs, b: &[u8]) -> Result<%s, i32> {" % (rs, root))
+        else:
+            o.append("pub fn decode_with_%s(ctxs: DecCtxs, b: &[u8]) -> Result<%s, i32> {" % (rs, root))
         o.append("    let ctx = ctxs.%s;" % rs)
         o.append("    let mut out = %s::default();" % root)
         o.append("    let rc = unsafe {")
@@ -1100,25 +1132,55 @@ def emit_binding(ir):
                  % (rs, on, root))
         o.append("    let rc = unsafe { ak_dec_reset_%s(ctxs.%s, opts) };" % (root, rs))
         o.append("    if rc != AK_OK { return Err(rc); }")
-        o.append("    let r = decode_with_%s(ctxs, b);" % rs)
+        o.append("    let r = decode_with_%s_armed(ctxs, b);" % rs)
         o.append("    unsafe { ak_dec_reset_%s(ctxs.%s, ::core::ptr::null_mut()); }" % (root, rs))
+        o.append("    unsafe { (*ctxs.unk).%s_armed.set(false); }" % rs)
         o.append("    unk_reclaim();")
         o.append("    r")
         o.append("}")
         o.append("")
+        o.append("/// Optimisation U1: arm this root's context with the options at their STABLE address")
+        o.append("/// in `DecCtxs` (every position grow-backed: nothing in them is consumed, so they")
+        o.append("/// need no refill), one reset per decode (decision 11 rule 7). The context stays")
+        o.append("/// armed afterwards; the drop-mode entries disarm it when they next run.")
+        o.append("#[inline(always)]")
+        o.append("fn arm_%s(ctxs: DecCtxs) -> i32 {" % rs)
+        o.append("    unsafe {")
+        o.append("        let st = &*ctxs.unk;")
+        o.append("        let rc = ak_dec_reset_%s(ctxs.%s, st.%s_opts.get());" % (root, rs, rs))
+        o.append("        if rc == AK_OK { st.%s_armed.set(true); }" % rs)
+        o.append("        rc")
+        o.append("    }")
+        o.append("}")
+        o.append("")
+        o.append("/// Drop mode for the next decode: one reset to NULL, only if a retaining decode")
+        o.append("/// through this binding left the context armed (optimisation U1).")
+        o.append("#[inline(always)]")
+        o.append("fn disarm_%s(ctxs: DecCtxs) {" % rs)
+        o.append("    unsafe {")
+        o.append("        let st = &*ctxs.unk;")
+        o.append("        if st.%s_armed.get() {" % rs)
+        o.append("            ak_dec_reset_%s(ctxs.%s, ::core::ptr::null_mut());" % (root, rs))
+        o.append("            st.%s_armed.set(false);" % rs)
+        o.append("        }")
+        o.append("    }")
+        o.append("}")
+        o.append("")
         o.append("/// Decision 11: retain everywhere.")
         o.append("pub fn decode_with_%s_unk(ctxs: DecCtxs, b: &[u8]) -> Result<%s, i32> {" % (rs, root))
-        o.append("    decode_with_%s_opts(ctxs, b, &mut unk_opts_%s(None))" % (rs, rs))
+        o.append("    let rc = arm_%s(ctxs);" % rs)
+        o.append("    if rc != AK_OK { return Err(rc); }")
+        o.append("    let r = decode_with_%s_armed(ctxs, b);" % rs)
+        o.append("    unk_reclaim();")
+        o.append("    r")
         o.append("}")
         o.append("")
         o.append("/// Decision 11: the pull family (walk in place) with every position retained.")
         o.append("pub fn parse_walk_with_%s_unk(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<%s, i32> {"
                  % (rs, root))
-        o.append("    let mut opts = unk_opts_%s(None);" % rs)
-        o.append("    let rc = unsafe { ak_dec_reset_%s(ctxs.%s, &mut opts) };" % (root, rs))
+        o.append("    let rc = arm_%s(ctxs);" % rs)
         o.append("    if rc != AK_OK { return Err(rc); }")
-        o.append("    let r = parse_walk_with_%s(ctxs, b, toks);" % rs)
-        o.append("    unsafe { ak_dec_reset_%s(ctxs.%s, ::core::ptr::null_mut()); }" % (root, rs))
+        o.append("    let r = parse_walk_with_%s_armed(ctxs, b, toks);" % rs)
         o.append("    unk_reclaim();")
         o.append("    r")
         o.append("}")
@@ -1235,6 +1297,8 @@ def emit_binding(ir):
         o.append("    scratch: &mut Vec<u64>,")
         o.append("    toks: &mut Vec<i64>,")
         o.append(") -> Result<%s, i32> {" % root)
+        if not NOUNK:
+            o.append("    disarm_%s(ctxs);" % rs)
         o.append("    let ctx = ctxs.%s;" % rs)
         o.append("    let mut out = %s::default();" % root)
         o.append("    if scratch.len() * 8 < ak_rt::bdr::BDR_MIN_CHUNK {")
@@ -1274,7 +1338,17 @@ def emit_binding(ir):
         o.append("/// It is not a shortcut around the drain but the other half of the")
         o.append("/// decomposition: the difference between this arm and the one above IS the")
         o.append("/// copy, measured rather than estimated.")
-        o.append("pub fn parse_walk_with_%s(" % rs)
+        if not NOUNK:
+            o.append("pub fn parse_walk_with_%s(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<%s, i32> {" % (rs, root))
+            o.append("    disarm_%s(ctxs);" % rs)
+            o.append("    parse_walk_with_%s_armed(ctxs, b, toks)" % rs)
+            o.append("}")
+            o.append("")
+            o.append("/// The walk with the context as it is armed now.")
+            o.append("#[inline(always)]")
+            o.append("fn parse_walk_with_%s_armed(" % rs)
+        else:
+            o.append("pub fn parse_walk_with_%s(" % rs)
         o.append("    ctxs: DecCtxs,")
         o.append("    b: &[u8],")
         o.append("    toks: &mut Vec<i64>,")
@@ -1314,6 +1388,8 @@ def emit_binding(ir):
         o.append("    b: &[u8],")
         o.append("    toks: &mut Vec<i64>,")
         o.append(") -> Result<%s, i32> {" % root)
+        if not NOUNK:
+            o.append("    disarm_%s(ctxs);" % rs)
         o.append("    let ctx = ctxs.%s;" % rs)
         o.append("    let mut out = %s::default();" % root)
         o.append("    toks.clear();")
@@ -1845,11 +1921,27 @@ def _dec_ctxs(ir):
     """Decision 11 rule 6 (WP5 step 8): a decode context is BOUND to its root, so a host that
     decodes several roots holds one context per root. `DecCtxs` is that set, created in drop
     mode (NULL options); `decode_with_<root>` picks its own."""
-    o = ["/// One decode context per root (decision 11 rule 6: contexts are root-bound).",
-         "#[derive(Clone, Copy)]",
-         "pub struct DecCtxs {"]
+    o = []
+    if not NOUNK:
+        # Optimisation U1: each root's retain options at a STABLE address (the core reads
+        # them in place, rule 1, and the context stays armed between decodes), and whether
+        # this binding left the context armed.
+        o.append("/// Optimisation U1: the retain options of every root at a stable address, and")
+        o.append("/// whether this binding left each root's context armed with them.")
+        o.append("pub struct UnkState {")
+        for root in ir.roots:
+            o.append("    pub %s_opts: ::core::cell::UnsafeCell<%s>," % (snake(root), unk_opts_name(root)))
+            o.append("    pub %s_armed: ::core::cell::Cell<bool>," % snake(root))
+        o.append("}")
+        o.append("")
+    o += ["/// One decode context per root (decision 11 rule 6: contexts are root-bound).",
+          "#[derive(Clone, Copy)]",
+          "pub struct DecCtxs {"]
     for root in ir.roots:
         o.append("    pub %s: *mut ak_dec_ctx," % snake(root))
+    if not NOUNK:
+        o.append("    /// Optimisation U1 (owned; freed by `free`).")
+        o.append("    pub unk: *mut UnkState,")
     o.append("}")
     o.append("impl DecCtxs {")
     o.append("    /// Every root's context, bound, in drop mode. Requires `ak_init` first.")
@@ -1858,6 +1950,12 @@ def _dec_ctxs(ir):
     o.append("            let d = DecCtxs {")
     for root in ir.roots:
         o.append("                %s: ak_dec_ctx_new_%s(%s)," % (snake(root), root, "" if NOUNK else "::core::ptr::null_mut()"))
+    if not NOUNK:
+        o.append("                unk: Box::into_raw(Box::new(UnkState {")
+        for root in ir.roots:
+            o.append("                    %s_opts: ::core::cell::UnsafeCell::new(unk_opts_%s(None))," % (snake(root), snake(root)))
+            o.append("                    %s_armed: ::core::cell::Cell::new(false)," % snake(root))
+        o.append("                })),")
     o.append("            };")
     for root in ir.roots:
         o.append("            assert!(!d.%s.is_null(), \"ak_dec_ctx_new_%s\");" % (snake(root), root))
@@ -1867,6 +1965,8 @@ def _dec_ctxs(ir):
     o.append("    pub unsafe fn free(self) {")
     for root in ir.roots:
         o.append("        ak_dec_ctx_free(self.%s);" % snake(root))
+    if not NOUNK:
+        o.append("        drop(Box::from_raw(self.unk));")
     o.append("    }")
     o.append("}")
     o.append("")
