@@ -8,9 +8,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 O="$HERE/../../logs/rust/opt"
 [ $# = 2 ] || { echo "usage: $0 NAME PREV" >&2; exit 2; }
 bash "$HERE/gen/opt_bench.sh" "$O/$1"
-for B in "$2" baseline2; do
-  python3 "$HERE/gen/opt_compare.py" "$O/$B" "$O/$1" --aa "$O/baseline2" "$O/baseline2-aa" > "$O/$1/compare-vs-$B.txt"
-  [ "$B" = baseline2 ] && break
-done
-if [ "$2" != baseline2 ]; then :; fi
-echo "compared: $O/$1/compare-vs-$2.txt $O/$1/compare-vs-baseline2.txt"
+cmp() { python3 "$HERE/gen/opt_compare.py" "$O/$1" "$O/$2" --aa "$O/baseline2" "$O/baseline2-aa" > "$O/$2/compare-vs-$1.txt"; }
+cmp "$2" "$1"
+[ "$2" = baseline2 ] || cmp baseline2 "$1"
+echo "compared: $O/$1/compare-vs-$2.txt and $O/$1/compare-vs-baseline2.txt"
