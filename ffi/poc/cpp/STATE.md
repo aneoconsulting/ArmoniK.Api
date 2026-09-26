@@ -12,7 +12,7 @@ defect. What this file reports as results are correctness outcomes and crossing 
 
 | | |
 |---|---|
-| **Status** | 2026-09-26, register H (WP6 re-review) worked for the findings assigned to cpp; per-finding dispositions below. Both builds are gated from a clean checkout at `b758b2737` (core `31fc3eecf`: R-H21 capacity cap, R-H10 parse order), 0 failed steps (`logs/cpp/wp5-*.log`, `wp5s10-nounk.log`); ASan+LSan clean on both builds (`asan.log`); campaign smoke (gate, codec, rpc, calib) green and marked `"smoke": true` |
+| **Status** | 2026-09-26, register H (WP6 re-review) worked for the findings assigned to cpp; per-finding dispositions below. Both builds are gated from a clean checkout at `8f5b575c0` (core `31fc3eecf`: R-H21 capacity cap, R-H10 parse order), 0 failed steps (`logs/cpp/wp5-*.log`, `wp5s10-nounk.log`); ASan+LSan clean on both builds (`asan.log`); campaign smoke (gate, codec, rpc, calib) green and marked `"smoke": true` |
 | **Core** | the shared one at `ffi/poc/codec/crates/ak-core` (R0). CMake builds it with cargo, `init-guard` in every configuration. Full-build flavours: plain, `count`, `corpus`, `rpc`, `rpc,count`, and three planted cores (`pad-widths`, `global-widths`, both). No-unknown flavours: `--no-default-features` plus `init-guard` alone, `count`, `corpus` or `rpc`. Each flavour has its own target dir under `core-build/` |
 | **Generator** | one generator (W14). `poc/codec/gen/plan.py` holds the rules. This slice's backend modules in `poc/codec/gen/` are `cpp_binding.py`, `cpp_native.py`, `cpp_facade.py`, `cpp_names.py` and `cpp_layout.py`, plus `c_abi.py`, which renders the C header for every slice. `gen/generate.py` is glue: it renders the targets from plans and imports no IR (the guard in `generate.py --check`) |
 | **Floor / target** | C++11 floor, C++17 target, both builds. C++14 also builds and is gated (full build) |
@@ -110,14 +110,14 @@ Scripts (`gen/`):
 
 ## What was checked, and where the log is
 
-From a fresh `git worktree` at `b758b2737`, with no uncommitted changes and new build
+From a fresh `git worktree` at `8f5b575c0`, with no uncommitted changes and new build
 directories (`CLEAN=1 gen/wp5_gate.sh build`, then `gen/d11_asan.sh`):
 
 | Check | Result | Log |
 |---|---|---|
 | build | every target configured and built from scratch; every gated binary newer than its sources | `wp5-build.log` |
 | generator | `generate.py --check` every target current; guard: the shared C++ modules import plans only, glue imports no IR, a planted import is caught; the shared `--check` over every slice; `refusal_test.py`, `rd2_guard.sh`, `audit_tracked.sh`, `one_core.sh` and `one_core.sh --selftest` (0 controls failed to fire) | `wp5-generator.log` |
-| payload byte identity, full build | 576 checks, 0 failures at C++17 target, C++17 floor, C++14, C++11 and static; the noinit plant fails (300 failures) | `wp5-conformance.log` |
+| payload byte identity, full build | 577 checks, 0 failures at C++17 target, C++17 floor, C++14, C++11 and static; the noinit plant fails its checks cleanly (exit 1, 283 failures; a crash no longer counts as the plant failing) | `wp5-conformance.log` |
 | full corpus, full build | 702 rows, four builds (C++17, C++14, C++11, static): ffi 680/0, native 696/0, 6 disputed (excluded), 16 roots not in the C ABI; 2808 (row, arm) outcomes identical across the four builds; retain arms write the dropped form only on `U-map-entry`; plants proj/reenc/accept/noinit fail; `--compare` sees a planted difference | `wp5-corpus.log` |
 | decision 11 controls | four builds: 686 rows, 2290 positions, 0 failing rows (pool = retain, drop = retain cleared, each position zeroed drops exactly it, map-entry bytes right); the plant fails 307 rows | `wp5-corpus.log` |
 | oracle-probe rows | 11/11 on all four arms, C++17 and C++11 | `wp5-probe.log` |
@@ -125,7 +125,7 @@ directories (`CLEAN=1 gen/wp5_gate.sh build`, then `gen/d11_asan.sh`):
 | boundary, layout | 23 checks, 0 failed; 574 corpus layout facts agree, shared and static | `wp5-boundary.log` |
 | other gates | groupskip (with its two plants failing), concurrency (T7 off; the planted cores fail), ODR, bench gates and the gate plant, content sets, crossing counts 87 rows identical to `counts-baseline.log`, RPC counts | `wp5-gates.log` |
 | no-unknown build | every variant binary loads a core with 0 u-family exports, every full one a core with them; both headers against both cores (matched agree, mismatched caught); 478 checks, 0 failures at C++17, C++11 and static (240 layout facts); corpus C++17 and C++11: ffi 680/0, native 696/0, 0 unknown rows written non-dropped, outcomes identical; plants fail; 87 count rows identical to `counts-nounk-baseline.log` | `wp5s10-nounk.log` |
-| ASan + LSan | full build: conformance 576/0 (incl. the R-H7 options-reuse control), decision 11 controls 0 failing rows, corpus green; no-unknown build: conformance 478/0, corpus green with every unknown row dropped; 0 sanitizer reports | `asan.log` |
+| ASan + LSan | full build: conformance 577/0 (incl. the R-H7 options-reuse control), decision 11 controls 0 failing rows, corpus green; no-unknown build: conformance 478/0, corpus green with every unknown row dropped; 0 sanitizer reports | `asan.log` |
 
 **Decision 11, as the owner confirmed it** (ABI-v1 rule 4 amended 2026-09-26): there is one
 options entry per oneof, and the core fills it in the active member's decode group. The
@@ -166,7 +166,7 @@ listed so that nobody re-derives them. **No figure from them is quoted here.**
 - `calibration-r13.log`: the rust slice's crossing bench on the 2.80 GHz container.
 - `campaign/*.jsonl`, `campaign/*.gbench.json`: campaign smoke runs.
   - `codec-*`, `rpc-*`, `calib-*`: 1 launch, 1 round, reduced sizes, both builds, at
-    `b758b2737`, `"smoke": true`. Every timing is stripped (`"figures": "stripped (smoke)"`).
+    `8f5b575c0`, `"smoke": true`. Every timing is stripped (`"figures": "stripped (smoke)"`).
 
 ## CAMPAIGN.md section 10 checklist
 
@@ -220,10 +220,16 @@ listed so that nobody re-derives them. **No figure from them is quoted here.**
 | R-H19 `"instrumentation"` true only on a dirty tree | `run_campaign.sh` header | **confirmed, fixed**: AK_CAMPAIGN_SMOKE=1 marks a clean-tree smoke (`"smoke": true`) |
 | R-H15 `cpp_layout.py` tests `options.unknown == "drop"` | as reported | **fixed by the rust agent** in `31fc3eecf` (with `c_abi.py`); `cpp_native.py`'s `unknown` argument is the host-gen mode, not the ABI variant, and was left |
 
-Found while gating: `nounk_gate.sh`'s dropped-form control ran on the no-unknown build's
+Found while gating, both under the performance-scope rule's gate clause (a gate that would
+let a wrong output be timed):
+- The noinit plant aborted with a double free (`logs/cpp/rh7-noinit-doublefree.log`). When a
+  reset was refused, `decode_with_*_opts` returned before leaving the options' buffers to the
+  host. Fixed (`b915dc107`), with a control (a wrong root through the pool decode). The gate
+  now requires the plant to exit 1, so a crash counts as a FAIL.
+- `nounk_gate.sh`'s dropped-form control ran on the no-unknown build's
 native-retain arm, which R-H22 removed, so the control could no longer fail. The gate at
 `3a211100c` reported it as blind; it now runs on the full build's native-retain
-(`b758b2737`).
+(`8f5b575c0`).
 
 ## Open defects
 
@@ -313,7 +319,7 @@ minutes here), then `gen/d11_asan.sh`. `gen/run_all.sh` takes timings and is not
 
 ## Log index
 
-Current gate (clean checkout at `b758b2737`):
+Current gate (clean checkout at `8f5b575c0`):
 
 | Log | What it contains |
 |---|---|

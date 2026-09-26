@@ -1,8 +1,8 @@
 # cpp slice, WP5 step 2: the generator
-#   date       2026-09-26T11:36:19Z
+#   date       2026-09-26T12:49:23Z
 #   machine    Linux 6.18.44-fc-v37 x86_64, 4 vCPU, Intel(R) Xeon(R) Processor @ 2.10GHz
 #   compiler   g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0; rustc 1.94.1 (e408947bf 2026-03-25)
-#   commit     b758b2737
+#   commit     8f5b575c0
 #   core       ffi/poc/codec at that commit, built --features init-guard (and corpus,init-guard
 #              for the corpus ABI); no timing is taken by anything in this log
 
@@ -93,7 +93,7 @@ ok    crates/ak-abi/src/lib.rs
 slice rust    --check: exit 0
 slice cpp     --check: exit 0
 slice java    --check: exit 0
-   checked 526 generated files, 0 problem(s)
+   checked 530 generated files, 0 problem(s)
 slice csharp  --check: exit 0
 slice python  --check: exit 0
 >>> ok: codec generate.py --check (exit 0)
@@ -134,7 +134,7 @@ refusal_test: 17 passed, 0 failed
   >>> ok: src/rpccounts.cpp
 
 ===== plant A: the struct loses tcp_nagle (host smaller than core) -- must NOT compile =====
-    /tmp/tmp.HzmfbbHNkG/a/ak_abi.h:1298:42: error: static assertion failed: sizeof ak_client_opts
+    /tmp/tmp.r8Jtx6SAne/a/ak_abi.h:1298:42: error: static assertion failed: sizeof ak_client_opts
      1270 | #define AK_SASSERT(c, m) static_assert(c, m)
   >>> ok: plant A refused
 
