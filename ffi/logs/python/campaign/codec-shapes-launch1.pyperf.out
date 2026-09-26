@@ -1,378 +1,379 @@
-shapes|P1.1|ascii|encode|incumbent-prod|incumbent-default: 733 ns
-shapes|P1.1|ascii|encode|incumbent-best|incumbent-default: 706 ns
-shapes|P1.1|ascii|encode|core-ffi|drop: 777 ns
-shapes|P1.1|ascii|encode|core-ffi|retain: 692 ns
-shapes|P1.1|ascii|encode|core-ffi-attr|drop: 1.63 us
-shapes|P1.1|ascii|encode|host-gen|drop: 15.1 us
-shapes|P1.1|ascii|encode|host-gen|retain: 15.4 us
-shapes|P1.1|ascii|decode|incumbent-prod|incumbent-default: 1.03 us
-shapes|P1.1|ascii|decode|incumbent-best|incumbent-default: 1.73 us
-shapes|P1.1|ascii|decode|core-ffi|drop: 2.33 us
-shapes|P1.1|ascii|decode|core-ffi|retain: 2.30 us
-shapes|P1.1|ascii|decode|core-ffi-attr|drop: 3.64 us
-shapes|P1.1|ascii|decode|host-gen|drop: 26.4 us
-shapes|P1.1|ascii|decode|host-gen|retain: 43.2 us
-shapes|P1.1|ascii|decode+read|incumbent-prod|incumbent-default: 14.6 us
-shapes|P1.1|ascii|decode+read|incumbent-best|incumbent-default: 15.2 us
-shapes|P1.1|ascii|decode+read|core-ffi|drop: 10.9 us
-shapes|P1.1|ascii|decode+read|core-ffi|retain: 10.7 us
-shapes|P1.1|ascii|decode+read|core-ffi-attr|drop: 12.8 us
-shapes|P1.1|ascii|decode+read|host-gen|drop: 37.6 us
-shapes|P1.1|ascii|decode+read|host-gen|retain: 38.8 us
-shapes|P1.2|ascii|encode|incumbent-prod|incumbent-default: 172 us
-shapes|P1.2|ascii|encode|incumbent-best|incumbent-default: 173 us
-shapes|P1.2|ascii|encode|core-ffi|drop: 167 us
-shapes|P1.2|ascii|encode|core-ffi|retain: 161 us
-shapes|P1.2|ascii|encode|core-ffi-attr|drop: 365 us
-shapes|P1.2|ascii|encode|host-gen|drop: 3.63 ms
-shapes|P1.2|ascii|encode|host-gen|retain: 3.94 ms
-shapes|P1.2|ascii|decode|incumbent-prod|incumbent-default: 191 us
-shapes|P1.2|ascii|decode|incumbent-best|incumbent-default: 357 us
-shapes|P1.2|ascii|decode|core-ffi|drop: 573 us
-shapes|P1.2|ascii|decode|core-ffi|retain: 558 us
-shapes|P1.2|ascii|decode|core-ffi-attr|drop: 1.10 ms
-shapes|P1.2|ascii|decode|host-gen|drop: 7.97 ms
-shapes|P1.2|ascii|decode|host-gen|retain: 8.07 ms
-shapes|P1.2|ascii|decode+read|incumbent-prod|incumbent-default: 3.17 ms
-shapes|P1.2|ascii|decode+read|incumbent-best|incumbent-default: 3.24 ms
-shapes|P1.2|ascii|decode+read|core-ffi|drop: 2.29 ms
-shapes|P1.2|ascii|decode+read|core-ffi|retain: 2.30 ms
-shapes|P1.2|ascii|decode+read|core-ffi-attr|drop: 3.05 ms
-shapes|P1.2|ascii|decode+read|host-gen|drop: 9.75 ms
-shapes|P1.2|ascii|decode+read|host-gen|retain: 9.84 ms
-shapes|P1.3|ascii|encode|incumbent-prod|incumbent-default: 8.68 us
-shapes|P1.3|ascii|encode|incumbent-best|incumbent-default: 8.33 us
-shapes|P1.3|ascii|encode|core-ffi|drop: 7.76 us
-shapes|P1.3|ascii|encode|core-ffi|retain: 8.10 us
-shapes|P1.3|ascii|encode|core-ffi-attr|drop: 41.1 us
-shapes|P1.3|ascii|encode|host-gen|drop: 83.8 us
-shapes|P1.3|ascii|encode|host-gen|retain: 85.6 us
-shapes|P1.3|ascii|decode|incumbent-prod|incumbent-default: 4.62 us
-shapes|P1.3|ascii|decode|incumbent-best|incumbent-default: 25.1 us
-shapes|P1.3|ascii|decode|core-ffi|drop: 47.0 us
-shapes|P1.3|ascii|decode|core-ffi|retain: 37.9 us
-shapes|P1.3|ascii|decode|core-ffi-attr|drop: 96.0 us
-shapes|P1.3|ascii|decode|host-gen|drop: 152 us
-shapes|P1.3|ascii|decode|host-gen|retain: 161 us
-shapes|P1.3|ascii|decode+read|incumbent-prod|incumbent-default: 542 us
-shapes|P1.3|ascii|decode+read|incumbent-best|incumbent-default: 589 us
-shapes|P1.3|ascii|decode+read|core-ffi|drop: 382 us
-shapes|P1.3|ascii|decode+read|core-ffi|retain: 416 us
-shapes|P1.3|ascii|decode+read|core-ffi-attr|drop: 454 us
-shapes|P1.3|ascii|decode+read|host-gen|drop: 453 us
-shapes|P1.3|ascii|decode+read|host-gen|retain: 456 us
-shapes|P2.1|ascii|encode|incumbent-prod|incumbent-default: 808 ns
-shapes|P2.1|ascii|encode|incumbent-best|incumbent-default: 887 ns
-shapes|P2.1|ascii|encode|core-ffi|drop: 1.23 us
-shapes|P2.1|ascii|encode|core-ffi|retain: 2.22 us
-shapes|P2.1|ascii|encode|core-ffi-attr|drop: 2.10 us
-shapes|P2.1|ascii|encode|host-gen|drop: 13.4 us
-shapes|P2.1|ascii|encode|host-gen|retain: 16.4 us
-shapes|P2.1|ascii|decode|incumbent-prod|incumbent-default: 1.29 us
-shapes|P2.1|ascii|decode|incumbent-best|incumbent-default: 2.14 us
-shapes|P2.1|ascii|decode|core-ffi|drop: 3.54 us
-shapes|P2.1|ascii|decode|core-ffi|retain: 3.83 us
-shapes|P2.1|ascii|decode|core-ffi-attr|drop: 9.05 us
-shapes|P2.1|ascii|decode|host-gen|drop: 35.2 us
-shapes|P2.1|ascii|decode|host-gen|retain: 38.9 us
-shapes|P2.1|ascii|decode+read|incumbent-prod|incumbent-default: 21.3 us
-shapes|P2.1|ascii|decode+read|incumbent-best|incumbent-default: 22.1 us
-shapes|P2.1|ascii|decode+read|core-ffi|drop: 14.3 us
-shapes|P2.1|ascii|decode+read|core-ffi|retain: 12.9 us
-shapes|P2.1|ascii|decode+read|core-ffi-attr|drop: 16.5 us
-shapes|P2.1|ascii|decode+read|host-gen|drop: 49.5 us
-shapes|P2.1|ascii|decode+read|host-gen|retain: 45.1 us
-shapes|P2.2|ascii|encode|incumbent-prod|incumbent-default: 568 us
-shapes|P2.2|ascii|encode|incumbent-best|incumbent-default: 557 us
-shapes|P2.2|ascii|encode|core-ffi|drop: 811 us
-shapes|P2.2|ascii|encode|core-ffi|retain: 894 us
-shapes|P2.2|ascii|encode|core-ffi-attr|drop: 1.20 ms
-shapes|P2.2|ascii|encode|host-gen|drop: 9.90 ms
-shapes|P2.2|ascii|encode|host-gen|retain: 9.87 ms
-shapes|P2.2|ascii|decode|incumbent-prod|incumbent-default: 636 us
-shapes|P2.2|ascii|decode|incumbent-best|incumbent-default: 1.19 ms
-shapes|P2.2|ascii|decode|core-ffi|drop: 2.72 ms
-shapes|P2.2|ascii|decode|core-ffi|retain: 2.69 ms
-shapes|P2.2|ascii|decode|core-ffi-attr|drop: 4.33 ms
-shapes|P2.2|ascii|decode|host-gen|drop: 24.3 ms
-shapes|P2.2|ascii|decode|host-gen|retain: 38.6 ms
-shapes|P2.2|ascii|decode+read|incumbent-prod|incumbent-default: 10.3 ms
-shapes|P2.2|ascii|decode+read|incumbent-best|incumbent-default: 10.6 ms
-shapes|P2.2|ascii|decode+read|core-ffi|drop: 7.23 ms
-shapes|P2.2|ascii|decode+read|core-ffi|retain: 7.21 ms
-shapes|P2.2|ascii|decode+read|core-ffi-attr|drop: 8.91 ms
-shapes|P2.2|ascii|decode+read|host-gen|drop: 39.8 ms
-shapes|P2.2|ascii|decode+read|host-gen|retain: 26.0 ms
-shapes|P2.3|ascii|encode|incumbent-prod|incumbent-default: 394 us
-shapes|P2.3|ascii|encode|incumbent-best|incumbent-default: 385 us
-shapes|P2.3|ascii|encode|core-ffi|drop: 590 us
-shapes|P2.3|ascii|encode|core-ffi|retain: 569 us
-shapes|P2.3|ascii|encode|core-ffi-attr|drop: 625 us
-shapes|P2.3|ascii|encode|host-gen|drop: 4.67 ms
-shapes|P2.3|ascii|encode|host-gen|retain: 4.54 ms
-shapes|P2.3|ascii|decode|incumbent-prod|incumbent-default: 403 us
-shapes|P2.3|ascii|decode|incumbent-best|incumbent-default: 935 us
-shapes|P2.3|ascii|decode|core-ffi|drop: 1.74 ms
-shapes|P2.3|ascii|decode|core-ffi|retain: 2.05 ms
-shapes|P2.3|ascii|decode|core-ffi-attr|drop: 1.64 ms
-shapes|P2.3|ascii|decode|host-gen|drop: 11.6 ms
-shapes|P2.3|ascii|decode|host-gen|retain: 11.7 ms
-shapes|P2.3|ascii|decode+read|incumbent-prod|incumbent-default: 3.81 ms
-shapes|P2.3|ascii|decode+read|incumbent-best|incumbent-default: 3.51 ms
-shapes|P2.3|ascii|decode+read|core-ffi|drop: 2.91 ms
-shapes|P2.3|ascii|decode+read|core-ffi|retain: 3.04 ms
-shapes|P2.3|ascii|decode+read|core-ffi-attr|drop: 2.91 ms
-shapes|P2.3|ascii|decode+read|host-gen|drop: 11.8 ms
-shapes|P2.3|ascii|decode+read|host-gen|retain: 12.6 ms
-shapes|P2.4|ascii|encode|incumbent-prod|incumbent-default: 323 us
-shapes|P2.4|ascii|encode|incumbent-best|incumbent-default: 300 us
-shapes|P2.4|ascii|encode|core-ffi|drop: 703 us
-shapes|P2.4|ascii|encode|core-ffi|retain: 669 us
-shapes|P2.4|ascii|encode|core-ffi-attr|drop: 749 us
-shapes|P2.4|ascii|encode|host-gen|drop: 5.47 ms
-shapes|P2.4|ascii|encode|host-gen|retain: 5.17 ms
-shapes|P2.4|ascii|decode|incumbent-prod|incumbent-default: 464 us
-shapes|P2.4|ascii|decode|incumbent-best|incumbent-default: 1.24 ms
-shapes|P2.4|ascii|decode|core-ffi|drop: 1.78 ms
-shapes|P2.4|ascii|decode|core-ffi|retain: 1.76 ms
-shapes|P2.4|ascii|decode|core-ffi-attr|drop: 2.15 ms
-shapes|P2.4|ascii|decode|host-gen|drop: 12.1 ms
-shapes|P2.4|ascii|decode|host-gen|retain: 13.2 ms
-shapes|P2.4|ascii|decode+read|incumbent-prod|incumbent-default: 3.77 ms
-shapes|P2.4|ascii|decode+read|incumbent-best|incumbent-default: 5.82 ms
-shapes|P2.4|ascii|decode+read|core-ffi|drop: 3.02 ms
-shapes|P2.4|ascii|decode+read|core-ffi|retain: 3.36 ms
-shapes|P2.4|ascii|decode+read|core-ffi-attr|drop: 3.34 ms
-shapes|P2.4|ascii|decode+read|host-gen|drop: 13.7 ms
-shapes|P2.4|ascii|decode+read|host-gen|retain: 14.8 ms
-shapes|P2.4|latin1|encode|incumbent-prod|incumbent-default: 536 us
-shapes|P2.4|latin1|encode|incumbent-best|incumbent-default: 550 us
-shapes|P2.4|latin1|encode|core-ffi|drop: 2.41 ms
-shapes|P2.4|latin1|encode|core-ffi|retain: 3.47 ms
-shapes|P2.4|latin1|encode|core-ffi-attr|drop: 2.37 ms
-shapes|P2.4|latin1|encode|host-gen|drop: 5.33 ms
-shapes|P2.4|latin1|encode|host-gen|retain: 6.32 ms
-shapes|P2.4|latin1|decode|incumbent-prod|incumbent-default: 1.54 ms
-shapes|P2.4|latin1|decode|incumbent-best|incumbent-default: 1.73 ms
-shapes|P2.4|latin1|decode|core-ffi|drop: 8.22 ms
-shapes|P2.4|latin1|decode|core-ffi|retain: 5.46 ms
-shapes|P2.4|latin1|decode|core-ffi-attr|drop: 5.31 ms
-shapes|P2.4|latin1|decode|host-gen|drop: 14.9 ms
-shapes|P2.4|latin1|decode|host-gen|retain: 14.9 ms
-shapes|P2.4|latin1|decode+read|incumbent-prod|incumbent-default: 7.25 ms
-shapes|P2.4|latin1|decode+read|incumbent-best|incumbent-default: 7.06 ms
-shapes|P2.4|latin1|decode+read|core-ffi|drop: 7.16 ms
-shapes|P2.4|latin1|decode+read|core-ffi|retain: 6.62 ms
-shapes|P2.4|latin1|decode+read|core-ffi-attr|drop: 7.20 ms
-shapes|P2.4|latin1|decode+read|host-gen|drop: 17.1 ms
-shapes|P2.4|latin1|decode+read|host-gen|retain: 18.4 ms
-shapes|P2.4|wide|encode|incumbent-prod|incumbent-default: 862 us
-shapes|P2.4|wide|encode|incumbent-best|incumbent-default: 978 us
-shapes|P2.4|wide|encode|core-ffi|drop: 2.90 ms
-shapes|P2.4|wide|encode|core-ffi|retain: 2.99 ms
-shapes|P2.4|wide|encode|core-ffi-attr|drop: 3.10 ms
-shapes|P2.4|wide|encode|host-gen|drop: 5.80 ms
-shapes|P2.4|wide|encode|host-gen|retain: 5.72 ms
-shapes|P2.4|wide|decode|incumbent-prod|incumbent-default: 2.34 ms
-shapes|P2.4|wide|decode|incumbent-best|incumbent-default: 2.14 ms
-shapes|P2.4|wide|decode|core-ffi|drop: 5.96 ms
-shapes|P2.4|wide|decode|core-ffi|retain: 7.30 ms
-shapes|P2.4|wide|decode|core-ffi-attr|drop: 6.63 ms
-shapes|P2.4|wide|decode|host-gen|drop: 17.8 ms
-shapes|P2.4|wide|decode|host-gen|retain: 16.8 ms
-shapes|P2.4|wide|decode+read|incumbent-prod|incumbent-default: 8.67 ms
-shapes|P2.4|wide|decode+read|incumbent-best|incumbent-default: 8.57 ms
-shapes|P2.4|wide|decode+read|core-ffi|drop: 8.48 ms
-shapes|P2.4|wide|decode+read|core-ffi|retain: 7.88 ms
-shapes|P2.4|wide|decode+read|core-ffi-attr|drop: 8.25 ms
-shapes|P2.4|wide|decode+read|host-gen|drop: 19.4 ms
-shapes|P2.4|wide|decode+read|host-gen|retain: 19.4 ms
-shapes|P2.5|ascii|encode|incumbent-prod|incumbent-default: 11.3 us
-shapes|P2.5|ascii|encode|incumbent-best|incumbent-default: 11.2 us
-shapes|P2.5|ascii|encode|core-ffi|drop: 21.1 us
-shapes|P2.5|ascii|encode|core-ffi|retain: 22.4 us
-shapes|P2.5|ascii|encode|core-ffi-attr|drop: 31.3 us
-shapes|P2.5|ascii|encode|host-gen|drop: 304 us
-shapes|P2.5|ascii|encode|host-gen|retain: 308 us
-shapes|P2.5|ascii|decode|incumbent-prod|incumbent-default: 19.3 us
-shapes|P2.5|ascii|decode|incumbent-best|incumbent-default: 40.0 us
-shapes|P2.5|ascii|decode|core-ffi|drop: 48.8 us
-shapes|P2.5|ascii|decode|core-ffi|retain: 51.6 us
-shapes|P2.5|ascii|decode|core-ffi-attr|drop: 94.2 us
-shapes|P2.5|ascii|decode|host-gen|drop: 685 us
-shapes|P2.5|ascii|decode|host-gen|retain: 704 us
-shapes|P2.5|ascii|decode+read|incumbent-prod|incumbent-default: 337 us
-shapes|P2.5|ascii|decode+read|incumbent-best|incumbent-default: 380 us
-shapes|P2.5|ascii|decode+read|core-ffi|drop: 225 us
-shapes|P2.5|ascii|decode+read|core-ffi|retain: 209 us
-shapes|P2.5|ascii|decode+read|core-ffi-attr|drop: 240 us
-shapes|P2.5|ascii|decode+read|host-gen|drop: 832 us
-shapes|P2.5|ascii|decode+read|host-gen|retain: 1.38 ms
-shapes|P3.1|ascii|encode|incumbent-prod|incumbent-default: 9.99 us
-shapes|P3.1|ascii|encode|incumbent-best|incumbent-default: 21.1 us
-shapes|P3.1|ascii|encode|core-ffi|drop: 10.2 us
-shapes|P3.1|ascii|encode|core-ffi|retain: 12.4 us
-shapes|P3.1|ascii|encode|core-ffi-attr|drop: 48.8 us
-shapes|P3.1|ascii|encode|host-gen|drop: 261 us
-shapes|P3.1|ascii|encode|host-gen|retain: 246 us
-shapes|P3.1|ascii|decode|incumbent-prod|incumbent-default: 14.7 us
-shapes|P3.1|ascii|decode|incumbent-best|incumbent-default: 26.5 us
-shapes|P3.1|ascii|decode|core-ffi|drop: 50.3 us
-shapes|P3.1|ascii|decode|core-ffi|retain: 44.3 us
-shapes|P3.1|ascii|decode|core-ffi-attr|drop: 93.3 us
-shapes|P3.1|ascii|decode|host-gen|drop: 504 us
-shapes|P3.1|ascii|decode|host-gen|retain: 772 us
-shapes|P3.1|ascii|decode+read|incumbent-prod|incumbent-default: 396 us
-shapes|P3.1|ascii|decode+read|incumbent-best|incumbent-default: 328 us
-shapes|P3.1|ascii|decode+read|core-ffi|drop: 180 us
-shapes|P3.1|ascii|decode+read|core-ffi|retain: 177 us
-shapes|P3.1|ascii|decode+read|core-ffi-attr|drop: 238 us
-shapes|P3.1|ascii|decode+read|host-gen|drop: 640 us
-shapes|P3.1|ascii|decode+read|host-gen|retain: 1.06 ms
-shapes|P4.1|ascii|encode|incumbent-prod|incumbent-default: 67.7 us
-shapes|P4.1|ascii|encode|incumbent-best|incumbent-default: 72.5 us
-shapes|P4.1|ascii|encode|core-ffi|drop: 117 us
-shapes|P4.1|ascii|encode|core-ffi|retain: 139 us
-shapes|P4.1|ascii|encode|core-ffi-attr|drop: 203 us
-shapes|P4.1|ascii|encode|host-gen|drop: 1.28 ms
-shapes|P4.1|ascii|encode|host-gen|retain: 1.56 ms
-shapes|P4.1|ascii|decode|incumbent-prod|incumbent-default: 100 us
-shapes|P4.1|ascii|decode|incumbent-best|incumbent-default: 236 us
-shapes|P4.1|ascii|decode|core-ffi|drop: 342 us
-shapes|P4.1|ascii|decode|core-ffi|retain: 404 us
-shapes|P4.1|ascii|decode|core-ffi-attr|drop: 483 us
-shapes|P4.1|ascii|decode|host-gen|drop: 3.19 ms
-shapes|P4.1|ascii|decode|host-gen|retain: 3.20 ms
-shapes|P4.1|ascii|decode+read|incumbent-prod|incumbent-default: 1.25 ms
-shapes|P4.1|ascii|decode+read|incumbent-best|incumbent-default: 1.49 ms
-shapes|P4.1|ascii|decode+read|core-ffi|drop: 867 us
-shapes|P4.1|ascii|decode+read|core-ffi|retain: 962 us
-shapes|P4.1|ascii|decode+read|core-ffi-attr|drop: 965 us
-shapes|P4.1|ascii|decode+read|host-gen|drop: 3.78 ms
-shapes|P4.1|ascii|decode+read|host-gen|retain: 3.82 ms
-shapes|P5.1|ascii|encode|incumbent-prod|incumbent-default: 136 ns
-shapes|P5.1|ascii|encode|incumbent-best|incumbent-default: 107 ns
-shapes|P5.1|ascii|encode|core-ffi|drop: 239 ns
-shapes|P5.1|ascii|encode|core-ffi|retain: 260 ns
-shapes|P5.1|ascii|encode|core-ffi-attr|drop: 254 ns
-shapes|P5.1|ascii|encode|host-gen|drop: 931 ns
-shapes|P5.1|ascii|encode|host-gen|retain: 1.21 us
-shapes|P5.1|ascii|decode|incumbent-prod|incumbent-default: 326 ns
-shapes|P5.1|ascii|decode|incumbent-best|incumbent-default: 312 ns
-shapes|P5.1|ascii|decode|core-ffi|drop: 530 ns
-shapes|P5.1|ascii|decode|core-ffi|retain: 546 ns
-shapes|P5.1|ascii|decode|core-ffi-attr|drop: 717 ns
-shapes|P5.1|ascii|decode|host-gen|drop: 1.65 us
-shapes|P5.1|ascii|decode|host-gen|retain: 1.82 us
-shapes|P5.1|ascii|decode+read|incumbent-prod|incumbent-default: 2.05 us
-shapes|P5.1|ascii|decode+read|incumbent-best|incumbent-default: 2.12 us
-shapes|P5.1|ascii|decode+read|core-ffi|drop: 1.07 us
-shapes|P5.1|ascii|decode+read|core-ffi|retain: 1.89 us
-shapes|P5.1|ascii|decode+read|core-ffi-attr|drop: 1.44 us
-shapes|P5.1|ascii|decode+read|host-gen|drop: 2.68 us
-shapes|P5.1|ascii|decode+read|host-gen|retain: 2.23 us
-shapes|P5.2|ascii|encode|incumbent-prod|incumbent-default: 3.32 us
-shapes|P5.2|ascii|encode|incumbent-best|incumbent-default: 3.38 us
-shapes|P5.2|ascii|encode|core-ffi|drop: 3.26 us
-shapes|P5.2|ascii|encode|core-ffi|retain: 3.53 us
-shapes|P5.2|ascii|encode|core-ffi-attr|drop: 2.98 us
-shapes|P5.2|ascii|encode|host-gen|drop: 6.45 us
-shapes|P5.2|ascii|encode|host-gen|retain: 5.93 us
-shapes|P5.2|ascii|decode|incumbent-prod|incumbent-default: 1.92 us
-shapes|P5.2|ascii|decode|incumbent-best|incumbent-default: 34.0 us
-shapes|P5.2|ascii|decode|core-ffi|drop: 2.15 us
-shapes|P5.2|ascii|decode|core-ffi|retain: 2.20 us
-shapes|P5.2|ascii|decode|core-ffi-attr|drop: 2.23 us
-shapes|P5.2|ascii|decode|host-gen|drop: 4.10 us
-shapes|P5.2|ascii|decode|host-gen|retain: 4.11 us
-shapes|P5.2|ascii|decode+read|incumbent-prod|incumbent-default: 4.70 us
-shapes|P5.2|ascii|decode+read|incumbent-best|incumbent-default: 37.6 us
-shapes|P5.2|ascii|decode+read|core-ffi|drop: 2.85 us
-shapes|P5.2|ascii|decode+read|core-ffi|retain: 2.73 us
-shapes|P5.2|ascii|decode+read|core-ffi-attr|drop: 2.77 us
-shapes|P5.2|ascii|decode+read|host-gen|drop: 4.60 us
-shapes|P5.2|ascii|decode+read|host-gen|retain: 4.64 us
-shapes|P5.3|ascii|encode|incumbent-prod|incumbent-default: 479 us
-shapes|P5.3|ascii|encode|incumbent-best|incumbent-default: 567 us
-shapes|P5.3|ascii|encode|core-ffi|drop: 136 us
-shapes|P5.3|ascii|encode|core-ffi|retain: 115 us
-shapes|P5.3|ascii|encode|core-ffi-attr|drop: 105 us
-shapes|P5.3|ascii|encode|host-gen|drop: 578 us
-shapes|P5.3|ascii|encode|host-gen|retain: 550 us
-shapes|P5.3|ascii|decode|incumbent-prod|incumbent-default: 44.1 us
-shapes|P5.3|ascii|decode|incumbent-best|incumbent-default: 557 us
-shapes|P5.3|ascii|decode|core-ffi|drop: 52.8 us
-shapes|P5.3|ascii|decode|core-ffi|retain: 50.0 us
-shapes|P5.3|ascii|decode|core-ffi-attr|drop: 42.6 us
-shapes|P5.3|ascii|decode|host-gen|drop: 47.0 us
-shapes|P5.3|ascii|decode|host-gen|retain: 50.9 us
-shapes|P5.3|ascii|decode+read|incumbent-prod|incumbent-default: 117 us
-shapes|P5.3|ascii|decode+read|incumbent-best|incumbent-default: 1.12 ms
-shapes|P5.3|ascii|decode+read|core-ffi|drop: 49.6 us
-shapes|P5.3|ascii|decode+read|core-ffi|retain: 49.9 us
-shapes|P5.3|ascii|decode+read|core-ffi-attr|drop: 46.2 us
-shapes|P5.3|ascii|decode+read|host-gen|drop: 55.6 us
-shapes|P5.3|ascii|decode+read|host-gen|retain: 50.5 us
-shapes|P5.4|ascii|encode|incumbent-prod|incumbent-default: 3.61 ms
-shapes|P5.4|ascii|encode|incumbent-best|incumbent-default: 3.99 ms
-shapes|P5.4|ascii|encode|core-ffi|drop: 2.27 ms
-shapes|P5.4|ascii|encode|core-ffi|retain: 2.02 ms
-shapes|P5.4|ascii|encode|core-ffi-attr|drop: 2.02 ms
-shapes|P5.4|ascii|encode|host-gen|drop: 5.73 ms
-shapes|P5.4|ascii|encode|host-gen|retain: 5.77 ms
-shapes|P5.4|ascii|decode|incumbent-prod|incumbent-default: 1.70 ms
-shapes|P5.4|ascii|decode|incumbent-best|incumbent-default: 1.75 ms
-shapes|P5.4|ascii|decode|core-ffi|drop: 1.63 ms
-shapes|P5.4|ascii|decode|core-ffi|retain: 1.70 ms
-shapes|P5.4|ascii|decode|core-ffi-attr|drop: 1.97 ms
-shapes|P5.4|ascii|decode|host-gen|drop: 1.63 ms
-shapes|P5.4|ascii|decode|host-gen|retain: 2.03 ms
-shapes|P5.4|ascii|decode+read|incumbent-prod|incumbent-default: 3.29 ms
-shapes|P5.4|ascii|decode+read|incumbent-best|incumbent-default: 3.48 ms
-shapes|P5.4|ascii|decode+read|core-ffi|drop: 2.55 ms
-shapes|P5.4|ascii|decode+read|core-ffi|retain: 1.74 ms
-shapes|P5.4|ascii|decode+read|core-ffi-attr|drop: 1.72 ms
-shapes|P5.4|ascii|decode+read|host-gen|drop: 1.77 ms
-shapes|P5.4|ascii|decode+read|host-gen|retain: 1.86 ms
-shapes|P6.1|ascii|encode|incumbent-prod|incumbent-default: 125 us
-shapes|P6.1|ascii|encode|incumbent-best|incumbent-default: 105 us
-shapes|P6.1|ascii|encode|core-ffi|drop: 325 us
-shapes|P6.1|ascii|encode|core-ffi|retain: 324 us
-shapes|P6.1|ascii|encode|core-ffi-attr|drop: 326 us
-shapes|P6.1|ascii|encode|host-gen|drop: 4.82 ms
-shapes|P6.1|ascii|encode|host-gen|retain: 4.86 ms
-shapes|P6.1|ascii|decode|incumbent-prod|incumbent-default: 147 us
-shapes|P6.1|ascii|decode|incumbent-best|incumbent-default: 252 us
-shapes|P6.1|ascii|decode|core-ffi|drop: 709 us
-shapes|P6.1|ascii|decode|core-ffi|retain: 654 us
-shapes|P6.1|ascii|decode|core-ffi-attr|drop: 702 us
-shapes|P6.1|ascii|decode|host-gen|drop: 8.46 ms
-shapes|P6.1|ascii|decode|host-gen|retain: 9.43 ms
-shapes|P6.1|ascii|decode+read|incumbent-prod|incumbent-default: 1.61 ms
-shapes|P6.1|ascii|decode+read|incumbent-best|incumbent-default: 1.59 ms
-shapes|P6.1|ascii|decode+read|core-ffi|drop: 1.16 ms
-shapes|P6.1|ascii|decode+read|core-ffi|retain: 983 us
-shapes|P6.1|ascii|decode+read|core-ffi-attr|drop: 1.13 ms
-shapes|P6.1|ascii|decode+read|host-gen|drop: 9.74 ms
-shapes|P6.1|ascii|decode+read|host-gen|retain: 9.56 ms
-shapes|P7.1|ascii|encode|incumbent-prod|incumbent-default: 241 ns
-shapes|P7.1|ascii|encode|incumbent-best|incumbent-default: 210 ns
-shapes|P7.1|ascii|encode|core-ffi|drop: 286 ns
-shapes|P7.1|ascii|encode|core-ffi|retain: 350 ns
-shapes|P7.1|ascii|encode|core-ffi-attr|drop: 428 ns
-shapes|P7.1|ascii|encode|host-gen|drop: 3.73 us
-shapes|P7.1|ascii|encode|host-gen|retain: 4.47 us
-shapes|P7.1|ascii|decode|incumbent-prod|incumbent-default: 449 ns
-shapes|P7.1|ascii|decode|incumbent-best|incumbent-default: 481 ns
-shapes|P7.1|ascii|decode|core-ffi|drop: 1.10 us
-shapes|P7.1|ascii|decode|core-ffi|retain: 1.87 us
-shapes|P7.1|ascii|decode|core-ffi-attr|drop: 1.66 us
-shapes|P7.1|ascii|decode|host-gen|drop: 7.68 us
-shapes|P7.1|ascii|decode|host-gen|retain: 7.75 us
-shapes|P7.1|ascii|decode+read|incumbent-prod|incumbent-default: 4.75 us
-shapes|P7.1|ascii|decode+read|incumbent-best|incumbent-default: 5.60 us
-shapes|P7.1|ascii|decode+read|core-ffi|drop: 2.98 us
-shapes|P7.1|ascii|decode+read|core-ffi|retain: 3.43 us
-shapes|P7.1|ascii|decode+read|core-ffi-attr|drop: 3.86 us
-shapes|P7.1|ascii|decode+read|host-gen|drop: 9.09 us
-shapes|P7.1|ascii|decode+read|host-gen|retain: 9.24 us
+# FIGURES STRIPPED (FIX-PLAN WP6); the raw pyperf JSON is not committed
+shapes|P1.1|ascii|encode|incumbent-prod|incumbent-default: [stripped]
+shapes|P1.1|ascii|encode|incumbent-best|incumbent-default: [stripped]
+shapes|P1.1|ascii|encode|core-ffi|drop: [stripped]
+shapes|P1.1|ascii|encode|core-ffi|retain: [stripped]
+shapes|P1.1|ascii|encode|core-ffi-attr|drop: [stripped]
+shapes|P1.1|ascii|encode|host-gen|drop: [stripped]
+shapes|P1.1|ascii|encode|host-gen|retain: [stripped]
+shapes|P1.1|ascii|decode|incumbent-prod|incumbent-default: [stripped]
+shapes|P1.1|ascii|decode|incumbent-best|incumbent-default: [stripped]
+shapes|P1.1|ascii|decode|core-ffi|drop: [stripped]
+shapes|P1.1|ascii|decode|core-ffi|retain: [stripped]
+shapes|P1.1|ascii|decode|core-ffi-attr|drop: [stripped]
+shapes|P1.1|ascii|decode|host-gen|drop: [stripped]
+shapes|P1.1|ascii|decode|host-gen|retain: [stripped]
+shapes|P1.1|ascii|decode+read|incumbent-prod|incumbent-default: [stripped]
+shapes|P1.1|ascii|decode+read|incumbent-best|incumbent-default: [stripped]
+shapes|P1.1|ascii|decode+read|core-ffi|drop: [stripped]
+shapes|P1.1|ascii|decode+read|core-ffi|retain: [stripped]
+shapes|P1.1|ascii|decode+read|core-ffi-attr|drop: [stripped]
+shapes|P1.1|ascii|decode+read|host-gen|drop: [stripped]
+shapes|P1.1|ascii|decode+read|host-gen|retain: [stripped]
+shapes|P1.2|ascii|encode|incumbent-prod|incumbent-default: [stripped]
+shapes|P1.2|ascii|encode|incumbent-best|incumbent-default: [stripped]
+shapes|P1.2|ascii|encode|core-ffi|drop: [stripped]
+shapes|P1.2|ascii|encode|core-ffi|retain: [stripped]
+shapes|P1.2|ascii|encode|core-ffi-attr|drop: [stripped]
+shapes|P1.2|ascii|encode|host-gen|drop: [stripped]
+shapes|P1.2|ascii|encode|host-gen|retain: [stripped]
+shapes|P1.2|ascii|decode|incumbent-prod|incumbent-default: [stripped]
+shapes|P1.2|ascii|decode|incumbent-best|incumbent-default: [stripped]
+shapes|P1.2|ascii|decode|core-ffi|drop: [stripped]
+shapes|P1.2|ascii|decode|core-ffi|retain: [stripped]
+shapes|P1.2|ascii|decode|core-ffi-attr|drop: [stripped]
+shapes|P1.2|ascii|decode|host-gen|drop: [stripped]
+shapes|P1.2|ascii|decode|host-gen|retain: [stripped]
+shapes|P1.2|ascii|decode+read|incumbent-prod|incumbent-default: [stripped]
+shapes|P1.2|ascii|decode+read|incumbent-best|incumbent-default: [stripped]
+shapes|P1.2|ascii|decode+read|core-ffi|drop: [stripped]
+shapes|P1.2|ascii|decode+read|core-ffi|retain: [stripped]
+shapes|P1.2|ascii|decode+read|core-ffi-attr|drop: [stripped]
+shapes|P1.2|ascii|decode+read|host-gen|drop: [stripped]
+shapes|P1.2|ascii|decode+read|host-gen|retain: [stripped]
+shapes|P1.3|ascii|encode|incumbent-prod|incumbent-default: [stripped]
+shapes|P1.3|ascii|encode|incumbent-best|incumbent-default: [stripped]
+shapes|P1.3|ascii|encode|core-ffi|drop: [stripped]
+shapes|P1.3|ascii|encode|core-ffi|retain: [stripped]
+shapes|P1.3|ascii|encode|core-ffi-attr|drop: [stripped]
+shapes|P1.3|ascii|encode|host-gen|drop: [stripped]
+shapes|P1.3|ascii|encode|host-gen|retain: [stripped]
+shapes|P1.3|ascii|decode|incumbent-prod|incumbent-default: [stripped]
+shapes|P1.3|ascii|decode|incumbent-best|incumbent-default: [stripped]
+shapes|P1.3|ascii|decode|core-ffi|drop: [stripped]
+shapes|P1.3|ascii|decode|core-ffi|retain: [stripped]
+shapes|P1.3|ascii|decode|core-ffi-attr|drop: [stripped]
+shapes|P1.3|ascii|decode|host-gen|drop: [stripped]
+shapes|P1.3|ascii|decode|host-gen|retain: [stripped]
+shapes|P1.3|ascii|decode+read|incumbent-prod|incumbent-default: [stripped]
+shapes|P1.3|ascii|decode+read|incumbent-best|incumbent-default: [stripped]
+shapes|P1.3|ascii|decode+read|core-ffi|drop: [stripped]
+shapes|P1.3|ascii|decode+read|core-ffi|retain: [stripped]
+shapes|P1.3|ascii|decode+read|core-ffi-attr|drop: [stripped]
+shapes|P1.3|ascii|decode+read|host-gen|drop: [stripped]
+shapes|P1.3|ascii|decode+read|host-gen|retain: [stripped]
+shapes|P2.1|ascii|encode|incumbent-prod|incumbent-default: [stripped]
+shapes|P2.1|ascii|encode|incumbent-best|incumbent-default: [stripped]
+shapes|P2.1|ascii|encode|core-ffi|drop: [stripped]
+shapes|P2.1|ascii|encode|core-ffi|retain: [stripped]
+shapes|P2.1|ascii|encode|core-ffi-attr|drop: [stripped]
+shapes|P2.1|ascii|encode|host-gen|drop: [stripped]
+shapes|P2.1|ascii|encode|host-gen|retain: [stripped]
+shapes|P2.1|ascii|decode|incumbent-prod|incumbent-default: [stripped]
+shapes|P2.1|ascii|decode|incumbent-best|incumbent-default: [stripped]
+shapes|P2.1|ascii|decode|core-ffi|drop: [stripped]
+shapes|P2.1|ascii|decode|core-ffi|retain: [stripped]
+shapes|P2.1|ascii|decode|core-ffi-attr|drop: [stripped]
+shapes|P2.1|ascii|decode|host-gen|drop: [stripped]
+shapes|P2.1|ascii|decode|host-gen|retain: [stripped]
+shapes|P2.1|ascii|decode+read|incumbent-prod|incumbent-default: [stripped]
+shapes|P2.1|ascii|decode+read|incumbent-best|incumbent-default: [stripped]
+shapes|P2.1|ascii|decode+read|core-ffi|drop: [stripped]
+shapes|P2.1|ascii|decode+read|core-ffi|retain: [stripped]
+shapes|P2.1|ascii|decode+read|core-ffi-attr|drop: [stripped]
+shapes|P2.1|ascii|decode+read|host-gen|drop: [stripped]
+shapes|P2.1|ascii|decode+read|host-gen|retain: [stripped]
+shapes|P2.2|ascii|encode|incumbent-prod|incumbent-default: [stripped]
+shapes|P2.2|ascii|encode|incumbent-best|incumbent-default: [stripped]
+shapes|P2.2|ascii|encode|core-ffi|drop: [stripped]
+shapes|P2.2|ascii|encode|core-ffi|retain: [stripped]
+shapes|P2.2|ascii|encode|core-ffi-attr|drop: [stripped]
+shapes|P2.2|ascii|encode|host-gen|drop: [stripped]
+shapes|P2.2|ascii|encode|host-gen|retain: [stripped]
+shapes|P2.2|ascii|decode|incumbent-prod|incumbent-default: [stripped]
+shapes|P2.2|ascii|decode|incumbent-best|incumbent-default: [stripped]
+shapes|P2.2|ascii|decode|core-ffi|drop: [stripped]
+shapes|P2.2|ascii|decode|core-ffi|retain: [stripped]
+shapes|P2.2|ascii|decode|core-ffi-attr|drop: [stripped]
+shapes|P2.2|ascii|decode|host-gen|drop: [stripped]
+shapes|P2.2|ascii|decode|host-gen|retain: [stripped]
+shapes|P2.2|ascii|decode+read|incumbent-prod|incumbent-default: [stripped]
+shapes|P2.2|ascii|decode+read|incumbent-best|incumbent-default: [stripped]
+shapes|P2.2|ascii|decode+read|core-ffi|drop: [stripped]
+shapes|P2.2|ascii|decode+read|core-ffi|retain: [stripped]
+shapes|P2.2|ascii|decode+read|core-ffi-attr|drop: [stripped]
+shapes|P2.2|ascii|decode+read|host-gen|drop: [stripped]
+shapes|P2.2|ascii|decode+read|host-gen|retain: [stripped]
+shapes|P2.3|ascii|encode|incumbent-prod|incumbent-default: [stripped]
+shapes|P2.3|ascii|encode|incumbent-best|incumbent-default: [stripped]
+shapes|P2.3|ascii|encode|core-ffi|drop: [stripped]
+shapes|P2.3|ascii|encode|core-ffi|retain: [stripped]
+shapes|P2.3|ascii|encode|core-ffi-attr|drop: [stripped]
+shapes|P2.3|ascii|encode|host-gen|drop: [stripped]
+shapes|P2.3|ascii|encode|host-gen|retain: [stripped]
+shapes|P2.3|ascii|decode|incumbent-prod|incumbent-default: [stripped]
+shapes|P2.3|ascii|decode|incumbent-best|incumbent-default: [stripped]
+shapes|P2.3|ascii|decode|core-ffi|drop: [stripped]
+shapes|P2.3|ascii|decode|core-ffi|retain: [stripped]
+shapes|P2.3|ascii|decode|core-ffi-attr|drop: [stripped]
+shapes|P2.3|ascii|decode|host-gen|drop: [stripped]
+shapes|P2.3|ascii|decode|host-gen|retain: [stripped]
+shapes|P2.3|ascii|decode+read|incumbent-prod|incumbent-default: [stripped]
+shapes|P2.3|ascii|decode+read|incumbent-best|incumbent-default: [stripped]
+shapes|P2.3|ascii|decode+read|core-ffi|drop: [stripped]
+shapes|P2.3|ascii|decode+read|core-ffi|retain: [stripped]
+shapes|P2.3|ascii|decode+read|core-ffi-attr|drop: [stripped]
+shapes|P2.3|ascii|decode+read|host-gen|drop: [stripped]
+shapes|P2.3|ascii|decode+read|host-gen|retain: [stripped]
+shapes|P2.4|ascii|encode|incumbent-prod|incumbent-default: [stripped]
+shapes|P2.4|ascii|encode|incumbent-best|incumbent-default: [stripped]
+shapes|P2.4|ascii|encode|core-ffi|drop: [stripped]
+shapes|P2.4|ascii|encode|core-ffi|retain: [stripped]
+shapes|P2.4|ascii|encode|core-ffi-attr|drop: [stripped]
+shapes|P2.4|ascii|encode|host-gen|drop: [stripped]
+shapes|P2.4|ascii|encode|host-gen|retain: [stripped]
+shapes|P2.4|ascii|decode|incumbent-prod|incumbent-default: [stripped]
+shapes|P2.4|ascii|decode|incumbent-best|incumbent-default: [stripped]
+shapes|P2.4|ascii|decode|core-ffi|drop: [stripped]
+shapes|P2.4|ascii|decode|core-ffi|retain: [stripped]
+shapes|P2.4|ascii|decode|core-ffi-attr|drop: [stripped]
+shapes|P2.4|ascii|decode|host-gen|drop: [stripped]
+shapes|P2.4|ascii|decode|host-gen|retain: [stripped]
+shapes|P2.4|ascii|decode+read|incumbent-prod|incumbent-default: [stripped]
+shapes|P2.4|ascii|decode+read|incumbent-best|incumbent-default: [stripped]
+shapes|P2.4|ascii|decode+read|core-ffi|drop: [stripped]
+shapes|P2.4|ascii|decode+read|core-ffi|retain: [stripped]
+shapes|P2.4|ascii|decode+read|core-ffi-attr|drop: [stripped]
+shapes|P2.4|ascii|decode+read|host-gen|drop: [stripped]
+shapes|P2.4|ascii|decode+read|host-gen|retain: [stripped]
+shapes|P2.4|latin1|encode|incumbent-prod|incumbent-default: [stripped]
+shapes|P2.4|latin1|encode|incumbent-best|incumbent-default: [stripped]
+shapes|P2.4|latin1|encode|core-ffi|drop: [stripped]
+shapes|P2.4|latin1|encode|core-ffi|retain: [stripped]
+shapes|P2.4|latin1|encode|core-ffi-attr|drop: [stripped]
+shapes|P2.4|latin1|encode|host-gen|drop: [stripped]
+shapes|P2.4|latin1|encode|host-gen|retain: [stripped]
+shapes|P2.4|latin1|decode|incumbent-prod|incumbent-default: [stripped]
+shapes|P2.4|latin1|decode|incumbent-best|incumbent-default: [stripped]
+shapes|P2.4|latin1|decode|core-ffi|drop: [stripped]
+shapes|P2.4|latin1|decode|core-ffi|retain: [stripped]
+shapes|P2.4|latin1|decode|core-ffi-attr|drop: [stripped]
+shapes|P2.4|latin1|decode|host-gen|drop: [stripped]
+shapes|P2.4|latin1|decode|host-gen|retain: [stripped]
+shapes|P2.4|latin1|decode+read|incumbent-prod|incumbent-default: [stripped]
+shapes|P2.4|latin1|decode+read|incumbent-best|incumbent-default: [stripped]
+shapes|P2.4|latin1|decode+read|core-ffi|drop: [stripped]
+shapes|P2.4|latin1|decode+read|core-ffi|retain: [stripped]
+shapes|P2.4|latin1|decode+read|core-ffi-attr|drop: [stripped]
+shapes|P2.4|latin1|decode+read|host-gen|drop: [stripped]
+shapes|P2.4|latin1|decode+read|host-gen|retain: [stripped]
+shapes|P2.4|wide|encode|incumbent-prod|incumbent-default: [stripped]
+shapes|P2.4|wide|encode|incumbent-best|incumbent-default: [stripped]
+shapes|P2.4|wide|encode|core-ffi|drop: [stripped]
+shapes|P2.4|wide|encode|core-ffi|retain: [stripped]
+shapes|P2.4|wide|encode|core-ffi-attr|drop: [stripped]
+shapes|P2.4|wide|encode|host-gen|drop: [stripped]
+shapes|P2.4|wide|encode|host-gen|retain: [stripped]
+shapes|P2.4|wide|decode|incumbent-prod|incumbent-default: [stripped]
+shapes|P2.4|wide|decode|incumbent-best|incumbent-default: [stripped]
+shapes|P2.4|wide|decode|core-ffi|drop: [stripped]
+shapes|P2.4|wide|decode|core-ffi|retain: [stripped]
+shapes|P2.4|wide|decode|core-ffi-attr|drop: [stripped]
+shapes|P2.4|wide|decode|host-gen|drop: [stripped]
+shapes|P2.4|wide|decode|host-gen|retain: [stripped]
+shapes|P2.4|wide|decode+read|incumbent-prod|incumbent-default: [stripped]
+shapes|P2.4|wide|decode+read|incumbent-best|incumbent-default: [stripped]
+shapes|P2.4|wide|decode+read|core-ffi|drop: [stripped]
+shapes|P2.4|wide|decode+read|core-ffi|retain: [stripped]
+shapes|P2.4|wide|decode+read|core-ffi-attr|drop: [stripped]
+shapes|P2.4|wide|decode+read|host-gen|drop: [stripped]
+shapes|P2.4|wide|decode+read|host-gen|retain: [stripped]
+shapes|P2.5|ascii|encode|incumbent-prod|incumbent-default: [stripped]
+shapes|P2.5|ascii|encode|incumbent-best|incumbent-default: [stripped]
+shapes|P2.5|ascii|encode|core-ffi|drop: [stripped]
+shapes|P2.5|ascii|encode|core-ffi|retain: [stripped]
+shapes|P2.5|ascii|encode|core-ffi-attr|drop: [stripped]
+shapes|P2.5|ascii|encode|host-gen|drop: [stripped]
+shapes|P2.5|ascii|encode|host-gen|retain: [stripped]
+shapes|P2.5|ascii|decode|incumbent-prod|incumbent-default: [stripped]
+shapes|P2.5|ascii|decode|incumbent-best|incumbent-default: [stripped]
+shapes|P2.5|ascii|decode|core-ffi|drop: [stripped]
+shapes|P2.5|ascii|decode|core-ffi|retain: [stripped]
+shapes|P2.5|ascii|decode|core-ffi-attr|drop: [stripped]
+shapes|P2.5|ascii|decode|host-gen|drop: [stripped]
+shapes|P2.5|ascii|decode|host-gen|retain: [stripped]
+shapes|P2.5|ascii|decode+read|incumbent-prod|incumbent-default: [stripped]
+shapes|P2.5|ascii|decode+read|incumbent-best|incumbent-default: [stripped]
+shapes|P2.5|ascii|decode+read|core-ffi|drop: [stripped]
+shapes|P2.5|ascii|decode+read|core-ffi|retain: [stripped]
+shapes|P2.5|ascii|decode+read|core-ffi-attr|drop: [stripped]
+shapes|P2.5|ascii|decode+read|host-gen|drop: [stripped]
+shapes|P2.5|ascii|decode+read|host-gen|retain: [stripped]
+shapes|P3.1|ascii|encode|incumbent-prod|incumbent-default: [stripped]
+shapes|P3.1|ascii|encode|incumbent-best|incumbent-default: [stripped]
+shapes|P3.1|ascii|encode|core-ffi|drop: [stripped]
+shapes|P3.1|ascii|encode|core-ffi|retain: [stripped]
+shapes|P3.1|ascii|encode|core-ffi-attr|drop: [stripped]
+shapes|P3.1|ascii|encode|host-gen|drop: [stripped]
+shapes|P3.1|ascii|encode|host-gen|retain: [stripped]
+shapes|P3.1|ascii|decode|incumbent-prod|incumbent-default: [stripped]
+shapes|P3.1|ascii|decode|incumbent-best|incumbent-default: [stripped]
+shapes|P3.1|ascii|decode|core-ffi|drop: [stripped]
+shapes|P3.1|ascii|decode|core-ffi|retain: [stripped]
+shapes|P3.1|ascii|decode|core-ffi-attr|drop: [stripped]
+shapes|P3.1|ascii|decode|host-gen|drop: [stripped]
+shapes|P3.1|ascii|decode|host-gen|retain: [stripped]
+shapes|P3.1|ascii|decode+read|incumbent-prod|incumbent-default: [stripped]
+shapes|P3.1|ascii|decode+read|incumbent-best|incumbent-default: [stripped]
+shapes|P3.1|ascii|decode+read|core-ffi|drop: [stripped]
+shapes|P3.1|ascii|decode+read|core-ffi|retain: [stripped]
+shapes|P3.1|ascii|decode+read|core-ffi-attr|drop: [stripped]
+shapes|P3.1|ascii|decode+read|host-gen|drop: [stripped]
+shapes|P3.1|ascii|decode+read|host-gen|retain: [stripped]
+shapes|P4.1|ascii|encode|incumbent-prod|incumbent-default: [stripped]
+shapes|P4.1|ascii|encode|incumbent-best|incumbent-default: [stripped]
+shapes|P4.1|ascii|encode|core-ffi|drop: [stripped]
+shapes|P4.1|ascii|encode|core-ffi|retain: [stripped]
+shapes|P4.1|ascii|encode|core-ffi-attr|drop: [stripped]
+shapes|P4.1|ascii|encode|host-gen|drop: [stripped]
+shapes|P4.1|ascii|encode|host-gen|retain: [stripped]
+shapes|P4.1|ascii|decode|incumbent-prod|incumbent-default: [stripped]
+shapes|P4.1|ascii|decode|incumbent-best|incumbent-default: [stripped]
+shapes|P4.1|ascii|decode|core-ffi|drop: [stripped]
+shapes|P4.1|ascii|decode|core-ffi|retain: [stripped]
+shapes|P4.1|ascii|decode|core-ffi-attr|drop: [stripped]
+shapes|P4.1|ascii|decode|host-gen|drop: [stripped]
+shapes|P4.1|ascii|decode|host-gen|retain: [stripped]
+shapes|P4.1|ascii|decode+read|incumbent-prod|incumbent-default: [stripped]
+shapes|P4.1|ascii|decode+read|incumbent-best|incumbent-default: [stripped]
+shapes|P4.1|ascii|decode+read|core-ffi|drop: [stripped]
+shapes|P4.1|ascii|decode+read|core-ffi|retain: [stripped]
+shapes|P4.1|ascii|decode+read|core-ffi-attr|drop: [stripped]
+shapes|P4.1|ascii|decode+read|host-gen|drop: [stripped]
+shapes|P4.1|ascii|decode+read|host-gen|retain: [stripped]
+shapes|P5.1|ascii|encode|incumbent-prod|incumbent-default: [stripped]
+shapes|P5.1|ascii|encode|incumbent-best|incumbent-default: [stripped]
+shapes|P5.1|ascii|encode|core-ffi|drop: [stripped]
+shapes|P5.1|ascii|encode|core-ffi|retain: [stripped]
+shapes|P5.1|ascii|encode|core-ffi-attr|drop: [stripped]
+shapes|P5.1|ascii|encode|host-gen|drop: [stripped]
+shapes|P5.1|ascii|encode|host-gen|retain: [stripped]
+shapes|P5.1|ascii|decode|incumbent-prod|incumbent-default: [stripped]
+shapes|P5.1|ascii|decode|incumbent-best|incumbent-default: [stripped]
+shapes|P5.1|ascii|decode|core-ffi|drop: [stripped]
+shapes|P5.1|ascii|decode|core-ffi|retain: [stripped]
+shapes|P5.1|ascii|decode|core-ffi-attr|drop: [stripped]
+shapes|P5.1|ascii|decode|host-gen|drop: [stripped]
+shapes|P5.1|ascii|decode|host-gen|retain: [stripped]
+shapes|P5.1|ascii|decode+read|incumbent-prod|incumbent-default: [stripped]
+shapes|P5.1|ascii|decode+read|incumbent-best|incumbent-default: [stripped]
+shapes|P5.1|ascii|decode+read|core-ffi|drop: [stripped]
+shapes|P5.1|ascii|decode+read|core-ffi|retain: [stripped]
+shapes|P5.1|ascii|decode+read|core-ffi-attr|drop: [stripped]
+shapes|P5.1|ascii|decode+read|host-gen|drop: [stripped]
+shapes|P5.1|ascii|decode+read|host-gen|retain: [stripped]
+shapes|P5.2|ascii|encode|incumbent-prod|incumbent-default: [stripped]
+shapes|P5.2|ascii|encode|incumbent-best|incumbent-default: [stripped]
+shapes|P5.2|ascii|encode|core-ffi|drop: [stripped]
+shapes|P5.2|ascii|encode|core-ffi|retain: [stripped]
+shapes|P5.2|ascii|encode|core-ffi-attr|drop: [stripped]
+shapes|P5.2|ascii|encode|host-gen|drop: [stripped]
+shapes|P5.2|ascii|encode|host-gen|retain: [stripped]
+shapes|P5.2|ascii|decode|incumbent-prod|incumbent-default: [stripped]
+shapes|P5.2|ascii|decode|incumbent-best|incumbent-default: [stripped]
+shapes|P5.2|ascii|decode|core-ffi|drop: [stripped]
+shapes|P5.2|ascii|decode|core-ffi|retain: [stripped]
+shapes|P5.2|ascii|decode|core-ffi-attr|drop: [stripped]
+shapes|P5.2|ascii|decode|host-gen|drop: [stripped]
+shapes|P5.2|ascii|decode|host-gen|retain: [stripped]
+shapes|P5.2|ascii|decode+read|incumbent-prod|incumbent-default: [stripped]
+shapes|P5.2|ascii|decode+read|incumbent-best|incumbent-default: [stripped]
+shapes|P5.2|ascii|decode+read|core-ffi|drop: [stripped]
+shapes|P5.2|ascii|decode+read|core-ffi|retain: [stripped]
+shapes|P5.2|ascii|decode+read|core-ffi-attr|drop: [stripped]
+shapes|P5.2|ascii|decode+read|host-gen|drop: [stripped]
+shapes|P5.2|ascii|decode+read|host-gen|retain: [stripped]
+shapes|P5.3|ascii|encode|incumbent-prod|incumbent-default: [stripped]
+shapes|P5.3|ascii|encode|incumbent-best|incumbent-default: [stripped]
+shapes|P5.3|ascii|encode|core-ffi|drop: [stripped]
+shapes|P5.3|ascii|encode|core-ffi|retain: [stripped]
+shapes|P5.3|ascii|encode|core-ffi-attr|drop: [stripped]
+shapes|P5.3|ascii|encode|host-gen|drop: [stripped]
+shapes|P5.3|ascii|encode|host-gen|retain: [stripped]
+shapes|P5.3|ascii|decode|incumbent-prod|incumbent-default: [stripped]
+shapes|P5.3|ascii|decode|incumbent-best|incumbent-default: [stripped]
+shapes|P5.3|ascii|decode|core-ffi|drop: [stripped]
+shapes|P5.3|ascii|decode|core-ffi|retain: [stripped]
+shapes|P5.3|ascii|decode|core-ffi-attr|drop: [stripped]
+shapes|P5.3|ascii|decode|host-gen|drop: [stripped]
+shapes|P5.3|ascii|decode|host-gen|retain: [stripped]
+shapes|P5.3|ascii|decode+read|incumbent-prod|incumbent-default: [stripped]
+shapes|P5.3|ascii|decode+read|incumbent-best|incumbent-default: [stripped]
+shapes|P5.3|ascii|decode+read|core-ffi|drop: [stripped]
+shapes|P5.3|ascii|decode+read|core-ffi|retain: [stripped]
+shapes|P5.3|ascii|decode+read|core-ffi-attr|drop: [stripped]
+shapes|P5.3|ascii|decode+read|host-gen|drop: [stripped]
+shapes|P5.3|ascii|decode+read|host-gen|retain: [stripped]
+shapes|P5.4|ascii|encode|incumbent-prod|incumbent-default: [stripped]
+shapes|P5.4|ascii|encode|incumbent-best|incumbent-default: [stripped]
+shapes|P5.4|ascii|encode|core-ffi|drop: [stripped]
+shapes|P5.4|ascii|encode|core-ffi|retain: [stripped]
+shapes|P5.4|ascii|encode|core-ffi-attr|drop: [stripped]
+shapes|P5.4|ascii|encode|host-gen|drop: [stripped]
+shapes|P5.4|ascii|encode|host-gen|retain: [stripped]
+shapes|P5.4|ascii|decode|incumbent-prod|incumbent-default: [stripped]
+shapes|P5.4|ascii|decode|incumbent-best|incumbent-default: [stripped]
+shapes|P5.4|ascii|decode|core-ffi|drop: [stripped]
+shapes|P5.4|ascii|decode|core-ffi|retain: [stripped]
+shapes|P5.4|ascii|decode|core-ffi-attr|drop: [stripped]
+shapes|P5.4|ascii|decode|host-gen|drop: [stripped]
+shapes|P5.4|ascii|decode|host-gen|retain: [stripped]
+shapes|P5.4|ascii|decode+read|incumbent-prod|incumbent-default: [stripped]
+shapes|P5.4|ascii|decode+read|incumbent-best|incumbent-default: [stripped]
+shapes|P5.4|ascii|decode+read|core-ffi|drop: [stripped]
+shapes|P5.4|ascii|decode+read|core-ffi|retain: [stripped]
+shapes|P5.4|ascii|decode+read|core-ffi-attr|drop: [stripped]
+shapes|P5.4|ascii|decode+read|host-gen|drop: [stripped]
+shapes|P5.4|ascii|decode+read|host-gen|retain: [stripped]
+shapes|P6.1|ascii|encode|incumbent-prod|incumbent-default: [stripped]
+shapes|P6.1|ascii|encode|incumbent-best|incumbent-default: [stripped]
+shapes|P6.1|ascii|encode|core-ffi|drop: [stripped]
+shapes|P6.1|ascii|encode|core-ffi|retain: [stripped]
+shapes|P6.1|ascii|encode|core-ffi-attr|drop: [stripped]
+shapes|P6.1|ascii|encode|host-gen|drop: [stripped]
+shapes|P6.1|ascii|encode|host-gen|retain: [stripped]
+shapes|P6.1|ascii|decode|incumbent-prod|incumbent-default: [stripped]
+shapes|P6.1|ascii|decode|incumbent-best|incumbent-default: [stripped]
+shapes|P6.1|ascii|decode|core-ffi|drop: [stripped]
+shapes|P6.1|ascii|decode|core-ffi|retain: [stripped]
+shapes|P6.1|ascii|decode|core-ffi-attr|drop: [stripped]
+shapes|P6.1|ascii|decode|host-gen|drop: [stripped]
+shapes|P6.1|ascii|decode|host-gen|retain: [stripped]
+shapes|P6.1|ascii|decode+read|incumbent-prod|incumbent-default: [stripped]
+shapes|P6.1|ascii|decode+read|incumbent-best|incumbent-default: [stripped]
+shapes|P6.1|ascii|decode+read|core-ffi|drop: [stripped]
+shapes|P6.1|ascii|decode+read|core-ffi|retain: [stripped]
+shapes|P6.1|ascii|decode+read|core-ffi-attr|drop: [stripped]
+shapes|P6.1|ascii|decode+read|host-gen|drop: [stripped]
+shapes|P6.1|ascii|decode+read|host-gen|retain: [stripped]
+shapes|P7.1|ascii|encode|incumbent-prod|incumbent-default: [stripped]
+shapes|P7.1|ascii|encode|incumbent-best|incumbent-default: [stripped]
+shapes|P7.1|ascii|encode|core-ffi|drop: [stripped]
+shapes|P7.1|ascii|encode|core-ffi|retain: [stripped]
+shapes|P7.1|ascii|encode|core-ffi-attr|drop: [stripped]
+shapes|P7.1|ascii|encode|host-gen|drop: [stripped]
+shapes|P7.1|ascii|encode|host-gen|retain: [stripped]
+shapes|P7.1|ascii|decode|incumbent-prod|incumbent-default: [stripped]
+shapes|P7.1|ascii|decode|incumbent-best|incumbent-default: [stripped]
+shapes|P7.1|ascii|decode|core-ffi|drop: [stripped]
+shapes|P7.1|ascii|decode|core-ffi|retain: [stripped]
+shapes|P7.1|ascii|decode|core-ffi-attr|drop: [stripped]
+shapes|P7.1|ascii|decode|host-gen|drop: [stripped]
+shapes|P7.1|ascii|decode|host-gen|retain: [stripped]
+shapes|P7.1|ascii|decode+read|incumbent-prod|incumbent-default: [stripped]
+shapes|P7.1|ascii|decode+read|incumbent-best|incumbent-default: [stripped]
+shapes|P7.1|ascii|decode+read|core-ffi|drop: [stripped]
+shapes|P7.1|ascii|decode+read|core-ffi|retain: [stripped]
+shapes|P7.1|ascii|decode+read|core-ffi-attr|drop: [stripped]
+shapes|P7.1|ascii|decode+read|host-gen|drop: [stripped]
+shapes|P7.1|ascii|decode+read|host-gen|retain: [stripped]

@@ -1,60 +1,61 @@
-unknown|U-enum-value-999|ascii|encode|incumbent-prod|incumbent-default: 140 ns
-unknown|U-enum-value-999|ascii|encode|core-ffi|drop: 249 ns
-unknown|U-enum-value-999|ascii|encode|core-ffi|retain: 274 ns
-unknown|U-enum-value-999|ascii|encode|host-gen|drop: 888 ns
-unknown|U-enum-value-999|ascii|encode|host-gen|retain: 922 ns
-unknown|U-enum-value-999|ascii|decode|incumbent-prod|incumbent-default: 327 ns
-unknown|U-enum-value-999|ascii|decode|core-ffi|drop: 620 ns
-unknown|U-enum-value-999|ascii|decode|core-ffi|retain: 651 ns
-unknown|U-enum-value-999|ascii|decode|host-gen|drop: 1.49 us
-unknown|U-enum-value-999|ascii|decode|host-gen|retain: 1.69 us
-unknown|U-enum-value-999|ascii|decode+read|incumbent-prod|incumbent-default: 2.76 us
-unknown|U-enum-value-999|ascii|decode+read|core-ffi|drop: 2.39 us
-unknown|U-enum-value-999|ascii|decode+read|core-ffi|retain: 2.30 us
-unknown|U-enum-value-999|ascii|decode+read|host-gen|drop: 3.36 us
-unknown|U-enum-value-999|ascii|decode+read|host-gen|retain: 3.41 us
-unknown|U-nested-all|ascii|encode|incumbent-prod|incumbent-default: 257 ns
-unknown|U-nested-all|ascii|encode|core-ffi|drop: 358 ns
-unknown|U-nested-all|ascii|encode|core-ffi|retain: 392 ns
-unknown|U-nested-all|ascii|encode|host-gen|drop: 3.76 us
-unknown|U-nested-all|ascii|encode|host-gen|retain: 2.91 us
-unknown|U-nested-all|ascii|decode|incumbent-prod|incumbent-default: 625 ns
-unknown|U-nested-all|ascii|decode|core-ffi|drop: 1.00 us
-unknown|U-nested-all|ascii|decode|core-ffi|retain: 1.22 us
-unknown|U-nested-all|ascii|decode|host-gen|drop: 10.7 us
-unknown|U-nested-all|ascii|decode|host-gen|retain: 11.7 us
-unknown|U-nested-all|ascii|decode+read|incumbent-prod|incumbent-default: 4.68 us
-unknown|U-nested-all|ascii|decode+read|core-ffi|drop: 3.97 us
-unknown|U-nested-all|ascii|decode+read|core-ffi|retain: 3.45 us
-unknown|U-nested-all|ascii|decode+read|host-gen|drop: 12.9 us
-unknown|U-nested-all|ascii|decode+read|host-gen|retain: 13.7 us
-unknown|U-oneof-all|ascii|encode|incumbent-prod|incumbent-default: 150 ns
-unknown|U-oneof-all|ascii|encode|core-ffi|drop: 277 ns
-unknown|U-oneof-all|ascii|encode|core-ffi|retain: 295 ns
-unknown|U-oneof-all|ascii|encode|host-gen|drop: 1.79 us
-unknown|U-oneof-all|ascii|encode|host-gen|retain: 1.87 us
-unknown|U-oneof-all|ascii|decode|incumbent-prod|incumbent-default: 445 ns
-unknown|U-oneof-all|ascii|decode|core-ffi|drop: 655 ns
-unknown|U-oneof-all|ascii|decode|core-ffi|retain: 812 ns
-unknown|U-oneof-all|ascii|decode|host-gen|drop: 7.39 us
-unknown|U-oneof-all|ascii|decode|host-gen|retain: 7.44 us
-unknown|U-oneof-all|ascii|decode+read|incumbent-prod|incumbent-default: 3.06 us
-unknown|U-oneof-all|ascii|decode+read|core-ffi|drop: 1.46 us
-unknown|U-oneof-all|ascii|decode+read|core-ffi|retain: 1.79 us
-unknown|U-oneof-all|ascii|decode+read|host-gen|drop: 8.22 us
-unknown|U-oneof-all|ascii|decode+read|host-gen|retain: 8.86 us
-unknown|U-root-all|ascii|encode|incumbent-prod|incumbent-default: 443 ns
-unknown|U-root-all|ascii|encode|core-ffi|drop: 523 ns
-unknown|U-root-all|ascii|encode|core-ffi|retain: 590 ns
-unknown|U-root-all|ascii|encode|host-gen|drop: 7.28 us
-unknown|U-root-all|ascii|encode|host-gen|retain: 7.48 us
-unknown|U-root-all|ascii|decode|incumbent-prod|incumbent-default: 806 ns
-unknown|U-root-all|ascii|decode|core-ffi|drop: 1.27 us
-unknown|U-root-all|ascii|decode|core-ffi|retain: 1.52 us
-unknown|U-root-all|ascii|decode|host-gen|drop: 19.5 us
-unknown|U-root-all|ascii|decode|host-gen|retain: 16.6 us
-unknown|U-root-all|ascii|decode+read|incumbent-prod|incumbent-default: 8.47 us
-unknown|U-root-all|ascii|decode+read|core-ffi|drop: 6.00 us
-unknown|U-root-all|ascii|decode+read|core-ffi|retain: 5.26 us
-unknown|U-root-all|ascii|decode+read|host-gen|drop: 22.3 us
-unknown|U-root-all|ascii|decode+read|host-gen|retain: 26.7 us
+# FIGURES STRIPPED (FIX-PLAN WP6); the raw pyperf JSON is not committed
+unknown|U-enum-value-999|ascii|encode|incumbent-prod|incumbent-default: [stripped]
+unknown|U-enum-value-999|ascii|encode|core-ffi|drop: [stripped]
+unknown|U-enum-value-999|ascii|encode|core-ffi|retain: [stripped]
+unknown|U-enum-value-999|ascii|encode|host-gen|drop: [stripped]
+unknown|U-enum-value-999|ascii|encode|host-gen|retain: [stripped]
+unknown|U-enum-value-999|ascii|decode|incumbent-prod|incumbent-default: [stripped]
+unknown|U-enum-value-999|ascii|decode|core-ffi|drop: [stripped]
+unknown|U-enum-value-999|ascii|decode|core-ffi|retain: [stripped]
+unknown|U-enum-value-999|ascii|decode|host-gen|drop: [stripped]
+unknown|U-enum-value-999|ascii|decode|host-gen|retain: [stripped]
+unknown|U-enum-value-999|ascii|decode+read|incumbent-prod|incumbent-default: [stripped]
+unknown|U-enum-value-999|ascii|decode+read|core-ffi|drop: [stripped]
+unknown|U-enum-value-999|ascii|decode+read|core-ffi|retain: [stripped]
+unknown|U-enum-value-999|ascii|decode+read|host-gen|drop: [stripped]
+unknown|U-enum-value-999|ascii|decode+read|host-gen|retain: [stripped]
+unknown|U-nested-all|ascii|encode|incumbent-prod|incumbent-default: [stripped]
+unknown|U-nested-all|ascii|encode|core-ffi|drop: [stripped]
+unknown|U-nested-all|ascii|encode|core-ffi|retain: [stripped]
+unknown|U-nested-all|ascii|encode|host-gen|drop: [stripped]
+unknown|U-nested-all|ascii|encode|host-gen|retain: [stripped]
+unknown|U-nested-all|ascii|decode|incumbent-prod|incumbent-default: [stripped]
+unknown|U-nested-all|ascii|decode|core-ffi|drop: [stripped]
+unknown|U-nested-all|ascii|decode|core-ffi|retain: [stripped]
+unknown|U-nested-all|ascii|decode|host-gen|drop: [stripped]
+unknown|U-nested-all|ascii|decode|host-gen|retain: [stripped]
+unknown|U-nested-all|ascii|decode+read|incumbent-prod|incumbent-default: [stripped]
+unknown|U-nested-all|ascii|decode+read|core-ffi|drop: [stripped]
+unknown|U-nested-all|ascii|decode+read|core-ffi|retain: [stripped]
+unknown|U-nested-all|ascii|decode+read|host-gen|drop: [stripped]
+unknown|U-nested-all|ascii|decode+read|host-gen|retain: [stripped]
+unknown|U-oneof-all|ascii|encode|incumbent-prod|incumbent-default: [stripped]
+unknown|U-oneof-all|ascii|encode|core-ffi|drop: [stripped]
+unknown|U-oneof-all|ascii|encode|core-ffi|retain: [stripped]
+unknown|U-oneof-all|ascii|encode|host-gen|drop: [stripped]
+unknown|U-oneof-all|ascii|encode|host-gen|retain: [stripped]
+unknown|U-oneof-all|ascii|decode|incumbent-prod|incumbent-default: [stripped]
+unknown|U-oneof-all|ascii|decode|core-ffi|drop: [stripped]
+unknown|U-oneof-all|ascii|decode|core-ffi|retain: [stripped]
+unknown|U-oneof-all|ascii|decode|host-gen|drop: [stripped]
+unknown|U-oneof-all|ascii|decode|host-gen|retain: [stripped]
+unknown|U-oneof-all|ascii|decode+read|incumbent-prod|incumbent-default: [stripped]
+unknown|U-oneof-all|ascii|decode+read|core-ffi|drop: [stripped]
+unknown|U-oneof-all|ascii|decode+read|core-ffi|retain: [stripped]
+unknown|U-oneof-all|ascii|decode+read|host-gen|drop: [stripped]
+unknown|U-oneof-all|ascii|decode+read|host-gen|retain: [stripped]
+unknown|U-root-all|ascii|encode|incumbent-prod|incumbent-default: [stripped]
+unknown|U-root-all|ascii|encode|core-ffi|drop: [stripped]
+unknown|U-root-all|ascii|encode|core-ffi|retain: [stripped]
+unknown|U-root-all|ascii|encode|host-gen|drop: [stripped]
+unknown|U-root-all|ascii|encode|host-gen|retain: [stripped]
+unknown|U-root-all|ascii|decode|incumbent-prod|incumbent-default: [stripped]
+unknown|U-root-all|ascii|decode|core-ffi|drop: [stripped]
+unknown|U-root-all|ascii|decode|core-ffi|retain: [stripped]
+unknown|U-root-all|ascii|decode|host-gen|drop: [stripped]
+unknown|U-root-all|ascii|decode|host-gen|retain: [stripped]
+unknown|U-root-all|ascii|decode+read|incumbent-prod|incumbent-default: [stripped]
+unknown|U-root-all|ascii|decode+read|core-ffi|drop: [stripped]
+unknown|U-root-all|ascii|decode+read|core-ffi|retain: [stripped]
+unknown|U-root-all|ascii|decode+read|host-gen|drop: [stripped]
+unknown|U-root-all|ascii|decode+read|host-gen|retain: [stripped]

@@ -1,3 +1,39 @@
+# FIGURES STRIPPED (FIX-PLAN WP6): every timing column removed; the row list is kept
 # the rust slice's crossing benchmark (CAMPAIGN.md 20; README R13), run on this machine
-# source: /home/user/ArmoniK.Api/ffi/poc/python/build/snap/dadea5f/ffi/poc/rust
-# NOT RUN: /home/user/ArmoniK.Api/ffi/poc/python/build/snap/dadea5f/ffi/poc/rust does not exist (build.sh creates the snapshot)
+# source: /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py/ffi/poc/python/build/snap/d2cd0b02f/ffi/poc/rust
+# command: AK_BENCH_ONLY=P1.1 /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py/ffi/poc/python/build/cargo-rustbench/release/bench
+# stage 2 timings
+#   arms:   prost | armonik | core-native | core-ffi-rust, one process
+#   guard:  ON (ABI v1 section 5)
+#   counting build: no
+#   rounds: 15, interleaved; per-round target 25 ms
+#   shapes: M1 (P1.x) and M2 (P2.x), both REAL messages. No control rows here:
+#           M6 and M7 are the controls in design/SHAPES.md and are not built yet.
+
+#   filtered: AK_BENCH_ONLY=P1.1 (11 cases)
+payload direction arm                        reps    median ns       min ns       max ns    / prost
+
+P1.1 encode prost  [figures stripped]
+P1.1 encode armonik  [figures stripped]
+P1.1 encode core-native  [figures stripped]
+P1.1 encode core-ffi-rust  [figures stripped]
+P1.1 encode core-ffi  [figures stripped]
+
+P1.1 decode prost  [figures stripped]
+P1.1 decode armonik  [figures stripped]
+P1.1 decode core-native  [figures stripped]
+P1.1 decode core-ffi-rust  [figures stripped]
+
+- crossing forward  [figures stripped]
+- crossing fwd+reverse  [figures stripped]
+
+# ABI v1 open decision 5: what the grow path costs, isolated
+
+arm P2.4 ns  [figures stripped]
+
+# prost's excess is the floor: it has no learned width, so its number is what
+# this construction costs on its own. The mechanism's cost is the difference
+# between a core arm's excess and prost's.
+
+
+# exit 0
