@@ -8,7 +8,7 @@ here. This file states what exists and what was checked; the choice is the owner
 | | |
 |---|---|
 | **Status** | Built and gated: four codec arms plus the pull family over the 16 payloads, the RPC arm, the full conformance corpus through the C ABI and core-native, decision 11's unknown-field mechanism (ABI-v1 rules 1 to 7, rule 4 as amended 2026-09-26), the no-unknown build (unknown-field support compiled out), and the campaign harness of `design/CAMPAIGN.md` (criterion codec suite, separate-process RPC grid, calib, runner). The gate passes from a clean worktree at d2cd0b02f on stable 1.94.1 and on the MSRV floor 1.88.0, both builds (`logs/rust/wp6-clean-gate/`) |
-| **Next step** | none assigned |
+| **Next step** | optimisation experiment (owner's request): baseline taken, `logs/rust/opt/baseline/` on de8b286 by `gen/opt_bench.sh` (container instrumentation, not gated; the gate runs at the end of the experiment). Each optimisation is re-measured with the same script into `logs/rust/opt/<name>/` |
 | **Blocked on** | nothing |
 | **Floor** (must build and pass correctness) | MSRV 1.88.0: verified: the full gate, both builds, passes on rustc 1.88.0 from the clean worktree (`logs/rust/wp6-clean-gate/gate-floor-1.88.log`) |
 | **Target** | stable 1.94.1 in this container; README section 5: for Rust the floor is the target language level, one configuration |
@@ -58,6 +58,8 @@ gen/corpus.sh          the corpus on the full build (4 arms) and on the no-unkno
                        (3 arms), each with its planted controls
 gen/c_variant.sh       both C headers against both cores (section 10's check from a C++ host)
 gen/tsan.sh            the concurrency suite under ThreadSanitizer (nightly) with a planted race
+gen/opt_bench.sh       the short fixed optimisation benchmark (instrumentation, no gate; the
+                       codec pre-check on); gen/opt_summary.py derives the TSV summaries
 gen/crossings.txt      committed crossing counts, full build (drop, retain)
 gen/crossings-nounk.txt  committed crossing counts, no-unknown build
 gen/check_direct.py, oracle_probe.py, probe_corpus.py, probe_pycodec.py, corpus_before.py
@@ -231,6 +233,7 @@ FIX-PLAN R-G17); D41 (every slice's generated tree is current: `generate.py --ch
 
 | Log | What it establishes |
 |---|---|
+| `logs/rust/opt/baseline/` | optimisation experiment baseline (instrumentation, `gen/opt_bench.sh`, de8b286): one launch, CLIENT=1 SERVER=2,3; codec payloads samples 20 / warm-up 100 it + 50 ms / measure 250 ms, U-* rows reduced (samples 10 / 20 it + 5 ms / 20 ms); calib 5 x 20M; rpc 3 rounds x 32 calls; pre-check 0 failures in all four codec processes; crossings identical to both committed files; `summary-*.tsv`, `ratios-codec.tsv` |
 | `logs/rust/wp6-clean-gate/` | the gate from a clean worktree at d2cd0b02f: stable (`gate.log`, both builds, crossing counts), floor 1.88.0 (`gate-floor-1.88.log`), ThreadSanitizer (`tsan.log`), disk before/after (`df.txt`) |
 | `logs/rust/campaign-wp5s10/` | smoke run of the current harness (instrumentation): codec both builds, rpc both clients x both transports, plant controls |
 | `logs/rust/campaign/` | the earlier smoke run (instrumentation), calib included |
