@@ -1745,3 +1745,75 @@ output (every one shows in a log); from here on no edit script runs with its err
   rests on them; their log headers now say no figure in them is usable.
 - **The clean gate:** a fresh worktree at the committed HEAD, no reused build directory, both
   builds on net8.0 and net6.0 (wp6s1-gate.log).
+
+### 57. WP6 register H: the findings assigned to csharp, confirmed or refuted, and fixed
+
+Each finding arrived unconfirmed. Per finding: what the tree showed, what changed, the proposed
+disposition.
+
+- **R-H11 (host-gen "both" codec): confirmed.** cs_managed rendered the default plan
+  (unknown="both") with the capture behind `Dec.Retain`, so the drop arm carried capture code.
+  Now cs_managed refuses "both" and renders one codec per mode under a class name: `Codec`
+  (drop plan) and `CodecRetain` (retain plan); `Dec.Retain` is gone from the runtime. The arms:
+  BDN host-gen drop/retain, the corpus's managed-drop/managed-retain and `harness unknown` use
+  the matching codec; the drop codec is also the no-unknown build's. Disposition: fixed.
+- **R-H22 (the no-unknown facade member): GS2 was right, CP3 was not.** cs_types emitted
+  `UnknownFields` in every class and no variant Types.cs existed; STATE:131 (at the review's
+  commit) did not claim the member was removed, it said host-gen no-unknown is rendered from
+  the drop plan. Now the no-unknown build has GeneratedNounk/Types.cs and Eq.cs without the
+  member (owner decision, CAMPAIGN req 10), and `harness coreffi` and `corpus --variant` check
+  the member's presence against the build. Disposition: fixed.
+- **R-H2 (RPC threads in the window, warm-up): confirmed.** BlockingOp created `inflight`
+  threads per sample inside the window; A and D ran on the thread pool; the warm-up was 32
+  calls per cell with no tier read back. Now one pool of caller threads (CallerPool) is created
+  before the warm-up and reused by every cell and sample; A and D call through
+  BlockingUnaryCall on those threads (grpc-dotnet has no synchronous transport: the caller
+  blocks while the I/O runs on the thread pool, stated), the callback/queue rows block on their
+  completion. Warm-up: rounds of 64 calls per cell, 0.5 s apart, until a round compiles nothing
+  (a trial took 9 rounds); each sample records the JIT compilations inside its window
+  (`jit_in_window`), with a summary line (the trial: 56 of 60 samples compiled nothing,
+  container instrumentation, not committed as a log). Disposition: fixed.
+- **R-H3 (crossing gate completeness): confirmed.** Rows the run produced were compared, but a
+  committed row not produced passed, and an empty file compared nothing. Now both fail; the gate
+  has a must-fail control for each. Disposition: fixed.
+- **R-H6 (no build field): confirmed.** Every codec and rpc sample now carries `"build"`.
+  Disposition: fixed.
+- **R-H9 (no twin for "0 undelivered"): confirmed.** A gate plant
+  (`AK_GATE_PLANT_SKIP_RELEASE`, rendered in cs_host like `AK_GATE_PLANT_NO_INIT`) skips the release
+  of every taken bag; `corpus --unk-controls` must then fail, and does (307 rows UNDELIVERED).
+  Disposition: fixed.
+- **R-H14 (C4 codes, numbering): confirmed for C#.** C4 checked only that some code came back,
+  and the managed runtime numbered malformed -4 and depth -8 against plan.FIXED's -2 and -4. Now
+  the runtime's codes equal plan.FIXED's (the corpus runner checks the equality at start), and
+  C4 compares each refusal's code with the code the row's `reject.reason` calls for per the
+  plan's DECODE RULES (a reason with no mapping fails the row); a must-fail plant swaps the
+  expectation. Result: every reject row refused with its expected code by all four arms. The
+  C# part of "a selected null message member writes an empty body" was not in the assignment
+  and is not changed. Disposition: fixed (C# part).
+- **R-H15 (backend-local tables): confirmed for RUN_FN.** Now read from `plan.FIXED.run_types`.
+  cs_managed's `unknown == "drop"` test selects the managed codec's MODE, which is what the
+  option means there; the variant decisions in cs_binding, cs_host and cs_types use
+  `unknown_compiled_out`. Disposition: fixed (RUN_FN); the mode test stated.
+- **R-H18 (JIT check only warns; rpc schedule): confirmed.** A `jit check: FAIL` now fails the
+  unit and the runner stops the launch. The rpc cell order was the same rotation in every
+  launch; it is now a seeded shuffle of launch and round. Disposition: fixed.
+- **R-H19 (stated facts): confirmed for C#.** The smoke `.bdn.log` files carried figures without
+  a header; they are headed as instrumentation, and the runner heads every smoke one. "In-process
+  control" was wrong for the codec suite (each BDN unit is its own process) and is corrected; it
+  is right for the rpc no-unknown client (A and B run in the same client process). Disposition:
+  fixed.
+- **R-H23 (order): randomised.** BDN has no built-in random order but takes an IOrderer: the case
+  order in each process is a seeded shuffle (prime cases first), the unit order of a launch a
+  seeded shuffle, seeds in the headers. Disposition: done.
+
+Regenerated: this slice's `generate.py --check` is clean; the shared `poc/codec/gen/generate.py
+--check` reports the csharp slice clean (exit 0) and stale files in the java slice only (other
+slices' work in progress). Gate: `logs/csharp/wp6h-gate.log`.
+
+**Found by the first gate after these fixes:** C4's new code check failed the three oracle-probe
+rows (poc/rust/gen/probe_corpus.py's manifest), whose reject rows carry no `reject.reason`. A
+row that states no reason cannot say which code is right, so its code is now reported as not
+checked in the row's form ("refused; code -2 not checked: the row states no reason"), neither
+failed nor hidden (871993214). That gate was stopped at its first failure and re-run from a new
+worktree; the failed run's log was not committed (the stopped run is not a complete gate).
+The final gate ran from a fresh worktree at the pushed HEAD b758b2737 (this slice unchanged since 871993214; core 31fc3eecf): GATE PASSED, `logs/csharp/wp6h-gate.log`. C4 code-checks every reject row of the corpus; it reports as not checked the 3 oracle-probe reject rows, which state no reason.
