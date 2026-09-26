@@ -1,6 +1,6 @@
 # python slice: RPC crossing counts per call, the rpc counting builds (req 19, R-H31)
-# date:      2026-09-26T11:59:20Z
-# commit:    3f2574775
+# date:      2026-09-26T13:31:31Z
+# commit:    c7c083f68
 # phase:     correctness only; nothing here is a timing
 
 # RPC cells, every ABI call per call (req 19); module _akffi_rpc_count, variant full
@@ -32,15 +32,17 @@ RPC COUNTS: 21 rows
 # RPC cells, every ABI call per call (req 19); module _akffi_rpc_count_nounk, variant no-unknown
 # resets' place: decode, ak_dec_reset_<R> before the decode (and after it in retain); encode,
 # ak_enc_reset before the encode (steady state); one warm call precedes every counted call
-I0926 11:59:23.325119   27307 chttp2_transport.cc:1400] unix:/tmp/akrpccnturtlxice/shipped.sock: Got goaway [2] err=UNAVAILABLE:GOAWAY received; Error code: 2; Debug Text: Cancelling all calls {http2_error:2}
    rpc a       B         calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
    rpc a       C-nounk   calls    3 resets  0 rpc fwd   2 rev   0 codec fwd     1 rev  3501
    rpc a       D-nounk   calls    1 resets  0 rpc fwd   0 rev   0 codec fwd     1 rev  3501
+   rpc a       E-nounk   calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
    rpc a+read  B         calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
    rpc a+read  C-nounk   calls    3 resets  0 rpc fwd   2 rev   0 codec fwd     1 rev  3501
    rpc a+read  D-nounk   calls    1 resets  0 rpc fwd   0 rev   0 codec fwd     1 rev  3501
+   rpc a+read  E-nounk   calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
    rpc b       B         calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
    rpc b       C-nounk   calls 2515 resets  1 rpc fwd   2 rev   0 codec fwd  2511 rev  2501
    rpc b       D-nounk   calls 2513 resets  1 rpc fwd   0 rev   0 codec fwd  2511 rev  2501
-RPC COUNTS: 9 rows
-   rpc nounk: 9 rows, IDENTICAL to counts/rpc-nounk.txt
+   rpc b       E-nounk   calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
+RPC COUNTS: 12 rows
+   rpc nounk: 12 rows, IDENTICAL to counts/rpc-nounk.txt

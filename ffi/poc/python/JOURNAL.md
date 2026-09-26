@@ -1424,3 +1424,14 @@ and its builds were deleted after the run.
 - Noted, not fixed (scope rule): with `AK_CAMP_PLANT=short`, the gate's RPC must-fail control
   is now caught by the server warm-up's length check rather than by a cell. The run still
   aborts with no sample.
+
+### J51. The no-unknown host-gen arm and cells E-nounk / F-nounk
+
+Since R-H22, the no-unknown build's facade has no `_unknown`. So host-gen drop over that facade,
+in the no-unknown process, is the no-unknown host-gen arm, and the other four slices time it.
+- **Added:** `host-gen` with `unknown_mode=no-unknown` in the nounk codec suite (shapes and
+  unknown families), and cells E-nounk / F-nounk in the nounk RPC client.
+- **Counts:** `counts/rpc-nounk.txt` now has 12 rows (E-nounk added).
+- **Clean gate** at c7c083f68 (origin HEAD): `gate exit 0` at 3.12 and 3.7, 24 logs clean.
+- **Smoke:** codec nounk 396 shape and 45 unknown values; RPC nounk 108 samples with E-nounk
+  and F-nounk.

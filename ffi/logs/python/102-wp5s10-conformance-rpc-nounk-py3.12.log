@@ -1,6 +1,6 @@
 # python slice: conformance on _akffi_rpc_nounk, py3.12
-# date:      2026-09-26T11:57:54Z
-# commit:    3f2574775
+# date:      2026-09-26T13:30:12Z
+# commit:    c7c083f68
 # phase:     correctness only; nothing here is a timing
 
 # python slice, work unit 2: conformance on the COMPOSED arm (README R2)

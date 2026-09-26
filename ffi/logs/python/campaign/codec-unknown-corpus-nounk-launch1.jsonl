@@ -1,9 +1,9 @@
 # FIGURES STRIPPED (FIX-PLAN WP6): cpu_ns, wall_ns and perf_* removed from every sample; the sample count, keys and every header line are kept
 # slice:           python
 # suite:           codec
-# commit:          3f2574775
-# date:            2026-09-26T13:02:58Z
-# snapshot:        3f2574775 (HEAD)
+# commit:          c7c083f68
+# date:            2026-09-26T14:24:44Z
+# snapshot:        c7c083f68 (HEAD)
 # cpu_model:       Intel(R) Xeon(R) Processor @ 2.10GHz
 # cpus_online:     4
 # smt:             0
@@ -18,7 +18,7 @@
 # implementation:  CPython
 # protobuf:        7.36.2 (upb)
 # grpcio:          1.84.0
-# build:           {"cc": "cc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0", "cflags": "-O2 -fPIC -Wall -Wextra -Werror -Wno-unused-parameter -fvisibility=hidden", "core_features": {"_akffi": "init-guard", "_akffi_corpus": "corpus,init-guard", "_akffi_corpus_nounk": "--no-default-features corpus,init-guard", "_akffi_count": "count,init-guard", "_akffi_count_nounk": "--no-default-features count,init-guard", "_akffi_nounk": "--no-default-features init-guard", "_akffi_rpc": "rpc,init-guard", "_akffi_rpc_nounk": "--no-default-features rpc,init-guard"}, "core_linkage": "shared (libak_core.so through the dynamic linker)", "core_profile_release": "lto = false", "core_source": "/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py4/ffi/poc/python/build/snap/3f2574775/ffi/poc/codec", "rustc": "rustc 1.94.1 (e408947bf 2026-03-25)", "snapshot": "HEAD"}
+# build:           {"cc": "cc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0", "cflags": "-O2 -fPIC -Wall -Wextra -Werror -Wno-unused-parameter -fvisibility=hidden", "core_features": {"_akffi": "init-guard", "_akffi_corpus": "corpus,init-guard", "_akffi_corpus_nounk": "--no-default-features corpus,init-guard", "_akffi_count": "count,init-guard", "_akffi_count_nounk": "--no-default-features count,init-guard", "_akffi_nounk": "--no-default-features init-guard", "_akffi_rpc": "rpc,init-guard", "_akffi_rpc_nounk": "--no-default-features rpc,init-guard"}, "core_linkage": "shared (libak_core.so through the dynamic linker)", "core_profile_release": "lto = false", "core_source": "/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py5/ffi/poc/python/build/snap/c7c083f68/ffi/poc/codec", "rustc": "rustc 1.94.1 (e408947bf 2026-03-25)", "snapshot": "HEAD"}
 # engine:          pyperf 2.10.0 (CAMPAIGN.md 22a)
 # family:          unknown-corpus
 # launch:          1
@@ -114,8 +114,9 @@
 {"arm": "core-ffi", "build": "nounk", "content": "ascii", "dir": "decode+read", "iters": 64, "launch": 1, "payload": "U-deep-all", "phase": "calibration", "slice": "python", "suite": "codec", "unknown_mode": "no-unknown"}
 {"arm": "core-ffi", "build": "nounk", "content": "ascii", "dir": "decode+read", "iters": 128, "launch": 1, "payload": "U-deep-all", "phase": "calibration", "slice": "python", "suite": "codec", "unknown_mode": "no-unknown"}
 {"arm": "core-ffi", "build": "nounk", "content": "ascii", "dir": "decode+read", "iters": 128, "launch": 1, "payload": "U-deep-all", "phase": "calibration", "slice": "python", "suite": "codec", "unknown_mode": "no-unknown"}
-{"arm": "core-ffi", "build": "nounk", "content": "ascii", "dir": "decode+read", "iters": 128, "launch": 1, "payload": "U-deep-all", "phase": "warmup", "slice": "python", "suite": "codec", "unknown_mode": "no-unknown"}
-{"arm": "core-ffi", "build": "nounk", "content": "ascii", "dir": "decode+read", "iters": 128, "launch": 1, "payload": "U-deep-all", "phase": "value", "round": 1, "slice": "python", "suite": "codec", "unknown_mode": "no-unknown"}
+{"arm": "core-ffi", "build": "nounk", "content": "ascii", "dir": "decode+read", "iters": 256, "launch": 1, "payload": "U-deep-all", "phase": "calibration", "slice": "python", "suite": "codec", "unknown_mode": "no-unknown"}
+{"arm": "core-ffi", "build": "nounk", "content": "ascii", "dir": "decode+read", "iters": 256, "launch": 1, "payload": "U-deep-all", "phase": "warmup", "slice": "python", "suite": "codec", "unknown_mode": "no-unknown"}
+{"arm": "core-ffi", "build": "nounk", "content": "ascii", "dir": "decode+read", "iters": 256, "launch": 1, "payload": "U-deep-all", "phase": "value", "round": 1, "slice": "python", "suite": "codec", "unknown_mode": "no-unknown"}
 {"arm": "incumbent-prod", "build": "nounk", "content": "ascii", "dir": "encode", "end_state": "transport", "input": "hot", "iters": 1, "launch": 1, "payload": "U-enum-value-999", "phase": "calibration", "slice": "python", "suite": "codec", "unknown_mode": "incumbent-default"}
 {"arm": "incumbent-prod", "build": "nounk", "content": "ascii", "dir": "encode", "end_state": "transport", "input": "hot", "iters": 2, "launch": 1, "payload": "U-enum-value-999", "phase": "calibration", "slice": "python", "suite": "codec", "unknown_mode": "incumbent-default"}
 {"arm": "incumbent-prod", "build": "nounk", "content": "ascii", "dir": "encode", "end_state": "transport", "input": "hot", "iters": 4, "launch": 1, "payload": "U-enum-value-999", "phase": "calibration", "slice": "python", "suite": "codec", "unknown_mode": "incumbent-default"}
@@ -130,9 +131,10 @@
 {"arm": "incumbent-prod", "build": "nounk", "content": "ascii", "dir": "encode", "end_state": "transport", "input": "hot", "iters": 2048, "launch": 1, "payload": "U-enum-value-999", "phase": "calibration", "slice": "python", "suite": "codec", "unknown_mode": "incumbent-default"}
 {"arm": "incumbent-prod", "build": "nounk", "content": "ascii", "dir": "encode", "end_state": "transport", "input": "hot", "iters": 4096, "launch": 1, "payload": "U-enum-value-999", "phase": "calibration", "slice": "python", "suite": "codec", "unknown_mode": "incumbent-default"}
 {"arm": "incumbent-prod", "build": "nounk", "content": "ascii", "dir": "encode", "end_state": "transport", "input": "hot", "iters": 8192, "launch": 1, "payload": "U-enum-value-999", "phase": "calibration", "slice": "python", "suite": "codec", "unknown_mode": "incumbent-default"}
-{"arm": "incumbent-prod", "build": "nounk", "content": "ascii", "dir": "encode", "end_state": "transport", "input": "hot", "iters": 8192, "launch": 1, "payload": "U-enum-value-999", "phase": "calibration", "slice": "python", "suite": "codec", "unknown_mode": "incumbent-default"}
-{"arm": "incumbent-prod", "build": "nounk", "content": "ascii", "dir": "encode", "end_state": "transport", "input": "hot", "iters": 8192, "launch": 1, "payload": "U-enum-value-999", "phase": "warmup", "slice": "python", "suite": "codec", "unknown_mode": "incumbent-default"}
-{"arm": "incumbent-prod", "build": "nounk", "content": "ascii", "dir": "encode", "end_state": "transport", "input": "hot", "iters": 8192, "launch": 1, "payload": "U-enum-value-999", "phase": "value", "round": 1, "slice": "python", "suite": "codec", "unknown_mode": "incumbent-default"}
+{"arm": "incumbent-prod", "build": "nounk", "content": "ascii", "dir": "encode", "end_state": "transport", "input": "hot", "iters": 16384, "launch": 1, "payload": "U-enum-value-999", "phase": "calibration", "slice": "python", "suite": "codec", "unknown_mode": "incumbent-default"}
+{"arm": "incumbent-prod", "build": "nounk", "content": "ascii", "dir": "encode", "end_state": "transport", "input": "hot", "iters": 16384, "launch": 1, "payload": "U-enum-value-999", "phase": "calibration", "slice": "python", "suite": "codec", "unknown_mode": "incumbent-default"}
+{"arm": "incumbent-prod", "build": "nounk", "content": "ascii", "dir": "encode", "end_state": "transport", "input": "hot", "iters": 16384, "launch": 1, "payload": "U-enum-value-999", "phase": "warmup", "slice": "python", "suite": "codec", "unknown_mode": "incumbent-default"}
+{"arm": "incumbent-prod", "build": "nounk", "content": "ascii", "dir": "encode", "end_state": "transport", "input": "hot", "iters": 16384, "launch": 1, "payload": "U-enum-value-999", "phase": "value", "round": 1, "slice": "python", "suite": "codec", "unknown_mode": "incumbent-default"}
 {"arm": "core-ffi", "build": "nounk", "content": "ascii", "dir": "encode", "end_state": "transport", "input": "hot", "iters": 1, "launch": 1, "payload": "U-enum-value-999", "phase": "calibration", "slice": "python", "suite": "codec", "unknown_mode": "no-unknown"}
 {"arm": "core-ffi", "build": "nounk", "content": "ascii", "dir": "encode", "end_state": "transport", "input": "hot", "iters": 2, "launch": 1, "payload": "U-enum-value-999", "phase": "calibration", "slice": "python", "suite": "codec", "unknown_mode": "no-unknown"}
 {"arm": "core-ffi", "build": "nounk", "content": "ascii", "dir": "encode", "end_state": "transport", "input": "hot", "iters": 4, "launch": 1, "payload": "U-enum-value-999", "phase": "calibration", "slice": "python", "suite": "codec", "unknown_mode": "no-unknown"}
@@ -365,9 +367,10 @@
 {"arm": "core-ffi", "build": "nounk", "content": "ascii", "dir": "decode", "iters": 512, "launch": 1, "payload": "U-oneof-all", "phase": "calibration", "slice": "python", "suite": "codec", "unknown_mode": "no-unknown"}
 {"arm": "core-ffi", "build": "nounk", "content": "ascii", "dir": "decode", "iters": 1024, "launch": 1, "payload": "U-oneof-all", "phase": "calibration", "slice": "python", "suite": "codec", "unknown_mode": "no-unknown"}
 {"arm": "core-ffi", "build": "nounk", "content": "ascii", "dir": "decode", "iters": 2048, "launch": 1, "payload": "U-oneof-all", "phase": "calibration", "slice": "python", "suite": "codec", "unknown_mode": "no-unknown"}
-{"arm": "core-ffi", "build": "nounk", "content": "ascii", "dir": "decode", "iters": 2048, "launch": 1, "payload": "U-oneof-all", "phase": "calibration", "slice": "python", "suite": "codec", "unknown_mode": "no-unknown"}
-{"arm": "core-ffi", "build": "nounk", "content": "ascii", "dir": "decode", "iters": 2048, "launch": 1, "payload": "U-oneof-all", "phase": "warmup", "slice": "python", "suite": "codec", "unknown_mode": "no-unknown"}
-{"arm": "core-ffi", "build": "nounk", "content": "ascii", "dir": "decode", "iters": 2048, "launch": 1, "payload": "U-oneof-all", "phase": "value", "round": 1, "slice": "python", "suite": "codec", "unknown_mode": "no-unknown"}
+{"arm": "core-ffi", "build": "nounk", "content": "ascii", "dir": "decode", "iters": 4096, "launch": 1, "payload": "U-oneof-all", "phase": "calibration", "slice": "python", "suite": "codec", "unknown_mode": "no-unknown"}
+{"arm": "core-ffi", "build": "nounk", "content": "ascii", "dir": "decode", "iters": 4096, "launch": 1, "payload": "U-oneof-all", "phase": "calibration", "slice": "python", "suite": "codec", "unknown_mode": "no-unknown"}
+{"arm": "core-ffi", "build": "nounk", "content": "ascii", "dir": "decode", "iters": 4096, "launch": 1, "payload": "U-oneof-all", "phase": "warmup", "slice": "python", "suite": "codec", "unknown_mode": "no-unknown"}
+{"arm": "core-ffi", "build": "nounk", "content": "ascii", "dir": "decode", "iters": 4096, "launch": 1, "payload": "U-oneof-all", "phase": "value", "round": 1, "slice": "python", "suite": "codec", "unknown_mode": "no-unknown"}
 {"arm": "incumbent-prod", "build": "nounk", "content": "ascii", "dir": "decode+read", "iters": 1, "launch": 1, "payload": "U-oneof-all", "phase": "calibration", "slice": "python", "suite": "codec", "unknown_mode": "incumbent-default"}
 {"arm": "incumbent-prod", "build": "nounk", "content": "ascii", "dir": "decode+read", "iters": 2, "launch": 1, "payload": "U-oneof-all", "phase": "calibration", "slice": "python", "suite": "codec", "unknown_mode": "incumbent-default"}
 {"arm": "incumbent-prod", "build": "nounk", "content": "ascii", "dir": "decode+read", "iters": 4, "launch": 1, "payload": "U-oneof-all", "phase": "calibration", "slice": "python", "suite": "codec", "unknown_mode": "incumbent-default"}
@@ -442,8 +445,9 @@
 {"arm": "incumbent-prod", "build": "nounk", "content": "ascii", "dir": "decode", "iters": 1024, "launch": 1, "payload": "U-root-all", "phase": "calibration", "slice": "python", "suite": "codec", "unknown_mode": "incumbent-default"}
 {"arm": "incumbent-prod", "build": "nounk", "content": "ascii", "dir": "decode", "iters": 2048, "launch": 1, "payload": "U-root-all", "phase": "calibration", "slice": "python", "suite": "codec", "unknown_mode": "incumbent-default"}
 {"arm": "incumbent-prod", "build": "nounk", "content": "ascii", "dir": "decode", "iters": 2048, "launch": 1, "payload": "U-root-all", "phase": "calibration", "slice": "python", "suite": "codec", "unknown_mode": "incumbent-default"}
-{"arm": "incumbent-prod", "build": "nounk", "content": "ascii", "dir": "decode", "iters": 2048, "launch": 1, "payload": "U-root-all", "phase": "warmup", "slice": "python", "suite": "codec", "unknown_mode": "incumbent-default"}
-{"arm": "incumbent-prod", "build": "nounk", "content": "ascii", "dir": "decode", "iters": 2048, "launch": 1, "payload": "U-root-all", "phase": "value", "round": 1, "slice": "python", "suite": "codec", "unknown_mode": "incumbent-default"}
+{"arm": "incumbent-prod", "build": "nounk", "content": "ascii", "dir": "decode", "iters": 4096, "launch": 1, "payload": "U-root-all", "phase": "calibration", "slice": "python", "suite": "codec", "unknown_mode": "incumbent-default"}
+{"arm": "incumbent-prod", "build": "nounk", "content": "ascii", "dir": "decode", "iters": 4096, "launch": 1, "payload": "U-root-all", "phase": "warmup", "slice": "python", "suite": "codec", "unknown_mode": "incumbent-default"}
+{"arm": "incumbent-prod", "build": "nounk", "content": "ascii", "dir": "decode", "iters": 4096, "launch": 1, "payload": "U-root-all", "phase": "value", "round": 1, "slice": "python", "suite": "codec", "unknown_mode": "incumbent-default"}
 {"arm": "core-ffi", "build": "nounk", "content": "ascii", "dir": "decode", "iters": 1, "launch": 1, "payload": "U-root-all", "phase": "calibration", "slice": "python", "suite": "codec", "unknown_mode": "no-unknown"}
 {"arm": "core-ffi", "build": "nounk", "content": "ascii", "dir": "decode", "iters": 2, "launch": 1, "payload": "U-root-all", "phase": "calibration", "slice": "python", "suite": "codec", "unknown_mode": "no-unknown"}
 {"arm": "core-ffi", "build": "nounk", "content": "ascii", "dir": "decode", "iters": 4, "launch": 1, "payload": "U-root-all", "phase": "calibration", "slice": "python", "suite": "codec", "unknown_mode": "no-unknown"}
@@ -484,4 +488,4 @@
 {"arm": "core-ffi", "build": "nounk", "content": "ascii", "dir": "decode+read", "iters": 512, "launch": 1, "payload": "U-root-all", "phase": "calibration", "slice": "python", "suite": "codec", "unknown_mode": "no-unknown"}
 {"arm": "core-ffi", "build": "nounk", "content": "ascii", "dir": "decode+read", "iters": 512, "launch": 1, "payload": "U-root-all", "phase": "warmup", "slice": "python", "suite": "codec", "unknown_mode": "no-unknown"}
 {"arm": "core-ffi", "build": "nounk", "content": "ascii", "dir": "decode+read", "iters": 512, "launch": 1, "payload": "U-root-all", "phase": "value", "round": 1, "slice": "python", "suite": "codec", "unknown_mode": "no-unknown"}
-# samples: 448
+# samples: 452
