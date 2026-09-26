@@ -2290,3 +2290,31 @@ corpus's own merge (`spec.load()`), so `fixed32` and the corpus-only messages ex
   probe from the drop plan; the core for that build is ak-core `--no-default-features`
   plus the features they need, in its own target dir; their bindings' retain paths are
   omitted in the variant; each asserts its layout against the variant core's export.
+
+## 2026-09-26 -- FIX-PLAN WP6 step 1: STATE rewritten, the gate from a clean checkout
+
+- The owner confirmed ABI-v1 rule 4 as implemented (one options entry per oneof, filled in
+  the active member's decode group); no code change.
+- Deleted every build directory of the main checkout (16 `target-*`, `target`,
+  `corpus/target`; disk 67% -> 49%). A fresh `git worktree` at origin HEAD d2cd0b02f
+  (0 changed paths, no build directory): `run_campaign.sh --suite gate` GATE PASSED, both
+  builds, header with a clean commit; ThreadSanitizer 0 warnings in the suite, 123 on the
+  planted race; then the same gate under `RUSTUP_TOOLCHAIN=1.88.0`: GATE PASSED. The 1.88
+  toolchain was installed with rustup (it was not in the container; STATE had said "not
+  verified"), so the MSRV floor is now checked, not declared. Worktree and its builds
+  deleted afterwards (disk 41%). Logs: logs/rust/wp6-clean-gate/.
+- STATE.md rewritten to say what is true now. Removed: the status line's history (seven
+  earlier work units, kept here); the per-unit "What was checked" sections from WP5 steps
+  1, 6 and 7, whose figures (corpus 672/688, the "6 backend modules" guard, the step-7
+  counts diff) were superseded; the D-table rows closed elsewhere (D2 by the floor run,
+  D34 by decision 11, D35 by the owner's refusal of recursion, D38-D40 by their slices per
+  FIX-PLAN R-G17, D41 by every slice regenerating); the rule questions already decided
+  (map key: FIX-PLAN WP5 says the canonical form; 10th varint byte: recorded as discard;
+  D34/D35). Self-contradictions fixed (R-F1): "retention inside inlined children cannot
+  cross the C ABI" (closed since step 7); "other slices' trees are STALE" (all --check
+  clean); "no corpus vector has a singular -0.0" (S-double-minus-zero exists); "section 10's
+  load-time check is untested" (c_variant.sh tests it); "the pull family does not capture"
+  (it does since step 7); "the guard covers 6 modules" vs 26. The R-C14 retired ratio table
+  was already gone; no timing figure remains in STATE. The checklist now covers 22a and
+  req 20 is marked not met (perf not installed); the reset calls' absence from the counts is
+  stated where the counts are described.
