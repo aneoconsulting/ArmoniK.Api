@@ -920,7 +920,44 @@ static void d11_roundtrip() {
   check(dropped, "d11 drop: the same context in drop mode keeps no bag");
 }
 
+// R-H7 (rule 7, options reused across decodes): two pre-allocated pool buffers, a first
+// decode that consumes none of them (no unknowns), then a second decode with the SAME options
+// that does. Before the fix the first decode's reclaim freed the unconsumed buffers and left
+// the pointers in the options: the second decode wrote into freed memory (ASan: use after
+// free) and a double free followed. Kept as the control: under d11_asan.sh it must be clean,
+// and the unconsumed buffers must still be in the options (and still the host's) after the
+// first decode.
+static void d11_reuse() {
+  std::vector<std::string> runs;
+  std::string with = d11_results(&runs);
+  std::string without;
+  d11_ld(1, std::string("\x0a\x02zz", 4), &without);   // one element, no unknown field
+  struct ak_unk_buf arr[2] = {d11_buf(64), d11_buf(64)};
+  void *p0 = arr[0].data, *p1 = arr[1].data;
+  struct ak_dec_ListResultsResponse_opts o;
+  shapes::ffi::unk_opts_list_results_response(&o, -1);
+  o.results.bufs = arr;
+  o.results.n = 2;
+  ak_dec_ctx *c = ak_dec_ctx_new_ListResultsResponse(NULL);
+  shapes::ListResultsResponse v1, v2;
+  int32_t rc1 = shapes::ffi::decode_with_list_results_response_opts(
+      c, (const uint8_t *)without.data(), without.size(), &v1, &o);
+  bool kept = arr[0].data == p0 && arr[1].data == p1;
+  int32_t rc2 = shapes::ffi::decode_with_list_results_response_opts(
+      c, (const uint8_t *)with.data(), with.size(), &v2, &o);
+  bool bags = rc2 == 0 && v2.results.size() == 3;
+  for (size_t i = 0; bags && i < 3; ++i) bags = v2.results[i].unknown_fields == runs[i];
+  bool taken = arr[0].data == NULL && arr[1].data == NULL;
+  ak_dec_ctx_free(c);
+  std::printf("  options reused (R-H7): first decode rc %d, unconsumed buffers still in the options %d;"
+              " second decode rc %d, bags exact %d, both taken %d\n", rc1, (int)kept, rc2, (int)bags, (int)taken);
+  check(rc1 == 0 && kept && bags && taken,
+        "d11 options reused across decodes: unconsumed host buffers survive the first decode");
+  check(shapes::ffi::unk_reclaim() == 0, "d11 reuse: nothing left live");
+}
+
 static void run_decision11() {
+  d11_reuse();
   d11_pool();
   d11_refill();
   d11_oneof();
@@ -947,8 +984,19 @@ static void run_decision11() {
   b += std::string("\xa0\x06\x09", 3);
   shapes::ListResultsResponse v;
   int32_t own = shapes::ffi::decode_with_list_results_response(c, (const uint8_t *)b.data(), b.size(), &v);
-  bool dropped = own == 0 && v.unknown_fields.empty() && v.results.size() == 1 &&
-                 v.results[0].unknown_fields.empty();
+  // The facade has no unknown_fields member in this build (R-H22): "dropped" is shown by the
+  // re-encoding, which must be the input with both unknown runs removed.
+  std::string reenc;
+  {
+    ak_enc_ctx *ec = ak_enc_ctx_new();
+    intptr_t erc = shapes::ffi::encode_into_list_results_response(ec, v, shapes::ffi::tcs_core());
+    const uint8_t *q = NULL;
+    size_t qn = 0;
+    if (erc >= 0 && ak_enc_take(ec, &q, &qn) == 0) reenc.assign((const char *)q, qn);
+    ak_enc_ctx_free(ec);
+  }
+  bool dropped = own == 0 && v.results.size() == 1 &&
+                 reenc == std::string("\x0a\x04\x0a\x02zz", 6);
   std::printf("  no-unknown build: wrong root decode %d, parse %d, binding decode %d"
               " (AK_ERR_INVALID_STATE %d); own root %d, unknowns dropped %d\n",
               d, p, bd, AK_ERR_INVALID_STATE, own, (int)dropped);

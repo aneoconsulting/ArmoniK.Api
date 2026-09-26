@@ -164,7 +164,13 @@ def corpus_nounk_targets(full, abi, refused):
             an, ns="corpus", guard="AK_CORPUS_BINDING_H"),
         "corpus/src/generated/binding_nounk.cpp": cpp_binding.emit(
             an, ns="corpus", hdr="generated/binding_nounk.h"),
-        "corpus/src/generated/dispatch_nounk.cpp": emit_dispatch(full, an, refused, retain=False),
+        "corpus/src/generated/dispatch_nounk.cpp": emit_dispatch(full, an, refused, retain=False,
+                                                                 native_retain=False),
+        # R-H22 (owner, 2026-09-26): the no-unknown facade has no unknown_fields member. Same
+        # file names in a variant directory, found first on the nounk targets' include path.
+        "corpus/nounk/src/generated/types.h": cpp_facade.emit_types(
+            nounk(full), ns="corpus", guard="AK_CORPUS_TYPES_H"),
+        "corpus/nounk/src/generated/types.cpp": cpp_facade.emit_types_impl(nounk(full), ns="corpus"),
     }
 
 
@@ -173,7 +179,7 @@ def corpus_nounk_targets(full, abi, refused):
 FFI_RETAIN = hasattr(cpp_binding, "RETAIN") and cpp_binding.RETAIN
 
 
-def emit_dispatch(full, abi, refused, retain=None):
+def emit_dispatch(full, abi, refused, retain=None, native_retain=True):
     """Corpus glue: the per-root call table (four arms). No wire rule: a table of calls. A
     root the C ABI cannot carry has its two ffi arms reported NOT IN THE ABI, by name."""
     sn = cpp_names.snake
@@ -199,9 +205,12 @@ def emit_dispatch(full, abi, refused, retain=None):
         o.append("    switch (arm) {")
         o.append("      case kNativeDrop: return native_arm<%s>(b, n, native::kSites, native::decode_%s,"
                  " native::encode_into_%s, project::project_%s);" % (name, s, s, s))
-        o.append("      case kNativeRetain: return native_arm<%s>(b, n, native_retain::kSites,"
-                 " native_retain::decode_%s, native_retain::encode_into_%s, project::project_%s);"
-                 % (name, s, s, s))
+        if native_retain:
+            o.append("      case kNativeRetain: return native_arm<%s>(b, n, native_retain::kSites,"
+                     " native_retain::decode_%s, native_retain::encode_into_%s, project::project_%s);"
+                     % (name, s, s, s))
+        else:
+            o.append("      case kNativeRetain: return Outcome::not_built();  // no-unknown build: no retain")
         if name in abi.roots:
             o.append("      case kFfiDrop: return ffi_arm<%s>(b, n, cx, ffi::decode_with_%s,"
                      " ffi::encode_into_%s, project::project_%s);" % (name, s, s, s))
@@ -292,9 +301,16 @@ def _nounk_targets(p):
         "nounk/include/generated/ak_layout_names.h": names,
         "src/generated/binding_nounk.h": cpp_binding.emit_header(pn),
         "src/generated/binding_nounk.cpp": cpp_binding.emit(pn, hdr="generated/binding_nounk.h"),
+        # R-H22: the facade without unknown_fields, found first on the nounk include path.
+        "nounk/src/generated/types.h": cpp_facade.emit_types(pn),
+        "nounk/src/generated/types.cpp": cpp_facade.emit_types_impl(pn),
     }
     cpp_names.set_string_type("ak::StringView")
     try:
+        out["nounk/src/generated/types_borrow.h"] = cpp_facade.emit_types(
+            pn, ns="shapes_borrow", guard="AK_TYPES_BORROW_H")
+        out["nounk/src/generated/types_borrow.cpp"] = cpp_facade.emit_types_impl(
+            pn, ns="shapes_borrow", header="generated/types_borrow.h")
         out["src/generated/binding_borrow_nounk.h"] = cpp_binding.emit_header(
             pn, ns="shapes_borrow", guard="AK_BINDING_BORROW_H", types_h="generated/types_borrow.h")
         out["src/generated/binding_borrow_nounk.cpp"] = cpp_binding.emit(

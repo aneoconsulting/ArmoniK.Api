@@ -76,7 +76,11 @@ int main(int argc, char **argv) {
                 " \"skip_init\": %s, \"initialized_before\": %d}\n",
                 (long)__cplusplus, (int)AK_CXX17, corpus::native::kUtf8Policy,
                 corpus::native::kRecursionLimit, corpus::native::kUnknownFields,
+#ifdef AK_NO_UNKNOWN_FIELDS
+                "not built (no-unknown build)",
+#else
                 corpus::native_retain::kUnknownFields,
+#endif
                 corpus::kFfiRetainBuilt ? "true" : "false",
 #ifdef AK_BINDING_SKIP_INIT
                 "true",

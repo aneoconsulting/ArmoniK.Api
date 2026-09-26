@@ -34,8 +34,10 @@
 #include "generated/cases.h"
 #include "generated/core_native.h"
 #include "generated/pb_build.h"
-#include "generated/types.h"
-#include "generated/types_borrow.h"
+// Angle brackets: the facade is found on the include path, so the no-unknown build's
+// nounk/src/generated/types*.h (no unknown_fields, R-H22) comes first there.
+#include <generated/types.h>
+#include <generated/types_borrow.h>
 #include "shapes.pb.h"
 
 namespace ns = armonik::ffi::shapes::v1;

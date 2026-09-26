@@ -540,16 +540,18 @@ function(ak_arm_nounk name src std linkage coredir coretgt)
     ${src}
     ${CMAKE_CURRENT_SOURCE_DIR}/src/rt.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/values.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/types.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/nounk/src/generated/types.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/build.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/pb_build.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/core_native.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/binding_nounk.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/types_borrow.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/nounk/src/generated/types_borrow.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/binding_borrow_nounk.cpp)
   add_dependencies(${name} ${coretgt})
+  # nounk/src first too: its generated/types*.h is the facade without unknown_fields (R-H22).
   target_include_directories(${name} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/nounk/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/nounk/src
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${GEN})
@@ -578,15 +580,14 @@ function(ak_corpus_nounk name std impl)
   add_executable(${name}
     ${CORPUS_DIR}/src/corpus_main.cpp
     ${CORPUS_DIR}/src/generated/dispatch_nounk.cpp
-    ${CORPUS_DIR}/src/generated/types.cpp
+    ${CORPUS_DIR}/nounk/src/generated/types.cpp
     ${CORPUS_DIR}/src/generated/core_native.cpp
-    ${CORPUS_DIR}/src/generated/core_native_retain.cpp
     ${CORPUS_DIR}/src/generated/binding_nounk.cpp
     ${CORPUS_DIR}/src/generated/project.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/rt.cpp)
   add_dependencies(${name} core_corpus_nounk)
-  target_include_directories(${name} PRIVATE ${CORPUS_DIR}/nounk/include ${CORPUS_DIR}/include
-    ${CORPUS_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/include ${Protobuf_INCLUDE_DIRS})
+  target_include_directories(${name} PRIVATE ${CORPUS_DIR}/nounk/include ${CORPUS_DIR}/nounk/src
+    ${CORPUS_DIR}/include ${CORPUS_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/include ${Protobuf_INCLUDE_DIRS})
   target_link_libraries(${name} PRIVATE ${Protobuf_LIBRARIES} Threads::Threads
     ${CORE_CORPUS_NOUNK_OUT}/libak_core.so)
   set_property(TARGET ${name} APPEND_STRING PROPERTY LINK_FLAGS " -Wl,-rpath,${CORE_CORPUS_NOUNK_OUT}")
@@ -609,10 +610,11 @@ if(AK_RPC)
     BYPRODUCTS ${CORE_CAMP_NOUNK_OUT}/libak_core.so
     COMMENT "cargo build ak-core, no-unknown variant, --features rpc (campaign)")
   string(REPLACE "generated/binding.cpp" "generated/binding_nounk.cpp" RPC_COMMON_NOUNK "${RPC_COMMON}")
+  string(REPLACE "src/generated/types.cpp" "nounk/src/generated/types.cpp" RPC_COMMON_NOUNK "${RPC_COMMON_NOUNK}")
   add_executable(campaign_rpc_nounk ${CMAKE_CURRENT_SOURCE_DIR}/src/campaign_rpc.cpp ${RPC_COMMON_NOUNK})
   add_dependencies(campaign_rpc_nounk core_camp_nounk)
   target_include_directories(campaign_rpc_nounk PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/nounk/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/src ${GEN} ${GRPCPP_INCLUDE_DIRS})
+    ${CMAKE_CURRENT_SOURCE_DIR}/nounk/src ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/src ${GEN} ${GRPCPP_INCLUDE_DIRS})
   target_link_libraries(campaign_rpc_nounk PRIVATE shapes_pb Threads::Threads
     ${GRPCPP_LIBRARIES} ${CORE_CAMP_NOUNK_OUT}/libak_core.so)
   target_link_directories(campaign_rpc_nounk PRIVATE ${GRPCPP_LIBRARY_DIRS})
@@ -623,7 +625,6 @@ if(AK_RPC)
   ak_arm_nounk(campaign_codec_nounk ${CMAKE_CURRENT_SOURCE_DIR}/src/campaign_codec.cpp 17 shared
                ${CORE_NOUNK_OUT} core_nounk)
   target_sources(campaign_codec_nounk PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/core_native_retain.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/touch.cpp)
   target_include_directories(campaign_codec_nounk PRIVATE ${GRPCPP_INCLUDE_DIRS})
   target_link_directories(campaign_codec_nounk PRIVATE ${GRPCPP_LIBRARY_DIRS})

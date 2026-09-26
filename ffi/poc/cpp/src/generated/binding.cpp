@@ -155,6 +155,13 @@ void unk_track(void *p) {
   if (p != NULL) unk_live().insert(p);
 }
 
+// R-H7: a buffer still sitting in an options entry after the decode was never consumed; it
+// stays the host's, in the host's struct, for the next decode with the same options (rule
+// 7). It is taken off the live set so the reclaim below never frees it.
+static inline void unk_untrack(void *p) {
+  if (p != NULL) unk_live().erase(p);
+}
+
 size_t unk_reclaim() {
   std::unordered_set<void *> &l = unk_live();
   size_t n = l.size();
@@ -3577,14 +3584,24 @@ void unk_opts_list_results_response(struct ak_dec_ListResultsResponse_opts *o, i
 
 // The decode with the context armed with `opts`, read IN PLACE by the core until the
 // disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,
-// is called with `hold` after every element delivery (rule 1). Every buffer this
-// binding allocated and did not deliver is freed before return.
+// is called with `hold` after every element delivery (rule 1). A buffer the core
+// consumed and this binding did not deliver (a failed decode, a map entry) is freed
+// before return; a buffer still in `opts` was not consumed and is left there, the
+// host's, for the next decode with the same options (rule 7, R-H7).
 int32_t decode_with_list_results_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out, struct ak_dec_ListResultsResponse_opts *opts, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   int32_t rc = ak_dec_reset_ListResultsResponse(ctx, opts);
   if (rc != AK_OK) return rc;
   rc = decode_impl_list_results_response(ctx, b, n, out, refill, hold);
   int32_t rc2 = ak_dec_reset_ListResultsResponse(ctx, NULL);
+  // R-H7: what is still in the options was not consumed and stays the host's.
+  unk_untrack(opts->self.buf.data);
+  if (opts->results.bufs != NULL)
+    for (uint32_t i = 0; i < opts->results.n; ++i) unk_untrack(opts->results.bufs[i].data);
+  if (opts->results_created_at.bufs != NULL)
+    for (uint32_t i = 0; i < opts->results_created_at.n; ++i) unk_untrack(opts->results_created_at.bufs[i].data);
+  if (opts->results_completed_at.bufs != NULL)
+    for (uint32_t i = 0; i < opts->results_completed_at.n; ++i) unk_untrack(opts->results_completed_at.bufs[i].data);
   unk_reclaim();
   if (rc >= 0 && rc2 != AK_OK) rc = rc2;
   return rc;
@@ -3599,7 +3616,7 @@ int32_t decode_with_list_results_response_unk(ak_dec_ctx *ctx, const uint8_t *b,
 
 // Decision 11 rule 1, pre-allocated: every singular position gets one buffer of `cap`
 // bytes, every pool `k`, refilled in place after each delivery; `unk_grow` is the
-// fallback. Unconsumed buffers are freed by the decode's reclaim.
+// fallback. Unconsumed buffers stay in the holder's options and are freed here.
 struct UnkPool_ListResultsResponse {
   struct ak_dec_ListResultsResponse_opts opts;
   std::vector<struct ak_unk_buf> bufs;
@@ -3635,6 +3652,9 @@ int32_t decode_with_list_results_response_pool(ak_dec_ctx *ctx, const uint8_t *b
   unk_refill_list_results_response(&h);
   h.refills = 0;
   int32_t rc = decode_with_list_results_response_opts(ctx, b, n, out, &h.opts, unk_refill_list_results_response, &h);
+  // The pre-allocated buffers the decode did not consume are still ours (R-H7).
+  for (size_t i = 0; i < h.bufs.size(); ++i) std::free(h.bufs[i].data);
+  std::free(h.opts.self.buf.data);
   if (refills) *refills = h.refills;
   return rc;
 }
@@ -3838,14 +3858,52 @@ void unk_opts_list_tasks_detailed_response(struct ak_dec_ListTasksDetailedRespon
 
 // The decode with the context armed with `opts`, read IN PLACE by the core until the
 // disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,
-// is called with `hold` after every element delivery (rule 1). Every buffer this
-// binding allocated and did not deliver is freed before return.
+// is called with `hold` after every element delivery (rule 1). A buffer the core
+// consumed and this binding did not deliver (a failed decode, a map entry) is freed
+// before return; a buffer still in `opts` was not consumed and is left there, the
+// host's, for the next decode with the same options (rule 7, R-H7).
 int32_t decode_with_list_tasks_detailed_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out, struct ak_dec_ListTasksDetailedResponse_opts *opts, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   int32_t rc = ak_dec_reset_ListTasksDetailedResponse(ctx, opts);
   if (rc != AK_OK) return rc;
   rc = decode_impl_list_tasks_detailed_response(ctx, b, n, out, refill, hold);
   int32_t rc2 = ak_dec_reset_ListTasksDetailedResponse(ctx, NULL);
+  // R-H7: what is still in the options was not consumed and stays the host's.
+  unk_untrack(opts->self.buf.data);
+  if (opts->tasks.bufs != NULL)
+    for (uint32_t i = 0; i < opts->tasks.n; ++i) unk_untrack(opts->tasks.bufs[i].data);
+  if (opts->tasks_options.bufs != NULL)
+    for (uint32_t i = 0; i < opts->tasks_options.n; ++i) unk_untrack(opts->tasks_options.bufs[i].data);
+  if (opts->tasks_options_options.bufs != NULL)
+    for (uint32_t i = 0; i < opts->tasks_options_options.n; ++i) unk_untrack(opts->tasks_options_options.bufs[i].data);
+  if (opts->tasks_options_max_duration.bufs != NULL)
+    for (uint32_t i = 0; i < opts->tasks_options_max_duration.n; ++i) unk_untrack(opts->tasks_options_max_duration.bufs[i].data);
+  if (opts->tasks_created_at.bufs != NULL)
+    for (uint32_t i = 0; i < opts->tasks_created_at.n; ++i) unk_untrack(opts->tasks_created_at.bufs[i].data);
+  if (opts->tasks_submitted_at.bufs != NULL)
+    for (uint32_t i = 0; i < opts->tasks_submitted_at.n; ++i) unk_untrack(opts->tasks_submitted_at.bufs[i].data);
+  if (opts->tasks_started_at.bufs != NULL)
+    for (uint32_t i = 0; i < opts->tasks_started_at.n; ++i) unk_untrack(opts->tasks_started_at.bufs[i].data);
+  if (opts->tasks_ended_at.bufs != NULL)
+    for (uint32_t i = 0; i < opts->tasks_ended_at.n; ++i) unk_untrack(opts->tasks_ended_at.bufs[i].data);
+  if (opts->tasks_pod_ttl.bufs != NULL)
+    for (uint32_t i = 0; i < opts->tasks_pod_ttl.n; ++i) unk_untrack(opts->tasks_pod_ttl.bufs[i].data);
+  if (opts->tasks_output.bufs != NULL)
+    for (uint32_t i = 0; i < opts->tasks_output.n; ++i) unk_untrack(opts->tasks_output.bufs[i].data);
+  if (opts->tasks_received_at.bufs != NULL)
+    for (uint32_t i = 0; i < opts->tasks_received_at.n; ++i) unk_untrack(opts->tasks_received_at.bufs[i].data);
+  if (opts->tasks_acquired_at.bufs != NULL)
+    for (uint32_t i = 0; i < opts->tasks_acquired_at.n; ++i) unk_untrack(opts->tasks_acquired_at.bufs[i].data);
+  if (opts->tasks_creation_to_end_duration.bufs != NULL)
+    for (uint32_t i = 0; i < opts->tasks_creation_to_end_duration.n; ++i) unk_untrack(opts->tasks_creation_to_end_duration.bufs[i].data);
+  if (opts->tasks_processing_to_end_duration.bufs != NULL)
+    for (uint32_t i = 0; i < opts->tasks_processing_to_end_duration.n; ++i) unk_untrack(opts->tasks_processing_to_end_duration.bufs[i].data);
+  if (opts->tasks_received_to_end_duration.bufs != NULL)
+    for (uint32_t i = 0; i < opts->tasks_received_to_end_duration.n; ++i) unk_untrack(opts->tasks_received_to_end_duration.bufs[i].data);
+  if (opts->tasks_processed_at.bufs != NULL)
+    for (uint32_t i = 0; i < opts->tasks_processed_at.n; ++i) unk_untrack(opts->tasks_processed_at.bufs[i].data);
+  if (opts->tasks_fetched_at.bufs != NULL)
+    for (uint32_t i = 0; i < opts->tasks_fetched_at.n; ++i) unk_untrack(opts->tasks_fetched_at.bufs[i].data);
   unk_reclaim();
   if (rc >= 0 && rc2 != AK_OK) rc = rc2;
   return rc;
@@ -3860,7 +3918,7 @@ int32_t decode_with_list_tasks_detailed_response_unk(ak_dec_ctx *ctx, const uint
 
 // Decision 11 rule 1, pre-allocated: every singular position gets one buffer of `cap`
 // bytes, every pool `k`, refilled in place after each delivery; `unk_grow` is the
-// fallback. Unconsumed buffers are freed by the decode's reclaim.
+// fallback. Unconsumed buffers stay in the holder's options and are freed here.
 struct UnkPool_ListTasksDetailedResponse {
   struct ak_dec_ListTasksDetailedResponse_opts opts;
   std::vector<struct ak_unk_buf> bufs;
@@ -3938,6 +3996,9 @@ int32_t decode_with_list_tasks_detailed_response_pool(ak_dec_ctx *ctx, const uin
   unk_refill_list_tasks_detailed_response(&h);
   h.refills = 0;
   int32_t rc = decode_with_list_tasks_detailed_response_opts(ctx, b, n, out, &h.opts, unk_refill_list_tasks_detailed_response, &h);
+  // The pre-allocated buffers the decode did not consume are still ours (R-H7).
+  for (size_t i = 0; i < h.bufs.size(); ++i) std::free(h.bufs[i].data);
+  std::free(h.opts.self.buf.data);
   if (refills) *refills = h.refills;
   return rc;
 }
@@ -4030,14 +4091,22 @@ void unk_opts_list_probe_response(struct ak_dec_ListProbeResponse_opts *o, int z
 
 // The decode with the context armed with `opts`, read IN PLACE by the core until the
 // disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,
-// is called with `hold` after every element delivery (rule 1). Every buffer this
-// binding allocated and did not deliver is freed before return.
+// is called with `hold` after every element delivery (rule 1). A buffer the core
+// consumed and this binding did not deliver (a failed decode, a map entry) is freed
+// before return; a buffer still in `opts` was not consumed and is left there, the
+// host's, for the next decode with the same options (rule 7, R-H7).
 int32_t decode_with_list_probe_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out, struct ak_dec_ListProbeResponse_opts *opts, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   int32_t rc = ak_dec_reset_ListProbeResponse(ctx, opts);
   if (rc != AK_OK) return rc;
   rc = decode_impl_list_probe_response(ctx, b, n, out, refill, hold);
   int32_t rc2 = ak_dec_reset_ListProbeResponse(ctx, NULL);
+  // R-H7: what is still in the options was not consumed and stays the host's.
+  unk_untrack(opts->self.buf.data);
+  if (opts->probes.bufs != NULL)
+    for (uint32_t i = 0; i < opts->probes.n; ++i) unk_untrack(opts->probes.bufs[i].data);
+  if (opts->probes_body.bufs != NULL)
+    for (uint32_t i = 0; i < opts->probes_body.n; ++i) unk_untrack(opts->probes_body.bufs[i].data);
   unk_reclaim();
   if (rc >= 0 && rc2 != AK_OK) rc = rc2;
   return rc;
@@ -4052,7 +4121,7 @@ int32_t decode_with_list_probe_response_unk(ak_dec_ctx *ctx, const uint8_t *b, s
 
 // Decision 11 rule 1, pre-allocated: every singular position gets one buffer of `cap`
 // bytes, every pool `k`, refilled in place after each delivery; `unk_grow` is the
-// fallback. Unconsumed buffers are freed by the decode's reclaim.
+// fallback. Unconsumed buffers stay in the holder's options and are freed here.
 struct UnkPool_ListProbeResponse {
   struct ak_dec_ListProbeResponse_opts opts;
   std::vector<struct ak_unk_buf> bufs;
@@ -4085,6 +4154,9 @@ int32_t decode_with_list_probe_response_pool(ak_dec_ctx *ctx, const uint8_t *b, 
   unk_refill_list_probe_response(&h);
   h.refills = 0;
   int32_t rc = decode_with_list_probe_response_opts(ctx, b, n, out, &h.opts, unk_refill_list_probe_response, &h);
+  // The pre-allocated buffers the decode did not consume are still ours (R-H7).
+  for (size_t i = 0; i < h.bufs.size(); ++i) std::free(h.bufs[i].data);
+  std::free(h.opts.self.buf.data);
   if (refills) *refills = h.refills;
   return rc;
 }
@@ -4201,14 +4273,28 @@ void unk_opts_list_task_summary_response(struct ak_dec_ListTaskSummaryResponse_o
 
 // The decode with the context armed with `opts`, read IN PLACE by the core until the
 // disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,
-// is called with `hold` after every element delivery (rule 1). Every buffer this
-// binding allocated and did not deliver is freed before return.
+// is called with `hold` after every element delivery (rule 1). A buffer the core
+// consumed and this binding did not deliver (a failed decode, a map entry) is freed
+// before return; a buffer still in `opts` was not consumed and is left there, the
+// host's, for the next decode with the same options (rule 7, R-H7).
 int32_t decode_with_list_task_summary_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out, struct ak_dec_ListTaskSummaryResponse_opts *opts, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   int32_t rc = ak_dec_reset_ListTaskSummaryResponse(ctx, opts);
   if (rc != AK_OK) return rc;
   rc = decode_impl_list_task_summary_response(ctx, b, n, out, refill, hold);
   int32_t rc2 = ak_dec_reset_ListTaskSummaryResponse(ctx, NULL);
+  // R-H7: what is still in the options was not consumed and stays the host's.
+  unk_untrack(opts->self.buf.data);
+  if (opts->tasks.bufs != NULL)
+    for (uint32_t i = 0; i < opts->tasks.n; ++i) unk_untrack(opts->tasks.bufs[i].data);
+  if (opts->tasks_options.bufs != NULL)
+    for (uint32_t i = 0; i < opts->tasks_options.n; ++i) unk_untrack(opts->tasks_options.bufs[i].data);
+  if (opts->tasks_options_options.bufs != NULL)
+    for (uint32_t i = 0; i < opts->tasks_options_options.n; ++i) unk_untrack(opts->tasks_options_options.bufs[i].data);
+  if (opts->tasks_options_max_duration.bufs != NULL)
+    for (uint32_t i = 0; i < opts->tasks_options_max_duration.n; ++i) unk_untrack(opts->tasks_options_max_duration.bufs[i].data);
+  if (opts->tasks_created_at.bufs != NULL)
+    for (uint32_t i = 0; i < opts->tasks_created_at.n; ++i) unk_untrack(opts->tasks_created_at.bufs[i].data);
   unk_reclaim();
   if (rc >= 0 && rc2 != AK_OK) rc = rc2;
   return rc;
@@ -4223,7 +4309,7 @@ int32_t decode_with_list_task_summary_response_unk(ak_dec_ctx *ctx, const uint8_
 
 // Decision 11 rule 1, pre-allocated: every singular position gets one buffer of `cap`
 // bytes, every pool `k`, refilled in place after each delivery; `unk_grow` is the
-// fallback. Unconsumed buffers are freed by the decode's reclaim.
+// fallback. Unconsumed buffers stay in the holder's options and are freed here.
 struct UnkPool_ListTaskSummaryResponse {
   struct ak_dec_ListTaskSummaryResponse_opts opts;
   std::vector<struct ak_unk_buf> bufs;
@@ -4265,6 +4351,9 @@ int32_t decode_with_list_task_summary_response_pool(ak_dec_ctx *ctx, const uint8
   unk_refill_list_task_summary_response(&h);
   h.refills = 0;
   int32_t rc = decode_with_list_task_summary_response_opts(ctx, b, n, out, &h.opts, unk_refill_list_task_summary_response, &h);
+  // The pre-allocated buffers the decode did not consume are still ours (R-H7).
+  for (size_t i = 0; i < h.bufs.size(); ++i) std::free(h.bufs[i].data);
+  std::free(h.opts.self.buf.data);
   if (refills) *refills = h.refills;
   return rc;
 }
@@ -4335,14 +4424,19 @@ void unk_opts_upload_result_data_message(struct ak_dec_UploadResultDataMessage_o
 
 // The decode with the context armed with `opts`, read IN PLACE by the core until the
 // disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,
-// is called with `hold` after every element delivery (rule 1). Every buffer this
-// binding allocated and did not deliver is freed before return.
+// is called with `hold` after every element delivery (rule 1). A buffer the core
+// consumed and this binding did not deliver (a failed decode, a map entry) is freed
+// before return; a buffer still in `opts` was not consumed and is left there, the
+// host's, for the next decode with the same options (rule 7, R-H7).
 int32_t decode_with_upload_result_data_message_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out, struct ak_dec_UploadResultDataMessage_opts *opts, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   int32_t rc = ak_dec_reset_UploadResultDataMessage(ctx, opts);
   if (rc != AK_OK) return rc;
   rc = decode_impl_upload_result_data_message(ctx, b, n, out, refill, hold);
   int32_t rc2 = ak_dec_reset_UploadResultDataMessage(ctx, NULL);
+  // R-H7: what is still in the options was not consumed and stays the host's.
+  unk_untrack(opts->self.buf.data);
+  unk_untrack(opts->upload.buf.data);
   unk_reclaim();
   if (rc >= 0 && rc2 != AK_OK) rc = rc2;
   return rc;
@@ -4357,7 +4451,7 @@ int32_t decode_with_upload_result_data_message_unk(ak_dec_ctx *ctx, const uint8_
 
 // Decision 11 rule 1, pre-allocated: every singular position gets one buffer of `cap`
 // bytes, every pool `k`, refilled in place after each delivery; `unk_grow` is the
-// fallback. Unconsumed buffers are freed by the decode's reclaim.
+// fallback. Unconsumed buffers stay in the holder's options and are freed here.
 struct UnkPool_UploadResultDataMessage {
   struct ak_dec_UploadResultDataMessage_opts opts;
   std::vector<struct ak_unk_buf> bufs;
@@ -4385,6 +4479,10 @@ int32_t decode_with_upload_result_data_message_pool(ak_dec_ctx *ctx, const uint8
   unk_refill_upload_result_data_message(&h);
   h.refills = 0;
   int32_t rc = decode_with_upload_result_data_message_opts(ctx, b, n, out, &h.opts, unk_refill_upload_result_data_message, &h);
+  // The pre-allocated buffers the decode did not consume are still ours (R-H7).
+  for (size_t i = 0; i < h.bufs.size(); ++i) std::free(h.bufs[i].data);
+  std::free(h.opts.self.buf.data);
+  std::free(h.opts.upload.buf.data);
   if (refills) *refills = h.refills;
   return rc;
 }
@@ -4531,14 +4629,20 @@ void unk_opts_list_metrics_response(struct ak_dec_ListMetricsResponse_opts *o, i
 
 // The decode with the context armed with `opts`, read IN PLACE by the core until the
 // disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,
-// is called with `hold` after every element delivery (rule 1). Every buffer this
-// binding allocated and did not deliver is freed before return.
+// is called with `hold` after every element delivery (rule 1). A buffer the core
+// consumed and this binding did not deliver (a failed decode, a map entry) is freed
+// before return; a buffer still in `opts` was not consumed and is left there, the
+// host's, for the next decode with the same options (rule 7, R-H7).
 int32_t decode_with_list_metrics_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out, struct ak_dec_ListMetricsResponse_opts *opts, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   int32_t rc = ak_dec_reset_ListMetricsResponse(ctx, opts);
   if (rc != AK_OK) return rc;
   rc = decode_impl_list_metrics_response(ctx, b, n, out, refill, hold);
   int32_t rc2 = ak_dec_reset_ListMetricsResponse(ctx, NULL);
+  // R-H7: what is still in the options was not consumed and stays the host's.
+  unk_untrack(opts->self.buf.data);
+  if (opts->batches.bufs != NULL)
+    for (uint32_t i = 0; i < opts->batches.n; ++i) unk_untrack(opts->batches.bufs[i].data);
   unk_reclaim();
   if (rc >= 0 && rc2 != AK_OK) rc = rc2;
   return rc;
@@ -4553,7 +4657,7 @@ int32_t decode_with_list_metrics_response_unk(ak_dec_ctx *ctx, const uint8_t *b,
 
 // Decision 11 rule 1, pre-allocated: every singular position gets one buffer of `cap`
 // bytes, every pool `k`, refilled in place after each delivery; `unk_grow` is the
-// fallback. Unconsumed buffers are freed by the decode's reclaim.
+// fallback. Unconsumed buffers stay in the holder's options and are freed here.
 struct UnkPool_ListMetricsResponse {
   struct ak_dec_ListMetricsResponse_opts opts;
   std::vector<struct ak_unk_buf> bufs;
@@ -4583,6 +4687,9 @@ int32_t decode_with_list_metrics_response_pool(ak_dec_ctx *ctx, const uint8_t *b
   unk_refill_list_metrics_response(&h);
   h.refills = 0;
   int32_t rc = decode_with_list_metrics_response_opts(ctx, b, n, out, &h.opts, unk_refill_list_metrics_response, &h);
+  // The pre-allocated buffers the decode did not consume are still ours (R-H7).
+  for (size_t i = 0; i < h.bufs.size(); ++i) std::free(h.bufs[i].data);
+  std::free(h.opts.self.buf.data);
   if (refills) *refills = h.refills;
   return rc;
 }
@@ -4670,14 +4777,22 @@ void unk_opts_dual_response(struct ak_dec_DualResponse_opts *o, int zero) {
 
 // The decode with the context armed with `opts`, read IN PLACE by the core until the
 // disarming reset: `opts` must stay alive and unmoved for the call. `refill`, if set,
-// is called with `hold` after every element delivery (rule 1). Every buffer this
-// binding allocated and did not deliver is freed before return.
+// is called with `hold` after every element delivery (rule 1). A buffer the core
+// consumed and this binding did not deliver (a failed decode, a map entry) is freed
+// before return; a buffer still in `opts` was not consumed and is left there, the
+// host's, for the next decode with the same options (rule 7, R-H7).
 int32_t decode_with_dual_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out, struct ak_dec_DualResponse_opts *opts, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   int32_t rc = ak_dec_reset_DualResponse(ctx, opts);
   if (rc != AK_OK) return rc;
   rc = decode_impl_dual_response(ctx, b, n, out, refill, hold);
   int32_t rc2 = ak_dec_reset_DualResponse(ctx, NULL);
+  // R-H7: what is still in the options was not consumed and stays the host's.
+  unk_untrack(opts->self.buf.data);
+  if (opts->left.bufs != NULL)
+    for (uint32_t i = 0; i < opts->left.n; ++i) unk_untrack(opts->left.bufs[i].data);
+  if (opts->right.bufs != NULL)
+    for (uint32_t i = 0; i < opts->right.n; ++i) unk_untrack(opts->right.bufs[i].data);
   unk_reclaim();
   if (rc >= 0 && rc2 != AK_OK) rc = rc2;
   return rc;
@@ -4692,7 +4807,7 @@ int32_t decode_with_dual_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t 
 
 // Decision 11 rule 1, pre-allocated: every singular position gets one buffer of `cap`
 // bytes, every pool `k`, refilled in place after each delivery; `unk_grow` is the
-// fallback. Unconsumed buffers are freed by the decode's reclaim.
+// fallback. Unconsumed buffers stay in the holder's options and are freed here.
 struct UnkPool_DualResponse {
   struct ak_dec_DualResponse_opts opts;
   std::vector<struct ak_unk_buf> bufs;
@@ -4725,6 +4840,9 @@ int32_t decode_with_dual_response_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t
   unk_refill_dual_response(&h);
   h.refills = 0;
   int32_t rc = decode_with_dual_response_opts(ctx, b, n, out, &h.opts, unk_refill_dual_response, &h);
+  // The pre-allocated buffers the decode did not consume are still ours (R-H7).
+  for (size_t i = 0; i < h.bufs.size(); ++i) std::free(h.bufs[i].data);
+  std::free(h.opts.self.buf.data);
   if (refills) *refills = h.refills;
   return rc;
 }
