@@ -55,7 +55,17 @@ if [ -n "$DIRTY" ]; then
   COMMIT="$COMMIT-DIRTY"
 fi
 
-# ---- req 4: the CPU sets
+# ---- req 4: the CPU sets. ffi/campaign.sh exports them from ffi/campaign.machine; a direct
+# run outside smoke reads the same file when the environment does not set them (R-H34).
+MACHINE="$TOP/ffi/campaign.machine"
+if [ "$SMOKE" != 1 ] && [ -f "$MACHINE" ] && { [ -z "${AK_CPU_CLIENT:-}" ] || [ -z "${AK_CPU_SERVER:-}" ]; }; then
+  # shellcheck source=/dev/null
+  . "$MACHINE"
+fi
+# Req 11 (R-H29): the pool input is sized from the last-level cache: 2 x AK_LLC_BYTES of
+# serialised bytes (default 13.75 MB, the reference machine's L3, when campaign.machine
+# does not set it).
+AK_LLC_BYTES=${AK_LLC_BYTES:-14417920}
 if [ -z "${AK_CPU_CLIENT:-}" ] || [ -z "${AK_CPU_SERVER:-}" ]; then
   if [ "$SMOKE" != 1 ] && [ "$SUITE" != gate ]; then
     echo "REFUSED: AK_CPU_CLIENT and AK_CPU_SERVER must be set (req 4)"; exit 1
@@ -93,6 +103,9 @@ header() {  # $1 = file, $2 = suite description
     echo "# build: $(cat build/core-rev.txt 2>/dev/null | sed 's/^ *//')"
     echo "#   core cargo profile release, features $(grep -ho ',"features":"\[[^]]*\]' core-build/current/target/release/.fingerprint/ak-core-*/lib-ak_core.json 2>/dev/null | sort -u | tr -d '\\' | sed 's/^,"features":"//' | tr '\n' ' ') (shared library, cdylib); shim gcc -O2 -std=c11"
     echo "#   JVM: $JVM_FLAGS (tiered JIT on, default thresholds)"
+    echo "# worker threads (req 4, R-H34), as the pinned JVM sizes them: $($PIN_C "$J17/bin/java" $JVM_FLAGS -XX:+PrintFlagsFinal -version 2>/dev/null | awk '$2 ~ /^(ParallelGCThreads|ConcGCThreads|CICompilerCount)$/ {printf "%s=%s ", $2, $4}')(JVM); codec: 1 benchmark thread (JMH); rpc: Netty event loops, core runtime workers and grpc-java's executor in each rpc log's meta line and the server's THREADS line"
+    echo "# order (req 22): codec -- JMH runs cells in the order given, cannot randomise across forks; arm order rotated one step per launch inside each (payload, content, dir) block; rpc -- cells rotated one step per round, same schedule every launch; the two builds alternate by launch"
+    echo "# ratios (req 30, R-H24): formed from per-launch medians; the codec suite forks per cell, so every ratio is cross-process"
     echo "# repeats: $LAUNCHES launch(es) x $ROUNDS round(s) per process (req 23)"
   } > "$f"
 }
@@ -113,7 +126,7 @@ run_gate() {
   { echo; echo "## gen/corpus.sh"; bash gen/corpus.sh; } >> "$f" 2>&1 || rc=1
   # req 19: the crossing counts are machine-independent and gate the run
   "$J17/bin/java" -cp "build/cls17:$CP" -Dak.lib="$HERE/build/jnicnt/libakjni.so" ak.RunCounts \
-    2>/dev/null | grep -E '^P[0-9]' > "$OUT/counts-$COMMIT.txt" || true
+    2>/dev/null | grep -E '^(P[0-9]|EP )' > "$OUT/counts-$COMMIT.txt" || true
   if diff -u gen/campaign/counts.ref "$OUT/counts-$COMMIT.txt" > "$OUT/counts-$COMMIT.diff"; then
     echo "## crossing counts: identical to gen/campaign/counts.ref ($(wc -l < gen/campaign/counts.ref) rows)" >> "$f"
   else
@@ -123,12 +136,31 @@ run_gate() {
   { echo; echo "## gen/gate.sh, no-unknown build"; AK_VARIANT=nounk bash gen/gate.sh; } >> "$f" 2>&1 || rc=1
   { echo; echo "## gen/corpus.sh, no-unknown build"; AK_VARIANT=nounk bash gen/corpus.sh; } >> "$f" 2>&1 || rc=1
   "$J17/bin/java" -cp "build/cls17-nounk:$CP" -Dak.lib="$HERE/build/jnicnt-nounk/libakjni.so" ak.RunCounts \
-    2>/dev/null | grep -E '^P[0-9]' > "$OUT/counts-nounk-$COMMIT.txt" || true
+    2>/dev/null | grep -E '^(P[0-9]|EP )' > "$OUT/counts-nounk-$COMMIT.txt" || true
   if diff -u gen/campaign/counts-nounk.ref "$OUT/counts-nounk-$COMMIT.txt" > "$OUT/counts-nounk-$COMMIT.diff"; then
     echo "## crossing counts, no-unknown build: identical to gen/campaign/counts-nounk.ref ($(wc -l < gen/campaign/counts-nounk.ref) rows)" >> "$f"
   else
     echo "## crossing counts, no-unknown build, DIFFER from gen/campaign/counts-nounk.ref (req 19): see counts-nounk-$COMMIT.diff" >> "$f"; rc=1
   fi
+  # Req 19 (R-H31): the RPC cells B, C, D and E, crossings per call, both builds, against
+  # one server (the pinned socket), from the counting core and the counting shim.
+  local ss="$HERE/build/gate-$$-shipped.sock" sp="$HERE/build/gate-$$-pinned.sock"
+  "$J17/bin/java" -cp "build/cls17:$CP" -Dak.lib="$HERE/build/jnirpc/libakjni.so" \
+    ak.CampaignRpc --serve "$ss" "$sp" > "$OUT/gate-rpc-server.txt" 2>&1 &
+  local spid=$!
+  for i in $(seq 1 120); do grep -q "SERVING $sp" "$OUT/gate-rpc-server.txt" 2>/dev/null && break; sleep 0.5; done
+  for v in "" -nounk; do
+    "$J17/bin/java" -cp "build/cls17$v:$CP" -Dak.lib="$HERE/build/jnirpccnt$v/libakjni.so" \
+      -Dak.rpclib="$HERE/build/jnirpccnt$v/libakjni.so" -Dak.camp.count=1 -Dak.camp.transport=pinned \
+      -Dak.camp.socket="$sp" ak.CampaignRpc 2>/dev/null | grep -E '^RPC ' > "$OUT/rpc-counts$v-$COMMIT.txt" || true
+    if diff -u gen/campaign/rpc-counts$v.ref "$OUT/rpc-counts$v-$COMMIT.txt" > "$OUT/rpc-counts$v-$COMMIT.diff"; then
+      echo "## rpc crossing counts per call${v:+, no-unknown build}: identical to gen/campaign/rpc-counts$v.ref ($(wc -l < gen/campaign/rpc-counts$v.ref) rows)" >> "$f"
+    else
+      echo "## rpc crossing counts per call${v:+, no-unknown build} DIFFER from gen/campaign/rpc-counts$v.ref (req 19): see rpc-counts$v-$COMMIT.diff" >> "$f"; rc=1
+    fi
+  done
+  kill $spid 2>/dev/null || true; wait $spid 2>/dev/null || true
+  rm -f "$ss" "$sp"
   { echo "## the two committed references against each other (full -> no-unknown):"
     diff gen/campaign/counts.ref gen/campaign/counts-nounk.ref | sed 's/^/   /' || true; } >> "$f"
   if [ $rc = 0 ]; then echo "GATE PASSED" >> "$f"; echo "commit $COMMIT $(date -u +%FT%TZ)" > "$OUT/gate-$GKEY.ok"
@@ -151,8 +183,8 @@ codec)
   # `iters` operations; warm-up iterations = AK_WARM (5), measurement iterations = rounds.
   # Every raw iteration is exported (gen/jmh_to_jsonl.py); JMH's own JSON is kept beside it.
   JMHCP=$(cat deps/jmh/cp.txt)
-  EXTRA=""; WARM=${AK_WARM:-5}
-  [ "$SMOKE" = 1 ] && { EXTRA="-Dak.camp.budget=${AK_SMOKE_BUDGET:-65536} -Dak.camp.maxiters=${AK_SMOKE_MAXITERS:-50}"; WARM=1; AK_SMOKE_UROWS=${AK_SMOKE_UROWS:-6}; }
+  EXTRA="-Dak.camp.poolbytes=$((2 * AK_LLC_BYTES))"; WARM=${AK_WARM:-5}
+  [ "$SMOKE" = 1 ] && { EXTRA="-Dak.camp.budget=${AK_SMOKE_BUDGET:-65536} -Dak.camp.maxiters=${AK_SMOKE_MAXITERS:-50} -Dak.camp.poolbytes=${AK_SMOKE_POOLBYTES:-65536}"; WARM=1; AK_SMOKE_UROWS=${AK_SMOKE_UROWS:-6}; }
   # WP5 step 10: two builds, each its own JMH invocation per launch (the no-unknown build is
   # another class tree and another core; one process cannot hold both), in alternating order
   # by launch. JMH forks one JVM per cell (-f 1), so NO arm shares a process with another:
@@ -164,7 +196,8 @@ codec)
   codec_run() {  # $1 = launch, $2 = full|nounk
     local l=$1 V=$2 SX= TAG= BUILD=full
     [ "$V" = nounk ] && { SX=-nounk; TAG=-nounk; BUILD=no-unknown; }
-    CELLS=$("$J17/bin/java" -cp "build/cls17$SX:$CP" -Dak.camp.launch="$l" ${AK_CODEC_PROPS:-} ak.CampaignCodec | tr '\n' ',' | sed 's/,$//')
+    CELLS=$("$J17/bin/java" -cp "build/cls17$SX:$CP" -Dak.camp.launch="$l" \
+            ${AK_SMOKE_UROWS:+-Dak.camp.urows=$AK_SMOKE_UROWS} ${AK_CODEC_PROPS:-} ak.CampaignCodec | tr '\n' ',' | sed 's/,$//')
     for coder in compact utf16; do
       f="$OUT/codec$TAG-$coder-launch-$l.jsonl"; base="$OUT/codec$TAG-$coder-launch-$l"
       header "$f" "engine=JMH 1.37 SingleShotTime, -f 1 per cell, warm-up $WARM iteration(s) + $ROUNDS measurement iteration(s) per cell, build=$V coder=$coder launch=$l, $(echo "$CELLS" | tr ',' '\n' | wc -l) cells"
@@ -205,33 +238,42 @@ codec)
 rpc)
   EXTRA=""; WARM=${AK_WARM:-2}
   [ "$SMOKE" = 1 ] && { EXTRA="-Dak.camp.calls=${AK_SMOKE_CALLS:-64} -Dak.camp.chunk=16"; WARM=1; }
+  # Req 13 as amended (R-H33): ONE server process per launch, serving every cell of both
+  # builds on two sockets (shipped and pinned), warmed by every client's warm-up samples
+  # (stated in each client's meta line: warmup_calls_total) before its round 1.
+  server_up() {  # $1 = launch
+    local l=$1
+    SS="$HERE/build/campaign-$$-shipped-$l.sock"; SP="$HERE/build/campaign-$$-pinned-$l.sock"
+    $PIN_S $JAVA -Dak.lib="$HERE/build/jnirpc/libakjni.so" ak.CampaignRpc --serve "$SS" "$SP" \
+      > "$OUT/rpc-server-launch-$l.txt" 2>&1 &
+    SPID=$!
+    for i in $(seq 1 120); do grep -q "SERVING $SP" "$OUT/rpc-server-launch-$l.txt" 2>/dev/null && break; sleep 0.5; done
+    grep -q "SERVING $SP" "$OUT/rpc-server-launch-$l.txt" || { kill $SPID; echo "server did not start"; exit 1; }
+  }
   rpc_run() {  # $1 = launch, $2 = transport, $3 = full|nounk
-    local l=$1 tr=$2 V=$3 SX= TAG= CELLS="A, B, C-retain, C-drop, D-retain, D-drop"
-    [ "$V" = nounk ] && { SX=-nounk; TAG=-nounk; CELLS="A, B (in-process controls), C-nounk, D-nounk"; }
-    local f="$OUT/rpc-$tr$TAG-launch-$l.jsonl"
-    local sock="$HERE/build/campaign-$$-$tr$TAG-$l.sock"
-    header "$f" "transport=$tr build=$V launch=$l warm-up=$WARM sample(s) per (dir,inflight,cell) before round 1 (cells $CELLS in ONE client process, server in its own process)"
-    echo "# server: $PIN_S java ... ak.CampaignRpc --serve (grpc-java, pre-serialised P2.2; direction b parses with protobuf-java; the full build's classes, no core codec on the server)" >> "$f"
-    $PIN_S $JAVA -Dak.camp.transport="$tr" -Dak.lib="$HERE/build/jnirpc/libakjni.so" \
-      ak.CampaignRpc --serve "$sock" > "$OUT/rpc-server-$tr$TAG-$l.txt" 2>&1 &
-    local spid=$!
-    for i in $(seq 1 120); do grep -q SERVING "$OUT/rpc-server-$tr$TAG-$l.txt" 2>/dev/null && break; sleep 0.5; done
-    grep -q SERVING "$OUT/rpc-server-$tr$TAG-$l.txt" || { kill $spid; echo "server did not start"; exit 1; }
+    local l=$1 tr=$2 V=$3 SX= TAG= CELLS="A, B, C-retain, C-drop, D-retain, D-drop, E-retain, E-drop, F-retain, F-drop"
+    [ "$V" = nounk ] && { SX=-nounk; TAG=-nounk; CELLS="A, B (in-process controls), C-nounk, D-nounk, E-nounk, F-nounk"; }
+    local f="$OUT/rpc-$tr$TAG-launch-$l.jsonl" sock=$SS
+    [ "$tr" = pinned ] && sock=$SP
+    header "$f" "transport=$tr build=$V launch=$l warm-up=$WARM sample(s) per (dir,inflight,cell) before round 1 (cells $CELLS in ONE client process; directions a, a+read, b)"
+    echo "# server: $PIN_S java ... ak.CampaignRpc --serve, ONE process for launch $l serving every cell of both builds (shipped and pinned sockets; pre-serialised P2.2; direction b parses with protobuf-java; no core codec on the server); $(grep THREADS "$OUT/rpc-server-launch-$l.txt")" >> "$f"
+    echo "# delivery (req 16): B, C, E the core's blocking call; A, D, F grpc-java's ClientCalls.blockingUnaryCall, the call a generated blocking stub makes (packages/java's clients use blocking stubs)" >> "$f"
     local rc=0
     $PIN_C "$J17/bin/java" $JVM_FLAGS -cp "build/cls17$SX:$CP" -Dak.camp.rounds=$ROUNDS \
       -Dak.camp.transport="$tr" -Dak.camp.socket="$sock" -Dak.camp.launch="$l" \
       -Dak.lib="$HERE/build/jnirpc$SX/libakjni.so" -Dak.rpclib="$HERE/build/jnirpc$SX/libakjni.so" \
       -Dak.camp.out="$f" -Dak.camp.warm="$WARM" $EXTRA ${AK_RPC_PROPS:-} ak.CampaignRpc || rc=$?
-    kill $spid 2>/dev/null || true; wait $spid 2>/dev/null || true
-    rm -f "$sock"
-    [ $rc = 0 ] || { echo "rpc launch $l ($tr, $V) FAILED (req 18); no figure"; exit 1; }
+    [ $rc = 0 ] || { kill $SPID 2>/dev/null; echo "rpc launch $l ($tr, $V) FAILED (req 18); no figure"; exit 1; }
     echo "rpc launch $l ($tr, $V): $(grep -c '"cpu_ns"' "$f") samples -> $f"
   }
   for l in $(seq 1 "$LAUNCHES"); do
+    server_up "$l"
     for tr in shipped pinned; do
       if [ $((l % 2)) = 1 ]; then rpc_run "$l" "$tr" full; rpc_run "$l" "$tr" nounk
       else rpc_run "$l" "$tr" nounk; rpc_run "$l" "$tr" full; fi
     done
+    kill $SPID 2>/dev/null || true; wait $SPID 2>/dev/null || true
+    rm -f "$SS" "$SP"
   done ;;
 calib)
   N=${AK_CALIB_ITERS:-20000000}; [ "$SMOKE" = 1 ] && N=${AK_SMOKE_CALIB_ITERS:-200000}

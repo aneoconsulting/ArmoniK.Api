@@ -92,3 +92,357 @@ P5.2            2            2
 P5.3            2            2
 P5.4            2            2
 P6.1          200          200
+EP P1.1                       encode (buf)          no-unknown host      4 core      2 rev      1 grow    0
+EP P1.1                       encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP P1.1                       decode                no-unknown host      1 core      1 rev      2 grow    0
+EP P1.1                       decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP P1.1                       decode-pull (walk)    no-unknown host      2 core      2 rev      0 grow    0
+EP P1.2                       encode (buf)          no-unknown host     10 core      8 rev      1 grow    0
+EP P1.2                       encode (transport)    no-unknown host     10 core      8 rev      1 grow    0
+EP P1.2                       decode                no-unknown host      1 core      1 rev      5 grow    0
+EP P1.2                       decode-pull (drain)   no-unknown host      6 core      6 rev      0 grow    0
+EP P1.2                       decode-pull (walk)    no-unknown host      2 core      2 rev      0 grow    0
+EP P1.3                       encode (buf)          no-unknown host      5 core      3 rev      1 grow    0
+EP P1.3                       encode (transport)    no-unknown host      5 core      3 rev      1 grow    0
+EP P1.3                       decode                no-unknown host      1 core      1 rev      3 grow    0
+EP P1.3                       decode-pull (drain)   no-unknown host      4 core      4 rev      0 grow    0
+EP P1.3                       decode-pull (walk)    no-unknown host      2 core      2 rev      0 grow    0
+EP P2.1                       encode (buf)          no-unknown host      9 core      7 rev      6 grow    0
+EP P2.1                       encode (transport)    no-unknown host      9 core      7 rev      6 grow    0
+EP P2.1                       decode                no-unknown host      1 core      1 rev      8 grow    0
+EP P2.1                       decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP P2.1                       decode-pull (walk)    no-unknown host      2 core      2 rev      0 grow    0
+EP P2.2                       encode (buf)          no-unknown host   2513 core   2511 rev   2501 grow    0
+EP P2.2                       encode (transport)    no-unknown host   2513 core   2511 rev   2501 grow    0
+EP P2.2                       decode                no-unknown host      1 core      1 rev   3501 grow    0
+EP P2.2                       decode-pull (drain)   no-unknown host     16 core     16 rev      0 grow    0
+EP P2.2                       decode-pull (walk)    no-unknown host      2 core      2 rev      0 grow    0
+EP P2.3                       encode (buf)          no-unknown host    631 core    629 rev    626 grow    0
+EP P2.3                       encode (transport)    no-unknown host    631 core    629 rev    626 grow    0
+EP P2.3                       decode                no-unknown host      1 core      1 rev    876 grow    0
+EP P2.3                       decode-pull (drain)   no-unknown host     11 core     11 rev      0 grow    0
+EP P2.3                       decode-pull (walk)    no-unknown host      2 core      2 rev      0 grow    0
+EP P2.4                       encode (buf)          no-unknown host    405 core    403 rev    401 grow    0
+EP P2.4                       encode (transport)    no-unknown host    405 core    403 rev    401 grow    0
+EP P2.4                       decode                no-unknown host      1 core      1 rev    561 grow    0
+EP P2.4                       decode-pull (drain)   no-unknown host     13 core     13 rev      0 grow    0
+EP P2.4                       decode-pull (walk)    no-unknown host      2 core      2 rev      0 grow    0
+EP P2.5                       encode (buf)          no-unknown host    104 core    102 rev    101 grow    0
+EP P2.5                       encode (transport)    no-unknown host    104 core    102 rev    101 grow    0
+EP P2.5                       decode                no-unknown host      1 core      1 rev    141 grow    0
+EP P2.5                       decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP P2.5                       decode-pull (walk)    no-unknown host      2 core      2 rev      0 grow    0
+EP P3.1                       encode (buf)          no-unknown host      4 core      2 rev      1 grow    0
+EP P3.1                       encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP P3.1                       decode                no-unknown host      1 core      1 rev      2 grow    0
+EP P3.1                       decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP P3.1                       decode-pull (walk)    no-unknown host      2 core      2 rev      0 grow    0
+EP P4.1                       encode (buf)          no-unknown host    205 core    203 rev    201 grow    0
+EP P4.1                       encode (transport)    no-unknown host    205 core    203 rev    201 grow    0
+EP P4.1                       decode                no-unknown host      1 core      1 rev    601 grow    0
+EP P4.1                       decode-pull (drain)   no-unknown host      5 core      5 rev      0 grow    0
+EP P4.1                       decode-pull (walk)    no-unknown host      2 core      2 rev      0 grow    0
+EP P5.1                       encode (buf)          no-unknown host      3 core      1 rev      0 grow    0
+EP P5.1                       encode (transport)    no-unknown host      3 core      1 rev      0 grow    0
+EP P5.1                       decode                no-unknown host      1 core      1 rev      1 grow    0
+EP P5.1                       decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP P5.1                       decode-pull (walk)    no-unknown host      2 core      2 rev      0 grow    0
+EP P5.2                       encode (buf)          no-unknown host      3 core      1 rev      0 grow    0
+EP P5.2                       encode (transport)    no-unknown host      3 core      1 rev      0 grow    0
+EP P5.2                       decode                no-unknown host      1 core      1 rev      1 grow    0
+EP P5.2                       decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP P5.2                       decode-pull (walk)    no-unknown host      2 core      2 rev      0 grow    0
+EP P5.3                       encode (buf)          no-unknown host      3 core      1 rev      0 grow    0
+EP P5.3                       encode (transport)    no-unknown host      3 core      1 rev      0 grow    0
+EP P5.3                       decode                no-unknown host      1 core      1 rev      1 grow    0
+EP P5.3                       decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP P5.3                       decode-pull (walk)    no-unknown host      2 core      2 rev      0 grow    0
+EP P5.4                       encode (buf)          no-unknown host      3 core      1 rev      0 grow    0
+EP P5.4                       encode (transport)    no-unknown host      3 core      1 rev      0 grow    0
+EP P5.4                       decode                no-unknown host      1 core      1 rev      1 grow    0
+EP P5.4                       decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP P5.4                       decode-pull (walk)    no-unknown host      2 core      2 rev      0 grow    0
+EP P6.1                       encode (buf)          no-unknown host   1004 core   1002 rev   1001 grow    0
+EP P6.1                       encode (transport)    no-unknown host   1004 core   1002 rev   1001 grow    0
+EP P6.1                       decode                no-unknown host      1 core      1 rev   1401 grow    0
+EP P6.1                       decode-pull (drain)   no-unknown host      8 core      8 rev      0 grow    0
+EP P6.1                       decode-pull (walk)    no-unknown host      2 core      2 rev      0 grow    0
+EP P7.1                       decode                no-unknown host      1 core      1 rev      7 grow    0
+EP P7.1                       decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP P7.1                       decode-pull (walk)    no-unknown host      2 core      2 rev      0 grow    0
+EP U-deep-all                 encode (transport)    no-unknown host      9 core      7 rev      6 grow    0
+EP U-deep-all                 decode                no-unknown host      1 core      1 rev      8 grow    0
+EP U-deep-all                 decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-deep-u-fixed32           encode (transport)    no-unknown host      9 core      7 rev      6 grow    0
+EP U-deep-u-fixed32           decode                no-unknown host      1 core      1 rev      8 grow    0
+EP U-deep-u-fixed32           decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-deep-u-fixed64           encode (transport)    no-unknown host      9 core      7 rev      6 grow    0
+EP U-deep-u-fixed64           decode                no-unknown host      1 core      1 rev      8 grow    0
+EP U-deep-u-fixed64           decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-deep-u-len               encode (transport)    no-unknown host      9 core      7 rev      6 grow    0
+EP U-deep-u-len               decode                no-unknown host      1 core      1 rev      8 grow    0
+EP U-deep-u-len               decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-deep-u-msg               encode (transport)    no-unknown host      9 core      7 rev      6 grow    0
+EP U-deep-u-msg               decode                no-unknown host      1 core      1 rev      8 grow    0
+EP U-deep-u-msg               decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-deep-u-packed            encode (transport)    no-unknown host      9 core      7 rev      6 grow    0
+EP U-deep-u-packed            decode                no-unknown host      1 core      1 rev      8 grow    0
+EP U-deep-u-packed            decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-deep-u-repeated          encode (transport)    no-unknown host      9 core      7 rev      6 grow    0
+EP U-deep-u-repeated          decode                no-unknown host      1 core      1 rev      8 grow    0
+EP U-deep-u-repeated          decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-deep-u-varint            encode (transport)    no-unknown host      9 core      7 rev      6 grow    0
+EP U-deep-u-varint            decode                no-unknown host      1 core      1 rev      8 grow    0
+EP U-deep-u-varint            decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-element-all              encode (transport)    no-unknown host      9 core      7 rev      6 grow    0
+EP U-element-all              decode                no-unknown host      1 core      1 rev      8 grow    0
+EP U-element-all              decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-element-u-fixed32        encode (transport)    no-unknown host      9 core      7 rev      6 grow    0
+EP U-element-u-fixed32        decode                no-unknown host      1 core      1 rev      8 grow    0
+EP U-element-u-fixed32        decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-element-u-fixed64        encode (transport)    no-unknown host      9 core      7 rev      6 grow    0
+EP U-element-u-fixed64        decode                no-unknown host      1 core      1 rev      8 grow    0
+EP U-element-u-fixed64        decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-element-u-len            encode (transport)    no-unknown host      9 core      7 rev      6 grow    0
+EP U-element-u-len            decode                no-unknown host      1 core      1 rev      8 grow    0
+EP U-element-u-len            decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-element-u-msg            encode (transport)    no-unknown host      9 core      7 rev      6 grow    0
+EP U-element-u-msg            decode                no-unknown host      1 core      1 rev      8 grow    0
+EP U-element-u-msg            decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-element-u-packed         encode (transport)    no-unknown host      9 core      7 rev      6 grow    0
+EP U-element-u-packed         decode                no-unknown host      1 core      1 rev      8 grow    0
+EP U-element-u-packed         decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-element-u-repeated       encode (transport)    no-unknown host      9 core      7 rev      6 grow    0
+EP U-element-u-repeated       decode                no-unknown host      1 core      1 rev      8 grow    0
+EP U-element-u-repeated       decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-element-u-varint         encode (transport)    no-unknown host      9 core      7 rev      6 grow    0
+EP U-element-u-varint         decode                no-unknown host      1 core      1 rev      8 grow    0
+EP U-element-u-varint         decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-enum-value-127           encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-enum-value-127           decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-enum-value-127           decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-enum-value-2147483647    encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-enum-value-2147483647    decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-enum-value-2147483647    decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-enum-value-999           encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-enum-value-999           decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-enum-value-999           decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-enum-value-packed        encode (transport)    no-unknown host      5 core      3 rev      6 grow    0
+EP U-enum-value-packed        decode                no-unknown host      1 core      1 rev      4 grow    0
+EP U-enum-value-packed        decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-leaf-all                 encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-leaf-all                 decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-leaf-all                 decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-leaf-u-fixed32           encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-leaf-u-fixed32           decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-leaf-u-fixed32           decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-leaf-u-fixed64           encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-leaf-u-fixed64           decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-leaf-u-fixed64           decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-leaf-u-len               encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-leaf-u-len               decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-leaf-u-len               decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-leaf-u-msg               encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-leaf-u-msg               decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-leaf-u-msg               decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-leaf-u-packed            encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-leaf-u-packed            decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-leaf-u-packed            decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-leaf-u-repeated          encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-leaf-u-repeated          decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-leaf-u-repeated          decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-leaf-u-varint            encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-leaf-u-varint            decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-leaf-u-varint            decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-nested-all               encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-nested-all               decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-nested-all               decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-nested-before            encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-nested-before            decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-nested-before            decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-nested-group             encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-nested-group             decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-nested-group             decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-nested-interleaved       encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-nested-interleaved       decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-nested-interleaved       decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-nested-u-fixed32         encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-nested-u-fixed32         decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-nested-u-fixed32         decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-nested-u-fixed64         encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-nested-u-fixed64         decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-nested-u-fixed64         decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-nested-u-len             encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-nested-u-len             decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-nested-u-len             decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-nested-u-msg             encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-nested-u-msg             decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-nested-u-msg             decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-nested-u-packed          encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-nested-u-packed          decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-nested-u-packed          decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-nested-u-repeated        encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-nested-u-repeated        decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-nested-u-repeated        decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-nested-u-varint          encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-nested-u-varint          decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-nested-u-varint          decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-oneof-all                encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-oneof-all                decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-oneof-all                decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-oneof-before             encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-oneof-before             decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-oneof-before             decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-oneof-group              encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-oneof-group              decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-oneof-group              decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-oneof-interleaved        encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-oneof-interleaved        decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-oneof-interleaved        decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-oneof-member-after-known encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-oneof-member-after-known decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-oneof-member-after-known decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-oneof-member-alone       encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-oneof-member-alone       decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-oneof-member-alone       decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-oneof-member-before-known encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-oneof-member-before-known decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-oneof-member-before-known decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-oneof-u-fixed32          encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-oneof-u-fixed32          decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-oneof-u-fixed32          decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-oneof-u-fixed64          encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-oneof-u-fixed64          decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-oneof-u-fixed64          decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-oneof-u-len              encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-oneof-u-len              decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-oneof-u-len              decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-oneof-u-msg              encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-oneof-u-msg              decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-oneof-u-msg              decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-oneof-u-packed           encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-oneof-u-packed           decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-oneof-u-packed           decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-oneof-u-repeated         encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-oneof-u-repeated         decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-oneof-u-repeated         decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-oneof-u-varint           encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-oneof-u-varint           decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-oneof-u-varint           decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-root-all                 encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-root-all                 decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-root-all                 decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-root-before              encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-root-before              decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-root-before              decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-root-group               encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-root-group               decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-root-group               decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-root-interleaved         encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-root-interleaved         decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-root-interleaved         decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-root-max-tag             encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-root-max-tag             decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-root-max-tag             decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-root-u-fixed32           encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-root-u-fixed32           decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-root-u-fixed32           decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-root-u-fixed64           encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-root-u-fixed64           decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-root-u-fixed64           decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-root-u-len               encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-root-u-len               decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-root-u-len               decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-root-u-msg               encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-root-u-msg               decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-root-u-msg               decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-root-u-packed            encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-root-u-packed            decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-root-u-packed            decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-root-u-repeated          encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-root-u-repeated          decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-root-u-repeated          decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-root-u-varint            encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-root-u-varint            decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-root-u-varint            decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-wire-DualResponse-left-as-wt0 encode (transport)    no-unknown host      5 core      3 rev      2 grow    0
+EP U-wire-DualResponse-left-as-wt0 decode                no-unknown host      1 core      1 rev      3 grow    0
+EP U-wire-DualResponse-left-as-wt0 decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-wire-DualResponse-left-as-wt1 encode (transport)    no-unknown host      5 core      3 rev      2 grow    0
+EP U-wire-DualResponse-left-as-wt1 decode                no-unknown host      1 core      1 rev      3 grow    0
+EP U-wire-DualResponse-left-as-wt1 decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-wire-DualResponse-left-as-wt5 encode (transport)    no-unknown host      5 core      3 rev      2 grow    0
+EP U-wire-DualResponse-left-as-wt5 decode                no-unknown host      1 core      1 rev      3 grow    0
+EP U-wire-DualResponse-left-as-wt5 decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-wire-ListMetricsResponse-batches-as-wt0 encode (transport)    no-unknown host     14 core     12 rev     11 grow    0
+EP U-wire-ListMetricsResponse-batches-as-wt0 decode                no-unknown host      1 core      1 rev     15 grow    0
+EP U-wire-ListMetricsResponse-batches-as-wt0 decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-wire-ListMetricsResponse-batches-as-wt1 encode (transport)    no-unknown host     14 core     12 rev     11 grow    0
+EP U-wire-ListMetricsResponse-batches-as-wt1 decode                no-unknown host      1 core      1 rev     15 grow    0
+EP U-wire-ListMetricsResponse-batches-as-wt1 decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-wire-ListMetricsResponse-batches-as-wt5 encode (transport)    no-unknown host     14 core     12 rev     11 grow    0
+EP U-wire-ListMetricsResponse-batches-as-wt5 decode                no-unknown host      1 core      1 rev     15 grow    0
+EP U-wire-ListMetricsResponse-batches-as-wt5 decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-wire-ListProbeResponse-probes-as-wt0 encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-wire-ListProbeResponse-probes-as-wt0 decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-wire-ListProbeResponse-probes-as-wt0 decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-wire-ListProbeResponse-probes-as-wt1 encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-wire-ListProbeResponse-probes-as-wt1 decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-wire-ListProbeResponse-probes-as-wt1 decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-wire-ListProbeResponse-probes-as-wt5 encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-wire-ListProbeResponse-probes-as-wt5 decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-wire-ListProbeResponse-probes-as-wt5 decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-wire-ListResultsResponse-page-as-wt1 encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-wire-ListResultsResponse-page-as-wt1 decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-wire-ListResultsResponse-page-as-wt1 decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-wire-ListResultsResponse-page-as-wt2 encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-wire-ListResultsResponse-page-as-wt2 decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-wire-ListResultsResponse-page-as-wt2 decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-wire-ListResultsResponse-page-as-wt5 encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-wire-ListResultsResponse-page-as-wt5 decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-wire-ListResultsResponse-page-as-wt5 decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-wire-ListResultsResponse-results-as-wt0 encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-wire-ListResultsResponse-results-as-wt0 decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-wire-ListResultsResponse-results-as-wt0 decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-wire-ListResultsResponse-results-as-wt1 encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-wire-ListResultsResponse-results-as-wt1 decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-wire-ListResultsResponse-results-as-wt1 decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-wire-ListResultsResponse-results-as-wt5 encode (transport)    no-unknown host      4 core      2 rev      1 grow    0
+EP U-wire-ListResultsResponse-results-as-wt5 decode                no-unknown host      1 core      1 rev      2 grow    0
+EP U-wire-ListResultsResponse-results-as-wt5 decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-wire-ListTaskSummaryResponse-tasks-as-wt0 encode (transport)    no-unknown host      6 core      4 rev      3 grow    0
+EP U-wire-ListTaskSummaryResponse-tasks-as-wt0 decode                no-unknown host      1 core      1 rev      7 grow    0
+EP U-wire-ListTaskSummaryResponse-tasks-as-wt0 decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-wire-ListTaskSummaryResponse-tasks-as-wt1 encode (transport)    no-unknown host      6 core      4 rev      3 grow    0
+EP U-wire-ListTaskSummaryResponse-tasks-as-wt1 decode                no-unknown host      1 core      1 rev      7 grow    0
+EP U-wire-ListTaskSummaryResponse-tasks-as-wt1 decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-wire-ListTaskSummaryResponse-tasks-as-wt5 encode (transport)    no-unknown host      6 core      4 rev      3 grow    0
+EP U-wire-ListTaskSummaryResponse-tasks-as-wt5 decode                no-unknown host      1 core      1 rev      7 grow    0
+EP U-wire-ListTaskSummaryResponse-tasks-as-wt5 decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-wire-ListTasksDetailedResponse-page-as-wt1 encode (transport)    no-unknown host     14 core     12 rev     11 grow    0
+EP U-wire-ListTasksDetailedResponse-page-as-wt1 decode                no-unknown host      1 core      1 rev     15 grow    0
+EP U-wire-ListTasksDetailedResponse-page-as-wt1 decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-wire-ListTasksDetailedResponse-page-as-wt2 encode (transport)    no-unknown host     14 core     12 rev     11 grow    0
+EP U-wire-ListTasksDetailedResponse-page-as-wt2 decode                no-unknown host      1 core      1 rev     15 grow    0
+EP U-wire-ListTasksDetailedResponse-page-as-wt2 decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-wire-ListTasksDetailedResponse-page-as-wt5 encode (transport)    no-unknown host     14 core     12 rev     11 grow    0
+EP U-wire-ListTasksDetailedResponse-page-as-wt5 decode                no-unknown host      1 core      1 rev     15 grow    0
+EP U-wire-ListTasksDetailedResponse-page-as-wt5 decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-wire-ListTasksDetailedResponse-tasks-as-wt0 encode (transport)    no-unknown host     14 core     12 rev     11 grow    0
+EP U-wire-ListTasksDetailedResponse-tasks-as-wt0 decode                no-unknown host      1 core      1 rev     15 grow    0
+EP U-wire-ListTasksDetailedResponse-tasks-as-wt0 decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-wire-ListTasksDetailedResponse-tasks-as-wt1 encode (transport)    no-unknown host     14 core     12 rev     11 grow    0
+EP U-wire-ListTasksDetailedResponse-tasks-as-wt1 decode                no-unknown host      1 core      1 rev     15 grow    0
+EP U-wire-ListTasksDetailedResponse-tasks-as-wt1 decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-wire-ListTasksDetailedResponse-tasks-as-wt5 encode (transport)    no-unknown host     14 core     12 rev     11 grow    0
+EP U-wire-ListTasksDetailedResponse-tasks-as-wt5 decode                no-unknown host      1 core      1 rev     15 grow    0
+EP U-wire-ListTasksDetailedResponse-tasks-as-wt5 decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-wire-UploadResultDataMessage-upload-as-wt0 encode (transport)    no-unknown host      3 core      1 rev      0 grow    0
+EP U-wire-UploadResultDataMessage-upload-as-wt0 decode                no-unknown host      1 core      1 rev      1 grow    0
+EP U-wire-UploadResultDataMessage-upload-as-wt0 decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-wire-UploadResultDataMessage-upload-as-wt1 encode (transport)    no-unknown host      3 core      1 rev      0 grow    0
+EP U-wire-UploadResultDataMessage-upload-as-wt1 decode                no-unknown host      1 core      1 rev      1 grow    0
+EP U-wire-UploadResultDataMessage-upload-as-wt1 decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
+EP U-wire-UploadResultDataMessage-upload-as-wt5 encode (transport)    no-unknown host      3 core      1 rev      0 grow    0
+EP U-wire-UploadResultDataMessage-upload-as-wt5 decode                no-unknown host      1 core      1 rev      1 grow    0
+EP U-wire-UploadResultDataMessage-upload-as-wt5 decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0

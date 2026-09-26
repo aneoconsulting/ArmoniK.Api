@@ -1,0 +1,14 @@
+RPC B         a         2        0      0
+RPC B         b         2        0      0
+RPC C-retain  a         5     3501      0
+RPC C-retain  b      2521     2501      0
+RPC C-drop    a         3     3501      0
+RPC C-drop    b      2515     2501      0
+RPC D-retain  a         3     3501      0
+RPC D-retain  b      2519     2501      0
+RPC D-drop    a         1     3501      0
+RPC D-drop    b      2513     2501      0
+RPC E-retain  a         2        0      0
+RPC E-retain  b         2        0      0
+RPC E-drop    a         2        0      0
+RPC E-drop    b         2        0      0

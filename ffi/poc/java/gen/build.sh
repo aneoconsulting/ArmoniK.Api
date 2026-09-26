@@ -99,13 +99,13 @@ shim() {   # $1 = output dir, $2 = core target dir, $3 = generated native dir, $
       -L"$core/release" -lak_core -Wl,-rpath,"$HERE/$core/release"
 }
 shim jni       $CB/target        native/generated
-shim jnicnt    $CB/target-count  native/generated
+shim jnicnt    $CB/target-count  native/generated         -DAK_HOST_COUNT
 shim jnong     $CB/target        native/generated         -DAK_NO_GUARD
 shim jnitax    $CB/target        native/generated         -DAK_CROSSING_TAX
 shim jnicorpus $CB/target-corpus native/generated_corpus
 # The no-unknown build's shims, over c_abi's second header (native/generated*_nounk).
 shim jni-nounk       $CB/target-nounk        native/generated_nounk
-shim jnicnt-nounk    $CB/target-count-nounk  native/generated_nounk
+shim jnicnt-nounk    $CB/target-count-nounk  native/generated_nounk  -DAK_HOST_COUNT
 shim jnicorpus-nounk $CB/target-corpus-nounk native/generated_corpus_nounk
 # Each shim must resolve to THIS build's core, never another key's -- and to the core of ITS
 # variant: a full core exports the u-family (ak_uencode_*), a no-unknown core none.
@@ -137,6 +137,18 @@ gcc -O2 -fPIC -shared -std=c11 -Wall -Wextra -Wno-unused-parameter \
     -o build/jnirpc-nounk/libakjni.so native/generated_nounk/shim.c native/tax.c native/rpc.c \
     -L"$CB/target-rpc-nounk/release" -lak_core \
     -Wl,-rpath,"$HERE/$CB/target-rpc-nounk/release"
+# CAMPAIGN req 19 (R-H31): the RPC cells' crossings per call, from a core built with
+# rpc,count and a shim counting every JNI entry into the core (-DAK_HOST_COUNT).
+for v in "" -nounk; do
+  F=(--features rpc,count,init-guard); [ "$v" = -nounk ] && F=("${NOUNK[@]}" --features rpc,count,init-guard)
+  G=native/generated; [ "$v" = -nounk ] && G=native/generated_nounk
+  CARGO_TARGET_DIR=$HERE/$CB/target-rpc-count$v cargo build --release "${F[@]}" --manifest-path $CORE >/dev/null
+  mkdir -p build/jnirpccnt$v
+  gcc -O2 -fPIC -shared -std=c11 -Wall -Wextra -Wno-unused-parameter -DAK_HOST_COUNT \
+      -I"$J17/include" -I"$J17/include/linux" -I$G \
+      -o build/jnirpccnt$v/libakjni.so $G/shim.c native/tax.c native/rpc.c \
+      -L"$CB/target-rpc-count$v/release" -lak_core -Wl,-rpath,"$HERE/$CB/target-rpc-count$v/release"
+done
 
 # ---- 4. the incumbent's generated Java
 say "protoc"

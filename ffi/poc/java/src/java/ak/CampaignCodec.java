@@ -73,13 +73,26 @@ public final class CampaignCodec {
     String name();
     String mode();
     boolean encodes();
-    /** Untimed: build `n` fresh objects for an encode sample. */
+    /** Untimed: build `n` fresh objects for an encode sample (one when the input is hot). */
     void prepare(String id, int cs, int n);
     /** Timed. */
     void encode(String id, int n) throws Exception;
     void decode(String id, byte[] w, int n, boolean read) throws Exception;
-    /** For the pre-timing check: one encode of object 0, as bytes. */
+    /** For the pre-timing check: one encode of object 0 in the current end state, as bytes. */
     byte[] once(String id) throws Exception;
+    /** Req 11's encode variant (R-H29): `hot` = one graph re-encoded `n` times, else a pool of
+     *  `n` distinct graphs; `transport` = the end state the arm's RPC path hands its transport,
+     *  else the bytes in a reused buffer. */
+    default void variant(boolean hot, boolean transport) {}
+  }
+
+  /** Req 11 (R-H29): the encode variants, as the `dir` of a cell. */
+  static final String[] ENC_DIRS = {"encode", "encode-hot", "encode-transport", "encode-transport-hot"};
+
+  /** Base of every arm's variant switch. */
+  abstract static class Var {
+    boolean hot, transport;
+    public void variant(boolean hot, boolean transport) { this.hot = hot; this.transport = transport; }
   }
 
   // ---- protobuf-java ---------------------------------------------------------------
@@ -106,7 +119,7 @@ public final class CampaignCodec {
     }
   }
 
-  static final class Pbj implements CArm {
+  static final class Pbj extends Var implements CArm {
     final boolean prod;
     Message[] pool = new Message[0];
     Pbj(boolean prod) { this.prod = prod; }
@@ -114,19 +127,37 @@ public final class CampaignCodec {
     public String mode() { return "default"; }
     public boolean encodes() { return true; }
     public void prepare(String id, int cs, int n) {
+      if (hot) n = 1;
       if (pool.length < n) pool = new Message[n];
       for (int i = 0; i < n; i++) pool[i] = PbArms.build(id, cs);
     }
+    /** End states. incumbent-prod: (i) `stream()` drained into the reused sink; (ii)
+     *  `stream()` drained into a freshly allocated exact-size array (grpc-java's framer
+     *  drains the stream into buffers it allocates; the allocation is modelled by the array).
+     *  incumbent-best: (i) `writeTo` a CodedOutputStream over the reused sink's array; (ii)
+     *  `toByteArray()`. */
     public void encode(String id, int n) throws Exception {
       if (prod) {
         MethodDescriptor.Marshaller<Message> m = marshaller(id);
         for (int i = 0; i < n; i++) {
-          SINK.n = 0;
-          InputStream in = m.stream(pool[i]);
-          sink += ((Drainable) in).drainTo(SINK);
+          InputStream in = m.stream(pool[hot ? 0 : i]);
+          if (transport) {
+            RunR14.Sink fresh = new RunR14.Sink();
+            fresh.reset(in.available());
+            sink += ((Drainable) in).drainTo(fresh);
+          } else {
+            SINK.n = 0;
+            sink += ((Drainable) in).drainTo(SINK);
+          }
         }
+      } else if (transport) {
+        for (int i = 0; i < n; i++) sink += pool[hot ? 0 : i].toByteArray().length;
       } else {
-        for (int i = 0; i < n; i++) sink += pool[i].toByteArray().length;
+        for (int i = 0; i < n; i++) {
+          com.google.protobuf.CodedOutputStream cos = com.google.protobuf.CodedOutputStream.newInstance(SINK.buf);
+          pool[hot ? 0 : i].writeTo(cos);
+          sink += cos.getTotalBytesWritten();
+        }
       }
     }
     public void decode(String id, byte[] w, int n, boolean read) throws Exception {
@@ -143,16 +174,23 @@ public final class CampaignCodec {
         ((Drainable) marshaller(id).stream(pool[0])).drainTo(SINK);
         return Arrays.copyOf(SINK.buf, SINK.n);
       }
+      if (!transport) {
+        SINK.reset(pool[0].getSerializedSize() + 16);
+        com.google.protobuf.CodedOutputStream cos = com.google.protobuf.CodedOutputStream.newInstance(SINK.buf);
+        pool[0].writeTo(cos);
+        return Arrays.copyOf(SINK.buf, cos.getTotalBytesWritten());
+      }
       return pool[0].toByteArray();
     }
   }
 
   // ---- the facade arms ---------------------------------------------------------------
 
-  abstract static class Fac implements CArm {
+  abstract static class Fac extends Var implements CArm {
     Object[] pool = new Object[0];
     public boolean encodes() { return true; }
     public void prepare(String id, int cs, int n) {
+      if (hot) n = 1;
       if (pool.length < n) pool = new Object[n];
       for (int i = 0; i < n; i++) pool[i] = Arms.build(id, cs);
     }
@@ -165,12 +203,19 @@ public final class CampaignCodec {
     HostGen(boolean retain) { this.retain = retain; }
     public String name() { return "host-gen"; }
     public String mode() { return retain ? "retain" : ak.Variant.UNKNOWN_FIELDS ? "drop" : "no-unknown"; }
+    /** End states: (i) the Enc's bytes copied into the reused sink; (ii) `Enc.toBytes()`, the
+     *  fresh array cells E and F hand their transport. */
     public void encode(String id, int n) {
       for (int i = 0; i < n; i++) {
-        if (retain) Arms.encodeRRetain(id, pool[i], e); else Arms.encodeR(id, pool[i], e);
-        SINK.n = 0;
-        SINK.write(e.buf, 0, e.len);
-        sink += SINK.n;
+        Object o = pool[hot ? 0 : i];
+        if (retain) Arms.encodeRRetain(id, o, e); else Arms.encodeR(id, o, e);
+        if (transport) {
+          sink += e.toBytes().length;
+        } else {
+          SINK.n = 0;
+          SINK.write(e.buf, 0, e.len);
+          sink += SINK.n;
+        }
       }
     }
     public void decode(String id, byte[] w, int n, boolean read) {
@@ -195,11 +240,17 @@ public final class CampaignCodec {
     public String name() { return pull ? "core-ffi-pull" : "core-ffi"; }
     public String mode() { return retain ? "retain" : ak.Variant.UNKNOWN_FIELDS ? "drop" : "no-unknown"; }
     @Override public boolean encodes() { return !pull; }
+    /** End states: (i) `ak_enc_take` into the reused sink; (ii) `take()`, the fresh array
+     *  cells C and D hand their transport. */
     public void encode(String id, int n) {
       for (int i = 0; i < n; i++) {
-        FfiArms.encode(b, id, pool[i]);
-        SINK.n = Native.encTake(b.encCtx, SINK.buf);   // the sink is pre-sized per sample
-        sink += SINK.n;
+        FfiArms.encode(b, id, pool[hot ? 0 : i]);
+        if (transport) {
+          sink += b.take().length;
+        } else {
+          SINK.n = Native.encTake(b.encCtx, SINK.buf);   // the sink is pre-sized per sample
+          sink += SINK.n;
+        }
       }
     }
     public void decode(String id, byte[] w, int n, boolean read) {
@@ -259,7 +310,7 @@ public final class CampaignCodec {
    *  object that arm R re-encodes to them. Throws on any mismatch. */
   static void check(CArm a, String id, int cs, byte[] w, String dir) throws Exception {
     HostGen ref = new HostGen(false);
-    if (dir.equals("encode")) {
+    if (dir.startsWith("encode")) {
       a.prepare(id, cs, 1);
       byte[] got = a.once(id);
       if (a instanceof Pbj) {
@@ -301,6 +352,16 @@ public final class CampaignCodec {
     return (int) Math.max(1, Math.min(maxIters, budget / Math.max(1, len)));
   }
 
+  /** Req 11's pool input (R-H29): enough distinct graphs that their serialised bytes alone
+   *  exceed `ak.camp.poolbytes` (the runner passes 2 x the machine's last-level cache,
+   *  AK_LLC_BYTES in ffi/campaign.machine or its default 13.75 MB), so the pool cannot sit in
+   *  the LLC; never fewer than `iters`. */
+  static long POOL_BYTES = Long.getLong("ak.camp.poolbytes", 2L * 14417920L);
+
+  static int poolIters(int len) {
+    return (int) Math.max(iters(len), (POOL_BYTES + len - 1) / Math.max(1, len));
+  }
+
   /** The cell list, one per line, arms rotated by `ak.camp.launch` inside each
    *  (payload, content, dir) block (req 22: arm order rotated between launches). */
   public static void main(String[] args) {
@@ -313,34 +374,46 @@ public final class CampaignCodec {
       for (String c : sets) {
         int cs = Integer.parseInt(c.trim());
         if (!Arms.encodable(id) && cs != Values.ASCII) continue;
-        for (String dir : new String[] {"encode", "decode", "decode-read"}) {
-          if (dir.equals("encode") && !Arms.encodable(id)) continue;
+        for (String dir : new String[] {"encode", "encode-hot", "encode-transport", "encode-transport-hot",
+                                        "decode", "decode-read"}) {
+          if (dir.startsWith("encode") && !Arms.encodable(id)) continue;
           for (String a : Campaign.rotate(arms, launch - 1)) {
-            if (dir.equals("encode") && a.startsWith("core-ffi-pull")) continue;
+            if (dir.startsWith("encode") && a.startsWith("core-ffi-pull")) continue;
             sb.append(a).append('|').append(id).append('|').append(SET_NAMES[cs]).append('|')
               .append(dir).append('\n');
           }
         }
       }
+    // Req 7 (R-H27): the U-* rows at the shapes core's roots, timed in the main invocation
+    // (the shapes core's shim); `ak.camp.urows` thins them in a smoke run like the extras.
+    {
+      StringBuilder u = new StringBuilder();
+      listU(u, launch, true);
+      sb.append(thin(u, Integer.getInteger("ak.camp.urows", 0)));
+    }
     if (System.getProperty("ak.camp.unknown", "0").equals("1")) {
       sb.setLength(0);
       listU(sb, launch);
-      int lim = Integer.getInteger("ak.camp.urows", 0);    // smoke: N rows spread evenly
-      if (lim > 0) {
-        List<String> rows = new ArrayList<String>();
-        for (String line : sb.toString().split("\n")) {
-          String row = line.split("\\|")[2];
-          if (!rows.contains(row)) rows.add(row);
-        }
-        java.util.Set<String> keep = new java.util.HashSet<String>();
-        for (int k = 0; k < lim && k < rows.size(); k++) keep.add(rows.get(k * rows.size() / lim));
-        StringBuilder t = new StringBuilder();
-        for (String line : sb.toString().split("\n"))
-          if (keep.contains(line.split("\\|")[2])) t.append(line).append('\n');
-        sb = t;
-      }
+      StringBuilder t = thin(sb, Integer.getInteger("ak.camp.urows", 0));
+      sb = t;
     }
     System.out.print(sb);
+  }
+
+  /** Smoke: keep `lim` rows (payload ids) spread evenly; 0 keeps all. */
+  static StringBuilder thin(StringBuilder sb, int lim) {
+    if (lim <= 0 || sb.length() == 0) return sb;
+    List<String> rows = new ArrayList<String>();
+    for (String line : sb.toString().split("\n")) {
+      String row = line.split("\\|")[2];
+      if (!rows.contains(row)) rows.add(row);
+    }
+    java.util.Set<String> keep = new java.util.HashSet<String>();
+    for (int k = 0; k < lim && k < rows.size(); k++) keep.add(rows.get(k * rows.size() / lim));
+    StringBuilder t = new StringBuilder();
+    for (String line : sb.toString().split("\n"))
+      if (keep.contains(line.split("\\|")[2])) t.append(line).append('\n');
+    return t;
   }
 
   // ---- req 7 (amended 0e8e9eb): the corpus's U-* rows of class `unknown` -------------
@@ -354,17 +427,28 @@ public final class CampaignCodec {
 
   static final class UArm implements CArm {
     final String arm, mode, root;
+    /** Through the shapes description and the timed shapes core (req 7, R-H27), else the
+     *  corpus description and the corpus core (a labelled extra). */
+    final boolean shapes;
     Object[] pool = new Object[0];
     ak.corpus.Binding b;
+    ak.shapes.Binding sb;
     Message proto;
     MethodDescriptor.Marshaller<Message> marsh;
     byte[] row;
 
-    UArm(String arm, String mode, String root, byte[] row) throws Exception {
-      this.arm = arm; this.mode = mode; this.root = root; this.row = row;
+    UArm(String arm, String mode, String root, byte[] row) throws Exception { this(arm, mode, root, row, false); }
+
+    UArm(String arm, String mode, String root, byte[] row, boolean shapes) throws Exception {
+      this.arm = arm; this.mode = mode; this.root = root; this.row = row; this.shapes = shapes;
       if (arm.startsWith("core-ffi")) {
-        b = new ak.corpus.Binding();
-        ak.corpus.Dispatch.setRetain(b, mode.equals("retain"));   // decision 11 (WP5 step 9)
+        if (shapes) {
+          sb = new ak.shapes.Binding();
+          ak.shapes.Dispatch.setRetain(sb, mode.equals("retain"));
+        } else {
+          b = new ak.corpus.Binding();
+          ak.corpus.Dispatch.setRetain(b, mode.equals("retain"));   // decision 11 (WP5 step 9)
+        }
       } else if (arm.startsWith("incumbent")) {
         proto = (Message) Class.forName("ak.pb." + root).getMethod("getDefaultInstance").invoke(null);
         marsh = ProtoLiteUtils.marshaller(proto);
@@ -376,6 +460,12 @@ public final class CampaignCodec {
     public boolean encodes() { return !arm.equals("core-ffi-pull"); }
 
     Object dec(byte[] w) throws Exception {
+      if (shapes) switch (arm) {
+        case "host-gen": return mode.equals("retain") ? ak.shapes.Dispatch.decRRetain(root, w) : ak.shapes.Dispatch.decR(root, w);
+        case "core-ffi": return ak.shapes.Dispatch.decFfi(sb, root, w);
+        case "core-ffi-pull": return ak.shapes.Dispatch.parseFfi(sb, root, w);
+        default: break;
+      }
       switch (arm) {
         case "host-gen": return mode.equals("retain") ? ak.corpus.Dispatch.decRRetain(root, w) : ak.corpus.Dispatch.decR(root, w);
         case "core-ffi": return ak.corpus.Dispatch.decFfi(b, root, w);
@@ -386,6 +476,11 @@ public final class CampaignCodec {
     }
 
     byte[] enc(Object o) throws Exception {
+      if (shapes) switch (arm) {
+        case "host-gen": return mode.equals("retain") ? ak.shapes.Dispatch.encRRetain(root, o) : ak.shapes.Dispatch.encR(root, o);
+        case "core-ffi": return ak.shapes.Dispatch.encFfi(sb, root, o);
+        default: break;
+      }
       switch (arm) {
         case "host-gen": return mode.equals("retain") ? ak.corpus.Dispatch.encRRetain(root, o) : ak.corpus.Dispatch.encR(root, o);
         case "core-ffi": return ak.corpus.Dispatch.encFfi(b, root, o);
@@ -418,7 +513,8 @@ public final class CampaignCodec {
       for (int i = 0; i < n; i++) {
         Object x = dec(w);
         sink += !read ? System.identityHashCode(x)
-            : arm.startsWith("incumbent") ? ak.shapes.PbWalk.walk(root, x) : ak.corpus.Walk.walk(root, x);
+            : arm.startsWith("incumbent") ? ak.shapes.PbWalk.walk(root, x)
+            : shapes ? ak.shapes.Walk.walk(root, x) : ak.corpus.Walk.walk(root, x);
       }
     }
 
@@ -440,23 +536,34 @@ public final class CampaignCodec {
    *  re-encoded, equals arm R's drop reading of the row. */
   static void checkU(UArm a) throws Exception {
     String root = a.root;
-    byte[] want = ak.corpus.Dispatch.encR(root, ak.corpus.Dispatch.decR(root, a.row));
+    boolean sh = a.shapes;
+    byte[] want = sh ? ak.shapes.Dispatch.encR(root, ak.shapes.Dispatch.decR(root, a.row))
+                     : ak.corpus.Dispatch.encR(root, ak.corpus.Dispatch.decR(root, a.row));
     Object x = a.dec(a.row);
     byte[] w = a.arm.startsWith("incumbent") ? ((Message) x).toByteArray()
-        : a.arm.startsWith("core-ffi") ? ak.corpus.Dispatch.encFfi(a.b, root, x) : a.enc(x);
-    byte[] mine = ak.corpus.Dispatch.encR(root, ak.corpus.Dispatch.decR(root, w));
+        : a.arm.startsWith("core-ffi") ? (sh ? ak.shapes.Dispatch.encFfi(a.sb, root, x) : ak.corpus.Dispatch.encFfi(a.b, root, x))
+        : a.enc(x);
+    byte[] mine = sh ? ak.shapes.Dispatch.encR(root, ak.shapes.Dispatch.decR(root, w))
+                     : ak.corpus.Dispatch.encR(root, ak.corpus.Dispatch.decR(root, w));
     if (!Arrays.equals(mine, want))
       throw new IllegalStateException(a.arm + "/" + a.mode + " " + root + ": does not read the row as arm R does");
   }
 
   /** The U-* cells: every row of class unknown, not disputed, whose root this slice
    *  implements (all of them through ak.corpus; the incumbent where ak.pb has the root). */
-  static void listU(StringBuilder sb, int launch) {
+  static void listU(StringBuilder sb, int launch) { listU(sb, launch, false); }
+
+  /** `shapes`: req 7 as amended (R-H27): the ACCEPTED rows of class unknown at the shapes
+   *  core's ABI roots, through the timed shapes core (content `shapes:<Root>`); otherwise
+   *  every non-disputed row of class unknown through the corpus description and the corpus
+   *  core, a labelled extra (content `corpus:<Root>`). */
+  static void listU(StringBuilder sb, int launch, boolean shapes) {
     @SuppressWarnings("unchecked")
     java.util.Map<String, Object> vs = (java.util.Map<String, Object>) ((java.util.Map<String, Object>) Json.parse(
         new String(Payloads.readFile(new java.io.File(CORPUS_DIR, "manifest.json")),
             java.nio.charset.Charset.forName("UTF-8")))).get("vectors");
-    java.util.Set<String> abi = new java.util.HashSet<String>(Arrays.asList(ak.corpus.Dispatch.ABI));
+    java.util.Set<String> abi = new java.util.HashSet<String>(Arrays.asList(
+        shapes ? ak.shapes.Dispatch.ABI : ak.corpus.Dispatch.ABI));
     List<String> arms = new ArrayList<String>(Arrays.asList(ARMS));
     for (java.util.Map.Entry<String, Object> e : new java.util.TreeMap<String, Object>(vs).entrySet()) {
       @SuppressWarnings("unchecked")
@@ -464,6 +571,7 @@ public final class CampaignCodec {
       if (!e.getKey().startsWith("U-") || !"unknown".equals(r.get("class")) || "disputed".equals(r.get("verdict")))
         continue;
       String root = (String) r.get("root");
+      if (shapes && (!"accept".equals(r.get("expect")) || !abi.contains(root))) continue;
       boolean pb;
       try { Class.forName("ak.pb." + root); pb = true; } catch (ClassNotFoundException x) { pb = false; }
       for (String dir : new String[] {"encode", "decode", "decode-read"})
@@ -471,7 +579,7 @@ public final class CampaignCodec {
           if (a.startsWith("incumbent") && !pb) continue;
           if (a.startsWith("core-ffi") && !abi.contains(root)) continue;
           if (dir.equals("encode") && a.startsWith("core-ffi-pull")) continue;
-          sb.append(a).append('|').append(e.getKey()).append("|corpus:").append(root).append('|')
+          sb.append(a).append('|').append(e.getKey()).append(shapes ? "|shapes:" : "|corpus:").append(root).append('|')
             .append(dir).append('\n');
         }
     }
