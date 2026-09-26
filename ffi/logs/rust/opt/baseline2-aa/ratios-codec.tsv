@@ -1,0 +1,1019 @@
+# CONTAINER INSTRUMENTATION (gen/opt_bench.sh); ratios of per-case medians inside one process (and, *_min, of per-case minima); < 1 means fewer CPU ns than the denominator; empty = arm not run
+file	input	dir	mode	incumbent_prod_median_ns	armonik/inc	core-native/inc	core-ffi/inc	core-ffi-pull/inc	core-ffi/core-native	core-native/inc_min	core-ffi/inc_min
+codec-P	P7.1	decode	drop	330.4	0.984	0.725	1.082	1.175	1.492	0.723	1.079
+codec-P	P7.1	decode	retain	330.4	0.984	0.707	1.124	1.233	1.588	0.703	1.125
+codec-P	P1.3	decode-read	drop	9001.5	1.341	1.395	1.963	2.030	1.408	1.421	2.002
+codec-P	P1.3	decode-read	retain	9001.5	1.341	1.357	2.037	2.173	1.502	1.354	1.995
+codec-P	P2.2	encode	drop	980920.3	1.030	0.234	0.410		1.752	0.246	0.463
+codec-P	P2.2	encode	retain	980920.3	1.030	0.247	0.423		1.711	0.265	0.419
+codec-P	P4.1	decode	drop	263611.1	1.018	0.834	1.184	1.134	1.418	0.839	1.184
+codec-P	P4.1	decode	retain	263611.1	1.018	0.844	1.173	1.131	1.390	0.845	1.179
+codec-P	P5.2	decode	drop	1717.9	0.051	0.982	1.024	1.043	1.043	0.848	0.889
+codec-P	P5.2	decode	retain	1717.9	0.051	0.985	1.042	1.040	1.058	0.922	1.012
+codec-P	P5.3	encode	drop	51700.2	0.927	0.904	0.857		0.948	0.926	0.892
+codec-P	P5.3	encode	retain	51700.2	0.927	0.940	0.906		0.964	0.959	0.893
+codec-P	P2.4	encode	drop	642599.6	1.014	0.324	0.543		1.678	0.309	0.531
+codec-P	P2.4	encode	retain	642599.6	1.014	0.303	0.549		1.814	0.293	0.554
+codec-P	P2.2/wide	decode-read	drop	2564935.5	1.010	0.885	1.461	1.424	1.650	0.889	1.497
+codec-P	P2.2/wide	decode-read	retain	2564935.5	1.010	0.883	1.454	1.426	1.646	0.898	1.488
+codec-P	P3.1	decode-read	drop	31494.1	1.005	0.765	1.106	1.122	1.446	0.864	1.247
+codec-P	P3.1	decode-read	retain	31494.1	1.005	0.757	1.102	1.130	1.455	0.862	1.243
+codec-P	P1.2/latin1	decode	drop	607099.9	0.937	0.805	1.235	1.244	1.534	0.808	1.235
+codec-P	P1.2/latin1	decode	retain	607099.9	0.937	0.800	1.232	1.246	1.539	0.802	1.233
+codec-P	P1.2	encode	drop	329665.1	1.050	0.180	0.323		1.796	0.181	0.327
+codec-P	P1.2	encode	retain	329665.1	1.050	0.223	0.338		1.513	0.224	0.341
+codec-P	P5.4	decode-read	drop	344471.9	0.000	1.006	1.002	1.009	0.997	0.995	1.019
+codec-P	P5.4	decode-read	retain	344471.9	0.000	1.003	1.016	1.017	1.014	0.990	0.961
+codec-P	P1.1	decode-read	drop	1351.0	1.035	0.876	1.311	1.317	1.495	0.868	1.294
+codec-P	P1.1	decode-read	retain	1351.0	1.035	0.855	1.323	1.346	1.549	0.842	1.304
+codec-P	P2.1	decode	drop	2254.3	0.963	0.799	1.541	1.535	1.929	0.685	1.496
+codec-P	P2.1	decode	retain	2254.3	0.963	0.799	1.575	1.583	1.972	0.673	1.543
+codec-P	P1.3	decode	drop	8447.3	1.413	1.385	2.086	2.222	1.506	1.392	2.096
+codec-P	P1.3	decode	retain	8447.3	1.413	1.364	2.109	2.232	1.547	1.369	2.106
+codec-P	P4.1	encode	drop	143677.9	1.003	0.193	0.415		2.149	0.194	0.413
+codec-P	P4.1	encode	retain	143677.9	1.003	0.207	0.416		2.008	0.207	0.419
+codec-P	P3.1	decode	drop	25310.7	1.171	0.888	1.321	1.345	1.488	0.895	1.323
+codec-P	P3.1	decode	retain	25310.7	1.171	0.881	1.324	1.347	1.502	0.875	1.335
+codec-P	P1.2/wide	encode	drop	333343.9	1.072	0.195	0.338		1.732	0.195	0.334
+codec-P	P1.2/wide	encode	retain	333343.9	1.072	0.210	0.356		1.690	0.211	0.357
+codec-P	P2.1	encode	drop	1401.6	1.016	0.191	0.415		2.170	0.191	0.414
+codec-P	P2.1	encode	retain	1401.6	1.016	0.225	0.438		1.944	0.226	0.439
+codec-P	P6.1	encode	drop	425652.1	1.006	0.172	0.203		1.179	0.175	0.205
+codec-P	P6.1	encode	retain	425652.1	1.006	0.173	0.203		1.174	0.174	0.205
+codec-P	P2.5	decode-read	drop	50082.9	1.001	0.828	1.414	1.353	1.707	0.828	1.547
+codec-P	P2.5	decode-read	retain	50082.9	1.001	0.830	1.410	1.351	1.698	0.846	1.393
+codec-P	P1.2	decode-read	drop	424383.4	0.900	0.807	1.125	1.131	1.394	0.795	1.119
+codec-P	P1.2	decode-read	retain	424383.4	0.900	0.786	1.120	1.132	1.425	0.782	1.122
+codec-P	P4.1	decode-read	drop	276377.9	1.033	0.890	1.192	1.133	1.340	0.883	1.183
+codec-P	P4.1	decode-read	retain	276377.9	1.033	0.906	1.190	1.133	1.314	0.895	1.175
+codec-P	P5.3	decode	drop	46784.4	0.002	0.992	1.002	1.003	1.010	1.011	1.012
+codec-P	P5.3	decode	retain	46784.4	0.002	0.993	1.001	1.002	1.008	1.010	0.996
+codec-P	P1.3	encode	drop	5357.4	1.305	0.312	0.819		2.620	0.320	0.839
+codec-P	P1.3	encode	retain	5357.4	1.305	0.378	0.969		2.565	0.384	0.974
+codec-P	P1.2/latin1	encode	drop	317066.7	1.020	0.171	0.311		1.821	0.172	0.310
+codec-P	P1.2/latin1	encode	retain	317066.7	1.020	0.204	0.346		1.696	0.198	0.363
+codec-P	P5.2	encode	drop	1638.1	0.968	0.923	0.937		1.015	0.923	0.931
+codec-P	P5.2	encode	retain	1638.1	0.968	0.923	0.935		1.013	0.921	0.931
+codec-P	P1.2	decode	drop	339442.6	0.946	0.817	1.264	1.253	1.546	0.773	1.118
+codec-P	P1.2	decode	retain	339442.6	0.946	0.758	1.139	1.169	1.502	0.762	1.117
+codec-P	P4.1	decode-nodrop	drop	210637.7	1.021	0.857	1.239		1.445	0.837	1.258
+codec-P	P4.1	decode-nodrop	retain	210637.7	1.021	0.868	1.249		1.439	0.884	1.226
+codec-P	P6.1	decode	drop	209512.7	1.057	0.623	0.685	0.598	1.101	0.619	0.691
+codec-P	P6.1	decode	retain	209512.7	1.057	0.598	0.681	0.599	1.139	0.603	0.691
+codec-P	P6.1	decode-nodrop	drop	235935.6	1.076	0.591	0.706		1.193	0.590	0.705
+codec-P	P6.1	decode-nodrop	retain	235935.6	1.076	0.586	0.703		1.201	0.585	0.701
+codec-P	P2.4	decode-read	drop	1723738.7	0.994	0.913	1.308	1.310	1.432	0.916	1.282
+codec-P	P2.4	decode-read	retain	1723738.7	0.994	0.923	1.298	1.298	1.406	0.914	1.270
+codec-P	P1.1	decode	drop	1013.3	1.013	0.837	1.300	1.313	1.554	0.803	1.282
+codec-P	P1.1	decode	retain	1013.3	1.013	0.810	1.311	1.327	1.619	0.779	1.294
+codec-P	P2.2	decode	drop	1449801.3	0.987	0.865	1.436	1.378	1.661	0.859	1.396
+codec-P	P2.2	decode	retain	1449801.3	0.987	0.873	1.426	1.345	1.634	0.891	1.383
+codec-P	P2.2/wide	encode	drop	1072302.5	1.015	0.267	0.399		1.493	0.269	0.409
+codec-P	P2.2/wide	encode	retain	1072302.5	1.015	0.275	0.418		1.521	0.277	0.421
+codec-P	P5.1	decode-read	drop	104.0	0.881	0.866	1.571	1.606	1.815	0.877	1.574
+codec-P	P5.1	decode-read	retain	104.0	0.881	0.859	1.655	1.693	1.926	0.881	1.659
+codec-P	P5.4	encode	drop	380871.0	0.988	1.028	0.999		0.972	1.012	0.981
+codec-P	P5.4	encode	retain	380871.0	0.988	0.984	0.977		0.993	0.998	0.952
+codec-P	P2.2/latin1	decode-read	drop	2078591.5	1.001	0.856	1.388	1.338	1.622	0.861	1.451
+codec-P	P2.2/latin1	decode-read	retain	2078591.5	1.001	0.856	1.402	1.341	1.638	0.938	1.458
+codec-P	P2.4	decode	drop	1697576.1	1.010	0.916	1.322	1.318	1.443	1.041	1.398
+codec-P	P2.4	decode	retain	1697576.1	1.010	0.915	1.316	1.312	1.439	1.075	1.581
+codec-P	P2.5	decode	drop	47921.8	1.015	0.837	1.420	1.392	1.696	0.828	1.413
+codec-P	P2.5	decode	retain	47921.8	1.015	0.874	1.449	1.392	1.658	0.862	1.471
+codec-P	P5.4	decode	drop	288298.0	0.000	1.009	1.017	1.008	1.008	0.972	0.979
+codec-P	P5.4	decode	retain	288298.0	0.000	1.015	1.006	1.020	0.991	1.007	1.008
+codec-P	P1.2	decode-nodrop	drop	318717.8	0.910	0.741	1.208		1.630	0.820	1.195
+codec-P	P1.2	decode-nodrop	retain	318717.8	0.910	0.737	1.163		1.578	0.722	1.189
+codec-P	P6.1	decode-read	drop	322724.1	1.055	0.698	0.650	0.576	0.932	0.690	0.635
+codec-P	P6.1	decode-read	retain	322724.1	1.055	0.683	0.650	0.578	0.952	0.685	0.634
+codec-P	P5.3	decode-read	drop	46261.3	0.002	1.003	1.008	1.007	1.005	1.004	1.010
+codec-P	P5.3	decode-read	retain	46261.3	0.002	0.992	1.008	1.006	1.016	0.989	1.012
+codec-P	P2.3	encode	drop	541798.0	1.012	0.263	0.494		1.877	0.269	0.517
+codec-P	P2.3	encode	retain	541798.0	1.012	0.257	0.500		1.947	0.257	0.502
+codec-P	P1.2/latin1	decode-read	drop	587878.7	0.945	0.821	1.230	1.243	1.498	0.809	1.224
+codec-P	P1.2/latin1	decode-read	retain	587878.7	0.945	0.816	1.232	1.260	1.509	0.804	1.232
+codec-P	P2.2/latin1	decode	drop	2026403.3	0.988	0.854	1.411	1.346	1.652	0.815	1.346
+codec-P	P2.2/latin1	decode	retain	2026403.3	0.988	0.861	1.416	1.360	1.645	0.819	1.367
+codec-P	P1.2/wide	decode	drop	724820.8	0.945	0.833	1.367	1.377	1.640	0.843	1.368
+codec-P	P1.2/wide	decode	retain	724820.8	0.945	0.827	1.367	1.378	1.652	0.836	1.393
+codec-P	P5.2	decode-read	drop	1666.3	0.057	0.991	1.033	1.045	1.043	1.016	1.062
+codec-P	P5.2	decode-read	retain	1666.3	0.057	0.986	1.049	1.051	1.064	1.010	1.067
+codec-P	P2.2	decode-nodrop	drop	1127423.7	0.971	0.810	1.526		1.883	0.809	1.503
+codec-P	P2.2	decode-nodrop	retain	1127423.7	0.971	0.822	1.519		1.849	0.816	1.496
+codec-P	P3.1	encode	drop	19797.1	1.019	0.165	0.359		2.174	0.162	0.356
+codec-P	P3.1	encode	retain	19797.1	1.019	0.207	0.370		1.789	0.206	0.365
+codec-P	P2.3	decode	drop	1241241.6	1.010	0.919	1.280	1.255	1.392	0.909	1.271
+codec-P	P2.3	decode	retain	1241241.6	1.010	0.908	1.275	1.254	1.405	0.893	1.275
+codec-P	P2.2/wide	decode	drop	2423556.5	0.998	0.857	1.430	1.430	1.669	0.882	1.427
+codec-P	P2.2/wide	decode	retain	2423556.5	0.998	0.851	1.473	1.420	1.731	0.880	1.434
+codec-P	P5.1	decode	drop	100.0	0.874	0.866	1.580	1.634	1.823	0.877	1.581
+codec-P	P5.1	decode	retain	100.0	0.874	0.865	1.663	1.702	1.923	0.863	1.690
+codec-P	P1.1	encode	drop	1231.1	1.061	0.156	0.311		1.989	0.154	0.302
+codec-P	P1.1	encode	retain	1231.1	1.061	0.200	0.320		1.597	0.205	0.331
+codec-P	P5.1	encode	drop	66.2	1.017	0.262	0.497		1.895	0.263	0.499
+codec-P	P5.1	encode	retain	66.2	1.017	0.458	0.525		1.148	0.445	0.521
+codec-P	P2.2	decode-read	drop	1501233.6	0.976	0.864	1.410	1.331	1.633	0.889	1.440
+codec-P	P2.2	decode-read	retain	1501233.6	0.976	0.870	1.407	1.323	1.618	0.888	1.436
+codec-P	P2.1	decode-read	drop	2071.7	0.987	0.798	1.689	1.654	2.115	0.796	1.670
+codec-P	P2.1	decode-read	retain	2071.7	0.987	0.792	1.723	1.707	2.176	0.789	1.680
+codec-P	P2.3	decode-read	drop	1309369.6	1.010	0.916	1.263	1.248	1.379	0.918	1.267
+codec-P	P2.3	decode-read	retain	1309369.6	1.010	0.900	1.264	1.241	1.404	0.906	1.263
+codec-P	P2.5	encode	drop	27621.5	1.013	0.208	0.411		1.978	0.199	0.405
+codec-P	P2.5	encode	retain	27621.5	1.013	0.222	0.433		1.952	0.218	0.426
+codec-P	P1.2/wide	decode-read	drop	740349.7	0.956	0.838	1.366	1.387	1.630	0.838	1.385
+codec-P	P1.2/wide	decode-read	retain	740349.7	0.956	0.840	1.383	1.432	1.647	0.830	1.389
+codec-P	P7.1	decode-read	drop	341.1	0.995	0.739	1.085	1.174	1.467	0.733	1.150
+codec-P	P7.1	decode-read	retain	341.1	0.995	0.716	1.126	1.236	1.571	0.758	1.188
+codec-P	P2.2/latin1	encode	drop	1017033.5	1.019	0.244	0.399		1.636	0.246	0.401
+codec-P	P2.2/latin1	encode	retain	1017033.5	1.019	0.255	0.419		1.642	0.256	0.422
+codec-U	U-wire-ListTaskSummaryResponse-tasks-as-wt1	decode-read	drop						1.463		
+codec-U	U-wire-ListTaskSummaryResponse-tasks-as-wt1	decode-read	retain						1.456		
+codec-U	U-wire-ListMetricsResponse-batches-as-wt5	encode	drop						1.259		
+codec-U	U-wire-ListMetricsResponse-batches-as-wt5	encode	retain						1.358		
+codec-U	U-nested-u-varint	encode	drop	278.3	1.066	0.183	0.397		2.173	0.172	0.364
+codec-U	U-nested-u-varint	encode	retain	278.3	1.066	0.248	0.418		1.681	0.224	0.394
+codec-U	U-oneof-member-after-known	decode	drop	144.7	0.898	0.721	1.258	1.361	1.744	0.743	1.254
+codec-U	U-oneof-member-after-known	decode	retain	144.7	0.898	0.867	1.895	1.672	2.184	0.869	1.850
+codec-U	U-wire-ListResultsResponse-results-as-wt1	decode-read	drop						1.581		
+codec-U	U-wire-ListResultsResponse-results-as-wt1	decode-read	retain						1.674		
+codec-U	U-wire-ListTasksDetailedResponse-tasks-as-wt1	decode-read	drop						1.539		
+codec-U	U-wire-ListTasksDetailedResponse-tasks-as-wt1	decode-read	retain						1.534		
+codec-U	U-wire-ListMetricsResponse-batches-as-wt0	decode-read	drop						0.892		
+codec-U	U-wire-ListMetricsResponse-batches-as-wt0	decode-read	retain						0.901		
+codec-U	U-wire-ListResultsResponse-page-as-wt5	decode-read	drop						1.626		
+codec-U	U-wire-ListResultsResponse-page-as-wt5	decode-read	retain						1.745		
+codec-U	U-nested-u-repeated	encode	drop	262.0	1.050	0.171	0.363		2.117	0.178	0.371
+codec-U	U-nested-u-repeated	encode	retain	262.0	1.050	0.226	0.398		1.757	0.221	0.400
+codec-U	U-wire-ListProbeResponse-probes-as-wt0	decode-read	drop						1.591		
+codec-U	U-wire-ListProbeResponse-probes-as-wt0	decode-read	retain						1.730		
+codec-U	U-nested-u-packed	decode-read	drop	310.5	1.026	0.858	1.495	1.522	1.743	0.847	1.466
+codec-U	U-nested-u-packed	decode-read	retain	310.5	1.026	0.924	1.716	1.741	1.857	0.895	1.699
+codec-U	U-enum-value-127	decode	drop	72.7	1.454	1.235	1.708	1.870	1.384	1.172	1.690
+codec-U	U-enum-value-127	decode	retain	72.7	1.454	1.214	1.867	2.079	1.537	1.172	1.829
+codec-U	U-element-u-varint	encode	drop	1320.0	1.023	0.192	0.521		2.715	0.188	0.517
+codec-U	U-element-u-varint	encode	retain	1320.0	1.023	0.230	0.481		2.094	0.229	0.480
+codec-U	U-enum-value-127	encode	drop	53.5	1.053	0.284	0.623		2.194	0.274	0.607
+codec-U	U-enum-value-127	encode	retain	53.5	1.053	0.343	0.698		2.035	0.341	0.719
+codec-U	U-root-u-fixed32	decode-read	drop	641.9	1.062	0.892	1.437	1.490	1.612	0.861	1.391
+codec-U	U-root-u-fixed32	decode-read	retain	641.9	1.062	0.878	1.543	1.591	1.756	0.861	1.502
+codec-U	U-nested-all	decode-read	drop	404.7	0.973	0.735	1.281	1.296	1.742	0.717	1.261
+codec-U	U-nested-all	decode-read	retain	404.7	0.973	1.206	1.989	2.039	1.649	1.314	2.102
+codec-U	U-leaf-u-fixed32	decode	drop	277.3	0.970	0.781	1.413	1.477	1.809	0.816	1.478
+codec-U	U-leaf-u-fixed32	decode	retain	277.3	0.970	0.882	1.822	1.844	2.066	0.910	1.780
+codec-U	U-wire-ListMetricsResponse-batches-as-wt5	decode-read	drop						0.904		
+codec-U	U-wire-ListMetricsResponse-batches-as-wt5	decode-read	retain						0.891		
+codec-U	U-element-u-len	decode	drop	1576.5	0.984	0.785	1.538	1.505	1.958	0.806	1.520
+codec-U	U-element-u-len	decode	retain	1576.5	0.984	0.785	1.595	1.604	2.031	0.806	1.642
+codec-U	U-oneof-u-repeated	decode	drop	142.1	0.998	0.696	1.157	1.241	1.662	0.688	1.144
+codec-U	U-oneof-u-repeated	decode	retain	142.1	0.998	0.875	1.987	1.745	2.270	0.872	1.915
+codec-U	U-element-u-repeated	decode-read	drop	1727.5	0.898	0.711	1.323	1.291	1.860	0.697	1.317
+codec-U	U-element-u-repeated	decode-read	retain	1727.5	0.898	0.748	1.414	1.406	1.891	0.746	1.414
+codec-U	U-element-u-msg	decode-read	drop	1910.9	0.965	0.817	1.337	1.308	1.638	0.714	1.319
+codec-U	U-element-u-msg	decode-read	retain	1910.9	0.965	0.829	1.410	1.391	1.700	0.737	1.397
+codec-U	U-nested-before	decode-read	drop	398.7	1.026	0.787	1.339	1.365	1.701	0.789	1.334
+codec-U	U-nested-before	decode-read	retain	398.7	1.026	1.300	2.235	2.275	1.718	1.309	2.235
+codec-U	U-wire-ListTasksDetailedResponse-page-as-wt2	decode	drop						1.603		
+codec-U	U-wire-ListTasksDetailedResponse-page-as-wt2	decode	retain						1.562		
+codec-U	U-root-group	decode-read	drop	532.3	1.061	0.861	1.415	1.463	1.644	0.865	1.418
+codec-U	U-root-group	decode-read	retain	532.3	1.061	0.963	1.590	1.605	1.651	0.948	1.566
+codec-U	U-wire-ListTaskSummaryResponse-tasks-as-wt1	decode	drop						1.398		
+codec-U	U-wire-ListTaskSummaryResponse-tasks-as-wt1	decode	retain						1.435		
+codec-U	U-wire-ListTasksDetailedResponse-page-as-wt1	decode	drop						1.568		
+codec-U	U-wire-ListTasksDetailedResponse-page-as-wt1	decode	retain						1.591		
+codec-U	U-wire-ListTasksDetailedResponse-page-as-wt5	decode-read	drop						1.559		
+codec-U	U-wire-ListTasksDetailedResponse-page-as-wt5	decode-read	retain						1.568		
+codec-U	U-wire-ListTasksDetailedResponse-page-as-wt1	encode	drop						2.339		
+codec-U	U-wire-ListTasksDetailedResponse-page-as-wt1	encode	retain						1.968		
+codec-U	U-wire-UploadResultDataMessage-upload-as-wt1	encode	drop						1.952		
+codec-U	U-wire-UploadResultDataMessage-upload-as-wt1	encode	retain						1.756		
+codec-U	U-root-interleaved	encode	drop	613.2	1.041	0.158	0.308		1.956	0.158	0.307
+codec-U	U-root-interleaved	encode	retain	613.2	1.041	0.200	0.329		1.645	0.199	0.332
+codec-U	U-root-u-fixed32	decode	drop	611.6	1.053	0.851	1.465	1.503	1.721	0.840	1.449
+codec-U	U-root-u-fixed32	decode	retain	611.6	1.053	0.882	1.569	1.634	1.777	0.857	1.538
+codec-U	U-element-u-fixed64	encode	drop	1328.5	1.017	0.192	0.520		2.700	0.190	0.518
+codec-U	U-element-u-fixed64	encode	retain	1328.5	1.017	0.228	0.481		2.114	0.223	0.480
+codec-U	U-element-u-varint	decode-read	drop	1916.8	0.978	0.786	1.463	1.422	1.861	0.787	1.468
+codec-U	U-element-u-varint	decode-read	retain	1916.8	0.978	0.802	1.542	1.548	1.923	0.811	1.544
+codec-U	U-element-u-msg	decode	drop	2022.5	0.974	0.794	1.361	1.313	1.713	0.697	1.338
+codec-U	U-element-u-msg	decode	retain	2022.5	0.974	0.833	1.427	1.400	1.713	0.707	1.426
+codec-U	U-oneof-u-packed	decode	drop	130.0	0.966	0.720	1.205	1.289	1.673	0.715	1.194
+codec-U	U-oneof-u-packed	decode	retain	130.0	0.966	0.819	1.810	1.670	2.209	0.817	1.814
+codec-U	U-root-u-packed	decode-read	drop	643.1	1.067	0.901	1.417	1.463	1.573	0.918	1.439
+codec-U	U-root-u-packed	decode-read	retain	643.1	1.067	0.998	1.600	1.579	1.603	1.001	1.608
+codec-U	U-leaf-u-len	encode	drop	270.1	1.038	0.170	0.363		2.139	0.172	0.360
+codec-U	U-leaf-u-len	encode	retain	270.1	1.038	0.238	0.408		1.719	0.232	0.405
+codec-U	U-wire-ListResultsResponse-page-as-wt1	encode	drop						1.968		
+codec-U	U-wire-ListResultsResponse-page-as-wt1	encode	retain						1.642		
+codec-U	U-root-all	decode	drop	706.1	1.051	0.808	1.375	1.392	1.701	0.810	1.331
+codec-U	U-root-all	decode	retain	706.1	1.051	1.059	1.866	1.842	1.761	0.950	1.822
+codec-U	U-enum-value-packed	encode	drop	106.7	1.441	0.233	0.919		3.949	0.237	0.937
+codec-U	U-enum-value-packed	encode	retain	106.7	1.441	0.265	0.707		2.663	0.275	0.739
+codec-U	U-nested-u-fixed64	decode-read	drop	308.9	0.976	0.834	1.409	1.455	1.689	0.879	1.474
+codec-U	U-nested-u-fixed64	decode-read	retain	308.9	0.976	0.873	1.682	1.745	1.928	0.907	1.662
+codec-U	U-wire-ListTaskSummaryResponse-tasks-as-wt5	encode	drop						2.165		
+codec-U	U-wire-ListTaskSummaryResponse-tasks-as-wt5	encode	retain						2.021		
+codec-U	U-enum-value-127	decode-read	drop	80.3	1.480	1.297	1.758	1.942	1.356	1.008	1.491
+codec-U	U-enum-value-127	decode-read	retain	80.3	1.480	1.270	1.903	2.091	1.498	1.016	1.662
+codec-U	U-wire-UploadResultDataMessage-upload-as-wt5	decode-read	drop						1.732		
+codec-U	U-wire-UploadResultDataMessage-upload-as-wt5	decode-read	retain						1.933		
+codec-U	U-leaf-u-packed	decode	drop	314.0	1.025	0.845	1.452	1.490	1.719	0.816	1.454
+codec-U	U-leaf-u-packed	decode	retain	314.0	1.025	0.936	1.739	1.786	1.859	0.920	1.744
+codec-U	U-deep-u-fixed64	decode	drop	2020.9	0.979	0.800	1.322	1.307	1.653	0.810	1.347
+codec-U	U-deep-u-fixed64	decode	retain	2020.9	0.979	0.829	1.393	1.377	1.681	0.840	1.409
+codec-U	U-nested-interleaved	encode	drop	270.0	1.030	0.169	0.362		2.138	0.171	0.363
+codec-U	U-nested-interleaved	encode	retain	270.0	1.030	0.237	0.397		1.677	0.223	0.399
+codec-U	U-deep-u-len	decode	drop	2044.4	0.982	0.804	1.341	1.311	1.668	0.807	1.333
+codec-U	U-deep-u-len	decode	retain	2044.4	0.982	0.829	1.414	1.392	1.705	0.821	1.387
+codec-U	U-deep-u-len	decode-read	drop	2119.4	0.974	0.811	1.306	1.314	1.610	0.725	1.304
+codec-U	U-deep-u-len	decode-read	retain	2119.4	0.974	0.833	1.397	1.375	1.677	0.746	1.382
+codec-U	U-wire-ListResultsResponse-page-as-wt2	decode	drop						1.657		
+codec-U	U-wire-ListResultsResponse-page-as-wt2	decode	retain						1.773		
+codec-U	U-nested-interleaved	decode	drop	390.7	1.012	0.761	1.291	1.336	1.697	0.757	1.321
+codec-U	U-nested-interleaved	decode	retain	390.7	1.012	1.337	2.205	2.248	1.650	1.329	2.233
+codec-U	U-root-u-repeated	decode	drop	650.8	1.030	0.829	1.357	1.390	1.637	1.048	1.554
+codec-U	U-root-u-repeated	decode	retain	650.8	1.030	0.988	1.503	1.558	1.521	1.152	1.875
+codec-U	U-leaf-u-fixed64	encode	drop	268.0	1.043	0.174	0.371		2.132	0.171	0.365
+codec-U	U-leaf-u-fixed64	encode	retain	268.0	1.043	0.246	0.410		1.670	0.226	0.407
+codec-U	U-oneof-u-fixed32	decode	drop	129.3	0.986	0.723	1.207	1.293	1.669	0.718	1.201
+codec-U	U-oneof-u-fixed32	decode	retain	129.3	0.986	0.823	1.807	1.695	2.195	0.816	1.793
+codec-U	U-deep-u-fixed64	encode	drop	1322.1	1.019	0.190	0.520		2.742	0.190	0.523
+codec-U	U-deep-u-fixed64	encode	retain	1322.1	1.019	0.228	0.488		2.140	0.228	0.492
+codec-U	U-leaf-all	decode	drop	481.5	1.031	0.662	1.141	1.161	1.723	0.664	1.134
+codec-U	U-leaf-all	decode	retain	481.5	1.031	1.597	2.477	2.503	1.551	1.621	2.463
+codec-U	U-leaf-u-varint	decode	drop	331.6	1.007	0.797	1.392	1.439	1.748	0.779	1.401
+codec-U	U-leaf-u-varint	decode	retain	331.6	1.007	0.895	1.664	1.689	1.859	0.891	1.662
+codec-U	U-deep-u-packed	decode-read	drop	2094.3	0.981	0.816	1.320	1.305	1.618	0.819	1.333
+codec-U	U-deep-u-packed	decode-read	retain	2094.3	0.981	0.837	1.387	1.384	1.657	0.838	1.391
+codec-U	U-deep-u-varint	decode-read	drop	2132.9	0.981	0.821	1.314	1.295	1.600	0.824	1.310
+codec-U	U-deep-u-varint	decode-read	retain	2132.9	0.981	0.844	1.375	1.381	1.629	0.849	1.380
+codec-U	U-wire-ListMetricsResponse-batches-as-wt0	decode	drop						0.933		
+codec-U	U-wire-ListMetricsResponse-batches-as-wt0	decode	retain						0.929		
+codec-U	U-leaf-u-msg	decode	drop	313.2	1.018	0.807	1.430	1.472	1.772	0.804	1.430
+codec-U	U-leaf-u-msg	decode	retain	313.2	1.018	0.894	1.737	1.789	1.943	0.865	1.721
+codec-U	U-wire-DualResponse-left-as-wt5	decode	drop						1.422		
+codec-U	U-wire-DualResponse-left-as-wt5	decode	retain						1.669		
+codec-U	U-deep-u-msg	decode	drop	1838.9	0.976	0.777	1.456	1.428	1.875	0.764	1.462
+codec-U	U-deep-u-msg	decode	retain	1838.9	0.976	0.811	1.576	1.547	1.943	0.805	1.582
+codec-U	U-wire-ListProbeResponse-probes-as-wt1	decode	drop						1.592		
+codec-U	U-wire-ListProbeResponse-probes-as-wt1	decode	retain						1.777		
+codec-U	U-wire-ListTasksDetailedResponse-page-as-wt1	decode-read	drop						1.570		
+codec-U	U-wire-ListTasksDetailedResponse-page-as-wt1	decode-read	retain						1.567		
+codec-U	U-root-u-packed	encode	drop	619.6	1.036	0.159	0.310		1.942	0.158	0.308
+codec-U	U-root-u-packed	encode	retain	619.6	1.036	0.206	0.335		1.632	0.206	0.338
+codec-U	U-wire-DualResponse-left-as-wt5	decode-read	drop						1.398		
+codec-U	U-wire-DualResponse-left-as-wt5	decode-read	retain						1.633		
+codec-U	U-deep-all	encode	drop	1333.5	1.017	0.192	0.519		2.706	0.191	0.521
+codec-U	U-deep-all	encode	retain	1333.5	1.017	0.226	0.488		2.158	0.226	0.494
+codec-U	U-wire-ListTasksDetailedResponse-page-as-wt2	encode	drop						2.347		
+codec-U	U-wire-ListTasksDetailedResponse-page-as-wt2	encode	retain						1.932		
+codec-U	U-wire-ListMetricsResponse-batches-as-wt1	decode	drop						0.927		
+codec-U	U-wire-ListMetricsResponse-batches-as-wt1	decode	retain						0.914		
+codec-U	U-nested-interleaved	decode-read	drop	380.6	0.988	0.770	1.278	1.274	1.660	0.774	1.274
+codec-U	U-nested-interleaved	decode-read	retain	380.6	0.988	1.287	2.017	2.094	1.567	1.260	2.031
+codec-U	U-nested-u-fixed32	decode-read	drop	315.9	1.018	0.859	1.529	1.557	1.780	0.837	1.508
+codec-U	U-nested-u-fixed32	decode-read	retain	315.9	1.018	0.912	1.721	1.788	1.887	0.882	1.700
+codec-U	U-wire-ListResultsResponse-results-as-wt5	decode-read	drop						1.633		
+codec-U	U-wire-ListResultsResponse-results-as-wt5	decode-read	retain						1.739		
+codec-U	U-wire-ListTaskSummaryResponse-tasks-as-wt5	decode	drop						1.388		
+codec-U	U-wire-ListTaskSummaryResponse-tasks-as-wt5	decode	retain						1.411		
+codec-U	U-wire-UploadResultDataMessage-upload-as-wt0	decode	drop						1.749		
+codec-U	U-wire-UploadResultDataMessage-upload-as-wt0	decode	retain						1.954		
+codec-U	U-oneof-u-fixed32	decode-read	drop	131.4	0.982	0.741	1.177	1.203	1.589	0.711	1.160
+codec-U	U-oneof-u-fixed32	decode-read	retain	131.4	0.982	0.859	1.816	1.665	2.113	0.823	1.735
+codec-U	U-oneof-u-msg	decode	drop	132.0	0.974	0.711	1.195	1.295	1.681	0.725	1.229
+codec-U	U-oneof-u-msg	decode	retain	132.0	0.974	0.818	1.797	1.657	2.197	0.837	1.833
+codec-U	U-oneof-u-repeated	encode	drop	128.6	0.973	0.173	0.373		2.151	0.171	0.381
+codec-U	U-oneof-u-repeated	encode	retain	128.6	0.973	0.222	0.433		1.951	0.226	0.453
+codec-U	U-deep-u-varint	encode	drop	1115.6	1.036	0.197	0.539		2.741	0.193	0.518
+codec-U	U-deep-u-varint	encode	retain	1115.6	1.036	0.234	0.506		2.161	0.230	0.500
+codec-U	U-nested-before	decode	drop	315.6	0.957	0.714	1.292	1.307	1.809	0.724	1.303
+codec-U	U-nested-before	decode	retain	315.6	0.957	1.199	2.253	2.273	1.879	1.212	2.254
+codec-U	U-nested-u-fixed32	decode	drop	310.2	0.932	0.755	1.450	1.497	1.921	0.754	1.432
+codec-U	U-nested-u-fixed32	decode	retain	310.2	0.932	0.816	1.639	1.683	2.008	0.854	1.746
+codec-U	U-oneof-u-len	decode-read	drop	135.7	0.965	0.721	1.191	1.262	1.652	0.733	1.214
+codec-U	U-oneof-u-len	decode-read	retain	135.7	0.965	0.828	1.792	1.618	2.164	0.831	1.804
+codec-U	U-wire-ListTasksDetailedResponse-tasks-as-wt1	encode	drop						2.394		
+codec-U	U-wire-ListTasksDetailedResponse-tasks-as-wt1	encode	retain						1.920		
+codec-U	U-wire-ListTasksDetailedResponse-tasks-as-wt1	decode	drop						1.783		
+codec-U	U-wire-ListTasksDetailedResponse-tasks-as-wt1	decode	retain						1.836		
+codec-U	U-deep-u-repeated	decode-read	drop	1980.5	0.984	0.781	1.413	1.373	1.808	0.793	1.421
+codec-U	U-deep-u-repeated	decode-read	retain	1980.5	0.984	0.829	1.521	1.467	1.834	0.828	1.524
+codec-U	U-oneof-u-fixed64	decode	drop	128.1	0.963	0.728	1.214	1.292	1.667	0.729	1.216
+codec-U	U-oneof-u-fixed64	decode	retain	128.1	0.963	0.819	1.821	1.675	2.224	0.824	1.798
+codec-U	U-wire-DualResponse-left-as-wt0	encode	drop						1.987		
+codec-U	U-wire-DualResponse-left-as-wt0	encode	retain						1.531		
+codec-U	U-oneof-group	decode	drop	166.9	0.978	0.670	1.053	1.126	1.572	0.667	1.040
+codec-U	U-oneof-group	decode	retain	166.9	0.978	0.757	1.517	1.409	2.003	0.757	1.517
+codec-U	U-root-max-tag	decode-read	drop	647.7	1.037	0.877	1.407	1.421	1.605	0.874	1.413
+codec-U	U-root-max-tag	decode-read	retain	647.7	1.037	0.872	1.477	1.525	1.694	0.870	1.486
+codec-U	U-deep-u-varint	decode	drop	2059.6	0.964	0.792	1.312	1.291	1.656	0.796	1.310
+codec-U	U-deep-u-varint	decode	retain	2059.6	0.964	0.833	1.396	1.377	1.676	0.840	1.399
+codec-U	U-deep-u-fixed32	decode-read	drop	1913.4	0.986	0.805	1.435	1.406	1.782	0.802	1.427
+codec-U	U-deep-u-fixed32	decode-read	retain	1913.4	0.986	0.837	1.570	1.521	1.876	0.824	1.555
+codec-U	U-wire-UploadResultDataMessage-upload-as-wt1	decode	drop						1.752		
+codec-U	U-wire-UploadResultDataMessage-upload-as-wt1	decode	retain						1.964		
+codec-U	U-root-all	encode	drop	620.2	1.035	0.157	0.310		1.970	0.156	0.309
+codec-U	U-root-all	encode	retain	620.2	1.035	0.209	0.334		1.596	0.206	0.334
+codec-U	U-oneof-before	encode	drop	129.0	0.948	0.175	0.373		2.140	0.177	0.392
+codec-U	U-oneof-before	encode	retain	129.0	0.948	0.223	0.436		1.956	0.224	0.456
+codec-U	U-nested-u-fixed32	encode	drop	266.9	1.043	0.177	0.371		2.093	0.178	0.362
+codec-U	U-nested-u-fixed32	encode	retain	266.9	1.043	0.235	0.403		1.718	0.228	0.399
+codec-U	U-wire-ListTaskSummaryResponse-tasks-as-wt0	encode	drop						2.173		
+codec-U	U-wire-ListTaskSummaryResponse-tasks-as-wt0	encode	retain						2.007		
+codec-U	U-element-u-packed	decode	drop	2011.2	0.983	0.810	1.331	1.323	1.642	0.816	1.336
+codec-U	U-element-u-packed	decode	retain	2011.2	0.983	0.830	1.420	1.393	1.710	0.827	1.420
+codec-U	U-root-u-len	decode-read	drop	638.9	1.052	0.918	1.413	1.447	1.539	0.901	1.395
+codec-U	U-root-u-len	decode-read	retain	638.9	1.052	0.890	1.503	1.542	1.688	0.875	1.470
+codec-U	U-root-interleaved	decode-read	drop	729.6	1.028	0.819	1.338	1.356	1.633	0.801	1.338
+codec-U	U-root-interleaved	decode-read	retain	729.6	1.028	1.009	1.733	1.742	1.717	1.010	1.720
+codec-U	U-enum-value-999	decode	drop	75.7	1.237	1.001	1.450	1.624	1.448	0.964	1.433
+codec-U	U-enum-value-999	decode	retain	75.7	1.237	0.979	1.599	1.820	1.634	0.950	1.598
+codec-U	U-element-all	encode	drop	1346.1	1.021	0.190	0.514		2.705	0.189	0.519
+codec-U	U-element-all	encode	retain	1346.1	1.021	0.229	0.477		2.082	0.229	0.480
+codec-U	U-oneof-u-repeated	decode-read	drop	148.2	0.962	0.698	1.144	1.202	1.638	0.696	1.152
+codec-U	U-oneof-u-repeated	decode-read	retain	148.2	0.962	0.863	1.884	1.693	2.183	0.860	1.899
+codec-U	U-deep-u-msg	decode-read	drop	2122.2	0.969	0.791	1.310	1.274	1.657	0.743	1.323
+codec-U	U-deep-u-msg	decode-read	retain	2122.2	0.969	0.840	1.427	1.391	1.700	0.775	1.419
+codec-U	U-leaf-u-repeated	decode	drop	335.1	0.953	0.736	1.339	1.357	1.820	0.730	1.348
+codec-U	U-leaf-u-repeated	decode	retain	335.1	0.953	0.882	1.714	1.756	1.943	0.892	1.687
+codec-U	U-element-u-fixed32	encode	drop	1329.5	1.022	0.193	0.521		2.697	0.192	0.524
+codec-U	U-element-u-fixed32	encode	retain	1329.5	1.022	0.228	0.480		2.105	0.230	0.486
+codec-U	U-element-u-fixed64	decode	drop	2039.3	0.982	0.798	1.319	1.316	1.653	0.791	1.315
+codec-U	U-element-u-fixed64	decode	retain	2039.3	0.982	0.855	1.423	1.408	1.665	0.838	1.391
+codec-U	U-wire-ListProbeResponse-probes-as-wt0	encode	drop						2.082		
+codec-U	U-wire-ListProbeResponse-probes-as-wt0	encode	retain						1.909		
+codec-U	U-leaf-u-repeated	encode	drop	263.9	1.059	0.172	0.367		2.134	0.174	0.371
+codec-U	U-leaf-u-repeated	encode	retain	263.9	1.059	0.236	0.414		1.753	0.236	0.413
+codec-U	U-wire-DualResponse-left-as-wt1	decode	drop						1.420		
+codec-U	U-wire-DualResponse-left-as-wt1	decode	retain						1.701		
+codec-U	U-deep-u-len	encode	drop	1321.2	1.017	0.190	0.521		2.739	0.189	0.521
+codec-U	U-deep-u-len	encode	retain	1321.2	1.017	0.226	0.490		2.163	0.225	0.490
+codec-U	U-wire-ListMetricsResponse-batches-as-wt5	decode	drop						1.105		
+codec-U	U-wire-ListMetricsResponse-batches-as-wt5	decode	retain						1.078		
+codec-U	U-leaf-u-fixed64	decode	drop	313.7	0.974	0.806	1.424	1.447	1.768	0.777	1.420
+codec-U	U-leaf-u-fixed64	decode	retain	313.7	0.974	0.891	1.704	1.743	1.912	0.880	1.702
+codec-U	U-deep-u-fixed32	encode	drop	1329.1	1.013	0.190	0.513		2.707	0.189	0.517
+codec-U	U-deep-u-fixed32	encode	retain	1329.1	1.013	0.228	0.488		2.141	0.225	0.488
+codec-U	U-deep-u-msg	encode	drop	1325.0	1.013	0.186	0.518		2.783	0.187	0.516
+codec-U	U-deep-u-msg	encode	retain	1325.0	1.013	0.226	0.491		2.176	0.224	0.489
+codec-U	U-wire-DualResponse-left-as-wt5	encode	drop						2.028		
+codec-U	U-wire-DualResponse-left-as-wt5	encode	retain						1.533		
+codec-U	U-nested-u-len	encode	drop	239.1	1.039	0.172	0.360		2.097	0.170	0.364
+codec-U	U-nested-u-len	encode	retain	239.1	1.039	0.235	0.401		1.706	0.226	0.398
+codec-U	U-nested-u-len	decode-read	drop	301.8	0.993	0.808	1.436	1.399	1.777	0.822	1.445
+codec-U	U-nested-u-len	decode-read	retain	301.8	0.993	0.835	1.688	1.732	2.021	0.863	1.661
+codec-U	U-wire-ListTaskSummaryResponse-tasks-as-wt5	decode-read	drop						1.379		
+codec-U	U-wire-ListTaskSummaryResponse-tasks-as-wt5	decode-read	retain						1.414		
+codec-U	U-root-interleaved	decode	drop	712.2	1.012	0.769	1.312	1.341	1.706	0.768	1.310
+codec-U	U-root-interleaved	decode	retain	712.2	1.012	0.989	1.686	1.726	1.705	0.980	1.675
+codec-U	U-wire-ListTaskSummaryResponse-tasks-as-wt0	decode	drop						1.414		
+codec-U	U-wire-ListTaskSummaryResponse-tasks-as-wt0	decode	retain						1.453		
+codec-U	U-oneof-member-before-known	encode	drop	131.3	0.946	0.170	0.372		2.193	0.177	0.398
+codec-U	U-oneof-member-before-known	encode	retain	131.3	0.946	0.219	0.430		1.963	0.230	0.462
+codec-U	U-root-u-msg	decode	drop	490.3	1.063	0.875	1.424	1.455	1.628	0.878	1.416
+codec-U	U-root-u-msg	decode	retain	490.3	1.063	0.875	1.529	1.566	1.749	0.879	1.533
+codec-U	U-wire-ListResultsResponse-page-as-wt5	decode	drop						1.728		
+codec-U	U-wire-ListResultsResponse-page-as-wt5	decode	retain						1.844		
+codec-U	U-leaf-u-fixed32	decode-read	drop	262.6	1.036	0.854	1.499	1.536	1.755	0.866	1.514
+codec-U	U-leaf-u-fixed32	decode-read	retain	262.6	1.036	0.964	1.767	1.822	1.834	0.952	1.786
+codec-U	U-wire-DualResponse-left-as-wt0	decode	drop						1.415		
+codec-U	U-wire-DualResponse-left-as-wt0	decode	retain						1.711		
+codec-U	U-root-max-tag	decode	drop	547.9	1.065	0.876	1.438	1.462	1.642	0.883	1.437
+codec-U	U-root-max-tag	decode	retain	547.9	1.065	0.879	1.559	1.579	1.773	0.895	1.530
+codec-U	U-deep-u-fixed32	decode	drop	1643.2	0.936	0.787	1.323	1.295	1.681	0.788	1.318
+codec-U	U-deep-u-fixed32	decode	retain	1643.2	0.936	0.826	1.435	1.419	1.737	0.811	1.446
+codec-U	U-wire-ListTasksDetailedResponse-tasks-as-wt0	decode-read	drop						1.526		
+codec-U	U-wire-ListTasksDetailedResponse-tasks-as-wt0	decode-read	retain						1.565		
+codec-U	U-root-group	encode	drop	605.5	1.035	0.158	0.311		1.970	0.160	0.318
+codec-U	U-root-group	encode	retain	605.5	1.035	0.204	0.336		1.644	0.206	0.337
+codec-U	U-oneof-u-varint	encode	drop	133.7	0.951	0.163	0.354		2.171	0.168	0.367
+codec-U	U-oneof-u-varint	encode	retain	133.7	0.951	0.216	0.415		1.924	0.221	0.433
+codec-U	U-wire-ListProbeResponse-probes-as-wt5	decode-read	drop						1.584		
+codec-U	U-wire-ListProbeResponse-probes-as-wt5	decode-read	retain						1.733		
+codec-U	U-leaf-all	encode	drop	265.6	1.041	0.172	0.366		2.125	0.169	0.360
+codec-U	U-leaf-all	encode	retain	265.6	1.041	0.287	0.462		1.608	0.288	0.462
+codec-U	U-root-u-repeated	encode	drop	609.0	1.042	0.158	0.312		1.978	0.157	0.311
+codec-U	U-root-u-repeated	encode	retain	609.0	1.042	0.208	0.335		1.613	0.206	0.335
+codec-U	U-oneof-before	decode	drop	209.9	0.944	0.580	0.961	1.008	1.657	0.597	1.002
+codec-U	U-oneof-before	decode	retain	209.9	0.944	1.133	2.190	2.040	1.933	1.163	2.261
+codec-U	U-deep-u-repeated	encode	drop	1035.7	1.019	0.190	0.518		2.722	0.190	0.521
+codec-U	U-deep-u-repeated	encode	retain	1035.7	1.019	0.226	0.491		2.175	0.224	0.491
+codec-U	U-wire-ListResultsResponse-results-as-wt5	decode	drop						1.747		
+codec-U	U-wire-ListResultsResponse-results-as-wt5	decode	retain						1.846		
+codec-U	U-wire-UploadResultDataMessage-upload-as-wt0	encode	drop						1.928		
+codec-U	U-wire-UploadResultDataMessage-upload-as-wt0	encode	retain						1.782		
+codec-U	U-leaf-u-packed	decode-read	drop	326.4	0.985	0.797	1.385	1.413	1.737	0.785	1.399
+codec-U	U-leaf-u-packed	decode-read	retain	326.4	0.985	0.877	1.672	1.709	1.908	0.884	1.661
+codec-U	U-wire-ListResultsResponse-results-as-wt1	encode	drop						1.919		
+codec-U	U-wire-ListResultsResponse-results-as-wt1	encode	retain						1.666		
+codec-U	U-wire-ListResultsResponse-results-as-wt1	decode	drop						1.681		
+codec-U	U-wire-ListResultsResponse-results-as-wt1	decode	retain						1.780		
+codec-U	U-root-u-repeated	decode-read	drop	540.5	1.040	0.847	1.374	1.415	1.621	0.881	1.403
+codec-U	U-root-u-repeated	decode-read	retain	540.5	1.040	0.932	1.502	1.514	1.612	0.925	1.558
+codec-U	U-root-u-fixed64	decode	drop	612.6	1.045	0.848	1.410	1.448	1.662	0.824	1.392
+codec-U	U-root-u-fixed64	decode	retain	612.6	1.045	0.857	1.505	1.549	1.757	0.835	1.485
+codec-U	U-deep-u-packed	decode	drop	2017.6	0.971	0.800	1.313	1.302	1.641	0.805	1.310
+codec-U	U-deep-u-packed	decode	retain	2017.6	0.971	0.818	1.403	1.380	1.715	0.817	1.385
+codec-U	U-wire-ListProbeResponse-probes-as-wt0	decode	drop						1.595		
+codec-U	U-wire-ListProbeResponse-probes-as-wt0	decode	retain						1.772		
+codec-U	U-oneof-interleaved	decode	drop	210.7	0.951	0.583	0.910	0.953	1.560	0.595	0.923
+codec-U	U-oneof-interleaved	decode	retain	210.7	0.951	1.131	2.213	2.053	1.956	1.157	2.242
+codec-U	U-wire-ListTasksDetailedResponse-tasks-as-wt5	decode-read	drop						1.579		
+codec-U	U-wire-ListTasksDetailedResponse-tasks-as-wt5	decode-read	retain						1.609		
+codec-U	U-nested-all	decode	drop	388.6	0.941	0.680	1.273	1.295	1.872	0.692	1.284
+codec-U	U-nested-all	decode	retain	388.6	0.941	1.161	1.988	2.039	1.712	1.182	2.008
+codec-U	U-enum-value-999	encode	drop	60.1	1.055	0.276	0.597		2.165	0.263	0.595
+codec-U	U-enum-value-999	encode	retain	60.1	1.055	0.339	0.657		1.939	0.327	0.659
+codec-U	U-oneof-u-fixed64	encode	drop	127.2	0.981	0.175	0.377		2.154	0.182	0.395
+codec-U	U-oneof-u-fixed64	encode	retain	127.2	0.981	0.223	0.437		1.958	0.231	0.460
+codec-U	U-wire-ListTaskSummaryResponse-tasks-as-wt1	encode	drop						2.166		
+codec-U	U-wire-ListTaskSummaryResponse-tasks-as-wt1	encode	retain						2.013		
+codec-U	U-deep-u-fixed64	decode-read	drop	1996.1	0.997	0.811	1.370	1.366	1.689	0.810	1.375
+codec-U	U-deep-u-fixed64	decode-read	retain	1996.1	0.997	0.831	1.483	1.459	1.785	0.829	1.490
+codec-U	U-leaf-u-varint	decode-read	drop	337.6	0.994	0.784	1.367	1.389	1.743	0.762	1.339
+codec-U	U-leaf-u-varint	decode-read	retain	337.6	0.994	0.892	1.633	1.673	1.831	0.850	1.620
+codec-U	U-root-u-varint	decode	drop	622.9	1.042	0.824	1.392	1.408	1.689	0.815	1.364
+codec-U	U-root-u-varint	decode	retain	622.9	1.042	0.849	1.485	1.532	1.750	0.837	1.467
+codec-U	U-nested-u-varint	decode	drop	311.6	0.976	0.784	1.390	1.448	1.773	0.766	1.376
+codec-U	U-nested-u-varint	decode	retain	311.6	0.976	0.827	1.612	1.684	1.950	0.814	1.613
+codec-U	U-root-before	decode-read	drop	645.3	1.030	0.802	1.345	1.355	1.678	0.819	1.342
+codec-U	U-root-before	decode-read	retain	645.3	1.030	1.057	1.712	1.791	1.619	1.068	1.758
+codec-U	U-oneof-all	encode	drop	128.4	0.974	0.175	0.374		2.139	0.178	0.384
+codec-U	U-oneof-all	encode	retain	128.4	0.974	0.226	0.436		1.930	0.214	0.456
+codec-U	U-nested-group	decode-read	drop	348.5	0.982	0.762	1.400	1.429	1.837	0.775	1.416
+codec-U	U-nested-group	decode-read	retain	348.5	0.982	0.810	1.594	1.643	1.967	0.816	1.605
+codec-U	U-root-u-msg	decode-read	drop	634.4	1.027	0.894	1.395	1.433	1.561	0.874	1.371
+codec-U	U-root-u-msg	decode-read	retain	634.4	1.027	0.880	1.470	1.518	1.671	0.877	1.462
+codec-U	U-wire-ListTasksDetailedResponse-tasks-as-wt0	decode	drop						1.594		
+codec-U	U-wire-ListTasksDetailedResponse-tasks-as-wt0	decode	retain						1.627		
+codec-U	U-oneof-u-packed	encode	drop	128.9	0.949	0.172	0.372		2.158	0.172	0.379
+codec-U	U-oneof-u-packed	encode	retain	128.9	0.949	0.218	0.432		1.986	0.218	0.447
+codec-U	U-nested-group	decode	drop	338.7	0.966	0.768	1.409	1.456	1.835	0.769	1.429
+codec-U	U-nested-group	decode	retain	338.7	0.966	0.811	1.607	1.644	1.982	0.806	1.608
+codec-U	U-oneof-u-msg	encode	drop	127.5	0.994	0.267	0.385		1.441	0.285	0.397
+codec-U	U-oneof-u-msg	encode	retain	127.5	0.994	0.226	0.436		1.927	0.233	0.461
+codec-U	U-element-u-repeated	encode	drop	1340.2	1.009	0.254	0.517		2.032	0.257	0.520
+codec-U	U-element-u-repeated	encode	retain	1340.2	1.009	0.230	0.474		2.063	0.228	0.477
+codec-U	U-wire-ListResultsResponse-page-as-wt1	decode	drop						1.682		
+codec-U	U-wire-ListResultsResponse-page-as-wt1	decode	retain						1.741		
+codec-U	U-root-u-fixed32	encode	drop	620.0	1.029	0.159	0.307		1.928	0.159	0.308
+codec-U	U-root-u-fixed32	encode	retain	620.0	1.029	0.202	0.333		1.644	0.207	0.335
+codec-U	U-wire-ListTasksDetailedResponse-page-as-wt5	encode	drop						2.336		
+codec-U	U-wire-ListTasksDetailedResponse-page-as-wt5	encode	retain						1.940		
+codec-U	U-oneof-member-alone	encode	drop	77.2	0.961	0.193	0.509		2.643	0.193	0.547
+codec-U	U-oneof-member-alone	encode	retain	77.2	0.961	0.254	0.572		2.254	0.245	0.585
+codec-U	U-nested-u-fixed64	encode	drop	245.8	1.034	0.169	0.361		2.133	0.173	0.364
+codec-U	U-nested-u-fixed64	encode	retain	245.8	1.034	0.237	0.398		1.677	0.225	0.394
+codec-U	U-root-u-len	encode	drop	509.1	1.062	0.158	0.304		1.926	0.157	0.309
+codec-U	U-root-u-len	encode	retain	509.1	1.062	0.207	0.334		1.612	0.204	0.336
+codec-U	U-enum-value-2147483647	encode	drop	60.2	1.045	0.252	0.514		2.044	0.245	0.509
+codec-U	U-enum-value-2147483647	encode	retain	60.2	1.045	0.308	0.579		1.878	0.301	0.571
+codec-U	U-root-u-fixed64	decode-read	drop	623.1	1.017	0.858	1.390	1.438	1.620	0.850	1.381
+codec-U	U-root-u-fixed64	decode-read	retain	623.1	1.017	0.856	1.488	1.515	1.738	0.855	1.469
+codec-U	U-oneof-group	encode	drop	126.8	0.942	0.173	0.373		2.158	0.172	0.386
+codec-U	U-oneof-group	encode	retain	126.8	0.942	0.209	0.422		2.012	0.214	0.435
+codec-U	U-oneof-group	decode-read	drop	175.9	0.965	0.675	1.031	1.084	1.528	0.684	1.038
+codec-U	U-oneof-group	decode-read	retain	175.9	0.965	0.748	1.473	1.387	1.968	0.756	1.486
+codec-U	U-oneof-u-len	encode	drop	128.3	0.974	0.174	0.370		2.126	0.174	0.383
+codec-U	U-oneof-u-len	encode	retain	128.3	0.974	0.221	0.432		1.955	0.228	0.451
+codec-U	U-nested-u-repeated	decode-read	drop	322.6	0.966	0.781	1.383	1.425	1.769	0.783	1.386
+codec-U	U-nested-u-repeated	decode-read	retain	322.6	0.966	1.079	1.671	1.714	1.549	1.084	1.668
+codec-U	U-wire-ListTaskSummaryResponse-tasks-as-wt0	decode-read	drop						1.412		
+codec-U	U-wire-ListTaskSummaryResponse-tasks-as-wt0	decode-read	retain						1.480		
+codec-U	U-nested-u-varint	decode-read	drop	314.4	0.963	0.784	1.388	1.425	1.771	0.788	1.394
+codec-U	U-nested-u-varint	decode-read	retain	314.4	0.963	0.830	1.624	1.651	1.956	0.836	1.613
+codec-U	U-leaf-u-msg	encode	drop	263.1	1.058	0.177	0.364		2.050	0.176	0.362
+codec-U	U-leaf-u-msg	encode	retain	263.1	1.058	0.254	0.407		1.602	0.250	0.408
+codec-U	U-oneof-u-len	decode	drop	129.0	0.963	0.727	1.202	1.303	1.652	0.730	1.205
+codec-U	U-oneof-u-len	decode	retain	129.0	0.963	0.825	1.808	1.669	2.191	0.828	1.817
+codec-U	U-element-u-fixed32	decode-read	drop	2094.7	0.970	0.805	1.313	1.285	1.630	0.789	1.325
+codec-U	U-element-u-fixed32	decode-read	retain	2094.7	0.970	0.850	1.421	1.386	1.672	0.826	1.434
+codec-U	U-root-u-varint	decode-read	drop	650.5	1.001	0.834	1.343	1.385	1.610	0.841	1.350
+codec-U	U-root-u-varint	decode-read	retain	650.5	1.001	0.835	1.439	1.475	1.724	0.840	1.442
+codec-U	U-nested-group	encode	drop	263.9	1.047	0.172	0.371		2.154	0.178	0.374
+codec-U	U-nested-group	encode	retain	263.9	1.047	0.240	0.403		1.676	0.229	0.410
+codec-U	U-nested-u-msg	decode	drop	303.6	0.945	0.773	1.408	1.450	1.823	0.777	1.437
+codec-U	U-nested-u-msg	decode	retain	303.6	0.945	0.824	1.634	1.680	1.983	0.829	1.680
+codec-U	U-leaf-u-packed	encode	drop	265.0	1.045	0.172	0.372		2.169	0.172	0.364
+codec-U	U-leaf-u-packed	encode	retain	265.0	1.045	0.242	0.405		1.670	0.232	0.403
+codec-U	U-oneof-interleaved	decode-read	drop	215.6	0.959	0.589	0.916	0.953	1.556	0.600	0.938
+codec-U	U-oneof-interleaved	decode-read	retain	215.6	0.959	1.107	2.188	2.044	1.977	1.134	2.261
+codec-U	U-root-u-msg	encode	drop	617.2	1.029	0.157	0.309		1.965	0.158	0.312
+codec-U	U-root-u-msg	encode	retain	617.2	1.029	0.204	0.334		1.637	0.204	0.337
+codec-U	U-oneof-member-before-known	decode	drop	124.8	0.988	0.749	1.238	1.323	1.654	0.745	1.235
+codec-U	U-oneof-member-before-known	decode	retain	124.8	0.988	0.853	1.853	1.710	2.171	0.849	1.853
+codec-U	U-wire-ListResultsResponse-results-as-wt5	encode	drop						1.965		
+codec-U	U-wire-ListResultsResponse-results-as-wt5	encode	retain						1.644		
+codec-U	U-wire-UploadResultDataMessage-upload-as-wt0	decode-read	drop						1.729		
+codec-U	U-wire-UploadResultDataMessage-upload-as-wt0	decode-read	retain						1.949		
+codec-U	U-wire-ListTasksDetailedResponse-tasks-as-wt5	encode	drop						2.404		
+codec-U	U-wire-ListTasksDetailedResponse-tasks-as-wt5	encode	retain						1.922		
+codec-U	U-wire-ListResultsResponse-results-as-wt0	encode	drop						1.810		
+codec-U	U-wire-ListResultsResponse-results-as-wt0	encode	retain						1.625		
+codec-U	U-element-u-len	decode-read	drop	2098.8	0.986	0.820	1.322	1.310	1.611	0.821	1.315
+codec-U	U-element-u-len	decode-read	retain	2098.8	0.986	0.860	1.412	1.412	1.642	0.858	1.400
+codec-U	U-root-all	decode-read	drop	709.6	1.047	0.835	1.377	1.416	1.650	0.824	1.362
+codec-U	U-root-all	decode-read	retain	709.6	1.047	1.030	1.761	1.773	1.710	1.007	1.748
+codec-U	U-root-before	encode	drop	610.9	1.037	0.158	0.309		1.954	0.156	0.310
+codec-U	U-root-before	encode	retain	610.9	1.037	0.202	0.331		1.639	0.202	0.334
+codec-U	U-element-u-len	encode	drop	1325.5	1.016	0.189	0.516		2.734	0.188	0.516
+codec-U	U-element-u-len	encode	retain	1325.5	1.016	0.222	0.476		2.145	0.222	0.478
+codec-U	U-nested-u-packed	decode	drop	302.2	0.948	0.775	1.408	1.453	1.817	0.779	1.422
+codec-U	U-nested-u-packed	decode	retain	302.2	0.948	0.820	1.638	1.679	1.997	0.833	1.646
+codec-U	U-wire-ListProbeResponse-probes-as-wt5	encode	drop						2.075		
+codec-U	U-wire-ListProbeResponse-probes-as-wt5	encode	retain						1.907		
+codec-U	U-root-group	decode	drop	655.5	1.016	0.801	1.378	1.409	1.719	0.804	1.387
+codec-U	U-root-group	decode	retain	655.5	1.016	0.893	1.540	1.536	1.724	0.896	1.540
+codec-U	U-nested-u-msg	decode-read	drop	312.1	0.993	0.828	1.443	1.490	1.742	0.809	1.430
+codec-U	U-nested-u-msg	decode-read	retain	312.1	0.993	0.874	1.655	1.692	1.894	0.851	1.658
+codec-U	U-oneof-member-alone	decode	drop	112.4	0.976	0.791	1.346	1.440	1.701	0.788	1.343
+codec-U	U-oneof-member-alone	decode	retain	112.4	0.976	0.909	2.007	1.864	2.207	0.907	2.004
+codec-U	U-oneof-u-varint	decode-read	drop	114.2	0.975	0.719	1.151	1.224	1.602	0.718	1.160
+codec-U	U-oneof-u-varint	decode-read	retain	114.2	0.975	0.802	1.679	1.592	2.093	0.808	1.724
+codec-U	U-element-u-repeated	decode	drop	1733.1	0.977	0.796	1.366	1.349	1.716	0.814	1.368
+codec-U	U-element-u-repeated	decode	retain	1733.1	0.977	0.829	1.483	1.444	1.788	0.843	1.493
+codec-U	U-wire-ListResultsResponse-page-as-wt5	encode	drop						1.988		
+codec-U	U-wire-ListResultsResponse-page-as-wt5	encode	retain						1.666		
+codec-U	U-oneof-interleaved	encode	drop	103.0	0.949	0.171	0.366		2.146	0.176	0.383
+codec-U	U-oneof-interleaved	encode	retain	103.0	0.949	0.220	0.424		1.929	0.211	0.450
+codec-U	U-wire-UploadResultDataMessage-upload-as-wt5	decode	drop						1.772		
+codec-U	U-wire-UploadResultDataMessage-upload-as-wt5	decode	retain						1.970		
+codec-U	U-wire-ListResultsResponse-results-as-wt0	decode	drop						1.683		
+codec-U	U-wire-ListResultsResponse-results-as-wt0	decode	retain						1.751		
+codec-U	U-element-all	decode	drop	2059.8	0.982	0.774	1.342	1.319	1.734	0.775	1.339
+codec-U	U-element-all	decode	retain	2059.8	0.982	0.890	1.552	1.514	1.743	0.889	1.563
+codec-U	U-wire-ListTasksDetailedResponse-page-as-wt5	decode	drop						1.597		
+codec-U	U-wire-ListTasksDetailedResponse-page-as-wt5	decode	retain						1.604		
+codec-U	U-root-max-tag	encode	drop	628.7	1.015	0.157	0.307		1.956	0.159	0.313
+codec-U	U-root-max-tag	encode	retain	628.7	1.015	0.201	0.335		1.662	0.207	0.336
+codec-U	U-wire-ListMetricsResponse-batches-as-wt0	encode	drop						1.326		
+codec-U	U-wire-ListMetricsResponse-batches-as-wt0	encode	retain						1.297		
+codec-U	U-element-all	decode-read	drop	2125.0	0.987	0.800	1.321	1.312	1.652	0.797	1.319
+codec-U	U-element-all	decode-read	retain	2125.0	0.987	0.883	1.527	1.479	1.728	0.881	1.501
+codec-U	U-oneof-u-msg	decode-read	drop	134.3	0.971	0.738	1.207	1.283	1.634	0.741	1.200
+codec-U	U-oneof-u-msg	decode-read	retain	134.3	0.971	0.837	1.800	1.668	2.149	0.836	1.783
+codec-U	U-oneof-u-fixed32	encode	drop	129.6	0.962	0.172	0.370		2.155	0.179	0.380
+codec-U	U-oneof-u-fixed32	encode	retain	129.6	0.962	0.214	0.426		1.989	0.216	0.439
+codec-U	U-enum-value-packed	decode-read	drop	105.8	1.249	0.865	2.090	2.341	2.417	0.858	2.089
+codec-U	U-enum-value-packed	decode-read	retain	105.8	1.249	0.810	2.224	2.484	2.745	0.797	2.285
+codec-U	U-element-u-msg	encode	drop	1094.0	1.011	0.189	0.515		2.730	0.190	0.519
+codec-U	U-element-u-msg	encode	retain	1094.0	1.011	0.224	0.476		2.121	0.226	0.480
+codec-U	U-oneof-before	decode-read	drop	168.8	0.968	0.586	0.978	1.012	1.670	0.588	0.974
+codec-U	U-oneof-before	decode-read	retain	168.8	0.968	1.092	2.197	2.051	2.012	1.092	2.228
+codec-U	U-oneof-member-alone	decode-read	drop	118.8	0.974	0.792	1.323	1.412	1.669	0.786	1.316
+codec-U	U-oneof-member-alone	decode-read	retain	118.8	0.974	0.903	1.956	1.798	2.167	0.904	1.958
+codec-U	U-leaf-u-msg	decode-read	drop	323.3	1.002	0.799	1.389	1.428	1.739	0.772	1.395
+codec-U	U-leaf-u-msg	decode-read	retain	323.3	1.002	0.893	1.676	1.697	1.877	0.851	1.616
+codec-U	U-nested-u-len	decode	drop	304.6	0.943	0.769	1.413	1.439	1.838	0.774	1.397
+codec-U	U-nested-u-len	decode	retain	304.6	0.943	0.825	1.621	1.671	1.966	0.824	1.604
+codec-U	U-root-u-len	decode	drop	618.9	1.022	0.833	1.372	1.421	1.647	0.830	1.372
+codec-U	U-root-u-len	decode	retain	618.9	1.022	0.843	1.469	1.510	1.744	0.840	1.466
+codec-U	U-element-u-packed	decode-read	drop	2117.5	0.983	0.824	1.315	1.298	1.596	0.820	1.309
+codec-U	U-element-u-packed	decode-read	retain	2117.5	0.983	0.827	1.378	1.382	1.665	0.837	1.370
+codec-U	U-nested-all	encode	drop	234.5	1.057	0.174	0.367		2.116	0.171	0.365
+codec-U	U-nested-all	encode	retain	234.5	1.057	0.234	0.402		1.718	0.218	0.383
+codec-U	U-wire-ListProbeResponse-probes-as-wt1	encode	drop						2.087		
+codec-U	U-wire-ListProbeResponse-probes-as-wt1	encode	retain						1.941		
+codec-U	U-leaf-all	decode-read	drop	491.6	1.005	0.629	1.116	1.123	1.774	0.615	1.084
+codec-U	U-leaf-all	decode-read	retain	491.6	1.005	1.365	2.192	2.226	1.606	1.304	2.136
+codec-U	U-wire-DualResponse-left-as-wt1	decode-read	drop						1.407		
+codec-U	U-wire-DualResponse-left-as-wt1	decode-read	retain						1.688		
+codec-U	U-leaf-u-varint	encode	drop	210.1	1.046	0.173	0.360		2.087	0.172	0.363
+codec-U	U-leaf-u-varint	encode	retain	210.1	1.046	0.242	0.416		1.720	0.235	0.417
+codec-U	U-oneof-all	decode-read	drop	217.3	0.959	0.591	0.918	0.953	1.554	0.576	0.878
+codec-U	U-oneof-all	decode-read	retain	217.3	0.959	1.140	2.172	2.051	1.905	1.161	2.523
+codec-U	U-wire-ListProbeResponse-probes-as-wt5	decode	drop						1.633		
+codec-U	U-wire-ListProbeResponse-probes-as-wt5	decode	retain						1.763		
+codec-U	U-wire-ListProbeResponse-probes-as-wt1	decode-read	drop						1.579		
+codec-U	U-wire-ListProbeResponse-probes-as-wt1	decode-read	retain						1.728		
+codec-U	U-deep-all	decode	drop	2040.9	0.982	0.781	1.338	1.320	1.714	0.770	1.335
+codec-U	U-deep-all	decode	retain	2040.9	0.982	0.865	1.553	1.512	1.795	0.859	1.543
+codec-U	U-oneof-member-before-known	decode-read	drop	130.0	0.988	0.757	1.241	1.333	1.639	0.756	1.247
+codec-U	U-oneof-member-before-known	decode-read	retain	130.0	0.988	0.862	1.862	1.718	2.160	0.873	1.869
+codec-U	U-wire-ListResultsResponse-page-as-wt2	decode-read	drop						1.540		
+codec-U	U-wire-ListResultsResponse-page-as-wt2	decode-read	retain						1.648		
+codec-U	U-root-u-packed	decode	drop	628.1	1.009	0.835	1.371	1.411	1.642	0.845	1.377
+codec-U	U-root-u-packed	decode	retain	628.1	1.009	0.860	1.498	1.523	1.742	0.885	1.511
+codec-U	U-wire-UploadResultDataMessage-upload-as-wt1	decode-read	drop						1.742		
+codec-U	U-wire-UploadResultDataMessage-upload-as-wt1	decode-read	retain						1.928		
+codec-U	U-element-u-varint	decode	drop	2032.6	0.988	0.818	1.329	1.312	1.624	0.809	1.322
+codec-U	U-element-u-varint	decode	retain	2032.6	0.988	0.850	1.423	1.409	1.674	0.848	1.411
+codec-U	U-enum-value-2147483647	decode	drop	77.4	1.265	1.006	1.509	1.694	1.500	0.977	1.435
+codec-U	U-enum-value-2147483647	decode	retain	77.4	1.265	0.989	1.607	1.809	1.626	0.971	1.580
+codec-U	U-oneof-all	decode	drop	217.6	0.935	0.565	0.910	0.943	1.610	0.581	0.928
+codec-U	U-oneof-all	decode	retain	217.6	0.935	1.079	2.179	2.040	2.020	1.105	2.230
+codec-U	U-root-u-fixed64	encode	drop	610.7	1.046	0.160	0.310		1.939	0.158	0.309
+codec-U	U-root-u-fixed64	encode	retain	610.7	1.046	0.207	0.340		1.648	0.209	0.336
+codec-U	U-enum-value-2147483647	decode-read	drop	85.7	1.299	1.047	1.550	1.699	1.481	1.017	1.478
+codec-U	U-enum-value-2147483647	decode-read	retain	85.7	1.299	1.022	1.639	1.833	1.603	0.959	1.570
+codec-U	U-oneof-member-after-known	encode	drop	127.5	0.933	0.172	0.374		2.175	0.174	0.374
+codec-U	U-oneof-member-after-known	encode	retain	127.5	0.933	0.220	0.423		1.920	0.215	0.429
+codec-U	U-leaf-u-len	decode-read	drop	327.5	1.004	0.832	1.419	1.479	1.705	0.796	1.419
+codec-U	U-leaf-u-len	decode-read	retain	327.5	1.004	0.918	1.718	1.746	1.873	0.902	1.566
+codec-U	U-leaf-u-fixed64	decode-read	drop	325.1	0.969	0.818	1.407	1.460	1.719	0.796	1.420
+codec-U	U-leaf-u-fixed64	decode-read	retain	325.1	0.969	0.922	1.687	1.731	1.831	0.878	1.720
+codec-U	U-wire-DualResponse-left-as-wt0	decode-read	drop						1.418		
+codec-U	U-wire-DualResponse-left-as-wt0	decode-read	retain						1.621		
+codec-U	U-nested-before	encode	drop	264.0	1.044	0.173	0.363		2.101	0.168	0.350
+codec-U	U-nested-before	encode	retain	264.0	1.044	0.225	0.400		1.780	0.215	0.401
+codec-U	U-nested-u-repeated	decode	drop	263.1	1.019	0.834	1.493	1.513	1.790	0.864	1.481
+codec-U	U-nested-u-repeated	decode	retain	263.1	1.019	1.148	1.776	1.790	1.548	1.123	1.778
+codec-U	U-wire-DualResponse-left-as-wt1	encode	drop						2.037		
+codec-U	U-wire-DualResponse-left-as-wt1	encode	retain						1.570		
+codec-U	U-oneof-u-fixed64	decode-read	drop	135.4	0.972	0.742	1.205	1.277	1.625	0.743	1.219
+codec-U	U-oneof-u-fixed64	decode-read	retain	135.4	0.972	0.822	1.764	1.652	2.146	0.832	1.798
+codec-U	U-wire-ListTasksDetailedResponse-tasks-as-wt0	encode	drop						2.375		
+codec-U	U-wire-ListTasksDetailedResponse-tasks-as-wt0	encode	retain						1.918		
+codec-U	U-wire-ListMetricsResponse-batches-as-wt1	decode-read	drop						0.923		
+codec-U	U-wire-ListMetricsResponse-batches-as-wt1	decode-read	retain						0.902		
+codec-U	U-oneof-member-after-known	decode-read	drop	130.7	0.957	0.755	1.227	1.308	1.625	0.750	1.225
+codec-U	U-oneof-member-after-known	decode-read	retain	130.7	0.957	0.864	1.830	1.684	2.117	0.875	1.818
+codec-U	U-leaf-u-fixed32	encode	drop	266.3	1.040	0.170	0.367		2.157	0.170	0.362
+codec-U	U-leaf-u-fixed32	encode	retain	266.3	1.040	0.244	0.408		1.672	0.233	0.403
+codec-U	U-nested-u-fixed64	decode	drop	303.2	1.014	0.845	1.475	1.524	1.745	0.836	1.484
+codec-U	U-nested-u-fixed64	decode	retain	303.2	1.014	0.895	1.697	1.748	1.897	0.871	1.694
+codec-U	U-wire-ListMetricsResponse-batches-as-wt1	encode	drop						1.320		
+codec-U	U-wire-ListMetricsResponse-batches-as-wt1	encode	retain						1.302		
+codec-U	U-element-u-packed	encode	drop	1332.2	1.020	0.188	0.518		2.751	0.181	0.501
+codec-U	U-element-u-packed	encode	retain	1332.2	1.020	0.229	0.484		2.113	0.217	0.479
+codec-U	U-leaf-u-len	decode	drop	315.5	1.004	0.821	1.436	1.501	1.749	0.813	1.429
+codec-U	U-leaf-u-len	decode	retain	315.5	1.004	0.910	1.749	1.785	1.922	0.892	1.693
+codec-U	U-root-u-varint	encode	drop	618.9	1.033	0.159	0.308		1.942	0.159	0.313
+codec-U	U-root-u-varint	encode	retain	618.9	1.033	0.208	0.340		1.630	0.204	0.339
+codec-U	U-wire-ListTasksDetailedResponse-page-as-wt2	decode-read	drop						1.542		
+codec-U	U-wire-ListTasksDetailedResponse-page-as-wt2	decode-read	retain						1.578		
+codec-U	U-oneof-u-packed	decode-read	drop	135.6	0.968	0.738	1.196	1.280	1.621	0.741	1.512
+codec-U	U-oneof-u-packed	decode-read	retain	135.6	0.968	0.830	1.773	1.650	2.135	0.838	1.811
+codec-U	U-wire-ListTasksDetailedResponse-tasks-as-wt5	decode	drop						1.555		
+codec-U	U-wire-ListTasksDetailedResponse-tasks-as-wt5	decode	retain						1.659		
+codec-U	U-element-u-fixed64	decode-read	drop	1733.2	0.965	0.822	1.302	1.299	1.584	0.815	1.321
+codec-U	U-element-u-fixed64	decode-read	retain	1733.2	0.965	0.861	1.398	1.399	1.624	0.867	1.396
+codec-U	U-enum-value-packed	decode	drop	79.5	1.248	0.809	2.094	2.400	2.587	0.816	2.108
+codec-U	U-enum-value-packed	decode	retain	79.5	1.248	0.754	2.278	2.514	3.021	0.763	2.262
+codec-U	U-deep-all	decode-read	drop	1782.1	1.002	0.810	1.350	1.312	1.667	0.808	1.358
+codec-U	U-deep-all	decode-read	retain	1782.1	1.002	0.878	1.527	1.469	1.738	0.893	1.560
+codec-U	U-enum-value-999	decode-read	drop	83.5	1.227	1.001	1.468	1.645	1.467	0.999	1.466
+codec-U	U-enum-value-999	decode-read	retain	83.5	1.227	0.985	1.617	1.797	1.641	0.994	1.613
+codec-U	U-leaf-u-repeated	decode-read	drop	342.4	1.000	0.773	1.346	1.391	1.742	0.767	1.356
+codec-U	U-leaf-u-repeated	decode-read	retain	342.4	1.000	0.910	1.735	1.766	1.908	0.921	1.735
+codec-U	U-deep-u-packed	encode	drop	1328.5	1.024	0.193	0.519		2.694	0.193	0.521
+codec-U	U-deep-u-packed	encode	retain	1328.5	1.024	0.227	0.491		2.164	0.224	0.493
+codec-U	U-oneof-u-varint	decode	drop	135.0	0.967	0.702	1.162	1.243	1.655	0.702	1.171
+codec-U	U-oneof-u-varint	decode	retain	135.0	0.967	0.800	1.735	1.598	2.168	0.803	1.752
+codec-U	U-nested-u-packed	encode	drop	264.5	1.050	0.173	0.375		2.169	0.171	0.368
+codec-U	U-nested-u-packed	encode	retain	264.5	1.050	0.238	0.400		1.676	0.228	0.396
+codec-U	U-root-before	decode	drop	697.4	1.009	0.780	1.339	1.359	1.716	0.776	1.352
+codec-U	U-root-before	decode	retain	697.4	1.009	0.997	1.704	1.721	1.710	0.987	1.698
+codec-U	U-wire-ListResultsResponse-page-as-wt2	encode	drop						1.957		
+codec-U	U-wire-ListResultsResponse-page-as-wt2	encode	retain						1.652		
+codec-U	U-element-u-fixed32	decode	drop	2038.0	0.976	0.809	1.317	1.312	1.629	0.802	1.314
+codec-U	U-element-u-fixed32	decode	retain	2038.0	0.976	0.845	1.434	1.405	1.698	0.849	1.419
+codec-U	U-nested-u-msg	encode	drop	270.7	1.048	0.169	0.373		2.211	0.170	0.360
+codec-U	U-nested-u-msg	encode	retain	270.7	1.048	0.242	0.399		1.646	0.226	0.399
+codec-U	U-wire-UploadResultDataMessage-upload-as-wt5	encode	drop						1.944		
+codec-U	U-wire-UploadResultDataMessage-upload-as-wt5	encode	retain						1.794		
+codec-U	U-wire-ListResultsResponse-page-as-wt1	decode-read	drop						1.589		
+codec-U	U-wire-ListResultsResponse-page-as-wt1	decode-read	retain						1.718		
+codec-U	U-deep-u-repeated	decode	drop	1612.8	0.963	0.802	1.318	1.292	1.644	0.780	1.298
+codec-U	U-deep-u-repeated	decode	retain	1612.8	0.963	0.819	1.414	1.408	1.728	0.800	1.419
+codec-U	U-wire-ListResultsResponse-results-as-wt0	decode-read	drop						1.550		
+codec-U	U-wire-ListResultsResponse-results-as-wt0	decode-read	retain						1.658		
+codec-nounk-P	P7.1	decode	no-unknown	271.7	0.949	0.689	1.084	1.168	1.574	0.683	1.070
+codec-nounk-P	P1.3	decode-read	no-unknown	9154.2	1.348	1.331	1.544	1.619	1.160	1.324	1.556
+codec-nounk-P	P2.2	encode	no-unknown	914904.8	1.014	0.250	0.447		1.790	0.252	0.449
+codec-nounk-P	P4.1	decode	no-unknown	263487.6	0.994	0.837	1.168	1.110	1.396	0.840	1.163
+codec-nounk-P	P5.2	decode	no-unknown	1636.9	0.053	0.956	1.027	1.024	1.074	0.886	0.935
+codec-nounk-P	P5.3	encode	no-unknown	47796.9	0.912	1.004	0.950		0.947	0.899	0.941
+codec-nounk-P	P2.4	encode	no-unknown	524720.1	1.000	0.357	0.591		1.655	0.365	0.605
+codec-nounk-P	P2.2/wide	decode-read	no-unknown	2593169.0	1.000	0.885	1.375	1.346	1.554	0.890	1.383
+codec-nounk-P	P3.1	decode-read	no-unknown	26851.7	1.155	0.845	1.231	1.238	1.457	0.864	1.241
+codec-nounk-P	P1.2/latin1	decode	no-unknown	495675.5	0.943	0.820	1.246	1.275	1.519	0.809	1.242
+codec-nounk-P	P1.2	encode	no-unknown	239791.4	1.078	0.215	0.349		1.625	0.216	0.353
+codec-nounk-P	P5.4	decode-read	no-unknown	348665.9	0.000	0.984	1.001	1.002	1.017	0.976	0.981
+codec-nounk-P	P1.1	decode-read	no-unknown	1055.0	1.069	0.904	1.241	1.254	1.373	0.888	1.230
+codec-nounk-P	P2.1	decode	no-unknown	1790.0	0.978	0.797	1.194	1.197	1.498	0.787	1.179
+codec-nounk-P	P1.3	decode	no-unknown	6835.3	1.347	1.333	1.549	1.658	1.162	1.347	1.596
+codec-nounk-P	P4.1	encode	no-unknown	113292.7	0.986	0.190	0.423		2.229	0.189	0.425
+codec-nounk-P	P3.1	decode	no-unknown	22300.2	1.207	0.891	1.253	1.281	1.407	0.865	1.327
+codec-nounk-P	P1.2/wide	encode	no-unknown	305043.5	1.094	0.210	0.366		1.738	0.211	0.365
+codec-nounk-P	P2.1	encode	no-unknown	1291.6	1.007	0.212	0.456		2.154	0.210	0.456
+codec-nounk-P	P6.1	encode	no-unknown	294588.4	1.027	0.188	0.221		1.176	0.186	0.218
+codec-nounk-P	P2.5	decode-read	no-unknown	49314.5	1.005	0.822	1.197	1.175	1.456	0.817	1.194
+codec-nounk-P	P1.2	decode-read	no-unknown	414251.5	0.910	0.793	1.067	1.080	1.345	0.800	1.066
+codec-nounk-P	P4.1	decode-read	no-unknown	226024.6	1.049	0.876	1.223	1.154	1.395	0.861	1.189
+codec-nounk-P	P5.3	decode	no-unknown	45891.5	0.002	1.024	1.010	1.022	0.986	1.057	1.133
+codec-nounk-P	P1.3	encode	no-unknown	5368.8	1.233	0.384	0.928		2.415	0.384	0.921
+codec-nounk-P	P1.2/latin1	encode	no-unknown	298098.1	1.104	0.217	0.360		1.661	0.217	0.359
+codec-nounk-P	P5.2	encode	no-unknown	1652.6	0.980	0.935	0.957		1.024	0.939	0.964
+codec-nounk-P	P1.2	decode	no-unknown	391254.2	0.905	0.774	1.063	1.070	1.374	0.769	1.046
+codec-nounk-P	P4.1	decode-nodrop	no-unknown	172646.4	0.998	0.832	1.223		1.470	0.825	1.227
+codec-nounk-P	P6.1	decode	no-unknown	240887.9	1.067	0.591	0.657	0.591	1.111	0.621	0.707
+codec-nounk-P	P6.1	decode-nodrop	no-unknown	260499.2	1.010	0.604	0.625		1.035	0.614	0.597
+codec-nounk-P	P2.4	decode-read	no-unknown	1763070.7	0.998	0.906	1.194	1.176	1.317	0.888	1.191
+codec-nounk-P	P1.1	decode	no-unknown	1252.1	1.042	0.793	1.177	1.192	1.485	0.809	1.179
+codec-nounk-P	P2.2	decode	no-unknown	1442927.5	0.985	0.861	1.241	1.237	1.441	0.853	1.237
+codec-nounk-P	P2.2/wide	encode	no-unknown	817947.6	1.011	0.297	0.445		1.497	0.299	0.444
+codec-nounk-P	P5.1	decode-read	no-unknown	77.6	0.904	0.896	1.496	1.484	1.670	0.894	1.498
+codec-nounk-P	P5.4	encode	no-unknown	371453.9	0.997	0.977	0.971		0.994	0.999	0.990
+codec-nounk-P	P2.2/latin1	decode-read	no-unknown	2125513.6	1.007	0.865	1.360	1.317	1.572	0.874	1.362
+codec-nounk-P	P2.4	decode	no-unknown	1694637.0	1.002	0.902	1.194	1.191	1.323	0.898	1.205
+codec-nounk-P	P2.5	decode	no-unknown	52003.2	1.169	0.974	1.374	1.334	1.411	0.793	1.193
+codec-nounk-P	P5.4	decode	no-unknown	356731.8	0.000	1.005	1.020	1.028	1.015	1.003	0.976
+codec-nounk-P	P1.2	decode-nodrop	no-unknown	325526.3	0.925	0.740	1.086		1.469	0.721	1.072
+codec-nounk-P	P6.1	decode-read	no-unknown	377578.3	1.036	0.643	0.625	0.554	0.971	0.700	0.674
+codec-nounk-P	P5.3	decode-read	no-unknown	56726.5	0.002	0.932	1.004	1.017	1.078	0.902	1.007
+codec-nounk-P	P2.3	encode	no-unknown	565583.8	0.997	0.272	0.562		2.071	0.277	0.546
+codec-nounk-P	P1.2/latin1	decode-read	no-unknown	629571.2	0.953	0.812	1.242	1.243	1.529	0.823	1.247
+codec-nounk-P	P2.2/latin1	decode	no-unknown	2031357.4	1.006	0.865	1.382	1.330	1.597	0.868	1.376
+codec-nounk-P	P1.2/wide	decode	no-unknown	723317.5	0.966	0.865	1.297	1.277	1.500	0.874	1.308
+codec-nounk-P	P5.2	decode-read	no-unknown	1677.7	0.057	0.997	1.039	1.040	1.042	0.998	1.036
+codec-nounk-P	P2.2	decode-nodrop	no-unknown	1131408.6	0.992	0.831	1.319		1.586	0.832	1.326
+codec-nounk-P	P3.1	encode	no-unknown	21007.6	1.021	0.181	0.375		2.074	0.182	0.375
+codec-nounk-P	P2.3	decode	no-unknown	1315678.5	0.929	0.901	1.143	1.121	1.269	0.873	1.147
+codec-nounk-P	P2.2/wide	decode	no-unknown	2519243.7	1.004	0.867	1.377	1.343	1.588	0.891	1.424
+codec-nounk-P	P5.1	decode	no-unknown	97.4	0.902	0.893	1.480	1.498	1.657	0.902	1.495
+codec-nounk-P	P1.1	encode	no-unknown	1324.3	1.070	0.183	0.340		1.856	0.187	0.331
+codec-nounk-P	P5.1	encode	no-unknown	63.6	1.005	0.258	0.555		2.147	0.255	0.553
+codec-nounk-P	P2.2	decode-read	no-unknown	1861555.6	0.992	0.864	1.266	1.223	1.466	0.986	1.292
+codec-nounk-P	P2.1	decode-read	no-unknown	2028.4	0.984	0.789	1.378	1.375	1.746	0.784	1.379
+codec-nounk-P	P2.3	decode-read	no-unknown	1535462.4	1.030	0.910	1.193	1.160	1.311	0.916	1.176
+codec-nounk-P	P2.5	encode	no-unknown	29577.1	0.923	0.217	0.471		2.170	0.215	0.465
+codec-nounk-P	P1.2/wide	decode-read	no-unknown	919009.0	0.970	0.841	1.258	1.268	1.496	0.976	1.444
+codec-nounk-P	P7.1	decode-read	no-unknown	363.5	0.908	0.670	1.041	1.140	1.554	0.693	1.105
+codec-nounk-P	P2.2/latin1	encode	no-unknown	1008036.3	1.004	0.278	0.445		1.602	0.313	0.481
+codec-nounk-U	U-wire-ListTaskSummaryResponse-tasks-as-wt1	decode-read	no-unknown						1.338		
+codec-nounk-U	U-wire-ListMetricsResponse-batches-as-wt5	encode	no-unknown						1.212		
+codec-nounk-U	U-nested-u-varint	encode	no-unknown	242.3	0.995	0.206	0.418		2.029	0.207	0.415
+codec-nounk-U	U-oneof-member-after-known	decode	no-unknown	127.0	1.015	0.690	1.160	1.238	1.682	0.695	1.174
+codec-nounk-U	U-wire-ListResultsResponse-results-as-wt1	decode-read	no-unknown						1.411		
+codec-nounk-U	U-wire-ListTasksDetailedResponse-tasks-as-wt1	decode-read	no-unknown						1.573		
+codec-nounk-U	U-wire-ListMetricsResponse-batches-as-wt0	decode-read	no-unknown						0.949		
+codec-nounk-U	U-wire-ListResultsResponse-page-as-wt5	decode-read	no-unknown						1.461		
+codec-nounk-U	U-nested-u-repeated	encode	no-unknown	247.1	1.051	0.203	0.418		2.055	0.203	0.410
+codec-nounk-U	U-wire-ListProbeResponse-probes-as-wt0	decode-read	no-unknown						1.589		
+codec-nounk-U	U-nested-u-packed	decode-read	no-unknown	258.4	1.030	0.855	1.211	1.255	1.416	0.860	1.224
+codec-nounk-U	U-enum-value-127	decode	no-unknown	60.2	1.462	1.334	1.537	1.667	1.153	1.254	1.421
+codec-nounk-U	U-element-u-varint	encode	no-unknown	1057.9	1.023	0.213	0.447		2.098	0.211	0.455
+codec-nounk-U	U-enum-value-127	encode	no-unknown	53.0	1.081	0.306	0.665		2.170	0.305	0.678
+codec-nounk-U	U-root-u-fixed32	decode-read	no-unknown	638.6	1.062	0.852	1.219	1.225	1.430	0.846	1.195
+codec-nounk-U	U-nested-all	decode-read	no-unknown	398.7	1.009	0.745	1.031	1.050	1.385	0.776	1.070
+codec-nounk-U	U-leaf-u-fixed32	decode	no-unknown	306.5	1.010	0.802	1.195	1.214	1.491	0.809	1.202
+codec-nounk-U	U-wire-ListMetricsResponse-batches-as-wt5	decode-read	no-unknown						0.997		
+codec-nounk-U	U-element-u-len	decode	no-unknown	1829.6	0.970	0.768	1.309	1.329	1.704	0.755	1.335
+codec-nounk-U	U-oneof-u-repeated	decode	no-unknown	139.6	1.046	0.672	1.081	1.169	1.609	0.674	1.101
+codec-nounk-U	U-element-u-repeated	decode-read	no-unknown	1926.0	0.965	0.774	1.333	1.325	1.721	0.780	1.325
+codec-nounk-U	U-element-u-msg	decode-read	no-unknown	2185.8	0.991	0.798	1.154	1.163	1.446	0.793	1.150
+codec-nounk-U	U-nested-before	decode-read	no-unknown	388.7	1.026	0.773	1.070	1.107	1.385	0.774	1.081
+codec-nounk-U	U-wire-ListTasksDetailedResponse-page-as-wt2	decode	no-unknown						1.471		
+codec-nounk-U	U-root-group	decode-read	no-unknown	675.4	1.088	0.827	1.158	1.193	1.400	0.823	1.171
+codec-nounk-U	U-wire-ListTaskSummaryResponse-tasks-as-wt1	decode	no-unknown						1.342		
+codec-nounk-U	U-wire-ListTasksDetailedResponse-page-as-wt1	decode	no-unknown						1.609		
+codec-nounk-U	U-wire-ListTasksDetailedResponse-page-as-wt5	decode-read	no-unknown						1.580		
+codec-nounk-U	U-wire-ListTasksDetailedResponse-page-as-wt1	encode	no-unknown						2.031		
+codec-nounk-U	U-wire-UploadResultDataMessage-upload-as-wt1	encode	no-unknown						2.182		
+codec-nounk-U	U-root-interleaved	encode	no-unknown	564.5	1.032	0.191	0.346		1.810	0.191	0.348
+codec-nounk-U	U-root-u-fixed32	decode	no-unknown	609.8	1.051	0.814	1.200	1.223	1.475	0.810	1.191
+codec-nounk-U	U-element-u-fixed64	encode	no-unknown	1238.5	0.990	0.201	0.438		2.180	0.201	0.437
+codec-nounk-U	U-element-u-varint	decode-read	no-unknown	2223.9	0.995	0.801	1.144	1.155	1.429	0.803	1.149
+codec-nounk-U	U-element-u-msg	decode	no-unknown	2122.3	0.966	0.756	1.129	1.157	1.493	0.777	1.148
+codec-nounk-U	U-oneof-u-packed	decode	no-unknown	128.5	1.040	0.693	1.138	1.229	1.644	0.685	1.146
+codec-nounk-U	U-root-u-packed	decode-read	no-unknown	650.6	1.121	0.844	1.214	1.248	1.439	0.855	1.191
+codec-nounk-U	U-leaf-u-len	encode	no-unknown	245.6	1.043	0.203	0.418		2.060	0.202	0.413
+codec-nounk-U	U-wire-ListResultsResponse-page-as-wt1	encode	no-unknown						1.844		
+codec-nounk-U	U-root-all	decode	no-unknown	723.7	1.050	0.759	1.112	1.123	1.465	0.776	1.112
+codec-nounk-U	U-enum-value-packed	encode	no-unknown	99.1	1.462	0.246	0.752		3.053	0.247	0.782
+codec-nounk-U	U-nested-u-fixed64	decode-read	no-unknown	300.8	1.032	0.850	1.225	1.255	1.441	0.854	1.219
+codec-nounk-U	U-wire-ListTaskSummaryResponse-tasks-as-wt5	encode	no-unknown						2.202		
+codec-nounk-U	U-enum-value-127	decode-read	no-unknown	82.2	1.276	1.249	1.503	1.486	1.204	1.263	1.490
+codec-nounk-U	U-wire-UploadResultDataMessage-upload-as-wt5	decode-read	no-unknown						1.631		
+codec-nounk-U	U-leaf-u-packed	decode	no-unknown	310.3	1.017	0.805	1.173	1.201	1.457	0.819	1.192
+codec-nounk-U	U-deep-u-fixed64	decode	no-unknown	2067.7	0.938	0.749	1.139	1.135	1.521	0.734	1.143
+codec-nounk-U	U-nested-interleaved	encode	no-unknown	244.8	1.052	0.205	0.428		2.094	0.194	0.419
+codec-nounk-U	U-deep-u-len	decode	no-unknown	2053.9	0.972	0.770	1.146	1.168	1.489	0.772	1.151
+codec-nounk-U	U-deep-u-len	decode-read	no-unknown	2177.1	0.966	0.773	1.138	1.156	1.473	0.783	1.140
+codec-nounk-U	U-wire-ListResultsResponse-page-as-wt2	decode	no-unknown						1.457		
+codec-nounk-U	U-nested-interleaved	decode	no-unknown	380.3	1.020	0.736	1.054	1.084	1.433	0.724	1.067
+codec-nounk-U	U-root-u-repeated	decode	no-unknown	624.3	1.062	0.834	1.199	1.207	1.438	0.811	1.193
+codec-nounk-U	U-leaf-u-fixed64	encode	no-unknown	246.3	1.036	0.203	0.424		2.090	0.204	0.405
+codec-nounk-U	U-oneof-u-fixed32	decode	no-unknown	127.4	1.014	0.690	1.137	1.240	1.647	0.687	1.139
+codec-nounk-U	U-deep-u-fixed64	encode	no-unknown	1167.0	1.004	0.203	0.439		2.160	0.202	0.437
+codec-nounk-U	U-leaf-all	decode	no-unknown	372.9	1.036	0.635	0.883	0.906	1.391	0.648	0.906
+codec-nounk-U	U-leaf-u-varint	decode	no-unknown	259.4	1.021	0.786	1.163	1.183	1.480	0.800	1.181
+codec-nounk-U	U-deep-u-packed	decode-read	no-unknown	2083.5	0.983	0.790	1.148	1.163	1.455	0.789	1.163
+codec-nounk-U	U-deep-u-varint	decode-read	no-unknown	2167.0	0.975	0.777	1.134	1.149	1.460	0.791	1.142
+codec-nounk-U	U-wire-ListMetricsResponse-batches-as-wt0	decode	no-unknown						0.952		
+codec-nounk-U	U-leaf-u-msg	decode	no-unknown	310.0	1.031	0.774	1.178	1.200	1.522	0.783	1.235
+codec-nounk-U	U-wire-DualResponse-left-as-wt5	decode	no-unknown						1.467		
+codec-nounk-U	U-deep-u-msg	decode	no-unknown	2082.2	0.978	0.764	1.161	1.186	1.521	0.769	1.165
+codec-nounk-U	U-wire-ListProbeResponse-probes-as-wt1	decode	no-unknown						1.649		
+codec-nounk-U	U-wire-ListTasksDetailedResponse-page-as-wt1	decode-read	no-unknown						1.615		
+codec-nounk-U	U-root-u-packed	encode	no-unknown	503.2	1.032	0.191	0.340		1.782	0.192	0.341
+codec-nounk-U	U-wire-DualResponse-left-as-wt5	decode-read	no-unknown						1.445		
+codec-nounk-U	U-deep-all	encode	no-unknown	1244.6	0.997	0.205	0.437		2.130	0.206	0.444
+codec-nounk-U	U-wire-ListTasksDetailedResponse-page-as-wt2	encode	no-unknown						2.029		
+codec-nounk-U	U-wire-ListMetricsResponse-batches-as-wt1	decode	no-unknown						0.936		
+codec-nounk-U	U-nested-interleaved	decode-read	no-unknown	385.4	1.033	0.768	1.057	1.082	1.376	0.756	1.053
+codec-nounk-U	U-nested-u-fixed32	decode-read	no-unknown	302.5	1.057	0.876	1.245	1.273	1.422	0.860	1.234
+codec-nounk-U	U-wire-ListResultsResponse-results-as-wt5	decode-read	no-unknown						1.365		
+codec-nounk-U	U-wire-ListTaskSummaryResponse-tasks-as-wt5	decode	no-unknown						1.353		
+codec-nounk-U	U-wire-UploadResultDataMessage-upload-as-wt0	decode	no-unknown						1.667		
+codec-nounk-U	U-oneof-u-fixed32	decode-read	no-unknown	130.3	1.031	0.711	1.158	1.279	1.629	0.715	1.171
+codec-nounk-U	U-oneof-u-msg	decode	no-unknown	124.4	1.042	0.689	1.157	1.230	1.680	0.691	1.149
+codec-nounk-U	U-oneof-u-repeated	encode	no-unknown	115.9	0.991	0.197	0.433		2.195	0.202	0.435
+codec-nounk-U	U-deep-u-varint	encode	no-unknown	1244.4	1.005	0.205	0.439		2.142	0.202	0.439
+codec-nounk-U	U-nested-before	decode	no-unknown	376.5	1.040	0.763	1.093	1.106	1.433	0.764	1.095
+codec-nounk-U	U-nested-u-fixed32	decode	no-unknown	296.6	1.019	0.817	1.225	1.237	1.499	0.778	1.178
+codec-nounk-U	U-oneof-u-len	decode-read	no-unknown	133.9	1.027	0.712	1.137	1.262	1.598	0.718	1.134
+codec-nounk-U	U-wire-ListTasksDetailedResponse-tasks-as-wt1	encode	no-unknown						2.015		
+codec-nounk-U	U-wire-ListTasksDetailedResponse-tasks-as-wt1	decode	no-unknown						1.449		
+codec-nounk-U	U-deep-u-repeated	decode-read	no-unknown	2182.7	0.980	0.781	1.146	1.144	1.467	0.787	1.138
+codec-nounk-U	U-oneof-u-fixed64	decode	no-unknown	126.4	1.031	0.697	1.152	1.244	1.651	0.691	1.159
+codec-nounk-U	U-wire-DualResponse-left-as-wt0	encode	no-unknown						2.147		
+codec-nounk-U	U-oneof-group	decode	no-unknown	164.5	1.017	0.660	0.997	1.067	1.510	0.661	1.004
+codec-nounk-U	U-root-max-tag	decode-read	no-unknown	667.2	1.023	0.836	1.169	1.185	1.398	0.830	1.193
+codec-nounk-U	U-deep-u-varint	decode	no-unknown	2069.7	0.982	0.779	1.169	1.170	1.501	0.766	1.144
+codec-nounk-U	U-deep-u-fixed32	decode-read	no-unknown	2227.8	0.960	0.767	1.137	1.158	1.482	0.788	1.168
+codec-nounk-U	U-wire-UploadResultDataMessage-upload-as-wt1	decode	no-unknown						1.641		
+codec-nounk-U	U-root-all	encode	no-unknown	573.9	1.047	0.190	0.340		1.790	0.197	0.349
+codec-nounk-U	U-oneof-before	encode	no-unknown	117.4	0.992	0.197	0.437		2.215	0.202	0.447
+codec-nounk-U	U-nested-u-fixed32	encode	no-unknown	250.6	1.047	0.207	0.421		2.036	0.209	0.401
+codec-nounk-U	U-wire-ListTaskSummaryResponse-tasks-as-wt0	encode	no-unknown						2.150		
+codec-nounk-U	U-element-u-packed	decode	no-unknown	2002.5	0.974	0.776	1.172	1.189	1.511	0.758	1.138
+codec-nounk-U	U-root-u-len	decode-read	no-unknown	642.1	1.089	0.845	1.198	1.226	1.418	0.838	1.177
+codec-nounk-U	U-root-interleaved	decode-read	no-unknown	745.8	1.069	0.779	1.082	1.126	1.389	0.776	1.086
+codec-nounk-U	U-enum-value-999	decode	no-unknown	77.0	1.459	1.243	1.527	1.653	1.228	1.248	1.534
+codec-nounk-U	U-element-all	encode	no-unknown	1267.0	1.013	0.206	0.450		2.185	0.204	0.440
+codec-nounk-U	U-oneof-u-repeated	decode-read	no-unknown	143.8	1.054	0.700	1.096	1.174	1.565	0.702	1.093
+codec-nounk-U	U-deep-u-msg	decode-read	no-unknown	2122.1	0.973	0.780	1.143	1.171	1.466	0.797	1.156
+codec-nounk-U	U-leaf-u-repeated	decode	no-unknown	331.2	1.017	0.782	1.136	1.161	1.453	0.782	1.134
+codec-nounk-U	U-element-u-fixed32	encode	no-unknown	1245.3	1.000	0.204	0.445		2.188	0.205	0.444
+codec-nounk-U	U-element-u-fixed64	decode	no-unknown	1918.0	0.987	0.769	1.227	1.236	1.595	0.721	1.238
+codec-nounk-U	U-wire-ListProbeResponse-probes-as-wt0	encode	no-unknown						2.156		
+codec-nounk-U	U-leaf-u-repeated	encode	no-unknown	244.5	1.055	0.231	0.428		1.851	0.233	0.420
+codec-nounk-U	U-wire-DualResponse-left-as-wt1	decode	no-unknown						1.466		
+codec-nounk-U	U-deep-u-len	encode	no-unknown	1236.9	1.008	0.205	0.441		2.152	0.202	0.438
+codec-nounk-U	U-wire-ListMetricsResponse-batches-as-wt5	decode	no-unknown						0.938		
+codec-nounk-U	U-leaf-u-fixed64	decode	no-unknown	302.0	1.023	0.818	1.211	1.233	1.481	0.813	1.219
+codec-nounk-U	U-deep-u-fixed32	encode	no-unknown	1240.9	1.006	0.205	0.442		2.157	0.200	0.437
+codec-nounk-U	U-deep-u-msg	encode	no-unknown	1269.9	0.989	0.205	0.437		2.131	0.211	0.443
+codec-nounk-U	U-wire-DualResponse-left-as-wt5	encode	no-unknown						2.157		
+codec-nounk-U	U-nested-u-len	encode	no-unknown	248.6	1.056	0.204	0.423		2.072	0.208	0.414
+codec-nounk-U	U-nested-u-len	decode-read	no-unknown	310.0	1.013	0.833	1.190	1.222	1.428	0.830	1.179
+codec-nounk-U	U-wire-ListTaskSummaryResponse-tasks-as-wt5	decode-read	no-unknown						1.311		
+codec-nounk-U	U-root-interleaved	decode	no-unknown	709.6	1.037	0.743	1.082	1.102	1.455	0.750	1.085
+codec-nounk-U	U-wire-ListTaskSummaryResponse-tasks-as-wt0	decode	no-unknown						1.317		
+codec-nounk-U	U-oneof-member-before-known	encode	no-unknown	116.3	0.987	0.198	0.431		2.175	0.214	0.469
+codec-nounk-U	U-root-u-msg	decode	no-unknown	612.7	1.041	0.801	1.193	1.219	1.488	0.807	1.109
+codec-nounk-U	U-wire-ListResultsResponse-page-as-wt5	decode	no-unknown						1.472		
+codec-nounk-U	U-leaf-u-fixed32	decode-read	no-unknown	311.0	1.027	0.849	1.204	1.222	1.418	0.849	1.211
+codec-nounk-U	U-wire-DualResponse-left-as-wt0	decode	no-unknown						1.500		
+codec-nounk-U	U-root-max-tag	decode	no-unknown	600.8	1.056	0.818	1.211	1.244	1.481	0.761	1.138
+codec-nounk-U	U-deep-u-fixed32	decode	no-unknown	2089.2	0.959	0.764	1.153	1.169	1.509	0.692	1.110
+codec-nounk-U	U-wire-ListTasksDetailedResponse-tasks-as-wt0	decode-read	no-unknown						1.424		
+codec-nounk-U	U-root-group	encode	no-unknown	442.0	1.032	0.191	0.346		1.807	0.189	0.344
+codec-nounk-U	U-oneof-u-varint	encode	no-unknown	115.8	0.978	0.202	0.440		2.181	0.206	0.457
+codec-nounk-U	U-wire-ListProbeResponse-probes-as-wt5	decode-read	no-unknown						1.590		
+codec-nounk-U	U-leaf-all	encode	no-unknown	249.8	1.032	0.200	0.418		2.092	0.202	0.405
+codec-nounk-U	U-root-u-repeated	encode	no-unknown	566.8	1.051	0.190	0.347		1.826	0.193	0.348
+codec-nounk-U	U-oneof-before	decode	no-unknown	208.2	1.032	0.562	0.832	0.892	1.480	0.557	0.836
+codec-nounk-U	U-deep-u-repeated	encode	no-unknown	1335.1	1.002	0.189	0.411		2.174	0.203	0.435
+codec-nounk-U	U-wire-ListResultsResponse-results-as-wt5	decode	no-unknown						1.476		
+codec-nounk-U	U-wire-UploadResultDataMessage-upload-as-wt0	encode	no-unknown						2.153		
+codec-nounk-U	U-leaf-u-packed	decode-read	no-unknown	331.6	1.043	0.847	1.193	1.212	1.409	0.825	1.171
+codec-nounk-U	U-wire-ListResultsResponse-results-as-wt1	encode	no-unknown						1.866		
+codec-nounk-U	U-wire-ListResultsResponse-results-as-wt1	decode	no-unknown						1.486		
+codec-nounk-U	U-root-u-repeated	decode-read	no-unknown	646.5	1.131	0.858	1.214	1.215	1.415	0.858	1.206
+codec-nounk-U	U-root-u-fixed64	decode	no-unknown	623.9	1.071	0.825	1.187	1.200	1.439	0.822	1.194
+codec-nounk-U	U-deep-u-packed	decode	no-unknown	2091.3	0.967	0.768	1.146	1.151	1.492	0.759	1.136
+codec-nounk-U	U-wire-ListProbeResponse-probes-as-wt0	decode	no-unknown						1.668		
+codec-nounk-U	U-oneof-interleaved	decode	no-unknown	207.8	1.031	0.593	0.847	0.918	1.428	0.583	0.828
+codec-nounk-U	U-wire-ListTasksDetailedResponse-tasks-as-wt5	decode-read	no-unknown						1.425		
+codec-nounk-U	U-nested-all	decode	no-unknown	381.8	1.040	0.737	1.060	1.054	1.437	0.723	1.046
+codec-nounk-U	U-enum-value-999	encode	no-unknown	55.5	1.088	0.310	0.649		2.092	0.301	0.650
+codec-nounk-U	U-oneof-u-fixed64	encode	no-unknown	117.8	0.982	0.196	0.430		2.191	0.204	0.464
+codec-nounk-U	U-wire-ListTaskSummaryResponse-tasks-as-wt1	encode	no-unknown						2.183		
+codec-nounk-U	U-deep-u-fixed64	decode-read	no-unknown	1766.2	0.979	0.794	1.127	1.151	1.419	0.789	1.135
+codec-nounk-U	U-leaf-u-varint	decode-read	no-unknown	327.2	0.986	0.795	1.104	1.128	1.388	0.814	1.147
+codec-nounk-U	U-root-u-varint	decode	no-unknown	621.2	1.057	0.821	1.195	1.211	1.456	0.798	1.159
+codec-nounk-U	U-nested-u-varint	decode	no-unknown	303.9	1.022	0.809	1.200	1.239	1.483	0.820	1.211
+codec-nounk-U	U-root-before	decode-read	no-unknown	745.0	1.055	0.807	1.105	1.125	1.369	0.819	1.125
+codec-nounk-U	U-oneof-all	encode	no-unknown	120.1	0.962	0.194	0.423		2.179	0.201	0.445
+codec-nounk-U	U-nested-group	decode-read	no-unknown	339.7	1.042	0.840	1.160	1.193	1.381	0.850	1.190
+codec-nounk-U	U-root-u-msg	decode-read	no-unknown	640.4	1.087	0.867	1.189	1.208	1.372	0.867	1.170
+codec-nounk-U	U-wire-ListTasksDetailedResponse-tasks-as-wt0	decode	no-unknown						1.448		
+codec-nounk-U	U-oneof-u-packed	encode	no-unknown	119.0	0.980	0.195	0.431		2.214	0.194	0.438
+codec-nounk-U	U-nested-group	decode	no-unknown	329.1	1.032	0.812	1.155	1.191	1.423	0.814	1.147
+codec-nounk-U	U-oneof-u-msg	encode	no-unknown	115.5	0.989	0.201	0.437		2.168	0.209	0.453
+codec-nounk-U	U-element-u-repeated	encode	no-unknown	1244.6	1.005	0.203	0.441		2.172	0.203	0.437
+codec-nounk-U	U-wire-ListResultsResponse-page-as-wt1	decode	no-unknown						1.418		
+codec-nounk-U	U-root-u-fixed32	encode	no-unknown	567.7	1.049	0.192	0.346		1.801	0.191	0.349
+codec-nounk-U	U-wire-ListTasksDetailedResponse-page-as-wt5	encode	no-unknown						2.040		
+codec-nounk-U	U-oneof-member-alone	encode	no-unknown	78.3	0.990	0.216	0.573		2.648	0.213	0.564
+codec-nounk-U	U-nested-u-fixed64	encode	no-unknown	248.3	1.043	0.200	0.424		2.114	0.204	0.410
+codec-nounk-U	U-root-u-len	encode	no-unknown	563.6	1.059	0.193	0.345		1.784	0.196	0.350
+codec-nounk-U	U-enum-value-2147483647	encode	no-unknown	65.7	1.088	0.300	0.575		1.914	0.292	0.581
+codec-nounk-U	U-root-u-fixed64	decode-read	no-unknown	637.5	1.062	0.865	1.217	1.224	1.407	0.856	1.186
+codec-nounk-U	U-oneof-group	encode	no-unknown	114.3	0.987	0.196	0.435		2.213	0.201	0.444
+codec-nounk-U	U-oneof-group	decode-read	no-unknown	153.7	1.006	0.676	1.009	1.096	1.493	0.687	1.025
+codec-nounk-U	U-oneof-u-len	encode	no-unknown	99.4	0.984	0.198	0.429		2.168	0.205	0.458
+codec-nounk-U	U-nested-u-repeated	decode-read	no-unknown	265.6	1.043	0.856	1.172	1.227	1.370	0.823	1.157
+codec-nounk-U	U-wire-ListTaskSummaryResponse-tasks-as-wt0	decode-read	no-unknown						1.370		
+codec-nounk-U	U-nested-u-varint	decode-read	no-unknown	300.3	1.026	0.810	1.213	1.196	1.498	0.831	1.181
+codec-nounk-U	U-leaf-u-msg	encode	no-unknown	251.6	1.030	0.204	0.419		2.050	0.205	0.406
+codec-nounk-U	U-oneof-u-len	decode	no-unknown	128.7	1.025	0.685	1.157	1.228	1.689	0.699	1.153
+codec-nounk-U	U-element-u-fixed32	decode-read	no-unknown	2028.5	0.971	0.782	1.207	1.210	1.543	0.794	1.230
+codec-nounk-U	U-root-u-varint	decode-read	no-unknown	681.6	0.963	0.762	1.088	1.113	1.427	0.795	1.116
+codec-nounk-U	U-nested-group	encode	no-unknown	248.4	1.037	0.204	0.410		2.015	0.202	0.406
+codec-nounk-U	U-nested-u-msg	decode	no-unknown	236.2	0.989	0.750	1.187	1.195	1.582	0.755	1.167
+codec-nounk-U	U-leaf-u-packed	encode	no-unknown	241.0	1.074	0.202	0.429		2.124	0.204	0.446
+codec-nounk-U	U-oneof-interleaved	decode-read	no-unknown	198.9	1.008	0.590	0.854	0.891	1.447	0.586	0.841
+codec-nounk-U	U-root-u-msg	encode	no-unknown	567.4	1.041	0.190	0.344		1.810	0.191	0.348
+codec-nounk-U	U-oneof-member-before-known	decode	no-unknown	127.0	0.993	0.682	1.147	1.207	1.682	0.671	1.124
+codec-nounk-U	U-wire-ListResultsResponse-results-as-wt5	encode	no-unknown						1.831		
+codec-nounk-U	U-wire-UploadResultDataMessage-upload-as-wt0	decode-read	no-unknown						1.634		
+codec-nounk-U	U-wire-ListTasksDetailedResponse-tasks-as-wt5	encode	no-unknown						2.064		
+codec-nounk-U	U-wire-ListResultsResponse-results-as-wt0	encode	no-unknown						1.832		
+codec-nounk-U	U-element-u-len	decode-read	no-unknown	2012.9	0.970	0.776	1.197	1.195	1.542	0.797	1.251
+codec-nounk-U	U-root-all	decode-read	no-unknown	725.0	1.049	0.761	1.076	1.085	1.414	0.767	1.097
+codec-nounk-U	U-root-before	encode	no-unknown	567.7	1.038	0.191	0.343		1.791	0.192	0.343
+codec-nounk-U	U-element-u-len	encode	no-unknown	1233.8	1.000	0.202	0.442		2.181	0.202	0.440
+codec-nounk-U	U-nested-u-packed	decode	no-unknown	294.5	0.967	0.741	1.157	1.181	1.561	0.755	1.163
+codec-nounk-U	U-wire-ListProbeResponse-probes-as-wt5	encode	no-unknown						2.174		
+codec-nounk-U	U-root-group	decode	no-unknown	649.0	1.009	0.768	1.114	1.150	1.450	0.760	1.107
+codec-nounk-U	U-nested-u-msg	decode-read	no-unknown	306.6	0.973	0.789	1.160	1.182	1.470	0.783	1.144
+codec-nounk-U	U-oneof-member-alone	decode	no-unknown	114.3	0.996	0.728	1.226	1.341	1.683	0.731	1.245
+codec-nounk-U	U-oneof-u-varint	decode-read	no-unknown	135.5	1.027	0.693	1.105	1.183	1.594	0.706	1.113
+codec-nounk-U	U-element-u-repeated	decode	no-unknown	2083.7	0.968	0.761	1.145	1.150	1.504	0.763	1.136
+codec-nounk-U	U-wire-ListResultsResponse-page-as-wt5	encode	no-unknown						1.850		
+codec-nounk-U	U-oneof-interleaved	encode	no-unknown	113.5	0.975	0.203	0.440		2.162	0.207	0.461
+codec-nounk-U	U-wire-UploadResultDataMessage-upload-as-wt5	decode	no-unknown						1.651		
+codec-nounk-U	U-wire-ListResultsResponse-results-as-wt0	decode	no-unknown						1.492		
+codec-nounk-U	U-element-all	decode	no-unknown	2130.3	0.969	0.755	1.129	1.141	1.495	0.753	1.117
+codec-nounk-U	U-wire-ListTasksDetailedResponse-page-as-wt5	decode	no-unknown						1.440		
+codec-nounk-U	U-root-max-tag	encode	no-unknown	556.8	1.052	0.193	0.349		1.805	0.193	0.349
+codec-nounk-U	U-wire-ListMetricsResponse-batches-as-wt0	encode	no-unknown						1.225		
+codec-nounk-U	U-element-all	decode-read	no-unknown	2254.5	0.970	0.770	1.099	1.121	1.426	0.767	1.106
+codec-nounk-U	U-oneof-u-msg	decode-read	no-unknown	129.8	1.040	0.720	1.149	1.266	1.595	0.707	1.138
+codec-nounk-U	U-oneof-u-fixed32	encode	no-unknown	114.0	0.982	0.202	0.442		2.186	0.203	0.456
+codec-nounk-U	U-enum-value-packed	decode-read	no-unknown	110.3	1.201	0.782	1.953	2.102	2.498	0.780	1.964
+codec-nounk-U	U-element-u-msg	encode	no-unknown	1230.8	1.002	0.203	0.440		2.169	0.202	0.432
+codec-nounk-U	U-oneof-before	decode-read	no-unknown	199.7	1.033	0.582	0.840	0.873	1.443	0.587	0.850
+codec-nounk-U	U-oneof-member-alone	decode-read	no-unknown	112.8	1.011	0.753	1.217	1.315	1.615	0.750	1.203
+codec-nounk-U	U-leaf-u-msg	decode-read	no-unknown	317.4	0.966	0.755	1.091	1.123	1.446	0.748	1.097
+codec-nounk-U	U-nested-u-len	decode	no-unknown	294.0	0.967	0.750	1.164	1.195	1.553	0.760	1.146
+codec-nounk-U	U-root-u-len	decode	no-unknown	611.9	0.994	0.764	1.168	1.180	1.528	0.773	1.159
+codec-nounk-U	U-element-u-packed	decode-read	no-unknown	1681.6	0.972	0.779	1.196	1.217	1.535	0.783	1.214
+codec-nounk-U	U-nested-all	encode	no-unknown	246.3	1.044	0.203	0.424		2.087	0.200	0.413
+codec-nounk-U	U-wire-ListProbeResponse-probes-as-wt1	encode	no-unknown						2.158		
+codec-nounk-U	U-leaf-all	decode-read	no-unknown	493.1	0.996	0.624	0.849	0.854	1.361	0.623	0.857
+codec-nounk-U	U-wire-DualResponse-left-as-wt1	decode-read	no-unknown						1.431		
+codec-nounk-U	U-leaf-u-varint	encode	no-unknown	247.2	1.052	0.205	0.426		2.072	0.203	0.420
+codec-nounk-U	U-oneof-all	decode-read	no-unknown	214.2	1.013	0.585	0.843	0.912	1.440	0.594	0.869
+codec-nounk-U	U-wire-ListProbeResponse-probes-as-wt5	decode	no-unknown						1.670		
+codec-nounk-U	U-wire-ListProbeResponse-probes-as-wt1	decode-read	no-unknown						1.580		
+codec-nounk-U	U-deep-all	decode	no-unknown	2108.9	0.966	0.751	1.134	1.129	1.510	0.752	1.129
+codec-nounk-U	U-oneof-member-before-known	decode-read	no-unknown	129.0	1.011	0.717	1.159	1.289	1.616	0.722	1.163
+codec-nounk-U	U-wire-ListResultsResponse-page-as-wt2	decode-read	no-unknown						1.404		
+codec-nounk-U	U-root-u-packed	decode	no-unknown	607.4	0.996	0.778	1.152	1.187	1.480	0.784	1.158
+codec-nounk-U	U-wire-UploadResultDataMessage-upload-as-wt1	decode-read	no-unknown						1.634		
+codec-nounk-U	U-element-u-varint	decode	no-unknown	2082.4	0.961	0.751	1.148	1.142	1.528	0.750	1.125
+codec-nounk-U	U-enum-value-2147483647	decode	no-unknown	75.2	1.296	1.251	1.418	1.515	1.133	1.100	1.292
+codec-nounk-U	U-oneof-all	decode	no-unknown	211.6	1.003	0.573	0.820	0.861	1.430	0.583	0.850
+codec-nounk-U	U-root-u-fixed64	encode	no-unknown	559.8	1.045	0.192	0.347		1.807	0.192	0.350
+codec-nounk-U	U-enum-value-2147483647	decode-read	no-unknown	83.7	1.146	1.087	1.252	1.336	1.152	1.090	1.251
+codec-nounk-U	U-oneof-member-after-known	encode	no-unknown	112.8	0.990	0.201	0.445		2.219	0.207	0.454
+codec-nounk-U	U-leaf-u-len	decode-read	no-unknown	322.6	0.959	0.776	1.111	1.139	1.432	0.773	1.114
+codec-nounk-U	U-leaf-u-fixed64	decode-read	no-unknown	318.7	0.956	0.773	1.112	1.142	1.440	0.783	1.108
+codec-nounk-U	U-wire-DualResponse-left-as-wt0	decode-read	no-unknown						1.445		
+codec-nounk-U	U-nested-before	encode	no-unknown	246.0	1.053	0.210	0.416		1.979	0.207	0.401
+codec-nounk-U	U-nested-u-repeated	decode	no-unknown	316.4	0.945	0.715	1.103	1.127	1.543	0.734	1.133
+codec-nounk-U	U-wire-DualResponse-left-as-wt1	encode	no-unknown						2.117		
+codec-nounk-U	U-oneof-u-fixed64	decode-read	no-unknown	130.2	1.036	0.716	1.151	1.271	1.607	0.727	1.158
+codec-nounk-U	U-wire-ListTasksDetailedResponse-tasks-as-wt0	encode	no-unknown						2.028		
+codec-nounk-U	U-wire-ListMetricsResponse-batches-as-wt1	decode-read	no-unknown						1.115		
+codec-nounk-U	U-oneof-member-after-known	decode-read	no-unknown	109.4	1.037	0.752	1.175	1.303	1.563	0.728	1.186
+codec-nounk-U	U-leaf-u-fixed32	encode	no-unknown	230.1	1.050	0.207	0.426		2.054	0.204	0.408
+codec-nounk-U	U-nested-u-fixed64	decode	no-unknown	263.6	0.954	0.751	1.153	1.187	1.535	0.755	1.161
+codec-nounk-U	U-wire-ListMetricsResponse-batches-as-wt1	encode	no-unknown						1.228		
+codec-nounk-U	U-element-u-packed	encode	no-unknown	1257.5	0.996	0.201	0.438		2.178	0.201	0.435
+codec-nounk-U	U-leaf-u-len	decode	no-unknown	309.8	0.958	0.729	1.147	1.170	1.573	0.728	1.136
+codec-nounk-U	U-root-u-varint	encode	no-unknown	558.5	1.065	0.194	0.348		1.792	0.194	0.349
+codec-nounk-U	U-wire-ListTasksDetailedResponse-page-as-wt2	decode-read	no-unknown						1.536		
+codec-nounk-U	U-oneof-u-packed	decode-read	no-unknown	130.9	1.042	0.716	1.153	1.259	1.611	0.702	1.129
+codec-nounk-U	U-wire-ListTasksDetailedResponse-tasks-as-wt5	decode	no-unknown						1.471		
+codec-nounk-U	U-element-u-fixed64	decode-read	no-unknown	2129.3	1.002	0.783	1.151	1.168	1.470	0.787	1.150
+codec-nounk-U	U-enum-value-packed	decode	no-unknown	110.7	1.129	0.716	2.153	2.205	3.010	0.746	2.198
+codec-nounk-U	U-deep-all	decode-read	no-unknown	2088.9	0.981	0.767	1.184	1.190	1.544	0.765	1.189
+codec-nounk-U	U-enum-value-999	decode-read	no-unknown	84.5	1.141	1.098	1.245	1.334	1.134	1.096	1.254
+codec-nounk-U	U-leaf-u-repeated	decode-read	no-unknown	343.0	0.979	0.761	1.064	1.099	1.397	0.755	1.059
+codec-nounk-U	U-deep-u-packed	encode	no-unknown	1243.4	1.000	0.204	0.442		2.165	0.206	0.439
+codec-nounk-U	U-oneof-u-varint	decode	no-unknown	132.0	1.024	0.672	1.107	1.205	1.647	0.668	1.119
+codec-nounk-U	U-nested-u-packed	encode	no-unknown	242.7	1.064	0.208	0.432		2.082	0.205	0.407
+codec-nounk-U	U-root-before	decode	no-unknown	710.9	0.996	0.749	1.052	1.077	1.405	0.752	1.064
+codec-nounk-U	U-wire-ListResultsResponse-page-as-wt2	encode	no-unknown						1.844		
+codec-nounk-U	U-element-u-fixed32	decode	no-unknown	2041.7	0.970	0.770	1.166	1.175	1.514	0.759	1.166
+codec-nounk-U	U-nested-u-msg	encode	no-unknown	245.7	1.049	0.205	0.424		2.072	0.203	0.420
+codec-nounk-U	U-wire-UploadResultDataMessage-upload-as-wt5	encode	no-unknown						2.132		
+codec-nounk-U	U-wire-ListResultsResponse-page-as-wt1	decode-read	no-unknown						1.473		
+codec-nounk-U	U-deep-u-repeated	decode	no-unknown	1594.9	0.975	0.758	1.215	1.219	1.602	0.754	1.214
+codec-nounk-U	U-wire-ListResultsResponse-results-as-wt0	decode-read	no-unknown						1.375		
