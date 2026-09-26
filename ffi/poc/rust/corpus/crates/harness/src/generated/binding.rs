@@ -3112,7 +3112,10 @@ unsafe extern "C" fn loop_list_results_response_results_zeroed(
         let mut chunk: [::core::mem::MaybeUninit<ak_efix_ResultRaw>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
         // All-zero is a valid group: `ak_efix_ResultRaw::ZERO` is exactly this bit pattern.
-        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, CHUNK * SZ);
+        // Decision 9 as corrected: clear the elements you will fill, min(n, CHUNK), not
+        // the whole arena (O(elements), not O(arena)).
+        let total = src.len();
+        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, total.min(CHUNK) * SZ);
         let mut i = 0usize;
         let mut done = 0usize;
         for v in src.iter() {
@@ -3122,9 +3125,8 @@ unsafe extern "C" fn loop_list_results_response_results_zeroed(
                 let rc = ak_elem_ResultRaw(ctx, chunk.as_ptr() as *const ak_efix_ResultRaw, i as i32);
                 if rc < 0 { return rc; }
                 done += i;
-                // Only what was dirtied is put back, which is the same volume
-                // per element as the total fill and is where this trade is paid.
-                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, i * SZ);
+                // Only what the next chunk will fill is put back.
+                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, (total - done).min(CHUNK) * SZ);
                 i = 0;
             }
         }
@@ -3181,7 +3183,10 @@ unsafe extern "C" fn loop_list_results_response_results_unk_zeroed(
         const SZ: usize = ::core::mem::size_of::<ak_ufix_ResultRaw>();
         let mut chunk: [::core::mem::MaybeUninit<ak_ufix_ResultRaw>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
-        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, CHUNK * SZ);
+        // Decision 9 as corrected: clear the elements you will fill, min(n, CHUNK), not
+        // the whole arena (O(elements), not O(arena)).
+        let total = src.len();
+        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, total.min(CHUNK) * SZ);
         let mut i = 0usize;
         let mut done = 0usize;
         for v in src.iter() {
@@ -3191,7 +3196,7 @@ unsafe extern "C" fn loop_list_results_response_results_unk_zeroed(
                 let rc = ak_uelem_ResultRaw(ctx, chunk.as_ptr() as *const ak_ufix_ResultRaw, i as i32);
                 if rc < 0 { return rc; }
                 done += i;
-                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, i * SZ);
+                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, (total - done).min(CHUNK) * SZ);
                 i = 0;
             }
         }
@@ -3301,7 +3306,10 @@ unsafe extern "C" fn loop_list_tasks_detailed_response_tasks_zeroed(
         let mut chunk: [::core::mem::MaybeUninit<ak_efix_TaskDetailed>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
         // All-zero is a valid group: `ak_efix_TaskDetailed::ZERO` is exactly this bit pattern.
-        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, CHUNK * SZ);
+        // Decision 9 as corrected: clear the elements you will fill, min(n, CHUNK), not
+        // the whole arena (O(elements), not O(arena)).
+        let total = src.len();
+        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, total.min(CHUNK) * SZ);
         let mut i = 0usize;
         let mut done = 0usize;
         for v in src.iter() {
@@ -3311,9 +3319,8 @@ unsafe extern "C" fn loop_list_tasks_detailed_response_tasks_zeroed(
                 let rc = ak_elemu_TaskDetailed(ctx, chunk.as_ptr() as *const ak_efix_TaskDetailed, i as i32, done as i64);
                 if rc < 0 { return rc; }
                 done += i;
-                // Only what was dirtied is put back, which is the same volume
-                // per element as the total fill and is where this trade is paid.
-                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, i * SZ);
+                // Only what the next chunk will fill is put back.
+                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, (total - done).min(CHUNK) * SZ);
                 i = 0;
             }
         }
@@ -3370,7 +3377,10 @@ unsafe extern "C" fn loop_list_tasks_detailed_response_tasks_unk_zeroed(
         const SZ: usize = ::core::mem::size_of::<ak_ufix_TaskDetailed>();
         let mut chunk: [::core::mem::MaybeUninit<ak_ufix_TaskDetailed>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
-        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, CHUNK * SZ);
+        // Decision 9 as corrected: clear the elements you will fill, min(n, CHUNK), not
+        // the whole arena (O(elements), not O(arena)).
+        let total = src.len();
+        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, total.min(CHUNK) * SZ);
         let mut i = 0usize;
         let mut done = 0usize;
         for v in src.iter() {
@@ -3380,7 +3390,7 @@ unsafe extern "C" fn loop_list_tasks_detailed_response_tasks_unk_zeroed(
                 let rc = ak_uelemu_TaskDetailed(ctx, chunk.as_ptr() as *const ak_ufix_TaskDetailed, i as i32, done as i64);
                 if rc < 0 { return rc; }
                 done += i;
-                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, i * SZ);
+                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, (total - done).min(CHUNK) * SZ);
                 i = 0;
             }
         }
@@ -3672,7 +3682,10 @@ unsafe extern "C" fn loop_list_task_summary_response_tasks_zeroed(
         let mut chunk: [::core::mem::MaybeUninit<ak_efix_TaskSummary>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
         // All-zero is a valid group: `ak_efix_TaskSummary::ZERO` is exactly this bit pattern.
-        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, CHUNK * SZ);
+        // Decision 9 as corrected: clear the elements you will fill, min(n, CHUNK), not
+        // the whole arena (O(elements), not O(arena)).
+        let total = src.len();
+        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, total.min(CHUNK) * SZ);
         let mut i = 0usize;
         let mut done = 0usize;
         for v in src.iter() {
@@ -3682,9 +3695,8 @@ unsafe extern "C" fn loop_list_task_summary_response_tasks_zeroed(
                 let rc = ak_elemu_TaskSummary(ctx, chunk.as_ptr() as *const ak_efix_TaskSummary, i as i32, done as i64);
                 if rc < 0 { return rc; }
                 done += i;
-                // Only what was dirtied is put back, which is the same volume
-                // per element as the total fill and is where this trade is paid.
-                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, i * SZ);
+                // Only what the next chunk will fill is put back.
+                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, (total - done).min(CHUNK) * SZ);
                 i = 0;
             }
         }
@@ -3741,7 +3753,10 @@ unsafe extern "C" fn loop_list_task_summary_response_tasks_unk_zeroed(
         const SZ: usize = ::core::mem::size_of::<ak_ufix_TaskSummary>();
         let mut chunk: [::core::mem::MaybeUninit<ak_ufix_TaskSummary>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
-        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, CHUNK * SZ);
+        // Decision 9 as corrected: clear the elements you will fill, min(n, CHUNK), not
+        // the whole arena (O(elements), not O(arena)).
+        let total = src.len();
+        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, total.min(CHUNK) * SZ);
         let mut i = 0usize;
         let mut done = 0usize;
         for v in src.iter() {
@@ -3751,7 +3766,7 @@ unsafe extern "C" fn loop_list_task_summary_response_tasks_unk_zeroed(
                 let rc = ak_uelemu_TaskSummary(ctx, chunk.as_ptr() as *const ak_ufix_TaskSummary, i as i32, done as i64);
                 if rc < 0 { return rc; }
                 done += i;
-                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, i * SZ);
+                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, (total - done).min(CHUNK) * SZ);
                 i = 0;
             }
         }
@@ -3907,7 +3922,10 @@ unsafe extern "C" fn loop_list_probe_response_probes_zeroed(
         let mut chunk: [::core::mem::MaybeUninit<ak_efix_Probe>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
         // All-zero is a valid group: `ak_efix_Probe::ZERO` is exactly this bit pattern.
-        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, CHUNK * SZ);
+        // Decision 9 as corrected: clear the elements you will fill, min(n, CHUNK), not
+        // the whole arena (O(elements), not O(arena)).
+        let total = src.len();
+        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, total.min(CHUNK) * SZ);
         let mut i = 0usize;
         let mut done = 0usize;
         for v in src.iter() {
@@ -3917,9 +3935,8 @@ unsafe extern "C" fn loop_list_probe_response_probes_zeroed(
                 let rc = ak_elem_Probe(ctx, chunk.as_ptr() as *const ak_efix_Probe, i as i32);
                 if rc < 0 { return rc; }
                 done += i;
-                // Only what was dirtied is put back, which is the same volume
-                // per element as the total fill and is where this trade is paid.
-                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, i * SZ);
+                // Only what the next chunk will fill is put back.
+                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, (total - done).min(CHUNK) * SZ);
                 i = 0;
             }
         }
@@ -3976,7 +3993,10 @@ unsafe extern "C" fn loop_list_probe_response_probes_unk_zeroed(
         const SZ: usize = ::core::mem::size_of::<ak_ufix_Probe>();
         let mut chunk: [::core::mem::MaybeUninit<ak_ufix_Probe>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
-        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, CHUNK * SZ);
+        // Decision 9 as corrected: clear the elements you will fill, min(n, CHUNK), not
+        // the whole arena (O(elements), not O(arena)).
+        let total = src.len();
+        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, total.min(CHUNK) * SZ);
         let mut i = 0usize;
         let mut done = 0usize;
         for v in src.iter() {
@@ -3986,7 +4006,7 @@ unsafe extern "C" fn loop_list_probe_response_probes_unk_zeroed(
                 let rc = ak_uelem_Probe(ctx, chunk.as_ptr() as *const ak_ufix_Probe, i as i32);
                 if rc < 0 { return rc; }
                 done += i;
-                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, i * SZ);
+                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, (total - done).min(CHUNK) * SZ);
                 i = 0;
             }
         }
@@ -4096,7 +4116,10 @@ unsafe extern "C" fn loop_list_metrics_response_batches_zeroed(
         let mut chunk: [::core::mem::MaybeUninit<ak_efix_MetricsBatch>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
         // All-zero is a valid group: `ak_efix_MetricsBatch::ZERO` is exactly this bit pattern.
-        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, CHUNK * SZ);
+        // Decision 9 as corrected: clear the elements you will fill, min(n, CHUNK), not
+        // the whole arena (O(elements), not O(arena)).
+        let total = src.len();
+        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, total.min(CHUNK) * SZ);
         let mut i = 0usize;
         let mut done = 0usize;
         for v in src.iter() {
@@ -4106,9 +4129,8 @@ unsafe extern "C" fn loop_list_metrics_response_batches_zeroed(
                 let rc = ak_elemu_MetricsBatch(ctx, chunk.as_ptr() as *const ak_efix_MetricsBatch, i as i32, done as i64);
                 if rc < 0 { return rc; }
                 done += i;
-                // Only what was dirtied is put back, which is the same volume
-                // per element as the total fill and is where this trade is paid.
-                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, i * SZ);
+                // Only what the next chunk will fill is put back.
+                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, (total - done).min(CHUNK) * SZ);
                 i = 0;
             }
         }
@@ -4165,7 +4187,10 @@ unsafe extern "C" fn loop_list_metrics_response_batches_unk_zeroed(
         const SZ: usize = ::core::mem::size_of::<ak_ufix_MetricsBatch>();
         let mut chunk: [::core::mem::MaybeUninit<ak_ufix_MetricsBatch>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
-        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, CHUNK * SZ);
+        // Decision 9 as corrected: clear the elements you will fill, min(n, CHUNK), not
+        // the whole arena (O(elements), not O(arena)).
+        let total = src.len();
+        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, total.min(CHUNK) * SZ);
         let mut i = 0usize;
         let mut done = 0usize;
         for v in src.iter() {
@@ -4175,7 +4200,7 @@ unsafe extern "C" fn loop_list_metrics_response_batches_unk_zeroed(
                 let rc = ak_uelemu_MetricsBatch(ctx, chunk.as_ptr() as *const ak_ufix_MetricsBatch, i as i32, done as i64);
                 if rc < 0 { return rc; }
                 done += i;
-                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, i * SZ);
+                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, (total - done).min(CHUNK) * SZ);
                 i = 0;
             }
         }
@@ -4441,7 +4466,10 @@ unsafe extern "C" fn loop_dual_response_left_zeroed(
         let mut chunk: [::core::mem::MaybeUninit<ak_efix_Pair>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
         // All-zero is a valid group: `ak_efix_Pair::ZERO` is exactly this bit pattern.
-        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, CHUNK * SZ);
+        // Decision 9 as corrected: clear the elements you will fill, min(n, CHUNK), not
+        // the whole arena (O(elements), not O(arena)).
+        let total = src.len();
+        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, total.min(CHUNK) * SZ);
         let mut i = 0usize;
         let mut done = 0usize;
         for v in src.iter() {
@@ -4451,9 +4479,8 @@ unsafe extern "C" fn loop_dual_response_left_zeroed(
                 let rc = ak_elem_Pair(ctx, chunk.as_ptr() as *const ak_efix_Pair, i as i32);
                 if rc < 0 { return rc; }
                 done += i;
-                // Only what was dirtied is put back, which is the same volume
-                // per element as the total fill and is where this trade is paid.
-                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, i * SZ);
+                // Only what the next chunk will fill is put back.
+                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, (total - done).min(CHUNK) * SZ);
                 i = 0;
             }
         }
@@ -4510,7 +4537,10 @@ unsafe extern "C" fn loop_dual_response_left_unk_zeroed(
         const SZ: usize = ::core::mem::size_of::<ak_ufix_Pair>();
         let mut chunk: [::core::mem::MaybeUninit<ak_ufix_Pair>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
-        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, CHUNK * SZ);
+        // Decision 9 as corrected: clear the elements you will fill, min(n, CHUNK), not
+        // the whole arena (O(elements), not O(arena)).
+        let total = src.len();
+        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, total.min(CHUNK) * SZ);
         let mut i = 0usize;
         let mut done = 0usize;
         for v in src.iter() {
@@ -4520,7 +4550,7 @@ unsafe extern "C" fn loop_dual_response_left_unk_zeroed(
                 let rc = ak_uelem_Pair(ctx, chunk.as_ptr() as *const ak_ufix_Pair, i as i32);
                 if rc < 0 { return rc; }
                 done += i;
-                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, i * SZ);
+                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, (total - done).min(CHUNK) * SZ);
                 i = 0;
             }
         }
@@ -4578,7 +4608,10 @@ unsafe extern "C" fn loop_dual_response_right_zeroed(
         let mut chunk: [::core::mem::MaybeUninit<ak_efix_Pair>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
         // All-zero is a valid group: `ak_efix_Pair::ZERO` is exactly this bit pattern.
-        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, CHUNK * SZ);
+        // Decision 9 as corrected: clear the elements you will fill, min(n, CHUNK), not
+        // the whole arena (O(elements), not O(arena)).
+        let total = src.len();
+        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, total.min(CHUNK) * SZ);
         let mut i = 0usize;
         let mut done = 0usize;
         for v in src.iter() {
@@ -4588,9 +4621,8 @@ unsafe extern "C" fn loop_dual_response_right_zeroed(
                 let rc = ak_elem_Pair(ctx, chunk.as_ptr() as *const ak_efix_Pair, i as i32);
                 if rc < 0 { return rc; }
                 done += i;
-                // Only what was dirtied is put back, which is the same volume
-                // per element as the total fill and is where this trade is paid.
-                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, i * SZ);
+                // Only what the next chunk will fill is put back.
+                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, (total - done).min(CHUNK) * SZ);
                 i = 0;
             }
         }
@@ -4647,7 +4679,10 @@ unsafe extern "C" fn loop_dual_response_right_unk_zeroed(
         const SZ: usize = ::core::mem::size_of::<ak_ufix_Pair>();
         let mut chunk: [::core::mem::MaybeUninit<ak_ufix_Pair>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
-        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, CHUNK * SZ);
+        // Decision 9 as corrected: clear the elements you will fill, min(n, CHUNK), not
+        // the whole arena (O(elements), not O(arena)).
+        let total = src.len();
+        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, total.min(CHUNK) * SZ);
         let mut i = 0usize;
         let mut done = 0usize;
         for v in src.iter() {
@@ -4657,7 +4692,7 @@ unsafe extern "C" fn loop_dual_response_right_unk_zeroed(
                 let rc = ak_uelem_Pair(ctx, chunk.as_ptr() as *const ak_ufix_Pair, i as i32);
                 if rc < 0 { return rc; }
                 done += i;
-                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, i * SZ);
+                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, (total - done).min(CHUNK) * SZ);
                 i = 0;
             }
         }
@@ -4838,7 +4873,10 @@ unsafe extern "C" fn loop_chunk_inner_leaves_zeroed(
         let mut chunk: [::core::mem::MaybeUninit<ak_efix_ChunkLeaf>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
         // All-zero is a valid group: `ak_efix_ChunkLeaf::ZERO` is exactly this bit pattern.
-        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, CHUNK * SZ);
+        // Decision 9 as corrected: clear the elements you will fill, min(n, CHUNK), not
+        // the whole arena (O(elements), not O(arena)).
+        let total = src.len();
+        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, total.min(CHUNK) * SZ);
         let mut i = 0usize;
         let mut done = 0usize;
         for v in src.iter() {
@@ -4848,9 +4886,8 @@ unsafe extern "C" fn loop_chunk_inner_leaves_zeroed(
                 let rc = ak_elem_ChunkLeaf(ctx, chunk.as_ptr() as *const ak_efix_ChunkLeaf, i as i32);
                 if rc < 0 { return rc; }
                 done += i;
-                // Only what was dirtied is put back, which is the same volume
-                // per element as the total fill and is where this trade is paid.
-                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, i * SZ);
+                // Only what the next chunk will fill is put back.
+                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, (total - done).min(CHUNK) * SZ);
                 i = 0;
             }
         }
@@ -4907,7 +4944,10 @@ unsafe extern "C" fn loop_chunk_inner_leaves_unk_zeroed(
         const SZ: usize = ::core::mem::size_of::<ak_ufix_ChunkLeaf>();
         let mut chunk: [::core::mem::MaybeUninit<ak_ufix_ChunkLeaf>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
-        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, CHUNK * SZ);
+        // Decision 9 as corrected: clear the elements you will fill, min(n, CHUNK), not
+        // the whole arena (O(elements), not O(arena)).
+        let total = src.len();
+        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, total.min(CHUNK) * SZ);
         let mut i = 0usize;
         let mut done = 0usize;
         for v in src.iter() {
@@ -4917,7 +4957,7 @@ unsafe extern "C" fn loop_chunk_inner_leaves_unk_zeroed(
                 let rc = ak_uelem_ChunkLeaf(ctx, chunk.as_ptr() as *const ak_ufix_ChunkLeaf, i as i32);
                 if rc < 0 { return rc; }
                 done += i;
-                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, i * SZ);
+                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, (total - done).min(CHUNK) * SZ);
                 i = 0;
             }
         }
@@ -5117,7 +5157,10 @@ unsafe extern "C" fn loop_chunk_element_inner_leaves_zeroed(
         let mut chunk: [::core::mem::MaybeUninit<ak_efix_ChunkLeaf>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
         // All-zero is a valid group: `ak_efix_ChunkLeaf::ZERO` is exactly this bit pattern.
-        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, CHUNK * SZ);
+        // Decision 9 as corrected: clear the elements you will fill, min(n, CHUNK), not
+        // the whole arena (O(elements), not O(arena)).
+        let total = src.len();
+        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, total.min(CHUNK) * SZ);
         let mut i = 0usize;
         let mut done = 0usize;
         for v in src.iter() {
@@ -5127,9 +5170,8 @@ unsafe extern "C" fn loop_chunk_element_inner_leaves_zeroed(
                 let rc = ak_elem_ChunkLeaf(ctx, chunk.as_ptr() as *const ak_efix_ChunkLeaf, i as i32);
                 if rc < 0 { return rc; }
                 done += i;
-                // Only what was dirtied is put back, which is the same volume
-                // per element as the total fill and is where this trade is paid.
-                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, i * SZ);
+                // Only what the next chunk will fill is put back.
+                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, (total - done).min(CHUNK) * SZ);
                 i = 0;
             }
         }
@@ -5188,7 +5230,10 @@ unsafe extern "C" fn loop_chunk_element_inner_leaves_unk_zeroed(
         const SZ: usize = ::core::mem::size_of::<ak_ufix_ChunkLeaf>();
         let mut chunk: [::core::mem::MaybeUninit<ak_ufix_ChunkLeaf>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
-        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, CHUNK * SZ);
+        // Decision 9 as corrected: clear the elements you will fill, min(n, CHUNK), not
+        // the whole arena (O(elements), not O(arena)).
+        let total = src.len();
+        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, total.min(CHUNK) * SZ);
         let mut i = 0usize;
         let mut done = 0usize;
         for v in src.iter() {
@@ -5198,7 +5243,7 @@ unsafe extern "C" fn loop_chunk_element_inner_leaves_unk_zeroed(
                 let rc = ak_uelem_ChunkLeaf(ctx, chunk.as_ptr() as *const ak_ufix_ChunkLeaf, i as i32);
                 if rc < 0 { return rc; }
                 done += i;
-                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, i * SZ);
+                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, (total - done).min(CHUNK) * SZ);
                 i = 0;
             }
         }
@@ -5320,7 +5365,10 @@ unsafe extern "C" fn loop_chunked_response_items_zeroed(
         let mut chunk: [::core::mem::MaybeUninit<ak_efix_ChunkElement>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
         // All-zero is a valid group: `ak_efix_ChunkElement::ZERO` is exactly this bit pattern.
-        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, CHUNK * SZ);
+        // Decision 9 as corrected: clear the elements you will fill, min(n, CHUNK), not
+        // the whole arena (O(elements), not O(arena)).
+        let total = src.len();
+        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, total.min(CHUNK) * SZ);
         let mut i = 0usize;
         let mut done = 0usize;
         for v in src.iter() {
@@ -5330,9 +5378,8 @@ unsafe extern "C" fn loop_chunked_response_items_zeroed(
                 let rc = ak_elemu_ChunkElement(ctx, chunk.as_ptr() as *const ak_efix_ChunkElement, i as i32, done as i64);
                 if rc < 0 { return rc; }
                 done += i;
-                // Only what was dirtied is put back, which is the same volume
-                // per element as the total fill and is where this trade is paid.
-                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, i * SZ);
+                // Only what the next chunk will fill is put back.
+                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, (total - done).min(CHUNK) * SZ);
                 i = 0;
             }
         }
@@ -5389,7 +5436,10 @@ unsafe extern "C" fn loop_chunked_response_items_unk_zeroed(
         const SZ: usize = ::core::mem::size_of::<ak_ufix_ChunkElement>();
         let mut chunk: [::core::mem::MaybeUninit<ak_ufix_ChunkElement>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
-        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, CHUNK * SZ);
+        // Decision 9 as corrected: clear the elements you will fill, min(n, CHUNK), not
+        // the whole arena (O(elements), not O(arena)).
+        let total = src.len();
+        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, total.min(CHUNK) * SZ);
         let mut i = 0usize;
         let mut done = 0usize;
         for v in src.iter() {
@@ -5399,7 +5449,7 @@ unsafe extern "C" fn loop_chunked_response_items_unk_zeroed(
                 let rc = ak_uelemu_ChunkElement(ctx, chunk.as_ptr() as *const ak_ufix_ChunkElement, i as i32, done as i64);
                 if rc < 0 { return rc; }
                 done += i;
-                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, i * SZ);
+                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, (total - done).min(CHUNK) * SZ);
                 i = 0;
             }
         }
@@ -5641,7 +5691,10 @@ unsafe extern "C" fn loop_chunked_response_wide_items_zeroed(
         let mut chunk: [::core::mem::MaybeUninit<ak_efix_ChunkElement>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
         // All-zero is a valid group: `ak_efix_ChunkElement::ZERO` is exactly this bit pattern.
-        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, CHUNK * SZ);
+        // Decision 9 as corrected: clear the elements you will fill, min(n, CHUNK), not
+        // the whole arena (O(elements), not O(arena)).
+        let total = src.len();
+        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, total.min(CHUNK) * SZ);
         let mut i = 0usize;
         let mut done = 0usize;
         for v in src.iter() {
@@ -5651,9 +5704,8 @@ unsafe extern "C" fn loop_chunked_response_wide_items_zeroed(
                 let rc = ak_elemu_ChunkElement(ctx, chunk.as_ptr() as *const ak_efix_ChunkElement, i as i32, done as i64);
                 if rc < 0 { return rc; }
                 done += i;
-                // Only what was dirtied is put back, which is the same volume
-                // per element as the total fill and is where this trade is paid.
-                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, i * SZ);
+                // Only what the next chunk will fill is put back.
+                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, (total - done).min(CHUNK) * SZ);
                 i = 0;
             }
         }
@@ -5710,7 +5762,10 @@ unsafe extern "C" fn loop_chunked_response_wide_items_unk_zeroed(
         const SZ: usize = ::core::mem::size_of::<ak_ufix_ChunkElement>();
         let mut chunk: [::core::mem::MaybeUninit<ak_ufix_ChunkElement>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
-        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, CHUNK * SZ);
+        // Decision 9 as corrected: clear the elements you will fill, min(n, CHUNK), not
+        // the whole arena (O(elements), not O(arena)).
+        let total = src.len();
+        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, total.min(CHUNK) * SZ);
         let mut i = 0usize;
         let mut done = 0usize;
         for v in src.iter() {
@@ -5720,7 +5775,7 @@ unsafe extern "C" fn loop_chunked_response_wide_items_unk_zeroed(
                 let rc = ak_uelemu_ChunkElement(ctx, chunk.as_ptr() as *const ak_ufix_ChunkElement, i as i32, done as i64);
                 if rc < 0 { return rc; }
                 done += i;
-                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, i * SZ);
+                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, (total - done).min(CHUNK) * SZ);
                 i = 0;
             }
         }
@@ -6014,7 +6069,10 @@ unsafe extern "C" fn loop_leaf_response_items_zeroed(
         let mut chunk: [::core::mem::MaybeUninit<ak_efix_LeafElement>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
         // All-zero is a valid group: `ak_efix_LeafElement::ZERO` is exactly this bit pattern.
-        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, CHUNK * SZ);
+        // Decision 9 as corrected: clear the elements you will fill, min(n, CHUNK), not
+        // the whole arena (O(elements), not O(arena)).
+        let total = src.len();
+        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, total.min(CHUNK) * SZ);
         let mut i = 0usize;
         let mut done = 0usize;
         for v in src.iter() {
@@ -6024,9 +6082,8 @@ unsafe extern "C" fn loop_leaf_response_items_zeroed(
                 let rc = ak_elem_LeafElement(ctx, chunk.as_ptr() as *const ak_efix_LeafElement, i as i32);
                 if rc < 0 { return rc; }
                 done += i;
-                // Only what was dirtied is put back, which is the same volume
-                // per element as the total fill and is where this trade is paid.
-                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, i * SZ);
+                // Only what the next chunk will fill is put back.
+                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, (total - done).min(CHUNK) * SZ);
                 i = 0;
             }
         }
@@ -6083,7 +6140,10 @@ unsafe extern "C" fn loop_leaf_response_items_unk_zeroed(
         const SZ: usize = ::core::mem::size_of::<ak_ufix_LeafElement>();
         let mut chunk: [::core::mem::MaybeUninit<ak_ufix_LeafElement>; CHUNK] =
             [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];
-        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, CHUNK * SZ);
+        // Decision 9 as corrected: clear the elements you will fill, min(n, CHUNK), not
+        // the whole arena (O(elements), not O(arena)).
+        let total = src.len();
+        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, total.min(CHUNK) * SZ);
         let mut i = 0usize;
         let mut done = 0usize;
         for v in src.iter() {
@@ -6093,7 +6153,7 @@ unsafe extern "C" fn loop_leaf_response_items_unk_zeroed(
                 let rc = ak_uelem_LeafElement(ctx, chunk.as_ptr() as *const ak_ufix_LeafElement, i as i32);
                 if rc < 0 { return rc; }
                 done += i;
-                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, i * SZ);
+                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, (total - done).min(CHUNK) * SZ);
                 i = 0;
             }
         }

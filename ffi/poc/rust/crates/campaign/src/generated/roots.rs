@@ -469,9 +469,9 @@ impl Ops for R_ListResultsResponse {
     }
     fn f_encode(c: &Ctx, v: &Self::F, retain: bool) -> Result<usize, i32> {
         #[cfg(feature = "unknown-fields")]
-        if retain { return binding::encode_into_list_results_response_unk(c.enc, v, &c.tcs); }
+        if retain { return binding::encode_into_list_results_response_unk_zeroed(c.enc, v, &c.tcs); }
         let _ = retain;
-        binding::encode_into_list_results_response(c.enc, v, &c.tcs)
+        binding::encode_into_list_results_response_zeroed(c.enc, v, &c.tcs)
     }
     fn f_pull(c: &Ctx, b: &[u8], retain: bool, toks: &mut Vec<i64>) -> Result<Self::F, i32> {
         #[cfg(feature = "unknown-fields")]
@@ -513,9 +513,9 @@ impl Ops for R_ListTasksDetailedResponse {
     }
     fn f_encode(c: &Ctx, v: &Self::F, retain: bool) -> Result<usize, i32> {
         #[cfg(feature = "unknown-fields")]
-        if retain { return binding::encode_into_list_tasks_detailed_response_unk(c.enc, v, &c.tcs); }
+        if retain { return binding::encode_into_list_tasks_detailed_response_unk_zeroed(c.enc, v, &c.tcs); }
         let _ = retain;
-        binding::encode_into_list_tasks_detailed_response(c.enc, v, &c.tcs)
+        binding::encode_into_list_tasks_detailed_response_zeroed(c.enc, v, &c.tcs)
     }
     fn f_pull(c: &Ctx, b: &[u8], retain: bool, toks: &mut Vec<i64>) -> Result<Self::F, i32> {
         #[cfg(feature = "unknown-fields")]
@@ -553,9 +553,9 @@ impl Ops for R_ListProbeResponse {
     }
     fn f_encode(c: &Ctx, v: &Self::F, retain: bool) -> Result<usize, i32> {
         #[cfg(feature = "unknown-fields")]
-        if retain { return binding::encode_into_list_probe_response_unk(c.enc, v, &c.tcs); }
+        if retain { return binding::encode_into_list_probe_response_unk_zeroed(c.enc, v, &c.tcs); }
         let _ = retain;
-        binding::encode_into_list_probe_response(c.enc, v, &c.tcs)
+        binding::encode_into_list_probe_response_zeroed(c.enc, v, &c.tcs)
     }
     fn f_pull(c: &Ctx, b: &[u8], retain: bool, toks: &mut Vec<i64>) -> Result<Self::F, i32> {
         #[cfg(feature = "unknown-fields")]
@@ -593,9 +593,9 @@ impl Ops for R_ListTaskSummaryResponse {
     }
     fn f_encode(c: &Ctx, v: &Self::F, retain: bool) -> Result<usize, i32> {
         #[cfg(feature = "unknown-fields")]
-        if retain { return binding::encode_into_list_task_summary_response_unk(c.enc, v, &c.tcs); }
+        if retain { return binding::encode_into_list_task_summary_response_unk_zeroed(c.enc, v, &c.tcs); }
         let _ = retain;
-        binding::encode_into_list_task_summary_response(c.enc, v, &c.tcs)
+        binding::encode_into_list_task_summary_response_zeroed(c.enc, v, &c.tcs)
     }
     fn f_pull(c: &Ctx, b: &[u8], retain: bool, toks: &mut Vec<i64>) -> Result<Self::F, i32> {
         #[cfg(feature = "unknown-fields")]
@@ -636,9 +636,9 @@ impl Ops for R_UploadResultDataMessage {
     }
     fn f_encode(c: &Ctx, v: &Self::F, retain: bool) -> Result<usize, i32> {
         #[cfg(feature = "unknown-fields")]
-        if retain { return binding::encode_into_upload_result_data_message_unk(c.enc, v, &c.tcs); }
+        if retain { return binding::encode_into_upload_result_data_message_unk_zeroed(c.enc, v, &c.tcs); }
         let _ = retain;
-        binding::encode_into_upload_result_data_message(c.enc, v, &c.tcs)
+        binding::encode_into_upload_result_data_message_zeroed(c.enc, v, &c.tcs)
     }
     fn f_pull(c: &Ctx, b: &[u8], retain: bool, toks: &mut Vec<i64>) -> Result<Self::F, i32> {
         #[cfg(feature = "unknown-fields")]
@@ -676,9 +676,9 @@ impl Ops for R_ListMetricsResponse {
     }
     fn f_encode(c: &Ctx, v: &Self::F, retain: bool) -> Result<usize, i32> {
         #[cfg(feature = "unknown-fields")]
-        if retain { return binding::encode_into_list_metrics_response_unk(c.enc, v, &c.tcs); }
+        if retain { return binding::encode_into_list_metrics_response_unk_zeroed(c.enc, v, &c.tcs); }
         let _ = retain;
-        binding::encode_into_list_metrics_response(c.enc, v, &c.tcs)
+        binding::encode_into_list_metrics_response_zeroed(c.enc, v, &c.tcs)
     }
     fn f_pull(c: &Ctx, b: &[u8], retain: bool, toks: &mut Vec<i64>) -> Result<Self::F, i32> {
         #[cfg(feature = "unknown-fields")]
@@ -715,9 +715,9 @@ impl Ops for R_DualResponse {
     }
     fn f_encode(c: &Ctx, v: &Self::F, retain: bool) -> Result<usize, i32> {
         #[cfg(feature = "unknown-fields")]
-        if retain { return binding::encode_into_dual_response_unk(c.enc, v, &c.tcs); }
+        if retain { return binding::encode_into_dual_response_unk_zeroed(c.enc, v, &c.tcs); }
         let _ = retain;
-        binding::encode_into_dual_response(c.enc, v, &c.tcs)
+        binding::encode_into_dual_response_zeroed(c.enc, v, &c.tcs)
     }
     fn f_pull(c: &Ctx, b: &[u8], retain: bool, toks: &mut Vec<i64>) -> Result<Self::F, i32> {
         #[cfg(feature = "unknown-fields")]
