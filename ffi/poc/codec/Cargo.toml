@@ -46,6 +46,3 @@ tokio-stream = { version = "0.1", default-features = false }
 # here because this manifest is now the workspace root for every slice that builds the
 # core by `--manifest-path`, and a profile in a non-root manifest is silently ignored.
 lto = false
-# Optimisation step 12 (C1): one codegen unit, so the core every slice builds here is
-# optimised as one unit (the rust slice builds it the same way from its own workspace).
-codegen-units = 1

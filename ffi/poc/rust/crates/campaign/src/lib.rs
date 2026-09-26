@@ -497,7 +497,7 @@ pub fn header(suite: &str, extra: &[(&str, String)]) -> Vec<String> {
         format!("# slice: rust   suite: {suite}"),
         "# INSTRUMENTATION unless run on the campaign machine (CAMPAIGN.md section 2); a container figure is not a result".into(),
         format!("# incumbent: prost 0.14 / tonic 0.14 (tonic-prost), as pinned in poc/rust/Cargo.lock"),
-        format!("# build: release profile (opt-level 3, lto off, codegen-units 1), core ak-core cdylib (shared, linked by the dynamic linker), features rpc,init-guard; harness guard on"),
+        format!("# build: release profile, core ak-core cdylib (shared, linked by the dynamic linker), features rpc,init-guard; harness guard on"),
         format!("# rustc: {}", option_env!("AK_RUSTC").unwrap_or("see run header")),
         format!("# decode UTF-8 check (the core's, utf8=\"reject\"): {} (ak-rt; optimisation step 11 made simdutf8 the default)", ak_rt::strings::CHECK_UTF8),
     ];
