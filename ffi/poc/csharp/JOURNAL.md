@@ -1817,3 +1817,89 @@ checked in the row's form ("refused; code -2 not checked: the row states no reas
 failed nor hidden (871993214). That gate was stopped at its first failure and re-run from a new
 worktree; the failed run's log was not committed (the stopped run is not a complete gate).
 The final gate ran from a fresh worktree at the pushed HEAD b758b2737 (this slice unchanged since 871993214; core 31fc3eecf): GATE PASSED, `logs/csharp/wp6h-gate.log`. C4 code-checks every reject row of the corpus; it reports as not checked the 3 oracle-probe reject rows, which state no reason.
+
+## 58. WP7: the harness on the 2026-09-26 contract (R-H22 to R-H36)
+
+Ten items from FIX-PLAN WP7, under the owner's scope rule of the same day (fix only what can
+change what a timed arm or cell does or costs). What was built, checked and found:
+
+- **req 21, process CPU per round in BDN.** The job's clock is now `CpuClock` (Job.WithClock):
+  BDN's engine calls `IClock.GetTimestamp` at the start and end of every iteration, and while the
+  diagnoser has recording on (BeforeActualRun..AfterActualRun) each read also takes
+  CLOCK_PROCESS_CPUTIME_ID (before the Stopwatch at a start read, after it at an end read, so
+  the CPU window contains the wall window). Each exported iteration row carries `cpu_ns` of its
+  own window. "Is it running": the diagnoser requires exactly 2 reads per actual iteration, else
+  the case is written as FAILED and the unit exits non-zero (`cpu check` line). A smoke subset
+  (P2.4 and U-deep-all, core-ffi:retain) passed the check on every case. The old per-case span
+  value is kept as a `row: case-summary` line with `span_cpu_ns` (no `cpu_ns`), so it cannot be
+  read as a sample. BDN's forced GCs between iterations are outside both windows.
+- **req 7.** Content sets on P1.2, P2.2 and P2.4 (codec suite, pre-timing identity, CoreGate
+  crossings rows for P2.2/* and P2.4/*: equal to the ASCII rows, as expected since strings are
+  one run per field). U-* rows (the 92 at the 7 ABI roots): `encode-hot` added (each arm
+  encodes a graph it decoded from the row itself, untimed: retain arms re-emit the unknown
+  fields, drop arms the dropped form), incumbent-best added to encode/decode/decode-read. The
+  pre-timing check verifies each: incumbent-best = incumbent-prod; core-ffi retain and host-gen
+  retain = the incumbent; core-ffi drop = host-gen drop; no-unknown build: core-ffi = host-gen.
+  decode-reencode stays as a labelled extra (no incumbent-best row). A smoke keeps 6 rows.
+- **req 11.** Directions `encode` (pool + reused buffer), `encode-hot`, `encode-transport`
+  (pool + the Grpc.Net form), `encode-transport-hot`, the java slice's names. The Grpc.Net form
+  is the serializer the RPC grid's marshaller runs (`Ops_*.SerInc/SerHost/SerFfi`, now shared:
+  the RPC grid calls the same static methods) into `GrpcFrame`, which does what Grpc.Net.Client
+  2.71's internal `GrpcCallSerializationContext` does on its direct path: one ArrayPool array,
+  the 5-byte header, the body, the array returned. That behaviour was checked by reflection on
+  the assembly (`logs/csharp/wp7-grpcnet-context-reflection.log`: ResolveBufferWriter rents,
+  WriteHeader, Reset returns). incumbent-best has no gRPC path and gets no transport row; for
+  core-ffi over the core's transport (C) and host-gen over it (E) the transport form IS the
+  buffer row (stated). Pool: graphs built in the case's GlobalSetup until their RETAINED heap
+  (GC.GetTotalMemory(true) before and after) is at least 2 x AK_LLC_BYTES (default 13.75 MB);
+  hot = a pool of one, so every encode row runs the same `Next()`. Two defects found on the way
+  and fixed before any figure: the first pool measurement counted the probe graphs (186 MB for
+  a 2-graph pool), and the per-graph probe of 8 small graphs read ~0 bytes, so the pool count
+  ran away and BDN's in-process timeout aborted the unit; now the probe doubles until the heap
+  grew 1 MiB, the pool is measured on its own, and topped up until it reaches the target.
+- **req 12-17 (RPC).** Cells E (host-gen over the core's transport; blocking) and F (host-gen
+  over Grpc.Net), in drop and retain (full) and no-unknown (nounk build). One server process per
+  launch: two Kestrel hosts in it (Kestrel's HTTP/2 windows are per host), shipped and pinned on
+  two sockets, serving both builds; `rpc-warm` sends 2,000 calls per direction per client
+  transport per socket before any client (100 in a smoke); the server prints what it served on
+  shutdown. One channel per cell (a GrpcChannel with its own handler, or a CoreChannel on one
+  shared core runtime of 2 workers, new ctor). Directions a, a+read (Touch after the decode), b.
+  A, D, F now `await CallInvoker.AsyncUnaryCall` (k in flight = k async loops on the thread
+  pool), replacing BlockingUnaryCall; B, C, E stay blocking on the caller pool. D's marshaller
+  takes a core-ffi context from a ConcurrentBag instead of a ThreadStatic (see counts below).
+  Test against the shared server: full client 84 samples (14 cells x 3 dirs x 2 levels), nounk
+  18, 0 aborts.
+- **req 19.** A counting build `/p:AkHostCount=true` (AK_HOST_COUNT): cs_binding renders every
+  import as a counted wrapper over `<name>__raw`, so the counts are of every exported entry point
+  by name where the host calls it. Codec: `BenchDotNet --counts` runs each core-ffi case's own
+  timed closure once untimed, then once counted (1,044 cases full, 544 nounk). RPC:
+  `akrpc campaign --suite rpc --counts` against a server (30 rows full, 18 nounk; stable over
+  two runs). Retain: no pre-placed buffer (already so) and `UnkHost.Exact` (grow allocates what
+  the core asks). Resets are in `fwd` and counted apart (`reset`), two per decode, before and
+  after. The gate compares all four files whole; a control with doubling growth must differ and
+  does (54 retain rows, e.g. U-deep-all decode retain grow 8 exact vs 2 doubling).
+  **What the new counts show that the old ones did not:** the timed encode makes 2 more forward
+  calls than `gen/crossings.txt` says (`ak_enc_reset`, `ak_enc_take`), and the timed push decode
+  4 more (`ak_dec_err`, `ak_dec_err_reset`, and the 2 resets; P1.2: 5 vs 1). `gen/crossings.txt`
+  stays: it is the R5 comparison of the CoreArms tally with the core's own counters, not the
+  timed loop. Two contaminations were found in the first RPC count and fixed: the queue
+  drainer threads of the extra rows called `ak_queue_next` inside a count (the counting run now
+  builds no extras), and D's ThreadStatic context was created inside a counted call when
+  Grpc.Net resumed on a new pool thread (hence the pooled context, which also removes that
+  creation from timed D calls).
+- **req 4/22/30.** Thread-pool min/max and current thread counts, caller threads and the core
+  runtime's workers in every header (codec, rpc client, server, calib). Seeded shuffles kept.
+  Ratios from per-launch medians stated. The runner reads ffi/campaign.machine when AK_CPU_*
+  are unset outside a smoke (campaign.sh exports the same values) and refuses a set whose size
+  is not AK_SET_SIZE.
+- **req 10** was done in WP6 (R-H22).
+
+Gate from a fresh worktree at `c35bd22` (both builds, net8.0 and net6.0, step 9 included):
+GATE PASSED, 0 step failures, 27 controls failing as required (`logs/csharp/wp7-gate.log`).
+Smoke of every suite from the same worktree (`logs/csharp/campaign/wp7-smoke/`, figures
+stripped): codec 1,548 samples over 12 units, every new row present, cpu and jit checks PASS;
+rpc 126 + 54 samples per transport, 0 aborts, the abort control 0 samples in all 4 clients;
+calib 2 samples. The session was stopped by the API spend limit after the smoke had finished;
+nothing ran twice. One line under the scope rule: the `--plant` run reuses the names
+`rpc-launch1.server.log` / `server-warm.log`, so it overwrote the real smoke's server log (no
+effect on any sample; not fixed).

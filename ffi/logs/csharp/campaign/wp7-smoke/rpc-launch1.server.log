@@ -1,0 +1,18 @@
+# SMOKE RUN in a container: instrumentation, not a result
+# csharp campaign runner, suite rpc
+# commit:        c35bd2210
+# SMOKE RUN (CAMPAIGN.md section 9) in a container: EVERY FIGURE BELOW IS INSTRUMENTATION, NOT A RESULT (README 1.1)
+# utc:           2026-09-26T14:17:00Z
+# cpu:           Intel(R) Xeon(R) Processor @ 2.10GHz; 4 logical CPUs; kernel 6.18.44-fc-v37
+# smt:           0 (active); governor: n/a; turbo: no_turbo=n/a boost=n/a
+# isolation:     cmdline isolcpus/nohz_full: cpuset: n/a
+# cpu sets:      CLIENT=0 SERVER=1 (1 and 1 CPUs; set size fixed at unset); from smoke defaults (a container has no campaign CPU sets); pinning by taskset
+# llc:           AK_LLC_BYTES=14417920; pool input >= 65536 bytes of retained graphs (req 11)
+# runtime:       .NET 8.0.31 (SDK 8.0.131); target net8.0, Release; tiering and PGO at their net8.0 defaults unless DOTNET_* is set: TieredCompilation=default TieredPGO=default; workstation GC, concurrent (default)
+# core:          libak_core.so shared, cargo --release, features none (the server uses no core) (init-guard ON, as in every gate), built from git archive HEAD ffi/poc/codec
+# repeats:       1 launch(es) x 1 round(s); cells in a seeded shuffle per round (req 22); ratios from per-launch medians (req 30)
+# campaign rpc-server: shipped on /tmp/ak-cs-29580-s.sock (Kestrel defaults); pid 29840
+# campaign rpc-server: pinned on /tmp/ak-cs-29580-p.sock (Kestrel stream/connection window 4 MiB); pid 29840
+# runtime:        .NET 8.0.31; Grpc.AspNetCore.Server 2.71.0; GC server=False
+# threads:        .NET thread pool min 1 worker / 1 IO, max 32767 worker / 1000 IO, 1 pool thread(s) now; 1 logical CPUs visible; one process, 2 Kestrel host(s) sharing the thread pool
+# served: 404 Down, 400 Up (every client of this launch, the server warm-up included)

@@ -1,0 +1,33 @@
+# FIGURES STRIPPED (cpu_ns, wall_ns, span_cpu_ns, span_wall_ns, gc_pause_ns, bdn_stages set to null): a container smoke (WP7) whose purpose is the row list and the checks, not a timing (README 1.1)
+# csharp campaign runner, suite rpc
+# commit:        c35bd2210
+# SMOKE RUN (CAMPAIGN.md section 9) in a container: EVERY FIGURE BELOW IS INSTRUMENTATION, NOT A RESULT (README 1.1)
+# utc:           2026-09-26T14:17:06Z
+# cpu:           Intel(R) Xeon(R) Processor @ 2.10GHz; 4 logical CPUs; kernel 6.18.44-fc-v37
+# smt:           0 (active); governor: n/a; turbo: no_turbo=n/a boost=n/a
+# isolation:     cmdline isolcpus/nohz_full: cpuset: n/a
+# cpu sets:      CLIENT=0 SERVER=1 (1 and 1 CPUs; set size fixed at unset); from smoke defaults (a container has no campaign CPU sets); pinning by taskset
+# llc:           AK_LLC_BYTES=14417920; pool input >= 65536 bytes of retained graphs (req 11)
+# runtime:       .NET 8.0.31 (SDK 8.0.131); target net8.0, Release; tiering and PGO at their net8.0 defaults unless DOTNET_* is set: TieredCompilation=default TieredPGO=default; workstation GC, concurrent (default)
+# core:          libak_core.so shared, cargo --release, features rpc,init-guard without unknown-fields (no-unknown build) (init-guard ON, as in every gate), built from git archive HEAD ffi/poc/codec
+# repeats:       1 launch(es) x 1 round(s); cells in a seeded shuffle per round (req 22); ratios from per-launch medians (req 30)
+# gate:          passed at c35bd2210, identical to c35bd2210 in ffi/poc/csharp, poc/codec, schema, corpus (/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-7/smoke/gate.log)
+# client build: nounk (WP5 step 10); this launch's order: transports shipped pinned, builds full nounk
+# server:        one process for this launch (pid 29840, /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-7/smoke/rpc-launch1.server.log), both builds and both transports; warmed first: 2 socket(s) x 100 calls per direction per client transport (/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-7/smoke/rpc-launch1.server-warm.log)
+# campaign suite rpc: raw samples, one JSON object per line; nothing summarised here
+# runtime:        .NET 8.0.31
+# incumbent:      Google.Protobuf 3.32.0; Grpc.Net.Client 2.71.0; Grpc.AspNetCore.Server 2.71.0
+# JIT:            TieredCompilation default(on), TieredPGO default(on), ReadyToRun default(on) (net8.0 defaults unless set)
+# GC:             server=False, concurrent=default(on), latency=Interactive
+# managed codec:  plan utf8=reject unknown=drop limit=100
+# process CPUs:   affinity mask 0x1 (1 logical CPUs visible)
+# build no-unknown (WP5 step 10); launch 1, rounds 1, 16 calls per sample, in flight 1/8/16; transport shipped (client: DisableDynamicWindowSizing, no window set; Kestrel defaults; core: ak_client_opts stream 0 connection 0 adaptive 0 nagle -1); Unix socket /tmp/ak-cs-29580-s.sock (req 17: UDS); the server is ONE separate process for this launch, serving both builds and both transports, warmed before any client (its log states the calls); cells (req 12 as amended): A incumbent over Grpc.Net, B incumbent over the core's transport, C core-ffi over the core's transport, D core-ffi over Grpc.Net, E host-gen over the core's transport, F host-gen over Grpc.Net; C, D, E, F in each unknown-field mode of this build (full: -retain = decision 11's options armed at every position and ak_uencode_* / CodecRetain, -drop = reset with NULL and ak_encode_* / Codec; no-unknown build: -nounk, A and B its controls); a retained decode that leaves a grown buffer undelivered fails its call; directions (req 14 as amended): a = empty request, P2.2 response (540423 B) decoded, a+read = the same then every field read (Touch), b = P2.2 request decoded by the server, empty response; delivery (req 16 as amended): B, C, E the core's BLOCKING call on caller threads (16, created before the warm-up and shared by every cell); A, D, F Grpc.Net's idiomatic async call (`await CallInvoker.AsyncUnaryCall`, as Grpc.Tools' generated client does), k in flight = k concurrent async loops on the thread pool; the core's callback/queue rows are labelled extras, awaited the same way; one channel per cell for the whole launch (req 13 as amended), opened and warmed before round 1; the core's cells share ONE core runtime with 2 worker thread(s); cell order per round: a seeded shuffle of launch and round; every call checked (status and length); ratios, where the aggregation forms them, from per-launch medians (req 30)
+# channel:        A: its own GrpcChannel (SocketsHttpHandler, one HTTP/2 connection)
+# channel:        B: its own core channel
+# channel:        C-nounk: its own core channel
+# channel:        D-nounk: its own GrpcChannel (SocketsHttpHandler, one HTTP/2 connection)
+# channel:        E-nounk: its own core channel
+# channel:        F-nounk: its own GrpcChannel (SocketsHttpHandler, one HTTP/2 connection)
+# threads:        .NET thread pool min 1 worker / 1 IO, max 32767 worker / 1000 IO, 0 pool thread(s) now; 1 logical CPUs visible; caller threads 16 (blocking cells); core runtime: 1, 2 worker thread(s) (ak_runtime_new), shared by every core channel of this process
+# ABORT: RpcException: Status(StatusCode="Internal", Detail="Error starting gRPC call. Abort: A: response length 540422, expected 540423", DebugException="Armonik.Ffi.Campaign.CampaignMain+Abort: A: response length 540422, expected 540423")
+# no samples written
