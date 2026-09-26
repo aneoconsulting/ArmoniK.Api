@@ -25,6 +25,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Armonik.Ffi.Facade;
+using Google.Protobuf;
 
 namespace Armonik.Ffi.Harness;
 
@@ -86,6 +87,21 @@ public static class CoreGate
                 if (l.Length != 0 && l[0] != '#') { var f = l.Split(' ', 2); expect[f[0]] = f[1]; }
         var wrote = new List<string>();
         var covered = new HashSet<string>(CoreArms.Ids, StringComparer.Ordinal);
+        // WP6 step 1: P1.2 in the Latin-1 and wide content sets too (SHAPES.md), as the rust
+        // slice counts them. The expected bytes are the incumbent's for the same graph (the
+        // manifest has the ASCII set only); the arm's source graph is built under the set.
+        var contentSets = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var (cs, name) in new[] { (Values.Latin1, "latin1"), (Values.Wide, "wide") })
+        {
+            if (!rows.TryGetValue("P1.2", out var baseRow)) break;
+            Values.ContentSet = cs;
+            var gp = BuildGp.P1_2().ToByteArray();
+            Values.ContentSet = Values.Ascii;
+            var cid = "P1.2/" + name;
+            rows[cid] = new PayloadRow { Id = cid, Root = baseRow.Root, Bytes = gp.Length, Sha256 = Manifest.Sha(gp, gp.Length), Vector = null };
+            contentSets[cid] = cs;
+            covered.Add(cid);
+        }
         foreach (var id in rows.Keys.OrderBy(x => x, StringComparer.Ordinal))
         {
             var row = rows[id];
@@ -97,7 +113,13 @@ public static class CoreGate
             ICoreArm arm = null;
             try
             {
-                arm = CoreArms.New(id);
+                if (contentSets.TryGetValue(id, out var cset))
+                {
+                    Values.ContentSet = cset;
+                    try { arm = CoreArms.New(id.Substring(0, id.IndexOf('/'))); }
+                    finally { Values.ContentSet = Values.Ascii; }
+                }
+                else arm = CoreArms.New(id);
                 arm.Chunk = chunk;
                 got = arm.EncodeToArray();
                 // P7.1 interleaves two repeated fields, which no canonical writer
