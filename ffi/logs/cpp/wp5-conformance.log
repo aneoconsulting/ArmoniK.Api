@@ -1,8 +1,8 @@
 # cpp slice, WP5 step 2: conformance on the payload set (byte identity against manifest.json)
-#   date       2026-09-26T11:37:26Z
+#   date       2026-09-26T12:50:37Z
 #   machine    Linux 6.18.44-fc-v37 x86_64, 4 vCPU, Intel(R) Xeon(R) Processor @ 2.10GHz
 #   compiler   g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0; rustc 1.94.1 (e408947bf 2026-03-25)
-#   commit     b758b2737
+#   commit     8f5b575c0
 #   core       ffi/poc/codec at that commit, built --features init-guard (and corpus,init-guard
 #              for the corpus ABI); no timing is taken by anything in this log
 
@@ -53,7 +53,7 @@ ak_abi_version = 1, AK_ABI_VERSION = 1
   wrong root: decode -8, parse -8, reset -8, binding decode -8, binding armed decode -8 (AK_ERR_INVALID_STATE -8); own root 0
   retain round trip: decode 0, encode 30, bytes identical 1; drop decode keeps none 1
 
-576 checks, 0 failures, 1 payloads with two valid encodings
+577 checks, 0 failures, 1 payloads with two valid encodings
 >>> ok: conformance_a17_shared
 
 ===== conformance_b17_shared =====
@@ -103,7 +103,7 @@ ak_abi_version = 1, AK_ABI_VERSION = 1
   wrong root: decode -8, parse -8, reset -8, binding decode -8, binding armed decode -8 (AK_ERR_INVALID_STATE -8); own root 0
   retain round trip: decode 0, encode 30, bytes identical 1; drop decode keeps none 1
 
-576 checks, 0 failures, 1 payloads with two valid encodings
+577 checks, 0 failures, 1 payloads with two valid encodings
 >>> ok: conformance_b17_shared
 
 ===== conformance_c14_shared =====
@@ -153,7 +153,7 @@ ak_abi_version = 1, AK_ABI_VERSION = 1
   wrong root: decode -8, parse -8, reset -8, binding decode -8, binding armed decode -8 (AK_ERR_INVALID_STATE -8); own root 0
   retain round trip: decode 0, encode 30, bytes identical 1; drop decode keeps none 1
 
-576 checks, 0 failures, 1 payloads with two valid encodings
+577 checks, 0 failures, 1 payloads with two valid encodings
 >>> ok: conformance_c14_shared
 
 ===== conformance_c11_shared =====
@@ -203,7 +203,7 @@ ak_abi_version = 1, AK_ABI_VERSION = 1
   wrong root: decode -8, parse -8, reset -8, binding decode -8, binding armed decode -8 (AK_ERR_INVALID_STATE -8); own root 0
   retain round trip: decode 0, encode 30, bytes identical 1; drop decode keeps none 1
 
-576 checks, 0 failures, 1 payloads with two valid encodings
+577 checks, 0 failures, 1 payloads with two valid encodings
 >>> ok: conformance_c11_shared
 
 ===== conformance_a17_static =====
@@ -253,10 +253,14 @@ ak_abi_version = 1, AK_ABI_VERSION = 1
   wrong root: decode -8, parse -8, reset -8, binding decode -8, binding armed decode -8 (AK_ERR_INVALID_STATE -8); own root 0
   retain round trip: decode 0, encode 30, bytes identical 1; drop decode keeps none 1
 
-576 checks, 0 failures, 1 payloads with two valid encodings
+577 checks, 0 failures, 1 payloads with two valid encodings
 >>> ok: conformance_a17_static
 
 ===== conformance_a17_noinit: the binding skips ak_init (PLANTED) -- must FAIL =====
-gen/wp5_gate.sh: line 150:  4313 Aborted                 timeout 300 "$OLDPWD/$B/conformance_a17_noinit" payloads > "$S/c.log" 2>&1
-free(): double free detected in tcache 2
->>> ok: the planted build failed (exit 134): init-guard is in the core
+  FAIL  P1.1 ffi-retain encode rc
+  FAIL  P1.1 ffi encode rc
+  FAIL  P1.1 ffi-zeroed encode rc
+  FAIL  P1.1 ffi-nobatch encode rc
+  FAIL  P1.1 ffi-hosttc encode rc
+577 checks, 283 failures, 1 payloads with two valid encodings
+>>> ok: the planted build failed its checks (exit 1): init-guard is in the core

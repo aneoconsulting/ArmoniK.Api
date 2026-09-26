@@ -1527,3 +1527,27 @@ changes.
 **ASan.** `gen/d11_asan.sh`, now covering both builds, reported 0 failures:
 - full build: 574/0;
 - no-unknown build: 478/0, with every unknown row dropped.
+
+## 2026-09-26: register H (WP6 re-review), findings assigned to cpp
+
+- R-H7 confirmed under ASan (`logs/cpp/rh7-before.log`). Heap-use-after-free on the second
+  decode with the same options: reclaim freed the unconsumed pool buffers and left them in
+  the options. Fixed: buffers still in the options are untracked, so they stay the host's.
+  A follow-up found by the noinit plant (`rh7-noinit-doublefree.log`): a refused reset
+  returned before untracking. Fixed; the gate now requires that plant to exit 1.
+- R-H4 and R-H5 confirmed. Samples are buffered in `campaign_rpc` and `campaign_calib`, and
+  the runner deletes a failed launch file. Gate controls check "no sample", including an
+  abort after two samples.
+- R-H22 (owner decision): the no-unknown facade has no `unknown_fields`. It lives in
+  `nounk/src`, and the sources include `<generated/types.h>`. host-gen gains a no-unknown
+  arm, and the retain arms are not built in that build. My gate caught the knock-on:
+  `nounk_gate`'s dropped-form control had become blind; it now runs on the full build's
+  native-retain.
+- R-H2 confirmed: `campaign_rpc` now uses a persistent caller pool.
+- R-H23 / R-H18: codec interleaving was already Google Benchmark's; the RPC order is now a
+  seeded shuffle, recorded as `order_pos`.
+- R-H19: AK_CAMPAIGN_SMOKE=1 marks a clean-tree smoke.
+- R-H15: done by the rust agent in 31fc3eecf.
+- Final gate from a clean worktree at 8f5b575c0 (core 31fc3eecf): 0 failed. ASan on both
+  builds is clean, and the campaign smoke of all four suites is green.
+- From now on, the owner's performance-scope rule applies to new findings.
