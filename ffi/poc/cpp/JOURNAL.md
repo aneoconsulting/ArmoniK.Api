@@ -1551,3 +1551,29 @@ changes.
 - Final gate from a clean worktree at 8f5b575c0 (core 31fc3eecf): 0 failed. ASan on both
   builds is clean, and the campaign smoke of all four suites is green.
 - From now on, the owner's performance-scope rule applies to new findings.
+
+## 2026-09-26, FIX-PLAN WP7: harness conformance to the 2026-09-26 contract
+
+- **Done, per item.** (1) req 21: codec suite registers `MeasureProcessCPUTime()`; samples carry
+  `cpu_clock: process`; RPC already used getrusage(RUSAGE_SELF). (2) req 7: Latin-1/wide on
+  P1.2, P2.2, P2.4 (`set=required`), P3.1/P4.1/P6.1 kept as `set=extra`; the 92 U rows
+  (`gen/u_rows.py`) now also encode (check = host-gen re-encode, retain via host-gen retain).
+  (3) req 11: `add_encode` makes end=reused/transport x input=hot/pool rows; the pool is
+  `--pool-bytes` (runner: 2 x AK_LLC_BYTES) of distinct copies built in GB setup, freed in
+  teardown. (4) req 12: cells E and F in every host-gen mode. (5) req 13: one server per launch
+  on two Unix sockets, `--warm-server` from both client transports per socket, one channel per
+  cell. (6) req 14/16: `a`, `a+read`, `b`; A/D/F grpc++ synchronous generic call, stated.
+  (7) req 17: `unix:` for grpc++ and the core. (8) req 19: binding counts resets (AK_HOST_CALL,
+  `host_calls_take()`), harness counts `ak_enc_take`; counts cover retain and U rows
+  (485/271 rows) and RPC cells B-E per call (`rpc-counts*.log`), all gated. (9) thread counts
+  in headers; summary ratios from per-launch medians. (10) CPU sets consumed from campaign.sh.
+- **Checked.** Clean worktree at `a03b06ab2`: `wp5_gate.sh` 0 failed steps (both builds, C++17,
+  C++14, C++11, static), `d11_asan.sh` 0 failures, campaign smoke gate/codec/rpc/calib exit 0.
+  Codec gate 120 groups: 3820 slots (full) and 2388 (no-unknown), 0 failed; plant 620 core-ffi
+  slots fail. RPC count rows identical 14 + 8; payload/U count rows identical 485 + 271.
+- **Counts sanity.** Retain decode = drop decode + exactly 2 host resets; encode = +1 reset +1
+  take; D = C minus the 2 rpc calls; E carries no codec call. The core-counted part of the old
+  87 payload rows did not change.
+- **Label only, not fixed (scope rule).** The runner header's `variants` text still says
+  "C/D-retain and -drop" and the `rpc_server` thread text says "callback server"; the samples
+  and the client headers name the actual cells.

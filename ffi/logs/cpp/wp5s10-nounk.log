@@ -1,8 +1,8 @@
 # cpp slice, WP5 step 10: the no-unknown build
-#   date       2026-09-26T13:02:38Z
-#   machine    Linux 6.18.44-fc-v37 x86_64, 4 vCPU, Intel(R) Xeon(R) Processor @ 2.10GHz
+#   date       2026-09-26T16:53:47Z
+#   machine    Linux 6.18.44-fc-v37 x86_64, 4 vCPU, Intel(R) Xeon(R) Processor @ 2.80GHz
 #   compiler   g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0; rustc 1.94.1 (e408947bf 2026-03-25)
-#   commit     8f5b575c0
+#   commit     a03b06ab2
 #   variant    plan relowered with unknown="drop" (plan.py THE NO-UNKNOWN VARIANT); core
 #              ak-core --no-default-features --features init-guard(+count|corpus|rpc),
 #              own target dirs core-build/target-*-nounk; no timing in this log
@@ -80,11 +80,11 @@ corpus_nounk_a17 vs corpus_nounk_c11: 2808 (row, arm) outcomes compared, 0 diffe
 >>> ok: the dropped-form check fails on a retaining arm (seen failing)
 
 ===== 5. crossing counts =====
->>> ok: 87 rows identical to counts-nounk-baseline.log
+>>> ok: 271 rows identical to counts-nounk-baseline.log
   against the full build in drop mode (counts-baseline.log):
     10c10
-    <   P1.2   decode                 forward      1  reverse      8  transcode        0   per element  0.001 /  0.008
+    <   P1.2   decode                 forward      1  reverse      8  transcode        0   per element  0.001 /  0.008   (core 1 + host 0 + take 0)
     ---
-    >   P1.2   decode                 forward      1  reverse      5  transcode        0   per element  0.001 /  0.005
+    >   P1.2   decode                 forward      1  reverse      5  transcode        0   per element  0.001 /  0.005   (core 1 + host 0 + take 0)
 
 nounk_gate: 0 failure(s)

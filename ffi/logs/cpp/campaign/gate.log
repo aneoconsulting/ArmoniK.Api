@@ -6,7 +6,7 @@ Error processing line 1 of /usr/lib/python3/dist-packages/distutils-precedence.p
   ModuleNotFoundError: No module named '_distutils_hack'
 
 Remainder of file ignored
-# {"build": {"core_features": "init-guard", "core_profile": "cargo --release", "cxx_flags": "-O2 -g -DNDEBUG -std=c++17", "dir": "/tmp/claude-0/sp/wt18/ffi/poc/cpp/build", "linkage": "shared (libak_core.so)", "lto": "off", "std": "c++17 (target)"}, "commit": "8f5b575c0c16d661c7045c6a8de26186f498a4f0", "dirty": false, "dirty_files": [], "instrumentation": true, "launch": 0, "machine": {"boost": null, "cpu_client": "0,1", "cpu_model": "Intel(R) Xeon(R) Processor @ 2.10GHz", "cpu_server": "2,3", "cpus_online": "0-3", "governor": "unavailable", "isolated": "", "isolation_cmdline": [], "kernel": "Linux 6.18.44-fc-v37 x86_64", "no_turbo": null, "nproc": "4", "runner_cpuset": "0-3", "smt_active": "0"}, "repeats": {"launches": 1, "rounds": 1}, "sample": {"calib_iters": 1000000, "codec_bytes": 262144, "codec_clock": "Google Benchmark v1.8.3 (344117638c8f, Release, built by the runner): cpu_time (benchmark thread) and real_time, repetitions randomly interleaved", "rpc_calls": 16, "rpc_clock": "getrusage(RUSAGE_SELF) of the client process + CLOCK_MONOTONIC"}, "slice": "cpp", "smoke": true, "suite": "gate", "transport": {"pinned": "grpc++: 4 MiB stream window, BDP off (no connection-window argument exists, C31); core: 4 MiB stream and connection windows, adaptive off, Nagle off; both: 2 MiB max message", "shipped": "grpc++: keepalive 30 s, max idle 5 min, local subchannel pool (packages/cpp getChannelArguments; its retry service config not applied); core: ak_client_new defaults"}, "variants": {"full": "ak-core default features (unknown-fields: decision 11), binaries campaign_codec / campaign_rpc: core-ffi drop and retain, C/D-retain and -drop", "no-unknown": "ak-core --no-default-features (unknown fields compiled out; plan relowered with unknown=drop), nounk/include/ak_abi.h, binaries campaign_codec_nounk (codec-nounk-launch*.jsonl) / campaign_rpc_nounk: core-ffi and host-gen no-unknown (the facade without unknown_fields, R-H22), C/D-nounk; A, B and the incumbents run there too"}, "versions": {"cxx": "g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0", "grpcpp": "1.51.1", "incumbent_prefix": "system", "protobuf_pkgconfig": "3.21.12", "protoc": "libprotoc 3.21.12", "rustc": "rustc 1.94.1 (e408947bf 2026-03-25)"}, "warmup": {"allocator": "every arm runs its warm-up before round 1", "codec_bytes_per_arm": 65536, "rpc_calls_per_cell": 4}}
+# {"build": {"core_features": "init-guard", "core_profile": "cargo --release", "cxx_flags": "-O2 -g -DNDEBUG -std=c++17", "dir": "/tmp/claude-0/sp/wt19/ffi/poc/cpp/build", "linkage": "shared (libak_core.so)", "lto": "off", "std": "c++17 (target)"}, "commit": "a03b06ab211d4c91d0db63f0c0896284d17c04b0", "dirty": false, "dirty_files": [], "instrumentation": true, "launch": 0, "machine": {"boost": null, "cpu_client": "0,1", "cpu_model": "Intel(R) Xeon(R) Processor @ 2.80GHz", "cpu_server": "2,3", "cpus_online": "0-3", "governor": "unavailable", "isolated": "", "isolation_cmdline": [], "kernel": "Linux 6.18.44-fc-v37 x86_64", "no_turbo": null, "nproc": "4", "runner_cpuset": "0-3", "smt_active": "0"}, "repeats": {"launches": 1, "rounds": 1}, "sample": {"calib_iters": 1000000, "codec_bytes": 262144, "codec_clock": "Google Benchmark v1.8.3 (344117638c8f, Release, built by the runner): cpu_time = process CPU per repetition (MeasureProcessCPUTime) and real_time, repetitions randomly interleaved", "codec_pool_bytes": 28835840, "llc_bytes": 14417920, "rpc_calls": 16, "rpc_clock": "getrusage(RUSAGE_SELF) of the client process + CLOCK_MONOTONIC"}, "slice": "cpp", "smoke": true, "suite": "gate", "threads": {"codec": "one benchmark thread; the core starts none for codec calls (each codec log's own line has the process thread count)", "rpc_client": "caller threads = the in-flight level (1, 8, 16), created before round 1; the core's runtime workers = 2 (campaign_rpc --workers default); grpc-core sizes its own pollers and executor, counted in each client's process_threads_after_warmup line", "rpc_server": "grpc++ callback server, grpc-core's own threads; the server's thread count at start and at exit is in the rpc log"}, "transport": {"pinned": "grpc++: 4 MiB stream window, BDP off (no connection-window argument exists, C31); core: 4 MiB stream and connection windows, adaptive off, Nagle off; both: 2 MiB max message", "shipped": "grpc++: keepalive 30 s, max idle 5 min, local subchannel pool (packages/cpp getChannelArguments; its retry service config not applied); core: ak_client_new defaults"}, "variants": {"full": "ak-core default features (unknown-fields: decision 11), binaries campaign_codec / campaign_rpc: core-ffi drop and retain, C/D-retain and -drop", "no-unknown": "ak-core --no-default-features (unknown fields compiled out; plan relowered with unknown=drop), nounk/include/ak_abi.h, binaries campaign_codec_nounk (codec-nounk-launch*.jsonl) / campaign_rpc_nounk: core-ffi and host-gen no-unknown (the facade without unknown_fields, R-H22), C/D-nounk; A, B and the incumbents run there too"}, "versions": {"cxx": "g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0", "grpcpp": "1.51.1", "incumbent_prefix": "system", "protobuf_pkgconfig": "3.21.12", "protoc": "libprotoc 3.21.12", "rustc": "rustc 1.94.1 (e408947bf 2026-03-25)"}, "warmup": {"allocator": "every arm runs its warm-up before round 1", "codec_bytes_per_arm": 65536, "rpc_calls_per_cell": 4, "rpc_server_calls_per_direction_per_client_transport_per_socket": 200}}
 ===== build: generate, configure, build every target (D39) =====
 guard 5 shared C++ backend modules import plans only; slice glue imports no IR; a planted IR import is caught
 >>> ok: build
@@ -41,7 +41,7 @@ guard 5 shared C++ backend modules import plans only; slice glue imports no IR; 
   control accept: failed as required
   control noinit (corpus): failed as required
 ===== crossing counts (requirement 19): the counting core against the committed counts =====
-  87 count rows identical to logs/cpp/counts-baseline.log
+  485 count rows identical to logs/cpp/counts-baseline.log
 ===== WP5 step 10: the no-unknown build (gen/nounk_gate.sh -> logs/cpp/wp5s10-nounk.log) =====
     conformance_nounk_a17 -> core-build/target-nounk/release/libak_core.so : u-family exports 0
     conformance_nounk_c11 -> core-build/target-nounk/release/libak_core.so : u-family exports 0
@@ -67,28 +67,23 @@ guard 5 shared C++ backend modules import plans only; slice glue imports no IR; 
   >>> ok: control accept failed as required
   >>> ok: control noinit failed as required
   >>> ok: the dropped-form check fails on a retaining arm (seen failing)
-  >>> ok: 87 rows identical to counts-nounk-baseline.log
+  >>> ok: 271 rows identical to counts-nounk-baseline.log
   nounk_gate: 0 failure(s)
 ===== the codec campaign binary's own gate, and its planted control =====
-Error processing line 1 of /usr/lib/python3/dist-packages/distutils-precedence.pth:
-
-  Traceback (most recent call last):
-    File "<frozen site>", line 201, in addpackage
-    File "<string>", line 1, in <module>
-  ModuleNotFoundError: No module named '_distutils_hack'
-
-Remainder of file ignored
-  # {"campaign_codec_gate": {"groups": 118, "slots": 1566, "failed": 0, "ffi_retain": "built"}}
-  # {"campaign_codec": {"launch": 0, "rounds": 0, "bytes_per_sample": 1, "warmup_bytes_per_slot": 1, "affinity": "0,1,2,3", "timer": "Google Benchmark 1.8.3: cpu_time (benchmark thread) and real_time"}}
-  control campaign_codec plant: 166 slots failed as required
-  # {"campaign_codec_gate": {"groups": 118, "slots": 1044, "failed": 0, "ffi_retain": "compiled out (no-unknown build)"}}
-  # {"campaign_codec": {"launch": 0, "rounds": 0, "bytes_per_sample": 1, "warmup_bytes_per_slot": 1, "affinity": "0,1,2,3", "timer": "Google Benchmark 1.8.3: cpu_time (benchmark thread) and real_time"}}
-  control campaign_codec_nounk plant: 166 slots failed as required
+  # {"campaign_codec_gate": {"groups": 120, "slots": 3820, "failed": 0, "ffi_retain": "built"}}
+  # {"campaign_codec": {"launch": 0, "rounds": 0, "bytes_per_sample": 1, "warmup_bytes_per_slot": 1, "affinity": "0,1,2,3", "timer": "Google Benchmark 1.8.3: cpu_time = PROCESS CPU (MeasureProcessCPUTime, CLOCK_PROCESS_CPUTIME_ID) per repetition, real_time = wall", "pool_bytes": 28835840, "threads": {"process_threads_at_start": 4, "measuring_threads": 1, "note": "the codec suite runs every arm on the one benchmark thread; the core starts no thread for codec calls"}}}
+  control campaign_codec plant: 621 slots failed as required
+  # {"campaign_codec_gate": {"groups": 120, "slots": 2388, "failed": 0, "ffi_retain": "compiled out (no-unknown build)"}}
+  # {"campaign_codec": {"launch": 0, "rounds": 0, "bytes_per_sample": 1, "warmup_bytes_per_slot": 1, "affinity": "0,1,2,3", "timer": "Google Benchmark 1.8.3: cpu_time = PROCESS CPU (MeasureProcessCPUTime, CLOCK_PROCESS_CPUTIME_ID) per repetition, real_time = wall", "pool_bytes": 28835840, "threads": {"process_threads_at_start": 4, "measuring_threads": 1, "note": "the codec suite runs every arm on the one benchmark thread; the core starts no thread for codec calls"}}}
+  control campaign_codec_nounk plant: 621 slots failed as required
 ===== the RPC call check (requirement 18) seen failing, and leaving NO sample (R-H4) =====
+  server warm-up: 2 socket(s), 200 calls per direction per client transport
   control rpc length (campaign_rpc): aborted as required (exit 3, 0 samples: CALL CHECK FAILED: pre-check fetch (540422) -- the run is aborted, no figure)
   control rpc abort after 2 samples (campaign_rpc): exit 3, 0 samples written, as required
   control rpc length (campaign_rpc_nounk): aborted as required (exit 3, 0 samples: CALL CHECK FAILED: pre-check fetch (540422) -- the run is aborted, no figure)
   control rpc abort after 2 samples (campaign_rpc_nounk): exit 3, 0 samples written, as required
+  14 RPC count rows identical to logs/cpp/rpc-counts.log
+  8 RPC count rows identical to logs/cpp/rpc-counts-nounk.log
   control runner rpc discard: exit 1, no file, as required
 ===== campaign_calib failure propagated (R-H5) =====
   control calib failure: exit 2, no sample, as required
