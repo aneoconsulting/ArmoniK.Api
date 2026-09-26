@@ -137,6 +137,28 @@ pub struct Case {
     /// decoded graph's drop is OUTSIDE the timed region. `op` (with the drop) is only its
     /// fixed warm-up. The headline `decode` row keeps the drop inside.
     pub bench: Option<Box<dyn for<'a, 'b> FnMut(&'a mut criterion::Bencher<'b, ThreadCpu>)>>,
+    /// The same extra row for the interleaved sampler (AK_ORDER=interleave): run `n`
+    /// operations, return the thread CPU ns of the operations only (see `time_nodrop`).
+    pub timed: Option<Box<dyn FnMut(u64) -> u64>>,
+}
+
+/// `n` operations of `f`, each timed on its own and its output dropped AFTER its clock
+/// stops, before the next one starts (thread CPU ns, summed). Keeping all `n` outputs alive
+/// and dropping them at the end (criterion's `iter_with_large_drop`) was tried first and
+/// measured the decode SLOWER than with the drop inside (P1.2: 484 vs 402 us incumbent),
+/// because every decode then allocates cold memory instead of reusing what the previous
+/// drop freed: it moves the allocator's work rather than removing the drop. Per-operation
+/// timing costs two clock reads per operation, so these rows are only for payloads whose
+/// decode is well above the clock's cost (AK_NODROP lists them).
+pub fn time_nodrop<O>(n: u64, mut f: impl FnMut() -> O) -> u64 {
+    let mut t = 0u64;
+    for _ in 0..n {
+        let t0 = thread_cpu_ns();
+        let v = f();
+        t += thread_cpu_ns() - t0;
+        drop(std::hint::black_box(v));
+    }
+    t
 }
 
 /// One input of the codec suite: a payload (with a content set) or a corpus `U-*` row.
@@ -260,7 +282,7 @@ pub fn cases_for<R: Ops>(ctx: &'static Ctx, inp: &Input, nodrop: bool) -> Vec<Ca
     let wire_b = Bytes::from_static(wire);
     let (content, pid) = (inp.content, inp.id.clone());
     let mut push = |arm: &'static str, dir: &'static str, mode: &'static str, op: Box<dyn FnMut() -> u64>| {
-        out.push(Case { arm, dir, payload: pid.clone(), content, unknown_mode: mode, op, bench: None });
+        out.push(Case { arm, dir, payload: pid.clone(), content, unknown_mode: mode, op, bench: None, timed: None });
     };
     // The objects each encode arm writes: for a payload, the builder's value (the prost arm
     // gets prost's decode of its canonical bytes); for a U-* row, each arm's own decode.
@@ -344,28 +366,34 @@ pub fn cases_for<R: Ops>(ctx: &'static Ctx, inp: &Input, nodrop: bool) -> Vec<Ca
     if nodrop {
         // The labelled extra `decode-nodrop` rows (see `Case::bench`).
         type B = Box<dyn for<'a, 'b> FnMut(&'a mut criterion::Bencher<'b, ThreadCpu>)>;
-        let mut extra = |arm: &'static str, mode: &'static str, op: Box<dyn FnMut() -> u64>, bench: B| {
-            out.push(Case { arm, dir: "decode-nodrop", payload: pid.clone(), content, unknown_mode: mode, op, bench: Some(bench) });
+        type T = Box<dyn FnMut(u64) -> u64>;
+        let mut extra = |arm: &'static str, mode: &'static str, op: Box<dyn FnMut() -> u64>, bench: B, timed: T| {
+            out.push(Case { arm, dir: "decode-nodrop", payload: pid.clone(), content, unknown_mode: mode, op,
+                            bench: Some(bench), timed: Some(timed) });
         };
         if p_run {
-            let (b1, b2) = (wire_b.clone(), wire_b.clone());
+            let (b1, b2, b3) = (wire_b.clone(), wire_b.clone(), wire_b.clone());
             extra("incumbent-prod", "default",
                 Box::new(move || { std::hint::black_box(R::P::decode(&mut b1.clone()).unwrap()); 0 }),
-                Box::new(move |b| b.iter_with_large_drop(|| R::P::decode(&mut b2.clone()).unwrap())));
+                Box::new(move |b| b.iter_with_large_drop(|| R::P::decode(&mut b2.clone()).unwrap())),
+                Box::new(move |n| time_nodrop(n, || R::P::decode(&mut b3.clone()).unwrap())));
         }
         if a_run {
-            let (b1, b2) = (wire_b.clone(), wire_b.clone());
+            let (b1, b2, b3) = (wire_b.clone(), wire_b.clone(), wire_b.clone());
             extra("armonik", "default",
                 Box::new(move || { std::hint::black_box(R::F::decode(&mut b1.clone()).unwrap()); 0 }),
-                Box::new(move |b| b.iter_with_large_drop(|| R::F::decode(&mut b2.clone()).unwrap())));
+                Box::new(move |b| b.iter_with_large_drop(|| R::F::decode(&mut b2.clone()).unwrap())),
+                Box::new(move |n| time_nodrop(n, || R::F::decode(&mut b3.clone()).unwrap())));
         }
         for &(mname, retain) in modes {
             extra("core-native", mname,
                 Box::new(move || { std::hint::black_box(R::n_decode(wire, retain).unwrap()); 0 }),
-                Box::new(move |b| b.iter_with_large_drop(|| R::n_decode(wire, retain).unwrap())));
+                Box::new(move |b| b.iter_with_large_drop(|| R::n_decode(wire, retain).unwrap())),
+                Box::new(move |n| time_nodrop(n, || R::n_decode(wire, retain).unwrap())));
             extra("core-ffi", mname,
                 Box::new(move || { std::hint::black_box(R::f_decode(ctx, wire, retain).unwrap()); 0 }),
-                Box::new(move |b| b.iter_with_large_drop(|| R::f_decode(ctx, wire, retain).unwrap())));
+                Box::new(move |b| b.iter_with_large_drop(|| R::f_decode(ctx, wire, retain).unwrap())),
+                Box::new(move |n| time_nodrop(n, || R::f_decode(ctx, wire, retain).unwrap())));
         }
     }
     out
