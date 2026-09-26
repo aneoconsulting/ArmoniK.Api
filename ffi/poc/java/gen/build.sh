@@ -44,7 +44,11 @@ else
   SNAP=$HERE/build/snap
   rm -rf "$SNAP" && mkdir -p "$SNAP"
   TOP=$(git rev-parse --show-toplevel)
-  ( cd "$TOP" && git archive "$REV" ffi/poc/codec ffi/schema ffi/corpus ) | tar -x -C "$SNAP"
+  # Every slice's gen/*.py too: poc/codec/gen/generate.py --check guards every
+  # poc/<slice>/gen/ module (R-H13), and a snapshot without them fails that guard.
+  ( cd "$TOP" && git archive "$REV" ffi/poc/codec ffi/schema ffi/corpus \
+      $(git ls-tree -r --name-only "$REV" ffi/poc | grep -E '^ffi/poc/[^/]+/gen/[^/]+\.py$' | grep -v '^ffi/poc/codec/') ) \
+    | tar -x -C "$SNAP"
   CODEC=$SNAP/ffi/poc/codec
   export AK_CODECGEN=${AK_CODECGEN:-$CODEC/gen}   # a preset one (development) wins
   KEY=tree-$(cd "$TOP" && git rev-parse "$REV:ffi/poc/codec" | cut -c1-16)
