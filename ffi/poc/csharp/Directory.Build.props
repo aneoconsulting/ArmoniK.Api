@@ -26,7 +26,7 @@
        codec (FIX-PLAN WP5 step 4, R-E7). obj-strict/bin-strict stay excluded so an
        old tree cannot be globbed. -->
   <PropertyGroup>
-    <DefaultItemExcludes>$(DefaultItemExcludes);obj/**;bin/**;obj-floor/**;bin-floor/**;obj-strict/**;bin-strict/**;obj-nounk/**;bin-nounk/**</DefaultItemExcludes>
+    <DefaultItemExcludes>$(DefaultItemExcludes);obj/**;bin/**;obj-floor/**;bin-floor/**;obj-strict/**;bin-strict/**;obj-nounk/**;bin-nounk/**;obj-count/**;bin-count/**;obj-count-nounk/**;bin-count-nounk/**</DefaultItemExcludes>
   </PropertyGroup>
 
   <!-- FIX-PLAN WP5 step 10: the NO-UNKNOWN build, `dotnet build /p:AkNounk=true`. Unknown
@@ -39,6 +39,18 @@
     <BaseOutputPath>$(MSBuildProjectDirectory)/bin-nounk/</BaseOutputPath>
     <BaseIntermediateOutputPath>$(MSBuildProjectDirectory)/obj-nounk/</BaseIntermediateOutputPath>
     <DefaultItemExcludes>$(DefaultItemExcludes);Generated/Abi.cs;Generated/CoreFfi.cs;Generated/CoreArms.cs;Generated/Codec.cs;Generated/Dispatch.cs;Generated/Types.cs;Generated/Eq.cs;Generated/CodecRetain.cs</DefaultItemExcludes>
+  </PropertyGroup>
+  <!-- CAMPAIGN req 19 (R-H31): the COUNTING build, `/p:AkHostCount=true` (with or without
+       AkNounk). AK_HOST_COUNT makes every generated import a wrapper that counts its calls by
+       name (poc/codec/gen/cs_binding.py), so the counts cover every exported entry point the
+       timed code calls, resets included. Never timed; its own output directories. -->
+  <PropertyGroup Condition="'$(AkHostCount)' == 'true' And '$(AkNounk)' == 'true'">
+    <BaseOutputPath>$(MSBuildProjectDirectory)/bin-count-nounk/</BaseOutputPath>
+    <BaseIntermediateOutputPath>$(MSBuildProjectDirectory)/obj-count-nounk/</BaseIntermediateOutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(AkHostCount)' == 'true' And '$(AkNounk)' != 'true'">
+    <BaseOutputPath>$(MSBuildProjectDirectory)/bin-count/</BaseOutputPath>
+    <BaseIntermediateOutputPath>$(MSBuildProjectDirectory)/obj-count/</BaseIntermediateOutputPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(AkNounk)' != 'true'">
     <DefaultItemExcludes>$(DefaultItemExcludes);GeneratedNounk/**</DefaultItemExcludes>

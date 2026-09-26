@@ -76,6 +76,22 @@ public sealed class CoreChannel : IDisposable
     private readonly ConcurrentDictionary<ulong, CallState> _pending = new();
     private long _tag;
 
+    private readonly bool _ownsRt = true;
+
+    /// CAMPAIGN req 13 (R-H33): a client on a runtime the caller owns, so every cell of a
+    /// process gets ITS OWN channel (its own connection) while all of them share one runtime
+    /// whose worker count the log header states. The caller destroys the runtime after the
+    /// last channel.
+    public unsafe CoreChannel(IntPtr runtime, string uri, ak_client_opts opts)
+    {
+        RpcInit.Ensure();
+        _rt = runtime;
+        _ownsRt = false;
+        var u = Encoding.UTF8.GetBytes(uri);
+        fixed (byte* p = u) _cl = AkRpc.ak_client_new_opts(_rt, p, (nuint)u.Length, &opts);
+        if (_cl == IntPtr.Zero) throw new InvalidOperationException("ak_client_new failed for " + uri + " (set AK_RPC_TRACE=1 for the core's reason)");
+    }
+
     public unsafe CoreChannel(string uri, int workerThreads, ak_client_opts? opts = null)
     {
         // ABI v1 section 3: ak_init before any other entry point. The generated
@@ -236,6 +252,6 @@ public sealed class CoreChannel : IDisposable
             _q = IntPtr.Zero;
         }
         AkRpc.ak_client_destroy(_cl);
-        AkRpc.ak_runtime_destroy(_rt);
+        if (_ownsRt) AkRpc.ak_runtime_destroy(_rt);
     }
 }

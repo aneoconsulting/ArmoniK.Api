@@ -86,7 +86,12 @@ public static unsafe partial class AkRpc
     public const int AK_OK = 0;
     public const int AK_ALREADY_INITIALIZED = 1;
 
-#if NET7_0_OR_GREATER
+#if AK_HOST_COUNT
+    [DllImport(Lib, EntryPoint = "ak_init", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    private static extern int ak_init__raw(ak_init_opts* opts, ak_err* err);
+    internal static long N_ak_init;
+    internal static int ak_init(ak_init_opts* opts, ak_err* err) { System.Threading.Interlocked.Increment(ref N_ak_init); return ak_init__raw(opts, err); }
+#elif NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial int ak_init(ak_init_opts* opts, ak_err* err);
@@ -94,7 +99,12 @@ public static unsafe partial class AkRpc
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern int ak_init(ak_init_opts* opts, ak_err* err);
 #endif
-#if NET7_0_OR_GREATER
+#if AK_HOST_COUNT
+    [DllImport(Lib, EntryPoint = "ak_runtime_new", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    private static extern IntPtr ak_runtime_new__raw(uint worker_threads);
+    internal static long N_ak_runtime_new;
+    internal static IntPtr ak_runtime_new(uint worker_threads) { System.Threading.Interlocked.Increment(ref N_ak_runtime_new); return ak_runtime_new__raw(worker_threads); }
+#elif NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial IntPtr ak_runtime_new(uint worker_threads);
@@ -102,7 +112,12 @@ public static unsafe partial class AkRpc
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern IntPtr ak_runtime_new(uint worker_threads);
 #endif
-#if NET7_0_OR_GREATER
+#if AK_HOST_COUNT
+    [DllImport(Lib, EntryPoint = "ak_runtime_destroy", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    private static extern void ak_runtime_destroy__raw(IntPtr r);
+    internal static long N_ak_runtime_destroy;
+    internal static void ak_runtime_destroy(IntPtr r) { System.Threading.Interlocked.Increment(ref N_ak_runtime_destroy); ak_runtime_destroy__raw(r); }
+#elif NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial void ak_runtime_destroy(IntPtr r);
@@ -110,7 +125,12 @@ public static unsafe partial class AkRpc
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern void ak_runtime_destroy(IntPtr r);
 #endif
-#if NET7_0_OR_GREATER
+#if AK_HOST_COUNT
+    [DllImport(Lib, EntryPoint = "ak_client_new", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    private static extern IntPtr ak_client_new__raw(IntPtr r, byte* uri, nuint uri_len);
+    internal static long N_ak_client_new;
+    internal static IntPtr ak_client_new(IntPtr r, byte* uri, nuint uri_len) { System.Threading.Interlocked.Increment(ref N_ak_client_new); return ak_client_new__raw(r, uri, uri_len); }
+#elif NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial IntPtr ak_client_new(IntPtr r, byte* uri, nuint uri_len);
@@ -119,7 +139,12 @@ public static unsafe partial class AkRpc
     internal static extern IntPtr ak_client_new(IntPtr r, byte* uri, nuint uri_len);
 #endif
     /// A client with the transport pinned. NULL options = `ak_client_new`.
-#if NET7_0_OR_GREATER
+#if AK_HOST_COUNT
+    [DllImport(Lib, EntryPoint = "ak_client_new_opts", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    private static extern IntPtr ak_client_new_opts__raw(IntPtr r, byte* uri, nuint uri_len, ak_client_opts* opts);
+    internal static long N_ak_client_new_opts;
+    internal static IntPtr ak_client_new_opts(IntPtr r, byte* uri, nuint uri_len, ak_client_opts* opts) { System.Threading.Interlocked.Increment(ref N_ak_client_new_opts); return ak_client_new_opts__raw(r, uri, uri_len, opts); }
+#elif NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial IntPtr ak_client_new_opts(IntPtr r, byte* uri, nuint uri_len, ak_client_opts* opts);
@@ -127,7 +152,12 @@ public static unsafe partial class AkRpc
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern IntPtr ak_client_new_opts(IntPtr r, byte* uri, nuint uri_len, ak_client_opts* opts);
 #endif
-#if NET7_0_OR_GREATER
+#if AK_HOST_COUNT
+    [DllImport(Lib, EntryPoint = "ak_client_destroy", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    private static extern void ak_client_destroy__raw(IntPtr c);
+    internal static long N_ak_client_destroy;
+    internal static void ak_client_destroy(IntPtr c) { System.Threading.Interlocked.Increment(ref N_ak_client_destroy); ak_client_destroy__raw(c); }
+#elif NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial void ak_client_destroy(IntPtr c);
@@ -136,7 +166,12 @@ public static unsafe partial class AkRpc
     internal static extern void ak_client_destroy(IntPtr c);
 #endif
     /// Blocking delivery: one crossing in, `ak_bytes_free` the only other.
-#if NET7_0_OR_GREATER
+#if AK_HOST_COUNT
+    [DllImport(Lib, EntryPoint = "ak_call_unary", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    private static extern int ak_call_unary__raw(IntPtr c, byte* path, nuint path_len, byte* req, nuint req_len, ak_bytes* @out);
+    internal static long N_ak_call_unary;
+    internal static int ak_call_unary(IntPtr c, byte* path, nuint path_len, byte* req, nuint req_len, ak_bytes* @out) { System.Threading.Interlocked.Increment(ref N_ak_call_unary); return ak_call_unary__raw(c, path, path_len, req, req_len, @out); }
+#elif NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial int ak_call_unary(IntPtr c, byte* path, nuint path_len, byte* req, nuint req_len, ak_bytes* @out);
@@ -144,7 +179,12 @@ public static unsafe partial class AkRpc
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern int ak_call_unary(IntPtr c, byte* path, nuint path_len, byte* req, nuint req_len, ak_bytes* @out);
 #endif
-#if NET7_0_OR_GREATER
+#if AK_HOST_COUNT
+    [DllImport(Lib, EntryPoint = "ak_bytes_free", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    private static extern void ak_bytes_free__raw(ak_bytes* b);
+    internal static long N_ak_bytes_free;
+    internal static void ak_bytes_free(ak_bytes* b) { System.Threading.Interlocked.Increment(ref N_ak_bytes_free); ak_bytes_free__raw(b); }
+#elif NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial void ak_bytes_free(ak_bytes* b);
@@ -153,7 +193,12 @@ public static unsafe partial class AkRpc
     internal static extern void ak_bytes_free(ak_bytes* b);
 #endif
     /// Callback delivery: 2 forward crossings and 1 reverse.
-#if NET7_0_OR_GREATER
+#if AK_HOST_COUNT
+    [DllImport(Lib, EntryPoint = "ak_call_unary_cb", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    private static extern IntPtr ak_call_unary_cb__raw(IntPtr c, byte* path, nuint path_len, byte* req, nuint req_len, delegate* unmanaged[Cdecl]<IntPtr, ak_completion*, void> cb, IntPtr user_data, ulong tag);
+    internal static long N_ak_call_unary_cb;
+    internal static IntPtr ak_call_unary_cb(IntPtr c, byte* path, nuint path_len, byte* req, nuint req_len, delegate* unmanaged[Cdecl]<IntPtr, ak_completion*, void> cb, IntPtr user_data, ulong tag) { System.Threading.Interlocked.Increment(ref N_ak_call_unary_cb); return ak_call_unary_cb__raw(c, path, path_len, req, req_len, cb, user_data, tag); }
+#elif NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial IntPtr ak_call_unary_cb(IntPtr c, byte* path, nuint path_len, byte* req, nuint req_len, delegate* unmanaged[Cdecl]<IntPtr, ak_completion*, void> cb, IntPtr user_data, ulong tag);
@@ -162,7 +207,12 @@ public static unsafe partial class AkRpc
     internal static extern IntPtr ak_call_unary_cb(IntPtr c, byte* path, nuint path_len, byte* req, nuint req_len, delegate* unmanaged[Cdecl]<IntPtr, ak_completion*, void> cb, IntPtr user_data, ulong tag);
 #endif
     /// Completion-queue delivery: no upcall. 3 forward crossings and 0 reverse.
-#if NET7_0_OR_GREATER
+#if AK_HOST_COUNT
+    [DllImport(Lib, EntryPoint = "ak_call_unary_q", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    private static extern IntPtr ak_call_unary_q__raw(IntPtr c, byte* path, nuint path_len, byte* req, nuint req_len, IntPtr q, ulong tag);
+    internal static long N_ak_call_unary_q;
+    internal static IntPtr ak_call_unary_q(IntPtr c, byte* path, nuint path_len, byte* req, nuint req_len, IntPtr q, ulong tag) { System.Threading.Interlocked.Increment(ref N_ak_call_unary_q); return ak_call_unary_q__raw(c, path, path_len, req, req_len, q, tag); }
+#elif NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial IntPtr ak_call_unary_q(IntPtr c, byte* path, nuint path_len, byte* req, nuint req_len, IntPtr q, ulong tag);
@@ -170,7 +220,12 @@ public static unsafe partial class AkRpc
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern IntPtr ak_call_unary_q(IntPtr c, byte* path, nuint path_len, byte* req, nuint req_len, IntPtr q, ulong tag);
 #endif
-#if NET7_0_OR_GREATER
+#if AK_HOST_COUNT
+    [DllImport(Lib, EntryPoint = "ak_queue_new", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    private static extern IntPtr ak_queue_new__raw();
+    internal static long N_ak_queue_new;
+    internal static IntPtr ak_queue_new() { System.Threading.Interlocked.Increment(ref N_ak_queue_new); return ak_queue_new__raw(); }
+#elif NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial IntPtr ak_queue_new();
@@ -179,7 +234,12 @@ public static unsafe partial class AkRpc
     internal static extern IntPtr ak_queue_new();
 #endif
     /// Wait up to `timeout_ms` for one completion. R-G5: `u64`, as the core defines it.
-#if NET7_0_OR_GREATER
+#if AK_HOST_COUNT
+    [DllImport(Lib, EntryPoint = "ak_queue_next", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    private static extern int ak_queue_next__raw(IntPtr q, ak_completion* @out, ulong timeout_ms);
+    internal static long N_ak_queue_next;
+    internal static int ak_queue_next(IntPtr q, ak_completion* @out, ulong timeout_ms) { System.Threading.Interlocked.Increment(ref N_ak_queue_next); return ak_queue_next__raw(q, @out, timeout_ms); }
+#elif NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial int ak_queue_next(IntPtr q, ak_completion* @out, ulong timeout_ms);
@@ -187,7 +247,12 @@ public static unsafe partial class AkRpc
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern int ak_queue_next(IntPtr q, ak_completion* @out, ulong timeout_ms);
 #endif
-#if NET7_0_OR_GREATER
+#if AK_HOST_COUNT
+    [DllImport(Lib, EntryPoint = "ak_queue_shutdown", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    private static extern void ak_queue_shutdown__raw(IntPtr q);
+    internal static long N_ak_queue_shutdown;
+    internal static void ak_queue_shutdown(IntPtr q) { System.Threading.Interlocked.Increment(ref N_ak_queue_shutdown); ak_queue_shutdown__raw(q); }
+#elif NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial void ak_queue_shutdown(IntPtr q);
@@ -195,7 +260,12 @@ public static unsafe partial class AkRpc
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern void ak_queue_shutdown(IntPtr q);
 #endif
-#if NET7_0_OR_GREATER
+#if AK_HOST_COUNT
+    [DllImport(Lib, EntryPoint = "ak_queue_destroy", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    private static extern void ak_queue_destroy__raw(IntPtr q);
+    internal static long N_ak_queue_destroy;
+    internal static void ak_queue_destroy(IntPtr q) { System.Threading.Interlocked.Increment(ref N_ak_queue_destroy); ak_queue_destroy__raw(q); }
+#elif NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial void ak_queue_destroy(IntPtr q);
@@ -203,7 +273,12 @@ public static unsafe partial class AkRpc
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern void ak_queue_destroy(IntPtr q);
 #endif
-#if NET7_0_OR_GREATER
+#if AK_HOST_COUNT
+    [DllImport(Lib, EntryPoint = "ak_call_cancel", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    private static extern void ak_call_cancel__raw(IntPtr h);
+    internal static long N_ak_call_cancel;
+    internal static void ak_call_cancel(IntPtr h) { System.Threading.Interlocked.Increment(ref N_ak_call_cancel); ak_call_cancel__raw(h); }
+#elif NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial void ak_call_cancel(IntPtr h);
@@ -211,7 +286,12 @@ public static unsafe partial class AkRpc
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern void ak_call_cancel(IntPtr h);
 #endif
-#if NET7_0_OR_GREATER
+#if AK_HOST_COUNT
+    [DllImport(Lib, EntryPoint = "ak_call_destroy", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    private static extern void ak_call_destroy__raw(IntPtr h);
+    internal static long N_ak_call_destroy;
+    internal static void ak_call_destroy(IntPtr h) { System.Threading.Interlocked.Increment(ref N_ak_call_destroy); ak_call_destroy__raw(h); }
+#elif NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial void ak_call_destroy(IntPtr h);
@@ -220,7 +300,12 @@ public static unsafe partial class AkRpc
     internal static extern void ak_call_destroy(IntPtr h);
 #endif
     /// 1 if this core counts RPC crossings.
-#if NET7_0_OR_GREATER
+#if AK_HOST_COUNT
+    [DllImport(Lib, EntryPoint = "ak_rpc_counting", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    private static extern int ak_rpc_counting__raw();
+    internal static long N_ak_rpc_counting;
+    internal static int ak_rpc_counting() { System.Threading.Interlocked.Increment(ref N_ak_rpc_counting); return ak_rpc_counting__raw(); }
+#elif NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial int ak_rpc_counting();
@@ -228,7 +313,12 @@ public static unsafe partial class AkRpc
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern int ak_rpc_counting();
 #endif
-#if NET7_0_OR_GREATER
+#if AK_HOST_COUNT
+    [DllImport(Lib, EntryPoint = "ak_rpc_counters", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    private static extern void ak_rpc_counters__raw(ak_rpc_counters* @out);
+    internal static long N_ak_rpc_counters;
+    internal static void ak_rpc_counters(ak_rpc_counters* @out) { System.Threading.Interlocked.Increment(ref N_ak_rpc_counters); ak_rpc_counters__raw(@out); }
+#elif NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial void ak_rpc_counters(ak_rpc_counters* @out);
@@ -236,13 +326,67 @@ public static unsafe partial class AkRpc
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern void ak_rpc_counters(ak_rpc_counters* @out);
 #endif
-#if NET7_0_OR_GREATER
+#if AK_HOST_COUNT
+    [DllImport(Lib, EntryPoint = "ak_rpc_counters_reset", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    private static extern void ak_rpc_counters_reset__raw();
+    internal static long N_ak_rpc_counters_reset;
+    internal static void ak_rpc_counters_reset() { System.Threading.Interlocked.Increment(ref N_ak_rpc_counters_reset); ak_rpc_counters_reset__raw(); }
+#elif NET7_0_OR_GREATER
     [LibraryImport(Lib)]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     internal static partial void ak_rpc_counters_reset();
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern void ak_rpc_counters_reset();
+#endif
+#if AK_HOST_COUNT
+    /// CAMPAIGN req 19: every entry point called since the last EntryReset, by name.
+    public static System.Collections.Generic.List<(string Name, long Calls)> EntryCounts()
+    {
+        var l = new System.Collections.Generic.List<(string, long)>();
+        if (N_ak_init != 0) l.Add(("ak_init", N_ak_init));
+        if (N_ak_runtime_new != 0) l.Add(("ak_runtime_new", N_ak_runtime_new));
+        if (N_ak_runtime_destroy != 0) l.Add(("ak_runtime_destroy", N_ak_runtime_destroy));
+        if (N_ak_client_new != 0) l.Add(("ak_client_new", N_ak_client_new));
+        if (N_ak_client_new_opts != 0) l.Add(("ak_client_new_opts", N_ak_client_new_opts));
+        if (N_ak_client_destroy != 0) l.Add(("ak_client_destroy", N_ak_client_destroy));
+        if (N_ak_call_unary != 0) l.Add(("ak_call_unary", N_ak_call_unary));
+        if (N_ak_bytes_free != 0) l.Add(("ak_bytes_free", N_ak_bytes_free));
+        if (N_ak_call_unary_cb != 0) l.Add(("ak_call_unary_cb", N_ak_call_unary_cb));
+        if (N_ak_call_unary_q != 0) l.Add(("ak_call_unary_q", N_ak_call_unary_q));
+        if (N_ak_queue_new != 0) l.Add(("ak_queue_new", N_ak_queue_new));
+        if (N_ak_queue_next != 0) l.Add(("ak_queue_next", N_ak_queue_next));
+        if (N_ak_queue_shutdown != 0) l.Add(("ak_queue_shutdown", N_ak_queue_shutdown));
+        if (N_ak_queue_destroy != 0) l.Add(("ak_queue_destroy", N_ak_queue_destroy));
+        if (N_ak_call_cancel != 0) l.Add(("ak_call_cancel", N_ak_call_cancel));
+        if (N_ak_call_destroy != 0) l.Add(("ak_call_destroy", N_ak_call_destroy));
+        if (N_ak_rpc_counting != 0) l.Add(("ak_rpc_counting", N_ak_rpc_counting));
+        if (N_ak_rpc_counters != 0) l.Add(("ak_rpc_counters", N_ak_rpc_counters));
+        if (N_ak_rpc_counters_reset != 0) l.Add(("ak_rpc_counters_reset", N_ak_rpc_counters_reset));
+        return l;
+    }
+    public static void EntryReset()
+    {
+        N_ak_init = 0;
+        N_ak_runtime_new = 0;
+        N_ak_runtime_destroy = 0;
+        N_ak_client_new = 0;
+        N_ak_client_new_opts = 0;
+        N_ak_client_destroy = 0;
+        N_ak_call_unary = 0;
+        N_ak_bytes_free = 0;
+        N_ak_call_unary_cb = 0;
+        N_ak_call_unary_q = 0;
+        N_ak_queue_new = 0;
+        N_ak_queue_next = 0;
+        N_ak_queue_shutdown = 0;
+        N_ak_queue_destroy = 0;
+        N_ak_call_cancel = 0;
+        N_ak_call_destroy = 0;
+        N_ak_rpc_counting = 0;
+        N_ak_rpc_counters = 0;
+        N_ak_rpc_counters_reset = 0;
+    }
 #endif
 }
 

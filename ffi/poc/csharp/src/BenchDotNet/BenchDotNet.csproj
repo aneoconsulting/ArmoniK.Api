@@ -21,6 +21,9 @@
 
   <ItemGroup>
     <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
+    <!-- SerializationContext and Marshaller, for req 11's transport form (GrpcFrame.cs):
+         the version Grpc.Net.Client 2.71.0 uses (packages/csharp). -->
+    <PackageReference Include="Grpc.Core.Api" Version="2.71.0" />
   </ItemGroup>
 
   <ItemGroup>

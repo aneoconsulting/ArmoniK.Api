@@ -1,0 +1,35 @@
+# WP7 req 11: the calls made by Grpc.Net.Client 2.71.0's internal serialization context, by reflection on the assembly (IL call tokens per method). Tool: this scratch program (P.cs below).
+T Grpc.Net.Client.Internal.GrpcCallSerializationContext
+T Grpc.Net.Client.Internal.Http.PushStreamContent`2+<SerializeToStreamAsync>d__4
+Grpc.Net.Client.Internal.GrpcCallSerializationContext
+IsDirectSerializationSupported: Nullable`1.get_HasValue, Nullable`1.get_Value
+get_CallOptions: 
+set_CallOptions: 
+Initialize: GrpcCallSerializationContext.ResolveCompressionProvider
+Reset: ArrayPool`1.get_Shared, ArrayPool`1.Return
+GetWrittenPayload: MemoryExtensions.AsMemory, Memory`1.op_Implicit, ArrayBufferWriter`1.get_WrittenMemory, InvalidOperationException..ctor
+ResolveCompressionProvider: GrpcCallSerializationContext.get_CallOptions, CallOptions.get_WriteOptions, GrpcProtocolHelpers.CanWriteCompressed, GrpcCall.get_RequestGrpcEncoding, String.Equals, GrpcCall.get_Channel, GrpcChannel.get_CompressionProviders, Dictionary`2.TryGetValue, String.Concat, InvalidOperationException..ctor
+SetPayloadLength: Nullable`1..ctor, GrpcCallSerializationContext.ThrowInvalidState
+Complete: GrpcCall.get_Logger, GrpcCall.get_RequestType, GrpcCallLog.SerializedMessage, ReadOnlySpan`1.op_Implicit, GrpcCallSerializationContext.WriteMessage, GrpcCallSerializationContext.ThrowInvalidState
+WriteHeader: Span`1.get_Item, Span`1.Slice, BinaryPrimitives.WriteUInt32BigEndian
+GetBufferWriter: GrpcCallSerializationContext.ResolveBufferWriter, GrpcCallSerializationContext.IsDirectSerializationSupported, GrpcCallSerializationContext.EnsureMessageSizeAllowed, Span`1.op_Implicit, GrpcCallSerializationContext.WriteHeader, GrpcCallSerializationContext.ThrowInvalidState
+ResolveBufferWriter: GrpcCallSerializationContext.IsDirectSerializationSupported, ArrayPool`1.get_Shared, ArrayPool`1.Rent, ArrayBufferWriter`1..ctor
+EnsureMessageSizeAllowed: GrpcCall.get_Channel, GrpcChannel.get_SendMaxMessageSize, Nullable`1.GetValueOrDefault, Nullable`1.get_HasValue, GrpcCall.CreateRpcException
+ThrowInvalidState: Object.ToString, String.Concat, InvalidOperationException..ctor
+Complete: GrpcCallSerializationContext.IsDirectSerializationSupported, GrpcCall.get_Logger, GrpcCall.get_RequestType, GrpcCallLog.SerializedMessage, ArrayBufferWriter`1.get_WrittenSpan, ReadOnlySpan`1.get_Length, GrpcCallSerializationContext.WriteMessage, GrpcCallSerializationContext.ThrowInvalidState
+WriteMessage: ReadOnlySpan`1.get_Length, GrpcCallSerializationContext.EnsureMessageSizeAllowed, GrpcCallSerializationContext.CompressMessage, ArrayPool`1.get_Shared, ArrayPool`1.Rent, Span`1.op_Implicit, GrpcCallSerializationContext.WriteHeader, MemoryExtensions.AsSpan, ReadOnlySpan`1.CopyTo
+CompressMessage: GrpcCall.get_Logger, ICompressionProvider.get_EncodingName, GrpcCallLog.CompressingMessage, NonDisposableMemoryStream..ctor, Nullable`1..ctor, ICompressionProvider.CreateCompressionStream, Stream.Write, IDisposable.Dispose, MemoryStream.GetBuffer, Stream.get_Length, MemoryExtensions.AsSpan, Span`1.op_Implicit
+Advance: ArrayBufferWriter`1.Advance
+GetMemory: ArrayBufferWriter`1.GetMemory, MemoryExtensions.AsMemory
+GetSpan: ArrayBufferWriter`1.GetSpan, MemoryExtensions.AsSpan
+# --- P.cs
+using System; using System.Linq; using System.Reflection;
+var asm = typeof(Grpc.Net.Client.GrpcChannel).Assembly;
+foreach (var x in asm.GetTypes().Where(x => x.Name.Contains("Serializ"))) Console.WriteLine("T " + x.FullName); var t = asm.GetTypes().First(x => x.Name.Contains("SerializationContext") && !x.IsNested);
+Console.WriteLine(t);
+foreach (var m in t.GetMethods(BindingFlags.Instance|BindingFlags.Static|BindingFlags.Public|BindingFlags.NonPublic|BindingFlags.DeclaredOnly)) {
+  var body = m.GetMethodBody(); if (body == null) continue;
+  var il = body.GetILAsByteArray(); var calls = new System.Collections.Generic.List<string>();
+  for (int i = 0; i < il.Length - 4; i++) if (il[i] == 0x28 || il[i] == 0x6F || il[i] == 0x73) { try { var mb = m.Module.ResolveMethod(BitConverter.ToInt32(il, i+1), t.GetGenericArguments(), null); calls.Add(mb.DeclaringType?.Name + "." + mb.Name); } catch {} }
+  Console.WriteLine(m.Name + ": " + string.Join(", ", calls.Distinct()));
+}

@@ -23,3 +23,7 @@ target-core-count-nounk/
 target-core-corpus-nounk/
 target-probe-nounk/
 target-probe-corpus-nounk/
+bin-count/
+obj-count/
+bin-count-nounk/
+obj-count-nounk/

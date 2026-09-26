@@ -3,4 +3,7 @@
   <PropertyGroup Condition="'$(AkNounk)' == 'true'">
     <DefineConstants>$(DefineConstants);AK_NO_UNKNOWN_FIELDS</DefineConstants>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(AkHostCount)' == 'true'">
+    <DefineConstants>$(DefineConstants);AK_HOST_COUNT</DefineConstants>
+  </PropertyGroup>
 </Project>

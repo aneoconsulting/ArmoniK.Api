@@ -123,6 +123,11 @@ public abstract unsafe class RootOps
     public abstract int EncHost(ref Enc e, bool retain);
     public abstract int EncFfi(bool retain);
     public abstract byte[] EncFfiBytes(bool retain);
+    /// CAMPAIGN req 11, end state (ii): the form each arm's gRPC path hands to Grpc.Net, built
+    /// by the SAME serializer the RPC grid's marshaller runs (Ser* below) into a GrpcFrame.
+    public abstract int EncIncTransport(GrpcFrame c);
+    public abstract int EncHostTransport(bool retain, GrpcFrame c);
+    public abstract int EncFfiTransport(bool retain, GrpcFrame c);
     public abstract long DecIncProd(ReadOnlySequence<byte> seq, bool read);
     public abstract long DecIncBest(byte[] b, int len, bool read);
     public abstract long DecHost(byte[] b, int len, bool retain, bool read);
@@ -133,6 +138,19 @@ public abstract unsafe class RootOps
     public abstract byte[] RtHost(byte[] b, int len, bool retain);
     public abstract byte[] RtFfi(byte[] b, int len, bool retain);
     public abstract byte[] RtIncBytes(byte[] b);
+    /// CAMPAIGN req 7 (R-H27): ops over graphs the named arm decoded from `b` (untimed), so
+    /// a corpus row can be ENCODED: `how` 0 = the incumbent's parse, 1/2 = host-gen drop/retain,
+    /// 3/4 = core-ffi drop/retain. A retaining decode keeps the row's unknown fields.
+    public abstract RootOps FromWire(byte[] b, int how);
+    /// CAMPAIGN req 11, input: a pool of distinct graphs (`fs` facade, `gs` incumbent; null
+    /// keeps the one graph). Next() moves to the next graph, round robin; a hot input is a
+    /// pool of one, so every encode row runs the same Next().
+    public abstract void SetPool(object[] fs, object[] gs);
+    public abstract void Next();
+    /// The counting run (CAMPAIGN req 19): this root's core-ffi host tally.
+    public abstract long FfiReverse();
+    public abstract void FfiCallsReset();
+    public abstract long FfiResets();
 }
 '''
 
@@ -141,8 +159,8 @@ def _ops(o, root):
     g = "%s.%s" % (GP, root)
     o += "public sealed unsafe class Ops_%s : RootOps" % root
     o += "{"
-    o += "    private readonly %s _f;" % root
-    o += "    private readonly %s _g;" % g
+    o += "    private %s _f;" % root
+    o += "    private %s _g;" % g
     o += "    private readonly CoreFfi_%s _c = new CoreFfi_%s();" % (root, root)
     o += "    public Ops_%s(%s f, %s g) { _f = f; _g = g; }" % (root, root, g)
     o += "    public override string Root => \"%s\";" % root
@@ -154,6 +172,87 @@ def _ops(o, root):
     o += "    public override int EncHost(ref Enc e, bool retain) { e.Reset(); if (retain) HostR.Write%s(ref e, _f); else Codec.Write%s(ref e, _f); if (e.Err != 0) throw new InvalidOperationException(\"managed encode \" + e.Err); return e.Pos; }" % (root, root)
     o += "    public override int EncFfi(bool retain) { int rc = _c.TryEncode(_f, retain, out byte* p, out int n); if (rc < 0) throw new InvalidOperationException(\"core encode \" + rc); return n; }"
     o += "    public override byte[] EncFfiBytes(bool retain) => _c.EncodeToArray(_f, retain);"
+    # CAMPAIGN req 11 end state (ii): the serializers the RPC grid's marshallers run (Ser*),
+    # static so the grid calls exactly these.
+    o += "    public static void SerInc(%s m, SerializationContext c) { c.SetPayloadLength(m.CalculateSize()); m.WriteTo(c.GetBufferWriter()); c.Complete(); }" % g
+    o += "    [ThreadStatic] private static Enc _se;"
+    o += "    public static void SerHost(%s m, bool retain, SerializationContext c)" % root
+    o += "    {"
+    o += "        if (_se.Buf == null) _se = Enc.New(Codec.Sites, 1 << 16);"
+    o += "        _se.Reset();"
+    o += "        if (retain) HostR.Write%s(ref _se, m); else Codec.Write%s(ref _se, m);" % (root, root)
+    o += "        if (_se.Err != 0) throw new InvalidOperationException(\"managed encode \" + _se.Err);"
+    o += "        int n = _se.Pos;"
+    o += "        c.SetPayloadLength(n);"
+    o += "        var w = c.GetBufferWriter();"
+    o += "        new ReadOnlySpan<byte>(_se.Buf, 0, n).CopyTo(w.GetSpan(n));"
+    o += "        w.Advance(n);"
+    o += "        c.Complete();"
+    o += "    }"
+    o += "    public static void SerFfi(CoreFfi_%s core, %s m, bool retain, SerializationContext c)" % (root, root)
+    o += "    {"
+    o += "        int rc = core.TryEncode(m, retain, out byte* p, out int n);"
+    o += "        if (rc < 0) throw new InvalidOperationException(\"core encode \" + rc);"
+    o += "        c.SetPayloadLength(n);"
+    o += "        var w = c.GetBufferWriter();"
+    o += "        new ReadOnlySpan<byte>(p, n).CopyTo(w.GetSpan(n));"
+    o += "        w.Advance(n);"
+    o += "        c.Complete();"
+    o += "    }"
+    o += "    public static readonly Marshaller<%s> MInc = Marshallers.Create<%s>(SerInc, c => throw new NotSupportedException());" % (g, g)
+    o += "    public static readonly Marshaller<%s> MHostDrop = Marshallers.Create<%s>((m, c) => SerHost(m, false, c), c => throw new NotSupportedException());" % (root, root)
+    o += "    public static readonly Marshaller<%s> MHostRetain = Marshallers.Create<%s>((m, c) => SerHost(m, true, c), c => throw new NotSupportedException());" % (root, root)
+    o += "    public override int EncIncTransport(GrpcFrame c) { MInc.ContextualSerializer(_g, c); int n = c.WrittenCount; c.Release(); return n; }"
+    o += "    public override int EncHostTransport(bool retain, GrpcFrame c) { (retain ? MHostRetain : MHostDrop).ContextualSerializer(_f, c); int n = c.WrittenCount; c.Release(); return n; }"
+    o += "    private Marshaller<%s> _mfd, _mfr;" % root
+    o += "    public override int EncFfiTransport(bool retain, GrpcFrame c)"
+    o += "    {"
+    o += "        var mm = retain ? (_mfr ??= Marshallers.Create<%s>((m, x) => SerFfi(_c, m, true, x), x => throw new NotSupportedException()))" % root
+    o += "                        : (_mfd ??= Marshallers.Create<%s>((m, x) => SerFfi(_c, m, false, x), x => throw new NotSupportedException()));" % root
+    o += "        mm.ContextualSerializer(_f, c); int n = c.WrittenCount; c.Release(); return n;"
+    o += "    }"
+    o += "    public override RootOps FromWire(byte[] b, int how)"
+    o += "    {"
+    o += "        switch (how)"
+    o += "        {"
+    o += "            case 0: return new Ops_%s(null, %s.Parser.ParseFrom(b));" % (root, g)
+    o += "            case 1: case 2:"
+    o += "            {"
+    o += "                var d = new Dec { Buf = b, Pos = 0, End = b.Length, Err = 0 };"
+    o += "                var m = new %s();" % root
+    o += "                if (how == 2) HostR.Read%s(ref d, m, 0); else Codec.Read%s(ref d, m, 0);" % (root, root)
+    o += "                if (d.Err != 0) throw new InvalidOperationException(\"managed decode \" + d.Err);"
+    o += "                return new Ops_%s(m, null);" % root
+    o += "            }"
+    o += "            default:"
+    o += "            {"
+    o += "                int rc = _c.TryDecode(b, b.Length, how == 4, out var m);"
+    o += "                if (rc < 0) throw new InvalidOperationException(\"core decode \" + rc);"
+    o += "                return new Ops_%s(m, null);" % root
+    o += "            }"
+    o += "        }"
+    o += "    }"
+    o += "    private %s[] _fs;" % root
+    o += "    private %s[] _gs;" % g
+    o += "    private int _i, _n = 1;"
+    o += "    public override void SetPool(object[] fs, object[] gs)"
+    o += "    {"
+    o += "        _fs = fs == null ? null : Array.ConvertAll(fs, x => (%s)x);" % root
+    o += "        _gs = gs == null ? null : Array.ConvertAll(gs, x => (%s)x);" % g
+    o += "        _n = Math.Max(_fs?.Length ?? 1, _gs?.Length ?? 1);"
+    o += "        _i = 0;"
+    o += "        if (_fs != null) _f = _fs[0];"
+    o += "        if (_gs != null) _g = _gs[0];"
+    o += "    }"
+    o += "    public override void Next()"
+    o += "    {"
+    o += "        if (++_i >= _n) _i = 0;"
+    o += "        if (_fs != null) _f = _fs[_i];"
+    o += "        if (_gs != null) _g = _gs[_i];"
+    o += "    }"
+    o += "    public override long FfiReverse() => _c.ReverseCalls;"
+    o += "    public override void FfiCallsReset() => _c.CallsReset();"
+    o += "    public override long FfiResets() => _c.ResetCalls;"
     o += "    public override long DecIncProd(ReadOnlySequence<byte> seq, bool read) { var m = %s.Parser.ParseFrom(seq); return read ? Touch.G_%s(m) : 1; }" % (g, root)
     o += "    public override long DecIncBest(byte[] b, int len, bool read) { var m = %s.Parser.ParseFrom(new ReadOnlySpan<byte>(b, 0, len)); return read ? Touch.G_%s(m) : 1; }" % (g, root)
     o += "    public override long DecHost(byte[] b, int len, bool retain, bool read)"
@@ -200,6 +299,7 @@ def emit(p, payloads):
     o += "using Armonik.Ffi.Facade;"
     o += "using Armonik.Ffi.Harness;"
     o += "using Google.Protobuf;"
+    o += "using Grpc.Core;"
     o += "using Gp = Armonik.Ffi.Shapes.V1;"
     o += ""
     o += "namespace Armonik.Ffi.Campaign;"
@@ -244,6 +344,20 @@ def emit(p, payloads):
     for pid, r in payloads:
         f = pid.replace(".", "_")
         o += "        \"%s\" => new Ops_%s(BuildFacade.%s(), BuildGp.%s())," % (pid, r, f, f)
+    o += "        _ => throw new ArgumentException(id),"
+    o += "    };"
+    o += "    /// CAMPAIGN req 11's pool input: one fresh graph of a payload per call (the current"
+    o += "    /// Values.ContentSet), facade (host-gen, core-ffi) or incumbent object model."
+    o += "    public static object BuildF(string id) => id switch"
+    o += "    {"
+    for pid, r in payloads:
+        o += "        \"%s\" => BuildFacade.%s()," % (pid, pid.replace(".", "_"))
+    o += "        _ => throw new ArgumentException(id),"
+    o += "    };"
+    o += "    public static object BuildG(string id) => id switch"
+    o += "    {"
+    for pid, r in payloads:
+        o += "        \"%s\" => BuildGp.%s()," % (pid, pid.replace(".", "_"))
     o += "        _ => throw new ArgumentException(id),"
     o += "    };"
     o += "    /// A root's ops for bytes only (a corpus row: decode, and decode then re-encode)."

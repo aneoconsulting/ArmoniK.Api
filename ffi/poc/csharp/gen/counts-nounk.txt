@@ -1,0 +1,546 @@
+# CAMPAIGN req 19 (R-H31): per core-ffi case of the codec suite (no-unknown build), one call of the timed operation, counted by name in the host (AK_HOST_COUNT).
+# fields: payload content arm dir mode | fwd N (every exported entry point called, resets included) rev N (core->host callbacks, grow excluded) grow N (ak_grow_fn calls, exact-size) reset N (of fwd: ak_dec_reset_<Root>, one before and one after each decode) | entry=count ...
+P1.1 ascii core-ffi encode no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+P1.1 ascii core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+P1.1 ascii core-ffi encode-transport no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+P1.1 ascii core-ffi encode-transport-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+P1.1 ascii core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+P1.1 ascii core-ffi-pull decode no-unknown | fwd 2 rev 0 grow 0 reset 0 | ak_bdr_ptr=1 ak_parse_ListResultsResponse=1
+P1.1 ascii core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+P1.1 ascii core-ffi-pull decode-read no-unknown | fwd 2 rev 0 grow 0 reset 0 | ak_bdr_ptr=1 ak_parse_ListResultsResponse=1
+P1.2 ascii core-ffi encode no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+P1.2 ascii core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+P1.2 ascii core-ffi encode-transport no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+P1.2 ascii core-ffi encode-transport-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+P1.2 ascii core-ffi decode no-unknown | fwd 3 rev 5 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+P1.2 ascii core-ffi-pull decode no-unknown | fwd 2 rev 0 grow 0 reset 0 | ak_bdr_ptr=1 ak_parse_ListResultsResponse=1
+P1.2 ascii core-ffi decode-read no-unknown | fwd 3 rev 5 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+P1.2 ascii core-ffi-pull decode-read no-unknown | fwd 2 rev 0 grow 0 reset 0 | ak_bdr_ptr=1 ak_parse_ListResultsResponse=1
+P1.2 latin1 core-ffi encode no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+P1.2 latin1 core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+P1.2 latin1 core-ffi encode-transport no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+P1.2 latin1 core-ffi encode-transport-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+P1.2 latin1 core-ffi decode no-unknown | fwd 3 rev 5 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+P1.2 latin1 core-ffi-pull decode no-unknown | fwd 2 rev 0 grow 0 reset 0 | ak_bdr_ptr=1 ak_parse_ListResultsResponse=1
+P1.2 latin1 core-ffi decode-read no-unknown | fwd 3 rev 5 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+P1.2 latin1 core-ffi-pull decode-read no-unknown | fwd 2 rev 0 grow 0 reset 0 | ak_bdr_ptr=1 ak_parse_ListResultsResponse=1
+P1.2 wide core-ffi encode no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+P1.2 wide core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+P1.2 wide core-ffi encode-transport no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+P1.2 wide core-ffi encode-transport-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+P1.2 wide core-ffi decode no-unknown | fwd 3 rev 5 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+P1.2 wide core-ffi-pull decode no-unknown | fwd 2 rev 0 grow 0 reset 0 | ak_bdr_ptr=1 ak_parse_ListResultsResponse=1
+P1.2 wide core-ffi decode-read no-unknown | fwd 3 rev 5 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+P1.2 wide core-ffi-pull decode-read no-unknown | fwd 2 rev 0 grow 0 reset 0 | ak_bdr_ptr=1 ak_parse_ListResultsResponse=1
+P1.3 ascii core-ffi encode no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+P1.3 ascii core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+P1.3 ascii core-ffi encode-transport no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+P1.3 ascii core-ffi encode-transport-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+P1.3 ascii core-ffi decode no-unknown | fwd 3 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+P1.3 ascii core-ffi-pull decode no-unknown | fwd 2 rev 0 grow 0 reset 0 | ak_bdr_ptr=1 ak_parse_ListResultsResponse=1
+P1.3 ascii core-ffi decode-read no-unknown | fwd 3 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+P1.3 ascii core-ffi-pull decode-read no-unknown | fwd 2 rev 0 grow 0 reset 0 | ak_bdr_ptr=1 ak_parse_ListResultsResponse=1
+P2.1 ascii core-ffi encode no-unknown | fwd 9 rev 6 grow 0 reset 0 | ak_blob_run=4 ak_elem_TaskOptionsOptionsEntry=1 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+P2.1 ascii core-ffi encode-hot no-unknown | fwd 9 rev 6 grow 0 reset 0 | ak_blob_run=4 ak_elem_TaskOptionsOptionsEntry=1 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+P2.1 ascii core-ffi encode-transport no-unknown | fwd 9 rev 6 grow 0 reset 0 | ak_blob_run=4 ak_elem_TaskOptionsOptionsEntry=1 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+P2.1 ascii core-ffi encode-transport-hot no-unknown | fwd 9 rev 6 grow 0 reset 0 | ak_blob_run=4 ak_elem_TaskOptionsOptionsEntry=1 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+P2.1 ascii core-ffi decode no-unknown | fwd 3 rev 8 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+P2.1 ascii core-ffi-pull decode no-unknown | fwd 2 rev 0 grow 0 reset 0 | ak_bdr_ptr=1 ak_parse_ListTasksDetailedResponse=1
+P2.1 ascii core-ffi decode-read no-unknown | fwd 3 rev 8 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+P2.1 ascii core-ffi-pull decode-read no-unknown | fwd 2 rev 0 grow 0 reset 0 | ak_bdr_ptr=1 ak_parse_ListTasksDetailedResponse=1
+P2.2 ascii core-ffi encode no-unknown | fwd 2504 rev 2501 grow 0 reset 0 | ak_blob_run=2000 ak_elem_TaskOptionsOptionsEntry=500 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+P2.2 ascii core-ffi encode-hot no-unknown | fwd 2504 rev 2501 grow 0 reset 0 | ak_blob_run=2000 ak_elem_TaskOptionsOptionsEntry=500 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+P2.2 ascii core-ffi encode-transport no-unknown | fwd 2504 rev 2501 grow 0 reset 0 | ak_blob_run=2000 ak_elem_TaskOptionsOptionsEntry=500 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+P2.2 ascii core-ffi encode-transport-hot no-unknown | fwd 2504 rev 2501 grow 0 reset 0 | ak_blob_run=2000 ak_elem_TaskOptionsOptionsEntry=500 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+P2.2 ascii core-ffi decode no-unknown | fwd 3 rev 3501 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+P2.2 ascii core-ffi-pull decode no-unknown | fwd 2 rev 0 grow 0 reset 0 | ak_bdr_ptr=1 ak_parse_ListTasksDetailedResponse=1
+P2.2 ascii core-ffi decode-read no-unknown | fwd 3 rev 3501 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+P2.2 ascii core-ffi-pull decode-read no-unknown | fwd 2 rev 0 grow 0 reset 0 | ak_bdr_ptr=1 ak_parse_ListTasksDetailedResponse=1
+P2.2 latin1 core-ffi encode no-unknown | fwd 2504 rev 2501 grow 0 reset 0 | ak_blob_run=2000 ak_elem_TaskOptionsOptionsEntry=500 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+P2.2 latin1 core-ffi encode-hot no-unknown | fwd 2504 rev 2501 grow 0 reset 0 | ak_blob_run=2000 ak_elem_TaskOptionsOptionsEntry=500 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+P2.2 latin1 core-ffi encode-transport no-unknown | fwd 2504 rev 2501 grow 0 reset 0 | ak_blob_run=2000 ak_elem_TaskOptionsOptionsEntry=500 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+P2.2 latin1 core-ffi encode-transport-hot no-unknown | fwd 2504 rev 2501 grow 0 reset 0 | ak_blob_run=2000 ak_elem_TaskOptionsOptionsEntry=500 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+P2.2 latin1 core-ffi decode no-unknown | fwd 3 rev 3501 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+P2.2 latin1 core-ffi-pull decode no-unknown | fwd 2 rev 0 grow 0 reset 0 | ak_bdr_ptr=1 ak_parse_ListTasksDetailedResponse=1
+P2.2 latin1 core-ffi decode-read no-unknown | fwd 3 rev 3501 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+P2.2 latin1 core-ffi-pull decode-read no-unknown | fwd 2 rev 0 grow 0 reset 0 | ak_bdr_ptr=1 ak_parse_ListTasksDetailedResponse=1
+P2.2 wide core-ffi encode no-unknown | fwd 2504 rev 2501 grow 0 reset 0 | ak_blob_run=2000 ak_elem_TaskOptionsOptionsEntry=500 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+P2.2 wide core-ffi encode-hot no-unknown | fwd 2504 rev 2501 grow 0 reset 0 | ak_blob_run=2000 ak_elem_TaskOptionsOptionsEntry=500 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+P2.2 wide core-ffi encode-transport no-unknown | fwd 2504 rev 2501 grow 0 reset 0 | ak_blob_run=2000 ak_elem_TaskOptionsOptionsEntry=500 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+P2.2 wide core-ffi encode-transport-hot no-unknown | fwd 2504 rev 2501 grow 0 reset 0 | ak_blob_run=2000 ak_elem_TaskOptionsOptionsEntry=500 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+P2.2 wide core-ffi decode no-unknown | fwd 3 rev 3501 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+P2.2 wide core-ffi-pull decode no-unknown | fwd 2 rev 0 grow 0 reset 0 | ak_bdr_ptr=1 ak_parse_ListTasksDetailedResponse=1
+P2.2 wide core-ffi decode-read no-unknown | fwd 3 rev 3501 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+P2.2 wide core-ffi-pull decode-read no-unknown | fwd 2 rev 0 grow 0 reset 0 | ak_bdr_ptr=1 ak_parse_ListTasksDetailedResponse=1
+P2.3 ascii core-ffi encode no-unknown | fwd 629 rev 626 grow 0 reset 0 | ak_blob_run=500 ak_elem_TaskOptionsOptionsEntry=125 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+P2.3 ascii core-ffi encode-hot no-unknown | fwd 629 rev 626 grow 0 reset 0 | ak_blob_run=500 ak_elem_TaskOptionsOptionsEntry=125 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+P2.3 ascii core-ffi encode-transport no-unknown | fwd 629 rev 626 grow 0 reset 0 | ak_blob_run=500 ak_elem_TaskOptionsOptionsEntry=125 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+P2.3 ascii core-ffi encode-transport-hot no-unknown | fwd 629 rev 626 grow 0 reset 0 | ak_blob_run=500 ak_elem_TaskOptionsOptionsEntry=125 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+P2.3 ascii core-ffi decode no-unknown | fwd 3 rev 876 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+P2.3 ascii core-ffi-pull decode no-unknown | fwd 2 rev 0 grow 0 reset 0 | ak_bdr_ptr=1 ak_parse_ListTasksDetailedResponse=1
+P2.3 ascii core-ffi decode-read no-unknown | fwd 3 rev 876 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+P2.3 ascii core-ffi-pull decode-read no-unknown | fwd 2 rev 0 grow 0 reset 0 | ak_bdr_ptr=1 ak_parse_ListTasksDetailedResponse=1
+P2.4 ascii core-ffi encode no-unknown | fwd 404 rev 401 grow 0 reset 0 | ak_blob_run=320 ak_elem_TaskOptionsOptionsEntry=80 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+P2.4 ascii core-ffi encode-hot no-unknown | fwd 404 rev 401 grow 0 reset 0 | ak_blob_run=320 ak_elem_TaskOptionsOptionsEntry=80 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+P2.4 ascii core-ffi encode-transport no-unknown | fwd 404 rev 401 grow 0 reset 0 | ak_blob_run=320 ak_elem_TaskOptionsOptionsEntry=80 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+P2.4 ascii core-ffi encode-transport-hot no-unknown | fwd 404 rev 401 grow 0 reset 0 | ak_blob_run=320 ak_elem_TaskOptionsOptionsEntry=80 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+P2.4 ascii core-ffi decode no-unknown | fwd 3 rev 561 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+P2.4 ascii core-ffi-pull decode no-unknown | fwd 2 rev 0 grow 0 reset 0 | ak_bdr_ptr=1 ak_parse_ListTasksDetailedResponse=1
+P2.4 ascii core-ffi decode-read no-unknown | fwd 3 rev 561 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+P2.4 ascii core-ffi-pull decode-read no-unknown | fwd 2 rev 0 grow 0 reset 0 | ak_bdr_ptr=1 ak_parse_ListTasksDetailedResponse=1
+P2.4 latin1 core-ffi encode no-unknown | fwd 404 rev 401 grow 0 reset 0 | ak_blob_run=320 ak_elem_TaskOptionsOptionsEntry=80 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+P2.4 latin1 core-ffi encode-hot no-unknown | fwd 404 rev 401 grow 0 reset 0 | ak_blob_run=320 ak_elem_TaskOptionsOptionsEntry=80 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+P2.4 latin1 core-ffi encode-transport no-unknown | fwd 404 rev 401 grow 0 reset 0 | ak_blob_run=320 ak_elem_TaskOptionsOptionsEntry=80 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+P2.4 latin1 core-ffi encode-transport-hot no-unknown | fwd 404 rev 401 grow 0 reset 0 | ak_blob_run=320 ak_elem_TaskOptionsOptionsEntry=80 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+P2.4 latin1 core-ffi decode no-unknown | fwd 3 rev 561 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+P2.4 latin1 core-ffi-pull decode no-unknown | fwd 2 rev 0 grow 0 reset 0 | ak_bdr_ptr=1 ak_parse_ListTasksDetailedResponse=1
+P2.4 latin1 core-ffi decode-read no-unknown | fwd 3 rev 561 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+P2.4 latin1 core-ffi-pull decode-read no-unknown | fwd 2 rev 0 grow 0 reset 0 | ak_bdr_ptr=1 ak_parse_ListTasksDetailedResponse=1
+P2.4 wide core-ffi encode no-unknown | fwd 404 rev 401 grow 0 reset 0 | ak_blob_run=320 ak_elem_TaskOptionsOptionsEntry=80 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+P2.4 wide core-ffi encode-hot no-unknown | fwd 404 rev 401 grow 0 reset 0 | ak_blob_run=320 ak_elem_TaskOptionsOptionsEntry=80 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+P2.4 wide core-ffi encode-transport no-unknown | fwd 404 rev 401 grow 0 reset 0 | ak_blob_run=320 ak_elem_TaskOptionsOptionsEntry=80 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+P2.4 wide core-ffi encode-transport-hot no-unknown | fwd 404 rev 401 grow 0 reset 0 | ak_blob_run=320 ak_elem_TaskOptionsOptionsEntry=80 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+P2.4 wide core-ffi decode no-unknown | fwd 3 rev 561 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+P2.4 wide core-ffi-pull decode no-unknown | fwd 2 rev 0 grow 0 reset 0 | ak_bdr_ptr=1 ak_parse_ListTasksDetailedResponse=1
+P2.4 wide core-ffi decode-read no-unknown | fwd 3 rev 561 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+P2.4 wide core-ffi-pull decode-read no-unknown | fwd 2 rev 0 grow 0 reset 0 | ak_bdr_ptr=1 ak_parse_ListTasksDetailedResponse=1
+P2.5 ascii core-ffi encode no-unknown | fwd 104 rev 101 grow 0 reset 0 | ak_blob_run=80 ak_elem_TaskOptionsOptionsEntry=20 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+P2.5 ascii core-ffi encode-hot no-unknown | fwd 104 rev 101 grow 0 reset 0 | ak_blob_run=80 ak_elem_TaskOptionsOptionsEntry=20 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+P2.5 ascii core-ffi encode-transport no-unknown | fwd 104 rev 101 grow 0 reset 0 | ak_blob_run=80 ak_elem_TaskOptionsOptionsEntry=20 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+P2.5 ascii core-ffi encode-transport-hot no-unknown | fwd 104 rev 101 grow 0 reset 0 | ak_blob_run=80 ak_elem_TaskOptionsOptionsEntry=20 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+P2.5 ascii core-ffi decode no-unknown | fwd 3 rev 141 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+P2.5 ascii core-ffi-pull decode no-unknown | fwd 2 rev 0 grow 0 reset 0 | ak_bdr_ptr=1 ak_parse_ListTasksDetailedResponse=1
+P2.5 ascii core-ffi decode-read no-unknown | fwd 3 rev 141 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+P2.5 ascii core-ffi-pull decode-read no-unknown | fwd 2 rev 0 grow 0 reset 0 | ak_bdr_ptr=1 ak_parse_ListTasksDetailedResponse=1
+P3.1 ascii core-ffi encode no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_Probe=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListProbeResponse=1
+P3.1 ascii core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_Probe=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListProbeResponse=1
+P3.1 ascii core-ffi encode-transport no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_Probe=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListProbeResponse=1
+P3.1 ascii core-ffi encode-transport-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_Probe=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListProbeResponse=1
+P3.1 ascii core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1
+P3.1 ascii core-ffi-pull decode no-unknown | fwd 2 rev 0 grow 0 reset 0 | ak_bdr_ptr=1 ak_parse_ListProbeResponse=1
+P3.1 ascii core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1
+P3.1 ascii core-ffi-pull decode-read no-unknown | fwd 2 rev 0 grow 0 reset 0 | ak_bdr_ptr=1 ak_parse_ListProbeResponse=1
+P4.1 ascii core-ffi encode no-unknown | fwd 204 rev 201 grow 0 reset 0 | ak_elem_TaskOptionsOptionsEntry=200 ak_elemu_TaskSummary=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTaskSummaryResponse=1
+P4.1 ascii core-ffi encode-hot no-unknown | fwd 204 rev 201 grow 0 reset 0 | ak_elem_TaskOptionsOptionsEntry=200 ak_elemu_TaskSummary=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTaskSummaryResponse=1
+P4.1 ascii core-ffi encode-transport no-unknown | fwd 204 rev 201 grow 0 reset 0 | ak_elem_TaskOptionsOptionsEntry=200 ak_elemu_TaskSummary=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTaskSummaryResponse=1
+P4.1 ascii core-ffi encode-transport-hot no-unknown | fwd 204 rev 201 grow 0 reset 0 | ak_elem_TaskOptionsOptionsEntry=200 ak_elemu_TaskSummary=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTaskSummaryResponse=1
+P4.1 ascii core-ffi decode no-unknown | fwd 3 rev 601 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTaskSummaryResponse=1
+P4.1 ascii core-ffi-pull decode no-unknown | fwd 2 rev 0 grow 0 reset 0 | ak_bdr_ptr=1 ak_parse_ListTaskSummaryResponse=1
+P4.1 ascii core-ffi decode-read no-unknown | fwd 3 rev 601 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTaskSummaryResponse=1
+P4.1 ascii core-ffi-pull decode-read no-unknown | fwd 2 rev 0 grow 0 reset 0 | ak_bdr_ptr=1 ak_parse_ListTaskSummaryResponse=1
+P5.1 ascii core-ffi encode no-unknown | fwd 3 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_encode_UploadResultDataMessage=1
+P5.1 ascii core-ffi encode-hot no-unknown | fwd 3 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_encode_UploadResultDataMessage=1
+P5.1 ascii core-ffi encode-transport no-unknown | fwd 3 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_encode_UploadResultDataMessage=1
+P5.1 ascii core-ffi encode-transport-hot no-unknown | fwd 3 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_encode_UploadResultDataMessage=1
+P5.1 ascii core-ffi decode no-unknown | fwd 3 rev 1 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_UploadResultDataMessage=1
+P5.1 ascii core-ffi-pull decode no-unknown | fwd 2 rev 0 grow 0 reset 0 | ak_bdr_ptr=1 ak_parse_UploadResultDataMessage=1
+P5.1 ascii core-ffi decode-read no-unknown | fwd 3 rev 1 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_UploadResultDataMessage=1
+P5.1 ascii core-ffi-pull decode-read no-unknown | fwd 2 rev 0 grow 0 reset 0 | ak_bdr_ptr=1 ak_parse_UploadResultDataMessage=1
+P5.2 ascii core-ffi encode no-unknown | fwd 3 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_encode_UploadResultDataMessage=1
+P5.2 ascii core-ffi encode-hot no-unknown | fwd 3 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_encode_UploadResultDataMessage=1
+P5.2 ascii core-ffi encode-transport no-unknown | fwd 3 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_encode_UploadResultDataMessage=1
+P5.2 ascii core-ffi encode-transport-hot no-unknown | fwd 3 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_encode_UploadResultDataMessage=1
+P5.2 ascii core-ffi decode no-unknown | fwd 3 rev 1 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_UploadResultDataMessage=1
+P5.2 ascii core-ffi-pull decode no-unknown | fwd 2 rev 0 grow 0 reset 0 | ak_bdr_ptr=1 ak_parse_UploadResultDataMessage=1
+P5.2 ascii core-ffi decode-read no-unknown | fwd 3 rev 1 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_UploadResultDataMessage=1
+P5.2 ascii core-ffi-pull decode-read no-unknown | fwd 2 rev 0 grow 0 reset 0 | ak_bdr_ptr=1 ak_parse_UploadResultDataMessage=1
+P5.3 ascii core-ffi encode no-unknown | fwd 3 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_encode_UploadResultDataMessage=1
+P5.3 ascii core-ffi encode-hot no-unknown | fwd 3 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_encode_UploadResultDataMessage=1
+P5.3 ascii core-ffi encode-transport no-unknown | fwd 3 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_encode_UploadResultDataMessage=1
+P5.3 ascii core-ffi encode-transport-hot no-unknown | fwd 3 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_encode_UploadResultDataMessage=1
+P5.3 ascii core-ffi decode no-unknown | fwd 3 rev 1 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_UploadResultDataMessage=1
+P5.3 ascii core-ffi-pull decode no-unknown | fwd 2 rev 0 grow 0 reset 0 | ak_bdr_ptr=1 ak_parse_UploadResultDataMessage=1
+P5.3 ascii core-ffi decode-read no-unknown | fwd 3 rev 1 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_UploadResultDataMessage=1
+P5.3 ascii core-ffi-pull decode-read no-unknown | fwd 2 rev 0 grow 0 reset 0 | ak_bdr_ptr=1 ak_parse_UploadResultDataMessage=1
+P5.4 ascii core-ffi encode no-unknown | fwd 3 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_encode_UploadResultDataMessage=1
+P5.4 ascii core-ffi encode-hot no-unknown | fwd 3 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_encode_UploadResultDataMessage=1
+P5.4 ascii core-ffi encode-transport no-unknown | fwd 3 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_encode_UploadResultDataMessage=1
+P5.4 ascii core-ffi encode-transport-hot no-unknown | fwd 3 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_encode_UploadResultDataMessage=1
+P5.4 ascii core-ffi decode no-unknown | fwd 3 rev 1 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_UploadResultDataMessage=1
+P5.4 ascii core-ffi-pull decode no-unknown | fwd 2 rev 0 grow 0 reset 0 | ak_bdr_ptr=1 ak_parse_UploadResultDataMessage=1
+P5.4 ascii core-ffi decode-read no-unknown | fwd 3 rev 1 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_UploadResultDataMessage=1
+P5.4 ascii core-ffi-pull decode-read no-unknown | fwd 2 rev 0 grow 0 reset 0 | ak_bdr_ptr=1 ak_parse_UploadResultDataMessage=1
+P6.1 ascii core-ffi encode no-unknown | fwd 1004 rev 1001 grow 0 reset 0 | ak_elemu_MetricsBatch=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListMetricsResponse=1 ak_run_f64=200 ak_run_i32=400 ak_run_i64=200 ak_run_u8=200
+P6.1 ascii core-ffi encode-hot no-unknown | fwd 1004 rev 1001 grow 0 reset 0 | ak_elemu_MetricsBatch=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListMetricsResponse=1 ak_run_f64=200 ak_run_i32=400 ak_run_i64=200 ak_run_u8=200
+P6.1 ascii core-ffi encode-transport no-unknown | fwd 1004 rev 1001 grow 0 reset 0 | ak_elemu_MetricsBatch=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListMetricsResponse=1 ak_run_f64=200 ak_run_i32=400 ak_run_i64=200 ak_run_u8=200
+P6.1 ascii core-ffi encode-transport-hot no-unknown | fwd 1004 rev 1001 grow 0 reset 0 | ak_elemu_MetricsBatch=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListMetricsResponse=1 ak_run_f64=200 ak_run_i32=400 ak_run_i64=200 ak_run_u8=200
+P6.1 ascii core-ffi decode no-unknown | fwd 3 rev 1401 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListMetricsResponse=1
+P6.1 ascii core-ffi-pull decode no-unknown | fwd 2 rev 0 grow 0 reset 0 | ak_bdr_ptr=1 ak_parse_ListMetricsResponse=1
+P6.1 ascii core-ffi decode-read no-unknown | fwd 3 rev 1401 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListMetricsResponse=1
+P6.1 ascii core-ffi-pull decode-read no-unknown | fwd 2 rev 0 grow 0 reset 0 | ak_bdr_ptr=1 ak_parse_ListMetricsResponse=1
+P7.1 ascii core-ffi encode no-unknown | fwd 5 rev 2 grow 0 reset 0 | ak_elem_Pair=2 ak_enc_reset=1 ak_enc_take=1 ak_encode_DualResponse=1
+P7.1 ascii core-ffi encode-hot no-unknown | fwd 5 rev 2 grow 0 reset 0 | ak_elem_Pair=2 ak_enc_reset=1 ak_enc_take=1 ak_encode_DualResponse=1
+P7.1 ascii core-ffi encode-transport no-unknown | fwd 5 rev 2 grow 0 reset 0 | ak_elem_Pair=2 ak_enc_reset=1 ak_enc_take=1 ak_encode_DualResponse=1
+P7.1 ascii core-ffi encode-transport-hot no-unknown | fwd 5 rev 2 grow 0 reset 0 | ak_elem_Pair=2 ak_enc_reset=1 ak_enc_take=1 ak_encode_DualResponse=1
+P7.1 ascii core-ffi decode no-unknown | fwd 3 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_DualResponse=1
+P7.1 ascii core-ffi-pull decode no-unknown | fwd 2 rev 0 grow 0 reset 0 | ak_bdr_ptr=1 ak_parse_DualResponse=1
+P7.1 ascii core-ffi decode-read no-unknown | fwd 3 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_DualResponse=1
+P7.1 ascii core-ffi-pull decode-read no-unknown | fwd 2 rev 0 grow 0 reset 0 | ak_bdr_ptr=1 ak_parse_DualResponse=1
+U-deep-all corpus core-ffi encode-hot no-unknown | fwd 9 rev 6 grow 0 reset 0 | ak_blob_run=4 ak_elem_TaskOptionsOptionsEntry=1 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+U-deep-all corpus core-ffi decode no-unknown | fwd 3 rev 8 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+U-deep-all corpus core-ffi decode-read no-unknown | fwd 3 rev 8 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+U-deep-all corpus core-ffi decode-reencode no-unknown | fwd 12 rev 14 grow 0 reset 0 | ak_blob_run=4 ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1 ak_elem_TaskOptionsOptionsEntry=1 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+U-deep-u-fixed32 corpus core-ffi encode-hot no-unknown | fwd 9 rev 6 grow 0 reset 0 | ak_blob_run=4 ak_elem_TaskOptionsOptionsEntry=1 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+U-deep-u-fixed32 corpus core-ffi decode no-unknown | fwd 3 rev 8 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+U-deep-u-fixed32 corpus core-ffi decode-read no-unknown | fwd 3 rev 8 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+U-deep-u-fixed32 corpus core-ffi decode-reencode no-unknown | fwd 12 rev 14 grow 0 reset 0 | ak_blob_run=4 ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1 ak_elem_TaskOptionsOptionsEntry=1 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+U-deep-u-fixed64 corpus core-ffi encode-hot no-unknown | fwd 9 rev 6 grow 0 reset 0 | ak_blob_run=4 ak_elem_TaskOptionsOptionsEntry=1 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+U-deep-u-fixed64 corpus core-ffi decode no-unknown | fwd 3 rev 8 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+U-deep-u-fixed64 corpus core-ffi decode-read no-unknown | fwd 3 rev 8 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+U-deep-u-fixed64 corpus core-ffi decode-reencode no-unknown | fwd 12 rev 14 grow 0 reset 0 | ak_blob_run=4 ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1 ak_elem_TaskOptionsOptionsEntry=1 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+U-deep-u-len corpus core-ffi encode-hot no-unknown | fwd 9 rev 6 grow 0 reset 0 | ak_blob_run=4 ak_elem_TaskOptionsOptionsEntry=1 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+U-deep-u-len corpus core-ffi decode no-unknown | fwd 3 rev 8 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+U-deep-u-len corpus core-ffi decode-read no-unknown | fwd 3 rev 8 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+U-deep-u-len corpus core-ffi decode-reencode no-unknown | fwd 12 rev 14 grow 0 reset 0 | ak_blob_run=4 ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1 ak_elem_TaskOptionsOptionsEntry=1 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+U-deep-u-msg corpus core-ffi encode-hot no-unknown | fwd 9 rev 6 grow 0 reset 0 | ak_blob_run=4 ak_elem_TaskOptionsOptionsEntry=1 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+U-deep-u-msg corpus core-ffi decode no-unknown | fwd 3 rev 8 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+U-deep-u-msg corpus core-ffi decode-read no-unknown | fwd 3 rev 8 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+U-deep-u-msg corpus core-ffi decode-reencode no-unknown | fwd 12 rev 14 grow 0 reset 0 | ak_blob_run=4 ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1 ak_elem_TaskOptionsOptionsEntry=1 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+U-deep-u-packed corpus core-ffi encode-hot no-unknown | fwd 9 rev 6 grow 0 reset 0 | ak_blob_run=4 ak_elem_TaskOptionsOptionsEntry=1 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+U-deep-u-packed corpus core-ffi decode no-unknown | fwd 3 rev 8 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+U-deep-u-packed corpus core-ffi decode-read no-unknown | fwd 3 rev 8 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+U-deep-u-packed corpus core-ffi decode-reencode no-unknown | fwd 12 rev 14 grow 0 reset 0 | ak_blob_run=4 ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1 ak_elem_TaskOptionsOptionsEntry=1 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+U-deep-u-repeated corpus core-ffi encode-hot no-unknown | fwd 9 rev 6 grow 0 reset 0 | ak_blob_run=4 ak_elem_TaskOptionsOptionsEntry=1 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+U-deep-u-repeated corpus core-ffi decode no-unknown | fwd 3 rev 8 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+U-deep-u-repeated corpus core-ffi decode-read no-unknown | fwd 3 rev 8 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+U-deep-u-repeated corpus core-ffi decode-reencode no-unknown | fwd 12 rev 14 grow 0 reset 0 | ak_blob_run=4 ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1 ak_elem_TaskOptionsOptionsEntry=1 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+U-deep-u-varint corpus core-ffi encode-hot no-unknown | fwd 9 rev 6 grow 0 reset 0 | ak_blob_run=4 ak_elem_TaskOptionsOptionsEntry=1 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+U-deep-u-varint corpus core-ffi decode no-unknown | fwd 3 rev 8 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+U-deep-u-varint corpus core-ffi decode-read no-unknown | fwd 3 rev 8 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+U-deep-u-varint corpus core-ffi decode-reencode no-unknown | fwd 12 rev 14 grow 0 reset 0 | ak_blob_run=4 ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1 ak_elem_TaskOptionsOptionsEntry=1 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+U-element-all corpus core-ffi encode-hot no-unknown | fwd 9 rev 6 grow 0 reset 0 | ak_blob_run=4 ak_elem_TaskOptionsOptionsEntry=1 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+U-element-all corpus core-ffi decode no-unknown | fwd 3 rev 8 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+U-element-all corpus core-ffi decode-read no-unknown | fwd 3 rev 8 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+U-element-all corpus core-ffi decode-reencode no-unknown | fwd 12 rev 14 grow 0 reset 0 | ak_blob_run=4 ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1 ak_elem_TaskOptionsOptionsEntry=1 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+U-element-u-fixed32 corpus core-ffi encode-hot no-unknown | fwd 9 rev 6 grow 0 reset 0 | ak_blob_run=4 ak_elem_TaskOptionsOptionsEntry=1 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+U-element-u-fixed32 corpus core-ffi decode no-unknown | fwd 3 rev 8 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+U-element-u-fixed32 corpus core-ffi decode-read no-unknown | fwd 3 rev 8 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+U-element-u-fixed32 corpus core-ffi decode-reencode no-unknown | fwd 12 rev 14 grow 0 reset 0 | ak_blob_run=4 ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1 ak_elem_TaskOptionsOptionsEntry=1 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+U-element-u-fixed64 corpus core-ffi encode-hot no-unknown | fwd 9 rev 6 grow 0 reset 0 | ak_blob_run=4 ak_elem_TaskOptionsOptionsEntry=1 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+U-element-u-fixed64 corpus core-ffi decode no-unknown | fwd 3 rev 8 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+U-element-u-fixed64 corpus core-ffi decode-read no-unknown | fwd 3 rev 8 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+U-element-u-fixed64 corpus core-ffi decode-reencode no-unknown | fwd 12 rev 14 grow 0 reset 0 | ak_blob_run=4 ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1 ak_elem_TaskOptionsOptionsEntry=1 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+U-element-u-len corpus core-ffi encode-hot no-unknown | fwd 9 rev 6 grow 0 reset 0 | ak_blob_run=4 ak_elem_TaskOptionsOptionsEntry=1 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+U-element-u-len corpus core-ffi decode no-unknown | fwd 3 rev 8 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+U-element-u-len corpus core-ffi decode-read no-unknown | fwd 3 rev 8 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+U-element-u-len corpus core-ffi decode-reencode no-unknown | fwd 12 rev 14 grow 0 reset 0 | ak_blob_run=4 ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1 ak_elem_TaskOptionsOptionsEntry=1 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+U-element-u-msg corpus core-ffi encode-hot no-unknown | fwd 9 rev 6 grow 0 reset 0 | ak_blob_run=4 ak_elem_TaskOptionsOptionsEntry=1 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+U-element-u-msg corpus core-ffi decode no-unknown | fwd 3 rev 8 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+U-element-u-msg corpus core-ffi decode-read no-unknown | fwd 3 rev 8 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+U-element-u-msg corpus core-ffi decode-reencode no-unknown | fwd 12 rev 14 grow 0 reset 0 | ak_blob_run=4 ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1 ak_elem_TaskOptionsOptionsEntry=1 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+U-element-u-packed corpus core-ffi encode-hot no-unknown | fwd 9 rev 6 grow 0 reset 0 | ak_blob_run=4 ak_elem_TaskOptionsOptionsEntry=1 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+U-element-u-packed corpus core-ffi decode no-unknown | fwd 3 rev 8 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+U-element-u-packed corpus core-ffi decode-read no-unknown | fwd 3 rev 8 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+U-element-u-packed corpus core-ffi decode-reencode no-unknown | fwd 12 rev 14 grow 0 reset 0 | ak_blob_run=4 ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1 ak_elem_TaskOptionsOptionsEntry=1 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+U-element-u-repeated corpus core-ffi encode-hot no-unknown | fwd 9 rev 6 grow 0 reset 0 | ak_blob_run=4 ak_elem_TaskOptionsOptionsEntry=1 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+U-element-u-repeated corpus core-ffi decode no-unknown | fwd 3 rev 8 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+U-element-u-repeated corpus core-ffi decode-read no-unknown | fwd 3 rev 8 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+U-element-u-repeated corpus core-ffi decode-reencode no-unknown | fwd 12 rev 14 grow 0 reset 0 | ak_blob_run=4 ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1 ak_elem_TaskOptionsOptionsEntry=1 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+U-element-u-varint corpus core-ffi encode-hot no-unknown | fwd 9 rev 6 grow 0 reset 0 | ak_blob_run=4 ak_elem_TaskOptionsOptionsEntry=1 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+U-element-u-varint corpus core-ffi decode no-unknown | fwd 3 rev 8 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+U-element-u-varint corpus core-ffi decode-read no-unknown | fwd 3 rev 8 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+U-element-u-varint corpus core-ffi decode-reencode no-unknown | fwd 12 rev 14 grow 0 reset 0 | ak_blob_run=4 ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1 ak_elem_TaskOptionsOptionsEntry=1 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+U-enum-value-127 corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-enum-value-127 corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-enum-value-127 corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-enum-value-127 corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1 ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-enum-value-2147483647 corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-enum-value-2147483647 corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-enum-value-2147483647 corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-enum-value-2147483647 corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1 ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-enum-value-999 corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-enum-value-999 corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-enum-value-999 corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-enum-value-999 corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1 ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-enum-value-packed corpus core-ffi encode-hot no-unknown | fwd 5 rev 6 grow 0 reset 0 | ak_elemu_MetricsBatch=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListMetricsResponse=1 ak_run_i32=1
+U-enum-value-packed corpus core-ffi decode no-unknown | fwd 3 rev 4 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListMetricsResponse=1
+U-enum-value-packed corpus core-ffi decode-read no-unknown | fwd 3 rev 4 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListMetricsResponse=1
+U-enum-value-packed corpus core-ffi decode-reencode no-unknown | fwd 8 rev 10 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListMetricsResponse=1 ak_elemu_MetricsBatch=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListMetricsResponse=1 ak_run_i32=1
+U-leaf-all corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-leaf-all corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-leaf-all corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-leaf-all corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1 ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-leaf-u-fixed32 corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-leaf-u-fixed32 corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-leaf-u-fixed32 corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-leaf-u-fixed32 corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1 ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-leaf-u-fixed64 corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-leaf-u-fixed64 corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-leaf-u-fixed64 corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-leaf-u-fixed64 corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1 ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-leaf-u-len corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-leaf-u-len corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-leaf-u-len corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-leaf-u-len corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1 ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-leaf-u-msg corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-leaf-u-msg corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-leaf-u-msg corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-leaf-u-msg corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1 ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-leaf-u-packed corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-leaf-u-packed corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-leaf-u-packed corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-leaf-u-packed corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1 ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-leaf-u-repeated corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-leaf-u-repeated corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-leaf-u-repeated corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-leaf-u-repeated corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1 ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-leaf-u-varint corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-leaf-u-varint corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-leaf-u-varint corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-leaf-u-varint corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1 ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-nested-all corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-nested-all corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-nested-all corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-nested-all corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1 ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-nested-before corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-nested-before corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-nested-before corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-nested-before corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1 ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-nested-group corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-nested-group corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-nested-group corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-nested-group corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1 ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-nested-interleaved corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-nested-interleaved corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-nested-interleaved corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-nested-interleaved corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1 ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-nested-u-fixed32 corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-nested-u-fixed32 corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-nested-u-fixed32 corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-nested-u-fixed32 corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1 ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-nested-u-fixed64 corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-nested-u-fixed64 corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-nested-u-fixed64 corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-nested-u-fixed64 corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1 ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-nested-u-len corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-nested-u-len corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-nested-u-len corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-nested-u-len corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1 ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-nested-u-msg corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-nested-u-msg corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-nested-u-msg corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-nested-u-msg corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1 ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-nested-u-packed corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-nested-u-packed corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-nested-u-packed corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-nested-u-packed corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1 ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-nested-u-repeated corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-nested-u-repeated corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-nested-u-repeated corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-nested-u-repeated corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1 ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-nested-u-varint corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-nested-u-varint corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-nested-u-varint corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-nested-u-varint corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1 ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-oneof-all corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_Probe=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListProbeResponse=1
+U-oneof-all corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1
+U-oneof-all corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1
+U-oneof-all corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1 ak_elem_Probe=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListProbeResponse=1
+U-oneof-before corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_Probe=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListProbeResponse=1
+U-oneof-before corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1
+U-oneof-before corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1
+U-oneof-before corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1 ak_elem_Probe=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListProbeResponse=1
+U-oneof-group corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_Probe=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListProbeResponse=1
+U-oneof-group corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1
+U-oneof-group corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1
+U-oneof-group corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1 ak_elem_Probe=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListProbeResponse=1
+U-oneof-interleaved corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_Probe=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListProbeResponse=1
+U-oneof-interleaved corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1
+U-oneof-interleaved corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1
+U-oneof-interleaved corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1 ak_elem_Probe=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListProbeResponse=1
+U-oneof-member-after-known corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_Probe=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListProbeResponse=1
+U-oneof-member-after-known corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1
+U-oneof-member-after-known corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1
+U-oneof-member-after-known corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1 ak_elem_Probe=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListProbeResponse=1
+U-oneof-member-alone corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_Probe=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListProbeResponse=1
+U-oneof-member-alone corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1
+U-oneof-member-alone corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1
+U-oneof-member-alone corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1 ak_elem_Probe=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListProbeResponse=1
+U-oneof-member-before-known corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_Probe=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListProbeResponse=1
+U-oneof-member-before-known corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1
+U-oneof-member-before-known corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1
+U-oneof-member-before-known corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1 ak_elem_Probe=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListProbeResponse=1
+U-oneof-u-fixed32 corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_Probe=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListProbeResponse=1
+U-oneof-u-fixed32 corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1
+U-oneof-u-fixed32 corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1
+U-oneof-u-fixed32 corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1 ak_elem_Probe=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListProbeResponse=1
+U-oneof-u-fixed64 corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_Probe=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListProbeResponse=1
+U-oneof-u-fixed64 corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1
+U-oneof-u-fixed64 corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1
+U-oneof-u-fixed64 corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1 ak_elem_Probe=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListProbeResponse=1
+U-oneof-u-len corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_Probe=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListProbeResponse=1
+U-oneof-u-len corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1
+U-oneof-u-len corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1
+U-oneof-u-len corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1 ak_elem_Probe=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListProbeResponse=1
+U-oneof-u-msg corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_Probe=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListProbeResponse=1
+U-oneof-u-msg corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1
+U-oneof-u-msg corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1
+U-oneof-u-msg corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1 ak_elem_Probe=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListProbeResponse=1
+U-oneof-u-packed corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_Probe=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListProbeResponse=1
+U-oneof-u-packed corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1
+U-oneof-u-packed corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1
+U-oneof-u-packed corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1 ak_elem_Probe=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListProbeResponse=1
+U-oneof-u-repeated corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_Probe=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListProbeResponse=1
+U-oneof-u-repeated corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1
+U-oneof-u-repeated corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1
+U-oneof-u-repeated corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1 ak_elem_Probe=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListProbeResponse=1
+U-oneof-u-varint corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_Probe=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListProbeResponse=1
+U-oneof-u-varint corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1
+U-oneof-u-varint corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1
+U-oneof-u-varint corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1 ak_elem_Probe=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListProbeResponse=1
+U-root-all corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-root-all corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-root-all corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-root-all corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1 ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-root-before corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-root-before corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-root-before corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-root-before corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1 ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-root-group corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-root-group corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-root-group corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-root-group corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1 ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-root-interleaved corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-root-interleaved corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-root-interleaved corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-root-interleaved corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1 ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-root-max-tag corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-root-max-tag corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-root-max-tag corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-root-max-tag corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1 ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-root-u-fixed32 corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-root-u-fixed32 corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-root-u-fixed32 corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-root-u-fixed32 corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1 ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-root-u-fixed64 corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-root-u-fixed64 corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-root-u-fixed64 corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-root-u-fixed64 corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1 ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-root-u-len corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-root-u-len corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-root-u-len corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-root-u-len corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1 ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-root-u-msg corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-root-u-msg corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-root-u-msg corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-root-u-msg corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1 ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-root-u-packed corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-root-u-packed corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-root-u-packed corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-root-u-packed corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1 ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-root-u-repeated corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-root-u-repeated corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-root-u-repeated corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-root-u-repeated corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1 ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-root-u-varint corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-root-u-varint corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-root-u-varint corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-root-u-varint corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1 ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-wire-DualResponse-left-as-wt0 corpus core-ffi encode-hot no-unknown | fwd 5 rev 2 grow 0 reset 0 | ak_elem_Pair=2 ak_enc_reset=1 ak_enc_take=1 ak_encode_DualResponse=1
+U-wire-DualResponse-left-as-wt0 corpus core-ffi decode no-unknown | fwd 3 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_DualResponse=1
+U-wire-DualResponse-left-as-wt0 corpus core-ffi decode-read no-unknown | fwd 3 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_DualResponse=1
+U-wire-DualResponse-left-as-wt0 corpus core-ffi decode-reencode no-unknown | fwd 8 rev 5 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_DualResponse=1 ak_elem_Pair=2 ak_enc_reset=1 ak_enc_take=1 ak_encode_DualResponse=1
+U-wire-DualResponse-left-as-wt1 corpus core-ffi encode-hot no-unknown | fwd 5 rev 2 grow 0 reset 0 | ak_elem_Pair=2 ak_enc_reset=1 ak_enc_take=1 ak_encode_DualResponse=1
+U-wire-DualResponse-left-as-wt1 corpus core-ffi decode no-unknown | fwd 3 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_DualResponse=1
+U-wire-DualResponse-left-as-wt1 corpus core-ffi decode-read no-unknown | fwd 3 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_DualResponse=1
+U-wire-DualResponse-left-as-wt1 corpus core-ffi decode-reencode no-unknown | fwd 8 rev 5 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_DualResponse=1 ak_elem_Pair=2 ak_enc_reset=1 ak_enc_take=1 ak_encode_DualResponse=1
+U-wire-DualResponse-left-as-wt5 corpus core-ffi encode-hot no-unknown | fwd 5 rev 2 grow 0 reset 0 | ak_elem_Pair=2 ak_enc_reset=1 ak_enc_take=1 ak_encode_DualResponse=1
+U-wire-DualResponse-left-as-wt5 corpus core-ffi decode no-unknown | fwd 3 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_DualResponse=1
+U-wire-DualResponse-left-as-wt5 corpus core-ffi decode-read no-unknown | fwd 3 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_DualResponse=1
+U-wire-DualResponse-left-as-wt5 corpus core-ffi decode-reencode no-unknown | fwd 8 rev 5 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_DualResponse=1 ak_elem_Pair=2 ak_enc_reset=1 ak_enc_take=1 ak_encode_DualResponse=1
+U-wire-ListMetricsResponse-batches-as-wt0 corpus core-ffi encode-hot no-unknown | fwd 14 rev 11 grow 0 reset 0 | ak_elemu_MetricsBatch=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListMetricsResponse=1 ak_run_f64=2 ak_run_i32=4 ak_run_i64=2 ak_run_u8=2
+U-wire-ListMetricsResponse-batches-as-wt0 corpus core-ffi decode no-unknown | fwd 3 rev 15 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListMetricsResponse=1
+U-wire-ListMetricsResponse-batches-as-wt0 corpus core-ffi decode-read no-unknown | fwd 3 rev 15 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListMetricsResponse=1
+U-wire-ListMetricsResponse-batches-as-wt0 corpus core-ffi decode-reencode no-unknown | fwd 17 rev 26 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListMetricsResponse=1 ak_elemu_MetricsBatch=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListMetricsResponse=1 ak_run_f64=2 ak_run_i32=4 ak_run_i64=2 ak_run_u8=2
+U-wire-ListMetricsResponse-batches-as-wt1 corpus core-ffi encode-hot no-unknown | fwd 14 rev 11 grow 0 reset 0 | ak_elemu_MetricsBatch=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListMetricsResponse=1 ak_run_f64=2 ak_run_i32=4 ak_run_i64=2 ak_run_u8=2
+U-wire-ListMetricsResponse-batches-as-wt1 corpus core-ffi decode no-unknown | fwd 3 rev 15 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListMetricsResponse=1
+U-wire-ListMetricsResponse-batches-as-wt1 corpus core-ffi decode-read no-unknown | fwd 3 rev 15 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListMetricsResponse=1
+U-wire-ListMetricsResponse-batches-as-wt1 corpus core-ffi decode-reencode no-unknown | fwd 17 rev 26 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListMetricsResponse=1 ak_elemu_MetricsBatch=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListMetricsResponse=1 ak_run_f64=2 ak_run_i32=4 ak_run_i64=2 ak_run_u8=2
+U-wire-ListMetricsResponse-batches-as-wt5 corpus core-ffi encode-hot no-unknown | fwd 14 rev 11 grow 0 reset 0 | ak_elemu_MetricsBatch=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListMetricsResponse=1 ak_run_f64=2 ak_run_i32=4 ak_run_i64=2 ak_run_u8=2
+U-wire-ListMetricsResponse-batches-as-wt5 corpus core-ffi decode no-unknown | fwd 3 rev 15 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListMetricsResponse=1
+U-wire-ListMetricsResponse-batches-as-wt5 corpus core-ffi decode-read no-unknown | fwd 3 rev 15 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListMetricsResponse=1
+U-wire-ListMetricsResponse-batches-as-wt5 corpus core-ffi decode-reencode no-unknown | fwd 17 rev 26 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListMetricsResponse=1 ak_elemu_MetricsBatch=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListMetricsResponse=1 ak_run_f64=2 ak_run_i32=4 ak_run_i64=2 ak_run_u8=2
+U-wire-ListProbeResponse-probes-as-wt0 corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_Probe=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListProbeResponse=1
+U-wire-ListProbeResponse-probes-as-wt0 corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1
+U-wire-ListProbeResponse-probes-as-wt0 corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1
+U-wire-ListProbeResponse-probes-as-wt0 corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1 ak_elem_Probe=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListProbeResponse=1
+U-wire-ListProbeResponse-probes-as-wt1 corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_Probe=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListProbeResponse=1
+U-wire-ListProbeResponse-probes-as-wt1 corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1
+U-wire-ListProbeResponse-probes-as-wt1 corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1
+U-wire-ListProbeResponse-probes-as-wt1 corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1 ak_elem_Probe=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListProbeResponse=1
+U-wire-ListProbeResponse-probes-as-wt5 corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_Probe=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListProbeResponse=1
+U-wire-ListProbeResponse-probes-as-wt5 corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1
+U-wire-ListProbeResponse-probes-as-wt5 corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1
+U-wire-ListProbeResponse-probes-as-wt5 corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListProbeResponse=1 ak_elem_Probe=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListProbeResponse=1
+U-wire-ListResultsResponse-page-as-wt1 corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-wire-ListResultsResponse-page-as-wt1 corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-wire-ListResultsResponse-page-as-wt1 corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-wire-ListResultsResponse-page-as-wt1 corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1 ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-wire-ListResultsResponse-page-as-wt2 corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-wire-ListResultsResponse-page-as-wt2 corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-wire-ListResultsResponse-page-as-wt2 corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-wire-ListResultsResponse-page-as-wt2 corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1 ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-wire-ListResultsResponse-page-as-wt5 corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-wire-ListResultsResponse-page-as-wt5 corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-wire-ListResultsResponse-page-as-wt5 corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-wire-ListResultsResponse-page-as-wt5 corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1 ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-wire-ListResultsResponse-results-as-wt0 corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-wire-ListResultsResponse-results-as-wt0 corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-wire-ListResultsResponse-results-as-wt0 corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-wire-ListResultsResponse-results-as-wt0 corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1 ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-wire-ListResultsResponse-results-as-wt1 corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-wire-ListResultsResponse-results-as-wt1 corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-wire-ListResultsResponse-results-as-wt1 corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-wire-ListResultsResponse-results-as-wt1 corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1 ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-wire-ListResultsResponse-results-as-wt5 corpus core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-wire-ListResultsResponse-results-as-wt5 corpus core-ffi decode no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-wire-ListResultsResponse-results-as-wt5 corpus core-ffi decode-read no-unknown | fwd 3 rev 2 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1
+U-wire-ListResultsResponse-results-as-wt5 corpus core-ffi decode-reencode no-unknown | fwd 7 rev 3 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListResultsResponse=1 ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-wire-ListTaskSummaryResponse-tasks-as-wt0 corpus core-ffi encode-hot no-unknown | fwd 6 rev 3 grow 0 reset 0 | ak_elem_TaskOptionsOptionsEntry=2 ak_elemu_TaskSummary=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTaskSummaryResponse=1
+U-wire-ListTaskSummaryResponse-tasks-as-wt0 corpus core-ffi decode no-unknown | fwd 3 rev 7 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTaskSummaryResponse=1
+U-wire-ListTaskSummaryResponse-tasks-as-wt0 corpus core-ffi decode-read no-unknown | fwd 3 rev 7 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTaskSummaryResponse=1
+U-wire-ListTaskSummaryResponse-tasks-as-wt0 corpus core-ffi decode-reencode no-unknown | fwd 9 rev 10 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTaskSummaryResponse=1 ak_elem_TaskOptionsOptionsEntry=2 ak_elemu_TaskSummary=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTaskSummaryResponse=1
+U-wire-ListTaskSummaryResponse-tasks-as-wt1 corpus core-ffi encode-hot no-unknown | fwd 6 rev 3 grow 0 reset 0 | ak_elem_TaskOptionsOptionsEntry=2 ak_elemu_TaskSummary=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTaskSummaryResponse=1
+U-wire-ListTaskSummaryResponse-tasks-as-wt1 corpus core-ffi decode no-unknown | fwd 3 rev 7 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTaskSummaryResponse=1
+U-wire-ListTaskSummaryResponse-tasks-as-wt1 corpus core-ffi decode-read no-unknown | fwd 3 rev 7 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTaskSummaryResponse=1
+U-wire-ListTaskSummaryResponse-tasks-as-wt1 corpus core-ffi decode-reencode no-unknown | fwd 9 rev 10 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTaskSummaryResponse=1 ak_elem_TaskOptionsOptionsEntry=2 ak_elemu_TaskSummary=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTaskSummaryResponse=1
+U-wire-ListTaskSummaryResponse-tasks-as-wt5 corpus core-ffi encode-hot no-unknown | fwd 6 rev 3 grow 0 reset 0 | ak_elem_TaskOptionsOptionsEntry=2 ak_elemu_TaskSummary=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTaskSummaryResponse=1
+U-wire-ListTaskSummaryResponse-tasks-as-wt5 corpus core-ffi decode no-unknown | fwd 3 rev 7 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTaskSummaryResponse=1
+U-wire-ListTaskSummaryResponse-tasks-as-wt5 corpus core-ffi decode-read no-unknown | fwd 3 rev 7 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTaskSummaryResponse=1
+U-wire-ListTaskSummaryResponse-tasks-as-wt5 corpus core-ffi decode-reencode no-unknown | fwd 9 rev 10 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTaskSummaryResponse=1 ak_elem_TaskOptionsOptionsEntry=2 ak_elemu_TaskSummary=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTaskSummaryResponse=1
+U-wire-ListTasksDetailedResponse-page-as-wt1 corpus core-ffi encode-hot no-unknown | fwd 14 rev 11 grow 0 reset 0 | ak_blob_run=8 ak_elem_TaskOptionsOptionsEntry=2 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+U-wire-ListTasksDetailedResponse-page-as-wt1 corpus core-ffi decode no-unknown | fwd 3 rev 15 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+U-wire-ListTasksDetailedResponse-page-as-wt1 corpus core-ffi decode-read no-unknown | fwd 3 rev 15 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+U-wire-ListTasksDetailedResponse-page-as-wt1 corpus core-ffi decode-reencode no-unknown | fwd 17 rev 26 grow 0 reset 0 | ak_blob_run=8 ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1 ak_elem_TaskOptionsOptionsEntry=2 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+U-wire-ListTasksDetailedResponse-page-as-wt2 corpus core-ffi encode-hot no-unknown | fwd 14 rev 11 grow 0 reset 0 | ak_blob_run=8 ak_elem_TaskOptionsOptionsEntry=2 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+U-wire-ListTasksDetailedResponse-page-as-wt2 corpus core-ffi decode no-unknown | fwd 3 rev 15 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+U-wire-ListTasksDetailedResponse-page-as-wt2 corpus core-ffi decode-read no-unknown | fwd 3 rev 15 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+U-wire-ListTasksDetailedResponse-page-as-wt2 corpus core-ffi decode-reencode no-unknown | fwd 17 rev 26 grow 0 reset 0 | ak_blob_run=8 ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1 ak_elem_TaskOptionsOptionsEntry=2 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+U-wire-ListTasksDetailedResponse-page-as-wt5 corpus core-ffi encode-hot no-unknown | fwd 14 rev 11 grow 0 reset 0 | ak_blob_run=8 ak_elem_TaskOptionsOptionsEntry=2 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+U-wire-ListTasksDetailedResponse-page-as-wt5 corpus core-ffi decode no-unknown | fwd 3 rev 15 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+U-wire-ListTasksDetailedResponse-page-as-wt5 corpus core-ffi decode-read no-unknown | fwd 3 rev 15 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+U-wire-ListTasksDetailedResponse-page-as-wt5 corpus core-ffi decode-reencode no-unknown | fwd 17 rev 26 grow 0 reset 0 | ak_blob_run=8 ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1 ak_elem_TaskOptionsOptionsEntry=2 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+U-wire-ListTasksDetailedResponse-tasks-as-wt0 corpus core-ffi encode-hot no-unknown | fwd 14 rev 11 grow 0 reset 0 | ak_blob_run=8 ak_elem_TaskOptionsOptionsEntry=2 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+U-wire-ListTasksDetailedResponse-tasks-as-wt0 corpus core-ffi decode no-unknown | fwd 3 rev 15 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+U-wire-ListTasksDetailedResponse-tasks-as-wt0 corpus core-ffi decode-read no-unknown | fwd 3 rev 15 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+U-wire-ListTasksDetailedResponse-tasks-as-wt0 corpus core-ffi decode-reencode no-unknown | fwd 17 rev 26 grow 0 reset 0 | ak_blob_run=8 ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1 ak_elem_TaskOptionsOptionsEntry=2 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+U-wire-ListTasksDetailedResponse-tasks-as-wt1 corpus core-ffi encode-hot no-unknown | fwd 14 rev 11 grow 0 reset 0 | ak_blob_run=8 ak_elem_TaskOptionsOptionsEntry=2 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+U-wire-ListTasksDetailedResponse-tasks-as-wt1 corpus core-ffi decode no-unknown | fwd 3 rev 15 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+U-wire-ListTasksDetailedResponse-tasks-as-wt1 corpus core-ffi decode-read no-unknown | fwd 3 rev 15 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+U-wire-ListTasksDetailedResponse-tasks-as-wt1 corpus core-ffi decode-reencode no-unknown | fwd 17 rev 26 grow 0 reset 0 | ak_blob_run=8 ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1 ak_elem_TaskOptionsOptionsEntry=2 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+U-wire-ListTasksDetailedResponse-tasks-as-wt5 corpus core-ffi encode-hot no-unknown | fwd 14 rev 11 grow 0 reset 0 | ak_blob_run=8 ak_elem_TaskOptionsOptionsEntry=2 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+U-wire-ListTasksDetailedResponse-tasks-as-wt5 corpus core-ffi decode no-unknown | fwd 3 rev 15 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+U-wire-ListTasksDetailedResponse-tasks-as-wt5 corpus core-ffi decode-read no-unknown | fwd 3 rev 15 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+U-wire-ListTasksDetailedResponse-tasks-as-wt5 corpus core-ffi decode-reencode no-unknown | fwd 17 rev 26 grow 0 reset 0 | ak_blob_run=8 ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1 ak_elem_TaskOptionsOptionsEntry=2 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+U-wire-UploadResultDataMessage-upload-as-wt0 corpus core-ffi encode-hot no-unknown | fwd 3 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_encode_UploadResultDataMessage=1
+U-wire-UploadResultDataMessage-upload-as-wt0 corpus core-ffi decode no-unknown | fwd 3 rev 1 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_UploadResultDataMessage=1
+U-wire-UploadResultDataMessage-upload-as-wt0 corpus core-ffi decode-read no-unknown | fwd 3 rev 1 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_UploadResultDataMessage=1
+U-wire-UploadResultDataMessage-upload-as-wt0 corpus core-ffi decode-reencode no-unknown | fwd 6 rev 1 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_UploadResultDataMessage=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_UploadResultDataMessage=1
+U-wire-UploadResultDataMessage-upload-as-wt1 corpus core-ffi encode-hot no-unknown | fwd 3 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_encode_UploadResultDataMessage=1
+U-wire-UploadResultDataMessage-upload-as-wt1 corpus core-ffi decode no-unknown | fwd 3 rev 1 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_UploadResultDataMessage=1
+U-wire-UploadResultDataMessage-upload-as-wt1 corpus core-ffi decode-read no-unknown | fwd 3 rev 1 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_UploadResultDataMessage=1
+U-wire-UploadResultDataMessage-upload-as-wt1 corpus core-ffi decode-reencode no-unknown | fwd 6 rev 1 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_UploadResultDataMessage=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_UploadResultDataMessage=1
+U-wire-UploadResultDataMessage-upload-as-wt5 corpus core-ffi encode-hot no-unknown | fwd 3 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_encode_UploadResultDataMessage=1
+U-wire-UploadResultDataMessage-upload-as-wt5 corpus core-ffi decode no-unknown | fwd 3 rev 1 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_UploadResultDataMessage=1
+U-wire-UploadResultDataMessage-upload-as-wt5 corpus core-ffi decode-read no-unknown | fwd 3 rev 1 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_UploadResultDataMessage=1
+U-wire-UploadResultDataMessage-upload-as-wt5 corpus core-ffi decode-reencode no-unknown | fwd 6 rev 1 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_UploadResultDataMessage=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_UploadResultDataMessage=1
