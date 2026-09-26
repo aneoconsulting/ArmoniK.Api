@@ -1188,7 +1188,7 @@ is a W11 requirement and none is a result:
   out cannot be dilution; it is client and server contending inside one runtime,
   a property of the harness and of neither stack. The Java slice's transport
   delta changed sign when its server moved to a second process
-  (`logs/java/rpc.log`). The C++, C# and Python grids ran their servers in
+  (withdrawn in c23533ea7 under R-C9, no raw runner output; `git show e75585be6:ffi/logs/java/rpc.log`). The C++, C# and Python grids ran their servers in
   process.
 - **A cell's decode has to do the same work as the cell it is compared with.**
   upb's `FromString` is lazy and builds no Python objects, so a bare decode call

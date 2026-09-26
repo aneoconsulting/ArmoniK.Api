@@ -45,7 +45,7 @@ section 1.1). None is quoted here.
   because the container has no JDK 22 (`logs/java/ffm.log`). FFM is not built as a
   binding, and no FFM upcall exists.
 - **Generated Java codec, arm R**: the no-boundary control, from `gen/java_codec.py`.
-- **RPC arm** (`logs/java/rpc.log`): grpc-java, the core's blocking call, and the
+- **RPC arm** (the former `logs/java/rpc.log`, withdrawn in c23533ea7 under R-C9, no raw runner output; `git show e75585be6:ffi/logs/java/rpc.log`): grpc-java, the core's blocking call, and the
   core's completion queue (`ak_call_unary_q`). A four-cell grid (A: protobuf-java
   over grpc-java; B: protobuf-java over the core; C: core over core; D: core codec
   over grpc-java) over a UDS, with a **two-process mode**: `-Dak.rpc.serve=<path>`
@@ -102,7 +102,7 @@ core, reverse an upcall out of it.
   Forward is 2 for the walk delivery at any size (parse plus `ak_bdr_ptr`) and 1
   plus one per 32 KB chunk for the drain.
 - **RPC**: the blocking call makes 2 forward and 0 reverse, the queue 3 forward and
-  0 reverse (`logs/java/rpc.log`).
+  0 reverse (from the withdrawn `rpc.log`; not in any current committed log, so not established).
 - **Decision 5, learned length-placeholder width**: zero prefix misses on every
   uniform payload from a warm context; on P2.4, built so a per-site width is wrong
   on every element, 80 misses (one per element) moving 979,181 of 979,465 bytes.

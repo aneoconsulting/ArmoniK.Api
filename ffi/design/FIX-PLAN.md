@@ -167,7 +167,7 @@ Files: `README.md` sections 2, 3, 4.1, 9, 13, 13.1; `findings/*.md`;
 3. **Keep the harness lessons, reworded as harness facts**, in a new
    `README.md` subsection "Known harness hazards" that W11 cites. The review and
    the slices together found these; each becomes a W11 requirement:
-   in-process servers can flip a delta's sign (Java, `logs/java/rpc.log`);
+   in-process servers can flip a delta's sign (Java, the former `logs/java/rpc.log`, withdrawn in c23533ea7 under R-C9, no raw runner output);
    upb's `FromString` is lazy, so a bare decode call is not the same work as an
    eager decode (Python); `Process.TotalProcessorTime` has 10 ms steps on Linux
    (C#); a per-call fresh allocation in a marshaller dominated a cell (Java cell
