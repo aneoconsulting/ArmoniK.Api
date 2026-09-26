@@ -7,8 +7,8 @@ here. This file states what exists and what was checked; the choice is the owner
 
 | | |
 |---|---|
-| **Status** | Built and gated: four codec arms plus the pull family over the 16 payloads, the RPC arm, the full conformance corpus through the C ABI and core-native, decision 11's unknown-field mechanism (ABI-v1 rules 1 to 7, rule 4 as amended 2026-09-26), the no-unknown build (unknown-field support compiled out), and the campaign harness of `design/CAMPAIGN.md` (criterion codec suite, separate-process RPC grid, calib, runner). The optimisation experiment (owner-approved, core and shared generator included) is done: steps 0-12, 11 kept, 1 reverted (table below). The gate passes on its final code (3c737d1, clean tree) on stable 1.94.1 and on the MSRV floor 1.88.0, both builds (`logs/rust/opt/final-gate/`) |
-| **Next step** | none assigned. Held for the aggregating session: U2's geometric growth (changes 36 committed crossing counts), C1 (reverted, no resolved gain), design-doc wording (JOURNAL, final entry) |
+| **Status** | Built and gated: four codec arms plus the pull family over the 16 payloads, the RPC arm, the full conformance corpus through the C ABI and core-native, decision 11's unknown-field mechanism (ABI-v1 rules 1 to 7, rule 4 as amended 2026-09-26), the no-unknown build (unknown-field support compiled out), and the campaign harness of `design/CAMPAIGN.md` (criterion codec suite, separate-process RPC grid, calib, runner). The optimisation experiment (owner-approved, core and shared generator included) is done: steps 0-12, 11 kept, 1 reverted (table below). The gate passed on 3c737d1 (clean tree) on stable 1.94.1 and on the MSRV floor 1.88.0, both builds (`logs/rust/opt/final-gate/`). **The current HEAD is NOT gated**: two owner decisions were applied after that gate (U2 geometric growth, with new committed crossing counts; the interleaved sampler removed), checked only by builds, generate --check, one_core.sh, the pre-check and the counting builds |
+| **Next step** | none assigned; the gate on the current HEAD is the owner's call (not run, by instruction). C1 stays out (owner). Design-doc wording: JOURNAL, final entries |
 | **Blocked on** | nothing |
 | **Floor** (must build and pass correctness) | MSRV 1.88.0: verified: the full gate, both builds, passes on rustc 1.88.0 on the final code (`logs/rust/opt/final-gate/gate-floor-1.88.log`) |
 | **Target** | stable 1.94.1 in this container; README section 5: for Rust the floor is the target language level, one configuration |
@@ -23,7 +23,10 @@ The owner approved a list of optimisation candidates, core and shared generator 
 `gen/opt_compare.py` against the previous kept step and against `baseline2`, calibrated by
 the A/A pair `baseline2` / `baseline2-aa`). The codec pre-check (0 failures) and both
 crossing-count files hold on every step; the full gate runs once at the end. Harness v3:
-the interleaved sampler (AK_ORDER=interleave), not criterion (JOURNAL, step 0).
+the interleaved sampler (AK_ORDER=interleave), not criterion (JOURNAL, step 0). **Since
+removed by the owner** ("if criterion cannot interleave, forget about interleaving"):
+gen/opt_bench.sh is now on criterion (harness v4), so every opt run below was taken with a
+harness that no longer exists and a new opt run would not compare with them directly.
 Hazard: between steps the incumbent's encode median has moved 7-10% (steps 1, 3, 4) with no
 change to its code, so the /inc encode ratios carry it; core-ffi/core-native is the check.
 A deliberate 32-byte layout shift (`opt/layout-exp`, A/B/A/B) moved group means by at most
@@ -36,7 +39,7 @@ A deliberate 32-byte layout shift (`opt/layout-exp`, A/B/A/B) moved group means 
 | 2 | 59b16ec | E1: one-pass write of a passthrough blob (ak-core enc_blob) | yes | core-ffi/inc encode 0.84-0.87 x (P, U, all modes); core-ffi/core-native encode 0.83-0.86 x; core-native/inc noise | `opt/s2-e1` |
 | 3 | fdecae0 | E2: sparse fill clears min(n, chunk); core-ffi encode arm (and RPC C/D) on the sparse path | yes | core-ffi/core-native encode: P1.3 2.40 -> 2.08 (drop), 2.43 -> 1.67 (retain), 2.66 -> 2.10 (no-unknown); groups 0.96-1.00; the /inc groups moved 0.88 with core-native/inc (incumbent layout drift) | `opt/s3-e2` |
 | 4 | ab133a3 | E4 + N1: packed bool/enum without a heap Vec (binding); core-native packed decode reserves | yes | core-native/inc P6.1 decode 0.62 -> 0.44 (drop), 0.65 -> 0.40 (no-unknown); core-ffi/core-native P6.1 encode 1.11 -> 1.02 (drop), 1.11 -> 1.00 (retain); core-ffi P6.1 decode ratio up 10-19% with no decode change (see JOURNAL) | `opt/s4-e4n1` |
-| 5 | 56ca80c | U1 + U2: retain options at a stable address, one reset per decode, no disarm; UNK_LIVE a map (geometric growth HELD BACK: it changes 36 crossing counts) | yes (cleanliness: rule 7, O(1) buffer tracking) | no group beyond noise; in-process core-ffi retain/drop decode on U rows 1.281 -> 1.263 | `opt/s5-u1u2`, `opt/s5-u1u2-heldback` |
+| 5 | 56ca80c | U1 + U2: retain options at a stable address, one reset per decode, no disarm; UNK_LIVE a map (geometric growth held back then, applied later on the owner's decision, see below) | yes (cleanliness: rule 7, O(1) buffer tracking) | no group beyond noise; in-process core-ffi retain/drop decode on U rows 1.281 -> 1.263 | `opt/s5-u1u2`, `opt/s5-u1u2-heldback` |
 | 6 | b259af0 | E3 + D2 + D3b + D4: small encode chunk + out-of-line big path; one shared decode arena; in-place element groups; pull runs straight into the record buffer | yes | core-ffi/core-native decode 0.950 (P drop), 0.956 (P retain), 0.946 (U drop); P1.3 1.41 -> 1.05, P6.1 1.55 -> 1.34, P7.1 1.33 -> 1.16; core-ffi-pull/inc decode 0.94 (P), 0.90 (U); no-unknown decode 0.986; encode (E3) noise | `opt/s6-e3d2d3d4`, `opt/s6-sanity` |
 | 7 | 85d9034 | R1: raw decoders return copy_to_bytes directly (rpc crate, rpc_server); R2: additive `ak_call_unary_enc` (the encode context's buffer moved into the request, recycled through a slot) used by cell C direction b | yes (R1 cleanliness; R2 additive, no gain resolved) | every RPC cell/A row noise; cell C direction b (full client) 0.02-0.08 lower on every in-flight but C-nounk unchanged, so not attributable | `opt/s7-r1r2` |
 | 8 | f2a88d3 | F1: the no-unknown build has no facade unknown_fields member (and no core_native_retain; the corpus no-unknown build loses its native-retain arm) | yes | no-unknown build, decode: core-native/inc 0.94 (P), 0.89 (U); core-ffi/inc 0.96 (P), 0.90 (U); armonik/inc 0.96 (P), 0.92 (U); core-ffi/core-native 1.02 (both faster); full build noise | `opt/s8-f1`, `opt/s8-sanity` |
@@ -96,8 +99,8 @@ gen/corpus.sh          the corpus on the full build (4 arms) and on the no-unkno
                        (3 arms), each with its planted controls
 gen/c_variant.sh       both C headers against both cores (section 10's check from a C++ host)
 gen/tsan.sh            the concurrency suite under ThreadSanitizer (nightly) with a planted race
-gen/opt_bench.sh       the short fixed optimisation benchmark (harness v3: the codec suite's
-                       interleaved sampler AK_ORDER=interleave, rpc_client --order interleave;
+gen/opt_bench.sh       the short fixed optimisation benchmark (harness v4: criterion, seeded
+                       case shuffle AK_ORDER=shuffle; rpc_client --order interleave;
                        instrumentation, no gate; the codec pre-check on). gen/opt_summary.py
                        derives the TSVs, gen/opt_compare.py compares two runs (--aa A1 A2
                        calibrates with an A/A pair), gen/opt_step.sh NAME PREV = both
@@ -205,7 +208,7 @@ Every figure in both is instrumentation.
 | 19 | crossing counts gate | met: see "Crossing counts: what they cover" (the two `ak_dec_reset_<Root>` calls are not counted); both files compared in the gate and by the runner before codec and calib; a difference stops the run |
 | 20 | crossing cost fwd/rev, perf stat | **not met**: `calib` reports forward (`ak_noop`) and forward+reverse (`ak_noop_reverse`) in the same round; `perf stat` cycles and instructions are collected by the runner when perf exists, and **perf is not installed in this container** (the smoke's `calib-perf-launch1.txt` says so). Needs the campaign machine with perf |
 | 21 | CPU clocks | met for CPU: codec CLOCK_THREAD_CPUTIME_ID per criterion sample (a custom criterion Measurement); rpc getrusage(RUSAGE_SELF) of the client with wall beside it; calib CLOCK_THREAD_CPUTIME_ID. The codec suite records no wall time (not required for codec; stated in its header) |
-| 22 | blocks, order rotated between launches | met: codec in blocks by arm with the order rotated by launch, and the two builds' order alternated by launch; rpc cells rotated by launch and the two clients alternated; calib's two arms alternate. The optimisation benchmark uses the non-default AK_ORDER=interleave / rpc --order interleave instead (not the campaign's requirement-22 form) |
+| 22 | blocks, order rotated between launches | met: codec in blocks by arm with the order rotated by launch, and the two builds' order alternated by launch; rpc cells rotated by launch and the two clients alternated; calib's two arms alternate. The optimisation benchmark uses the non-default AK_ORDER=shuffle (criterion, seeded case order) and rpc --order interleave (cells rotated per round) instead |
 | 22a | benchmark engine | met: the codec suite runs on criterion 0.5 with every sample exported from criterion's `sample.json` to JSON lines; the RPC grid and calib stay on the runner (req 18's abort-with-no-output and req 13's separate server process, and one RPC sample is a batch of k concurrent calls timed with process CPU), stated |
 | 23 | 5 rounds x 3 launches, every round committed | met by default: codec 10 criterion samples per case (criterion's floor) x 3 launches; rpc and calib 5 rounds x 3 launches. The smoke is 1 launch, 1 round |
 | 24 | warm-up stated, identical | met: codec a fixed iteration count per case (100; smoke 3) then criterion warm-up (500 ms; smoke 5 ms), identical per arm, recorded; rpc 64 calls per (cell, dir, in-flight) (smoke 16); calib iters/10. No JIT |
@@ -224,7 +227,7 @@ Every figure in both is instrumentation.
 |---|---|---|---|
 | D42 | rust facade | a map entry has no unknown-field bag in the facade, so `U-map-entry` is written in the dropped form by ffi-retain and native-retain although the core delivers the entry's bytes (accepted by the contract) | open, a facade question |
 | D43 | opt harness | the incumbent's own median moves 5-10% between two processes of different builds (seen at steps 1, 3, 4, 8, 12) with no change to its code; a 32-byte layout shift explains at most 3.4% of a group mean (`opt/layout-exp`). The /inc ratios carry it; core-ffi/core-native is the check for a core-ffi-only change | open, cause not identified |
-| D44 | shared core | U2's geometric growth in `unk_grow` changes 36 committed retain crossing counts (`opt/s5-u1u2-heldback/crossings-geometric-growth.diff`); held back, not applied | for the aggregating session |
+| D44 | shared core | U2's geometric growth in `unk_grow` changes 36 committed retain crossing counts | closed: accepted by the owner and applied; `gen/crossings.txt` regenerated (`logs/rust/opt/u2-growth/crossings.diff`) |
 
 Closed since the last rewrite (evidence in `JOURNAL.md`): D2 (the 1.88 floor now runs,
 the gate passes on it); D34 (retention inside inlined children, closed by decision 11 for the C
@@ -277,6 +280,7 @@ FIX-PLAN R-G17); D41 (every slice's generated tree is current: `generate.py --ch
 
 | Log | What it establishes |
 |---|---|
+| `logs/rust/opt/u2-growth/` | U2 geometric growth applied after the final gate: the 36-row diff of `gen/crossings.txt` (retain decode / decode-pull reverse counts) |
 | `logs/rust/opt/final-gate/` | the gate on the final code (3c737d1): stable (`gate.log`) and the 1.88.0 floor (`gate-floor-1.88.log`), both GATE PASSED |
 | `logs/rust/opt/final/` | the final opt_bench run (instrumentation) and its comparisons with baseline2, s11 and (a different harness) the first baseline; `per-payload-vs-baseline2.txt` |
 | `logs/rust/opt/s1-d1` ... `s12-c1` | one opt_bench run per optimisation step, each with `compare-vs-<previous>.txt` and `compare-vs-baseline2.txt` (A/A-calibrated); `s6-sanity`, `s8-sanity`, `s11-sanity` are corpus runs for the steps that touched decode, the facade and UTF-8 |

@@ -2686,3 +2686,47 @@ kept step. Step 0 fixes the harness first.
   core's decode-side check is simdutf8 by default. CAMPAIGN.md req 22a describes the codec
   engine as criterion; the optimisation benchmark uses the suite's own interleaved sampler
   (the campaign default is unchanged).
+
+## 2026-09-26 -- owner decisions after the experiment: interleaved sampler removed, U2 applied
+
+- Interleaving (owner: "If criterion cannot interleave, then forget about interleaving.
+  Benchmarking is complex enough not to reinvent it."). Removed: the codec suite's
+  AK_ORDER=interleave branch and everything that existed only for it (the `interleaved`
+  sampler, `sample`, `splitmix`, the `timed` closure on Case, the CRITERION_HOME
+  exemption, its header lines and module comment). Kept, because they are plain criterion:
+  AK_ORDER=shuffle (seeded case order), AK_NRESAMPLES, the U-* sample count, the labelled
+  extra decode-nodrop rows (now criterion's `iter_custom` over `time_nodrop`: each
+  operation timed alone, its output dropped after its clock stops) and the labelled extra
+  core-ffi-zc arm. gen/opt_bench.sh is harness v4: criterion, AK_ORDER=shuffle AK_SEED=1
+  AK_NRESAMPLES=1000, P 20 samples / 100 it + 50 ms / 200 ms, U 20 samples / 20 it + 10 ms
+  / 60 ms (the v2 settings), CRITERION_HOME back. The RPC grid (the runner's own harness,
+  not criterion) is left as it was: rpc_client --order interleave, cells rotated per round;
+  nothing new added there. Consequence, stated in STATE: every opt run from baseline2 to
+  final was taken with harness v3, which no longer exists; a new opt_bench run compares
+  with baseline2-v2 / baseline2-v2-aa (the criterion A/A pair), not with them. Not run
+  (instruction): opt_bench.
+- U2 geometric growth (owner: accepted, "crucial to avoid quadratic growth complexity").
+  rust_binding.py: `unk_grow` allocates `unk_grow_cap(want, old_cap)` =
+  max(want, 2 * old_cap, 64) computed in usize (saturating, so no i32 overflow), clamped to
+  INT32_MAX (ABI v1 decision 11 rule 5) and never below want; a need above INT32_MAX is
+  still refused with AK_ERR_LIMIT by the core before it calls grow (unchanged). A unit test
+  in the generated binding checks the doubling, the clamp at INT32_MAX from below and from
+  an old capacity past it, and c >= want (cargo test -p harness --lib unk_grow_cap: 1
+  passed).
+- Crossing counts regenerated from the counting build: gen/crossings.txt, 36 of 671 rows
+  changed, exactly the 36 of the held-back diff; gen/crossings-nounk.txt unchanged (the
+  no-unknown build has no unk_grow). Every changed row is a RETAIN decode or decode-pull
+  REVERSE count on a U-* row whose unknown runs grow a buffer more than once: each unk_grow
+  call is one reverse crossing, and doubling makes fewer of them. No forward count, no drop
+  row, no encode row changed. Rows (reverse, before -> after): U-deep-all decode 16 -> 10,
+  pull 8 -> 2; U-deep-u-repeated 10 -> 9, 2 -> 1; U-element-all 16 -> 10, 8 -> 2;
+  U-element-u-repeated 10 -> 9, 2 -> 1; U-leaf-all 18 -> 8, 16 -> 6; U-leaf-u-repeated
+  6 -> 4, 4 -> 2; U-nested-all, U-nested-before, U-nested-interleaved, U-oneof-all,
+  U-oneof-before, U-oneof-interleaved, U-root-all, U-root-before, U-root-interleaved each
+  10 -> 4 and 8 -> 2; U-nested-u-repeated, U-oneof-u-repeated, U-root-u-repeated each
+  4 -> 3 and 2 -> 1. Diff: logs/rust/opt/u2-growth/crossings.diff.
+- Checks run (no gate, by instruction): generate --check and one_core.sh pass; cargo build
+  of both variants, both bench executables and the corpus workspace; the pre-check alone
+  (AK_PRECHECK_ONLY) 1186 / 632 checks, 0 failures; the regenerated gen/crossings.txt
+  reproduces from the counting build; crossings-nounk identical. The final gate at 3c737d1
+  predates both changes, so the current HEAD is not gated.
