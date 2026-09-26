@@ -78,7 +78,8 @@ in its container shows it executes (section 9).
     - **drop**: the same build, every entry zero (dropped at run time);
     - **no-unknown**: a build with unknown-field support **compiled out** (the
       generator's `unknown="drop"` option: no `ak_unk_buf` slots in the decode groups,
-      no options structs, no capture or re-emission code in the core or the binding).
+      no options structs, no capture or re-emission code in the core or the binding,
+      and **no unknown-field member in the facade objects**, owner 2026-09-26).
       This prices what proposing retention costs even when it is not used.
     The incumbent runs in its default mode, stated. The no-unknown build has its own
     committed crossing counts (req 19) and its own correctness gate (corpus with every
@@ -138,6 +139,9 @@ in its container shows it executes (section 9).
     interleaved within a process. The order of arms is **rotated between launches**
     (launch 1: A, B, C; launch 2: B, C, A; ...), so a slow drift across a run does not
     fall on the same arm every time. Interleaving within a process remains allowed.
+    Amended by the owner 2026-09-26: a slice randomises or interleaves the order to
+    the extent its framework supports it; a framework that cannot is not a defect,
+    and the order used is stated.
 22a. **Benchmark engine** (owner, 2026-09-25): a slice may time through its
     ecosystem's standard benchmark framework, and **the codec suite of every slice
     uses one** (owner, 2026-09-25): **.NET BenchmarkDotNet, Java JMH, C++ Google
@@ -165,7 +169,7 @@ in its container shows it executes (section 9).
 
 26. Before any timing, the runner executes the slice's correctness gate on the
     campaign machine: byte identity on every payload for every timed arm, the full
-    corpus through every codec arm in both unknown-field modes, and the planted
+    corpus through every codec arm in every unknown-field mode of req 10, and the planted
     controls. A failed gate stops the slice; no figure is produced.
 
 ## 7. Logs
@@ -186,7 +190,9 @@ in its container shows it executes (section 9).
 30. Per (arm or cell, payload, direction, mode): the median and the minimum and
     maximum over all rounds of all launches, for CPU and wall; and the **per-round
     ratio** to `incumbent-prod` (codec) or to cell A (RPC), with its median and
-    range. Nothing else: no significance claims, no verdict words. Interpretation is
+    range. **Ratios are formed from per-launch medians** (owner, 2026-09-26), which
+    is what a framework that forks per arm allows; running every arm and build in one
+    process is allowed and not required. Nothing else: no significance claims, no verdict words. Interpretation is
     the aggregating session's, and the decision is the owner's.
 
 ## 9. Runner and smoke run

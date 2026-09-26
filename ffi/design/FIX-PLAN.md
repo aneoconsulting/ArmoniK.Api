@@ -661,22 +661,22 @@ decision rather than a fix.
 
 **H2. Needs an owner decision (contract or design)**
 
-| ID | Question | Source |
-|---|---|---|
-| R-H20 | Rule 1 as implemented: the core decides "discard" when the context is armed, so an entry that was empty then and refilled later is ignored (rc 0, bag lost). Keep the behaviour and narrow the rule's text, or make the core read entries live | IC1 |
-| R-H21 | Rule 5 edges: exactly 2^31 is refused; LIMIT is checked only on the grow path (a host buffer with cap at or above 2^31 is accepted); above 2 GiB with no grow gives CAPACITY rather than LIMIT | IC4 |
-| R-H22 | What "no-unknown" removes: C++ and Rust keep the facade's unknown-field member; Java and Python remove it; C# is reported both ways (GS2 says kept, CP3 says removed). host-gen has a no-unknown arm in Rust, C# and Java, and not in C++ or Python. C++'s installed-header layout rule may be why it keeps it | GS2, CP3 |
-| R-H23 | Order of arms (req 22): a one-step rotation over 3 launches uses 3 of 6 positions and never changes adjacency, so C-retain always precedes C-drop and D-retain precedes D-drop. Options: counterbalanced order, interleaving, or accept it, stated | CS1, MV10 |
-| R-H24 | Ratios across processes (req 30): JMH forks per cell, BDN runs per unit, pyperf spawns per benchmark, so a "per-round ratio" pairs different processes in Java, C# and Python. The no-unknown build is always another binary and another process in every slice, and no in-process control goes through the core. Options: per-launch medians labelled cross-process; more launches; a layout control (k relinks, or fixed alignment); both cores in one process | CS2, CS3, CP6, MV3 |
-| R-H25 | CPU definition (req 21): the "or" lets an RPC cell count one thread; codec CPU is thread CPU in four slices and one process-wide value per case (GC forced by BDN included, no per-round CPU) in C# | CS4, CP2, MV4 |
-| R-H26 | Content sets: SHAPES.md does not say which payloads carry them; the slices share no (payload, non-ASCII set) pair (Python P2.4 only, Rust and C# P1.2 and P2.2, C++ five payloads, Java all) | CP1, MV8 |
-| R-H27 | U-* rows differ: C++ has no encode direction; Python and Java use the corpus-schema core; Java has no `accept` filter; counts 92 or 311 | CP4 |
-| R-H28 | RPC transport: UDS in C# and Java, loopback TCP elsewhere; Java's "shipped" has no source in `packages/java`; C# passes `adaptive_window = 0` in shipped | CP7 |
-| R-H29 | Timing scope (req 11): graph construction and the encode end state are not fixed per arm (C++ incumbent allocates a ByteBuffer and core-ffi reuses; Python core-ffi returns fresh `bytes`; Java encodes a new graph per iteration from a 32 MiB pool, the others one hot graph) | CS7, CP9 |
-| R-H30 | Req 16 fixes blocking delivery for B and C only; A and D may be async | CS5 |
-| R-H31 | Req 19: the gate does not count resets, runs on a counting build rather than the timed one, does not cover RPC cells, and leaves retain buffer sizing (so grow crossings) to the harness | CS6 |
-| R-H32 | GC and JIT state between blocks, warm-up placement, JIT tier with no consequence (req 24, 25) | CS8 |
-| R-H33 | Server identity per launch, server warm-up and connection lifetime unspecified (req 13, 17) | CS9 |
-| R-H34 | Idle states, SMT inside CLIENT, and CLIENT size not fixed for the campaign (req 2, 4) | CS10 |
-| R-H35 | No cell serves option 2 (host-gen codec over the core's transport), though README section 13 says option 2 depends on B-A with the generated codec | CS |
-| R-H36 | RPC direction (a): Python's like-for-like row is `a+read` (upb is lazy); a mapping is needed | CP10 |
+| ID | Question | Source | Decision |
+|---|---|---|---|
+| R-H20 | Rule 1 as implemented: the core decides "discard" when the context is armed, so an entry that was empty then and refilled later is ignored (rc 0, bag lost). Keep the behaviour and narrow the rule's text, or make the core read entries live | IC1 | owner 2026-09-26: the core's behaviour is the rule (retention decided once per decode at create or reset, definitive for that decode); ABI-v1 rule 1 text narrowed. No code change |
+| R-H21 | Rule 5 edges: exactly 2^31 is refused; LIMIT is checked only on the grow path (a host buffer with cap at or above 2^31 is accepted); above 2 GiB with no grow gives CAPACITY rather than LIMIT | IC4 | owner 2026-09-26: every capacity capped at INT32_MAX, host-placed or grown; above it AK_ERR_LIMIT with or without grow. Core change |
+| R-H22 | What "no-unknown" removes: C++ and Rust keep the facade's unknown-field member; Java and Python remove it; C# is reported both ways (GS2 says kept, CP3 says removed). host-gen has a no-unknown arm in Rust, C# and Java, and not in C++ or Python. C++'s installed-header layout rule may be why it keeps it | GS2, CP3 | owner 2026-09-26: the no-unknown build removes the facade member too, in every slice (CAMPAIGN req 10) |
+| R-H23 | Order of arms (req 22): a one-step rotation over 3 launches uses 3 of 6 positions and never changes adjacency, so C-retain always precedes C-drop and D-retain precedes D-drop. Options: counterbalanced order, interleaving, or accept it, stated | CS1, MV10 | owner 2026-09-26: randomise or interleave to the extent the framework supports; otherwise not a defect, order stated (CAMPAIGN req 22) |
+| R-H24 | Ratios across processes (req 30): JMH forks per cell, BDN runs per unit, pyperf spawns per benchmark, so a "per-round ratio" pairs different processes in Java, C# and Python. The no-unknown build is always another binary and another process in every slice, and no in-process control goes through the core. Options: per-launch medians labelled cross-process; more launches; a layout control (k relinks, or fixed alignment); both cores in one process | CS2, CS3, CP6, MV3 | owner 2026-09-26: ratios from per-launch medians (CAMPAIGN req 30); one process for all arms allowed, not required |
+| R-H25 | CPU definition (req 21): the "or" lets an RPC cell count one thread; codec CPU is thread CPU in four slices and one process-wide value per case (GC forced by BDN included, no per-round CPU) in C# | CS4, CP2, MV4 | |
+| R-H26 | Content sets: SHAPES.md does not say which payloads carry them; the slices share no (payload, non-ASCII set) pair (Python P2.4 only, Rust and C# P1.2 and P2.2, C++ five payloads, Java all) | CP1, MV8 | |
+| R-H27 | U-* rows differ: C++ has no encode direction; Python and Java use the corpus-schema core; Java has no `accept` filter; counts 92 or 311 | CP4 | |
+| R-H28 | RPC transport: UDS in C# and Java, loopback TCP elsewhere; Java's "shipped" has no source in `packages/java`; C# passes `adaptive_window = 0` in shipped | CP7 | |
+| R-H29 | Timing scope (req 11): graph construction and the encode end state are not fixed per arm (C++ incumbent allocates a ByteBuffer and core-ffi reuses; Python core-ffi returns fresh `bytes`; Java encodes a new graph per iteration from a 32 MiB pool, the others one hot graph) | CS7, CP9 | |
+| R-H30 | Req 16 fixes blocking delivery for B and C only; A and D may be async | CS5 | |
+| R-H31 | Req 19: the gate does not count resets, runs on a counting build rather than the timed one, does not cover RPC cells, and leaves retain buffer sizing (so grow crossings) to the harness | CS6 | |
+| R-H32 | GC and JIT state between blocks, warm-up placement, JIT tier with no consequence (req 24, 25) | CS8 | |
+| R-H33 | Server identity per launch, server warm-up and connection lifetime unspecified (req 13, 17) | CS9 | |
+| R-H34 | Idle states, SMT inside CLIENT, and CLIENT size not fixed for the campaign (req 2, 4) | CS10 | |
+| R-H35 | No cell serves option 2 (host-gen codec over the core's transport), though README section 13 says option 2 depends on B-A with the generated codec | CS | |
+| R-H36 | RPC direction (a): Python's like-for-like row is `a+read` (upb is lazy); a mapping is needed | CP10 | |
