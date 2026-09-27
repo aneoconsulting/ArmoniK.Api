@@ -309,6 +309,11 @@ rpc)
   # iterations in a fixed cycle (see ak.RpcJmh for the grouping and every custom piece).
   JMHCP=$(cat deps/jmh/cp.txt)
   NCOMBO=17
+  # Req 22a (owner, e6c909630): the campaign runs JMH's own isolation, one fork per (cell,
+  # combination) through the `combo` @Param. AK_RPC_GROUP=1 (the default under smoke only)
+  # groups every combination of a cell in one fork, cycled through JMH iterations: allowed
+  # for smoke and small exploration runs, stated in each header.
+  GROUP=${AK_RPC_GROUP:-0}; [ "$SMOKE" = 1 ] && GROUP=${AK_RPC_GROUP:-1}
   WARM=${AK_WARM:-2}; WTIME=${AK_RPC_WARM_TIME:-1s}; RTIME=${AK_RPC_ITER_TIME:-1s}
   SWARM=${AK_RPC_SERVER_WARM:-200}
   if [ "$SMOKE" = 1 ]; then
@@ -340,16 +345,23 @@ rpc)
     [ "$tr" = pinned ] && sock=$SP
     local CELLS
     CELLS=$("$J17/bin/java" -cp "build/cls17$SX:$CP" -Dak.camp.launch="$l" ak.CampaignRpc --list)
-    header "$f" "engine=JMH 1.37 AverageTime, -f 1 per cell, transport=$tr build=$V launch=$l, cells $CELLS (one fork each; A and B are the in-process incumbent controls; Bf, Cf-*, Ef-* the framed twins; Cc-* C on the copy path); per fork $NCOMBO combinations: directions a, a+read, b at 1/8/16 in flight, c (unary upload P5.3, P5.4) and d (client-streamed upload, 4 MiB and 16 MiB in 2 MiB chunks) at 1/8"
+    local PCOMBO=cycle WI=$((WARM * NCOMBO)) MI=$((ROUNDS * NCOMBO)) GNOTE
+    GNOTE="grouping (req 22a): AK_RPC_GROUP=1, GROUPED -- one fork per cell runs all $NCOMBO combinations, cycled through JMH iterations (smoke and exploration only, not the campaign's configuration)"
+    if [ "$GROUP" != 1 ]; then
+      PCOMBO=$("$J17/bin/java" -cp "build/cls17$SX:$CP" ak.CampaignRpc --combos); WI=$WARM; MI=$ROUNDS
+      GNOTE="grouping (req 22a): AK_RPC_GROUP=0, JMH's own isolation -- one fork per (cell, combination), -p combo=$PCOMBO, each fork opening its own channel or client"
+    fi
+    header "$f" "engine=JMH 1.37 AverageTime, -f 1 per (cell, combination), or per cell when grouped (see the grouping line), transport=$tr build=$V launch=$l, cells $CELLS (A and B the incumbent controls, in forks of their own; Bf, Cf-*, Ef-* the framed twins; Cc-* C on the copy path); per fork $NCOMBO combinations: directions a, a+read, b at 1/8/16 in flight, c (unary upload P5.3, P5.4) and d (client-streamed upload, 4 MiB and 16 MiB in 2 MiB chunks) at 1/8"
     echo "# $WARM_NOTE" >> "$f"
-    echo "# command: $PIN_C java org.openjdk.jmh.Main ak.RpcJmh.batch -f 1 -foe true -wi $((WARM * NCOMBO)) -w $WTIME -i $((ROUNDS * NCOMBO)) -r $RTIME -p cell=<cells> -jvmArgs '$JVM_FLAGS ...'" >> "$f"
+    echo "# $GNOTE" >> "$f"
+    echo "# command: $PIN_C java org.openjdk.jmh.Main ak.RpcJmh.batch -f 1 -foe true -wi $WI -w $WTIME -i $MI -r $RTIME -p cell=<cells> -p combo=<combos|cycle> -jvmArgs '$JVM_FLAGS ...'" >> "$f"
     echo "# one invocation = one batch of k calls in flight (k = the combination's in-flight level: call 0 on JMH's thread, 1..k-1 on persistent helper threads), counted as k calls (iters); wall_ns: JMH's per-iteration score (ns per invocation) x invocations; cpu_ns: the process CPU clock (CLOCK_PROCESS_CPUTIME_ID) read around every invocation, summed per iteration (an @AuxCounters counter JMH exports); JMH's own summary score averages unlike combinations and is not a figure" >> "$f"
-    echo "# order (req 22): JMH runs the cells in the order given, rotated one step per launch, and cannot randomise across forks; inside a fork JMH iteration i runs combination (i + launch - 1) mod $NCOMBO (warm-up and measurement counted separately), so every round visits every combination, interleaved; the two builds alternate by launch" >> "$f"
+    echo "# order (req 22): JMH runs the (cell, combination) cross product in its own order, cells rotated one step per launch, and cannot randomise across forks; when grouped, inside a fork JMH iteration i runs combination (i + launch - 1) mod $NCOMBO (warm-up and measurement counted separately), so every round visits every combination, interleaved; the two builds alternate by launch" >> "$f"
     echo "# server (req 13 as amended at 9f6d579fa, FIX-PLAN WP10): the Rust slice's tonic rpc_server, the one RPC server of every slice, via poc/rust/serve.sh (interface poc/rust/SERVER.md; poc/rust at $(cd "$TOP" && git rev-parse --short HEAD:ffi/poc/rust)$(cd "$TOP" && git status --porcelain -- ffi/poc/rust | grep -qv '^??' && echo ', DIRTY')), ONE process for launch $l pinned to AK_CPU_SERVER=${AK_CPU_SERVER:-unset}, serving every cell of both builds on two Unix sockets: shipped = tonic's server defaults, pinned = 4 MiB stream and connection windows, adaptive window off; receive limit 8 MiB; service armonik.ffi.campaign.v1.Grid (Fetch a: P2.2 pre-serialised once; Push b, Upload c: decoded with prost, empty answer; UploadStream d: every message decoded, the byte count answered); $(head -2 "$OUT/rpc-server-launch-$l/rpc-server.log" | tr '\n' ' ')" >> "$f"
     echo "# delivery (req 16): B, C, E the core's blocking call and, in d, the core's blocking client stream (ak_call_open, ak_call_send / ak_call_send_enc for C, ak_call_recv); A, D, F grpc-java's ClientCalls.blockingUnaryCall (a generated blocking stub's call; packages/java's clients use blocking stubs) and, in d, ClientCalls.asyncClientStreamingCall with a StreamObserver (the async stub's call: client streaming has no blocking stub); Bf, Cf, Ef the same cells on the core's framed send path (ak_client_set_framed), grpc-java has no second send path; C (and Cf) sends its request with ak_call_unary_enc / ak_call_send_enc (the encode context's output moved), Cc-* is C with take() + ak_call_unary (the copy path, labelled extra); D and F hand grpc-java a byte[] (take() / Enc.toBytes()): grpc-java's send path copies every message through an OutputStream into its own buffers, so an owned native buffer (ak_enc_take_owned) would still be copied, through a heap array, and D keeps take()" >> "$f"
     echo "# limits (D44): server 8 MiB receive on both sockets (P5.4 is 4,194,390 B), send unlimited (tonic's default); core client shipped tonic's defaults (4 MiB received, unlimited sent: every response here is below 1 MiB), pinned 8 MiB both ways; grpc-java client defaults (4 MiB inbound, no send limit)" >> "$f"
     $PIN_C "$J17/bin/java" -Xmx512m -cp "build/jmh17$SX:build/cls17$SX:$CP:$JMHCP" org.openjdk.jmh.Main 'ak.RpcJmh.batch' \
-      -f 1 -foe true -wi $((WARM * NCOMBO)) -w "$WTIME" -i $((ROUNDS * NCOMBO)) -r "$RTIME" -p cell="$CELLS" \
+      -f 1 -foe true -wi "$WI" -w "$WTIME" -i "$MI" -r "$RTIME" -p cell="$CELLS" -p combo="$PCOMBO" \
       -jvmArgs "$JVM_FLAGS -Dak.lib=$HERE/build/jnirpc$SX/libakjni.so -Dak.rpclib=$HERE/build/jnirpc$SX/libakjni.so -Dak.camp.socket=$sock -Dak.camp.transport=$tr -Dak.camp.launch=$l ${AK_RPC_PROPS:-}" \
       -rf json -rff "$base.jmh.json" > "$base.jmh.txt" 2>&1 || discard "$l" "JMH ($tr, $V), -foe true"
     python3 -S gen/rpc_jmh_to_jsonl.py "$base.jmh.json" "$base.jmh.txt" "$l" >> "$f" \

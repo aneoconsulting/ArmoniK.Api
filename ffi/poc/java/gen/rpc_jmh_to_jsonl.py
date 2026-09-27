@@ -40,9 +40,10 @@ def main():
             if f[2] == "m":
                 iters[(f[1], int(f[3]))] = {"key": f[4], "dir": f[5], "payload": f[6], "k": int(f[7])}
     out = []
-    ncombo = len({v["key"] + "/" + str(v["k"]) for v in iters.values()})
     for b in res:
         cell = b["params"]["cell"]
+        combo = b["params"].get("combo", "cycle")
+        ncombo = 17 if combo == "cycle" else 1   # rounds: a cycle visits 17 per round
         if cell not in cells:
             raise SystemExit("no RPCJMH-CELL line for %s" % cell)
         cl = cells[cell]
@@ -53,17 +54,17 @@ def main():
             if name not in sm:
                 raise SystemExit("no %s counter for %s" % (name, cell))
         out.append(json.dumps({"meta": {"suite": "rpc", "engine": "jmh " + b.get("jmhVersion", "?"),
-            "cell": cell, "mode": b["mode"], "threads_benchmark": b.get("threads"), "forks": b["forks"],
+            "cell": cell, "combo": combo, "grouped": combo == "cycle", "mode": b["mode"], "threads_benchmark": b.get("threads"), "forks": b["forks"],
             "warmup_iterations": b["warmupIterations"], "warmup_time": b.get("warmupTime"),
             "measurement_iterations": b["measurementIterations"], "measurement_time": b.get("measurementTime"),
             "jdk": b.get("jdkVersion"), "vm": b.get("vmName", "") + " " + b.get("vmVersion", ""),
             "jvm_args": b.get("jvmArgs"), "threads": cl["threads"], "combinations": ncombo,
-            "order": "one fork per cell, cells in the order given (rotated per launch); inside the fork JMH iteration i runs combination (i + launch - 1) mod 17, warm-up and measurement counted separately",
+            "order": ("one fork per cell (grouped, AK_RPC_GROUP=1), cells in the order given (rotated per launch); inside the fork JMH iteration i runs combination (i + launch - 1) mod 17, warm-up and measurement counted separately" if combo == "cycle" else "one fork per (cell, combination), JMH's order of the cross product, cells rotated per launch"),
             "ratio_basis": "per-launch medians (CAMPAIGN req 30, R-H24)"}}, separators=(",", ":")))
         seen = 0
         for f, fork in enumerate(pm["rawData"]):
             for i, score in enumerate(fork):
-                lab = iters.get((cell, i))
+                lab = iters.get((cell + "|" + combo, i))
                 if lab is None:
                     raise SystemExit("no RPCJMH-ITER label for %s measurement %d" % (cell, i))
                 try:
@@ -93,7 +94,7 @@ def main():
                        "iters": made}
                 out.append(json.dumps(rec, separators=(",", ":")))
                 seen += 1
-        nlab = sum(1 for (c, _) in iters if c == cell)
+        nlab = sum(1 for (c, _) in iters if c == cell + "|" + combo)
         if seen != nlab:
             raise SystemExit("%s: %d measurement iterations in JMH's JSON, %d labelled" % (cell, seen, nlab))
     print("\n".join(out))

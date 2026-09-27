@@ -74,6 +74,14 @@ public class RpcJmh {
   @Param({"A"})
   public String cell;
 
+  /** The combination this fork runs (CAMPAIGN req 22a, owner e6c909630: the campaign's
+   *  default, JMH's own isolation, one fork per (cell, combination)), as
+   *  {@code <dir key>/<k>} ("a/1", "c:0/8", ...), or {@code cycle}: every combination in one
+   *  fork, JMH iteration i running combination (i + launch - 1) mod 17 (the runner's
+   *  AK_RPC_GROUP=1, for smoke and small exploration runs only). */
+  @Param({"cycle"})
+  public String combo;
+
   CampaignRpc.Cell c;
   EpollEventLoopGroup elg;
   List<String[]> combos;
@@ -160,11 +168,14 @@ public class RpcJmh {
   @Setup(Level.Iteration)
   public void iteration(IterationParams ip) {
     int i = ip.getType() == IterationType.MEASUREMENT ? measIdx++ : warmIdx++;
-    String[] cb = combos.get((i + launch - 1) % combos.size());
+    String[] cb = null;
+    if (combo.equals("cycle")) cb = combos.get((i + launch - 1) % combos.size());
+    else for (String[] x : combos) if ((x[0] + "/" + x[3]).equals(combo)) cb = x;
+    if (cb == null) throw new IllegalArgumentException("no combination " + combo);
     key = cb[0];
     k = Integer.parseInt(cb[3]);
     // The label trail (untimed): what this iteration runs, joined to JMH's raw data.
-    System.out.println("RPCJMH-ITER\t" + cell + "\t" + (ip.getType() == IterationType.MEASUREMENT ? "m" : "w")
+    System.out.println("RPCJMH-ITER\t" + cell + "|" + combo + "\t" + (ip.getType() == IterationType.MEASUREMENT ? "m" : "w")
         + "\t" + i + "\t" + cb[0] + "\t" + cb[1] + "\t" + cb[2] + "\t" + k);
   }
 

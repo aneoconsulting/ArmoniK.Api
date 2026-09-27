@@ -762,6 +762,13 @@ public final class CampaignRpc {
   }
 
   public static void main(String[] args) throws Exception {
+    if (args.length >= 1 && args[0].equals("--combos")) {
+      // The JMH `combo` params (req 22a as decided e6c909630): one fork per (cell, combination).
+      StringBuilder sb = new StringBuilder();
+      for (String[] x : combos()) sb.append(sb.length() == 0 ? "" : ",").append(x[0]).append('/').append(x[3]);
+      System.out.println(sb);
+      return;
+    }
     if (args.length >= 1 && args[0].equals("--list")) {
       // The JMH `cell` params of this build and transport, rotated one step per launch (req 22).
       List<String> names = Campaign.rotate(cellNames(), Integer.getInteger("ak.camp.launch", 1) - 1);

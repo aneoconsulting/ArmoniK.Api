@@ -938,3 +938,14 @@ both builds, 8 and 17: the four count files identical, the upload checks on both
 (17 and 10 cells), both plants aborting. The rpc smoke produced 289 samples (pinned, full
 build). Fixed after be47d7614: the gate starts the server unpinned, and the rpc suite pins
 it to AK_CPU_SERVER. It has not been re-run (STATE G6, one gate per unit).
+
+### J36. RPC grouping behind a switch (req 22a, owner e6c909630, 2026-09-28)
+
+`RpcJmh` gained a `combo` @Param. By default (the campaign) the runner passes the 17
+combination ids from `CampaignRpc --combos`: one JMH fork per (cell, combination), each with
+its own channel, `-wi AK_WARM -i AK_ROUNDS`. The WP9 cycle is `combo=cycle`, and the runner
+selects it with `AK_RPC_GROUP=1`, which is the default under smoke only. Each header states
+which grouping ran. The converter keys the labels by (cell, combo). Checked by hand: cell B
+with combo=a/8 and d:1/1 gave two forks, labels and iters (8 per batch at k = 8) right. Also
+stopped a stale JVM of mine, running since WP10: the no-unknown count client's first
+attempt, blocked on the grpc-java authority error.
