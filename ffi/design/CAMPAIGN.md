@@ -219,7 +219,10 @@ in its container shows it executes (section 9).
 24. **Warm-up** is stated per host and identical for every arm: a fixed number of
     iterations before round 1 (managed hosts: enough to reach the optimising JIT
     tier, recorded). protobuf-java's content-set rows run in both string-coder
-    states (the JDK 17 branch-pruning hazard, README R9). GC and JIT state between
+    states (the JDK 17 branch-pruning hazard, README R9). **Every warm-up is a
+    parameter of the runner** (owner, 2026-09-27): the codec framework's and the RPC
+    grid's, each with a campaign default stated in the header and a much shorter value
+    under `--smoke` and for small exploration runs. GC and JIT state between
     blocks follow each framework's defaults, stated per slice (owner, 2026-09-26,
     R-H32).
 25. **Allocator state** is warmed identically for every arm before timing (the
