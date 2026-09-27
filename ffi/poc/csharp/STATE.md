@@ -170,7 +170,7 @@ req 22a allows this, stated here.
 | 22 | order randomised where the framework allows | met: codec, the unit order of a launch and the case order in each BDN process are seeded shuffles, seeds in the headers; builds alternate by launch; rpc, the cell order of every round a seeded shuffle; transports and builds alternated by launch |
 | 22a | benchmark engine | met: BenchmarkDotNet for the codec suite (InProcessEmit, pinned by the runner, raw measurements exported, warm-up and tier recorded); the RPC grid on the runner, reason above |
 | 23 | 5 rounds x 3 launches | met (defaults) |
-| 24 | warm-up stated, identical; GC/JIT defaults stated | met: codec, per BDN process a pre-warm to JIT quiescence (the job's clock included) and 2 unexported prime cases, then per case BDN's jitting, pilot and a fixed warm-up count; the JIT tier read back per case, `jit check: FAIL` fails the unit. rpc: warm-up rounds of 64 calls per cell, direction and level until a round compiles nothing (at most 10); `jit_in_window` per sample. GC and JIT between blocks at the framework defaults, stated |
+| 24 | warm-up stated, identical; GC/JIT defaults stated; every warm-up a runner parameter | met (amended 85cfd4826): every warm-up is a runner parameter with the campaign default in the header and a short smoke default (run_campaign.sh's AK_RPC_WARM_*, AK_RPC_SERVER_WARM, AK_BDN_WARMUP / _ROUNDS / _ITERATION_MS / _PREWARM_*; JOURNAL 61). codec, per BDN process a pre-warm to JIT quiescence (the job's clock included) and 2 unexported prime cases, then per case BDN's jitting, pilot and a fixed warm-up count; the JIT tier read back per case, `jit check: FAIL` fails the unit. rpc: warm-up rounds of 64 calls per cell, direction and level until a round compiles nothing (at most 10); `jit_in_window` per sample. GC and JIT between blocks at the framework defaults, stated |
 | 25 | allocator/GC warm, GC stated | met: warm-up per arm, workstation concurrent GC stated, GC counts and pause per BDN case (summary row) |
 | 26 | correctness before timing | met: the runner requires the gate passed at identical content (both builds, counts included); every BDN process re-checks byte identity of every encode arm and variant (transport frames and pooled graphs included) and every U-* row's encode and re-encode forms before timing |
 | 27 | header | met: commit (dirty tree refused), machine, CPU sets and their source, runtime and incumbent versions, build flags and variant, core features, transport, threads, warm-up and repeats |
@@ -234,6 +234,7 @@ campaign's codec suite is correspondingly longer.
 
 | Log | What it establishes |
 |---|---|
+| `campaign/wp8c-warmup-knobs/` | the RPC client's warm-up knobs in smoke mode, one transport, full build (req 24 as amended) |
 | `wp8b-gate.log` | the clean-checkout gate after the WP8 parity items, at `9114d6b`, both builds, net8.0 and net6.0 (see Gate) |
 | `campaign/wp8b-smoke/` | the smoke after the WP8 parity items (see Smoke) |
 | `wp8-gate.log` | the clean-checkout gate of WP8 at `d97ea52`, both builds, net8.0 and net6.0, counts and upload check included (see Gate) |

@@ -2001,3 +2001,23 @@ check 68 / 40 cells (`logs/csharp/wp8b-gate.log`). Smoke from the same worktree
 283 + 146 samples per transport, b in every cell and twin, 0 aborts; 60 plant controls, all
 aborted with 0 samples; calib 2 samples. The session was stopped by the API spend limit during
 the smoke; the smoke kept running and completed, nothing was re-run.
+
+## 61. CAMPAIGN req 24 as amended (85cfd4826): every warm-up is a runner parameter
+
+- RPC client: `--warm-rounds`, `--warm-calls`, `--warm-settle-ms`, `--warm-jit-stop` (runner:
+  AK_RPC_WARM_ROUNDS / _CALLS / _SETTLE_MS / _JIT_STOP). Campaign default unchanged: at most 10
+  rounds of 64 calls per cell, direction and in-flight level (divided by 4 on c, 8 on d), a
+  500 ms settle after each, stopping on a JIT-quiet round. Smoke default: 1 round of one
+  sample's calls (16), no settle wait, no JIT-quiet stop. The header's warm-up line states
+  every value, and says when no settle wait means late JIT events may be missed.
+- Server warm-up: AK_RPC_SERVER_WARM (2,000 / 100 per direction and client transport).
+- BDN: AK_BDN_ROUNDS, AK_BDN_WARMUP and AK_BDN_ITERATION_MS now reach `--rounds`, `--warmup`
+  and `--iteration-ms`, which only the program took before. The pre-warm is a parameter too
+  (AK_BDN_PREWARM_ROUNDS / _CALLS / _SETTLE_MS -> `--prewarm-*`, defaults 10 / 64 / 500 ms also
+  under --smoke, because the unit's JIT check needs the tier-up; stated in the runner's
+  comment). Each value is in the unit's header.
+- Check (owner: no before/after timing; the full smoke started for it was stopped): akrpc run
+  directly with the smoke defaults, one transport, full build (`logs/csharp/campaign/
+  wp8c-warmup-knobs/`, figures stripped): 283 samples, 0 aborts, the header line reads "1
+  round(s) run of at most 1, 16 calls ..., settle wait 0 ms ..., stop on a JIT-quiet round:
+  off". The gated code paths (counts, upload check) are unchanged, so no gate was re-run.
