@@ -114,7 +114,9 @@ def grpc_options(transport):
 
 
 CORE_WORKERS = int(os.environ.get("AK_CORE_WORKERS", "2"))   # the core runtime's worker threads (req 4)
-SERVER_WARMUP = int(os.environ.get("AK_CAMPAIGN_SERVER_WARMUP", "64"))  # calls per client transport (req 13)
+SERVER_WARMUP = int(os.environ.get("AK_CAMPAIGN_SERVER_WARMUP", "64"))  # calls per client transport (req 13, 24)
+# req 24 as amended: calls per cell and in-flight value before round 1 (default: one sample's)
+RPC_WARMUP = os.environ.get("AK_CAMPAIGN_RPC_WARMUP")
 RT = []
 
 
@@ -635,9 +637,11 @@ def main():
                          "codec as its (de)serializer (req 16 as amended)",
                allocator="M_TOP_PAD %s" % ("applied" if _WARM else "not available"),
                gc="ON; gc.collect() before every sample",
-               warmup="the server: %d Get calls from each client transport (grpcio, core) per server transport; "
-                      "then one sample's calls per cell and in-flight value before round 1, on the cell's own "
-                      "channel (one channel per cell per launch, req 13)" % SERVER_WARMUP,
+               warmup="the server: %d Get calls from each client transport (grpcio, core) per server transport "
+                      "(AK_CAMPAIGN_SERVER_WARMUP); then %s calls per cell and in-flight value before round 1 "
+                      "(AK_CAMPAIGN_RPC_WARMUP; d a third), on the cell's own channel (one channel per cell per "
+                      "launch, req 13); campaign defaults 64 and one sample's calls, smoke 8 and 4 (req 24)"
+                      % (SERVER_WARMUP, RPC_WARMUP or "one sample's"),
                clock="CLOCK_PROCESS_CPUTIME_ID of the client (cpu_ns), perf_counter_ns (wall_ns)",
                delivery="B and C blocking; queue and callback are labelled extra cells, direction a only",
                threads="a pool of max(in flight) client threads created once, before the first timed window, "
@@ -663,7 +667,8 @@ def main():
                     d, pid, ks, nc = dir_plan(key, calls)
                     for k in ks:
                         for name, fn in lst:
-                            sample(fn, nc, k)               # warm-up
+                            wn = nc if RPC_WARMUP is None else (int(RPC_WARMUP) if d not in ("d",) else max(1, -(-int(RPC_WARMUP) // 3)))
+                            sample(fn, wn, k)               # warm-up
                 for r in range(rounds):
                     for key, lst in cs.items():
                         d, pid, ks, nc = dir_plan(key, calls)

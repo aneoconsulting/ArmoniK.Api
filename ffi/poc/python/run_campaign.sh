@@ -109,14 +109,18 @@ case "$SUITE" in
     (cd ../../corpus/generated && "$PY" -W ignore -m grpc_tools.protoc -I. --python_out="$HERE/build/$TAG/pb2corpus" corpus.proto)
     [ -d build/pyperf/pyperf ] || "$PY" -m pip install -q --target build/pyperf "pyperf==2.10.0" 2>/dev/null
     AFF="${AK_CPU_CLIENT:-$("$PY" -c 'import os;print(",".join(map(str,sorted(os.sched_getaffinity(0)))))')}"
+    # Req 24 as amended: every warm-up is a runner parameter. pyperf's warm-up values per
+    # worker (AK_CAMPAIGN_PYPERF_WARMUPS) and its loop-calibration target (AK_CAMPAIGN_PYPERF_MIN_TIME,
+    # seconds); campaign defaults 3 and 0.1, smoke 1 and 0.002; both are in every codec header
+    # (pyperf_args).
     if [ -n "$SMOKE" ]; then
-      PP="--processes 1 --values 1 --warmups 1 --min-time 0.002"
+      PP="--processes 1 --values 1 --warmups ${AK_CAMPAIGN_PYPERF_WARMUPS:-1} --min-time ${AK_CAMPAIGN_PYPERF_MIN_TIME:-0.002}"
       ONLY_UNKNOWN="--only U-root-all,U-nested-all,U-oneof-all,U-deep-all,U-enum-value-999"
       # A smoke builds each beyond-cache pool at 1 MiB of wire bytes (stated in the header);
       # the campaign uses the default, 13.75 MiB (req 11).
       export AK_POOL_BYTES="${AK_POOL_BYTES:-1048576}"
     else
-      PP="--processes 1 --values $ROUNDS --warmups 3 --min-time 0.1"
+      PP="--processes 1 --values $ROUNDS --warmups ${AK_CAMPAIGN_PYPERF_WARMUPS:-3} --min-time ${AK_CAMPAIGN_PYPERF_MIN_TIME:-0.1}"
       ONLY_UNKNOWN=""
     fi
     # WP5 step 10: the full build (drop, retain) and the no-unknown build (a separately built
@@ -156,6 +160,14 @@ case "$SUITE" in
     # Req 13 as amended (R-H33): ONE server process per launch (camp_server.py, pinned to
     # AK_CPU_SERVER, both transport configurations on two Unix sockets), serving every cell
     # of both builds; each client warms it from each of its transports before round 1.
+    # Req 24 as amended: the RPC warm-ups. AK_CAMPAIGN_RPC_WARMUP = calls per cell and in-flight
+    # value before round 1 (campaign default: one sample's calls, $CALLS; smoke 4);
+    # AK_CAMPAIGN_SERVER_WARMUP = Get calls from each client transport (campaign 64, smoke 8).
+    if [ -n "$SMOKE" ]; then
+      export AK_CAMPAIGN_RPC_WARMUP="${AK_CAMPAIGN_RPC_WARMUP:-4}" AK_CAMPAIGN_SERVER_WARMUP="${AK_CAMPAIGN_SERVER_WARMUP:-8}"
+    else
+      export AK_CAMPAIGN_RPC_WARMUP="${AK_CAMPAIGN_RPC_WARMUP:-$CALLS}" AK_CAMPAIGN_SERVER_WARMUP="${AK_CAMPAIGN_SERVER_WARMUP:-64}"
+    fi
     rpc_run() {  # rpc_run <launch> <full|nounk> <server sockets>
       local l=$1 v=$2 S=$3 F="$OUT/rpc-launch$1"
       [ "$v" = nounk ] && F="$OUT/rpc-nounk-launch$1"
