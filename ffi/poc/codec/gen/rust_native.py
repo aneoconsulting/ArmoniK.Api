@@ -104,7 +104,7 @@ def _enc_message(p, m, o, sites, acc="o"):
         f = st.field
         if st.op == "unknown_tail":
             if retain:
-                o.append("    e.buf.extend_from_slice(&%s.unknown_fields);" % acc)
+                o.append("    e.put(&%s.unknown_fields);" % acc)
             continue
         v = "%s.%s" % (acc, f.name)
         if st.op == "child":
@@ -134,7 +134,7 @@ def _enc_message(p, m, o, sites, acc="o"):
             if f.value == "fixed64_f64":
                 o.append("        e.f64_run(&%s);" % v)
             elif f.value == "fixed32_u32":
-                o.append("        for x in &%s { e.buf.extend_from_slice(&x.to_le_bytes()); }" % v)
+                o.append("        for x in &%s { e.put(&x.to_le_bytes()); }" % v)
             elif f.value == "varint_i32":
                 o.append("        e.varint_run(%s.len(), %s.iter().map(|x| %s as i64 as u64));" % (v, v, _raw(f, "(*x)")))
             else:

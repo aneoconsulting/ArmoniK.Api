@@ -990,7 +990,7 @@ pub(crate) unsafe fn enc_blob(cx: *mut EncCtxImpl, tag: u32, site: u32, s: &ak_s
         e.varint(n as u64);
         // R-D9: a zero-length direct argument may be (NULL, 0).
         if n != 0 {
-            e.buf.extend_from_slice(core::slice::from_raw_parts(p, n));
+            e.put(core::slice::from_raw_parts(p, n));
         }
         let _ = site;
         return true;
@@ -1012,7 +1012,7 @@ pub(crate) unsafe fn enc_blob(cx: *mut EncCtxImpl, tag: u32, site: u32, s: &ak_s
         e.varint(s.len as u64);
         // R-D9: an empty host string may arrive as (NULL, 0).
         if s.len != 0 {
-            e.buf.extend_from_slice(core::slice::from_raw_parts(s.data as *const u8, s.len));
+            e.put(core::slice::from_raw_parts(s.data as *const u8, s.len));
         }
         let _ = site;
         return true;
@@ -1233,8 +1233,7 @@ pub(crate) unsafe fn enc_raw(cx: *mut EncCtxImpl, s: &ak_blob) -> bool {
         return true;
     }
     let e = &mut (*cx).e;
-    e.buf
-        .extend_from_slice(core::slice::from_raw_parts(s.data as *const u8, s.len));
+    e.put(core::slice::from_raw_parts(s.data as *const u8, s.len));
     true
 }
 

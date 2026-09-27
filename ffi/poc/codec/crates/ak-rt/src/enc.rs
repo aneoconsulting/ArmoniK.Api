@@ -148,6 +148,19 @@ impl Enc {
         self.buf.split().freeze()
     }
 
+    /// Append bytes. T1: `BytesMut::extend_from_slice` is only an inline HINT and the core
+    /// cdylib kept 17 out-of-line calls to it (objdump of libak_core.so at cf844df5); this is
+    /// the same reserve-and-copy, always inlined. Every append to `buf` goes through it.
+    #[inline(always)]
+    pub fn put(&mut self, b: &[u8]) {
+        self.buf.reserve(b.len());
+        unsafe {
+            let len = self.buf.len();
+            core::ptr::copy_nonoverlapping(b.as_ptr(), self.tail(), b.len());
+            self.buf.set_len(len + b.len());
+        }
+    }
+
     /// Where the next byte goes: the spare capacity's start (which, unlike a pointer taken
     /// from the initialised slice, may be written through for the whole spare capacity).
     #[inline(always)]
@@ -198,11 +211,11 @@ impl Enc {
         #[cfg(target_endian = "little")]
         {
             let b = unsafe { core::slice::from_raw_parts(v.as_ptr() as *const u8, v.len() * 8) };
-            self.buf.extend_from_slice(b);
+            self.put(b);
         }
         #[cfg(not(target_endian = "little"))]
         for x in v {
-            self.buf.extend_from_slice(&x.to_le_bytes());
+            self.put(&x.to_le_bytes());
         }
     }
 
@@ -227,7 +240,7 @@ impl Enc {
     #[inline(always)]
     pub fn f64_field(&mut self, tag: u32, v: f64) {
         self.key(tag, crate::WIRE_I64);
-        self.buf.extend_from_slice(&v.to_le_bytes());
+        self.put(&v.to_le_bytes());
     }
 
     /// A `fixed32` field (wire type 5): four bytes, little-endian. R-E3: the corpus's
@@ -235,7 +248,7 @@ impl Enc {
     #[inline(always)]
     pub fn fixed32_field(&mut self, tag: u32, v: u32) {
         self.key(tag, crate::WIRE_I32);
-        self.buf.extend_from_slice(&v.to_le_bytes());
+        self.put(&v.to_le_bytes());
     }
 
     /// A length-delimited field whose length is known before the body is written, which is
