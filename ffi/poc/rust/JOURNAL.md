@@ -3131,3 +3131,13 @@ Enc::take.
   core): decode ffi-drop 1.02, ffi-retain 1.04, pull 1.02-1.04; encode reused-buffer
   ffi-drop 1.03, ffi-retain 1.04; core-native (unchanged by construction) 1.00-1.03; prost
   0.93 / 1.02. No gain beyond drift, so no full run and nothing kept.
+
+## 2026-09-27 -- stable gate checkpoint before N5 (owner): PASSED
+
+`run_campaign.sh --suite gate` from a clean tree at 33636e1d (steps 0-5, option 3, the LTO
+tooling): gate PASSED (logs/rust/opt/pre-n5-gate/gate.log): generators current and one core;
+core unit tests; byte identity against the manifest; presence/oneof/unknown vectors;
+crossing counts; content sets; the concurrency suite (shipped and global-table builds pass,
+padded builds fail as they must); lifecycle guard off/on; R-D1; R-D6 all pass; the corpus on
+all four arms with its controls failing; the framed path's header check (11d); the
+no-unknown variant.
