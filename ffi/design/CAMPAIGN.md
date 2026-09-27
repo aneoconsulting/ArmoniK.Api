@@ -203,10 +203,16 @@ in its container shows it executes (section 9).
 22a. **Benchmark engine** (owner, 2026-09-25): a slice may time through its
     ecosystem's standard benchmark framework, and **the codec suite of every slice
     uses one** (owner, 2026-09-25): **.NET BenchmarkDotNet, Java JMH, C++ Google
-    Benchmark, Python pyperf, Rust criterion.** Suites the framework cannot express
-    without breaking requirement 18 (abort on any failed call) or requirement 13
-    (separate server process), in practice the RPC grid, may stay on the slice's
-    runner, stated in the checklist. The framework's configuration must still satisfy requirements
+    Benchmark, Python pyperf, Rust criterion.** **The RPC grid uses the same
+    framework** (owner, 2026-09-27, replacing the earlier exemption, whose premise did
+    not hold): the runner starts the one server process of the launch (req 13) before
+    the framework; each benchmark connects in its setup, one channel per cell per
+    benchmark process; an invocation issues the cell's k calls in flight and counts k
+    operations; every call is checked (req 18) and a failed check fails the benchmark,
+    the framework stops at the first failure where it can (BenchmarkDotNet
+    `StopOnFirstError`, JMH `-foe true`, ...), and in every case the runner discards
+    the launch's output when any benchmark failed, so an aborted run produces no
+    figure. The framework's configuration must still satisfy requirements
     21, 23, 24, 27 and 28: every raw measurement is exported (the framework's
     outlier handling may produce its own summary, but no raw measurement is
     dropped from the committed output), the JIT tier and warm-up it used are

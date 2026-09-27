@@ -505,6 +505,32 @@ Each slice regenerates, rebuilds its core, re-runs its gate, and then:
 exists on streams only; server-streaming and bidirectional calls are reserved kinds,
 not built.
 
+### WP9. The RPC grid on each slice's standard framework (every slice; owner, 2026-09-27)
+
+CAMPAIGN req 22a as amended. Each slice moves its RPC client from its hand-written
+sampler to its codec suite's framework (BenchmarkDotNet, JMH, Google Benchmark, pyperf,
+criterion), keeping every cell, direction, in-flight level, transport, build and mode
+it has, and:
+
+1. the runner starts the launch's one server (req 13), warms it (req 24), then runs
+   the framework; each benchmark opens its channel in setup;
+2. an invocation is one batch of k calls in flight, counted as k operations; process
+   CPU per iteration (req 21) through the same clock or column the codec suite uses;
+3. every call checked (req 18); the framework's stop-on-first-error where it has one;
+   the runner discards the launch's output on any failure; the planted controls must
+   still abort with no sample;
+4. warm-up and order are the framework's, configurable (req 24), randomised or
+   interleaved as far as the framework allows (req 22), stated;
+5. raw per-iteration samples exported to the JSON lines of section 7 with every label
+   the hand-written sampler wrote (cell, dir, inflight, transport, build, mode,
+   send_path), so the summaries keep working;
+6. the crossing counts are unchanged (they come from the counting builds, not the
+   timed one);
+7. the gate from a clean checkout, and a smoke with figures stripped.
+
+The hand-written sampler is removed once the framework version passes, not kept as a
+second arm.
+
 ## 3. What this plan deliberately does not do
 
 - It does not re-take any timing in a container.
