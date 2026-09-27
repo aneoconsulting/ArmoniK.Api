@@ -3357,3 +3357,31 @@ rendered into every slice's header/binding; other slices' generated output regen
 - O1 (the full client's Bf on the shipped transport): owner dropped the investigation
   ("most likely VM contention or system activity"); recorded as observed in the container,
   not investigated, deferred to the campaign machine.
+
+## 2026-09-27 -- unit 3 final gate, first attempt FAILED (a gate-script defect)
+
+- `run_campaign.sh --suite gate` at 98b187ce (clean tree) stopped in step 11f after "cases
+  passed: 40" with no FAIL line (logs/rust/opt/final3-gate/failed-98b187ce/gate.log). Cause:
+  gate.sh runs under `set -euo pipefail`, and the step's `grep "^FAIL" ... | sed` returns 1
+  when nothing failed, which ended the gate; the same `cmd > f; rc=$?` form would also have
+  exited before reporting a real failure. rpc_semantics itself passed all 40 cases. Fixed:
+  `|| rc=$?` and `|| true` on the reporting greps; both paths checked with a stand-in
+  command (a failing one prints its FAIL line and "FAILED", exit 1; a passing one "OK", exit
+  0). Swept gate.sh: no other step has the form. Gate re-run from a clean tree.
+- gen/opt_tables.py: the tables of one opt_bench run (tables-codec.md, tables-rpc.md), no
+  comparison.
+
+## 2026-09-27 -- unit 3 final gate and final run
+
+- Gate from a clean tree at 6727646b (logs/rust/opt/final3-gate): `run_campaign.sh --suite
+  gate` PASSED on stable (step 11f 40 cases, the no-unknown build's too; pre-check 5,740 /
+  3,257 checks, 0 failures; crossings 775 / 398 rows identical), and `RUSTUP_TOOLCHAIN=1.88.0
+  bash gen/gate.sh` PASSED on rustc 1.88.0 (gate-floor-1.88.log).
+- Final run logs/rust/opt/final3 (opt_bench v5 at 0a26bdc4, 855 s with the build): pre-check
+  0 failures in the four codec processes; the 48 planted RPC controls (A, B, Bf, Df x a, c, d
+  x both transports x both clients) aborted as required. Tables of this run only, no
+  comparison: tables-codec.md (170 rows x 16 variant columns, U-* retain/drop summary) and
+  tables-rpc.md (every cell and framed twin, a, a+read, b, c/P5.3, c/P5.4, d/4MiB, d/16MiB,
+  both transports, every k, client CPU and wall, median [min-max] over 3 rounds; full and
+  no-unknown clients). Round spread (max/min per entry, client CPU, 1,020 entries): median
+  1.08, p90 1.41, max 8.08. Container instrumentation.

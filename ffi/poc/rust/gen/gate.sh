@@ -100,10 +100,11 @@ cargo run --release -q -p campaign --bin upload_check 2>/dev/null | tail -1 | gr
   || { echo "  the upload byte check FAILED (run target/release/upload_check)"; exit 1; }
 
 step "11f. ABI v1 section 9's call semantics (status numbers on every delivery, deadline, metadata, cancel, client limits), both send paths"
-cargo run --release -q -p campaign --bin rpc_semantics 2>/dev/null > "${TMPDIR:-/tmp}/ak-rpc-semantics.$$" ; rc=$?
-grep -c "^PASS" "${TMPDIR:-/tmp}/ak-rpc-semantics.$$" | sed 's/^/  cases passed: /'
-grep "^FAIL" "${TMPDIR:-/tmp}/ak-rpc-semantics.$$" | sed 's/^/  /'
-rm -f "${TMPDIR:-/tmp}/ak-rpc-semantics.$$"
+T="${TMPDIR:-/tmp}/ak-rpc-semantics.$$"; rc=0
+cargo run --release -q -p campaign --bin rpc_semantics 2>/dev/null > "$T" || rc=$?
+echo "  cases passed: $(grep -c "^PASS" "$T" || true)"
+grep "^FAIL" "$T" | sed 's/^/  /' || true
+rm -f "$T"
 [ "$rc" = 0 ] && echo "  RPC SEMANTICS PASSED" || { echo "  RPC SEMANTICS FAILED (run target/release/rpc_semantics)"; exit 1; }
 
 step "12. the NO-UNKNOWN variant (WP5 step 10; CAMPAIGN.md req 10): unknown-field support compiled out"

@@ -496,7 +496,10 @@ Each slice regenerates, rebuilds its core, re-runs its gate, and then:
 5. **The gRPC status number** (ABI-v1 section 9): `ak_call_unary` and
    `ak_call_unary_enc` take a trailing `int32_t *grpc_status`; `ak_completion` gains
    `grpc_status` after `status` (a layout change: every host that mirrors the struct
-   follows the generated layout); a non-OK status is `AK_ERR_RPC_STATUS`.
+   follows the generated layout; its size and the offset of `bytes` are unchanged,
+   the member sits in former padding); a non-OK status is `AK_ERR_RPC_STATUS`. The
+   hand-written call sites that must change, per slice and line, are listed in
+   `poc/rust/STATE.md`, open defect W8 (cpp 4 files, csharp 2, java 1, python 1).
 
 **Still open after WP8**: `ak_call_opts` (deadline, metadata)
 exists on streams only; server-streaming and bidirectional calls are reserved kinds,
