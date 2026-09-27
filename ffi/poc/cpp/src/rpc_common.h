@@ -76,7 +76,11 @@ static const char *const kPingPath = "/armonik.ffi.shapes.v1.Shapes/Ping";
 // behaviour, because the table has that answer for .NET and grpc-java and not for these two.
 static const int kStreamWindow = 4 * 1024 * 1024;
 static const int kConnWindow = 4 * 1024 * 1024;
-static const int kMaxMessage = 2 * 1024 * 1024;
+// D44 (ABI v1 section 9, 2026-09-27): the core now ENFORCES max_send/max_recv on every path,
+// and grpc++ always did. Direction c sends P5.4 (4,194,390 B) and direction d a 2 MiB chunk
+// plus its M5 framing, so the ceiling is 8 MiB on both stacks, send and receive, in both
+// transport configurations (the server's too). Nothing here relies on a limit being ignored.
+static const int kMaxMessage = 8 * 1024 * 1024;
 
 inline grpc::ChannelArguments pinned_channel_args(bool pin) {
   grpc::ChannelArguments a;

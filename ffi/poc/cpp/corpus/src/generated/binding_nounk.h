@@ -508,6 +508,7 @@ template <> struct DecRoot<WireZoo> {
   }
 };
 template <class T> inline ak_dec_ctx *dec_ctx_new_for() { return DecRoot<T>::ctx_new(); }
+void dec_ctx_free(ak_dec_ctx *ctx);  // ak_dec_ctx_free (the full build also forgets an armed context)
 
 struct DecCtxs {
   ak_dec_ctx *c[29];
@@ -543,7 +544,7 @@ struct DecCtxs {
     c[28] = ak_dec_ctx_new_WireZoo();
   }
   ~DecCtxs() {
-    for (int i = 0; i < 29; ++i) ak_dec_ctx_free(c[i]);
+    for (int i = 0; i < 29; ++i) dec_ctx_free(c[i]);
   }
   bool ok() const {
     for (int i = 0; i < 29; ++i) if (c[i] == NULL) return false;

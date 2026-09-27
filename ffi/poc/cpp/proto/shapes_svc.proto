@@ -21,4 +21,17 @@ service Shapes {
   // decodes, and an empty response. The campaign server implements it (and Fetch) as raw
   // byte methods, so its work is identical whichever client cell called.
   rpc Push(ListTasksDetailedResponse) returns (Empty);
+  // Requirement 14 direction (c), required 2026-09-27: a unary upload, request P5.3 or
+  // P5.4 (M5, 1 MB and 4 MB) that the server decodes, empty response.
+  rpc Upload(UploadResultDataMessage) returns (Empty);
+  // Requirement 14 direction (d): the streamed upload in ArmoniK's
+  // UploadResultData(stream ...) shape, M5 messages carrying 2 MiB chunks (the ids on the
+  // first only). The server decodes every message and answers the data byte count and the
+  // SHA-256 of every message's bytes as received; the client checks both.
+  rpc UploadStream(stream UploadResultDataMessage) returns (UploadAck);
+}
+
+message UploadAck {
+  fixed64 data_bytes = 1;
+  bytes sha256 = 2;
 }

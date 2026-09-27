@@ -22,10 +22,12 @@ struct Counts { uint64_t fwd, rev, tc; double per_elem_fwd, per_elem_rev; };
 // calls, resets included. `core` is what the core's own counters see (the codec entry
 // points, their loops and reverse calls); `host` is what they cannot see, counted by the
 // binding in this build (AK_HOST_CALL): ak_enc_reset inside every encode_into_*, BEFORE
-// the encode entry point, and the two ak_dec_reset_<Root> of an armed decode, one BEFORE
-// the decode (arms the options) and one AFTER it (disarms); `take` is the timed loop's own
+// the encode entry point, and the ONE ak_dec_reset_<Root> of a retain decode, BEFORE the
+// decode (arms the options; decision 11 rule 7, WP8: no disarming reset, the context stays
+// armed with options at a stable per-thread address); `take` is the timed loop's own
 // ak_enc_take after an encode. forward = core + host + take. A drop-mode decode resets
-// nothing (its context is bound in drop mode once, outside the loop).
+// nothing (its context is bound in drop mode once, outside the loop, and here it runs
+// before the retain decode on the same context, so it is never armed).
 static void show(const char *id, const char *what, const AkCounters &c, uint64_t host, int take,
                  double elems) {
   unsigned long long fwd = (unsigned long long)(c.forward + host + (uint64_t)take);
@@ -104,19 +106,20 @@ static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
   F out;
   count_dec<F>(id, "decode", dctx, ffi_dec, wire, elems, &out);
 #ifndef AK_NO_UNKNOWN_FIELDS
-  // Retain mode (req 19): every position armed, no pre-placed buffer, and unk_grow
-  // allocates exactly the size the core requests. The payloads carry no unknown field.
+  // Retain mode (req 19): every position armed, no pre-placed buffer, and unk_grow grows
+  // geometrically (decision 11 rule 8), as in the timed build. The payloads carry no
+  // unknown field.
   F r1;
   count_dec<F>(id, "decode retain", dctx, &shapes::ffi::DecRoot<F>::decode_unk, wire, elems, &r1);
 #endif
-  ak_dec_ctx_free(dctx);
+  shapes::ffi::dec_ctx_free(dctx);
   ak_enc_ctx_free(ctx);
   (void)nat_dec;
 }
 
 // The corpus's U-* rows at the shapes roots (req 7's 92), through the counting core: decode
 // and re-encode in drop mode, and (full build) in retain mode, where every unknown run is
-// copied into a buffer the core asks `grow` for (reverse crossings), exact-size.
+// copied into a buffer the core asks `grow` for (reverse crossings), grown geometrically.
 template <class F>
 static void run_row(const std::string &id, const std::string &v,
                     int32_t (*dec)(ak_dec_ctx *, const uint8_t *, size_t, F *),
@@ -135,7 +138,7 @@ static void run_row(const std::string &id, const std::string &v,
 #else
   (void)enc_unk;
 #endif
-  ak_dec_ctx_free(dctx);
+  shapes::ffi::dec_ctx_free(dctx);
   ak_enc_ctx_free(ctx);
 }
 
@@ -162,8 +165,8 @@ int main(int argc, char **argv) {
   std::printf("counting build, linkage=%s, -std=%ld\n", AK_LINKAGE, (long)__cplusplus);
   std::printf("Per-element columns are forward / reverse. forward = core + host + take (req 19):\n"
               "host = ak_enc_reset inside each encode_into_* (before the encode entry point) and the\n"
-              "two ak_dec_reset_<Root> of an armed (retain) decode (before and after it); take = the\n"
-              "timed loop's ak_enc_take after an encode. Retain: no pre-placed buffer, exact-size grow.\n\n");
+              "one ak_dec_reset_<Root> of a retain decode (before it; rule 7); take = the timed loop's\n"
+              "ak_enc_take after an encode. Retain: no pre-placed buffer, geometric grow (rule 8).\n\n");
 #define X(id, Root, sroot, pfx, sha, nbytes)                                        \
   run_case<shapes::Root, ns::Root>(                                                 \
       id, &shapes::build::payload_##pfx, &pbbuild::payload_##pfx,                   \

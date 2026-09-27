@@ -94,7 +94,7 @@ static int child_main(int cfg, int port) {
         for (int i = 0; i < kPer; ++i) {
           struct ak_bytes out; out.ptr = NULL; out.len = 0; out.owner = NULL;
           if (ak_call_unary(cl, (const uint8_t *)kFetchPath, strlen(kFetchPath), kNoReq, 0,
-                            &out) != AK_OK) { std::fprintf(stderr, "AKFLOW call failed\n"); }
+                            &out, NULL) != AK_OK) { std::fprintf(stderr, "AKFLOW call failed\n"); }
           ak_bytes_free(&out);
         }
       }));

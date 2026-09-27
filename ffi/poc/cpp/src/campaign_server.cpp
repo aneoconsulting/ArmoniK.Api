@@ -10,8 +10,14 @@
 //                         message (500 tasks), and returns an empty response. The same
 //                         decode for every client cell, so B - A and C - B are not moved by
 //                         the server.
+//   Upload (direction c)  decodes the P5.3 / P5.4 request (M5) with protobuf C++, refuses one
+//                         without data, and returns an empty response (req. 14, 2026-09-27).
+//   UploadStream (d)      client streaming: every message is hashed (SHA-256 of its bytes as
+//                         received) and decoded with protobuf C++ as M5, the ids required on
+//                         the first; the answer is an UploadAck with the data byte count and
+//                         the digest, which the client checks against its own (req. 18).
 //
-// Both are raw byte methods (grpc++'s generated WithRawCallbackMethod_*), so the codec on the
+// All are raw byte methods (grpc++'s generated WithRawCallbackMethod_*), so the codec on the
 // server side is fixed and stated rather than chosen per cell.
 //
 // One server process and configuration per launch (req. 13, amended 2026-09-26): it serves
@@ -36,8 +42,10 @@
 #include <cstring>
 #include <string>
 #include <thread>
+#include <vector>
 
 #include "generated/pb_build.h"
+#include "sha256.h"
 #include "shapes_svc.grpc.pb.h"
 
 namespace svcns = armonik::ffi::shapes::v1;
@@ -45,7 +53,7 @@ namespace svcns = armonik::ffi::shapes::v1;
 namespace {
 
 std::atomic<bool> g_stop(false);
-std::atomic<long> g_fetch(0), g_push(0);
+std::atomic<long> g_fetch(0), g_push(0), g_upload(0), g_stream(0);
 int proc_threads() {
   std::ifstream f("/proc/self/status");
   std::string line;
@@ -55,8 +63,52 @@ int proc_threads() {
 }
 void on_signal(int) { g_stop = true; }
 
-typedef svcns::Shapes::WithRawCallbackMethod_Fetch<
-    svcns::Shapes::WithRawCallbackMethod_Push<svcns::Shapes::Service> > RawBase;
+typedef svcns::Shapes::WithRawCallbackMethod_Fetch<svcns::Shapes::WithRawCallbackMethod_Push<
+    svcns::Shapes::WithRawCallbackMethod_Upload<svcns::Shapes::WithRawCallbackMethod_UploadStream<
+        svcns::Shapes::Service> > > > RawBase;
+
+// Direction d's reader: one per call, deleted when grpc++ is done with it.
+class UploadReader final : public grpc::ServerReadReactor<grpc::ByteBuffer> {
+ public:
+  explicit UploadReader(grpc::ByteBuffer *resp) : resp_(resp) { StartRead(&msg_); }
+  void OnReadDone(bool ok) override {
+    if (!ok) {  // the client ended the request stream: answer
+      svcns::UploadAck a;
+      a.set_data_bytes(total_);
+      uint8_t d[32];
+      sha_.final(d);
+      a.set_sha256(d, 32);
+      std::string w;
+      a.SerializeToString(&w);
+      grpc::Slice sl(w.data(), w.size());
+      *resp_ = grpc::ByteBuffer(&sl, 1);
+      Finish(first_ ? grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "an upload with no message")
+                    : grpc::Status::OK);
+      return;
+    }
+    std::vector<grpc::Slice> slices;
+    if (!msg_.Dump(&slices).ok()) return fail("unreadable message");
+    for (size_t i = 0; i < slices.size(); ++i) sha_.update(slices[i].begin(), slices[i].size());
+    svcns::UploadResultDataMessage m;
+    if (!grpc::SerializationTraits<svcns::UploadResultDataMessage>::Deserialize(&msg_, &m).ok() || !m.has_upload())
+      return fail("not an M5 message");
+    if (first_ && (m.upload().session_id().empty() || m.upload().result_id().empty()))
+      return fail("the first message carries no ids");
+    first_ = false;
+    total_ += m.upload().data_chunk().size();
+    msg_.Clear();
+    StartRead(&msg_);
+  }
+  void OnDone() override { delete this; }
+
+ private:
+  void fail(const char *why) { Finish(grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, why)); }
+  grpc::ByteBuffer *resp_;
+  grpc::ByteBuffer msg_;
+  aksha::Sha256 sha_;
+  uint64_t total_ = 0;
+  bool first_ = true;
+};
 
 class Svc final : public RawBase {
  public:
@@ -89,6 +141,26 @@ class Svc final : public RawBase {
     r->Finish(grpc::Status::OK);
     return r;
   }
+  grpc::ServerUnaryReactor *Upload(grpc::CallbackServerContext *ctx, const grpc::ByteBuffer *req,
+                                   grpc::ByteBuffer *resp) override {
+    ++g_upload;
+    grpc::ByteBuffer copy(*req);
+    svcns::UploadResultDataMessage m;
+    grpc::Status st = grpc::SerializationTraits<svcns::UploadResultDataMessage>::Deserialize(&copy, &m);
+    grpc::ServerUnaryReactor *r = ctx->DefaultReactor();
+    if (!st.ok() || m.upload().data_chunk().empty()) {
+      r->Finish(grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "not an M5 upload with data"));
+      return r;
+    }
+    *resp = empty_;
+    r->Finish(grpc::Status::OK);
+    return r;
+  }
+  grpc::ServerReadReactor<grpc::ByteBuffer> *UploadStream(grpc::CallbackServerContext *,
+                                                          grpc::ByteBuffer *resp) override {
+    ++g_stream;
+    return new UploadReader(resp);
+  }
 
  private:
   grpc::ByteBuffer pre_;
@@ -97,14 +169,17 @@ class Svc final : public RawBase {
 
 }  // namespace
 
+const int kServerMaxMessage = 8 * 1024 * 1024;
+
 std::unique_ptr<grpc::Server> start(const std::string &path, bool pinned, Svc *svc) {
   grpc::ServerBuilder b;
   b.AddListeningPort("unix:" + path, grpc::InsecureServerCredentials());
-  // Message ceiling: the 2 MiB ArmoniK chunk size in both configurations. `pinned` adds the
+  // Message ceiling (D44, req. 14 as amended 2026-09-27): 8 MiB in both configurations, so
+  // P5.4 (4,194,390 B) and a 2 MiB chunk with its M5 framing are accepted. `pinned` adds the
   // 4 MiB stream window with BDP probing off (grpc-core has no connection-window argument:
-  // logs/cpp/rpcflow.log, C31); `shipped` leaves grpc++'s defaults.
-  b.SetMaxReceiveMessageSize(2 * 1024 * 1024);
-  b.SetMaxSendMessageSize(2 * 1024 * 1024);
+  // logs/cpp/rpcflow.log, C31); `shipped` leaves grpc++'s other defaults.
+  b.SetMaxReceiveMessageSize(kServerMaxMessage);
+  b.SetMaxSendMessageSize(kServerMaxMessage);
   if (pinned) {
     b.AddChannelArgument(GRPC_ARG_HTTP2_STREAM_LOOKAHEAD_BYTES, 4 * 1024 * 1024);
     b.AddChannelArgument(GRPC_ARG_HTTP2_BDP_PROBE, 0);
@@ -144,9 +219,9 @@ int main(int argc, char **argv) {
   sp->Shutdown();
   struct rusage ru;
   getrusage(RUSAGE_SELF, &ru);
-  std::fprintf(stderr, "server cpu_ns %lld (instrumentation); served Fetch %ld Push %ld; threads %d\n",
+  std::fprintf(stderr, "server cpu_ns %lld (instrumentation); served Fetch %ld Push %ld Upload %ld UploadStream %ld; threads %d\n",
                (long long)(ru.ru_utime.tv_sec + ru.ru_stime.tv_sec) * 1000000000LL +
                    (long long)(ru.ru_utime.tv_usec + ru.ru_stime.tv_usec) * 1000LL,
-               g_fetch.load(), g_push.load(), threads);
+               g_fetch.load(), g_push.load(), g_upload.load(), g_stream.load(), threads);
   return 0;
 }

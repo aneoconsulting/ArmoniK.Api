@@ -156,6 +156,7 @@ template <> struct DecRoot<DualResponse> {
   }
 };
 template <class T> inline ak_dec_ctx *dec_ctx_new_for() { return DecRoot<T>::ctx_new(); }
+void dec_ctx_free(ak_dec_ctx *ctx);  // ak_dec_ctx_free (the full build also forgets an armed context)
 
 struct DecCtxs {
   ak_dec_ctx *c[7];
@@ -169,7 +170,7 @@ struct DecCtxs {
     c[6] = ak_dec_ctx_new_DualResponse();
   }
   ~DecCtxs() {
-    for (int i = 0; i < 7; ++i) ak_dec_ctx_free(c[i]);
+    for (int i = 0; i < 7; ++i) dec_ctx_free(c[i]);
   }
   bool ok() const {
     for (int i = 0; i < 7; ++i) if (c[i] == NULL) return false;

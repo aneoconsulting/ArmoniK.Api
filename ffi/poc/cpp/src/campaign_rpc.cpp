@@ -74,14 +74,20 @@
 #include "generated/core_native.h"
 #include "generated/pb_build.h"
 #include "generated/touch.h"
+#include "sha256.h"
 
 using namespace akrpc;
 
 namespace {
 
 const char *const kPush = "/armonik.ffi.shapes.v1.Shapes/Push";
+const char *const kUpload = "/armonik.ffi.shapes.v1.Shapes/Upload";
+const char *const kUploadStream = "/armonik.ffi.shapes.v1.Shapes/UploadStream";
 typedef shapes::ListTasksDetailedResponse Fac;
 typedef svcns::ListTasksDetailedResponse Pb;
+typedef shapes::UploadResultDataMessage Fac5;   // M5, directions c and d
+typedef svcns::UploadResultDataMessage Pb5;
+const size_t kChunk = 2 * 1024 * 1024;          // ArmoniK's upload chunk (direction d)
 
 enum Mode { kDefault, kRetain, kDrop, kNoUnk };
 // Which binary produced a sample: A and B run in both clients (in-process controls), so a
@@ -95,6 +101,7 @@ struct Cell {
   char base;
   Mode mode;
   std::string label;
+  bool framed;  // B, C, E: the core's FRAMED send path (ak_client_set_framed), beside the reference
 };
 const char *mode_name(Mode m) {
   return m == kRetain ? "retain" : m == kDrop ? "drop" : m == kNoUnk ? "no-unknown" : "default";
@@ -108,15 +115,21 @@ std::vector<Cell> parse_cells(const std::string &spec) {
   bool labels = spec.find(',') != std::string::npos || spec.find('-') != std::string::npos;
   if (!labels) {
     for (char c : spec) {
-      if (c == 'C' || c == 'D' || c == 'E' || c == 'F') {
+      // Every send path that exists runs beside its reference (req. 14, ABI v1 section 9):
+      // the core's cells B, C and E have a framed twin (Bf, Cf-*, Ef-*).
+      const int twins = (c == 'B' || c == 'C' || c == 'E') ? 2 : 1;
+      for (int f = 0; f < twins; ++f) {
+        std::string base = std::string(1, c) + (f ? "f" : "");
+        if (c == 'C' || c == 'D' || c == 'E' || c == 'F') {
 #ifdef AK_NO_UNKNOWN_FIELDS
-        out.push_back(Cell{c, kNoUnk, std::string(1, c) + "-nounk"});
+          out.push_back(Cell{c, kNoUnk, base + "-nounk", f == 1});
 #else
-        out.push_back(Cell{c, kRetain, std::string(1, c) + "-retain"});
-        out.push_back(Cell{c, kDrop, std::string(1, c) + "-drop"});
+          out.push_back(Cell{c, kRetain, base + "-retain", f == 1});
+          out.push_back(Cell{c, kDrop, base + "-drop", f == 1});
 #endif
-      } else {
-        out.push_back(Cell{c, kDefault, std::string(1, c)});
+        } else {
+          out.push_back(Cell{c, kDefault, base, f == 1});
+        }
       }
     }
     return out;
@@ -126,10 +139,12 @@ std::vector<Cell> parse_cells(const std::string &spec) {
     size_t q = spec.find(',', p);
     std::string l = spec.substr(p, q == std::string::npos ? std::string::npos : q - p);
     if (!l.empty()) {
-      Mode m = l.size() == 1 ? kDefault
-               : l.substr(1) == "-retain" ? kRetain
-               : l.substr(1) == "-nounk" ? kNoUnk : kDrop;
-      out.push_back(Cell{l[0], m, l});
+      const bool fr = l.size() > 1 && l[1] == 'f';
+      const std::string rest = l.substr(fr ? 2 : 1);
+      Mode m = rest.empty() ? kDefault
+               : rest == "-retain" ? kRetain
+               : rest == "-nounk" ? kNoUnk : kDrop;
+      out.push_back(Cell{l[0], m, l, fr});
     }
     if (q == std::string::npos) break;
     p = q + 1;
@@ -138,7 +153,8 @@ std::vector<Cell> parse_cells(const std::string &spec) {
 }
 
 struct Cfg {
-  std::string target, transport = "shipped", cells = "ABCDEF", dirs = "arb";
+  std::string target, transport = "shipped", cells = "ABCDEF", dirs = "arbcd";
+  std::string plant;     // test only (req. 18 controls): c-len | d-count | d-sha
   std::vector<int> inflight = {1, 8, 16};
   int launch = 0, rounds = 5, calls = 96, warmup = 32, workers = 2;
   int fail_after = -1;   // test only: abort after this many samples (the gate's R-H4 control)
@@ -167,7 +183,31 @@ int proc_threads() {
   return -1;
 }
 
-const char *dir_label(char d) { return d == 'a' ? "a" : d == 'r' ? "a+read" : "b"; }
+const char *dir_label(char d) {
+  return d == 'a' ? "a" : d == 'r' ? "a+read" : d == 'b' ? "b" : d == 'c' ? "c" : "d";
+}
+
+// A (direction, payload) pair: a, a+read and b carry P2.2; c carries P5.3 or P5.4 (pi 0/1);
+// d streams 4 MiB or 16 MiB (pi 0/1) in 2 MiB chunks.
+struct Job {
+  char dir;
+  int pi;
+};
+const char *job_payload(const Job &j) {
+  if (j.dir == 'c') return j.pi ? "P5.4" : "P5.3";
+  if (j.dir == 'd') return j.pi ? "16MiB" : "4MiB";
+  return "P2.2";
+}
+
+// Direction d's upload (req. 14): M5 messages of 2 MiB of deterministic data (splitmix64, as
+// the Rust slice), the ids on the first only; the SHA-256 of every message's wire bytes.
+struct Stream {
+  std::vector<Pb5> p;
+  std::vector<Fac5> f;
+  std::vector<std::string> wire;
+  uint64_t bytes = 0;
+  std::string sha;
+};
 
 // ---- one connection per cell (req. 13) ------------------------------------------------
 struct Conn {
@@ -184,6 +224,12 @@ struct World {
   size_t expect_a = 0;       // the P2.2 response length (from the server)
   Pb pb_req;                 // direction b's request, incumbent object
   Fac fac_req;               // the same, facade object
+  Pb5 pb_up[2];              // direction c's requests (P5.3, P5.4)
+  Fac5 fac_up[2];
+  std::string wire_up[2];    // their protobuf wire, the pre-check's reference
+  Stream st[2];              // direction d's uploads (4 MiB, 16 MiB)
+  std::vector<Job> jobs;
+  size_t want_c_len = 0;     // direction c's response length (0; 1 under the c-len plant)
 };
 
 grpc::ChannelArguments channel_args(const std::string &transport, const std::string &cell) {
@@ -201,10 +247,12 @@ grpc::ChannelArguments channel_args(const std::string &transport, const std::str
   return a;
 }
 
-ak_client *core_client(ak_runtime *rt, const std::string &target, const std::string &transport) {
+ak_client *core_client_ref(ak_runtime *rt, const std::string &target, const std::string &transport) {
   // the core's transport: `shipped` = the stack's defaults (NULL options; packages/cpp pins no
   // window, and ak_client_new's defaults are tonic/hyper's), `pinned` = 4 MiB stream and
-  // connection windows, adaptive off, Nagle off, max message 2 MiB (rpc_common.h core_opts).
+  // connection windows, adaptive off, Nagle off, max message 8 MiB (rpc_common.h core_opts).
+  // `shipped` keeps tonic's limits (receive 4 MiB, send unlimited), enforced (D44): every
+  // response is at most 540 KB, every request at most 4,194,390 B.
   // The target is `unix:<path>`, which the core dials as a Unix domain socket.
   if (transport == "pinned") {
     ak_client_opts o = pinned_core_opts(true);
@@ -213,14 +261,26 @@ ak_client *core_client(ak_runtime *rt, const std::string &target, const std::str
   return ak_client_new(rt, (const uint8_t *)target.data(), target.size());
 }
 
+// A cell's core client, on the reference or the framed send path (ak_client_set_framed: the
+// request message sent as its 5-byte prefix and itself, never copied; section 9).
+ak_client *core_client(ak_runtime *rt, const std::string &target, const std::string &transport,
+                       bool framed = false) {
+  ak_client *cl = core_client_ref(rt, target, transport);
+  if (cl && framed && ak_client_set_framed(cl, 1) != AK_OK) die("ak_client_set_framed", 1);
+  return cl;
+}
+
 // Per caller thread: its encode context, its root-bound decode context, host-gen's encoders.
 struct ThreadCtx {
   ak_enc_ctx *ec = nullptr;
   ak_dec_ctx *dc = nullptr;
+  ak_dec_ctx *dcr = nullptr;  // retain decodes: its own context, left armed (rule 7), so a drop
+                              // decode on `dc` never pays a disarming reset
   ak::Enc *ne = nullptr, *nre = nullptr;
   ThreadCtx() {
     ec = ak_enc_ctx_new();
     dc = shapes::ffi::dec_ctx_new_for<Fac>();  // decision 11 rule 6
+    dcr = shapes::ffi::dec_ctx_new_for<Fac>();
     ne = new ak::Enc(shapes::native::kSites);
 #ifndef AK_NO_UNKNOWN_FIELDS
     nre = new ak::Enc(shapes::native_retain::kSites);
@@ -228,7 +288,8 @@ struct ThreadCtx {
   }
   ~ThreadCtx() {
     ak_enc_ctx_free(ec);
-    ak_dec_ctx_free(dc);
+    shapes::ffi::dec_ctx_free(dc);
+    shapes::ffi::dec_ctx_free(dcr);
     delete ne;
     delete nre;
   }
@@ -268,7 +329,7 @@ int32_t codec_decode(char base, Mode m, ThreadCtx &tc, const uint8_t *p, size_t 
     (void)m;
     return shapes::ffi::decode_with_list_tasks_detailed_response(tc.dc, p, n, f);
 #else
-    return m == kRetain ? shapes::ffi::decode_with_list_tasks_detailed_response_unk(tc.dc, p, n, f)
+    return m == kRetain ? shapes::ffi::decode_with_list_tasks_detailed_response_unk(tc.dcr, p, n, f)
                         : shapes::ffi::decode_with_list_tasks_detailed_response(tc.dc, p, n, f);
 #endif
   }
@@ -279,14 +340,205 @@ int32_t codec_decode(char base, Mode m, ThreadCtx &tc, const uint8_t *p, size_t 
   return shapes::native::decode_list_tasks_detailed_response(p, n, f);
 }
 
-// One call of one cell in one direction. Returns a fold (so nothing is dead).
-long cell_call(World &w, size_t ci, char dir, int t, ThreadCtx &tc) {
+// The client-side encoders, per message type and mode, for the request directions b, c, d.
+intptr_t core_enc(ak_enc_ctx *ec, const Fac &v, Mode m) {
+#ifdef AK_NO_UNKNOWN_FIELDS
+  (void)m;
+  return shapes::ffi::encode_into_list_tasks_detailed_response(ec, v, shapes::ffi::tcs_core());
+#else
+  return m == kRetain ? shapes::ffi::encode_into_list_tasks_detailed_response_unk(ec, v, shapes::ffi::tcs_core())
+                      : shapes::ffi::encode_into_list_tasks_detailed_response(ec, v, shapes::ffi::tcs_core());
+#endif
+}
+intptr_t core_enc(ak_enc_ctx *ec, const Fac5 &v, Mode m) {
+#ifdef AK_NO_UNKNOWN_FIELDS
+  (void)m;
+  return shapes::ffi::encode_into_upload_result_data_message(ec, v, shapes::ffi::tcs_core());
+#else
+  return m == kRetain ? shapes::ffi::encode_into_upload_result_data_message_unk(ec, v, shapes::ffi::tcs_core())
+                      : shapes::ffi::encode_into_upload_result_data_message(ec, v, shapes::ffi::tcs_core());
+#endif
+}
+ak::Enc *hg_enc(ThreadCtx &tc, const Fac &v, Mode m) {
+#ifndef AK_NO_UNKNOWN_FIELDS
+  if (m == kRetain) { shapes::native_retain::encode_into_list_tasks_detailed_response(v, tc.nre); return tc.nre; }
+#endif
+  (void)m;
+  shapes::native::encode_into_list_tasks_detailed_response(v, tc.ne);
+  return tc.ne;
+}
+ak::Enc *hg_enc(ThreadCtx &tc, const Fac5 &v, Mode m) {
+#ifndef AK_NO_UNKNOWN_FIELDS
+  if (m == kRetain) { shapes::native_retain::encode_into_upload_result_data_message(v, tc.nre); return tc.nre; }
+#endif
+  (void)m;
+  shapes::native::encode_into_upload_result_data_message(v, tc.ne);
+  return tc.ne;
+}
+
+// Cells D and F hand their encoded bytes to grpc++ MOVED, not copied (WP8): D through
+// ak_enc_take_owned (the core's buffer, released with ak_bytes_free when grpc++ drops the
+// slice), F through ak::Enc::take (host-gen's buffer). The same as the Rust slice's D and F.
+void free_owned_bytes(void *p) {
+  ak_bytes *b = static_cast<ak_bytes *>(p);
+  ak_bytes_free(b);
+  delete b;
+}
+grpc::ByteBuffer core_owned_buffer(ThreadCtx &tc, const char *what) {
+  ak_bytes *b = new ak_bytes;
+  b->ptr = NULL; b->len = 0; b->owner = NULL;
+  int32_t rc = ak_enc_take_owned(tc.ec, b);
+  if (rc != AK_OK) die(what, rc);
+  grpc::Slice sl(const_cast<uint8_t *>(b->ptr), b->len, free_owned_bytes, b);
+  return grpc::ByteBuffer(&sl, 1);
+}
+grpc::ByteBuffer hg_owned_buffer(ak::Enc *e, const char *what) {
+  if (e->err != 0) die(what, e->err);
+  ak::Enc::Owned *o = e->take();
+  grpc::Slice sl(o->v.empty() ? NULL : &o->v[0], o->len, ak::Enc::release, o);
+  return grpc::ByteBuffer(&sl, 1);
+}
+// The request of a D or F cell, as grpc++ will carry it.
+template <class V>
+grpc::ByteBuffer grpc_request(char cell, Mode m, ThreadCtx &tc, const V &v) {
+  if (core_codec(cell)) {
+    intptr_t rc = core_enc(tc.ec, v, m);
+    if (rc < 0) die("D encode", (long)rc);
+    return core_owned_buffer(tc, "D ak_enc_take_owned");
+  }
+  return hg_owned_buffer(hg_enc(tc, v, m), "F encode");
+}
+
+std::string flatten(const grpc::ByteBuffer &bb) {
+  std::vector<grpc::Slice> slices;
+  if (!bb.Dump(&slices).ok()) die("response dump", 0);
+  std::string s;
+  for (size_t i = 0; i < slices.size(); ++i) s.append((const char *)slices[i].begin(), slices[i].size());
+  return s;
+}
+
+// A request of direction b or c on the core's transport (B, C, E and their framed twins):
+// B encodes with protobuf and copies (ak_call_unary); C hands the encode context over
+// (ak_call_unary_enc: the buffer MOVED); E copies host-gen's bytes (ak_call_unary). The
+// response must be `want` bytes (0).
+template <class V, class P>
+void core_unary_req(const Cell &cl, Conn &cn, ThreadCtx &tc, const char *path, const V &fv, const P &pv,
+                    size_t want) {
+  struct ak_bytes out;
+  out.ptr = NULL; out.len = 0; out.owner = NULL;
+  int32_t gs = -1;  // the gRPC status (ABI v1 section 9); non-OK is AK_ERR_RPC_STATUS
+  int32_t rc;
+  const size_t pl = std::strlen(path);
+  if (cl.base == 'B') {
+    std::string q;
+    pv.SerializeToString(&q);
+    rc = ak_call_unary(cn.cl, (const uint8_t *)path, pl, (const uint8_t *)q.data(), q.size(), &out, &gs);
+  } else if (cl.base == 'C') {
+    intptr_t e = core_enc(tc.ec, fv, cl.mode);
+    if (e < 0) die("C encode", (long)e);
+    rc = ak_call_unary_enc(cn.cl, (const uint8_t *)path, pl, tc.ec, &out, &gs);
+  } else {
+    ak::Enc *e = hg_enc(tc, fv, cl.mode);
+    if (e->err != 0) die("E encode", e->err);
+    rc = ak_call_unary(cn.cl, (const uint8_t *)path, pl, e->data(), e->size(), &out, &gs);
+  }
+  if (rc != AK_OK || gs != 0) die(rc == AK_ERR_RPC_STATUS ? "core call gRPC status" : "core call status",
+                                  rc == AK_ERR_RPC_STATUS ? gs : rc);
+  if (out.len != want) die("core request response length", (long)out.len);
+  ak_bytes_free(&out);
+}
+
+void check_ack(const World &w, const Stream &st, const uint8_t *p, size_t n) {
+  svcns::UploadAck a;
+  if (!a.ParseFromArray(p, (int)n)) die("d: the server's answer is not an UploadAck", (long)n);
+  if (a.data_bytes() != st.bytes) die("d: the server's byte count", (long)a.data_bytes());
+  if (a.sha256() != st.sha) die("d: the server's SHA-256 differs from the upload's", 0);
+  (void)w;
+}
+
+// Direction d, one streamed upload (req. 14): A through grpc++'s typed ClientWriter; B, C, E
+// through the core's client streaming (ak_call_open, a send per chunk, ak_call_recv); D and F
+// through grpc++'s raw ClientWriter, each chunk handed over moved. Returns the chunk count.
+long stream_call(World &w, size_t ci, int pi, int t, ThreadCtx &tc) {
+  const Cell &cl = w.cells[ci];
+  Conn &cn = w.conns[ci];
+  const Stream &st = w.st[pi];
+  const size_t nmsg = st.f.size();
+  if (cl.base == 'A') {
+    grpc::ClientContext ctx;
+    svcns::UploadAck ack;
+    std::unique_ptr<grpc::ClientWriter<Pb5> > wr = cn.stubs[(size_t)t % cn.stubs.size()]->UploadStream(&ctx, &ack);
+    for (size_t i = 0; i < nmsg; ++i)
+      if (!wr->Write(st.p[i])) die("A/d write", (long)i);
+    wr->WritesDone();
+    grpc::Status s = wr->Finish();
+    if (!s.ok()) die("A/d status", (long)s.error_code());
+    std::string a;
+    ack.SerializeToString(&a);
+    check_ack(w, st, (const uint8_t *)a.data(), a.size());
+    return (long)nmsg;
+  }
+  if (!grpc_cell(cl.base)) {
+    ak_call *h = ak_call_open(cn.cl, (const uint8_t *)kUploadStream, std::strlen(kUploadStream),
+                              AK_CALL_CLIENT_STREAM, NULL);
+    if (!h) die("ak_call_open", 0);
+    std::string q;
+    for (size_t i = 0; i < nmsg; ++i) {
+      const int32_t last = i + 1 == nmsg;
+      int32_t rc;
+      if (cl.base == 'B') {
+        st.p[i].SerializeToString(&q);
+        rc = ak_call_send(h, (const uint8_t *)q.data(), q.size(), last);
+      } else if (cl.base == 'C') {
+        intptr_t e = core_enc(tc.ec, st.f[i], cl.mode);
+        if (e < 0) die("C/d encode", (long)e);
+        rc = ak_call_send_enc(h, tc.ec, last);
+      } else {
+        ak::Enc *e = hg_enc(tc, st.f[i], cl.mode);
+        if (e->err != 0) die("E/d encode", e->err);
+        rc = ak_call_send(h, e->data(), e->size(), last);
+      }
+      if (rc != AK_OK) die("ak_call_send", rc);
+    }
+    struct ak_bytes out;
+    out.ptr = NULL; out.len = 0; out.owner = NULL;
+    int32_t gs = -1;
+    int32_t rc = ak_call_recv(h, &out, &gs);
+    if (rc != AK_OK || gs != 0) die(rc == AK_ERR_RPC_STATUS ? "d gRPC status" : "ak_call_recv",
+                                    rc == AK_ERR_RPC_STATUS ? gs : rc);
+    check_ack(w, st, out.ptr, out.len);
+    ak_bytes_free(&out);
+    ak_call_destroy(h);
+    return (long)nmsg;
+  }
+  grpc::internal::RpcMethod method(kUploadStream, grpc::internal::RpcMethod::CLIENT_STREAMING);
+  grpc::ClientContext ctx;
+  grpc::ByteBuffer rsp;
+  std::unique_ptr<grpc::ClientWriter<grpc::ByteBuffer> > wr(
+      grpc::internal::ClientWriterFactory<grpc::ByteBuffer>::Create(cn.chan.get(), method, &ctx, &rsp));
+  for (size_t i = 0; i < nmsg; ++i) {
+    grpc::ByteBuffer bb = grpc_request(cl.base, cl.mode, tc, st.f[i]);
+    if (!wr->Write(bb)) die("D/F d write", (long)i);
+  }
+  wr->WritesDone();
+  grpc::Status s = wr->Finish();
+  if (!s.ok()) die("D/F d status", (long)s.error_code());
+  std::string a = flatten(rsp);
+  check_ack(w, st, (const uint8_t *)a.data(), a.size());
+  return (long)nmsg;
+}
+
+// One call of one cell for one job. Returns a fold (so nothing is dead).
+long cell_call(World &w, size_t ci, const Job &job, int t, ThreadCtx &tc) {
   const Cell &cl = w.cells[ci];
   Conn &cn = w.conns[ci];
   const char cell = cl.base;
+  const char dir = job.dir;
+  if (dir == 'd') return stream_call(w, ci, job.pi, t, tc);
   static const uint8_t kNoReq[1] = {0};
   const bool resp = dir == 'a' || dir == 'r';
   const bool read = dir == 'r';
+  const bool up = dir == 'c';
   if (cell == 'A') {
     grpc::ClientContext ctx;
     svcns::Shapes::Stub &st = *cn.stubs[(size_t)t % cn.stubs.size()];
@@ -299,68 +551,55 @@ long cell_call(World &w, size_t ci, char dir, int t, ThreadCtx &tc) {
       return read ? (long)pbtouch::touch(r) : r.tasks_size();
     }
     svcns::Empty r;
-    grpc::Status s = st.Push(&ctx, w.pb_req, &r);
-    if (!s.ok()) die("A/b status", (long)s.error_code());
+    grpc::Status s = up ? st.Upload(&ctx, w.pb_up[job.pi], &r) : st.Push(&ctx, w.pb_req, &r);
+    if (!s.ok()) die(up ? "A/c status" : "A/b status", (long)s.error_code());
+    if (up && w.want_c_len != 0) die("A/c response length", 0);  // the typed stub reads a message, 0 bytes
     return 1;
   }
-  if (!grpc_cell(cell)) {  // B, C, E: the core's transport
-    const char *path = resp ? kFetchPath : kPush;
-    std::string pbreq;
-    const uint8_t *req = kNoReq;
-    size_t reqn = 0;
+  if (!grpc_cell(cell)) {  // B, C, E (and framed twins): the core's transport
     if (!resp) {
-      if (cell == 'B') {
-        w.pb_req.SerializeToString(&pbreq);
-        req = (const uint8_t *)pbreq.data();
-        reqn = pbreq.size();
-      } else {
-        int32_t rc = codec_encode(cell, cl.mode, tc, w.fac_req, &req, &reqn);
-        if (rc != 0) die("C/E b encode", rc);
-      }
+      if (up) core_unary_req(cl, cn, tc, kUpload, w.fac_up[job.pi], w.pb_up[job.pi], w.want_c_len);
+      else core_unary_req(cl, cn, tc, kPush, w.fac_req, w.pb_req, 0);
+      return 1;
     }
     struct ak_bytes out;
     out.ptr = NULL; out.len = 0; out.owner = NULL;
-    int32_t rc = ak_call_unary(cn.cl, (const uint8_t *)path, std::strlen(path), req, reqn, &out);
-    if (rc != AK_OK) die("core call status", rc);
+    int32_t gs = -1;  // the gRPC status (ABI v1 section 9); non-OK is AK_ERR_RPC_STATUS
+    int32_t rc = ak_call_unary(cn.cl, (const uint8_t *)kFetchPath, std::strlen(kFetchPath), kNoReq, 0, &out, &gs);
+    if (rc != AK_OK || gs != 0) die(rc == AK_ERR_RPC_STATUS ? "core call gRPC status" : "core call status",
+                                    rc == AK_ERR_RPC_STATUS ? gs : rc);
     long n = 1;
-    if (resp) {
-      if (out.len != w.expect_a) die("core/a response length", (long)out.len);
-      if (cell == 'B') {
-        Pb m;
-        if (!m.ParseFromArray(out.ptr, (int)out.len)) die("B/a decode", 0);
-        n = read ? (long)pbtouch::touch(m) : m.tasks_size();
-      } else {
-        Fac f;
-        int32_t drc = codec_decode(cell, cl.mode, tc, out.ptr, out.len, &f);
-        if (drc != 0) die("C/E a decode", drc);
-        n = read ? (long)shapes::touch::touch(f) : (long)f.tasks.size();
-      }
-    } else if (out.len != 0) {
-      die("core/b response length", (long)out.len);
+    if (out.len != w.expect_a) die("core/a response length", (long)out.len);
+    if (cell == 'B') {
+      Pb m;
+      if (!m.ParseFromArray(out.ptr, (int)out.len)) die("B/a decode", 0);
+      n = read ? (long)pbtouch::touch(m) : m.tasks_size();
+    } else {
+      Fac f;
+      int32_t drc = codec_decode(cell, cl.mode, tc, out.ptr, out.len, &f);
+      if (drc != 0) die("C/E a decode", drc);
+      n = read ? (long)shapes::touch::touch(f) : (long)f.tasks.size();
     }
     ak_bytes_free(&out);
     return n;
   }
   // D, F: grpc++'s transport carrying opaque bytes, the generated codec at the client.
-  grpc::internal::RpcMethod method(resp ? kFetchPath : kPush, grpc::internal::RpcMethod::NORMAL_RPC);
+  grpc::internal::RpcMethod method(resp ? kFetchPath : up ? kUpload : kPush, grpc::internal::RpcMethod::NORMAL_RPC);
   grpc::ClientContext ctx;
   grpc::ByteBuffer req, rsp;
   if (resp) {
     grpc::Slice e;
     req = grpc::ByteBuffer(&e, 1);
+  } else if (up) {
+    req = grpc_request(cell, cl.mode, tc, w.fac_up[job.pi]);
   } else {
-    const uint8_t *p = NULL;
-    size_t n = 0;
-    int32_t rc = codec_encode(cell, cl.mode, tc, w.fac_req, &p, &n);
-    if (rc != 0) die("D/F b encode", rc);
-    grpc::Slice s(p, n);
-    req = grpc::ByteBuffer(&s, 1);
+    req = grpc_request(cell, cl.mode, tc, w.fac_req);
   }
   grpc::Status s = grpc::internal::BlockingUnaryCall<grpc::ByteBuffer, grpc::ByteBuffer>(
       cn.chan.get(), method, &ctx, req, &rsp);
   if (!s.ok()) die("D/F status", (long)s.error_code());
   if (!resp) {
-    if (rsp.Length() != 0) die("D/F b response length", (long)rsp.Length());
+    if (rsp.Length() != (up ? w.want_c_len : 0)) die("D/F request response length", (long)rsp.Length());
     return 1;
   }
   if (rsp.Length() != w.expect_a) die("D/F a response length", (long)rsp.Length());
@@ -396,7 +635,7 @@ struct Pool {
   uint64_t gen = 0;
   int k = 0, per = 0, pending = 0;
   size_t cell = 0;
-  char dir = 'a';
+  size_t job = 0;  // index into World::jobs
   bool quit = false;
   std::vector<long> acc;
 
@@ -412,25 +651,25 @@ struct Pool {
     ThreadCtx tc;
     uint64_t seen = 0;
     for (;;) {
-      int myk, myper; size_t c; char d;
+      int myk, myper; size_t c, d;
       {
         std::unique_lock<std::mutex> l(m);
         go.wait(l, [&] { return gen != seen; });
         seen = gen;
         if (quit) break;
-        myk = k; myper = per; c = cell; d = dir;
+        myk = k; myper = per; c = cell; d = job;
       }
       if (t >= myk) continue;
       long n = 0;
-      for (int i = 0; i < myper; ++i) n += cell_call(*w, c, d, t, tc);
+      for (int i = 0; i < myper; ++i) n += cell_call(*w, c, w->jobs[d], t, tc);
       std::lock_guard<std::mutex> l(m);
       acc[(size_t)t] = n;
       if (--pending == 0) done.notify_one();
     }
   }
-  long batch(size_t c, char d, int kk, int total) {
+  long batch(size_t c, size_t j, int kk, int total) {
     std::unique_lock<std::mutex> l(m);
-    k = kk; per = (total + kk - 1) / kk; cell = c; dir = d; pending = kk; ++gen;
+    k = kk; per = (total + kk - 1) / kk; cell = c; job = j; pending = kk; ++gen;
     go.notify_all();
     done.wait(l, [&] { return pending == 0; });
     long s = 0;
@@ -478,61 +717,134 @@ int warm_server(World &w, int n) {
       if (!st->Push(&c, w.pb_req, &r).ok()) die("warm grpc++ b", i); }
     struct ak_bytes out;
     out.ptr = NULL; out.len = 0; out.owner = NULL;
-    if (ak_call_unary(cl, (const uint8_t *)kFetchPath, std::strlen(kFetchPath), kNoReq, 0, &out) != AK_OK ||
+    if (ak_call_unary(cl, (const uint8_t *)kFetchPath, std::strlen(kFetchPath), kNoReq, 0, &out, NULL) != AK_OK ||
         out.len != w.expect_a) die("warm core a", i);
     ak_bytes_free(&out);
     out.ptr = NULL; out.len = 0; out.owner = NULL;
-    if (ak_call_unary(cl, (const uint8_t *)kPush, std::strlen(kPush), (const uint8_t *)req.data(), req.size(), &out) != AK_OK ||
+    if (ak_call_unary(cl, (const uint8_t *)kPush, std::strlen(kPush), (const uint8_t *)req.data(), req.size(), &out, NULL) != AK_OK ||
         out.len != 0) die("warm core b", i);
     ak_bytes_free(&out);
   }
   ak_client_destroy(cl);
+  // Directions c and d (req. 14): the same, through cells A (grpc++) and B (the core), every
+  // call checked; d with a tenth of the calls (a 16 MiB upload is 32x a P2.2 call's bytes).
+  const int nd = n / 10 > 0 ? n / 10 : 1;
+  w.cells.clear();
+  w.cells.push_back(Cell{'A', kDefault, "A", false});
+  w.cells.push_back(Cell{'B', kDefault, "B", false});
+  w.conns.clear();
+  w.conns.resize(2);
+  w.conns[0].chan = ch;
+  w.conns[0].stubs.emplace_back(svcns::Shapes::NewStub(ch));
+  w.conns[1].cl = core_client(w.rt, w.cfg.target, w.cfg.transport);
+  if (!w.conns[1].cl) die("ak_client_new (warm c/d)", 0);
+  {
+    ThreadCtx tc;
+    for (int pi = 0; pi < 2; ++pi)
+      for (size_t ci = 0; ci < 2; ++ci) {
+        for (int i = 0; i < n; ++i) cell_call(w, ci, Job{'c', pi}, 0, tc);
+        for (int i = 0; i < nd; ++i) cell_call(w, ci, Job{'d', pi}, 0, tc);
+      }
+  }
+  ak_client_destroy(w.conns[1].cl);
+  w.conns[1].cl = nullptr;
   std::printf("# {\"campaign_rpc_warm_server\": {\"transport\": \"%s\", \"calls_per_direction_per_client_transport\": %d,"
-              " \"client_transports\": [\"grpc++\", \"core\"]}}\n", w.cfg.transport.c_str(), n);
+              " \"calls_per_payload_per_client_transport\": {\"c\": %d, \"d\": %d},"
+              " \"client_transports\": [\"grpc++\", \"core\"]}}\n", w.cfg.transport.c_str(), n, n, nd);
   return 0;
 }
 
 #ifdef AK_COUNTING
-// --count N (req. 19, amended 2026-09-26): per call, every exported entry point the loop
-// calls. rpc = the core's transport counters (ak_call_unary, ak_bytes_free); codec = the
-// encode/decode contexts' counters (entry points, element loops, reverse calls); host =
-// what the binding calls that no counter sees (ak_enc_reset inside encode_into_*, before
-// the encode entry point; the two ak_dec_reset_<Root> of a retain decode, before and after
-// it); take = ak_enc_take after a core encode. Cells B, C, D and E; direction a+read has
-// the crossings of a (the read is host code).
+// --count N (req. 19, amended 2026-09-26/27): per call, every exported entry point the loop
+// calls. rpc = the core's transport counters (ak_call_unary, ak_call_unary_enc,
+// ak_enc_take_owned, ak_call_open/send/send_enc/recv/destroy, ak_bytes_free); codec = the
+// encode/decode contexts' counters (entry points, element loops, reverse calls); host = what
+// the binding calls that no counter sees (ak_enc_reset inside encode_into_*, before the
+// encode entry point; the one ak_dec_reset_<Root> of a retain decode, before it). Retain:
+// no pre-placed buffer, the binding's geometric unk_grow. Cells B, C, D and E with the
+// framed twins, directions a, b, c (P5.3, P5.4) and d (4 MiB, 16 MiB); a+read has the
+// crossings of a (the read is host code).
 int count_cells(World &w, int n) {
-  std::printf("# {\"campaign_rpc_counts\": {\"build\": \"%s\", \"calls\": %d, \"retain\": \"every position armed, no pre-placed buffer, unk_grow allocates exactly the size requested\"}}\n",
+  std::printf("# {\"campaign_rpc_counts\": {\"build\": \"%s\", \"calls\": %d, \"retain\": \"every position armed, no pre-placed buffer, unk_grow grows geometrically (decision 11 rule 8)\"}}\n",
               kBuild, n);
   ThreadCtx tc;
-  const char dirs[2] = {'a', 'b'};
+  std::vector<Job> jobs;
+  jobs.push_back(Job{'a', 0});
+  jobs.push_back(Job{'b', 0});
+  jobs.push_back(Job{'c', 0});
+  jobs.push_back(Job{'c', 1});
+  jobs.push_back(Job{'d', 0});
+  jobs.push_back(Job{'d', 1});
   for (size_t ci = 0; ci < w.cells.size(); ++ci) {
     const Cell &cl = w.cells[ci];
     if (cl.base != 'B' && cl.base != 'C' && cl.base != 'D' && cl.base != 'E') continue;
-    for (int di = 0; di < 2; ++di) {
-      char d = dirs[di];
+    for (size_t ji = 0; ji < jobs.size(); ++ji) {
+      const Job &j = jobs[ji];
+      const int calls = j.dir == 'd' ? (n > 1 ? n / 2 : 1) : n;
       ak_rpc_counters_reset();
       ak_enc_counters_reset(tc.ec);
       ak_dec_counters_reset(tc.dc);
+      ak_dec_counters_reset(tc.dcr);
       shapes::ffi::host_calls_take();
-      for (int i = 0; i < n; ++i) cell_call(w, ci, d, 0, tc);
+      for (int i = 0; i < calls; ++i) cell_call(w, ci, j, 0, tc);
       struct ak_rpc_counters rc;
       ak_rpc_counters(&rc);
-      AkCounters ce, cd;
+      AkCounters ce, cd, cdr;
       ak_enc_counters(tc.ec, &ce);
       ak_dec_counters(tc.dc, &cd);
+      ak_dec_counters(tc.dcr, &cdr);
       uint64_t host = shapes::ffi::host_calls_take();
-      uint64_t take = (core_codec(cl.base) && d == 'b') ? (uint64_t)n : 0;
-      uint64_t codec_f = ce.forward + cd.forward, codec_r = ce.reverse + cd.reverse;
-      uint64_t fwd = rc.forward + codec_f + host + take, rev = rc.reverse + codec_r;
-      std::printf("  %-10s %-2s forward/call %8.3f  reverse/call %8.3f   (rpc %.3f/%.3f + codec %.3f/%.3f + host %.3f + take %.3f)\n",
-                  cl.label.c_str(), dir_label(d), fwd / (double)n, rev / (double)n,
-                  rc.forward / (double)n, rc.reverse / (double)n, codec_f / (double)n, codec_r / (double)n,
-                  host / (double)n, take / (double)n);
+      uint64_t codec_f = ce.forward + cd.forward + cdr.forward, codec_r = ce.reverse + cd.reverse + cdr.reverse;
+      uint64_t fwd = rc.forward + codec_f + host, rev = rc.reverse + codec_r;
+      std::printf("  %-10s %-2s %-5s forward/call %8.3f  reverse/call %8.3f   (rpc %.3f/%.3f + codec %.3f/%.3f + host %.3f)\n",
+                  cl.label.c_str(), dir_label(j.dir), job_payload(j), fwd / (double)calls, rev / (double)calls,
+                  rc.forward / (double)calls, rc.reverse / (double)calls, codec_f / (double)calls,
+                  codec_r / (double)calls, host / (double)calls);
     }
   }
   return 0;
 }
 #endif
+
+// Direction d's upload of `chunks` x 2 MiB (req. 14): deterministic data (splitmix64 from a
+// seed of the chunk count, as the Rust slice), the ids on the first message only.
+void make_stream(Stream *st, int chunks) {
+  uint64_t seed = 0x5EED0000ull + (uint64_t)chunks;
+  aksha::Sha256 h;
+  for (int i = 0; i < chunks; ++i) {
+    std::string data;
+    data.resize(kChunk);
+    for (size_t o = 0; o < kChunk; o += 8) {
+      seed += 0x9E3779B97F4A7C15ull;
+      uint64_t z = seed;
+      z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9ull;
+      z = (z ^ (z >> 27)) * 0x94D049BB133111EBull;
+      z ^= z >> 31;
+      for (int b = 0; b < 8; ++b) data[o + b] = (char)(uint8_t)(z >> (8 * b));
+    }
+    Pb5 p;
+    Fac5 f;
+    shapes::UploadResultData &u = f.upload.emplace();
+    if (i == 0) {
+      p.mutable_upload()->set_session_id("session-u2");
+      p.mutable_upload()->set_result_id("result-u2");
+      u.session_id = "session-u2";
+      u.result_id = "result-u2";
+    }
+    p.mutable_upload()->set_data_chunk(data);
+    u.data_chunk = data;
+    std::string wire;
+    p.SerializeToString(&wire);
+    h.update((const uint8_t *)wire.data(), wire.size());
+    st->p.push_back(p);
+    st->f.push_back(f);
+    st->wire.push_back(wire);
+  }
+  st->bytes = (uint64_t)chunks * kChunk;
+  uint8_t d[32];
+  h.final(d);
+  st->sha.assign((const char *)d, 32);
+}
 
 }  // namespace
 
@@ -557,6 +869,7 @@ int main(int argc, char **argv) {
     else if (a == "--fail-after") c.fail_after = std::atoi(v);
     else if (a == "--warm-server") c.warm_server = std::atoi(v);
     else if (a == "--count") c.count = std::atoi(v);
+    else if (a == "--plant") c.plant = v;
   }
   if (c.target.empty() || (c.transport != "shipped" && c.transport != "pinned") || !w.expect_a) {
     std::fprintf(stderr, "usage: campaign_rpc --target unix:PATH --expect BYTES --transport shipped|pinned ...\n");
@@ -565,6 +878,25 @@ int main(int argc, char **argv) {
   w.rt = ak_runtime_new((uint32_t)c.workers);
   pbbuild::payload_p2_2(&w.pb_req);
   w.fac_req = shapes::build::payload_p2_2();
+  // Directions c and d (req. 14, required 2026-09-27).
+  pbbuild::payload_p5_3(&w.pb_up[0]);
+  pbbuild::payload_p5_4(&w.pb_up[1]);
+  w.fac_up[0] = shapes::build::payload_p5_3();
+  w.fac_up[1] = shapes::build::payload_p5_4();
+  for (int i = 0; i < 2; ++i) w.pb_up[i].SerializeToString(&w.wire_up[i]);
+  if (!aksha::sha256_selftest()) die("SHA-256 self-test (FIPS 180-2 vectors)", 0);
+  make_stream(&w.st[0], 2);
+  make_stream(&w.st[1], 8);
+  // Req. 18 controls (the gate's): each must abort the run with no sample.
+  if (c.plant == "c-len") w.want_c_len = 1;
+  else if (c.plant == "d-count") { w.st[0].bytes += 1; w.st[1].bytes += 1; }
+  else if (c.plant == "d-sha") { w.st[0].sha[0] ^= 1; w.st[1].sha[0] ^= 1; }
+  else if (!c.plant.empty()) die("unknown --plant", 0);
+  for (char d : c.dirs) {
+    if (d == 'c' || d == 'd') { w.jobs.push_back(Job{d, 0}); w.jobs.push_back(Job{d, 1}); }
+    else if (d == 'a' || d == 'r' || d == 'b') w.jobs.push_back(Job{d, 0});
+    else die("unknown direction", d);
+  }
   if (c.warm_server > 0) return warm_server(w, c.warm_server);
 
   w.cells = parse_cells(c.cells);
@@ -572,6 +904,7 @@ int main(int argc, char **argv) {
     const Cell &cl = w.cells[i];
     bool coded = cl.base >= 'C' && cl.base <= 'F';
     if (std::string("ABCDEF").find(cl.base) == std::string::npos || coded != (cl.mode != kDefault)
+        || (cl.framed && cl.base != 'B' && cl.base != 'C' && cl.base != 'E')
 #ifdef AK_NO_UNKNOWN_FIELDS
         || cl.mode == kRetain || cl.mode == kDrop
 #else
@@ -591,7 +924,7 @@ int main(int argc, char **argv) {
                                           channel_args(c.transport, w.cells[i].label));
       for (int s = 0; s < maxk; ++s) cn.stubs.emplace_back(svcns::Shapes::NewStub(cn.chan));
     } else {
-      cn.cl = core_client(w.rt, c.target, c.transport);
+      cn.cl = core_client(w.rt, c.target, c.transport, w.cells[i].framed);
       if (!cn.cl) die("ak_client_new", (long)i);
     }
   }
@@ -611,7 +944,7 @@ int main(int argc, char **argv) {
       struct ak_bytes out;
       out.ptr = NULL; out.len = 0; out.owner = NULL;
       static const uint8_t kNone[1] = {0};
-      if (ak_call_unary(pc, (const uint8_t *)kFetchPath, std::strlen(kFetchPath), kNone, 0, &out) != AK_OK ||
+      if (ak_call_unary(pc, (const uint8_t *)kFetchPath, std::strlen(kFetchPath), kNone, 0, &out, NULL) != AK_OK ||
           out.len != w.expect_a)
         die("pre-check fetch", (long)out.len);
       std::string wire((const char *)out.ptr, out.len);
@@ -628,6 +961,29 @@ int main(int argc, char **argv) {
       if (!inc.ParseFromString(wire) || !back.ParseFromString(ours)) die("pre-check incumbent parse", 0);
       if (det(inc) != det(back)) die("pre-check: the re-encode differs from the incumbent's", (long)i);
       if ((long)f.tasks.size() != inc.tasks_size()) die("pre-check task count", (long)f.tasks.size());
+      // Directions c and d: every request message this cell's codec sends is byte-identical
+      // to protobuf's (M5 has one canonical form), before any call.
+      for (int pi = 0; pi < 2; ++pi) {
+        if (core_codec(cl.base)) {
+          const uint8_t *b = NULL; size_t bn = 0;
+          if (core_enc(tc.ec, w.fac_up[pi], cl.mode) < 0 || ak_enc_take(tc.ec, &b, &bn) != AK_OK ||
+              std::string((const char *)b, bn) != w.wire_up[pi])
+            die("pre-check: c request differs from protobuf's", (long)i);
+          for (size_t k = 0; k < w.st[pi].f.size(); ++k)
+            if (core_enc(tc.ec, w.st[pi].f[k], cl.mode) < 0 || ak_enc_take(tc.ec, &b, &bn) != AK_OK ||
+                std::string((const char *)b, bn) != w.st[pi].wire[k])
+              die("pre-check: d chunk differs from protobuf's", (long)k);
+        } else {
+          ak::Enc *e = hg_enc(tc, w.fac_up[pi], cl.mode);
+          if (e->err || std::string((const char *)e->data(), e->size()) != w.wire_up[pi])
+            die("pre-check: c request differs from protobuf's", (long)i);
+          for (size_t k = 0; k < w.st[pi].f.size(); ++k) {
+            e = hg_enc(tc, w.st[pi].f[k], cl.mode);
+            if (e->err || std::string((const char *)e->data(), e->size()) != w.st[pi].wire[k])
+              die("pre-check: d chunk differs from protobuf's", (long)k);
+          }
+        }
+      }
     }
   }
   // Cell A's wire length, once, before the rounds.
@@ -645,14 +1001,25 @@ int main(int argc, char **argv) {
   if (c.count > 0) { std::fprintf(stderr, "--count needs a counting build\n"); return 2; }
 #endif
 
+  // Directions c and d run at 1 and 8 in flight only (req. 14); d with a third of the calls.
+  auto job_runs = [&](const Job &j, int k) { return (j.dir != 'c' && j.dir != 'd') || k == 1 || k == 8; };
+  auto job_calls = [&](const Job &j, int n) { return j.dir == 'd' ? (n / 3 > 0 ? n / 3 : 1) : n; };
   Pool pool(w, maxk);  // R-H2: the caller threads, created before any timed window
-  for (char d : c.dirs)
+  for (size_t ji = 0; ji < w.jobs.size(); ++ji)
     for (int k : c.inflight)
-      for (size_t j = 0; j < w.cells.size(); ++j) pool.batch(j, d, k, c.warmup);  // warm-up, identical per cell
+      if (job_runs(w.jobs[ji], k))
+        for (size_t j = 0; j < w.cells.size(); ++j)
+          pool.batch(j, ji, k, job_calls(w.jobs[ji], c.warmup));  // warm-up, identical per cell
   std::printf("# {\"campaign_rpc\": {\"build\": \"%s\", \"target\": \"%s\", \"transport\": \"%s\", \"cells\": \"%s\","
               " \"dirs\": \"%s\", \"calls_per_sample\": %d, \"warmup_calls_per_cell\": %d, \"rounds\": %d,"
-              " \"expect_bytes\": %zu, \"delivery\": \"B, C, E: the core's blocking ak_call_unary; A, D, F: grpc++'s"
-              " synchronous call (packages/cpp's idiom)\", \"channels\": \"one per cell, opened at start, warmed\","
+              " \"expect_bytes\": %zu, \"delivery\": \"B, C, E: the core's blocking ak_call_unary (C: ak_call_unary_enc,"
+              " the encode context moved); d: ak_call_open + ak_call_send (C: ak_call_send_enc) + ak_call_recv."
+              " A, D, F: grpc++'s synchronous call and ClientWriter (packages/cpp's idiom); D and F hand their bytes"
+              " over moved (ak_enc_take_owned, ak::Enc::take)\", \"send_paths\": \"Bf, Cf-*, Ef-*: the core's"
+              " framed send path (ak_client_set_framed) beside the reference\","
+              " \"directions_c_d\": \"c: P5.3, P5.4 unary upload, empty response; d: 4 MiB and 16 MiB in 2 MiB M5"
+              " chunks (ids on the first), the server's UploadAck byte count and SHA-256 checked; both at 1 and 8"
+              " in flight, d with a third of the calls\", \"channels\": \"one per cell, opened at start, warmed\","
               " \"threads\": {\"caller_threads\": %d, \"core_runtime_workers\": %d,"
               " \"process_threads_after_warmup\": %d, \"grpcpp\": \"grpc-core sizes its own pollers and executor"
               " (no application setting); they are counted in process_threads_after_warmup\"},"
@@ -666,28 +1033,33 @@ int main(int argc, char **argv) {
   std::string samples;
   int nsamples = 0;
   for (int r = 0; r < c.rounds; ++r) {
-    for (char d : c.dirs) {
+    for (size_t ji = 0; ji < w.jobs.size(); ++ji) {
+      const Job &job = w.jobs[ji];
+      const char d = job.dir;
       for (int k : c.inflight) {
+        if (!job_runs(job, k)) continue;
+        const int calls = job_calls(job, c.calls);
         size_t nc = w.cells.size();
         // R-H18 / R-H23 (req 22): the cell order of every (round, dir, in-flight) group is a
         // shuffle seeded by (launch, round, dir, in-flight); each sample records its position.
         std::vector<size_t> order(nc);
         for (size_t j = 0; j < nc; ++j) order[j] = j;
-        std::mt19937 rng((uint32_t)(c.launch * 1000003 + r * 1009 + d * 31 + k));
+        std::mt19937 rng((uint32_t)(c.launch * 1000003 + r * 1009 + d * 31 + job.pi * 7 + k));
         std::shuffle(order.begin(), order.end(), rng);
         for (size_t j = 0; j < nc; ++j) {
           const Cell &cell = w.cells[order[j]];
           double c0 = rusage_ns(), w0 = wall_ns();
-          pool.batch(order[j], d, k, c.calls);
+          pool.batch(order[j], ji, k, calls);
           double c1 = rusage_ns(), w1 = wall_ns();
-          int iters = ((c.calls + k - 1) / k) * k;
+          int iters = ((calls + k - 1) / k) * k;
           char line[600];
           std::snprintf(line, sizeof(line),
                         "{\"slice\":\"cpp\",\"suite\":\"rpc\",\"build\":\"%s\",\"cell\":\"%s\",\"unknown_mode\":\"%s\","
-                        "\"payload\":\"P2.2\",\"dir\":\"%s\",\"transport\":\"%s\",\"socket\":\"uds\",\"inflight\":%d,"
+                        "\"payload\":\"%s\",\"dir\":\"%s\",\"transport\":\"%s\",\"send_path\":\"%s\",\"socket\":\"uds\",\"inflight\":%d,"
                         "\"launch\":%d,\"round\":%d,\"order_pos\":%zu,\"cpu_ns\":%.0f,\"cpu_clock\":\"process\","
                         "\"wall_ns\":%.0f,\"iters\":%d}\n",
-                        kBuild, cell.label.c_str(), mode_name(cell.mode), dir_label(d), c.transport.c_str(), k,
+                        kBuild, cell.label.c_str(), mode_name(cell.mode), job_payload(job), dir_label(d), c.transport.c_str(),
+                        cell.framed ? "framed" : "reference", k,
                         c.launch, r, j, c1 - c0, w1 - w0, iters);
           samples += line;
           if (++nsamples == c.fail_after) die("--fail-after (test control)", nsamples);

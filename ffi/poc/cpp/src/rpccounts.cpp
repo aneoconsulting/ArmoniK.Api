@@ -51,7 +51,7 @@ static Counted run_blocking(ak_client *cl, const char *path, int n) {
   for (int i = 0; i < n; ++i) {
     struct ak_bytes out;
     out.ptr = NULL; out.len = 0; out.owner = NULL;
-    int32_t rc = ak_call_unary(cl, (const uint8_t *)path, plen, kNoReq, 0, &out);
+    int32_t rc = ak_call_unary(cl, (const uint8_t *)path, plen, kNoReq, 0, &out, NULL);
     if (rc != AK_OK) { std::printf("blocking rc=%d\n", rc); abort(); }
     bytes += (long)out.len;
     ak_bytes_free(&out);

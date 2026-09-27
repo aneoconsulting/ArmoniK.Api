@@ -205,6 +205,26 @@ void add_encode(Group &g, const char *arm, const char *mode, const char *end, co
 }
 
 // A ByteBuffer's bytes, for the checks.
+// The transport-ready end state of cells D and F (WP8): the encoded bytes MOVED into a
+// grpc::Slice that owns them and releases them when grpc++ drops it.
+void free_owned_bytes(void *p) {
+  ak_bytes *b = static_cast<ak_bytes *>(p);
+  ak_bytes_free(b);
+  delete b;
+}
+grpc::ByteBuffer owned_core_buffer(ak_enc_ctx *ec) {
+  ak_bytes *b = new ak_bytes;
+  b->ptr = NULL; b->len = 0; b->owner = NULL;
+  if (ak_enc_take_owned(ec, b) != AK_OK) { delete b; return grpc::ByteBuffer(); }
+  grpc::Slice sl(const_cast<uint8_t *>(b->ptr), b->len, free_owned_bytes, b);
+  return grpc::ByteBuffer(&sl, 1);
+}
+grpc::ByteBuffer owned_hg_buffer(ak::Enc *e) {
+  ak::Enc::Owned *o = e->take();
+  grpc::Slice sl(o->v.empty() ? NULL : &o->v[0], o->len, ak::Enc::release, o);
+  return grpc::ByteBuffer(&sl, 1);
+}
+
 std::string bb_bytes(grpc::ByteBuffer &bb) {
   std::vector<grpc::Slice> sl;
   bb.Dump(&sl);
@@ -242,9 +262,11 @@ struct Fns {
 
 struct Ctx {
   ak_enc_ctx *ec;
-  // Decision 11 rule 6: one bound decode context per root (drop mode between decodes; the
-  // retain arm arms and disarms its root's context inside decode_with_*_unk).
+  // Decision 11 rule 6: one bound decode context per root, in drop mode. Rule 7 (WP8): the
+  // retain arm has its OWN set, which decode_with_*_unk arms once per decode and leaves armed,
+  // so no drop decode ever pays a disarming reset.
   shapes::ffi::DecCtxs *dcs;
+  shapes::ffi::DecCtxs *dcsr;
   ak::Enc *ne, *nre;
 };
 
@@ -347,22 +369,28 @@ Group make_group(const std::string &payload, const std::string &content, const s
         add_encode<Fac>(g, "core-ffi", e.mode, transport ? "transport" : "reused", e.graph, wsz,
             [e, cx, tc, transport](const Fac &v) -> size_t {
               e.fn(cx->ec, v, tc);
-              const uint8_t *p; size_t len;
-              ak_enc_take(cx->ec, &p, &len);
-              if (!transport) return len;
-              grpc::Slice sl(p, len);  // as cell D hands the core's bytes to grpc++
-              grpc::ByteBuffer bb(&sl, 1);
+              if (!transport) {
+                const uint8_t *p; size_t len;
+                ak_enc_take(cx->ec, &p, &len);
+                return len;
+              }
+              // As cell D hands the core's bytes to grpc++ (WP8): MOVED with
+              // ak_enc_take_owned, adopted by a grpc::Slice, released when it is dropped.
+              grpc::ByteBuffer bb = owned_core_buffer(cx->ec);
               return bb.Length();
             },
             [e, cx, tc, transport](const Fac &v) -> std::string {
               intptr_t rc = e.fn(cx->ec, v, tc);
-              const uint8_t *p = NULL; size_t len = 0;
-              if (rc < 0 || ak_enc_take(cx->ec, &p, &len) != 0) return "encode refused";
-              std::string got((const char *)p, len);
+              if (rc < 0) return "encode refused";
+              std::string got;
               if (transport) {
-                grpc::Slice sl(p, len);
-                grpc::ByteBuffer bb(&sl, 1);
+                grpc::ByteBuffer bb = owned_core_buffer(cx->ec);
+                if (bb.Length() == 0 && !e.expect->empty()) return "ak_enc_take_owned refused";
                 got = bb_bytes(bb);
+              } else {
+                const uint8_t *p = NULL; size_t len = 0;
+                if (ak_enc_take(cx->ec, &p, &len) != 0) return "encode refused";
+                got.assign((const char *)p, len);
               }
               return got == *e.expect ? "" : "bytes differ from the expected encoding";
             });
@@ -381,18 +409,19 @@ Group make_group(const std::string &payload, const std::string &content, const s
               ak::Enc *e = ret ? cx->nre : cx->ne;
               if (ret) F.natr_enc(v, e); else F.nat_enc(v, e);
               if (!transport) return e->size();
-              grpc::Slice sl(e->data(), e->size());  // as cell F hands host-gen's bytes to grpc++
-              grpc::ByteBuffer bb(&sl, 1);
+              // As cell F hands host-gen's bytes to grpc++ (WP8): MOVED with ak::Enc::take.
+              grpc::ByteBuffer bb = owned_hg_buffer(e);
               return bb.Length();
             },
             [F, cx, ret, transport, expect](const Fac &v) -> std::string {
               ak::Enc *e = ret ? cx->nre : cx->ne;
               if (ret) F.natr_enc(v, e); else F.nat_enc(v, e);
-              std::string got((const char *)e->data(), e->size());
+              std::string got;
               if (transport) {
-                grpc::Slice sl(e->data(), e->size());
-                grpc::ByteBuffer bb(&sl, 1);
+                grpc::ByteBuffer bb = owned_hg_buffer(e);
                 got = bb_bytes(bb);
+              } else {
+                got.assign((const char *)e->data(), e->size());
               }
               return got == *expect ? "" : "bytes differ from the expected encoding";
             });
@@ -450,14 +479,14 @@ Group make_group(const std::string &payload, const std::string &content, const s
         uint64_t h = 0;
         for (long i = 0; i < n; ++i) {
           Fac v;
-          h += (uint64_t)F.ffi_dec_retain(cx->dcs->of<Fac>(), cb, cn, &v);
+          h += (uint64_t)F.ffi_dec_retain(cx->dcsr->of<Fac>(), cb, cn, &v);
           if (read) h += shapes::touch::touch(v);
         }
         return h;
       }, [F, cx, cb, cn, want_fold]() -> std::string {
         Fac v;
-        int32_t rc = F.ffi_dec_retain(cx->dcs->of<Fac>(), cb, cn, &v);
-        if (rc != 0 || ak_dec_err(cx->dcs->of<Fac>()) != 0) { ak_dec_err_reset(cx->dcs->of<Fac>()); return "decode refused"; }
+        int32_t rc = F.ffi_dec_retain(cx->dcsr->of<Fac>(), cb, cn, &v);
+        if (rc != 0 || ak_dec_err(cx->dcsr->of<Fac>()) != 0) { ak_dec_err_reset(cx->dcsr->of<Fac>()); return "decode refused"; }
         return shapes::touch::touch(v) == want_fold ? "" : "field fold differs from the incumbent's";
       }});
     }
@@ -550,7 +579,8 @@ int main(int argc, char **argv) {
   Ctx cx;
   cx.ec = ak_enc_ctx_new();
   cx.dcs = new shapes::ffi::DecCtxs();
-  if (!cx.dcs->ok()) { std::fprintf(stderr, "ak_dec_ctx_new_<Root> refused\n"); return 2; }
+  cx.dcsr = new shapes::ffi::DecCtxs();
+  if (!cx.dcs->ok() || !cx.dcsr->ok()) { std::fprintf(stderr, "ak_dec_ctx_new_<Root> refused\n"); return 2; }
   cx.ne = new ak::Enc(shapes::native::kSites);
 #ifdef AK_NO_UNKNOWN_FIELDS
   cx.nre = NULL;  // no host-gen retain in the no-unknown build

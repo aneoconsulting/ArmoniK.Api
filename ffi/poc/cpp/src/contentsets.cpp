@@ -227,7 +227,7 @@ static void run(Row *row, const char *id, Fac (*mk)(void), void (*pbmk)(Pb *),
     row->pb_dec[s] = bpd;
   }
   ak_enc_ctx_free(ectx);
-  ak_dec_ctx_free(dctx);
+  shapes::ffi::dec_ctx_free(dctx);
 }
 
 int main(int argc, char **argv) {

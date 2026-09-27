@@ -1,16 +1,19 @@
 # cpp slice: the committed crossing counts, nounk build (the campaign gate and wp5_gate/nounk_gate compare every '  P'/'  U' row).
-# Re-taken 2026-09-26 for FIX-PLAN WP7 / CAMPAIGN req 19 (amended, R-H31): forward now includes every exported entry point
-# the timed loop calls -- host = ak_enc_reset inside each encode_into_* (before the encode entry point) and the two
-# ak_dec_reset_<Root> of a retain decode (before and after it), take = the loop's ak_enc_take; retain rows (no pre-placed
-# buffer, exact-size grow) and the 92 U-* rows at the shapes roots are added. The core-counted part of every earlier row is
-# unchanged: the previous baseline's forward equals 'core' here.
-# counts binary built from the working tree at 0457ae483 + the WP7 changes; deterministic.
-
+# Re-taken 2026-09-27 for FIX-PLAN WP8 (CAMPAIGN req 19 as amended; ABI v1 decision 11 rules 7 and 8):
+#   - a retain decode makes ONE ak_dec_reset_<Root> (before it; the options stay at a stable per-thread address and the
+#     context stays armed), not two: every 'decode retain' row is 1 forward lower (107 rows, full build);
+#   - unk_grow grows geometrically (at least double the old capacity, at least 64 B, clamped to INT32_MAX), in the
+#     counting build as in the timed one: 18 U-* 'decode retain' rows make fewer reverse (grow) calls, e.g. U-leaf-all
+#     18 -> 8, U-deep-all 16 -> 10; no other row changes. The no-unknown build has no retain row and is unchanged.
+# Earlier (2026-09-26, WP7, R-H31): forward includes every exported entry point the timed loop calls -- host =
+# ak_enc_reset inside each encode_into_* and the retain decode's reset, take = the loop's ak_enc_take; retain rows
+# (no pre-placed buffer) and the 92 U-* rows at the shapes roots.
+# counts binary built from the working tree at a4533fc9d + the WP8 changes; deterministic.
 counting build, linkage=shared, -std=201703
 Per-element columns are forward / reverse. forward = core + host + take (req 19):
 host = ak_enc_reset inside each encode_into_* (before the encode entry point) and the
-two ak_dec_reset_<Root> of an armed (retain) decode (before and after it); take = the
-timed loop's ak_enc_take after an encode. Retain: no pre-placed buffer, exact-size grow.
+one ak_dec_reset_<Root> of a retain decode (before it; rule 7); take = the timed loop's
+ak_enc_take after an encode. Retain: no pre-placed buffer, geometric grow (rule 8).
 
   P1.1   encode                 forward      4  reverse      1  transcode       24   per element  1.000 /  0.250   (core 2 + host 1 + take 1)
   P1.1   encode zeroed-fill     forward      4  reverse      1  transcode       24   per element  1.000 /  0.250   (core 2 + host 1 + take 1)

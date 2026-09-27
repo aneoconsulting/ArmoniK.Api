@@ -3,6 +3,8 @@
 // Arm `core-ffi`: the generated C++ host binding over the C ABI.
 #include "generated/binding_nounk.h"
 
+#include <cassert>
+
 #include <cstdlib>
 #include <cstring>
 #include <unordered_set>
@@ -102,15 +104,17 @@ static inline struct ak_str ak_str_of(const ak::StringView &v, ak_transcode_fn t
 // ABI v1 7.4: resolve a span against the base pointer you already hold. One add, then the
 // same copy. A zero-length span is the common case on the absent path (P1.3, P2.5) and
 // must not reach the validator at all.
+//
+// Plan utf8="reject" (the only policy this backend renders; ABI v1 open decision 3, WP8): the
+// CORE validated this span before the group holding it reached the host, and a malformed
+// one fails the decode, so the binding copies it without a second scan. A debug build
+// asserts the core's guarantee.
 static inline void s_of(const uint8_t *base, const struct ak_span &s, ak_dec_ctx *ctx,
                         std::string *out) {
+  (void)ctx;
   if (s.len == 0) { out->clear(); return; }
-  int32_t rc = ak::decode_str(base + s.off, s.len, out);
-  if (rc != 0) {
-    static const char kMsg[] = "malformed UTF-8 in a decoded string";
-    ak_fail(ctx, rc, (const uint8_t *)kMsg, (uint32_t)(sizeof(kMsg) - 1));
-    out->clear();
-  }
+  assert(ak::utf8_valid(base + s.off, s.len) && "the core returned an unvalidated string span");
+  out->assign((const char *)(base + s.off), s.len);
 }
 
 static inline void b_of(const uint8_t *base, const struct ak_span &s, std::string *out) {
@@ -118,17 +122,12 @@ static inline void b_of(const uint8_t *base, const struct ak_span &s, std::strin
 }
 
 // BORROWED: the span is an offset into the buffer the host handed in (ABI v1 section 4),
-// so a view over it needs no copy and no ABI change. The UTF-8 policy is UNCHANGED -- the
-// bytes are still validated -- so this arm isolates the COPY and nothing else.
+// so a view over it needs no copy and no ABI change. The UTF-8 policy is the same as the
+// owning arm's (the core validated the span), so this arm isolates the COPY and nothing else.
 static inline void s_of(const uint8_t *base, const struct ak_span &s, ak_dec_ctx *ctx,
                         ak::StringView *out) {
-  if (s.len == 0) { *out = ak::StringView((const char *)(base + s.off), 0); return; }
-  if (!ak::utf8_valid(base + s.off, s.len)) {
-    static const char kMsg[] = "malformed UTF-8 in a decoded string";
-    ak_fail(ctx, ak::ERR_TRANSCODE, (const uint8_t *)kMsg, (uint32_t)(sizeof(kMsg) - 1));
-    out->clear();
-    return;
-  }
+  (void)ctx;
+  assert(s.len == 0 || ak::utf8_valid(base + s.off, s.len));
   *out = ak::StringView((const char *)(base + s.off), s.len);
 }
 
@@ -3339,6 +3338,10 @@ static int32_t decode_impl_dual_response(ak_dec_ctx *ctx, const uint8_t *b, size
 // ak_dec_ctx_new_DualResponse(NULL) (or last reset with NULL) drops every unknown field.
 int32_t decode_with_dual_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out) {
   return decode_impl_dual_response(ctx, b, n, out, NULL, NULL);
+}
+
+void dec_ctx_free(ak_dec_ctx *ctx) {
+  ak_dec_ctx_free(ctx);
 }
 
 }  // namespace ffi

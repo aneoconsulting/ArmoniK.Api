@@ -101,7 +101,7 @@ static void run_blocking(CoreArm a, int inflight, int per, const char *path) {
       for (int i = 0; i < per; ++i) {
         struct ak_bytes out;
         out.ptr = NULL; out.len = 0; out.owner = NULL;
-        int32_t rc = ak_call_unary(a.cl, (const uint8_t *)path, plen, kNoReq, 0, &out);
+        int32_t rc = ak_call_unary(a.cl, (const uint8_t *)path, plen, kNoReq, 0, &out, NULL);
         if (rc != AK_OK) { std::printf("ak_call_unary rc=%d\n", rc); abort(); }
         n += a.dec(out.ptr, out.len);
         ak_bytes_free(&out);

@@ -227,7 +227,7 @@ static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
     check(shapes::ffi::unk_reclaim() == 0, std::string(id) + " no unknown-field buffer left live");
   }
 #endif
-  ak_dec_ctx_free(dctx);
+  shapes::ffi::dec_ctx_free(dctx);
   check(fnat == fffi, std::string(id) + " native/ffi decoded VALUES agree");
   check(fnat == facade, std::string(id) + " decoded value == built value");
 
@@ -253,7 +253,7 @@ static void run_p71(const std::string &dir) {
   ak_dec_ctx *dctx = shapes::ffi::dec_ctx_new_for<shapes::DualResponse>();
   rc = shapes::ffi::decode_with_dual_response(dctx, (const uint8_t *)v.data(), v.size(), &g);
   check(rc == 0 && ak_dec_err(dctx) == 0, "P7.1 ffi decode");
-  ak_dec_ctx_free(dctx);
+  shapes::ffi::dec_ctx_free(dctx);
   check(f == g, "P7.1 native/ffi decoded values agree");
   check(f.left.size() == 3 && f.right.size() == 3, "P7.1 3+3 elements");
 
@@ -342,7 +342,7 @@ static void run_absent_and_unknown() {
         dctx, (const uint8_t *)s.data(), s.size(), &ff);
     check(rc == 0 && ak_dec_err(dctx) == 0,
           std::string("unknown field skipped, ffi: ") + vs[i].name);
-    ak_dec_ctx_free(dctx);
+    shapes::ffi::dec_ctx_free(dctx);
     ns::ListResultsResponse pbm;
     check(pbm.ParseFromString(s), std::string("unknown field skipped, pb: ") + vs[i].name);
     check(fn == ff, std::string("unknown field: arms agree on the value: ") + vs[i].name);
@@ -414,7 +414,7 @@ static void run_absent_and_unknown() {
           dctx, (const uint8_t *)out.data(), out.size(), &ff);
       check(rc == 0 && ak_dec_err(dctx) == 0,
             std::string("unknown NESTED field skipped, ffi: ") + vs2[i].name);
-      ak_dec_ctx_free(dctx);
+      shapes::ffi::dec_ctx_free(dctx);
       ns::ListResultsResponse pbm;
       check(pbm.ParseFromString(out),
             std::string("unknown NESTED field skipped, pb: ") + vs2[i].name);
@@ -474,7 +474,7 @@ static void run_absent_and_unknown() {
               dctx, (const uint8_t *)out.data(), out.size(), &ff) == 0 &&
               ak_dec_err(dctx) == 0,
           "unknown oneof-member tag skipped, ffi");
-    ak_dec_ctx_free(dctx);
+    shapes::ffi::dec_ctx_free(dctx);
     check(fn == ff, "unknown oneof-member tag: arms agree on the value");
     check(fn.probes[0].body.which() == p.probes[0].body.which(),
           "the case STAYS at the last known member and the payload is dropped");
@@ -539,7 +539,7 @@ static void run_absent_and_unknown() {
         dctx, (const uint8_t *)good.data(), good.size(), &g2);
     check(rc2 == 0 && ak_dec_err(dctx) == 0,
           "a good decode after a rejected one succeeds (D17 regression)");
-    ak_dec_ctx_free(dctx);
+    shapes::ffi::dec_ctx_free(dctx);
 #endif
     // The ENCODE side of the same string, which is what makes `ffi-valtc` a different arm
     // from `ffi` rather than the same arm under another name (R-D5). The spec transcoder
@@ -691,7 +691,7 @@ static void d11_pool() {
             "d11 pool: exhausted with no grow is AK_ERR_CAPACITY, never a partial copy");
     }
     check(shapes::ffi::unk_reclaim() == 0, "d11 pool: nothing left live after the decode");
-    ak_dec_ctx_free(c);
+    shapes::ffi::dec_ctx_free(c);
   }
 }
 
@@ -768,7 +768,7 @@ static void d11_refill() {
     vt.new_tasks = d11_new;
     vt.apply_tasks = d11_apply;
     int32_t rc = ak_decode_ListTasksDetailedResponse(c, &h, (const uint8_t *)b.data(), b.size(), &vt);
-    ak_dec_ctx_free(c);
+    shapes::ffi::dec_ctx_free(c);
     if (refill) {
       bool ok = rc == 0 && h.got.size() == 3 && h.placed.size() == 3;
       for (size_t i = 0; ok && i < 3; ++i)
@@ -818,7 +818,7 @@ static void d11_oneof() {
     shapes::ListProbeResponse v;
     int32_t rc = shapes::ffi::decode_with_list_probe_response_opts(
         c, (const uint8_t *)b.data(), b.size(), &v, &o);
-    ak_dec_ctx_free(c);
+    shapes::ffi::dec_ctx_free(c);
     bool ok = rc == 0 && v.probes.size() == 1 && gc.fresh == seqs[s].fresh;
     std::string bag = "(none)";
     if (ok) {
@@ -860,7 +860,7 @@ static void d11_errors() {
     shapes::ListResultsResponse v;
     int32_t rc = shapes::ffi::decode_with_list_results_response_opts(
         c, (const uint8_t *)b.data(), b.size(), &v, &o);
-    ak_dec_ctx_free(c);
+    shapes::ffi::dec_ctx_free(c);
     bool ok = rc == cs[i].want;
     if (ok && rc == 0) ok = v.unknown_fields == (cs[i].zero == 0 ? std::string() : root_run);
     std::printf("  %-32s rc %d (want %d)%s\n", cs[i].name, rc, cs[i].want,
@@ -897,7 +897,7 @@ static void d11_wrong_root() {
   check(d == AK_ERR_INVALID_STATE && p == AK_ERR_INVALID_STATE && r == AK_ERR_INVALID_STATE &&
             bd == AK_ERR_INVALID_STATE && bu == AK_ERR_INVALID_STATE && ok_own == 0,
         "d11 wrong root: refused with AK_ERR_INVALID_STATE, own root still decodes");
-  ak_dec_ctx_free(c);
+  shapes::ffi::dec_ctx_free(c);
 }
 
 // Retained and re-encoded: the root's and every element's runs come back in place.
@@ -910,7 +910,7 @@ static void d11_roundtrip() {
   shapes::ListResultsResponse v, dv;
   int32_t rc = shapes::ffi::decode_with_list_results_response_unk(c, (const uint8_t *)b.data(), b.size(), &v);
   int32_t drc = shapes::ffi::decode_with_list_results_response(c, (const uint8_t *)b.data(), b.size(), &dv);
-  ak_dec_ctx_free(c);
+  shapes::ffi::dec_ctx_free(c);
   ak_enc_ctx *ec = ak_enc_ctx_new();
   intptr_t erc = shapes::ffi::encode_into_list_results_response_unk(ec, v, shapes::ffi::tcs_core());
   const uint8_t *p = NULL;
@@ -954,7 +954,7 @@ static void d11_reuse() {
   bool bags = rc2 == 0 && v2.results.size() == 3;
   for (size_t i = 0; bags && i < 3; ++i) bags = v2.results[i].unknown_fields == runs[i];
   bool taken = arr[0].data == NULL && arr[1].data == NULL;
-  ak_dec_ctx_free(c);
+  shapes::ffi::dec_ctx_free(c);
   std::printf("  options reused (R-H7): first decode rc %d, unconsumed buffers still in the options %d;"
               " second decode rc %d, bags exact %d, both taken %d\n", rc1, (int)kept, rc2, (int)bags, (int)taken);
   check(rc1 == 0 && kept && bags && taken,
@@ -1009,7 +1009,7 @@ static void run_decision11() {
   check(d == AK_ERR_INVALID_STATE && p == AK_ERR_INVALID_STATE && bd == AK_ERR_INVALID_STATE,
         "nounk wrong root: refused with AK_ERR_INVALID_STATE");
   check(dropped, "nounk: unknown fields at the root and in an element are dropped");
-  ak_dec_ctx_free(c);
+  shapes::ffi::dec_ctx_free(c);
 }
 #endif
 

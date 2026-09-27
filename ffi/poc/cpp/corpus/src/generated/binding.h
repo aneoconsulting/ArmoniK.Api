@@ -1270,6 +1270,11 @@ template <> struct DecRoot<WireZoo> {
 // A context bound to T's root, in drop mode (NULL options).
 template <class T> inline ak_dec_ctx *dec_ctx_new_for() { return DecRoot<T>::ctx_new(NULL); }
 
+// Free a decode context. Use it rather than ak_dec_ctx_free for a context that
+// decode_with_*_unk may have left armed (rule 7): the binding forgets it first, so a
+// new context at the same address is not taken for an armed one.
+void dec_ctx_free(ak_dec_ctx *ctx);
+
 // One bound context per root, in drop mode, for a host that decodes several roots
 // (one set per thread: a context is not shared between threads).
 struct DecCtxs {
@@ -1306,7 +1311,7 @@ struct DecCtxs {
     c[28] = ak_dec_ctx_new_WireZoo(NULL);
   }
   ~DecCtxs() {
-    for (int i = 0; i < 29; ++i) ak_dec_ctx_free(c[i]);
+    for (int i = 0; i < 29; ++i) dec_ctx_free(c[i]);
   }
   bool ok() const {
     for (int i = 0; i < 29; ++i) if (c[i] == NULL) return false;

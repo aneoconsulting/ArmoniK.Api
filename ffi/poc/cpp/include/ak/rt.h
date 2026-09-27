@@ -24,6 +24,8 @@
 // The plan's DECODE RULES constants (AK_MAX_FIELD_NUMBER, AK_GROUP_DEPTH_LIMIT), rendered
 // from poc/codec/gen/plan.py by cpp_native.emit_rules -- never restated here (D38).
 #include "generated/ak_rules.h"
+#include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -184,6 +186,44 @@ class Enc {
   }
   void fail(int32_t code) { if (err == 0) err = code; }
 
+  // The encoded bytes handed over, MOVED rather than copied (WP8, cells D and F of the RPC
+  // grid: the transport adopts the buffer, as ak_enc_take_owned does for the core, and as the
+  // Rust slice's Enc::take). The receiver releases it with `release`, on any thread; the
+  // encoder continues on its spare buffer (a fresh one while the spare is still out), and the
+  // released buffer becomes the spare. The encoder is reset.
+  struct Spare {
+    std::mutex m;
+    std::vector<uint8_t> v;
+    bool has = false;
+  };
+  struct Owned {
+    std::vector<uint8_t> v;
+    std::size_t len;
+    std::shared_ptr<Spare> slot;
+  };
+  Owned *take() {
+    if (!spare_) spare_ = std::make_shared<Spare>();
+    Owned *o = new Owned;
+    o->len = len_;
+    o->slot = spare_;
+    o->v.swap(storage_);
+    {
+      std::lock_guard<std::mutex> l(spare_->m);
+      if (spare_->has) { storage_.swap(spare_->v); spare_->has = false; }
+    }
+    if (storage_.empty()) storage_.resize(o->v.size() < 4096 ? 4096 : o->v.size());
+    reset();
+    return o;
+  }
+  static void release(void *owned) {
+    Owned *o = static_cast<Owned *>(owned);
+    {
+      std::lock_guard<std::mutex> l(o->slot->m);
+      if (!o->slot->has) { o->slot->v.swap(o->v); o->slot->has = true; }
+    }
+    delete o;
+  }
+
   inline void ensure(std::size_t n) {
     if (len_ + n > storage_.size()) grow(len_ + n);
   }
@@ -290,6 +330,7 @@ class Enc {
   }
 
  private:
+  std::shared_ptr<Spare> spare_;
   void grow(std::size_t want) {
     std::size_t n = storage_.size() * 2;
     if (n < want) n = want;

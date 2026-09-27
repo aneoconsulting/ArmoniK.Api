@@ -438,9 +438,12 @@ if(AK_RPC)
   target_compile_definitions(campaign_rpc_count PRIVATE AK_COUNTING=1)
   ak_rpc_bin(campaign_server ${CMAKE_CURRENT_SOURCE_DIR}/src/campaign_server.cpp ${CORE_CAMP_OUT} core_camp)
   ak_rpc_bin(campaign_calib  ${CMAKE_CURRENT_SOURCE_DIR}/src/campaign_calib.cpp  ${CORE_CAMP_OUT} core_camp)
-  # The codec suite links the same core as the codec gates (CORE_OUT: init-guard, no rpc)
-  # and grpc++ for the production path's SerializationTraits.
-  ak_arm(campaign_codec ${CMAKE_CURRENT_SOURCE_DIR}/src/campaign_codec.cpp 17 target on shared reject ${CORE_OUT})
+  # The codec suite links the campaign's core (rpc,init-guard: the same codec as the gates'
+  # CORE_OUT, plus the RPC exports), because its end=transport rows hand the core's bytes to
+  # grpc++ with ak_enc_take_owned as cell D does (WP8), and grpc++ for the production path's
+  # SerializationTraits.
+  ak_arm(campaign_codec ${CMAKE_CURRENT_SOURCE_DIR}/src/campaign_codec.cpp 17 target on shared reject ${CORE_CAMP_OUT})
+  add_dependencies(campaign_codec core_camp)
   target_sources(campaign_codec PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/core_native_retain.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/touch.cpp)
@@ -658,8 +661,9 @@ if(AK_RPC)
   endforeach()
   target_compile_definitions(campaign_rpc_count_nounk PRIVATE AK_COUNTING=1)
 
+  # As campaign_codec: the no-unknown campaign core with the RPC exports (ak_enc_take_owned).
   ak_arm_nounk(campaign_codec_nounk ${CMAKE_CURRENT_SOURCE_DIR}/src/campaign_codec.cpp 17 shared
-               ${CORE_NOUNK_OUT} core_nounk)
+               ${CORE_CAMP_NOUNK_OUT} core_camp_nounk)
   target_sources(campaign_codec_nounk PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/touch.cpp)
   target_include_directories(campaign_codec_nounk PRIVATE ${GRPCPP_INCLUDE_DIRS})

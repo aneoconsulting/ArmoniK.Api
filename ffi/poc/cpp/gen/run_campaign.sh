@@ -156,10 +156,10 @@ h = {
  },
  "build": {"dir": "$B", "cxx_flags": sh("grep -h '^CXX_FLAGS' $B/CMakeFiles/campaign_codec.dir/flags.make | cut -d= -f2-"),
            "std": "c++17 (target)", "linkage": "shared (libak_core.so)", "lto": "off",
-           "core_features": "init-guard" + (",rpc" if sys.argv[1] in ("rpc", "calib") else ""),
+           "core_features": "init-guard" + (",rpc" if sys.argv[1] in ("rpc", "calib", "codec") else ""),
            "core_profile": "cargo --release"},
  "transport": {"shipped": "grpc++: keepalive 30 s, max idle 5 min, local subchannel pool (packages/cpp getChannelArguments; its retry service config not applied); core: ak_client_new defaults",
-               "pinned": "grpc++: 4 MiB stream window, BDP off (no connection-window argument exists, C31); core: 4 MiB stream and connection windows, adaptive off, Nagle off; both: 2 MiB max message"},
+               "pinned": "grpc++: 4 MiB stream window, BDP off (no connection-window argument exists, C31); core: 4 MiB stream and connection windows, adaptive off, Nagle off; both, and the server: 8 MiB max message, send and receive (D44: covers P5.4, 4,194,390 B); core shipped: tonic defaults (receive 4 MiB, send unlimited), enforced"},
  "variants": {"full": "ak-core default features (unknown-fields: decision 11), binaries campaign_codec / campaign_rpc: core-ffi drop and retain, C/D-retain and -drop",
               "no-unknown": "ak-core --no-default-features (unknown fields compiled out; plan relowered with unknown=drop), nounk/include/ak_abi.h, binaries campaign_codec_nounk (codec-nounk-launch*.jsonl) / campaign_rpc_nounk: core-ffi and host-gen no-unknown (the facade without unknown_fields, R-H22), C/D-nounk; A, B and the incumbents run there too"},
  "threads": {"codec": "one benchmark thread; the core starts none for codec calls (each codec log's own line has the process thread count)",
@@ -259,6 +259,26 @@ run_gate() {
       ns=$(grep -c '^{' "$TMPD/r.log")
       [ $rc != 0 ] && [ "$ns" = 0 ] && echo "  control rpc abort after 2 samples ($rb): exit $rc, $ns samples written, as required" \
                    || echo ">>> FAIL: an abort after 2 samples left $ns sample(s) (exit $rc, $rb)"
+    done
+    # req. 14 / 18 (2026-09-27): directions c and d, every cell and send path of both builds,
+    # each aborting on a planted wrong expectation with no sample: c-len (a unary upload's
+    # response length), d-sha and d-count (the server's UploadAck digest and byte count).
+    for rb in campaign_rpc campaign_rpc_nounk; do
+      if [ "$rb" = campaign_rpc ]; then LBL="A B Bf C-retain C-drop Cf-retain Cf-drop D-retain D-drop E-retain E-drop Ef-retain Ef-drop F-retain F-drop"
+      else LBL="A B Bf C-nounk Cf-nounk D-nounk E-nounk Ef-nounk F-nounk"; fi
+      for pl in c-len d-sha d-count; do
+        dd=${pl%%-*}; nok=0; nbad=0
+        for lb in $LBL; do
+          timeout 120 taskset -c "$AK_CPU_CLIENT" "$B/$rb" --target "$(sock_of shipped)" --expect "$EXP" \
+            --transport shipped --cells "$lb," --dirs "$dd" --inflight 1 --rounds 1 --calls 1 --warmup 1 \
+            --plant "$pl" > "$TMPD/r.log" 2>&1; rc=$?
+          ns=$(grep -c '^{' "$TMPD/r.log")
+          if [ $rc = 3 ] && [ "$ns" = 0 ] && grep -q 'CALL CHECK' "$TMPD/r.log"; then nok=$((nok + 1))
+          else nbad=$((nbad + 1)); echo "    $lb: exit $rc, $ns samples"; fi
+        done
+        [ $nbad = 0 ] && echo "  control rpc $pl ($rb): $nok cells aborted with no sample, as required" \
+                      || echo ">>> FAIL: plant $pl did not abort in $nbad cell(s) ($rb)"
+      done
     done
     # req. 19 (amended 2026-09-26): the RPC cells' crossings per call, from the counting
     # binaries, against the committed files (a difference stops the run).
@@ -414,8 +434,8 @@ case "$SUITE" in
     for l in $(seq 1 "$LAUNCHES"); do
       f=$OUT/rpc-launch$l.jsonl
       header rpc "$l" > "$f"
-      # The full client (A B C-retain C-drop D-retain D-drop E-drop E-retain F-drop F-retain)
-      # and the no-unknown client (A B C-nounk D-nounk E-nounk F-nounk; A and B its
+      # The full client (A B Bf C/Cf/D/E/Ef/F in retain and drop) and the no-unknown client
+      # (A B Bf C/Cf/D/E/Ef/F-nounk; A and B its
       # in-process controls), order alternated by launch, against ONE server process for
       # the launch (req. 13), warmed first. R-H4: a failed client deletes the launch file.
       start_server

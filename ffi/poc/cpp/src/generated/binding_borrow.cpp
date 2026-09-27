@@ -3,6 +3,8 @@
 // Arm `core-ffi`: the generated C++ host binding over the C ABI.
 #include "generated/binding_borrow.h"
 
+#include <cassert>
+
 #include <cstdlib>
 #include <cstring>
 #include <unordered_set>
@@ -102,15 +104,17 @@ static inline struct ak_str ak_str_of(const ak::StringView &v, ak_transcode_fn t
 // ABI v1 7.4: resolve a span against the base pointer you already hold. One add, then the
 // same copy. A zero-length span is the common case on the absent path (P1.3, P2.5) and
 // must not reach the validator at all.
+//
+// Plan utf8="reject" (the only policy this backend renders; ABI v1 open decision 3, WP8): the
+// CORE validated this span before the group holding it reached the host, and a malformed
+// one fails the decode, so the binding copies it without a second scan. A debug build
+// asserts the core's guarantee.
 static inline void s_of(const uint8_t *base, const struct ak_span &s, ak_dec_ctx *ctx,
                         std::string *out) {
+  (void)ctx;
   if (s.len == 0) { out->clear(); return; }
-  int32_t rc = ak::decode_str(base + s.off, s.len, out);
-  if (rc != 0) {
-    static const char kMsg[] = "malformed UTF-8 in a decoded string";
-    ak_fail(ctx, rc, (const uint8_t *)kMsg, (uint32_t)(sizeof(kMsg) - 1));
-    out->clear();
-  }
+  assert(ak::utf8_valid(base + s.off, s.len) && "the core returned an unvalidated string span");
+  out->assign((const char *)(base + s.off), s.len);
 }
 
 static inline void b_of(const uint8_t *base, const struct ak_span &s, std::string *out) {
@@ -118,17 +122,12 @@ static inline void b_of(const uint8_t *base, const struct ak_span &s, std::strin
 }
 
 // BORROWED: the span is an offset into the buffer the host handed in (ABI v1 section 4),
-// so a view over it needs no copy and no ABI change. The UTF-8 policy is UNCHANGED -- the
-// bytes are still validated -- so this arm isolates the COPY and nothing else.
+// so a view over it needs no copy and no ABI change. The UTF-8 policy is the same as the
+// owning arm's (the core validated the span), so this arm isolates the COPY and nothing else.
 static inline void s_of(const uint8_t *base, const struct ak_span &s, ak_dec_ctx *ctx,
                         ak::StringView *out) {
-  if (s.len == 0) { *out = ak::StringView((const char *)(base + s.off), 0); return; }
-  if (!ak::utf8_valid(base + s.off, s.len)) {
-    static const char kMsg[] = "malformed UTF-8 in a decoded string";
-    ak_fail(ctx, ak::ERR_TRANSCODE, (const uint8_t *)kMsg, (uint32_t)(sizeof(kMsg) - 1));
-    out->clear();
-    return;
-  }
+  (void)ctx;
+  assert(s.len == 0 || ak::utf8_valid(base + s.off, s.len));
   *out = ak::StringView((const char *)(base + s.off), s.len);
 }
 
@@ -151,17 +150,32 @@ static std::unordered_set<void *> &unk_live() {
 }
 static thread_local size_t t_unk_entry_bytes = 0;
 
-int32_t unk_grow(void *host, int32_t want, uint8_t **dst, int32_t *cap) {
+// ABI v1 decision 11 rule 8: the capacity grows GEOMETRICALLY, never to the exact size
+// asked (an exact-size grow makes a message with many unknown runs quadratic): at least
+// `want`, at least double the old capacity, at least 64 bytes, clamped to INT32_MAX (rule
+// 5). The same function in the timed and the counting build (CAMPAIGN req 19). Computed in
+// size_t, so the doubling cannot overflow; `want` is a positive int32 and so <= INT32_MAX.
+static inline size_t unk_grow_cap(size_t want, size_t old_cap) {
+  const size_t kCap = (size_t)INT32_MAX;
+  size_t c = old_cap * 2;
+  if (c < want) c = want;
+  if (c < 64) c = 64;
+  if (c > kCap) c = kCap;
+  return c < want ? want : c;
+}
+
+int32_t unk_grow(void *host, int32_t want_i, uint8_t **dst, int32_t *cap) {
   (void)host;
-  if (want <= 0) return AK_ERR_LIMIT;
+  if (want_i <= 0) return AK_ERR_LIMIT;
+  const size_t want = unk_grow_cap((size_t)want_i, *cap > 0 ? (size_t)*cap : 0);
   void *old = *dst;
-  void *p = old ? std::realloc(old, (size_t)want) : std::malloc((size_t)want);
+  void *p = old ? std::realloc(old, want) : std::malloc(want);
   if (p == NULL) return AK_ERR_LIMIT;
   std::unordered_set<void *> &l = unk_live();
   if (old != NULL) l.erase(old);
   l.insert(p);
   *dst = (uint8_t *)p;
-  *cap = want;
+  *cap = (int32_t)want;
   return AK_OK;
 }
 
@@ -2973,9 +2987,30 @@ static int32_t decode_impl_list_results_response(ak_dec_ctx *ctx, const uint8_t 
   return ak_decode_ListResultsResponse(ctx, &sink, b, n, &vt);
 }
 
+static thread_local struct ak_dec_ListResultsResponse_opts t_unk_opts_list_results_response;
+static thread_local std::vector<ak_dec_ctx *> t_unk_armed_list_results_response;
+static inline void unk_armed_note_list_results_response(ak_dec_ctx *ctx) {
+  std::vector<ak_dec_ctx *> &a = t_unk_armed_list_results_response;
+  for (size_t i = 0; i < a.size(); ++i) if (a[i] == ctx) return;
+  a.push_back(ctx);
+}
+static inline bool unk_armed_forget_list_results_response(ak_dec_ctx *ctx) {
+  std::vector<ak_dec_ctx *> &a = t_unk_armed_list_results_response;
+  for (size_t i = 0; i < a.size(); ++i)
+    if (a[i] == ctx) { a[i] = a.back(); a.pop_back(); return true; }
+  return false;
+}
+static inline void unk_disarm_list_results_response(ak_dec_ctx *ctx) {
+  if (!t_unk_armed_list_results_response.empty() && unk_armed_forget_list_results_response(ctx)) {
+    AK_HOST_CALL(); (void)ak_dec_reset_ListResultsResponse(ctx, NULL);
+  }
+}
+
 // Decode with the context as it is armed: a context from
 // ak_dec_ctx_new_ListResultsResponse(NULL) (or last reset with NULL) drops every unknown field.
+// A context `decode_with_list_results_response_unk` left armed is disarmed first (rule 7).
 int32_t decode_with_list_results_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out) {
+  unk_disarm_list_results_response(ctx);
   return decode_impl_list_results_response(ctx, b, n, out, NULL, NULL);
 }
 
@@ -3020,6 +3055,7 @@ int32_t decode_with_list_results_response_opts(ak_dec_ctx *ctx, const uint8_t *b
   }
   rc = decode_impl_list_results_response(ctx, b, n, out, refill, hold);
   AK_HOST_CALL(); int32_t rc2 = ak_dec_reset_ListResultsResponse(ctx, NULL);  // reset 2: disarms, after it
+  unk_armed_forget_list_results_response(ctx);  // the caller's options may not outlive the call
   // R-H7: what is still in the options was not consumed and stays the host's.
   unk_untrack_opts_list_results_response(opts);
   unk_reclaim();
@@ -3027,11 +3063,25 @@ int32_t decode_with_list_results_response_opts(ak_dec_ctx *ctx, const uint8_t *b
   return rc;
 }
 
-// Decision 11: retain everywhere (every position grows on demand).
+// Decision 11: retain everywhere (every position grows on demand). Rule 7: ONE reset
+// per decode. The options live at a stable per-thread address, so the context is
+// left armed after the decode (no disarming reset); a drop decode through
+// `decode_with_list_results_response` disarms it first.
 int32_t decode_with_list_results_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out) {
-  struct ak_dec_ListResultsResponse_opts opts;
-  unk_opts_list_results_response(&opts, -1);
-  return decode_with_list_results_response_opts(ctx, b, n, out, &opts, NULL, NULL);
+  AK_INIT_OR_RETURN();
+  struct ak_dec_ListResultsResponse_opts *opts = &t_unk_opts_list_results_response;
+  unk_opts_list_results_response(opts, -1);
+  AK_HOST_CALL(); int32_t rc = ak_dec_reset_ListResultsResponse(ctx, opts);  // the one reset: arms
+  if (rc != AK_OK) {
+    // Refused: nothing consumed, the context's state is unchanged (R-H7).
+    unk_untrack_opts_list_results_response(opts);
+    return rc;
+  }
+  unk_armed_note_list_results_response(ctx);
+  rc = decode_impl_list_results_response(ctx, b, n, out, NULL, NULL);
+  unk_untrack_opts_list_results_response(opts);
+  unk_reclaim();
+  return rc;
 }
 
 // Decision 11 rule 1, pre-allocated: every singular position gets one buffer of `cap`
@@ -3244,9 +3294,30 @@ static int32_t decode_impl_list_tasks_detailed_response(ak_dec_ctx *ctx, const u
   return ak_decode_ListTasksDetailedResponse(ctx, &sink, b, n, &vt);
 }
 
+static thread_local struct ak_dec_ListTasksDetailedResponse_opts t_unk_opts_list_tasks_detailed_response;
+static thread_local std::vector<ak_dec_ctx *> t_unk_armed_list_tasks_detailed_response;
+static inline void unk_armed_note_list_tasks_detailed_response(ak_dec_ctx *ctx) {
+  std::vector<ak_dec_ctx *> &a = t_unk_armed_list_tasks_detailed_response;
+  for (size_t i = 0; i < a.size(); ++i) if (a[i] == ctx) return;
+  a.push_back(ctx);
+}
+static inline bool unk_armed_forget_list_tasks_detailed_response(ak_dec_ctx *ctx) {
+  std::vector<ak_dec_ctx *> &a = t_unk_armed_list_tasks_detailed_response;
+  for (size_t i = 0; i < a.size(); ++i)
+    if (a[i] == ctx) { a[i] = a.back(); a.pop_back(); return true; }
+  return false;
+}
+static inline void unk_disarm_list_tasks_detailed_response(ak_dec_ctx *ctx) {
+  if (!t_unk_armed_list_tasks_detailed_response.empty() && unk_armed_forget_list_tasks_detailed_response(ctx)) {
+    AK_HOST_CALL(); (void)ak_dec_reset_ListTasksDetailedResponse(ctx, NULL);
+  }
+}
+
 // Decode with the context as it is armed: a context from
 // ak_dec_ctx_new_ListTasksDetailedResponse(NULL) (or last reset with NULL) drops every unknown field.
+// A context `decode_with_list_tasks_detailed_response_unk` left armed is disarmed first (rule 7).
 int32_t decode_with_list_tasks_detailed_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out) {
+  unk_disarm_list_tasks_detailed_response(ctx);
   return decode_impl_list_tasks_detailed_response(ctx, b, n, out, NULL, NULL);
 }
 
@@ -3333,6 +3404,7 @@ int32_t decode_with_list_tasks_detailed_response_opts(ak_dec_ctx *ctx, const uin
   }
   rc = decode_impl_list_tasks_detailed_response(ctx, b, n, out, refill, hold);
   AK_HOST_CALL(); int32_t rc2 = ak_dec_reset_ListTasksDetailedResponse(ctx, NULL);  // reset 2: disarms, after it
+  unk_armed_forget_list_tasks_detailed_response(ctx);  // the caller's options may not outlive the call
   // R-H7: what is still in the options was not consumed and stays the host's.
   unk_untrack_opts_list_tasks_detailed_response(opts);
   unk_reclaim();
@@ -3340,11 +3412,25 @@ int32_t decode_with_list_tasks_detailed_response_opts(ak_dec_ctx *ctx, const uin
   return rc;
 }
 
-// Decision 11: retain everywhere (every position grows on demand).
+// Decision 11: retain everywhere (every position grows on demand). Rule 7: ONE reset
+// per decode. The options live at a stable per-thread address, so the context is
+// left armed after the decode (no disarming reset); a drop decode through
+// `decode_with_list_tasks_detailed_response` disarms it first.
 int32_t decode_with_list_tasks_detailed_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out) {
-  struct ak_dec_ListTasksDetailedResponse_opts opts;
-  unk_opts_list_tasks_detailed_response(&opts, -1);
-  return decode_with_list_tasks_detailed_response_opts(ctx, b, n, out, &opts, NULL, NULL);
+  AK_INIT_OR_RETURN();
+  struct ak_dec_ListTasksDetailedResponse_opts *opts = &t_unk_opts_list_tasks_detailed_response;
+  unk_opts_list_tasks_detailed_response(opts, -1);
+  AK_HOST_CALL(); int32_t rc = ak_dec_reset_ListTasksDetailedResponse(ctx, opts);  // the one reset: arms
+  if (rc != AK_OK) {
+    // Refused: nothing consumed, the context's state is unchanged (R-H7).
+    unk_untrack_opts_list_tasks_detailed_response(opts);
+    return rc;
+  }
+  unk_armed_note_list_tasks_detailed_response(ctx);
+  rc = decode_impl_list_tasks_detailed_response(ctx, b, n, out, NULL, NULL);
+  unk_untrack_opts_list_tasks_detailed_response(opts);
+  unk_reclaim();
+  return rc;
 }
 
 // Decision 11 rule 1, pre-allocated: every singular position gets one buffer of `cap`
@@ -3503,9 +3589,30 @@ static int32_t decode_impl_list_probe_response(ak_dec_ctx *ctx, const uint8_t *b
   return ak_decode_ListProbeResponse(ctx, &sink, b, n, &vt);
 }
 
+static thread_local struct ak_dec_ListProbeResponse_opts t_unk_opts_list_probe_response;
+static thread_local std::vector<ak_dec_ctx *> t_unk_armed_list_probe_response;
+static inline void unk_armed_note_list_probe_response(ak_dec_ctx *ctx) {
+  std::vector<ak_dec_ctx *> &a = t_unk_armed_list_probe_response;
+  for (size_t i = 0; i < a.size(); ++i) if (a[i] == ctx) return;
+  a.push_back(ctx);
+}
+static inline bool unk_armed_forget_list_probe_response(ak_dec_ctx *ctx) {
+  std::vector<ak_dec_ctx *> &a = t_unk_armed_list_probe_response;
+  for (size_t i = 0; i < a.size(); ++i)
+    if (a[i] == ctx) { a[i] = a.back(); a.pop_back(); return true; }
+  return false;
+}
+static inline void unk_disarm_list_probe_response(ak_dec_ctx *ctx) {
+  if (!t_unk_armed_list_probe_response.empty() && unk_armed_forget_list_probe_response(ctx)) {
+    AK_HOST_CALL(); (void)ak_dec_reset_ListProbeResponse(ctx, NULL);
+  }
+}
+
 // Decode with the context as it is armed: a context from
 // ak_dec_ctx_new_ListProbeResponse(NULL) (or last reset with NULL) drops every unknown field.
+// A context `decode_with_list_probe_response_unk` left armed is disarmed first (rule 7).
 int32_t decode_with_list_probe_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out) {
+  unk_disarm_list_probe_response(ctx);
   return decode_impl_list_probe_response(ctx, b, n, out, NULL, NULL);
 }
 
@@ -3547,6 +3654,7 @@ int32_t decode_with_list_probe_response_opts(ak_dec_ctx *ctx, const uint8_t *b, 
   }
   rc = decode_impl_list_probe_response(ctx, b, n, out, refill, hold);
   AK_HOST_CALL(); int32_t rc2 = ak_dec_reset_ListProbeResponse(ctx, NULL);  // reset 2: disarms, after it
+  unk_armed_forget_list_probe_response(ctx);  // the caller's options may not outlive the call
   // R-H7: what is still in the options was not consumed and stays the host's.
   unk_untrack_opts_list_probe_response(opts);
   unk_reclaim();
@@ -3554,11 +3662,25 @@ int32_t decode_with_list_probe_response_opts(ak_dec_ctx *ctx, const uint8_t *b, 
   return rc;
 }
 
-// Decision 11: retain everywhere (every position grows on demand).
+// Decision 11: retain everywhere (every position grows on demand). Rule 7: ONE reset
+// per decode. The options live at a stable per-thread address, so the context is
+// left armed after the decode (no disarming reset); a drop decode through
+// `decode_with_list_probe_response` disarms it first.
 int32_t decode_with_list_probe_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out) {
-  struct ak_dec_ListProbeResponse_opts opts;
-  unk_opts_list_probe_response(&opts, -1);
-  return decode_with_list_probe_response_opts(ctx, b, n, out, &opts, NULL, NULL);
+  AK_INIT_OR_RETURN();
+  struct ak_dec_ListProbeResponse_opts *opts = &t_unk_opts_list_probe_response;
+  unk_opts_list_probe_response(opts, -1);
+  AK_HOST_CALL(); int32_t rc = ak_dec_reset_ListProbeResponse(ctx, opts);  // the one reset: arms
+  if (rc != AK_OK) {
+    // Refused: nothing consumed, the context's state is unchanged (R-H7).
+    unk_untrack_opts_list_probe_response(opts);
+    return rc;
+  }
+  unk_armed_note_list_probe_response(ctx);
+  rc = decode_impl_list_probe_response(ctx, b, n, out, NULL, NULL);
+  unk_untrack_opts_list_probe_response(opts);
+  unk_reclaim();
+  return rc;
 }
 
 // Decision 11 rule 1, pre-allocated: every singular position gets one buffer of `cap`
@@ -3693,9 +3815,30 @@ static int32_t decode_impl_list_task_summary_response(ak_dec_ctx *ctx, const uin
   return ak_decode_ListTaskSummaryResponse(ctx, &sink, b, n, &vt);
 }
 
+static thread_local struct ak_dec_ListTaskSummaryResponse_opts t_unk_opts_list_task_summary_response;
+static thread_local std::vector<ak_dec_ctx *> t_unk_armed_list_task_summary_response;
+static inline void unk_armed_note_list_task_summary_response(ak_dec_ctx *ctx) {
+  std::vector<ak_dec_ctx *> &a = t_unk_armed_list_task_summary_response;
+  for (size_t i = 0; i < a.size(); ++i) if (a[i] == ctx) return;
+  a.push_back(ctx);
+}
+static inline bool unk_armed_forget_list_task_summary_response(ak_dec_ctx *ctx) {
+  std::vector<ak_dec_ctx *> &a = t_unk_armed_list_task_summary_response;
+  for (size_t i = 0; i < a.size(); ++i)
+    if (a[i] == ctx) { a[i] = a.back(); a.pop_back(); return true; }
+  return false;
+}
+static inline void unk_disarm_list_task_summary_response(ak_dec_ctx *ctx) {
+  if (!t_unk_armed_list_task_summary_response.empty() && unk_armed_forget_list_task_summary_response(ctx)) {
+    AK_HOST_CALL(); (void)ak_dec_reset_ListTaskSummaryResponse(ctx, NULL);
+  }
+}
+
 // Decode with the context as it is armed: a context from
 // ak_dec_ctx_new_ListTaskSummaryResponse(NULL) (or last reset with NULL) drops every unknown field.
+// A context `decode_with_list_task_summary_response_unk` left armed is disarmed first (rule 7).
 int32_t decode_with_list_task_summary_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out) {
+  unk_disarm_list_task_summary_response(ctx);
   return decode_impl_list_task_summary_response(ctx, b, n, out, NULL, NULL);
 }
 
@@ -3746,6 +3889,7 @@ int32_t decode_with_list_task_summary_response_opts(ak_dec_ctx *ctx, const uint8
   }
   rc = decode_impl_list_task_summary_response(ctx, b, n, out, refill, hold);
   AK_HOST_CALL(); int32_t rc2 = ak_dec_reset_ListTaskSummaryResponse(ctx, NULL);  // reset 2: disarms, after it
+  unk_armed_forget_list_task_summary_response(ctx);  // the caller's options may not outlive the call
   // R-H7: what is still in the options was not consumed and stays the host's.
   unk_untrack_opts_list_task_summary_response(opts);
   unk_reclaim();
@@ -3753,11 +3897,25 @@ int32_t decode_with_list_task_summary_response_opts(ak_dec_ctx *ctx, const uint8
   return rc;
 }
 
-// Decision 11: retain everywhere (every position grows on demand).
+// Decision 11: retain everywhere (every position grows on demand). Rule 7: ONE reset
+// per decode. The options live at a stable per-thread address, so the context is
+// left armed after the decode (no disarming reset); a drop decode through
+// `decode_with_list_task_summary_response` disarms it first.
 int32_t decode_with_list_task_summary_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out) {
-  struct ak_dec_ListTaskSummaryResponse_opts opts;
-  unk_opts_list_task_summary_response(&opts, -1);
-  return decode_with_list_task_summary_response_opts(ctx, b, n, out, &opts, NULL, NULL);
+  AK_INIT_OR_RETURN();
+  struct ak_dec_ListTaskSummaryResponse_opts *opts = &t_unk_opts_list_task_summary_response;
+  unk_opts_list_task_summary_response(opts, -1);
+  AK_HOST_CALL(); int32_t rc = ak_dec_reset_ListTaskSummaryResponse(ctx, opts);  // the one reset: arms
+  if (rc != AK_OK) {
+    // Refused: nothing consumed, the context's state is unchanged (R-H7).
+    unk_untrack_opts_list_task_summary_response(opts);
+    return rc;
+  }
+  unk_armed_note_list_task_summary_response(ctx);
+  rc = decode_impl_list_task_summary_response(ctx, b, n, out, NULL, NULL);
+  unk_untrack_opts_list_task_summary_response(opts);
+  unk_reclaim();
+  return rc;
 }
 
 // Decision 11 rule 1, pre-allocated: every singular position gets one buffer of `cap`
@@ -3859,9 +4017,30 @@ static int32_t decode_impl_upload_result_data_message(ak_dec_ctx *ctx, const uin
   return ak_decode_UploadResultDataMessage(ctx, &sink, b, n, &vt);
 }
 
+static thread_local struct ak_dec_UploadResultDataMessage_opts t_unk_opts_upload_result_data_message;
+static thread_local std::vector<ak_dec_ctx *> t_unk_armed_upload_result_data_message;
+static inline void unk_armed_note_upload_result_data_message(ak_dec_ctx *ctx) {
+  std::vector<ak_dec_ctx *> &a = t_unk_armed_upload_result_data_message;
+  for (size_t i = 0; i < a.size(); ++i) if (a[i] == ctx) return;
+  a.push_back(ctx);
+}
+static inline bool unk_armed_forget_upload_result_data_message(ak_dec_ctx *ctx) {
+  std::vector<ak_dec_ctx *> &a = t_unk_armed_upload_result_data_message;
+  for (size_t i = 0; i < a.size(); ++i)
+    if (a[i] == ctx) { a[i] = a.back(); a.pop_back(); return true; }
+  return false;
+}
+static inline void unk_disarm_upload_result_data_message(ak_dec_ctx *ctx) {
+  if (!t_unk_armed_upload_result_data_message.empty() && unk_armed_forget_upload_result_data_message(ctx)) {
+    AK_HOST_CALL(); (void)ak_dec_reset_UploadResultDataMessage(ctx, NULL);
+  }
+}
+
 // Decode with the context as it is armed: a context from
 // ak_dec_ctx_new_UploadResultDataMessage(NULL) (or last reset with NULL) drops every unknown field.
+// A context `decode_with_upload_result_data_message_unk` left armed is disarmed first (rule 7).
 int32_t decode_with_upload_result_data_message(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out) {
+  unk_disarm_upload_result_data_message(ctx);
   return decode_impl_upload_result_data_message(ctx, b, n, out, NULL, NULL);
 }
 
@@ -3899,6 +4078,7 @@ int32_t decode_with_upload_result_data_message_opts(ak_dec_ctx *ctx, const uint8
   }
   rc = decode_impl_upload_result_data_message(ctx, b, n, out, refill, hold);
   AK_HOST_CALL(); int32_t rc2 = ak_dec_reset_UploadResultDataMessage(ctx, NULL);  // reset 2: disarms, after it
+  unk_armed_forget_upload_result_data_message(ctx);  // the caller's options may not outlive the call
   // R-H7: what is still in the options was not consumed and stays the host's.
   unk_untrack_opts_upload_result_data_message(opts);
   unk_reclaim();
@@ -3906,11 +4086,25 @@ int32_t decode_with_upload_result_data_message_opts(ak_dec_ctx *ctx, const uint8
   return rc;
 }
 
-// Decision 11: retain everywhere (every position grows on demand).
+// Decision 11: retain everywhere (every position grows on demand). Rule 7: ONE reset
+// per decode. The options live at a stable per-thread address, so the context is
+// left armed after the decode (no disarming reset); a drop decode through
+// `decode_with_upload_result_data_message` disarms it first.
 int32_t decode_with_upload_result_data_message_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out) {
-  struct ak_dec_UploadResultDataMessage_opts opts;
-  unk_opts_upload_result_data_message(&opts, -1);
-  return decode_with_upload_result_data_message_opts(ctx, b, n, out, &opts, NULL, NULL);
+  AK_INIT_OR_RETURN();
+  struct ak_dec_UploadResultDataMessage_opts *opts = &t_unk_opts_upload_result_data_message;
+  unk_opts_upload_result_data_message(opts, -1);
+  AK_HOST_CALL(); int32_t rc = ak_dec_reset_UploadResultDataMessage(ctx, opts);  // the one reset: arms
+  if (rc != AK_OK) {
+    // Refused: nothing consumed, the context's state is unchanged (R-H7).
+    unk_untrack_opts_upload_result_data_message(opts);
+    return rc;
+  }
+  unk_armed_note_upload_result_data_message(ctx);
+  rc = decode_impl_upload_result_data_message(ctx, b, n, out, NULL, NULL);
+  unk_untrack_opts_upload_result_data_message(opts);
+  unk_reclaim();
+  return rc;
 }
 
 // Decision 11 rule 1, pre-allocated: every singular position gets one buffer of `cap`
@@ -4075,9 +4269,30 @@ static int32_t decode_impl_list_metrics_response(ak_dec_ctx *ctx, const uint8_t 
   return ak_decode_ListMetricsResponse(ctx, &sink, b, n, &vt);
 }
 
+static thread_local struct ak_dec_ListMetricsResponse_opts t_unk_opts_list_metrics_response;
+static thread_local std::vector<ak_dec_ctx *> t_unk_armed_list_metrics_response;
+static inline void unk_armed_note_list_metrics_response(ak_dec_ctx *ctx) {
+  std::vector<ak_dec_ctx *> &a = t_unk_armed_list_metrics_response;
+  for (size_t i = 0; i < a.size(); ++i) if (a[i] == ctx) return;
+  a.push_back(ctx);
+}
+static inline bool unk_armed_forget_list_metrics_response(ak_dec_ctx *ctx) {
+  std::vector<ak_dec_ctx *> &a = t_unk_armed_list_metrics_response;
+  for (size_t i = 0; i < a.size(); ++i)
+    if (a[i] == ctx) { a[i] = a.back(); a.pop_back(); return true; }
+  return false;
+}
+static inline void unk_disarm_list_metrics_response(ak_dec_ctx *ctx) {
+  if (!t_unk_armed_list_metrics_response.empty() && unk_armed_forget_list_metrics_response(ctx)) {
+    AK_HOST_CALL(); (void)ak_dec_reset_ListMetricsResponse(ctx, NULL);
+  }
+}
+
 // Decode with the context as it is armed: a context from
 // ak_dec_ctx_new_ListMetricsResponse(NULL) (or last reset with NULL) drops every unknown field.
+// A context `decode_with_list_metrics_response_unk` left armed is disarmed first (rule 7).
 int32_t decode_with_list_metrics_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out) {
+  unk_disarm_list_metrics_response(ctx);
   return decode_impl_list_metrics_response(ctx, b, n, out, NULL, NULL);
 }
 
@@ -4116,6 +4331,7 @@ int32_t decode_with_list_metrics_response_opts(ak_dec_ctx *ctx, const uint8_t *b
   }
   rc = decode_impl_list_metrics_response(ctx, b, n, out, refill, hold);
   AK_HOST_CALL(); int32_t rc2 = ak_dec_reset_ListMetricsResponse(ctx, NULL);  // reset 2: disarms, after it
+  unk_armed_forget_list_metrics_response(ctx);  // the caller's options may not outlive the call
   // R-H7: what is still in the options was not consumed and stays the host's.
   unk_untrack_opts_list_metrics_response(opts);
   unk_reclaim();
@@ -4123,11 +4339,25 @@ int32_t decode_with_list_metrics_response_opts(ak_dec_ctx *ctx, const uint8_t *b
   return rc;
 }
 
-// Decision 11: retain everywhere (every position grows on demand).
+// Decision 11: retain everywhere (every position grows on demand). Rule 7: ONE reset
+// per decode. The options live at a stable per-thread address, so the context is
+// left armed after the decode (no disarming reset); a drop decode through
+// `decode_with_list_metrics_response` disarms it first.
 int32_t decode_with_list_metrics_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out) {
-  struct ak_dec_ListMetricsResponse_opts opts;
-  unk_opts_list_metrics_response(&opts, -1);
-  return decode_with_list_metrics_response_opts(ctx, b, n, out, &opts, NULL, NULL);
+  AK_INIT_OR_RETURN();
+  struct ak_dec_ListMetricsResponse_opts *opts = &t_unk_opts_list_metrics_response;
+  unk_opts_list_metrics_response(opts, -1);
+  AK_HOST_CALL(); int32_t rc = ak_dec_reset_ListMetricsResponse(ctx, opts);  // the one reset: arms
+  if (rc != AK_OK) {
+    // Refused: nothing consumed, the context's state is unchanged (R-H7).
+    unk_untrack_opts_list_metrics_response(opts);
+    return rc;
+  }
+  unk_armed_note_list_metrics_response(ctx);
+  rc = decode_impl_list_metrics_response(ctx, b, n, out, NULL, NULL);
+  unk_untrack_opts_list_metrics_response(opts);
+  unk_reclaim();
+  return rc;
 }
 
 // Decision 11 rule 1, pre-allocated: every singular position gets one buffer of `cap`
@@ -4233,9 +4463,30 @@ static int32_t decode_impl_dual_response(ak_dec_ctx *ctx, const uint8_t *b, size
   return ak_decode_DualResponse(ctx, &sink, b, n, &vt);
 }
 
+static thread_local struct ak_dec_DualResponse_opts t_unk_opts_dual_response;
+static thread_local std::vector<ak_dec_ctx *> t_unk_armed_dual_response;
+static inline void unk_armed_note_dual_response(ak_dec_ctx *ctx) {
+  std::vector<ak_dec_ctx *> &a = t_unk_armed_dual_response;
+  for (size_t i = 0; i < a.size(); ++i) if (a[i] == ctx) return;
+  a.push_back(ctx);
+}
+static inline bool unk_armed_forget_dual_response(ak_dec_ctx *ctx) {
+  std::vector<ak_dec_ctx *> &a = t_unk_armed_dual_response;
+  for (size_t i = 0; i < a.size(); ++i)
+    if (a[i] == ctx) { a[i] = a.back(); a.pop_back(); return true; }
+  return false;
+}
+static inline void unk_disarm_dual_response(ak_dec_ctx *ctx) {
+  if (!t_unk_armed_dual_response.empty() && unk_armed_forget_dual_response(ctx)) {
+    AK_HOST_CALL(); (void)ak_dec_reset_DualResponse(ctx, NULL);
+  }
+}
+
 // Decode with the context as it is armed: a context from
 // ak_dec_ctx_new_DualResponse(NULL) (or last reset with NULL) drops every unknown field.
+// A context `decode_with_dual_response_unk` left armed is disarmed first (rule 7).
 int32_t decode_with_dual_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out) {
+  unk_disarm_dual_response(ctx);
   return decode_impl_dual_response(ctx, b, n, out, NULL, NULL);
 }
 
@@ -4277,6 +4528,7 @@ int32_t decode_with_dual_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t
   }
   rc = decode_impl_dual_response(ctx, b, n, out, refill, hold);
   AK_HOST_CALL(); int32_t rc2 = ak_dec_reset_DualResponse(ctx, NULL);  // reset 2: disarms, after it
+  unk_armed_forget_dual_response(ctx);  // the caller's options may not outlive the call
   // R-H7: what is still in the options was not consumed and stays the host's.
   unk_untrack_opts_dual_response(opts);
   unk_reclaim();
@@ -4284,11 +4536,25 @@ int32_t decode_with_dual_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t
   return rc;
 }
 
-// Decision 11: retain everywhere (every position grows on demand).
+// Decision 11: retain everywhere (every position grows on demand). Rule 7: ONE reset
+// per decode. The options live at a stable per-thread address, so the context is
+// left armed after the decode (no disarming reset); a drop decode through
+// `decode_with_dual_response` disarms it first.
 int32_t decode_with_dual_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out) {
-  struct ak_dec_DualResponse_opts opts;
-  unk_opts_dual_response(&opts, -1);
-  return decode_with_dual_response_opts(ctx, b, n, out, &opts, NULL, NULL);
+  AK_INIT_OR_RETURN();
+  struct ak_dec_DualResponse_opts *opts = &t_unk_opts_dual_response;
+  unk_opts_dual_response(opts, -1);
+  AK_HOST_CALL(); int32_t rc = ak_dec_reset_DualResponse(ctx, opts);  // the one reset: arms
+  if (rc != AK_OK) {
+    // Refused: nothing consumed, the context's state is unchanged (R-H7).
+    unk_untrack_opts_dual_response(opts);
+    return rc;
+  }
+  unk_armed_note_dual_response(ctx);
+  rc = decode_impl_dual_response(ctx, b, n, out, NULL, NULL);
+  unk_untrack_opts_dual_response(opts);
+  unk_reclaim();
+  return rc;
 }
 
 // Decision 11 rule 1, pre-allocated: every singular position gets one buffer of `cap`
@@ -4342,6 +4608,19 @@ void unk_clear_dual_response(DualResponse &o, int pos) {
     case 2: { for (size_t i0 = 0; i0 < o.right.size(); ++i0) { Pair &x0 = o.right[i0]; x0.unknown_fields.clear(); } } break;
     default: break;
   }
+}
+
+void dec_ctx_free(ak_dec_ctx *ctx) {
+  if (ctx != NULL) {
+    unk_armed_forget_list_results_response(ctx);
+    unk_armed_forget_list_tasks_detailed_response(ctx);
+    unk_armed_forget_list_probe_response(ctx);
+    unk_armed_forget_list_task_summary_response(ctx);
+    unk_armed_forget_upload_result_data_message(ctx);
+    unk_armed_forget_list_metrics_response(ctx);
+    unk_armed_forget_dual_response(ctx);
+  }
+  ak_dec_ctx_free(ctx);
 }
 
 }  // namespace ffi
