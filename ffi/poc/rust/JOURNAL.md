@@ -3302,3 +3302,58 @@ checkpoint.
   c/P5.4 B 0.44, C 0.88, D 0.70, E 0.87, F 0.78; d/16MiB B 1.01, C 0.81, D 0.78, E 0.81, F 0.95;
   d/4MiB 0.66-1.03 (p10 0.68-0.93); a and a+read 0.92-1.05 except B 1.13-1.15 (O1: the full
   client's Bf again). All container instrumentation.
+
+## 2026-09-27 -- unit 3: ABI v1 section 9 as specified (b3ac5050, f9c25d0b)
+
+Spec: ABI-v1.md section 9 "Streaming, as built", "Two more additive entries" (fe79f874) and
+"The status number, on unary calls too" (22ebb97f). All in the shared core and plan.RpcAbi,
+rendered into every slice's header/binding; other slices' generated output regenerated
+(generate.py --check ok).
+
+- plan.RpcAbi: AK_ERR_RPC_STATUS -12; AK_CALL_CLIENT_STREAM 1, AK_CALL_SERVER_STREAM 2,
+  AK_CALL_BIDI_STREAM 3; ak_kv, ak_call_opts; ak_call_open(c, path, path_len, kind, opts);
+  ak_call_recv(h, out, grpc_status); ak_call_close removed; ak_completion {tag, status,
+  grpc_status, bytes} (grpc_status sits in the old padding: size 40, bytes at 16, unchanged);
+  ak_call_unary / ak_call_unary_enc trailing `int32_t *grpc_status`. New RpcAbi.layout()
+  derives each RPC struct's 64-bit size/offsets once; c_abi.py emits them as AK_SASSERTs under
+  a UINTPTR_MAX guard and rust_abi.py as const asserts in rpc_check.rs (before, only the
+  function signatures were checked). c_variant.sh passes; the C# layout probe prints the new
+  structs.
+- rpc crate: CallCfg {max_send, max_recv, metadata, deadline}, CallErr {Limit, Status};
+  unary_raw / unary_framed_cfg / client_streaming_raw_cfg / client_streaming_framed_cfg take
+  it (old signatures kept as wrappers). The send limit is checked before anything is sent;
+  tonic's decode-limit error (OUT_OF_RANGE, "decoded message length too large") is translated
+  to RESOURCE_EXHAUSTED (8); the framed path checks the response length against max_recv
+  itself. The deadline is Request::set_timeout (grpc-timeout on the wire) plus a client-side
+  tokio timeout; tonic's server answers an expired grpc-timeout with CANCELLED "Timeout
+  expired", which arrived first in the deadline test, and is mapped to DEADLINE_EXCEEDED.
+- ak-core: ak_call_cancel on a cb/q handle used to abort the task and deliver no completion,
+  contrary to its comment; it now fires a Notify and the task delivers a CANCELLED completion
+  (status -12, grpc_status 1). On a stream it unblocks a pending send/recv the same way and
+  frees nothing. Metadata: "-bin" keys binary (BinaryMetadataValue), others ASCII with an
+  explicit 0x20..0x7E check (tonic's AsciiMetadataValue accepts obs-text, e.g. "cafe" with an
+  e-acute passed); an invalid pair makes ak_call_open return NULL. Unary outcomes: OK ->
+  (AK_OK, 0); send limit -> (AK_ERR_LIMIT, -1), no call made; receive limit -> (AK_ERR_LIMIT,
+  8); other status -> (AK_ERR_RPC_STATUS, code). ak-core unit tests 11 passed.
+- Campaign server: test paths under /armonik.ffi.campaign.v1.Grid/ (StatusU<n>, StatusS<n>,
+  SleepU, SleepS 3 s, EchoS echoing ak-echo and ak-echo-bin). bin/rpc_semantics runs every
+  case on the reference and the framed path: status on blocking, cb and queue deliveries and
+  on ak_call_unary_enc and the stream; deadline 300 ms -> 4; metadata echo and grpc-timeout
+  seen by the server; non-ASCII value -> NULL; cancel of a pending recv -> (-12, 1) then send
+  -> AK_ERR_HOST; cancel of cb/q on SleepU -> (-12, 1); misuse -> -8 with grpc_status left
+  at -99; reserved kinds -> NULL; send limit 1024 (unary 2048 B -> (-5, -1) and 0 requests at
+  the server; stream [2012 B, 110 B] -> sends [-5, 0], server got 100 data bytes); receive
+  limit 1024 (unary blocking and queue -> (-5, 8)), 16 on a stream -> (-12, 8). PASSED 3
+  times and on the nounk build; gate step 11f.
+- Grid limits: 0/0 (tonic defaults: unlimited send, 4 MiB receive) suffice for every
+  campaign path: the largest response is P2.2 (540,422 B), requests (P5.4 4,194,390 B, stream
+  messages 2 MiB + 57 B) are under an unlimited send; the grid server accepts 8 MiB. Stated in
+  rpc_client's header; packages/rust's transport config is unchanged (sets neither).
+- Checks (logs/rust/opt/abi9/checks/checks.log): generate --check, one_core ok; pre-check 0
+  failures on both builds; crossings 775 / 398 rows identical (the new arguments are
+  out-parameters; no entry added on a measured path).
+- Other slices' hand-written call sites that no longer compile or would misread (for WP8):
+  listed in STATE "Open defects".
+- O1 (the full client's Bf on the shipped transport): owner dropped the investigation
+  ("most likely VM contention or system activity"); recorded as observed in the container,
+  not investigated, deferred to the campaign machine.

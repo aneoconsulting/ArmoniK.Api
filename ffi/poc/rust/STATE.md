@@ -7,15 +7,34 @@ here. This file states what exists and what was checked; the choice is the owner
 
 | | |
 |---|---|
-| **Status** | Built on the merged branch (claude/rust-slice-optimization-sy1f4n): four codec arms plus the pull family, the RPC grid (cells A-F), the corpus through the C ABI and core-native, decision 11, the no-unknown build, the WP7 campaign harness, and every kept optimisation. Optimisation unit 2 (the owner) added: encode variants labelled by transport form; T1 (Enc::take, a moved Bytes; additive `ak_enc_take_owned`); the FRAMED send path as labelled extra cells (Bf-Ff, additive `ak_client_set_framed`); N2, N3; the labelled extra RPC directions c (unary upload of P5.3/P5.4) and d (req 14's streamed upload, ABI section 9's client streaming in the core: `ak_call_open/send/send_enc/recv/close`). Not kept: N5 (apply-first decode order, reverted), core-only fat LTO (tooling left, off). N6 not reproduced. Gates: stable checkpoints before N5 passed twice (`opt/pre-n5-gate`, `opt/pre-n5-gate2`); the FINAL gate at d54ea963 from a clean tree PASSED on stable and on the 1.88.0 floor (`opt/final2-gate`); final run `opt/final2` |
-| **Next step** | none assigned after unit 2's final gate and final run (`opt/final2-gate`, `opt/final2`) |
+| **Status** | Built on the merged branch (claude/rust-slice-optimization-sy1f4n): four codec arms plus the pull family, the RPC grid (cells A-F), the corpus through the C ABI and core-native, decision 11, the no-unknown build, the WP7 campaign harness, and every kept optimisation. Optimisation unit 2 (the owner) added: encode variants labelled by transport form; T1 (Enc::take, a moved Bytes; additive `ak_enc_take_owned`); the FRAMED send path as labelled extra cells (Bf-Ff, additive `ak_client_set_framed`); N2, N3; the labelled extra RPC directions c (unary upload of P5.3/P5.4) and d (req 14's streamed upload, ABI section 9's client streaming in the core: `ak_call_open/send/send_enc/recv/close`, close removed in unit 3). Not kept: N5 (apply-first decode order, reverted), core-only fat LTO (tooling left, off). N6 not reproduced. Gates: stable checkpoints before N5 passed twice (`opt/pre-n5-gate`, `opt/pre-n5-gate2`); the FINAL gate at d54ea963 from a clean tree PASSED on stable and on the 1.88.0 floor (`opt/final2-gate`); final run `opt/final2`. **Unit 3** (the owner): ABI v1 section 9 as specified (fe79f874, 22ebb97f) in the shared core and generator: call kinds, `ak_call_opts` (deadline, metadata), `ak_call_close` removed and `ak_call_cancel` on streams, the gRPC status number on the stream and on every unary delivery (`ak_completion.grpc_status`, trailing `grpc_status` on the blocking entries), D44's limits enforced; `bin/rpc_semantics` in the gate (11f) |
+| **Next step** | unit 3: the gate from a clean tree on stable and 1.88 (`opt/final3-gate/`), one full opt_bench (`opt/final3/`) with `tables-codec.md` and `tables-rpc.md` of that run |
 | **Blocked on** | nothing |
 | **Floor** (must build and pass correctness) | MSRV 1.88.0: the full gate, both builds, passes on rustc 1.88.0 from a clean worktree at c8e8694eb (`logs/rust/campaign-wp7/gate-floor-1.88.log`) |
 | **Target** | stable 1.94.1 in this container; README section 5: for Rust the floor is the target language level, one configuration |
 | **Incumbent** | prost 0.14.4, tonic 0.14.6, tonic-prost 0.14.6 (from Cargo.lock, printed in every campaign header). R14: tonic-prost's codec calls `Message::encode`/`decode`, so the production path and the library entry point are the same call |
 | **Questions this slice has open for the aggregating session** | (1) the proposed corpus rows of `gen/probe_corpus.py` (field numbers above 2^29-1, the 10th varint byte, two map-order rows) are not in `corpus/`; (2) no corpus row or payload has a repeated singular message with differing content, so merge-on-repeat (R-E4) is rendered and never observed; (3) a map entry has no unknown-field bag in the Rust facade (D42) |
 
-## Optimisation unit 2 (in progress; every figure is container instrumentation)
+## Unit 3: ABI v1 section 9 as specified (every figure is container instrumentation)
+
+Spec: ABI-v1.md section 9, "Streaming, as built", "Two more additive entries" (fe79f874) and
+"The status number, on unary calls too" (22ebb97f). Implemented once in `poc/codec` (plan.RpcAbi
+and the ak-core/rpc crates) and rendered into every slice's header and binding; other slices'
+generated output regenerated (b3ac5050), this slice's hosts and tests in f9c25d0b.
+
+| What | As built |
+|---|---|
+| Call kinds | `AK_CALL_CLIENT_STREAM` 1 (built), `AK_CALL_SERVER_STREAM` 2 and `AK_CALL_BIDI_STREAM` 3 reserved: `ak_call_open` returns NULL |
+| Options | `struct ak_kv {key, key_len, val, val_len}`, `struct ak_call_opts {deadline_ms, metadata, n_metadata}`; `ak_call_open(c, path, path_len, kind, opts)`, opts nullable. Deadline -> `grpc-timeout` plus a client-side timer (tonic's server reports an expired grpc-timeout as CANCELLED "Timeout expired", mapped to DEADLINE_EXCEEDED). Metadata: `-bin` keys binary, others printable ASCII 0x20-0x7E (checked explicitly: tonic accepts obs-text); an invalid pair -> NULL. Both send paths |
+| Cancel | `ak_call_close` removed; `ak_call_cancel` on a stream handle unblocks a pending send/recv (CANCELLED) and frees nothing; on cb/q handles it now delivers a CANCELLED completion (before: the task was aborted and no completion arrived) |
+| Status | `AK_ERR_RPC_STATUS` = -12. `ak_call_recv(h, out, int32_t *grpc_status)`: the code is written whenever the call completed; AK_OK iff 0; misuse (AK_ERR_INVALID_STATE) leaves it untouched; send on a failed stream AK_ERR_HOST. Unary: `ak_completion {tag, status, grpc_status, bytes}` (size 40, bytes at 16 as before: grpc_status sits in the old padding) and a trailing nullable `grpc_status` on `ak_call_unary` / `ak_call_unary_enc`; -1 when no call reached the transport |
+| Limits (D44) | `ak_client_opts.max_send_message` / `max_recv_message` enforced on every call, delivery and send path, per message on a stream; 0 = tonic's default (unlimited send, 4 MiB receive). Over the send limit: AK_ERR_LIMIT before anything is sent (unary grpc_status -1). Over the receive limit: RESOURCE_EXHAUSTED (8) on a stream, AK_ERR_LIMIT with grpc_status 8 on unary (tonic's OUT_OF_RANGE decode error is translated). The grid runs 0/0 (stated in rpc_client's header: the largest response is P2.2, 540,422 B; requests are under an unlimited send); packages/rust's transport config unchanged |
+| Layout checks | plan.RpcAbi.layout() derives each RPC struct's 64-bit size and offsets once; asserted in every C header (AK_SASSERT under a UINTPTR_MAX guard) and in the core (rpc_check.rs const asserts); c_variant.sh passes; the C# layout probe prints ak_kv, ak_call_opts and the new ak_completion |
+| Tests | `bin/rpc_semantics` (gate step 11f, both builds, reference and framed path): status on the blocking, callback and queue deliveries, on ak_call_unary_enc and on the stream; deadline; metadata echo (and grpc-timeout seen by the server); invalid metadata; cancel of a pending stream recv and of cb/q calls; misuse; reserved kinds; send limit (unary and stream, the server sees nothing over it) and receive limit (unary blocking and queue, stream). The campaign server's test paths are `StatusU<n>`, `StatusS<n>`, `SleepU`, `SleepS`, `EchoS` under the Grid service. ak-core unit tests 11 passed |
+| Checks | `logs/rust/opt/abi9/checks/checks.log`: generate --check and one_core ok; pre-check 0 failures on both builds; crossing counts identical (775 / 398 rows): the new arguments are out-parameters and no entry is added on a measured path |
+| O1 | the full client's Bf cell on the shipped transport: observed in the container, not investigated (owner: "most likely VM contention or system activity"), deferred to the campaign machine |
+
+## Optimisation unit 2 (done; every figure is container instrumentation)
 
 Owner-approved steps 0-6 (T1 native, T1 ffi, N2, N3, N6, N5), then the owner's additions
 (the framed send path, core-only LTO, U1-unary, U2-stream), one commit per step, each
@@ -170,7 +189,7 @@ and the labelled extras c (U1-unary: an upload of P5.3 / P5.4, the server decode
 prost and answers empty; k = 1, 8) and d (U2-stream: a client-streamed upload of 4 MiB / 16
 MiB in 2 MiB chunks, M5 per chunk, the ids on the first; the server answers the data byte
 count; k = 1, 8; B/C/E through `ak_call_open` / `ak_call_send` (C `ak_call_send_enc`) /
-`ak_call_recv`). The grid's server accepts 8 MiB messages (P5.4 is over tonic's 4 MiB).
+`ak_call_recv`). `bin/rpc_semantics`: the section 9 semantics test (unit 3, gate 11f). The grid's server accepts 8 MiB messages (P5.4 is over tonic's 4 MiB).
 
 ## What was checked
 
@@ -338,12 +357,12 @@ Every figure in both is instrumentation.
 | # | Where | What | Status |
 |---|---|---|---|
 | D43 | opt harness | the incumbent's own median moves 5-10% between two processes of different builds with no change to its code (optimisation experiment; e.g. prost P1.2/wide decode 856 -> 1045 us between the two harness-v5 runs); a 32-byte layout shift explains at most 3.4% of a group mean (`opt/layout-exp`). Cross-run absolutes carry it; prost's column is the control | open, cause not identified |
-| D44 | core RPC | `ak_client_opts.max_send_message` and `max_recv_message` are accepted by `ak_client_new_opts` and applied on neither send path (tonic's defaults: no send limit, 4 MiB receive); found while building the framed path's send limit | open, not changed (it would move every slice's reference path) |
-| D45 | ABI section 9 as implemented | `ak_call_kind` and `ak_call_opts` are named in section 9 and defined nowhere (the streamed entries take an i32 kind and no opts, as the unary entries take no opts); section 9's `ak_call_close` has the semantics `ak_call_cancel` already has for unary handles (two entries, one operation); no status number is returned | reported to the aggregating session; the ABI text is the owner's |
-| O1 | opt harness | the full client's Bf cell ran slower than its reference in every full run (shipped: 1.6-3x on c and d, opt/framed, u1-unary, u2-stream; direction a 1.13-1.25 in opt/framed and final2) while the no-unknown client's Bf did not, and the narrowed runs did not reproduce it (Bf/B 0.80-0.98) | open, an observation, cause not identified |
+| O1 | opt harness | the full client's Bf cell ran slower than its reference in every full run (shipped: 1.6-3x on c and d, opt/framed, u1-unary, u2-stream; direction a 1.13-1.25 in opt/framed and final2) while the no-unknown client's Bf did not, and the narrowed runs did not reproduce it (Bf/B 0.80-0.98) | observed in the container, not investigated (owner), deferred to the campaign machine |
+| W8 | other slices' hand-written RPC hosts | unit 3 changed `ak_call_unary`'s arity (a trailing `int32_t *grpc_status`) and `ak_completion` (a new `grpc_status` field; same size, same `bytes` offset); their generated headers/bindings are regenerated, their hand-written call sites are not (this slice does not write them). Sites (b3ac5050's tree): cpp `src/campaign_rpc.cpp` 323, 481, 485, 614 and `src/rpcflow.cpp` 96 (ak_call_unary, 6 args); cpp `src/rpcbench.cpp` 104 (ak_call_unary), 125-233 (completions: brace or memberwise init to check), `src/rpccounts.cpp` 29-106 (ak_call_unary at 54, completions); csharp `src/Rpc/CoreTransport.cs` 167 (ak_call_unary), 120 and 190 (ak_completion), `src/Rpc/Campaign.cs` 358, 417 (ak_call_unary); java `native/rpc.c` 96 (ak_call_unary), 178-187 (a local ak_completion); python `native/binding.c` 438 (ak_call_unary), 370, 502, 534 (ak_completion). None uses ak_call_open/recv/close | for the aggregating session's WP8 list |
 | D42 | rust facade | a map entry has no unknown-field bag in the facade, so `U-map-entry` is written in the dropped form by ffi-retain and native-retain although the core delivers the entry's bytes (accepted by the contract) | open, a facade question |
 
-Closed since the last rewrite (evidence in `JOURNAL.md`): D2 (the 1.88 floor now runs,
+Closed in unit 3: D44 (limits enforced as specified), D45 (section 9's text defines the kind, the options, one cancel entry and the status number; built as written).
+Closed earlier (evidence in `JOURNAL.md`): D2 (the 1.88 floor now runs,
 the gate passes on it); D34 (retention inside inlined children, closed by decision 11 for the C
 ABI); D35 (recursive messages: refused from the C ABI by owner decision, ABI-v1; `Nest` runs
 on core-native only, a scope limit listed below); D38, D39, D40 (fixed by their slices,
@@ -362,14 +381,12 @@ FIX-PLAN R-G17); D41 (every slice's generated tree is current: `generate.py --ch
   held by the allocator but not in use is not counted.
 - **RPC callback and queue deliveries** in the campaign runner (stage 6 harness only).
 - **The streamed call beyond client streaming**: `ak_call_open` builds one kind
-  (AK_CALL_CLIENT_STREAM); no server or bidirectional streaming; `ak_call_close` is exercised
-  by an ak-core unit test only, never in the grid.
-- **The RPC half beyond that**: no metadata, deadlines, status numbers, retry, TLS;
-  `ak_call_cancel` is never called; no concurrency suite over RPC; compression off on every
-  path (the framed path implements none).
-- **The framed path's send limit**: enforced as tonic's (no limit by default, the 4 GiB
-  prefix limit); the core applies neither `ak_client_opts.max_send_message` nor
-  `max_recv_message` on either path (D44).
+  (AK_CALL_CLIENT_STREAM); server and bidirectional streaming are reserved (NULL).
+- **Section 9's semantics under timing**: metadata, deadlines, cancel and limits are checked
+  by `bin/rpc_semantics` (gate 11f) and never timed; the grid passes NULL options and 0/0
+  limits. No retry, TLS, concurrency suite over RPC; compression off on every path (the
+  framed path implements none).
+- **Limits over 4 GiB**: the framed path's prefix is 32 bits; not exercised.
 - **N5's fallback under timing**: no payload reaches it (two synthetic inputs checked it
   before the revert).
 - **C5 (produce)** of the corpus: the harness builds no values of its own.
@@ -401,6 +418,7 @@ FIX-PLAN R-G17); D41 (every slice's generated tree is current: `generate.py --ch
 |---|---|
 | `logs/rust/opt/t0-ref/`, `t1-native*/`, `t1-ffi/`, `framed/`, `framed-rpc-narrow/`, `n2/`, `n2-ab/`, `n3/`, `n3-ab/`, `n6-probe/`, `lto-ab/`, `u1-unary/`, `u1-unary-narrow/`, `n5/`, `n5-ab/`, `n5b-ab/`, `u2-stream/` | optimisation unit 2, one directory per step (full opt_bench v5 runs, narrowed alternated A/B runs, step checks in `checks/`); before/after in `variants-before-after.txt` / `by-direction.txt`; the framed path's wire evidence in `framed/header-diff*.txt`; direction c and d tables in `u1-unary/c-direction.txt`, `u2-stream/d-direction.txt` |
 | `logs/rust/opt/pre-n5-gate/`, `pre-n5-gate2/` | the stable gate checkpoints of unit 2 (PASSED at 33636e1d and 186a4e52) |
+| `logs/rust/opt/abi9/checks/` | unit 3's step checks (generate --check, one_core, pre-check, crossings identical) |
 | `logs/rust/opt/final2-gate/`, `logs/rust/opt/final2/` | unit 2's final gate (stable and the 1.88 floor) and final run, with tables against `t0-ref` |
 | `logs/rust/opt/merged/`, `logs/rust/opt/merged-before/` | opt_bench v5 (the merged campaign harness) on the merged HEAD and on their branch without our optimisations: per-case `summary-codec.tsv`, absolute `variants-codec.tsv/.txt`, `unknown-retain-vs-drop.tsv`, RPC and calib summaries; before/after tables in `merged/` |
 | `logs/rust/opt/merge-counts/` | the merged counting build's crossing files against that branch's committed ones, with the reason per row class |
