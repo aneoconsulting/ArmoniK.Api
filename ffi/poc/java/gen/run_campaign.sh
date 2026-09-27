@@ -215,7 +215,8 @@ codec)
   # Every raw iteration is exported (gen/jmh_to_jsonl.py); JMH's own JSON is kept beside it.
   JMHCP=$(cat deps/jmh/cp.txt)
   EXTRA="-Dak.camp.poolbytes=$((2 * AK_LLC_BYTES))"; WARM=${AK_WARM:-5}
-  [ "$SMOKE" = 1 ] && { EXTRA="-Dak.camp.budget=${AK_SMOKE_BUDGET:-65536} -Dak.camp.maxiters=${AK_SMOKE_MAXITERS:-50} -Dak.camp.poolbytes=${AK_SMOKE_POOLBYTES:-65536}"; WARM=1; AK_SMOKE_UROWS=${AK_SMOKE_UROWS:-6}; }
+  [ "$SMOKE" = 1 ] && { EXTRA="-Dak.camp.budget=${AK_SMOKE_BUDGET:-65536} -Dak.camp.maxiters=${AK_SMOKE_MAXITERS:-50} -Dak.camp.poolbytes=${AK_SMOKE_POOLBYTES:-65536}"; WARM=${AK_SMOKE_WARM:-1}; AK_SMOKE_UROWS=${AK_SMOKE_UROWS:-6}; }
+  WARM_NOTE="warm-up (req 24): AK_WARM, campaign default 5 JMH warm-up iterations per cell; under smoke AK_SMOKE_WARM, default 1"
   # WP5 step 10: two builds, each its own JMH invocation per launch (the no-unknown build is
   # another class tree and another core; one process cannot hold both), in alternating order
   # by launch. JMH forks one JVM per cell (-f 1), so NO arm shares a process with another:
@@ -232,6 +233,7 @@ codec)
     for coder in compact utf16; do
       f="$OUT/codec$TAG-$coder-launch-$l.jsonl"; base="$OUT/codec$TAG-$coder-launch-$l"
       header "$f" "engine=JMH 1.37 SingleShotTime, -f 1 per cell, warm-up $WARM iteration(s) + $ROUNDS measurement iteration(s) per cell, build=$V coder=$coder launch=$l, $(echo "$CELLS" | tr ',' '\n' | wc -l) cells"
+      echo "# $WARM_NOTE" >> "$f"
       CF=""; [ "$coder" = utf16 ] && CF="-XX:-CompactStrings"
       echo "# command: $PIN_C java org.openjdk.jmh.Main ak.CodecJmh.sample -f 1 -wi $WARM -i $ROUNDS -foe true -jvmArgs '$JVM_FLAGS $CF ...'" >> "$f"
       echo "# cpu_ns: the measuring thread's CPU clock read inside the benchmark method; wall_ns: JMH's raw per-iteration time" >> "$f"
@@ -268,7 +270,7 @@ codec)
   done ;;
 rpc)
   EXTRA=""; WARM=${AK_WARM:-2}
-  [ "$SMOKE" = 1 ] && { EXTRA="-Dak.camp.calls=${AK_SMOKE_CALLS:-64} -Dak.camp.chunk=16"; WARM=1; }
+  [ "$SMOKE" = 1 ] && { EXTRA="-Dak.camp.calls=${AK_SMOKE_CALLS:-64} -Dak.camp.chunk=16"; WARM=${AK_SMOKE_WARM:-1}; }
   # Req 13 as amended (R-H33): ONE server process per launch, serving every cell of both
   # builds on two sockets (shipped and pinned), warmed by every client's warm-up samples
   # (stated in each client's meta line: warmup_calls_total) before its round 1.
@@ -287,6 +289,7 @@ rpc)
     local f="$OUT/rpc-$tr$TAG-launch-$l.jsonl" sock=$SS
     [ "$tr" = pinned ] && sock=$SP
     header "$f" "transport=$tr build=$V launch=$l warm-up=$WARM sample(s) per (dir,inflight,cell) before round 1 (cells $CELLS in ONE client process; directions a, a+read, b at 1/8/16 in flight; c (unary upload P5.3, P5.4) and d (client-streamed upload, 4 MiB and 16 MiB in 2 MiB chunks) at 1/8 with a third of the calls)"
+    echo "# warm-up (req 24): AK_WARM samples of every (dir, inflight) per cell before round 1, campaign default 2, under smoke AK_SMOKE_WARM, default 1 (AK_SMOKE_CALLS calls per sample, default 64); the server has no warm-up of its own: it is warmed by each client's warm-up samples, through both client transports (the count in each client's meta line, warmup_calls_total)" >> "$f"
     echo "# server: $PIN_S java ... ak.CampaignRpc --serve, ONE process for launch $l serving every cell of both builds (shipped and pinned sockets; pre-serialised P2.2; direction b parses with protobuf-java; no core codec on the server); $(grep THREADS "$OUT/rpc-server-launch-$l.txt")" >> "$f"
     echo "# delivery (req 16): B, C, E the core's blocking call and, in d, the core's blocking client stream (ak_call_open, ak_call_send / ak_call_send_enc for C, ak_call_recv); A, D, F grpc-java's ClientCalls.blockingUnaryCall (a generated blocking stub's call; packages/java's clients use blocking stubs) and, in d, ClientCalls.asyncClientStreamingCall with a StreamObserver (the async stub's call: client streaming has no blocking stub); Bf, Cf, Ef the same cells on the core's framed send path (ak_client_set_framed), grpc-java has no second send path; C (and Cf) sends its request with ak_call_unary_enc / ak_call_send_enc (the encode context's output moved), Cc-* is C with take() + ak_call_unary (the copy path, labelled extra); D and F hand grpc-java a byte[] (take() / Enc.toBytes()): grpc-java's send path copies every message through an OutputStream into its own buffers, so an owned native buffer (ak_enc_take_owned) would still be copied, through a heap array, and D keeps take()" >> "$f"
     echo "# limits (D44): server 8 MiB inbound on both sockets (P5.4 is 4,194,390 B); core client shipped tonic's defaults (4 MiB received, unlimited sent: every response here is below 1 MiB), pinned 8 MiB both ways; grpc-java client defaults (4 MiB inbound, no send limit)" >> "$f"
