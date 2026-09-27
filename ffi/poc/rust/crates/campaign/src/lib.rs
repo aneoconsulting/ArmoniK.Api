@@ -598,6 +598,63 @@ pub fn cases_for<R: Ops>(ctx: &'static Ctx, inp: &Input, zc: bool) -> Vec<Case> 
 /// decodes every input and the facade arms agree with each other within a mode; on a `U-*`
 /// row the retain arms re-encode the row's bytes exactly and agree with each other.
 /// Returns the failures, one line each.
+/// Optimisation N5's FALLBACK inputs (no payload reaches it: every payload element's runs
+/// fit the arena). Two ListTasksDetailedResponse wires with one TaskDetailed element each:
+///   N5-arena  3000 parent_task_ids (a run of 3000 spans, 36 KB, over the 32 KB arena), then
+///             2 data_dependencies -- the element falls back on the arena;
+///   N5-held   70 alternations parent_task_ids / data_dependencies (140 runs, over the 64
+///             held-run table) -- the element falls back on the table.
+/// Each is a TaskDetailed with a task id before and a status after the runs, then a second,
+/// ordinary element, so the element after a fallback is checked too.
+pub fn n5_fallback_inputs() -> Vec<(&'static str, Vec<u8>)> {
+    fn key(tag: u32, wire: u32, o: &mut Vec<u8>) { varint(((tag as u64) << 3) | wire as u64, o) }
+    fn varint(mut v: u64, o: &mut Vec<u8>) { while v >= 0x80 { o.push(v as u8 | 0x80); v >>= 7; } o.push(v as u8) }
+    fn blob(tag: u32, b: &[u8], o: &mut Vec<u8>) { key(tag, 2, o); varint(b.len() as u64, o); o.extend_from_slice(b) }
+    let elem = |runs: &dyn Fn(&mut Vec<u8>)| {
+        let mut e = Vec::new();
+        blob(1, b"task-n5", &mut e);           // id
+        runs(&mut e);
+        key(8, 0, &mut e); varint(4, &mut e);  // status
+        e
+    };
+    let root = |elems: &[Vec<u8>]| {
+        let mut r = Vec::new();
+        for e in elems { blob(1, e, &mut r); }
+        key(3, 0, &mut r); varint(elems.len() as u64, &mut r);  // total
+        r
+    };
+    let plain = elem(&|e: &mut Vec<u8>| { blob(4, b"p", e); blob(5, b"d", e); });
+    let arena = elem(&|e: &mut Vec<u8>| {
+        for i in 0..3000 { blob(4, format!("parent-{i}").as_bytes(), e); }
+        blob(5, b"dep-0", e); blob(5, b"dep-1", e);
+    });
+    let held = elem(&|e: &mut Vec<u8>| {
+        for i in 0..70 { blob(4, format!("p{i}").as_bytes(), e); blob(5, format!("d{i}").as_bytes(), e); }
+    });
+    vec![("N5-arena", root(&[arena, plain.clone()])), ("N5-held", root(&[held, plain]))]
+}
+
+/// N5's fallback, checked: the core-ffi push decode (this slice's binding calls the
+/// apply-first entry) equals core-native's on both inputs, in each unknown-field mode of
+/// this build. (checks, failures)
+pub fn n5_checks(ctx: &Ctx) -> (usize, Vec<String>) {
+    use crate::generated::roots::R_ListTasksDetailedResponse as M2;
+    let (mut n, mut fails) = (0usize, Vec::new());
+    for (id, wire) in n5_fallback_inputs() {
+        for &(mname, retain) in MODES {
+            n += 1;
+            let want = M2::n_decode(&wire, retain);
+            let got = M2::f_decode(ctx, &wire, retain);
+            let ok = matches!((&want, &got), (Ok(a), Ok(b)) if a == b);
+            let sizes = want.as_ref().map(|v| (v.tasks[0].parent_task_ids.len(), v.tasks[0].data_dependencies.len())).ok();
+            if !ok || sizes.is_none() {
+                fails.push(format!("{id} ({mname}): core-ffi decode != core-native decode (native element sizes {sizes:?})"));
+            }
+        }
+    }
+    (n, fails)
+}
+
 pub fn precheck<R: Ops>(ctx: &Ctx, inp: &Input) -> (usize, Vec<String>, Vec<String>) {
     use prost::Message;
     let mut fails = Vec::new();

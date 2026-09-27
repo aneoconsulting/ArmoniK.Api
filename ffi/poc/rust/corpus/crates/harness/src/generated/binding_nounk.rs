@@ -5580,6 +5580,25 @@ unsafe fn fill_task_options(dst: &mut TaskOptions, f: &ak_dfix_TaskOptions, base
     // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
 }
 
+/// Optimisation N5 (apply-first): the element constructed ONCE from its group; its
+/// repeated and map fields start empty and the held runs append to them.
+#[allow(dead_code)]
+#[inline(always)]
+unsafe fn from_task_options(f: &ak_dfix_TaskOptions, base: *const u8, ctx: *mut ak_dec_ctx) -> TaskOptions {
+    TaskOptions {
+        options: Default::default(),
+        max_duration: if f.presence & AK_DFIX_TASKOPTIONS_PRESENT_MAX_DURATION != 0 { Some(from_duration(&f.max_duration, base, ctx)) } else { None },
+        max_retries: f.max_retries,
+        priority: f.priority,
+        partition_id: s_of(base, f.partition_id, ctx),
+        application_name: s_of(base, f.application_name, ctx),
+        application_version: s_of(base, f.application_version, ctx),
+        application_namespace: s_of(base, f.application_namespace, ctx),
+        application_service: s_of(base, f.application_service, ctx),
+        engine_type: s_of(base, f.engine_type, ctx),
+    }
+}
+
 #[inline(always)]
 unsafe fn from_task_output(f: &ak_dfix_TaskOutput, base: *const u8, ctx: *mut ak_dec_ctx) -> TaskOutput {
     TaskOutput {
@@ -5675,6 +5694,42 @@ unsafe fn fill_task_detailed(dst: &mut TaskDetailed, f: &ak_dfix_TaskDetailed, b
     // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
 }
 
+/// Optimisation N5 (apply-first): the element constructed ONCE from its group; its
+/// repeated and map fields start empty and the held runs append to them.
+#[allow(dead_code)]
+#[inline(always)]
+unsafe fn from_task_detailed(f: &ak_dfix_TaskDetailed, base: *const u8, ctx: *mut ak_dec_ctx) -> TaskDetailed {
+    TaskDetailed {
+        id: s_of(base, f.id, ctx),
+        session_id: s_of(base, f.session_id, ctx),
+        owner_pod_id: s_of(base, f.owner_pod_id, ctx),
+        parent_task_ids: Default::default(),
+        data_dependencies: Default::default(),
+        expected_output_ids: Default::default(),
+        retry_of_ids: Default::default(),
+        status: TaskStatus::from_i32(f.status),
+        status_message: s_of(base, f.status_message, ctx),
+        options: if f.presence & AK_DFIX_TASKDETAILED_PRESENT_OPTIONS != 0 { Some(from_task_options(&f.options, base, ctx)) } else { None },
+        created_at: if f.presence & AK_DFIX_TASKDETAILED_PRESENT_CREATED_AT != 0 { Some(from_timestamp(&f.created_at, base, ctx)) } else { None },
+        submitted_at: if f.presence & AK_DFIX_TASKDETAILED_PRESENT_SUBMITTED_AT != 0 { Some(from_timestamp(&f.submitted_at, base, ctx)) } else { None },
+        started_at: if f.presence & AK_DFIX_TASKDETAILED_PRESENT_STARTED_AT != 0 { Some(from_timestamp(&f.started_at, base, ctx)) } else { None },
+        ended_at: if f.presence & AK_DFIX_TASKDETAILED_PRESENT_ENDED_AT != 0 { Some(from_timestamp(&f.ended_at, base, ctx)) } else { None },
+        pod_ttl: if f.presence & AK_DFIX_TASKDETAILED_PRESENT_POD_TTL != 0 { Some(from_timestamp(&f.pod_ttl, base, ctx)) } else { None },
+        output: if f.presence & AK_DFIX_TASKDETAILED_PRESENT_OUTPUT != 0 { Some(from_task_output(&f.output, base, ctx)) } else { None },
+        pod_hostname: s_of(base, f.pod_hostname, ctx),
+        received_at: if f.presence & AK_DFIX_TASKDETAILED_PRESENT_RECEIVED_AT != 0 { Some(from_timestamp(&f.received_at, base, ctx)) } else { None },
+        acquired_at: if f.presence & AK_DFIX_TASKDETAILED_PRESENT_ACQUIRED_AT != 0 { Some(from_timestamp(&f.acquired_at, base, ctx)) } else { None },
+        creation_to_end_duration: if f.presence & AK_DFIX_TASKDETAILED_PRESENT_CREATION_TO_END_DURATION != 0 { Some(from_duration(&f.creation_to_end_duration, base, ctx)) } else { None },
+        processing_to_end_duration: if f.presence & AK_DFIX_TASKDETAILED_PRESENT_PROCESSING_TO_END_DURATION != 0 { Some(from_duration(&f.processing_to_end_duration, base, ctx)) } else { None },
+        initial_task_id: s_of(base, f.initial_task_id, ctx),
+        received_to_end_duration: if f.presence & AK_DFIX_TASKDETAILED_PRESENT_RECEIVED_TO_END_DURATION != 0 { Some(from_duration(&f.received_to_end_duration, base, ctx)) } else { None },
+        processed_at: if f.presence & AK_DFIX_TASKDETAILED_PRESENT_PROCESSED_AT != 0 { Some(from_timestamp(&f.processed_at, base, ctx)) } else { None },
+        fetched_at: if f.presence & AK_DFIX_TASKDETAILED_PRESENT_FETCHED_AT != 0 { Some(from_timestamp(&f.fetched_at, base, ctx)) } else { None },
+        payload_id: s_of(base, f.payload_id, ctx),
+        created_by: s_of(base, f.created_by, ctx),
+    }
+}
+
 /// In place, never constructed: `TaskSummary` carries a repeated or map field,
 /// and `apply` arrives AFTER the runs that populated it.
 #[inline(always)]
@@ -5697,6 +5752,23 @@ unsafe fn fill_task_summary(dst: &mut TaskSummary, f: &ak_dfix_TaskSummary, base
     dst.status_message = s_of(base, f.status_message, ctx);
     dst.count_data_dependencies = f.count_data_dependencies;
     // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
+}
+
+/// Optimisation N5 (apply-first): the element constructed ONCE from its group; its
+/// repeated and map fields start empty and the held runs append to them.
+#[allow(dead_code)]
+#[inline(always)]
+unsafe fn from_task_summary(f: &ak_dfix_TaskSummary, base: *const u8, ctx: *mut ak_dec_ctx) -> TaskSummary {
+    TaskSummary {
+        id: s_of(base, f.id, ctx),
+        session_id: s_of(base, f.session_id, ctx),
+        options: if f.presence & AK_DFIX_TASKSUMMARY_PRESENT_OPTIONS != 0 { Some(from_task_options(&f.options, base, ctx)) } else { None },
+        status: TaskStatus::from_i32(f.status),
+        created_at: if f.presence & AK_DFIX_TASKSUMMARY_PRESENT_CREATED_AT != 0 { Some(from_timestamp(&f.created_at, base, ctx)) } else { None },
+        error: s_of(base, f.error, ctx),
+        status_message: s_of(base, f.status_message, ctx),
+        count_data_dependencies: f.count_data_dependencies,
+    }
 }
 
 #[inline(always)]
@@ -5740,6 +5812,21 @@ unsafe fn fill_metrics_batch(dst: &mut MetricsBatch, f: &ak_dfix_MetricsBatch, b
     // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
 }
 
+/// Optimisation N5 (apply-first): the element constructed ONCE from its group; its
+/// repeated and map fields start empty and the held runs append to them.
+#[allow(dead_code)]
+#[inline(always)]
+unsafe fn from_metrics_batch(f: &ak_dfix_MetricsBatch, base: *const u8, ctx: *mut ak_dec_ctx) -> MetricsBatch {
+    MetricsBatch {
+        id: s_of(base, f.id, ctx),
+        ticks: Default::default(),
+        values: Default::default(),
+        codes: Default::default(),
+        flags: Default::default(),
+        statuses: Default::default(),
+    }
+}
+
 #[inline(always)]
 unsafe fn from_pair(f: &ak_dfix_Pair, base: *const u8, ctx: *mut ak_dec_ctx) -> Pair {
     Pair {
@@ -5757,6 +5844,18 @@ unsafe fn fill_list_results_response(dst: &mut ListResultsResponse, f: &ak_dfix_
     // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
 }
 
+/// Optimisation N5 (apply-first): the element constructed ONCE from its group; its
+/// repeated and map fields start empty and the held runs append to them.
+#[allow(dead_code)]
+#[inline(always)]
+unsafe fn from_list_results_response(f: &ak_dfix_ListResultsResponse, base: *const u8, ctx: *mut ak_dec_ctx) -> ListResultsResponse {
+    ListResultsResponse {
+        results: Default::default(),
+        page: f.page,
+        total: f.total,
+    }
+}
+
 /// In place, never constructed: `ListTasksDetailedResponse` carries a repeated or map field,
 /// and `apply` arrives AFTER the runs that populated it.
 #[inline(always)]
@@ -5766,11 +5865,33 @@ unsafe fn fill_list_tasks_detailed_response(dst: &mut ListTasksDetailedResponse,
     // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
 }
 
+/// Optimisation N5 (apply-first): the element constructed ONCE from its group; its
+/// repeated and map fields start empty and the held runs append to them.
+#[allow(dead_code)]
+#[inline(always)]
+unsafe fn from_list_tasks_detailed_response(f: &ak_dfix_ListTasksDetailedResponse, base: *const u8, ctx: *mut ak_dec_ctx) -> ListTasksDetailedResponse {
+    ListTasksDetailedResponse {
+        tasks: Default::default(),
+        page: f.page,
+        total: f.total,
+    }
+}
+
 /// In place, never constructed: `ListTaskSummaryResponse` carries a repeated or map field,
 /// and `apply` arrives AFTER the runs that populated it.
 #[inline(always)]
 unsafe fn fill_list_task_summary_response(dst: &mut ListTaskSummaryResponse, f: &ak_dfix_ListTaskSummaryResponse, base: *const u8, ctx: *mut ak_dec_ctx) {
     // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
+}
+
+/// Optimisation N5 (apply-first): the element constructed ONCE from its group; its
+/// repeated and map fields start empty and the held runs append to them.
+#[allow(dead_code)]
+#[inline(always)]
+unsafe fn from_list_task_summary_response(f: &ak_dfix_ListTaskSummaryResponse, base: *const u8, ctx: *mut ak_dec_ctx) -> ListTaskSummaryResponse {
+    ListTaskSummaryResponse {
+        tasks: Default::default(),
+    }
 }
 
 /// In place, never constructed: `ListProbeResponse` carries a repeated or map field,
@@ -5780,11 +5901,31 @@ unsafe fn fill_list_probe_response(dst: &mut ListProbeResponse, f: &ak_dfix_List
     // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
 }
 
+/// Optimisation N5 (apply-first): the element constructed ONCE from its group; its
+/// repeated and map fields start empty and the held runs append to them.
+#[allow(dead_code)]
+#[inline(always)]
+unsafe fn from_list_probe_response(f: &ak_dfix_ListProbeResponse, base: *const u8, ctx: *mut ak_dec_ctx) -> ListProbeResponse {
+    ListProbeResponse {
+        probes: Default::default(),
+    }
+}
+
 /// In place, never constructed: `ListMetricsResponse` carries a repeated or map field,
 /// and `apply` arrives AFTER the runs that populated it.
 #[inline(always)]
 unsafe fn fill_list_metrics_response(dst: &mut ListMetricsResponse, f: &ak_dfix_ListMetricsResponse, base: *const u8, ctx: *mut ak_dec_ctx) {
     // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
+}
+
+/// Optimisation N5 (apply-first): the element constructed ONCE from its group; its
+/// repeated and map fields start empty and the held runs append to them.
+#[allow(dead_code)]
+#[inline(always)]
+unsafe fn from_list_metrics_response(f: &ak_dfix_ListMetricsResponse, base: *const u8, ctx: *mut ak_dec_ctx) -> ListMetricsResponse {
+    ListMetricsResponse {
+        batches: Default::default(),
+    }
 }
 
 #[inline(always)]
@@ -5799,6 +5940,17 @@ unsafe fn from_upload_result_data_message(f: &ak_dfix_UploadResultDataMessage, b
 #[inline(always)]
 unsafe fn fill_dual_response(dst: &mut DualResponse, f: &ak_dfix_DualResponse, base: *const u8, ctx: *mut ak_dec_ctx) {
     // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
+}
+
+/// Optimisation N5 (apply-first): the element constructed ONCE from its group; its
+/// repeated and map fields start empty and the held runs append to them.
+#[allow(dead_code)]
+#[inline(always)]
+unsafe fn from_dual_response(f: &ak_dfix_DualResponse, base: *const u8, ctx: *mut ak_dec_ctx) -> DualResponse {
+    DualResponse {
+        left: Default::default(),
+        right: Default::default(),
+    }
 }
 
 #[inline(always)]
@@ -5816,6 +5968,17 @@ unsafe fn fill_chunk_inner(dst: &mut ChunkInner, f: &ak_dfix_ChunkInner, base: *
     // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
 }
 
+/// Optimisation N5 (apply-first): the element constructed ONCE from its group; its
+/// repeated and map fields start empty and the held runs append to them.
+#[allow(dead_code)]
+#[inline(always)]
+unsafe fn from_chunk_inner(f: &ak_dfix_ChunkInner, base: *const u8, ctx: *mut ak_dec_ctx) -> ChunkInner {
+    ChunkInner {
+        marks: Default::default(),
+        leaves: Default::default(),
+    }
+}
+
 /// In place, never constructed: `ChunkElement` carries a repeated or map field,
 /// and `apply` arrives AFTER the runs that populated it.
 #[inline(always)]
@@ -5830,6 +5993,19 @@ unsafe fn fill_chunk_element(dst: &mut ChunkElement, f: &ak_dfix_ChunkElement, b
     // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
 }
 
+/// Optimisation N5 (apply-first): the element constructed ONCE from its group; its
+/// repeated and map fields start empty and the held runs append to them.
+#[allow(dead_code)]
+#[inline(always)]
+unsafe fn from_chunk_element(f: &ak_dfix_ChunkElement, base: *const u8, ctx: *mut ak_dec_ctx) -> ChunkElement {
+    ChunkElement {
+        labels: Default::default(),
+        attrs: Default::default(),
+        id: s_of(base, f.id, ctx),
+        inner: if f.presence & AK_DFIX_CHUNKELEMENT_PRESENT_INNER != 0 { Some(from_chunk_inner(&f.inner, base, ctx)) } else { None },
+    }
+}
+
 /// In place, never constructed: `ChunkedResponse` carries a repeated or map field,
 /// and `apply` arrives AFTER the runs that populated it.
 #[inline(always)]
@@ -5838,11 +6014,32 @@ unsafe fn fill_chunked_response(dst: &mut ChunkedResponse, f: &ak_dfix_ChunkedRe
     // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
 }
 
+/// Optimisation N5 (apply-first): the element constructed ONCE from its group; its
+/// repeated and map fields start empty and the held runs append to them.
+#[allow(dead_code)]
+#[inline(always)]
+unsafe fn from_chunked_response(f: &ak_dfix_ChunkedResponse, base: *const u8, ctx: *mut ak_dec_ctx) -> ChunkedResponse {
+    ChunkedResponse {
+        items: Default::default(),
+        page: f.page,
+    }
+}
+
 /// In place, never constructed: `ChunkedResponseWide` carries a repeated or map field,
 /// and `apply` arrives AFTER the runs that populated it.
 #[inline(always)]
 unsafe fn fill_chunked_response_wide(dst: &mut ChunkedResponseWide, f: &ak_dfix_ChunkedResponseWide, base: *const u8, ctx: *mut ak_dec_ctx) {
     // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
+}
+
+/// Optimisation N5 (apply-first): the element constructed ONCE from its group; its
+/// repeated and map fields start empty and the held runs append to them.
+#[allow(dead_code)]
+#[inline(always)]
+unsafe fn from_chunked_response_wide(f: &ak_dfix_ChunkedResponseWide, base: *const u8, ctx: *mut ak_dec_ctx) -> ChunkedResponseWide {
+    ChunkedResponseWide {
+        items: Default::default(),
+    }
 }
 
 #[inline(always)]
@@ -5861,6 +6058,16 @@ unsafe fn fill_leaf_response(dst: &mut LeafResponse, f: &ak_dfix_LeafResponse, b
     // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
 }
 
+/// Optimisation N5 (apply-first): the element constructed ONCE from its group; its
+/// repeated and map fields start empty and the held runs append to them.
+#[allow(dead_code)]
+#[inline(always)]
+unsafe fn from_leaf_response(f: &ak_dfix_LeafResponse, base: *const u8, ctx: *mut ak_dec_ctx) -> LeafResponse {
+    LeafResponse {
+        items: Default::default(),
+    }
+}
+
 /// In place, never constructed: `Surrogate` carries a repeated or map field,
 /// and `apply` arrives AFTER the runs that populated it.
 #[inline(always)]
@@ -5873,6 +6080,20 @@ unsafe fn fill_surrogate(dst: &mut Surrogate, f: &ak_dfix_Surrogate, base: *cons
     };
     dst.raw = b_of(base, f.raw);
     // Decision 11 (WP5 step 7): the message's own buffer, the host's now.
+}
+
+/// Optimisation N5 (apply-first): the element constructed ONCE from its group; its
+/// repeated and map fields start empty and the held runs append to them.
+#[allow(dead_code)]
+#[inline(always)]
+unsafe fn from_surrogate(f: &ak_dfix_Surrogate, base: *const u8, ctx: *mut ak_dec_ctx) -> Surrogate {
+    Surrogate {
+        text: s_of(base, f.text, ctx),
+        nested: if f.presence & AK_DFIX_SURROGATE_PRESENT_NESTED != 0 { Some(from_surrogate_inner(&f.nested, base, ctx)) } else { None },
+        attrs: Default::default(),
+        texts: Default::default(),
+        raw: b_of(base, f.raw),
+    }
 }
 
 #[inline(always)]
@@ -5936,7 +6157,7 @@ pub fn decode_with_timestamp(ctxs: DecCtxs, b: &[u8]) -> Result<Timestamp, i32> 
         let vt = ak_dvt_Timestamp {
             apply: Some(apply_timestamp),
         };
-        ak_decode_Timestamp(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_Timestamp_af(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -6147,7 +6368,7 @@ pub fn decode_with_duration(ctxs: DecCtxs, b: &[u8]) -> Result<Duration, i32> {
         let vt = ak_dvt_Duration {
             apply: Some(apply_duration),
         };
-        ak_decode_Duration(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_Duration_af(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -6375,7 +6596,7 @@ pub fn decode_with_result_raw(ctxs: DecCtxs, b: &[u8]) -> Result<ResultRaw, i32>
         let vt = ak_dvt_ResultRaw {
             apply: Some(apply_result_raw),
         };
-        ak_decode_ResultRaw(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_ResultRaw_af(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -6619,7 +6840,7 @@ pub fn decode_with_task_options(ctxs: DecCtxs, b: &[u8]) -> Result<TaskOptions, 
             apply: Some(apply_task_options),
             add_options: Some(add_task_options_options),
         };
-        ak_decode_TaskOptions(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_TaskOptions_af(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -6837,7 +7058,7 @@ pub fn decode_with_task_output(ctxs: DecCtxs, b: &[u8]) -> Result<TaskOutput, i3
         let vt = ak_dvt_TaskOutput {
             apply: Some(apply_task_output),
         };
-        ak_decode_TaskOutput(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_TaskOutput_af(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -7220,7 +7441,7 @@ pub fn decode_with_task_detailed(ctxs: DecCtxs, b: &[u8]) -> Result<TaskDetailed
             add_retry_of_ids: Some(add_task_detailed_retry_of_ids),
             add_options_options: Some(add_task_detailed_options_options),
         };
-        ak_decode_TaskDetailed(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_TaskDetailed_af(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -7503,7 +7724,7 @@ pub fn decode_with_task_summary(ctxs: DecCtxs, b: &[u8]) -> Result<TaskSummary, 
             apply: Some(apply_task_summary),
             add_options_options: Some(add_task_summary_options_options),
         };
-        ak_decode_TaskSummary(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_TaskSummary_af(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -7731,7 +7952,7 @@ pub fn decode_with_probe(ctxs: DecCtxs, b: &[u8]) -> Result<Probe, i32> {
         let vt = ak_dvt_Probe {
             apply: Some(apply_probe),
         };
-        ak_decode_Probe(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_Probe_af(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -7940,7 +8161,7 @@ pub fn decode_with_empty(ctxs: DecCtxs, b: &[u8]) -> Result<Empty, i32> {
         let vt = ak_dvt_Empty {
             apply: Some(apply_empty),
         };
-        ak_decode_Empty(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_Empty_af(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -8152,7 +8373,7 @@ pub fn decode_with_upload_result_data(ctxs: DecCtxs, b: &[u8]) -> Result<UploadR
         let vt = ak_dvt_UploadResultData {
             apply: Some(apply_upload_result_data),
         };
-        ak_decode_UploadResultData(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_UploadResultData_af(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -8452,7 +8673,7 @@ pub fn decode_with_metrics_batch(ctxs: DecCtxs, b: &[u8]) -> Result<MetricsBatch
             add_flags: Some(add_metrics_batch_flags),
             add_statuses: Some(add_metrics_batch_statuses),
         };
-        ak_decode_MetricsBatch(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_MetricsBatch_af(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -8698,7 +8919,7 @@ pub fn decode_with_pair(ctxs: DecCtxs, b: &[u8]) -> Result<Pair, i32> {
         let vt = ak_dvt_Pair {
             apply: Some(apply_pair),
         };
-        ak_decode_Pair(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_Pair_af(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -8927,7 +9148,7 @@ pub fn decode_with_list_results_response(ctxs: DecCtxs, b: &[u8]) -> Result<List
             apply: Some(apply_list_results_response),
             add_results: Some(add_list_results_response_results),
         };
-        ak_decode_ListResultsResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_ListResultsResponse_af(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -9145,6 +9366,11 @@ unsafe extern "C" fn apply_list_tasks_detailed_response_tasks(
     dguard(ctx, || {
         let s = &mut *(obj as *mut SinkListTasksDetailedResponse);
         let base = s.base;
+        // N5: token -1 = no `new` was called; construct the element and append it.
+        if tok < 0 {
+            s.out.tasks.push(from_task_detailed(&*fx, base, ctx));
+            return;
+        }
         fill_task_detailed(&mut s.out.tasks[tok as usize], &*fx, base, ctx);
     })
 }
@@ -9159,6 +9385,7 @@ unsafe extern "C" fn add_list_tasks_detailed_response_tasks_parent_task_ids(
     dguard(ctx, || {
         let s = &mut *(obj as *mut SinkListTasksDetailedResponse);
         let base = s.base;
+        let tok = if tok < 0 { s.out.tasks.len() as i64 - 1 } else { tok };
         // ABI v1 7.4: a batched add may be called more than once per field.
         let dst = &mut s.out.tasks[tok as usize].parent_task_ids;
         dst.reserve(n as usize);
@@ -9176,6 +9403,7 @@ unsafe extern "C" fn add_list_tasks_detailed_response_tasks_data_dependencies(
     dguard(ctx, || {
         let s = &mut *(obj as *mut SinkListTasksDetailedResponse);
         let base = s.base;
+        let tok = if tok < 0 { s.out.tasks.len() as i64 - 1 } else { tok };
         // ABI v1 7.4: a batched add may be called more than once per field.
         let dst = &mut s.out.tasks[tok as usize].data_dependencies;
         dst.reserve(n as usize);
@@ -9193,6 +9421,7 @@ unsafe extern "C" fn add_list_tasks_detailed_response_tasks_expected_output_ids(
     dguard(ctx, || {
         let s = &mut *(obj as *mut SinkListTasksDetailedResponse);
         let base = s.base;
+        let tok = if tok < 0 { s.out.tasks.len() as i64 - 1 } else { tok };
         // ABI v1 7.4: a batched add may be called more than once per field.
         let dst = &mut s.out.tasks[tok as usize].expected_output_ids;
         dst.reserve(n as usize);
@@ -9210,6 +9439,7 @@ unsafe extern "C" fn add_list_tasks_detailed_response_tasks_retry_of_ids(
     dguard(ctx, || {
         let s = &mut *(obj as *mut SinkListTasksDetailedResponse);
         let base = s.base;
+        let tok = if tok < 0 { s.out.tasks.len() as i64 - 1 } else { tok };
         // ABI v1 7.4: a batched add may be called more than once per field.
         let dst = &mut s.out.tasks[tok as usize].retry_of_ids;
         dst.reserve(n as usize);
@@ -9227,6 +9457,7 @@ unsafe extern "C" fn add_list_tasks_detailed_response_tasks_options_options(
     dguard(ctx, || {
         let s = &mut *(obj as *mut SinkListTasksDetailedResponse);
         let base = s.base;
+        let tok = if tok < 0 { s.out.tasks.len() as i64 - 1 } else { tok };
         // ABI v1 7.4: a batched add may be called more than once per field.
         let dst = &mut s.out.tasks[tok as usize].options.get_or_insert_with(Default::default).options;
         for i in 0..n as usize {
@@ -9262,7 +9493,7 @@ pub fn decode_with_list_tasks_detailed_response(ctxs: DecCtxs, b: &[u8]) -> Resu
             add_tasks_retry_of_ids: Some(add_list_tasks_detailed_response_tasks_retry_of_ids),
             add_tasks_options_options: Some(add_list_tasks_detailed_response_tasks_options_options),
         };
-        ak_decode_ListTasksDetailedResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_ListTasksDetailedResponse_af(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -9513,6 +9744,11 @@ unsafe extern "C" fn apply_list_task_summary_response_tasks(
     dguard(ctx, || {
         let s = &mut *(obj as *mut SinkListTaskSummaryResponse);
         let base = s.base;
+        // N5: token -1 = no `new` was called; construct the element and append it.
+        if tok < 0 {
+            s.out.tasks.push(from_task_summary(&*fx, base, ctx));
+            return;
+        }
         fill_task_summary(&mut s.out.tasks[tok as usize], &*fx, base, ctx);
     })
 }
@@ -9527,6 +9763,7 @@ unsafe extern "C" fn add_list_task_summary_response_tasks_options_options(
     dguard(ctx, || {
         let s = &mut *(obj as *mut SinkListTaskSummaryResponse);
         let base = s.base;
+        let tok = if tok < 0 { s.out.tasks.len() as i64 - 1 } else { tok };
         // ABI v1 7.4: a batched add may be called more than once per field.
         let dst = &mut s.out.tasks[tok as usize].options.get_or_insert_with(Default::default).options;
         for i in 0..n as usize {
@@ -9558,7 +9795,7 @@ pub fn decode_with_list_task_summary_response(ctxs: DecCtxs, b: &[u8]) -> Result
             apply_tasks: Some(apply_list_task_summary_response_tasks),
             add_tasks_options_options: Some(add_list_task_summary_response_tasks_options_options),
         };
-        ak_decode_ListTaskSummaryResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_ListTaskSummaryResponse_af(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -9799,7 +10036,7 @@ pub fn decode_with_list_probe_response(ctxs: DecCtxs, b: &[u8]) -> Result<ListPr
             apply: Some(apply_list_probe_response),
             add_probes: Some(add_list_probe_response_probes),
         };
-        ak_decode_ListProbeResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_ListProbeResponse_af(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -10015,6 +10252,11 @@ unsafe extern "C" fn apply_list_metrics_response_batches(
     dguard(ctx, || {
         let s = &mut *(obj as *mut SinkListMetricsResponse);
         let base = s.base;
+        // N5: token -1 = no `new` was called; construct the element and append it.
+        if tok < 0 {
+            s.out.batches.push(from_metrics_batch(&*fx, base, ctx));
+            return;
+        }
         fill_metrics_batch(&mut s.out.batches[tok as usize], &*fx, base, ctx);
     })
 }
@@ -10029,6 +10271,7 @@ unsafe extern "C" fn add_list_metrics_response_batches_ticks(
     dguard(ctx, || {
         let s = &mut *(obj as *mut SinkListMetricsResponse);
         let base = s.base;
+        let tok = if tok < 0 { s.out.batches.len() as i64 - 1 } else { tok };
         // ABI v1 7.4: a batched add may be called more than once per field.
         let dst = &mut s.out.batches[tok as usize].ticks;
         dst.reserve(n as usize);
@@ -10046,6 +10289,7 @@ unsafe extern "C" fn add_list_metrics_response_batches_values(
     dguard(ctx, || {
         let s = &mut *(obj as *mut SinkListMetricsResponse);
         let base = s.base;
+        let tok = if tok < 0 { s.out.batches.len() as i64 - 1 } else { tok };
         // ABI v1 7.4: a batched add may be called more than once per field.
         let dst = &mut s.out.batches[tok as usize].values;
         dst.reserve(n as usize);
@@ -10063,6 +10307,7 @@ unsafe extern "C" fn add_list_metrics_response_batches_codes(
     dguard(ctx, || {
         let s = &mut *(obj as *mut SinkListMetricsResponse);
         let base = s.base;
+        let tok = if tok < 0 { s.out.batches.len() as i64 - 1 } else { tok };
         // ABI v1 7.4: a batched add may be called more than once per field.
         let dst = &mut s.out.batches[tok as usize].codes;
         dst.reserve(n as usize);
@@ -10080,6 +10325,7 @@ unsafe extern "C" fn add_list_metrics_response_batches_flags(
     dguard(ctx, || {
         let s = &mut *(obj as *mut SinkListMetricsResponse);
         let base = s.base;
+        let tok = if tok < 0 { s.out.batches.len() as i64 - 1 } else { tok };
         // ABI v1 7.4: a batched add may be called more than once per field.
         let dst = &mut s.out.batches[tok as usize].flags;
         dst.reserve(n as usize);
@@ -10097,6 +10343,7 @@ unsafe extern "C" fn add_list_metrics_response_batches_statuses(
     dguard(ctx, || {
         let s = &mut *(obj as *mut SinkListMetricsResponse);
         let base = s.base;
+        let tok = if tok < 0 { s.out.batches.len() as i64 - 1 } else { tok };
         // ABI v1 7.4: a batched add may be called more than once per field.
         let dst = &mut s.out.batches[tok as usize].statuses;
         dst.reserve(n as usize);
@@ -10128,7 +10375,7 @@ pub fn decode_with_list_metrics_response(ctxs: DecCtxs, b: &[u8]) -> Result<List
             add_batches_flags: Some(add_list_metrics_response_batches_flags),
             add_batches_statuses: Some(add_list_metrics_response_batches_statuses),
         };
-        ak_decode_ListMetricsResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_ListMetricsResponse_af(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -10384,7 +10631,7 @@ pub fn decode_with_upload_result_data_message(ctxs: DecCtxs, b: &[u8]) -> Result
         let vt = ak_dvt_UploadResultDataMessage {
             apply: Some(apply_upload_result_data_message),
         };
-        ak_decode_UploadResultDataMessage(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_UploadResultDataMessage_af(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -10629,7 +10876,7 @@ pub fn decode_with_dual_response(ctxs: DecCtxs, b: &[u8]) -> Result<DualResponse
             add_left: Some(add_dual_response_left),
             add_right: Some(add_dual_response_right),
         };
-        ak_decode_DualResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_DualResponse_af(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -10854,7 +11101,7 @@ pub fn decode_with_chunk_leaf(ctxs: DecCtxs, b: &[u8]) -> Result<ChunkLeaf, i32>
         let vt = ak_dvt_ChunkLeaf {
             apply: Some(apply_chunk_leaf),
         };
-        ak_decode_ChunkLeaf(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_ChunkLeaf_af(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -11099,7 +11346,7 @@ pub fn decode_with_chunk_inner(ctxs: DecCtxs, b: &[u8]) -> Result<ChunkInner, i3
             add_marks: Some(add_chunk_inner_marks),
             add_leaves: Some(add_chunk_inner_leaves),
         };
-        ak_decode_ChunkInner(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_ChunkInner_af(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -11405,7 +11652,7 @@ pub fn decode_with_chunk_element(ctxs: DecCtxs, b: &[u8]) -> Result<ChunkElement
             add_inner_marks: Some(add_chunk_element_inner_marks),
             add_inner_leaves: Some(add_chunk_element_inner_leaves),
         };
-        ak_decode_ChunkElement(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_ChunkElement_af(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -11643,6 +11890,11 @@ unsafe extern "C" fn apply_chunked_response_items(
     dguard(ctx, || {
         let s = &mut *(obj as *mut SinkChunkedResponse);
         let base = s.base;
+        // N5: token -1 = no `new` was called; construct the element and append it.
+        if tok < 0 {
+            s.out.items.push(from_chunk_element(&*fx, base, ctx));
+            return;
+        }
         fill_chunk_element(&mut s.out.items[tok as usize], &*fx, base, ctx);
     })
 }
@@ -11657,6 +11909,7 @@ unsafe extern "C" fn add_chunked_response_items_labels(
     dguard(ctx, || {
         let s = &mut *(obj as *mut SinkChunkedResponse);
         let base = s.base;
+        let tok = if tok < 0 { s.out.items.len() as i64 - 1 } else { tok };
         // ABI v1 7.4: a batched add may be called more than once per field.
         let dst = &mut s.out.items[tok as usize].labels;
         dst.reserve(n as usize);
@@ -11674,6 +11927,7 @@ unsafe extern "C" fn add_chunked_response_items_attrs(
     dguard(ctx, || {
         let s = &mut *(obj as *mut SinkChunkedResponse);
         let base = s.base;
+        let tok = if tok < 0 { s.out.items.len() as i64 - 1 } else { tok };
         // ABI v1 7.4: a batched add may be called more than once per field.
         let dst = &mut s.out.items[tok as usize].attrs;
         for i in 0..n as usize {
@@ -11695,6 +11949,7 @@ unsafe extern "C" fn add_chunked_response_items_inner_marks(
     dguard(ctx, || {
         let s = &mut *(obj as *mut SinkChunkedResponse);
         let base = s.base;
+        let tok = if tok < 0 { s.out.items.len() as i64 - 1 } else { tok };
         // ABI v1 7.4: a batched add may be called more than once per field.
         let dst = &mut s.out.items[tok as usize].inner.get_or_insert_with(Default::default).marks;
         dst.reserve(n as usize);
@@ -11712,6 +11967,7 @@ unsafe extern "C" fn add_chunked_response_items_inner_leaves(
     dguard(ctx, || {
         let s = &mut *(obj as *mut SinkChunkedResponse);
         let base = s.base;
+        let tok = if tok < 0 { s.out.items.len() as i64 - 1 } else { tok };
         // ABI v1 7.4: a batched add may be called more than once per field.
         let dst = &mut s.out.items[tok as usize].inner.get_or_insert_with(Default::default).leaves;
         dst.reserve(n as usize);
@@ -11742,7 +11998,7 @@ pub fn decode_with_chunked_response(ctxs: DecCtxs, b: &[u8]) -> Result<ChunkedRe
             add_items_inner_marks: Some(add_chunked_response_items_inner_marks),
             add_items_inner_leaves: Some(add_chunked_response_items_inner_leaves),
         };
-        ak_decode_ChunkedResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_ChunkedResponse_af(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -11986,6 +12242,11 @@ unsafe extern "C" fn apply_chunked_response_wide_items(
     dguard(ctx, || {
         let s = &mut *(obj as *mut SinkChunkedResponseWide);
         let base = s.base;
+        // N5: token -1 = no `new` was called; construct the element and append it.
+        if tok < 0 {
+            s.out.items.push(from_chunk_element(&*fx, base, ctx));
+            return;
+        }
         fill_chunk_element(&mut s.out.items[tok as usize], &*fx, base, ctx);
     })
 }
@@ -12000,6 +12261,7 @@ unsafe extern "C" fn add_chunked_response_wide_items_labels(
     dguard(ctx, || {
         let s = &mut *(obj as *mut SinkChunkedResponseWide);
         let base = s.base;
+        let tok = if tok < 0 { s.out.items.len() as i64 - 1 } else { tok };
         // ABI v1 7.4: a batched add may be called more than once per field.
         let dst = &mut s.out.items[tok as usize].labels;
         dst.reserve(n as usize);
@@ -12017,6 +12279,7 @@ unsafe extern "C" fn add_chunked_response_wide_items_attrs(
     dguard(ctx, || {
         let s = &mut *(obj as *mut SinkChunkedResponseWide);
         let base = s.base;
+        let tok = if tok < 0 { s.out.items.len() as i64 - 1 } else { tok };
         // ABI v1 7.4: a batched add may be called more than once per field.
         let dst = &mut s.out.items[tok as usize].attrs;
         for i in 0..n as usize {
@@ -12038,6 +12301,7 @@ unsafe extern "C" fn add_chunked_response_wide_items_inner_marks(
     dguard(ctx, || {
         let s = &mut *(obj as *mut SinkChunkedResponseWide);
         let base = s.base;
+        let tok = if tok < 0 { s.out.items.len() as i64 - 1 } else { tok };
         // ABI v1 7.4: a batched add may be called more than once per field.
         let dst = &mut s.out.items[tok as usize].inner.get_or_insert_with(Default::default).marks;
         dst.reserve(n as usize);
@@ -12055,6 +12319,7 @@ unsafe extern "C" fn add_chunked_response_wide_items_inner_leaves(
     dguard(ctx, || {
         let s = &mut *(obj as *mut SinkChunkedResponseWide);
         let base = s.base;
+        let tok = if tok < 0 { s.out.items.len() as i64 - 1 } else { tok };
         // ABI v1 7.4: a batched add may be called more than once per field.
         let dst = &mut s.out.items[tok as usize].inner.get_or_insert_with(Default::default).leaves;
         dst.reserve(n as usize);
@@ -12085,7 +12350,7 @@ pub fn decode_with_chunked_response_wide(ctxs: DecCtxs, b: &[u8]) -> Result<Chun
             add_items_inner_marks: Some(add_chunked_response_wide_items_inner_marks),
             add_items_inner_leaves: Some(add_chunked_response_wide_items_inner_leaves),
         };
-        ak_decode_ChunkedResponseWide(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_ChunkedResponseWide_af(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -12336,7 +12601,7 @@ pub fn decode_with_leaf_element(ctxs: DecCtxs, b: &[u8]) -> Result<LeafElement, 
         let vt = ak_dvt_LeafElement {
             apply: Some(apply_leaf_element),
         };
-        ak_decode_LeafElement(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_LeafElement_af(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -12563,7 +12828,7 @@ pub fn decode_with_leaf_response(ctxs: DecCtxs, b: &[u8]) -> Result<LeafResponse
             apply: Some(apply_leaf_response),
             add_items: Some(add_leaf_response_items),
         };
-        ak_decode_LeafResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_LeafResponse_af(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -12826,7 +13091,7 @@ pub fn decode_with_surrogate(ctxs: DecCtxs, b: &[u8]) -> Result<Surrogate, i32> 
             add_attrs: Some(add_surrogate_attrs),
             add_texts: Some(add_surrogate_texts),
         };
-        ak_decode_Surrogate(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_Surrogate_af(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -13050,7 +13315,7 @@ pub fn decode_with_surrogate_inner(ctxs: DecCtxs, b: &[u8]) -> Result<SurrogateI
         let vt = ak_dvt_SurrogateInner {
             apply: Some(apply_surrogate_inner),
         };
-        ak_decode_SurrogateInner(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_SurrogateInner_af(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -13273,7 +13538,7 @@ pub fn decode_with_wire_zoo(ctxs: DecCtxs, b: &[u8]) -> Result<WireZoo, i32> {
         let vt = ak_dvt_WireZoo {
             apply: Some(apply_wire_zoo),
         };
-        ak_decode_WireZoo(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_WireZoo_af(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }

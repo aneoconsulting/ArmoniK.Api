@@ -65,6 +65,14 @@ ROOTS = [
 ]
 
 
+ELEM_ORDER = "apply_first"   # optimisation N5; "new_apply" is ABI v1's order
+
+
+def AF(p):
+    """The plan with this slice's element order (optimisation N5, plan option elem_order)."""
+    return P.relower(p, p.options.with_elem_order(ELEM_ORDER))
+
+
 def targets(ir):
     # ABI v1 section 8's refusal, at generator time, before a line is emitted.
     for root in ir.roots:
@@ -87,10 +95,12 @@ def targets(ir):
         # this slice's `--check` gates the core it measures.
         "../codec/crates/ak-abi/src/generated/abi.rs": rust_abi.emit_abi(ir),
         "../codec/crates/ak-core/src/generated/codec.rs": codec,
-        "crates/harness/src/generated/binding.rs": rust_binding.emit_binding(ir),
+        # Optimisation N5 (an experiment, plan option elem_order): this slice's bindings
+        # call the apply-first entries; the core carries both orders.
+        "crates/harness/src/generated/binding.rs": rust_binding.emit_binding(AF(ir)),
         # WP5 step 10: the no-unknown variant's binding (harness feature `unknown-fields` off).
         "crates/harness/src/generated/binding_nounk.rs":
-            rust_binding.emit_binding(P.relower(ir, ir.options.with_unknown("drop"))),
+            rust_binding.emit_binding(AF(P.relower(ir, ir.options.with_unknown("drop")))),
         # FIX-PLAN WP3 (design/CAMPAIGN.md): the campaign's per-root table and visitors.
         "crates/campaign/src/generated/roots.rs": rust_campaign.emit(ir),
     }
@@ -116,9 +126,9 @@ def corpus_targets():
         "corpus/crates/facade/src/generated/core_native_retain.rs":
             rust_native.emit_core_native(full, "retain"),
         "corpus/crates/facade/src/generated/project.rs": rust_project.emit(full),
-        "corpus/crates/harness/src/generated/binding.rs": rust_binding.emit_binding(abi),
+        "corpus/crates/harness/src/generated/binding.rs": rust_binding.emit_binding(AF(abi)),
         "corpus/crates/harness/src/generated/binding_nounk.rs":
-            rust_binding.emit_binding(P.relower(abi, abi.options.with_unknown("drop"))),
+            rust_binding.emit_binding(AF(P.relower(abi, abi.options.with_unknown("drop")))),
         "corpus/crates/harness/src/generated/dispatch.rs":
             rust_corpus.emit_dispatch(full, abi_roots, refused),
         # The core for the corpus schema, written here too so this slice's --check gates it.

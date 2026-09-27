@@ -362,27 +362,45 @@ class Options:
               Encode never validates: a host string type carries the invariant, and a
               converting transcoder refuses what it cannot encode (ABI v1 decision 3).
     recursion_limit   message nesting below the root beyond which a decode is refused.
+    elem_order  the push decode's order for a non-batchable element (ABI v1 open decision
+              10; optimisation N5, an EXPERIMENT): "new_apply" (the default and ABI v1's
+              order: `new_<slot>`, the runs, `apply_<slot>`, entry `ak_decode_<R>`) or
+              "apply_first" (entry `ak_decode_<R>_af`: `apply_<slot>` with token -1 first,
+              the held runs after it with token -1; `new` only as the fallback when the runs
+              do not fit the arena). The core emits BOTH entries whatever this says; the
+              option chooses what a BINDING calls and whether its `apply`/`add` accept token
+              -1. Only the rust binding renders "apply_first"; every other backend keeps
+              "new_apply".
     """
 
-    def __init__(self, unknown="both", utf8="reject", recursion_limit=100):
+    def __init__(self, unknown="both", utf8="reject", recursion_limit=100, elem_order="new_apply"):
         if unknown not in ("drop", "retain", "both"):
             raise ValueError("unknown must be drop, retain or both, not %r" % unknown)
         if utf8 not in ("reject", "lossy"):
             raise ValueError("utf8 must be reject or lossy, not %r" % utf8)
+        if elem_order not in ("new_apply", "apply_first"):
+            raise ValueError("elem_order must be new_apply or apply_first, not %r" % elem_order)
         self.unknown = unknown
         self.utf8 = utf8
         self.recursion_limit = recursion_limit
+        self.elem_order = elem_order
 
     def with_unknown(self, mode):
-        return Options(mode, self.utf8, self.recursion_limit)
+        return Options(mode, self.utf8, self.recursion_limit, self.elem_order)
+
+    def with_elem_order(self, order):
+        return Options(self.unknown, self.utf8, self.recursion_limit, order)
 
     @property
     def retain(self):
         return self.unknown in ("retain", "both")
 
     def __repr__(self):
-        return "Options(unknown=%r, utf8=%r, recursion_limit=%d)" % (
-            self.unknown, self.utf8, self.recursion_limit)
+        # elem_order only when not the default: this text is in other slices' generated
+        # files, which must not change for an option they do not use.
+        extra = "" if self.elem_order == "new_apply" else ", elem_order=%r" % self.elem_order
+        return "Options(unknown=%r, utf8=%r, recursion_limit=%d%s)" % (
+            self.unknown, self.utf8, self.recursion_limit, extra)
 
 
 class EncStep:

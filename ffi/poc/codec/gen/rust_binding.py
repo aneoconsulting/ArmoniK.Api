@@ -521,7 +521,11 @@ def _lifecycle(p):
 
 def emit_binding(ir):
     ir = as_plan(ir)
-    global NOUNK
+    global NOUNK, AF
+    # Optimisation N5 (plan option elem_order): "apply_first" calls ak_decode_<R>_af, and
+    # the non-batchable element's apply/add take token -1 (construct and append / the
+    # element apply just made).
+    AF = getattr(ir.options, "elem_order", "new_apply") == "apply_first"
     # WP5 step 10: the NO-UNKNOWN variant's binding (plan: THE NO-UNKNOWN VARIANT): no
     # u-groups, no bags handed to the core or taken from it, no options, no `_unk` family.
     NOUNK = unknown_compiled_out(ir)
@@ -1085,7 +1089,13 @@ def emit_binding(ir):
             if not NOUNK:
                 o.append("    dst.unknown_fields.extend_from_slice(&take_unk(&f.unknown));")
             o.append("}")
-        else:
+        if slots and AF:
+            o.append("")
+            o.append("/// Optimisation N5 (apply-first): the element constructed ONCE from its group; its")
+            o.append("/// repeated and map fields start empty and the held runs append to them.")
+        if not slots or AF:
+            if slots:
+                o.append("#[allow(dead_code)]")
             o.append("#[inline(always)]")
             o.append("unsafe fn from_%s(f: &ak_dfix_%s, base: *const u8, ctx: *mut ak_dec_ctx) -> %s {"
                      % (snake(name), name, name))
@@ -1164,6 +1174,12 @@ def emit_binding(ir):
                 o.append("    dguard(ctx, || {")
                 o.append("        let s = &mut *(obj as *mut Sink%s);" % root)
                 o.append("        let base = s.base;")
+                if AF:
+                    o.append("        // N5: token -1 = no `new` was called; construct the element and append it.")
+                    o.append("        if tok < 0 {")
+                    o.append("            s.out.%s.push(from_%s(&*fx, base, ctx));" % (sn, snake(et)))
+                    o.append("            return;")
+                    o.append("        }")
                 o.append("        fill_%s(&mut s.out.%s[tok as usize], &*fx, base, ctx);" % (snake(et), sn))
                 o.append("    })")
                 o.append("}")
@@ -1224,7 +1240,7 @@ def emit_binding(ir):
             else:
                 o.append("            add_%s: Some(add_%s_%s)," % (sn, rs, sn))
         o.append("        };")
-        o.append("        ak_decode_%s(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)" % root)
+        o.append("        ak_decode_%s%s(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)" % (root, "_af" if AF else ""))
         o.append("    };")
         o.append("    if rc < 0 { Err(rc) } else { Ok(out) }")
         o.append("}")
@@ -1657,6 +1673,9 @@ def _emit_add(ir, o, root, et, sn, path, f):
     o.append("        let base = s.base;")
     if et:
         target = "s.out.%s[tok as usize]" % sn
+        if AF:
+            # N5: token -1 = the element apply just constructed (the last one).
+            o.append("        let tok = if tok < 0 { s.out.%s.len() as i64 - 1 } else { tok };" % sn)
         for i, p in enumerate(path[:-1]):
             target = "%s.%s.get_or_insert_with(Default::default)" % (target, p)
         target = "%s.%s" % (target, path[-1])
@@ -2005,6 +2024,7 @@ def _run_call(ir, f, et, n, done, bag=False):
 
 
 NOUNK = False
+AF = False
 
 
 def _emit_unk_clear(ir, root):

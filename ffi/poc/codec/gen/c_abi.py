@@ -338,6 +338,13 @@ def emit(x, extra_asserts=()):
                      % (root, root, root, dargs))
         o.append("int32_t ak_decode_%s(ak_dec_ctx *ctx, void *obj, const uint8_t *buf,"
                  " size_t len, const struct ak_dvt_%s *vt);" % (root, root))
+        o.append("/* Optimisation N5 (ABI v1 open decision 10, an EXPERIMENT; additive): the apply-first"
+                 " element order. A non-batchable element whose inner runs fit the arena gets no"
+                 " new_<slot>: apply_<slot> is called with token -1 (construct the element from the"
+                 " group and append it), then its runs with token -1 (the element apply just made);"
+                 " an element whose runs do not fit falls back to new, runs, apply as ak_decode_*. */")
+        o.append("int32_t ak_decode_%s_af(ak_dec_ctx *ctx, void *obj, const uint8_t *buf,"
+                 " size_t len, const struct ak_dvt_%s *vt);" % (root, root))
         o.append("int32_t ak_parse_%s(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);" % root)
         for fname, params, ret, _doc in unk_entry_points(p, root):
             o.append(_decl(fname, params, ret))

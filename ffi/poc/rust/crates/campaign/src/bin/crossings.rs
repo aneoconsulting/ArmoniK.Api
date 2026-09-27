@@ -139,6 +139,21 @@ fn main() {
     }
     // A build without counters reads zero everywhere: refuse rather than write zeros.
     assert!(out.iter().any(|l| !l.trim_end().ends_with("0        0      0")), "not a counting build (--features count)");
+    // Optimisation N5: the fallback inputs' decode counts (new is called for the element
+    // that falls back, and only for it), after the same equality check the pre-check makes.
+    let (_, f) = campaign::n5_checks(&ctx);
+    assert!(f.is_empty(), "N5 fallback: {f:?}");
+    for (id, wire) in campaign::n5_fallback_inputs() {
+        for &(mname, retain) in campaign::MODES {
+            use campaign::generated::roots::R_ListTasksDetailedResponse as M2;
+            use campaign::Ops;
+            let d = M2::dec_ctx(&ctx);
+            host_calls_take();
+            unsafe { ak_dec_counters_reset(d) };
+            M2::f_decode(&ctx, &wire, retain).expect("N5 fallback input decodes");
+            out.push(row(id, "decode", mname, dec(d), host_calls_take()));
+        }
+    }
     rpc_rows(&mut out);
     println!("# CAMPAIGN req 19 (as amended 2026-09-26): forward = every exported entry point called (core-counted + the");
     println!("# binding's ak_enc_reset / ak_dec_reset_<Root> / ak_enc_take / ak_dec_err); resets = ak_enc_reset before each");
@@ -147,6 +162,7 @@ fn main() {
     println!("# rpc:<cell> rows: one call of cell B, C, D or E (P2.2; a = Fetch + decode, b = encode + Push), core RPC counters included;");
     println!("# Bf, Cf, Df, Ef: the same cells on the framed send path (T1 option 3; ak_client_set_framed is called once at open, not per call).");
     println!("# c/P5.3, c/P5.4: U1-unary, one upload of M5 (encode + Upload; the response is empty and decoded by nobody).");
+    println!("# Push decode (ak_decode_<R>_af, optimisation N5 apply-first): no new_<slot> for an element whose runs fit; N5-arena, N5-held: the two fallback inputs.");
     println!("# input                                            direction    mode        forward  reverse resets");
     for l in out {
         println!("{l}");
