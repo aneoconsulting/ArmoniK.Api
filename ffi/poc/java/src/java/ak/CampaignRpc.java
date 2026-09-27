@@ -10,17 +10,11 @@ import com.google.protobuf.Message;
 import io.grpc.CallOptions;
 import io.grpc.ManagedChannel;
 import io.grpc.MethodDescriptor;
-import io.grpc.Server;
-import io.grpc.ServerServiceDefinition;
-import io.grpc.Status;
 import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder;
-import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder;
 import io.grpc.netty.shaded.io.netty.channel.epoll.EpollDomainSocketChannel;
 import io.grpc.netty.shaded.io.netty.channel.epoll.EpollEventLoopGroup;
-import io.grpc.netty.shaded.io.netty.channel.epoll.EpollServerDomainSocketChannel;
 import io.grpc.netty.shaded.io.netty.channel.unix.DomainSocketAddress;
 import io.grpc.stub.ClientCalls;
-import io.grpc.stub.ServerCalls;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -32,12 +26,15 @@ import java.util.List;
 /**
  * design/CAMPAIGN.md section 4.2, the RPC grid, for the JVM.
  *
- * <p><b>Processes.</b> {@code --serve <shipped-socket> <pinned-socket>} is the server, ONE
- * JVM per launch pinned to {@code AK_CPU_SERVER}, serving every cell of both builds on two
- * Unix domain sockets, one per transport configuration (req 13 as amended, R-H33). Each
- * client process is pinned to {@code AK_CPU_CLIENT} and runs every cell of its build and
- * transport, rotated per round (req 22). The client's CPU is
- * {@code CLOCK_PROCESS_CPUTIME_ID} (req 21), which contains no server work.
+ * <p><b>Processes.</b> The server is the Rust slice's tonic {@code rpc_server}, the one RPC
+ * server of every slice (CAMPAIGN req 13 as amended at 9f6d579fa, FIX-PLAN WP10; interface
+ * {@code poc/rust/SERVER.md}), ONE process per launch started through
+ * {@code poc/rust/serve.sh}, pinned to {@code AK_CPU_SERVER}, on two Unix domain sockets
+ * (its {@code shipped} and {@code pinned} configurations). Service
+ * {@code armonik.ffi.campaign.v1.Grid}: Fetch (a), Push (b), Upload (c), UploadStream (d),
+ * UploadStreamCheck (the upload check). The timed client is {@code ak.RpcJmh}, one JMH
+ * fork per cell, pinned to {@code AK_CPU_CLIENT}; its CPU is {@code CLOCK_PROCESS_CPUTIME_ID}
+ * (req 21), which contains no server work.
  *
  * <pre>
  *   cell  codec                                 transport
@@ -66,43 +63,42 @@ import java.util.List;
  *
  * <p><b>The no-unknown build</b> (WP5 step 10): this class compiled against the tree
  * generated from the plan relowered with unknown="drop" and run on that build's core
- * runs A, B and the C to F cells in {@code nounk}; A and B are the in-process controls that
- * let a ratio be formed against the full build's process. Every sample carries
+ * runs A, B and the C to F cells in {@code nounk}; A and B are the controls (each in its own
+ * JMH fork) that let a ratio be formed against the full build's. Every sample carries
  * {@code unknown_mode} (default, retain, drop, no-unknown), {@code codec} and {@code build}.
  *
  * <p><b>The server does identical work in every cell</b> (req 13): direction (a) answers
- * every request with the SAME pre-serialised P2.2 bytes; direction (b) parses the request
- * with protobuf-java and answers with an empty body. Both through a pass-through byte
- * marshaller, so no cell's codec runs on the server.
+ * every request with the SAME pre-serialised P2.2 bytes; (b) and (c) decode the request with
+ * prost and answer empty; (d) decodes every message with prost and answers the data byte
+ * count (u64 LE), plus, on UploadStreamCheck, the SHA-256 of every message as received.
  *
  * <p><b>Directions</b> (req 14): (a) empty request, P2.2 response, which the client decodes;
  * (b) a P2.2 request, encoded per call from a FRESH object graph (req 11: a pool rebuilt
  * between chunks, outside the timed phases), empty response.
  *
- * <p><b>Every call is checked</b> (req 18): an exception or a non-OK status aborts, and the
- * response length must equal the expected one (the P2.2 body in (a), 0 in (b)); the first
- * failure exits non-zero before any sample is written.
- *
- * <p><b>Timing</b>: a sample is {@code ak.camp.calls} calls spread over {@code inflight}
- * blocking threads (1, 8, 16: req 15), run in chunks of {@code ak.camp.chunk} calls per
- * thread; only the chunks' run phases are timed (CPU and wall), the pool refills between
- * them are not.
+ * <p><b>Every call is checked</b> (req 18): an exception or a non-OK status fails, and the
+ * response length must equal the expected one (the P2.2 body in (a), 0 in (b) and (c), the
+ * byte count in (d)); under JMH a failure throws ({@link #THROW_ON_FAIL}), elsewhere it
+ * exits non-zero. The plant ({@code -Dak.camp.plant=1}) expects one byte more in (c) and (d),
+ * on the client (SERVER.md: the shared server's answers never change).
  *
  * <p><b>Transport</b> (req 17), one per process, {@code ak.camp.transport}:
+ * the client's configuration against the server socket of the same name.
  * {@code shipped}: grpc-java's defaults over Netty epoll on the Unix domain socket (req 17
  * as amended, R-H28: packages/java configures no UDS channel), the core with its defaults
- * (no options: tonic's), the server with grpc-java's defaults.
- * {@code pinned}: 4 MiB stream and connection windows on all three (grpc-java: setting the
- * window turns BDP auto-tuning off; the core: stream_window = connection_window = 4 MiB,
- * adaptive_window = 0, tcp_nagle = 0), max messages 8 MiB.
+ * (no options: tonic's); the server's shipped socket is tonic's server defaults.
+ * {@code pinned}: 4 MiB stream and connection windows (grpc-java: setting the window turns
+ * BDP auto-tuning off; the core: stream_window = connection_window = 4 MiB,
+ * adaptive_window = 0, tcp_nagle = 0), max messages 8 MiB; the server's pinned socket has
+ * 4 MiB stream and connection windows, adaptive window off.
  */
 public final class CampaignRpc {
   static final String PAYLOAD = "P2.2";
-  static final String GET = "ak.Bench/Get";   // direction (a)
-  static final String PUT = "ak.Bench/Put";   // direction (b)
-  static final String UPLOAD = "ak.Bench/Upload";              // direction (c), unary
-  static final String STREAM = "ak.Bench/UploadStream";        // direction (d), client stream
-  static final String STREAM_CHECK = "ak.Bench/UploadStreamCheck";   // (d) with the digest
+  static final String GET = "armonik.ffi.campaign.v1.Grid/Fetch";   // direction (a)
+  static final String PUT = "armonik.ffi.campaign.v1.Grid/Push";    // direction (b)
+  static final String UPLOAD = "armonik.ffi.campaign.v1.Grid/Upload";              // direction (c), unary
+  static final String STREAM = "armonik.ffi.campaign.v1.Grid/UploadStream";        // direction (d), client stream
+  static final String STREAM_CHECK = "armonik.ffi.campaign.v1.Grid/UploadStreamCheck";   // (d) with the digest
   /** Req 14 (c): the unary uploads, M5 (UploadResultDataMessage), 1 MB and 4 MB. */
   static final String[] C_PAYLOADS = {"P5.3", "P5.4"};
   /** Req 14 (d): (label, 2 MiB chunks): 4 MiB and 16 MiB, ArmoniK's UploadResultData stream. */
@@ -206,54 +202,12 @@ public final class CampaignRpc {
         .setFullMethodName(name).setRequestMarshaller(BYTES).setResponseMarshaller(BYTES).build();
   }
 
-  /** (d)'s server handler: every message parsed with protobuf-java as M5, the ids required
-   *  on the first; the answer is the data byte count (u64 LE), plus, on the check path, the
-   *  SHA-256 of every message as received. */
-  static io.grpc.stub.StreamObserver<byte[]> streamHandler(final io.grpc.stub.StreamObserver<byte[]> obs, final boolean check) {
-    return new io.grpc.stub.StreamObserver<byte[]>() {
-      long total;
-      boolean first = true, failed;
-      final java.security.MessageDigest md = sha();
-      @Override public void onNext(byte[] m) {
-        if (failed) return;
-        try {
-          if (check) md.update(m);
-          ak.pb.UploadResultDataMessage v = ak.pb.UploadResultDataMessage.parseFrom(m);
-          if (!v.hasUpload()) throw new IllegalStateException("a message without upload");
-          if (first && (v.getUpload().getSessionId().isEmpty() || v.getUpload().getResultId().isEmpty()))
-            throw new IllegalStateException("the first message carries no ids");
-          first = false;
-          total += v.getUpload().getDataChunk().size();
-        } catch (Exception e) {
-          failed = true;
-          obs.onError(Status.INVALID_ARGUMENT.withDescription(e.toString()).asRuntimeException());
-        }
-      }
-      @Override public void onError(Throwable t) {}
-      @Override public void onCompleted() {
-        if (failed) return;
-        byte[] out = new byte[check ? 40 : 8];
-        for (int i = 0; i < 8; i++) out[i] = (byte) (total >>> (8 * i));
-        if (check) System.arraycopy(md.digest(), 0, out, 8, 32);
-        obs.onNext(out);
-        obs.onCompleted();
-      }
-    };
-  }
-
-  static java.security.MessageDigest sha() {
-    try { return java.security.MessageDigest.getInstance("SHA-256"); }
-    catch (java.security.NoSuchAlgorithmException e) { throw new IllegalStateException(e); }
-  }
-
   static MethodDescriptor<byte[], byte[]> bytesMd(String name) {
     return MethodDescriptor.<byte[], byte[]>newBuilder().setType(MethodDescriptor.MethodType.UNARY)
         .setFullMethodName(name).setRequestMarshaller(BYTES).setResponseMarshaller(BYTES).build();
   }
 
-  // ---- the server ------------------------------------------------------------------
-
-  /** Worker thread counts (req 4, R-H34): Netty event loops on each side (default for
+  /** Worker thread counts (req 4, R-H34): the client's Netty event loops (default for
    *  grpc-java: 2 x the CPUs the JVM sees; fixed here from `ak.rpc.eventLoops` so the header
    *  can state it), the core's runtime workers (`ak.rpc.workers`); grpc-java's call executor
    *  is its default shared cached pool (grows per concurrent call), stated. */
@@ -261,67 +215,9 @@ public final class CampaignRpc {
   static final int CORE_WORKERS = Integer.getInteger("ak.rpc.workers", 2);
 
   static String threadsJson() {
-    return "{\"netty_event_loops\":" + EVENT_LOOPS + ",\"netty_boss_loops_server\":1,\"core_runtime_workers\":"
+    return "{\"netty_event_loops\":" + EVENT_LOOPS + ",\"core_runtime_workers\":"
         + CORE_WORKERS + ",\"grpc_executor\":\"grpc-java default (shared cached thread pool)\""
         + ",\"cpus_seen_by_jvm\":" + Runtime.getRuntime().availableProcessors() + "}";
-  }
-
-  /** Req 13 as amended (R-H33): ONE server process per launch serving every cell of both
-   *  builds, one socket per transport configuration (shipped: grpc-java's defaults; pinned:
-   *  4 MiB window, BDP off), sharing one boss and one worker event loop group. */
-  static void serve(String shippedPath, String pinnedPath) throws Exception {
-    final byte[] body = PbArms.build(PAYLOAD, Values.ASCII).toByteArray();
-    final byte[] empty = new byte[0];
-    ServerServiceDefinition svc = ServerServiceDefinition.builder("ak.Bench")
-        .addMethod(bytesMd(GET), ServerCalls.asyncUnaryCall((req, obs) -> {
-          obs.onNext(body);
-          obs.onCompleted();
-        }))
-        .addMethod(bytesMd(PUT), ServerCalls.asyncUnaryCall((req, obs) -> {
-          try {
-            Message m = PbArms.parseArray(PAYLOAD, req);
-            if (m.getSerializedSize() <= 0) throw new IllegalStateException("empty P2.2");
-          } catch (Exception e) {
-            obs.onError(Status.INVALID_ARGUMENT.withDescription(e.toString()).asRuntimeException());
-            return;
-          }
-          obs.onNext(empty);
-          obs.onCompleted();
-        }))
-        // Req 14 (c): a unary upload of P5.3 / P5.4, parsed with protobuf-java; empty answer.
-        .addMethod(bytesMd(UPLOAD), ServerCalls.asyncUnaryCall((req, obs) -> {
-          try {
-            ak.pb.UploadResultDataMessage m = ak.pb.UploadResultDataMessage.parseFrom(req);
-            if (!m.hasUpload() || m.getUpload().getDataChunk().isEmpty()) throw new IllegalStateException("empty upload");
-          } catch (Exception e) {
-            obs.onError(Status.INVALID_ARGUMENT.withDescription(e.toString()).asRuntimeException());
-            return;
-          }
-          obs.onNext(empty);
-          obs.onCompleted();
-        }))
-        // Req 14 (d): the client-streamed upload and its digest-checking twin.
-        .addMethod(bytesStreamMd(STREAM), ServerCalls.asyncClientStreamingCall(obs -> streamHandler(obs, false)))
-        .addMethod(bytesStreamMd(STREAM_CHECK), ServerCalls.asyncClientStreamingCall(obs -> streamHandler(obs, true)))
-        .build();
-    EpollEventLoopGroup boss = new EpollEventLoopGroup(1), work = new EpollEventLoopGroup(EVENT_LOOPS);
-    List<Server> servers = new ArrayList<Server>();
-    for (String t : new String[] {"shipped", "pinned"}) {
-      String path = t.equals("shipped") ? shippedPath : pinnedPath;
-      java.io.File f = new java.io.File(path);
-      f.delete();
-      NettyServerBuilder sb = NettyServerBuilder.forAddress(new DomainSocketAddress(f))
-          .channelType(EpollServerDomainSocketChannel.class)
-          .bossEventLoopGroup(boss).workerEventLoopGroup(work).addService(svc)
-          // Req 14: P5.4 is 4,194,390 B, over grpc-java's 4 MiB default: 8 MiB on both sockets.
-          .maxInboundMessageSize(MAXMSG);
-      if (t.equals("pinned")) sb.flowControlWindow(WIN);
-      servers.add(sb.build().start());
-      System.out.println("SERVING " + path + " transport=" + t + " response=" + body.length + "B");
-    }
-    System.out.println("THREADS " + threadsJson());
-    System.out.flush();
-    for (Server s : servers) s.awaitTermination();
   }
 
   // ---- the client cells ----------------------------------------------------------------
@@ -447,7 +343,10 @@ public final class CampaignRpc {
       // Req 17 (R-H28): a Unix domain socket over Netty epoll. `shipped` is grpc-java's
       // defaults (packages/java configures no UDS channel); `pinned` sets the window.
       NettyChannelBuilder cb = NettyChannelBuilder.forAddress(new DomainSocketAddress(sock))
-          .channelType(EpollDomainSocketChannel.class).eventLoopGroup(elg).usePlaintext();
+          .channelType(EpollDomainSocketChannel.class).eventLoopGroup(elg).usePlaintext()
+          // grpc-java derives :authority from the socket path, which the Rust server's HTTP/2
+          // stack refuses (RST_STREAM PROTOCOL_ERROR): a host name, as over TCP.
+          .overrideAuthority("localhost");
       if (pinned) cb.flowControlWindow(WIN).maxInboundMessageSize(MAXMSG);
       ch = cb.build();
       final MethodDescriptor.Marshaller<Message> pm = io.grpc.protobuf.lite.ProtoLiteUtils.marshaller(
@@ -863,10 +762,6 @@ public final class CampaignRpc {
   }
 
   public static void main(String[] args) throws Exception {
-    if (args.length >= 3 && args[0].equals("--serve")) {
-      serve(args[1], args[2]);
-      return;
-    }
     if (args.length >= 1 && args[0].equals("--list")) {
       // The JMH `cell` params of this build and transport, rotated one step per launch (req 22).
       List<String> names = Campaign.rotate(cellNames(), Integer.getInteger("ak.camp.launch", 1) - 1);
@@ -884,8 +779,7 @@ public final class CampaignRpc {
 
     uploads();
     EpollEventLoopGroup elg = new EpollEventLoopGroup(EVENT_LOOPS);
-    List<Cell> cells = "1".equals(System.getProperty("ak.camp.warmserver"))
-        ? Arrays.asList(cell("A", sock, elg, pinned), cell("B", sock, elg, pinned)) : cells(sock, elg, pinned);
+    List<Cell> cells = cells(sock, elg, pinned);
     if ("1".equals(System.getProperty("ak.camp.uploadcheck"))) {
       // Req 18 for (c) and (d), before any timing (the gate runs it on both builds, and with
       // -Dak.camp.plant=1 as the control that must fail): every cell's unary uploads, and
@@ -908,26 +802,7 @@ public final class CampaignRpc {
       System.exit(0);
     }
 
-    if (!"1".equals(System.getProperty("ak.camp.warmserver")))
-      throw new IllegalArgumentException("timing runs on JMH (ak.RpcJmh); this client is --serve, --list,"
-          + " ak.camp.warmserver, ak.camp.count or ak.camp.uploadcheck");
-    // ak.camp.warmserver (req 13, 24): the runner warms the launch's one server before the
-    // framework runs, through this client's transport, `ak.camp.serverwarm` calls of every
-    // direction on cell A (grpc-java) and cell B (the core).
-    int n = Integer.getInteger("ak.camp.serverwarm", 200);
-    long made = 0;
-    for (Cell c : cells) {
-      if (!c.name.equals("A") && !c.name.equals("B")) continue;
-      for (String[] cb : combos()) {
-        Object req = c.fresh();
-        int m = cb[1].equals("c") || cb[1].equals("d") ? Math.max(1, n / 20) : n;
-        for (int i = 0; i < m; i++) { call(c, cb[0], cb[1].equals("b") ? c.fresh() : req); made++; }
-      }
-    }
-    System.out.println("SERVER WARMED transport=" + transport + " calls=" + made);
-    for (Cell c : cells) c.close();
-    releaseThread();
-    elg.shutdownGracefully(0, 0, java.util.concurrent.TimeUnit.SECONDS);
-    System.exit(0);
+    throw new IllegalArgumentException("timing runs on JMH (ak.RpcJmh); this client is --list,"
+        + " ak.camp.count or ak.camp.uploadcheck");
   }
 }

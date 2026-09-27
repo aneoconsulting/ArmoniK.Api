@@ -84,6 +84,23 @@ PIN_C=$(pin "${AK_CPU_CLIENT:-}"); PIN_S=$(pin "${AK_CPU_SERVER:-}")
 if [ "${AK_CAMPAIGN_NO_BUILD:-0}" != 1 ]; then
   bash gen/build.sh > "$OUT/build-$COMMIT.log" 2>&1 || { echo "BUILD FAILED: $OUT/build-$COMMIT.log"; exit 1; }
 fi
+# The one RPC server of every slice (CAMPAIGN req 13 as amended at 9f6d579fa, FIX-PLAN WP10):
+# the Rust slice's tonic rpc_server, built, started, warmed and stopped through its serve.sh
+# (interface: poc/rust/SERVER.md). Its state file lives in this run's own directory, so
+# another slice's server in the same machine is never touched.
+SERVE="$TOP/ffi/poc/rust/serve.sh"
+export AK_SERVE_STATE="$SOCKDIR/serve.state"
+if [ "${AK_CAMPAIGN_NO_BUILD:-0}" != 1 ] || [ ! -x "$TOP/ffi/poc/rust/target-server/release/rpc_server" ]; then
+  bash "$SERVE" build >> "$OUT/build-$COMMIT.log" 2>&1 || { echo "SERVER BUILD FAILED: $OUT/build-$COMMIT.log"; exit 1; }
+fi
+serve_start() {  # $1 = DIR for its log; sets SS, SP (the shipped and pinned sockets)
+  local o
+  o=$(AK_CPU_SERVER="${AK_CPU_SERVER:-}" bash "$SERVE" start --out "$1") || return 1
+  SS=$(echo "$o" | sed -n 's/^shipped //p'); SP=$(echo "$o" | sed -n 's/^pinned //p')
+  [ -S "$SS" ] && [ -S "$SP" ]
+}
+serve_stop() { bash "$SERVE" stop > /dev/null 2>&1 || true; }
+trap 'serve_stop; rm -rf "$SOCKDIR"' EXIT
 CP=$(cat deps/cp.txt)
 export AK_CODECGEN=${AK_CODECGEN:-$HERE/build/snap/ffi/poc/codec/gen}
 
@@ -151,13 +168,15 @@ run_gate() {
     echo "## crossing counts, no-unknown build, DIFFER from gen/campaign/counts-nounk.ref (req 19): see counts-nounk-$COMMIT.diff" >> "$f"; rc=1
   fi
   # Req 19 (R-H31): the RPC cells B, C, D and E, crossings per call, both builds, against
-  # one server (the pinned socket), from the counting core and the counting shim.
-  local ss="$SOCKDIR/gate-shipped.sock" sp="$SOCKDIR/gate-pinned.sock"
-  "$J17/bin/java" -cp "build/cls17:$CP" -Dak.lib="$HERE/build/jnirpc/libakjni.so" \
-    ak.CampaignRpc --serve "$ss" "$sp" > "$OUT/gate-rpc-server.txt" 2>&1 &
-  local spid=$!
-  for i in $(seq 1 120); do grep -q "SERVING $sp" "$OUT/gate-rpc-server.txt" 2>/dev/null && break; sleep 0.5; done
-  grep -q "SERVING $sp" "$OUT/gate-rpc-server.txt" || { echo "## rpc counts: the server did not start (gate-rpc-server.txt)" >> "$f"; rc=1; }
+  # one server (the pinned socket), from the counting core and the counting shim. The server
+  # is the shared Rust one (poc/rust/serve.sh, SERVER.md).
+  mkdir -p "$OUT/gate-rpc-server"
+  if serve_start "$OUT/gate-rpc-server"; then
+    echo "## rpc server: the Rust slice's rpc_server via poc/rust/serve.sh (poc/rust at $(cd "$TOP" && git rev-parse --short HEAD:ffi/poc/rust)); $(head -2 "$OUT/gate-rpc-server/rpc-server.log" | tr '\n' ' ')" >> "$f"
+  else
+    echo "## rpc counts: the server did not start (gate-rpc-server/rpc-server.log)" >> "$f"; rc=1
+  fi
+  local ss=$SS sp=$SP
   for v in "" -nounk; do
     "$J17/bin/java" -cp "build/cls17$v:$CP" -Dak.lib="$HERE/build/jnirpccnt$v/libakjni.so" \
       -Dak.rpclib="$HERE/build/jnirpccnt$v/libakjni.so" -Dak.camp.count=1 -Dak.camp.transport=pinned \
@@ -204,8 +223,7 @@ run_gate() {
     echo "## rpc JMH plant: NOT aborted (JMH exit $prc) -- the timed harness's checks are blind" >> "$f"; rc=1
   fi
   rm -f "$OUT/rpc-jmh-plant.json"
-  kill $spid 2>/dev/null || true; wait $spid 2>/dev/null || true
-  rm -f "$ss" "$sp"
+  serve_stop
   { echo "## the two committed references against each other (full -> no-unknown):"
     diff gen/campaign/counts.ref gen/campaign/counts-nounk.ref | sed 's/^/   /' || true; } >> "$f"
   if [ $rc = 0 ]; then echo "GATE PASSED" >> "$f"; echo "commit $COMMIT $(date -u +%FT%TZ)" > "$OUT/gate-$GKEY.ok"
@@ -295,7 +313,7 @@ rpc)
     WARM=${AK_SMOKE_WARM:-1}; WTIME=${AK_SMOKE_RPC_WARM_TIME:-20ms}; RTIME=${AK_SMOKE_RPC_ITER_TIME:-20ms}
     SWARM=${AK_SMOKE_RPC_SERVER_WARM:-20}
   fi
-  WARM_NOTE="warm-up (req 24): the server, AK_RPC_SERVER_WARM calls (campaign default 200, smoke AK_SMOKE_RPC_SERVER_WARM, default 20) of every (a, a+read, b) combination and a twentieth of that of every (c, d) one, on cells A (grpc-java) and B (the core) through each transport, before JMH; each client fork, JMH's warm-up: AK_WARM x $NCOMBO iterations (campaign default 2, smoke AK_SMOKE_WARM, default 1), i.e. every combination AK_WARM times, of AK_RPC_WARM_TIME each (campaign default 1s, smoke 20ms); JMH's measurement: AK_ROUNDS x $NCOMBO iterations of AK_RPC_ITER_TIME (campaign default 1s, smoke 20ms); GC and JIT state between iterations are JMH's defaults (no forced GC, tiered JIT)"
+  WARM_NOTE="warm-up (req 24): the server, poc/rust/serve.sh warm AK_RPC_SERVER_WARM (campaign default 200, smoke AK_SMOKE_RPC_SERVER_WARM, default 20): on each socket N checked Fetch, Push and Upload calls and ceil(N/4) UploadStream (4 MiB) calls from a tonic client and from the core's client (SERVER.md), before JMH; each client fork, JMH's warm-up: AK_WARM x $NCOMBO iterations (campaign default 2, smoke AK_SMOKE_WARM, default 1), i.e. every combination AK_WARM times, of AK_RPC_WARM_TIME each (campaign default 1s, smoke 20ms); JMH's measurement: AK_ROUNDS x $NCOMBO iterations of AK_RPC_ITER_TIME (campaign default 1s, smoke 20ms); GC and JIT state between iterations are JMH's defaults (no forced GC, tiered JIT)"
   # Req 18, 22a: on any failure the launch's output is discarded, not kept beside a later one.
   discard() {  # $1 = launch, $2 = why
     local l=$1
@@ -303,25 +321,15 @@ rpc)
       cat "$OUT"/rpc-*-launch-$l.jmh.txt 2>/dev/null | grep -E 'Exception|Error|req 18|<failure>|FAIL' | head -40; } \
       > "$OUT/rpc-launch-$l.FAILED.txt"
     rm -f "$OUT"/rpc-*-launch-$l.jsonl "$OUT"/rpc-*-launch-$l.jmh.json "$OUT"/rpc-*-launch-$l.jmh.txt
-    kill $SPID 2>/dev/null || true; wait $SPID 2>/dev/null || true
+    serve_stop
     echo "rpc launch $l FAILED ($2); no figure: $OUT/rpc-launch-$l.FAILED.txt"; exit 1
   }
-  server_up() {  # $1 = launch
+  server_up() {  # $1 = launch: start the shared server (pinned to AK_CPU_SERVER by serve.sh), warm it
     local l=$1
-    SS="$SOCKDIR/shipped-$l.sock"; SP="$SOCKDIR/pinned-$l.sock"
-    $PIN_S $JAVA -Dak.lib="$HERE/build/jnirpc/libakjni.so" ak.CampaignRpc --serve "$SS" "$SP" \
-      > "$OUT/rpc-server-launch-$l.txt" 2>&1 &
-    SPID=$!
-    for i in $(seq 1 120); do grep -q "SERVING $SP" "$OUT/rpc-server-launch-$l.txt" 2>/dev/null && break; sleep 0.5; done
-    grep -q "SERVING $SP" "$OUT/rpc-server-launch-$l.txt" || discard "$l" "the server did not start"
-    # The warm-up's own file: the server writes rpc-server-launch-<l>.txt from its own offset.
-    : > "$OUT/rpc-server-warm-launch-$l.txt"
-    for so in "$SS:shipped" "$SP:pinned"; do
-      $PIN_C "$J17/bin/java" $JVM_FLAGS -cp "build/cls17:$CP" -Dak.lib="$HERE/build/jnirpc/libakjni.so" \
-        -Dak.rpclib="$HERE/build/jnirpc/libakjni.so" -Dak.camp.warmserver=1 -Dak.camp.serverwarm="$SWARM" \
-        -Dak.camp.transport="${so#*:}" -Dak.camp.socket="${so%%:*}" ak.CampaignRpc \
-        >> "$OUT/rpc-server-warm-launch-$l.txt" 2>&1 || discard "$l" "the server warm-up through ${so#*:} failed"
-    done
+    mkdir -p "$OUT/rpc-server-launch-$l"
+    serve_start "$OUT/rpc-server-launch-$l" || discard "$l" "the server did not start"
+    bash "$SERVE" warm "$SWARM" > "$OUT/rpc-server-warm-launch-$l.txt" 2>&1 \
+      || discard "$l" "the server warm-up (serve.sh warm $SWARM) failed"
   }
   rpc_run() {  # $1 = launch, $2 = transport, $3 = full|nounk
     local l=$1 tr=$2 V=$3 SX= TAG=
@@ -335,9 +343,9 @@ rpc)
     echo "# command: $PIN_C java org.openjdk.jmh.Main ak.RpcJmh.batch -f 1 -foe true -wi $((WARM * NCOMBO)) -w $WTIME -i $((ROUNDS * NCOMBO)) -r $RTIME -p cell=<cells> -jvmArgs '$JVM_FLAGS ...'" >> "$f"
     echo "# one invocation = one batch of k calls in flight (k = the combination's in-flight level: call 0 on JMH's thread, 1..k-1 on persistent helper threads), counted as k calls (iters); wall_ns: JMH's per-iteration score (ns per invocation) x invocations; cpu_ns: the process CPU clock (CLOCK_PROCESS_CPUTIME_ID) read around every invocation, summed per iteration (an @AuxCounters counter JMH exports); JMH's own summary score averages unlike combinations and is not a figure" >> "$f"
     echo "# order (req 22): JMH runs the cells in the order given, rotated one step per launch, and cannot randomise across forks; inside a fork JMH iteration i runs combination (i + launch - 1) mod $NCOMBO (warm-up and measurement counted separately), so every round visits every combination, interleaved; the two builds alternate by launch" >> "$f"
-    echo "# server: $PIN_S java ... ak.CampaignRpc --serve, ONE process for launch $l serving every cell of both builds (shipped and pinned sockets; pre-serialised P2.2; direction b parses with protobuf-java; no core codec on the server); $(grep THREADS "$OUT/rpc-server-launch-$l.txt"); $(grep 'SERVER WARMED' "$OUT/rpc-server-warm-launch-$l.txt" | tr '\n' ' ')" >> "$f"
+    echo "# server (req 13 as amended at 9f6d579fa, FIX-PLAN WP10): the Rust slice's tonic rpc_server, the one RPC server of every slice, via poc/rust/serve.sh (interface poc/rust/SERVER.md; poc/rust at $(cd "$TOP" && git rev-parse --short HEAD:ffi/poc/rust)$(cd "$TOP" && git status --porcelain -- ffi/poc/rust | grep -qv '^??' && echo ', DIRTY')), ONE process for launch $l pinned to AK_CPU_SERVER=${AK_CPU_SERVER:-unset}, serving every cell of both builds on two Unix sockets: shipped = tonic's server defaults, pinned = 4 MiB stream and connection windows, adaptive window off; receive limit 8 MiB; service armonik.ffi.campaign.v1.Grid (Fetch a: P2.2 pre-serialised once; Push b, Upload c: decoded with prost, empty answer; UploadStream d: every message decoded, the byte count answered); $(head -2 "$OUT/rpc-server-launch-$l/rpc-server.log" | tr '\n' ' ')" >> "$f"
     echo "# delivery (req 16): B, C, E the core's blocking call and, in d, the core's blocking client stream (ak_call_open, ak_call_send / ak_call_send_enc for C, ak_call_recv); A, D, F grpc-java's ClientCalls.blockingUnaryCall (a generated blocking stub's call; packages/java's clients use blocking stubs) and, in d, ClientCalls.asyncClientStreamingCall with a StreamObserver (the async stub's call: client streaming has no blocking stub); Bf, Cf, Ef the same cells on the core's framed send path (ak_client_set_framed), grpc-java has no second send path; C (and Cf) sends its request with ak_call_unary_enc / ak_call_send_enc (the encode context's output moved), Cc-* is C with take() + ak_call_unary (the copy path, labelled extra); D and F hand grpc-java a byte[] (take() / Enc.toBytes()): grpc-java's send path copies every message through an OutputStream into its own buffers, so an owned native buffer (ak_enc_take_owned) would still be copied, through a heap array, and D keeps take()" >> "$f"
-    echo "# limits (D44): server 8 MiB inbound on both sockets (P5.4 is 4,194,390 B); core client shipped tonic's defaults (4 MiB received, unlimited sent: every response here is below 1 MiB), pinned 8 MiB both ways; grpc-java client defaults (4 MiB inbound, no send limit)" >> "$f"
+    echo "# limits (D44): server 8 MiB receive on both sockets (P5.4 is 4,194,390 B), send unlimited (tonic's default); core client shipped tonic's defaults (4 MiB received, unlimited sent: every response here is below 1 MiB), pinned 8 MiB both ways; grpc-java client defaults (4 MiB inbound, no send limit)" >> "$f"
     $PIN_C "$J17/bin/java" -Xmx512m -cp "build/jmh17$SX:build/cls17$SX:$CP:$JMHCP" org.openjdk.jmh.Main 'ak.RpcJmh.batch' \
       -f 1 -foe true -wi $((WARM * NCOMBO)) -w "$WTIME" -i $((ROUNDS * NCOMBO)) -r "$RTIME" -p cell="$CELLS" \
       -jvmArgs "$JVM_FLAGS -Dak.lib=$HERE/build/jnirpc$SX/libakjni.so -Dak.rpclib=$HERE/build/jnirpc$SX/libakjni.so -Dak.camp.socket=$sock -Dak.camp.transport=$tr -Dak.camp.launch=$l ${AK_RPC_PROPS:-}" \
@@ -348,12 +356,13 @@ rpc)
   }
   for l in $(seq 1 "$LAUNCHES"); do
     server_up "$l"
-    for tr in shipped pinned; do
-      if [ $((l % 2)) = 1 ]; then rpc_run "$l" "$tr" full; rpc_run "$l" "$tr" nounk
-      else rpc_run "$l" "$tr" nounk; rpc_run "$l" "$tr" full; fi
+    # AK_RPC_TRANSPORTS / AK_RPC_BUILDS (default both): a small exploration run may take one.
+    for tr in ${AK_RPC_TRANSPORTS:-shipped pinned}; do
+      BS=${AK_RPC_BUILDS:-full nounk}
+      [ $((l % 2)) = 0 ] && BS=$(echo "$BS" | tr ' ' '\n' | tac | tr '\n' ' ')
+      for V in $BS; do rpc_run "$l" "$tr" "$V"; done
     done
-    kill $SPID 2>/dev/null || true; wait $SPID 2>/dev/null || true
-    rm -f "$SS" "$SP"
+    serve_stop
   done ;;
 calib)
   N=${AK_CALIB_ITERS:-20000000}; [ "$SMOKE" = 1 ] && N=${AK_SMOKE_CALIB_ITERS:-200000}
