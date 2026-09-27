@@ -1,4 +1,6 @@
-"""CAMPAIGN req 19 as amended (R-H31): crossing counts of the RPC cells B, C, D and E, per call.
+"""CAMPAIGN req 19 as amended (R-H31): crossing counts of the RPC cells B, C, D and E (and the
+framed twins Bf, Cf, Ef), per call, in directions a, a+read, b, c (P5.3, P5.4) and d (4 and
+16 MiB streamed).
 
   AK_FFI_MODULE=_akffi_rpc_count python3.12 rpc_counts.py [--variant nounk]   (gate step 105)
 
@@ -46,8 +48,8 @@ def main():
                 m.reset_counts()
                 fn()
                 abi, rpc = m.abi_counts(), m.core_counters("rpc")
-                cod = m.core_counters("enc" if d == "b" else "dec")
-                rows.append("   rpc %-7s %-9s calls %4d resets %2d rpc fwd %3d rev %3d codec fwd %5d rev %5d"
+                cod = m.core_counters("dec" if d in ("a", "a+read") else "enc")
+                rows.append("   rpc %-12s %-9s calls %4d resets %2d rpc fwd %3d rev %3d codec fwd %5d rev %5d"
                             % (d, name, abi["calls"], abi["resets"], rpc["forward"], rpc["reverse"],
                                cod["forward"], cod["reverse"]))
         del keep

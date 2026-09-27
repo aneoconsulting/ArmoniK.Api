@@ -433,12 +433,14 @@ static PyObject *py_call_unary(PyObject *m, PyObject *args) {
   void *cl = PyCapsule_GetPointer(clc, "ak_cl");
   if (!cl) return NULL;
   struct ak_bytes out = {NULL, 0, NULL};
-  int32_t rc;
+  int32_t rc, gs = -1;
   Py_BEGIN_ALLOW_THREADS
   rc = ak_call_unary(cl, (const uint8_t *)path, (size_t)plen,
-                     (const uint8_t *)req, (size_t)rlen, &out);
+                     (const uint8_t *)req, (size_t)rlen, &out, &gs);
   Py_END_ALLOW_THREADS
-  if (rc != 0) { PyErr_Format(PyExc_RuntimeError, "ak_call_unary -> %d", (int)rc); return NULL; }
+  /* ABI v1 section 9 as amended: a non-OK gRPC status is AK_ERR_RPC_STATUS (-12), and the
+   * status code comes back beside it; either is a failed call (CAMPAIGN req 18). */
+  if (rc != 0) { PyErr_Format(PyExc_RuntimeError, "ak_call_unary -> %d (grpc status %d)", (int)rc, (int)gs); return NULL; }
   return take_bytes(&out);
 }
 
@@ -501,6 +503,7 @@ static PyObject *py_queue_next(PyObject *m, PyObject *args) {
   if (rc != 0) { PyErr_Format(PyExc_RuntimeError, "ak_queue_next -> %d", (int)rc); return NULL; }
   PyObject *b = completion_body(c.status, &c.bytes);
   if (!b) return NULL;
+  /* status is AK_OK iff the gRPC status (c.grpc_status) is 0; the harness fails any other */
   return Py_BuildValue("(KiN)", (unsigned long long)c.tag, (int)c.status, b);
 }
 
@@ -577,6 +580,81 @@ static PyObject *py_call_unary_cb(PyObject *m, PyObject *args) {
   Py_RETURN_NONE;
 }
 
+/* CAMPAIGN req 14 as amended (2026-09-27): client streaming (ABI v1 section 9, streaming as
+ * built) for direction (d), blocking delivery only; and the framed send path's switch. Every
+ * entry that can block releases the GIL. */
+static void cap_call_free(PyObject *c) {
+  void *h = PyCapsule_GetPointer(c, "ak_call");
+  if (h) ak_call_destroy(h);
+}
+
+static PyObject *py_call_open(PyObject *m, PyObject *args) {
+  (void)m;
+  PyObject *clc;
+  const char *path; Py_ssize_t plen;
+  if (!PyArg_ParseTuple(args, "Os#", &clc, &path, &plen)) return NULL;
+  void *cl = PyCapsule_GetPointer(clc, "ak_cl");
+  if (!cl) return NULL;
+  void *h;
+  Py_BEGIN_ALLOW_THREADS
+  h = ak_call_open(cl, (const uint8_t *)path, (size_t)plen, AK_CALL_CLIENT_STREAM, NULL);
+  Py_END_ALLOW_THREADS
+  if (!h) { PyErr_SetString(PyExc_RuntimeError, "ak_call_open returned NULL"); return NULL; }
+  return PyCapsule_New(h, "ak_call", cap_call_free);
+}
+
+static PyObject *py_call_send(PyObject *m, PyObject *args) {
+  (void)m;
+  PyObject *hc;
+  const char *msg; Py_ssize_t mlen;
+  int last = 0;
+  if (!PyArg_ParseTuple(args, "Oy#p", &hc, &msg, &mlen, &last)) return NULL;
+  void *h = PyCapsule_GetPointer(hc, "ak_call");
+  if (!h) return NULL;
+  int32_t rc;
+  Py_BEGIN_ALLOW_THREADS
+  rc = ak_call_send(h, (const uint8_t *)msg, (size_t)mlen, last);
+  Py_END_ALLOW_THREADS
+  if (rc != 0) { PyErr_Format(PyExc_RuntimeError, "ak_call_send -> %d", (int)rc); return NULL; }
+  Py_RETURN_NONE;
+}
+
+static PyObject *py_call_recv(PyObject *m, PyObject *args) {
+  (void)m;
+  PyObject *hc;
+  if (!PyArg_ParseTuple(args, "O", &hc)) return NULL;
+  void *h = PyCapsule_GetPointer(hc, "ak_call");
+  if (!h) return NULL;
+  struct ak_bytes out = {NULL, 0, NULL};
+  int32_t rc, gs = -1;
+  Py_BEGIN_ALLOW_THREADS
+  rc = ak_call_recv(h, &out, &gs);
+  Py_END_ALLOW_THREADS
+  if (rc != 0) { PyErr_Format(PyExc_RuntimeError, "ak_call_recv -> %d (grpc status %d)", (int)rc, (int)gs); return NULL; }
+  return take_bytes(&out);
+}
+
+static PyObject *py_call_cancel(PyObject *m, PyObject *args) {
+  (void)m;
+  PyObject *hc;
+  if (!PyArg_ParseTuple(args, "O", &hc)) return NULL;
+  void *h = PyCapsule_GetPointer(hc, "ak_call");
+  if (!h) return NULL;
+  ak_call_cancel(h);
+  Py_RETURN_NONE;
+}
+
+static PyObject *py_client_set_framed(PyObject *m, PyObject *args) {
+  (void)m;
+  PyObject *clc;
+  int on = 0;
+  if (!PyArg_ParseTuple(args, "Op", &clc, &on)) return NULL;
+  void *cl = PyCapsule_GetPointer(clc, "ak_cl");
+  if (!cl) return NULL;
+  int32_t rc = ak_client_set_framed(cl, on);
+  if (rc != 0) { PyErr_Format(PyExc_RuntimeError, "ak_client_set_framed -> %d", (int)rc); return NULL; }
+  Py_RETURN_NONE;
+}
 #endif /* AK_RPC */
 
 static PyMethodDef methods[] = {
@@ -610,6 +688,11 @@ static PyMethodDef methods[] = {
     {"client_new_opts", py_client_new_opts, METH_VARARGS,
      "client_new_opts(rt, uri[, stream_window, connection_window, adaptive,"
      " max_recv, max_send, nagle]) -> capsule. The transport PINNED (ABI v1 section 9)"},
+    {"call_open", py_call_open, METH_VARARGS, "ak_call_open(client, path, AK_CALL_CLIENT_STREAM) -> call"},
+    {"call_send", py_call_send, METH_VARARGS, "ak_call_send(call, bytes, last)"},
+    {"call_recv", py_call_recv, METH_VARARGS, "ak_call_recv(call) -> bytes (raises on a non-OK status)"},
+    {"call_cancel", py_call_cancel, METH_VARARGS, "ak_call_cancel(call)"},
+    {"client_set_framed", py_client_set_framed, METH_VARARGS, "ak_client_set_framed(client, on)"},
     {"call_unary", py_call_unary, METH_VARARGS,
      "call_unary(client, path, req) -> bytes. Blocking, GIL released across the call"},
     {"queue_new", py_queue_new, METH_NOARGS, "ak_queue_new() -> capsule"},

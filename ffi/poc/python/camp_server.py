@@ -47,7 +47,9 @@ def options(transport):
     message limits raised. grpcio has no connection-window argument and sets TCP_NODELAY
     itself; both stated in the client's header."""
     if transport == "shipped":
-        return []
+        # CAMPAIGN req 14 (c): the server's receive limit must cover P5.4 (4,194,390 B), above
+        # grpcio's 4 MiB default; raised to 16 MiB for the shipped configuration too (stated).
+        return [("grpc.max_receive_message_length", MSG_LIMIT)]
     return [("grpc.http2.lookahead_bytes", WINDOW), ("grpc.http2.bdp_probe", 0),
             ("grpc.max_receive_message_length", MSG_LIMIT),
             ("grpc.max_send_message_length", MSG_LIMIT)]
@@ -80,9 +82,39 @@ def main():
             ctx.abort(grpc.StatusCode.INVALID_ARGUMENT, "Put: %d tasks" % len(m.tasks))
         return b""
 
+    M5 = shapes_pb2.UploadResultDataMessage
+
+    def upload(req, ctx):
+        """Direction (c): a unary upload of P5.3 or P5.4, decoded by upb, answered empty."""
+        v = M5.FromString(req)
+        if not v.upload.data_chunk:
+            ctx.abort(grpc.StatusCode.INVALID_ARGUMENT, "Upload: no data")
+        return b""
+
+    def stream(it, ctx):
+        """Direction (d): ArmoniK's UploadResultData(stream ...) shape. Every message decoded by
+        upb as M5, the ids required on the first only; the answer is the data byte count (u64
+        LE) and the SHA-256 of every message's bytes as received (req 18: the client checks
+        both against what it sent). AK_CAMP_PLANT=digest flips the digest (the gate's control)."""
+        import hashlib
+        h, total, first = hashlib.sha256(), 0, True
+        for m in it:
+            h.update(m)
+            u = M5.FromString(m).upload
+            if first and (not u.session_id or not u.result_id):
+                ctx.abort(grpc.StatusCode.INVALID_ARGUMENT, "the first message carries no ids")
+            first = False
+            total += len(u.data_chunk)
+        d = bytearray(h.digest())
+        if plant == "digest":
+            d[0] ^= 1
+        return total.to_bytes(8, "little") + bytes(d)
+
     ident = (lambda b: b)
     h = {"Get": grpc.unary_unary_rpc_method_handler(get, request_deserializer=ident, response_serializer=ident),
-         "Put": grpc.unary_unary_rpc_method_handler(put, request_deserializer=ident, response_serializer=ident)}
+         "Put": grpc.unary_unary_rpc_method_handler(put, request_deserializer=ident, response_serializer=ident),
+         "Upload": grpc.unary_unary_rpc_method_handler(upload, request_deserializer=ident, response_serializer=ident),
+         "Stream": grpc.stream_unary_rpc_method_handler(stream, request_deserializer=ident, response_serializer=ident)}
     srvs, socks = [], []
     for transport in ("shipped", "pinned"):
         path = os.path.join(d, transport + ".sock")

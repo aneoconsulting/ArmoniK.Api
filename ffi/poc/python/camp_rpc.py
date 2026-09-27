@@ -65,6 +65,32 @@ import grpc  # noqa: E402
 ARGS = sys.argv[1:]
 PID = "P2.2"
 GET, PUT = "/ffi.Bench/Get", "/ffi.Bench/Put"
+UPLOAD, STREAM = "/ffi.Bench/Upload", "/ffi.Bench/Stream"
+# CAMPAIGN req 14 as amended (2026-09-27): (c) a unary upload of P5.3 / P5.4, (d) the streamed
+# upload in 2 MiB chunks (ids on the first), 4 MiB and 16 MiB; both at 1 and 8 in flight.
+C_PAYLOADS = ["P5.3", "P5.4"]
+D_PAYLOADS = [("4MiB", 2), ("16MiB", 8)]
+CHUNK = 2 * 1024 * 1024
+UP_INFLIGHT = [1, 8]
+
+
+def stream_payload(chunks):
+    """(d)'s messages: M5 per chunk, deterministic data, the ids on the first message only;
+    as upb messages and as C-extension facade objects, and the SHA-256 the server must see."""
+    import hashlib
+    import random
+    rnd = random.Random(0x5EED0000 + chunks)
+    M5, U = arms._pb2.UploadResultDataMessage, arms._pb2.UploadResultData
+    C = arms.CT_CEXT
+    ups, fcs, h = [], [], hashlib.sha256()
+    for i in range(chunks):
+        data = rnd.randbytes(CHUNK)
+        sid, rid = ("session-u2", "result-u2") if i == 0 else ("", "")
+        u = M5(upload=U(session_id=sid, result_id=rid, data_chunk=data))
+        ups.append(u)
+        fcs.append(C["UploadResultDataMessage"](upload=C["UploadResultData"](session_id=sid, result_id=rid, data_chunk=data)))
+        h.update(u.SerializeToString())
+    return ups, fcs, chunks * CHUNK, h.digest()
 WINDOW = 4 << 20
 MSG_LIMIT = 16 << 20
 INFLIGHT = [1, 8, 16]
@@ -235,6 +261,94 @@ def cells(target, transport):
         qc, kc = queued_get("C-queue"), callback_get("C-callback")
         out["a"] += [("B-queue", lambda: R.FromString(qg())), ("C-queue", lambda: core_dec(qc())),
                      ("B-callback", lambda: R.FromString(kg())), ("C-callback", lambda: core_dec(kc()))]
+    # ---- (c) and (d), every cell, plus the framed twins of the core-transport cells (the
+    # framed send path, ak_client_set_framed, beside its reference; grpcio has no such path)
+    R5 = arms._pb2.UploadResultDataMessage
+    r5 = "UploadResultDataMessage"
+    enc5 = {"inc": lambda o: o.SerializeToString()}
+    for m in modes_c:
+        enc5["C-" + m] = (lambda o, _ret=(m == "retain"): arms._ffi.encode("cext", r5, o, None, _ret))
+    for m in ([] if NOUNK else ["retain", "drop"]) + (["nounk"] if NOUNK else []):
+        enc5["E-" + m] = (lambda o, _m=hg[m]: getattr(_m, "encode_root_" + r5)(o))
+    fam = [("A", "grpc", "inc"), ("B", "core", "inc"), ("Bf", "core", "inc")]
+    for m in modes_c:
+        fam += [("C-" + m, "core", "C-" + m), ("Cf-" + m, "core", "C-" + m), ("D-" + m, "grpc", "C-" + m)]
+    for m in (["nounk"] if NOUNK else ["retain", "drop"]):
+        fam += [("E-" + m, "core", "E-" + m), ("Ef-" + m, "core", "E-" + m), ("F-" + m, "grpc", "E-" + m)]
+
+    def ccli(cell):
+        c = cli(cell)
+        if cell.startswith(("Bf", "Cf-", "Ef-")):
+            arms._ffi.client_set_framed(c, True)
+        return c
+
+    # direction b's framed twins (the P2.2 request on the framed send path)
+    def fput(cell):
+        c = ccli(cell)
+        return lambda req: need(arms._ffi.call_unary(c, PUT, req), 0)
+    bp = fput("Bf")
+    out["b"].append(("Bf", lambda: bp(R.SerializeToString(msg))))
+    for m in modes_c:
+        cp2 = fput("Cf-" + m)
+        out["b"].append(("Cf-" + m, lambda _p=cp2, _e=cenc[m]: _p(_e(fc))))
+    for m in (["nounk"] if NOUNK else ["retain", "drop"]):
+        ep2 = fput("Ef-" + m)
+        out["b"].append(("Ef-" + m, lambda _p=ep2, _e=hg_enc[m]: _p(_e(fc))))
+    for pid in C_PAYLOADS:
+        ref5 = arms.reference(pid)
+        up5, fc5 = arms.build_upb_native(pid), arms.build_facade(pid, arms.CT_CEXT)
+        key = "c:" + pid
+        out[key] = []
+        for cell, tr, e in fam:
+            obj = up5 if e == "inc" else fc5
+            if enc5[e](obj) != ref5:                   # correctness before timing
+                raise CallFailed("gate: cell %s (c) %s does not encode to the reference" % (cell, pid))
+            if tr == "grpc":
+                st = chan(cell).unary_unary(UPLOAD, request_serializer=enc5[e], response_deserializer=lambda b: need(b, 0))
+                out[key].append((cell, lambda _st=st, _o=obj: _st(_o)))
+            else:
+                c = ccli(cell)
+                out[key].append((cell, lambda _c=c, _e=enc5[e], _o=obj: need(arms._ffi.call_unary(_c, UPLOAD, _e(_o)), 0)))
+    for label, chunks in D_PAYLOADS:
+        ups, fcs, nbytes, sha = stream_payload(chunks)
+        want = nbytes.to_bytes(8, "little") + sha
+
+        def verdict(b, _w=want, _l=label):
+            if b != _w:
+                raise CallFailed("(d) %s: the server answered %d B (count %s), not the bytes and digest sent"
+                                 % (_l, len(b), int.from_bytes(b[:8], "little") if len(b) >= 8 else None))
+            return b
+        key = "d:" + label
+        out[key] = []
+        for cell, tr, e in fam:
+            msgs = ups if e == "inc" else fcs
+            for g, u in zip(msgs, ups):                # correctness before timing
+                if enc5[e](g) != u.SerializeToString():
+                    raise CallFailed("gate: cell %s (d) %s: a chunk does not encode as upb does" % (cell, label))
+            if tr == "grpc":
+                st = chan(cell).stream_unary(STREAM, request_serializer=enc5[e], response_deserializer=ident)
+
+                def grpc_stream(_st=st, _m=msgs, _v=verdict):
+                    # grpcio consumes a request iterator on a thread of its own per call, so a
+                    # D or F stream encodes on a fresh thread each call: one encode context
+                    # per call there (counted, and allowed for in the per-thread check)
+                    GRPC_STREAM_CALLS[0] += 1
+                    return _v(_st(iter(_m)))
+                out[key].append((cell, grpc_stream))
+            else:
+                c = ccli(cell)
+
+                def core_stream(_c=c, _e=enc5[e], _m=msgs, _v=verdict):   # bound per payload
+                    h = arms._ffi.call_open(_c, STREAM)
+                    n = len(_m)
+                    try:
+                        for i, g in enumerate(_m):
+                            arms._ffi.call_send(h, _e(g), i + 1 == n)
+                    except Exception:
+                        arms._ffi.call_cancel(h)
+                        raise
+                    return _v(arms._ffi.call_recv(h))
+                out[key].append((cell, core_stream))
     keep = (chans, clis)
     return out, keep
 
@@ -266,6 +380,10 @@ def gate(cs):
                 else arms._ffi.encode("cext", root, o, None, name.endswith("-retain")))
         if back != ref and R.FromString(back) != R.FromString(ref):
             raise CallFailed("gate: cell %s (a) does not re-encode to P2.2" % name)
+    # (c) and (d): one call per cell; (d) checks the server's byte count and digest
+    for key in [k for k in cs if k[:2] in ("c:", "d:")]:
+        for name, fn in cs[key]:
+            fn()
     for name, fn in cs["a+read"] + cs["b"]:
         fn()
     msg = arms.build_upb_native(PID)
@@ -330,6 +448,17 @@ def retain_control():
 
 
 threading_starts = [0]
+GRPC_STREAM_CALLS = [0]
+
+
+def dir_plan(key, calls):
+    """(direction, payload, in-flight values, calls per sample) of a cells() key. (c) and (d)
+    run at 1 and 8 in flight; (d) makes a third of the calls (a 16 MiB upload per call)."""
+    if key.startswith("c:"):
+        return "c", key[2:], UP_INFLIGHT, calls
+    if key.startswith("d:"):
+        return "d", key[2:], UP_INFLIGHT, max(1, -(-calls // 3))
+    return key, PID, INFLIGHT, calls
 
 
 def unknown_mode(cell):
@@ -461,7 +590,8 @@ def main():
     log.header(launch=launch, rounds=rounds, calls_per_sample=calls, inflight=INFLIGHT,
                affinity_client=AFFINITY, payload="%s (%d bytes)" % (PID, len(arms.reference(PID))),
                transport_shipped="grpcio: no channel option (packages/python create_channel); server: grpcio "
-                                 "defaults; core: ak_client_new (tonic defaults)",
+                                 "defaults except the receive limit, raised to 16 MiB to cover P5.4 (req 14 c); core: "
+                                 "ak_client_new (tonic defaults: 4 MiB received, send unlimited; enforced, D44)",
                transport_pinned="grpcio client and server: grpc.http2.lookahead_bytes=4 MiB, bdp_probe=0, "
                                 "message limits 16 MiB; no connection-window argument exists in grpcio; "
                                 "grpcio sets TCP_NODELAY itself (stated; log 80, which showed it, was deleted under R-C9). core: ak_client_new_opts "
@@ -474,6 +604,13 @@ def main():
                        % ("shared by both builds, started by run_campaign.sh" if own is None else "this client's own",
                           srvinfo.get("affinity"), srvinfo.get("workers"), srvinfo.get("threads"))),
                order="per round, per (transport, direction, in flight), the cells rotated by one (req 22)",
+               upload_dirs="req 14 as amended: c = unary upload of P5.3 / P5.4 (the server decodes M5 with upb, "
+                           "answers empty); d = client-streamed upload of 2 MiB M5 chunks (ids on the first), 4 MiB "
+                           "and 16 MiB, the server answering the data byte count and SHA-256, checked on every call; "
+                           "both at 1 and 8 in flight, d with a third of the calls. B, C, E stream through "
+                           "ak_call_open / ak_call_send (copy) / ak_call_recv; A, D, F through grpcio's stream_unary "
+                           "(grpcio consumes the request iterator on a thread of its own per call). Framed twins "
+                           "Bf, Cf-*, Ef-* (ak_client_set_framed) in b, c, d; grpcio has no framed path",
                idiomatic="A, D and F: grpcio's blocking unary multicallable (the generated stub's call), the "
                          "codec as its (de)serializer (req 16 as amended)",
                allocator="M_TOP_PAD %s" % ("applied" if _WARM else "not available"),
@@ -501,16 +638,19 @@ def main():
                 cs, keep = cells(target, transport)
                 log.note(gate(cs))
                 u0, tl0, th0 = arms._ffi.unk_totals(), arms._ffi.tls_created(), threading_starts[0]
-                for d, lst in cs.items():
-                    for k in INFLIGHT:
+                gs0 = GRPC_STREAM_CALLS[0]
+                for key, lst in cs.items():
+                    d, pid, ks, nc = dir_plan(key, calls)
+                    for k in ks:
                         for name, fn in lst:
-                            sample(fn, calls, k)            # warm-up
+                            sample(fn, nc, k)               # warm-up
                 for r in range(rounds):
-                    for d, lst in cs.items():
-                        for k in INFLIGHT:
+                    for key, lst in cs.items():
+                        d, pid, ks, nc = dir_plan(key, calls)
+                        for k in ks:
                             for name, fn in L.rotated(lst, r):
-                                cpu, wall, n = sample(fn, calls, k)
-                                log.sample(cell=name, payload=PID, dir=d, transport=transport,
+                                cpu, wall, n = sample(fn, nc, k)
+                                log.sample(cell=name, payload=pid, dir=d, transport=transport,
                                            unknown_mode=unknown_mode(name),
                                            inflight=k, launch=launch, round=r + 1,
                                            cpu_ns=cpu, wall_ns=wall, iters=n)
@@ -524,8 +664,10 @@ def main():
                     raise CallFailed("the no-unknown build: drop %d, retain %d decodes" % du[:2])
                 if not NOUNK and (du[1] == 0 or du[0] == 0):
                     raise CallFailed("a mode did not run: drop %d, retain %d decodes" % du[:2])
-                if tl1 - tl0 > 2 * (th1 - th0) + 64:
-                    raise CallFailed("contexts created %d for %d threads: not per thread" % (tl1 - tl0, th1 - th0))
+                gsn = GRPC_STREAM_CALLS[0] - gs0
+                if tl1 - tl0 > 2 * (th1 - th0) + 64 + gsn:
+                    raise CallFailed("contexts created %d for %d threads and %d grpcio stream calls: not per thread"
+                                     % (tl1 - tl0, th1 - th0, gsn))
                 log.note("%s: worker threads (req 4): client pool %d, core runtime workers %d (one runtime for "
                          "%d core clients), grpcio channels %d; OS threads in this process %d before the "
                          "channels, %d after the run" % (transport, max(INFLIGHT), CORE_WORKERS, len(keep[1]),

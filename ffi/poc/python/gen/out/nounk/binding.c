@@ -69,14 +69,6 @@ static uint64_t ABICNT[2];   /* [0] every ak_* call, [1] the resets among them *
 #define ak_client_new(...) (AK_ABI_CALL(0), ak_client_new(__VA_ARGS__))
 #define ak_client_new_opts(...) (AK_ABI_CALL(0), ak_client_new_opts(__VA_ARGS__))
 #define ak_client_set_framed(...) (AK_ABI_CALL(0), ak_client_set_framed(__VA_ARGS__))
-#define ak_dec_ctx_free(...) (AK_ABI_CALL(0), ak_dec_ctx_free(__VA_ARGS__))
-#define ak_dec_ctx_new_DualResponse(...) (AK_ABI_CALL(0), ak_dec_ctx_new_DualResponse(__VA_ARGS__))
-#define ak_dec_ctx_new_ListMetricsResponse(...) (AK_ABI_CALL(0), ak_dec_ctx_new_ListMetricsResponse(__VA_ARGS__))
-#define ak_dec_ctx_new_ListProbeResponse(...) (AK_ABI_CALL(0), ak_dec_ctx_new_ListProbeResponse(__VA_ARGS__))
-#define ak_dec_ctx_new_ListResultsResponse(...) (AK_ABI_CALL(0), ak_dec_ctx_new_ListResultsResponse(__VA_ARGS__))
-#define ak_dec_ctx_new_ListTaskSummaryResponse(...) (AK_ABI_CALL(0), ak_dec_ctx_new_ListTaskSummaryResponse(__VA_ARGS__))
-#define ak_dec_ctx_new_ListTasksDetailedResponse(...) (AK_ABI_CALL(0), ak_dec_ctx_new_ListTasksDetailedResponse(__VA_ARGS__))
-#define ak_dec_ctx_new_UploadResultDataMessage(...) (AK_ABI_CALL(0), ak_dec_ctx_new_UploadResultDataMessage(__VA_ARGS__))
 #define ak_dec_err(...) (AK_ABI_CALL(0), ak_dec_err(__VA_ARGS__))
 #define ak_dec_err_reset(...) (AK_ABI_CALL(1), ak_dec_err_reset(__VA_ARGS__))
 #define ak_decode_DualResponse(...) (AK_ABI_CALL(0), ak_decode_DualResponse(__VA_ARGS__))
@@ -94,8 +86,6 @@ static uint64_t ABICNT[2];   /* [0] every ak_* call, [1] the resets among them *
 #define ak_elemu_TaskDetailed(...) (AK_ABI_CALL(0), ak_elemu_TaskDetailed(__VA_ARGS__))
 #define ak_elemu_TaskSummary(...) (AK_ABI_CALL(0), ak_elemu_TaskSummary(__VA_ARGS__))
 #define ak_enc_count_reverse(...) (AK_ABI_CALL(0), ak_enc_count_reverse(__VA_ARGS__))
-#define ak_enc_ctx_free(...) (AK_ABI_CALL(0), ak_enc_ctx_free(__VA_ARGS__))
-#define ak_enc_ctx_new(...) (AK_ABI_CALL(0), ak_enc_ctx_new(__VA_ARGS__))
 #define ak_enc_err(...) (AK_ABI_CALL(0), ak_enc_err(__VA_ARGS__))
 #define ak_enc_reset(...) (AK_ABI_CALL(1), ak_enc_reset(__VA_ARGS__))
 #define ak_enc_site_moves(...) (AK_ABI_CALL(0), ak_enc_site_moves(__VA_ARGS__))
@@ -2129,7 +2119,7 @@ static int intern_keys(void) {
   K_upload = PyUnicode_InternFromString("upload"); if (!K_upload) return -1;
   K_value = PyUnicode_InternFromString("value"); if (!K_value) return -1;
   K_values = PyUnicode_InternFromString("values"); if (!K_values) return -1;
-  TC_UTF8 = ak_tc_utf8(); TC_BYTES = ak_tc_bytes();
+  TC_UTF8 = ak_tc_utf8_trusted(); TC_BYTES = ak_tc_bytes();
   return 0;
 }
 

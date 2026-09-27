@@ -87,6 +87,15 @@ case "$SUITE" in
     grep -q '^# ABORTED, NO FIGURE' "$OUT/gate/rpc-control.jsonl" && [ "$(grep -c '^{' "$OUT/gate/rpc-control.jsonl" || true)" -eq 0 ] \
       || { echo "   CONTROL: aborted but still wrote samples"; exit 1; }
     echo "   failed as required, no sample written: $(grep ABORTED "$OUT/gate/rpc-control.jsonl")"
+    # Req 14 (d) / req 18: a server whose upload digest is wrong must abort the run too.
+    echo "== the RPC runner's must-fail control: a server that answers (d) with a wrong digest =="
+    if AK_CAMP_PLANT=digest "$PY" camp_rpc.py --rounds 1 --calls 16 --transports shipped \
+         --out "$OUT/gate/rpc-control-digest.jsonl" --allow-dirty --smoke > "$OUT/gate/rpc-control-digest.out" 2>&1; then
+      echo "   CONTROL PASSED: the RPC runner did not abort on a wrong digest"; exit 1
+    fi
+    grep -q '^# ABORTED, NO FIGURE.*digest' "$OUT/gate/rpc-control-digest.jsonl" && [ "$(grep -c '^{' "$OUT/gate/rpc-control-digest.jsonl" || true)" -eq 0 ] \
+      || { echo "   CONTROL: did not abort on the digest, or wrote samples: $(grep ABORTED "$OUT/gate/rpc-control-digest.jsonl")"; exit 1; }
+    echo "   failed as required, no sample written: $(grep ABORTED "$OUT/gate/rpc-control-digest.jsonl")"
     echo "$STAMP" > "$OUT/gate.ok"
     echo "GATE PASSED"
     ;;

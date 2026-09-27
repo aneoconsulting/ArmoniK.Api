@@ -69,14 +69,6 @@ static uint64_t ABICNT[2];   /* [0] every ak_* call, [1] the resets among them *
 #define ak_client_new(...) (AK_ABI_CALL(0), ak_client_new(__VA_ARGS__))
 #define ak_client_new_opts(...) (AK_ABI_CALL(0), ak_client_new_opts(__VA_ARGS__))
 #define ak_client_set_framed(...) (AK_ABI_CALL(0), ak_client_set_framed(__VA_ARGS__))
-#define ak_dec_ctx_free(...) (AK_ABI_CALL(0), ak_dec_ctx_free(__VA_ARGS__))
-#define ak_dec_ctx_new_DualResponse(...) (AK_ABI_CALL(0), ak_dec_ctx_new_DualResponse(__VA_ARGS__))
-#define ak_dec_ctx_new_ListMetricsResponse(...) (AK_ABI_CALL(0), ak_dec_ctx_new_ListMetricsResponse(__VA_ARGS__))
-#define ak_dec_ctx_new_ListProbeResponse(...) (AK_ABI_CALL(0), ak_dec_ctx_new_ListProbeResponse(__VA_ARGS__))
-#define ak_dec_ctx_new_ListResultsResponse(...) (AK_ABI_CALL(0), ak_dec_ctx_new_ListResultsResponse(__VA_ARGS__))
-#define ak_dec_ctx_new_ListTaskSummaryResponse(...) (AK_ABI_CALL(0), ak_dec_ctx_new_ListTaskSummaryResponse(__VA_ARGS__))
-#define ak_dec_ctx_new_ListTasksDetailedResponse(...) (AK_ABI_CALL(0), ak_dec_ctx_new_ListTasksDetailedResponse(__VA_ARGS__))
-#define ak_dec_ctx_new_UploadResultDataMessage(...) (AK_ABI_CALL(0), ak_dec_ctx_new_UploadResultDataMessage(__VA_ARGS__))
 #define ak_dec_err(...) (AK_ABI_CALL(0), ak_dec_err(__VA_ARGS__))
 #define ak_dec_err_reset(...) (AK_ABI_CALL(1), ak_dec_err_reset(__VA_ARGS__))
 #define ak_dec_reset_DualResponse(...) (AK_ABI_CALL(1), ak_dec_reset_DualResponse(__VA_ARGS__))
@@ -101,8 +93,6 @@ static uint64_t ABICNT[2];   /* [0] every ak_* call, [1] the resets among them *
 #define ak_elemu_TaskDetailed(...) (AK_ABI_CALL(0), ak_elemu_TaskDetailed(__VA_ARGS__))
 #define ak_elemu_TaskSummary(...) (AK_ABI_CALL(0), ak_elemu_TaskSummary(__VA_ARGS__))
 #define ak_enc_count_reverse(...) (AK_ABI_CALL(0), ak_enc_count_reverse(__VA_ARGS__))
-#define ak_enc_ctx_free(...) (AK_ABI_CALL(0), ak_enc_ctx_free(__VA_ARGS__))
-#define ak_enc_ctx_new(...) (AK_ABI_CALL(0), ak_enc_ctx_new(__VA_ARGS__))
 #define ak_enc_err(...) (AK_ABI_CALL(0), ak_enc_err(__VA_ARGS__))
 #define ak_enc_reset(...) (AK_ABI_CALL(1), ak_enc_reset(__VA_ARGS__))
 #define ak_enc_site_moves(...) (AK_ABI_CALL(0), ak_enc_site_moves(__VA_ARGS__))
@@ -2575,12 +2565,10 @@ static void ak_py_unlink(HostCtx *h, struct ak_py_buf *b) {
 static int32_t ak_py_grow(void *sink, int32_t want, uint8_t **dst, int32_t *cap) {
   HostCtx *h = (HostCtx *)sink;
   if (want <= 0) return AK_ERR_LIMIT;
-#ifdef AK_COUNT
-  int64_t n = want;   /* req 19 (R-H31): the counting build grows to EXACTLY the size requested */
-#else
+  /* req 19 as amended (WP8): the counting build grows geometrically, as the timed build
+   * does, so the counted grows are the timed build's */
   int64_t n = *dst ? 2 * (int64_t)*cap : 64;
   if (n < want) n = want;
-#endif
   if (n > INT32_MAX) n = want;
   struct ak_py_buf *old = *dst ? ((struct ak_py_buf *)(void *)*dst) - 1 : NULL;
   if (old) ak_py_unlink(h, old);
@@ -2769,7 +2757,7 @@ static int intern_keys(void) {
   K_upload = PyUnicode_InternFromString("upload"); if (!K_upload) return -1;
   K_value = PyUnicode_InternFromString("value"); if (!K_value) return -1;
   K_values = PyUnicode_InternFromString("values"); if (!K_values) return -1;
-  TC_UTF8 = ak_tc_utf8(); TC_BYTES = ak_tc_bytes();
+  TC_UTF8 = ak_tc_utf8_trusted(); TC_BYTES = ak_tc_bytes();
   return 0;
 }
 
@@ -7282,10 +7270,6 @@ static PyObject *decode_attr_ListResultsResponse(PyObject *buf, PyObject *acc, H
 #endif
   int32_t rc = ak_dec_reset_ListResultsResponse(ctx, retain ? &o : NULL);   /* a reset per decode (rule 7) */
   if (rc == 0) rc = ak_decode_ListResultsResponse(ctx, &h, (const uint8_t *)pp, (size_t)blen, &VT);
-  if (retain) {
-    int32_t rr = ak_dec_reset_ListResultsResponse(ctx, NULL);   /* disarm: the core forgets &o */
-    if (rc == 0 && rr != 0) rc = rr;
-  }
 #ifdef AK_COUNT
   { struct AkCounters c; ak_dec_counters(ctx, &c); CORE_ADD(CORE_DEC, c); }
 #endif
@@ -7496,10 +7480,6 @@ static PyObject *decode_attr_ListTasksDetailedResponse(PyObject *buf, PyObject *
 #endif
   int32_t rc = ak_dec_reset_ListTasksDetailedResponse(ctx, retain ? &o : NULL);   /* a reset per decode (rule 7) */
   if (rc == 0) rc = ak_decode_ListTasksDetailedResponse(ctx, &h, (const uint8_t *)pp, (size_t)blen, &VT);
-  if (retain) {
-    int32_t rr = ak_dec_reset_ListTasksDetailedResponse(ctx, NULL);   /* disarm: the core forgets &o */
-    if (rc == 0 && rr != 0) rc = rr;
-  }
 #ifdef AK_COUNT
   { struct AkCounters c; ak_dec_counters(ctx, &c); CORE_ADD(CORE_DEC, c); }
 #endif
@@ -7572,10 +7552,6 @@ static PyObject *decode_attr_ListProbeResponse(PyObject *buf, PyObject *acc, Hos
 #endif
   int32_t rc = ak_dec_reset_ListProbeResponse(ctx, retain ? &o : NULL);   /* a reset per decode (rule 7) */
   if (rc == 0) rc = ak_decode_ListProbeResponse(ctx, &h, (const uint8_t *)pp, (size_t)blen, &VT);
-  if (retain) {
-    int32_t rr = ak_dec_reset_ListProbeResponse(ctx, NULL);   /* disarm: the core forgets &o */
-    if (rc == 0 && rr != 0) rc = rr;
-  }
 #ifdef AK_COUNT
   { struct AkCounters c; ak_dec_counters(ctx, &c); CORE_ADD(CORE_DEC, c); }
 #endif
@@ -7690,10 +7666,6 @@ static PyObject *decode_attr_ListTaskSummaryResponse(PyObject *buf, PyObject *ac
 #endif
   int32_t rc = ak_dec_reset_ListTaskSummaryResponse(ctx, retain ? &o : NULL);   /* a reset per decode (rule 7) */
   if (rc == 0) rc = ak_decode_ListTaskSummaryResponse(ctx, &h, (const uint8_t *)pp, (size_t)blen, &VT);
-  if (retain) {
-    int32_t rr = ak_dec_reset_ListTaskSummaryResponse(ctx, NULL);   /* disarm: the core forgets &o */
-    if (rc == 0 && rr != 0) rc = rr;
-  }
 #ifdef AK_COUNT
   { struct AkCounters c; ak_dec_counters(ctx, &c); CORE_ADD(CORE_DEC, c); }
 #endif
@@ -7738,10 +7710,6 @@ static PyObject *decode_attr_UploadResultDataMessage(PyObject *buf, PyObject *ac
 #endif
   int32_t rc = ak_dec_reset_UploadResultDataMessage(ctx, retain ? &o : NULL);   /* a reset per decode (rule 7) */
   if (rc == 0) rc = ak_decode_UploadResultDataMessage(ctx, &h, (const uint8_t *)pp, (size_t)blen, &VT);
-  if (retain) {
-    int32_t rr = ak_dec_reset_UploadResultDataMessage(ctx, NULL);   /* disarm: the core forgets &o */
-    if (rc == 0 && rr != 0) rc = rr;
-  }
 #ifdef AK_COUNT
   { struct AkCounters c; ak_dec_counters(ctx, &c); CORE_ADD(CORE_DEC, c); }
 #endif
@@ -7919,10 +7887,6 @@ static PyObject *decode_attr_ListMetricsResponse(PyObject *buf, PyObject *acc, H
 #endif
   int32_t rc = ak_dec_reset_ListMetricsResponse(ctx, retain ? &o : NULL);   /* a reset per decode (rule 7) */
   if (rc == 0) rc = ak_decode_ListMetricsResponse(ctx, &h, (const uint8_t *)pp, (size_t)blen, &VT);
-  if (retain) {
-    int32_t rr = ak_dec_reset_ListMetricsResponse(ctx, NULL);   /* disarm: the core forgets &o */
-    if (rc == 0 && rr != 0) rc = rr;
-  }
 #ifdef AK_COUNT
   { struct AkCounters c; ak_dec_counters(ctx, &c); CORE_ADD(CORE_DEC, c); }
 #endif
@@ -8022,10 +7986,6 @@ static PyObject *decode_attr_DualResponse(PyObject *buf, PyObject *acc, HostType
 #endif
   int32_t rc = ak_dec_reset_DualResponse(ctx, retain ? &o : NULL);   /* a reset per decode (rule 7) */
   if (rc == 0) rc = ak_decode_DualResponse(ctx, &h, (const uint8_t *)pp, (size_t)blen, &VT);
-  if (retain) {
-    int32_t rr = ak_dec_reset_DualResponse(ctx, NULL);   /* disarm: the core forgets &o */
-    if (rc == 0 && rr != 0) rc = rr;
-  }
 #ifdef AK_COUNT
   { struct AkCounters c; ak_dec_counters(ctx, &c); CORE_ADD(CORE_DEC, c); }
 #endif
@@ -11658,10 +11618,6 @@ static PyObject *decode_cext_ListResultsResponse(PyObject *buf, PyObject *acc, H
 #endif
   int32_t rc = ak_dec_reset_ListResultsResponse(ctx, retain ? &o : NULL);   /* a reset per decode (rule 7) */
   if (rc == 0) rc = ak_decode_ListResultsResponse(ctx, &h, (const uint8_t *)pp, (size_t)blen, &VT);
-  if (retain) {
-    int32_t rr = ak_dec_reset_ListResultsResponse(ctx, NULL);   /* disarm: the core forgets &o */
-    if (rc == 0 && rr != 0) rc = rr;
-  }
 #ifdef AK_COUNT
   { struct AkCounters c; ak_dec_counters(ctx, &c); CORE_ADD(CORE_DEC, c); }
 #endif
@@ -11855,10 +11811,6 @@ static PyObject *decode_cext_ListTasksDetailedResponse(PyObject *buf, PyObject *
 #endif
   int32_t rc = ak_dec_reset_ListTasksDetailedResponse(ctx, retain ? &o : NULL);   /* a reset per decode (rule 7) */
   if (rc == 0) rc = ak_decode_ListTasksDetailedResponse(ctx, &h, (const uint8_t *)pp, (size_t)blen, &VT);
-  if (retain) {
-    int32_t rr = ak_dec_reset_ListTasksDetailedResponse(ctx, NULL);   /* disarm: the core forgets &o */
-    if (rc == 0 && rr != 0) rc = rr;
-  }
 #ifdef AK_COUNT
   { struct AkCounters c; ak_dec_counters(ctx, &c); CORE_ADD(CORE_DEC, c); }
 #endif
@@ -11928,10 +11880,6 @@ static PyObject *decode_cext_ListProbeResponse(PyObject *buf, PyObject *acc, Hos
 #endif
   int32_t rc = ak_dec_reset_ListProbeResponse(ctx, retain ? &o : NULL);   /* a reset per decode (rule 7) */
   if (rc == 0) rc = ak_decode_ListProbeResponse(ctx, &h, (const uint8_t *)pp, (size_t)blen, &VT);
-  if (retain) {
-    int32_t rr = ak_dec_reset_ListProbeResponse(ctx, NULL);   /* disarm: the core forgets &o */
-    if (rc == 0 && rr != 0) rc = rr;
-  }
 #ifdef AK_COUNT
   { struct AkCounters c; ak_dec_counters(ctx, &c); CORE_ADD(CORE_DEC, c); }
 #endif
@@ -12037,10 +11985,6 @@ static PyObject *decode_cext_ListTaskSummaryResponse(PyObject *buf, PyObject *ac
 #endif
   int32_t rc = ak_dec_reset_ListTaskSummaryResponse(ctx, retain ? &o : NULL);   /* a reset per decode (rule 7) */
   if (rc == 0) rc = ak_decode_ListTaskSummaryResponse(ctx, &h, (const uint8_t *)pp, (size_t)blen, &VT);
-  if (retain) {
-    int32_t rr = ak_dec_reset_ListTaskSummaryResponse(ctx, NULL);   /* disarm: the core forgets &o */
-    if (rc == 0 && rr != 0) rc = rr;
-  }
 #ifdef AK_COUNT
   { struct AkCounters c; ak_dec_counters(ctx, &c); CORE_ADD(CORE_DEC, c); }
 #endif
@@ -12085,10 +12029,6 @@ static PyObject *decode_cext_UploadResultDataMessage(PyObject *buf, PyObject *ac
 #endif
   int32_t rc = ak_dec_reset_UploadResultDataMessage(ctx, retain ? &o : NULL);   /* a reset per decode (rule 7) */
   if (rc == 0) rc = ak_decode_UploadResultDataMessage(ctx, &h, (const uint8_t *)pp, (size_t)blen, &VT);
-  if (retain) {
-    int32_t rr = ak_dec_reset_UploadResultDataMessage(ctx, NULL);   /* disarm: the core forgets &o */
-    if (rc == 0 && rr != 0) rc = rr;
-  }
 #ifdef AK_COUNT
   { struct AkCounters c; ak_dec_counters(ctx, &c); CORE_ADD(CORE_DEC, c); }
 #endif
@@ -12253,10 +12193,6 @@ static PyObject *decode_cext_ListMetricsResponse(PyObject *buf, PyObject *acc, H
 #endif
   int32_t rc = ak_dec_reset_ListMetricsResponse(ctx, retain ? &o : NULL);   /* a reset per decode (rule 7) */
   if (rc == 0) rc = ak_decode_ListMetricsResponse(ctx, &h, (const uint8_t *)pp, (size_t)blen, &VT);
-  if (retain) {
-    int32_t rr = ak_dec_reset_ListMetricsResponse(ctx, NULL);   /* disarm: the core forgets &o */
-    if (rc == 0 && rr != 0) rc = rr;
-  }
 #ifdef AK_COUNT
   { struct AkCounters c; ak_dec_counters(ctx, &c); CORE_ADD(CORE_DEC, c); }
 #endif
@@ -12350,10 +12286,6 @@ static PyObject *decode_cext_DualResponse(PyObject *buf, PyObject *acc, HostType
 #endif
   int32_t rc = ak_dec_reset_DualResponse(ctx, retain ? &o : NULL);   /* a reset per decode (rule 7) */
   if (rc == 0) rc = ak_decode_DualResponse(ctx, &h, (const uint8_t *)pp, (size_t)blen, &VT);
-  if (retain) {
-    int32_t rr = ak_dec_reset_DualResponse(ctx, NULL);   /* disarm: the core forgets &o */
-    if (rc == 0 && rr != 0) rc = rr;
-  }
 #ifdef AK_COUNT
   { struct AkCounters c; ak_dec_counters(ctx, &c); CORE_ADD(CORE_DEC, c); }
 #endif
@@ -17537,10 +17469,6 @@ static PyObject *decode_pyacc_ListResultsResponse(PyObject *buf, PyObject *acc, 
 #endif
   int32_t rc = ak_dec_reset_ListResultsResponse(ctx, retain ? &o : NULL);   /* a reset per decode (rule 7) */
   if (rc == 0) rc = ak_decode_ListResultsResponse(ctx, &h, (const uint8_t *)pp, (size_t)blen, &VT);
-  if (retain) {
-    int32_t rr = ak_dec_reset_ListResultsResponse(ctx, NULL);   /* disarm: the core forgets &o */
-    if (rc == 0 && rr != 0) rc = rr;
-  }
 #ifdef AK_COUNT
   { struct AkCounters c; ak_dec_counters(ctx, &c); CORE_ADD(CORE_DEC, c); }
 #endif
@@ -17767,10 +17695,6 @@ static PyObject *decode_pyacc_ListTasksDetailedResponse(PyObject *buf, PyObject 
 #endif
   int32_t rc = ak_dec_reset_ListTasksDetailedResponse(ctx, retain ? &o : NULL);   /* a reset per decode (rule 7) */
   if (rc == 0) rc = ak_decode_ListTasksDetailedResponse(ctx, &h, (const uint8_t *)pp, (size_t)blen, &VT);
-  if (retain) {
-    int32_t rr = ak_dec_reset_ListTasksDetailedResponse(ctx, NULL);   /* disarm: the core forgets &o */
-    if (rc == 0 && rr != 0) rc = rr;
-  }
 #ifdef AK_COUNT
   { struct AkCounters c; ak_dec_counters(ctx, &c); CORE_ADD(CORE_DEC, c); }
 #endif
@@ -17845,10 +17769,6 @@ static PyObject *decode_pyacc_ListProbeResponse(PyObject *buf, PyObject *acc, Ho
 #endif
   int32_t rc = ak_dec_reset_ListProbeResponse(ctx, retain ? &o : NULL);   /* a reset per decode (rule 7) */
   if (rc == 0) rc = ak_decode_ListProbeResponse(ctx, &h, (const uint8_t *)pp, (size_t)blen, &VT);
-  if (retain) {
-    int32_t rr = ak_dec_reset_ListProbeResponse(ctx, NULL);   /* disarm: the core forgets &o */
-    if (rc == 0 && rr != 0) rc = rr;
-  }
 #ifdef AK_COUNT
   { struct AkCounters c; ak_dec_counters(ctx, &c); CORE_ADD(CORE_DEC, c); }
 #endif
@@ -17971,10 +17891,6 @@ static PyObject *decode_pyacc_ListTaskSummaryResponse(PyObject *buf, PyObject *a
 #endif
   int32_t rc = ak_dec_reset_ListTaskSummaryResponse(ctx, retain ? &o : NULL);   /* a reset per decode (rule 7) */
   if (rc == 0) rc = ak_decode_ListTaskSummaryResponse(ctx, &h, (const uint8_t *)pp, (size_t)blen, &VT);
-  if (retain) {
-    int32_t rr = ak_dec_reset_ListTaskSummaryResponse(ctx, NULL);   /* disarm: the core forgets &o */
-    if (rc == 0 && rr != 0) rc = rr;
-  }
 #ifdef AK_COUNT
   { struct AkCounters c; ak_dec_counters(ctx, &c); CORE_ADD(CORE_DEC, c); }
 #endif
@@ -18019,10 +17935,6 @@ static PyObject *decode_pyacc_UploadResultDataMessage(PyObject *buf, PyObject *a
 #endif
   int32_t rc = ak_dec_reset_UploadResultDataMessage(ctx, retain ? &o : NULL);   /* a reset per decode (rule 7) */
   if (rc == 0) rc = ak_decode_UploadResultDataMessage(ctx, &h, (const uint8_t *)pp, (size_t)blen, &VT);
-  if (retain) {
-    int32_t rr = ak_dec_reset_UploadResultDataMessage(ctx, NULL);   /* disarm: the core forgets &o */
-    if (rc == 0 && rr != 0) rc = rr;
-  }
 #ifdef AK_COUNT
   { struct AkCounters c; ak_dec_counters(ctx, &c); CORE_ADD(CORE_DEC, c); }
 #endif
@@ -18212,10 +18124,6 @@ static PyObject *decode_pyacc_ListMetricsResponse(PyObject *buf, PyObject *acc, 
 #endif
   int32_t rc = ak_dec_reset_ListMetricsResponse(ctx, retain ? &o : NULL);   /* a reset per decode (rule 7) */
   if (rc == 0) rc = ak_decode_ListMetricsResponse(ctx, &h, (const uint8_t *)pp, (size_t)blen, &VT);
-  if (retain) {
-    int32_t rr = ak_dec_reset_ListMetricsResponse(ctx, NULL);   /* disarm: the core forgets &o */
-    if (rc == 0 && rr != 0) rc = rr;
-  }
 #ifdef AK_COUNT
   { struct AkCounters c; ak_dec_counters(ctx, &c); CORE_ADD(CORE_DEC, c); }
 #endif
@@ -18319,10 +18227,6 @@ static PyObject *decode_pyacc_DualResponse(PyObject *buf, PyObject *acc, HostTyp
 #endif
   int32_t rc = ak_dec_reset_DualResponse(ctx, retain ? &o : NULL);   /* a reset per decode (rule 7) */
   if (rc == 0) rc = ak_decode_DualResponse(ctx, &h, (const uint8_t *)pp, (size_t)blen, &VT);
-  if (retain) {
-    int32_t rr = ak_dec_reset_DualResponse(ctx, NULL);   /* disarm: the core forgets &o */
-    if (rc == 0 && rr != 0) rc = rr;
-  }
 #ifdef AK_COUNT
   { struct AkCounters c; ak_dec_counters(ctx, &c); CORE_ADD(CORE_DEC, c); }
 #endif
