@@ -1,0 +1,10 @@
+--- gen/crossings-nounk.txt	2026-09-26 22:07:37.118981793 +0000
++++ /home/user/ArmoniK.Api/ffi/logs/rust/opt/t1-ffi/checks/crossings-nounk-current.txt	2026-09-27 08:24:11.559454154 +0000
+@@ -350,6 +350,6 @@
+ rpc:C                                            a            nounk             3     3501      0
+ rpc:C                                            b            nounk          2514     2501      1
+ rpc:D                                            a            nounk             1     3501      0
+-rpc:D                                            b            nounk          2513     2501      1
++rpc:D                                            b            nounk          2514     2501      1
+ rpc:E                                            a            nounk             2        0      0
+ rpc:E                                            b            nounk             2        0      0

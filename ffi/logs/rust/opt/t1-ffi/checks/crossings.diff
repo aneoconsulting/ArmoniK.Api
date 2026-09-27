@@ -1,0 +1,14 @@
+--- gen/crossings.txt	2026-09-26 22:07:37.117001809 +0000
++++ /home/user/ArmoniK.Api/ffi/logs/rust/opt/t1-ffi/checks/crossings-current.txt	2026-09-27 08:23:53.743453095 +0000
+@@ -693,9 +693,9 @@
+ rpc:C                                            a            drop              3     3501      0
+ rpc:C                                            b            drop           2514     2501      1
+ rpc:D                                            a            retain            2     3501      1
+-rpc:D                                            b            retain         2519     2501      1
++rpc:D                                            b            retain         2520     2501      1
+ rpc:D                                            a            drop              1     3501      0
+-rpc:D                                            b            drop           2513     2501      1
++rpc:D                                            b            drop           2514     2501      1
+ rpc:E                                            a            retain            2        0      0
+ rpc:E                                            b            retain            2        0      0
+ rpc:E                                            a            drop              2        0      0

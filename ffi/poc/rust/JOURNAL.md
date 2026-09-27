@@ -2975,3 +2975,34 @@ is container instrumentation.
   1.01-1.17 -- 3 rounds do not resolve an effect here. Checks at every form: pre-check 0
   failures, crossings identical (T1 native moves no crossing), ak-rt unit tests (3 new:
   take moves, buffers alternate after a drop, a held body costs one allocation).
+
+## 2026-09-27 -- step 2 (T1 ffi) committed and measured, then HELD on a finding
+
+- 1c181021: additive RPC ABI entry `int32_t ak_enc_take_owned(ak_enc_ctx *enc, struct
+  ak_bytes *out)` (plan.RpcAbi, so every slice's header and binding carries it; only this
+  slice calls it): the encode context's output moved to the host as an owned ak_bytes
+  (Enc::take, boxed), released with ak_bytes_free on any thread, the released buffer back in
+  the context's spare slot; NULL enc/out -> AK_ERR_INVALID_STATE, a context in error -> its
+  error with out empty. The rust host wraps it with Bytes::from_owner (campaign
+  `ffi_owned_body`) for cell D and core-ffi's transport-ready-tonic row. Pre-check now also
+  checks the moved forms' bytes (Enc::take, ak_enc_take_owned, twice each, and the NULL-out
+  refusal): 5740 / 3257 checks, 0 failures. Crossings: rpc:D direction b +1 forward in each
+  mode (ak_bytes_free; ak_enc_take_owned replaces the binding's ak_enc_take one for one),
+  stable over three counting runs; committed files regenerated.
+- opt/t1-ffi against opt/t1-native: core-ffi transport-ready-tonic gmean 0.84-0.87 (P5.2-P5.4
+  0.50-0.52, P2.4* 0.66-0.81, P2.2 0.98, P2.2/wide 0.73), P5.1 0.06 -> 0.15 us and P1.1
+  0.29 -> 0.38 us (two allocations and two crossings cost more than a small copy); every other
+  row noise (reused-buffer 0.98-1.00; prost 1.11 / 1.08 the other way). RPC b rows move
+  0.84-1.27 with unchanged cells moving as much: unresolved.
+- The coordinator's finding, confirmed from the code: cells D and F (and C, B, E, whose core
+  transport is tonic too, ak-core rpc.rs unary_once) hand tonic a Bytes through the shared
+  RawEncoder, whose encode is `dst.put_slice(&item)` into tonic's per-call EncodeBuf
+  (tonic-0.14.6 codec/encode.rs encode_item). So every raw-bytes cell pays that copy
+  whatever produced the Bytes, and the transport-ready-tonic row times producing the Bytes,
+  not RawEncoder's copy (nor, for prost, tonic's per-call buffer and its growth). Full-message
+  copies per call, direction b, before T1 -> now: A 0 (prost writes into EncodeBuf; its
+  doubling growth aside) -> 0; B 2 (ak_call_unary's copy_from_slice + RawEncoder) -> 2; C 1
+  (R2 move + RawEncoder) -> 1; D 2 (ak_enc_take + copy_from_slice, RawEncoder) -> 1; E 2 -> 2;
+  F 2 (copy_from_slice, RawEncoder) -> 1. h2 chains DATA payloads >= 256 B (h2 0.4.19
+  framed_write CHAIN_THRESHOLD, vectored writes on a Unix socket), so no further copy there
+  on any cell. Step 2 is held; options assessed in the report, nothing implemented.
