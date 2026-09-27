@@ -225,7 +225,12 @@ in its container shows it executes (section 9).
     the framework stops at the first failure where it can (BenchmarkDotNet
     `StopOnFirstError`, JMH `-foe true`, ...), and in every case the runner discards
     the launch's output when any benchmark failed, so an aborted run produces no
-    figure. The framework's configuration must still satisfy requirements
+    figure. **Grouping** (owner, 2026-09-27): where the framework isolates one benchmark
+    per process (JMH forks, pyperf workers, BenchmarkDotNet's default toolchain), the
+    campaign runs the framework's native isolation, one process per (cell, combination);
+    grouping several combinations into one process is allowed only for smoke and small
+    exploration runs, as a runner switch, stated in the header.
+    The framework's configuration must still satisfy requirements
     21, 23, 24, 27 and 28: every raw measurement is exported (the framework's
     outlier handling may produce its own summary, but no raw measurement is
     dropped from the committed output), the JIT tier and warm-up it used are
