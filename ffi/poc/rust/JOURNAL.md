@@ -3141,3 +3141,37 @@ crossing counts; content sets; the concurrency suite (shipped and global-table b
 padded builds fail as they must); lifecycle guard off/on; R-D1; R-D6 all pass; the corpus on
 all four arms with its controls failing; the framed path's header check (11d); the
 no-unknown variant.
+
+## 2026-09-27 -- U1-unary (owner): the labelled extra RPC direction `c`, kept (f1dc5de8)
+
+- Direction c = a result upload: the request is P5.3 (1 MB) or P5.4 (4 MB), M5
+  UploadResultDataMessage, built from the payload builders and checked against the
+  validated manifest before any call (and prost re-encodes the same bytes); the response is
+  empty; the server decodes the request with prost (as in b) and refuses an empty upload.
+  Every cell has it (A, B/Bf, C/Cf, D/Df, E/Ef, F/Ff, and the no-unknown client's cells), at
+  k = 1 and 8 only (grid::C_INFLIGHT). The paths are b's: B prost encode_to_vec + ak_call_unary;
+  C ak_call_unary_enc; D ak_enc_take_owned + tonic; E Enc buffer + ak_call_unary; F Enc::take +
+  tonic; framed twins through rpc::unary_framed.
+- Found on the way: tonic's server refuses a message over 4 MiB by default and P5.4 is
+  4,194,390 B ("decoded message length too large ... limit is: 4194304"), on every path; the
+  grid's server now accepts 8 MiB (server::SERVER_MAX_RECV, in the rpc header).
+- Requirement 18: status and response length (0) on every call; the plant control now runs
+  per send path AND per direction (rpc_client --warm-cells A|B|Bf|Df --warm-dir a|c; the
+  plant expects 1 byte on c): all 16 aborted with no output in opt/u1-unary (both clients,
+  both transports).
+- Crossings (req 19): new rows rpc:<cell> c/P5.3, c/P5.4: B 2 (call, free), C 4 (reset,
+  encode, ak_call_unary_enc, free; 1 reset), D 4 (reset, encode, ak_enc_take_owned, free), E 2,
+  framed twins identical; 0 reverse (M5 has no loop). Files regenerated.
+- Full run opt/u1-unary (633 s; c-direction.txt tabulates c) and a narrowed rerun
+  opt/u1-unary-narrow (11 cells, drop mode, c only, k 1 and 8, 3 launches x 5 rounds per
+  transport; pairs.txt, medians.txt). Client CPU per call, narrowed medians, pinned, k=1 /
+  k=8: P5.3 A 471 / 563 us, B 665 / 737, Bf 559 / 610, C 578 / 632, Cf 510 / 584, D 589 / 830,
+  Df 489 / 534, F 581 / 645, Ff 493 / 532; P5.4 A 1812 / 3037, B 6392 / 6756 (p10 2507 /
+  6077: bimodal), Bf 2214 / 2273, C 2196 / 2460, Cf 1875 / 2080, D 2184 / 3490, Df 1854 / 1983,
+  E 2583 / 3072, Ef 2133 / 2258, F 2147 / 3316, Ff 1821 / 2020. framed/reference gmean
+  (median; p10): P5.3 B 0.83, C 0.86, D 0.78, E 0.87, F 0.83 (p10 0.82-0.88); P5.4 B 0.37,
+  C 0.85, D 0.68, E 0.82, F 0.72 (p10 0.58-0.84). At P5.4 k=8 the framed core-arm cells (Cf,
+  Df, Ff: 1.98-2.08 ms) are below A (3.04 ms), whose prost encode grows tonic's per-call
+  buffer to 4 MB. The full run's Bf shipped rows (2.0 / 4.3 ms P5.3, 4.0 / 10.3 ms P5.4, rounds
+  739-4818 us) are not reproduced in the narrowed run (Bf/B 0.80-0.85, 0.35-0.44). All
+  container instrumentation.

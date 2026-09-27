@@ -1,0 +1,60 @@
+--- gen/crossings.txt	2026-09-27 08:57:39.126256053 +0000
++++ /home/user/ArmoniK.Api/ffi/logs/rust/opt/u1-unary/checks/crossings-current.txt	2026-09-27 10:54:11.538671702 +0000
+@@ -689,29 +689,57 @@
+ U-wire-UploadResultDataMessage-upload-as-wt5     decode-pull  retain            4        1      1
+ rpc:B                                            a            default           2        0      0
+ rpc:B                                            b            default           2        0      0
++rpc:B                                            c/P5.3       default           2        0      0
++rpc:B                                            c/P5.4       default           2        0      0
+ rpc:C                                            a            retain            4     3501      1
+ rpc:C                                            b            retain         2520     2501      1
++rpc:C                                            c/P5.3       retain            4        0      1
++rpc:C                                            c/P5.4       retain            4        0      1
+ rpc:C                                            a            drop              3     3501      0
+ rpc:C                                            b            drop           2514     2501      1
++rpc:C                                            c/P5.3       drop              4        0      1
++rpc:C                                            c/P5.4       drop              4        0      1
+ rpc:D                                            a            retain            2     3501      1
+ rpc:D                                            b            retain         2520     2501      1
++rpc:D                                            c/P5.3       retain            4        0      1
++rpc:D                                            c/P5.4       retain            4        0      1
+ rpc:D                                            a            drop              1     3501      0
+ rpc:D                                            b            drop           2514     2501      1
++rpc:D                                            c/P5.3       drop              4        0      1
++rpc:D                                            c/P5.4       drop              4        0      1
+ rpc:E                                            a            retain            2        0      0
+ rpc:E                                            b            retain            2        0      0
++rpc:E                                            c/P5.3       retain            2        0      0
++rpc:E                                            c/P5.4       retain            2        0      0
+ rpc:E                                            a            drop              2        0      0
+ rpc:E                                            b            drop              2        0      0
++rpc:E                                            c/P5.3       drop              2        0      0
++rpc:E                                            c/P5.4       drop              2        0      0
+ rpc:Bf                                           a            default           2        0      0
+ rpc:Bf                                           b            default           2        0      0
++rpc:Bf                                           c/P5.3       default           2        0      0
++rpc:Bf                                           c/P5.4       default           2        0      0
+ rpc:Cf                                           a            retain            4     3501      1
+ rpc:Cf                                           b            retain         2520     2501      1
++rpc:Cf                                           c/P5.3       retain            4        0      1
++rpc:Cf                                           c/P5.4       retain            4        0      1
+ rpc:Cf                                           a            drop              3     3501      0
+ rpc:Cf                                           b            drop           2514     2501      1
++rpc:Cf                                           c/P5.3       drop              4        0      1
++rpc:Cf                                           c/P5.4       drop              4        0      1
+ rpc:Df                                           a            retain            2     3501      1
+ rpc:Df                                           b            retain         2520     2501      1
++rpc:Df                                           c/P5.3       retain            4        0      1
++rpc:Df                                           c/P5.4       retain            4        0      1
+ rpc:Df                                           a            drop              1     3501      0
+ rpc:Df                                           b            drop           2514     2501      1
++rpc:Df                                           c/P5.3       drop              4        0      1
++rpc:Df                                           c/P5.4       drop              4        0      1
+ rpc:Ef                                           a            retain            2        0      0
+ rpc:Ef                                           b            retain            2        0      0
++rpc:Ef                                           c/P5.3       retain            2        0      0
++rpc:Ef                                           c/P5.4       retain            2        0      0
+ rpc:Ef                                           a            drop              2        0      0
+ rpc:Ef                                           b            drop              2        0      0
++rpc:Ef                                           c/P5.3       drop              2        0      0
++rpc:Ef                                           c/P5.4       drop              2        0      0

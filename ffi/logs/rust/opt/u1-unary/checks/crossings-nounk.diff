@@ -1,0 +1,36 @@
+--- gen/crossings-nounk.txt	2026-09-27 08:57:41.134256172 +0000
++++ /home/user/ArmoniK.Api/ffi/logs/rust/opt/u1-unary/checks/crossings-nounk-current.txt	2026-09-27 10:54:30.294672817 +0000
+@@ -348,17 +348,33 @@
+ U-wire-UploadResultDataMessage-upload-as-wt5     decode-pull  no-unknown        3        0      0
+ rpc:B                                            a            default           2        0      0
+ rpc:B                                            b            default           2        0      0
++rpc:B                                            c/P5.3       default           2        0      0
++rpc:B                                            c/P5.4       default           2        0      0
+ rpc:C                                            a            nounk             3     3501      0
+ rpc:C                                            b            nounk          2514     2501      1
++rpc:C                                            c/P5.3       nounk             4        0      1
++rpc:C                                            c/P5.4       nounk             4        0      1
+ rpc:D                                            a            nounk             1     3501      0
+ rpc:D                                            b            nounk          2514     2501      1
++rpc:D                                            c/P5.3       nounk             4        0      1
++rpc:D                                            c/P5.4       nounk             4        0      1
+ rpc:E                                            a            nounk             2        0      0
+ rpc:E                                            b            nounk             2        0      0
++rpc:E                                            c/P5.3       nounk             2        0      0
++rpc:E                                            c/P5.4       nounk             2        0      0
+ rpc:Bf                                           a            default           2        0      0
+ rpc:Bf                                           b            default           2        0      0
++rpc:Bf                                           c/P5.3       default           2        0      0
++rpc:Bf                                           c/P5.4       default           2        0      0
+ rpc:Cf                                           a            nounk             3     3501      0
+ rpc:Cf                                           b            nounk          2514     2501      1
++rpc:Cf                                           c/P5.3       nounk             4        0      1
++rpc:Cf                                           c/P5.4       nounk             4        0      1
+ rpc:Df                                           a            nounk             1     3501      0
+ rpc:Df                                           b            nounk          2514     2501      1
++rpc:Df                                           c/P5.3       nounk             4        0      1
++rpc:Df                                           c/P5.4       nounk             4        0      1
+ rpc:Ef                                           a            nounk             2        0      0
+ rpc:Ef                                           b            nounk             2        0      0
++rpc:Ef                                           c/P5.3       nounk             2        0      0
++rpc:Ef                                           c/P5.4       nounk             2        0      0

@@ -1,0 +1,8 @@
+target A dir c plant exit 3 output none: ABORT (requirement 18): server warm-up: cell A upload response 0 B, expected 1
+target B dir c plant exit 3 output none: ABORT (requirement 18): server warm-up: cell B upload response 0 B, expected 1
+target Bf dir c plant exit 3 output none: ABORT (requirement 18): server warm-up: cell Bf upload response 0 B, expected 1
+target Df dir c plant exit 3 output none: ABORT (requirement 18): server warm-up: cell Df-retain upload response 0 B, expected 1
+target-nounk A dir c plant exit 3 output none: ABORT (requirement 18): server warm-up: cell A upload response 0 B, expected 1
+target-nounk B dir c plant exit 3 output none: ABORT (requirement 18): server warm-up: cell B upload response 0 B, expected 1
+target-nounk Bf dir c plant exit 3 output none: ABORT (requirement 18): server warm-up: cell Bf upload response 0 B, expected 1
+target-nounk Df dir c plant exit 3 output none: ABORT (requirement 18): server warm-up: cell Df-nounk upload response 0 B, expected 1
