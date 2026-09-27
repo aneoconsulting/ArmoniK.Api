@@ -812,9 +812,75 @@ ak_status ak_call_unary_enc(ak_client*, ak_bytes_in path, ak_enc_ctx *enc,
 ak_call  *ak_call_open(ak_client*, ak_bytes_in path, ak_call_kind, ak_call_opts*);
 ak_status ak_call_send(ak_call*, ak_bytes_in, bool last, ak_err*);
 ak_status ak_call_recv(ak_call*, ak_bytes *out, ak_err*);
-void      ak_call_close(ak_call*);    /* cancels, unblocks a pending recv, does NOT free */
+void      ak_call_cancel(ak_call*);   /* cancels, unblocks a pending send or recv, does NOT free */
 void      ak_call_destroy(ak_call*);  /* frees, only after every operation returned */
 ```
+
+**Streaming, as built (2026-09-27, the Rust optimisation experiment; supersedes the
+listing above where they differ).** Client streaming is built in the shared core.
+Three holes in the listing are closed here, by owner approval, before any other
+slice has timed it:
+
+```c
+/* ak_call_kind: an int32_t. Unary calls have their own entries and no kind. */
+#define AK_CALL_CLIENT_STREAM  1   /* many request messages, one response: BUILT   */
+#define AK_CALL_SERVER_STREAM  2   /* reserved: ak_call_open returns NULL          */
+#define AK_CALL_BIDI_STREAM    3   /* reserved: ak_call_open returns NULL          */
+
+struct ak_kv { const uint8_t *key; size_t key_len; const uint8_t *val; size_t val_len; };
+struct ak_call_opts {          /* NULL = no deadline, no metadata */
+  uint64_t deadline_ms;        /* 0 = none; otherwise sent as grpc-timeout */
+  const struct ak_kv *metadata;/* ASCII metadata; a key ending in "-bin" carries raw bytes */
+  size_t n_metadata;
+};
+
+#define AK_ERR_RPC_STATUS (-12)  /* the call completed with a non-OK gRPC status */
+
+ak_call  *ak_call_open(ak_client*, const uint8_t *path, size_t path_len,
+                       int32_t kind, const struct ak_call_opts *opts);
+int32_t   ak_call_send(ak_call*, const uint8_t *msg, size_t len, int32_t last);
+int32_t   ak_call_send_enc(ak_call*, ak_enc_ctx *enc, int32_t last); /* the context's buffer MOVED */
+int32_t   ak_call_recv(ak_call*, struct ak_bytes *out, int32_t *grpc_status);
+void      ak_call_cancel(ak_call*);
+void      ak_call_destroy(ak_call*);
+```
+
+- **One cancel entry.** `ak_call_cancel` already existed for the callback and queue
+  handles; it is the cancel of every call handle, streams included. The
+  `ak_call_close` the first build exported did the same thing under a second name and
+  is removed (no other slice called it). Half-closing the request stream is
+  `ak_call_send(..., last = 1)`, not a separate entry.
+- **The status number, on streaming calls.** `ak_call_recv` writes the gRPC status
+  code (0 to 16) to `*grpc_status` whenever the call has completed, `grpc_status`
+  may be NULL. It returns `AK_OK` if and only if the code is 0, and
+  `AK_ERR_RPC_STATUS` for any other code, a transport failure included (the stack
+  reports it as `UNAVAILABLE`), and a cancelled call too (`CANCELLED`). Misuse (a
+  second `recv`, a `send` after `last`) is `AK_ERR_INVALID_STATE` and leaves
+  `*grpc_status` untouched. A `send` on a call whose stream has already failed
+  returns `AK_ERR_HOST`; the status is then read with `recv`. **The unary entries
+  still return no status number** (their `ak_completion` would change layout): that
+  gap is open and recorded in FIX-PLAN, not closed by this paragraph.
+- **The client's limits are enforced (D44).** `ak_client_opts.max_send_message` and
+  `max_recv_message` apply to every call of that client: unary and streaming, every
+  delivery, both send paths (reference and framed), per message on a stream. 0 is
+  the stack's default (tonic: 4 MiB received, unlimited sent). A request message
+  above the send limit is refused before anything is sent, with `AK_ERR_LIMIT`; a
+  response above the receive limit fails the call (`RESOURCE_EXHAUSTED` on a stream,
+  `AK_ERR_LIMIT` on a unary call). Before this, both fields were accepted and
+  ignored.
+- **Blocking delivery only**, as the campaign asks (CAMPAIGN req 16); callback and
+  queue deliveries of a stream are not built.
+
+**Two more additive entries (2026-09-26/27).** `ak_enc_take_owned(ak_enc_ctx*,
+struct ak_bytes *out)` moves an encode context's output to the host as an owned
+buffer, released with `ak_bytes_free` on any thread (the buffer returns to the
+context for reuse): what a host hands a transport of its own without a copy.
+`ak_client_set_framed(ak_client*, int32_t on)` selects, for every later call on that
+client, the **framed** send path: tonic's channel with the request message sent as
+two body frames (the 5-byte gRPC prefix, then the bytes), bypassing the codec layer
+whose raw-bytes encoder copies every message into its own buffer. Its request headers
+were checked identical on the wire to the reference path's, and the gate keeps
+checking it. 0, the default, is the reference path.
 
 **`ak_call_unary_enc` is additive (2026-09-26, the Rust optimisation
 experiment).** It is `ak_call_unary` whose request is the encode context's output,
@@ -1327,6 +1393,16 @@ Each blocks something. None is settled by a measurement that exists today.
    7's note says is the one still available on decode: one construction per
    element is allocation, and allocation appeared to dominate decode (container
    instrumentation).
+
+   **Tried and reverted (2026-09-27, the Rust optimisation experiment, owner
+   accepting the changed call order).** Built as a generator option: `apply` first
+   when the element's runs fit the arena, one construction per element, today's
+   order as the fallback when an arena fills. It cost core-ffi push decode 3 to 10%
+   in two alternated A/B runs rather than saving it (container instrumentation): the
+   price is the machinery that holds runs until the element body ends, and it
+   outweighed the second construction it removed. Reverted; what a binding would need
+   to revive it is in `poc/rust/JOURNAL.md`. Batching across nesting, which would
+   remove the per-element calls altogether, is a separate idea and was not tried.
 
 11. **Does the core retain unknown fields?** Today it does not, and neither does
    prost, so nothing in this design carries an unrecognised field from decode to

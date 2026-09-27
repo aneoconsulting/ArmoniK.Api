@@ -139,7 +139,15 @@ in its container shows it executes (section 9).
     round 1; **one channel per cell per launch**, opened and warmed before round 1.
 14. **Directions:** (a) empty request, P2.2 response; (b) P2.2-sized request that
     the server decodes, empty response. A streamed upload in 2 MiB chunks is
-    optional and scheduled last (FIX-PLAN D5). Direction (a) is reported as `a`
+    optional and scheduled last (FIX-PLAN D5). **Built in the Rust slice
+    (2026-09-27) as two labelled extra directions**, for a slice to add when it can:
+    (c) a unary upload, request P5.3 or P5.4 (M5, 1 MB and 4 MB) that the server
+    decodes, empty response; (d) the streamed upload, ArmoniK's
+    `UploadResultData(stream ...)` shape: M5 messages carrying 2 MiB chunks (ids on
+    the first only), 4 MiB and 16 MiB in total, through the core's client streaming
+    (ABI-v1 section 9), the server checking the received byte count and digest. Both
+    at 1 and 8 in flight. Each send path that exists runs beside its reference
+    (the framed twins, ABI-v1 section 9). Direction (a) is reported as `a`
     (decode only) and `a+read` (decode, then read every field) in every slice;
     cross-slice readings use `a+read` (owner, 2026-09-26, R-H36).
 15. **Concurrency:** 1, 8 and 16 calls in flight.

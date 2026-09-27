@@ -471,6 +471,31 @@ section 10 checklist again. The work per slice:
 Done when every slice's gate passes from a clean checkout for both builds and its
 smoke run shows every new row, figures stripped.
 
+### WP8. Pick up the Rust optimisation experiment's shared changes (every slice, before its timings)
+
+The shared core and generator changed on `claude/rust-slice-optimization-sy1f4n`
+(owner, 2026-09-26/27; the Rust slice's `STATE.md` and `JOURNAL.md` list every step).
+Each slice regenerates, rebuilds its core, re-runs its gate, and then:
+
+1. **Counts**: switch the counting build's exact-size grow to the geometric grow
+   (CAMPAIGN req 19 as amended) and regenerate the committed counts;
+2. **New additive entries** (ABI-v1 section 9): `ak_enc_take_owned`,
+   `ak_client_set_framed`, client streaming (`ak_call_open`, `ak_call_send`,
+   `ak_call_send_enc`, `ak_call_recv` with its status number, `ak_call_cancel`);
+   `ak_call_close` is gone. A slice uses them where its host's transport or the
+   extra directions (c) and (d) of CAMPAIGN req 14 need them;
+3. **D44**: the client's `max_send_message` / `max_recv_message` are now enforced
+   on every path, so a harness that relied on them being ignored breaks visibly;
+4. **Binding-side lessons that are not in the shared code**: a binding need not
+   re-validate a string the core accepted (decision 3); the sparse fill clears only
+   the elements it fills (decision 9); retention takes one reset per decode and a
+   geometric grow (decision 11 rules 7 and 8).
+
+**Still open after WP8**: the unary entries return no gRPC status number (ABI-v1
+section 9; `ak_completion` would change layout); `ak_call_opts` (deadline, metadata)
+exists on streams only; server-streaming and bidirectional calls are reserved kinds,
+not built.
+
 ## 3. What this plan deliberately does not do
 
 - It does not re-take any timing in a container.
