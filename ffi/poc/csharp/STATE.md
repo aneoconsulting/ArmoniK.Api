@@ -8,7 +8,7 @@ waits for the campaign. The history of how each item got here is in `JOURNAL.md`
 
 | | |
 |---|---|
-| **Status** | FIX-PLAN WP8 (the Rust optimisation experiment's shared changes, and the upload directions c and d, required since 2026-09-27) built and gated for this slice on the merged HEAD (core and generator of 98b187ce6 / e4c7e97cd); then the parity items (C on the move path, framed twins on b); both builds, full and no-unknown, gated from a fresh worktree at `9114d6b`: see **Gate** below; smoke of every suite: see **Smoke**. Findings are in scope only if they can change what the campaign measures (ffi/CLAUDE.md, "Scope of findings"). |
+| **Status** | FIX-PLAN WP9 done: the RPC grid runs on BenchmarkDotNet like the codec suite (CAMPAIGN req 22a as amended 2026-09-27), the hand-written sampler and the codec suite's hand-written pre-warm removed; gated from a fresh worktree at `6a7c0cf`, both builds, net8.0 and net6.0; a minimal smoke (owner 2026-09-27: small tests only). WP10 (the Rust slice's shared server) is next. Findings are in scope only if they can change what the campaign measures (ffi/CLAUDE.md, "Scope of findings"). |
 | **Levels** (FIX-PLAN D2) | target **net8.0** (.NET 8.0.31, SDK 8.0.131); floor **net6.0** (.NET 6.0.36 from the NuGet runtime pack, self-contained publish): gated; floor **.NET Framework 4.8**: compiled only (`src/HarnessFloor`), never run (needs Windows; the container has no Mono) |
 | **Incumbent** | Google.Protobuf 3.32.0, Grpc.Tools 2.72.0, Grpc.Net.Client and Grpc.AspNetCore 2.71.0 (the versions `packages/csharp` ships) |
 | **Core** | the one core, `ffi/poc/codec`, built from `git archive HEAD` by `gen/build_core.sh`, every build with `init-guard`: full `target-core` (`rpc`), `target-core-count` (`rpc,count`), `target-core-corpus` (`corpus`); no-unknown (ak-core `--no-default-features`) `target-core-nounk`, `target-core-count-nounk`, `target-core-corpus-nounk`, each in its own target dir |
@@ -79,9 +79,11 @@ src/Harness/                harness: conformance | unknown | groups | utf8 | map
                             GeneratedNounk/
 src/Corpus/                 the corpus runner (net8.0 + net6.0): 4 arms full, 2 arms no-unknown,
                             each row in a child process; --unk-controls, --wrong-root, --variant
-src/Rpc/                    akrpc: `campaign --suite rpc|rpc-server|rpc-warm|calib`, `--suite rpc --counts`
-                            (the counting build); cells A-F, one channel each, the gate's --layout and
-                            --error-path, and the legacy modes (--grid, --stream, Bench.cs; D42)
+src/Rpc/                    akrpc: `bench` (the timed RPC grid on BenchmarkDotNet, RpcBench.cs, WP9),
+                            `campaign --suite rpc-server|rpc-warm|calib`, `--suite rpc --counts` and
+                            `--upload-check` (the counting build, the gate); cells A-F, the gate's
+                            --layout and --error-path, and the legacy modes (--grid, --stream,
+                            Bench.cs; D42)
 src/BenchDotNet/            the codec suite's engine: BenchmarkDotNet 0.15.8, InProcessEmit, one
                             process per arm:mode unit, process CPU per iteration (CpuClock), JIT tier
                             read back (JitTiers.cs), encode variants and pools (Cases.cs), the Grpc.Net
@@ -90,26 +92,15 @@ src/HarnessFloor/           net48, compile only (the binding; the host half is c
 run_campaign.sh             --suite codec|rpc|calib|gate --out DIR (CAMPAIGN req 31)
 ```
 
-## Gate (FIX-PLAN WP8): clean checkout
+## Gate (FIX-PLAN WP9): clean checkout
 
-`logs/csharp/wp8b-gate.log`: **GATE PASSED** at commit `9114d6b` (this slice's WP8 parity commit,
-on `0f067cf`, cs_host's move-path entry; the first WP8 gate, at `d97ea52`, is
-`logs/csharp/wp8-gate.log`), run in a fresh git worktree with every build
-directory new, core from `git archive HEAD` of `poc/codec`, net8.0 and net6.0, both builds.
-Correctness only; nothing is timed. 0 gate-step failures; all 29 planted controls fail as
-required.
-
-- Steps 1 to 8 as in WP6 and WP7 (generator; core and layout probe; full build net8.0 and
-  net6.0: layout, conformance, unknown, groups, utf8, mapforms, core-ffi push/pull/retain, R5
-  counts = `gen/crossings.txt`, akrpc layout and error path, the corpus with its controls; the
-  no-unknown build with its own).
-- Step 9: `gen/counts.txt` (1,044) and `gen/counts-nounk.txt` (544), per codec case, and
-  `gen/rpc-counts.txt` (105) and `gen/rpc-counts-nounk.txt` (62), per RPC call, equal row for
-  row, on the timed build's geometric grow and one reset per decode; the control with an
-  exact-size grow must differ, and does. New (WP8): the upload check on both builds (every c
-  cell accepted; every d stream's byte count and SHA-256 as received equal to the client's,
-  every cell, framed twin and Cc copy cell: 68 cells full, 40 no-unknown) and two must-fail plants (a wrong
-  SHA-256, a wrong count).
+`logs/csharp/wp9-gate.log`: **GATE PASSED** at commit `6a7c0cf`, run in a fresh git worktree
+with every build directory new, core from `git archive HEAD` of `poc/codec`, net8.0 and net6.0,
+both builds. Correctness only; nothing is timed. 0 gate-step failures; all 29 planted controls
+fail as required. Steps as in WP8: the counts (`gen/counts.txt` 1,044, `gen/counts-nounk.txt`
+544, `gen/rpc-counts.txt` 105, `gen/rpc-counts-nounk.txt` 62) equal row for row, the upload
+check on 68 and 40 cells, its two plants failing. The crossing counts come from the counting
+builds and are unchanged by WP9. (Earlier gates: `wp8b-gate.log`, `wp8-gate.log`.)
 
 ## Register H (WP6) and WP7
 
@@ -138,11 +129,33 @@ itself does not specify.
 
 Assessed against CAMPAIGN.md as amended through 3210f28 (the owner's 2026-09-26 decisions,
 R-H22 to R-H36). The runner is `poc/csharp/run_campaign.sh`. The codec suite runs under
-BenchmarkDotNet (req 22a); the rpc and calib suites under `akrpc campaign`. Each suite runs both
-builds (full and no-unknown) per launch, in an order alternated by launch. The RPC suite stays on
-the slice's runner because BDN would break req 18 (it records a failed case and continues, where
-one failed call must abort the run) and its pilot would change the number of calls per sample;
-req 22a allows this, stated here.
+BenchmarkDotNet (req 22a), and so does the RPC grid since WP9 (req 22a as amended 2026-09-27):
+`akrpc bench`, one pinned process per cell, the launch's one server started and warmed by the
+runner first. The calib suite is `akrpc campaign --suite calib`. Each suite runs both builds
+(full and no-unknown) per launch, in an order alternated by launch.
+
+**What the framework forces or what differs from the hand-written sampler (WP9), stated:**
+- a process per unit: one unit = one cell (21 in the full build, 10 no-unknown, per transport),
+  its cases = its directions, payloads and in-flight levels; three benchmark classes (RpcK1,
+  RpcK8, RpcK16) because OperationsPerInvoke is an attribute constant; one invocation = one
+  batch of k calls in flight, k operations (`iters` = calls, `invocations` = batches);
+- the channels live for the process (opened before BDN starts, one channel per cell per
+  benchmark process), no longer for the whole launch across cells;
+- BDN picks the invocations per iteration (pilot, iteration time 100 ms campaign, 20 ms smoke;
+  unroll factor 1) where the sampler had a fixed number of calls per sample;
+- the warm-up is BDN's (jitting stage, pilot, 10 warm-up iterations campaign / 1 smoke), not a
+  JIT-settled loop; the JIT tier is read back per case and reported (`hot_tier0`), not fatal
+  for RPC cases; order: units a seeded shuffle per launch, cases a seeded shuffle per process.
+
+**Custom code on top of BDN, each for a requirement** (WP9 addendum, bc7cf94b1): the server
+process and its warm-up (req 13); CpuClock, the job's clock reading process CPU at each
+iteration boundary (req 21: BDN has no CPU per iteration); the seeded IOrderer (req 22: BDN has
+no random order); the JSON-lines exporters with every label, writing no sample when any case
+failed (req 28, 18); the runner's discard of a failed launch's output (req 18/22a); the JIT tier
+read back (req 24's "recorded"); in the codec suite, the two prime cases (BDN cases, not
+exported): without them the first case of every process measured BDN's own first-touched
+runtime helpers at tier 0 and the JIT check failed (JOURNAL 51, 62). The codec suite's
+hand-written pre-warm loop, its settle wait and knobs are removed (JOURNAL 62).
 
 | # | Requirement | Status |
 |---|---|---|
@@ -168,7 +181,7 @@ req 22a allows this, stated here.
 | 20 | crossing cost fwd/rev, perf stat | **not met here**: calib has a forward row (ak_noop) and a forward-and-reverse row; `perf stat` runs when installed and is not installed in this container (owner: install perf on the campaign machine) |
 | 21 | CPU is process CPU per round | met as amended (R-H25): codec, CLOCK_PROCESS_CPUTIME_ID per BDN iteration (the job's clock, read at the same iteration boundaries as the wall time; a case without one value per iteration fails); rpc, getrusage(RUSAGE_SELF) of the client per sample beside wall; calib (the crossing benchmark, req 20) keeps CLOCK_THREAD_CPUTIME_ID of its one loop thread |
 | 22 | order randomised where the framework allows | met: codec, the unit order of a launch and the case order in each BDN process are seeded shuffles, seeds in the headers; builds alternate by launch; rpc, the cell order of every round a seeded shuffle; transports and builds alternated by launch |
-| 22a | benchmark engine | met: BenchmarkDotNet for the codec suite (InProcessEmit, pinned by the runner, raw measurements exported, warm-up and tier recorded); the RPC grid on the runner, reason above |
+| 22a | benchmark engine | met as amended 2026-09-27: BenchmarkDotNet for the codec suite and the RPC grid (InProcessEmit, pinned by the runner, StopOnFirstError for RPC, raw measurements exported, warm-up and tier recorded; what the framework forces and the custom pieces are listed above) |
 | 23 | 5 rounds x 3 launches | met (defaults) |
 | 24 | warm-up stated, identical; GC/JIT defaults stated; every warm-up a runner parameter | met (amended 85cfd4826): every warm-up is a runner parameter with the campaign default in the header and a short smoke default (run_campaign.sh's AK_RPC_WARM_*, AK_RPC_SERVER_WARM, AK_BDN_WARMUP / _ROUNDS / _ITERATION_MS / _PREWARM_*; JOURNAL 61). codec, per BDN process a pre-warm to JIT quiescence (the job's clock included) and 2 unexported prime cases, then per case BDN's jitting, pilot and a fixed warm-up count; the JIT tier read back per case, `jit check: FAIL` fails the unit. rpc: warm-up rounds of 64 calls per cell, direction and level until a round compiles nothing (at most 10); `jit_in_window` per sample. GC and JIT between blocks at the framework defaults, stated |
 | 25 | allocator/GC warm, GC stated | met: warm-up per arm, workstation concurrent GC stated, GC counts and pause per BDN case (summary row) |
@@ -180,20 +193,21 @@ req 22a allows this, stated here.
 | 31 | runner interface | met for the slice; the top-level `ffi/campaign.sh` is the aggregating session's |
 | 32 | smoke run | see **Smoke** below |
 
-**Smoke** (`logs/csharp/campaign/wp8b-smoke/`, run from the clean worktree at `9114d6b` after
-its gate passed; 1 launch, 1 round, CLIENT=0 SERVER=1, smoke pool 64 KiB, 6 of the 92 U-* rows;
-figures stripped in every JSON-lines file, the calib file and the `.bdn.log` files headed as
-instrumentation; `runner.out` is the runner's console; the first WP8 smoke, at `d97ea52`, is
-`wp8-smoke/`):
-- codec: 12 BDN unit processes (both builds), 1,548 samples, 0 failed cases, `cpu check: PASS`
-  and `jit check: PASS` in every unit.
-- rpc: one server process for the launch, warmed first; full client 283 samples per transport
-  (136 on c and d), b now in every cell including Bf, Cf-*, Cc-*, Ef-*; no-unknown client 146
-  (80 on c and d); upload cells checked (count and SHA-256) before the warm-up; 0 aborts.
-- `--plant` (`plant/`): 60 controls (both builds x both transports x {wrong length on a, c, d;
-  wrong SHA-256 on d} x cells A, B, Bf, D), every one aborted with 0 samples for its planted
-  reason.
-- calib: 2 samples, crossing counts equal to both committed files.
+**Smoke** (`logs/csharp/campaign/wp9-smoke/`, the owner's small-test rule of 2026-09-27; run
+from the gated worktree at `6a7c0cf`, binaries called directly, not through the runner, so the
+runner's machine header is absent; figures stripped, `.bdn.log` files headed as
+instrumentation). Settings: full build, `shipped` transport only, one launch, BDN `--rounds 1
+--warmup 1 --iteration-ms 2`, server warmed with 100 calls; codec one unit (core-ffi:retain) on
+P1.2 (three content sets) and U-deep-all with `--smoke` and a 64 KiB pool.
+- rpc: all 21 units of the full build, 283 samples (the same rows the hand-written sampler
+  wrote per transport: 21 cells, directions a, a+read, b, c, d, in flight 1/8/16, every
+  send path label), 0 failed cases; a plant (wrong byte count on d, C-drop): the case fails,
+  BDN stops, 0 samples, exit 1. 94 rows report `hot_tier0 > 0` (1 x 2 ms warm-up; not fatal
+  for RPC).
+- codec: 22 cases + 2 primes, 0 failed, `jit check: PASS`, `cpu check: PASS`, with BDN's own
+  warm-up only (no pre-warm loop).
+- Not run in this smoke (small-test rule): the pinned transport, the no-unknown build's RPC
+  units, the full plant set through the runner, calib, the full codec suite.
 
 **Engine cost, container instrumentation** (`logs/csharp/bdn-default-job-unit/`, before WP7):
 one unit of 336 cases at the default BDN job (10 warm-up, 5 x 100 ms) ran 17 to 18 minutes.
@@ -224,7 +238,8 @@ campaign's codec suite is correspondingly longer.
 
 ## Next step
 
-1. The aggregating session reads WP8 (JOURNAL 59, 60) and pushes; this slice changes nothing further
+1. WP10: point every cell at the Rust slice's shared server (poc/rust/SERVER.md, serve.sh), remove
+   this slice's server, re-gate. Then the aggregating session reads WP9 (JOURNAL 62) and pushes; this slice changes nothing further
    unless a finding in scope (ffi/CLAUDE.md, "Scope of findings") comes back.
 2. The net48 gate on a Windows machine (D4), which first needs a net48 host half.
 3. The campaign itself is the owner's: `run_campaign.sh` (through `ffi/campaign.sh`) on the
@@ -235,6 +250,8 @@ campaign's codec suite is correspondingly longer.
 | Log | What it establishes |
 |---|---|
 | `campaign/wp8c-warmup-knobs/` | the RPC client's warm-up knobs in smoke mode, one transport, full build (req 24 as amended) |
+| `wp9-gate.log` | the clean-checkout gate of WP9 at `6a7c0cf`, both builds, net8.0 and net6.0 (see Gate) |
+| `campaign/wp9-smoke/` | the minimal WP9 smoke: the RPC grid on BDN, one transport, full build; one codec unit (see Smoke) |
 | `wp8b-gate.log` | the clean-checkout gate after the WP8 parity items, at `9114d6b`, both builds, net8.0 and net6.0 (see Gate) |
 | `campaign/wp8b-smoke/` | the smoke after the WP8 parity items (see Smoke) |
 | `wp8-gate.log` | the clean-checkout gate of WP8 at `d97ea52`, both builds, net8.0 and net6.0, counts and upload check included (see Gate) |

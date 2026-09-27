@@ -1,0 +1,4 @@
+# campaign rpc-server: shipped on /tmp/ak9s.sock (Kestrel defaults); pid 491
+# runtime:        .NET 8.0.31; Grpc.AspNetCore.Server 2.71.0; GC server=False
+# threads:        .NET thread pool min 4 worker / 1 IO, max 32767 worker / 1000 IO, 2 pool thread(s) now; 4 logical CPUs visible; one process, 1 Kestrel host(s) sharing the thread pool
+# served: 9300 Down, 7038 Up, 4046 Upload, 4033 Stream (every client of this launch, the server warm-up included)

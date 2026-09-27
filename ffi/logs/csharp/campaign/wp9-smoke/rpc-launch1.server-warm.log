@@ -1,0 +1,1 @@
+# server warm-up: shipped (/tmp/ak9s.sock): 100 calls per direction (a, b) and 10 per upload direction (c P5.3, d 4 MiB) from Grpc.Net, the same from the core's transport, every call checked

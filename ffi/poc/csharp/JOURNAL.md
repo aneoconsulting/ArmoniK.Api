@@ -2021,3 +2021,52 @@ the smoke; the smoke kept running and completed, nothing was re-run.
   wp8c-warmup-knobs/`, figures stripped): 283 samples, 0 aborts, the header line reads "1
   round(s) run of at most 1, 16 calls ..., settle wait 0 ms ..., stop on a JIT-quiet round:
   off". The gated code paths (counts, upload check) are unchanged, so no gate was re-run.
+
+## 62. WP9: the RPC grid on BenchmarkDotNet; the codec suite's hand-written warm-up removed
+
+CAMPAIGN req 22a as amended (c16afb2d6, addendum bc7cf94b1: use the framework's own warm-up,
+iteration and invocation control, isolation, ordering and export; custom code only where a
+requirement needs it).
+
+- **`akrpc bench`** (src/Rpc/RpcBench.cs): BenchmarkDotNet 0.15.8, InProcessEmit, one pinned
+  process per UNIT = one cell (A, B, Bf, C-retain, Cf-retain, Cc-retain, D-retain, E-retain,
+  Ef-retain, F-retain, the same in drop, and the four core-delivery extras: 21 units in the full
+  build; 10 in the no-unknown build). A case is `cell|dir|payload|k`; three benchmark classes
+  (RpcK1, RpcK8, RpcK16) because OperationsPerInvoke is an attribute constant: one invocation is
+  one batch of k calls in flight, counted as k operations (`iters` = calls, `invocations` =
+  batches in the export). The cell's channels are opened once per process, before BDN starts
+  (one channel per cell per benchmark process); the caller pool too. The upload cells' count
+  and SHA-256 check runs once in each case's GlobalSetup (skipped after the first).
+- **Framework mechanisms used as they are:** the jitting stage, pilot (UnrollFactor 1, the
+  pilot picks the invocations), warm-up iterations, actual iterations, InProcessEmit, the
+  JoinSummary run, StopOnFirstError.
+- **Custom pieces, each for a requirement:** the server process and its warm-up (req 13; the
+  runner, as before); CpuClock as the job's clock (req 21: BDN has no CPU per iteration); the
+  seeded IOrderer (req 22: BDN has no random order); the JSON-lines exporter with every label
+  (req 28), which writes no sample when any case failed (req 18); the JIT tier read back (req
+  24's "recorded"); the runner's discard of a failed launch (moves its files to *.DISCARDED).
+- Checked before the gate: one unit (C-drop) 17 cases, 0 failed, 17 samples with k-scaled
+  operations (e.g. d 16 MiB k = 8: 4 invocations, 32 calls); plants under BDN: a wrong length
+  on c (B), on a (A), on d (D-drop), a wrong SHA-256 on d (Bf), each: the case fails, BDN
+  stops, 0 samples, exit 1. The no-unknown build's Cc-nounk unit: 11 cases.
+- **Removed:** the hand-written RPC sampler (`Grid`, its warm-up loop and settle wait, and the
+  AK_RPC_WARM_* knobs); `campaign --suite rpc` now only takes `--counts` and `--upload-check`
+  (the counting and gate paths, unchanged). The plant controls now also cover C (the move
+  path), closing JOURNAL 60's gap.
+- **The codec suite's hand-written pre-warm loop is removed** (and its settle wait and
+  `--prewarm-*` knobs). Tried first without it and without the two prime cases, on the default
+  job (10 warm-up x 100 ms): each unit had 1 case measuring hot code at tier 0 (the first case
+  of the process; `System.SpanHelpers::Fill` and `RuntimeHelpers::IsReferenceOrContainsReferences`,
+  runtime helpers BDN's engine touches first), so the JIT check failed. Without the pre-warm but
+  WITH the two prime cases (BDN cases like any other, not exported): PASS on both units tried
+  (core-ffi:drop, incumbent-prod:default). So the primes stay, stated in the header and STATE;
+  the loop is gone. The JIT check stays fatal outside --smoke and is reported, not fatal, in a
+  smoke, whose 1 x 2 ms warm-up cannot reach tier 1 by design.
+- CpuClock and ProcCpu moved to src/BenchDotNet/CpuClock.cs, linked into akrpc.
+
+WP9 gate from a fresh worktree at `6a7c0cf` (both builds, net8.0 and net6.0): GATE PASSED, 29
+controls failing as required (`logs/csharp/wp9-gate.log`). The full smoke the gate run was
+chained to was stopped under the owner's small-test rule (2026-09-27); a minimal smoke instead
+(`logs/csharp/campaign/wp9-smoke/`): full build, shipped, all 21 RPC units on BDN with 1 round, 1
+warm-up, 2 ms iterations: 283 samples, 0 failed cases, a planted wrong count aborting with 0
+samples; one codec unit with BDN's own warm-up: JIT and CPU checks PASS.
