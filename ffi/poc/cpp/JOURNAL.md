@@ -1617,3 +1617,11 @@ changes.
 - **Memory.** The codec gate at the default pool (2 x LLC) peaked at 6.9 GB and was OOM-killed once
   while another slice's JVM shared the container; the gate now takes AK_CAMPAIGN_POOL_BYTES and the
   smoke used 1 MiB (445 MB peak), stated.
+
+## 2026-09-27, req 24 (amended): warm-ups as runner parameters
+
+- Already there: AK_CAMPAIGN_WARMUP (codec bytes per arm), AK_CAMPAIGN_RPC_WARMUP (calls per cell),
+  AK_CAMPAIGN_SERVER_WARMUP (server calls), all in the header. Added: AK_CAMPAIGN_SMOKE=1 shortens their
+  defaults (65536 B, 4, 20; an explicit value wins), and the header states the d warm-ups (a third per
+  cell, a tenth for the server), Google Benchmark min_warmup_time 0, and both default sets. Runner text
+  only; no gated path changed, no gate run.

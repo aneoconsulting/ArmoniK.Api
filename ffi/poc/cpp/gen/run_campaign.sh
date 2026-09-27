@@ -9,11 +9,14 @@
 #   AK_CAMPAIGN_LAUNCHES process launches per suite            (default 3; requirement 23)
 #   AK_CAMPAIGN_ROUNDS   rounds per process                    (default 5; requirement 23)
 #   AK_CAMPAIGN_BYTES    codec: payload bytes per sample       (default 33554432)
-#   AK_CAMPAIGN_WARMUP   codec: warm-up bytes per arm          (default = AK_CAMPAIGN_BYTES)
+#   AK_CAMPAIGN_WARMUP   codec: warm-up bytes per arm          (default = AK_CAMPAIGN_BYTES;
+#                        smoke 65536). Google Benchmark adds none (--benchmark_min_warmup_time=0)
 #   AK_CAMPAIGN_CALLS    rpc: calls per sample                 (default 480)
-#   AK_CAMPAIGN_RPC_WARMUP rpc: warm-up calls per cell         (default 96)
+#   AK_CAMPAIGN_RPC_WARMUP rpc: warm-up calls per cell and job   (default 96; smoke 4; d a third)
 #   AK_CAMPAIGN_SERVER_WARMUP rpc: server warm-up calls per direction per client transport
-#                        per socket, before any client            (default 200)
+#                        per socket, before any client  (default 200; smoke 20); d a tenth of it
+#   (req. 24, amended 2026-09-27: every warm-up is a parameter; AK_CAMPAIGN_SMOKE=1 shortens
+#    the defaults above, an explicit value always wins, and the header states what ran)
 #   AK_CAMPAIGN_CALIB_ITERS calib: crossings per sample        (default 100000000)
 #   AK_LLC_BYTES         last-level cache size (default 14417920, the i9-7900X's 13.75 MB)
 #   AK_CAMPAIGN_POOL_BYTES codec: encode input pool, encoded bytes (default 2 x AK_LLC_BYTES)
@@ -50,10 +53,12 @@ TMPD=$(mktemp -d)   # scratch files of the gate and the server; never committed
 LAUNCHES=${AK_CAMPAIGN_LAUNCHES:-3}
 ROUNDS=${AK_CAMPAIGN_ROUNDS:-5}
 BYTES=${AK_CAMPAIGN_BYTES:-33554432}
-WARM=${AK_CAMPAIGN_WARMUP:-$BYTES}
+if [ "${AK_CAMPAIGN_SMOKE:-}" = 1 ]; then W_CODEC=65536; W_RPC=4; W_SRV=20; else W_CODEC=$BYTES; W_RPC=96; W_SRV=200; fi
+WARM=${AK_CAMPAIGN_WARMUP:-$W_CODEC}
 CALLS=${AK_CAMPAIGN_CALLS:-480}
-RPCWARM=${AK_CAMPAIGN_RPC_WARMUP:-96}
-SRVWARM=${AK_CAMPAIGN_SERVER_WARMUP:-200}
+RPCWARM=${AK_CAMPAIGN_RPC_WARMUP:-$W_RPC}
+SRVWARM=${AK_CAMPAIGN_SERVER_WARMUP:-$W_SRV}
+SRVWARM_D=$((SRVWARM / 10 > 0 ? SRVWARM / 10 : 1))
 CITERS=${AK_CAMPAIGN_CALIB_ITERS:-100000000}
 # req. 11: the encode suite's beyond-cache input pool, in encoded bytes: 2 x the machine's
 # last-level cache (AK_LLC_BYTES, default the reference i9-7900X's 13.75 MB), overridable.
@@ -166,7 +171,7 @@ h = {
              "rpc_client": "caller threads = the in-flight level (1, 8, 16), created before round 1; the core's runtime workers = 2 (campaign_rpc --workers default); grpc-core sizes its own pollers and executor, counted in each client's process_threads_after_warmup line",
              "rpc_server": "grpc++ callback server, grpc-core's own threads; the server's thread count at start and at exit is in the rpc log"},
  "repeats": {"launches": $LAUNCHES, "rounds": $ROUNDS},
- "warmup": {"codec_bytes_per_arm": $WARM, "rpc_calls_per_cell": $RPCWARM, "rpc_server_calls_per_direction_per_client_transport_per_socket": $SRVWARM, "allocator": "every arm runs its warm-up before round 1"},
+ "warmup": {"codec_bytes_per_arm": $WARM, "codec_google_benchmark_min_warmup_time": 0, "rpc_calls_per_cell": $RPCWARM, "rpc_calls_per_cell_direction_d": $(( RPCWARM / 3 > 0 ? RPCWARM / 3 : 1 )), "rpc_server_calls_per_direction_per_client_transport_per_socket": $SRVWARM, "rpc_server_calls_direction_d": $SRVWARM_D, "campaign_defaults": {"codec_bytes_per_arm": "AK_CAMPAIGN_BYTES", "rpc_calls_per_cell": 96, "rpc_server_calls": 200}, "smoke_defaults": {"codec_bytes_per_arm": 65536, "rpc_calls_per_cell": 4, "rpc_server_calls": 20}, "allocator": "every arm runs its warm-up before round 1"},
  "sample": {"codec_bytes": $BYTES, "codec_pool_bytes": $POOL, "llc_bytes": $LLC, "rpc_calls": $CALLS, "calib_iters": $CITERS,
             "codec_clock": "Google Benchmark " + "v1.8.3 (344117638c8f, Release, built by the runner)" + ": cpu_time = process CPU per repetition (MeasureProcessCPUTime) and real_time, repetitions randomly interleaved", "rpc_clock": "getrusage(RUSAGE_SELF) of the client process + CLOCK_MONOTONIC", "calib_clock": "CLOCK_PROCESS_CPUTIME_ID of campaign_calib per round"},
 }
