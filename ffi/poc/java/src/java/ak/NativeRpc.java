@@ -84,6 +84,8 @@ public final class NativeRpc {
 
   // ---- CAMPAIGN req 14 (c)/(d): the core's client streaming (ABI v1 section 9) ----------
   /** ak_call_open(client, path, AK_CALL_CLIENT_STREAM, NULL); 0 on failure. */
+  /** ak_call_unary_enc: the request is the encode context's output, MOVED (cell C). */
+  public static native int callUnaryEnc(long client, long pathPtr, int pathLen, long encCtx, long[] out);
   public static native long callOpen(long client, long pathPtr, int pathLen);
   /** ak_call_send: the message copied; `last` != 0 ends the request stream. */
   public static native int callSend(long h, byte[] msg, int off, int len, int last);

@@ -317,3 +317,25 @@ JNIEXPORT jint JNICALL Java_ak_NativeRpc_clientSetFramed(JNIEnv *e, jclass c, jl
   (void) e; (void) c;
   return (jint) ak_client_set_framed((ak_client *)(intptr_t) cl, (int32_t) on);
 }
+
+/* Cell C's request (CAMPAIGN req 12, the move path the other slices use): ak_call_unary_enc,
+ * the encode context's output MOVED into the request body inside the call -- no take(), no
+ * Java array, no GetByteArrayElements copy. `out` as callUnary's. */
+JNIEXPORT jint JNICALL Java_ak_NativeRpc_callUnaryEnc(JNIEnv *env, jclass c, jlong cl,
+                                                     jlong pathPtr, jint pathLen, jlong enc,
+                                                     jlongArray out) {
+  AK_HC();
+  (void) c;
+  ak_bytes b = {NULL, 0, NULL};
+  int32_t grpc_status = 0;
+  int32_t rc = ak_call_unary_enc((ak_client *)(intptr_t) cl, (const uint8_t *)(intptr_t) pathPtr,
+                                 (size_t) pathLen, (ak_enc_ctx *)(intptr_t) enc, &b, &grpc_status);
+  if (rc == 0) {
+    jlong v[3];
+    v[0] = (jlong)(intptr_t) b.ptr;
+    v[1] = (jlong) b.len;
+    v[2] = (jlong)(intptr_t) b.owner;
+    (*env)->SetLongArrayRegion(env, out, 0, 3, v);
+  }
+  return (jint) rc;
+}

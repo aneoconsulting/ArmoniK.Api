@@ -548,6 +548,9 @@ public final class CampaignRpc {
     final int lenA, lenB, lenC, lenD, lenDCheck;
     /** The framed twin (Bf, Cf-*, Ef-*): ak_client_set_framed(client, 1), ABI v1 section 9. */
     final boolean framed;
+    /** Cc-*: cell C's request through take() into a Java array and ak_call_unary (the copy
+     *  path, a labelled extra); C itself uses ak_call_unary_enc (the move path). */
+    boolean copyPath;
     final ThreadLocal<long[]> out = new ThreadLocal<long[]>() {
       @Override protected long[] initialValue() { return new long[3]; }
     };
@@ -622,10 +625,23 @@ public final class CampaignRpc {
       sinkv += read ? walk(x) : System.identityHashCode(x);
     }
 
+    /** Cell C (codec FFI, not the copy path): encode into the binding's context and hand it
+     *  to ak_call_unary_enc, which moves the encoded bytes into the request body. */
+    int unaryEnc(long path, int len, String id, Object v, long[] o) {
+      Binding b = bind();
+      FfiArms.encode(b, id, v);
+      return NativeRpc.callUnaryEnc(client, path, len, b.encCtx, o);
+    }
+
     void callB(Object request) {
-      byte[] w = incumbentCodec ? ((Message) request).toByteArray() : encodeFacade(request);
       long[] o = out.get();
-      int rc = NativeRpc.callUnary(client, pathB, lenB, w, 0, w.length, o);
+      int rc;
+      if (codec == FFI && !copyPath) {
+        rc = unaryEnc(pathB, lenB, PAYLOAD, request, o);
+      } else {
+        byte[] w = incumbentCodec ? ((Message) request).toByteArray() : encodeFacade(request);
+        rc = NativeRpc.callUnary(client, pathB, lenB, w, 0, w.length, o);
+      }
       if (rc != 0) fail(name + "/b: ak_call_unary returned " + rc);
       int n = (int) o[1];
       NativeRpc.bytesFree(o[0], o[1], o[2]);
@@ -633,9 +649,14 @@ public final class CampaignRpc {
     }
 
     void callC(int k) {
-      byte[] w = incumbentCodec ? C_PB[k].toByteArray() : encodeFacade(C_PAYLOADS[k], C_FACADE[k]);
       long[] o = out.get();
-      int rc = NativeRpc.callUnary(client, pathC, lenC, w, 0, w.length, o);
+      int rc;
+      if (codec == FFI && !copyPath) {
+        rc = unaryEnc(pathC, lenC, C_PAYLOADS[k], C_FACADE[k], o);
+      } else {
+        byte[] w = incumbentCodec ? C_PB[k].toByteArray() : encodeFacade(C_PAYLOADS[k], C_FACADE[k]);
+        rc = NativeRpc.callUnary(client, pathC, lenC, w, 0, w.length, o);
+      }
       if (rc != 0) fail(name + "/c: ak_call_unary returned " + rc);
       int n = (int) o[1];
       NativeRpc.bytesFree(o[0], o[1], o[2]);
@@ -753,6 +774,12 @@ public final class CampaignRpc {
     cells.add(new CoreCell("Bf", INC, false, sock, pinned, true));
     for (String[] m : modes) cells.add(new CoreCell("Cf-" + m[0], FFI, m[1].equals("1"), sock, pinned, true));
     for (String[] m : modes) cells.add(new CoreCell("Ef-" + m[0], HOST, m[1].equals("1"), sock, pinned, true));
+    // Cc-*: cell C on the copy path (take() + ak_call_unary), a labelled extra beside C's move path.
+    for (String[] m : modes) {
+      CoreCell cc = new CoreCell("Cc-" + m[0], FFI, m[1].equals("1"), sock, pinned);
+      cc.copyPath = true;
+      cells.add(cc);
+    }
     return cells;
   }
 
@@ -787,6 +814,16 @@ public final class CampaignRpc {
         System.out.println(String.format("RPC %-9s %-2s %8d %8d %6d", c.name, d, hc[0], rev, hc[1]));
       }
     }
+  }
+
+  /** The request's send path, per sample: the core's reference or framed path (and, for C,
+   *  the move path ak_call_unary_enc / ak_call_send_enc, or Cc's copy path), or grpc-java's. */
+  static String sendPath(Cell c) {
+    if (!(c instanceof CoreCell)) return "grpc-java";
+    CoreCell k = (CoreCell) c;
+    String p = k.framed ? "framed" : "reference";
+    if (k.codec == FFI) p += k.copyPath ? "+copy" : "+move";
+    return p;
   }
 
   /** One call of `c` in the counting mode's direction names. */
@@ -906,7 +943,7 @@ public final class CampaignRpc {
                 .s("codec", c.codec == INC ? "incumbent" : c.codec == FFI ? "core-ffi" : "host-gen")
                 .s("dir", d).s("transport", transport).n("inflight", inf).s("delivery",
                     c instanceof CoreCell ? "blocking" : "grpc-java blockingUnaryCall")
-                .s("send_path", c instanceof CoreCell ? (((CoreCell) c).framed ? "framed" : "reference") : "grpc-java")
+                .s("send_path", sendPath(c))
                 .n("launch", Campaign.LAUNCH).n("round", r).n("cpu_ns", v[0]).n("wall_ns", v[1])
                 .n("iters", v[2]));
           }
@@ -920,7 +957,7 @@ public final class CampaignRpc {
                 .s("dir", u[1]).s("transport", transport).n("inflight", inf).s("delivery",
                     c instanceof CoreCell ? (u[1].equals("d") ? "blocking client stream" : "blocking")
                         : (u[1].equals("d") ? "grpc-java asyncClientStreamingCall" : "grpc-java blockingUnaryCall"))
-                .s("send_path", c instanceof CoreCell ? (((CoreCell) c).framed ? "framed" : "reference") : "grpc-java")
+                .s("send_path", sendPath(c))
                 .n("launch", Campaign.LAUNCH).n("round", r).n("cpu_ns", v[0]).n("wall_ns", v[1])
                 .n("iters", v[2]));
           }
