@@ -137,6 +137,13 @@ in its container shows it executes (section 9).
     **one server process and configuration per launch**, serving every cell of both
     builds, warmed by a stated number of calls from each client transport before
     round 1; **one channel per cell per launch**, opened and warmed before round 1.
+    **Amended by the owner 2026-09-27: one server implementation for every slice, the
+    Rust slice's** (tonic, `poc/rust`, its `rpc_server`), started by each slice's
+    runner through one shared launcher, pinned to `SERVER`. The server's work, its
+    warm-up (no JIT) and its decoding of the upload directions are then the same
+    whatever the client language, so cells compare across languages; `shipped` and
+    `pinned` (req 17) configure the client, and the server's configuration is the
+    one Rust configuration, stated. Each slice's own server is removed.
 14. **Directions:** (a) empty request, P2.2 response; (b) P2.2-sized request that
     the server decodes, empty response. **Directions (c) and (d) are required in
     every slice** (owner, 2026-09-27, amending D5: an upload and client streaming

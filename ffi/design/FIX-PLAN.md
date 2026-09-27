@@ -535,6 +535,17 @@ code only where a CAMPAIGN requirement needs what the framework lacks, each piec
 and the same applies to the codec suites (a hand-written warm-up loop, sampler or clock
 around the framework is replaced by the framework's own mechanism where it has one).
 
+### WP10. One RPC server for every slice: the Rust slice's (owner, 2026-09-27)
+
+CAMPAIGN req 13 as amended. The Rust slice provides a shared launcher (a script under
+`ffi/`, owned by the aggregating session, calling the Rust slice's `rpc_server`) with
+a documented interface: build once, start pinned to `SERVER` on the shipped and pinned
+Unix sockets, the method paths for directions a, b, c, d and the upload check, the
+warm-up command, the limits, and stop. Every other slice points its clients at those
+paths, removes its own server, keeps every cell and direction, and re-gates. The
+upload check (byte count and SHA-256) and the planted controls must still work against
+the shared server.
+
 ## 3. What this plan deliberately does not do
 
 - It does not re-take any timing in a container.
