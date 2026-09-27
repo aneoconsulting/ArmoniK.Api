@@ -491,8 +491,12 @@ Each slice regenerates, rebuilds its core, re-runs its gate, and then:
    the elements it fills (decision 9); retention takes one reset per decode and a
    geometric grow (decision 11 rules 7 and 8).
 
-**Still open after WP8**: the unary entries return no gRPC status number (ABI-v1
-section 9; `ak_completion` would change layout); `ak_call_opts` (deadline, metadata)
+5. **The gRPC status number** (ABI-v1 section 9): `ak_call_unary` and
+   `ak_call_unary_enc` take a trailing `int32_t *grpc_status`; `ak_completion` gains
+   `grpc_status` after `status` (a layout change: every host that mirrors the struct
+   follows the generated layout); a non-OK status is `AK_ERR_RPC_STATUS`.
+
+**Still open after WP8**: `ak_call_opts` (deadline, metadata)
 exists on streams only; server-streaming and bidirectional calls are reserved kinds,
 not built.
 

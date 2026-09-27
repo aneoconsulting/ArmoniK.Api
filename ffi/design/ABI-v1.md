@@ -857,9 +857,24 @@ void      ak_call_destroy(ak_call*);
   reports it as `UNAVAILABLE`), and a cancelled call too (`CANCELLED`). Misuse (a
   second `recv`, a `send` after `last`) is `AK_ERR_INVALID_STATE` and leaves
   `*grpc_status` untouched. A `send` on a call whose stream has already failed
-  returns `AK_ERR_HOST`; the status is then read with `recv`. **The unary entries
-  still return no status number** (their `ak_completion` would change layout): that
-  gap is open and recorded in FIX-PLAN, not closed by this paragraph.
+  returns `AK_ERR_HOST`; the status is then read with `recv`.
+- **The status number, on unary calls too (owner, 2026-09-27).** The same rule, one
+  place per delivery: the blocking entries take a trailing `int32_t *grpc_status`
+  (NULL allowed), `ak_call_unary(c, path, path_len, req, req_len, out, grpc_status)`
+  and `ak_call_unary_enc(c, path, path_len, enc, out, grpc_status)`; the callback and
+  queue deliveries carry it in the completion, which gains a member:
+
+  ```c
+  struct ak_completion { uint64_t tag; int32_t status; int32_t grpc_status; struct ak_bytes bytes; };
+  ```
+
+  `status` is `AK_OK` if and only if `grpc_status` is 0, `AK_ERR_RPC_STATUS` for any
+  other code (transport failure `UNAVAILABLE`, cancel `CANCELLED`), and the core's own
+  errors (`AK_ERR_LIMIT`, `AK_ERR_INVALID_STATE`, ...) as before, with `grpc_status`
+  set to -1 when no call reached the transport. This changes the layout of
+  `ak_completion` and the signatures of the two blocking entries: every slice's
+  generated binding follows from the plan, and a slice's hand-written calls add the
+  argument (FIX-PLAN WP8).
 - **The client's limits are enforced (D44).** `ak_client_opts.max_send_message` and
   `max_recv_message` apply to every call of that client: unary and streaming, every
   delivery, both send paths (reference and framed), per message on a stream. 0 is
