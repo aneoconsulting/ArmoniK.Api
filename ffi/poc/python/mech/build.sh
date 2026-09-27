@@ -37,6 +37,10 @@ if [ -n "$GENPY" ]; then
   SCHEMA_GEN="$(cd "$HERE/../../../schema/generated" && pwd)"
   (cd "$SCHEMA_GEN" && "$GENPY" -m grpc_tools.protoc -I. --python_out="$HERE/$OUT/pb2" shapes.proto)
   echo "   wrote $OUT/pb2/shapes_pb2.py from $SCHEMA_GEN/shapes.proto"
+  # FIX-PLAN WP10: cell A's typed stub for the shared campaign server (poc/rust/SERVER.md)
+  "$GENPY" -m grpc_tools.protoc -I"$SCHEMA_GEN" -I"$HERE/../proto" --python_out="$HERE/$OUT/pb2" \
+    --grpc_python_out="$HERE/$OUT/pb2" campaign_grid.proto
+  echo "   wrote $OUT/pb2/campaign_grid_pb2.py and campaign_grid_pb2_grpc.py from ../proto/campaign_grid.proto"
 else
   echo "   SKIPPED: no interpreter here has grpcio-tools. The incumbent arm will"
   echo "   report itself absent rather than being silently missing from a table."

@@ -235,4 +235,17 @@ for PY in "$@"; do
 done
 
 echo
+echo "== the shared campaign RPC server (FIX-PLAN WP10: the Rust rpc_server, poc/rust/SERVER.md) =="
+# serve.sh of the tree this build reads: the snapshot's in snapshot mode, else this checkout's
+SERVE="$POC/rust/serve.sh"; [ -n "${AK_SNAPSHOT:-}" ] && SERVE="$SNAP/ffi/poc/rust/serve.sh"
+bash "$SERVE" build 2>&1 | tail -1 | sed 's/^/   /'
+[ -x "$(dirname "$SERVE")/target-server/release/rpc_server" ] || { echo "   FAIL: serve.sh build left no rpc_server"; exit 1; }
+# the incumbent's typed stub for it (cell A), beside the target's shapes_pb2 (the RPC grid runs
+# at the target only; mech/build.sh writes the same pair)
+SG="$POC/../schema/generated"; [ -n "${AK_SNAPSHOT:-}" ] && SG="$SNAP/ffi/schema/generated"
+mkdir -p mech/build/pb2
+python3.12 -m grpc_tools.protoc -I"$SG" -Iproto --python_out=mech/build/pb2 --grpc_python_out=mech/build/pb2 campaign_grid.proto
+echo "   mech/build/pb2/campaign_grid_pb2{,_grpc}.py written from proto/campaign_grid.proto"
+
+echo
 echo 'the composed arm is built. conformance.py gates it before anything is timed.'

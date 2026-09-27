@@ -6,7 +6,7 @@ channels, payloads and checks are still built by camp_rpc.py's `cells()`.
       --server shipped=unix:...,pinned=unix:... --side DIR [--transports shipped,pinned]
       [--only NAME,...] -o FILE.json --processes 1 --values ROUNDS --warmups W --loops L
       --affinity CPUS --copy-env          (run_campaign.sh builds this command)
-  python3.12 camp_rpc_pyperf.py --warm-server --server ...   (the runner's server warm-up)
+  python3.12 camp_rpc_pyperf.py --precheck --variant V --server ...   (the runner's precheck)
 
 pyperf's model, mapped onto the contract:
   benchmark   `rpc|build|transport|dir|payload|cell|k`: one cell, direction, payload and in-flight
@@ -27,9 +27,11 @@ pyperf's model, mapped onto the contract:
               a failed check raises, the worker fails, pyperf fails the run, and the runner
               discards the whole launch's output (no sample). The worker also fails if a retain
               decode leaves an undelivered buffer, or if its contexts are not per thread
-Server: the runner starts the launch's ONE camp_server.py and warms it (--warm-server) before any
-invocation. Without --server (the gate's must-fail controls) this script starts its own and warms it,
-and with --only it skips the grid precheck, so the named benchmark's own checks meet the fault.
+Server (WP10): the Rust rpc_server (poc/rust/SERVER.md). The runner starts the launch's ONE through
+poc/rust/serve.sh and warms it (serve.sh warm) before any invocation. Without --server (the gate's
+must-fail controls) this script starts its own through serve.sh and warms it with one call per
+direction, and with --only it skips the grid precheck, so the named benchmark's own checks meet
+the (client-side, AK_CAMP_PLANT) fault.
 """
 import gc
 import json
@@ -115,10 +117,14 @@ def setup(name):
     the pool of k client threads."""
     if _W:
         return _W
+    if arg("--plant"):
+        # pyperf gives a worker a clean environment unless --copy-env; the controls' plant is
+        # passed as an argument so it reaches the worker whatever the pyperf options
+        os.environ["AK_CAMP_PLANT"] = arg("--plant")
     import camp_rpc as C
     _, build, transport, d, pid, cell, k = name.split("|")
     key = d if d in ("a", "a+read", "b") else "%s:%s" % (d, pid)
-    srv = C.parse_server("SOCKETS " + arg("--server").replace(",", " "))
+    srv = C.parse_server(arg("--server"))
     cs, keep = C.cells(srv[transport], transport, keys={key})
     fns = dict(cs[key])
     if cell not in fns:
@@ -127,6 +133,8 @@ def setup(name):
     # correctness before timing (req 26, in the worker): one call; for (a) the decoded object
     # re-encodes to P2.2 (the per-cell check camp_rpc.gate made)
     try:
+        if d == "d":
+            fn(check=True)       # UploadStreamCheck: the server's count and digest (untimed)
         o = fn()
     except Exception as e:
         raise SystemExit("benchmark %s: the setup's checked call failed: %s: %s" % (name, type(e).__name__, str(e)[:200]))
@@ -172,16 +180,8 @@ def add_args(cmd, args):
                 "--server", args.server, "--side", args.side, "--transports", args.transports])
     if args.only:
         cmd.extend(["--only", args.only])
-
-
-def warm_server_main():
-    """The runner's server warm-up (req 13, 24): AK_CAMPAIGN_SERVER_WARMUP calls from each
-    client transport (grpcio, core) per server transport, from one process of this build."""
-    import camp_rpc as C
-    srv = C.parse_server("SOCKETS " + arg("--server").replace(",", " "))
-    for t in ("shipped", "pinned"):
-        print("   server warm-up: " + C.warm_server(srv[t], t))
-    return 0
+    if os.environ.get("AK_CAMP_PLANT"):
+        cmd.extend(["--plant", os.environ["AK_CAMP_PLANT"]])
 
 
 def precheck_main():
@@ -189,7 +189,7 @@ def precheck_main():
     every direction built and called once on each transport, with the checks camp_rpc.gate
     makes (re-encodings, the requests' bytes, the retain or no-unknown control)."""
     import camp_rpc as C
-    srv = C.parse_server("SOCKETS " + arg("--server").replace(",", " "))
+    srv = C.parse_server(arg("--server"))
     for t in arg("--transports", "shipped,pinned").split(","):
         cs, keep = C.cells(srv[t], t)
         print("   precheck %s %s: %s" % (VARIANT, t, C.gate(cs)))
@@ -198,31 +198,28 @@ def precheck_main():
 
 
 def main():
-    if "--warm-server" in A:
-        return warm_server_main()
     if "--precheck" in A:
         return precheck_main()
     own = None
     if not arg("--server") and "--worker" not in A:
-        # the gate's must-fail controls: this process's own server, warmed
+        # the gate's must-fail controls: this process's own start of the shared server
+        # (serve.sh start, then warm 1), stopped at the end
         import tempfile
         import subprocess
-        d = tempfile.mkdtemp(prefix="akrpcpp")
-        own = subprocess.Popen([sys.executable, os.path.join(HERE, "camp_server.py"), "--dir", d],
-                               stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
-        line = own.stdout.readline().split()
-        socks = ",".join(x for x in line if "=unix:" in x)
+        sys.path.insert(0, HERE)
+        from camp_rpc_srv import Server
+        own = Server(tempfile.mkdtemp(prefix="akrpcpp"), warm=1)
+        socks = "shipped=%s,pinned=%s" % (own.info["shipped"], own.info["pinned"])
         A.extend(["--server", socks])
-        r = subprocess.run([sys.executable, __file__, "--warm-server", "--server", socks, "--variant", VARIANT])
         # with --only (the controls: named benchmarks), the grid precheck is skipped and each
         # worker's own setup check is what stands before its timed loop, so a planted fault
         # is caught by the benchmark's per-call checks and not before them
-        if r.returncode == 0 and not arg("--only"):
+        if not arg("--only"):
             r = subprocess.run([sys.executable, __file__, "--precheck", "--server", socks, "--variant", VARIANT,
                                 "--transports", arg("--transports", "shipped,pinned")])
-        if r.returncode:
-            own.kill()
-            return 1
+            if r.returncode:
+                own.stop()
+                return 1
     runner = pyperf.Runner(add_cmdline_args=add_args)
     ap = runner.argparser
     ap.add_argument("--variant", default="full", choices=["full", "nounk"])
@@ -232,6 +229,7 @@ def main():
     ap.add_argument("--side", required=True)
     ap.add_argument("--transports", default="shipped,pinned")
     ap.add_argument("--only", default="")
+    ap.add_argument("--plant", default="")
     args = runner.parse_args()
     os.makedirs(args.side, exist_ok=True)
     names = names_of(args.group, args.transports.split(","), args.launch)
@@ -244,8 +242,7 @@ def main():
             runner.bench_time_func(name, time_func, name, args.side, inner_loops=k)
     finally:
         if own is not None:
-            own.stdin.close()
-            own.wait(timeout=30)
+            own.stop()
     return 0
 
 

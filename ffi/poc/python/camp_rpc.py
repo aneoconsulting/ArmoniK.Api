@@ -3,16 +3,13 @@ camp_rpc_pyperf.py; the hand-written sampler that was here is removed). What sta
 their channels and payloads, their checks, the client thread pool, the server start and warm-up.
 
 The text below describes the cells; its sampling paragraphs are superseded by camp_rpc_pyperf.py.
- Client pinned to AK_CPU_CLIENT; the server is
-`camp_server.py`, its OWN process pinned to AK_CPU_SERVER (R-C3/R-C4: the client and the
-server no longer share one GIL or one CPU set).
-
-  python3.12 camp_rpc.py --launch N --rounds R --calls C --out FILE [--variant nounk]
-                        [--server shipped=unix:...,pinned=unix:...] [--allow-dirty] [--smoke]
+Client pinned to AK_CPU_CLIENT. The server (FIX-PLAN WP10, req 13 as amended at 9f6d579fa) is
+the Rust slice's tonic rpc_server, THE server of every slice (poc/rust/SERVER.md), started,
+warmed and stopped through poc/rust/serve.sh, its own process pinned to AK_CPU_SERVER.
 
 Cells (requirement 12 as amended), P2.2, over a Unix domain socket (req 17 as amended):
-  A  incumbent codec (SerializeToString / FromString, as grpcio's generated stub calls them)
-     + grpcio's channel
+  A  incumbent codec + grpcio: the generated GridStub (proto/campaign_grid.proto), whose
+     methods call SerializeToString / FromString
   B  incumbent codec + the core's transport, BLOCKING delivery (ak_call_unary)
   C  core codec through the C ABI (the C extension facade) + the core's transport, blocking
   D  core codec through the C ABI + grpcio's channel
@@ -27,27 +24,31 @@ Cells (requirement 12 as amended), P2.2, over a Unix domain socket (req 17 as am
   `_unknown`). A and B run the incumbent in its default
   mode. Labelled extras (full build, direction a): B-queue, C-queue, B-callback, C-callback.
   A, D and F use grpcio's idiomatic blocking unary call (req 16 as amended).
-Server (req 13 as amended): one camp_server.py per launch, both transports on two sockets,
-shared by both builds (`--server`, from run_campaign.sh), warmed by AK_CAMPAIGN_SERVER_WARMUP
-calls from each client transport; one channel (grpcio channel or core client) per cell.
-Without `--server` the client starts its own (the gate's must-fail control, by-hand runs).
+Server (req 13 as amended at 9f6d579fa, WP10): the Rust rpc_server, service
+armonik.ffi.campaign.v1.Grid (Fetch a, Push b, Upload c, UploadStream d, UploadStreamCheck the
+untimed (d) digest check), one process per launch serving both configurations on two Unix
+sockets; `shipped` and `pinned` name the client's configuration against the server's socket
+of the same name. Without `--server` the caller starts its own through serve.sh (the gate's
+must-fail controls, rpc_counts.py). Planted faults are selected on the CLIENT (SERVER.md, req
+18): AK_CAMP_PLANT=short calls FetchShort, =count expects one byte more from UploadStream,
+=digest expects a wrong digest from UploadStreamCheck; each from a cell's 2nd call on, so a
+worker's setup call passes and the fault meets its timed loop (digest: its setup check).
 Directions (14): (a) empty request, P2.2 response, reported bare (`a`) and followed by
 reading every field (`a+read`, R-C2; upb's FromString is lazy); (b) P2.2 request the server
 decodes, empty response. In flight (15): 1, 8, 16. Transport (17): `shipped` and `pinned`,
 and B and C follow the same switch as A and D; within one transport every cell talks to the
 SAME server process with the same configuration.
 
-Every call is checked (18): status OK and the response length (P2.2's in (a), 0 in (b)); the
-server checks every request. One failure aborts the run and the log carries NO sample.
+Every call is checked (18): status OK and the response length (P2.2's in (a), 0 in (b) and (c);
+cell A, whose generated stub hands back a decoded message, by its FromString succeeding and its
+task count), (d) the server's byte count; the server checks every request (SERVER.md). One failure aborts the run and the log carries NO sample.
 Samples (21-23, 28): per round, per (transport, direction, in flight), the cells in an order
 rotated by one each round (req 22); a sample is `calls` calls over `inflight` threads of one
 pool created before any timed window and reused (R-H2), timed with
 CLOCK_PROCESS_CPUTIME_ID of the client and wall beside it. Warm-up: every cell runs one
 sample's calls before round 1. GC on; allocator in the long-lived state (J26).
 """
-import gc
 import os
-import subprocess
 import sys
 import threading
 
@@ -69,8 +70,20 @@ import grpc  # noqa: E402
 
 ARGS = sys.argv[1:]
 PID = "P2.2"
-GET, PUT = "/ffi.Bench/Get", "/ffi.Bench/Put"
-UPLOAD, STREAM = "/ffi.Bench/Upload", "/ffi.Bench/Stream"
+SVC = "/armonik.ffi.campaign.v1.Grid/"                  # poc/rust/SERVER.md
+GET, GET_SHORT, PUT = SVC + "Fetch", SVC + "FetchShort", SVC + "Push"
+UPLOAD, STREAM, STREAM_CHECK = SVC + "Upload", SVC + "UploadStream", SVC + "UploadStreamCheck"
+PLANT = os.environ.get("AK_CAMP_PLANT", "")               # short | count | digest (client side)
+
+
+def planted(ok, bad):
+    """A planted cell: its first call is `ok`, every later one `bad` (req 18's controls only)."""
+    n = [0]
+
+    def f(*a, **k):
+        n[0] += 1
+        return (ok if n[0] == 1 else bad)(*a, **k)
+    return f
 # CAMPAIGN req 14 as amended (2026-09-27): (c) a unary upload of P5.3 / P5.4, (d) the streamed
 # upload in 2 MiB chunks (ids on the first), 4 MiB and 16 MiB; both at 1 and 8 in flight.
 C_PAYLOADS = ["P5.3", "P5.4"]
@@ -110,18 +123,22 @@ class CallFailed(RuntimeError):
     pass
 
 
+# WP10: grpcio's default :authority on a `unix:` target is the percent-encoded socket path,
+# which the Rust server's HTTP/2 stack (h2, under tonic) refuses with RST_STREAM PROTOCOL_ERROR
+# on every call (checked: every grpcio cell failed, every core cell passed). Both
+# configurations therefore name the authority; nothing else about the channel changes.
+AUTHORITY = [("grpc.default_authority", "localhost")]
+
+
 def grpc_options(transport):
     if transport == "shipped":
-        return []           # packages/python's create_channel passes no option to a client
-    return [("grpc.http2.lookahead_bytes", WINDOW), ("grpc.http2.bdp_probe", 0),
+        return list(AUTHORITY)  # packages/python's create_channel passes no other option to a client
+    return AUTHORITY + [("grpc.http2.lookahead_bytes", WINDOW), ("grpc.http2.bdp_probe", 0),
             ("grpc.max_receive_message_length", MSG_LIMIT),
             ("grpc.max_send_message_length", MSG_LIMIT)]
 
 
 CORE_WORKERS = int(os.environ.get("AK_CORE_WORKERS", "2"))   # the core runtime's worker threads (req 4)
-SERVER_WARMUP = int(os.environ.get("AK_CAMPAIGN_SERVER_WARMUP", "64"))  # calls per client transport (req 13, 24)
-# req 24 as amended: calls per cell and in-flight value before round 1 (default: one sample's)
-RPC_WARMUP = os.environ.get("AK_CAMPAIGN_RPC_WARMUP")
 RT = []
 
 
@@ -183,19 +200,48 @@ def cells(target, transport, keys=None):
     read_fa = (lambda o: arms._read(o, plan))
     ident = (lambda b: b)
 
-    # A, D and F use grpcio's idiomatic call (req 16 as amended): the generated-stub style
-    # blocking unary multicallable, with the codec as its (de)serializer.
+    # A uses grpcio's generated stub (campaign_grid_pb2_grpc.GridStub, from proto/ by
+    # grpc_tools, as ArmoniK's Python client is generated): a registered blocking unary
+    # multicallable with SerializeToString / FromString (req 16 as amended, R14). D and F make
+    # the same call the stub makes (unary_unary with _registered_method=True) with the core's
+    # or host-gen's codec as its (de)serializer.
+    import campaign_grid_pb2_grpc as GG
+    stubs = {}
+
+    def stub(cell):
+        if cell not in stubs:
+            stubs[cell] = GG.GridStub(chan(cell))
+        return stubs[cell]
+
+    def with_short(make):
+        return planted(make(GET), make(GET_SHORT)) if PLANT == "short" else make(GET)
+
     def grpc_get(cell, deser):
-        return chan(cell).unary_unary(GET, request_serializer=ident,
-                                      response_deserializer=lambda b: deser(need(b, body_len)))
+        return with_short(lambda path: chan(cell).unary_unary(
+            path, request_serializer=ident, response_deserializer=lambda b: deser(need(b, body_len)),
+            _registered_method=True))
 
     def grpc_put(cell, ser):
-        return chan(cell).unary_unary(PUT, request_serializer=ser,
-                                      response_deserializer=lambda b: need(b, 0))
+        return chan(cell).unary_unary(PUT, request_serializer=ser, response_deserializer=lambda b: need(b, 0),
+                                      _registered_method=True)
+
+    ntasks = len(R.FromString(arms.reference(PID)).tasks)
+    empty = arms._pb2.Empty()
+
+    def a_checked(o):
+        # the stub's FromString raises on a malformed body (a short one included); the count
+        # of tasks is the length check a typed response allows without re-encoding it
+        if len(o.tasks) != ntasks:
+            raise CallFailed("response has %d tasks, want %d" % (len(o.tasks), ntasks))
+        return o
+
+    def stub_get(cell):
+        g = with_short(lambda path: getattr(stub(cell), "Fetch" if path == GET else "FetchShort"))
+        return lambda: a_checked(g(empty))
 
     def core_get(cell):
         c = cli(cell)
-        return lambda: need(arms._ffi.call_unary(c, GET, b""), body_len)   # raises on status != 0
+        return with_short(lambda path: (lambda: need(arms._ffi.call_unary(c, path, b""), body_len)))   # raises on status != 0
 
     def core_put(cell):
         c = cli(cell)
@@ -205,12 +251,13 @@ def cells(target, transport, keys=None):
 
     def queued_get(cell):
         c = cli(cell)
+        path = [GET_SHORT if PLANT == "short" else GET]
 
         def run():
             q = getattr(local, "q", None)
             if q is None:
                 q = local.q = arms._ffi.queue_new()
-            arms._ffi.call_unary_q(c, GET, b"", q, 1)
+            arms._ffi.call_unary_q(c, path[0], b"", q, 1)
             r = arms._ffi.queue_next(q, TIMEOUT_MS)
             if r is None:
                 raise CallFailed("no completion")
@@ -222,6 +269,7 @@ def cells(target, transport, keys=None):
 
     def callback_get(cell):
         c = cli(cell)
+        path = [GET_SHORT if PLANT == "short" else GET]
 
         def run():
             ev, box = threading.Event(), []
@@ -229,7 +277,7 @@ def cells(target, transport, keys=None):
             def cb(tag, status, b):
                 box.append((status, b))
                 ev.set()
-            arms._ffi.call_unary_cb(c, GET, b"", cb, 1)
+            arms._ffi.call_unary_cb(c, path[0], b"", cb, 1)
             if not ev.wait(TIMEOUT_MS / 1000.0):
                 raise CallFailed("no completion")
             status, b = box[0]
@@ -242,10 +290,10 @@ def cells(target, transport, keys=None):
     cdec = {"retain": ret_dec, "drop": core_dec, "nounk": core_dec}
     cenc = {"retain": ret_enc, "drop": core_enc, "nounk": core_enc}
     out = {"a": [], "a+read": [], "b": []}
-    A_get, A_put = grpc_get("A", R.FromString), grpc_put("A", R.SerializeToString)
+    A_get, A_put = stub_get("A"), stub("A").Push
     B_get, B_put = core_get("B"), core_put("B")
-    out["a"] += [("A", lambda: A_get(b"")), ("B", lambda: R.FromString(B_get()))]
-    out["a+read"] += [("A", lambda: read_pb(A_get(b""))), ("B", lambda: read_pb(R.FromString(B_get())))]
+    out["a"] += [("A", A_get), ("B", lambda: R.FromString(B_get()))]
+    out["a+read"] += [("A", lambda: read_pb(A_get())), ("B", lambda: read_pb(R.FromString(B_get())))]
     out["b"] += [("A", lambda: A_put(msg)), ("B", lambda: B_put(R.SerializeToString(msg)))]
     for m in modes_c:
         cg, cp = core_get("C-" + m), core_put("C-" + m)
@@ -323,8 +371,11 @@ def cells(target, transport, keys=None):
             obj = up5 if e == "inc" else fc5
             if enc5[e](obj) != ref5:                   # correctness before timing
                 raise CallFailed("gate: cell %s (c) %s does not encode to the reference" % (cell, pid))
-            if tr == "grpc":
-                st = chan(cell).unary_unary(UPLOAD, request_serializer=enc5[e], response_deserializer=lambda b: need(b, 0))
+            if cell == "A":
+                out[key].append((cell, lambda _st=stub("A").Upload, _o=obj: _st(_o)))
+            elif tr == "grpc":
+                st = chan(cell).unary_unary(UPLOAD, request_serializer=enc5[e], response_deserializer=lambda b: need(b, 0),
+                                            _registered_method=True)
                 out[key].append((cell, lambda _st=st, _o=obj: _st(_o)))
             else:
                 c = ccli(cell)
@@ -337,13 +388,29 @@ def cells(target, transport, keys=None):
         if keys is not None and "d:" + label not in keys:
             continue
         ups, fcs, nbytes, sha = stream_payload(chunks)
-        want = nbytes.to_bytes(8, "little") + sha
 
-        def verdict(b, _w=want, _l=label):
-            if b != _w:
-                raise CallFailed("(d) %s: the server answered %d B (count %s), not the bytes and digest sent"
-                                 % (_l, len(b), int.from_bytes(b[:8], "little") if len(b) >= 8 else None))
-            return b
+        def verdicts(count, digest, _l=label):
+            """UploadStream answers the byte count (8 B, timed); UploadStreamCheck the count and
+            the SHA-256 of the messages as received (40 B, the untimed check, SERVER.md)."""
+            w8, w40 = count.to_bytes(8, "little"), count.to_bytes(8, "little") + digest
+
+            def v(b):
+                if b != w8:
+                    raise CallFailed("(d) %s: the server counted %s bytes, want %d"
+                                     % (_l, int.from_bytes(b, "little") if len(b) == 8 else "%d-byte answer" % len(b), count))
+                return b
+
+            def vc(b):
+                if b != w40:
+                    raise CallFailed("(d) %s check: the server answered %d B (count %s), not the bytes and digest sent"
+                                     % (_l, len(b), int.from_bytes(b[:8], "little") if len(b) >= 8 else None))
+                return b
+            return v, vc
+        verdict, vcheck = verdicts(nbytes, sha)
+        if PLANT == "count":
+            verdict = planted(verdict, verdicts(nbytes + 1, sha)[0])
+        if PLANT == "digest":
+            vcheck = verdicts(nbytes, bytes(32))[1]
         key = "d:" + label
         out[key] = []
         for cell, tr, e in fam:
@@ -352,13 +419,16 @@ def cells(target, transport, keys=None):
                 if enc5[e](g) != u.SerializeToString():
                     raise CallFailed("gate: cell %s (d) %s: a chunk does not encode as upb does" % (cell, label))
             if tr == "grpc":
-                st = chan(cell).stream_unary(STREAM, request_serializer=enc5[e], response_deserializer=ident)
+                st, stc = (chan(cell).stream_unary(p, request_serializer=enc5[e], response_deserializer=ident,
+                                                   _registered_method=True) for p in (STREAM, STREAM_CHECK))
 
-                def grpc_stream(_st=st, _m=msgs, _v=verdict):
+                def grpc_stream(check=False, _st=st, _stc=stc, _m=msgs, _v=verdict, _vc=vcheck):
                     # grpcio consumes a request iterator on a thread of its own per call, so a
                     # D or F stream encodes on a fresh thread each call: one encode context
                     # per call there (counted, and allowed for in the per-thread check)
                     GRPC_STREAM_CALLS[0] += 1
+                    if check:
+                        return _vc(_stc(iter(_m)))
                     return _v(_st(iter(_m)))
                 out[key].append((cell, grpc_stream))
             else:
@@ -366,8 +436,8 @@ def cells(target, transport, keys=None):
 
                 mv = (e == "C-retain") if (e.startswith("C-") and not cell.startswith("Cc-")) else None
 
-                def core_stream(_c=c, _e=enc5[e], _m=msgs, _v=verdict, _mv=mv):   # bound per payload
-                    h = arms._ffi.call_open(_c, STREAM)
+                def core_stream(check=False, _c=c, _e=enc5[e], _m=msgs, _v=verdict, _vc=vcheck, _mv=mv):   # bound per payload
+                    h = arms._ffi.call_open(_c, STREAM_CHECK if check else STREAM)
                     n = len(_m)
                     try:
                         for i, g in enumerate(_m):
@@ -378,25 +448,10 @@ def cells(target, transport, keys=None):
                     except Exception:
                         arms._ffi.call_cancel(h)
                         raise
-                    return _v(arms._ffi.call_recv(h))
+                    return (_vc if check else _v)(arms._ffi.call_recv(h))
                 out[key].append((cell, core_stream))
     keep = (chans, clis)
     return out, keep
-
-
-def warm_server(target, transport):
-    """Req 13 as amended: before round 1 the server is warmed by SERVER_WARMUP calls from each
-    client transport (a grpcio channel and a core client of this process), on connections that
-    are then closed; each cell's own channel is warmed by the per-cell warm-up after this."""
-    ch = grpc.insecure_channel(target, options=grpc_options(transport))
-    g = ch.unary_unary(GET, request_serializer=lambda b: b, response_deserializer=lambda b: b)
-    c = core_client(target, transport)
-    n = len(arms.reference(PID))
-    for _ in range(SERVER_WARMUP):
-        if len(g(b"")) != n or len(arms._ffi.call_unary(c, GET, b"")) != n:
-            raise CallFailed("server warm-up: a short response")
-    ch.close()
-    return "%d Get calls from grpcio and %d from the core client, %s" % (SERVER_WARMUP, SERVER_WARMUP, transport)
 
 
 def gate(cs):
@@ -411,9 +466,12 @@ def gate(cs):
                 else arms._ffi.encode("cext", root, o, None, name.endswith("-retain")))
         if back != ref and R.FromString(back) != R.FromString(ref):
             raise CallFailed("gate: cell %s (a) does not re-encode to P2.2" % name)
-    # (c) and (d): one call per cell; (d) checks the server's byte count and digest
+    # (c) and (d): one call per cell; (d) through UploadStreamCheck (the server's byte count and
+    # digest), then through the timed UploadStream (its byte count)
     for key in [k for k in cs if k[:2] in ("c:", "d:")]:
         for name, fn in cs[key]:
+            if key.startswith("d:"):
+                fn(check=True)
             fn()
     for name, fn in cs["a+read"] + cs["b"]:
         fn()
@@ -554,31 +612,14 @@ class Pool:
 POOL = []
 
 
-def start_server(d):
-    """This process's own server (camp_server.py, both transports, UDS in `d`), for a run with
-    no --server: the gate's must-fail control and by-hand runs. run_campaign.sh starts ONE
-    server per launch instead and passes it to both builds' clients (req 13 as amended)."""
-    p = subprocess.Popen([sys.executable, os.path.join(HERE, "camp_server.py"), "--dir", d],
-                         stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
-    line = p.stdout.readline().split()
-    if not line or line[0] != "SOCKETS":
-        p.kill()
-        raise CallFailed("the server did not start")
-    return p, parse_server(" ".join(line))
+# the shared server's start, warm and stop, and its socket list (no heavy import: the pyperf
+# master process uses it too)
+from camp_rpc_srv import Server, parse_server, serve_sh  # noqa: E402,F401
 
 
-def parse_server(line):
-    """`SOCKETS shipped=unix:... pinned=unix:... AFFINITY a WORKERS n THREADS t` -> dict."""
-    f = line.split()
-    out = {"affinity": "?", "workers": "?", "threads": "?"}
-    for x in f[1:]:
-        if "=" in x:
-            k, v = x.split("=", 1)
-            out[k] = v
-    for key in ("AFFINITY", "WORKERS", "THREADS"):
-        if key in f:
-            out[key.lower()] = f[f.index(key) + 1]
-    return out
+def start_server(d, warm=0):
+    s = Server(d, warm)
+    return s, s.info
 
 
 def os_threads():

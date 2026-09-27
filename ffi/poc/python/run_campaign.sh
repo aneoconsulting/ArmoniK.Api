@@ -51,7 +51,8 @@ export AK_CODECGEN="$AK_SNAPSHOT_DIR/ffi/poc/codec/gen"
 # The gate stamp is keyed on the TREES this run reads (poc/python, poc/codec, schema, corpus at
 # the snapshot), not on HEAD, so another slice's commit does not force a re-gate and a change
 # to anything the build reads does.
-STAMP="$(for d in ffi/poc/python ffi/poc/codec ffi/schema ffi/corpus; do git rev-parse "$SHA:$d"; done | sha256sum | cut -c1-16)"
+# poc/rust too since WP10: the RPC server is the Rust slice's rpc_server, built from the snapshot.
+STAMP="$(for d in ffi/poc/python ffi/poc/codec ffi/poc/rust ffi/schema ffi/corpus; do git rev-parse "$SHA:$d"; done | sha256sum | cut -c1-16)"
 TAG=$("$PY" -c 'import sys;print("py%d.%d"%sys.version_info[:2])')
 if [ -n "$SMOKE" ]; then
   LAUNCHES=1; ROUNDS=1; TARGET_MS=2; CALLS=16; CITERS=200000
@@ -68,6 +69,17 @@ else
 fi
 echo "# python campaign runner: suite $SUITE, out $OUT, snapshot $SHA, launches $LAUNCHES, rounds $ROUNDS ${SMOKE:+(SMOKE: instrumentation only)}"
 
+# pyperf, the framework of the codec suite and the RPC grid (and of the gate's RPC controls)
+need_pyperf() {
+  [ -d build/pyperf/pyperf ] || "$PY" -m pip install -q --target build/pyperf "pyperf==2.10.0" 2>/dev/null
+  [ -d build/pyperf/pyperf ] || { echo "   pyperf 2.10.0 could not be installed into build/pyperf"; exit 1; }
+}
+# FIX-PLAN WP10: THE RPC server is the Rust slice's rpc_server (poc/rust/SERVER.md), started
+# through the snapshot's poc/rust/serve.sh (built by build.sh, gate step 90). Its state file is
+# private to this runner, so another slice's serve.sh start does not collide with it.
+export AK_SERVE_SH="$AK_SNAPSHOT_DIR/ffi/poc/rust/serve.sh"
+export AK_SERVE_STATE="$HERE/build/serve-state-$$"
+
 need_gate() {
   if [ "$(cat "$OUT/gate.ok" 2>/dev/null)" != "$STAMP" ]; then
     echo "   no gate.ok for this commit in $OUT: running the gate first (requirement 26)"
@@ -79,14 +91,18 @@ case "$SUITE" in
   gate)
     rm -f "$OUT/gate.ok"
     AK_GATE_LOGS="$OUT/gate" ./gate.sh "$PY" $FLOOR
-    # Req 18 on the framework (WP9): each planted fault must abort the RPC run with no sample.
-    # camp_rpc_pyperf.py without --server starts and warms (one call per transport) its own
-    # server; with --only it runs the one named benchmark, whose worker's per-call checks must
-    # meet the fault inside pyperf's loop (64 batches, so the short body, 1 in 50, is reached).
+    need_pyperf
+    # Req 18 on the framework (WP9) and on the shared server (WP10): each planted fault must
+    # abort the RPC run with no sample. The server is shared, so the plant is selected on the
+    # client (SERVER.md): `short` calls FetchShort, `count` expects one byte more from
+    # UploadStream, `digest` a wrong digest from UploadStreamCheck, each from a cell's 2nd call.
+    # camp_rpc_pyperf.py without --server starts its own through serve.sh and warms it with one
+    # call per direction; with --only it runs the one named benchmark, whose worker's checks
+    # must meet the fault (short and count: in pyperf's timed loop; digest: the setup's check).
     rpc_control() {  # rpc_control <plant> <group> <benchmark> <grep for the reason>
       local P=$1 G=$2 B=$3 WHY=$4 F="$OUT/gate/rpc-control-$1"
       rm -rf "$F".*
-      if AK_CAMP_PLANT="$P" AK_CAMPAIGN_SERVER_WARMUP=1 PYTHONPATH="$HERE/build/pyperf" "$PY" camp_rpc_pyperf.py \
+      if AK_CAMP_PLANT="$P" PYTHONPATH="$HERE/build/pyperf" "$PY" camp_rpc_pyperf.py \
            --variant full --group "$G" --launch 1 --side "$F.side" --transports shipped \
            --only "$B" -o "$F.json" --processes 1 --values 1 --warmups 1 --loops 64 \
            --quiet > "$F.out" 2>&1; then
@@ -97,10 +113,12 @@ case "$SUITE" in
       rm -rf "$F.side"
       echo "   failed as required, in the benchmark's checks, no sample written: $(grep -m1 "$WHY" "$F.out" | cut -c1-160)"
     }
-    echo "== the RPC runner's must-fail control: a server that returns one short body in 50 =="
-    rpc_control short ab "rpc|full|shipped|a|P2.2|B|1" "want 540422"
-    echo "== the RPC runner's must-fail control: a server that answers (d) with a wrong digest =="
-    rpc_control digest d "rpc|full|shipped|d|4MiB|C-drop|1" "digest"
+    echo "== the RPC runner's must-fail control: FetchShort (P2.2 one byte short) from a cell's 2nd call =="
+    rpc_control short ab "rpc|full|shipped|a|P2.2|B|1" "a call failed: .*want 540422"
+    echo "== the RPC runner's must-fail control: (d) expects one byte more than UploadStream counts =="
+    rpc_control count d "rpc|full|shipped|d|4MiB|C-drop|1" "a call failed: .*want 4194305"
+    echo "== the RPC runner's must-fail control: (d) expects a wrong digest from UploadStreamCheck =="
+    rpc_control digest d "rpc|full|shipped|d|4MiB|C-drop|1" "check: .*not the bytes and digest sent"
     echo "$STAMP" > "$OUT/gate.ok"
     echo "GATE PASSED"
     ;;
@@ -112,7 +130,7 @@ case "$SUITE" in
     need_gate
     mkdir -p "build/$TAG/pb2corpus"
     (cd ../../corpus/generated && "$PY" -W ignore -m grpc_tools.protoc -I. --python_out="$HERE/build/$TAG/pb2corpus" corpus.proto)
-    [ -d build/pyperf/pyperf ] || "$PY" -m pip install -q --target build/pyperf "pyperf==2.10.0" 2>/dev/null
+    need_pyperf
     AFF="${AK_CPU_CLIENT:-$("$PY" -c 'import os;print(",".join(map(str,sorted(os.sched_getaffinity(0)))))')}"
     # Req 24 as amended: every warm-up is a runner parameter. pyperf's warm-up values per
     # worker (AK_CAMPAIGN_PYPERF_WARMUPS) and its loop-calibration target (AK_CAMPAIGN_PYPERF_MIN_TIME,
@@ -159,22 +177,22 @@ case "$SUITE" in
     ;;
   rpc)
     need_gate
-    # The full build's client (A, B, C and D in retain and drop, E and F in host-gen's drop
-    # and retain, the labelled extras) and the no-unknown build's (A, B, C-nounk, D-nounk; A
-    # and B share its client process), one process each, in an order alternated by launch.
-    # Req 13 as amended (R-H33): ONE server process per launch (camp_server.py, pinned to
-    # AK_CPU_SERVER, both transport configurations on two Unix sockets), serving every cell
-    # of both builds; each client warms it from each of its transports before round 1.
+    need_pyperf
+    [ -x "$AK_SERVE_SH" ] || { echo "   no $AK_SERVE_SH: the snapshot has no poc/rust (run the gate)"; exit 1; }
+    # Req 13 as amended at 9f6d579fa (FIX-PLAN WP10): ONE server process per launch, the Rust
+    # slice's tonic rpc_server (poc/rust/SERVER.md), started through the snapshot's serve.sh,
+    # pinned by it to AK_CPU_SERVER, both configurations (shipped: tonic's defaults; pinned:
+    # windows 4 MiB, adaptive off) on two Unix sockets; serving every cell of both builds;
+    # warmed by `serve.sh warm AK_CAMPAIGN_SERVER_WARMUP` (checked calls per direction from a
+    # tonic and a core client, both sockets) before any invocation.
     if [ -n "$SMOKE" ]; then export AK_CAMPAIGN_SERVER_WARMUP="${AK_CAMPAIGN_SERVER_WARMUP:-8}"
     else export AK_CAMPAIGN_SERVER_WARMUP="${AK_CAMPAIGN_SERVER_WARMUP:-64}"; fi
     # WP9 (req 22a as amended): the grid runs on pyperf (camp_rpc_pyperf.py). Per launch: the
-    # launch's ONE server (camp_server.py, AK_CPU_SERVER, both transports on two Unix sockets,
-    # req 13), warmed with AK_CAMPAIGN_SERVER_WARMUP calls from each client transport (req 13,
-    # 24); then, per build in an order alternated by launch, a precheck of every cell (req 26),
-    # and one pyperf invocation per direction group (ab, c, d), each with its own --loops
-    # (AK_CAMPAIGN_RPC_LOOPS_AB / _C / _D; campaign 25 / 8 / 3, smoke 2 / 1 / 1) and pyperf's
-    # --warmups (AK_CAMPAIGN_RPC_WARMUPS; campaign 3, smoke 1). Any failure discards the
-    # launch's output: no sample of an aborted launch is kept (req 18).
+    # launch's server, warmed; then, per build in an order alternated by launch, a precheck of
+    # every cell (req 26), and one pyperf invocation per direction group (ab, c, d), each with
+    # its own --loops (AK_CAMPAIGN_RPC_LOOPS_AB / _C / _D; campaign 25 / 8 / 3, smoke 2 / 1 / 1)
+    # and pyperf's --warmups (AK_CAMPAIGN_RPC_WARMUPS; campaign 3, smoke 1). Any failure
+    # discards the launch's output: no sample of an aborted launch is kept (req 18).
     if [ -n "$SMOKE" ]; then
       LAB=${AK_CAMPAIGN_RPC_LOOPS_AB:-2}; LC=${AK_CAMPAIGN_RPC_LOOPS_C:-1}; LD=${AK_CAMPAIGN_RPC_LOOPS_D:-1}; RW=${AK_CAMPAIGN_RPC_WARMUPS:-1}
     else
@@ -189,8 +207,8 @@ case "$SUITE" in
       echo "# ABORTED, NO FIGURE: $2" > "$OUT/rpc-launch$1.ABORTED"
       echo "   launch $1 DISCARDED: $2"
     }
-    rpc_run() {  # rpc_run <launch> <full|nounk> <server sockets>; nonzero on any failure
-      local l=$1 v=$2 S=$3 g L
+    rpc_run() {  # rpc_run <launch> <full|nounk> <server sockets> <server log>; nonzero on any failure
+      local l=$1 v=$2 S=$3 SLOG=$4 g L
       "$PY" camp_rpc_pyperf.py --precheck --variant "$v" --server "$S" --transports "$TR" > "$OUT/rpc-$v-precheck-launch$l.out" 2>&1 \
         || { tail -3 "$OUT/rpc-$v-precheck-launch$l.out"; return 1; }
       for g in ab c d; do
@@ -202,28 +220,24 @@ case "$SUITE" in
           --transports "$TR" --side "$F.side" -o "$F.pyperf.json" $PP --affinity "$AFF" --copy-env --quiet > "$F.pyperf.out" 2>&1 \
           || { tail -5 "$F.pyperf.out"; return 1; }
         "$PY" camp_rpc_pyperf_export.py --json "$F.pyperf.json" --side "$F.side" --launch "$l" --variant "$v" --group $g \
-          --server "$S" --pyperf-args "$PP --affinity $AFF --copy-env --transports $TR" --out "$F.jsonl" $SMOKE $DIRTY || return 1
+          --server "$S" --server-log "$SLOG" --pyperf-args "$PP --affinity $AFF --copy-env --transports $TR" --out "$F.jsonl" $SMOKE $DIRTY || return 1
         rm -rf "$F.side"
         echo "   rpc ($v, $g) launch $l: $(grep -c '"phase": "value"' "$F.jsonl" || true) values, $(grep -c '^{' "$F.jsonl" || true) raw measurements"
       done
     }
     for l in $(seq 1 "$LAUNCHES"); do
-      SD=$(mktemp -d /tmp/akrpc-srv.XXXXXX)
-      coproc SRV { exec "$PY" camp_server.py --dir "$SD"; }
-      read -r SLINE <&"${SRV[0]}"
-      case "$SLINE" in SOCKETS*) ;; *) echo "   the server did not start: $SLINE"; exit 1;; esac
-      SOCKS=$(echo "$SLINE" | tr ' ' '\n' | grep '=unix:' | paste -sd, -)
-      echo "   launch $l server: pid $SRV_PID, $SLINE"
+      SL="$OUT/rpc-server-launch$l"; mkdir -p "$SL"
+      SLINE=$(bash "$AK_SERVE_SH" start --out "$SL") || { echo "   serve.sh start failed: $(tail -2 "$SL/rpc-server.log")"; exit 1; }
+      SOCKS="shipped=unix:$(echo "$SLINE" | sed -n 's/^shipped //p'),pinned=unix:$(echo "$SLINE" | sed -n 's/^pinned //p')"
+      echo "   launch $l server: the Rust rpc_server, $(echo "$SLINE" | tr '\n' ' '), AK_CPU_SERVER=${AK_CPU_SERVER:-unset}, AK_SERVER_THREADS=${AK_SERVER_THREADS:-4}"
       OK=1
-      "$PY" camp_rpc_pyperf.py --warm-server --server "$SOCKS" || OK=0
+      bash "$AK_SERVE_SH" warm "$AK_CAMPAIGN_SERVER_WARMUP" > "$SL/warm.out" 2>&1 || OK=0
+      echo "   server warm-up: serve.sh warm $AK_CAMPAIGN_SERVER_WARMUP, $( [ $OK = 1 ] && echo passed || echo FAILED: $(tail -1 "$SL/warm.out"))"
       if [ $OK = 1 ]; then
         if [ $((l % 2)) = 1 ]; then ORD="full nounk"; else ORD="nounk full"; fi
-        for v in $ORD; do rpc_run "$l" "$v" "$SOCKS" || { OK=0; break; }; done
+        for v in $ORD; do rpc_run "$l" "$v" "$SOCKS" "$SL/rpc-server.log" || { OK=0; break; }; done
       fi
-      SPID=$SRV_PID
-      eval "exec ${SRV[1]}>&-"
-      wait "$SPID" || true
-      rm -rf "$SD"
+      bash "$AK_SERVE_SH" stop > /dev/null
       [ $OK = 1 ] || { discard "$l" "a benchmark, the precheck or the server warm-up failed"; exit 1; }
     done
     "$PY" camp_summary.py "$OUT" > "$OUT/summary.txt"

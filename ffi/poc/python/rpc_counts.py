@@ -6,8 +6,8 @@ framed twins Bf, Cf, Ef), per call, in directions a, a+read, b, c (P5.3, P5.4) a
 
 The rpc core's COUNTING build (`rpc,count,init-guard`, and `--no-default-features` for the
 no-unknown build) behind the same generated shim, the cells exactly as camp_rpc.py builds
-them (one channel per cell), against this process's own camp_server.py over a Unix socket
-(`shipped`). Per cell and direction: one warm call, then one counted call:
+them (one channel per cell), against this process's own start of the shared server (the Rust
+rpc_server through poc/rust/serve.sh, FIX-PLAN WP10) over a Unix socket (`shipped`). Per cell and direction: one warm call, then one counted call:
   calls / resets  every ak_* call the client made (the shim's macros; resets apart)
   rpc fwd / rev   the core's RPC counters (ak_rpc_counters)
   codec fwd / rev the core's codec counters of that call's encode or decode
@@ -36,7 +36,7 @@ def main():
           % (m.__name__, "no-unknown" if NOUNK else "full"))
     print("# resets' place: decode, ak_dec_reset_<R> before the decode (and after it in retain); encode,")
     print("# ak_enc_reset before the encode (steady state); one warm call precedes every counted call")
-    srv, info = C.start_server(tempfile.mkdtemp(prefix="akrpccnt"))
+    srv, info = C.start_server(tempfile.mkdtemp(prefix="akrpccnt"), warm=1)
     rows = []
     try:
         cs, keep = C.cells(info["shipped"], "shipped")
@@ -54,8 +54,7 @@ def main():
                                cod["forward"], cod["reverse"]))
         del keep
     finally:
-        srv.stdin.close()
-        srv.wait(timeout=30)
+        srv.stop()
     for r in rows:
         print(r)
     print("RPC COUNTS: %d rows" % len(rows))

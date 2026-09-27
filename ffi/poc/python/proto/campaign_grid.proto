@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+// FIX-PLAN WP10 (CAMPAIGN req 13 as amended at 9f6d579fa): the client side of THE campaign
+// server, the Rust slice's tonic rpc_server (interface: poc/rust/SERVER.md). Cell A's typed
+// stub is generated from this file by grpc_tools (mech/build.sh), as ArmoniK's Python client
+// is. Only the methods whose request AND response are protobuf messages are declared; the
+// streamed uploads (UploadStream answers 8 raw bytes, UploadStreamCheck 40) are called by path
+// with a raw response. The messages are the shapes schema's.
+package armonik.ffi.campaign.v1;
+
+import "shapes.proto";
+
+service Grid {
+  rpc Fetch(armonik.ffi.shapes.v1.Empty) returns (armonik.ffi.shapes.v1.ListTasksDetailedResponse);       // a
+  rpc FetchShort(armonik.ffi.shapes.v1.Empty) returns (armonik.ffi.shapes.v1.ListTasksDetailedResponse);  // a, planted
+  rpc Push(armonik.ffi.shapes.v1.ListTasksDetailedResponse) returns (armonik.ffi.shapes.v1.Empty);        // b
+  rpc Upload(armonik.ffi.shapes.v1.UploadResultDataMessage) returns (armonik.ffi.shapes.v1.Empty);        // c
+}

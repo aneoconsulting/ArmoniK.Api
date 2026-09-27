@@ -79,7 +79,21 @@ def main():
             bad.append(name)
     log.header(engine="pyperf %s (CAMPAIGN req 22a as amended: the RPC grid on the codec suite's framework)"
                % pyperf.__version__, launch=launch, group=opt("--group"), pyperf_args=opt("--pyperf-args", "?"),
-               server=opt("--server", "?"),
+               server="the Rust slice's tonic rpc_server (FIX-PLAN WP10, req 13 as amended at 9f6d579fa; "
+                      "poc/rust/SERVER.md), one process per launch started by poc/rust/serve.sh of the snapshot, "
+                      "pinned to AK_CPU_SERVER=%s, tokio workers AK_SERVER_THREADS=%s; sockets %s; shipped = tonic's "
+                      "server defaults, pinned = stream and connection windows 4 MiB, adaptive window off; receive "
+                      "limit 8 MiB; the client's shipped / pinned configuration dials the socket of the same name"
+                      % (os.environ.get("AK_CPU_SERVER", "unset"), os.environ.get("AK_SERVER_THREADS", "4"),
+                         opt("--server", "?")),
+               server_log=" | ".join(ln.strip() for ln in open(opt("--server-log"))) if opt("--server-log") else "not given",
+               methods="/armonik.ffi.campaign.v1.Grid/ Fetch (a), Push (b), Upload (c), UploadStream (d, timed: the "
+                       "server's byte count checked on every call), UploadStreamCheck (d, untimed: count and SHA-256, "
+                       "once per cell in the precheck and in each worker's setup)",
+               grpcio_channel="A: the generated GridStub (grpc_tools, proto/campaign_grid.proto; registered methods); "
+                              "D and F: unary_unary / stream_unary with _registered_method=True, as the stub makes; "
+                              "both configurations set grpc.default_authority=localhost (the server's h2 refuses "
+                              "grpcio's percent-encoded unix-socket authority)",
                framework_forces="a worker PROCESS per benchmark (one cell, direction, payload, in-flight level): "
                                 "each opens its own channel and its own pool of k threads in its setup, where the "
                                 "hand-written sampler used one process per build and launch; one loop is one batch "
@@ -90,7 +104,8 @@ def main():
                      "(perf_counter) of the same batches from the side file",
                worker_threads="per benchmark worker: a client pool of k threads; one core runtime of "
                               "AK_CORE_WORKERS (%s) workers where the cell uses the core; grpcio's own threads "
-                              "where it uses grpcio (a D or F stream adds one per call); the server's executor 32"
+                              "where it uses grpcio (a D or F stream adds one per call); the server's tokio runtime, "
+                              "AK_SERVER_THREADS workers (default 4)"
                               % os.environ.get("AK_CORE_WORKERS", "2"),
                order="blocks of (transport, direction, payload, k) in list order, the cells rotated by one per "
                      "launch inside a block, the whole list rotated by a third per launch (pyperf cannot interleave)",
