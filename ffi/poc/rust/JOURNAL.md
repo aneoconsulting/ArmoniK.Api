@@ -3279,3 +3279,26 @@ checkpoint.
   vs B 13.5; 4 MiB k=8 9.1 vs 4.1; nounk client's Bf 13.0 vs 13.3), as in opt/framed and
   opt/u1-unary, and it was not reproduced in the narrowed U1 run: open, cause not identified.
   Instrumentation throughout.
+
+## 2026-09-27 -- unit 2 final gate and final run
+
+- Final gate from a clean tree at d54ea963 (logs/rust/opt/final2-gate): `run_campaign.sh
+  --suite gate` PASSED on stable (gate.log; 11d framed headers and 11e the upload byte check
+  included, both builds), and `RUSTUP_TOOLCHAIN=1.88.0 bash gen/gate.sh` PASSED on rustc
+  1.88.0 (gate-floor-1.88.log).
+- Final run logs/rust/opt/final2 (opt_bench v5 at the gate-log commit 22e7eaa0, code
+  d54ea963; 818 s, the build included) against t0-ref (variants-before-after.txt,
+  by-direction.txt, headline-before-after.txt, rpc-before-after.txt, framed-pairs.txt).
+  Geometric means final/t0 over the payload rows: prost 1.01 / 1.01 (full / nounk, the
+  control; decode 1.08, encode 0.97), native-drop 0.98, native-retain 0.92, native-nounk
+  0.97, ffi-drop 1.02, ffi-retain 1.02, ffi-nounk 0.98, pull 1.06 / 1.00. Per direction and
+  variant: transport-ready-tonic native 0.81-0.85, ffi 0.88-0.92 (P5.3 / P5.4 0.44-0.54, P2.4
+  0.65-0.88; P5.1 0.04-0.06 -> 0.09-0.15 us: the move's fixed cost); reused-buffer native-retain
+  0.93 (N3), other reused-buffer and transport-ready-core rows 1.01-1.07; decode native 1.00-1.03
+  with P2.3 0.84-0.91 and P2.4 0.91-0.97 (N2), ffi 1.00-1.05 (no ffi decode code changed in a
+  kept step; t0-ref's ffi decode is low against every later run, e.g. P2.4 ffi-drop 1524 us
+  there and 1694-2004 in the eight runs after: drift, D43). RPC framed/reference inside the
+  final process (gmean, median; p10): b B 0.78, C 0.88, D 0.92, E 0.98, F 0.87; c/P5.3 0.79-0.91,
+  c/P5.4 B 0.44, C 0.88, D 0.70, E 0.87, F 0.78; d/16MiB B 1.01, C 0.81, D 0.78, E 0.81, F 0.95;
+  d/4MiB 0.66-1.03 (p10 0.68-0.93); a and a+read 0.92-1.05 except B 1.13-1.15 (O1: the full
+  client's Bf again). All container instrumentation.
