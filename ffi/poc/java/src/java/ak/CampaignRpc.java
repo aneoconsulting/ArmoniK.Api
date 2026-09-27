@@ -701,7 +701,8 @@ public final class CampaignRpc {
           for (int c = 0; c < chunks; c++) {
             int k = Math.min(ch, left);
             if (dir.equals("b")) for (int i = 0; i < k; i++) pool[i] = cell.fresh();   // untimed
-            final int up = dir.length() > 2 ? Integer.parseInt(dir.substring(2)) : -1;   // "c:<k>", "d:<k>"
+            final int up = dir.startsWith("c:") || dir.startsWith("d:")
+                ? Integer.parseInt(dir.substring(2)) : -1;   // "c:<k>", "d:<k>"
             bar.await();          // everyone prepared
             bar.await();          // the coordinator has read the clocks: go
             for (int i = 0; i < k; i++) {
