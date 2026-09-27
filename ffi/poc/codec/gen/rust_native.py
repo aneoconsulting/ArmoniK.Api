@@ -104,7 +104,9 @@ def _enc_message(p, m, o, sites, acc="o"):
         f = st.field
         if st.op == "unknown_tail":
             if retain:
-                o.append("    e.put(&%s.unknown_fields);" % acc)
+                # Optimisation N3: an empty bag (every message of a payload that carries no
+                # unknown field) appends nothing, so it is not even reserved for.
+                o.append("    if !%s.unknown_fields.is_empty() { e.put(&%s.unknown_fields); }" % (acc, acc))
             continue
         v = "%s.%s" % (acc, f.name)
         if st.op == "child":

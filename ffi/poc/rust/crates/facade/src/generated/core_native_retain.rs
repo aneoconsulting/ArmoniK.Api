@@ -23,7 +23,7 @@ pub const UNKNOWN_FIELDS: &str = "retain";
 fn enc_timestamp(o: &Timestamp, e: &mut Enc) {
     { let x = o.seconds; if x != 0 { e.varint_field(1, x as u64); } }
     { let x = o.nanos; if x != 0 { e.varint_field(2, x as i64 as u64); } }
-    e.put(&o.unknown_fields);
+    if !o.unknown_fields.is_empty() { e.put(&o.unknown_fields); }
 }
 
 #[inline]
@@ -31,7 +31,7 @@ fn enc_timestamp(o: &Timestamp, e: &mut Enc) {
 fn enc_duration(o: &Duration, e: &mut Enc) {
     { let x = o.seconds; if x != 0 { e.varint_field(1, x as u64); } }
     { let x = o.nanos; if x != 0 { e.varint_field(2, x as i64 as u64); } }
-    e.put(&o.unknown_fields);
+    if !o.unknown_fields.is_empty() { e.put(&o.unknown_fields); }
 }
 
 #[inline]
@@ -56,7 +56,7 @@ fn enc_result_raw(o: &ResultRaw, e: &mut Enc) {
     if !o.created_by.is_empty() { e.blob_field(10, o.created_by.as_bytes()); }
     if !o.opaque_id.is_empty() { e.blob_field(11, &o.opaque_id[..]); }
     { let x = o.manual_deletion; if x { e.varint_field(12, x as u64); } }
-    e.put(&o.unknown_fields);
+    if !o.unknown_fields.is_empty() { e.put(&o.unknown_fields); }
 }
 
 #[inline]
@@ -81,7 +81,7 @@ fn enc_task_options(o: &TaskOptions, e: &mut Enc) {
     if !o.application_namespace.is_empty() { e.blob_field(8, o.application_namespace.as_bytes()); }
     if !o.application_service.is_empty() { e.blob_field(9, o.application_service.as_bytes()); }
     if !o.engine_type.is_empty() { e.blob_field(10, o.engine_type.as_bytes()); }
-    e.put(&o.unknown_fields);
+    if !o.unknown_fields.is_empty() { e.put(&o.unknown_fields); }
 }
 
 #[inline]
@@ -89,7 +89,7 @@ fn enc_task_options(o: &TaskOptions, e: &mut Enc) {
 fn enc_task_output(o: &TaskOutput, e: &mut Enc) {
     { let x = o.success; if x { e.varint_field(1, x as u64); } }
     if !o.error.is_empty() { e.blob_field(2, o.error.as_bytes()); }
-    e.put(&o.unknown_fields);
+    if !o.unknown_fields.is_empty() { e.put(&o.unknown_fields); }
 }
 
 #[inline]
@@ -178,7 +178,7 @@ fn enc_task_detailed(o: &TaskDetailed, e: &mut Enc) {
     }
     if !o.payload_id.is_empty() { e.blob_field(26, o.payload_id.as_bytes()); }
     if !o.created_by.is_empty() { e.blob_field(27, o.created_by.as_bytes()); }
-    e.put(&o.unknown_fields);
+    if !o.unknown_fields.is_empty() { e.put(&o.unknown_fields); }
 }
 
 #[inline]
@@ -200,7 +200,7 @@ fn enc_task_summary(o: &TaskSummary, e: &mut Enc) {
     if !o.error.is_empty() { e.blob_field(8, o.error.as_bytes()); }
     if !o.status_message.is_empty() { e.blob_field(9, o.status_message.as_bytes()); }
     { let x = o.count_data_dependencies; if x != 0 { e.varint_field(11, x as u64); } }
-    e.put(&o.unknown_fields);
+    if !o.unknown_fields.is_empty() { e.put(&o.unknown_fields); }
 }
 
 #[inline]
@@ -229,13 +229,13 @@ fn enc_probe(o: &Probe, e: &mut Enc) {
         enc_empty(x, e);
         e.end(mk);
     }
-    e.put(&o.unknown_fields);
+    if !o.unknown_fields.is_empty() { e.put(&o.unknown_fields); }
 }
 
 #[inline]
 #[allow(unused_variables)]
 fn enc_empty(o: &Empty, e: &mut Enc) {
-    e.put(&o.unknown_fields);
+    if !o.unknown_fields.is_empty() { e.put(&o.unknown_fields); }
 }
 
 #[inline]
@@ -244,7 +244,7 @@ fn enc_upload_result_data(o: &UploadResultData, e: &mut Enc) {
     if !o.session_id.is_empty() { e.blob_field(1, o.session_id.as_bytes()); }
     if !o.result_id.is_empty() { e.blob_field(2, o.result_id.as_bytes()); }
     if !o.data_chunk.is_empty() { e.blob_field(3, &o.data_chunk[..]); }
-    e.put(&o.unknown_fields);
+    if !o.unknown_fields.is_empty() { e.put(&o.unknown_fields); }
 }
 
 #[inline]
@@ -276,7 +276,7 @@ fn enc_metrics_batch(o: &MetricsBatch, e: &mut Enc) {
         e.varint_run(o.statuses.len(), o.statuses.iter().map(|x| (*x).to_i32() as i64 as u64));
         e.end(mk);
     }
-    e.put(&o.unknown_fields);
+    if !o.unknown_fields.is_empty() { e.put(&o.unknown_fields); }
 }
 
 #[inline]
@@ -284,7 +284,7 @@ fn enc_metrics_batch(o: &MetricsBatch, e: &mut Enc) {
 fn enc_pair(o: &Pair, e: &mut Enc) {
     if !o.key.is_empty() { e.blob_field(1, o.key.as_bytes()); }
     { let x = o.value; if x != 0 { e.varint_field(2, x as i64 as u64); } }
-    e.put(&o.unknown_fields);
+    if !o.unknown_fields.is_empty() { e.put(&o.unknown_fields); }
 }
 
 #[inline]
@@ -297,7 +297,7 @@ fn enc_list_results_response(o: &ListResultsResponse, e: &mut Enc) {
     }
     { let x = o.page; if x != 0 { e.varint_field(2, x as i64 as u64); } }
     { let x = o.total; if x != 0 { e.varint_field(3, x as i64 as u64); } }
-    e.put(&o.unknown_fields);
+    if !o.unknown_fields.is_empty() { e.put(&o.unknown_fields); }
 }
 
 #[inline]
@@ -310,7 +310,7 @@ fn enc_list_tasks_detailed_response(o: &ListTasksDetailedResponse, e: &mut Enc) 
     }
     { let x = o.page; if x != 0 { e.varint_field(2, x as i64 as u64); } }
     { let x = o.total; if x != 0 { e.varint_field(3, x as i64 as u64); } }
-    e.put(&o.unknown_fields);
+    if !o.unknown_fields.is_empty() { e.put(&o.unknown_fields); }
 }
 
 #[inline]
@@ -321,7 +321,7 @@ fn enc_list_task_summary_response(o: &ListTaskSummaryResponse, e: &mut Enc) {
         enc_task_summary(c, e);
         e.end(mk);
     }
-    e.put(&o.unknown_fields);
+    if !o.unknown_fields.is_empty() { e.put(&o.unknown_fields); }
 }
 
 #[inline]
@@ -332,7 +332,7 @@ fn enc_list_probe_response(o: &ListProbeResponse, e: &mut Enc) {
         enc_probe(c, e);
         e.end(mk);
     }
-    e.put(&o.unknown_fields);
+    if !o.unknown_fields.is_empty() { e.put(&o.unknown_fields); }
 }
 
 #[inline]
@@ -343,7 +343,7 @@ fn enc_list_metrics_response(o: &ListMetricsResponse, e: &mut Enc) {
         enc_metrics_batch(c, e);
         e.end(mk);
     }
-    e.put(&o.unknown_fields);
+    if !o.unknown_fields.is_empty() { e.put(&o.unknown_fields); }
 }
 
 #[inline]
@@ -354,7 +354,7 @@ fn enc_upload_result_data_message(o: &UploadResultDataMessage, e: &mut Enc) {
         enc_upload_result_data(c, e);
         e.end(mk);
     }
-    e.put(&o.unknown_fields);
+    if !o.unknown_fields.is_empty() { e.put(&o.unknown_fields); }
 }
 
 #[inline]
@@ -370,7 +370,7 @@ fn enc_dual_response(o: &DualResponse, e: &mut Enc) {
         enc_pair(c, e);
         e.end(mk);
     }
-    e.put(&o.unknown_fields);
+    if !o.unknown_fields.is_empty() { e.put(&o.unknown_fields); }
 }
 
 #[inline]
