@@ -39,8 +39,24 @@ run() {  # run TAG EXE
     taskset -c "$AK_CPU_CLIENT" "$2" > "$C" 2>&1 || { say "codec $1 FAILED: $C"; exit 1; }
   say "  $1: $(grep -m1 '^# precheck:' "$C" | sed 's/^# //'); $(grep -vc '^#' "$F") sample rows; $(( $(date +%s) - t ))s"
 }
-if [ "$BUILDS" != nounk ]; then run codec-P "$(bench_exe)"; fi
+# AK_CORE_LTO=1: the core cdylib with fat LTO, built on its own (gen/core_lto.sh), loaded
+# first through AK_CORE_LIB_DIR; the host is never LTO'd. Checked with ldd.
+lto_dir() { if [ "${AK_CORE_LTO:-0}" = 1 ]; then bash gen/core_lto.sh "$1"; fi; }
+with_core() {  # with_core DIR CMD...: AK_CORE_LIB_DIR=DIR, or unset when DIR is empty
+  local d=$1; shift
+  if [ -n "$d" ]; then ( export AK_CORE_LIB_DIR="$d"; "$@" ); else ( unset AK_CORE_LIB_DIR; "$@" ); fi
+}
+check_so() {  # check_so EXE DIR
+  local so; so=$(ldd "$1" | grep -o '/[^ ]*libak_core.so')
+  if [ -n "$2" ] && [ "$so" != "$2/libak_core.so" ]; then say "core mix-up: $1 loads $so, not $2/libak_core.so"; exit 1; fi
+  say "  core loaded: $so ($(nm "$so" | grep -c ' [tT] ') text symbols)"
+}
+say "# core cdylib: $( [ "${AK_CORE_LTO:-0}" = 1 ] && echo "lto=fat (gen/core_lto.sh, its own cargo invocation in poc/codec)" || echo "lto off (the host's path-dependency build)"); host: lto off"
+if [ "$BUILDS" != nounk ]; then
+  D=$(lto_dir full); E=$(with_core "$D" bench_exe); check_so "$E" "$D"; run codec-P "$E"
+fi
 if [ "$BUILDS" != full ]; then
-  run codec-nounk-P "$(CARGO_TARGET_DIR="$HERE/target-nounk" bench_exe --no-default-features --features init-guard)"
+  D=$(lto_dir nounk); E=$(CARGO_TARGET_DIR="$HERE/target-nounk" with_core "$D" bench_exe --no-default-features --features init-guard)
+  check_so "$E" "$D"; run codec-nounk-P "$E"
 fi
 python3 gen/opt_summary.py "$OUT" | tee -a "$LOG"

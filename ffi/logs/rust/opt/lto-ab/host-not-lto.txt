@@ -1,0 +1,2 @@
+host target/release/deps/codec_suite-f7ca302b674b558b: out-of-line calls into ak_rt: 53
+     53 _ZN5ak_rt3dec3Dec4skip

@@ -32,7 +32,7 @@ fn main() {
     // (FIX-PLAN WP4 item 9) puts a dependency's cdylib under `build/<crate>/<hash>/out`.
     // Set by `gen/tsan.sh`, which finds the one `libak_core.so` that build produced.
     println!("cargo:rerun-if-env-changed=AK_CORE_LIB_DIR");
-    if let Ok(dir) = std::env::var("AK_CORE_LIB_DIR") {
+    if let Some(dir) = std::env::var("AK_CORE_LIB_DIR").ok().filter(|d| !d.is_empty()) {
         println!("cargo:rustc-link-search=native={dir}");
         println!("cargo:rustc-link-arg=-Wl,-rpath,{dir}");
     }

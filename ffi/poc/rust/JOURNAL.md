@@ -3099,3 +3099,35 @@ Enc::take.
   there is no per-element retain crossing to remove. The earlier 12% was taken on a harness
   and a code state that no longer exist (before U1 moved the reset, before D2-D4); no code
   changed for N6, so there is no n6 run.
+
+## 2026-09-27 -- core-only fat LTO (owner: the lib with LTO is fine, the host not): measured, NOT kept
+
+- Tooling (kept, opt-in, default off): gen/core_lto.sh builds libak_core.so ON ITS OWN in
+  poc/codec's workspace with CARGO_PROFILE_RELEASE_LTO=fat for that invocation only
+  (codegen-units default; the codec manifest's [profile.release] lto=false is what the env
+  var overrides), with this host's ak-core features (full: rpc,init-guard,unknown-fields;
+  nounk: rpc,init-guard), into target-core-lto[-nounk]/. The host is built with
+  AK_CORE_LIB_DIR set to that directory: harness/build.rs (already) and campaign/build.rs
+  (new) put it FIRST in the runpath, so the loader takes it; the non-LTO copy cargo still
+  builds in the host's deps/ as the path dependency (feature plumbing) is built and never
+  loaded -- checked per executable with ldd against the expected path (opt_narrow.sh
+  check_so), with the loaded file's text-symbol count as the marker (LTO core 2119 / 2083
+  text symbols full / nounk, the host-built one 4210 / 4222; sizes 2.2 vs 3.4 MB). An empty
+  AK_CORE_LIB_DIR is now treated as unset by both build scripts. Same dependency versions in
+  both lock files (hashbrown 0.15.5 extra on the host side, not in the core's graph);
+  feature unification differs only in tokio-stream (+default,time), syn (+default,derive),
+  serde_core (+alloc) on the host side, none of which the core's code uses. opt_narrow.sh
+  prints "core cdylib: lto=fat ...; host: lto off" (or "lto off (the host's path-dependency
+  build)") in its header. opt_bench.sh and run_campaign.sh are NOT changed: nothing is kept
+  that would need it.
+- Host not LTO'd: the codec bench executable keeps 53 out-of-line calls to
+  ak_rt::dec::Dec::skip (logs/rust/opt/lto-ab/host-not-lto.txt); gen/inline_check.sh with the
+  LTO core (lto-ab/inline_check-with-lto-core.txt): core-native's traversal is emitted on
+  its own (decode 13586 B, encode 4067 B) and the benchmark closures are 294-472 B, so
+  nothing is fused into the loop (R5). core-native gains nothing from core LTO by
+  construction (it is compiled into the host).
+- Narrowed alternated A/B (opt/lto-ab, 3 x A/B, P1.2*, P1.3, P2.2*, P2.3, P3.1, P4.1, P6.1,
+  P7.1, full build; A = 7770b363 with the host-built core, B = the same code with the LTO
+  core): decode ffi-drop 1.02, ffi-retain 1.04, pull 1.02-1.04; encode reused-buffer
+  ffi-drop 1.03, ffi-retain 1.04; core-native (unchanged by construction) 1.00-1.03; prost
+  0.93 / 1.02. No gain beyond drift, so no full run and nothing kept.

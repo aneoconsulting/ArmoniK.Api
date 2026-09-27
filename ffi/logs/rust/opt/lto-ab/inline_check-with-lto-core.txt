@@ -1,0 +1,51 @@
+===== target/release/bench =====
+
+-- the traversal, as emitted (size in bytes, decimal) --
+  4067       facade::generated::core_native::enc_list_results_response
+  13586      facade::generated::core_native::decode_list_results_response
+  20         facade::generated::core_native::encode_into_list_results_response
+
+-- the benchmark closures, largest first (size in bytes, decimal) --
+  472        bench::main::{{closure}}
+  374        bench::main::{{closure}}
+  374        bench::main::{{closure}}
+  310        bench::main::{{closure}}
+  294        bench::main::{{closure}}
+
+-- direct call sites to the entry points (0 does NOT mean inlined: see below) --
+  0      _ZN6facade9generated11core_native28decode_list_results_response17hcaecfcf5ebc0d8ceE
+  0      _ZN6facade9generated11core_native33encode_into_list_results_response17hd62bcdd8d450ca63E
+
+-- how the entry points are actually reached --
+   Both are exported globals in a PIE, so calls to them go through the GOT and the
+   disassembly shows `call *0x..(%rip)`, not a named direct call. The GOT slots:
+00000000000f7a60 R_X86_64_RELATIVE  *ABS*+0x0000000000098aa0
+
+===== target/release/inlining =====
+
+-- the traversal, as emitted (size in bytes, decimal) --
+  4067       facade::generated::core_native::enc_list_results_response
+  13586      facade::generated::core_native::decode_list_results_response
+  20         facade::generated::core_native::encode_into_list_results_response
+
+-- the benchmark closures, largest first (size in bytes, decimal) --
+  374        inlining::main::{{closure}}
+  177        inlining::main::{{closure}}
+  132        inlining::main::{{closure}}
+  132        inlining::main::{{closure}}
+  126        inlining::main::{{closure}}
+
+-- direct call sites to the entry points (0 does NOT mean inlined: see below) --
+  0      _ZN6facade9generated11core_native28decode_list_results_response17hcaecfcf5ebc0d8ceE
+  0      _ZN6facade9generated11core_native33encode_into_list_results_response17hd62bcdd8d450ca63E
+
+-- how the entry points are actually reached --
+   Both are exported globals in a PIE, so calls to them go through the GOT and the
+   disassembly shows `call *0x..(%rip)`, not a named direct call. The GOT slots:
+0000000000098678 R_X86_64_RELATIVE  *ABS*+0x0000000000046090
+
+===== what to read off this =====
+If the largest benchmark closure is SMALLER than the traversal, no closure can contain
+an inlined copy of it, and `core-native` is reached by a real call in that binary --
+which is what the FFI arm does too. The inlining advantage the objection describes
+would then not be present to be subtracted.

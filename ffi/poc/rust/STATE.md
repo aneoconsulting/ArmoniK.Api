@@ -34,6 +34,7 @@ after step 5, the full gate (stable + 1.88) at the end.
 | 3 | b1ecc8f8 | N2: core-native decode counts repeated message/blob fields in one key pass and reserves each Vec exactly | yes | pre-check 0 failures; crossings identical | `opt/n2`, `opt/n2-ab` |
 | 4 | 1326b546 | N3: core-native retain encode skips an empty unknown-field bag | yes | pre-check 0 failures; crossings identical | `opt/n3`, `opt/n3-ab` |
 | 5 | none | N6: ffi-retain P4.1 decode over drop -- not reproduced (retain/drop 0.90-1.11 across 9 processes; one extra forward crossing, the reset, and no per-element one) | no code | -- | `opt/n6-probe` |
+| 5b | (tooling only) | fat LTO on the core cdylib only (gen/core_lto.sh, its own cargo invocation; host loads it first through AK_CORE_LIB_DIR, checked with ldd; host not LTO'd, inline_check unchanged) | **not kept** (ffi 1.02-1.04 in the narrowed A/B, prost 0.93-1.02; tooling opt-in, off by default) | -- | `opt/lto-ab` |
 
 ## Optimisation experiment (done; every figure is container instrumentation)
 
