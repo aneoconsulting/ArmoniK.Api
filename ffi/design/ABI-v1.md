@@ -885,6 +885,13 @@ void      ak_call_destroy(ak_call*);
   ignored.
 - **Blocking delivery only**, as the campaign asks (CAMPAIGN req 16); callback and
   queue deliveries of a stream are not built.
+- **Settled while building it.** An expired deadline is reported as
+  `DEADLINE_EXCEEDED` (4) even when the server's `CANCELLED "Timeout expired"` arrives
+  first, as tonic's server sends it. Metadata values other than `-bin` must be
+  printable ASCII (0x20 to 0x7E), checked by the core because tonic accepts more; an
+  invalid pair makes `ak_call_open` return NULL. `ak_call_cancel` on a callback or
+  queue handle delivers a completion (`AK_ERR_RPC_STATUS`, `CANCELLED`) instead of
+  none, as its comment always said it should.
 
 **Two more additive entries (2026-09-26/27).** `ak_enc_take_owned(ak_enc_ctx*,
 struct ak_bytes *out)` moves an encode context's output to the host as an owned
