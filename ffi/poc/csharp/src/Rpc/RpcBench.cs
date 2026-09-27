@@ -304,8 +304,8 @@ public static class RpcBenchMain
         var old = Console.Out;
         Console.SetOut(sw);
         CampaignMain.Header("rpc", string.Format(CultureInfo.InvariantCulture,
-            "build " + AbiVariant.Name + "; launch {0}; unit {1} (one process per cell, WP9); transport {2} (client: DisableDynamicWindowSizing{3}; Kestrel {4}; core: ak_client_opts stream {5} connection {6} adaptive 0 nagle {7}); Unix socket {8} (req 17: UDS); in flight {9} (c and d at 1 and 8 only)",
-            launch, RpcCtx.Unit, RpcCtx.Transport, pinned ? " + InitialHttp2StreamWindowSize 4 MiB" : ", no window set", pinned ? "stream/connection window 4 MiB" : "defaults",
+            "build " + AbiVariant.Name + "; launch {0}; unit {1} (one process per cell, WP9); transport {2} (the client's configuration against the server's {2} socket: Grpc.Net DisableDynamicWindowSizing{3}; server socket {4}; core: ak_client_opts stream {5} connection {6} adaptive 0 nagle {7}); Unix socket {8} (req 17: UDS); in flight {9} (c and d at 1 and 8 only)",
+            launch, RpcCtx.Unit, RpcCtx.Transport, pinned ? " + InitialHttp2StreamWindowSize 4 MiB" : ", no window set", pinned ? "4 MiB windows, adaptive off (tonic)" : "tonic's defaults",
             o.stream_window, o.connection_window, o.tcp_nagle, RpcCtx.Sock, string.Join("/", RpcCtx.Levels)));
         Console.SetOut(old);
         hdr.AddRange(sw.ToString().TrimEnd('\n').Split('\n'));
@@ -316,7 +316,7 @@ public static class RpcBenchMain
         hdr.Add("# cells:          A incumbent over Grpc.Net; B incumbent over the core's transport (Bf its framed send path); C core-ffi over the core's transport on the MOVE path (ak_call_unary_enc / ak_call_send_enc; Cf framed, Cc the copy path, a labelled extra); D core-ffi over Grpc.Net (a copy into the call's buffer: Grpc.Net's serializer cannot take a core buffer); E host-gen over the core's transport (Ef framed); F host-gen over Grpc.Net; B/C .callback/.queue the core's other deliveries (labelled extras); -retain/-drop/-nounk the unknown-field mode (req 10, 12)");
         hdr.Add("# directions:     a empty request, P2.2 response decoded; a+read the same then every field read; b P2.2 request decoded by the server; c unary upload of P5.3 / P5.4 (M5, 1 MB / 4 MB); d the streamed upload, M5 messages of 2 MiB (ids on the first), 4 MiB / 16 MiB (req 14); every call checked: status, response length or the server's byte count (req 18); the upload cells' count and SHA-256 checked once in setup before timing");
         hdr.Add("# delivery:       B, C, E the core's BLOCKING call on k caller threads (a CallerPool created before BDN starts); A, D, F Grpc.Net's idiomatic async call (AsyncUnaryCall / AsyncClientStreamingCall awaited), k concurrent async calls per invocation; the core's cells share one core runtime with " + RpcCtx.Workers + " worker thread(s) (req 16)");
-        hdr.Add("# limits:         the client's max send and receive 64 MiB on both transports (D44, enforced), Kestrel 64 MiB");
+        hdr.Add("# limits:         the client's max send and receive 64 MiB on both transports (D44, enforced); the server's receive limit 8 MiB per message (SERVER.md)");
         foreach (var ch in RpcCtx.Chans) hdr.Add("# channel:        " + ch + " (opened in this process before its first case, kept to its end: one channel per cell per benchmark process)");
         hdr.Add(CampaignMain.ThreadLine("caller threads " + RpcCtx.Levels.Max() + "; core runtime 1, " + RpcCtx.Workers + " worker thread(s)"));
         File.AppendAllLines(outp, hdr);

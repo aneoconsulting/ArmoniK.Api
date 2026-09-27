@@ -12,7 +12,9 @@
 # default / --smoke default):
 #   rpc client  BenchmarkDotNet (WP9): AK_RPC_BDN_WARMUP 10 / 1   AK_RPC_BDN_ITERATION_MS 100 / 20
 #               AK_RPC_BDN_ROUNDS = --rounds
-#   rpc server  AK_RPC_SERVER_WARM 2000 / 100 calls per direction and client transport
+#   rpc server  the Rust slice's rpc_server (poc/rust/serve.sh, WP10): AK_RPC_SERVER_WARM 2000 / 100
+#               (serve.sh warm N), AK_SERVER_THREADS its tokio workers (default 4)
+#   rpc subset  AK_RPC_TRANSPORTS "shipped pinned", AK_RPC_BUILDS "full nounk" (small runs only)
 #   codec (BDN) AK_BDN_WARMUP 10 / 1   AK_BDN_ITERATION_MS 100 / 2   AK_BDN_ROUNDS = --rounds
 #               (WP9 addendum: BDN's own warm-up only; no hand-written pre-warm; the per-case JIT
 #               check fails a unit outside --smoke and is reported only in a smoke)
@@ -220,26 +222,32 @@ case "$SUITE" in
     # A B C-retain C-drop D-retain D-drop E-retain E-drop F-retain F-drop (+ extras), the
     # no-unknown client A B C-nounk D-nounk E-nounk F-nounk. Transports and builds in an order
     # alternated by launch.
+    # FIX-PLAN WP10 (CAMPAIGN req 13 as amended): the server is the Rust slice's tonic
+    # rpc_server, THE server of every slice (poc/rust/SERVER.md), built, started, warmed and
+    # stopped through poc/rust/serve.sh, once per launch, pinned to AK_CPU_SERVER by serve.sh.
+    SERVE="$REPO/ffi/poc/rust/serve.sh"
+    export AK_SERVE_STATE="$SCRATCH/ak-rpc-server.state" AK_CPU_SERVER
+    "$SERVE" build > "$OUT/rpc-server-build.log" 2>&1 || { tail -20 "$OUT/rpc-server-build.log"; exit 1; }
     for l in $(seq 1 "$LAUNCHES"); do
-      ss="/tmp/ak-cs-$$-s.sock"; sp="/tmp/ak-cs-$$-p.sock"; rm -f "$ss" "$sp"   # a Unix socket path is at most 108 bytes
-      slog="$OUT/rpc-launch$l.server.log"
-      { [ $SMOKE = 1 ] && echo "# SMOKE RUN in a container: instrumentation, not a result"; header "none (the server uses no core)"; } > "$slog"
-      taskset -c "$AK_CPU_SERVER" dotnet "$R8/akrpc.dll" campaign --suite rpc-server --sock-shipped "$ss" --sock-pinned "$sp" >> "$slog" 2>&1 &
-      SPID=$!
-      for i in $(seq 1 150); do [ -S "$ss" ] && [ -S "$sp" ] && break; sleep 0.1; done
-      [ -S "$ss" ] && [ -S "$sp" ] || { echo "server did not start ($slog)" >&2; kill $SPID; exit 1; }
-      taskset -c "$AK_CPU_CLIENT" dotnet "$R8/akrpc.dll" campaign --suite rpc-warm --sock-shipped "$ss" --sock-pinned "$sp" --calls "$WARM" > "$OUT/rpc-launch$l.server-warm.log" 2>&1 \
-        || { echo "server warm-up failed ($OUT/rpc-launch$l.server-warm.log)" >&2; kill $SPID; exit 1; }
+      sdir="$OUT/rpc-launch$l.server"; mkdir -p "$sdir"
+      "$SERVE" start --out "$sdir" > "$sdir/start.out" 2>&1 || { cat "$sdir/start.out"; exit 1; }
+      ss=$(sed -n 's/^shipped //p' "$sdir/start.out"); sp=$(sed -n 's/^pinned //p' "$sdir/start.out"); SPID=$(sed -n 's/^pid //p' "$sdir/start.out")
+      slog="$sdir/rpc-server.log"
+      "$SERVE" warm "$WARM" > "$OUT/rpc-launch$l.server-warm.log" 2>&1 \
+        || { echo "server warm-up failed ($OUT/rpc-launch$l.server-warm.log)" >&2; "$SERVE" stop; exit 1; }
       if [ $(( l % 2 )) = 1 ]; then TS="shipped pinned"; else TS="pinned shipped"; fi
+      # The owner's small-test rule (2026-09-27): AK_RPC_TRANSPORTS / AK_RPC_BUILDS narrow a
+      # smoke or exploration run to one transport or one build; the campaign runs all.
+      [ -n "${AK_RPC_TRANSPORTS:-}" ] && TS="$AK_RPC_TRANSPORTS"
       for t in $TS; do
         if [ "$t" = shipped ]; then sock="$ss"; else sock="$sp"; fi
-        for bld in $(builds_of "$l"); do
+        for bld in ${AK_RPC_BUILDS:-$(builds_of "$l")}; do
           if [ "$bld" = full ]; then RX="$R8"; sfx=""; else RX="$RN8"; sfx=".nounk"; fi
           f="$OUT/rpc-$t-launch$l$sfx.jsonl"
           [ $PLANT = 1 ] && f="$OUT/rpc-$t-launch$l$sfx.PLANT.jsonl"
           { header "rpc,init-guard$([ "$bld" = nounk ] && echo ' without unknown-fields (no-unknown build)')"; echo "$GATE";
             echo "# client build: $bld (WP5 step 10); this launch's order: transports $TS, builds $(builds_of "$l")";
-            echo "# server:        one process for this launch (pid $SPID, $slog), both builds and both transports; warmed first: $(grep -c '^# server warm-up' "$OUT/rpc-launch$l.server-warm.log") socket(s) x $WARM calls per direction per client transport ($OUT/rpc-launch$l.server-warm.log)"; } > "$f"
+            echo "# server:        the Rust slice's tonic rpc_server (FIX-PLAN WP10, poc/rust/SERVER.md), one process for this launch (pid $SPID, $slog, pinned to ${AK_CPU_SERVER:-unpinned} by serve.sh, workers ${AK_SERVER_THREADS:-4}), both builds and both transports on its two sockets (shipped: tonic's server defaults; pinned: 4 MiB windows, adaptive off); warmed first by serve.sh warm $WARM ($OUT/rpc-launch$l.server-warm.log: $WARM checked calls per direction a, b, c and $(( (WARM + 3) / 4 )) on d, from a tonic and a core client, on both sockets)"; } > "$f"
           if [ $PLANT = 1 ]; then
             # Req 18's controls, per send path and per direction (WP8): a wrong expected length
             # on a, c and d, and a wrong expected SHA-256 on d, each on one cell at a time
@@ -254,7 +262,7 @@ case "$SUITE" in
                 [ "$2" = a ] && [ "$cell" = Bf ] && continue   # direction a has no framed twin
                 AK_CAMPAIGN_PLANT=$1 AK_CAMPAIGN_PLANT_DIR=$2 taskset -c "$AK_CPU_CLIENT" dotnet "$RX/akrpc.dll" bench --sock "$sock" --transport "$t" \
                   --unit "$cell" --launch "$l" --inflight 1 --out "$f.$1-$2-$cell" "${BDNARGS[@]}" > "$f.$1-$2-$cell.bdn.log" 2>&1; rc=$?
-                if [ $rc -eq 0 ]; then echo "CONTROL PASSED: plant $1 on $2 did not abort on $cell ($f.$1-$2-$cell)" >&2; kill $SPID; exit 1; fi
+                if [ $rc -eq 0 ]; then echo "CONTROL PASSED: plant $1 on $2 did not abort on $cell ($f.$1-$2-$cell)" >&2; "$SERVE" stop; exit 1; fi
                 echo "control ($t, launch $l, $bld, plant $1, direction $2, cell $cell): aborted as required, $(grep -c '^{' "$f.$1-$2-$cell") samples: $(grep -m1 ABORT "$f.$1-$2-$cell" | cut -c1-160)" | tee -a "$f"
                 rm -f "$f.$1-$2-$cell" "$f.$1-$2-$cell.bdn.log"
               done
@@ -268,12 +276,12 @@ case "$SUITE" in
             if [ $rc -ne 0 ]; then
               # Req 18 / 22a: one failed benchmark discards the launch's output: no figure.
               for x in "$OUT"/rpc-*-launch$l*.jsonl; do [ -f "$x" ] && mv "$x" "$x.DISCARDED"; done
-              echo "rpc $t launch $l ($bld) unit $u failed ($ul): the launch's output is discarded (*.DISCARDED)" >&2; kill $SPID; exit 1
+              echo "rpc $t launch $l ($bld) unit $u failed ($ul): the launch's output is discarded (*.DISCARDED)" >&2; "$SERVE" stop; exit 1
             fi
           done
         done
       done
-      kill $SPID; wait $SPID 2>/dev/null
+      "$SERVE" stop > /dev/null
     done ;;
   *) echo "unknown suite $SUITE" >&2; exit 2 ;;
 esac

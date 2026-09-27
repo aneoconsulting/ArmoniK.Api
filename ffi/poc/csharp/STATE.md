@@ -8,7 +8,7 @@ waits for the campaign. The history of how each item got here is in `JOURNAL.md`
 
 | | |
 |---|---|
-| **Status** | FIX-PLAN WP9 done: the RPC grid runs on BenchmarkDotNet like the codec suite (CAMPAIGN req 22a as amended 2026-09-27), the hand-written sampler and the codec suite's hand-written pre-warm removed; gated from a fresh worktree at `6a7c0cf`, both builds, net8.0 and net6.0; a minimal smoke (owner 2026-09-27: small tests only). WP10 (the Rust slice's shared server) is next. Findings are in scope only if they can change what the campaign measures (ffi/CLAUDE.md, "Scope of findings"). |
+| **Status** | FIX-PLAN WP10 done: every RPC cell calls the Rust slice's tonic rpc_server, the campaign's one server (poc/rust/SERVER.md, started through poc/rust/serve.sh), and this slice's own server is removed; WP9 (the RPC grid on BenchmarkDotNet) before it. Gate and smoke: see **Gate** and **Smoke**. Findings are in scope only if they can change what the campaign measures (ffi/CLAUDE.md, "Scope of findings"). |
 | **Levels** (FIX-PLAN D2) | target **net8.0** (.NET 8.0.31, SDK 8.0.131); floor **net6.0** (.NET 6.0.36 from the NuGet runtime pack, self-contained publish): gated; floor **.NET Framework 4.8**: compiled only (`src/HarnessFloor`), never run (needs Windows; the container has no Mono) |
 | **Incumbent** | Google.Protobuf 3.32.0, Grpc.Tools 2.72.0, Grpc.Net.Client and Grpc.AspNetCore 2.71.0 (the versions `packages/csharp` ships) |
 | **Core** | the one core, `ffi/poc/codec`, built from `git archive HEAD` by `gen/build_core.sh`, every build with `init-guard`: full `target-core` (`rpc`), `target-core-count` (`rpc,count`), `target-core-corpus` (`corpus`); no-unknown (ak-core `--no-default-features`) `target-core-nounk`, `target-core-count-nounk`, `target-core-corpus-nounk`, each in its own target dir |
@@ -79,11 +79,11 @@ src/Harness/                harness: conformance | unknown | groups | utf8 | map
                             GeneratedNounk/
 src/Corpus/                 the corpus runner (net8.0 + net6.0): 4 arms full, 2 arms no-unknown,
                             each row in a child process; --unk-controls, --wrong-root, --variant
-src/Rpc/                    akrpc: `bench` (the timed RPC grid on BenchmarkDotNet, RpcBench.cs, WP9),
-                            `campaign --suite rpc-server|rpc-warm|calib`, `--suite rpc --counts` and
-                            `--upload-check` (the counting build, the gate); cells A-F, the gate's
-                            --layout and --error-path, and the legacy modes (--grid, --stream,
-                            Bench.cs; D42)
+src/Rpc/                    akrpc (a client only, no server since WP10): `bench` (the timed RPC grid on
+                            BenchmarkDotNet, RpcBench.cs), `campaign --suite calib`, `--suite rpc
+                            --counts` and `--upload-check` (the counting build, the gate); cells A-F
+                            against the campaign server's armonik.ffi.campaign.v1.Grid; the gate's
+                            --layout and --error-path --sock; --shared-ctx
 src/BenchDotNet/            the codec suite's engine: BenchmarkDotNet 0.15.8, InProcessEmit, one
                             process per arm:mode unit, process CPU per iteration (CpuClock), JIT tier
                             read back (JitTiers.cs), encode variants and pools (Cases.cs), the Grpc.Net
@@ -123,7 +123,7 @@ itself does not specify.
 | # | Where | What |
 |---|---|---|
 | D4 | net48 | compiled only; no gate on .NET Framework (needs Windows); the core-ffi host half has no net48 form (needs delegate thunks rooted for the vtable's lifetime) |
-| D42 | `akrpc` legacy modes (`--grid`, `--stream`, `Bench.cs`) | pre-campaign timing harnesses, not campaign-conformant (in-process server, `Process.TotalProcessorTime`); kept in the tree, not used by the runner or the gate |
+| D42 | (closed, WP10) | the pre-campaign timing modes of `akrpc` (in-process server) are removed |
 
 ## Campaign readiness (design/CAMPAIGN.md at 3210f28; section 10 checklist)
 
@@ -131,7 +131,10 @@ Assessed against CAMPAIGN.md as amended through 3210f28 (the owner's 2026-09-26 
 R-H22 to R-H36). The runner is `poc/csharp/run_campaign.sh`. The codec suite runs under
 BenchmarkDotNet (req 22a), and so does the RPC grid since WP9 (req 22a as amended 2026-09-27):
 `akrpc bench`, one pinned process per cell, the launch's one server started and warmed by the
-runner first. The calib suite is `akrpc campaign --suite calib`. Each suite runs both builds
+runner first. **The server is the Rust slice's tonic rpc_server** (FIX-PLAN WP10, CAMPAIGN req
+13 as amended; poc/rust/SERVER.md): one process per launch through poc/rust/serve.sh, pinned
+to AK_CPU_SERVER, its tokio worker count in its log; `shipped` and `pinned` are this client's
+configuration against its two sockets (tonic's server defaults; 4 MiB windows, adaptive off). The calib suite is `akrpc campaign --suite calib`. Each suite runs both builds
 (full and no-unknown) per launch, in an order alternated by launch.
 
 **What the framework forces or what differs from the hand-written sampler (WP9), stated:**
@@ -147,8 +150,8 @@ runner first. The calib suite is `akrpc campaign --suite calib`. Each suite runs
   JIT-settled loop; the JIT tier is read back per case and reported (`hot_tier0`), not fatal
   for RPC cases; order: units a seeded shuffle per launch, cases a seeded shuffle per process.
 
-**Custom code on top of BDN, each for a requirement** (WP9 addendum, bc7cf94b1): the server
-process and its warm-up (req 13); CpuClock, the job's clock reading process CPU at each
+**Custom code on top of BDN, each for a requirement** (WP9 addendum, bc7cf94b1): starting and
+warming the shared server through serve.sh (req 13); CpuClock, the job's clock reading process CPU at each
 iteration boundary (req 21: BDN has no CPU per iteration); the seeded IOrderer (req 22: BDN has
 no random order); the JSON-lines exporters with every label, writing no sample when any case
 failed (req 28, 18); the runner's discard of a failed launch's output (req 18/22a); the JIT tier
@@ -238,8 +241,7 @@ campaign's codec suite is correspondingly longer.
 
 ## Next step
 
-1. WP10: point every cell at the Rust slice's shared server (poc/rust/SERVER.md, serve.sh), remove
-   this slice's server, re-gate. Then the aggregating session reads WP9 (JOURNAL 62) and pushes; this slice changes nothing further
+1. The aggregating session reads WP9 and WP10 (JOURNAL 62, 63) and pushes; this slice changes nothing further
    unless a finding in scope (ffi/CLAUDE.md, "Scope of findings") comes back.
 2. The net48 gate on a Windows machine (D4), which first needs a net48 host half.
 3. The campaign itself is the owner's: `run_campaign.sh` (through `ffi/campaign.sh`) on the

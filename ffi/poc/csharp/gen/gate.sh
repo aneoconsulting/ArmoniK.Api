@@ -117,9 +117,19 @@ for lvl in 8 6; do
 done
 
 step "6. akrpc (net8.0): the generated RPC binding"
+# FIX-PLAN WP10: the RPC server is the Rust slice's tonic rpc_server for every slice
+# (poc/rust/SERVER.md), built, started and stopped through poc/rust/serve.sh; its own state
+# file here, so the gate never meets another run's server.
+SERVE="$REPO/ffi/poc/rust/serve.sh"
+export AK_SERVE_STATE="$SCRATCH/ak-rpc-server.state"
+run "the campaign server (serve.sh build)" "$SERVE" build
+"$SERVE" start --out "$SCRATCH/srv" > "$SCRATCH/srv.start" 2>&1 || cat "$SCRATCH/srv.start"
+SOCK=$(sed -n 's/^shipped //p' "$SCRATCH/srv.start")
+trap '"$SERVE" stop > /dev/null 2>&1' EXIT
+echo "# the campaign server: $(cat "$SCRATCH/srv.start" | tr '\n' ' ')"
 core "$R8" target-core-count
 run "akrpc layout" dotnet "$R8/akrpc.dll" --layout "$LAY"
-run "akrpc error path" dotnet "$R8/akrpc.dll" --error-path
+run "akrpc error path (against the campaign server: Fetch ok, StatusU13 a non-OK status)" dotnet "$R8/akrpc.dll" --error-path --sock "$SOCK"
 
 for lvl in 8 6; do
   if [ $lvl = 8 ]; then CX=("$C8/corpus"); C="$C8"; else CX=("$C6/corpus"); C="$C6"; fi
@@ -209,11 +219,7 @@ run "codec counts, no-unknown build (= gen/counts-nounk.txt)" bash -c "dotnet '$
 # The grow count is live: with an exact-size grow (a control, never the timed policy) the
 # retain rows that carry unknown fields count differently, and the comparison must fail.
 AK_COUNT_GROW=exact control "codec counts with an exact-size grow (the counted grows must matter)" bash -c "dotnet '$BC/BenchDotNet.dll' --counts '$SCRATCH/counts-exact.txt' && diff -q '$SLICE/gen/counts.txt' '$SCRATCH/counts-exact.txt'"
-SOCK="/tmp/ak-cs-gate-$$.sock"; rm -f "$SOCK"
-dotnet "$RC/akrpc.dll" campaign --suite rpc-server --sock-shipped "$SOCK" > "$SCRATCH/gate-server.log" 2>&1 &
-GSPID=$!
-for i in $(seq 1 150); do [ -S "$SOCK" ] && break; sleep 0.1; done
-echo "# rpc counts: a server process ($RC, pid $GSPID) on $SOCK"
+echo "# rpc counts and the upload check: against the campaign server ($SOCK, started in step 6)"
 run "rpc counts, full build (= gen/rpc-counts.txt)" bash -c "dotnet '$RC/akrpc.dll' campaign --suite rpc --sock '$SOCK' --transport shipped --counts '$SCRATCH/rpc-counts.txt' && $(declare -f cmp_counts); SCRATCH='$SCRATCH' cmp_counts rpc-full '$SLICE/gen/rpc-counts.txt' '$SCRATCH/rpc-counts.txt'"
 run "rpc counts, no-unknown build (= gen/rpc-counts-nounk.txt)" bash -c "dotnet '$RCN/akrpc.dll' campaign --suite rpc --sock '$SOCK' --transport shipped --counts '$SCRATCH/rpc-counts-nounk.txt' && $(declare -f cmp_counts); SCRATCH='$SCRATCH' cmp_counts rpc-nounk '$SLICE/gen/rpc-counts-nounk.txt' '$SCRATCH/rpc-counts-nounk.txt'"
 # WP8 (CAMPAIGN req 14 as amended): the upload directions' correctness before timing, both
@@ -224,7 +230,7 @@ run "upload check, full build (c and d, every cell and framed twin)" dotnet "$R8
 run "upload check, no-unknown build" dotnet "$RN8/akrpc.dll" campaign --suite rpc --sock "$SOCK" --transport shipped --upload-check
 AK_CAMPAIGN_PLANT=digest control "upload check with a planted wrong SHA-256" dotnet "$R8/akrpc.dll" campaign --suite rpc --sock "$SOCK" --transport shipped --upload-check
 AK_CAMPAIGN_PLANT=len AK_CAMPAIGN_PLANT_DIR=d control "upload check with a planted wrong byte count" dotnet "$RN8/akrpc.dll" campaign --suite rpc --sock "$SOCK" --transport shipped --upload-check
-kill $GSPID; wait $GSPID 2>/dev/null
+"$SERVE" stop
 echo "# counts, no-unknown against full: the files differ in mode names and in every push/pull decode row (no ak_dec_reset_* in the no-unknown build); the committed files carry every row"
 
 echo

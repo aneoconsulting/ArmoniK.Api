@@ -2070,3 +2070,36 @@ chained to was stopped under the owner's small-test rule (2026-09-27); a minimal
 (`logs/csharp/campaign/wp9-smoke/`): full build, shipped, all 21 RPC units on BDN with 1 round, 1
 warm-up, 2 ms iterations: 283 samples, 0 failed cases, a planted wrong count aborting with 0
 samples; one codec unit with BDN's own warm-up: JIT and CPU checks PASS.
+
+## 63. WP10: the Rust slice's rpc_server is the server
+
+CAMPAIGN req 13 as amended (9f6d579fa), the interface poc/rust/SERVER.md at bed13a6ea.
+
+- Every cell now calls `armonik.ffi.campaign.v1.Grid`: Fetch (a, a+read), Push (b), Upload (c),
+  UploadStream (d), UploadStreamCheck (the pre-timing check). The request and response bytes
+  are the same as before (P2.2 540,422 B on Fetch; 0 bytes on Push and Upload; 8 bytes LE on
+  UploadStream). One rule differed: UploadStreamCheck's SHA-256 is over every MESSAGE's bytes as
+  received, where this slice's server hashed the data chunks; the client's expectation is now
+  the SHA-256 of the messages' wire bytes (all codecs' bytes are checked equal first). The ids
+  on the first message only: unchanged.
+- A: the incumbent through hand-built `Method` objects whose marshaller is Grpc.Tools' generated
+  shape (SetPayloadLength(CalculateSize) + WriteTo(IBufferWriter) + Complete; ParseFrom
+  (ReadOnlySequence)), with the message classes Grpc.Tools generates from shapes.proto, as
+  before. No generated Grid stub: UploadStream answers 8 raw bytes, not a protobuf message, so a
+  generated stub could not carry d, and D and F need their own marshallers on the same methods.
+- Plants: unchanged, client-side (SERVER.md's second option): a wrong expected length on a, c,
+  d and a wrong expected SHA-256 on d.
+- The runner builds, starts, warms and stops the server through poc/rust/serve.sh once per
+  launch (AK_CPU_SERVER pins it; its own AK_SERVE_STATE under the scratch dir, so no other
+  run's server is met); `shipped` / `pinned` are the client's configuration against the
+  server's two sockets (tonic defaults / 4 MiB windows, adaptive off). New subset knobs for
+  small runs: AK_RPC_TRANSPORTS, AK_RPC_BUILDS.
+- Removed: this slice's Kestrel server (campaign `rpc-server`, `rpc-warm`, CampaignService,
+  CampaignProvider), the pre-campaign timing modes of akrpc that ran their own in-process
+  server (--grid, --stream, Bench.cs, Grid.cs, Stream.cs, StreamRun.cs, Codecs.cs; D42), and
+  the ASP.NET Core dependency (the project is plain Microsoft.NET.Sdk now, Grpc.Net.Client
+  only). The gate's R-D9 error-path check now runs against the campaign server (Fetch OK,
+  StatusU13 a non-OK status): 6 of 6 rows PASS.
+- Checked against the shared server before the gate: the upload check (68 cells full build),
+  the error path, a BDN unit (A, 17 samples), and the RPC counts of both builds, equal to the
+  committed files.

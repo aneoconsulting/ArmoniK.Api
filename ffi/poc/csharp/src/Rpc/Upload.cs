@@ -7,8 +7,8 @@
 //   d  the streamed upload, ArmoniK's UploadResultData(stream ...) shape: M5 messages of 2 MiB
 //      chunks, the ids on the first message only, 4 MiB (2 messages) and 16 MiB (8) in total;
 //      the server decodes every message with the incumbent and answers the data byte count
-//      (8 bytes LE). Its twin method StreamCheck also answers the SHA-256 of the data bytes as
-//      received: the pre-timing check (req 18/26) runs every d cell once through it and
+//      (8 bytes LE). Its twin method UploadStreamCheck also answers the SHA-256 of every
+//      message's bytes as received (the campaign server, poc/rust/SERVER.md): the pre-timing check (req 18/26) runs every d cell once through it and
 //      compares count and digest with the client's.
 //
 // Paths, per cell (the same codecs as b): A Grpc.Net + Grpc.Tools' serializer (SerInc);
@@ -83,7 +83,7 @@ internal static class Uploads
         long total = (long)mib << 20;
         var data = Data(total, 0xA5A5_0000UL + (ulong)mib);
         int n = (int)(total / Chunk);
-        var d = new UpData { Payload = "stream-" + mib + "MiB", Stream = true, G = new Gp.UploadResultDataMessage[n], F = new UploadResultDataMessage[n], DataBytes = total, Sha = SHA256.HashData(data) };
+        var d = new UpData { Payload = "stream-" + mib + "MiB", Stream = true, G = new Gp.UploadResultDataMessage[n], F = new UploadResultDataMessage[n], DataBytes = total };
         for (int i = 0; i < n; i++)
         {
             var chunk = new byte[Chunk];
@@ -92,6 +92,14 @@ internal static class Uploads
             string sid = i == 0 ? "00000000-0000-4000-8000-00000000d001" : "", rid = i == 0 ? "00000000-0000-4000-8000-00000000d002" : "";
             d.G[i] = new Gp.UploadResultDataMessage { Upload = new Gp.UploadResultData { SessionId = sid, ResultId = rid, DataChunk = ByteString.CopyFrom(chunk) } };
             d.F[i] = new UploadResultDataMessage { Upload = new UploadResultData { SessionId = sid, ResultId = rid, DataChunk = chunk } };
+        }
+        // WP10: the campaign server's UploadStreamCheck answers the SHA-256 of every MESSAGE's
+        // bytes as received, in order (poc/rust/SERVER.md); every codec's wire is the same
+        // bytes (CheckWire), so the incumbent's is the expectation.
+        using (var h = IncrementalHash.CreateHash(HashAlgorithmName.SHA256))
+        {
+            foreach (var m in d.G) h.AppendData(m.ToByteArray());
+            d.Sha = h.GetHashAndReset();
         }
         return d;
     }

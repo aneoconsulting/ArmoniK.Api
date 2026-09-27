@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <!--
        README 5.2's RPC arm, which design/SHAPES.md specifies as END TO END:
@@ -35,7 +35,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Grpc.AspNetCore" Version="2.71.0" />
     <PackageReference Include="Grpc.Net.Client" Version="2.71.0" />
     <!-- WP9 (CAMPAIGN req 22a as amended): the RPC grid on BenchmarkDotNet, as the codec suite. -->
     <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
