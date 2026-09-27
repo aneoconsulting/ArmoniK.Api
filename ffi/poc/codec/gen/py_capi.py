@@ -1070,7 +1070,7 @@ def emit_root_decode(p, root, b):
         L.append("  if (!h.lists[%d]) { %s Py_DECREF(rootobj); return NULL; }" % (i, prev))
     L += ["  static const struct ak_dvt_%s VT = {%s};" % (root, ", ".join(vt)),
           # Decision 11: the options live in THIS frame, unmoved, from the reset that arms them
-          # to the reset that disarms them; every armed position grows from ak_py_grow (no
+          # to the end of the decode; every armed position grows from ak_py_grow (no
           # pre-allocated buffers). `zero` leaves chosen positions all-zero (discard there):
           # the harness's zeroed-position control.
           "  struct %s o;" % unk_opts_name(root),
@@ -1078,8 +1078,7 @@ def emit_root_decode(p, root, b):
           "  o.host = &h;",
           "  if (retain) {"] + arm + ["  }",
           # One context per root PER THREAD, created lazily and reused (ak_py_tls_acquire);
-          # a reset per decode (rule 7) arms it, and a second reset disarms it only when it
-          # was armed with &o, which lives in this frame. Drop mode: one reset, no disarm.
+          # a reset per decode (rule 7) arms it (retain) or clears it (drop); one reset only.
           "  int tmp_ = 0;",
           "  ak_dec_ctx *ctx = ak_py_tls_acquire(%d, &tmp_);   /* bound to this root (rule 6) */" % p.roots.index(root),
           "  if (!ctx) { %s Py_DECREF(rootobj); return PyErr_NoMemory(); }" % free,
@@ -1088,10 +1087,9 @@ def emit_root_decode(p, root, b):
           "#endif",
           "  int32_t rc = ak_dec_reset_%s(ctx, retain ? &o : NULL);   /* a reset per decode (rule 7) */" % root,
           "  if (rc == 0) rc = ak_decode_%s(ctx, &h, (const uint8_t *)pp, (size_t)blen, &VT);" % root,
-          "  if (retain) {",
-          "    int32_t rr = ak_dec_reset_%s(ctx, NULL);   /* disarm: the core forgets &o */" % root,
-          "    if (rc == 0 && rr != 0) rc = rr;",
-          "  }",
+          # Decision 11 rule 7 as amended: ONE reset per decode, no disarm. The core reads the
+          # options at the reset only; the next decode on this context resets (arming or
+          # clearing) before it decodes, so the stale &o is never read.
           "#ifdef AK_COUNT",
           "  { struct AkCounters c; ak_dec_counters(ctx, &c); CORE_ADD(CORE_DEC, c); }",
           "#endif",
@@ -1195,12 +1193,10 @@ static void ak_py_unlink(HostCtx *h, struct ak_py_buf *b) {
 static int32_t ak_py_grow(void *sink, int32_t want, uint8_t **dst, int32_t *cap) {
   HostCtx *h = (HostCtx *)sink;
   if (want <= 0) return AK_ERR_LIMIT;
-#ifdef AK_COUNT
-  int64_t n = want;   /* req 19 (R-H31): the counting build grows to EXACTLY the size requested */
-#else
+  /* req 19 as amended (WP8): the counting build grows geometrically, as the timed build
+   * does, so the counted grows are the timed build's */
   int64_t n = *dst ? 2 * (int64_t)*cap : 64;
   if (n < want) n = want;
-#endif
   if (n > INT32_MAX) n = want;
   struct ak_py_buf *old = *dst ? ((struct ak_py_buf *)(void *)*dst) - 1 : NULL;
   if (old) ak_py_unlink(h, old);
@@ -1440,7 +1436,11 @@ def emit(x, modname="_akffi", backends=("attr", "cext", "pyacc")):
     L.append("static int intern_keys(void) {")
     for k in keys:
         L.append('  K_%s = PyUnicode_InternFromString("%s"); if (!K_%s) return -1;' % (k, k, k))
-    L.append("  TC_UTF8 = ak_tc_utf8(); TC_BYTES = ak_tc_bytes();")
+    # ABI v1 decision 3 (WP8 item 4): encode never validates, the host string type carries
+    # the invariant. The shim's UTF-8 comes from PyUnicode_AsUTF8AndSize, which CPython only
+    # produces for a valid str (a lone surrogate raises there), so the core is handed the
+    # trusted UTF-8 transcoder, not the validating one.
+    L.append("  TC_UTF8 = ak_tc_utf8_trusted(); TC_BYTES = ak_tc_bytes();")
     L.append("  return 0;\n}")
     L.append("")
     # Which messages need which functions.
@@ -1574,8 +1574,12 @@ def _abi_counting(p, text):
     names = set(n for _g, n, *_r in FIXED.all_functions())
     names |= set(f[0] for f in p.rpc.functions)
     names |= set(re.findall(r"\b(ak_[A-Za-z0-9_]+)\(", text))
+    # Context creation and destruction are per THREAD, not per call (the contexts are held per
+    # thread and reused), and a thread's exit frees its contexts at a time no call controls:
+    # they are not counted (stated with the counts).
     names = sorted(n for n in names if not n.startswith("ak_py_") and "counters" not in n
-                   and n not in ("ak_rpc_counting",))
+                   and n not in ("ak_rpc_counting",) and not n.endswith(("_ctx_free",))
+                   and "_ctx_new" not in n)
     blk = ["/* ---- req 19 (R-H31), counting build: every ABI call counted, resets separately ---- */",
            "#ifdef AK_COUNT",
            "static uint64_t ABICNT[2];   /* [0] every ak_* call, [1] the resets among them */",
