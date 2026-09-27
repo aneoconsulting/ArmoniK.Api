@@ -3175,3 +3175,9 @@ no-unknown variant.
   buffer to 4 MB. The full run's Bf shipped rows (2.0 / 4.3 ms P5.3, 4.0 / 10.3 ms P5.4, rounds
   739-4818 us) are not reproduced in the narrowed run (Bf/B 0.80-0.85, 0.35-0.44). All
   container instrumentation.
+
+## 2026-09-27 -- stable gate checkpoint after U1-unary, before N5: PASSED
+
+`run_campaign.sh --suite gate` from a clean tree at 186a4e52 (everything up to and including
+U1-unary): gate PASSED (logs/rust/opt/pre-n5-gate2/gate.log), the same sections as the first
+checkpoint.
