@@ -672,6 +672,16 @@ def emit_encode_entry(p, root, b):
          "#ifdef AK_COUNT",
          "  { struct AkCounters c; ak_enc_counters(ctx, &c); CORE_ADD(CORE_ENC, c); }",
          "#endif",
+         "#ifdef AK_RPC",
+         # CAMPAIGN parity (WP8): the move path. `into` = (client, path) sends the encoding
+         # with ak_call_unary_enc, `into` = (call, last) with ak_call_send_enc; the core's
+         # buffer becomes the request, no host bytes object is made.
+         "  if (into && ak_py_is_send(into)) {",
+         "    PyObject *r_ = ak_py_send_enc(into, ctx);",
+         "    ak_py_tls_enc_release(ctx, tmp_);",
+         "    return r_;",
+         "  }",
+         "#endif",
          "  const uint8_t *pp = NULL; size_t len = 0;",
          "  if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);",
          "    PyErr_SetString(PyExc_RuntimeError, \"ak_enc_take\"); return NULL; }",
@@ -706,6 +716,16 @@ def _emit_encode_entry_nounk(p, root, b, d):
          "  }",
          "#ifdef AK_COUNT",
          "  { struct AkCounters c; ak_enc_counters(ctx, &c); CORE_ADD(CORE_ENC, c); }",
+         "#endif",
+         "#ifdef AK_RPC",
+         # CAMPAIGN parity (WP8): the move path. `into` = (client, path) sends the encoding
+         # with ak_call_unary_enc, `into` = (call, last) with ak_call_send_enc; the core's
+         # buffer becomes the request, no host bytes object is made.
+         "  if (into && ak_py_is_send(into)) {",
+         "    PyObject *r_ = ak_py_send_enc(into, ctx);",
+         "    ak_py_tls_enc_release(ctx, tmp_);",
+         "    return r_;",
+         "  }",
          "#endif",
          "  const uint8_t *pp = NULL; size_t len = 0;",
          "  if (ak_enc_take(ctx, &pp, &len)) { ak_py_tls_enc_release(ctx, tmp_);",
@@ -1299,6 +1319,12 @@ static PyObject *ak_py_copy_into(PyObject *into, const uint8_t *p, size_t n) {
   PyBuffer_Release(&v);
   return PyLong_FromSize_t(n);
 }
+
+#ifdef AK_RPC
+/* The move path's two halves, defined in native/binding.c (it owns the RPC capsules). */
+static int ak_py_is_send(PyObject *into);
+static PyObject *ak_py_send_enc(PyObject *into, ak_enc_ctx *ctx);
+#endif
 
 /* Resolved once at module init: ak_tc_utf8() is a call across the boundary. */
 static ak_transcode_fn TC_UTF8, TC_BYTES;
