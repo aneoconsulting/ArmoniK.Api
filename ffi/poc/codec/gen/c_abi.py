@@ -42,7 +42,8 @@ C_OF = {"i32": "int32_t", "i64": "int64_t", "u8": "uint8_t", "f64": "double",
         "void": "void", "char": "char"}
 # Types that are C structs (typedef'd to their own name below) or typedef'd handles.
 STRUCTS = set(n for n, _d, _m in FIXED.structs) | {"ak_bytes", "ak_completion",
-                                                   "ak_client_opts", "ak_rpc_counters"}
+                                                   "ak_client_opts", "ak_rpc_counters",
+                                                   "ak_kv", "ak_call_opts"}
 
 
 def cty(t):
@@ -227,6 +228,15 @@ def _asserts(p, nounk=False):
         n = len(unk_opts_members(p, root))
         o.append("AK_SASSERT(sizeof(struct %s) == 8 + %d * 24, \"sizeof %s\");"
                  % (on, n, on))
+    o.append("#endif")
+    # Every RPC struct's size and member offsets on a 64-bit host, from plan.rpc.layout (the
+    # computation the core's rpc_check.rs asserts too), 2026-09-27.
+    o.append("#if UINTPTR_MAX == 0xFFFFFFFFFFFFFFFFu")
+    for name, _doc, fields in p.rpc.structs:
+        size, offs = p.rpc.layout(name)
+        o.append("AK_SASSERT(sizeof(struct %s) == %d, \"sizeof %s\");" % (name, size, name))
+        for fn, off in offs:
+            o.append("AK_SASSERT(offsetof(struct %s, %s) == %d, \"%s.%s\");" % (name, fn, off, name, fn))
     o.append("#endif")
     # Every RPC struct made of 4-byte scalars only (ak_client_opts, R-D2): size and every
     # member offset pinned as numbers.

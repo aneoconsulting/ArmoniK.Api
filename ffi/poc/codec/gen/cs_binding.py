@@ -53,7 +53,7 @@ def cs_member(t):
 
 _HANDLES = set(["ak_enc_ctx", "ak_dec_ctx"])
 _STRUCT_NAMES = set(n for n, _d, _m in FIXED.structs) | {"ak_bytes", "ak_completion", "ak_rpc_counters",
-                                                        "ak_client_opts"}
+                                                        "ak_client_opts", "ak_kv", "ak_call_opts"}
 
 
 def cs_param(t):

@@ -27,7 +27,7 @@ def cty(abi_ty):
     if t in C_OF:
         return C_OF[t]
     if t in ("ak_str", "ak_span", "ak_blob", "ak_bytes", "ak_completion", "ak_client_opts",
-             "ak_init_opts", "ak_err"):
+             "ak_init_opts", "ak_err", "ak_kv", "ak_call_opts"):
         return "struct " + t
     if t.startswith(("ak_efix_", "ak_dfix_", "ak_ufix_")):
         return "struct " + t

@@ -51,7 +51,9 @@ fn all(out: &mut Vec<String>) {
     lay!(out, AkCounters, [forward, reverse, transcode, prefix_moves, prefix_bytes, grows]);
     lay!(out, ak_bdr_rec, [op, slot, token, n, bytes]);
     lay!(out, ak_bytes, [ptr, len, owner]);
-    lay!(out, ak_completion, [tag, status, bytes]);
+    lay!(out, ak_completion, [tag, status, grpc_status, bytes]);
+    lay!(out, ak_kv, [key, key_len, val, val_len]);
+    lay!(out, ak_call_opts, [deadline_ms, metadata, n_metadata]);
     lay!(out, ak_client_opts, [stream_window, connection_window, adaptive_window, max_recv_message, max_send_message, tcp_nagle]);
     lay!(out, ak_rpc_counters, [forward, reverse]);
     lay!(out, ak_efix_TaskOptionsOptionsEntry, [key, value, presence]);
@@ -164,7 +166,9 @@ fn all(out: &mut Vec<String>) {
     lay!(out, AkCounters, [forward, reverse, transcode, prefix_moves, prefix_bytes, grows]);
     lay!(out, ak_bdr_rec, [op, slot, token, n, bytes]);
     lay!(out, ak_bytes, [ptr, len, owner]);
-    lay!(out, ak_completion, [tag, status, bytes]);
+    lay!(out, ak_completion, [tag, status, grpc_status, bytes]);
+    lay!(out, ak_kv, [key, key_len, val, val_len]);
+    lay!(out, ak_call_opts, [deadline_ms, metadata, n_metadata]);
     lay!(out, ak_client_opts, [stream_window, connection_window, adaptive_window, max_recv_message, max_send_message, tcp_nagle]);
     lay!(out, ak_rpc_counters, [forward, reverse]);
     lay!(out, ak_efix_TaskOptionsOptionsEntry, [key, value, presence]);
@@ -371,7 +375,9 @@ fn all(out: &mut Vec<String>) {
     lay!(out, AkCounters, [forward, reverse, transcode, prefix_moves, prefix_bytes, grows]);
     lay!(out, ak_bdr_rec, [op, slot, token, n, bytes]);
     lay!(out, ak_bytes, [ptr, len, owner]);
-    lay!(out, ak_completion, [tag, status, bytes]);
+    lay!(out, ak_completion, [tag, status, grpc_status, bytes]);
+    lay!(out, ak_kv, [key, key_len, val, val_len]);
+    lay!(out, ak_call_opts, [deadline_ms, metadata, n_metadata]);
     lay!(out, ak_client_opts, [stream_window, connection_window, adaptive_window, max_recv_message, max_send_message, tcp_nagle]);
     lay!(out, ak_rpc_counters, [forward, reverse]);
     lay!(out, ak_efix_TaskOptionsOptionsEntry, [key, value, presence]);
@@ -457,7 +463,9 @@ fn all(out: &mut Vec<String>) {
     lay!(out, AkCounters, [forward, reverse, transcode, prefix_moves, prefix_bytes, grows]);
     lay!(out, ak_bdr_rec, [op, slot, token, n, bytes]);
     lay!(out, ak_bytes, [ptr, len, owner]);
-    lay!(out, ak_completion, [tag, status, bytes]);
+    lay!(out, ak_completion, [tag, status, grpc_status, bytes]);
+    lay!(out, ak_kv, [key, key_len, val, val_len]);
+    lay!(out, ak_call_opts, [deadline_ms, metadata, n_metadata]);
     lay!(out, ak_client_opts, [stream_window, connection_window, adaptive_window, max_recv_message, max_send_message, tcp_nagle]);
     lay!(out, ak_rpc_counters, [forward, reverse]);
     lay!(out, ak_efix_TaskOptionsOptionsEntry, [key, value, presence]);

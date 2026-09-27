@@ -62,25 +62,157 @@ impl Codec for RawCodec {
     }
 }
 
-// ---- the FRAMED send path (optimisation T1, option 3; owner: optional, labelled) ----------
+// ---- the client calls: reference and FRAMED send paths, one call configuration --------
 //
-// `Grpc::unary` with `RawCodec` copies the request once: tonic's `Encoder` API only offers
-// `&mut EncodeBuf`, so `RawEncoder` puts the caller's `Bytes` into tonic's buffer. The
-// framed path keeps tonic's `Channel` (a tower service over `http::Request<Body>`, which
-// adds the origin and `user-agent` itself) and sends the gRPC message as TWO body frames,
-// the 5-byte length prefix and the caller's `Bytes`, so the message is never copied on the
-// host. The request is built as tonic 0.14.6's `GrpcConfig::prepare_request` builds it for
-// a `Grpc::new(channel)` (default origin, no compression, no metadata, no deadline): POST,
-// HTTP/2, the path as the URI, `te: trailers`, `content-type: application/grpc`, nothing
-// else (`grpc-accept-encoding` only when accept-compression is enabled, which it is not
-// here; `grpc-timeout` only from a deadline, never set here). The response is taken as
-// `Grpc::streaming` + `client_streaming` take it: trailers-only status from the headers
-// (`Status::from_header_map`), then `Streaming::new_response(RawDecoder, ...)`, the one
-// message, the trailers (their grpc-status checked by `Streaming`). Compression stays OFF
-// on both paths (no send/accept encodings are configured on either). The send size limit
-// is `encode_item`'s: `max_send` (tonic's default is no limit, `usize::MAX`, which is what
-// every caller here passes -- the core does not apply `ak_client_opts.max_send_message` on
-// either path) and the 4 GiB prefix limit.
+// The REFERENCE path is tonic's Grpc with the raw-bytes codec: RawEncoder copies every
+// message into tonic's buffer. The FRAMED path keeps tonic's Channel (a tower service over
+// `http::Request<Body>`, which adds the origin and `user-agent` itself) and sends every
+// message as TWO body frames, the 5-byte gRPC prefix and the caller's Bytes, so the message
+// is never copied on the host (optimisation T1 option 3; ABI v1 section 9). Its request is
+// built as tonic 0.14.6's `GrpcConfig::prepare_request` builds it for `Grpc::new(channel)`:
+// the call's metadata (reserved headers dropped, as tonic's sanitising does; grpc-timeout
+// among them when a deadline is set), then POST, HTTP/2, the path, `te: trailers`,
+// `content-type: application/grpc`. Its response is taken as `Grpc::create_response` +
+// `client_streaming` take it: trailers-only status from the headers, else
+// `Streaming::new_response(RawDecoder, ...)`, the one message, the trailers. Compression is
+// OFF on both paths.
+//
+// `CallCfg` is the same on both paths (ABI v1 section 9, streaming as built, and D44):
+//   max_send  None = no limit (tonic's default); a message above it is refused BEFORE
+//             anything is sent, as `CallErr::Limit` (AK_ERR_LIMIT at the ABI);
+//   max_recv  None = tonic's 4 MiB; a response above it fails the call with
+//             RESOURCE_EXHAUSTED (tonic's own check, whose OUT_OF_RANGE is translated);
+//   metadata  the call's metadata, grpc-timeout included when a deadline is set;
+//   deadline  enforced here too (tokio's timer): DEADLINE_EXCEEDED.
+
+/// One call's configuration (see the section comment).
+#[derive(Clone, Default)]
+pub struct CallCfg {
+    pub max_send: Option<usize>,
+    pub max_recv: Option<usize>,
+    pub metadata: tonic::metadata::MetadataMap,
+    pub deadline: Option<std::time::Duration>,
+}
+
+impl CallCfg {
+    /// Limits only (the unary deliveries).
+    pub fn limits(max_send: Option<usize>, max_recv: Option<usize>) -> Self {
+        CallCfg { max_send, max_recv, ..Default::default() }
+    }
+    /// Set the deadline: enforced by the caller's timer, and sent as grpc-timeout exactly as
+    /// tonic's `Request::set_timeout` writes it.
+    pub fn set_deadline(&mut self, d: std::time::Duration) {
+        let mut r = tonic::Request::new(());
+        r.set_timeout(d);
+        if let Some(v) = r.metadata().get("grpc-timeout") {
+            self.metadata.insert("grpc-timeout", v.clone());
+        }
+        self.deadline = Some(d);
+    }
+}
+
+/// Why a call failed: a message refused by the send limit before anything was sent, or the
+/// call's gRPC status (the receive limit's is RESOURCE_EXHAUSTED).
+#[derive(Debug)]
+pub enum CallErr {
+    Limit(usize, usize),
+    Status(tonic::Status),
+}
+
+impl std::fmt::Display for CallErr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CallErr::Limit(n, l) => write!(f, "a message of {n} bytes is above the send limit of {l} bytes; nothing sent"),
+            CallErr::Status(s) => write!(f, "{s}"),
+        }
+    }
+}
+
+impl From<tonic::Status> for CallErr {
+    fn from(s: tonic::Status) -> Self {
+        CallErr::Status(s)
+    }
+}
+
+impl CallErr {
+    /// The gRPC status code (the send-limit refusal has none: it is not a call outcome).
+    pub fn code(&self) -> Option<tonic::Code> {
+        match self {
+            CallErr::Limit(..) => None,
+            CallErr::Status(s) => Some(s.code()),
+        }
+    }
+    /// A limit of this client refused it (send before sending, or receive).
+    pub fn is_limit(&self) -> bool {
+        match self {
+            CallErr::Limit(..) => true,
+            CallErr::Status(s) => s.code() == tonic::Code::ResourceExhausted && s.message().starts_with(RECV_LIMIT),
+        }
+    }
+}
+
+const RECV_LIMIT: &str = "Error, decoded message length too large";
+
+/// tonic reports its receive limit as OUT_OF_RANGE; the ABI says RESOURCE_EXHAUSTED (as gRPC
+/// does). Only tonic's own local check is translated (by its message).
+fn recv_limit(s: tonic::Status) -> tonic::Status {
+    if s.code() == tonic::Code::OutOfRange && s.message().starts_with(RECV_LIMIT) {
+        tonic::Status::resource_exhausted(s.message().to_string())
+    } else {
+        s
+    }
+}
+
+fn check_send(len: usize, max: Option<usize>) -> Result<(), CallErr> {
+    match max {
+        Some(l) if len > l => Err(CallErr::Limit(len, l)),
+        _ if len > u32::MAX as usize => Err(CallErr::Status(tonic::Status::resource_exhausted(format!(
+            "Cannot return body with more than 4GB of data but got {len} bytes")))),
+        _ => Ok(()),
+    }
+}
+
+/// The deadline, enforced by this side's timer (grpc-timeout was sent with the request).
+///
+/// The server enforces the same grpc-timeout, and tonic's server reports its expiry as
+/// CANCELLED "Timeout expired"; when that reply arrives before this side's timer (measured:
+/// it does, on a Unix socket), it is the same deadline and is reported as the gRPC client
+/// contract says, DEADLINE_EXCEEDED.
+async fn with_deadline<T>(d: Option<std::time::Duration>, f: impl std::future::Future<Output = Result<T, CallErr>>) -> Result<T, CallErr> {
+    let expired = || CallErr::Status(tonic::Status::deadline_exceeded("Deadline expired before operation could complete"));
+    match d {
+        None => f.await,
+        Some(d) => match tokio::time::timeout(d, f).await {
+            Ok(Err(CallErr::Status(s))) if s.code() == tonic::Code::Cancelled && s.message() == "Timeout expired" => Err(expired()),
+            Ok(r) => r,
+            Err(_) => Err(expired()),
+        },
+    }
+}
+
+fn grpc(chan: tonic::transport::Channel, cfg: &CallCfg) -> tonic::client::Grpc<tonic::transport::Channel> {
+    let mut g = tonic::client::Grpc::new(chan);
+    if let Some(l) = cfg.max_send {
+        g = g.max_encoding_message_size(l);
+    }
+    if let Some(l) = cfg.max_recv {
+        g = g.max_decoding_message_size(l);
+    }
+    g
+}
+
+/// Reference unary call (tonic's Grpc::unary with the raw-bytes codec).
+pub async fn unary_raw(chan: tonic::transport::Channel, path: http::uri::PathAndQuery, body: Bytes, cfg: &CallCfg) -> Result<Bytes, CallErr> {
+    check_send(body.len(), cfg.max_send)?;
+    let md = cfg.metadata.clone();
+    with_deadline(cfg.deadline, async move {
+        let mut g = grpc(chan, cfg);
+        g.ready().await.map_err(|e| tonic::Status::unavailable(format!("ready: {e}")))?;
+        let req = tonic::Request::from_parts(md, Default::default(), body);
+        g.unary(req, path, RawCodec).await.map(|r| r.into_inner()).map_err(|s| CallErr::Status(recv_limit(s)))
+    })
+    .await
+}
 
 /// The two frames of one length-prefixed gRPC message, uncompressed.
 struct Framed {
@@ -108,118 +240,133 @@ impl http_body::Body for Framed {
     // no content-length the codec path does not send.
 }
 
-/// One unary call over `svc` (a tonic `Channel`) whose request is `msg`, sent without a copy
-/// (see the section comment). `max_send`: the largest message sent, `None` = tonic's default.
-pub async fn unary_framed<T>(
-    svc: T,
-    path: http::uri::PathAndQuery,
-    msg: Bytes,
-    max_send: Option<usize>,
-) -> Result<Bytes, tonic::Status>
+fn prefix(len: usize) -> Bytes {
+    let mut hdr = [0u8; 5];
+    hdr[1..].copy_from_slice(&(len as u32).to_be_bytes());
+    Bytes::copy_from_slice(&hdr)
+}
+
+/// Framed unary call (the section comment), with the defaults of `CallCfg` but `max_send`.
+pub async fn unary_framed<T>(svc: T, path: http::uri::PathAndQuery, msg: Bytes, max_send: Option<usize>) -> Result<Bytes, tonic::Status>
 where
     T: tonic::client::GrpcService<tonic::body::Body>,
     T::ResponseBody: http_body::Body<Data = Bytes> + Send + 'static,
     <T::ResponseBody as http_body::Body>::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
 {
-    // encode_item's limits, with its messages.
-    let len = msg.len();
-    let limit = max_send.unwrap_or(usize::MAX);
-    if len > limit {
-        return Err(tonic::Status::out_of_range(format!(
-            "Error, encoded message length too large: found {len} bytes, the limit is: {limit} bytes"
-        )));
-    }
-    if len > u32::MAX as usize {
-        return Err(tonic::Status::resource_exhausted(format!(
-            "Cannot return body with more than 4GB of data but got {len} bytes"
-        )));
-    }
-    let mut hdr = [0u8; 5];
-    hdr[1..].copy_from_slice(&(len as u32).to_be_bytes());
+    unary_framed_cfg(svc, path, msg, &CallCfg::limits(max_send, None)).await.map_err(|e| match e {
+        CallErr::Status(s) => s,
+        CallErr::Limit(n, l) => tonic::Status::out_of_range(format!(
+            "Error, encoded message length too large: found {n} bytes, the limit is: {l} bytes")),
+    })
+}
+
+/// Framed unary call with a full call configuration.
+pub async fn unary_framed_cfg<T>(svc: T, path: http::uri::PathAndQuery, msg: Bytes, cfg: &CallCfg) -> Result<Bytes, CallErr>
+where
+    T: tonic::client::GrpcService<tonic::body::Body>,
+    T::ResponseBody: http_body::Body<Data = Bytes> + Send + 'static,
+    <T::ResponseBody as http_body::Body>::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
+{
+    check_send(msg.len(), cfg.max_send)?;
+    let hdr = prefix(msg.len());
     // An empty message is the prefix alone (no empty DATA frame after it).
     let msg = if msg.is_empty() { None } else { Some(msg) };
-    let body = tonic::body::Body::new(Framed { hdr: Some(Bytes::copy_from_slice(&hdr)), msg });
-    let req = framed_request(path, body)?;
-    framed_call(svc, req).await
+    let body = tonic::body::Body::new(Framed { hdr: Some(hdr), msg });
+    let req = framed_request(path, body, &cfg.metadata)?;
+    with_deadline(cfg.deadline, framed_call(svc, req, cfg.max_recv)).await
 }
 
 /// The request as tonic's GrpcConfig::prepare_request builds it (see the section comment).
-fn framed_request(path: http::uri::PathAndQuery, body: tonic::body::Body) -> Result<http::Request<tonic::body::Body>, tonic::Status> {
+fn framed_request(path: http::uri::PathAndQuery, body: tonic::body::Body, md: &tonic::metadata::MetadataMap)
+    -> Result<http::Request<tonic::body::Body>, tonic::Status> {
     let uri = http::Uri::from_parts({
         let mut p = http::uri::Parts::default();
         p.path_and_query = Some(path);
         p
     })
     .map_err(|e| tonic::Status::internal(format!("uri: {e}")))?;
-    http::Request::builder()
+    let mut req = http::Request::builder()
         .method(http::Method::POST)
         .uri(uri)
         .version(http::Version::HTTP_2)
-        .header(http::header::TE, http::HeaderValue::from_static("trailers"))
-        .header(http::header::CONTENT_TYPE, http::HeaderValue::from_static("application/grpc"))
         .body(body)
-        .map_err(|e| tonic::Status::internal(format!("request: {e}")))
+        .map_err(|e| tonic::Status::internal(format!("request: {e}")))?;
+    let mut h = md.clone().into_headers();
+    // tonic's MetadataMap::into_sanitized_headers: the reserved headers are dropped.
+    for r in ["te", "content-type", "grpc-message", "grpc-message-type", "grpc-status"] {
+        h.remove(r);
+    }
+    *req.headers_mut() = h;
+    req.headers_mut().insert(http::header::TE, http::HeaderValue::from_static("trailers"));
+    req.headers_mut().insert(http::header::CONTENT_TYPE, http::HeaderValue::from_static("application/grpc"));
+    Ok(req)
 }
 
 /// Send `req` over `svc` and take the one response message as Grpc::create_response and
 /// client_streaming do (trailers-only status, Streaming, the message, the trailers).
-async fn framed_call<T>(mut svc: T, req: http::Request<tonic::body::Body>) -> Result<Bytes, tonic::Status>
+async fn framed_call<T>(mut svc: T, req: http::Request<tonic::body::Body>, max_recv: Option<usize>) -> Result<Bytes, CallErr>
 where
     T: tonic::client::GrpcService<tonic::body::Body>,
     T::ResponseBody: http_body::Body<Data = Bytes> + Send + 'static,
     <T::ResponseBody as http_body::Body>::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
 {
-    std::future::poll_fn(|cx| svc.poll_ready(cx)).await.map_err(|e| tonic::Status::unknown(format!("ready: {}", e.into())))?;
-    let resp = svc.call(req).await.map_err(|e| tonic::Status::unknown(format!("call: {}", e.into())))?;
+    std::future::poll_fn(|cx| svc.poll_ready(cx)).await.map_err(|e| tonic::Status::from_error(e.into()))?;
+    let resp = svc.call(req).await.map_err(|e| tonic::Status::from_error(e.into()))?;
     // Grpc::create_response, without compression.
     let status_code = resp.status();
     let mut stream = match tonic::Status::from_header_map(resp.headers()) {
-        Some(st) if st.code() != tonic::Code::Ok => return Err(st),
+        Some(st) if st.code() != tonic::Code::Ok => return Err(CallErr::Status(st)),
         Some(_) => tonic::codec::Streaming::new_empty(RawDecoder, resp.into_body()),
-        None => tonic::codec::Streaming::new_response(RawDecoder, resp.into_body(), status_code, None, None),
+        None => tonic::codec::Streaming::new_response(RawDecoder, resp.into_body(), status_code, None, max_recv),
     };
     // Grpc::client_streaming: the one message, then the trailers.
-    let m = stream.message().await?.ok_or_else(|| tonic::Status::internal("Missing response message."))?;
-    stream.trailers().await?;
+    let m = stream.message().await.map_err(recv_limit)?.ok_or_else(|| tonic::Status::internal("Missing response message."))?;
+    stream.trailers().await.map_err(recv_limit)?;
     Ok(m)
 }
 
 // ---- client streaming (U2-stream: ABI v1 section 9's streamed call) -----------------------
-//
-// The messages arrive on a channel (the core's ak_call_send, or a host task) and the stream
-// ends when the sender is dropped. Two send paths, as for unary: the REFERENCE
-// (Grpc::client_streaming + RawCodec: each message copied into tonic's buffer) and the
-// FRAMED one (each message as its 5-byte prefix frame and the message itself, no copy).
 
-/// Reference: tonic's client streaming with the raw-bytes codec.
+/// Reference: tonic's client streaming with the raw-bytes codec, messages from a channel.
 pub async fn client_streaming_raw(
     chan: tonic::transport::Channel,
     path: http::uri::PathAndQuery,
     rx: tokio::sync::mpsc::Receiver<Bytes>,
-) -> Result<Bytes, tonic::Status> {
-    let mut grpc = tonic::client::Grpc::new(chan);
-    grpc.ready().await.map_err(|e| tonic::Status::unknown(format!("ready: {e}")))?;
-    grpc.client_streaming(tonic::Request::new(tokio_stream::wrappers::ReceiverStream::new(rx)), path, RawCodec)
-        .await
-        .map(|r| r.into_inner())
+    cfg: &CallCfg,
+) -> Result<Bytes, CallErr> {
+    client_streaming_raw_cfg(chan, path, tokio_stream::wrappers::ReceiverStream::new(rx), cfg).await
 }
 
-/// Reference, from any stream of messages (the harness's cells D and F).
-pub async fn client_streaming_raw_from<S>(
-    chan: tonic::transport::Channel,
-    path: http::uri::PathAndQuery,
-    msgs: S,
-) -> Result<Bytes, tonic::Status>
+/// Reference, from any stream of messages, default configuration (the harness's D and F).
+pub async fn client_streaming_raw_from<S>(chan: tonic::transport::Channel, path: http::uri::PathAndQuery, msgs: S) -> Result<Bytes, tonic::Status>
 where
     S: tokio_stream::Stream<Item = Bytes> + Send + 'static,
 {
-    let mut grpc = tonic::client::Grpc::new(chan);
-    grpc.ready().await.map_err(|e| tonic::Status::unknown(format!("ready: {e}")))?;
-    grpc.client_streaming(tonic::Request::new(msgs), path, RawCodec).await.map(|r| r.into_inner())
+    client_streaming_raw_cfg(chan, path, msgs, &CallCfg::default()).await.map_err(|e| match e {
+        CallErr::Status(s) => s,
+        e => tonic::Status::internal(e.to_string()),
+    })
+}
+
+/// Reference client streaming with a call configuration. Per message the send limit is the
+/// caller's to check (ak_call_send refuses before queueing); tonic's own encoding limit is set
+/// to the same value.
+pub async fn client_streaming_raw_cfg<S>(chan: tonic::transport::Channel, path: http::uri::PathAndQuery, msgs: S, cfg: &CallCfg) -> Result<Bytes, CallErr>
+where
+    S: tokio_stream::Stream<Item = Bytes> + Send + 'static,
+{
+    let md = cfg.metadata.clone();
+    with_deadline(cfg.deadline, async move {
+        let mut g = grpc(chan, cfg);
+        g.ready().await.map_err(|e| tonic::Status::unavailable(format!("ready: {e}")))?;
+        let req = tonic::Request::from_parts(md, Default::default(), msgs);
+        g.client_streaming(req, path, RawCodec).await.map(|r| r.into_inner()).map_err(|s| CallErr::Status(recv_limit(s)))
+    })
+    .await
 }
 
 /// The framed body of a message stream: per message its 5-byte prefix, then the message
-/// (an empty message is the prefix alone); encode_item's size checks per message.
+/// (an empty message is the prefix alone); the send limit per message.
 struct FramedStream<S> {
     msgs: S,
     pending: Option<Bytes>,
@@ -252,20 +399,14 @@ where
             }
             Poll::Ready(Some(m)) => {
                 let len = m.len();
-                if len > self.max_send {
+                if len > self.max_send || len > u32::MAX as usize {
                     return Poll::Ready(Some(Err(tonic::Status::out_of_range(format!(
                         "Error, encoded message length too large: found {len} bytes, the limit is: {} bytes", self.max_send)))));
                 }
-                if len > u32::MAX as usize {
-                    return Poll::Ready(Some(Err(tonic::Status::resource_exhausted(format!(
-                        "Cannot return body with more than 4GB of data but got {len} bytes")))));
-                }
-                let mut hdr = [0u8; 5];
-                hdr[1..].copy_from_slice(&(len as u32).to_be_bytes());
                 if len > 0 {
                     self.pending = Some(m);
                 }
-                Poll::Ready(Some(Ok(http_body::Frame::data(Bytes::copy_from_slice(&hdr)))))
+                Poll::Ready(Some(Ok(http_body::Frame::data(prefix(len)))))
             }
         }
     }
@@ -274,23 +415,31 @@ where
     }
 }
 
-/// Framed client streaming over `svc` (a tonic Channel): the same request headers, status
-/// and trailer handling as `unary_framed`.
-pub async fn client_streaming_framed<T, S>(
-    svc: T,
-    path: http::uri::PathAndQuery,
-    msgs: S,
-    max_send: Option<usize>,
-) -> Result<Bytes, tonic::Status>
+/// Framed client streaming over `svc`, default configuration but `max_send` (the harness).
+pub async fn client_streaming_framed<T, S>(svc: T, path: http::uri::PathAndQuery, msgs: S, max_send: Option<usize>) -> Result<Bytes, tonic::Status>
 where
     T: tonic::client::GrpcService<tonic::body::Body>,
     T::ResponseBody: http_body::Body<Data = Bytes> + Send + 'static,
     <T::ResponseBody as http_body::Body>::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
     S: tokio_stream::Stream<Item = Bytes> + Unpin + Send + 'static,
 {
-    let body = tonic::body::Body::new(FramedStream { msgs, pending: None, max_send: max_send.unwrap_or(usize::MAX), done: false });
-    let req = framed_request(path, body)?;
-    framed_call(svc, req).await
+    client_streaming_framed_cfg(svc, path, msgs, &CallCfg::limits(max_send, None)).await.map_err(|e| match e {
+        CallErr::Status(s) => s,
+        e => tonic::Status::internal(e.to_string()),
+    })
+}
+
+/// Framed client streaming with a call configuration.
+pub async fn client_streaming_framed_cfg<T, S>(svc: T, path: http::uri::PathAndQuery, msgs: S, cfg: &CallCfg) -> Result<Bytes, CallErr>
+where
+    T: tonic::client::GrpcService<tonic::body::Body>,
+    T::ResponseBody: http_body::Body<Data = Bytes> + Send + 'static,
+    <T::ResponseBody as http_body::Body>::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
+    S: tokio_stream::Stream<Item = Bytes> + Unpin + Send + 'static,
+{
+    let body = tonic::body::Body::new(FramedStream { msgs, pending: None, max_send: cfg.max_send.unwrap_or(usize::MAX), done: false });
+    let req = framed_request(path, body, &cfg.metadata)?;
+    with_deadline(cfg.deadline, framed_call(svc, req, cfg.max_recv)).await
 }
 
 pub const PATH: &str = "/armonik.ffi.shapes.v1.Bench/Unary";

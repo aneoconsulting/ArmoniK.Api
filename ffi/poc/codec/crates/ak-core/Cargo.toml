@@ -53,6 +53,6 @@ ak-rt = { path = "../ak-rt" }
 simdutf8.workspace = true
 rpc = { path = "../rpc", optional = true }
 tonic = { workspace = true, features = ["codegen", "transport"], optional = true }
-tokio = { workspace = true, features = ["rt-multi-thread", "net", "time", "sync"], optional = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "net", "time", "sync", "macros"], optional = true }
 bytes = { workspace = true, optional = true }
 http = { workspace = true, optional = true }

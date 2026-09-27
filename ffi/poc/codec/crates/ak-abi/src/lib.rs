@@ -61,6 +61,8 @@ pub const AK_ERR_PANIC: i32 = -9;
 pub const AK_ERR_UNINITIALIZED: i32 = -10;
 /// version or group-layout mismatch
 pub const AK_ERR_ABI: i32 = -11;
+/// the call completed with a non-OK gRPC status (read it with ak_call_recv)
+pub const AK_ERR_RPC_STATUS: i32 = -12;
 pub const AK_DETAIL_NONE: u32 = 0;
 pub const AK_DETAIL_ABI_MISMATCH: u32 = 1;
 pub const AK_DETAIL_OPTS_DIFFER: u32 = 2;
@@ -352,7 +354,10 @@ impl Default for ak_bytes {
 #[derive(Clone, Copy)]
 pub struct ak_completion {
     pub tag: u64,
+    /// AK_OK iff grpc_status is 0; AK_ERR_RPC_STATUS for another code; the core's own errors as before.
     pub status: i32,
+    /// The gRPC status code (0-16); -1 when no call reached the transport.
+    pub grpc_status: i32,
     pub bytes: ak_bytes,
 }
 
@@ -361,7 +366,50 @@ impl Default for ak_completion {
         ak_completion {
             tag: 0,
             status: 0,
+            grpc_status: 0,
             bytes: ak_bytes::default(),
+        }
+    }
+}
+
+/// One metadata entry of a call (ABI v1 section 9, streaming as built). ASCII metadata; a key ending in "-bin" carries raw bytes.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_kv {
+    pub key: *const u8,
+    pub key_len: usize,
+    pub val: *const u8,
+    pub val_len: usize,
+}
+
+impl Default for ak_kv {
+    fn default() -> Self {
+        ak_kv {
+            key: ::core::ptr::null(),
+            key_len: 0,
+            val: ::core::ptr::null(),
+            val_len: 0,
+        }
+    }
+}
+
+/// A streamed call's options (section 9). NULL = no deadline, no metadata.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_call_opts {
+    /// 0 = none; otherwise sent as grpc-timeout.
+    pub deadline_ms: u64,
+    /// ASCII metadata; a key ending in "-bin" carries raw bytes.
+    pub metadata: *const ak_kv,
+    pub n_metadata: usize,
+}
+
+impl Default for ak_call_opts {
+    fn default() -> Self {
+        ak_call_opts {
+            deadline_ms: 0,
+            metadata: ::core::ptr::null(),
+            n_metadata: 0,
         }
     }
 }
@@ -406,8 +454,12 @@ pub const AK_QUEUE_OK: i32 = 0;
 pub const AK_QUEUE_TIMEOUT: i32 = 1;
 /// The queue is shutting down and is drained.
 pub const AK_QUEUE_SHUTDOWN: i32 = 2;
-/// `ak_call_open`'s kind: a client-streaming call (many request messages, one response). The only kind built.
+/// ak_call_kind: many request messages, one response. BUILT.
 pub const AK_CALL_CLIENT_STREAM: i32 = 1;
+/// ak_call_kind, reserved: ak_call_open returns NULL.
+pub const AK_CALL_SERVER_STREAM: i32 = 2;
+/// ak_call_kind, reserved: ak_call_open returns NULL.
+pub const AK_CALL_BIDI_STREAM: i32 = 3;
 
 /// RPC boundary-call counts (counting build).
 #[repr(C)]
@@ -426,10 +478,10 @@ unsafe extern "C" {
     pub fn ak_client_destroy(c: *mut ak_client);
     /// Choose the send path of every later call on `c`: 1 = FRAMED (tonic's Channel, the request message sent as two body frames, the 5-byte prefix and the bytes, never copied), 0 = the reference (tonic's Grpc::unary with a raw-bytes codec, one copy into tonic's buffer; the default). Request headers, response status and trailer handling, compression (off) and the send limit are the reference path's. Another value or NULL `c` is AK_ERR_INVALID_STATE. Additive (optimisation T1, option 3).
     pub fn ak_client_set_framed(c: *mut ak_client, on: i32) -> i32;
-    /// Blocking delivery: one crossing in, `ak_bytes_free` the only other.
-    pub fn ak_call_unary(c: *mut ak_client, path: *const u8, path_len: usize, req: *const u8, req_len: usize, out: *mut ak_bytes) -> i32;
+    /// Blocking delivery: one crossing in, `ak_bytes_free` the only other. Writes the gRPC status code to `*grpc_status` (may be NULL; -1 when no call reached the transport); returns AK_OK iff it is 0, AK_ERR_RPC_STATUS for another code, the core's own errors as before (AK_ERR_LIMIT above the client's send limit, nothing sent, or its receive limit).
+    pub fn ak_call_unary(c: *mut ak_client, path: *const u8, path_len: usize, req: *const u8, req_len: usize, out: *mut ak_bytes, grpc_status: *mut i32) -> i32;
     /// Blocking delivery whose request is the encode context's output, MOVED (not copied); the context's encoded bytes are consumed. Additive (optimisation R2).
-    pub fn ak_call_unary_enc(c: *mut ak_client, path: *const u8, path_len: usize, enc: *mut ak_enc_ctx, out: *mut ak_bytes) -> i32;
+    pub fn ak_call_unary_enc(c: *mut ak_client, path: *const u8, path_len: usize, enc: *mut ak_enc_ctx, out: *mut ak_bytes, grpc_status: *mut i32) -> i32;
     pub fn ak_bytes_free(b: *mut ak_bytes);
     /// The encode context's output handed to the host as an owned buffer, MOVED (not copied): `out` holds exactly the encoded bytes until the host releases them with `ak_bytes_free`, on any thread, at any time; the context's encoded bytes are consumed, it continues on its spare buffer (a fresh one while the spare is still out), and the released buffer becomes its spare. A context in error is refused with its error and `out` left empty; NULL `enc` or `out` is AK_ERR_INVALID_STATE. One crossing, `ak_bytes_free` the only other. Additive (optimisation T1).
     pub fn ak_enc_take_owned(enc: *mut ak_enc_ctx, out: *mut ak_bytes) -> i32;
@@ -442,17 +494,16 @@ unsafe extern "C" {
     pub fn ak_queue_next(q: *mut ak_queue, out: *mut ak_completion, timeout_ms: u64) -> i32;
     pub fn ak_queue_shutdown(q: *mut ak_queue);
     pub fn ak_queue_destroy(q: *mut ak_queue);
+    /// Cancel any call handle, a stream's included: unblocks a pending ak_call_send or ak_call_recv; does NOT free (ak_call_destroy does, after every operation returned).
     pub fn ak_call_cancel(h: *mut ak_call);
-    /// Open a streamed call on `path` (section 9). `kind` AK_CALL_CLIENT_STREAM is the only kind built; another, or NULL `c`, returns NULL. The client's send path (ak_client_set_framed) applies to every message. Section 9's `ak_call_opts` is not taken: the unary entries take none either.
-    pub fn ak_call_open(c: *mut ak_client, path: *const u8, path_len: usize, kind: i32) -> *mut ak_call;
-    /// Send one request message (copied: the host may reuse its buffer on return); `last` nonzero ends the request stream after it. Blocks while the transport has not taken the previous message. After `last`, AK_ERR_INVALID_STATE; a transport failure, AK_ERR_HOST.
+    /// Open a streamed call on `path` (section 9, streaming as built). `kind` AK_CALL_CLIENT_STREAM is built; AK_CALL_SERVER_STREAM and AK_CALL_BIDI_STREAM are reserved and return NULL, as does another kind, NULL `c` or invalid metadata. `opts` may be NULL (no deadline, no metadata). The client's send path (ak_client_set_framed) and limits (ak_client_opts) apply to every message.
+    pub fn ak_call_open(c: *mut ak_client, path: *const u8, path_len: usize, kind: i32, opts: *const ak_call_opts) -> *mut ak_call;
+    /// Send one request message (copied); `last` nonzero ends the request stream after it. Blocks while the transport has not taken the previous message. Above the client's send limit: AK_ERR_LIMIT, nothing sent. After `last`: AK_ERR_INVALID_STATE. On a stream that has already failed: AK_ERR_HOST (the status is read with ak_call_recv).
     pub fn ak_call_send(h: *mut ak_call, msg: *const u8, len: usize, last: i32) -> i32;
-    /// `ak_call_send` whose message is the encode context's output, MOVED (not copied), as `ak_call_unary_enc`; a context in error is refused with its error. Additive.
+    /// `ak_call_send` whose message is the encode context's output, MOVED (not copied); a context in error is refused with its error. Additive.
     pub fn ak_call_send_enc(h: *mut ak_call, enc: *mut ak_enc_ctx, last: i32) -> i32;
-    /// Block for the call's response (for a client stream: after `last`), released with `ak_bytes_free`. A non-OK status or a cancelled call is AK_ERR_HOST; a second recv, AK_ERR_INVALID_STATE.
-    pub fn ak_call_recv(h: *mut ak_call, out: *mut ak_bytes) -> i32;
-    /// Cancel the call and unblock a pending `ak_call_recv` (which returns AK_ERR_HOST) or `ak_call_send`; does NOT free (`ak_call_destroy` does, after every operation returned).
-    pub fn ak_call_close(h: *mut ak_call);
+    /// Block for the call's response, released with ak_bytes_free. Writes the gRPC status code (0 to 16) to `*grpc_status` (may be NULL) whenever the call completed; returns AK_OK iff it is 0, else AK_ERR_RPC_STATUS (a transport failure is UNAVAILABLE, a cancelled call CANCELLED, a response above the receive limit RESOURCE_EXHAUSTED). A second recv: AK_ERR_INVALID_STATE, `*grpc_status` untouched.
+    pub fn ak_call_recv(h: *mut ak_call, out: *mut ak_bytes, grpc_status: *mut i32) -> i32;
     pub fn ak_call_destroy(h: *mut ak_call);
     /// 1 if this core counts RPC crossings.
     pub fn ak_rpc_counting() -> i32;

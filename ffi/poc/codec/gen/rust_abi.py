@@ -1734,6 +1734,17 @@ def emit_rpc_check(p):
             name, ", ".join(_rty(t) for _, t in params),
             " -> %s" % _rty(ret) if ret else "", name))
     o.append("")
+    o.append("// Every RPC struct's size and member offsets on a 64-bit host, from plan.rpc.layout")
+    o.append("// (the numbers the C header asserts too).")
+    o.append("#[cfg(target_pointer_width = \"64\")]")
+    o.append("const _: () = {")
+    for name, _doc, _fields in p.rpc.structs:
+        size, offs = p.rpc.layout(name)
+        o.append("    assert!(core::mem::size_of::<%s>() == %d);" % (name, size))
+        for fn, off in offs:
+            o.append("    assert!(core::mem::offset_of!(%s, %s) == %d);" % (name, fn, off))
+    o.append("};")
+    o.append("")
     return "\n".join(o)
 
 

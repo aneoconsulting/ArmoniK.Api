@@ -33,7 +33,7 @@
 //! `ak_init` with its one-shot installs. Section 9's case is behavioural and this is not a
 //! test of it.
 
-use crate::{AK_ERR_HOST, AK_ERR_INVALID_STATE, AK_OK};
+use crate::{AK_ERR_HOST, AK_ERR_INVALID_STATE, AK_ERR_LIMIT, AK_ERR_RPC_STATUS, AK_OK};
 use bytes::Bytes;
 use core::ffi::c_void;
 
@@ -43,7 +43,7 @@ use core::ffi::c_void;
 // prototype (`ak_queue_next`'s timeout). `generated/rpc_check.rs` asserts every function
 // below against the declared signature.
 pub use ak_abi::{
-    ak_bytes, ak_call, ak_client, ak_client_opts, ak_completion, ak_completion_cb, ak_queue,
+    ak_bytes, ak_call, ak_call_opts, ak_client, ak_client_opts, ak_completion, ak_completion_cb, ak_kv, ak_queue,
     ak_runtime, AK_CALL_CLIENT_STREAM, AK_QUEUE_OK, AK_QUEUE_SHUTDOWN, AK_QUEUE_TIMEOUT,
 };
 
@@ -172,18 +172,30 @@ pub struct ClientImpl {
     /// no copy) instead of the reference `Grpc::unary` + `RawCodec`. Off by default; set by
     /// `ak_client_set_framed`, read by every delivery at call time.
     pub framed: core::sync::atomic::AtomicBool,
+    /// D44 (ABI v1 section 9): `ak_client_opts.max_send_message` / `max_recv_message`,
+    /// enforced on every call of this client (unary and streaming, every delivery, both send
+    /// paths, per message on a stream). None = 0 = the stack's default (tonic: unlimited
+    /// sent, 4 MiB received).
+    pub max_send: Option<usize>,
+    pub max_recv: Option<usize>,
 }
 
 impl ClientImpl {
     fn link(&self) -> Link {
-        Link { chan: self.chan.clone(), framed: self.framed.load(core::sync::atomic::Ordering::Relaxed) }
+        Link {
+            chan: self.chan.clone(),
+            framed: self.framed.load(core::sync::atomic::Ordering::Relaxed),
+            cfg: rpc::CallCfg::limits(self.max_send, self.max_recv),
+        }
     }
 }
 
-/// What one call needs of its client: the channel and which send path.
+/// What one call needs of its client: the channel, which send path, and the call's
+/// configuration (the client's limits; a stream's metadata and deadline added at open).
 struct Link {
     chan: tonic::transport::Channel,
     framed: bool,
+    cfg: rpc::CallCfg,
 }
 
 /// Optimisation T1, option 3: choose the send path of every later call on `c`: 1 = the
@@ -296,6 +308,8 @@ pub unsafe extern "C" fn ak_client_new_opts(
             rt: r as *const RuntimeImpl,
             chan,
             framed: core::sync::atomic::AtomicBool::new(false),
+            max_send: (o.max_send_message != 0).then_some(o.max_send_message as usize),
+            max_recv: (o.max_recv_message != 0).then_some(o.max_recv_message as usize),
         })) as *mut ak_client,
         None => core::ptr::null_mut(),
     }
@@ -322,31 +336,66 @@ pub unsafe extern "C" fn ak_call_unary(
     req: *const u8,
     req_len: usize,
     out: *mut ak_bytes,
+    grpc_status: *mut i32,
 ) -> i32 {
     fwd();
+    set_status(grpc_status, -1);
+    if c.is_null() || out.is_null() || (req.is_null() && req_len != 0) {
+        return AK_ERR_INVALID_STATE;
+    }
+    *out = empty_ak_bytes();
     // Shared, not exclusive: many host threads may be inside this at once.
     let cl = &*(c as *const ClientImpl);
+    let path = match parse_path(path, path_len) {
+        Some(p) => p,
+        None => return AK_ERR_INVALID_STATE,
+    };
+    let body = if req_len == 0 { Bytes::new() } else { Bytes::copy_from_slice(core::slice::from_raw_parts(req, req_len)) };
+    blocking_unary("ak_call_unary", cl, path, body, out, grpc_status)
+}
+
+/// The blocking deliveries' one tail: the call, then its outcome (ABI v1 section 9, the
+/// status number on unary calls too).
+unsafe fn blocking_unary(who: &str, cl: &ClientImpl, path: http::uri::PathAndQuery, body: Bytes, out: *mut ak_bytes, grpc_status: *mut i32) -> i32 {
     let rt = &*cl.rt;
-    let p = match core::str::from_utf8(core::slice::from_raw_parts(path, path_len)) {
-        Ok(p) => p,
-        Err(_) => return AK_ERR_INVALID_STATE,
-    };
-    let path = match http::uri::PathAndQuery::from_maybe_shared(p.to_string()) {
-        Ok(p) => p,
-        Err(_) => return AK_ERR_INVALID_STATE,
-    };
-    let body = Bytes::copy_from_slice(core::slice::from_raw_parts(req, req_len));
-    let res = rt.rt.block_on(unary_once(cl.link(), path, body));
-    match res {
-        Ok(b) => {
-            *out = into_ak_bytes(b);
-            AK_OK
-        }
+    let (rc, code, bytes) = outcome(who, rt.rt.block_on(unary_once(cl.link(), path, body)));
+    set_status(grpc_status, code);
+    if let Some(b) = bytes {
+        *out = into_ak_bytes(b);
+    }
+    rc
+}
+
+/// A call's result as (status, grpc_status, response): AK_OK iff the code is 0;
+/// AK_ERR_RPC_STATUS for another code; AK_ERR_LIMIT for the client's send limit (nothing
+/// sent: -1) or its receive limit (RESOURCE_EXHAUSTED, 8).
+fn outcome(who: &str, r: Result<Bytes, rpc::CallErr>) -> (i32, i32, Option<Bytes>) {
+    match r {
+        Ok(b) => (AK_OK, 0, Some(b)),
         Err(e) => {
-            trace("ak_call_unary", &e);
-            AK_ERR_HOST
+            trace(who, &e.to_string());
+            match (e.is_limit(), e.code()) {
+                (true, None) => (AK_ERR_LIMIT, -1, None),
+                (true, Some(c)) => (AK_ERR_LIMIT, c as i32, None),
+                (false, Some(c)) => (AK_ERR_RPC_STATUS, c as i32, None),
+                (false, None) => (AK_ERR_HOST, -1, None),
+            }
         }
     }
+}
+
+unsafe fn set_status(p: *mut i32, v: i32) {
+    if !p.is_null() {
+        *p = v;
+    }
+}
+
+unsafe fn parse_path(path: *const u8, path_len: usize) -> Option<http::uri::PathAndQuery> {
+    if path.is_null() {
+        return None;
+    }
+    let p = core::str::from_utf8(core::slice::from_raw_parts(path, path_len)).ok()?;
+    http::uri::PathAndQuery::from_maybe_shared(p.to_string()).ok()
 }
 
 /// Optimisation R2: the request is the ENCODE CONTEXT's output, MOVED into the call, not
@@ -366,20 +415,18 @@ pub unsafe extern "C" fn ak_call_unary_enc(
     path_len: usize,
     enc: *mut crate::ak_enc_ctx,
     out: *mut ak_bytes,
+    grpc_status: *mut i32,
 ) -> i32 {
     fwd();
-    if c.is_null() || enc.is_null() {
+    set_status(grpc_status, -1);
+    if c.is_null() || enc.is_null() || out.is_null() {
         return AK_ERR_INVALID_STATE;
     }
+    *out = empty_ak_bytes();
     let cl = &*(c as *const ClientImpl);
-    let rt = &*cl.rt;
-    let p = match core::str::from_utf8(core::slice::from_raw_parts(path, path_len)) {
-        Ok(p) => p,
-        Err(_) => return AK_ERR_INVALID_STATE,
-    };
-    let path = match http::uri::PathAndQuery::from_maybe_shared(p.to_string()) {
-        Ok(p) => p,
-        Err(_) => return AK_ERR_INVALID_STATE,
+    let path = match parse_path(path, path_len) {
+        Some(p) => p,
+        None => return AK_ERR_INVALID_STATE,
     };
     let cx = &mut *(enc as *mut crate::EncCtxImpl);
     if cx.hdr.err != AK_OK {
@@ -391,17 +438,7 @@ pub unsafe extern "C" fn ak_call_unary_enc(
     // T1: the context's buffer moved into the body, O(1), no copy; it comes back to the
     // context's spare slot when the transport drops the body (R2's swap, now Enc::take).
     let body = cx.e.take();
-    let res = rt.rt.block_on(unary_once(cl.link(), path, body));
-    match res {
-        Ok(b) => {
-            *out = into_ak_bytes(b);
-            AK_OK
-        }
-        Err(e) => {
-            trace("ak_call_unary_enc", &e);
-            AK_ERR_HOST
-        }
-    }
+    blocking_unary("ak_call_unary_enc", cl, path, body, out, grpc_status)
 }
 
 /// Optimisation T1 (ffi): the encode context's output handed to the HOST as an owned
@@ -442,18 +479,13 @@ async fn unary_once(
     link: Link,
     path: http::uri::PathAndQuery,
     body: Bytes,
-) -> Result<Bytes, String> {
+) -> Result<Bytes, rpc::CallErr> {
+    // The client's limits on both paths (D44): the send limit refuses before sending, the
+    // receive limit fails the call with RESOURCE_EXHAUSTED.
     if link.framed {
-        // max_send None: the reference path's Grpc::new default (the core does not apply
-        // ak_client_opts.max_send_message on either path).
-        return rpc::unary_framed(link.chan, path, body, None).await.map_err(|e| format!("unary (framed): {e}"));
+        return rpc::unary_framed_cfg(link.chan, path, body, &link.cfg).await;
     }
-    let mut grpc = tonic::client::Grpc::new(link.chan);
-    grpc.ready().await.map_err(|e| format!("ready: {e}"))?;
-    grpc.unary(tonic::Request::new(body), path, rpc::RawCodec)
-        .await
-        .map(|r| r.into_inner())
-        .map_err(|e| format!("unary: {e}"))
+    rpc::unary_raw(link.chan, path, body, &link.cfg).await
 }
 
 /// The one place response bytes become an `ak_bytes`, so every delivery hands the host the
@@ -503,9 +535,19 @@ pub unsafe extern "C" fn ak_bytes_free(b: *mut ak_bytes) {
 // `ak_abi`'s, rendered from `plan.rpc` (R-G5).
 
 struct CallImpl {
-    abort: tokio::task::AbortHandle,
+    /// `ak_call_cancel`: the call's task selects on it and completes with CANCELLED (a
+    /// unary delivery's completion carries it; a stream's recv returns it).
+    cancel: std::sync::Arc<tokio::sync::Notify>,
     /// U2-stream: a streamed call's state; None for the unary deliveries' handles.
     stream: Option<StreamImpl>,
+}
+
+/// The call's future, or CANCELLED when `ak_call_cancel` fires first.
+async fn cancellable<T>(cancel: std::sync::Arc<tokio::sync::Notify>, f: impl core::future::Future<Output = Result<T, rpc::CallErr>>) -> Result<T, rpc::CallErr> {
+    tokio::select! {
+        r = f => r,
+        _ = cancel.notified() => Err(rpc::CallErr::Status(tonic::Status::cancelled("cancelled by ak_call_cancel"))),
+    }
 }
 
 /// A client-streaming call (U2-stream, ABI v1 section 9): the request messages go to the
@@ -515,7 +557,9 @@ struct CallImpl {
 struct StreamImpl {
     rt: *const RuntimeImpl,
     tx: std::sync::Mutex<Option<tokio::sync::mpsc::Sender<Bytes>>>,
-    resp: std::sync::Mutex<Option<tokio::sync::oneshot::Receiver<Result<Bytes, String>>>>,
+    resp: std::sync::Mutex<Option<tokio::sync::oneshot::Receiver<Result<Bytes, rpc::CallErr>>>>,
+    /// The client's send limit, checked per message before it is queued (D44).
+    max_send: Option<usize>,
 }
 
 /// The host's callback and its context, crossing into a spawned task. Raw pointers are not
@@ -642,49 +686,97 @@ pub unsafe extern "C" fn ak_queue_next(
     }
 }
 
-/// Cancel an in-flight call. The delivery still happens: an aborted call completes with
-/// `AK_ERR_HOST` and empty bytes, because a host that registered a completion and never
-/// got one has no way to stop waiting.
+/// Cancel an in-flight call, a stream's included (ABI v1 section 9: one cancel entry).
+/// The delivery still happens: a cancelled call completes with CANCELLED
+/// (AK_ERR_RPC_STATUS, grpc_status 1) and empty bytes, because a host that registered a
+/// completion and never got one has no way to stop waiting; a stream's pending
+/// `ak_call_recv` returns it and a pending `ak_call_send` returns AK_ERR_HOST. Does not
+/// free. (Before this, the call's task was aborted and no completion was delivered, which
+/// contradicted this comment.)
 #[no_mangle]
 pub unsafe extern "C" fn ak_call_cancel(h: *mut ak_call) {
     fwd();
     if !h.is_null() {
-        (*(h as *mut CallImpl)).abort.abort();
+        (*(h as *mut CallImpl)).cancel.notify_one();
     }
 }
 
-/// U2-stream: open a streamed call (section 9). Only AK_CALL_CLIENT_STREAM is built.
+/// U2-stream: open a streamed call (ABI v1 section 9, streaming as built).
+/// AK_CALL_CLIENT_STREAM is built; the two reserved kinds and any other return NULL.
 #[no_mangle]
-pub unsafe extern "C" fn ak_call_open(c: *mut ak_client, path: *const u8, path_len: usize, kind: i32) -> *mut ak_call {
+pub unsafe extern "C" fn ak_call_open(c: *mut ak_client, path: *const u8, path_len: usize, kind: i32, opts: *const ak_call_opts) -> *mut ak_call {
     fwd();
     if c.is_null() || kind != AK_CALL_CLIENT_STREAM {
         return core::ptr::null_mut();
     }
     let cl = &*(c as *const ClientImpl);
     let rt = &*cl.rt;
-    let p = match core::str::from_utf8(core::slice::from_raw_parts(path, path_len)) {
-        Ok(p) => p,
-        Err(_) => return core::ptr::null_mut(),
+    let path = match parse_path(path, path_len) {
+        Some(p) => p,
+        None => return core::ptr::null_mut(),
     };
-    let path = match http::uri::PathAndQuery::from_maybe_shared(p.to_string()) {
-        Ok(p) => p,
-        Err(_) => return core::ptr::null_mut(),
-    };
-    let link = cl.link();
+    let mut link = cl.link();
+    if !opts.is_null() {
+        match call_opts(&*opts, &mut link.cfg) {
+            Some(()) => {}
+            None => return core::ptr::null_mut(),
+        }
+    }
     let (tx, rx) = tokio::sync::mpsc::channel::<Bytes>(1);
     let (rtx, rrx) = tokio::sync::oneshot::channel();
-    let task = rt.rt.spawn(async move {
-        let r = if link.framed {
-            rpc::client_streaming_framed(link.chan, path, rpc::ReceiverStream::new(rx), None).await
-        } else {
-            rpc::client_streaming_raw(link.chan, path, rx).await
-        };
-        let _ = rtx.send(r.map_err(|e| format!("client stream: {e}")));
+    let cancel = std::sync::Arc::new(tokio::sync::Notify::new());
+    let c2 = cancel.clone();
+    let max_send = link.cfg.max_send;
+    rt.rt.spawn(async move {
+        let cfg = link.cfg.clone();
+        let r = cancellable(c2, async move {
+            if link.framed {
+                rpc::client_streaming_framed_cfg(link.chan, path, rpc::ReceiverStream::new(rx), &cfg).await
+            } else {
+                rpc::client_streaming_raw(link.chan, path, rx, &cfg).await
+            }
+        })
+        .await;
+        let _ = rtx.send(r);
     });
     Box::into_raw(Box::new(CallImpl {
-        abort: task.abort_handle(),
-        stream: Some(StreamImpl { rt: cl.rt, tx: std::sync::Mutex::new(Some(tx)), resp: std::sync::Mutex::new(Some(rrx)) }),
+        cancel,
+        stream: Some(StreamImpl { rt: cl.rt, tx: std::sync::Mutex::new(Some(tx)), resp: std::sync::Mutex::new(Some(rrx)), max_send }),
     })) as *mut ak_call
+}
+
+/// `ak_call_opts` into the call's configuration: the deadline (sent as grpc-timeout and
+/// enforced here) and the metadata (ASCII; a key ending in "-bin" carries raw bytes). None
+/// on a key or value the metadata rules refuse.
+unsafe fn call_opts(o: &ak_call_opts, cfg: &mut rpc::CallCfg) -> Option<()> {
+    use tonic::metadata::{AsciiMetadataKey, AsciiMetadataValue, BinaryMetadataKey, BinaryMetadataValue};
+    if o.n_metadata != 0 && o.metadata.is_null() {
+        return None;
+    }
+    for i in 0..o.n_metadata {
+        let kv = &*o.metadata.add(i);
+        if kv.key.is_null() || (kv.val.is_null() && kv.val_len != 0) {
+            return None;
+        }
+        let k = core::slice::from_raw_parts(kv.key, kv.key_len);
+        let v: &[u8] = if kv.val_len == 0 { &[] } else { core::slice::from_raw_parts(kv.val, kv.val_len) };
+        if k.ends_with(b"-bin") {
+            let key = BinaryMetadataKey::from_bytes(k).ok()?;
+            cfg.metadata.append_bin(key, BinaryMetadataValue::from_bytes(v));
+        } else {
+            // gRPC's ASCII-Value is %x20-%x7E (tonic's HeaderValue would also take obs-text).
+            if !v.iter().all(|b| (0x20..=0x7e).contains(b)) {
+                return None;
+            }
+            let key = AsciiMetadataKey::from_bytes(k).ok()?;
+            let val = AsciiMetadataValue::try_from(v).ok()?;
+            cfg.metadata.append(key, val);
+        }
+    }
+    if o.deadline_ms != 0 {
+        cfg.set_deadline(std::time::Duration::from_millis(o.deadline_ms));
+    }
+    Some(())
 }
 
 unsafe fn stream_send(h: *mut ak_call, b: Bytes, last: i32) -> i32 {
@@ -692,8 +784,15 @@ unsafe fn stream_send(h: *mut ak_call, b: Bytes, last: i32) -> i32 {
         Some(s) => s,
         None => return AK_ERR_INVALID_STATE,
     };
-    // Taken out of the slot for the blocking send, so `ak_call_close` (the abort) never
-    // waits on this lock; put back unless `last`.
+    // D44: above the client's send limit the message is refused and nothing is sent.
+    if let Some(l) = st.max_send {
+        if b.len() > l {
+            trace("ak_call_send", &format!("{} bytes above the send limit {l}", b.len()));
+            return AK_ERR_LIMIT;
+        }
+    }
+    // Taken out of the slot for the blocking send, so `ak_call_cancel` never waits on this
+    // lock; put back unless `last`.
     let tx = match st.tx.lock().ok().and_then(|mut g| g.take()) {
         Some(t) => t,
         None => return AK_ERR_INVALID_STATE,
@@ -738,14 +837,14 @@ pub unsafe extern "C" fn ak_call_send_enc(h: *mut ak_call, enc: *mut crate::ak_e
     stream_send(h, cx.e.take(), last)
 }
 
-/// U2-stream: block for the response.
+/// U2-stream: block for the response; the gRPC status to `*grpc_status` whenever the call
+/// completed (ABI v1 section 9: AK_OK iff 0, else AK_ERR_RPC_STATUS).
 #[no_mangle]
-pub unsafe extern "C" fn ak_call_recv(h: *mut ak_call, out: *mut ak_bytes) -> i32 {
+pub unsafe extern "C" fn ak_call_recv(h: *mut ak_call, out: *mut ak_bytes, grpc_status: *mut i32) -> i32 {
     fwd();
     if h.is_null() || out.is_null() {
         return AK_ERR_INVALID_STATE;
     }
-    *out = empty_ak_bytes();
     let st = match (*(h as *mut CallImpl)).stream.as_ref() {
         Some(s) => s,
         None => return AK_ERR_INVALID_STATE,
@@ -754,29 +853,24 @@ pub unsafe extern "C" fn ak_call_recv(h: *mut ak_call, out: *mut ak_bytes) -> i3
         Some(r) => r,
         None => return AK_ERR_INVALID_STATE,
     };
-    match (*st.rt).rt.block_on(rx) {
-        Ok(Ok(b)) => {
+    *out = empty_ak_bytes();
+    let r = match (*st.rt).rt.block_on(rx) {
+        Ok(r) => r,
+        // The task ended without a result: the runtime is going away. CANCELLED.
+        Err(_) => Err(rpc::CallErr::Status(tonic::Status::cancelled("the call's task ended"))),
+    };
+    let (rc, code) = match r {
+        Ok(b) => {
             *out = into_ak_bytes(b);
-            AK_OK
+            (AK_OK, 0)
         }
-        Ok(Err(e)) => {
-            trace("ak_call_recv", &e);
-            AK_ERR_HOST
+        Err(e) => {
+            trace("ak_call_recv", &e.to_string());
+            (AK_ERR_RPC_STATUS, e.code().map_or(tonic::Code::Unknown as i32, |c| c as i32))
         }
-        Err(_) => {
-            trace("ak_call_recv", "the call was cancelled");
-            AK_ERR_HOST
-        }
-    }
-}
-
-/// U2-stream (section 9): cancel; unblocks a pending recv or send. Does not free.
-#[no_mangle]
-pub unsafe extern "C" fn ak_call_close(h: *mut ak_call) {
-    fwd();
-    if !h.is_null() {
-        (*(h as *mut CallImpl)).abort.abort();
-    }
+    };
+    set_status(grpc_status, code);
+    rc
 }
 
 /// Frees the handle. Only after the call's completion has been delivered.
@@ -786,6 +880,12 @@ pub unsafe extern "C" fn ak_call_destroy(h: *mut ak_call) {
     if !h.is_null() {
         drop(Box::from_raw(h as *mut CallImpl));
     }
+}
+
+/// A unary call's outcome as the completion the callback and queue deliveries carry.
+fn completion(tag: u64, who: &str, r: Result<Bytes, rpc::CallErr>) -> ak_completion {
+    let (status, grpc_status, b) = outcome(who, r);
+    ak_completion { tag, status, grpc_status, bytes: b.map_or_else(empty_ak_bytes, into_ak_bytes) }
 }
 
 /// Shared prologue: validate the path and copy the request out of host memory, which must
@@ -830,19 +930,15 @@ pub unsafe extern "C" fn ak_call_unary_cb(
         None => return core::ptr::null_mut(),
     };
     let ctx = CbCtx { cb, user: user_data };
-    let task = rt.rt.spawn(async move {
+    let cancel = std::sync::Arc::new(tokio::sync::Notify::new());
+    let c2 = cancel.clone();
+    rt.rt.spawn(async move {
         let ctx = ctx;
-        let mut comp = match unary_once(chan, path, body).await {
-            Ok(b) => ak_completion { tag, status: AK_OK, bytes: into_ak_bytes(b) },
-            Err(e) => {
-                trace("ak_call_unary_cb", &e);
-                ak_completion { tag, status: AK_ERR_HOST, bytes: empty_ak_bytes() }
-            }
-        };
+        let mut comp = completion(tag, "ak_call_unary_cb", cancellable(c2, unary_once(chan, path, body)).await);
         rev();
         (ctx.cb)(ctx.user, &mut comp);
     });
-    Box::into_raw(Box::new(CallImpl { abort: task.abort_handle(), stream: None })) as *mut ak_call
+    Box::into_raw(Box::new(CallImpl { cancel, stream: None })) as *mut ak_call
 }
 
 /// **The completion-queue delivery.** Returns immediately with a handle; the completion is
@@ -872,21 +968,17 @@ pub unsafe extern "C" fn ak_call_unary_q(
     // an Arc -- which keeps the queue a plain C handle instead of a refcount the host
     // cannot see.
     let qaddr = q as usize;
-    let task = rt.rt.spawn(async move {
-        let comp = match unary_once(chan, path, body).await {
-            Ok(b) => ak_completion { tag, status: AK_OK, bytes: into_ak_bytes(b) },
-            Err(e) => {
-                trace("ak_call_unary_q", &e);
-                ak_completion { tag, status: AK_ERR_HOST, bytes: empty_ak_bytes() }
-            }
-        };
+    let cancel = std::sync::Arc::new(tokio::sync::Notify::new());
+    let c2 = cancel.clone();
+    rt.rt.spawn(async move {
+        let comp = completion(tag, "ak_call_unary_q", cancellable(c2, unary_once(chan, path, body)).await);
         let qi = unsafe { &*(qaddr as *const QueueImpl) };
         if let Ok(mut st) = qi.m.lock() {
             st.q.push_back(SendComp(comp));
         }
         qi.cv.notify_one();
     });
-    Box::into_raw(Box::new(CallImpl { abort: task.abort_handle(), stream: None })) as *mut ak_call
+    Box::into_raw(Box::new(CallImpl { cancel, stream: None })) as *mut ak_call
 }
 
 #[cfg(test)]
@@ -928,7 +1020,7 @@ mod delivery_tests {
             // 1. blocking
             let mut out = empty_ak_bytes();
             assert_eq!(
-                ak_call_unary(c, rpc::PATH.as_ptr(), rpc::PATH.len(), b"req".as_ptr(), 3, &mut out),
+                ak_call_unary(c, rpc::PATH.as_ptr(), rpc::PATH.len(), b"req".as_ptr(), 3, &mut out, core::ptr::null_mut()),
                 AK_OK
             );
             assert_eq!(take(&mut out), RESP);
@@ -985,7 +1077,7 @@ mod delivery_tests {
 
             // 3. the completion queue
             let q = ak_queue_new();
-            let mut comp = ak_completion { tag: 0, status: 0, bytes: empty_ak_bytes() };
+            let mut comp = ak_completion { tag: 0, status: 0, grpc_status: 0, bytes: empty_ak_bytes() };
             assert_eq!(
                 ak_queue_next(q, &mut comp, 0),
                 AK_QUEUE_TIMEOUT,
@@ -1036,7 +1128,7 @@ mod delivery_tests {
 
             let mut out = empty_ak_bytes();
             assert_eq!(
-                ak_call_unary(c, rpc::PATH.as_ptr(), rpc::PATH.len(), b"req".as_ptr(), 3, &mut out),
+                ak_call_unary(c, rpc::PATH.as_ptr(), rpc::PATH.len(), b"req".as_ptr(), 3, &mut out, core::ptr::null_mut()),
                 AK_OK
             );
             assert_eq!(take(&mut out), RESP);
@@ -1048,7 +1140,7 @@ mod delivery_tests {
                 c, rpc::PATH.as_ptr(), rpc::PATH.len(), b"req".as_ptr(), 3, q, 5,
             );
             assert!(!h.is_null());
-            let mut comp = ak_completion { tag: 0, status: 0, bytes: empty_ak_bytes() };
+            let mut comp = ak_completion { tag: 0, status: 0, grpc_status: 0, bytes: empty_ak_bytes() };
             assert_eq!(ak_queue_next(q, &mut comp, 10_000), AK_QUEUE_OK);
             assert_eq!(comp.tag, 5);
             assert_eq!(take(&mut comp.bytes), RESP);
@@ -1086,7 +1178,7 @@ mod delivery_tests {
             }
             let mut seen = vec![0u32; N as usize];
             for _ in 0..N {
-                let mut comp = ak_completion { tag: 0, status: 0, bytes: empty_ak_bytes() };
+                let mut comp = ak_completion { tag: 0, status: 0, grpc_status: 0, bytes: empty_ak_bytes() };
                 assert_eq!(ak_queue_next(q, &mut comp, 30_000), AK_QUEUE_OK);
                 assert_eq!(comp.status, AK_OK);
                 assert_eq!(take(&mut comp.bytes), RESP);
@@ -1132,7 +1224,7 @@ mod delivery_tests {
             assert!(!c.is_null(), "a pinned endpoint did not connect to {uri}");
             let mut out = empty_ak_bytes();
             assert_eq!(
-                ak_call_unary(c, rpc::PATH.as_ptr(), rpc::PATH.len(), b"req".as_ptr(), 3, &mut out),
+                ak_call_unary(c, rpc::PATH.as_ptr(), rpc::PATH.len(), b"req".as_ptr(), 3, &mut out, core::ptr::null_mut()),
                 AK_OK
             );
             assert_eq!(take(&mut out), RESP);
@@ -1149,35 +1241,41 @@ mod delivery_tests {
 
     /// U2-stream: a client stream of one message gets the server's response on both send
     /// paths; after `last` a send is refused, a second recv is refused, an unknown kind opens
-    /// nothing, and `ak_call_close` unblocks a recv that would otherwise wait forever (the
+    /// nothing, and `ak_call_cancel` unblocks a recv that would otherwise wait forever (the
     /// server is still waiting for the first message).
     #[test]
     fn a_streamed_call_sends_receives_and_closes() {
         let (r, c) = fixture();
         unsafe {
-            assert!(ak_call_open(c, rpc::PATH.as_ptr(), rpc::PATH.len(), 99).is_null());
+            assert!(ak_call_open(c, rpc::PATH.as_ptr(), rpc::PATH.len(), 99, core::ptr::null()).is_null());
             for framed in [0, 1] {
                 assert_eq!(ak_client_set_framed(c, framed), AK_OK);
-                let h = ak_call_open(c, rpc::PATH.as_ptr(), rpc::PATH.len(), AK_CALL_CLIENT_STREAM);
+                let h = ak_call_open(c, rpc::PATH.as_ptr(), rpc::PATH.len(), AK_CALL_CLIENT_STREAM, core::ptr::null());
                 assert!(!h.is_null());
                 assert_eq!(ak_call_send(h, b"req".as_ptr(), 3, 1), AK_OK);
                 assert_eq!(ak_call_send(h, b"req".as_ptr(), 3, 1), AK_ERR_INVALID_STATE, "a send after last");
                 let mut out = empty_ak_bytes();
-                assert_eq!(ak_call_recv(h, &mut out), AK_OK, "framed={framed}");
+                let mut gs = -7;
+                assert_eq!(ak_call_recv(h, &mut out, &mut gs), AK_OK, "framed={framed}");
+                assert_eq!(gs, 0);
                 assert_eq!(take(&mut out), RESP);
-                assert_eq!(ak_call_recv(h, &mut out), AK_ERR_INVALID_STATE, "a second recv");
+                gs = -7;
+                assert_eq!(ak_call_recv(h, &mut out, &mut gs), AK_ERR_INVALID_STATE, "a second recv");
+                assert_eq!(gs, -7, "misuse leaves grpc_status untouched");
                 ak_call_destroy(h);
             }
-            let h = ak_call_open(c, rpc::PATH.as_ptr(), rpc::PATH.len(), AK_CALL_CLIENT_STREAM);
+            let h = ak_call_open(c, rpc::PATH.as_ptr(), rpc::PATH.len(), AK_CALL_CLIENT_STREAM, core::ptr::null());
             let hv = h as usize;
             let t = std::thread::spawn(move || {
                 let mut out = empty_ak_bytes();
-                ak_call_recv(hv as *mut ak_call, &mut out)
+                let mut gs = -7;
+                let rc = ak_call_recv(hv as *mut ak_call, &mut out, &mut gs);
+                (rc, gs)
             });
             std::thread::sleep(std::time::Duration::from_millis(200));
             assert!(!t.is_finished(), "recv returned before any message was sent");
-            ak_call_close(h);
-            assert_eq!(t.join().unwrap(), AK_ERR_HOST, "close unblocks the pending recv");
+            ak_call_cancel(h);
+            assert_eq!(t.join().unwrap(), (AK_ERR_RPC_STATUS, 1), "cancel unblocks the pending recv with CANCELLED");
             ak_call_destroy(h);
             ak_client_destroy(c);
             ak_runtime_destroy(r);

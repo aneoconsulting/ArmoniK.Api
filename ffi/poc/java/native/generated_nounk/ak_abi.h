@@ -28,6 +28,7 @@ extern "C" {
 #define AK_ERR_PANIC             (-9)   /* a caught Rust panic */
 #define AK_ERR_UNINITIALIZED     (-10)  /* ak_init was not called */
 #define AK_ERR_ABI               (-11)  /* version or group-layout mismatch */
+#define AK_ERR_RPC_STATUS        (-12)  /* the call completed with a non-OK gRPC status (read it with ak_call_recv) */
 #define AK_DETAIL_NONE           0u
 #define AK_DETAIL_ABI_MISMATCH   1u
 #define AK_DETAIL_OPTS_DIFFER    2u
@@ -863,11 +864,29 @@ typedef struct ak_bytes ak_bytes;
 /* What a completion carries. Released with `ak_bytes_free`, as the blocking delivery's bytes are, so a host has one release path whichever delivery it takes. */
 struct ak_completion {
   uint64_t tag;
-  int32_t status;
+  int32_t status;  /* AK_OK iff grpc_status is 0; AK_ERR_RPC_STATUS for another code; the core's own errors as before. */
+  int32_t grpc_status;  /* The gRPC status code (0-16); -1 when no call reached the transport. */
   struct ak_bytes bytes;
 };
 typedef struct ak_completion ak_completion;
-#define AK_COMPLETION_FIELDS 3
+#define AK_COMPLETION_FIELDS 4
+/* One metadata entry of a call (ABI v1 section 9, streaming as built). ASCII metadata; a key ending in "-bin" carries raw bytes. */
+struct ak_kv {
+  const uint8_t *key;
+  size_t key_len;
+  const uint8_t *val;
+  size_t val_len;
+};
+typedef struct ak_kv ak_kv;
+#define AK_KV_FIELDS 4
+/* A streamed call's options (section 9). NULL = no deadline, no metadata. */
+struct ak_call_opts {
+  uint64_t deadline_ms;  /* 0 = none; otherwise sent as grpc-timeout. */
+  const struct ak_kv *metadata;  /* ASCII metadata; a key ending in "-bin" carries raw bytes. */
+  size_t n_metadata;
+};
+typedef struct ak_call_opts ak_call_opts;
+#define AK_CALL_OPTS_FIELDS 3
 /* The transport settings ArmoniK pins. The stream and the connection window are separate settings on tonic/hyper, so both are here. Zero means "the stack's". */
 struct ak_client_opts {
   uint32_t stream_window;  /* SETTINGS_INITIAL_WINDOW_SIZE per stream; 0 = default. ArmoniK: 4 MiB. */
@@ -884,7 +903,9 @@ typedef void (*ak_completion_cb)(void *user_data, struct ak_completion *comp);
 #define AK_QUEUE_OK 0  /* `ak_queue_next` returned a completion. */
 #define AK_QUEUE_TIMEOUT 1  /* The timeout expired with no completion. Not an error. */
 #define AK_QUEUE_SHUTDOWN 2  /* The queue is shutting down and is drained. */
-#define AK_CALL_CLIENT_STREAM 1  /* `ak_call_open`'s kind: a client-streaming call (many request messages, one response). The only kind built. */
+#define AK_CALL_CLIENT_STREAM 1  /* ak_call_kind: many request messages, one response. BUILT. */
+#define AK_CALL_SERVER_STREAM 2  /* ak_call_kind, reserved: ak_call_open returns NULL. */
+#define AK_CALL_BIDI_STREAM 3  /* ak_call_kind, reserved: ak_call_open returns NULL. */
 ak_runtime *ak_runtime_new(uint32_t worker_threads);
 void ak_runtime_destroy(ak_runtime *r);
 ak_client *ak_client_new(ak_runtime *r, const uint8_t *uri, size_t uri_len);
@@ -893,10 +914,10 @@ ak_client *ak_client_new_opts(ak_runtime *r, const uint8_t *uri, size_t uri_len,
 void ak_client_destroy(ak_client *c);
 /* Choose the send path of every later call on `c`: 1 = FRAMED (tonic's Channel, the request message sent as two body frames, the 5-byte prefix and the bytes, never copied), 0 = the reference (tonic's Grpc::unary with a raw-bytes codec, one copy into tonic's buffer; the default). Request headers, response status and trailer handling, compression (off) and the send limit are the reference path's. Another value or NULL `c` is AK_ERR_INVALID_STATE. Additive (optimisation T1, option 3). */
 int32_t ak_client_set_framed(ak_client *c, int32_t on);
-/* Blocking delivery: one crossing in, `ak_bytes_free` the only other. */
-int32_t ak_call_unary(ak_client *c, const uint8_t *path, size_t path_len, const uint8_t *req, size_t req_len, struct ak_bytes *out);
+/* Blocking delivery: one crossing in, `ak_bytes_free` the only other. Writes the gRPC status code to `*grpc_status` (may be NULL; -1 when no call reached the transport); returns AK_OK iff it is 0, AK_ERR_RPC_STATUS for another code, the core's own errors as before (AK_ERR_LIMIT above the client's send limit, nothing sent, or its receive limit). */
+int32_t ak_call_unary(ak_client *c, const uint8_t *path, size_t path_len, const uint8_t *req, size_t req_len, struct ak_bytes *out, int32_t *grpc_status);
 /* Blocking delivery whose request is the encode context's output, MOVED (not copied); the context's encoded bytes are consumed. Additive (optimisation R2). */
-int32_t ak_call_unary_enc(ak_client *c, const uint8_t *path, size_t path_len, ak_enc_ctx *enc, struct ak_bytes *out);
+int32_t ak_call_unary_enc(ak_client *c, const uint8_t *path, size_t path_len, ak_enc_ctx *enc, struct ak_bytes *out, int32_t *grpc_status);
 void ak_bytes_free(struct ak_bytes *b);
 /* The encode context's output handed to the host as an owned buffer, MOVED (not copied): `out` holds exactly the encoded bytes until the host releases them with `ak_bytes_free`, on any thread, at any time; the context's encoded bytes are consumed, it continues on its spare buffer (a fresh one while the spare is still out), and the released buffer becomes its spare. A context in error is refused with its error and `out` left empty; NULL `enc` or `out` is AK_ERR_INVALID_STATE. One crossing, `ak_bytes_free` the only other. Additive (optimisation T1). */
 int32_t ak_enc_take_owned(ak_enc_ctx *enc, struct ak_bytes *out);
@@ -909,17 +930,16 @@ ak_queue *ak_queue_new(void);
 int32_t ak_queue_next(ak_queue *q, struct ak_completion *out, uint64_t timeout_ms);
 void ak_queue_shutdown(ak_queue *q);
 void ak_queue_destroy(ak_queue *q);
+/* Cancel any call handle, a stream's included: unblocks a pending ak_call_send or ak_call_recv; does NOT free (ak_call_destroy does, after every operation returned). */
 void ak_call_cancel(ak_call *h);
-/* Open a streamed call on `path` (section 9). `kind` AK_CALL_CLIENT_STREAM is the only kind built; another, or NULL `c`, returns NULL. The client's send path (ak_client_set_framed) applies to every message. Section 9's `ak_call_opts` is not taken: the unary entries take none either. */
-ak_call *ak_call_open(ak_client *c, const uint8_t *path, size_t path_len, int32_t kind);
-/* Send one request message (copied: the host may reuse its buffer on return); `last` nonzero ends the request stream after it. Blocks while the transport has not taken the previous message. After `last`, AK_ERR_INVALID_STATE; a transport failure, AK_ERR_HOST. */
+/* Open a streamed call on `path` (section 9, streaming as built). `kind` AK_CALL_CLIENT_STREAM is built; AK_CALL_SERVER_STREAM and AK_CALL_BIDI_STREAM are reserved and return NULL, as does another kind, NULL `c` or invalid metadata. `opts` may be NULL (no deadline, no metadata). The client's send path (ak_client_set_framed) and limits (ak_client_opts) apply to every message. */
+ak_call *ak_call_open(ak_client *c, const uint8_t *path, size_t path_len, int32_t kind, const struct ak_call_opts *opts);
+/* Send one request message (copied); `last` nonzero ends the request stream after it. Blocks while the transport has not taken the previous message. Above the client's send limit: AK_ERR_LIMIT, nothing sent. After `last`: AK_ERR_INVALID_STATE. On a stream that has already failed: AK_ERR_HOST (the status is read with ak_call_recv). */
 int32_t ak_call_send(ak_call *h, const uint8_t *msg, size_t len, int32_t last);
-/* `ak_call_send` whose message is the encode context's output, MOVED (not copied), as `ak_call_unary_enc`; a context in error is refused with its error. Additive. */
+/* `ak_call_send` whose message is the encode context's output, MOVED (not copied); a context in error is refused with its error. Additive. */
 int32_t ak_call_send_enc(ak_call *h, ak_enc_ctx *enc, int32_t last);
-/* Block for the call's response (for a client stream: after `last`), released with `ak_bytes_free`. A non-OK status or a cancelled call is AK_ERR_HOST; a second recv, AK_ERR_INVALID_STATE. */
-int32_t ak_call_recv(ak_call *h, struct ak_bytes *out);
-/* Cancel the call and unblock a pending `ak_call_recv` (which returns AK_ERR_HOST) or `ak_call_send`; does NOT free (`ak_call_destroy` does, after every operation returned). */
-void ak_call_close(ak_call *h);
+/* Block for the call's response, released with ak_bytes_free. Writes the gRPC status code (0 to 16) to `*grpc_status` (may be NULL) whenever the call completed; returns AK_OK iff it is 0, else AK_ERR_RPC_STATUS (a transport failure is UNAVAILABLE, a cancelled call CANCELLED, a response above the receive limit RESOURCE_EXHAUSTED). A second recv: AK_ERR_INVALID_STATE, `*grpc_status` untouched. */
+int32_t ak_call_recv(ak_call *h, struct ak_bytes *out, int32_t *grpc_status);
 void ak_call_destroy(ak_call *h);
 /* RPC boundary-call counts (counting build). Exported by a core built with `rpc`. */
 struct ak_rpc_counters {
@@ -953,6 +973,33 @@ AK_SASSERT(sizeof(struct ak_init_opts) == 24, "sizeof ak_init_opts");
 AK_SASSERT(sizeof(struct AkCounters) == 48, "sizeof AkCounters");
 AK_SASSERT(sizeof(struct ak_bdr_rec) == 24, "sizeof ak_bdr_rec");
 AK_SASSERT(offsetof(struct ak_bdr_rec, token) == 8, "ak_bdr_rec.token");
+#endif
+#if UINTPTR_MAX == 0xFFFFFFFFFFFFFFFFu
+AK_SASSERT(sizeof(struct ak_bytes) == 24, "sizeof ak_bytes");
+AK_SASSERT(offsetof(struct ak_bytes, ptr) == 0, "ak_bytes.ptr");
+AK_SASSERT(offsetof(struct ak_bytes, len) == 8, "ak_bytes.len");
+AK_SASSERT(offsetof(struct ak_bytes, owner) == 16, "ak_bytes.owner");
+AK_SASSERT(sizeof(struct ak_completion) == 40, "sizeof ak_completion");
+AK_SASSERT(offsetof(struct ak_completion, tag) == 0, "ak_completion.tag");
+AK_SASSERT(offsetof(struct ak_completion, status) == 8, "ak_completion.status");
+AK_SASSERT(offsetof(struct ak_completion, grpc_status) == 12, "ak_completion.grpc_status");
+AK_SASSERT(offsetof(struct ak_completion, bytes) == 16, "ak_completion.bytes");
+AK_SASSERT(sizeof(struct ak_kv) == 32, "sizeof ak_kv");
+AK_SASSERT(offsetof(struct ak_kv, key) == 0, "ak_kv.key");
+AK_SASSERT(offsetof(struct ak_kv, key_len) == 8, "ak_kv.key_len");
+AK_SASSERT(offsetof(struct ak_kv, val) == 16, "ak_kv.val");
+AK_SASSERT(offsetof(struct ak_kv, val_len) == 24, "ak_kv.val_len");
+AK_SASSERT(sizeof(struct ak_call_opts) == 24, "sizeof ak_call_opts");
+AK_SASSERT(offsetof(struct ak_call_opts, deadline_ms) == 0, "ak_call_opts.deadline_ms");
+AK_SASSERT(offsetof(struct ak_call_opts, metadata) == 8, "ak_call_opts.metadata");
+AK_SASSERT(offsetof(struct ak_call_opts, n_metadata) == 16, "ak_call_opts.n_metadata");
+AK_SASSERT(sizeof(struct ak_client_opts) == 24, "sizeof ak_client_opts");
+AK_SASSERT(offsetof(struct ak_client_opts, stream_window) == 0, "ak_client_opts.stream_window");
+AK_SASSERT(offsetof(struct ak_client_opts, connection_window) == 4, "ak_client_opts.connection_window");
+AK_SASSERT(offsetof(struct ak_client_opts, adaptive_window) == 8, "ak_client_opts.adaptive_window");
+AK_SASSERT(offsetof(struct ak_client_opts, max_recv_message) == 12, "ak_client_opts.max_recv_message");
+AK_SASSERT(offsetof(struct ak_client_opts, max_send_message) == 16, "ak_client_opts.max_send_message");
+AK_SASSERT(offsetof(struct ak_client_opts, tcp_nagle) == 20, "ak_client_opts.tcp_nagle");
 #endif
 AK_SASSERT(sizeof(struct ak_client_opts) == 24, "sizeof ak_client_opts");
 AK_SASSERT(offsetof(struct ak_client_opts, stream_window) == 0, "ak_client_opts.stream_window");

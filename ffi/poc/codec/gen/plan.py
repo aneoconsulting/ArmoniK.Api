@@ -913,8 +913,22 @@ class RpcAbi:
          "What a completion carries. Released with `ak_bytes_free`, as the blocking "
          "delivery's bytes are, so a host has one release path whichever delivery it takes.",
          [("tag", "u64", ""),
-          ("status", "i32", ""),
+          ("status", "i32", "AK_OK iff grpc_status is 0; AK_ERR_RPC_STATUS for another code; the "
+                            "core's own errors as before."),
+          ("grpc_status", "i32", "The gRPC status code (0-16); -1 when no call reached the transport."),
           ("bytes", "ak_bytes", "")]),
+        ("ak_kv",
+         "One metadata entry of a call (ABI v1 section 9, streaming as built). ASCII metadata; "
+         "a key ending in \"-bin\" carries raw bytes.",
+         [("key", "*const u8", ""),
+          ("key_len", "usize", ""),
+          ("val", "*const u8", ""),
+          ("val_len", "usize", "")]),
+        ("ak_call_opts",
+         "A streamed call's options (section 9). NULL = no deadline, no metadata.",
+         [("deadline_ms", "u64", "0 = none; otherwise sent as grpc-timeout."),
+          ("metadata", "*const ak_kv", "ASCII metadata; a key ending in \"-bin\" carries raw bytes."),
+          ("n_metadata", "usize", "")]),
         ("ak_client_opts",
          "The transport settings ArmoniK pins. The stream and the connection window are "
          "separate settings on tonic/hyper, so both are here. Zero means \"the stack's\".",
@@ -936,9 +950,38 @@ class RpcAbi:
         ("AK_QUEUE_OK", "i32", 0, "`ak_queue_next` returned a completion."),
         ("AK_QUEUE_TIMEOUT", "i32", 1, "The timeout expired with no completion. Not an error."),
         ("AK_QUEUE_SHUTDOWN", "i32", 2, "The queue is shutting down and is drained."),
-        ("AK_CALL_CLIENT_STREAM", "i32", 1, "`ak_call_open`'s kind: a client-streaming call (many "
-                                            "request messages, one response). The only kind built."),
+        ("AK_CALL_CLIENT_STREAM", "i32", 1, "ak_call_kind: many request messages, one response. BUILT."),
+        ("AK_CALL_SERVER_STREAM", "i32", 2, "ak_call_kind, reserved: ak_call_open returns NULL."),
+        ("AK_CALL_BIDI_STREAM", "i32", 3, "ak_call_kind, reserved: ak_call_open returns NULL."),
     ]
+
+    def layout(self, name):
+        """ONE computation of an RPC struct's C layout on a 64-bit host (C's rules: each
+        member at its alignment, the size rounded to the largest alignment), for the header's
+        static asserts and the core's compile-time offset checks, so both sides check the
+        same numbers: (size, [(member, offset)]). ak_completion's grpc_status (2026-09-27)
+        sits in what was status's padding: the size and the bytes offset did not move."""
+        prim = {"u8": 1, "i32": 4, "u32": 4, "u64": 8, "i64": 8, "usize": 8, "isize": 8}
+        structs = {n: f for n, _d, f in self.structs}
+
+        def size_align(t):
+            t = t.strip()
+            if t.startswith("*") or t.endswith("_cb"):
+                return 8, 8
+            if t in prim:
+                return prim[t], prim[t]
+            sz, _ = self.layout(t)
+            al = max(size_align(ft)[1] for _fn, ft, _d in structs[t])
+            return sz, al
+
+        off, maxal, out = 0, 1, []
+        for fn, ft, _d in structs[name]:
+            sz, al = size_align(ft)
+            off = (off + al - 1) // al * al
+            out.append((fn, off))
+            off += sz
+            maxal = max(maxal, al)
+        return (off + maxal - 1) // maxal * maxal, out
 
     # (name, [(param, type)], return type or None, doc)
     functions = [
@@ -958,10 +1001,16 @@ class RpcAbi:
          "handling, compression (off) and the send limit are the reference path's. Another "
          "value or NULL `c` is AK_ERR_INVALID_STATE. Additive (optimisation T1, option 3)."),
         ("ak_call_unary", [("c", "*mut ak_client"), ("path", "*const u8"), ("path_len", "usize"),
-                           ("req", "*const u8"), ("req_len", "usize"), ("out", "*mut ak_bytes")],
-         "i32", "Blocking delivery: one crossing in, `ak_bytes_free` the only other."),
+                           ("req", "*const u8"), ("req_len", "usize"), ("out", "*mut ak_bytes"),
+                           ("grpc_status", "*mut i32")],
+         "i32", "Blocking delivery: one crossing in, `ak_bytes_free` the only other. Writes the gRPC "
+                "status code to `*grpc_status` (may be NULL; -1 when no call reached the transport); "
+                "returns AK_OK iff it is 0, AK_ERR_RPC_STATUS for another code, the core's own errors "
+                "as before (AK_ERR_LIMIT above the client's send limit, nothing sent, or its receive "
+                "limit)."),
         ("ak_call_unary_enc", [("c", "*mut ak_client"), ("path", "*const u8"), ("path_len", "usize"),
-                               ("enc", "*mut ak_enc_ctx"), ("out", "*mut ak_bytes")],
+                               ("enc", "*mut ak_enc_ctx"), ("out", "*mut ak_bytes"),
+                               ("grpc_status", "*mut i32")],
          "i32", "Blocking delivery whose request is the encode context's output, MOVED (not "
                 "copied); the context's encoded bytes are consumed. Additive (optimisation R2)."),
         ("ak_bytes_free", [("b", "*mut ak_bytes")], None, ""),
@@ -986,30 +1035,32 @@ class RpcAbi:
          "i32", "Wait up to `timeout_ms` for one completion. R-G5: `u64`, as the core defines it."),
         ("ak_queue_shutdown", [("q", "*mut ak_queue")], None, ""),
         ("ak_queue_destroy", [("q", "*mut ak_queue")], None, ""),
-        ("ak_call_cancel", [("h", "*mut ak_call")], None, ""),
+        ("ak_call_cancel", [("h", "*mut ak_call")], None,
+         "Cancel any call handle, a stream's included: unblocks a pending ak_call_send or "
+         "ak_call_recv; does NOT free (ak_call_destroy does, after every operation returned)."),
         # U2-stream (ABI v1 section 9's streamed call; owner): blocking delivery, as req 16.
         ("ak_call_open", [("c", "*mut ak_client"), ("path", "*const u8"), ("path_len", "usize"),
-                          ("kind", "i32")], "*mut ak_call",
-         "Open a streamed call on `path` (section 9). `kind` AK_CALL_CLIENT_STREAM is the only "
-         "kind built; another, or NULL `c`, returns NULL. The client's send path "
-         "(ak_client_set_framed) applies to every message. Section 9's `ak_call_opts` is not "
-         "taken: the unary entries take none either."),
+                          ("kind", "i32"), ("opts", "*const ak_call_opts")], "*mut ak_call",
+         "Open a streamed call on `path` (section 9, streaming as built). `kind` "
+         "AK_CALL_CLIENT_STREAM is built; AK_CALL_SERVER_STREAM and AK_CALL_BIDI_STREAM are "
+         "reserved and return NULL, as does another kind, NULL `c` or invalid metadata. "
+         "`opts` may be NULL (no deadline, no metadata). The client's send path "
+         "(ak_client_set_framed) and limits (ak_client_opts) apply to every message."),
         ("ak_call_send", [("h", "*mut ak_call"), ("msg", "*const u8"), ("len", "usize"),
                           ("last", "i32")], "i32",
-         "Send one request message (copied: the host may reuse its buffer on return); `last` "
-         "nonzero ends the request stream after it. Blocks while the transport has not taken "
-         "the previous message. After `last`, AK_ERR_INVALID_STATE; a transport failure, "
-         "AK_ERR_HOST."),
+         "Send one request message (copied); `last` nonzero ends the request stream after it. "
+         "Blocks while the transport has not taken the previous message. Above the client's "
+         "send limit: AK_ERR_LIMIT, nothing sent. After `last`: AK_ERR_INVALID_STATE. On a "
+         "stream that has already failed: AK_ERR_HOST (the status is read with ak_call_recv)."),
         ("ak_call_send_enc", [("h", "*mut ak_call"), ("enc", "*mut ak_enc_ctx"), ("last", "i32")], "i32",
-         "`ak_call_send` whose message is the encode context's output, MOVED (not copied), as "
-         "`ak_call_unary_enc`; a context in error is refused with its error. Additive."),
-        ("ak_call_recv", [("h", "*mut ak_call"), ("out", "*mut ak_bytes")], "i32",
-         "Block for the call's response (for a client stream: after `last`), released with "
-         "`ak_bytes_free`. A non-OK status or a cancelled call is AK_ERR_HOST; a second recv, "
-         "AK_ERR_INVALID_STATE."),
-        ("ak_call_close", [("h", "*mut ak_call")], None,
-         "Cancel the call and unblock a pending `ak_call_recv` (which returns AK_ERR_HOST) or "
-         "`ak_call_send`; does NOT free (`ak_call_destroy` does, after every operation returned)."),
+         "`ak_call_send` whose message is the encode context's output, MOVED (not copied); a "
+         "context in error is refused with its error. Additive."),
+        ("ak_call_recv", [("h", "*mut ak_call"), ("out", "*mut ak_bytes"), ("grpc_status", "*mut i32")], "i32",
+         "Block for the call's response, released with ak_bytes_free. Writes the gRPC status "
+         "code (0 to 16) to `*grpc_status` (may be NULL) whenever the call completed; returns "
+         "AK_OK iff it is 0, else AK_ERR_RPC_STATUS (a transport failure is UNAVAILABLE, a "
+         "cancelled call CANCELLED, a response above the receive limit RESOURCE_EXHAUSTED). A "
+         "second recv: AK_ERR_INVALID_STATE, `*grpc_status` untouched."),
         ("ak_call_destroy", [("h", "*mut ak_call")], None, ""),
     ]
 
@@ -1073,6 +1124,7 @@ class FixedAbi:
         ("AK_ERR_PANIC", -9, "a caught Rust panic"),
         ("AK_ERR_UNINITIALIZED", -10, "ak_init was not called"),
         ("AK_ERR_ABI", -11, "version or group-layout mismatch"),
+        ("AK_ERR_RPC_STATUS", -12, "the call completed with a non-OK gRPC status (read it with ak_call_recv)"),
     ]
     # ak_err.detail values (ABI v1 section 3).
     details = [("AK_DETAIL_NONE", 0), ("AK_DETAIL_ABI_MISMATCH", 1),

@@ -12,8 +12,8 @@ const _ak_client_new: unsafe extern "C" fn(*mut ak_runtime, *const u8, usize) ->
 const _ak_client_new_opts: unsafe extern "C" fn(*mut ak_runtime, *const u8, usize, *const ak_client_opts) -> *mut ak_client = crate::rpc::ak_client_new_opts;
 const _ak_client_destroy: unsafe extern "C" fn(*mut ak_client) = crate::rpc::ak_client_destroy;
 const _ak_client_set_framed: unsafe extern "C" fn(*mut ak_client, i32) -> i32 = crate::rpc::ak_client_set_framed;
-const _ak_call_unary: unsafe extern "C" fn(*mut ak_client, *const u8, usize, *const u8, usize, *mut ak_bytes) -> i32 = crate::rpc::ak_call_unary;
-const _ak_call_unary_enc: unsafe extern "C" fn(*mut ak_client, *const u8, usize, *mut ak_enc_ctx, *mut ak_bytes) -> i32 = crate::rpc::ak_call_unary_enc;
+const _ak_call_unary: unsafe extern "C" fn(*mut ak_client, *const u8, usize, *const u8, usize, *mut ak_bytes, *mut i32) -> i32 = crate::rpc::ak_call_unary;
+const _ak_call_unary_enc: unsafe extern "C" fn(*mut ak_client, *const u8, usize, *mut ak_enc_ctx, *mut ak_bytes, *mut i32) -> i32 = crate::rpc::ak_call_unary_enc;
 const _ak_bytes_free: unsafe extern "C" fn(*mut ak_bytes) = crate::rpc::ak_bytes_free;
 const _ak_enc_take_owned: unsafe extern "C" fn(*mut ak_enc_ctx, *mut ak_bytes) -> i32 = crate::rpc::ak_enc_take_owned;
 const _ak_call_unary_cb: unsafe extern "C" fn(*mut ak_client, *const u8, usize, *const u8, usize, ak_completion_cb, *mut c_void, u64) -> *mut ak_call = crate::rpc::ak_call_unary_cb;
@@ -23,12 +23,42 @@ const _ak_queue_next: unsafe extern "C" fn(*mut ak_queue, *mut ak_completion, u6
 const _ak_queue_shutdown: unsafe extern "C" fn(*mut ak_queue) = crate::rpc::ak_queue_shutdown;
 const _ak_queue_destroy: unsafe extern "C" fn(*mut ak_queue) = crate::rpc::ak_queue_destroy;
 const _ak_call_cancel: unsafe extern "C" fn(*mut ak_call) = crate::rpc::ak_call_cancel;
-const _ak_call_open: unsafe extern "C" fn(*mut ak_client, *const u8, usize, i32) -> *mut ak_call = crate::rpc::ak_call_open;
+const _ak_call_open: unsafe extern "C" fn(*mut ak_client, *const u8, usize, i32, *const ak_call_opts) -> *mut ak_call = crate::rpc::ak_call_open;
 const _ak_call_send: unsafe extern "C" fn(*mut ak_call, *const u8, usize, i32) -> i32 = crate::rpc::ak_call_send;
 const _ak_call_send_enc: unsafe extern "C" fn(*mut ak_call, *mut ak_enc_ctx, i32) -> i32 = crate::rpc::ak_call_send_enc;
-const _ak_call_recv: unsafe extern "C" fn(*mut ak_call, *mut ak_bytes) -> i32 = crate::rpc::ak_call_recv;
-const _ak_call_close: unsafe extern "C" fn(*mut ak_call) = crate::rpc::ak_call_close;
+const _ak_call_recv: unsafe extern "C" fn(*mut ak_call, *mut ak_bytes, *mut i32) -> i32 = crate::rpc::ak_call_recv;
 const _ak_call_destroy: unsafe extern "C" fn(*mut ak_call) = crate::rpc::ak_call_destroy;
 const _ak_rpc_counting: unsafe extern "C" fn() -> i32 = crate::rpc::ak_rpc_counting;
 const _ak_rpc_counters: unsafe extern "C" fn(*mut ak_rpc_counters) = crate::rpc::ak_rpc_counters;
 const _ak_rpc_counters_reset: unsafe extern "C" fn() = crate::rpc::ak_rpc_counters_reset;
+
+// Every RPC struct's size and member offsets on a 64-bit host, from plan.rpc.layout
+// (the numbers the C header asserts too).
+#[cfg(target_pointer_width = "64")]
+const _: () = {
+    assert!(core::mem::size_of::<ak_bytes>() == 24);
+    assert!(core::mem::offset_of!(ak_bytes, ptr) == 0);
+    assert!(core::mem::offset_of!(ak_bytes, len) == 8);
+    assert!(core::mem::offset_of!(ak_bytes, owner) == 16);
+    assert!(core::mem::size_of::<ak_completion>() == 40);
+    assert!(core::mem::offset_of!(ak_completion, tag) == 0);
+    assert!(core::mem::offset_of!(ak_completion, status) == 8);
+    assert!(core::mem::offset_of!(ak_completion, grpc_status) == 12);
+    assert!(core::mem::offset_of!(ak_completion, bytes) == 16);
+    assert!(core::mem::size_of::<ak_kv>() == 32);
+    assert!(core::mem::offset_of!(ak_kv, key) == 0);
+    assert!(core::mem::offset_of!(ak_kv, key_len) == 8);
+    assert!(core::mem::offset_of!(ak_kv, val) == 16);
+    assert!(core::mem::offset_of!(ak_kv, val_len) == 24);
+    assert!(core::mem::size_of::<ak_call_opts>() == 24);
+    assert!(core::mem::offset_of!(ak_call_opts, deadline_ms) == 0);
+    assert!(core::mem::offset_of!(ak_call_opts, metadata) == 8);
+    assert!(core::mem::offset_of!(ak_call_opts, n_metadata) == 16);
+    assert!(core::mem::size_of::<ak_client_opts>() == 24);
+    assert!(core::mem::offset_of!(ak_client_opts, stream_window) == 0);
+    assert!(core::mem::offset_of!(ak_client_opts, connection_window) == 4);
+    assert!(core::mem::offset_of!(ak_client_opts, adaptive_window) == 8);
+    assert!(core::mem::offset_of!(ak_client_opts, max_recv_message) == 12);
+    assert!(core::mem::offset_of!(ak_client_opts, max_send_message) == 16);
+    assert!(core::mem::offset_of!(ak_client_opts, tcp_nagle) == 20);
+};

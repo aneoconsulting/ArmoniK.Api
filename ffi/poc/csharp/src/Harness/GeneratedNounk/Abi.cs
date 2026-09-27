@@ -775,6 +775,7 @@ public static unsafe partial class Abi
     public const int AK_ERR_PANIC = -9;
     public const int AK_ERR_UNINITIALIZED = -10;
     public const int AK_ERR_ABI = -11;
+    public const int AK_ERR_RPC_STATUS = -12;
     public const uint AK_INIT_OWN_LOGGING = 1u;
     public const uint AK_INIT_NO_PANIC_HOOK = 2u;
     public const uint AK_INIT_NO_CRYPTO = 4u;
