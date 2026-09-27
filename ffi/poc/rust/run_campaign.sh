@@ -15,6 +15,9 @@
 #   AK_LLC_BYTES    codec: the last-level cache in bytes (default 14417920, the i9-7900X's 13.75 MiB)
 #   AK_POOL_BYTES   codec: requirement 11's pool input (default 2 x AK_LLC_BYTES; smoke 1 MiB)
 #   AK_SERVER_THREADS  rpc: the server's tokio workers (default 4, the SERVER set size)
+#   Warm-ups (requirement 24; campaign default / smoke default): AK_WARMUP_ITERS 100 / 3,
+#   AK_WARMUP_MS (criterion's warm-up) 500 / 5, AK_RPC_SERVER_WARMUP 64 / 16,
+#   AK_RPC_WARMUP (per cell, dir, in-flight) 64 / 16
 #   AK_ALLOW_DIRTY=1  run on a dirty tree (recorded in every header; requirement 27 refuses
 #                   a dirty tree, so the campaign never sets it)
 #
@@ -88,6 +91,7 @@ header() {  # header SUITE [VARIANT]
   echo "# incumbent  prost $(awk '/^name = "prost"$/{getline; print $3}' Cargo.lock | tr -d '"'), tonic $(awk '/^name = "tonic"$/{getline; print $3}' Cargo.lock | tr -d '"'), tonic-prost $(awk '/^name = "tonic-prost"$/{getline; print $3}' Cargo.lock | tr -d '"'); criterion $(awk '/^name = "criterion"$/{getline; print $3}' Cargo.lock | tr -d '"')"
   echo "# build      cargo --release (opt-level 3, lto off, codegen-units default), core ak-core as a cdylib linked through the dynamic linker, core features $( [ "$variant" = nounk ] && echo "rpc,init-guard WITHOUT unknown-fields (the no-unknown variant, target-nounk/)" || echo "rpc,init-guard,unknown-fields (the full variant, target/)"); harness guard on; transcoder ak_tc_utf8_trusted (a Rust String is UTF-8)"
   echo "# repeats    launches=$LAUNCHES rounds=$ROUNDS smoke=${AK_SMOKE:-0}"
+  echo "# warm-ups   (requirement 24; campaign default / smoke default; the environment wins) codec: AK_WARMUP_ITERS 100 / 3 fixed iterations per case, then criterion AK_WARMUP_MS 500 / 5 ms; rpc: AK_RPC_SERVER_WARMUP 64 / 16 checked calls from each client transport, AK_RPC_WARMUP 64 / 16 calls per (cell, dir, in-flight); calib: iters/10 per arm. The values used are in each log's own header"
 }
 cpus_required() {
   for v in "$@"; do
@@ -197,8 +201,13 @@ case "$SUITE" in
     cpus_required AK_CPU_CLIENT AK_CPU_SERVER
     need_gate
     build
-    CALLS=${AK_RPC_CALLS:-96}; WARM=${AK_RPC_WARMUP:-64}; SWARM=${AK_RPC_SERVER_WARMUP:-64}
-    if [ "${AK_SMOKE:-0}" = 1 ]; then CALLS=16; WARM=16; SWARM=16; fi
+    # Requirement 24 as amended (85cfd4826): every warm-up is a parameter, with the campaign
+    # default below and a shorter one under AK_SMOKE=1; the environment wins in both.
+    if [ "${AK_SMOKE:-0}" = 1 ]; then
+      CALLS=${AK_RPC_CALLS:-16}; WARM=${AK_RPC_WARMUP:-16}; SWARM=${AK_RPC_SERVER_WARMUP:-16}
+    else
+      CALLS=${AK_RPC_CALLS:-96}; WARM=${AK_RPC_WARMUP:-64}; SWARM=${AK_RPC_SERVER_WARMUP:-64}
+    fi
     export AK_SERVER_THREADS=${AK_SERVER_THREADS:-4}
     # Requirement 13 as amended (R-H33): ONE server process and configuration per launch,
     # serving every cell of BOTH builds' clients, on a Unix domain socket (requirement 17,

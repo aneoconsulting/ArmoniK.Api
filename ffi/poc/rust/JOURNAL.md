@@ -3385,3 +3385,13 @@ rendered into every slice's header/binding; other slices' generated output regen
   both transports, every k, client CPU and wall, median [min-max] over 3 rounds; full and
   no-unknown clients). Round spread (max/min per entry, client CPU, 1,020 entries): median
   1.08, p90 1.41, max 8.08. Container instrumentation.
+
+## 2026-09-27 -- CAMPAIGN req 24 as amended (85cfd4826): warm-ups as runner parameters
+
+- Checked: criterion's warm-up (AK_WARMUP_MS 500 / smoke 5 ms) and the fixed iterations
+  (AK_WARMUP_ITERS 100 / 3) were already knobs, shortened under smoke. The RPC warm-ups
+  (AK_RPC_WARMUP, AK_RPC_SERVER_WARMUP, 64) were knobs in a campaign run, but AK_SMOKE=1
+  overwrote them with 16, ignoring the environment. Fixed: the smoke default is 16 and the
+  environment wins in both modes. The runner header now lists every warm-up knob with its
+  campaign and smoke defaults; the values used stay in each log's own header. No gated
+  path changed (run_campaign.sh is not in gen/gate.sh), so no gate was run.
