@@ -1,1 +1,1 @@
-# INSTRUMENTATION smoke (clean worktree at 45659fd7d); summary figures stripped.
+# INSTRUMENTATION smoke (clean worktree at ccfb08db2); summary figures stripped.

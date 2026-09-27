@@ -1,6 +1,6 @@
 # python slice: conformance on _akffi_rpc, py3.12
-# date:      2026-09-27T14:32:18Z
-# commit:    45659fd7d
+# date:      2026-09-27T16:28:43Z
+# commit:    ccfb08db2
 # phase:     correctness only; nothing here is a timing
 
 # python slice, work unit 2: conformance on the COMPOSED arm (README R2)
@@ -56,8 +56,8 @@ generated tree is current with the plans (18 files)
         ok    core-ffi / pyacc (python fn)
         ok    core-ffi / pyacc (C attrgetter)
    P2.1     1037 bytes  sha 8c8deaf03e8dbdcc  (1 elements)
-        ok    upb (incumbent)
-        ok    upb, message parsed not built
+        ok*   upb (incumbent)                  legal alternative form: same length, different order: SerializeToString does not sort map entries and the canonical form does. `deterministic=True` is the row that matches.
+        ok*   upb, message parsed not built    legal alternative form: same length, different order: SerializeToString does not sort map entries and the canonical form does. `deterministic=True` is the row that matches.
         ok    upb, deterministic=True
         ok    pycodec / plain
         ok    pycodec / __slots__

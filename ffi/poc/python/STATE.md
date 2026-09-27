@@ -10,7 +10,7 @@ labelled.
 
 | | |
 |---|---|
-| **Status** | FIX-PLAN WP8 done on the merged core (98b187ce6 and later): section 9's gRPC status number, client streaming, the framed send path, D44's enforced limits, the counting build's geometric grow, one reset per retain decode, the trusted UTF-8 transcoder on encode, and CAMPAIGN req 14's directions (c) and (d), now required. Gated from a clean worktree at 45659fd7d, both builds at 3.12 and 3.7; the smoke there shows every new row (figures stripped). The owner's scope rule applies |
+| **Status** | FIX-PLAN WP8 done on the merged core (98b187ce6 and later): section 9's gRPC status number, client streaming, the framed send path, D44's enforced limits, the counting build's geometric grow, one reset per retain decode, the trusted UTF-8 transcoder on encode, and CAMPAIGN req 14's directions (c) and (d), now required. Cell C sends through the move path (ak_call_unary_enc / ak_call_send_enc), as in the Rust and C++ slices. Gated from a clean worktree at ccfb08db2, both builds at 3.12 and 3.7; the smoke there shows every new row (figures stripped). The owner's scope rule applies |
 | **Target** (owner D1) | CPython 3.12.3; grpcio 1.84.0, protobuf 7.36.2 (upb) |
 | **Floor** (owner D1) | CPython 3.7.5 (Ubuntu 18.04's packages, `fetch_py37.sh`, sha256-pinned); protobuf 4.24.4 (upb) as the incumbent there. The floor runs the correctness gate only |
 | **Incumbent** (R14) | protobuf on upb through gRPC's generated marshaller path (`SerializeToString` / `FromString`); derived from `Protos/V1` by `verify_r14.py` (log 52) |
@@ -57,13 +57,13 @@ mech/                      the crossing-mechanism microbenchmark (no wire rule) 
 
 ## The clean gate
 
-Fresh `git worktree` at **45659fd7d** (the WP8 changes, on the merged core of 98b187ce6; `git status` empty), fresh build
+Fresh `git worktree` at **ccfb08db2** (the WP8 changes and the move path, on the merged core of 98b187ce6; `git status` empty), fresh build
 directories. Prerequisites run first in that worktree: `./fetch_py37.sh`, then
 `mech/build.sh python3.12` (it writes shapes_pb2 for 3.12). Then `./gate.sh python3.12
 build/py37/python3.7`. The worktree was built from the committed core, not from `poc/codec`'s
 working tree, which another agent is editing.
 
-Result: **`gate exit 0`**. All 24 logs carry `# commit: 45659fd7d`, and none says uncommitted.
+Result: **`gate exit 0`**. All 24 logs carry `# commit: ccfb08db2`, and none says uncommitted.
 The worktree and its builds were deleted after the run.
 - `gen/generate.py --check` is clean (18 files).
 - The shared `poc/codec/gen/generate.py --check` with the new slice guard (R-H13): the python
@@ -71,9 +71,9 @@ The worktree and its builds were deleted after the run.
   token). The command's overall exit is 1, because the rust slice's check fails there; that is
   not this slice's.
 - Crossing counts are unchanged by the core changes: 103 and 98 are identical.
-- The earlier clean gates (d2cd0b0, b5f5bcfc4, 31fc3eecf, 3f2574775, c7c083f68) also passed; their logs are replaced by these.
+- The earlier clean gates (d2cd0b0, b5f5bcfc4, 31fc3eecf, 3f2574775, c7c083f68, 45659fd7d) also passed; their logs are replaced by these.
 - Req 19's new count files are identical at both levels: `abi-full` 560 rows, `abi-nounk` 344,
-  `rpc-full` 74, `rpc-nounk` 43 (with directions c and d and the framed twins; gate 103 and 105).
+  `rpc-full` 84, `rpc-nounk` 48 (with directions c and d, the framed twins and the copy-path extra Cc-*; gate 103 and 105).
 
 | step | what | 3.12 | 3.7 |
 |---|---|---|---|
@@ -294,26 +294,34 @@ Fixed defects (D1-D14, the NULL module state in `mod_traverse`, the process-wide
 - **Content sets** are measured on P2.4 only; P1.2's crossing counts cover ASCII only.
 - **The facade's `_unknown` in the full build** is one slot per object. It is priced only
   through the full build against the no-unknown build.
-- **The campaign smoke** in `logs/python/campaign/` is from the clean worktree at 45659fd7d,
+- **The campaign smoke** in `logs/python/campaign/` is from the clean worktree at ccfb08db2,
   figures stripped. It shows every WP7 and WP8 row:
   - codec full: 836 shape values, which include `encode-pool`, `encode-reused` and
     `encode-pool-reused`, and Latin-1/wide on P1.2, P2.2 and P2.4;
   - codec no-unknown: 396 shape values, host-gen no-unknown included (and in the unknown
     family, 45 values);
   - the unknown family through the shapes core, and the unknown-corpus extra;
-  - RPC no-unknown: 270 samples, cells A, B, C-nounk, D-nounk, E-nounk, F-nounk and the
-    framed twins, in a, a+read, b, c (72) and d (72);
-  - RPC full: 474 samples, E and F included, with c (120) and d (120) in every cell and the
-    framed twins;
+  - RPC no-unknown: 292 samples, cells A, B, C-nounk, D-nounk, E-nounk, F-nounk, the framed
+    twins and Cc-nounk, in a, a+read, b, c (80) and d (80);
+  - RPC full: 518 samples, E and F included, with c (136) and d (136) in every cell, the framed
+    twins and Cc-drop / Cc-retain;
   - one server for both builds, over Unix sockets.
   The smoke's pool is 1 MiB (the campaign's default is 13.75 MiB).
 - **No reused-buffer encode for the incumbent and host-gen** (req 11 (i)): upb-python has no
   serialise-into entry point, and host-gen appends to a bytearray that CPython reallocates.
 - **RPC counts** are taken on the `shipped` transport, one call at a time.
-- **The move paths** `ak_call_send_enc`, `ak_call_unary_enc` and `ak_enc_take_owned` are not
-  used. The shim's encode yields a Python `bytes`, which the copy paths take; a move path would
-  need an encode entry that leaves the encoding in the core's context. This is stated, not
-  built. Rust's C cells use the move paths.
+- **The move path.**
+  - Cell C, and its framed twin Cf-*, sends through `ak_call_unary_enc` (b, c) and
+    `ak_call_send_enc` (d). The facade is encoded into the thread's core encode context and the
+    context's buffer becomes the request; no Python bytes object is made. This is the shim's
+    `encode(..., into=(client, path))` or `(call, last)`.
+  - The copy path (`ak_enc_take` into a `bytes`, then `ak_call_unary` / `ak_call_send`) is kept
+    as the labelled extra `Cc-*`.
+  - Direction (a) has an empty request and sends it with `ak_call_unary`, as the Rust slice does.
+  - **D cannot use `ak_enc_take_owned`.** grpcio's request serializer must return a `bytes`
+    (checked: a memoryview and a bytearray are refused with TypeError), and a `bytes` owns its
+    memory, so the core's buffer cannot be handed over without a copy. D keeps its one copy
+    (`ak_enc_take` into a bytes object).
 - **Decode-side re-validation** (WP8 item 4): CPython builds a `str` from UTF-8 only through a
   validating decode (`PyUnicode_DecodeUTF8`); no non-validating constructor exists, so a
   string the core accepted is validated again as it is decoded. The sparse fill already

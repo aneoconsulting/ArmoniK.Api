@@ -1470,3 +1470,21 @@ header, so no hand-mirrored layout exists. `ak_call_close` was never called here
 
 **Clean gate** at 45659fd7d: `gate exit 0`, 24 logs clean. **Smoke:** RPC full 474 samples
 (c 120, d 120), no-unknown 270 (c 72, d 72); codec unchanged (836 / 396).
+
+### J53. Cell C on the move path (WP8 parity)
+
+The Rust and C++ slices send cell C through `ak_call_unary_enc` / `ak_call_send_enc`; this
+slice copied a Python `bytes` into `ak_call_unary` / `ak_call_send`. The two did different
+work, so this is now aligned.
+- **The shim.** An encode whose `into` is `(client, path)` or `(call, last)` sends the core
+  context's buffer: py_capi renders the check, and `native/binding.c` implements the send with
+  the GIL released.
+- **The harness.** C and Cf use it in b, c and d; (a) keeps `ak_call_unary` with its empty
+  request, as Rust does. The copy path stays as the labelled extra `Cc-*`.
+- **Counts:** in c and d, C makes one ABI call fewer per message than Cc (no `ak_enc_take`),
+  and in b one fewer. `rpc-full` has 84 rows, `rpc-nounk` 48, deterministic over two runs.
+- **D and `ak_enc_take_owned`:** not possible. grpcio's request serializer must return a
+  `bytes`; a memoryview and a bytearray were tried and refused with TypeError. A `bytes` owns its
+  memory, so D keeps its one copy (stated).
+- **Clean gate** at ccfb08db2: `gate exit 0`, 24 logs clean.
+- **Smoke:** RPC full 518 samples, no-unknown 292.
