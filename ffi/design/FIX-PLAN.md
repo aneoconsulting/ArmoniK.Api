@@ -537,9 +537,8 @@ around the framework is replaced by the framework's own mechanism where it has o
 
 ### WP10. One RPC server for every slice: the Rust slice's (owner, 2026-09-27)
 
-CAMPAIGN req 13 as amended. The Rust slice provides a shared launcher (a script under
-`ffi/`, owned by the aggregating session, calling the Rust slice's `rpc_server`) with
-a documented interface: build once, start pinned to `SERVER` on the shipped and pinned
+CAMPAIGN req 13 as amended. The Rust slice provides a shared launcher, `poc/rust/serve.sh`, and its
+interface, `poc/rust/SERVER.md`: build once, start pinned to `SERVER` on the shipped and pinned
 Unix sockets, the method paths for directions a, b, c, d and the upload check, the
 warm-up command, the limits, and stop. Every other slice points its clients at those
 paths, removes its own server, keeps every cell and direction, and re-gates. The
