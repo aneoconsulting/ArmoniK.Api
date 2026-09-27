@@ -15,6 +15,8 @@
 #   AK_LLC_BYTES    codec: the last-level cache in bytes (default 14417920, the i9-7900X's 13.75 MiB)
 #   AK_POOL_BYTES   codec: requirement 11's pool input (default 2 x AK_LLC_BYTES; smoke 1 MiB)
 #   AK_SERVER_THREADS  rpc: the server's tokio workers (default 4, the SERVER set size)
+#   AK_RPC_TRANSPORTS / AK_RPC_BUILDS  rpc: narrow a (smoke) run, default "shipped pinned" /
+#                   "full nounk"
 #   Warm-ups and measurement (requirement 24; campaign default / smoke default; criterion's
 #   own warm-up everywhere, FIX-PLAN WP9): codec AK_WARMUP_MS 500 / 5, AK_MEASURE_MS 2000 / 10;
 #   rpc AK_RPC_WARMUP_MS 500 / 5, AK_RPC_MEASURE_MS 2000 / 20, AK_RPC_SAMPLES 10 (criterion's
@@ -218,66 +220,80 @@ case "$SUITE" in
     fi
     RSAMP=${AK_RPC_SAMPLES:-10}
     export AK_SERVER_THREADS=${AK_SERVER_THREADS:-4}
-    # Requirement 13 as amended (R-H33): ONE server process and configuration per launch,
-    # serving every cell of BOTH builds' clients, on a Unix domain socket (requirement 17,
-    # R-H28). The runner starts it; each client process warms it by $SWARM checked calls
-    # from each of its transports before its first benchmark, and opens one channel per cell.
-    start_server() {  # start_server T L -> SP, SOCK
-      SOCK="$SCRATCH/grid-$1-$2.sock"; local RF="$SCRATCH/ready-$1-$2"; rm -f "$RF" "$SOCK"
-      taskset -c "$AK_CPU_SERVER" target/release/rpc_server --transport "$1" --socket "$SOCK" --ready-file "$RF" \
-        2> "$OUT/rpc-$1-launch$2.server.log" &
-      SP=$!
-      for _ in $(seq 100); do [ -s "$RF" ] && break; sleep 0.1; done
-      [ -s "$RF" ] || { echo "rpc_server ($1, launch $2) did not start" >&2; kill $SP; exit 1; }
+    # Requirement 13 as amended (R-H33, and 9f6d579fa / FIX-PLAN WP10): ONE server process per
+    # launch, THE server of every slice (poc/rust/serve.sh, interface SERVER.md), serving both
+    # configurations on two Unix sockets (requirement 17) and every cell of BOTH builds. The
+    # runner starts it, warms it ($SWARM checked calls per direction from a tonic and a core
+    # client on each socket), then runs criterion; each benchmark process opens one channel
+    # per cell.
+    export AK_SERVE_STATE="$SCRATCH/serve.state"
+    ./serve.sh build > /dev/null
+    serve_start() {  # serve_start TAG -> SOCK_shipped, SOCK_pinned
+      local o; o=$(./serve.sh start --out "$SCRATCH/serve-$1")
+      SOCK_shipped=$(echo "$o" | sed -n 's/^shipped //p'); SOCK_pinned=$(echo "$o" | sed -n 's/^pinned //p')
+      cp "$SCRATCH/serve-$1/rpc-server.log" "$OUT/rpc-launch$1.server.log" 2>/dev/null || true
+    }
+    serve_stop() {  # serve_stop TAG
+      cp "$SCRATCH/serve-$1/rpc-server.log" "$OUT/rpc-launch$1.server.log" 2>/dev/null || true
+      ./serve.sh stop > /dev/null
     }
     rpc_bench() {  # rpc_bench EXE OUT CRITHOME [NAME=VALUE ...]: one criterion process
-      local exe=$1 out=$2 home=$3; shift 3
-      env AK_RPC_SOCKET="$SOCK" AK_RPC_TRANSPORT="$T" AK_OUT="$out" CRITERION_HOME="$home" \
-          AK_SAMPLES="$RSAMP" AK_WARMUP_MS="$RWARM" AK_MEASURE_MS="$RMEAS" AK_RPC_SERVER_WARMUP="$SWARM" "$@" \
+      local exe=$1 out=$2 home=$3 sock; shift 3
+      sock=SOCK_$T; sock=${!sock}
+      env AK_RPC_SOCKET="$sock" AK_RPC_TRANSPORT="$T" AK_OUT="$out" CRITERION_HOME="$home" \
+          AK_SAMPLES="$RSAMP" AK_WARMUP_MS="$RWARM" AK_MEASURE_MS="$RMEAS" "$@" \
           taskset -c "$AK_CPU_CLIENT" "$exe"
     }
-    for T in shipped pinned; do
-      # Requirement 18's controls, per client binary, against their own server: a wrong
-      # expected length must abort with no sample. Once per send path in the warm-up (A:
-      # tonic codec, B: core reference, Bf: core framed, Df: tonic Channel framed) and
-      # direction (a, c, d), and once INSIDE a criterion benchmark (a failed check panics).
-      start_server "$T" plant
-      for v in full nounk; do
+    TRANSPORTS=${AK_RPC_TRANSPORTS:-shipped pinned}
+    BUILDS=${AK_RPC_BUILDS:-full nounk}
+    # Requirement 18's controls, per client binary and transport, against their own server:
+    # a wrong expected length must abort with no sample. Once per send path in the warm-up
+    # (A: tonic codec, B: core reference, Bf: core framed, Df: tonic Channel framed) and
+    # direction (a, c, d), and once INSIDE a criterion benchmark (a failed check panics).
+    serve_start plant
+    for T in $TRANSPORTS; do
+      for v in $BUILDS; do
         EXE=$RPCB; [ "$v" = nounk ] && EXE=$RPCB_NOUNK
         for WP in A B Bf Df; do for WD in a c d; do
           PL="$OUT/rpc-$T-$v-$WP-$WD-PLANT.log"; rm -f "$SCRATCH/plant.jsonl"
-          if rpc_bench "$EXE" "$SCRATCH/plant.jsonl" "$SCRATCH/crit-plant" AK_RPC_PLANT=warm \
+          if rpc_bench "$EXE" "$SCRATCH/plant.jsonl" "$SCRATCH/crit-plant" AK_RPC_PLANT=warm AK_RPC_SERVER_WARMUP=1 \
                AK_RPC_WARM_CELLS="$WP" AK_RPC_WARM_DIR="$WD" > "$PL" 2>&1 || [ -e "$SCRATCH/plant.jsonl" ]; then
-            echo "CONTROL FAILED: the planted wrong length did not abort ($T, $v client, cell $WP, dir $WD)" >&2; kill $SP; exit 1
+            echo "CONTROL FAILED: the planted wrong length did not abort ($T, $v client, cell $WP, dir $WD)" >&2; serve_stop plant; exit 1
           fi
           echo "rpc $T ($v client, cell $WP, dir $WD): control (planted wrong length) aborted with no output: $(grep -m1 ABORT "$PL")"
         done; done
         PL="$OUT/rpc-$T-$v-bench-PLANT.log"; rm -f "$SCRATCH/plant.jsonl"
-        if rpc_bench "$EXE" "$SCRATCH/plant.jsonl" "$SCRATCH/crit-plant" AK_RPC_PLANT=bench AK_RPC_CELLS=B \
+        if rpc_bench "$EXE" "$SCRATCH/plant.jsonl" "$SCRATCH/crit-plant" AK_RPC_PLANT=bench AK_RPC_CELLS=B AK_RPC_SERVER_WARMUP=0 \
              > "$PL" 2>&1 || [ -e "$SCRATCH/plant.jsonl" ]; then
-          echo "CONTROL FAILED: the planted wrong length inside a criterion benchmark did not abort ($T, $v)" >&2; kill $SP; exit 1
+          echo "CONTROL FAILED: the planted wrong length inside a criterion benchmark did not abort ($T, $v)" >&2; serve_stop plant; exit 1
         fi
         echo "rpc $T ($v client, inside criterion): control aborted with no output: $(grep -m1 ABORT "$PL")"
       done
-      kill $SP; wait $SP 2>/dev/null || true
-      rpc_run() {  # rpc_run L VARIANT
-        local L=$1 v=$2 EXE=$RPCB F="$OUT/rpc-$T-launch$1.jsonl"
-        [ "$v" = nounk ] && { EXE=$RPCB_NOUNK; F="$OUT/rpc-$T-nounk-launch$L.jsonl"; }
-        local C="${F%.jsonl}.criterion.log"
-        header rpc "$v" > "$F.head"
-        # Any failure discards the launch's output (requirement 18).
-        rpc_bench "$EXE" "$F.body" "$SCRATCH/crit-rpc-$T-$v-$L" AK_LAUNCH="$L" > "$C" 2>&1 \
-          || { echo "rpc $T launch $L ($v) ABORTED (requirement 18): no figure; $(grep -m1 ABORT "$C")" >&2; kill $SP; rm -f "$F.head" "$F.body" "$F"; exit 1; }
-        { cat "$F.head"; echo "# criterion's console output (its own summary; the samples are in $(basename "$F"))"; cat "$C"; } > "$C.tmp"; mv "$C.tmp" "$C"
-        cat "$F.head" "$F.body" > "$F"; rm -f "$F.head" "$F.body"
-        echo "rpc $T launch $L ($v): $(grep -vc '^#' "$F") sample rows -> $F"
-      }
-      for L in $(seq 1 "$LAUNCHES"); do
-        start_server "$T" "$L"
-        if [ $((L % 2)) = 1 ]; then rpc_run "$L" full; rpc_run "$L" nounk
-        else rpc_run "$L" nounk; rpc_run "$L" full; fi
-        kill $SP; wait $SP 2>/dev/null || true
+    done
+    serve_stop plant
+    rpc_run() {  # rpc_run L VARIANT
+      local L=$1 v=$2 EXE=$RPCB F="$OUT/rpc-$T-launch$1.jsonl"
+      [ "$v" = nounk ] && { EXE=$RPCB_NOUNK; F="$OUT/rpc-$T-nounk-launch$L.jsonl"; }
+      local C="${F%.jsonl}.criterion.log"
+      header rpc "$v" > "$F.head"
+      # The runner warmed the server (serve.sh warm); any failure discards the launch's
+      # output (requirement 18).
+      rpc_bench "$EXE" "$F.body" "$SCRATCH/crit-rpc-$T-$v-$L" AK_LAUNCH="$L" AK_RPC_SERVER_WARMUP=0 > "$C" 2>&1 \
+        || { echo "rpc $T launch $L ($v) ABORTED (requirement 18): no figure; $(grep -m1 ABORT "$C")" >&2; serve_stop "$L"; rm -f "$F.head" "$F.body" "$F"; exit 1; }
+      { cat "$F.head"; echo "# criterion's console output (its own summary; the samples are in $(basename "$F"))"; cat "$C"; } > "$C.tmp"; mv "$C.tmp" "$C"
+      cat "$F.head" "$F.body" > "$F"; rm -f "$F.head" "$F.body"
+      echo "rpc $T launch $L ($v): $(grep -vc '^#' "$F") sample rows -> $F"
+    }
+    for L in $(seq 1 "$LAUNCHES"); do
+      serve_start "$L"
+      ./serve.sh warm "$SWARM" > "$OUT/rpc-launch$L.server-warm.log" 2>&1 \
+        || { echo "rpc launch $L: the server warm-up failed (requirement 18); see $OUT/rpc-launch$L.server-warm.log" >&2; serve_stop "$L"; exit 1; }
+      for T in $TRANSPORTS; do
+        # the two builds' order alternates by launch
+        if [ $((L % 2)) = 1 ]; then ORDER="$BUILDS"; else ORDER=$(echo "$BUILDS" | tr ' ' '\n' | tac | tr '\n' ' '); fi
+        for v in $ORDER; do rpc_run "$L" "$v"; done
       done
+      serve_stop "$L"
     done ;;
 
   calib)

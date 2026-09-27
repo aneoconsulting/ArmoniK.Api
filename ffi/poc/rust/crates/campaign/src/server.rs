@@ -19,6 +19,9 @@ use tonic::codec::{Codec, DecodeBuf, Decoder, EncodeBuf, Encoder};
 
 pub const FETCH: &str = "/armonik.ffi.campaign.v1.Grid/Fetch";
 pub const PUSH: &str = "/armonik.ffi.campaign.v1.Grid/Push";
+/// FIX-PLAN WP10 (SERVER.md): direction (a)'s PLANTED twin for other slices' requirement 18
+/// controls: P2.2 with its last byte cut, so a client checking the length must fail.
+pub const FETCH_SHORT: &str = "/armonik.ffi.campaign.v1.Grid/FetchShort";
 
 #[derive(Default, Clone)]
 struct Raw;
@@ -132,6 +135,7 @@ where
         }
         let fetch = self.fetch.clone();
         let push = req.uri().path() == PUSH;
+        let short = req.uri().path() == FETCH_SHORT;
         let req_path = req.uri().path().to_string();
         // U2-stream: the client-streaming upload (and its byte-checking twin).
         let stream = match req.uri().path() {
@@ -169,9 +173,9 @@ where
             match sizes {
                 Some(sizes) => {
                     let req = req.map(|b| tonic::body::Body::new(CountFrames { inner: Box::pin(b), sizes }));
-                    Ok(grpc.unary(Answer { fetch, push, upload }, req).await)
+                    Ok(grpc.unary(Answer { fetch, push, upload, short }, req).await)
                 }
-                None => Ok(grpc.unary(Answer { fetch, push, upload }, req.map(tonic::body::Body::new)).await),
+                None => Ok(grpc.unary(Answer { fetch, push, upload, short }, req.map(tonic::body::Body::new)).await),
             }
         })
     }
@@ -312,13 +316,15 @@ struct Answer {
     push: bool,
     /// U1-unary (direction `c`): decode the request as M5 with prost, answer empty.
     upload: bool,
+    /// FETCH_SHORT: P2.2 one byte short (a planted wrong response).
+    short: bool,
 }
 
 impl tonic::server::UnaryService<Bytes> for Answer {
     type Response = Bytes;
     type Future = std::pin::Pin<Box<dyn std::future::Future<Output = Result<tonic::Response<Bytes>, tonic::Status>> + Send>>;
     fn call(&mut self, req: tonic::Request<Bytes>) -> Self::Future {
-        let (fetch, push, upload) = (self.fetch.clone(), self.push, self.upload);
+        let (fetch, push, upload, short) = (self.fetch.clone(), self.push, self.upload, self.short);
         Box::pin(async move {
             if upload {
                 use prost::Message;
@@ -337,6 +343,8 @@ impl tonic::server::UnaryService<Bytes> for Answer {
                     Ok(_) => Err(tonic::Status::invalid_argument("empty ListTasksDetailedResponse")),
                     Err(e) => Err(tonic::Status::invalid_argument(e.to_string())),
                 }
+            } else if short {
+                Ok(tonic::Response::new(fetch.slice(..fetch.len() - 1)))
             } else {
                 Ok(tonic::Response::new((*fetch).clone()))
             }
