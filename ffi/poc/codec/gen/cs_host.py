@@ -692,6 +692,17 @@ def _emit_root(o, p, root, facade_ns):
     if not _NO:
         o += "    public void EncodeU(%s src, out byte* p, out int len) { int rc = Go(src, true, true, out p, out len); if (rc < 0) throw new InvalidOperationException($\"core encode failed: {rc}\"); }" % root
     o += "    public int TryEncode(%s src, bool retain, out byte* p, out int len) => Go(src, retain, true, out p, out len);" % root
+    o += "    /// ABI v1 section 9's move path (WP8): encode and leave the output IN the encode context,"
+    o += "    /// no ak_enc_take, for ak_call_unary_enc / ak_call_send_enc to move as the request body."
+    o += "    public int EncodeInto(%s src, bool retain)" % root
+    o += "    {"
+    o += "        _keep = true;"
+    o += "        try { return Go(src, retain, true, out _, out _); }"
+    o += "        finally { _keep = false; }"
+    o += "    }"
+    o += "    /// The encode context, for the move path's entries."
+    o += "    public IntPtr EncContext => _ctx;"
+    o += "    private bool _keep;"
     o += "    public byte[] EncodeToArray(%s src, bool retain = false)" % root
     o += "    {"
     o += "        int rc = Go(src, retain, true, out byte* p, out int len);"
@@ -804,6 +815,7 @@ def _emit_root(o, p, root, facade_ns):
             o += "            rc = Abi.ak_encode_%s(_run, _ctx, &vt, &fix);" % root
         o += "        }"
     o += "        if (rc < 0) return (int)rc;"
+    o += "        if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)"
     o += "        byte* bp; nuint blen;"
     o += "        int tk = Abi.ak_enc_take(_ctx, &bp, &blen);"
     o += "        if (tk != 0) return tk;"
