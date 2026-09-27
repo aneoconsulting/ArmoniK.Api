@@ -840,3 +840,14 @@ D-retain a 3 -> 2 (one reset). Found by the smoke: the sampler parsed "a+read" a
 index (fixed); a client and a server JVM of 4 GB each were killed twice by the shared
 container's memory limit while other slices ran, so a smoke uses AK_SMOKE_HEAP (2g). Clean gate
 at a1eed5321: GATE PASSED; smoke complete (logs/java/campaign-wp8).
+
+### J33. Cell C on the move path (2026-09-27)
+
+The premise in J32 was out of date: cpp and python moved cell C to the move path and the
+rust slice uses it. Cell C (and Cf) now encodes into the binding's context and hands it to
+ak_call_unary_enc in b and c (ak_call_send_enc in d, as before); Cc-* keeps take() +
+ak_call_unary as a labelled extra. Cell D keeps take(): grpc-java's MessageFramer takes the
+request through an InputStream (drained into its own buffers), so ak_enc_take_owned's native
+buffer would be copied through a heap array anyway. rpc counts: C and Cf b one fewer host entry
+(the take), c 5 -> 4 (reset, encode, ak_call_unary_enc, free, as the rust slice's). Clean gate
+at a2c38db01: GATE PASSED, both builds, 8 and 17; smoke complete (logs/java/campaign-wp8b).
