@@ -302,6 +302,32 @@ each binary loads the core of its variant. Latest smoke run: `logs/rust/campaign
 c8e8694eb (every suite; figures stripped).
 Every figure in both is instrumentation.
 
+**FIX-PLAN WP10 (CAMPAIGN req 13 as amended at 9f6d579fa): the one RPC server of every
+slice.** `serve.sh build | start --out DIR | warm N | stop` runs one `rpc_server` process per
+launch, pinned to AK_CPU_SERVER, on two Unix sockets (shipped and pinned server
+configuration) in `mktemp -d /tmp/aksrv.XXXXXX`; `warm N` makes N checked calls per direction
+(a, b, c; d ceil(N/4)) from a tonic and a core client on both sockets (`bin/rpc_warm`).
+Interface: `SERVER.md` (service, paths, messages, limits, the planted `FetchShort`,
+workers, configurations). This slice's runner starts, warms and stops it through serve.sh.
+
+**WP9 + WP10 verification (small tests, the owner's rule), from a clean worktree at
+bed13a6ea (`logs/rust/campaign-wp9/`, figures stripped):**
+- gate: `run_campaign.sh --suite gate`, both builds, stable 1.94.1: GATE PASSED; crossing
+  counts identical (775 / 398 rows);
+- floor: the campaign crate's benches and bins BUILT on rustc 1.88.0 (`floor-1.88-build.log`);
+  the full floor gate was not re-run (last passed at 6727646b, `opt/final3-gate/`);
+- smoke, settings: AK_SMOKE=1, AK_RPC_TRANSPORTS=shipped, AK_RPC_BUILDS=full, one launch,
+  AK_RPC_WARMUP_MS=2, AK_RPC_MEASURE_MS=5, criterion's 10 samples, AK_RPC_SERVER_WARMUP=4
+  (serve.sh warm 4), AK_NRESAMPLES=100; codec: AK_ONLY=P1.1, AK_POOL_BYTES=65536,
+  AK_WARMUP_MS=2, AK_MEASURE_MS=5, both builds;
+- smoke, results: serve.sh started, warmed (4 checked calls per direction, both sockets) and
+  stopped the server once for the plants and once for the launch; the 12 warm-up plants
+  (cells A, B, Bf, Df x directions a, c, d) and the plant inside criterion each aborted with
+  no sample; the RPC launch wrote 3,230 rows: 323 benchmarks (19 cells x a, a+read, b at
+  k 1, 8, 16, c at P5.3/P5.4 x k 1, 8, d at 4 MiB/16 MiB x k 1, 8), 10 samples each, with
+  every label; codec 480 (full) and 300 (no-unknown) rows.
+- Disk reached 91% during the gate (other slices' runs at the same time); 77% after.
+
 **FIX-PLAN WP9 (CAMPAIGN req 22a as amended 2026-09-27): the RPC grid on criterion.** What
 the framework forces that differs from the hand-written sampler: one criterion iteration is
 one batch of k calls in flight (before: a round of `calls` calls per caller back to back),

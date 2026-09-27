@@ -1,0 +1,2 @@
+warm: 4 checked calls per direction (a, b, c; d: 1) from tonic (A) and the core (B) on /tmp/aksrv.rXQZBI/shipped.sock
+warm: 4 checked calls per direction (a, b, c; d: 1) from tonic (A) and the core (B) on /tmp/aksrv.rXQZBI/pinned.sock

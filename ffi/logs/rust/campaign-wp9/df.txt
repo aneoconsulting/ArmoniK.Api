@@ -1,0 +1,5 @@
+/dev/vda        252G   27G   11G  73% /
+/dev/vda        252G   34G  3.6G  91% /
+/dev/vda        252G   32G  5.5G  86% /
+/dev/vda        252G   33G  4.3G  89% /
+ALL DONE

@@ -1,0 +1,4 @@
+# the campaign benches built on the MSRV floor, RUSTUP_TOOLCHAIN=1.88.0, commit bed13a6ea, changed paths 0
+rustc 1.88.0 (6b00bc388 2025-06-23)
+floor bench build exit 0
+floor bins build exit 0

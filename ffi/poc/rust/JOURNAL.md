@@ -3415,3 +3415,14 @@ rendered into every slice's header/binding; other slices' generated output regen
   pool build (11).
 - gen/rpc_narrow.sh and gen/opt_bench.sh call the bench through the environment.
 - Crossing counts unchanged (counting builds; the grid's per-call counts come from `crossings`).
+
+## 2026-09-27 -- WP9 + WP10 verified (small tests)
+
+- One clean-worktree gate at bed13a6ea (stable, both builds): PASSED; crossing counts
+  identical. The campaign benches and bins build on 1.88.0. Minimal smoke (shipped, full
+  build, one launch, 2 ms warm-up and 5 ms measurement per benchmark, serve.sh warm 4):
+  serve.sh drove the server end to end, the 13 plants aborted with no sample, 323 RPC
+  benchmarks x 10 samples exported with every label; codec P1.1 on both builds. The
+  interface in SERVER.md did not change. serve.sh's target-server/ added to .gitignore.
+- A first gate attempt was stopped at step 12 by hand (the WP10 unit arrived), and the
+  spend limit stopped the session once after the run had finished; nothing was re-run.
