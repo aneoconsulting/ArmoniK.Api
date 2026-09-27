@@ -1,12 +1,15 @@
 # python slice: camp_summary's test, two builds whose incumbents differ (R-H1, R-H24)
-# date:      2026-09-27T16:30:44Z
-# commit:    ccfb08db2
+# date:      2026-09-27T20:56:55Z
+# commit:    df029aa0d
 # phase:     correctness only; nothing here is a timing
 
    codec full  core-ffi ratios per launch [[2.0, 2.0]] (want [[2.0, 2.0]]): ok
    codec nounk core-ffi ratios per launch [[0.5, 0.5]] (want [[0.5, 0.5]]): ok
    rpc   full  C-drop   ratios per launch [[3.0, 3.0]] (want [[3.0, 3.0]]): ok
    rpc   nounk C-nounk  ratios per launch [[0.5, 0.5]] (want [[0.5, 0.5]]): ok
+   rpc   full  C-drop   (c) P5.3 ratios per launch [[2.0, 2.0]] (want [[2.0, 2.0]]): ok
+   rpc   full  C-drop   (c) P5.4 ratios per launch [[0.5, 0.5]] (want [[0.5, 0.5]]): ok
+   must-fail twin (RPC baseline without the payload): (c) P5.3 ratios [[0.8, 0.8]] -> differs from 2.0, as required
    incumbent-prod groups: 2 (want 2, one per build)
    must-fail twin (build removed, rows pooled): full core-ffi ratios [[0.8, 0.8], [0.8, 0.8]] -> differs from 2.0, as required
 CAMP_SUMMARY TEST PASS

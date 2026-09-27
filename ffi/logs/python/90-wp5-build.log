@@ -1,35 +1,34 @@
 # python slice: build, WP5 step 5 (plan-rendered shim, init-guard cores)
-# date:      2026-09-27T16:15:49Z
-# commit:    ccfb08db2
+# date:      2026-09-27T20:31:29Z
+# commit:    df029aa0d
 # phase:     correctness only; nothing here is a timing
 
-   core source: /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py7/ffi/poc/codec
-   commit:      ccfb08db2
-   core tree:   5133836fa5ed15b3
-   targets:     /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py7/ffi/poc/python/build/cargo/{plain,count,rpc,corpus} and the no-unknown variant's /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py7/ffi/poc/python/build/cargo/{plain,count,rpc,corpus}-nounk
+   core source: /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py10/ffi/poc/python/build/snap/df029aa0d/ffi/poc/codec (snapshot of df029aa0d)
+   commit:      df029aa0d (snapshot)
+   core tree:   ca80115552a269b8
+   targets:     /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py10/ffi/poc/python/build/cargo-df029aa0d/{plain,count,rpc,corpus} and the no-unknown variant's /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py10/ffi/poc/python/build/cargo-df029aa0d/{plain,count,rpc,corpus}-nounk
 == 1. R0: one core, at poc/codec, reached by path ==
-  [ok]   codec/gen/generate.py --check: 15 files ok
-
-one_core: 0 failure(s)
+   snapshot mode: the core is the archived poc/codec of df029aa0d, reached by path; one_core.sh
+   checks the working tree (other slices), which is not what this build reads
 
 == 2. R1: the generated tree is current with the plans ==
 guard 2 python backend modules import plans only; a planted IR import is caught
 generated tree is current with the plans (18 files)
 
 == 3. the shared core, every build WITH init-guard (R-G7) ==
-   cargo (plain --features init-guard): 21 warnings, in /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py7/ffi/poc/python/build/cargo/plain.stderr
+   cargo (plain --features init-guard): 21 warnings, in /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py10/ffi/poc/python/build/cargo-df029aa0d/plain.stderr
    exported ak_* entry points: 99
-   cargo (count --features count,init-guard): 21 warnings, in /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py7/ffi/poc/python/build/cargo/count.stderr
-   cargo (rpc --features rpc,init-guard): 21 warnings, in /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py7/ffi/poc/python/build/cargo/rpc.stderr
+   cargo (count --features count,init-guard): 21 warnings, in /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py10/ffi/poc/python/build/cargo-df029aa0d/count.stderr
+   cargo (rpc --features rpc,init-guard): 21 warnings, in /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py10/ffi/poc/python/build/cargo-df029aa0d/rpc.stderr
    the rpc core: 20 section 9 entry points
-   cargo (corpus --features corpus,init-guard): 47 warnings, in /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py7/ffi/poc/python/build/cargo/corpus.stderr
+   cargo (corpus --features corpus,init-guard): 47 warnings, in /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py10/ffi/poc/python/build/cargo-df029aa0d/corpus.stderr
    the corpus core: 1 ak_decode_WireZoo export(s)
-   cargo (plain-nounk --no-default-features --features init-guard): 14 warnings, in /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py7/ffi/poc/python/build/cargo/plain-nounk.stderr
-   cargo (count-nounk --no-default-features --features count,init-guard): 14 warnings, in /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py7/ffi/poc/python/build/cargo/count-nounk.stderr
-   cargo (rpc-nounk --no-default-features --features rpc,init-guard): 14 warnings, in /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py7/ffi/poc/python/build/cargo/rpc-nounk.stderr
-   cargo (corpus-nounk --no-default-features --features corpus,init-guard): 29 warnings, in /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py7/ffi/poc/python/build/cargo/corpus-nounk.stderr
-   cargo (rpc-count --features rpc,count,init-guard): 21 warnings, in /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py7/ffi/poc/python/build/cargo/rpc-count.stderr
-   cargo (rpc-count-nounk --no-default-features --features rpc,count,init-guard): 14 warnings, in /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py7/ffi/poc/python/build/cargo/rpc-count-nounk.stderr
+   cargo (plain-nounk --no-default-features --features init-guard): 14 warnings, in /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py10/ffi/poc/python/build/cargo-df029aa0d/plain-nounk.stderr
+   cargo (count-nounk --no-default-features --features count,init-guard): 14 warnings, in /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py10/ffi/poc/python/build/cargo-df029aa0d/count-nounk.stderr
+   cargo (rpc-nounk --no-default-features --features rpc,init-guard): 14 warnings, in /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py10/ffi/poc/python/build/cargo-df029aa0d/rpc-nounk.stderr
+   cargo (corpus-nounk --no-default-features --features corpus,init-guard): 29 warnings, in /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py10/ffi/poc/python/build/cargo-df029aa0d/corpus-nounk.stderr
+   cargo (rpc-count --features rpc,count,init-guard): 21 warnings, in /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py10/ffi/poc/python/build/cargo-df029aa0d/rpc-count.stderr
+   cargo (rpc-count-nounk --no-default-features --features rpc,count,init-guard): 14 warnings, in /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py10/ffi/poc/python/build/cargo-df029aa0d/rpc-count-nounk.stderr
    no-unknown cores: 0 u-family exports (ak_uencode_*, ak_uelem*, ak_dec_reset_*) in each of 4; the full cores export 21
 
 == python 3.12 (3.12.3, sys.hexversion 0x30c03f0) ==
@@ -91,5 +90,9 @@ generated tree is current with the plans (18 files)
    must-fail control: a planted layout mismatch refuses to import: ImportError: layout: ak_dfix_TaskOptionsOptionsEntry.key is 1 in the core and 0 here
    _akffi_rpc.cpython-37m-x86_64-linux-gnu.so: all 6 section 9 imports, libak_core.so resolves to the rpc build
    must-fail control: a shim built WITHOUT -DAK_RPC imports 0 of 6 and is refused
+
+== the shared campaign RPC server (FIX-PLAN WP10: the Rust rpc_server, poc/rust/SERVER.md) ==
+   built /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py10/ffi/poc/python/build/snap/df029aa0d/ffi/poc/rust/target-server/release/rpc_server and /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py10/ffi/poc/python/build/snap/df029aa0d/ffi/poc/rust/target-server/release/rpc_warm
+   mech/build/pb2/campaign_grid_pb2{,_grpc}.py written from proto/campaign_grid.proto
 
 the composed arm is built. conformance.py gates it before anything is timed.

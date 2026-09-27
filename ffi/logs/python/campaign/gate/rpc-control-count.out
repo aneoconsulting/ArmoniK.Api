@@ -1,4 +1,4 @@
-benchmark rpc|full|shipped|d|4MiB|C-drop|1: the setup's checked call failed: CallFailed: (d) 4MiB check: the server answered 40 B (count 4194304), not the bytes and digest sent
+benchmark rpc|full|shipped|d|4MiB|C-drop|1: a call failed: CallFailed: (d) 4MiB: the server counted 4194304 bytes, want 4194305
 Traceback (most recent call last):
   File "/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py10/ffi/poc/python/camp_rpc_pyperf.py", line 250, in <module>
     sys.exit(main())

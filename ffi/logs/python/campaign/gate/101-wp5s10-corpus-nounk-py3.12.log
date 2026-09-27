@@ -1,6 +1,6 @@
 # python slice: the whole corpus through the no-unknown variant (WP5 step 10), py3.12
-# date:      2026-09-27T16:44:45Z
-# commit:    ccfb08db2
+# date:      2026-09-27T20:55:09Z
+# commit:    df029aa0d
 # phase:     correctness only; nothing here is a timing
 
 # python slice: the conformance corpus, every row, every arm (FIX-PLAN WP5 item 6.1)

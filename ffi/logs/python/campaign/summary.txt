@@ -1,1 +1,5 @@
-# INSTRUMENTATION smoke (clean worktree at ccfb08db2); summary figures stripped.
+# INSTRUMENTATION smoke (clean worktree at df029aa0d); summary figures stripped.
+# rpc-*: the WP9/WP10 grid on pyperf against the shared Rust server, one launch, one round, shipped only,
+#   --warmups 1, --loops 2/1/1 (ab/c/d), serve.sh warm 8. codec-check-*: P1.1 only, both builds, --warmups 1,
+#   --min-time 0.002, AK_POOL_BYTES 65536 (a check that the codec suite runs after camp_codec.main's removal).
+# codec-shapes/unknown-*, calib-*: the earlier smoke at ccfb08db2, not rerun (owner's small-test rule).

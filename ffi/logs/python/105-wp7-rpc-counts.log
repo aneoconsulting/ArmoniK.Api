@@ -1,6 +1,6 @@
 # python slice: RPC crossing counts per call, the rpc counting builds (req 19, R-H31)
-# date:      2026-09-27T16:30:35Z
-# commit:    ccfb08db2
+# date:      2026-09-27T20:56:41Z
+# commit:    df029aa0d
 # phase:     correctness only; nothing here is a timing
 
 # RPC cells, every ABI call per call (req 19); module _akffi_rpc_count, variant full

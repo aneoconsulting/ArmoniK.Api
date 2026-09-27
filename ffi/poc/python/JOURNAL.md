@@ -1518,3 +1518,41 @@ work, so this is now aligned.
   stated in STATE.
 - `rpc_counts.py` after the refactor: `rpc-full` 84 rows and `rpc-nounk` 48, identical to
   `counts/`.
+- **The WP9 clean gate at 18ed06c7b** ran gate.sh to `gate exit 0`, then the suite's RPC
+  control failed: "No module named 'pyperf'". In a clean worktree only the codec suite
+  installed pyperf, and the gate suite runs first. The runner now installs it (`need_pyperf`)
+  in the gate, codec and rpc suites. That run was stopped there (the owner's small-test rule
+  arrived; WP10 followed), and its logs are superseded by the WP10 gate.
+
+### J55. The shared Rust server (FIX-PLAN WP10, req 13 as amended at 9f6d579fa)
+
+- **What changed.** The runner starts, warms and stops the Rust rpc_server through the
+  snapshot's `poc/rust/serve.sh` per launch (state file private to the runner); `build.sh`
+  builds it (gate 90). Every cell calls SERVER.md's `armonik.ffi.campaign.v1.Grid`: Fetch,
+  Push, Upload, UploadStream (timed, byte count checked), UploadStreamCheck (untimed, count and
+  digest, once per cell before timing). `camp_server.py` is removed.
+- **grpcio against tonic over a Unix socket failed on every call** (RST_STREAM, PROTOCOL_ERROR),
+  every core cell passed. grpcio's default `:authority` for `unix:` is the percent-encoded
+  path, which h2 refuses. `grpc.default_authority=localhost` on both configurations fixes it
+  (a direct check: without it, INTERNAL; with it, 540,422 bytes).
+- **Cell A was not the generated stub.** A, D and F called `channel.unary_unary(path, ...)`
+  with `_registered_method` False; grpcio 1.84's generated stubs pass True. A now uses the
+  generated `GridStub` from `proto/campaign_grid.proto`, and D and F pass True, so the three
+  make the same kind of call. This changes what cell A costs relative to before, so an A
+  figure from before WP10 is not comparable (none is quoted).
+- **The plants moved to the client.** First attempt: the `short` control PASSED (no abort).
+  The plant was not running: `AK_CAMP_PLANT` was read in the worker, and pyperf gives a worker a
+  clean environment unless `--copy-env` (the old server-side plant reached the server by
+  inheritance). The plant is now passed to the worker as `--plant`. Then: `short` fails B's
+  timed loop, `count` fails C-drop's timed loop in d, `digest` fails C-drop's setup check; A
+  in a with `short` fails as "Exception deserializing response" in its setup, which is why the
+  control uses B.
+- **Counts** against the Rust server: `rpc-full` 84 rows, `rpc-nounk` 48, identical to
+  `counts/`. **Precheck** of every cell, both builds, shipped: passes (retain and no-unknown
+  controls included).
+- **Clean gate at df029aa0d** (WP9 + WP10): `gate exit 0`, `GATE PASSED`, 24 logs at that
+  commit, counts unchanged, the three RPC controls failing inside pyperf with no JSON. Minimal
+  smoke (shipped only, one launch and round, warmups 1, loops 2/1/1): full 123 / 68 / 68
+  values, no-unknown 66 / 40 / 40; codec P1.1 check 38 / 18 benchmarks.
+- **Grouping check** (CAMPAIGN 22a at e6c909630): nothing to change. Both pyperf suites already
+  run one worker process per benchmark; no worker holds several combinations.
