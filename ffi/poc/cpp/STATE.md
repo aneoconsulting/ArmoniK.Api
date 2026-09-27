@@ -12,7 +12,7 @@ defect. What this file reports as results are correctness outcomes and crossing 
 
 | | |
 |---|---|
-| **Status** | 2026-09-26, FIX-PLAN WP7: the harness conforms to the owner's 2026-09-26 contract (process CPU, content sets and U rows in three directions, encode end/input rows, cells E and F, one server per launch on Unix sockets, a and a+read, counts with resets, retain and RPC cells B-E). Both builds gated from a clean checkout at `a03b06ab2`, 0 failed steps (`logs/cpp/wp5-*.log`, `wp5s10-nounk.log`), C++17, C++14 and C++11; ASan+LSan clean on both builds (`asan.log`); campaign smoke (gate, codec, rpc, calib) green, every new row present, figures stripped, `"smoke": true` |
+| **Status** | 2026-09-27, FIX-PLAN WP8 done for cpp: ABI v1 section 9 call sites (trailing `grpc_status`, AK_ERR_RPC_STATUS fails the call), D44 limits (8 MiB), CAMPAIGN req 14 directions c and d (required 2026-09-27) with the core's client streaming and the framed twins, the binding's rules 7/8 and decision 3, counts re-taken. Both builds gated from a clean checkout at `a83b04865`, 0 failed steps (`logs/cpp/wp5-*.log`, `wp5s10-nounk.log`), C++17, C++14 and C++11; ASan+LSan clean on both builds (`asan.log`); campaign smoke (gate, codec, rpc, calib) green, figures stripped, `"smoke": true` (the codec pool at 1 MiB in this shared container, stated) |
 | **Core** | the shared one at `ffi/poc/codec/crates/ak-core` (R0). CMake builds it with cargo, `init-guard` in every configuration. Full-build flavours: plain, `count`, `corpus`, `rpc`, `rpc,count`, and three planted cores (`pad-widths`, `global-widths`, both). No-unknown flavours: `--no-default-features` plus `init-guard` alone, `count`, `corpus` or `rpc`. Each flavour has its own target dir under `core-build/` |
 | **Generator** | one generator (W14). `poc/codec/gen/plan.py` holds the rules. This slice's backend modules in `poc/codec/gen/` are `cpp_binding.py`, `cpp_native.py`, `cpp_facade.py`, `cpp_names.py` and `cpp_layout.py`, plus `c_abi.py`, which renders the C header for every slice. `gen/generate.py` is glue: it renders the targets from plans and imports no IR (the guard in `generate.py --check`) |
 | **Floor / target** | C++11 floor, C++17 target, both builds. C++14 also builds and is gated (full build) |
@@ -23,7 +23,10 @@ defect. What this file reports as results are correctness outcomes and crossing 
 
 ```
 poc/codec/gen/cpp_binding.py   the C++ host binding over the C ABI (arm core-ffi), rendered
-                               from a plan. Full build:
+                               from a plan. WP8: geometric unk_grow (rule 8), one reset per
+                               retain decode (rule 7; dec_ctx_free forgets an armed context),
+                               string spans copied without a second UTF-8 scan (utf8=reject:
+                               the core checked them; decision 3). Full build:
                                  - encode_into_* (and _zeroed, _nobatch), encode_into_*_unk;
                                  - decode_with_* (drop context), decode_with_*_opts (armed
                                    in place), decode_with_*_unk (retain everywhere),
@@ -56,6 +59,8 @@ corpus/src/generated/          the corpus reader schema's facade, native codecs,
 build-upbclang/, build-upbft/     TRACKED build configurations of the upb FASTTABLE experiment
                                (upb-fasttable.log); not used by any gate
 include/ak/rt.h, vocab.h, values.h, projjson.h    hand-written runtime for the native codec
+                               (WP8: ak::Enc::take hands the encoded buffer over moved, with a
+                               recycled spare, for cell F and the codec suite's transport rows)
                                and the facade vocabulary (decode-rule constants come from
                                include/generated/ak_rules.h, rendered from the plan)
 ```
@@ -71,7 +76,7 @@ The harness binaries, one source each (`CMakeLists.txt`):
 | `src/contentsets.cpp`, `src/concurrency.cpp`, `src/groupskip.cpp`, `src/utf8check.cpp`, `src/odr_*.cpp`, `src/fusion_probe.cpp` | `contentsets_a17`, `conc_*` (incl. four planted), `groupskip_*` (incl. two planted), `utf8check_*`, `odrcheck`, `fusion_probe` | content sets, concurrency suite, group skip, UTF-8 validator differential, ODR across levels, the boundary checker's control |
 | `src/rpcbench.cpp`, `rpcflow.cpp`, `rpccounts.cpp` | `rpcbench`, `rpcflow`, `rpccounts` | the pre-campaign RPC grid, the flow-control probe, RPC crossing counts |
 | `src/campaign_codec.cpp` | `campaign_codec`, `campaign_codec_nounk` | campaign codec suite (Google Benchmark), with its own gate and plant |
-| `src/campaign_rpc.cpp`, `campaign_server.cpp`, `campaign_calib.cpp` | `campaign_rpc(_nounk)`, `campaign_rpc_count(_nounk)`, `campaign_server`, `campaign_calib` | campaign RPC client, cells A-F, directions a, a+read, b (two builds; `--warm-server N` warms the server; the `_count` builds print per-call counts for B-E with `--count N`); server in its own process on two Unix sockets (shipped, pinned), one per launch; crossing-cost loops |
+| `src/campaign_rpc.cpp`, `campaign_server.cpp`, `campaign_calib.cpp`, `sha256.h` | `campaign_rpc(_nounk)`, `campaign_rpc_count(_nounk)`, `campaign_server`, `campaign_calib` | campaign RPC client, cells A-F with framed twins Bf/Cf/Ef, directions a, a+read, b, c (Upload P5.3/P5.4) and d (UploadStream 4/16 MiB, SHA-256 checked; `--plant c-len|d-sha|d-count` for the gate's controls) (two builds; `--warm-server N` warms the server; the `_count` builds print per-call counts for B-E with `--count N`); server in its own process on two Unix sockets (shipped, pinned), one per launch; crossing-cost loops |
 | `src/upbbench.cpp` | `upbbench` (needs `gen/fetch_upb.sh`) | the upb ceiling arm |
 
 Scripts (`gen/`):
@@ -137,26 +142,31 @@ member's non-NULL slot. This is unchanged by the amendment.
 
 Every count is forward = core entry points + host-counted resets (`ak_enc_reset`,
 `ak_dec_reset_<Root>`, counted in the binding under AK_COUNTING) + `ak_enc_take`, with the
-breakdown on each row. Reset places: encode resets once before the encode; a retain decode
-resets twice (before, arming the options; after, disarming); a drop decode makes none.
-Retain: no pre-placed buffer, `unk_grow` allocates exactly the size requested.
+breakdown on each row. Reset places: an encode resets once, before it; a retain decode resets
+ONCE, before it (decision 11 rule 7, WP8: its options sit at a stable per-thread address and
+the context stays armed; a drop decode on a context the binding left armed disarms it first,
+and the timed harnesses give retain decodes their own contexts so that never happens there);
+a drop decode makes none. Retain: no pre-placed buffer, `unk_grow` grows geometrically (at
+least double, at least 64 B, clamped to INT32_MAX; rule 8), the same in the counting and the
+timed build.
 
-- **Full build:** `logs/cpp/counts-baseline.log`, 485 rows: 117 payload rows (encode,
-  its unbatched, zeroed-fill and host variants, decode, and retain decode and encode) and 368 U rows
-  (92 rows x 4) (decode,
-  encode, decode retain, encode retain). The core-counted part of the 87 payload rows is
-  identical to the previous baseline; the re-take added the host and take columns and the
-  retain and U rows (reason in its header).
-- **No-unknown build:** `logs/cpp/counts-nounk-baseline.log`, 271 rows (no retain rows).
-  It still differs from the full build in one core-counted payload row: P1.2 decode
-  reverse, 8 full against 5 without unknown-field support (smaller decode groups, fewer
-  arena chunks).
-- **RPC cells, per call:** `logs/cpp/rpc-counts.log` (B, C-retain, C-drop, D-retain,
-  D-drop, E-retain, E-drop) and `rpc-counts-nounk.log` (B, C/D/E-nounk), directions a and b,
-  from `campaign_rpc_count(_nounk) --count 4`. Examples: B 2/0 both directions; C-drop a
-  3/3501 (2 rpc + 1 decode), C-retain a 5/3501 (+2 resets); C b 2515 or 2521 forward (rpc 2,
-  codec, 1 reset, 1 take); D is C without the 2 rpc calls; E is 2/0 (the codec is the
-  host's). a+read adds no boundary call. The campaign gate diffs both files.
+- **Full build:** `logs/cpp/counts-baseline.log`, 485 rows: 117 payload rows (encode, its
+  unbatched, zeroed-fill and host variants, decode, and retain decode and encode) and 368 U
+  rows (92 rows x 4). Re-taken 2026-09-27 (WP8): every `decode retain` row is 1 forward lower
+  (107 rows: one reset, not two), and 18 U rows make fewer reverse (grow) calls, e.g.
+  U-leaf-all 18 -> 8, U-deep-all 16 -> 10. No other row moved.
+- **No-unknown build:** `logs/cpp/counts-nounk-baseline.log`, 271 rows (no retain rows),
+  unchanged by WP8. It still differs from the full build in one core-counted payload row:
+  P1.2 decode reverse, 8 full against 5 without unknown-field support.
+- **RPC cells, per call:** `logs/cpp/rpc-counts.log` (72 rows: B, Bf, C/Cf/D/E/Ef in retain
+  and drop, x jobs a, b, c P5.3, c P5.4, d 4 MiB, d 16 MiB) and `rpc-counts-nounk.log` (42
+  rows), from `campaign_rpc_count(_nounk) --count 4`. Examples: B a/b/c 2/0, B d 6 and 12; C
+  c 4 (reset, encode, ak_call_unary_enc, free), C d 10 and 28; D c 4, D d 8 and 32; C-retain a
+  4/3501, C-drop a 3/3501; E 2 (c) and 6/12 (d); framed twins identical to their references.
+  These agree with the Rust slice's committed rows for the same cells. The campaign gate diffs
+  both files. Re-taken 2026-09-27 (WP8): retain a 1 lower; C b 1 lower (ak_call_unary_enc
+  replaces ak_enc_take + a copy); D b rpc 0 -> 2 (ak_enc_take_owned and its ak_bytes_free
+  replace ak_enc_take + a copy); new rows for the twins and jobs c and d.
 - **Pre-campaign RPC delivery counts:** `logs/cpp/rd2-rpccounts.log`. Blocking 2/0,
   callback 3/1, queue 4/0 forward/reverse per call, counting `ak_call_destroy`.
 
@@ -177,11 +187,12 @@ listed so that nobody re-derives them. **No figure from them is quoted here.**
 - `calibration-r13.log`: the rust slice's crossing bench on the 2.80 GHz container.
 - `campaign/*.jsonl`, `campaign/*.gbench.json`: campaign smoke runs.
   - `codec-*`, `rpc-*`, `calib-*`: 1 launch, 1 round, reduced sizes, both builds, at
-    `a03b06ab2` (WP7), `"smoke": true`. Every timing is stripped (`"figures": "stripped
+    `a83b04865` (WP8), `"smoke": true`. Every timing is stripped (`"figures": "stripped
     (smoke)"`, gbench `*_time` = "stripped", the server's CPU line replaced). Rows: codec
-    full 3820 and no-unknown 2388 samples (encode end x input, set=required/extra, row=U in
-    three directions, `cpu_clock: process`); rpc 288 samples (A-F per mode, a, a+read, b,
-    socket uds, shipped and pinned, one server for the launch).
+    full 3820 and no-unknown 2388 samples (AK_CAMPAIGN_POOL_BYTES=1048576 in this shared
+    container); rpc 816 samples: 24 cells (15 full, 9 no-unknown, framed twins included) x 2
+    transports x (a, a+read, b at 1/8/16 + c P5.3/P5.4 and d 4/16 MiB at 1/8), one server for
+    the launch (served Fetch, Push, Upload, UploadStream).
 
 ## CAMPAIGN.md section 10 checklist
 
@@ -198,15 +209,15 @@ listed so that nobody re-derives them. **No figure from them is quoted here.**
 | 8 | arms | **met**: incumbent-prod (grpc++ SerializationTraits), incumbent-best, core-ffi (push), host-gen. The pull family is not in this slice. The Rust-only arms are not applicable |
 | 9 | encode, decode twice | **met**: `decode` and `decode_read` (the generated read-every-field traversal) |
 | 10 | three modes for core-ffi and host-gen | **met**: core-ffi drop and retain in `campaign_codec`, no-unknown in `campaign_codec_nounk`; host-gen drop and retain in `campaign_codec`, no-unknown in `campaign_codec_nounk` (the drop rendering over the facade without `unknown_fields`, R-H22). The no-unknown build has no retain arm of either kind. Every sample carries `unknown_mode` and `build` |
-| 11 | serialise once per iteration, fresh object; encode variants | **met**. Decode goes into a fresh object every iteration; protobuf C++ recomputes ByteSizeLong on every Serialize. Encode rows are tagged `end` and `input` (R-H29), graphs built in setup, outside the timed window. end=reused: bytes in a reused buffer (incumbent-best `SerializeToString` into a reused string, core-ffi `ak_enc_take` of the context's buffer, host-gen into its reused `ak::Enc`). end=transport: the form handed to grpc++ (incumbent-prod `SerializationTraits<Message>::Serialize` to a `grpc::ByteBuffer`; core-ffi and host-gen copy their bytes into a `grpc::Slice` wrapped as a `ByteBuffer`, what cells D and F do). Cell C hands the core's own buffer to the transport, which is the end=reused row, stated. input=hot: one graph; input=pool: distinct copies totalling `--pool-bytes` (runner: 2 x AK_LLC_BYTES, default LLC 13.75 MiB), round-robin |
-| 12 | cells A-F; C, D, E, F in each mode | **met**: the full client runs A, B, C/D/E/F-retain and -drop; the no-unknown client runs A, B and C/D/E/F-nounk. E is host-gen over the core's transport, F host-gen over grpc++ (R-H35). A pre-run check in every C-F mode compares the decoded and re-encoded message with the incumbent's re-serialisation. Caller threads are created once and reused (R-H2) |
-| 13 | server out of process, pre-serialised; one server per launch; one channel per cell | **met**. One `campaign_server` per launch serves both builds' clients and every cell on two Unix sockets (shipped and pinned configuration), warmed before round 1 by AK_CAMPAIGN_SERVER_WARMUP (default 200) calls per direction from each client transport (grpc++ and core) per socket (`--warm-server`), stated in the header. Each cell opens its own channel (a distinct channel arg for grpc++, its own `ak_client` for the core) at start and warms it. In direction b the server decodes with the incumbent in every cell |
-| 14 | directions a, a+read and b | **met**: `a` (decode), `a+read` (decode, then read every field) and `b` (R-H36). The optional streamed upload is not built |
+| 11 | serialise once per iteration, fresh object; encode variants | **met**. Decode goes into a fresh object every iteration; protobuf C++ recomputes ByteSizeLong on every Serialize. Encode rows are tagged `end` and `input` (R-H29), graphs built in setup, outside the timed window. end=reused: bytes in a reused buffer (incumbent-best `SerializeToString` into a reused string, core-ffi `ak_enc_take` of the context's buffer, host-gen into its reused `ak::Enc`). end=transport: the form handed to grpc++ (incumbent-prod `SerializationTraits<Message>::Serialize` to a `grpc::ByteBuffer`; core-ffi moves its bytes with `ak_enc_take_owned` and host-gen with `ak::Enc::take` into a `grpc::Slice` that owns them, wrapped as a `ByteBuffer`, what cells D and F do since WP8; the codec binaries therefore link the campaign cores with the `rpc` feature, which carry the same codec). Cell C hands the core's own buffer to the transport, which is the end=reused row, stated. input=hot: one graph; input=pool: distinct copies totalling `--pool-bytes` (runner: 2 x AK_LLC_BYTES, default LLC 13.75 MiB), round-robin |
+| 12 | cells A-F; C, D, E, F in each mode; send paths | **met**: the full client runs A, B, Bf, C/Cf/D/E/Ef/F in retain and drop; the no-unknown client A, B, Bf and C/Cf/D/E/Ef/F-nounk. E is host-gen over the core's transport, F host-gen over grpc++ (R-H35). `Bf`, `Cf-*`, `Ef-*` are the core's framed send path (`ak_client_set_framed`) beside the reference (req. 14, WP8); every sample carries `send_path`. A pre-run check in every C-F mode compares the decoded and re-encoded P2.2 with the incumbent's re-serialisation, and every direction c/d request message with protobuf's bytes. Caller threads are created once and reused (R-H2) |
+| 13 | server out of process, pre-serialised; one server per launch; one channel per cell | **met**. One `campaign_server` per launch serves both builds' clients and every cell on two Unix sockets (shipped and pinned configuration), warmed before round 1 by AK_CAMPAIGN_SERVER_WARMUP (default 200) calls per direction a/b and per c payload, and a tenth of that per d payload, from each client transport (grpc++ and core) per socket (`--warm-server`), stated in the header. Each cell opens its own channel or `ak_client` at start and warms it. The server decodes with protobuf C++ in b, c and d (d: every message, the ids on the first, SHA-256 of the bytes as received) |
+| 14 | directions a, a+read, b, c, d | **met**: `a` (decode), `a+read` (decode, then read every field), `b` (R-H36); `c` = unary upload of P5.3 / P5.4 (M5, 1 MB and 4 MB), empty response; `d` = UploadStream in ArmoniK's shape, 4 MiB and 16 MiB in 2 MiB M5 chunks (splitmix64 data as the Rust slice, the ids on the first message only), the server answering an `UploadAck` (data byte count, SHA-256) the client checks. c and d at 1 and 8 in flight, every cell and send path; d with a third of the calls per sample (samples carry `payload` P5.3/P5.4/4MiB/16MiB) |
 | 15 | 1, 8, 16 in flight | **met** |
-| 16 | B and C blocking; A, D, F idiomatic | **met**. B, C and E use the core's blocking `ak_call_unary`; A, D and F use grpc++'s synchronous generic call, packages/cpp's idiom (R-H30), stated in the header's `delivery`. The callback and queue rows exist only in the pre-campaign `rpcbench` |
-| 17 | shipped and pinned; Unix domain socket | **met**, stated. Every cell dials `unix:<path>` (grpc++ and the core, R-H28). grpc++ shipped = packages/cpp's channel args minus its retry service config. grpc++ pinned has no connection-window argument, so only the stream half is pinned. core shipped = ak_client_new defaults |
-| 18 | every call checked | **met**: status and length on every call (cell A: content on every call, wire length once before the rounds); the first failure aborts and **leaves no sample** (R-H4): samples are buffered in the client and written only on success, and the runner deletes a failed launch file. The gate checks "no sample" for a wrong length, for an abort after two samples (`--fail-after 2`) and for the runner's discard. A failing `campaign_calib` is propagated the same way (R-H5) |
-| 19 | crossing counts gate, every entry point, RPC B-E, retain | **met**. `counts_a17_shared` (and static) against `counts-baseline.log`, `counts_nounk` against `counts-nounk-baseline.log`: forward = core + host resets + `ak_enc_take`, with the reset's place in the header; payloads and the 92 U rows, drop and retain (retain: no pre-placed buffer, `unk_grow` allocates exactly the size asked). RPC cells B, C, D, E per call, per mode, directions a and b: `campaign_rpc_count(_nounk)` against `rpc-counts.log` / `rpc-counts-nounk.log`, compared in the campaign gate (R-H31) |
+| 16 | B and C blocking; A, D, F idiomatic | **met**, stated in the header's `delivery`. B, C, E: the core's blocking `ak_call_unary` (C: `ak_call_unary_enc`, the encode context moved, as the Rust slice); d: `ak_call_open(AK_CALL_CLIENT_STREAM)`, `ak_call_send` per chunk (C: `ak_call_send_enc`), `ak_call_recv`. A, D, F: grpc++'s synchronous generic call and `ClientWriter` (packages/cpp's idiom, R-H30); D hands grpc++ the core's buffer with `ak_enc_take_owned`, F host-gen's with `ak::Enc::take`, both moved into a `grpc::Slice`. The callback and queue rows exist only in the pre-campaign `rpcbench` |
+| 17 | shipped and pinned; Unix domain socket; limits | **met**, stated. Every cell dials `unix:<path>` (grpc++ and the core, R-H28). grpc++ shipped = packages/cpp's channel args minus its retry service config. grpc++ pinned has no connection-window argument, so only the stream half is pinned. core shipped = ak_client_new defaults. D44 (limits enforced on every path): grpc++ (both configurations), the pinned core client and the server set 8 MiB send and receive, covering P5.4 (4,194,390 B); core shipped keeps tonic's defaults (receive 4 MiB, send unlimited), which every message here fits |
+| 18 | every call checked | **met**: gRPC status (non-OK = AK_ERR_RPC_STATUS on the core's paths) and response length on every call (cell A: content on every call, wire length once before the rounds); d: the server's byte count and SHA-256 against the client's own on every call. The first failure aborts and **leaves no sample** (R-H4): samples are buffered in the client and written only on success, and the runner deletes a failed launch file. The gate checks "no sample" for a wrong length, for an abort after two samples, for the runner's discard, and (WP8) for three plants in every cell and send path of both builds: `c-len` (direction c's response length), `d-sha` and `d-count` (the UploadAck). A failing `campaign_calib` is propagated the same way (R-H5) |
+| 19 | crossing counts gate, every entry point, RPC B-E, retain | **met**. `counts_a17_shared` (and static) against `counts-baseline.log`, `counts_nounk` against `counts-nounk-baseline.log`: forward = core + host resets + `ak_enc_take`, with the reset's place in the header; payloads and the 92 U rows, drop and retain (retain: no pre-placed buffer, the geometric `unk_grow` of the timed build, decision 11 rule 8; one reset per retain decode, rule 7). RPC cells B, Bf, C, Cf, D, E, Ef per call, per mode, jobs a, b, c (P5.3, P5.4), d (4 MiB, 16 MiB): `campaign_rpc_count(_nounk)` against `rpc-counts.log` / `rpc-counts-nounk.log`, compared in the campaign gate (R-H31). Re-taken 2026-09-27 (WP8); every change is explained in the files' headers |
 | 20 | crossing cost, fwd and rev, perf stat | **not met here**: perf is not installed. The runner builds and runs the rust slice's crossing bench, which did not build in the WP3 out-of-tree snapshot, and has not been re-run since. Reverse is reported as a fwd+rev row, from which the forward row is subtracted |
 | 21 | process CPU per round | **met** for codec, RPC and calib. Codec: Google Benchmark with `MeasureProcessCPUTime()`, every sample `"cpu_clock":"process"`, real_time beside it. RPC: getrusage(RUSAGE_SELF) of the client per round, plus wall. Calib: CLOCK_PROCESS_CPUTIME_ID of `campaign_calib` per round, samples `"cpu_clock":"process"`, header `calib_clock` |
 | 22 | order | **met**, stated. Codec: Google Benchmark's `--benchmark_enable_random_interleaving` plus registration order rotated by launch. RPC: the cell order of every (launch, round, dir, in-flight) group is a seeded shuffle, recorded as `order_pos`, and the two builds' binaries alternate by launch |
@@ -214,7 +225,7 @@ listed so that nobody re-derives them. **No figure from them is quoted here.**
 | 23 | 5 rounds x 3 launches, every round committed | **met** (runner defaults; the smokes used fewer, stated) |
 | 24 | warm-up fixed and identical | **met**: a byte budget per codec arm and a call count per RPC cell, before round 1. Google Benchmark adds none (`--benchmark_min_warmup_time=0`). JIT is not applicable |
 | 25 | allocator warmed identically | **met**: every arm's warm-up precedes round 1. GC is not applicable |
-| 26 | correctness gate first | **met**: the campaign gate runs the full build's conformance, corpus, plants and counts, `nounk_gate.sh`, each codec binary's own gate and plant, and both RPC clients' length abort |
+| 26 | correctness gate first | **met**: the campaign gate runs the full build's conformance, corpus, plants and counts, `nounk_gate.sh`, each codec binary's own gate and plant, both RPC clients' length and abort-after controls, the c/d plants in every cell and send path of both builds, and the RPC counts |
 | 27 | header; dirty tree refused | **met**: a dirty tree is refused unless AK_CAMPAIGN_ALLOW_DIRTY=1 (smoke only). The header's `"instrumentation"` is true on a dirty tree or with AK_CAMPAIGN_SMOKE=1, which also sets `"smoke": true`, so a clean-tree smoke is marked (R-H19) |
 | 28 | one JSON object per sample | **met**, plus a `build` field |
 | 29 | logs in `ffi/logs/cpp/campaign/` | **met** |
@@ -288,8 +299,18 @@ and the record is in JOURNAL.md. The items reported against other owners were re
   own unit tests cover `unk_room`.
 - **host-gen retain in the no-unknown build**: not built (its facade has no bag), so the
   no-unknown corpus reports native-retain and ffi-retain NOT BUILT.
-- **The RPC server side.** The server decodes with the incumbent in every cell, so no
-  cell runs the core's decoder on the server.
+- **The RPC server side.** The server decodes with the incumbent in every cell (b, c and each
+  d message), so no cell runs the core's decoder on the server.
+- **The RPC client under a sanitizer.** `d11_asan.sh` covers conformance and the corpus (the
+  binding's buffers, rule 7's armed contexts); the RPC client, `ak_enc_take_owned`'s and
+  `ak::Enc::take`'s hand-overs to grpc++ and the client streaming are exercised only by the
+  gate's and smoke's own runs.
+- **Streaming beyond client streaming.** Server-streaming and bidirectional calls are reserved
+  kinds in the core and not built; `ak_call_opts` (deadline, metadata) is passed as NULL.
+- **a+read for c and d.** Directions c and d carry no response to read; they have no read row.
+- **The codec suite's memory at the default pool.** A pool of 2 x LLC of encoded bytes, held
+  as facade graphs, peaks at about 6.9 GB in the gate (445 MB with a 1 MiB pool); the smoke in
+  this shared container ran with AK_CAMPAIGN_POOL_BYTES=1048576, stated in its header.
 
 **Coverage.**
 - **The pull decode family.** It is not rendered for C++.
@@ -330,11 +351,12 @@ Nothing is queued for this slice. The open items belong to others: the incumbent
 and perf (the owner's machine), C40 (the aggregating session), and whether the RPC server
 should decode with the core in C/D cells (a harness question for the aggregating session).
 To re-run the gate: `CLEAN=1 gen/wp5_gate.sh build` (it builds everything, about 40
-minutes here), then `gen/d11_asan.sh`. `gen/run_all.sh` takes timings and is not a gate.
+minutes here), then `gen/d11_asan.sh`, then `gen/run_campaign.sh --suite gate`.
+`gen/run_all.sh` takes timings and is not a gate.
 
 ## Log index
 
-Current gate (clean checkout at `a03b06ab2`):
+Current gate (clean checkout at `a83b04865`):
 
 | Log | What it contains |
 |---|---|
@@ -354,7 +376,7 @@ Committed references and earlier correctness logs:
 | Log | What it contains |
 |---|---|
 | `counts-baseline.log`, `counts-nounk-baseline.log` | the committed crossing counts, full (payloads and U rows, drop and retain) and no-unknown |
-| `rpc-counts.log`, `rpc-counts-nounk.log` | the committed per-call RPC counts, cells B-E per mode, directions a and b |
+| `rpc-counts.log`, `rpc-counts-nounk.log` | the committed per-call RPC counts, cells B, Bf, C, Cf, D, E, Ef per mode, jobs a, b, c (P5.3, P5.4), d (4 MiB, 16 MiB) |
 | `wp3-gate-count-stop.log` | the campaign gate stopping on the P1.2 count change decision 11 caused |
 | `wp5s9-asan.log` | the WP5 step 9 ASan run (full build only), superseded by `asan.log` |
 | `d38-probe-before.log`, `d39-stale-refusal.log` | D38 (field number above 2^29-1 in a skipped group) before the fix; D39's stale-binary refusal control |

@@ -1584,3 +1584,36 @@ changes.
   `cpu_clock: process`, the runner header `calib_clock`. Clean worktree at `e47b506d1`: campaign gate
   0 FAIL lines (including the calib failure-propagation control, exit 2, no sample), calib suite
   exit 0; smoke log committed with figures stripped.
+
+## 2026-09-27, FIX-PLAN WP8 (and req 14 c/d, required the same day)
+
+- **Section 9 call sites.** `ak_call_unary` takes the trailing `int32_t *grpc_status` at every
+  hand-written site (campaign_rpc, rpcbench, rpccounts, rpcflow); the timed call checks rc and
+  the status (AK_ERR_RPC_STATUS fails it, req 18). The completions are copied whole and checked
+  on `status`, which covers the new field; no brace or memberwise init needed changing.
+- **D44.** Every message ceiling is 8 MiB, send and receive (grpc++ both configurations, the
+  pinned core client, the server), because P5.4 is 4,194,390 B. The first c/d run failed with
+  UNIMPLEMENTED on every cell: the server patch had not applied (a python assertion hidden by a
+  redirected stderr), so the old server was running. Found by asking whether the change ran.
+- **Directions c and d.** Upload (P5.3/P5.4) and UploadStream (2 MiB M5 chunks, splitmix64 data,
+  ids on the first, 4 and 16 MiB) in every cell; the server returns an UploadAck (byte count,
+  SHA-256 of each message as received; SHA-256 written in the slice, self-tested on the FIPS
+  vectors, because a source-built gRPC carries BoringSSL). Framed twins Bf/Cf/Ef. C sends with
+  ak_call_unary_enc and ak_call_send_enc; D hands grpc++ the core's buffer (ak_enc_take_owned),
+  F host-gen's (new ak::Enc::take with a recycled spare), as the Rust slice's D and F do; the
+  codec suite's end=transport rows follow, so the codec binaries now link the rpc-featured
+  campaign cores. Plants c-len, d-sha, d-count abort in all 15 + 9 cells with no sample.
+- **Binding.** unk_grow is geometric (rule 8). A retain decode makes one reset (rule 7): options
+  at a stable per-thread address, the context left armed; a drop decode disarms a context the
+  binding armed, and dec_ctx_free forgets it (swept to every harness that frees a context). A
+  first version kept retain and drop on one context and the counts showed a drop decode paying
+  the disarm after a retain one; the timed harnesses now give retain its own contexts. s_of no
+  longer re-validates UTF-8 (utf8=reject: the core checked the span). The sparse fill already
+  cleared only what it fills.
+- **Counts.** Payload/U: 107 `decode retain` rows 1 forward lower, 18 U rows fewer reverse (grow),
+  nothing else. RPC: retain a -1, C b -1 (unary_enc), D b rpc 0 -> 2 (take_owned + free), new rows.
+- **Checked.** Clean worktree at a83b04865: wp5_gate 0 failed (both builds, C++17/14/11, static),
+  d11_asan 0 failures, campaign gate / codec / rpc / calib smoke exit 0 (816 RPC samples).
+- **Memory.** The codec gate at the default pool (2 x LLC) peaked at 6.9 GB and was OOM-killed once
+  while another slice's JVM shared the container; the gate now takes AK_CAMPAIGN_POOL_BYTES and the
+  smoke used 1 MiB (445 MB peak), stated.
