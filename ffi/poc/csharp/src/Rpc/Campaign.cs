@@ -836,19 +836,27 @@ public static class CampaignMain
                 checkedUploads++;
             }
             Console.WriteLine("# upload check:   {0} upload cell(s) checked before the warm-up: every c call accepted by the server, every d stream's count and SHA-256 as received equal to the client's", checkedUploads);
-            // R-H2 / req 24: warm-up rounds over every cell (64 calls each, 0.5 s apart) until a
-            // round compiles nothing of the measured code (runtime JIT events), at most 10.
-            while (warmRounds < 10)
+            // R-H2 / req 24 (amended 85cfd4826: every warm-up is a runner parameter): warm-up
+            // rounds over every cell, `wCalls` calls each (divided by the cell's CallDiv on c and
+            // d), `wSettle` ms apart, until a round compiles nothing of the measured code (runtime
+            // JIT events) when `wJitStop`, at most `wRounds`. Campaign default: 10 / 64 / 500 / on.
+            int wRounds = OptI(a, "--warm-rounds", 10), wCalls = OptI(a, "--warm-calls", 64), wSettle = OptI(a, "--warm-settle-ms", 500);
+            bool wJitStop = OptI(a, "--warm-jit-stop", 1) != 0;
+            while (warmRounds < wRounds)
             {
                 warmRounds++;
                 long before = Armonik.Ffi.Bdn.JitTiers.Received;
-                foreach (var c in cells) await RunCell(c.C, pool, Math.Max(c.k, 64 / c.C.CallDiv), c.k);
-                long seen;
-                do { seen = Armonik.Ffi.Bdn.JitTiers.Received; Thread.Sleep(500); } while (seen != Armonik.Ffi.Bdn.JitTiers.Received);
+                foreach (var c in cells) await RunCell(c.C, pool, Math.Max(c.k, wCalls / c.C.CallDiv), c.k);
+                if (wSettle > 0)
+                {
+                    long seen;
+                    do { seen = Armonik.Ffi.Bdn.JitTiers.Received; Thread.Sleep(wSettle); } while (seen != Armonik.Ffi.Bdn.JitTiers.Received);
+                }
                 lastWarmJits = Armonik.Ffi.Bdn.JitTiers.Received - before;
-                if (lastWarmJits == 0) break;
+                if (wJitStop && lastWarmJits == 0) break;
             }
-            Console.WriteLine("# warm-up:        {0} round(s) of 64 calls per cell, direction and in-flight level (so every channel is opened and warmed before round 1), 0.5 s apart; the last round compiled {1} method(s) of measured code (JIT events read back)", warmRounds, lastWarmJits);
+            Console.WriteLine("# warm-up:        {0} round(s) run of at most {1}, {2} calls per cell, direction and in-flight level per round ({2}/4 on c, {2}/8 on d, never fewer than the in-flight level; every channel opened and warmed before round 1), settle wait {3} ms after each round, stop on a JIT-quiet round: {4}; the last round compiled {5} method(s) of measured code (JIT events read back, {6})",
+                warmRounds, wRounds, wCalls, wSettle, wJitStop ? "on" : "off", lastWarmJits, wSettle > 0 ? "after the settle wait" : "no settle wait, late events may be missed");
             Console.WriteLine(ThreadLine("after the warm-up"));
             for (int r = 1; r <= rounds; r++)
             {

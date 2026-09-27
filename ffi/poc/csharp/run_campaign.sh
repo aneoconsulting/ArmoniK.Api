@@ -8,6 +8,15 @@
 #   AK_CPU_SERVER   CPUs of the RPC server process                                required for rpc
 #   AK_ALLOW_DIRTY  1 = run on a dirty tree (the header says so); refused otherwise
 #
+# Warm-ups (CAMPAIGN req 24 as amended 85cfd4826: every warm-up is a runner parameter; campaign
+# default / --smoke default):
+#   rpc client  AK_RPC_WARM_ROUNDS 10 / 1    AK_RPC_WARM_CALLS 64 / one sample's calls (16)
+#               AK_RPC_WARM_SETTLE_MS 500 / 0   AK_RPC_WARM_JIT_STOP 1 / 0
+#   rpc server  AK_RPC_SERVER_WARM 2000 / 100 calls per direction and client transport
+#   codec (BDN) AK_BDN_WARMUP 10 / 1   AK_BDN_ITERATION_MS 100 / 2   AK_BDN_ROUNDS = --rounds
+#               AK_BDN_PREWARM_ROUNDS 10   AK_BDN_PREWARM_CALLS 64   AK_BDN_PREWARM_SETTLE_MS 500
+#               (the pre-warm keeps its defaults under --smoke: the JIT check needs tier-up)
+# Every header states the values used.
 # Defaults are the campaign's: 3 launches, 5 rounds (requirement 23). --smoke is section 9's
 # container smoke run: 1 launch, 1 round, reduced iterations, every figure marked
 # instrumentation. --plant (rpc only) runs the requirement-18 control: a wrong expected
@@ -147,7 +156,10 @@ case "$SUITE" in
     ( cd "$SLICE" && dotnet build src/BenchDotNet/BenchDotNet.csproj -c Release -p:AkNounk=true >> "$SCRATCH/campaign-build.out" 2>&1 ) || { tail -30 "$SCRATCH/campaign-build.out"; exit 1; }
     cp "$SLICE/target-core/release/libak_core.so" "$B8/"
     cp "$SLICE/target-core-nounk/release/libak_core.so" "$BN8/"
-    EXTRA=(--rounds "$ROUNDS"); [ $SMOKE = 1 ] && EXTRA=(--smoke)
+    EXTRA=(--rounds "${AK_BDN_ROUNDS:-$ROUNDS}"); [ $SMOKE = 1 ] && EXTRA+=(--smoke)
+    [ -n "${AK_BDN_WARMUP:-}" ] && EXTRA+=(--warmup "$AK_BDN_WARMUP")
+    [ -n "${AK_BDN_ITERATION_MS:-}" ] && EXTRA+=(--iteration-ms "$AK_BDN_ITERATION_MS")
+    EXTRA+=(--prewarm-rounds "${AK_BDN_PREWARM_ROUNDS:-10}" --prewarm-calls "${AK_BDN_PREWARM_CALLS:-64}" --prewarm-settle-ms "${AK_BDN_PREWARM_SETTLE_MS:-500}")
     # A smoke run keeps 6 of the U-* rows (spread evenly), every direction and arm of each.
     [ $SMOKE = 1 ] && export AK_BDN_UROWS="${AK_BDN_UROWS:-6}"
     for l in $(seq 1 "$LAUNCHES"); do
@@ -196,6 +208,11 @@ case "$SUITE" in
     cp "$SLICE/target-core/release/libak_core.so" "$R8/"
     cp "$SLICE/target-core-nounk/release/libak_core.so" "$RN8/"
     CALLS=64; WARM=2000; [ $SMOKE = 1 ] && { CALLS=16; WARM=100; }
+    WARM="${AK_RPC_SERVER_WARM:-$WARM}"
+    # The client warm-up (req 24 as amended): campaign 10 JIT-settled rounds of 64 calls, 0.5 s
+    # settle; smoke 1 round of one sample's calls, no settle wait.
+    if [ $SMOKE = 1 ]; then WR=1; WC=$CALLS; WS=0; WJ=0; else WR=10; WC=64; WS=500; WJ=1; fi
+    WARMARGS=(--warm-rounds "${AK_RPC_WARM_ROUNDS:-$WR}" --warm-calls "${AK_RPC_WARM_CALLS:-$WC}" --warm-settle-ms "${AK_RPC_WARM_SETTLE_MS:-$WS}" --warm-jit-stop "${AK_RPC_WARM_JIT_STOP:-$WJ}")
     # Req 13 as amended (R-H33): ONE server process per launch, serving every cell of both
     # builds over both transport configurations (two Kestrel hosts in it, one socket each),
     # warmed by $WARM calls per direction from each client transport (Grpc.Net, the core's)
@@ -234,7 +251,7 @@ case "$SUITE" in
               for cell in A B Bf $DC; do
                 [ "$2" = a ] && [ "$cell" = Bf ] && continue   # direction a has no framed twin
                 AK_CAMPAIGN_PLANT=$1 AK_CAMPAIGN_PLANT_DIR=$2 AK_CAMPAIGN_ONLY=$cell taskset -c "$AK_CPU_CLIENT" dotnet "$RX/akrpc.dll" campaign --suite rpc --sock "$sock" --transport "$t" \
-                  --launch "$l" --rounds 1 --calls 8 --inflight 1 > "$f.$1-$2-$cell" 2>&1; rc=$?
+                  --launch "$l" --rounds 1 --calls 8 --inflight 1 "${WARMARGS[@]}" > "$f.$1-$2-$cell" 2>&1; rc=$?
                 if [ $rc -eq 0 ]; then echo "CONTROL PASSED: plant $1 on $2 did not abort on $cell ($f.$1-$2-$cell)" >&2; kill $SPID; exit 1; fi
                 echo "control ($t, launch $l, $bld, plant $1, direction $2, cell $cell): aborted as required, $(grep -c '^{' "$f.$1-$2-$cell") samples: $(grep -m1 ABORT "$f.$1-$2-$cell" | cut -c1-160)" | tee -a "$f"
                 rm -f "$f.$1-$2-$cell"
@@ -243,7 +260,7 @@ case "$SUITE" in
             continue
           fi
           taskset -c "$AK_CPU_CLIENT" dotnet "$RX/akrpc.dll" campaign --suite rpc --sock "$sock" --transport "$t" \
-            --launch "$l" --rounds "$ROUNDS" --calls "$CALLS" >> "$f" 2>&1; rc=$?
+            --launch "$l" --rounds "$ROUNDS" --calls "$CALLS" "${WARMARGS[@]}" >> "$f" 2>&1; rc=$?
           [ $rc -eq 0 ] || { echo "rpc $t launch $l ($bld) aborted ($f)" >&2; kill $SPID; exit 1; }
         done
       done

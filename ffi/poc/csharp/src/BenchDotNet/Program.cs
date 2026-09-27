@@ -54,6 +54,9 @@ public static class Program
         // no compilation of measured code (JitTiers) or 10 rounds pass. Without it the first
         // cases of a process measured hot code still at tier 0 (JOURNAL 51): tier-up waits for
         // a quiet 100 ms, which BDN's own start-up JIT activity keeps postponing.
+        _preRounds = int.Parse(Opt(a, "--prewarm-rounds", "10"), CultureInfo.InvariantCulture);
+        _preCalls = int.Parse(Opt(a, "--prewarm-calls", "64"), CultureInfo.InvariantCulture);
+        _preSettle = Math.Max(1, int.Parse(Opt(a, "--prewarm-settle-ms", "500"), CultureInfo.InvariantCulture));
         Cases.PoolCap = 64;   // the pre-warm's pools are small; the timed cases build full ones
         var (prewarmRounds, lastRoundJits) = Prewarm();
         Cases.PoolCap = 0;
@@ -77,7 +80,7 @@ public static class Program
             "# content sets:   CAMPAIGN req 7 (R-H26): ascii, latin1 and wide on " + string.Join(", ", Cases.ContentPayloads) + "; ascii only elsewhere",
             "# order:          seeded shuffles (below); ratios, where the aggregation forms them, come from per-launch medians (CAMPAIGN req 30): every unit is its own process",
             "# process unit:   " + (Cases.Unit ?? "all cases") + "; this launch's unit order: " + string.Join(", ", Cases.Units(launch)) + " (a seeded shuffle, seed " + Cases.UnitSeed(launch) + "; within this process the cases run in a seeded shuffle too, seed " + order.Seed + ", the 2 prime cases first; requirement 22 as amended, R-H23)",
-            string.Format(CultureInfo.InvariantCulture, "# pre-warm:       {0} round(s) of 64 calls to every case of this process, 0.5 s apart, before BDN starts; the last round compiled {1} method(s) of measured code (JIT events read back)", prewarmRounds, lastRoundJits),
+            string.Format(CultureInfo.InvariantCulture, "# pre-warm:       {0} round(s) run of at most {2}, {3} calls to every case of this process per round, {4} ms settle wait after each, before BDN starts, stopping on a JIT-quiet round; the last round compiled {1} method(s) of measured code (JIT events read back)", prewarmRounds, lastRoundJits, _preRounds, _preCalls, _preSettle),
 #if AK_NO_UNKNOWN_FIELDS
             "# correctness:    " + checks + " pre-timing checks passed (byte identity of every encode arm per payload and content set; every arm accepts every unknown row; on every unknown row core-ffi no-unknown and host-gen no-unknown re-encode to the same DROPPED form)",
 #else
@@ -129,6 +132,10 @@ public static class Program
         return (a, b, c, d);
     }
 
+    /// req 24 (amended): the pre-warm is a runner parameter too (--prewarm-rounds,
+    /// --prewarm-calls, --prewarm-settle-ms); the defaults are the campaign's.
+    private static int _preRounds = 10, _preCalls = 64, _preSettle = 500;
+
     private static (int, long) Prewarm()
     {
         // The job's clock is read inside every timed window: bring it to its final tier too.
@@ -139,7 +146,7 @@ public static class Program
         var keys = Cases.All().ToList();
         long before = JitTiers.Received, last = -1;
         int r = 0;
-        while (r < 10)
+        while (r < _preRounds)
         {
             r++;
             foreach (var k in keys)
@@ -147,11 +154,11 @@ public static class Program
                 // Through the benchmark method itself, so CodecSuite.Run tiers up too.
                 var b = new CodecSuite { Case = k };
                 b.Setup();
-                for (int i = 0; i < 64; i++) b.Run();
+                for (int i = 0; i < _preCalls; i++) b.Run();
             }
             // Let the tiering delay pass and the late JIT events arrive.
             long seen;
-            do { seen = JitTiers.Received; System.Threading.Thread.Sleep(500); } while (seen != JitTiers.Received);
+            do { seen = JitTiers.Received; System.Threading.Thread.Sleep(_preSettle); } while (seen != JitTiers.Received);
             last = JitTiers.Received - before;
             before = JitTiers.Received;
             if (last == 0) break;
