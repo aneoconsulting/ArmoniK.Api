@@ -79,23 +79,28 @@ case "$SUITE" in
   gate)
     rm -f "$OUT/gate.ok"
     AK_GATE_LOGS="$OUT/gate" ./gate.sh "$PY" $FLOOR
+    # Req 18 on the framework (WP9): each planted fault must abort the RPC run with no sample.
+    # camp_rpc_pyperf.py without --server starts and warms (one call per transport) its own
+    # server; with --only it runs the one named benchmark, whose worker's per-call checks must
+    # meet the fault inside pyperf's loop (64 batches, so the short body, 1 in 50, is reached).
+    rpc_control() {  # rpc_control <plant> <group> <benchmark> <grep for the reason>
+      local P=$1 G=$2 B=$3 WHY=$4 F="$OUT/gate/rpc-control-$1"
+      rm -rf "$F".*
+      if AK_CAMP_PLANT="$P" AK_CAMPAIGN_SERVER_WARMUP=1 PYTHONPATH="$HERE/build/pyperf" "$PY" camp_rpc_pyperf.py \
+           --variant full --group "$G" --launch 1 --side "$F.side" --transports shipped \
+           --only "$B" -o "$F.json" --processes 1 --values 1 --warmups 1 --loops 64 \
+           --quiet > "$F.out" 2>&1; then
+        echo "   CONTROL PASSED: the RPC run did not abort on the planted $P"; exit 1
+      fi
+      [ ! -s "$F.json" ] || { echo "   CONTROL: the $P run aborted but wrote pyperf output"; exit 1; }
+      grep -q "^benchmark $B: .*$WHY" "$F.out" || { echo "   CONTROL: the $P run failed for another reason: $(tail -2 "$F.out")"; exit 1; }
+      rm -rf "$F.side"
+      echo "   failed as required, in the benchmark's checks, no sample written: $(grep -m1 "$WHY" "$F.out" | cut -c1-160)"
+    }
     echo "== the RPC runner's must-fail control: a server that returns one short body in 50 =="
-    if AK_CAMP_PLANT=short "$PY" camp_rpc.py --rounds 1 --calls 16 --transports shipped \
-         --out "$OUT/gate/rpc-control.jsonl" --allow-dirty --smoke > "$OUT/gate/rpc-control.out" 2>&1; then
-      echo "   CONTROL PASSED: the RPC runner did not abort on a short body"; exit 1
-    fi
-    grep -q '^# ABORTED, NO FIGURE' "$OUT/gate/rpc-control.jsonl" && [ "$(grep -c '^{' "$OUT/gate/rpc-control.jsonl" || true)" -eq 0 ] \
-      || { echo "   CONTROL: aborted but still wrote samples"; exit 1; }
-    echo "   failed as required, no sample written: $(grep ABORTED "$OUT/gate/rpc-control.jsonl")"
-    # Req 14 (d) / req 18: a server whose upload digest is wrong must abort the run too.
+    rpc_control short ab "rpc|full|shipped|a|P2.2|B|1" "want 540422"
     echo "== the RPC runner's must-fail control: a server that answers (d) with a wrong digest =="
-    if AK_CAMP_PLANT=digest "$PY" camp_rpc.py --rounds 1 --calls 16 --transports shipped \
-         --out "$OUT/gate/rpc-control-digest.jsonl" --allow-dirty --smoke > "$OUT/gate/rpc-control-digest.out" 2>&1; then
-      echo "   CONTROL PASSED: the RPC runner did not abort on a wrong digest"; exit 1
-    fi
-    grep -q '^# ABORTED, NO FIGURE.*digest' "$OUT/gate/rpc-control-digest.jsonl" && [ "$(grep -c '^{' "$OUT/gate/rpc-control-digest.jsonl" || true)" -eq 0 ] \
-      || { echo "   CONTROL: did not abort on the digest, or wrote samples: $(grep ABORTED "$OUT/gate/rpc-control-digest.jsonl")"; exit 1; }
-    echo "   failed as required, no sample written: $(grep ABORTED "$OUT/gate/rpc-control-digest.jsonl")"
+    rpc_control digest d "rpc|full|shipped|d|4MiB|C-drop|1" "digest"
     echo "$STAMP" > "$OUT/gate.ok"
     echo "GATE PASSED"
     ;;
@@ -160,20 +165,44 @@ case "$SUITE" in
     # Req 13 as amended (R-H33): ONE server process per launch (camp_server.py, pinned to
     # AK_CPU_SERVER, both transport configurations on two Unix sockets), serving every cell
     # of both builds; each client warms it from each of its transports before round 1.
-    # Req 24 as amended: the RPC warm-ups. AK_CAMPAIGN_RPC_WARMUP = calls per cell and in-flight
-    # value before round 1 (campaign default: one sample's calls, $CALLS; smoke 4);
-    # AK_CAMPAIGN_SERVER_WARMUP = Get calls from each client transport (campaign 64, smoke 8).
+    if [ -n "$SMOKE" ]; then export AK_CAMPAIGN_SERVER_WARMUP="${AK_CAMPAIGN_SERVER_WARMUP:-8}"
+    else export AK_CAMPAIGN_SERVER_WARMUP="${AK_CAMPAIGN_SERVER_WARMUP:-64}"; fi
+    # WP9 (req 22a as amended): the grid runs on pyperf (camp_rpc_pyperf.py). Per launch: the
+    # launch's ONE server (camp_server.py, AK_CPU_SERVER, both transports on two Unix sockets,
+    # req 13), warmed with AK_CAMPAIGN_SERVER_WARMUP calls from each client transport (req 13,
+    # 24); then, per build in an order alternated by launch, a precheck of every cell (req 26),
+    # and one pyperf invocation per direction group (ab, c, d), each with its own --loops
+    # (AK_CAMPAIGN_RPC_LOOPS_AB / _C / _D; campaign 25 / 8 / 3, smoke 2 / 1 / 1) and pyperf's
+    # --warmups (AK_CAMPAIGN_RPC_WARMUPS; campaign 3, smoke 1). Any failure discards the
+    # launch's output: no sample of an aborted launch is kept (req 18).
     if [ -n "$SMOKE" ]; then
-      export AK_CAMPAIGN_RPC_WARMUP="${AK_CAMPAIGN_RPC_WARMUP:-4}" AK_CAMPAIGN_SERVER_WARMUP="${AK_CAMPAIGN_SERVER_WARMUP:-8}"
+      LAB=${AK_CAMPAIGN_RPC_LOOPS_AB:-2}; LC=${AK_CAMPAIGN_RPC_LOOPS_C:-1}; LD=${AK_CAMPAIGN_RPC_LOOPS_D:-1}; RW=${AK_CAMPAIGN_RPC_WARMUPS:-1}
     else
-      export AK_CAMPAIGN_RPC_WARMUP="${AK_CAMPAIGN_RPC_WARMUP:-$CALLS}" AK_CAMPAIGN_SERVER_WARMUP="${AK_CAMPAIGN_SERVER_WARMUP:-64}"
+      LAB=${AK_CAMPAIGN_RPC_LOOPS_AB:-25}; LC=${AK_CAMPAIGN_RPC_LOOPS_C:-8}; LD=${AK_CAMPAIGN_RPC_LOOPS_D:-3}; RW=${AK_CAMPAIGN_RPC_WARMUPS:-3}
     fi
-    rpc_run() {  # rpc_run <launch> <full|nounk> <server sockets>
-      local l=$1 v=$2 S=$3 F="$OUT/rpc-launch$1"
-      [ "$v" = nounk ] && F="$OUT/rpc-nounk-launch$1"
-      "$PY" camp_rpc.py --launch "$l" --rounds "$ROUNDS" --calls "$CALLS" --variant "$v" --server "$S" \
-        --out "$F.jsonl" $SMOKE $DIRTY 2>"$F.stderr"
-      echo "   rpc ($v) launch $l: $(grep -c '^{' "$F.jsonl" || true) samples$(grep -q '^# ABORTED' "$F.jsonl" && echo ", $(grep '^# ABORTED' "$F.jsonl")")"
+    AFF="${AK_CPU_CLIENT:-$("$PY" -c 'import os;print(",".join(map(str,sorted(os.sched_getaffinity(0)))))')}"
+    discard() {  # discard <launch> <why>
+      rm -rf "$OUT"/rpc-launch"$1".* "$OUT"/rpc-nounk-launch"$1".* "$OUT"/rpc-*-launch"$1".*
+      echo "# ABORTED, NO FIGURE: $2" > "$OUT/rpc-launch$1.ABORTED"
+      echo "   launch $1 DISCARDED: $2"
+    }
+    rpc_run() {  # rpc_run <launch> <full|nounk> <server sockets>; nonzero on any failure
+      local l=$1 v=$2 S=$3 g L
+      "$PY" camp_rpc_pyperf.py --precheck --variant "$v" --server "$S" > "$OUT/rpc-$v-precheck-launch$l.out" 2>&1 \
+        || { tail -3 "$OUT/rpc-$v-precheck-launch$l.out"; return 1; }
+      for g in ab c d; do
+        case $g in ab) L=$LAB;; c) L=$LC;; d) L=$LD;; esac
+        local F="$OUT/rpc-$g-launch$l"; [ "$v" = nounk ] && F="$OUT/rpc-nounk-$g-launch$l"
+        local PP="--processes 1 --values $ROUNDS --warmups $RW --loops $L"
+        rm -rf "$F.side" "$F.pyperf.json"
+        PYTHONPATH="$HERE/build/pyperf" "$PY" camp_rpc_pyperf.py --variant "$v" --group $g --launch "$l" --server "$S" \
+          --side "$F.side" -o "$F.pyperf.json" $PP --affinity "$AFF" --copy-env --quiet > "$F.pyperf.out" 2>&1 \
+          || { tail -5 "$F.pyperf.out"; return 1; }
+        "$PY" camp_rpc_pyperf_export.py --json "$F.pyperf.json" --side "$F.side" --launch "$l" --variant "$v" --group $g \
+          --server "$S" --pyperf-args "$PP --affinity $AFF --copy-env" --out "$F.jsonl" $SMOKE $DIRTY || return 1
+        rm -rf "$F.side"
+        echo "   rpc ($v, $g) launch $l: $(grep -c '"phase": "value"' "$F.jsonl" || true) values, $(grep -c '^{' "$F.jsonl" || true) raw measurements"
+      done
     }
     for l in $(seq 1 "$LAUNCHES"); do
       SD=$(mktemp -d /tmp/akrpc-srv.XXXXXX)
@@ -182,12 +211,17 @@ case "$SUITE" in
       case "$SLINE" in SOCKETS*) ;; *) echo "   the server did not start: $SLINE"; exit 1;; esac
       SOCKS=$(echo "$SLINE" | tr ' ' '\n' | grep '=unix:' | paste -sd, -)
       echo "   launch $l server: pid $SRV_PID, $SLINE"
-      if [ $((l % 2)) = 1 ]; then rpc_run "$l" full "$SOCKS"; rpc_run "$l" nounk "$SOCKS"
-      else rpc_run "$l" nounk "$SOCKS"; rpc_run "$l" full "$SOCKS"; fi
+      OK=1
+      "$PY" camp_rpc_pyperf.py --warm-server --server "$SOCKS" || OK=0
+      if [ $OK = 1 ]; then
+        if [ $((l % 2)) = 1 ]; then ORD="full nounk"; else ORD="nounk full"; fi
+        for v in $ORD; do rpc_run "$l" "$v" "$SOCKS" || { OK=0; break; }; done
+      fi
       SPID=$SRV_PID
       eval "exec ${SRV[1]}>&-"
       wait "$SPID" || true
       rm -rf "$SD"
+      [ $OK = 1 ] || { discard "$l" "a benchmark, the precheck or the server warm-up failed"; exit 1; }
     done
     "$PY" camp_summary.py "$OUT" > "$OUT/summary.txt"
     ;;

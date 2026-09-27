@@ -5,7 +5,7 @@
 Per (build, arm or cell, payload, content, direction, unknown mode, transport, in flight): the
 median, minimum and maximum over every round of every launch of CPU and wall per iteration
 (per call for RPC), and the ratio to the baseline -- `incumbent-prod` (codec: same build,
-payload, content, direction) or cell A (RPC: same build, transport, direction, in flight) --
+payload, content, direction) or cell A (RPC: same build, transport, direction, payload, in flight) --
 **formed from per-launch medians** (owner, 2026-09-26, R-H24): per launch, the median over that
 launch's rounds of the arm divided by the median of the baseline; reported as the median and
 range over launches. pyperf runs every benchmark in its own worker process, so no two values
@@ -52,10 +52,12 @@ def group_key(suite, r):
 
 def base_key(suite, r):
     """The baseline this row is divided by: same build, and same payload/content/direction
-    (codec) or transport/direction/in flight (RPC). The launch is added by the caller."""
+    (codec) or transport/direction/payload/in flight (RPC: (c) carries P5.3 or P5.4, (d) 4MiB
+    or 16MiB, so without the payload two uploads would share one baseline median). The launch
+    is added by the caller."""
     if suite == "codec":
         return (build_of(r), r.get("payload"), r.get("content"), r.get("dir"))
-    return (build_of(r), r.get("transport"), r.get("dir"), r.get("inflight"))
+    return (build_of(r), r.get("transport"), r.get("dir"), r.get("payload"), r.get("inflight"))
 
 
 def is_base(suite, r):

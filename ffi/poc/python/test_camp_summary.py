@@ -7,7 +7,9 @@ file sorting AFTER the full one (the order in which the defect let it overwrite 
 build's reference). Full: incumbent 100 ns, core-ffi 200 ns -> ratio 2.0. No-unknown:
 incumbent 400 ns, core-ffi 200 ns -> ratio 0.5. The RPC cell A is checked the same way. The
 twin: the same rows with `build` removed must NOT give 2.0 for the full build's core-ffi
-(pooling, as the old summary did), which shows the test can see the defect.
+(pooling, as the old summary did), which shows the test can see the defect. The RPC (c) upload
+carries two payloads (P5.3: A 1000, C 2000 -> 2.0; P5.4: A 4000, C 2000 -> 0.5), each divided
+by its own cell A; its twin keys the baseline without the payload and must not give 2.0.
 """
 import json
 import os
@@ -41,15 +43,27 @@ def rpc_rows(build, a_ns, c_ns):
     return out
 
 
-def ratios(res, suite, build, who):
-    return [rat for k, _c, _w, rat in res[suite] if k[0] == build and k[1] == who]
+def upload_rows():
+    out = []
+    for launch in (1, 2):
+        for pid, a_ns in (("P5.3", 1000), ("P5.4", 4000)):
+            for cell, ns in (("A", a_ns), ("C-drop", 2000)):
+                out.append({"suite": "rpc", "build": "full", "cell": cell, "payload": pid, "dir": "c",
+                            "transport": "shipped", "inflight": 1, "launch": launch, "round": 1,
+                            "phase": "value", "cpu_ns": ns * 2, "wall_ns": ns * 2, "iters": 2})
+    return out
+
+
+def ratios(res, suite, build, who, pid=None, d=None):
+    return [rat for k, _c, _w, rat in res[suite] if k[0] == build and k[1] == who
+            and (pid is None or k[2] == pid) and (d is None or k[4] == d)]
 
 
 def main():
     bad = []
     with tempfile.TemporaryDirectory() as d:
         with open(os.path.join(d, "codec-shapes-launch1.jsonl"), "w") as f:
-            for r in codec_rows("full", 100, 200) + rpc_rows("full", 1000, 3000):
+            for r in codec_rows("full", 100, 200) + rpc_rows("full", 1000, 3000) + upload_rows():
                 f.write(json.dumps(r) + "\n")
         with open(os.path.join(d, "codec-shapes-nounk-launch1.jsonl"), "w") as f:
             for r in codec_rows("nounk", 400, 200) + rpc_rows("nounk", 6000, 3000):
@@ -59,11 +73,29 @@ def main():
         want = [("codec", "full", "core-ffi", [2.0, 2.0]), ("codec", "nounk", "core-ffi", [0.5, 0.5]),
                 ("rpc", "full", "C-drop", [3.0, 3.0]), ("rpc", "nounk", "C-nounk", [0.5, 0.5])]
         for suite, build, who, w in want:
-            got = ratios(res, suite, build, who)
+            got = ratios(res, suite, build, who, d="a" if suite == "rpc" else None)
             ok = got == [w]
             print("   %-5s %-5s %-8s ratios per launch %s (want %s): %s" % (suite, build, who, got, [w], "ok" if ok else "FAIL"))
             if not ok:
                 bad.append((suite, build, who))
+        for pid, w in (("P5.3", [2.0, 2.0]), ("P5.4", [0.5, 0.5])):
+            got = ratios(res, "rpc", "full", "C-drop", pid, "c")
+            ok = got == [w]
+            print("   rpc   full  C-drop   (c) %s ratios per launch %s (want %s): %s" % (pid, got, [w], "ok" if ok else "FAIL"))
+            if not ok:
+                bad.append(("rpc c", pid))
+        # the upload twin: the RPC baseline keyed without the payload must be seen
+        real = S.base_key
+        S.base_key = lambda suite, r: real(suite, dict(r, payload=None)) if suite == "rpc" else real(suite, r)
+        try:
+            twin_c = ratios(S.summarise(rows), "rpc", "full", "C-drop", "P5.3", "c")
+        finally:
+            S.base_key = real
+        blind_c = twin_c == [[2.0, 2.0]]
+        print("   must-fail twin (RPC baseline without the payload): (c) P5.3 ratios %s -> %s"
+              % (twin_c, "PASSED: the test is blind" if blind_c else "differs from 2.0, as required"))
+        if blind_c:
+            bad.append("blind upload twin")
         # groups are per build: the two incumbents are two rows, never one pooled row
         inc = [k for k, *_ in res["codec"] if k[1] == "incumbent-prod"]
         print("   incumbent-prod groups: %d (want 2, one per build)" % len(inc))

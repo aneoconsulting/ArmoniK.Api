@@ -49,7 +49,12 @@ counts/crossings-{drop,nounk}.txt   committed whole-number crossing counts per c
 fetch_py37.sh, floor_check.sh       the floor interpreter; the source check against 3.7.5 headers
 conformance.py, corpus.py, rpc_gate.py, rd1_lenwrap.py, u1_map_unknown.py   gate steps
 facts.py, payload_values.py, arms.py, arms_plan.py   harness glue (no wire rule)
-run_campaign.sh, camp_*.py, counts_expected.txt      the campaign harness (CAMPAIGN.md)
+run_campaign.sh, camp_*.py, counts_expected.txt      the campaign harness (CAMPAIGN.md):
+                           camp_pyperf.py + camp_pyperf_export.py (codec suite on pyperf; cases
+                           from camp_codec.py, now a case library with no loop of its own),
+                           camp_rpc_pyperf.py + camp_rpc_pyperf_export.py (RPC grid on pyperf;
+                           cells from camp_rpc.py, now a library with no sampler), camp_server.py,
+                           camp_calib.py, camp_summary.py, camp_lib.py
 rpc.py, bench.py, allocator.py, gcbias.py, concurrency.py, verify_r14.py, run.sh   older harnesses
 mech/                      the crossing-mechanism microbenchmark (no wire rule) and the
                            shapes_pb2 step (`mech/build.sh`) arms.py uses on 3.12
@@ -89,6 +94,79 @@ The worktree and its builds were deleted after the run.
 | 98 | per-element counts against log 85 | identical | identical |
 | 104 | camp_summary's two-build test (R-H1) | pass (one log) | |
 | 105 | RPC cells B-E per call, both builds, against `counts/rpc-*.txt` | identical (one log, 3.12) | |
+
+## The RPC grid on pyperf (FIX-PLAN WP9, CAMPAIGN req 22a as amended)
+
+The hand-written sampler (`camp_rpc.sample` / `main`) is removed, not kept as a second arm;
+`camp_rpc.py` exits with a pointer if run. The codec suite's by-hand loop (`camp_codec.main`,
+with its own calibration, warm-up, rounds and clock) is removed too; `camp_codec.py` is the
+case library pyperf's `camp_pyperf.py` builds from.
+
+- **Benchmark** `rpc|build|transport|dir|payload|cell|k`, one per cell, direction (a, a+read,
+  b, c, d), payload (P2.2; P5.3 / P5.4 for c; 4MiB / 16MiB for d), in-flight level (a, a+read,
+  b: 1, 8, 16; c, d: 1, 8) and transport. Every cell, extra, framed twin and copy-path twin of
+  the old grid is there; per launch: full 518 benchmarks (ab 246, c 136, d 136), no-unknown 292.
+- **Invocation** = one batch of k calls in flight (one call on each of the k threads of a pool
+  created in the setup), `inner_loops = k`. `--loops` is fixed per group, so pyperf spawns no
+  calibration worker.
+- **Grouping** (to keep the worker count sane): one pyperf invocation per build and direction
+  group, ab (a, a+read, b), c and d, each with its own `--loops`
+  (`AK_CAMPAIGN_RPC_LOOPS_AB / _C / _D`: campaign 25 / 8 / 3, smoke 2 / 1 / 1),
+  `--processes 1 --values ROUNDS --warmups AK_CAMPAIGN_RPC_WARMUPS` (campaign 3, smoke 1),
+  `--affinity AK_CPU_CLIENT --copy-env`. Six invocations per launch, in the build order
+  alternated by launch.
+- **Server:** the runner starts the launch's one `camp_server.py` (pinned to `AK_CPU_SERVER`)
+  and warms it (`camp_rpc_pyperf.py --warm-server`, `AK_CAMPAIGN_SERVER_WARMUP` Get calls from
+  each client transport per server transport) before any invocation. Each benchmark worker
+  opens its channel in its setup: one channel per cell per benchmark process.
+- **Checks:** every call. A failed call, a retain decode that leaves a buffer undelivered, or
+  contexts that are not per thread fail the worker; pyperf fails; the runner discards the
+  whole launch (`rpc-launchN.ABORTED`) and stops. The gate's two planted controls now run a
+  pyperf benchmark and must fail inside it with no pyperf JSON: `short` (B at k=1, 64
+  batches: "response is 540421 bytes, want 540422" in the timed loop) and `digest`
+  (C-drop in d: the worker's setup call).
+
+**What the framework forces that differs from the hand-written sampler** (stated in every RPC
+header as `framework_forces`):
+1. A worker PROCESS per benchmark, where the sampler used one client process per build and
+   launch: each benchmark has its own channel, its own core runtime (where it uses the core),
+   and its own pool of k threads (was one pool of 16 for every k). Cells of one block therefore
+   no longer share a process; A is a same-launch control, not an in-process one.
+2. A sample is `loops` batches of k calls, not a fixed `calls` count split over k threads; the
+   uploads run fewer batches than the small calls (per-group `--loops`).
+3. The warm-up is pyperf's warm-up values per worker (`--warmups`), replacing "one sample's
+   calls per cell before round 1". The server warm-up stays (req 13).
+4. The order is pyperf's sequential order: blocks of (transport, direction, payload, k), the
+   cells rotated by one per launch inside a block, the whole list rotated by a third per
+   launch. Cells are no longer rotated per round inside one process (pyperf cannot
+   interleave, as for the codec suite, R-H23).
+5. A failed check discards the launch (both builds, every group), where the sampler closed its
+   own log as ABORTED.
+
+**Custom code beside pyperf, and the requirement each piece serves** (everything else is
+pyperf's: warm-up, loop and invocation control, the worker process, values, ordering of runs,
+the raw JSON):
+
+| piece | where | requirement |
+|---|---|---|
+| the one server process per launch, started and stopped by the runner | run_campaign.sh, camp_server.py | 13 (one server, pinned, both transports), 4 |
+| the server warm-up before any invocation | camp_rpc_pyperf.py `--warm-server` | 13, 24 |
+| the grid precheck per build before its invocations | camp_rpc_pyperf.py `--precheck` (camp_rpc.gate) | 26, 18 |
+| the setup's checked call (and (a)'s re-encode to P2.2) in each worker | camp_rpc_pyperf.py `setup` | 18, 26 |
+| the time_func: CLOCK_PROCESS_CPUTIME_ID over the batches (pyperf's clock is perf_counter) | camp_rpc_pyperf.py, camp_pyperf.py | 21 as amended |
+| wall of the same batches, to a side file joined by the exporter | camp_rpc_pyperf.py, *_export.py | 21 (wall beside CPU) |
+| the per-call checks, the leak and per-thread context checks, raising in the worker | camp_rpc_pyperf.py `time_func` | 18 |
+| abort-and-discard of the launch | run_campaign.sh `discard` | 18 |
+| `gc.collect()` before each value, untimed | both time_funcs | 25 |
+| M_TOP_PAD at import | camp_codec.py (allocator.py) | 25 |
+| the export to section 7's JSON lines with every label (cell, dir, inflight, transport, build, unknown_mode, send_path, payload, launch, round, phase) | *_export.py | 28 |
+| the per-launch rotation of the benchmark list | names_of / camp_pyperf.py | 22 (pyperf cannot interleave) |
+| the fixed `--loops` per group | run_campaign.sh | 22a grouping (no calibration worker for batches of k in-flight calls) |
+
+**Not moved to pyperf:** `camp_calib.py`'s crossing-cost loop (req 20). The timed work is one
+C loop in the shim (`crossing(n, kind)`), with its own rounds and a warm-up call, and the
+`perf stat` readings need separate processes of a fixed n. It was not in WP9's scope (the RPC
+grid and the codec suite); it is stated here, not changed.
 
 ## What was checked, and the log that carries it
 
@@ -197,7 +275,7 @@ reverse (counted by the core). Whole-number totals per call are in `counts/`.
 | 1 | met | the suites run one after another. The machine and its tenancy are the owner's |
 | 2 | met | governor, turbo and SMT are read from /sys into every header. Setting them is the owner's |
 | 3 | met | `AK_ISOLATION`, or isolcpus/nohz_full from /proc/cmdline, in every header |
-| 4 | met | the CPU sets come from `ffi/campaign.machine` (sizes 4 and 4), exported by `ffi/campaign.sh`, and read by `run_campaign.sh` from that file when unset; the client pins itself to `AK_CPU_CLIENT` and the server to `AK_CPU_SERVER` before any thread; the affinity in force is logged. Worker thread counts in every campaign log header: codec and calib 1 (no gRPC stack, no core runtime); RPC client pool 16, the core runtime's workers (`AK_CORE_WORKERS`, 2), the number of core clients and grpcio channels, and the process's OS threads before and after; the server's grpcio executor workers (32) and its threads. NUMA and SMT siblings are checked by campaign.sh, not by this runner |
+| 4 | met | the CPU sets come from `ffi/campaign.machine` (sizes 4 and 4), exported by `ffi/campaign.sh`, and read by `run_campaign.sh` from that file when unset; the client pins itself to `AK_CPU_CLIENT` and the server to `AK_CPU_SERVER` before any thread; the affinity in force is logged. Worker thread counts in every campaign log header: codec and calib 1 (no gRPC stack, no core runtime); RPC (WP9), per benchmark worker: a client pool of k threads, the core runtime's workers (`AK_CORE_WORKERS`, 2) where the cell uses the core, grpcio's own threads where it uses grpcio; the server's grpcio executor workers (32) and its threads. NUMA and SMT siblings are checked by campaign.sh, not by this runner |
 | 5 | met | 3.7 runs the gate (corpus, byte identity) and no timing suite |
 | 6 | met | `buildinfo.json` in every header: cc, CFLAGS, shared linkage, core profile (lto off), the features of every core of both builds; GC stated |
 | 7 | met | 16 payloads; Latin-1 and wide on P1.2, P2.2 and P2.4 (R-H26); family `unknown` = the 92 accepted U-* rows at the shapes core's 7 roots, encode, decode and decode+read, through the timed `_akffi` / `_akffi_nounk` (R-H27); family `unknown-corpus` (the corpus-schema core, 311 rows) is a labelled extra |
@@ -206,25 +284,25 @@ reverse (counted by the core). Whole-number totals per call are in `counts/`.
 | 10 | met | core-ffi retain and drop in the full build; core-ffi no-unknown in the separate build (`--variant nounk`, its own pyperf invocation that also times the incumbent, order alternated by launch). host-gen drop and retain, over the same C-extension facade objects as core-ffi (R3, R-H16), and host-gen no-unknown: host-gen drop (the same text from both plans) over the no-unknown build's facade, which has no `_unknown` (R-H22), in the no-unknown process. host-gen over the plain facade is the labelled extra `host-gen-plain`. Incumbent at upb's default (retains), stated |
 | 11 | met | every encode arm is timed with the input as one hot graph (`encode`) and as a pool of distinct graphs whose wire bytes reach `AK_POOL_BYTES` (default 13.75 MiB, cap `AK_POOL_MAX` 65536 graphs; built and checked outside the window; the smoke uses 1 MiB, stated) (`encode-pool`); the end state is grpcio's transport-ready `bytes` for every arm, and for core-ffi also the bytes copied into a bytearray sized once (`encode-reused`, `encode-pool-reused`). upb-python has no serialise-into entry point and host-gen appends to a bytearray that CPython reallocates when cleared, so neither has a reused-buffer row (stated in the header). Samples carry `input` and `end_state` |
 | 12 | met | full build: A, B, C-retain, C-drop, D-retain, D-drop, E-retain, E-drop, F-retain, F-drop, and the framed send-path twins Bf, Cf-*, Ef-* in b, c and d (grpcio has no framed path) (E and F: host-gen over the core's transport and over grpcio, R-H35), plus the labelled extras; no-unknown build (its own process): A, B, C-nounk, D-nounk, E-nounk, F-nounk (host-gen drop over the no-unknown facade); `unknown_mode` on every sample |
-| 13 | met | one `camp_server.py` per launch, started by `run_campaign.sh`, pinned to `AK_CPU_SERVER`, serving every cell of both builds on two Unix sockets (one per transport configuration, two grpcio servers in the one process); pre-serialised P2.2 on (a), (b) decoded by upb for every cell; warmed by `AK_CAMPAIGN_SERVER_WARMUP` (64) Get calls from each client transport (grpcio, core) before round 1; one channel per cell per launch (a grpcio channel for A, D, F; a core client for B, C, E and each extra), warmed by the per-cell warm-up |
+| 13 | met | one `camp_server.py` per launch, started by `run_campaign.sh`, pinned to `AK_CPU_SERVER`, serving every cell of both builds on two Unix sockets (one per transport configuration, two grpcio servers in the one process); pre-serialised P2.2 on (a), (b) decoded by upb for every cell; warmed by `AK_CAMPAIGN_SERVER_WARMUP` (64) Get calls from each client transport (grpcio, core) before any pyperf invocation (`camp_rpc_pyperf.py --warm-server`); one channel per cell per benchmark process (a grpcio channel for A, D, F; a core client for B, C, E and each extra), opened in the worker's setup (WP9) |
 | 14 | met | (a) as `a` and `a+read`; (b); (c) a unary upload of P5.3 / P5.4, decoded by upb on the server, empty answer; (d) the client-streamed upload of 2 MiB M5 chunks (ids on the first), 4 MiB and 16 MiB, the server answering the data byte count and SHA-256, checked on every call. c and d at 1 and 8 in flight in every cell, d with a third of the calls. B, C and E stream through ak_call_open / ak_call_send / ak_call_recv; A, D and F through grpcio's stream_unary. The server's receive limit is 16 MiB for both configurations (covers P5.4); the core's limits are its defaults (shipped: 4 MiB received) or 16 MiB (pinned), enforced (D44) |
 | 15 | met | 1, 8 and 16 in flight |
 | 16 | met | B, C and E use the core's blocking delivery; queue and callback are labelled extras, direction (a) only; A, D and F use grpcio's idiomatic call, the generated stub's blocking unary multicallable (stated in the header) |
 | 17 | met | shipped and pinned, the same switch for every cell; the socket is a Unix domain socket for every cell (grpcio `unix:` targets; the core dials `unix:` through tonic). grpcio has no connection-window argument; Nagle has no meaning on a Unix socket; both stated in the header |
-| 18 | met | every call checked (status, length; a non-OK gRPC status is AK_ERR_RPC_STATUS and fails the call); the server checks every request; (d) checks the byte count and the digest on every call; one failure aborts with no sample; two planted controls fail in the gate suite: a short body, and a wrong (d) digest |
+| 18 | met | every call checked (status, length; a non-OK gRPC status is AK_ERR_RPC_STATUS and fails the call); the server checks every request; (d) checks the byte count and the digest on every call; a failure fails the pyperf worker, and the runner discards the whole launch (`rpc-launchN.ABORTED`) and stops; a precheck of every cell per build before its invocations; two planted controls fail inside a pyperf benchmark in the gate suite with no pyperf JSON: a short body (in the timed loop) and a wrong (d) digest (in the worker's setup call) |
 | 19 | met | the counting builds count every ABI call the timed call makes, resets apart (the shim's macros), after one warm call, context creation and destruction excepted (per thread, not per call); the resets' place is stated (decode: one before, in both modes; encode: before). The counting build grows geometrically, as the timed one does (req 19 as amended, WP8). Committed and gated: `counts/abi-full.txt` (drop and retain, 16 payloads x 5 backends and the 92 U-* rows; retain with no pre-placed buffer and exact-size grow), `counts/abi-nounk.txt`, `counts/rpc-full.txt` / `rpc-nounk.txt` (RPC cells B, C, D, E per call in each build's modes, E-nounk included, on the rpc counting builds, gate 105), and the older `counts/crossings-{drop,nounk}.txt`; calib stops on a difference from `counts_expected.txt`; gate 98 against log 85 |
 | 20 | not met | host forward and forward+reverse are measured separately, and the rust slice's crossing benchmark is built and run pinned. `perf stat` is implemented, but `perf` is absent in this container, so cycles and instructions have never been read |
-| 21 | met | process CPU per round: codec (pyperf's value is CLOCK_PROCESS_CPUTIME_ID per loop), calib and rpc CLOCK_PROCESS_CPUTIME_ID; wall beside every one (R-H25) |
-| 22 | met | codec: pyperf cannot interleave (not a defect, owner 2026-09-26); the order used: blocks of (payload, content, direction), the arms inside a block rotated by one per launch, the whole list rotated by a third per launch, stated in every codec header. rpc: the cells rotated by one per round, stated in the header |
-| 22a | met | pyperf 2.10.0; `--processes 1 --values ROUNDS --warmups 3 --min-time 0.1 --affinity`; every raw value, warm-up and calibration exported by `camp_pyperf_export.py`, the raw pyperf JSON written beside it (the committed smoke has its figures stripped and omits that JSON) |
+| 21 | met | process CPU, CLOCK_PROCESS_CPUTIME_ID: codec and rpc are pyperf time_funcs that return it per value (rpc: over `loops` batches of k calls), calib around its C loop; wall (perf_counter) beside every one, from a side file for the two pyperf suites (R-H25) |
+| 22 | met | pyperf cannot interleave (not a defect, owner 2026-09-26). codec: blocks of (payload, content, direction), the arms inside a block rotated by one per launch, the whole list rotated by a third per launch. rpc (WP9): blocks of (transport, direction, payload, k), the cells rotated by one per launch inside a block, the list rotated by a third per launch. Both stated in every header |
+| 22a | met | pyperf 2.10.0 for both codec and rpc. codec: `--processes 1 --values ROUNDS --warmups 3 --min-time 0.1 --affinity`. rpc (WP9): one invocation per build and group (ab, c, d), `--processes 1 --values ROUNDS --warmups 3 --loops 25 / 8 / 3 --affinity --copy-env`, one batch of k calls in flight per loop (`inner_loops = k`); the hand-written sampler and the codec by-hand loop are removed. Every raw value and warm-up exported by the two exporters, the raw pyperf JSON beside it (the committed smoke has its figures stripped and omits that JSON). What pyperf forces that differs from before: section "The RPC grid on pyperf" |
 | 23 | met | defaults 5 rounds x 3 launches; every sample written (smoke: 1 x 1) |
-| 24 | met | codec: pyperf's warm-up and loop calibration, exported; rpc: one sample's calls per cell before round 1 |
+| 24 | met | every warm-up a runner parameter, in every header: codec, pyperf's warm-up values and loop calibration (`AK_CAMPAIGN_PYPERF_WARMUPS`, `AK_CAMPAIGN_PYPERF_MIN_TIME`); rpc, pyperf's warm-up values per worker (`AK_CAMPAIGN_RPC_WARMUPS`, 3; smoke 1) and the server warm-up (`AK_CAMPAIGN_SERVER_WARMUP`, 64; smoke 8) |
 | 25 | met | M_TOP_PAD before any allocation; GC on, `gc.collect()` before every sample |
 | 26 | met | codec, rpc and calib each call `need_gate` and refuse to time without a `gate.ok` for the trees they read (calib added, R-H19); the gate covers every codec arm in both unknown-field modes and the no-unknown build (101) |
 | 27 | met | header: commit (a dirty tree refused unless `--allow-dirty`, smoke only), machine, CPU sets, versions, build, transport, warm-up, repeats |
-| 28 | met | one JSON object per sample with the listed fields |
+| 28 | met | one JSON object per raw measurement with the listed fields; rpc rows carry cell, payload, dir, transport, inflight, build, unknown_mode, send_path (move, copy, framed, grpcio, reference), launch, round, phase (warmup or value), cpu_ns, wall_ns, iters = loops x k |
 | 29 | met | `--out`; the smoke is in `logs/python/campaign/` |
-| 30 | met | `camp_summary.py`: median [min, max] per (build, arm or cell, ...), and the ratio to the same build's incumbent-prod or cell A formed from per-launch medians (owner R-H24), labelled cross-process; references and groups keyed on `build`, which every sample carries (R-H1); tested with two builds whose incumbents differ (gate 104) |
+| 30 | met | `camp_summary.py`: median [min, max] per (build, arm or cell, ...), and the ratio to the same build's incumbent-prod or cell A (same transport, direction, payload and in flight: the payload was added in WP9, so (c)'s P5.3 / P5.4 and (d)'s 4MiB / 16MiB each have their own cell A; tested with a must-fail twin) formed from per-launch medians (owner R-H24), labelled cross-process; references and groups keyed on `build`, which every sample carries (R-H1); tested with two builds whose incumbents differ (gate 104) |
 | 31 | met | `run_campaign.sh` with the common interface. The top-level `ffi/campaign.sh` is the aggregating session's |
 | 32 | met | the smoke logs' headers carry the INSTRUMENTATION line; no figure from them is quoted |
 

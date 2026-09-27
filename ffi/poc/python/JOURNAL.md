@@ -1488,3 +1488,33 @@ work, so this is now aligned.
   memory, so D keeps its one copy (stated).
 - **Clean gate** at ccfb08db2: `gate exit 0`, 24 logs clean.
 - **Smoke:** RPC full 518 samples, no-unknown 292.
+
+### J54. The RPC grid on pyperf (FIX-PLAN WP9, req 22a as amended)
+
+- **What was built.** `camp_rpc_pyperf.py`: one pyperf benchmark per (build, transport, dir,
+  payload, cell, k); the worker's setup builds only that cell through `camp_rpc.cells(keys=)`,
+  makes one checked call, and creates a pool of k threads; one loop is one batch of k calls in
+  flight (`inner_loops = k`), timed with CLOCK_PROCESS_CPUTIME_ID, wall to a side file.
+  `camp_rpc_pyperf_export.py` joins the side records to pyperf's warm-ups and values and writes
+  section 7's rows with every label. The runner starts and warms the launch's one server, runs a
+  precheck per build, then three pyperf invocations per build (ab, c, d) with a fixed `--loops`
+  each. The benchmark count per launch equals the old sampler's sample count per round: full
+  518, no-unknown 292.
+- **Removed:** `camp_rpc.sample` / `main` (the hand-written sampler) and `camp_codec.main` /
+  `calibrate` (the codec by-hand loop). Both files are libraries now and exit with a pointer.
+- **The planted controls under pyperf.** First version: the `short` plant with a 64-call server
+  warm-up aborted in the warm-up, before any benchmark ran, so it did not exercise the
+  benchmark's checks. The control now warms with one call and skips the grid precheck (`--only`),
+  so the fault meets the worker: `short` fails in B's timed loop ("response is 540421 bytes,
+  want 540422"), `digest` fails in the worker's setup call on C-drop in d. The first `short`
+  run on cell A failed as grpcio's "Exception deserializing response", which is the plant too
+  but does not name it; the control moved to B, whose check does.
+- **camp_summary's RPC baseline had no payload.** (c) carries P5.3 and P5.4, (d) 4MiB and 16MiB,
+  and the base key was (build, transport, dir, inflight), so both payloads of an upload were
+  divided by one median of both A's. This affects every c and d ratio, with the old sampler
+  too. The key now includes the payload; `test_camp_summary.py` gained a two-payload (c) case and
+  a must-fail twin keyed without the payload (0.8 where 2.0 is expected).
+- **Not moved:** `camp_calib.py`'s crossing loop (a C loop, `perf stat` in separate processes);
+  stated in STATE.
+- `rpc_counts.py` after the refactor: `rpc-full` 84 rows and `rpc-nounk` 48, identical to
+  `counts/`.

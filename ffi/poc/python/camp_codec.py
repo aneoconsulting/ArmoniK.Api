@@ -1,13 +1,9 @@
 """CAMPAIGN.md section 4.1: the codec suite's CASES (payloads, arms, directions, modes, the
-per-case correctness check), and the pre-22a engine that timed them.
-
-Since CAMPAIGN.md 22a (cbd3252) run_campaign.sh times these cases with PYPERF
-(camp_pyperf.py builds them through `shapes_cases` / `unknown_cases` with `only=`); the
-`main()` below is the slice runner's own loop, kept for a by-hand comparison and NOT driven
-by run_campaign.sh.
-
-  python3.12 camp_codec.py --family shapes|unknown --launch N --rounds R --out FILE
-                           [--target-ms T] [--allow-dirty] [--smoke]
+per-case correctness check). The suite is timed by PYPERF only (CAMPAIGN 22a;
+camp_pyperf.py builds these cases through `shapes_cases` / `unknown_cases` with `only=`). The
+by-hand loop that stood here (its own calibration, warm-up, rounds and clock) was removed in
+FIX-PLAN WP9: pyperf provides each of those. What remains of a loop is a case's `fn(n)`, the
+body pyperf's time_func runs `loops` times.
 
 Families (a family is one process: the shapes core and the corpus-schema core are both
 `libak_core.so` and cannot share one):
@@ -43,19 +39,13 @@ Directions (requirement 9): encode; decode (the bare call); decode+read (decode,
 every field through the same plan for every arm -- upb's FromString is lazy, so only this
 row is like for like).
 
-Samples (requirements 21-25, 28): per round, per (payload, content, direction), the arms in
-an order rotated by one each round; one sample = `iters` iterations timed with
-CLOCK_PROCESS_CPUTIME_ID (req 21 as amended; wall beside it). `iters` is calibrated once per arm to the
-target, before round 1, and then one full sample's worth of iterations is run per arm as
-the warm-up (the same rule for every arm). The allocator is put in the long-lived state
-first (M_TOP_PAD, allocator.py, J26). The collector is ON; `gc.collect()` runs before every
-sample so each arm starts from the same collector state.
+Samples: pyperf's (camp_pyperf.py states the clock, the warm-ups, the calibration and the order).
+The allocator is put in the long-lived state at import (M_TOP_PAD, allocator.py, J26; req 25).
 
 Requirement 11: every iteration serialises the SAME object graph again. Neither upb-python
 nor the facades memoise a serialised size or form per instance, so nothing is amortised;
 stated rather than worked around.
 """
-import gc
 import os
 import sys
 
@@ -100,7 +90,6 @@ CONTENT_PAYLOADS = ["P1.2", "P2.2", "P2.4"]
 # at AK_POOL_MAX graphs; a graph's facade objects occupy several times its wire bytes.
 POOL_BYTES = int(os.environ.get("AK_POOL_BYTES", str(int(13.75 * 1024 * 1024))))
 POOL_MAX = int(os.environ.get("AK_POOL_MAX", "65536"))
-TARGET_MS = opt("--target-ms", 50.0, float)
 
 
 # ------------------------------------------------------------------ content sets
@@ -503,58 +492,6 @@ def unknown_corpus_cases(log, only=None):
     return cases, gates
 
 
-def calibrate(c, target_ns):
-    n = 1
-    while True:
-        t = L.proc_cpu_ns()
-        c.fn(n)
-        dt = L.proc_cpu_ns() - t
-        if dt >= target_ns or n >= 1 << 24:
-            c.iters = n
-            return
-        n = max(n + 1, int(n * min(16.0, max(2.0, target_ns / max(dt, 1)))))
-
-
-def main():
-    launch = opt("--launch", 1, int)
-    rounds = opt("--rounds", 5, int)
-    log = L.Log(opt("--out"), "codec", allow_dirty="--allow-dirty" in ARGS, smoke="--smoke" in ARGS,
-                build=VARIANT)
-    log.header(family=FAMILY, launch=launch, rounds=rounds, target_ms_per_sample=TARGET_MS,
-               affinity=AFFINITY, allocator="mallopt(M_TOP_PAD, 8 MiB) %s" % ("applied" if _WARM else "NOT AVAILABLE"),
-               gc="ON; gc.collect() before every sample",
-               warmup="per arm, before round 1: calibration to the target, then one sample's iterations",
-               clock="CLOCK_PROCESS_CPUTIME_ID (cpu_ns, req 21 as amended), perf_counter_ns (wall_ns), totals over iters",
-               incumbent_path="Message.SerializeToString / Message.FromString (grpcio's generated marshaller)",
-               core_ffi_unknown="drop and retain (decision 11, every position armed)")
-    cases, gates = {"shapes": shapes_cases, "unknown": unknown_cases,
-                    "unknown-corpus": unknown_corpus_cases}[FAMILY](log)
-    if gates:
-        log.close(False, "correctness gate failed before timing: " + "; ".join(gates[:5]))
-        print("\n".join(gates))
-        return 1
-    target = int(TARGET_MS * 1e6)
-    for c in cases:
-        if c.prep:
-            c.prep()
-        calibrate(c, target)
-        c.fn(c.iters)                      # the warm-up: one sample's worth, every arm alike
-    groups = {}
-    for c in cases:
-        groups.setdefault((c.payload, c.content, c.dir), []).append(c)
-    for r in range(rounds):
-        for key, cs in groups.items():
-            for c in L.rotated(cs, r):
-                gc.collect()
-                t0, w0 = L.proc_cpu_ns(), L.wall_ns()
-                c.fn(c.iters)
-                t1, w1 = L.proc_cpu_ns(), L.wall_ns()
-                log.sample(arm=c.arm, payload=c.payload, content=c.content, dir=c.dir,
-                           unknown_mode=c.mode, launch=launch, round=r + 1,
-                           cpu_ns=t1 - t0, wall_ns=w1 - w0, iters=c.iters)
-    log.close(True)
-    return 0
-
-
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit("camp_codec.py is the codec suite's case library (payloads, arms, directions, modes, "
+             "the per-case check); the suite runs on pyperf: camp_pyperf.py (run_campaign.sh --suite codec)")

@@ -1,4 +1,9 @@
-"""CAMPAIGN.md section 4.2: the RPC grid. Client pinned to AK_CPU_CLIENT; the server is
+"""CAMPAIGN.md section 4.2: the RPC grid's LIBRARY (FIX-PLAN WP9: the grid itself runs on pyperf,
+camp_rpc_pyperf.py; the hand-written sampler that was here is removed). What stays: the cells,
+their channels and payloads, their checks, the client thread pool, the server start and warm-up.
+
+The text below describes the cells; its sampling paragraphs are superseded by camp_rpc_pyperf.py.
+ Client pinned to AK_CPU_CLIENT; the server is
 `camp_server.py`, its OWN process pinned to AK_CPU_SERVER (R-C3/R-C4: the client and the
 server no longer share one GIL or one CPU set).
 
@@ -138,7 +143,7 @@ def core_client(target, transport):
     return arms._ffi.client_new_opts(runtime(), target, WINDOW, WINDOW, 0, MSG_LIMIT, MSG_LIMIT, 0)
 
 
-def cells(target, transport):
+def cells(target, transport, keys=None):
     """{direction: [(cell, fn)]}; every fn makes ONE checked call. Req 13 as amended: ONE
     channel per cell per launch (a grpcio channel for A, D-*, F-*; a core client for B, C-*,
     E-* and each labelled extra), opened here, before round 1, and warmed by the warm-up."""
@@ -308,6 +313,8 @@ def cells(target, transport):
         ep2 = fput("Ef-" + m)
         out["b"].append(("Ef-" + m, lambda _p=ep2, _e=hg_enc[m]: _p(_e(fc))))
     for pid in C_PAYLOADS:
+        if keys is not None and "c:" + pid not in keys:
+            continue                                   # a benchmark worker builds only its own
         ref5 = arms.reference(pid)
         up5, fc5 = arms.build_upb_native(pid), arms.build_facade(pid, arms.CT_CEXT)
         key = "c:" + pid
@@ -327,6 +334,8 @@ def cells(target, transport):
                 else:
                     out[key].append((cell, lambda _c=c, _e=enc5[e], _o=obj: need(arms._ffi.call_unary(_c, UPLOAD, _e(_o)), 0)))
     for label, chunks in D_PAYLOADS:
+        if keys is not None and "d:" + label not in keys:
+            continue
         ups, fcs, nbytes, sha = stream_payload(chunks)
         want = nbytes.to_bytes(8, "little") + sha
 
@@ -545,22 +554,6 @@ class Pool:
 POOL = []
 
 
-def sample(fn, calls, inflight):
-    if not POOL:
-        POOL.append(Pool(max(INFLIGHT)))      # outside every timed window
-    per = max(1, calls // inflight)
-    failed = []
-    stop = threading.Event()
-    gc.collect()
-    c0, w0 = L.proc_cpu_ns(), L.wall_ns()
-    POOL[0].run(inflight, fn, per, stop, failed)
-    c1, w1 = L.proc_cpu_ns(), L.wall_ns()
-    if failed:
-        e = failed[0]
-        raise CallFailed("%s: %s" % (type(e).__name__, (str(e).splitlines() or [""])[0][:160]))
-    return c1 - c0, w1 - w0, per * inflight
-
-
 def start_server(d):
     """This process's own server (camp_server.py, both transports, UDS in `d`), for a run with
     no --server: the gate's must-fail control and by-hand runs. run_campaign.sh starts ONE
@@ -595,123 +588,6 @@ def os_threads():
         return -1
 
 
-def main():
-    launch = opt("--launch", 1, int)
-    rounds = opt("--rounds", 5, int)
-    calls = opt("--calls", 400, int)
-    transports = opt("--transports", "shipped,pinned").split(",")
-    own = None
-    if opt("--server"):
-        srvinfo = parse_server("SOCKETS " + opt("--server").replace(",", " "))
-    else:
-        import tempfile
-        tmpd = tempfile.mkdtemp(prefix="akrpc")
-        own, srvinfo = start_server(tmpd)
-    log = L.Log(opt("--out"), "rpc", allow_dirty="--allow-dirty" in ARGS, smoke="--smoke" in ARGS,
-                build=VARIANT)
-    log.header(launch=launch, rounds=rounds, calls_per_sample=calls, inflight=INFLIGHT,
-               affinity_client=AFFINITY, payload="%s (%d bytes)" % (PID, len(arms.reference(PID))),
-               transport_shipped="grpcio: no channel option (packages/python create_channel); server: grpcio "
-                                 "defaults except the receive limit, raised to 16 MiB to cover P5.4 (req 14 c); core: "
-                                 "ak_client_new (tonic defaults: 4 MiB received, send unlimited; enforced, D44)",
-               transport_pinned="grpcio client and server: grpc.http2.lookahead_bytes=4 MiB, bdp_probe=0, "
-                                "message limits 16 MiB; no connection-window argument exists in grpcio; "
-                                "grpcio sets TCP_NODELAY itself (stated; log 80, which showed it, was deleted under R-C9). core: ak_client_new_opts "
-                                "stream=connection=4 MiB, adaptive=0, limits 16 MiB, tcp_nagle=0 (off)",
-               network="Unix domain socket (req 17 as amended): %s" % ", ".join(
-                   "%s=%s" % (t, srvinfo.get(t, "?")) for t in ("shipped", "pinned")),
-               server=("camp_server.py, ONE separate process for this launch (%s), both transports, AK_CPU_SERVER "
-                       "affinity %s, grpcio executor workers %s, server threads at start %s; pre-serialised P2.2 on "
-                       "Get; Put decodes with upb and checks"
-                       % ("shared by both builds, started by run_campaign.sh" if own is None else "this client's own",
-                          srvinfo.get("affinity"), srvinfo.get("workers"), srvinfo.get("threads"))),
-               order="per round, per (transport, direction, in flight), the cells rotated by one (req 22)",
-               upload_dirs="req 14 as amended: c = unary upload of P5.3 / P5.4 (the server decodes M5 with upb, "
-                           "answers empty); d = client-streamed upload of 2 MiB M5 chunks (ids on the first), 4 MiB "
-                           "and 16 MiB, the server answering the data byte count and SHA-256, checked on every call; "
-                           "both at 1 and 8 in flight, d with a third of the calls. B, C, E stream through "
-                           "ak_call_open / ak_call_send (copy) / ak_call_recv; A, D, F through grpcio's stream_unary "
-                           "(grpcio consumes the request iterator on a thread of its own per call). Framed twins "
-                           "Bf, Cf-*, Ef-* (ak_client_set_framed) in b, c, d; grpcio has no framed path",
-               idiomatic="A, D and F: grpcio's blocking unary multicallable (the generated stub's call), the "
-                         "codec as its (de)serializer (req 16 as amended)",
-               allocator="M_TOP_PAD %s" % ("applied" if _WARM else "not available"),
-               gc="ON; gc.collect() before every sample",
-               warmup="the server: %d Get calls from each client transport (grpcio, core) per server transport "
-                      "(AK_CAMPAIGN_SERVER_WARMUP); then %s calls per cell and in-flight value before round 1 "
-                      "(AK_CAMPAIGN_RPC_WARMUP; d a third), on the cell's own channel (one channel per cell per "
-                      "launch, req 13); campaign defaults 64 and one sample's calls, smoke 8 and 4 (req 24)"
-                      % (SERVER_WARMUP, RPC_WARMUP or "one sample's"),
-               clock="CLOCK_PROCESS_CPUTIME_ID of the client (cpu_ns), perf_counter_ns (wall_ns)",
-               delivery="B and C blocking; queue and callback are labelled extra cells, direction a only",
-               threads="a pool of max(in flight) client threads created once, before the first timed window, "
-                       "reused by every sample of every cell (R-H2)",
-               variant_build=("no-unknown variant (WP5 step 10): _akffi_rpc_nounk over ak-core --no-default-features "
-                      "--features rpc,init-guard; A and B are this process's controls" if NOUNK
-                      else "full build (unknown-fields on): _akffi_rpc"),
-               unknown_modes=("C-nounk, D-nounk, E-nounk, F-nounk: no-unknown (compiled out; E and F: host-gen drop over the "
-                              "no-unknown facade); A and B: incumbent default" if NOUNK else
-                              "C and D: retain (decision 11, every position armed, per-thread contexts) and "
-                              "drop (every entry zero); A and B: incumbent default; C-queue and C-callback: drop"))
-    try:
-        for transport in transports:
-            target = srvinfo[transport]
-            t0th = os_threads()
-            if True:
-                log.note("server warm-up: " + warm_server(target, transport))
-                cs, keep = cells(target, transport)
-                log.note(gate(cs))
-                u0, tl0, th0 = arms._ffi.unk_totals(), arms._ffi.tls_created(), threading_starts[0]
-                gs0 = GRPC_STREAM_CALLS[0]
-                for key, lst in cs.items():
-                    d, pid, ks, nc = dir_plan(key, calls)
-                    for k in ks:
-                        for name, fn in lst:
-                            wn = nc if RPC_WARMUP is None else (int(RPC_WARMUP) if d not in ("d",) else max(1, -(-int(RPC_WARMUP) // 3)))
-                            sample(fn, wn, k)               # warm-up
-                for r in range(rounds):
-                    for key, lst in cs.items():
-                        d, pid, ks, nc = dir_plan(key, calls)
-                        for k in ks:
-                            for name, fn in L.rotated(lst, r):
-                                cpu, wall, n = sample(fn, nc, k)
-                                log.sample(cell=name, payload=pid, dir=d, transport=transport,
-                                           unknown_mode=unknown_mode(name),
-                                           inflight=k, launch=launch, round=r + 1,
-                                           cpu_ns=cpu, wall_ns=wall, iters=n)
-                u1, tl1, th1 = arms._ffi.unk_totals(), arms._ffi.tls_created(), threading_starts[0]
-                du = (u1[0] - u0[0], u1[1] - u0[1], u1[2] - u0[2])
-                log.note("%s: core-ffi decodes drop %d, retain %d, leaked buffers %d; contexts created %d "
-                         "over %d threads started" % (transport, du[0], du[1], du[2], tl1 - tl0, th1 - th0))
-                if du[2] != 0:
-                    raise CallFailed("leak: %d unknown-field buffer(s) reclaimed undelivered" % du[2])
-                if NOUNK and (du[1] != 0 or du[0] == 0):
-                    raise CallFailed("the no-unknown build: drop %d, retain %d decodes" % du[:2])
-                if not NOUNK and (du[1] == 0 or du[0] == 0):
-                    raise CallFailed("a mode did not run: drop %d, retain %d decodes" % du[:2])
-                gsn = GRPC_STREAM_CALLS[0] - gs0
-                if tl1 - tl0 > 2 * (th1 - th0) + 64 + gsn:
-                    raise CallFailed("contexts created %d for %d threads and %d grpcio stream calls: not per thread"
-                                     % (tl1 - tl0, th1 - th0, gsn))
-                log.note("%s: worker threads (req 4): client pool %d, core runtime workers %d (one runtime for "
-                         "%d core clients), grpcio channels %d; OS threads in this process %d before the "
-                         "channels, %d after the run" % (transport, max(INFLIGHT), CORE_WORKERS, len(keep[1]),
-                                                        len(keep[0]), t0th, os_threads()))
-                del keep
-    except Exception as e:  # noqa: BLE001  (grpc.RpcError included: any failure aborts)
-        log.close(False, "%s: %s" % (type(e).__name__, (str(e).splitlines() or [""])[0][:200]))
-        print("ABORTED: %s" % e)
-        if own is not None:
-            own.kill()
-        return 1
-    if POOL:
-        POOL[0].close()
-    if own is not None:
-        own.stdin.close()
-        own.wait(timeout=30)
-    log.close(True)
-    return 0
-
-
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit("camp_rpc.py is the RPC grid's library (cells, channels, checks); the grid runs on pyperf: "
+             "camp_rpc_pyperf.py (CAMPAIGN req 22a as amended, FIX-PLAN WP9)")
