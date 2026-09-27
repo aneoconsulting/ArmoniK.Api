@@ -989,6 +989,17 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
     public void Encode(ListResultsResponse src, out byte* p, out int len) { int rc = Go(src, false, true, out p, out len); if (rc < 0) throw new InvalidOperationException($"core encode failed: {rc}"); }
     public void EncodeU(ListResultsResponse src, out byte* p, out int len) { int rc = Go(src, true, true, out p, out len); if (rc < 0) throw new InvalidOperationException($"core encode failed: {rc}"); }
     public int TryEncode(ListResultsResponse src, bool retain, out byte* p, out int len) => Go(src, retain, true, out p, out len);
+    /// ABI v1 section 9's move path (WP8): encode and leave the output IN the encode context,
+    /// no ak_enc_take, for ak_call_unary_enc / ak_call_send_enc to move as the request body.
+    public int EncodeInto(ListResultsResponse src, bool retain)
+    {
+        _keep = true;
+        try { return Go(src, retain, true, out _, out _); }
+        finally { _keep = false; }
+    }
+    /// The encode context, for the move path's entries.
+    public IntPtr EncContext => _ctx;
+    private bool _keep;
     public byte[] EncodeToArray(ListResultsResponse src, bool retain = false)
     {
         int rc = Go(src, retain, true, out byte* p, out int len);
@@ -1038,6 +1049,7 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
             rc = Abi.ak_encode_ListResultsResponse(_run, _ctx, &vt, &fix);
         }
         if (rc < 0) return (int)rc;
+        if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
         byte* bp; nuint blen;
         int tk = Abi.ak_enc_take(_ctx, &bp, &blen);
         if (tk != 0) return tk;
@@ -1470,6 +1482,17 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     public void Encode(ListTasksDetailedResponse src, out byte* p, out int len) { int rc = Go(src, false, true, out p, out len); if (rc < 0) throw new InvalidOperationException($"core encode failed: {rc}"); }
     public void EncodeU(ListTasksDetailedResponse src, out byte* p, out int len) { int rc = Go(src, true, true, out p, out len); if (rc < 0) throw new InvalidOperationException($"core encode failed: {rc}"); }
     public int TryEncode(ListTasksDetailedResponse src, bool retain, out byte* p, out int len) => Go(src, retain, true, out p, out len);
+    /// ABI v1 section 9's move path (WP8): encode and leave the output IN the encode context,
+    /// no ak_enc_take, for ak_call_unary_enc / ak_call_send_enc to move as the request body.
+    public int EncodeInto(ListTasksDetailedResponse src, bool retain)
+    {
+        _keep = true;
+        try { return Go(src, retain, true, out _, out _); }
+        finally { _keep = false; }
+    }
+    /// The encode context, for the move path's entries.
+    public IntPtr EncContext => _ctx;
+    private bool _keep;
     public byte[] EncodeToArray(ListTasksDetailedResponse src, bool retain = false)
     {
         int rc = Go(src, retain, true, out byte* p, out int len);
@@ -1607,6 +1630,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             rc = Abi.ak_encode_ListTasksDetailedResponse(_run, _ctx, &vt, &fix);
         }
         if (rc < 0) return (int)rc;
+        if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
         byte* bp; nuint blen;
         int tk = Abi.ak_enc_take(_ctx, &bp, &blen);
         if (tk != 0) return tk;
@@ -2227,6 +2251,17 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
     public void Encode(ListProbeResponse src, out byte* p, out int len) { int rc = Go(src, false, true, out p, out len); if (rc < 0) throw new InvalidOperationException($"core encode failed: {rc}"); }
     public void EncodeU(ListProbeResponse src, out byte* p, out int len) { int rc = Go(src, true, true, out p, out len); if (rc < 0) throw new InvalidOperationException($"core encode failed: {rc}"); }
     public int TryEncode(ListProbeResponse src, bool retain, out byte* p, out int len) => Go(src, retain, true, out p, out len);
+    /// ABI v1 section 9's move path (WP8): encode and leave the output IN the encode context,
+    /// no ak_enc_take, for ak_call_unary_enc / ak_call_send_enc to move as the request body.
+    public int EncodeInto(ListProbeResponse src, bool retain)
+    {
+        _keep = true;
+        try { return Go(src, retain, true, out _, out _); }
+        finally { _keep = false; }
+    }
+    /// The encode context, for the move path's entries.
+    public IntPtr EncContext => _ctx;
+    private bool _keep;
     public byte[] EncodeToArray(ListProbeResponse src, bool retain = false)
     {
         int rc = Go(src, retain, true, out byte* p, out int len);
@@ -2276,6 +2311,7 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
             rc = Abi.ak_encode_ListProbeResponse(_run, _ctx, &vt, &fix);
         }
         if (rc < 0) return (int)rc;
+        if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
         byte* bp; nuint blen;
         int tk = Abi.ak_enc_take(_ctx, &bp, &blen);
         if (tk != 0) return tk;
@@ -2618,6 +2654,17 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
     public void Encode(ListTaskSummaryResponse src, out byte* p, out int len) { int rc = Go(src, false, true, out p, out len); if (rc < 0) throw new InvalidOperationException($"core encode failed: {rc}"); }
     public void EncodeU(ListTaskSummaryResponse src, out byte* p, out int len) { int rc = Go(src, true, true, out p, out len); if (rc < 0) throw new InvalidOperationException($"core encode failed: {rc}"); }
     public int TryEncode(ListTaskSummaryResponse src, bool retain, out byte* p, out int len) => Go(src, retain, true, out p, out len);
+    /// ABI v1 section 9's move path (WP8): encode and leave the output IN the encode context,
+    /// no ak_enc_take, for ak_call_unary_enc / ak_call_send_enc to move as the request body.
+    public int EncodeInto(ListTaskSummaryResponse src, bool retain)
+    {
+        _keep = true;
+        try { return Go(src, retain, true, out _, out _); }
+        finally { _keep = false; }
+    }
+    /// The encode context, for the move path's entries.
+    public IntPtr EncContext => _ctx;
+    private bool _keep;
     public byte[] EncodeToArray(ListTaskSummaryResponse src, bool retain = false)
     {
         int rc = Go(src, retain, true, out byte* p, out int len);
@@ -2683,6 +2730,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
             rc = Abi.ak_encode_ListTaskSummaryResponse(_run, _ctx, &vt, &fix);
         }
         if (rc < 0) return (int)rc;
+        if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
         byte* bp; nuint blen;
         int tk = Abi.ak_enc_take(_ctx, &bp, &blen);
         if (tk != 0) return tk;
@@ -3046,6 +3094,17 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
     public void Encode(UploadResultDataMessage src, out byte* p, out int len) { int rc = Go(src, false, true, out p, out len); if (rc < 0) throw new InvalidOperationException($"core encode failed: {rc}"); }
     public void EncodeU(UploadResultDataMessage src, out byte* p, out int len) { int rc = Go(src, true, true, out p, out len); if (rc < 0) throw new InvalidOperationException($"core encode failed: {rc}"); }
     public int TryEncode(UploadResultDataMessage src, bool retain, out byte* p, out int len) => Go(src, retain, true, out p, out len);
+    /// ABI v1 section 9's move path (WP8): encode and leave the output IN the encode context,
+    /// no ak_enc_take, for ak_call_unary_enc / ak_call_send_enc to move as the request body.
+    public int EncodeInto(UploadResultDataMessage src, bool retain)
+    {
+        _keep = true;
+        try { return Go(src, retain, true, out _, out _); }
+        finally { _keep = false; }
+    }
+    /// The encode context, for the move path's entries.
+    public IntPtr EncContext => _ctx;
+    private bool _keep;
     public byte[] EncodeToArray(UploadResultDataMessage src, bool retain = false)
     {
         int rc = Go(src, retain, true, out byte* p, out int len);
@@ -3086,6 +3145,7 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
             fixed (byte* dp = direct) rc = Abi.ak_encode_UploadResultDataMessage(_run, _ctx, &vt, &fix, dp, (nuint)direct.Length);
         }
         if (rc < 0) return (int)rc;
+        if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
         byte* bp; nuint blen;
         int tk = Abi.ak_enc_take(_ctx, &bp, &blen);
         if (tk != 0) return tk;
@@ -3472,6 +3532,17 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
     public void Encode(ListMetricsResponse src, out byte* p, out int len) { int rc = Go(src, false, true, out p, out len); if (rc < 0) throw new InvalidOperationException($"core encode failed: {rc}"); }
     public void EncodeU(ListMetricsResponse src, out byte* p, out int len) { int rc = Go(src, true, true, out p, out len); if (rc < 0) throw new InvalidOperationException($"core encode failed: {rc}"); }
     public int TryEncode(ListMetricsResponse src, bool retain, out byte* p, out int len) => Go(src, retain, true, out p, out len);
+    /// ABI v1 section 9's move path (WP8): encode and leave the output IN the encode context,
+    /// no ak_enc_take, for ak_call_unary_enc / ak_call_send_enc to move as the request body.
+    public int EncodeInto(ListMetricsResponse src, bool retain)
+    {
+        _keep = true;
+        try { return Go(src, retain, true, out _, out _); }
+        finally { _keep = false; }
+    }
+    /// The encode context, for the move path's entries.
+    public IntPtr EncContext => _ctx;
+    private bool _keep;
     public byte[] EncodeToArray(ListMetricsResponse src, bool retain = false)
     {
         int rc = Go(src, retain, true, out byte* p, out int len);
@@ -3612,6 +3683,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
             rc = Abi.ak_encode_ListMetricsResponse(_run, _ctx, &vt, &fix);
         }
         if (rc < 0) return (int)rc;
+        if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
         byte* bp; nuint blen;
         int tk = Abi.ak_enc_take(_ctx, &bp, &blen);
         if (tk != 0) return tk;
@@ -4059,6 +4131,17 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
     public void Encode(DualResponse src, out byte* p, out int len) { int rc = Go(src, false, true, out p, out len); if (rc < 0) throw new InvalidOperationException($"core encode failed: {rc}"); }
     public void EncodeU(DualResponse src, out byte* p, out int len) { int rc = Go(src, true, true, out p, out len); if (rc < 0) throw new InvalidOperationException($"core encode failed: {rc}"); }
     public int TryEncode(DualResponse src, bool retain, out byte* p, out int len) => Go(src, retain, true, out p, out len);
+    /// ABI v1 section 9's move path (WP8): encode and leave the output IN the encode context,
+    /// no ak_enc_take, for ak_call_unary_enc / ak_call_send_enc to move as the request body.
+    public int EncodeInto(DualResponse src, bool retain)
+    {
+        _keep = true;
+        try { return Go(src, retain, true, out _, out _); }
+        finally { _keep = false; }
+    }
+    /// The encode context, for the move path's entries.
+    public IntPtr EncContext => _ctx;
+    private bool _keep;
     public byte[] EncodeToArray(DualResponse src, bool retain = false)
     {
         int rc = Go(src, retain, true, out byte* p, out int len);
@@ -4120,6 +4203,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
             rc = Abi.ak_encode_DualResponse(_run, _ctx, &vt, &fix);
         }
         if (rc < 0) return (int)rc;
+        if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
         byte* bp; nuint blen;
         int tk = Abi.ak_enc_take(_ctx, &bp, &blen);
         if (tk != 0) return tk;

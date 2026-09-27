@@ -12,8 +12,9 @@
 //      compares count and digest with the client's.
 //
 // Paths, per cell (the same codecs as b): A Grpc.Net + Grpc.Tools' serializer (SerInc);
-// B the incumbent into a buffer + the core's transport; C core-ffi (TryEncode, the core's
-// encode buffer) + the core's transport; D Grpc.Net + core-ffi (SerFfi); E host-gen (Enc) +
+// B the incumbent into a buffer + the core's transport; C core-ffi on the MOVE path (the encode
+// left in the core's context, moved as the request by ak_call_unary_enc / ak_call_send_enc; Cc,
+// a labelled extra, the copy path: ak_enc_take then ak_call_unary / ak_call_send); D Grpc.Net + core-ffi (SerFfi); E host-gen (Enc) +
 // the core's transport; F Grpc.Net + host-gen (SerHost). The core's transport: c through
 // ak_call_unary, d through ABI v1 section 9's client streaming (ak_call_open with
 // AK_CALL_CLIENT_STREAM, ak_call_send per message with `last` on the final one, ak_call_recv,
@@ -126,7 +127,7 @@ internal static class Uploads
     private unsafe delegate int Sender(byte* body, int len);
     private static unsafe int EncodeAndSend(int codec, bool retain, UpData u, int i, Sender send, string cell)
     {
-        if (codec == 1)
+        if (codec == 3)   // Cc, the copy path
         {
             int rc = Core.TryEncode(u.F[i], retain, out byte* p, out int n);
             if (rc < 0) throw new CampaignAbort(cell + ": core encode " + rc);
@@ -155,6 +156,22 @@ internal static class Uploads
     /// Direction c through the core's transport: one blocking ak_call_unary.
     public static unsafe void CoreUnary(CoreChannel ch, byte[] path, int codec, bool retain, UpData u, int wantLen, string cell)
     {
+        if (codec == 1)
+        {
+            // C, the MOVE path (WP8 parity): encode into the core's context, ak_call_unary_enc moves it.
+            int er = Core.EncodeInto(u.F[0], retain);
+            if (er < 0) throw new CampaignAbort(cell + ": core encode " + er);
+            ak_bytes r = default;
+            int rc, gs = -1;
+            fixed (byte* p = path) rc = AkRpc.ak_call_unary_enc(ch.Client, p, (nuint)path.Length, Core.EncContext, &r, &gs);
+            try
+            {
+                if (rc != AkRpc.AK_OK) throw new CampaignAbort(cell + " c: status " + rc + " grpc " + gs);
+                if ((int)r.len != wantLen) throw new CampaignAbort(cell + " c: response length " + r.len + ", expected " + wantLen);
+            }
+            finally { AkRpc.ak_bytes_free(&r); }
+            return;
+        }
         EncodeAndSend(codec, retain, u, 0, (body, len) =>
         {
             ak_bytes r = default;
@@ -182,7 +199,15 @@ internal static class Uploads
             for (int i = 0; i < u.G.Length; i++)
             {
                 int last = i == u.G.Length - 1 ? 1 : 0;
-                int rc = EncodeAndSend(codec, retain, u, i, (body, len) => AkRpc.ak_call_send(h, body, (nuint)len, last), cell);
+                int rc;
+                if (codec == 1)
+                {
+                    // C, the MOVE path: each message encoded into the context, ak_call_send_enc moves it.
+                    int er = Core.EncodeInto(u.F[i], retain);
+                    if (er < 0) throw new CampaignAbort(cell + ": core encode " + er);
+                    rc = AkRpc.ak_call_send_enc(h, Core.EncContext, last);
+                }
+                else rc = EncodeAndSend(codec, retain, u, i, (body, len) => AkRpc.ak_call_send(h, body, (nuint)len, last), cell);
                 if (rc != AkRpc.AK_OK) throw new CampaignAbort(cell + " d: ak_call_send " + rc + " (message " + i + ")");
             }
             ak_bytes r = default;

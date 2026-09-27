@@ -402,6 +402,21 @@ public static class CampaignMain
             }
             else if (codec == 1)
             {
+                // C, the MOVE path (ABI v1 section 9, WP8 parity): the encode stays in the core's
+                // context and ak_call_unary_enc moves that buffer into the request, no copy.
+                int er = Core.EncodeInto(f22, retain);
+                if (er < 0) throw new Abort(cell + ": core encode " + er);
+                ak_bytes r = default;
+                int rc, gs = -1;
+                fixed (byte* p = upPath) rc = AkRpc.ak_call_unary_enc(ch.Client, p, (nuint)upPath.Length, Core.EncContext, &r, &gs);
+                try { if (rc != AkRpc.AK_OK) throw new Abort(cell + " up: status " + rc + " grpc " + gs); CheckLen((int)r.len, 0, cell + " up"); }
+                finally { AkRpc.ak_bytes_free(&r); }
+                return;
+            }
+            else if (codec == 3)
+            {
+                // Cc, the COPY path (a labelled extra): the core's buffer taken, then copied into
+                // the request by ak_call_unary.
                 int er = Core.TryEncode(f22, retain, out q, out n);
                 if (er < 0) throw new Abort(cell + ": core encode " + er);
                 Send(q, n);
@@ -434,6 +449,15 @@ public static class CampaignMain
             cells.Add(new Cell { Name = name, Dir = "a", Mode = ModeOf(name), One = () => CoreDown(ch, name, codec, retain, false) });
             cells.Add(new Cell { Name = name, Dir = "a+read", Mode = ModeOf(name), One = () => CoreDown(ch, name, codec, retain, true) });
             cells.Add(new Cell { Name = name, Dir = "b", Mode = ModeOf(name), One = () => CoreUp(ch, name, codec, retain) });
+        }
+        // Direction b only: the framed twins (Bf, Cf-*, Ef-*: the core's second send path beside
+        // its reference, req 14) and C's copy path (Cc-*); a has an empty request, so its send path
+        // is the same on either.
+        void AddCoreB(string name, int codec, bool retain, bool framed)
+        {
+            var ch = CoreCh(name + " (b)");
+            if (framed && AkRpc.ak_client_set_framed(ch.Client, 1) != AkRpc.AK_OK) throw new InvalidOperationException("ak_client_set_framed");
+            cells.Add(new Cell { Name = name, Dir = "b", Mode = ModeOf(name), Channel = name + " (b)", One = () => CoreUp(ch, name, codec, retain) });
         }
 
         // --- A, D, F: Grpc.Net, the idiomatic `await` of an AsyncUnaryCall (requirement 16 as
@@ -478,16 +502,27 @@ public static class CampaignMain
 
         AddGrpc("A", aDown, tg, aUp, g22);
         AddCore("B", 0, false);
+        AddCoreB("Bf", 0, false, true);
 #if AK_NO_UNKNOWN_FIELDS
         // WP5 step 10, req 12: the NO-UNKNOWN client (unknown fields compiled out of the core,
         // the binding and host-gen): C, D, E and F in mode no-unknown; A and B as controls.
         AddCore("C-nounk", 1, false);
+        AddCoreB("Cf-nounk", 1, false, true);
+        AddCoreB("Cc-nounk", 3, false, false);
+        AddCoreB("Ef-nounk", 2, false, true);
         AddGrpc("D-nounk", DDown(false), tf, DUp(false), f22);
         AddCore("E-nounk", 2, false);
         AddGrpc("F-nounk", FDown(false), tf, FUp(false), f22);
 #else
         AddCore("C-retain", 1, true);
         AddCore("C-drop", 1, false);
+        foreach (var r in new[] { true, false })
+        {
+            var m = r ? "-retain" : "-drop";
+            AddCoreB("Cf" + m, 1, r, true);
+            AddCoreB("Cc" + m, 3, r, false);
+            AddCoreB("Ef" + m, 2, r, true);
+        }
         AddGrpc("D-retain", DDown(true), tf, DUp(true), f22);
         AddGrpc("D-drop", DDown(false), tf, DUp(false), f22);
         AddCore("E-retain", 2, true);
@@ -601,13 +636,14 @@ public static class CampaignMain
         Core("Bf", 0, false, true);
 #if AK_NO_UNKNOWN_FIELDS
         foreach (var (c, e) in new[] { ("C-nounk", 1), ("E-nounk", 2) }) { Core(c, e, false, false); Core(c.Replace("-", "f-"), e, false, true); }
+        Core("Cc-nounk", 3, false, false);
         Grpc("D-nounk", Uploads.MFfi(false), u => u.F);
         Grpc("F-nounk", Uploads.MHost(false), u => u.F);
 #else
         foreach (var r in new[] { true, false })
         {
             string m = r ? "-retain" : "-drop";
-            Core("C" + m, 1, r, false); Core("Cf" + m, 1, r, true);
+            Core("C" + m, 1, r, false); Core("Cf" + m, 1, r, true); Core("Cc" + m, 3, r, false);
             Core("E" + m, 2, r, false); Core("Ef" + m, 2, r, true);
             Grpc("D" + m, Uploads.MFfi(r), u => u.F);
             Grpc("F" + m, Uploads.MHost(r), u => u.F);
@@ -779,7 +815,7 @@ public static class CampaignMain
         var cells = (from c in cellList from k in levels where !c.Upload || k == 1 || k == 8 select (C: c, k)).ToList();
         var o = CoreOpts(pinned);
         Header("rpc", string.Format(CultureInfo.InvariantCulture,
-            "build " + AbiVariant.Name + " (WP5 step 10); launch {0}, rounds {1}, {2} calls per sample, in flight {3}; transport {4} (client: DisableDynamicWindowSizing{5}; Kestrel {6}; core: ak_client_opts stream {7} connection {8} adaptive 0 nagle {9}); Unix socket {10} (req 17: UDS); the server is ONE separate process for this launch, serving both builds and both transports, warmed before any client (its log states the calls); cells (req 12 as amended): A incumbent over Grpc.Net, B incumbent over the core's transport, C core-ffi over the core's transport, D core-ffi over Grpc.Net, E host-gen over the core's transport, F host-gen over Grpc.Net; C, D, E, F in each unknown-field mode of this build (full: -retain = decision 11's options armed at every position and ak_uencode_* / CodecRetain, -drop = reset with NULL and ak_encode_* / Codec; no-unknown build: -nounk, A and B its controls); a retained decode that leaves a grown buffer undelivered fails its call; directions (req 14 as amended): a = empty request, P2.2 response ({11} B) decoded, a+read = the same then every field read (Touch), b = P2.2 request decoded by the server, empty response; c (req 14 as amended 2026-09-27) = a unary upload of P5.3 or P5.4 (M5, 1 MB and 4 MB), decoded by the server, empty response; d = the streamed upload, M5 messages of 2 MiB chunks (ids on the first only), 4 MiB and 16 MiB, the core's client streaming for B/C/E (ak_call_open, ak_call_send per message, ak_call_recv) and Grpc.Net's AsyncClientStreamingCall for A/D/F, the server answering the data byte count (checked on every call; count and SHA-256 checked once per cell before the warm-up); c and d at 1 and 8 in flight, a quarter (c) and an eighth (d) of the calls per sample; the framed twins Bf, Cf, Ef (ak_client_set_framed(1), the core's second send path beside its reference) on c and d; the client's limits (D44, enforced): max send and receive 64 MiB on both transports, Kestrel 64 MiB; delivery (req 16 as amended): B, C, E the core's BLOCKING call on caller threads ({12}, created before the warm-up and shared by every cell); A, D, F Grpc.Net's idiomatic async call (`await CallInvoker.AsyncUnaryCall`, as Grpc.Tools' generated client does), k in flight = k concurrent async loops on the thread pool; the core's callback/queue rows are labelled extras, awaited the same way; one channel per cell for the whole launch (req 13 as amended), opened and warmed before round 1; the core's cells share ONE core runtime with {13} worker thread(s); cell order per round: a seeded shuffle of launch and round; every call checked (status and length); ratios, where the aggregation forms them, from per-launch medians (req 30)",
+            "build " + AbiVariant.Name + " (WP5 step 10); launch {0}, rounds {1}, {2} calls per sample, in flight {3}; transport {4} (client: DisableDynamicWindowSizing{5}; Kestrel {6}; core: ak_client_opts stream {7} connection {8} adaptive 0 nagle {9}); Unix socket {10} (req 17: UDS); the server is ONE separate process for this launch, serving both builds and both transports, warmed before any client (its log states the calls); cells (req 12 as amended): A incumbent over Grpc.Net, B incumbent over the core's transport, C core-ffi over the core's transport, D core-ffi over Grpc.Net, E host-gen over the core's transport, F host-gen over Grpc.Net; C, D, E, F in each unknown-field mode of this build (full: -retain = decision 11's options armed at every position and ak_uencode_* / CodecRetain, -drop = reset with NULL and ak_encode_* / Codec; no-unknown build: -nounk, A and B its controls); a retained decode that leaves a grown buffer undelivered fails its call; directions (req 14 as amended): a = empty request, P2.2 response ({11} B) decoded, a+read = the same then every field read (Touch), b = P2.2 request decoded by the server, empty response; c (req 14 as amended 2026-09-27) = a unary upload of P5.3 or P5.4 (M5, 1 MB and 4 MB), decoded by the server, empty response; d = the streamed upload, M5 messages of 2 MiB chunks (ids on the first only), 4 MiB and 16 MiB, the core's client streaming for B/C/E (ak_call_open, ak_call_send per message, ak_call_recv) and Grpc.Net's AsyncClientStreamingCall for A/D/F, the server answering the data byte count (checked on every call; count and SHA-256 checked once per cell before the warm-up); c and d at 1 and 8 in flight, a quarter (c) and an eighth (d) of the calls per sample; the framed twins Bf, Cf, Ef (ak_client_set_framed(1), the core's second send path beside its reference) on b, c and d (a has an empty request); C on the MOVE path (WP8 parity: the encode left in the core's context and moved as the request, ak_call_unary_enc on b and c, ak_call_send_enc on d), its copy path kept as the labelled extra Cc (ak_enc_take, then ak_call_unary / ak_call_send copy it); D keeps a copy: Grpc.Net's serializer can only write into the call's IBufferWriter or hand it a byte[], so an owned core buffer (ak_enc_take_owned) would still be copied, and D copies from the core's encode buffer directly; the client's limits (D44, enforced): max send and receive 64 MiB on both transports, Kestrel 64 MiB; delivery (req 16 as amended): B, C, E the core's BLOCKING call on caller threads ({12}, created before the warm-up and shared by every cell); A, D, F Grpc.Net's idiomatic async call (`await CallInvoker.AsyncUnaryCall`, as Grpc.Tools' generated client does), k in flight = k concurrent async loops on the thread pool; the core's callback/queue rows are labelled extras, awaited the same way; one channel per cell for the whole launch (req 13 as amended), opened and warmed before round 1; the core's cells share ONE core runtime with {13} worker thread(s); cell order per round: a seeded shuffle of launch and round; every call checked (status and length); ratios, where the aggregation forms them, from per-launch medians (req 30)",
             launch, rounds, calls, string.Join("/", levels), transport, pinned ? " + InitialHttp2StreamWindowSize 4 MiB" : ", no window set",
             pinned ? "stream/connection window 4 MiB" : "defaults", o.stream_window, o.connection_window, o.tcp_nagle, sock, want, levels.Max(), workers));
         foreach (var ch in chans) Console.WriteLine("# channel:        " + ch);
