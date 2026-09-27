@@ -3181,3 +3181,40 @@ no-unknown variant.
 `run_campaign.sh --suite gate` from a clean tree at 186a4e52 (everything up to and including
 U1-unary): gate PASSED (logs/rust/opt/pre-n5-gate2/gate.log), the same sections as the first
 checkpoint.
+
+## 2026-09-27 -- step 6, N5 EXPERIMENT (apply-first element order): built, correct, REVERTED
+
+- 19dc9237 (reverted by 0da6fcfe): additive entries `ak_decode_<R>_af` (every root, every
+  header: C, C#, the ak-abi declarations) beside the unchanged `ak_decode_<R>`; one generic
+  root body `dec_root_<r><const AF: bool>` and element decoder `dec_<r>_<slot>_element<AF>`,
+  so AF=false is the reference order. AF: no `new_<slot>`; each inner run is HELD (bump
+  allocation in the shared D2 arena, a 64-entry table of (slot, offset, count)); at the end
+  `apply_<slot>(tok = -1)` (the host constructs the element from the group and appends it),
+  then the held runs with token -1 ("the element apply just made"). Fallback LIVE when a run
+  cannot be held (arena full: the run's budget reaches 0; or the table full): `new`, the held
+  runs with its token, then the reference order for the rest of the element. Plan option
+  `Options.elem_order` ("new_apply" default, "apply_first"); only rust_binding renders
+  apply_first (decode_with_* calls `_af`; apply/add accept token -1; a `from_<T>` constructor
+  for slot-carrying element types); every other backend unchanged (their generated files
+  change only by the added declarations). The Options repr omits elem_order at its default,
+  so the other slices' generated text that embeds it did not move.
+- Correctness: pre-check 0 failures on both builds (P7.1's interleaved runs included); two
+  fallback inputs added to the pre-check and the counting build (N5-arena: 3000 spans in one
+  run, over the 32 KB arena; N5-held: 140 alternating runs, over the 64-entry table; each a
+  two-element response, the second element ordinary), core-ffi == core-native in both modes;
+  the corpus (gen/corpus.sh) passed. Crossings: every push decode row -1 reverse per
+  non-batchable element (P2.2 3501 -> 3001, P2.4 561 -> 481, rpc:C/Cf/D/Df direction a
+  3501 -> 3001); no payload reached the fallback; N5-arena 9 reverse, N5-held 146 (derived
+  in the commit and matching: new + delivered held runs + the rest live).
+- Measured (narrowed alternated A/B, 3 x A/B, P2.1-P2.5, P4.1, P7.1; A = 7770b363, the codec
+  identical to eaf0948d): core-ffi push decode ffi-drop 1.06, ffi-retain 1.03 (P2.2 1.12 /
+  1.04, P2.5 1.18 / 1.14), core-native 0.96-0.97, prost 1.01 (opt/n5-ab). Asking whether the
+  construction was the cost: a variant with apply(-1) pushing a default element and filling
+  it in place (no from_) measured 1.09 / 1.10 (opt/n5b-ab), so the cost is in the core's
+  element decoder (the held-run machinery: variable run pointers and budgets reset on every
+  hold, the delivery loop), not in constructing the element; saving one reverse crossing per
+  element (a few ns each here) does not cover it. Reverted as not paying; no full run.
+- What another backend would need to use it (reported, not built): call `ak_decode_<R>_af`
+  instead of `ak_decode_<R>`; its `apply_<slot>` must accept token -1 and construct+append
+  the element from the group; its inner `add_<slot>_<inner>` must accept token -1 as "the
+  element apply just appended"; and it must still implement `new_<slot>` for the fallback.

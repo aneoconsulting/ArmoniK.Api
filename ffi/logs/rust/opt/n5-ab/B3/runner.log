@@ -1,0 +1,8 @@
+# rust slice NARROWED optimisation run (gen/opt_narrow.sh): CONTAINER INSTRUMENTATION, codec suite only
+# commit 19dc9237; date 2026-09-27T11:45:53Z; AK_ONLY=P2.1,P2.2,P2.3,P2.4,P2.5,P4.1,P7.1 builds=full; samples=10 warmup_iters=20 warmup_ms=20 measure_ms=60 (opt_bench v5's payload settings); AK_NRESAMPLES=1000 AK_ZC=P5. launch=1 cpu=1
+# core cdylib: lto off (the host's path-dependency build); host: lto off
+  core loaded: /home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/libak_core.so (4220 text symbols)
+  codec-P: precheck: 564 checks, 0 failures, 11 inputs, 496 cases; 4960 sample rows; 78s
+summary-codec.tsv: 496 cases
+variants-codec.tsv / .txt: 82 rows
+unknown-retain-vs-drop.tsv written

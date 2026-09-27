@@ -8,7 +8,7 @@ here. This file states what exists and what was checked; the choice is the owner
 | | |
 |---|---|
 | **Status** | Built and gated on origin/rust/native-core-ffi-poc: four codec arms plus the pull family, the RPC grid (cells A-F), the full conformance corpus through the C ABI and core-native, decision 11's unknown-field mechanism, the no-unknown build, and the campaign harness conformed to the 2026-09-26 contract (FIX-PLAN WP7). That branch is now MERGED with the optimisation experiment (claude/rust-slice-optimization-sy1f4n): every kept optimisation (D1, E1, E2, E4, N1, U1, U2 geometric growth with the INT32_MAX clamp, E3, D2, D3b, D4, R1, R2 `ak_call_unary_enc`, F1 = R-H22, E5, Z1 `core-ffi-zc`, C2 simdutf8) runs on the WP7 harness. **The merged HEAD is NOT gated** (the owner did not ask for a gate): checked by builds of both variants and the corpus workspace, generate --check, one_core.sh, the pre-check on both builds and the counting builds; the last gates are WP7's (c8e8694eb, their branch) and the experiment's (3c737d1, ours), each on one side only |
-| **Next step** | optimisation unit 2: the stable gate checkpoint (again, after U1), N5 (work in progress saved outside the tree), U2-stream, the final gate (stable + 1.88), the final run |
+| **Next step** | optimisation unit 2: U2-stream (ABI section 9 client streaming), the final gate (stable + 1.88), the final run |
 | **Blocked on** | nothing |
 | **Floor** (must build and pass correctness) | MSRV 1.88.0: the full gate, both builds, passes on rustc 1.88.0 from a clean worktree at c8e8694eb (`logs/rust/campaign-wp7/gate-floor-1.88.log`) |
 | **Target** | stable 1.94.1 in this container; README section 5: for Rust the floor is the target language level, one configuration |
@@ -36,6 +36,7 @@ after step 5, the full gate (stable + 1.88) at the end.
 | 5 | none | N6: ffi-retain P4.1 decode over drop -- not reproduced (retain/drop 0.90-1.11 across 9 processes; one extra forward crossing, the reset, and no per-element one) | no code | -- | `opt/n6-probe` |
 | 5b | (tooling only) | fat LTO on the core cdylib only (gen/core_lto.sh, its own cargo invocation; host loads it first through AK_CORE_LIB_DIR, checked with ldd; host not LTO'd, inline_check unchanged) | **not kept** (ffi 1.02-1.04 in the narrowed A/B, prost 0.93-1.02; tooling opt-in, off by default) | -- | `opt/lto-ab` |
 | U1 | f1dc5de8 | U1-unary (owner): labelled extra RPC direction `c`, an upload of P5.3 / P5.4 (M5) for every cell and framed twin at k = 1 and 8; grid server receive limit 8 MiB | yes (extra direction) | req 18 per call and a plant per send path x direction (16 controls aborted); crossings: new c rows | `opt/u1-unary`, `opt/u1-unary-narrow` |
+| 6 | 19dc9237, reverted by 0da6fcfe | N5 experiment: apply-first element order (`ak_decode_<R>_af`, plan option elem_order, fallback on arena or held-table overflow) | **reverted** (core-ffi push decode 1.03-1.10 slower in two narrowed A/Bs) | pre-check 0 failures incl. two fallback inputs; corpus passed; crossings -1 reverse per element (reverted with it) | `opt/n5`, `opt/n5-ab`, `opt/n5b-ab` |
 
 ## Optimisation experiment (done; every figure is container instrumentation)
 
