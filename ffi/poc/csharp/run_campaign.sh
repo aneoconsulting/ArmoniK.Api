@@ -10,12 +10,12 @@
 #
 # Warm-ups (CAMPAIGN req 24 as amended 85cfd4826: every warm-up is a runner parameter; campaign
 # default / --smoke default):
-#   rpc client  AK_RPC_WARM_ROUNDS 10 / 1    AK_RPC_WARM_CALLS 64 / one sample's calls (16)
-#               AK_RPC_WARM_SETTLE_MS 500 / 0   AK_RPC_WARM_JIT_STOP 1 / 0
+#   rpc client  BenchmarkDotNet (WP9): AK_RPC_BDN_WARMUP 10 / 1   AK_RPC_BDN_ITERATION_MS 100 / 20
+#               AK_RPC_BDN_ROUNDS = --rounds
 #   rpc server  AK_RPC_SERVER_WARM 2000 / 100 calls per direction and client transport
 #   codec (BDN) AK_BDN_WARMUP 10 / 1   AK_BDN_ITERATION_MS 100 / 2   AK_BDN_ROUNDS = --rounds
-#               AK_BDN_PREWARM_ROUNDS 10   AK_BDN_PREWARM_CALLS 64   AK_BDN_PREWARM_SETTLE_MS 500
-#               (the pre-warm keeps its defaults under --smoke: the JIT check needs tier-up)
+#               (WP9 addendum: BDN's own warm-up only; no hand-written pre-warm; the per-case JIT
+#               check fails a unit outside --smoke and is reported only in a smoke)
 # Every header states the values used.
 # Defaults are the campaign's: 3 launches, 5 rounds (requirement 23). --smoke is section 9's
 # container smoke run: 1 launch, 1 round, reduced iterations, every figure marked
@@ -159,7 +159,6 @@ case "$SUITE" in
     EXTRA=(--rounds "${AK_BDN_ROUNDS:-$ROUNDS}"); [ $SMOKE = 1 ] && EXTRA+=(--smoke)
     [ -n "${AK_BDN_WARMUP:-}" ] && EXTRA+=(--warmup "$AK_BDN_WARMUP")
     [ -n "${AK_BDN_ITERATION_MS:-}" ] && EXTRA+=(--iteration-ms "$AK_BDN_ITERATION_MS")
-    EXTRA+=(--prewarm-rounds "${AK_BDN_PREWARM_ROUNDS:-10}" --prewarm-calls "${AK_BDN_PREWARM_CALLS:-64}" --prewarm-settle-ms "${AK_BDN_PREWARM_SETTLE_MS:-500}")
     # A smoke run keeps 6 of the U-* rows (spread evenly), every direction and arm of each.
     [ $SMOKE = 1 ] && export AK_BDN_UROWS="${AK_BDN_UROWS:-6}"
     for l in $(seq 1 "$LAUNCHES"); do
@@ -207,12 +206,13 @@ case "$SUITE" in
     GATE="$(gate_first)" || exit 1; ensure_core; build
     cp "$SLICE/target-core/release/libak_core.so" "$R8/"
     cp "$SLICE/target-core-nounk/release/libak_core.so" "$RN8/"
-    CALLS=64; WARM=2000; [ $SMOKE = 1 ] && { CALLS=16; WARM=100; }
+    WARM=2000; [ $SMOKE = 1 ] && WARM=100
     WARM="${AK_RPC_SERVER_WARM:-$WARM}"
-    # The client warm-up (req 24 as amended): campaign 10 JIT-settled rounds of 64 calls, 0.5 s
-    # settle; smoke 1 round of one sample's calls, no settle wait.
-    if [ $SMOKE = 1 ]; then WR=1; WC=$CALLS; WS=0; WJ=0; else WR=10; WC=64; WS=500; WJ=1; fi
-    WARMARGS=(--warm-rounds "${AK_RPC_WARM_ROUNDS:-$WR}" --warm-calls "${AK_RPC_WARM_CALLS:-$WC}" --warm-settle-ms "${AK_RPC_WARM_SETTLE_MS:-$WS}" --warm-jit-stop "${AK_RPC_WARM_JIT_STOP:-$WJ}")
+    # WP9 (req 22a as amended): the client is BenchmarkDotNet (akrpc bench, RpcBench.cs), one
+    # pinned process per unit = cell; its warm-up is BDN's (jitting stage, pilot, warm-up
+    # iterations; req 24): campaign 10 warm-up iterations of 100 ms, smoke 1 of 20 ms.
+    if [ $SMOKE = 1 ]; then BW=1; BI=20; else BW=10; BI=100; fi
+    BDNARGS=(--rounds "${AK_RPC_BDN_ROUNDS:-$ROUNDS}" --warmup "${AK_RPC_BDN_WARMUP:-$BW}" --iteration-ms "${AK_RPC_BDN_ITERATION_MS:-$BI}" --artifacts "$SCRATCH/bdn-rpc")
     # Req 13 as amended (R-H33): ONE server process per launch, serving every cell of both
     # builds over both transport configurations (two Kestrel hosts in it, one socket each),
     # warmed by $WARM calls per direction from each client transport (Grpc.Net, the core's)
@@ -243,25 +243,34 @@ case "$SUITE" in
           if [ $PLANT = 1 ]; then
             # Req 18's controls, per send path and per direction (WP8): a wrong expected length
             # on a, c and d, and a wrong expected SHA-256 on d, each on one cell at a time
-            # (A Grpc.Net, B the core's reference path, Bf its framed path, D Grpc.Net + core-ffi);
+            # (A Grpc.Net, B the core's reference path, Bf its framed path, C the move path,
+            # D Grpc.Net + core-ffi); each through akrpc bench (WP9): the benchmark must fail,
+            # the process exit non-zero, and no sample be written;
             # every one must abort with no sample.
-            if [ "$bld" = full ]; then DC=D-drop; else DC=D-nounk; fi
+            if [ "$bld" = full ]; then DC=D-drop; CC=C-drop; else DC=D-nounk; CC=C-nounk; fi
             for pc in "len a" "len c" "len d" "digest d"; do
               set -- $pc
-              for cell in A B Bf $DC; do
+              for cell in A B Bf $CC $DC; do
                 [ "$2" = a ] && [ "$cell" = Bf ] && continue   # direction a has no framed twin
-                AK_CAMPAIGN_PLANT=$1 AK_CAMPAIGN_PLANT_DIR=$2 AK_CAMPAIGN_ONLY=$cell taskset -c "$AK_CPU_CLIENT" dotnet "$RX/akrpc.dll" campaign --suite rpc --sock "$sock" --transport "$t" \
-                  --launch "$l" --rounds 1 --calls 8 --inflight 1 "${WARMARGS[@]}" > "$f.$1-$2-$cell" 2>&1; rc=$?
+                AK_CAMPAIGN_PLANT=$1 AK_CAMPAIGN_PLANT_DIR=$2 taskset -c "$AK_CPU_CLIENT" dotnet "$RX/akrpc.dll" bench --sock "$sock" --transport "$t" \
+                  --unit "$cell" --launch "$l" --inflight 1 --out "$f.$1-$2-$cell" "${BDNARGS[@]}" > "$f.$1-$2-$cell.bdn.log" 2>&1; rc=$?
                 if [ $rc -eq 0 ]; then echo "CONTROL PASSED: plant $1 on $2 did not abort on $cell ($f.$1-$2-$cell)" >&2; kill $SPID; exit 1; fi
                 echo "control ($t, launch $l, $bld, plant $1, direction $2, cell $cell): aborted as required, $(grep -c '^{' "$f.$1-$2-$cell") samples: $(grep -m1 ABORT "$f.$1-$2-$cell" | cut -c1-160)" | tee -a "$f"
-                rm -f "$f.$1-$2-$cell"
+                rm -f "$f.$1-$2-$cell" "$f.$1-$2-$cell.bdn.log"
               done
             done
             continue
           fi
-          taskset -c "$AK_CPU_CLIENT" dotnet "$RX/akrpc.dll" campaign --suite rpc --sock "$sock" --transport "$t" \
-            --launch "$l" --rounds "$ROUNDS" --calls "$CALLS" "${WARMARGS[@]}" >> "$f" 2>&1; rc=$?
-          [ $rc -eq 0 ] || { echo "rpc $t launch $l ($bld) aborted ($f)" >&2; kill $SPID; exit 1; }
+          for u in $(dotnet "$RX/akrpc.dll" bench --launch "$l" --list-units); do
+            ul="$OUT/rpc-$t-launch$l$sfx.$u.bdn.log"
+            { [ $SMOKE = 1 ] && echo "# SMOKE RUN in a container: EVERY FIGURE IN THIS LOG IS INSTRUMENTATION, NOT A RESULT (README 1.1)"; } > "$ul"
+            taskset -c "$AK_CPU_CLIENT" dotnet "$RX/akrpc.dll" bench --sock "$sock" --transport "$t" --unit "$u" --launch "$l" --out "$f" "${BDNARGS[@]}" >> "$ul" 2>&1; rc=$?
+            if [ $rc -ne 0 ]; then
+              # Req 18 / 22a: one failed benchmark discards the launch's output: no figure.
+              for x in "$OUT"/rpc-*-launch$l*.jsonl; do [ -f "$x" ] && mv "$x" "$x.DISCARDED"; done
+              echo "rpc $t launch $l ($bld) unit $u failed ($ul): the launch's output is discarded (*.DISCARDED)" >&2; kill $SPID; exit 1
+            fi
+          done
         done
       done
       kill $SPID; wait $SPID 2>/dev/null

@@ -37,6 +37,8 @@
   <ItemGroup>
     <PackageReference Include="Grpc.AspNetCore" Version="2.71.0" />
     <PackageReference Include="Grpc.Net.Client" Version="2.71.0" />
+    <!-- WP9 (CAMPAIGN req 22a as amended): the RPC grid on BenchmarkDotNet, as the codec suite. -->
+    <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
   </ItemGroup>
 
   <ItemGroup>
@@ -53,6 +55,7 @@
          the codec suite, so its encode-transport rows time the serializers cells A, D, F run. -->
     <Compile Include="../BenchDotNet/Generated/CampaignOps.cs" Link="Linked/CampaignOps.cs" />
     <Compile Include="../BenchDotNet/GrpcFrame.cs" Link="Linked/GrpcFrame.cs" />
+    <Compile Include="../BenchDotNet/CpuClock.cs" Link="Linked/CpuClock.cs" />
   </ItemGroup>
 
 </Project>

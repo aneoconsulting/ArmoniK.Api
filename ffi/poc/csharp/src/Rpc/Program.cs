@@ -103,6 +103,8 @@ public static class Program
         if (argv.Contains("--shared-ctx")) return SharedCtx(argv);
         // design/CAMPAIGN.md: the campaign runner's measuring process (run_campaign.sh).
         if (argv.Length > 0 && argv[0] == "campaign") return await Armonik.Ffi.Campaign.CampaignMain.Run(argv.Skip(1).ToArray());
+        // FIX-PLAN WP9: the RPC grid on BenchmarkDotNet (RpcBench.cs), one process per cell.
+        if (argv.Length > 0 && argv[0] == "bench") return Armonik.Ffi.Campaign.RpcBenchMain.Run(argv.Skip(1).ToArray());
         // FIX-PLAN WP5 step 4: the RPC structs (generated from plan.rpc) against the
         // Rust declaration, by name both ways, with the harness's comparison.
         int li = Array.IndexOf(argv, "--layout");

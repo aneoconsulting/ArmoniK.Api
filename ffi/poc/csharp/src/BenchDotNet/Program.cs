@@ -54,13 +54,6 @@ public static class Program
         // no compilation of measured code (JitTiers) or 10 rounds pass. Without it the first
         // cases of a process measured hot code still at tier 0 (JOURNAL 51): tier-up waits for
         // a quiet 100 ms, which BDN's own start-up JIT activity keeps postponing.
-        _preRounds = int.Parse(Opt(a, "--prewarm-rounds", "10"), CultureInfo.InvariantCulture);
-        _preCalls = int.Parse(Opt(a, "--prewarm-calls", "64"), CultureInfo.InvariantCulture);
-        _preSettle = Math.Max(1, int.Parse(Opt(a, "--prewarm-settle-ms", "500"), CultureInfo.InvariantCulture));
-        Cases.PoolCap = 64;   // the pre-warm's pools are small; the timed cases build full ones
-        var (prewarmRounds, lastRoundJits) = Prewarm();
-        Cases.PoolCap = 0;
-        Cases.Pools.Clear();
         var order = new RotatingOrderer(launch);
         int ncases = Cases.All().Count(), nprime = Cases.PrimeCases().Count();
         if (Environment.GetEnvironmentVariable("AK_BDN_TRACE") == "1")
@@ -80,13 +73,13 @@ public static class Program
             "# content sets:   CAMPAIGN req 7 (R-H26): ascii, latin1 and wide on " + string.Join(", ", Cases.ContentPayloads) + "; ascii only elsewhere",
             "# order:          seeded shuffles (below); ratios, where the aggregation forms them, come from per-launch medians (CAMPAIGN req 30): every unit is its own process",
             "# process unit:   " + (Cases.Unit ?? "all cases") + "; this launch's unit order: " + string.Join(", ", Cases.Units(launch)) + " (a seeded shuffle, seed " + Cases.UnitSeed(launch) + "; within this process the cases run in a seeded shuffle too, seed " + order.Seed + ", the 2 prime cases first; requirement 22 as amended, R-H23)",
-            string.Format(CultureInfo.InvariantCulture, "# pre-warm:       {0} round(s) run of at most {2}, {3} calls to every case of this process per round, {4} ms settle wait after each, before BDN starts, stopping on a JIT-quiet round; the last round compiled {1} method(s) of measured code (JIT events read back)", prewarmRounds, lastRoundJits, _preRounds, _preCalls, _preSettle),
+            "# warm-up:        BenchmarkDotNet's own, per case: its jitting stage, pilot and the warm-up iterations of the job line (req 24; WP9 addendum: no hand-written pre-warm and no settle wait; the 2 prime cases below are BDN cases); the JIT tier is read back per case and a case that measured hot code at tier 0 fails the unit outside --smoke (the jit check below)",
 #if AK_NO_UNKNOWN_FIELDS
             "# correctness:    " + checks + " pre-timing checks passed (byte identity of every encode arm per payload and content set; every arm accepts every unknown row; on every unknown row core-ffi no-unknown and host-gen no-unknown re-encode to the same DROPPED form)",
 #else
             "# correctness:    " + checks + " pre-timing checks passed (byte identity of every encode arm per payload and content set; every arm accepts every unknown row; on every unknown row core-ffi retain and host-gen retain re-encode to the incumbent's bytes, i.e. the unknown fields are kept: requirement 10)",
 #endif
-            "# cases:          " + ncases + " exported, after " + nprime + " prime case(s) run first and not exported (copies of the first cases, content \"prime\")",
+            "# cases:          " + ncases + " exported, after " + nprime + " prime case(s) run first and not exported (copies of the first cases, content \"prime\"): BDN cases like any other, kept because without them the first case of a process measures BDN's own first-touched runtime helpers (SpanHelpers.Fill) at tier 0 (JOURNAL 51, 62)",
         };
         File.AppendAllLines(outp, hdr);
         foreach (var h in hdr) Console.WriteLine(h);
@@ -117,12 +110,12 @@ public static class Program
             "# jit read back:  " + JsonLinesExporter.JitQuietCases + " of " + ncases + " cases compiled nothing of the measured code in their actual stage; "
                 + JsonLinesExporter.JitTier0Cases + " cases measured hot code at tier 0 (a method compiled in the case, still tier 0 at the end of its span, promoted later; per-case detail in the round-0 rows; "
                 + JitTiers.Received + " MethodLoadVerbose events received)",
-            "# jit check:      " + (JsonLinesExporter.JitTier0Cases == 0 ? "PASS: no exported case measured hot code at tier 0" : "FAIL: " + JsonLinesExporter.JitTier0Cases + " case(s) measured hot code at tier 0; their rows are marked by hot_tier0 > 0"),
+            "# jit check:      " + (JsonLinesExporter.JitTier0Cases == 0 ? "PASS: no exported case measured hot code at tier 0" : (smoke ? "REPORTED, not fatal in a smoke run (its warm-up is too short to reach tier 1 by design): " : "FAIL: ") + JsonLinesExporter.JitTier0Cases + " case(s) measured hot code at tier 0; their rows are marked by hot_tier0 > 0"),
             "# cpu check:      " + (JsonLinesExporter.CpuPairFailed == 0 ? "PASS: every exported case has one process-CPU value per actual iteration" : "FAIL: " + JsonLinesExporter.CpuPairFailed + " case(s) without a paired process-CPU value per iteration"),
             "# end: " + summary.Reports.Length + " BDN cases (" + nprime + " prime), " + failed + " failed",
         });
         // R-H18: a JIT-check failure fails the unit (and so the launch), not only a warning.
-        return failed == 0 && summary.Reports.Length == ncases + nprime && JsonLinesExporter.JitTier0Cases == 0 && JsonLinesExporter.CpuPairFailed == 0 ? 0 : 1;
+        return failed == 0 && summary.Reports.Length == ncases + nprime && (smoke || JsonLinesExporter.JitTier0Cases == 0) && JsonLinesExporter.CpuPairFailed == 0 ? 0 : 1;
     }
 
     private static (int MinW, int MinIo, int MaxW, int MaxIo) Tp()
@@ -130,40 +123,6 @@ public static class Program
         System.Threading.ThreadPool.GetMinThreads(out int a, out int b);
         System.Threading.ThreadPool.GetMaxThreads(out int c, out int d);
         return (a, b, c, d);
-    }
-
-    /// req 24 (amended): the pre-warm is a runner parameter too (--prewarm-rounds,
-    /// --prewarm-calls, --prewarm-settle-ms); the defaults are the campaign's.
-    private static int _preRounds = 10, _preCalls = 64, _preSettle = 500;
-
-    private static (int, long) Prewarm()
-    {
-        // The job's clock is read inside every timed window: bring it to its final tier too.
-        CpuClock.Recording = true;
-        for (int i = 0; i < 20000; i++) { CpuClock.Instance.GetTimestamp(); if (CpuClock.Cpu.Count > 1000) CpuClock.Cpu.Clear(); }
-        CpuClock.Recording = false;
-        CpuClock.Cpu.Clear();
-        var keys = Cases.All().ToList();
-        long before = JitTiers.Received, last = -1;
-        int r = 0;
-        while (r < _preRounds)
-        {
-            r++;
-            foreach (var k in keys)
-            {
-                // Through the benchmark method itself, so CodecSuite.Run tiers up too.
-                var b = new CodecSuite { Case = k };
-                b.Setup();
-                for (int i = 0; i < _preCalls; i++) b.Run();
-            }
-            // Let the tiering delay pass and the late JIT events arrive.
-            long seen;
-            do { seen = JitTiers.Received; System.Threading.Thread.Sleep(_preSettle); } while (seen != JitTiers.Received);
-            last = JitTiers.Received - before;
-            before = JitTiers.Received;
-            if (last == 0) break;
-        }
-        return (r, last);
     }
 
     private static string Env(string k) { var v = Environment.GetEnvironmentVariable(k); return string.IsNullOrEmpty(v) ? "default" : v; }
