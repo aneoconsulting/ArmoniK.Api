@@ -681,6 +681,27 @@ fn dec_task_detailed(d: &mut Dec, out: &mut TaskDetailed, depth: u32) {
     // Plan rule: a message more than LIMIT levels below the root is refused.
     if depth > LIMIT { d.err = ak_rt::ERR_DEPTH; return; }
     let buf = d.buf;
+    // Optimisation N2: count the repeated fields, reserve each Vec once, exactly.
+    {
+        let mut s = Dec::new(&buf[d.pos..]);
+        let mut n = [0usize; 4];
+        while !s.at_end() {
+            let k = s.varint();
+            if s.err != 0 { break; }
+            let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+            match (tag, wire) {
+                (4, 2) => { n[0] += 1; s.len_body(); }
+                (5, 2) => { n[1] += 1; s.len_body(); }
+                (6, 2) => { n[2] += 1; s.len_body(); }
+                (7, 2) => { n[3] += 1; s.len_body(); }
+                _ => s.skip(tag, wire),
+            }
+        }
+        out.parent_task_ids.reserve_exact(n[0]);
+        out.data_dependencies.reserve_exact(n[1]);
+        out.expected_output_ids.reserve_exact(n[2]);
+        out.retry_of_ids.reserve_exact(n[3]);
+    }
     while !d.at_end() {
         let s0 = d.pos;
         let k = d.varint();
@@ -1266,6 +1287,21 @@ fn dec_list_results_response(d: &mut Dec, out: &mut ListResultsResponse, depth: 
     // Plan rule: a message more than LIMIT levels below the root is refused.
     if depth > LIMIT { d.err = ak_rt::ERR_DEPTH; return; }
     let buf = d.buf;
+    // Optimisation N2: count the repeated fields, reserve each Vec once, exactly.
+    {
+        let mut s = Dec::new(&buf[d.pos..]);
+        let mut n = [0usize; 1];
+        while !s.at_end() {
+            let k = s.varint();
+            if s.err != 0 { break; }
+            let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+            match (tag, wire) {
+                (1, 2) => { n[0] += 1; s.len_body(); }
+                _ => s.skip(tag, wire),
+            }
+        }
+        out.results.reserve_exact(n[0]);
+    }
     while !d.at_end() {
         let s0 = d.pos;
         let k = d.varint();
@@ -1305,6 +1341,21 @@ fn dec_list_tasks_detailed_response(d: &mut Dec, out: &mut ListTasksDetailedResp
     // Plan rule: a message more than LIMIT levels below the root is refused.
     if depth > LIMIT { d.err = ak_rt::ERR_DEPTH; return; }
     let buf = d.buf;
+    // Optimisation N2: count the repeated fields, reserve each Vec once, exactly.
+    {
+        let mut s = Dec::new(&buf[d.pos..]);
+        let mut n = [0usize; 1];
+        while !s.at_end() {
+            let k = s.varint();
+            if s.err != 0 { break; }
+            let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+            match (tag, wire) {
+                (1, 2) => { n[0] += 1; s.len_body(); }
+                _ => s.skip(tag, wire),
+            }
+        }
+        out.tasks.reserve_exact(n[0]);
+    }
     while !d.at_end() {
         let s0 = d.pos;
         let k = d.varint();
@@ -1344,6 +1395,21 @@ fn dec_list_task_summary_response(d: &mut Dec, out: &mut ListTaskSummaryResponse
     // Plan rule: a message more than LIMIT levels below the root is refused.
     if depth > LIMIT { d.err = ak_rt::ERR_DEPTH; return; }
     let buf = d.buf;
+    // Optimisation N2: count the repeated fields, reserve each Vec once, exactly.
+    {
+        let mut s = Dec::new(&buf[d.pos..]);
+        let mut n = [0usize; 1];
+        while !s.at_end() {
+            let k = s.varint();
+            if s.err != 0 { break; }
+            let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+            match (tag, wire) {
+                (1, 2) => { n[0] += 1; s.len_body(); }
+                _ => s.skip(tag, wire),
+            }
+        }
+        out.tasks.reserve_exact(n[0]);
+    }
     while !d.at_end() {
         let s0 = d.pos;
         let k = d.varint();
@@ -1375,6 +1441,21 @@ fn dec_list_probe_response(d: &mut Dec, out: &mut ListProbeResponse, depth: u32)
     // Plan rule: a message more than LIMIT levels below the root is refused.
     if depth > LIMIT { d.err = ak_rt::ERR_DEPTH; return; }
     let buf = d.buf;
+    // Optimisation N2: count the repeated fields, reserve each Vec once, exactly.
+    {
+        let mut s = Dec::new(&buf[d.pos..]);
+        let mut n = [0usize; 1];
+        while !s.at_end() {
+            let k = s.varint();
+            if s.err != 0 { break; }
+            let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+            match (tag, wire) {
+                (1, 2) => { n[0] += 1; s.len_body(); }
+                _ => s.skip(tag, wire),
+            }
+        }
+        out.probes.reserve_exact(n[0]);
+    }
     while !d.at_end() {
         let s0 = d.pos;
         let k = d.varint();
@@ -1406,6 +1487,21 @@ fn dec_list_metrics_response(d: &mut Dec, out: &mut ListMetricsResponse, depth: 
     // Plan rule: a message more than LIMIT levels below the root is refused.
     if depth > LIMIT { d.err = ak_rt::ERR_DEPTH; return; }
     let buf = d.buf;
+    // Optimisation N2: count the repeated fields, reserve each Vec once, exactly.
+    {
+        let mut s = Dec::new(&buf[d.pos..]);
+        let mut n = [0usize; 1];
+        while !s.at_end() {
+            let k = s.varint();
+            if s.err != 0 { break; }
+            let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+            match (tag, wire) {
+                (1, 2) => { n[0] += 1; s.len_body(); }
+                _ => s.skip(tag, wire),
+            }
+        }
+        out.batches.reserve_exact(n[0]);
+    }
     while !d.at_end() {
         let s0 = d.pos;
         let k = d.varint();
@@ -1468,6 +1564,23 @@ fn dec_dual_response(d: &mut Dec, out: &mut DualResponse, depth: u32) {
     // Plan rule: a message more than LIMIT levels below the root is refused.
     if depth > LIMIT { d.err = ak_rt::ERR_DEPTH; return; }
     let buf = d.buf;
+    // Optimisation N2: count the repeated fields, reserve each Vec once, exactly.
+    {
+        let mut s = Dec::new(&buf[d.pos..]);
+        let mut n = [0usize; 2];
+        while !s.at_end() {
+            let k = s.varint();
+            if s.err != 0 { break; }
+            let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);
+            match (tag, wire) {
+                (1, 2) => { n[0] += 1; s.len_body(); }
+                (2, 2) => { n[1] += 1; s.len_body(); }
+                _ => s.skip(tag, wire),
+            }
+        }
+        out.left.reserve_exact(n[0]);
+        out.right.reserve_exact(n[1]);
+    }
     while !d.at_end() {
         let s0 = d.pos;
         let k = d.varint();

@@ -332,6 +332,36 @@ def _dec_message(p, m, o):
             raise NotImplementedError("decode action %r (%s.%s)" % (op, m.name, f.name))
 
 
+def _count_prescan(m, o):
+    """Optimisation N2: a message with repeated message or string/bytes fields (maps excluded:
+    a map is not a Vec) counts their occurrences in one pass over its keys first, then
+    reserves each Vec ONCE at its exact size, as the ffi host does per delivered run: the
+    Vec never regrows and its elements are never moved. The pass reads keys and lengths
+    only; it never decides anything -- an error stops it and the decode proper reports it,
+    so the bytes a decode accepts or refuses are unchanged."""
+    reps = [(tag, act.field) for (tag, wire), act in sorted(m.decode.items())
+            if wire == 2 and act.op in ("append_message", "append_blob") and act.field.card != "map"]
+    if not reps:
+        return
+    o.append("    // Optimisation N2: count the repeated fields, reserve each Vec once, exactly.")
+    o.append("    {")
+    o.append("        let mut s = Dec::new(&buf[d.pos..]);")
+    o.append("        let mut n = [0usize; %d];" % len(reps))
+    o.append("        while !s.at_end() {")
+    o.append("            let k = s.varint();")
+    o.append("            if s.err != 0 { break; }")
+    o.append("            let (tag, wire) = ((k >> 3) as u32, (k & 7) as u32);")
+    o.append("            match (tag, wire) {")
+    for i, (tag, f) in enumerate(reps):
+        o.append("                (%d, 2) => { n[%d] += 1; s.len_body(); }" % (tag, i))
+    o.append("                _ => s.skip(tag, wire),")
+    o.append("            }")
+    o.append("        }")
+    for i, (tag, f) in enumerate(reps):
+        o.append("        out.%s.reserve_exact(n[%d]);" % (f.name, i))
+    o.append("    }")
+
+
 def emit_core_native(x, unknown="drop", types_path="super::types::*"):
     """One `core-native` module for one unknown-field mode ("drop" or "retain")."""
     p = as_plan(x)
@@ -363,6 +393,7 @@ def emit_core_native(x, unknown="drop", types_path="super::types::*"):
         body.append("    // Plan rule: a message more than LIMIT levels below the root is refused.")
         body.append("    if depth > LIMIT { d.err = ak_rt::ERR_DEPTH; return; }")
         body.append("    let buf = d.buf;")
+        _count_prescan(m, body)
         body.append("    while !d.at_end() {")
         body.append("        let s0 = d.pos;")
         body.append("        let k = d.varint();")
