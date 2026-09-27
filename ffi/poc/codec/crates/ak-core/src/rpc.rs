@@ -371,6 +371,37 @@ pub unsafe extern "C" fn ak_call_unary_enc(
     }
 }
 
+/// Optimisation T1 (ffi): the encode context's output handed to the HOST as an owned
+/// buffer, MOVED, not copied -- what a host hands a transport of its own (cell D: tonic)
+/// without the copy `ak_enc_take` + a host-side copy costs. `Enc::take` moves the encoded
+/// buffer into a `Bytes` (O(1)); it is boxed as an `ak_bytes`, so `ak_bytes_free` stays
+/// the one release path and may be called on any thread (the transport drops a request
+/// body wherever it likes). The context's encoded bytes are consumed: it continues on its
+/// spare buffer (a fresh one of the same capacity while the spare is still out), and the
+/// buffer the host releases becomes the spare again, as ak_call_unary_enc's body does. A
+/// context in error is refused with its error and `out` left empty. Additive:
+/// `ak_enc_take` is unchanged.
+#[no_mangle]
+pub unsafe extern "C" fn ak_enc_take_owned(enc: *mut crate::ak_enc_ctx, out: *mut ak_bytes) -> i32 {
+    fwd();
+    if out.is_null() {
+        return AK_ERR_INVALID_STATE;
+    }
+    *out = empty_ak_bytes();
+    if enc.is_null() {
+        return AK_ERR_INVALID_STATE;
+    }
+    let cx = &mut *(enc as *mut crate::EncCtxImpl);
+    if cx.hdr.err != AK_OK {
+        return cx.hdr.err;
+    }
+    if cx.e.err != 0 {
+        return cx.e.err;
+    }
+    *out = into_ak_bytes(cx.e.take());
+    AK_OK
+}
+
 /// **One call path, three deliveries.** Every mode below awaits this, so a delivery cannot
 /// drift from another delivery: there is one place the request is sent and one place the
 /// response is taken.

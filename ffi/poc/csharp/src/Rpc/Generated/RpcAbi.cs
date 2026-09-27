@@ -206,6 +206,20 @@ public static unsafe partial class AkRpc
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern void ak_bytes_free(ak_bytes* b);
 #endif
+    /// The encode context's output handed to the host as an owned buffer, MOVED (not copied): `out` holds exactly the encoded bytes until the host releases them with `ak_bytes_free`, on any thread, at any time; the context's encoded bytes are consumed, it continues on its spare buffer (a fresh one while the spare is still out), and the released buffer becomes its spare. A context in error is refused with its error and `out` left empty; NULL `enc` or `out` is AK_ERR_INVALID_STATE. One crossing, `ak_bytes_free` the only other. Additive (optimisation T1).
+#if AK_HOST_COUNT
+    [DllImport(Lib, EntryPoint = "ak_enc_take_owned", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    private static extern int ak_enc_take_owned__raw(IntPtr enc, ak_bytes* @out);
+    internal static long N_ak_enc_take_owned;
+    internal static int ak_enc_take_owned(IntPtr enc, ak_bytes* @out) { System.Threading.Interlocked.Increment(ref N_ak_enc_take_owned); return ak_enc_take_owned__raw(enc, @out); }
+#elif NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial int ak_enc_take_owned(IntPtr enc, ak_bytes* @out);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ak_enc_take_owned(IntPtr enc, ak_bytes* @out);
+#endif
     /// Callback delivery: 2 forward crossings and 1 reverse.
 #if AK_HOST_COUNT
     [DllImport(Lib, EntryPoint = "ak_call_unary_cb", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
@@ -367,6 +381,7 @@ public static unsafe partial class AkRpc
         if (N_ak_call_unary != 0) l.Add(("ak_call_unary", N_ak_call_unary));
         if (N_ak_call_unary_enc != 0) l.Add(("ak_call_unary_enc", N_ak_call_unary_enc));
         if (N_ak_bytes_free != 0) l.Add(("ak_bytes_free", N_ak_bytes_free));
+        if (N_ak_enc_take_owned != 0) l.Add(("ak_enc_take_owned", N_ak_enc_take_owned));
         if (N_ak_call_unary_cb != 0) l.Add(("ak_call_unary_cb", N_ak_call_unary_cb));
         if (N_ak_call_unary_q != 0) l.Add(("ak_call_unary_q", N_ak_call_unary_q));
         if (N_ak_queue_new != 0) l.Add(("ak_queue_new", N_ak_queue_new));
@@ -391,6 +406,7 @@ public static unsafe partial class AkRpc
         N_ak_call_unary = 0;
         N_ak_call_unary_enc = 0;
         N_ak_bytes_free = 0;
+        N_ak_enc_take_owned = 0;
         N_ak_call_unary_cb = 0;
         N_ak_call_unary_q = 0;
         N_ak_queue_new = 0;

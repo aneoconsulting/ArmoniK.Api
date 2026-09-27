@@ -956,6 +956,14 @@ class RpcAbi:
          "i32", "Blocking delivery whose request is the encode context's output, MOVED (not "
                 "copied); the context's encoded bytes are consumed. Additive (optimisation R2)."),
         ("ak_bytes_free", [("b", "*mut ak_bytes")], None, ""),
+        ("ak_enc_take_owned", [("enc", "*mut ak_enc_ctx"), ("out", "*mut ak_bytes")],
+         "i32", "The encode context's output handed to the host as an owned buffer, MOVED (not "
+                "copied): `out` holds exactly the encoded bytes until the host releases them "
+                "with `ak_bytes_free`, on any thread, at any time; the context's encoded bytes "
+                "are consumed, it continues on its spare buffer (a fresh one while the spare is "
+                "still out), and the released buffer becomes its spare. A context in error is refused with its error "
+                "and `out` left empty; NULL `enc` or `out` is AK_ERR_INVALID_STATE. One crossing, "
+                "`ak_bytes_free` the only other. Additive (optimisation T1)."),
         ("ak_call_unary_cb", [("c", "*mut ak_client"), ("path", "*const u8"), ("path_len", "usize"),
                               ("req", "*const u8"), ("req_len", "usize"), ("cb", "ak_completion_cb"),
                               ("user_data", "*mut void"), ("tag", "u64")], "*mut ak_call",

@@ -29,6 +29,36 @@ use criterion::Throughput;
 use harness::arms::core_ffi_arm::Ctx;
 use std::path::PathBuf;
 
+/// Optimisation T1 (ffi): an owned buffer the core handed over (`ak_enc_take_owned`), held
+/// as a `Bytes` owner. Dropping the last `Bytes` clone releases it (`ak_bytes_free`, which
+/// the core makes safe on any thread: the transport drops a request body where it likes).
+struct AkOwned(ak_abi::ak_bytes);
+// SAFETY: the bytes are immutable while owned, and `ak_bytes_free` may run on any thread.
+unsafe impl Send for AkOwned {}
+unsafe impl Sync for AkOwned {}
+impl AsRef<[u8]> for AkOwned {
+    fn as_ref(&self) -> &[u8] {
+        if self.0.len == 0 { &[] } else { unsafe { std::slice::from_raw_parts(self.0.ptr, self.0.len) } }
+    }
+}
+impl Drop for AkOwned {
+    fn drop(&mut self) {
+        unsafe { ak_abi::ak_bytes_free(&mut self.0) }
+    }
+}
+
+/// T1 (ffi): cell D's request body -- the core-ffi encode context's output MOVED to the
+/// host (`ak_enc_take_owned`, one crossing) and wrapped as a `Bytes` without a copy
+/// (`Bytes::from_owner`); the release is the second crossing, when the body is dropped.
+pub fn ffi_owned_body(enc: *mut ak_abi::ak_enc_ctx) -> Result<bytes::Bytes, i32> {
+    let mut b = ak_abi::ak_bytes { ptr: std::ptr::null(), len: 0, owner: std::ptr::null_mut() };
+    let rc = unsafe { ak_abi::ak_enc_take_owned(enc, &mut b) };
+    if rc != ak_abi::AK_OK {
+        return Err(rc);
+    }
+    Ok(bytes::Bytes::from_owner(AkOwned(b)))
+}
+
 /// Requirement 21: CPU time of the measuring thread, `CLOCK_THREAD_CPUTIME_ID`, in ns.
 #[inline]
 pub fn thread_cpu_ns() -> u64 {
@@ -154,7 +184,7 @@ pub const VARIANTS_CORE: &[(&str, &str)] = &[
     ("transport-ready-tonic", "pool"),
 ];
 /// What each transport-ready row is, for every header.
-pub const TRANSPORT_FORMS: &str = "transport-ready-tonic = the Bytes the arm hands tonic: incumbent-prod and armonik a frozen Bytes split from a reused BytesMut (cell A); core-ffi a Bytes copy of ak_enc_take's bytes (cell D); core-native Enc::take, its buffer moved into a Bytes (from_owner) and recycled when dropped, O(1) (cell F; optimisation T1). transport-ready-core = the form the arm hands the core's transport: core-ffi's is the encode context itself (cell C: ak_call_unary_enc MOVES the core's buffer into the request inside the call, no host copy), core-native's its reused Enc buffer (cell E: ak_call_unary copies it inside the call); either way the host does nothing after the encode, so the op is the reused-buffer op, timed as its own row (an in-process repeat of reused-buffer), and the move or copy is inside the RPC call's time";
+pub const TRANSPORT_FORMS: &str = "transport-ready-tonic = the Bytes the arm hands tonic: incumbent-prod and armonik a frozen Bytes split from a reused BytesMut (cell A); core-ffi ak_enc_take_owned's buffer wrapped by Bytes::from_owner, no copy, released with ak_bytes_free when dropped (cell D; optimisation T1); core-native Enc::take, its buffer moved into a Bytes (from_owner) and recycled when dropped, O(1) (cell F; optimisation T1). transport-ready-core = the form the arm hands the core's transport: core-ffi's is the encode context itself (cell C: ak_call_unary_enc MOVES the core's buffer into the request inside the call, no host copy), core-native's its reused Enc buffer (cell E: ak_call_unary copies it inside the call); either way the host does nothing after the encode, so the op is the reused-buffer op, timed as its own row (an in-process repeat of reused-buffer), and the move or copy is inside the RPC call's time";
 pub const ARMS: [&str; 5] = ["incumbent-prod", "armonik", "core-native", "core-ffi", "core-ffi-pull"];
 
 /// Requirement 22 as amended 2026-09-26 (FIX-PLAN R-H23): the order is RANDOMISED per
@@ -507,8 +537,8 @@ pub fn cases_for<R: Ops>(ctx: &'static Ctx, inp: &Input, zc: bool) -> Vec<Case> 
                     let x = if hot { v } else { i += 1; pool.get(i) };
                     let n = R::f_encode(ctx, x, retain).expect("core-ffi encode") as u64;
                     if tr {
-                        // cell D: the bytes read out (ak_enc_take) and copied into tonic's Bytes
-                        Bytes::copy_from_slice(unsafe { harness::generated::binding::encoded(ctx.enc) }).len() as u64
+                        // cell D (T1): the core's buffer moved to the host as an owned Bytes
+                        ffi_owned_body(ctx.enc).expect("ak_enc_take_owned").len() as u64
                     } else {
                         // reused-buffer, and cell C's form (the context, moved inside the call)
                         n
@@ -610,6 +640,18 @@ pub fn precheck<R: Ops>(ctx: &Ctx, inp: &Input) -> (usize, Vec<String>, Vec<Stri
                 let nb = e.buf.to_vec();
                 let fb = R::f_encode(ctx, a, retain).map(|_| unsafe { harness::generated::binding::encoded(ctx.enc) }.to_vec());
                 chk(fb.as_ref().map(|x| *x == nb).unwrap_or(false), format!("core-ffi encode == core-native (retain={retain})"));
+                // T1: the moved forms carry the same bytes -- core-native's Enc::take (cell F)
+                // and core-ffi's ak_enc_take_owned (cell D), twice each so the second take runs
+                // on the recycled (or fresh) buffer; and a NULL out is refused.
+                for _ in 0..2 {
+                    R::n_encode(a, &mut e, retain);
+                    chk(e.take()[..] == nb[..], format!("core-native Enc::take == encode (retain={retain})"));
+                    let ob = R::f_encode(ctx, a, retain).ok().and_then(|_| ffi_owned_body(ctx.enc).ok());
+                    chk(ob.as_ref().map(|b| b[..] == nb[..]).unwrap_or(false), format!("core-ffi ak_enc_take_owned == encode (retain={retain})"));
+                }
+                let _ = R::f_encode(ctx, a, retain);
+                chk(unsafe { ak_abi::ak_enc_take_owned(ctx.enc, std::ptr::null_mut()) } == ak_abi::AK_ERR_INVALID_STATE,
+                    "ak_enc_take_owned(NULL out) refused".to_string());
                 if inp.unknown_row {
                     chk(inp.accepted.contains(&sha(&nb)),
                         format!("re-encode is one of the row's accepted encodings (retain={retain})"));

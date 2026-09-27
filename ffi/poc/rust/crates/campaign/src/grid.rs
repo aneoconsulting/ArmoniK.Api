@@ -326,14 +326,16 @@ pub fn call_of(cell: &str, conn: &Conn, dir: &'static str, sl: &'static [Slot], 
                 let ch = ch.clone();
                 let slot = &sl[i];
                 // The request body, encoded before the call as the idiomatic client does:
-                // the core's buffer copied into the `Bytes` tonic takes (D), core-native's
-                // moved out by Enc::take (F, T1) (requirement 11 row transport-ready-tonic).
+                // the core's buffer moved to the host as an owned `Bytes` (D, T1 ffi),
+                // core-native's moved out by Enc::take (F, T1) (requirement 11 row
+                // transport-ready-tonic).
                 let body = if fetch {
                     Ok(Bytes::new())
                 } else if ffi {
+                    // T1 (ffi): the core's buffer moved to the host, not copied
                     M2::f_encode(&slot.ctx, f_val, retain)
-                        .map(|_| Bytes::copy_from_slice(unsafe { harness::generated::binding::encoded(slot.ctx.enc) }))
                         .map_err(|e| format!("core-ffi encode {e}"))
+                        .and_then(|_| crate::ffi_owned_body(slot.ctx.enc).map_err(|rc| format!("ak_enc_take_owned rc {rc}")))
                 } else {
                     let e = unsafe { &mut *slot.enc.get() };
                     M2::n_encode(f_val, e, retain);

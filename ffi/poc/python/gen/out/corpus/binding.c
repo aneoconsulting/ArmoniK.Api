@@ -173,6 +173,7 @@ static uint64_t ABICNT[2];   /* [0] every ak_* call, [1] the resets among them *
 #define ak_enc_reset(...) (AK_ABI_CALL(1), ak_enc_reset(__VA_ARGS__))
 #define ak_enc_site_moves(...) (AK_ABI_CALL(0), ak_enc_site_moves(__VA_ARGS__))
 #define ak_enc_take(...) (AK_ABI_CALL(0), ak_enc_take(__VA_ARGS__))
+#define ak_enc_take_owned(...) (AK_ABI_CALL(0), ak_enc_take_owned(__VA_ARGS__))
 #define ak_encode_ChunkElement(...) (AK_ABI_CALL(0), ak_encode_ChunkElement(__VA_ARGS__))
 #define ak_encode_ChunkInner(...) (AK_ABI_CALL(0), ak_encode_ChunkInner(__VA_ARGS__))
 #define ak_encode_ChunkLeaf(...) (AK_ABI_CALL(0), ak_encode_ChunkLeaf(__VA_ARGS__))

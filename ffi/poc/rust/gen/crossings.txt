@@ -693,9 +693,9 @@ rpc:C                                            b            retain         252
 rpc:C                                            a            drop              3     3501      0
 rpc:C                                            b            drop           2514     2501      1
 rpc:D                                            a            retain            2     3501      1
-rpc:D                                            b            retain         2519     2501      1
+rpc:D                                            b            retain         2520     2501      1
 rpc:D                                            a            drop              1     3501      0
-rpc:D                                            b            drop           2513     2501      1
+rpc:D                                            b            drop           2514     2501      1
 rpc:E                                            a            retain            2        0      0
 rpc:E                                            b            retain            2        0      0
 rpc:E                                            a            drop              2        0      0

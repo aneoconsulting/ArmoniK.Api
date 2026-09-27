@@ -2133,6 +2133,8 @@ int32_t ak_call_unary(ak_client *c, const uint8_t *path, size_t path_len, const 
 /* Blocking delivery whose request is the encode context's output, MOVED (not copied); the context's encoded bytes are consumed. Additive (optimisation R2). */
 int32_t ak_call_unary_enc(ak_client *c, const uint8_t *path, size_t path_len, ak_enc_ctx *enc, struct ak_bytes *out);
 void ak_bytes_free(struct ak_bytes *b);
+/* The encode context's output handed to the host as an owned buffer, MOVED (not copied): `out` holds exactly the encoded bytes until the host releases them with `ak_bytes_free`, on any thread, at any time; the context's encoded bytes are consumed, it continues on its spare buffer (a fresh one while the spare is still out), and the released buffer becomes its spare. A context in error is refused with its error and `out` left empty; NULL `enc` or `out` is AK_ERR_INVALID_STATE. One crossing, `ak_bytes_free` the only other. Additive (optimisation T1). */
+int32_t ak_enc_take_owned(ak_enc_ctx *enc, struct ak_bytes *out);
 /* Callback delivery: 2 forward crossings and 1 reverse. */
 ak_call *ak_call_unary_cb(ak_client *c, const uint8_t *path, size_t path_len, const uint8_t *req, size_t req_len, ak_completion_cb cb, void *user_data, uint64_t tag);
 /* Completion-queue delivery: no upcall. 3 forward crossings and 0 reverse. */
