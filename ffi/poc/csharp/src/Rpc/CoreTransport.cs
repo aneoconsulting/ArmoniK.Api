@@ -60,6 +60,8 @@ internal sealed class CallState
         new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
     public ak_bytes Bytes;
     public int Status;
+    /// ABI v1 section 9 (amended): the gRPC status code of the completion.
+    public int Grpc = -1;
 }
 
 /// A client over the core's transport. `ak_client_new` takes a `unix:` target and
@@ -123,6 +125,7 @@ public sealed class CoreChannel : IDisposable
         var h = GCHandle.FromIntPtr(user);
         var st = (CallState)h.Target;
         st.Status = comp->status;
+        st.Grpc = comp->grpc_status;
         st.Bytes = comp->bytes;
         h.Free();
         st.Tcs.TrySetResult(true);
@@ -161,16 +164,16 @@ public sealed class CoreChannel : IDisposable
     public unsafe ak_bytes CallBlocking(byte[] path, byte[] req)
     {
         ak_bytes b = default;
-        int rc;
+        int rc, gs = -1;   // ABI v1 section 9: the gRPC status code
         fixed (byte* p = path)
         fixed (byte* r = req)
-            rc = AkRpc.ak_call_unary(_cl, p, (nuint)path.Length, r, (nuint)req.Length, &b);
+            rc = AkRpc.ak_call_unary(_cl, p, (nuint)path.Length, r, (nuint)req.Length, &b, &gs);
         if (rc != AkRpc.AK_OK)
         {
             // Same rule as TakeOrThrow (R-D9): `out` starts zeroed, so this is a
             // no-op unless the core wrote an owned body before failing.
             Release(ref b);
-            throw new InvalidOperationException("ak_call_unary rc " + rc);
+            throw new InvalidOperationException("ak_call_unary rc " + rc + " grpc status " + gs);
         }
         return b;
     }
@@ -194,6 +197,7 @@ public sealed class CoreChannel : IDisposable
                 if (_pending.TryRemove(c.tag, out var st))
                 {
                     st.Status = c.status;
+                    st.Grpc = c.grpc_status;
                     st.Bytes = c.bytes;
                     st.Tcs.TrySetResult(true);
                 }
@@ -233,7 +237,7 @@ public sealed class CoreChannel : IDisposable
         var b = st.Bytes;
         st.Bytes = default;
         Release(ref b);
-        throw new InvalidOperationException("core call status " + st.Status);
+        throw new InvalidOperationException("core call status " + st.Status + " grpc status " + st.Grpc);
     }
 
     /// The second crossing, and the only other one.

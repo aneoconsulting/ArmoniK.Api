@@ -236,7 +236,7 @@ public static class CampaignMain
         Console.WriteLine("# runtime:        {0}; Grpc.AspNetCore.Server {1}; GC server={2}", RuntimeInformation.FrameworkDescription, Ver(typeof(Grpc.AspNetCore.Server.GrpcServiceOptions)), GCSettings.IsServerGC);
         Console.WriteLine(ThreadLine("one process, " + apps.Count + " Kestrel host(s) sharing the thread pool"));
         await Task.WhenAll(apps.Select(x => x.WaitForShutdownAsync()));
-        Console.WriteLine("# served: {0} Down, {1} Up (every client of this launch, the server warm-up included)", CampaignService.Downs, CampaignService.Ups);
+        Console.WriteLine("# served: {0} Down, {1} Up, {2} Upload, {3} Stream (every client of this launch, the server warm-up included)", CampaignService.Downs, CampaignService.Ups, CampaignService.Uploads, CampaignService.Streams);
         return 0;
     }
 
@@ -312,9 +312,16 @@ public static class CampaignMain
     /// callback and queue extras).
     internal sealed class Cell
     {
-        public string Name, Dir, Mode, Channel;
+        public string Name, Dir, Mode, Channel, Payload = "P2.2";
         public Action One;
         public Func<Task> OneAsync;
+        /// Directions c and d (req 14 as amended): run at 1 and 8 in flight only, with this many
+        /// times fewer calls per sample; `Check` is the pre-timing check (d: count and digest
+        /// through StreamCheck; c: one accepted call).
+        public int CallDiv = 1;
+        public Action Check;
+        public Func<Task> CheckAsync;
+        public bool Upload => Dir == "c" || Dir == "d";
     }
 
     /// Every cell of this build, each on ITS OWN channel (req 13 as amended): Grpc.Net cells a
@@ -355,10 +362,11 @@ public static class CampaignMain
         {
             ak_bytes r = default;
             int rc;
-            fixed (byte* p = downPath) rc = AkRpc.ak_call_unary(ch.Client, p, (nuint)downPath.Length, null, 0, &r);
+            int gs = -1;   // ABI v1 section 9: the gRPC status code (a non-OK one is AK_ERR_RPC_STATUS)
+            fixed (byte* p = downPath) rc = AkRpc.ak_call_unary(ch.Client, p, (nuint)downPath.Length, null, 0, &r, &gs);
             try
             {
-                if (rc != AkRpc.AK_OK) throw new Abort(cell + ": status " + rc);
+                if (rc != AkRpc.AK_OK) throw new Abort(cell + ": status " + rc + " grpc " + gs);
                 CheckLen((int)r.len, want, cell);
                 if (codec == 0)
                 {
@@ -414,8 +422,9 @@ public static class CampaignMain
             {
                 ak_bytes r = default;
                 int rc;
-                fixed (byte* p = upPath) rc = AkRpc.ak_call_unary(ch.Client, p, (nuint)upPath.Length, body, (nuint)len, &r);
-                try { if (rc != AkRpc.AK_OK) throw new Abort(cell + " up: status " + rc); CheckLen((int)r.len, 0, cell + " up"); }
+                int gs = -1;
+                fixed (byte* p = upPath) rc = AkRpc.ak_call_unary(ch.Client, p, (nuint)upPath.Length, body, (nuint)len, &r, &gs);
+                try { if (rc != AkRpc.AK_OK) throw new Abort(cell + " up: status " + rc + " grpc " + gs); CheckLen((int)r.len, 0, cell + " up"); }
                 finally { AkRpc.ak_bytes_free(&r); }
             }
         }
@@ -514,9 +523,96 @@ public static class CampaignMain
             cells.Add(new Cell { Name = name, Dir = "b", Mode = core ? "drop" : "default", OneAsync = Up });
         }
 #endif
-        foreach (var c in cells) c.Channel = c.Name;
+        AddUploadCells(cells, (n, q) => CoreCh(n, q), GrpcCh, ModeOf);
+        foreach (var c in cells) c.Channel ??= c.Name;
         GC.KeepAlive(gUpBytes);
         return cells;
+    }
+
+    // ====================================================== directions c and d (Upload.cs)
+
+    private static UpData[] _ups;
+    /// req 18's plants for the upload directions: AK_CAMPAIGN_PLANT=len with
+    /// AK_CAMPAIGN_PLANT_DIR=c expects a 1-byte response, =d one data byte more than sent;
+    /// AK_CAMPAIGN_PLANT=digest expects a wrong SHA-256 in the pre-timing check.
+    private static string PlantDir => Environment.GetEnvironmentVariable("AK_CAMPAIGN_PLANT") == "len" ? (Environment.GetEnvironmentVariable("AK_CAMPAIGN_PLANT_DIR") ?? "a") : "";
+    private static byte[] PlantSha(UpData u)
+    {
+        if (Environment.GetEnvironmentVariable("AK_CAMPAIGN_PLANT") != "digest") return null;
+        var s = (byte[])u.Sha.Clone(); s[0] ^= 1; return s;
+    }
+
+    private static void AddUploadCells(List<Cell> cells, Func<string, bool, CoreChannel> coreCh, Func<string, CallInvoker> grpcCh, Func<string, string> modeOf)
+    {
+        if (_ups == null)
+        {
+            _ups = new[] { Uploads.Unary("P5.3"), Uploads.Unary("P5.4"), Uploads.Streamed(4), Uploads.Streamed(16) };
+            foreach (var u in _ups) Uploads.CheckWire(u);   // byte identity of every message, before any call
+        }
+        var upload = Encoding.UTF8.GetBytes("/" + Svc + "/Upload");
+        var stream = Encoding.UTF8.GetBytes("/" + Svc + "/Stream");
+        var streamCheck = Encoding.UTF8.GetBytes("/" + Svc + "/StreamCheck");
+        int cWant = PlantDir == "c" ? 1 : 0;
+        long dPlant = PlantDir == "d" ? 1 : 0;
+        const int CDiv = 4, DDiv = 8;
+
+        // B, C, E and their framed twins Bf, Cf, Ef: the core's transport.
+        void Core(string name, int codec, bool retain, bool framed)
+        {
+            var ch = coreCh(name, false);
+            if (framed && AkRpc.ak_client_set_framed(ch.Client, 1) != AkRpc.AK_OK) throw new InvalidOperationException("ak_client_set_framed");
+            string mode = modeOf(name.Replace("f-", "-").Replace("Bf", "B"));
+            foreach (var u in _ups)
+            {
+                var uu = u;
+                if (!u.Stream)
+                    cells.Add(new Cell { Name = name, Dir = "c", Payload = u.Payload, Mode = mode, CallDiv = CDiv, Channel = name,
+                        One = () => Uploads.CoreUnary(ch, upload, codec, retain, uu, cWant, name),
+                        Check = () => Uploads.CoreUnary(ch, upload, codec, retain, uu, cWant, name) });
+                else
+                    cells.Add(new Cell { Name = name, Dir = "d", Payload = u.Payload, Mode = mode, CallDiv = DDiv, Channel = name,
+                        One = () => Uploads.CheckStreamResponse(Uploads.CoreStream(ch, stream, codec, retain, uu, name), uu, false, dPlant, null, name),
+                        Check = () => Uploads.CheckStreamResponse(Uploads.CoreStream(ch, streamCheck, codec, retain, uu, name), uu, true, dPlant, PlantSha(uu), name) });
+            }
+        }
+        // A, D, F: Grpc.Net, AsyncUnaryCall and AsyncClientStreamingCall.
+        void Grpc<T>(string name, Marshaller<T> mm, Func<UpData, T[]> msgs) where T : class
+        {
+            var inv = grpcCh(name + " (c, d)");
+            var mc = new Method<T, byte[]>(MethodType.Unary, Svc, "Upload", mm, Raw);
+            var md = new Method<T, byte[]>(MethodType.ClientStreaming, Svc, "Stream", mm, Raw);
+            var mk = new Method<T, byte[]>(MethodType.ClientStreaming, Svc, "StreamCheck", mm, Raw);
+            foreach (var u in _ups)
+            {
+                var uu = u;
+                var ms = msgs(u);
+                if (!u.Stream)
+                    cells.Add(new Cell { Name = name, Dir = "c", Payload = u.Payload, Mode = modeOf(name), CallDiv = CDiv, Channel = name + " (c, d)",
+                        OneAsync = () => Uploads.GrpcUnary(inv, mc, ms[0], cWant, name),
+                        CheckAsync = () => Uploads.GrpcUnary(inv, mc, ms[0], cWant, name) });
+                else
+                    cells.Add(new Cell { Name = name, Dir = "d", Payload = u.Payload, Mode = modeOf(name), CallDiv = DDiv, Channel = name + " (c, d)",
+                        OneAsync = async () => Uploads.CheckStreamResponse(await Uploads.GrpcStream(inv, md, ms), uu, false, dPlant, null, name),
+                        CheckAsync = async () => Uploads.CheckStreamResponse(await Uploads.GrpcStream(inv, mk, ms), uu, true, dPlant, PlantSha(uu), name) });
+            }
+        }
+        Grpc("A", Uploads.MInc, u => u.G);
+        Core("B", 0, false, false);
+        Core("Bf", 0, false, true);
+#if AK_NO_UNKNOWN_FIELDS
+        foreach (var (c, e) in new[] { ("C-nounk", 1), ("E-nounk", 2) }) { Core(c, e, false, false); Core(c.Replace("-", "f-"), e, false, true); }
+        Grpc("D-nounk", Uploads.MFfi(false), u => u.F);
+        Grpc("F-nounk", Uploads.MHost(false), u => u.F);
+#else
+        foreach (var r in new[] { true, false })
+        {
+            string m = r ? "-retain" : "-drop";
+            Core("C" + m, 1, r, false); Core("Cf" + m, 1, r, true);
+            Core("E" + m, 2, r, false); Core("Ef" + m, 2, r, true);
+            Grpc("D" + m, Uploads.MFfi(r), u => u.F);
+            Grpc("F" + m, Uploads.MHost(r), u => u.F);
+        }
+#endif
     }
 
     private static unsafe long Decode(ak_bytes r, bool core, bool read)
@@ -552,8 +648,12 @@ public static class CampaignMain
     /// core's transport) to each of the server's sockets, every call checked.
     private static async Task<int> WarmServer(string[] a)
     {
-        int calls = OptI(a, "--calls", 2000);
+        int calls = OptI(a, "--calls", 2000), upCalls = Math.Max(2, calls / 10);
         var wire = P22Wire();
+        var upWire = BuildGp.P5_3().ToByteArray();
+        var stWire = Uploads.Streamed(4).G.Select(m => m.ToByteArray()).ToArray();
+        var uploadPath = Encoding.UTF8.GetBytes("/" + Svc + "/Upload");
+        var streamPath = Encoding.UTF8.GetBytes("/" + Svc + "/Stream");
         var down = Encoding.UTF8.GetBytes("/" + Svc + "/Down");
         var up = Encoding.UTF8.GetBytes("/" + Svc + "/Up");
         AppContext.SetSwitch("System.Net.SocketsHttpHandler.Http2FlowControl.DisableDynamicWindowSizing", true);
@@ -573,6 +673,14 @@ public static class CampaignMain
                         CheckLen((await inv.AsyncUnaryCall(MDown, null, new CallOptions(), Array.Empty<byte>())).Length, wire.Length, "warm Grpc.Net a");
                         CheckLen((await inv.AsyncUnaryCall(MUp, null, new CallOptions(), wire)).Length, 0, "warm Grpc.Net b");
                     }
+                    // directions c and d (req 14 as amended), a tenth as many calls
+                    var mUp = new Method<byte[], byte[]>(MethodType.Unary, Svc, "Upload", Raw, Raw);
+                    var mSt = new Method<byte[], byte[]>(MethodType.ClientStreaming, Svc, "Stream", Raw, Raw);
+                    for (int i = 0; i < upCalls; i++)
+                    {
+                        CheckLen((await inv.AsyncUnaryCall(mUp, null, new CallOptions(), upWire)).Length, 0, "warm Grpc.Net c");
+                        CheckLen((await Uploads.GrpcStream(inv, mSt, stWire)).Length, 8, "warm Grpc.Net d");
+                    }
                 }
                 using (var cc = new CoreChannel(rt, "unix:" + sock, CoreOpts(pinned)))
                 {
@@ -583,8 +691,14 @@ public static class CampaignMain
                         r = cc.CallBlocking(up, wire);
                         try { CheckLen((int)r.len, 0, "warm core b"); } finally { CoreChannel.Release(ref r); }
                     }
+                    for (int i = 0; i < upCalls; i++)
+                    {
+                        var r = cc.CallBlocking(uploadPath, upWire);
+                        try { CheckLen((int)r.len, 0, "warm core c"); } finally { CoreChannel.Release(ref r); }
+                        CheckLen(Uploads.CoreStreamRaw(cc, streamPath, stWire).Length, 8, "warm core d");
+                    }
                 }
-                Console.WriteLine("# server warm-up: {0} ({1}): {2} calls per direction (a, b) from Grpc.Net and {2} from the core's transport, every call checked", t, sock, calls);
+                Console.WriteLine("# server warm-up: {0} ({1}): {2} calls per direction (a, b) and {3} per upload direction (c P5.3, d 4 MiB) from Grpc.Net, the same from the core's transport, every call checked", t, sock, calls, upCalls);
             }
         }
         catch (Exception e)
@@ -626,7 +740,11 @@ public static class CampaignMain
             // The counting run builds no extra rows: their queue drainer calls the core on its
             // own thread, which a per-call count must not see.
             var cells = BuildCells(sock, pinned, rt, want, owned, chans, extras: !counts);
+            // The --plant controls (req 18) run one send path at a time: AK_CAMPAIGN_ONLY=cell,...
+            var only = Environment.GetEnvironmentVariable("AK_CAMPAIGN_ONLY");
+            if (!string.IsNullOrEmpty(only)) { var keep = new HashSet<string>(only.Split(','), StringComparer.Ordinal); cells = cells.Where(c => keep.Contains(c.Name)).ToList(); }
             if (counts) return CountCells(cells, a);
+            if (a.Contains("--upload-check")) return await UploadCheck(cells);
             return await Grid(cells, chans, a, sock, transport, pinned, launch, rounds, calls, workers, levels, want);
         }
         finally
@@ -636,12 +754,32 @@ public static class CampaignMain
         }
     }
 
+    /// The gate's upload check (req 18/26, WP8): every c cell once, every d cell once through
+    /// StreamCheck (count and SHA-256), both send paths of the core's transport; nothing timed.
+    private static async Task<int> UploadCheck(List<Cell> cells)
+    {
+        int n = 0;
+        try
+        {
+            foreach (var c in cells.Where(x => x.Upload))
+            {
+                if (c.Check != null) c.Check(); else await c.CheckAsync();
+                Console.WriteLine("  ok  {0,-10} {1} {2,-13} {3}", c.Name, c.Dir, c.Payload, c.Mode);
+                n++;
+            }
+        }
+        catch (Exception e) { Console.WriteLine("# ABORT: {0}: {1}", e.GetType().Name, e.Message); return 1; }
+        Console.WriteLine("upload check ({0} build): {1} upload cells, every c call accepted, every d stream's count and SHA-256 as received equal to the client's", AbiVariant.Name, n);
+        return n > 0 ? 0 : 1;
+    }
+
     private static async Task<int> Grid(List<Cell> cellList, List<string> chans, string[] a, string sock, string transport, bool pinned, int launch, int rounds, int calls, int workers, int[] levels, int want)
     {
-        var cells = (from c in cellList from k in levels select (C: c, k)).ToList();
+        // req 14 as amended: the upload directions c and d at 1 and 8 in flight only.
+        var cells = (from c in cellList from k in levels where !c.Upload || k == 1 || k == 8 select (C: c, k)).ToList();
         var o = CoreOpts(pinned);
         Header("rpc", string.Format(CultureInfo.InvariantCulture,
-            "build " + AbiVariant.Name + " (WP5 step 10); launch {0}, rounds {1}, {2} calls per sample, in flight {3}; transport {4} (client: DisableDynamicWindowSizing{5}; Kestrel {6}; core: ak_client_opts stream {7} connection {8} adaptive 0 nagle {9}); Unix socket {10} (req 17: UDS); the server is ONE separate process for this launch, serving both builds and both transports, warmed before any client (its log states the calls); cells (req 12 as amended): A incumbent over Grpc.Net, B incumbent over the core's transport, C core-ffi over the core's transport, D core-ffi over Grpc.Net, E host-gen over the core's transport, F host-gen over Grpc.Net; C, D, E, F in each unknown-field mode of this build (full: -retain = decision 11's options armed at every position and ak_uencode_* / CodecRetain, -drop = reset with NULL and ak_encode_* / Codec; no-unknown build: -nounk, A and B its controls); a retained decode that leaves a grown buffer undelivered fails its call; directions (req 14 as amended): a = empty request, P2.2 response ({11} B) decoded, a+read = the same then every field read (Touch), b = P2.2 request decoded by the server, empty response; delivery (req 16 as amended): B, C, E the core's BLOCKING call on caller threads ({12}, created before the warm-up and shared by every cell); A, D, F Grpc.Net's idiomatic async call (`await CallInvoker.AsyncUnaryCall`, as Grpc.Tools' generated client does), k in flight = k concurrent async loops on the thread pool; the core's callback/queue rows are labelled extras, awaited the same way; one channel per cell for the whole launch (req 13 as amended), opened and warmed before round 1; the core's cells share ONE core runtime with {13} worker thread(s); cell order per round: a seeded shuffle of launch and round; every call checked (status and length); ratios, where the aggregation forms them, from per-launch medians (req 30)",
+            "build " + AbiVariant.Name + " (WP5 step 10); launch {0}, rounds {1}, {2} calls per sample, in flight {3}; transport {4} (client: DisableDynamicWindowSizing{5}; Kestrel {6}; core: ak_client_opts stream {7} connection {8} adaptive 0 nagle {9}); Unix socket {10} (req 17: UDS); the server is ONE separate process for this launch, serving both builds and both transports, warmed before any client (its log states the calls); cells (req 12 as amended): A incumbent over Grpc.Net, B incumbent over the core's transport, C core-ffi over the core's transport, D core-ffi over Grpc.Net, E host-gen over the core's transport, F host-gen over Grpc.Net; C, D, E, F in each unknown-field mode of this build (full: -retain = decision 11's options armed at every position and ak_uencode_* / CodecRetain, -drop = reset with NULL and ak_encode_* / Codec; no-unknown build: -nounk, A and B its controls); a retained decode that leaves a grown buffer undelivered fails its call; directions (req 14 as amended): a = empty request, P2.2 response ({11} B) decoded, a+read = the same then every field read (Touch), b = P2.2 request decoded by the server, empty response; c (req 14 as amended 2026-09-27) = a unary upload of P5.3 or P5.4 (M5, 1 MB and 4 MB), decoded by the server, empty response; d = the streamed upload, M5 messages of 2 MiB chunks (ids on the first only), 4 MiB and 16 MiB, the core's client streaming for B/C/E (ak_call_open, ak_call_send per message, ak_call_recv) and Grpc.Net's AsyncClientStreamingCall for A/D/F, the server answering the data byte count (checked on every call; count and SHA-256 checked once per cell before the warm-up); c and d at 1 and 8 in flight, a quarter (c) and an eighth (d) of the calls per sample; the framed twins Bf, Cf, Ef (ak_client_set_framed(1), the core's second send path beside its reference) on c and d; the client's limits (D44, enforced): max send and receive 64 MiB on both transports, Kestrel 64 MiB; delivery (req 16 as amended): B, C, E the core's BLOCKING call on caller threads ({12}, created before the warm-up and shared by every cell); A, D, F Grpc.Net's idiomatic async call (`await CallInvoker.AsyncUnaryCall`, as Grpc.Tools' generated client does), k in flight = k concurrent async loops on the thread pool; the core's callback/queue rows are labelled extras, awaited the same way; one channel per cell for the whole launch (req 13 as amended), opened and warmed before round 1; the core's cells share ONE core runtime with {13} worker thread(s); cell order per round: a seeded shuffle of launch and round; every call checked (status and length); ratios, where the aggregation forms them, from per-launch medians (req 30)",
             launch, rounds, calls, string.Join("/", levels), transport, pinned ? " + InitialHttp2StreamWindowSize 4 MiB" : ", no window set",
             pinned ? "stream/connection window 4 MiB" : "defaults", o.stream_window, o.connection_window, o.tcp_nagle, sock, want, levels.Max(), workers));
         foreach (var ch in chans) Console.WriteLine("# channel:        " + ch);
@@ -652,13 +790,23 @@ public static class CampaignMain
         using var pool = new CallerPool(levels.Max());
         try
         {
+            // Req 18/26 for the upload directions: every c cell once (the server decodes and
+            // accepts it), every d cell once through StreamCheck (the server's count and SHA-256
+            // of the data must equal the client's), before the warm-up.
+            int checkedUploads = 0;
+            foreach (var c in cellList.Where(x => x.Upload))
+            {
+                if (c.Check != null) c.Check(); else await c.CheckAsync();
+                checkedUploads++;
+            }
+            Console.WriteLine("# upload check:   {0} upload cell(s) checked before the warm-up: every c call accepted by the server, every d stream's count and SHA-256 as received equal to the client's", checkedUploads);
             // R-H2 / req 24: warm-up rounds over every cell (64 calls each, 0.5 s apart) until a
             // round compiles nothing of the measured code (runtime JIT events), at most 10.
             while (warmRounds < 10)
             {
                 warmRounds++;
                 long before = Armonik.Ffi.Bdn.JitTiers.Received;
-                foreach (var c in cells) await RunCell(c.C, pool, 64, c.k);
+                foreach (var c in cells) await RunCell(c.C, pool, Math.Max(c.k, 64 / c.C.CallDiv), c.k);
                 long seen;
                 do { seen = Armonik.Ffi.Bdn.JitTiers.Received; Thread.Sleep(500); } while (seen != Armonik.Ffi.Bdn.JitTiers.Received);
                 lastWarmJits = Armonik.Ffi.Bdn.JitTiers.Received - before;
@@ -677,13 +825,14 @@ public static class CampaignMain
                 {
                     var t0 = DateTime.UtcNow;
                     long w0 = Clock.WallNs(), c0 = Clock.ProcessCpuNs();
-                    await RunCell(c.C, pool, calls, c.k);
+                    int n = Math.Max(c.k, calls / c.C.CallDiv);
+                    await RunCell(c.C, pool, n, c.k);
                     long c1 = Clock.ProcessCpuNs(), w1 = Clock.WallNs();
                     var t1 = DateTime.UtcNow;
                     samples.Add((new Sample
                     {
-                        Suite = "rpc", Cell = c.C.Name, Payload = "P2.2", Dir = c.C.Dir, Transport = transport, Inflight = c.k,
-                        Mode = c.C.Mode, Launch = launch, Round = r, CpuNs = c1 - c0, WallNs = w1 - w0, Iters = calls, Build = AbiVariant.Name,
+                        Suite = "rpc", Cell = c.C.Name, Payload = c.C.Payload, Dir = c.C.Dir, Transport = transport, Inflight = c.k,
+                        Mode = c.C.Mode, Launch = launch, Round = r, CpuNs = c1 - c0, WallNs = w1 - w0, Iters = n, Build = AbiVariant.Name,
                     }, t0, t1));
                 }
             }
@@ -722,13 +871,13 @@ public static class CampaignMain
         return 2;
 #else
 #if !AK_NO_UNKNOWN_FIELDS
-        UnkHost.Exact = Environment.GetEnvironmentVariable("AK_COUNT_GROW") != "doubling";   // a gate control, as in CountRun
+        UnkHost.Exact = Environment.GetEnvironmentVariable("AK_COUNT_GROW") == "exact";   // a gate control only, as in CountRun
 #endif
         var path = Opt(a, "--counts", "rpc-counts.txt");
         var o = new List<string>
         {
             "# CAMPAIGN req 19 (R-H31): one call per RPC cell and direction (" + AbiVariant.Name + " build, P2.2), counted by name in the host (AK_HOST_COUNT), after one untimed call on the cell's own channel.",
-            "# fields: RPC cell dir mode | fwd N (every exported entry point called: codec and transport, resets included) rev N (core->host codec callbacks, grow excluded) grow N (ak_grow_fn calls, exact-size) reset N (of fwd: ak_dec_reset_<Root>, one before and one after each decode) | entry=count ...",
+            "# fields: RPC cell dir payload mode | fwd N (every exported entry point called: codec and transport, resets included) rev N (core->host codec callbacks, grow excluded) grow N (ak_grow_fn calls, geometric grow as timed) reset N (of fwd: ak_dec_reset_<Root>, one per decode, before it) | entry=count ...",
             "# the extras (.callback, .queue) are not counted here (labelled extra rows; not built in this run, so their queue drainer cannot enter a count); D's marshaller takes a core-ffi context from a pool, so no context is created inside a counted call",
         };
         foreach (var c in cells)
@@ -748,8 +897,8 @@ public static class CampaignMain
             var e = Abi.EntryCounts().Concat(AkRpc.EntryCounts()).OrderBy(x => x.Name, StringComparer.Ordinal).ToList();
             long fwd = e.Sum(x => x.Calls), resets = e.Where(x => x.Name.StartsWith("ak_dec_reset_", StringComparison.Ordinal)).Sum(x => x.Calls);
             if (resets != Core.ResetCalls) { Console.Error.WriteLine("reset tally mismatch on " + c.Name + " " + c.Dir); return 1; }
-            o.Add(string.Format(CultureInfo.InvariantCulture, "RPC {0} {1} {2} | fwd {3} rev {4} grow {5} reset {6} | {7}", c.Name, c.Dir, c.Mode, fwd, Core.ReverseCalls, Grows(), resets,
-                string.Join(" ", e.Select(x => x.Name + "=" + x.Calls))));
+            o.Add(string.Format(CultureInfo.InvariantCulture, "RPC {0} {1} {8} {2} | fwd {3} rev {4} grow {5} reset {6} | {7}", c.Name, c.Dir, c.Mode, fwd, Core.ReverseCalls, Grows(), resets,
+                string.Join(" ", e.Select(x => x.Name + "=" + x.Calls)), c.Payload));
         }
         File.WriteAllLines(path, o);
         Console.WriteLine("rpc counts: {0} rows written to {1}", o.Count - 3, path);
@@ -774,6 +923,41 @@ public sealed class CampaignService
         Gp.ListTasksDetailedResponse.Parser.ParseFrom(req);
         return Task.FromResult(Array.Empty<byte>());
     }
+
+    /// Direction c (req 14 as amended): a unary M5 upload, decoded with the incumbent; an empty
+    /// upload is refused.
+    public static long Uploads, Streams;
+    public Task<byte[]> UploadH(byte[] req, ServerCallContext ctx)
+    {
+        Interlocked.Increment(ref Uploads);
+        var m = Gp.UploadResultDataMessage.Parser.ParseFrom(req);
+        if (m.Upload == null || m.Upload.DataChunk.Length == 0) throw new RpcException(new Status(StatusCode.InvalidArgument, "empty upload"));
+        return Task.FromResult(Array.Empty<byte>());
+    }
+
+    /// Direction d: the streamed upload. Every message decoded with the incumbent, the ids
+    /// required on the first; answers the data byte count (8 bytes LE), and with `digest` also
+    /// the SHA-256 of the data bytes as received (StreamCheck, the pre-timing check).
+    public async Task<byte[]> StreamH(IAsyncStreamReader<byte[]> r, ServerCallContext ctx, bool digest)
+    {
+        Interlocked.Increment(ref Streams);
+        long count = 0; int n = 0;
+        using var sha = digest ? System.Security.Cryptography.IncrementalHash.CreateHash(System.Security.Cryptography.HashAlgorithmName.SHA256) : null;
+        while (await r.MoveNext(ctx.CancellationToken))
+        {
+            var m = Gp.UploadResultDataMessage.Parser.ParseFrom(r.Current);
+            if (m.Upload == null) throw new RpcException(new Status(StatusCode.InvalidArgument, "message " + n + " has no upload"));
+            if (n == 0 && (m.Upload.SessionId.Length == 0 || m.Upload.ResultId.Length == 0)) throw new RpcException(new Status(StatusCode.InvalidArgument, "the first message carries no ids"));
+            count += m.Upload.DataChunk.Length;
+            sha?.AppendData(m.Upload.DataChunk.Span);
+            n++;
+        }
+        if (n == 0) throw new RpcException(new Status(StatusCode.InvalidArgument, "empty stream"));
+        var o = new byte[digest ? 40 : 8];
+        System.Buffers.Binary.BinaryPrimitives.WriteInt64LittleEndian(o, count);
+        if (digest) sha.GetHashAndReset().CopyTo(o, 8);
+        return o;
+    }
 }
 
 public sealed class CampaignProvider : IServiceMethodProvider<CampaignService>
@@ -783,6 +967,9 @@ public sealed class CampaignProvider : IServiceMethodProvider<CampaignService>
     {
         ctx.AddUnaryMethod<byte[], byte[]>(new Method<byte[], byte[]>(MethodType.Unary, CampaignMain.Svc, "Down", Raw, Raw), Array.Empty<object>(), (s, r, c) => s.DownH(r, c));
         ctx.AddUnaryMethod<byte[], byte[]>(new Method<byte[], byte[]>(MethodType.Unary, CampaignMain.Svc, "Up", Raw, Raw), Array.Empty<object>(), (s, r, c) => s.UpH(r, c));
+        ctx.AddUnaryMethod<byte[], byte[]>(new Method<byte[], byte[]>(MethodType.Unary, CampaignMain.Svc, "Upload", Raw, Raw), Array.Empty<object>(), (s, r, c) => s.UploadH(r, c));
+        ctx.AddClientStreamingMethod<byte[], byte[]>(new Method<byte[], byte[]>(MethodType.ClientStreaming, CampaignMain.Svc, "Stream", Raw, Raw), Array.Empty<object>(), (s, r, c) => s.StreamH(r, c, false));
+        ctx.AddClientStreamingMethod<byte[], byte[]>(new Method<byte[], byte[]>(MethodType.ClientStreaming, CampaignMain.Svc, "StreamCheck", Raw, Raw), Array.Empty<object>(), (s, r, c) => s.StreamH(r, c, true));
     }
 }
 

@@ -160,9 +160,9 @@ public static unsafe class Arr
 public static unsafe class UnkHost
 {
     public static long Grows;
-    /// CAMPAIGN req 19 (R-H31): the counting run sets this, so every grow allocates EXACTLY
-    /// the size the core asked for (no doubling, no 64-byte floor), and the committed retain
-    /// counts do not depend on this host's growth policy. The timed runs leave it false.
+    /// A GATE CONTROL only (CAMPAIGN req 19 as amended 2026-09-26: the counting build grows
+    /// geometrically, as the timed build does, decision 11 rule 8): set, every grow allocates
+    /// exactly the size asked, and the committed counts must then differ. Never set otherwise.
     public static bool Exact;
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
@@ -172,8 +172,8 @@ public static unsafe class UnkHost
         {
             if (want < 0) return Abi.AK_ERR_LIMIT;
             int c = *cap;
-            long nc = Exact ? want : Math.Max((long)want, Math.Max(64L, 2L * c));
-            if (nc > int.MaxValue) nc = want;
+            long nc = Exact ? want : Math.Max((long)want, Math.Max(64L, 2L * c));   // geometric (rule 8), clamped below
+            if (nc > int.MaxValue) nc = int.MaxValue;   // rule 8: clamped to INT32_MAX (want <= INT32_MAX)
             void* old = *dst;
             void* np = NativeMemory.Realloc(old, (nuint)nc);
             var live = G.Live;
@@ -1083,7 +1083,7 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
     public int Undelivered { get; private set; }
     private ak_dec_ListResultsResponse_opts* _uo;
     private HashSet<IntPtr> _live;
-    /// The resets that arm and disarm each decode (rule 7): forward crossings, counted
+    /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
     private static long _resets;
     public long ResetCalls => _resets;
@@ -1124,12 +1124,12 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
         return Abi.ak_dec_reset_ListResultsResponse(_dctx, Arm(mode));
     }
 
-    /// After every decode: the core forgets the options (reset with NULL), and a buffer
-    /// still outstanding is freed; after a success that is UNDELIVERED.
+    /// After every decode: a buffer still outstanding is freed; after a success that is
+    /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
+    /// reset per decode, the arming one before it (ArmFor); the options stay at their
+    /// stable native address (_uo) until the next decode's reset rewrites them.
     private int Disarm(int rc)
     {
-        _resets++;
-        Abi.ak_dec_reset_ListResultsResponse(_dctx, null);
         var live = G.Live;
         G.Live = null;
         if (live == null || live.Count == 0) return rc;
@@ -1727,7 +1727,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     public int Undelivered { get; private set; }
     private ak_dec_ListTasksDetailedResponse_opts* _uo;
     private HashSet<IntPtr> _live;
-    /// The resets that arm and disarm each decode (rule 7): forward crossings, counted
+    /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
     private static long _resets;
     public long ResetCalls => _resets;
@@ -1782,12 +1782,12 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
         return Abi.ak_dec_reset_ListTasksDetailedResponse(_dctx, Arm(mode));
     }
 
-    /// After every decode: the core forgets the options (reset with NULL), and a buffer
-    /// still outstanding is freed; after a success that is UNDELIVERED.
+    /// After every decode: a buffer still outstanding is freed; after a success that is
+    /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
+    /// reset per decode, the arming one before it (ArmFor); the options stay at their
+    /// stable native address (_uo) until the next decode's reset rewrites them.
     private int Disarm(int rc)
     {
-        _resets++;
-        Abi.ak_dec_reset_ListTasksDetailedResponse(_dctx, null);
         var live = G.Live;
         G.Live = null;
         if (live == null || live.Count == 0) return rc;
@@ -2321,7 +2321,7 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
     public int Undelivered { get; private set; }
     private ak_dec_ListProbeResponse_opts* _uo;
     private HashSet<IntPtr> _live;
-    /// The resets that arm and disarm each decode (rule 7): forward crossings, counted
+    /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
     private static long _resets;
     public long ResetCalls => _resets;
@@ -2361,12 +2361,12 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
         return Abi.ak_dec_reset_ListProbeResponse(_dctx, Arm(mode));
     }
 
-    /// After every decode: the core forgets the options (reset with NULL), and a buffer
-    /// still outstanding is freed; after a success that is UNDELIVERED.
+    /// After every decode: a buffer still outstanding is freed; after a success that is
+    /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
+    /// reset per decode, the arming one before it (ArmFor); the options stay at their
+    /// stable native address (_uo) until the next decode's reset rewrites them.
     private int Disarm(int rc)
     {
-        _resets++;
-        Abi.ak_dec_reset_ListProbeResponse(_dctx, null);
         var live = G.Live;
         G.Live = null;
         if (live == null || live.Count == 0) return rc;
@@ -2747,7 +2747,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
     public int Undelivered { get; private set; }
     private ak_dec_ListTaskSummaryResponse_opts* _uo;
     private HashSet<IntPtr> _live;
-    /// The resets that arm and disarm each decode (rule 7): forward crossings, counted
+    /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
     private static long _resets;
     public long ResetCalls => _resets;
@@ -2790,12 +2790,12 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
         return Abi.ak_dec_reset_ListTaskSummaryResponse(_dctx, Arm(mode));
     }
 
-    /// After every decode: the core forgets the options (reset with NULL), and a buffer
-    /// still outstanding is freed; after a success that is UNDELIVERED.
+    /// After every decode: a buffer still outstanding is freed; after a success that is
+    /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
+    /// reset per decode, the arming one before it (ArmFor); the options stay at their
+    /// stable native address (_uo) until the next decode's reset rewrites them.
     private int Disarm(int rc)
     {
-        _resets++;
-        Abi.ak_dec_reset_ListTaskSummaryResponse(_dctx, null);
         var live = G.Live;
         G.Live = null;
         if (live == null || live.Count == 0) return rc;
@@ -3118,7 +3118,7 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
     public int Undelivered { get; private set; }
     private ak_dec_UploadResultDataMessage_opts* _uo;
     private HashSet<IntPtr> _live;
-    /// The resets that arm and disarm each decode (rule 7): forward crossings, counted
+    /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
     private static long _resets;
     public long ResetCalls => _resets;
@@ -3157,12 +3157,12 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
         return Abi.ak_dec_reset_UploadResultDataMessage(_dctx, Arm(mode));
     }
 
-    /// After every decode: the core forgets the options (reset with NULL), and a buffer
-    /// still outstanding is freed; after a success that is UNDELIVERED.
+    /// After every decode: a buffer still outstanding is freed; after a success that is
+    /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
+    /// reset per decode, the arming one before it (ArmFor); the options stay at their
+    /// stable native address (_uo) until the next decode's reset rewrites them.
     private int Disarm(int rc)
     {
-        _resets++;
-        Abi.ak_dec_reset_UploadResultDataMessage(_dctx, null);
         var live = G.Live;
         G.Live = null;
         if (live == null || live.Count == 0) return rc;
@@ -3730,7 +3730,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
     public int Undelivered { get; private set; }
     private ak_dec_ListMetricsResponse_opts* _uo;
     private HashSet<IntPtr> _live;
-    /// The resets that arm and disarm each decode (rule 7): forward crossings, counted
+    /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
     private static long _resets;
     public long ResetCalls => _resets;
@@ -3769,12 +3769,12 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
         return Abi.ak_dec_reset_ListMetricsResponse(_dctx, Arm(mode));
     }
 
-    /// After every decode: the core forgets the options (reset with NULL), and a buffer
-    /// still outstanding is freed; after a success that is UNDELIVERED.
+    /// After every decode: a buffer still outstanding is freed; after a success that is
+    /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
+    /// reset per decode, the arming one before it (ArmFor); the options stay at their
+    /// stable native address (_uo) until the next decode's reset rewrites them.
     private int Disarm(int rc)
     {
-        _resets++;
-        Abi.ak_dec_reset_ListMetricsResponse(_dctx, null);
         var live = G.Live;
         G.Live = null;
         if (live == null || live.Count == 0) return rc;
@@ -4178,7 +4178,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
     public int Undelivered { get; private set; }
     private ak_dec_DualResponse_opts* _uo;
     private HashSet<IntPtr> _live;
-    /// The resets that arm and disarm each decode (rule 7): forward crossings, counted
+    /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
     private static long _resets;
     public long ResetCalls => _resets;
@@ -4218,12 +4218,12 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
         return Abi.ak_dec_reset_DualResponse(_dctx, Arm(mode));
     }
 
-    /// After every decode: the core forgets the options (reset with NULL), and a buffer
-    /// still outstanding is freed; after a success that is UNDELIVERED.
+    /// After every decode: a buffer still outstanding is freed; after a success that is
+    /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
+    /// reset per decode, the arming one before it (ArmFor); the options stay at their
+    /// stable native address (_uo) until the next decode's reset rewrites them.
     private int Disarm(int rc)
     {
-        _resets++;
-        Abi.ak_dec_reset_DualResponse(_dctx, null);
         var live = G.Live;
         G.Live = null;
         if (live == null || live.Count == 0) return rc;

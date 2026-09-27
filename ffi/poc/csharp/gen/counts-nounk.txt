@@ -1,5 +1,5 @@
 # CAMPAIGN req 19 (R-H31): per core-ffi case of the codec suite (no-unknown build), one call of the timed operation, counted by name in the host (AK_HOST_COUNT).
-# fields: payload content arm dir mode | fwd N (every exported entry point called, resets included) rev N (core->host callbacks, grow excluded) grow N (ak_grow_fn calls, exact-size) reset N (of fwd: ak_dec_reset_<Root>, one before and one after each decode) | entry=count ...
+# fields: payload content arm dir mode | fwd N (every exported entry point called, resets included) rev N (core->host callbacks, grow excluded) grow N (ak_grow_fn calls, geometric grow as timed) reset N (of fwd: ak_dec_reset_<Root>, one per decode, before it) | entry=count ...
 P1.1 ascii core-ffi encode no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
 P1.1 ascii core-ffi encode-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
 P1.1 ascii core-ffi encode-transport no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1

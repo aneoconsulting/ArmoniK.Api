@@ -223,15 +223,27 @@ case "$SUITE" in
           { header "rpc,init-guard$([ "$bld" = nounk ] && echo ' without unknown-fields (no-unknown build)')"; echo "$GATE";
             echo "# client build: $bld (WP5 step 10); this launch's order: transports $TS, builds $(builds_of "$l")";
             echo "# server:        one process for this launch (pid $SPID, $slog), both builds and both transports; warmed first: $(grep -c '^# server warm-up' "$OUT/rpc-launch$l.server-warm.log") socket(s) x $WARM calls per direction per client transport ($OUT/rpc-launch$l.server-warm.log)"; } > "$f"
-          [ $PLANT = 1 ] && export AK_CAMPAIGN_PLANT=len
-          taskset -c "$AK_CPU_CLIENT" dotnet "$RX/akrpc.dll" campaign --suite rpc --sock "$sock" --transport "$t" \
-            --launch "$l" --rounds "$ROUNDS" --calls "$CALLS" >> "$f" 2>&1; rc=$?
-          unset AK_CAMPAIGN_PLANT
           if [ $PLANT = 1 ]; then
-            if [ $rc -eq 0 ]; then echo "CONTROL PASSED: a wrong length did not abort ($f)" >&2; kill $SPID; exit 1; fi
-            echo "control ($t, launch $l, $bld): aborted as required, $(grep -c '^{' "$f") samples written"
+            # Req 18's controls, per send path and per direction (WP8): a wrong expected length
+            # on a, c and d, and a wrong expected SHA-256 on d, each on one cell at a time
+            # (A Grpc.Net, B the core's reference path, Bf its framed path, D Grpc.Net + core-ffi);
+            # every one must abort with no sample.
+            if [ "$bld" = full ]; then DC=D-drop; else DC=D-nounk; fi
+            for pc in "len a" "len c" "len d" "digest d"; do
+              set -- $pc
+              for cell in A B Bf $DC; do
+                [ "$2" = a ] && [ "$cell" = Bf ] && continue   # direction a has no framed twin
+                AK_CAMPAIGN_PLANT=$1 AK_CAMPAIGN_PLANT_DIR=$2 AK_CAMPAIGN_ONLY=$cell taskset -c "$AK_CPU_CLIENT" dotnet "$RX/akrpc.dll" campaign --suite rpc --sock "$sock" --transport "$t" \
+                  --launch "$l" --rounds 1 --calls 8 --inflight 1 > "$f.$1-$2-$cell" 2>&1; rc=$?
+                if [ $rc -eq 0 ]; then echo "CONTROL PASSED: plant $1 on $2 did not abort on $cell ($f.$1-$2-$cell)" >&2; kill $SPID; exit 1; fi
+                echo "control ($t, launch $l, $bld, plant $1, direction $2, cell $cell): aborted as required, $(grep -c '^{' "$f.$1-$2-$cell") samples: $(grep -m1 ABORT "$f.$1-$2-$cell" | cut -c1-160)" | tee -a "$f"
+                rm -f "$f.$1-$2-$cell"
+              done
+            done
             continue
           fi
+          taskset -c "$AK_CPU_CLIENT" dotnet "$RX/akrpc.dll" campaign --suite rpc --sock "$sock" --transport "$t" \
+            --launch "$l" --rounds "$ROUNDS" --calls "$CALLS" >> "$f" 2>&1; rc=$?
           [ $rc -eq 0 ] || { echo "rpc $t launch $l ($bld) aborted ($f)" >&2; kill $SPID; exit 1; }
         done
       done

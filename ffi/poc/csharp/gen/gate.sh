@@ -17,7 +17,8 @@
 #      oracle-probe rows (poc/rust/gen/probe_corpus.py)
 #   8  the no-unknown variant (WP5 step 10): its own build, core, counts and corpus
 #   9  the counting builds (WP7, CAMPAIGN req 19 as amended): every entry point per codec
-#      case and per RPC call, against gen/counts*.txt and gen/rpc-counts*.txt
+#      case and per RPC call, against gen/counts*.txt and gen/rpc-counts*.txt; the upload
+#      directions' check (WP8, req 14 as amended: c accepted, d count and SHA-256) and its plants
 #
 #   SCRATCH=dir gen/gate.sh      (SCRATCH holds the core snapshot; default: mktemp -d)
 set -uo pipefail
@@ -60,7 +61,7 @@ core() {  # dir variant  -- put a core build next to a harness
   echo "# core in $(basename "$(dirname "$1")")/$(basename "$1"): $2 ($(sha256sum "$1/libak_core.so" | cut -c1-16))"
 }
 
-echo "# csharp slice gate (FIX-PLAN WP5, WP6 and WP7). CORRECTNESS ONLY: no timing is taken."
+echo "# csharp slice gate (FIX-PLAN WP5 to WP8). CORRECTNESS ONLY: no timing is taken."
 echo "# date:        $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 echo "# branch HEAD: $(git -C "$REPO" rev-parse --short HEAD)$(git -C "$REPO" diff --quiet HEAD -- ffi/poc/csharp ffi/poc/codec/gen/cs_*.py || echo ' + the uncommitted slice changes this log is committed with')"
 echo "# dotnet:      SDK $(dotnet --version); runtimes: $(dotnet --list-runtimes | grep NETCore | awk '{print $2}' | tr '\n' ' ')+ Microsoft.NETCore.App.Runtime.linux-x64 6.0.36 from NuGet (self-contained)"
@@ -187,12 +188,13 @@ diff <(grep -v '^#' "$SLICE/gen/crossings.txt") <(grep -v '^#' "$SLICE/gen/cross
 # The counts of EVERY exported entry point the timed code calls, resets included, from the
 # counting builds (/p:AkHostCount=true: each generated import counts itself by name): per
 # core-ffi case of the codec suite (the same closures BenchmarkDotNet times) and per call of
-# the RPC cells B to E (A and F listed, making none), retain with no pre-placed buffer and an
-# exact-size grow. Committed: gen/counts.txt, gen/counts-nounk.txt, gen/rpc-counts.txt,
+# the RPC cells B to E (A and F listed, making none), retain with no pre-placed buffer and the
+# timed build's geometric grow (CAMPAIGN req 19 as amended). Committed: gen/counts.txt, gen/counts-nounk.txt, gen/rpc-counts.txt,
 # gen/rpc-counts-nounk.txt; the whole file must be equal, row for row.
 step "9. the counting builds (CAMPAIGN req 19 as amended): every entry point, per case and per RPC call"
 BC="$SLICE/src/BenchDotNet/bin-count/Release/net8.0"; BCN="$SLICE/src/BenchDotNet/bin-count-nounk/Release/net8.0"
 RC="$SLICE/src/Rpc/bin-count/Release/net8.0"; RCN="$SLICE/src/Rpc/bin-count-nounk/Release/net8.0"
+RN8="$SLICE/src/Rpc/bin-nounk/Release/net8.0"
 b build src/BenchDotNet/BenchDotNet.csproj -c Release -p:AkHostCount=true
 b build src/BenchDotNet/BenchDotNet.csproj -c Release -p:AkHostCount=true -p:AkNounk=true
 b build src/Rpc/Rpc.csproj -c Release -p:AkHostCount=true
@@ -204,9 +206,9 @@ cmp_counts() {  # name committed produced
 }
 run "codec counts, full build (= gen/counts.txt)" bash -c "dotnet '$BC/BenchDotNet.dll' --counts '$SCRATCH/counts.txt' && $(declare -f cmp_counts); SCRATCH='$SCRATCH' cmp_counts full '$SLICE/gen/counts.txt' '$SCRATCH/counts.txt'"
 run "codec counts, no-unknown build (= gen/counts-nounk.txt)" bash -c "dotnet '$BCN/BenchDotNet.dll' --counts '$SCRATCH/counts-nounk.txt' && $(declare -f cmp_counts); SCRATCH='$SCRATCH' cmp_counts nounk '$SLICE/gen/counts-nounk.txt' '$SCRATCH/counts-nounk.txt'"
-# The exact-size grow is live: with the timed runs' doubling growth the retain rows that
-# carry unknown fields count differently, and the comparison must fail.
-AK_COUNT_GROW=doubling control "codec counts with doubling growth (the exact-size grow must matter)" bash -c "dotnet '$BC/BenchDotNet.dll' --counts '$SCRATCH/counts-dbl.txt' && diff -q '$SLICE/gen/counts.txt' '$SCRATCH/counts-dbl.txt'"
+# The grow count is live: with an exact-size grow (a control, never the timed policy) the
+# retain rows that carry unknown fields count differently, and the comparison must fail.
+AK_COUNT_GROW=exact control "codec counts with an exact-size grow (the counted grows must matter)" bash -c "dotnet '$BC/BenchDotNet.dll' --counts '$SCRATCH/counts-exact.txt' && diff -q '$SLICE/gen/counts.txt' '$SCRATCH/counts-exact.txt'"
 SOCK="/tmp/ak-cs-gate-$$.sock"; rm -f "$SOCK"
 dotnet "$RC/akrpc.dll" campaign --suite rpc-server --sock-shipped "$SOCK" > "$SCRATCH/gate-server.log" 2>&1 &
 GSPID=$!
@@ -214,6 +216,14 @@ for i in $(seq 1 150); do [ -S "$SOCK" ] && break; sleep 0.1; done
 echo "# rpc counts: a server process ($RC, pid $GSPID) on $SOCK"
 run "rpc counts, full build (= gen/rpc-counts.txt)" bash -c "dotnet '$RC/akrpc.dll' campaign --suite rpc --sock '$SOCK' --transport shipped --counts '$SCRATCH/rpc-counts.txt' && $(declare -f cmp_counts); SCRATCH='$SCRATCH' cmp_counts rpc-full '$SLICE/gen/rpc-counts.txt' '$SCRATCH/rpc-counts.txt'"
 run "rpc counts, no-unknown build (= gen/rpc-counts-nounk.txt)" bash -c "dotnet '$RCN/akrpc.dll' campaign --suite rpc --sock '$SOCK' --transport shipped --counts '$SCRATCH/rpc-counts-nounk.txt' && $(declare -f cmp_counts); SCRATCH='$SCRATCH' cmp_counts rpc-nounk '$SLICE/gen/rpc-counts-nounk.txt' '$SCRATCH/rpc-counts-nounk.txt'"
+# WP8 (CAMPAIGN req 14 as amended): the upload directions' correctness before timing, both
+# builds: every c cell accepted, every d stream's count and SHA-256 equal (every cell and
+# framed twin); a planted wrong SHA-256 must fail.
+core "$R8" target-core; core "$RN8" target-core-nounk
+run "upload check, full build (c and d, every cell and framed twin)" dotnet "$R8/akrpc.dll" campaign --suite rpc --sock "$SOCK" --transport shipped --upload-check
+run "upload check, no-unknown build" dotnet "$RN8/akrpc.dll" campaign --suite rpc --sock "$SOCK" --transport shipped --upload-check
+AK_CAMPAIGN_PLANT=digest control "upload check with a planted wrong SHA-256" dotnet "$R8/akrpc.dll" campaign --suite rpc --sock "$SOCK" --transport shipped --upload-check
+AK_CAMPAIGN_PLANT=len AK_CAMPAIGN_PLANT_DIR=d control "upload check with a planted wrong byte count" dotnet "$RN8/akrpc.dll" campaign --suite rpc --sock "$SOCK" --transport shipped --upload-check
 kill $GSPID; wait $GSPID 2>/dev/null
 echo "# counts, no-unknown against full: the files differ in mode names and in every push/pull decode row (no ak_dec_reset_* in the no-unknown build); the committed files carry every row"
 

@@ -11,9 +11,9 @@
 //   fwd    every exported entry point the operation called (host to core), resets included;
 //   rev    the core's calls back into the host (the loop and event callbacks, host tally);
 //   grow   of rev, none: the grow callback is counted apart (decision 11's ak_grow_fn), with
-//          UnkHost.Exact set, so every grow allocates exactly what the core asked for;
-//   reset  of fwd, the ak_dec_reset_<Root> calls: two per decode, one BEFORE it (the options
-//          armed in retain, NULL in drop) and one AFTER it (NULL);
+//          the timed build's geometric grow (CAMPAIGN req 19 as amended, rule 8);
+//   reset  of fwd, the ak_dec_reset_<Root> calls: ONE per decode, BEFORE it (the options
+//          armed in retain, NULL in drop; decision 11 rule 7 as amended);
 //   then every entry point by name with its count.
 // Retain mode starts every decode with no pre-placed buffer (the options name the grow and
 // hold no buffer, cs_host.py Arm), so its grows are counted from zero on every decode.
@@ -44,15 +44,16 @@ public static class CountRun
         var vwhy = Armonik.Ffi.Harness.AbiVariant.CheckLoadedCore();
         if (vwhy != null) { Console.Error.WriteLine("core variant mismatch: " + vwhy); return 3; }
 #if !AK_NO_UNKNOWN_FIELDS
-        // A GATE CONTROL, not a mode: AK_COUNT_GROW=doubling keeps the timed runs' growth policy,
-        // and the retain rows with unknown fields must then differ from the committed counts.
-        Armonik.Ffi.Harness.UnkHost.Exact = Environment.GetEnvironmentVariable("AK_COUNT_GROW") != "doubling";
+        // CAMPAIGN req 19 as amended: the counting build grows geometrically, as the timed one.
+        // A GATE CONTROL, not a mode: AK_COUNT_GROW=exact grows to the exact size asked, and the
+        // retain rows with unknown fields must then differ from the committed counts.
+        Armonik.Ffi.Harness.UnkHost.Exact = Environment.GetEnvironmentVariable("AK_COUNT_GROW") == "exact";
 #endif
         Cases.PoolCap = 4;
         var o = new List<string>
         {
             "# CAMPAIGN req 19 (R-H31): per core-ffi case of the codec suite (" + Armonik.Ffi.Harness.AbiVariant.Name + " build), one call of the timed operation, counted by name in the host (AK_HOST_COUNT).",
-            "# fields: payload content arm dir mode | fwd N (every exported entry point called, resets included) rev N (core->host callbacks, grow excluded) grow N (ak_grow_fn calls, exact-size) reset N (of fwd: ak_dec_reset_<Root>, one before and one after each decode) | entry=count ...",
+            "# fields: payload content arm dir mode | fwd N (every exported entry point called, resets included) rev N (core->host callbacks, grow excluded) grow N (ak_grow_fn calls, geometric grow as timed) reset N (of fwd: ak_dec_reset_<Root>, one per decode, before it) | entry=count ...",
         };
         int n = 0;
         foreach (var k in Cases.All())
