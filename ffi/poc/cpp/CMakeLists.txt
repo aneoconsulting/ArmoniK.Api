@@ -366,6 +366,20 @@ if(AK_RPC)
             ${CMAKE_CURRENT_SOURCE_DIR}/proto/shapes_svc.proto
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/proto/shapes_svc.proto ${SCHEMA}/shapes.proto
     COMMENT "protoc + grpc_cpp_plugin shapes_svc.proto")
+  # WP10: the campaign client's stubs for THE server (poc/rust/SERVER.md's Grid service).
+  add_custom_command(
+    OUTPUT ${GEN}/campaign_grid.pb.cc ${GEN}/campaign_grid.pb.h
+           ${GEN}/campaign_grid.grpc.pb.cc ${GEN}/campaign_grid.grpc.pb.h
+    COMMAND ${Protobuf_PROTOC_EXECUTABLE} --cpp_out=${GEN}
+            -I${SCHEMA} -I${CMAKE_CURRENT_SOURCE_DIR}/proto
+            ${CMAKE_CURRENT_SOURCE_DIR}/proto/campaign_grid.proto
+    COMMAND ${Protobuf_PROTOC_EXECUTABLE} --grpc_out=${GEN}
+            --plugin=protoc-gen-grpc=${GRPC_CPP_PLUGIN}
+            -I${SCHEMA} -I${CMAKE_CURRENT_SOURCE_DIR}/proto
+            ${CMAKE_CURRENT_SOURCE_DIR}/proto/campaign_grid.proto
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/proto/campaign_grid.proto ${SCHEMA}/shapes.proto
+    COMMENT "protoc + grpc_cpp_plugin campaign_grid.proto")
+  set(CAMP_GRID ${GEN}/campaign_grid.pb.cc ${GEN}/campaign_grid.grpc.pb.cc)
   set(CORE_COUNT_RPC_OUT "${CORE_TGT}/target-rpc-count/release")
   add_custom_target(core_rpc_count ALL
     COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_TGT}/target-rpc-count
@@ -422,7 +436,7 @@ if(AK_RPC)
   set(CAMP_RPC_EXTRA
     ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/core_native.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/touch.cpp)
-  target_sources(campaign_rpc PRIVATE ${CAMP_RPC_EXTRA}
+  target_sources(campaign_rpc PRIVATE ${CAMP_RPC_EXTRA} ${CAMP_GRID}
     ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/core_native_retain.cpp)
   # req. 19 (amended): the RPC cells' counts come from a COUNTING core (rpc,count,init-guard)
   # in a separate binary, never from the timed one.
@@ -433,10 +447,10 @@ if(AK_RPC)
     BYPRODUCTS ${CORE_CAMP_COUNT_OUT}/libak_core.so
     COMMENT "cargo build the shared ak-core --features rpc,count,init-guard (campaign counts)")
   ak_rpc_bin(campaign_rpc_count ${CMAKE_CURRENT_SOURCE_DIR}/src/campaign_rpc.cpp ${CORE_CAMP_COUNT_OUT} core_camp_count)
-  target_sources(campaign_rpc_count PRIVATE ${CAMP_RPC_EXTRA}
+  target_sources(campaign_rpc_count PRIVATE ${CAMP_RPC_EXTRA} ${CAMP_GRID}
     ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/core_native_retain.cpp)
   target_compile_definitions(campaign_rpc_count PRIVATE AK_COUNTING=1)
-  ak_rpc_bin(campaign_server ${CMAKE_CURRENT_SOURCE_DIR}/src/campaign_server.cpp ${CORE_CAMP_OUT} core_camp)
+  # WP10: no campaign server here; the one server is poc/rust's (serve.sh, SERVER.md).
   ak_rpc_bin(campaign_calib  ${CMAKE_CURRENT_SOURCE_DIR}/src/campaign_calib.cpp  ${CORE_CAMP_OUT} core_camp)
   # The codec suite links the campaign's core (rpc,init-guard: the same codec as the gates'
   # CORE_OUT, plus the RPC exports), because its end=transport rows hand the core's bytes to
@@ -652,7 +666,7 @@ if(AK_RPC)
     endif()
     add_executable(${tgt} ${CMAKE_CURRENT_SOURCE_DIR}/src/campaign_rpc.cpp ${RPC_COMMON_NOUNK}
       ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/core_native.cpp
-      ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/touch.cpp)
+      ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/touch.cpp ${CAMP_GRID})
     add_dependencies(${tgt} ${_dep})
     target_include_directories(${tgt} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/nounk/include
       ${CMAKE_CURRENT_SOURCE_DIR}/nounk/src ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/src ${GEN} ${GRPCPP_INCLUDE_DIRS})

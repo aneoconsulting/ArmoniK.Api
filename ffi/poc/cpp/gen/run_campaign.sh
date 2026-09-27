@@ -15,9 +15,11 @@
 #   AK_CAMPAIGN_RPC_WARMUP_S rpc: Google Benchmark's min warm-up time per benchmark, seconds
 #                        (default 0.5; smoke 0.01), before its first repetition (WP9)
 #   AK_CAMPAIGN_SERVER_WARMUP rpc: server warm-up calls per direction per client transport
-#                        per socket, before any client  (default 200; smoke 20); d a tenth of it
+#                        (poc/rust/serve.sh warm N; default 200; smoke 20; d: ceil(N/4))
 #   (req. 24, amended 2026-09-27: every warm-up is a parameter; AK_CAMPAIGN_SMOKE=1 shortens
 #    the defaults above, an explicit value always wins, and the header states what ran)
+#   AK_CAMPAIGN_TRANSPORTS rpc: "shipped pinned" (default) or one of them (a small smoke)
+#   AK_CAMPAIGN_BUILDS   codec and rpc: both (default), full or no-unknown (a small smoke)
 #   AK_CAMPAIGN_CALIB_ITERS calib: crossings per sample        (default 100000000)
 #   AK_LLC_BYTES         last-level cache size (default 14417920, the i9-7900X's 13.75 MB)
 #   AK_CAMPAIGN_POOL_BYTES codec: encode input pool, encoded bytes (default 2 x AK_LLC_BYTES)
@@ -60,6 +62,9 @@ WARM=${AK_CAMPAIGN_WARMUP_S:-$W_CODEC}
 RPCMINT=${AK_CAMPAIGN_RPC_MIN_TIME_S:-$T_RPC}
 RPCWARM=${AK_CAMPAIGN_RPC_WARMUP_S:-$W_RPC}
 SRVWARM=${AK_CAMPAIGN_SERVER_WARMUP:-$W_SRV}
+# The owner's small-test rule (2026-09-27): a smoke may run one transport and one build.
+TRANSPORTS=${AK_CAMPAIGN_TRANSPORTS:-shipped pinned}   # rpc: client configurations run
+BUILDS=${AK_CAMPAIGN_BUILDS:-both}                      # codec and rpc: full | no-unknown | both
 SRVWARM_D=$((SRVWARM / 10 > 0 ? SRVWARM / 10 : 1))
 CITERS=${AK_CAMPAIGN_CALIB_ITERS:-100000000}
 # req. 11: the encode suite's beyond-cache input pool, in encoded bytes: 2 x the machine's
@@ -172,8 +177,8 @@ h = {
  "threads": {"codec": "one benchmark thread; the core starts none for codec calls (each codec log's own line has the process thread count)",
              "rpc_client": "caller threads = the in-flight level (1, 8, 16), created before round 1; the core's runtime workers = 2 (campaign_rpc --workers default); grpc-core sizes its own pollers and executor, counted in each client's process_threads_after_warmup line",
              "rpc_server": "grpc++ callback server, grpc-core's own threads; the server's thread count at start and at exit is in the rpc log"},
- "repeats": {"launches": $LAUNCHES, "rounds": $ROUNDS},
- "warmup": {"codec_google_benchmark_min_warmup_time_s_per_benchmark": $WARM, "rpc_google_benchmark_min_warmup_time_s_per_benchmark": $RPCWARM, "rpc_server_calls_per_direction_per_client_transport_per_socket": $SRVWARM, "rpc_server_calls_direction_d": $SRVWARM_D, "campaign_defaults": {"codec_min_warmup_time_s": 0.5, "rpc_min_warmup_time_s": 0.5, "rpc_server_calls": 200}, "smoke_defaults": {"codec_min_warmup_time_s": 0.01, "rpc_min_warmup_time_s": 0.01, "rpc_server_calls": 20}, "allocator": "every benchmark runs the framework's warm-up before its first repetition"},
+ "repeats": {"launches": $LAUNCHES, "rounds": $ROUNDS}, "ran": {"transports": "$TRANSPORTS", "builds": "$BUILDS"},
+ "warmup": {"codec_google_benchmark_min_warmup_time_s_per_benchmark": $WARM, "rpc_google_benchmark_min_warmup_time_s_per_benchmark": $RPCWARM, "rpc_server": "poc/rust/serve.sh warm N: N checked a, b, c calls and ceil(N/4) d calls per socket, tonic and core clients", "rpc_server_n": $SRVWARM, "campaign_defaults": {"codec_min_warmup_time_s": 0.5, "rpc_min_warmup_time_s": 0.5, "rpc_server_calls": 200}, "smoke_defaults": {"codec_min_warmup_time_s": 0.01, "rpc_min_warmup_time_s": 0.01, "rpc_server_calls": 20}, "allocator": "every benchmark runs the framework's warm-up before its first repetition"},
  "sample": {"codec_min_time_s_per_repetition": $MINT, "codec_pool_bytes": $POOL, "llc_bytes": $LLC, "rpc_min_time_s_per_repetition": $RPCMINT, "calib_iters": $CITERS,
             "codec_clock": "Google Benchmark " + "v1.8.3 (344117638c8f, Release, built by the runner)" + ": cpu_time = process CPU per repetition (MeasureProcessCPUTime) and real_time, repetitions randomly interleaved", "rpc_clock": "Google Benchmark (the same build, WP9): cpu_time = process CPU per repetition (MeasureProcessCPUTime), real_time = wall (UseRealTime); one iteration = a batch of k calls in flight; repetitions randomly interleaved across the benchmarks of one client process", "calib_clock": "CLOCK_PROCESS_CPUTIME_ID of campaign_calib per round"},
 }
@@ -251,7 +256,7 @@ run_gate() {
     done
     echo "===== the RPC call check (requirement 18) seen failing, and leaving NO sample (R-H4) ====="
     start_server
-    warm_server "$TMPD/warm.log" && echo "  server warm-up: $(grep -c campaign_rpc_warm_server "$TMPD/warm.log") socket(s), $SRVWARM calls per direction per client transport" \
+    warm_server "$TMPD/warm.log" && echo "  server warm-up (poc/rust/serve.sh warm $SRVWARM): passed" \
       || echo ">>> FAIL: the server warm-up"
     for rb in campaign_rpc campaign_rpc_nounk; do
       timeout 120 taskset -c "$AK_CPU_CLIENT" "$B/$rb" --target "$(sock_of shipped)" --expect $((EXP + 1)) \
@@ -271,7 +276,7 @@ run_gate() {
     done
     # req. 14 / 18 (2026-09-27): directions c and d, every cell and send path of both builds,
     # each aborting on a planted wrong expectation with no sample: c-len (a unary upload's
-    # response length), d-sha and d-count (the server's UploadAck digest and byte count).
+    # response length), d-sha and d-count (the server's byte count; its digest through UploadStreamCheck, SERVER.md).
     for rb in campaign_rpc campaign_rpc_nounk; do
       if [ "$rb" = campaign_rpc ]; then LBL="A B Bf C-retain C-drop Cf-retain Cf-drop D-retain D-drop E-retain E-drop Ef-retain Ef-drop F-retain F-drop"
       else LBL="A B Bf C-nounk Cf-nounk D-nounk E-nounk Ef-nounk F-nounk"; fi
@@ -351,6 +356,7 @@ gb_samples() {  # gb_samples FILE: the samples a Google Benchmark output would g
 rpc_launch_file() {
   local f=$1 l=$2 t=$3 extra=${4:-} rb rc
   if [ $((l % 2)) = 1 ]; then RBS="campaign_rpc campaign_rpc_nounk"; else RBS="campaign_rpc_nounk campaign_rpc"; fi
+  [ "$BUILDS" = full ] && RBS=campaign_rpc; [ "$BUILDS" = no-unknown ] && RBS=campaign_rpc_nounk
   for rb in $RBS; do
     timeout 7200 taskset -c "$AK_CPU_CLIENT" "$B/$rb" --target "$(sock_of $t)" --expect "$EXP" \
       --transport "$t" --launch "$l" --rounds "$ROUNDS" --min-time-s "$RPCMINT" --warmup-s "$RPCWARM" $extra \
@@ -389,30 +395,31 @@ calib_one() {
   return 0
 }
 
-# req. 13 / 17 (amended 2026-09-26): ONE server process per launch, serving every cell of both
-# builds on two Unix domain sockets (shipped and pinned configurations), warmed by
-# $SRVWARM calls per direction from each client transport (grpc++ and the core's) on each
-# socket before any client runs.
-EXP=""; SPID=""; SRVTHREADS=""
-SOCK_shipped=$TMPD/s.sock; SOCK_pinned=$TMPD/p.sock
+# req. 13 / 17 (amended; WP10 at 9f6d579fa): THE campaign server is the Rust slice's tonic
+# rpc_server (poc/rust/SERVER.md), built, started, warmed and stopped through poc/rust/serve.sh:
+# ONE process per launch, pinned to AK_CPU_SERVER, serving both builds' clients on two Unix
+# sockets, `shipped` (tonic's server defaults) and `pinned` (4 MiB stream and connection
+# windows, adaptive off); warmed by `serve.sh warm $SRVWARM` (SERVER.md: N checked a, b and c
+# calls and ceil(N/4) d calls per socket, from a tonic client and from the core's client).
+SERVE=$FFI/poc/rust/serve.sh
+export AK_SERVE_STATE=$TMPD/serve.state   # this runner's own server, never another's
+EXP=""; SOCK_shipped=""; SOCK_pinned=""; SERVED=""
 sock_of() { [ "$1" = pinned ] && echo "unix:$SOCK_pinned" || echo "unix:$SOCK_shipped"; }
 start_server() {
-  rm -f "$SOCK_shipped" "$SOCK_pinned"
-  taskset -c "$AK_CPU_SERVER" "$B/campaign_server" --uds-shipped "$SOCK_shipped" --uds-pinned "$SOCK_pinned" \
-    > "$TMPD/srv.out" 2> "$TMPD/srv.err" &
-  SPID=$!
-  for _ in $(seq 100); do grep -q READY "$TMPD/srv.out" 2>/dev/null && break; sleep 0.1; done
-  EXP=$(awk '/READY/{print $4}' "$TMPD/srv.out"); SRVTHREADS=$(awk '/READY/{print $5}' "$TMPD/srv.out")
-  [ -n "$EXP" ] || { echo "the server did not start"; cat "$TMPD/srv.err"; exit 1; }
+  [ -n "$SERVED" ] || { bash "$SERVE" build > "$TMPD/serve-build.log" 2>&1 || { cat "$TMPD/serve-build.log"; echo "serve.sh build failed"; exit 1; }; SERVED=1; }
+  AK_CPU_SERVER=$AK_CPU_SERVER bash "$SERVE" start --out "$TMPD/srv" > "$TMPD/srv.out" 2>&1 \
+    || { cat "$TMPD/srv.out"; echo "the server did not start"; exit 1; }
+  SOCK_shipped=$(awk '$1=="shipped"{print $2}' "$TMPD/srv.out"); SOCK_pinned=$(awk '$1=="pinned"{print $2}' "$TMPD/srv.out")
+  EXP=$(sed -n 's/.*P2.2 \([0-9]*\) B.*/\1/p' "$TMPD/srv/rpc-server.log" | head -1)
+  [ -n "$EXP" ] && [ -n "$SOCK_shipped" ] || { cat "$TMPD/srv.out" "$TMPD/srv/rpc-server.log"; echo "the server did not start"; exit 1; }
 }
-warm_server() {  # warm_server OUTFILE: every socket, both client transports, every call checked
-  local t
-  for t in shipped pinned; do
-    taskset -c "$AK_CPU_CLIENT" "$B/campaign_rpc" --target "$(sock_of $t)" --expect "$EXP" --transport "$t" \
-      --warm-server "$SRVWARM" >> "$1" 2>&1 || { echo "server warm-up failed ($t)" >&2; return 1; }
-  done
+warm_server() {  # warm_server OUTFILE: serve.sh warm, every call checked
+  taskset -c "$AK_CPU_CLIENT" bash "$SERVE" warm "$SRVWARM" >> "$1" 2>&1 || { echo "server warm-up failed" >&2; return 1; }
 }
-stop_server() { kill "$SPID" 2>/dev/null; wait "$SPID" 2>/dev/null; SPID=""; }
+server_lines() {  # the server's own log lines, for the launch file
+  sed 's/^/# server: /' "$TMPD/srv/rpc-server.log"
+}
+stop_server() { [ -f "$AK_SERVE_STATE" ] && bash "$SERVE" stop > /dev/null 2>&1; return 0; }
 trap 'stop_server; rm -rf "$TMPD"' EXIT
 
 ensure_gate() {
@@ -431,6 +438,7 @@ case "$SUITE" in
     # by launch so neither always runs on a cold or warm machine.
     for l in $(seq 1 "$LAUNCHES"); do
      if [ $((l % 2)) = 1 ]; then CBS="campaign_codec campaign_codec_nounk"; else CBS="campaign_codec_nounk campaign_codec"; fi
+     [ "$BUILDS" = full ] && CBS=campaign_codec; [ "$BUILDS" = no-unknown ] && CBS=campaign_codec_nounk
      for cb in $CBS; do
       tag=${cb#campaign_codec}; tag=${tag#_}; tag=${tag:+$tag-}
       f=$OUT/codec-${tag}launch$l.jsonl
@@ -461,14 +469,13 @@ case "$SUITE" in
       # in-process controls), order alternated by launch, against ONE server process for
       # the launch (req. 13), warmed first. R-H4: a failed client deletes the launch file.
       start_server
-      echo "# server: one process for the launch, sockets $SOCK_shipped (shipped) and $SOCK_pinned (pinned), threads at start $SRVTHREADS" >> "$f"
+      { echo "# server: poc/rust rpc_server (tonic; SERVER.md), one process for the launch, pinned to $AK_CPU_SERVER, sockets $SOCK_shipped (shipped: tonic defaults) and $SOCK_pinned (pinned: 4 MiB windows, adaptive off), warmed by serve.sh warm $SRVWARM"; server_lines; } >> "$f"
       warm_server "$f" || { stop_server; rm -f "$f"; exit 1; }
-      for t in shipped pinned; do
+      for t in $TRANSPORTS; do
         rpc_launch_file "$f" "$l" "$t"; rc=$?
         [ $rc = 0 ] || { stop_server; echo "rpc launch $l ($t) failed: no file kept" >&2; exit 1; }
       done
       stop_server
-      echo "# server: $(cat "$TMPD/srv.err")" >> "$f"
       echo "wrote $f"
     done ;;
   calib)

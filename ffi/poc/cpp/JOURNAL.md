@@ -1644,3 +1644,19 @@ changes.
   present; a d-sha plant and --fail-after 2 exit 3 with no output file; the codec suite on P1.1
   (min time 0.01 s) lets the framework pick 4.6k-46k iterations per repetition.
 - Counts unchanged (the counting builds do not time).
+
+## 2026-09-27, FIX-PLAN WP10: THE server is the Rust slice's
+
+- campaign_server.cpp and its target are removed. The runner builds, starts (pinned to
+  AK_CPU_SERVER), warms and stops poc/rust's tonic rpc_server through poc/rust/serve.sh, with
+  its own AK_SERVE_STATE, and reads the two sockets and the P2.2 size (540,422 B) it reports.
+- The client dials SERVER.md's `armonik.ffi.campaign.v1.Grid` (proto/campaign_grid.proto for
+  cell A's typed stub: Fetch, FetchShort, Push, Upload). Direction d's timed answer is the raw
+  8-byte count (UploadStream); the SHA-256 is checked once per cell and payload before any
+  benchmark through UploadStreamCheck (40 bytes). Cell A's stream uses grpc++'s ClientWriter
+  with protobuf requests and a raw response (the answer is not a protobuf message).
+- The plants stay client-side (c-len, d-count on the timed path, d-sha on the check path; the
+  length control is a wrong --expect), as SERVER.md allows; FetchShort is declared, unused.
+- Checked in a scratch build: 210 RPC samples (15 cells x 14 groups, one transport), RPC counts
+  identical to the committed files (72 + 42 rows), every plant exit 3 with no output file.
+- Small-test rule: AK_CAMPAIGN_TRANSPORTS and AK_CAMPAIGN_BUILDS select one transport / build.

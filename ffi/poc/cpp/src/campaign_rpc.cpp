@@ -1,7 +1,9 @@
 // design/CAMPAIGN.md section 4.2, the RPC grid's CLIENT: one process pinned by the runner to
-// AK_CPU_CLIENT, talking to `campaign_server` in ANOTHER process pinned to AK_CPU_SERVER,
-// over a Unix domain socket (req. 17, amended 2026-09-26: grpc++ and the core both dial
-// `unix:<path>`).
+// AK_CPU_CLIENT, talking to THE campaign server (WP10, req. 13 as amended: the Rust slice's
+// tonic rpc_server, poc/rust/SERVER.md, started by poc/rust/serve.sh) in ANOTHER process
+// pinned to AK_CPU_SERVER, over a Unix domain socket (req. 17: grpc++ and the core both dial
+// `unix:<path>`). `--transport shipped|pinned` is this client's configuration, against the
+// server's socket of the same name (tonic's defaults / 4 MiB windows, adaptive off).
 //
 //   | cell | codec (client side)                                   | transport                    |
 //   | A    | protobuf C++ through grpc++'s generated stub (SerializationTraits, production) | grpc++, sync stub |
@@ -42,9 +44,6 @@
 //                        window; the header records them, the core's runtime workers and the
 //                        process's thread count after warm-up (grpc-core's own threads)
 //
-//   --warm-server N  (req. 13): N calls per direction from grpc++ and N from the core's
-//                    transport, every call checked, then exit (the runner warms the one
-//                    server of the launch with it, per socket, before any client)
 //   --count N        (req. 19, a counting build): per call, the crossings of cells B, C, D
 //                    and E in each mode and direction, then exit
 #include "rpc_common.h"
@@ -78,6 +77,7 @@
 #include "generated/pb_build.h"
 #include "generated/touch.h"
 #include "sha256.h"
+#include "campaign_grid.grpc.pb.h"
 #ifndef AK_COUNTING
 #include <benchmark/benchmark.h>
 #endif
@@ -86,9 +86,14 @@ using namespace akrpc;
 
 namespace {
 
-const char *const kPush = "/armonik.ffi.shapes.v1.Shapes/Push";
-const char *const kUpload = "/armonik.ffi.shapes.v1.Shapes/Upload";
-const char *const kUploadStream = "/armonik.ffi.shapes.v1.Shapes/UploadStream";
+// WP10 (req. 13 as amended): THE campaign server is the Rust slice's tonic rpc_server, service
+// armonik.ffi.campaign.v1.Grid (poc/rust/SERVER.md).
+namespace gridns = armonik::ffi::campaign::v1;
+const char *const kFetch = "/armonik.ffi.campaign.v1.Grid/Fetch";
+const char *const kPush = "/armonik.ffi.campaign.v1.Grid/Push";
+const char *const kUpload = "/armonik.ffi.campaign.v1.Grid/Upload";
+const char *const kUploadStream = "/armonik.ffi.campaign.v1.Grid/UploadStream";            // 8 B: count
+const char *const kUploadStreamCheck = "/armonik.ffi.campaign.v1.Grid/UploadStreamCheck";  // 40 B: + SHA-256
 typedef shapes::ListTasksDetailedResponse Fac;
 typedef svcns::ListTasksDetailedResponse Pb;
 typedef shapes::UploadResultDataMessage Fac5;   // M5, directions c and d
@@ -167,7 +172,6 @@ struct Cfg {
   double warmup_s = 0.5; // Google Benchmark's min warm-up time per benchmark (req. 24)
   double min_time_s = 0.5; // Google Benchmark's min time per repetition (its iteration control)
   std::string gbout;     // Google Benchmark JSON output (WP9)
-  int warm_server = 0;   // --warm-server N
   int count = 0;         // --count N
 };
 
@@ -214,7 +218,7 @@ struct Stream {
 // ---- one connection per cell (req. 13) ------------------------------------------------
 struct Conn {
   std::shared_ptr<grpc::Channel> chan;
-  std::vector<std::unique_ptr<svcns::Shapes::Stub> > stubs;
+  std::vector<std::unique_ptr<gridns::Grid::Stub> > stubs;
   ak_client *cl = nullptr;
 };
 
@@ -450,38 +454,49 @@ void core_unary_req(const Cell &cl, Conn &cn, ThreadCtx &tc, const char *path, c
   ak_bytes_free(&out);
 }
 
-void check_ack(const World &w, const Stream &st, const uint8_t *p, size_t n) {
-  svcns::UploadAck a;
-  if (!a.ParseFromArray(p, (int)n)) die("d: the server's answer is not an UploadAck", (long)n);
-  if (a.data_bytes() != st.bytes) die("d: the server's byte count", (long)a.data_bytes());
-  if (a.sha256() != st.sha) die("d: the server's SHA-256 differs from the upload's", 0);
-  (void)w;
+// Direction d's answer (SERVER.md): UploadStream, 8 bytes, the data byte count (u64 LE);
+// UploadStreamCheck, 40 bytes, the count then the SHA-256 of every message as received.
+uint64_t le64(const uint8_t *p) {
+  uint64_t v = 0;
+  for (int i = 7; i >= 0; --i) v = (v << 8) | p[i];
+  return v;
+}
+void check_answer(const Stream &st, const uint8_t *p, size_t n, bool check) {
+  if (n != (check ? 40u : 8u)) die("d: the server's answer length", (long)n);
+  if (le64(p) != st.bytes) die("d: the server's byte count", (long)le64(p));
+  if (check && std::string((const char *)p + 8, 32) != st.sha) die("d: the server's SHA-256 differs from the upload's", 0);
 }
 
 // Direction d, one streamed upload (req. 14): A through grpc++'s typed ClientWriter; B, C, E
 // through the core's client streaming (ak_call_open, a send per chunk, ak_call_recv); D and F
 // through grpc++'s raw ClientWriter, each chunk handed over moved. Returns the chunk count.
-long stream_call(World &w, size_t ci, int pi, int t, ThreadCtx &tc) {
+// `check` (the pre-check, never timed) calls UploadStreamCheck and verifies the digest too.
+long stream_call(World &w, size_t ci, int pi, int t, ThreadCtx &tc, bool check = false) {
   const Cell &cl = w.cells[ci];
   Conn &cn = w.conns[ci];
   const Stream &st = w.st[pi];
   const size_t nmsg = st.f.size();
+  const char *path = check ? kUploadStreamCheck : kUploadStream;
   if (cl.base == 'A') {
+    // grpc++'s ClientWriter with protobuf requests (SerializationTraits, the production path);
+    // the answer is raw bytes (SERVER.md), so the response side is a ByteBuffer.
+    (void)t;
+    grpc::internal::RpcMethod method(path, grpc::internal::RpcMethod::CLIENT_STREAMING);
     grpc::ClientContext ctx;
-    svcns::UploadAck ack;
-    std::unique_ptr<grpc::ClientWriter<Pb5> > wr = cn.stubs[(size_t)t % cn.stubs.size()]->UploadStream(&ctx, &ack);
+    grpc::ByteBuffer rsp;
+    std::unique_ptr<grpc::ClientWriter<Pb5> > wr(
+        grpc::internal::ClientWriterFactory<Pb5>::Create(cn.chan.get(), method, &ctx, &rsp));
     for (size_t i = 0; i < nmsg; ++i)
       if (!wr->Write(st.p[i])) die("A/d write", (long)i);
     wr->WritesDone();
     grpc::Status s = wr->Finish();
     if (!s.ok()) die("A/d status", (long)s.error_code());
-    std::string a;
-    ack.SerializeToString(&a);
-    check_ack(w, st, (const uint8_t *)a.data(), a.size());
+    std::string a = flatten(rsp);
+    check_answer(st, (const uint8_t *)a.data(), a.size(), check);
     return (long)nmsg;
   }
   if (!grpc_cell(cl.base)) {
-    ak_call *h = ak_call_open(cn.cl, (const uint8_t *)kUploadStream, std::strlen(kUploadStream),
+    ak_call *h = ak_call_open(cn.cl, (const uint8_t *)path, std::strlen(path),
                               AK_CALL_CLIENT_STREAM, NULL);
     if (!h) die("ak_call_open", 0);
     std::string q;
@@ -508,12 +523,12 @@ long stream_call(World &w, size_t ci, int pi, int t, ThreadCtx &tc) {
     int32_t rc = ak_call_recv(h, &out, &gs);
     if (rc != AK_OK || gs != 0) die(rc == AK_ERR_RPC_STATUS ? "d gRPC status" : "ak_call_recv",
                                     rc == AK_ERR_RPC_STATUS ? gs : rc);
-    check_ack(w, st, out.ptr, out.len);
+    check_answer(st, out.ptr, out.len, check);
     ak_bytes_free(&out);
     ak_call_destroy(h);
     return (long)nmsg;
   }
-  grpc::internal::RpcMethod method(kUploadStream, grpc::internal::RpcMethod::CLIENT_STREAMING);
+  grpc::internal::RpcMethod method(path, grpc::internal::RpcMethod::CLIENT_STREAMING);
   grpc::ClientContext ctx;
   grpc::ByteBuffer rsp;
   std::unique_ptr<grpc::ClientWriter<grpc::ByteBuffer> > wr(
@@ -526,7 +541,7 @@ long stream_call(World &w, size_t ci, int pi, int t, ThreadCtx &tc) {
   grpc::Status s = wr->Finish();
   if (!s.ok()) die("D/F d status", (long)s.error_code());
   std::string a = flatten(rsp);
-  check_ack(w, st, (const uint8_t *)a.data(), a.size());
+  check_answer(st, (const uint8_t *)a.data(), a.size(), check);
   return (long)nmsg;
 }
 
@@ -543,7 +558,7 @@ long cell_call(World &w, size_t ci, const Job &job, int t, ThreadCtx &tc) {
   const bool up = dir == 'c';
   if (cell == 'A') {
     grpc::ClientContext ctx;
-    svcns::Shapes::Stub &st = *cn.stubs[(size_t)t % cn.stubs.size()];
+    gridns::Grid::Stub &st = *cn.stubs[(size_t)t % cn.stubs.size()];
     if (resp) {
       svcns::Empty q;
       Pb r;
@@ -567,7 +582,7 @@ long cell_call(World &w, size_t ci, const Job &job, int t, ThreadCtx &tc) {
     struct ak_bytes out;
     out.ptr = NULL; out.len = 0; out.owner = NULL;
     int32_t gs = -1;  // the gRPC status (ABI v1 section 9); non-OK is AK_ERR_RPC_STATUS
-    int32_t rc = ak_call_unary(cn.cl, (const uint8_t *)kFetchPath, std::strlen(kFetchPath), kNoReq, 0, &out, &gs);
+    int32_t rc = ak_call_unary(cn.cl, (const uint8_t *)kFetch, std::strlen(kFetch), kNoReq, 0, &out, &gs);
     if (rc != AK_OK || gs != 0) die(rc == AK_ERR_RPC_STATUS ? "core call gRPC status" : "core call status",
                                     rc == AK_ERR_RPC_STATUS ? gs : rc);
     long n = 1;
@@ -586,7 +601,7 @@ long cell_call(World &w, size_t ci, const Job &job, int t, ThreadCtx &tc) {
     return n;
   }
   // D, F: grpc++'s transport carrying opaque bytes, the generated codec at the client.
-  grpc::internal::RpcMethod method(resp ? kFetchPath : up ? kUpload : kPush, grpc::internal::RpcMethod::NORMAL_RPC);
+  grpc::internal::RpcMethod method(resp ? kFetch : up ? kUpload : kPush, grpc::internal::RpcMethod::NORMAL_RPC);
   grpc::ClientContext ctx;
   grpc::ByteBuffer req, rsp;
   if (resp) {
@@ -702,59 +717,6 @@ std::string det(const Pb &m) {
   return s;
 }
 
-// --warm-server N (req. 13): N checked calls per direction from each client transport.
-int warm_server(World &w, int n) {
-  std::shared_ptr<grpc::Channel> ch =
-      grpc::CreateCustomChannel(w.cfg.target, grpc::InsecureChannelCredentials(), channel_args(w.cfg.transport, "warm"));
-  std::unique_ptr<svcns::Shapes::Stub> st = svcns::Shapes::NewStub(ch);
-  ak_client *cl = core_client(w.rt, w.cfg.target, w.cfg.transport);
-  if (!cl) die("ak_client_new (warm)", 0);
-  std::string req;
-  w.pb_req.SerializeToString(&req);
-  static const uint8_t kNoReq[1] = {0};
-  for (int i = 0; i < n; ++i) {
-    { grpc::ClientContext c; svcns::Empty q; Pb r;
-      if (!st->Fetch(&c, q, &r).ok() || r.tasks_size() != 500) die("warm grpc++ a", i); }
-    { grpc::ClientContext c; svcns::Empty r;
-      if (!st->Push(&c, w.pb_req, &r).ok()) die("warm grpc++ b", i); }
-    struct ak_bytes out;
-    out.ptr = NULL; out.len = 0; out.owner = NULL;
-    if (ak_call_unary(cl, (const uint8_t *)kFetchPath, std::strlen(kFetchPath), kNoReq, 0, &out, NULL) != AK_OK ||
-        out.len != w.expect_a) die("warm core a", i);
-    ak_bytes_free(&out);
-    out.ptr = NULL; out.len = 0; out.owner = NULL;
-    if (ak_call_unary(cl, (const uint8_t *)kPush, std::strlen(kPush), (const uint8_t *)req.data(), req.size(), &out, NULL) != AK_OK ||
-        out.len != 0) die("warm core b", i);
-    ak_bytes_free(&out);
-  }
-  ak_client_destroy(cl);
-  // Directions c and d (req. 14): the same, through cells A (grpc++) and B (the core), every
-  // call checked; d with a tenth of the calls (a 16 MiB upload is 32x a P2.2 call's bytes).
-  const int nd = n / 10 > 0 ? n / 10 : 1;
-  w.cells.clear();
-  w.cells.push_back(Cell{'A', kDefault, "A", false});
-  w.cells.push_back(Cell{'B', kDefault, "B", false});
-  w.conns.clear();
-  w.conns.resize(2);
-  w.conns[0].chan = ch;
-  w.conns[0].stubs.emplace_back(svcns::Shapes::NewStub(ch));
-  w.conns[1].cl = core_client(w.rt, w.cfg.target, w.cfg.transport);
-  if (!w.conns[1].cl) die("ak_client_new (warm c/d)", 0);
-  {
-    ThreadCtx tc;
-    for (int pi = 0; pi < 2; ++pi)
-      for (size_t ci = 0; ci < 2; ++ci) {
-        for (int i = 0; i < n; ++i) cell_call(w, ci, Job{'c', pi}, 0, tc);
-        for (int i = 0; i < nd; ++i) cell_call(w, ci, Job{'d', pi}, 0, tc);
-      }
-  }
-  ak_client_destroy(w.conns[1].cl);
-  w.conns[1].cl = nullptr;
-  std::printf("# {\"campaign_rpc_warm_server\": {\"transport\": \"%s\", \"calls_per_direction_per_client_transport\": %d,"
-              " \"calls_per_payload_per_client_transport\": {\"c\": %d, \"d\": %d},"
-              " \"client_transports\": [\"grpc++\", \"core\"]}}\n", w.cfg.transport.c_str(), n, n, nd);
-  return 0;
-}
 
 #ifdef AK_COUNTING
 // --count N (req. 19, amended 2026-09-26/27): per call, every exported entry point the loop
@@ -871,7 +833,6 @@ int main(int argc, char **argv) {
     else if (a == "--warmup-s") c.warmup_s = std::atof(v);
     else if (a == "--min-time-s") c.min_time_s = std::atof(v);
     else if (a == "--gbench-out") c.gbout = v;
-    else if (a == "--warm-server") c.warm_server = std::atoi(v);
     else if (a == "--count") c.count = std::atoi(v);
     else if (a == "--plant") c.plant = v;
   }
@@ -901,7 +862,6 @@ int main(int argc, char **argv) {
     else if (d == 'a' || d == 'r' || d == 'b') w.jobs.push_back(Job{d, 0});
     else die("unknown direction", d);
   }
-  if (c.warm_server > 0) return warm_server(w, c.warm_server);
 
   w.cells = parse_cells(c.cells);
   for (size_t i = 0; i < w.cells.size(); ++i) {
@@ -926,7 +886,7 @@ int main(int argc, char **argv) {
     if (grpc_cell(w.cells[i].base)) {
       cn.chan = grpc::CreateCustomChannel(c.target, grpc::InsecureChannelCredentials(),
                                           channel_args(c.transport, w.cells[i].label));
-      for (int s = 0; s < maxk; ++s) cn.stubs.emplace_back(svcns::Shapes::NewStub(cn.chan));
+      for (int s = 0; s < maxk; ++s) cn.stubs.emplace_back(gridns::Grid::NewStub(cn.chan));
     } else {
       cn.cl = core_client(w.rt, c.target, c.transport, w.cells[i].framed);
       if (!cn.cl) die("ak_client_new", (long)i);
@@ -948,7 +908,7 @@ int main(int argc, char **argv) {
       struct ak_bytes out;
       out.ptr = NULL; out.len = 0; out.owner = NULL;
       static const uint8_t kNone[1] = {0};
-      if (ak_call_unary(pc, (const uint8_t *)kFetchPath, std::strlen(kFetchPath), kNone, 0, &out, NULL) != AK_OK ||
+      if (ak_call_unary(pc, (const uint8_t *)kFetch, std::strlen(kFetch), kNone, 0, &out, NULL) != AK_OK ||
           out.len != w.expect_a)
         die("pre-check fetch", (long)out.len);
       std::string wire((const char *)out.ptr, out.len);
@@ -990,6 +950,14 @@ int main(int argc, char **argv) {
       }
     }
   }
+  // Direction d's digest (req. 18, SERVER.md): one UploadStreamCheck per cell and payload,
+  // before any benchmark, the server's count and SHA-256 of the messages as received against
+  // the client's own. Never timed (the timed d calls UploadStream, whose count is checked).
+  if (std::string(c.dirs).find('d') != std::string::npos) {
+    ThreadCtx tc;
+    for (size_t i = 0; i < w.cells.size(); ++i)
+      for (int pi = 0; pi < 2; ++pi) stream_call(w, i, pi, 0, tc, true);
+  }
   // Cell A's wire length, once, before the rounds.
   for (size_t i = 0; i < w.cells.size(); ++i) {
     if (w.cells[i].base != 'A') continue;
@@ -1025,7 +993,8 @@ int main(int argc, char **argv) {
               " over moved (ak_enc_take_owned, ak::Enc::take)\", \"send_paths\": \"Bf, Cf-*, Ef-*: the core's"
               " framed send path (ak_client_set_framed) beside the reference\","
               " \"directions_c_d\": \"c: P5.3, P5.4 unary upload, empty response; d: 4 MiB and 16 MiB in 2 MiB M5"
-              " chunks (ids on the first), the server's UploadAck byte count and SHA-256 checked; both at 1 and 8"
+              " chunks (ids on the first), the server's byte count checked on every call and its SHA-256 of the"
+              " messages as received once per cell and payload before any benchmark (UploadStreamCheck); both at 1 and 8"
               " in flight\", \"channels\": \"one per cell per benchmark process, opened"
               " before any benchmark, warmed by the framework's warm-up\","
               " \"sampler\": \"Google Benchmark %s (WP9, req. 22a amended): one benchmark per (cell, direction, payload,"
