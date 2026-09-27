@@ -482,8 +482,10 @@ Each slice regenerates, rebuilds its core, re-runs its gate, and then:
 2. **New additive entries** (ABI-v1 section 9): `ak_enc_take_owned`,
    `ak_client_set_framed`, client streaming (`ak_call_open`, `ak_call_send`,
    `ak_call_send_enc`, `ak_call_recv` with its status number, `ak_call_cancel`);
-   `ak_call_close` is gone. A slice uses them where its host's transport or the
-   extra directions (c) and (d) of CAMPAIGN req 14 need them;
+   `ak_call_close` is gone. A slice uses them where its host's transport needs
+   them, and for directions (c) and (d) of CAMPAIGN req 14, **required in every
+   slice** (owner, 2026-09-27): every cell, both at 1 and 8 in flight, with the
+   host's own gRPC client streaming for cells A, D and F;
 3. **D44**: the client's `max_send_message` / `max_recv_message` are now enforced
    on every path, so a harness that relied on them being ignored breaks visibly;
 4. **Binding-side lessons that are not in the shared code**: a binding need not
@@ -572,7 +574,7 @@ Facts that bear on the design constraints and are not in `README.md`:
 | D2 | C# levels | floors net6.0 and .NET Framework 4.8 (correctness), target net8.0 |
 | D3 | Java levels | floor 8 (correctness), target 17 |
 | D4 | Unknown-field retention | not decided; both behaviours built and measured (WP3 item 21, WP5) |
-| D5 | Streamed upload | worth having but not required; optional and scheduled last (WP3 item 22) |
+| D5 | Streamed upload | worth having but not required; optional and scheduled last (WP3 item 22). **Amended 2026-09-27: required** in every slice, as CAMPAIGN req 14 directions (c) unary upload and (d) client-streamed upload, because they stress a path unary calls do not |
 | D6 | Traffic statistics | none exist; the report states the payload set is not weighted by traffic |
 | D7 | Generator | one generator implementation, wire rules written once (WP5); crucial |
 

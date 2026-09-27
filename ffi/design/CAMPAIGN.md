@@ -138,9 +138,10 @@ in its container shows it executes (section 9).
     builds, warmed by a stated number of calls from each client transport before
     round 1; **one channel per cell per launch**, opened and warmed before round 1.
 14. **Directions:** (a) empty request, P2.2 response; (b) P2.2-sized request that
-    the server decodes, empty response. A streamed upload in 2 MiB chunks is
-    optional and scheduled last (FIX-PLAN D5). **Built in the Rust slice
-    (2026-09-27) as two labelled extra directions**, for a slice to add when it can:
+    the server decodes, empty response. **Directions (c) and (d) are required in
+    every slice** (owner, 2026-09-27, amending D5: an upload and client streaming
+    stress a code path that unary calls with small requests do not). They were
+    built first in the Rust slice (2026-09-27):
     (c) a unary upload, request P5.3 or P5.4 (M5, 1 MB and 4 MB) that the server
     decodes, empty response; (d) the streamed upload, ArmoniK's
     `UploadResultData(stream ...)` shape: M5 messages carrying 2 MiB chunks (ids on
