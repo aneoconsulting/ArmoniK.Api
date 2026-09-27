@@ -228,17 +228,17 @@ run_gate() {
     [ $ngr = 0 ] || echo ">>> FAIL: the no-unknown gate"
     echo "===== the codec campaign binary's own gate, and its planted control ====="
     unknown_rows
-    (cd "$FFI/schema/generated" && "$B/campaign_codec" --rounds 0 --bytes 1 --warmup 1 --corpus "$FFI/corpus/generated" --rows "$ROWS" > "$TMPD/g.log" 2>&1); rc=$?
+    (cd "$FFI/schema/generated" && "$B/campaign_codec" --rounds 0 --bytes 1 --warmup 1 --pool-bytes "$POOL" --corpus "$FFI/corpus/generated" --rows "$ROWS" > "$TMPD/g.log" 2>&1); rc=$?
     grep '^#' "$TMPD/g.log" | sed 's/^/  /'
     [ $rc = 0 ] || { grep 'GATE FAIL' "$TMPD/g.log" | head; echo ">>> FAIL: campaign_codec gate"; }
-    (cd "$FFI/schema/generated" && AK_CAMPAIGN_PLANT=1 "$B/campaign_codec" --rounds 0 --bytes 1 --warmup 1 --corpus "$FFI/corpus/generated" --rows "$ROWS" > "$TMPD/g.log" 2>&1) \
+    (cd "$FFI/schema/generated" && AK_CAMPAIGN_PLANT=1 "$B/campaign_codec" --rounds 0 --bytes 1 --warmup 1 --pool-bytes "$POOL" --corpus "$FFI/corpus/generated" --rows "$ROWS" > "$TMPD/g.log" 2>&1) \
       && echo ">>> FAIL: the planted codec gate passed" \
       || echo "  control campaign_codec plant: $(grep -c 'GATE FAIL' "$TMPD/g.log") slots failed as required"
     for cb in campaign_codec_nounk; do   # the no-unknown codec binary: its own gate and plant
-      (cd "$FFI/schema/generated" && "$B/$cb" --rounds 0 --bytes 1 --warmup 1 --corpus "$FFI/corpus/generated" --rows "$ROWS" > "$TMPD/g.log" 2>&1); rc=$?
+      (cd "$FFI/schema/generated" && "$B/$cb" --rounds 0 --bytes 1 --warmup 1 --pool-bytes "$POOL" --corpus "$FFI/corpus/generated" --rows "$ROWS" > "$TMPD/g.log" 2>&1); rc=$?
       grep '^#' "$TMPD/g.log" | sed 's/^/  /'
       [ $rc = 0 ] || { grep 'GATE FAIL' "$TMPD/g.log" | head; echo ">>> FAIL: $cb gate"; }
-      (cd "$FFI/schema/generated" && AK_CAMPAIGN_PLANT=1 "$B/$cb" --rounds 0 --bytes 1 --warmup 1 --corpus "$FFI/corpus/generated" --rows "$ROWS" > "$TMPD/g.log" 2>&1) \
+      (cd "$FFI/schema/generated" && AK_CAMPAIGN_PLANT=1 "$B/$cb" --rounds 0 --bytes 1 --warmup 1 --pool-bytes "$POOL" --corpus "$FFI/corpus/generated" --rows "$ROWS" > "$TMPD/g.log" 2>&1) \
         && echo ">>> FAIL: the planted $cb gate passed" \
         || echo "  control $cb plant: $(grep -c 'GATE FAIL' "$TMPD/g.log") slots failed as required"
     done
