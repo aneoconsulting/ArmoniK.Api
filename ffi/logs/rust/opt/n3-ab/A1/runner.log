@@ -1,0 +1,6 @@
+# rust slice NARROWED optimisation run (gen/opt_narrow.sh): CONTAINER INSTRUMENTATION, codec suite only
+# commit b1ecc8f8; date 2026-09-27T09:44:42Z; AK_ONLY=P1.1,P1.3,P2.1,P2.2,P2.5,P3.1,P4.1,P6.1 builds=full; samples=10 warmup_iters=20 warmup_ms=20 measure_ms=60 (opt_bench v5's payload settings); AK_NRESAMPLES=1000 AK_ZC=P5. launch=1 cpu=1
+  codec-P: precheck: 556 checks, 0 failures, 10 inputs, 480 cases; 4800 sample rows; 59s
+summary-codec.tsv: 480 cases
+variants-codec.tsv / .txt: 80 rows
+unknown-retain-vs-drop.tsv written

@@ -1,0 +1,18 @@
+run1 P2.2   decode       ffi-drop  1718.30 ffi-retain  1565.40 ratio 0.911 | native  1677.80  1485.86 ratio 0.886 | pull  1408.68  1392.84 ratio 0.989
+run1 P2.2   decode-read  ffi-drop  1809.28 ffi-retain  1588.43 ratio 0.878 | native  1662.44  1720.35 ratio 1.035 | pull  1681.32  1583.08 ratio 0.942
+run1 P4.1   decode       ffi-drop   291.01 ffi-retain   294.92 ratio 1.013 | native   278.22   288.83 ratio 1.038 | pull   267.81   267.51 ratio 0.999
+run1 P4.1   decode-read  ffi-drop   304.27 ffi-retain   292.53 ratio 0.961 | native   296.20   322.74 ratio 1.090 | pull   272.10   275.66 ratio 1.013
+run2 P2.2   decode       ffi-drop  1704.74 ffi-retain  1559.46 ratio 0.915 | native  1557.64  1555.09 ratio 0.998 | pull  1531.77  1563.81 ratio 1.021
+run2 P2.2   decode-read  ffi-drop  1782.47 ffi-retain  1688.71 ratio 0.947 | native  1561.93  1606.97 ratio 1.029 | pull  1536.01  1481.08 ratio 0.964
+run2 P4.1   decode       ffi-drop   286.45 ffi-retain   298.60 ratio 1.042 | native   258.30   265.62 ratio 1.028 | pull   249.05   253.62 ratio 1.018
+run2 P4.1   decode-read  ffi-drop   303.38 ffi-retain   286.05 ratio 0.943 | native   285.15   280.81 ratio 0.985 | pull   253.34   253.96 ratio 1.002
+run3 P2.2   decode       ffi-drop  1533.92 ffi-retain  1618.96 ratio 1.055 | native  1595.31  1505.13 ratio 0.943 | pull  1639.46  1387.82 ratio 0.847
+run3 P2.2   decode-read  ffi-drop  1706.58 ffi-retain  1667.27 ratio 0.977 | native  1601.38  1653.37 ratio 1.032 | pull  1602.08  1748.31 ratio 1.091
+run3 P4.1   decode       ffi-drop   287.43 ffi-retain   283.90 ratio 0.988 | native   289.96   302.08 ratio 1.042 | pull   267.02   264.46 ratio 0.990
+run3 P4.1   decode-read  ffi-drop   297.51 ffi-retain   284.20 ratio 0.955 | native   262.59   290.37 ratio 1.106 | pull   271.11   275.69 ratio 1.017
+t0-ref     ffi ret/drop 0.979 native 0.907 pull 1.032
+t1-native  ffi ret/drop 0.918 native 1.038 pull 1.053
+t1-ffi     ffi ret/drop 1.019 native 1.126 pull 1.019
+framed     ffi ret/drop 0.904 native 1.036 pull 0.966
+n2         ffi ret/drop 1.114 native 1.068 pull 1.007
+n3         ffi ret/drop 0.934 native 1.065 pull 1.129

@@ -3081,3 +3081,21 @@ Enc::take.
   no-unknown 0.93 (prost 0.98 / 1.00); P2.3 0.82 / 0.98 / 0.74, P2.4 0.90 / 0.91 / 0.85,
   P2.2 1.08 / 0.92 / 1.05 (prost 1.04). ffi columns noise (0.97-1.01). Checks: pre-check 0
   failures, crossings identical (core-native crosses nothing).
+
+## 2026-09-27 -- step 4, N3 (kept, 1326b546); step 5, N6 (refuted, no code change)
+
+- N3: core-native retain encode appends a message's unknown-field bag only when it is
+  non-empty (rust_native.py; the reserve inside Enc::put was paid for every message of every
+  payload). Narrowed A/B opt/n3-ab (3 x A/B, P1.1, P1.3, P2.1, P2.2, P2.5, P3.1, P4.1, P6.1;
+  A = b1ecc8f8): native-retain encode gmean 0.91-0.92 over the three variants, native-drop
+  (unchanged code) 1.05-1.07, prost 1.02. Full run opt/n3 (576 s) against opt/n2:
+  native-retain encode 0.88-0.91, native-drop 0.96-0.98, native-nounk 1.03-1.05 (both
+  unchanged), prost 0.94-0.95 / 1.00-1.01. Checks: pre-check 0 failures, crossings identical.
+- N6 (ffi-retain P4.1 decode ~12% over drop, from the earlier analysis): not reproduced.
+  In-process ffi retain/drop on P4.1 decode, 3 narrowed processes (opt/n6-probe): 0.99,
+  1.04, 1.01 (decode-read 0.94-0.96); in the six full runs of this unit: 0.98, 0.92, 1.02,
+  0.90, 1.11, 0.93. The counting build shows retain costs one forward crossing more (the
+  ak_dec_reset_<Root>, U1) and the same 601 reverse (P4.1 rows of gen/crossings.txt), so
+  there is no per-element retain crossing to remove. The earlier 12% was taken on a harness
+  and a code state that no longer exist (before U1 moved the reset, before D2-D4); no code
+  changed for N6, so there is no n6 run.

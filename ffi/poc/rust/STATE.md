@@ -32,6 +32,8 @@ after step 5, the full gate (stable + 1.88) at the end.
 | 2 | 1c181021 | T1 ffi: additive RPC entry `ak_enc_take_owned(enc, out)` (owned ak_bytes, released with ak_bytes_free, buffer back to the context's spare), used by cell D and core-ffi's transport-ready-tonic row | yes (owner; RawEncoder still copies once into tonic's buffer on the reference path, so D goes 2 -> 1 copies, 0 with option 3) | pre-check 0 failures (moved forms' bytes checked); crossings rpc:D b +1 forward (ak_bytes_free), regenerated | `opt/t1-ffi` |
 | 2b | d18540f0 | T1 option 3 (owner: optional): the FRAMED send path as labelled extra cells Bf, Cf, Df, Ef, Ff (`rpc::unary_framed`, two body frames, no copy; core switch = additive `ak_client_set_framed`), the reference path unchanged beside it | yes (extra cells) | request headers identical on the wire (`bin/header_diff`, gate step 11d); plant control per send path (A, B, Bf, Df); crossings: new rows equal to their reference twins | `opt/framed`, `opt/framed-rpc-narrow` |
 | 3 | b1ecc8f8 | N2: core-native decode counts repeated message/blob fields in one key pass and reserves each Vec exactly | yes | pre-check 0 failures; crossings identical | `opt/n2`, `opt/n2-ab` |
+| 4 | 1326b546 | N3: core-native retain encode skips an empty unknown-field bag | yes | pre-check 0 failures; crossings identical | `opt/n3`, `opt/n3-ab` |
+| 5 | none | N6: ffi-retain P4.1 decode over drop -- not reproduced (retain/drop 0.90-1.11 across 9 processes; one extra forward crossing, the reset, and no per-element one) | no code | -- | `opt/n6-probe` |
 
 ## Optimisation experiment (done; every figure is container instrumentation)
 
