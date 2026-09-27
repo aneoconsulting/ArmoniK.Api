@@ -644,6 +644,43 @@ static PyObject *py_call_cancel(PyObject *m, PyObject *args) {
   Py_RETURN_NONE;
 }
 
+/* The move path (CAMPAIGN parity, WP8): `encode(backend, root, obj, acc, retain, into)` with
+ * into = (client, path) sends the encoding through ak_call_unary_enc and returns the
+ * response; into = (call, last) sends it through ak_call_send_enc. The context's encoded
+ * bytes are MOVED into the call; no Python bytes object is made. */
+static int ak_py_is_send(PyObject *into) {
+  return PyTuple_CheckExact(into) && PyTuple_GET_SIZE(into) == 2;
+}
+
+static PyObject *ak_py_send_enc(PyObject *into, ak_enc_ctx *ctx) {
+  PyObject *a = PyTuple_GET_ITEM(into, 0), *b = PyTuple_GET_ITEM(into, 1);
+  int32_t rc, gs = -1;
+  if (PyCapsule_IsValid(a, "ak_cl")) {
+    void *cl = PyCapsule_GetPointer(a, "ak_cl");
+    Py_ssize_t plen = 0;
+    const char *path = PyUnicode_AsUTF8AndSize(b, &plen);
+    if (!path) return NULL;
+    struct ak_bytes out = {NULL, 0, NULL};
+    Py_BEGIN_ALLOW_THREADS
+    rc = ak_call_unary_enc(cl, (const uint8_t *)path, (size_t)plen, ctx, &out, &gs);
+    Py_END_ALLOW_THREADS
+    if (rc != 0) { PyErr_Format(PyExc_RuntimeError, "ak_call_unary_enc -> %d (grpc status %d)", (int)rc, (int)gs); return NULL; }
+    return take_bytes(&out);
+  }
+  if (PyCapsule_IsValid(a, "ak_call")) {
+    void *h = PyCapsule_GetPointer(a, "ak_call");
+    int last = PyObject_IsTrue(b);
+    if (last < 0) return NULL;
+    Py_BEGIN_ALLOW_THREADS
+    rc = ak_call_send_enc(h, ctx, last);
+    Py_END_ALLOW_THREADS
+    if (rc != 0) { PyErr_Format(PyExc_RuntimeError, "ak_call_send_enc -> %d", (int)rc); return NULL; }
+    Py_RETURN_NONE;
+  }
+  PyErr_SetString(PyExc_TypeError, "into: a writable buffer, (client, path) or (call, last)");
+  return NULL;
+}
+
 static PyObject *py_client_set_framed(PyObject *m, PyObject *args) {
   (void)m;
   PyObject *clc;

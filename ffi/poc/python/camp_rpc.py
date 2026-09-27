@@ -246,7 +246,17 @@ def cells(target, transport):
         out["a"] += [("C-" + m, lambda _g=cg, _d=cdec[m]: _d(_g())), ("D-" + m, lambda _g=dg: _g(b""))]
         out["a+read"] += [("C-" + m, lambda _g=cg, _d=cdec[m]: read_fa(_d(_g()))),
                           ("D-" + m, lambda _g=dg: read_fa(_g(b"")))]
-        out["b"] += [("C-" + m, lambda _p=cp, _e=cenc[m]: _p(_e(fc))), ("D-" + m, lambda _p=dp: _p(fc))]
+        # C sends through the MOVE path (WP8 parity with the Rust and C++ slices): the facade is
+        # encoded into the core's context and the context's buffer becomes the request
+        # (ak_call_unary_enc); no host bytes object. The copy path (ak_enc_take to a bytes,
+        # then ak_call_unary) is the labelled extra Cc-*. D cannot take the core's buffer:
+        # grpcio's request must be a `bytes` (a memoryview or bytearray is refused), so D
+        # keeps the one copy into a bytes object.
+        cc = cli("C-" + m)
+        ccp = core_put("Cc-" + m)
+        out["b"] += [("C-" + m, lambda _c=cc, _r=(m == "retain"): need(arms._ffi.encode("cext", root, fc, None, _r, (_c, PUT)), 0)),
+                     ("D-" + m, lambda _p=dp: _p(fc)),
+                     ("Cc-" + m, lambda _p=ccp, _e=cenc[m]: _p(_e(fc)))]
     # E and F in host-gen's modes: retain and drop in the full build; in the no-unknown build,
     # host-gen drop over the no-unknown facade (no `_unknown`, R-H22) is its no-unknown mode.
     for m in (["nounk"] if NOUNK else ["retain", "drop"]):
@@ -272,7 +282,8 @@ def cells(target, transport):
         enc5["E-" + m] = (lambda o, _m=hg[m]: getattr(_m, "encode_root_" + r5)(o))
     fam = [("A", "grpc", "inc"), ("B", "core", "inc"), ("Bf", "core", "inc")]
     for m in modes_c:
-        fam += [("C-" + m, "core", "C-" + m), ("Cf-" + m, "core", "C-" + m), ("D-" + m, "grpc", "C-" + m)]
+        fam += [("C-" + m, "core", "C-" + m), ("Cf-" + m, "core", "C-" + m), ("D-" + m, "grpc", "C-" + m),
+                ("Cc-" + m, "core", "C-" + m)]
     for m in (["nounk"] if NOUNK else ["retain", "drop"]):
         fam += [("E-" + m, "core", "E-" + m), ("Ef-" + m, "core", "E-" + m), ("F-" + m, "grpc", "E-" + m)]
 
@@ -289,8 +300,8 @@ def cells(target, transport):
     bp = fput("Bf")
     out["b"].append(("Bf", lambda: bp(R.SerializeToString(msg))))
     for m in modes_c:
-        cp2 = fput("Cf-" + m)
-        out["b"].append(("Cf-" + m, lambda _p=cp2, _e=cenc[m]: _p(_e(fc))))
+        cf = ccli("Cf-" + m)
+        out["b"].append(("Cf-" + m, lambda _c=cf, _r=(m == "retain"): need(arms._ffi.encode("cext", root, fc, None, _r, (_c, PUT)), 0)))
     for m in (["nounk"] if NOUNK else ["retain", "drop"]):
         ep2 = fput("Ef-" + m)
         out["b"].append(("Ef-" + m, lambda _p=ep2, _e=hg_enc[m]: _p(_e(fc))))
@@ -308,7 +319,11 @@ def cells(target, transport):
                 out[key].append((cell, lambda _st=st, _o=obj: _st(_o)))
             else:
                 c = ccli(cell)
-                out[key].append((cell, lambda _c=c, _e=enc5[e], _o=obj: need(arms._ffi.call_unary(_c, UPLOAD, _e(_o)), 0)))
+                if e.startswith("C-") and not cell.startswith("Cc-"):     # the move path
+                    out[key].append((cell, lambda _c=c, _r=(e == "C-retain"), _o=obj:
+                                     need(arms._ffi.encode("cext", r5, _o, None, _r, (_c, UPLOAD)), 0)))
+                else:
+                    out[key].append((cell, lambda _c=c, _e=enc5[e], _o=obj: need(arms._ffi.call_unary(_c, UPLOAD, _e(_o)), 0)))
     for label, chunks in D_PAYLOADS:
         ups, fcs, nbytes, sha = stream_payload(chunks)
         want = nbytes.to_bytes(8, "little") + sha
@@ -338,12 +353,17 @@ def cells(target, transport):
             else:
                 c = ccli(cell)
 
-                def core_stream(_c=c, _e=enc5[e], _m=msgs, _v=verdict):   # bound per payload
+                mv = (e == "C-retain") if (e.startswith("C-") and not cell.startswith("Cc-")) else None
+
+                def core_stream(_c=c, _e=enc5[e], _m=msgs, _v=verdict, _mv=mv):   # bound per payload
                     h = arms._ffi.call_open(_c, STREAM)
                     n = len(_m)
                     try:
                         for i, g in enumerate(_m):
-                            arms._ffi.call_send(h, _e(g), i + 1 == n)
+                            if _mv is not None:        # C: ak_call_send_enc, the move path
+                                arms._ffi.encode("cext", r5, g, None, _mv, (h, i + 1 == n))
+                            else:
+                                arms._ffi.call_send(h, _e(g), i + 1 == n)
                     except Exception:
                         arms._ffi.call_cancel(h)
                         raise
