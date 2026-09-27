@@ -152,7 +152,7 @@ def main(out):
             continue
         tag = fn[:-len(".jsonl")]
         for o in rows(os.path.join(out, fn)):
-            k = (tag, o["transport"], o["cell"], o["dir"], o["inflight"])
+            k = (tag, o["transport"], o["cell"], (o["dir"] if o["dir"] != "c" else "c/" + o["payload"]), o["inflight"])
             if k not in rp:
                 rorder.append(k)
             rp[k][0].append(o["cpu_ns"] / o["iters"])

@@ -4,7 +4,8 @@
 //!
 //!   rpc_client --socket PATH --transport shipped|pinned --launch N --rounds R --calls C
 //!              --warmup W --server-warm S --out FILE [--plant] [--warm-cells STEMS]
-//!              [--cells NAMES] [--dirs a,b] [--inflight 1,8]   (narrowed runs only)
+//!              [--cells NAMES] [--dirs a,b,c] [--inflight 1,8]   (narrowed runs only)
+//!              [--warm-dir a|c]   (the plant control's direction)
 //!
 //! Cells (`campaign::grid`): A prost+tonic, B prost+core, C core-ffi+core, D core-ffi+tonic,
 //! E core-native+core, F core-native+tonic; C to F per unknown-field mode of this build.
@@ -146,13 +147,17 @@ fn main() {
     let target = format!("unix:{socket}");
     let p22 = prost::Message::encode_to_vec(&harness::arms_m2::prost_arm::value(harness::arms_m2::P2_2)).len() as u64;
     let want_a = if plant { p22 + 1 } else { p22 };
+    // Direction c's response is empty; the plant expects one byte.
+    let want_c: u64 = if plant { 1 } else { 0 };
     assert!(harness::generated::binding::ak_init_once() >= 0);
 
     // Requirement 13 as amended: the server warmed from each client transport first.
     // `--warm-cells A,Bf,...` (stems): warm (and, with --plant, abort) through these cells;
     // default A and B. The runner's plant control names one send path per run.
     let warm_cells: Vec<&str> = arg("--warm-cells").unwrap_or_else(|| "A,B".into()).split(',').map(grid::cell_of).collect();
-    if let Err(e) = grid::warm_with(&warm_cells, &target, pinned, server_warm, want_a) {
+    // `--warm-dir c`: the warm-up (and so the plant) goes through direction c instead of a.
+    let warm_c = arg("--warm-dir").as_deref() == Some("c");
+    if let Err(e) = if warm_c { grid::warm_with_c(&warm_cells, &target, pinned, server_warm, want_c) } else { grid::warm_with(&warm_cells, &target, pinned, server_warm, want_a) } {
         abort(format!("server warm-up: {e}"));
     }
     // Requirement 22 as amended (R-H23): the cell order is a seeded random permutation per
@@ -168,6 +173,9 @@ fn main() {
         None => DIRS.to_vec(),
     };
     let ks: Vec<usize> = arg("--inflight").map(|v| v.split(',').map(|x| x.parse().unwrap()).collect()).unwrap_or(vec![1, 8, 16]);
+    // Direction c runs unless --dirs is given without it; its k are C_INFLIGHT, narrowed by --inflight.
+    let run_c = arg("--dirs").map_or(true, |d| d.split(',').any(|y| y == "c"));
+    let ks_c: Vec<usize> = arg("--inflight").map(|v| v.split(',').map(|x| x.parse().unwrap()).collect()).unwrap_or(grid::C_INFLIGHT.to_vec());
     campaign::shuffle(&mut order, launch as u64);
     let mut lines = Vec::new();
     for cell in &order {
@@ -196,6 +204,31 @@ fn main() {
                 }
             }
         }
+        // U1-unary (the owner): the labelled extra direction `c`, a result upload of P5.3
+        // and P5.4, at k = 1 and 8, for every cell (every cell has direction b).
+        if run_c {
+            for &pid in grid::C_PAYLOADS {
+                for &k in grid::C_INFLIGHT.iter().filter(|k| ks_c.contains(k)) {
+                    let per = calls.div_ceil(k);
+                    let callers = Callers::new(&grid::call_of_c(cell, &conn, pid, grid::slots(k), want_c), k);
+                    if let Err(e) = callers.batch(warm.div_ceil(k)) {
+                        abort(format!("cell {cell} dir c {pid} inflight {k} warm-up: {e}"));
+                    }
+                    for r in 1..=rounds {
+                        let (c0, t0) = (process_cpu_ns(), Instant::now());
+                        if let Err(e) = callers.batch(per) {
+                            abort(format!("cell {cell} dir c {pid} inflight {k} round {r}: {e}"));
+                        }
+                        let (wall, cpu) = (t0.elapsed().as_nanos() as u64, process_cpu_ns() - c0);
+                        lines.push(serde_json::json!({
+                            "slice": "rust", "suite": "rpc", "cell": cell, "payload": pid, "dir": "c",
+                            "transport": transport, "inflight": k, "launch": launch, "round": r,
+                            "cpu_ns": cpu, "wall_ns": wall, "iters": per * k,
+                        }).to_string());
+                    }
+                }
+            }
+        }
     }
     let server_threads = std::env::var("AK_SERVER_THREADS").unwrap_or_else(|_| "4".into());
     let mut f = std::fs::File::create(&out).unwrap();
@@ -205,12 +238,12 @@ fn main() {
         } else {
             "tonic endpoint defaults, ak_client_new, server defaults"
         })),
-        ("link", format!("Unix domain socket {socket} (requirement 17 as amended, R-H28); server = rpc_server, a separate process, one per launch for every cell of both builds, pre-serialised P2.2")),
+        ("link", format!("Unix domain socket {socket} (requirement 17 as amended, R-H28); server = rpc_server, a separate process, one per launch for every cell of both builds, pre-serialised P2.2; receive limit {} B (tonic default 4 MiB; P5.4 of direction c is 4,194,390 B)", campaign::server::SERVER_MAX_RECV)),
         ("cells", "A prost+tonic, B prost+core, C core-ffi+core, D core-ffi+tonic, E core-native+core, F core-native+tonic; C-F per unknown-field mode (-retain: every decision 11 position armed and u-group encode; -drop: nothing armed; -nounk: the build with unknown-field support compiled out); Bf, Cf, Df, Ef, Ff = the same cells on the FRAMED send path (optimisation T1 option 3, labelled extra cells: rpc::unary_framed, the request message sent as a 5-byte prefix frame and the caller's Bytes, no copy into tonic's buffer; B/C/E via ak_client_set_framed, D/F in the harness; request headers as tonic's Grpc::unary builds them, response via Status::from_header_map + Streaming::new_response; compression off on both paths); callback/queue deliveries not run in this suite".into()),
         ("delivery", "B, C, E: the core's blocking ak_call_unary from k host threads (a pool created before the warm-up, reused); A, D, F: tonic's idiomatic async unary call from k tokio tasks (packages/rust's shape)".into()),
         ("cell C request", "direction b: the core encode context's output MOVED into the call (ak_call_unary_enc, optimisation R2; since T1 through ak_rt::Enc::take, the buffer recycled through a spare slot); a and a+read: empty request through ak_call_unary. Cell D direction b: the output moved to the host as an owned buffer (ak_enc_take_owned, T1 ffi) wrapped by Bytes::from_owner and released with ak_bytes_free when tonic drops it; cell F direction b: core-native's Enc::take (T1)".into()),
         ("core-ffi encode fill", campaign::FFI_ENCODE_FILL.into()),
-        ("directions", "a = Fetch then decode; a+read = Fetch, decode, read every field; b = encode then Push (the server decodes with prost)".into()),
+        ("directions", "a = Fetch then decode; a+read = Fetch, decode, read every field; b = encode then Push (the server decodes with prost); c = U1-unary, a labelled extra direction: encode P5.3 (1 MB) or P5.4 (4 MB), M5, and Upload it (the server decodes it with prost, answers empty), k = 1 and 8 only, every cell".into()),
         ("build", if cfg!(feature = "unknown-fields") { "unknown-fields (retain/drop)".into() } else { "NO-UNKNOWN (unknown-field support compiled out; facade without unknown_fields)".to_string() }),
         ("launch", launch.to_string()),
         ("cell order", format!("{} (seeded random permutation, seed = launch)", order.join(","))),

@@ -17,7 +17,7 @@ for fn in sorted(os.listdir(d)):
             continue
         o = json.loads(l)
         v = o["cpu_ns"] / o["iters"]
-        k = (o["transport"], o["cell"], o["dir"], o["inflight"])
+        k = (o["transport"], o["cell"], (o["dir"] if o["dir"] != "c" else "c/" + o["payload"]), o["inflight"])
         per[k].append(v)
         perl[k + (o["launch"],)].append(v)
 print("# CONTAINER INSTRUMENTATION: client process CPU per call (us), median over rounds x launches; framed/reference; [per-launch ratio range]")

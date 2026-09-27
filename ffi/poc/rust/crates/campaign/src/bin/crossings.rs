@@ -112,6 +112,21 @@ fn rpc_rows(out: &mut Vec<String>) {
             let (df, dr) = dec(sl[0].ctx.dec.list_tasks_detailed_response);
             out.push(row(&format!("rpc:{}", grid::stem(cell)), d, mode, (rf + ef + df, rr + er + dr), host_calls_take()));
         }
+        // U1-unary: direction c, per payload (M5 encode + Upload; nothing decoded).
+        for pid in grid::C_PAYLOADS {
+            let sl = grid::slots(1);
+            let call = grid::call_of_c(cell, &conn, pid, sl, 0);
+            call.once(0).expect("warm call");
+            unsafe {
+                ak_rpc_counters_reset();
+                ak_enc_counters_reset(sl[0].ctx.enc);
+            }
+            host_calls_take();
+            call.once(0).expect("counted call");
+            let (rf, rr) = rpc_counters();
+            let (ef, er) = enc(&sl[0].ctx);
+            out.push(row(&format!("rpc:{}", grid::stem(cell)), &format!("c/{pid}"), mode, (rf + ef, rr + er), host_calls_take()));
+        }
     }
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -131,6 +146,7 @@ fn main() {
     println!("# geometric grow (unk_grow: max(want, 2 x capacity, 64), capped at INT32_MAX; U2, the owner's decision for every build).");
     println!("# rpc:<cell> rows: one call of cell B, C, D or E (P2.2; a = Fetch + decode, b = encode + Push), core RPC counters included;");
     println!("# Bf, Cf, Df, Ef: the same cells on the framed send path (T1 option 3; ak_client_set_framed is called once at open, not per call).");
+    println!("# c/P5.3, c/P5.4: U1-unary, one upload of M5 (encode + Upload; the response is empty and decoded by nobody).");
     println!("# input                                            direction    mode        forward  reverse resets");
     for l in out {
         println!("{l}");

@@ -30,6 +30,7 @@
 //! socket is a Unix domain socket (requirement 17, R-H28).
 
 use crate::generated::roots::R_ListTasksDetailedResponse as M2;
+use crate::generated::roots::R_UploadResultDataMessage as M5;
 use crate::Ops;
 use ak_abi::*;
 use bytes::Bytes;
@@ -42,6 +43,12 @@ use tonic::codec::{Codec, DecodeBuf, Decoder, EncodeBuf, Encoder};
 
 pub const FETCH: &str = "/armonik.ffi.campaign.v1.Grid/Fetch";
 pub const PUSH: &str = "/armonik.ffi.campaign.v1.Grid/Push";
+/// U1-unary (the owner, labelled extra direction `c`): a result upload, M5 (P5.3, P5.4) as
+/// the request, an empty response; the server decodes the request with prost.
+pub const UPLOAD: &str = "/armonik.ffi.campaign.v1.Grid/Upload";
+/// Direction `c`'s payloads and in-flight counts (k = 1 and 8 only, the owner's budget).
+pub const C_PAYLOADS: &[&str] = &["P5.3", "P5.4"];
+pub const C_INFLIGHT: &[usize] = &[1, 8];
 pub const WIN: u32 = 4 * 1024 * 1024;
 /// Worker threads of every tokio runtime the client makes (cells A, D, F), and of the
 /// core's runtime (`ak_runtime_new`, cells B, C, E). Recorded in every header (req 4).
@@ -397,6 +404,101 @@ pub fn call_of(cell: &str, conn: &Conn, dir: &'static str, sl: &'static [Slot], 
     }
 }
 
+/// U1-unary: M5 payload `pid` as the facade value (core-native, core-ffi) and as prost's
+/// (A, B), both checked against the validated manifest before any call (requirement 13).
+pub fn m5_values(pid: &str) -> (&'static facade::UploadResultDataMessage, Arc<shapes_prost::shapes::UploadResultDataMessage>, usize) {
+    let f = M5::build(pid).unwrap_or_else(|| panic!("no payload {pid}"));
+    let wire = prost::Message::encode_to_vec(&f);
+    let man = harness::manifest::Manifest::load();
+    assert_eq!(harness::manifest::sha(&wire), man.row(pid).sha256, "{pid} bytes differ from the manifest");
+    let p = <shapes_prost::shapes::UploadResultDataMessage as prost::Message>::decode(&wire[..]).expect("prost decodes the payload");
+    assert_eq!(prost::Message::encode_to_vec(&p), wire, "{pid}: prost re-encodes the same bytes");
+    (Box::leak(Box::new(f)), Arc::new(p), wire.len())
+}
+
+/// The call of `cell` in direction `c` (U1-unary): encode payload `pid` (M5) and upload it
+/// to `UPLOAD`; the response must be empty (requirement 18: status OK, length 0 -- or
+/// `want` under the runner's plant). Every cell that has direction `b`, framed twins included.
+pub fn call_of_c(cell: &str, conn: &Conn, pid: &str, sl: &'static [Slot], want: u64) -> Call {
+    let retain = retain_of(cell);
+    let (f_val, p_val, _) = m5_values(pid);
+    let name: &'static str = cell_of(cell);
+    let check = move |got: usize| -> Result<(), String> {
+        if got as u64 != want { Err(format!("cell {name} upload response {got} B, expected {want}")) } else { Ok(()) }
+    };
+    let path = UPLOAD;
+    match (base(cell), conn) {
+        ('A', Conn::Tonic(rt, ch)) => {
+            let ch = ch.clone();
+            Call::Async(rt.clone(), Arc::new(move |_i| {
+                let (ch, p_val) = (ch.clone(), p_val.clone());
+                Box::pin(async move {
+                    let len = Arc::new(AtomicU64::new(u64::MAX));
+                    let mut g = tonic::client::Grpc::new(ch);
+                    g.ready().await.map_err(|e| e.to_string())?;
+                    let codec = PCodec::<shapes_prost::shapes::UploadResultDataMessage, shapes_prost::shapes::Empty> { len: len.clone(), _p: Default::default() };
+                    std::hint::black_box(g.unary(tonic::Request::new(p_val), http::uri::PathAndQuery::from_static(path), codec).await.map_err(|s| s.to_string())?.into_inner());
+                    check(len.load(Ordering::Relaxed) as usize)
+                }) as Fut
+            }))
+        }
+        ('B', Conn::Core(cc)) => {
+            let cc = cc.clone();
+            Call::Blocking(Arc::new(move |_i| {
+                let body = prost::Message::encode_to_vec(&*p_val);
+                cc.call(path, &body, |resp| check(resp.len()))
+            }))
+        }
+        ('C', Conn::Core(cc)) => {
+            let cc = cc.clone();
+            Call::Blocking(Arc::new(move |i| {
+                let ctx = &sl[i].ctx;
+                M5::f_encode(ctx, f_val, retain).map_err(|e| format!("core-ffi encode {e}"))?;
+                cc.call_enc(path, ctx.enc, |resp| check(resp.len()))
+            }))
+        }
+        ('E', Conn::Core(cc)) => {
+            let cc = cc.clone();
+            Call::Blocking(Arc::new(move |i| {
+                let e = unsafe { &mut *sl[i].enc.get() };
+                M5::n_encode(f_val, e, retain);
+                cc.call(path, &e.buf, |resp| check(resp.len()))
+            }))
+        }
+        ('D', Conn::Tonic(rt, ch)) | ('F', Conn::Tonic(rt, ch)) => {
+            let ch = ch.clone();
+            let ffi = base(cell) == 'D';
+            let framed = framed(cell);
+            Call::Async(rt.clone(), Arc::new(move |i| {
+                let ch = ch.clone();
+                let slot = &sl[i];
+                let body = if ffi {
+                    M5::f_encode(&slot.ctx, f_val, retain)
+                        .map_err(|e| format!("core-ffi encode {e}"))
+                        .and_then(|_| crate::ffi_owned_body(slot.ctx.enc).map_err(|rc| format!("ak_enc_take_owned rc {rc}")))
+                } else {
+                    let e = unsafe { &mut *slot.enc.get() };
+                    M5::n_encode(f_val, e, retain);
+                    Ok(e.take())
+                };
+                Box::pin(async move {
+                    let body = body?;
+                    let pq = http::uri::PathAndQuery::from_static(path);
+                    let resp: Bytes = if framed {
+                        rpc::unary_framed(ch, pq, body, None).await.map_err(|s| s.to_string())?
+                    } else {
+                        let mut g = tonic::client::Grpc::new(ch);
+                        g.ready().await.map_err(|e| e.to_string())?;
+                        g.unary(tonic::Request::new(body), pq, rpc::RawCodec).await.map_err(|s| s.to_string())?.into_inner()
+                    };
+                    check(resp.len())
+                }) as Fut
+            }))
+        }
+        (c, _) => panic!("cell {c} with the wrong connection"),
+    }
+}
+
 /// The cells of THIS build (requirement 12): A and B once, C, D, E, F per unknown-field mode.
 #[cfg(feature = "unknown-fields")]
 pub const CELLS: &[&str] = &["A", "B", "C-retain", "C-drop", "D-retain", "D-drop", "E-retain", "E-drop", "F-retain", "F-drop",
@@ -421,6 +523,18 @@ pub fn warm_server(target: &str, pinned: bool, n: usize, want_a: u64) -> Result<
 pub fn cell_of(stem: &str) -> &'static str {
     CELLS.iter().copied().find(|c| *c == stem || c.strip_prefix(stem).map_or(false, |r| r.starts_with('-')))
         .unwrap_or_else(|| panic!("no cell {stem} in this build"))
+}
+
+/// The warm-up through direction c (P5.3), for the plant control of the upload path.
+pub fn warm_with_c(cells: &[&str], target: &str, pinned: bool, n: usize, want_c: u64) -> Result<(), String> {
+    for &cell in cells {
+        let conn = Conn::open(cell, target, pinned);
+        let call = call_of_c(cell, &conn, "P5.3", slots(1), want_c);
+        for _ in 0..n {
+            call.once(0)?;
+        }
+    }
+    Ok(())
 }
 
 pub fn warm_with(cells: &[&str], target: &str, pinned: bool, n: usize, want_a: u64) -> Result<(), String> {

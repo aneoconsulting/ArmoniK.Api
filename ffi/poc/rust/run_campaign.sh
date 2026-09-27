@@ -220,17 +220,17 @@ case "$SUITE" in
       # Once per send path, each warmed through ONE cell so each must abort on its own: A
       # (tonic codec), B (core, reference), and optimisation T1 option 3's framed path, Bf
       # (core) and Df (tonic Channel, the harness's).
-      for v in full nounk; do for WP in A B Bf Df; do
+      for v in full nounk; do for WP in A B Bf Df; do for WD in a c; do
         CL=target/release/rpc_client; [ "$v" = nounk ] && CL=target-nounk/release/rpc_client
-        PL="$OUT/rpc-$T-$v-$WP-PLANT.log"
+        PL="$OUT/rpc-$T-$v-$WP-$WD-PLANT.log"
         rm -f "$SCRATCH/plant.jsonl"
-        if taskset -c "$AK_CPU_CLIENT" "$CL" --socket "$SOCK" --transport "$T" "${CLARGS[@]}" --warm-cells "$WP" \
+        if taskset -c "$AK_CPU_CLIENT" "$CL" --socket "$SOCK" --transport "$T" "${CLARGS[@]}" --warm-cells "$WP" --warm-dir "$WD" \
              --rounds 1 --calls 16 --warmup 16 --out "$SCRATCH/plant.jsonl" --plant > "$PL" 2>&1 \
            || [ -e "$SCRATCH/plant.jsonl" ]; then
-          echo "CONTROL FAILED: the planted wrong length did not abort ($T, $v client, cell $WP)" >&2; kill $SP; exit 1
+          echo "CONTROL FAILED: the planted wrong length did not abort ($T, $v client, cell $WP, dir $WD)" >&2; kill $SP; exit 1
         fi
-        echo "rpc $T ($v client, cell $WP): control (planted wrong length) aborted with no output: $(tail -1 "$PL")"
-      done; done
+        echo "rpc $T ($v client, cell $WP, dir $WD): control (planted wrong length) aborted with no output: $(tail -1 "$PL")"
+      done; done; done
       kill $SP; wait $SP 2>/dev/null || true
       rpc_run() {  # rpc_run L VARIANT
         local L=$1 v=$2 CL=target/release/rpc_client F="$OUT/rpc-$T-launch$1.jsonl"

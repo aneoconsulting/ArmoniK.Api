@@ -93,6 +93,9 @@ impl<B: http_body::Body<Data = Bytes> + Unpin> http_body::Body for CountFrames<B
     }
 }
 
+/// The grid server's receive limit (U1-unary's P5.4 needs more than tonic's 4 MiB default).
+pub const SERVER_MAX_RECV: usize = 8 * 1024 * 1024;
+
 #[derive(Clone)]
 pub struct Svc {
     pub fetch: Arc<Bytes>,
@@ -129,14 +132,17 @@ where
         }
         let fetch = self.fetch.clone();
         let push = req.uri().path() == PUSH;
+        let upload = req.uri().path() == crate::grid::UPLOAD;
         Box::pin(async move {
-            let mut grpc = tonic::server::Grpc::new(Raw);
+            // U1-unary: P5.4 is 4,194,390 B, over tonic's default 4 MiB decode limit, so the
+            // grid's server accepts up to 8 MiB (every path; nothing else here comes near).
+            let mut grpc = tonic::server::Grpc::new(Raw).max_decoding_message_size(SERVER_MAX_RECV);
             match sizes {
                 Some(sizes) => {
                     let req = req.map(|b| tonic::body::Body::new(CountFrames { inner: Box::pin(b), sizes }));
-                    Ok(grpc.unary(Answer { fetch, push }, req).await)
+                    Ok(grpc.unary(Answer { fetch, push, upload }, req).await)
                 }
-                None => Ok(grpc.unary(Answer { fetch, push }, req.map(tonic::body::Body::new)).await),
+                None => Ok(grpc.unary(Answer { fetch, push, upload }, req.map(tonic::body::Body::new)).await),
             }
         })
     }
@@ -146,14 +152,25 @@ where
 struct Answer {
     fetch: Arc<Bytes>,
     push: bool,
+    /// U1-unary (direction `c`): decode the request as M5 with prost, answer empty.
+    upload: bool,
 }
 
 impl tonic::server::UnaryService<Bytes> for Answer {
     type Response = Bytes;
     type Future = std::pin::Pin<Box<dyn std::future::Future<Output = Result<tonic::Response<Bytes>, tonic::Status>> + Send>>;
     fn call(&mut self, req: tonic::Request<Bytes>) -> Self::Future {
-        let (fetch, push) = (self.fetch.clone(), self.push);
+        let (fetch, push, upload) = (self.fetch.clone(), self.push, self.upload);
         Box::pin(async move {
+            if upload {
+                use prost::Message;
+                let b = req.into_inner();
+                return match shapes_prost::shapes::UploadResultDataMessage::decode(b) {
+                    Ok(v) if v.upload.as_ref().map_or(false, |u| !u.data_chunk.is_empty()) => Ok(tonic::Response::new(Bytes::new())),
+                    Ok(_) => Err(tonic::Status::invalid_argument("empty UploadResultDataMessage")),
+                    Err(e) => Err(tonic::Status::invalid_argument(e.to_string())),
+                };
+            }
             if push {
                 use prost::Message;
                 let b = req.into_inner();
