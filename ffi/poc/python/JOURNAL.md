@@ -1435,3 +1435,38 @@ in the no-unknown process, is the no-unknown host-gen arm, and the other four sl
 - **Clean gate** at c7c083f68 (origin HEAD): `gate exit 0` at 3.12 and 3.7, 24 logs clean.
 - **Smoke:** codec nounk 396 shape and 45 unknown values; RPC nounk 108 samples with E-nounk
   and F-nounk.
+
+### J52. FIX-PLAN WP8, with directions (c) and (d) required
+
+**Section 9 as amended.** `ak_call_unary` passes `&grpc_status`, and a non-OK status
+(AK_ERR_RPC_STATUS) raises with the status code. The completion struct follows the generated
+header, so no hand-mirrored layout exists. `ak_call_close` was never called here.
+
+**Counts.**
+- The counting build's grow is geometric, as the timed one's.
+- Retain decode makes one reset (rule 7 as amended; the disarm is removed, since the core reads
+  the options only at the reset).
+- Encode takes `ak_tc_utf8_trusted` (decision 3): the shim's UTF-8 comes from
+  `PyUnicode_AsUTF8AndSize`, valid by construction.
+- `abi-full` changed on its 108 retain-decode rows: one fewer call and one fewer reset. On 18 of
+  them, grows and reverse crossings also fell with the geometric grow. The drop rows and
+  `crossings-*` are unchanged.
+- Context creation and destruction are no longer counted. Without that, a grpcio stream
+  thread's exit made the D/F stream counts vary by one between runs; with it they are
+  deterministic across three runs.
+
+**Directions (c) and (d)**, required since e4c7e97cd.
+- The server gained `Upload` (unary, upb decode of M5) and `Stream` (stream_unary: upb decode of
+  every message, ids on the first, byte count and SHA-256 answered). Its receive limit is
+  16 MiB on both configurations, to cover P5.4.
+- The shim gained `call_open`, `call_send`, `call_recv`, `call_cancel` and `client_set_framed`.
+- The cells in c and d: A, D, F through grpcio (unary_unary / stream_unary); B, C, E through the
+  core; framed twins Bf, Cf-*, Ef-* in b, c and d.
+- Every encoder was checked byte-identical to upb per chunk before timing.
+- A new must-fail control (AK_CAMP_PLANT=digest) aborts the run with no sample.
+- Two late-binding closures were caught by the checks, and fixed: `verdict` in the core stream,
+  and the grpcio deserializer, which hid the digest message inside an RpcError.
+- `rpc-full` has 74 rows and `rpc-nounk` 43.
+
+**Clean gate** at 45659fd7d: `gate exit 0`, 24 logs clean. **Smoke:** RPC full 474 samples
+(c 120, d 120), no-unknown 270 (c 72, d 72); codec unchanged (836 / 396).

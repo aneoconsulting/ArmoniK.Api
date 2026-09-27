@@ -1,6 +1,6 @@
 # python slice: the whole corpus, five arms, controls, py3.7
-# date:      2026-09-26T13:30:46Z
-# commit:    c7c083f68
+# date:      2026-09-27T14:33:30Z
+# commit:    45659fd7d
 # phase:     correctness only; nothing here is a timing
 
 # python slice: the conformance corpus, every row, every arm (FIX-PLAN WP5 item 6.1)

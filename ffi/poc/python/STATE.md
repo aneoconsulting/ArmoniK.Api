@@ -10,7 +10,7 @@ labelled.
 
 | | |
 |---|---|
-| **Status** | FIX-PLAN WP7 done: the harness conforms to the 2026-09-26 contract (checklist below). Gated from a clean worktree at c7c083f68 (origin HEAD, with the no-unknown host-gen arm and cells E-nounk / F-nounk), both builds at 3.12 and 3.7, and the smoke run there shows every new row (figures stripped). Under the owner's scope rule (ffi/CLAUDE.md "Scope of findings"), only defects that could affect what the campaign measures are fixed from here |
+| **Status** | FIX-PLAN WP8 done on the merged core (98b187ce6 and later): section 9's gRPC status number, client streaming, the framed send path, D44's enforced limits, the counting build's geometric grow, one reset per retain decode, the trusted UTF-8 transcoder on encode, and CAMPAIGN req 14's directions (c) and (d), now required. Gated from a clean worktree at 45659fd7d, both builds at 3.12 and 3.7; the smoke there shows every new row (figures stripped). The owner's scope rule applies |
 | **Target** (owner D1) | CPython 3.12.3; grpcio 1.84.0, protobuf 7.36.2 (upb) |
 | **Floor** (owner D1) | CPython 3.7.5 (Ubuntu 18.04's packages, `fetch_py37.sh`, sha256-pinned); protobuf 4.24.4 (upb) as the incumbent there. The floor runs the correctness gate only |
 | **Incumbent** (R14) | protobuf on upb through gRPC's generated marshaller path (`SerializeToString` / `FromString`); derived from `Protos/V1` by `verify_r14.py` (log 52) |
@@ -57,13 +57,13 @@ mech/                      the crossing-mechanism microbenchmark (no wire rule) 
 
 ## The clean gate
 
-Fresh `git worktree` at **c7c083f68** (origin HEAD: the WP7 harness and the no-unknown host-gen arm, on the register H core 31fc3eecf; `git status` empty), fresh build
+Fresh `git worktree` at **45659fd7d** (the WP8 changes, on the merged core of 98b187ce6; `git status` empty), fresh build
 directories. Prerequisites run first in that worktree: `./fetch_py37.sh`, then
 `mech/build.sh python3.12` (it writes shapes_pb2 for 3.12). Then `./gate.sh python3.12
 build/py37/python3.7`. The worktree was built from the committed core, not from `poc/codec`'s
 working tree, which another agent is editing.
 
-Result: **`gate exit 0`**. All 24 logs carry `# commit: c7c083f68`, and none says uncommitted.
+Result: **`gate exit 0`**. All 24 logs carry `# commit: 45659fd7d`, and none says uncommitted.
 The worktree and its builds were deleted after the run.
 - `gen/generate.py --check` is clean (18 files).
 - The shared `poc/codec/gen/generate.py --check` with the new slice guard (R-H13): the python
@@ -71,9 +71,9 @@ The worktree and its builds were deleted after the run.
   token). The command's overall exit is 1, because the rust slice's check fails there; that is
   not this slice's.
 - Crossing counts are unchanged by the core changes: 103 and 98 are identical.
-- The earlier clean gates (d2cd0b0, b5f5bcfc4, 31fc3eecf, 3f2574775) also passed; their logs are replaced by these.
+- The earlier clean gates (d2cd0b0, b5f5bcfc4, 31fc3eecf, 3f2574775, c7c083f68) also passed; their logs are replaced by these.
 - Req 19's new count files are identical at both levels: `abi-full` 560 rows, `abi-nounk` 344,
-  `rpc-full` 21, `rpc-nounk` 12 (with E-nounk; gate 103 and 105).
+  `rpc-full` 74, `rpc-nounk` 43 (with directions c and d and the framed twins; gate 103 and 105).
 
 | step | what | 3.12 | 3.7 |
 |---|---|---|---|
@@ -205,14 +205,14 @@ reverse (counted by the core). Whole-number totals per call are in `counts/`.
 | 9 | met | encode, decode, and decode+read through one reader for every arm |
 | 10 | met | core-ffi retain and drop in the full build; core-ffi no-unknown in the separate build (`--variant nounk`, its own pyperf invocation that also times the incumbent, order alternated by launch). host-gen drop and retain, over the same C-extension facade objects as core-ffi (R3, R-H16), and host-gen no-unknown: host-gen drop (the same text from both plans) over the no-unknown build's facade, which has no `_unknown` (R-H22), in the no-unknown process. host-gen over the plain facade is the labelled extra `host-gen-plain`. Incumbent at upb's default (retains), stated |
 | 11 | met | every encode arm is timed with the input as one hot graph (`encode`) and as a pool of distinct graphs whose wire bytes reach `AK_POOL_BYTES` (default 13.75 MiB, cap `AK_POOL_MAX` 65536 graphs; built and checked outside the window; the smoke uses 1 MiB, stated) (`encode-pool`); the end state is grpcio's transport-ready `bytes` for every arm, and for core-ffi also the bytes copied into a bytearray sized once (`encode-reused`, `encode-pool-reused`). upb-python has no serialise-into entry point and host-gen appends to a bytearray that CPython reallocates when cleared, so neither has a reused-buffer row (stated in the header). Samples carry `input` and `end_state` |
-| 12 | met | full build: A, B, C-retain, C-drop, D-retain, D-drop, E-retain, E-drop, F-retain, F-drop (E and F: host-gen over the core's transport and over grpcio, R-H35), plus the labelled extras; no-unknown build (its own process): A, B, C-nounk, D-nounk, E-nounk, F-nounk (host-gen drop over the no-unknown facade); `unknown_mode` on every sample |
+| 12 | met | full build: A, B, C-retain, C-drop, D-retain, D-drop, E-retain, E-drop, F-retain, F-drop, and the framed send-path twins Bf, Cf-*, Ef-* in b, c and d (grpcio has no framed path) (E and F: host-gen over the core's transport and over grpcio, R-H35), plus the labelled extras; no-unknown build (its own process): A, B, C-nounk, D-nounk, E-nounk, F-nounk (host-gen drop over the no-unknown facade); `unknown_mode` on every sample |
 | 13 | met | one `camp_server.py` per launch, started by `run_campaign.sh`, pinned to `AK_CPU_SERVER`, serving every cell of both builds on two Unix sockets (one per transport configuration, two grpcio servers in the one process); pre-serialised P2.2 on (a), (b) decoded by upb for every cell; warmed by `AK_CAMPAIGN_SERVER_WARMUP` (64) Get calls from each client transport (grpcio, core) before round 1; one channel per cell per launch (a grpcio channel for A, D, F; a core client for B, C, E and each extra), warmed by the per-cell warm-up |
-| 14 | met | (a) reported as `a` and `a+read`, and (b). The optional streamed upload is not built (not measured) |
+| 14 | met | (a) as `a` and `a+read`; (b); (c) a unary upload of P5.3 / P5.4, decoded by upb on the server, empty answer; (d) the client-streamed upload of 2 MiB M5 chunks (ids on the first), 4 MiB and 16 MiB, the server answering the data byte count and SHA-256, checked on every call. c and d at 1 and 8 in flight in every cell, d with a third of the calls. B, C and E stream through ak_call_open / ak_call_send / ak_call_recv; A, D and F through grpcio's stream_unary. The server's receive limit is 16 MiB for both configurations (covers P5.4); the core's limits are its defaults (shipped: 4 MiB received) or 16 MiB (pinned), enforced (D44) |
 | 15 | met | 1, 8 and 16 in flight |
 | 16 | met | B, C and E use the core's blocking delivery; queue and callback are labelled extras, direction (a) only; A, D and F use grpcio's idiomatic call, the generated stub's blocking unary multicallable (stated in the header) |
 | 17 | met | shipped and pinned, the same switch for every cell; the socket is a Unix domain socket for every cell (grpcio `unix:` targets; the core dials `unix:` through tonic). grpcio has no connection-window argument; Nagle has no meaning on a Unix socket; both stated in the header |
-| 18 | met | every call checked (status, length); the server checks every request; one failure aborts with no sample; the planted short-body control fails in the gate suite |
-| 19 | met | the counting builds count every ABI call the timed call makes, resets apart (the shim's macros), after one warm call; the resets' place is stated (decode: before, and after in retain; encode: before). Committed and gated: `counts/abi-full.txt` (drop and retain, 16 payloads x 5 backends and the 92 U-* rows; retain with no pre-placed buffer and exact-size grow), `counts/abi-nounk.txt`, `counts/rpc-full.txt` / `rpc-nounk.txt` (RPC cells B, C, D, E per call in each build's modes, E-nounk included, on the rpc counting builds, gate 105), and the older `counts/crossings-{drop,nounk}.txt`; calib stops on a difference from `counts_expected.txt`; gate 98 against log 85 |
+| 18 | met | every call checked (status, length; a non-OK gRPC status is AK_ERR_RPC_STATUS and fails the call); the server checks every request; (d) checks the byte count and the digest on every call; one failure aborts with no sample; two planted controls fail in the gate suite: a short body, and a wrong (d) digest |
+| 19 | met | the counting builds count every ABI call the timed call makes, resets apart (the shim's macros), after one warm call, context creation and destruction excepted (per thread, not per call); the resets' place is stated (decode: one before, in both modes; encode: before). The counting build grows geometrically, as the timed one does (req 19 as amended, WP8). Committed and gated: `counts/abi-full.txt` (drop and retain, 16 payloads x 5 backends and the 92 U-* rows; retain with no pre-placed buffer and exact-size grow), `counts/abi-nounk.txt`, `counts/rpc-full.txt` / `rpc-nounk.txt` (RPC cells B, C, D, E per call in each build's modes, E-nounk included, on the rpc counting builds, gate 105), and the older `counts/crossings-{drop,nounk}.txt`; calib stops on a difference from `counts_expected.txt`; gate 98 against log 85 |
 | 20 | not met | host forward and forward+reverse are measured separately, and the rust slice's crossing benchmark is built and run pinned. `perf stat` is implemented, but `perf` is absent in this container, so cycles and instructions have never been read |
 | 21 | met | process CPU per round: codec (pyperf's value is CLOCK_PROCESS_CPUTIME_ID per loop), calib and rpc CLOCK_PROCESS_CPUTIME_ID; wall beside every one (R-H25) |
 | 22 | met | codec: pyperf cannot interleave (not a defect, owner 2026-09-26); the order used: blocks of (payload, content, direction), the arms inside a block rotated by one per launch, the whole list rotated by a third per launch, stated in every codec header. rpc: the cells rotated by one per round, stated in the header |
@@ -294,7 +294,7 @@ Fixed defects (D1-D14, the NULL module state in `mod_traverse`, the process-wide
 - **Content sets** are measured on P2.4 only; P1.2's crossing counts cover ASCII only.
 - **The facade's `_unknown` in the full build** is one slot per object. It is priced only
   through the full build against the no-unknown build.
-- **The campaign smoke** in `logs/python/campaign/` is from the clean worktree at c7c083f68,
+- **The campaign smoke** in `logs/python/campaign/` is from the clean worktree at 45659fd7d,
   figures stripped. It shows every WP7 row:
   - codec full: 836 shape values, which include `encode-pool`, `encode-reused` and
     `encode-pool-reused`, and Latin-1/wide on P1.2, P2.2 and P2.4;
@@ -302,12 +302,25 @@ Fixed defects (D1-D14, the NULL module state in `mod_traverse`, the process-wide
     family, 45 values);
   - the unknown family through the shapes core, and the unknown-corpus extra;
   - RPC full: 204 samples, which include E-drop, E-retain, F-drop and F-retain;
-  - RPC no-unknown: 108 samples, cells A, B, C-nounk, D-nounk, E-nounk, F-nounk;
+  - RPC no-unknown: 270 samples, cells A, B, C-nounk, D-nounk, E-nounk, F-nounk and the
+    framed twins, in a, a+read, b, c (72) and d (72);
+  - RPC full: 474 samples, with c (120) and d (120) in every cell and the framed twins;
   - one server for both builds, over Unix sockets.
   The smoke's pool is 1 MiB (the campaign's default is 13.75 MiB).
 - **No reused-buffer encode for the incumbent and host-gen** (req 11 (i)): upb-python has no
   serialise-into entry point, and host-gen appends to a bytearray that CPython reallocates.
 - **RPC counts** are taken on the `shipped` transport, one call at a time.
+- **The move paths** `ak_call_send_enc`, `ak_call_unary_enc` and `ak_enc_take_owned` are not
+  used. The shim's encode yields a Python `bytes`, which the copy paths take; a move path would
+  need an encode entry that leaves the encoding in the core's context. This is stated, not
+  built. Rust's C cells use the move paths.
+- **Decode-side re-validation** (WP8 item 4): CPython builds a `str` from UTF-8 only through a
+  validating decode (`PyUnicode_DecodeUTF8`); no non-validating constructor exists, so a
+  string the core accepted is validated again as it is decoded. The sparse fill already
+  clears only the elements it fills (`memset` of the `k` elements of a chunk).
+- **D and F streams** encode on a grpcio thread started per call (grpcio consumes a request
+  iterator on its own thread), so they create one encode context per call. This is counted
+  and allowed for in the per-thread check.
 
 ## Next step
 
