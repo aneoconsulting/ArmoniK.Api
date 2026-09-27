@@ -3065,3 +3065,19 @@ Enc::take.
   per-call buffer growth to hold it) is worth a few percent of a call's client CPU on D, E,
   F and ~10% on B (two copies -> one); the container's tail noise is larger than the effect
   at every median. Kept as labelled extra cells, as the owner asked.
+
+## 2026-09-27 -- step 3, N2 (kept, b1ecc8f8)
+
+- core-native decode: a message with repeated message or string/bytes fields (maps excluded)
+  first counts their occurrences in one pass over its keys (`Dec::new(&buf[d.pos..])`, key,
+  then len_body or skip; an error just ends the pass, the decode proper reports it), then
+  `reserve_exact` per Vec. Rendered by `_count_prescan` in rust_native.py for every such
+  message (TaskDetailed's four repeated strings, every root's repeated elements).
+- Narrowed alternated A/B (opt/n2-ab, 3 x A/B, P1.2*, P2.2*, P2.3, P2.4*, P4.1, P7.1, A =
+  f3c406f0): native decode P2.3 0.82 / 0.90 (drop / retain), P2.4 0.90 / 0.84, P2.4/wide
+  0.89 / 0.94, P1.2 0.92 / 0.94, prost 0.96-1.09 in the B builds; P2.2/latin1 1.08 / 1.13
+  against prost 1.05 (the pass costs a little where every repeated field is short).
+- Full run opt/n2 (581 s) against opt/framed: native decode gmean drop 0.96, retain 0.99,
+  no-unknown 0.93 (prost 0.98 / 1.00); P2.3 0.82 / 0.98 / 0.74, P2.4 0.90 / 0.91 / 0.85,
+  P2.2 1.08 / 0.92 / 1.05 (prost 1.04). ffi columns noise (0.97-1.01). Checks: pre-check 0
+  failures, crossings identical (core-native crosses nothing).
