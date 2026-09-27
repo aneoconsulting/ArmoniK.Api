@@ -180,6 +180,9 @@ case "$SUITE" in
     else
       LAB=${AK_CAMPAIGN_RPC_LOOPS_AB:-25}; LC=${AK_CAMPAIGN_RPC_LOOPS_C:-8}; LD=${AK_CAMPAIGN_RPC_LOOPS_D:-3}; RW=${AK_CAMPAIGN_RPC_WARMUPS:-3}
     fi
+    # AK_CAMPAIGN_RPC_TRANSPORTS: the client transports timed (campaign: shipped,pinned, both;
+    # a minimal smoke may name one). The server always serves both.
+    TR=${AK_CAMPAIGN_RPC_TRANSPORTS:-shipped,pinned}
     AFF="${AK_CPU_CLIENT:-$("$PY" -c 'import os;print(",".join(map(str,sorted(os.sched_getaffinity(0)))))')}"
     discard() {  # discard <launch> <why>
       rm -rf "$OUT"/rpc-launch"$1".* "$OUT"/rpc-nounk-launch"$1".* "$OUT"/rpc-*-launch"$1".*
@@ -188,7 +191,7 @@ case "$SUITE" in
     }
     rpc_run() {  # rpc_run <launch> <full|nounk> <server sockets>; nonzero on any failure
       local l=$1 v=$2 S=$3 g L
-      "$PY" camp_rpc_pyperf.py --precheck --variant "$v" --server "$S" > "$OUT/rpc-$v-precheck-launch$l.out" 2>&1 \
+      "$PY" camp_rpc_pyperf.py --precheck --variant "$v" --server "$S" --transports "$TR" > "$OUT/rpc-$v-precheck-launch$l.out" 2>&1 \
         || { tail -3 "$OUT/rpc-$v-precheck-launch$l.out"; return 1; }
       for g in ab c d; do
         case $g in ab) L=$LAB;; c) L=$LC;; d) L=$LD;; esac
@@ -196,10 +199,10 @@ case "$SUITE" in
         local PP="--processes 1 --values $ROUNDS --warmups $RW --loops $L"
         rm -rf "$F.side" "$F.pyperf.json"
         PYTHONPATH="$HERE/build/pyperf" "$PY" camp_rpc_pyperf.py --variant "$v" --group $g --launch "$l" --server "$S" \
-          --side "$F.side" -o "$F.pyperf.json" $PP --affinity "$AFF" --copy-env --quiet > "$F.pyperf.out" 2>&1 \
+          --transports "$TR" --side "$F.side" -o "$F.pyperf.json" $PP --affinity "$AFF" --copy-env --quiet > "$F.pyperf.out" 2>&1 \
           || { tail -5 "$F.pyperf.out"; return 1; }
         "$PY" camp_rpc_pyperf_export.py --json "$F.pyperf.json" --side "$F.side" --launch "$l" --variant "$v" --group $g \
-          --server "$S" --pyperf-args "$PP --affinity $AFF --copy-env" --out "$F.jsonl" $SMOKE $DIRTY || return 1
+          --server "$S" --pyperf-args "$PP --affinity $AFF --copy-env --transports $TR" --out "$F.jsonl" $SMOKE $DIRTY || return 1
         rm -rf "$F.side"
         echo "   rpc ($v, $g) launch $l: $(grep -c '"phase": "value"' "$F.jsonl" || true) values, $(grep -c '^{' "$F.jsonl" || true) raw measurements"
       done
