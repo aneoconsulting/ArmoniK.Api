@@ -289,9 +289,6 @@ def root_imports(p):
                         "void* obj, IntPtr ctx, ak_evt_%s* vt, ak_ufix_%s* fix%s" % (root, root, direct)))
         out.append(("int", "ak_decode_%s" % root,
                     "IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_%s* vt" % root))
-        # Optimisation N5 (an experiment, additive): the apply-first order; declared, not called.
-        out.append(("int", "ak_decode_%s_af" % root,
-                    "IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_%s* vt" % root))
         out.append(("int", "ak_parse_%s" % root, "IntPtr ctx, byte* buf, nuint len"))
     for et in sorted(element_types(p)):
         if p.msg(et).leaf:

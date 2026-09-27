@@ -3487,16 +3487,7 @@ unsafe fn dec_timestamp_fix_into(d: &mut Dec, base: usize, u: UnkCx, out: &mut a
 /// so there would be nothing to attach the inner elements to. Two calls
 /// per element -- `new` then `apply` -- plus one run per inner field that
 /// occurred (ABI v1 section 7.2).
-///
-/// Optimisation N5 (ABI v1 open decision 10, an EXPERIMENT): with `AF` (the
-/// `ak_decode_*_af` entries) the order is APPLY-FIRST: no `new`; each run the
-/// arena can hold is HELD (bump-allocated in the shared arena, in arrival order),
-/// and at the end `apply` gets token -1 (construct and append) and the held runs
-/// follow with token -1. When a run does not fit (the arena, or the held-run
-/// table, is full) the element falls back LIVE: `new`, the held runs with its
-/// token, and from then on the reference order. Without `AF` the code is the
-/// reference order exactly (`live` is a constant true).
-unsafe fn dec_list_tasks_detailed_response_tasks_element<const AF: bool>(
+unsafe fn dec_list_tasks_detailed_response_tasks_element(
     ctx: *mut ak_dec_ctx,
     dcx: *mut DecCtxImpl,
     obj: *mut c_void,
@@ -3505,24 +3496,15 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element<const AF: bool>(
     base: usize,
     u: UnkCx,
 ) {
-    let mut tok: i64 = -1;
-    let mut live = !AF;
-    macro_rules! new_elem {
-        () => {
-            tok = match (*vt).new_tasks {
-                Some(f) => {
-                    ak_rt::bump!((*dcx).c, reverse);
-                    f(ctx, obj)
-                }
-                None => return,
-            };
-            if (*dcx).hdr.err != AK_OK { d.err = (*dcx).hdr.err; return; }
-            if tok < 0 { crate::ak_fail(ctx as *mut c_void, AK_ERR_HOST, ::core::ptr::null(), 0); d.err = AK_ERR_HOST; return; }
-        };
-    }
-    if live {
-        new_elem!();
-    }
+    let tok = match (*vt).new_tasks {
+        Some(f) => {
+            ak_rt::bump!((*dcx).c, reverse);
+            f(ctx, obj)
+        }
+        None => return,
+    };
+    if (*dcx).hdr.err != AK_OK { d.err = (*dcx).hdr.err; return; }
+    if tok < 0 { crate::ak_fail(ctx as *mut c_void, AK_ERR_HOST, ::core::ptr::null(), 0); d.err = AK_ERR_HOST; return; }
     let mut out = ak_dfix_TaskDetailed::ZERO;
     #[allow(unused_variables)]
     let buf0 = d.buf;
@@ -3536,262 +3518,109 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element<const AF: bool>(
     const N_PARENT_TASK_IDS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
     const _: () = assert!(N_PARENT_TASK_IDS * ::core::mem::size_of::<ak_span>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_span>() <= 8);
     let mut n_parent_task_ids: usize = 0;
-    let mut a_parent_task_ids: *mut ak_span = arena.as_mut_ptr() as *mut ak_span;
-    let mut c_parent_task_ids: usize = N_PARENT_TASK_IDS;
+    let a_parent_task_ids: *mut ak_span = arena.as_mut_ptr() as *mut ak_span;
     #[allow(unused_macros)]
     macro_rules! at_parent_task_ids { () => { a_parent_task_ids.add(n_parent_task_ids) }; }
-    #[allow(unused_macros)]
-    macro_rules! cap_parent_task_ids { () => { c_parent_task_ids }; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_DATA_DEPENDENCIES: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
     const _: () = assert!(N_DATA_DEPENDENCIES * ::core::mem::size_of::<ak_span>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_span>() <= 8);
     let mut n_data_dependencies: usize = 0;
-    let mut a_data_dependencies: *mut ak_span = arena.as_mut_ptr() as *mut ak_span;
-    let mut c_data_dependencies: usize = N_DATA_DEPENDENCIES;
+    let a_data_dependencies: *mut ak_span = arena.as_mut_ptr() as *mut ak_span;
     #[allow(unused_macros)]
     macro_rules! at_data_dependencies { () => { a_data_dependencies.add(n_data_dependencies) }; }
-    #[allow(unused_macros)]
-    macro_rules! cap_data_dependencies { () => { c_data_dependencies }; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_EXPECTED_OUTPUT_IDS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
     const _: () = assert!(N_EXPECTED_OUTPUT_IDS * ::core::mem::size_of::<ak_span>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_span>() <= 8);
     let mut n_expected_output_ids: usize = 0;
-    let mut a_expected_output_ids: *mut ak_span = arena.as_mut_ptr() as *mut ak_span;
-    let mut c_expected_output_ids: usize = N_EXPECTED_OUTPUT_IDS;
+    let a_expected_output_ids: *mut ak_span = arena.as_mut_ptr() as *mut ak_span;
     #[allow(unused_macros)]
     macro_rules! at_expected_output_ids { () => { a_expected_output_ids.add(n_expected_output_ids) }; }
-    #[allow(unused_macros)]
-    macro_rules! cap_expected_output_ids { () => { c_expected_output_ids }; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_RETRY_OF_IDS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
     const _: () = assert!(N_RETRY_OF_IDS * ::core::mem::size_of::<ak_span>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_span>() <= 8);
     let mut n_retry_of_ids: usize = 0;
-    let mut a_retry_of_ids: *mut ak_span = arena.as_mut_ptr() as *mut ak_span;
-    let mut c_retry_of_ids: usize = N_RETRY_OF_IDS;
+    let a_retry_of_ids: *mut ak_span = arena.as_mut_ptr() as *mut ak_span;
     #[allow(unused_macros)]
     macro_rules! at_retry_of_ids { () => { a_retry_of_ids.add(n_retry_of_ids) }; }
-    #[allow(unused_macros)]
-    macro_rules! cap_retry_of_ids { () => { c_retry_of_ids }; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_OPTIONS_OPTIONS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>());
     const _: () = assert!(N_OPTIONS_OPTIONS * ::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_TaskOptionsOptionsEntry>() <= 8);
     let mut n_options_options: usize = 0;
-    let mut a_options_options: *mut ak_dfix_TaskOptionsOptionsEntry = arena.as_mut_ptr() as *mut ak_dfix_TaskOptionsOptionsEntry;
-    let mut c_options_options: usize = N_OPTIONS_OPTIONS;
+    let a_options_options: *mut ak_dfix_TaskOptionsOptionsEntry = arena.as_mut_ptr() as *mut ak_dfix_TaskOptionsOptionsEntry;
     #[allow(unused_macros)]
     macro_rules! at_options_options { () => { a_options_options.add(n_options_options) }; }
-    #[allow(unused_macros)]
-    macro_rules! cap_options_options { () => { c_options_options }; }
-    // N5: runs held while the element is deferred: (slot, byte offset, count).
-    const HELD: usize = 64;
-    #[allow(unused_mut)]
-    let mut held: [::core::mem::MaybeUninit<(u32, usize, usize)>; HELD] = [const { ::core::mem::MaybeUninit::uninit() }; HELD];
-    #[allow(unused_mut)]
-    let mut nh: usize = 0;
-    #[allow(unused_mut)]
-    let mut used: usize = 0;
-    #[allow(unused_variables)]
-    let arena_base = arena.as_mut_ptr() as *mut u8;
-    #[allow(unused_macros)]
-    macro_rules! af_reset {
-        () => {
-            a_parent_task_ids = arena_base.add(used) as *mut ak_span;
-            c_parent_task_ids = ((ak_rt::ARENA_BYTES - used) / ::core::mem::size_of::<ak_span>()).min(N_PARENT_TASK_IDS);
-            a_data_dependencies = arena_base.add(used) as *mut ak_span;
-            c_data_dependencies = ((ak_rt::ARENA_BYTES - used) / ::core::mem::size_of::<ak_span>()).min(N_DATA_DEPENDENCIES);
-            a_expected_output_ids = arena_base.add(used) as *mut ak_span;
-            c_expected_output_ids = ((ak_rt::ARENA_BYTES - used) / ::core::mem::size_of::<ak_span>()).min(N_EXPECTED_OUTPUT_IDS);
-            a_retry_of_ids = arena_base.add(used) as *mut ak_span;
-            c_retry_of_ids = ((ak_rt::ARENA_BYTES - used) / ::core::mem::size_of::<ak_span>()).min(N_RETRY_OF_IDS);
-            a_options_options = arena_base.add(used) as *mut ak_dfix_TaskOptionsOptionsEntry;
-            c_options_options = ((ak_rt::ARENA_BYTES - used) / ::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>()).min(N_OPTIONS_OPTIONS);
-        };
-    }
-    #[allow(unused_macros)]
-    macro_rules! deliver {
-        ($sid:expr, $p:expr, $n:expr) => {
-            match $sid {
-                1 => {
-                    if let Some(add) = (*vt).add_tasks_parent_task_ids {
-                        if (*dcx).hdr.err == AK_OK {
-                            ak_rt::bump!((*dcx).c, reverse);
-                            add(ctx, obj, tok, $p as *const ak_span, $n as i32);
-                        }
-                    }
-                }
-                2 => {
-                    if let Some(add) = (*vt).add_tasks_data_dependencies {
-                        if (*dcx).hdr.err == AK_OK {
-                            ak_rt::bump!((*dcx).c, reverse);
-                            add(ctx, obj, tok, $p as *const ak_span, $n as i32);
-                        }
-                    }
-                }
-                3 => {
-                    if let Some(add) = (*vt).add_tasks_expected_output_ids {
-                        if (*dcx).hdr.err == AK_OK {
-                            ak_rt::bump!((*dcx).c, reverse);
-                            add(ctx, obj, tok, $p as *const ak_span, $n as i32);
-                        }
-                    }
-                }
-                4 => {
-                    if let Some(add) = (*vt).add_tasks_retry_of_ids {
-                        if (*dcx).hdr.err == AK_OK {
-                            ak_rt::bump!((*dcx).c, reverse);
-                            add(ctx, obj, tok, $p as *const ak_span, $n as i32);
-                        }
-                    }
-                }
-                5 => {
-                    if let Some(add) = (*vt).add_tasks_options_options {
-                        if (*dcx).hdr.err == AK_OK {
-                            ak_rt::bump!((*dcx).c, reverse);
-                            add(ctx, obj, tok, $p as *const ak_dfix_TaskOptionsOptionsEntry, $n as i32);
-                        }
-                    }
-                }
-                _ => {}
-            }
-            if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
-        };
-    }
-    #[allow(unused_macros)]
-    macro_rules! go_live {
-        () => {
-            live = true;
-            new_elem!();
-            for i in 0..nh {
-                let (sid, off, n) = held[i].assume_init();
-                deliver!(sid, arena_base.add(off), n);
-            }
-            nh = 0;
-            used = 0;
-            af_reset!();
-        };
-    }
     macro_rules! flush_parent_task_ids {
         () => {
             if n_parent_task_ids > 0 {
-                if live {
-                    deliver!(1, a_parent_task_ids, n_parent_task_ids);
-                    n_parent_task_ids = 0;
-                } else if nh < HELD {
-                    held[nh].write((1, (a_parent_task_ids as *mut u8).offset_from(arena_base) as usize, n_parent_task_ids));
-                    nh += 1;
-                    used += (n_parent_task_ids * ::core::mem::size_of::<ak_span>() + 7) & !7;
-                    n_parent_task_ids = 0;
-                    af_reset!();
-                } else {
-                    // The held-run table is full: fall back live, this run last.
-                    let (p, n) = (a_parent_task_ids, n_parent_task_ids);
-                    go_live!();
-                    deliver!(1, p, n);
-                    n_parent_task_ids = 0;
+                if let Some(add) = (*vt).add_tasks_parent_task_ids {
+                    if (*dcx).hdr.err == AK_OK {
+                        ak_rt::bump!((*dcx).c, reverse);
+                        add(ctx, obj, tok, a_parent_task_ids as *const ak_span, n_parent_task_ids as i32);
+                    }
                 }
+                n_parent_task_ids = 0;
+                if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
             }
-            // The arena cannot take one more element of this slot: fall back live.
-            if !live && c_parent_task_ids == 0 { go_live!(); }
         };
     }
     macro_rules! flush_data_dependencies {
         () => {
             if n_data_dependencies > 0 {
-                if live {
-                    deliver!(2, a_data_dependencies, n_data_dependencies);
-                    n_data_dependencies = 0;
-                } else if nh < HELD {
-                    held[nh].write((2, (a_data_dependencies as *mut u8).offset_from(arena_base) as usize, n_data_dependencies));
-                    nh += 1;
-                    used += (n_data_dependencies * ::core::mem::size_of::<ak_span>() + 7) & !7;
-                    n_data_dependencies = 0;
-                    af_reset!();
-                } else {
-                    // The held-run table is full: fall back live, this run last.
-                    let (p, n) = (a_data_dependencies, n_data_dependencies);
-                    go_live!();
-                    deliver!(2, p, n);
-                    n_data_dependencies = 0;
+                if let Some(add) = (*vt).add_tasks_data_dependencies {
+                    if (*dcx).hdr.err == AK_OK {
+                        ak_rt::bump!((*dcx).c, reverse);
+                        add(ctx, obj, tok, a_data_dependencies as *const ak_span, n_data_dependencies as i32);
+                    }
                 }
+                n_data_dependencies = 0;
+                if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
             }
-            // The arena cannot take one more element of this slot: fall back live.
-            if !live && c_data_dependencies == 0 { go_live!(); }
         };
     }
     macro_rules! flush_expected_output_ids {
         () => {
             if n_expected_output_ids > 0 {
-                if live {
-                    deliver!(3, a_expected_output_ids, n_expected_output_ids);
-                    n_expected_output_ids = 0;
-                } else if nh < HELD {
-                    held[nh].write((3, (a_expected_output_ids as *mut u8).offset_from(arena_base) as usize, n_expected_output_ids));
-                    nh += 1;
-                    used += (n_expected_output_ids * ::core::mem::size_of::<ak_span>() + 7) & !7;
-                    n_expected_output_ids = 0;
-                    af_reset!();
-                } else {
-                    // The held-run table is full: fall back live, this run last.
-                    let (p, n) = (a_expected_output_ids, n_expected_output_ids);
-                    go_live!();
-                    deliver!(3, p, n);
-                    n_expected_output_ids = 0;
+                if let Some(add) = (*vt).add_tasks_expected_output_ids {
+                    if (*dcx).hdr.err == AK_OK {
+                        ak_rt::bump!((*dcx).c, reverse);
+                        add(ctx, obj, tok, a_expected_output_ids as *const ak_span, n_expected_output_ids as i32);
+                    }
                 }
+                n_expected_output_ids = 0;
+                if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
             }
-            // The arena cannot take one more element of this slot: fall back live.
-            if !live && c_expected_output_ids == 0 { go_live!(); }
         };
     }
     macro_rules! flush_retry_of_ids {
         () => {
             if n_retry_of_ids > 0 {
-                if live {
-                    deliver!(4, a_retry_of_ids, n_retry_of_ids);
-                    n_retry_of_ids = 0;
-                } else if nh < HELD {
-                    held[nh].write((4, (a_retry_of_ids as *mut u8).offset_from(arena_base) as usize, n_retry_of_ids));
-                    nh += 1;
-                    used += (n_retry_of_ids * ::core::mem::size_of::<ak_span>() + 7) & !7;
-                    n_retry_of_ids = 0;
-                    af_reset!();
-                } else {
-                    // The held-run table is full: fall back live, this run last.
-                    let (p, n) = (a_retry_of_ids, n_retry_of_ids);
-                    go_live!();
-                    deliver!(4, p, n);
-                    n_retry_of_ids = 0;
+                if let Some(add) = (*vt).add_tasks_retry_of_ids {
+                    if (*dcx).hdr.err == AK_OK {
+                        ak_rt::bump!((*dcx).c, reverse);
+                        add(ctx, obj, tok, a_retry_of_ids as *const ak_span, n_retry_of_ids as i32);
+                    }
                 }
+                n_retry_of_ids = 0;
+                if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
             }
-            // The arena cannot take one more element of this slot: fall back live.
-            if !live && c_retry_of_ids == 0 { go_live!(); }
         };
     }
     macro_rules! flush_options_options {
         () => {
             if n_options_options > 0 {
-                if live {
-                    deliver!(5, a_options_options, n_options_options);
-                    n_options_options = 0;
-                } else if nh < HELD {
-                    held[nh].write((5, (a_options_options as *mut u8).offset_from(arena_base) as usize, n_options_options));
-                    nh += 1;
-                    used += (n_options_options * ::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>() + 7) & !7;
-                    n_options_options = 0;
-                    af_reset!();
-                } else {
-                    // The held-run table is full: fall back live, this run last.
-                    let (p, n) = (a_options_options, n_options_options);
-                    go_live!();
-                    deliver!(5, p, n);
-                    n_options_options = 0;
+                if let Some(add) = (*vt).add_tasks_options_options {
+                    if (*dcx).hdr.err == AK_OK {
+                        ak_rt::bump!((*dcx).c, reverse);
+                        add(ctx, obj, tok, a_options_options as *const ak_dfix_TaskOptionsOptionsEntry, n_options_options as i32);
+                    }
                 }
+                n_options_options = 0;
+                if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
             }
-            // The arena cannot take one more element of this slot: fall back live.
-            if !live && c_options_options == 0 { go_live!(); }
         };
     }
     macro_rules! flush {
@@ -3831,7 +3660,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element<const AF: bool>(
             }
             4 if wire == 2 => {
                 if cur != 1 { flush!(); cur = 1; }
-                if n_parent_task_ids == cap_parent_task_ids!() { flush_parent_task_ids!(); }
+                if n_parent_task_ids == N_PARENT_TASK_IDS { flush_parent_task_ids!(); }
                 let (off, n) = d.len_body();
                 if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 at_parent_task_ids!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
@@ -3839,7 +3668,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element<const AF: bool>(
             }
             5 if wire == 2 => {
                 if cur != 2 { flush!(); cur = 2; }
-                if n_data_dependencies == cap_data_dependencies!() { flush_data_dependencies!(); }
+                if n_data_dependencies == N_DATA_DEPENDENCIES { flush_data_dependencies!(); }
                 let (off, n) = d.len_body();
                 if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 at_data_dependencies!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
@@ -3847,7 +3676,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element<const AF: bool>(
             }
             6 if wire == 2 => {
                 if cur != 3 { flush!(); cur = 3; }
-                if n_expected_output_ids == cap_expected_output_ids!() { flush_expected_output_ids!(); }
+                if n_expected_output_ids == N_EXPECTED_OUTPUT_IDS { flush_expected_output_ids!(); }
                 let (off, n) = d.len_body();
                 if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 at_expected_output_ids!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
@@ -3855,7 +3684,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element<const AF: bool>(
             }
             7 if wire == 2 => {
                 if cur != 4 { flush!(); cur = 4; }
-                if n_retry_of_ids == cap_retry_of_ids!() { flush_retry_of_ids!(); }
+                if n_retry_of_ids == N_RETRY_OF_IDS { flush_retry_of_ids!(); }
                 let (off, n) = d.len_body();
                 if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 at_retry_of_ids!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
@@ -3887,7 +3716,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element<const AF: bool>(
                     match tag {
                     1 if wire == 2 => {
                         if cur != 5 { flush!(); cur = 5; }
-                        if n_options_options == cap_options_options!() { flush_options_options!(); }
+                        if n_options_options == N_OPTIONS_OPTIONS { flush_options_options!(); }
                         let (off, n) = c1.len_body();
                         let mut es = Dec::new(&buf1[off..off + n]);
                         let p = at_options_options!();
@@ -4391,17 +4220,8 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element<const AF: bool>(
     if d.err == 0 {
         if let Some(ap) = (*vt).apply_tasks {
             ak_rt::bump!((*dcx).c, reverse);
-            // Live: the token `new` gave. Deferred (N5): -1, construct and append.
             ap(ctx, obj, tok, &out);
             if (*dcx).hdr.err != AK_OK { d.err = (*dcx).hdr.err; }
-        }
-    }
-    // N5, deferred: the held runs, in arrival order, to the element apply made.
-    if AF && !live && d.err == 0 {
-        for i in 0..nh {
-            let (sid, off, n) = held[i].assume_init();
-            deliver!(sid, arena_base.add(off), n);
-            if d.err != 0 { break; }
         }
     }
 }
@@ -4410,16 +4230,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element<const AF: bool>(
 /// so there would be nothing to attach the inner elements to. Two calls
 /// per element -- `new` then `apply` -- plus one run per inner field that
 /// occurred (ABI v1 section 7.2).
-///
-/// Optimisation N5 (ABI v1 open decision 10, an EXPERIMENT): with `AF` (the
-/// `ak_decode_*_af` entries) the order is APPLY-FIRST: no `new`; each run the
-/// arena can hold is HELD (bump-allocated in the shared arena, in arrival order),
-/// and at the end `apply` gets token -1 (construct and append) and the held runs
-/// follow with token -1. When a run does not fit (the arena, or the held-run
-/// table, is full) the element falls back LIVE: `new`, the held runs with its
-/// token, and from then on the reference order. Without `AF` the code is the
-/// reference order exactly (`live` is a constant true).
-unsafe fn dec_list_task_summary_response_tasks_element<const AF: bool>(
+unsafe fn dec_list_task_summary_response_tasks_element(
     ctx: *mut ak_dec_ctx,
     dcx: *mut DecCtxImpl,
     obj: *mut c_void,
@@ -4428,24 +4239,15 @@ unsafe fn dec_list_task_summary_response_tasks_element<const AF: bool>(
     base: usize,
     u: UnkCx,
 ) {
-    let mut tok: i64 = -1;
-    let mut live = !AF;
-    macro_rules! new_elem {
-        () => {
-            tok = match (*vt).new_tasks {
-                Some(f) => {
-                    ak_rt::bump!((*dcx).c, reverse);
-                    f(ctx, obj)
-                }
-                None => return,
-            };
-            if (*dcx).hdr.err != AK_OK { d.err = (*dcx).hdr.err; return; }
-            if tok < 0 { crate::ak_fail(ctx as *mut c_void, AK_ERR_HOST, ::core::ptr::null(), 0); d.err = AK_ERR_HOST; return; }
-        };
-    }
-    if live {
-        new_elem!();
-    }
+    let tok = match (*vt).new_tasks {
+        Some(f) => {
+            ak_rt::bump!((*dcx).c, reverse);
+            f(ctx, obj)
+        }
+        None => return,
+    };
+    if (*dcx).hdr.err != AK_OK { d.err = (*dcx).hdr.err; return; }
+    if tok < 0 { crate::ak_fail(ctx as *mut c_void, AK_ERR_HOST, ::core::ptr::null(), 0); d.err = AK_ERR_HOST; return; }
     let mut out = ak_dfix_TaskSummary::ZERO;
     #[allow(unused_variables)]
     let buf0 = d.buf;
@@ -4459,82 +4261,21 @@ unsafe fn dec_list_task_summary_response_tasks_element<const AF: bool>(
     const N_OPTIONS_OPTIONS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>());
     const _: () = assert!(N_OPTIONS_OPTIONS * ::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_TaskOptionsOptionsEntry>() <= 8);
     let mut n_options_options: usize = 0;
-    let mut a_options_options: *mut ak_dfix_TaskOptionsOptionsEntry = arena.as_mut_ptr() as *mut ak_dfix_TaskOptionsOptionsEntry;
-    let mut c_options_options: usize = N_OPTIONS_OPTIONS;
+    let a_options_options: *mut ak_dfix_TaskOptionsOptionsEntry = arena.as_mut_ptr() as *mut ak_dfix_TaskOptionsOptionsEntry;
     #[allow(unused_macros)]
     macro_rules! at_options_options { () => { a_options_options.add(n_options_options) }; }
-    #[allow(unused_macros)]
-    macro_rules! cap_options_options { () => { c_options_options }; }
-    // N5: runs held while the element is deferred: (slot, byte offset, count).
-    const HELD: usize = 64;
-    #[allow(unused_mut)]
-    let mut held: [::core::mem::MaybeUninit<(u32, usize, usize)>; HELD] = [const { ::core::mem::MaybeUninit::uninit() }; HELD];
-    #[allow(unused_mut)]
-    let mut nh: usize = 0;
-    #[allow(unused_mut)]
-    let mut used: usize = 0;
-    #[allow(unused_variables)]
-    let arena_base = arena.as_mut_ptr() as *mut u8;
-    #[allow(unused_macros)]
-    macro_rules! af_reset {
-        () => {
-            a_options_options = arena_base.add(used) as *mut ak_dfix_TaskOptionsOptionsEntry;
-            c_options_options = ((ak_rt::ARENA_BYTES - used) / ::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>()).min(N_OPTIONS_OPTIONS);
-        };
-    }
-    #[allow(unused_macros)]
-    macro_rules! deliver {
-        ($sid:expr, $p:expr, $n:expr) => {
-            match $sid {
-                1 => {
-                    if let Some(add) = (*vt).add_tasks_options_options {
-                        if (*dcx).hdr.err == AK_OK {
-                            ak_rt::bump!((*dcx).c, reverse);
-                            add(ctx, obj, tok, $p as *const ak_dfix_TaskOptionsOptionsEntry, $n as i32);
-                        }
-                    }
-                }
-                _ => {}
-            }
-            if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
-        };
-    }
-    #[allow(unused_macros)]
-    macro_rules! go_live {
-        () => {
-            live = true;
-            new_elem!();
-            for i in 0..nh {
-                let (sid, off, n) = held[i].assume_init();
-                deliver!(sid, arena_base.add(off), n);
-            }
-            nh = 0;
-            used = 0;
-            af_reset!();
-        };
-    }
     macro_rules! flush_options_options {
         () => {
             if n_options_options > 0 {
-                if live {
-                    deliver!(1, a_options_options, n_options_options);
-                    n_options_options = 0;
-                } else if nh < HELD {
-                    held[nh].write((1, (a_options_options as *mut u8).offset_from(arena_base) as usize, n_options_options));
-                    nh += 1;
-                    used += (n_options_options * ::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>() + 7) & !7;
-                    n_options_options = 0;
-                    af_reset!();
-                } else {
-                    // The held-run table is full: fall back live, this run last.
-                    let (p, n) = (a_options_options, n_options_options);
-                    go_live!();
-                    deliver!(1, p, n);
-                    n_options_options = 0;
+                if let Some(add) = (*vt).add_tasks_options_options {
+                    if (*dcx).hdr.err == AK_OK {
+                        ak_rt::bump!((*dcx).c, reverse);
+                        add(ctx, obj, tok, a_options_options as *const ak_dfix_TaskOptionsOptionsEntry, n_options_options as i32);
+                    }
                 }
+                n_options_options = 0;
+                if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
             }
-            // The arena cannot take one more element of this slot: fall back live.
-            if !live && c_options_options == 0 { go_live!(); }
         };
     }
     macro_rules! flush {
@@ -4578,7 +4319,7 @@ unsafe fn dec_list_task_summary_response_tasks_element<const AF: bool>(
                     match tag {
                     1 if wire == 2 => {
                         if cur != 1 { flush!(); cur = 1; }
-                        if n_options_options == cap_options_options!() { flush_options_options!(); }
+                        if n_options_options == N_OPTIONS_OPTIONS { flush_options_options!(); }
                         let (off, n) = c1.len_body();
                         let mut es = Dec::new(&buf1[off..off + n]);
                         let p = at_options_options!();
@@ -4728,17 +4469,8 @@ unsafe fn dec_list_task_summary_response_tasks_element<const AF: bool>(
     if d.err == 0 {
         if let Some(ap) = (*vt).apply_tasks {
             ak_rt::bump!((*dcx).c, reverse);
-            // Live: the token `new` gave. Deferred (N5): -1, construct and append.
             ap(ctx, obj, tok, &out);
             if (*dcx).hdr.err != AK_OK { d.err = (*dcx).hdr.err; }
-        }
-    }
-    // N5, deferred: the held runs, in arrival order, to the element apply made.
-    if AF && !live && d.err == 0 {
-        for i in 0..nh {
-            let (sid, off, n) = held[i].assume_init();
-            deliver!(sid, arena_base.add(off), n);
-            if d.err != 0 { break; }
         }
     }
 }
@@ -4747,16 +4479,7 @@ unsafe fn dec_list_task_summary_response_tasks_element<const AF: bool>(
 /// so there would be nothing to attach the inner elements to. Two calls
 /// per element -- `new` then `apply` -- plus one run per inner field that
 /// occurred (ABI v1 section 7.2).
-///
-/// Optimisation N5 (ABI v1 open decision 10, an EXPERIMENT): with `AF` (the
-/// `ak_decode_*_af` entries) the order is APPLY-FIRST: no `new`; each run the
-/// arena can hold is HELD (bump-allocated in the shared arena, in arrival order),
-/// and at the end `apply` gets token -1 (construct and append) and the held runs
-/// follow with token -1. When a run does not fit (the arena, or the held-run
-/// table, is full) the element falls back LIVE: `new`, the held runs with its
-/// token, and from then on the reference order. Without `AF` the code is the
-/// reference order exactly (`live` is a constant true).
-unsafe fn dec_list_metrics_response_batches_element<const AF: bool>(
+unsafe fn dec_list_metrics_response_batches_element(
     ctx: *mut ak_dec_ctx,
     dcx: *mut DecCtxImpl,
     obj: *mut c_void,
@@ -4765,24 +4488,15 @@ unsafe fn dec_list_metrics_response_batches_element<const AF: bool>(
     base: usize,
     u: UnkCx,
 ) {
-    let mut tok: i64 = -1;
-    let mut live = !AF;
-    macro_rules! new_elem {
-        () => {
-            tok = match (*vt).new_batches {
-                Some(f) => {
-                    ak_rt::bump!((*dcx).c, reverse);
-                    f(ctx, obj)
-                }
-                None => return,
-            };
-            if (*dcx).hdr.err != AK_OK { d.err = (*dcx).hdr.err; return; }
-            if tok < 0 { crate::ak_fail(ctx as *mut c_void, AK_ERR_HOST, ::core::ptr::null(), 0); d.err = AK_ERR_HOST; return; }
-        };
-    }
-    if live {
-        new_elem!();
-    }
+    let tok = match (*vt).new_batches {
+        Some(f) => {
+            ak_rt::bump!((*dcx).c, reverse);
+            f(ctx, obj)
+        }
+        None => return,
+    };
+    if (*dcx).hdr.err != AK_OK { d.err = (*dcx).hdr.err; return; }
+    if tok < 0 { crate::ak_fail(ctx as *mut c_void, AK_ERR_HOST, ::core::ptr::null(), 0); d.err = AK_ERR_HOST; return; }
     let mut out = ak_dfix_MetricsBatch::ZERO;
     #[allow(unused_variables)]
     let buf0 = d.buf;
@@ -4796,262 +4510,109 @@ unsafe fn dec_list_metrics_response_batches_element<const AF: bool>(
     const N_TICKS: usize = ak_rt::arena_n(::core::mem::size_of::<i64>());
     const _: () = assert!(N_TICKS * ::core::mem::size_of::<i64>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<i64>() <= 8);
     let mut n_ticks: usize = 0;
-    let mut a_ticks: *mut i64 = arena.as_mut_ptr() as *mut i64;
-    let mut c_ticks: usize = N_TICKS;
+    let a_ticks: *mut i64 = arena.as_mut_ptr() as *mut i64;
     #[allow(unused_macros)]
     macro_rules! at_ticks { () => { a_ticks.add(n_ticks) }; }
-    #[allow(unused_macros)]
-    macro_rules! cap_ticks { () => { c_ticks }; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_VALUES: usize = ak_rt::arena_n(::core::mem::size_of::<f64>());
     const _: () = assert!(N_VALUES * ::core::mem::size_of::<f64>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<f64>() <= 8);
     let mut n_values: usize = 0;
-    let mut a_values: *mut f64 = arena.as_mut_ptr() as *mut f64;
-    let mut c_values: usize = N_VALUES;
+    let a_values: *mut f64 = arena.as_mut_ptr() as *mut f64;
     #[allow(unused_macros)]
     macro_rules! at_values { () => { a_values.add(n_values) }; }
-    #[allow(unused_macros)]
-    macro_rules! cap_values { () => { c_values }; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_CODES: usize = ak_rt::arena_n(::core::mem::size_of::<i32>());
     const _: () = assert!(N_CODES * ::core::mem::size_of::<i32>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<i32>() <= 8);
     let mut n_codes: usize = 0;
-    let mut a_codes: *mut i32 = arena.as_mut_ptr() as *mut i32;
-    let mut c_codes: usize = N_CODES;
+    let a_codes: *mut i32 = arena.as_mut_ptr() as *mut i32;
     #[allow(unused_macros)]
     macro_rules! at_codes { () => { a_codes.add(n_codes) }; }
-    #[allow(unused_macros)]
-    macro_rules! cap_codes { () => { c_codes }; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_FLAGS: usize = ak_rt::arena_n(::core::mem::size_of::<u8>());
     const _: () = assert!(N_FLAGS * ::core::mem::size_of::<u8>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<u8>() <= 8);
     let mut n_flags: usize = 0;
-    let mut a_flags: *mut u8 = arena.as_mut_ptr() as *mut u8;
-    let mut c_flags: usize = N_FLAGS;
+    let a_flags: *mut u8 = arena.as_mut_ptr() as *mut u8;
     #[allow(unused_macros)]
     macro_rules! at_flags { () => { a_flags.add(n_flags) }; }
-    #[allow(unused_macros)]
-    macro_rules! cap_flags { () => { c_flags }; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_STATUSES: usize = ak_rt::arena_n(::core::mem::size_of::<i32>());
     const _: () = assert!(N_STATUSES * ::core::mem::size_of::<i32>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<i32>() <= 8);
     let mut n_statuses: usize = 0;
-    let mut a_statuses: *mut i32 = arena.as_mut_ptr() as *mut i32;
-    let mut c_statuses: usize = N_STATUSES;
+    let a_statuses: *mut i32 = arena.as_mut_ptr() as *mut i32;
     #[allow(unused_macros)]
     macro_rules! at_statuses { () => { a_statuses.add(n_statuses) }; }
-    #[allow(unused_macros)]
-    macro_rules! cap_statuses { () => { c_statuses }; }
-    // N5: runs held while the element is deferred: (slot, byte offset, count).
-    const HELD: usize = 64;
-    #[allow(unused_mut)]
-    let mut held: [::core::mem::MaybeUninit<(u32, usize, usize)>; HELD] = [const { ::core::mem::MaybeUninit::uninit() }; HELD];
-    #[allow(unused_mut)]
-    let mut nh: usize = 0;
-    #[allow(unused_mut)]
-    let mut used: usize = 0;
-    #[allow(unused_variables)]
-    let arena_base = arena.as_mut_ptr() as *mut u8;
-    #[allow(unused_macros)]
-    macro_rules! af_reset {
-        () => {
-            a_ticks = arena_base.add(used) as *mut i64;
-            c_ticks = ((ak_rt::ARENA_BYTES - used) / ::core::mem::size_of::<i64>()).min(N_TICKS);
-            a_values = arena_base.add(used) as *mut f64;
-            c_values = ((ak_rt::ARENA_BYTES - used) / ::core::mem::size_of::<f64>()).min(N_VALUES);
-            a_codes = arena_base.add(used) as *mut i32;
-            c_codes = ((ak_rt::ARENA_BYTES - used) / ::core::mem::size_of::<i32>()).min(N_CODES);
-            a_flags = arena_base.add(used) as *mut u8;
-            c_flags = ((ak_rt::ARENA_BYTES - used) / ::core::mem::size_of::<u8>()).min(N_FLAGS);
-            a_statuses = arena_base.add(used) as *mut i32;
-            c_statuses = ((ak_rt::ARENA_BYTES - used) / ::core::mem::size_of::<i32>()).min(N_STATUSES);
-        };
-    }
-    #[allow(unused_macros)]
-    macro_rules! deliver {
-        ($sid:expr, $p:expr, $n:expr) => {
-            match $sid {
-                1 => {
-                    if let Some(add) = (*vt).add_batches_ticks {
-                        if (*dcx).hdr.err == AK_OK {
-                            ak_rt::bump!((*dcx).c, reverse);
-                            add(ctx, obj, tok, $p as *const i64, $n as i32);
-                        }
-                    }
-                }
-                2 => {
-                    if let Some(add) = (*vt).add_batches_values {
-                        if (*dcx).hdr.err == AK_OK {
-                            ak_rt::bump!((*dcx).c, reverse);
-                            add(ctx, obj, tok, $p as *const f64, $n as i32);
-                        }
-                    }
-                }
-                3 => {
-                    if let Some(add) = (*vt).add_batches_codes {
-                        if (*dcx).hdr.err == AK_OK {
-                            ak_rt::bump!((*dcx).c, reverse);
-                            add(ctx, obj, tok, $p as *const i32, $n as i32);
-                        }
-                    }
-                }
-                4 => {
-                    if let Some(add) = (*vt).add_batches_flags {
-                        if (*dcx).hdr.err == AK_OK {
-                            ak_rt::bump!((*dcx).c, reverse);
-                            add(ctx, obj, tok, $p as *const u8, $n as i32);
-                        }
-                    }
-                }
-                5 => {
-                    if let Some(add) = (*vt).add_batches_statuses {
-                        if (*dcx).hdr.err == AK_OK {
-                            ak_rt::bump!((*dcx).c, reverse);
-                            add(ctx, obj, tok, $p as *const i32, $n as i32);
-                        }
-                    }
-                }
-                _ => {}
-            }
-            if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
-        };
-    }
-    #[allow(unused_macros)]
-    macro_rules! go_live {
-        () => {
-            live = true;
-            new_elem!();
-            for i in 0..nh {
-                let (sid, off, n) = held[i].assume_init();
-                deliver!(sid, arena_base.add(off), n);
-            }
-            nh = 0;
-            used = 0;
-            af_reset!();
-        };
-    }
     macro_rules! flush_ticks {
         () => {
             if n_ticks > 0 {
-                if live {
-                    deliver!(1, a_ticks, n_ticks);
-                    n_ticks = 0;
-                } else if nh < HELD {
-                    held[nh].write((1, (a_ticks as *mut u8).offset_from(arena_base) as usize, n_ticks));
-                    nh += 1;
-                    used += (n_ticks * ::core::mem::size_of::<i64>() + 7) & !7;
-                    n_ticks = 0;
-                    af_reset!();
-                } else {
-                    // The held-run table is full: fall back live, this run last.
-                    let (p, n) = (a_ticks, n_ticks);
-                    go_live!();
-                    deliver!(1, p, n);
-                    n_ticks = 0;
+                if let Some(add) = (*vt).add_batches_ticks {
+                    if (*dcx).hdr.err == AK_OK {
+                        ak_rt::bump!((*dcx).c, reverse);
+                        add(ctx, obj, tok, a_ticks as *const i64, n_ticks as i32);
+                    }
                 }
+                n_ticks = 0;
+                if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
             }
-            // The arena cannot take one more element of this slot: fall back live.
-            if !live && c_ticks == 0 { go_live!(); }
         };
     }
     macro_rules! flush_values {
         () => {
             if n_values > 0 {
-                if live {
-                    deliver!(2, a_values, n_values);
-                    n_values = 0;
-                } else if nh < HELD {
-                    held[nh].write((2, (a_values as *mut u8).offset_from(arena_base) as usize, n_values));
-                    nh += 1;
-                    used += (n_values * ::core::mem::size_of::<f64>() + 7) & !7;
-                    n_values = 0;
-                    af_reset!();
-                } else {
-                    // The held-run table is full: fall back live, this run last.
-                    let (p, n) = (a_values, n_values);
-                    go_live!();
-                    deliver!(2, p, n);
-                    n_values = 0;
+                if let Some(add) = (*vt).add_batches_values {
+                    if (*dcx).hdr.err == AK_OK {
+                        ak_rt::bump!((*dcx).c, reverse);
+                        add(ctx, obj, tok, a_values as *const f64, n_values as i32);
+                    }
                 }
+                n_values = 0;
+                if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
             }
-            // The arena cannot take one more element of this slot: fall back live.
-            if !live && c_values == 0 { go_live!(); }
         };
     }
     macro_rules! flush_codes {
         () => {
             if n_codes > 0 {
-                if live {
-                    deliver!(3, a_codes, n_codes);
-                    n_codes = 0;
-                } else if nh < HELD {
-                    held[nh].write((3, (a_codes as *mut u8).offset_from(arena_base) as usize, n_codes));
-                    nh += 1;
-                    used += (n_codes * ::core::mem::size_of::<i32>() + 7) & !7;
-                    n_codes = 0;
-                    af_reset!();
-                } else {
-                    // The held-run table is full: fall back live, this run last.
-                    let (p, n) = (a_codes, n_codes);
-                    go_live!();
-                    deliver!(3, p, n);
-                    n_codes = 0;
+                if let Some(add) = (*vt).add_batches_codes {
+                    if (*dcx).hdr.err == AK_OK {
+                        ak_rt::bump!((*dcx).c, reverse);
+                        add(ctx, obj, tok, a_codes as *const i32, n_codes as i32);
+                    }
                 }
+                n_codes = 0;
+                if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
             }
-            // The arena cannot take one more element of this slot: fall back live.
-            if !live && c_codes == 0 { go_live!(); }
         };
     }
     macro_rules! flush_flags {
         () => {
             if n_flags > 0 {
-                if live {
-                    deliver!(4, a_flags, n_flags);
-                    n_flags = 0;
-                } else if nh < HELD {
-                    held[nh].write((4, (a_flags as *mut u8).offset_from(arena_base) as usize, n_flags));
-                    nh += 1;
-                    used += (n_flags * ::core::mem::size_of::<u8>() + 7) & !7;
-                    n_flags = 0;
-                    af_reset!();
-                } else {
-                    // The held-run table is full: fall back live, this run last.
-                    let (p, n) = (a_flags, n_flags);
-                    go_live!();
-                    deliver!(4, p, n);
-                    n_flags = 0;
+                if let Some(add) = (*vt).add_batches_flags {
+                    if (*dcx).hdr.err == AK_OK {
+                        ak_rt::bump!((*dcx).c, reverse);
+                        add(ctx, obj, tok, a_flags as *const u8, n_flags as i32);
+                    }
                 }
+                n_flags = 0;
+                if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
             }
-            // The arena cannot take one more element of this slot: fall back live.
-            if !live && c_flags == 0 { go_live!(); }
         };
     }
     macro_rules! flush_statuses {
         () => {
             if n_statuses > 0 {
-                if live {
-                    deliver!(5, a_statuses, n_statuses);
-                    n_statuses = 0;
-                } else if nh < HELD {
-                    held[nh].write((5, (a_statuses as *mut u8).offset_from(arena_base) as usize, n_statuses));
-                    nh += 1;
-                    used += (n_statuses * ::core::mem::size_of::<i32>() + 7) & !7;
-                    n_statuses = 0;
-                    af_reset!();
-                } else {
-                    // The held-run table is full: fall back live, this run last.
-                    let (p, n) = (a_statuses, n_statuses);
-                    go_live!();
-                    deliver!(5, p, n);
-                    n_statuses = 0;
+                if let Some(add) = (*vt).add_batches_statuses {
+                    if (*dcx).hdr.err == AK_OK {
+                        ak_rt::bump!((*dcx).c, reverse);
+                        add(ctx, obj, tok, a_statuses as *const i32, n_statuses as i32);
+                    }
                 }
+                n_statuses = 0;
+                if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
             }
-            // The arena cannot take one more element of this slot: fall back live.
-            if !live && c_statuses == 0 { go_live!(); }
         };
     }
     macro_rules! flush {
@@ -5079,7 +4640,7 @@ unsafe fn dec_list_metrics_response_batches_element<const AF: bool>(
             }
             2 if wire == 0 => {
                 if cur != 1 { flush!(); cur = 1; }
-                if n_ticks == cap_ticks!() { flush_ticks!(); }
+                if n_ticks == N_TICKS { flush_ticks!(); }
                 let v = d.varint() as i64;
                 if d.err == 0 { at_ticks!().write(v); n_ticks += 1; }
             }
@@ -5088,7 +4649,7 @@ unsafe fn dec_list_metrics_response_batches_element<const AF: bool>(
                 let (off, n) = d.len_body();
                 let mut ps = Dec::new(&buf0[off..off + n]);
                 while !ps.at_end() {
-                    if n_ticks == cap_ticks!() { flush_ticks!(); }
+                    if n_ticks == N_TICKS { flush_ticks!(); }
                     let v = ps.varint() as i64;
                     if ps.err != 0 { break; }
                     at_ticks!().write(v);
@@ -5098,7 +4659,7 @@ unsafe fn dec_list_metrics_response_batches_element<const AF: bool>(
             }
             3 if wire == 1 => {
                 if cur != 2 { flush!(); cur = 2; }
-                if n_values == cap_values!() { flush_values!(); }
+                if n_values == N_VALUES { flush_values!(); }
                 let v = d.f64();
                 if d.err == 0 { at_values!().write(v); n_values += 1; }
             }
@@ -5107,7 +4668,7 @@ unsafe fn dec_list_metrics_response_batches_element<const AF: bool>(
                 let (off, n) = d.len_body();
                 let mut ps = Dec::new(&buf0[off..off + n]);
                 while !ps.at_end() {
-                    if n_values == cap_values!() { flush_values!(); }
+                    if n_values == N_VALUES { flush_values!(); }
                     let v = ps.f64();
                     if ps.err != 0 { break; }
                     at_values!().write(v);
@@ -5117,7 +4678,7 @@ unsafe fn dec_list_metrics_response_batches_element<const AF: bool>(
             }
             4 if wire == 0 => {
                 if cur != 3 { flush!(); cur = 3; }
-                if n_codes == cap_codes!() { flush_codes!(); }
+                if n_codes == N_CODES { flush_codes!(); }
                 let v = d.varint() as i32;
                 if d.err == 0 { at_codes!().write(v); n_codes += 1; }
             }
@@ -5126,7 +4687,7 @@ unsafe fn dec_list_metrics_response_batches_element<const AF: bool>(
                 let (off, n) = d.len_body();
                 let mut ps = Dec::new(&buf0[off..off + n]);
                 while !ps.at_end() {
-                    if n_codes == cap_codes!() { flush_codes!(); }
+                    if n_codes == N_CODES { flush_codes!(); }
                     let v = ps.varint() as i32;
                     if ps.err != 0 { break; }
                     at_codes!().write(v);
@@ -5136,7 +4697,7 @@ unsafe fn dec_list_metrics_response_batches_element<const AF: bool>(
             }
             5 if wire == 0 => {
                 if cur != 4 { flush!(); cur = 4; }
-                if n_flags == cap_flags!() { flush_flags!(); }
+                if n_flags == N_FLAGS { flush_flags!(); }
                 let v = (d.varint() != 0) as u8;
                 if d.err == 0 { at_flags!().write(v); n_flags += 1; }
             }
@@ -5145,7 +4706,7 @@ unsafe fn dec_list_metrics_response_batches_element<const AF: bool>(
                 let (off, n) = d.len_body();
                 let mut ps = Dec::new(&buf0[off..off + n]);
                 while !ps.at_end() {
-                    if n_flags == cap_flags!() { flush_flags!(); }
+                    if n_flags == N_FLAGS { flush_flags!(); }
                     let v = (ps.varint() != 0) as u8;
                     if ps.err != 0 { break; }
                     at_flags!().write(v);
@@ -5155,7 +4716,7 @@ unsafe fn dec_list_metrics_response_batches_element<const AF: bool>(
             }
             6 if wire == 0 => {
                 if cur != 5 { flush!(); cur = 5; }
-                if n_statuses == cap_statuses!() { flush_statuses!(); }
+                if n_statuses == N_STATUSES { flush_statuses!(); }
                 let v = d.varint() as i32;
                 if d.err == 0 { at_statuses!().write(v); n_statuses += 1; }
             }
@@ -5164,7 +4725,7 @@ unsafe fn dec_list_metrics_response_batches_element<const AF: bool>(
                 let (off, n) = d.len_body();
                 let mut ps = Dec::new(&buf0[off..off + n]);
                 while !ps.at_end() {
-                    if n_statuses == cap_statuses!() { flush_statuses!(); }
+                    if n_statuses == N_STATUSES { flush_statuses!(); }
                     let v = ps.varint() as i32;
                     if ps.err != 0 { break; }
                     at_statuses!().write(v);
@@ -5184,17 +4745,8 @@ unsafe fn dec_list_metrics_response_batches_element<const AF: bool>(
     if d.err == 0 {
         if let Some(ap) = (*vt).apply_batches {
             ak_rt::bump!((*dcx).c, reverse);
-            // Live: the token `new` gave. Deferred (N5): -1, construct and append.
             ap(ctx, obj, tok, &out);
             if (*dcx).hdr.err != AK_OK { d.err = (*dcx).hdr.err; }
-        }
-    }
-    // N5, deferred: the held runs, in arrival order, to the element apply made.
-    if AF && !live && d.err == 0 {
-        for i in 0..nh {
-            let (sid, off, n) = held[i].assume_init();
-            deliver!(sid, arena_base.add(off), n);
-            if d.err != 0 { break; }
         }
     }
 }
@@ -5203,16 +4755,7 @@ unsafe fn dec_list_metrics_response_batches_element<const AF: bool>(
 /// so there would be nothing to attach the inner elements to. Two calls
 /// per element -- `new` then `apply` -- plus one run per inner field that
 /// occurred (ABI v1 section 7.2).
-///
-/// Optimisation N5 (ABI v1 open decision 10, an EXPERIMENT): with `AF` (the
-/// `ak_decode_*_af` entries) the order is APPLY-FIRST: no `new`; each run the
-/// arena can hold is HELD (bump-allocated in the shared arena, in arrival order),
-/// and at the end `apply` gets token -1 (construct and append) and the held runs
-/// follow with token -1. When a run does not fit (the arena, or the held-run
-/// table, is full) the element falls back LIVE: `new`, the held runs with its
-/// token, and from then on the reference order. Without `AF` the code is the
-/// reference order exactly (`live` is a constant true).
-unsafe fn dec_chunked_response_items_element<const AF: bool>(
+unsafe fn dec_chunked_response_items_element(
     ctx: *mut ak_dec_ctx,
     dcx: *mut DecCtxImpl,
     obj: *mut c_void,
@@ -5221,24 +4764,15 @@ unsafe fn dec_chunked_response_items_element<const AF: bool>(
     base: usize,
     u: UnkCx,
 ) {
-    let mut tok: i64 = -1;
-    let mut live = !AF;
-    macro_rules! new_elem {
-        () => {
-            tok = match (*vt).new_items {
-                Some(f) => {
-                    ak_rt::bump!((*dcx).c, reverse);
-                    f(ctx, obj)
-                }
-                None => return,
-            };
-            if (*dcx).hdr.err != AK_OK { d.err = (*dcx).hdr.err; return; }
-            if tok < 0 { crate::ak_fail(ctx as *mut c_void, AK_ERR_HOST, ::core::ptr::null(), 0); d.err = AK_ERR_HOST; return; }
-        };
-    }
-    if live {
-        new_elem!();
-    }
+    let tok = match (*vt).new_items {
+        Some(f) => {
+            ak_rt::bump!((*dcx).c, reverse);
+            f(ctx, obj)
+        }
+        None => return,
+    };
+    if (*dcx).hdr.err != AK_OK { d.err = (*dcx).hdr.err; return; }
+    if tok < 0 { crate::ak_fail(ctx as *mut c_void, AK_ERR_HOST, ::core::ptr::null(), 0); d.err = AK_ERR_HOST; return; }
     let mut out = ak_dfix_ChunkElement::ZERO;
     #[allow(unused_variables)]
     let buf0 = d.buf;
@@ -5252,217 +4786,87 @@ unsafe fn dec_chunked_response_items_element<const AF: bool>(
     const N_LABELS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
     const _: () = assert!(N_LABELS * ::core::mem::size_of::<ak_span>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_span>() <= 8);
     let mut n_labels: usize = 0;
-    let mut a_labels: *mut ak_span = arena.as_mut_ptr() as *mut ak_span;
-    let mut c_labels: usize = N_LABELS;
+    let a_labels: *mut ak_span = arena.as_mut_ptr() as *mut ak_span;
     #[allow(unused_macros)]
     macro_rules! at_labels { () => { a_labels.add(n_labels) }; }
-    #[allow(unused_macros)]
-    macro_rules! cap_labels { () => { c_labels }; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_ATTRS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_ChunkElementAttrsEntry>());
     const _: () = assert!(N_ATTRS * ::core::mem::size_of::<ak_dfix_ChunkElementAttrsEntry>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_ChunkElementAttrsEntry>() <= 8);
     let mut n_attrs: usize = 0;
-    let mut a_attrs: *mut ak_dfix_ChunkElementAttrsEntry = arena.as_mut_ptr() as *mut ak_dfix_ChunkElementAttrsEntry;
-    let mut c_attrs: usize = N_ATTRS;
+    let a_attrs: *mut ak_dfix_ChunkElementAttrsEntry = arena.as_mut_ptr() as *mut ak_dfix_ChunkElementAttrsEntry;
     #[allow(unused_macros)]
     macro_rules! at_attrs { () => { a_attrs.add(n_attrs) }; }
-    #[allow(unused_macros)]
-    macro_rules! cap_attrs { () => { c_attrs }; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_INNER_MARKS: usize = ak_rt::arena_n(::core::mem::size_of::<i64>());
     const _: () = assert!(N_INNER_MARKS * ::core::mem::size_of::<i64>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<i64>() <= 8);
     let mut n_inner_marks: usize = 0;
-    let mut a_inner_marks: *mut i64 = arena.as_mut_ptr() as *mut i64;
-    let mut c_inner_marks: usize = N_INNER_MARKS;
+    let a_inner_marks: *mut i64 = arena.as_mut_ptr() as *mut i64;
     #[allow(unused_macros)]
     macro_rules! at_inner_marks { () => { a_inner_marks.add(n_inner_marks) }; }
-    #[allow(unused_macros)]
-    macro_rules! cap_inner_marks { () => { c_inner_marks }; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_INNER_LEAVES: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_ChunkLeaf>());
     const _: () = assert!(N_INNER_LEAVES * ::core::mem::size_of::<ak_dfix_ChunkLeaf>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_ChunkLeaf>() <= 8);
     let mut n_inner_leaves: usize = 0;
-    let mut a_inner_leaves: *mut ak_dfix_ChunkLeaf = arena.as_mut_ptr() as *mut ak_dfix_ChunkLeaf;
-    let mut c_inner_leaves: usize = N_INNER_LEAVES;
+    let a_inner_leaves: *mut ak_dfix_ChunkLeaf = arena.as_mut_ptr() as *mut ak_dfix_ChunkLeaf;
     #[allow(unused_macros)]
     macro_rules! at_inner_leaves { () => { a_inner_leaves.add(n_inner_leaves) }; }
-    #[allow(unused_macros)]
-    macro_rules! cap_inner_leaves { () => { c_inner_leaves }; }
-    // N5: runs held while the element is deferred: (slot, byte offset, count).
-    const HELD: usize = 64;
-    #[allow(unused_mut)]
-    let mut held: [::core::mem::MaybeUninit<(u32, usize, usize)>; HELD] = [const { ::core::mem::MaybeUninit::uninit() }; HELD];
-    #[allow(unused_mut)]
-    let mut nh: usize = 0;
-    #[allow(unused_mut)]
-    let mut used: usize = 0;
-    #[allow(unused_variables)]
-    let arena_base = arena.as_mut_ptr() as *mut u8;
-    #[allow(unused_macros)]
-    macro_rules! af_reset {
-        () => {
-            a_labels = arena_base.add(used) as *mut ak_span;
-            c_labels = ((ak_rt::ARENA_BYTES - used) / ::core::mem::size_of::<ak_span>()).min(N_LABELS);
-            a_attrs = arena_base.add(used) as *mut ak_dfix_ChunkElementAttrsEntry;
-            c_attrs = ((ak_rt::ARENA_BYTES - used) / ::core::mem::size_of::<ak_dfix_ChunkElementAttrsEntry>()).min(N_ATTRS);
-            a_inner_marks = arena_base.add(used) as *mut i64;
-            c_inner_marks = ((ak_rt::ARENA_BYTES - used) / ::core::mem::size_of::<i64>()).min(N_INNER_MARKS);
-            a_inner_leaves = arena_base.add(used) as *mut ak_dfix_ChunkLeaf;
-            c_inner_leaves = ((ak_rt::ARENA_BYTES - used) / ::core::mem::size_of::<ak_dfix_ChunkLeaf>()).min(N_INNER_LEAVES);
-        };
-    }
-    #[allow(unused_macros)]
-    macro_rules! deliver {
-        ($sid:expr, $p:expr, $n:expr) => {
-            match $sid {
-                1 => {
-                    if let Some(add) = (*vt).add_items_labels {
-                        if (*dcx).hdr.err == AK_OK {
-                            ak_rt::bump!((*dcx).c, reverse);
-                            add(ctx, obj, tok, $p as *const ak_span, $n as i32);
-                        }
-                    }
-                }
-                2 => {
-                    if let Some(add) = (*vt).add_items_attrs {
-                        if (*dcx).hdr.err == AK_OK {
-                            ak_rt::bump!((*dcx).c, reverse);
-                            add(ctx, obj, tok, $p as *const ak_dfix_ChunkElementAttrsEntry, $n as i32);
-                        }
-                    }
-                }
-                3 => {
-                    if let Some(add) = (*vt).add_items_inner_marks {
-                        if (*dcx).hdr.err == AK_OK {
-                            ak_rt::bump!((*dcx).c, reverse);
-                            add(ctx, obj, tok, $p as *const i64, $n as i32);
-                        }
-                    }
-                }
-                4 => {
-                    if let Some(add) = (*vt).add_items_inner_leaves {
-                        if (*dcx).hdr.err == AK_OK {
-                            ak_rt::bump!((*dcx).c, reverse);
-                            add(ctx, obj, tok, $p as *const ak_dfix_ChunkLeaf, $n as i32);
-                        }
-                    }
-                }
-                _ => {}
-            }
-            if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
-        };
-    }
-    #[allow(unused_macros)]
-    macro_rules! go_live {
-        () => {
-            live = true;
-            new_elem!();
-            for i in 0..nh {
-                let (sid, off, n) = held[i].assume_init();
-                deliver!(sid, arena_base.add(off), n);
-            }
-            nh = 0;
-            used = 0;
-            af_reset!();
-        };
-    }
     macro_rules! flush_labels {
         () => {
             if n_labels > 0 {
-                if live {
-                    deliver!(1, a_labels, n_labels);
-                    n_labels = 0;
-                } else if nh < HELD {
-                    held[nh].write((1, (a_labels as *mut u8).offset_from(arena_base) as usize, n_labels));
-                    nh += 1;
-                    used += (n_labels * ::core::mem::size_of::<ak_span>() + 7) & !7;
-                    n_labels = 0;
-                    af_reset!();
-                } else {
-                    // The held-run table is full: fall back live, this run last.
-                    let (p, n) = (a_labels, n_labels);
-                    go_live!();
-                    deliver!(1, p, n);
-                    n_labels = 0;
+                if let Some(add) = (*vt).add_items_labels {
+                    if (*dcx).hdr.err == AK_OK {
+                        ak_rt::bump!((*dcx).c, reverse);
+                        add(ctx, obj, tok, a_labels as *const ak_span, n_labels as i32);
+                    }
                 }
+                n_labels = 0;
+                if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
             }
-            // The arena cannot take one more element of this slot: fall back live.
-            if !live && c_labels == 0 { go_live!(); }
         };
     }
     macro_rules! flush_attrs {
         () => {
             if n_attrs > 0 {
-                if live {
-                    deliver!(2, a_attrs, n_attrs);
-                    n_attrs = 0;
-                } else if nh < HELD {
-                    held[nh].write((2, (a_attrs as *mut u8).offset_from(arena_base) as usize, n_attrs));
-                    nh += 1;
-                    used += (n_attrs * ::core::mem::size_of::<ak_dfix_ChunkElementAttrsEntry>() + 7) & !7;
-                    n_attrs = 0;
-                    af_reset!();
-                } else {
-                    // The held-run table is full: fall back live, this run last.
-                    let (p, n) = (a_attrs, n_attrs);
-                    go_live!();
-                    deliver!(2, p, n);
-                    n_attrs = 0;
+                if let Some(add) = (*vt).add_items_attrs {
+                    if (*dcx).hdr.err == AK_OK {
+                        ak_rt::bump!((*dcx).c, reverse);
+                        add(ctx, obj, tok, a_attrs as *const ak_dfix_ChunkElementAttrsEntry, n_attrs as i32);
+                    }
                 }
+                n_attrs = 0;
+                if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
             }
-            // The arena cannot take one more element of this slot: fall back live.
-            if !live && c_attrs == 0 { go_live!(); }
         };
     }
     macro_rules! flush_inner_marks {
         () => {
             if n_inner_marks > 0 {
-                if live {
-                    deliver!(3, a_inner_marks, n_inner_marks);
-                    n_inner_marks = 0;
-                } else if nh < HELD {
-                    held[nh].write((3, (a_inner_marks as *mut u8).offset_from(arena_base) as usize, n_inner_marks));
-                    nh += 1;
-                    used += (n_inner_marks * ::core::mem::size_of::<i64>() + 7) & !7;
-                    n_inner_marks = 0;
-                    af_reset!();
-                } else {
-                    // The held-run table is full: fall back live, this run last.
-                    let (p, n) = (a_inner_marks, n_inner_marks);
-                    go_live!();
-                    deliver!(3, p, n);
-                    n_inner_marks = 0;
+                if let Some(add) = (*vt).add_items_inner_marks {
+                    if (*dcx).hdr.err == AK_OK {
+                        ak_rt::bump!((*dcx).c, reverse);
+                        add(ctx, obj, tok, a_inner_marks as *const i64, n_inner_marks as i32);
+                    }
                 }
+                n_inner_marks = 0;
+                if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
             }
-            // The arena cannot take one more element of this slot: fall back live.
-            if !live && c_inner_marks == 0 { go_live!(); }
         };
     }
     macro_rules! flush_inner_leaves {
         () => {
             if n_inner_leaves > 0 {
-                if live {
-                    deliver!(4, a_inner_leaves, n_inner_leaves);
-                    n_inner_leaves = 0;
-                } else if nh < HELD {
-                    held[nh].write((4, (a_inner_leaves as *mut u8).offset_from(arena_base) as usize, n_inner_leaves));
-                    nh += 1;
-                    used += (n_inner_leaves * ::core::mem::size_of::<ak_dfix_ChunkLeaf>() + 7) & !7;
-                    n_inner_leaves = 0;
-                    af_reset!();
-                } else {
-                    // The held-run table is full: fall back live, this run last.
-                    let (p, n) = (a_inner_leaves, n_inner_leaves);
-                    go_live!();
-                    deliver!(4, p, n);
-                    n_inner_leaves = 0;
+                if let Some(add) = (*vt).add_items_inner_leaves {
+                    if (*dcx).hdr.err == AK_OK {
+                        ak_rt::bump!((*dcx).c, reverse);
+                        add(ctx, obj, tok, a_inner_leaves as *const ak_dfix_ChunkLeaf, n_inner_leaves as i32);
+                    }
                 }
+                n_inner_leaves = 0;
+                if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
             }
-            // The arena cannot take one more element of this slot: fall back live.
-            if !live && c_inner_leaves == 0 { go_live!(); }
         };
     }
     macro_rules! flush {
@@ -5483,7 +4887,7 @@ unsafe fn dec_chunked_response_items_element<const AF: bool>(
         match tag {
             1 if wire == 2 => {
                 if cur != 1 { flush!(); cur = 1; }
-                if n_labels == cap_labels!() { flush_labels!(); }
+                if n_labels == N_LABELS { flush_labels!(); }
                 let (off, n) = d.len_body();
                 if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 at_labels!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
@@ -5491,7 +4895,7 @@ unsafe fn dec_chunked_response_items_element<const AF: bool>(
             }
             2 if wire == 2 => {
                 if cur != 2 { flush!(); cur = 2; }
-                if n_attrs == cap_attrs!() { flush_attrs!(); }
+                if n_attrs == N_ATTRS { flush_attrs!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
                 let p = at_attrs!();
@@ -5522,7 +4926,7 @@ unsafe fn dec_chunked_response_items_element<const AF: bool>(
                     match tag {
                     1 if wire == 0 => {
                         if cur != 3 { flush!(); cur = 3; }
-                        if n_inner_marks == cap_inner_marks!() { flush_inner_marks!(); }
+                        if n_inner_marks == N_INNER_MARKS { flush_inner_marks!(); }
                         let v = c1.varint() as i64;
                         if c1.err == 0 { at_inner_marks!().write(v); n_inner_marks += 1; }
                     }
@@ -5531,7 +4935,7 @@ unsafe fn dec_chunked_response_items_element<const AF: bool>(
                         let (off, n) = c1.len_body();
                         let mut ps = Dec::new(&buf1[off..off + n]);
                         while !ps.at_end() {
-                            if n_inner_marks == cap_inner_marks!() { flush_inner_marks!(); }
+                            if n_inner_marks == N_INNER_MARKS { flush_inner_marks!(); }
                             let v = ps.varint() as i64;
                             if ps.err != 0 { break; }
                             at_inner_marks!().write(v);
@@ -5541,7 +4945,7 @@ unsafe fn dec_chunked_response_items_element<const AF: bool>(
                     }
                     2 if wire == 2 => {
                         if cur != 4 { flush!(); cur = 4; }
-                        if n_inner_leaves == cap_inner_leaves!() { flush_inner_leaves!(); }
+                        if n_inner_leaves == N_INNER_LEAVES { flush_inner_leaves!(); }
                         let (off, n) = c1.len_body();
                         let mut es = Dec::new(&buf1[off..off + n]);
                         let p = at_inner_leaves!();
@@ -5569,17 +4973,8 @@ unsafe fn dec_chunked_response_items_element<const AF: bool>(
     if d.err == 0 {
         if let Some(ap) = (*vt).apply_items {
             ak_rt::bump!((*dcx).c, reverse);
-            // Live: the token `new` gave. Deferred (N5): -1, construct and append.
             ap(ctx, obj, tok, &out);
             if (*dcx).hdr.err != AK_OK { d.err = (*dcx).hdr.err; }
-        }
-    }
-    // N5, deferred: the held runs, in arrival order, to the element apply made.
-    if AF && !live && d.err == 0 {
-        for i in 0..nh {
-            let (sid, off, n) = held[i].assume_init();
-            deliver!(sid, arena_base.add(off), n);
-            if d.err != 0 { break; }
         }
     }
 }
@@ -5588,16 +4983,7 @@ unsafe fn dec_chunked_response_items_element<const AF: bool>(
 /// so there would be nothing to attach the inner elements to. Two calls
 /// per element -- `new` then `apply` -- plus one run per inner field that
 /// occurred (ABI v1 section 7.2).
-///
-/// Optimisation N5 (ABI v1 open decision 10, an EXPERIMENT): with `AF` (the
-/// `ak_decode_*_af` entries) the order is APPLY-FIRST: no `new`; each run the
-/// arena can hold is HELD (bump-allocated in the shared arena, in arrival order),
-/// and at the end `apply` gets token -1 (construct and append) and the held runs
-/// follow with token -1. When a run does not fit (the arena, or the held-run
-/// table, is full) the element falls back LIVE: `new`, the held runs with its
-/// token, and from then on the reference order. Without `AF` the code is the
-/// reference order exactly (`live` is a constant true).
-unsafe fn dec_chunked_response_wide_items_element<const AF: bool>(
+unsafe fn dec_chunked_response_wide_items_element(
     ctx: *mut ak_dec_ctx,
     dcx: *mut DecCtxImpl,
     obj: *mut c_void,
@@ -5606,24 +4992,15 @@ unsafe fn dec_chunked_response_wide_items_element<const AF: bool>(
     base: usize,
     u: UnkCx,
 ) {
-    let mut tok: i64 = -1;
-    let mut live = !AF;
-    macro_rules! new_elem {
-        () => {
-            tok = match (*vt).new_items {
-                Some(f) => {
-                    ak_rt::bump!((*dcx).c, reverse);
-                    f(ctx, obj)
-                }
-                None => return,
-            };
-            if (*dcx).hdr.err != AK_OK { d.err = (*dcx).hdr.err; return; }
-            if tok < 0 { crate::ak_fail(ctx as *mut c_void, AK_ERR_HOST, ::core::ptr::null(), 0); d.err = AK_ERR_HOST; return; }
-        };
-    }
-    if live {
-        new_elem!();
-    }
+    let tok = match (*vt).new_items {
+        Some(f) => {
+            ak_rt::bump!((*dcx).c, reverse);
+            f(ctx, obj)
+        }
+        None => return,
+    };
+    if (*dcx).hdr.err != AK_OK { d.err = (*dcx).hdr.err; return; }
+    if tok < 0 { crate::ak_fail(ctx as *mut c_void, AK_ERR_HOST, ::core::ptr::null(), 0); d.err = AK_ERR_HOST; return; }
     let mut out = ak_dfix_ChunkElement::ZERO;
     #[allow(unused_variables)]
     let buf0 = d.buf;
@@ -5637,217 +5014,87 @@ unsafe fn dec_chunked_response_wide_items_element<const AF: bool>(
     const N_LABELS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
     const _: () = assert!(N_LABELS * ::core::mem::size_of::<ak_span>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_span>() <= 8);
     let mut n_labels: usize = 0;
-    let mut a_labels: *mut ak_span = arena.as_mut_ptr() as *mut ak_span;
-    let mut c_labels: usize = N_LABELS;
+    let a_labels: *mut ak_span = arena.as_mut_ptr() as *mut ak_span;
     #[allow(unused_macros)]
     macro_rules! at_labels { () => { a_labels.add(n_labels) }; }
-    #[allow(unused_macros)]
-    macro_rules! cap_labels { () => { c_labels }; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_ATTRS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_ChunkElementAttrsEntry>());
     const _: () = assert!(N_ATTRS * ::core::mem::size_of::<ak_dfix_ChunkElementAttrsEntry>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_ChunkElementAttrsEntry>() <= 8);
     let mut n_attrs: usize = 0;
-    let mut a_attrs: *mut ak_dfix_ChunkElementAttrsEntry = arena.as_mut_ptr() as *mut ak_dfix_ChunkElementAttrsEntry;
-    let mut c_attrs: usize = N_ATTRS;
+    let a_attrs: *mut ak_dfix_ChunkElementAttrsEntry = arena.as_mut_ptr() as *mut ak_dfix_ChunkElementAttrsEntry;
     #[allow(unused_macros)]
     macro_rules! at_attrs { () => { a_attrs.add(n_attrs) }; }
-    #[allow(unused_macros)]
-    macro_rules! cap_attrs { () => { c_attrs }; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_INNER_MARKS: usize = ak_rt::arena_n(::core::mem::size_of::<i64>());
     const _: () = assert!(N_INNER_MARKS * ::core::mem::size_of::<i64>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<i64>() <= 8);
     let mut n_inner_marks: usize = 0;
-    let mut a_inner_marks: *mut i64 = arena.as_mut_ptr() as *mut i64;
-    let mut c_inner_marks: usize = N_INNER_MARKS;
+    let a_inner_marks: *mut i64 = arena.as_mut_ptr() as *mut i64;
     #[allow(unused_macros)]
     macro_rules! at_inner_marks { () => { a_inner_marks.add(n_inner_marks) }; }
-    #[allow(unused_macros)]
-    macro_rules! cap_inner_marks { () => { c_inner_marks }; }
     // ABI v1 7.3: a byte budget divided by the group size, not an element
     // count, so the scratch is the same 32 KB whatever the schema does.
     const N_INNER_LEAVES: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_ChunkLeaf>());
     const _: () = assert!(N_INNER_LEAVES * ::core::mem::size_of::<ak_dfix_ChunkLeaf>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_ChunkLeaf>() <= 8);
     let mut n_inner_leaves: usize = 0;
-    let mut a_inner_leaves: *mut ak_dfix_ChunkLeaf = arena.as_mut_ptr() as *mut ak_dfix_ChunkLeaf;
-    let mut c_inner_leaves: usize = N_INNER_LEAVES;
+    let a_inner_leaves: *mut ak_dfix_ChunkLeaf = arena.as_mut_ptr() as *mut ak_dfix_ChunkLeaf;
     #[allow(unused_macros)]
     macro_rules! at_inner_leaves { () => { a_inner_leaves.add(n_inner_leaves) }; }
-    #[allow(unused_macros)]
-    macro_rules! cap_inner_leaves { () => { c_inner_leaves }; }
-    // N5: runs held while the element is deferred: (slot, byte offset, count).
-    const HELD: usize = 64;
-    #[allow(unused_mut)]
-    let mut held: [::core::mem::MaybeUninit<(u32, usize, usize)>; HELD] = [const { ::core::mem::MaybeUninit::uninit() }; HELD];
-    #[allow(unused_mut)]
-    let mut nh: usize = 0;
-    #[allow(unused_mut)]
-    let mut used: usize = 0;
-    #[allow(unused_variables)]
-    let arena_base = arena.as_mut_ptr() as *mut u8;
-    #[allow(unused_macros)]
-    macro_rules! af_reset {
-        () => {
-            a_labels = arena_base.add(used) as *mut ak_span;
-            c_labels = ((ak_rt::ARENA_BYTES - used) / ::core::mem::size_of::<ak_span>()).min(N_LABELS);
-            a_attrs = arena_base.add(used) as *mut ak_dfix_ChunkElementAttrsEntry;
-            c_attrs = ((ak_rt::ARENA_BYTES - used) / ::core::mem::size_of::<ak_dfix_ChunkElementAttrsEntry>()).min(N_ATTRS);
-            a_inner_marks = arena_base.add(used) as *mut i64;
-            c_inner_marks = ((ak_rt::ARENA_BYTES - used) / ::core::mem::size_of::<i64>()).min(N_INNER_MARKS);
-            a_inner_leaves = arena_base.add(used) as *mut ak_dfix_ChunkLeaf;
-            c_inner_leaves = ((ak_rt::ARENA_BYTES - used) / ::core::mem::size_of::<ak_dfix_ChunkLeaf>()).min(N_INNER_LEAVES);
-        };
-    }
-    #[allow(unused_macros)]
-    macro_rules! deliver {
-        ($sid:expr, $p:expr, $n:expr) => {
-            match $sid {
-                1 => {
-                    if let Some(add) = (*vt).add_items_labels {
-                        if (*dcx).hdr.err == AK_OK {
-                            ak_rt::bump!((*dcx).c, reverse);
-                            add(ctx, obj, tok, $p as *const ak_span, $n as i32);
-                        }
-                    }
-                }
-                2 => {
-                    if let Some(add) = (*vt).add_items_attrs {
-                        if (*dcx).hdr.err == AK_OK {
-                            ak_rt::bump!((*dcx).c, reverse);
-                            add(ctx, obj, tok, $p as *const ak_dfix_ChunkElementAttrsEntry, $n as i32);
-                        }
-                    }
-                }
-                3 => {
-                    if let Some(add) = (*vt).add_items_inner_marks {
-                        if (*dcx).hdr.err == AK_OK {
-                            ak_rt::bump!((*dcx).c, reverse);
-                            add(ctx, obj, tok, $p as *const i64, $n as i32);
-                        }
-                    }
-                }
-                4 => {
-                    if let Some(add) = (*vt).add_items_inner_leaves {
-                        if (*dcx).hdr.err == AK_OK {
-                            ak_rt::bump!((*dcx).c, reverse);
-                            add(ctx, obj, tok, $p as *const ak_dfix_ChunkLeaf, $n as i32);
-                        }
-                    }
-                }
-                _ => {}
-            }
-            if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
-        };
-    }
-    #[allow(unused_macros)]
-    macro_rules! go_live {
-        () => {
-            live = true;
-            new_elem!();
-            for i in 0..nh {
-                let (sid, off, n) = held[i].assume_init();
-                deliver!(sid, arena_base.add(off), n);
-            }
-            nh = 0;
-            used = 0;
-            af_reset!();
-        };
-    }
     macro_rules! flush_labels {
         () => {
             if n_labels > 0 {
-                if live {
-                    deliver!(1, a_labels, n_labels);
-                    n_labels = 0;
-                } else if nh < HELD {
-                    held[nh].write((1, (a_labels as *mut u8).offset_from(arena_base) as usize, n_labels));
-                    nh += 1;
-                    used += (n_labels * ::core::mem::size_of::<ak_span>() + 7) & !7;
-                    n_labels = 0;
-                    af_reset!();
-                } else {
-                    // The held-run table is full: fall back live, this run last.
-                    let (p, n) = (a_labels, n_labels);
-                    go_live!();
-                    deliver!(1, p, n);
-                    n_labels = 0;
+                if let Some(add) = (*vt).add_items_labels {
+                    if (*dcx).hdr.err == AK_OK {
+                        ak_rt::bump!((*dcx).c, reverse);
+                        add(ctx, obj, tok, a_labels as *const ak_span, n_labels as i32);
+                    }
                 }
+                n_labels = 0;
+                if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
             }
-            // The arena cannot take one more element of this slot: fall back live.
-            if !live && c_labels == 0 { go_live!(); }
         };
     }
     macro_rules! flush_attrs {
         () => {
             if n_attrs > 0 {
-                if live {
-                    deliver!(2, a_attrs, n_attrs);
-                    n_attrs = 0;
-                } else if nh < HELD {
-                    held[nh].write((2, (a_attrs as *mut u8).offset_from(arena_base) as usize, n_attrs));
-                    nh += 1;
-                    used += (n_attrs * ::core::mem::size_of::<ak_dfix_ChunkElementAttrsEntry>() + 7) & !7;
-                    n_attrs = 0;
-                    af_reset!();
-                } else {
-                    // The held-run table is full: fall back live, this run last.
-                    let (p, n) = (a_attrs, n_attrs);
-                    go_live!();
-                    deliver!(2, p, n);
-                    n_attrs = 0;
+                if let Some(add) = (*vt).add_items_attrs {
+                    if (*dcx).hdr.err == AK_OK {
+                        ak_rt::bump!((*dcx).c, reverse);
+                        add(ctx, obj, tok, a_attrs as *const ak_dfix_ChunkElementAttrsEntry, n_attrs as i32);
+                    }
                 }
+                n_attrs = 0;
+                if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
             }
-            // The arena cannot take one more element of this slot: fall back live.
-            if !live && c_attrs == 0 { go_live!(); }
         };
     }
     macro_rules! flush_inner_marks {
         () => {
             if n_inner_marks > 0 {
-                if live {
-                    deliver!(3, a_inner_marks, n_inner_marks);
-                    n_inner_marks = 0;
-                } else if nh < HELD {
-                    held[nh].write((3, (a_inner_marks as *mut u8).offset_from(arena_base) as usize, n_inner_marks));
-                    nh += 1;
-                    used += (n_inner_marks * ::core::mem::size_of::<i64>() + 7) & !7;
-                    n_inner_marks = 0;
-                    af_reset!();
-                } else {
-                    // The held-run table is full: fall back live, this run last.
-                    let (p, n) = (a_inner_marks, n_inner_marks);
-                    go_live!();
-                    deliver!(3, p, n);
-                    n_inner_marks = 0;
+                if let Some(add) = (*vt).add_items_inner_marks {
+                    if (*dcx).hdr.err == AK_OK {
+                        ak_rt::bump!((*dcx).c, reverse);
+                        add(ctx, obj, tok, a_inner_marks as *const i64, n_inner_marks as i32);
+                    }
                 }
+                n_inner_marks = 0;
+                if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
             }
-            // The arena cannot take one more element of this slot: fall back live.
-            if !live && c_inner_marks == 0 { go_live!(); }
         };
     }
     macro_rules! flush_inner_leaves {
         () => {
             if n_inner_leaves > 0 {
-                if live {
-                    deliver!(4, a_inner_leaves, n_inner_leaves);
-                    n_inner_leaves = 0;
-                } else if nh < HELD {
-                    held[nh].write((4, (a_inner_leaves as *mut u8).offset_from(arena_base) as usize, n_inner_leaves));
-                    nh += 1;
-                    used += (n_inner_leaves * ::core::mem::size_of::<ak_dfix_ChunkLeaf>() + 7) & !7;
-                    n_inner_leaves = 0;
-                    af_reset!();
-                } else {
-                    // The held-run table is full: fall back live, this run last.
-                    let (p, n) = (a_inner_leaves, n_inner_leaves);
-                    go_live!();
-                    deliver!(4, p, n);
-                    n_inner_leaves = 0;
+                if let Some(add) = (*vt).add_items_inner_leaves {
+                    if (*dcx).hdr.err == AK_OK {
+                        ak_rt::bump!((*dcx).c, reverse);
+                        add(ctx, obj, tok, a_inner_leaves as *const ak_dfix_ChunkLeaf, n_inner_leaves as i32);
+                    }
                 }
+                n_inner_leaves = 0;
+                if (*dcx).hdr.err != AK_OK && d.err == 0 { d.err = (*dcx).hdr.err; }
             }
-            // The arena cannot take one more element of this slot: fall back live.
-            if !live && c_inner_leaves == 0 { go_live!(); }
         };
     }
     macro_rules! flush {
@@ -5868,7 +5115,7 @@ unsafe fn dec_chunked_response_wide_items_element<const AF: bool>(
         match tag {
             1 if wire == 2 => {
                 if cur != 1 { flush!(); cur = 1; }
-                if n_labels == cap_labels!() { flush_labels!(); }
+                if n_labels == N_LABELS { flush_labels!(); }
                 let (off, n) = d.len_body();
                 if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 at_labels!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
@@ -5876,7 +5123,7 @@ unsafe fn dec_chunked_response_wide_items_element<const AF: bool>(
             }
             2 if wire == 2 => {
                 if cur != 2 { flush!(); cur = 2; }
-                if n_attrs == cap_attrs!() { flush_attrs!(); }
+                if n_attrs == N_ATTRS { flush_attrs!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
                 let p = at_attrs!();
@@ -5907,7 +5154,7 @@ unsafe fn dec_chunked_response_wide_items_element<const AF: bool>(
                     match tag {
                     1 if wire == 0 => {
                         if cur != 3 { flush!(); cur = 3; }
-                        if n_inner_marks == cap_inner_marks!() { flush_inner_marks!(); }
+                        if n_inner_marks == N_INNER_MARKS { flush_inner_marks!(); }
                         let v = c1.varint() as i64;
                         if c1.err == 0 { at_inner_marks!().write(v); n_inner_marks += 1; }
                     }
@@ -5916,7 +5163,7 @@ unsafe fn dec_chunked_response_wide_items_element<const AF: bool>(
                         let (off, n) = c1.len_body();
                         let mut ps = Dec::new(&buf1[off..off + n]);
                         while !ps.at_end() {
-                            if n_inner_marks == cap_inner_marks!() { flush_inner_marks!(); }
+                            if n_inner_marks == N_INNER_MARKS { flush_inner_marks!(); }
                             let v = ps.varint() as i64;
                             if ps.err != 0 { break; }
                             at_inner_marks!().write(v);
@@ -5926,7 +5173,7 @@ unsafe fn dec_chunked_response_wide_items_element<const AF: bool>(
                     }
                     2 if wire == 2 => {
                         if cur != 4 { flush!(); cur = 4; }
-                        if n_inner_leaves == cap_inner_leaves!() { flush_inner_leaves!(); }
+                        if n_inner_leaves == N_INNER_LEAVES { flush_inner_leaves!(); }
                         let (off, n) = c1.len_body();
                         let mut es = Dec::new(&buf1[off..off + n]);
                         let p = at_inner_leaves!();
@@ -5954,17 +5201,8 @@ unsafe fn dec_chunked_response_wide_items_element<const AF: bool>(
     if d.err == 0 {
         if let Some(ap) = (*vt).apply_items {
             ak_rt::bump!((*dcx).c, reverse);
-            // Live: the token `new` gave. Deferred (N5): -1, construct and append.
             ap(ctx, obj, tok, &out);
             if (*dcx).hdr.err != AK_OK { d.err = (*dcx).hdr.err; }
-        }
-    }
-    // N5, deferred: the held runs, in arrival order, to the element apply made.
-    if AF && !live && d.err == 0 {
-        for i in 0..nh {
-            let (sid, off, n) = held[i].assume_init();
-            deliver!(sid, arena_base.add(off), n);
-            if d.err != 0 { break; }
         }
     }
 }
@@ -5982,34 +5220,6 @@ pub unsafe extern "C" fn ak_decode_Timestamp(
     if !crate::ak_init_ok() {
         return AK_ERR_UNINITIALIZED;
     }
-    dec_root_timestamp::<false>(ctx, obj, buf, len, vt)
-}
-
-#[no_mangle]
-/// Optimisation N5 (an EXPERIMENT; additive): the apply-first element order.
-pub unsafe extern "C" fn ak_decode_Timestamp_af(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_Timestamp,
-) -> i32 {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return AK_ERR_UNINITIALIZED;
-    }
-    dec_root_timestamp::<true>(ctx, obj, buf, len, vt)
-}
-
-#[inline(always)]
-unsafe fn dec_root_timestamp<const AF: bool>(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_Timestamp,
-) -> i32 {
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
     // ABI v1 section 5: the slot is sticky and the FIRST error wins, which is a rule
@@ -6088,34 +5298,6 @@ pub unsafe extern "C" fn ak_decode_Duration(
     if !crate::ak_init_ok() {
         return AK_ERR_UNINITIALIZED;
     }
-    dec_root_duration::<false>(ctx, obj, buf, len, vt)
-}
-
-#[no_mangle]
-/// Optimisation N5 (an EXPERIMENT; additive): the apply-first element order.
-pub unsafe extern "C" fn ak_decode_Duration_af(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_Duration,
-) -> i32 {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return AK_ERR_UNINITIALIZED;
-    }
-    dec_root_duration::<true>(ctx, obj, buf, len, vt)
-}
-
-#[inline(always)]
-unsafe fn dec_root_duration<const AF: bool>(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_Duration,
-) -> i32 {
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
     // ABI v1 section 5: the slot is sticky and the FIRST error wins, which is a rule
@@ -6194,34 +5376,6 @@ pub unsafe extern "C" fn ak_decode_ResultRaw(
     if !crate::ak_init_ok() {
         return AK_ERR_UNINITIALIZED;
     }
-    dec_root_result_raw::<false>(ctx, obj, buf, len, vt)
-}
-
-#[no_mangle]
-/// Optimisation N5 (an EXPERIMENT; additive): the apply-first element order.
-pub unsafe extern "C" fn ak_decode_ResultRaw_af(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_ResultRaw,
-) -> i32 {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return AK_ERR_UNINITIALIZED;
-    }
-    dec_root_result_raw::<true>(ctx, obj, buf, len, vt)
-}
-
-#[inline(always)]
-unsafe fn dec_root_result_raw<const AF: bool>(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_ResultRaw,
-) -> i32 {
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
     // ABI v1 section 5: the slot is sticky and the FIRST error wins, which is a rule
@@ -6397,34 +5551,6 @@ pub unsafe extern "C" fn ak_decode_TaskOptions(
     if !crate::ak_init_ok() {
         return AK_ERR_UNINITIALIZED;
     }
-    dec_root_task_options::<false>(ctx, obj, buf, len, vt)
-}
-
-#[no_mangle]
-/// Optimisation N5 (an EXPERIMENT; additive): the apply-first element order.
-pub unsafe extern "C" fn ak_decode_TaskOptions_af(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_TaskOptions,
-) -> i32 {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return AK_ERR_UNINITIALIZED;
-    }
-    dec_root_task_options::<true>(ctx, obj, buf, len, vt)
-}
-
-#[inline(always)]
-unsafe fn dec_root_task_options<const AF: bool>(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_TaskOptions,
-) -> i32 {
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
     // ABI v1 section 5: the slot is sticky and the FIRST error wins, which is a rule
@@ -6455,8 +5581,6 @@ unsafe fn dec_root_task_options<const AF: bool>(
     const N_OPTIONS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>());
     const _: () = assert!(N_OPTIONS * ::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_TaskOptionsOptionsEntry>() <= 8);
     let mut n_options: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_options { () => { N_OPTIONS }; }
     let a_options: *mut ak_dfix_TaskOptionsOptionsEntry = arena.as_mut_ptr() as *mut ak_dfix_TaskOptionsOptionsEntry;
     #[allow(unused_macros)]
     macro_rules! at_options { () => { a_options.add(n_options) }; }
@@ -6492,7 +5616,7 @@ unsafe fn dec_root_task_options<const AF: bool>(
         match tag {
             1 if wire == 2 => {
                 if cur != 1 { flush!(); cur = 1; }
-                if n_options == cap_options!() { flush_options!(); }
+                if n_options == N_OPTIONS { flush_options!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
                 let p = at_options!();
@@ -6608,34 +5732,6 @@ pub unsafe extern "C" fn ak_decode_TaskOutput(
     if !crate::ak_init_ok() {
         return AK_ERR_UNINITIALIZED;
     }
-    dec_root_task_output::<false>(ctx, obj, buf, len, vt)
-}
-
-#[no_mangle]
-/// Optimisation N5 (an EXPERIMENT; additive): the apply-first element order.
-pub unsafe extern "C" fn ak_decode_TaskOutput_af(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_TaskOutput,
-) -> i32 {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return AK_ERR_UNINITIALIZED;
-    }
-    dec_root_task_output::<true>(ctx, obj, buf, len, vt)
-}
-
-#[inline(always)]
-unsafe fn dec_root_task_output<const AF: bool>(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_TaskOutput,
-) -> i32 {
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
     // ABI v1 section 5: the slot is sticky and the FIRST error wins, which is a rule
@@ -6716,34 +5812,6 @@ pub unsafe extern "C" fn ak_decode_TaskDetailed(
     if !crate::ak_init_ok() {
         return AK_ERR_UNINITIALIZED;
     }
-    dec_root_task_detailed::<false>(ctx, obj, buf, len, vt)
-}
-
-#[no_mangle]
-/// Optimisation N5 (an EXPERIMENT; additive): the apply-first element order.
-pub unsafe extern "C" fn ak_decode_TaskDetailed_af(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_TaskDetailed,
-) -> i32 {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return AK_ERR_UNINITIALIZED;
-    }
-    dec_root_task_detailed::<true>(ctx, obj, buf, len, vt)
-}
-
-#[inline(always)]
-unsafe fn dec_root_task_detailed<const AF: bool>(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_TaskDetailed,
-) -> i32 {
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
     // ABI v1 section 5: the slot is sticky and the FIRST error wins, which is a rule
@@ -6774,8 +5842,6 @@ unsafe fn dec_root_task_detailed<const AF: bool>(
     const N_PARENT_TASK_IDS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
     const _: () = assert!(N_PARENT_TASK_IDS * ::core::mem::size_of::<ak_span>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_span>() <= 8);
     let mut n_parent_task_ids: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_parent_task_ids { () => { N_PARENT_TASK_IDS }; }
     let a_parent_task_ids: *mut ak_span = arena.as_mut_ptr() as *mut ak_span;
     #[allow(unused_macros)]
     macro_rules! at_parent_task_ids { () => { a_parent_task_ids.add(n_parent_task_ids) }; }
@@ -6784,8 +5850,6 @@ unsafe fn dec_root_task_detailed<const AF: bool>(
     const N_DATA_DEPENDENCIES: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
     const _: () = assert!(N_DATA_DEPENDENCIES * ::core::mem::size_of::<ak_span>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_span>() <= 8);
     let mut n_data_dependencies: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_data_dependencies { () => { N_DATA_DEPENDENCIES }; }
     let a_data_dependencies: *mut ak_span = arena.as_mut_ptr() as *mut ak_span;
     #[allow(unused_macros)]
     macro_rules! at_data_dependencies { () => { a_data_dependencies.add(n_data_dependencies) }; }
@@ -6794,8 +5858,6 @@ unsafe fn dec_root_task_detailed<const AF: bool>(
     const N_EXPECTED_OUTPUT_IDS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
     const _: () = assert!(N_EXPECTED_OUTPUT_IDS * ::core::mem::size_of::<ak_span>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_span>() <= 8);
     let mut n_expected_output_ids: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_expected_output_ids { () => { N_EXPECTED_OUTPUT_IDS }; }
     let a_expected_output_ids: *mut ak_span = arena.as_mut_ptr() as *mut ak_span;
     #[allow(unused_macros)]
     macro_rules! at_expected_output_ids { () => { a_expected_output_ids.add(n_expected_output_ids) }; }
@@ -6804,8 +5866,6 @@ unsafe fn dec_root_task_detailed<const AF: bool>(
     const N_RETRY_OF_IDS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
     const _: () = assert!(N_RETRY_OF_IDS * ::core::mem::size_of::<ak_span>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_span>() <= 8);
     let mut n_retry_of_ids: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_retry_of_ids { () => { N_RETRY_OF_IDS }; }
     let a_retry_of_ids: *mut ak_span = arena.as_mut_ptr() as *mut ak_span;
     #[allow(unused_macros)]
     macro_rules! at_retry_of_ids { () => { a_retry_of_ids.add(n_retry_of_ids) }; }
@@ -6814,8 +5874,6 @@ unsafe fn dec_root_task_detailed<const AF: bool>(
     const N_OPTIONS_OPTIONS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>());
     const _: () = assert!(N_OPTIONS_OPTIONS * ::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_TaskOptionsOptionsEntry>() <= 8);
     let mut n_options_options: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_options_options { () => { N_OPTIONS_OPTIONS }; }
     let a_options_options: *mut ak_dfix_TaskOptionsOptionsEntry = arena.as_mut_ptr() as *mut ak_dfix_TaskOptionsOptionsEntry;
     #[allow(unused_macros)]
     macro_rules! at_options_options { () => { a_options_options.add(n_options_options) }; }
@@ -6929,7 +5987,7 @@ unsafe fn dec_root_task_detailed<const AF: bool>(
             }
             4 if wire == 2 => {
                 if cur != 1 { flush!(); cur = 1; }
-                if n_parent_task_ids == cap_parent_task_ids!() { flush_parent_task_ids!(); }
+                if n_parent_task_ids == N_PARENT_TASK_IDS { flush_parent_task_ids!(); }
                 let (off, n) = d.len_body();
                 if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 at_parent_task_ids!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
@@ -6937,7 +5995,7 @@ unsafe fn dec_root_task_detailed<const AF: bool>(
             }
             5 if wire == 2 => {
                 if cur != 2 { flush!(); cur = 2; }
-                if n_data_dependencies == cap_data_dependencies!() { flush_data_dependencies!(); }
+                if n_data_dependencies == N_DATA_DEPENDENCIES { flush_data_dependencies!(); }
                 let (off, n) = d.len_body();
                 if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 at_data_dependencies!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
@@ -6945,7 +6003,7 @@ unsafe fn dec_root_task_detailed<const AF: bool>(
             }
             6 if wire == 2 => {
                 if cur != 3 { flush!(); cur = 3; }
-                if n_expected_output_ids == cap_expected_output_ids!() { flush_expected_output_ids!(); }
+                if n_expected_output_ids == N_EXPECTED_OUTPUT_IDS { flush_expected_output_ids!(); }
                 let (off, n) = d.len_body();
                 if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 at_expected_output_ids!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
@@ -6953,7 +6011,7 @@ unsafe fn dec_root_task_detailed<const AF: bool>(
             }
             7 if wire == 2 => {
                 if cur != 4 { flush!(); cur = 4; }
-                if n_retry_of_ids == cap_retry_of_ids!() { flush_retry_of_ids!(); }
+                if n_retry_of_ids == N_RETRY_OF_IDS { flush_retry_of_ids!(); }
                 let (off, n) = d.len_body();
                 if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 at_retry_of_ids!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
@@ -6985,7 +6043,7 @@ unsafe fn dec_root_task_detailed<const AF: bool>(
                     match tag {
                     1 if wire == 2 => {
                         if cur != 5 { flush!(); cur = 5; }
-                        if n_options_options == cap_options_options!() { flush_options_options!(); }
+                        if n_options_options == N_OPTIONS_OPTIONS { flush_options_options!(); }
                         let (off, n) = c1.len_body();
                         let mut es = Dec::new(&buf1[off..off + n]);
                         let p = at_options_options!();
@@ -7511,34 +6569,6 @@ pub unsafe extern "C" fn ak_decode_TaskSummary(
     if !crate::ak_init_ok() {
         return AK_ERR_UNINITIALIZED;
     }
-    dec_root_task_summary::<false>(ctx, obj, buf, len, vt)
-}
-
-#[no_mangle]
-/// Optimisation N5 (an EXPERIMENT; additive): the apply-first element order.
-pub unsafe extern "C" fn ak_decode_TaskSummary_af(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_TaskSummary,
-) -> i32 {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return AK_ERR_UNINITIALIZED;
-    }
-    dec_root_task_summary::<true>(ctx, obj, buf, len, vt)
-}
-
-#[inline(always)]
-unsafe fn dec_root_task_summary<const AF: bool>(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_TaskSummary,
-) -> i32 {
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
     // ABI v1 section 5: the slot is sticky and the FIRST error wins, which is a rule
@@ -7569,8 +6599,6 @@ unsafe fn dec_root_task_summary<const AF: bool>(
     const N_OPTIONS_OPTIONS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>());
     const _: () = assert!(N_OPTIONS_OPTIONS * ::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_TaskOptionsOptionsEntry>() <= 8);
     let mut n_options_options: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_options_options { () => { N_OPTIONS_OPTIONS }; }
     let a_options_options: *mut ak_dfix_TaskOptionsOptionsEntry = arena.as_mut_ptr() as *mut ak_dfix_TaskOptionsOptionsEntry;
     #[allow(unused_macros)]
     macro_rules! at_options_options { () => { a_options_options.add(n_options_options) }; }
@@ -7632,7 +6660,7 @@ unsafe fn dec_root_task_summary<const AF: bool>(
                     match tag {
                     1 if wire == 2 => {
                         if cur != 1 { flush!(); cur = 1; }
-                        if n_options_options == cap_options_options!() { flush_options_options!(); }
+                        if n_options_options == N_OPTIONS_OPTIONS { flush_options_options!(); }
                         let (off, n) = c1.len_body();
                         let mut es = Dec::new(&buf1[off..off + n]);
                         let p = at_options_options!();
@@ -7804,34 +6832,6 @@ pub unsafe extern "C" fn ak_decode_Probe(
     if !crate::ak_init_ok() {
         return AK_ERR_UNINITIALIZED;
     }
-    dec_root_probe::<false>(ctx, obj, buf, len, vt)
-}
-
-#[no_mangle]
-/// Optimisation N5 (an EXPERIMENT; additive): the apply-first element order.
-pub unsafe extern "C" fn ak_decode_Probe_af(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_Probe,
-) -> i32 {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return AK_ERR_UNINITIALIZED;
-    }
-    dec_root_probe::<true>(ctx, obj, buf, len, vt)
-}
-
-#[inline(always)]
-unsafe fn dec_root_probe<const AF: bool>(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_Probe,
-) -> i32 {
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
     // ABI v1 section 5: the slot is sticky and the FIRST error wins, which is a rule
@@ -7970,34 +6970,6 @@ pub unsafe extern "C" fn ak_decode_Empty(
     if !crate::ak_init_ok() {
         return AK_ERR_UNINITIALIZED;
     }
-    dec_root_empty::<false>(ctx, obj, buf, len, vt)
-}
-
-#[no_mangle]
-/// Optimisation N5 (an EXPERIMENT; additive): the apply-first element order.
-pub unsafe extern "C" fn ak_decode_Empty_af(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_Empty,
-) -> i32 {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return AK_ERR_UNINITIALIZED;
-    }
-    dec_root_empty::<true>(ctx, obj, buf, len, vt)
-}
-
-#[inline(always)]
-unsafe fn dec_root_empty<const AF: bool>(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_Empty,
-) -> i32 {
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
     // ABI v1 section 5: the slot is sticky and the FIRST error wins, which is a rule
@@ -8068,34 +7040,6 @@ pub unsafe extern "C" fn ak_decode_UploadResultData(
     if !crate::ak_init_ok() {
         return AK_ERR_UNINITIALIZED;
     }
-    dec_root_upload_result_data::<false>(ctx, obj, buf, len, vt)
-}
-
-#[no_mangle]
-/// Optimisation N5 (an EXPERIMENT; additive): the apply-first element order.
-pub unsafe extern "C" fn ak_decode_UploadResultData_af(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_UploadResultData,
-) -> i32 {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return AK_ERR_UNINITIALIZED;
-    }
-    dec_root_upload_result_data::<true>(ctx, obj, buf, len, vt)
-}
-
-#[inline(always)]
-unsafe fn dec_root_upload_result_data<const AF: bool>(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_UploadResultData,
-) -> i32 {
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
     // ABI v1 section 5: the slot is sticky and the FIRST error wins, which is a rule
@@ -8183,34 +7127,6 @@ pub unsafe extern "C" fn ak_decode_MetricsBatch(
     if !crate::ak_init_ok() {
         return AK_ERR_UNINITIALIZED;
     }
-    dec_root_metrics_batch::<false>(ctx, obj, buf, len, vt)
-}
-
-#[no_mangle]
-/// Optimisation N5 (an EXPERIMENT; additive): the apply-first element order.
-pub unsafe extern "C" fn ak_decode_MetricsBatch_af(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_MetricsBatch,
-) -> i32 {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return AK_ERR_UNINITIALIZED;
-    }
-    dec_root_metrics_batch::<true>(ctx, obj, buf, len, vt)
-}
-
-#[inline(always)]
-unsafe fn dec_root_metrics_batch<const AF: bool>(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_MetricsBatch,
-) -> i32 {
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
     // ABI v1 section 5: the slot is sticky and the FIRST error wins, which is a rule
@@ -8241,8 +7157,6 @@ unsafe fn dec_root_metrics_batch<const AF: bool>(
     const N_TICKS: usize = ak_rt::arena_n(::core::mem::size_of::<i64>());
     const _: () = assert!(N_TICKS * ::core::mem::size_of::<i64>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<i64>() <= 8);
     let mut n_ticks: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_ticks { () => { N_TICKS }; }
     let a_ticks: *mut i64 = arena.as_mut_ptr() as *mut i64;
     #[allow(unused_macros)]
     macro_rules! at_ticks { () => { a_ticks.add(n_ticks) }; }
@@ -8251,8 +7165,6 @@ unsafe fn dec_root_metrics_batch<const AF: bool>(
     const N_VALUES: usize = ak_rt::arena_n(::core::mem::size_of::<f64>());
     const _: () = assert!(N_VALUES * ::core::mem::size_of::<f64>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<f64>() <= 8);
     let mut n_values: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_values { () => { N_VALUES }; }
     let a_values: *mut f64 = arena.as_mut_ptr() as *mut f64;
     #[allow(unused_macros)]
     macro_rules! at_values { () => { a_values.add(n_values) }; }
@@ -8261,8 +7173,6 @@ unsafe fn dec_root_metrics_batch<const AF: bool>(
     const N_CODES: usize = ak_rt::arena_n(::core::mem::size_of::<i32>());
     const _: () = assert!(N_CODES * ::core::mem::size_of::<i32>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<i32>() <= 8);
     let mut n_codes: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_codes { () => { N_CODES }; }
     let a_codes: *mut i32 = arena.as_mut_ptr() as *mut i32;
     #[allow(unused_macros)]
     macro_rules! at_codes { () => { a_codes.add(n_codes) }; }
@@ -8271,8 +7181,6 @@ unsafe fn dec_root_metrics_batch<const AF: bool>(
     const N_FLAGS: usize = ak_rt::arena_n(::core::mem::size_of::<u8>());
     const _: () = assert!(N_FLAGS * ::core::mem::size_of::<u8>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<u8>() <= 8);
     let mut n_flags: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_flags { () => { N_FLAGS }; }
     let a_flags: *mut u8 = arena.as_mut_ptr() as *mut u8;
     #[allow(unused_macros)]
     macro_rules! at_flags { () => { a_flags.add(n_flags) }; }
@@ -8281,8 +7189,6 @@ unsafe fn dec_root_metrics_batch<const AF: bool>(
     const N_STATUSES: usize = ak_rt::arena_n(::core::mem::size_of::<i32>());
     const _: () = assert!(N_STATUSES * ::core::mem::size_of::<i32>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<i32>() <= 8);
     let mut n_statuses: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_statuses { () => { N_STATUSES }; }
     let a_statuses: *mut i32 = arena.as_mut_ptr() as *mut i32;
     #[allow(unused_macros)]
     macro_rules! at_statuses { () => { a_statuses.add(n_statuses) }; }
@@ -8384,7 +7290,7 @@ unsafe fn dec_root_metrics_batch<const AF: bool>(
             }
             2 if wire == 0 => {
                 if cur != 1 { flush!(); cur = 1; }
-                if n_ticks == cap_ticks!() { flush_ticks!(); }
+                if n_ticks == N_TICKS { flush_ticks!(); }
                 let v = d.varint() as i64;
                 if d.err == 0 { at_ticks!().write(v); n_ticks += 1; }
             }
@@ -8393,7 +7299,7 @@ unsafe fn dec_root_metrics_batch<const AF: bool>(
                 let (off, n) = d.len_body();
                 let mut ps = Dec::new(&buf0[off..off + n]);
                 while !ps.at_end() {
-                    if n_ticks == cap_ticks!() { flush_ticks!(); }
+                    if n_ticks == N_TICKS { flush_ticks!(); }
                     let v = ps.varint() as i64;
                     if ps.err != 0 { break; }
                     at_ticks!().write(v);
@@ -8403,7 +7309,7 @@ unsafe fn dec_root_metrics_batch<const AF: bool>(
             }
             3 if wire == 1 => {
                 if cur != 2 { flush!(); cur = 2; }
-                if n_values == cap_values!() { flush_values!(); }
+                if n_values == N_VALUES { flush_values!(); }
                 let v = d.f64();
                 if d.err == 0 { at_values!().write(v); n_values += 1; }
             }
@@ -8412,7 +7318,7 @@ unsafe fn dec_root_metrics_batch<const AF: bool>(
                 let (off, n) = d.len_body();
                 let mut ps = Dec::new(&buf0[off..off + n]);
                 while !ps.at_end() {
-                    if n_values == cap_values!() { flush_values!(); }
+                    if n_values == N_VALUES { flush_values!(); }
                     let v = ps.f64();
                     if ps.err != 0 { break; }
                     at_values!().write(v);
@@ -8422,7 +7328,7 @@ unsafe fn dec_root_metrics_batch<const AF: bool>(
             }
             4 if wire == 0 => {
                 if cur != 3 { flush!(); cur = 3; }
-                if n_codes == cap_codes!() { flush_codes!(); }
+                if n_codes == N_CODES { flush_codes!(); }
                 let v = d.varint() as i32;
                 if d.err == 0 { at_codes!().write(v); n_codes += 1; }
             }
@@ -8431,7 +7337,7 @@ unsafe fn dec_root_metrics_batch<const AF: bool>(
                 let (off, n) = d.len_body();
                 let mut ps = Dec::new(&buf0[off..off + n]);
                 while !ps.at_end() {
-                    if n_codes == cap_codes!() { flush_codes!(); }
+                    if n_codes == N_CODES { flush_codes!(); }
                     let v = ps.varint() as i32;
                     if ps.err != 0 { break; }
                     at_codes!().write(v);
@@ -8441,7 +7347,7 @@ unsafe fn dec_root_metrics_batch<const AF: bool>(
             }
             5 if wire == 0 => {
                 if cur != 4 { flush!(); cur = 4; }
-                if n_flags == cap_flags!() { flush_flags!(); }
+                if n_flags == N_FLAGS { flush_flags!(); }
                 let v = (d.varint() != 0) as u8;
                 if d.err == 0 { at_flags!().write(v); n_flags += 1; }
             }
@@ -8450,7 +7356,7 @@ unsafe fn dec_root_metrics_batch<const AF: bool>(
                 let (off, n) = d.len_body();
                 let mut ps = Dec::new(&buf0[off..off + n]);
                 while !ps.at_end() {
-                    if n_flags == cap_flags!() { flush_flags!(); }
+                    if n_flags == N_FLAGS { flush_flags!(); }
                     let v = (ps.varint() != 0) as u8;
                     if ps.err != 0 { break; }
                     at_flags!().write(v);
@@ -8460,7 +7366,7 @@ unsafe fn dec_root_metrics_batch<const AF: bool>(
             }
             6 if wire == 0 => {
                 if cur != 5 { flush!(); cur = 5; }
-                if n_statuses == cap_statuses!() { flush_statuses!(); }
+                if n_statuses == N_STATUSES { flush_statuses!(); }
                 let v = d.varint() as i32;
                 if d.err == 0 { at_statuses!().write(v); n_statuses += 1; }
             }
@@ -8469,7 +7375,7 @@ unsafe fn dec_root_metrics_batch<const AF: bool>(
                 let (off, n) = d.len_body();
                 let mut ps = Dec::new(&buf0[off..off + n]);
                 while !ps.at_end() {
-                    if n_statuses == cap_statuses!() { flush_statuses!(); }
+                    if n_statuses == N_STATUSES { flush_statuses!(); }
                     let v = ps.varint() as i32;
                     if ps.err != 0 { break; }
                     at_statuses!().write(v);
@@ -8511,34 +7417,6 @@ pub unsafe extern "C" fn ak_decode_Pair(
     if !crate::ak_init_ok() {
         return AK_ERR_UNINITIALIZED;
     }
-    dec_root_pair::<false>(ctx, obj, buf, len, vt)
-}
-
-#[no_mangle]
-/// Optimisation N5 (an EXPERIMENT; additive): the apply-first element order.
-pub unsafe extern "C" fn ak_decode_Pair_af(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_Pair,
-) -> i32 {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return AK_ERR_UNINITIALIZED;
-    }
-    dec_root_pair::<true>(ctx, obj, buf, len, vt)
-}
-
-#[inline(always)]
-unsafe fn dec_root_pair<const AF: bool>(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_Pair,
-) -> i32 {
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
     // ABI v1 section 5: the slot is sticky and the FIRST error wins, which is a rule
@@ -8619,34 +7497,6 @@ pub unsafe extern "C" fn ak_decode_ListResultsResponse(
     if !crate::ak_init_ok() {
         return AK_ERR_UNINITIALIZED;
     }
-    dec_root_list_results_response::<false>(ctx, obj, buf, len, vt)
-}
-
-#[no_mangle]
-/// Optimisation N5 (an EXPERIMENT; additive): the apply-first element order.
-pub unsafe extern "C" fn ak_decode_ListResultsResponse_af(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_ListResultsResponse,
-) -> i32 {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return AK_ERR_UNINITIALIZED;
-    }
-    dec_root_list_results_response::<true>(ctx, obj, buf, len, vt)
-}
-
-#[inline(always)]
-unsafe fn dec_root_list_results_response<const AF: bool>(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_ListResultsResponse,
-) -> i32 {
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
     // ABI v1 section 5: the slot is sticky and the FIRST error wins, which is a rule
@@ -8677,8 +7527,6 @@ unsafe fn dec_root_list_results_response<const AF: bool>(
     const N_RESULTS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_ResultRaw>());
     const _: () = assert!(N_RESULTS * ::core::mem::size_of::<ak_dfix_ResultRaw>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_ResultRaw>() <= 8);
     let mut n_results: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_results { () => { N_RESULTS }; }
     let a_results: *mut ak_dfix_ResultRaw = arena.as_mut_ptr() as *mut ak_dfix_ResultRaw;
     #[allow(unused_macros)]
     macro_rules! at_results { () => { a_results.add(n_results) }; }
@@ -8714,7 +7562,7 @@ unsafe fn dec_root_list_results_response<const AF: bool>(
         match tag {
             1 if wire == 2 => {
                 if cur != 1 { flush!(); cur = 1; }
-                if n_results == cap_results!() { flush_results!(); }
+                if n_results == N_RESULTS { flush_results!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
                 let p = at_results!();
@@ -8765,34 +7613,6 @@ pub unsafe extern "C" fn ak_decode_ListTasksDetailedResponse(
     if !crate::ak_init_ok() {
         return AK_ERR_UNINITIALIZED;
     }
-    dec_root_list_tasks_detailed_response::<false>(ctx, obj, buf, len, vt)
-}
-
-#[no_mangle]
-/// Optimisation N5 (an EXPERIMENT; additive): the apply-first element order.
-pub unsafe extern "C" fn ak_decode_ListTasksDetailedResponse_af(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_ListTasksDetailedResponse,
-) -> i32 {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return AK_ERR_UNINITIALIZED;
-    }
-    dec_root_list_tasks_detailed_response::<true>(ctx, obj, buf, len, vt)
-}
-
-#[inline(always)]
-unsafe fn dec_root_list_tasks_detailed_response<const AF: bool>(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_ListTasksDetailedResponse,
-) -> i32 {
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
     // ABI v1 section 5: the slot is sticky and the FIRST error wins, which is a rule
@@ -8833,7 +7653,7 @@ unsafe fn dec_root_list_tasks_detailed_response<const AF: bool>(
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
                 let mut sub = Dec::new(&buf0[off..off + n]);
-                dec_list_tasks_detailed_response_tasks_element::<AF>(ctx, dcx, obj, vt, &mut sub, base0 + off, u.at(1));
+                dec_list_tasks_detailed_response_tasks_element(ctx, dcx, obj, vt, &mut sub, base0 + off, u.at(1));
                 if sub.err != 0 { d.err = sub.err; }
             }
             2 if wire == 0 => {
@@ -8878,34 +7698,6 @@ pub unsafe extern "C" fn ak_decode_ListTaskSummaryResponse(
     if !crate::ak_init_ok() {
         return AK_ERR_UNINITIALIZED;
     }
-    dec_root_list_task_summary_response::<false>(ctx, obj, buf, len, vt)
-}
-
-#[no_mangle]
-/// Optimisation N5 (an EXPERIMENT; additive): the apply-first element order.
-pub unsafe extern "C" fn ak_decode_ListTaskSummaryResponse_af(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_ListTaskSummaryResponse,
-) -> i32 {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return AK_ERR_UNINITIALIZED;
-    }
-    dec_root_list_task_summary_response::<true>(ctx, obj, buf, len, vt)
-}
-
-#[inline(always)]
-unsafe fn dec_root_list_task_summary_response<const AF: bool>(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_ListTaskSummaryResponse,
-) -> i32 {
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
     // ABI v1 section 5: the slot is sticky and the FIRST error wins, which is a rule
@@ -8946,7 +7738,7 @@ unsafe fn dec_root_list_task_summary_response<const AF: bool>(
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
                 let mut sub = Dec::new(&buf0[off..off + n]);
-                dec_list_task_summary_response_tasks_element::<AF>(ctx, dcx, obj, vt, &mut sub, base0 + off, u.at(1));
+                dec_list_task_summary_response_tasks_element(ctx, dcx, obj, vt, &mut sub, base0 + off, u.at(1));
                 if sub.err != 0 { d.err = sub.err; }
             }
             _ => {
@@ -8983,34 +7775,6 @@ pub unsafe extern "C" fn ak_decode_ListProbeResponse(
     if !crate::ak_init_ok() {
         return AK_ERR_UNINITIALIZED;
     }
-    dec_root_list_probe_response::<false>(ctx, obj, buf, len, vt)
-}
-
-#[no_mangle]
-/// Optimisation N5 (an EXPERIMENT; additive): the apply-first element order.
-pub unsafe extern "C" fn ak_decode_ListProbeResponse_af(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_ListProbeResponse,
-) -> i32 {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return AK_ERR_UNINITIALIZED;
-    }
-    dec_root_list_probe_response::<true>(ctx, obj, buf, len, vt)
-}
-
-#[inline(always)]
-unsafe fn dec_root_list_probe_response<const AF: bool>(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_ListProbeResponse,
-) -> i32 {
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
     // ABI v1 section 5: the slot is sticky and the FIRST error wins, which is a rule
@@ -9041,8 +7805,6 @@ unsafe fn dec_root_list_probe_response<const AF: bool>(
     const N_PROBES: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_Probe>());
     const _: () = assert!(N_PROBES * ::core::mem::size_of::<ak_dfix_Probe>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_Probe>() <= 8);
     let mut n_probes: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_probes { () => { N_PROBES }; }
     let a_probes: *mut ak_dfix_Probe = arena.as_mut_ptr() as *mut ak_dfix_Probe;
     #[allow(unused_macros)]
     macro_rules! at_probes { () => { a_probes.add(n_probes) }; }
@@ -9078,7 +7840,7 @@ unsafe fn dec_root_list_probe_response<const AF: bool>(
         match tag {
             1 if wire == 2 => {
                 if cur != 1 { flush!(); cur = 1; }
-                if n_probes == cap_probes!() { flush_probes!(); }
+                if n_probes == N_PROBES { flush_probes!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
                 let p = at_probes!();
@@ -9121,34 +7883,6 @@ pub unsafe extern "C" fn ak_decode_ListMetricsResponse(
     if !crate::ak_init_ok() {
         return AK_ERR_UNINITIALIZED;
     }
-    dec_root_list_metrics_response::<false>(ctx, obj, buf, len, vt)
-}
-
-#[no_mangle]
-/// Optimisation N5 (an EXPERIMENT; additive): the apply-first element order.
-pub unsafe extern "C" fn ak_decode_ListMetricsResponse_af(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_ListMetricsResponse,
-) -> i32 {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return AK_ERR_UNINITIALIZED;
-    }
-    dec_root_list_metrics_response::<true>(ctx, obj, buf, len, vt)
-}
-
-#[inline(always)]
-unsafe fn dec_root_list_metrics_response<const AF: bool>(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_ListMetricsResponse,
-) -> i32 {
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
     // ABI v1 section 5: the slot is sticky and the FIRST error wins, which is a rule
@@ -9189,7 +7923,7 @@ unsafe fn dec_root_list_metrics_response<const AF: bool>(
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
                 let mut sub = Dec::new(&buf0[off..off + n]);
-                dec_list_metrics_response_batches_element::<AF>(ctx, dcx, obj, vt, &mut sub, base0 + off, u.at(1));
+                dec_list_metrics_response_batches_element(ctx, dcx, obj, vt, &mut sub, base0 + off, u.at(1));
                 if sub.err != 0 { d.err = sub.err; }
             }
             _ => {
@@ -9226,34 +7960,6 @@ pub unsafe extern "C" fn ak_decode_UploadResultDataMessage(
     if !crate::ak_init_ok() {
         return AK_ERR_UNINITIALIZED;
     }
-    dec_root_upload_result_data_message::<false>(ctx, obj, buf, len, vt)
-}
-
-#[no_mangle]
-/// Optimisation N5 (an EXPERIMENT; additive): the apply-first element order.
-pub unsafe extern "C" fn ak_decode_UploadResultDataMessage_af(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_UploadResultDataMessage,
-) -> i32 {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return AK_ERR_UNINITIALIZED;
-    }
-    dec_root_upload_result_data_message::<true>(ctx, obj, buf, len, vt)
-}
-
-#[inline(always)]
-unsafe fn dec_root_upload_result_data_message<const AF: bool>(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_UploadResultDataMessage,
-) -> i32 {
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
     // ABI v1 section 5: the slot is sticky and the FIRST error wins, which is a rule
@@ -9362,34 +8068,6 @@ pub unsafe extern "C" fn ak_decode_DualResponse(
     if !crate::ak_init_ok() {
         return AK_ERR_UNINITIALIZED;
     }
-    dec_root_dual_response::<false>(ctx, obj, buf, len, vt)
-}
-
-#[no_mangle]
-/// Optimisation N5 (an EXPERIMENT; additive): the apply-first element order.
-pub unsafe extern "C" fn ak_decode_DualResponse_af(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_DualResponse,
-) -> i32 {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return AK_ERR_UNINITIALIZED;
-    }
-    dec_root_dual_response::<true>(ctx, obj, buf, len, vt)
-}
-
-#[inline(always)]
-unsafe fn dec_root_dual_response<const AF: bool>(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_DualResponse,
-) -> i32 {
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
     // ABI v1 section 5: the slot is sticky and the FIRST error wins, which is a rule
@@ -9420,8 +8098,6 @@ unsafe fn dec_root_dual_response<const AF: bool>(
     const N_LEFT: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_Pair>());
     const _: () = assert!(N_LEFT * ::core::mem::size_of::<ak_dfix_Pair>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_Pair>() <= 8);
     let mut n_left: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_left { () => { N_LEFT }; }
     let a_left: *mut ak_dfix_Pair = arena.as_mut_ptr() as *mut ak_dfix_Pair;
     #[allow(unused_macros)]
     macro_rules! at_left { () => { a_left.add(n_left) }; }
@@ -9430,8 +8106,6 @@ unsafe fn dec_root_dual_response<const AF: bool>(
     const N_RIGHT: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_Pair>());
     const _: () = assert!(N_RIGHT * ::core::mem::size_of::<ak_dfix_Pair>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_Pair>() <= 8);
     let mut n_right: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_right { () => { N_RIGHT }; }
     let a_right: *mut ak_dfix_Pair = arena.as_mut_ptr() as *mut ak_dfix_Pair;
     #[allow(unused_macros)]
     macro_rules! at_right { () => { a_right.add(n_right) }; }
@@ -9482,7 +8156,7 @@ unsafe fn dec_root_dual_response<const AF: bool>(
         match tag {
             1 if wire == 2 => {
                 if cur != 1 { flush!(); cur = 1; }
-                if n_left == cap_left!() { flush_left!(); }
+                if n_left == N_LEFT { flush_left!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
                 let p = at_left!();
@@ -9493,7 +8167,7 @@ unsafe fn dec_root_dual_response<const AF: bool>(
             }
             2 if wire == 2 => {
                 if cur != 2 { flush!(); cur = 2; }
-                if n_right == cap_right!() { flush_right!(); }
+                if n_right == N_RIGHT { flush_right!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
                 let p = at_right!();
@@ -9536,34 +8210,6 @@ pub unsafe extern "C" fn ak_decode_ChunkLeaf(
     if !crate::ak_init_ok() {
         return AK_ERR_UNINITIALIZED;
     }
-    dec_root_chunk_leaf::<false>(ctx, obj, buf, len, vt)
-}
-
-#[no_mangle]
-/// Optimisation N5 (an EXPERIMENT; additive): the apply-first element order.
-pub unsafe extern "C" fn ak_decode_ChunkLeaf_af(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_ChunkLeaf,
-) -> i32 {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return AK_ERR_UNINITIALIZED;
-    }
-    dec_root_chunk_leaf::<true>(ctx, obj, buf, len, vt)
-}
-
-#[inline(always)]
-unsafe fn dec_root_chunk_leaf<const AF: bool>(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_ChunkLeaf,
-) -> i32 {
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
     // ABI v1 section 5: the slot is sticky and the FIRST error wins, which is a rule
@@ -9644,34 +8290,6 @@ pub unsafe extern "C" fn ak_decode_ChunkInner(
     if !crate::ak_init_ok() {
         return AK_ERR_UNINITIALIZED;
     }
-    dec_root_chunk_inner::<false>(ctx, obj, buf, len, vt)
-}
-
-#[no_mangle]
-/// Optimisation N5 (an EXPERIMENT; additive): the apply-first element order.
-pub unsafe extern "C" fn ak_decode_ChunkInner_af(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_ChunkInner,
-) -> i32 {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return AK_ERR_UNINITIALIZED;
-    }
-    dec_root_chunk_inner::<true>(ctx, obj, buf, len, vt)
-}
-
-#[inline(always)]
-unsafe fn dec_root_chunk_inner<const AF: bool>(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_ChunkInner,
-) -> i32 {
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
     // ABI v1 section 5: the slot is sticky and the FIRST error wins, which is a rule
@@ -9702,8 +8320,6 @@ unsafe fn dec_root_chunk_inner<const AF: bool>(
     const N_MARKS: usize = ak_rt::arena_n(::core::mem::size_of::<i64>());
     const _: () = assert!(N_MARKS * ::core::mem::size_of::<i64>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<i64>() <= 8);
     let mut n_marks: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_marks { () => { N_MARKS }; }
     let a_marks: *mut i64 = arena.as_mut_ptr() as *mut i64;
     #[allow(unused_macros)]
     macro_rules! at_marks { () => { a_marks.add(n_marks) }; }
@@ -9712,8 +8328,6 @@ unsafe fn dec_root_chunk_inner<const AF: bool>(
     const N_LEAVES: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_ChunkLeaf>());
     const _: () = assert!(N_LEAVES * ::core::mem::size_of::<ak_dfix_ChunkLeaf>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_ChunkLeaf>() <= 8);
     let mut n_leaves: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_leaves { () => { N_LEAVES }; }
     let a_leaves: *mut ak_dfix_ChunkLeaf = arena.as_mut_ptr() as *mut ak_dfix_ChunkLeaf;
     #[allow(unused_macros)]
     macro_rules! at_leaves { () => { a_leaves.add(n_leaves) }; }
@@ -9764,7 +8378,7 @@ unsafe fn dec_root_chunk_inner<const AF: bool>(
         match tag {
             1 if wire == 0 => {
                 if cur != 1 { flush!(); cur = 1; }
-                if n_marks == cap_marks!() { flush_marks!(); }
+                if n_marks == N_MARKS { flush_marks!(); }
                 let v = d.varint() as i64;
                 if d.err == 0 { at_marks!().write(v); n_marks += 1; }
             }
@@ -9773,7 +8387,7 @@ unsafe fn dec_root_chunk_inner<const AF: bool>(
                 let (off, n) = d.len_body();
                 let mut ps = Dec::new(&buf0[off..off + n]);
                 while !ps.at_end() {
-                    if n_marks == cap_marks!() { flush_marks!(); }
+                    if n_marks == N_MARKS { flush_marks!(); }
                     let v = ps.varint() as i64;
                     if ps.err != 0 { break; }
                     at_marks!().write(v);
@@ -9783,7 +8397,7 @@ unsafe fn dec_root_chunk_inner<const AF: bool>(
             }
             2 if wire == 2 => {
                 if cur != 2 { flush!(); cur = 2; }
-                if n_leaves == cap_leaves!() { flush_leaves!(); }
+                if n_leaves == N_LEAVES { flush_leaves!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
                 let p = at_leaves!();
@@ -9826,34 +8440,6 @@ pub unsafe extern "C" fn ak_decode_ChunkElement(
     if !crate::ak_init_ok() {
         return AK_ERR_UNINITIALIZED;
     }
-    dec_root_chunk_element::<false>(ctx, obj, buf, len, vt)
-}
-
-#[no_mangle]
-/// Optimisation N5 (an EXPERIMENT; additive): the apply-first element order.
-pub unsafe extern "C" fn ak_decode_ChunkElement_af(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_ChunkElement,
-) -> i32 {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return AK_ERR_UNINITIALIZED;
-    }
-    dec_root_chunk_element::<true>(ctx, obj, buf, len, vt)
-}
-
-#[inline(always)]
-unsafe fn dec_root_chunk_element<const AF: bool>(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_ChunkElement,
-) -> i32 {
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
     // ABI v1 section 5: the slot is sticky and the FIRST error wins, which is a rule
@@ -9884,8 +8470,6 @@ unsafe fn dec_root_chunk_element<const AF: bool>(
     const N_LABELS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
     const _: () = assert!(N_LABELS * ::core::mem::size_of::<ak_span>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_span>() <= 8);
     let mut n_labels: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_labels { () => { N_LABELS }; }
     let a_labels: *mut ak_span = arena.as_mut_ptr() as *mut ak_span;
     #[allow(unused_macros)]
     macro_rules! at_labels { () => { a_labels.add(n_labels) }; }
@@ -9894,8 +8478,6 @@ unsafe fn dec_root_chunk_element<const AF: bool>(
     const N_ATTRS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_ChunkElementAttrsEntry>());
     const _: () = assert!(N_ATTRS * ::core::mem::size_of::<ak_dfix_ChunkElementAttrsEntry>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_ChunkElementAttrsEntry>() <= 8);
     let mut n_attrs: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_attrs { () => { N_ATTRS }; }
     let a_attrs: *mut ak_dfix_ChunkElementAttrsEntry = arena.as_mut_ptr() as *mut ak_dfix_ChunkElementAttrsEntry;
     #[allow(unused_macros)]
     macro_rules! at_attrs { () => { a_attrs.add(n_attrs) }; }
@@ -9904,8 +8486,6 @@ unsafe fn dec_root_chunk_element<const AF: bool>(
     const N_INNER_MARKS: usize = ak_rt::arena_n(::core::mem::size_of::<i64>());
     const _: () = assert!(N_INNER_MARKS * ::core::mem::size_of::<i64>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<i64>() <= 8);
     let mut n_inner_marks: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_inner_marks { () => { N_INNER_MARKS }; }
     let a_inner_marks: *mut i64 = arena.as_mut_ptr() as *mut i64;
     #[allow(unused_macros)]
     macro_rules! at_inner_marks { () => { a_inner_marks.add(n_inner_marks) }; }
@@ -9914,8 +8494,6 @@ unsafe fn dec_root_chunk_element<const AF: bool>(
     const N_INNER_LEAVES: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_ChunkLeaf>());
     const _: () = assert!(N_INNER_LEAVES * ::core::mem::size_of::<ak_dfix_ChunkLeaf>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_ChunkLeaf>() <= 8);
     let mut n_inner_leaves: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_inner_leaves { () => { N_INNER_LEAVES }; }
     let a_inner_leaves: *mut ak_dfix_ChunkLeaf = arena.as_mut_ptr() as *mut ak_dfix_ChunkLeaf;
     #[allow(unused_macros)]
     macro_rules! at_inner_leaves { () => { a_inner_leaves.add(n_inner_leaves) }; }
@@ -9996,7 +8574,7 @@ unsafe fn dec_root_chunk_element<const AF: bool>(
         match tag {
             1 if wire == 2 => {
                 if cur != 1 { flush!(); cur = 1; }
-                if n_labels == cap_labels!() { flush_labels!(); }
+                if n_labels == N_LABELS { flush_labels!(); }
                 let (off, n) = d.len_body();
                 if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 at_labels!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
@@ -10004,7 +8582,7 @@ unsafe fn dec_root_chunk_element<const AF: bool>(
             }
             2 if wire == 2 => {
                 if cur != 2 { flush!(); cur = 2; }
-                if n_attrs == cap_attrs!() { flush_attrs!(); }
+                if n_attrs == N_ATTRS { flush_attrs!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
                 let p = at_attrs!();
@@ -10035,7 +8613,7 @@ unsafe fn dec_root_chunk_element<const AF: bool>(
                     match tag {
                     1 if wire == 0 => {
                         if cur != 3 { flush!(); cur = 3; }
-                        if n_inner_marks == cap_inner_marks!() { flush_inner_marks!(); }
+                        if n_inner_marks == N_INNER_MARKS { flush_inner_marks!(); }
                         let v = c1.varint() as i64;
                         if c1.err == 0 { at_inner_marks!().write(v); n_inner_marks += 1; }
                     }
@@ -10044,7 +8622,7 @@ unsafe fn dec_root_chunk_element<const AF: bool>(
                         let (off, n) = c1.len_body();
                         let mut ps = Dec::new(&buf1[off..off + n]);
                         while !ps.at_end() {
-                            if n_inner_marks == cap_inner_marks!() { flush_inner_marks!(); }
+                            if n_inner_marks == N_INNER_MARKS { flush_inner_marks!(); }
                             let v = ps.varint() as i64;
                             if ps.err != 0 { break; }
                             at_inner_marks!().write(v);
@@ -10054,7 +8632,7 @@ unsafe fn dec_root_chunk_element<const AF: bool>(
                     }
                     2 if wire == 2 => {
                         if cur != 4 { flush!(); cur = 4; }
-                        if n_inner_leaves == cap_inner_leaves!() { flush_inner_leaves!(); }
+                        if n_inner_leaves == N_INNER_LEAVES { flush_inner_leaves!(); }
                         let (off, n) = c1.len_body();
                         let mut es = Dec::new(&buf1[off..off + n]);
                         let p = at_inner_leaves!();
@@ -10104,34 +8682,6 @@ pub unsafe extern "C" fn ak_decode_ChunkedResponse(
     if !crate::ak_init_ok() {
         return AK_ERR_UNINITIALIZED;
     }
-    dec_root_chunked_response::<false>(ctx, obj, buf, len, vt)
-}
-
-#[no_mangle]
-/// Optimisation N5 (an EXPERIMENT; additive): the apply-first element order.
-pub unsafe extern "C" fn ak_decode_ChunkedResponse_af(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_ChunkedResponse,
-) -> i32 {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return AK_ERR_UNINITIALIZED;
-    }
-    dec_root_chunked_response::<true>(ctx, obj, buf, len, vt)
-}
-
-#[inline(always)]
-unsafe fn dec_root_chunked_response<const AF: bool>(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_ChunkedResponse,
-) -> i32 {
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
     // ABI v1 section 5: the slot is sticky and the FIRST error wins, which is a rule
@@ -10172,7 +8722,7 @@ unsafe fn dec_root_chunked_response<const AF: bool>(
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
                 let mut sub = Dec::new(&buf0[off..off + n]);
-                dec_chunked_response_items_element::<AF>(ctx, dcx, obj, vt, &mut sub, base0 + off, u.at(1));
+                dec_chunked_response_items_element(ctx, dcx, obj, vt, &mut sub, base0 + off, u.at(1));
                 if sub.err != 0 { d.err = sub.err; }
             }
             8 if wire == 0 => {
@@ -10213,34 +8763,6 @@ pub unsafe extern "C" fn ak_decode_ChunkedResponseWide(
     if !crate::ak_init_ok() {
         return AK_ERR_UNINITIALIZED;
     }
-    dec_root_chunked_response_wide::<false>(ctx, obj, buf, len, vt)
-}
-
-#[no_mangle]
-/// Optimisation N5 (an EXPERIMENT; additive): the apply-first element order.
-pub unsafe extern "C" fn ak_decode_ChunkedResponseWide_af(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_ChunkedResponseWide,
-) -> i32 {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return AK_ERR_UNINITIALIZED;
-    }
-    dec_root_chunked_response_wide::<true>(ctx, obj, buf, len, vt)
-}
-
-#[inline(always)]
-unsafe fn dec_root_chunked_response_wide<const AF: bool>(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_ChunkedResponseWide,
-) -> i32 {
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
     // ABI v1 section 5: the slot is sticky and the FIRST error wins, which is a rule
@@ -10281,7 +8803,7 @@ unsafe fn dec_root_chunked_response_wide<const AF: bool>(
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
                 let mut sub = Dec::new(&buf0[off..off + n]);
-                dec_chunked_response_wide_items_element::<AF>(ctx, dcx, obj, vt, &mut sub, base0 + off, u.at(1));
+                dec_chunked_response_wide_items_element(ctx, dcx, obj, vt, &mut sub, base0 + off, u.at(1));
                 if sub.err != 0 { d.err = sub.err; }
             }
             _ => {
@@ -10318,34 +8840,6 @@ pub unsafe extern "C" fn ak_decode_LeafElement(
     if !crate::ak_init_ok() {
         return AK_ERR_UNINITIALIZED;
     }
-    dec_root_leaf_element::<false>(ctx, obj, buf, len, vt)
-}
-
-#[no_mangle]
-/// Optimisation N5 (an EXPERIMENT; additive): the apply-first element order.
-pub unsafe extern "C" fn ak_decode_LeafElement_af(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_LeafElement,
-) -> i32 {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return AK_ERR_UNINITIALIZED;
-    }
-    dec_root_leaf_element::<true>(ctx, obj, buf, len, vt)
-}
-
-#[inline(always)]
-unsafe fn dec_root_leaf_element<const AF: bool>(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_LeafElement,
-) -> i32 {
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
     // ABI v1 section 5: the slot is sticky and the FIRST error wins, which is a rule
@@ -10455,34 +8949,6 @@ pub unsafe extern "C" fn ak_decode_LeafResponse(
     if !crate::ak_init_ok() {
         return AK_ERR_UNINITIALIZED;
     }
-    dec_root_leaf_response::<false>(ctx, obj, buf, len, vt)
-}
-
-#[no_mangle]
-/// Optimisation N5 (an EXPERIMENT; additive): the apply-first element order.
-pub unsafe extern "C" fn ak_decode_LeafResponse_af(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_LeafResponse,
-) -> i32 {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return AK_ERR_UNINITIALIZED;
-    }
-    dec_root_leaf_response::<true>(ctx, obj, buf, len, vt)
-}
-
-#[inline(always)]
-unsafe fn dec_root_leaf_response<const AF: bool>(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_LeafResponse,
-) -> i32 {
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
     // ABI v1 section 5: the slot is sticky and the FIRST error wins, which is a rule
@@ -10513,8 +8979,6 @@ unsafe fn dec_root_leaf_response<const AF: bool>(
     const N_ITEMS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_LeafElement>());
     const _: () = assert!(N_ITEMS * ::core::mem::size_of::<ak_dfix_LeafElement>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_LeafElement>() <= 8);
     let mut n_items: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_items { () => { N_ITEMS }; }
     let a_items: *mut ak_dfix_LeafElement = arena.as_mut_ptr() as *mut ak_dfix_LeafElement;
     #[allow(unused_macros)]
     macro_rules! at_items { () => { a_items.add(n_items) }; }
@@ -10550,7 +9014,7 @@ unsafe fn dec_root_leaf_response<const AF: bool>(
         match tag {
             9 if wire == 2 => {
                 if cur != 1 { flush!(); cur = 1; }
-                if n_items == cap_items!() { flush_items!(); }
+                if n_items == N_ITEMS { flush_items!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
                 let p = at_items!();
@@ -10593,34 +9057,6 @@ pub unsafe extern "C" fn ak_decode_Surrogate(
     if !crate::ak_init_ok() {
         return AK_ERR_UNINITIALIZED;
     }
-    dec_root_surrogate::<false>(ctx, obj, buf, len, vt)
-}
-
-#[no_mangle]
-/// Optimisation N5 (an EXPERIMENT; additive): the apply-first element order.
-pub unsafe extern "C" fn ak_decode_Surrogate_af(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_Surrogate,
-) -> i32 {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return AK_ERR_UNINITIALIZED;
-    }
-    dec_root_surrogate::<true>(ctx, obj, buf, len, vt)
-}
-
-#[inline(always)]
-unsafe fn dec_root_surrogate<const AF: bool>(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_Surrogate,
-) -> i32 {
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
     // ABI v1 section 5: the slot is sticky and the FIRST error wins, which is a rule
@@ -10651,8 +9087,6 @@ unsafe fn dec_root_surrogate<const AF: bool>(
     const N_ATTRS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_SurrogateAttrsEntry>());
     const _: () = assert!(N_ATTRS * ::core::mem::size_of::<ak_dfix_SurrogateAttrsEntry>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_SurrogateAttrsEntry>() <= 8);
     let mut n_attrs: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_attrs { () => { N_ATTRS }; }
     let a_attrs: *mut ak_dfix_SurrogateAttrsEntry = arena.as_mut_ptr() as *mut ak_dfix_SurrogateAttrsEntry;
     #[allow(unused_macros)]
     macro_rules! at_attrs { () => { a_attrs.add(n_attrs) }; }
@@ -10661,8 +9095,6 @@ unsafe fn dec_root_surrogate<const AF: bool>(
     const N_TEXTS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
     const _: () = assert!(N_TEXTS * ::core::mem::size_of::<ak_span>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_span>() <= 8);
     let mut n_texts: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_texts { () => { N_TEXTS }; }
     let a_texts: *mut ak_span = arena.as_mut_ptr() as *mut ak_span;
     #[allow(unused_macros)]
     macro_rules! at_texts { () => { a_texts.add(n_texts) }; }
@@ -10746,7 +9178,7 @@ unsafe fn dec_root_surrogate<const AF: bool>(
             }
             3 if wire == 2 => {
                 if cur != 1 { flush!(); cur = 1; }
-                if n_attrs == cap_attrs!() { flush_attrs!(); }
+                if n_attrs == N_ATTRS { flush_attrs!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
                 let p = at_attrs!();
@@ -10757,7 +9189,7 @@ unsafe fn dec_root_surrogate<const AF: bool>(
             }
             4 if wire == 2 => {
                 if cur != 2 { flush!(); cur = 2; }
-                if n_texts == cap_texts!() { flush_texts!(); }
+                if n_texts == N_TEXTS { flush_texts!(); }
                 let (off, n) = d.len_body();
                 if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 at_texts!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
@@ -10802,34 +9234,6 @@ pub unsafe extern "C" fn ak_decode_SurrogateInner(
     if !crate::ak_init_ok() {
         return AK_ERR_UNINITIALIZED;
     }
-    dec_root_surrogate_inner::<false>(ctx, obj, buf, len, vt)
-}
-
-#[no_mangle]
-/// Optimisation N5 (an EXPERIMENT; additive): the apply-first element order.
-pub unsafe extern "C" fn ak_decode_SurrogateInner_af(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_SurrogateInner,
-) -> i32 {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return AK_ERR_UNINITIALIZED;
-    }
-    dec_root_surrogate_inner::<true>(ctx, obj, buf, len, vt)
-}
-
-#[inline(always)]
-unsafe fn dec_root_surrogate_inner<const AF: bool>(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_SurrogateInner,
-) -> i32 {
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
     // ABI v1 section 5: the slot is sticky and the FIRST error wins, which is a rule
@@ -10906,34 +9310,6 @@ pub unsafe extern "C" fn ak_decode_WireZoo(
     if !crate::ak_init_ok() {
         return AK_ERR_UNINITIALIZED;
     }
-    dec_root_wire_zoo::<false>(ctx, obj, buf, len, vt)
-}
-
-#[no_mangle]
-/// Optimisation N5 (an EXPERIMENT; additive): the apply-first element order.
-pub unsafe extern "C" fn ak_decode_WireZoo_af(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_WireZoo,
-) -> i32 {
-    // ABI v1 section 3: every entry point requires `ak_init`.
-    #[cfg(feature = "init-guard")]
-    if !crate::ak_init_ok() {
-        return AK_ERR_UNINITIALIZED;
-    }
-    dec_root_wire_zoo::<true>(ctx, obj, buf, len, vt)
-}
-
-#[inline(always)]
-unsafe fn dec_root_wire_zoo<const AF: bool>(
-    ctx: *mut ak_dec_ctx,
-    obj: *mut c_void,
-    buf: *const u8,
-    len: usize,
-    vt: *const ak_dvt_WireZoo,
-) -> i32 {
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
     // ABI v1 section 5: the slot is sticky and the FIRST error wins, which is a rule
@@ -11297,8 +9673,6 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
     const N_PARENT_TASK_IDS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
     const _: () = assert!(N_PARENT_TASK_IDS * ::core::mem::size_of::<ak_span>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_span>() <= 8);
     let mut n_parent_task_ids: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_parent_task_ids { () => { N_PARENT_TASK_IDS }; }
     // Optimisation D4: the run's elements go straight into the record buffer.
     let mut a_parent_task_ids: *mut ak_span = ::core::ptr::null_mut();
     #[allow(unused_macros)]
@@ -11308,8 +9682,6 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
     const N_DATA_DEPENDENCIES: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
     const _: () = assert!(N_DATA_DEPENDENCIES * ::core::mem::size_of::<ak_span>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_span>() <= 8);
     let mut n_data_dependencies: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_data_dependencies { () => { N_DATA_DEPENDENCIES }; }
     // Optimisation D4: the run's elements go straight into the record buffer.
     let mut a_data_dependencies: *mut ak_span = ::core::ptr::null_mut();
     #[allow(unused_macros)]
@@ -11319,8 +9691,6 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
     const N_EXPECTED_OUTPUT_IDS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
     const _: () = assert!(N_EXPECTED_OUTPUT_IDS * ::core::mem::size_of::<ak_span>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_span>() <= 8);
     let mut n_expected_output_ids: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_expected_output_ids { () => { N_EXPECTED_OUTPUT_IDS }; }
     // Optimisation D4: the run's elements go straight into the record buffer.
     let mut a_expected_output_ids: *mut ak_span = ::core::ptr::null_mut();
     #[allow(unused_macros)]
@@ -11330,8 +9700,6 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
     const N_RETRY_OF_IDS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
     const _: () = assert!(N_RETRY_OF_IDS * ::core::mem::size_of::<ak_span>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_span>() <= 8);
     let mut n_retry_of_ids: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_retry_of_ids { () => { N_RETRY_OF_IDS }; }
     // Optimisation D4: the run's elements go straight into the record buffer.
     let mut a_retry_of_ids: *mut ak_span = ::core::ptr::null_mut();
     #[allow(unused_macros)]
@@ -11341,8 +9709,6 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
     const N_OPTIONS_OPTIONS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>());
     const _: () = assert!(N_OPTIONS_OPTIONS * ::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_TaskOptionsOptionsEntry>() <= 8);
     let mut n_options_options: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_options_options { () => { N_OPTIONS_OPTIONS }; }
     // Optimisation D4: the run's elements go straight into the record buffer.
     let mut a_options_options: *mut ak_dfix_TaskOptionsOptionsEntry = ::core::ptr::null_mut();
     #[allow(unused_macros)]
@@ -11464,7 +9830,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
             }
             4 if wire == 2 => {
                 if cur != 1 { flush!(); cur = 1; }
-                if n_parent_task_ids == cap_parent_task_ids!() { flush_parent_task_ids!(); }
+                if n_parent_task_ids == N_PARENT_TASK_IDS { flush_parent_task_ids!(); }
                 let (off, n) = d.len_body();
                 if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 at_parent_task_ids!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
@@ -11472,7 +9838,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
             }
             5 if wire == 2 => {
                 if cur != 2 { flush!(); cur = 2; }
-                if n_data_dependencies == cap_data_dependencies!() { flush_data_dependencies!(); }
+                if n_data_dependencies == N_DATA_DEPENDENCIES { flush_data_dependencies!(); }
                 let (off, n) = d.len_body();
                 if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 at_data_dependencies!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
@@ -11480,7 +9846,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
             }
             6 if wire == 2 => {
                 if cur != 3 { flush!(); cur = 3; }
-                if n_expected_output_ids == cap_expected_output_ids!() { flush_expected_output_ids!(); }
+                if n_expected_output_ids == N_EXPECTED_OUTPUT_IDS { flush_expected_output_ids!(); }
                 let (off, n) = d.len_body();
                 if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 at_expected_output_ids!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
@@ -11488,7 +9854,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
             }
             7 if wire == 2 => {
                 if cur != 4 { flush!(); cur = 4; }
-                if n_retry_of_ids == cap_retry_of_ids!() { flush_retry_of_ids!(); }
+                if n_retry_of_ids == N_RETRY_OF_IDS { flush_retry_of_ids!(); }
                 let (off, n) = d.len_body();
                 if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 at_retry_of_ids!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
@@ -11520,7 +9886,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                     match tag {
                     1 if wire == 2 => {
                         if cur != 5 { flush!(); cur = 5; }
-                        if n_options_options == cap_options_options!() { flush_options_options!(); }
+                        if n_options_options == N_OPTIONS_OPTIONS { flush_options_options!(); }
                         let (off, n) = c1.len_body();
                         let mut es = Dec::new(&buf1[off..off + n]);
                         let p = at_options_options!();
@@ -12055,8 +10421,6 @@ unsafe fn dec_list_task_summary_response_tasks_element_pull(
     const N_OPTIONS_OPTIONS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>());
     const _: () = assert!(N_OPTIONS_OPTIONS * ::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_TaskOptionsOptionsEntry>() <= 8);
     let mut n_options_options: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_options_options { () => { N_OPTIONS_OPTIONS }; }
     // Optimisation D4: the run's elements go straight into the record buffer.
     let mut a_options_options: *mut ak_dfix_TaskOptionsOptionsEntry = ::core::ptr::null_mut();
     #[allow(unused_macros)]
@@ -12118,7 +10482,7 @@ unsafe fn dec_list_task_summary_response_tasks_element_pull(
                     match tag {
                     1 if wire == 2 => {
                         if cur != 1 { flush!(); cur = 1; }
-                        if n_options_options == cap_options_options!() { flush_options_options!(); }
+                        if n_options_options == N_OPTIONS_OPTIONS { flush_options_options!(); }
                         let (off, n) = c1.len_body();
                         let mut es = Dec::new(&buf1[off..off + n]);
                         let p = at_options_options!();
@@ -12299,8 +10663,6 @@ unsafe fn dec_list_metrics_response_batches_element_pull(
     const N_TICKS: usize = ak_rt::arena_n(::core::mem::size_of::<i64>());
     const _: () = assert!(N_TICKS * ::core::mem::size_of::<i64>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<i64>() <= 8);
     let mut n_ticks: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_ticks { () => { N_TICKS }; }
     // Optimisation D4: the run's elements go straight into the record buffer.
     let mut a_ticks: *mut i64 = ::core::ptr::null_mut();
     #[allow(unused_macros)]
@@ -12310,8 +10672,6 @@ unsafe fn dec_list_metrics_response_batches_element_pull(
     const N_VALUES: usize = ak_rt::arena_n(::core::mem::size_of::<f64>());
     const _: () = assert!(N_VALUES * ::core::mem::size_of::<f64>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<f64>() <= 8);
     let mut n_values: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_values { () => { N_VALUES }; }
     // Optimisation D4: the run's elements go straight into the record buffer.
     let mut a_values: *mut f64 = ::core::ptr::null_mut();
     #[allow(unused_macros)]
@@ -12321,8 +10681,6 @@ unsafe fn dec_list_metrics_response_batches_element_pull(
     const N_CODES: usize = ak_rt::arena_n(::core::mem::size_of::<i32>());
     const _: () = assert!(N_CODES * ::core::mem::size_of::<i32>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<i32>() <= 8);
     let mut n_codes: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_codes { () => { N_CODES }; }
     // Optimisation D4: the run's elements go straight into the record buffer.
     let mut a_codes: *mut i32 = ::core::ptr::null_mut();
     #[allow(unused_macros)]
@@ -12332,8 +10690,6 @@ unsafe fn dec_list_metrics_response_batches_element_pull(
     const N_FLAGS: usize = ak_rt::arena_n(::core::mem::size_of::<u8>());
     const _: () = assert!(N_FLAGS * ::core::mem::size_of::<u8>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<u8>() <= 8);
     let mut n_flags: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_flags { () => { N_FLAGS }; }
     // Optimisation D4: the run's elements go straight into the record buffer.
     let mut a_flags: *mut u8 = ::core::ptr::null_mut();
     #[allow(unused_macros)]
@@ -12343,8 +10699,6 @@ unsafe fn dec_list_metrics_response_batches_element_pull(
     const N_STATUSES: usize = ak_rt::arena_n(::core::mem::size_of::<i32>());
     const _: () = assert!(N_STATUSES * ::core::mem::size_of::<i32>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<i32>() <= 8);
     let mut n_statuses: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_statuses { () => { N_STATUSES }; }
     // Optimisation D4: the run's elements go straight into the record buffer.
     let mut a_statuses: *mut i32 = ::core::ptr::null_mut();
     #[allow(unused_macros)]
@@ -12454,7 +10808,7 @@ unsafe fn dec_list_metrics_response_batches_element_pull(
             }
             2 if wire == 0 => {
                 if cur != 1 { flush!(); cur = 1; }
-                if n_ticks == cap_ticks!() { flush_ticks!(); }
+                if n_ticks == N_TICKS { flush_ticks!(); }
                 let v = d.varint() as i64;
                 if d.err == 0 { at_ticks!().write(v); n_ticks += 1; }
             }
@@ -12463,7 +10817,7 @@ unsafe fn dec_list_metrics_response_batches_element_pull(
                 let (off, n) = d.len_body();
                 let mut ps = Dec::new(&buf0[off..off + n]);
                 while !ps.at_end() {
-                    if n_ticks == cap_ticks!() { flush_ticks!(); }
+                    if n_ticks == N_TICKS { flush_ticks!(); }
                     let v = ps.varint() as i64;
                     if ps.err != 0 { break; }
                     at_ticks!().write(v);
@@ -12473,7 +10827,7 @@ unsafe fn dec_list_metrics_response_batches_element_pull(
             }
             3 if wire == 1 => {
                 if cur != 2 { flush!(); cur = 2; }
-                if n_values == cap_values!() { flush_values!(); }
+                if n_values == N_VALUES { flush_values!(); }
                 let v = d.f64();
                 if d.err == 0 { at_values!().write(v); n_values += 1; }
             }
@@ -12482,7 +10836,7 @@ unsafe fn dec_list_metrics_response_batches_element_pull(
                 let (off, n) = d.len_body();
                 let mut ps = Dec::new(&buf0[off..off + n]);
                 while !ps.at_end() {
-                    if n_values == cap_values!() { flush_values!(); }
+                    if n_values == N_VALUES { flush_values!(); }
                     let v = ps.f64();
                     if ps.err != 0 { break; }
                     at_values!().write(v);
@@ -12492,7 +10846,7 @@ unsafe fn dec_list_metrics_response_batches_element_pull(
             }
             4 if wire == 0 => {
                 if cur != 3 { flush!(); cur = 3; }
-                if n_codes == cap_codes!() { flush_codes!(); }
+                if n_codes == N_CODES { flush_codes!(); }
                 let v = d.varint() as i32;
                 if d.err == 0 { at_codes!().write(v); n_codes += 1; }
             }
@@ -12501,7 +10855,7 @@ unsafe fn dec_list_metrics_response_batches_element_pull(
                 let (off, n) = d.len_body();
                 let mut ps = Dec::new(&buf0[off..off + n]);
                 while !ps.at_end() {
-                    if n_codes == cap_codes!() { flush_codes!(); }
+                    if n_codes == N_CODES { flush_codes!(); }
                     let v = ps.varint() as i32;
                     if ps.err != 0 { break; }
                     at_codes!().write(v);
@@ -12511,7 +10865,7 @@ unsafe fn dec_list_metrics_response_batches_element_pull(
             }
             5 if wire == 0 => {
                 if cur != 4 { flush!(); cur = 4; }
-                if n_flags == cap_flags!() { flush_flags!(); }
+                if n_flags == N_FLAGS { flush_flags!(); }
                 let v = (d.varint() != 0) as u8;
                 if d.err == 0 { at_flags!().write(v); n_flags += 1; }
             }
@@ -12520,7 +10874,7 @@ unsafe fn dec_list_metrics_response_batches_element_pull(
                 let (off, n) = d.len_body();
                 let mut ps = Dec::new(&buf0[off..off + n]);
                 while !ps.at_end() {
-                    if n_flags == cap_flags!() { flush_flags!(); }
+                    if n_flags == N_FLAGS { flush_flags!(); }
                     let v = (ps.varint() != 0) as u8;
                     if ps.err != 0 { break; }
                     at_flags!().write(v);
@@ -12530,7 +10884,7 @@ unsafe fn dec_list_metrics_response_batches_element_pull(
             }
             6 if wire == 0 => {
                 if cur != 5 { flush!(); cur = 5; }
-                if n_statuses == cap_statuses!() { flush_statuses!(); }
+                if n_statuses == N_STATUSES { flush_statuses!(); }
                 let v = d.varint() as i32;
                 if d.err == 0 { at_statuses!().write(v); n_statuses += 1; }
             }
@@ -12539,7 +10893,7 @@ unsafe fn dec_list_metrics_response_batches_element_pull(
                 let (off, n) = d.len_body();
                 let mut ps = Dec::new(&buf0[off..off + n]);
                 while !ps.at_end() {
-                    if n_statuses == cap_statuses!() { flush_statuses!(); }
+                    if n_statuses == N_STATUSES { flush_statuses!(); }
                     let v = ps.varint() as i32;
                     if ps.err != 0 { break; }
                     at_statuses!().write(v);
@@ -12590,8 +10944,6 @@ unsafe fn dec_chunked_response_items_element_pull(
     const N_LABELS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
     const _: () = assert!(N_LABELS * ::core::mem::size_of::<ak_span>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_span>() <= 8);
     let mut n_labels: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_labels { () => { N_LABELS }; }
     // Optimisation D4: the run's elements go straight into the record buffer.
     let mut a_labels: *mut ak_span = ::core::ptr::null_mut();
     #[allow(unused_macros)]
@@ -12601,8 +10953,6 @@ unsafe fn dec_chunked_response_items_element_pull(
     const N_ATTRS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_ChunkElementAttrsEntry>());
     const _: () = assert!(N_ATTRS * ::core::mem::size_of::<ak_dfix_ChunkElementAttrsEntry>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_ChunkElementAttrsEntry>() <= 8);
     let mut n_attrs: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_attrs { () => { N_ATTRS }; }
     // Optimisation D4: the run's elements go straight into the record buffer.
     let mut a_attrs: *mut ak_dfix_ChunkElementAttrsEntry = ::core::ptr::null_mut();
     #[allow(unused_macros)]
@@ -12612,8 +10962,6 @@ unsafe fn dec_chunked_response_items_element_pull(
     const N_INNER_MARKS: usize = ak_rt::arena_n(::core::mem::size_of::<i64>());
     const _: () = assert!(N_INNER_MARKS * ::core::mem::size_of::<i64>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<i64>() <= 8);
     let mut n_inner_marks: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_inner_marks { () => { N_INNER_MARKS }; }
     // Optimisation D4: the run's elements go straight into the record buffer.
     let mut a_inner_marks: *mut i64 = ::core::ptr::null_mut();
     #[allow(unused_macros)]
@@ -12623,8 +10971,6 @@ unsafe fn dec_chunked_response_items_element_pull(
     const N_INNER_LEAVES: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_ChunkLeaf>());
     const _: () = assert!(N_INNER_LEAVES * ::core::mem::size_of::<ak_dfix_ChunkLeaf>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_ChunkLeaf>() <= 8);
     let mut n_inner_leaves: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_inner_leaves { () => { N_INNER_LEAVES }; }
     // Optimisation D4: the run's elements go straight into the record buffer.
     let mut a_inner_leaves: *mut ak_dfix_ChunkLeaf = ::core::ptr::null_mut();
     #[allow(unused_macros)]
@@ -12711,7 +11057,7 @@ unsafe fn dec_chunked_response_items_element_pull(
         match tag {
             1 if wire == 2 => {
                 if cur != 1 { flush!(); cur = 1; }
-                if n_labels == cap_labels!() { flush_labels!(); }
+                if n_labels == N_LABELS { flush_labels!(); }
                 let (off, n) = d.len_body();
                 if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 at_labels!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
@@ -12719,7 +11065,7 @@ unsafe fn dec_chunked_response_items_element_pull(
             }
             2 if wire == 2 => {
                 if cur != 2 { flush!(); cur = 2; }
-                if n_attrs == cap_attrs!() { flush_attrs!(); }
+                if n_attrs == N_ATTRS { flush_attrs!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
                 let p = at_attrs!();
@@ -12750,7 +11096,7 @@ unsafe fn dec_chunked_response_items_element_pull(
                     match tag {
                     1 if wire == 0 => {
                         if cur != 3 { flush!(); cur = 3; }
-                        if n_inner_marks == cap_inner_marks!() { flush_inner_marks!(); }
+                        if n_inner_marks == N_INNER_MARKS { flush_inner_marks!(); }
                         let v = c1.varint() as i64;
                         if c1.err == 0 { at_inner_marks!().write(v); n_inner_marks += 1; }
                     }
@@ -12759,7 +11105,7 @@ unsafe fn dec_chunked_response_items_element_pull(
                         let (off, n) = c1.len_body();
                         let mut ps = Dec::new(&buf1[off..off + n]);
                         while !ps.at_end() {
-                            if n_inner_marks == cap_inner_marks!() { flush_inner_marks!(); }
+                            if n_inner_marks == N_INNER_MARKS { flush_inner_marks!(); }
                             let v = ps.varint() as i64;
                             if ps.err != 0 { break; }
                             at_inner_marks!().write(v);
@@ -12769,7 +11115,7 @@ unsafe fn dec_chunked_response_items_element_pull(
                     }
                     2 if wire == 2 => {
                         if cur != 4 { flush!(); cur = 4; }
-                        if n_inner_leaves == cap_inner_leaves!() { flush_inner_leaves!(); }
+                        if n_inner_leaves == N_INNER_LEAVES { flush_inner_leaves!(); }
                         let (off, n) = c1.len_body();
                         let mut es = Dec::new(&buf1[off..off + n]);
                         let p = at_inner_leaves!();
@@ -12828,8 +11174,6 @@ unsafe fn dec_chunked_response_wide_items_element_pull(
     const N_LABELS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
     const _: () = assert!(N_LABELS * ::core::mem::size_of::<ak_span>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_span>() <= 8);
     let mut n_labels: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_labels { () => { N_LABELS }; }
     // Optimisation D4: the run's elements go straight into the record buffer.
     let mut a_labels: *mut ak_span = ::core::ptr::null_mut();
     #[allow(unused_macros)]
@@ -12839,8 +11183,6 @@ unsafe fn dec_chunked_response_wide_items_element_pull(
     const N_ATTRS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_ChunkElementAttrsEntry>());
     const _: () = assert!(N_ATTRS * ::core::mem::size_of::<ak_dfix_ChunkElementAttrsEntry>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_ChunkElementAttrsEntry>() <= 8);
     let mut n_attrs: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_attrs { () => { N_ATTRS }; }
     // Optimisation D4: the run's elements go straight into the record buffer.
     let mut a_attrs: *mut ak_dfix_ChunkElementAttrsEntry = ::core::ptr::null_mut();
     #[allow(unused_macros)]
@@ -12850,8 +11192,6 @@ unsafe fn dec_chunked_response_wide_items_element_pull(
     const N_INNER_MARKS: usize = ak_rt::arena_n(::core::mem::size_of::<i64>());
     const _: () = assert!(N_INNER_MARKS * ::core::mem::size_of::<i64>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<i64>() <= 8);
     let mut n_inner_marks: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_inner_marks { () => { N_INNER_MARKS }; }
     // Optimisation D4: the run's elements go straight into the record buffer.
     let mut a_inner_marks: *mut i64 = ::core::ptr::null_mut();
     #[allow(unused_macros)]
@@ -12861,8 +11201,6 @@ unsafe fn dec_chunked_response_wide_items_element_pull(
     const N_INNER_LEAVES: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_ChunkLeaf>());
     const _: () = assert!(N_INNER_LEAVES * ::core::mem::size_of::<ak_dfix_ChunkLeaf>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_ChunkLeaf>() <= 8);
     let mut n_inner_leaves: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_inner_leaves { () => { N_INNER_LEAVES }; }
     // Optimisation D4: the run's elements go straight into the record buffer.
     let mut a_inner_leaves: *mut ak_dfix_ChunkLeaf = ::core::ptr::null_mut();
     #[allow(unused_macros)]
@@ -12949,7 +11287,7 @@ unsafe fn dec_chunked_response_wide_items_element_pull(
         match tag {
             1 if wire == 2 => {
                 if cur != 1 { flush!(); cur = 1; }
-                if n_labels == cap_labels!() { flush_labels!(); }
+                if n_labels == N_LABELS { flush_labels!(); }
                 let (off, n) = d.len_body();
                 if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 at_labels!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
@@ -12957,7 +11295,7 @@ unsafe fn dec_chunked_response_wide_items_element_pull(
             }
             2 if wire == 2 => {
                 if cur != 2 { flush!(); cur = 2; }
-                if n_attrs == cap_attrs!() { flush_attrs!(); }
+                if n_attrs == N_ATTRS { flush_attrs!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
                 let p = at_attrs!();
@@ -12988,7 +11326,7 @@ unsafe fn dec_chunked_response_wide_items_element_pull(
                     match tag {
                     1 if wire == 0 => {
                         if cur != 3 { flush!(); cur = 3; }
-                        if n_inner_marks == cap_inner_marks!() { flush_inner_marks!(); }
+                        if n_inner_marks == N_INNER_MARKS { flush_inner_marks!(); }
                         let v = c1.varint() as i64;
                         if c1.err == 0 { at_inner_marks!().write(v); n_inner_marks += 1; }
                     }
@@ -12997,7 +11335,7 @@ unsafe fn dec_chunked_response_wide_items_element_pull(
                         let (off, n) = c1.len_body();
                         let mut ps = Dec::new(&buf1[off..off + n]);
                         while !ps.at_end() {
-                            if n_inner_marks == cap_inner_marks!() { flush_inner_marks!(); }
+                            if n_inner_marks == N_INNER_MARKS { flush_inner_marks!(); }
                             let v = ps.varint() as i64;
                             if ps.err != 0 { break; }
                             at_inner_marks!().write(v);
@@ -13007,7 +11345,7 @@ unsafe fn dec_chunked_response_wide_items_element_pull(
                     }
                     2 if wire == 2 => {
                         if cur != 4 { flush!(); cur = 4; }
-                        if n_inner_leaves == cap_inner_leaves!() { flush_inner_leaves!(); }
+                        if n_inner_leaves == N_INNER_LEAVES { flush_inner_leaves!(); }
                         let (off, n) = c1.len_body();
                         let mut es = Dec::new(&buf1[off..off + n]);
                         let p = at_inner_leaves!();
@@ -13419,8 +11757,6 @@ pub unsafe extern "C" fn ak_parse_TaskOptions(
     const N_OPTIONS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>());
     const _: () = assert!(N_OPTIONS * ::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_TaskOptionsOptionsEntry>() <= 8);
     let mut n_options: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_options { () => { N_OPTIONS }; }
     // Optimisation D4: the run's elements go straight into the record buffer.
     let mut a_options: *mut ak_dfix_TaskOptionsOptionsEntry = ::core::ptr::null_mut();
     #[allow(unused_macros)]
@@ -13457,7 +11793,7 @@ pub unsafe extern "C" fn ak_parse_TaskOptions(
         match tag {
             1 if wire == 2 => {
                 if cur != 1 { flush!(); cur = 1; }
-                if n_options == cap_options!() { flush_options!(); }
+                if n_options == N_OPTIONS { flush_options!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
                 let p = at_options!();
@@ -13685,8 +12021,6 @@ pub unsafe extern "C" fn ak_parse_TaskDetailed(
     const N_PARENT_TASK_IDS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
     const _: () = assert!(N_PARENT_TASK_IDS * ::core::mem::size_of::<ak_span>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_span>() <= 8);
     let mut n_parent_task_ids: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_parent_task_ids { () => { N_PARENT_TASK_IDS }; }
     // Optimisation D4: the run's elements go straight into the record buffer.
     let mut a_parent_task_ids: *mut ak_span = ::core::ptr::null_mut();
     #[allow(unused_macros)]
@@ -13696,8 +12030,6 @@ pub unsafe extern "C" fn ak_parse_TaskDetailed(
     const N_DATA_DEPENDENCIES: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
     const _: () = assert!(N_DATA_DEPENDENCIES * ::core::mem::size_of::<ak_span>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_span>() <= 8);
     let mut n_data_dependencies: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_data_dependencies { () => { N_DATA_DEPENDENCIES }; }
     // Optimisation D4: the run's elements go straight into the record buffer.
     let mut a_data_dependencies: *mut ak_span = ::core::ptr::null_mut();
     #[allow(unused_macros)]
@@ -13707,8 +12039,6 @@ pub unsafe extern "C" fn ak_parse_TaskDetailed(
     const N_EXPECTED_OUTPUT_IDS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
     const _: () = assert!(N_EXPECTED_OUTPUT_IDS * ::core::mem::size_of::<ak_span>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_span>() <= 8);
     let mut n_expected_output_ids: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_expected_output_ids { () => { N_EXPECTED_OUTPUT_IDS }; }
     // Optimisation D4: the run's elements go straight into the record buffer.
     let mut a_expected_output_ids: *mut ak_span = ::core::ptr::null_mut();
     #[allow(unused_macros)]
@@ -13718,8 +12048,6 @@ pub unsafe extern "C" fn ak_parse_TaskDetailed(
     const N_RETRY_OF_IDS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
     const _: () = assert!(N_RETRY_OF_IDS * ::core::mem::size_of::<ak_span>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_span>() <= 8);
     let mut n_retry_of_ids: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_retry_of_ids { () => { N_RETRY_OF_IDS }; }
     // Optimisation D4: the run's elements go straight into the record buffer.
     let mut a_retry_of_ids: *mut ak_span = ::core::ptr::null_mut();
     #[allow(unused_macros)]
@@ -13729,8 +12057,6 @@ pub unsafe extern "C" fn ak_parse_TaskDetailed(
     const N_OPTIONS_OPTIONS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>());
     const _: () = assert!(N_OPTIONS_OPTIONS * ::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_TaskOptionsOptionsEntry>() <= 8);
     let mut n_options_options: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_options_options { () => { N_OPTIONS_OPTIONS }; }
     // Optimisation D4: the run's elements go straight into the record buffer.
     let mut a_options_options: *mut ak_dfix_TaskOptionsOptionsEntry = ::core::ptr::null_mut();
     #[allow(unused_macros)]
@@ -13853,7 +12179,7 @@ pub unsafe extern "C" fn ak_parse_TaskDetailed(
             }
             4 if wire == 2 => {
                 if cur != 1 { flush!(); cur = 1; }
-                if n_parent_task_ids == cap_parent_task_ids!() { flush_parent_task_ids!(); }
+                if n_parent_task_ids == N_PARENT_TASK_IDS { flush_parent_task_ids!(); }
                 let (off, n) = d.len_body();
                 if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 at_parent_task_ids!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
@@ -13861,7 +12187,7 @@ pub unsafe extern "C" fn ak_parse_TaskDetailed(
             }
             5 if wire == 2 => {
                 if cur != 2 { flush!(); cur = 2; }
-                if n_data_dependencies == cap_data_dependencies!() { flush_data_dependencies!(); }
+                if n_data_dependencies == N_DATA_DEPENDENCIES { flush_data_dependencies!(); }
                 let (off, n) = d.len_body();
                 if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 at_data_dependencies!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
@@ -13869,7 +12195,7 @@ pub unsafe extern "C" fn ak_parse_TaskDetailed(
             }
             6 if wire == 2 => {
                 if cur != 3 { flush!(); cur = 3; }
-                if n_expected_output_ids == cap_expected_output_ids!() { flush_expected_output_ids!(); }
+                if n_expected_output_ids == N_EXPECTED_OUTPUT_IDS { flush_expected_output_ids!(); }
                 let (off, n) = d.len_body();
                 if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 at_expected_output_ids!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
@@ -13877,7 +12203,7 @@ pub unsafe extern "C" fn ak_parse_TaskDetailed(
             }
             7 if wire == 2 => {
                 if cur != 4 { flush!(); cur = 4; }
-                if n_retry_of_ids == cap_retry_of_ids!() { flush_retry_of_ids!(); }
+                if n_retry_of_ids == N_RETRY_OF_IDS { flush_retry_of_ids!(); }
                 let (off, n) = d.len_body();
                 if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 at_retry_of_ids!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
@@ -13909,7 +12235,7 @@ pub unsafe extern "C" fn ak_parse_TaskDetailed(
                     match tag {
                     1 if wire == 2 => {
                         if cur != 5 { flush!(); cur = 5; }
-                        if n_options_options == cap_options_options!() { flush_options_options!(); }
+                        if n_options_options == N_OPTIONS_OPTIONS { flush_options_options!(); }
                         let (off, n) = c1.len_body();
                         let mut es = Dec::new(&buf1[off..off + n]);
                         let p = at_options_options!();
@@ -14465,8 +12791,6 @@ pub unsafe extern "C" fn ak_parse_TaskSummary(
     const N_OPTIONS_OPTIONS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>());
     const _: () = assert!(N_OPTIONS_OPTIONS * ::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_TaskOptionsOptionsEntry>() <= 8);
     let mut n_options_options: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_options_options { () => { N_OPTIONS_OPTIONS }; }
     // Optimisation D4: the run's elements go straight into the record buffer.
     let mut a_options_options: *mut ak_dfix_TaskOptionsOptionsEntry = ::core::ptr::null_mut();
     #[allow(unused_macros)]
@@ -14529,7 +12853,7 @@ pub unsafe extern "C" fn ak_parse_TaskSummary(
                     match tag {
                     1 if wire == 2 => {
                         if cur != 1 { flush!(); cur = 1; }
-                        if n_options_options == cap_options_options!() { flush_options_options!(); }
+                        if n_options_options == N_OPTIONS_OPTIONS { flush_options_options!(); }
                         let (off, n) = c1.len_body();
                         let mut es = Dec::new(&buf1[off..off + n]);
                         let p = at_options_options!();
@@ -15032,8 +13356,6 @@ pub unsafe extern "C" fn ak_parse_MetricsBatch(
     const N_TICKS: usize = ak_rt::arena_n(::core::mem::size_of::<i64>());
     const _: () = assert!(N_TICKS * ::core::mem::size_of::<i64>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<i64>() <= 8);
     let mut n_ticks: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_ticks { () => { N_TICKS }; }
     // Optimisation D4: the run's elements go straight into the record buffer.
     let mut a_ticks: *mut i64 = ::core::ptr::null_mut();
     #[allow(unused_macros)]
@@ -15043,8 +13365,6 @@ pub unsafe extern "C" fn ak_parse_MetricsBatch(
     const N_VALUES: usize = ak_rt::arena_n(::core::mem::size_of::<f64>());
     const _: () = assert!(N_VALUES * ::core::mem::size_of::<f64>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<f64>() <= 8);
     let mut n_values: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_values { () => { N_VALUES }; }
     // Optimisation D4: the run's elements go straight into the record buffer.
     let mut a_values: *mut f64 = ::core::ptr::null_mut();
     #[allow(unused_macros)]
@@ -15054,8 +13374,6 @@ pub unsafe extern "C" fn ak_parse_MetricsBatch(
     const N_CODES: usize = ak_rt::arena_n(::core::mem::size_of::<i32>());
     const _: () = assert!(N_CODES * ::core::mem::size_of::<i32>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<i32>() <= 8);
     let mut n_codes: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_codes { () => { N_CODES }; }
     // Optimisation D4: the run's elements go straight into the record buffer.
     let mut a_codes: *mut i32 = ::core::ptr::null_mut();
     #[allow(unused_macros)]
@@ -15065,8 +13383,6 @@ pub unsafe extern "C" fn ak_parse_MetricsBatch(
     const N_FLAGS: usize = ak_rt::arena_n(::core::mem::size_of::<u8>());
     const _: () = assert!(N_FLAGS * ::core::mem::size_of::<u8>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<u8>() <= 8);
     let mut n_flags: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_flags { () => { N_FLAGS }; }
     // Optimisation D4: the run's elements go straight into the record buffer.
     let mut a_flags: *mut u8 = ::core::ptr::null_mut();
     #[allow(unused_macros)]
@@ -15076,8 +13392,6 @@ pub unsafe extern "C" fn ak_parse_MetricsBatch(
     const N_STATUSES: usize = ak_rt::arena_n(::core::mem::size_of::<i32>());
     const _: () = assert!(N_STATUSES * ::core::mem::size_of::<i32>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<i32>() <= 8);
     let mut n_statuses: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_statuses { () => { N_STATUSES }; }
     // Optimisation D4: the run's elements go straight into the record buffer.
     let mut a_statuses: *mut i32 = ::core::ptr::null_mut();
     #[allow(unused_macros)]
@@ -15188,7 +13502,7 @@ pub unsafe extern "C" fn ak_parse_MetricsBatch(
             }
             2 if wire == 0 => {
                 if cur != 1 { flush!(); cur = 1; }
-                if n_ticks == cap_ticks!() { flush_ticks!(); }
+                if n_ticks == N_TICKS { flush_ticks!(); }
                 let v = d.varint() as i64;
                 if d.err == 0 { at_ticks!().write(v); n_ticks += 1; }
             }
@@ -15197,7 +13511,7 @@ pub unsafe extern "C" fn ak_parse_MetricsBatch(
                 let (off, n) = d.len_body();
                 let mut ps = Dec::new(&buf0[off..off + n]);
                 while !ps.at_end() {
-                    if n_ticks == cap_ticks!() { flush_ticks!(); }
+                    if n_ticks == N_TICKS { flush_ticks!(); }
                     let v = ps.varint() as i64;
                     if ps.err != 0 { break; }
                     at_ticks!().write(v);
@@ -15207,7 +13521,7 @@ pub unsafe extern "C" fn ak_parse_MetricsBatch(
             }
             3 if wire == 1 => {
                 if cur != 2 { flush!(); cur = 2; }
-                if n_values == cap_values!() { flush_values!(); }
+                if n_values == N_VALUES { flush_values!(); }
                 let v = d.f64();
                 if d.err == 0 { at_values!().write(v); n_values += 1; }
             }
@@ -15216,7 +13530,7 @@ pub unsafe extern "C" fn ak_parse_MetricsBatch(
                 let (off, n) = d.len_body();
                 let mut ps = Dec::new(&buf0[off..off + n]);
                 while !ps.at_end() {
-                    if n_values == cap_values!() { flush_values!(); }
+                    if n_values == N_VALUES { flush_values!(); }
                     let v = ps.f64();
                     if ps.err != 0 { break; }
                     at_values!().write(v);
@@ -15226,7 +13540,7 @@ pub unsafe extern "C" fn ak_parse_MetricsBatch(
             }
             4 if wire == 0 => {
                 if cur != 3 { flush!(); cur = 3; }
-                if n_codes == cap_codes!() { flush_codes!(); }
+                if n_codes == N_CODES { flush_codes!(); }
                 let v = d.varint() as i32;
                 if d.err == 0 { at_codes!().write(v); n_codes += 1; }
             }
@@ -15235,7 +13549,7 @@ pub unsafe extern "C" fn ak_parse_MetricsBatch(
                 let (off, n) = d.len_body();
                 let mut ps = Dec::new(&buf0[off..off + n]);
                 while !ps.at_end() {
-                    if n_codes == cap_codes!() { flush_codes!(); }
+                    if n_codes == N_CODES { flush_codes!(); }
                     let v = ps.varint() as i32;
                     if ps.err != 0 { break; }
                     at_codes!().write(v);
@@ -15245,7 +13559,7 @@ pub unsafe extern "C" fn ak_parse_MetricsBatch(
             }
             5 if wire == 0 => {
                 if cur != 4 { flush!(); cur = 4; }
-                if n_flags == cap_flags!() { flush_flags!(); }
+                if n_flags == N_FLAGS { flush_flags!(); }
                 let v = (d.varint() != 0) as u8;
                 if d.err == 0 { at_flags!().write(v); n_flags += 1; }
             }
@@ -15254,7 +13568,7 @@ pub unsafe extern "C" fn ak_parse_MetricsBatch(
                 let (off, n) = d.len_body();
                 let mut ps = Dec::new(&buf0[off..off + n]);
                 while !ps.at_end() {
-                    if n_flags == cap_flags!() { flush_flags!(); }
+                    if n_flags == N_FLAGS { flush_flags!(); }
                     let v = (ps.varint() != 0) as u8;
                     if ps.err != 0 { break; }
                     at_flags!().write(v);
@@ -15264,7 +13578,7 @@ pub unsafe extern "C" fn ak_parse_MetricsBatch(
             }
             6 if wire == 0 => {
                 if cur != 5 { flush!(); cur = 5; }
-                if n_statuses == cap_statuses!() { flush_statuses!(); }
+                if n_statuses == N_STATUSES { flush_statuses!(); }
                 let v = d.varint() as i32;
                 if d.err == 0 { at_statuses!().write(v); n_statuses += 1; }
             }
@@ -15273,7 +13587,7 @@ pub unsafe extern "C" fn ak_parse_MetricsBatch(
                 let (off, n) = d.len_body();
                 let mut ps = Dec::new(&buf0[off..off + n]);
                 while !ps.at_end() {
-                    if n_statuses == cap_statuses!() { flush_statuses!(); }
+                    if n_statuses == N_STATUSES { flush_statuses!(); }
                     let v = ps.varint() as i32;
                     if ps.err != 0 { break; }
                     at_statuses!().write(v);
@@ -15427,8 +13741,6 @@ pub unsafe extern "C" fn ak_parse_ListResultsResponse(
     const N_RESULTS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_ResultRaw>());
     const _: () = assert!(N_RESULTS * ::core::mem::size_of::<ak_dfix_ResultRaw>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_ResultRaw>() <= 8);
     let mut n_results: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_results { () => { N_RESULTS }; }
     // Optimisation D4: the run's elements go straight into the record buffer.
     let mut a_results: *mut ak_dfix_ResultRaw = ::core::ptr::null_mut();
     #[allow(unused_macros)]
@@ -15465,7 +13777,7 @@ pub unsafe extern "C" fn ak_parse_ListResultsResponse(
         match tag {
             1 if wire == 2 => {
                 if cur != 1 { flush!(); cur = 1; }
-                if n_results == cap_results!() { flush_results!(); }
+                if n_results == N_RESULTS { flush_results!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
                 let p = at_results!();
@@ -15712,8 +14024,6 @@ pub unsafe extern "C" fn ak_parse_ListProbeResponse(
     const N_PROBES: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_Probe>());
     const _: () = assert!(N_PROBES * ::core::mem::size_of::<ak_dfix_Probe>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_Probe>() <= 8);
     let mut n_probes: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_probes { () => { N_PROBES }; }
     // Optimisation D4: the run's elements go straight into the record buffer.
     let mut a_probes: *mut ak_dfix_Probe = ::core::ptr::null_mut();
     #[allow(unused_macros)]
@@ -15750,7 +14060,7 @@ pub unsafe extern "C" fn ak_parse_ListProbeResponse(
         match tag {
             1 if wire == 2 => {
                 if cur != 1 { flush!(); cur = 1; }
-                if n_probes == cap_probes!() { flush_probes!(); }
+                if n_probes == N_PROBES { flush_probes!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
                 let p = at_probes!();
@@ -16012,8 +14322,6 @@ pub unsafe extern "C" fn ak_parse_DualResponse(
     const N_LEFT: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_Pair>());
     const _: () = assert!(N_LEFT * ::core::mem::size_of::<ak_dfix_Pair>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_Pair>() <= 8);
     let mut n_left: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_left { () => { N_LEFT }; }
     // Optimisation D4: the run's elements go straight into the record buffer.
     let mut a_left: *mut ak_dfix_Pair = ::core::ptr::null_mut();
     #[allow(unused_macros)]
@@ -16023,8 +14331,6 @@ pub unsafe extern "C" fn ak_parse_DualResponse(
     const N_RIGHT: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_Pair>());
     const _: () = assert!(N_RIGHT * ::core::mem::size_of::<ak_dfix_Pair>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_Pair>() <= 8);
     let mut n_right: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_right { () => { N_RIGHT }; }
     // Optimisation D4: the run's elements go straight into the record buffer.
     let mut a_right: *mut ak_dfix_Pair = ::core::ptr::null_mut();
     #[allow(unused_macros)]
@@ -16078,7 +14384,7 @@ pub unsafe extern "C" fn ak_parse_DualResponse(
         match tag {
             1 if wire == 2 => {
                 if cur != 1 { flush!(); cur = 1; }
-                if n_left == cap_left!() { flush_left!(); }
+                if n_left == N_LEFT { flush_left!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
                 let p = at_left!();
@@ -16089,7 +14395,7 @@ pub unsafe extern "C" fn ak_parse_DualResponse(
             }
             2 if wire == 2 => {
                 if cur != 2 { flush!(); cur = 2; }
-                if n_right == cap_right!() { flush_right!(); }
+                if n_right == N_RIGHT { flush_right!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
                 let p = at_right!();
@@ -16244,8 +14550,6 @@ pub unsafe extern "C" fn ak_parse_ChunkInner(
     const N_MARKS: usize = ak_rt::arena_n(::core::mem::size_of::<i64>());
     const _: () = assert!(N_MARKS * ::core::mem::size_of::<i64>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<i64>() <= 8);
     let mut n_marks: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_marks { () => { N_MARKS }; }
     // Optimisation D4: the run's elements go straight into the record buffer.
     let mut a_marks: *mut i64 = ::core::ptr::null_mut();
     #[allow(unused_macros)]
@@ -16255,8 +14559,6 @@ pub unsafe extern "C" fn ak_parse_ChunkInner(
     const N_LEAVES: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_ChunkLeaf>());
     const _: () = assert!(N_LEAVES * ::core::mem::size_of::<ak_dfix_ChunkLeaf>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_ChunkLeaf>() <= 8);
     let mut n_leaves: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_leaves { () => { N_LEAVES }; }
     // Optimisation D4: the run's elements go straight into the record buffer.
     let mut a_leaves: *mut ak_dfix_ChunkLeaf = ::core::ptr::null_mut();
     #[allow(unused_macros)]
@@ -16310,7 +14612,7 @@ pub unsafe extern "C" fn ak_parse_ChunkInner(
         match tag {
             1 if wire == 0 => {
                 if cur != 1 { flush!(); cur = 1; }
-                if n_marks == cap_marks!() { flush_marks!(); }
+                if n_marks == N_MARKS { flush_marks!(); }
                 let v = d.varint() as i64;
                 if d.err == 0 { at_marks!().write(v); n_marks += 1; }
             }
@@ -16319,7 +14621,7 @@ pub unsafe extern "C" fn ak_parse_ChunkInner(
                 let (off, n) = d.len_body();
                 let mut ps = Dec::new(&buf0[off..off + n]);
                 while !ps.at_end() {
-                    if n_marks == cap_marks!() { flush_marks!(); }
+                    if n_marks == N_MARKS { flush_marks!(); }
                     let v = ps.varint() as i64;
                     if ps.err != 0 { break; }
                     at_marks!().write(v);
@@ -16329,7 +14631,7 @@ pub unsafe extern "C" fn ak_parse_ChunkInner(
             }
             2 if wire == 2 => {
                 if cur != 2 { flush!(); cur = 2; }
-                if n_leaves == cap_leaves!() { flush_leaves!(); }
+                if n_leaves == N_LEAVES { flush_leaves!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
                 let p = at_leaves!();
@@ -16402,8 +14704,6 @@ pub unsafe extern "C" fn ak_parse_ChunkElement(
     const N_LABELS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
     const _: () = assert!(N_LABELS * ::core::mem::size_of::<ak_span>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_span>() <= 8);
     let mut n_labels: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_labels { () => { N_LABELS }; }
     // Optimisation D4: the run's elements go straight into the record buffer.
     let mut a_labels: *mut ak_span = ::core::ptr::null_mut();
     #[allow(unused_macros)]
@@ -16413,8 +14713,6 @@ pub unsafe extern "C" fn ak_parse_ChunkElement(
     const N_ATTRS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_ChunkElementAttrsEntry>());
     const _: () = assert!(N_ATTRS * ::core::mem::size_of::<ak_dfix_ChunkElementAttrsEntry>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_ChunkElementAttrsEntry>() <= 8);
     let mut n_attrs: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_attrs { () => { N_ATTRS }; }
     // Optimisation D4: the run's elements go straight into the record buffer.
     let mut a_attrs: *mut ak_dfix_ChunkElementAttrsEntry = ::core::ptr::null_mut();
     #[allow(unused_macros)]
@@ -16424,8 +14722,6 @@ pub unsafe extern "C" fn ak_parse_ChunkElement(
     const N_INNER_MARKS: usize = ak_rt::arena_n(::core::mem::size_of::<i64>());
     const _: () = assert!(N_INNER_MARKS * ::core::mem::size_of::<i64>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<i64>() <= 8);
     let mut n_inner_marks: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_inner_marks { () => { N_INNER_MARKS }; }
     // Optimisation D4: the run's elements go straight into the record buffer.
     let mut a_inner_marks: *mut i64 = ::core::ptr::null_mut();
     #[allow(unused_macros)]
@@ -16435,8 +14731,6 @@ pub unsafe extern "C" fn ak_parse_ChunkElement(
     const N_INNER_LEAVES: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_ChunkLeaf>());
     const _: () = assert!(N_INNER_LEAVES * ::core::mem::size_of::<ak_dfix_ChunkLeaf>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_ChunkLeaf>() <= 8);
     let mut n_inner_leaves: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_inner_leaves { () => { N_INNER_LEAVES }; }
     // Optimisation D4: the run's elements go straight into the record buffer.
     let mut a_inner_leaves: *mut ak_dfix_ChunkLeaf = ::core::ptr::null_mut();
     #[allow(unused_macros)]
@@ -16524,7 +14818,7 @@ pub unsafe extern "C" fn ak_parse_ChunkElement(
         match tag {
             1 if wire == 2 => {
                 if cur != 1 { flush!(); cur = 1; }
-                if n_labels == cap_labels!() { flush_labels!(); }
+                if n_labels == N_LABELS { flush_labels!(); }
                 let (off, n) = d.len_body();
                 if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 at_labels!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
@@ -16532,7 +14826,7 @@ pub unsafe extern "C" fn ak_parse_ChunkElement(
             }
             2 if wire == 2 => {
                 if cur != 2 { flush!(); cur = 2; }
-                if n_attrs == cap_attrs!() { flush_attrs!(); }
+                if n_attrs == N_ATTRS { flush_attrs!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
                 let p = at_attrs!();
@@ -16563,7 +14857,7 @@ pub unsafe extern "C" fn ak_parse_ChunkElement(
                     match tag {
                     1 if wire == 0 => {
                         if cur != 3 { flush!(); cur = 3; }
-                        if n_inner_marks == cap_inner_marks!() { flush_inner_marks!(); }
+                        if n_inner_marks == N_INNER_MARKS { flush_inner_marks!(); }
                         let v = c1.varint() as i64;
                         if c1.err == 0 { at_inner_marks!().write(v); n_inner_marks += 1; }
                     }
@@ -16572,7 +14866,7 @@ pub unsafe extern "C" fn ak_parse_ChunkElement(
                         let (off, n) = c1.len_body();
                         let mut ps = Dec::new(&buf1[off..off + n]);
                         while !ps.at_end() {
-                            if n_inner_marks == cap_inner_marks!() { flush_inner_marks!(); }
+                            if n_inner_marks == N_INNER_MARKS { flush_inner_marks!(); }
                             let v = ps.varint() as i64;
                             if ps.err != 0 { break; }
                             at_inner_marks!().write(v);
@@ -16582,7 +14876,7 @@ pub unsafe extern "C" fn ak_parse_ChunkElement(
                     }
                     2 if wire == 2 => {
                         if cur != 4 { flush!(); cur = 4; }
-                        if n_inner_leaves == cap_inner_leaves!() { flush_inner_leaves!(); }
+                        if n_inner_leaves == N_INNER_LEAVES { flush_inner_leaves!(); }
                         let (off, n) = c1.len_body();
                         let mut es = Dec::new(&buf1[off..off + n]);
                         let p = at_inner_leaves!();
@@ -16935,8 +15229,6 @@ pub unsafe extern "C" fn ak_parse_LeafResponse(
     const N_ITEMS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_LeafElement>());
     const _: () = assert!(N_ITEMS * ::core::mem::size_of::<ak_dfix_LeafElement>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_LeafElement>() <= 8);
     let mut n_items: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_items { () => { N_ITEMS }; }
     // Optimisation D4: the run's elements go straight into the record buffer.
     let mut a_items: *mut ak_dfix_LeafElement = ::core::ptr::null_mut();
     #[allow(unused_macros)]
@@ -16973,7 +15265,7 @@ pub unsafe extern "C" fn ak_parse_LeafResponse(
         match tag {
             9 if wire == 2 => {
                 if cur != 1 { flush!(); cur = 1; }
-                if n_items == cap_items!() { flush_items!(); }
+                if n_items == N_ITEMS { flush_items!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
                 let p = at_items!();
@@ -17046,8 +15338,6 @@ pub unsafe extern "C" fn ak_parse_Surrogate(
     const N_ATTRS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_dfix_SurrogateAttrsEntry>());
     const _: () = assert!(N_ATTRS * ::core::mem::size_of::<ak_dfix_SurrogateAttrsEntry>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_dfix_SurrogateAttrsEntry>() <= 8);
     let mut n_attrs: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_attrs { () => { N_ATTRS }; }
     // Optimisation D4: the run's elements go straight into the record buffer.
     let mut a_attrs: *mut ak_dfix_SurrogateAttrsEntry = ::core::ptr::null_mut();
     #[allow(unused_macros)]
@@ -17057,8 +15347,6 @@ pub unsafe extern "C" fn ak_parse_Surrogate(
     const N_TEXTS: usize = ak_rt::arena_n(::core::mem::size_of::<ak_span>());
     const _: () = assert!(N_TEXTS * ::core::mem::size_of::<ak_span>() <= ak_rt::ARENA_BYTES && ::core::mem::align_of::<ak_span>() <= 8);
     let mut n_texts: usize = 0;
-    #[allow(unused_macros)]
-    macro_rules! cap_texts { () => { N_TEXTS }; }
     // Optimisation D4: the run's elements go straight into the record buffer.
     let mut a_texts: *mut ak_span = ::core::ptr::null_mut();
     #[allow(unused_macros)]
@@ -17145,7 +15433,7 @@ pub unsafe extern "C" fn ak_parse_Surrogate(
             }
             3 if wire == 2 => {
                 if cur != 1 { flush!(); cur = 1; }
-                if n_attrs == cap_attrs!() { flush_attrs!(); }
+                if n_attrs == N_ATTRS { flush_attrs!(); }
                 let (off, n) = d.len_body();
                 let mut es = Dec::new(&buf0[off..off + n]);
                 let p = at_attrs!();
@@ -17156,7 +15444,7 @@ pub unsafe extern "C" fn ak_parse_Surrogate(
             }
             4 if wire == 2 => {
                 if cur != 2 { flush!(); cur = 2; }
-                if n_texts == cap_texts!() { flush_texts!(); }
+                if n_texts == N_TEXTS { flush_texts!(); }
                 let (off, n) = d.len_body();
                 if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 at_texts!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });

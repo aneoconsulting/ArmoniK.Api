@@ -1813,19 +1813,6 @@ public static unsafe partial class Abi
     internal static extern int ak_decode_Timestamp(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_Timestamp* vt);
 #endif
 #if AK_HOST_COUNT
-    [DllImport(Lib, EntryPoint = "ak_decode_Timestamp_af", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    private static extern int ak_decode_Timestamp_af__raw(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_Timestamp* vt);
-    internal static long N_ak_decode_Timestamp_af;
-    internal static int ak_decode_Timestamp_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_Timestamp* vt) { System.Threading.Interlocked.Increment(ref N_ak_decode_Timestamp_af); return ak_decode_Timestamp_af__raw(ctx, obj, buf, len, vt); }
-#elif NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_decode_Timestamp_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_Timestamp* vt);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_decode_Timestamp_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_Timestamp* vt);
-#endif
-#if AK_HOST_COUNT
     [DllImport(Lib, EntryPoint = "ak_parse_Timestamp", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     private static extern int ak_parse_Timestamp__raw(IntPtr ctx, byte* buf, nuint len);
     internal static long N_ak_parse_Timestamp;
@@ -1863,19 +1850,6 @@ public static unsafe partial class Abi
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern int ak_decode_Duration(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_Duration* vt);
-#endif
-#if AK_HOST_COUNT
-    [DllImport(Lib, EntryPoint = "ak_decode_Duration_af", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    private static extern int ak_decode_Duration_af__raw(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_Duration* vt);
-    internal static long N_ak_decode_Duration_af;
-    internal static int ak_decode_Duration_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_Duration* vt) { System.Threading.Interlocked.Increment(ref N_ak_decode_Duration_af); return ak_decode_Duration_af__raw(ctx, obj, buf, len, vt); }
-#elif NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_decode_Duration_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_Duration* vt);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_decode_Duration_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_Duration* vt);
 #endif
 #if AK_HOST_COUNT
     [DllImport(Lib, EntryPoint = "ak_parse_Duration", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
@@ -1917,19 +1891,6 @@ public static unsafe partial class Abi
     internal static extern int ak_decode_ResultRaw(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ResultRaw* vt);
 #endif
 #if AK_HOST_COUNT
-    [DllImport(Lib, EntryPoint = "ak_decode_ResultRaw_af", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    private static extern int ak_decode_ResultRaw_af__raw(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ResultRaw* vt);
-    internal static long N_ak_decode_ResultRaw_af;
-    internal static int ak_decode_ResultRaw_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ResultRaw* vt) { System.Threading.Interlocked.Increment(ref N_ak_decode_ResultRaw_af); return ak_decode_ResultRaw_af__raw(ctx, obj, buf, len, vt); }
-#elif NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_decode_ResultRaw_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ResultRaw* vt);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_decode_ResultRaw_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ResultRaw* vt);
-#endif
-#if AK_HOST_COUNT
     [DllImport(Lib, EntryPoint = "ak_parse_ResultRaw", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     private static extern int ak_parse_ResultRaw__raw(IntPtr ctx, byte* buf, nuint len);
     internal static long N_ak_parse_ResultRaw;
@@ -1967,19 +1928,6 @@ public static unsafe partial class Abi
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern int ak_decode_TaskOptions(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_TaskOptions* vt);
-#endif
-#if AK_HOST_COUNT
-    [DllImport(Lib, EntryPoint = "ak_decode_TaskOptions_af", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    private static extern int ak_decode_TaskOptions_af__raw(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_TaskOptions* vt);
-    internal static long N_ak_decode_TaskOptions_af;
-    internal static int ak_decode_TaskOptions_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_TaskOptions* vt) { System.Threading.Interlocked.Increment(ref N_ak_decode_TaskOptions_af); return ak_decode_TaskOptions_af__raw(ctx, obj, buf, len, vt); }
-#elif NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_decode_TaskOptions_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_TaskOptions* vt);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_decode_TaskOptions_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_TaskOptions* vt);
 #endif
 #if AK_HOST_COUNT
     [DllImport(Lib, EntryPoint = "ak_parse_TaskOptions", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
@@ -2021,19 +1969,6 @@ public static unsafe partial class Abi
     internal static extern int ak_decode_TaskOutput(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_TaskOutput* vt);
 #endif
 #if AK_HOST_COUNT
-    [DllImport(Lib, EntryPoint = "ak_decode_TaskOutput_af", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    private static extern int ak_decode_TaskOutput_af__raw(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_TaskOutput* vt);
-    internal static long N_ak_decode_TaskOutput_af;
-    internal static int ak_decode_TaskOutput_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_TaskOutput* vt) { System.Threading.Interlocked.Increment(ref N_ak_decode_TaskOutput_af); return ak_decode_TaskOutput_af__raw(ctx, obj, buf, len, vt); }
-#elif NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_decode_TaskOutput_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_TaskOutput* vt);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_decode_TaskOutput_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_TaskOutput* vt);
-#endif
-#if AK_HOST_COUNT
     [DllImport(Lib, EntryPoint = "ak_parse_TaskOutput", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     private static extern int ak_parse_TaskOutput__raw(IntPtr ctx, byte* buf, nuint len);
     internal static long N_ak_parse_TaskOutput;
@@ -2071,19 +2006,6 @@ public static unsafe partial class Abi
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern int ak_decode_TaskDetailed(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_TaskDetailed* vt);
-#endif
-#if AK_HOST_COUNT
-    [DllImport(Lib, EntryPoint = "ak_decode_TaskDetailed_af", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    private static extern int ak_decode_TaskDetailed_af__raw(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_TaskDetailed* vt);
-    internal static long N_ak_decode_TaskDetailed_af;
-    internal static int ak_decode_TaskDetailed_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_TaskDetailed* vt) { System.Threading.Interlocked.Increment(ref N_ak_decode_TaskDetailed_af); return ak_decode_TaskDetailed_af__raw(ctx, obj, buf, len, vt); }
-#elif NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_decode_TaskDetailed_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_TaskDetailed* vt);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_decode_TaskDetailed_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_TaskDetailed* vt);
 #endif
 #if AK_HOST_COUNT
     [DllImport(Lib, EntryPoint = "ak_parse_TaskDetailed", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
@@ -2125,19 +2047,6 @@ public static unsafe partial class Abi
     internal static extern int ak_decode_TaskSummary(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_TaskSummary* vt);
 #endif
 #if AK_HOST_COUNT
-    [DllImport(Lib, EntryPoint = "ak_decode_TaskSummary_af", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    private static extern int ak_decode_TaskSummary_af__raw(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_TaskSummary* vt);
-    internal static long N_ak_decode_TaskSummary_af;
-    internal static int ak_decode_TaskSummary_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_TaskSummary* vt) { System.Threading.Interlocked.Increment(ref N_ak_decode_TaskSummary_af); return ak_decode_TaskSummary_af__raw(ctx, obj, buf, len, vt); }
-#elif NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_decode_TaskSummary_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_TaskSummary* vt);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_decode_TaskSummary_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_TaskSummary* vt);
-#endif
-#if AK_HOST_COUNT
     [DllImport(Lib, EntryPoint = "ak_parse_TaskSummary", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     private static extern int ak_parse_TaskSummary__raw(IntPtr ctx, byte* buf, nuint len);
     internal static long N_ak_parse_TaskSummary;
@@ -2175,19 +2084,6 @@ public static unsafe partial class Abi
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern int ak_decode_Probe(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_Probe* vt);
-#endif
-#if AK_HOST_COUNT
-    [DllImport(Lib, EntryPoint = "ak_decode_Probe_af", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    private static extern int ak_decode_Probe_af__raw(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_Probe* vt);
-    internal static long N_ak_decode_Probe_af;
-    internal static int ak_decode_Probe_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_Probe* vt) { System.Threading.Interlocked.Increment(ref N_ak_decode_Probe_af); return ak_decode_Probe_af__raw(ctx, obj, buf, len, vt); }
-#elif NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_decode_Probe_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_Probe* vt);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_decode_Probe_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_Probe* vt);
 #endif
 #if AK_HOST_COUNT
     [DllImport(Lib, EntryPoint = "ak_parse_Probe", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
@@ -2229,19 +2125,6 @@ public static unsafe partial class Abi
     internal static extern int ak_decode_Empty(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_Empty* vt);
 #endif
 #if AK_HOST_COUNT
-    [DllImport(Lib, EntryPoint = "ak_decode_Empty_af", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    private static extern int ak_decode_Empty_af__raw(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_Empty* vt);
-    internal static long N_ak_decode_Empty_af;
-    internal static int ak_decode_Empty_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_Empty* vt) { System.Threading.Interlocked.Increment(ref N_ak_decode_Empty_af); return ak_decode_Empty_af__raw(ctx, obj, buf, len, vt); }
-#elif NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_decode_Empty_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_Empty* vt);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_decode_Empty_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_Empty* vt);
-#endif
-#if AK_HOST_COUNT
     [DllImport(Lib, EntryPoint = "ak_parse_Empty", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     private static extern int ak_parse_Empty__raw(IntPtr ctx, byte* buf, nuint len);
     internal static long N_ak_parse_Empty;
@@ -2279,19 +2162,6 @@ public static unsafe partial class Abi
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern int ak_decode_UploadResultData(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_UploadResultData* vt);
-#endif
-#if AK_HOST_COUNT
-    [DllImport(Lib, EntryPoint = "ak_decode_UploadResultData_af", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    private static extern int ak_decode_UploadResultData_af__raw(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_UploadResultData* vt);
-    internal static long N_ak_decode_UploadResultData_af;
-    internal static int ak_decode_UploadResultData_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_UploadResultData* vt) { System.Threading.Interlocked.Increment(ref N_ak_decode_UploadResultData_af); return ak_decode_UploadResultData_af__raw(ctx, obj, buf, len, vt); }
-#elif NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_decode_UploadResultData_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_UploadResultData* vt);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_decode_UploadResultData_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_UploadResultData* vt);
 #endif
 #if AK_HOST_COUNT
     [DllImport(Lib, EntryPoint = "ak_parse_UploadResultData", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
@@ -2333,19 +2203,6 @@ public static unsafe partial class Abi
     internal static extern int ak_decode_MetricsBatch(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_MetricsBatch* vt);
 #endif
 #if AK_HOST_COUNT
-    [DllImport(Lib, EntryPoint = "ak_decode_MetricsBatch_af", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    private static extern int ak_decode_MetricsBatch_af__raw(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_MetricsBatch* vt);
-    internal static long N_ak_decode_MetricsBatch_af;
-    internal static int ak_decode_MetricsBatch_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_MetricsBatch* vt) { System.Threading.Interlocked.Increment(ref N_ak_decode_MetricsBatch_af); return ak_decode_MetricsBatch_af__raw(ctx, obj, buf, len, vt); }
-#elif NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_decode_MetricsBatch_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_MetricsBatch* vt);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_decode_MetricsBatch_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_MetricsBatch* vt);
-#endif
-#if AK_HOST_COUNT
     [DllImport(Lib, EntryPoint = "ak_parse_MetricsBatch", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     private static extern int ak_parse_MetricsBatch__raw(IntPtr ctx, byte* buf, nuint len);
     internal static long N_ak_parse_MetricsBatch;
@@ -2383,19 +2240,6 @@ public static unsafe partial class Abi
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern int ak_decode_Pair(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_Pair* vt);
-#endif
-#if AK_HOST_COUNT
-    [DllImport(Lib, EntryPoint = "ak_decode_Pair_af", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    private static extern int ak_decode_Pair_af__raw(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_Pair* vt);
-    internal static long N_ak_decode_Pair_af;
-    internal static int ak_decode_Pair_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_Pair* vt) { System.Threading.Interlocked.Increment(ref N_ak_decode_Pair_af); return ak_decode_Pair_af__raw(ctx, obj, buf, len, vt); }
-#elif NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_decode_Pair_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_Pair* vt);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_decode_Pair_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_Pair* vt);
 #endif
 #if AK_HOST_COUNT
     [DllImport(Lib, EntryPoint = "ak_parse_Pair", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
@@ -2437,19 +2281,6 @@ public static unsafe partial class Abi
     internal static extern int ak_decode_ListResultsResponse(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ListResultsResponse* vt);
 #endif
 #if AK_HOST_COUNT
-    [DllImport(Lib, EntryPoint = "ak_decode_ListResultsResponse_af", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    private static extern int ak_decode_ListResultsResponse_af__raw(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ListResultsResponse* vt);
-    internal static long N_ak_decode_ListResultsResponse_af;
-    internal static int ak_decode_ListResultsResponse_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ListResultsResponse* vt) { System.Threading.Interlocked.Increment(ref N_ak_decode_ListResultsResponse_af); return ak_decode_ListResultsResponse_af__raw(ctx, obj, buf, len, vt); }
-#elif NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_decode_ListResultsResponse_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ListResultsResponse* vt);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_decode_ListResultsResponse_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ListResultsResponse* vt);
-#endif
-#if AK_HOST_COUNT
     [DllImport(Lib, EntryPoint = "ak_parse_ListResultsResponse", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     private static extern int ak_parse_ListResultsResponse__raw(IntPtr ctx, byte* buf, nuint len);
     internal static long N_ak_parse_ListResultsResponse;
@@ -2487,19 +2318,6 @@ public static unsafe partial class Abi
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern int ak_decode_ListTasksDetailedResponse(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ListTasksDetailedResponse* vt);
-#endif
-#if AK_HOST_COUNT
-    [DllImport(Lib, EntryPoint = "ak_decode_ListTasksDetailedResponse_af", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    private static extern int ak_decode_ListTasksDetailedResponse_af__raw(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ListTasksDetailedResponse* vt);
-    internal static long N_ak_decode_ListTasksDetailedResponse_af;
-    internal static int ak_decode_ListTasksDetailedResponse_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ListTasksDetailedResponse* vt) { System.Threading.Interlocked.Increment(ref N_ak_decode_ListTasksDetailedResponse_af); return ak_decode_ListTasksDetailedResponse_af__raw(ctx, obj, buf, len, vt); }
-#elif NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_decode_ListTasksDetailedResponse_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ListTasksDetailedResponse* vt);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_decode_ListTasksDetailedResponse_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ListTasksDetailedResponse* vt);
 #endif
 #if AK_HOST_COUNT
     [DllImport(Lib, EntryPoint = "ak_parse_ListTasksDetailedResponse", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
@@ -2541,19 +2359,6 @@ public static unsafe partial class Abi
     internal static extern int ak_decode_ListTaskSummaryResponse(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ListTaskSummaryResponse* vt);
 #endif
 #if AK_HOST_COUNT
-    [DllImport(Lib, EntryPoint = "ak_decode_ListTaskSummaryResponse_af", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    private static extern int ak_decode_ListTaskSummaryResponse_af__raw(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ListTaskSummaryResponse* vt);
-    internal static long N_ak_decode_ListTaskSummaryResponse_af;
-    internal static int ak_decode_ListTaskSummaryResponse_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ListTaskSummaryResponse* vt) { System.Threading.Interlocked.Increment(ref N_ak_decode_ListTaskSummaryResponse_af); return ak_decode_ListTaskSummaryResponse_af__raw(ctx, obj, buf, len, vt); }
-#elif NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_decode_ListTaskSummaryResponse_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ListTaskSummaryResponse* vt);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_decode_ListTaskSummaryResponse_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ListTaskSummaryResponse* vt);
-#endif
-#if AK_HOST_COUNT
     [DllImport(Lib, EntryPoint = "ak_parse_ListTaskSummaryResponse", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     private static extern int ak_parse_ListTaskSummaryResponse__raw(IntPtr ctx, byte* buf, nuint len);
     internal static long N_ak_parse_ListTaskSummaryResponse;
@@ -2591,19 +2396,6 @@ public static unsafe partial class Abi
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern int ak_decode_ListProbeResponse(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ListProbeResponse* vt);
-#endif
-#if AK_HOST_COUNT
-    [DllImport(Lib, EntryPoint = "ak_decode_ListProbeResponse_af", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    private static extern int ak_decode_ListProbeResponse_af__raw(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ListProbeResponse* vt);
-    internal static long N_ak_decode_ListProbeResponse_af;
-    internal static int ak_decode_ListProbeResponse_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ListProbeResponse* vt) { System.Threading.Interlocked.Increment(ref N_ak_decode_ListProbeResponse_af); return ak_decode_ListProbeResponse_af__raw(ctx, obj, buf, len, vt); }
-#elif NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_decode_ListProbeResponse_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ListProbeResponse* vt);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_decode_ListProbeResponse_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ListProbeResponse* vt);
 #endif
 #if AK_HOST_COUNT
     [DllImport(Lib, EntryPoint = "ak_parse_ListProbeResponse", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
@@ -2645,19 +2437,6 @@ public static unsafe partial class Abi
     internal static extern int ak_decode_ListMetricsResponse(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ListMetricsResponse* vt);
 #endif
 #if AK_HOST_COUNT
-    [DllImport(Lib, EntryPoint = "ak_decode_ListMetricsResponse_af", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    private static extern int ak_decode_ListMetricsResponse_af__raw(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ListMetricsResponse* vt);
-    internal static long N_ak_decode_ListMetricsResponse_af;
-    internal static int ak_decode_ListMetricsResponse_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ListMetricsResponse* vt) { System.Threading.Interlocked.Increment(ref N_ak_decode_ListMetricsResponse_af); return ak_decode_ListMetricsResponse_af__raw(ctx, obj, buf, len, vt); }
-#elif NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_decode_ListMetricsResponse_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ListMetricsResponse* vt);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_decode_ListMetricsResponse_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ListMetricsResponse* vt);
-#endif
-#if AK_HOST_COUNT
     [DllImport(Lib, EntryPoint = "ak_parse_ListMetricsResponse", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     private static extern int ak_parse_ListMetricsResponse__raw(IntPtr ctx, byte* buf, nuint len);
     internal static long N_ak_parse_ListMetricsResponse;
@@ -2695,19 +2474,6 @@ public static unsafe partial class Abi
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern int ak_decode_UploadResultDataMessage(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_UploadResultDataMessage* vt);
-#endif
-#if AK_HOST_COUNT
-    [DllImport(Lib, EntryPoint = "ak_decode_UploadResultDataMessage_af", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    private static extern int ak_decode_UploadResultDataMessage_af__raw(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_UploadResultDataMessage* vt);
-    internal static long N_ak_decode_UploadResultDataMessage_af;
-    internal static int ak_decode_UploadResultDataMessage_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_UploadResultDataMessage* vt) { System.Threading.Interlocked.Increment(ref N_ak_decode_UploadResultDataMessage_af); return ak_decode_UploadResultDataMessage_af__raw(ctx, obj, buf, len, vt); }
-#elif NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_decode_UploadResultDataMessage_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_UploadResultDataMessage* vt);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_decode_UploadResultDataMessage_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_UploadResultDataMessage* vt);
 #endif
 #if AK_HOST_COUNT
     [DllImport(Lib, EntryPoint = "ak_parse_UploadResultDataMessage", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
@@ -2749,19 +2515,6 @@ public static unsafe partial class Abi
     internal static extern int ak_decode_DualResponse(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_DualResponse* vt);
 #endif
 #if AK_HOST_COUNT
-    [DllImport(Lib, EntryPoint = "ak_decode_DualResponse_af", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    private static extern int ak_decode_DualResponse_af__raw(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_DualResponse* vt);
-    internal static long N_ak_decode_DualResponse_af;
-    internal static int ak_decode_DualResponse_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_DualResponse* vt) { System.Threading.Interlocked.Increment(ref N_ak_decode_DualResponse_af); return ak_decode_DualResponse_af__raw(ctx, obj, buf, len, vt); }
-#elif NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_decode_DualResponse_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_DualResponse* vt);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_decode_DualResponse_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_DualResponse* vt);
-#endif
-#if AK_HOST_COUNT
     [DllImport(Lib, EntryPoint = "ak_parse_DualResponse", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     private static extern int ak_parse_DualResponse__raw(IntPtr ctx, byte* buf, nuint len);
     internal static long N_ak_parse_DualResponse;
@@ -2799,19 +2552,6 @@ public static unsafe partial class Abi
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern int ak_decode_ChunkLeaf(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ChunkLeaf* vt);
-#endif
-#if AK_HOST_COUNT
-    [DllImport(Lib, EntryPoint = "ak_decode_ChunkLeaf_af", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    private static extern int ak_decode_ChunkLeaf_af__raw(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ChunkLeaf* vt);
-    internal static long N_ak_decode_ChunkLeaf_af;
-    internal static int ak_decode_ChunkLeaf_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ChunkLeaf* vt) { System.Threading.Interlocked.Increment(ref N_ak_decode_ChunkLeaf_af); return ak_decode_ChunkLeaf_af__raw(ctx, obj, buf, len, vt); }
-#elif NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_decode_ChunkLeaf_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ChunkLeaf* vt);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_decode_ChunkLeaf_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ChunkLeaf* vt);
 #endif
 #if AK_HOST_COUNT
     [DllImport(Lib, EntryPoint = "ak_parse_ChunkLeaf", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
@@ -2853,19 +2593,6 @@ public static unsafe partial class Abi
     internal static extern int ak_decode_ChunkInner(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ChunkInner* vt);
 #endif
 #if AK_HOST_COUNT
-    [DllImport(Lib, EntryPoint = "ak_decode_ChunkInner_af", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    private static extern int ak_decode_ChunkInner_af__raw(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ChunkInner* vt);
-    internal static long N_ak_decode_ChunkInner_af;
-    internal static int ak_decode_ChunkInner_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ChunkInner* vt) { System.Threading.Interlocked.Increment(ref N_ak_decode_ChunkInner_af); return ak_decode_ChunkInner_af__raw(ctx, obj, buf, len, vt); }
-#elif NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_decode_ChunkInner_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ChunkInner* vt);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_decode_ChunkInner_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ChunkInner* vt);
-#endif
-#if AK_HOST_COUNT
     [DllImport(Lib, EntryPoint = "ak_parse_ChunkInner", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     private static extern int ak_parse_ChunkInner__raw(IntPtr ctx, byte* buf, nuint len);
     internal static long N_ak_parse_ChunkInner;
@@ -2903,19 +2630,6 @@ public static unsafe partial class Abi
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern int ak_decode_ChunkElement(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ChunkElement* vt);
-#endif
-#if AK_HOST_COUNT
-    [DllImport(Lib, EntryPoint = "ak_decode_ChunkElement_af", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    private static extern int ak_decode_ChunkElement_af__raw(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ChunkElement* vt);
-    internal static long N_ak_decode_ChunkElement_af;
-    internal static int ak_decode_ChunkElement_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ChunkElement* vt) { System.Threading.Interlocked.Increment(ref N_ak_decode_ChunkElement_af); return ak_decode_ChunkElement_af__raw(ctx, obj, buf, len, vt); }
-#elif NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_decode_ChunkElement_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ChunkElement* vt);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_decode_ChunkElement_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ChunkElement* vt);
 #endif
 #if AK_HOST_COUNT
     [DllImport(Lib, EntryPoint = "ak_parse_ChunkElement", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
@@ -2957,19 +2671,6 @@ public static unsafe partial class Abi
     internal static extern int ak_decode_ChunkedResponse(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ChunkedResponse* vt);
 #endif
 #if AK_HOST_COUNT
-    [DllImport(Lib, EntryPoint = "ak_decode_ChunkedResponse_af", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    private static extern int ak_decode_ChunkedResponse_af__raw(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ChunkedResponse* vt);
-    internal static long N_ak_decode_ChunkedResponse_af;
-    internal static int ak_decode_ChunkedResponse_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ChunkedResponse* vt) { System.Threading.Interlocked.Increment(ref N_ak_decode_ChunkedResponse_af); return ak_decode_ChunkedResponse_af__raw(ctx, obj, buf, len, vt); }
-#elif NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_decode_ChunkedResponse_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ChunkedResponse* vt);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_decode_ChunkedResponse_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ChunkedResponse* vt);
-#endif
-#if AK_HOST_COUNT
     [DllImport(Lib, EntryPoint = "ak_parse_ChunkedResponse", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     private static extern int ak_parse_ChunkedResponse__raw(IntPtr ctx, byte* buf, nuint len);
     internal static long N_ak_parse_ChunkedResponse;
@@ -3007,19 +2708,6 @@ public static unsafe partial class Abi
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern int ak_decode_ChunkedResponseWide(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ChunkedResponseWide* vt);
-#endif
-#if AK_HOST_COUNT
-    [DllImport(Lib, EntryPoint = "ak_decode_ChunkedResponseWide_af", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    private static extern int ak_decode_ChunkedResponseWide_af__raw(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ChunkedResponseWide* vt);
-    internal static long N_ak_decode_ChunkedResponseWide_af;
-    internal static int ak_decode_ChunkedResponseWide_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ChunkedResponseWide* vt) { System.Threading.Interlocked.Increment(ref N_ak_decode_ChunkedResponseWide_af); return ak_decode_ChunkedResponseWide_af__raw(ctx, obj, buf, len, vt); }
-#elif NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_decode_ChunkedResponseWide_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ChunkedResponseWide* vt);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_decode_ChunkedResponseWide_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_ChunkedResponseWide* vt);
 #endif
 #if AK_HOST_COUNT
     [DllImport(Lib, EntryPoint = "ak_parse_ChunkedResponseWide", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
@@ -3061,19 +2749,6 @@ public static unsafe partial class Abi
     internal static extern int ak_decode_LeafElement(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_LeafElement* vt);
 #endif
 #if AK_HOST_COUNT
-    [DllImport(Lib, EntryPoint = "ak_decode_LeafElement_af", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    private static extern int ak_decode_LeafElement_af__raw(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_LeafElement* vt);
-    internal static long N_ak_decode_LeafElement_af;
-    internal static int ak_decode_LeafElement_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_LeafElement* vt) { System.Threading.Interlocked.Increment(ref N_ak_decode_LeafElement_af); return ak_decode_LeafElement_af__raw(ctx, obj, buf, len, vt); }
-#elif NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_decode_LeafElement_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_LeafElement* vt);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_decode_LeafElement_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_LeafElement* vt);
-#endif
-#if AK_HOST_COUNT
     [DllImport(Lib, EntryPoint = "ak_parse_LeafElement", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     private static extern int ak_parse_LeafElement__raw(IntPtr ctx, byte* buf, nuint len);
     internal static long N_ak_parse_LeafElement;
@@ -3111,19 +2786,6 @@ public static unsafe partial class Abi
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern int ak_decode_LeafResponse(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_LeafResponse* vt);
-#endif
-#if AK_HOST_COUNT
-    [DllImport(Lib, EntryPoint = "ak_decode_LeafResponse_af", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    private static extern int ak_decode_LeafResponse_af__raw(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_LeafResponse* vt);
-    internal static long N_ak_decode_LeafResponse_af;
-    internal static int ak_decode_LeafResponse_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_LeafResponse* vt) { System.Threading.Interlocked.Increment(ref N_ak_decode_LeafResponse_af); return ak_decode_LeafResponse_af__raw(ctx, obj, buf, len, vt); }
-#elif NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_decode_LeafResponse_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_LeafResponse* vt);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_decode_LeafResponse_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_LeafResponse* vt);
 #endif
 #if AK_HOST_COUNT
     [DllImport(Lib, EntryPoint = "ak_parse_LeafResponse", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
@@ -3165,19 +2827,6 @@ public static unsafe partial class Abi
     internal static extern int ak_decode_Surrogate(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_Surrogate* vt);
 #endif
 #if AK_HOST_COUNT
-    [DllImport(Lib, EntryPoint = "ak_decode_Surrogate_af", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    private static extern int ak_decode_Surrogate_af__raw(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_Surrogate* vt);
-    internal static long N_ak_decode_Surrogate_af;
-    internal static int ak_decode_Surrogate_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_Surrogate* vt) { System.Threading.Interlocked.Increment(ref N_ak_decode_Surrogate_af); return ak_decode_Surrogate_af__raw(ctx, obj, buf, len, vt); }
-#elif NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_decode_Surrogate_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_Surrogate* vt);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_decode_Surrogate_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_Surrogate* vt);
-#endif
-#if AK_HOST_COUNT
     [DllImport(Lib, EntryPoint = "ak_parse_Surrogate", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     private static extern int ak_parse_Surrogate__raw(IntPtr ctx, byte* buf, nuint len);
     internal static long N_ak_parse_Surrogate;
@@ -3217,19 +2866,6 @@ public static unsafe partial class Abi
     internal static extern int ak_decode_SurrogateInner(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_SurrogateInner* vt);
 #endif
 #if AK_HOST_COUNT
-    [DllImport(Lib, EntryPoint = "ak_decode_SurrogateInner_af", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    private static extern int ak_decode_SurrogateInner_af__raw(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_SurrogateInner* vt);
-    internal static long N_ak_decode_SurrogateInner_af;
-    internal static int ak_decode_SurrogateInner_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_SurrogateInner* vt) { System.Threading.Interlocked.Increment(ref N_ak_decode_SurrogateInner_af); return ak_decode_SurrogateInner_af__raw(ctx, obj, buf, len, vt); }
-#elif NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_decode_SurrogateInner_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_SurrogateInner* vt);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_decode_SurrogateInner_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_SurrogateInner* vt);
-#endif
-#if AK_HOST_COUNT
     [DllImport(Lib, EntryPoint = "ak_parse_SurrogateInner", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     private static extern int ak_parse_SurrogateInner__raw(IntPtr ctx, byte* buf, nuint len);
     internal static long N_ak_parse_SurrogateInner;
@@ -3267,19 +2903,6 @@ public static unsafe partial class Abi
 #else
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern int ak_decode_WireZoo(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_WireZoo* vt);
-#endif
-#if AK_HOST_COUNT
-    [DllImport(Lib, EntryPoint = "ak_decode_WireZoo_af", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    private static extern int ak_decode_WireZoo_af__raw(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_WireZoo* vt);
-    internal static long N_ak_decode_WireZoo_af;
-    internal static int ak_decode_WireZoo_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_WireZoo* vt) { System.Threading.Interlocked.Increment(ref N_ak_decode_WireZoo_af); return ak_decode_WireZoo_af__raw(ctx, obj, buf, len, vt); }
-#elif NET7_0_OR_GREATER
-    [LibraryImport(Lib)]
-    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
-    internal static partial int ak_decode_WireZoo_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_WireZoo* vt);
-#else
-    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern int ak_decode_WireZoo_af(IntPtr ctx, void* obj, byte* buf, nuint len, ak_dvt_WireZoo* vt);
 #endif
 #if AK_HOST_COUNT
     [DllImport(Lib, EntryPoint = "ak_parse_WireZoo", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
@@ -3877,119 +3500,90 @@ public static unsafe partial class Abi
         if (N_ak_run_u8 != 0) l.Add(("ak_run_u8", N_ak_run_u8));
         if (N_ak_encode_Timestamp != 0) l.Add(("ak_encode_Timestamp", N_ak_encode_Timestamp));
         if (N_ak_decode_Timestamp != 0) l.Add(("ak_decode_Timestamp", N_ak_decode_Timestamp));
-        if (N_ak_decode_Timestamp_af != 0) l.Add(("ak_decode_Timestamp_af", N_ak_decode_Timestamp_af));
         if (N_ak_parse_Timestamp != 0) l.Add(("ak_parse_Timestamp", N_ak_parse_Timestamp));
         if (N_ak_encode_Duration != 0) l.Add(("ak_encode_Duration", N_ak_encode_Duration));
         if (N_ak_decode_Duration != 0) l.Add(("ak_decode_Duration", N_ak_decode_Duration));
-        if (N_ak_decode_Duration_af != 0) l.Add(("ak_decode_Duration_af", N_ak_decode_Duration_af));
         if (N_ak_parse_Duration != 0) l.Add(("ak_parse_Duration", N_ak_parse_Duration));
         if (N_ak_encode_ResultRaw != 0) l.Add(("ak_encode_ResultRaw", N_ak_encode_ResultRaw));
         if (N_ak_decode_ResultRaw != 0) l.Add(("ak_decode_ResultRaw", N_ak_decode_ResultRaw));
-        if (N_ak_decode_ResultRaw_af != 0) l.Add(("ak_decode_ResultRaw_af", N_ak_decode_ResultRaw_af));
         if (N_ak_parse_ResultRaw != 0) l.Add(("ak_parse_ResultRaw", N_ak_parse_ResultRaw));
         if (N_ak_encode_TaskOptions != 0) l.Add(("ak_encode_TaskOptions", N_ak_encode_TaskOptions));
         if (N_ak_decode_TaskOptions != 0) l.Add(("ak_decode_TaskOptions", N_ak_decode_TaskOptions));
-        if (N_ak_decode_TaskOptions_af != 0) l.Add(("ak_decode_TaskOptions_af", N_ak_decode_TaskOptions_af));
         if (N_ak_parse_TaskOptions != 0) l.Add(("ak_parse_TaskOptions", N_ak_parse_TaskOptions));
         if (N_ak_encode_TaskOutput != 0) l.Add(("ak_encode_TaskOutput", N_ak_encode_TaskOutput));
         if (N_ak_decode_TaskOutput != 0) l.Add(("ak_decode_TaskOutput", N_ak_decode_TaskOutput));
-        if (N_ak_decode_TaskOutput_af != 0) l.Add(("ak_decode_TaskOutput_af", N_ak_decode_TaskOutput_af));
         if (N_ak_parse_TaskOutput != 0) l.Add(("ak_parse_TaskOutput", N_ak_parse_TaskOutput));
         if (N_ak_encode_TaskDetailed != 0) l.Add(("ak_encode_TaskDetailed", N_ak_encode_TaskDetailed));
         if (N_ak_decode_TaskDetailed != 0) l.Add(("ak_decode_TaskDetailed", N_ak_decode_TaskDetailed));
-        if (N_ak_decode_TaskDetailed_af != 0) l.Add(("ak_decode_TaskDetailed_af", N_ak_decode_TaskDetailed_af));
         if (N_ak_parse_TaskDetailed != 0) l.Add(("ak_parse_TaskDetailed", N_ak_parse_TaskDetailed));
         if (N_ak_encode_TaskSummary != 0) l.Add(("ak_encode_TaskSummary", N_ak_encode_TaskSummary));
         if (N_ak_decode_TaskSummary != 0) l.Add(("ak_decode_TaskSummary", N_ak_decode_TaskSummary));
-        if (N_ak_decode_TaskSummary_af != 0) l.Add(("ak_decode_TaskSummary_af", N_ak_decode_TaskSummary_af));
         if (N_ak_parse_TaskSummary != 0) l.Add(("ak_parse_TaskSummary", N_ak_parse_TaskSummary));
         if (N_ak_encode_Probe != 0) l.Add(("ak_encode_Probe", N_ak_encode_Probe));
         if (N_ak_decode_Probe != 0) l.Add(("ak_decode_Probe", N_ak_decode_Probe));
-        if (N_ak_decode_Probe_af != 0) l.Add(("ak_decode_Probe_af", N_ak_decode_Probe_af));
         if (N_ak_parse_Probe != 0) l.Add(("ak_parse_Probe", N_ak_parse_Probe));
         if (N_ak_encode_Empty != 0) l.Add(("ak_encode_Empty", N_ak_encode_Empty));
         if (N_ak_decode_Empty != 0) l.Add(("ak_decode_Empty", N_ak_decode_Empty));
-        if (N_ak_decode_Empty_af != 0) l.Add(("ak_decode_Empty_af", N_ak_decode_Empty_af));
         if (N_ak_parse_Empty != 0) l.Add(("ak_parse_Empty", N_ak_parse_Empty));
         if (N_ak_encode_UploadResultData != 0) l.Add(("ak_encode_UploadResultData", N_ak_encode_UploadResultData));
         if (N_ak_decode_UploadResultData != 0) l.Add(("ak_decode_UploadResultData", N_ak_decode_UploadResultData));
-        if (N_ak_decode_UploadResultData_af != 0) l.Add(("ak_decode_UploadResultData_af", N_ak_decode_UploadResultData_af));
         if (N_ak_parse_UploadResultData != 0) l.Add(("ak_parse_UploadResultData", N_ak_parse_UploadResultData));
         if (N_ak_encode_MetricsBatch != 0) l.Add(("ak_encode_MetricsBatch", N_ak_encode_MetricsBatch));
         if (N_ak_decode_MetricsBatch != 0) l.Add(("ak_decode_MetricsBatch", N_ak_decode_MetricsBatch));
-        if (N_ak_decode_MetricsBatch_af != 0) l.Add(("ak_decode_MetricsBatch_af", N_ak_decode_MetricsBatch_af));
         if (N_ak_parse_MetricsBatch != 0) l.Add(("ak_parse_MetricsBatch", N_ak_parse_MetricsBatch));
         if (N_ak_encode_Pair != 0) l.Add(("ak_encode_Pair", N_ak_encode_Pair));
         if (N_ak_decode_Pair != 0) l.Add(("ak_decode_Pair", N_ak_decode_Pair));
-        if (N_ak_decode_Pair_af != 0) l.Add(("ak_decode_Pair_af", N_ak_decode_Pair_af));
         if (N_ak_parse_Pair != 0) l.Add(("ak_parse_Pair", N_ak_parse_Pair));
         if (N_ak_encode_ListResultsResponse != 0) l.Add(("ak_encode_ListResultsResponse", N_ak_encode_ListResultsResponse));
         if (N_ak_decode_ListResultsResponse != 0) l.Add(("ak_decode_ListResultsResponse", N_ak_decode_ListResultsResponse));
-        if (N_ak_decode_ListResultsResponse_af != 0) l.Add(("ak_decode_ListResultsResponse_af", N_ak_decode_ListResultsResponse_af));
         if (N_ak_parse_ListResultsResponse != 0) l.Add(("ak_parse_ListResultsResponse", N_ak_parse_ListResultsResponse));
         if (N_ak_encode_ListTasksDetailedResponse != 0) l.Add(("ak_encode_ListTasksDetailedResponse", N_ak_encode_ListTasksDetailedResponse));
         if (N_ak_decode_ListTasksDetailedResponse != 0) l.Add(("ak_decode_ListTasksDetailedResponse", N_ak_decode_ListTasksDetailedResponse));
-        if (N_ak_decode_ListTasksDetailedResponse_af != 0) l.Add(("ak_decode_ListTasksDetailedResponse_af", N_ak_decode_ListTasksDetailedResponse_af));
         if (N_ak_parse_ListTasksDetailedResponse != 0) l.Add(("ak_parse_ListTasksDetailedResponse", N_ak_parse_ListTasksDetailedResponse));
         if (N_ak_encode_ListTaskSummaryResponse != 0) l.Add(("ak_encode_ListTaskSummaryResponse", N_ak_encode_ListTaskSummaryResponse));
         if (N_ak_decode_ListTaskSummaryResponse != 0) l.Add(("ak_decode_ListTaskSummaryResponse", N_ak_decode_ListTaskSummaryResponse));
-        if (N_ak_decode_ListTaskSummaryResponse_af != 0) l.Add(("ak_decode_ListTaskSummaryResponse_af", N_ak_decode_ListTaskSummaryResponse_af));
         if (N_ak_parse_ListTaskSummaryResponse != 0) l.Add(("ak_parse_ListTaskSummaryResponse", N_ak_parse_ListTaskSummaryResponse));
         if (N_ak_encode_ListProbeResponse != 0) l.Add(("ak_encode_ListProbeResponse", N_ak_encode_ListProbeResponse));
         if (N_ak_decode_ListProbeResponse != 0) l.Add(("ak_decode_ListProbeResponse", N_ak_decode_ListProbeResponse));
-        if (N_ak_decode_ListProbeResponse_af != 0) l.Add(("ak_decode_ListProbeResponse_af", N_ak_decode_ListProbeResponse_af));
         if (N_ak_parse_ListProbeResponse != 0) l.Add(("ak_parse_ListProbeResponse", N_ak_parse_ListProbeResponse));
         if (N_ak_encode_ListMetricsResponse != 0) l.Add(("ak_encode_ListMetricsResponse", N_ak_encode_ListMetricsResponse));
         if (N_ak_decode_ListMetricsResponse != 0) l.Add(("ak_decode_ListMetricsResponse", N_ak_decode_ListMetricsResponse));
-        if (N_ak_decode_ListMetricsResponse_af != 0) l.Add(("ak_decode_ListMetricsResponse_af", N_ak_decode_ListMetricsResponse_af));
         if (N_ak_parse_ListMetricsResponse != 0) l.Add(("ak_parse_ListMetricsResponse", N_ak_parse_ListMetricsResponse));
         if (N_ak_encode_UploadResultDataMessage != 0) l.Add(("ak_encode_UploadResultDataMessage", N_ak_encode_UploadResultDataMessage));
         if (N_ak_decode_UploadResultDataMessage != 0) l.Add(("ak_decode_UploadResultDataMessage", N_ak_decode_UploadResultDataMessage));
-        if (N_ak_decode_UploadResultDataMessage_af != 0) l.Add(("ak_decode_UploadResultDataMessage_af", N_ak_decode_UploadResultDataMessage_af));
         if (N_ak_parse_UploadResultDataMessage != 0) l.Add(("ak_parse_UploadResultDataMessage", N_ak_parse_UploadResultDataMessage));
         if (N_ak_encode_DualResponse != 0) l.Add(("ak_encode_DualResponse", N_ak_encode_DualResponse));
         if (N_ak_decode_DualResponse != 0) l.Add(("ak_decode_DualResponse", N_ak_decode_DualResponse));
-        if (N_ak_decode_DualResponse_af != 0) l.Add(("ak_decode_DualResponse_af", N_ak_decode_DualResponse_af));
         if (N_ak_parse_DualResponse != 0) l.Add(("ak_parse_DualResponse", N_ak_parse_DualResponse));
         if (N_ak_encode_ChunkLeaf != 0) l.Add(("ak_encode_ChunkLeaf", N_ak_encode_ChunkLeaf));
         if (N_ak_decode_ChunkLeaf != 0) l.Add(("ak_decode_ChunkLeaf", N_ak_decode_ChunkLeaf));
-        if (N_ak_decode_ChunkLeaf_af != 0) l.Add(("ak_decode_ChunkLeaf_af", N_ak_decode_ChunkLeaf_af));
         if (N_ak_parse_ChunkLeaf != 0) l.Add(("ak_parse_ChunkLeaf", N_ak_parse_ChunkLeaf));
         if (N_ak_encode_ChunkInner != 0) l.Add(("ak_encode_ChunkInner", N_ak_encode_ChunkInner));
         if (N_ak_decode_ChunkInner != 0) l.Add(("ak_decode_ChunkInner", N_ak_decode_ChunkInner));
-        if (N_ak_decode_ChunkInner_af != 0) l.Add(("ak_decode_ChunkInner_af", N_ak_decode_ChunkInner_af));
         if (N_ak_parse_ChunkInner != 0) l.Add(("ak_parse_ChunkInner", N_ak_parse_ChunkInner));
         if (N_ak_encode_ChunkElement != 0) l.Add(("ak_encode_ChunkElement", N_ak_encode_ChunkElement));
         if (N_ak_decode_ChunkElement != 0) l.Add(("ak_decode_ChunkElement", N_ak_decode_ChunkElement));
-        if (N_ak_decode_ChunkElement_af != 0) l.Add(("ak_decode_ChunkElement_af", N_ak_decode_ChunkElement_af));
         if (N_ak_parse_ChunkElement != 0) l.Add(("ak_parse_ChunkElement", N_ak_parse_ChunkElement));
         if (N_ak_encode_ChunkedResponse != 0) l.Add(("ak_encode_ChunkedResponse", N_ak_encode_ChunkedResponse));
         if (N_ak_decode_ChunkedResponse != 0) l.Add(("ak_decode_ChunkedResponse", N_ak_decode_ChunkedResponse));
-        if (N_ak_decode_ChunkedResponse_af != 0) l.Add(("ak_decode_ChunkedResponse_af", N_ak_decode_ChunkedResponse_af));
         if (N_ak_parse_ChunkedResponse != 0) l.Add(("ak_parse_ChunkedResponse", N_ak_parse_ChunkedResponse));
         if (N_ak_encode_ChunkedResponseWide != 0) l.Add(("ak_encode_ChunkedResponseWide", N_ak_encode_ChunkedResponseWide));
         if (N_ak_decode_ChunkedResponseWide != 0) l.Add(("ak_decode_ChunkedResponseWide", N_ak_decode_ChunkedResponseWide));
-        if (N_ak_decode_ChunkedResponseWide_af != 0) l.Add(("ak_decode_ChunkedResponseWide_af", N_ak_decode_ChunkedResponseWide_af));
         if (N_ak_parse_ChunkedResponseWide != 0) l.Add(("ak_parse_ChunkedResponseWide", N_ak_parse_ChunkedResponseWide));
         if (N_ak_encode_LeafElement != 0) l.Add(("ak_encode_LeafElement", N_ak_encode_LeafElement));
         if (N_ak_decode_LeafElement != 0) l.Add(("ak_decode_LeafElement", N_ak_decode_LeafElement));
-        if (N_ak_decode_LeafElement_af != 0) l.Add(("ak_decode_LeafElement_af", N_ak_decode_LeafElement_af));
         if (N_ak_parse_LeafElement != 0) l.Add(("ak_parse_LeafElement", N_ak_parse_LeafElement));
         if (N_ak_encode_LeafResponse != 0) l.Add(("ak_encode_LeafResponse", N_ak_encode_LeafResponse));
         if (N_ak_decode_LeafResponse != 0) l.Add(("ak_decode_LeafResponse", N_ak_decode_LeafResponse));
-        if (N_ak_decode_LeafResponse_af != 0) l.Add(("ak_decode_LeafResponse_af", N_ak_decode_LeafResponse_af));
         if (N_ak_parse_LeafResponse != 0) l.Add(("ak_parse_LeafResponse", N_ak_parse_LeafResponse));
         if (N_ak_encode_Surrogate != 0) l.Add(("ak_encode_Surrogate", N_ak_encode_Surrogate));
         if (N_ak_decode_Surrogate != 0) l.Add(("ak_decode_Surrogate", N_ak_decode_Surrogate));
-        if (N_ak_decode_Surrogate_af != 0) l.Add(("ak_decode_Surrogate_af", N_ak_decode_Surrogate_af));
         if (N_ak_parse_Surrogate != 0) l.Add(("ak_parse_Surrogate", N_ak_parse_Surrogate));
         if (N_ak_encode_SurrogateInner != 0) l.Add(("ak_encode_SurrogateInner", N_ak_encode_SurrogateInner));
         if (N_ak_decode_SurrogateInner != 0) l.Add(("ak_decode_SurrogateInner", N_ak_decode_SurrogateInner));
-        if (N_ak_decode_SurrogateInner_af != 0) l.Add(("ak_decode_SurrogateInner_af", N_ak_decode_SurrogateInner_af));
         if (N_ak_parse_SurrogateInner != 0) l.Add(("ak_parse_SurrogateInner", N_ak_parse_SurrogateInner));
         if (N_ak_encode_WireZoo != 0) l.Add(("ak_encode_WireZoo", N_ak_encode_WireZoo));
         if (N_ak_decode_WireZoo != 0) l.Add(("ak_decode_WireZoo", N_ak_decode_WireZoo));
-        if (N_ak_decode_WireZoo_af != 0) l.Add(("ak_decode_WireZoo_af", N_ak_decode_WireZoo_af));
         if (N_ak_parse_WireZoo != 0) l.Add(("ak_parse_WireZoo", N_ak_parse_WireZoo));
         if (N_ak_elemu_ChunkElement != 0) l.Add(("ak_elemu_ChunkElement", N_ak_elemu_ChunkElement));
         if (N_ak_elem_ChunkElementAttrsEntry != 0) l.Add(("ak_elem_ChunkElementAttrsEntry", N_ak_elem_ChunkElementAttrsEntry));
@@ -4081,119 +3675,90 @@ public static unsafe partial class Abi
         N_ak_run_u8 = 0;
         N_ak_encode_Timestamp = 0;
         N_ak_decode_Timestamp = 0;
-        N_ak_decode_Timestamp_af = 0;
         N_ak_parse_Timestamp = 0;
         N_ak_encode_Duration = 0;
         N_ak_decode_Duration = 0;
-        N_ak_decode_Duration_af = 0;
         N_ak_parse_Duration = 0;
         N_ak_encode_ResultRaw = 0;
         N_ak_decode_ResultRaw = 0;
-        N_ak_decode_ResultRaw_af = 0;
         N_ak_parse_ResultRaw = 0;
         N_ak_encode_TaskOptions = 0;
         N_ak_decode_TaskOptions = 0;
-        N_ak_decode_TaskOptions_af = 0;
         N_ak_parse_TaskOptions = 0;
         N_ak_encode_TaskOutput = 0;
         N_ak_decode_TaskOutput = 0;
-        N_ak_decode_TaskOutput_af = 0;
         N_ak_parse_TaskOutput = 0;
         N_ak_encode_TaskDetailed = 0;
         N_ak_decode_TaskDetailed = 0;
-        N_ak_decode_TaskDetailed_af = 0;
         N_ak_parse_TaskDetailed = 0;
         N_ak_encode_TaskSummary = 0;
         N_ak_decode_TaskSummary = 0;
-        N_ak_decode_TaskSummary_af = 0;
         N_ak_parse_TaskSummary = 0;
         N_ak_encode_Probe = 0;
         N_ak_decode_Probe = 0;
-        N_ak_decode_Probe_af = 0;
         N_ak_parse_Probe = 0;
         N_ak_encode_Empty = 0;
         N_ak_decode_Empty = 0;
-        N_ak_decode_Empty_af = 0;
         N_ak_parse_Empty = 0;
         N_ak_encode_UploadResultData = 0;
         N_ak_decode_UploadResultData = 0;
-        N_ak_decode_UploadResultData_af = 0;
         N_ak_parse_UploadResultData = 0;
         N_ak_encode_MetricsBatch = 0;
         N_ak_decode_MetricsBatch = 0;
-        N_ak_decode_MetricsBatch_af = 0;
         N_ak_parse_MetricsBatch = 0;
         N_ak_encode_Pair = 0;
         N_ak_decode_Pair = 0;
-        N_ak_decode_Pair_af = 0;
         N_ak_parse_Pair = 0;
         N_ak_encode_ListResultsResponse = 0;
         N_ak_decode_ListResultsResponse = 0;
-        N_ak_decode_ListResultsResponse_af = 0;
         N_ak_parse_ListResultsResponse = 0;
         N_ak_encode_ListTasksDetailedResponse = 0;
         N_ak_decode_ListTasksDetailedResponse = 0;
-        N_ak_decode_ListTasksDetailedResponse_af = 0;
         N_ak_parse_ListTasksDetailedResponse = 0;
         N_ak_encode_ListTaskSummaryResponse = 0;
         N_ak_decode_ListTaskSummaryResponse = 0;
-        N_ak_decode_ListTaskSummaryResponse_af = 0;
         N_ak_parse_ListTaskSummaryResponse = 0;
         N_ak_encode_ListProbeResponse = 0;
         N_ak_decode_ListProbeResponse = 0;
-        N_ak_decode_ListProbeResponse_af = 0;
         N_ak_parse_ListProbeResponse = 0;
         N_ak_encode_ListMetricsResponse = 0;
         N_ak_decode_ListMetricsResponse = 0;
-        N_ak_decode_ListMetricsResponse_af = 0;
         N_ak_parse_ListMetricsResponse = 0;
         N_ak_encode_UploadResultDataMessage = 0;
         N_ak_decode_UploadResultDataMessage = 0;
-        N_ak_decode_UploadResultDataMessage_af = 0;
         N_ak_parse_UploadResultDataMessage = 0;
         N_ak_encode_DualResponse = 0;
         N_ak_decode_DualResponse = 0;
-        N_ak_decode_DualResponse_af = 0;
         N_ak_parse_DualResponse = 0;
         N_ak_encode_ChunkLeaf = 0;
         N_ak_decode_ChunkLeaf = 0;
-        N_ak_decode_ChunkLeaf_af = 0;
         N_ak_parse_ChunkLeaf = 0;
         N_ak_encode_ChunkInner = 0;
         N_ak_decode_ChunkInner = 0;
-        N_ak_decode_ChunkInner_af = 0;
         N_ak_parse_ChunkInner = 0;
         N_ak_encode_ChunkElement = 0;
         N_ak_decode_ChunkElement = 0;
-        N_ak_decode_ChunkElement_af = 0;
         N_ak_parse_ChunkElement = 0;
         N_ak_encode_ChunkedResponse = 0;
         N_ak_decode_ChunkedResponse = 0;
-        N_ak_decode_ChunkedResponse_af = 0;
         N_ak_parse_ChunkedResponse = 0;
         N_ak_encode_ChunkedResponseWide = 0;
         N_ak_decode_ChunkedResponseWide = 0;
-        N_ak_decode_ChunkedResponseWide_af = 0;
         N_ak_parse_ChunkedResponseWide = 0;
         N_ak_encode_LeafElement = 0;
         N_ak_decode_LeafElement = 0;
-        N_ak_decode_LeafElement_af = 0;
         N_ak_parse_LeafElement = 0;
         N_ak_encode_LeafResponse = 0;
         N_ak_decode_LeafResponse = 0;
-        N_ak_decode_LeafResponse_af = 0;
         N_ak_parse_LeafResponse = 0;
         N_ak_encode_Surrogate = 0;
         N_ak_decode_Surrogate = 0;
-        N_ak_decode_Surrogate_af = 0;
         N_ak_parse_Surrogate = 0;
         N_ak_encode_SurrogateInner = 0;
         N_ak_decode_SurrogateInner = 0;
-        N_ak_decode_SurrogateInner_af = 0;
         N_ak_parse_SurrogateInner = 0;
         N_ak_encode_WireZoo = 0;
         N_ak_decode_WireZoo = 0;
-        N_ak_decode_WireZoo_af = 0;
         N_ak_parse_WireZoo = 0;
         N_ak_elemu_ChunkElement = 0;
         N_ak_elem_ChunkElementAttrsEntry = 0;

@@ -1868,20 +1868,6 @@ unsafe extern "C" {
         len: usize,
         vt: *const ak_dvt_ListResultsResponse,
     ) -> i32;
-    /// Optimisation N5 (ABI v1 open decision 10, an EXPERIMENT; additive): the same
-    /// decode with the APPLY-FIRST element order. A non-batchable element whose inner
-    /// runs fit the arena gets no `new_<slot>`: its runs are held, `apply_<slot>` is
-    /// called with token -1 ("construct the element from this group and append it"),
-    /// then the held runs arrive with token -1 ("the element apply just made"). An
-    /// element whose runs do not fit falls back to `new_<slot>`, its runs, then
-    /// `apply_<slot>` with that token, as `ak_decode_*` does.
-    pub fn ak_decode_ListResultsResponse_af(
-        ctx: *mut ak_dec_ctx,
-        obj: *mut c_void,
-        buf: *const u8,
-        len: usize,
-        vt: *const ak_dvt_ListResultsResponse,
-    ) -> i32;
     /// A decode context BOUND to this root (rule 6), armed with `opts` read in place (NULL = drop everywhere).
     pub fn ak_dec_ctx_new_ListResultsResponse(opts: *mut ak_dec_ListResultsResponse_opts) -> *mut ak_dec_ctx;
     /// Re-arm every position from `opts`, read IN PLACE (NULL = drop everywhere); AK_ERR_INVALID_STATE for a context bound to another root.
@@ -1909,20 +1895,6 @@ unsafe extern "C" {
         fix: *const ak_ufix_ListTasksDetailedResponse,
     ) -> isize;
     pub fn ak_decode_ListTasksDetailedResponse(
-        ctx: *mut ak_dec_ctx,
-        obj: *mut c_void,
-        buf: *const u8,
-        len: usize,
-        vt: *const ak_dvt_ListTasksDetailedResponse,
-    ) -> i32;
-    /// Optimisation N5 (ABI v1 open decision 10, an EXPERIMENT; additive): the same
-    /// decode with the APPLY-FIRST element order. A non-batchable element whose inner
-    /// runs fit the arena gets no `new_<slot>`: its runs are held, `apply_<slot>` is
-    /// called with token -1 ("construct the element from this group and append it"),
-    /// then the held runs arrive with token -1 ("the element apply just made"). An
-    /// element whose runs do not fit falls back to `new_<slot>`, its runs, then
-    /// `apply_<slot>` with that token, as `ak_decode_*` does.
-    pub fn ak_decode_ListTasksDetailedResponse_af(
         ctx: *mut ak_dec_ctx,
         obj: *mut c_void,
         buf: *const u8,
@@ -1962,20 +1934,6 @@ unsafe extern "C" {
         len: usize,
         vt: *const ak_dvt_ListProbeResponse,
     ) -> i32;
-    /// Optimisation N5 (ABI v1 open decision 10, an EXPERIMENT; additive): the same
-    /// decode with the APPLY-FIRST element order. A non-batchable element whose inner
-    /// runs fit the arena gets no `new_<slot>`: its runs are held, `apply_<slot>` is
-    /// called with token -1 ("construct the element from this group and append it"),
-    /// then the held runs arrive with token -1 ("the element apply just made"). An
-    /// element whose runs do not fit falls back to `new_<slot>`, its runs, then
-    /// `apply_<slot>` with that token, as `ak_decode_*` does.
-    pub fn ak_decode_ListProbeResponse_af(
-        ctx: *mut ak_dec_ctx,
-        obj: *mut c_void,
-        buf: *const u8,
-        len: usize,
-        vt: *const ak_dvt_ListProbeResponse,
-    ) -> i32;
     /// A decode context BOUND to this root (rule 6), armed with `opts` read in place (NULL = drop everywhere).
     pub fn ak_dec_ctx_new_ListProbeResponse(opts: *mut ak_dec_ListProbeResponse_opts) -> *mut ak_dec_ctx;
     /// Re-arm every position from `opts`, read IN PLACE (NULL = drop everywhere); AK_ERR_INVALID_STATE for a context bound to another root.
@@ -2003,20 +1961,6 @@ unsafe extern "C" {
         fix: *const ak_ufix_ListTaskSummaryResponse,
     ) -> isize;
     pub fn ak_decode_ListTaskSummaryResponse(
-        ctx: *mut ak_dec_ctx,
-        obj: *mut c_void,
-        buf: *const u8,
-        len: usize,
-        vt: *const ak_dvt_ListTaskSummaryResponse,
-    ) -> i32;
-    /// Optimisation N5 (ABI v1 open decision 10, an EXPERIMENT; additive): the same
-    /// decode with the APPLY-FIRST element order. A non-batchable element whose inner
-    /// runs fit the arena gets no `new_<slot>`: its runs are held, `apply_<slot>` is
-    /// called with token -1 ("construct the element from this group and append it"),
-    /// then the held runs arrive with token -1 ("the element apply just made"). An
-    /// element whose runs do not fit falls back to `new_<slot>`, its runs, then
-    /// `apply_<slot>` with that token, as `ak_decode_*` does.
-    pub fn ak_decode_ListTaskSummaryResponse_af(
         ctx: *mut ak_dec_ctx,
         obj: *mut c_void,
         buf: *const u8,
@@ -2061,20 +2005,6 @@ unsafe extern "C" {
         len: usize,
         vt: *const ak_dvt_UploadResultDataMessage,
     ) -> i32;
-    /// Optimisation N5 (ABI v1 open decision 10, an EXPERIMENT; additive): the same
-    /// decode with the APPLY-FIRST element order. A non-batchable element whose inner
-    /// runs fit the arena gets no `new_<slot>`: its runs are held, `apply_<slot>` is
-    /// called with token -1 ("construct the element from this group and append it"),
-    /// then the held runs arrive with token -1 ("the element apply just made"). An
-    /// element whose runs do not fit falls back to `new_<slot>`, its runs, then
-    /// `apply_<slot>` with that token, as `ak_decode_*` does.
-    pub fn ak_decode_UploadResultDataMessage_af(
-        ctx: *mut ak_dec_ctx,
-        obj: *mut c_void,
-        buf: *const u8,
-        len: usize,
-        vt: *const ak_dvt_UploadResultDataMessage,
-    ) -> i32;
     /// A decode context BOUND to this root (rule 6), armed with `opts` read in place (NULL = drop everywhere).
     pub fn ak_dec_ctx_new_UploadResultDataMessage(opts: *mut ak_dec_UploadResultDataMessage_opts) -> *mut ak_dec_ctx;
     /// Re-arm every position from `opts`, read IN PLACE (NULL = drop everywhere); AK_ERR_INVALID_STATE for a context bound to another root.
@@ -2108,20 +2038,6 @@ unsafe extern "C" {
         len: usize,
         vt: *const ak_dvt_ListMetricsResponse,
     ) -> i32;
-    /// Optimisation N5 (ABI v1 open decision 10, an EXPERIMENT; additive): the same
-    /// decode with the APPLY-FIRST element order. A non-batchable element whose inner
-    /// runs fit the arena gets no `new_<slot>`: its runs are held, `apply_<slot>` is
-    /// called with token -1 ("construct the element from this group and append it"),
-    /// then the held runs arrive with token -1 ("the element apply just made"). An
-    /// element whose runs do not fit falls back to `new_<slot>`, its runs, then
-    /// `apply_<slot>` with that token, as `ak_decode_*` does.
-    pub fn ak_decode_ListMetricsResponse_af(
-        ctx: *mut ak_dec_ctx,
-        obj: *mut c_void,
-        buf: *const u8,
-        len: usize,
-        vt: *const ak_dvt_ListMetricsResponse,
-    ) -> i32;
     /// A decode context BOUND to this root (rule 6), armed with `opts` read in place (NULL = drop everywhere).
     pub fn ak_dec_ctx_new_ListMetricsResponse(opts: *mut ak_dec_ListMetricsResponse_opts) -> *mut ak_dec_ctx;
     /// Re-arm every position from `opts`, read IN PLACE (NULL = drop everywhere); AK_ERR_INVALID_STATE for a context bound to another root.
@@ -2149,20 +2065,6 @@ unsafe extern "C" {
         fix: *const ak_ufix_DualResponse,
     ) -> isize;
     pub fn ak_decode_DualResponse(
-        ctx: *mut ak_dec_ctx,
-        obj: *mut c_void,
-        buf: *const u8,
-        len: usize,
-        vt: *const ak_dvt_DualResponse,
-    ) -> i32;
-    /// Optimisation N5 (ABI v1 open decision 10, an EXPERIMENT; additive): the same
-    /// decode with the APPLY-FIRST element order. A non-batchable element whose inner
-    /// runs fit the arena gets no `new_<slot>`: its runs are held, `apply_<slot>` is
-    /// called with token -1 ("construct the element from this group and append it"),
-    /// then the held runs arrive with token -1 ("the element apply just made"). An
-    /// element whose runs do not fit falls back to `new_<slot>`, its runs, then
-    /// `apply_<slot>` with that token, as `ak_decode_*` does.
-    pub fn ak_decode_DualResponse_af(
         ctx: *mut ak_dec_ctx,
         obj: *mut c_void,
         buf: *const u8,

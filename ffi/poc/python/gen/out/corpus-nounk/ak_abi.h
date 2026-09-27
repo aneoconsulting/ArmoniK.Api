@@ -1126,176 +1126,118 @@ struct ak_dvt_SurrogateAttrsEntry {
 /* ABI v1 section 6: what the host calls are PLAIN EXPORTS, not a table. */
 intptr_t ak_encode_Timestamp(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_Timestamp *vt, const struct ak_efix_Timestamp *fix);
 int32_t ak_decode_Timestamp(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_Timestamp *vt);
-/* Optimisation N5 (ABI v1 open decision 10, an EXPERIMENT; additive): the apply-first element order. A non-batchable element whose inner runs fit the arena gets no new_<slot>: apply_<slot> is called with token -1 (construct the element from the group and append it), then its runs with token -1 (the element apply just made); an element whose runs do not fit falls back to new, runs, apply as ak_decode_*. */
-int32_t ak_decode_Timestamp_af(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_Timestamp *vt);
 int32_t ak_parse_Timestamp(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
 ak_dec_ctx *ak_dec_ctx_new_Timestamp(void);
 intptr_t ak_encode_Duration(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_Duration *vt, const struct ak_efix_Duration *fix);
 int32_t ak_decode_Duration(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_Duration *vt);
-/* Optimisation N5 (ABI v1 open decision 10, an EXPERIMENT; additive): the apply-first element order. A non-batchable element whose inner runs fit the arena gets no new_<slot>: apply_<slot> is called with token -1 (construct the element from the group and append it), then its runs with token -1 (the element apply just made); an element whose runs do not fit falls back to new, runs, apply as ak_decode_*. */
-int32_t ak_decode_Duration_af(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_Duration *vt);
 int32_t ak_parse_Duration(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
 ak_dec_ctx *ak_dec_ctx_new_Duration(void);
 intptr_t ak_encode_ResultRaw(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_ResultRaw *vt, const struct ak_efix_ResultRaw *fix);
 int32_t ak_decode_ResultRaw(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_ResultRaw *vt);
-/* Optimisation N5 (ABI v1 open decision 10, an EXPERIMENT; additive): the apply-first element order. A non-batchable element whose inner runs fit the arena gets no new_<slot>: apply_<slot> is called with token -1 (construct the element from the group and append it), then its runs with token -1 (the element apply just made); an element whose runs do not fit falls back to new, runs, apply as ak_decode_*. */
-int32_t ak_decode_ResultRaw_af(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_ResultRaw *vt);
 int32_t ak_parse_ResultRaw(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
 ak_dec_ctx *ak_dec_ctx_new_ResultRaw(void);
 intptr_t ak_encode_TaskOptions(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_TaskOptions *vt, const struct ak_efix_TaskOptions *fix);
 int32_t ak_decode_TaskOptions(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_TaskOptions *vt);
-/* Optimisation N5 (ABI v1 open decision 10, an EXPERIMENT; additive): the apply-first element order. A non-batchable element whose inner runs fit the arena gets no new_<slot>: apply_<slot> is called with token -1 (construct the element from the group and append it), then its runs with token -1 (the element apply just made); an element whose runs do not fit falls back to new, runs, apply as ak_decode_*. */
-int32_t ak_decode_TaskOptions_af(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_TaskOptions *vt);
 int32_t ak_parse_TaskOptions(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
 ak_dec_ctx *ak_dec_ctx_new_TaskOptions(void);
 intptr_t ak_encode_TaskOutput(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_TaskOutput *vt, const struct ak_efix_TaskOutput *fix);
 int32_t ak_decode_TaskOutput(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_TaskOutput *vt);
-/* Optimisation N5 (ABI v1 open decision 10, an EXPERIMENT; additive): the apply-first element order. A non-batchable element whose inner runs fit the arena gets no new_<slot>: apply_<slot> is called with token -1 (construct the element from the group and append it), then its runs with token -1 (the element apply just made); an element whose runs do not fit falls back to new, runs, apply as ak_decode_*. */
-int32_t ak_decode_TaskOutput_af(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_TaskOutput *vt);
 int32_t ak_parse_TaskOutput(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
 ak_dec_ctx *ak_dec_ctx_new_TaskOutput(void);
 intptr_t ak_encode_TaskDetailed(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_TaskDetailed *vt, const struct ak_efix_TaskDetailed *fix);
 int32_t ak_decode_TaskDetailed(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_TaskDetailed *vt);
-/* Optimisation N5 (ABI v1 open decision 10, an EXPERIMENT; additive): the apply-first element order. A non-batchable element whose inner runs fit the arena gets no new_<slot>: apply_<slot> is called with token -1 (construct the element from the group and append it), then its runs with token -1 (the element apply just made); an element whose runs do not fit falls back to new, runs, apply as ak_decode_*. */
-int32_t ak_decode_TaskDetailed_af(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_TaskDetailed *vt);
 int32_t ak_parse_TaskDetailed(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
 ak_dec_ctx *ak_dec_ctx_new_TaskDetailed(void);
 intptr_t ak_encode_TaskSummary(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_TaskSummary *vt, const struct ak_efix_TaskSummary *fix);
 int32_t ak_decode_TaskSummary(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_TaskSummary *vt);
-/* Optimisation N5 (ABI v1 open decision 10, an EXPERIMENT; additive): the apply-first element order. A non-batchable element whose inner runs fit the arena gets no new_<slot>: apply_<slot> is called with token -1 (construct the element from the group and append it), then its runs with token -1 (the element apply just made); an element whose runs do not fit falls back to new, runs, apply as ak_decode_*. */
-int32_t ak_decode_TaskSummary_af(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_TaskSummary *vt);
 int32_t ak_parse_TaskSummary(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
 ak_dec_ctx *ak_dec_ctx_new_TaskSummary(void);
 intptr_t ak_encode_Probe(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_Probe *vt, const struct ak_efix_Probe *fix);
 int32_t ak_decode_Probe(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_Probe *vt);
-/* Optimisation N5 (ABI v1 open decision 10, an EXPERIMENT; additive): the apply-first element order. A non-batchable element whose inner runs fit the arena gets no new_<slot>: apply_<slot> is called with token -1 (construct the element from the group and append it), then its runs with token -1 (the element apply just made); an element whose runs do not fit falls back to new, runs, apply as ak_decode_*. */
-int32_t ak_decode_Probe_af(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_Probe *vt);
 int32_t ak_parse_Probe(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
 ak_dec_ctx *ak_dec_ctx_new_Probe(void);
 intptr_t ak_encode_Empty(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_Empty *vt, const struct ak_efix_Empty *fix);
 int32_t ak_decode_Empty(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_Empty *vt);
-/* Optimisation N5 (ABI v1 open decision 10, an EXPERIMENT; additive): the apply-first element order. A non-batchable element whose inner runs fit the arena gets no new_<slot>: apply_<slot> is called with token -1 (construct the element from the group and append it), then its runs with token -1 (the element apply just made); an element whose runs do not fit falls back to new, runs, apply as ak_decode_*. */
-int32_t ak_decode_Empty_af(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_Empty *vt);
 int32_t ak_parse_Empty(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
 ak_dec_ctx *ak_dec_ctx_new_Empty(void);
 intptr_t ak_encode_UploadResultData(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_UploadResultData *vt, const struct ak_efix_UploadResultData *fix, const uint8_t *direct, size_t direct_len);
 int32_t ak_decode_UploadResultData(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_UploadResultData *vt);
-/* Optimisation N5 (ABI v1 open decision 10, an EXPERIMENT; additive): the apply-first element order. A non-batchable element whose inner runs fit the arena gets no new_<slot>: apply_<slot> is called with token -1 (construct the element from the group and append it), then its runs with token -1 (the element apply just made); an element whose runs do not fit falls back to new, runs, apply as ak_decode_*. */
-int32_t ak_decode_UploadResultData_af(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_UploadResultData *vt);
 int32_t ak_parse_UploadResultData(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
 ak_dec_ctx *ak_dec_ctx_new_UploadResultData(void);
 intptr_t ak_encode_MetricsBatch(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_MetricsBatch *vt, const struct ak_efix_MetricsBatch *fix);
 int32_t ak_decode_MetricsBatch(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_MetricsBatch *vt);
-/* Optimisation N5 (ABI v1 open decision 10, an EXPERIMENT; additive): the apply-first element order. A non-batchable element whose inner runs fit the arena gets no new_<slot>: apply_<slot> is called with token -1 (construct the element from the group and append it), then its runs with token -1 (the element apply just made); an element whose runs do not fit falls back to new, runs, apply as ak_decode_*. */
-int32_t ak_decode_MetricsBatch_af(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_MetricsBatch *vt);
 int32_t ak_parse_MetricsBatch(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
 ak_dec_ctx *ak_dec_ctx_new_MetricsBatch(void);
 intptr_t ak_encode_Pair(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_Pair *vt, const struct ak_efix_Pair *fix);
 int32_t ak_decode_Pair(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_Pair *vt);
-/* Optimisation N5 (ABI v1 open decision 10, an EXPERIMENT; additive): the apply-first element order. A non-batchable element whose inner runs fit the arena gets no new_<slot>: apply_<slot> is called with token -1 (construct the element from the group and append it), then its runs with token -1 (the element apply just made); an element whose runs do not fit falls back to new, runs, apply as ak_decode_*. */
-int32_t ak_decode_Pair_af(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_Pair *vt);
 int32_t ak_parse_Pair(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
 ak_dec_ctx *ak_dec_ctx_new_Pair(void);
 intptr_t ak_encode_ListResultsResponse(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_ListResultsResponse *vt, const struct ak_efix_ListResultsResponse *fix);
 int32_t ak_decode_ListResultsResponse(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_ListResultsResponse *vt);
-/* Optimisation N5 (ABI v1 open decision 10, an EXPERIMENT; additive): the apply-first element order. A non-batchable element whose inner runs fit the arena gets no new_<slot>: apply_<slot> is called with token -1 (construct the element from the group and append it), then its runs with token -1 (the element apply just made); an element whose runs do not fit falls back to new, runs, apply as ak_decode_*. */
-int32_t ak_decode_ListResultsResponse_af(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_ListResultsResponse *vt);
 int32_t ak_parse_ListResultsResponse(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
 ak_dec_ctx *ak_dec_ctx_new_ListResultsResponse(void);
 intptr_t ak_encode_ListTasksDetailedResponse(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_ListTasksDetailedResponse *vt, const struct ak_efix_ListTasksDetailedResponse *fix);
 int32_t ak_decode_ListTasksDetailedResponse(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_ListTasksDetailedResponse *vt);
-/* Optimisation N5 (ABI v1 open decision 10, an EXPERIMENT; additive): the apply-first element order. A non-batchable element whose inner runs fit the arena gets no new_<slot>: apply_<slot> is called with token -1 (construct the element from the group and append it), then its runs with token -1 (the element apply just made); an element whose runs do not fit falls back to new, runs, apply as ak_decode_*. */
-int32_t ak_decode_ListTasksDetailedResponse_af(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_ListTasksDetailedResponse *vt);
 int32_t ak_parse_ListTasksDetailedResponse(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
 ak_dec_ctx *ak_dec_ctx_new_ListTasksDetailedResponse(void);
 intptr_t ak_encode_ListTaskSummaryResponse(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_ListTaskSummaryResponse *vt, const struct ak_efix_ListTaskSummaryResponse *fix);
 int32_t ak_decode_ListTaskSummaryResponse(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_ListTaskSummaryResponse *vt);
-/* Optimisation N5 (ABI v1 open decision 10, an EXPERIMENT; additive): the apply-first element order. A non-batchable element whose inner runs fit the arena gets no new_<slot>: apply_<slot> is called with token -1 (construct the element from the group and append it), then its runs with token -1 (the element apply just made); an element whose runs do not fit falls back to new, runs, apply as ak_decode_*. */
-int32_t ak_decode_ListTaskSummaryResponse_af(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_ListTaskSummaryResponse *vt);
 int32_t ak_parse_ListTaskSummaryResponse(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
 ak_dec_ctx *ak_dec_ctx_new_ListTaskSummaryResponse(void);
 intptr_t ak_encode_ListProbeResponse(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_ListProbeResponse *vt, const struct ak_efix_ListProbeResponse *fix);
 int32_t ak_decode_ListProbeResponse(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_ListProbeResponse *vt);
-/* Optimisation N5 (ABI v1 open decision 10, an EXPERIMENT; additive): the apply-first element order. A non-batchable element whose inner runs fit the arena gets no new_<slot>: apply_<slot> is called with token -1 (construct the element from the group and append it), then its runs with token -1 (the element apply just made); an element whose runs do not fit falls back to new, runs, apply as ak_decode_*. */
-int32_t ak_decode_ListProbeResponse_af(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_ListProbeResponse *vt);
 int32_t ak_parse_ListProbeResponse(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
 ak_dec_ctx *ak_dec_ctx_new_ListProbeResponse(void);
 intptr_t ak_encode_ListMetricsResponse(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_ListMetricsResponse *vt, const struct ak_efix_ListMetricsResponse *fix);
 int32_t ak_decode_ListMetricsResponse(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_ListMetricsResponse *vt);
-/* Optimisation N5 (ABI v1 open decision 10, an EXPERIMENT; additive): the apply-first element order. A non-batchable element whose inner runs fit the arena gets no new_<slot>: apply_<slot> is called with token -1 (construct the element from the group and append it), then its runs with token -1 (the element apply just made); an element whose runs do not fit falls back to new, runs, apply as ak_decode_*. */
-int32_t ak_decode_ListMetricsResponse_af(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_ListMetricsResponse *vt);
 int32_t ak_parse_ListMetricsResponse(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
 ak_dec_ctx *ak_dec_ctx_new_ListMetricsResponse(void);
 intptr_t ak_encode_UploadResultDataMessage(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_UploadResultDataMessage *vt, const struct ak_efix_UploadResultDataMessage *fix, const uint8_t *direct, size_t direct_len);
 int32_t ak_decode_UploadResultDataMessage(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_UploadResultDataMessage *vt);
-/* Optimisation N5 (ABI v1 open decision 10, an EXPERIMENT; additive): the apply-first element order. A non-batchable element whose inner runs fit the arena gets no new_<slot>: apply_<slot> is called with token -1 (construct the element from the group and append it), then its runs with token -1 (the element apply just made); an element whose runs do not fit falls back to new, runs, apply as ak_decode_*. */
-int32_t ak_decode_UploadResultDataMessage_af(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_UploadResultDataMessage *vt);
 int32_t ak_parse_UploadResultDataMessage(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
 ak_dec_ctx *ak_dec_ctx_new_UploadResultDataMessage(void);
 intptr_t ak_encode_DualResponse(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_DualResponse *vt, const struct ak_efix_DualResponse *fix);
 int32_t ak_decode_DualResponse(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_DualResponse *vt);
-/* Optimisation N5 (ABI v1 open decision 10, an EXPERIMENT; additive): the apply-first element order. A non-batchable element whose inner runs fit the arena gets no new_<slot>: apply_<slot> is called with token -1 (construct the element from the group and append it), then its runs with token -1 (the element apply just made); an element whose runs do not fit falls back to new, runs, apply as ak_decode_*. */
-int32_t ak_decode_DualResponse_af(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_DualResponse *vt);
 int32_t ak_parse_DualResponse(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
 ak_dec_ctx *ak_dec_ctx_new_DualResponse(void);
 intptr_t ak_encode_ChunkLeaf(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_ChunkLeaf *vt, const struct ak_efix_ChunkLeaf *fix);
 int32_t ak_decode_ChunkLeaf(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_ChunkLeaf *vt);
-/* Optimisation N5 (ABI v1 open decision 10, an EXPERIMENT; additive): the apply-first element order. A non-batchable element whose inner runs fit the arena gets no new_<slot>: apply_<slot> is called with token -1 (construct the element from the group and append it), then its runs with token -1 (the element apply just made); an element whose runs do not fit falls back to new, runs, apply as ak_decode_*. */
-int32_t ak_decode_ChunkLeaf_af(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_ChunkLeaf *vt);
 int32_t ak_parse_ChunkLeaf(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
 ak_dec_ctx *ak_dec_ctx_new_ChunkLeaf(void);
 intptr_t ak_encode_ChunkInner(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_ChunkInner *vt, const struct ak_efix_ChunkInner *fix);
 int32_t ak_decode_ChunkInner(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_ChunkInner *vt);
-/* Optimisation N5 (ABI v1 open decision 10, an EXPERIMENT; additive): the apply-first element order. A non-batchable element whose inner runs fit the arena gets no new_<slot>: apply_<slot> is called with token -1 (construct the element from the group and append it), then its runs with token -1 (the element apply just made); an element whose runs do not fit falls back to new, runs, apply as ak_decode_*. */
-int32_t ak_decode_ChunkInner_af(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_ChunkInner *vt);
 int32_t ak_parse_ChunkInner(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
 ak_dec_ctx *ak_dec_ctx_new_ChunkInner(void);
 intptr_t ak_encode_ChunkElement(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_ChunkElement *vt, const struct ak_efix_ChunkElement *fix);
 int32_t ak_decode_ChunkElement(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_ChunkElement *vt);
-/* Optimisation N5 (ABI v1 open decision 10, an EXPERIMENT; additive): the apply-first element order. A non-batchable element whose inner runs fit the arena gets no new_<slot>: apply_<slot> is called with token -1 (construct the element from the group and append it), then its runs with token -1 (the element apply just made); an element whose runs do not fit falls back to new, runs, apply as ak_decode_*. */
-int32_t ak_decode_ChunkElement_af(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_ChunkElement *vt);
 int32_t ak_parse_ChunkElement(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
 ak_dec_ctx *ak_dec_ctx_new_ChunkElement(void);
 intptr_t ak_encode_ChunkedResponse(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_ChunkedResponse *vt, const struct ak_efix_ChunkedResponse *fix);
 int32_t ak_decode_ChunkedResponse(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_ChunkedResponse *vt);
-/* Optimisation N5 (ABI v1 open decision 10, an EXPERIMENT; additive): the apply-first element order. A non-batchable element whose inner runs fit the arena gets no new_<slot>: apply_<slot> is called with token -1 (construct the element from the group and append it), then its runs with token -1 (the element apply just made); an element whose runs do not fit falls back to new, runs, apply as ak_decode_*. */
-int32_t ak_decode_ChunkedResponse_af(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_ChunkedResponse *vt);
 int32_t ak_parse_ChunkedResponse(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
 ak_dec_ctx *ak_dec_ctx_new_ChunkedResponse(void);
 intptr_t ak_encode_ChunkedResponseWide(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_ChunkedResponseWide *vt, const struct ak_efix_ChunkedResponseWide *fix);
 int32_t ak_decode_ChunkedResponseWide(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_ChunkedResponseWide *vt);
-/* Optimisation N5 (ABI v1 open decision 10, an EXPERIMENT; additive): the apply-first element order. A non-batchable element whose inner runs fit the arena gets no new_<slot>: apply_<slot> is called with token -1 (construct the element from the group and append it), then its runs with token -1 (the element apply just made); an element whose runs do not fit falls back to new, runs, apply as ak_decode_*. */
-int32_t ak_decode_ChunkedResponseWide_af(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_ChunkedResponseWide *vt);
 int32_t ak_parse_ChunkedResponseWide(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
 ak_dec_ctx *ak_dec_ctx_new_ChunkedResponseWide(void);
 intptr_t ak_encode_LeafElement(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_LeafElement *vt, const struct ak_efix_LeafElement *fix);
 int32_t ak_decode_LeafElement(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_LeafElement *vt);
-/* Optimisation N5 (ABI v1 open decision 10, an EXPERIMENT; additive): the apply-first element order. A non-batchable element whose inner runs fit the arena gets no new_<slot>: apply_<slot> is called with token -1 (construct the element from the group and append it), then its runs with token -1 (the element apply just made); an element whose runs do not fit falls back to new, runs, apply as ak_decode_*. */
-int32_t ak_decode_LeafElement_af(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_LeafElement *vt);
 int32_t ak_parse_LeafElement(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
 ak_dec_ctx *ak_dec_ctx_new_LeafElement(void);
 intptr_t ak_encode_LeafResponse(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_LeafResponse *vt, const struct ak_efix_LeafResponse *fix);
 int32_t ak_decode_LeafResponse(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_LeafResponse *vt);
-/* Optimisation N5 (ABI v1 open decision 10, an EXPERIMENT; additive): the apply-first element order. A non-batchable element whose inner runs fit the arena gets no new_<slot>: apply_<slot> is called with token -1 (construct the element from the group and append it), then its runs with token -1 (the element apply just made); an element whose runs do not fit falls back to new, runs, apply as ak_decode_*. */
-int32_t ak_decode_LeafResponse_af(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_LeafResponse *vt);
 int32_t ak_parse_LeafResponse(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
 ak_dec_ctx *ak_dec_ctx_new_LeafResponse(void);
 intptr_t ak_encode_Surrogate(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_Surrogate *vt, const struct ak_efix_Surrogate *fix);
 int32_t ak_decode_Surrogate(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_Surrogate *vt);
-/* Optimisation N5 (ABI v1 open decision 10, an EXPERIMENT; additive): the apply-first element order. A non-batchable element whose inner runs fit the arena gets no new_<slot>: apply_<slot> is called with token -1 (construct the element from the group and append it), then its runs with token -1 (the element apply just made); an element whose runs do not fit falls back to new, runs, apply as ak_decode_*. */
-int32_t ak_decode_Surrogate_af(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_Surrogate *vt);
 int32_t ak_parse_Surrogate(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
 ak_dec_ctx *ak_dec_ctx_new_Surrogate(void);
 intptr_t ak_encode_SurrogateInner(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_SurrogateInner *vt, const struct ak_efix_SurrogateInner *fix);
 int32_t ak_decode_SurrogateInner(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_SurrogateInner *vt);
-/* Optimisation N5 (ABI v1 open decision 10, an EXPERIMENT; additive): the apply-first element order. A non-batchable element whose inner runs fit the arena gets no new_<slot>: apply_<slot> is called with token -1 (construct the element from the group and append it), then its runs with token -1 (the element apply just made); an element whose runs do not fit falls back to new, runs, apply as ak_decode_*. */
-int32_t ak_decode_SurrogateInner_af(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_SurrogateInner *vt);
 int32_t ak_parse_SurrogateInner(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
 ak_dec_ctx *ak_dec_ctx_new_SurrogateInner(void);
 intptr_t ak_encode_WireZoo(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_WireZoo *vt, const struct ak_efix_WireZoo *fix);
 int32_t ak_decode_WireZoo(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_WireZoo *vt);
-/* Optimisation N5 (ABI v1 open decision 10, an EXPERIMENT; additive): the apply-first element order. A non-batchable element whose inner runs fit the arena gets no new_<slot>: apply_<slot> is called with token -1 (construct the element from the group and append it), then its runs with token -1 (the element apply just made); an element whose runs do not fit falls back to new, runs, apply as ak_decode_*. */
-int32_t ak_decode_WireZoo_af(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_WireZoo *vt);
 int32_t ak_parse_WireZoo(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
 ak_dec_ctx *ak_dec_ctx_new_WireZoo(void);
 int32_t ak_elemu_ChunkElement(ak_enc_ctx *ctx, const struct ak_efix_ChunkElement *elems, int32_t n, int64_t tok0);

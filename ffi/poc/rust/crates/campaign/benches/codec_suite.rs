@@ -79,12 +79,6 @@ fn main() {
         });
         assert!(ok, "no root {}", inp.root);
     }
-    // Optimisation N5: the apply-first decode's fallback, on the two inputs that reach it.
-    {
-        let (n, f) = n5_checks(ctx);
-        checks += n;
-        fails.extend(f);
-    }
     // Requirement 11's variants write the same bytes: every (arm, input, mode) returns the
     // same length from each of its end-state x input variants (the pool built and freed).
     {
