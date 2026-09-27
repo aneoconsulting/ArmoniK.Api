@@ -156,14 +156,14 @@ public final class RunCounts {
   // count, the reverse crossings (upcalls, counted by the core) and the grow calls (the core
   // calling the shim's C grow). Per payload and direction in every mode of this build, and
   // the U-* rows at the shapes core's roots. Retain mode: no pre-placed buffer, the shim's
-  // grow allocating exactly what the core asks for. One untimed operation first per row
+  // geometric grow, the same as the timed build's (req 19 as amended). One untimed operation first per row
   // (context creation and the first learned widths are not the timed loop's).
   //
   // Where the resets fall (each counted in `host`): encode -- ak_enc_reset before every
   // encode; decode, drop and no-unknown -- none (the root's context is reused, ak_decode_*
-  // starts clean); decode, retain -- ak_dec_reset_<Root>(opts) before and
-  // ak_dec_reset_<Root>(NULL) after every decode; decode-pull -- none (ak_parse_* resets
-  // the record buffer at entry), retain arms and disarms around it as in push.
+  // starts clean); decode, retain -- ak_dec_reset_<Root>(opts) before every decode, and
+  // nothing after (WP8: one reset per decode, decision 11 rule 7); decode-pull -- none in
+  // drop (ak_parse_* resets the record buffer at entry), the same one reset in retain.
 
   interface Op { void run(); }
 
@@ -185,7 +185,6 @@ public final class RunCounts {
       log.append("  (not the counting shim: -DAK_HOST_COUNT absent, section skipped)\n");
       return;
     }
-    if (ak.Variant.UNKNOWN_FIELDS) Native.unkGrowExact(true);
     log.append("# host = JNI entries into the core (resets, take, drain, walk included); core = the\n"
         + "# core's own forward count; rev = upcalls; grow = calls of the shim's C grow.\n");
     String[] modes = ak.Variant.UNKNOWN_FIELDS ? new String[] {"drop", "retain"} : new String[] {"no-unknown"};
@@ -241,6 +240,5 @@ public final class RunCounts {
         b.close();
       }
     }
-    if (ak.Variant.UNKNOWN_FIELDS) Native.unkGrowExact(false);
   }
 }

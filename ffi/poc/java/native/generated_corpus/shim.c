@@ -2452,9 +2452,8 @@ static void ak_jbuf_unlink(ak_jbuf *b) {
   b->prev = b->next = b;
 }
 
-/* `g_grow_exact` (set by the counting harness, CAMPAIGN req 19): allocate exactly the size
- * the core asked for, so a count of grow calls does not depend on this host's policy. */
-static int g_grow_exact;
+/* The one grow for the timed and the counting build (CAMPAIGN req 19 as amended, WP8): at
+ * least the request, geometric, clamped to INT32_MAX (decision 11 rule 8). */
 static int32_t ak_java_grow(void *sink, int32_t want, uint8_t **dst, int32_t *cap) {
   ak_jbuf *list = (ak_jbuf *) sink;
 #ifdef AK_HOST_COUNT
@@ -2467,7 +2466,6 @@ static int32_t ak_java_grow(void *sink, int32_t want, uint8_t **dst, int32_t *ca
   if (n < want) n = want;
   if (n < 64) n = 64;
   if (n > 0x7fffffff) n = want;
-  if (g_grow_exact) n = want;
   ak_jbuf *old = *dst == NULL ? NULL : ((ak_jbuf *) *dst) - 1;
   if (old != NULL) ak_jbuf_unlink(old);
   ak_jbuf *b = (ak_jbuf *) realloc(old, sizeof(ak_jbuf) + (size_t) n);
@@ -2487,9 +2485,6 @@ static void ak_jbuf_free(void *data) {
   ak_jbuf_unlink(b);
   free(b);
   __atomic_sub_fetch(&g_unk_live, 1, __ATOMIC_RELAXED);
-}
-JNIEXPORT void JNICALL Java_ak_Native_unkGrowExact(JNIEnv *e, jclass c, jboolean on) {
-  (void) e; (void) c;  g_grow_exact = on ? 1 : 0;
 }
 JNIEXPORT jlong JNICALL Java_ak_Native_unkGrow(JNIEnv *e, jclass c) {
   (void) e; (void) c;  return (jlong)(intptr_t) ak_java_grow;

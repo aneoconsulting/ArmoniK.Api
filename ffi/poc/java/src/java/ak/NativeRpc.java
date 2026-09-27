@@ -81,4 +81,17 @@ public final class NativeRpc {
   /** A direct ByteBuffer over `len` bytes at `ptr` (JNI NewDirectByteBuffer): no copy. The
    *  memory stays the core's; the caller frees it with {@link #bytesFree} once done. */
   public static native java.nio.ByteBuffer directBuffer(long ptr, long len);
+
+  // ---- CAMPAIGN req 14 (c)/(d): the core's client streaming (ABI v1 section 9) ----------
+  /** ak_call_open(client, path, AK_CALL_CLIENT_STREAM, NULL); 0 on failure. */
+  public static native long callOpen(long client, long pathPtr, int pathLen);
+  /** ak_call_send: the message copied; `last` != 0 ends the request stream. */
+  public static native int callSend(long h, byte[] msg, int off, int len, int last);
+  /** ak_call_send_enc: the encode context's output MOVED. */
+  public static native int callSendEnc(long h, long encCtx, int last);
+  /** ak_call_recv: `out` = {ptr, len, owner, grpc_status}; rc AK_OK iff status 0. */
+  public static native int callRecv(long h, long[] out);
+  public static native void callCancel(long h);
+  /** ak_client_set_framed: the framed send path for every later call of the client. */
+  public static native int clientSetFramed(long client, int on);
 }

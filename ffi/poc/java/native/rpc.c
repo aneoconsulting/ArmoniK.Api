@@ -91,11 +91,14 @@ JNIEXPORT jint JNICALL Java_ak_NativeRpc_callUnary(JNIEnv *env, jclass c, jlong 
   AK_HC();
   (void) c;
   ak_bytes b = {NULL, 0, NULL};
+  /* ABI v1 section 9 as amended (WP8): the gRPC status number; a non-OK status is
+   * AK_ERR_RPC_STATUS (-12), which the caller treats as a failed call (req 18). */
+  int32_t grpc_status = 0;
   jbyte *base = (*env)->GetByteArrayElements(env, req, NULL);
   if (base == NULL) return -1;
   int32_t rc = ak_call_unary((ak_client *)(intptr_t) cl,
                              (const uint8_t *)(intptr_t) pathPtr, (size_t) pathLen,
-                             (const uint8_t *) base + reqOff, (size_t) reqLen, &b);
+                             (const uint8_t *) base + reqOff, (size_t) reqLen, &b, &grpc_status);
   (*env)->ReleaseByteArrayElements(env, req, base, JNI_ABORT);
   if (rc == 0) {
     jlong v[3];
@@ -178,6 +181,7 @@ JNIEXPORT jint JNICALL Java_ak_NativeRpc_queueNext(JNIEnv *env, jclass c, jlong 
   ak_completion comp;
   comp.tag = 0;
   comp.status = 0;
+  comp.grpc_status = 0;
   comp.bytes.ptr = NULL;
   comp.bytes.len = 0;
   comp.bytes.owner = NULL;
@@ -249,4 +253,67 @@ JNIEXPORT jlong JNICALL Java_ak_NativeRpc_processCpuNs(JNIEnv *e, jclass c) {
 JNIEXPORT jobject JNICALL Java_ak_NativeRpc_directBuffer(JNIEnv *env, jclass c, jlong ptr, jlong len) {
   (void) c;
   return (*env)->NewDirectByteBuffer(env, (void *)(intptr_t) ptr, len);
+}
+
+/* ---- CAMPAIGN req 14 directions (c) and (d) (owner, 2026-09-27): client streaming --------
+ *
+ * Cells B, C and E upload through the core's client streaming (ABI v1 section 9): open,
+ * one send per message (ak_call_send copies host bytes; ak_call_send_enc MOVES the encode
+ * context's output), recv the response, free it, destroy the handle. Blocking delivery
+ * (req 16). The request bytes are taken with GetByteArrayElements, as callUnary does: a
+ * send may block on the transport, and a critical section must not be held across it. */
+JNIEXPORT jlong JNICALL Java_ak_NativeRpc_callOpen(JNIEnv *e, jclass c, jlong cl,
+                                                  jlong pathPtr, jint pathLen) {
+  AK_HC();
+  (void) e; (void) c;
+  return (jlong)(intptr_t) ak_call_open((ak_client *)(intptr_t) cl, (const uint8_t *)(intptr_t) pathPtr,
+                                        (size_t) pathLen, AK_CALL_CLIENT_STREAM, NULL);
+}
+
+JNIEXPORT jint JNICALL Java_ak_NativeRpc_callSend(JNIEnv *env, jclass c, jlong h,
+                                                 jbyteArray msg, jint off, jint len, jint last) {
+  AK_HC();
+  (void) c;
+  jbyte *base = (*env)->GetByteArrayElements(env, msg, NULL);
+  if (base == NULL) return -1;
+  int32_t rc = ak_call_send((ak_call *)(intptr_t) h, (const uint8_t *) base + off, (size_t) len, (int32_t) last);
+  (*env)->ReleaseByteArrayElements(env, msg, base, JNI_ABORT);
+  return (jint) rc;
+}
+
+JNIEXPORT jint JNICALL Java_ak_NativeRpc_callSendEnc(JNIEnv *e, jclass c, jlong h, jlong enc, jint last) {
+  AK_HC();
+  (void) e; (void) c;
+  return (jint) ak_call_send_enc((ak_call *)(intptr_t) h, (ak_enc_ctx *)(intptr_t) enc, (int32_t) last);
+}
+
+/* `out` receives {ptr, len, owner, grpc_status}; the rc is the call's (AK_ERR_RPC_STATUS on
+ * a non-OK status). */
+JNIEXPORT jint JNICALL Java_ak_NativeRpc_callRecv(JNIEnv *env, jclass c, jlong h, jlongArray out) {
+  AK_HC();
+  (void) c;
+  ak_bytes b = {NULL, 0, NULL};
+  int32_t gs = -1;
+  int32_t rc = ak_call_recv((ak_call *)(intptr_t) h, &b, &gs);
+  jlong v[4];
+  v[0] = (jlong)(intptr_t) b.ptr;
+  v[1] = (jlong) b.len;
+  v[2] = (jlong)(intptr_t) b.owner;
+  v[3] = (jlong) gs;
+  (*env)->SetLongArrayRegion(env, out, 0, 4, v);
+  return (jint) rc;
+}
+
+JNIEXPORT void JNICALL Java_ak_NativeRpc_callCancel(JNIEnv *e, jclass c, jlong h) {
+  AK_HC();
+  (void) e; (void) c;
+  if (h != 0) ak_call_cancel((ak_call *)(intptr_t) h);
+}
+
+/* ABI v1 section 9: the FRAMED send path for every later call on this client (the
+ * labelled framed twins Bf, Cf, Ef). */
+JNIEXPORT jint JNICALL Java_ak_NativeRpc_clientSetFramed(JNIEnv *e, jclass c, jlong cl, jint on) {
+  AK_HC();
+  (void) e; (void) c;
+  return (jint) ak_client_set_framed((ak_client *)(intptr_t) cl, (int32_t) on);
 }

@@ -71,8 +71,6 @@ public final class Native {
   public static native int unkReclaim(long list);
   public static native void unkListFree(long list);
   public static native long unkLive();
-  /** Counting harness (CAMPAIGN req 19): the shim's grow allocates exactly what is asked. */
-  public static native void unkGrowExact(boolean on);
   /** Counting shim (-DAK_HOST_COUNT): {JNI entries into the core, grow calls}. */
   public static native void hostCounts(long[] out);
   public static native void hostCountsReset();

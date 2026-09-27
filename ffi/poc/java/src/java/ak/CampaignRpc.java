@@ -101,6 +101,81 @@ public final class CampaignRpc {
   static final String PAYLOAD = "P2.2";
   static final String GET = "ak.Bench/Get";   // direction (a)
   static final String PUT = "ak.Bench/Put";   // direction (b)
+  static final String UPLOAD = "ak.Bench/Upload";              // direction (c), unary
+  static final String STREAM = "ak.Bench/UploadStream";        // direction (d), client stream
+  static final String STREAM_CHECK = "ak.Bench/UploadStreamCheck";   // (d) with the digest
+  /** Req 14 (c): the unary uploads, M5 (UploadResultDataMessage), 1 MB and 4 MB. */
+  static final String[] C_PAYLOADS = {"P5.3", "P5.4"};
+  /** Req 14 (d): (label, 2 MiB chunks): 4 MiB and 16 MiB, ArmoniK's UploadResultData stream. */
+  static final String[] D_LABELS = {"4MiB", "16MiB"};
+  static final int[] D_CHUNKS = {2, 8};
+  static final int CHUNK = 2 * 1024 * 1024;
+  static final int[] UP_INFLIGHT = {1, 8};
+  /** -Dak.camp.plant=1 (req 18's control): every upload expects one byte more than it gets. */
+  static final boolean PLANT = "1".equals(System.getProperty("ak.camp.plant"));
+
+  /** Direction (d)'s upload: the messages as protobuf-java's and as the facade's, the data
+   *  bytes and the SHA-256 of the messages' wire bytes (every encoder byte-identical, checked
+   *  before any call). 2 MiB chunks of splitmix64 bytes, seeded as the rust slice's
+   *  (0x5EED0000 + chunks), the ids on the first message only. */
+  static final class StreamPayload {
+    final Message[] p;
+    final ak.shapes.UploadResultDataMessage[] f;
+    final long dataBytes;
+    final byte[] sha256;
+    StreamPayload(int chunks) {
+      long[] seed = {0x5EED0000L + chunks};
+      p = new Message[chunks];
+      f = new ak.shapes.UploadResultDataMessage[chunks];
+      java.security.MessageDigest md;
+      try { md = java.security.MessageDigest.getInstance("SHA-256"); }
+      catch (java.security.NoSuchAlgorithmException e) { throw new IllegalStateException(e); }
+      for (int i = 0; i < chunks; i++) {
+        byte[] data = new byte[CHUNK];
+        for (int k = 0; k < CHUNK; k += 8) {
+          seed[0] += 0x9E3779B97F4A7C15L;
+          long z = seed[0];
+          z = (z ^ (z >>> 30)) * 0xBF58476D1CE4E5B9L;
+          z = (z ^ (z >>> 27)) * 0x94D049BB133111EBL;
+          z ^= z >>> 31;
+          for (int j = 0; j < 8; j++) data[k + j] = (byte) (z >>> (8 * j));
+        }
+        boolean first = i == 0;
+        ak.shapes.UploadResultData u = new ak.shapes.UploadResultData();
+        u.session_id = first ? "session-u2" : "";
+        u.result_id = first ? "result-u2" : "";
+        u.data_chunk = data;
+        f[i] = new ak.shapes.UploadResultDataMessage();
+        f[i].upload = u;
+        p[i] = ak.pb.UploadResultDataMessage.newBuilder().setUpload(ak.pb.UploadResultData.newBuilder()
+            .setSessionId(u.session_id).setResultId(u.result_id)
+            .setDataChunk(com.google.protobuf.ByteString.copyFrom(data))).build();
+        byte[] wire = p[i].toByteArray();
+        Enc e = new Enc(Arms.R_SITES);
+        Arms.encodeR("P5.3", f[i], e);
+        if (!Arrays.equals(e.toBytes(), wire)) throw new IllegalStateException("(d): arm R and protobuf-java encode chunk " + i + " differently");
+        md.update(wire);
+      }
+      dataBytes = (long) chunks * CHUNK;
+      sha256 = md.digest();
+    }
+  }
+  static final StreamPayload[] STREAMS = new StreamPayload[D_CHUNKS.length];
+  static final Object[] C_FACADE = new Object[C_PAYLOADS.length];
+  static final Message[] C_PB = new Message[C_PAYLOADS.length];
+
+  /** The (d) response check (req 18): the data byte count (u64 LE), then, from the check
+   *  path, the SHA-256 of every message the server received. */
+  static void checkStream(String who, byte[] r, StreamPayload pl, boolean check) {
+    int want = check ? 40 : 8;
+    if (r.length != want) fail(who + "/d: upload response " + r.length + " B, expected " + want);
+    long got = 0;
+    for (int i = 7; i >= 0; i--) got = (got << 8) | (r[i] & 0xFF);
+    long exp = pl.dataBytes + (PLANT ? 1 : 0);
+    if (got != exp) fail(who + "/d: the server received " + got + " data bytes, expected " + exp);
+    if (check && !Arrays.equals(Arrays.copyOfRange(r, 8, 40), pl.sha256))
+      fail(who + "/d: the server received other bytes than the uploaded ones (SHA-256 differs)");
+  }
   static final int WIN = 4 * 1024 * 1024;
   static final int MAXMSG = 8 * 1024 * 1024;
   static final int[] INFLIGHT = {1, 8, 16};
@@ -125,6 +200,51 @@ public final class CampaignRpc {
     } catch (IOException e) {
       throw new IllegalStateException(e);
     }
+  }
+
+  static MethodDescriptor<byte[], byte[]> bytesStreamMd(String name) {
+    return MethodDescriptor.<byte[], byte[]>newBuilder().setType(MethodDescriptor.MethodType.CLIENT_STREAMING)
+        .setFullMethodName(name).setRequestMarshaller(BYTES).setResponseMarshaller(BYTES).build();
+  }
+
+  /** (d)'s server handler: every message parsed with protobuf-java as M5, the ids required
+   *  on the first; the answer is the data byte count (u64 LE), plus, on the check path, the
+   *  SHA-256 of every message as received. */
+  static io.grpc.stub.StreamObserver<byte[]> streamHandler(final io.grpc.stub.StreamObserver<byte[]> obs, final boolean check) {
+    return new io.grpc.stub.StreamObserver<byte[]>() {
+      long total;
+      boolean first = true, failed;
+      final java.security.MessageDigest md = sha();
+      @Override public void onNext(byte[] m) {
+        if (failed) return;
+        try {
+          if (check) md.update(m);
+          ak.pb.UploadResultDataMessage v = ak.pb.UploadResultDataMessage.parseFrom(m);
+          if (!v.hasUpload()) throw new IllegalStateException("a message without upload");
+          if (first && (v.getUpload().getSessionId().isEmpty() || v.getUpload().getResultId().isEmpty()))
+            throw new IllegalStateException("the first message carries no ids");
+          first = false;
+          total += v.getUpload().getDataChunk().size();
+        } catch (Exception e) {
+          failed = true;
+          obs.onError(Status.INVALID_ARGUMENT.withDescription(e.toString()).asRuntimeException());
+        }
+      }
+      @Override public void onError(Throwable t) {}
+      @Override public void onCompleted() {
+        if (failed) return;
+        byte[] out = new byte[check ? 40 : 8];
+        for (int i = 0; i < 8; i++) out[i] = (byte) (total >>> (8 * i));
+        if (check) System.arraycopy(md.digest(), 0, out, 8, 32);
+        obs.onNext(out);
+        obs.onCompleted();
+      }
+    };
+  }
+
+  static java.security.MessageDigest sha() {
+    try { return java.security.MessageDigest.getInstance("SHA-256"); }
+    catch (java.security.NoSuchAlgorithmException e) { throw new IllegalStateException(e); }
   }
 
   static MethodDescriptor<byte[], byte[]> bytesMd(String name) {
@@ -169,6 +289,21 @@ public final class CampaignRpc {
           obs.onNext(empty);
           obs.onCompleted();
         }))
+        // Req 14 (c): a unary upload of P5.3 / P5.4, parsed with protobuf-java; empty answer.
+        .addMethod(bytesMd(UPLOAD), ServerCalls.asyncUnaryCall((req, obs) -> {
+          try {
+            ak.pb.UploadResultDataMessage m = ak.pb.UploadResultDataMessage.parseFrom(req);
+            if (!m.hasUpload() || m.getUpload().getDataChunk().isEmpty()) throw new IllegalStateException("empty upload");
+          } catch (Exception e) {
+            obs.onError(Status.INVALID_ARGUMENT.withDescription(e.toString()).asRuntimeException());
+            return;
+          }
+          obs.onNext(empty);
+          obs.onCompleted();
+        }))
+        // Req 14 (d): the client-streamed upload and its digest-checking twin.
+        .addMethod(bytesStreamMd(STREAM), ServerCalls.asyncClientStreamingCall(obs -> streamHandler(obs, false)))
+        .addMethod(bytesStreamMd(STREAM_CHECK), ServerCalls.asyncClientStreamingCall(obs -> streamHandler(obs, true)))
         .build();
     EpollEventLoopGroup boss = new EpollEventLoopGroup(1), work = new EpollEventLoopGroup(EVENT_LOOPS);
     List<Server> servers = new ArrayList<Server>();
@@ -178,8 +313,10 @@ public final class CampaignRpc {
       f.delete();
       NettyServerBuilder sb = NettyServerBuilder.forAddress(new DomainSocketAddress(f))
           .channelType(EpollServerDomainSocketChannel.class)
-          .bossEventLoopGroup(boss).workerEventLoopGroup(work).addService(svc);
-      if (t.equals("pinned")) sb.flowControlWindow(WIN).maxInboundMessageSize(MAXMSG);
+          .bossEventLoopGroup(boss).workerEventLoopGroup(work).addService(svc)
+          // Req 14: P5.4 is 4,194,390 B, over grpc-java's 4 MiB default: 8 MiB on both sockets.
+          .maxInboundMessageSize(MAXMSG);
+      if (t.equals("pinned")) sb.flowControlWindow(WIN);
       servers.add(sb.build().start());
       System.out.println("SERVING " + path + " transport=" + t + " response=" + body.length + "B");
     }
@@ -271,16 +408,21 @@ public final class CampaignRpc {
       return retain ? Arms.decodeRRetain(PAYLOAD, new Dec(), b, 0, n) : Arms.decodeR(PAYLOAD, new Dec(), b, 0, n);
     }
     /** A facade request encoded by this cell's codec, as the array its transport takes. */
-    byte[] encodeFacade(Object v) {
+    byte[] encodeFacade(Object v) { return encodeFacade(PAYLOAD, v); }
+    byte[] encodeFacade(String id, Object v) {
       if (codec == FFI) {
         Binding b = bind();
-        FfiArms.encode(b, PAYLOAD, v);
+        FfiArms.encode(b, id, v);
         return b.take();
       }
       Enc e = HENC.get();
-      if (retain) Arms.encodeRRetain(PAYLOAD, v, e); else Arms.encodeR(PAYLOAD, v, e);
+      if (retain) Arms.encodeRRetain(id, v, e); else Arms.encodeR(id, v, e);
       return e.toBytes();
     }
+    /** (c): the unary upload of C_PAYLOADS[k]. */
+    abstract void callC(int k);
+    /** (d): the streamed upload of STREAMS[k]; `check` = the digest path. */
+    abstract void callD(int k, boolean check);
     long walk(Object x) {
       return incumbentCodec ? PbWalk.walk(Arms.root(PAYLOAD), x) : Walk.walk(Arms.root(PAYLOAD), x);
     }
@@ -292,7 +434,7 @@ public final class CampaignRpc {
   static final class GrpcCell extends Cell {
     final ManagedChannel ch;
     final MethodDescriptor<byte[], Object> mdA;
-    final MethodDescriptor<Object, byte[]> mdB;
+    final MethodDescriptor<Object, byte[]> mdB, mdC, mdD, mdDCheck;
 
     GrpcCell(String name, int codec, boolean retain, String sock, EpollEventLoopGroup elg, boolean pinned) {
       super(name, codec, retain);
@@ -335,6 +477,23 @@ public final class CampaignRpc {
         }
         @Override public Object parse(InputStream s) { throw new UnsupportedOperationException(); }
       };
+      // Req 14 (c), (d): M5 requests through the cell's codec (the incumbent: grpc-java's
+      // marshaller for UploadResultDataMessage; D, F: the facade encoded by the core / arm R).
+      final MethodDescriptor.Marshaller<Message> pm5 = io.grpc.protobuf.lite.ProtoLiteUtils.marshaller(
+          ak.pb.UploadResultDataMessage.getDefaultInstance());
+      MethodDescriptor.Marshaller<Object> req5 = new MethodDescriptor.Marshaller<Object>() {
+        @Override public InputStream stream(Object v) {
+          if (incumbentCodec) return pm5.stream((Message) v);
+          return new ByteArrayInputStream(encodeFacade("P5.3", v));
+        }
+        @Override public Object parse(InputStream s) { throw new UnsupportedOperationException(); }
+      };
+      mdC = MethodDescriptor.<Object, byte[]>newBuilder().setType(MethodDescriptor.MethodType.UNARY)
+          .setFullMethodName(UPLOAD).setRequestMarshaller(req5).setResponseMarshaller(BYTES).build();
+      mdD = MethodDescriptor.<Object, byte[]>newBuilder().setType(MethodDescriptor.MethodType.CLIENT_STREAMING)
+          .setFullMethodName(STREAM).setRequestMarshaller(req5).setResponseMarshaller(BYTES).build();
+      mdDCheck = MethodDescriptor.<Object, byte[]>newBuilder().setType(MethodDescriptor.MethodType.CLIENT_STREAMING)
+          .setFullMethodName(STREAM_CHECK).setRequestMarshaller(req5).setResponseMarshaller(BYTES).build();
       mdA = MethodDescriptor.<byte[], Object>newBuilder().setType(MethodDescriptor.MethodType.UNARY)
           .setFullMethodName(GET).setRequestMarshaller(BYTES).setResponseMarshaller(resp).build();
       mdB = MethodDescriptor.<Object, byte[]>newBuilder().setType(MethodDescriptor.MethodType.UNARY)
@@ -353,19 +512,60 @@ public final class CampaignRpc {
       if (r.length != 0) fail(name + "/b: response " + r.length + " B, want 0");
     }
 
+    void callC(int k) {
+      Object req = incumbentCodec ? C_PB[k] : C_FACADE[k];
+      byte[] r = ClientCalls.blockingUnaryCall(ch, mdC, CallOptions.DEFAULT, req);
+      if (r.length != (PLANT ? 1 : 0)) fail(name + "/c: response " + r.length + " B, want " + (PLANT ? 1 : 0));
+    }
+
+    /** (d) through grpc-java's own client streaming, in its idiomatic form: a client-
+     *  streaming call has no blocking stub, so this is what the async stub does,
+     *  ClientCalls.asyncClientStreamingCall with a StreamObserver, messages handed to
+     *  onNext, the response awaited on a future. */
+    void callD(int k, boolean check) {
+      final java.util.concurrent.CompletableFuture<byte[]> done = new java.util.concurrent.CompletableFuture<byte[]>();
+      io.grpc.stub.StreamObserver<Object> req = ClientCalls.asyncClientStreamingCall(
+          ch.newCall(check ? mdDCheck : mdD, CallOptions.DEFAULT), new io.grpc.stub.StreamObserver<byte[]>() {
+            byte[] got;
+            @Override public void onNext(byte[] v) { got = v; }
+            @Override public void onError(Throwable t) { done.completeExceptionally(t); }
+            @Override public void onCompleted() { done.complete(got == null ? new byte[0] : got); }
+          });
+      StreamPayload pl = STREAMS[k];
+      for (int i = 0; i < pl.p.length; i++) req.onNext(incumbentCodec ? pl.p[i] : pl.f[i]);
+      req.onCompleted();
+      byte[] r;
+      try { r = done.get(); } catch (Exception e) { throw new IllegalStateException(name + "/d: " + e, e); }
+      checkStream(name, r, pl, check);
+    }
+
     @Override void close() { ch.shutdownNow(); }
   }
 
   /** The core's transport, blocking delivery (req 16), with the cell's codec. */
   static final class CoreCell extends Cell {
-    final long rt, client, pathA, pathB;
-    final int lenA, lenB;
+    final long rt, client, pathA, pathB, pathC, pathD, pathDCheck;
+    final int lenA, lenB, lenC, lenD, lenDCheck;
+    /** The framed twin (Bf, Cf-*, Ef-*): ak_client_set_framed(client, 1), ABI v1 section 9. */
+    final boolean framed;
     final ThreadLocal<long[]> out = new ThreadLocal<long[]>() {
       @Override protected long[] initialValue() { return new long[3]; }
     };
 
     CoreCell(String name, int codec, boolean retain, String sock, boolean pinned) {
+      this(name, codec, retain, sock, pinned, false);
+    }
+
+    static long path(String p) {
+      byte[] b = ("/" + p).getBytes(StandardCharsets.UTF_8);
+      long x = Mem.alloc(b.length);
+      Mem.copyFromBytes(b, 0, x, b.length);
+      return x;
+    }
+
+    CoreCell(String name, int codec, boolean retain, String sock, boolean pinned, boolean framed) {
       super(name, codec, retain);
+      this.framed = framed;
       rt = NativeRpc.runtimeNew(CORE_WORKERS);
       if (rt == 0) fail("ak_runtime_new");
       byte[] uri = ("unix:" + sock).getBytes(StandardCharsets.UTF_8);
@@ -380,6 +580,10 @@ public final class CampaignRpc {
       pathB = Mem.alloc(lenB);
       Mem.copyFromBytes(a, 0, pathA, lenA);
       Mem.copyFromBytes(b, 0, pathB, lenB);
+      pathC = path(UPLOAD); lenC = UPLOAD.length() + 1;
+      pathD = path(STREAM); lenD = STREAM.length() + 1;
+      pathDCheck = path(STREAM_CHECK); lenDCheck = STREAM_CHECK.length() + 1;
+      if (framed && NativeRpc.clientSetFramed(client, 1) != 0) fail(name + ": ak_client_set_framed");
     }
 
     static final byte[] EMPTY = new byte[0];
@@ -428,6 +632,50 @@ public final class CampaignRpc {
       if (n != 0) fail(name + "/b: response " + n + " B, want 0");
     }
 
+    void callC(int k) {
+      byte[] w = incumbentCodec ? C_PB[k].toByteArray() : encodeFacade(C_PAYLOADS[k], C_FACADE[k]);
+      long[] o = out.get();
+      int rc = NativeRpc.callUnary(client, pathC, lenC, w, 0, w.length, o);
+      if (rc != 0) fail(name + "/c: ak_call_unary returned " + rc);
+      int n = (int) o[1];
+      NativeRpc.bytesFree(o[0], o[1], o[2]);
+      if (n != (PLANT ? 1 : 0)) fail(name + "/c: response " + n + " B, want " + (PLANT ? 1 : 0));
+    }
+
+    /** (d) through the core's client streaming: open, one send per message (B protobuf-java's
+     *  bytes, ak_call_send; C the binding's encode, ak_call_send_enc, the context's output
+     *  moved; E arm R's bytes, ak_call_send), recv, free, destroy. */
+    void callD(int k, boolean check) {
+      StreamPayload pl = STREAMS[k];
+      long h = NativeRpc.callOpen(client, check ? pathDCheck : pathD, check ? lenDCheck : lenD);
+      if (h == 0) fail(name + "/d: ak_call_open returned NULL");
+      int n = pl.p.length;
+      for (int i = 0; i < n; i++) {
+        int last = i + 1 == n ? 1 : 0, rc;
+        if (incumbentCodec) {
+          byte[] w = pl.p[i].toByteArray();
+          rc = NativeRpc.callSend(h, w, 0, w.length, last);
+        } else if (codec == FFI) {
+          Binding b = bind();
+          FfiArms.encode(b, "P5.3", pl.f[i]);
+          rc = NativeRpc.callSendEnc(h, b.encCtx, last);
+        } else {
+          Enc e = HENC.get();
+          if (retain) Arms.encodeRRetain("P5.3", pl.f[i], e); else Arms.encodeR("P5.3", pl.f[i], e);
+          rc = NativeRpc.callSend(h, e.buf, 0, e.len, last);
+        }
+        if (rc != 0) { NativeRpc.callCancel(h); NativeRpc.callDestroy(h); fail(name + "/d: ak_call_send chunk " + i + " rc " + rc); }
+      }
+      long[] o = new long[4];
+      int rc = NativeRpc.callRecv(h, o);
+      if (rc != 0) { NativeRpc.callDestroy(h); fail(name + "/d: ak_call_recv rc " + rc + ", grpc status " + o[3]); }
+      byte[] r = new byte[(int) o[1]];
+      if (o[1] > 0) Mem.copyToBytes(o[0], r, 0, (int) o[1]);
+      NativeRpc.bytesFree(o[0], o[1], o[2]);
+      NativeRpc.callDestroy(h);
+      checkStream(name, r, pl, check);
+    }
+
     @Override void close() {
       NativeRpc.clientDestroy(client);
       NativeRpc.runtimeDestroy(rt);
@@ -453,10 +701,14 @@ public final class CampaignRpc {
           for (int c = 0; c < chunks; c++) {
             int k = Math.min(ch, left);
             if (dir.equals("b")) for (int i = 0; i < k; i++) pool[i] = cell.fresh();   // untimed
+            final int up = dir.length() > 2 ? Integer.parseInt(dir.substring(2)) : -1;   // "c:<k>", "d:<k>"
             bar.await();          // everyone prepared
             bar.await();          // the coordinator has read the clocks: go
             for (int i = 0; i < k; i++) {
-              if (dir.equals("b")) cell.callB(pool[i]); else cell.callA(dir.equals("a+read"));
+              if (dir.equals("b")) cell.callB(pool[i]);
+              else if (dir.startsWith("c:")) cell.callC(up);
+              else if (dir.startsWith("d:")) cell.callD(up, false);
+              else cell.callA(dir.equals("a+read"));
             }
             left -= k;
             bar.await();          // chunk done
@@ -495,22 +747,26 @@ public final class CampaignRpc {
     for (String[] m : modes) cells.add(new GrpcCell("D-" + m[0], FFI, m[1].equals("1"), sock, elg, pinned));
     for (String[] m : modes) cells.add(new CoreCell("E-" + m[0], HOST, m[1].equals("1"), sock, pinned));
     for (String[] m : modes) cells.add(new GrpcCell("F-" + m[0], HOST, m[1].equals("1"), sock, elg, pinned));
+    // The framed twins (ABI v1 section 9, req 14: each send path beside its reference): the
+    // core-transport cells on ak_client_set_framed. grpc-java has no second send path here.
+    cells.add(new CoreCell("Bf", INC, false, sock, pinned, true));
+    for (String[] m : modes) cells.add(new CoreCell("Cf-" + m[0], FFI, m[1].equals("1"), sock, pinned, true));
+    for (String[] m : modes) cells.add(new CoreCell("Ef-" + m[0], HOST, m[1].equals("1"), sock, pinned, true));
     return cells;
   }
 
   /** Req 19 as amended (R-H31): crossings per call for cells B, C, D and E, from the
    *  counting shim (-DAK_HOST_COUNT: every JNI entry into the core, the RPC ones included)
    *  over the counting core (the codec's upcalls). One untimed call first per (cell, dir),
-   *  then one counted call. Retain mode arms every position with the shim's grow set to
-   *  allocate exactly what is asked, and no pre-placed buffer. */
+   *  then one counted call. Retain mode arms every position with the shim's grow (the
+   *  timed build's geometric grow, req 19 as amended) and no pre-placed buffer. */
   static void countCalls(List<Cell> cells) throws Exception {
-    if (ak.Variant.UNKNOWN_FIELDS) Native.unkGrowExact(true);
     System.out.println("# rpc crossings per call: cell dir forward(host, every core entry point) reverse(core upcalls) grow");
     for (Cell c : cells) {
       if (c.name.startsWith("A") || c.name.startsWith("F")) continue;
-      for (String d : new String[] {"a", "b"}) {
+      for (String d : new String[] {"a", "b", "c/P5.3", "c/P5.4", "d/4MiB", "d/16MiB"}) {
         Object req = c.fresh();
-        if (d.equals("a")) c.callA(false); else c.callB(req);
+        runOne(c, d, req);
         req = c.fresh();
         long[] hc = new long[2], ec = new long[6], dc = new long[6];
         Binding b = c.codec == FFI ? c.bind() : null;
@@ -519,7 +775,7 @@ public final class CampaignRpc {
           Native.decCountersReset(b.contextOf(Arms.root(PAYLOAD)));
         }
         Native.hostCountsReset();
-        if (d.equals("a")) c.callA(false); else c.callB(req);
+        runOne(c, d, req);
         Native.hostCounts(hc);
         long rev = 0;
         if (b != null) {
@@ -530,6 +786,32 @@ public final class CampaignRpc {
         System.out.println(String.format("RPC %-9s %-2s %8d %8d %6d", c.name, d, hc[0], rev, hc[1]));
       }
     }
+  }
+
+  /** One call of `c` in the counting mode's direction names. */
+  static void runOne(Cell c, String d, Object req) {
+    switch (d) {
+      case "a": c.callA(false); break;
+      case "b": c.callB(req); break;
+      case "c/P5.3": c.callC(0); break;
+      case "c/P5.4": c.callC(1); break;
+      case "d/4MiB": c.callD(0, false); break;
+      default: c.callD(1, false); break;
+    }
+  }
+
+  /** Req 14 (c), (d): the uploads, built and checked before any call. (c)'s requests are the
+   *  payload builders' P5.3 / P5.4, checked against the manifest's sha256. */
+  static void uploads() {
+    for (int k = 0; k < C_PAYLOADS.length; k++) {
+      C_FACADE[k] = Arms.build(C_PAYLOADS[k], Values.ASCII);
+      C_PB[k] = PbArms.build(C_PAYLOADS[k], Values.ASCII);
+      Enc e = new Enc(Arms.R_SITES);
+      Arms.encodeR(C_PAYLOADS[k], C_FACADE[k], e);
+      if (!Values.sha256Hex(e.toBytes()).equals(Payloads.row(C_PAYLOADS[k]).sha256))
+        fail("(c): " + C_PAYLOADS[k] + " differs from the manifest");
+    }
+    for (int k = 0; k < D_CHUNKS.length; k++) STREAMS[k] = new StreamPayload(D_CHUNKS[k]);
   }
 
   public static void main(String[] args) throws Exception {
@@ -548,8 +830,23 @@ public final class CampaignRpc {
     NativeRpc.ensureBound();
     EXPECT_A = PbArms.build(PAYLOAD, Values.ASCII).toByteArray();
 
+    uploads();
     EpollEventLoopGroup elg = new EpollEventLoopGroup(EVENT_LOOPS);
     List<Cell> cells = cells(sock, elg, pinned);
+    if ("1".equals(System.getProperty("ak.camp.uploadcheck"))) {
+      // Req 18 for (c) and (d), before any timing (the gate runs it on both builds, and with
+      // -Dak.camp.plant=1 as the control that must fail): every cell's unary uploads, and
+      // every cell's streamed uploads through the digest path, count and SHA-256 compared.
+      for (Cell c : cells) {
+        for (int k = 0; k < C_PAYLOADS.length; k++) c.callC(k);
+        for (int k = 0; k < D_CHUNKS.length; k++) c.callD(k, true);
+        System.out.println("  upload check " + c.name + ": (c) P5.3, P5.4 accepted; (d) 4 MiB, 16 MiB: count and SHA-256 identical");
+      }
+      System.out.println("UPLOAD CHECK PASSED (" + cells.size() + " cells)");
+      for (Cell c : cells) c.close();
+      releaseThread();
+      System.exit(0);
+    }
     if ("1".equals(System.getProperty("ak.camp.count"))) {
       if (Native.hostCounting() != 1) fail("ak.camp.count needs the counting shim (-DAK_HOST_COUNT)");
       countCalls(cells);
@@ -564,6 +861,8 @@ public final class CampaignRpc {
       c.callA(false);
       c.callA(true);
       c.callB(c.fresh());
+      for (int k = 0; k < C_PAYLOADS.length; k++) c.callC(k);
+      for (int k = 0; k < D_CHUNKS.length; k++) c.callD(k, true);   // count and digest
       if (!c.incumbentCodec) {                 // the mode's own decode and encode, byte identity
         byte[] re = c.encodeFacade(c.decodeBytes(EXPECT_A, EXPECT_A.length));
         if (!Arrays.equals(re, EXPECT_A)) fail(c.name + ": P2.2 decoded and re-encoded in its mode is "
@@ -574,12 +873,22 @@ public final class CampaignRpc {
     // and warmed here: `warm` samples of every (dir, inflight) before round 1, i.e.
     // warm x 3 dirs x 3 inflights x ~calls calls per cell, which also warms the server from
     // both client transports.
+    // Req 14 (c) and (d): at 1 and 8 in flight, a third of the calls per sample.
+    List<String[]> ups = new ArrayList<String[]>();   // {dir key, dir, payload}
+    for (int k = 0; k < C_PAYLOADS.length; k++) ups.add(new String[] {"c:" + k, "c", C_PAYLOADS[k]});
+    for (int k = 0; k < D_LABELS.length; k++) ups.add(new String[] {"d:" + k, "d", D_LABELS[k]});
+    int upCalls = Integer.getInteger("ak.camp.upcalls", Math.max(1, calls / 3));
     long warmCalls = 0;
-    for (int k = 0; k < warm; k++)
+    for (int k = 0; k < warm; k++) {
       for (String d : dirs)
         for (int inf : INFLIGHT)
           for (Cell c : cells)
             warmCalls += sample(c, d, inf, calls, chunk)[2];
+      for (String[] u : ups)
+        for (int inf : UP_INFLIGHT)
+          for (Cell c : cells)
+            warmCalls += sample(c, u[0], inf, upCalls, chunk)[2];
+    }
     Campaign.meta("{\"suite\":\"rpc\",\"warmup_samples_per_cell\":" + warm + ",\"warmup_calls_total\":"
         + warmCalls + ",\"jit_ms_after_warmup\":"
         + Campaign.jitMs() + ",\"transport\":\"" + transport + "\",\"calls\":" + calls
@@ -596,6 +905,21 @@ public final class CampaignRpc {
                 .s("codec", c.codec == INC ? "incumbent" : c.codec == FFI ? "core-ffi" : "host-gen")
                 .s("dir", d).s("transport", transport).n("inflight", inf).s("delivery",
                     c instanceof CoreCell ? "blocking" : "grpc-java blockingUnaryCall")
+                .s("send_path", c instanceof CoreCell ? (((CoreCell) c).framed ? "framed" : "reference") : "grpc-java")
+                .n("launch", Campaign.LAUNCH).n("round", r).n("cpu_ns", v[0]).n("wall_ns", v[1])
+                .n("iters", v[2]));
+          }
+      for (String[] u : ups)
+        for (int inf : UP_INFLIGHT)
+          for (Cell c : Campaign.rotate(cells, r)) {
+            long[] v = sample(c, u[0], inf, upCalls, chunk);
+            Campaign.add(new Campaign.Sample().s("suite", "rpc").s("cell", c.name).s("payload", u[2])
+                .s("unknown_mode", c.mode()).s("build", ak.Variant.NAME)
+                .s("codec", c.codec == INC ? "incumbent" : c.codec == FFI ? "core-ffi" : "host-gen")
+                .s("dir", u[1]).s("transport", transport).n("inflight", inf).s("delivery",
+                    c instanceof CoreCell ? (u[1].equals("d") ? "blocking client stream" : "blocking")
+                        : (u[1].equals("d") ? "grpc-java asyncClientStreamingCall" : "grpc-java blockingUnaryCall"))
+                .s("send_path", c instanceof CoreCell ? (((CoreCell) c).framed ? "framed" : "reference") : "grpc-java")
                 .n("launch", Campaign.LAUNCH).n("round", r).n("cpu_ns", v[0]).n("wall_ns", v[1])
                 .n("iters", v[2]));
           }

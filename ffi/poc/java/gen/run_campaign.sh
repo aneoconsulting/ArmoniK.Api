@@ -164,6 +164,28 @@ run_gate() {
       echo "## rpc crossing counts per call${v:+, no-unknown build} DIFFER from gen/campaign/rpc-counts$v.ref (req 19): see rpc-counts$v-$COMMIT.diff" >> "$f"; rc=1
     fi
   done
+  # Req 14 (c) and (d) under req 18, both builds, both sockets: every cell's unary uploads
+  # accepted and every cell's streamed uploads received with the right count and SHA-256;
+  # then the plant (every upload expects one byte more) must abort.
+  for v in "" -nounk; do
+    for so in "$ss:shipped" "$sp:pinned"; do
+      "$J17/bin/java" -Xmx2g -cp "build/cls17$v:$CP" -Dak.lib="$HERE/build/jnirpc$v/libakjni.so" \
+        -Dak.rpclib="$HERE/build/jnirpc$v/libakjni.so" -Dak.camp.uploadcheck=1 -Dak.camp.transport="${so#*:}" \
+        -Dak.camp.socket="${so%%:*}" ak.CampaignRpc > "$OUT/upload-check$v-${so#*:}.txt" 2>&1
+      if grep -q "UPLOAD CHECK PASSED" "$OUT/upload-check$v-${so#*:}.txt"; then
+        echo "## upload check${v:+, no-unknown build}, ${so#*:}: $(grep 'UPLOAD CHECK PASSED' "$OUT/upload-check$v-${so#*:}.txt")" >> "$f"
+      else
+        echo "## upload check${v:+, no-unknown build}, ${so#*:} FAILED: see upload-check$v-${so#*:}.txt" >> "$f"; rc=1
+      fi
+    done
+    if "$J17/bin/java" -Xmx2g -cp "build/cls17$v:$CP" -Dak.lib="$HERE/build/jnirpc$v/libakjni.so" \
+        -Dak.rpclib="$HERE/build/jnirpc$v/libakjni.so" -Dak.camp.uploadcheck=1 -Dak.camp.plant=1 \
+        -Dak.camp.transport=pinned -Dak.camp.socket="$sp" ak.CampaignRpc > "$OUT/upload-plant$v.txt" 2>&1; then
+      echo "## upload plant${v:+, no-unknown build}: PASSED -- the upload checks are blind" >> "$f"; rc=1
+    else
+      echo "## upload plant${v:+, no-unknown build}: aborted as required: $(grep -m1 -o 'req 18: .*' "$OUT/upload-plant$v.txt" | cut -c1-160)" >> "$f"
+    fi
+  done
   kill $spid 2>/dev/null || true; wait $spid 2>/dev/null || true
   rm -f "$ss" "$sp"
   { echo "## the two committed references against each other (full -> no-unknown):"
@@ -256,13 +278,14 @@ rpc)
     grep -q "SERVING $SP" "$OUT/rpc-server-launch-$l.txt" || { kill $SPID; echo "server did not start"; exit 1; }
   }
   rpc_run() {  # $1 = launch, $2 = transport, $3 = full|nounk
-    local l=$1 tr=$2 V=$3 SX= TAG= CELLS="A, B, C-retain, C-drop, D-retain, D-drop, E-retain, E-drop, F-retain, F-drop"
-    [ "$V" = nounk ] && { SX=-nounk; TAG=-nounk; CELLS="A, B (in-process controls), C-nounk, D-nounk, E-nounk, F-nounk"; }
+    local l=$1 tr=$2 V=$3 SX= TAG= CELLS="A, B, C-retain, C-drop, D-retain, D-drop, E-retain, E-drop, F-retain, F-drop, Bf, Cf-retain, Cf-drop, Ef-retain, Ef-drop (framed twins)"
+    [ "$V" = nounk ] && { SX=-nounk; TAG=-nounk; CELLS="A, B (in-process controls), C-nounk, D-nounk, E-nounk, F-nounk, Bf, Cf-nounk, Ef-nounk"; }
     local f="$OUT/rpc-$tr$TAG-launch-$l.jsonl" sock=$SS
     [ "$tr" = pinned ] && sock=$SP
-    header "$f" "transport=$tr build=$V launch=$l warm-up=$WARM sample(s) per (dir,inflight,cell) before round 1 (cells $CELLS in ONE client process; directions a, a+read, b)"
+    header "$f" "transport=$tr build=$V launch=$l warm-up=$WARM sample(s) per (dir,inflight,cell) before round 1 (cells $CELLS in ONE client process; directions a, a+read, b at 1/8/16 in flight; c (unary upload P5.3, P5.4) and d (client-streamed upload, 4 MiB and 16 MiB in 2 MiB chunks) at 1/8 with a third of the calls)"
     echo "# server: $PIN_S java ... ak.CampaignRpc --serve, ONE process for launch $l serving every cell of both builds (shipped and pinned sockets; pre-serialised P2.2; direction b parses with protobuf-java; no core codec on the server); $(grep THREADS "$OUT/rpc-server-launch-$l.txt")" >> "$f"
-    echo "# delivery (req 16): B, C, E the core's blocking call; A, D, F grpc-java's ClientCalls.blockingUnaryCall, the call a generated blocking stub makes (packages/java's clients use blocking stubs)" >> "$f"
+    echo "# delivery (req 16): B, C, E the core's blocking call and, in d, the core's blocking client stream (ak_call_open, ak_call_send / ak_call_send_enc for C, ak_call_recv); A, D, F grpc-java's ClientCalls.blockingUnaryCall (a generated blocking stub's call; packages/java's clients use blocking stubs) and, in d, ClientCalls.asyncClientStreamingCall with a StreamObserver (the async stub's call: client streaming has no blocking stub); Bf, Cf, Ef the same cells on the core's framed send path (ak_client_set_framed), grpc-java has no second send path" >> "$f"
+    echo "# limits (D44): server 8 MiB inbound on both sockets (P5.4 is 4,194,390 B); core client shipped tonic's defaults (4 MiB received, unlimited sent: every response here is below 1 MiB), pinned 8 MiB both ways; grpc-java client defaults (4 MiB inbound, no send limit)" >> "$f"
     local rc=0
     $PIN_C "$J17/bin/java" $JVM_FLAGS -cp "build/cls17$SX:$CP" -Dak.camp.rounds=$ROUNDS \
       -Dak.camp.transport="$tr" -Dak.camp.socket="$sock" -Dak.camp.launch="$l" \

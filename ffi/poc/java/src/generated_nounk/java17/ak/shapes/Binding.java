@@ -261,7 +261,7 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     int len = Mem.U.getInt(span + 4);
     if (len == 0) return "";
     off += wireBase;
-    return Utf8.decode(wireHeap, off, len);
+    return Utf8.decodeTrusted(wireHeap, off, len);
   }
 
   byte[] getBytes(long span) {

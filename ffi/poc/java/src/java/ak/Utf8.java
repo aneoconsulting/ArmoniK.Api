@@ -97,6 +97,35 @@ public final class Utf8 {
     return new String(c, 0, n);
   }
 
+  /** The same decode for bytes the CORE already validated (WP8, decision 3: a binding need
+   *  not re-validate a string the core accepted; the core's decode runs check_utf8 on every
+   *  string under the plan's utf8="reject"). No well-formedness check: the input is UTF-8. */
+  public static String decodeTrusted(byte[] b, int off, int len) {
+    if (len == 0) return "";
+    int i = off, end = off + len;
+    while (i < end && b[i] >= 0) i++;
+    if (i == end) return newAscii(b, off, len);
+    char[] c = scratch(len);
+    int n = 0;
+    for (int k = off; k < i; k++) c[n++] = (char) b[k];
+    while (i < end) {
+      int b0 = b[i++] & 0xFF;
+      if (b0 < 0x80) {
+        c[n++] = (char) b0;
+      } else if (b0 < 0xE0) {
+        c[n++] = (char) (((b0 & 0x1F) << 6) | (b[i++] & 0x3F));
+      } else if (b0 < 0xF0) {
+        c[n++] = (char) (((b0 & 0x0F) << 12) | ((b[i++] & 0x3F) << 6) | (b[i++] & 0x3F));
+      } else {
+        int cp = ((b0 & 0x07) << 18) | ((b[i++] & 0x3F) << 12) | ((b[i++] & 0x3F) << 6) | (b[i++] & 0x3F);
+        cp -= 0x10000;
+        c[n++] = (char) (0xD800 | (cp >> 10));
+        c[n++] = (char) (0xDC00 | (cp & 0x3FF));
+      }
+    }
+    return new String(c, 0, n);
+  }
+
   @SuppressWarnings("deprecation")
   private static String newAscii(byte[] b, int off, int len) {
     // On JDK 9+ a String whose bytes are all < 0x80 is stored LATIN1, and this constructor

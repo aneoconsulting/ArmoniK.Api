@@ -1889,6 +1889,38 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
   /** Planted defect for the leak control (-Dak.unk.leakplant=1): nothing is reclaimed. */
   static final boolean UNK_PLANT_NO_RECLAIM = "1".equals(System.getProperty("ak.unk.leakplant"));
   final long[] unkMask = {-1L, -1L, -1L, -1L, -1L, -1L, -1L};
+  /** Per root: the context was last reset with the options (retention armed). */
+  final boolean[] unkArmed = new boolean[7];
+
+  /** The one reset per retain decode (decision 11 rule 7): arm with the options. */
+  void armUnk(int ri, long ctx) {
+    switch (ri) {
+      case 0: check(ak.NativeEntry.decResetListResultsResponse(ctx, unkOptsOf(0))); break;
+      case 1: check(ak.NativeEntry.decResetListTasksDetailedResponse(ctx, unkOptsOf(1))); break;
+      case 2: check(ak.NativeEntry.decResetListProbeResponse(ctx, unkOptsOf(2))); break;
+      case 3: check(ak.NativeEntry.decResetListTaskSummaryResponse(ctx, unkOptsOf(3))); break;
+      case 4: check(ak.NativeEntry.decResetUploadResultDataMessage(ctx, unkOptsOf(4))); break;
+      case 5: check(ak.NativeEntry.decResetListMetricsResponse(ctx, unkOptsOf(5))); break;
+      case 6: check(ak.NativeEntry.decResetDualResponse(ctx, unkOptsOf(6))); break;
+      default: throw new IllegalArgumentException("root " + ri);
+    }
+    unkArmed[ri] = true;
+  }
+
+  /** Leaving retain on a context that was armed: one disarming reset, once. */
+  void disarmUnk(int ri, long ctx) {
+    switch (ri) {
+      case 0: check(ak.NativeEntry.decResetListResultsResponse(ctx, 0L)); break;
+      case 1: check(ak.NativeEntry.decResetListTasksDetailedResponse(ctx, 0L)); break;
+      case 2: check(ak.NativeEntry.decResetListProbeResponse(ctx, 0L)); break;
+      case 3: check(ak.NativeEntry.decResetListTaskSummaryResponse(ctx, 0L)); break;
+      case 4: check(ak.NativeEntry.decResetUploadResultDataMessage(ctx, 0L)); break;
+      case 5: check(ak.NativeEntry.decResetListMetricsResponse(ctx, 0L)); break;
+      case 6: check(ak.NativeEntry.decResetDualResponse(ctx, 0L)); break;
+      default: throw new IllegalArgumentException("root " + ri);
+    }
+    unkArmed[ri] = false;
+  }
   /** Each root's positions, in the options struct's order (plan.unk_opts_layout). */
   public static final String[][] UNK_POSITIONS = {
     {"self", "results", "results_created_at", "results_completed_at"},
@@ -2023,6 +2055,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
   public void setUnkPositions(String root, long mask) {
     int ri = java.util.Arrays.asList(ROOTS).indexOf(root);
     unkMask[ri] = mask;
+    // The core keeps a pointer to an armed options struct: disarm before freeing it.
+    if (unkArmed[ri]) disarmUnk(ri, decCtxs[ri]);
     if (unkOpts[ri] != 0) { Mem.free(unkOpts[ri]); unkOpts[ri] = 0; }
   }
 
@@ -3599,14 +3633,15 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     beginDecode(wire, off, len);
     decRoot = r;
     decCtx = decCtxOf(0);
-    // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
+    // Decision 11 rules 1, 6, 7: ONE reset per decode (WP8: retention is decided at the
+    // reset, so no disarm after): arm this root's options (native memory kept alive
     // and unmoved while armed), decode, disarm. Drop mode needs no reset.
-    if (retain) check(ak.NativeEntry.decResetListResultsResponse(decCtx, unkOptsOf(0)));
+    if (retain) armUnk(0, decCtx); else if (unkArmed[0]) disarmUnk(0, decCtx);
     int rc = -1;   // a Java exception out of the decode counts as a failure
     try {
       rc = ak.NativeEntry.decodeListResultsResponse(this, decCtx, wireNative, len, dvtListResultsResponse);
     } finally {
-      if (retain) { ak.NativeEntry.decResetListResultsResponse(decCtx, 0L); unkSettle(0, rc); }
+      if (retain) unkSettle(0, rc);
     }
     check(rc);
     return r;
@@ -3630,14 +3665,15 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     beginDecode(wire, off, len);
     decRoot = r;
     decCtx = decCtxOf(1);
-    // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
+    // Decision 11 rules 1, 6, 7: ONE reset per decode (WP8: retention is decided at the
+    // reset, so no disarm after): arm this root's options (native memory kept alive
     // and unmoved while armed), decode, disarm. Drop mode needs no reset.
-    if (retain) check(ak.NativeEntry.decResetListTasksDetailedResponse(decCtx, unkOptsOf(1)));
+    if (retain) armUnk(1, decCtx); else if (unkArmed[1]) disarmUnk(1, decCtx);
     int rc = -1;   // a Java exception out of the decode counts as a failure
     try {
       rc = ak.NativeEntry.decodeListTasksDetailedResponse(this, decCtx, wireNative, len, dvtListTasksDetailedResponse);
     } finally {
-      if (retain) { ak.NativeEntry.decResetListTasksDetailedResponse(decCtx, 0L); unkSettle(1, rc); }
+      if (retain) unkSettle(1, rc);
     }
     check(rc);
     return r;
@@ -3661,14 +3697,15 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     beginDecode(wire, off, len);
     decRoot = r;
     decCtx = decCtxOf(2);
-    // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
+    // Decision 11 rules 1, 6, 7: ONE reset per decode (WP8: retention is decided at the
+    // reset, so no disarm after): arm this root's options (native memory kept alive
     // and unmoved while armed), decode, disarm. Drop mode needs no reset.
-    if (retain) check(ak.NativeEntry.decResetListProbeResponse(decCtx, unkOptsOf(2)));
+    if (retain) armUnk(2, decCtx); else if (unkArmed[2]) disarmUnk(2, decCtx);
     int rc = -1;   // a Java exception out of the decode counts as a failure
     try {
       rc = ak.NativeEntry.decodeListProbeResponse(this, decCtx, wireNative, len, dvtListProbeResponse);
     } finally {
-      if (retain) { ak.NativeEntry.decResetListProbeResponse(decCtx, 0L); unkSettle(2, rc); }
+      if (retain) unkSettle(2, rc);
     }
     check(rc);
     return r;
@@ -3692,14 +3729,15 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     beginDecode(wire, off, len);
     decRoot = r;
     decCtx = decCtxOf(3);
-    // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
+    // Decision 11 rules 1, 6, 7: ONE reset per decode (WP8: retention is decided at the
+    // reset, so no disarm after): arm this root's options (native memory kept alive
     // and unmoved while armed), decode, disarm. Drop mode needs no reset.
-    if (retain) check(ak.NativeEntry.decResetListTaskSummaryResponse(decCtx, unkOptsOf(3)));
+    if (retain) armUnk(3, decCtx); else if (unkArmed[3]) disarmUnk(3, decCtx);
     int rc = -1;   // a Java exception out of the decode counts as a failure
     try {
       rc = ak.NativeEntry.decodeListTaskSummaryResponse(this, decCtx, wireNative, len, dvtListTaskSummaryResponse);
     } finally {
-      if (retain) { ak.NativeEntry.decResetListTaskSummaryResponse(decCtx, 0L); unkSettle(3, rc); }
+      if (retain) unkSettle(3, rc);
     }
     check(rc);
     return r;
@@ -3730,14 +3768,15 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     beginDecode(wire, off, len);
     decRoot = r;
     decCtx = decCtxOf(4);
-    // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
+    // Decision 11 rules 1, 6, 7: ONE reset per decode (WP8: retention is decided at the
+    // reset, so no disarm after): arm this root's options (native memory kept alive
     // and unmoved while armed), decode, disarm. Drop mode needs no reset.
-    if (retain) check(ak.NativeEntry.decResetUploadResultDataMessage(decCtx, unkOptsOf(4)));
+    if (retain) armUnk(4, decCtx); else if (unkArmed[4]) disarmUnk(4, decCtx);
     int rc = -1;   // a Java exception out of the decode counts as a failure
     try {
       rc = ak.NativeEntry.decodeUploadResultDataMessage(this, decCtx, wireNative, len, dvtUploadResultDataMessage);
     } finally {
-      if (retain) { ak.NativeEntry.decResetUploadResultDataMessage(decCtx, 0L); unkSettle(4, rc); }
+      if (retain) unkSettle(4, rc);
     }
     check(rc);
     return r;
@@ -3761,14 +3800,15 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     beginDecode(wire, off, len);
     decRoot = r;
     decCtx = decCtxOf(5);
-    // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
+    // Decision 11 rules 1, 6, 7: ONE reset per decode (WP8: retention is decided at the
+    // reset, so no disarm after): arm this root's options (native memory kept alive
     // and unmoved while armed), decode, disarm. Drop mode needs no reset.
-    if (retain) check(ak.NativeEntry.decResetListMetricsResponse(decCtx, unkOptsOf(5)));
+    if (retain) armUnk(5, decCtx); else if (unkArmed[5]) disarmUnk(5, decCtx);
     int rc = -1;   // a Java exception out of the decode counts as a failure
     try {
       rc = ak.NativeEntry.decodeListMetricsResponse(this, decCtx, wireNative, len, dvtListMetricsResponse);
     } finally {
-      if (retain) { ak.NativeEntry.decResetListMetricsResponse(decCtx, 0L); unkSettle(5, rc); }
+      if (retain) unkSettle(5, rc);
     }
     check(rc);
     return r;
@@ -3792,14 +3832,15 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     beginDecode(wire, off, len);
     decRoot = r;
     decCtx = decCtxOf(6);
-    // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive
+    // Decision 11 rules 1, 6, 7: ONE reset per decode (WP8: retention is decided at the
+    // reset, so no disarm after): arm this root's options (native memory kept alive
     // and unmoved while armed), decode, disarm. Drop mode needs no reset.
-    if (retain) check(ak.NativeEntry.decResetDualResponse(decCtx, unkOptsOf(6)));
+    if (retain) armUnk(6, decCtx); else if (unkArmed[6]) disarmUnk(6, decCtx);
     int rc = -1;   // a Java exception out of the decode counts as a failure
     try {
       rc = ak.NativeEntry.decodeDualResponse(this, decCtx, wireNative, len, dvtDualResponse);
     } finally {
-      if (retain) { ak.NativeEntry.decResetDualResponse(decCtx, 0L); unkSettle(6, rc); }
+      if (retain) unkSettle(6, rc);
     }
     check(rc);
     return r;
@@ -3846,9 +3887,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // sticky slot AND resets the record buffer at entry. Calling either
     // here would be a forward crossing per decode for nothing.
     decCtx = decCtxOf(0);   // decision 11 rule 6: the root's own context
-    if (retain) check(ak.NativeEntry.decResetListResultsResponse(decCtx, unkOptsOf(0)));
+    if (retain) armUnk(0, decCtx); else if (unkArmed[0]) disarmUnk(0, decCtx);
     int prc = ak.NativeEntry.parseListResultsResponse(this, decCtx, wire, off, len);
-    if (prc < 0 && retain) { ak.NativeEntry.decResetListResultsResponse(decCtx, 0L); unkSettle(0, prc); }
+    if (prc < 0 && retain) unkSettle(0, prc);
     check(prc);
     ListResultsResponse r = new ListResultsResponse();
     decRoot = r;
@@ -3879,8 +3920,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
       }
     }
     } finally {
-      // Disarmed only after the records are read: they carry the buffers (decision 11).
-      if (retain) { ak.NativeEntry.decResetListResultsResponse(decCtx, 0L); unkSettle(0, 0); }
+      // Settled only after the records are read: they carry the buffers (decision 11).
+      if (retain) unkSettle(0, 0);
     }
     return r;
   }
@@ -3922,9 +3963,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // sticky slot AND resets the record buffer at entry. Calling either
     // here would be a forward crossing per decode for nothing.
     decCtx = decCtxOf(1);   // decision 11 rule 6: the root's own context
-    if (retain) check(ak.NativeEntry.decResetListTasksDetailedResponse(decCtx, unkOptsOf(1)));
+    if (retain) armUnk(1, decCtx); else if (unkArmed[1]) disarmUnk(1, decCtx);
     int prc = ak.NativeEntry.parseListTasksDetailedResponse(this, decCtx, wire, off, len);
-    if (prc < 0 && retain) { ak.NativeEntry.decResetListTasksDetailedResponse(decCtx, 0L); unkSettle(1, prc); }
+    if (prc < 0 && retain) unkSettle(1, prc);
     check(prc);
     ListTasksDetailedResponse r = new ListTasksDetailedResponse();
     decRoot = r;
@@ -3955,8 +3996,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
       }
     }
     } finally {
-      // Disarmed only after the records are read: they carry the buffers (decision 11).
-      if (retain) { ak.NativeEntry.decResetListTasksDetailedResponse(decCtx, 0L); unkSettle(1, 0); }
+      // Settled only after the records are read: they carry the buffers (decision 11).
+      if (retain) unkSettle(1, 0);
     }
     return r;
   }
@@ -4014,9 +4055,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // sticky slot AND resets the record buffer at entry. Calling either
     // here would be a forward crossing per decode for nothing.
     decCtx = decCtxOf(2);   // decision 11 rule 6: the root's own context
-    if (retain) check(ak.NativeEntry.decResetListProbeResponse(decCtx, unkOptsOf(2)));
+    if (retain) armUnk(2, decCtx); else if (unkArmed[2]) disarmUnk(2, decCtx);
     int prc = ak.NativeEntry.parseListProbeResponse(this, decCtx, wire, off, len);
-    if (prc < 0 && retain) { ak.NativeEntry.decResetListProbeResponse(decCtx, 0L); unkSettle(2, prc); }
+    if (prc < 0 && retain) unkSettle(2, prc);
     check(prc);
     ListProbeResponse r = new ListProbeResponse();
     decRoot = r;
@@ -4047,8 +4088,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
       }
     }
     } finally {
-      // Disarmed only after the records are read: they carry the buffers (decision 11).
-      if (retain) { ak.NativeEntry.decResetListProbeResponse(decCtx, 0L); unkSettle(2, 0); }
+      // Settled only after the records are read: they carry the buffers (decision 11).
+      if (retain) unkSettle(2, 0);
     }
     return r;
   }
@@ -4090,9 +4131,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // sticky slot AND resets the record buffer at entry. Calling either
     // here would be a forward crossing per decode for nothing.
     decCtx = decCtxOf(3);   // decision 11 rule 6: the root's own context
-    if (retain) check(ak.NativeEntry.decResetListTaskSummaryResponse(decCtx, unkOptsOf(3)));
+    if (retain) armUnk(3, decCtx); else if (unkArmed[3]) disarmUnk(3, decCtx);
     int prc = ak.NativeEntry.parseListTaskSummaryResponse(this, decCtx, wire, off, len);
-    if (prc < 0 && retain) { ak.NativeEntry.decResetListTaskSummaryResponse(decCtx, 0L); unkSettle(3, prc); }
+    if (prc < 0 && retain) unkSettle(3, prc);
     check(prc);
     ListTaskSummaryResponse r = new ListTaskSummaryResponse();
     decRoot = r;
@@ -4123,8 +4164,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
       }
     }
     } finally {
-      // Disarmed only after the records are read: they carry the buffers (decision 11).
-      if (retain) { ak.NativeEntry.decResetListTaskSummaryResponse(decCtx, 0L); unkSettle(3, 0); }
+      // Settled only after the records are read: they carry the buffers (decision 11).
+      if (retain) unkSettle(3, 0);
     }
     return r;
   }
@@ -4178,9 +4219,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // sticky slot AND resets the record buffer at entry. Calling either
     // here would be a forward crossing per decode for nothing.
     decCtx = decCtxOf(4);   // decision 11 rule 6: the root's own context
-    if (retain) check(ak.NativeEntry.decResetUploadResultDataMessage(decCtx, unkOptsOf(4)));
+    if (retain) armUnk(4, decCtx); else if (unkArmed[4]) disarmUnk(4, decCtx);
     int prc = ak.NativeEntry.parseUploadResultDataMessage(this, decCtx, wire, off, len);
-    if (prc < 0 && retain) { ak.NativeEntry.decResetUploadResultDataMessage(decCtx, 0L); unkSettle(4, prc); }
+    if (prc < 0 && retain) unkSettle(4, prc);
     check(prc);
     UploadResultDataMessage r = new UploadResultDataMessage();
     decRoot = r;
@@ -4211,8 +4252,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
       }
     }
     } finally {
-      // Disarmed only after the records are read: they carry the buffers (decision 11).
-      if (retain) { ak.NativeEntry.decResetUploadResultDataMessage(decCtx, 0L); unkSettle(4, 0); }
+      // Settled only after the records are read: they carry the buffers (decision 11).
+      if (retain) unkSettle(4, 0);
     }
     return r;
   }
@@ -4248,9 +4289,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // sticky slot AND resets the record buffer at entry. Calling either
     // here would be a forward crossing per decode for nothing.
     decCtx = decCtxOf(5);   // decision 11 rule 6: the root's own context
-    if (retain) check(ak.NativeEntry.decResetListMetricsResponse(decCtx, unkOptsOf(5)));
+    if (retain) armUnk(5, decCtx); else if (unkArmed[5]) disarmUnk(5, decCtx);
     int prc = ak.NativeEntry.parseListMetricsResponse(this, decCtx, wire, off, len);
-    if (prc < 0 && retain) { ak.NativeEntry.decResetListMetricsResponse(decCtx, 0L); unkSettle(5, prc); }
+    if (prc < 0 && retain) unkSettle(5, prc);
     check(prc);
     ListMetricsResponse r = new ListMetricsResponse();
     decRoot = r;
@@ -4281,8 +4322,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
       }
     }
     } finally {
-      // Disarmed only after the records are read: they carry the buffers (decision 11).
-      if (retain) { ak.NativeEntry.decResetListMetricsResponse(decCtx, 0L); unkSettle(5, 0); }
+      // Settled only after the records are read: they carry the buffers (decision 11).
+      if (retain) unkSettle(5, 0);
     }
     return r;
   }
@@ -4340,9 +4381,9 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
     // sticky slot AND resets the record buffer at entry. Calling either
     // here would be a forward crossing per decode for nothing.
     decCtx = decCtxOf(6);   // decision 11 rule 6: the root's own context
-    if (retain) check(ak.NativeEntry.decResetDualResponse(decCtx, unkOptsOf(6)));
+    if (retain) armUnk(6, decCtx); else if (unkArmed[6]) disarmUnk(6, decCtx);
     int prc = ak.NativeEntry.parseDualResponse(this, decCtx, wire, off, len);
-    if (prc < 0 && retain) { ak.NativeEntry.decResetDualResponse(decCtx, 0L); unkSettle(6, prc); }
+    if (prc < 0 && retain) unkSettle(6, prc);
     check(prc);
     DualResponse r = new DualResponse();
     decRoot = r;
@@ -4373,8 +4414,8 @@ public final class Binding implements AutoCloseable, ak.Callbacks {
       }
     }
     } finally {
-      // Disarmed only after the records are read: they carry the buffers (decision 11).
-      if (retain) { ak.NativeEntry.decResetDualResponse(decCtx, 0L); unkSettle(6, 0); }
+      // Settled only after the records are read: they carry the buffers (decision 11).
+      if (retain) unkSettle(6, 0);
     }
     return r;
   }
