@@ -89,7 +89,11 @@ export AK_CODECGEN=${AK_CODECGEN:-$HERE/build/snap/ffi/poc/codec/gen}
 
 # Fixed JVM settings for every timed JVM (req 6, 25): heap fixed, the default collector
 # (G1) on, tiered compilation on, nothing else.
-JVM_FLAGS="-Xms4g -Xmx4g -XX:+UseG1GC -Xss8m"
+# The heap is 4 GB in the campaign; a smoke run in a shared container may lower it
+# (AK_SMOKE_HEAP, default 2g: a client and a server JVM of 4 GB each were killed by the
+# container's memory limit while other slices ran), and the header says which it used.
+HEAP=4g; [ "$SMOKE" = 1 ] && HEAP=${AK_SMOKE_HEAP:-2g}
+JVM_FLAGS="-Xms$HEAP -Xmx$HEAP -XX:+UseG1GC -Xss8m"
 
 sysf() { cat "$1" 2>/dev/null | head -1 || echo "n/a"; }
 header() {  # $1 = file, $2 = suite description
