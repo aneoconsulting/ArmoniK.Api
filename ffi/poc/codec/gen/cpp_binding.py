@@ -570,6 +570,8 @@ def _lifecycle(p):
 PRE = '''// Arm `core-ffi`: the generated C++ host binding over the C ABI.
 #include "%(HDR)s"
 
+#include <cassert>
+
 #include <cstdlib>
 #include <cstring>
 #include <unordered_set>
@@ -669,15 +671,17 @@ static inline struct ak_str ak_str_of(const ak::StringView &v, ak_transcode_fn t
 // ABI v1 7.4: resolve a span against the base pointer you already hold. One add, then the
 // same copy. A zero-length span is the common case on the absent path (P1.3, P2.5) and
 // must not reach the validator at all.
+//
+// Plan utf8="reject" (the only policy this backend renders; ABI v1 open decision 3, WP8): the
+// CORE validated this span before the group holding it reached the host, and a malformed
+// one fails the decode, so the binding copies it without a second scan. A debug build
+// asserts the core's guarantee.
 static inline void s_of(const uint8_t *base, const struct ak_span &s, ak_dec_ctx *ctx,
                         std::string *out) {
+  (void)ctx;
   if (s.len == 0) { out->clear(); return; }
-  int32_t rc = ak::decode_str(base + s.off, s.len, out);
-  if (rc != 0) {
-    static const char kMsg[] = "malformed UTF-8 in a decoded string";
-    ak_fail(ctx, rc, (const uint8_t *)kMsg, (uint32_t)(sizeof(kMsg) - 1));
-    out->clear();
-  }
+  assert(ak::utf8_valid(base + s.off, s.len) && "the core returned an unvalidated string span");
+  out->assign((const char *)(base + s.off), s.len);
 }
 
 static inline void b_of(const uint8_t *base, const struct ak_span &s, std::string *out) {
@@ -685,17 +689,12 @@ static inline void b_of(const uint8_t *base, const struct ak_span &s, std::strin
 }
 
 // BORROWED: the span is an offset into the buffer the host handed in (ABI v1 section 4),
-// so a view over it needs no copy and no ABI change. The UTF-8 policy is UNCHANGED -- the
-// bytes are still validated -- so this arm isolates the COPY and nothing else.
+// so a view over it needs no copy and no ABI change. The UTF-8 policy is the same as the
+// owning arm's (the core validated the span), so this arm isolates the COPY and nothing else.
 static inline void s_of(const uint8_t *base, const struct ak_span &s, ak_dec_ctx *ctx,
                         ak::StringView *out) {
-  if (s.len == 0) { *out = ak::StringView((const char *)(base + s.off), 0); return; }
-  if (!ak::utf8_valid(base + s.off, s.len)) {
-    static const char kMsg[] = "malformed UTF-8 in a decoded string";
-    ak_fail(ctx, ak::ERR_TRANSCODE, (const uint8_t *)kMsg, (uint32_t)(sizeof(kMsg) - 1));
-    out->clear();
-    return;
-  }
+  (void)ctx;
+  assert(s.len == 0 || ak::utf8_valid(base + s.off, s.len));
   *out = ak::StringView((const char *)(base + s.off), s.len);
 }
 
@@ -820,6 +819,11 @@ def emit_header(ir, ns="shapes", guard="AK_BINDING_H", types_h="generated/types.
     o.append("// A context bound to T's root, in drop mode (NULL options).")
     o.append("template <class T> inline ak_dec_ctx *dec_ctx_new_for() { return DecRoot<T>::ctx_new(NULL); }")
     o.append("")
+    o.append("// Free a decode context. Use it rather than ak_dec_ctx_free for a context that")
+    o.append("// decode_with_*_unk may have left armed (rule 7): the binding forgets it first, so a")
+    o.append("// new context at the same address is not taken for an armed one.")
+    o.append("void dec_ctx_free(ak_dec_ctx *ctx);")
+    o.append("")
     o.append("// One bound context per root, in drop mode, for a host that decodes several roots")
     o.append("// (one set per thread: a context is not shared between threads).")
     o.append("struct DecCtxs {")
@@ -829,7 +833,7 @@ def emit_header(ir, ns="shapes", guard="AK_BINDING_H", types_h="generated/types.
         o.append("    c[%d] = ak_dec_ctx_new_%s(NULL);" % (i, root))
     o.append("  }")
     o.append("  ~DecCtxs() {")
-    o.append("    for (int i = 0; i < %d; ++i) ak_dec_ctx_free(c[i]);" % len(ir.roots))
+    o.append("    for (int i = 0; i < %d; ++i) dec_ctx_free(c[i]);" % len(ir.roots))
     o.append("  }")
     o.append("  bool ok() const {")
     o.append("    for (int i = 0; i < %d; ++i) if (c[i] == NULL) return false;" % len(ir.roots))
@@ -873,6 +877,7 @@ def _nounk_header_tail(ir):
         o.append("  }")
         o.append("};")
     o.append("template <class T> inline ak_dec_ctx *dec_ctx_new_for() { return DecRoot<T>::ctx_new(); }")
+    o.append("void dec_ctx_free(ak_dec_ctx *ctx);  // ak_dec_ctx_free (the full build also forgets an armed context)")
     o.append("")
     o.append("struct DecCtxs {")
     o.append("  ak_dec_ctx *c[%d];" % len(ir.roots))
@@ -881,7 +886,7 @@ def _nounk_header_tail(ir):
         o.append("    c[%d] = ak_dec_ctx_new_%s();" % (i, root))
     o.append("  }")
     o.append("  ~DecCtxs() {")
-    o.append("    for (int i = 0; i < %d; ++i) ak_dec_ctx_free(c[i]);" % len(ir.roots))
+    o.append("    for (int i = 0; i < %d; ++i) dec_ctx_free(c[i]);" % len(ir.roots))
     o.append("  }")
     o.append("  bool ok() const {")
     o.append("    for (int i = 0; i < %d; ++i) if (c[i] == NULL) return false;" % len(ir.roots))
@@ -906,12 +911,20 @@ def _nounk_header_tail(ir):
     return o
 
 
+def _refuse_utf8(policy):
+    raise NotImplementedError("cpp binding: utf8=%r is not rendered (only \"reject\")" % policy)
+
+
 def emit(ir, ns="shapes", hdr="generated/binding.h", retain=False):
     ir = as_plan(ir)
     NS[0] = ns
     NOUNK[0] = nu = unknown_compiled_out(ir)
     if nu:
         retain = False
+    if ir.options.utf8 != "reject":
+        # s_of copies a string span unchecked because the core validated it (utf8="reject");
+        # a lossy policy would need the substitution here, which this backend does not render.
+        _refuse_utf8(ir.options.utf8)
     o = [_head(ir), PRE % {"HDR": hdr, "NS": ns}]
     if not nu:
         o.append(PRE_UNK)
@@ -1446,16 +1459,31 @@ Tcs tcs_host() {
         o.append("  return ak_decode_%s(ctx, &sink, b, n, &vt);" % root)
         o.append("}")
         o.append("")
+        if not nu:
+            _emit_unk_armed(ir, o, root)
         o.append("// Decode with the context as it is armed: a context from")
         o.append("// ak_dec_ctx_new_%s(NULL) (or last reset with NULL) drops every unknown field." % root)
+        if not nu:
+            o.append("// A context `decode_with_%s_unk` left armed is disarmed first (rule 7)." % snake(root))
         o.append("int32_t decode_with_%s(ak_dec_ctx *ctx, const uint8_t *b, size_t n, %s *out) {"
                  % (snake(root), root))
+        if not nu:
+            o.append("  unk_disarm_%s(ctx);" % snake(root))
         o.append("  return decode_impl_%s(ctx, b, n, out, NULL, NULL);" % snake(root))
         o.append("}")
         o.append("")
         if not nu:
             _emit_decode_unk(ir, o, root)
 
+    o.append("void dec_ctx_free(ak_dec_ctx *ctx) {")
+    if not nu:
+        o.append("  if (ctx != NULL) {")
+        for root in ir.roots:
+            o.append("    unk_armed_forget_%s(ctx);" % snake(root))
+        o.append("  }")
+    o.append("  ak_dec_ctx_free(ctx);")
+    o.append("}")
+    o.append("")
     o.append("}  // namespace ffi")
     o.append("}  // namespace %s" % ns)
     o.append("")
@@ -1480,17 +1508,32 @@ static std::unordered_set<void *> &unk_live() {
 }
 static thread_local size_t t_unk_entry_bytes = 0;
 
-int32_t unk_grow(void *host, int32_t want, uint8_t **dst, int32_t *cap) {
+// ABI v1 decision 11 rule 8: the capacity grows GEOMETRICALLY, never to the exact size
+// asked (an exact-size grow makes a message with many unknown runs quadratic): at least
+// `want`, at least double the old capacity, at least 64 bytes, clamped to INT32_MAX (rule
+// 5). The same function in the timed and the counting build (CAMPAIGN req 19). Computed in
+// size_t, so the doubling cannot overflow; `want` is a positive int32 and so <= INT32_MAX.
+static inline size_t unk_grow_cap(size_t want, size_t old_cap) {
+  const size_t kCap = (size_t)INT32_MAX;
+  size_t c = old_cap * 2;
+  if (c < want) c = want;
+  if (c < 64) c = 64;
+  if (c > kCap) c = kCap;
+  return c < want ? want : c;
+}
+
+int32_t unk_grow(void *host, int32_t want_i, uint8_t **dst, int32_t *cap) {
   (void)host;
-  if (want <= 0) return AK_ERR_LIMIT;
+  if (want_i <= 0) return AK_ERR_LIMIT;
+  const size_t want = unk_grow_cap((size_t)want_i, *cap > 0 ? (size_t)*cap : 0);
   void *old = *dst;
-  void *p = old ? std::realloc(old, (size_t)want) : std::malloc((size_t)want);
+  void *p = old ? std::realloc(old, want) : std::malloc(want);
   if (p == NULL) return AK_ERR_LIMIT;
   std::unordered_set<void *> &l = unk_live();
   if (old != NULL) l.erase(old);
   l.insert(p);
   *dst = (uint8_t *)p;
-  *cap = want;
+  *cap = (int32_t)want;
   return AK_OK;
 }
 
@@ -1606,6 +1649,32 @@ def _emit_encode_unk(ir, o, root):
     o.append("")
 
 
+def _emit_unk_armed(ir, o, root):
+    """Rule 7 (one reset per decode): the per-thread options `decode_with_<root>_unk` arms
+    its context with, and the contexts it left armed. Only a context the caller passes in
+    (so live) is ever reset; a freed one's stale entry is never dereferenced."""
+    rs, on = snake(root), unk_opts_name(root)
+    o.append("static thread_local struct %s t_unk_opts_%s;" % (on, rs))
+    o.append("static thread_local std::vector<ak_dec_ctx *> t_unk_armed_%s;" % rs)
+    o.append("static inline void unk_armed_note_%s(ak_dec_ctx *ctx) {" % rs)
+    o.append("  std::vector<ak_dec_ctx *> &a = t_unk_armed_%s;" % rs)
+    o.append("  for (size_t i = 0; i < a.size(); ++i) if (a[i] == ctx) return;")
+    o.append("  a.push_back(ctx);")
+    o.append("}")
+    o.append("static inline bool unk_armed_forget_%s(ak_dec_ctx *ctx) {" % rs)
+    o.append("  std::vector<ak_dec_ctx *> &a = t_unk_armed_%s;" % rs)
+    o.append("  for (size_t i = 0; i < a.size(); ++i)")
+    o.append("    if (a[i] == ctx) { a[i] = a.back(); a.pop_back(); return true; }")
+    o.append("  return false;")
+    o.append("}")
+    o.append("static inline void unk_disarm_%s(ak_dec_ctx *ctx) {" % rs)
+    o.append("  if (!t_unk_armed_%s.empty() && unk_armed_forget_%s(ctx)) {" % (rs, rs))
+    o.append("    AK_HOST_CALL(); (void)ak_dec_reset_%s(ctx, NULL);" % root)
+    o.append("  }")
+    o.append("}")
+    o.append("")
+
+
 def _emit_decode_unk(ir, o, root):
     """Decision 11 (ABI v1, implementation rules of 2026-09-25) for one root: the options
     (`ak_dec_<root>_opts`, rendered from `plan.unk_opts_layout`), the armed decode
@@ -1656,6 +1725,7 @@ def _emit_decode_unk(ir, o, root):
     o.append("  }")
     o.append("  rc = decode_impl_%s(ctx, b, n, out, refill, hold);" % rs)
     o.append("  AK_HOST_CALL(); int32_t rc2 = ak_dec_reset_%s(ctx, NULL);  // reset 2: disarms, after it" % root)
+    o.append("  unk_armed_forget_%s(ctx);  // the caller's options may not outlive the call" % rs)
     o.append("  // R-H7: what is still in the options was not consumed and stays the host's.")
     o.append("  unk_untrack_opts_%s(opts);" % rs)
     o.append("  unk_reclaim();")
@@ -1663,12 +1733,26 @@ def _emit_decode_unk(ir, o, root):
     o.append("  return rc;")
     o.append("}")
     o.append("")
-    o.append("// Decision 11: retain everywhere (every position grows on demand).")
+    o.append("// Decision 11: retain everywhere (every position grows on demand). Rule 7: ONE reset")
+    o.append("// per decode. The options live at a stable per-thread address, so the context is")
+    o.append("// left armed after the decode (no disarming reset); a drop decode through")
+    o.append("// `decode_with_%s` disarms it first." % rs)
     o.append("int32_t decode_with_%s_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, %s *out) {"
              % (rs, root))
-    o.append("  struct %s opts;" % on)
-    o.append("  unk_opts_%s(&opts, -1);" % rs)
-    o.append("  return decode_with_%s_opts(ctx, b, n, out, &opts, NULL, NULL);" % rs)
+    o.append("  AK_INIT_OR_RETURN();")
+    o.append("  struct %s *opts = &t_unk_opts_%s;" % (on, rs))
+    o.append("  unk_opts_%s(opts, -1);" % rs)
+    o.append("  AK_HOST_CALL(); int32_t rc = ak_dec_reset_%s(ctx, opts);  // the one reset: arms" % root)
+    o.append("  if (rc != AK_OK) {")
+    o.append("    // Refused: nothing consumed, the context's state is unchanged (R-H7).")
+    o.append("    unk_untrack_opts_%s(opts);" % rs)
+    o.append("    return rc;")
+    o.append("  }")
+    o.append("  unk_armed_note_%s(ctx);" % rs)
+    o.append("  rc = decode_impl_%s(ctx, b, n, out, NULL, NULL);" % rs)
+    o.append("  unk_untrack_opts_%s(opts);" % rs)
+    o.append("  unk_reclaim();")
+    o.append("  return rc;")
     o.append("}")
     o.append("")
     pools = [(i, mn) for i, (mn, _m, ty) in enumerate(lay) if ty == "ak_unk_pool"]
