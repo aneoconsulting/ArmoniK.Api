@@ -94,6 +94,11 @@ cargo run --release -q -p campaign --bin header_diff 2>/dev/null > "$(mktemp)" \
   && echo "  request headers identical (both transports, both methods); refused-request status, other-path outcome and send limit as the reference" \
   || { echo "  the framed send path DIFFERS from the reference (run target/release/header_diff)"; exit 1; }
 
+step "11e. U2-stream and U1-unary uploads: the server receives exactly the uploaded bytes on every path (count and SHA-256), controls detected"
+cargo run --release -q -p campaign --bin upload_check 2>/dev/null | tail -1 | grep -q "UPLOAD CHECK PASSED" \
+  && echo "  every cell (reference and framed), 4 MiB and 16 MiB streamed and P5.3 / P5.4 unary: the bytes the server received are the uploaded ones; planted wrong SHA-256 and count detected" \
+  || { echo "  the upload byte check FAILED (run target/release/upload_check)"; exit 1; }
+
 step "12. the NO-UNKNOWN variant (WP5 step 10; CAMPAIGN.md req 10): unknown-field support compiled out"
 # Its own build and target directory (a shared target would overwrite libak_core.so).
 ( export CARGO_TARGET_DIR="$PWD/target-nounk"
@@ -116,6 +121,10 @@ done
 CARGO_TARGET_DIR="$PWD/target-count-nounk" cargo run --release -q -p campaign --no-default-features --features count,init-guard --bin crossings 2>/dev/null \
   | diff -q gen/crossings-nounk.txt - >/dev/null && echo "  no-unknown crossing counts: $(wc -l < gen/crossings-nounk.txt) lines identical to gen/crossings-nounk.txt" \
   || { echo "  no-unknown crossing counts DIFFER from gen/crossings-nounk.txt"; exit 1; }
+
+CARGO_TARGET_DIR="$PWD/target-nounk" cargo run --release -q -p campaign --no-default-features --features init-guard --bin upload_check 2>/dev/null | tail -1 | grep -q "UPLOAD CHECK PASSED" \
+  && echo "  no-unknown build: the upload byte check passes on every cell" \
+  || { echo "  no-unknown build: the upload byte check FAILED"; exit 1; }
 
 echo "  the C header's two variants (poc/codec/gen/c_abi.py), each against its core:"
 cargo build --release -q -p campaign --bin crossings 2>/dev/null   # the full core, default target

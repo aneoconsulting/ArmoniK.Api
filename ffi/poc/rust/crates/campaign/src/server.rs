@@ -132,11 +132,26 @@ where
         }
         let fetch = self.fetch.clone();
         let push = req.uri().path() == PUSH;
+        // U2-stream: the client-streaming upload (and its byte-checking twin).
+        let stream = match req.uri().path() {
+            p if p == crate::grid::STREAM => Some(false),
+            p if p == crate::grid::STREAM_CHECK => Some(true),
+            _ => None,
+        };
         let upload = req.uri().path() == crate::grid::UPLOAD;
         Box::pin(async move {
             // U1-unary: P5.4 is 4,194,390 B, over tonic's default 4 MiB decode limit, so the
             // grid's server accepts up to 8 MiB (every path; nothing else here comes near).
             let mut grpc = tonic::server::Grpc::new(Raw).max_decoding_message_size(SERVER_MAX_RECV);
+            if let Some(check) = stream {
+                return match sizes {
+                    Some(sizes) => {
+                        let req = req.map(|b| tonic::body::Body::new(CountFrames { inner: Box::pin(b), sizes }));
+                        Ok(grpc.client_streaming(StreamAnswer { check }, req).await)
+                    }
+                    None => Ok(grpc.client_streaming(StreamAnswer { check }, req.map(tonic::body::Body::new)).await),
+                };
+            }
             match sizes {
                 Some(sizes) => {
                     let req = req.map(|b| tonic::body::Body::new(CountFrames { inner: Box::pin(b), sizes }));
@@ -144,6 +159,47 @@ where
                 }
                 None => Ok(grpc.unary(Answer { fetch, push, upload }, req.map(tonic::body::Body::new)).await),
             }
+        })
+    }
+}
+
+/// U2-stream's handler: every message decoded with prost as M5; the ids required on the
+/// first message; the answer is the data byte count (u64 LE), plus, with `check`, the
+/// SHA-256 of every message's bytes as received.
+#[derive(Clone)]
+struct StreamAnswer {
+    check: bool,
+}
+
+impl tonic::server::ClientStreamingService<Bytes> for StreamAnswer {
+    type Response = Bytes;
+    type Future = std::pin::Pin<Box<dyn std::future::Future<Output = Result<tonic::Response<Bytes>, tonic::Status>> + Send>>;
+    fn call(&mut self, req: tonic::Request<tonic::Streaming<Bytes>>) -> Self::Future {
+        let check = self.check;
+        Box::pin(async move {
+            use prost::Message;
+            use sha2::Digest;
+            let mut s = req.into_inner();
+            let (mut total, mut first) = (0u64, true);
+            let mut h = sha2::Sha256::new();
+            while let Some(m) = s.message().await? {
+                if check {
+                    h.update(&m);
+                }
+                let v = shapes_prost::shapes::UploadResultDataMessage::decode(m)
+                    .map_err(|e| tonic::Status::invalid_argument(e.to_string()))?;
+                let u = v.upload.ok_or_else(|| tonic::Status::invalid_argument("a message without upload"))?;
+                if first && (u.session_id.is_empty() || u.result_id.is_empty()) {
+                    return Err(tonic::Status::invalid_argument("the first message carries no ids"));
+                }
+                first = false;
+                total += u.data_chunk.len() as u64;
+            }
+            let mut out = total.to_le_bytes().to_vec();
+            if check {
+                out.extend_from_slice(&h.finalize());
+            }
+            Ok(tonic::Response::new(Bytes::from(out)))
         })
     }
 }

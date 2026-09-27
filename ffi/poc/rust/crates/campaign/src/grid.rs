@@ -49,6 +49,18 @@ pub const UPLOAD: &str = "/armonik.ffi.campaign.v1.Grid/Upload";
 /// Direction `c`'s payloads and in-flight counts (k = 1 and 8 only, the owner's budget).
 pub const C_PAYLOADS: &[&str] = &["P5.3", "P5.4"];
 pub const C_INFLIGHT: &[usize] = &[1, 8];
+/// U2-stream (the owner, labelled extra direction `d`): CAMPAIGN req 14's streamed upload
+/// in 2 MiB chunks (FIX-PLAN D5), ArmoniK's UploadResultData shape: M5 per chunk, the ids on
+/// the first message only, the chunk as data_chunk. The server (a tonic client-streaming
+/// handler) decodes each message with prost and answers the data byte count (u64 LE);
+/// STREAM_CHECK also answers the SHA-256 of every message's bytes as received (the gate's
+/// byte check, bin upload_check).
+pub const STREAM: &str = "/armonik.ffi.campaign.v1.Grid/UploadStream";
+pub const STREAM_CHECK: &str = "/armonik.ffi.campaign.v1.Grid/UploadStreamCheck";
+pub const CHUNK: usize = 2 * 1024 * 1024;
+/// (label, chunks): 4 MiB in 2 chunks, 16 MiB in 8.
+pub const D_PAYLOADS: &[(&str, usize)] = &[("4MiB", 2), ("16MiB", 8)];
+pub const D_INFLIGHT: &[usize] = &[1, 8];
 pub const WIN: u32 = 4 * 1024 * 1024;
 /// Worker threads of every tokio runtime the client makes (cells A, D, F), and of the
 /// core's runtime (`ak_runtime_new`, cells B, C, E). Recorded in every header (req 4).
@@ -497,6 +509,237 @@ pub fn call_of_c(cell: &str, conn: &Conn, pid: &str, sl: &'static [Slot], want: 
         }
         (c, _) => panic!("cell {c} with the wrong connection"),
     }
+}
+
+/// U2-stream: one upload of `chunks` x 2 MiB, as the facade values and as prost's, the total
+/// data bytes, and the SHA-256 of the messages' wire bytes (all encoders byte-identical, so
+/// the one expectation serves every cell). Deterministic data (splitmix64).
+pub struct StreamPayload {
+    pub f: Vec<facade::UploadResultDataMessage>,
+    pub p: Vec<Arc<shapes_prost::shapes::UploadResultDataMessage>>,
+    pub data_bytes: u64,
+    pub sha256: [u8; 32],
+}
+
+pub fn stream_payload(chunks: usize) -> &'static StreamPayload {
+    use sha2::Digest;
+    let mut seed = 0x5EED_0000u64 + chunks as u64;
+    let mut next = || {
+        seed = seed.wrapping_add(0x9E37_79B9_7F4A_7C15);
+        let mut z = seed;
+        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+        z ^ (z >> 31)
+    };
+    let (mut f, mut p) = (Vec::new(), Vec::new());
+    let mut h = sha2::Sha256::new();
+    for i in 0..chunks {
+        let mut data = Vec::with_capacity(CHUNK);
+        while data.len() < CHUNK {
+            data.extend_from_slice(&next().to_le_bytes());
+        }
+        let first = i == 0;
+        let v = facade::UploadResultDataMessage {
+            upload: Some(facade::UploadResultData {
+                session_id: if first { "session-u2".into() } else { String::new() },
+                result_id: if first { "result-u2".into() } else { String::new() },
+                data_chunk: bytes::Bytes::from(data),
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+        let wire = prost::Message::encode_to_vec(&v);
+        h.update(&wire);
+        let pv = <shapes_prost::shapes::UploadResultDataMessage as prost::Message>::decode(&wire[..]).expect("prost decodes the chunk");
+        assert_eq!(prost::Message::encode_to_vec(&pv), wire, "prost re-encodes the chunk");
+        let mut e = ak_rt::Enc::new(facade::generated::core_native::SITES);
+        M5::n_encode(&v, &mut e, false);
+        assert_eq!(&e.buf[..], &wire[..], "core-native encodes the chunk as prost does");
+        f.push(v);
+        p.push(Arc::new(pv));
+    }
+    Box::leak(Box::new(StreamPayload { f, p, data_bytes: (chunks * CHUNK) as u64, sha256: h.finalize().into() }))
+}
+
+/// The response of an upload: the data byte count (u64 LE), then (STREAM_CHECK) 32 bytes.
+pub fn stream_response(resp: &[u8], want_bytes: u64, want_sha: Option<&[u8; 32]>) -> Result<(), String> {
+    let want_len = if want_sha.is_some() { 40 } else { 8 };
+    if resp.len() != want_len {
+        return Err(format!("upload response {} B, expected {want_len}", resp.len()));
+    }
+    let got = u64::from_le_bytes(resp[..8].try_into().unwrap());
+    if got != want_bytes {
+        return Err(format!("the server received {got} data bytes, expected {want_bytes}"));
+    }
+    if let Some(sha) = want_sha {
+        if &resp[8..] != &sha[..] {
+            return Err("the server received other bytes than the uploaded ones (SHA-256 differs)".into());
+        }
+    }
+    Ok(())
+}
+
+/// Blocking client streaming through the core (cells B, C, E): open, one `send` per chunk
+/// (`send(i, handle, last)` returns the entry's rc), recv, free, destroy.
+fn core_stream(cc: &CoreClient, path: &str, n: usize, mut send: impl FnMut(usize, *mut ak_call, i32) -> i32,
+               on_resp: impl FnOnce(&[u8]) -> Result<(), String>) -> Result<(), String> {
+    unsafe {
+        let h = ak_call_open(cc.client, path.as_ptr(), path.len(), AK_CALL_CLIENT_STREAM);
+        if h.is_null() {
+            return Err("ak_call_open NULL".into());
+        }
+        let mut r = Ok(());
+        for i in 0..n {
+            let rc = send(i, h, (i + 1 == n) as i32);
+            if rc != AK_OK {
+                r = Err(format!("ak_call_send chunk {i} rc {rc}"));
+                ak_call_close(h);
+                break;
+            }
+        }
+        let mut out = ak_bytes::default();
+        let rc = ak_call_recv(h, &mut out);
+        if r.is_ok() {
+            r = if rc != AK_OK {
+                Err(format!("ak_call_recv rc {rc}"))
+            } else {
+                on_resp(if out.len == 0 { &[] } else { std::slice::from_raw_parts(out.ptr, out.len) })
+            };
+        }
+        ak_bytes_free(&mut out);
+        ak_call_destroy(h);
+        r
+    }
+}
+
+/// A prost request stream, raw response (cell A of direction d).
+struct PRaw<Q>(std::marker::PhantomData<Q>);
+impl<Q: prost::Message + Send + Sync + 'static> Codec for PRaw<Q> {
+    type Encode = Arc<Q>;
+    type Decode = Bytes;
+    type Encoder = PEnc<Q>;
+    type Decoder = rpc::RawDecoder;
+    fn encoder(&mut self) -> PEnc<Q> {
+        PEnc(std::marker::PhantomData)
+    }
+    fn decoder(&mut self) -> rpc::RawDecoder {
+        rpc::RawDecoder
+    }
+}
+
+/// The call of `cell` in direction `d` (U2-stream): upload `chunks` x 2 MiB as a client
+/// stream to `path` (STREAM, or STREAM_CHECK for the gate's byte check); requirement 18:
+/// status OK and the server's data byte count (`want`, the plant makes it wrong), plus the
+/// SHA-256 on STREAM_CHECK.
+pub fn call_of_d(cell: &str, conn: &Conn, chunks: usize, sl: &'static [Slot], want: u64, check: bool) -> Call {
+    let sha: Option<&'static [u8; 32]> = if check { Some(&stream_payload(chunks).sha256) } else { None };
+    call_of_d_with(cell, conn, chunks, sl, want, sha)
+}
+
+/// `call_of_d` with the expected SHA-256 given (upload_check's control plants a wrong one).
+pub fn call_of_d_with(cell: &str, conn: &Conn, chunks: usize, sl: &'static [Slot], want: u64, sha: Option<&'static [u8; 32]>) -> Call {
+    let retain = retain_of(cell);
+    let pl = stream_payload(chunks);
+    let name: &'static str = cell_of(cell);
+    let path: &'static str = if sha.is_some() { STREAM_CHECK } else { STREAM };
+    let verdict = move |resp: &[u8]| stream_response(resp, want, sha).map_err(|e| format!("cell {name}: {e}"));
+    let n = chunks;
+    match (base(cell), conn) {
+        ('A', Conn::Tonic(rt, ch)) => {
+            let ch = ch.clone();
+            Call::Async(rt.clone(), Arc::new(move |_i| {
+                let ch = ch.clone();
+                Box::pin(async move {
+                    let mut g = tonic::client::Grpc::new(ch);
+                    g.ready().await.map_err(|e| e.to_string())?;
+                    let msgs = tokio_stream::iter(pl.p.iter().cloned());
+                    let resp = g.client_streaming(tonic::Request::new(msgs), http::uri::PathAndQuery::from_static(path), PRaw(std::marker::PhantomData))
+                        .await.map_err(|s| s.to_string())?.into_inner();
+                    verdict(&resp)
+                }) as Fut
+            }))
+        }
+        ('B', Conn::Core(cc)) => {
+            let cc = cc.clone();
+            Call::Blocking(Arc::new(move |_i| {
+                core_stream(&cc, path, n, |i, h, last| unsafe {
+                    let body = prost::Message::encode_to_vec(&*pl.p[i]);
+                    ak_call_send(h, body.as_ptr(), body.len(), last)
+                }, verdict)
+            }))
+        }
+        ('C', Conn::Core(cc)) => {
+            let cc = cc.clone();
+            Call::Blocking(Arc::new(move |i| {
+                let ctx = &sl[i].ctx;
+                core_stream(&cc, path, n, |j, h, last| unsafe {
+                    if let Err(e) = M5::f_encode(ctx, &pl.f[j], retain) { return e; }
+                    ak_call_send_enc(h, ctx.enc, last)
+                }, verdict)
+            }))
+        }
+        ('E', Conn::Core(cc)) => {
+            let cc = cc.clone();
+            Call::Blocking(Arc::new(move |i| {
+                let e = unsafe { &mut *sl[i].enc.get() };
+                core_stream(&cc, path, n, |j, h, last| unsafe {
+                    M5::n_encode(&pl.f[j], e, retain);
+                    ak_call_send(h, e.buf.as_ptr(), e.buf.len(), last)
+                }, verdict)
+            }))
+        }
+        ('D', Conn::Tonic(rt, ch)) | ('F', Conn::Tonic(rt, ch)) => {
+            let ch = ch.clone();
+            let ffi = base(cell) == 'D';
+            let framed = framed(cell);
+            Call::Async(rt.clone(), Arc::new(move |i| {
+                let ch = ch.clone();
+                let slot: &'static Slot = &sl[i];
+                // The messages encoded lazily, one as the transport asks for it (on the
+                // connection's thread). The COUNTING build encodes them all first, on this
+                // thread: the binding's tallies (ak_enc_reset) are thread-local, and the
+                // entries crossed per call are the same either way.
+                let enc = move |j: usize| {
+                    if ffi {
+                        match M5::f_encode(&slot.ctx, &pl.f[j], retain) {
+                            Ok(_) => crate::ffi_owned_body(slot.ctx.enc).unwrap_or_default(),
+                            Err(_) => Bytes::new(),
+                        }
+                    } else {
+                        let e = unsafe { &mut *slot.enc.get() };
+                        M5::n_encode(&pl.f[j], e, retain);
+                        e.take()
+                    }
+                };
+                #[cfg(not(feature = "count"))]
+                let msgs = tokio_stream::StreamExt::map(tokio_stream::iter(0..n), enc);
+                #[cfg(feature = "count")]
+                let msgs = tokio_stream::iter((0..n).map(enc).collect::<Vec<_>>());
+                Box::pin(async move {
+                    let pq = http::uri::PathAndQuery::from_static(path);
+                    let resp = if framed {
+                        rpc::client_streaming_framed(ch, pq, msgs, None).await.map_err(|s| s.to_string())?
+                    } else {
+                        rpc::client_streaming_raw_from(ch, pq, msgs).await.map_err(|s| s.to_string())?
+                    };
+                    verdict(&resp)
+                }) as Fut
+            }))
+        }
+        (c, _) => panic!("cell {c} with the wrong connection"),
+    }
+}
+
+/// The warm-up through direction d (4 MiB), for the plant control of the streamed path.
+pub fn warm_with_d(cells: &[&str], target: &str, pinned: bool, n: usize, want_plus: u64) -> Result<(), String> {
+    for &cell in cells {
+        let conn = Conn::open(cell, target, pinned);
+        let call = call_of_d(cell, &conn, D_PAYLOADS[0].1, slots(1), (D_PAYLOADS[0].1 * CHUNK) as u64 + want_plus, false);
+        for _ in 0..n {
+            call.once(0)?;
+        }
+    }
+    Ok(())
 }
 
 /// The cells of THIS build (requirement 12): A and B once, C, D, E, F per unknown-field mode.

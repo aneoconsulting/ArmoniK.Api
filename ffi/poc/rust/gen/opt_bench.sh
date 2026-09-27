@@ -170,7 +170,7 @@ CLARGS=(--server-warm "$RPC_SWARM")
 for T in shipped pinned; do
   step "rpc: transport $T"
   start_server "$T" plant
-  for v in full nounk; do for WP in A B Bf Df; do for WD in a c; do
+  for v in full nounk; do for WP in A B Bf Df; do for WD in a c d; do
     CL=target/release/rpc_client; [ "$v" = nounk ] && CL=target-nounk/release/rpc_client
     PL="$OUT/rpc-$T-$v-$WP-$WD-PLANT.log"
     rm -f "$SCRATCH/plant.jsonl"

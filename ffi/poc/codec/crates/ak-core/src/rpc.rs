@@ -44,7 +44,7 @@ use core::ffi::c_void;
 // below against the declared signature.
 pub use ak_abi::{
     ak_bytes, ak_call, ak_client, ak_client_opts, ak_completion, ak_completion_cb, ak_queue,
-    ak_runtime, AK_QUEUE_OK, AK_QUEUE_SHUTDOWN, AK_QUEUE_TIMEOUT,
+    ak_runtime, AK_CALL_CLIENT_STREAM, AK_QUEUE_OK, AK_QUEUE_SHUTDOWN, AK_QUEUE_TIMEOUT,
 };
 
 // ---- what the cpp slice added, and why -------------------------------------------------
@@ -504,6 +504,18 @@ pub unsafe extern "C" fn ak_bytes_free(b: *mut ak_bytes) {
 
 struct CallImpl {
     abort: tokio::task::AbortHandle,
+    /// U2-stream: a streamed call's state; None for the unary deliveries' handles.
+    stream: Option<StreamImpl>,
+}
+
+/// A client-streaming call (U2-stream, ABI v1 section 9): the request messages go to the
+/// call's task through a bounded channel (`ak_call_send` blocks while it is full, so the
+/// host cannot run ahead of the transport by more than one message); the response comes
+/// back on a oneshot (`ak_call_recv`).
+struct StreamImpl {
+    rt: *const RuntimeImpl,
+    tx: std::sync::Mutex<Option<tokio::sync::mpsc::Sender<Bytes>>>,
+    resp: std::sync::Mutex<Option<tokio::sync::oneshot::Receiver<Result<Bytes, String>>>>,
 }
 
 /// The host's callback and its context, crossing into a spawned task. Raw pointers are not
@@ -641,6 +653,132 @@ pub unsafe extern "C" fn ak_call_cancel(h: *mut ak_call) {
     }
 }
 
+/// U2-stream: open a streamed call (section 9). Only AK_CALL_CLIENT_STREAM is built.
+#[no_mangle]
+pub unsafe extern "C" fn ak_call_open(c: *mut ak_client, path: *const u8, path_len: usize, kind: i32) -> *mut ak_call {
+    fwd();
+    if c.is_null() || kind != AK_CALL_CLIENT_STREAM {
+        return core::ptr::null_mut();
+    }
+    let cl = &*(c as *const ClientImpl);
+    let rt = &*cl.rt;
+    let p = match core::str::from_utf8(core::slice::from_raw_parts(path, path_len)) {
+        Ok(p) => p,
+        Err(_) => return core::ptr::null_mut(),
+    };
+    let path = match http::uri::PathAndQuery::from_maybe_shared(p.to_string()) {
+        Ok(p) => p,
+        Err(_) => return core::ptr::null_mut(),
+    };
+    let link = cl.link();
+    let (tx, rx) = tokio::sync::mpsc::channel::<Bytes>(1);
+    let (rtx, rrx) = tokio::sync::oneshot::channel();
+    let task = rt.rt.spawn(async move {
+        let r = if link.framed {
+            rpc::client_streaming_framed(link.chan, path, rpc::ReceiverStream::new(rx), None).await
+        } else {
+            rpc::client_streaming_raw(link.chan, path, rx).await
+        };
+        let _ = rtx.send(r.map_err(|e| format!("client stream: {e}")));
+    });
+    Box::into_raw(Box::new(CallImpl {
+        abort: task.abort_handle(),
+        stream: Some(StreamImpl { rt: cl.rt, tx: std::sync::Mutex::new(Some(tx)), resp: std::sync::Mutex::new(Some(rrx)) }),
+    })) as *mut ak_call
+}
+
+unsafe fn stream_send(h: *mut ak_call, b: Bytes, last: i32) -> i32 {
+    let st = match (*(h as *mut CallImpl)).stream.as_ref() {
+        Some(s) => s,
+        None => return AK_ERR_INVALID_STATE,
+    };
+    // Taken out of the slot for the blocking send, so `ak_call_close` (the abort) never
+    // waits on this lock; put back unless `last`.
+    let tx = match st.tx.lock().ok().and_then(|mut g| g.take()) {
+        Some(t) => t,
+        None => return AK_ERR_INVALID_STATE,
+    };
+    if tx.blocking_send(b).is_err() {
+        trace("ak_call_send", "the call ended (cancelled or failed)");
+        return AK_ERR_HOST;
+    }
+    if last == 0 {
+        if let Ok(mut g) = st.tx.lock() {
+            *g = Some(tx);
+        }
+    }
+    AK_OK
+}
+
+/// U2-stream: one request message, copied.
+#[no_mangle]
+pub unsafe extern "C" fn ak_call_send(h: *mut ak_call, msg: *const u8, len: usize, last: i32) -> i32 {
+    fwd();
+    if h.is_null() || (msg.is_null() && len != 0) {
+        return AK_ERR_INVALID_STATE;
+    }
+    let b = if len == 0 { Bytes::new() } else { Bytes::copy_from_slice(core::slice::from_raw_parts(msg, len)) };
+    stream_send(h, b, last)
+}
+
+/// U2-stream: one request message, the encode context's output moved (Enc::take).
+#[no_mangle]
+pub unsafe extern "C" fn ak_call_send_enc(h: *mut ak_call, enc: *mut crate::ak_enc_ctx, last: i32) -> i32 {
+    fwd();
+    if h.is_null() || enc.is_null() {
+        return AK_ERR_INVALID_STATE;
+    }
+    let cx = &mut *(enc as *mut crate::EncCtxImpl);
+    if cx.hdr.err != AK_OK {
+        return cx.hdr.err;
+    }
+    if cx.e.err != 0 {
+        return cx.e.err;
+    }
+    stream_send(h, cx.e.take(), last)
+}
+
+/// U2-stream: block for the response.
+#[no_mangle]
+pub unsafe extern "C" fn ak_call_recv(h: *mut ak_call, out: *mut ak_bytes) -> i32 {
+    fwd();
+    if h.is_null() || out.is_null() {
+        return AK_ERR_INVALID_STATE;
+    }
+    *out = empty_ak_bytes();
+    let st = match (*(h as *mut CallImpl)).stream.as_ref() {
+        Some(s) => s,
+        None => return AK_ERR_INVALID_STATE,
+    };
+    let rx = match st.resp.lock().ok().and_then(|mut g| g.take()) {
+        Some(r) => r,
+        None => return AK_ERR_INVALID_STATE,
+    };
+    match (*st.rt).rt.block_on(rx) {
+        Ok(Ok(b)) => {
+            *out = into_ak_bytes(b);
+            AK_OK
+        }
+        Ok(Err(e)) => {
+            trace("ak_call_recv", &e);
+            AK_ERR_HOST
+        }
+        Err(_) => {
+            trace("ak_call_recv", "the call was cancelled");
+            AK_ERR_HOST
+        }
+    }
+}
+
+/// U2-stream (section 9): cancel; unblocks a pending recv or send. Does not free.
+#[no_mangle]
+pub unsafe extern "C" fn ak_call_close(h: *mut ak_call) {
+    fwd();
+    if !h.is_null() {
+        (*(h as *mut CallImpl)).abort.abort();
+    }
+}
+
 /// Frees the handle. Only after the call's completion has been delivered.
 #[no_mangle]
 pub unsafe extern "C" fn ak_call_destroy(h: *mut ak_call) {
@@ -704,7 +842,7 @@ pub unsafe extern "C" fn ak_call_unary_cb(
         rev();
         (ctx.cb)(ctx.user, &mut comp);
     });
-    Box::into_raw(Box::new(CallImpl { abort: task.abort_handle() })) as *mut ak_call
+    Box::into_raw(Box::new(CallImpl { abort: task.abort_handle(), stream: None })) as *mut ak_call
 }
 
 /// **The completion-queue delivery.** Returns immediately with a handle; the completion is
@@ -748,7 +886,7 @@ pub unsafe extern "C" fn ak_call_unary_q(
         }
         qi.cv.notify_one();
     });
-    Box::into_raw(Box::new(CallImpl { abort: task.abort_handle() })) as *mut ak_call
+    Box::into_raw(Box::new(CallImpl { abort: task.abort_handle(), stream: None })) as *mut ak_call
 }
 
 #[cfg(test)]
@@ -1008,4 +1146,42 @@ mod delivery_tests {
             ak_runtime_destroy(r);
         }
     }
+
+    /// U2-stream: a client stream of one message gets the server's response on both send
+    /// paths; after `last` a send is refused, a second recv is refused, an unknown kind opens
+    /// nothing, and `ak_call_close` unblocks a recv that would otherwise wait forever (the
+    /// server is still waiting for the first message).
+    #[test]
+    fn a_streamed_call_sends_receives_and_closes() {
+        let (r, c) = fixture();
+        unsafe {
+            assert!(ak_call_open(c, rpc::PATH.as_ptr(), rpc::PATH.len(), 99).is_null());
+            for framed in [0, 1] {
+                assert_eq!(ak_client_set_framed(c, framed), AK_OK);
+                let h = ak_call_open(c, rpc::PATH.as_ptr(), rpc::PATH.len(), AK_CALL_CLIENT_STREAM);
+                assert!(!h.is_null());
+                assert_eq!(ak_call_send(h, b"req".as_ptr(), 3, 1), AK_OK);
+                assert_eq!(ak_call_send(h, b"req".as_ptr(), 3, 1), AK_ERR_INVALID_STATE, "a send after last");
+                let mut out = empty_ak_bytes();
+                assert_eq!(ak_call_recv(h, &mut out), AK_OK, "framed={framed}");
+                assert_eq!(take(&mut out), RESP);
+                assert_eq!(ak_call_recv(h, &mut out), AK_ERR_INVALID_STATE, "a second recv");
+                ak_call_destroy(h);
+            }
+            let h = ak_call_open(c, rpc::PATH.as_ptr(), rpc::PATH.len(), AK_CALL_CLIENT_STREAM);
+            let hv = h as usize;
+            let t = std::thread::spawn(move || {
+                let mut out = empty_ak_bytes();
+                ak_call_recv(hv as *mut ak_call, &mut out)
+            });
+            std::thread::sleep(std::time::Duration::from_millis(200));
+            assert!(!t.is_finished(), "recv returned before any message was sent");
+            ak_call_close(h);
+            assert_eq!(t.join().unwrap(), AK_ERR_HOST, "close unblocks the pending recv");
+            ak_call_destroy(h);
+            ak_client_destroy(c);
+            ak_runtime_destroy(r);
+        }
+    }
+
 }

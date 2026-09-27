@@ -80,6 +80,8 @@ public static unsafe partial class AkRpc
     public const int AK_QUEUE_TIMEOUT = 1;
     /// The queue is shutting down and is drained.
     public const int AK_QUEUE_SHUTDOWN = 2;
+    /// `ak_call_open`'s kind: a client-streaming call (many request messages, one response). The only kind built.
+    public const int AK_CALL_CLIENT_STREAM = 1;
     public const uint AK_ABI_VERSION = 1u;
     public const uint AK_INIT_NO_PANIC_HOOK = 2u;
     public const uint AK_INIT_NO_CRYPTO = 4u;
@@ -328,6 +330,76 @@ public static unsafe partial class AkRpc
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern void ak_call_cancel(IntPtr h);
 #endif
+    /// Open a streamed call on `path` (section 9). `kind` AK_CALL_CLIENT_STREAM is the only kind built; another, or NULL `c`, returns NULL. The client's send path (ak_client_set_framed) applies to every message. Section 9's `ak_call_opts` is not taken: the unary entries take none either.
+#if AK_HOST_COUNT
+    [DllImport(Lib, EntryPoint = "ak_call_open", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    private static extern IntPtr ak_call_open__raw(IntPtr c, byte* path, nuint path_len, int kind);
+    internal static long N_ak_call_open;
+    internal static IntPtr ak_call_open(IntPtr c, byte* path, nuint path_len, int kind) { System.Threading.Interlocked.Increment(ref N_ak_call_open); return ak_call_open__raw(c, path, path_len, kind); }
+#elif NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial IntPtr ak_call_open(IntPtr c, byte* path, nuint path_len, int kind);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern IntPtr ak_call_open(IntPtr c, byte* path, nuint path_len, int kind);
+#endif
+    /// Send one request message (copied: the host may reuse its buffer on return); `last` nonzero ends the request stream after it. Blocks while the transport has not taken the previous message. After `last`, AK_ERR_INVALID_STATE; a transport failure, AK_ERR_HOST.
+#if AK_HOST_COUNT
+    [DllImport(Lib, EntryPoint = "ak_call_send", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    private static extern int ak_call_send__raw(IntPtr h, byte* msg, nuint len, int last);
+    internal static long N_ak_call_send;
+    internal static int ak_call_send(IntPtr h, byte* msg, nuint len, int last) { System.Threading.Interlocked.Increment(ref N_ak_call_send); return ak_call_send__raw(h, msg, len, last); }
+#elif NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial int ak_call_send(IntPtr h, byte* msg, nuint len, int last);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ak_call_send(IntPtr h, byte* msg, nuint len, int last);
+#endif
+    /// `ak_call_send` whose message is the encode context's output, MOVED (not copied), as `ak_call_unary_enc`; a context in error is refused with its error. Additive.
+#if AK_HOST_COUNT
+    [DllImport(Lib, EntryPoint = "ak_call_send_enc", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    private static extern int ak_call_send_enc__raw(IntPtr h, IntPtr enc, int last);
+    internal static long N_ak_call_send_enc;
+    internal static int ak_call_send_enc(IntPtr h, IntPtr enc, int last) { System.Threading.Interlocked.Increment(ref N_ak_call_send_enc); return ak_call_send_enc__raw(h, enc, last); }
+#elif NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial int ak_call_send_enc(IntPtr h, IntPtr enc, int last);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ak_call_send_enc(IntPtr h, IntPtr enc, int last);
+#endif
+    /// Block for the call's response (for a client stream: after `last`), released with `ak_bytes_free`. A non-OK status or a cancelled call is AK_ERR_HOST; a second recv, AK_ERR_INVALID_STATE.
+#if AK_HOST_COUNT
+    [DllImport(Lib, EntryPoint = "ak_call_recv", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    private static extern int ak_call_recv__raw(IntPtr h, ak_bytes* @out);
+    internal static long N_ak_call_recv;
+    internal static int ak_call_recv(IntPtr h, ak_bytes* @out) { System.Threading.Interlocked.Increment(ref N_ak_call_recv); return ak_call_recv__raw(h, @out); }
+#elif NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial int ak_call_recv(IntPtr h, ak_bytes* @out);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ak_call_recv(IntPtr h, ak_bytes* @out);
+#endif
+    /// Cancel the call and unblock a pending `ak_call_recv` (which returns AK_ERR_HOST) or `ak_call_send`; does NOT free (`ak_call_destroy` does, after every operation returned).
+#if AK_HOST_COUNT
+    [DllImport(Lib, EntryPoint = "ak_call_close", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    private static extern void ak_call_close__raw(IntPtr h);
+    internal static long N_ak_call_close;
+    internal static void ak_call_close(IntPtr h) { System.Threading.Interlocked.Increment(ref N_ak_call_close); ak_call_close__raw(h); }
+#elif NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial void ak_call_close(IntPtr h);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern void ak_call_close(IntPtr h);
+#endif
 #if AK_HOST_COUNT
     [DllImport(Lib, EntryPoint = "ak_call_destroy", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     private static extern void ak_call_destroy__raw(IntPtr h);
@@ -404,6 +476,11 @@ public static unsafe partial class AkRpc
         if (N_ak_queue_shutdown != 0) l.Add(("ak_queue_shutdown", N_ak_queue_shutdown));
         if (N_ak_queue_destroy != 0) l.Add(("ak_queue_destroy", N_ak_queue_destroy));
         if (N_ak_call_cancel != 0) l.Add(("ak_call_cancel", N_ak_call_cancel));
+        if (N_ak_call_open != 0) l.Add(("ak_call_open", N_ak_call_open));
+        if (N_ak_call_send != 0) l.Add(("ak_call_send", N_ak_call_send));
+        if (N_ak_call_send_enc != 0) l.Add(("ak_call_send_enc", N_ak_call_send_enc));
+        if (N_ak_call_recv != 0) l.Add(("ak_call_recv", N_ak_call_recv));
+        if (N_ak_call_close != 0) l.Add(("ak_call_close", N_ak_call_close));
         if (N_ak_call_destroy != 0) l.Add(("ak_call_destroy", N_ak_call_destroy));
         if (N_ak_rpc_counting != 0) l.Add(("ak_rpc_counting", N_ak_rpc_counting));
         if (N_ak_rpc_counters != 0) l.Add(("ak_rpc_counters", N_ak_rpc_counters));
@@ -430,6 +507,11 @@ public static unsafe partial class AkRpc
         N_ak_queue_shutdown = 0;
         N_ak_queue_destroy = 0;
         N_ak_call_cancel = 0;
+        N_ak_call_open = 0;
+        N_ak_call_send = 0;
+        N_ak_call_send_enc = 0;
+        N_ak_call_recv = 0;
+        N_ak_call_close = 0;
         N_ak_call_destroy = 0;
         N_ak_rpc_counting = 0;
         N_ak_rpc_counters = 0;

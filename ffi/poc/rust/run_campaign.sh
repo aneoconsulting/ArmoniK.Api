@@ -220,7 +220,7 @@ case "$SUITE" in
       # Once per send path, each warmed through ONE cell so each must abort on its own: A
       # (tonic codec), B (core, reference), and optimisation T1 option 3's framed path, Bf
       # (core) and Df (tonic Channel, the harness's).
-      for v in full nounk; do for WP in A B Bf Df; do for WD in a c; do
+      for v in full nounk; do for WP in A B Bf Df; do for WD in a c d; do
         CL=target/release/rpc_client; [ "$v" = nounk ] && CL=target-nounk/release/rpc_client
         PL="$OUT/rpc-$T-$v-$WP-$WD-PLANT.log"
         rm -f "$SCRATCH/plant.jsonl"

@@ -12,6 +12,8 @@
 //! server-side measurement.
 
 use bytes::{Buf, BufMut, Bytes};
+/// For the core's streamed call (ak-core does not depend on tokio-stream itself).
+pub use tokio_stream::wrappers::ReceiverStream;
 use tonic::codec::{Codec, DecodeBuf, Decoder, EncodeBuf, Encoder};
 
 /// A gRPC codec that does not know the schema: it hands the framing layer the bytes it was
@@ -109,7 +111,7 @@ impl http_body::Body for Framed {
 /// One unary call over `svc` (a tonic `Channel`) whose request is `msg`, sent without a copy
 /// (see the section comment). `max_send`: the largest message sent, `None` = tonic's default.
 pub async fn unary_framed<T>(
-    mut svc: T,
+    svc: T,
     path: http::uri::PathAndQuery,
     msg: Bytes,
     max_send: Option<usize>,
@@ -137,20 +139,36 @@ where
     // An empty message is the prefix alone (no empty DATA frame after it).
     let msg = if msg.is_empty() { None } else { Some(msg) };
     let body = tonic::body::Body::new(Framed { hdr: Some(Bytes::copy_from_slice(&hdr)), msg });
+    let req = framed_request(path, body)?;
+    framed_call(svc, req).await
+}
+
+/// The request as tonic's GrpcConfig::prepare_request builds it (see the section comment).
+fn framed_request(path: http::uri::PathAndQuery, body: tonic::body::Body) -> Result<http::Request<tonic::body::Body>, tonic::Status> {
     let uri = http::Uri::from_parts({
         let mut p = http::uri::Parts::default();
         p.path_and_query = Some(path);
         p
     })
     .map_err(|e| tonic::Status::internal(format!("uri: {e}")))?;
-    let req = http::Request::builder()
+    http::Request::builder()
         .method(http::Method::POST)
         .uri(uri)
         .version(http::Version::HTTP_2)
         .header(http::header::TE, http::HeaderValue::from_static("trailers"))
         .header(http::header::CONTENT_TYPE, http::HeaderValue::from_static("application/grpc"))
         .body(body)
-        .map_err(|e| tonic::Status::internal(format!("request: {e}")))?;
+        .map_err(|e| tonic::Status::internal(format!("request: {e}")))
+}
+
+/// Send `req` over `svc` and take the one response message as Grpc::create_response and
+/// client_streaming do (trailers-only status, Streaming, the message, the trailers).
+async fn framed_call<T>(mut svc: T, req: http::Request<tonic::body::Body>) -> Result<Bytes, tonic::Status>
+where
+    T: tonic::client::GrpcService<tonic::body::Body>,
+    T::ResponseBody: http_body::Body<Data = Bytes> + Send + 'static,
+    <T::ResponseBody as http_body::Body>::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
+{
     std::future::poll_fn(|cx| svc.poll_ready(cx)).await.map_err(|e| tonic::Status::unknown(format!("ready: {}", e.into())))?;
     let resp = svc.call(req).await.map_err(|e| tonic::Status::unknown(format!("call: {}", e.into())))?;
     // Grpc::create_response, without compression.
@@ -164,6 +182,115 @@ where
     let m = stream.message().await?.ok_or_else(|| tonic::Status::internal("Missing response message."))?;
     stream.trailers().await?;
     Ok(m)
+}
+
+// ---- client streaming (U2-stream: ABI v1 section 9's streamed call) -----------------------
+//
+// The messages arrive on a channel (the core's ak_call_send, or a host task) and the stream
+// ends when the sender is dropped. Two send paths, as for unary: the REFERENCE
+// (Grpc::client_streaming + RawCodec: each message copied into tonic's buffer) and the
+// FRAMED one (each message as its 5-byte prefix frame and the message itself, no copy).
+
+/// Reference: tonic's client streaming with the raw-bytes codec.
+pub async fn client_streaming_raw(
+    chan: tonic::transport::Channel,
+    path: http::uri::PathAndQuery,
+    rx: tokio::sync::mpsc::Receiver<Bytes>,
+) -> Result<Bytes, tonic::Status> {
+    let mut grpc = tonic::client::Grpc::new(chan);
+    grpc.ready().await.map_err(|e| tonic::Status::unknown(format!("ready: {e}")))?;
+    grpc.client_streaming(tonic::Request::new(tokio_stream::wrappers::ReceiverStream::new(rx)), path, RawCodec)
+        .await
+        .map(|r| r.into_inner())
+}
+
+/// Reference, from any stream of messages (the harness's cells D and F).
+pub async fn client_streaming_raw_from<S>(
+    chan: tonic::transport::Channel,
+    path: http::uri::PathAndQuery,
+    msgs: S,
+) -> Result<Bytes, tonic::Status>
+where
+    S: tokio_stream::Stream<Item = Bytes> + Send + 'static,
+{
+    let mut grpc = tonic::client::Grpc::new(chan);
+    grpc.ready().await.map_err(|e| tonic::Status::unknown(format!("ready: {e}")))?;
+    grpc.client_streaming(tonic::Request::new(msgs), path, RawCodec).await.map(|r| r.into_inner())
+}
+
+/// The framed body of a message stream: per message its 5-byte prefix, then the message
+/// (an empty message is the prefix alone); encode_item's size checks per message.
+struct FramedStream<S> {
+    msgs: S,
+    pending: Option<Bytes>,
+    max_send: usize,
+    done: bool,
+}
+
+impl<S> http_body::Body for FramedStream<S>
+where
+    S: tokio_stream::Stream<Item = Bytes> + Unpin,
+{
+    type Data = Bytes;
+    type Error = tonic::Status;
+    fn poll_frame(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Result<http_body::Frame<Bytes>, tonic::Status>>> {
+        use std::task::Poll;
+        if let Some(m) = self.pending.take() {
+            return Poll::Ready(Some(Ok(http_body::Frame::data(m))));
+        }
+        if self.done {
+            return Poll::Ready(None);
+        }
+        match std::pin::Pin::new(&mut self.msgs).poll_next(cx) {
+            Poll::Pending => Poll::Pending,
+            Poll::Ready(None) => {
+                self.done = true;
+                Poll::Ready(None)
+            }
+            Poll::Ready(Some(m)) => {
+                let len = m.len();
+                if len > self.max_send {
+                    return Poll::Ready(Some(Err(tonic::Status::out_of_range(format!(
+                        "Error, encoded message length too large: found {len} bytes, the limit is: {} bytes", self.max_send)))));
+                }
+                if len > u32::MAX as usize {
+                    return Poll::Ready(Some(Err(tonic::Status::resource_exhausted(format!(
+                        "Cannot return body with more than 4GB of data but got {len} bytes")))));
+                }
+                let mut hdr = [0u8; 5];
+                hdr[1..].copy_from_slice(&(len as u32).to_be_bytes());
+                if len > 0 {
+                    self.pending = Some(m);
+                }
+                Poll::Ready(Some(Ok(http_body::Frame::data(Bytes::copy_from_slice(&hdr)))))
+            }
+        }
+    }
+    fn is_end_stream(&self) -> bool {
+        self.done && self.pending.is_none()
+    }
+}
+
+/// Framed client streaming over `svc` (a tonic Channel): the same request headers, status
+/// and trailer handling as `unary_framed`.
+pub async fn client_streaming_framed<T, S>(
+    svc: T,
+    path: http::uri::PathAndQuery,
+    msgs: S,
+    max_send: Option<usize>,
+) -> Result<Bytes, tonic::Status>
+where
+    T: tonic::client::GrpcService<tonic::body::Body>,
+    T::ResponseBody: http_body::Body<Data = Bytes> + Send + 'static,
+    <T::ResponseBody as http_body::Body>::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
+    S: tokio_stream::Stream<Item = Bytes> + Unpin + Send + 'static,
+{
+    let body = tonic::body::Body::new(FramedStream { msgs, pending: None, max_send: max_send.unwrap_or(usize::MAX), done: false });
+    let req = framed_request(path, body)?;
+    framed_call(svc, req).await
 }
 
 pub const PATH: &str = "/armonik.ffi.shapes.v1.Bench/Unary";

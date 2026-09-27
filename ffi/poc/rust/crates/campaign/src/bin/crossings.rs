@@ -127,6 +127,22 @@ fn rpc_rows(out: &mut Vec<String>) {
             let (ef, er) = enc(&sl[0].ctx);
             out.push(row(&format!("rpc:{}", grid::stem(cell)), &format!("c/{pid}"), mode, (rf + ef, rr + er), host_calls_take()));
         }
+        // U2-stream: direction d, per size (open, a send per chunk, recv, free, destroy; the
+        // encodes of C and D; nothing decoded).
+        for &(label, chunks) in grid::D_PAYLOADS {
+            let sl = grid::slots(1);
+            let call = grid::call_of_d(cell, &conn, chunks, sl, (chunks * grid::CHUNK) as u64, false);
+            call.once(0).expect("warm call");
+            unsafe {
+                ak_rpc_counters_reset();
+                ak_enc_counters_reset(sl[0].ctx.enc);
+            }
+            host_calls_take();
+            call.once(0).expect("counted call");
+            let (rf, rr) = rpc_counters();
+            let (ef, er) = enc(&sl[0].ctx);
+            out.push(row(&format!("rpc:{}", grid::stem(cell)), &format!("d/{label}"), mode, (rf + ef, rr + er), host_calls_take()));
+        }
     }
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -147,6 +163,7 @@ fn main() {
     println!("# rpc:<cell> rows: one call of cell B, C, D or E (P2.2; a = Fetch + decode, b = encode + Push), core RPC counters included;");
     println!("# Bf, Cf, Df, Ef: the same cells on the framed send path (T1 option 3; ak_client_set_framed is called once at open, not per call).");
     println!("# c/P5.3, c/P5.4: U1-unary, one upload of M5 (encode + Upload; the response is empty and decoded by nobody).");
+    println!("# d/4MiB, d/16MiB: U2-stream, one client-streamed upload in 2 MiB chunks (B/C/E: open, a send per chunk, recv, free, destroy).");
     println!("# input                                            direction    mode        forward  reverse resets");
     for l in out {
         println!("{l}");

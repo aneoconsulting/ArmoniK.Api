@@ -5,6 +5,7 @@
 # rpc:<cell> rows: one call of cell B, C, D or E (P2.2; a = Fetch + decode, b = encode + Push), core RPC counters included;
 # Bf, Cf, Df, Ef: the same cells on the framed send path (T1 option 3; ak_client_set_framed is called once at open, not per call).
 # c/P5.3, c/P5.4: U1-unary, one upload of M5 (encode + Upload; the response is empty and decoded by nobody).
+# d/4MiB, d/16MiB: U2-stream, one client-streamed upload in 2 MiB chunks (B/C/E: open, a send per chunk, recv, free, destroy).
 # input                                            direction    mode        forward  reverse resets
 P1.1                                             encode       no-unknown        3        1      1
 P1.1                                             decode       no-unknown        1        2      0
@@ -351,31 +352,47 @@ rpc:B                                            a            default           
 rpc:B                                            b            default           2        0      0
 rpc:B                                            c/P5.3       default           2        0      0
 rpc:B                                            c/P5.4       default           2        0      0
+rpc:B                                            d/4MiB       default           6        0      0
+rpc:B                                            d/16MiB      default          12        0      0
 rpc:C                                            a            nounk             3     3501      0
 rpc:C                                            b            nounk          2514     2501      1
 rpc:C                                            c/P5.3       nounk             4        0      1
 rpc:C                                            c/P5.4       nounk             4        0      1
+rpc:C                                            d/4MiB       nounk            10        0      2
+rpc:C                                            d/16MiB      nounk            28        0      8
 rpc:D                                            a            nounk             1     3501      0
 rpc:D                                            b            nounk          2514     2501      1
 rpc:D                                            c/P5.3       nounk             4        0      1
 rpc:D                                            c/P5.4       nounk             4        0      1
+rpc:D                                            d/4MiB       nounk             8        0      2
+rpc:D                                            d/16MiB      nounk            32        0      8
 rpc:E                                            a            nounk             2        0      0
 rpc:E                                            b            nounk             2        0      0
 rpc:E                                            c/P5.3       nounk             2        0      0
 rpc:E                                            c/P5.4       nounk             2        0      0
+rpc:E                                            d/4MiB       nounk             6        0      0
+rpc:E                                            d/16MiB      nounk            12        0      0
 rpc:Bf                                           a            default           2        0      0
 rpc:Bf                                           b            default           2        0      0
 rpc:Bf                                           c/P5.3       default           2        0      0
 rpc:Bf                                           c/P5.4       default           2        0      0
+rpc:Bf                                           d/4MiB       default           6        0      0
+rpc:Bf                                           d/16MiB      default          12        0      0
 rpc:Cf                                           a            nounk             3     3501      0
 rpc:Cf                                           b            nounk          2514     2501      1
 rpc:Cf                                           c/P5.3       nounk             4        0      1
 rpc:Cf                                           c/P5.4       nounk             4        0      1
+rpc:Cf                                           d/4MiB       nounk            10        0      2
+rpc:Cf                                           d/16MiB      nounk            28        0      8
 rpc:Df                                           a            nounk             1     3501      0
 rpc:Df                                           b            nounk          2514     2501      1
 rpc:Df                                           c/P5.3       nounk             4        0      1
 rpc:Df                                           c/P5.4       nounk             4        0      1
+rpc:Df                                           d/4MiB       nounk             8        0      2
+rpc:Df                                           d/16MiB      nounk            32        0      8
 rpc:Ef                                           a            nounk             2        0      0
 rpc:Ef                                           b            nounk             2        0      0
 rpc:Ef                                           c/P5.3       nounk             2        0      0
 rpc:Ef                                           c/P5.4       nounk             2        0      0
+rpc:Ef                                           d/4MiB       nounk             6        0      0
+rpc:Ef                                           d/16MiB      nounk            12        0      0

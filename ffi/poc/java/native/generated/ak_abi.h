@@ -1236,6 +1236,7 @@ typedef void (*ak_completion_cb)(void *user_data, struct ak_completion *comp);
 #define AK_QUEUE_OK 0  /* `ak_queue_next` returned a completion. */
 #define AK_QUEUE_TIMEOUT 1  /* The timeout expired with no completion. Not an error. */
 #define AK_QUEUE_SHUTDOWN 2  /* The queue is shutting down and is drained. */
+#define AK_CALL_CLIENT_STREAM 1  /* `ak_call_open`'s kind: a client-streaming call (many request messages, one response). The only kind built. */
 ak_runtime *ak_runtime_new(uint32_t worker_threads);
 void ak_runtime_destroy(ak_runtime *r);
 ak_client *ak_client_new(ak_runtime *r, const uint8_t *uri, size_t uri_len);
@@ -1261,6 +1262,16 @@ int32_t ak_queue_next(ak_queue *q, struct ak_completion *out, uint64_t timeout_m
 void ak_queue_shutdown(ak_queue *q);
 void ak_queue_destroy(ak_queue *q);
 void ak_call_cancel(ak_call *h);
+/* Open a streamed call on `path` (section 9). `kind` AK_CALL_CLIENT_STREAM is the only kind built; another, or NULL `c`, returns NULL. The client's send path (ak_client_set_framed) applies to every message. Section 9's `ak_call_opts` is not taken: the unary entries take none either. */
+ak_call *ak_call_open(ak_client *c, const uint8_t *path, size_t path_len, int32_t kind);
+/* Send one request message (copied: the host may reuse its buffer on return); `last` nonzero ends the request stream after it. Blocks while the transport has not taken the previous message. After `last`, AK_ERR_INVALID_STATE; a transport failure, AK_ERR_HOST. */
+int32_t ak_call_send(ak_call *h, const uint8_t *msg, size_t len, int32_t last);
+/* `ak_call_send` whose message is the encode context's output, MOVED (not copied), as `ak_call_unary_enc`; a context in error is refused with its error. Additive. */
+int32_t ak_call_send_enc(ak_call *h, ak_enc_ctx *enc, int32_t last);
+/* Block for the call's response (for a client stream: after `last`), released with `ak_bytes_free`. A non-OK status or a cancelled call is AK_ERR_HOST; a second recv, AK_ERR_INVALID_STATE. */
+int32_t ak_call_recv(ak_call *h, struct ak_bytes *out);
+/* Cancel the call and unblock a pending `ak_call_recv` (which returns AK_ERR_HOST) or `ak_call_send`; does NOT free (`ak_call_destroy` does, after every operation returned). */
+void ak_call_close(ak_call *h);
 void ak_call_destroy(ak_call *h);
 /* RPC boundary-call counts (counting build). Exported by a core built with `rpc`. */
 struct ak_rpc_counters {

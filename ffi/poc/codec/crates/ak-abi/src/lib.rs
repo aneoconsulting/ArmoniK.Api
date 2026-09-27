@@ -406,6 +406,8 @@ pub const AK_QUEUE_OK: i32 = 0;
 pub const AK_QUEUE_TIMEOUT: i32 = 1;
 /// The queue is shutting down and is drained.
 pub const AK_QUEUE_SHUTDOWN: i32 = 2;
+/// `ak_call_open`'s kind: a client-streaming call (many request messages, one response). The only kind built.
+pub const AK_CALL_CLIENT_STREAM: i32 = 1;
 
 /// RPC boundary-call counts (counting build).
 #[repr(C)]
@@ -441,6 +443,16 @@ unsafe extern "C" {
     pub fn ak_queue_shutdown(q: *mut ak_queue);
     pub fn ak_queue_destroy(q: *mut ak_queue);
     pub fn ak_call_cancel(h: *mut ak_call);
+    /// Open a streamed call on `path` (section 9). `kind` AK_CALL_CLIENT_STREAM is the only kind built; another, or NULL `c`, returns NULL. The client's send path (ak_client_set_framed) applies to every message. Section 9's `ak_call_opts` is not taken: the unary entries take none either.
+    pub fn ak_call_open(c: *mut ak_client, path: *const u8, path_len: usize, kind: i32) -> *mut ak_call;
+    /// Send one request message (copied: the host may reuse its buffer on return); `last` nonzero ends the request stream after it. Blocks while the transport has not taken the previous message. After `last`, AK_ERR_INVALID_STATE; a transport failure, AK_ERR_HOST.
+    pub fn ak_call_send(h: *mut ak_call, msg: *const u8, len: usize, last: i32) -> i32;
+    /// `ak_call_send` whose message is the encode context's output, MOVED (not copied), as `ak_call_unary_enc`; a context in error is refused with its error. Additive.
+    pub fn ak_call_send_enc(h: *mut ak_call, enc: *mut ak_enc_ctx, last: i32) -> i32;
+    /// Block for the call's response (for a client stream: after `last`), released with `ak_bytes_free`. A non-OK status or a cancelled call is AK_ERR_HOST; a second recv, AK_ERR_INVALID_STATE.
+    pub fn ak_call_recv(h: *mut ak_call, out: *mut ak_bytes) -> i32;
+    /// Cancel the call and unblock a pending `ak_call_recv` (which returns AK_ERR_HOST) or `ak_call_send`; does NOT free (`ak_call_destroy` does, after every operation returned).
+    pub fn ak_call_close(h: *mut ak_call);
     pub fn ak_call_destroy(h: *mut ak_call);
     /// 1 if this core counts RPC crossings.
     pub fn ak_rpc_counting() -> i32;

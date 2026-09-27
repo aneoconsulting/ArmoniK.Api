@@ -27,11 +27,16 @@ fn main() {
     println!("# T1 option 3: request headers as the server receives them (transport {}), reference vs framed send path", if pinned { "pinned" } else { "shipped" });
     let mut differ = 0;
     for (what, r, f) in pairs {
-        for dir in ["a", "b"] {
+        for dir in ["a", "b", "d"] {
             let mut got = Vec::new();
             for cell in [r, f] {
                 let conn = Conn::open(cell, &target, pinned);
-                let call = grid::call_of(cell, &conn, dir, grid::slots(1), want_a);
+                // d: U2-stream's client-streamed upload (4 MiB, 2 chunks).
+                let call = if dir == "d" {
+                    grid::call_of_d(cell, &conn, 2, grid::slots(1), (2 * grid::CHUNK) as u64, false)
+                } else {
+                    grid::call_of(cell, &conn, dir, grid::slots(1), want_a)
+                };
                 campaign::server::FRAMES.lock().unwrap().clear();
                 *campaign::server::CAPTURE.lock().unwrap() = Some(Vec::new());
                 call.once(0).unwrap_or_else(|e| panic!("{cell} {dir}: {e}"));
@@ -43,7 +48,12 @@ fn main() {
                 }
                 // The body as the server received it: the evidence that the path ran.
                 let fr = campaign::server::FRAMES.lock().unwrap().first().map(|x| x.lock().unwrap().clone()).unwrap_or_default();
-                println!("  (request body DATA frames as received, bytes: {:?})", fr);
+                if fr.len() > 12 {
+                    let tot: usize = fr.iter().sum();
+                    println!("  (request body DATA frames as received: {} frames, {} bytes; first {:?}, last {:?})", fr.len(), tot, &fr[..4], &fr[fr.len() - 3..]);
+                } else {
+                    println!("  (request body DATA frames as received, bytes: {:?})", fr);
+                }
                 got.push(reqs[0].clone());
             }
             let a: BTreeSet<_> = got[0].iter().collect();

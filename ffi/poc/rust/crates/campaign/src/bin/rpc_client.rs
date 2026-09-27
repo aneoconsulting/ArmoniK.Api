@@ -5,7 +5,7 @@
 //!   rpc_client --socket PATH --transport shipped|pinned --launch N --rounds R --calls C
 //!              --warmup W --server-warm S --out FILE [--plant] [--warm-cells STEMS]
 //!              [--cells NAMES] [--dirs a,b,c] [--inflight 1,8]   (narrowed runs only)
-//!              [--warm-dir a|c]   (the plant control's direction)
+//!              [--warm-dir a|c|d]   (the plant control's direction)
 //!
 //! Cells (`campaign::grid`): A prost+tonic, B prost+core, C core-ffi+core, D core-ffi+tonic,
 //! E core-native+core, F core-native+tonic; C to F per unknown-field mode of this build.
@@ -156,8 +156,12 @@ fn main() {
     // default A and B. The runner's plant control names one send path per run.
     let warm_cells: Vec<&str> = arg("--warm-cells").unwrap_or_else(|| "A,B".into()).split(',').map(grid::cell_of).collect();
     // `--warm-dir c`: the warm-up (and so the plant) goes through direction c instead of a.
-    let warm_c = arg("--warm-dir").as_deref() == Some("c");
-    if let Err(e) = if warm_c { grid::warm_with_c(&warm_cells, &target, pinned, server_warm, want_c) } else { grid::warm_with(&warm_cells, &target, pinned, server_warm, want_a) } {
+    let warm_dir = arg("--warm-dir").unwrap_or_else(|| "a".into());
+    if let Err(e) = match warm_dir.as_str() {
+        "c" => grid::warm_with_c(&warm_cells, &target, pinned, server_warm, want_c),
+        "d" => grid::warm_with_d(&warm_cells, &target, pinned, server_warm.div_ceil(4), plant as u64),
+        _ => grid::warm_with(&warm_cells, &target, pinned, server_warm, want_a),
+    } {
         abort(format!("server warm-up: {e}"));
     }
     // Requirement 22 as amended (R-H23): the cell order is a seeded random permutation per
@@ -175,6 +179,7 @@ fn main() {
     let ks: Vec<usize> = arg("--inflight").map(|v| v.split(',').map(|x| x.parse().unwrap()).collect()).unwrap_or(vec![1, 8, 16]);
     // Direction c runs unless --dirs is given without it; its k are C_INFLIGHT, narrowed by --inflight.
     let run_c = arg("--dirs").map_or(true, |d| d.split(',').any(|y| y == "c"));
+    let run_d = arg("--dirs").map_or(true, |d| d.split(',').any(|y| y == "d"));
     let ks_c: Vec<usize> = arg("--inflight").map(|v| v.split(',').map(|x| x.parse().unwrap()).collect()).unwrap_or(grid::C_INFLIGHT.to_vec());
     campaign::shuffle(&mut order, launch as u64);
     let mut lines = Vec::new();
@@ -229,6 +234,34 @@ fn main() {
                 }
             }
         }
+        // U2-stream (the owner): the labelled extra direction `d`, a client-streamed upload
+        // in 2 MiB chunks (4 MiB and 16 MiB), at k = 1 and 8, every cell; a third of the
+        // calls per round (a 16 MiB upload per call).
+        if run_d {
+            let calls_d = calls.div_ceil(3).max(1);
+            for &(label, chunks) in grid::D_PAYLOADS {
+                let want = (chunks * grid::CHUNK) as u64 + plant as u64;
+                for &k in grid::D_INFLIGHT.iter().filter(|k| ks_c.contains(k)) {
+                    let per = calls_d.div_ceil(k);
+                    let callers = Callers::new(&grid::call_of_d(cell, &conn, chunks, grid::slots(k), want, false), k);
+                    if let Err(e) = callers.batch(warm.div_ceil(3).div_ceil(k)) {
+                        abort(format!("cell {cell} dir d {label} inflight {k} warm-up: {e}"));
+                    }
+                    for r in 1..=rounds {
+                        let (c0, t0) = (process_cpu_ns(), Instant::now());
+                        if let Err(e) = callers.batch(per) {
+                            abort(format!("cell {cell} dir d {label} inflight {k} round {r}: {e}"));
+                        }
+                        let (wall, cpu) = (t0.elapsed().as_nanos() as u64, process_cpu_ns() - c0);
+                        lines.push(serde_json::json!({
+                            "slice": "rust", "suite": "rpc", "cell": cell, "payload": label, "dir": "d",
+                            "transport": transport, "inflight": k, "launch": launch, "round": r,
+                            "cpu_ns": cpu, "wall_ns": wall, "iters": per * k,
+                        }).to_string());
+                    }
+                }
+            }
+        }
     }
     let server_threads = std::env::var("AK_SERVER_THREADS").unwrap_or_else(|_| "4".into());
     let mut f = std::fs::File::create(&out).unwrap();
@@ -243,7 +276,7 @@ fn main() {
         ("delivery", "B, C, E: the core's blocking ak_call_unary from k host threads (a pool created before the warm-up, reused); A, D, F: tonic's idiomatic async unary call from k tokio tasks (packages/rust's shape)".into()),
         ("cell C request", "direction b: the core encode context's output MOVED into the call (ak_call_unary_enc, optimisation R2; since T1 through ak_rt::Enc::take, the buffer recycled through a spare slot); a and a+read: empty request through ak_call_unary. Cell D direction b: the output moved to the host as an owned buffer (ak_enc_take_owned, T1 ffi) wrapped by Bytes::from_owner and released with ak_bytes_free when tonic drops it; cell F direction b: core-native's Enc::take (T1)".into()),
         ("core-ffi encode fill", campaign::FFI_ENCODE_FILL.into()),
-        ("directions", "a = Fetch then decode; a+read = Fetch, decode, read every field; b = encode then Push (the server decodes with prost); c = U1-unary, a labelled extra direction: encode P5.3 (1 MB) or P5.4 (4 MB), M5, and Upload it (the server decodes it with prost, answers empty), k = 1 and 8 only, every cell".into()),
+        ("directions", "a = Fetch then decode; a+read = Fetch, decode, read every field; b = encode then Push (the server decodes with prost); c = U1-unary, a labelled extra direction: encode P5.3 (1 MB) or P5.4 (4 MB), M5, and Upload it (the server decodes it with prost, answers empty), k = 1 and 8 only, every cell; d = U2-stream, a labelled extra direction: a client-streamed upload (CAMPAIGN req 14, 2 MiB chunks, M5 per chunk with the ids on the first message only) of 4 MiB (2 chunks) or 16 MiB (8 chunks), k = 1 and 8, every cell, a third of the calls per round; the server (tonic client streaming) decodes each message with prost and answers the data byte count, checked; B/C/E through ak_call_open / ak_call_send (C: ak_call_send_enc, the context's buffer moved) / ak_call_recv, blocking; A tonic client streaming with prost; D/F tonic client streaming with the raw codec (or framed)".into()),
         ("build", if cfg!(feature = "unknown-fields") { "unknown-fields (retain/drop)".into() } else { "NO-UNKNOWN (unknown-field support compiled out; facade without unknown_fields)".to_string() }),
         ("launch", launch.to_string()),
         ("cell order", format!("{} (seeded random permutation, seed = launch)", order.join(","))),
