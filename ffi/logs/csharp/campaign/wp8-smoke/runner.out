@@ -1,0 +1,72 @@
+== codec
+done: codec -> /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-8/smoke
+rc codec=0
+== rpc
+done: rpc -> /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-8/smoke
+rc rpc=0
+== calib
+done: calib -> /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-8/smoke
+rc calib=0
+== plant
+control (shipped, launch 1, full, plant len, direction a, cell A): aborted as required, 0 samples: # ABORT: RpcException: Status(StatusCode="Internal", Detail="Error starting gRPC call. Abort: A: response length 540422, expected 540423", DebugException="Armon
+control (shipped, launch 1, full, plant len, direction a, cell B): aborted as required, 0 samples: # ABORT: Abort: B: response length 540422, expected 540423
+control (shipped, launch 1, full, plant len, direction a, cell D-drop): aborted as required, 0 samples: # ABORT: RpcException: Status(StatusCode="Internal", Detail="Error starting gRPC call. Abort: D: response length 540422, expected 540423", DebugException="Armon
+control (shipped, launch 1, full, plant len, direction c, cell A): aborted as required, 0 samples: # ABORT: CampaignAbort: A c: response length 0, expected 1
+control (shipped, launch 1, full, plant len, direction c, cell B): aborted as required, 0 samples: # ABORT: CampaignAbort: B c: response length 0, expected 1
+control (shipped, launch 1, full, plant len, direction c, cell Bf): aborted as required, 0 samples: # ABORT: CampaignAbort: Bf c: response length 0, expected 1
+control (shipped, launch 1, full, plant len, direction c, cell D-drop): aborted as required, 0 samples: # ABORT: CampaignAbort: D-drop c: response length 0, expected 1
+control (shipped, launch 1, full, plant len, direction d, cell A): aborted as required, 0 samples: # ABORT: CampaignAbort: A d: server counted 4194304 data bytes, expected 4194305
+control (shipped, launch 1, full, plant len, direction d, cell B): aborted as required, 0 samples: # ABORT: CampaignAbort: B d: server counted 4194304 data bytes, expected 4194305
+control (shipped, launch 1, full, plant len, direction d, cell Bf): aborted as required, 0 samples: # ABORT: CampaignAbort: Bf d: server counted 4194304 data bytes, expected 4194305
+control (shipped, launch 1, full, plant len, direction d, cell D-drop): aborted as required, 0 samples: # ABORT: CampaignAbort: D-drop d: server counted 4194304 data bytes, expected 4194305
+control (shipped, launch 1, full, plant digest, direction d, cell A): aborted as required, 0 samples: # ABORT: CampaignAbort: A d: the server's SHA-256 of the data differs from the client's
+control (shipped, launch 1, full, plant digest, direction d, cell B): aborted as required, 0 samples: # ABORT: CampaignAbort: B d: the server's SHA-256 of the data differs from the client's
+control (shipped, launch 1, full, plant digest, direction d, cell Bf): aborted as required, 0 samples: # ABORT: CampaignAbort: Bf d: the server's SHA-256 of the data differs from the client's
+control (shipped, launch 1, full, plant digest, direction d, cell D-drop): aborted as required, 0 samples: # ABORT: CampaignAbort: D-drop d: the server's SHA-256 of the data differs from the client's
+control (shipped, launch 1, nounk, plant len, direction a, cell A): aborted as required, 0 samples: # ABORT: RpcException: Status(StatusCode="Internal", Detail="Error starting gRPC call. Abort: A: response length 540422, expected 540423", DebugException="Armon
+control (shipped, launch 1, nounk, plant len, direction a, cell B): aborted as required, 0 samples: # ABORT: Abort: B: response length 540422, expected 540423
+control (shipped, launch 1, nounk, plant len, direction a, cell D-nounk): aborted as required, 0 samples: # ABORT: RpcException: Status(StatusCode="Internal", Detail="Error starting gRPC call. Abort: D: response length 540422, expected 540423", DebugException="Armon
+control (shipped, launch 1, nounk, plant len, direction c, cell A): aborted as required, 0 samples: # ABORT: CampaignAbort: A c: response length 0, expected 1
+control (shipped, launch 1, nounk, plant len, direction c, cell B): aborted as required, 0 samples: # ABORT: CampaignAbort: B c: response length 0, expected 1
+control (shipped, launch 1, nounk, plant len, direction c, cell Bf): aborted as required, 0 samples: # ABORT: CampaignAbort: Bf c: response length 0, expected 1
+control (shipped, launch 1, nounk, plant len, direction c, cell D-nounk): aborted as required, 0 samples: # ABORT: CampaignAbort: D-nounk c: response length 0, expected 1
+control (shipped, launch 1, nounk, plant len, direction d, cell A): aborted as required, 0 samples: # ABORT: CampaignAbort: A d: server counted 4194304 data bytes, expected 4194305
+control (shipped, launch 1, nounk, plant len, direction d, cell B): aborted as required, 0 samples: # ABORT: CampaignAbort: B d: server counted 4194304 data bytes, expected 4194305
+control (shipped, launch 1, nounk, plant len, direction d, cell Bf): aborted as required, 0 samples: # ABORT: CampaignAbort: Bf d: server counted 4194304 data bytes, expected 4194305
+control (shipped, launch 1, nounk, plant len, direction d, cell D-nounk): aborted as required, 0 samples: # ABORT: CampaignAbort: D-nounk d: server counted 4194304 data bytes, expected 4194305
+control (shipped, launch 1, nounk, plant digest, direction d, cell A): aborted as required, 0 samples: # ABORT: CampaignAbort: A d: the server's SHA-256 of the data differs from the client's
+control (shipped, launch 1, nounk, plant digest, direction d, cell B): aborted as required, 0 samples: # ABORT: CampaignAbort: B d: the server's SHA-256 of the data differs from the client's
+control (shipped, launch 1, nounk, plant digest, direction d, cell Bf): aborted as required, 0 samples: # ABORT: CampaignAbort: Bf d: the server's SHA-256 of the data differs from the client's
+control (shipped, launch 1, nounk, plant digest, direction d, cell D-nounk): aborted as required, 0 samples: # ABORT: CampaignAbort: D-nounk d: the server's SHA-256 of the data differs from the client's
+control (pinned, launch 1, full, plant len, direction a, cell A): aborted as required, 0 samples: # ABORT: RpcException: Status(StatusCode="Internal", Detail="Error starting gRPC call. Abort: A: response length 540422, expected 540423", DebugException="Armon
+control (pinned, launch 1, full, plant len, direction a, cell B): aborted as required, 0 samples: # ABORT: Abort: B: response length 540422, expected 540423
+control (pinned, launch 1, full, plant len, direction a, cell D-drop): aborted as required, 0 samples: # ABORT: RpcException: Status(StatusCode="Internal", Detail="Error starting gRPC call. Abort: D: response length 540422, expected 540423", DebugException="Armon
+control (pinned, launch 1, full, plant len, direction c, cell A): aborted as required, 0 samples: # ABORT: CampaignAbort: A c: response length 0, expected 1
+control (pinned, launch 1, full, plant len, direction c, cell B): aborted as required, 0 samples: # ABORT: CampaignAbort: B c: response length 0, expected 1
+control (pinned, launch 1, full, plant len, direction c, cell Bf): aborted as required, 0 samples: # ABORT: CampaignAbort: Bf c: response length 0, expected 1
+control (pinned, launch 1, full, plant len, direction c, cell D-drop): aborted as required, 0 samples: # ABORT: CampaignAbort: D-drop c: response length 0, expected 1
+control (pinned, launch 1, full, plant len, direction d, cell A): aborted as required, 0 samples: # ABORT: CampaignAbort: A d: server counted 4194304 data bytes, expected 4194305
+control (pinned, launch 1, full, plant len, direction d, cell B): aborted as required, 0 samples: # ABORT: CampaignAbort: B d: server counted 4194304 data bytes, expected 4194305
+control (pinned, launch 1, full, plant len, direction d, cell Bf): aborted as required, 0 samples: # ABORT: CampaignAbort: Bf d: server counted 4194304 data bytes, expected 4194305
+control (pinned, launch 1, full, plant len, direction d, cell D-drop): aborted as required, 0 samples: # ABORT: CampaignAbort: D-drop d: server counted 4194304 data bytes, expected 4194305
+control (pinned, launch 1, full, plant digest, direction d, cell A): aborted as required, 0 samples: # ABORT: CampaignAbort: A d: the server's SHA-256 of the data differs from the client's
+control (pinned, launch 1, full, plant digest, direction d, cell B): aborted as required, 0 samples: # ABORT: CampaignAbort: B d: the server's SHA-256 of the data differs from the client's
+control (pinned, launch 1, full, plant digest, direction d, cell Bf): aborted as required, 0 samples: # ABORT: CampaignAbort: Bf d: the server's SHA-256 of the data differs from the client's
+control (pinned, launch 1, full, plant digest, direction d, cell D-drop): aborted as required, 0 samples: # ABORT: CampaignAbort: D-drop d: the server's SHA-256 of the data differs from the client's
+control (pinned, launch 1, nounk, plant len, direction a, cell A): aborted as required, 0 samples: # ABORT: RpcException: Status(StatusCode="Internal", Detail="Error starting gRPC call. Abort: A: response length 540422, expected 540423", DebugException="Armon
+control (pinned, launch 1, nounk, plant len, direction a, cell B): aborted as required, 0 samples: # ABORT: Abort: B: response length 540422, expected 540423
+control (pinned, launch 1, nounk, plant len, direction a, cell D-nounk): aborted as required, 0 samples: # ABORT: RpcException: Status(StatusCode="Internal", Detail="Error starting gRPC call. Abort: D: response length 540422, expected 540423", DebugException="Armon
+control (pinned, launch 1, nounk, plant len, direction c, cell A): aborted as required, 0 samples: # ABORT: CampaignAbort: A c: response length 0, expected 1
+control (pinned, launch 1, nounk, plant len, direction c, cell B): aborted as required, 0 samples: # ABORT: CampaignAbort: B c: response length 0, expected 1
+control (pinned, launch 1, nounk, plant len, direction c, cell Bf): aborted as required, 0 samples: # ABORT: CampaignAbort: Bf c: response length 0, expected 1
+control (pinned, launch 1, nounk, plant len, direction c, cell D-nounk): aborted as required, 0 samples: # ABORT: CampaignAbort: D-nounk c: response length 0, expected 1
+control (pinned, launch 1, nounk, plant len, direction d, cell A): aborted as required, 0 samples: # ABORT: CampaignAbort: A d: server counted 4194304 data bytes, expected 4194305
+control (pinned, launch 1, nounk, plant len, direction d, cell B): aborted as required, 0 samples: # ABORT: CampaignAbort: B d: server counted 4194304 data bytes, expected 4194305
+control (pinned, launch 1, nounk, plant len, direction d, cell Bf): aborted as required, 0 samples: # ABORT: CampaignAbort: Bf d: server counted 4194304 data bytes, expected 4194305
+control (pinned, launch 1, nounk, plant len, direction d, cell D-nounk): aborted as required, 0 samples: # ABORT: CampaignAbort: D-nounk d: server counted 4194304 data bytes, expected 4194305
+control (pinned, launch 1, nounk, plant digest, direction d, cell A): aborted as required, 0 samples: # ABORT: CampaignAbort: A d: the server's SHA-256 of the data differs from the client's
+control (pinned, launch 1, nounk, plant digest, direction d, cell B): aborted as required, 0 samples: # ABORT: CampaignAbort: B d: the server's SHA-256 of the data differs from the client's
+control (pinned, launch 1, nounk, plant digest, direction d, cell Bf): aborted as required, 0 samples: # ABORT: CampaignAbort: Bf d: the server's SHA-256 of the data differs from the client's
+control (pinned, launch 1, nounk, plant digest, direction d, cell D-nounk): aborted as required, 0 samples: # ABORT: CampaignAbort: D-nounk d: the server's SHA-256 of the data differs from the client's
+done: rpc -> /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-8/smoke-plant
+rc plant=0

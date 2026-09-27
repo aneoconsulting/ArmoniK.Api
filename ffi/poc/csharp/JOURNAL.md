@@ -1903,3 +1903,69 @@ calib 2 samples. The session was stopped by the API spend limit after the smoke 
 nothing ran twice. One line under the scope rule: the `--plant` run reuses the names
 `rpc-launch1.server.log` / `server-warm.log`, so it overwrote the real smoke's server log (no
 effect on any sample; not fixed).
+
+## 59. WP8: the Rust optimisation experiment's shared changes, and the upload directions
+
+At HEAD 98b187ce6 / e4c7e97cd (the owner's merge; generated Abi.cs and RpcAbi.cs already
+regenerated there, `generate.py --check` clean). Rebuilt the six cores from `git archive HEAD`.
+
+- **Call sites (ABI v1 section 9 as amended).** The build failed exactly at the three
+  `ak_call_unary` sites (CoreTransport.cs 167, Campaign.cs 358, 417): each now passes
+  `&grpc_status` and names it in the abort. `ak_completion` is only used through the generated
+  struct (by member name), so the new `grpc_status` member needed no layout work; both
+  completion readers (the callback, the queue drainer) now keep it for the error message. A
+  non-OK status (AK_ERR_RPC_STATUS -12) fails the call under req 18, as any rc != AK_OK already
+  did. `ak_call_close` was never called here.
+- **Counts on the geometric grow (req 19 as amended).** The counting build no longer sets
+  `UnkHost.Exact`: it grows as the timed build does (`max(want, 64, 2 x cap)`, now clamped to
+  INT32_MAX, rule 8). The gate's control is inverted: `AK_COUNT_GROW=exact` must differ, and
+  does (the committed rows carry fewer grows).
+- **One reset per decode (decision 11 rule 7 as amended).** cs_host's `Disarm` no longer calls
+  `ak_dec_reset_<Root>(ctx, NULL)` after the decode; the arming reset before it is the only
+  one (the options stay at their stable native address `_uo`). This is a timed-path change for
+  every retain and drop decode of the full build.
+  **What changed in the committed counts, and why:** `gen/counts.txt`: 684 decode rows fwd -1
+  and reset -1 (the removed disarming reset; every push and pull decode of the full build), of
+  which 54 retain rows with unknown fields also ask fewer grows (-1 to -10: the geometric grow,
+  e.g. U-deep-all decode retain grow 8 -> 2); 360 rows (encodes) unchanged.
+  `gen/counts-nounk.txt`: unchanged (no reset, no grow in that build). `gen/rpc-counts.txt`: the
+  8 decode rows of C and D fwd -1 / reset -1; 60 new rows (c and d, below).
+- **Binding-side lessons (WP8 item 4).** Re-validation: the binding does not re-validate a
+  string the core accepted (`Encoding.UTF8.GetString` is the transcode to UTF-16 the facade
+  needs, not a check): nothing to change. Sparse fill: each element group is cleared with
+  `g = default` (that element only) and then filled; there is no arena-wide clear: nothing to
+  change. One reset per decode: changed (above).
+- **D44.** The client limits were already 64 MiB send and receive on both transports (core
+  `ak_client_opts`, Grpc.Net channel), and Kestrel's 64 MiB; they cover P5.4 (4,194,390 B) and
+  the 2 MiB stream messages. Nothing relied on them being ignored; now stated in the header.
+- **Directions c and d (req 14 as amended, required).** Upload.cs: c = P5.3 / P5.4 unary to a
+  new server method `Upload` (decoded with the incumbent, empty upload refused); d = the
+  streamed upload, M5 messages of 2 MiB splitmix64 chunks, ids on the first only, 4 MiB and 16
+  MiB, to `Stream` (every message decoded, the ids required on the first; answers the data byte
+  count, 8 bytes LE) and its twin `StreamCheck` (+ the SHA-256 of the data as received). Every
+  cell has both (A/D/F Grpc.Net `AsyncUnaryCall` / `AsyncClientStreamingCall`; B/C/E the core's
+  `ak_call_unary` / `ak_call_open` + `ak_call_send` per message + `ak_call_recv`), plus the
+  framed twins Bf, Cf-*, Ef-* (`ak_client_set_framed(1)`), in every mode; at 1 and 8 in flight,
+  a quarter (c) and an eighth (d) of the calls per sample. Before any call, every message's
+  bytes are checked equal across the incumbent, host-gen and core-ffi. Before the warm-up,
+  every c cell is called once and every d cell once through StreamCheck (count and SHA-256).
+  Every timed call checks status and the response (0 bytes on c; the count on d). The server
+  warm-up adds a tenth as many c and d calls per client transport. Not used:
+  `ak_call_unary_enc`, `ak_call_send_enc`, `ak_enc_take_owned` (C and D keep the copy paths
+  they had on b; stated), `ak_call_opts` (NULL).
+- **Req 18 controls.** The runner's `--plant` now runs, per build and transport, a wrong
+  expected length on a, c and d and a wrong expected SHA-256 on d, each on cells A, B, Bf and D
+  one at a time (`AK_CAMPAIGN_ONLY`); checked by hand before the gate: every one aborts with 0
+  samples. The gate (step 9) runs the upload check on both builds and two must-fail plants
+  (digest, count).
+- One found on the way: the first RPC count run keyed its rows by (cell, dir, mode), so the two
+  payloads of c and of d collapsed into one row each; the payload is now in the key.
+- Test run (container instrumentation, not kept): full client 204 samples over 1 and 8 in
+  flight, 0 aborts, 60 upload cells checked.
+
+Gate from a fresh worktree at `d97ea52` (both builds, net8.0 and net6.0): GATE PASSED, 0 step
+failures, 29 controls failing as required (`logs/csharp/wp8-gate.log`). Smoke from the same
+worktree (`logs/csharp/campaign/wp8-smoke/`, figures stripped): codec 1,548 samples, checks
+PASS; rpc 246 + 126 samples per transport, 120 + 72 of them on c and d, 0 aborts; 60 plant
+controls, all aborted with 0 samples for their planted reason (the plant run now has its own
+directory, so WP7's overwritten server log does not recur); calib 2 samples.
