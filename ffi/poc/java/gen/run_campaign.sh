@@ -112,7 +112,7 @@ header() {  # $1 = file, $2 = suite description
     echo "#   core cargo profile release, features $(grep -ho ',"features":"\[[^]]*\]' core-build/current/target/release/.fingerprint/ak-core-*/lib-ak_core.json 2>/dev/null | sort -u | tr -d '\\' | sed 's/^,"features":"//' | tr '\n' ' ') (shared library, cdylib); shim gcc -O2 -std=c11"
     echo "#   JVM: $JVM_FLAGS (tiered JIT on, default thresholds)"
     echo "# worker threads (req 4, R-H34), as the pinned JVM sizes them: $($PIN_C "$J17/bin/java" $JVM_FLAGS -XX:+PrintFlagsFinal -version 2>/dev/null | awk '$2 ~ /^(ParallelGCThreads|ConcGCThreads|CICompilerCount)$/ {printf "%s=%s ", $2, $4}')(JVM); codec: 1 benchmark thread (JMH); rpc: Netty event loops, core runtime workers and grpc-java's executor in each rpc log's meta line and the server's THREADS line"
-    echo "# order (req 22): codec -- JMH runs cells in the order given, cannot randomise across forks; arm order rotated one step per launch inside each (payload, content, dir) block; rpc -- cells rotated one step per round, same schedule every launch; the two builds alternate by launch"
+    echo "# order (req 22): codec -- JMH runs cells in the order given, cannot randomise across forks; arm order rotated one step per launch inside each (payload, content, dir) block; rpc -- JMH forks one JVM per cell, cells rotated one step per launch, the 17 combinations cycled through JMH iterations inside each fork, start rotated per launch; the two builds alternate by launch"
     echo "# ratios (req 30, R-H24): formed from per-launch medians; the codec suite forks per cell, so every ratio is cross-process"
     echo "# repeats: $LAUNCHES launch(es) x $ROUNDS round(s) per process (req 23)"
   } > "$f"
@@ -190,6 +190,20 @@ run_gate() {
       echo "## upload plant${v:+, no-unknown build}: aborted as required: $(grep -m1 -o 'req 18: .*' "$OUT/upload-plant$v.txt" | cut -c1-160)" >> "$f"
     fi
   done
+  # WP9 item 3: the same plant through the timed harness (JMH, -foe true): the run must fail,
+  # JMH must exit non-zero, and its JSON must hold no measurement.
+  local JMHCP; JMHCP=$(cat deps/jmh/cp.txt)
+  local prc=0
+  "$J17/bin/java" -Xmx512m -cp "build/jmh17:build/cls17:$CP:$JMHCP" org.openjdk.jmh.Main 'ak.RpcJmh.batch' \
+    -f 1 -foe true -wi 0 -i 17 -r 10ms -p cell=C-retain \
+    -jvmArgs "-Xmx2g -Dak.lib=$HERE/build/jnirpc/libakjni.so -Dak.rpclib=$HERE/build/jnirpc/libakjni.so -Dak.camp.socket=$sp -Dak.camp.transport=pinned -Dak.camp.plant=1" \
+    -rf json -rff "$OUT/rpc-jmh-plant.json" > "$OUT/rpc-jmh-plant.txt" 2>&1 || prc=$?
+  if [ $prc != 0 ] && ! grep -q '"rawData"' "$OUT/rpc-jmh-plant.json" 2>/dev/null; then
+    echo "## rpc JMH plant: aborted as required (JMH exit $prc, no measurement): $(grep -m1 -o 'req 18: .*' "$OUT/rpc-jmh-plant.txt" | cut -c1-160)" >> "$f"
+  else
+    echo "## rpc JMH plant: NOT aborted (JMH exit $prc) -- the timed harness's checks are blind" >> "$f"; rc=1
+  fi
+  rm -f "$OUT/rpc-jmh-plant.json"
   kill $spid 2>/dev/null || true; wait $spid 2>/dev/null || true
   rm -f "$ss" "$sp"
   { echo "## the two committed references against each other (full -> no-unknown):"
@@ -236,14 +250,13 @@ codec)
       echo "# $WARM_NOTE" >> "$f"
       CF=""; [ "$coder" = utf16 ] && CF="-XX:-CompactStrings"
       echo "# command: $PIN_C java org.openjdk.jmh.Main ak.CodecJmh.sample -f 1 -wi $WARM -i $ROUNDS -foe true -jvmArgs '$JVM_FLAGS $CF ...'" >> "$f"
-      echo "# cpu_ns: the measuring thread's CPU clock read inside the benchmark method; wall_ns: JMH's raw per-iteration time" >> "$f"
-      rm -f "$base.cpu.tsv"
+      echo "# cpu_ns: the process CPU clock (CLOCK_PROCESS_CPUTIME_ID) read inside the benchmark method, exported by JMH as an @AuxCounters counter per iteration; wall_ns: JMH's raw per-iteration time; jit_ms_during: the JVM's JIT compile time between the iteration's setup and teardown (an @AuxCounters counter)" >> "$f"
       $PIN_C "$J17/bin/java" -cp "build/jmh17$SX:build/cls17$SX:$CP:$JMHCP" org.openjdk.jmh.Main 'ak.CodecJmh.sample' \
         -f 1 -wi "$WARM" -i "$ROUNDS" -foe true -p cell="$CELLS" \
-        -jvmArgs "$JVM_FLAGS $CF -Dak.lib=$HERE/build/jni$SX/libakjni.so -Dak.jmh.cpuout=$base.cpu.tsv $EXTRA" \
+        -jvmArgs "$JVM_FLAGS $CF -Dak.lib=$HERE/build/jni$SX/libakjni.so $EXTRA" \
         -rf json -rff "$base.jmh.json" > "$base.jmh.txt" 2>&1 \
         || { echo "codec$TAG launch $l ($coder) FAILED (JMH, -foe true); no figure: $base.jmh.txt"; exit 1; }
-      python3 -S gen/jmh_to_jsonl.py "$base.jmh.json" "$base.cpu.tsv" "$l" "$coder" "$BUILD" >> "$f" \
+      python3 -S gen/jmh_to_jsonl.py "$base.jmh.json" "$l" "$coder" "$BUILD" >> "$f" \
         || { echo "codec$TAG launch $l ($coder): conversion FAILED; no figure"; exit 1; }
       echo "codec$TAG launch $l ($coder): $(grep -c '"cpu_ns"' "$f") samples -> $f"
     done
@@ -254,13 +267,12 @@ codec)
              ${AK_SMOKE_UROWS:+-Dak.camp.urows=$AK_SMOKE_UROWS} ak.CampaignCodec | tr '\n' ',' | sed 's/,$//')
     f="$OUT/codec$TAG-unknown-launch-$l.jsonl"; base="$OUT/codec$TAG-unknown-launch-$l"
     header "$f" "engine=JMH 1.37 SingleShotTime, -f 1 per cell, warm-up $WARM + $ROUNDS iteration(s), corpus U-* rows (req 7), build=$V coder=compact launch=$l, $(echo "$UCELLS" | tr ',' '\n' | wc -l) cells"
-    rm -f "$base.cpu.tsv"
     $PIN_C "$J17/bin/java" -cp "build/jmh17$SX:build/cls17$SX:$CP:$JMHCP" org.openjdk.jmh.Main 'ak.CodecJmh.sample' \
       -f 1 -wi "$WARM" -i "$ROUNDS" -foe true -p cell="$UCELLS" \
-      -jvmArgs "$JVM_FLAGS -Dak.lib=$HERE/build/jnicorpus$SX/libakjni.so -Dak.jmh.cpuout=$base.cpu.tsv $EXTRA" \
+      -jvmArgs "$JVM_FLAGS -Dak.lib=$HERE/build/jnicorpus$SX/libakjni.so $EXTRA" \
       -rf json -rff "$base.jmh.json" > "$base.jmh.txt" 2>&1 \
       || { echo "codec$TAG U-rows launch $l FAILED (JMH, -foe true); no figure: $base.jmh.txt"; exit 1; }
-    python3 -S gen/jmh_to_jsonl.py "$base.jmh.json" "$base.cpu.tsv" "$l" compact "$BUILD" >> "$f" \
+    python3 -S gen/jmh_to_jsonl.py "$base.jmh.json" "$l" compact "$BUILD" >> "$f" \
       || { echo "codec$TAG U-rows launch $l: conversion FAILED; no figure"; exit 1; }
     echo "codec$TAG U-rows launch $l: $(grep -c '"cpu_ns"' "$f") samples -> $f"
   }
@@ -269,11 +281,31 @@ codec)
     else codec_run "$l" nounk; codec_run "$l" full; fi
   done ;;
 rpc)
-  EXTRA=""; WARM=${AK_WARM:-2}
-  [ "$SMOKE" = 1 ] && { EXTRA="-Dak.camp.calls=${AK_SMOKE_CALLS:-64} -Dak.camp.chunk=16"; WARM=${AK_SMOKE_WARM:-1}; }
-  # Req 13 as amended (R-H33): ONE server process per launch, serving every cell of both
-  # builds on two sockets (shipped and pinned), warmed by every client's warm-up samples
-  # (stated in each client's meta line: warmup_calls_total) before its round 1.
+  # Req 22a as amended (owner 2026-09-27, FIX-PLAN WP9): the RPC grid is timed by JMH
+  # (ak.RpcJmh), as the codec suite is. Per launch: ONE server process (req 13), warmed
+  # through both client transports (req 24), then one JMH invocation per (transport, build),
+  # `-f 1`, so JMH forks one JVM per cell, which opens that cell's one channel or client in
+  # its trial setup and runs the 17 (direction, payload, in-flight) combinations as JMH
+  # iterations in a fixed cycle (see ak.RpcJmh for the grouping and every custom piece).
+  JMHCP=$(cat deps/jmh/cp.txt)
+  NCOMBO=17
+  WARM=${AK_WARM:-2}; WTIME=${AK_RPC_WARM_TIME:-1s}; RTIME=${AK_RPC_ITER_TIME:-1s}
+  SWARM=${AK_RPC_SERVER_WARM:-200}
+  if [ "$SMOKE" = 1 ]; then
+    WARM=${AK_SMOKE_WARM:-1}; WTIME=${AK_SMOKE_RPC_WARM_TIME:-20ms}; RTIME=${AK_SMOKE_RPC_ITER_TIME:-20ms}
+    SWARM=${AK_SMOKE_RPC_SERVER_WARM:-20}
+  fi
+  WARM_NOTE="warm-up (req 24): the server, AK_RPC_SERVER_WARM calls (campaign default 200, smoke AK_SMOKE_RPC_SERVER_WARM, default 20) of every (a, a+read, b) combination and a twentieth of that of every (c, d) one, on cells A (grpc-java) and B (the core) through each transport, before JMH; each client fork, JMH's warm-up: AK_WARM x $NCOMBO iterations (campaign default 2, smoke AK_SMOKE_WARM, default 1), i.e. every combination AK_WARM times, of AK_RPC_WARM_TIME each (campaign default 1s, smoke 20ms); JMH's measurement: AK_ROUNDS x $NCOMBO iterations of AK_RPC_ITER_TIME (campaign default 1s, smoke 20ms); GC and JIT state between iterations are JMH's defaults (no forced GC, tiered JIT)"
+  # Req 18, 22a: on any failure the launch's output is discarded, not kept beside a later one.
+  discard() {  # $1 = launch, $2 = why
+    local l=$1
+    { echo "rpc launch $l FAILED: $2"; echo "the launch's samples were discarded (req 18, 22a); error lines from JMH:"
+      cat "$OUT"/rpc-*-launch-$l.jmh.txt 2>/dev/null | grep -E 'Exception|Error|req 18|<failure>|FAIL' | head -40; } \
+      > "$OUT/rpc-launch-$l.FAILED.txt"
+    rm -f "$OUT"/rpc-*-launch-$l.jsonl "$OUT"/rpc-*-launch-$l.jmh.json "$OUT"/rpc-*-launch-$l.jmh.txt
+    kill $SPID 2>/dev/null || true; wait $SPID 2>/dev/null || true
+    echo "rpc launch $l FAILED ($2); no figure: $OUT/rpc-launch-$l.FAILED.txt"; exit 1
+  }
   server_up() {  # $1 = launch
     local l=$1
     SS="$SOCKDIR/shipped-$l.sock"; SP="$SOCKDIR/pinned-$l.sock"
@@ -281,24 +313,35 @@ rpc)
       > "$OUT/rpc-server-launch-$l.txt" 2>&1 &
     SPID=$!
     for i in $(seq 1 120); do grep -q "SERVING $SP" "$OUT/rpc-server-launch-$l.txt" 2>/dev/null && break; sleep 0.5; done
-    grep -q "SERVING $SP" "$OUT/rpc-server-launch-$l.txt" || { kill $SPID; echo "server did not start"; exit 1; }
+    grep -q "SERVING $SP" "$OUT/rpc-server-launch-$l.txt" || discard "$l" "the server did not start"
+    for so in "$SS:shipped" "$SP:pinned"; do
+      $PIN_C "$J17/bin/java" $JVM_FLAGS -cp "build/cls17:$CP" -Dak.lib="$HERE/build/jnirpc/libakjni.so" \
+        -Dak.rpclib="$HERE/build/jnirpc/libakjni.so" -Dak.camp.warmserver=1 -Dak.camp.serverwarm="$SWARM" \
+        -Dak.camp.transport="${so#*:}" -Dak.camp.socket="${so%%:*}" ak.CampaignRpc \
+        >> "$OUT/rpc-server-launch-$l.txt" 2>&1 || discard "$l" "the server warm-up through ${so#*:} failed"
+    done
   }
   rpc_run() {  # $1 = launch, $2 = transport, $3 = full|nounk
-    local l=$1 tr=$2 V=$3 SX= TAG= CELLS="A, B, C-retain, C-drop, D-retain, D-drop, E-retain, E-drop, F-retain, F-drop, Bf, Cf-retain, Cf-drop, Ef-retain, Ef-drop (framed twins), Cc-retain, Cc-drop (C on the copy path)"
-    [ "$V" = nounk ] && { SX=-nounk; TAG=-nounk; CELLS="A, B (in-process controls), C-nounk, D-nounk, E-nounk, F-nounk, Bf, Cf-nounk, Ef-nounk, Cc-nounk"; }
-    local f="$OUT/rpc-$tr$TAG-launch-$l.jsonl" sock=$SS
+    local l=$1 tr=$2 V=$3 SX= TAG=
+    [ "$V" = nounk ] && { SX=-nounk; TAG=-nounk; }
+    local f="$OUT/rpc-$tr$TAG-launch-$l.jsonl" base="$OUT/rpc-$tr$TAG-launch-$l" sock=$SS
     [ "$tr" = pinned ] && sock=$SP
-    header "$f" "transport=$tr build=$V launch=$l warm-up=$WARM sample(s) per (dir,inflight,cell) before round 1 (cells $CELLS in ONE client process; directions a, a+read, b at 1/8/16 in flight; c (unary upload P5.3, P5.4) and d (client-streamed upload, 4 MiB and 16 MiB in 2 MiB chunks) at 1/8 with a third of the calls)"
-    echo "# warm-up (req 24): AK_WARM samples of every (dir, inflight) per cell before round 1, campaign default 2, under smoke AK_SMOKE_WARM, default 1 (AK_SMOKE_CALLS calls per sample, default 64); the server has no warm-up of its own: it is warmed by each client's warm-up samples, through both client transports (the count in each client's meta line, warmup_calls_total)" >> "$f"
-    echo "# server: $PIN_S java ... ak.CampaignRpc --serve, ONE process for launch $l serving every cell of both builds (shipped and pinned sockets; pre-serialised P2.2; direction b parses with protobuf-java; no core codec on the server); $(grep THREADS "$OUT/rpc-server-launch-$l.txt")" >> "$f"
+    local CELLS
+    CELLS=$("$J17/bin/java" -cp "build/cls17$SX:$CP" -Dak.camp.launch="$l" ak.CampaignRpc --list)
+    header "$f" "engine=JMH 1.37 AverageTime, -f 1 per cell, transport=$tr build=$V launch=$l, cells $CELLS (one fork each; A and B are the in-process incumbent controls; Bf, Cf-*, Ef-* the framed twins; Cc-* C on the copy path); per fork $NCOMBO combinations: directions a, a+read, b at 1/8/16 in flight, c (unary upload P5.3, P5.4) and d (client-streamed upload, 4 MiB and 16 MiB in 2 MiB chunks) at 1/8"
+    echo "# $WARM_NOTE" >> "$f"
+    echo "# command: $PIN_C java org.openjdk.jmh.Main ak.RpcJmh.batch -f 1 -foe true -wi $((WARM * NCOMBO)) -w $WTIME -i $((ROUNDS * NCOMBO)) -r $RTIME -p cell=<cells> -jvmArgs '$JVM_FLAGS ...'" >> "$f"
+    echo "# one invocation = one batch of k calls in flight (k = the combination's in-flight level: call 0 on JMH's thread, 1..k-1 on persistent helper threads), counted as k calls (iters); wall_ns: JMH's per-iteration score (ns per invocation) x invocations; cpu_ns: the process CPU clock (CLOCK_PROCESS_CPUTIME_ID) read around every invocation, summed per iteration (an @AuxCounters counter JMH exports); JMH's own summary score averages unlike combinations and is not a figure" >> "$f"
+    echo "# order (req 22): JMH runs the cells in the order given, rotated one step per launch, and cannot randomise across forks; inside a fork JMH iteration i runs combination (i + launch - 1) mod $NCOMBO (warm-up and measurement counted separately), so every round visits every combination, interleaved; the two builds alternate by launch" >> "$f"
+    echo "# server: $PIN_S java ... ak.CampaignRpc --serve, ONE process for launch $l serving every cell of both builds (shipped and pinned sockets; pre-serialised P2.2; direction b parses with protobuf-java; no core codec on the server); $(grep THREADS "$OUT/rpc-server-launch-$l.txt"); $(grep 'SERVER WARMED' "$OUT/rpc-server-launch-$l.txt" | tr '\n' ' ')" >> "$f"
     echo "# delivery (req 16): B, C, E the core's blocking call and, in d, the core's blocking client stream (ak_call_open, ak_call_send / ak_call_send_enc for C, ak_call_recv); A, D, F grpc-java's ClientCalls.blockingUnaryCall (a generated blocking stub's call; packages/java's clients use blocking stubs) and, in d, ClientCalls.asyncClientStreamingCall with a StreamObserver (the async stub's call: client streaming has no blocking stub); Bf, Cf, Ef the same cells on the core's framed send path (ak_client_set_framed), grpc-java has no second send path; C (and Cf) sends its request with ak_call_unary_enc / ak_call_send_enc (the encode context's output moved), Cc-* is C with take() + ak_call_unary (the copy path, labelled extra); D and F hand grpc-java a byte[] (take() / Enc.toBytes()): grpc-java's send path copies every message through an OutputStream into its own buffers, so an owned native buffer (ak_enc_take_owned) would still be copied, through a heap array, and D keeps take()" >> "$f"
     echo "# limits (D44): server 8 MiB inbound on both sockets (P5.4 is 4,194,390 B); core client shipped tonic's defaults (4 MiB received, unlimited sent: every response here is below 1 MiB), pinned 8 MiB both ways; grpc-java client defaults (4 MiB inbound, no send limit)" >> "$f"
-    local rc=0
-    $PIN_C "$J17/bin/java" $JVM_FLAGS -cp "build/cls17$SX:$CP" -Dak.camp.rounds=$ROUNDS \
-      -Dak.camp.transport="$tr" -Dak.camp.socket="$sock" -Dak.camp.launch="$l" \
-      -Dak.lib="$HERE/build/jnirpc$SX/libakjni.so" -Dak.rpclib="$HERE/build/jnirpc$SX/libakjni.so" \
-      -Dak.camp.out="$f" -Dak.camp.warm="$WARM" $EXTRA ${AK_RPC_PROPS:-} ak.CampaignRpc || rc=$?
-    [ $rc = 0 ] || { kill $SPID 2>/dev/null; echo "rpc launch $l ($tr, $V) FAILED (req 18); no figure"; exit 1; }
+    $PIN_C "$J17/bin/java" -Xmx512m -cp "build/jmh17$SX:build/cls17$SX:$CP:$JMHCP" org.openjdk.jmh.Main 'ak.RpcJmh.batch' \
+      -f 1 -foe true -wi $((WARM * NCOMBO)) -w "$WTIME" -i $((ROUNDS * NCOMBO)) -r "$RTIME" -p cell="$CELLS" \
+      -jvmArgs "$JVM_FLAGS -Dak.lib=$HERE/build/jnirpc$SX/libakjni.so -Dak.rpclib=$HERE/build/jnirpc$SX/libakjni.so -Dak.camp.socket=$sock -Dak.camp.transport=$tr -Dak.camp.launch=$l ${AK_RPC_PROPS:-}" \
+      -rf json -rff "$base.jmh.json" > "$base.jmh.txt" 2>&1 || discard "$l" "JMH ($tr, $V), -foe true"
+    python3 -S gen/rpc_jmh_to_jsonl.py "$base.jmh.json" "$base.jmh.txt" "$l" >> "$f" \
+      || discard "$l" "conversion ($tr, $V)"
     echo "rpc launch $l ($tr, $V): $(grep -c '"cpu_ns"' "$f") samples -> $f"
   }
   for l in $(seq 1 "$LAUNCHES"); do

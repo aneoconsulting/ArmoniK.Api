@@ -1,0 +1,207 @@
+package ak;
+
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
+
+import io.grpc.netty.shaded.io.netty.channel.epoll.EpollEventLoopGroup;
+import org.openjdk.jmh.annotations.AuxCounters;
+import org.openjdk.jmh.annotations.Benchmark;
+import org.openjdk.jmh.annotations.BenchmarkMode;
+import org.openjdk.jmh.annotations.Level;
+import org.openjdk.jmh.annotations.Mode;
+import org.openjdk.jmh.annotations.OutputTimeUnit;
+import org.openjdk.jmh.annotations.Param;
+import org.openjdk.jmh.annotations.Scope;
+import org.openjdk.jmh.annotations.Setup;
+import org.openjdk.jmh.annotations.State;
+import org.openjdk.jmh.annotations.TearDown;
+import org.openjdk.jmh.infra.Blackhole;
+import org.openjdk.jmh.infra.IterationParams;
+import org.openjdk.jmh.runner.IterationType;
+
+/**
+ * design/CAMPAIGN.md section 4.2, the RPC grid, on JMH (req 22a as amended 2026-09-27, FIX-PLAN
+ * WP9). The server is the runner's separate process, started and warmed before JMH runs
+ * (req 13, 24). The cells, directions and checks are {@code ak.CampaignRpc}'s.
+ *
+ * <p>What is JMH's, used as it is: the forks (one JVM per {@code cell} value, {@code -f 1}),
+ * warm-up and measurement iterations ({@code -wi}, {@code -i}) and their durations
+ * ({@code -w}, {@code -r}), the invocation loop and its clock (Mode.AverageTime with a
+ * {@code Level.Invocation} setup: JMH times every invocation and leaves the setup out), the
+ * stop on first error ({@code -foe true}), and the raw export ({@code -rf json}: every
+ * measurement iteration's score and the {@code @AuxCounters} below, per iteration).
+ *
+ * <p>What is custom, and the requirement it serves:
+ * <ul>
+ * <li><b>The combination cycle</b> (req 13's one channel per cell per process, and the fork
+ * count): JMH forks once per parameter combination, so a (cell, direction, payload, in-flight)
+ * parameter set would open 17 processes and 17 channels per cell. One fork per cell instead,
+ * and JMH iteration i runs combination {@code (i + launch - 1) mod 17} of
+ * {@link CampaignRpc#combos} (warm-up and measurement counted separately), so every round
+ * visits every combination, interleaved within the fork, the start rotated per launch
+ * (req 22). JMH's per-benchmark summary score therefore averages unlike combinations and is
+ * not used; its raw per-iteration scores are.
+ * <li><b>k calls in flight</b> (req 14, 15; WP9 item 2): one invocation is one batch of k
+ * calls, call 0 on the benchmark thread and calls 1..k-1 on persistent helper threads started
+ * in the trial setup; the invocation returns when all k have. JMH's {@code -t} threads would
+ * each run whole invocations with their own state and cannot put k calls of one batch in
+ * flight on one channel.
+ * <li><b>Process CPU</b> (req 21; JMH measures wall only): the process's CPU clock
+ * (CLOCK_PROCESS_CPUTIME_ID, {@code Campaign.processCpuNs}, the codec suite's clock) is read
+ * at the start and end of every invocation and summed into the {@code rpcCpuNs} aux counter.
+ * <li><b>Checks</b> (req 18): every call is checked by the cell; a failed check throws
+ * ({@code CampaignRpc.THROW_ON_FAIL}), JMH records the error and, with {@code -foe true},
+ * stops. The trial setup runs the cell's pre-check (every direction once, d through the
+ * SHA-256 path, P2.2 re-encoded byte-identical); the trial teardown requires decision 11's
+ * leak counters to read 0.
+ * <li><b>Labels</b> (section 7): the trial setup prints one {@code RPCJMH-CELL} line (the
+ * cell's mode, codec, send path, transport kind, threads) and every iteration setup one
+ * {@code RPCJMH-ITER} line (its combination), which gen/rpc_jmh_to_jsonl.py joins to JMH's
+ * JSON by cell and measurement-iteration index.
+ * </ul>
+ *
+ * <p>Counters per iteration (JMH {@code @AuxCounters}, exported per iteration): {@code calls}
+ * (OPERATIONS: JMH reports the time per call, k per invocation), {@code callsMade} and
+ * {@code rpcCpuNs} (EVENTS: totals). The iteration's wall time is JMH's primary score (ns per
+ * invocation) times its invocations ({@code callsMade / k}).
+ */
+@State(Scope.Benchmark)
+@BenchmarkMode(Mode.AverageTime)
+@OutputTimeUnit(TimeUnit.NANOSECONDS)
+public class RpcJmh {
+  @Param({"A"})
+  public String cell;
+
+  CampaignRpc.Cell c;
+  EpollEventLoopGroup elg;
+  List<String[]> combos;
+  int launch;
+
+  // the current iteration's combination
+  String key;
+  int k;
+  int warmIdx, measIdx;
+  final Object[] reqs = new Object[16];
+
+  // helpers 1..15 of a batch
+  Thread[] workers;
+  final Semaphore[] start = new Semaphore[16];
+  volatile CountDownLatch done;
+  volatile boolean stop;
+  volatile Throwable err;
+
+  /** Per-iteration totals, exported by JMH as secondary metrics. */
+  @AuxCounters(AuxCounters.Type.EVENTS)
+  @State(Scope.Thread)
+  public static class Totals {
+    public long rpcCpuNs, callsMade;
+    @Setup(Level.Iteration)
+    public void reset() { rpcCpuNs = 0; callsMade = 0; }
+  }
+
+  /** The calls as JMH operations (k per invocation): JMH reports the time per call. */
+  @AuxCounters(AuxCounters.Type.OPERATIONS)
+  @State(Scope.Thread)
+  public static class Calls {
+    public long calls;
+    @Setup(Level.Iteration)
+    public void reset() { calls = 0; }
+  }
+
+  @Setup(Level.Trial)
+  public void trial() throws Exception {
+    CampaignRpc.THROW_ON_FAIL = true;
+    NativeRpc.ensureBound();
+    Native.ensureBound();
+    String sock = System.getProperty("ak.camp.socket");
+    if (sock == null) throw new IllegalStateException("-Dak.camp.socket is unset");
+    String transport = System.getProperty("ak.camp.transport", "pinned");
+    launch = Integer.getInteger("ak.camp.launch", 1);
+    CampaignRpc.EXPECT_A = ak.shapes.PbArms.build(CampaignRpc.PAYLOAD, Values.ASCII).toByteArray();
+    CampaignRpc.uploads();
+    elg = new EpollEventLoopGroup(CampaignRpc.EVENT_LOOPS);
+    c = CampaignRpc.cell(cell, sock, elg, transport.equals("pinned"));
+    CampaignRpc.precheck(c);
+    combos = CampaignRpc.combos();
+    System.out.println("RPCJMH-CELL\t" + cell + "\t" + c.mode() + "\t"
+        + (c.codec == CampaignRpc.INC ? "incumbent" : c.codec == CampaignRpc.FFI ? "core-ffi" : "host-gen")
+        + "\t" + CampaignRpc.sendPath(c) + "\t" + (c instanceof CampaignRpc.CoreCell ? "core" : "grpc")
+        + "\t" + transport + "\t" + ak.Variant.NAME + "\t" + CampaignRpc.threadsJson());
+    workers = new Thread[15];
+    for (int t = 0; t < 15; t++) {
+      final int w = t + 1;
+      start[w] = new Semaphore(0);
+      workers[t] = new Thread(() -> {
+        try {
+          for (;;) {
+            start[w].acquire();
+            if (stop) break;
+            try {
+              CampaignRpc.call(c, key, reqs[w]);
+            } catch (Throwable e) {
+              err = e;
+            } finally {
+              done.countDown();
+            }
+          }
+        } catch (InterruptedException e) {
+          // trial teardown
+        } finally {
+          CampaignRpc.releaseThread();
+        }
+      }, "rpc-" + cell + "-" + w);
+      workers[t].setDaemon(true);
+      workers[t].start();
+    }
+  }
+
+  @Setup(Level.Iteration)
+  public void iteration(IterationParams ip) {
+    int i = ip.getType() == IterationType.MEASUREMENT ? measIdx++ : warmIdx++;
+    String[] cb = combos.get((i + launch - 1) % combos.size());
+    key = cb[0];
+    k = Integer.parseInt(cb[3]);
+    // The label trail (untimed): what this iteration runs, joined to JMH's raw data.
+    System.out.println("RPCJMH-ITER\t" + cell + "\t" + (ip.getType() == IterationType.MEASUREMENT ? "m" : "w")
+        + "\t" + i + "\t" + cb[0] + "\t" + cb[1] + "\t" + cb[2] + "\t" + k);
+  }
+
+  @Setup(Level.Invocation)
+  public void requests() {
+    if (key.equals("b")) for (int i = 0; i < k; i++) reqs[i] = c.fresh();   // req 11, untimed
+  }
+
+  @Benchmark
+  public void batch(Totals tot, Calls ops, Blackhole bh) throws Throwable {
+    long c0 = Campaign.processCpuNs();
+    if (k == 1) {
+      CampaignRpc.call(c, key, reqs[0]);
+    } else {
+      done = new CountDownLatch(k - 1);
+      for (int w = 1; w < k; w++) start[w].release();   // helpers 1..k-1 start their call
+      try {
+        CampaignRpc.call(c, key, reqs[0]);             // the benchmark thread makes call 0
+      } finally {
+        done.await();
+      }
+      if (err != null) throw err;
+    }
+    tot.rpcCpuNs += Campaign.processCpuNs() - c0;
+    tot.callsMade += k;
+    ops.calls += k;
+    bh.consume(CampaignRpc.sinkv);
+  }
+
+  @TearDown(Level.Trial)
+  public void close() throws Exception {
+    stop = true;
+    for (int w = 1; w < 16; w++) start[w].release();
+    for (Thread t : workers) t.join(5000);
+    c.close();
+    CampaignRpc.releaseThread();
+    elg.shutdownGracefully(0, 0, TimeUnit.SECONDS);
+    CampaignRpc.leakCheck();                         // decision 11 rule 3, fails the run
+  }
+}

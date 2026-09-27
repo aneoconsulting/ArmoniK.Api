@@ -2,13 +2,14 @@
 """JMH's JSON result -> the section 7 JSON lines (design/CAMPAIGN.md req 22a, 28).
 
 Every raw per-iteration measurement JMH recorded (primaryMetric.rawData, one list per fork)
-becomes one sample line; nothing is summarised or dropped. CPU time comes from the side file
-`ak.CodecJmh` writes (thread CPU per iteration, tagged warm-up or measurement), joined by
-(cell, measurement-iteration index); a sample whose CPU is missing is refused, not guessed.
+becomes one sample line; nothing is summarised or dropped. Process CPU, the operation count
+and the JIT delta of each iteration are `ak.CodecJmh`'s @AuxCounters, which JMH exports in the
+same JSON (secondaryMetrics cpuNs, iters, jitMs, rawData per fork and iteration); a sample
+whose counter is missing is refused, not guessed.
 A meta line per benchmark records what JMH ran with: warm-up and measurement iterations,
 the mode, forks, the JVM, its arguments.
 
-  gen/jmh_to_jsonl.py <jmh.json> <cpu.tsv> <launch> <coder> [<build>] >> <log.jsonl>
+  gen/jmh_to_jsonl.py <jmh.json> <launch> <coder> [<build>] >> <log.jsonl>
 
 `build` (WP5 step 10): full (default) or no-unknown, written on every sample.
 """
@@ -33,15 +34,8 @@ def row_class(payload, content):
 
 def main():
     res = json.load(open(sys.argv[1]))
-    launch, coder = int(sys.argv[3]), sys.argv[4]
-    build = sys.argv[5] if len(sys.argv) > 5 else "full"
-    cpu = {}
-    for line in open(sys.argv[2]):
-        f = line.rstrip("\n").split("\t")
-        cell, kind, idx, c, n = f[:5]
-        jit = int(f[5]) if len(f) > 5 else None     # ms of JIT compilation during the iteration
-        if kind == "m":
-            cpu[(cell, int(idx))] = (int(c), int(n), jit)
+    launch, coder = int(sys.argv[2]), sys.argv[3]
+    build = sys.argv[4] if len(sys.argv) > 4 else "full"
     out = []
     for b in res:
         cell = b["params"]["cell"]
@@ -55,11 +49,16 @@ def main():
             "warmup_batch": b.get("warmupBatchSize"), "measurement_batch": b.get("measurementBatchSize"),
             "jdk": b.get("jdkVersion"), "vm": b.get("vmName", "") + " " + b.get("vmVersion", ""),
             "jvm_args": b.get("jvmArgs")}}, separators=(",", ":")))
-        for fork in pm["rawData"]:
+        sm = b.get("secondaryMetrics", {})
+        for name in ("cpuNs", "iters", "jitMs"):
+            if name not in sm:
+                raise SystemExit("no %s counter for %s" % (name, cell))
+        for f, fork in enumerate(pm["rawData"]):
             for i, wall in enumerate(fork):
-                if (cell, i) not in cpu:
-                    raise SystemExit("no CPU sample for %s measurement %d" % (cell, i))
-                c, n, jit = cpu[(cell, i)]
+                try:
+                    c, n, jit = (int(round(sm[x]["rawData"][f][i])) for x in ("cpuNs", "iters", "jitMs"))
+                except (IndexError, KeyError):
+                    raise SystemExit("no counter sample for %s measurement %d" % (cell, i))
                 extra = {}
                 cont = content
                 if content.startswith("corpus:"):
@@ -77,8 +76,7 @@ def main():
                     "content": cont, "dir": dd, "unknown_mode": mode, "build": build, "coder": coder,
                     "engine": "jmh", "launch": launch, "round": i + 1, "cpu_ns": c,
                     "wall_ns": int(round(wall)), "iters": n}
-                if jit is not None:
-                    rec["jit_ms_during"] = jit
+                rec["jit_ms_during"] = jit
                 rec.update(extra)
                 out.append(json.dumps(rec, separators=(",", ":")))
     print("\n".join(out))

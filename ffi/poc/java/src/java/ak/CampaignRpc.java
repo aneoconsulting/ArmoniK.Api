@@ -28,7 +28,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.CyclicBarrier;
 
 /**
  * design/CAMPAIGN.md section 4.2, the RPC grid, for the JVM.
@@ -370,7 +369,14 @@ public final class CampaignRpc {
     @Override protected byte[] initialValue() { return new byte[1 << 20]; }
   };
 
-  static void fail(String why) { Campaign.abort("req 18: " + why); }
+  /** Set by ak.RpcJmh: a failed check throws (JMH records it and, with -foe true, stops the
+   *  run) instead of exiting the forked JVM. */
+  static volatile boolean THROW_ON_FAIL;
+
+  static void fail(String why) {
+    if (THROW_ON_FAIL) throw new IllegalStateException("req 18: " + why);
+    Campaign.abort("req 18: " + why);
+  }
 
   /** protobuf-java's parser for the payload's root, for cell B's in-place parse. */
   static final com.google.protobuf.Parser<? extends Message> PB_PARSER =
@@ -703,85 +709,89 @@ public final class CampaignRpc {
     }
   }
 
-  // ---- one sample ------------------------------------------------------------------
-
-  /** `calls` calls over `inflight` blocking threads, chunked; returns {cpu_ns, wall_ns}. */
-  static long[] sample(final Cell cell, final String dir, final int inflight, int calls, int chunk)
-      throws Exception {
-    final int perThread = Math.max(1, calls / inflight);
-    final int ch = Math.max(1, Math.min(chunk, perThread));
-    final int chunks = (perThread + ch - 1) / ch;
-    final CyclicBarrier bar = new CyclicBarrier(inflight + 1);
-    final Throwable[] err = new Throwable[1];
-    Thread[] ts = new Thread[inflight];
-    for (int t = 0; t < inflight; t++) {
-      ts[t] = new Thread(() -> {
-        Object[] pool = new Object[ch];
-        try {
-          int left = perThread;
-          for (int c = 0; c < chunks; c++) {
-            int k = Math.min(ch, left);
-            if (dir.equals("b")) for (int i = 0; i < k; i++) pool[i] = cell.fresh();   // untimed
-            final int up = dir.startsWith("c:") || dir.startsWith("d:")
-                ? Integer.parseInt(dir.substring(2)) : -1;   // "c:<k>", "d:<k>"
-            bar.await();          // everyone prepared
-            bar.await();          // the coordinator has read the clocks: go
-            for (int i = 0; i < k; i++) {
-              if (dir.equals("b")) cell.callB(pool[i]);
-              else if (dir.startsWith("c:")) cell.callC(up);
-              else if (dir.startsWith("d:")) cell.callD(up, false);
-              else cell.callA(dir.equals("a+read"));
-            }
-            left -= k;
-            bar.await();          // chunk done
-          }
-        } catch (Throwable e) {
-          err[0] = e;
-          Campaign.abort("req 18: " + cell.name + "/" + dir + ": " + e);
-        } finally {
-          releaseThread();
-        }
-      }, "rpc-" + cell.name + "-" + t);
-      ts[t].start();
-    }
-    long cpu = 0, wall = 0;
-    for (int c = 0; c < chunks; c++) {
-      bar.await();
-      long c0 = NativeRpc.processCpuNs(), t0 = System.nanoTime();
-      bar.await();
-      bar.await();
-      wall += System.nanoTime() - t0;
-      cpu += NativeRpc.processCpuNs() - c0;
-    }
-    for (Thread t : ts) t.join();
-    if (err[0] != null) Campaign.abort("req 18: " + err[0]);
-    return new long[] {cpu, wall, (long) perThread * inflight};
+  /** The cell names of this build (req 12): A, B, C to F in every mode their codec has, the
+   *  framed twins Bf, Cf-*, Ef-* and the copy-path extra Cc-*. */
+  static List<String> cellNames() {
+    List<String> n = new ArrayList<String>();
+    String[] modes = ak.Variant.UNKNOWN_FIELDS ? new String[] {"retain", "drop"} : new String[] {"nounk"};
+    n.add("A");
+    n.add("B");
+    for (String x : new String[] {"C", "D", "E", "F"}) for (String m : modes) n.add(x + "-" + m);
+    n.add("Bf");
+    for (String x : new String[] {"Cf", "Ef", "Cc"}) for (String m : modes) n.add(x + "-" + m);
+    return n;
   }
 
-  /** The cells of this build (req 12): A, B, and C, D, E, F in every mode their codec has. */
+  /** One cell by name; it opens its own channel (grpc-java) or client (the core). */
+  static Cell cell(String name, String sock, EpollEventLoopGroup elg, boolean pinned) {
+    String stem = name.contains("-") ? name.substring(0, name.indexOf('-')) : name;
+    boolean retain = name.endsWith("-retain");
+    switch (stem) {
+      case "A": return new GrpcCell("A", INC, false, sock, elg, pinned);
+      case "B": return new CoreCell("B", INC, false, sock, pinned);
+      case "Bf": return new CoreCell("Bf", INC, false, sock, pinned, true);
+      case "C": return new CoreCell(name, FFI, retain, sock, pinned);
+      case "Cf": return new CoreCell(name, FFI, retain, sock, pinned, true);
+      case "Cc": { CoreCell cc = new CoreCell(name, FFI, retain, sock, pinned); cc.copyPath = true; return cc; }
+      case "D": return new GrpcCell(name, FFI, retain, sock, elg, pinned);
+      case "E": return new CoreCell(name, HOST, retain, sock, pinned);
+      case "Ef": return new CoreCell(name, HOST, retain, sock, pinned, true);
+      case "F": return new GrpcCell(name, HOST, retain, sock, elg, pinned);
+      default: throw new IllegalArgumentException("no cell " + name);
+    }
+  }
+
   static List<Cell> cells(String sock, EpollEventLoopGroup elg, boolean pinned) {
     List<Cell> cells = new ArrayList<Cell>();
-    cells.add(new GrpcCell("A", INC, false, sock, elg, pinned));
-    cells.add(new CoreCell("B", INC, false, sock, pinned));
-    String[][] modes = ak.Variant.UNKNOWN_FIELDS
-        ? new String[][] {{"retain", "1"}, {"drop", "0"}} : new String[][] {{"nounk", "0"}};
-    for (String[] m : modes) cells.add(new CoreCell("C-" + m[0], FFI, m[1].equals("1"), sock, pinned));
-    for (String[] m : modes) cells.add(new GrpcCell("D-" + m[0], FFI, m[1].equals("1"), sock, elg, pinned));
-    for (String[] m : modes) cells.add(new CoreCell("E-" + m[0], HOST, m[1].equals("1"), sock, pinned));
-    for (String[] m : modes) cells.add(new GrpcCell("F-" + m[0], HOST, m[1].equals("1"), sock, elg, pinned));
-    // The framed twins (ABI v1 section 9, req 14: each send path beside its reference): the
-    // core-transport cells on ak_client_set_framed. grpc-java has no second send path here.
-    cells.add(new CoreCell("Bf", INC, false, sock, pinned, true));
-    for (String[] m : modes) cells.add(new CoreCell("Cf-" + m[0], FFI, m[1].equals("1"), sock, pinned, true));
-    for (String[] m : modes) cells.add(new CoreCell("Ef-" + m[0], HOST, m[1].equals("1"), sock, pinned, true));
-    // Cc-*: cell C on the copy path (take() + ak_call_unary), a labelled extra beside C's move path.
-    for (String[] m : modes) {
-      CoreCell cc = new CoreCell("Cc-" + m[0], FFI, m[1].equals("1"), sock, pinned);
-      cc.copyPath = true;
-      cells.add(cc);
-    }
+    for (String n : cellNames()) cells.add(cell(n, sock, elg, pinned));
     return cells;
   }
+
+  /** The (dir key, dir, payload, inflight) combinations every cell runs (req 14, 15): a,
+   *  a+read and b at 1/8/16; c (P5.3, P5.4) and d (4 MiB, 16 MiB) at 1/8. */
+  static List<String[]> combos() {
+    List<String[]> out = new ArrayList<String[]>();
+    for (String d : new String[] {"a", "a+read", "b"})
+      for (int k : INFLIGHT) out.add(new String[] {d, d, PAYLOAD, String.valueOf(k)});
+    for (int i = 0; i < C_PAYLOADS.length; i++)
+      for (int k : UP_INFLIGHT) out.add(new String[] {"c:" + i, "c", C_PAYLOADS[i], String.valueOf(k)});
+    for (int i = 0; i < D_LABELS.length; i++)
+      for (int k : UP_INFLIGHT) out.add(new String[] {"d:" + i, "d", D_LABELS[i], String.valueOf(k)});
+    return out;
+  }
+
+  /** One call of `c` in direction key `key` ("a", "a+read", "b", "c:<k>", "d:<k>"). */
+  static void call(Cell c, String key, Object req) {
+    if (key.equals("b")) c.callB(req);
+    else if (key.startsWith("c:")) c.callC(Integer.parseInt(key.substring(2)));
+    else if (key.startsWith("d:")) c.callD(Integer.parseInt(key.substring(2)), false);
+    else c.callA(key.equals("a+read"));
+  }
+
+  /** Req 18 and 26 per cell, before any timing: every direction once, (d) through the digest
+   *  path, and the cell's own decode and re-encode of P2.2 byte-identical. */
+  static void precheck(Cell c) {
+    c.callA(false);
+    c.callA(true);
+    c.callB(c.fresh());
+    for (int k = 0; k < C_PAYLOADS.length; k++) c.callC(k);
+    for (int k = 0; k < D_CHUNKS.length; k++) c.callD(k, true);
+    if (!c.incumbentCodec) {
+      byte[] re;
+      try { re = c.encodeFacade(c.decodeBytes(EXPECT_A, EXPECT_A.length)); }
+      catch (Exception e) { throw new IllegalStateException(e); }
+      if (!Arrays.equals(re, EXPECT_A)) fail(c.name + ": P2.2 decoded and re-encoded in its mode is "
+          + re.length + " B and differs from the body");
+    }
+  }
+
+  /** Decision 11 rule 3, after a cell's run: 0 buffers alive, none left or reclaimed. */
+  static void leakCheck() {
+    long live = ak.Variant.UNKNOWN_FIELDS ? Native.unkLive() : 0L, reclaimed = UNK_RECLAIMED.get(), left = UNK_LEFT.get();
+    if (live != 0 || reclaimed != 0 || left != 0)
+      fail("unknown-field leak counters are not 0: alive " + live + ", reclaimed " + reclaimed + ", left " + left);
+  }
+
 
   /** Req 19 as amended (R-H31): crossings per call for cells B, C, D and E, from the
    *  counting shim (-DAK_HOST_COUNT: every JNI entry into the core, the RPC ones included)
@@ -857,20 +867,25 @@ public final class CampaignRpc {
       serve(args[1], args[2]);
       return;
     }
+    if (args.length >= 1 && args[0].equals("--list")) {
+      // The JMH `cell` params of this build and transport, rotated one step per launch (req 22).
+      List<String> names = Campaign.rotate(cellNames(), Integer.getInteger("ak.camp.launch", 1) - 1);
+      StringBuilder sb = new StringBuilder();
+      for (String nm : names) sb.append(sb.length() == 0 ? "" : ",").append(nm);
+      System.out.println(sb);
+      return;
+    }
     String sock = System.getProperty("ak.camp.socket");
     if (sock == null) throw new IllegalStateException("-Dak.camp.socket (the server's socket) is unset");
     String transport = System.getProperty("ak.camp.transport", "pinned");
     boolean pinned = transport.equals("pinned");
-    int calls = Integer.getInteger("ak.camp.calls", 2000);
-    int chunk = Integer.getInteger("ak.camp.chunk", 64);
-    int warm = Integer.getInteger("ak.camp.warm", 2);
-    String out = System.getProperty("ak.camp.out");
     NativeRpc.ensureBound();
     EXPECT_A = PbArms.build(PAYLOAD, Values.ASCII).toByteArray();
 
     uploads();
     EpollEventLoopGroup elg = new EpollEventLoopGroup(EVENT_LOOPS);
-    List<Cell> cells = cells(sock, elg, pinned);
+    List<Cell> cells = "1".equals(System.getProperty("ak.camp.warmserver"))
+        ? Arrays.asList(cell("A", sock, elg, pinned), cell("B", sock, elg, pinned)) : cells(sock, elg, pinned);
     if ("1".equals(System.getProperty("ak.camp.uploadcheck"))) {
       // Req 18 for (c) and (d), before any timing (the gate runs it on both builds, and with
       // -Dak.camp.plant=1 as the control that must fail): every cell's unary uploads, and
@@ -893,90 +908,26 @@ public final class CampaignRpc {
       System.exit(0);
     }
 
-    String[] dirs = {"a", "a+read", "b"};
-    // Correctness first, per cell and direction: one checked call each (req 18, 26).
+    if (!"1".equals(System.getProperty("ak.camp.warmserver")))
+      throw new IllegalArgumentException("timing runs on JMH (ak.RpcJmh); this client is --serve, --list,"
+          + " ak.camp.warmserver, ak.camp.count or ak.camp.uploadcheck");
+    // ak.camp.warmserver (req 13, 24): the runner warms the launch's one server before the
+    // framework runs, through this client's transport, `ak.camp.serverwarm` calls of every
+    // direction on cell A (grpc-java) and cell B (the core).
+    int n = Integer.getInteger("ak.camp.serverwarm", 200);
+    long made = 0;
     for (Cell c : cells) {
-      c.callA(false);
-      c.callA(true);
-      c.callB(c.fresh());
-      for (int k = 0; k < C_PAYLOADS.length; k++) c.callC(k);
-      for (int k = 0; k < D_CHUNKS.length; k++) c.callD(k, true);   // count and digest
-      if (!c.incumbentCodec) {                 // the mode's own decode and encode, byte identity
-        byte[] re = c.encodeFacade(c.decodeBytes(EXPECT_A, EXPECT_A.length));
-        if (!Arrays.equals(re, EXPECT_A)) fail(c.name + ": P2.2 decoded and re-encoded in its mode is "
-            + re.length + " B and differs from the body");
+      if (!c.name.equals("A") && !c.name.equals("B")) continue;
+      for (String[] cb : combos()) {
+        Object req = c.fresh();
+        int m = cb[1].equals("c") || cb[1].equals("d") ? Math.max(1, n / 20) : n;
+        for (int i = 0; i < m; i++) { call(c, cb[0], cb[1].equals("b") ? c.fresh() : req); made++; }
       }
     }
-    // Req 13 (R-H33): each cell's own channel (grpc-java) or client (the core) is opened above
-    // and warmed here: `warm` samples of every (dir, inflight) before round 1, i.e.
-    // warm x 3 dirs x 3 inflights x ~calls calls per cell, which also warms the server from
-    // both client transports.
-    // Req 14 (c) and (d): at 1 and 8 in flight, a third of the calls per sample.
-    List<String[]> ups = new ArrayList<String[]>();   // {dir key, dir, payload}
-    for (int k = 0; k < C_PAYLOADS.length; k++) ups.add(new String[] {"c:" + k, "c", C_PAYLOADS[k]});
-    for (int k = 0; k < D_LABELS.length; k++) ups.add(new String[] {"d:" + k, "d", D_LABELS[k]});
-    int upCalls = Integer.getInteger("ak.camp.upcalls", Math.max(1, calls / 3));
-    long warmCalls = 0;
-    for (int k = 0; k < warm; k++) {
-      for (String d : dirs)
-        for (int inf : INFLIGHT)
-          for (Cell c : cells)
-            warmCalls += sample(c, d, inf, calls, chunk)[2];
-      for (String[] u : ups)
-        for (int inf : UP_INFLIGHT)
-          for (Cell c : cells)
-            warmCalls += sample(c, u[0], inf, upCalls, chunk)[2];
-    }
-    Campaign.meta("{\"suite\":\"rpc\",\"warmup_samples_per_cell\":" + warm + ",\"warmup_calls_total\":"
-        + warmCalls + ",\"jit_ms_after_warmup\":"
-        + Campaign.jitMs() + ",\"transport\":\"" + transport + "\",\"calls\":" + calls
-        + ",\"chunk\":" + chunk + ",\"threads\":" + threadsJson()
-        + ",\"socket\":\"unix\",\"order\":\"cells rotated one step per round inside each (dir, inflight); the same schedule in every launch\""
-        + ",\"ratio_basis\":\"per-launch medians (CAMPAIGN req 30, R-H24)\"}");
-    for (int r = 1; r <= Campaign.ROUNDS; r++) {
-      for (String d : dirs)
-        for (int inf : INFLIGHT)
-          for (Cell c : Campaign.rotate(cells, r)) {
-            long[] v = sample(c, d, inf, calls, chunk);
-            Campaign.add(new Campaign.Sample().s("suite", "rpc").s("cell", c.name).s("payload", PAYLOAD)
-                .s("unknown_mode", c.mode()).s("build", ak.Variant.NAME)
-                .s("codec", c.codec == INC ? "incumbent" : c.codec == FFI ? "core-ffi" : "host-gen")
-                .s("dir", d).s("transport", transport).n("inflight", inf).s("delivery",
-                    c instanceof CoreCell ? "blocking" : "grpc-java blockingUnaryCall")
-                .s("send_path", sendPath(c))
-                .n("launch", Campaign.LAUNCH).n("round", r).n("cpu_ns", v[0]).n("wall_ns", v[1])
-                .n("iters", v[2]));
-          }
-      for (String[] u : ups)
-        for (int inf : UP_INFLIGHT)
-          for (Cell c : Campaign.rotate(cells, r)) {
-            long[] v = sample(c, u[0], inf, upCalls, chunk);
-            Campaign.add(new Campaign.Sample().s("suite", "rpc").s("cell", c.name).s("payload", u[2])
-                .s("unknown_mode", c.mode()).s("build", ak.Variant.NAME)
-                .s("codec", c.codec == INC ? "incumbent" : c.codec == FFI ? "core-ffi" : "host-gen")
-                .s("dir", u[1]).s("transport", transport).n("inflight", inf).s("delivery",
-                    c instanceof CoreCell ? (u[1].equals("d") ? "blocking client stream" : "blocking")
-                        : (u[1].equals("d") ? "grpc-java asyncClientStreamingCall" : "grpc-java blockingUnaryCall"))
-                .s("send_path", sendPath(c))
-                .n("launch", Campaign.LAUNCH).n("round", r).n("cpu_ns", v[0]).n("wall_ns", v[1])
-                .n("iters", v[2]));
-          }
-      Campaign.meta("{\"round\":" + r + ",\"jit_ms\":" + Campaign.jitMs() + "}");
-    }
+    System.out.println("SERVER WARMED transport=" + transport + " calls=" + made);
     for (Cell c : cells) c.close();
-    // The leak counters (decision 11 rule 3), after every call of the run.
-    releaseThread();                           // the correctness phase's Bindings
-    long live = ak.Variant.UNKNOWN_FIELDS ? Native.unkLive() : 0L, reclaimed = UNK_RECLAIMED.get(), left = UNK_LEFT.get();
-    Campaign.meta("{\"unk_leak\":{\"buffers_alive\":" + live + ",\"reclaimed_after_failed_decodes\":"
-        + reclaimed + ",\"left_after_successful_decodes\":" + left + ",\"retain_bindings\":"
-        + BINDINGS_RETAIN.get() + ",\"drop_bindings\":" + BINDINGS_DROP.get() + "}}");
-    System.out.println("unknown-field leak counters after the run: buffers alive " + live
-        + ", reclaimed after failed decodes " + reclaimed + ", left after successful decodes " + left
-        + " (" + BINDINGS_RETAIN.get() + " retain / " + BINDINGS_DROP.get() + " drop bindings)");
-    if (live != 0 || reclaimed != 0 || left != 0) fail("unknown-field leak counters are not 0");
+    releaseThread();
     elg.shutdownGracefully(0, 0, java.util.concurrent.TimeUnit.SECONDS);
-    Campaign.meta("{\"sink\":" + sinkv + "}");
-    Campaign.flush(out);
     System.exit(0);
   }
 }

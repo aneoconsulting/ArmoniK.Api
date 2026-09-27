@@ -1,10 +1,7 @@
 package ak;
 
-import java.io.FileOutputStream;
-import java.io.OutputStreamWriter;
-import java.io.PrintWriter;
-import java.nio.charset.StandardCharsets;
 import java.util.concurrent.TimeUnit;
+import org.openjdk.jmh.annotations.AuxCounters;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Level;
@@ -16,8 +13,6 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.infra.Blackhole;
-import org.openjdk.jmh.infra.IterationParams;
-import org.openjdk.jmh.runner.IterationType;
 
 /**
  * The codec suite on JMH (design/CAMPAIGN.md req 22a, owner 2026-09-25).
@@ -30,10 +25,11 @@ import org.openjdk.jmh.runner.IterationType;
  * time. JMH's raw per-iteration wall time is the {@code wall_ns} of the sample.
  *
  * <p><b>CPU time</b> (req 21): JMH measures wall time only. The benchmark method reads the
- * process's CPU clock (CLOCK_PROCESS_CPUTIME_ID, through the shim's tax.c; req 21 as amended 2026-09-26: GC, JIT and helper threads count) at its start and end
- * and the iteration teardown writes it, tagged warm-up or measurement, to
- * {@code ak.jmh.cpuout}; gen/jmh_to_jsonl.py joins it to JMH's rawData by cell and
- * measurement-iteration index. The two reads are inside the timed region, so wall_ns carries
+ * process's CPU clock (CLOCK_PROCESS_CPUTIME_ID, through the shim's tax.c; req 21 as amended
+ * 2026-09-26: GC, JIT and helper threads count) at its start and end into the
+ * {@code cpuNs} counter of an {@code @AuxCounters} state, which JMH exports per iteration
+ * beside its own raw time (secondaryMetrics rawData in {@code -rf json}); gen/jmh_to_jsonl.py
+ * reads both from JMH's JSON. The two reads are inside the timed region, so wall_ns carries
  * them (tens of ns against a sample of milliseconds).
  *
  * <p><b>The cell</b> is one parameter, {@code arm|mode|payload|content|dir}, listed by
@@ -44,7 +40,7 @@ import org.openjdk.jmh.runner.IterationType;
  *
  * <p><b>Compilation state</b> (req 24's managed clause, R-H19): the JVM's cumulative JIT
  * compile time ({@code CompilationMXBean}) is read at each iteration's setup and teardown,
- * and the difference goes beside the CPU figure; {@code jit_ms_during} = 0 on a sample means
+ * and the difference goes to the {@code jitMs} counter; {@code jit_ms_during} = 0 on a sample means
  * no method was compiled while it ran. The JIT itself is HotSpot's tiered default (C1 then C2,
  * default thresholds); which tier each method reached is not recorded (no WhiteBox API in a
  * product JVM without -XX:+WhiteBoxAPI).
@@ -56,6 +52,24 @@ import org.openjdk.jmh.runner.IterationType;
 @BenchmarkMode(Mode.SingleShotTime)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
 public class CodecJmh {
+  /** Per-iteration values JMH exports beside its raw time (EVENTS: reported as they are). */
+  @AuxCounters(AuxCounters.Type.EVENTS)
+  @State(Scope.Thread)
+  public static class Sample {
+    public long cpuNs;
+    public long iters;
+    public long jitMs;
+    private long jit0;
+
+    /** After the benchmark state's iteration setup (JMH orders a dependency first): the JIT
+     *  delta spans the iteration's timed part, as before. */
+    @Setup(Level.Iteration)
+    public void start(CodecJmh b) { jit0 = JIT.getTotalCompilationTime(); }
+
+    @TearDown(Level.Iteration)
+    public void stop() { jitMs = JIT.getTotalCompilationTime() - jit0; }   // untimed
+  }
+
   @Param({"host-gen|drop|P1.1|ascii|encode"})
   public String cell;
 
@@ -63,13 +77,8 @@ public class CodecJmh {
   String id, dir;
   int cs, n;
   byte[] wire;
-  boolean measuring;
-  long cpu;
-  long jit0;
   static final java.lang.management.CompilationMXBean JIT =
       java.lang.management.ManagementFactory.getCompilationMXBean();
-  final StringBuilder cpuLines = new StringBuilder();
-  int measured;
 
   @Setup(Level.Trial)
   public void trial() throws Exception {
@@ -101,38 +110,18 @@ public class CodecJmh {
   }
 
   @Setup(Level.Iteration)
-  public void iteration(IterationParams ip) {
-    measuring = ip.getType() == IterationType.MEASUREMENT;
+  public void iteration() {
     if (dir.startsWith("encode")) arm.prepare(id, cs, n);   // untimed (req 11)
     CampaignCodec.SINK.reset(2 * wire.length + 4096);      // untimed: no arm grows the sink
-    jit0 = JIT.getTotalCompilationTime();
   }
 
   @Benchmark
-  public void sample(Blackhole bh) throws Exception {
+  public void sample(Sample s, Blackhole bh) throws Exception {
     long c0 = Campaign.processCpuNs();
     if (dir.startsWith("encode")) arm.encode(id, n);
     else arm.decode(id, wire, n, dir.equals("decode-read"));
-    cpu = Campaign.processCpuNs() - c0;
+    s.cpuNs = Campaign.processCpuNs() - c0;
+    s.iters = n;
     bh.consume(CampaignCodec.sink);
-  }
-
-  @TearDown(Level.Iteration)
-  public void after() {
-    cpuLines.append(cell).append('\t').append(measuring ? "m" : "w").append('\t')
-        .append(measuring ? measured++ : -1).append('\t').append(cpu).append('\t').append(n).append('\t')
-        .append(JIT.getTotalCompilationTime() - jit0).append('\n');
-  }
-
-  @TearDown(Level.Trial)
-  public void done() throws Exception {
-    String path = System.getProperty("ak.jmh.cpuout");
-    if (path == null) return;
-    synchronized (CodecJmh.class) {
-      PrintWriter w = new PrintWriter(new OutputStreamWriter(new FileOutputStream(path, true),
-          StandardCharsets.UTF_8));
-      w.print(cpuLines);
-      w.close();
-    }
   }
 }
