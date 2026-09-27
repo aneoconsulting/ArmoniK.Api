@@ -68,9 +68,9 @@ def emit(ir, dec_ix, o, entry="ak.NativeEntry"):
         if nounk:
             o.append("    check(%s.parse%s(this, decCtx, wire, off, len));" % (entry, root))
         else:
-            o.append("    if (retain) check(%s.decReset%s(decCtx, unkOptsOf(%d)));" % (entry, root, ri))
+            o.append("    if (retain) armUnk(%d, decCtx); else if (unkArmed[%d]) disarmUnk(%d, decCtx);" % (ri, ri, ri))
             o.append("    int prc = %s.parse%s(this, decCtx, wire, off, len);" % (entry, root))
-            o.append("    if (prc < 0 && retain) { %s.decReset%s(decCtx, 0L); unkSettle(%d, prc); }" % (entry, root, ri))
+            o.append("    if (prc < 0 && retain) unkSettle(%d, prc);" % ri)
             o.append("    check(prc);")
         o.append("    %s r = new %s();" % (root, root))
         o.append("    decRoot = r;")
@@ -103,8 +103,8 @@ def emit(ir, dec_ix, o, entry="ak.NativeEntry"):
         o.append("    }")
         if not nounk:
             o.append("    } finally {")
-            o.append("      // Disarmed only after the records are read: they carry the buffers (decision 11).")
-            o.append("      if (retain) { %s.decReset%s(decCtx, 0L); unkSettle(%d, 0); }" % (entry, root, ri))
+            o.append("      // Settled only after the records are read: they carry the buffers (decision 11).")
+            o.append("      if (retain) unkSettle(%d, 0);" % ri)
             o.append("    }")
         o.append("    return r;")
         o.append("  }")

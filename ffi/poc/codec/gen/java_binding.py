@@ -375,6 +375,28 @@ def _emit_unk_state(ir, o):
     o.append("  /** Planted defect for the leak control (-Dak.unk.leakplant=1): nothing is reclaimed. */")
     o.append("  static final boolean UNK_PLANT_NO_RECLAIM = \"1\".equals(System.getProperty(\"ak.unk.leakplant\"));")
     o.append("  final long[] unkMask = {%s};" % ", ".join(["-1L"] * n))
+    o.append("  /** Per root: the context was last reset with the options (retention armed). */")
+    o.append("  final boolean[] unkArmed = new boolean[%d];" % n)
+    o.append("")
+    o.append("  /** The one reset per retain decode (decision 11 rule 7): arm with the options. */")
+    o.append("  void armUnk(int ri, long ctx) {")
+    o.append("    switch (ri) {")
+    for i, r in enumerate(roots):
+        o.append("      case %d: check(%s.decReset%s(ctx, unkOptsOf(%d))); break;" % (i, ENTRY[0], r, i))
+    o.append("      default: throw new IllegalArgumentException(\"root \" + ri);")
+    o.append("    }")
+    o.append("    unkArmed[ri] = true;")
+    o.append("  }")
+    o.append("")
+    o.append("  /** Leaving retain on a context that was armed: one disarming reset, once. */")
+    o.append("  void disarmUnk(int ri, long ctx) {")
+    o.append("    switch (ri) {")
+    for i, r in enumerate(roots):
+        o.append("      case %d: check(%s.decReset%s(ctx, 0L)); break;" % (i, ENTRY[0], r))
+    o.append("      default: throw new IllegalArgumentException(\"root \" + ri);")
+    o.append("    }")
+    o.append("    unkArmed[ri] = false;")
+    o.append("  }")
     o.append("  /** Each root's positions, in the options struct's order (plan.unk_opts_layout). */")
     o.append("  public static final String[][] UNK_POSITIONS = {")
     for r in roots:
@@ -458,6 +480,8 @@ UNK_HELPERS = """
   public void setUnkPositions(String root, long mask) {
     int ri = java.util.Arrays.asList(ROOTS).indexOf(root);
     unkMask[ri] = mask;
+    // The core keeps a pointer to an armed options struct: disarm before freeing it.
+    if (unkArmed[ri]) disarmUnk(ri, decCtxs[ri]);
     if (unkOpts[ri] != 0) { Mem.free(unkOpts[ri]); unkOpts[ri] = 0; }
   }
 
@@ -830,7 +854,7 @@ def emit(ir, level=17, ns=N.PKG, facade_ns=None, layout="ak.shapes.Layout",
     # ---- span readers, typed to the facade's string type
     o.append(SPAN % (N.string_type(),
                      '""' if not N.is_borrow() else "ak.Utf8View.EMPTY",
-                     "Utf8.decode(wireHeap, off, len)" if not N.is_borrow()
+                     "Utf8.decodeTrusted(wireHeap, off, len)" if not N.is_borrow()
                      else "ak.Utf8View.of(wireHeap, off, len)"))
 
     # ---- vtables
@@ -1036,15 +1060,16 @@ def emit(ir, level=17, ns=N.PKG, facade_ns=None, layout="ak.shapes.Layout",
             o.append("    return r;")
             o.append("  }")
             continue
-        o.append("    // Decision 11 rules 1, 6, 7: arm this root's options (native memory kept alive")
+        o.append("    // Decision 11 rules 1, 6, 7: ONE reset per decode (WP8: retention is decided at the")
+        o.append("    // reset, so no disarm after): arm this root's options (native memory kept alive")
         o.append("    // and unmoved while armed), decode, disarm. Drop mode needs no reset.")
-        o.append("    if (retain) check(%s.decReset%s(decCtx, unkOptsOf(%d)));" % (ENTRY[0], root, ri))
+        o.append("    if (retain) armUnk(%d, decCtx); else if (unkArmed[%d]) disarmUnk(%d, decCtx);" % (ri, ri, ri))
         o.append("    int rc = -1;   // a Java exception out of the decode counts as a failure")
         o.append("    try {")
         o.append("      rc = %s.decode%s(this, decCtx, wireNative, len,"
                  " dvt%s);" % (ENTRY[0], root, root))
         o.append("    } finally {")
-        o.append("      if (retain) { %s.decReset%s(decCtx, 0L); unkSettle(%d, rc); }" % (ENTRY[0], root, ri))
+        o.append("      if (retain) unkSettle(%d, rc);" % ri)
         o.append("    }")
         o.append("    check(rc);")
         o.append("    return r;")
