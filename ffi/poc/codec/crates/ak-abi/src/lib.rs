@@ -422,6 +422,8 @@ unsafe extern "C" {
     /// A client with the transport pinned. NULL options = `ak_client_new`.
     pub fn ak_client_new_opts(r: *mut ak_runtime, uri: *const u8, uri_len: usize, opts: *const ak_client_opts) -> *mut ak_client;
     pub fn ak_client_destroy(c: *mut ak_client);
+    /// Choose the send path of every later call on `c`: 1 = FRAMED (tonic's Channel, the request message sent as two body frames, the 5-byte prefix and the bytes, never copied), 0 = the reference (tonic's Grpc::unary with a raw-bytes codec, one copy into tonic's buffer; the default). Request headers, response status and trailer handling, compression (off) and the send limit are the reference path's. Another value or NULL `c` is AK_ERR_INVALID_STATE. Additive (optimisation T1, option 3).
+    pub fn ak_client_set_framed(c: *mut ak_client, on: i32) -> i32;
     /// Blocking delivery: one crossing in, `ak_bytes_free` the only other.
     pub fn ak_call_unary(c: *mut ak_client, path: *const u8, path_len: usize, req: *const u8, req_len: usize, out: *mut ak_bytes) -> i32;
     /// Blocking delivery whose request is the encode context's output, MOVED (not copied); the context's encoded bytes are consumed. Additive (optimisation R2).

@@ -170,16 +170,17 @@ CLARGS=(--server-warm "$RPC_SWARM")
 for T in shipped pinned; do
   step "rpc: transport $T"
   start_server "$T" plant
-  for v in full nounk; do
+  for v in full nounk; do for WP in A B Bf Df; do
     CL=target/release/rpc_client; [ "$v" = nounk ] && CL=target-nounk/release/rpc_client
+    PL="$OUT/rpc-$T-$v-$WP-PLANT.log"
     rm -f "$SCRATCH/plant.jsonl"
-    if taskset -c "$AK_CPU_CLIENT" "$CL" --socket "$SOCK" --transport "$T" "${CLARGS[@]}" \
-         --rounds 1 --calls 16 --warmup 16 --out "$SCRATCH/plant.jsonl" --plant > "$OUT/rpc-$T-$v-PLANT.log" 2>&1 \
+    if taskset -c "$AK_CPU_CLIENT" "$CL" --socket "$SOCK" --transport "$T" "${CLARGS[@]}" --warm-cells "$WP" \
+         --rounds 1 --calls 16 --warmup 16 --out "$SCRATCH/plant.jsonl" --plant > "$PL" 2>&1 \
        || [ -e "$SCRATCH/plant.jsonl" ]; then
-      say "CONTROL FAILED: the planted wrong length did not abort ($T, $v client)"; exit 1
+      say "CONTROL FAILED: the planted wrong length did not abort ($T, $v client, cell $WP)"; exit 1
     fi
-    say "  rpc $T ($v client): control aborted with no output: $(tail -1 "$OUT/rpc-$T-$v-PLANT.log")"
-  done
+    say "  rpc $T ($v client, cell $WP): control aborted with no output: $(tail -1 "$PL")"
+  done; done
   kill $SP; wait $SP 2>/dev/null || true; SP=""
   start_server "$T" "$LAUNCH"
   for v in full nounk; do

@@ -64,6 +64,7 @@ static uint64_t ABICNT[2];   /* [0] every ak_* call, [1] the resets among them *
 #define ak_client_destroy(...) (AK_ABI_CALL(0), ak_client_destroy(__VA_ARGS__))
 #define ak_client_new(...) (AK_ABI_CALL(0), ak_client_new(__VA_ARGS__))
 #define ak_client_new_opts(...) (AK_ABI_CALL(0), ak_client_new_opts(__VA_ARGS__))
+#define ak_client_set_framed(...) (AK_ABI_CALL(0), ak_client_set_framed(__VA_ARGS__))
 #define ak_dec_ctx_free(...) (AK_ABI_CALL(0), ak_dec_ctx_free(__VA_ARGS__))
 #define ak_dec_ctx_new_ChunkElement(...) (AK_ABI_CALL(0), ak_dec_ctx_new_ChunkElement(__VA_ARGS__))
 #define ak_dec_ctx_new_ChunkInner(...) (AK_ABI_CALL(0), ak_dec_ctx_new_ChunkInner(__VA_ARGS__))

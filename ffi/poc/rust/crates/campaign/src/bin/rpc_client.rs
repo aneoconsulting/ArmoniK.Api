@@ -3,7 +3,7 @@
 //! another process (`rpc_server`), ONE per launch, serving both builds' clients.
 //!
 //!   rpc_client --socket PATH --transport shipped|pinned --launch N --rounds R --calls C
-//!              --warmup W --server-warm S --out FILE [--plant]
+//!              --warmup W --server-warm S --out FILE [--plant] [--warm-cells STEMS]
 //!
 //! Cells (`campaign::grid`): A prost+tonic, B prost+core, C core-ffi+core, D core-ffi+tonic,
 //! E core-native+core, F core-native+tonic; C to F per unknown-field mode of this build.
@@ -148,7 +148,10 @@ fn main() {
     assert!(harness::generated::binding::ak_init_once() >= 0);
 
     // Requirement 13 as amended: the server warmed from each client transport first.
-    if let Err(e) = grid::warm_server(&target, pinned, server_warm, want_a) {
+    // `--warm-cells A,Bf,...` (stems): warm (and, with --plant, abort) through these cells;
+    // default A and B. The runner's plant control names one send path per run.
+    let warm_cells: Vec<&str> = arg("--warm-cells").unwrap_or_else(|| "A,B".into()).split(',').map(grid::cell_of).collect();
+    if let Err(e) = grid::warm_with(&warm_cells, &target, pinned, server_warm, want_a) {
         abort(format!("server warm-up: {e}"));
     }
     // Requirement 22 as amended (R-H23): the cell order is a seeded random permutation per
@@ -192,7 +195,7 @@ fn main() {
             "tonic endpoint defaults, ak_client_new, server defaults"
         })),
         ("link", format!("Unix domain socket {socket} (requirement 17 as amended, R-H28); server = rpc_server, a separate process, one per launch for every cell of both builds, pre-serialised P2.2")),
-        ("cells", "A prost+tonic, B prost+core, C core-ffi+core, D core-ffi+tonic, E core-native+core, F core-native+tonic; C-F per unknown-field mode (-retain: every decision 11 position armed and u-group encode; -drop: nothing armed; -nounk: the build with unknown-field support compiled out); callback/queue deliveries not run in this suite".into()),
+        ("cells", "A prost+tonic, B prost+core, C core-ffi+core, D core-ffi+tonic, E core-native+core, F core-native+tonic; C-F per unknown-field mode (-retain: every decision 11 position armed and u-group encode; -drop: nothing armed; -nounk: the build with unknown-field support compiled out); Bf, Cf, Df, Ef, Ff = the same cells on the FRAMED send path (optimisation T1 option 3, labelled extra cells: rpc::unary_framed, the request message sent as a 5-byte prefix frame and the caller's Bytes, no copy into tonic's buffer; B/C/E via ak_client_set_framed, D/F in the harness; request headers as tonic's Grpc::unary builds them, response via Status::from_header_map + Streaming::new_response; compression off on both paths); callback/queue deliveries not run in this suite".into()),
         ("delivery", "B, C, E: the core's blocking ak_call_unary from k host threads (a pool created before the warm-up, reused); A, D, F: tonic's idiomatic async unary call from k tokio tasks (packages/rust's shape)".into()),
         ("cell C request", "direction b: the core encode context's output MOVED into the call (ak_call_unary_enc, optimisation R2; since T1 through ak_rt::Enc::take, the buffer recycled through a spare slot); a and a+read: empty request through ak_call_unary. Cell D direction b: the output moved to the host as an owned buffer (ak_enc_take_owned, T1 ffi) wrapped by Bytes::from_owner and released with ak_bytes_free when tonic drops it; cell F direction b: core-native's Enc::take (T1)".into()),
         ("core-ffi encode fill", campaign::FFI_ENCODE_FILL.into()),

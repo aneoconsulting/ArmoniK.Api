@@ -1372,6 +1372,8 @@ ak_client *ak_client_new(ak_runtime *r, const uint8_t *uri, size_t uri_len);
 /* A client with the transport pinned. NULL options = `ak_client_new`. */
 ak_client *ak_client_new_opts(ak_runtime *r, const uint8_t *uri, size_t uri_len, const struct ak_client_opts *opts);
 void ak_client_destroy(ak_client *c);
+/* Choose the send path of every later call on `c`: 1 = FRAMED (tonic's Channel, the request message sent as two body frames, the 5-byte prefix and the bytes, never copied), 0 = the reference (tonic's Grpc::unary with a raw-bytes codec, one copy into tonic's buffer; the default). Request headers, response status and trailer handling, compression (off) and the send limit are the reference path's. Another value or NULL `c` is AK_ERR_INVALID_STATE. Additive (optimisation T1, option 3). */
+int32_t ak_client_set_framed(ak_client *c, int32_t on);
 /* Blocking delivery: one crossing in, `ak_bytes_free` the only other. */
 int32_t ak_call_unary(ak_client *c, const uint8_t *path, size_t path_len, const uint8_t *req, size_t req_len, struct ak_bytes *out);
 /* Blocking delivery whose request is the encode context's output, MOVED (not copied); the context's encoded bytes are consumed. Additive (optimisation R2). */

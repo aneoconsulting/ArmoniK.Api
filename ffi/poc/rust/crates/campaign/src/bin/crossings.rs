@@ -110,7 +110,7 @@ fn rpc_rows(out: &mut Vec<String>) {
             let (rf, rr) = rpc_counters();
             let (ef, er) = enc(&sl[0].ctx);
             let (df, dr) = dec(sl[0].ctx.dec.list_tasks_detailed_response);
-            out.push(row(&format!("rpc:{}", grid::base(cell)), d, mode, (rf + ef + df, rr + er + dr), host_calls_take()));
+            out.push(row(&format!("rpc:{}", grid::stem(cell)), d, mode, (rf + ef + df, rr + er + dr), host_calls_take()));
         }
     }
     let _ = std::fs::remove_dir_all(&dir);
@@ -129,7 +129,8 @@ fn main() {
     println!("# binding's ak_enc_reset / ak_dec_reset_<Root> / ak_enc_take / ak_dec_err); resets = ak_enc_reset before each");
     println!("# encode + one ak_dec_reset_<Root> before each retain decode or pull (the context stays armed, U1). Retain: no pre-placed buffer,");
     println!("# geometric grow (unk_grow: max(want, 2 x capacity, 64), capped at INT32_MAX; U2, the owner's decision for every build).");
-    println!("# rpc:<cell> rows: one call of cell B, C, D or E (P2.2; a = Fetch + decode, b = encode + Push), core RPC counters included.");
+    println!("# rpc:<cell> rows: one call of cell B, C, D or E (P2.2; a = Fetch + decode, b = encode + Push), core RPC counters included;");
+    println!("# Bf, Cf, Df, Ef: the same cells on the framed send path (T1 option 3; ak_client_set_framed is called once at open, not per call).");
     println!("# input                                            direction    mode        forward  reverse resets");
     for l in out {
         println!("{l}");

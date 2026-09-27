@@ -1,0 +1,8 @@
+target A plant exit 3 output none: ABORT (requirement 18): server warm-up: cell A response 540422 B, expected 540423
+target B plant exit 3 output none: ABORT (requirement 18): server warm-up: cell B response 540422 B, expected 540423
+target Bf plant exit 3 output none: ABORT (requirement 18): server warm-up: cell Bf response 540422 B, expected 540423
+target Df plant exit 3 output none: ABORT (requirement 18): server warm-up: cell Df-retain response 540422 B, expected 540423
+target-nounk A plant exit 3 output none: ABORT (requirement 18): server warm-up: cell A response 540422 B, expected 540423
+target-nounk B plant exit 3 output none: ABORT (requirement 18): server warm-up: cell B response 540422 B, expected 540423
+target-nounk Bf plant exit 3 output none: ABORT (requirement 18): server warm-up: cell Bf response 540422 B, expected 540423
+target-nounk Df plant exit 3 output none: ABORT (requirement 18): server warm-up: cell Df-nounk response 540422 B, expected 540423

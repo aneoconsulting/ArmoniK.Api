@@ -56,6 +56,43 @@ impl Codec for Raw {
     }
 }
 
+/// T1 option 3's header evidence (`bin/header_diff`): when armed, every request the server
+/// receives is recorded as it arrives -- method, URI, version, then each header in the order
+/// the server's HeaderMap yields it. Off (None) in every timed run.
+pub static CAPTURE: std::sync::Mutex<Option<Vec<Vec<String>>>> = std::sync::Mutex::new(None);
+
+/// With `CAPTURE` armed: the sizes of the DATA frames each request's body arrived in, as the
+/// server's body yields them (one entry per request, in arrival order).
+pub static FRAMES: std::sync::Mutex<Vec<std::sync::Arc<std::sync::Mutex<Vec<usize>>>>> = std::sync::Mutex::new(Vec::new());
+
+/// A request body that records its data frames' sizes (header_diff only).
+struct CountFrames<B> {
+    inner: B,
+    sizes: std::sync::Arc<std::sync::Mutex<Vec<usize>>>,
+}
+impl<B: http_body::Body<Data = Bytes> + Unpin> http_body::Body for CountFrames<B> {
+    type Data = Bytes;
+    type Error = B::Error;
+    fn poll_frame(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Result<http_body::Frame<Bytes>, B::Error>>> {
+        let r = std::pin::Pin::new(&mut self.inner).poll_frame(cx);
+        if let std::task::Poll::Ready(Some(Ok(f))) = &r {
+            if let Some(d) = f.data_ref() {
+                self.sizes.lock().unwrap().push(d.len());
+            }
+        }
+        r
+    }
+    fn is_end_stream(&self) -> bool {
+        self.inner.is_end_stream()
+    }
+    fn size_hint(&self) -> http_body::SizeHint {
+        self.inner.size_hint()
+    }
+}
+
 #[derive(Clone)]
 pub struct Svc {
     pub fetch: Arc<Bytes>,
@@ -77,11 +114,30 @@ where
         std::task::Poll::Ready(Ok(()))
     }
     fn call(&mut self, req: http::Request<B>) -> Self::Future {
+        let mut sizes = None;
+        if let Ok(mut g) = CAPTURE.lock() {
+            if let Some(v) = g.as_mut() {
+                let sz = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+                FRAMES.lock().unwrap().push(sz.clone());
+                sizes = Some(sz);
+                let mut r = vec![format!("{} {} {:?}", req.method(), req.uri(), req.version())];
+                for (k, val) in req.headers() {
+                    r.push(format!("{}: {}", k, val.to_str().unwrap_or("<non-ascii>")));
+                }
+                v.push(r);
+            }
+        }
         let fetch = self.fetch.clone();
         let push = req.uri().path() == PUSH;
         Box::pin(async move {
             let mut grpc = tonic::server::Grpc::new(Raw);
-            Ok(grpc.unary(Answer { fetch, push }, req.map(tonic::body::Body::new)).await)
+            match sizes {
+                Some(sizes) => {
+                    let req = req.map(|b| tonic::body::Body::new(CountFrames { inner: Box::pin(b), sizes }));
+                    Ok(grpc.unary(Answer { fetch, push }, req).await)
+                }
+                None => Ok(grpc.unary(Answer { fetch, push }, req.map(tonic::body::Body::new)).await),
+            }
         })
     }
 }

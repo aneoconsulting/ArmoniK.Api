@@ -167,6 +167,38 @@ pub struct ClientImpl {
     /// the client handle is what ABI v1 section 9 says it is: usable from many threads at
     /// once, with ownership between handles internal.
     pub chan: tonic::transport::Channel,
+    /// Optimisation T1, option 3 (labelled, optional): the FRAMED send path
+    /// (`rpc::unary_framed`: tonic's Channel, the request's message sent as two body frames,
+    /// no copy) instead of the reference `Grpc::unary` + `RawCodec`. Off by default; set by
+    /// `ak_client_set_framed`, read by every delivery at call time.
+    pub framed: core::sync::atomic::AtomicBool,
+}
+
+impl ClientImpl {
+    fn link(&self) -> Link {
+        Link { chan: self.chan.clone(), framed: self.framed.load(core::sync::atomic::Ordering::Relaxed) }
+    }
+}
+
+/// What one call needs of its client: the channel and which send path.
+struct Link {
+    chan: tonic::transport::Channel,
+    framed: bool,
+}
+
+/// Optimisation T1, option 3: choose the send path of every later call on `c`: 1 = the
+/// framed path (`rpc::unary_framed`), 0 = the reference (`Grpc::unary` + `RawCodec`, the
+/// default). An additive entry rather than a member of `ak_client_opts`, so no struct layout
+/// changes. NULL `c` or another value is AK_ERR_INVALID_STATE. One crossing.
+#[no_mangle]
+pub unsafe extern "C" fn ak_client_set_framed(c: *mut ak_client, on: i32) -> i32 {
+    fwd();
+    if c.is_null() || !(on == 0 || on == 1) {
+        return AK_ERR_INVALID_STATE;
+    }
+    let cl = &*(c as *const ClientImpl);
+    cl.framed.store(on == 1, core::sync::atomic::Ordering::Relaxed);
+    AK_OK
 }
 
 /// `worker_threads` comes from the host with a small explicit default, never from
@@ -263,6 +295,7 @@ pub unsafe extern "C" fn ak_client_new_opts(
         Some(chan) => Box::into_raw(Box::new(ClientImpl {
             rt: r as *const RuntimeImpl,
             chan,
+            framed: core::sync::atomic::AtomicBool::new(false),
         })) as *mut ak_client,
         None => core::ptr::null_mut(),
     }
@@ -303,7 +336,7 @@ pub unsafe extern "C" fn ak_call_unary(
         Err(_) => return AK_ERR_INVALID_STATE,
     };
     let body = Bytes::copy_from_slice(core::slice::from_raw_parts(req, req_len));
-    let res = rt.rt.block_on(unary_once(cl.chan.clone(), path, body));
+    let res = rt.rt.block_on(unary_once(cl.link(), path, body));
     match res {
         Ok(b) => {
             *out = into_ak_bytes(b);
@@ -358,7 +391,7 @@ pub unsafe extern "C" fn ak_call_unary_enc(
     // T1: the context's buffer moved into the body, O(1), no copy; it comes back to the
     // context's spare slot when the transport drops the body (R2's swap, now Enc::take).
     let body = cx.e.take();
-    let res = rt.rt.block_on(unary_once(cl.chan.clone(), path, body));
+    let res = rt.rt.block_on(unary_once(cl.link(), path, body));
     match res {
         Ok(b) => {
             *out = into_ak_bytes(b);
@@ -406,11 +439,16 @@ pub unsafe extern "C" fn ak_enc_take_owned(enc: *mut crate::ak_enc_ctx, out: *mu
 /// drift from another delivery: there is one place the request is sent and one place the
 /// response is taken.
 async fn unary_once(
-    chan: tonic::transport::Channel,
+    link: Link,
     path: http::uri::PathAndQuery,
     body: Bytes,
 ) -> Result<Bytes, String> {
-    let mut grpc = tonic::client::Grpc::new(chan);
+    if link.framed {
+        // max_send None: the reference path's Grpc::new default (the core does not apply
+        // ak_client_opts.max_send_message on either path).
+        return rpc::unary_framed(link.chan, path, body, None).await.map_err(|e| format!("unary (framed): {e}"));
+    }
+    let mut grpc = tonic::client::Grpc::new(link.chan);
     grpc.ready().await.map_err(|e| format!("ready: {e}"))?;
     grpc.unary(tonic::Request::new(body), path, rpc::RawCodec)
         .await
@@ -621,7 +659,7 @@ unsafe fn call_parts(
     path_len: usize,
     req: *const u8,
     req_len: usize,
-) -> Option<(tonic::transport::Channel, &'static RuntimeImpl, http::uri::PathAndQuery, Bytes)> {
+) -> Option<(Link, &'static RuntimeImpl, http::uri::PathAndQuery, Bytes)> {
     if c.is_null() {
         return None;
     }
@@ -630,7 +668,7 @@ unsafe fn call_parts(
     let p = core::str::from_utf8(core::slice::from_raw_parts(path, path_len)).ok()?;
     let path = http::uri::PathAndQuery::from_maybe_shared(p.to_string()).ok()?;
     let body = Bytes::copy_from_slice(core::slice::from_raw_parts(req, req_len));
-    Some((cl.chan.clone(), rt, path, body))
+    Some((cl.link(), rt, path, body))
 }
 
 /// **The callback delivery.** Returns immediately with a handle; the completion arrives on

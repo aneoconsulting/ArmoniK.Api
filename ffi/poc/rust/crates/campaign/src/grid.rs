@@ -10,6 +10,14 @@
 //! C, D, E and F carry the unknown-field mode as a suffix (`-retain`, `-drop` in the full
 //! build, `-nounk` in the no-unknown build).
 //!
+//! Optimisation T1, option 3 (the owner: optional, measured beside the reference): a cell
+//! name with `f` after its letter (`Bf`, `Cf-drop`, `Df-retain`, ...) is the same cell on the
+//! FRAMED send path, `rpc::unary_framed` (tonic's Channel; the request message sent as the
+//! 5-byte prefix and the caller's Bytes, two body frames, no copy into tonic's buffer). B, C
+//! and E switch the core's client with `ak_client_set_framed(client, 1)` at `Conn::open`; D
+//! and F call `rpc::unary_framed` in the harness. The response is taken as tonic takes it.
+//! A has no framed twin (prost encodes into tonic's buffer: it has no copy to remove).
+//!
 //! Delivery (requirement 16 as amended, R-H30): B, C and E use the core's blocking call from
 //! k host threads (a pool, created before the warm-up and reused, R-H2); A, D and F use the
 //! host stack's idiomatic call, which for packages/rust is tonic's async client: k tokio
@@ -190,7 +198,14 @@ pub enum Conn {
 impl Conn {
     pub fn open(cell: &str, target: &str, pinned: bool) -> Conn {
         match base(cell) {
-            'B' | 'C' | 'E' => Conn::Core(Arc::new(CoreClient::new(target, pinned))),
+            'B' | 'C' | 'E' => {
+                let cc = CoreClient::new(target, pinned);
+                if framed(cell) {
+                    let rc = unsafe { ak_client_set_framed(cc.client, 1) };
+                    assert_eq!(rc, AK_OK, "ak_client_set_framed");
+                }
+                Conn::Core(Arc::new(cc))
+            }
             _ => {
                 let rt = Arc::new(tokio::runtime::Builder::new_multi_thread()
                     .worker_threads(TOKIO_WORKERS).enable_all().build().unwrap());
@@ -203,6 +218,16 @@ impl Conn {
 
 pub fn base(cell: &str) -> char {
     cell.chars().next().unwrap()
+}
+
+/// T1 option 3: the cell is on the framed send path (`Bf`, `Cf-drop`, ...).
+pub fn framed(cell: &str) -> bool {
+    cell.as_bytes().get(1) == Some(&b'f')
+}
+
+/// The cell's name without its mode: `A`, `B`, `Bf`, `C`, `Cf`, ... (the crossings rows).
+pub fn stem(cell: &str) -> &str {
+    cell.split('-').next().unwrap()
 }
 
 /// `retain` for a cell name's mode suffix.
@@ -238,8 +263,9 @@ pub fn call_of(cell: &str, conn: &Conn, dir: &'static str, sl: &'static [Slot], 
     let p_val = Arc::new(m2::prost_arm::value(m2::P2_2));
     let f_val: &'static _ = Box::leak(Box::new(m2::armonik_arm::value(m2::P2_2)));
     let c = base(cell);
+    let name: &'static str = cell_of(cell);
     let check = move |got: usize| -> Result<(), String> {
-        if got as u64 != want { Err(format!("cell {c} response {got} B, expected {want}")) } else { Ok(()) }
+        if got as u64 != want { Err(format!("cell {name} response {got} B, expected {want}")) } else { Ok(()) }
     };
     match (c, conn) {
         ('A', Conn::Tonic(rt, ch)) => {
@@ -322,6 +348,7 @@ pub fn call_of(cell: &str, conn: &Conn, dir: &'static str, sl: &'static [Slot], 
         ('D', Conn::Tonic(rt, ch)) | ('F', Conn::Tonic(rt, ch)) => {
             let ch = ch.clone();
             let ffi = c == 'D';
+            let framed = framed(cell);
             Call::Async(rt.clone(), Arc::new(move |i| {
                 let ch = ch.clone();
                 let slot = &sl[i];
@@ -344,10 +371,15 @@ pub fn call_of(cell: &str, conn: &Conn, dir: &'static str, sl: &'static [Slot], 
                 };
                 Box::pin(async move {
                     let body = body?;
-                    let mut g = tonic::client::Grpc::new(ch);
-                    g.ready().await.map_err(|e| e.to_string())?;
                     let pq = http::uri::PathAndQuery::from_static(path);
-                    let resp: Bytes = g.unary(tonic::Request::new(body), pq, rpc::RawCodec).await.map_err(|s| s.to_string())?.into_inner();
+                    let resp: Bytes = if framed {
+                        // T1 option 3: two body frames, no copy into tonic's buffer.
+                        rpc::unary_framed(ch, pq, body, None).await.map_err(|s| s.to_string())?
+                    } else {
+                        let mut g = tonic::client::Grpc::new(ch);
+                        g.ready().await.map_err(|e| e.to_string())?;
+                        g.unary(tonic::Request::new(body), pq, rpc::RawCodec).await.map_err(|s| s.to_string())?.into_inner()
+                    };
                     check(resp.len())?;
                     if fetch {
                         let v = if ffi {
@@ -367,17 +399,32 @@ pub fn call_of(cell: &str, conn: &Conn, dir: &'static str, sl: &'static [Slot], 
 
 /// The cells of THIS build (requirement 12): A and B once, C, D, E, F per unknown-field mode.
 #[cfg(feature = "unknown-fields")]
-pub const CELLS: &[&str] = &["A", "B", "C-retain", "C-drop", "D-retain", "D-drop", "E-retain", "E-drop", "F-retain", "F-drop"];
+pub const CELLS: &[&str] = &["A", "B", "C-retain", "C-drop", "D-retain", "D-drop", "E-retain", "E-drop", "F-retain", "F-drop",
+    "Bf", "Cf-retain", "Cf-drop", "Df-retain", "Df-drop", "Ef-retain", "Ef-drop", "Ff-retain", "Ff-drop"];
 /// The no-unknown build: A and B again as its in-process controls.
 #[cfg(not(feature = "unknown-fields"))]
-pub const CELLS: &[&str] = &["A", "B", "C-nounk", "D-nounk", "E-nounk", "F-nounk"];
+pub const CELLS: &[&str] = &["A", "B", "C-nounk", "D-nounk", "E-nounk", "F-nounk", "Bf", "Cf-nounk", "Df-nounk", "Ef-nounk", "Ff-nounk"];
 
 pub const DIRS: &[&str] = &["a", "a+read", "b"];
 
 /// Server warm-up (requirement 13 as amended): `n` Fetch calls from each client transport
 /// (tonic, the core's), checked, before round 1 of the first cell.
 pub fn warm_server(target: &str, pinned: bool, n: usize, want_a: u64) -> Result<(), String> {
-    for cell in ["A", "B"] {
+    warm_with(&["A", "B"], target, pinned, n, want_a)
+}
+
+/// A cell of this build named by its stem (`A`, `Bf`, `Df`, ...): the stem itself when it is a
+/// cell, else the first cell `<stem>-<mode>`. `rpc_client --warm-cells` takes stems, so the
+/// runner's plant control (requirement 18) can name ONE send path per run and each path
+/// must abort on its own: A (tonic codec), B (core, reference), Bf (core, framed), Df (tonic
+/// Channel, framed, the harness's).
+pub fn cell_of(stem: &str) -> &'static str {
+    CELLS.iter().copied().find(|c| *c == stem || c.strip_prefix(stem).map_or(false, |r| r.starts_with('-')))
+        .unwrap_or_else(|| panic!("no cell {stem} in this build"))
+}
+
+pub fn warm_with(cells: &[&str], target: &str, pinned: bool, n: usize, want_a: u64) -> Result<(), String> {
+    for &cell in cells {
         let conn = Conn::open(cell, target, pinned);
         let call = call_of(cell, &conn, "a", slots(1), want_a);
         for _ in 0..n {

@@ -60,6 +60,112 @@ impl Codec for RawCodec {
     }
 }
 
+// ---- the FRAMED send path (optimisation T1, option 3; owner: optional, labelled) ----------
+//
+// `Grpc::unary` with `RawCodec` copies the request once: tonic's `Encoder` API only offers
+// `&mut EncodeBuf`, so `RawEncoder` puts the caller's `Bytes` into tonic's buffer. The
+// framed path keeps tonic's `Channel` (a tower service over `http::Request<Body>`, which
+// adds the origin and `user-agent` itself) and sends the gRPC message as TWO body frames,
+// the 5-byte length prefix and the caller's `Bytes`, so the message is never copied on the
+// host. The request is built as tonic 0.14.6's `GrpcConfig::prepare_request` builds it for
+// a `Grpc::new(channel)` (default origin, no compression, no metadata, no deadline): POST,
+// HTTP/2, the path as the URI, `te: trailers`, `content-type: application/grpc`, nothing
+// else (`grpc-accept-encoding` only when accept-compression is enabled, which it is not
+// here; `grpc-timeout` only from a deadline, never set here). The response is taken as
+// `Grpc::streaming` + `client_streaming` take it: trailers-only status from the headers
+// (`Status::from_header_map`), then `Streaming::new_response(RawDecoder, ...)`, the one
+// message, the trailers (their grpc-status checked by `Streaming`). Compression stays OFF
+// on both paths (no send/accept encodings are configured on either). The send size limit
+// is `encode_item`'s: `max_send` (tonic's default is no limit, `usize::MAX`, which is what
+// every caller here passes -- the core does not apply `ak_client_opts.max_send_message` on
+// either path) and the 4 GiB prefix limit.
+
+/// The two frames of one length-prefixed gRPC message, uncompressed.
+struct Framed {
+    hdr: Option<Bytes>,
+    msg: Option<Bytes>,
+}
+
+impl http_body::Body for Framed {
+    type Data = Bytes;
+    type Error = tonic::Status;
+    fn poll_frame(
+        mut self: std::pin::Pin<&mut Self>,
+        _cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Result<http_body::Frame<Bytes>, tonic::Status>>> {
+        let next = match self.hdr.take() {
+            Some(h) => Some(h),
+            None => self.msg.take(),
+        };
+        std::task::Poll::Ready(next.map(|b| Ok(http_body::Frame::data(b))))
+    }
+    fn is_end_stream(&self) -> bool {
+        self.hdr.is_none() && self.msg.is_none()
+    }
+    // size_hint left at its default (unknown), as tonic's EncodeBody leaves it, so hyper adds
+    // no content-length the codec path does not send.
+}
+
+/// One unary call over `svc` (a tonic `Channel`) whose request is `msg`, sent without a copy
+/// (see the section comment). `max_send`: the largest message sent, `None` = tonic's default.
+pub async fn unary_framed<T>(
+    mut svc: T,
+    path: http::uri::PathAndQuery,
+    msg: Bytes,
+    max_send: Option<usize>,
+) -> Result<Bytes, tonic::Status>
+where
+    T: tonic::client::GrpcService<tonic::body::Body>,
+    T::ResponseBody: http_body::Body<Data = Bytes> + Send + 'static,
+    <T::ResponseBody as http_body::Body>::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
+{
+    // encode_item's limits, with its messages.
+    let len = msg.len();
+    let limit = max_send.unwrap_or(usize::MAX);
+    if len > limit {
+        return Err(tonic::Status::out_of_range(format!(
+            "Error, encoded message length too large: found {len} bytes, the limit is: {limit} bytes"
+        )));
+    }
+    if len > u32::MAX as usize {
+        return Err(tonic::Status::resource_exhausted(format!(
+            "Cannot return body with more than 4GB of data but got {len} bytes"
+        )));
+    }
+    let mut hdr = [0u8; 5];
+    hdr[1..].copy_from_slice(&(len as u32).to_be_bytes());
+    // An empty message is the prefix alone (no empty DATA frame after it).
+    let msg = if msg.is_empty() { None } else { Some(msg) };
+    let body = tonic::body::Body::new(Framed { hdr: Some(Bytes::copy_from_slice(&hdr)), msg });
+    let uri = http::Uri::from_parts({
+        let mut p = http::uri::Parts::default();
+        p.path_and_query = Some(path);
+        p
+    })
+    .map_err(|e| tonic::Status::internal(format!("uri: {e}")))?;
+    let req = http::Request::builder()
+        .method(http::Method::POST)
+        .uri(uri)
+        .version(http::Version::HTTP_2)
+        .header(http::header::TE, http::HeaderValue::from_static("trailers"))
+        .header(http::header::CONTENT_TYPE, http::HeaderValue::from_static("application/grpc"))
+        .body(body)
+        .map_err(|e| tonic::Status::internal(format!("request: {e}")))?;
+    std::future::poll_fn(|cx| svc.poll_ready(cx)).await.map_err(|e| tonic::Status::unknown(format!("ready: {}", e.into())))?;
+    let resp = svc.call(req).await.map_err(|e| tonic::Status::unknown(format!("call: {}", e.into())))?;
+    // Grpc::create_response, without compression.
+    let status_code = resp.status();
+    let mut stream = match tonic::Status::from_header_map(resp.headers()) {
+        Some(st) if st.code() != tonic::Code::Ok => return Err(st),
+        Some(_) => tonic::codec::Streaming::new_empty(RawDecoder, resp.into_body()),
+        None => tonic::codec::Streaming::new_response(RawDecoder, resp.into_body(), status_code, None, None),
+    };
+    // Grpc::client_streaming: the one message, then the trailers.
+    let m = stream.message().await?.ok_or_else(|| tonic::Status::internal("Missing response message."))?;
+    stream.trailers().await?;
+    Ok(m)
+}
+
 pub const PATH: &str = "/armonik.ffi.shapes.v1.Bench/Unary";
 
 // ---- the server ---------------------------------------------------------------------

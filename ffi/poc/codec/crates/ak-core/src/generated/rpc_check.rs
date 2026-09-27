@@ -11,6 +11,7 @@ const _ak_runtime_destroy: unsafe extern "C" fn(*mut ak_runtime) = crate::rpc::a
 const _ak_client_new: unsafe extern "C" fn(*mut ak_runtime, *const u8, usize) -> *mut ak_client = crate::rpc::ak_client_new;
 const _ak_client_new_opts: unsafe extern "C" fn(*mut ak_runtime, *const u8, usize, *const ak_client_opts) -> *mut ak_client = crate::rpc::ak_client_new_opts;
 const _ak_client_destroy: unsafe extern "C" fn(*mut ak_client) = crate::rpc::ak_client_destroy;
+const _ak_client_set_framed: unsafe extern "C" fn(*mut ak_client, i32) -> i32 = crate::rpc::ak_client_set_framed;
 const _ak_call_unary: unsafe extern "C" fn(*mut ak_client, *const u8, usize, *const u8, usize, *mut ak_bytes) -> i32 = crate::rpc::ak_call_unary;
 const _ak_call_unary_enc: unsafe extern "C" fn(*mut ak_client, *const u8, usize, *mut ak_enc_ctx, *mut ak_bytes) -> i32 = crate::rpc::ak_call_unary_enc;
 const _ak_bytes_free: unsafe extern "C" fn(*mut ak_bytes) = crate::rpc::ak_bytes_free;

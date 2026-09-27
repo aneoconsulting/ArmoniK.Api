@@ -89,6 +89,11 @@ CARGO_TARGET_DIR="$PWD/target-count" cargo run --release -q -p campaign --featur
   | diff -q gen/crossings.txt - >/dev/null && echo "  $(wc -l < gen/crossings.txt) lines identical" \
   || { echo "  crossing counts DIFFER from gen/crossings.txt"; exit 1; }
 
+step "11d. the framed send path (optimisation T1 option 3): request headers and status handling as the reference path"
+cargo run --release -q -p campaign --bin header_diff 2>/dev/null > "$(mktemp)" \
+  && echo "  request headers identical (both transports, both methods); refused-request status, other-path outcome and send limit as the reference" \
+  || { echo "  the framed send path DIFFERS from the reference (run target/release/header_diff)"; exit 1; }
+
 step "12. the NO-UNKNOWN variant (WP5 step 10; CAMPAIGN.md req 10): unknown-field support compiled out"
 # Its own build and target directory (a shared target would overwrite libak_core.so).
 ( export CARGO_TARGET_DIR="$PWD/target-nounk"

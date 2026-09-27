@@ -165,6 +165,20 @@ public static unsafe partial class AkRpc
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern void ak_client_destroy(IntPtr c);
 #endif
+    /// Choose the send path of every later call on `c`: 1 = FRAMED (tonic's Channel, the request message sent as two body frames, the 5-byte prefix and the bytes, never copied), 0 = the reference (tonic's Grpc::unary with a raw-bytes codec, one copy into tonic's buffer; the default). Request headers, response status and trailer handling, compression (off) and the send limit are the reference path's. Another value or NULL `c` is AK_ERR_INVALID_STATE. Additive (optimisation T1, option 3).
+#if AK_HOST_COUNT
+    [DllImport(Lib, EntryPoint = "ak_client_set_framed", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    private static extern int ak_client_set_framed__raw(IntPtr c, int on);
+    internal static long N_ak_client_set_framed;
+    internal static int ak_client_set_framed(IntPtr c, int on) { System.Threading.Interlocked.Increment(ref N_ak_client_set_framed); return ak_client_set_framed__raw(c, on); }
+#elif NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial int ak_client_set_framed(IntPtr c, int on);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ak_client_set_framed(IntPtr c, int on);
+#endif
     /// Blocking delivery: one crossing in, `ak_bytes_free` the only other.
 #if AK_HOST_COUNT
     [DllImport(Lib, EntryPoint = "ak_call_unary", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
@@ -378,6 +392,7 @@ public static unsafe partial class AkRpc
         if (N_ak_client_new != 0) l.Add(("ak_client_new", N_ak_client_new));
         if (N_ak_client_new_opts != 0) l.Add(("ak_client_new_opts", N_ak_client_new_opts));
         if (N_ak_client_destroy != 0) l.Add(("ak_client_destroy", N_ak_client_destroy));
+        if (N_ak_client_set_framed != 0) l.Add(("ak_client_set_framed", N_ak_client_set_framed));
         if (N_ak_call_unary != 0) l.Add(("ak_call_unary", N_ak_call_unary));
         if (N_ak_call_unary_enc != 0) l.Add(("ak_call_unary_enc", N_ak_call_unary_enc));
         if (N_ak_bytes_free != 0) l.Add(("ak_bytes_free", N_ak_bytes_free));
@@ -403,6 +418,7 @@ public static unsafe partial class AkRpc
         N_ak_client_new = 0;
         N_ak_client_new_opts = 0;
         N_ak_client_destroy = 0;
+        N_ak_client_set_framed = 0;
         N_ak_call_unary = 0;
         N_ak_call_unary_enc = 0;
         N_ak_bytes_free = 0;
