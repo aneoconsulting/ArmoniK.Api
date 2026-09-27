@@ -412,7 +412,7 @@ def emit_core_native(x, unknown="drop", types_path="super::types::*"):
         o.append("pub fn encode_%s(o: &%s) -> Vec<u8> {" % (snake(root), root))
         o.append("    let mut e = Enc::new(SITES);")
         o.append("    enc_%s(o, &mut e);" % snake(root))
-        o.append("    e.buf")
+        o.append("    e.buf.into()")
         o.append("}")
         o.append("")
         o.append("/// Encode into a context that is reused, so the learned widths survive and the")

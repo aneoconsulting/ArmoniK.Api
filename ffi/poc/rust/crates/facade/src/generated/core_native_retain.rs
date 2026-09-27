@@ -1504,7 +1504,7 @@ fn dec_dual_response(d: &mut Dec, out: &mut DualResponse, depth: u32) {
 pub fn encode_list_results_response(o: &ListResultsResponse) -> Vec<u8> {
     let mut e = Enc::new(SITES);
     enc_list_results_response(o, &mut e);
-    e.buf
+    e.buf.into()
 }
 
 /// Encode into a context that is reused, so the learned widths survive and the
@@ -1525,7 +1525,7 @@ pub fn decode_list_results_response(b: &[u8]) -> Result<ListResultsResponse, i32
 pub fn encode_list_tasks_detailed_response(o: &ListTasksDetailedResponse) -> Vec<u8> {
     let mut e = Enc::new(SITES);
     enc_list_tasks_detailed_response(o, &mut e);
-    e.buf
+    e.buf.into()
 }
 
 /// Encode into a context that is reused, so the learned widths survive and the
@@ -1546,7 +1546,7 @@ pub fn decode_list_tasks_detailed_response(b: &[u8]) -> Result<ListTasksDetailed
 pub fn encode_list_probe_response(o: &ListProbeResponse) -> Vec<u8> {
     let mut e = Enc::new(SITES);
     enc_list_probe_response(o, &mut e);
-    e.buf
+    e.buf.into()
 }
 
 /// Encode into a context that is reused, so the learned widths survive and the
@@ -1567,7 +1567,7 @@ pub fn decode_list_probe_response(b: &[u8]) -> Result<ListProbeResponse, i32> {
 pub fn encode_list_task_summary_response(o: &ListTaskSummaryResponse) -> Vec<u8> {
     let mut e = Enc::new(SITES);
     enc_list_task_summary_response(o, &mut e);
-    e.buf
+    e.buf.into()
 }
 
 /// Encode into a context that is reused, so the learned widths survive and the
@@ -1588,7 +1588,7 @@ pub fn decode_list_task_summary_response(b: &[u8]) -> Result<ListTaskSummaryResp
 pub fn encode_upload_result_data_message(o: &UploadResultDataMessage) -> Vec<u8> {
     let mut e = Enc::new(SITES);
     enc_upload_result_data_message(o, &mut e);
-    e.buf
+    e.buf.into()
 }
 
 /// Encode into a context that is reused, so the learned widths survive and the
@@ -1609,7 +1609,7 @@ pub fn decode_upload_result_data_message(b: &[u8]) -> Result<UploadResultDataMes
 pub fn encode_list_metrics_response(o: &ListMetricsResponse) -> Vec<u8> {
     let mut e = Enc::new(SITES);
     enc_list_metrics_response(o, &mut e);
-    e.buf
+    e.buf.into()
 }
 
 /// Encode into a context that is reused, so the learned widths survive and the
@@ -1630,7 +1630,7 @@ pub fn decode_list_metrics_response(b: &[u8]) -> Result<ListMetricsResponse, i32
 pub fn encode_dual_response(o: &DualResponse) -> Vec<u8> {
     let mut e = Enc::new(SITES);
     enc_dual_response(o, &mut e);
-    e.buf
+    e.buf.into()
 }
 
 /// Encode into a context that is reused, so the learned widths survive and the

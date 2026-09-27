@@ -319,8 +319,8 @@ pub unsafe extern "C" fn ak_call_unary(
 /// Optimisation R2: the request is the ENCODE CONTEXT's output, MOVED into the call, not
 /// copied: the context's buffer becomes the request body (owned by the core from here; the
 /// transport may poll it after the response, so nothing borrows host memory) and the
-/// context gets back the buffer of its previous such call, returned when the transport
-/// dropped it. The context's encoded bytes are consumed: after this call it holds none,
+/// context reclaims the allocation at its next reset once the transport dropped it (T1:
+/// `ak_rt::Enc::take`, a split of a `BytesMut`). The context's encoded bytes are consumed: after this call it holds none,
 /// and its next operation is an encode (which resets it). The request must be a
 /// successful encode: a context in error is refused with its error. Otherwise the same
 /// blocking delivery as `ak_call_unary`, one crossing in. Additive: `ak_call_unary`
@@ -355,16 +355,10 @@ pub unsafe extern "C" fn ak_call_unary_enc(
     if cx.e.err != 0 {
         return cx.e.err;
     }
-    let spare = cx.spare.lock().ok().and_then(|mut g| g.take());
-    let fresh = match spare {
-        Some(mut v) => {
-            v.clear();
-            v
-        }
-        None => Vec::with_capacity(cx.e.buf.capacity()),
-    };
-    let body_vec = core::mem::replace(&mut cx.e.buf, fresh);
-    let body = Bytes::from_owner(Recycle { v: body_vec, slot: cx.spare.clone() });
+    // T1: the encoded bytes split off the context's buffer and frozen, O(1), no copy; the
+    // next `ak_enc_reset` reclaims the allocation once this body is dropped (or allocates
+    // once if it is still held). This replaced R2's swap with a spare buffer.
+    let body = cx.e.take();
     let res = rt.rt.block_on(unary_once(cl.chan.clone(), path, body));
     match res {
         Ok(b) => {
@@ -374,26 +368,6 @@ pub unsafe extern "C" fn ak_call_unary_enc(
         Err(e) => {
             trace("ak_call_unary_enc", &e);
             AK_ERR_HOST
-        }
-    }
-}
-
-/// A moved request body that returns its buffer to its encode context when dropped.
-struct Recycle {
-    v: Vec<u8>,
-    slot: std::sync::Arc<std::sync::Mutex<Option<Vec<u8>>>>,
-}
-impl AsRef<[u8]> for Recycle {
-    fn as_ref(&self) -> &[u8] {
-        &self.v
-    }
-}
-impl Drop for Recycle {
-    fn drop(&mut self) {
-        if let Ok(mut g) = self.slot.try_lock() {
-            if g.is_none() {
-                *g = Some(core::mem::take(&mut self.v));
-            }
         }
     }
 }

@@ -247,7 +247,7 @@ pub mod core_native_noinline {
     pub fn encode(o: &ListResultsResponse) -> Vec<u8> {
         let mut e = Enc::new(core_native::SITES);
         encode_into(o, &mut e);
-        e.buf.clone()
+        e.buf.to_vec()
     }
 
     pub fn decode(b: &[u8]) -> ListResultsResponse {
@@ -279,7 +279,7 @@ pub mod core_native_opaque {
     pub fn encode(o: &ListResultsResponse) -> Vec<u8> {
         let mut e = Enc::new(core_native::SITES);
         (enc_fn())(o, &mut e);
-        e.buf.clone()
+        e.buf.to_vec()
     }
 
     pub fn decode(b: &[u8]) -> ListResultsResponse {

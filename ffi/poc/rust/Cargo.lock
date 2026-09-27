@@ -33,6 +33,7 @@ dependencies = [
 name = "ak-rt"
 version = "0.0.0"
 dependencies = [
+ "bytes",
  "simdutf8",
 ]
 

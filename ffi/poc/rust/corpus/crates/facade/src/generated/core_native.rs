@@ -2054,7 +2054,7 @@ fn dec_wire_zoo(d: &mut Dec, out: &mut WireZoo, depth: u32) {
 pub fn encode_timestamp(o: &Timestamp) -> Vec<u8> {
     let mut e = Enc::new(SITES);
     enc_timestamp(o, &mut e);
-    e.buf
+    e.buf.into()
 }
 
 /// Encode into a context that is reused, so the learned widths survive and the
@@ -2075,7 +2075,7 @@ pub fn decode_timestamp(b: &[u8]) -> Result<Timestamp, i32> {
 pub fn encode_duration(o: &Duration) -> Vec<u8> {
     let mut e = Enc::new(SITES);
     enc_duration(o, &mut e);
-    e.buf
+    e.buf.into()
 }
 
 /// Encode into a context that is reused, so the learned widths survive and the
@@ -2096,7 +2096,7 @@ pub fn decode_duration(b: &[u8]) -> Result<Duration, i32> {
 pub fn encode_result_raw(o: &ResultRaw) -> Vec<u8> {
     let mut e = Enc::new(SITES);
     enc_result_raw(o, &mut e);
-    e.buf
+    e.buf.into()
 }
 
 /// Encode into a context that is reused, so the learned widths survive and the
@@ -2117,7 +2117,7 @@ pub fn decode_result_raw(b: &[u8]) -> Result<ResultRaw, i32> {
 pub fn encode_task_options(o: &TaskOptions) -> Vec<u8> {
     let mut e = Enc::new(SITES);
     enc_task_options(o, &mut e);
-    e.buf
+    e.buf.into()
 }
 
 /// Encode into a context that is reused, so the learned widths survive and the
@@ -2138,7 +2138,7 @@ pub fn decode_task_options(b: &[u8]) -> Result<TaskOptions, i32> {
 pub fn encode_task_output(o: &TaskOutput) -> Vec<u8> {
     let mut e = Enc::new(SITES);
     enc_task_output(o, &mut e);
-    e.buf
+    e.buf.into()
 }
 
 /// Encode into a context that is reused, so the learned widths survive and the
@@ -2159,7 +2159,7 @@ pub fn decode_task_output(b: &[u8]) -> Result<TaskOutput, i32> {
 pub fn encode_task_detailed(o: &TaskDetailed) -> Vec<u8> {
     let mut e = Enc::new(SITES);
     enc_task_detailed(o, &mut e);
-    e.buf
+    e.buf.into()
 }
 
 /// Encode into a context that is reused, so the learned widths survive and the
@@ -2180,7 +2180,7 @@ pub fn decode_task_detailed(b: &[u8]) -> Result<TaskDetailed, i32> {
 pub fn encode_task_summary(o: &TaskSummary) -> Vec<u8> {
     let mut e = Enc::new(SITES);
     enc_task_summary(o, &mut e);
-    e.buf
+    e.buf.into()
 }
 
 /// Encode into a context that is reused, so the learned widths survive and the
@@ -2201,7 +2201,7 @@ pub fn decode_task_summary(b: &[u8]) -> Result<TaskSummary, i32> {
 pub fn encode_probe(o: &Probe) -> Vec<u8> {
     let mut e = Enc::new(SITES);
     enc_probe(o, &mut e);
-    e.buf
+    e.buf.into()
 }
 
 /// Encode into a context that is reused, so the learned widths survive and the
@@ -2222,7 +2222,7 @@ pub fn decode_probe(b: &[u8]) -> Result<Probe, i32> {
 pub fn encode_empty(o: &Empty) -> Vec<u8> {
     let mut e = Enc::new(SITES);
     enc_empty(o, &mut e);
-    e.buf
+    e.buf.into()
 }
 
 /// Encode into a context that is reused, so the learned widths survive and the
@@ -2243,7 +2243,7 @@ pub fn decode_empty(b: &[u8]) -> Result<Empty, i32> {
 pub fn encode_upload_result_data(o: &UploadResultData) -> Vec<u8> {
     let mut e = Enc::new(SITES);
     enc_upload_result_data(o, &mut e);
-    e.buf
+    e.buf.into()
 }
 
 /// Encode into a context that is reused, so the learned widths survive and the
@@ -2264,7 +2264,7 @@ pub fn decode_upload_result_data(b: &[u8]) -> Result<UploadResultData, i32> {
 pub fn encode_metrics_batch(o: &MetricsBatch) -> Vec<u8> {
     let mut e = Enc::new(SITES);
     enc_metrics_batch(o, &mut e);
-    e.buf
+    e.buf.into()
 }
 
 /// Encode into a context that is reused, so the learned widths survive and the
@@ -2285,7 +2285,7 @@ pub fn decode_metrics_batch(b: &[u8]) -> Result<MetricsBatch, i32> {
 pub fn encode_pair(o: &Pair) -> Vec<u8> {
     let mut e = Enc::new(SITES);
     enc_pair(o, &mut e);
-    e.buf
+    e.buf.into()
 }
 
 /// Encode into a context that is reused, so the learned widths survive and the
@@ -2306,7 +2306,7 @@ pub fn decode_pair(b: &[u8]) -> Result<Pair, i32> {
 pub fn encode_list_results_response(o: &ListResultsResponse) -> Vec<u8> {
     let mut e = Enc::new(SITES);
     enc_list_results_response(o, &mut e);
-    e.buf
+    e.buf.into()
 }
 
 /// Encode into a context that is reused, so the learned widths survive and the
@@ -2327,7 +2327,7 @@ pub fn decode_list_results_response(b: &[u8]) -> Result<ListResultsResponse, i32
 pub fn encode_list_tasks_detailed_response(o: &ListTasksDetailedResponse) -> Vec<u8> {
     let mut e = Enc::new(SITES);
     enc_list_tasks_detailed_response(o, &mut e);
-    e.buf
+    e.buf.into()
 }
 
 /// Encode into a context that is reused, so the learned widths survive and the
@@ -2348,7 +2348,7 @@ pub fn decode_list_tasks_detailed_response(b: &[u8]) -> Result<ListTasksDetailed
 pub fn encode_list_task_summary_response(o: &ListTaskSummaryResponse) -> Vec<u8> {
     let mut e = Enc::new(SITES);
     enc_list_task_summary_response(o, &mut e);
-    e.buf
+    e.buf.into()
 }
 
 /// Encode into a context that is reused, so the learned widths survive and the
@@ -2369,7 +2369,7 @@ pub fn decode_list_task_summary_response(b: &[u8]) -> Result<ListTaskSummaryResp
 pub fn encode_list_probe_response(o: &ListProbeResponse) -> Vec<u8> {
     let mut e = Enc::new(SITES);
     enc_list_probe_response(o, &mut e);
-    e.buf
+    e.buf.into()
 }
 
 /// Encode into a context that is reused, so the learned widths survive and the
@@ -2390,7 +2390,7 @@ pub fn decode_list_probe_response(b: &[u8]) -> Result<ListProbeResponse, i32> {
 pub fn encode_list_metrics_response(o: &ListMetricsResponse) -> Vec<u8> {
     let mut e = Enc::new(SITES);
     enc_list_metrics_response(o, &mut e);
-    e.buf
+    e.buf.into()
 }
 
 /// Encode into a context that is reused, so the learned widths survive and the
@@ -2411,7 +2411,7 @@ pub fn decode_list_metrics_response(b: &[u8]) -> Result<ListMetricsResponse, i32
 pub fn encode_upload_result_data_message(o: &UploadResultDataMessage) -> Vec<u8> {
     let mut e = Enc::new(SITES);
     enc_upload_result_data_message(o, &mut e);
-    e.buf
+    e.buf.into()
 }
 
 /// Encode into a context that is reused, so the learned widths survive and the
@@ -2432,7 +2432,7 @@ pub fn decode_upload_result_data_message(b: &[u8]) -> Result<UploadResultDataMes
 pub fn encode_dual_response(o: &DualResponse) -> Vec<u8> {
     let mut e = Enc::new(SITES);
     enc_dual_response(o, &mut e);
-    e.buf
+    e.buf.into()
 }
 
 /// Encode into a context that is reused, so the learned widths survive and the
@@ -2453,7 +2453,7 @@ pub fn decode_dual_response(b: &[u8]) -> Result<DualResponse, i32> {
 pub fn encode_chunk_leaf(o: &ChunkLeaf) -> Vec<u8> {
     let mut e = Enc::new(SITES);
     enc_chunk_leaf(o, &mut e);
-    e.buf
+    e.buf.into()
 }
 
 /// Encode into a context that is reused, so the learned widths survive and the
@@ -2474,7 +2474,7 @@ pub fn decode_chunk_leaf(b: &[u8]) -> Result<ChunkLeaf, i32> {
 pub fn encode_chunk_inner(o: &ChunkInner) -> Vec<u8> {
     let mut e = Enc::new(SITES);
     enc_chunk_inner(o, &mut e);
-    e.buf
+    e.buf.into()
 }
 
 /// Encode into a context that is reused, so the learned widths survive and the
@@ -2495,7 +2495,7 @@ pub fn decode_chunk_inner(b: &[u8]) -> Result<ChunkInner, i32> {
 pub fn encode_chunk_element(o: &ChunkElement) -> Vec<u8> {
     let mut e = Enc::new(SITES);
     enc_chunk_element(o, &mut e);
-    e.buf
+    e.buf.into()
 }
 
 /// Encode into a context that is reused, so the learned widths survive and the
@@ -2516,7 +2516,7 @@ pub fn decode_chunk_element(b: &[u8]) -> Result<ChunkElement, i32> {
 pub fn encode_chunked_response(o: &ChunkedResponse) -> Vec<u8> {
     let mut e = Enc::new(SITES);
     enc_chunked_response(o, &mut e);
-    e.buf
+    e.buf.into()
 }
 
 /// Encode into a context that is reused, so the learned widths survive and the
@@ -2537,7 +2537,7 @@ pub fn decode_chunked_response(b: &[u8]) -> Result<ChunkedResponse, i32> {
 pub fn encode_chunked_response_wide(o: &ChunkedResponseWide) -> Vec<u8> {
     let mut e = Enc::new(SITES);
     enc_chunked_response_wide(o, &mut e);
-    e.buf
+    e.buf.into()
 }
 
 /// Encode into a context that is reused, so the learned widths survive and the
@@ -2558,7 +2558,7 @@ pub fn decode_chunked_response_wide(b: &[u8]) -> Result<ChunkedResponseWide, i32
 pub fn encode_leaf_element(o: &LeafElement) -> Vec<u8> {
     let mut e = Enc::new(SITES);
     enc_leaf_element(o, &mut e);
-    e.buf
+    e.buf.into()
 }
 
 /// Encode into a context that is reused, so the learned widths survive and the
@@ -2579,7 +2579,7 @@ pub fn decode_leaf_element(b: &[u8]) -> Result<LeafElement, i32> {
 pub fn encode_leaf_response(o: &LeafResponse) -> Vec<u8> {
     let mut e = Enc::new(SITES);
     enc_leaf_response(o, &mut e);
-    e.buf
+    e.buf.into()
 }
 
 /// Encode into a context that is reused, so the learned widths survive and the
@@ -2600,7 +2600,7 @@ pub fn decode_leaf_response(b: &[u8]) -> Result<LeafResponse, i32> {
 pub fn encode_surrogate(o: &Surrogate) -> Vec<u8> {
     let mut e = Enc::new(SITES);
     enc_surrogate(o, &mut e);
-    e.buf
+    e.buf.into()
 }
 
 /// Encode into a context that is reused, so the learned widths survive and the
@@ -2621,7 +2621,7 @@ pub fn decode_surrogate(b: &[u8]) -> Result<Surrogate, i32> {
 pub fn encode_surrogate_inner(o: &SurrogateInner) -> Vec<u8> {
     let mut e = Enc::new(SITES);
     enc_surrogate_inner(o, &mut e);
-    e.buf
+    e.buf.into()
 }
 
 /// Encode into a context that is reused, so the learned widths survive and the
@@ -2642,7 +2642,7 @@ pub fn decode_surrogate_inner(b: &[u8]) -> Result<SurrogateInner, i32> {
 pub fn encode_nest(o: &Nest) -> Vec<u8> {
     let mut e = Enc::new(SITES);
     enc_nest(o, &mut e);
-    e.buf
+    e.buf.into()
 }
 
 /// Encode into a context that is reused, so the learned widths survive and the
@@ -2663,7 +2663,7 @@ pub fn decode_nest(b: &[u8]) -> Result<Nest, i32> {
 pub fn encode_wire_zoo(o: &WireZoo) -> Vec<u8> {
     let mut e = Enc::new(SITES);
     enc_wire_zoo(o, &mut e);
-    e.buf
+    e.buf.into()
 }
 
 /// Encode into a context that is reused, so the learned widths survive and the

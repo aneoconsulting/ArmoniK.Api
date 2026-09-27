@@ -42,3 +42,6 @@ pad-widths = []
 
 [dependencies]
 simdutf8 = { workspace = true, optional = true }
+# Optimisation T1: `Enc`'s buffer is a `BytesMut`, so a transport-ready `Bytes` is a split
+# and a freeze (O(1)) rather than a copy. Already in every core build's graph through tonic.
+bytes = { workspace = true }

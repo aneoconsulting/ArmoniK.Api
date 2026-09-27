@@ -314,12 +314,6 @@ pub struct EncCtxImpl {
     /// The direct argument of the call (ABI v1 section 8), if this message tree has one.
     pub direct: *const u8,
     pub direct_len: usize,
-    /// Optimisation R2: the buffer a request moved out of this context by
-    /// `ak_call_unary_enc` comes back here when the transport drops the request (on a
-    /// runtime thread, hence the lock), so the next encode reuses it: two buffers
-    /// alternate and neither the move nor the next encode allocates or copies.
-    #[cfg(feature = "rpc")]
-    pub spare: std::sync::Arc<std::sync::Mutex<Option<Vec<u8>>>>,
 }
 
 #[repr(C)]
@@ -363,8 +357,6 @@ pub extern "C" fn ak_enc_ctx_new() -> *mut ak_enc_ctx {
         open_obj: core::ptr::null(),
         direct: core::ptr::null(),
         direct_len: 0,
-        #[cfg(feature = "rpc")]
-        spare: std::sync::Arc::new(std::sync::Mutex::new(None)),
     });
     Box::into_raw(b) as *mut ak_enc_ctx
 }
