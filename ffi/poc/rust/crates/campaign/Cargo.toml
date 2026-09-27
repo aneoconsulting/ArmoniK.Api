@@ -8,7 +8,7 @@ publish.workspace = true
 # FIX-PLAN WP3: the rust slice's campaign harness (design/CAMPAIGN.md).
 #   benches/codec_suite.rs  the codec suite on criterion (requirement 22a)
 #   bin/rpc_server     the RPC grid's server, a separate process (requirement 13)
-#   bin/rpc_client     the RPC grid's client, cells A-F (requirements 12-18)
+#   benches/rpc_suite.rs  the RPC grid on criterion, cells A-F (requirements 12-18, 22a as amended)
 #   bin/calib          the crossing benchmark, forward and reverse (requirement 20)
 #   bin/crossings      crossing counts of every core-ffi case, counting build (19)
 # Driven by poc/rust/run_campaign.sh.
@@ -49,4 +49,9 @@ criterion = { version = "0.5", default-features = false }
 
 [[bench]]
 name = "codec_suite"
+harness = false
+
+# FIX-PLAN WP9 (CAMPAIGN req 22a as amended 2026-09-27): the RPC grid on criterion.
+[[bench]]
+name = "rpc_suite"
 harness = false

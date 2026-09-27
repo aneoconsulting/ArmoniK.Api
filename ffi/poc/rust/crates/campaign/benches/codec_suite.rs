@@ -6,8 +6,6 @@
 //!   AK_OUT           the JSON-lines file to write (section 7)
 //!   AK_ONLY          comma-separated input id prefixes (smoke runs), empty = everything
 //!   AK_SAMPLES       criterion samples per case = rounds (requirement 23; >= 10, criterion's floor)
-//!   AK_WARMUP_ITERS  a FIXED number of iterations of every case before criterion starts
-//!                    (requirement 24, identical for every arm; also warms the allocator, 25)
 //!   AK_WARMUP_MS     criterion's own warm-up time per case
 //!   AK_MEASURE_MS    criterion's measurement time per case
 //!   AK_LLC_BYTES     the last-level cache (default 13.75 MiB, the reference i9-7900X)
@@ -27,7 +25,7 @@
 //! summary and no sample is dropped from the output.
 
 use campaign::*;
-use criterion::{black_box, Criterion, SamplingMode};
+use criterion::{Criterion, SamplingMode};
 use std::io::Write;
 use std::time::Duration;
 
@@ -61,7 +59,6 @@ fn main() {
     let only: Vec<String> = std::env::var("AK_ONLY").unwrap_or_default()
         .split(',').filter(|s| !s.is_empty()).map(String::from).collect();
     let samples: usize = env("AK_SAMPLES", 10);
-    let warm_iters: u64 = env("AK_WARMUP_ITERS", 100);
     let warm_ms: u64 = env("AK_WARMUP_MS", 500);
     let meas_ms: u64 = env("AK_MEASURE_MS", 2000);
     let nresamples: usize = env("AK_NRESAMPLES", 100_000);
@@ -146,11 +143,6 @@ fn main() {
             if let Some(p) = cs.prep.as_mut() {
                 p();
             }
-            // Requirement 24: a fixed number of iterations of THIS case before criterion's
-            // own warm-up, identical for every arm.
-            for _ in 0..warm_iters {
-                black_box((cs.op)());
-            }
             g.bench_function(format!("{i:05}"), |b| b.iter(|| (cs.op)()));
             if let Some(d) = cs.done.as_mut() {
                 d();
@@ -179,7 +171,7 @@ fn main() {
         ("criterion resamples", format!("{nresamples} (analysis only; no exported sample depends on it)")),
         ("core-ffi encode fill", FFI_ENCODE_FILL.into()),
         ("core-ffi-zc", if zc.is_empty() { "none".to_string() } else { format!("labelled extra arm on inputs {}*: the core-ffi decode with every bytes field a slice of the input Bytes (optimisation Z1; not ABI v1 decision 13's copy semantics, which core-ffi keeps); run after the arm blocks", zc.join("*,")) }),
-        ("warm-up", format!("{warm_iters} fixed iterations per case, then criterion warm-up {warm_ms} ms; measurement {meas_ms} ms")),
+        ("warm-up", format!("criterion's own warm-up, {warm_ms} ms per case (AK_WARMUP_MS; FIX-PLAN WP9: no hand-written warm-up loop beside it); measurement {meas_ms} ms")),
         ("wall", "not recorded for the codec suite (criterion measures one quantity; process CPU is requirement 21's)".into()),
         ("unknown modes", format!("core-native, core-ffi, core-ffi-pull: {} (retain = every position armed); incumbent-prod and armonik: default (prost drops unknown fields). core-native's drop rendering has no unknown-field code in either build", MODES.iter().map(|m| m.0).collect::<Vec<_>>().join(", "))),
         ("precheck", format!("{checks} checks passed")),

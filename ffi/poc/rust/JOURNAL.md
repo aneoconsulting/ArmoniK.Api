@@ -3395,3 +3395,23 @@ rendered into every slice's header/binding; other slices' generated output regen
   environment wins in both modes. The runner header now lists every warm-up knob with its
   campaign and smoke defaults; the values used stay in each log's own header. No gated
   path changed (run_campaign.sh is not in gen/gate.sh), so no gate was run.
+
+## 2026-09-27 -- FIX-PLAN WP9: the RPC grid on criterion (CAMPAIGN req 22a as amended)
+
+- benches/rpc_suite.rs replaces bin/rpc_client (removed): one criterion benchmark per
+  (cell, dir, payload, k), every cell, direction (a, a+read, b, c, d), k, mode and framed
+  twin kept; one iteration = one batch of k calls in flight (Throughput::Elements(k)); the
+  process-CPU Measurement of the codec suite; wall from the routine's own clock around the
+  same iterations (iter_custom), matched to criterion's samples by (iterations, cpu) at
+  export. Runtimes, core clients, channels (one per cell per process) and the k callers are
+  built outside the measured closure. A failed check panics the benchmark (criterion has no
+  stop-on-error); the runner discards the launch's files. New control: AK_RPC_PLANT=bench,
+  a wrong length inside the first criterion benchmark, must abort with no sample.
+- The owner's addendum (bc7cf94b1): no hand-written warm-up beside criterion's. Removed the
+  RPC per-benchmark pre-calls and the codec suite's AK_WARMUP_ITERS loop; criterion's
+  warm-up is the warm-up (AK_WARMUP_MS, AK_RPC_WARMUP_MS). Kept, each for a requirement:
+  the server and its warm-up (13), ProcessCpu and the wall column (21), abort-and-discard
+  (18), the seeded registration order (22), the export (28), the codec pre-check (26) and
+  pool build (11).
+- gen/rpc_narrow.sh and gen/opt_bench.sh call the bench through the environment.
+- Crossing counts unchanged (counting builds; the grid's per-call counts come from `crossings`).

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Framed cells (Xf...) against their reference twins, from rpc_client JSON lines in DIR
+"""Framed cells (Xf...) against their reference twins, from rpc_suite JSON lines in DIR
 (any rpc-*.jsonl). Per (transport, cell, dir, in-flight): median client CPU per call of each
 cell over every round of every launch, framed/reference, and the range of the per-launch
 ratios (the two cells share each launch's process). CONTAINER INSTRUMENTATION."""

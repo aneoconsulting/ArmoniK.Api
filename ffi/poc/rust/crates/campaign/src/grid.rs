@@ -1,4 +1,4 @@
-//! CAMPAIGN.md 4.2: the RPC grid's client cells (requirement 12), shared by `rpc_client` (the
+//! CAMPAIGN.md 4.2: the RPC grid's client cells (requirement 12), shared by `benches/rpc_suite.rs` (the
 //! timed grid) and by the counting build's per-call counts (`crossings`, requirement 19).
 //!
 //!   A  prost (the incumbent)                    tonic, the idiomatic async call
@@ -762,7 +762,7 @@ pub fn warm_server(target: &str, pinned: bool, n: usize, want_a: u64) -> Result<
 }
 
 /// A cell of this build named by its stem (`A`, `Bf`, `Df`, ...): the stem itself when it is a
-/// cell, else the first cell `<stem>-<mode>`. `rpc_client --warm-cells` takes stems, so the
+/// cell, else the first cell `<stem>-<mode>`. `rpc_suite`'s AK_RPC_WARM_CELLS takes stems, so the
 /// runner's plant control (requirement 18) can name ONE send path per run and each path
 /// must abort on its own: A (tonic codec), B (core, reference), Bf (core, framed), Df (tonic
 /// Channel, framed, the harness's).

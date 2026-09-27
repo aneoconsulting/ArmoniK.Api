@@ -38,7 +38,7 @@ U_ONLY=U-; U_SAMPLES=10; U_WARMUP_ITERS=5;  U_WARMUP_MS=3;  U_MEASURE_MS=10
 export AK_NRESAMPLES=1000 AK_ZC=P5.
 export AK_SERVER_THREADS=${AK_SERVER_THREADS:-2}
 CALIB_ROUNDS=5; CALIB_ITERS=20000000
-RPC_ROUNDS=3; RPC_CALLS=24; RPC_WARM=16; RPC_SWARM=16
+RPC_ROUNDS=10; RPC_CALLS=n/a; RPC_WARM=50; RPC_SWARM=16
 LAUNCH=1
 SETTINGS="harness v5 (the merged campaign harness); codec engine=criterion, process CPU, arm blocks and cases in the seeded random order of launch $LAUNCH, criterion_resamples=$AK_NRESAMPLES, AK_POOL_BYTES=${AK_POOL_BYTES:-default (2 x AK_LLC_BYTES)}; codec P(${P_ONLY}*): samples=$P_SAMPLES warmup_iters=$P_WARMUP_ITERS warmup_ms=$P_WARMUP_MS measure_ms=$P_MEASURE_MS; core-ffi-zc extra arm on $AK_ZC*; codec U(${U_ONLY}*): samples=$U_SAMPLES warmup_iters=$U_WARMUP_ITERS warmup_ms=$U_WARMUP_MS measure_ms=$U_MEASURE_MS; calib rounds=$CALIB_ROUNDS iters=$CALIB_ITERS; rpc rounds=$RPC_ROUNDS calls=$RPC_CALLS warmup=$RPC_WARM server-warm=$RPC_SWARM server threads=$AK_SERVER_THREADS; launch=$LAUNCH"
 
@@ -78,22 +78,26 @@ header runner > "$OUT/header.txt"
 cat "$OUT/header.txt" >> "$LOG"
 
 # ---- 1. build: run_campaign.sh's build() ------------------------------------------------
-bench_exe() {
-  cargo bench -q -p campaign "$@" --bench codec_suite --no-run --message-format=json 2>/dev/null \
-    | python3 -S -c 'import sys,json
+bench_exe() {  # bench_exe NAME CARGO-ARGS...
+  local name=$1; shift
+  cargo bench -q -p campaign "$@" --bench "$name" --no-run --message-format=json 2>/dev/null \
+    | AK_BENCH_NAME="$name" python3 -S -c 'import sys,json,os
+n=os.environ["AK_BENCH_NAME"]
 for l in sys.stdin:
     try: m=json.loads(l)
     except Exception: continue
-    if m.get("reason")=="compiler-artifact" and m.get("target",{}).get("name")=="codec_suite" and m.get("executable"): print(m["executable"])' | tail -1
+    if m.get("reason")=="compiler-artifact" and m.get("target",{}).get("name")==n and m.get("executable"): print(m["executable"])' | tail -1
 }
 NOUNK_FEATURES=(--no-default-features --features init-guard)
 step "build: full (target/) and no-unknown (target-nounk/)"
 cargo build --release -q -p campaign --bins 2>/dev/null
-BENCH=$(bench_exe)
+BENCH=$(bench_exe codec_suite)
+RPCB=$(bench_exe rpc_suite)
 CARGO_TARGET_DIR="$HERE/target-nounk" cargo build --release -q -p campaign "${NOUNK_FEATURES[@]}" --bins 2>/dev/null
-BENCH_NOUNK=$(CARGO_TARGET_DIR="$HERE/target-nounk" bench_exe "${NOUNK_FEATURES[@]}")
-[ -x "$BENCH" ] && [ -x "$BENCH_NOUNK" ] || { echo "no codec bench executable" >&2; exit 1; }
-for b in "$BENCH:0" "$BENCH_NOUNK:1" "target/release/rpc_client:0" "target-nounk/release/rpc_client:1"; do
+BENCH_NOUNK=$(CARGO_TARGET_DIR="$HERE/target-nounk" bench_exe codec_suite "${NOUNK_FEATURES[@]}")
+RPCB_NOUNK=$(CARGO_TARGET_DIR="$HERE/target-nounk" bench_exe rpc_suite "${NOUNK_FEATURES[@]}")
+[ -x "$BENCH" ] && [ -x "$BENCH_NOUNK" ] && [ -x "$RPCB" ] && [ -x "$RPCB_NOUNK" ] || { echo "no bench executable" >&2; exit 1; }
+for b in "$BENCH:0" "$BENCH_NOUNK:1" "$RPCB:0" "$RPCB_NOUNK:1"; do
   exe=${b%:*}; want=${b##*:}
   so=$(ldd "$exe" | grep -o '/[^ ]*libak_core.so')
   n=$(nm -D --defined-only "$so" | grep -c ' T ak_uencode_' || true)
@@ -166,16 +170,23 @@ start_server() {  # start_server T L -> SP, SOCK
   for _ in $(seq 100); do [ -s "$RF" ] && break; sleep 0.1; done
   [ -s "$RF" ] || { say "rpc_server ($1, $2) did not start"; exit 1; }
 }
-CLARGS=(--server-warm "$RPC_SWARM")
+# FIX-PLAN WP9: the grid's client is the criterion bench (benches/rpc_suite.rs), configured
+# by the environment; RPC_ROUNDS are criterion samples (at least 10), RPC_CALLS no longer
+# applies, RPC_WARM is criterion's warm-up in ms.
+rpcb() {  # rpcb EXE OUT HOME [NAME=VALUE...]
+  local exe=$1 out=$2 home=$3; shift 3
+  env AK_RPC_SOCKET="$SOCK" AK_RPC_TRANSPORT="$T" AK_OUT="$out" CRITERION_HOME="$home" AK_SAMPLES="$RPC_ROUNDS" \
+      AK_WARMUP_MS="$RPC_WARM" AK_MEASURE_MS="${RPC_MEASURE_MS:-200}" AK_RPC_SERVER_WARMUP="$RPC_SWARM" "$@" \
+      taskset -c "$AK_CPU_CLIENT" "$exe"
+}
 for T in shipped pinned; do
   step "rpc: transport $T"
   start_server "$T" plant
   for v in full nounk; do for WP in A B Bf Df; do for WD in a c d; do
-    CL=target/release/rpc_client; [ "$v" = nounk ] && CL=target-nounk/release/rpc_client
+    CL=$RPCB; [ "$v" = nounk ] && CL=$RPCB_NOUNK
     PL="$OUT/rpc-$T-$v-$WP-$WD-PLANT.log"
     rm -f "$SCRATCH/plant.jsonl"
-    if taskset -c "$AK_CPU_CLIENT" "$CL" --socket "$SOCK" --transport "$T" "${CLARGS[@]}" --warm-cells "$WP" --warm-dir "$WD" \
-         --rounds 1 --calls 16 --warmup 16 --out "$SCRATCH/plant.jsonl" --plant > "$PL" 2>&1 \
+    if rpcb "$CL" "$SCRATCH/plant.jsonl" "$SCRATCH/crit-plant" AK_RPC_PLANT=warm AK_RPC_WARM_CELLS="$WP" AK_RPC_WARM_DIR="$WD" > "$PL" 2>&1 \
        || [ -e "$SCRATCH/plant.jsonl" ]; then
       say "CONTROL FAILED: the planted wrong length did not abort ($T, $v client, cell $WP, dir $WD)"; exit 1
     fi
@@ -184,11 +195,10 @@ for T in shipped pinned; do
   kill $SP; wait $SP 2>/dev/null || true; SP=""
   start_server "$T" "$LAUNCH"
   for v in full nounk; do
-    CL=target/release/rpc_client; F="$OUT/rpc-$T.jsonl"
-    [ "$v" = nounk ] && { CL=target-nounk/release/rpc_client; F="$OUT/rpc-$T-nounk.jsonl"; }
+    CL=$RPCB; F="$OUT/rpc-$T.jsonl"
+    [ "$v" = nounk ] && { CL=$RPCB_NOUNK; F="$OUT/rpc-$T-nounk.jsonl"; }
     header rpc "$v" > "$F.head"
-    taskset -c "$AK_CPU_CLIENT" "$CL" --socket "$SOCK" --transport "$T" --launch $LAUNCH "${CLARGS[@]}" \
-      --rounds $RPC_ROUNDS --calls $RPC_CALLS --warmup $RPC_WARM --out "$F.body" \
+    rpcb "$CL" "$F.body" "$SCRATCH/crit-rpc-$T-$v" AK_LAUNCH=$LAUNCH > "$OUT/rpc-$T-$v.criterion.log" 2>&1 \
       || { say "rpc $T ($v) ABORTED (requirement 18): no figure"; rm -f "$F.head" "$F.body"; exit 1; }
     cat "$F.head" "$F.body" > "$F"; rm -f "$F.head" "$F.body"
     say "  rpc $T ($v client): $(grep -vc '^#' "$F") rows -> $(basename "$F")"
