@@ -893,3 +893,48 @@ The smoke then showed that `SERVER WARMED` never reached the headers: the server
 `rpc-server-launch-<l>.txt` from its own offset and overwrote the warm-up's appended lines.
 The fix after 860cbd92d gives the warm-up its own file. It has not been re-run (G5).
 At session resume a waiter armed in the previous context (polling a build log for "^rc=" that the killed build never wrote) was still spinning; stopped (TaskStop).
+
+### J35. FIX-PLAN WP10: the shared Rust server (2026-09-27)
+
+Every cell now talks to the Rust slice's tonic `rpc_server` (`poc/rust/SERVER.md`, serve.sh
+at bed13a6ea). The method paths moved to `armonik.ffi.campaign.v1.Grid` (Fetch, Push,
+Upload, UploadStream, UploadStreamCheck). The response rules already matched: the empty
+answer in b and c, the u64 LE byte count in d, the count followed by the SHA-256 of the
+messages as received on the check path, and the ids on the first message only
+(`session-u2` / `result-u2`).
+
+The runner builds, starts, warms and stops the server through serve.sh. `AK_SERVE_STATE`
+points into the run's own socket directory, because serve.sh's default state file
+(`/tmp/ak-rpc-server.state`) is shared with any other slice's run on the same machine. The
+header records poc/rust's tree and whether it is dirty.
+
+Removed:
+- `CampaignRpc --serve` and its handlers;
+- the `ak.camp.warmserver` client warm-up (serve.sh warm replaces it);
+- `RunRpc`, the older harness with its own in-process servers.
+
+The plant stays client-side (a wrong expected length in c and d, which SERVER.md allows).
+
+Found on the first call: grpc-java derives `:authority` from the socket path, and the
+server's HTTP/2 stack refuses it (RST_STREAM PROTOCOL_ERROR). The channel now overrides it
+to `localhost`.
+
+No service stub is generated. The incumbent cells' MethodDescriptors carry SERVER.md's
+method names and ProtoLiteUtils marshallers over the shapes classes, which is what a
+generated stub builds.
+
+Checked by hand against the server at be47d7614's code:
+- rpc counts identical to both references;
+- the upload check passes on both sockets (17 cells);
+- the plant aborts;
+- `serve.sh warm 2` passes.
+
+New runner knobs: `AK_RPC_TRANSPORTS` and `AK_RPC_BUILDS`, for small runs.
+The clean-worktree run at be47d7614 turned up one more problem. Its first gate, outside
+smoke, sourced `ffi/campaign.machine`, and serve.sh pinned the server to CPUs this
+container does not have ("taskset: Invalid argument"), so that gate failed at the server
+start. The smoke invocation that followed ran the gate itself, unpinned, and it passed for
+both builds, 8 and 17: the four count files identical, the upload checks on both sockets
+(17 and 10 cells), both plants aborting. The rpc smoke produced 289 samples (pinned, full
+build). Fixed after be47d7614: the gate starts the server unpinned, and the rpc suite pins
+it to AK_CPU_SERVER. It has not been re-run (STATE G6, one gate per unit).

@@ -93,9 +93,10 @@ export AK_SERVE_STATE="$SOCKDIR/serve.state"
 if [ "${AK_CAMPAIGN_NO_BUILD:-0}" != 1 ] || [ ! -x "$TOP/ffi/poc/rust/target-server/release/rpc_server" ]; then
   bash "$SERVE" build >> "$OUT/build-$COMMIT.log" 2>&1 || { echo "SERVER BUILD FAILED: $OUT/build-$COMMIT.log"; exit 1; }
 fi
-serve_start() {  # $1 = DIR for its log; sets SS, SP (the shipped and pinned sockets)
+SS=""; SP=""
+serve_start() {  # $1 = DIR for its log, $2 = the server's cpu list (empty: unpinned); sets SS, SP
   local o
-  o=$(AK_CPU_SERVER="${AK_CPU_SERVER:-}" bash "$SERVE" start --out "$1") || return 1
+  o=$(AK_CPU_SERVER="${2:-}" bash "$SERVE" start --out "$1") || return 1
   SS=$(echo "$o" | sed -n 's/^shipped //p'); SP=$(echo "$o" | sed -n 's/^pinned //p')
   [ -S "$SS" ] && [ -S "$SP" ]
 }
@@ -169,9 +170,10 @@ run_gate() {
   fi
   # Req 19 (R-H31): the RPC cells B, C, D and E, crossings per call, both builds, against
   # one server (the pinned socket), from the counting core and the counting shim. The server
-  # is the shared Rust one (poc/rust/serve.sh, SERVER.md).
+  # is the shared Rust one (poc/rust/serve.sh, SERVER.md), unpinned: the gate checks
+  # correctness, and campaign.machine's CPU lists need not exist where the gate runs.
   mkdir -p "$OUT/gate-rpc-server"
-  if serve_start "$OUT/gate-rpc-server"; then
+  if serve_start "$OUT/gate-rpc-server" ""; then
     echo "## rpc server: the Rust slice's rpc_server via poc/rust/serve.sh (poc/rust at $(cd "$TOP" && git rev-parse --short HEAD:ffi/poc/rust)); $(head -2 "$OUT/gate-rpc-server/rpc-server.log" | tr '\n' ' ')" >> "$f"
   else
     echo "## rpc counts: the server did not start (gate-rpc-server/rpc-server.log)" >> "$f"; rc=1
@@ -327,7 +329,7 @@ rpc)
   server_up() {  # $1 = launch: start the shared server (pinned to AK_CPU_SERVER by serve.sh), warm it
     local l=$1
     mkdir -p "$OUT/rpc-server-launch-$l"
-    serve_start "$OUT/rpc-server-launch-$l" || discard "$l" "the server did not start"
+    serve_start "$OUT/rpc-server-launch-$l" "${AK_CPU_SERVER:-}" || discard "$l" "the server did not start"
     bash "$SERVE" warm "$SWARM" > "$OUT/rpc-server-warm-launch-$l.txt" 2>&1 \
       || discard "$l" "the server warm-up (serve.sh warm $SWARM) failed"
   }
