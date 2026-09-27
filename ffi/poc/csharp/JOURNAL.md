@@ -1969,3 +1969,35 @@ worktree (`logs/csharp/campaign/wp8-smoke/`, figures stripped): codec 1,548 samp
 PASS; rpc 246 + 126 samples per transport, 120 + 72 of them on c and d, 0 aborts; 60 plant
 controls, all aborted with 0 samples for their planted reason (the plant run now has its own
 directory, so WP7's overwritten server log does not recur); calib 2 samples.
+
+## 60. WP8 parity: C on the move path, framed twins on b
+
+Two items the aggregating session put in scope (parity: the other slices do this work).
+
+- **C on the move path.** cs_host gained `EncodeInto(src, retain)` (the encode left in the
+  context, no `ak_enc_take`) and `EncContext`. Cell C now sends b and c through
+  `ak_call_unary_enc` (the context's buffer moved into the request, no copy anywhere) and each
+  d message through `ak_call_send_enc`. The copy path is kept as the labelled extra `Cc-*`
+  (`ak_enc_take`, then `ak_call_unary` / `ak_call_send` copy the bytes) on b, c and d. Counts:
+  C b 2,505 forward (was 2,506: no `ak_enc_take`), c 4 (was 5), d 4 MiB 10 and 16 MiB 28 (were
+  12 and 36); Cc carries the old figures. Direction a is a decode: nothing to move.
+- **D stays on a copy, stated.** Grpc.Net's serializer can only write into the call's own
+  `IBufferWriter` or hand it a `byte[]` (`SerializationContext.Complete(byte[])`, which the
+  context copies too; JOURNAL 58's reflection log), so an owned core buffer from
+  `ak_enc_take_owned` would still be copied, and would add an entry and a free per call. D keeps
+  copying straight from the core's encode buffer into the call's buffer.
+- **Framed twins on b.** `Bf`, `Cf-*` and `Ef-*` now run b as well as c and d (a has an empty
+  request, so its send path is the same on either, and no framed a row is built, as in the
+  other slices' b-only framed rows).
+- RPC counts regenerated: 105 rows full, 62 no-unknown. The codec counts do not change (the
+  codec suite's core-ffi arm takes its buffer as before).
+- Scope-rule line: the runner's per-cell plant controls cover A, B, Bf and D; C's move path is
+  covered by the gate's upload check (count and SHA-256) but not by its own length plant.
+
+Gate from a fresh worktree at `9114d6b` (both builds, net8.0 and net6.0): GATE PASSED, 29
+controls failing as required; counts equal (codec 1,044 / 544, unchanged; RPC 105 / 62); upload
+check 68 / 40 cells (`logs/csharp/wp8b-gate.log`). Smoke from the same worktree
+(`logs/csharp/campaign/wp8b-smoke/`, figures stripped): codec 1,548 samples, checks PASS; rpc
+283 + 146 samples per transport, b in every cell and twin, 0 aborts; 60 plant controls, all
+aborted with 0 samples; calib 2 samples. The session was stopped by the API spend limit during
+the smoke; the smoke kept running and completed, nothing was re-run.

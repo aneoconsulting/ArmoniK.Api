@@ -8,7 +8,7 @@ waits for the campaign. The history of how each item got here is in `JOURNAL.md`
 
 | | |
 |---|---|
-| **Status** | FIX-PLAN WP8 (the Rust optimisation experiment's shared changes, and the upload directions c and d, required since 2026-09-27) built and gated for this slice on the merged HEAD (core and generator of 98b187ce6 / e4c7e97cd); both builds, full and no-unknown, gated from a fresh worktree at `d97ea52`: see **Gate** below; smoke of every suite: see **Smoke**. Findings are in scope only if they can change what the campaign measures (ffi/CLAUDE.md, "Scope of findings"). |
+| **Status** | FIX-PLAN WP8 (the Rust optimisation experiment's shared changes, and the upload directions c and d, required since 2026-09-27) built and gated for this slice on the merged HEAD (core and generator of 98b187ce6 / e4c7e97cd); then the parity items (C on the move path, framed twins on b); both builds, full and no-unknown, gated from a fresh worktree at `9114d6b`: see **Gate** below; smoke of every suite: see **Smoke**. Findings are in scope only if they can change what the campaign measures (ffi/CLAUDE.md, "Scope of findings"). |
 | **Levels** (FIX-PLAN D2) | target **net8.0** (.NET 8.0.31, SDK 8.0.131); floor **net6.0** (.NET 6.0.36 from the NuGet runtime pack, self-contained publish): gated; floor **.NET Framework 4.8**: compiled only (`src/HarnessFloor`), never run (needs Windows; the container has no Mono) |
 | **Incumbent** | Google.Protobuf 3.32.0, Grpc.Tools 2.72.0, Grpc.Net.Client and Grpc.AspNetCore 2.71.0 (the versions `packages/csharp` ships) |
 | **Core** | the one core, `ffi/poc/codec`, built from `git archive HEAD` by `gen/build_core.sh`, every build with `init-guard`: full `target-core` (`rpc`), `target-core-count` (`rpc,count`), `target-core-corpus` (`corpus`); no-unknown (ak-core `--no-default-features`) `target-core-nounk`, `target-core-count-nounk`, `target-core-corpus-nounk`, each in its own target dir |
@@ -62,9 +62,9 @@ gen/crossings-nounk.txt     the same, no-unknown build (22 rows)
 gen/counts.txt              CAMPAIGN req 19 as amended: every exported entry point one call of each
                             timed core-ffi case calls, by name, resets and grows placed (1,044 cases)
 gen/counts-nounk.txt        the same, no-unknown build (544 cases)
-gen/rpc-counts.txt          the same per call of every RPC cell A-F, framed twin, direction and upload
-                            payload (90 rows)
-gen/rpc-counts-nounk.txt    the same, no-unknown client (54 rows)
+gen/rpc-counts.txt          the same per call of every RPC cell A-F, framed twin, Cc copy cell,
+                            direction and upload payload (105 rows)
+gen/rpc-counts-nounk.txt    the same, no-unknown client (62 rows)
 abi/                        the layout probe crate (features: unknown-fields default, corpus)
 Directory.Build.props/.targets  build configurations: /p:AkNounk=true (the no-unknown build:
                             GeneratedNounk/ replaces the variant files, define AK_NO_UNKNOWN_FIELDS,
@@ -92,8 +92,9 @@ run_campaign.sh             --suite codec|rpc|calib|gate --out DIR (CAMPAIGN req
 
 ## Gate (FIX-PLAN WP8): clean checkout
 
-`logs/csharp/wp8-gate.log`: **GATE PASSED** at commit `d97ea52` (this slice's WP8 commit, on
-`94ed0e6`, the cs_host change, on the merged HEAD), run in a fresh git worktree with every build
+`logs/csharp/wp8b-gate.log`: **GATE PASSED** at commit `9114d6b` (this slice's WP8 parity commit,
+on `0f067cf`, cs_host's move-path entry; the first WP8 gate, at `d97ea52`, is
+`logs/csharp/wp8-gate.log`), run in a fresh git worktree with every build
 directory new, core from `git archive HEAD` of `poc/codec`, net8.0 and net6.0, both builds.
 Correctness only; nothing is timed. 0 gate-step failures; all 29 planted controls fail as
 required.
@@ -103,11 +104,11 @@ required.
   counts = `gen/crossings.txt`, akrpc layout and error path, the corpus with its controls; the
   no-unknown build with its own).
 - Step 9: `gen/counts.txt` (1,044) and `gen/counts-nounk.txt` (544), per codec case, and
-  `gen/rpc-counts.txt` (90) and `gen/rpc-counts-nounk.txt` (54), per RPC call, equal row for
+  `gen/rpc-counts.txt` (105) and `gen/rpc-counts-nounk.txt` (62), per RPC call, equal row for
   row, on the timed build's geometric grow and one reset per decode; the control with an
   exact-size grow must differ, and does. New (WP8): the upload check on both builds (every c
   cell accepted; every d stream's byte count and SHA-256 as received equal to the client's,
-  every cell and framed twin: 60 cells full, 36 no-unknown) and two must-fail plants (a wrong
+  every cell, framed twin and Cc copy cell: 68 cells full, 40 no-unknown) and two must-fail plants (a wrong
   SHA-256, a wrong count).
 
 ## Register H (WP6) and WP7
@@ -158,7 +159,7 @@ req 22a allows this, stated here.
 | 11 | serialised once per iteration; encode variants | met as amended (R-H29): `encode` (pool + reused buffer), `encode-hot` (one graph + reused buffer), `encode-transport` (pool + the Grpc.Net form), `encode-transport-hot`; rows carry `enc_end`, `enc_input`, `pool_graphs`, `pool_bytes`. Reused buffer: the incumbent's BufWriter, host-gen's Enc, the core's encode buffer. Transport form: the serializer cells A, F, D run (shared code) into a frame built as Grpc.Net.Client 2.71's GrpcCallSerializationContext builds it (checked by reflection); on the core's transport (C, E) the form is the buffer row, stated; incumbent-best has no transport row. Pool: retained heap >= 2 x AK_LLC_BYTES (13.75 MB default), measured and topped up; a hot input is a pool of one (same per-call step); graph construction always in the case's setup. Google.Protobuf keeps no size memo |
 | 12 | cells A-F, modes | met as amended (R-H35): full client A, B, C-retain, C-drop, D-retain, D-drop, E-retain, E-drop, F-retain, F-drop (+ labelled B/C callback and queue rows); no-unknown client A, B, C-nounk, D-nounk, E-nounk, F-nounk |
 | 13 | server: separate, pre-serialised, one per launch, warmed; one channel per cell | met as amended (R-H33): one server process per launch (two Kestrel hosts in it: shipped and pinned sockets, since Kestrel's windows are per host), serving both builds; before any client, 2,000 calls per direction from each client transport (Grpc.Net, the core's) per socket, every call checked (logged; the server prints what it served); every cell its own channel for the whole launch, opened and warmed in the client's warm-up; P2.2 pre-serialised; direction b decoded by the incumbent |
-| 14 | directions a, a+read, b, c, d | met as amended (R-H36; 2026-09-27): a and a+read, b; c = unary upload of P5.3 and P5.4; d = the streamed upload (M5 messages of 2 MiB, ids on the first only, 4 MiB and 16 MiB, the server checking the count on every call, count and SHA-256 once per cell before timing), every cell and mode, at 1 and 8 in flight; B/C/E through the core's client streaming (ak_call_open, ak_call_send, ak_call_recv), A/D/F through Grpc.Net's AsyncClientStreamingCall; the core's framed send path beside its reference as Bf, Cf-*, Ef-* on c and d. Not used: ak_call_unary_enc, ak_call_send_enc, ak_enc_take_owned (C and D keep b's copy paths), ak_call_opts |
+| 14 | directions a, a+read, b, c, d | met as amended (R-H36; 2026-09-27): a and a+read, b; c = unary upload of P5.3 and P5.4; d = the streamed upload (M5 messages of 2 MiB, ids on the first only, 4 MiB and 16 MiB, the server checking the count on every call, count and SHA-256 once per cell before timing), every cell and mode, at 1 and 8 in flight; B/C/E through the core's client streaming (ak_call_open, ak_call_send / ak_call_send_enc, ak_call_recv), A/D/F through Grpc.Net's AsyncClientStreamingCall; the core's framed send path beside its reference as Bf, Cf-*, Ef-* on b, c and d (a has an empty request). C runs the MOVE path (ak_call_unary_enc on b and c, ak_call_send_enc on d), its copy path kept as the labelled extra Cc-*; D copies (Grpc.Net's serializer can only write into the call's own buffer, so ak_enc_take_owned would not remove the copy; stated); ak_call_opts not used |
 | 15 | 1/8/16 in flight | met |
 | 16 | delivery | met as amended (R-H30): B, C, E the core's blocking call on caller threads created before the warm-up; A, D, F Grpc.Net's idiomatic `await CallInvoker.AsyncUnaryCall` (as Grpc.Tools' generated client does), k in flight = k async loops on the thread pool, stated in the header; callback and queue rows labelled extras, awaited |
 | 17 | shipped and pinned, UDS | met: UDS; shipped = packages/csharp's UDS client configuration and Kestrel defaults; pinned = 4 MiB stream and connection windows, adaptive off, Nagle off (no effect on UDS, stated) |
@@ -179,22 +180,19 @@ req 22a allows this, stated here.
 | 31 | runner interface | met for the slice; the top-level `ffi/campaign.sh` is the aggregating session's |
 | 32 | smoke run | see **Smoke** below |
 
-**Smoke** (`logs/csharp/campaign/wp8-smoke/`, run from the clean worktree at `d97ea52` after
+**Smoke** (`logs/csharp/campaign/wp8b-smoke/`, run from the clean worktree at `9114d6b` after
 its gate passed; 1 launch, 1 round, CLIENT=0 SERVER=1, smoke pool 64 KiB, 6 of the 92 U-* rows;
 figures stripped in every JSON-lines file, the calib file and the `.bdn.log` files headed as
-instrumentation; `runner.out` is the runner's console):
+instrumentation; `runner.out` is the runner's console; the first WP8 smoke, at `d97ea52`, is
+`wp8-smoke/`):
 - codec: 12 BDN unit processes (both builds), 1,548 samples, 0 failed cases, `cpu check: PASS`
-  and `jit check: PASS` in every unit (the rows are as in WP7: four encode variants, three
-  content sets on P1.2, P2.2 and P2.4, U-* rows in encode-hot, decode, decode-read).
-- rpc: one server process for the launch, warmed by 100 calls per direction a and b and 10 per
-  upload direction per client transport per socket (smoke counts; 2,000 and 200 in the
-  campaign); full client 246 samples per transport, of which 120 on c and d (15 cells: A, B, Bf,
-  C/Cf/D/E/Ef/F in retain and drop; P5.3, P5.4, 4 MiB and 16 MiB; 1 and 8 in flight), no-unknown
-  client 126, of which 72 on c and d; 60 and 36 upload cells checked (count and SHA-256) before
-  the warm-up; 0 aborts. The server served 23,176 uploads and 12,040 streams in the launch.
-- `--plant` (`plant/`, its own directory, so the real run's server log is kept): 60 controls
-  (both builds x both transports x {wrong length on a, c, d; wrong SHA-256 on d} x cells A, B,
-  Bf, D, direction a without Bf), every one aborted with 0 samples, each for its planted reason.
+  and `jit check: PASS` in every unit.
+- rpc: one server process for the launch, warmed first; full client 283 samples per transport
+  (136 on c and d), b now in every cell including Bf, Cf-*, Cc-*, Ef-*; no-unknown client 146
+  (80 on c and d); upload cells checked (count and SHA-256) before the warm-up; 0 aborts.
+- `--plant` (`plant/`): 60 controls (both builds x both transports x {wrong length on a, c, d;
+  wrong SHA-256 on d} x cells A, B, Bf, D), every one aborted with 0 samples for its planted
+  reason.
 - calib: 2 samples, crossing counts equal to both committed files.
 
 **Engine cost, container instrumentation** (`logs/csharp/bdn-default-job-unit/`, before WP7):
@@ -219,13 +217,14 @@ campaign's codec suite is correspondingly longer.
   no-string ceiling (`G.SkipStrings`).
 - Server-streaming and bidirectional calls (reserved in the ABI, not built); `ak_call_opts`
   (deadline, metadata) is passed NULL; the callback/queue deliveries of a stream (not built).
-- The framed send path on directions a and b (it is run on the upload directions only).
+- The framed send path on direction a (an empty request); D without a copy (not possible
+  through Grpc.Net's serializer).
 - `packages/csharp`'s own object model; ReadyToRun; GC under load; content sets beyond P1.2,
   P2.2 and P2.4.
 
 ## Next step
 
-1. The aggregating session reads WP8 (JOURNAL 59) and pushes; this slice changes nothing further
+1. The aggregating session reads WP8 (JOURNAL 59, 60) and pushes; this slice changes nothing further
    unless a finding in scope (ffi/CLAUDE.md, "Scope of findings") comes back.
 2. The net48 gate on a Windows machine (D4), which first needs a net48 host half.
 3. The campaign itself is the owner's: `run_campaign.sh` (through `ffi/campaign.sh`) on the
@@ -235,6 +234,8 @@ campaign's codec suite is correspondingly longer.
 
 | Log | What it establishes |
 |---|---|
+| `wp8b-gate.log` | the clean-checkout gate after the WP8 parity items, at `9114d6b`, both builds, net8.0 and net6.0 (see Gate) |
+| `campaign/wp8b-smoke/` | the smoke after the WP8 parity items (see Smoke) |
 | `wp8-gate.log` | the clean-checkout gate of WP8 at `d97ea52`, both builds, net8.0 and net6.0, counts and upload check included (see Gate) |
 | `campaign/wp8-smoke/` | the WP8 smoke runs of every suite and the plant controls (see Smoke) |
 | `wp7-gate.log` | the clean-checkout gate of WP7 at `c35bd22`, both builds, net8.0 and net6.0, counts included (see Gate) |
