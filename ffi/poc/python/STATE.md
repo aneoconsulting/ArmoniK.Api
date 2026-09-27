@@ -295,16 +295,16 @@ Fixed defects (D1-D14, the NULL module state in `mod_traverse`, the process-wide
 - **The facade's `_unknown` in the full build** is one slot per object. It is priced only
   through the full build against the no-unknown build.
 - **The campaign smoke** in `logs/python/campaign/` is from the clean worktree at 45659fd7d,
-  figures stripped. It shows every WP7 row:
+  figures stripped. It shows every WP7 and WP8 row:
   - codec full: 836 shape values, which include `encode-pool`, `encode-reused` and
     `encode-pool-reused`, and Latin-1/wide on P1.2, P2.2 and P2.4;
   - codec no-unknown: 396 shape values, host-gen no-unknown included (and in the unknown
     family, 45 values);
   - the unknown family through the shapes core, and the unknown-corpus extra;
-  - RPC full: 204 samples, which include E-drop, E-retain, F-drop and F-retain;
   - RPC no-unknown: 270 samples, cells A, B, C-nounk, D-nounk, E-nounk, F-nounk and the
     framed twins, in a, a+read, b, c (72) and d (72);
-  - RPC full: 474 samples, with c (120) and d (120) in every cell and the framed twins;
+  - RPC full: 474 samples, E and F included, with c (120) and d (120) in every cell and the
+    framed twins;
   - one server for both builds, over Unix sockets.
   The smoke's pool is 1 MiB (the campaign's default is 13.75 MiB).
 - **No reused-buffer encode for the incumbent and host-gen** (req 11 (i)): upb-python has no
