@@ -1,0 +1,16 @@
+Sep 27, 2026 3:06:17 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0x1c53b661]'
+  upload check A: (c) P5.3, P5.4 accepted; (d) 4 MiB, 16 MiB: count and SHA-256 identical
+  upload check B: (c) P5.3, P5.4 accepted; (d) 4 MiB, 16 MiB: count and SHA-256 identical
+  upload check C-nounk: (c) P5.3, P5.4 accepted; (d) 4 MiB, 16 MiB: count and SHA-256 identical
+Sep 27, 2026 3:06:18 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0x0337899c]'
+  upload check D-nounk: (c) P5.3, P5.4 accepted; (d) 4 MiB, 16 MiB: count and SHA-256 identical
+  upload check E-nounk: (c) P5.3, P5.4 accepted; (d) 4 MiB, 16 MiB: count and SHA-256 identical
+Sep 27, 2026 3:06:19 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0xd59c2da3]'
+  upload check F-nounk: (c) P5.3, P5.4 accepted; (d) 4 MiB, 16 MiB: count and SHA-256 identical
+  upload check Bf: (c) P5.3, P5.4 accepted; (d) 4 MiB, 16 MiB: count and SHA-256 identical
+  upload check Cf-nounk: (c) P5.3, P5.4 accepted; (d) 4 MiB, 16 MiB: count and SHA-256 identical
+  upload check Ef-nounk: (c) P5.3, P5.4 accepted; (d) 4 MiB, 16 MiB: count and SHA-256 identical
+UPLOAD CHECK PASSED (9 cells)

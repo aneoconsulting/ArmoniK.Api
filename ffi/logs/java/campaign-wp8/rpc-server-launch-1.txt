@@ -1,0 +1,99 @@
+SERVING /tmp/akj.oBAkaD/shipped-1.sock transport=shipped response=540422B
+SERVING /tmp/akj.oBAkaD/pinned-1.sock transport=pinned response=540422B
+THREADS {"netty_event_loops":8,"netty_boss_loops_server":1,"core_runtime_workers":2,"grpc_executor":"grpc-java default (shared cached thread pool)","cpus_seen_by_jvm":4}
+Sep 27, 2026 3:06:29 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0x50cb6425, L:/tmp/akj.oBAkaD/shipped-1.sock - R:]'
+Sep 27, 2026 3:06:29 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0xe0ce1bb0, L:/tmp/akj.oBAkaD/shipped-1.sock - R:]'
+Sep 27, 2026 3:06:29 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0x059a8966, L:/tmp/akj.oBAkaD/shipped-1.sock - R:]'
+Sep 27, 2026 3:06:29 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0x1bc60252, L:/tmp/akj.oBAkaD/shipped-1.sock - R:]'
+Sep 27, 2026 3:06:30 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0x25ef226a, L:/tmp/akj.oBAkaD/shipped-1.sock - R:]'
+Sep 27, 2026 3:06:30 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0x3750fffa, L:/tmp/akj.oBAkaD/shipped-1.sock - R:]'
+Sep 27, 2026 3:06:30 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0x2e55238f, L:/tmp/akj.oBAkaD/shipped-1.sock - R:]'
+Sep 27, 2026 3:06:30 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0x6df1a439, L:/tmp/akj.oBAkaD/shipped-1.sock - R:]'
+Sep 27, 2026 3:06:30 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0xc57a1d94, L:/tmp/akj.oBAkaD/shipped-1.sock - R:]'
+Sep 27, 2026 3:06:30 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0xf8725166, L:/tmp/akj.oBAkaD/shipped-1.sock - R:]'
+Sep 27, 2026 3:06:30 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0x1b94e3b1, L:/tmp/akj.oBAkaD/shipped-1.sock - R:]'
+Sep 27, 2026 3:06:33 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0xf7f5832e, L:/tmp/akj.oBAkaD/shipped-1.sock - R:]'
+Sep 27, 2026 3:06:34 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0xac887f68, L:/tmp/akj.oBAkaD/shipped-1.sock - R:]'
+Sep 27, 2026 3:06:35 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0x6fdb927f, L:/tmp/akj.oBAkaD/shipped-1.sock - R:]'
+Sep 27, 2026 3:06:36 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0x1cc7204b, L:/tmp/akj.oBAkaD/shipped-1.sock - R:]'
+Sep 27, 2026 3:09:50 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0xd91eb7e0, L:/tmp/akj.oBAkaD/shipped-1.sock - R:]'
+Sep 27, 2026 3:09:50 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0xa836a6c4, L:/tmp/akj.oBAkaD/shipped-1.sock - R:]'
+Sep 27, 2026 3:09:51 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0x52d69199, L:/tmp/akj.oBAkaD/shipped-1.sock - R:]'
+Sep 27, 2026 3:09:51 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0x036e7279, L:/tmp/akj.oBAkaD/shipped-1.sock - R:]'
+Sep 27, 2026 3:09:51 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0x9a66a8d0, L:/tmp/akj.oBAkaD/shipped-1.sock - R:]'
+Sep 27, 2026 3:09:51 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0x3be102d5, L:/tmp/akj.oBAkaD/shipped-1.sock - R:]'
+Sep 27, 2026 3:09:51 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0xddf5e77f, L:/tmp/akj.oBAkaD/shipped-1.sock - R:]'
+Sep 27, 2026 3:09:53 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0x62bf0f95, L:/tmp/akj.oBAkaD/shipped-1.sock - R:]'
+Sep 27, 2026 3:09:54 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0x4f0cb4cd, L:/tmp/akj.oBAkaD/shipped-1.sock - R:]'
+Sep 27, 2026 3:11:56 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0xb8a39a60, L:/tmp/akj.oBAkaD/pinned-1.sock - R:]'
+Sep 27, 2026 3:11:56 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0x231fb0df, L:/tmp/akj.oBAkaD/pinned-1.sock - R:]'
+Sep 27, 2026 3:11:56 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0xf233ed9c, L:/tmp/akj.oBAkaD/pinned-1.sock - R:]'
+Sep 27, 2026 3:11:56 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0x80d97354, L:/tmp/akj.oBAkaD/pinned-1.sock - R:]'
+Sep 27, 2026 3:11:56 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0x43e9f1e6, L:/tmp/akj.oBAkaD/pinned-1.sock - R:]'
+Sep 27, 2026 3:11:56 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0xab02b3ca, L:/tmp/akj.oBAkaD/pinned-1.sock - R:]'
+Sep 27, 2026 3:11:56 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0xc6091c22, L:/tmp/akj.oBAkaD/pinned-1.sock - R:]'
+Sep 27, 2026 3:11:56 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0x5d856470, L:/tmp/akj.oBAkaD/pinned-1.sock - R:]'
+Sep 27, 2026 3:11:56 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0xefe21ec4, L:/tmp/akj.oBAkaD/pinned-1.sock - R:]'
+Sep 27, 2026 3:11:56 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0xf29b3c26, L:/tmp/akj.oBAkaD/pinned-1.sock - R:]'
+Sep 27, 2026 3:11:57 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0x0bf1416f, L:/tmp/akj.oBAkaD/pinned-1.sock - R:]'
+Sep 27, 2026 3:11:58 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0x66bc5a37, L:/tmp/akj.oBAkaD/pinned-1.sock - R:]'
+Sep 27, 2026 3:11:59 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0x0b8bb3eb, L:/tmp/akj.oBAkaD/pinned-1.sock - R:]'
+Sep 27, 2026 3:12:00 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0x8dd61616, L:/tmp/akj.oBAkaD/pinned-1.sock - R:]'
+Sep 27, 2026 3:12:00 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0xf1b0d6cd, L:/tmp/akj.oBAkaD/pinned-1.sock - R:]'
+Sep 27, 2026 3:15:10 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0x8ae92456, L:/tmp/akj.oBAkaD/pinned-1.sock - R:]'
+Sep 27, 2026 3:15:10 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0x180eb0e7, L:/tmp/akj.oBAkaD/pinned-1.sock - R:]'
+Sep 27, 2026 3:15:10 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0x4a76cb58, L:/tmp/akj.oBAkaD/pinned-1.sock - R:]'
+Sep 27, 2026 3:15:10 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0x8ae72dd0, L:/tmp/akj.oBAkaD/pinned-1.sock - R:]'
+Sep 27, 2026 3:15:10 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0xf2776cdb, L:/tmp/akj.oBAkaD/pinned-1.sock - R:]'
+Sep 27, 2026 3:15:10 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0x033cb823, L:/tmp/akj.oBAkaD/pinned-1.sock - R:]'
+Sep 27, 2026 3:15:10 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0x9b8b3356, L:/tmp/akj.oBAkaD/pinned-1.sock - R:]'
+Sep 27, 2026 3:15:12 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0xc7a586f5, L:/tmp/akj.oBAkaD/pinned-1.sock - R:]'
+Sep 27, 2026 3:15:12 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0x63453983, L:/tmp/akj.oBAkaD/pinned-1.sock - R:]'

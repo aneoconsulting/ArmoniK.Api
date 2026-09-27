@@ -818,3 +818,25 @@ RPC per call (rpc,count cores): B and E 2 (call + free), C-drop a 3 / C-retain a
 The first clean gate at d70c6bf28 failed on the RPC counts only: the server's socket path under
 the worktree exceeded 107 bytes; sockets now live in a short mktemp dir (f5cba4acf). Clean gate
 at f5cba4acf: GATE PASSED, all four count files identical; smoke complete (logs/java/campaign-wp7).
+
+### J32. FIX-PLAN WP8 (2026-09-27)
+
+Over the merged core (98b187ce6). rpc.c: ak_call_unary's trailing grpc_status, the local
+ak_completion's grpc_status; a non-OK status is AK_ERR_RPC_STATUS, a failed call. Counting:
+the exact-size grow switch removed (the counting shim grows geometrically as the timed one).
+Binding lessons that apply: one reset per retain decode (the post-decode disarm removed; a
+context leaving retain is disarmed once); strings from the core's decode through
+Utf8.decodeTrusted (the core runs check_utf8 under utf8="reject"). The sparse fill already
+clears only the elements it fills on entry; its re-clear after each flush clears a whole
+chunk even for a shorter last one (ffi-zeroed only, not a timed campaign arm: noted, not fixed).
+ak_enc_take_owned / ak_call_unary_enc not used: only the rust slice uses them. D44: every
+limit set covers what the harness sends and receives (server 8 MiB for P5.4's 4,194,390 B).
+Req 14 (c) and (d), now required: built per the rust reference (see STATE row 14); framed
+twins Bf, Cf, Ef. Gate: upload check, both builds and sockets, 15 / 9 cells, and the plant
+aborting. Counts regenerated: every retain decode row -1 host entry (one reset), 40 U-* retain
+rows with fewer grow calls (1 to 10 fewer: geometric grow); rpc counts gain c/d and the twins
+(B c 2, d 6 / 12; C c 5, d 10 / 28; D c 3, d 6 / 24; E c 2, d 6 / 12), C-retain a 5 -> 4 and
+D-retain a 3 -> 2 (one reset). Found by the smoke: the sampler parsed "a+read" as an upload
+index (fixed); a client and a server JVM of 4 GB each were killed twice by the shared
+container's memory limit while other slices ran, so a smoke uses AK_SMOKE_HEAP (2g). Clean gate
+at a1eed5321: GATE PASSED; smoke complete (logs/java/campaign-wp8).
