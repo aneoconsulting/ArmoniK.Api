@@ -327,7 +327,7 @@ pub fn call_of(cell: &str, conn: &Conn, dir: &'static str, sl: &'static [Slot], 
                 let slot = &sl[i];
                 // The request body, encoded before the call as the idiomatic client does:
                 // the core's buffer copied into the `Bytes` tonic takes (D), core-native's
-                // split off and frozen (F, T1) (requirement 11 row transport-ready-tonic).
+                // moved out by Enc::take (F, T1) (requirement 11 row transport-ready-tonic).
                 let body = if fetch {
                     Ok(Bytes::new())
                 } else if ffi {
@@ -337,7 +337,7 @@ pub fn call_of(cell: &str, conn: &Conn, dir: &'static str, sl: &'static [Slot], 
                 } else {
                     let e = unsafe { &mut *slot.enc.get() };
                     M2::n_encode(f_val, e, retain);
-                    // T1: split and frozen, not copied
+                    // T1: moved out (Enc::take), not copied
                     Ok(e.take())
                 };
                 Box::pin(async move {

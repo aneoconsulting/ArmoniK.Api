@@ -9,7 +9,8 @@
 
 use crate::counters::Counters;
 use crate::{key, varint_len, WIRE_LEN};
-use bytes::{Bytes, BytesMut};
+use bytes::Bytes;
+use std::sync::{Arc, Mutex};
 
 /// An open length prefix. Held by value so a miss cannot be attributed to the wrong site.
 pub struct Mark {
@@ -18,6 +19,27 @@ pub struct Mark {
     hdr: usize,
     /// How many bytes were reserved for it.
     w: usize,
+}
+
+/// A taken body (`Enc::take`): returns its buffer to the context's spare slot when its last
+/// `Bytes` clone is dropped, unless the slot is already full or locked (then it is freed).
+struct Recycle {
+    v: Vec<u8>,
+    slot: Arc<Mutex<Option<Vec<u8>>>>,
+}
+impl AsRef<[u8]> for Recycle {
+    fn as_ref(&self) -> &[u8] {
+        &self.v
+    }
+}
+impl Drop for Recycle {
+    fn drop(&mut self) {
+        if let Ok(mut g) = self.slot.try_lock() {
+            if g.is_none() {
+                *g = Some(core::mem::take(&mut self.v));
+            }
+        }
+    }
 }
 
 /// ABI v1 section 6's refused arrangement, built so it can be measured (feature
@@ -52,16 +74,13 @@ unsafe fn put_varint(p: *mut u8, mut v: u64) -> usize {
 }
 
 pub struct Enc {
-    /// Optimisation T1: a `BytesMut` rather than a `Vec<u8>`, so the transport-ready form
-    /// (`take`, what a tonic request body is) is a split and a freeze, O(1), as prost's
-    /// is out of tonic's encode buffer, and not a copy. Read and written as a byte vector
-    /// everywhere else; the reused-buffer form (`reset`, encode, read `buf`) never splits
-    /// and stays allocation-free.
-    pub buf: BytesMut,
-    /// T1: how many bytes the last `take` handed out, so `reset` reserves them ONCE (the
-    /// buffer reclaimed when the taken `Bytes` is gone, replaced once when it is still
-    /// held) instead of the encode regrowing from the split's remainder.
-    want: usize,
+    pub buf: Vec<u8>,
+    /// Optimisation T1: the buffer a taken body (`take`) hands back when its last `Bytes`
+    /// clone is dropped -- on whatever thread the transport drops it, hence the lock -- so
+    /// the next `take` swaps it in: two buffers alternate, and neither the take nor the
+    /// next encode copies or allocates a buffer. (A `BytesMut` split was tried first and
+    /// cost 5-20% on the reused-buffer encode: logs/rust/opt/t1-native-ab.)
+    spare: Arc<Mutex<Option<Vec<u8>>>>,
     /// One learned width per length-prefix site in the generated code. Per context: a
     /// global table made two encoding threads slower than one (ABI v1 section 6).
     #[cfg(not(feature = "global-widths"))]
@@ -83,8 +102,8 @@ pub struct Enc {
 impl Enc {
     pub fn new(sites: usize) -> Self {
         Enc {
-            buf: BytesMut::with_capacity(4096),
-            want: 0,
+            buf: Vec::with_capacity(4096),
+            spare: Arc::new(Mutex::new(None)),
             #[cfg(not(feature = "global-widths"))]
             widths: vec![1u8; sites].into_boxed_slice(),
             c: Counters::default(),
@@ -123,49 +142,33 @@ impl Enc {
 
     #[inline]
     pub fn reset(&mut self) {
-        // `BytesMut::clear` is not `#[inline]` (nor are `truncate` and `resize`), and
-        // without LTO a non-inline, non-generic method of another crate is a call on every
-        // use: measured +20-40% on the small-field payloads (logs/rust/opt/t1-native-first).
-        // A length of 0 exposes nothing, so `set_len(0)` is `clear`.
-        unsafe { self.buf.set_len(0) };
-        // T1: after a `take` the buffer is the split's remainder. Reserve what the taken
-        // message needed: with the taken `Bytes` dropped this reclaims the whole allocation
-        // (nothing to copy, the length is 0); with it still held it allocates once. Never
-        // taken, `want` is 0 and this is one compare.
-        if self.want > self.buf.capacity() {
-            self.buf.reserve(self.want);
-        }
+        self.buf.clear();
         self.err = 0;
         // The learned widths deliberately SURVIVE a reset: that is what makes them learned.
     }
 
-    /// T1: the encoded bytes as a `Bytes`, split off the buffer and frozen: O(1), no copy.
-    /// The buffer keeps the allocation's remainder; the next `reset` reclaims or replaces it
-    /// (see `want`). What a tonic request body is, and what `ak_call_unary_enc` sends.
-    #[inline]
+    /// T1: the encoded bytes as a `Bytes`, MOVED out (no copy): O(1). The context gets the
+    /// spare buffer a dropped body returned, or a fresh one of the same capacity when the
+    /// previous body is still held; when this body's last clone is dropped its buffer
+    /// becomes the spare. What a tonic request body is (cell F), what `ak_call_unary_enc`
+    /// sends (cell C) and what `ak_enc_take_owned` hands a host.
     pub fn take(&mut self) -> Bytes {
-        self.want = self.buf.len();
-        self.buf.split().freeze()
+        let fresh = match self.spare.lock().ok().and_then(|mut g| g.take()) {
+            Some(mut v) => {
+                v.clear();
+                v
+            }
+            None => Vec::with_capacity(self.buf.capacity()),
+        };
+        let v = core::mem::replace(&mut self.buf, fresh);
+        Bytes::from_owner(Recycle { v, slot: self.spare.clone() })
     }
 
-    /// Append bytes. T1: `BytesMut::extend_from_slice` is only an inline HINT and the core
-    /// cdylib kept 17 out-of-line calls to it (objdump of libak_core.so at cf844df5); this is
-    /// the same reserve-and-copy, always inlined. Every append to `buf` goes through it.
+    /// Append bytes: reserve once, copy. Every append to `buf` from the core and the
+    /// generated encoders goes through it.
     #[inline(always)]
     pub fn put(&mut self, b: &[u8]) {
-        self.buf.reserve(b.len());
-        unsafe {
-            let len = self.buf.len();
-            core::ptr::copy_nonoverlapping(b.as_ptr(), self.tail(), b.len());
-            self.buf.set_len(len + b.len());
-        }
-    }
-
-    /// Where the next byte goes: the spare capacity's start (which, unlike a pointer taken
-    /// from the initialised slice, may be written through for the whole spare capacity).
-    #[inline(always)]
-    fn tail(&mut self) -> *mut u8 {
-        self.buf.spare_capacity_mut().as_mut_ptr() as *mut u8
+        self.buf.extend_from_slice(b);
     }
 
     #[inline]
@@ -183,7 +186,7 @@ impl Enc {
         self.buf.reserve(10);
         unsafe {
             let len = self.buf.len();
-            let n = put_varint(self.tail(), v);
+            let n = put_varint(self.buf.as_mut_ptr().add(len), v);
             self.buf.set_len(len + n);
         }
     }
@@ -194,13 +197,12 @@ impl Enc {
     pub fn varint_run<I: Iterator<Item = u64>>(&mut self, n: usize, it: I) {
         self.buf.reserve(n.saturating_mul(10));
         unsafe {
-            let len = self.buf.len();
-            let base = self.tail();
-            let mut at = 0usize;
+            let base = self.buf.as_mut_ptr();
+            let mut at = self.buf.len();
             for v in it.take(n) {
                 at += put_varint(base.add(at), v);
             }
-            self.buf.set_len(len + at);
+            self.buf.set_len(at);
         }
     }
 
@@ -215,7 +217,7 @@ impl Enc {
         }
         #[cfg(not(target_endian = "little"))]
         for x in v {
-            self.put(&x.to_le_bytes());
+            self.buf.extend_from_slice(&x.to_le_bytes());
         }
     }
 
@@ -230,7 +232,7 @@ impl Enc {
         self.buf.reserve(20);
         unsafe {
             let len = self.buf.len();
-            let p = self.tail();
+            let p = self.buf.as_mut_ptr().add(len);
             let k = put_varint(p, key(tag, crate::WIRE_VARINT));
             let n = put_varint(p.add(k), v);
             self.buf.set_len(len + k + n);
@@ -240,7 +242,7 @@ impl Enc {
     #[inline(always)]
     pub fn f64_field(&mut self, tag: u32, v: f64) {
         self.key(tag, crate::WIRE_I64);
-        self.put(&v.to_le_bytes());
+        self.buf.extend_from_slice(&v.to_le_bytes());
     }
 
     /// A `fixed32` field (wire type 5): four bytes, little-endian. R-E3: the corpus's
@@ -248,7 +250,7 @@ impl Enc {
     #[inline(always)]
     pub fn fixed32_field(&mut self, tag: u32, v: u32) {
         self.key(tag, crate::WIRE_I32);
-        self.put(&v.to_le_bytes());
+        self.buf.extend_from_slice(&v.to_le_bytes());
     }
 
     /// A length-delimited field whose length is known before the body is written, which is
@@ -261,7 +263,7 @@ impl Enc {
         self.buf.reserve(20 + b.len());
         unsafe {
             let len = self.buf.len();
-            let p = self.tail();
+            let p = self.buf.as_mut_ptr().add(len);
             let k = put_varint(p, key(tag, WIRE_LEN));
             let n = put_varint(p.add(k), b.len() as u64);
             core::ptr::copy_nonoverlapping(b.as_ptr(), p.add(k + n), b.len());
@@ -275,14 +277,7 @@ impl Enc {
         self.key(tag, WIRE_LEN);
         let w = self.width(site) as usize;
         let hdr = self.buf.len();
-        // T1: `BytesMut::resize` is a call (see `reset`); a learned width is at most 10
-        // bytes, so zero 16 (a constant-size store) and take `w` of them.
-        debug_assert!(w <= 16);
-        self.buf.reserve(16);
-        unsafe {
-            core::ptr::write_bytes(self.tail(), 0, 16);
-            self.buf.set_len(hdr + w);
-        }
+        self.buf.resize(hdr + w, 0);
         Mark { site, hdr, w }
     }
 
@@ -359,7 +354,7 @@ impl Enc {
         let len = self.buf.len();
         let cap = (self.buf.capacity() - len).min(i32::MAX as usize) as i32;
         self.last_cap = cap;
-        (self.tail(), cap)
+        unsafe { (self.buf.as_mut_ptr().add(len), cap) }
     }
 
     /// The transcoder asked for more. May move the buffer.
@@ -395,44 +390,44 @@ mod take_tests {
         }
     }
 
-    /// T1: `take` hands out exactly the encoded bytes, without a copy (the `Bytes` points
-    /// at the buffer the encode wrote), and after the `Bytes` is dropped the next `reset`
-    /// reclaims that allocation: the next encode writes where the first one did.
+    /// T1: `take` hands out exactly the encoded bytes without a copy (the `Bytes` points at
+    /// the buffer the encode wrote), and once it is dropped its buffer comes back: the take
+    /// after next writes into the first buffer again (two buffers alternate).
     #[test]
-    fn take_is_a_split_and_reset_reclaims() {
+    fn take_moves_and_buffers_alternate() {
         let mut e = Enc::new(1);
         fill(&mut e, 5000);
-        let want = e.buf.to_vec();
+        let want = e.buf.clone();
         let p0 = e.buf.as_ptr();
         let b = e.take();
         assert_eq!(&b[..], &want[..]);
         assert_eq!(b.as_ptr(), p0, "take copied");
-        assert_eq!(e.buf.len(), 0);
+        assert!(e.buf.is_empty());
         drop(b);
         fill(&mut e, 5000);
+        let p1 = e.buf.as_ptr();
         assert_eq!(&e.buf[..], &want[..]);
-        assert_eq!(e.buf.as_ptr(), p0, "reset did not reclaim the dropped body's allocation");
+        drop(e.take());
+        fill(&mut e, 5000);
+        assert_eq!(e.buf.as_ptr(), p0, "the dropped body's buffer did not come back");
+        let _ = p1;
     }
 
-    /// With the taken `Bytes` still held, the next `reset` allocates ONE buffer of at least
-    /// the taken length, and the held bytes are untouched by the next encode.
+    /// With the taken `Bytes` still held, the next take allocates one fresh buffer of the
+    /// same capacity, and the held bytes are untouched by the next encode.
     #[test]
     fn take_held_allocates_once() {
         let mut e = Enc::new(1);
         fill(&mut e, 5000);
-        let want = e.buf.to_vec();
+        let want = e.buf.clone();
+        let cap = e.buf.capacity();
         let b = e.take();
-        e.reset();
-        assert!(e.buf.capacity() >= want.len());
-        let p1 = e.buf.as_ptr();
-        for i in 0..5000 {
-            e.varint_field(1, (i + 1) as u64);
-        }
-        assert_eq!(e.buf.as_ptr(), p1, "the encode after a held take regrew");
+        assert!(e.buf.capacity() >= cap);
+        fill(&mut e, 5000);
         assert_eq!(&b[..], &want[..]);
     }
 
-    /// The reused-buffer form never splits: no `take`, and the buffer stays put.
+    /// The reused-buffer form never takes, and the buffer stays put.
     #[test]
     fn reused_buffer_stays_put() {
         let mut e = Enc::new(1);

@@ -154,7 +154,7 @@ pub const VARIANTS_CORE: &[(&str, &str)] = &[
     ("transport-ready-tonic", "pool"),
 ];
 /// What each transport-ready row is, for every header.
-pub const TRANSPORT_FORMS: &str = "transport-ready-tonic = the Bytes the arm hands tonic: incumbent-prod and armonik a frozen Bytes split from a reused BytesMut (cell A); core-ffi a Bytes copy of ak_enc_take's bytes (cell D); core-native Enc::take, its BytesMut split and frozen, O(1), as prost's (cell F; optimisation T1). transport-ready-core = the form the arm hands the core's transport: core-ffi's is the encode context itself (cell C: ak_call_unary_enc MOVES the core's buffer into the request inside the call, no host copy), core-native's its reused Enc buffer (cell E: ak_call_unary copies it inside the call); either way the host does nothing after the encode, so the op is the reused-buffer op, timed as its own row (an in-process repeat of reused-buffer), and the move or copy is inside the RPC call's time";
+pub const TRANSPORT_FORMS: &str = "transport-ready-tonic = the Bytes the arm hands tonic: incumbent-prod and armonik a frozen Bytes split from a reused BytesMut (cell A); core-ffi a Bytes copy of ak_enc_take's bytes (cell D); core-native Enc::take, its buffer moved into a Bytes (from_owner) and recycled when dropped, O(1) (cell F; optimisation T1). transport-ready-core = the form the arm hands the core's transport: core-ffi's is the encode context itself (cell C: ak_call_unary_enc MOVES the core's buffer into the request inside the call, no host copy), core-native's its reused Enc buffer (cell E: ak_call_unary copies it inside the call); either way the host does nothing after the encode, so the op is the reused-buffer op, timed as its own row (an in-process repeat of reused-buffer), and the move or copy is inside the RPC call's time";
 pub const ARMS: [&str; 5] = ["incumbent-prod", "armonik", "core-native", "core-ffi", "core-ffi-pull"];
 
 /// Requirement 22 as amended 2026-09-26 (FIX-PLAN R-H23): the order is RANDOMISED per
@@ -491,7 +491,7 @@ pub fn cases_for<R: Ops>(ctx: &'static Ctx, inp: &Input, zc: bool) -> Vec<Case> 
                 push_full("core-native", "encode", mname, end, input, Box::new(move || {
                     let x = if hot { v } else { i += 1; pool.get(i) };
                     R::n_encode(x, &mut e, retain);
-                    // T1: cell F's form is a split and a freeze of the Enc's BytesMut (Enc::take)
+                    // T1: cell F's form is the Enc's buffer moved into a Bytes (Enc::take)
                     if tr { e.take().len() as u64 } else { e.buf.len() as u64 }
                 }), hooks, Some(info));
             }

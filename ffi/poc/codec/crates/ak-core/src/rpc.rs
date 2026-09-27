@@ -319,8 +319,8 @@ pub unsafe extern "C" fn ak_call_unary(
 /// Optimisation R2: the request is the ENCODE CONTEXT's output, MOVED into the call, not
 /// copied: the context's buffer becomes the request body (owned by the core from here; the
 /// transport may poll it after the response, so nothing borrows host memory) and the
-/// context reclaims the allocation at its next reset once the transport dropped it (T1:
-/// `ak_rt::Enc::take`, a split of a `BytesMut`). The context's encoded bytes are consumed: after this call it holds none,
+/// context gets back the buffer of an earlier such call, returned when the transport
+/// dropped it (T1: `ak_rt::Enc::take`, which R2's swap with a spare buffer moved into). The context's encoded bytes are consumed: after this call it holds none,
 /// and its next operation is an encode (which resets it). The request must be a
 /// successful encode: a context in error is refused with its error. Otherwise the same
 /// blocking delivery as `ak_call_unary`, one crossing in. Additive: `ak_call_unary`
@@ -355,9 +355,8 @@ pub unsafe extern "C" fn ak_call_unary_enc(
     if cx.e.err != 0 {
         return cx.e.err;
     }
-    // T1: the encoded bytes split off the context's buffer and frozen, O(1), no copy; the
-    // next `ak_enc_reset` reclaims the allocation once this body is dropped (or allocates
-    // once if it is still held). This replaced R2's swap with a spare buffer.
+    // T1: the context's buffer moved into the body, O(1), no copy; it comes back to the
+    // context's spare slot when the transport drops the body (R2's swap, now Enc::take).
     let body = cx.e.take();
     let res = rt.rt.block_on(unary_once(cl.chan.clone(), path, body));
     match res {
