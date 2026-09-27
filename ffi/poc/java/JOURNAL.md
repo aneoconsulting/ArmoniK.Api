@@ -949,3 +949,4 @@ which grouping ran. The converter keys the labels by (cell, combo). Checked by h
 with combo=a/8 and d:1/1 gave two forks, labels and iters (8 per batch at k = 8) right. Also
 stopped a stale JVM of mine, running since WP10: the no-unknown count client's first
 attempt, blocked on the grpc-java authority error.
+Gate at d9467f77f from a clean worktree, outside smoke (campaign.machine sourced, the server unpinned): GATE PASSED, G6 closed. Grouped smoke: pinned, full build, 289 samples (logs/java/campaign-wp9g).

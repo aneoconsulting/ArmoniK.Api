@@ -1,0 +1,28 @@
+Sep 27, 2026 11:53:59 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0xaf9e4e1c]'
+  upload check A: (c) P5.3, P5.4 accepted; (d) 4 MiB, 16 MiB: count and SHA-256 identical
+  upload check B: (c) P5.3, P5.4 accepted; (d) 4 MiB, 16 MiB: count and SHA-256 identical
+  upload check C-retain: (c) P5.3, P5.4 accepted; (d) 4 MiB, 16 MiB: count and SHA-256 identical
+  upload check C-drop: (c) P5.3, P5.4 accepted; (d) 4 MiB, 16 MiB: count and SHA-256 identical
+Sep 27, 2026 11:54:00 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0x93bab8a2]'
+  upload check D-retain: (c) P5.3, P5.4 accepted; (d) 4 MiB, 16 MiB: count and SHA-256 identical
+Sep 27, 2026 11:54:00 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0x94759650]'
+  upload check D-drop: (c) P5.3, P5.4 accepted; (d) 4 MiB, 16 MiB: count and SHA-256 identical
+  upload check E-retain: (c) P5.3, P5.4 accepted; (d) 4 MiB, 16 MiB: count and SHA-256 identical
+  upload check E-drop: (c) P5.3, P5.4 accepted; (d) 4 MiB, 16 MiB: count and SHA-256 identical
+Sep 27, 2026 11:54:00 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0xd7d829de]'
+  upload check F-retain: (c) P5.3, P5.4 accepted; (d) 4 MiB, 16 MiB: count and SHA-256 identical
+Sep 27, 2026 11:54:00 PM io.grpc.netty.shaded.io.netty.bootstrap.AbstractBootstrap setChannelOption
+WARNING: Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0x3958abf4]'
+  upload check F-drop: (c) P5.3, P5.4 accepted; (d) 4 MiB, 16 MiB: count and SHA-256 identical
+  upload check Bf: (c) P5.3, P5.4 accepted; (d) 4 MiB, 16 MiB: count and SHA-256 identical
+  upload check Cf-retain: (c) P5.3, P5.4 accepted; (d) 4 MiB, 16 MiB: count and SHA-256 identical
+  upload check Cf-drop: (c) P5.3, P5.4 accepted; (d) 4 MiB, 16 MiB: count and SHA-256 identical
+  upload check Ef-retain: (c) P5.3, P5.4 accepted; (d) 4 MiB, 16 MiB: count and SHA-256 identical
+  upload check Ef-drop: (c) P5.3, P5.4 accepted; (d) 4 MiB, 16 MiB: count and SHA-256 identical
+  upload check Cc-retain: (c) P5.3, P5.4 accepted; (d) 4 MiB, 16 MiB: count and SHA-256 identical
+  upload check Cc-drop: (c) P5.3, P5.4 accepted; (d) 4 MiB, 16 MiB: count and SHA-256 identical
+UPLOAD CHECK PASSED (17 cells)
