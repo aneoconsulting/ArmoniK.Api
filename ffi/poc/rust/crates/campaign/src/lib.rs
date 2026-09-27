@@ -134,14 +134,27 @@ pub const MODES: &[(&str, bool)] = &[("no-unknown", false)];
 /// Which fill the core-ffi encode arm (and the RPC cells C and D) use, for every header.
 pub const FFI_ENCODE_FILL: &str = "sparse (ABI v1 decision 9: top-level element groups cleared, min(n, chunk) of them, then only non-default fields written; binding encode_into_<root>_zeroed / _unk_zeroed; nested groups and the root group keep the total fill)";
 
-/// Requirement 11's encode variants: (end state, input).
+/// Requirement 11's encode variants: (end state, input). incumbent-prod and armonik have
+/// `reused-buffer` and `transport-ready-tonic`; core-native and core-ffi have a third,
+/// `transport-ready-core` (`VARIANTS_CORE`), because their RPC paths hand two transports
+/// two different forms.
 pub const VARIANTS: &[(&str, &str)] = &[
     ("reused-buffer", "hot"),
     ("reused-buffer", "pool"),
-    ("transport-ready", "hot"),
-    ("transport-ready", "pool"),
+    ("transport-ready-tonic", "hot"),
+    ("transport-ready-tonic", "pool"),
 ];
-
+/// core-native's and core-ffi's variants: `VARIANTS` plus the core-transport form.
+pub const VARIANTS_CORE: &[(&str, &str)] = &[
+    ("reused-buffer", "hot"),
+    ("reused-buffer", "pool"),
+    ("transport-ready-core", "hot"),
+    ("transport-ready-core", "pool"),
+    ("transport-ready-tonic", "hot"),
+    ("transport-ready-tonic", "pool"),
+];
+/// What each transport-ready row is, for every header.
+pub const TRANSPORT_FORMS: &str = "transport-ready-tonic = the Bytes the arm hands tonic: incumbent-prod and armonik a frozen Bytes split from a reused BytesMut (cell A); core-ffi a Bytes copy of ak_enc_take's bytes (cell D); core-native a Bytes copy of its Enc buffer (cell F). transport-ready-core = the form the arm hands the core's transport: core-ffi's is the encode context itself (cell C: ak_call_unary_enc MOVES the core's buffer into the request inside the call, no host copy), core-native's its reused Enc buffer (cell E: ak_call_unary copies it inside the call); either way the host does nothing after the encode, so the op is the reused-buffer op, timed as its own row (an in-process repeat of reused-buffer), and the move or copy is inside the RPC call's time";
 pub const ARMS: [&str; 5] = ["incumbent-prod", "armonik", "core-native", "core-ffi", "core-ffi-pull"];
 
 /// Requirement 22 as amended 2026-09-26 (FIX-PLAN R-H23): the order is RANDOMISED per
@@ -402,15 +415,18 @@ pub fn cases_for<R: Ops>(ctx: &'static Ctx, inp: &Input, zc: bool) -> Vec<Case> 
         }))
     };
     let modes: &'static [(&'static str, bool)] = MODES;
-    // Requirement 11 (R-H29): every encode arm in four labelled variants, graph
-    // construction outside the timed window:
-    //   end state  reused-buffer    the bytes left in a buffer the arm reuses (no allocation)
-    //              transport-ready  the form the arm's RPC path hands its transport: a frozen
-    //                               `Bytes` split from a reused `BytesMut` (tonic's encode
-    //                               buffer) for incumbent-prod and armonik; for core-native and
-    //                               core-ffi a `Bytes` copy of their buffer, which is what cells
-    //                               F and D hand tonic (over the core's transport, cells E and
-    //                               C, the form IS the reused buffer, row reused-buffer)
+    // Requirement 11 (R-H29): every encode arm in labelled variants, graph construction
+    // outside the timed window:
+    //   end state  reused-buffer          the bytes left in a buffer the arm reuses (no allocation)
+    //              transport-ready-tonic  the form the arm's RPC path hands tonic: a frozen
+    //                                     `Bytes` split from a reused `BytesMut` (tonic's encode
+    //                                     buffer) for incumbent-prod and armonik (cell A); for
+    //                                     core-native and core-ffi what cells F and D hand tonic
+    //              transport-ready-core   core-native and core-ffi: what cells E and C hand the
+    //                                     core's transport -- the reused buffer (E, copied inside
+    //                                     ak_call_unary) or the encode context (C, its buffer moved
+    //                                     inside ak_call_unary_enc): nothing after the encode on
+    //                                     the host, the reused-buffer op timed as its own row
     //   input      hot   one graph re-encoded; pool  distinct graphs, in turn, cloned until
     //                    the heap they hold reaches `pool_bytes()` (`Pool::hooks`)
     if inp.encode && p_run {
@@ -419,7 +435,7 @@ pub fn cases_for<R: Ops>(ctx: &'static Ctx, inp: &Input, zc: bool) -> Vec<Case> 
             let info = std::rc::Rc::new(std::cell::Cell::new((0, 0)));
             let hooks = (*input == "pool").then(|| pool.hooks(p_val, info.clone()));
             let mut buf = BytesMut::with_capacity(wire.len() * 2 + 64);
-            let tr = *end == "transport-ready";
+            let tr = *end == "transport-ready-tonic";
             let hot = *input == "hot";
             let mut i = 0usize;
             push_full("incumbent-prod", "encode", "default", end, input, Box::new(move || {
@@ -443,7 +459,7 @@ pub fn cases_for<R: Ops>(ctx: &'static Ctx, inp: &Input, zc: bool) -> Vec<Case> 
             let info = std::rc::Rc::new(std::cell::Cell::new((0, 0)));
             let hooks = (*input == "pool").then(|| pool.hooks(a_val, info.clone()));
             let mut buf = BytesMut::with_capacity(wire.len() * 2 + 64);
-            let tr = *end == "transport-ready";
+            let tr = *end == "transport-ready-tonic";
             let hot = *input == "hot";
             let mut i = 0usize;
             push_full("armonik", "encode", "default", end, input, Box::new(move || {
@@ -463,8 +479,8 @@ pub fn cases_for<R: Ops>(ctx: &'static Ctx, inp: &Input, zc: bool) -> Vec<Case> 
     }
     if inp.encode {
         for &(mname, retain) in modes {
-            for (end, input) in VARIANTS {
-                let tr = *end == "transport-ready";
+            for (end, input) in VARIANTS_CORE {
+                let tr = *end == "transport-ready-tonic";
                 let hot = *input == "hot";
                 let v = f_val(retain);
                 let pool = Pool::<R::F>::new();
@@ -477,6 +493,10 @@ pub fn cases_for<R: Ops>(ctx: &'static Ctx, inp: &Input, zc: bool) -> Vec<Case> 
                     R::n_encode(x, &mut e, retain);
                     if tr { Bytes::copy_from_slice(&e.buf).len() as u64 } else { e.buf.len() as u64 }
                 }), hooks, Some(info));
+            }
+            for (end, input) in VARIANTS_CORE {
+                let tr = *end == "transport-ready-tonic";
+                let hot = *input == "hot";
                 let v = f_val(retain);
                 let pool = Pool::<R::F>::new();
                 let info = std::rc::Rc::new(std::cell::Cell::new((0, 0)));
@@ -486,8 +506,10 @@ pub fn cases_for<R: Ops>(ctx: &'static Ctx, inp: &Input, zc: bool) -> Vec<Case> 
                     let x = if hot { v } else { i += 1; pool.get(i) };
                     let n = R::f_encode(ctx, x, retain).expect("core-ffi encode") as u64;
                     if tr {
+                        // cell D: the bytes read out (ak_enc_take) and copied into tonic's Bytes
                         Bytes::copy_from_slice(unsafe { harness::generated::binding::encoded(ctx.enc) }).len() as u64
                     } else {
+                        // reused-buffer, and cell C's form (the context, moved inside the call)
                         n
                     }
                 }), hooks, Some(info));

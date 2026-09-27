@@ -327,7 +327,7 @@ pub fn call_of(cell: &str, conn: &Conn, dir: &'static str, sl: &'static [Slot], 
                 let slot = &sl[i];
                 // The request body, encoded before the call as the idiomatic client does:
                 // the core's buffer (D) or core-native's (F), copied into the `Bytes` tonic
-                // takes (the transport-ready form of requirement 11).
+                // takes (requirement 11 row transport-ready-tonic).
                 let body = if fetch {
                     Ok(Bytes::new())
                 } else if ffi {
