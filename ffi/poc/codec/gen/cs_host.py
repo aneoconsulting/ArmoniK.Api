@@ -342,9 +342,9 @@ UNKHOST = r'''
 public static unsafe class UnkHost
 {
     public static long Grows;
-    /// CAMPAIGN req 19 (R-H31): the counting run sets this, so every grow allocates EXACTLY
-    /// the size the core asked for (no doubling, no 64-byte floor), and the committed retain
-    /// counts do not depend on this host's growth policy. The timed runs leave it false.
+    /// A GATE CONTROL only (CAMPAIGN req 19 as amended 2026-09-26: the counting build grows
+    /// geometrically, as the timed build does, decision 11 rule 8): set, every grow allocates
+    /// exactly the size asked, and the committed counts must then differ. Never set otherwise.
     public static bool Exact;
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
@@ -354,8 +354,8 @@ public static unsafe class UnkHost
         {
             if (want < 0) return Abi.AK_ERR_LIMIT;
             int c = *cap;
-            long nc = Exact ? want : Math.Max((long)want, Math.Max(64L, 2L * c));
-            if (nc > int.MaxValue) nc = want;
+            long nc = Exact ? want : Math.Max((long)want, Math.Max(64L, 2L * c));   // geometric (rule 8), clamped below
+            if (nc > int.MaxValue) nc = int.MaxValue;   // rule 8: clamped to INT32_MAX (want <= INT32_MAX)
             void* old = *dst;
             void* np = NativeMemory.Realloc(old, (nuint)nc);
             var live = G.Live;
@@ -1047,7 +1047,7 @@ def _emit_unk(o, p, root):
     o += "    public int Undelivered { get; private set; }"
     o += "    private %s* _uo;" % on
     o += "    private HashSet<IntPtr> _live;"
-    o += "    /// The resets that arm and disarm each decode (rule 7): forward crossings, counted"
+    o += "    /// The one reset that arms each decode (rule 7): a forward crossing, counted"
     o += "    /// apart from ForwardCalls because the core's R5 counters do not count them."
     o += "    private static long _resets;"
     o += "    public long ResetCalls => _resets;"
@@ -1086,12 +1086,12 @@ def _emit_unk(o, p, root):
     o += "        return Abi.ak_dec_reset_%s(_dctx, Arm(mode));" % root
     o += "    }"
     o += ""
-    o += "    /// After every decode: the core forgets the options (reset with NULL), and a buffer"
-    o += "    /// still outstanding is freed; after a success that is UNDELIVERED."
+    o += "    /// After every decode: a buffer still outstanding is freed; after a success that is"
+    o += "    /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE"
+    o += "    /// reset per decode, the arming one before it (ArmFor); the options stay at their"
+    o += "    /// stable native address (_uo) until the next decode's reset rewrites them."
     o += "    private int Disarm(int rc)"
     o += "    {"
-    o += "        _resets++;"
-    o += "        Abi.ak_dec_reset_%s(_dctx, null);" % root
     o += "        var live = G.Live;"
     o += "        G.Live = null;"
     o += "        if (live == null || live.Count == 0) return rc;"
