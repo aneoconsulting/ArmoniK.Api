@@ -3006,3 +3006,62 @@ is container instrumentation.
   F 2 (copy_from_slice, RawEncoder) -> 1. h2 chains DATA payloads >= 256 B (h2 0.4.19
   framed_write CHAIN_THRESHOLD, vectored writes on a Unix socket), so no further copy there
   on any cell. Step 2 is held; options assessed in the report, nothing implemented.
+
+## 2026-09-27 -- owner decisions on step 2; T1 option 3 (framed send path) as labelled extra cells
+
+Owner: option 3 approved as OPTIONAL (labelled extra cells beside the unchanged reference,
+measured in the same run); step 2 (ak_enc_take_owned) KEPT; no small-message threshold for
+Enc::take.
+
+- d18540f0: `rpc::unary_framed(svc, path, msg, max_send)` in the shared rpc crate: tonic's
+  Channel (it adds origin and user-agent), the request message as two body frames (the
+  5-byte prefix, then the caller's Bytes; an empty message is the prefix alone), no copy on
+  the host. Request as tonic 0.14.6's GrpcConfig::prepare_request builds it for
+  Grpc::new(channel): POST, HTTP/2, the path, `te: trailers`, `content-type:
+  application/grpc`; tonic adds `grpc-accept-encoding` only with accept-compression enabled
+  and `grpc-timeout` only from a deadline, neither used on either path. Body size_hint left
+  unknown, as EncodeBody's, so hyper adds no content-length. Response as
+  Grpc::create_response + client_streaming: trailers-only status from the headers
+  (Status::from_header_map), else Streaming::new_response(RawDecoder, ...), one message,
+  then the trailers (their grpc-status checked by Streaming). Send limit: encode_item's two
+  checks with its messages (max_send None = tonic's default, no limit; 4 GiB prefix
+  limit). Compression off on both paths. Core switch: additive RPC entry
+  `int32_t ak_client_set_framed(ak_client *c, int32_t on)` (0 reference, the default; 1
+  framed; else or NULL -> AK_ERR_INVALID_STATE), read at call time by all three deliveries
+  (blocking, callback, queue). Chosen over a member of ak_client_opts (a layout change of an
+  RPC struct every slice declares) and over three additive per-call entries (one switch
+  covers every delivery, the call entries and their counts stay as they are). Cells: Bf,
+  Cf-*, Ef-* (the core's client switched once at Conn::open) and Df-*, Ff-* (the harness
+  calls unary_framed); A has no twin.
+- Evidence (logs/rust/opt/framed/header-diff.txt, bin/header_diff, now gate step 11d): the
+  server records each request. Headers identical, same order, on both transports (tonic
+  Channel, the core's client), both methods, shipped and pinned: `te: trailers`,
+  `content-type: application/grpc`, `user-agent: tonic/0.14.6`, POST http://tonic/<path>
+  HTTP/2.0. Request DATA frames as received (the proof each path ran): reference Fetch [5,
+  0], framed [5]; reference Push 33 x 16384 + 16139 + an empty END_STREAM frame, framed 5 +
+  33 x 16384 + 16134. A refused Push comes back as the same Status (InvalidArgument, same
+  message) on both paths; another path the same response; the framed send limit refuses
+  a 3-byte message under a 2-byte limit with encode_item's OutOfRange message, unsent.
+  Found on the way: the core applies neither ak_client_opts.max_send_message nor
+  max_recv_message on EITHER path (pre-existing; not changed).
+- Requirement 18 per path: the plant control now runs once per send path, each warmed
+  through ONE cell so each must abort on its own (rpc_client --warm-cells A | B | Bf | Df):
+  every one aborted with no output, both clients, both transports (opt_bench and
+  run_campaign.sh). The check message names the full cell.
+- Crossings: new rows rpc:Bf, Cf, Df, Ef, each equal to its reference twin (set_framed is
+  called once at open, outside the counted call); files regenerated.
+- Full run logs/rust/opt/framed (598 s; the grid is now 19 cells full / 11 no-unknown).
+  framed/reference in-process, geometric means over transports x modes x k
+  (framed/framed-pairs.txt): b: B 0.72, C 0.89, D 0.71, E 0.93, F 0.99, but single rows run
+  0.20-5.94: at k=8 and k=16 the round distribution is bimodal (rounds at 0.5-0.7 ms and at
+  2-3.5 ms per call) and 3 rounds do not resolve anything; a: 0.97-1.05 except B 1.25.
+  Narrowed run logs/rust/opt/framed-rpc-narrow (gen/rpc_narrow.sh + gen/rpc_pairs.py, new:
+  14 cells, a and b, k=1, 3 launches x 10 rounds x 48 calls per transport): the round
+  distribution is heavy-tailed there too (max 3-5x the median), so the 10th percentile is
+  printed beside the median. Direction b, framed/reference, p10 gmean (median gmean):
+  B 0.89 (0.78), C 0.98 (1.02), D 0.95 (0.91), E 0.94 (1.11), F 0.95 (1.00); per p10 pair
+  0.87-1.02. Direction a p10 0.91-1.04 (B's 1.25 of the full run is not reproduced: 0.94 /
+  1.01 per transport). Reading, as instrumentation: removing one 540 KB copy (and tonic's
+  per-call buffer growth to hold it) is worth a few percent of a call's client CPU on D, E,
+  F and ~10% on B (two copies -> one); the container's tail noise is larger than the effect
+  at every median. Kept as labelled extra cells, as the owner asked.

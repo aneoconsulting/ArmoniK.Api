@@ -4,6 +4,7 @@
 //!
 //!   rpc_client --socket PATH --transport shipped|pinned --launch N --rounds R --calls C
 //!              --warmup W --server-warm S --out FILE [--plant] [--warm-cells STEMS]
+//!              [--cells NAMES] [--dirs a,b] [--inflight 1,8]   (narrowed runs only)
 //!
 //! Cells (`campaign::grid`): A prost+tonic, B prost+core, C core-ffi+core, D core-ffi+tonic,
 //! E core-native+core, F core-native+tonic; C to F per unknown-field mode of this build.
@@ -157,13 +158,23 @@ fn main() {
     // Requirement 22 as amended (R-H23): the cell order is a seeded random permutation per
     // launch (seed = launch); directions and in-flight counts stay nested inside a cell.
     let mut order: Vec<&str> = CELLS.to_vec();
+    // Narrowed runs only (gen/rpc_narrow.sh): --cells STEMS-or-names, --dirs, --inflight.
+    if let Some(cs) = arg("--cells") {
+        let want: Vec<&str> = cs.split(',').map(grid::cell_of).collect();
+        order.retain(|c| want.contains(c));
+    }
+    let dirs: Vec<&'static str> = match arg("--dirs") {
+        Some(d) => DIRS.iter().copied().filter(|x| d.split(',').any(|y| y == *x)).collect(),
+        None => DIRS.to_vec(),
+    };
+    let ks: Vec<usize> = arg("--inflight").map(|v| v.split(',').map(|x| x.parse().unwrap()).collect()).unwrap_or(vec![1, 8, 16]);
     campaign::shuffle(&mut order, launch as u64);
     let mut lines = Vec::new();
     for cell in &order {
         // ONE channel per cell per launch (requirement 13 as amended, R-H33).
         let conn = Conn::open(cell, &target, pinned);
-        for &dir in DIRS {
-            for k in [1usize, 8, 16] {
+        for &dir in &dirs {
+            for &k in &ks {
                 let per = calls.div_ceil(k);
                 let callers = Callers::new(&grid::call_of(cell, &conn, dir, grid::slots(k), want_a), k);
                 // Warm-up, identical for every cell (requirement 24): the channel and the

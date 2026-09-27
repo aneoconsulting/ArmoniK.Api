@@ -1,0 +1,7 @@
+# rust slice NARROWED rpc run (gen/rpc_narrow.sh): CONTAINER INSTRUMENTATION; commit d18540f0 + UNCOMMITTED; 2026-09-27T09:13:45Z; cells=B,Bf,C-drop,Cf-drop,D-drop,Df-drop,E-drop,Ef-drop,F-drop,Ff-drop,C-retain,Cf-retain,D-retain,Df-retain dirs=a,b inflight=1 launches=3 rounds=10 calls=48 warmup=16 server-warm=16 server threads=2 cpu client=1 server=2,3
+  shipped launch 1: 280 rows
+  shipped launch 2: 280 rows
+  shipped launch 3: 280 rows
+  pinned launch 1: 280 rows
+  pinned launch 2: 280 rows
+  pinned launch 3: 280 rows
