@@ -28,6 +28,8 @@ public static class Program
 {
     private static string Opt(string[] a, string k, string d) { int i = Array.IndexOf(a, k); return i >= 0 && i + 1 < a.Length ? a[i + 1] : d; }
 
+    public static bool Grouped;
+
     public static int Main(string[] a)
     {
         int launch = int.Parse(Opt(a, "--launch", "1"), CultureInfo.InvariantCulture);
@@ -40,6 +42,16 @@ public static class Program
         if (a.Contains("--list-units")) { foreach (var u in Cases.Units(launch)) Console.WriteLine(u); return 0; }
         if (a.Contains("--counts")) return CountRun.Run(Opt(a, "--counts", "counts.txt"));
         Cases.Unit = Opt(a, "--unit", null);
+        // CAMPAIGN req 22a (e6c909630): the campaign runs BDN's native isolation, one child
+        // process per case (the default toolchain); `--toolchain grouped` (InProcessEmit, every
+        // case of the unit in this process) is for smoke and small exploration runs only.
+        Grouped = Opt(a, "--toolchain", "process") == "grouped";
+        if (!Grouped)
+        {
+            var cd = Path.Combine(Opt(a, "--artifacts", "BenchmarkDotNet.Artifacts"), "cpu-" + Environment.ProcessId);
+            Directory.CreateDirectory(cd);
+            Environment.SetEnvironmentVariable("AK_CPU_CHILD_DIR", cd);   // inherited by the children's CpuClock
+        }
         if (Cases.Unit != null && !Cases.Units(1).Contains(Cases.Unit)) { Console.Error.WriteLine("unknown unit " + Cases.Unit); return 2; }
         JitTiers.Start();
 
@@ -60,7 +72,7 @@ public static class Program
             Console.Error.WriteLine("AKHEAP after checks and case list: {0} MB live", GC.GetTotalMemory(true) / 1000000);
         var hdr = new[]
         {
-            "# engine:         BenchmarkDotNet " + typeof(BenchmarkRunner).Assembly.GetName().Version + " (CAMPAIGN.md 22a), toolchain InProcessEmit (this process, pinned by the runner)",
+            "# engine:         BenchmarkDotNet " + typeof(BenchmarkRunner).Assembly.GetName().Version + " (CAMPAIGN.md 22a), toolchain " + (Grouped ? "InProcessEmit, GROUPED: every case of this unit in this process (the runner's grouped switch: smoke and small exploration runs only, req 22a as amended e6c909630); the JIT tier is read back per case" : "BDN's default, ONE CHILD PROCESS PER CASE (the campaign's native isolation, req 22a as amended e6c909630); process CPU per iteration from the child's clock reads, each pair checked against BDN's wall measurement; the JIT tier is NOT read back (the children's JIT events are not visible here), so the jit check below is vacuous in this mode") + ", pinned by the runner",
             "# runtime:        " + RuntimeInformation.FrameworkDescription + "; TieredCompilation=" + Env("DOTNET_TieredCompilation") + " TieredPGO=" + Env("DOTNET_TieredPGO") + " (net8.0 defaults unless set); GC server=" + GCSettings.IsServerGC + ", concurrent (default)",
             "# incumbent:      Google.Protobuf " + Ver(typeof(Google.Protobuf.MessageParser)),
             "# build:          " + Armonik.Ffi.Harness.AbiVariant.Name + " (WP5 step 10; the loaded core checked to be the same variant by its u-family exports)",
@@ -84,8 +96,7 @@ public static class Program
         File.AppendAllLines(outp, hdr);
         foreach (var h in hdr) Console.WriteLine(h);
 
-        var job = Job.Default
-            .WithToolchain(InProcessEmitToolchain.Instance)
+        var job = (Grouped ? Job.Default.WithToolchain(InProcessEmitToolchain.Instance) : Job.Default)
             .WithStrategy(RunStrategy.Throughput)
             .WithLaunchCount(1)
             .WithWarmupCount(warm)
@@ -115,7 +126,7 @@ public static class Program
             "# end: " + summary.Reports.Length + " BDN cases (" + nprime + " prime), " + failed + " failed",
         });
         // R-H18: a JIT-check failure fails the unit (and so the launch), not only a warning.
-        return failed == 0 && summary.Reports.Length == ncases + nprime && (smoke || JsonLinesExporter.JitTier0Cases == 0) && JsonLinesExporter.CpuPairFailed == 0 ? 0 : 1;
+        return failed == 0 && summary.Reports.Length == ncases + nprime && (smoke || !Grouped || JsonLinesExporter.JitTier0Cases == 0) && JsonLinesExporter.CpuPairFailed == 0 ? 0 : 1;
     }
 
     private static (int MinW, int MinIo, int MaxW, int MaxIo) Tp()

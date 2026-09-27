@@ -58,6 +58,7 @@ namespace Armonik.Ffi.Campaign;
 internal static class RpcCtx
 {
     public static string Sock, Transport, Unit;
+    public static bool Grouped;
     public static int Workers = 2, Want;
     public static int[] Levels = { 1, 8, 16 };
     private static List<CampaignMain.Cell> _cells;
@@ -75,6 +76,12 @@ internal static class RpcCtx
     public static List<CampaignMain.Cell> Cells()
     {
         if (_cells != null) return _cells;
+        // Under BDN's default (out-of-process) toolchain this runs in the benchmark's child
+        // process, which does not run Main: the context comes from the environment Main set.
+        Sock ??= Environment.GetEnvironmentVariable("AK_RPC_BENCH_SOCK");
+        Transport ??= Environment.GetEnvironmentVariable("AK_RPC_BENCH_TRANSPORT");
+        Unit ??= Environment.GetEnvironmentVariable("AK_RPC_BENCH_UNIT");
+        if (Want == 0) Want = int.Parse(Environment.GetEnvironmentVariable("AK_RPC_BENCH_WANT") ?? "0", CultureInfo.InvariantCulture);
         AppContext.SetSwitch("System.Net.SocketsHttpHandler.Http2FlowControl.DisableDynamicWindowSizing", true);
         _rt = AkRpc.ak_runtime_new((uint)Workers);
         if (_rt == IntPtr.Zero) throw new InvalidOperationException("ak_runtime_new");
@@ -130,6 +137,9 @@ public abstract class RpcBase
     }
 
     protected Task Batch() => CampaignMain.RunCell(_c, RpcCtx.Pool, K, K);
+
+    [GlobalCleanup]
+    public void Cleanup() => CpuClock.DumpChild(Case);
 }
 
 public class RpcK1 : RpcBase { protected override int K => 1; [Benchmark(OperationsPerInvoke = 1)] public Task Run() => Batch(); }
@@ -223,13 +233,16 @@ public sealed class RpcJsonExporter : IExporter
             int warm = all.Count(m => m.IterationMode == IterationMode.Workload && m.IterationStage == IterationStage.Warmup);
             var act = all.Where(m => m.IterationMode == IterationMode.Workload && m.IterationStage == IterationStage.Actual).ToList();
             if (!RpcCpuDiagnoser.IterCpu.TryGetValue(key, out var ic) || ic.Length != 2 * act.Count)
+                ic = CpuClock.FromChild(key, act.Select(m => m.Nanoseconds).ToList());   // the default toolchain's child
+            if (ic == null || ic.Length != 2 * act.Count)
             {
                 Failed = true;
                 File.AppendAllLines(_path, new[] { "# ABORT: process CPU per iteration not paired for " + key + "; no samples written" });
                 return new[] { _path };
             }
             string jit = "\"jit\":\"not recorded\"";
-            if (RpcCpuDiagnoser.Times.TryGetValue(key, out var tt))
+            if (!RpcCtx.Grouped) jit = "\"jit\":\"not recorded: the case ran in its own child process (default toolchain), whose JIT events this process does not see\"";
+            else if (RpcCpuDiagnoser.Times.TryGetValue(key, out var tt))
                 jit = JitTiers.Summarise(tt.T0, RpcBase.SetupEnd.TryGetValue(key, out var se) ? se : tt.T0, tt.T1, tt.T2, out _, out _);
             int round = 0;
             foreach (var m in act)
@@ -292,6 +305,20 @@ public static class RpcBenchMain
         // A CONTROL (run_campaign.sh --plant): a wrong expected length must abort with no sample.
         if (Environment.GetEnvironmentVariable("AK_CAMPAIGN_PLANT") == "len") RpcCtx.Want += 1;
         bool pinned = RpcCtx.Transport == "pinned";
+        // CAMPAIGN req 22a (e6c909630): the campaign runs BDN's native isolation, one process per
+        // benchmark case (the default toolchain); `--toolchain grouped` (InProcessEmit, every case
+        // of the unit in this process) is for smoke and small exploration runs only.
+        bool grouped = RpcCtx.Grouped = Opt(a, "--toolchain", "process") == "grouped";
+        if (!grouped)
+        {
+            var cd = Path.Combine(art, "cpu-" + Environment.ProcessId);
+            Directory.CreateDirectory(cd);
+            Environment.SetEnvironmentVariable("AK_CPU_CHILD_DIR", cd);   // inherited by the children's CpuClock
+        }
+        Environment.SetEnvironmentVariable("AK_RPC_BENCH_SOCK", RpcCtx.Sock);
+        Environment.SetEnvironmentVariable("AK_RPC_BENCH_TRANSPORT", RpcCtx.Transport);
+        Environment.SetEnvironmentVariable("AK_RPC_BENCH_UNIT", RpcCtx.Unit);
+        Environment.SetEnvironmentVariable("AK_RPC_BENCH_WANT", RpcCtx.Want.ToString(CultureInfo.InvariantCulture));
 
         // The cells (and their channels) are built here, before BDN, so the header can list them;
         // the cases' GlobalSetup then only looks its cell up. Upload cells are checked there.
@@ -309,7 +336,7 @@ public static class RpcBenchMain
             o.stream_window, o.connection_window, o.tcp_nagle, RpcCtx.Sock, string.Join("/", RpcCtx.Levels)));
         Console.SetOut(old);
         hdr.AddRange(sw.ToString().TrimEnd('\n').Split('\n'));
-        hdr.Add("# engine:         BenchmarkDotNet " + typeof(BenchmarkRunner).Assembly.GetName().Version + " (CAMPAIGN req 22a as amended 2026-09-27, WP9), toolchain InProcessEmit (this process, pinned by the runner), StopOnFirstError; one invocation = one batch of k calls in flight (OperationsPerInvoke = k; `iters` = calls, `invocations` = batches); the benchmark classes RpcK1, RpcK8, RpcK16 hold the k = 1, 8, 16 cases");
+        hdr.Add("# engine:         BenchmarkDotNet " + typeof(BenchmarkRunner).Assembly.GetName().Version + " (CAMPAIGN req 22a as amended 2026-09-27, WP9), toolchain " + (grouped ? "InProcessEmit, GROUPED: every case of this unit in this process (the runner's grouped switch: smoke and small exploration runs only, req 22a as amended e6c909630)" : "BDN's default, ONE CHILD PROCESS PER CASE (the campaign's native isolation, req 22a as amended e6c909630)") + ", pinned by the runner, StopOnFirstError; one invocation = one batch of k calls in flight (OperationsPerInvoke = k; `iters` = calls, `invocations` = batches); the benchmark classes RpcK1, RpcK8, RpcK16 hold the k = 1, 8, 16 cases");
         hdr.Add(string.Format(CultureInfo.InvariantCulture, "# job:            {0} actual iterations (rounds) per case, {1} warm-up iterations (the same for every case) after BDN's jitting stage and pilot, iteration time {2} ms (the pilot picks the invocation count, unroll factor 1), strategy Throughput, EvaluateOverhead=false", rounds, warm, itMs));
         hdr.Add("# clocks:         per iteration: wall (Stopwatch) and process CPU (CLOCK_PROCESS_CPUTIME_ID; the client process, every thread) read by the job's clock (CpuClock) at the same iteration boundaries (req 21); the server is another process");
         hdr.Add("# order:          this launch's unit order: " + string.Join(", ", Units(launch)) + " (seed " + (launch * 7907) + "); the cases of this process in a seeded shuffle (seed " + orderer.Seed + "); ratios, where the aggregation forms them, from per-launch medians (req 30)");
@@ -322,8 +349,8 @@ public static class RpcBenchMain
         File.AppendAllLines(outp, hdr);
         foreach (var h in hdr) Console.WriteLine(h);
 
-        var job = Job.Default
-            .WithToolchain(InProcessEmitToolchain.Instance)
+        var job0 = grouped ? Job.Default.WithToolchain(InProcessEmitToolchain.Instance) : Job.Default;
+        var job = job0
             .WithStrategy(RunStrategy.Throughput)
             .WithLaunchCount(1)
             .WithWarmupCount(warm)

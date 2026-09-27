@@ -82,7 +82,7 @@ b build src/Harness/Harness.csproj -c Release -f net8.0
 b publish src/Harness/Harness.csproj -c Release -f net6.0 -r linux-x64 --self-contained -o "$H6"
 b build src/Corpus/Corpus.csproj -c Release -f net8.0
 b publish src/Corpus/Corpus.csproj -c Release -f net6.0 -r linux-x64 --self-contained -o "$C6"
-b build src/Rpc/Rpc.csproj -c Release
+b build src/Rpc/akrpc.csproj -c Release
 b build src/BenchDotNet/BenchDotNet.csproj -c Release
 b build src/HarnessFloor/HarnessFloor.csproj -c Release
 echo "# which import form each level compiled (the one generated Abi.cs, #if NET7_0_OR_GREATER):"
@@ -170,7 +170,7 @@ b build src/Harness/Harness.csproj -c Release -f net8.0 -p:AkNounk=true
 b publish src/Harness/Harness.csproj -c Release -f net6.0 -r linux-x64 --self-contained -p:AkNounk=true -o "$HN6"
 b build src/Corpus/Corpus.csproj -c Release -f net8.0 -p:AkNounk=true
 b publish src/Corpus/Corpus.csproj -c Release -f net6.0 -r linux-x64 --self-contained -p:AkNounk=true -o "$CN6"
-b build src/Rpc/Rpc.csproj -c Release -p:AkNounk=true
+b build src/Rpc/akrpc.csproj -c Release -p:AkNounk=true
 b build src/BenchDotNet/BenchDotNet.csproj -c Release -p:AkNounk=true
 for lvl in 8 6; do
   if [ $lvl = 8 ]; then H="$HN8"; HX=(dotnet "$HN8/harness.dll"); C="$CN8"; CX=(dotnet "$CN8/corpus.dll");
@@ -207,8 +207,8 @@ RC="$SLICE/src/Rpc/bin-count/Release/net8.0"; RCN="$SLICE/src/Rpc/bin-count-noun
 RN8="$SLICE/src/Rpc/bin-nounk/Release/net8.0"
 b build src/BenchDotNet/BenchDotNet.csproj -c Release -p:AkHostCount=true
 b build src/BenchDotNet/BenchDotNet.csproj -c Release -p:AkHostCount=true -p:AkNounk=true
-b build src/Rpc/Rpc.csproj -c Release -p:AkHostCount=true
-b build src/Rpc/Rpc.csproj -c Release -p:AkHostCount=true -p:AkNounk=true
+b build src/Rpc/akrpc.csproj -c Release -p:AkHostCount=true
+b build src/Rpc/akrpc.csproj -c Release -p:AkHostCount=true -p:AkNounk=true
 core "$BC" target-core-count; core "$BCN" target-core-count-nounk; core "$RC" target-core-count; core "$RCN" target-core-count-nounk
 cmp_counts() {  # name committed produced
   if diff "$2" "$3" > "$SCRATCH/counts.diff"; then echo "$1: equal to $(basename "$2"), $(grep -vc '^#' "$2") rows"; return 0; fi

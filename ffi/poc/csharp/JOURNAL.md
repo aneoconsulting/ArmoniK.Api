@@ -2103,3 +2103,28 @@ CAMPAIGN req 13 as amended (9f6d579fa), the interface poc/rust/SERVER.md at bed1
 - Checked against the shared server before the gate: the upload check (68 cells full build),
   the error path, a BDN unit (A, 17 samples), and the RPC counts of both builds, equal to the
   committed files.
+
+## 64. Req 22a as amended (e6c909630): BDN's native isolation for the campaign, grouping a switch
+
+- WP10's minimal smoke (at 76ac71e1d, before this change; InProcessEmit, the only mode then):
+  full build, shipped, all 21 units, 283 samples, 0 failed cases; 19 plant controls (wrong
+  length on a, c, d and wrong SHA-256 on d, on A, B, Bf, C-drop, D-drop), every one aborting
+  with 0 samples. Its logs are in `logs/csharp/campaign/wp10-smoke/`.
+- Both suites now take `--toolchain process|grouped`; the runner passes `process` (BDN's
+  default toolchain: a generated project, one child process per case) unless AK_BDN_GROUPED=1,
+  which is the default under --smoke; the header says which.
+- To make the default toolchain work: BDN looks for a project named after the assembly, so
+  `src/Rpc/Rpc.csproj` is now `src/Rpc/akrpc.csproj` (AssemblyName akrpc, unchanged). The RPC
+  cell context comes to the child through the environment (the child does not run Main).
+- Req 21 under the default toolchain: the job's clock (CpuClock) runs in the child and the
+  diagnoser in the host, so the first try wrote no sample ("process CPU per iteration not
+  paired"). Now the child records every clock read and writes them at GlobalCleanup to
+  AK_CPU_CHILD_DIR; the host takes the last two reads per actual iteration and checks each
+  pair's wall span against BDN's own measurement of that iteration (2 percent + 20 us), so a
+  wrong pairing fails the case instead of being guessed. Checked: an RPC unit (Bf, k = 1, 5
+  cases, 2 rounds: 10 samples) and a codec unit (core-ffi:drop, P1.1, 6 cases): cpu check
+  PASS.
+- Open, for the aggregating session: under the default toolchain the JIT tier (req 24's
+  "recorded") is NOT read back, because the listener sees only the host process; the rows say
+  "not recorded" and the codec suite's JIT check is vacuous in that mode (stated in the
+  header). Reading it back would need the child to run the listener and write its summary.

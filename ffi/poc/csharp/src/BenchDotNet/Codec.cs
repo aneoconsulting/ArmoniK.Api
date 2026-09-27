@@ -32,6 +32,10 @@ public class CodecSuite
 
     /// One call per invocation; BenchmarkDotNet chooses the invocation count per case in its
     /// pilot stage, and consumes the returned value.
+    /// The default toolchain's child writes its clock reads for the host (CpuClock.DumpChild).
+    [GlobalCleanup]
+    public void Cleanup() => CpuClock.DumpChild(Case);
+
     [Benchmark]
     public long Run() => _op();
 }

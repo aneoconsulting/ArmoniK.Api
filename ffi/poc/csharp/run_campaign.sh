@@ -18,6 +18,9 @@
 #   codec (BDN) AK_BDN_WARMUP 10 / 1   AK_BDN_ITERATION_MS 100 / 2   AK_BDN_ROUNDS = --rounds
 #               (WP9 addendum: BDN's own warm-up only; no hand-written pre-warm; the per-case JIT
 #               check fails a unit outside --smoke and is reported only in a smoke)
+#   toolchain   AK_BDN_GROUPED 0 / 1: 0 = BDN's default toolchain, one child process per case
+#               (the campaign, req 22a as amended e6c909630); 1 = InProcessEmit, every case of a
+#               unit in one process (smoke and small exploration runs only); both suites
 # Every header states the values used.
 # Defaults are the campaign's: 3 launches, 5 rounds (requirement 23). --smoke is section 9's
 # container smoke run: 1 launch, 1 round, reduced iterations, every figure marked
@@ -81,6 +84,9 @@ fi
 # CAMPAIGN req 11 (R-H29): the pool input is sized from the last-level cache (2 x AK_LLC_BYTES
 # of retained graphs; default 13.75 MB, the reference i9-7900X). A smoke run uses a small pool.
 export AK_LLC_BYTES="${AK_LLC_BYTES:-14417920}"
+# CAMPAIGN req 22a as amended (e6c909630): grouping is a switch, on only for small runs.
+GROUPED="${AK_BDN_GROUPED:-$SMOKE}"
+if [ "$GROUPED" = 1 ]; then TOOLCHAIN=grouped; else TOOLCHAIN=process; fi
 [ $SMOKE = 1 ] && export AK_POOL_BYTES="${AK_POOL_BYTES:-65536}"
 R8="$SLICE/src/Rpc/bin/Release/net8.0"
 # WP5 step 10: the NO-UNKNOWN build (/p:AkNounk=true, unknown fields compiled out of the
@@ -103,6 +109,7 @@ header() {  # requirement 27: the machine and the build, in every log
   echo "# smt:           $(sysf /sys/devices/system/cpu/smt/active) (active); governor: $(sysf /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor); turbo: no_turbo=$(sysf /sys/devices/system/cpu/intel_pstate/no_turbo) boost=$(sysf /sys/devices/system/cpu/cpufreq/boost)"
   echo "# isolation:     cmdline isolcpus/nohz_full: $(tr ' ' '\n' < /proc/cmdline | grep -E '^(isolcpus|nohz_full)=' | tr '\n' ' ' || true)cpuset: $(sysf /sys/fs/cgroup/cpuset.cpus.effective)"
   echo "# cpu sets:      CLIENT=$AK_CPU_CLIENT SERVER=${AK_CPU_SERVER:-n/a} ($(ncpus "$AK_CPU_CLIENT") and $([ -n "${AK_CPU_SERVER:-}" ] && ncpus "$AK_CPU_SERVER" || echo 0) CPUs; set size fixed at ${AK_SET_SIZE:-unset}); from $CPUSRC; pinning by taskset"
+  echo "# toolchain:     BenchmarkDotNet $([ "$GROUPED" = 1 ] && echo "GROUPED (InProcessEmit, one process per unit: the small-run switch AK_BDN_GROUPED=1, req 22a as amended e6c909630)" || echo "default toolchain, one child process per case (the campaign's isolation, req 22a as amended e6c909630)")"
   echo "# llc:           AK_LLC_BYTES=$AK_LLC_BYTES; pool input >= ${AK_POOL_BYTES:-$((2 * AK_LLC_BYTES))} bytes of retained graphs (req 11)"
   echo "# runtime:       .NET $(dotnet --list-runtimes | awk '/NETCore.App/{print $2}' | tr '\n' ' ')(SDK $(dotnet --version)); target net8.0, Release; tiering and PGO at their net8.0 defaults unless DOTNET_* is set: TieredCompilation=${DOTNET_TieredCompilation:-default} TieredPGO=${DOTNET_TieredPGO:-default}; workstation GC, concurrent (default)"
   echo "# core:          libak_core.so shared, cargo --release, features $1 (init-guard ON, as in every gate), built from git archive HEAD ffi/poc/codec"
@@ -116,9 +123,9 @@ ensure_core() {
   fi
 }
 build() {
-  ( cd "$SLICE" && dotnet build src/Rpc/Rpc.csproj -c Release > "$SCRATCH/campaign-build.out" 2>&1 ) || { tail -30 "$SCRATCH/campaign-build.out"; exit 1; }
+  ( cd "$SLICE" && dotnet build src/Rpc/akrpc.csproj -c Release > "$SCRATCH/campaign-build.out" 2>&1 ) || { tail -30 "$SCRATCH/campaign-build.out"; exit 1; }
   ( cd "$SLICE" && dotnet build src/Harness/Harness.csproj -c Release -f net8.0 >> "$SCRATCH/campaign-build.out" 2>&1 ) || { tail -30 "$SCRATCH/campaign-build.out"; exit 1; }
-  ( cd "$SLICE" && dotnet build src/Rpc/Rpc.csproj -c Release -p:AkNounk=true >> "$SCRATCH/campaign-build.out" 2>&1 ) || { tail -30 "$SCRATCH/campaign-build.out"; exit 1; }
+  ( cd "$SLICE" && dotnet build src/Rpc/akrpc.csproj -c Release -p:AkNounk=true >> "$SCRATCH/campaign-build.out" 2>&1 ) || { tail -30 "$SCRATCH/campaign-build.out"; exit 1; }
   ( cd "$SLICE" && dotnet build src/Harness/Harness.csproj -c Release -f net8.0 -p:AkNounk=true >> "$SCRATCH/campaign-build.out" 2>&1 ) || { tail -30 "$SCRATCH/campaign-build.out"; exit 1; }
 }
 gate_first() {  # requirement 26
@@ -158,7 +165,7 @@ case "$SUITE" in
     ( cd "$SLICE" && dotnet build src/BenchDotNet/BenchDotNet.csproj -c Release -p:AkNounk=true >> "$SCRATCH/campaign-build.out" 2>&1 ) || { tail -30 "$SCRATCH/campaign-build.out"; exit 1; }
     cp "$SLICE/target-core/release/libak_core.so" "$B8/"
     cp "$SLICE/target-core-nounk/release/libak_core.so" "$BN8/"
-    EXTRA=(--rounds "${AK_BDN_ROUNDS:-$ROUNDS}"); [ $SMOKE = 1 ] && EXTRA+=(--smoke)
+    EXTRA=(--rounds "${AK_BDN_ROUNDS:-$ROUNDS}" --toolchain "$TOOLCHAIN"); [ $SMOKE = 1 ] && EXTRA+=(--smoke)
     [ -n "${AK_BDN_WARMUP:-}" ] && EXTRA+=(--warmup "$AK_BDN_WARMUP")
     [ -n "${AK_BDN_ITERATION_MS:-}" ] && EXTRA+=(--iteration-ms "$AK_BDN_ITERATION_MS")
     # A smoke run keeps 6 of the U-* rows (spread evenly), every direction and arm of each.
@@ -214,7 +221,7 @@ case "$SUITE" in
     # pinned process per unit = cell; its warm-up is BDN's (jitting stage, pilot, warm-up
     # iterations; req 24): campaign 10 warm-up iterations of 100 ms, smoke 1 of 20 ms.
     if [ $SMOKE = 1 ]; then BW=1; BI=20; else BW=10; BI=100; fi
-    BDNARGS=(--rounds "${AK_RPC_BDN_ROUNDS:-$ROUNDS}" --warmup "${AK_RPC_BDN_WARMUP:-$BW}" --iteration-ms "${AK_RPC_BDN_ITERATION_MS:-$BI}" --artifacts "$SCRATCH/bdn-rpc")
+    BDNARGS=(--toolchain "$TOOLCHAIN" --rounds "${AK_RPC_BDN_ROUNDS:-$ROUNDS}" --warmup "${AK_RPC_BDN_WARMUP:-$BW}" --iteration-ms "${AK_RPC_BDN_ITERATION_MS:-$BI}" --artifacts "$SCRATCH/bdn-rpc")
     # Req 13 as amended (R-H33): ONE server process per launch, serving every cell of both
     # builds over both transport configurations (two Kestrel hosts in it, one socket each),
     # warmed by $WARM calls per direction from each client transport (Grpc.Net, the core's)

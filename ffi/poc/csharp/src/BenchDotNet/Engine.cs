@@ -151,6 +151,8 @@ public sealed class JsonLinesExporter : IExporter
             var act = all.Where(m => m.IterationMode == IterationMode.Workload && m.IterationStage == IterationStage.Actual).ToList();
             // req 21: the process CPU of each actual iteration, paired from CpuClock's reads.
             if (!CpuDiagnoser.IterCpu.TryGetValue(c.Key, out var ic) || ic.Length != 2 * act.Count)
+                ic = CpuClock.FromChild(c.Key, act.Select(m => m.Nanoseconds).ToList());   // the default toolchain's child
+            if (ic == null || ic.Length != 2 * act.Count)
             {
                 o.Add("# FAILED CASE (process CPU per iteration not paired: " + (ic == null ? "no clock reads" : ic.Length + " clock reads for " + act.Count + " actual iterations") + "): " + c.Key);
                 CpuPairFailed++;
@@ -175,7 +177,8 @@ public sealed class JsonLinesExporter : IExporter
             var stages = string.Join(",", all.GroupBy(m => m.IterationMode + "/" + m.IterationStage)
                 .Select(g => string.Format(CultureInfo.InvariantCulture, "\"{0}\":[{1},{2},{3}]", g.Key, g.Count(), g.Sum(m => m.Operations), (long)Math.Round(g.Sum(m => m.Nanoseconds)))));
             string jit = "\"jit\":\"not recorded\",";
-            if (CpuDiagnoser.Times.TryGetValue(c.Key, out var tt))
+            if (!Program.Grouped) jit = "\"jit\":\"not recorded: the case ran in its own child process (default toolchain), whose JIT events this process does not see\",";
+            else if (CpuDiagnoser.Times.TryGetValue(c.Key, out var tt))
             {
                 var ts = CodecSuite.SetupEnd.TryGetValue(c.Key, out var se) ? se : tt.T0;
                 jit = JitTiers.Summarise(tt.T0, ts, tt.T1, tt.T2, out int sc, out int hot) + ",";
