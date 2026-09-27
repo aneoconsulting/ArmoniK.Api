@@ -314,11 +314,13 @@ rpc)
     SPID=$!
     for i in $(seq 1 120); do grep -q "SERVING $SP" "$OUT/rpc-server-launch-$l.txt" 2>/dev/null && break; sleep 0.5; done
     grep -q "SERVING $SP" "$OUT/rpc-server-launch-$l.txt" || discard "$l" "the server did not start"
+    # The warm-up's own file: the server writes rpc-server-launch-<l>.txt from its own offset.
+    : > "$OUT/rpc-server-warm-launch-$l.txt"
     for so in "$SS:shipped" "$SP:pinned"; do
       $PIN_C "$J17/bin/java" $JVM_FLAGS -cp "build/cls17:$CP" -Dak.lib="$HERE/build/jnirpc/libakjni.so" \
         -Dak.rpclib="$HERE/build/jnirpc/libakjni.so" -Dak.camp.warmserver=1 -Dak.camp.serverwarm="$SWARM" \
         -Dak.camp.transport="${so#*:}" -Dak.camp.socket="${so%%:*}" ak.CampaignRpc \
-        >> "$OUT/rpc-server-launch-$l.txt" 2>&1 || discard "$l" "the server warm-up through ${so#*:} failed"
+        >> "$OUT/rpc-server-warm-launch-$l.txt" 2>&1 || discard "$l" "the server warm-up through ${so#*:} failed"
     done
   }
   rpc_run() {  # $1 = launch, $2 = transport, $3 = full|nounk
@@ -333,7 +335,7 @@ rpc)
     echo "# command: $PIN_C java org.openjdk.jmh.Main ak.RpcJmh.batch -f 1 -foe true -wi $((WARM * NCOMBO)) -w $WTIME -i $((ROUNDS * NCOMBO)) -r $RTIME -p cell=<cells> -jvmArgs '$JVM_FLAGS ...'" >> "$f"
     echo "# one invocation = one batch of k calls in flight (k = the combination's in-flight level: call 0 on JMH's thread, 1..k-1 on persistent helper threads), counted as k calls (iters); wall_ns: JMH's per-iteration score (ns per invocation) x invocations; cpu_ns: the process CPU clock (CLOCK_PROCESS_CPUTIME_ID) read around every invocation, summed per iteration (an @AuxCounters counter JMH exports); JMH's own summary score averages unlike combinations and is not a figure" >> "$f"
     echo "# order (req 22): JMH runs the cells in the order given, rotated one step per launch, and cannot randomise across forks; inside a fork JMH iteration i runs combination (i + launch - 1) mod $NCOMBO (warm-up and measurement counted separately), so every round visits every combination, interleaved; the two builds alternate by launch" >> "$f"
-    echo "# server: $PIN_S java ... ak.CampaignRpc --serve, ONE process for launch $l serving every cell of both builds (shipped and pinned sockets; pre-serialised P2.2; direction b parses with protobuf-java; no core codec on the server); $(grep THREADS "$OUT/rpc-server-launch-$l.txt"); $(grep 'SERVER WARMED' "$OUT/rpc-server-launch-$l.txt" | tr '\n' ' ')" >> "$f"
+    echo "# server: $PIN_S java ... ak.CampaignRpc --serve, ONE process for launch $l serving every cell of both builds (shipped and pinned sockets; pre-serialised P2.2; direction b parses with protobuf-java; no core codec on the server); $(grep THREADS "$OUT/rpc-server-launch-$l.txt"); $(grep 'SERVER WARMED' "$OUT/rpc-server-warm-launch-$l.txt" | tr '\n' ' ')" >> "$f"
     echo "# delivery (req 16): B, C, E the core's blocking call and, in d, the core's blocking client stream (ak_call_open, ak_call_send / ak_call_send_enc for C, ak_call_recv); A, D, F grpc-java's ClientCalls.blockingUnaryCall (a generated blocking stub's call; packages/java's clients use blocking stubs) and, in d, ClientCalls.asyncClientStreamingCall with a StreamObserver (the async stub's call: client streaming has no blocking stub); Bf, Cf, Ef the same cells on the core's framed send path (ak_client_set_framed), grpc-java has no second send path; C (and Cf) sends its request with ak_call_unary_enc / ak_call_send_enc (the encode context's output moved), Cc-* is C with take() + ak_call_unary (the copy path, labelled extra); D and F hand grpc-java a byte[] (take() / Enc.toBytes()): grpc-java's send path copies every message through an OutputStream into its own buffers, so an owned native buffer (ak_enc_take_owned) would still be copied, through a heap array, and D keeps take()" >> "$f"
     echo "# limits (D44): server 8 MiB inbound on both sockets (P5.4 is 4,194,390 B); core client shipped tonic's defaults (4 MiB received, unlimited sent: every response here is below 1 MiB), pinned 8 MiB both ways; grpc-java client defaults (4 MiB inbound, no send limit)" >> "$f"
     $PIN_C "$J17/bin/java" -Xmx512m -cp "build/jmh17$SX:build/cls17$SX:$CP:$JMHCP" org.openjdk.jmh.Main 'ak.RpcJmh.batch' \

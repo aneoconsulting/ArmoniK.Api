@@ -851,3 +851,45 @@ request through an InputStream (drained into its own buffers), so ak_enc_take_ow
 buffer would be copied through a heap array anyway. rpc counts: C and Cf b one fewer host entry
 (the take), c 5 -> 4 (reset, encode, ak_call_unary_enc, free, as the rust slice's). Clean gate
 at a2c38db01: GATE PASSED, both builds, 8 and 17; smoke complete (logs/java/campaign-wp8b).
+
+### J34. FIX-PLAN WP9: the RPC grid on JMH (2026-09-27)
+
+`ak.RpcJmh` (JMH 1.37, AverageTime, `-f 1`, `-foe true`) replaces CampaignRpc's hand-written
+sampler, which is removed. One fork per cell opens the cell's channel or client in
+`@Setup(Level.Trial)` and runs the cell's pre-check; JMH iteration i runs combination
+(i + launch - 1) mod 17 (a, a+read, b at 1/8/16; c P5.3, P5.4 and d 4 MiB, 16 MiB at 1/8).
+The alternative was a parameter per combination: 17 forks and 17 channels per cell, which
+req 13 excludes. One invocation is one batch of k calls: call 0 runs on the benchmark thread,
+and calls 1..k-1 run on helpers released by per-helper semaphores and joined by a latch. A
+first draft used 16-party barriers, which woke all 15 helpers for every batch, including
+batches with k < 16; it was replaced before any run. Under the addendum (bc7cf94b1), neither
+suite writes a side file any more: process CPU and the call count per iteration (and, in the
+codec suite, iters and the JIT delta) are `@AuxCounters` counters that JMH exports in its own
+JSON. RPC wall = JMH's score (ns per batch) x batches, and the converter checks it against
+the OPERATIONS counter (JMH's ns per call). Labels come from `RPCJMH-CELL` and `RPCJMH-ITER`
+lines in the fork's output, which JMH prints mid-line after "# Warmup Iteration n: ". The
+first converter missed them for that reason, and the parser was fixed.
+
+Two JMH annotation-processor findings. First, two `@AuxCounters` states may not share a
+counter name across benchmarks (codec and RPC both had `cpuNs`), so RPC's is `rpcCpuNs`.
+Second, injecting an `@AuxCounters` state into a fixture method as well as the benchmark
+method is refused as a conflict, so the JIT delta lives in the counter state's own
+setup/teardown, which depends on CodecJmh so that it is ordered after the prepare. A failed
+check now throws (`CampaignRpc.THROW_ON_FAIL`) instead of `System.exit`.
+
+Checked by hand before the gate:
+- the plant (`ak.camp.plant=1`) fails at the pre-check, JMH exits 1 and its JSON is empty;
+- killing the server during a k = 8 measurement iteration fails with the helper's error
+  suppressed into the benchmark's, JMH exits 1 and its JSON is empty;
+- `jitMs` reads non-zero on cold iterations (159 and 475 ms with `-wi 0`), so the teardown
+  runs before JMH collects the counters.
+
+The gate adds the JMH plant. Clean gate at 860cbd92d: GATE PASSED, both builds, 8 and 17, the
+four count files identical. Smoke: rpc, both transports and builds (289 and 170 samples per
+transport). Under the owner's small-tests direction the codec smoke was reduced to P2.2
+ASCII plus one U-* row, and the first, full-size codec smoke was stopped before it started.
+
+The smoke then showed that `SERVER WARMED` never reached the headers: the server writes
+`rpc-server-launch-<l>.txt` from its own offset and overwrote the warm-up's appended lines.
+The fix after 860cbd92d gives the warm-up its own file. It has not been re-run (G5).
+At session resume a waiter armed in the previous context (polling a build log for "^rc=" that the killed build never wrote) was still spinning; stopped (TaskStop).

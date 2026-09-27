@@ -12,7 +12,7 @@ is byte identity, crossing counts, floor builds, corpus passes, feasibility and 
 
 | | |
 |---|---|
-| **Status** (2026-09-27) | Two builds of the binding exist and are gated: the **full build** (decision 11: unknown fields retained or dropped per call) and the **no-unknown build** (unknown-field support compiled out of the core, the binding and the facade). The harness is on the 2026-09-26 contract (WP7) and WP8 (ABI v1 section 9 as amended, req 14 directions c and d). Gate for both builds on Java 8 and 17 from a clean worktree at a2c38db01, over the merged core of 98b187ce6: payload, corpus, controls, the four count files identical, the upload checks and their plant (`logs/java/campaign-wp8b/gate-*.log`); smoke of rpc and codec for both builds with the 2 GB smoke heap, figures stripped (`logs/java/campaign-wp8b/`). |
+| **Status** (2026-09-27) | Two builds of the binding exist and are gated: the **full build** (decision 11: unknown fields retained or dropped per call) and the **no-unknown build** (unknown-field support compiled out of the core, the binding and the facade). WP9: the RPC grid runs on JMH (`ak.RpcJmh`), the hand-written sampler is removed, and both suites export process CPU and operation counts (the codec suite also its JIT delta) through JMH's `@AuxCounters` in JMH's own JSON. Gate for both builds on Java 8 and 17 from a clean worktree at 860cbd92d: payload, corpus, controls, the four count files identical, the upload checks and their plant, and the plant through JMH (`logs/java/campaign-wp9/gate-a7fd6d803e035456.log`). Smoke at 860cbd92d, figures stripped (`logs/java/campaign-wp9/`): rpc, one launch, one round, both transports and builds, every cell and combination; codec reduced to P2.2 ASCII and one U-* row. One runner fix after 860cbd92d (the server warm-up's own log file) is not re-run: see Open defects. |
 | **Levels** (owner decision D3) | **floor Java 8** (correctness only): `openjdk 1.8.0_504`, JDK 8 `javac`. **target JDK 17**: `openjdk 17.0.20.1`. JDK 21 only for two secondary probes (virtual threads, FFM preview). |
 | **Incumbent** | protobuf-java **3.25.5** (resolved from `packages/java`'s pins), grpc-java 1.74.0, protoc 3.19.0. The production path (R14) is `io.grpc.protobuf.lite.ProtoLiteUtils`' marshaller. |
 | **Core** | the shared crate `poc/codec/crates/ak-core` (R0), no copy here. `gen/build.sh` builds it from a `git archive` snapshot of the committed `ffi/poc/codec` into `core-build/<tree key>/`, one target directory per feature set: timed, counting, corpus, rpc, and the same four with `--no-default-features` (the no-unknown build). **Every build carries `init-guard`.** Every shim is checked to link this key's core and the core of its own variant (a full core exports `ak_uencode_*`, a no-unknown core none). |
@@ -24,9 +24,9 @@ is byte identity, crossing counts, floor builds, corpus passes, feasibility and 
 | | |
 |---|---|
 | `poc/codec/gen/java_*.py` | the Java backend, 8 modules: `java_backend` (entry), `java_names`, `java_facade`, `java_rcodec` (arm R, drop and retain), `java_layout` (offsets), `java_jni` (shim and `NativeEntry`, `ak_init`), `java_binding` and `java_pull` (the Java half, per level). Each imports `plan`, never the IR. The C header is `c_abi.emit` of the same plan (the one C header backend), with the Java offsets appended as static assertions. Each module renders the no-unknown variant from `plan.unknown_compiled_out` |
-| `gen/` | glue (`generate.py`, `java_build.py`, `java_pbbuild.py`, `java_arms.py`, `pbarms.py`, `java_ffiarms.py`, `java_corpus.py`, `java_walk.py`); `build.sh`; the gate (`gate.sh`, `corpus.py`, `corpus.sh`, each taking `AK_VARIANT=nounk`); the campaign runner (`run_campaign.sh`, `jmh_to_jsonl.py`, `campaign/counts.ref`, `campaign/counts-nounk.ref`); `layout_break.sh`, `boundary.sh`, `audit_tracked.sh`; older measurement scripts (`bench.sh`, `calibrate.sh`, `contentsets.sh`, `deopt.sh`, `drift.sh`, `floor.sh`, `run_all.sh`) |
+| `gen/` | glue (`generate.py`, `java_build.py`, `java_pbbuild.py`, `java_arms.py`, `pbarms.py`, `java_ffiarms.py`, `java_corpus.py`, `java_walk.py`); `build.sh`; the gate (`gate.sh`, `corpus.py`, `corpus.sh`, each taking `AK_VARIANT=nounk`); the campaign runner (`run_campaign.sh`, `jmh_to_jsonl.py`, `rpc_jmh_to_jsonl.py`, `campaign/counts.ref`, `campaign/counts-nounk.ref`); `layout_break.sh`, `boundary.sh`, `audit_tracked.sh`; older measurement scripts (`bench.sh`, `calibrate.sh`, `contentsets.sh`, `deopt.sh`, `drift.sh`, `floor.sh`, `run_all.sh`) |
 | `src/java/ak/` | hand-written runtime (`Enc`, `Dec`, `Utf8`, `Utf8View`, `Str17`, `Mem`, `Arena`, `Native`, `NativeRpc`, ...); gate harnesses `RunConformance`, `RunUnknown`, `RunCounts`, `RunCorpus`, `RunRuleGaps`, `RunUnkControls`, `RunUnkLeak`, `RunUnkOneof`, `RunVariant`; campaign harnesses `CampaignCodec`, `CampaignRpc`, `CampaignCalib`; older timing harnesses `Bench`, `RunDelta`, `RunR14`, `RunBaseline`, `RunRpc`, `RunNoop` |
-| `src/jmh/ak/CodecJmh.java` | the codec suite on JMH 1.37 (req 22a) |
+| `src/jmh/ak/CodecJmh.java`, `src/jmh/ak/RpcJmh.java` | the codec suite and the RPC grid on JMH 1.37 (req 22a as amended 2026-09-27); `gen/jmh_to_jsonl.py` and `gen/rpc_jmh_to_jsonl.py` turn JMH's JSON into the section 7 lines |
 | `src/generated/`, `native/generated/` | full build, shapes description: `ak.shapes` (facade, `Codec`, `CodecRetain`, `Layout`, `Binding`, glue), `ak.floor` (arm b), `ak.borrow` (decision 13), per level (`java17`, `java8`); `shared/` (`ak.NativeEntry`, `ak.Variant`); `ak_abi.h`, `shim.c` |
 | `src/generated_corpus/`, `native/generated_corpus/` | full build, corpus description: `ak.corpus` (+ `Dispatch`, `Project`, `Walk`), `ak.corpus.borrow`; linked against the `corpus` core |
 | `src/generated_nounk/`, `src/generated_corpus_nounk/`, `native/generated_nounk/`, `native/generated_corpus_nounk/` | the no-unknown build, same package names, compiled into its own class trees (`build/cls17-nounk`, `build/cls8-nounk`, `build/jmh17-nounk`), linked to the no-unknown cores (shims `jni-nounk`, `jnicnt-nounk`, `jnicorpus-nounk`, `jnirpc-nounk`). No `CodecRetain`, no `unknownFields` in the facade, no retain path in the binding; `RunUnkControls` and `RunUnkLeak` are not compiled into it |
@@ -44,7 +44,7 @@ is byte identity, crossing counts, floor builds, corpus passes, feasibility and 
 | `ffi-borrow` | decision 13's borrowed facade | both builds | both builds |
 | `ffi-retain`, `ffi-pull-retain` | decision 11 retain: every position armed, u-group encode | full build | full build (+ `ffi-pull-walk-retain`, `ffi-borrow-retain`) |
 | `pbj` | protobuf-java | both builds | no (not generated for the corpus) |
-| campaign RPC client (`CampaignRpc`) | cells A, B, C-retain, C-drop, D-retain, D-drop (full build); A, B, C-nounk, D-nounk (no-unknown build) | every call checked in the run (req 18); smoke-run | -- |
+| campaign RPC grid (`CampaignRpc` cells, timed by `RpcJmh`) | full build A, B, C/D/E/F-retain and -drop, Bf, Cf/Ef/Cc-retain and -drop; no-unknown build A, B, C/D/E/F-nounk, Bf, Cf/Ef/Cc-nounk | every call checked in the run (req 18); smoke-run | -- |
 | `RunRpc` | the older RPC harness (blocking and queue delivery) | built, not run since before WP5, in no gate | -- |
 
 Decision 11 as implemented: one options struct per root in native memory, every position
@@ -57,7 +57,7 @@ failed decode frees what the core had grown (rule 3; D40).
 
 The harness: `gen/run_campaign.sh --suite codec|rpc|calib|gate --out <dir>` (default
 `ffi/logs/java/campaign/`), over `ak.CodecJmh` on JMH (arms in `ak.CampaignCodec`),
-`ak.CampaignRpc` (client and `--serve`), `ak.CampaignCalib` + `probe/CampaignRev`, and the
+`ak.RpcJmh` on JMH (cells, checks and server in `ak.CampaignRpc`), `ak.CampaignCalib` + `probe/CampaignRev`, and the
 gate. Codec and RPC run each build (full, no-unknown) in its own process per launch, the
 order of the two builds alternating by launch. Smoke runs: `logs/java/campaign/` and
 `logs/java/campaign-wp5s10/`, 1 launch, 1 round, reduced iterations, **every figure
@@ -76,28 +76,60 @@ stripped**.
 | 9 | encode, decode, decode + read | met: `encode`, `decode`, `decode-read` (generated `Walk` / `PbWalk`) |
 | 10 | retain, drop, no-unknown | met: full build `core-ffi` drop and retain, `core-ffi-pull` drop, `host-gen` drop and retain; no-unknown build `core-ffi`, `core-ffi-pull`, `host-gen` in `no-unknown` (host-gen is generated from the plan: arm R in drop mode over a facade with no `unknownFields`), the incumbent arms beside them (JMH forks one JVM per cell, so no two arms share a process; the incumbent arms are a control across the two builds' invocations, not an in-process one); `unknown_mode` and `build` on every sample; own counts file and own gate (below) |
 | 11 | serialise once per iteration; encode variants (amended 2026-09-26) | met: graphs built in JMH's untimed `@Setup(Level.Iteration)`; four labelled encode rows per (arm, payload, set): end state `buf` (bytes in a reused buffer: incumbent-prod `stream()` drained into the reused sink, incumbent-best `writeTo` a CodedOutputStream over it, core-ffi `ak_enc_take` into it, host-gen a copy into it) or `transport` (incumbent-prod `stream()` drained into a fresh exact-size array, as grpc-java's framer drains into buffers it allocates; incumbent-best `toByteArray()`; core-ffi `take()`, host-gen `Enc.toBytes()`, the arrays cells C to F hand their transport), input `hot` (one graph re-encoded) or `pool` (distinct graphs whose serialised bytes exceed 2 x `AK_LLC_BYTES`, default 13.75 MB) |
-| 12 | cells A-F, C to F per mode | met: full build A, B, C-retain, C-drop, D-retain, D-drop, E-retain, E-drop, F-retain, F-drop; no-unknown build A, B, C-nounk, D-nounk, E-nounk, F-nounk, in one client process per build and transport; the framed twins Bf, Cf-*, Ef-* (the core's second send path, ak_client_set_framed) in every direction, labelled `send_path`; grpc-java has no second send path. Cell B parses the core's response in place (direct ByteBuffer); C and E copy it into a Java array (C's binding once more into native scratch). Cell C (and Cf) sends its request on the move path: ak_call_unary_enc in b and c, ak_call_send_enc in d (the encode context's output moved, no Java array), as the rust, cpp and python slices do; Cc-* is C on the copy path (take() + ak_call_unary), a labelled extra; every sample's `send_path` names it. Cell D keeps take(): grpc-java's send path copies every message through an OutputStream into buffers it allocates, so an owned native buffer from ak_enc_take_owned would still be copied (through a heap array), stated. Each C to F cell re-encodes P2.2 in its mode byte-identical before timing; the leak counters must read 0 after the run |
-| 13 | server separate, pre-serialised, one per launch (amended 2026-09-26) | met: ONE server JVM per launch on `AK_CPU_SERVER`, serving every cell of both builds on two Unix sockets (shipped and pinned), pre-serialised P2.2 in (a), protobuf-java parse in (b); every cell opens its own channel (grpc-java) or client (the core) once per launch, warmed by `warm` samples of every (dir, inflight) before round 1, the total warm-up calls in each client's meta line |
-| 14 | directions a, a+read, b, c, d (amended 2026-09-27) | met: `a`, `a+read`, `b` at 1/8/16 in flight; `c` a unary upload of P5.3 / P5.4 (the payload builders' M5, checked against the manifest), the server parses it with protobuf-java and answers empty; `d` the client-streamed upload of 4 MiB and 16 MiB in 2 MiB M5 chunks (splitmix64 data as the rust slice's, ids on the first message), the server parses every message and answers the byte count (and SHA-256 on the check path); c and d at 1 and 8 in flight, a third of the calls per sample, every cell and framed twin. B, E send protobuf-java's / arm R's bytes with ak_call_send, C the binding's encode with ak_call_send_enc; A, D, F grpc-java's `asyncClientStreamingCall` with a StreamObserver |
-| 15 | 1 / 8 / 16 in flight | met (blocking threads) |
+| 12 | cells A-F, C to F per mode | met: full build A, B, C-retain, C-drop, D-retain, D-drop, E-retain, E-drop, F-retain, F-drop; no-unknown build A, B, C-nounk, D-nounk, E-nounk, F-nounk, one JMH fork (one JVM, one channel or client) per cell per build and transport; the framed twins Bf, Cf-*, Ef-* (the core's second send path, ak_client_set_framed) in every direction, labelled `send_path`; grpc-java has no second send path. Cell B parses the core's response in place (direct ByteBuffer); C and E copy it into a Java array (C's binding once more into native scratch). Cell C (and Cf) sends its request on the move path: ak_call_unary_enc in b and c, ak_call_send_enc in d (the encode context's output moved, no Java array), as the rust, cpp and python slices do; Cc-* is C on the copy path (take() + ak_call_unary), a labelled extra; every sample's `send_path` names it. Cell D keeps take(): grpc-java's send path copies every message through an OutputStream into buffers it allocates, so an owned native buffer from ak_enc_take_owned would still be copied (through a heap array), stated. Each C to F cell re-encodes P2.2 in its mode byte-identical before timing; the leak counters must read 0 after the run |
+| 13 | server separate, pre-serialised, one per launch (amended 2026-09-26) | met: ONE server JVM per launch on `AK_CPU_SERVER`, started by the runner before JMH, serving every cell of both builds on two Unix sockets (shipped and pinned), pre-serialised P2.2 in (a), protobuf-java parse in (b); the runner warms it through both transports (`ak.camp.warmserver`, below, row 24) before JMH runs; every cell opens its own channel (grpc-java) or client (the core) in its fork's `@Setup(Level.Trial)`, one per cell per fork |
+| 14 | directions a, a+read, b, c, d (amended 2026-09-27) | met: `a`, `a+read`, `b` at 1/8/16 in flight; `c` a unary upload of P5.3 / P5.4 (the payload builders' M5, checked against the manifest), the server parses it with protobuf-java and answers empty; `d` the client-streamed upload of 4 MiB and 16 MiB in 2 MiB M5 chunks (splitmix64 data as the rust slice's, ids on the first message), the server parses every message and answers the byte count (and SHA-256 on the check path); c and d at 1 and 8 in flight, every cell and framed twin, each (direction, payload, in-flight) combination one JMH iteration of the same duration as a, a+read and b's. B, E send protobuf-java's / arm R's bytes with ak_call_send, C the binding's encode with ak_call_send_enc; A, D, F grpc-java's `asyncClientStreamingCall` with a StreamObserver |
+| 15 | 1 / 8 / 16 in flight | met: one JMH invocation = one batch of k calls in flight (call 0 on JMH's benchmark thread, 1..k-1 on persistent helper threads released per batch), counted as k calls (`iters`); the hand-written sampler ran `calls / k` calls per thread in chunks, so a sample there was not one batch |
 | 16 | delivery | met: B, C, E the core's blocking call, and its blocking client stream in d; A, D, F `ClientCalls.blockingUnaryCall` (a blocking stub's call; packages/java's clients use blocking stubs) and, in d, `ClientCalls.asyncClientStreamingCall` (client streaming has no blocking stub: the async stub's form), stated in every RPC header; the queue delivery exists only in `RunRpc` |
 | 17 | shipped and pinned, UDS | met: Unix domain socket over Netty epoll everywhere; shipped = grpc-java's defaults (packages/java configures no UDS channel), the core with no options, the server with grpc-java's defaults; pinned = 4 MiB windows (grpc-java BDP off), core adaptive windows off and Nagle off, 8 MiB messages |
-| 18 | every call checked, abort | met: exception, non-OK status (AK_ERR_RPC_STATUS from the core, a failed status from grpc-java) or a wrong response length or upload count aborts; the gate's upload check runs every cell's c and d (d through the SHA-256 path) on both sockets and builds, and a planted wrong expectation (`ak.camp.plant=1`) must abort, which it does |
+| 18 | every call checked, abort | met: exception, non-OK status (AK_ERR_RPC_STATUS from the core, a failed status from grpc-java) or a wrong response length or upload count fails the call; under JMH a failed check throws (from a helper thread too), JMH records it and `-foe true` stops the run; the runner then deletes the launch's JSON lines, JMH JSON and JMH output and keeps only `rpc-launch-<l>.FAILED.txt` (the error lines); the gate's upload check runs every cell's c and d (d through the SHA-256 path) on both sockets and builds, and a planted wrong expectation (`ak.camp.plant=1`) must abort, both in the upload check and through JMH (`rpc JMH plant`: JMH exit non-zero, its JSON holds no measurement) |
 | 19 | crossing counts gate | met for both builds: `counts.ref` / `counts-nounk.ref` (per-payload rows and `EP` rows: every entry point per operation, resets included and placed -- encode `ak_enc_reset` before each encode; decode drop none; retain one `ak_dec_reset_<Root>(opts)` before each decode (WP8, rules 1 and 7); pull none in drop, the same one in retain -- per payload and the 92 shapes-root U-* rows, retain with no pre-placed buffer and the timed build's geometric grow); `rpc-counts.ref` / `rpc-counts-nounk.ref` (B, C, D, E and the framed twins per call in a, b, c/P5.3, c/P5.4, d/4MiB, d/16MiB); all four diffed by the gate |
 | 20 | crossing cost, fwd and rev, perf stat | **not met**: forward and reverse are sampled (the core's shim, JNI forward, JNI upcall, the rust slice's bench beside them), and the runner wraps each in `perf stat` when `perf` exists; `perf` is absent in this container, so that path has never run and cycles / instructions are unverified. Needs `perf` on the campaign machine, no owner decision |
-| 21 | CPU time is process CPU (amended 2026-09-26) | met: codec -- the benchmark method reads `CLOCK_PROCESS_CPUTIME_ID` (the shim's `Native.processCpuNs`) at its start and end, per JMH iteration (= round); RPC -- the client's `CLOCK_PROCESS_CPUTIME_ID` per sample; calib -- the same; wall beside it |
-| 22 | order (amended 2026-09-26) | met, order stated (R-H23): JMH runs cells in the order given and cannot randomise across forks; the codec arm order inside each (payload, content, dir) block is rotated one step per launch; RPC cells are rotated one step per round, with the same schedule in every launch; the two builds alternate by launch |
-| 22a | codec suite on the ecosystem's framework | met: JMH 1.37, SingleShotTime, one iteration = one sample, Blackhole, `-foe true`, every raw iteration exported; RPC and calib stay on the runner (req 13, req 18) |
+| 21 | CPU time is process CPU (amended 2026-09-26) | met: codec -- the benchmark method reads `CLOCK_PROCESS_CPUTIME_ID` (the shim's `Native.processCpuNs`) at its start and end, per JMH iteration (= round); RPC -- the client fork's `CLOCK_PROCESS_CPUTIME_ID` read around every invocation (one batch) and summed per JMH iteration; both exported as JMH `@AuxCounters` counters in JMH's own JSON; calib -- the same; wall beside it |
+| 22 | order (amended 2026-09-26) | met, order stated (R-H23): JMH runs cells in the order given and cannot randomise across forks; the codec arm order inside each (payload, content, dir) block is rotated one step per launch; RPC -- one JMH fork per cell, cells in the order given, rotated one step per launch; inside a fork JMH iteration i runs combination (i + launch - 1) mod 17, warm-up and measurement counted separately, so every round visits every combination interleaved; the two builds alternate by launch |
+| 22a | codec suite and RPC grid on the ecosystem's framework (amended 2026-09-27) | met: JMH 1.37 for both, `-f 1` (one JVM per cell), `-foe true`, Blackhole, every raw measurement iteration exported from JMH's JSON (primary rawData and the `@AuxCounters` rawData); codec SingleShotTime, one iteration = one sample; RPC AverageTime, one invocation = one batch of k calls; the custom pieces and the requirement each serves are listed below this table; calib stays on the runner |
 | 23 | >= 5 rounds, 3 launches | met: `AK_ROUNDS` 5, `AK_LAUNCHES` 3, every round committed raw |
-| 24 | warm-up stated, both coder states | met: JMH warm-up iterations per cell in the cell's own fork, recorded per cell; every codec sample carries `jit_ms_during`, the JIT compile time spent during that iteration (0 = no compilation while it ran; R-H19); the JIT is HotSpot's tiered default, and which tier each method reached is not recorded (no WhiteBox API in a product JVM); RPC 2 warm-up samples and the JIT's compile time per round; codec runs with compact strings and with `-XX:-CompactStrings` |
+| 24 | warm-up stated, both coder states | met: JMH warm-up iterations per cell in the cell's own fork, recorded per cell; every codec sample carries `jit_ms_during`, the JIT compile time spent during that iteration (0 = no compilation while it ran; R-H19); the JIT is HotSpot's tiered default, and which tier each method reached is not recorded (no WhiteBox API in a product JVM); RPC: the server warmed by the runner before JMH (`AK_RPC_SERVER_WARM`, default 200 calls of every a, a+read, b combination and 10 of every c, d one, on cells A and B through each transport; smoke 20), each fork JMH's warm-up of `AK_WARM` x 17 iterations (default 2, smoke 1) of `AK_RPC_WARM_TIME` (1s, smoke 20ms), measurement `AK_ROUNDS` x 17 iterations of `AK_RPC_ITER_TIME` (1s, smoke 20ms); GC and JIT between iterations JMH's defaults; the RPC grid records no per-iteration JIT figure; codec runs with compact strings and with `-XX:-CompactStrings` |
 | 25 | allocator warmed, GC stated | met: same warm-up for every arm, heap fixed at 4 GB, G1 |
 | 26 | gate before timing | met: a timing suite runs only with a passed gate stamp covering both builds |
 | 27 | header | met; a dirty `poc/java` is refused (poc/codec, schema and corpus enter only through the `git archive` snapshot) |
-| 28 | JSON lines body | met, plus `coder`, `engine`, `build`, `codec`, `delivery`, `end`, `input`, `row_class`, `core`, `jit_ms_during` and `{"meta":...}` lines (RPC: threads, warm-up calls, order, ratio basis); codec lines converted from JMH's raw data by `gen/jmh_to_jsonl.py` |
+| 28 | JSON lines body | met, plus `coder`, `engine`, `build`, `codec`, `delivery`, `end`, `input`, `row_class`, `core`, `jit_ms_during` and `{"meta":...}` lines (RPC: JMH's mode, iterations and times, JVM arguments, threads, order, ratio basis); both suites converted from JMH's JSON (`gen/jmh_to_jsonl.py`, `gen/rpc_jmh_to_jsonl.py`), RPC labels (mode, codec, send path, delivery, transport, build, per-iteration combination) from the fork's `RPCJMH-CELL` / `RPCJMH-ITER` lines, a measurement without its label or a label without its measurement refused; `wall_ns` = JMH's per-iteration score x invocations, checked against JMH's per-call score (the `calls` OPERATIONS counter) |
 | 29 | logs under ffi/logs/java/campaign/ | met: the runner's default `--out` |
 | 30 | summaries | not applicable: optional, not produced; the raw lines carry what section 8 needs. A ratio formed from them uses per-launch medians (owner R-H24), cross-process for the codec suite |
 | 31 | runner interface | met for the slice runner; `ffi/campaign.sh` is the aggregating session's |
-| 32 | smoke run, readiness recorded | met: `logs/java/campaign-wp7/` (WP7, both builds: codec with the encode variants, the shapes-core U-* rows and row classes; rpc cells A-F with a, a+read, b against one server per launch; calib), figures stripped; the one requirement not met is 20 |
+| 32 | smoke run, readiness recorded | met: `logs/java/campaign-wp9/` (WP9, owner direction 2026-09-27 "small tests only"): rpc `AK_CAMPAIGN_SMOKE=1`, 1 launch, 1 round, `AK_SMOKE_WARM` 1 (17 warm-up iterations per fork), 20 ms iterations, server warm-up 20 calls per combination, 2 GB heap, both transports and both builds: 289 samples per transport in the full build (17 cells x 17 combinations) and 170 in the no-unknown build (10 x 17); codec `AK_CAMPAIGN_SMOKE=1` with `AK_CODEC_PROPS="-Dak.camp.ids=P2.2 -Dak.camp.sets=0"` and `AK_SMOKE_UROWS=1` (P2.2 ASCII and one U-* row, both coder states, both builds: 58 / 58 / 14 and 40 / 40 / 8 samples); figures stripped. Calib last smoke-run in `campaign-wp7/`. The one requirement not met is 20 |
+
+### Custom code around JMH, and the requirement each serves (req 22a as amended)
+
+JMH's own mechanisms, used as they are, in both suites: process isolation (`-f 1`, one JVM
+per `cell` value), warm-up and measurement iterations (`-wi`, `-i`, and for RPC `-w`, `-r`),
+the invocation loop and its wall clock, untimed `@Setup` at trial, iteration and invocation
+level, the Blackhole, stop on first error (`-foe true`), and the raw export (`-rf json`:
+the primary score and every `@AuxCounters` counter per measurement iteration). No hand-written
+warm-up loop, sampler, settle wait or wall clock remains in either suite.
+
+| piece | suite | requirement | why JMH's own does not serve |
+|---|---|---|---|
+| process CPU read around the timed work, into an `@AuxCounters` counter | codec, RPC | 21 | JMH measures wall only |
+| JIT compile time between an iteration's setup and teardown (`jitMs` counter) | codec | 24 (managed clause) | JMH records no compilation state per iteration |
+| `iters` operations per SingleShotTime invocation, from the cell's wire size | codec | 11 (graphs prepared untimed, pool larger than the LLC) | the prepared pool fixes the operation count before the timed call; JMH's `-bs` is one value for all cells |
+| cell list from `ak.CampaignCodec`, arm order rotated per launch | codec | 22 | JMH runs `-p` values in the order given and cannot randomise across forks |
+| correctness check in `@Setup(Level.Trial)` | codec, RPC | 18, 26 | JMH checks nothing; a throw there with `-foe true` stops the run before any figure |
+| the server process, started and warmed by the runner before JMH | RPC | 13, 24 | JMH runs benchmarks, not a separate peer process |
+| the 17-combination cycle inside one fork | RPC | 13 (one channel per cell per process), 22 (interleave) | JMH forks once per parameter combination: 17 forks and 17 channels per cell |
+| k-1 helper threads per batch | RPC | 14, 15 | JMH's `-t` threads each run whole invocations on their own; they cannot put the k calls of one batch in flight together |
+| `CampaignRpc.THROW_ON_FAIL` | RPC | 18 | the old path exited the JVM; a throw lets JMH record the error and stop |
+| discard of the launch's output on failure | RPC | 18, 22a | JMH writes what it measured before the failure to its text output |
+| labels: `RPCJMH-CELL` / `RPCJMH-ITER` lines and the converters | codec, RPC | 28 (section 7) | JMH's JSON carries parameters and numbers, not the section 7 labels |
+| leak counters must read 0 at `@TearDown(Level.Trial)` | RPC | decision 11 rule 3 | not a timing concern |
+
+Differences JMH forces against the hand-written sampler: one process per cell (the sampler
+held every cell of a build and transport in one process, so cells A and B are no longer an
+in-process control for C to F: the comparison is across forks, as in the codec suite); one
+invocation is one batch of k calls, not `calls / k` calls per thread; an iteration lasts a
+time (`-r`) rather than a call count, for c and d as for a, a+read and b; JMH's own summary
+score per benchmark averages unlike combinations and is not a figure (the raw per-iteration
+data is).
 
 ## Correctness (results)
 
@@ -172,8 +204,8 @@ smaller on every payload (each decode group is 16 bytes smaller). The pull famil
   builds it.
 - **Two builds cannot share a process**: each shim loads a core by the same soname, so the
   no-unknown build is a separate class tree and a separate process; comparisons across the
-  two builds carry cells A and B (RPC, in the same client process as C and D) or the incumbent
-  arms (codec, each in its own JMH fork, so a control across processes) beside them.
+  two builds carry cells A and B (RPC) or the incumbent arms (codec) beside them, each in its
+  own JMH fork, so a control across processes.
 - **Virtual threads** (`pinning.log`, JDK 21, instrumentation): blocking in a native frame
   pins the carrier and parking on a future does not.
 - **R9's JIT effect** (`r9-mechanism.log`, instrumentation): C2 prunes
@@ -192,16 +224,18 @@ smaller on every payload (each decode group is 16 bytes smaller). The pull famil
 | # | what | status |
 |---|---|---|
 | G4 | a `lossy` UTF-8 plan option raises in `java_rcodec` (the runtime renders `reject` only) | open until the option is used |
+| G5 | in the 860cbd92d smoke the server warm-up's `SERVER WARMED` lines were overwritten in `rpc-server-launch-1.txt` (the server writes that file from its own offset), so the RPC headers' server line carries no warm-up count; the warm-up ran (the runner discards the launch when it fails). Fixed after 860cbd92d (the warm-up writes `rpc-server-warm-launch-<l>.txt`), not re-run under the small-tests direction | fixed, unverified by a runner run |
 
 No other defect known to this slice is open. Closed items are in JOURNAL (J2-J28).
 
 ## What is not measured or not run
 
 - **Any performance result.** Every timing is container instrumentation.
+- **A JIT figure per RPC iteration**: the codec suite records `jit_ms_during`, the RPC grid does not.
+- **The JMH host JVM's CPU**: it runs under the same `taskset` as its fork (`CLIENT`) and is mostly idle; the fork's process CPU does not include it.
 - **`perf stat`** cycles and instructions (req 20): `perf` absent here.
 - **The RPC queue and callback deliveries** as campaign rows (the queue exists in
-  `RunRpc`, not run since before WP5, in no gate); **the streamed upload** (req 14,
-  optional); **TLS, retry, metadata, deadlines, numeric status, streaming** (owner
+  `RunRpc`, not run since before WP5, in no gate); **TLS, retry, metadata, deadlines, numeric status, streaming** (owner
   position 3).
 - **Decision 11's pre-allocated buffers and pools**: every retained buffer comes from the
   shim's grow; `ak_unk_pool` entries hold no buffer.
@@ -223,9 +257,12 @@ No other defect known to this slice is open. Closed items are in JOURNAL (J2-J28
 
 ## Next step
 
-1. **Campaign (W13), when the owner runs it**: `AK_CPU_CLIENT=.. AK_CPU_SERVER=..
+1. **WP10** (announced by the aggregating session, CAMPAIGN req 13 as amended at 9f6d579fa):
+   the Rust slice's tonic server becomes every slice's RPC server; when `poc/rust/SERVER.md`
+   and `poc/rust/serve.sh` land, point the cells at its paths, start it through `serve.sh`,
+   remove `CampaignRpc --serve`, re-gate.
+2. **Campaign (W13), when the owner runs it**: `AK_CPU_CLIENT=.. AK_CPU_SERVER=..
    AK_ISOLATION=.. gen/run_campaign.sh --suite gate|codec|rpc|calib`.
-2. Decision 11 pre-allocated buffers and pools, if the aggregating session asks for them.
 
 ## Requests to the aggregating session
 
@@ -244,6 +281,7 @@ No other defect known to this slice is open. Closed items are in JOURNAL (J2-J28
 
 | Log | What it establishes |
 |---|---|
+| `campaign-wp9/` | WP9: the gate for both builds from a clean worktree at 860cbd92d (the four count files identical, upload checks, upload plant, rpc JMH plant `rpc-jmh-plant.txt`), the rpc smoke on JMH (both transports and builds) and the reduced codec smoke; figures stripped; JMH's own JSON and text output (which carry figures) are not committed |
 | `campaign-wp8b/` | WP8 with cell C on the move path: gate for both builds from a clean worktree at a2c38db01 (counts, rpc counts with Cc rows, upload checks, plant), and the rpc and codec smoke; figures stripped |
 | `campaign-wp8/` | WP8: the gate for both builds from a clean worktree at a1eed5321 (the merged core), the four count files, the upload checks and plant; the rpc (directions a to d, framed twins) and codec smoke of both builds; figures stripped |
 | `campaign-wp7/` | WP7: the gate for both builds from a clean worktree at f5cba4acf (payload, corpus, controls, the four crossing-count files: counts, counts-nounk, rpc-counts, rpc-counts-nounk), and the smoke of codec, rpc and calib for both builds; figures stripped |
