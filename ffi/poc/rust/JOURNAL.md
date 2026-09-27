@@ -3370,3 +3370,18 @@ rendered into every slice's header/binding; other slices' generated output regen
   0). Swept gate.sh: no other step has the form. Gate re-run from a clean tree.
 - gen/opt_tables.py: the tables of one opt_bench run (tables-codec.md, tables-rpc.md), no
   comparison.
+
+## 2026-09-27 -- unit 3 final gate and final run
+
+- Gate from a clean tree at 6727646b (logs/rust/opt/final3-gate): `run_campaign.sh --suite
+  gate` PASSED on stable (step 11f 40 cases, the no-unknown build's too; pre-check 5,740 /
+  3,257 checks, 0 failures; crossings 775 / 398 rows identical), and `RUSTUP_TOOLCHAIN=1.88.0
+  bash gen/gate.sh` PASSED on rustc 1.88.0 (gate-floor-1.88.log).
+- Final run logs/rust/opt/final3 (opt_bench v5 at 0a26bdc4, 855 s with the build): pre-check
+  0 failures in the four codec processes; the 48 planted RPC controls (A, B, Bf, Df x a, c, d
+  x both transports x both clients) aborted as required. Tables of this run only, no
+  comparison: tables-codec.md (170 rows x 16 variant columns, U-* retain/drop summary) and
+  tables-rpc.md (every cell and framed twin, a, a+read, b, c/P5.3, c/P5.4, d/4MiB, d/16MiB,
+  both transports, every k, client CPU and wall, median [min-max] over 3 rounds; full and
+  no-unknown clients). Round spread (max/min per entry, client CPU, 1,020 entries): median
+  1.08, p90 1.41, max 8.08. Container instrumentation.
