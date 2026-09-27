@@ -8,12 +8,27 @@ here. This file states what exists and what was checked; the choice is the owner
 | | |
 |---|---|
 | **Status** | Built and gated on origin/rust/native-core-ffi-poc: four codec arms plus the pull family, the RPC grid (cells A-F), the full conformance corpus through the C ABI and core-native, decision 11's unknown-field mechanism, the no-unknown build, and the campaign harness conformed to the 2026-09-26 contract (FIX-PLAN WP7). That branch is now MERGED with the optimisation experiment (claude/rust-slice-optimization-sy1f4n): every kept optimisation (D1, E1, E2, E4, N1, U1, U2 geometric growth with the INT32_MAX clamp, E3, D2, D3b, D4, R1, R2 `ak_call_unary_enc`, F1 = R-H22, E5, Z1 `core-ffi-zc`, C2 simdutf8) runs on the WP7 harness. **The merged HEAD is NOT gated** (the owner did not ask for a gate): checked by builds of both variants and the corpus workspace, generate --check, one_core.sh, the pre-check on both builds and the counting builds; the last gates are WP7's (c8e8694eb, their branch) and the experiment's (3c737d1, ours), each on one side only |
-| **Next step** | none assigned |
+| **Next step** | optimisation unit 2, step 2 (T1 ffi: additive `ak_enc_take_owned`), then N2, N3, N6, a stable gate checkpoint, N5, the final gate |
 | **Blocked on** | nothing |
 | **Floor** (must build and pass correctness) | MSRV 1.88.0: the full gate, both builds, passes on rustc 1.88.0 from a clean worktree at c8e8694eb (`logs/rust/campaign-wp7/gate-floor-1.88.log`) |
 | **Target** | stable 1.94.1 in this container; README section 5: for Rust the floor is the target language level, one configuration |
 | **Incumbent** | prost 0.14.4, tonic 0.14.6, tonic-prost 0.14.6 (from Cargo.lock, printed in every campaign header). R14: tonic-prost's codec calls `Message::encode`/`decode`, so the production path and the library entry point are the same call |
 | **Questions this slice has open for the aggregating session** | (1) the proposed corpus rows of `gen/probe_corpus.py` (field numbers above 2^29-1, the 10th varint byte, two map-order rows) are not in `corpus/`; (2) no corpus row or payload has a repeated singular message with differing content, so merge-on-repeat (R-E4) is rendered and never observed; (3) a map entry has no unknown-field bag in the Rust facade (D42) |
+
+## Optimisation unit 2 (in progress; every figure is container instrumentation)
+
+Owner-approved steps 0-6 (T1 native, T1 ffi, N2, N3, N6, N5), one commit per step, each
+measured once in full with opt_bench v5 (`logs/rust/opt/<step>/`) against the previous kept
+step (`variants-before-after.txt`, `by-direction.txt`), iterations inside a step with
+narrowed alternated runs (`gen/opt_narrow.sh`, `gen/opt_ab.py`). Per-step checks:
+`gen/step_checks.sh` (generate --check, one_core.sh, pre-check both builds, counting builds
+vs the committed crossing files) -> `<step>/checks/checks.log`. A stable gate checkpoint runs
+after step 5, the full gate (stable + 1.88) at the end.
+
+| Step | Commit | What | Kept | Checks | Log |
+|---|---|---|---|---|---|
+| 0 | 19b339a2 | encode variants name the transport form: `transport-ready-tonic` (cells A, D, F) and, core arms only, `transport-ready-core` (cells C, E; the host does nothing after the encode, so it repeats the reused-buffer op) | yes (harness) | pre-check 0 failures; crossings identical | `opt/t0-ref` |
+| 1 | 5c1a31d1, cf844df5, aac7120e, 38f3e701 | T1 native: `ak_rt::Enc::take` moves the encoded buffer into a `Bytes` (from_owner) and a dropped body returns it to a spare slot; cell F and core-native's tonic row use it; ak_call_unary_enc uses it (R2's swap moved into ak-rt). The BytesMut forms (first three commits) were superseded: they cost 5-20% on the reused-buffer encode | yes (38f3e701) | pre-check 0 failures; crossings identical; ak-rt take tests | `opt/t1-native` (+ `-first`, `-b`, `-swept`, `-ab`, `-c-ab`) |
 
 ## Optimisation experiment (done; every figure is container instrumentation)
 

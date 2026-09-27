@@ -2913,3 +2913,65 @@ passes.
   -> 137. RPC (pinned, in-flight 1, client CPU per call): cell C direction b 945 -> 755 us
   (drop), A 1710 -> 1740 (control). Tables: merged/variants-before-after.txt,
   merged/headline-before-after.txt.
+
+## 2026-09-27 -- optimisation unit 2 (owner: "Please start"), steps 0 and 1
+
+Per step: generate --check, one_core.sh, the codec pre-check on both builds and the
+counting builds against the committed crossing files (`gen/step_checks.sh OUT`, new: the
+four checks in one script, output in `<step>/checks/checks.log`), then opt_bench v5 with
+unchanged settings into `logs/rust/opt/<step>/`, compared with the previous kept step as
+absolute per-variant tables (`opt_variants_compare.py` -> `<step>/variants-before-after.txt`;
+per direction and variant: `<step>/by-direction.txt`). prost is the control. Every figure
+is container instrumentation.
+
+- Step 0 (19b339a2, harness): the requirement-11 encode variants now name the transport
+  form. `transport-ready-tonic` = what the arm hands tonic (prost/armonik: split+freeze of
+  a reused BytesMut, cell A; core-ffi: `Bytes` copy of ak_enc_take's bytes, cell D;
+  core-native: `Bytes` copy of its Enc buffer, cell F). `transport-ready-core`, core-native
+  and core-ffi only = what the arm hands the core's transport: cell C's encode context
+  (ak_call_unary_enc moves the core's buffer inside the call) and cell E's reused buffer
+  (ak_call_unary copies inside the call). Nothing happens on the host after the encode, so
+  that row's op IS the reused-buffer op, timed as its own row. First tried: a Rust helper in
+  ak-core timing the move itself; refused by construction (ak-core is a cdylib, no rlib, so
+  the harness can only reach it through the ABI), reverted before commit. Checks: pre-check
+  4610 / 2692 checks, 0 failures; crossings identical (696 / 349 rows). Reference run
+  `opt/t0-ref` (9669872b logs), 523 s (was 450 s: +2 rows per core arm x mode x payload).
+  By-product, an in-process A/A: transport-ready-core / reused-buffer, gmean over 42 rows per
+  column 0.979-1.017, per-row 0.75-1.63 (hot and pool rows alike).
+- Step 1, T1 native. Three forms, one kept:
+  (a) 5c1a31d1: `ak_rt::Enc.buf` a `BytesMut`, `Enc::take` = split + freeze, reset
+  reserving the taken length (reclaims the allocation when the taken Bytes is gone);
+  ak_call_unary_enc sends Enc::take (R2's spare slot removed). `opt/t1-native-first`:
+  reused-buffer encode +12-21% (gmean, every core column; prost 0.995). Cause found by
+  asking whether the code runs as written: `BytesMut::clear`, `truncate` and `resize` are
+  not `#[inline]`, so without LTO every reset and every `begin` (a length placeholder) was a
+  call. (b) cf844df5: reset = set_len(0), begin = a 16-byte constant zeroing.
+  `opt/t1-native-b`: reused-buffer 1.01-1.06 (prost 0.94 / 1.08). objdump of libak_core.so
+  then still showed 17 out-of-line calls to `BytesMut::extend_from_slice` (an inline hint
+  the cdylib ignored): (b') aac7120e swept every append to Enc's buffer through an
+  always-inlined `Enc::put` (ak-rt, ak-core enc_blob/enc_raw, the generated core-native
+  unknown tail); after it, 0 calls into bytes_mut from the codec (the one left is h2's).
+  `opt/t1-native-swept`: reused-buffer native 1.00-1.02, ffi 0.96-1.08, prost 0.93 / 0.98 --
+  ambiguous across processes, so an alternated A/B (new: `gen/opt_narrow.sh`, the codec
+  suite on chosen inputs with opt_bench's payload settings, ~55 s; `gen/opt_ab.py`; a
+  worktree of 9669872b as A): `opt/t1-native-ab`, 3 x A/B on P1.2*, P2.2*, P2.3, P5.3, full
+  build: reused-buffer encode B/A 1.05-1.11 on every core column with per-pair ranges mostly
+  above 1.0, while prost (unchanged code) read 0.89-0.91 in the B builds. So the BytesMut
+  form costs 5-10% more on the reused-buffer encode relative to the old buffer even when
+  nothing calls out; not further explained (no profiler here). (c) 38f3e701, KEPT: Enc keeps
+  its `Vec<u8>`; `Enc::take` moves the buffer into a `Bytes` (from_owner) and a dropped body
+  returns it to a spare slot (Arc<Mutex<Option<Vec>>>, try_lock; R2's mechanism, moved into
+  ak-rt so C, F and the step 2 entry share it); `Enc::put` kept (a Vec extend_from_slice).
+  Narrowed A/B `opt/t1-native-c-ab`: reused-buffer B/A 0.96-1.01 (prost 0.89),
+  transport-ready-tonic native 0.74-0.76. Full run `opt/t1-native` (506 s) against
+  t0-ref, gmean per direction and variant: reused-buffer native 0.98-1.00, ffi 1.01-1.02
+  (prost 0.93 full / 1.00 nounk); transport-ready-tonic native-drop 0.84, native-retain
+  0.82, native-nounk 0.83 -- P5.2-P5.4 0.49-0.53, P2.4* 0.59-0.77, P2.2 0.82 (190.7 -> 156.5
+  us hot) -- but P5.1 0.04 -> 0.09 us and P1.1 0.19 -> 0.23 us: the move has a fixed cost
+  (one from_owner allocation, an Arc clone, a lock at take and at drop), about 50 ns, more
+  than copying a ~20-byte message. Not addressed (a size threshold under which take copies
+  is one line; left for the owner). Decode noise (0.99-1.05, prost 1.07 / 0.99).
+  RPC direction b, k=1: every cell 0.60-1.17 between the two runs, the control cell A
+  1.01-1.17 -- 3 rounds do not resolve an effect here. Checks at every form: pre-check 0
+  failures, crossings identical (T1 native moves no crossing), ak-rt unit tests (3 new:
+  take moves, buffers alternate after a drop, a held body costs one allocation).
