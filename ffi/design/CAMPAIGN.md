@@ -136,7 +136,8 @@ in its container shows it executes (section 9).
     reported, never partly subtracted. Amended by the owner 2026-09-26 (R-H33):
     **one server process and configuration per launch**, serving every cell of both
     builds, warmed by a stated number of calls from each client transport before
-    round 1; **one channel per cell per launch**, opened and warmed before round 1.
+    round 1; **one channel per cell per benchmark process** (req 22a: a framework that forks
+    per benchmark gives each fork its own channel), opened before the fork's warm-up.
     **Amended by the owner 2026-09-27: one server implementation for every slice, the
     Rust slice's** (tonic, `poc/rust`, its `rpc_server`), started by each slice's
     runner through one shared launcher, pinned to `SERVER`. The server's work, its
