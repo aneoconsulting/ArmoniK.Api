@@ -457,6 +457,9 @@ if(AK_RPC)
   find_package(benchmark 1.8.3 EXACT REQUIRED)
   target_link_libraries(campaign_codec PRIVATE benchmark::benchmark)
   target_compile_definitions(campaign_codec PRIVATE AK_GBENCH_VERSION="${benchmark_VERSION}")
+  # WP9 (req. 22a amended): the RPC grid's timed client runs on the same framework.
+  target_link_libraries(campaign_rpc PRIVATE benchmark::benchmark)
+  target_compile_definitions(campaign_rpc PRIVATE AK_GBENCH_VERSION="${benchmark_VERSION}")
 endif()
 
 # ---- the upb arm: a CEILING, not a candidate ----------------------------------------
@@ -658,6 +661,10 @@ if(AK_RPC)
     set_property(TARGET ${tgt} PROPERTY CXX_STANDARD 17)
     target_compile_definitions(${tgt} PRIVATE AK_LINKAGE="shared")
     set_property(TARGET ${tgt} APPEND_STRING PROPERTY LINK_FLAGS " -Wl,-rpath,${_core}")
+    if(tgt STREQUAL "campaign_rpc_nounk")  # WP9: the timed client runs on Google Benchmark
+      target_link_libraries(${tgt} PRIVATE benchmark::benchmark)
+      target_compile_definitions(${tgt} PRIVATE AK_GBENCH_VERSION="${benchmark_VERSION}")
+    endif()
   endforeach()
   target_compile_definitions(campaign_rpc_count_nounk PRIVATE AK_COUNTING=1)
 

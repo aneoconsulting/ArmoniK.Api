@@ -8,11 +8,12 @@
 #   AK_CPU_SERVER        CPU list for the RPC server process                              REQUIRED
 #   AK_CAMPAIGN_LAUNCHES process launches per suite            (default 3; requirement 23)
 #   AK_CAMPAIGN_ROUNDS   rounds per process                    (default 5; requirement 23)
-#   AK_CAMPAIGN_BYTES    codec: payload bytes per sample       (default 33554432)
-#   AK_CAMPAIGN_WARMUP   codec: warm-up bytes per arm          (default = AK_CAMPAIGN_BYTES;
-#                        smoke 65536). Google Benchmark adds none (--benchmark_min_warmup_time=0)
-#   AK_CAMPAIGN_CALLS    rpc: calls per sample                 (default 480)
-#   AK_CAMPAIGN_RPC_WARMUP rpc: warm-up calls per cell and job   (default 96; smoke 4; d a third)
+#   (WP9, req. 22a amended: iterations and warm-up are Google Benchmark's own, in seconds)
+#   AK_CAMPAIGN_MIN_TIME_S codec: --benchmark_min_time per repetition   (default 0.5; smoke 0.01)
+#   AK_CAMPAIGN_WARMUP_S codec: --benchmark_min_warmup_time per benchmark (default 0.5; smoke 0.01)
+#   AK_CAMPAIGN_RPC_MIN_TIME_S rpc: --benchmark_min_time per repetition (default 1.0; smoke 0.01)
+#   AK_CAMPAIGN_RPC_WARMUP_S rpc: Google Benchmark's min warm-up time per benchmark, seconds
+#                        (default 0.5; smoke 0.01), before its first repetition (WP9)
 #   AK_CAMPAIGN_SERVER_WARMUP rpc: server warm-up calls per direction per client transport
 #                        per socket, before any client  (default 200; smoke 20); d a tenth of it
 #   (req. 24, amended 2026-09-27: every warm-up is a parameter; AK_CAMPAIGN_SMOKE=1 shortens
@@ -52,11 +53,12 @@ TMPD=$(mktemp -d)   # scratch files of the gate and the server; never committed
 : "${AK_CPU_SERVER:?AK_CPU_SERVER is required (requirement 4)}"
 LAUNCHES=${AK_CAMPAIGN_LAUNCHES:-3}
 ROUNDS=${AK_CAMPAIGN_ROUNDS:-5}
-BYTES=${AK_CAMPAIGN_BYTES:-33554432}
-if [ "${AK_CAMPAIGN_SMOKE:-}" = 1 ]; then W_CODEC=65536; W_RPC=4; W_SRV=20; else W_CODEC=$BYTES; W_RPC=96; W_SRV=200; fi
-WARM=${AK_CAMPAIGN_WARMUP:-$W_CODEC}
-CALLS=${AK_CAMPAIGN_CALLS:-480}
-RPCWARM=${AK_CAMPAIGN_RPC_WARMUP:-$W_RPC}
+if [ "${AK_CAMPAIGN_SMOKE:-}" = 1 ]; then T_CODEC=0.01; W_CODEC=0.01; T_RPC=0.01; W_RPC=0.01; W_SRV=20
+else T_CODEC=0.5; W_CODEC=0.5; T_RPC=1.0; W_RPC=0.5; W_SRV=200; fi
+MINT=${AK_CAMPAIGN_MIN_TIME_S:-$T_CODEC}
+WARM=${AK_CAMPAIGN_WARMUP_S:-$W_CODEC}
+RPCMINT=${AK_CAMPAIGN_RPC_MIN_TIME_S:-$T_RPC}
+RPCWARM=${AK_CAMPAIGN_RPC_WARMUP_S:-$W_RPC}
 SRVWARM=${AK_CAMPAIGN_SERVER_WARMUP:-$W_SRV}
 SRVWARM_D=$((SRVWARM / 10 > 0 ? SRVWARM / 10 : 1))
 CITERS=${AK_CAMPAIGN_CALIB_ITERS:-100000000}
@@ -171,9 +173,9 @@ h = {
              "rpc_client": "caller threads = the in-flight level (1, 8, 16), created before round 1; the core's runtime workers = 2 (campaign_rpc --workers default); grpc-core sizes its own pollers and executor, counted in each client's process_threads_after_warmup line",
              "rpc_server": "grpc++ callback server, grpc-core's own threads; the server's thread count at start and at exit is in the rpc log"},
  "repeats": {"launches": $LAUNCHES, "rounds": $ROUNDS},
- "warmup": {"codec_bytes_per_arm": $WARM, "codec_google_benchmark_min_warmup_time": 0, "rpc_calls_per_cell": $RPCWARM, "rpc_calls_per_cell_direction_d": $(( RPCWARM / 3 > 0 ? RPCWARM / 3 : 1 )), "rpc_server_calls_per_direction_per_client_transport_per_socket": $SRVWARM, "rpc_server_calls_direction_d": $SRVWARM_D, "campaign_defaults": {"codec_bytes_per_arm": "AK_CAMPAIGN_BYTES", "rpc_calls_per_cell": 96, "rpc_server_calls": 200}, "smoke_defaults": {"codec_bytes_per_arm": 65536, "rpc_calls_per_cell": 4, "rpc_server_calls": 20}, "allocator": "every arm runs its warm-up before round 1"},
- "sample": {"codec_bytes": $BYTES, "codec_pool_bytes": $POOL, "llc_bytes": $LLC, "rpc_calls": $CALLS, "calib_iters": $CITERS,
-            "codec_clock": "Google Benchmark " + "v1.8.3 (344117638c8f, Release, built by the runner)" + ": cpu_time = process CPU per repetition (MeasureProcessCPUTime) and real_time, repetitions randomly interleaved", "rpc_clock": "getrusage(RUSAGE_SELF) of the client process + CLOCK_MONOTONIC", "calib_clock": "CLOCK_PROCESS_CPUTIME_ID of campaign_calib per round"},
+ "warmup": {"codec_google_benchmark_min_warmup_time_s_per_benchmark": $WARM, "rpc_google_benchmark_min_warmup_time_s_per_benchmark": $RPCWARM, "rpc_server_calls_per_direction_per_client_transport_per_socket": $SRVWARM, "rpc_server_calls_direction_d": $SRVWARM_D, "campaign_defaults": {"codec_min_warmup_time_s": 0.5, "rpc_min_warmup_time_s": 0.5, "rpc_server_calls": 200}, "smoke_defaults": {"codec_min_warmup_time_s": 0.01, "rpc_min_warmup_time_s": 0.01, "rpc_server_calls": 20}, "allocator": "every benchmark runs the framework's warm-up before its first repetition"},
+ "sample": {"codec_min_time_s_per_repetition": $MINT, "codec_pool_bytes": $POOL, "llc_bytes": $LLC, "rpc_min_time_s_per_repetition": $RPCMINT, "calib_iters": $CITERS,
+            "codec_clock": "Google Benchmark " + "v1.8.3 (344117638c8f, Release, built by the runner)" + ": cpu_time = process CPU per repetition (MeasureProcessCPUTime) and real_time, repetitions randomly interleaved", "rpc_clock": "Google Benchmark (the same build, WP9): cpu_time = process CPU per repetition (MeasureProcessCPUTime), real_time = wall (UseRealTime); one iteration = a batch of k calls in flight; repetitions randomly interleaved across the benchmarks of one client process", "calib_clock": "CLOCK_PROCESS_CPUTIME_ID of campaign_calib per round"},
 }
 print("# " + json.dumps(h, sort_keys=True))
 EOF
@@ -253,15 +255,17 @@ run_gate() {
       || echo ">>> FAIL: the server warm-up"
     for rb in campaign_rpc campaign_rpc_nounk; do
       timeout 120 taskset -c "$AK_CPU_CLIENT" "$B/$rb" --target "$(sock_of shipped)" --expect $((EXP + 1)) \
-        --transport shipped --cells C --dirs a --inflight 1 --rounds 1 --calls 2 --warmup 1 > "$TMPD/r.log" 2>&1; rc=$?
-      ns=$(grep -c '^{' "$TMPD/r.log")
+        --transport shipped --cells C --dirs a --inflight 1 --rounds 1 --calls 2 --warmup-s 0 \
+        --gbench-out "$TMPD/ctl.json" > "$TMPD/r.log" 2>&1; rc=$?
+      ns=$(gb_samples "$TMPD/ctl.json")
       [ $rc != 0 ] && [ "$ns" = 0 ] && echo "  control rpc length ($rb): aborted as required (exit $rc, $ns samples: $(grep -m1 'CALL CHECK' "$TMPD/r.log"))" \
                    || echo ">>> FAIL: a wrong response length did not abort, or left $ns sample(s) ($rb)"
       # An abort AFTER samples were taken (--fail-after 2): the samples already measured must
       # not reach the output either (buffered in the client, written only on success).
       timeout 120 taskset -c "$AK_CPU_CLIENT" "$B/$rb" --target "$(sock_of shipped)" --expect "$EXP" \
-        --transport shipped --cells AB --dirs a --inflight 1 --rounds 2 --calls 2 --warmup 1 --fail-after 2 > "$TMPD/r.log" 2>&1; rc=$?
-      ns=$(grep -c '^{' "$TMPD/r.log")
+        --transport shipped --cells AB --dirs a --inflight 1 --rounds 2 --calls 2 --warmup-s 0 --fail-after 2 \
+        --gbench-out "$TMPD/ctl.json" > "$TMPD/r.log" 2>&1; rc=$?
+      ns=$(gb_samples "$TMPD/ctl.json")
       [ $rc != 0 ] && [ "$ns" = 0 ] && echo "  control rpc abort after 2 samples ($rb): exit $rc, $ns samples written, as required" \
                    || echo ">>> FAIL: an abort after 2 samples left $ns sample(s) (exit $rc, $rb)"
     done
@@ -275,9 +279,9 @@ run_gate() {
         dd=${pl%%-*}; nok=0; nbad=0
         for lb in $LBL; do
           timeout 120 taskset -c "$AK_CPU_CLIENT" "$B/$rb" --target "$(sock_of shipped)" --expect "$EXP" \
-            --transport shipped --cells "$lb," --dirs "$dd" --inflight 1 --rounds 1 --calls 1 --warmup 1 \
-            --plant "$pl" > "$TMPD/r.log" 2>&1; rc=$?
-          ns=$(grep -c '^{' "$TMPD/r.log")
+            --transport shipped --cells "$lb," --dirs "$dd" --inflight 1 --rounds 1 --calls 1 --warmup-s 0 \
+            --plant "$pl" --gbench-out "$TMPD/ctl.json" > "$TMPD/r.log" 2>&1; rc=$?
+          ns=$(gb_samples "$TMPD/ctl.json")
           if [ $rc = 3 ] && [ "$ns" = 0 ] && grep -q 'CALL CHECK' "$TMPD/r.log"; then nok=$((nok + 1))
           else nbad=$((nbad + 1)); echo "    $lb: exit $rc, $ns samples"; fi
         done
@@ -339,18 +343,31 @@ gbench_release() {
 # scratch file and are appended only if it succeeded; on any failure the launch file is
 # deleted, so an aborted run leaves no sample. Usage: rpc_launch_file FILE LAUNCH TRANSPORT
 # [EXTRA-ARGS]; the server must be running. Returns nonzero on failure.
+gb_samples() {  # gb_samples FILE: the samples a Google Benchmark output would give (0 if absent)
+  [ -f "$1" ] || { echo 0; return; }
+  python3 "$SLICE/gen/gbench_to_jsonl.py" "$1" 0 full rpc 2>/dev/null | grep -c '^{'
+  rm -f "$1"
+}
 rpc_launch_file() {
   local f=$1 l=$2 t=$3 extra=${4:-} rb rc
   if [ $((l % 2)) = 1 ]; then RBS="campaign_rpc campaign_rpc_nounk"; else RBS="campaign_rpc_nounk campaign_rpc"; fi
   for rb in $RBS; do
     timeout 7200 taskset -c "$AK_CPU_CLIENT" "$B/$rb" --target "$(sock_of $t)" --expect "$EXP" \
-      --transport "$t" --launch "$l" --rounds "$ROUNDS" --calls "$CALLS" --warmup "$RPCWARM" $extra \
-      > "$TMPD/client.out" 2>&1; rc=$?
+      --transport "$t" --launch "$l" --rounds "$ROUNDS" --min-time-s "$RPCMINT" --warmup-s "$RPCWARM" $extra \
+      --gbench-out "$TMPD/rpc.gbench.json" > "$TMPD/client.out" 2>&1; rc=$?
     if [ $rc != 0 ]; then
       echo "rpc client $rb ($t) failed (exit $rc): $(grep -m1 'CALL CHECK' "$TMPD/client.out")" >&2
       rm -f "$f"; return 1
     fi
-    { echo "# client $rb"; cat "$TMPD/client.out"; } >> "$f"
+    # WP9: the samples are Google Benchmark's JSON, converted to section 7's lines; a
+    # benchmark with error_occurred refuses the whole file (the launch is discarded).
+    local bld=full; [ "$rb" = campaign_rpc_nounk ] && bld=no-unknown
+    if ! python3 "$SLICE/gen/gbench_to_jsonl.py" "$TMPD/rpc.gbench.json" "$l" "$bld" rpc > "$TMPD/client.jsonl" 2>/dev/null; then
+      echo "rpc client $rb ($t): the Google Benchmark output was refused" >&2; rm -f "$f"; return 1
+    fi
+    { echo "# client $rb"; grep '^#' "$TMPD/client.out"; cat "$TMPD/client.jsonl"; } >> "$f"
+    cp "$TMPD/rpc.gbench.json" "${f%.jsonl}-$t-$bld.gbench.json"
+    rm -f "$TMPD/rpc.gbench.json"
   done
   return 0
 }
@@ -423,7 +440,7 @@ case "$SUITE" in
       gb=$OUT/codec-${tag}launch$l.gbench.json
       { header codec "$l"
         (cd "$FFI/schema/generated" && taskset -c "$AK_CPU_CLIENT" "$B/$cb" --launch "$l" \
-           --rounds "$ROUNDS" --bytes "$BYTES" --warmup "$WARM" --corpus "$FFI/corpus/generated" \
+           --rounds "$ROUNDS" --min-time-s "$MINT" --warmup-s "$WARM" --corpus "$FFI/corpus/generated" \
            --rows "$ROWS" --gbench-out "$gb" --pool-bytes "$POOL" > "$TMPD/gb.console" 2>&1; echo $? > "$TMPD/gb.rc")
         grep '^#' "$TMPD/gb.console"
         python3 "$SLICE/gen/gbench_to_jsonl.py" "$gb" "$l" "$([ "$cb" = campaign_codec_nounk ] && echo no-unknown || echo full)"; } > "$f" 2>/dev/null

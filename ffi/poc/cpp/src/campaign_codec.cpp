@@ -48,7 +48,7 @@
 // incumbent's fold of the canonical bytes, and the two independent builders must agree. A failure
 // prints the group and exits 2 before any timing.
 //
-//   campaign_codec --launch L --rounds R --bytes B --warmup W [--only ID,ID]
+//   campaign_codec --launch L --rounds R --min-time-s T --warmup-s W [--only ID,ID]
 //                  [--corpus DIR --rows TSV] [--payloads DIR] [--gbench-out FILE]
 //                  [--pool-bytes N]
 #include <benchmark/benchmark.h>
@@ -120,8 +120,13 @@ namespace {
 
 struct Cfg {
   int launch = 0, rounds = 5;
-  double bytes = 32.0 * 1024 * 1024;  // per sample: iterations = bytes / wire size
-  double warmup = -1;                 // warm-up bytes per arm; default = one sample
+  // WP9 (req. 22a as amended: the framework's own warm-up and iteration control): Google
+  // Benchmark's --benchmark_min_time per repetition and --benchmark_min_warmup_time per
+  // benchmark, in seconds. The earlier byte budget per sample and the harness-run warm-up loop
+  // are gone. `bytes` stays only as the gate's minimum input size (--bytes, unused by timing).
+  double bytes = 1;
+  double min_time_s = 0.5;
+  double warmup_s = 0.5;
   std::vector<std::string> only;
   std::string corpus, payloads, rows;
   std::string gbout = "campaign_codec_gbench.json";  // Google Benchmark's JSON output
@@ -555,7 +560,9 @@ int main(int argc, char **argv) {
     if (a == "--launch") g_cfg.launch = std::atoi(v);
     else if (a == "--rounds") g_cfg.rounds = std::atoi(v);
     else if (a == "--bytes") g_cfg.bytes = std::atof(v);
-    else if (a == "--warmup") g_cfg.warmup = std::atof(v);
+    else if (a == "--warmup-s") g_cfg.warmup_s = std::atof(v);
+    else if (a == "--min-time-s") g_cfg.min_time_s = std::atof(v);
+    else if (a == "--warmup") {}  // obsolete (the harness warm-up is Google Benchmark's now)
     else if (a == "--corpus") g_cfg.corpus = v;
     else if (a == "--payloads") g_cfg.payloads = v;
     else if (a == "--rows") g_cfg.rows = v;
@@ -572,7 +579,6 @@ int main(int argc, char **argv) {
       }
     }
   }
-  if (g_cfg.warmup < 0) g_cfg.warmup = g_cfg.bytes;
   grpc_init();
   if (shapes::ffi::ak_init_once() != AK_OK) { std::fprintf(stderr, "ak_init refused\n"); return 2; }
 
@@ -714,28 +720,19 @@ int main(int argc, char **argv) {
   std::string cpus;
   for (int c = 0; c < CPU_SETSIZE; ++c)
     if (CPU_ISSET(c, &set)) cpus += (cpus.empty() ? "" : ",") + std::to_string(c);
-  std::printf("# {\"campaign_codec\": {\"launch\": %d, \"rounds\": %d, \"bytes_per_sample\": %.0f,"
-              " \"warmup_bytes_per_slot\": %.0f, \"affinity\": \"%s\", \"timer\": \"Google Benchmark %s:"
-              " cpu_time = PROCESS CPU (MeasureProcessCPUTime, CLOCK_PROCESS_CPUTIME_ID) per repetition, real_time = wall\","
+  std::printf("# {\"campaign_codec\": {\"launch\": %d, \"rounds\": %d, \"min_time_s_per_repetition\": %.3f,"
+              " \"min_warmup_time_s_per_benchmark\": %.3f, \"affinity\": \"%s\", \"timer\": \"Google Benchmark %s:"
+              " cpu_time = PROCESS CPU (MeasureProcessCPUTime, CLOCK_PROCESS_CPUTIME_ID) per repetition, real_time = wall;"
+              " iterations chosen by the framework (--benchmark_min_time), warm-up the framework's"
+              " (--benchmark_min_warmup_time, before a benchmark's first repetition)\","
               " \"pool_bytes\": %.0f, \"threads\": {\"process_threads_at_start\": %d, \"measuring_threads\": 1,"
               " \"note\": \"the codec suite runs every arm on the one benchmark thread; the core starts no thread for codec calls\"}}}\n",
-              g_cfg.launch, g_cfg.rounds, g_cfg.bytes, g_cfg.warmup, cpus.c_str(), AK_GBENCH_VERSION,
+              g_cfg.launch, g_cfg.rounds, g_cfg.min_time_s, g_cfg.warmup_s, cpus.c_str(), AK_GBENCH_VERSION,
               g_cfg.pool_bytes, proc_threads());
 
-  // ---- warm-up: every slot, the same byte budget, before round 1 (req. 24, 25) ----
-  for (size_t gi = 0; gi < groups.size(); ++gi) {
-    long n = (long)(g_cfg.warmup / (double)(groups[gi].wire ? groups[gi].wire : 1));
-    if (n < 1) n = 1;
-    for (size_t s = 0; s < groups[gi].slots.size(); ++s) {
-      Slot &sl0 = groups[gi].slots[s];
-      if (sl0.setup) sl0.setup();
-      g_sink += sl0.run(n);
-      if (sl0.teardown) sl0.teardown();
-    }
-  }
   // ---- timing: Google Benchmark (CAMPAIGN.md requirement 22a, owner 2026-09-25) ----
-  // One benchmark per slot, name "arm|payload|content|dir|unknown_mode". Fixed iterations
-  // per group (the byte budget / the wire size, as before), `rounds` repetitions, every
+  // One benchmark per slot, name "arm|payload|content|dir|unknown_mode". Iterations chosen by
+  // Google Benchmark (--benchmark_min_time), `rounds` repetitions, every
   // repetition reported raw (no aggregate-only), repetitions interleaved across all
   // benchmarks in random order (--benchmark_enable_random_interleaving), and the
   // registration order rotated by launch so the three launches start from different arms.
@@ -745,8 +742,7 @@ int main(int argc, char **argv) {
     std::vector<std::pair<std::string, std::pair<Slot *, long> > > regs;
     for (size_t gi = 0; gi < groups.size(); ++gi) {
       Group &g = groups[gi];
-      long n = (long)(g_cfg.bytes / (double)(g.wire ? g.wire : 1));
-      if (n < 1) n = 1;
+      const long n = 0;  // unused: the framework chooses the iterations
       for (size_t s = 0; s < g.slots.size(); ++s) {
         Slot *sl = &g.slots[s];
         regs.push_back(std::make_pair(sl->arm + "|" + g.payload + "|" + g.content + "|" + sl->dir + "|" + sl->mode +
@@ -766,13 +762,17 @@ int main(int argc, char **argv) {
           benchmark::ClobberMemory();
         }
         if (sl->teardown) sl->teardown();
-      })->Iterations(r.second.second)->Repetitions(g_cfg.rounds)->Unit(benchmark::kNanosecond)
+      })->Repetitions(g_cfg.rounds)->Unit(benchmark::kNanosecond)
         ->MeasureProcessCPUTime()->ReportAggregatesOnly(false);
     }
     std::string out = "--benchmark_out=" + g_cfg.gbout;
+    char mwb[64], mtb[64];
+    std::snprintf(mwb, sizeof(mwb), "--benchmark_min_warmup_time=%.6f", g_cfg.warmup_s);
+    std::snprintf(mtb, sizeof(mtb), "--benchmark_min_time=%.6fs", g_cfg.min_time_s);
+    std::string mw = mwb, mt = mtb;
     std::vector<std::string> args = {"campaign_codec", out, "--benchmark_out_format=json",
                                      "--benchmark_enable_random_interleaving=true",
-                                     "--benchmark_min_warmup_time=0",
+                                     mw, mt,
                                      "--benchmark_format=console"};
     std::vector<char *> av;
     for (size_t k = 0; k < args.size(); ++k) av.push_back(&args[k][0]);

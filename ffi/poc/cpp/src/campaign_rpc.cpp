@@ -29,11 +29,15 @@
 //                        and warmed by the warm-up before round 1
 //   checks     (req. 18): every call: status OK and response length equal to the expected
 //                        payload; the first failure aborts the process and leaves no sample
-//   samples    (req. 21): CPU = getrusage(RUSAGE_SELF) of this client process across the
-//                        batch (the server is another process), wall = CLOCK_MONOTONIC
-//   rounds     (req. 22/23): every (dir, inflight) group runs its cells in an order shuffled
-//                        per (launch, round, dir, inflight), recorded as order_pos; samples
-//                        buffered and written only if the whole run succeeded (R-H4)
+//   samples    (WP9, req. 22a amended): Google Benchmark. One benchmark per (cell, direction,
+//                        payload, in-flight k); one iteration = one batch of k calls in flight
+//                        (k operations); cpu_time = process CPU (MeasureProcessCPUTime; the
+//                        server is another process), real_time = wall (UseRealTime); fixed
+//                        iterations, `rounds` repetitions reported raw
+//   rounds     (req. 22/23/24): repetitions randomly interleaved across every benchmark of the
+//                        process, registration order rotated by launch; warm-up =
+//                        --benchmark_min_warmup_time (--warmup-s); the JSON (--gbench-out) is
+//                        renamed into place only if every call passed (R-H4)
 //   threads    (R-H2, req. 4): the k caller threads are created once, before any timed
 //                        window; the header records them, the core's runtime workers and the
 //                        process's thread count after warm-up (grpc-core's own threads)
@@ -55,7 +59,6 @@
 #include <cstring>
 #include <fstream>
 #include <mutex>
-#include <random>
 #include <string>
 #include <thread>
 #include <vector>
@@ -75,6 +78,9 @@
 #include "generated/pb_build.h"
 #include "generated/touch.h"
 #include "sha256.h"
+#ifndef AK_COUNTING
+#include <benchmark/benchmark.h>
+#endif
 
 using namespace akrpc;
 
@@ -156,8 +162,11 @@ struct Cfg {
   std::string target, transport = "shipped", cells = "ABCDEF", dirs = "arbcd";
   std::string plant;     // test only (req. 18 controls): c-len | d-count | d-sha
   std::vector<int> inflight = {1, 8, 16};
-  int launch = 0, rounds = 5, calls = 96, warmup = 32, workers = 2;
+  int launch = 0, rounds = 5, calls = 96, workers = 2;
   int fail_after = -1;   // test only: abort after this many samples (the gate's R-H4 control)
+  double warmup_s = 0.5; // Google Benchmark's min warm-up time per benchmark (req. 24)
+  double min_time_s = 0.5; // Google Benchmark's min time per repetition (its iteration control)
+  std::string gbout;     // Google Benchmark JSON output (WP9)
   int warm_server = 0;   // --warm-server N
   int count = 0;         // --count N
 };
@@ -166,13 +175,6 @@ struct Cfg {
   std::fprintf(stderr, "CALL CHECK FAILED: %s (%ld) -- the run is aborted, no figure\n", what, v);
   std::fflush(stdout);
   std::_Exit(3);
-}
-
-double rusage_ns() {
-  struct rusage r;
-  getrusage(RUSAGE_SELF, &r);
-  return (double)(r.ru_utime.tv_sec + r.ru_stime.tv_sec) * 1e9 +
-         (double)(r.ru_utime.tv_usec + r.ru_stime.tv_usec) * 1e3;
 }
 
 int proc_threads() {
@@ -863,10 +865,12 @@ int main(int argc, char **argv) {
     else if (a == "--launch") c.launch = std::atoi(v);
     else if (a == "--rounds") c.rounds = std::atoi(v);
     else if (a == "--calls") c.calls = std::atoi(v);
-    else if (a == "--warmup") c.warmup = std::atoi(v);
     else if (a == "--workers") c.workers = std::atoi(v);
     else if (a == "--expect") w.expect_a = (size_t)std::atoll(v);
     else if (a == "--fail-after") c.fail_after = std::atoi(v);
+    else if (a == "--warmup-s") c.warmup_s = std::atof(v);
+    else if (a == "--min-time-s") c.min_time_s = std::atof(v);
+    else if (a == "--gbench-out") c.gbout = v;
     else if (a == "--warm-server") c.warm_server = std::atoi(v);
     else if (a == "--count") c.count = std::atoi(v);
     else if (a == "--plant") c.plant = v;
@@ -1001,17 +1005,20 @@ int main(int argc, char **argv) {
   if (c.count > 0) { std::fprintf(stderr, "--count needs a counting build\n"); return 2; }
 #endif
 
-  // Directions c and d run at 1 and 8 in flight only (req. 14); d with a third of the calls.
+  // Directions c and d run at 1 and 8 in flight only (req. 14).
   auto job_runs = [&](const Job &j, int k) { return (j.dir != 'c' && j.dir != 'd') || k == 1 || k == 8; };
-  auto job_calls = [&](const Job &j, int n) { return j.dir == 'd' ? (n / 3 > 0 ? n / 3 : 1) : n; };
   Pool pool(w, maxk);  // R-H2: the caller threads, created before any timed window
-  for (size_t ji = 0; ji < w.jobs.size(); ++ji)
-    for (int k : c.inflight)
-      if (job_runs(w.jobs[ji], k))
-        for (size_t j = 0; j < w.cells.size(); ++j)
-          pool.batch(j, ji, k, job_calls(w.jobs[ji], c.warmup));  // warm-up, identical per cell
+#ifdef AK_COUNTING
+  (void)job_runs;
+  std::fprintf(stderr, "a counting build does not time\n");
+  return 2;
+#else
+  if (c.gbout.empty()) {  // a usage error, never a call check (the gate's controls grep for those)
+    std::fprintf(stderr, "usage: --gbench-out FILE is required (the samples are Google Benchmark's)\n");
+    return 2;
+  }
   std::printf("# {\"campaign_rpc\": {\"build\": \"%s\", \"target\": \"%s\", \"transport\": \"%s\", \"cells\": \"%s\","
-              " \"dirs\": \"%s\", \"calls_per_sample\": %d, \"warmup_calls_per_cell\": %d, \"rounds\": %d,"
+              " \"dirs\": \"%s\", \"min_time_s_per_repetition\": %.3f, \"rounds\": %d, \"launch\": %d,"
               " \"expect_bytes\": %zu, \"delivery\": \"B, C, E: the core's blocking ak_call_unary (C: ak_call_unary_enc,"
               " the encode context moved); d: ak_call_open + ak_call_send (C: ak_call_send_enc) + ak_call_recv."
               " A, D, F: grpc++'s synchronous call and ClientWriter (packages/cpp's idiom); D and F hand their bytes"
@@ -1019,56 +1026,81 @@ int main(int argc, char **argv) {
               " framed send path (ak_client_set_framed) beside the reference\","
               " \"directions_c_d\": \"c: P5.3, P5.4 unary upload, empty response; d: 4 MiB and 16 MiB in 2 MiB M5"
               " chunks (ids on the first), the server's UploadAck byte count and SHA-256 checked; both at 1 and 8"
-              " in flight, d with a third of the calls\", \"channels\": \"one per cell, opened at start, warmed\","
+              " in flight\", \"channels\": \"one per cell per benchmark process, opened"
+              " before any benchmark, warmed by the framework's warm-up\","
+              " \"sampler\": \"Google Benchmark %s (WP9, req. 22a amended): one benchmark per (cell, direction, payload,"
+              " in-flight k); one iteration = one batch of k calls in flight, one per pre-created caller thread (k"
+              " operations; per-iteration cost includes one condition-variable hand-off to the k threads, where the"
+              " earlier sampler had one per sample); iterations chosen by the framework (--benchmark_min_time per"
+              " repetition, so every benchmark gets the same time rather than the same call count); repetitions = rounds,"
+              " every one reported raw; cpu_time = process CPU (MeasureProcessCPUTime), real_time = wall (UseRealTime);"
+              " warm-up = --benchmark_min_warmup_time %.3f s per benchmark, before its first repetition; order ="
+              " --benchmark_enable_random_interleaving (repetitions of every benchmark in random order, unseeded;"
+              " order_pos is the position in Google Benchmark's output) plus registration order rotated by launch; a"
+              " failed call check aborts the process (exit 3) and the JSON is only renamed into place on success\","
               " \"threads\": {\"caller_threads\": %d, \"core_runtime_workers\": %d,"
-              " \"process_threads_after_warmup\": %d, \"grpcpp\": \"grpc-core sizes its own pollers and executor"
-              " (no application setting); they are counted in process_threads_after_warmup\"},"
+              " \"process_threads_before_benchmarks\": %d, \"grpcpp\": \"grpc-core sizes its own pollers and executor"
+              " (no application setting); they are counted in the process totals\"},"
               " \"precheck\": \"C, D, E, F in each mode: decode, re-encode, equal to the incumbent's deterministic"
-              " re-serialisation\"}}\n",
-              kBuild, c.target.c_str(), c.transport.c_str(), c.cells.c_str(), c.dirs.c_str(), c.calls,
-              c.warmup, c.rounds, w.expect_a, maxk, c.workers, proc_threads());
+              " re-serialisation; every c/d request message byte-identical to protobuf's\"}}\n",
+              kBuild, c.target.c_str(), c.transport.c_str(), c.cells.c_str(), c.dirs.c_str(), c.min_time_s,
+              c.rounds, c.launch, w.expect_a, AK_GBENCH_VERSION, c.warmup_s, maxk, c.workers, proc_threads());
+  std::fflush(stdout);
 
-  // R-H4 / req 18: samples are BUFFERED and written only when the whole run succeeded, so an
-  // aborted run (die -> _Exit(3)) leaves no sample at all, not the cells before the failure.
-  std::string samples;
-  int nsamples = 0;
-  for (int r = 0; r < c.rounds; ++r) {
-    for (size_t ji = 0; ji < w.jobs.size(); ++ji) {
-      const Job &job = w.jobs[ji];
-      const char d = job.dir;
-      for (int k : c.inflight) {
-        if (!job_runs(job, k)) continue;
-        const int calls = job_calls(job, c.calls);
-        size_t nc = w.cells.size();
-        // R-H18 / R-H23 (req 22): the cell order of every (round, dir, in-flight) group is a
-        // shuffle seeded by (launch, round, dir, in-flight); each sample records its position.
-        std::vector<size_t> order(nc);
-        for (size_t j = 0; j < nc; ++j) order[j] = j;
-        std::mt19937 rng((uint32_t)(c.launch * 1000003 + r * 1009 + d * 31 + job.pi * 7 + k));
-        std::shuffle(order.begin(), order.end(), rng);
-        for (size_t j = 0; j < nc; ++j) {
-          const Cell &cell = w.cells[order[j]];
-          double c0 = rusage_ns(), w0 = wall_ns();
-          pool.batch(order[j], ji, k, calls);
-          double c1 = rusage_ns(), w1 = wall_ns();
-          int iters = ((calls + k - 1) / k) * k;
-          char line[600];
-          std::snprintf(line, sizeof(line),
-                        "{\"slice\":\"cpp\",\"suite\":\"rpc\",\"build\":\"%s\",\"cell\":\"%s\",\"unknown_mode\":\"%s\","
-                        "\"payload\":\"%s\",\"dir\":\"%s\",\"transport\":\"%s\",\"send_path\":\"%s\",\"socket\":\"uds\",\"inflight\":%d,"
-                        "\"launch\":%d,\"round\":%d,\"order_pos\":%zu,\"cpu_ns\":%.0f,\"cpu_clock\":\"process\","
-                        "\"wall_ns\":%.0f,\"iters\":%d}\n",
-                        kBuild, cell.label.c_str(), mode_name(cell.mode), job_payload(job), dir_label(d), c.transport.c_str(),
-                        cell.framed ? "framed" : "reference", k,
-                        c.launch, r, j, c1 - c0, w1 - w0, iters);
-          samples += line;
-          if (++nsamples == c.fail_after) die("--fail-after (test control)", nsamples);
-        }
+  // WP9: the samples are Google Benchmark's. One benchmark per (cell, job, k), named
+  // "cell|payload|content|dir|mode|inflight=k,transport=..,send_path=..,build=.." for
+  // gen/gbench_to_jsonl.py; registration order rotated by launch.
+  struct Reg { std::string name; size_t cell, job; int k; };
+  std::vector<Reg> regs;
+  for (size_t ji = 0; ji < w.jobs.size(); ++ji)
+    for (int k : c.inflight) {
+      if (!job_runs(w.jobs[ji], k)) continue;
+      for (size_t ci = 0; ci < w.cells.size(); ++ci) {
+        const Cell &cl = w.cells[ci];
+        char tags[200];
+        std::snprintf(tags, sizeof(tags), "inflight=%d,transport=%s,send_path=%s,build=%s", k, c.transport.c_str(),
+                      cl.framed ? "framed" : "reference", kBuild);
+        regs.push_back(Reg{cl.label + "|" + job_payload(w.jobs[ji]) + "|-|" + dir_label(w.jobs[ji].dir) + "|" +
+                               mode_name(cl.mode) + "|" + tags,
+                           ci, ji, k});
       }
     }
+  static int g_done = 0;
+  const int fail_after = c.fail_after;
+  size_t nr = regs.size(), rot = nr ? ((size_t)c.launch * 7919u) % nr : 0;
+  for (size_t q = 0; q < nr; ++q) {
+    const Reg r = regs[(q + rot) % nr];
+    Pool *pp = &pool;
+    benchmark::RegisterBenchmark(r.name.c_str(), [pp, r, fail_after](benchmark::State &st) {
+      long h = 0;
+      for (auto _ : st) h += pp->batch(r.cell, r.job, r.k, r.k);  // one batch: k calls in flight
+      benchmark::DoNotOptimize(h);
+      st.SetItemsProcessed(st.iterations() * r.k);
+      // --fail-after N (the gate's R-H4 control): abort after N measured repetitions.
+      if (++g_done == fail_after) die("--fail-after (test control)", g_done);
+    })->Repetitions(c.rounds)->Unit(benchmark::kNanosecond)
+      ->MeasureProcessCPUTime()->UseRealTime()->ReportAggregatesOnly(false);
   }
-  std::fwrite(samples.data(), 1, samples.size(), stdout);
+  char wu[64];
+  std::snprintf(wu, sizeof(wu), "--benchmark_min_warmup_time=%.6f", c.warmup_s);
+  char mt[64];
+  std::snprintf(mt, sizeof(mt), "--benchmark_min_time=%.6fs", c.min_time_s);
+  std::string part = c.gbout + ".part";
+  std::vector<std::string> args = {"campaign_rpc", "--benchmark_out=" + part, "--benchmark_out_format=json",
+                                   "--benchmark_enable_random_interleaving=true", wu, mt,
+                                   "--benchmark_format=console"};
+  std::vector<char *> av;
+  for (size_t q = 0; q < args.size(); ++q) av.push_back(&args[q][0]);
+  int ac = (int)av.size();
+  benchmark::Initialize(&ac, av.data());
+  benchmark::RunSpecifiedBenchmarks();
+  benchmark::Shutdown();
+  // Only a run in which every call passed its check reaches here (die -> _Exit(3)); the file
+  // is renamed into place only now, so an aborted run leaves no sample file (R-H4).
+  if (std::rename(part.c_str(), c.gbout.c_str()) != 0) die("rename the Google Benchmark output", 0);
+  std::printf("# {\"campaign_rpc_end\": {\"benchmarks\": %zu, \"process_threads\": %d}}\n", nr, proc_threads());
   std::fflush(stdout);
+#endif
   for (size_t i = 0; i < w.conns.size(); ++i)
     if (w.conns[i].cl) ak_client_destroy(w.conns[i].cl);
   ak_runtime_destroy(w.rt);

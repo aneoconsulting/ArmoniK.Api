@@ -1625,3 +1625,22 @@ changes.
   defaults (65536 B, 4, 20; an explicit value wins), and the header states the d warm-ups (a third per
   cell, a tenth for the server), Google Benchmark min_warmup_time 0, and both default sets. Runner text
   only; no gated path changed, no gate run.
+
+## 2026-09-27, FIX-PLAN WP9: the RPC grid (and the codec suite's warm-up and iterations) on Google Benchmark
+
+- RPC: the hand-written sampler (rusage per batch, seeded shuffle, buffered lines) is removed.
+  One benchmark per (cell, direction, payload, k); one iteration = one batch of k calls on the
+  pre-created caller threads (k operations); MeasureProcessCPUTime + UseRealTime; repetitions =
+  rounds with --benchmark_enable_random_interleaving; warm-up --benchmark_min_warmup_time
+  (AK_CAMPAIGN_RPC_WARMUP_S), iterations --benchmark_min_time (AK_CAMPAIGN_RPC_MIN_TIME_S).
+  A failed check still aborts (exit 3); the JSON is written to FILE.part and renamed only on
+  success; the converter (gbench_to_jsonl.py rpc mode) refuses error_occurred and writes every
+  label the old sampler wrote, plus order_pos = position in Google Benchmark's output.
+- Codec (the addendum): the harness warm-up loop (bytes per arm) and the fixed iterations (bytes
+  per sample / wire) are replaced by --benchmark_min_warmup_time (AK_CAMPAIGN_WARMUP_S) and
+  --benchmark_min_time (AK_CAMPAIGN_MIN_TIME_S). AK_CAMPAIGN_BYTES / _WARMUP / _CALLS /
+  _RPC_WARMUP are gone.
+- Checked in a scratch build: 5 cells x 10 groups x 2 rounds = 100 RPC samples, every label
+  present; a d-sha plant and --fail-after 2 exit 3 with no output file; the codec suite on P1.1
+  (min time 0.01 s) lets the framework pick 4.6k-46k iterations per repetition.
+- Counts unchanged (the counting builds do not time).

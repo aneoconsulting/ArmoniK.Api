@@ -219,12 +219,12 @@ listed so that nobody re-derives them. **No figure from them is quoted here.**
 | 18 | every call checked | **met**: gRPC status (non-OK = AK_ERR_RPC_STATUS on the core's paths) and response length on every call (cell A: content on every call, wire length once before the rounds); d: the server's byte count and SHA-256 against the client's own on every call. The first failure aborts and **leaves no sample** (R-H4): samples are buffered in the client and written only on success, and the runner deletes a failed launch file. The gate checks "no sample" for a wrong length, for an abort after two samples, for the runner's discard, and (WP8) for three plants in every cell and send path of both builds: `c-len` (direction c's response length), `d-sha` and `d-count` (the UploadAck). A failing `campaign_calib` is propagated the same way (R-H5) |
 | 19 | crossing counts gate, every entry point, RPC B-E, retain | **met**. `counts_a17_shared` (and static) against `counts-baseline.log`, `counts_nounk` against `counts-nounk-baseline.log`: forward = core + host resets + `ak_enc_take`, with the reset's place in the header; payloads and the 92 U rows, drop and retain (retain: no pre-placed buffer, the geometric `unk_grow` of the timed build, decision 11 rule 8; one reset per retain decode, rule 7). RPC cells B, Bf, C, Cf, D, E, Ef per call, per mode, jobs a, b, c (P5.3, P5.4), d (4 MiB, 16 MiB): `campaign_rpc_count(_nounk)` against `rpc-counts.log` / `rpc-counts-nounk.log`, compared in the campaign gate (R-H31). Re-taken 2026-09-27 (WP8); every change is explained in the files' headers |
 | 20 | crossing cost, fwd and rev, perf stat | **not met here**: perf is not installed. The runner builds and runs the rust slice's crossing bench, which did not build in the WP3 out-of-tree snapshot, and has not been re-run since. Reverse is reported as a fwd+rev row, from which the forward row is subtracted |
-| 21 | process CPU per round | **met** for codec, RPC and calib. Codec: Google Benchmark with `MeasureProcessCPUTime()`, every sample `"cpu_clock":"process"`, real_time beside it. RPC: getrusage(RUSAGE_SELF) of the client per round, plus wall. Calib: CLOCK_PROCESS_CPUTIME_ID of `campaign_calib` per round, samples `"cpu_clock":"process"`, header `calib_clock` |
-| 22 | order | **met**, stated. Codec: Google Benchmark's `--benchmark_enable_random_interleaving` plus registration order rotated by launch. RPC: the cell order of every (launch, round, dir, in-flight) group is a seeded shuffle, recorded as `order_pos`, and the two builds' binaries alternate by launch |
-| 22a | benchmark engine | **met** for the codec suite: Google Benchmark v1.8.3, a Release build made by the runner from the upstream tag with its commit checked. Every repetition is exported raw and converted to section 7's lines. The RPC and calib suites stay on the runner, because a separate server process and abort-on-first-failure do not fit a Google Benchmark registration |
-| 23 | 5 rounds x 3 launches, every round committed | **met** (runner defaults; the smokes used fewer, stated) |
-| 24 | warm-up fixed, identical, a parameter | **met**: a byte budget per codec arm (AK_CAMPAIGN_WARMUP) and a call count per RPC cell (AK_CAMPAIGN_RPC_WARMUP; d a third) and for the server (AK_CAMPAIGN_SERVER_WARMUP; d a tenth), before round 1; AK_CAMPAIGN_SMOKE=1 shortens the defaults (65536 B, 4, 20), and the header states the values run and both default sets. Google Benchmark adds none (`--benchmark_min_warmup_time=0`). JIT is not applicable |
-| 25 | allocator warmed identically | **met**: every arm's warm-up precedes round 1. GC is not applicable |
+| 21 | process CPU per round | **met** for codec, RPC and calib. Codec and RPC: Google Benchmark's `MeasureProcessCPUTime()` per repetition, every sample `"cpu_clock":"process"`, real_time (wall) beside it (RPC: `UseRealTime()`). Calib: CLOCK_PROCESS_CPUTIME_ID of `campaign_calib` per round |
+| 22 | order | **met**, stated. Codec and RPC: Google Benchmark's `--benchmark_enable_random_interleaving` (the repetitions of every benchmark of one process in random order, unseeded) plus registration order rotated by launch; RPC samples record `order_pos`, the position in Google Benchmark's output. The two builds' RPC binaries (and codec binaries) alternate by launch. Changed by WP9: the RPC order was a per-(round, dir, k) seeded shuffle of the cells |
+| 22a | benchmark engine | **met** for codec and RPC (WP9, amended 2026-09-27): Google Benchmark v1.8.3, a Release build made by the runner from the upstream tag with its commit checked. Its warm-up, iteration control, ordering and raw export are used as they are; the custom pieces are listed under "Custom code around the framework" below. Every repetition is exported raw and converted to section 7's lines (`gen/gbench_to_jsonl.py`, codec and rpc modes). The calib suite stays on the runner (a few crossing loops, no framework needed) |
+| 23 | 5 rounds x 3 launches, every round committed | **met**: rounds = Google Benchmark repetitions (runner defaults 5 x 3; the smokes used fewer, stated) |
+| 24 | warm-up fixed, identical, a parameter | **met**: Google Benchmark's own `--benchmark_min_warmup_time` per benchmark, before its first repetition, codec (AK_CAMPAIGN_WARMUP_S) and RPC (AK_CAMPAIGN_RPC_WARMUP_S), and the server's warm-up calls (AK_CAMPAIGN_SERVER_WARMUP; d a tenth); AK_CAMPAIGN_SMOKE=1 shortens the defaults (0.01 s, 0.01 s, 20 against 0.5 s, 0.5 s, 200), and the header states the values run and both default sets. Changed by WP9: the harness-run codec warm-up (bytes per arm) and the RPC warm-up calls per cell are gone |
+| 25 | allocator warmed identically | **met**: every benchmark's framework warm-up precedes its first repetition. GC is not applicable |
 | 26 | correctness gate first | **met**: the campaign gate runs the full build's conformance, corpus, plants and counts, `nounk_gate.sh`, each codec binary's own gate and plant, both RPC clients' length and abort-after controls, the c/d plants in every cell and send path of both builds, and the RPC counts |
 | 27 | header; dirty tree refused | **met**: a dirty tree is refused unless AK_CAMPAIGN_ALLOW_DIRTY=1 (smoke only). The header's `"instrumentation"` is true on a dirty tree or with AK_CAMPAIGN_SMOKE=1, which also sets `"smoke": true`, so a clean-tree smoke is marked (R-H19) |
 | 28 | one JSON object per sample | **met**, plus a `build` field |
@@ -232,6 +232,31 @@ listed so that nobody re-derives them. **No figure from them is quoted here.**
 | 30 | summaries only as specified | **met**: `gen/campaign_summary.py` keys on (build, arm or cell, payload, content, direction, mode, end, input, set, row) and forms ratios to incumbent-prod (end=transport for encode) or cell A from per-launch medians; no committed summary |
 | 31 | runner interface; top-level `ffi/campaign.sh` | **met** for the slice runner. `ffi/campaign.sh` belongs to the aggregating session |
 | 32 | smoke committed, marked | **met**: the WP5 step 10 smoke, figures stripped |
+
+## Custom code around the framework (WP9, req. 22a amended)
+
+Google Benchmark supplies the warm-up, the iteration count (`--benchmark_min_time`), the
+repetitions, the random interleaving, the timers (process CPU, wall) and the raw JSON. What is
+written here, and the requirement each piece serves:
+
+| Piece | Where | Requirement |
+|---|---|---|
+| the RPC server process, started, warmed (`--warm-server`) and stopped by the runner, one per launch | `campaign_server.cpp`, `run_campaign.sh` | 13, 24 |
+| one channel or `ak_client` per cell per client process, opened before any benchmark | `campaign_rpc.cpp` | 13 |
+| k caller threads created once; one iteration hands one call to each of the first k and waits (a batch of k calls in flight, k operations) | `campaign_rpc.cpp` `Pool` | 15, R-H2 |
+| the check of every call, aborting the process (exit 3) at the first failure; Google Benchmark's JSON written to `FILE.part` and renamed only on success; the converter refuses any `error_occurred`; the runner deletes a failed launch's file | `campaign_rpc.cpp`, `gbench_to_jsonl.py`, `run_campaign.sh` | 18, R-H4 |
+| the pre-run correctness gates (codec groups, RPC pre-check) | both binaries | 26 |
+| the labels (cell, dir, payload, inflight, transport, send_path, build, unknown_mode; codec tags) encoded in the benchmark name and written as fields by the converter | `gbench_to_jsonl.py` | 28 |
+| the encode input pool, built in the benchmark's setup, outside the timed loop | `campaign_codec.cpp` | 11 |
+| the calibration loops (not a framework suite) | `campaign_calib.cpp` | 20 |
+
+What the framework forces that differs from the hand-written sampler (also in the RPC header):
+- one iteration is one batch of k calls, so each iteration pays one condition-variable
+  hand-off to the k threads, where the old sampler paid one per sample;
+- every benchmark gets the same time per repetition (`--benchmark_min_time`) rather than the
+  same call count, so direction d no longer runs a third of the calls;
+- the order is Google Benchmark's unseeded random interleaving, not a seeded per-group shuffle;
+- the codec suite's samples are sized by time rather than by bytes (AK_CAMPAIGN_BYTES is gone).
 
 ## Register H (WP6 re-review): findings for cpp, proposed dispositions
 
