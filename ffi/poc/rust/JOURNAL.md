@@ -3218,3 +3218,64 @@ checkpoint.
   instead of `ak_decode_<R>`; its `apply_<slot>` must accept token -1 and construct+append
   the element from the group; its inner `add_<slot>_<inner>` must accept token -1 as "the
   element apply just appended"; and it must still implement `new_<slot>` for the fallback.
+
+## 2026-09-27 -- U2-stream (owner): ABI v1 section 9's client streaming and direction `d`, kept (122dc8ae)
+
+- Core (rpc.rs; declared through plan.RpcAbi, so every slice's header, the C# RpcAbi.cs and
+  the python binding.c tallies carry them; other slices call none): `ak_call_open(c, path,
+  path_len, kind) -> ak_call*` (kind AK_CALL_CLIENT_STREAM = 1, the only kind built),
+  `ak_call_send(h, msg, len, last) -> i32` (copied), additive `ak_call_send_enc(h, enc,
+  last)` (the context's buffer moved, Enc::take, as ak_call_unary_enc), `ak_call_recv(h,
+  out) -> i32` (the response; a second recv AK_ERR_INVALID_STATE; a failure or a cancelled
+  call AK_ERR_HOST), `ak_call_close(h)` (aborts the call's task: unblocks a pending recv or
+  send; does not free), `ak_call_destroy` unchanged (frees). Blocking delivery (req 16):
+  the request messages go to the call's task through a bounded channel of 1, so a send
+  blocks while the transport has not taken the previous message. Both send paths
+  (ak_client_set_framed applies): rpc::client_streaming_raw (Grpc::client_streaming +
+  RawCodec) and rpc::client_streaming_framed (every message as its prefix frame and itself).
+  ak-core unit test: one-message stream on both paths, send after last refused, second recv
+  refused, unknown kind NULL, close unblocks a recv the server would never answer.
+- Section 9's signatures, as mapped (reported, the ABI text not changed): the implemented
+  unary entries flatten `ak_bytes_in` into (ptr, len), return an i32 status and take no
+  `ak_call_opts` and no `ak_err*`; the streamed entries follow the same mapping.
+  `ak_call_kind` and `ak_call_opts` are named in section 9 and defined nowhere, so kind is
+  an i32 with one constant and opts is not taken. Section 9's `ak_call_close` ("cancels,
+  unblocks a pending recv, does NOT free") has the semantics the implemented
+  `ak_call_cancel` already has for unary handles: two entries for one operation now exist.
+  No gRPC status number is returned (section 9's amendment), as for unary.
+- The rust slice: direction d = CAMPAIGN req 14's streamed upload in 2 MiB chunks (FIX-PLAN
+  D5), ArmoniK's UploadResultData shape with M5 per chunk (the ids on the first message
+  only, empty strings not on the wire; no shape change), 4 MiB (2 chunks) and 16 MiB (8),
+  k = 1 and 8, every cell and framed twin, a third of the calls per round. A: tonic
+  client_streaming with prost; B: prost encode_to_vec + ak_call_send; C: core-ffi encode +
+  ak_call_send_enc; E: core-native Enc + ak_call_send; D/F: tonic client streaming with the
+  raw codec (or framed), each message encoded lazily as the transport asks (D
+  ak_enc_take_owned, F Enc::take). Data: 2 MiB chunks of splitmix64 bytes, each chunk's wire
+  checked prost == core-native before any call. Server: a tonic client-streaming handler
+  that decodes every message with prost (ids required on the first) and answers the data
+  byte count (u64 LE); its STREAM_CHECK twin adds the SHA-256 of every message's bytes as
+  received.
+- Correctness before timing: bin upload_check (gate step 11e, full and no-unknown builds):
+  every cell, reference and framed, 4 MiB and 16 MiB: count and SHA-256 identical; direction
+  c's unary uploads accepted; controls: a planted wrong SHA-256 and a planted wrong count
+  detected on B, Bf, D, Df. header_diff now also compares the streamed request: headers
+  identical on both transports, the framed stream received as a 5-byte frame, then 16 KB
+  frames. Req 18: the response count checked on every call; the plant per send path now
+  also through d (--warm-dir d): 24 controls per run aborted with no output (48 lines in
+  opt/u2-stream's runner.log with both transports).
+- Crossings (req 19): new rows rpc:<cell> d/4MiB, d/16MiB: B and E 6 / 12 (open, a send per
+  chunk, recv, free, destroy), C 10 / 28 (+ reset and encode per chunk; resets 2 / 8), D 8 /
+  32 (tonic's stream, no core call entry: reset, encode, ak_enc_take_owned and ak_bytes_free
+  per chunk; resets 2 / 8); framed twins identical. The
+  counting build encodes D/F's chunks on the calling thread (the binding's ak_enc_reset tally
+  is thread-local; the first counting run showed D's resets as 0 and was fixed before
+  commit); the entries per call are the same either way.
+- Full run opt/u2-stream (706 s; d-direction.txt, framed-pairs.txt). Client CPU per call,
+  pinned, k=1, 16 MiB: A 7.7 ms, B 10.1, Bf 9.6, C 8.4, Cf 8.1, D 8.4, Df 7.0, E 9.6, Ef 8.1,
+  F 8.0, Ff 6.9; 4 MiB: A 1.78, B 2.43, Bf 2.13, C 2.25, Cf 1.76, D 2.19, Df 1.76, E 2.41, Ef
+  2.32, F 2.10, Ff 1.78. framed/reference gmean over transports, modes and k: 16 MiB C 0.85,
+  D 0.79, E 0.83, F 0.81, B 1.09; 4 MiB C 0.81, D 0.80, E 0.82, F 0.89, B 0.92 (single rows
+  0.50-1.89). The full client's Bf on the shipped transport is slow again (16 MiB k=8 21.9 ms
+  vs B 13.5; 4 MiB k=8 9.1 vs 4.1; nounk client's Bf 13.0 vs 13.3), as in opt/framed and
+  opt/u1-unary, and it was not reproduced in the narrowed U1 run: open, cause not identified.
+  Instrumentation throughout.

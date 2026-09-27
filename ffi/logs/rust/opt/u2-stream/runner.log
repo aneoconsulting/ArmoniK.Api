@@ -1,0 +1,95 @@
+# rust slice OPTIMISATION BENCHMARK (gen/opt_bench.sh), suite runner, core variant full
+# CONTAINER INSTRUMENTATION: not a campaign result (CAMPAIGN.md section 2), not gated; the codec process's own pre-check is on
+# commit     122dc8ae   tree-id a1f2c20124347b0a
+# date       2026-09-27T12:14:55Z
+# machine    Intel(R) Xeon(R) Processor @ 2.10GHz; 4 CPUs online; kernel 6.18.44-fc-v37
+# smt        active=0 control=notsupported
+# governor   n/a
+# turbo      intel_pstate/no_turbo=n/a cpufreq/boost=n/a
+# isolation  cmdline: cgroup: n/a
+# cpu sets   CLIENT=1 SERVER=2,3 OS=the rest
+# threads    codec: 1 measuring thread; rpc client: tokio 2 workers per A/D/F cell, ak_runtime_new(2) per B/C/E client, k = 1/8/16 callers; rpc server: tokio 2 workers; calib: 1 thread
+# runtime    rustc 1.94.1 (e408947bf 2026-03-25); cargo 1.94.1 (29ea6fb6a 2026-03-24)
+# incumbent  prost 0.14.4, tonic 0.14.6, tonic-prost 0.14.6; criterion 0.5.1
+# build      cargo --release (opt-level 3, lto off, codegen-units default), core ak-core as a cdylib linked through the dynamic linker, core features rpc,init-guard,unknown-fields (the full variant, target/); harness guard on; transcoder ak_tc_utf8_trusted (a Rust String is UTF-8)
+# repeats    launches=1 (launch number 1)
+# settings   harness v5 (the merged campaign harness); codec engine=criterion, process CPU, arm blocks and cases in the seeded random order of launch 1, criterion_resamples=1000, AK_POOL_BYTES=default (2 x AK_LLC_BYTES); codec P(P*): samples=10 warmup_iters=20 warmup_ms=20 measure_ms=60; core-ffi-zc extra arm on P5.*; codec U(U-*): samples=10 warmup_iters=5 warmup_ms=3 measure_ms=10; calib rounds=5 iters=20000000; rpc rounds=3 calls=24 warmup=16 server-warm=16 server threads=2; launch=1
+[0s] build: full (target/) and no-unknown (target-nounk/)
+  variant ok: /home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/codec_suite-e61aaf60c9627b13 -> /home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/libak_core.so (7 ak_uencode_* exports)
+  variant ok: /home/user/ArmoniK.Api/ffi/poc/rust/target-nounk/release/deps/codec_suite-3705c753bc5960b7 -> /home/user/ArmoniK.Api/ffi/poc/rust/target-nounk/release/deps/libak_core.so (0 ak_uencode_* exports)
+  variant ok: target/release/rpc_client -> /home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/libak_core.so (7 ak_uencode_* exports)
+  variant ok: target-nounk/release/rpc_client -> /home/user/ArmoniK.Api/ffi/poc/rust/target-nounk/release/deps/libak_core.so (0 ak_uencode_* exports)
+[0s] crossings: counting builds, both variants
+  crossings: 766 rows identical to gen/crossings.txt
+  crossings-nounk: 389 rows identical to gen/crossings-nounk.txt
+[8s] codec: payloads, full build
+  codec codec-P: precheck: 1172 checks, 0 failures, 22 inputs, 1040 cases; 10400 sample rows; 144s -> codec-P.jsonl
+[152s] codec: payloads, no-unknown build
+  codec codec-nounk-P: precheck: 713 checks, 0 failures, 22 inputs, 648 cases; 6480 sample rows; 90s -> codec-nounk-P.jsonl
+[242s] codec: U-* rows, full build (reduced settings)
+  codec codec-U: precheck: 4568 checks, 0 failures, 92 inputs, 4092 cases; 40920 sample rows; 115s -> codec-U.jsonl
+[357s] codec: U-* rows, no-unknown build (reduced settings)
+  codec codec-nounk-U: precheck: 2544 checks, 0 failures, 92 inputs, 2436 cases; 24360 sample rows; 72s -> codec-nounk-U.jsonl
+[429s] calib
+  calib: 10 rows
+[429s] rpc: transport shipped
+  rpc shipped (full client, cell A, dir a): control aborted with no output: ABORT (requirement 18): server warm-up: cell A response 540422 B, expected 540423
+  rpc shipped (full client, cell A, dir c): control aborted with no output: ABORT (requirement 18): server warm-up: cell A upload response 0 B, expected 1
+  rpc shipped (full client, cell A, dir d): control aborted with no output: ABORT (requirement 18): server warm-up: cell A: the server received 4194304 data bytes, expected 4194305
+  rpc shipped (full client, cell B, dir a): control aborted with no output: ABORT (requirement 18): server warm-up: cell B response 540422 B, expected 540423
+  rpc shipped (full client, cell B, dir c): control aborted with no output: ABORT (requirement 18): server warm-up: cell B upload response 0 B, expected 1
+  rpc shipped (full client, cell B, dir d): control aborted with no output: ABORT (requirement 18): server warm-up: cell B: the server received 4194304 data bytes, expected 4194305
+  rpc shipped (full client, cell Bf, dir a): control aborted with no output: ABORT (requirement 18): server warm-up: cell Bf response 540422 B, expected 540423
+  rpc shipped (full client, cell Bf, dir c): control aborted with no output: ABORT (requirement 18): server warm-up: cell Bf upload response 0 B, expected 1
+  rpc shipped (full client, cell Bf, dir d): control aborted with no output: ABORT (requirement 18): server warm-up: cell Bf: the server received 4194304 data bytes, expected 4194305
+  rpc shipped (full client, cell Df, dir a): control aborted with no output: ABORT (requirement 18): server warm-up: cell Df-retain response 540422 B, expected 540423
+  rpc shipped (full client, cell Df, dir c): control aborted with no output: ABORT (requirement 18): server warm-up: cell Df-retain upload response 0 B, expected 1
+  rpc shipped (full client, cell Df, dir d): control aborted with no output: ABORT (requirement 18): server warm-up: cell Df-retain: the server received 4194304 data bytes, expected 4194305
+  rpc shipped (nounk client, cell A, dir a): control aborted with no output: ABORT (requirement 18): server warm-up: cell A response 540422 B, expected 540423
+  rpc shipped (nounk client, cell A, dir c): control aborted with no output: ABORT (requirement 18): server warm-up: cell A upload response 0 B, expected 1
+  rpc shipped (nounk client, cell A, dir d): control aborted with no output: ABORT (requirement 18): server warm-up: cell A: the server received 4194304 data bytes, expected 4194305
+  rpc shipped (nounk client, cell B, dir a): control aborted with no output: ABORT (requirement 18): server warm-up: cell B response 540422 B, expected 540423
+  rpc shipped (nounk client, cell B, dir c): control aborted with no output: ABORT (requirement 18): server warm-up: cell B upload response 0 B, expected 1
+  rpc shipped (nounk client, cell B, dir d): control aborted with no output: ABORT (requirement 18): server warm-up: cell B: the server received 4194304 data bytes, expected 4194305
+  rpc shipped (nounk client, cell Bf, dir a): control aborted with no output: ABORT (requirement 18): server warm-up: cell Bf response 540422 B, expected 540423
+  rpc shipped (nounk client, cell Bf, dir c): control aborted with no output: ABORT (requirement 18): server warm-up: cell Bf upload response 0 B, expected 1
+  rpc shipped (nounk client, cell Bf, dir d): control aborted with no output: ABORT (requirement 18): server warm-up: cell Bf: the server received 4194304 data bytes, expected 4194305
+  rpc shipped (nounk client, cell Df, dir a): control aborted with no output: ABORT (requirement 18): server warm-up: cell Df-nounk response 540422 B, expected 540423
+  rpc shipped (nounk client, cell Df, dir c): control aborted with no output: ABORT (requirement 18): server warm-up: cell Df-nounk upload response 0 B, expected 1
+  rpc shipped (nounk client, cell Df, dir d): control aborted with no output: ABORT (requirement 18): server warm-up: cell Df-nounk: the server received 4194304 data bytes, expected 4194305
+  rpc shipped (full client): 969 rows -> rpc-shipped.jsonl
+  rpc shipped (nounk client): 561 rows -> rpc-shipped-nounk.jsonl
+[568s] rpc: transport pinned
+  rpc pinned (full client, cell A, dir a): control aborted with no output: ABORT (requirement 18): server warm-up: cell A response 540422 B, expected 540423
+  rpc pinned (full client, cell A, dir c): control aborted with no output: ABORT (requirement 18): server warm-up: cell A upload response 0 B, expected 1
+  rpc pinned (full client, cell A, dir d): control aborted with no output: ABORT (requirement 18): server warm-up: cell A: the server received 4194304 data bytes, expected 4194305
+  rpc pinned (full client, cell B, dir a): control aborted with no output: ABORT (requirement 18): server warm-up: cell B response 540422 B, expected 540423
+  rpc pinned (full client, cell B, dir c): control aborted with no output: ABORT (requirement 18): server warm-up: cell B upload response 0 B, expected 1
+  rpc pinned (full client, cell B, dir d): control aborted with no output: ABORT (requirement 18): server warm-up: cell B: the server received 4194304 data bytes, expected 4194305
+  rpc pinned (full client, cell Bf, dir a): control aborted with no output: ABORT (requirement 18): server warm-up: cell Bf response 540422 B, expected 540423
+  rpc pinned (full client, cell Bf, dir c): control aborted with no output: ABORT (requirement 18): server warm-up: cell Bf upload response 0 B, expected 1
+  rpc pinned (full client, cell Bf, dir d): control aborted with no output: ABORT (requirement 18): server warm-up: cell Bf: the server received 4194304 data bytes, expected 4194305
+  rpc pinned (full client, cell Df, dir a): control aborted with no output: ABORT (requirement 18): server warm-up: cell Df-retain response 540422 B, expected 540423
+  rpc pinned (full client, cell Df, dir c): control aborted with no output: ABORT (requirement 18): server warm-up: cell Df-retain upload response 0 B, expected 1
+  rpc pinned (full client, cell Df, dir d): control aborted with no output: ABORT (requirement 18): server warm-up: cell Df-retain: the server received 4194304 data bytes, expected 4194305
+  rpc pinned (nounk client, cell A, dir a): control aborted with no output: ABORT (requirement 18): server warm-up: cell A response 540422 B, expected 540423
+  rpc pinned (nounk client, cell A, dir c): control aborted with no output: ABORT (requirement 18): server warm-up: cell A upload response 0 B, expected 1
+  rpc pinned (nounk client, cell A, dir d): control aborted with no output: ABORT (requirement 18): server warm-up: cell A: the server received 4194304 data bytes, expected 4194305
+  rpc pinned (nounk client, cell B, dir a): control aborted with no output: ABORT (requirement 18): server warm-up: cell B response 540422 B, expected 540423
+  rpc pinned (nounk client, cell B, dir c): control aborted with no output: ABORT (requirement 18): server warm-up: cell B upload response 0 B, expected 1
+  rpc pinned (nounk client, cell B, dir d): control aborted with no output: ABORT (requirement 18): server warm-up: cell B: the server received 4194304 data bytes, expected 4194305
+  rpc pinned (nounk client, cell Bf, dir a): control aborted with no output: ABORT (requirement 18): server warm-up: cell Bf response 540422 B, expected 540423
+  rpc pinned (nounk client, cell Bf, dir c): control aborted with no output: ABORT (requirement 18): server warm-up: cell Bf upload response 0 B, expected 1
+  rpc pinned (nounk client, cell Bf, dir d): control aborted with no output: ABORT (requirement 18): server warm-up: cell Bf: the server received 4194304 data bytes, expected 4194305
+  rpc pinned (nounk client, cell Df, dir a): control aborted with no output: ABORT (requirement 18): server warm-up: cell Df-nounk response 540422 B, expected 540423
+  rpc pinned (nounk client, cell Df, dir c): control aborted with no output: ABORT (requirement 18): server warm-up: cell Df-nounk upload response 0 B, expected 1
+  rpc pinned (nounk client, cell Df, dir d): control aborted with no output: ABORT (requirement 18): server warm-up: cell Df-nounk: the server received 4194304 data bytes, expected 4194305
+  rpc pinned (full client): 969 rows -> rpc-pinned.jsonl
+  rpc pinned (nounk client): 561 rows -> rpc-pinned-nounk.jsonl
+[706s] summary
+summary-codec.tsv: 8216 cases
+variants-codec.tsv / .txt: 170 rows
+unknown-retain-vs-drop.tsv written
+summary-rpc.tsv: 1020 rows
+summary-calib.tsv: 2 arms
+[706s] done

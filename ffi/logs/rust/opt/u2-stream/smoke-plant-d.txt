@@ -1,0 +1,8 @@
+target A dir d plant exit 3 output none: ABORT (requirement 18): server warm-up: cell A: the server received 4194304 data bytes, expected 4194305
+target B dir d plant exit 3 output none: ABORT (requirement 18): server warm-up: cell B: the server received 4194304 data bytes, expected 4194305
+target Bf dir d plant exit 3 output none: ABORT (requirement 18): server warm-up: cell Bf: the server received 4194304 data bytes, expected 4194305
+target Df dir d plant exit 3 output none: ABORT (requirement 18): server warm-up: cell Df-retain: the server received 4194304 data bytes, expected 4194305
+target-nounk A dir d plant exit 3 output none: ABORT (requirement 18): server warm-up: cell A: the server received 4194304 data bytes, expected 4194305
+target-nounk B dir d plant exit 3 output none: ABORT (requirement 18): server warm-up: cell B: the server received 4194304 data bytes, expected 4194305
+target-nounk Bf dir d plant exit 3 output none: ABORT (requirement 18): server warm-up: cell Bf: the server received 4194304 data bytes, expected 4194305
+target-nounk Df dir d plant exit 3 output none: ABORT (requirement 18): server warm-up: cell Df-nounk: the server received 4194304 data bytes, expected 4194305
