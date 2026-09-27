@@ -529,7 +529,11 @@ it has, and:
 7. the gate from a clean checkout, and a smoke with figures stripped.
 
 The hand-written sampler is removed once the framework version passes, not kept as a
-second arm.
+second arm. **The point** (owner): not to reinvent a benchmark framework. Use the
+framework's warm-up, iteration control, process isolation and export as they are; custom
+code only where a CAMPAIGN requirement needs what the framework lacks, each piece stated,
+and the same applies to the codec suites (a hand-written warm-up loop, sampler or clock
+around the framework is replaced by the framework's own mechanism where it has one).
 
 ## 3. What this plan deliberately does not do
 

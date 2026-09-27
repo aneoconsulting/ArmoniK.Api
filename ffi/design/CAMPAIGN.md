@@ -203,7 +203,12 @@ in its container shows it executes (section 9).
 22a. **Benchmark engine** (owner, 2026-09-25): a slice may time through its
     ecosystem's standard benchmark framework, and **the codec suite of every slice
     uses one** (owner, 2026-09-25): **.NET BenchmarkDotNet, Java JMH, C++ Google
-    Benchmark, Python pyperf, Rust criterion.** **The RPC grid uses the same
+    Benchmark, Python pyperf, Rust criterion.** **Why** (owner, 2026-09-27): not to
+    reinvent a benchmark framework, and not to rediscover the measurement problems
+    these frameworks took years to solve. So a slice uses the framework's own
+    mechanisms (warm-up, iteration and invocation control, process isolation, order,
+    raw export) and writes custom code only where a requirement below needs something
+    the framework does not offer, stating each such piece. **The RPC grid uses the same
     framework** (owner, 2026-09-27, replacing the earlier exemption, whose premise did
     not hold): the runner starts the one server process of the launch (req 13) before
     the framework; each benchmark connects in its setup, one channel per cell per
