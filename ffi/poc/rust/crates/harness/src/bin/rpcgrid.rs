@@ -293,7 +293,7 @@ fn blocking_once(target: &str, payload: &[u8], pinned: bool) -> Row {
             let mut out = ak_bytes::default();
             let rc = ak_call_unary(
                 core.client, rpc::PATH.as_ptr(), rpc::PATH.len(),
-                req.as_ptr(), req.len(), &mut out);
+                req.as_ptr(), req.len(), &mut out, core::ptr::null_mut());
             assert_eq!(rc, AK_OK);
             std::hint::black_box(out.len);
             ak_bytes_free(&mut out);
@@ -551,7 +551,7 @@ fn run_blocking(target: &str, flight: usize, payload: &[u8]) -> Row {
                         let mut out = ak_bytes::default();
                         let rc = ak_call_unary(
                             core.client, rpc::PATH.as_ptr(), rpc::PATH.len(),
-                            req.as_ptr(), req.len(), &mut out);
+                            req.as_ptr(), req.len(), &mut out, core::ptr::null_mut());
                         assert_eq!(rc, AK_OK);
                         std::hint::black_box(out.len);
                         ak_bytes_free(&mut out);
@@ -649,6 +649,7 @@ fn run_queue(target: &str, flight: usize, payload: &[u8]) -> Row {
                 let mut comp = ak_completion {
                     tag: 0,
                     status: 0,
+                    grpc_status: 0,
                     bytes: ak_bytes::default(),
                 };
                 let rc = ak_queue_next(q, &mut comp, 10_000);
@@ -740,7 +741,7 @@ fn cell_b(target: &str, flight: usize, payload: &[u8]) -> Row {
                         let mut out = ak_bytes::default();
                         let rc = ak_call_unary(
                             core.client, rpc::PATH.as_ptr(), rpc::PATH.len(),
-                            body.as_ptr(), body.len(), &mut out);
+                            body.as_ptr(), body.len(), &mut out, core::ptr::null_mut());
                         assert_eq!(rc, AK_OK);
                         let resp = core::slice::from_raw_parts(out.ptr, out.len);
                         std::hint::black_box(m2::prost_arm::decode(resp));
@@ -784,7 +785,7 @@ fn cell_c(target: &str, flight: usize, payload: &[u8]) -> Row {
                         let mut out = ak_bytes::default();
                         let rc = ak_call_unary(
                             core.client, rpc::PATH.as_ptr(), rpc::PATH.len(),
-                            body.as_ptr(), body.len(), &mut out);
+                            body.as_ptr(), body.len(), &mut out, core::ptr::null_mut());
                         assert_eq!(rc, AK_OK);
                         let resp = core::slice::from_raw_parts(out.ptr, out.len);
                         std::hint::black_box(m2::core_ffi_arm::decode(ctx, resp));

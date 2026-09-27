@@ -99,6 +99,13 @@ cargo run --release -q -p campaign --bin upload_check 2>/dev/null | tail -1 | gr
   && echo "  every cell (reference and framed), 4 MiB and 16 MiB streamed and P5.3 / P5.4 unary: the bytes the server received are the uploaded ones; planted wrong SHA-256 and count detected" \
   || { echo "  the upload byte check FAILED (run target/release/upload_check)"; exit 1; }
 
+step "11f. ABI v1 section 9's call semantics (status numbers on every delivery, deadline, metadata, cancel, client limits), both send paths"
+cargo run --release -q -p campaign --bin rpc_semantics 2>/dev/null > "${TMPDIR:-/tmp}/ak-rpc-semantics.$$" ; rc=$?
+grep -c "^PASS" "${TMPDIR:-/tmp}/ak-rpc-semantics.$$" | sed 's/^/  cases passed: /'
+grep "^FAIL" "${TMPDIR:-/tmp}/ak-rpc-semantics.$$" | sed 's/^/  /'
+rm -f "${TMPDIR:-/tmp}/ak-rpc-semantics.$$"
+[ "$rc" = 0 ] && echo "  RPC SEMANTICS PASSED" || { echo "  RPC SEMANTICS FAILED (run target/release/rpc_semantics)"; exit 1; }
+
 step "12. the NO-UNKNOWN variant (WP5 step 10; CAMPAIGN.md req 10): unknown-field support compiled out"
 # Its own build and target directory (a shared target would overwrite libak_core.so).
 ( export CARGO_TARGET_DIR="$PWD/target-nounk"
@@ -125,6 +132,9 @@ CARGO_TARGET_DIR="$PWD/target-count-nounk" cargo run --release -q -p campaign --
 CARGO_TARGET_DIR="$PWD/target-nounk" cargo run --release -q -p campaign --no-default-features --features init-guard --bin upload_check 2>/dev/null | tail -1 | grep -q "UPLOAD CHECK PASSED" \
   && echo "  no-unknown build: the upload byte check passes on every cell" \
   || { echo "  no-unknown build: the upload byte check FAILED"; exit 1; }
+CARGO_TARGET_DIR="$PWD/target-nounk" cargo run --release -q -p campaign --no-default-features --features init-guard --bin rpc_semantics 2>/dev/null | tail -1 | grep -q "RPC SEMANTICS PASSED" \
+  && echo "  no-unknown build: the RPC semantics cases pass" \
+  || { echo "  no-unknown build: the RPC semantics cases FAILED"; exit 1; }
 
 echo "  the C header's two variants (poc/codec/gen/c_abi.py), each against its core:"
 cargo build --release -q -p campaign --bin crossings 2>/dev/null   # the full core, default target

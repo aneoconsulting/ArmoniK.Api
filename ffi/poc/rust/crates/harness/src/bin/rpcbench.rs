@@ -218,6 +218,7 @@ fn ffi_arm(uri: &str, flight: usize, _payload: &[u8]) -> Row {
                             [].as_ptr(),
                             0,
                             &mut out,
+                            core::ptr::null_mut(),
                         );
                         assert_eq!(rc, 0, "ak_call_unary failed");
                         n += out.len;

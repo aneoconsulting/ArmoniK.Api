@@ -132,6 +132,7 @@ where
         }
         let fetch = self.fetch.clone();
         let push = req.uri().path() == PUSH;
+        let req_path = req.uri().path().to_string();
         // U2-stream: the client-streaming upload (and its byte-checking twin).
         let stream = match req.uri().path() {
             p if p == crate::grid::STREAM => Some(false),
@@ -143,6 +144,19 @@ where
             // U1-unary: P5.4 is 4,194,390 B, over tonic's default 4 MiB decode limit, so the
             // grid's server accepts up to 8 MiB (every path; nothing else here comes near).
             let mut grpc = tonic::server::Grpc::new(Raw).max_decoding_message_size(SERVER_MAX_RECV);
+            // The RPC semantics test's paths (bin rpc_semantics, gate step 11f): a chosen
+            // status (unary and stream), a server that sleeps past the caller's deadline, and
+            // a metadata echo. Never timed.
+            if let Some(t) = test_path(&req_path) {
+                let req = req.map(tonic::body::Body::new);
+                return Ok(match t {
+                    TestPath::StatusU(c) => grpc.unary(TestUnary { status: Some(c), sleep: false }, req).await,
+                    TestPath::SleepU => grpc.unary(TestUnary { status: None, sleep: true }, req).await,
+                    TestPath::StatusS(c) => grpc.client_streaming(TestStream { status: Some(c), sleep: false, echo: false }, req).await,
+                    TestPath::SleepS => grpc.client_streaming(TestStream { status: None, sleep: true, echo: false }, req).await,
+                    TestPath::EchoS => grpc.client_streaming(TestStream { status: None, sleep: false, echo: true }, req).await,
+                });
+            }
             if let Some(check) = stream {
                 return match sizes {
                     Some(sizes) => {
@@ -158,6 +172,94 @@ where
                     Ok(grpc.unary(Answer { fetch, push, upload }, req).await)
                 }
                 None => Ok(grpc.unary(Answer { fetch, push, upload }, req.map(tonic::body::Body::new)).await),
+            }
+        })
+    }
+}
+
+/// The test paths: `<GRID>/StatusU<n>` and `<GRID>/StatusS<n>` answer status code n (unary,
+/// stream), `SleepU` / `SleepS` answer OK after 3 s (past a test's deadline), `EchoS`
+/// answers the request's `ak-echo` value, a '|' and its `ak-echo-bin` bytes.
+pub const TEST_PREFIX: &str = "/armonik.ffi.campaign.v1.Grid/";
+
+enum TestPath {
+    StatusU(i32),
+    StatusS(i32),
+    SleepU,
+    SleepS,
+    EchoS,
+}
+
+fn test_path(p: &str) -> Option<TestPath> {
+    let t = p.strip_prefix(TEST_PREFIX)?;
+    if let Some(n) = t.strip_prefix("StatusU") {
+        return n.parse().ok().map(TestPath::StatusU);
+    }
+    if let Some(n) = t.strip_prefix("StatusS") {
+        return n.parse().ok().map(TestPath::StatusS);
+    }
+    match t {
+        "SleepU" => Some(TestPath::SleepU),
+        "SleepS" => Some(TestPath::SleepS),
+        "EchoS" => Some(TestPath::EchoS),
+        _ => None,
+    }
+}
+
+#[derive(Clone)]
+struct TestUnary {
+    status: Option<i32>,
+    sleep: bool,
+}
+
+impl tonic::server::UnaryService<Bytes> for TestUnary {
+    type Response = Bytes;
+    type Future = std::pin::Pin<Box<dyn std::future::Future<Output = Result<tonic::Response<Bytes>, tonic::Status>> + Send>>;
+    fn call(&mut self, _req: tonic::Request<Bytes>) -> Self::Future {
+        let (status, sleep) = (self.status, self.sleep);
+        Box::pin(async move {
+            if sleep {
+                tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+            }
+            match status {
+                Some(c) => Err(tonic::Status::new(tonic::Code::from(c), format!("the test path's status {c}"))),
+                None => Ok(tonic::Response::new(Bytes::from_static(b"slept"))),
+            }
+        })
+    }
+}
+
+#[derive(Clone)]
+struct TestStream {
+    status: Option<i32>,
+    sleep: bool,
+    echo: bool,
+}
+
+impl tonic::server::ClientStreamingService<Bytes> for TestStream {
+    type Response = Bytes;
+    type Future = std::pin::Pin<Box<dyn std::future::Future<Output = Result<tonic::Response<Bytes>, tonic::Status>> + Send>>;
+    fn call(&mut self, req: tonic::Request<tonic::Streaming<Bytes>>) -> Self::Future {
+        let (status, sleep, echo) = (self.status, self.sleep, self.echo);
+        Box::pin(async move {
+            let mut out = Vec::new();
+            if echo {
+                if let Some(v) = req.metadata().get("ak-echo") {
+                    out.extend_from_slice(v.as_bytes());
+                }
+                out.push(b'|');
+                if let Some(v) = req.metadata().get_bin("ak-echo-bin") {
+                    out.extend_from_slice(&v.to_bytes().map_err(|e| tonic::Status::invalid_argument(e.to_string()))?);
+                }
+            }
+            let mut s = req.into_inner();
+            while s.message().await?.is_some() {}
+            if sleep {
+                tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+            }
+            match status {
+                Some(c) => Err(tonic::Status::new(tonic::Code::from(c), format!("the test path's status {c}"))),
+                None => Ok(tonic::Response::new(Bytes::from(out))),
             }
         })
     }

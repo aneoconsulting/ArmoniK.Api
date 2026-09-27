@@ -161,9 +161,10 @@ impl CoreClient {
     pub fn call_enc<T>(&self, path: &str, enc: *mut ak_enc_ctx, f: impl FnOnce(&[u8]) -> Result<T, String>) -> Result<T, String> {
         unsafe {
             let mut out = ak_bytes::default();
-            let rc = ak_call_unary_enc(self.client, path.as_ptr(), path.len(), enc, &mut out);
+            let mut gs = -1i32;
+            let rc = ak_call_unary_enc(self.client, path.as_ptr(), path.len(), enc, &mut out, &mut gs);
             if rc != AK_OK {
-                return Err(format!("ak_call_unary_enc rc {rc}"));
+                return Err(format!("ak_call_unary_enc rc {rc}, grpc status {gs}"));
             }
             let r = f(if out.len == 0 { &[] } else { std::slice::from_raw_parts(out.ptr, out.len) });
             ak_bytes_free(&mut out);
@@ -174,9 +175,10 @@ impl CoreClient {
     pub fn call<T>(&self, path: &str, req: &[u8], f: impl FnOnce(&[u8]) -> Result<T, String>) -> Result<T, String> {
         unsafe {
             let mut out = ak_bytes::default();
-            let rc = ak_call_unary(self.client, path.as_ptr(), path.len(), req.as_ptr(), req.len(), &mut out);
+            let mut gs = -1i32;
+            let rc = ak_call_unary(self.client, path.as_ptr(), path.len(), req.as_ptr(), req.len(), &mut out, &mut gs);
             if rc != AK_OK {
-                return Err(format!("ak_call_unary rc {rc}"));
+                return Err(format!("ak_call_unary rc {rc}, grpc status {gs}"));
             }
             let r = f(if out.len == 0 { &[] } else { std::slice::from_raw_parts(out.ptr, out.len) });
             ak_bytes_free(&mut out);
@@ -584,7 +586,7 @@ pub fn stream_response(resp: &[u8], want_bytes: u64, want_sha: Option<&[u8; 32]>
 fn core_stream(cc: &CoreClient, path: &str, n: usize, mut send: impl FnMut(usize, *mut ak_call, i32) -> i32,
                on_resp: impl FnOnce(&[u8]) -> Result<(), String>) -> Result<(), String> {
     unsafe {
-        let h = ak_call_open(cc.client, path.as_ptr(), path.len(), AK_CALL_CLIENT_STREAM);
+        let h = ak_call_open(cc.client, path.as_ptr(), path.len(), AK_CALL_CLIENT_STREAM, std::ptr::null());
         if h.is_null() {
             return Err("ak_call_open NULL".into());
         }
@@ -593,15 +595,16 @@ fn core_stream(cc: &CoreClient, path: &str, n: usize, mut send: impl FnMut(usize
             let rc = send(i, h, (i + 1 == n) as i32);
             if rc != AK_OK {
                 r = Err(format!("ak_call_send chunk {i} rc {rc}"));
-                ak_call_close(h);
+                ak_call_cancel(h);
                 break;
             }
         }
         let mut out = ak_bytes::default();
-        let rc = ak_call_recv(h, &mut out);
+        let mut gs = -1i32;
+        let rc = ak_call_recv(h, &mut out, &mut gs);
         if r.is_ok() {
             r = if rc != AK_OK {
-                Err(format!("ak_call_recv rc {rc}"))
+                Err(format!("ak_call_recv rc {rc}, grpc status {gs}"))
             } else {
                 on_resp(if out.len == 0 { &[] } else { std::slice::from_raw_parts(out.ptr, out.len) })
             };
