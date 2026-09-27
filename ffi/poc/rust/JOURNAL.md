@@ -2939,7 +2939,7 @@ is container instrumentation.
   By-product, an in-process A/A: transport-ready-core / reused-buffer, gmean over 42 rows per
   column 0.979-1.017, per-row 0.75-1.63 (hot and pool rows alike).
 - Step 1, T1 native. Three forms, one kept:
-  (a) 5c1a31d1: `ak_rt::Enc.buf` a `BytesMut`, `Enc::take` = split + freeze, reset
+  (a) first form (amended into cf844df5, so its hash 5c1a31d1 is not on the branch; the logs of opt/t1-native-first name it): `ak_rt::Enc.buf` a `BytesMut`, `Enc::take` = split + freeze, reset
   reserving the taken length (reclaims the allocation when the taken Bytes is gone);
   ak_call_unary_enc sends Enc::take (R2's spare slot removed). `opt/t1-native-first`:
   reused-buffer encode +12-21% (gmean, every core column; prost 0.995). Cause found by
