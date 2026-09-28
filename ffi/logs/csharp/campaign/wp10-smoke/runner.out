@@ -1,0 +1,23 @@
+done: rpc -> /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-12/smoke
+rc rpc=0 293s
+control (shipped, launch 1, full, plant len, direction a, cell A): aborted as required, 0 samples: # ABORT: 1 case(s) failed (requirement 18: a failed call fails its benchmark; no sample is written): A|a+read|P2.2|1
+control (shipped, launch 1, full, plant len, direction a, cell B): aborted as required, 0 samples: # ABORT: 1 case(s) failed (requirement 18: a failed call fails its benchmark; no sample is written): B|a+read|P2.2|1
+control (shipped, launch 1, full, plant len, direction a, cell C-drop): aborted as required, 0 samples: # ABORT: 1 case(s) failed (requirement 18: a failed call fails its benchmark; no sample is written): C-drop|a+read|P2.2|1
+control (shipped, launch 1, full, plant len, direction a, cell D-drop): aborted as required, 0 samples: # ABORT: 1 case(s) failed (requirement 18: a failed call fails its benchmark; no sample is written): D-drop|a|P2.2|1
+control (shipped, launch 1, full, plant len, direction c, cell A): aborted as required, 0 samples: # ABORT: 1 case(s) failed (requirement 18: a failed call fails its benchmark; no sample is written): A|a+read|P2.2|1
+control (shipped, launch 1, full, plant len, direction c, cell B): aborted as required, 0 samples: # ABORT: 1 case(s) failed (requirement 18: a failed call fails its benchmark; no sample is written): B|c|P5.3|1
+control (shipped, launch 1, full, plant len, direction c, cell Bf): aborted as required, 0 samples: # ABORT: 1 case(s) failed (requirement 18: a failed call fails its benchmark; no sample is written): Bf|c|P5.4|1
+control (shipped, launch 1, full, plant len, direction c, cell C-drop): aborted as required, 0 samples: # ABORT: 1 case(s) failed (requirement 18: a failed call fails its benchmark; no sample is written): C-drop|c|P5.3|1
+control (shipped, launch 1, full, plant len, direction c, cell D-drop): aborted as required, 0 samples: # ABORT: 1 case(s) failed (requirement 18: a failed call fails its benchmark; no sample is written): D-drop|c|P5.3|1
+control (shipped, launch 1, full, plant len, direction d, cell A): aborted as required, 0 samples: # ABORT: 1 case(s) failed (requirement 18: a failed call fails its benchmark; no sample is written): A|a+read|P2.2|1
+control (shipped, launch 1, full, plant len, direction d, cell B): aborted as required, 0 samples: # ABORT: 1 case(s) failed (requirement 18: a failed call fails its benchmark; no sample is written): B|a+read|P2.2|1
+control (shipped, launch 1, full, plant len, direction d, cell Bf): aborted as required, 0 samples: # ABORT: 1 case(s) failed (requirement 18: a failed call fails its benchmark; no sample is written): Bf|d|stream-16MiB|1
+control (shipped, launch 1, full, plant len, direction d, cell C-drop): aborted as required, 0 samples: # ABORT: 1 case(s) failed (requirement 18: a failed call fails its benchmark; no sample is written): C-drop|d|stream-4MiB|1
+control (shipped, launch 1, full, plant len, direction d, cell D-drop): aborted as required, 0 samples: # ABORT: 1 case(s) failed (requirement 18: a failed call fails its benchmark; no sample is written): D-drop|d|stream-4MiB|1
+control (shipped, launch 1, full, plant digest, direction d, cell A): aborted as required, 0 samples: # ABORT: 1 case(s) failed (requirement 18: a failed call fails its benchmark; no sample is written): A|d|stream-16MiB|1
+control (shipped, launch 1, full, plant digest, direction d, cell B): aborted as required, 0 samples: # ABORT: 1 case(s) failed (requirement 18: a failed call fails its benchmark; no sample is written): B|d|stream-4MiB|1
+control (shipped, launch 1, full, plant digest, direction d, cell Bf): aborted as required, 0 samples: # ABORT: 1 case(s) failed (requirement 18: a failed call fails its benchmark; no sample is written): Bf|d|stream-16MiB|1
+control (shipped, launch 1, full, plant digest, direction d, cell C-drop): aborted as required, 0 samples: # ABORT: 1 case(s) failed (requirement 18: a failed call fails its benchmark; no sample is written): C-drop|d|stream-4MiB|1
+control (shipped, launch 1, full, plant digest, direction d, cell D-drop): aborted as required, 0 samples: # ABORT: 1 case(s) failed (requirement 18: a failed call fails its benchmark; no sample is written): D-drop|d|stream-4MiB|1
+done: rpc -> /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-12/smoke-plant
+rc plant=0 78s

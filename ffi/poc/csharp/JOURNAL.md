@@ -2128,3 +2128,8 @@ CAMPAIGN req 13 as amended (9f6d579fa), the interface poc/rust/SERVER.md at bed1
   "recorded") is NOT read back, because the listener sees only the host process; the rows say
   "not recorded" and the codec suite's JIT check is vacuous in that mode (stated in the
   header). Reading it back would need the child to run the listener and write its summary.
+
+Gate from a fresh worktree at `d1a3a3b` (both builds, net8.0 and net6.0): GATE PASSED, 29
+controls failing as required (`logs/csharp/wp10b-gate.log`). Minimal smoke through the runner,
+grouped switch on (`logs/csharp/campaign/wp10b-smoke/`): full build, shipped, 21 units, 283
+samples, 0 failed; 19 plant controls, every one aborted with 0 samples.

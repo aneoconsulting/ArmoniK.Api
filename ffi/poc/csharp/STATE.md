@@ -8,7 +8,7 @@ waits for the campaign. The history of how each item got here is in `JOURNAL.md`
 
 | | |
 |---|---|
-| **Status** | FIX-PLAN WP10 done: every RPC cell calls the Rust slice's tonic rpc_server, the campaign's one server (poc/rust/SERVER.md, started through poc/rust/serve.sh), and this slice's own server is removed; WP9 (the RPC grid on BenchmarkDotNet) before it. Gate and smoke: see **Gate** and **Smoke**. Findings are in scope only if they can change what the campaign measures (ffi/CLAUDE.md, "Scope of findings"). |
+| **Status** | WP10 done (every RPC cell against the Rust slice's rpc_server; this slice's server removed), then req 22a as amended (e6c909630): BDN's default toolchain (one child process per case) for the campaign, InProcessEmit grouping a small-run switch. Gate and smoke: see **Gate** and **Smoke**. Findings are in scope only if they can change what the campaign measures (ffi/CLAUDE.md, "Scope of findings"). |
 | **Levels** (FIX-PLAN D2) | target **net8.0** (.NET 8.0.31, SDK 8.0.131); floor **net6.0** (.NET 6.0.36 from the NuGet runtime pack, self-contained publish): gated; floor **.NET Framework 4.8**: compiled only (`src/HarnessFloor`), never run (needs Windows; the container has no Mono) |
 | **Incumbent** | Google.Protobuf 3.32.0, Grpc.Tools 2.72.0, Grpc.Net.Client and Grpc.AspNetCore 2.71.0 (the versions `packages/csharp` ships) |
 | **Core** | the one core, `ffi/poc/codec`, built from `git archive HEAD` by `gen/build_core.sh`, every build with `init-guard`: full `target-core` (`rpc`), `target-core-count` (`rpc,count`), `target-core-corpus` (`corpus`); no-unknown (ak-core `--no-default-features`) `target-core-nounk`, `target-core-count-nounk`, `target-core-corpus-nounk`, each in its own target dir |
@@ -92,15 +92,15 @@ src/HarnessFloor/           net48, compile only (the binding; the host half is c
 run_campaign.sh             --suite codec|rpc|calib|gate --out DIR (CAMPAIGN req 31)
 ```
 
-## Gate (FIX-PLAN WP9): clean checkout
+## Gate (WP10 and req 22a's toolchain): clean checkout
 
-`logs/csharp/wp9-gate.log`: **GATE PASSED** at commit `6a7c0cf`, run in a fresh git worktree
-with every build directory new, core from `git archive HEAD` of `poc/codec`, net8.0 and net6.0,
-both builds. Correctness only; nothing is timed. 0 gate-step failures; all 29 planted controls
-fail as required. Steps as in WP8: the counts (`gen/counts.txt` 1,044, `gen/counts-nounk.txt`
-544, `gen/rpc-counts.txt` 105, `gen/rpc-counts-nounk.txt` 62) equal row for row, the upload
-check on 68 and 40 cells, its two plants failing. The crossing counts come from the counting
-builds and are unchanged by WP9. (Earlier gates: `wp8b-gate.log`, `wp8-gate.log`.)
+`logs/csharp/wp10b-gate.log`: **GATE PASSED** at commit `d1a3a3b` (the toolchain switch, on WP10's
+`76ac71e`), a fresh worktree, net8.0 and net6.0, both builds; 0 step failures, 29 planted
+controls failing as required. The RPC server of every gate step is the Rust slice's
+rpc_server, built and started through poc/rust/serve.sh (step 6: the R-D9 error path against
+it, Fetch OK and StatusU13 non-OK; step 9: the counts, 1,044 / 544 codec and 105 / 62 RPC rows,
+equal, and the upload check, 68 / 40 cells, with its two plants failing). WP10's own gate at
+`76ac71e`: `logs/csharp/wp10-gate.log`, passed. Earlier: `wp9-gate.log`, `wp8b-gate.log`.
 
 ## Register H (WP6) and WP7
 
@@ -137,8 +137,17 @@ to AK_CPU_SERVER, its tokio worker count in its log; `shipped` and `pinned` are 
 configuration against its two sockets (tonic's server defaults; 4 MiB windows, adaptive off). The calib suite is `akrpc campaign --suite calib`. Each suite runs both builds
 (full and no-unknown) per launch, in an order alternated by launch.
 
+**Toolchain (CAMPAIGN req 22a as amended e6c909630).** The campaign runs BDN's default
+toolchain: a generated project and ONE CHILD PROCESS PER CASE, in both suites. Grouping every
+case of a unit in one process (InProcessEmit) is the switch `AK_BDN_GROUPED=1`, on by default
+under `--smoke` and for small exploration runs only; the header says which. Under the default
+toolchain the process CPU per iteration comes from the child's own clock reads (written at its
+GlobalCleanup, paired in the host and checked against BDN's wall measurement of each
+iteration); the JIT tier is **not** read back in that mode (the listener sees the host only;
+open, JOURNAL 64), so the codec suite's JIT check applies to grouped runs only.
+
 **What the framework forces or what differs from the hand-written sampler (WP9), stated:**
-- a process per unit: one unit = one cell (21 in the full build, 10 no-unknown, per transport),
+- a runner call per unit: one unit = one cell (21 in the full build, 10 no-unknown, per transport),
   its cases = its directions, payloads and in-flight levels; three benchmark classes (RpcK1,
   RpcK8, RpcK16) because OperationsPerInvoke is an attribute constant; one invocation = one
   batch of k calls in flight, k operations (`iters` = calls, `invocations` = batches);
@@ -196,21 +205,18 @@ hand-written pre-warm loop, its settle wait and knobs are removed (JOURNAL 62).
 | 31 | runner interface | met for the slice; the top-level `ffi/campaign.sh` is the aggregating session's |
 | 32 | smoke run | see **Smoke** below |
 
-**Smoke** (`logs/csharp/campaign/wp9-smoke/`, the owner's small-test rule of 2026-09-27; run
-from the gated worktree at `6a7c0cf`, binaries called directly, not through the runner, so the
-runner's machine header is absent; figures stripped, `.bdn.log` files headed as
-instrumentation). Settings: full build, `shipped` transport only, one launch, BDN `--rounds 1
---warmup 1 --iteration-ms 2`, server warmed with 100 calls; codec one unit (core-ffi:retain) on
-P1.2 (three content sets) and U-deep-all with `--smoke` and a 64 KiB pool.
-- rpc: all 21 units of the full build, 283 samples (the same rows the hand-written sampler
-  wrote per transport: 21 cells, directions a, a+read, b, c, d, in flight 1/8/16, every
-  send path label), 0 failed cases; a plant (wrong byte count on d, C-drop): the case fails,
-  BDN stops, 0 samples, exit 1. 94 rows report `hot_tier0 > 0` (1 x 2 ms warm-up; not fatal
-  for RPC).
-- codec: 22 cases + 2 primes, 0 failed, `jit check: PASS`, `cpu check: PASS`, with BDN's own
-  warm-up only (no pre-warm loop).
-- Not run in this smoke (small-test rule): the pinned transport, the no-unknown build's RPC
-  units, the full plant set through the runner, calib, the full codec suite.
+**Smoke** (the owner's small-test rule; figures stripped; container instrumentation):
+- `logs/csharp/campaign/wp10b-smoke/` at `d1a3a3b`, through the runner, with the grouped switch
+  on (the smoke default): full build, `shipped` only (AK_RPC_TRANSPORTS=shipped,
+  AK_RPC_BUILDS=full), one launch, BDN 1 round, 1 warm-up, 2 ms iterations; the Rust server
+  started and warmed (100) by serve.sh: all 21 units, 283 samples, 0 failed cases; `plant/`: 19
+  controls (wrong length on a, c, d and wrong SHA-256 on d, on A, B, Bf, C-drop, D-drop), every
+  one aborting with 0 samples.
+- `logs/csharp/campaign/wp10-smoke/` at `76ac71e` (WP10 before the switch): the same, the same
+  result.
+- The default toolchain (one child process per case) was checked on one RPC unit and one codec
+  unit (JOURNAL 64), not in these smokes. Not run: the pinned transport, the no-unknown RPC
+  client, calib, the full codec suite.
 
 **Engine cost, container instrumentation** (`logs/csharp/bdn-default-job-unit/`, before WP7):
 one unit of 336 cases at the default BDN job (10 warm-up, 5 x 100 ms) ran 17 to 18 minutes.
@@ -252,6 +258,8 @@ campaign's codec suite is correspondingly longer.
 | Log | What it establishes |
 |---|---|
 | `campaign/wp8c-warmup-knobs/` | the RPC client's warm-up knobs in smoke mode, one transport, full build (req 24 as amended) |
+| `wp10b-gate.log`, `wp10-gate.log` | the clean-checkout gates after the toolchain switch (`d1a3a3b`) and WP10 (`76ac71e`) |
+| `campaign/wp10b-smoke/`, `campaign/wp10-smoke/` | the minimal smokes against the Rust server, grouped, one transport, full build, with plant controls |
 | `wp9-gate.log` | the clean-checkout gate of WP9 at `6a7c0cf`, both builds, net8.0 and net6.0 (see Gate) |
 | `campaign/wp9-smoke/` | the minimal WP9 smoke: the RPC grid on BDN, one transport, full build; one codec unit (see Smoke) |
 | `wp8b-gate.log` | the clean-checkout gate after the WP8 parity items, at `9114d6b`, both builds, net8.0 and net6.0 (see Gate) |
