@@ -1780,3 +1780,20 @@ changes.
   call; a stream's codec cannot know its messages' sizes up front.
 - Step 8b (O-9): kept (shared core; Rust step checks clean, crossings identical).
 - Step 8c (O-6): stopped before any change, as the owner asked (the reasons are in STATE's table).
+
+## 2026-09-28, optimisation unit, steps 9-11
+
+- Step 9 (HG-3, the owner's choice): host-gen validates UTF-8 with the core's own check through the new additive
+  export `ak_utf8_check` (ak-core lib.rs, over ak_rt::strings::check_utf8; not init-guarded: pure; not counted;
+  declared only in the slice's include/ak/rt.h, so no generated header of any slice changes). The utf8check
+  differential takes it as a fifth implementation: 17,797,200 checks, 0 failures, C++17 and C++11. Priced: the
+  non-ASCII rows win big (simdutf8 against the table validator: wide -15..-45%), the ASCII rows pay the call per
+  string (+5..+15%, P7.1's six-letter strings +22%). Kept as the owner's comparability choice, the cost stated.
+- Step 10 (F-1): ak::Optional over std::unique_ptr costs a heap allocation per present child or explicit scalar;
+  decode is slower almost everywhere (P3.1, all explicit presence, +55..+70%), only the absent path and host-gen
+  encode gain. Reverted (the diff is kept).
+- Step 11 (O-7): the ring of spares removes a third of cell C's fresh stream buffers, and the time does not follow
+  (a first A/B at 0.974 with noisy k=8 rows, a confirmation at 0.3 s x 6 pairs at 0.996 with the D/F controls moving
+  as much). Reverted. With R-1 (step 7) this is the second time fewer big allocations did not show in the client's
+  CPU: the fresh 2 MiB buffer is cheap next to the transport's copy and the server-bound wall.
+- The whole tree builds (every target, 504 s) before the final gates.
