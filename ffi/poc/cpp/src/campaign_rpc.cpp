@@ -76,6 +76,7 @@
 #include "generated/core_native.h"
 #include "generated/pb_build.h"
 #include "generated/touch.h"
+#include "owned_holder.h"
 #include "sha256.h"
 #include "campaign_grid.grpc.pb.h"
 #ifndef AK_COUNTING
@@ -401,17 +402,11 @@ ak::Enc *hg_enc(ThreadCtx &tc, const Fac5 &v, Mode m) {
 // Cells D and F hand their encoded bytes to grpc++ MOVED, not copied (WP8): D through
 // ak_enc_take_owned (the core's buffer, released with ak_bytes_free when grpc++ drops the
 // slice), F through ak::Enc::take (host-gen's buffer). The same as the Rust slice's D and F.
-void free_owned_bytes(void *p) {
-  ak_bytes *b = static_cast<ak_bytes *>(p);
-  ak_bytes_free(b);
-  delete b;
-}
 grpc::ByteBuffer core_owned_buffer(ThreadCtx &tc, const char *what) {
-  ak_bytes *b = new ak_bytes;
-  b->ptr = NULL; b->len = 0; b->owner = NULL;
+  ak_bytes *b = akhold::get();  // B-8: a recycled holder
   int32_t rc = ak_enc_take_owned(tc.ec, b);
   if (rc != AK_OK) die(what, rc);
-  grpc::Slice sl(const_cast<uint8_t *>(b->ptr), b->len, free_owned_bytes, b);
+  grpc::Slice sl(const_cast<uint8_t *>(b->ptr), b->len, akhold::free_owned, b);
   return grpc::ByteBuffer(&sl, 1);
 }
 grpc::ByteBuffer hg_owned_buffer(ak::Enc *e, const char *what) {

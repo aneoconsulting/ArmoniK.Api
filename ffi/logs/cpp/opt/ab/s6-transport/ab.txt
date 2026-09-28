@@ -1,0 +1,28 @@
+# opt_ab: codec A=/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/snap/s5 (947d8179) B=/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/snap/s6 (1eb12f3b) pairs=3 args: --only P1.1,P2.1,P3.1,P5.1,P5.2,P2.5 --filter ^(core-ffi|host-gen)\|[^|]*\|ascii\|encode\|[a-z]*\|end=transport,input=hot --rounds 5 --min-time-s 0.02 --warmup-s 0.01 --pool-bytes 1048576
+# ns per operation (process CPU; rpc: per call), median of every repetition of every process; wins = pairs where B's process median < A's
+benchmark                                                                                                    A_ns         B_ns     B/A  wins
+core-ffi|P1.1|ascii|encode|drop|end=transport,input=hot                                                     534.6        527.3   0.986  2/3
+core-ffi|P1.1|ascii|encode|retain|end=transport,input=hot                                                   548.2        529.7   0.966  2/3
+core-ffi|P2.1|ascii|encode|drop|end=transport,input=hot                                                     797.6        769.4   0.965  3/3
+core-ffi|P2.1|ascii|encode|retain|end=transport,input=hot                                                   805.7        810.6   1.006  2/3
+core-ffi|P2.5|ascii|encode|drop|end=transport,input=hot                                                   10054.0      10027.3   0.997  2/3
+core-ffi|P2.5|ascii|encode|retain|end=transport,input=hot                                                 10205.7      10475.3   1.026  0/3
+core-ffi|P3.1|ascii|encode|drop|end=transport,input=hot                                                    6685.6       6648.3   0.994  3/3
+core-ffi|P3.1|ascii|encode|retain|end=transport,input=hot                                                  7077.0       7440.5   1.051  1/3
+core-ffi|P5.1|ascii|encode|drop|end=transport,input=hot                                                     230.2        219.2   0.952  2/3
+core-ffi|P5.1|ascii|encode|retain|end=transport,input=hot                                                   235.1        219.7   0.935  3/3
+core-ffi|P5.2|ascii|encode|drop|end=transport,input=hot                                                    1793.9       1794.7   1.000  2/3
+core-ffi|P5.2|ascii|encode|retain|end=transport,input=hot                                                  1800.3       1780.3   0.989  3/3
+host-gen|P1.1|ascii|encode|drop|end=transport,input=hot                                                     460.2        420.3   0.913  3/3
+host-gen|P1.1|ascii|encode|retain|end=transport,input=hot                                                   492.4        461.7   0.938  3/3
+host-gen|P2.1|ascii|encode|drop|end=transport,input=hot                                                     581.3        533.8   0.918  3/3
+host-gen|P2.1|ascii|encode|retain|end=transport,input=hot                                                   589.6        550.0   0.933  3/3
+host-gen|P2.5|ascii|encode|drop|end=transport,input=hot                                                    7337.6       7464.2   1.017  1/3
+host-gen|P2.5|ascii|encode|retain|end=transport,input=hot                                                  7888.5       8088.3   1.025  0/3
+host-gen|P3.1|ascii|encode|drop|end=transport,input=hot                                                    5418.5       5495.1   1.014  1/3
+host-gen|P3.1|ascii|encode|retain|end=transport,input=hot                                                  6034.1       6195.0   1.027  1/3
+host-gen|P5.1|ascii|encode|drop|end=transport,input=hot                                                     165.6        118.7   0.717  3/3
+host-gen|P5.1|ascii|encode|retain|end=transport,input=hot                                                   166.8        121.9   0.730  3/3
+host-gen|P5.2|ascii|encode|drop|end=transport,input=hot                                                    1726.0       1698.8   0.984  3/3
+host-gen|P5.2|ascii|encode|retain|end=transport,input=hot                                                  1720.9       1715.8   0.997  2/3
+# geometric mean B/A over 24 benchmarks: 0.958

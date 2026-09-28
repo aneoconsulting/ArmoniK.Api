@@ -1564,9 +1564,17 @@ PRE_UNK = '''// ---- ABI v1 decision 11, the host side of the unknown-field buff
 // it to the facade bag and frees it, `unk_drop` frees one the facade has no bag for (a map
 // entry, an inactive oneof member). What was placed but never delivered (a failed decode)
 // and what a pool still holds after the decode are freed by `unk_reclaim`.
-static std::unordered_set<void *> &unk_live() {
-  static thread_local std::unordered_set<void *> live;
+// B-9 (2026-09-28): the live set is a flat vector, searched from the back (a buffer is
+// delivered soon after it is placed), so tracking allocates nothing per buffer; before, an
+// unordered_set node per insert.
+static std::vector<void *> &unk_live() {
+  static thread_local std::vector<void *> live;
   return live;
+}
+static inline bool unk_live_erase(std::vector<void *> &l, void *p) {
+  for (size_t i = l.size(); i-- > 0;)
+    if (l[i] == p) { l[i] = l.back(); l.pop_back(); return true; }
+  return false;
 }
 static thread_local size_t t_unk_entry_bytes = 0;
 
@@ -1591,29 +1599,33 @@ int32_t unk_grow(void *host, int32_t want_i, uint8_t **dst, int32_t *cap) {
   void *old = *dst;
   void *p = old ? std::realloc(old, want) : std::malloc(want);
   if (p == NULL) return AK_ERR_LIMIT;
-  std::unordered_set<void *> &l = unk_live();
-  if (old != NULL) l.erase(old);
-  l.insert(p);
+  std::vector<void *> &l = unk_live();
+  bool placed = false;
+  if (old != NULL)
+    for (size_t i = l.size(); i-- > 0;)
+      if (l[i] == old) { l[i] = p; placed = true; break; }
+  if (!placed) l.push_back(p);
   *dst = (uint8_t *)p;
   *cap = (int32_t)want;
   return AK_OK;
 }
 
 void unk_track(void *p) {
-  if (p != NULL) unk_live().insert(p);
+  if (p != NULL) unk_live().push_back(p);
 }
 
 // R-H7: a buffer still sitting in an options entry after the decode was never consumed; it
 // stays the host's, in the host's struct, for the next decode with the same options (rule
 // 7). It is taken off the live set so the reclaim below never frees it.
 static inline void unk_untrack(void *p) {
-  if (p != NULL) unk_live().erase(p);
+  if (p != NULL) unk_live_erase(unk_live(), p);
 }
 
 size_t unk_reclaim() {
-  std::unordered_set<void *> &l = unk_live();
+  std::vector<void *> &l = unk_live();
+  if (l.empty()) return 0;  // B-8: nothing placed and undelivered, the common case
   size_t n = l.size();
-  for (std::unordered_set<void *>::iterator it = l.begin(); it != l.end(); ++it) std::free(*it);
+  for (size_t i = 0; i < n; ++i) std::free(l[i]);
   l.clear();
   return n;
 }
@@ -1625,8 +1637,8 @@ size_t unk_entry_bytes() {
 }
 
 static inline void unk_free_buf(void *p) {
-  std::unordered_set<void *> &l = unk_live();
-  if (!l.empty()) l.erase(p);
+  std::vector<void *> &l = unk_live();
+  if (!l.empty()) unk_live_erase(l, p);
   std::free(p);
 }
 

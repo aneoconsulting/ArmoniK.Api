@@ -24,6 +24,7 @@
 // The plan's DECODE RULES constants (AK_MAX_FIELD_NUMBER, AK_GROUP_DEPTH_LIMIT), rendered
 // from poc/codec/gen/plan.py by cpp_native.emit_rules -- never restated here (D38).
 #include "generated/ak_rules.h"
+#include <atomic>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -198,37 +199,47 @@ class Enc {
   // Rust slice's Enc::take). The receiver releases it with `release`, on any thread; the
   // encoder continues on its spare buffer (a fresh one while the spare is still out), and the
   // released buffer becomes the spare. The encoder is reset.
+  // HG-6 (2026-09-28): the hand-off allocates nothing in the steady state. The shared state
+  // holds ONE recycled Owned (an atomic single slot, no mutex): `release` parks the Owned,
+  // buffer included, there when the slot is free (else deletes it), and `take` reuses it,
+  // swapping its buffer in as the encoder's next storage. Before: a new Owned per take, a
+  // mutex on both sides and a buffer swap through the slot.
+  struct Owned;
   struct Spare {
-    std::mutex m;
-    std::vector<uint8_t> v;
-    bool has = false;
+    std::atomic<Owned *> slot;
+    std::atomic<bool> closed;
+    Spare() : slot(NULL), closed(false) {}
   };
   struct Owned {
     std::vector<uint8_t> v;
     std::size_t len;
-    std::shared_ptr<Spare> slot;
+    std::shared_ptr<Spare> home;
   };
   Owned *take() {
     if (!spare_) spare_ = std::make_shared<Spare>();
-    Owned *o = new Owned;
+    Owned *o = spare_->slot.exchange(NULL, std::memory_order_acquire);
+    if (o == NULL) { o = new Owned; o->home = spare_; }
     o->len = len_;
-    o->slot = spare_;
-    o->v.swap(storage_);
-    {
-      std::lock_guard<std::mutex> l(spare_->m);
-      if (spare_->has) { storage_.swap(spare_->v); spare_->has = false; }
-    }
-    if (storage_.empty()) storage_.resize(o->v.size() < 4096 ? 4096 : o->v.size());
+    o->v.swap(storage_);  // the encoded bytes go out; the recycled buffer (or none) comes in
+    if (storage_.size() < o->v.size()) storage_.resize(o->v.size() < 4096 ? 4096 : o->v.size());
     reset();
     return o;
   }
   static void release(void *owned) {
     Owned *o = static_cast<Owned *>(owned);
-    {
-      std::lock_guard<std::mutex> l(o->slot->m);
-      if (!o->slot->has) { o->slot->v.swap(o->v); o->slot->has = true; }
+    Spare *s = o->home.get();
+    if (!s->closed.load(std::memory_order_acquire)) {
+      Owned *expect = NULL;
+      if (s->slot.compare_exchange_strong(expect, o, std::memory_order_release)) {
+        // The encoder may have closed meanwhile: then nobody will take it back.
+        if (s->closed.load(std::memory_order_acquire)) delete s->slot.exchange(NULL);
+        return;
+      }
     }
     delete o;
+  }
+  ~Enc() {
+    if (spare_) { spare_->closed.store(true); delete spare_->slot.exchange(NULL); }
   }
 
   inline void ensure(std::size_t n) {

@@ -72,6 +72,7 @@
 #include <vector>
 
 #include "harness.h"
+#include "owned_holder.h"
 
 // B-2 (2026-09-28): the fill the core arms' encodes use (the header names it). Sparse:
 // decision 9's cleared groups and sparse assignment (encode_into_*_zeroed, *_unk_zeroed);
@@ -249,16 +250,10 @@ void add_encode(Group &g, const char *arm, const char *mode, const char *end, co
 // A ByteBuffer's bytes, for the checks.
 // The transport-ready end state of cells D and F (WP8): the encoded bytes MOVED into a
 // grpc::Slice that owns them and releases them when grpc++ drops it.
-void free_owned_bytes(void *p) {
-  ak_bytes *b = static_cast<ak_bytes *>(p);
-  ak_bytes_free(b);
-  delete b;
-}
 grpc::ByteBuffer owned_core_buffer(ak_enc_ctx *ec) {
-  ak_bytes *b = new ak_bytes;
-  b->ptr = NULL; b->len = 0; b->owner = NULL;
-  if (ak_enc_take_owned(ec, b) != AK_OK) { delete b; return grpc::ByteBuffer(); }
-  grpc::Slice sl(const_cast<uint8_t *>(b->ptr), b->len, free_owned_bytes, b);
+  ak_bytes *b = akhold::get();  // B-8: a recycled holder
+  if (ak_enc_take_owned(ec, b) != AK_OK) { akhold::put(b); return grpc::ByteBuffer(); }
+  grpc::Slice sl(const_cast<uint8_t *>(b->ptr), b->len, akhold::free_owned, b);
   return grpc::ByteBuffer(&sl, 1);
 }
 grpc::ByteBuffer owned_hg_buffer(ak::Enc *e) {
