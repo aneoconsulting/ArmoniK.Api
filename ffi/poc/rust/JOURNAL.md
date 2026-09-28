@@ -3450,3 +3450,49 @@ rendered into every slice's header/binding; other slices' generated output regen
   times did not fit the 10-minute budget. Round spread (max/min, client CPU): 1-batch entries
   median 1.51, p90 5.44, max 12.4; entries with at least 2 batches median 1.27, p90 1.54, max
   3.0. Container instrumentation.
+
+## 2026-09-28 -- callback and queue deliveries of client streaming; the callback cells (owner: "use callback with oneshot channel for the core-transport")
+
+- Core (afc585db, additive, rendered through plan.RpcAbi into every header and binding):
+  `ak_call_send_cb(h, msg, len, last, cb, user_data, tag)`, `ak_call_send_enc_cb(h, enc,
+  last, cb, user_data, tag)`, `ak_call_recv_cb(h, cb, user_data, tag)` and the queue twins
+  `ak_call_send_q(h, msg, len, last, q, tag)`, `ak_call_send_enc_q(h, enc, last, q, tag)`,
+  `ak_call_recv_q(h, q, tag)`, all returning int32_t: AK_OK and ONE completion follows, or
+  the refusal and none. A tag on the callback forms too, as ak_call_unary_cb has one. One
+  call path per operation: send_begin (stream, send limit, the sender taken out of its slot)
+  and send_end (sender back unless last, AK_ERR_HOST when the channel is closed) around the
+  same `send` future, blocking_send for the blocking form and awaited on a task for cb/q;
+  recv_begin + recv_once + stream_outcome for all three recvs. A send completion fires after
+  the sender is back, so the next send may be issued from inside it. Also additive:
+  `ak_call_unary_enc_cb` / `ak_call_unary_enc_q` (the moved-encode unary request with a
+  callback or queue completion), needed so cell C-cb does the same work as blocking C
+  (without it C-cb would pay a copy of the request that C does not).
+- Deviation from the coordinator's wording, and why: a pending send cancelled by
+  ak_call_cancel completes with AK_ERR_HOST (grpc_status -1), not CANCELLED, as the blocking
+  send returns AK_ERR_HOST; the send path cannot know the call's status (the call's future is
+  dropped before its status is set), and the status is read with a recv, whose completion is
+  CANCELLED. Reported to the coordinator.
+- Harness (7d10668d): cells B-cb, C-cb-{retain,drop} / C-cb-nounk, E-cb-*, and the framed
+  twins Bf-cb, Cf-cb-*, Ef-cb-*: each call through the callback delivery, the completion
+  sent into a tokio oneshot awaited by one of k tasks on the cell's own runtime (2 workers, as
+  A/D/F); directions a, a+read, b, c, d (d: one oneshot per send completion and one for the
+  response). CAMPAIGN req 16 as amended (owner, c1d3db50): these are Rust's reference core
+  cells; the blocking cells stay, labelled. grid::stem/mode_of/cb/delivery; rows carry
+  "delivery"; tables mark (ref) / (blk).
+- Checks (logs/rust/opt/cb-deliveries/checks): generate --check, one_core ok; pre-check 0
+  failures on both builds (5,740 / 3,257); crossing files regenerated, only additions (+60
+  rows full, +36 no-unknown; every existing row unchanged): unary cb cells 3 forward (call,
+  destroy, free) + 1 reverse against the blocking cells' 2 + 0; d/4MiB 6 + 3 and d/16MiB 12 + 9
+  (a reverse per send completion and one for the response) against 6 + 0 and 12 + 0; C-cb a
+  reverse 3,502 = the decode's 3,501 + 1. rpc_semantics 72 cases PASSED on both builds (40
+  before: the stream's cb and q forms on both send paths: status, moved-encode bytes to the
+  checking path, tags, cancel of a pending recv and of a pending send (server path StallS),
+  misuse, send and receive limits; ak_call_unary_enc_cb / _q). upload_check PASSED on both
+  builds (every cb cell, count + SHA-256; controls on B-cb and Bf-cb detected). The C++ slice
+  builds against the regenerated header, default and -DAK_RPC=ON targets (no C++ change).
+- Grid run logs/rust/opt/rpc-same-machine-cb (settings of 22a08fe2: G1 250 ms, G2 250 ms,
+  G3 500 ms, 10 samples, warm-up 30 ms, serve.sh warm 50): 1,288 entries, 783 s (past the
+  ~12 minutes: settings kept, as asked), 353 entries with one batch per sample (every k = 8
+  direction). In-process cb/blocking median ratios per (dir, k), over cells, modes,
+  transports and clients: gmeans 0.82-1.26 with single ratios 0.27-5.13, i.e. inside this
+  run's spread; container instrumentation, no conclusion drawn.

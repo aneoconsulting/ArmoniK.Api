@@ -1,0 +1,605 @@
+warning: unnecessary `unsafe` block
+   --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/rpc.rs:802:17
+    |
+802 |                 unsafe { (ctx.cb)(ctx.user, &mut comp) };
+    |                 ^^^^^^ unnecessary `unsafe` block
+    |
+    = note: `#[warn(unused_unsafe)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `enc_list_results_response_group` is never used
+   --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:903:11
+    |
+903 | unsafe fn enc_list_results_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `enc_list_results_response_ugroup` is never used
+   --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:925:11
+    |
+925 | unsafe fn enc_list_results_response_ugroup(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_tasks_detailed_response_group` is never used
+   --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:948:11
+    |
+948 | unsafe fn enc_list_tasks_detailed_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_tasks_detailed_response_ugroup` is never used
+   --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:971:11
+    |
+971 | unsafe fn enc_list_tasks_detailed_response_ugroup(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_task_summary_response_group` is never used
+   --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:995:11
+    |
+995 | unsafe fn enc_list_task_summary_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_task_summary_response_ugroup` is never used
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1016:11
+     |
+1016 | unsafe fn enc_list_task_summary_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_probe_response_group` is never used
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1038:11
+     |
+1038 | unsafe fn enc_list_probe_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_probe_response_ugroup` is never used
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1058:11
+     |
+1058 | unsafe fn enc_list_probe_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_metrics_response_group` is never used
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1079:11
+     |
+1079 | unsafe fn enc_list_metrics_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_metrics_response_ugroup` is never used
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1100:11
+     |
+1100 | unsafe fn enc_list_metrics_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_upload_result_data_message_group` is never used
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1122:11
+     |
+1122 | unsafe fn enc_upload_result_data_message_group(g: &ak_efix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_upload_result_data_message_ugroup` is never used
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1140:11
+     |
+1140 | unsafe fn enc_upload_result_data_message_ugroup(g: &ak_ufix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_dual_response_group` is never used
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1160:11
+     |
+1160 | unsafe fn enc_dual_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_dual_response_ugroup` is never used
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1189:11
+     |
+1189 | unsafe fn enc_dual_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_empty_fix` is never used
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:2416:11
+     |
+2416 | unsafe fn dec_empty_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Empty {
+     |           ^^^^^^^^^^^^^
+
+warning: function `dec_pair_fix` is never used
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:2452:11
+     |
+2452 | unsafe fn dec_pair_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Pair {
+     |           ^^^^^^^^^^^^
+
+warning: function `dec_probe_fix` is never used
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:2498:11
+     |
+2498 | unsafe fn dec_probe_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Probe {
+     |           ^^^^^^^^^^^^^
+
+warning: function `dec_result_raw_fix` is never used
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:2620:11
+     |
+2620 | unsafe fn dec_result_raw_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_ResultRaw {
+     |           ^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_task_options_options_entry_fix` is never used
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:2771:11
+     |
+2771 | unsafe fn dec_task_options_options_entry_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_TaskOptionsOptionsEntry {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_timestamp_fix` is never used
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:2819:11
+     |
+2819 | unsafe fn dec_timestamp_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Timestamp {
+     |           ^^^^^^^^^^^^^^^^^
+
+warning: direct cast of function item into an integer
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/lib.rs:1003:35
+     |
+1003 |     let trusted = tc_utf8_trusted as usize;
+     |                                   ^^^^^^^^
+     |
+     = note: `#[warn(function_casts_as_integer)]` on by default
+help: first cast to a pointer `as *const ()`
+     |
+1003 |     let trusted = tc_utf8_trusted as *const () as usize;
+     |                                   ++++++++++++
+
+warning: direct cast of function item into an integer
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/lib.rs:1097:39
+     |
+1097 |     if tc as usize == tc_utf8_trusted as usize && s.len <= i32::MAX as usize {
+     |                                       ^^^^^^^^
+     |
+help: first cast to a pointer `as *const ()`
+     |
+1097 |     if tc as usize == tc_utf8_trusted as *const () as usize && s.len <= i32::MAX as usize {
+     |                                       ++++++++++++
+
+warning: unused variable: `buf`
+   --> crates/facade/src/generated/prost_impl.rs:392:26
+    |
+392 |     fn encode_raw(&self, buf: &mut impl ::prost::bytes::BufMut) {
+    |                          ^^^ help: if this is intentional, prefix it with an underscore: `_buf`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+   --> crates/facade/src/generated/prost_impl.rs:395:13
+    |
+395 |         let mut n = 0usize;
+    |             ----^
+    |             |
+    |             help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:1715:17
+     |
+1715 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+     = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:1745:13
+     |
+1745 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:1857:17
+     |
+1857 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:1887:13
+     |
+1887 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2328:17
+     |
+2328 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2359:13
+     |
+2359 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2393:17
+     |
+2393 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2424:13
+     |
+2424 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2458:17
+     |
+2458 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2489:13
+     |
+2489 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2523:17
+     |
+2523 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2554:13
+     |
+2554 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2593:17
+     |
+2593 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2629:13
+     |
+2629 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2726:17
+     |
+2726 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2756:13
+     |
+2756 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2868:17
+     |
+2868 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2898:13
+     |
+2898 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:3344:17
+     |
+3344 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:3380:13
+     |
+3380 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:3964:17
+     |
+3964 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:3994:13
+     |
+3994 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:4106:17
+     |
+4106 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:4136:13
+     |
+4136 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:4244:17
+     |
+4244 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:4274:13
+     |
+4274 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:4386:17
+     |
+4386 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:4416:13
+     |
+4416 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: function `fill_upload_result_data_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1355:15
+     |
+1355 | pub(crate) fn fill_upload_result_data_sparse(d: &mut ak_efix_UploadResultData, o: &UploadResultData, tc: (ak_transcode_fn, ak_tran...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `fill_list_results_response_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1385:15
+     |
+1385 | pub(crate) fn fill_list_results_response_sparse(d: &mut ak_efix_ListResultsResponse, o: &ListResultsResponse, tc: (ak_transcode_fn...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_tasks_detailed_response_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1395:15
+     |
+1395 | pub(crate) fn fill_list_tasks_detailed_response_sparse(d: &mut ak_efix_ListTasksDetailedResponse, o: &ListTasksDetailedResponse, t...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_task_summary_response_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1405:15
+     |
+1405 | pub(crate) fn fill_list_task_summary_response_sparse(d: &mut ak_efix_ListTaskSummaryResponse, o: &ListTaskSummaryResponse, tc: (ak...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_probe_response_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1413:15
+     |
+1413 | pub(crate) fn fill_list_probe_response_sparse(d: &mut ak_efix_ListProbeResponse, o: &ListProbeResponse, tc: (ak_transcode_fn, ak_t...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_metrics_response_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1421:15
+     |
+1421 | pub(crate) fn fill_list_metrics_response_sparse(d: &mut ak_efix_ListMetricsResponse, o: &ListMetricsResponse, tc: (ak_transcode_fn...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_upload_result_data_message_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1429:15
+     |
+1429 | pub(crate) fn fill_upload_result_data_message_sparse(d: &mut ak_efix_UploadResultDataMessage, o: &UploadResultDataMessage, tc: (ak...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_dual_response_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1438:15
+     |
+1438 | pub(crate) fn fill_dual_response_sparse(d: &mut ak_efix_DualResponse, o: &DualResponse, tc: (ak_transcode_fn, ak_transcode_fn)) {
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_upload_result_data_unk_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1596:15
+     |
+1596 | pub(crate) fn fill_upload_result_data_unk_sparse(d: &mut ak_ufix_UploadResultData, o: &UploadResultData, tc: (ak_transcode_fn, ak_...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_results_response_unk_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1629:15
+     |
+1629 | pub(crate) fn fill_list_results_response_unk_sparse(d: &mut ak_ufix_ListResultsResponse, o: &ListResultsResponse, tc: (ak_transcod...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_tasks_detailed_response_unk_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1640:15
+     |
+1640 | pub(crate) fn fill_list_tasks_detailed_response_unk_sparse(d: &mut ak_ufix_ListTasksDetailedResponse, o: &ListTasksDetailedRespons...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_task_summary_response_unk_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1651:15
+     |
+1651 | pub(crate) fn fill_list_task_summary_response_unk_sparse(d: &mut ak_ufix_ListTaskSummaryResponse, o: &ListTaskSummaryResponse, tc:...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_probe_response_unk_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1660:15
+     |
+1660 | pub(crate) fn fill_list_probe_response_unk_sparse(d: &mut ak_ufix_ListProbeResponse, o: &ListProbeResponse, tc: (ak_transcode_fn, ...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_metrics_response_unk_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1669:15
+     |
+1669 | pub(crate) fn fill_list_metrics_response_unk_sparse(d: &mut ak_ufix_ListMetricsResponse, o: &ListMetricsResponse, tc: (ak_transcod...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_upload_result_data_message_unk_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1678:15
+     |
+1678 | pub(crate) fn fill_upload_result_data_message_unk_sparse(d: &mut ak_ufix_UploadResultDataMessage, o: &UploadResultDataMessage, tc:...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_dual_response_unk_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1688:15
+     |
+1688 | pub(crate) fn fill_dual_response_unk_sparse(d: &mut ak_ufix_DualResponse, o: &DualResponse, tc: (ak_transcode_fn, ak_transcode_fn)) {
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_results_response` is never used
+    --> crates/harness/src/generated/binding.rs:4809:11
+     |
+4809 | unsafe fn fill_list_results_response(dst: &mut ListResultsResponse, f: &ak_dfix_ListResultsResponse, base: *const u8, ctx: *mut ak...
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_tasks_detailed_response` is never used
+    --> crates/harness/src/generated/binding.rs:4819:11
+     |
+4819 | unsafe fn fill_list_tasks_detailed_response(dst: &mut ListTasksDetailedResponse, f: &ak_dfix_ListTasksDetailedResponse, base: *con...
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_task_summary_response` is never used
+    --> crates/harness/src/generated/binding.rs:4829:11
+     |
+4829 | unsafe fn fill_list_task_summary_response(dst: &mut ListTaskSummaryResponse, f: &ak_dfix_ListTaskSummaryResponse, base: *const u8,...
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_probe_response` is never used
+    --> crates/harness/src/generated/binding.rs:4837:11
+     |
+4837 | unsafe fn fill_list_probe_response(dst: &mut ListProbeResponse, f: &ak_dfix_ListProbeResponse, base: *const u8, ctx: *mut ak_dec_c...
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_metrics_response` is never used
+    --> crates/harness/src/generated/binding.rs:4845:11
+     |
+4845 | unsafe fn fill_list_metrics_response(dst: &mut ListMetricsResponse, f: &ak_dfix_ListMetricsResponse, base: *const u8, ctx: *mut ak...
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `from_upload_result_data_message` is never used
+    --> crates/harness/src/generated/binding.rs:4851:11
+     |
+4851 | unsafe fn from_upload_result_data_message(f: &ak_dfix_UploadResultDataMessage, base: *const u8, ctx: *mut ak_dec_ctx) -> UploadRes...
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_dual_response` is never used
+    --> crates/harness/src/generated/binding.rs:4862:11
+     |
+4862 | unsafe fn fill_dual_response(dst: &mut DualResponse, f: &ak_dfix_DualResponse, base: *const u8, ctx: *mut ak_dec_ctx) {
+     |           ^^^^^^^^^^^^^^^^^^
+
+warning: static variable `ELEM_VT_ListTasksDetailedResponse_tasks` should have an upper case name
+    --> crates/harness/src/generated/binding.rs:2640:8
+     |
+2640 | static ELEM_VT_ListTasksDetailedResponse_tasks: ak_evt_TaskDetailed = ak_evt_TaskDetailed {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(non_upper_case_globals)]` (part of `#[warn(nonstandard_style)]`) on by default
+help: convert the identifier to upper case
+     |
+2640 - static ELEM_VT_ListTasksDetailedResponse_tasks: ak_evt_TaskDetailed = ak_evt_TaskDetailed {
+2640 + static ELEM_VT_LIST_TASKS_DETAILED_RESPONSE_TASKS: ak_evt_TaskDetailed = ak_evt_TaskDetailed {
+     |
+
+warning: static variable `ELEM_VT_ListTaskSummaryResponse_tasks` should have an upper case name
+    --> crates/harness/src/generated/binding.rs:3391:8
+     |
+3391 | static ELEM_VT_ListTaskSummaryResponse_tasks: ak_evt_TaskSummary = ak_evt_TaskSummary {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+help: convert the identifier to upper case
+     |
+3391 - static ELEM_VT_ListTaskSummaryResponse_tasks: ak_evt_TaskSummary = ak_evt_TaskSummary {
+3391 + static ELEM_VT_LIST_TASK_SUMMARY_RESPONSE_TASKS: ak_evt_TaskSummary = ak_evt_TaskSummary {
+     |
+
+warning: static variable `ELEM_VT_ListMetricsResponse_batches` should have an upper case name
+    --> crates/harness/src/generated/binding.rs:3878:8
+     |
+3878 | static ELEM_VT_ListMetricsResponse_batches: ak_evt_MetricsBatch = ak_evt_MetricsBatch {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+help: convert the identifier to upper case
+     |
+3878 - static ELEM_VT_ListMetricsResponse_batches: ak_evt_MetricsBatch = ak_evt_MetricsBatch {
+3878 + static ELEM_VT_LIST_METRICS_RESPONSE_BATCHES: ak_evt_MetricsBatch = ak_evt_MetricsBatch {
+     |
+
+# rust slice RPC grid only (gen/rpc_same_machine.sh), for a side-by-side on the same machine
+# CONTAINER INSTRUMENTATION: not a campaign result; no gate run for this tree (coordinator: no code change, no gate)
+# commit     7d10668d
+# date       2026-09-28T15:11:36Z
+# machine    Intel(R) Xeon(R) Processor @ 2.80GHz; 4 CPUs online; kernel 6.18.44-fc-v37
+# smt        active=0 control=notsupported
+# governor   n/a
+# cgroup     cpuset.cpus.effective=n/a
+# cpu sets   CLIENT=1 (taskset) SERVER=2,3 (taskset, serve.sh) OS=the rest
+# server     serve.sh (poc/rust/SERVER.md): ONE rpc_server process, tokio 4 workers, both sockets (shipped, pinned); serve.sh warm 50 (checked calls per direction a, b, c, d/4 from a tonic and a core client on each socket) before the first client process
+# client     benches/rpc_suite.rs, criterion 0.5 with the process-CPU measurement, SamplingMode::Flat; AK_SAMPLES=10 AK_WARMUP_MS=30 AK_NRESAMPLES=1000 (criterion's console bootstrap only; the samples are raw) AK_RPC_SERVER_WARMUP=0 AK_RPC_INFLIGHT=1,8; AK_MEASURE_MS per direction group: G1 (a, a+read, b) 250, G2 (c: P5.3, P5.4) 250, G3 (d: 4 MiB, 16 MiB) 500; one criterion iteration = one batch of k calls; per call = sample CPU (or wall) / (batches x k)
+# threads    client: tokio 2 workers per A/D/F and per -cb cell runtime, ak_runtime_new(2) per B/C/E core client (-cb included), k caller threads (blocking B/C/E) or tasks (A/D/F, -cb)
+# cells      CAMPAIGN req 16 as amended 2026-09-28: the -cb cells (B-cb, C-cb-*, E-cb-* and framed twins Bf-cb, Cf-cb-*, Ef-cb-*: the core's callback delivery bridged to async Rust with a tokio oneshot, one per completion) are Rust's REFERENCE core-transport cells; B, C, E without the suffix (blocking delivery) are the labelled row, kept for cross-host comparability; A, D, F tonic's client
+# order      per transport (shipped, pinned): full client G1, G2, G3, then no-unknown client G1, G2, G3; inside a process criterion's benchmarks in the seeded random order of AK_LAUNCH=1
+# runtime    rustc 1.94.1 (e408947bf 2026-03-25); cargo 1.94.1 (29ea6fb6a 2026-03-24)
+# incumbent  prost 0.14.4, tonic 0.14.6; criterion 0.5.1
+# build      cargo --release (opt-level 3, lto off), ak-core cdylib; full: rpc,init-guard,unknown-fields (target/); no-unknown: rpc,init-guard (target-nounk/); build time 0 s (not in the run time)
+server: pid 13960
+rpc shipped full G1 (a,a+read,b): 1740 sample rows, 76 s
+rpc shipped full G2 (c): 1160 sample rows, 56 s
+rpc shipped full G3 (d): 1160 sample rows, 127 s
+rpc shipped nounk G1 (a,a+read,b): 1020 sample rows, 44 s
+rpc shipped nounk G2 (c): 680 sample rows, 30 s
+rpc shipped nounk G3 (d): 680 sample rows, 68 s
+rpc pinned full G1 (a,a+read,b): 1740 sample rows, 74 s
+rpc pinned full G2 (c): 1160 sample rows, 46 s
+rpc pinned full G3 (d): 1160 sample rows, 114 s
+rpc pinned nounk G1 (a,a+read,b): 1020 sample rows, 46 s
+rpc pinned nounk G2 (c): 680 sample rows, 28 s
+rpc pinned nounk G3 (d): 680 sample rows, 69 s
+run time (server start to stop, build excluded): 783 s
+summary-rpc.tsv: 1288 entries; one batch per sample: 353; wrote tables-rpc.md

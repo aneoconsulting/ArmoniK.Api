@@ -8,12 +8,25 @@ here. This file states what exists and what was checked; the choice is the owner
 | | |
 |---|---|
 | **Status** | Built on the merged branch (claude/rust-slice-optimization-sy1f4n): four codec arms plus the pull family, the RPC grid (cells A-F), the corpus through the C ABI and core-native, decision 11, the no-unknown build, the WP7 campaign harness, and every kept optimisation. Optimisation unit 2 (the owner) added: encode variants labelled by transport form; T1 (Enc::take, a moved Bytes; additive `ak_enc_take_owned`); the FRAMED send path as labelled extra cells (Bf-Ff, additive `ak_client_set_framed`); N2, N3; the labelled extra RPC directions c (unary upload of P5.3/P5.4) and d (req 14's streamed upload, ABI section 9's client streaming in the core: `ak_call_open/send/send_enc/recv/close`, close removed in unit 3). Not kept: N5 (apply-first decode order, reverted), core-only fat LTO (tooling left, off). N6 not reproduced. Gates: stable checkpoints before N5 passed twice (`opt/pre-n5-gate`, `opt/pre-n5-gate2`); the FINAL gate at d54ea963 from a clean tree PASSED on stable and on the 1.88.0 floor (`opt/final2-gate`); final run `opt/final2`. **Unit 3** (the owner): ABI v1 section 9 as specified (fe79f874, 22ebb97f) in the shared core and generator: call kinds, `ak_call_opts` (deadline, metadata), `ak_call_close` removed and `ak_call_cancel` on streams, the gRPC status number on the stream and on every unary delivery (`ak_completion.grpc_status`, trailing `grpc_status` on the blocking entries), D44's limits enforced; `bin/rpc_semantics` in the gate (11f) |
-| **Next step** | none assigned after unit 3 (final gate `opt/final3-gate/` PASSED on stable and 1.88.0 at 6727646b; final run `opt/final3/` with `tables-codec.md` and `tables-rpc.md`) |
+| **Next step** | none assigned; the callback-delivery unit's cells and core entries are checked by the step checks, rpc_semantics and upload_check but no full gate has run since 6727646b (next gate: gate.sh as it stands, 11f now 72 cases) |
 | **Blocked on** | nothing |
 | **Floor** (must build and pass correctness) | MSRV 1.88.0: the full gate, both builds, passes on rustc 1.88.0 from a clean worktree at c8e8694eb (`logs/rust/campaign-wp7/gate-floor-1.88.log`) |
 | **Target** | stable 1.94.1 in this container; README section 5: for Rust the floor is the target language level, one configuration |
 | **Incumbent** | prost 0.14.4, tonic 0.14.6, tonic-prost 0.14.6 (from Cargo.lock, printed in every campaign header). R14: tonic-prost's codec calls `Message::encode`/`decode`, so the production path and the library entry point are the same call |
 | **Questions this slice has open for the aggregating session** | (1) the proposed corpus rows of `gen/probe_corpus.py` (field numbers above 2^29-1, the 10th varint byte, two map-order rows) are not in `corpus/`; (2) no corpus row or payload has a repeated singular message with differing content, so merge-on-repeat (R-E4) is rendered and never observed; (3) a map entry has no unknown-field bag in the Rust facade (D42) |
+
+## Callback deliveries (2026-09-28; every figure is container instrumentation)
+
+Owner: "use callback with oneshot channel for the core-transport"; CAMPAIGN req 16 as amended
+(c1d3db50): the core-transport cells use the host's idiomatic core delivery, for Rust the
+callback bridged to async with a tokio oneshot; the blocking cells stay as a labelled row.
+
+| What | As built |
+|---|---|
+| Core (afc585db, additive) | the stream's callback and queue deliveries `ak_call_send_cb/_q`, `ak_call_send_enc_cb/_q`, `ak_call_recv_cb/_q` (int32_t: AK_OK and one completion follows, else the refusal and none; a tag on every form) and `ak_call_unary_enc_cb/_q`; one call path per operation with the blocking forms (shared prologue/epilogue, the same send and response futures). A send completes when the call has accepted the message (empty bytes), after the sender is back in its slot. Refusals at the entry: send limit AK_ERR_LIMIT, a send while one is pending or after last AK_ERR_INVALID_STATE, a second recv of any delivery AK_ERR_INVALID_STATE. A send on an ended call completes AK_ERR_HOST (-1), a cancelled pending send too; the recv completion carries the status (CANCELLED, RESOURCE_EXHAUSTED, the server's code) |
+| Cells (7d10668d) | B-cb, C-cb-*, E-cb-* and framed twins Bf-cb, Cf-cb-*, Ef-cb-*: every direction a, a+read, b, c, d through the callback forms, each completion into a tokio oneshot awaited by one of k tasks on the cell's runtime (2 workers). The REFERENCE core cells for Rust; the blocking B, C, E cells are the labelled row. Tables mark `(ref)` / `(blk)` |
+| Checks | `logs/rust/opt/cb-deliveries/checks/`: generate --check, one_core, pre-check 0 failures (both builds), crossing files regenerated with additions only (+60 / +36 rows), rpc_semantics 72 cases on both builds, upload_check both builds (cb controls included), the C++ slice builds against the new header. No full gate run in this unit |
+| Grid | `logs/rust/opt/rpc-same-machine-cb/` (settings of 22a08fe2 plus the cb cells): 1,288 entries, 783 s, 353 one-batch entries (k = 8) |
 
 ## Unit 3: ABI v1 section 9 as specified (every figure is container instrumentation)
 
@@ -464,6 +477,7 @@ FIX-PLAN R-G17); D41 (every slice's generated tree is current: `generate.py --ch
 | `logs/rust/opt/t0-ref/`, `t1-native*/`, `t1-ffi/`, `framed/`, `framed-rpc-narrow/`, `n2/`, `n2-ab/`, `n3/`, `n3-ab/`, `n6-probe/`, `lto-ab/`, `u1-unary/`, `u1-unary-narrow/`, `n5/`, `n5-ab/`, `n5b-ab/`, `u2-stream/` | optimisation unit 2, one directory per step (full opt_bench v5 runs, narrowed alternated A/B runs, step checks in `checks/`); before/after in `variants-before-after.txt` / `by-direction.txt`; the framed path's wire evidence in `framed/header-diff*.txt`; direction c and d tables in `u1-unary/c-direction.txt`, `u2-stream/d-direction.txt` |
 | `logs/rust/opt/pre-n5-gate/`, `pre-n5-gate2/` | the stable gate checkpoints of unit 2 (PASSED at 33636e1d and 186a4e52) |
 | `logs/rust/opt/abi9/checks/` | unit 3's step checks (generate --check, one_core, pre-check, crossings identical) |
+| `logs/rust/opt/cb-deliveries/checks/`, `logs/rust/opt/rpc-same-machine-cb/` | the callback-delivery unit's checks and its same-machine grid run (cb cells = Rust's reference core cells) |
 | `logs/rust/opt/rpc-same-machine/` | the RPC grid only at dcbb0205 through serve.sh (gen/rpc_same_machine.sh), k = 1 and 8, for a same-machine side-by-side with the C++ grid; 311 of 840 entries one batch per sample (marked); instrumentation |
 | `logs/rust/opt/final3-gate/`, `logs/rust/opt/final3/` | unit 3's final gate (stable and the 1.88 floor; the failed first attempt in `failed-98b187ce/`) and final run with the one-run tables `tables-codec.md`, `tables-rpc.md` |
 | `logs/rust/opt/final2-gate/`, `logs/rust/opt/final2/` | unit 2's final gate (stable and the 1.88 floor) and final run, with tables against `t0-ref` |

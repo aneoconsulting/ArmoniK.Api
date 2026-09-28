@@ -1,0 +1,17 @@
+# rust slice RPC grid only (gen/rpc_same_machine.sh), for a side-by-side on the same machine
+# CONTAINER INSTRUMENTATION: not a campaign result; no gate run for this tree (coordinator: no code change, no gate)
+# commit     7d10668d
+# date       2026-09-28T15:11:36Z
+# machine    Intel(R) Xeon(R) Processor @ 2.80GHz; 4 CPUs online; kernel 6.18.44-fc-v37
+# smt        active=0 control=notsupported
+# governor   n/a
+# cgroup     cpuset.cpus.effective=n/a
+# cpu sets   CLIENT=1 (taskset) SERVER=2,3 (taskset, serve.sh) OS=the rest
+# server     serve.sh (poc/rust/SERVER.md): ONE rpc_server process, tokio 4 workers, both sockets (shipped, pinned); serve.sh warm 50 (checked calls per direction a, b, c, d/4 from a tonic and a core client on each socket) before the first client process
+# client     benches/rpc_suite.rs, criterion 0.5 with the process-CPU measurement, SamplingMode::Flat; AK_SAMPLES=10 AK_WARMUP_MS=30 AK_NRESAMPLES=1000 (criterion's console bootstrap only; the samples are raw) AK_RPC_SERVER_WARMUP=0 AK_RPC_INFLIGHT=1,8; AK_MEASURE_MS per direction group: G1 (a, a+read, b) 250, G2 (c: P5.3, P5.4) 250, G3 (d: 4 MiB, 16 MiB) 500; one criterion iteration = one batch of k calls; per call = sample CPU (or wall) / (batches x k)
+# threads    client: tokio 2 workers per A/D/F and per -cb cell runtime, ak_runtime_new(2) per B/C/E core client (-cb included), k caller threads (blocking B/C/E) or tasks (A/D/F, -cb)
+# cells      CAMPAIGN req 16 as amended 2026-09-28: the -cb cells (B-cb, C-cb-*, E-cb-* and framed twins Bf-cb, Cf-cb-*, Ef-cb-*: the core's callback delivery bridged to async Rust with a tokio oneshot, one per completion) are Rust's REFERENCE core-transport cells; B, C, E without the suffix (blocking delivery) are the labelled row, kept for cross-host comparability; A, D, F tonic's client
+# order      per transport (shipped, pinned): full client G1, G2, G3, then no-unknown client G1, G2, G3; inside a process criterion's benchmarks in the seeded random order of AK_LAUNCH=1
+# runtime    rustc 1.94.1 (e408947bf 2026-03-25); cargo 1.94.1 (29ea6fb6a 2026-03-24)
+# incumbent  prost 0.14.4, tonic 0.14.6; criterion 0.5.1
+# build      cargo --release (opt-level 3, lto off), ak-core cdylib; full: rpc,init-guard,unknown-fields (target/); no-unknown: rpc,init-guard (target-nounk/); build time 0 s (not in the run time)
