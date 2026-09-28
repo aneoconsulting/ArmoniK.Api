@@ -49,9 +49,31 @@ uint64_t host_calls_take() {
   t_host_calls = 0;
   return r;
 }
+static thread_local uint64_t t_pull_records = 0;
+#define AK_PULL_RECORD() (++t_pull_records)
+uint64_t pull_records_take() {
+  uint64_t r = t_pull_records;
+  t_pull_records = 0;
+  return r;
+}
 #else
 #define AK_HOST_CALL() ((void)0)
+#define AK_PULL_RECORD() ((void)0)
+uint64_t pull_records_take() { return 0; }
 #endif
+
+// X-2: a pull record's payload handed to the push function registered for its slot; the
+// payload type is the function's own parameter type (8-aligned: the records are words).
+template <class T>
+static inline void pull_add(void (*fn)(ak_dec_ctx *, void *, int64_t, const T *, int32_t), ak_dec_ctx *ctx,
+                            void *obj, int64_t tok, const uint8_t *body, uint32_t n) {
+  fn(ctx, obj, tok, reinterpret_cast<const T *>(body), (int32_t)n);
+}
+template <class T>
+static inline void pull_apply(void (*fn)(ak_dec_ctx *, void *, int64_t, const T *), ak_dec_ctx *ctx,
+                              void *obj, int64_t tok, const uint8_t *body) {
+  fn(ctx, obj, tok, reinterpret_cast<const T *>(body));
+}
 
 // B-1 (2026-09-28): ABI v1 7.4, a batched add may be called several times for one field.
 // `reserve(size + n)` on every call reallocates to the exact size each time, so k calls copy
@@ -2910,6 +2932,73 @@ int32_t decode_with_list_results_response(ak_dec_ctx *ctx, const uint8_t *b, siz
   return decode_impl_list_results_response(ctx, b, n, out, NULL, NULL);
 }
 
+static int32_t pull_replay_list_results_response(ak_dec_ctx *ctx, void *obj, const uint8_t *r, size_t len, std::vector<int64_t> &toks) {
+  size_t at = 0;
+  while (at + sizeof(struct ak_bdr_rec) <= len) {
+    struct ak_bdr_rec h;
+    std::memcpy(&h, r + at, sizeof h);
+    const uint8_t *body = r + at + sizeof h;
+    at += sizeof h + (size_t)h.bytes;
+    if (at > len) break;
+    AK_PULL_RECORD();
+    switch (((uint64_t)h.op << 32) | h.slot) {
+      case ((uint64_t)AK_BDR_APPLY << 32) | 0u:
+        apply_list_results_response(ctx, obj, reinterpret_cast<const struct ak_dfix_ListResultsResponse *>(body)); break;
+      case ((uint64_t)AK_BDR_ADD << 32) | 1u:
+        pull_add(add_list_results_response_results, ctx, obj, h.token, body, h.n); break;
+      default:
+        ak_fail(ctx, AK_ERR_ABI, NULL, 0);
+        return AK_ERR_ABI;
+    }
+  }
+  return AK_OK;
+}
+
+static thread_local std::vector<int64_t> t_pull_toks_list_results_response;
+static thread_local std::vector<uint64_t> t_pull_scratch_list_results_response;
+static int32_t pull_impl_list_results_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out, bool drain) {
+  AK_INIT_OR_RETURN();
+  Sink_ListResultsResponse sink;
+  sink.out = out;
+  sink.base = b;
+  int32_t rc = ak_parse_ListResultsResponse(ctx, b, n);
+  if (rc < 0) return rc;
+  std::vector<int64_t> &toks = t_pull_toks_list_results_response;
+  toks.clear();
+  if (!drain) {
+    const uint8_t *p = NULL;
+    size_t len = 0;
+    rc = ak_bdr_ptr(ctx, &p, &len);
+    if (rc < 0) return rc;
+    rc = pull_replay_list_results_response(ctx, &sink, p, len, toks);
+  } else {
+    // A host that must COPY: the records drained into its own 8-aligned memory in
+    // chunks of at least AK_BDR_MIN_CHUNK (reused), each replayed.
+    std::vector<uint64_t> &sc = t_pull_scratch_list_results_response;
+    if (sc.size() * 8 < AK_BDR_MIN_CHUNK) sc.resize((AK_BDR_MIN_CHUNK + 7) / 8);
+    const size_t total = ak_bdr_footprint(ctx);
+    ak_bdr_count_forward(ctx, 1);  // footprint takes a const context: counted here (R5)
+    size_t cursor = 0;
+    while (cursor < total) {
+      intptr_t k = ak_bdr_drain(ctx, (uint8_t *)&sc[0], sc.size() * 8, &cursor);
+      if (k < 0) return (int32_t)k;
+      if (k == 0) break;
+      rc = pull_replay_list_results_response(ctx, &sink, (const uint8_t *)&sc[0], (size_t)k, toks);
+      if (rc < 0) return rc;
+    }
+  }
+  if (rc < 0) return rc;
+  AK_HOST_CALL(); return ak_dec_err(ctx);  // what the host functions reported (ak_fail)
+}
+
+int32_t pull_with_list_results_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out) {
+  return pull_impl_list_results_response(ctx, b, n, out, false);
+}
+
+int32_t pull_drain_with_list_results_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out) {
+  return pull_impl_list_results_response(ctx, b, n, out, true);
+}
+
 struct Sink_ListTasksDetailedResponse {
   ListTasksDetailedResponse *out;
   const uint8_t *base;
@@ -3063,6 +3152,91 @@ int32_t decode_with_list_tasks_detailed_response(ak_dec_ctx *ctx, const uint8_t 
   return decode_impl_list_tasks_detailed_response(ctx, b, n, out, NULL, NULL);
 }
 
+static int32_t pull_replay_list_tasks_detailed_response(ak_dec_ctx *ctx, void *obj, const uint8_t *r, size_t len, std::vector<int64_t> &toks) {
+  size_t at = 0;
+  while (at + sizeof(struct ak_bdr_rec) <= len) {
+    struct ak_bdr_rec h;
+    std::memcpy(&h, r + at, sizeof h);
+    const uint8_t *body = r + at + sizeof h;
+    at += sizeof h + (size_t)h.bytes;
+    if (at > len) break;
+    AK_PULL_RECORD();
+    switch (((uint64_t)h.op << 32) | h.slot) {
+      case ((uint64_t)AK_BDR_APPLY << 32) | 0u:
+        apply_list_tasks_detailed_response(ctx, obj, reinterpret_cast<const struct ak_dfix_ListTasksDetailedResponse *>(body)); break;
+      case ((uint64_t)AK_BDR_NEW << 32) | 65536u:
+        toks.push_back(new_list_tasks_detailed_response_tasks(ctx, obj)); break;
+      case ((uint64_t)AK_BDR_APPLY_ELEM << 32) | 65536u:
+        if ((size_t)h.token >= toks.size()) { ak_fail(ctx, AK_ERR_ABI, NULL, 0); return AK_ERR_ABI; }
+        pull_apply(apply_list_tasks_detailed_response_tasks, ctx, obj, toks[(size_t)h.token], body); break;
+      case ((uint64_t)AK_BDR_ADD << 32) | 65537u:
+        if ((size_t)h.token >= toks.size()) { ak_fail(ctx, AK_ERR_ABI, NULL, 0); return AK_ERR_ABI; }
+        pull_add(add_list_tasks_detailed_response_tasks_parent_task_ids, ctx, obj, toks[(size_t)h.token], body, h.n); break;
+      case ((uint64_t)AK_BDR_ADD << 32) | 65538u:
+        if ((size_t)h.token >= toks.size()) { ak_fail(ctx, AK_ERR_ABI, NULL, 0); return AK_ERR_ABI; }
+        pull_add(add_list_tasks_detailed_response_tasks_data_dependencies, ctx, obj, toks[(size_t)h.token], body, h.n); break;
+      case ((uint64_t)AK_BDR_ADD << 32) | 65539u:
+        if ((size_t)h.token >= toks.size()) { ak_fail(ctx, AK_ERR_ABI, NULL, 0); return AK_ERR_ABI; }
+        pull_add(add_list_tasks_detailed_response_tasks_expected_output_ids, ctx, obj, toks[(size_t)h.token], body, h.n); break;
+      case ((uint64_t)AK_BDR_ADD << 32) | 65540u:
+        if ((size_t)h.token >= toks.size()) { ak_fail(ctx, AK_ERR_ABI, NULL, 0); return AK_ERR_ABI; }
+        pull_add(add_list_tasks_detailed_response_tasks_retry_of_ids, ctx, obj, toks[(size_t)h.token], body, h.n); break;
+      case ((uint64_t)AK_BDR_ADD << 32) | 65541u:
+        if ((size_t)h.token >= toks.size()) { ak_fail(ctx, AK_ERR_ABI, NULL, 0); return AK_ERR_ABI; }
+        pull_add(add_list_tasks_detailed_response_tasks_options_options, ctx, obj, toks[(size_t)h.token], body, h.n); break;
+      default:
+        ak_fail(ctx, AK_ERR_ABI, NULL, 0);
+        return AK_ERR_ABI;
+    }
+  }
+  return AK_OK;
+}
+
+static thread_local std::vector<int64_t> t_pull_toks_list_tasks_detailed_response;
+static thread_local std::vector<uint64_t> t_pull_scratch_list_tasks_detailed_response;
+static int32_t pull_impl_list_tasks_detailed_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out, bool drain) {
+  AK_INIT_OR_RETURN();
+  Sink_ListTasksDetailedResponse sink;
+  sink.out = out;
+  sink.base = b;
+  int32_t rc = ak_parse_ListTasksDetailedResponse(ctx, b, n);
+  if (rc < 0) return rc;
+  std::vector<int64_t> &toks = t_pull_toks_list_tasks_detailed_response;
+  toks.clear();
+  if (!drain) {
+    const uint8_t *p = NULL;
+    size_t len = 0;
+    rc = ak_bdr_ptr(ctx, &p, &len);
+    if (rc < 0) return rc;
+    rc = pull_replay_list_tasks_detailed_response(ctx, &sink, p, len, toks);
+  } else {
+    // A host that must COPY: the records drained into its own 8-aligned memory in
+    // chunks of at least AK_BDR_MIN_CHUNK (reused), each replayed.
+    std::vector<uint64_t> &sc = t_pull_scratch_list_tasks_detailed_response;
+    if (sc.size() * 8 < AK_BDR_MIN_CHUNK) sc.resize((AK_BDR_MIN_CHUNK + 7) / 8);
+    const size_t total = ak_bdr_footprint(ctx);
+    ak_bdr_count_forward(ctx, 1);  // footprint takes a const context: counted here (R5)
+    size_t cursor = 0;
+    while (cursor < total) {
+      intptr_t k = ak_bdr_drain(ctx, (uint8_t *)&sc[0], sc.size() * 8, &cursor);
+      if (k < 0) return (int32_t)k;
+      if (k == 0) break;
+      rc = pull_replay_list_tasks_detailed_response(ctx, &sink, (const uint8_t *)&sc[0], (size_t)k, toks);
+      if (rc < 0) return rc;
+    }
+  }
+  if (rc < 0) return rc;
+  AK_HOST_CALL(); return ak_dec_err(ctx);  // what the host functions reported (ak_fail)
+}
+
+int32_t pull_with_list_tasks_detailed_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out) {
+  return pull_impl_list_tasks_detailed_response(ctx, b, n, out, false);
+}
+
+int32_t pull_drain_with_list_tasks_detailed_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out) {
+  return pull_impl_list_tasks_detailed_response(ctx, b, n, out, true);
+}
+
 struct Sink_ListProbeResponse {
   ListProbeResponse *out;
   const uint8_t *base;
@@ -3107,6 +3281,73 @@ static int32_t decode_impl_list_probe_response(ak_dec_ctx *ctx, const uint8_t *b
 // ak_dec_ctx_new_ListProbeResponse(NULL) (or last reset with NULL) drops every unknown field.
 int32_t decode_with_list_probe_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out) {
   return decode_impl_list_probe_response(ctx, b, n, out, NULL, NULL);
+}
+
+static int32_t pull_replay_list_probe_response(ak_dec_ctx *ctx, void *obj, const uint8_t *r, size_t len, std::vector<int64_t> &toks) {
+  size_t at = 0;
+  while (at + sizeof(struct ak_bdr_rec) <= len) {
+    struct ak_bdr_rec h;
+    std::memcpy(&h, r + at, sizeof h);
+    const uint8_t *body = r + at + sizeof h;
+    at += sizeof h + (size_t)h.bytes;
+    if (at > len) break;
+    AK_PULL_RECORD();
+    switch (((uint64_t)h.op << 32) | h.slot) {
+      case ((uint64_t)AK_BDR_APPLY << 32) | 0u:
+        apply_list_probe_response(ctx, obj, reinterpret_cast<const struct ak_dfix_ListProbeResponse *>(body)); break;
+      case ((uint64_t)AK_BDR_ADD << 32) | 1u:
+        pull_add(add_list_probe_response_probes, ctx, obj, h.token, body, h.n); break;
+      default:
+        ak_fail(ctx, AK_ERR_ABI, NULL, 0);
+        return AK_ERR_ABI;
+    }
+  }
+  return AK_OK;
+}
+
+static thread_local std::vector<int64_t> t_pull_toks_list_probe_response;
+static thread_local std::vector<uint64_t> t_pull_scratch_list_probe_response;
+static int32_t pull_impl_list_probe_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out, bool drain) {
+  AK_INIT_OR_RETURN();
+  Sink_ListProbeResponse sink;
+  sink.out = out;
+  sink.base = b;
+  int32_t rc = ak_parse_ListProbeResponse(ctx, b, n);
+  if (rc < 0) return rc;
+  std::vector<int64_t> &toks = t_pull_toks_list_probe_response;
+  toks.clear();
+  if (!drain) {
+    const uint8_t *p = NULL;
+    size_t len = 0;
+    rc = ak_bdr_ptr(ctx, &p, &len);
+    if (rc < 0) return rc;
+    rc = pull_replay_list_probe_response(ctx, &sink, p, len, toks);
+  } else {
+    // A host that must COPY: the records drained into its own 8-aligned memory in
+    // chunks of at least AK_BDR_MIN_CHUNK (reused), each replayed.
+    std::vector<uint64_t> &sc = t_pull_scratch_list_probe_response;
+    if (sc.size() * 8 < AK_BDR_MIN_CHUNK) sc.resize((AK_BDR_MIN_CHUNK + 7) / 8);
+    const size_t total = ak_bdr_footprint(ctx);
+    ak_bdr_count_forward(ctx, 1);  // footprint takes a const context: counted here (R5)
+    size_t cursor = 0;
+    while (cursor < total) {
+      intptr_t k = ak_bdr_drain(ctx, (uint8_t *)&sc[0], sc.size() * 8, &cursor);
+      if (k < 0) return (int32_t)k;
+      if (k == 0) break;
+      rc = pull_replay_list_probe_response(ctx, &sink, (const uint8_t *)&sc[0], (size_t)k, toks);
+      if (rc < 0) return rc;
+    }
+  }
+  if (rc < 0) return rc;
+  AK_HOST_CALL(); return ak_dec_err(ctx);  // what the host functions reported (ak_fail)
+}
+
+int32_t pull_with_list_probe_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out) {
+  return pull_impl_list_probe_response(ctx, b, n, out, false);
+}
+
+int32_t pull_drain_with_list_probe_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out) {
+  return pull_impl_list_probe_response(ctx, b, n, out, true);
 }
 
 struct Sink_ListTaskSummaryResponse {
@@ -3188,6 +3429,79 @@ int32_t decode_with_list_task_summary_response(ak_dec_ctx *ctx, const uint8_t *b
   return decode_impl_list_task_summary_response(ctx, b, n, out, NULL, NULL);
 }
 
+static int32_t pull_replay_list_task_summary_response(ak_dec_ctx *ctx, void *obj, const uint8_t *r, size_t len, std::vector<int64_t> &toks) {
+  size_t at = 0;
+  while (at + sizeof(struct ak_bdr_rec) <= len) {
+    struct ak_bdr_rec h;
+    std::memcpy(&h, r + at, sizeof h);
+    const uint8_t *body = r + at + sizeof h;
+    at += sizeof h + (size_t)h.bytes;
+    if (at > len) break;
+    AK_PULL_RECORD();
+    switch (((uint64_t)h.op << 32) | h.slot) {
+      case ((uint64_t)AK_BDR_APPLY << 32) | 0u:
+        apply_list_task_summary_response(ctx, obj, reinterpret_cast<const struct ak_dfix_ListTaskSummaryResponse *>(body)); break;
+      case ((uint64_t)AK_BDR_NEW << 32) | 65536u:
+        toks.push_back(new_list_task_summary_response_tasks(ctx, obj)); break;
+      case ((uint64_t)AK_BDR_APPLY_ELEM << 32) | 65536u:
+        if ((size_t)h.token >= toks.size()) { ak_fail(ctx, AK_ERR_ABI, NULL, 0); return AK_ERR_ABI; }
+        pull_apply(apply_list_task_summary_response_tasks, ctx, obj, toks[(size_t)h.token], body); break;
+      case ((uint64_t)AK_BDR_ADD << 32) | 65537u:
+        if ((size_t)h.token >= toks.size()) { ak_fail(ctx, AK_ERR_ABI, NULL, 0); return AK_ERR_ABI; }
+        pull_add(add_list_task_summary_response_tasks_options_options, ctx, obj, toks[(size_t)h.token], body, h.n); break;
+      default:
+        ak_fail(ctx, AK_ERR_ABI, NULL, 0);
+        return AK_ERR_ABI;
+    }
+  }
+  return AK_OK;
+}
+
+static thread_local std::vector<int64_t> t_pull_toks_list_task_summary_response;
+static thread_local std::vector<uint64_t> t_pull_scratch_list_task_summary_response;
+static int32_t pull_impl_list_task_summary_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out, bool drain) {
+  AK_INIT_OR_RETURN();
+  Sink_ListTaskSummaryResponse sink;
+  sink.out = out;
+  sink.base = b;
+  int32_t rc = ak_parse_ListTaskSummaryResponse(ctx, b, n);
+  if (rc < 0) return rc;
+  std::vector<int64_t> &toks = t_pull_toks_list_task_summary_response;
+  toks.clear();
+  if (!drain) {
+    const uint8_t *p = NULL;
+    size_t len = 0;
+    rc = ak_bdr_ptr(ctx, &p, &len);
+    if (rc < 0) return rc;
+    rc = pull_replay_list_task_summary_response(ctx, &sink, p, len, toks);
+  } else {
+    // A host that must COPY: the records drained into its own 8-aligned memory in
+    // chunks of at least AK_BDR_MIN_CHUNK (reused), each replayed.
+    std::vector<uint64_t> &sc = t_pull_scratch_list_task_summary_response;
+    if (sc.size() * 8 < AK_BDR_MIN_CHUNK) sc.resize((AK_BDR_MIN_CHUNK + 7) / 8);
+    const size_t total = ak_bdr_footprint(ctx);
+    ak_bdr_count_forward(ctx, 1);  // footprint takes a const context: counted here (R5)
+    size_t cursor = 0;
+    while (cursor < total) {
+      intptr_t k = ak_bdr_drain(ctx, (uint8_t *)&sc[0], sc.size() * 8, &cursor);
+      if (k < 0) return (int32_t)k;
+      if (k == 0) break;
+      rc = pull_replay_list_task_summary_response(ctx, &sink, (const uint8_t *)&sc[0], (size_t)k, toks);
+      if (rc < 0) return rc;
+    }
+  }
+  if (rc < 0) return rc;
+  AK_HOST_CALL(); return ak_dec_err(ctx);  // what the host functions reported (ak_fail)
+}
+
+int32_t pull_with_list_task_summary_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out) {
+  return pull_impl_list_task_summary_response(ctx, b, n, out, false);
+}
+
+int32_t pull_drain_with_list_task_summary_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out) {
+  return pull_impl_list_task_summary_response(ctx, b, n, out, true);
+}
+
 struct Sink_UploadResultDataMessage {
   UploadResultDataMessage *out;
   const uint8_t *base;
@@ -3221,6 +3535,71 @@ static int32_t decode_impl_upload_result_data_message(ak_dec_ctx *ctx, const uin
 // ak_dec_ctx_new_UploadResultDataMessage(NULL) (or last reset with NULL) drops every unknown field.
 int32_t decode_with_upload_result_data_message(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out) {
   return decode_impl_upload_result_data_message(ctx, b, n, out, NULL, NULL);
+}
+
+static int32_t pull_replay_upload_result_data_message(ak_dec_ctx *ctx, void *obj, const uint8_t *r, size_t len, std::vector<int64_t> &toks) {
+  size_t at = 0;
+  while (at + sizeof(struct ak_bdr_rec) <= len) {
+    struct ak_bdr_rec h;
+    std::memcpy(&h, r + at, sizeof h);
+    const uint8_t *body = r + at + sizeof h;
+    at += sizeof h + (size_t)h.bytes;
+    if (at > len) break;
+    AK_PULL_RECORD();
+    switch (((uint64_t)h.op << 32) | h.slot) {
+      case ((uint64_t)AK_BDR_APPLY << 32) | 0u:
+        apply_upload_result_data_message(ctx, obj, reinterpret_cast<const struct ak_dfix_UploadResultDataMessage *>(body)); break;
+      default:
+        ak_fail(ctx, AK_ERR_ABI, NULL, 0);
+        return AK_ERR_ABI;
+    }
+  }
+  return AK_OK;
+}
+
+static thread_local std::vector<int64_t> t_pull_toks_upload_result_data_message;
+static thread_local std::vector<uint64_t> t_pull_scratch_upload_result_data_message;
+static int32_t pull_impl_upload_result_data_message(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out, bool drain) {
+  AK_INIT_OR_RETURN();
+  Sink_UploadResultDataMessage sink;
+  sink.out = out;
+  sink.base = b;
+  int32_t rc = ak_parse_UploadResultDataMessage(ctx, b, n);
+  if (rc < 0) return rc;
+  std::vector<int64_t> &toks = t_pull_toks_upload_result_data_message;
+  toks.clear();
+  if (!drain) {
+    const uint8_t *p = NULL;
+    size_t len = 0;
+    rc = ak_bdr_ptr(ctx, &p, &len);
+    if (rc < 0) return rc;
+    rc = pull_replay_upload_result_data_message(ctx, &sink, p, len, toks);
+  } else {
+    // A host that must COPY: the records drained into its own 8-aligned memory in
+    // chunks of at least AK_BDR_MIN_CHUNK (reused), each replayed.
+    std::vector<uint64_t> &sc = t_pull_scratch_upload_result_data_message;
+    if (sc.size() * 8 < AK_BDR_MIN_CHUNK) sc.resize((AK_BDR_MIN_CHUNK + 7) / 8);
+    const size_t total = ak_bdr_footprint(ctx);
+    ak_bdr_count_forward(ctx, 1);  // footprint takes a const context: counted here (R5)
+    size_t cursor = 0;
+    while (cursor < total) {
+      intptr_t k = ak_bdr_drain(ctx, (uint8_t *)&sc[0], sc.size() * 8, &cursor);
+      if (k < 0) return (int32_t)k;
+      if (k == 0) break;
+      rc = pull_replay_upload_result_data_message(ctx, &sink, (const uint8_t *)&sc[0], (size_t)k, toks);
+      if (rc < 0) return rc;
+    }
+  }
+  if (rc < 0) return rc;
+  AK_HOST_CALL(); return ak_dec_err(ctx);  // what the host functions reported (ak_fail)
+}
+
+int32_t pull_with_upload_result_data_message(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out) {
+  return pull_impl_upload_result_data_message(ctx, b, n, out, false);
+}
+
+int32_t pull_drain_with_upload_result_data_message(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out) {
+  return pull_impl_upload_result_data_message(ctx, b, n, out, true);
 }
 
 struct Sink_ListMetricsResponse {
@@ -3339,6 +3718,91 @@ int32_t decode_with_list_metrics_response(ak_dec_ctx *ctx, const uint8_t *b, siz
   return decode_impl_list_metrics_response(ctx, b, n, out, NULL, NULL);
 }
 
+static int32_t pull_replay_list_metrics_response(ak_dec_ctx *ctx, void *obj, const uint8_t *r, size_t len, std::vector<int64_t> &toks) {
+  size_t at = 0;
+  while (at + sizeof(struct ak_bdr_rec) <= len) {
+    struct ak_bdr_rec h;
+    std::memcpy(&h, r + at, sizeof h);
+    const uint8_t *body = r + at + sizeof h;
+    at += sizeof h + (size_t)h.bytes;
+    if (at > len) break;
+    AK_PULL_RECORD();
+    switch (((uint64_t)h.op << 32) | h.slot) {
+      case ((uint64_t)AK_BDR_APPLY << 32) | 0u:
+        apply_list_metrics_response(ctx, obj, reinterpret_cast<const struct ak_dfix_ListMetricsResponse *>(body)); break;
+      case ((uint64_t)AK_BDR_NEW << 32) | 65536u:
+        toks.push_back(new_list_metrics_response_batches(ctx, obj)); break;
+      case ((uint64_t)AK_BDR_APPLY_ELEM << 32) | 65536u:
+        if ((size_t)h.token >= toks.size()) { ak_fail(ctx, AK_ERR_ABI, NULL, 0); return AK_ERR_ABI; }
+        pull_apply(apply_list_metrics_response_batches, ctx, obj, toks[(size_t)h.token], body); break;
+      case ((uint64_t)AK_BDR_ADD << 32) | 65537u:
+        if ((size_t)h.token >= toks.size()) { ak_fail(ctx, AK_ERR_ABI, NULL, 0); return AK_ERR_ABI; }
+        pull_add(add_list_metrics_response_batches_ticks, ctx, obj, toks[(size_t)h.token], body, h.n); break;
+      case ((uint64_t)AK_BDR_ADD << 32) | 65538u:
+        if ((size_t)h.token >= toks.size()) { ak_fail(ctx, AK_ERR_ABI, NULL, 0); return AK_ERR_ABI; }
+        pull_add(add_list_metrics_response_batches_values, ctx, obj, toks[(size_t)h.token], body, h.n); break;
+      case ((uint64_t)AK_BDR_ADD << 32) | 65539u:
+        if ((size_t)h.token >= toks.size()) { ak_fail(ctx, AK_ERR_ABI, NULL, 0); return AK_ERR_ABI; }
+        pull_add(add_list_metrics_response_batches_codes, ctx, obj, toks[(size_t)h.token], body, h.n); break;
+      case ((uint64_t)AK_BDR_ADD << 32) | 65540u:
+        if ((size_t)h.token >= toks.size()) { ak_fail(ctx, AK_ERR_ABI, NULL, 0); return AK_ERR_ABI; }
+        pull_add(add_list_metrics_response_batches_flags, ctx, obj, toks[(size_t)h.token], body, h.n); break;
+      case ((uint64_t)AK_BDR_ADD << 32) | 65541u:
+        if ((size_t)h.token >= toks.size()) { ak_fail(ctx, AK_ERR_ABI, NULL, 0); return AK_ERR_ABI; }
+        pull_add(add_list_metrics_response_batches_statuses, ctx, obj, toks[(size_t)h.token], body, h.n); break;
+      default:
+        ak_fail(ctx, AK_ERR_ABI, NULL, 0);
+        return AK_ERR_ABI;
+    }
+  }
+  return AK_OK;
+}
+
+static thread_local std::vector<int64_t> t_pull_toks_list_metrics_response;
+static thread_local std::vector<uint64_t> t_pull_scratch_list_metrics_response;
+static int32_t pull_impl_list_metrics_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out, bool drain) {
+  AK_INIT_OR_RETURN();
+  Sink_ListMetricsResponse sink;
+  sink.out = out;
+  sink.base = b;
+  int32_t rc = ak_parse_ListMetricsResponse(ctx, b, n);
+  if (rc < 0) return rc;
+  std::vector<int64_t> &toks = t_pull_toks_list_metrics_response;
+  toks.clear();
+  if (!drain) {
+    const uint8_t *p = NULL;
+    size_t len = 0;
+    rc = ak_bdr_ptr(ctx, &p, &len);
+    if (rc < 0) return rc;
+    rc = pull_replay_list_metrics_response(ctx, &sink, p, len, toks);
+  } else {
+    // A host that must COPY: the records drained into its own 8-aligned memory in
+    // chunks of at least AK_BDR_MIN_CHUNK (reused), each replayed.
+    std::vector<uint64_t> &sc = t_pull_scratch_list_metrics_response;
+    if (sc.size() * 8 < AK_BDR_MIN_CHUNK) sc.resize((AK_BDR_MIN_CHUNK + 7) / 8);
+    const size_t total = ak_bdr_footprint(ctx);
+    ak_bdr_count_forward(ctx, 1);  // footprint takes a const context: counted here (R5)
+    size_t cursor = 0;
+    while (cursor < total) {
+      intptr_t k = ak_bdr_drain(ctx, (uint8_t *)&sc[0], sc.size() * 8, &cursor);
+      if (k < 0) return (int32_t)k;
+      if (k == 0) break;
+      rc = pull_replay_list_metrics_response(ctx, &sink, (const uint8_t *)&sc[0], (size_t)k, toks);
+      if (rc < 0) return rc;
+    }
+  }
+  if (rc < 0) return rc;
+  AK_HOST_CALL(); return ak_dec_err(ctx);  // what the host functions reported (ak_fail)
+}
+
+int32_t pull_with_list_metrics_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out) {
+  return pull_impl_list_metrics_response(ctx, b, n, out, false);
+}
+
+int32_t pull_drain_with_list_metrics_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out) {
+  return pull_impl_list_metrics_response(ctx, b, n, out, true);
+}
+
 struct Sink_DualResponse {
   DualResponse *out;
   const uint8_t *base;
@@ -3396,6 +3860,75 @@ static int32_t decode_impl_dual_response(ak_dec_ctx *ctx, const uint8_t *b, size
 // ak_dec_ctx_new_DualResponse(NULL) (or last reset with NULL) drops every unknown field.
 int32_t decode_with_dual_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out) {
   return decode_impl_dual_response(ctx, b, n, out, NULL, NULL);
+}
+
+static int32_t pull_replay_dual_response(ak_dec_ctx *ctx, void *obj, const uint8_t *r, size_t len, std::vector<int64_t> &toks) {
+  size_t at = 0;
+  while (at + sizeof(struct ak_bdr_rec) <= len) {
+    struct ak_bdr_rec h;
+    std::memcpy(&h, r + at, sizeof h);
+    const uint8_t *body = r + at + sizeof h;
+    at += sizeof h + (size_t)h.bytes;
+    if (at > len) break;
+    AK_PULL_RECORD();
+    switch (((uint64_t)h.op << 32) | h.slot) {
+      case ((uint64_t)AK_BDR_APPLY << 32) | 0u:
+        apply_dual_response(ctx, obj, reinterpret_cast<const struct ak_dfix_DualResponse *>(body)); break;
+      case ((uint64_t)AK_BDR_ADD << 32) | 1u:
+        pull_add(add_dual_response_left, ctx, obj, h.token, body, h.n); break;
+      case ((uint64_t)AK_BDR_ADD << 32) | 2u:
+        pull_add(add_dual_response_right, ctx, obj, h.token, body, h.n); break;
+      default:
+        ak_fail(ctx, AK_ERR_ABI, NULL, 0);
+        return AK_ERR_ABI;
+    }
+  }
+  return AK_OK;
+}
+
+static thread_local std::vector<int64_t> t_pull_toks_dual_response;
+static thread_local std::vector<uint64_t> t_pull_scratch_dual_response;
+static int32_t pull_impl_dual_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out, bool drain) {
+  AK_INIT_OR_RETURN();
+  Sink_DualResponse sink;
+  sink.out = out;
+  sink.base = b;
+  int32_t rc = ak_parse_DualResponse(ctx, b, n);
+  if (rc < 0) return rc;
+  std::vector<int64_t> &toks = t_pull_toks_dual_response;
+  toks.clear();
+  if (!drain) {
+    const uint8_t *p = NULL;
+    size_t len = 0;
+    rc = ak_bdr_ptr(ctx, &p, &len);
+    if (rc < 0) return rc;
+    rc = pull_replay_dual_response(ctx, &sink, p, len, toks);
+  } else {
+    // A host that must COPY: the records drained into its own 8-aligned memory in
+    // chunks of at least AK_BDR_MIN_CHUNK (reused), each replayed.
+    std::vector<uint64_t> &sc = t_pull_scratch_dual_response;
+    if (sc.size() * 8 < AK_BDR_MIN_CHUNK) sc.resize((AK_BDR_MIN_CHUNK + 7) / 8);
+    const size_t total = ak_bdr_footprint(ctx);
+    ak_bdr_count_forward(ctx, 1);  // footprint takes a const context: counted here (R5)
+    size_t cursor = 0;
+    while (cursor < total) {
+      intptr_t k = ak_bdr_drain(ctx, (uint8_t *)&sc[0], sc.size() * 8, &cursor);
+      if (k < 0) return (int32_t)k;
+      if (k == 0) break;
+      rc = pull_replay_dual_response(ctx, &sink, (const uint8_t *)&sc[0], (size_t)k, toks);
+      if (rc < 0) return rc;
+    }
+  }
+  if (rc < 0) return rc;
+  AK_HOST_CALL(); return ak_dec_err(ctx);  // what the host functions reported (ak_fail)
+}
+
+int32_t pull_with_dual_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out) {
+  return pull_impl_dual_response(ctx, b, n, out, false);
+}
+
+int32_t pull_drain_with_dual_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out) {
+  return pull_impl_dual_response(ctx, b, n, out, true);
 }
 
 void dec_ctx_free(ak_dec_ctx *ctx) {

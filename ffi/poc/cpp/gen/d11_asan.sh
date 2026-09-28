@@ -51,7 +51,7 @@ mkdir -p "$A"
   echo
   echo "===== NO-UNKNOWN build: corpus_nounk_a17, four arms, every unknown row dropped, under ASan ====="
   ASAN_OPTIONS=detect_leaks=1 python3 gen/corpus_all.py "$A/corpus_nounk_a17" --timeout 60 \
-    --expect-dropped ffi-drop | grep -E '^## |^   pass|dropped form|^# rows|^CORPUS|FAIL|!!'
+    --expect-dropped ffi-drop,ffi-pull-drop | grep -E '^## |^   pass|dropped form|^# rows|^CORPUS|FAIL|!!'
   [ ${PIPESTATUS[0]} -eq 0 ] && echo ">>> ok: no-unknown corpus under ASan" || { echo ">>> FAIL: no-unknown corpus under ASan"; FAILS=$((FAILS+1)); }
   echo "d11_asan: $FAILS failure(s)"
 } > "$L/asan.log" 2>&1

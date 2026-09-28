@@ -71,7 +71,7 @@ ufam() { nm -D --defined-only "$1" 2>/dev/null | grep -cE ' (ak_uencode_|ak_uele
   echo
   echo "===== 4. the full corpus on the no-unknown build ====="
   for b in corpus_nounk_a17 corpus_nounk_c11; do
-    py gen/corpus_all.py "$B/$b" --expect-dropped ffi-drop --record "$S/$b.json" > "$S/k.log"; rc=$?
+    py gen/corpus_all.py "$B/$b" --expect-dropped ffi-drop,ffi-pull-drop --record "$S/$b.json" > "$S/k.log"; rc=$?
     grep -E '^## |^   pass|dropped form|^# rows|^CORPUS|FAIL' "$S/k.log" | sed 's/^/  /'
     [ $rc = 0 ] && ok "corpus $b" || bad "corpus $b"
   done

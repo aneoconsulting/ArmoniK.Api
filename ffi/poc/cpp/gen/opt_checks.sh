@@ -24,7 +24,7 @@ bad() { echo ">>> FAIL: $*"; F=$((F+1)); }
   done
   python3 gen/corpus_all.py "$B/corpus_all_a17" --timeout 60 --max-retain-gap U-map-entry > "$S/k" 2>&1; rc=$?
   grep -E '^   pass|^CORPUS' "$S/k" | sed 's/^/  full corpus: /'; [ $rc = 0 ] || bad "corpus full"
-  python3 gen/corpus_all.py "$B/corpus_nounk_a17" --timeout 60 --expect-dropped ffi-drop > "$S/k" 2>&1; rc=$?
+  python3 gen/corpus_all.py "$B/corpus_nounk_a17" --timeout 60 --expect-dropped ffi-drop,ffi-pull-drop > "$S/k" 2>&1; rc=$?
   grep -E '^   pass|^CORPUS' "$S/k" | sed 's/^/  nounk corpus: /'; [ $rc = 0 ] || bad "corpus nounk"
   python3 gen/u_rows.py ../../corpus/generated "$S/rows.tsv" 2>/dev/null
   for v in full nounk; do

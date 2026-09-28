@@ -332,6 +332,25 @@ template <class Fac> struct Bor;
 AK_ROOTS(BOR)
 #undef BOR
 
+// X-2 (2026-09-28): the pull family (ABI v1 section 7.1) per root: walk in place, drop and
+// retain; the drained form for the value gate.
+template <class Fac> struct Pull;
+#ifdef AK_NO_UNKNOWN_FIELDS
+#define AK_PULL_RETAIN(sroot) NULL
+#else
+#define AK_PULL_RETAIN(sroot) &shapes::ffi::pull_with_##sroot##_unk
+#endif
+#define PULL(Root, sroot)                                                                        \
+  template <> struct Pull<shapes::Root> {                                                       \
+    typedef int32_t (*Fn)(ak_dec_ctx *, const uint8_t *, size_t, shapes::Root *);                \
+    static Fn walk() { return &shapes::ffi::pull_with_##sroot; }                                \
+    static Fn drain() { return &shapes::ffi::pull_drain_with_##sroot; }                          \
+    static Fn walk_retain() { return AK_PULL_RETAIN(sroot); }                                    \
+  };
+AK_ROOTS(PULL)
+#undef PULL
+int g_pull_gate_fail = 0;
+
 // H-8: what cells D and F do with a response ByteBuffer (campaign_rpc.cpp): since R-2,
 // bb_contig (one slice in place, several copied into a reused buffer).
 template <class Fac, class Dec>
@@ -397,6 +416,26 @@ Group make_group(const std::string &payload, const std::string &content, const s
   Pb ref;
   ref.ParseFromArray(cb, (int)cn);
   const uint64_t want_fold = pbtouch::touch(ref);
+
+  // X-2's gate (ABI v1 7.1: pull is gated by VALUE identity against push): on EVERY group
+  // (payloads, content sets, U-* rows), in each unknown-field mode, push's facade and pull's
+  // (walked, and drained) must be equal.
+  for (int r = 0; r < 2; ++r) {
+    typename Pull<Fac>::Fn pw = r ? Pull<Fac>::walk_retain() : Pull<Fac>::walk();
+    int32_t (*pd)(ak_dec_ctx *, const uint8_t *, size_t, Fac *) = r ? F.ffi_dec_retain : F.ffi_dec;
+    if (!pw || !pd) continue;
+    ak_dec_ctx *dc = r ? cx->dcsr->of<Fac>() : cx->dcs->of<Fac>();
+    Fac a, b, c;
+    int32_t ra = pd(dc, cbf, cn, &a);  // the plant (AK_CAMPAIGN_PLANT) changes push's input only
+    int32_t rb = pw(dc, cb, cn, &b);
+    int32_t rc = r ? 0 : Pull<Fac>::drain()(dc, cb, cn, &c);
+    bool ok = ra == 0 && rb == 0 && rc == 0 && a == b && (r || a == c);
+    if (!ok) {
+      ++g_pull_gate_fail;
+      std::printf("GATE FAIL %s %s core-ffi-pull %s: push %d, pull walk %d, drain %d, value %s\n", payload.c_str(),
+                  content.c_str(), r ? "retain" : AK_FFI_DROP_MODE, ra, rb, rc, a == b ? "equal" : "DIFFERS");
+    }
+  }
 
   if (fac && pb) {
     // ---- encode: every arm in its end states x {hot, pool} (req. 11)
@@ -644,6 +683,26 @@ Group make_group(const std::string &payload, const std::string &content, const s
         }});
       }
     }
+    // core-ffi-pull (X-2): the pull family walked in place, drop (no-unknown) and retain.
+    for (int r = 0; r < 2; ++r) {
+      typename Pull<Fac>::Fn pw = r ? Pull<Fac>::walk_retain() : Pull<Fac>::walk();
+      if (!pw) continue;
+      shapes::ffi::DecCtxs *pc = r ? cx->dcsr : cx->dcs;
+      g.slots.push_back({"core-ffi-pull", dir, r ? "retain" : AK_FFI_DROP_MODE, [pw, pc, cb, cn, read](long n) {
+        uint64_t h = 0;
+        for (long i = 0; i < n; ++i) {
+          Fac v;
+          h += (uint64_t)pw(pc->of<Fac>(), cb, cn, &v);
+          if (read) h += shapes::touch::touch(v); else AK_KEEP(v);
+        }
+        return h;
+      }, [pw, pc, cb, cn, want_fold]() -> std::string {
+        Fac v;
+        int32_t rc = pw(pc->of<Fac>(), cb, cn, &v);
+        if (rc != 0 || ak_dec_err(pc->of<Fac>()) != 0) { ak_dec_err_reset(pc->of<Fac>()); return "pull decode refused"; }
+        return shapes::touch::touch(v) == want_fold ? "" : "field fold differs from the incumbent's";
+      }});
+    }
     // from=bytebuffer (H-8): the core arms and host-gen decoding from a grpc::ByteBuffer, as
     // incumbent-prod does and as cells D and F do (bb_decode: exactly their response path).
     std::vector<std::pair<std::string, std::function<int32_t(const uint8_t *, size_t, Fac *)> > > bbd;
@@ -654,6 +713,13 @@ Group make_group(const std::string &payload, const std::string &content, const s
       bbd.push_back(std::make_pair(std::string("core-ffi|retain"),
           std::function<int32_t(const uint8_t *, size_t, Fac *)>([F, cx](const uint8_t *p, size_t len, Fac *v) {
             return F.ffi_dec_retain(cx->dcsr->of<Fac>(), p, len, v); })));
+    bbd.push_back(std::make_pair(std::string("core-ffi-pull|") + AK_FFI_DROP_MODE,
+        std::function<int32_t(const uint8_t *, size_t, Fac *)>([cx](const uint8_t *p, size_t len, Fac *v) {
+          return Pull<Fac>::walk()(cx->dcs->of<Fac>(), p, len, v); })));
+    if (Pull<Fac>::walk_retain())
+      bbd.push_back(std::make_pair(std::string("core-ffi-pull|retain"),
+          std::function<int32_t(const uint8_t *, size_t, Fac *)>([cx](const uint8_t *p, size_t len, Fac *v) {
+            return Pull<Fac>::walk_retain()(cx->dcsr->of<Fac>(), p, len, v); })));
     bbd.push_back(std::make_pair(std::string("host-gen|") + AK_HOSTGEN_DROP_MODE,
         std::function<int32_t(const uint8_t *, size_t, Fac *)>(F.nat_dec)));
     if (F.natr_dec)
@@ -880,8 +946,10 @@ int main(int argc, char **argv) {
       }
     }
   }
+  gate_fail += g_pull_gate_fail;
   std::printf("# {\"campaign_codec_gate\": {\"groups\": %zu, \"slots\": %zu, \"failed\": %d,"
-              " \"ffi_retain\": \"%s\"}}\n", groups.size(), nslots, gate_fail, AK_FFI_RETAIN_STATE);
+              " \"ffi_retain\": \"%s\", \"pull_value_gate\": \"push = pull walked = pull drained on every group and mode, %d failed\"}}\n",
+              groups.size(), nslots, gate_fail, AK_FFI_RETAIN_STATE, g_pull_gate_fail);
   if (gate_fail) {
     std::printf("# GATE FAILED: nothing is timed\n");
     return 2;

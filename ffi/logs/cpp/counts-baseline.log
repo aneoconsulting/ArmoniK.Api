@@ -1,4 +1,8 @@
 # cpp slice: the committed crossing counts, full build (the campaign gate and wp5_gate/nounk_gate compare every '  P'/'  U' row).
+# Re-taken 2026-09-28 for the optimisation unit's step 8d (X-2, the pull family): NEW rows only, 'decode pull' (walked in
+#   place), 'decode pull drained' (ak_bdr_footprint + ak_bdr_drain in AK_BDR_MIN_CHUNK chunks) and, full build, 'decode
+#   pull retain', per payload: reverse 0 and records = push's reverse count (ABI v1 7.1's invariant, checked on each row);
+#   every existing row is identical to the previous file (diffed before replacing it).
 # Re-taken 2026-09-27 for FIX-PLAN WP8 (CAMPAIGN req 19 as amended; ABI v1 decision 11 rules 7 and 8):
 #   - a retain decode makes ONE ak_dec_reset_<Root> (before it; the options stay at a stable per-thread address and the
 #     context stays armed), not two: every 'decode retain' row is 1 forward lower (107 rows, full build);
@@ -22,6 +26,9 @@ ak_enc_take after an encode. Retain: no pre-placed buffer, geometric grow (rule 
   P1.1   encode retain          forward      4  reverse      1  transcode       24   per element  1.000 /  0.250   (core 2 + host 1 + take 1)
   P1.1   decode                 forward      1  reverse      2  transcode        0   per element  0.250 /  0.500   (core 1 + host 0 + take 0)
   P1.1   decode retain          forward      2  reverse      2  transcode        0   per element  0.500 /  0.500   (core 1 + host 1 + take 0)
+  P1.1   decode pull            forward      3  reverse      0  records      2  (core 2 + host 1)  records = push reverse
+  P1.1   decode pull drained    forward      4  reverse      0  records      2  (core 3 + host 1)  records = push reverse
+  P1.1   decode pull retain     forward      4  reverse      0  records      2  (core 2 + host 2)  records = push reverse
   P1.2   encode                 forward     10  reverse      1  transcode     6000   per element  0.010 /  0.001   (core 8 + host 1 + take 1)
   P1.2   encode zeroed-fill     forward     10  reverse      1  transcode     6000   per element  0.010 /  0.001   (core 8 + host 1 + take 1)
   P1.2   encode UNBATCHED       forward   1003  reverse      1  transcode     6000   per element  1.003 /  0.001   (core 1001 + host 1 + take 1)
@@ -29,6 +36,9 @@ ak_enc_take after an encode. Retain: no pre-placed buffer, geometric grow (rule 
   P1.2   encode retain          forward     12  reverse      1  transcode     6000   per element  0.012 /  0.001   (core 10 + host 1 + take 1)
   P1.2   decode                 forward      1  reverse      8  transcode        0   per element  0.001 /  0.008   (core 1 + host 0 + take 0)
   P1.2   decode retain          forward      2  reverse      8  transcode        0   per element  0.002 /  0.008   (core 1 + host 1 + take 0)
+  P1.2   decode pull            forward      3  reverse      0  records      8  (core 2 + host 1)  records = push reverse
+  P1.2   decode pull drained    forward     10  reverse      0  records      8  (core 9 + host 1)  records = push reverse
+  P1.2   decode pull retain     forward      4  reverse      0  records      8  (core 2 + host 2)  records = push reverse
   P1.3   encode                 forward      5  reverse      1  transcode        0   per element  0.017 /  0.003   (core 3 + host 1 + take 1)
   P1.3   encode zeroed-fill     forward      5  reverse      1  transcode        0   per element  0.017 /  0.003   (core 3 + host 1 + take 1)
   P1.3   encode UNBATCHED       forward    303  reverse      1  transcode        0   per element  1.010 /  0.003   (core 301 + host 1 + take 1)
@@ -36,6 +46,9 @@ ak_enc_take after an encode. Retain: no pre-placed buffer, geometric grow (rule 
   P1.3   encode retain          forward      6  reverse      1  transcode        0   per element  0.020 /  0.003   (core 4 + host 1 + take 1)
   P1.3   decode                 forward      1  reverse      3  transcode        0   per element  0.003 /  0.010   (core 1 + host 0 + take 0)
   P1.3   decode retain          forward      2  reverse      3  transcode        0   per element  0.007 /  0.010   (core 1 + host 1 + take 0)
+  P1.3   decode pull            forward      3  reverse      0  records      3  (core 2 + host 1)  records = push reverse
+  P1.3   decode pull drained    forward      5  reverse      0  records      3  (core 4 + host 1)  records = push reverse
+  P1.3   decode pull retain     forward      4  reverse      0  records      3  (core 2 + host 2)  records = push reverse
   P2.1   encode                 forward      9  reverse      6  transcode       35   per element  9.000 /  6.000   (core 7 + host 1 + take 1)
   P2.1   encode zeroed-fill     forward      9  reverse      6  transcode       35   per element  9.000 /  6.000   (core 7 + host 1 + take 1)
   P2.1   encode UNBATCHED       forward     20  reverse      6  transcode       35   per element 20.000 /  6.000   (core 18 + host 1 + take 1)
@@ -43,6 +56,9 @@ ak_enc_take after an encode. Retain: no pre-placed buffer, geometric grow (rule 
   P2.1   encode retain          forward      9  reverse      6  transcode       35   per element  9.000 /  6.000   (core 7 + host 1 + take 1)
   P2.1   decode                 forward      1  reverse      8  transcode        0   per element  1.000 /  8.000   (core 1 + host 0 + take 0)
   P2.1   decode retain          forward      2  reverse      8  transcode        0   per element  2.000 /  8.000   (core 1 + host 1 + take 0)
+  P2.1   decode pull            forward      3  reverse      0  records      8  (core 2 + host 1)  records = push reverse
+  P2.1   decode pull drained    forward      4  reverse      0  records      8  (core 3 + host 1)  records = push reverse
+  P2.1   decode pull retain     forward      4  reverse      0  records      8  (core 2 + host 2)  records = push reverse
   P2.2   encode                 forward   2513  reverse   2501  transcode    17167   per element  5.026 /  5.002   (core 2511 + host 1 + take 1)
   P2.2   encode zeroed-fill     forward   2513  reverse   2501  transcode    17167   per element  5.026 /  5.002   (core 2511 + host 1 + take 1)
   P2.2   encode UNBATCHED       forward   8503  reverse   2501  transcode    17167   per element 17.006 /  5.002   (core 8501 + host 1 + take 1)
@@ -50,6 +66,9 @@ ak_enc_take after an encode. Retain: no pre-placed buffer, geometric grow (rule 
   P2.2   encode retain          forward   2519  reverse   2501  transcode    17167   per element  5.038 /  5.002   (core 2517 + host 1 + take 1)
   P2.2   decode                 forward      1  reverse   3501  transcode        0   per element  0.002 /  7.002   (core 1 + host 0 + take 0)
   P2.2   decode retain          forward      2  reverse   3501  transcode        0   per element  0.004 /  7.002   (core 1 + host 1 + take 0)
+  P2.2   decode pull            forward      3  reverse      0  records   3501  (core 2 + host 1)  records = push reverse
+  P2.2   decode pull drained    forward     24  reverse      0  records   3501  (core 23 + host 1)  records = push reverse
+  P2.2   decode pull retain     forward      4  reverse      0  records   3501  (core 2 + host 2)  records = push reverse
   P2.3   encode                 forward    631  reverse    626  transcode    17792   per element  5.048 /  5.008   (core 629 + host 1 + take 1)
   P2.3   encode zeroed-fill     forward    631  reverse    626  transcode    17792   per element  5.048 /  5.008   (core 629 + host 1 + take 1)
   P2.3   encode UNBATCHED       forward  15628  reverse    626  transcode    17792   per element 125.024 /  5.008   (core 15626 + host 1 + take 1)
@@ -57,6 +76,9 @@ ak_enc_take after an encode. Retain: no pre-placed buffer, geometric grow (rule 
   P2.3   encode retain          forward    632  reverse    626  transcode    17792   per element  5.056 /  5.008   (core 630 + host 1 + take 1)
   P2.3   decode                 forward      1  reverse    876  transcode        0   per element  0.008 /  7.008   (core 1 + host 0 + take 0)
   P2.3   decode retain          forward      2  reverse    876  transcode        0   per element  0.016 /  7.008   (core 1 + host 1 + take 0)
+  P2.3   decode pull            forward      3  reverse      0  records    876  (core 2 + host 1)  records = push reverse
+  P2.3   decode pull drained    forward     13  reverse      0  records    876  (core 12 + host 1)  records = push reverse
+  P2.3   decode pull retain     forward      4  reverse      0  records    876  (core 2 + host 2)  records = push reverse
   P2.4   encode                 forward    405  reverse    401  transcode    26267   per element  5.062 /  5.013   (core 403 + host 1 + take 1)
   P2.4   encode zeroed-fill     forward    405  reverse    401  transcode    26267   per element  5.062 /  5.013   (core 403 + host 1 + take 1)
   P2.4   encode UNBATCHED       forward  24883  reverse    401  transcode    26267   per element 311.038 /  5.013   (core 24881 + host 1 + take 1)
@@ -64,6 +86,9 @@ ak_enc_take after an encode. Retain: no pre-placed buffer, geometric grow (rule 
   P2.4   encode retain          forward    406  reverse    401  transcode    26267   per element  5.075 /  5.013   (core 404 + host 1 + take 1)
   P2.4   decode                 forward      1  reverse    561  transcode        0   per element  0.013 /  7.013   (core 1 + host 0 + take 0)
   P2.4   decode retain          forward      2  reverse    561  transcode        0   per element  0.025 /  7.013   (core 1 + host 1 + take 0)
+  P2.4   decode pull            forward      3  reverse      0  records    561  (core 2 + host 1)  records = push reverse
+  P2.4   decode pull drained    forward     15  reverse      0  records    561  (core 14 + host 1)  records = push reverse
+  P2.4   decode pull retain     forward      4  reverse      0  records    561  (core 2 + host 2)  records = push reverse
   P2.5   encode                 forward    104  reverse    101  transcode      640   per element  5.200 /  5.050   (core 102 + host 1 + take 1)
   P2.5   encode zeroed-fill     forward    104  reverse    101  transcode      640   per element  5.200 /  5.050   (core 102 + host 1 + take 1)
   P2.5   encode UNBATCHED       forward    343  reverse    101  transcode      640   per element 17.150 /  5.050   (core 341 + host 1 + take 1)
@@ -71,6 +96,9 @@ ak_enc_take after an encode. Retain: no pre-placed buffer, geometric grow (rule 
   P2.5   encode retain          forward    104  reverse    101  transcode      640   per element  5.200 /  5.050   (core 102 + host 1 + take 1)
   P2.5   decode                 forward      1  reverse    141  transcode        0   per element  0.050 /  7.050   (core 1 + host 0 + take 0)
   P2.5   decode retain          forward      2  reverse    141  transcode        0   per element  0.100 /  7.050   (core 1 + host 1 + take 0)
+  P2.5   decode pull            forward      3  reverse      0  records    141  (core 2 + host 1)  records = push reverse
+  P2.5   decode pull drained    forward      4  reverse      0  records    141  (core 3 + host 1)  records = push reverse
+  P2.5   decode pull retain     forward      4  reverse      0  records    141  (core 2 + host 2)  records = push reverse
   P3.1   encode                 forward      4  reverse      1  transcode      430   per element  0.020 /  0.005   (core 2 + host 1 + take 1)
   P3.1   encode zeroed-fill     forward      4  reverse      1  transcode      430   per element  0.020 /  0.005   (core 2 + host 1 + take 1)
   P3.1   encode UNBATCHED       forward    203  reverse      1  transcode      430   per element  1.015 /  0.005   (core 201 + host 1 + take 1)
@@ -78,6 +106,9 @@ ak_enc_take after an encode. Retain: no pre-placed buffer, geometric grow (rule 
   P3.1   encode retain          forward      5  reverse      1  transcode      430   per element  0.025 /  0.005   (core 3 + host 1 + take 1)
   P3.1   decode                 forward      1  reverse      2  transcode        0   per element  0.005 /  0.010   (core 1 + host 0 + take 0)
   P3.1   decode retain          forward      2  reverse      2  transcode        0   per element  0.010 /  0.010   (core 1 + host 1 + take 0)
+  P3.1   decode pull            forward      3  reverse      0  records      2  (core 2 + host 1)  records = push reverse
+  P3.1   decode pull drained    forward      4  reverse      0  records      2  (core 3 + host 1)  records = push reverse
+  P3.1   decode pull retain     forward      4  reverse      0  records      2  (core 2 + host 2)  records = push reverse
   P4.1   encode                 forward    205  reverse    201  transcode     3467   per element  1.025 /  1.005   (core 203 + host 1 + take 1)
   P4.1   encode zeroed-fill     forward    205  reverse    201  transcode     3467   per element  1.025 /  1.005   (core 203 + host 1 + take 1)
   P4.1   encode UNBATCHED       forward   1003  reverse    201  transcode     3467   per element  5.015 /  1.005   (core 1001 + host 1 + take 1)
@@ -85,6 +116,9 @@ ak_enc_take after an encode. Retain: no pre-placed buffer, geometric grow (rule 
   P4.1   encode retain          forward    206  reverse    201  transcode     3467   per element  1.030 /  1.005   (core 204 + host 1 + take 1)
   P4.1   decode                 forward      1  reverse    601  transcode        0   per element  0.005 /  3.005   (core 1 + host 0 + take 0)
   P4.1   decode retain          forward      2  reverse    601  transcode        0   per element  0.010 /  3.005   (core 1 + host 1 + take 0)
+  P4.1   decode pull            forward      3  reverse      0  records    601  (core 2 + host 1)  records = push reverse
+  P4.1   decode pull drained    forward      7  reverse      0  records    601  (core 6 + host 1)  records = push reverse
+  P4.1   decode pull retain     forward      4  reverse      0  records    601  (core 2 + host 2)  records = push reverse
   P5.1   encode                 forward      3  reverse      0  transcode        2   per element  3.000 /  0.000   (core 1 + host 1 + take 1)
   P5.1   encode zeroed-fill     forward      3  reverse      0  transcode        2   per element  3.000 /  0.000   (core 1 + host 1 + take 1)
   P5.1   encode UNBATCHED       forward      3  reverse      0  transcode        2   per element  3.000 /  0.000   (core 1 + host 1 + take 1)
@@ -92,6 +126,9 @@ ak_enc_take after an encode. Retain: no pre-placed buffer, geometric grow (rule 
   P5.1   encode retain          forward      3  reverse      0  transcode        2   per element  3.000 /  0.000   (core 1 + host 1 + take 1)
   P5.1   decode                 forward      1  reverse      1  transcode        0   per element  1.000 /  1.000   (core 1 + host 0 + take 0)
   P5.1   decode retain          forward      2  reverse      1  transcode        0   per element  2.000 /  1.000   (core 1 + host 1 + take 0)
+  P5.1   decode pull            forward      3  reverse      0  records      1  (core 2 + host 1)  records = push reverse
+  P5.1   decode pull drained    forward      4  reverse      0  records      1  (core 3 + host 1)  records = push reverse
+  P5.1   decode pull retain     forward      4  reverse      0  records      1  (core 2 + host 2)  records = push reverse
   P5.2   encode                 forward      3  reverse      0  transcode        2   per element  3.000 /  0.000   (core 1 + host 1 + take 1)
   P5.2   encode zeroed-fill     forward      3  reverse      0  transcode        2   per element  3.000 /  0.000   (core 1 + host 1 + take 1)
   P5.2   encode UNBATCHED       forward      3  reverse      0  transcode        2   per element  3.000 /  0.000   (core 1 + host 1 + take 1)
@@ -99,6 +136,9 @@ ak_enc_take after an encode. Retain: no pre-placed buffer, geometric grow (rule 
   P5.2   encode retain          forward      3  reverse      0  transcode        2   per element  3.000 /  0.000   (core 1 + host 1 + take 1)
   P5.2   decode                 forward      1  reverse      1  transcode        0   per element  1.000 /  1.000   (core 1 + host 0 + take 0)
   P5.2   decode retain          forward      2  reverse      1  transcode        0   per element  2.000 /  1.000   (core 1 + host 1 + take 0)
+  P5.2   decode pull            forward      3  reverse      0  records      1  (core 2 + host 1)  records = push reverse
+  P5.2   decode pull drained    forward      4  reverse      0  records      1  (core 3 + host 1)  records = push reverse
+  P5.2   decode pull retain     forward      4  reverse      0  records      1  (core 2 + host 2)  records = push reverse
   P5.3   encode                 forward      3  reverse      0  transcode        2   per element  3.000 /  0.000   (core 1 + host 1 + take 1)
   P5.3   encode zeroed-fill     forward      3  reverse      0  transcode        2   per element  3.000 /  0.000   (core 1 + host 1 + take 1)
   P5.3   encode UNBATCHED       forward      3  reverse      0  transcode        2   per element  3.000 /  0.000   (core 1 + host 1 + take 1)
@@ -106,6 +146,9 @@ ak_enc_take after an encode. Retain: no pre-placed buffer, geometric grow (rule 
   P5.3   encode retain          forward      3  reverse      0  transcode        2   per element  3.000 /  0.000   (core 1 + host 1 + take 1)
   P5.3   decode                 forward      1  reverse      1  transcode        0   per element  1.000 /  1.000   (core 1 + host 0 + take 0)
   P5.3   decode retain          forward      2  reverse      1  transcode        0   per element  2.000 /  1.000   (core 1 + host 1 + take 0)
+  P5.3   decode pull            forward      3  reverse      0  records      1  (core 2 + host 1)  records = push reverse
+  P5.3   decode pull drained    forward      4  reverse      0  records      1  (core 3 + host 1)  records = push reverse
+  P5.3   decode pull retain     forward      4  reverse      0  records      1  (core 2 + host 2)  records = push reverse
   P5.4   encode                 forward      3  reverse      0  transcode        2   per element  3.000 /  0.000   (core 1 + host 1 + take 1)
   P5.4   encode zeroed-fill     forward      3  reverse      0  transcode        2   per element  3.000 /  0.000   (core 1 + host 1 + take 1)
   P5.4   encode UNBATCHED       forward      3  reverse      0  transcode        2   per element  3.000 /  0.000   (core 1 + host 1 + take 1)
@@ -113,6 +156,9 @@ ak_enc_take after an encode. Retain: no pre-placed buffer, geometric grow (rule 
   P5.4   encode retain          forward      3  reverse      0  transcode        2   per element  3.000 /  0.000   (core 1 + host 1 + take 1)
   P5.4   decode                 forward      1  reverse      1  transcode        0   per element  1.000 /  1.000   (core 1 + host 0 + take 0)
   P5.4   decode retain          forward      2  reverse      1  transcode        0   per element  2.000 /  1.000   (core 1 + host 1 + take 0)
+  P5.4   decode pull            forward      3  reverse      0  records      1  (core 2 + host 1)  records = push reverse
+  P5.4   decode pull drained    forward      4  reverse      0  records      1  (core 3 + host 1)  records = push reverse
+  P5.4   decode pull retain     forward      4  reverse      0  records      1  (core 2 + host 2)  records = push reverse
   P6.1   encode                 forward   1004  reverse   1001  transcode      200   per element  5.020 /  5.005   (core 1002 + host 1 + take 1)
   P6.1   encode zeroed-fill     forward   1004  reverse   1001  transcode      200   per element  5.020 /  5.005   (core 1002 + host 1 + take 1)
   P6.1   encode UNBATCHED       forward   1203  reverse   1001  transcode      200   per element  6.015 /  5.005   (core 1201 + host 1 + take 1)
@@ -120,6 +166,9 @@ ak_enc_take after an encode. Retain: no pre-placed buffer, geometric grow (rule 
   P6.1   encode retain          forward   1004  reverse   1001  transcode      200   per element  5.020 /  5.005   (core 1002 + host 1 + take 1)
   P6.1   decode                 forward      1  reverse   1401  transcode        0   per element  0.005 /  7.005   (core 1 + host 0 + take 0)
   P6.1   decode retain          forward      2  reverse   1401  transcode        0   per element  0.010 /  7.005   (core 1 + host 1 + take 0)
+  P6.1   decode pull            forward      3  reverse      0  records   1401  (core 2 + host 1)  records = push reverse
+  P6.1   decode pull drained    forward      9  reverse      0  records   1401  (core 8 + host 1)  records = push reverse
+  P6.1   decode pull retain     forward      4  reverse      0  records   1401  (core 2 + host 2)  records = push reverse
 
 -- the corpus's U-* rows at the shapes roots (req 7, req 19) --
   U-deep-all decode                 forward      1  reverse      8  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)

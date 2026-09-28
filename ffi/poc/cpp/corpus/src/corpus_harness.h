@@ -28,7 +28,8 @@
 
 namespace corpus {
 
-enum Arm { kFfiDrop, kFfiRetain, kNativeDrop, kNativeRetain };
+// X-2 (2026-09-28): the pull family as two more arms (walk in place, drop and retain).
+enum Arm { kFfiDrop, kFfiRetain, kNativeDrop, kNativeRetain, kFfiPullDrop, kFfiPullRetain };
 
 struct Outcome {
   enum Kind { kOk, kErr, kNotInAbi, kNotBuilt, kUnknownRoot } kind;

@@ -127,6 +127,8 @@ struct Cell {
   Mode mode;
   std::string label;
   bool framed;  // B, C, E: the core's FRAMED send path (ak_client_set_framed), beside the reference
+  bool pull = false;  // X-2: C and D decoding with the PULL family (labelled extra cells Cp-*, Dp-*,
+                      // directions a and a+read only)
 };
 const char *mode_name(Mode m) {
   return m == kRetain ? "retain" : m == kDrop ? "drop" : m == kNoUnk ? "no-unknown" : "default";
@@ -143,6 +145,15 @@ std::vector<Cell> parse_cells(const std::string &spec) {
       // Every send path that exists runs beside its reference (req. 14, ABI v1 section 9):
       // the core's cells B, C and E have a framed twin (Bf, Cf-*, Ef-*).
       const int twins = (c == 'B' || c == 'C' || c == 'E') ? 2 : 1;
+      if (c == 'C' || c == 'D') {  // X-2: the pull twins, labelled extra cells
+        std::string base = std::string(1, c) + "p";
+#ifdef AK_NO_UNKNOWN_FIELDS
+        out.push_back(Cell{c, kNoUnk, base + "-nounk", false, true});
+#else
+        out.push_back(Cell{c, kRetain, base + "-retain", false, true});
+        out.push_back(Cell{c, kDrop, base + "-drop", false, true});
+#endif
+      }
       for (int f = 0; f < twins; ++f) {
         std::string base = std::string(1, c) + (f ? "f" : "");
         if (c == 'C' || c == 'D' || c == 'E' || c == 'F') {
@@ -165,11 +176,12 @@ std::vector<Cell> parse_cells(const std::string &spec) {
     std::string l = spec.substr(p, q == std::string::npos ? std::string::npos : q - p);
     if (!l.empty()) {
       const bool fr = l.size() > 1 && l[1] == 'f';
-      const std::string rest = l.substr(fr ? 2 : 1);
+      const bool pu = l.size() > 1 && l[1] == 'p';
+      const std::string rest = l.substr((fr || pu) ? 2 : 1);
       Mode m = rest.empty() ? kDefault
                : rest == "-retain" ? kRetain
                : rest == "-nounk" ? kNoUnk : kDrop;
-      out.push_back(Cell{l[0], m, l, fr});
+      out.push_back(Cell{l[0], m, l, fr, pu});
     }
     if (q == std::string::npos) break;
     p = q + 1;
@@ -350,7 +362,16 @@ int32_t codec_encode(char base, Mode m, ThreadCtx &tc, const Fac &v, const uint8
   return tc.ne->err;
 }
 
-int32_t codec_decode(char base, Mode m, ThreadCtx &tc, const uint8_t *p, size_t n, Fac *f) {
+int32_t codec_decode(char base, Mode m, ThreadCtx &tc, const uint8_t *p, size_t n, Fac *f, bool pull = false) {
+  if (core_codec(base) && pull) {  // X-2: the pull family, walked in place
+#ifdef AK_NO_UNKNOWN_FIELDS
+    (void)m;
+    return shapes::ffi::pull_with_list_tasks_detailed_response(tc.dc, p, n, f);
+#else
+    return m == kRetain ? shapes::ffi::pull_with_list_tasks_detailed_response_unk(tc.dcr, p, n, f)
+                        : shapes::ffi::pull_with_list_tasks_detailed_response(tc.dc, p, n, f);
+#endif
+  }
   if (core_codec(base)) {
 #ifdef AK_NO_UNKNOWN_FIELDS
     (void)m;
@@ -617,7 +638,7 @@ long cell_call(World &w, size_t ci, const Job &job, int t, ThreadCtx &tc) {
       n = read ? (long)pbtouch::touch(m) : m.tasks_size();
     } else {
       Fac f;
-      int32_t drc = codec_decode(cell, cl.mode, tc, out.ptr, out.len, &f);
+      int32_t drc = codec_decode(cell, cl.mode, tc, out.ptr, out.len, &f, cl.pull);
       if (drc != 0) die("C/E a decode", drc);
       n = read ? (long)shapes::touch::touch(f) : (long)f.tasks.size();
     }
@@ -651,7 +672,7 @@ long cell_call(World &w, size_t ci, const Job &job, int t, ThreadCtx &tc) {
   size_t len = 0;
   if (!bb_contig(rsp, tc.bbf, &p, &len)) die("D/F a dump", 0);
   Fac f;
-  int32_t drc = codec_decode(cell, cl.mode, tc, p, len, &f);
+  int32_t drc = codec_decode(cell, cl.mode, tc, p, len, &f, cl.pull);
   if (drc != 0) die("D/F a decode", drc);
   return read ? (long)shapes::touch::touch(f) : (long)f.tasks.size();
 }
@@ -769,6 +790,7 @@ int count_cells(World &w, int n) {
   for (size_t ci = 0; ci < w.cells.size(); ++ci) {
     const Cell &cl = w.cells[ci];
     if (cl.base != 'B' && cl.base != 'C' && cl.base != 'D' && cl.base != 'E') continue;
+    if (cl.pull) continue;  // X-2's pull twins: their crossings are the codec suite's pull rows
     for (size_t ji = 0; ji < jobs.size(); ++ji) {
       const Job &j = jobs[ji];
       const int calls = j.dir == 'd' ? (n > 1 ? n / 2 : 1) : n;
@@ -897,6 +919,7 @@ int main(int argc, char **argv) {
     bool coded = cl.base >= 'C' && cl.base <= 'F';
     if (std::string("ABCDEF").find(cl.base) == std::string::npos || coded != (cl.mode != kDefault)
         || (cl.framed && cl.base != 'B' && cl.base != 'C' && cl.base != 'E')
+        || (cl.pull && cl.base != 'C' && cl.base != 'D')
 #ifdef AK_NO_UNKNOWN_FIELDS
         || cl.mode == kRetain || cl.mode == kDrop
 #else
@@ -949,7 +972,7 @@ int main(int argc, char **argv) {
       ak_bytes_free(&out);
       if (grpc_cell(cl.base)) ak_client_destroy(pc);
       Fac f;
-      int32_t drc = codec_decode(cl.base, cl.mode, tc, (const uint8_t *)wire.data(), wire.size(), &f);
+      int32_t drc = codec_decode(cl.base, cl.mode, tc, (const uint8_t *)wire.data(), wire.size(), &f, cl.pull);
       if (drc != 0) die("pre-check decode", drc);
       const uint8_t *q = NULL;
       size_t qn = 0;
@@ -990,7 +1013,8 @@ int main(int argc, char **argv) {
   if (std::string(c.dirs).find('d') != std::string::npos) {
     ThreadCtx tc;
     for (size_t i = 0; i < w.cells.size(); ++i)
-      for (int pi = 0; pi < 2; ++pi) stream_call(w, i, pi, 0, tc, true);
+      if (!w.cells[i].pull)  // the pull twins run a and a+read only
+        for (int pi = 0; pi < 2; ++pi) stream_call(w, i, pi, 0, tc, true);
   }
   // Cell A's wire length, once, before the rounds.
   for (size_t i = 0; i < w.cells.size(); ++i) {
@@ -1082,9 +1106,10 @@ int main(int argc, char **argv) {
       if (!job_runs(w.jobs[ji], k)) continue;
       for (size_t ci = 0; ci < w.cells.size(); ++ci) {
         const Cell &cl = w.cells[ci];
+        if (cl.pull && w.jobs[ji].dir != 'a' && w.jobs[ji].dir != 'r') continue;  // X-2: a, a+read only
         char tags[200];
-        std::snprintf(tags, sizeof(tags), "inflight=%d,transport=%s,send_path=%s,build=%s", k, c.transport.c_str(),
-                      cl.framed ? "framed" : "reference", kBuild);
+        std::snprintf(tags, sizeof(tags), "inflight=%d,transport=%s,send_path=%s,build=%s%s", k, c.transport.c_str(),
+                      cl.framed ? "framed" : "reference", kBuild, cl.pull ? ",decode=pull" : "");
         regs.push_back(Reg{cl.label + "|" + job_payload(w.jobs[ji]) + "|-|" + dir_label(w.jobs[ji].dir) + "|" +
                                mode_name(cl.mode) + "|" + tags,
                            ci, ji, k});

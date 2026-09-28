@@ -219,8 +219,17 @@ def emit_dispatch(full, abi, refused, retain=None, native_retain=True):
                          " ffi::encode_into_%s_unk, project::project_%s);" % (name, s, s, s))
             else:
                 o.append("      case kFfiRetain: return Outcome::not_built();")
+            # X-2: the pull family (walked in place), re-encoded by the push encoders.
+            o.append("      case kFfiPullDrop: return ffi_arm<%s>(b, n, cx, ffi::pull_with_%s,"
+                     " ffi::encode_into_%s, project::project_%s);" % (name, s, s, s))
+            if ffi_retain:
+                o.append("      case kFfiPullRetain: return ffi_arm<%s>(b, n, cx, ffi::pull_with_%s_unk,"
+                         " ffi::encode_into_%s_unk, project::project_%s);" % (name, s, s, s))
+            else:
+                o.append("      case kFfiPullRetain: return Outcome::not_built();")
         else:
-            o.append("      case kFfiDrop: case kFfiRetain: return Outcome::not_in_abi();")
+            o.append("      case kFfiDrop: case kFfiRetain: case kFfiPullDrop: case kFfiPullRetain:"
+                     " return Outcome::not_in_abi();")
         o.append("    }")
         o.append("  }")
     o.append("  return Outcome::unknown_root();")

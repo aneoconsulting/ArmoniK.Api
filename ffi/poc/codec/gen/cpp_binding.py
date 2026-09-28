@@ -643,9 +643,31 @@ uint64_t host_calls_take() {
   t_host_calls = 0;
   return r;
 }
+static thread_local uint64_t t_pull_records = 0;
+#define AK_PULL_RECORD() (++t_pull_records)
+uint64_t pull_records_take() {
+  uint64_t r = t_pull_records;
+  t_pull_records = 0;
+  return r;
+}
 #else
 #define AK_HOST_CALL() ((void)0)
+#define AK_PULL_RECORD() ((void)0)
+uint64_t pull_records_take() { return 0; }
 #endif
+
+// X-2: a pull record's payload handed to the push function registered for its slot; the
+// payload type is the function's own parameter type (8-aligned: the records are words).
+template <class T>
+static inline void pull_add(void (*fn)(ak_dec_ctx *, void *, int64_t, const T *, int32_t), ak_dec_ctx *ctx,
+                            void *obj, int64_t tok, const uint8_t *body, uint32_t n) {
+  fn(ctx, obj, tok, reinterpret_cast<const T *>(body), (int32_t)n);
+}
+template <class T>
+static inline void pull_apply(void (*fn)(ak_dec_ctx *, void *, int64_t, const T *), ak_dec_ctx *ctx,
+                              void *obj, int64_t tok, const uint8_t *body) {
+  fn(ctx, obj, tok, reinterpret_cast<const T *>(body));
+}
 
 // B-1 (2026-09-28): ABI v1 7.4, a batched add may be called several times for one field.
 // `reserve(size + n)` on every call reallocates to the exact size each time, so k calls copy
@@ -780,6 +802,8 @@ def emit_header(ir, ns="shapes", guard="AK_BINDING_H", types_h="generated/types.
          "// ak_dec_reset_<Root> of an armed decode). Counted in the counting build",
          "// (AK_COUNTING) only; returns the count since the last call and restarts it.",
          "uint64_t host_calls_take();",
+         "// X-2, counting build: the pull records the replay dispatched since the last call.",
+         "uint64_t pull_records_take();",
          ""]
     for root in ir.roots:
         o.append("struct EncObj_%s {" % root)
@@ -793,6 +817,17 @@ def emit_header(ir, ns="shapes", guard="AK_BINDING_H", types_h="generated/types.
                      % (snake(root), suffix, root))
         o.append("int32_t decode_with_%s(ak_dec_ctx *ctx, const uint8_t *b, size_t n, %s *out);"
                  % (snake(root), root))
+        o.append("// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse")
+        o.append("// call), then the records replayed through the push vtable's own host functions;")
+        o.append("// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in")
+        o.append("// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.")
+        o.append("int32_t pull_with_%s(ak_dec_ctx *ctx, const uint8_t *b, size_t n, %s *out);"
+                 % (snake(root), root))
+        o.append("int32_t pull_drain_with_%s(ak_dec_ctx *ctx, const uint8_t *b, size_t n, %s *out);"
+                 % (snake(root), root))
+        if not nu:
+            o.append("int32_t pull_with_%s_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, %s *out);"
+                     % (snake(root), root))
         if retain:
             o.append("// Decision 11 / plan Options.unknown = retain: the encode over the u-groups.")
             o.append("intptr_t encode_into_%s_unk(ak_enc_ctx *ctx, const %s &o, const Tcs &t);"
@@ -853,6 +888,15 @@ def emit_header(ir, ns="shapes", guard="AK_BINDING_H", types_h="generated/types.
         o.append("  }")
         o.append("  static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, %s *out) {" % root)
         o.append("    return decode_with_%s_unk(c, b, n, out);" % rs)
+        o.append("  }")
+        o.append("  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, %s *out) {" % root)
+        o.append("    return pull_with_%s(c, b, n, out);" % rs)
+        o.append("  }")
+        o.append("  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, %s *out) {" % root)
+        o.append("    return pull_drain_with_%s(c, b, n, out);" % rs)
+        o.append("  }")
+        o.append("  static int32_t pull_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, %s *out) {" % root)
+        o.append("    return pull_with_%s_unk(c, b, n, out);" % rs)
         o.append("  }")
         o.append("  static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, %s *out,"
                  " uint32_t k, uint32_t cap, uint64_t *refills) {" % root)
@@ -917,6 +961,12 @@ def _nounk_header_tail(ir):
         o.append("  static ak_dec_ctx *ctx_new() { return ak_dec_ctx_new_%s(); }" % root)
         o.append("  static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, %s *out) {" % root)
         o.append("    return decode_with_%s(c, b, n, out);" % snake(root))
+        o.append("  }")
+        o.append("  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, %s *out) {" % root)
+        o.append("    return pull_with_%s(c, b, n, out);" % snake(root))
+        o.append("  }")
+        o.append("  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, %s *out) {" % root)
+        o.append("    return pull_drain_with_%s(c, b, n, out);" % snake(root))
         o.append("  }")
         o.append("};")
     o.append("template <class T> inline ak_dec_ctx *dec_ctx_new_for() { return DecRoot<T>::ctx_new(); }")
@@ -1536,6 +1586,7 @@ Tcs tcs_host() {
         o.append("")
         if not nu:
             _emit_decode_unk(ir, o, root)
+        _emit_pull(ir, o, root, slots, nu)
 
     o.append("void dec_ctx_free(ak_dec_ctx *ctx) {")
     if not nu:
@@ -1729,6 +1780,132 @@ def _emit_encode_unk(ir, o, root):
                      " (const uint8_t *)dbuf.data(), dbuf.size());" % root)
         else:
             o.append("  return ak_uencode_%s(&h, ctx, &vt, &fix);" % root)
+        o.append("}")
+        o.append("")
+
+
+def _emit_pull(ir, o, root, slots, nu):
+    """X-2 (2026-09-28): ABI v1 section 7.1's pull family for one root. The replay dispatches
+    each record to THE SAME host function the push vtable registers for that slot (records
+    are the reverse calls push would make, in push's order; section 7.1 and ak-rt's bdr.rs):
+    (APPLY, 0) the root group; (ADD, i) a run of top-level slot i (1-based, loop_slots order);
+    (NEW, i << 16) a non-leaf element begins, its codec-minted token mapped to the index
+    `new_*` returns; (APPLY_ELEM, i << 16) its group; (ADD, i << 16 | k) a run of its inner
+    slot k. An unknown record fails the decode (a generator disagreement, not wire input)."""
+    rs = snake(root)
+    o.append("static int32_t pull_replay_%s(ak_dec_ctx *ctx, void *obj, const uint8_t *r, size_t len,"
+             " std::vector<int64_t> &toks) {" % rs)
+    o.append("  size_t at = 0;")
+    o.append("  while (at + sizeof(struct ak_bdr_rec) <= len) {")
+    o.append("    struct ak_bdr_rec h;")
+    o.append("    std::memcpy(&h, r + at, sizeof h);")
+    o.append("    const uint8_t *body = r + at + sizeof h;")
+    o.append("    at += sizeof h + (size_t)h.bytes;")
+    o.append("    if (at > len) break;")
+    o.append("    AK_PULL_RECORD();")
+    o.append("    switch (((uint64_t)h.op << 32) | h.slot) {")
+    o.append("      case ((uint64_t)AK_BDR_APPLY << 32) | 0u:")
+    o.append("        apply_%s(ctx, obj, reinterpret_cast<const struct ak_dfix_%s *>(body)); break;" % (rs, root))
+    for i, (path, f) in enumerate(slots):
+        sn = slot_name(path)
+        et = elem_type(f)
+        elem_ty = f.entry if f.card == "map" else et
+        if elem_ty is None or ir.msg(elem_ty).leaf:
+            o.append("      case ((uint64_t)AK_BDR_ADD << 32) | %du:" % (i + 1))
+            o.append("        pull_add(add_%s_%s, ctx, obj, h.token, body, h.n); break;" % (rs, sn))
+        else:
+            hi = (i + 1) << 16
+            o.append("      case ((uint64_t)AK_BDR_NEW << 32) | %du:" % hi)
+            o.append("        toks.push_back(new_%s_%s(ctx, obj)); break;" % (rs, sn))
+            o.append("      case ((uint64_t)AK_BDR_APPLY_ELEM << 32) | %du:" % hi)
+            o.append("        if ((size_t)h.token >= toks.size()) { ak_fail(ctx, AK_ERR_ABI, NULL, 0); return AK_ERR_ABI; }")
+            o.append("        pull_apply(apply_%s_%s, ctx, obj, toks[(size_t)h.token], body); break;" % (rs, sn))
+            for k, (ipath, _iff) in enumerate(loop_slots(ir, elem_ty)):
+                isn = slot_name(ipath)
+                o.append("      case ((uint64_t)AK_BDR_ADD << 32) | %du:" % (hi | (k + 1)))
+                o.append("        if ((size_t)h.token >= toks.size()) { ak_fail(ctx, AK_ERR_ABI, NULL, 0); return AK_ERR_ABI; }")
+                o.append("        pull_add(add_%s_%s_%s, ctx, obj, toks[(size_t)h.token], body, h.n); break;"
+                         % (rs, sn, isn))
+    o.append("      default:")
+    o.append("        ak_fail(ctx, AK_ERR_ABI, NULL, 0);")
+    o.append("        return AK_ERR_ABI;")
+    o.append("    }")
+    o.append("  }")
+    o.append("  return AK_OK;")
+    o.append("}")
+    o.append("")
+    o.append("static thread_local std::vector<int64_t> t_pull_toks_%s;" % rs)
+    o.append("static thread_local std::vector<uint64_t> t_pull_scratch_%s;" % rs)
+    o.append("static int32_t pull_impl_%s(ak_dec_ctx *ctx, const uint8_t *b, size_t n, %s *out, bool drain) {"
+             % (rs, root))
+    o.append("  AK_INIT_OR_RETURN();")
+    o.append("  Sink_%s sink;" % root)
+    o.append("  sink.out = out;")
+    o.append("  sink.base = b;")
+    if not nu:
+        o.append("  sink.refill = NULL;")
+        o.append("  sink.hold = NULL;")
+    o.append("  int32_t rc = ak_parse_%s(ctx, b, n);" % root)
+    o.append("  if (rc < 0) return rc;")
+    o.append("  std::vector<int64_t> &toks = t_pull_toks_%s;" % rs)
+    o.append("  toks.clear();")
+    o.append("  if (!drain) {")
+    o.append("    const uint8_t *p = NULL;")
+    o.append("    size_t len = 0;")
+    o.append("    rc = ak_bdr_ptr(ctx, &p, &len);")
+    o.append("    if (rc < 0) return rc;")
+    o.append("    rc = pull_replay_%s(ctx, &sink, p, len, toks);" % rs)
+    o.append("  } else {")
+    o.append("    // A host that must COPY: the records drained into its own 8-aligned memory in")
+    o.append("    // chunks of at least AK_BDR_MIN_CHUNK (reused), each replayed.")
+    o.append("    std::vector<uint64_t> &sc = t_pull_scratch_%s;" % rs)
+    o.append("    if (sc.size() * 8 < AK_BDR_MIN_CHUNK) sc.resize((AK_BDR_MIN_CHUNK + 7) / 8);")
+    o.append("    const size_t total = ak_bdr_footprint(ctx);")
+    o.append("    ak_bdr_count_forward(ctx, 1);  // footprint takes a const context: counted here (R5)")
+    o.append("    size_t cursor = 0;")
+    o.append("    while (cursor < total) {")
+    o.append("      intptr_t k = ak_bdr_drain(ctx, (uint8_t *)&sc[0], sc.size() * 8, &cursor);")
+    o.append("      if (k < 0) return (int32_t)k;")
+    o.append("      if (k == 0) break;")
+    o.append("      rc = pull_replay_%s(ctx, &sink, (const uint8_t *)&sc[0], (size_t)k, toks);" % rs)
+    o.append("      if (rc < 0) return rc;")
+    o.append("    }")
+    o.append("  }")
+    o.append("  if (rc < 0) return rc;")
+    o.append("  AK_HOST_CALL(); return ak_dec_err(ctx);  // what the host functions reported (ak_fail)")
+    o.append("}")
+    o.append("")
+    o.append("int32_t pull_with_%s(ak_dec_ctx *ctx, const uint8_t *b, size_t n, %s *out) {" % (rs, root))
+    if not nu:
+        o.append("  unk_disarm_%s(ctx);" % rs)
+    o.append("  return pull_impl_%s(ctx, b, n, out, false);" % rs)
+    o.append("}")
+    o.append("")
+    o.append("int32_t pull_drain_with_%s(ak_dec_ctx *ctx, const uint8_t *b, size_t n, %s *out) {" % (rs, root))
+    if not nu:
+        o.append("  unk_disarm_%s(ctx);" % rs)
+    o.append("  return pull_impl_%s(ctx, b, n, out, true);" % rs)
+    o.append("}")
+    o.append("")
+    if not nu:
+        on = unk_opts_name(root)
+        o.append("// Decision 11 on the pull family: armed as decode_with_%s_unk arms (one reset," % rs)
+        o.append("// left armed, rule 7); the unknown buffers ride in the records' groups and are")
+        o.append("// delivered by the same host functions.")
+        o.append("int32_t pull_with_%s_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, %s *out) {" % (rs, root))
+        o.append("  AK_INIT_OR_RETURN();")
+        o.append("  struct %s *opts = &t_unk_opts_%s;" % (on, rs))
+        o.append("  unk_opts_%s(opts, -1);" % rs)
+        o.append("  AK_HOST_CALL(); int32_t rc = ak_dec_reset_%s(ctx, opts);  // the one reset: arms" % root)
+        o.append("  if (rc != AK_OK) {")
+        o.append("    unk_untrack_opts_%s(opts);" % rs)
+        o.append("    return rc;")
+        o.append("  }")
+        o.append("  unk_armed_note_%s(ctx);" % rs)
+        o.append("  rc = pull_impl_%s(ctx, b, n, out, false);" % rs)
+        o.append("  unk_untrack_opts_%s(opts);" % rs)
+        o.append("  unk_reclaim();")
+        o.append("  return rc;")
         o.append("}")
         o.append("")
 

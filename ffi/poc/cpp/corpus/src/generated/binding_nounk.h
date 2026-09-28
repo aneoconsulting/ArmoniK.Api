@@ -37,6 +37,8 @@ int32_t ak_init_once();
 // ak_dec_reset_<Root> of an armed decode). Counted in the counting build
 // (AK_COUNTING) only; returns the count since the last call and restarts it.
 uint64_t host_calls_take();
+// X-2, counting build: the pull records the replay dispatched since the last call.
+uint64_t pull_records_take();
 
 struct EncObj_Timestamp {
   const Timestamp *o;
@@ -159,118 +161,292 @@ intptr_t encode_into_timestamp(ak_enc_ctx *ctx, const Timestamp &o, const Tcs &t
 intptr_t encode_into_timestamp_zeroed(ak_enc_ctx *ctx, const Timestamp &o, const Tcs &t);
 intptr_t encode_into_timestamp_nobatch(ak_enc_ctx *ctx, const Timestamp &o, const Tcs &t);
 int32_t decode_with_timestamp(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Timestamp *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_timestamp(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Timestamp *out);
+int32_t pull_drain_with_timestamp(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Timestamp *out);
 intptr_t encode_into_duration(ak_enc_ctx *ctx, const Duration &o, const Tcs &t);
 intptr_t encode_into_duration_zeroed(ak_enc_ctx *ctx, const Duration &o, const Tcs &t);
 intptr_t encode_into_duration_nobatch(ak_enc_ctx *ctx, const Duration &o, const Tcs &t);
 int32_t decode_with_duration(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Duration *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_duration(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Duration *out);
+int32_t pull_drain_with_duration(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Duration *out);
 intptr_t encode_into_result_raw(ak_enc_ctx *ctx, const ResultRaw &o, const Tcs &t);
 intptr_t encode_into_result_raw_zeroed(ak_enc_ctx *ctx, const ResultRaw &o, const Tcs &t);
 intptr_t encode_into_result_raw_nobatch(ak_enc_ctx *ctx, const ResultRaw &o, const Tcs &t);
 int32_t decode_with_result_raw(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ResultRaw *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_result_raw(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ResultRaw *out);
+int32_t pull_drain_with_result_raw(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ResultRaw *out);
 intptr_t encode_into_task_options(ak_enc_ctx *ctx, const TaskOptions &o, const Tcs &t);
 intptr_t encode_into_task_options_zeroed(ak_enc_ctx *ctx, const TaskOptions &o, const Tcs &t);
 intptr_t encode_into_task_options_nobatch(ak_enc_ctx *ctx, const TaskOptions &o, const Tcs &t);
 int32_t decode_with_task_options(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskOptions *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_task_options(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskOptions *out);
+int32_t pull_drain_with_task_options(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskOptions *out);
 intptr_t encode_into_task_output(ak_enc_ctx *ctx, const TaskOutput &o, const Tcs &t);
 intptr_t encode_into_task_output_zeroed(ak_enc_ctx *ctx, const TaskOutput &o, const Tcs &t);
 intptr_t encode_into_task_output_nobatch(ak_enc_ctx *ctx, const TaskOutput &o, const Tcs &t);
 int32_t decode_with_task_output(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskOutput *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_task_output(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskOutput *out);
+int32_t pull_drain_with_task_output(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskOutput *out);
 intptr_t encode_into_task_detailed(ak_enc_ctx *ctx, const TaskDetailed &o, const Tcs &t);
 intptr_t encode_into_task_detailed_zeroed(ak_enc_ctx *ctx, const TaskDetailed &o, const Tcs &t);
 intptr_t encode_into_task_detailed_nobatch(ak_enc_ctx *ctx, const TaskDetailed &o, const Tcs &t);
 int32_t decode_with_task_detailed(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskDetailed *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_task_detailed(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskDetailed *out);
+int32_t pull_drain_with_task_detailed(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskDetailed *out);
 intptr_t encode_into_task_summary(ak_enc_ctx *ctx, const TaskSummary &o, const Tcs &t);
 intptr_t encode_into_task_summary_zeroed(ak_enc_ctx *ctx, const TaskSummary &o, const Tcs &t);
 intptr_t encode_into_task_summary_nobatch(ak_enc_ctx *ctx, const TaskSummary &o, const Tcs &t);
 int32_t decode_with_task_summary(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskSummary *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_task_summary(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskSummary *out);
+int32_t pull_drain_with_task_summary(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskSummary *out);
 intptr_t encode_into_probe(ak_enc_ctx *ctx, const Probe &o, const Tcs &t);
 intptr_t encode_into_probe_zeroed(ak_enc_ctx *ctx, const Probe &o, const Tcs &t);
 intptr_t encode_into_probe_nobatch(ak_enc_ctx *ctx, const Probe &o, const Tcs &t);
 int32_t decode_with_probe(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Probe *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_probe(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Probe *out);
+int32_t pull_drain_with_probe(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Probe *out);
 intptr_t encode_into_empty(ak_enc_ctx *ctx, const Empty &o, const Tcs &t);
 intptr_t encode_into_empty_zeroed(ak_enc_ctx *ctx, const Empty &o, const Tcs &t);
 intptr_t encode_into_empty_nobatch(ak_enc_ctx *ctx, const Empty &o, const Tcs &t);
 int32_t decode_with_empty(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Empty *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_empty(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Empty *out);
+int32_t pull_drain_with_empty(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Empty *out);
 intptr_t encode_into_upload_result_data(ak_enc_ctx *ctx, const UploadResultData &o, const Tcs &t);
 intptr_t encode_into_upload_result_data_zeroed(ak_enc_ctx *ctx, const UploadResultData &o, const Tcs &t);
 intptr_t encode_into_upload_result_data_nobatch(ak_enc_ctx *ctx, const UploadResultData &o, const Tcs &t);
 int32_t decode_with_upload_result_data(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultData *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_upload_result_data(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultData *out);
+int32_t pull_drain_with_upload_result_data(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultData *out);
 intptr_t encode_into_metrics_batch(ak_enc_ctx *ctx, const MetricsBatch &o, const Tcs &t);
 intptr_t encode_into_metrics_batch_zeroed(ak_enc_ctx *ctx, const MetricsBatch &o, const Tcs &t);
 intptr_t encode_into_metrics_batch_nobatch(ak_enc_ctx *ctx, const MetricsBatch &o, const Tcs &t);
 int32_t decode_with_metrics_batch(ak_dec_ctx *ctx, const uint8_t *b, size_t n, MetricsBatch *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_metrics_batch(ak_dec_ctx *ctx, const uint8_t *b, size_t n, MetricsBatch *out);
+int32_t pull_drain_with_metrics_batch(ak_dec_ctx *ctx, const uint8_t *b, size_t n, MetricsBatch *out);
 intptr_t encode_into_pair(ak_enc_ctx *ctx, const Pair &o, const Tcs &t);
 intptr_t encode_into_pair_zeroed(ak_enc_ctx *ctx, const Pair &o, const Tcs &t);
 intptr_t encode_into_pair_nobatch(ak_enc_ctx *ctx, const Pair &o, const Tcs &t);
 int32_t decode_with_pair(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Pair *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_pair(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Pair *out);
+int32_t pull_drain_with_pair(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Pair *out);
 intptr_t encode_into_list_results_response(ak_enc_ctx *ctx, const ListResultsResponse &o, const Tcs &t);
 intptr_t encode_into_list_results_response_zeroed(ak_enc_ctx *ctx, const ListResultsResponse &o, const Tcs &t);
 intptr_t encode_into_list_results_response_nobatch(ak_enc_ctx *ctx, const ListResultsResponse &o, const Tcs &t);
 int32_t decode_with_list_results_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_list_results_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out);
+int32_t pull_drain_with_list_results_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out);
 intptr_t encode_into_list_tasks_detailed_response(ak_enc_ctx *ctx, const ListTasksDetailedResponse &o, const Tcs &t);
 intptr_t encode_into_list_tasks_detailed_response_zeroed(ak_enc_ctx *ctx, const ListTasksDetailedResponse &o, const Tcs &t);
 intptr_t encode_into_list_tasks_detailed_response_nobatch(ak_enc_ctx *ctx, const ListTasksDetailedResponse &o, const Tcs &t);
 int32_t decode_with_list_tasks_detailed_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_list_tasks_detailed_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out);
+int32_t pull_drain_with_list_tasks_detailed_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out);
 intptr_t encode_into_list_task_summary_response(ak_enc_ctx *ctx, const ListTaskSummaryResponse &o, const Tcs &t);
 intptr_t encode_into_list_task_summary_response_zeroed(ak_enc_ctx *ctx, const ListTaskSummaryResponse &o, const Tcs &t);
 intptr_t encode_into_list_task_summary_response_nobatch(ak_enc_ctx *ctx, const ListTaskSummaryResponse &o, const Tcs &t);
 int32_t decode_with_list_task_summary_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_list_task_summary_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out);
+int32_t pull_drain_with_list_task_summary_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out);
 intptr_t encode_into_list_probe_response(ak_enc_ctx *ctx, const ListProbeResponse &o, const Tcs &t);
 intptr_t encode_into_list_probe_response_zeroed(ak_enc_ctx *ctx, const ListProbeResponse &o, const Tcs &t);
 intptr_t encode_into_list_probe_response_nobatch(ak_enc_ctx *ctx, const ListProbeResponse &o, const Tcs &t);
 int32_t decode_with_list_probe_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_list_probe_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out);
+int32_t pull_drain_with_list_probe_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out);
 intptr_t encode_into_list_metrics_response(ak_enc_ctx *ctx, const ListMetricsResponse &o, const Tcs &t);
 intptr_t encode_into_list_metrics_response_zeroed(ak_enc_ctx *ctx, const ListMetricsResponse &o, const Tcs &t);
 intptr_t encode_into_list_metrics_response_nobatch(ak_enc_ctx *ctx, const ListMetricsResponse &o, const Tcs &t);
 int32_t decode_with_list_metrics_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_list_metrics_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out);
+int32_t pull_drain_with_list_metrics_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out);
 intptr_t encode_into_upload_result_data_message(ak_enc_ctx *ctx, const UploadResultDataMessage &o, const Tcs &t);
 intptr_t encode_into_upload_result_data_message_zeroed(ak_enc_ctx *ctx, const UploadResultDataMessage &o, const Tcs &t);
 intptr_t encode_into_upload_result_data_message_nobatch(ak_enc_ctx *ctx, const UploadResultDataMessage &o, const Tcs &t);
 int32_t decode_with_upload_result_data_message(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_upload_result_data_message(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out);
+int32_t pull_drain_with_upload_result_data_message(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out);
 intptr_t encode_into_dual_response(ak_enc_ctx *ctx, const DualResponse &o, const Tcs &t);
 intptr_t encode_into_dual_response_zeroed(ak_enc_ctx *ctx, const DualResponse &o, const Tcs &t);
 intptr_t encode_into_dual_response_nobatch(ak_enc_ctx *ctx, const DualResponse &o, const Tcs &t);
 int32_t decode_with_dual_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_dual_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out);
+int32_t pull_drain_with_dual_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out);
 intptr_t encode_into_chunk_leaf(ak_enc_ctx *ctx, const ChunkLeaf &o, const Tcs &t);
 intptr_t encode_into_chunk_leaf_zeroed(ak_enc_ctx *ctx, const ChunkLeaf &o, const Tcs &t);
 intptr_t encode_into_chunk_leaf_nobatch(ak_enc_ctx *ctx, const ChunkLeaf &o, const Tcs &t);
 int32_t decode_with_chunk_leaf(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkLeaf *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_chunk_leaf(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkLeaf *out);
+int32_t pull_drain_with_chunk_leaf(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkLeaf *out);
 intptr_t encode_into_chunk_inner(ak_enc_ctx *ctx, const ChunkInner &o, const Tcs &t);
 intptr_t encode_into_chunk_inner_zeroed(ak_enc_ctx *ctx, const ChunkInner &o, const Tcs &t);
 intptr_t encode_into_chunk_inner_nobatch(ak_enc_ctx *ctx, const ChunkInner &o, const Tcs &t);
 int32_t decode_with_chunk_inner(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkInner *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_chunk_inner(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkInner *out);
+int32_t pull_drain_with_chunk_inner(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkInner *out);
 intptr_t encode_into_chunk_element(ak_enc_ctx *ctx, const ChunkElement &o, const Tcs &t);
 intptr_t encode_into_chunk_element_zeroed(ak_enc_ctx *ctx, const ChunkElement &o, const Tcs &t);
 intptr_t encode_into_chunk_element_nobatch(ak_enc_ctx *ctx, const ChunkElement &o, const Tcs &t);
 int32_t decode_with_chunk_element(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkElement *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_chunk_element(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkElement *out);
+int32_t pull_drain_with_chunk_element(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkElement *out);
 intptr_t encode_into_chunked_response(ak_enc_ctx *ctx, const ChunkedResponse &o, const Tcs &t);
 intptr_t encode_into_chunked_response_zeroed(ak_enc_ctx *ctx, const ChunkedResponse &o, const Tcs &t);
 intptr_t encode_into_chunked_response_nobatch(ak_enc_ctx *ctx, const ChunkedResponse &o, const Tcs &t);
 int32_t decode_with_chunked_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkedResponse *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_chunked_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkedResponse *out);
+int32_t pull_drain_with_chunked_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkedResponse *out);
 intptr_t encode_into_chunked_response_wide(ak_enc_ctx *ctx, const ChunkedResponseWide &o, const Tcs &t);
 intptr_t encode_into_chunked_response_wide_zeroed(ak_enc_ctx *ctx, const ChunkedResponseWide &o, const Tcs &t);
 intptr_t encode_into_chunked_response_wide_nobatch(ak_enc_ctx *ctx, const ChunkedResponseWide &o, const Tcs &t);
 int32_t decode_with_chunked_response_wide(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkedResponseWide *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_chunked_response_wide(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkedResponseWide *out);
+int32_t pull_drain_with_chunked_response_wide(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkedResponseWide *out);
 intptr_t encode_into_leaf_element(ak_enc_ctx *ctx, const LeafElement &o, const Tcs &t);
 intptr_t encode_into_leaf_element_zeroed(ak_enc_ctx *ctx, const LeafElement &o, const Tcs &t);
 intptr_t encode_into_leaf_element_nobatch(ak_enc_ctx *ctx, const LeafElement &o, const Tcs &t);
 int32_t decode_with_leaf_element(ak_dec_ctx *ctx, const uint8_t *b, size_t n, LeafElement *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_leaf_element(ak_dec_ctx *ctx, const uint8_t *b, size_t n, LeafElement *out);
+int32_t pull_drain_with_leaf_element(ak_dec_ctx *ctx, const uint8_t *b, size_t n, LeafElement *out);
 intptr_t encode_into_leaf_response(ak_enc_ctx *ctx, const LeafResponse &o, const Tcs &t);
 intptr_t encode_into_leaf_response_zeroed(ak_enc_ctx *ctx, const LeafResponse &o, const Tcs &t);
 intptr_t encode_into_leaf_response_nobatch(ak_enc_ctx *ctx, const LeafResponse &o, const Tcs &t);
 int32_t decode_with_leaf_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, LeafResponse *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_leaf_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, LeafResponse *out);
+int32_t pull_drain_with_leaf_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, LeafResponse *out);
 intptr_t encode_into_surrogate(ak_enc_ctx *ctx, const Surrogate &o, const Tcs &t);
 intptr_t encode_into_surrogate_zeroed(ak_enc_ctx *ctx, const Surrogate &o, const Tcs &t);
 intptr_t encode_into_surrogate_nobatch(ak_enc_ctx *ctx, const Surrogate &o, const Tcs &t);
 int32_t decode_with_surrogate(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Surrogate *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_surrogate(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Surrogate *out);
+int32_t pull_drain_with_surrogate(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Surrogate *out);
 intptr_t encode_into_surrogate_inner(ak_enc_ctx *ctx, const SurrogateInner &o, const Tcs &t);
 intptr_t encode_into_surrogate_inner_zeroed(ak_enc_ctx *ctx, const SurrogateInner &o, const Tcs &t);
 intptr_t encode_into_surrogate_inner_nobatch(ak_enc_ctx *ctx, const SurrogateInner &o, const Tcs &t);
 int32_t decode_with_surrogate_inner(ak_dec_ctx *ctx, const uint8_t *b, size_t n, SurrogateInner *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_surrogate_inner(ak_dec_ctx *ctx, const uint8_t *b, size_t n, SurrogateInner *out);
+int32_t pull_drain_with_surrogate_inner(ak_dec_ctx *ctx, const uint8_t *b, size_t n, SurrogateInner *out);
 intptr_t encode_into_wire_zoo(ak_enc_ctx *ctx, const WireZoo &o, const Tcs &t);
 intptr_t encode_into_wire_zoo_zeroed(ak_enc_ctx *ctx, const WireZoo &o, const Tcs &t);
 intptr_t encode_into_wire_zoo_nobatch(ak_enc_ctx *ctx, const WireZoo &o, const Tcs &t);
 int32_t decode_with_wire_zoo(ak_dec_ctx *ctx, const uint8_t *b, size_t n, WireZoo *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_wire_zoo(ak_dec_ctx *ctx, const uint8_t *b, size_t n, WireZoo *out);
+int32_t pull_drain_with_wire_zoo(ak_dec_ctx *ctx, const uint8_t *b, size_t n, WireZoo *out);
 
 // ABI v1 rule 6 in the NO-UNKNOWN variant (AK_NO_UNKNOWN_FIELDS): a decode context is
 // bound to its root and takes no options (unknown fields are compiled out).
@@ -282,6 +458,12 @@ template <> struct DecRoot<Timestamp> {
   static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, Timestamp *out) {
     return decode_with_timestamp(c, b, n, out);
   }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, Timestamp *out) {
+    return pull_with_timestamp(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, Timestamp *out) {
+    return pull_drain_with_timestamp(c, b, n, out);
+  }
 };
 template <> struct DecRoot<Duration> {
   enum { kIndex = 1 };
@@ -289,6 +471,12 @@ template <> struct DecRoot<Duration> {
   static ak_dec_ctx *ctx_new() { return ak_dec_ctx_new_Duration(); }
   static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, Duration *out) {
     return decode_with_duration(c, b, n, out);
+  }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, Duration *out) {
+    return pull_with_duration(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, Duration *out) {
+    return pull_drain_with_duration(c, b, n, out);
   }
 };
 template <> struct DecRoot<ResultRaw> {
@@ -298,6 +486,12 @@ template <> struct DecRoot<ResultRaw> {
   static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, ResultRaw *out) {
     return decode_with_result_raw(c, b, n, out);
   }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, ResultRaw *out) {
+    return pull_with_result_raw(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, ResultRaw *out) {
+    return pull_drain_with_result_raw(c, b, n, out);
+  }
 };
 template <> struct DecRoot<TaskOptions> {
   enum { kIndex = 3 };
@@ -305,6 +499,12 @@ template <> struct DecRoot<TaskOptions> {
   static ak_dec_ctx *ctx_new() { return ak_dec_ctx_new_TaskOptions(); }
   static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, TaskOptions *out) {
     return decode_with_task_options(c, b, n, out);
+  }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, TaskOptions *out) {
+    return pull_with_task_options(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, TaskOptions *out) {
+    return pull_drain_with_task_options(c, b, n, out);
   }
 };
 template <> struct DecRoot<TaskOutput> {
@@ -314,6 +514,12 @@ template <> struct DecRoot<TaskOutput> {
   static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, TaskOutput *out) {
     return decode_with_task_output(c, b, n, out);
   }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, TaskOutput *out) {
+    return pull_with_task_output(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, TaskOutput *out) {
+    return pull_drain_with_task_output(c, b, n, out);
+  }
 };
 template <> struct DecRoot<TaskDetailed> {
   enum { kIndex = 5 };
@@ -321,6 +527,12 @@ template <> struct DecRoot<TaskDetailed> {
   static ak_dec_ctx *ctx_new() { return ak_dec_ctx_new_TaskDetailed(); }
   static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, TaskDetailed *out) {
     return decode_with_task_detailed(c, b, n, out);
+  }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, TaskDetailed *out) {
+    return pull_with_task_detailed(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, TaskDetailed *out) {
+    return pull_drain_with_task_detailed(c, b, n, out);
   }
 };
 template <> struct DecRoot<TaskSummary> {
@@ -330,6 +542,12 @@ template <> struct DecRoot<TaskSummary> {
   static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, TaskSummary *out) {
     return decode_with_task_summary(c, b, n, out);
   }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, TaskSummary *out) {
+    return pull_with_task_summary(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, TaskSummary *out) {
+    return pull_drain_with_task_summary(c, b, n, out);
+  }
 };
 template <> struct DecRoot<Probe> {
   enum { kIndex = 7 };
@@ -337,6 +555,12 @@ template <> struct DecRoot<Probe> {
   static ak_dec_ctx *ctx_new() { return ak_dec_ctx_new_Probe(); }
   static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, Probe *out) {
     return decode_with_probe(c, b, n, out);
+  }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, Probe *out) {
+    return pull_with_probe(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, Probe *out) {
+    return pull_drain_with_probe(c, b, n, out);
   }
 };
 template <> struct DecRoot<Empty> {
@@ -346,6 +570,12 @@ template <> struct DecRoot<Empty> {
   static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, Empty *out) {
     return decode_with_empty(c, b, n, out);
   }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, Empty *out) {
+    return pull_with_empty(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, Empty *out) {
+    return pull_drain_with_empty(c, b, n, out);
+  }
 };
 template <> struct DecRoot<UploadResultData> {
   enum { kIndex = 9 };
@@ -353,6 +583,12 @@ template <> struct DecRoot<UploadResultData> {
   static ak_dec_ctx *ctx_new() { return ak_dec_ctx_new_UploadResultData(); }
   static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, UploadResultData *out) {
     return decode_with_upload_result_data(c, b, n, out);
+  }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, UploadResultData *out) {
+    return pull_with_upload_result_data(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, UploadResultData *out) {
+    return pull_drain_with_upload_result_data(c, b, n, out);
   }
 };
 template <> struct DecRoot<MetricsBatch> {
@@ -362,6 +598,12 @@ template <> struct DecRoot<MetricsBatch> {
   static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, MetricsBatch *out) {
     return decode_with_metrics_batch(c, b, n, out);
   }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, MetricsBatch *out) {
+    return pull_with_metrics_batch(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, MetricsBatch *out) {
+    return pull_drain_with_metrics_batch(c, b, n, out);
+  }
 };
 template <> struct DecRoot<Pair> {
   enum { kIndex = 11 };
@@ -369,6 +611,12 @@ template <> struct DecRoot<Pair> {
   static ak_dec_ctx *ctx_new() { return ak_dec_ctx_new_Pair(); }
   static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, Pair *out) {
     return decode_with_pair(c, b, n, out);
+  }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, Pair *out) {
+    return pull_with_pair(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, Pair *out) {
+    return pull_drain_with_pair(c, b, n, out);
   }
 };
 template <> struct DecRoot<ListResultsResponse> {
@@ -378,6 +626,12 @@ template <> struct DecRoot<ListResultsResponse> {
   static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, ListResultsResponse *out) {
     return decode_with_list_results_response(c, b, n, out);
   }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, ListResultsResponse *out) {
+    return pull_with_list_results_response(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, ListResultsResponse *out) {
+    return pull_drain_with_list_results_response(c, b, n, out);
+  }
 };
 template <> struct DecRoot<ListTasksDetailedResponse> {
   enum { kIndex = 13 };
@@ -385,6 +639,12 @@ template <> struct DecRoot<ListTasksDetailedResponse> {
   static ak_dec_ctx *ctx_new() { return ak_dec_ctx_new_ListTasksDetailedResponse(); }
   static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, ListTasksDetailedResponse *out) {
     return decode_with_list_tasks_detailed_response(c, b, n, out);
+  }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, ListTasksDetailedResponse *out) {
+    return pull_with_list_tasks_detailed_response(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, ListTasksDetailedResponse *out) {
+    return pull_drain_with_list_tasks_detailed_response(c, b, n, out);
   }
 };
 template <> struct DecRoot<ListTaskSummaryResponse> {
@@ -394,6 +654,12 @@ template <> struct DecRoot<ListTaskSummaryResponse> {
   static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, ListTaskSummaryResponse *out) {
     return decode_with_list_task_summary_response(c, b, n, out);
   }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, ListTaskSummaryResponse *out) {
+    return pull_with_list_task_summary_response(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, ListTaskSummaryResponse *out) {
+    return pull_drain_with_list_task_summary_response(c, b, n, out);
+  }
 };
 template <> struct DecRoot<ListProbeResponse> {
   enum { kIndex = 15 };
@@ -401,6 +667,12 @@ template <> struct DecRoot<ListProbeResponse> {
   static ak_dec_ctx *ctx_new() { return ak_dec_ctx_new_ListProbeResponse(); }
   static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, ListProbeResponse *out) {
     return decode_with_list_probe_response(c, b, n, out);
+  }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, ListProbeResponse *out) {
+    return pull_with_list_probe_response(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, ListProbeResponse *out) {
+    return pull_drain_with_list_probe_response(c, b, n, out);
   }
 };
 template <> struct DecRoot<ListMetricsResponse> {
@@ -410,6 +682,12 @@ template <> struct DecRoot<ListMetricsResponse> {
   static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, ListMetricsResponse *out) {
     return decode_with_list_metrics_response(c, b, n, out);
   }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, ListMetricsResponse *out) {
+    return pull_with_list_metrics_response(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, ListMetricsResponse *out) {
+    return pull_drain_with_list_metrics_response(c, b, n, out);
+  }
 };
 template <> struct DecRoot<UploadResultDataMessage> {
   enum { kIndex = 17 };
@@ -417,6 +695,12 @@ template <> struct DecRoot<UploadResultDataMessage> {
   static ak_dec_ctx *ctx_new() { return ak_dec_ctx_new_UploadResultDataMessage(); }
   static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, UploadResultDataMessage *out) {
     return decode_with_upload_result_data_message(c, b, n, out);
+  }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, UploadResultDataMessage *out) {
+    return pull_with_upload_result_data_message(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, UploadResultDataMessage *out) {
+    return pull_drain_with_upload_result_data_message(c, b, n, out);
   }
 };
 template <> struct DecRoot<DualResponse> {
@@ -426,6 +710,12 @@ template <> struct DecRoot<DualResponse> {
   static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, DualResponse *out) {
     return decode_with_dual_response(c, b, n, out);
   }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, DualResponse *out) {
+    return pull_with_dual_response(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, DualResponse *out) {
+    return pull_drain_with_dual_response(c, b, n, out);
+  }
 };
 template <> struct DecRoot<ChunkLeaf> {
   enum { kIndex = 19 };
@@ -433,6 +723,12 @@ template <> struct DecRoot<ChunkLeaf> {
   static ak_dec_ctx *ctx_new() { return ak_dec_ctx_new_ChunkLeaf(); }
   static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkLeaf *out) {
     return decode_with_chunk_leaf(c, b, n, out);
+  }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkLeaf *out) {
+    return pull_with_chunk_leaf(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkLeaf *out) {
+    return pull_drain_with_chunk_leaf(c, b, n, out);
   }
 };
 template <> struct DecRoot<ChunkInner> {
@@ -442,6 +738,12 @@ template <> struct DecRoot<ChunkInner> {
   static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkInner *out) {
     return decode_with_chunk_inner(c, b, n, out);
   }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkInner *out) {
+    return pull_with_chunk_inner(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkInner *out) {
+    return pull_drain_with_chunk_inner(c, b, n, out);
+  }
 };
 template <> struct DecRoot<ChunkElement> {
   enum { kIndex = 21 };
@@ -449,6 +751,12 @@ template <> struct DecRoot<ChunkElement> {
   static ak_dec_ctx *ctx_new() { return ak_dec_ctx_new_ChunkElement(); }
   static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkElement *out) {
     return decode_with_chunk_element(c, b, n, out);
+  }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkElement *out) {
+    return pull_with_chunk_element(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkElement *out) {
+    return pull_drain_with_chunk_element(c, b, n, out);
   }
 };
 template <> struct DecRoot<ChunkedResponse> {
@@ -458,6 +766,12 @@ template <> struct DecRoot<ChunkedResponse> {
   static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkedResponse *out) {
     return decode_with_chunked_response(c, b, n, out);
   }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkedResponse *out) {
+    return pull_with_chunked_response(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkedResponse *out) {
+    return pull_drain_with_chunked_response(c, b, n, out);
+  }
 };
 template <> struct DecRoot<ChunkedResponseWide> {
   enum { kIndex = 23 };
@@ -465,6 +779,12 @@ template <> struct DecRoot<ChunkedResponseWide> {
   static ak_dec_ctx *ctx_new() { return ak_dec_ctx_new_ChunkedResponseWide(); }
   static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkedResponseWide *out) {
     return decode_with_chunked_response_wide(c, b, n, out);
+  }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkedResponseWide *out) {
+    return pull_with_chunked_response_wide(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkedResponseWide *out) {
+    return pull_drain_with_chunked_response_wide(c, b, n, out);
   }
 };
 template <> struct DecRoot<LeafElement> {
@@ -474,6 +794,12 @@ template <> struct DecRoot<LeafElement> {
   static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, LeafElement *out) {
     return decode_with_leaf_element(c, b, n, out);
   }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, LeafElement *out) {
+    return pull_with_leaf_element(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, LeafElement *out) {
+    return pull_drain_with_leaf_element(c, b, n, out);
+  }
 };
 template <> struct DecRoot<LeafResponse> {
   enum { kIndex = 25 };
@@ -481,6 +807,12 @@ template <> struct DecRoot<LeafResponse> {
   static ak_dec_ctx *ctx_new() { return ak_dec_ctx_new_LeafResponse(); }
   static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, LeafResponse *out) {
     return decode_with_leaf_response(c, b, n, out);
+  }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, LeafResponse *out) {
+    return pull_with_leaf_response(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, LeafResponse *out) {
+    return pull_drain_with_leaf_response(c, b, n, out);
   }
 };
 template <> struct DecRoot<Surrogate> {
@@ -490,6 +822,12 @@ template <> struct DecRoot<Surrogate> {
   static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, Surrogate *out) {
     return decode_with_surrogate(c, b, n, out);
   }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, Surrogate *out) {
+    return pull_with_surrogate(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, Surrogate *out) {
+    return pull_drain_with_surrogate(c, b, n, out);
+  }
 };
 template <> struct DecRoot<SurrogateInner> {
   enum { kIndex = 27 };
@@ -498,6 +836,12 @@ template <> struct DecRoot<SurrogateInner> {
   static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, SurrogateInner *out) {
     return decode_with_surrogate_inner(c, b, n, out);
   }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, SurrogateInner *out) {
+    return pull_with_surrogate_inner(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, SurrogateInner *out) {
+    return pull_drain_with_surrogate_inner(c, b, n, out);
+  }
 };
 template <> struct DecRoot<WireZoo> {
   enum { kIndex = 28 };
@@ -505,6 +849,12 @@ template <> struct DecRoot<WireZoo> {
   static ak_dec_ctx *ctx_new() { return ak_dec_ctx_new_WireZoo(); }
   static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, WireZoo *out) {
     return decode_with_wire_zoo(c, b, n, out);
+  }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, WireZoo *out) {
+    return pull_with_wire_zoo(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, WireZoo *out) {
+    return pull_drain_with_wire_zoo(c, b, n, out);
   }
 };
 template <class T> inline ak_dec_ctx *dec_ctx_new_for() { return DecRoot<T>::ctx_new(); }

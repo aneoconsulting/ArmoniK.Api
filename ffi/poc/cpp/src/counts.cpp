@@ -67,6 +67,39 @@ static void count_dec(const char *id, const char *what, ak_dec_ctx *dctx,
   show(id, what, c, host, 0, elems);
 }
 
+// X-2 (2026-09-28): the pull family. ABI v1 7.1's invariant: pull makes NO reverse call and
+// writes exactly one record where push makes one, so records == push's reverse count; the
+// host counts the records its replay dispatches (pull_records_take). A retain pull's reverse
+// calls are decision 11's `grow` only (none on a payload, which carries no unknown field).
+template <class F>
+static uint64_t push_reverse(ak_dec_ctx *dctx, int32_t (*dec)(ak_dec_ctx *, const uint8_t *, size_t, F *),
+                             const std::string &b) {
+  AkCounters c;
+  F out;
+  ak_dec_counters_reset(dctx);
+  dec(dctx, (const uint8_t *)b.data(), b.size(), &out);
+  ak_dec_counters(dctx, &c);
+  return c.reverse;
+}
+template <class F>
+static void count_pull(const char *id, const char *what, ak_dec_ctx *dctx,
+                       int32_t (*pull)(ak_dec_ctx *, const uint8_t *, size_t, F *), const std::string &b,
+                       uint64_t want_records) {
+  AkCounters c;
+  F out;
+  ak_dec_counters_reset(dctx);
+  shapes::ffi::host_calls_take();
+  shapes::ffi::pull_records_take();
+  pull(dctx, (const uint8_t *)b.data(), b.size(), &out);
+  uint64_t host = shapes::ffi::host_calls_take();
+  uint64_t recs = shapes::ffi::pull_records_take();
+  ak_dec_counters(dctx, &c);
+  unsigned long long fwd = (unsigned long long)(c.forward + host);
+  std::printf("  %-6s %-22s forward %6llu  reverse %6llu  records %6llu  (core %llu + host %llu)  %s\n", id, what,
+              fwd, (unsigned long long)c.reverse, (unsigned long long)recs, (unsigned long long)c.forward,
+              (unsigned long long)host, recs == want_records ? "records = push reverse" : "RECORDS != PUSH REVERSE");
+}
+
 template <class F, class P>
 static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
                      intptr_t (*ffi_enc)(ak_enc_ctx *, const F &, const shapes::ffi::Tcs &),
@@ -112,6 +145,14 @@ static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
   F r1;
   count_dec<F>(id, "decode retain", dctx, &shapes::ffi::DecRoot<F>::decode_unk, wire, elems, &r1);
 #endif
+  {
+    const uint64_t pr = push_reverse<F>(dctx, ffi_dec, wire);
+    count_pull<F>(id, "decode pull", dctx, &shapes::ffi::DecRoot<F>::pull, wire, pr);
+    count_pull<F>(id, "decode pull drained", dctx, &shapes::ffi::DecRoot<F>::pull_drain, wire, pr);
+#ifndef AK_NO_UNKNOWN_FIELDS
+    count_pull<F>(id, "decode pull retain", dctx, &shapes::ffi::DecRoot<F>::pull_unk, wire, pr);
+#endif
+  }
   shapes::ffi::dec_ctx_free(dctx);
   ak_enc_ctx_free(ctx);
   (void)nat_dec;

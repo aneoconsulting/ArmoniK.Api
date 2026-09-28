@@ -35,9 +35,10 @@ import sys
 
 H1 = "H-1: pool[0] only"
 FULL_ARMS = ["incumbent-prod", "incumbent-best", "incumbent-arena", "host-gen-drop", "host-gen-retain",
-             "core-ffi-drop", "core-ffi-retain", "core-ffi-borrow-drop", "core-ffi-borrow-retain"]
+             "core-ffi-drop", "core-ffi-retain", "core-ffi-pull-drop", "core-ffi-pull-retain",
+             "core-ffi-borrow-drop", "core-ffi-borrow-retain"]
 NOUNK_ARMS = ["incumbent-prod@nounk", "incumbent-best@nounk", "incumbent-arena@nounk", "host-gen-nounk",
-              "core-ffi-nounk", "core-ffi-borrow-nounk"]
+              "core-ffi-nounk", "core-ffi-pull-nounk", "core-ffi-borrow-nounk"]
 KNOWN_TAGS = ("end", "input", "row", "set")  # every other tag of a sample is part of its variant
 VARIANTS = ["reused/hot", "reused/pool", "transport/hot", "transport/pool"]
 DIRS = ["encode", "decode", "decode_read"]
@@ -46,9 +47,10 @@ RPC_JOBS = [("a", "P2.2"), ("a+read", "P2.2"), ("b", "P2.2"), ("c", "P5.3"), ("c
 JOB_TEXT = {"a": "Fetch, the P2.2 response decoded", "a+read": "Fetch, the P2.2 response decoded and every field read",
             "b": "Push, the P2.2 request encoded (the server decodes it)", "c": "Upload, the request encoded, empty response",
             "d": "UploadStream in 2 MiB M5 chunks, the server's count checked"}
-FULL_CELLS = ["A", "B", "Bf", "C-drop", "Cf-drop", "C-retain", "Cf-retain", "D-drop", "D-retain", "E-drop",
-              "Ef-drop", "E-retain", "Ef-retain", "F-drop", "F-retain"]
-NOUNK_CELLS = ["A", "B", "Bf", "C-nounk", "Cf-nounk", "D-nounk", "E-nounk", "Ef-nounk", "F-nounk"]
+FULL_CELLS = ["A", "B", "Bf", "C-drop", "Cf-drop", "Cp-drop", "C-retain", "Cf-retain", "Cp-retain", "D-drop",
+              "Dp-drop", "D-retain", "Dp-retain", "E-drop", "Ef-drop", "E-retain", "Ef-retain", "F-drop", "F-retain"]
+NOUNK_CELLS = ["A", "B", "Bf", "C-nounk", "Cf-nounk", "Cp-nounk", "D-nounk", "Dp-nounk", "E-nounk", "Ef-nounk",
+               "F-nounk"]
 
 
 def samples(path):
@@ -183,8 +185,9 @@ def codec(run):
                 "`core-ffi-retain` are the full build's process; the `@nounk` and `-nounk` columns are the "
                 "no-unknown build's process, so a comparison across the two groups crosses processes "
                 "(`incumbent-*` and `incumbent-*@nounk` are the same code in the two processes: the control). "
-                "`incumbent-arena`, `core-ffi-borrow-*` (the borrowed-string facade) and the `from=bytebuffer` rows are "
-                "labelled extras (payloads only). "
+                "`incumbent-arena`, `core-ffi-pull-*` (ABI v1 7.1's pull family, walked in place), "
+                "`core-ffi-borrow-*` (the borrowed-string facade) and the `from=bytebuffer` rows are labelled extras "
+                "(payloads only). "
                 "Empty cell: the arm has no such row (incumbent-prod encodes to the transport form only, "
                 "incumbent-best to a reused string only; P7.1 is decode only). Source: `variants-codec.tsv` (ns); "
                 "per-case spreads in `summary-codec.tsv`.\n\n")
@@ -252,7 +255,8 @@ def rpc(run):
                 "in flight (c and d run at 1 and 8 only). `pinned` and `shipped` are the two transport "
                 "configurations; the full client (cells in drop and retain) and the no-unknown client "
                 "(`-nounk` cells, and its own A and B) are separate processes. `f` = the core's framed send "
-                "path (labelled extra cells), placed under its reference twin. `†` = at least one repetition was a "
+                "path (labelled extra cells), placed under its reference twin; `p` = decoded with the pull family "
+                "(labelled extra cells, directions a and a+read only). `†` = at least one repetition was a "
                 "single batch (one Google Benchmark iteration: the batch took longer than min_time), so that "
                 "sample is one batch of k calls. Source: `summary-rpc.tsv` (ns).\n\n")
         f.write(f"Repetitions per entry: {', '.join(map(str, rounds))}.\n\n")

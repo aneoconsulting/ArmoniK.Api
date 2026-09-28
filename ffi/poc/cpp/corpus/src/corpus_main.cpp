@@ -32,6 +32,8 @@ const char *arm_name(corpus::Arm a) {
     case corpus::kFfiRetain: return "ffi-retain";
     case corpus::kNativeDrop: return "native-drop";
     case corpus::kNativeRetain: return "native-retain";
+    case corpus::kFfiPullDrop: return "ffi-pull-drop";
+    case corpus::kFfiPullRetain: return "ffi-pull-retain";
   }
   return "?";
 }
@@ -124,9 +126,9 @@ int main(int argc, char **argv) {
     return 0;
   }
   const corpus::Arm arms[] = {corpus::kFfiDrop, corpus::kFfiRetain, corpus::kNativeDrop,
-                              corpus::kNativeRetain};
+                              corpus::kNativeRetain, corpus::kFfiPullDrop, corpus::kFfiPullRetain};
   std::string out = "{";
-  for (size_t i = 0; i < 4; ++i) {
+  for (size_t i = 0; i < sizeof(arms) / sizeof(arms[0]); ++i) {
     corpus::Outcome oc = corpus::run_arm(root, arms[i], (const uint8_t *)buf.data(),
                                          buf.size(), cx);
     // The harness seen failing: each plant must turn rows red in gen/corpus_all.py.

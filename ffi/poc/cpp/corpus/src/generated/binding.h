@@ -37,6 +37,8 @@ int32_t ak_init_once();
 // ak_dec_reset_<Root> of an armed decode). Counted in the counting build
 // (AK_COUNTING) only; returns the count since the last call and restarts it.
 uint64_t host_calls_take();
+// X-2, counting build: the pull records the replay dispatched since the last call.
+uint64_t pull_records_take();
 
 struct EncObj_Timestamp {
   const Timestamp *o;
@@ -159,6 +161,13 @@ intptr_t encode_into_timestamp(ak_enc_ctx *ctx, const Timestamp &o, const Tcs &t
 intptr_t encode_into_timestamp_zeroed(ak_enc_ctx *ctx, const Timestamp &o, const Tcs &t);
 intptr_t encode_into_timestamp_nobatch(ak_enc_ctx *ctx, const Timestamp &o, const Tcs &t);
 int32_t decode_with_timestamp(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Timestamp *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_timestamp(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Timestamp *out);
+int32_t pull_drain_with_timestamp(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Timestamp *out);
+int32_t pull_with_timestamp_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Timestamp *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_timestamp_unk(ak_enc_ctx *ctx, const Timestamp &o, const Tcs &t);
 // B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
@@ -174,6 +183,13 @@ intptr_t encode_into_duration(ak_enc_ctx *ctx, const Duration &o, const Tcs &t);
 intptr_t encode_into_duration_zeroed(ak_enc_ctx *ctx, const Duration &o, const Tcs &t);
 intptr_t encode_into_duration_nobatch(ak_enc_ctx *ctx, const Duration &o, const Tcs &t);
 int32_t decode_with_duration(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Duration *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_duration(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Duration *out);
+int32_t pull_drain_with_duration(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Duration *out);
+int32_t pull_with_duration_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Duration *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_duration_unk(ak_enc_ctx *ctx, const Duration &o, const Tcs &t);
 // B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
@@ -189,6 +205,13 @@ intptr_t encode_into_result_raw(ak_enc_ctx *ctx, const ResultRaw &o, const Tcs &
 intptr_t encode_into_result_raw_zeroed(ak_enc_ctx *ctx, const ResultRaw &o, const Tcs &t);
 intptr_t encode_into_result_raw_nobatch(ak_enc_ctx *ctx, const ResultRaw &o, const Tcs &t);
 int32_t decode_with_result_raw(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ResultRaw *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_result_raw(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ResultRaw *out);
+int32_t pull_drain_with_result_raw(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ResultRaw *out);
+int32_t pull_with_result_raw_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ResultRaw *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_result_raw_unk(ak_enc_ctx *ctx, const ResultRaw &o, const Tcs &t);
 // B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
@@ -204,6 +227,13 @@ intptr_t encode_into_task_options(ak_enc_ctx *ctx, const TaskOptions &o, const T
 intptr_t encode_into_task_options_zeroed(ak_enc_ctx *ctx, const TaskOptions &o, const Tcs &t);
 intptr_t encode_into_task_options_nobatch(ak_enc_ctx *ctx, const TaskOptions &o, const Tcs &t);
 int32_t decode_with_task_options(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskOptions *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_task_options(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskOptions *out);
+int32_t pull_drain_with_task_options(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskOptions *out);
+int32_t pull_with_task_options_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskOptions *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_task_options_unk(ak_enc_ctx *ctx, const TaskOptions &o, const Tcs &t);
 // B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
@@ -219,6 +249,13 @@ intptr_t encode_into_task_output(ak_enc_ctx *ctx, const TaskOutput &o, const Tcs
 intptr_t encode_into_task_output_zeroed(ak_enc_ctx *ctx, const TaskOutput &o, const Tcs &t);
 intptr_t encode_into_task_output_nobatch(ak_enc_ctx *ctx, const TaskOutput &o, const Tcs &t);
 int32_t decode_with_task_output(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskOutput *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_task_output(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskOutput *out);
+int32_t pull_drain_with_task_output(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskOutput *out);
+int32_t pull_with_task_output_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskOutput *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_task_output_unk(ak_enc_ctx *ctx, const TaskOutput &o, const Tcs &t);
 // B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
@@ -234,6 +271,13 @@ intptr_t encode_into_task_detailed(ak_enc_ctx *ctx, const TaskDetailed &o, const
 intptr_t encode_into_task_detailed_zeroed(ak_enc_ctx *ctx, const TaskDetailed &o, const Tcs &t);
 intptr_t encode_into_task_detailed_nobatch(ak_enc_ctx *ctx, const TaskDetailed &o, const Tcs &t);
 int32_t decode_with_task_detailed(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskDetailed *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_task_detailed(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskDetailed *out);
+int32_t pull_drain_with_task_detailed(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskDetailed *out);
+int32_t pull_with_task_detailed_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskDetailed *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_task_detailed_unk(ak_enc_ctx *ctx, const TaskDetailed &o, const Tcs &t);
 // B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
@@ -249,6 +293,13 @@ intptr_t encode_into_task_summary(ak_enc_ctx *ctx, const TaskSummary &o, const T
 intptr_t encode_into_task_summary_zeroed(ak_enc_ctx *ctx, const TaskSummary &o, const Tcs &t);
 intptr_t encode_into_task_summary_nobatch(ak_enc_ctx *ctx, const TaskSummary &o, const Tcs &t);
 int32_t decode_with_task_summary(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskSummary *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_task_summary(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskSummary *out);
+int32_t pull_drain_with_task_summary(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskSummary *out);
+int32_t pull_with_task_summary_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskSummary *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_task_summary_unk(ak_enc_ctx *ctx, const TaskSummary &o, const Tcs &t);
 // B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
@@ -264,6 +315,13 @@ intptr_t encode_into_probe(ak_enc_ctx *ctx, const Probe &o, const Tcs &t);
 intptr_t encode_into_probe_zeroed(ak_enc_ctx *ctx, const Probe &o, const Tcs &t);
 intptr_t encode_into_probe_nobatch(ak_enc_ctx *ctx, const Probe &o, const Tcs &t);
 int32_t decode_with_probe(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Probe *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_probe(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Probe *out);
+int32_t pull_drain_with_probe(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Probe *out);
+int32_t pull_with_probe_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Probe *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_probe_unk(ak_enc_ctx *ctx, const Probe &o, const Tcs &t);
 // B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
@@ -279,6 +337,13 @@ intptr_t encode_into_empty(ak_enc_ctx *ctx, const Empty &o, const Tcs &t);
 intptr_t encode_into_empty_zeroed(ak_enc_ctx *ctx, const Empty &o, const Tcs &t);
 intptr_t encode_into_empty_nobatch(ak_enc_ctx *ctx, const Empty &o, const Tcs &t);
 int32_t decode_with_empty(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Empty *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_empty(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Empty *out);
+int32_t pull_drain_with_empty(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Empty *out);
+int32_t pull_with_empty_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Empty *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_empty_unk(ak_enc_ctx *ctx, const Empty &o, const Tcs &t);
 // B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
@@ -294,6 +359,13 @@ intptr_t encode_into_upload_result_data(ak_enc_ctx *ctx, const UploadResultData 
 intptr_t encode_into_upload_result_data_zeroed(ak_enc_ctx *ctx, const UploadResultData &o, const Tcs &t);
 intptr_t encode_into_upload_result_data_nobatch(ak_enc_ctx *ctx, const UploadResultData &o, const Tcs &t);
 int32_t decode_with_upload_result_data(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultData *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_upload_result_data(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultData *out);
+int32_t pull_drain_with_upload_result_data(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultData *out);
+int32_t pull_with_upload_result_data_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultData *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_upload_result_data_unk(ak_enc_ctx *ctx, const UploadResultData &o, const Tcs &t);
 // B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
@@ -309,6 +381,13 @@ intptr_t encode_into_metrics_batch(ak_enc_ctx *ctx, const MetricsBatch &o, const
 intptr_t encode_into_metrics_batch_zeroed(ak_enc_ctx *ctx, const MetricsBatch &o, const Tcs &t);
 intptr_t encode_into_metrics_batch_nobatch(ak_enc_ctx *ctx, const MetricsBatch &o, const Tcs &t);
 int32_t decode_with_metrics_batch(ak_dec_ctx *ctx, const uint8_t *b, size_t n, MetricsBatch *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_metrics_batch(ak_dec_ctx *ctx, const uint8_t *b, size_t n, MetricsBatch *out);
+int32_t pull_drain_with_metrics_batch(ak_dec_ctx *ctx, const uint8_t *b, size_t n, MetricsBatch *out);
+int32_t pull_with_metrics_batch_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, MetricsBatch *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_metrics_batch_unk(ak_enc_ctx *ctx, const MetricsBatch &o, const Tcs &t);
 // B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
@@ -324,6 +403,13 @@ intptr_t encode_into_pair(ak_enc_ctx *ctx, const Pair &o, const Tcs &t);
 intptr_t encode_into_pair_zeroed(ak_enc_ctx *ctx, const Pair &o, const Tcs &t);
 intptr_t encode_into_pair_nobatch(ak_enc_ctx *ctx, const Pair &o, const Tcs &t);
 int32_t decode_with_pair(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Pair *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_pair(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Pair *out);
+int32_t pull_drain_with_pair(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Pair *out);
+int32_t pull_with_pair_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Pair *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_pair_unk(ak_enc_ctx *ctx, const Pair &o, const Tcs &t);
 // B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
@@ -339,6 +425,13 @@ intptr_t encode_into_list_results_response(ak_enc_ctx *ctx, const ListResultsRes
 intptr_t encode_into_list_results_response_zeroed(ak_enc_ctx *ctx, const ListResultsResponse &o, const Tcs &t);
 intptr_t encode_into_list_results_response_nobatch(ak_enc_ctx *ctx, const ListResultsResponse &o, const Tcs &t);
 int32_t decode_with_list_results_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_list_results_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out);
+int32_t pull_drain_with_list_results_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out);
+int32_t pull_with_list_results_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_list_results_response_unk(ak_enc_ctx *ctx, const ListResultsResponse &o, const Tcs &t);
 // B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
@@ -354,6 +447,13 @@ intptr_t encode_into_list_tasks_detailed_response(ak_enc_ctx *ctx, const ListTas
 intptr_t encode_into_list_tasks_detailed_response_zeroed(ak_enc_ctx *ctx, const ListTasksDetailedResponse &o, const Tcs &t);
 intptr_t encode_into_list_tasks_detailed_response_nobatch(ak_enc_ctx *ctx, const ListTasksDetailedResponse &o, const Tcs &t);
 int32_t decode_with_list_tasks_detailed_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_list_tasks_detailed_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out);
+int32_t pull_drain_with_list_tasks_detailed_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out);
+int32_t pull_with_list_tasks_detailed_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_list_tasks_detailed_response_unk(ak_enc_ctx *ctx, const ListTasksDetailedResponse &o, const Tcs &t);
 // B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
@@ -369,6 +469,13 @@ intptr_t encode_into_list_task_summary_response(ak_enc_ctx *ctx, const ListTaskS
 intptr_t encode_into_list_task_summary_response_zeroed(ak_enc_ctx *ctx, const ListTaskSummaryResponse &o, const Tcs &t);
 intptr_t encode_into_list_task_summary_response_nobatch(ak_enc_ctx *ctx, const ListTaskSummaryResponse &o, const Tcs &t);
 int32_t decode_with_list_task_summary_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_list_task_summary_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out);
+int32_t pull_drain_with_list_task_summary_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out);
+int32_t pull_with_list_task_summary_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_list_task_summary_response_unk(ak_enc_ctx *ctx, const ListTaskSummaryResponse &o, const Tcs &t);
 // B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
@@ -384,6 +491,13 @@ intptr_t encode_into_list_probe_response(ak_enc_ctx *ctx, const ListProbeRespons
 intptr_t encode_into_list_probe_response_zeroed(ak_enc_ctx *ctx, const ListProbeResponse &o, const Tcs &t);
 intptr_t encode_into_list_probe_response_nobatch(ak_enc_ctx *ctx, const ListProbeResponse &o, const Tcs &t);
 int32_t decode_with_list_probe_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_list_probe_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out);
+int32_t pull_drain_with_list_probe_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out);
+int32_t pull_with_list_probe_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_list_probe_response_unk(ak_enc_ctx *ctx, const ListProbeResponse &o, const Tcs &t);
 // B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
@@ -399,6 +513,13 @@ intptr_t encode_into_list_metrics_response(ak_enc_ctx *ctx, const ListMetricsRes
 intptr_t encode_into_list_metrics_response_zeroed(ak_enc_ctx *ctx, const ListMetricsResponse &o, const Tcs &t);
 intptr_t encode_into_list_metrics_response_nobatch(ak_enc_ctx *ctx, const ListMetricsResponse &o, const Tcs &t);
 int32_t decode_with_list_metrics_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_list_metrics_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out);
+int32_t pull_drain_with_list_metrics_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out);
+int32_t pull_with_list_metrics_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_list_metrics_response_unk(ak_enc_ctx *ctx, const ListMetricsResponse &o, const Tcs &t);
 // B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
@@ -414,6 +535,13 @@ intptr_t encode_into_upload_result_data_message(ak_enc_ctx *ctx, const UploadRes
 intptr_t encode_into_upload_result_data_message_zeroed(ak_enc_ctx *ctx, const UploadResultDataMessage &o, const Tcs &t);
 intptr_t encode_into_upload_result_data_message_nobatch(ak_enc_ctx *ctx, const UploadResultDataMessage &o, const Tcs &t);
 int32_t decode_with_upload_result_data_message(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_upload_result_data_message(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out);
+int32_t pull_drain_with_upload_result_data_message(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out);
+int32_t pull_with_upload_result_data_message_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_upload_result_data_message_unk(ak_enc_ctx *ctx, const UploadResultDataMessage &o, const Tcs &t);
 // B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
@@ -429,6 +557,13 @@ intptr_t encode_into_dual_response(ak_enc_ctx *ctx, const DualResponse &o, const
 intptr_t encode_into_dual_response_zeroed(ak_enc_ctx *ctx, const DualResponse &o, const Tcs &t);
 intptr_t encode_into_dual_response_nobatch(ak_enc_ctx *ctx, const DualResponse &o, const Tcs &t);
 int32_t decode_with_dual_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_dual_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out);
+int32_t pull_drain_with_dual_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out);
+int32_t pull_with_dual_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_dual_response_unk(ak_enc_ctx *ctx, const DualResponse &o, const Tcs &t);
 // B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
@@ -444,6 +579,13 @@ intptr_t encode_into_chunk_leaf(ak_enc_ctx *ctx, const ChunkLeaf &o, const Tcs &
 intptr_t encode_into_chunk_leaf_zeroed(ak_enc_ctx *ctx, const ChunkLeaf &o, const Tcs &t);
 intptr_t encode_into_chunk_leaf_nobatch(ak_enc_ctx *ctx, const ChunkLeaf &o, const Tcs &t);
 int32_t decode_with_chunk_leaf(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkLeaf *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_chunk_leaf(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkLeaf *out);
+int32_t pull_drain_with_chunk_leaf(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkLeaf *out);
+int32_t pull_with_chunk_leaf_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkLeaf *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_chunk_leaf_unk(ak_enc_ctx *ctx, const ChunkLeaf &o, const Tcs &t);
 // B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
@@ -459,6 +601,13 @@ intptr_t encode_into_chunk_inner(ak_enc_ctx *ctx, const ChunkInner &o, const Tcs
 intptr_t encode_into_chunk_inner_zeroed(ak_enc_ctx *ctx, const ChunkInner &o, const Tcs &t);
 intptr_t encode_into_chunk_inner_nobatch(ak_enc_ctx *ctx, const ChunkInner &o, const Tcs &t);
 int32_t decode_with_chunk_inner(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkInner *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_chunk_inner(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkInner *out);
+int32_t pull_drain_with_chunk_inner(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkInner *out);
+int32_t pull_with_chunk_inner_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkInner *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_chunk_inner_unk(ak_enc_ctx *ctx, const ChunkInner &o, const Tcs &t);
 // B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
@@ -474,6 +623,13 @@ intptr_t encode_into_chunk_element(ak_enc_ctx *ctx, const ChunkElement &o, const
 intptr_t encode_into_chunk_element_zeroed(ak_enc_ctx *ctx, const ChunkElement &o, const Tcs &t);
 intptr_t encode_into_chunk_element_nobatch(ak_enc_ctx *ctx, const ChunkElement &o, const Tcs &t);
 int32_t decode_with_chunk_element(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkElement *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_chunk_element(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkElement *out);
+int32_t pull_drain_with_chunk_element(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkElement *out);
+int32_t pull_with_chunk_element_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkElement *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_chunk_element_unk(ak_enc_ctx *ctx, const ChunkElement &o, const Tcs &t);
 // B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
@@ -489,6 +645,13 @@ intptr_t encode_into_chunked_response(ak_enc_ctx *ctx, const ChunkedResponse &o,
 intptr_t encode_into_chunked_response_zeroed(ak_enc_ctx *ctx, const ChunkedResponse &o, const Tcs &t);
 intptr_t encode_into_chunked_response_nobatch(ak_enc_ctx *ctx, const ChunkedResponse &o, const Tcs &t);
 int32_t decode_with_chunked_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkedResponse *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_chunked_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkedResponse *out);
+int32_t pull_drain_with_chunked_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkedResponse *out);
+int32_t pull_with_chunked_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkedResponse *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_chunked_response_unk(ak_enc_ctx *ctx, const ChunkedResponse &o, const Tcs &t);
 // B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
@@ -504,6 +667,13 @@ intptr_t encode_into_chunked_response_wide(ak_enc_ctx *ctx, const ChunkedRespons
 intptr_t encode_into_chunked_response_wide_zeroed(ak_enc_ctx *ctx, const ChunkedResponseWide &o, const Tcs &t);
 intptr_t encode_into_chunked_response_wide_nobatch(ak_enc_ctx *ctx, const ChunkedResponseWide &o, const Tcs &t);
 int32_t decode_with_chunked_response_wide(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkedResponseWide *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_chunked_response_wide(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkedResponseWide *out);
+int32_t pull_drain_with_chunked_response_wide(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkedResponseWide *out);
+int32_t pull_with_chunked_response_wide_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkedResponseWide *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_chunked_response_wide_unk(ak_enc_ctx *ctx, const ChunkedResponseWide &o, const Tcs &t);
 // B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
@@ -519,6 +689,13 @@ intptr_t encode_into_leaf_element(ak_enc_ctx *ctx, const LeafElement &o, const T
 intptr_t encode_into_leaf_element_zeroed(ak_enc_ctx *ctx, const LeafElement &o, const Tcs &t);
 intptr_t encode_into_leaf_element_nobatch(ak_enc_ctx *ctx, const LeafElement &o, const Tcs &t);
 int32_t decode_with_leaf_element(ak_dec_ctx *ctx, const uint8_t *b, size_t n, LeafElement *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_leaf_element(ak_dec_ctx *ctx, const uint8_t *b, size_t n, LeafElement *out);
+int32_t pull_drain_with_leaf_element(ak_dec_ctx *ctx, const uint8_t *b, size_t n, LeafElement *out);
+int32_t pull_with_leaf_element_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, LeafElement *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_leaf_element_unk(ak_enc_ctx *ctx, const LeafElement &o, const Tcs &t);
 // B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
@@ -534,6 +711,13 @@ intptr_t encode_into_leaf_response(ak_enc_ctx *ctx, const LeafResponse &o, const
 intptr_t encode_into_leaf_response_zeroed(ak_enc_ctx *ctx, const LeafResponse &o, const Tcs &t);
 intptr_t encode_into_leaf_response_nobatch(ak_enc_ctx *ctx, const LeafResponse &o, const Tcs &t);
 int32_t decode_with_leaf_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, LeafResponse *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_leaf_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, LeafResponse *out);
+int32_t pull_drain_with_leaf_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, LeafResponse *out);
+int32_t pull_with_leaf_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, LeafResponse *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_leaf_response_unk(ak_enc_ctx *ctx, const LeafResponse &o, const Tcs &t);
 // B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
@@ -549,6 +733,13 @@ intptr_t encode_into_surrogate(ak_enc_ctx *ctx, const Surrogate &o, const Tcs &t
 intptr_t encode_into_surrogate_zeroed(ak_enc_ctx *ctx, const Surrogate &o, const Tcs &t);
 intptr_t encode_into_surrogate_nobatch(ak_enc_ctx *ctx, const Surrogate &o, const Tcs &t);
 int32_t decode_with_surrogate(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Surrogate *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_surrogate(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Surrogate *out);
+int32_t pull_drain_with_surrogate(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Surrogate *out);
+int32_t pull_with_surrogate_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Surrogate *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_surrogate_unk(ak_enc_ctx *ctx, const Surrogate &o, const Tcs &t);
 // B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
@@ -564,6 +755,13 @@ intptr_t encode_into_surrogate_inner(ak_enc_ctx *ctx, const SurrogateInner &o, c
 intptr_t encode_into_surrogate_inner_zeroed(ak_enc_ctx *ctx, const SurrogateInner &o, const Tcs &t);
 intptr_t encode_into_surrogate_inner_nobatch(ak_enc_ctx *ctx, const SurrogateInner &o, const Tcs &t);
 int32_t decode_with_surrogate_inner(ak_dec_ctx *ctx, const uint8_t *b, size_t n, SurrogateInner *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_surrogate_inner(ak_dec_ctx *ctx, const uint8_t *b, size_t n, SurrogateInner *out);
+int32_t pull_drain_with_surrogate_inner(ak_dec_ctx *ctx, const uint8_t *b, size_t n, SurrogateInner *out);
+int32_t pull_with_surrogate_inner_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, SurrogateInner *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_surrogate_inner_unk(ak_enc_ctx *ctx, const SurrogateInner &o, const Tcs &t);
 // B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
@@ -579,6 +777,13 @@ intptr_t encode_into_wire_zoo(ak_enc_ctx *ctx, const WireZoo &o, const Tcs &t);
 intptr_t encode_into_wire_zoo_zeroed(ak_enc_ctx *ctx, const WireZoo &o, const Tcs &t);
 intptr_t encode_into_wire_zoo_nobatch(ak_enc_ctx *ctx, const WireZoo &o, const Tcs &t);
 int32_t decode_with_wire_zoo(ak_dec_ctx *ctx, const uint8_t *b, size_t n, WireZoo *out);
+// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
+// call), then the records replayed through the push vtable's own host functions;
+// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
+// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
+int32_t pull_with_wire_zoo(ak_dec_ctx *ctx, const uint8_t *b, size_t n, WireZoo *out);
+int32_t pull_drain_with_wire_zoo(ak_dec_ctx *ctx, const uint8_t *b, size_t n, WireZoo *out);
+int32_t pull_with_wire_zoo_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, WireZoo *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_wire_zoo_unk(ak_enc_ctx *ctx, const WireZoo &o, const Tcs &t);
 // B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
@@ -621,6 +826,15 @@ template <> struct DecRoot<Timestamp> {
   static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, Timestamp *out) {
     return decode_with_timestamp_unk(c, b, n, out);
   }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, Timestamp *out) {
+    return pull_with_timestamp(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, Timestamp *out) {
+    return pull_drain_with_timestamp(c, b, n, out);
+  }
+  static int32_t pull_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, Timestamp *out) {
+    return pull_with_timestamp_unk(c, b, n, out);
+  }
   static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, Timestamp *out, uint32_t k, uint32_t cap, uint64_t *refills) {
     return decode_with_timestamp_pool(c, b, n, out, k, cap, refills);
   }
@@ -645,6 +859,15 @@ template <> struct DecRoot<Duration> {
   }
   static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, Duration *out) {
     return decode_with_duration_unk(c, b, n, out);
+  }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, Duration *out) {
+    return pull_with_duration(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, Duration *out) {
+    return pull_drain_with_duration(c, b, n, out);
+  }
+  static int32_t pull_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, Duration *out) {
+    return pull_with_duration_unk(c, b, n, out);
   }
   static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, Duration *out, uint32_t k, uint32_t cap, uint64_t *refills) {
     return decode_with_duration_pool(c, b, n, out, k, cap, refills);
@@ -671,6 +894,15 @@ template <> struct DecRoot<ResultRaw> {
   static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, ResultRaw *out) {
     return decode_with_result_raw_unk(c, b, n, out);
   }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, ResultRaw *out) {
+    return pull_with_result_raw(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, ResultRaw *out) {
+    return pull_drain_with_result_raw(c, b, n, out);
+  }
+  static int32_t pull_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, ResultRaw *out) {
+    return pull_with_result_raw_unk(c, b, n, out);
+  }
   static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, ResultRaw *out, uint32_t k, uint32_t cap, uint64_t *refills) {
     return decode_with_result_raw_pool(c, b, n, out, k, cap, refills);
   }
@@ -695,6 +927,15 @@ template <> struct DecRoot<TaskOptions> {
   }
   static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, TaskOptions *out) {
     return decode_with_task_options_unk(c, b, n, out);
+  }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, TaskOptions *out) {
+    return pull_with_task_options(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, TaskOptions *out) {
+    return pull_drain_with_task_options(c, b, n, out);
+  }
+  static int32_t pull_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, TaskOptions *out) {
+    return pull_with_task_options_unk(c, b, n, out);
   }
   static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, TaskOptions *out, uint32_t k, uint32_t cap, uint64_t *refills) {
     return decode_with_task_options_pool(c, b, n, out, k, cap, refills);
@@ -721,6 +962,15 @@ template <> struct DecRoot<TaskOutput> {
   static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, TaskOutput *out) {
     return decode_with_task_output_unk(c, b, n, out);
   }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, TaskOutput *out) {
+    return pull_with_task_output(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, TaskOutput *out) {
+    return pull_drain_with_task_output(c, b, n, out);
+  }
+  static int32_t pull_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, TaskOutput *out) {
+    return pull_with_task_output_unk(c, b, n, out);
+  }
   static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, TaskOutput *out, uint32_t k, uint32_t cap, uint64_t *refills) {
     return decode_with_task_output_pool(c, b, n, out, k, cap, refills);
   }
@@ -745,6 +995,15 @@ template <> struct DecRoot<TaskDetailed> {
   }
   static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, TaskDetailed *out) {
     return decode_with_task_detailed_unk(c, b, n, out);
+  }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, TaskDetailed *out) {
+    return pull_with_task_detailed(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, TaskDetailed *out) {
+    return pull_drain_with_task_detailed(c, b, n, out);
+  }
+  static int32_t pull_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, TaskDetailed *out) {
+    return pull_with_task_detailed_unk(c, b, n, out);
   }
   static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, TaskDetailed *out, uint32_t k, uint32_t cap, uint64_t *refills) {
     return decode_with_task_detailed_pool(c, b, n, out, k, cap, refills);
@@ -771,6 +1030,15 @@ template <> struct DecRoot<TaskSummary> {
   static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, TaskSummary *out) {
     return decode_with_task_summary_unk(c, b, n, out);
   }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, TaskSummary *out) {
+    return pull_with_task_summary(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, TaskSummary *out) {
+    return pull_drain_with_task_summary(c, b, n, out);
+  }
+  static int32_t pull_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, TaskSummary *out) {
+    return pull_with_task_summary_unk(c, b, n, out);
+  }
   static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, TaskSummary *out, uint32_t k, uint32_t cap, uint64_t *refills) {
     return decode_with_task_summary_pool(c, b, n, out, k, cap, refills);
   }
@@ -795,6 +1063,15 @@ template <> struct DecRoot<Probe> {
   }
   static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, Probe *out) {
     return decode_with_probe_unk(c, b, n, out);
+  }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, Probe *out) {
+    return pull_with_probe(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, Probe *out) {
+    return pull_drain_with_probe(c, b, n, out);
+  }
+  static int32_t pull_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, Probe *out) {
+    return pull_with_probe_unk(c, b, n, out);
   }
   static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, Probe *out, uint32_t k, uint32_t cap, uint64_t *refills) {
     return decode_with_probe_pool(c, b, n, out, k, cap, refills);
@@ -821,6 +1098,15 @@ template <> struct DecRoot<Empty> {
   static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, Empty *out) {
     return decode_with_empty_unk(c, b, n, out);
   }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, Empty *out) {
+    return pull_with_empty(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, Empty *out) {
+    return pull_drain_with_empty(c, b, n, out);
+  }
+  static int32_t pull_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, Empty *out) {
+    return pull_with_empty_unk(c, b, n, out);
+  }
   static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, Empty *out, uint32_t k, uint32_t cap, uint64_t *refills) {
     return decode_with_empty_pool(c, b, n, out, k, cap, refills);
   }
@@ -845,6 +1131,15 @@ template <> struct DecRoot<UploadResultData> {
   }
   static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, UploadResultData *out) {
     return decode_with_upload_result_data_unk(c, b, n, out);
+  }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, UploadResultData *out) {
+    return pull_with_upload_result_data(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, UploadResultData *out) {
+    return pull_drain_with_upload_result_data(c, b, n, out);
+  }
+  static int32_t pull_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, UploadResultData *out) {
+    return pull_with_upload_result_data_unk(c, b, n, out);
   }
   static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, UploadResultData *out, uint32_t k, uint32_t cap, uint64_t *refills) {
     return decode_with_upload_result_data_pool(c, b, n, out, k, cap, refills);
@@ -871,6 +1166,15 @@ template <> struct DecRoot<MetricsBatch> {
   static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, MetricsBatch *out) {
     return decode_with_metrics_batch_unk(c, b, n, out);
   }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, MetricsBatch *out) {
+    return pull_with_metrics_batch(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, MetricsBatch *out) {
+    return pull_drain_with_metrics_batch(c, b, n, out);
+  }
+  static int32_t pull_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, MetricsBatch *out) {
+    return pull_with_metrics_batch_unk(c, b, n, out);
+  }
   static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, MetricsBatch *out, uint32_t k, uint32_t cap, uint64_t *refills) {
     return decode_with_metrics_batch_pool(c, b, n, out, k, cap, refills);
   }
@@ -895,6 +1199,15 @@ template <> struct DecRoot<Pair> {
   }
   static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, Pair *out) {
     return decode_with_pair_unk(c, b, n, out);
+  }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, Pair *out) {
+    return pull_with_pair(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, Pair *out) {
+    return pull_drain_with_pair(c, b, n, out);
+  }
+  static int32_t pull_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, Pair *out) {
+    return pull_with_pair_unk(c, b, n, out);
   }
   static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, Pair *out, uint32_t k, uint32_t cap, uint64_t *refills) {
     return decode_with_pair_pool(c, b, n, out, k, cap, refills);
@@ -921,6 +1234,15 @@ template <> struct DecRoot<ListResultsResponse> {
   static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, ListResultsResponse *out) {
     return decode_with_list_results_response_unk(c, b, n, out);
   }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, ListResultsResponse *out) {
+    return pull_with_list_results_response(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, ListResultsResponse *out) {
+    return pull_drain_with_list_results_response(c, b, n, out);
+  }
+  static int32_t pull_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, ListResultsResponse *out) {
+    return pull_with_list_results_response_unk(c, b, n, out);
+  }
   static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, ListResultsResponse *out, uint32_t k, uint32_t cap, uint64_t *refills) {
     return decode_with_list_results_response_pool(c, b, n, out, k, cap, refills);
   }
@@ -945,6 +1267,15 @@ template <> struct DecRoot<ListTasksDetailedResponse> {
   }
   static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, ListTasksDetailedResponse *out) {
     return decode_with_list_tasks_detailed_response_unk(c, b, n, out);
+  }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, ListTasksDetailedResponse *out) {
+    return pull_with_list_tasks_detailed_response(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, ListTasksDetailedResponse *out) {
+    return pull_drain_with_list_tasks_detailed_response(c, b, n, out);
+  }
+  static int32_t pull_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, ListTasksDetailedResponse *out) {
+    return pull_with_list_tasks_detailed_response_unk(c, b, n, out);
   }
   static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, ListTasksDetailedResponse *out, uint32_t k, uint32_t cap, uint64_t *refills) {
     return decode_with_list_tasks_detailed_response_pool(c, b, n, out, k, cap, refills);
@@ -971,6 +1302,15 @@ template <> struct DecRoot<ListTaskSummaryResponse> {
   static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, ListTaskSummaryResponse *out) {
     return decode_with_list_task_summary_response_unk(c, b, n, out);
   }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, ListTaskSummaryResponse *out) {
+    return pull_with_list_task_summary_response(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, ListTaskSummaryResponse *out) {
+    return pull_drain_with_list_task_summary_response(c, b, n, out);
+  }
+  static int32_t pull_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, ListTaskSummaryResponse *out) {
+    return pull_with_list_task_summary_response_unk(c, b, n, out);
+  }
   static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, ListTaskSummaryResponse *out, uint32_t k, uint32_t cap, uint64_t *refills) {
     return decode_with_list_task_summary_response_pool(c, b, n, out, k, cap, refills);
   }
@@ -995,6 +1335,15 @@ template <> struct DecRoot<ListProbeResponse> {
   }
   static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, ListProbeResponse *out) {
     return decode_with_list_probe_response_unk(c, b, n, out);
+  }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, ListProbeResponse *out) {
+    return pull_with_list_probe_response(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, ListProbeResponse *out) {
+    return pull_drain_with_list_probe_response(c, b, n, out);
+  }
+  static int32_t pull_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, ListProbeResponse *out) {
+    return pull_with_list_probe_response_unk(c, b, n, out);
   }
   static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, ListProbeResponse *out, uint32_t k, uint32_t cap, uint64_t *refills) {
     return decode_with_list_probe_response_pool(c, b, n, out, k, cap, refills);
@@ -1021,6 +1370,15 @@ template <> struct DecRoot<ListMetricsResponse> {
   static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, ListMetricsResponse *out) {
     return decode_with_list_metrics_response_unk(c, b, n, out);
   }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, ListMetricsResponse *out) {
+    return pull_with_list_metrics_response(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, ListMetricsResponse *out) {
+    return pull_drain_with_list_metrics_response(c, b, n, out);
+  }
+  static int32_t pull_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, ListMetricsResponse *out) {
+    return pull_with_list_metrics_response_unk(c, b, n, out);
+  }
   static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, ListMetricsResponse *out, uint32_t k, uint32_t cap, uint64_t *refills) {
     return decode_with_list_metrics_response_pool(c, b, n, out, k, cap, refills);
   }
@@ -1045,6 +1403,15 @@ template <> struct DecRoot<UploadResultDataMessage> {
   }
   static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, UploadResultDataMessage *out) {
     return decode_with_upload_result_data_message_unk(c, b, n, out);
+  }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, UploadResultDataMessage *out) {
+    return pull_with_upload_result_data_message(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, UploadResultDataMessage *out) {
+    return pull_drain_with_upload_result_data_message(c, b, n, out);
+  }
+  static int32_t pull_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, UploadResultDataMessage *out) {
+    return pull_with_upload_result_data_message_unk(c, b, n, out);
   }
   static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, UploadResultDataMessage *out, uint32_t k, uint32_t cap, uint64_t *refills) {
     return decode_with_upload_result_data_message_pool(c, b, n, out, k, cap, refills);
@@ -1071,6 +1438,15 @@ template <> struct DecRoot<DualResponse> {
   static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, DualResponse *out) {
     return decode_with_dual_response_unk(c, b, n, out);
   }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, DualResponse *out) {
+    return pull_with_dual_response(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, DualResponse *out) {
+    return pull_drain_with_dual_response(c, b, n, out);
+  }
+  static int32_t pull_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, DualResponse *out) {
+    return pull_with_dual_response_unk(c, b, n, out);
+  }
   static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, DualResponse *out, uint32_t k, uint32_t cap, uint64_t *refills) {
     return decode_with_dual_response_pool(c, b, n, out, k, cap, refills);
   }
@@ -1095,6 +1471,15 @@ template <> struct DecRoot<ChunkLeaf> {
   }
   static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkLeaf *out) {
     return decode_with_chunk_leaf_unk(c, b, n, out);
+  }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkLeaf *out) {
+    return pull_with_chunk_leaf(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkLeaf *out) {
+    return pull_drain_with_chunk_leaf(c, b, n, out);
+  }
+  static int32_t pull_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkLeaf *out) {
+    return pull_with_chunk_leaf_unk(c, b, n, out);
   }
   static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkLeaf *out, uint32_t k, uint32_t cap, uint64_t *refills) {
     return decode_with_chunk_leaf_pool(c, b, n, out, k, cap, refills);
@@ -1121,6 +1506,15 @@ template <> struct DecRoot<ChunkInner> {
   static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkInner *out) {
     return decode_with_chunk_inner_unk(c, b, n, out);
   }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkInner *out) {
+    return pull_with_chunk_inner(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkInner *out) {
+    return pull_drain_with_chunk_inner(c, b, n, out);
+  }
+  static int32_t pull_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkInner *out) {
+    return pull_with_chunk_inner_unk(c, b, n, out);
+  }
   static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkInner *out, uint32_t k, uint32_t cap, uint64_t *refills) {
     return decode_with_chunk_inner_pool(c, b, n, out, k, cap, refills);
   }
@@ -1145,6 +1539,15 @@ template <> struct DecRoot<ChunkElement> {
   }
   static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkElement *out) {
     return decode_with_chunk_element_unk(c, b, n, out);
+  }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkElement *out) {
+    return pull_with_chunk_element(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkElement *out) {
+    return pull_drain_with_chunk_element(c, b, n, out);
+  }
+  static int32_t pull_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkElement *out) {
+    return pull_with_chunk_element_unk(c, b, n, out);
   }
   static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkElement *out, uint32_t k, uint32_t cap, uint64_t *refills) {
     return decode_with_chunk_element_pool(c, b, n, out, k, cap, refills);
@@ -1171,6 +1574,15 @@ template <> struct DecRoot<ChunkedResponse> {
   static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkedResponse *out) {
     return decode_with_chunked_response_unk(c, b, n, out);
   }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkedResponse *out) {
+    return pull_with_chunked_response(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkedResponse *out) {
+    return pull_drain_with_chunked_response(c, b, n, out);
+  }
+  static int32_t pull_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkedResponse *out) {
+    return pull_with_chunked_response_unk(c, b, n, out);
+  }
   static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkedResponse *out, uint32_t k, uint32_t cap, uint64_t *refills) {
     return decode_with_chunked_response_pool(c, b, n, out, k, cap, refills);
   }
@@ -1195,6 +1607,15 @@ template <> struct DecRoot<ChunkedResponseWide> {
   }
   static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkedResponseWide *out) {
     return decode_with_chunked_response_wide_unk(c, b, n, out);
+  }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkedResponseWide *out) {
+    return pull_with_chunked_response_wide(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkedResponseWide *out) {
+    return pull_drain_with_chunked_response_wide(c, b, n, out);
+  }
+  static int32_t pull_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkedResponseWide *out) {
+    return pull_with_chunked_response_wide_unk(c, b, n, out);
   }
   static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, ChunkedResponseWide *out, uint32_t k, uint32_t cap, uint64_t *refills) {
     return decode_with_chunked_response_wide_pool(c, b, n, out, k, cap, refills);
@@ -1221,6 +1642,15 @@ template <> struct DecRoot<LeafElement> {
   static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, LeafElement *out) {
     return decode_with_leaf_element_unk(c, b, n, out);
   }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, LeafElement *out) {
+    return pull_with_leaf_element(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, LeafElement *out) {
+    return pull_drain_with_leaf_element(c, b, n, out);
+  }
+  static int32_t pull_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, LeafElement *out) {
+    return pull_with_leaf_element_unk(c, b, n, out);
+  }
   static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, LeafElement *out, uint32_t k, uint32_t cap, uint64_t *refills) {
     return decode_with_leaf_element_pool(c, b, n, out, k, cap, refills);
   }
@@ -1245,6 +1675,15 @@ template <> struct DecRoot<LeafResponse> {
   }
   static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, LeafResponse *out) {
     return decode_with_leaf_response_unk(c, b, n, out);
+  }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, LeafResponse *out) {
+    return pull_with_leaf_response(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, LeafResponse *out) {
+    return pull_drain_with_leaf_response(c, b, n, out);
+  }
+  static int32_t pull_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, LeafResponse *out) {
+    return pull_with_leaf_response_unk(c, b, n, out);
   }
   static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, LeafResponse *out, uint32_t k, uint32_t cap, uint64_t *refills) {
     return decode_with_leaf_response_pool(c, b, n, out, k, cap, refills);
@@ -1271,6 +1710,15 @@ template <> struct DecRoot<Surrogate> {
   static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, Surrogate *out) {
     return decode_with_surrogate_unk(c, b, n, out);
   }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, Surrogate *out) {
+    return pull_with_surrogate(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, Surrogate *out) {
+    return pull_drain_with_surrogate(c, b, n, out);
+  }
+  static int32_t pull_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, Surrogate *out) {
+    return pull_with_surrogate_unk(c, b, n, out);
+  }
   static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, Surrogate *out, uint32_t k, uint32_t cap, uint64_t *refills) {
     return decode_with_surrogate_pool(c, b, n, out, k, cap, refills);
   }
@@ -1296,6 +1744,15 @@ template <> struct DecRoot<SurrogateInner> {
   static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, SurrogateInner *out) {
     return decode_with_surrogate_inner_unk(c, b, n, out);
   }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, SurrogateInner *out) {
+    return pull_with_surrogate_inner(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, SurrogateInner *out) {
+    return pull_drain_with_surrogate_inner(c, b, n, out);
+  }
+  static int32_t pull_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, SurrogateInner *out) {
+    return pull_with_surrogate_inner_unk(c, b, n, out);
+  }
   static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, SurrogateInner *out, uint32_t k, uint32_t cap, uint64_t *refills) {
     return decode_with_surrogate_inner_pool(c, b, n, out, k, cap, refills);
   }
@@ -1320,6 +1777,15 @@ template <> struct DecRoot<WireZoo> {
   }
   static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, WireZoo *out) {
     return decode_with_wire_zoo_unk(c, b, n, out);
+  }
+  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, WireZoo *out) {
+    return pull_with_wire_zoo(c, b, n, out);
+  }
+  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, WireZoo *out) {
+    return pull_drain_with_wire_zoo(c, b, n, out);
+  }
+  static int32_t pull_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, WireZoo *out) {
+    return pull_with_wire_zoo_unk(c, b, n, out);
   }
   static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, WireZoo *out, uint32_t k, uint32_t cap, uint64_t *refills) {
     return decode_with_wire_zoo_pool(c, b, n, out, k, cap, refills);

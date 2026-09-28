@@ -17,6 +17,8 @@ Outcome run_arm(const std::string &root, Arm arm, const uint8_t *b, size_t n, Cx
       case kNativeRetain: return Outcome::not_built();  // no-unknown build: no retain
       case kFfiDrop: return ffi_arm<Timestamp>(b, n, cx, ffi::decode_with_timestamp, ffi::encode_into_timestamp, project::project_timestamp);
       case kFfiRetain: return Outcome::not_built();
+      case kFfiPullDrop: return ffi_arm<Timestamp>(b, n, cx, ffi::pull_with_timestamp, ffi::encode_into_timestamp, project::project_timestamp);
+      case kFfiPullRetain: return Outcome::not_built();
     }
   }
   if (root == "Duration") {
@@ -25,6 +27,8 @@ Outcome run_arm(const std::string &root, Arm arm, const uint8_t *b, size_t n, Cx
       case kNativeRetain: return Outcome::not_built();  // no-unknown build: no retain
       case kFfiDrop: return ffi_arm<Duration>(b, n, cx, ffi::decode_with_duration, ffi::encode_into_duration, project::project_duration);
       case kFfiRetain: return Outcome::not_built();
+      case kFfiPullDrop: return ffi_arm<Duration>(b, n, cx, ffi::pull_with_duration, ffi::encode_into_duration, project::project_duration);
+      case kFfiPullRetain: return Outcome::not_built();
     }
   }
   if (root == "ResultRaw") {
@@ -33,6 +37,8 @@ Outcome run_arm(const std::string &root, Arm arm, const uint8_t *b, size_t n, Cx
       case kNativeRetain: return Outcome::not_built();  // no-unknown build: no retain
       case kFfiDrop: return ffi_arm<ResultRaw>(b, n, cx, ffi::decode_with_result_raw, ffi::encode_into_result_raw, project::project_result_raw);
       case kFfiRetain: return Outcome::not_built();
+      case kFfiPullDrop: return ffi_arm<ResultRaw>(b, n, cx, ffi::pull_with_result_raw, ffi::encode_into_result_raw, project::project_result_raw);
+      case kFfiPullRetain: return Outcome::not_built();
     }
   }
   if (root == "TaskOptions") {
@@ -41,6 +47,8 @@ Outcome run_arm(const std::string &root, Arm arm, const uint8_t *b, size_t n, Cx
       case kNativeRetain: return Outcome::not_built();  // no-unknown build: no retain
       case kFfiDrop: return ffi_arm<TaskOptions>(b, n, cx, ffi::decode_with_task_options, ffi::encode_into_task_options, project::project_task_options);
       case kFfiRetain: return Outcome::not_built();
+      case kFfiPullDrop: return ffi_arm<TaskOptions>(b, n, cx, ffi::pull_with_task_options, ffi::encode_into_task_options, project::project_task_options);
+      case kFfiPullRetain: return Outcome::not_built();
     }
   }
   if (root == "TaskOutput") {
@@ -49,6 +57,8 @@ Outcome run_arm(const std::string &root, Arm arm, const uint8_t *b, size_t n, Cx
       case kNativeRetain: return Outcome::not_built();  // no-unknown build: no retain
       case kFfiDrop: return ffi_arm<TaskOutput>(b, n, cx, ffi::decode_with_task_output, ffi::encode_into_task_output, project::project_task_output);
       case kFfiRetain: return Outcome::not_built();
+      case kFfiPullDrop: return ffi_arm<TaskOutput>(b, n, cx, ffi::pull_with_task_output, ffi::encode_into_task_output, project::project_task_output);
+      case kFfiPullRetain: return Outcome::not_built();
     }
   }
   if (root == "TaskDetailed") {
@@ -57,6 +67,8 @@ Outcome run_arm(const std::string &root, Arm arm, const uint8_t *b, size_t n, Cx
       case kNativeRetain: return Outcome::not_built();  // no-unknown build: no retain
       case kFfiDrop: return ffi_arm<TaskDetailed>(b, n, cx, ffi::decode_with_task_detailed, ffi::encode_into_task_detailed, project::project_task_detailed);
       case kFfiRetain: return Outcome::not_built();
+      case kFfiPullDrop: return ffi_arm<TaskDetailed>(b, n, cx, ffi::pull_with_task_detailed, ffi::encode_into_task_detailed, project::project_task_detailed);
+      case kFfiPullRetain: return Outcome::not_built();
     }
   }
   if (root == "TaskSummary") {
@@ -65,6 +77,8 @@ Outcome run_arm(const std::string &root, Arm arm, const uint8_t *b, size_t n, Cx
       case kNativeRetain: return Outcome::not_built();  // no-unknown build: no retain
       case kFfiDrop: return ffi_arm<TaskSummary>(b, n, cx, ffi::decode_with_task_summary, ffi::encode_into_task_summary, project::project_task_summary);
       case kFfiRetain: return Outcome::not_built();
+      case kFfiPullDrop: return ffi_arm<TaskSummary>(b, n, cx, ffi::pull_with_task_summary, ffi::encode_into_task_summary, project::project_task_summary);
+      case kFfiPullRetain: return Outcome::not_built();
     }
   }
   if (root == "Probe") {
@@ -73,6 +87,8 @@ Outcome run_arm(const std::string &root, Arm arm, const uint8_t *b, size_t n, Cx
       case kNativeRetain: return Outcome::not_built();  // no-unknown build: no retain
       case kFfiDrop: return ffi_arm<Probe>(b, n, cx, ffi::decode_with_probe, ffi::encode_into_probe, project::project_probe);
       case kFfiRetain: return Outcome::not_built();
+      case kFfiPullDrop: return ffi_arm<Probe>(b, n, cx, ffi::pull_with_probe, ffi::encode_into_probe, project::project_probe);
+      case kFfiPullRetain: return Outcome::not_built();
     }
   }
   if (root == "Empty") {
@@ -81,6 +97,8 @@ Outcome run_arm(const std::string &root, Arm arm, const uint8_t *b, size_t n, Cx
       case kNativeRetain: return Outcome::not_built();  // no-unknown build: no retain
       case kFfiDrop: return ffi_arm<Empty>(b, n, cx, ffi::decode_with_empty, ffi::encode_into_empty, project::project_empty);
       case kFfiRetain: return Outcome::not_built();
+      case kFfiPullDrop: return ffi_arm<Empty>(b, n, cx, ffi::pull_with_empty, ffi::encode_into_empty, project::project_empty);
+      case kFfiPullRetain: return Outcome::not_built();
     }
   }
   if (root == "UploadResultData") {
@@ -89,6 +107,8 @@ Outcome run_arm(const std::string &root, Arm arm, const uint8_t *b, size_t n, Cx
       case kNativeRetain: return Outcome::not_built();  // no-unknown build: no retain
       case kFfiDrop: return ffi_arm<UploadResultData>(b, n, cx, ffi::decode_with_upload_result_data, ffi::encode_into_upload_result_data, project::project_upload_result_data);
       case kFfiRetain: return Outcome::not_built();
+      case kFfiPullDrop: return ffi_arm<UploadResultData>(b, n, cx, ffi::pull_with_upload_result_data, ffi::encode_into_upload_result_data, project::project_upload_result_data);
+      case kFfiPullRetain: return Outcome::not_built();
     }
   }
   if (root == "MetricsBatch") {
@@ -97,6 +117,8 @@ Outcome run_arm(const std::string &root, Arm arm, const uint8_t *b, size_t n, Cx
       case kNativeRetain: return Outcome::not_built();  // no-unknown build: no retain
       case kFfiDrop: return ffi_arm<MetricsBatch>(b, n, cx, ffi::decode_with_metrics_batch, ffi::encode_into_metrics_batch, project::project_metrics_batch);
       case kFfiRetain: return Outcome::not_built();
+      case kFfiPullDrop: return ffi_arm<MetricsBatch>(b, n, cx, ffi::pull_with_metrics_batch, ffi::encode_into_metrics_batch, project::project_metrics_batch);
+      case kFfiPullRetain: return Outcome::not_built();
     }
   }
   if (root == "Pair") {
@@ -105,6 +127,8 @@ Outcome run_arm(const std::string &root, Arm arm, const uint8_t *b, size_t n, Cx
       case kNativeRetain: return Outcome::not_built();  // no-unknown build: no retain
       case kFfiDrop: return ffi_arm<Pair>(b, n, cx, ffi::decode_with_pair, ffi::encode_into_pair, project::project_pair);
       case kFfiRetain: return Outcome::not_built();
+      case kFfiPullDrop: return ffi_arm<Pair>(b, n, cx, ffi::pull_with_pair, ffi::encode_into_pair, project::project_pair);
+      case kFfiPullRetain: return Outcome::not_built();
     }
   }
   if (root == "ListResultsResponse") {
@@ -113,6 +137,8 @@ Outcome run_arm(const std::string &root, Arm arm, const uint8_t *b, size_t n, Cx
       case kNativeRetain: return Outcome::not_built();  // no-unknown build: no retain
       case kFfiDrop: return ffi_arm<ListResultsResponse>(b, n, cx, ffi::decode_with_list_results_response, ffi::encode_into_list_results_response, project::project_list_results_response);
       case kFfiRetain: return Outcome::not_built();
+      case kFfiPullDrop: return ffi_arm<ListResultsResponse>(b, n, cx, ffi::pull_with_list_results_response, ffi::encode_into_list_results_response, project::project_list_results_response);
+      case kFfiPullRetain: return Outcome::not_built();
     }
   }
   if (root == "ListTasksDetailedResponse") {
@@ -121,6 +147,8 @@ Outcome run_arm(const std::string &root, Arm arm, const uint8_t *b, size_t n, Cx
       case kNativeRetain: return Outcome::not_built();  // no-unknown build: no retain
       case kFfiDrop: return ffi_arm<ListTasksDetailedResponse>(b, n, cx, ffi::decode_with_list_tasks_detailed_response, ffi::encode_into_list_tasks_detailed_response, project::project_list_tasks_detailed_response);
       case kFfiRetain: return Outcome::not_built();
+      case kFfiPullDrop: return ffi_arm<ListTasksDetailedResponse>(b, n, cx, ffi::pull_with_list_tasks_detailed_response, ffi::encode_into_list_tasks_detailed_response, project::project_list_tasks_detailed_response);
+      case kFfiPullRetain: return Outcome::not_built();
     }
   }
   if (root == "ListTaskSummaryResponse") {
@@ -129,6 +157,8 @@ Outcome run_arm(const std::string &root, Arm arm, const uint8_t *b, size_t n, Cx
       case kNativeRetain: return Outcome::not_built();  // no-unknown build: no retain
       case kFfiDrop: return ffi_arm<ListTaskSummaryResponse>(b, n, cx, ffi::decode_with_list_task_summary_response, ffi::encode_into_list_task_summary_response, project::project_list_task_summary_response);
       case kFfiRetain: return Outcome::not_built();
+      case kFfiPullDrop: return ffi_arm<ListTaskSummaryResponse>(b, n, cx, ffi::pull_with_list_task_summary_response, ffi::encode_into_list_task_summary_response, project::project_list_task_summary_response);
+      case kFfiPullRetain: return Outcome::not_built();
     }
   }
   if (root == "ListProbeResponse") {
@@ -137,6 +167,8 @@ Outcome run_arm(const std::string &root, Arm arm, const uint8_t *b, size_t n, Cx
       case kNativeRetain: return Outcome::not_built();  // no-unknown build: no retain
       case kFfiDrop: return ffi_arm<ListProbeResponse>(b, n, cx, ffi::decode_with_list_probe_response, ffi::encode_into_list_probe_response, project::project_list_probe_response);
       case kFfiRetain: return Outcome::not_built();
+      case kFfiPullDrop: return ffi_arm<ListProbeResponse>(b, n, cx, ffi::pull_with_list_probe_response, ffi::encode_into_list_probe_response, project::project_list_probe_response);
+      case kFfiPullRetain: return Outcome::not_built();
     }
   }
   if (root == "ListMetricsResponse") {
@@ -145,6 +177,8 @@ Outcome run_arm(const std::string &root, Arm arm, const uint8_t *b, size_t n, Cx
       case kNativeRetain: return Outcome::not_built();  // no-unknown build: no retain
       case kFfiDrop: return ffi_arm<ListMetricsResponse>(b, n, cx, ffi::decode_with_list_metrics_response, ffi::encode_into_list_metrics_response, project::project_list_metrics_response);
       case kFfiRetain: return Outcome::not_built();
+      case kFfiPullDrop: return ffi_arm<ListMetricsResponse>(b, n, cx, ffi::pull_with_list_metrics_response, ffi::encode_into_list_metrics_response, project::project_list_metrics_response);
+      case kFfiPullRetain: return Outcome::not_built();
     }
   }
   if (root == "UploadResultDataMessage") {
@@ -153,6 +187,8 @@ Outcome run_arm(const std::string &root, Arm arm, const uint8_t *b, size_t n, Cx
       case kNativeRetain: return Outcome::not_built();  // no-unknown build: no retain
       case kFfiDrop: return ffi_arm<UploadResultDataMessage>(b, n, cx, ffi::decode_with_upload_result_data_message, ffi::encode_into_upload_result_data_message, project::project_upload_result_data_message);
       case kFfiRetain: return Outcome::not_built();
+      case kFfiPullDrop: return ffi_arm<UploadResultDataMessage>(b, n, cx, ffi::pull_with_upload_result_data_message, ffi::encode_into_upload_result_data_message, project::project_upload_result_data_message);
+      case kFfiPullRetain: return Outcome::not_built();
     }
   }
   if (root == "DualResponse") {
@@ -161,6 +197,8 @@ Outcome run_arm(const std::string &root, Arm arm, const uint8_t *b, size_t n, Cx
       case kNativeRetain: return Outcome::not_built();  // no-unknown build: no retain
       case kFfiDrop: return ffi_arm<DualResponse>(b, n, cx, ffi::decode_with_dual_response, ffi::encode_into_dual_response, project::project_dual_response);
       case kFfiRetain: return Outcome::not_built();
+      case kFfiPullDrop: return ffi_arm<DualResponse>(b, n, cx, ffi::pull_with_dual_response, ffi::encode_into_dual_response, project::project_dual_response);
+      case kFfiPullRetain: return Outcome::not_built();
     }
   }
   if (root == "ChunkLeaf") {
@@ -169,6 +207,8 @@ Outcome run_arm(const std::string &root, Arm arm, const uint8_t *b, size_t n, Cx
       case kNativeRetain: return Outcome::not_built();  // no-unknown build: no retain
       case kFfiDrop: return ffi_arm<ChunkLeaf>(b, n, cx, ffi::decode_with_chunk_leaf, ffi::encode_into_chunk_leaf, project::project_chunk_leaf);
       case kFfiRetain: return Outcome::not_built();
+      case kFfiPullDrop: return ffi_arm<ChunkLeaf>(b, n, cx, ffi::pull_with_chunk_leaf, ffi::encode_into_chunk_leaf, project::project_chunk_leaf);
+      case kFfiPullRetain: return Outcome::not_built();
     }
   }
   if (root == "ChunkInner") {
@@ -177,6 +217,8 @@ Outcome run_arm(const std::string &root, Arm arm, const uint8_t *b, size_t n, Cx
       case kNativeRetain: return Outcome::not_built();  // no-unknown build: no retain
       case kFfiDrop: return ffi_arm<ChunkInner>(b, n, cx, ffi::decode_with_chunk_inner, ffi::encode_into_chunk_inner, project::project_chunk_inner);
       case kFfiRetain: return Outcome::not_built();
+      case kFfiPullDrop: return ffi_arm<ChunkInner>(b, n, cx, ffi::pull_with_chunk_inner, ffi::encode_into_chunk_inner, project::project_chunk_inner);
+      case kFfiPullRetain: return Outcome::not_built();
     }
   }
   if (root == "ChunkElement") {
@@ -185,6 +227,8 @@ Outcome run_arm(const std::string &root, Arm arm, const uint8_t *b, size_t n, Cx
       case kNativeRetain: return Outcome::not_built();  // no-unknown build: no retain
       case kFfiDrop: return ffi_arm<ChunkElement>(b, n, cx, ffi::decode_with_chunk_element, ffi::encode_into_chunk_element, project::project_chunk_element);
       case kFfiRetain: return Outcome::not_built();
+      case kFfiPullDrop: return ffi_arm<ChunkElement>(b, n, cx, ffi::pull_with_chunk_element, ffi::encode_into_chunk_element, project::project_chunk_element);
+      case kFfiPullRetain: return Outcome::not_built();
     }
   }
   if (root == "ChunkedResponse") {
@@ -193,6 +237,8 @@ Outcome run_arm(const std::string &root, Arm arm, const uint8_t *b, size_t n, Cx
       case kNativeRetain: return Outcome::not_built();  // no-unknown build: no retain
       case kFfiDrop: return ffi_arm<ChunkedResponse>(b, n, cx, ffi::decode_with_chunked_response, ffi::encode_into_chunked_response, project::project_chunked_response);
       case kFfiRetain: return Outcome::not_built();
+      case kFfiPullDrop: return ffi_arm<ChunkedResponse>(b, n, cx, ffi::pull_with_chunked_response, ffi::encode_into_chunked_response, project::project_chunked_response);
+      case kFfiPullRetain: return Outcome::not_built();
     }
   }
   if (root == "ChunkedResponseWide") {
@@ -201,6 +247,8 @@ Outcome run_arm(const std::string &root, Arm arm, const uint8_t *b, size_t n, Cx
       case kNativeRetain: return Outcome::not_built();  // no-unknown build: no retain
       case kFfiDrop: return ffi_arm<ChunkedResponseWide>(b, n, cx, ffi::decode_with_chunked_response_wide, ffi::encode_into_chunked_response_wide, project::project_chunked_response_wide);
       case kFfiRetain: return Outcome::not_built();
+      case kFfiPullDrop: return ffi_arm<ChunkedResponseWide>(b, n, cx, ffi::pull_with_chunked_response_wide, ffi::encode_into_chunked_response_wide, project::project_chunked_response_wide);
+      case kFfiPullRetain: return Outcome::not_built();
     }
   }
   if (root == "LeafElement") {
@@ -209,6 +257,8 @@ Outcome run_arm(const std::string &root, Arm arm, const uint8_t *b, size_t n, Cx
       case kNativeRetain: return Outcome::not_built();  // no-unknown build: no retain
       case kFfiDrop: return ffi_arm<LeafElement>(b, n, cx, ffi::decode_with_leaf_element, ffi::encode_into_leaf_element, project::project_leaf_element);
       case kFfiRetain: return Outcome::not_built();
+      case kFfiPullDrop: return ffi_arm<LeafElement>(b, n, cx, ffi::pull_with_leaf_element, ffi::encode_into_leaf_element, project::project_leaf_element);
+      case kFfiPullRetain: return Outcome::not_built();
     }
   }
   if (root == "LeafResponse") {
@@ -217,6 +267,8 @@ Outcome run_arm(const std::string &root, Arm arm, const uint8_t *b, size_t n, Cx
       case kNativeRetain: return Outcome::not_built();  // no-unknown build: no retain
       case kFfiDrop: return ffi_arm<LeafResponse>(b, n, cx, ffi::decode_with_leaf_response, ffi::encode_into_leaf_response, project::project_leaf_response);
       case kFfiRetain: return Outcome::not_built();
+      case kFfiPullDrop: return ffi_arm<LeafResponse>(b, n, cx, ffi::pull_with_leaf_response, ffi::encode_into_leaf_response, project::project_leaf_response);
+      case kFfiPullRetain: return Outcome::not_built();
     }
   }
   if (root == "Surrogate") {
@@ -225,6 +277,8 @@ Outcome run_arm(const std::string &root, Arm arm, const uint8_t *b, size_t n, Cx
       case kNativeRetain: return Outcome::not_built();  // no-unknown build: no retain
       case kFfiDrop: return ffi_arm<Surrogate>(b, n, cx, ffi::decode_with_surrogate, ffi::encode_into_surrogate, project::project_surrogate);
       case kFfiRetain: return Outcome::not_built();
+      case kFfiPullDrop: return ffi_arm<Surrogate>(b, n, cx, ffi::pull_with_surrogate, ffi::encode_into_surrogate, project::project_surrogate);
+      case kFfiPullRetain: return Outcome::not_built();
     }
   }
   if (root == "SurrogateInner") {
@@ -233,13 +287,15 @@ Outcome run_arm(const std::string &root, Arm arm, const uint8_t *b, size_t n, Cx
       case kNativeRetain: return Outcome::not_built();  // no-unknown build: no retain
       case kFfiDrop: return ffi_arm<SurrogateInner>(b, n, cx, ffi::decode_with_surrogate_inner, ffi::encode_into_surrogate_inner, project::project_surrogate_inner);
       case kFfiRetain: return Outcome::not_built();
+      case kFfiPullDrop: return ffi_arm<SurrogateInner>(b, n, cx, ffi::pull_with_surrogate_inner, ffi::encode_into_surrogate_inner, project::project_surrogate_inner);
+      case kFfiPullRetain: return Outcome::not_built();
     }
   }
   if (root == "Nest") {
     switch (arm) {
       case kNativeDrop: return native_arm<Nest>(b, n, native::kSites, native::decode_nest, native::encode_into_nest, project::project_nest);
       case kNativeRetain: return Outcome::not_built();  // no-unknown build: no retain
-      case kFfiDrop: case kFfiRetain: return Outcome::not_in_abi();
+      case kFfiDrop: case kFfiRetain: case kFfiPullDrop: case kFfiPullRetain: return Outcome::not_in_abi();
     }
   }
   if (root == "WireZoo") {
@@ -248,6 +304,8 @@ Outcome run_arm(const std::string &root, Arm arm, const uint8_t *b, size_t n, Cx
       case kNativeRetain: return Outcome::not_built();  // no-unknown build: no retain
       case kFfiDrop: return ffi_arm<WireZoo>(b, n, cx, ffi::decode_with_wire_zoo, ffi::encode_into_wire_zoo, project::project_wire_zoo);
       case kFfiRetain: return Outcome::not_built();
+      case kFfiPullDrop: return ffi_arm<WireZoo>(b, n, cx, ffi::pull_with_wire_zoo, ffi::encode_into_wire_zoo, project::project_wire_zoo);
+      case kFfiPullRetain: return Outcome::not_built();
     }
   }
   return Outcome::unknown_root();

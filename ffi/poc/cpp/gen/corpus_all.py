@@ -45,7 +45,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SLICE = os.path.dirname(HERE)
 FFI = os.path.dirname(os.path.dirname(SLICE))
 CORPUS = os.path.join(FFI, "corpus", "generated")
-ARMS = ["ffi-drop", "ffi-retain", "native-drop", "native-retain"]
+ARMS = ["ffi-drop", "ffi-retain", "native-drop", "native-retain", "ffi-pull-drop", "ffi-pull-retain"]
 
 
 def strip_unknown(v):
@@ -363,7 +363,7 @@ def main(argv):
     if max_gap is not None:
         # Decision 11 (WP5 step 9): the retain arms may write the dropped form only on the
         # rows named here (the facade's map has no bag: U-map-entry).
-        for a in ("ffi-retain", "native-retain"):
+        for a in ("ffi-retain", "native-retain", "ffi-pull-retain"):
             extra = [g for g in tallies[a].retain_gap if g.split(" ")[0] not in max_gap]
             print("## %s retention gaps outside {%s}: %d" % (a, ",".join(sorted(max_gap)), len(extra)))
             for g in extra:
