@@ -3426,3 +3426,27 @@ rendered into every slice's header/binding; other slices' generated output regen
   interface in SERVER.md did not change. serve.sh's target-server/ added to .gitignore.
 - A first gate attempt was stopped at step 12 by hand (the WP10 unit arrived), and the
   spend limit stopped the session once after the run had finished; nothing was re-run.
+
+## 2026-09-28 -- RPC grid only, for a same-machine side-by-side with the C++ grid (coordinator unit)
+
+- HEAD dcbb0205 (the C++ unit's shared-core changes included: one-pass ak_blob_run, additive
+  ak_utf8_check), rebuilt; no code change, no gate (coordinator). New tooling only:
+  gen/rpc_same_machine.sh (serve.sh server: 4 tokio workers pinned to CPUs 2,3, serve.sh
+  warm 50; client pinned to CPU 1; shipped then pinned, full then no-unknown client; k = 1, 8;
+  every cell and framed twin; directions a, a+read, b, c, d) and gen/rpc_same_machine.py
+  (summary-rpc.tsv with samples and batches per sample, tables-rpc.md). No planted controls
+  in this run (every call is still checked inside the bench).
+- Criterion 0.5, process-CPU measurement, SamplingMode::Flat, 10 samples, warm-up 30 ms,
+  nresamples 1000; measurement time per direction group, each group its own process per
+  (transport, client): a/a+read/b 250 ms, c 250 ms, d 500 ms. Smoke first (A, Bf; 20 ms):
+  my first smoke named C-nounk in the full build and panicked ("no cell C-nounk in this
+  build"), a narrowing mistake of mine, not a defect.
+- Run logs/rust/opt/rpc-same-machine: 545 s from server start to stop (build excluded), 840
+  entries x 10 samples, machine line "Intel(R) Xeon(R) Processor @ 2.80GHz; 4 CPUs online"
+  (the earlier runs of this slice were on a 2.10 GHz container). Batches per sample 1-26;
+  311 entries have ONE batch per sample (every k = 8 entry of a, a+read, b, c/P5.4, d/4MiB
+  and d/16MiB, most of c/P5.3 k = 8, and some d/16MiB k = 1), marked `*` in tables-rpc.md:
+  criterion's flat mode gave them one iteration at these measurement times, and larger
+  times did not fit the 10-minute budget. Round spread (max/min, client CPU): 1-batch entries
+  median 1.51, p90 5.44, max 12.4; entries with at least 2 batches median 1.27, p90 1.54, max
+  3.0. Container instrumentation.
