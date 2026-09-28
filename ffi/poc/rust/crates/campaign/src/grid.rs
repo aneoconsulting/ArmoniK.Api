@@ -73,6 +73,42 @@ pub const WIN: u32 = 4 * 1024 * 1024;
 pub const TOKIO_WORKERS: usize = 2;
 pub const CORE_WORKERS: u32 = 2;
 
+/// The runtime probe (container instrumentation, 2026-09-28): the host runtime's workers
+/// (`AK_HOST_WORKERS`: N >= 1 workers of a multi-thread runtime, `ct` a current-thread
+/// runtime) and the core runtime's (`AK_CORE_WORKERS`, passed to `ak_runtime_new`), read
+/// once; unset = the defaults above. Recorded in every header (req 4).
+pub fn host_workers() -> Option<usize> {
+    static W: std::sync::OnceLock<Option<usize>> = std::sync::OnceLock::new();
+    *W.get_or_init(|| match std::env::var("AK_HOST_WORKERS").ok().as_deref() {
+        None | Some("") => Some(TOKIO_WORKERS),
+        Some("ct") => None,
+        Some(v) => Some(v.parse().ok().filter(|n| *n >= 1).expect("AK_HOST_WORKERS: N >= 1 or ct")),
+    })
+}
+pub fn core_workers() -> u32 {
+    static W: std::sync::OnceLock<u32> = std::sync::OnceLock::new();
+    *W.get_or_init(|| match std::env::var("AK_CORE_WORKERS").ok().as_deref() {
+        None | Some("") => CORE_WORKERS,
+        Some(v) => v.parse().ok().filter(|n| *n >= 1).expect("AK_CORE_WORKERS: N >= 1"),
+    })
+}
+/// The host runtime's shape as printed in headers: `mt2`, `mt1`, `ct`.
+pub fn host_rt_label() -> String {
+    host_workers().map_or("ct".into(), |n| format!("mt{n}"))
+}
+/// A cell's own host runtime (A, D, F, the -cb cells), threads named `cell-rt`.
+pub fn host_runtime() -> Arc<tokio::runtime::Runtime> {
+    let mut b = match host_workers() {
+        Some(n) => {
+            let mut b = tokio::runtime::Builder::new_multi_thread();
+            b.worker_threads(n);
+            b
+        }
+        None => tokio::runtime::Builder::new_current_thread(),
+    };
+    Arc::new(b.thread_name("cell-rt").enable_all().build().unwrap())
+}
+
 pub type Fut = Pin<Box<dyn Future<Output = Result<(), String>> + Send>>;
 
 /// One call of a cell at a given in-flight slot.
@@ -148,7 +184,7 @@ impl CoreClient {
     }
     pub fn new(target: &str, pinned: bool) -> Self {
         unsafe {
-            let rt = ak_runtime_new(CORE_WORKERS);
+            let rt = ak_runtime_new(core_workers());
             let client = if pinned {
                 let o = ak_client_opts {
                     stream_window: WIN,
@@ -365,15 +401,13 @@ impl Conn {
                 let rc = unsafe { ak_client_set_framed(cc.client, framed(cell) as i32) };
                 assert_eq!(rc, AK_OK, "ak_client_set_framed");
                 if cb(cell) {
-                    let rt = Arc::new(tokio::runtime::Builder::new_multi_thread()
-                        .worker_threads(TOKIO_WORKERS).thread_name("cell-rt").enable_all().build().unwrap());
+                    let rt = host_runtime();
                     return Conn::CoreCb(Arc::new(cc), rt);
                 }
                 Conn::Core(Arc::new(cc))
             }
             _ => {
-                let rt = Arc::new(tokio::runtime::Builder::new_multi_thread()
-                    .worker_threads(TOKIO_WORKERS).thread_name("cell-rt").enable_all().build().unwrap());
+                let rt = host_runtime();
                 let ch = tonic_channel(&rt, target, pinned);
                 Conn::Tonic(rt, ch)
             }

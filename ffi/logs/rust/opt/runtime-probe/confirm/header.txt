@@ -1,0 +1,2 @@
+# runtime probe: commit cd4edbb0 + UNCOMMITTED; 2026-09-28T20:50:53Z; Intel(R) Xeon(R) Processor @ 2.80GHz; client CPU 1, server CPUs 2,3 (4 workers), pinned; cells A,Df,Df-chan,Cf-cb; iterations 5 (variant order rotating), block order, no /proc; rounds 12 calls 8 warm 4; attribution pass rounds 0 calls 4 with /proc and the allocation shim; variants: base=main: h1=main:AK_HOST_WORKERS=1 c1=main:AK_CORE_WORKERS=1 b1=main:AK_HOST_WORKERS=1,AK_CORE_WORKERS=1
+# run time 201 s

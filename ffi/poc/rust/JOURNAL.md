@@ -3683,3 +3683,64 @@ Everything container instrumentation; logs/rust/opt/stream-probe2/. No code chan
 - Stable gate from a clean tree at eb2f204a (framed-default/gate): PASSED (pre-check 5,740 /
   3,257 checks 0 failures, crossings 836 / 435 identical, header_diff identical, 11e upload
   byte check, 11f rpc_semantics, both builds, corpus gates).
+
+## 2026-09-28 -- runtime probe: worker counts, current-thread host, feed depth (coordinator unit)
+
+Everything container instrumentation; logs/rust/opt/runtime-probe/ (tables.md). Hypothesis
+under test (coordinator): Cf-cb's (and Df-chan's) extra client CPU over A in direction d is the
+per-chunk cross-thread hand-off, made worse by TWO tokio runtimes (cell-rt 2 workers, the
+core's ak_runtime_new(2)) on ONE client CPU.
+
+- Harness (kept, defaults unchanged): AK_HOST_WORKERS (N or ct) and AK_CORE_WORKERS read by
+  grid.rs, printed in rpc_suite's, run_campaign.sh's and the probe's headers; the probe adds
+  AK_CHAN_DEPTH (Df-chan), getrusage deltas per round (ru_nvcsw, ru_nivcsw, ru_minflt per
+  call) and a thread count per class after warm-up (checked: h1 halves cell-rt threads, c1
+  halves core-rt threads, ct has none). Df-chan cannot run on a current-thread host runtime
+  (its host thread blocks in blocking_send while nothing drives the body task): refused with
+  an assert, the hct variant runs without it.
+- Core experiment (reverted, not committed): AK_CORE_CHAN_DEPTH sets ak_call_open's mpsc
+  depth (core-depth.patch), built in target-rtp (deleted after). The patch prints its depth
+  on stderr once per process: present in every p1/d2 .err, absent from the unpatched build.
+  Checks (checks/checks.log): upload_check PASSED at depth 1, 2, 3, 4 (controls detected);
+  rpc_semantics PASSED at depth 1 and 2; codec pre-check at depth 2: 5,740 checks 0 failures.
+- Sessions: main/ (base, h1, hct, c1, b1, p1 = patched build at depth 1, d2; 3 iterations,
+  7 cells, 12 x 8 calls, block order, no /proc; 396 s) and confirm/ (base, h1, c1, b1; 5
+  iterations; A, Df, Df-chan, Cf-cb; 201 s). The session level was higher than
+  framed-default's (A 16 MiB 9.9-10.1 ms against 8.45) and every variant, including ones that
+  do not touch A's code path (c1, p1, d2), measured A 0.2-1.0 ms under base: so the
+  comparison read is the in-process gap (cell minus A of the same process).
+- 16 MiB k = 1, in-process gap to A, ms, median over iterations (range), session 1 / session 2:
+  Cf-cb: base +1.17 (+0.83..+2.87) / +1.19 (-1.36..+1.27); h1 +1.85 / +1.06; hct +1.81; c1
+  +1.01 / +1.30; b1 +1.02 / +1.33; p1 +1.60; d2 +1.63.
+  Df-chan: base +1.54 (+0.47..+2.34) / +0.46 (-0.78..+0.88); h1 +0.81 / +1.22; c1 +1.00 /
+  +1.19; b1 +1.27 / +0.77; p1 +1.02; d2 +1.16.
+  Df: base +0.67 / +0.47; h1 +0.68 / +0.47; b1 +1.31 / +0.38.
+  No variant moves either gap beyond the spread; for h1, c1, b1 the two sessions disagree on
+  the sign of the change. 4 MiB: every gap within -0.2..+0.4 ms, no pattern.
+- Context switches per 16 MiB call (getrusage, voluntary / involuntary): A 27-28 / 3-4 ->
+  22-25 / 0 with one host worker; Df 31 / 6-7 -> 20-21 / 0; Df-chan 48 / 16 -> 37-38 / 10;
+  Cf-cb 57-58 / 19-20 -> 51-52 / 17-18 (h1), 44-45 / 15 (c1), 39 / 11 (b1); Cf and Cf-split
+  40-41 / 13-14 -> 34-35 / 10 (c1). So the switches track the settings (b1 removes about 28
+  per Cf-cb call, h1 about 16 per Df call) and the CPU does not follow them: Df's gap to A is
+  the same with 37 or 21 switches per call. The probe resolves nothing under about 0.5 ms
+  here, so a cost per switch below about 15-30 us is not excluded; it is not measured.
+- Current-thread host (hct): Cf-cb's gap +1.81 (one session), Cf-cb-split +0.86, i.e. no
+  gain, as the first stream probe's ablation (d) found for the -cb cells.
+- Feed depth 2 (d2 vs its own-build control p1): the patch runs (send wall per chunk, 16 MiB:
+  Cf-split 622 -> 378 us, Cf-cb-split 665 -> 425 us, Df-chan 604 -> 427 us; 4 MiB Cf-split
+  132 -> 31, Df-chan 141 -> 41, Cf-cb-split 236 -> 254 unchanged), the wait moves to the final
+  recv (recv wall per call Cf-split 6.01 -> 7.76 ms, Cf-cb-split 5.78 -> 7.89, Df-chan 6.52 ->
+  8.67), per-call CPU not changed beyond the spread. Buffers (attribution pass, allocation
+  shim, 16 MiB): >= 1 MiB allocations per call p1 -> d2 Cf 1.75 -> 3.00, Cf-split 1.62 ->
+  2.75, Cf-cb 1.88 -> 2.50, Cf-cb-split 1.88 -> 2.50, Df-chan 2.00 -> 2.75: the ring of 3
+  spares no longer returns every buffer in time at depth 2. Minor faults per call in the
+  timed pass (no shim, medians over rounds) p1 -> d2: Cf 0 -> 0, Cf-split 0 -> 0, Cf-cb 95 ->
+  128, Cf-cb-split 124 -> 193, Df-chan 0 -> 0 (base 0-124 across cells); in the shim pass
+  they scatter 0-505 with no pattern (4 x 4 calls). Depth 3 / 4 not run: depth 2 did not move
+  the result. k = 8 not run for any variant (none moved the k = 1 result; budget spent).
+- What contradicts the hypothesis: (1) halving either runtime, or both, cuts 16-28 context
+  switches per call and no CPU change is resolved; (2) Df, which has no second runtime and no
+  channel, keeps a 0.4-1.3 ms gap to A (0.47-0.68 in base and h1) while its switch count drops to A's with one host worker;
+  (3) a current-thread host, which removes the host pool entirely, is not better. What is
+  left unattributed: the Cf-cb and Df-chan gaps to A (about 0.5-1.5 ms per 16 MiB call in these
+  sessions, the run-to-run spread of the gap itself about +-1 ms).

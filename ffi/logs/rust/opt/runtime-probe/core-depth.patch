@@ -1,0 +1,21 @@
+diff --git a/ffi/poc/codec/crates/ak-core/src/rpc.rs b/ffi/poc/codec/crates/ak-core/src/rpc.rs
+index e8d019ce..2236317b 100644
+--- a/ffi/poc/codec/crates/ak-core/src/rpc.rs
++++ b/ffi/poc/codec/crates/ak-core/src/rpc.rs
+@@ -776,7 +776,15 @@ pub unsafe extern "C" fn ak_call_open(c: *mut ak_client, path: *const u8, path_l
+             None => return core::ptr::null_mut(),
+         }
+     }
+-    let (tx, rx) = tokio::sync::mpsc::channel::<Bytes>(1);
++    // EXPERIMENT (runtime probe, logs/rust/opt/runtime-probe/core-depth.patch; reverted, never
++    // committed): the request channel's depth from AK_CORE_CHAN_DEPTH (default 1), read once.
++    static DEPTH: std::sync::OnceLock<usize> = std::sync::OnceLock::new();
++    let depth = *DEPTH.get_or_init(|| {
++        let d = std::env::var("AK_CORE_CHAN_DEPTH").ok().and_then(|v| v.parse().ok()).unwrap_or(1usize).max(1);
++        eprintln!("[core-depth-patch] ak_call_open request channel depth {d}");
++        d
++    });
++    let (tx, rx) = tokio::sync::mpsc::channel::<Bytes>(depth);
+     let (rtx, rrx) = tokio::sync::oneshot::channel();
+     let cancel = std::sync::Arc::new(tokio::sync::Notify::new());
+     let c2 = cancel.clone();

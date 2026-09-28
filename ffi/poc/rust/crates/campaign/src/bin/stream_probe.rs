@@ -15,7 +15,12 @@
 //! One JSON line per (round, cell, size), values per call.
 //!
 //! Environment: AK_RPC_SOCKET, AK_RPC_TRANSPORT (pinned|shipped), AK_PROBE_CELLS (comma
-//! list), AK_PROBE_SIZES (4MiB,16MiB), AK_PROBE_ROUNDS, AK_PROBE_CALLS, AK_PROBE_WARM, AK_OUT.
+//! list), AK_PROBE_SIZES (4MiB,16MiB), AK_PROBE_ROUNDS, AK_PROBE_CALLS, AK_PROBE_WARM, AK_OUT;
+//! the runtime probe's knobs: AK_HOST_WORKERS / AK_CORE_WORKERS (grid.rs), AK_CHAN_DEPTH
+//! (Df-chan's mpsc depth, default 1), AK_CORE_CHAN_DEPTH (read only by a core built with the
+//! experiment patch of logs/rust/opt/runtime-probe; printed here as seen). Every round also
+//! records getrusage(RUSAGE_SELF) deltas: voluntary / involuntary context switches and minor
+//! faults of the whole process (`ru_nvcsw`, `ru_nivcsw`, `ru_minflt`), per call.
 use campaign::grid::{self, Call, Conn};
 use std::collections::BTreeMap;
 use std::io::Write;
@@ -314,6 +319,18 @@ fn core_split_cb(conn: &Conn, chunks: usize) -> Call {
     }))
 }
 
+/// The process's voluntary and involuntary context switches and minor faults (getrusage).
+fn rusage() -> [u64; 3] {
+    let mut u: libc::rusage = unsafe { std::mem::zeroed() };
+    unsafe { libc::getrusage(libc::RUSAGE_SELF, &mut u) };
+    [u.ru_nvcsw as u64, u.ru_nivcsw as u64, u.ru_minflt as u64]
+}
+
+/// Df-chan's channel depth (AK_CHAN_DEPTH, default 1 = the core's own depth).
+fn chan_depth() -> usize {
+    env("AK_CHAN_DEPTH", 1usize).max(1)
+}
+
 /// The `Df-chan` call (see main).
 fn df_chan(conn: &Conn, chunks: usize) -> Call {
     use campaign::generated::roots::R_UploadResultDataMessage as M5;
@@ -322,11 +339,17 @@ fn df_chan(conn: &Conn, chunks: usize) -> Call {
         Conn::Tonic(rt, ch) => (rt.clone(), ch.clone()),
         _ => panic!("Df-chan needs a tonic connection"),
     };
+    // The body's task runs on the cell's runtime while this host thread blocks in
+    // blocking_send: a current-thread runtime runs its tasks only inside a block_on, so the
+    // second send would wait forever. Refused, not worked around (the alternative, a thread
+    // parked in block_on, is a one-worker runtime by another name).
+    assert!(grid::host_workers().is_some(), "Df-chan cannot run on a current-thread host runtime (AK_HOST_WORKERS=ct): nothing drives the body while the host thread blocks in blocking_send");
+    let depth = chan_depth();
     let pl = grid::stream_payload(chunks);
     let sl = grid::slots(1);
     let want = (chunks * grid::CHUNK) as u64;
     Call::Blocking(Arc::new(move |_i| {
-        let (tx, rx) = tokio::sync::mpsc::channel::<bytes::Bytes>(1);
+        let (tx, rx) = tokio::sync::mpsc::channel::<bytes::Bytes>(depth);
         let ch = ch.clone();
         let h = rt.spawn(async move {
             rpc::client_streaming_framed(ch, http::uri::PathAndQuery::from_static(grid::STREAM), rpc::ReceiverStream::new(rx), None).await
@@ -394,6 +417,16 @@ fn main() {
     let mut f = std::fs::File::create(&out).unwrap();
     writeln!(f, "# stream probe: transport {transport}, cells {cells:?}, sizes {:?}, rounds {rounds}, calls per round {calls}, warm {warm}, allocation shim {}",
              sizes.iter().map(|s| s.0).collect::<Vec<_>>(), if alloc_counts().is_some() { "loaded" } else { "absent" }).unwrap();
+    writeln!(f, "# runtimes: host (cell-rt) {} (AK_HOST_WORKERS), core ak_runtime_new({}) (AK_CORE_WORKERS); Df-chan mpsc depth {} (AK_CHAN_DEPTH); AK_CORE_CHAN_DEPTH={} (honoured only by the patched core, which prints its depth on stderr)",
+             grid::host_rt_label(), grid::core_workers(), chan_depth(), std::env::var("AK_CORE_CHAN_DEPTH").unwrap_or_else(|_| "unset".into())).unwrap();
+    // The threads that exist once every cell is open and warm, by class (the runtime
+    // settings are in effect: e.g. AK_HOST_WORKERS=1 gives one cell-rt thread per host runtime).
+    let mut tc: BTreeMap<String, usize> = BTreeMap::new();
+    for t in threads().values() {
+        *tc.entry(t.class.clone()).or_default() += 1;
+    }
+    writeln!(f, "# threads by class after the warm-up: {tc:?} (host runtimes {}, core runtimes {})",
+             conns.iter().filter(|c| !matches!(c, Conn::Core(_))).count(), conns.iter().filter(|c| !matches!(c, Conn::Tonic(..))).count()).unwrap();
     let n = work.len();
     // AK_PROBE_ORDER=rotate (default): every round visits every (cell, size), the order
     // rotating; =block: all rounds of one (cell, size) back to back, as a criterion benchmark
@@ -412,9 +445,11 @@ fn main() {
             let t0 = if procs { threads() } else { BTreeMap::new() };
             let a0 = alloc_counts();
             let s0 = split();
+            let u0 = rusage();
             let (c0, w0) = (campaign::process_clock_ns(), Instant::now());
             let per_call = caller.run(calls).unwrap_or_else(|e| panic!("ABORT (requirement 18): {cell} {label}: {e}"));
             let (cpu, wall) = (campaign::process_clock_ns() - c0, w0.elapsed().as_nanos() as u64);
+            let u1 = rusage();
             let a1 = alloc_counts();
             let s1 = split();
             let t1 = if procs { threads() } else { BTreeMap::new() };
@@ -431,6 +466,7 @@ fn main() {
             let mut o = serde_json::json!({
                 "round": r, "cell": cell, "size": label, "calls": calls, "transport": transport,
                 "cpu_ns": cpu as f64 / per, "wall_ns": wall as f64 / per, "cpu_calls": per_call,
+                "ru_nvcsw": (u1[0] - u0[0]) as f64 / per, "ru_nivcsw": (u1[1] - u0[1]) as f64 / per, "ru_minflt": (u1[2] - u0[2]) as f64 / per,
             });
             if s1 != s0 {
                 for (i, k) in ["host_encode_cpu", "host_send_cpu", "host_send_wall", "host_recv_wall"].iter().enumerate() {

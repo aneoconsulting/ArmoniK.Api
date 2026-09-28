@@ -1,0 +1,28 @@
+iteration 1 base done at +18 s
+iteration 1 h1 done at +34 s
+iteration 1 hct done at +51 s
+iteration 1 c1 done at +69 s
+iteration 1 b1 done at +87 s
+iteration 1 p1 done at +105 s
+iteration 1 d2 done at +121 s
+iteration 2 h1 done at +139 s
+iteration 2 hct done at +154 s
+iteration 2 c1 done at +170 s
+iteration 2 b1 done at +187 s
+iteration 2 p1 done at +203 s
+iteration 2 d2 done at +220 s
+iteration 2 base done at +238 s
+iteration 3 hct done at +254 s
+iteration 3 c1 done at +271 s
+iteration 3 b1 done at +289 s
+iteration 3 p1 done at +306 s
+iteration 3 d2 done at +325 s
+iteration 3 base done at +345 s
+iteration 3 h1 done at +362 s
+attr base done at +367 s
+attr h1 done at +372 s
+attr hct done at +376 s
+attr c1 done at +382 s
+attr b1 done at +386 s
+attr p1 done at +391 s
+attr d2 done at +396 s

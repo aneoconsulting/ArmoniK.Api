@@ -8,7 +8,7 @@ here. This file states what exists and what was checked; the choice is the owner
 | | |
 |---|---|
 | **Status** | Built on the merged branch (claude/rust-slice-optimization-sy1f4n): four codec arms plus the pull family, the RPC grid (cells A-F), the corpus through the C ABI and core-native, decision 11, the no-unknown build, the WP7 campaign harness, and every kept optimisation. Optimisation unit 2 (the owner) added: encode variants labelled by transport form; T1 (Enc::take, a moved Bytes; additive `ak_enc_take_owned`); the FRAMED send path as labelled extra cells (Bf-Ff, additive `ak_client_set_framed`); N2, N3; the labelled extra RPC directions c (unary upload of P5.3/P5.4) and d (req 14's streamed upload, ABI section 9's client streaming in the core: `ak_call_open/send/send_enc/recv/close`, close removed in unit 3). Not kept: N5 (apply-first decode order, reverted), core-only fat LTO (tooling left, off). N6 not reproduced. Gates: stable checkpoints before N5 passed twice (`opt/pre-n5-gate`, `opt/pre-n5-gate2`); the FINAL gate at d54ea963 from a clean tree PASSED on stable and on the 1.88.0 floor (`opt/final2-gate`); final run `opt/final2`. **Unit 3** (the owner): ABI v1 section 9 as specified (fe79f874, 22ebb97f) in the shared core and generator: call kinds, `ak_call_opts` (deadline, metadata), `ak_call_close` removed and `ak_call_cancel` on streams, the gRPC status number on the stream and on every unary delivery (`ak_completion.grpc_status`, trailing `grpc_status` on the blocking entries), D44's limits enforced; `bin/rpc_semantics` in the gate (11f) |
-| **Next step** | none assigned; the callback-delivery unit's cells and core entries are checked by the step checks, rpc_semantics and upload_check but no full gate has run since 6727646b (next gate: gate.sh as it stands, 11f now 72 cases) |
+| **Next step** | none assigned. Last gate: stable, from a clean tree at eb2f204a, PASSED (`logs/rust/opt/framed-default/gate`); since then only harness knobs with unchanged defaults (runtime probe) were added, built but not gated |
 | **Blocked on** | nothing |
 | **Floor** (must build and pass correctness) | MSRV 1.88.0: the full gate, both builds, passes on rustc 1.88.0 from a clean worktree at c8e8694eb (`logs/rust/campaign-wp7/gate-floor-1.88.log`) |
 | **Target** | stable 1.94.1 in this container; README section 5: for Rust the floor is the target language level, one configuration |
@@ -28,6 +28,28 @@ measurement: `logs/rust/opt/framed-default/` (checks/, ring-size/, session/table
 alloc/, counts/). Other slices' harnesses set the path only for their framed cells, so
 their reference cells now run framed until they call `ak_client_set_framed(c, 0)` (listed
 in the report to the aggregating session).
+
+## Runtime probe (2026-09-28; container instrumentation; harness knobs kept, core patch reverted)
+
+Question (coordinator): is Cf-cb's and Df-chan's extra client CPU over A in direction d the
+per-chunk cross-thread hand-offs, made worse by two tokio runtimes on one client CPU?
+Harness (kept, defaults unchanged): `AK_HOST_WORKERS` (N, or `ct` = current-thread) for every
+cell's own runtime (`cell-rt`: A/D/F and the -cb cells) and `AK_CORE_WORKERS` for
+`ak_runtime_new`, read by grid.rs (`host_workers`, `core_workers`, `host_runtime`), printed in
+rpc_suite's and run_campaign.sh's headers and in the probe's; the probe adds `AK_CHAN_DEPTH`
+(Df-chan's mpsc depth), getrusage deltas per round (voluntary / involuntary context switches,
+minor faults), and the thread count per class after warm-up. Df-chan refuses a current-thread
+host runtime (nothing drives the body while the host thread blocks in blocking_send).
+Scripts `gen/runtime_probe.sh`, `gen/runtime_tables.py`. Core experiment: the stream channel's
+depth from `AK_CORE_CHAN_DEPTH` (`logs/rust/opt/runtime-probe/core-depth.patch`), built in a
+separate target, checked (upload_check depth 1-4, rpc_semantics depth 1-2, codec pre-check
+5,740 checks 0 failures at depth 2), measured, reverted; not committed.
+Measured: `logs/rust/opt/runtime-probe/tables.md` (two sessions, 597 s of benchmark). Every
+variant changes the context-switch counts as expected; none moves the in-process gap of Cf-cb
+or Df-chan to A beyond the session spread, and the two sessions disagree on the sign for h1,
+c1 and b1 (JOURNAL 2026-09-28 "runtime probe"). Depth 2 moves the host's wait from the sends
+to the final recv and adds 0.5-1.25 fresh >= 1 MiB allocations per 16 MiB call, no
+per-call CPU change resolved; depth 3/4 and k = 8 not run.
 
 ## Stream probe (2026-09-28; container instrumentation, no code change kept)
 
@@ -486,6 +508,9 @@ FIX-PLAN R-G17); D41 (every slice's generated tree is current: `generate.py --ch
   in a scratch manifest (`logs/rust/wp5s6-probe-*.log`), not in the corpus.
 - **The no-unknown build's run-time switch**: it has no options and no reset, so a host
   cannot turn retention on at run time; that is the variant's definition, not a gap.
+- **The runtime probe's variants at k = 8, and feed depth 3 or 4**: not run (no variant moved
+  the k = 1 result beyond the spread; the benchmark budget was spent). The worker-count knobs
+  are not used by any campaign run (defaults 2 / 2).
 - **Other slices' runtimes and bindings**: measured by their slices.
 
 ## Notes
@@ -504,6 +529,7 @@ FIX-PLAN R-G17); D41 (every slice's generated tree is current: `generate.py --ch
 | `logs/rust/opt/t0-ref/`, `t1-native*/`, `t1-ffi/`, `framed/`, `framed-rpc-narrow/`, `n2/`, `n2-ab/`, `n3/`, `n3-ab/`, `n6-probe/`, `lto-ab/`, `u1-unary/`, `u1-unary-narrow/`, `n5/`, `n5-ab/`, `n5b-ab/`, `u2-stream/` | optimisation unit 2, one directory per step (full opt_bench v5 runs, narrowed alternated A/B runs, step checks in `checks/`); before/after in `variants-before-after.txt` / `by-direction.txt`; the framed path's wire evidence in `framed/header-diff*.txt`; direction c and d tables in `u1-unary/c-direction.txt`, `u2-stream/d-direction.txt` |
 | `logs/rust/opt/pre-n5-gate/`, `pre-n5-gate2/` | the stable gate checkpoints of unit 2 (PASSED at 33636e1d and 186a4e52) |
 | `logs/rust/opt/abi9/checks/` | unit 3's step checks (generate --check, one_core, pre-check, crossings identical) |
+| `logs/rust/opt/runtime-probe/` | runtime probe: host / core worker counts, current-thread host, feed depth 2 (patched core, reverted; checks/), direction d k = 1, two sessions (main/, confirm/), tables.md (absolute CPU per call, in-process gap to A, context switches, faults, split cells' per-chunk host work, attribution pass) |
 | `logs/rust/opt/framed-default/` | the framed default, the spare ring and the one-frame prefix: checks, ring-size check, in-session grid (b, c, d, k 1 and 8) + probe with split cells for both deliveries (tables.md), allocation/fault/write counts, body poll/wake counts |
 | `logs/rust/opt/stream-probe2/` | stream probe 2: the probe's level beside the grid (level/), HTTP/2 settings (settings/), Df-chan (chan/), per-chunk host timing (split/), body poll/wake counts (counts/), ablations ring3/ and head/ (patches, reverted) |
 | `logs/rust/opt/stream-probe/` | the stream probe (direction d, k = 1, pinned): per-thread CPU split, allocations, faults, copies per cell; A/A calibration; ablations (a) channel 4, (c) spare ring 3, (d) current-thread cb runtime, each with its patch, all reverted |

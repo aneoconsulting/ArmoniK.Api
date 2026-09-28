@@ -1,0 +1,39 @@
+# runtime probe checks, patched core (core-depth.patch) in target-rtp; 2026-09-28T20:35:11Z; HEAD cd4edbb0 + harness changes (uncommitted at the time) + the patch
+## AK_CORE_CHAN_DEPTH=1 upload_check
+control Bf-cb      planted wrong SHA-256: cell Bf-cb: the server received other bytes than the uploaded ones (SHA-256 differs); planted wrong count: cell Bf-cb: the server received 4194304 data bytes, expected 4194305  (both detected)
+control D-retain   planted wrong SHA-256: cell D-retain: the server received other bytes than the uploaded ones (SHA-256 differs); planted wrong count: cell D-retain: the server received 4194304 data bytes, expected 4194305  (both detected)
+control Df-retain  planted wrong SHA-256: cell Df-retain: the server received other bytes than the uploaded ones (SHA-256 differs); planted wrong count: cell Df-retain: the server received 4194304 data bytes, expected 4194305  (both detected)
+UPLOAD CHECK PASSED
+## AK_CORE_CHAN_DEPTH=2 upload_check
+control Bf-cb      planted wrong SHA-256: cell Bf-cb: the server received other bytes than the uploaded ones (SHA-256 differs); planted wrong count: cell Bf-cb: the server received 4194304 data bytes, expected 4194305  (both detected)
+control D-retain   planted wrong SHA-256: cell D-retain: the server received other bytes than the uploaded ones (SHA-256 differs); planted wrong count: cell D-retain: the server received 4194304 data bytes, expected 4194305  (both detected)
+control Df-retain  planted wrong SHA-256: cell Df-retain: the server received other bytes than the uploaded ones (SHA-256 differs); planted wrong count: cell Df-retain: the server received 4194304 data bytes, expected 4194305  (both detected)
+UPLOAD CHECK PASSED
+## AK_CORE_CHAN_DEPTH=3 upload_check
+control Bf-cb      planted wrong SHA-256: cell Bf-cb: the server received other bytes than the uploaded ones (SHA-256 differs); planted wrong count: cell Bf-cb: the server received 4194304 data bytes, expected 4194305  (both detected)
+control D-retain   planted wrong SHA-256: cell D-retain: the server received other bytes than the uploaded ones (SHA-256 differs); planted wrong count: cell D-retain: the server received 4194304 data bytes, expected 4194305  (both detected)
+control Df-retain  planted wrong SHA-256: cell Df-retain: the server received other bytes than the uploaded ones (SHA-256 differs); planted wrong count: cell Df-retain: the server received 4194304 data bytes, expected 4194305  (both detected)
+UPLOAD CHECK PASSED
+## AK_CORE_CHAN_DEPTH=4 upload_check
+control Bf-cb      planted wrong SHA-256: cell Bf-cb: the server received other bytes than the uploaded ones (SHA-256 differs); planted wrong count: cell Bf-cb: the server received 4194304 data bytes, expected 4194305  (both detected)
+control D-retain   planted wrong SHA-256: cell D-retain: the server received other bytes than the uploaded ones (SHA-256 differs); planted wrong count: cell D-retain: the server received 4194304 data bytes, expected 4194305  (both detected)
+control Df-retain  planted wrong SHA-256: cell Df-retain: the server received other bytes than the uploaded ones (SHA-256 differs); planted wrong count: cell Df-retain: the server received 4194304 data bytes, expected 4194305  (both detected)
+UPLOAD CHECK PASSED
+## AK_CORE_CHAN_DEPTH=1 rpc_semantics
+PASS [framed, stream Q] send limit 1024: 2012 B refused at the entry (-5, no completion: None), then 110 B accepted; the server received Some(100) data bytes
+PASS [framed, stream Q] receive limit 16, response 40 B: Some(Done { tag: 81, status: -12, gs: 8, bytes: [] }) (RESOURCE_EXHAUSTED = 8)
+RPC SEMANTICS PASSED
+## AK_CORE_CHAN_DEPTH=2 rpc_semantics
+PASS [framed, stream Q] send limit 1024: 2012 B refused at the entry (-5, no completion: None), then 110 B accepted; the server received Some(100) data bytes
+PASS [framed, stream Q] receive limit 16, response 40 B: Some(Done { tag: 81, status: -12, gs: 8, bytes: [] }) (RESOURCE_EXHAUSTED = 8)
+RPC SEMANTICS PASSED
+## AK_CORE_CHAN_DEPTH=2 codec pre-check (codec_suite AK_PRECHECK_ONLY=1)
+# precheck: 5740 checks, 0 failures, 114 inputs, 5132 cases
+PRECHECK PASSED: 5740 checks, 114 inputs, 5132 cases; incumbent refusals on U-* rows (not timed): 54
+## the patch is in the build: its stderr line per process
+[core-depth-patch] ak_call_open request channel depth 1
+[core-depth-patch] ak_call_open request channel depth 2
+[core-depth-patch] ak_call_open request channel depth 3
+[core-depth-patch] ak_call_open request channel depth 4
+## the unpatched build (target/) prints none:
+0
