@@ -883,8 +883,58 @@ void      ak_call_destroy(ak_call*);
   response above the receive limit fails the call (`RESOURCE_EXHAUSTED` on a stream,
   `AK_ERR_LIMIT` on a unary call). Before this, both fields were accepted and
   ignored.
-- **Blocking delivery only**, as the campaign asks (CAMPAIGN req 16); callback and
-  queue deliveries of a stream are not built.
+- **Every delivery, streams included (2026-09-28).** The stream and the moved-request
+  unary call have callback and queue forms, additive, sharing one code path with the
+  blocking forms (the same setup, teardown, send and response futures):
+
+  ```c
+  int32_t  ak_call_send_cb    (ak_call*, const uint8_t *msg, size_t len, int32_t last,
+                               ak_completion_cb cb, void *user_data, uint64_t tag);
+  int32_t  ak_call_send_enc_cb(ak_call*, ak_enc_ctx *enc, int32_t last,
+                               ak_completion_cb cb, void *user_data, uint64_t tag);
+  int32_t  ak_call_recv_cb    (ak_call*, ak_completion_cb cb, void *user_data, uint64_t tag);
+  int32_t  ak_call_send_q     (ak_call*, const uint8_t *msg, size_t len, int32_t last,
+                               ak_queue*, uint64_t tag);
+  int32_t  ak_call_send_enc_q (ak_call*, ak_enc_ctx *enc, int32_t last, ak_queue*, uint64_t tag);
+  int32_t  ak_call_recv_q     (ak_call*, ak_queue*, uint64_t tag);
+  ak_call *ak_call_unary_enc_cb(ak_client*, const uint8_t *path, size_t path_len,
+                                ak_enc_ctx *enc, ak_completion_cb cb, void *user_data, uint64_t tag);
+  ak_call *ak_call_unary_enc_q (ak_client*, const uint8_t *path, size_t path_len,
+                                ak_enc_ctx *enc, ak_queue*, uint64_t tag);
+  ```
+
+  - **Return value.** `AK_OK` (or a non-NULL handle) means exactly one completion
+    follows; anything else is a refusal, no completion follows and `user_data` is
+    never touched. Refusals are the blocking forms' own: `AK_ERR_LIMIT` above the send
+    limit, `AK_ERR_INVALID_STATE` for a second pending send, a send after `last`, a
+    second receive (whichever delivery made the first) or a NULL handle or queue, and
+    an encode context's own error.
+  - **A send completes when the call has accepted the message**, not when it is on the
+    wire. The message is copied (or, for `_enc`, moved) before the entry returns; the
+    completion's bytes are empty; the sender is back in place before it fires, so the
+    next send may be issued from inside the completion. Its status is `AK_OK`, or
+    `AK_ERR_HOST` (grpc_status -1) when the call has already ended, cancel included:
+    the call's status is the receive's.
+  - **A receive completes** with `AK_OK` if and only if the gRPC code is 0, else
+    `AK_ERR_RPC_STATUS` with the code (the server's, `CANCELLED` after
+    `ak_call_cancel`, `RESOURCE_EXHAUSTED` above the receive limit).
+  - **Where a completion arrives.** A callback runs on a core thread and **may run
+    before the initiating entry has returned** (the call's task is spawned before the
+    handle is returned), never on the initiating thread's stack; a host must not need
+    the returned handle inside it. A queue completion is pushed with no upcall.
+  - **Lifetimes.** `ak_call_destroy` only after every operation has returned and every
+    completion has been delivered; a queue is destroyed only after every call naming it
+    has completed. `ak_call_cancel` makes every pending operation complete.
+  - **Which delivery a host uses** is CAMPAIGN req 16's: the one idiomatic for the host,
+    the blocking form kept as a labelled row everywhere.
+  - **Known gaps, not closed (from the C++ coroutine design exploration, 2026-09-28):**
+    destroying the runtime drops pending completions instead of delivering them;
+    calling a blocking entry from a core thread (inside a callback) aborts the process
+    (tokio refuses to block inside its runtime and the RPC entries have no panic guard);
+    destroying an unfinished stream ends the request stream normally rather than
+    cancelling it; unary calls take no `ak_call_opts`; a stream cannot be closed
+    without a message; whether `ak_call_destroy` is legal inside the completion is
+    unstated (it is memory-safe in the current code).
 - **Settled while building it.** An expired deadline is reported as
   `DEADLINE_EXCEEDED` (4) even when the server's `CANCELLED "Timeout expired"` arrives
   first, as tonic's server sends it. Metadata values other than `-bin` must be
