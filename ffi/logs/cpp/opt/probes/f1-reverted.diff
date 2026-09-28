@@ -1,0 +1,124 @@
+diff --git a/ffi/poc/cpp/include/ak/vocab.h b/ffi/poc/cpp/include/ak/vocab.h
+index d214fe95..a6a62e8a 100644
+--- a/ffi/poc/cpp/include/ak/vocab.h
++++ b/ffi/poc/cpp/include/ak/vocab.h
+@@ -13,9 +13,11 @@
+ #ifndef AK_VOCAB_H
+ #define AK_VOCAB_H
+ 
++#include <cassert>
+ #include <cstddef>
+ #include <cstring>
+ #include <string>
++#include <memory>
+ #include <utility>
+ 
+ #if defined(__cpp_lib_string_view) && __cpp_lib_string_view >= 201606L
+@@ -25,53 +27,71 @@
+ 
+ namespace ak {
+ 
+-// `optional` (C++17). All data members private, no bases, no virtuals: standard layout, so
+-// `offsetof` on it is well defined and the ODR check can pin it.
++// `optional` (C++17). F-1 (2026-09-28, the owner's quick test): backed by std::unique_ptr<T>
++// (C++11), so an absent value holds no T at all. ONE layout at every level (no #if on the
++// standard). Value semantics are kept: a copy deep-copies, a move moves the pointer, absent is
++// null. Contract: the const value()/operator*/operator-> on an absent Optional return a shared
++// default T (as the previous implementation, whose absent value was the default); the
++// NON-const forms require a value (debug assert), exactly as std::optional's do.
+ template <class T>
+ class Optional {
+  public:
+-  Optional() : has_(false), v_() {}
+-  Optional(const T &v) : has_(true), v_(v) {}           // NOLINT(runtime/explicit)
+-  bool has_value() const { return has_; }
+-  explicit operator bool() const { return has_; }
+-  const T &value() const { return v_; }
+-  T &value() { return v_; }
+-  const T &operator*() const { return v_; }
+-  T &operator*() { return v_; }
+-  const T *operator->() const { return &v_; }
+-  T *operator->() { return &v_; }
+-  // The in-place accessor a decode path needs: a message that carries a repeated or a map
+-  // field is filled IN PLACE, never constructed, because `apply` arrives after the runs
+-  // that populated it (ABI v1 section 7.1).
+-  // B-5 (2026-09-28): the INVARIANT "absent implies the default value" (every mutator keeps
+-  // it: the constructors, set, emplace, reset) lets the accessors below skip the assignment
+-  // of a fresh T() when nothing is there. Writing through value() or * while absent is
+-  // outside the contract (nothing in this slice does it).
++  Optional() {}
++  Optional(const T &v) : p_(new T(v)) {}           // NOLINT(runtime/explicit)
++  Optional(const Optional &o) : p_(o.p_ ? new T(*o.p_) : nullptr) {}
++  Optional(Optional &&o) noexcept : p_(std::move(o.p_)) {}
++  Optional &operator=(const Optional &o) {
++    if (this != &o) {
++      if (!o.p_) p_.reset();
++      else if (p_) *p_ = *o.p_;
++      else p_.reset(new T(*o.p_));
++    }
++    return *this;
++  }
++  Optional &operator=(Optional &&o) noexcept {
++    p_ = std::move(o.p_);
++    return *this;
++  }
++  bool has_value() const { return p_ != nullptr; }
++  explicit operator bool() const { return p_ != nullptr; }
++  const T &value() const { return p_ ? *p_ : dflt(); }
++  T &value() { assert(p_ && "value() on an absent ak::Optional"); return *p_; }
++  const T &operator*() const { return value(); }
++  T &operator*() { return value(); }
++  const T *operator->() const { return &value(); }
++  T *operator->() { return &value(); }
++  // The in-place accessor a decode path needs (ABI v1 section 7.1): fill IN PLACE.
+   T &get_or_insert() {
+-    has_ = true;
+-    return v_;
++    if (!p_) p_.reset(new T());
++    return *p_;
+   }
+-  void set(const T &v) { v_ = v; has_ = true; }
+-  // The rvalue overload is not a nicety: without it a decoded child is built by value and
+-  // then COPIED into the option, which on M5's 4 MB `bytes` field is a second copy of the
+-  // whole payload. Measured before it existed: P5.4 decode through the ABI was 3.7 ms
+-  // slower than the no-boundary control, all of it this copy.
+-  void set(T &&v) { v_ = static_cast<T &&>(v); has_ = true; }
+-  T &emplace() { if (has_) v_ = T(); has_ = true; return v_; }
+-  void reset() { if (has_) { v_ = T(); has_ = false; } }
++  void set(const T &v) {
++    if (p_) *p_ = v;
++    else p_.reset(new T(v));
++  }
++  void set(T &&v) {
++    if (p_) *p_ = static_cast<T &&>(v);
++    else p_.reset(new T(static_cast<T &&>(v)));
++  }
++  T &emplace() {
++    if (p_) *p_ = T();
++    else p_.reset(new T());
++    return *p_;
++  }
++  void reset() { p_.reset(); }
+   bool operator==(const Optional &o) const {
+-    return has_ == o.has_ && (!has_ || v_ == o.v_);
++    return (p_ == nullptr) == (o.p_ == nullptr) && (!p_ || *p_ == *o.p_);
+   }
+   bool operator!=(const Optional &o) const { return !(*this == o); }
+ 
+  private:
+-  bool has_;
+-  T v_;
++  static const T &dflt() {
++    static const T d = T();
++    return d;
++  }
++  std::unique_ptr<T> p_;
+ #ifdef AK_ODR_BREAK
+-  // The POSITIVE CONTROL, and it is here rather than in a comment because a guard with no
+-  // failing test is a guard nobody has seen work. Build `odrcheck` with -DAK_ODR_BREAK=ON
+-  // and this member appears only at C++17, which is exactly the ODR violation README 5.1
+-  // calls a hard stop. The check must report it.
++  // The POSITIVE CONTROL of gen/odr_check.sh: a member at C++17 only.
+ #if __cplusplus >= 201703L
+   std::size_t break_;
+ #endif

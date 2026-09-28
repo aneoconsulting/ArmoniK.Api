@@ -1,0 +1,26 @@
+# opt_checks s10-f1 at 5e7f6131 + uncommitted  2026-09-28T10:41:10Z
+generate.py --check: 61 ok lines
+one_core.sh: ok
+conformance_a17_shared: exit 0: 608 checks, 0 failures, 1 payloads with two valid encodings
+conformance_c11_shared: exit 0: 608 checks, 0 failures, 1 payloads with two valid encodings
+conformance_nounk_a17: exit 0: 478 checks, 0 failures, 1 payloads with two valid encodings
+conformance_nounk_c11: exit 0: 478 checks, 0 failures, 1 payloads with two valid encodings
+  full corpus:    pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16  arm not built 0
+  full corpus:    pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16  arm not built 0
+  full corpus:    pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0  arm not built 0
+  full corpus:    pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0  arm not built 0
+  full corpus:    pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16  arm not built 0
+  full corpus:    pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16  arm not built 0
+  full corpus: CORPUS PASSES on every built arm
+  nounk corpus:    pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16  arm not built 0
+  nounk corpus:    pass 0  fail 0  disputed (excluded) 0  not in the C ABI 16  arm not built 686
+  nounk corpus:    pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0  arm not built 0
+  nounk corpus:    pass 0  fail 0  disputed (excluded) 0  not in the C ABI 0  arm not built 702
+  nounk corpus:    pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16  arm not built 0
+  nounk corpus:    pass 0  fail 0  disputed (excluded) 0  not in the C ABI 16  arm not built 686
+  nounk corpus: CORPUS PASSES on every built arm
+counts full: identical to counts-baseline.log (530 rows)
+counts nounk: identical to counts-nounk-baseline.log (301 rows)
+campaign_codec pre-check: exit 0 "campaign_codec_gate": {"groups": 120, "slots": 4436, "failed": 0, "ffi_retain": "built", "pull_value_gate": "push = pull walked = pull drained on every group and mode, 0 failed"}
+campaign_codec_nounk pre-check: exit 0 "campaign_codec_gate": {"groups": 120, "slots": 2724, "failed": 0, "ffi_retain": "compiled out (no-unknown build)", "pull_value_gate": "push = pull walked = pull drained on every group and mode, 0 failed"}
+opt_checks s10-f1: 0 failure(s)
