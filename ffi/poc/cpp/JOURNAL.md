@@ -1709,3 +1709,24 @@ changes.
   order, which groups a benchmark's repetitions, not the interleaved execution order; the runner header's
   `threads.rpc_server` text still describes the removed grpc++ server. opt_summary.py's first version named the
   no-unknown columns `-no-unknown` and left them empty; fixed and re-run on the same samples (runner.log says so).
+
+## 2026-09-28, optimisation unit, step 0: harness fixes and the reference run
+
+- H-1 confirmed and fixed: the pool slot keeps a cursor (one graph per iteration, across calls). The pool is
+  built once and kept across the consecutive calls of its slot (warm-up and estimation), freed by the next pool
+  slot's setup: one pool alive, setups per pool slot about 1 + (repetitions - 1) instead of 12-15. Pool stays
+  1 MiB: 2 x this container's 33 MiB L3 costs about 0.3 s per build (5 ms per MiB measured), out of budget.
+- H-9: the benchmark body hands Google Benchmark's iteration count to the slot in one call (KeepRunningBatch);
+  per iteration one std::function call at most (the encode lambda). Encode rows are otherwise unchanged.
+- H-7: incumbent-best encode = ByteSizeLong + SerializeWithCachedSizesToArray into a growing reused buffer
+  (P5.4 reused 444 -> 294 us: the old SerializeToString reuse zero-filled 4 MB every call); decode
+  ParseFromArray. incumbent-arena: labelled extra decode arm (fresh Arena per decode, reused 256 KiB first
+  block; production uses no arena). Payloads only.
+- H-8: from=bytebuffer decode rows for core-ffi and host-gen in every mode (Dump, one slice in place, else
+  concatenate: cells D/F's path), payloads only.
+- RPC: H-2 one condition variable per caller thread, a batch wakes its k threads only; H-4 the raw methods of
+  A (d), D and F registered once per channel (the generated stub's path; before, an unregistered call per call);
+  H-6 cell B ByteSizeLong + SerializeWithCachedSizesToArray into a per-thread buffer. Counts identical (72, 42);
+  the c-len / d-sha / d-count plants still abort with no file (checked on A, D-drop, F-retain).
+- Budget: payload slots +32% (1156 / 716); U rows 3 x 0.003 s + 0.001 s warm-up (U full 120 -> 71 s).
+- Reference run `logs/cpp/opt/ref/`: 548 s, pre-check 0 failures, counts identical.

@@ -206,6 +206,15 @@ listed so that nobody re-derives them. **No figure from them is quoted here.**
   `build.log`; summaries `summary-codec.tsv`, `variants-codec.tsv`, `summary-rpc.tsv`, `tables-codec.md`, `tables-rpc.md`.
   `opt/u-warmup0-evidence.txt`: why the U rows got a warm-up (the discarded first run's one-iteration samples).
 
+## Optimisation unit (2026-09-28, owner-approved), step by step
+
+Every figure is container instrumentation from `gen/opt_bench.sh` (logs/cpp/opt/<run>/) or a
+narrowed A/B (`gen/opt_ab.sh`, logs/cpp/opt/ab/). The reference for the steps is `opt/ref/`.
+
+| Step | What | Commit | Kept? | Evidence |
+|---|---|---|---|---|
+| 0 | harness fixes H-1 (pool walked), H-2 (a condition variable per caller), H-4 (registered raw methods), H-6 (cell B reused buffer), H-7 (incumbent-best fastest entry point; incumbent-arena labelled), H-8 (from=bytebuffer decode rows, labelled), H-9 (one run(iterations) per repetition); U rows 3 x 0.003 s | f00c900e | harness fix | `opt/ref/` (548 s): pre-check 0 failures (1156, 716, 2944, 1840 slots), counts identical |
+
 ## CAMPAIGN.md section 10 checklist
 
 | # | Requirement | Status |
