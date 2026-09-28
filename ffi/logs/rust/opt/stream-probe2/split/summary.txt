@@ -1,0 +1,59 @@
+# stream probe 2: commit b0f9808e + UNCOMMITTED; 2026-09-28T17:54:32Z; Intel(R) Xeon(R) Processor @ 2.80GHz; client CPU 1, server CPUs 2,3 (4 workers), pinned; cells A,Df,Df-chan,Cf-split,C-split,Cf; variants blk:block:0; probe rounds 15 calls 8 warm 4; grid AK_SAMPLES=10 AK_WARMUP_MS=30 AK_MEASURE_MS=500
+
+per-call client CPU, ms: median [p10-p90] (n)
+16MiB A
+    grid            9.47 [8.31-12.04] (30)
+    blk             9.21 [8.22-10.92] (360)
+    blk/later       9.21 [8.19-10.90] (315)
+    blk/first       9.19 [8.32-10.96] (45)
+16MiB C-split
+    blk            12.41 [11.06-13.88] (360)
+    blk/later      12.40 [11.04-13.85] (315)
+    blk/first      12.50 [11.25-13.93] (45)
+16MiB Cf-retain
+    grid           10.66 [9.76-12.71] (30)
+    blk            10.87 [9.44-13.43] (360)
+    blk/later      10.86 [9.44-13.43] (315)
+    blk/first      11.13 [9.25-13.11] (45)
+16MiB Cf-split
+    blk            10.89 [9.29-12.88] (360)
+    blk/later      10.92 [9.29-12.87] (315)
+    blk/first      10.48 [9.22-13.00] (45)
+16MiB Df-chan
+    blk            11.04 [9.38-13.60] (360)
+    blk/later      10.94 [9.35-13.58] (315)
+    blk/first      11.33 [9.69-13.95] (45)
+16MiB Df-retain
+    grid            9.46 [8.72-17.54] (30)
+    blk            10.34 [8.95-12.66] (360)
+    blk/later      10.29 [8.94-12.66] (315)
+    blk/first      10.50 [9.00-12.38] (45)
+4MiB A
+    grid            2.33 [2.13-2.70] (30)
+    blk             2.53 [2.21-2.91] (360)
+    blk/later       2.52 [2.19-2.92] (315)
+    blk/first       2.56 [2.27-2.87] (45)
+4MiB C-split
+    blk             3.07 [2.74-3.63] (360)
+    blk/later       3.07 [2.73-3.61] (315)
+    blk/first       3.09 [2.83-4.00] (45)
+4MiB Cf-retain
+    grid            2.47 [2.22-2.79] (30)
+    blk             2.39 [2.12-2.79] (360)
+    blk/later       2.40 [2.13-2.80] (315)
+    blk/first       2.37 [2.04-2.70] (45)
+4MiB Cf-split
+    blk             2.46 [2.12-2.91] (360)
+    blk/later       2.46 [2.13-2.91] (315)
+    blk/first       2.40 [2.09-2.86] (45)
+4MiB Df-chan
+    blk             2.51 [2.19-2.92] (360)
+    blk/later       2.49 [2.20-2.93] (315)
+    blk/first       2.59 [2.06-2.89] (45)
+4MiB Df-retain
+    grid            2.51 [2.26-2.86] (30)
+    blk             2.52 [2.20-3.15] (360)
+    blk/later       2.51 [2.19-3.15] (315)
+    blk/first       2.53 [2.25-2.98] (45)
+
+per call, by thread class (medians over rounds): write syscalls, bytes per write, read syscalls, bytes per read, CPU ms

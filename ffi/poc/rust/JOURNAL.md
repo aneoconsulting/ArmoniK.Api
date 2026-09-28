@@ -3559,3 +3559,82 @@ rendered into every slice's header/binding; other slices' generated output regen
   (C-cb - C and Cf-cb - Cf 0.3-0.4 ms, under the noise). At 4 MiB the same shape, smaller
   (C - Cf 0.6 ms). What remains unexplained: the split of Cf - Df between wake-ups and the
   channel handoff, and why capacity 4 costs more (not probed). Container instrumentation.
+
+## 2026-09-28 -- stream probe 2: the probe's level, the write pattern, and Cf vs Df measured (coordinator follow-up)
+
+Everything container instrumentation; logs/rust/opt/stream-probe2/. No code change kept.
+
+- Tooling added: stream_probe records per-call CPU inside each round (`cpu_calls`),
+  /proc/self/task/*/io per thread class (syscw, wchar, syscr, rchar), AK_PROBE_ORDER=block
+  (one (cell, size) at a time, as criterion runs one benchmark) and AK_PROBE_PROC=0 (no /proc
+  reads); probe-only cells `Df-chan` (Df's connection and framed body fed as the core feeds
+  its own: a host thread encodes each chunk, ak_enc_take_owned, blocking_send into an mpsc(1)
+  whose ReceiverStream is the body, the call a task on the cell's runtime) and `Cf-split` /
+  `C-split` (Cf's / C's call through the cell's own core client, the host's encode and
+  ak_call_send_enc timed per chunk: thread CPU and wall). gen/stream_probe2.sh runs, in ONE
+  server session, the grid's own client narrowed (rpc_suite: direction d, k = 1, 10 samples,
+  30 ms warm-up, 500 ms measurement) and the probe variants, N iterations; gen/probe/
+  h2sniff.py + h2settings.sh (a Unix-socket proxy logging SETTINGS / WINDOW_UPDATE / DATA
+  frames); gen/stream_ab.sh takes AK_AB_ENV_B for env-gated ablations in one binary.
+- (i) The probe's level. In one session (level/, 4 iterations), 16 MiB A: grid 9.04, probe
+  block order 8.83, rotate order 9.14 (4 MiB: 2.26 / 2.24 / 2.33); every cell the same way
+  (block within -4% to +2% of the grid, rotate +1% to +11%, mostly on the first call of a
+  round). So the probe does not overstate A when measured beside the grid; the 10.08 of
+  stream-probe vs the grid's 8.27 / 8.72 compared different sessions, and the container's
+  level moved between them (the grid's own A here: 9.04-9.66 over the sessions of this
+  unit). Every comparison now carries an in-session grid column; timing uses block order.
+- (1) Writes. Per 16 MiB call, on the thread driving the connection: A 1,049-1,051 write
+  syscalls, B 1,053, C 1,052, Cf 1,051-1,052, D 1,052, Df 1,050-1,051, Df-chan 1,051, all
+  16 KiB each; 4 MiB 266-268 x 15-16 KiB. The write pattern is the same in every cell
+  (the server's MAX_FRAME_SIZE is 16,384 and hyper writes a frame per syscall), so it sets
+  the system time (about 6 ms per 16 MiB call, 5.7 us per write) but does not separate the cells.
+- (2) HTTP/2 settings (settings/h2-settings.log), control only: A, Df, Cf and C-cb send the
+  same client SETTINGS (ENABLE_PUSH 0, INITIAL_WINDOW_SIZE 4,194,304, MAX_FRAME_SIZE 16,384,
+  MAX_HEADER_LIST_SIZE 16,384) and the same connection WINDOW_UPDATE (+4,128,769); the
+  server's are the same to every client. Ruled out.
+- (a)/(c) Feed and drive, counted (counts/, an instrumentation build of the framed body,
+  patch count-framed.patch): per 16 MiB call Df's body is polled 17 times, 0 Pending, 0 wakes,
+  all on the cell's runtime; Df-chan 23-29 polls, 6-12 Pending, 3-6 wakes of the body's task
+  by the channel; Cf 17-23 / 0-6 / 0-3 and Cf-cb 21-22 / 4-5 / 2-3, all on the core's runtime.
+  The connection's writes are the same count everywhere (above).
+- The decisive comparison (chan/, 4 iterations, block order): 16 MiB Df 9.61, Df-chan 10.55,
+  Cf 10.31, A 8.95 (grid Df 9.67, Cf 11.44, A 9.66). Df-chan, the harness's own connection
+  fed through a host thread and an mpsc(1), costs what Cf costs, with the same thread split
+  (host 4.1 ms + runtime 7.0 ms). So Cf - Df is the FEED, not the core's connection, runtime
+  or h2 settings. The first unit's "hand-off" attribution by elimination is withdrawn and
+  replaced by the direct measurement below.
+- (3) The hand-off measured directly (split/, 3 iterations): the host's CPU inside the send
+  (ak_call_send_enc / blocking_send) is 7-12 us per chunk (0.06-0.1 ms per 16 MiB call); its
+  wall time 406-409 us per chunk on the framed paths (the host waits for the transport) and
+  995 us on C's reference path. The host's ENCODE per 2 MiB chunk: C-split 400 us, Cf-split
+  491 us, Df-chan 506 us (4 MiB: 401 / 386 / 371). The framed paths' encode costs about
+  100 us more per chunk: the transport still holds the previous chunk's buffer when the next
+  encode starts, so the context's spare slot is empty and the encode writes into a fresh 2
+  MiB buffer (>= 1 MiB allocations per 16 MiB call: Cf 4.1, Df-chan 4.2, Df 2.6, C's own
+  encode none extra), whereas on C the RawEncoder copy frees the chunk at once and the spare
+  comes back; in Df the encode runs inside the body's poll, after the previous chunk is gone.
+- Ablation, the spare slot as a ring of 3 (ring3/, the patch of stream-probe, 3 pairs): host
+  encode per chunk Cf-split 502 -> 393 us, Df-chan 526 -> 405 us, C-split 391 -> 386 us; CPU
+  B/A: Cf-split 0.880, Df-chan 0.854, Df 0.939, C-split 0.982, control A 0.937 (a noisy
+  session: per-pair 0.76-1.09). The encode surplus disappears with recycled buffers; the
+  call-level ratio is inside this session's spread. A shared-core (ak-rt) change: reverted,
+  reported.
+- (b) The 5-byte prefix: the framed body yields each message as TWO body frames, the 5-byte
+  prefix Bytes and the message; on the wire that is ONE extra DATA frame per message (4 MiB x 3
+  calls: 783 DATA frames framed vs 777 for A and C) and no extra write syscall (the counts
+  above are equal: hyper coalesces the small frame into the next write), and 2 polls per
+  message, no wake. Ablation (head/, env-gated AK_ABL_HEAD=1, patch abl-head.patch, 402 lines
+  incl. the generated length returns): 5 bytes of headroom in every encode context (the codec's
+  output view after them: ak_enc_take, the generated encode entries' length, and the moved
+  unary / take_owned paths slice it off), the framed stream writes the prefix into it and
+  sends ONE frame. Correct: codec pre-check 5,740 checks 0 failures with and without it,
+  upload_check PASSED with it, and Cf's DATA frames drop to A's count (777). Timing, 3 pairs,
+  B/A: Cf 0.989, Cf-split 0.933, Df (unchanged path) 0.985, C 1.015, control A 1.078 (per
+  pair 0.82-1.18): not resolved; one frame in 129 per message and no syscall saved, so no
+  effect above the noise was expected. Reverted, reported (shared-core internal change).
+- Attribution, 16 MiB k = 1, as far as measured: C - Cf about 1.5 ms (RawEncoder's copy,
+  first unit); Cf - Df about 0.7-0.9 ms, of which the fresh-buffer encode (about 100 us per
+  chunk, 0.8 ms) is measured directly and removed by buffer recycling, the host's hand-off CPU
+  0.06-0.1 ms; Df - A about 0.4-0.7 ms (Df 9.61 vs A 8.95; with the ring Df 10.20 vs A 9.37),
+  not attributed: the core-ffi encode plus the framed body (two frames per message) against
+  prost encoding into tonic's buffer. Unexplained: Df - A; the per-session level drift.

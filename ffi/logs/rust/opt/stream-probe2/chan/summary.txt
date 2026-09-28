@@ -1,0 +1,93 @@
+# stream probe 2: commit b0f9808e + UNCOMMITTED; 2026-09-28T17:50:13Z; Intel(R) Xeon(R) Processor @ 2.80GHz; client CPU 1, server CPUs 2,3 (4 workers), pinned; cells A,Df,Df-chan,Cf,C; variants rot:rotate:1 blk:block:0; probe rounds 15 calls 8 warm 4; grid AK_SAMPLES=10 AK_WARMUP_MS=30 AK_MEASURE_MS=500
+
+per-call client CPU, ms: median [p10-p90] (n)
+16MiB A
+    grid            9.66 [8.51-12.06] (40)
+    blk             8.95 [7.87-10.47] (480)
+    blk/later       8.89 [7.83-10.45] (420)
+    rot             9.44 [8.29-11.18] (480)
+    rot/later       9.39 [8.29-11.15] (420)
+    blk/first       9.25 [8.18-11.01] (60)
+    rot/first       9.99 [8.46-11.48] (60)
+16MiB C-retain
+    grid           12.62 [11.45-13.60] (40)
+    blk            11.44 [10.09-13.33] (480)
+    blk/later      11.43 [10.05-13.22] (420)
+    rot            12.43 [11.12-14.25] (480)
+    rot/later      12.42 [11.08-14.25] (420)
+    blk/first      11.51 [10.11-13.60] (60)
+    rot/first      12.77 [11.30-14.45] (60)
+16MiB Cf-retain
+    grid           11.44 [10.20-12.81] (40)
+    blk            10.31 [8.85-12.31] (480)
+    blk/later      10.34 [8.85-12.28] (420)
+    rot            10.92 [9.54-13.29] (480)
+    rot/later      10.89 [9.50-13.29] (420)
+    blk/first      10.13 [9.04-12.62] (60)
+    rot/first      11.18 [9.98-13.33] (60)
+16MiB Df-chan
+    blk            10.55 [8.93-12.33] (480)
+    blk/later      10.55 [8.93-12.29] (420)
+    rot            10.82 [9.43-12.91] (480)
+    rot/later      10.82 [9.41-12.89] (420)
+    blk/first      10.45 [9.16-12.45] (60)
+    rot/first      11.03 [9.71-13.47] (60)
+16MiB Df-retain
+    grid            9.67 [8.14-11.04] (40)
+    blk             9.61 [8.19-11.28] (480)
+    blk/later       9.63 [8.16-11.35] (420)
+    rot            10.09 [8.65-11.73] (480)
+    rot/later      10.01 [8.59-11.66] (420)
+    blk/first       9.51 [8.37-10.55] (60)
+    rot/first      10.38 [9.26-12.34] (60)
+4MiB A
+    grid            2.43 [1.84-2.80] (40)
+    blk             2.23 [1.82-2.64] (480)
+    blk/later       2.22 [1.81-2.62] (420)
+    rot             2.49 [2.08-2.92] (480)
+    rot/later       2.47 [2.07-2.90] (420)
+    blk/first       2.34 [1.93-2.89] (60)
+    rot/first       2.67 [2.26-2.97] (60)
+4MiB C-retain
+    grid            3.14 [2.65-3.68] (40)
+    blk             2.92 [2.57-3.43] (480)
+    blk/later       2.93 [2.57-3.43] (420)
+    rot             3.28 [2.83-3.83] (480)
+    rot/later       3.24 [2.78-3.79] (420)
+    blk/first       2.92 [2.62-3.61] (60)
+    rot/first       3.52 [3.13-3.94] (60)
+4MiB Cf-retain
+    grid            2.48 [1.92-2.78] (40)
+    blk             2.16 [1.75-2.66] (480)
+    blk/later       2.16 [1.76-2.67] (420)
+    rot             2.54 [2.12-3.00] (480)
+    rot/later       2.52 [2.11-3.00] (420)
+    blk/first       2.15 [1.72-2.64] (60)
+    rot/first       2.66 [2.45-3.10] (60)
+4MiB Df-chan
+    blk             2.34 [2.03-2.80] (480)
+    blk/later       2.34 [2.03-2.79] (420)
+    rot             2.52 [2.16-3.01] (480)
+    rot/later       2.49 [2.14-3.00] (420)
+    blk/first       2.34 [2.02-2.83] (60)
+    rot/first       2.64 [2.42-3.12] (60)
+4MiB Df-retain
+    grid            2.39 [2.08-2.77] (40)
+    blk             2.35 [2.05-2.82] (480)
+    blk/later       2.34 [2.04-2.79] (420)
+    rot             2.60 [2.18-3.30] (480)
+    rot/later       2.57 [2.13-3.28] (420)
+    blk/first       2.38 [2.06-3.00] (60)
+    rot/first       2.67 [2.42-3.43] (60)
+
+per call, by thread class (medians over rounds): write syscalls, bytes per write, read syscalls, bytes per read, CPU ms
+16MiB A            [rot] cell-rt: 1049 writes x 16 KiB, 0 reads x 0 B, cpu 9.59
+16MiB C-retain     [rot] caller: 1 writes x 0 KiB, 0 reads x 0 B, cpu 3.31 | core-rt: 1052 writes x 16 KiB, 0 reads x 0 B, cpu 9.19
+16MiB Cf-retain    [rot] caller: 3 writes x 0 KiB, 0 reads x 0 B, cpu 4.19 | core-rt: 1051 writes x 16 KiB, 0 reads x 0 B, cpu 6.97
+16MiB Df-chan      [rot] caller: 2 writes x 0 KiB, 0 reads x 0 B, cpu 4.10 | cell-rt: 1051 writes x 16 KiB, 0 reads x 0 B, cpu 7.00
+16MiB Df-retain    [rot] cell-rt: 1050 writes x 16 KiB, 0 reads x 0 B, cpu 10.30
+4MiB A            [rot] cell-rt: 266 writes x 15 KiB, 0 reads x 0 B, cpu 2.51
+4MiB C-retain     [rot] caller: 1 writes x 0 KiB, 0 reads x 0 B, cpu 0.85 | core-rt: 267 writes x 15 KiB, 0 reads x 0 B, cpu 2.49
+4MiB Cf-retain    [rot] caller: 2 writes x 0 KiB, 0 reads x 0 B, cpu 0.82 | core-rt: 267 writes x 15 KiB, 0 reads x 0 B, cpu 1.76
+4MiB Df-chan      [rot] caller: 2 writes x 0 KiB, 0 reads x 0 B, cpu 0.82 | cell-rt: 266 writes x 15 KiB, 0 reads x 0 B, cpu 1.76
+4MiB Df-retain    [rot] cell-rt: 266 writes x 15 KiB, 0 reads x 0 B, cpu 2.70

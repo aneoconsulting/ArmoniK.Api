@@ -1,0 +1,16 @@
+# stream probe run ring3-b3: commit b0f9808e + UNCOMMITTED; 2026-09-28T17:59:50Z; Intel(R) Xeon(R) Processor @ 2.80GHz; client CPU 1, server CPUs 2,3 (4 workers), transport pinned, target /home/user/ArmoniK.Api/ffi/poc/rust/target-abl, shim 0
+# stream probe: transport pinned, cells ["A", "Df-retain", "Df-chan", "Cf-split", "C-split"], sizes ["16MiB", "4MiB"], rounds 15, calls per round 8, warm 4, allocation shim absent
+# order block, /proc reads false
+# run time 13 s
+size    cell         rounds  cpu/call ms [min-max]   wall ms | cpu by thread ms:     main   caller  cell-rt  core-rt    other | minflt/call total | allocs/call  >=1MiB/call | user/sys per call (mean of ticks) | ctx switches per call by class
+16MiB   A                15      9.23 [8.45-10.98]     14.50 |                      0.00     0.00     0.00     0.00     0.00 |            0 |    (no shim) | user  0.00 sys  0.00 ms | ctx switches/call      0      0      0      0      0
+16MiB   C-split          15     12.87 [11.63-14.29]     18.02 |                      0.00     0.00     0.00     0.00     0.00 |            0 |    (no shim) | user  0.00 sys  0.00 ms | ctx switches/call      0      0      0      0      0
+16MiB   Cf-split         15      9.57 [8.67-10.87]     14.09 |                      0.00     0.00     0.00     0.00     0.00 |            0 |    (no shim) | user  0.00 sys  0.00 ms | ctx switches/call      0      0      0      0      0
+16MiB   Df-chan          15      9.52 [8.92-10.32]     13.59 |                      0.00     0.00     0.00     0.00     0.00 |            0 |    (no shim) | user  0.00 sys  0.00 ms | ctx switches/call      0      0      0      0      0
+16MiB   Df-retain        15      9.75 [8.87-10.74]     13.88 |                      0.00     0.00     0.00     0.00     0.00 |            0 |    (no shim) | user  0.00 sys  0.00 ms | ctx switches/call      0      0      0      0      0
+4MiB    A                15      2.37 [1.99-2.70]      3.97 |                      0.00     0.00     0.00     0.00     0.00 |            0 |    (no shim) | user  0.00 sys  0.00 ms | ctx switches/call      0      0      0      0      0
+4MiB    C-split          15      3.03 [2.43-3.52]      4.62 |                      0.00     0.00     0.00     0.00     0.00 |            0 |    (no shim) | user  0.00 sys  0.00 ms | ctx switches/call      0      0      0      0      0
+4MiB    Cf-split         15      2.22 [2.02-2.64]      4.02 |                      0.00     0.00     0.00     0.00     0.00 |            0 |    (no shim) | user  0.00 sys  0.00 ms | ctx switches/call      0      0      0      0      0
+4MiB    Df-chan          15      2.44 [2.24-2.95]      4.25 |                      0.00     0.00     0.00     0.00     0.00 |            0 |    (no shim) | user  0.00 sys  0.00 ms | ctx switches/call      0      0      0      0      0
+4MiB    Df-retain        15      2.63 [2.31-3.10]      4.39 |                      0.00     0.00     0.00     0.00     0.00 |            0 |    (no shim) | user  0.00 sys  0.00 ms | ctx switches/call      0      0      0      0      0
+

@@ -23,6 +23,10 @@ LD_PRELOAD shim `gen/probe/allocprobe.c`), `gen/stream_ab.sh` / `.py` (alternate
 processes). The cells' own runtime threads are named `cell-rt` in grid.rs (harness only).
 Measured and ablations: JOURNAL 2026-09-28 "the stream probe"; logs `logs/rust/opt/stream-probe/`.
 No core change kept (the spare-slot ring (c) was reported, not kept).
+Stream probe 2 (same day): cells `Df-chan`, `Cf-split`, `C-split` in the probe only; in-session grid control
+(`gen/stream_probe2.sh`); HTTP/2 sniffer (`gen/probe/h2sniff.py`); env-gated A/B (`AK_AB_ENV_B`).
+The framed paths' extra cost over Df is measured as the encode into a fresh buffer; the one-frame
+prefix headroom and the spare ring are reported, not kept.
 
 ## Callback deliveries (2026-09-28; every figure is container instrumentation)
 
@@ -486,6 +490,7 @@ FIX-PLAN R-G17); D41 (every slice's generated tree is current: `generate.py --ch
 | `logs/rust/opt/t0-ref/`, `t1-native*/`, `t1-ffi/`, `framed/`, `framed-rpc-narrow/`, `n2/`, `n2-ab/`, `n3/`, `n3-ab/`, `n6-probe/`, `lto-ab/`, `u1-unary/`, `u1-unary-narrow/`, `n5/`, `n5-ab/`, `n5b-ab/`, `u2-stream/` | optimisation unit 2, one directory per step (full opt_bench v5 runs, narrowed alternated A/B runs, step checks in `checks/`); before/after in `variants-before-after.txt` / `by-direction.txt`; the framed path's wire evidence in `framed/header-diff*.txt`; direction c and d tables in `u1-unary/c-direction.txt`, `u2-stream/d-direction.txt` |
 | `logs/rust/opt/pre-n5-gate/`, `pre-n5-gate2/` | the stable gate checkpoints of unit 2 (PASSED at 33636e1d and 186a4e52) |
 | `logs/rust/opt/abi9/checks/` | unit 3's step checks (generate --check, one_core, pre-check, crossings identical) |
+| `logs/rust/opt/stream-probe2/` | stream probe 2: the probe's level beside the grid (level/), HTTP/2 settings (settings/), Df-chan (chan/), per-chunk host timing (split/), body poll/wake counts (counts/), ablations ring3/ and head/ (patches, reverted) |
 | `logs/rust/opt/stream-probe/` | the stream probe (direction d, k = 1, pinned): per-thread CPU split, allocations, faults, copies per cell; A/A calibration; ablations (a) channel 4, (c) spare ring 3, (d) current-thread cb runtime, each with its patch, all reverted |
 | `logs/rust/opt/cb-deliveries/checks/`, `logs/rust/opt/rpc-same-machine-cb/` | the callback-delivery unit's checks and its same-machine grid run (cb cells = Rust's reference core cells) |
 | `logs/rust/opt/rpc-same-machine/` | the RPC grid only at dcbb0205 through serve.sh (gen/rpc_same_machine.sh), k = 1 and 8, for a same-machine side-by-side with the C++ grid; 311 of 840 entries one batch per sample (marked); instrumentation |

@@ -1,0 +1,402 @@
+diff --git a/ffi/poc/codec/crates/ak-core/src/generated/codec.rs b/ffi/poc/codec/crates/ak-core/src/generated/codec.rs
+index ea41448f..09139eec 100644
+--- a/ffi/poc/codec/crates/ak-core/src/generated/codec.rs
++++ b/ffi/poc/codec/crates/ak-core/src/generated/codec.rs
+@@ -1835,7 +1835,7 @@ pub unsafe extern "C" fn ak_encode_ListResultsResponse(
+     if g.total != 0 { (*cx).e.varint_field(3, g.total as i64 as u64); }
+     let st = crate::enc_status(cx);
+     if st != AK_OK { return st as isize; }
+-    (*cx).e.buf.len() as isize
++    ((*cx).e.buf.len() - (*cx).e.head) as isize
+ }
+ 
+ #[no_mangle]
+@@ -1870,7 +1870,7 @@ pub unsafe extern "C" fn ak_uencode_ListResultsResponse(
+     if !enc_raw(cx, &g.unknown) { return crate::enc_status(cx) as isize; }
+     let st = crate::enc_status(cx);
+     if st != AK_OK { return st as isize; }
+-    (*cx).e.buf.len() as isize
++    ((*cx).e.buf.len() - (*cx).e.head) as isize
+ }
+ 
+ #[no_mangle]
+@@ -1905,7 +1905,7 @@ pub unsafe extern "C" fn ak_encode_ListTasksDetailedResponse(
+     if g.total != 0 { (*cx).e.varint_field(3, g.total as i64 as u64); }
+     let st = crate::enc_status(cx);
+     if st != AK_OK { return st as isize; }
+-    (*cx).e.buf.len() as isize
++    ((*cx).e.buf.len() - (*cx).e.head) as isize
+ }
+ 
+ #[no_mangle]
+@@ -1941,7 +1941,7 @@ pub unsafe extern "C" fn ak_uencode_ListTasksDetailedResponse(
+     if !enc_raw(cx, &g.unknown) { return crate::enc_status(cx) as isize; }
+     let st = crate::enc_status(cx);
+     if st != AK_OK { return st as isize; }
+-    (*cx).e.buf.len() as isize
++    ((*cx).e.buf.len() - (*cx).e.head) as isize
+ }
+ 
+ #[no_mangle]
+@@ -1973,7 +1973,7 @@ pub unsafe extern "C" fn ak_encode_ListProbeResponse(
+     }
+     let st = crate::enc_status(cx);
+     if st != AK_OK { return st as isize; }
+-    (*cx).e.buf.len() as isize
++    ((*cx).e.buf.len() - (*cx).e.head) as isize
+ }
+ 
+ #[no_mangle]
+@@ -2006,7 +2006,7 @@ pub unsafe extern "C" fn ak_uencode_ListProbeResponse(
+     if !enc_raw(cx, &g.unknown) { return crate::enc_status(cx) as isize; }
+     let st = crate::enc_status(cx);
+     if st != AK_OK { return st as isize; }
+-    (*cx).e.buf.len() as isize
++    ((*cx).e.buf.len() - (*cx).e.head) as isize
+ }
+ 
+ #[no_mangle]
+@@ -2039,7 +2039,7 @@ pub unsafe extern "C" fn ak_encode_ListTaskSummaryResponse(
+     }
+     let st = crate::enc_status(cx);
+     if st != AK_OK { return st as isize; }
+-    (*cx).e.buf.len() as isize
++    ((*cx).e.buf.len() - (*cx).e.head) as isize
+ }
+ 
+ #[no_mangle]
+@@ -2073,7 +2073,7 @@ pub unsafe extern "C" fn ak_uencode_ListTaskSummaryResponse(
+     if !enc_raw(cx, &g.unknown) { return crate::enc_status(cx) as isize; }
+     let st = crate::enc_status(cx);
+     if st != AK_OK { return st as isize; }
+-    (*cx).e.buf.len() as isize
++    ((*cx).e.buf.len() - (*cx).e.head) as isize
+ }
+ 
+ #[no_mangle]
+@@ -2113,7 +2113,7 @@ pub unsafe extern "C" fn ak_encode_UploadResultDataMessage(
+     }
+     let st = crate::enc_status(cx);
+     if st != AK_OK { return st as isize; }
+-    (*cx).e.buf.len() as isize
++    ((*cx).e.buf.len() - (*cx).e.head) as isize
+ }
+ 
+ #[no_mangle]
+@@ -2155,7 +2155,7 @@ pub unsafe extern "C" fn ak_uencode_UploadResultDataMessage(
+     if !enc_raw(cx, &g.unknown) { return crate::enc_status(cx) as isize; }
+     let st = crate::enc_status(cx);
+     if st != AK_OK { return st as isize; }
+-    (*cx).e.buf.len() as isize
++    ((*cx).e.buf.len() - (*cx).e.head) as isize
+ }
+ 
+ #[no_mangle]
+@@ -2188,7 +2188,7 @@ pub unsafe extern "C" fn ak_encode_ListMetricsResponse(
+     }
+     let st = crate::enc_status(cx);
+     if st != AK_OK { return st as isize; }
+-    (*cx).e.buf.len() as isize
++    ((*cx).e.buf.len() - (*cx).e.head) as isize
+ }
+ 
+ #[no_mangle]
+@@ -2222,7 +2222,7 @@ pub unsafe extern "C" fn ak_uencode_ListMetricsResponse(
+     if !enc_raw(cx, &g.unknown) { return crate::enc_status(cx) as isize; }
+     let st = crate::enc_status(cx);
+     if st != AK_OK { return st as isize; }
+-    (*cx).e.buf.len() as isize
++    ((*cx).e.buf.len() - (*cx).e.head) as isize
+ }
+ 
+ #[no_mangle]
+@@ -2263,7 +2263,7 @@ pub unsafe extern "C" fn ak_encode_DualResponse(
+     }
+     let st = crate::enc_status(cx);
+     if st != AK_OK { return st as isize; }
+-    (*cx).e.buf.len() as isize
++    ((*cx).e.buf.len() - (*cx).e.head) as isize
+ }
+ 
+ #[no_mangle]
+@@ -2305,7 +2305,7 @@ pub unsafe extern "C" fn ak_uencode_DualResponse(
+     if !enc_raw(cx, &g.unknown) { return crate::enc_status(cx) as isize; }
+     let st = crate::enc_status(cx);
+     if st != AK_OK { return st as isize; }
+-    (*cx).e.buf.len() as isize
++    ((*cx).e.buf.len() - (*cx).e.head) as isize
+ }
+ 
+ #[no_mangle]
+diff --git a/ffi/poc/codec/crates/ak-core/src/lib.rs b/ffi/poc/codec/crates/ak-core/src/lib.rs
+index ae74a234..d7eb6334 100644
+--- a/ffi/poc/codec/crates/ak-core/src/lib.rs
++++ b/ffi/poc/codec/crates/ak-core/src/lib.rs
+@@ -347,9 +347,11 @@ pub extern "C" fn ak_abi_version() -> u32 {
+ 
+ #[no_mangle]
+ pub extern "C" fn ak_enc_ctx_new() -> *mut ak_enc_ctx {
++    let mut e = Enc::new(generated::codec::SITES);
++    e.head = abl_head();
+     let b = Box::new(EncCtxImpl {
+         hdr: CtxHeader { kind: AK_CTX_ENC, err: AK_OK },
+-        e: Enc::new(generated::codec::SITES),
++        e,
+         open_tag: 0,
+         open_site: 0,
+         open_kind: 0,
+@@ -382,11 +384,18 @@ pub unsafe extern "C" fn ak_enc_take(
+     len: *mut usize,
+ ) -> i32 {
+     let cx = &mut *(ctx as *mut EncCtxImpl);
+-    *ptr = cx.e.buf.as_ptr();
+-    *len = cx.e.buf.len();
++    let h = cx.e.head.min(cx.e.buf.len());
++    *ptr = cx.e.buf.as_ptr().add(h);
++    *len = cx.e.buf.len() - h;
+     enc_status(cx)
+ }
+ 
++/// ABLATION (stream-probe2): 5 bytes of headroom in every encode context when AK_ABL_HEAD=1.
++pub fn abl_head() -> usize {
++    static H: std::sync::OnceLock<usize> = std::sync::OnceLock::new();
++    *H.get_or_init(|| if std::env::var("AK_ABL_HEAD").map_or(false, |v| v == "1") { 5 } else { 0 })
++}
++
+ /// The encode operation's status: the host's sticky report first (ABI v1 section 5,
+ /// `ak_fail` from inside a reverse call), then the codec's own. R-D6: before this the
+ /// encode entry points read only `e.err`, so a host that called `ak_fail` and returned
+diff --git a/ffi/poc/codec/crates/ak-core/src/rpc.rs b/ffi/poc/codec/crates/ak-core/src/rpc.rs
+index 0387e916..6417e6ad 100644
+--- a/ffi/poc/codec/crates/ak-core/src/rpc.rs
++++ b/ffi/poc/codec/crates/ak-core/src/rpc.rs
+@@ -437,7 +437,8 @@ pub unsafe extern "C" fn ak_call_unary_enc(
+     }
+     // T1: the context's buffer moved into the body, O(1), no copy; it comes back to the
+     // context's spare slot when the transport drops the body (R2's swap, now Enc::take).
+-    let body = cx.e.take();
++    let h = cx.e.head;
++    let body = cx.e.take().slice(h..);
+     blocking_unary("ak_call_unary_enc", cl, path, body, out, grpc_status)
+ }
+ 
+@@ -468,7 +469,8 @@ pub unsafe extern "C" fn ak_enc_take_owned(enc: *mut crate::ak_enc_ctx, out: *mu
+     if cx.e.err != 0 {
+         return cx.e.err;
+     }
+-    *out = into_ak_bytes(cx.e.take());
++    let h = cx.e.head;
++    *out = into_ak_bytes(cx.e.take().slice(h..));
+     AK_OK
+ }
+ 
+@@ -561,6 +563,27 @@ struct StreamImpl {
+     resp: std::sync::Mutex<Option<tokio::sync::oneshot::Receiver<Result<Bytes, rpc::CallErr>>>>,
+     /// The client's send limit, checked per message before it is queued (D44).
+     max_send: Option<usize>,
++    /// ABLATION (AK_ABL_HEAD): the framed body sends each message as ONE frame, the gRPC
++    /// prefix already in the message's first 5 bytes.
++    preframed: bool,
++}
++
++/// ABLATION: a message for the stream: a pre-prefixed buffer (from an encode context with
++/// headroom) stays whole on a preframed stream, loses its prefix otherwise; a plain message
++/// gains one on a preframed stream (copied, as ak_call_send copies anyway).
++unsafe fn stream_msg(h: *mut ak_call, b: Bytes, prefixed: bool) -> Bytes {
++    let pre = (*(h as *mut CallImpl)).stream.as_ref().map_or(false, |s| s.preframed);
++    match (prefixed, pre) {
++        (true, true) | (false, false) => b,
++        (true, false) => b.slice(5..),
++        (false, true) => {
++            let mut v = Vec::with_capacity(b.len() + 5);
++            v.push(0);
++            v.extend_from_slice(&(b.len() as u32).to_be_bytes());
++            v.extend_from_slice(&b);
++            Bytes::from(v)
++        }
++    }
+ }
+ 
+ /// The host's callback and its context, crossing into a spawned task. Raw pointers are not
+@@ -728,10 +751,13 @@ pub unsafe extern "C" fn ak_call_open(c: *mut ak_client, path: *const u8, path_l
+     let cancel = std::sync::Arc::new(tokio::sync::Notify::new());
+     let c2 = cancel.clone();
+     let max_send = link.cfg.max_send;
++    let preframed = link.framed && crate::abl_head() == 5;
+     rt.rt.spawn(async move {
+         let cfg = link.cfg.clone();
+         let r = cancellable(c2, async move {
+-            if link.framed {
++            if preframed {
++                rpc::client_streaming_preframed_cfg(link.chan, path, rpc::ReceiverStream::new(rx), &cfg).await
++            } else if link.framed {
+                 rpc::client_streaming_framed_cfg(link.chan, path, rpc::ReceiverStream::new(rx), &cfg).await
+             } else {
+                 rpc::client_streaming_raw(link.chan, path, rx, &cfg).await
+@@ -742,7 +768,7 @@ pub unsafe extern "C" fn ak_call_open(c: *mut ak_client, path: *const u8, path_l
+     });
+     Box::into_raw(Box::new(CallImpl {
+         cancel,
+-        stream: Some(StreamImpl { rt: cl.rt, tx: std::sync::Arc::new(std::sync::Mutex::new(Some(tx))), resp: std::sync::Mutex::new(Some(rrx)), max_send }),
++        stream: Some(StreamImpl { rt: cl.rt, tx: std::sync::Arc::new(std::sync::Mutex::new(Some(tx))), resp: std::sync::Mutex::new(Some(rrx)), max_send, preframed }),
+     })) as *mut ak_call
+ }
+ 
+@@ -886,7 +912,7 @@ pub unsafe extern "C" fn ak_call_send(h: *mut ak_call, msg: *const u8, len: usiz
+         return AK_ERR_INVALID_STATE;
+     }
+     let b = if len == 0 { Bytes::new() } else { Bytes::copy_from_slice(core::slice::from_raw_parts(msg, len)) };
+-    stream_send(h, b, last)
++    stream_send(h, stream_msg(h, b, false), last)
+ }
+ 
+ /// U2-stream: one request message, the encode context's output moved (Enc::take).
+@@ -896,8 +922,9 @@ pub unsafe extern "C" fn ak_call_send_enc(h: *mut ak_call, enc: *mut crate::ak_e
+     if h.is_null() || enc.is_null() {
+         return AK_ERR_INVALID_STATE;
+     }
++    let pre = crate::abl_head() == 5;
+     match enc_take(enc) {
+-        Ok(b) => stream_send(h, b, last),
++        Ok(b) => stream_send(h, stream_msg(h, b, pre), last),
+         Err(e) => e,
+     }
+ }
+@@ -979,7 +1006,7 @@ pub unsafe extern "C" fn ak_call_send_cb(h: *mut ak_call, msg: *const u8, len: u
+         return AK_ERR_INVALID_STATE;
+     }
+     let b = if len == 0 { Bytes::new() } else { Bytes::copy_from_slice(core::slice::from_raw_parts(msg, len)) };
+-    stream_send_to(h, b, last, Sink::new_cb(cb, user_data), tag, "ak_call_send_cb")
++    stream_send_to(h, stream_msg(h, b, false), last, Sink::new_cb(cb, user_data), tag, "ak_call_send_cb")
+ }
+ 
+ /// Queue delivery of ak_call_send (additive).
+@@ -994,7 +1021,7 @@ pub unsafe extern "C" fn ak_call_send_q(h: *mut ak_call, msg: *const u8, len: us
+         return AK_ERR_INVALID_STATE;
+     }
+     let b = if len == 0 { Bytes::new() } else { Bytes::copy_from_slice(core::slice::from_raw_parts(msg, len)) };
+-    stream_send_to(h, b, last, sink, tag, "ak_call_send_q")
++    stream_send_to(h, stream_msg(h, b, false), last, sink, tag, "ak_call_send_q")
+ }
+ 
+ /// The encode context's output, taken for a send (moved; a context in error refused with
+@@ -1007,6 +1034,13 @@ unsafe fn enc_take(enc: *mut crate::ak_enc_ctx) -> Result<Bytes, i32> {
+     if cx.e.err != 0 {
+         return Err(cx.e.err);
+     }
++    if cx.e.head == 5 {
++        // ABLATION: the gRPC prefix written into the headroom; the stream decides
++        // (stream_msg) whether it sends the whole buffer as one frame or slices the prefix off.
++        let n = (cx.e.buf.len() - 5) as u32;
++        cx.e.buf[0] = 0;
++        cx.e.buf[1..5].copy_from_slice(&n.to_be_bytes());
++    }
+     Ok(cx.e.take())
+ }
+ 
+@@ -1017,8 +1051,9 @@ pub unsafe extern "C" fn ak_call_send_enc_cb(h: *mut ak_call, enc: *mut crate::a
+     if h.is_null() || enc.is_null() {
+         return AK_ERR_INVALID_STATE;
+     }
++    let pre = crate::abl_head() == 5;
+     match enc_take(enc) {
+-        Ok(b) => stream_send_to(h, b, last, Sink::new_cb(cb, user_data), tag, "ak_call_send_enc_cb"),
++        Ok(b) => stream_send_to(h, stream_msg(h, b, pre), last, Sink::new_cb(cb, user_data), tag, "ak_call_send_enc_cb"),
+         Err(e) => e,
+     }
+ }
+@@ -1034,8 +1069,9 @@ pub unsafe extern "C" fn ak_call_send_enc_q(h: *mut ak_call, enc: *mut crate::ak
+     if h.is_null() || enc.is_null() {
+         return AK_ERR_INVALID_STATE;
+     }
++    let pre = crate::abl_head() == 5;
+     match enc_take(enc) {
+-        Ok(b) => stream_send_to(h, b, last, sink, tag, "ak_call_send_enc_q"),
++        Ok(b) => stream_send_to(h, stream_msg(h, b, pre), last, sink, tag, "ak_call_send_enc_q"),
+         Err(e) => e,
+     }
+ }
+@@ -1181,6 +1217,7 @@ unsafe fn unary_enc_parts(c: *mut ak_client, path: *const u8, path_len: usize, e
+     let cl = &*(c as *const ClientImpl);
+     let path = parse_path(path, path_len)?;
+     let body = enc_take(enc).ok()?;
++    let body = if crate::abl_head() == 5 { body.slice(5..) } else { body };
+     Some((cl.link(), &*cl.rt, path, body))
+ }
+ 
+diff --git a/ffi/poc/codec/crates/ak-rt/src/enc.rs b/ffi/poc/codec/crates/ak-rt/src/enc.rs
+index 9722efc8..73ab8a27 100644
+--- a/ffi/poc/codec/crates/ak-rt/src/enc.rs
++++ b/ffi/poc/codec/crates/ak-rt/src/enc.rs
+@@ -75,6 +75,9 @@ unsafe fn put_varint(p: *mut u8, mut v: u64) -> usize {
+ 
+ pub struct Enc {
+     pub buf: Vec<u8>,
++    /// ABLATION (stream-probe2, AK_ABL_HEAD): bytes kept free at the start of `buf` by
++    /// `reset` (0 = none, the default: nothing changes). The encoded message is buf[head..].
++    pub head: usize,
+     /// Optimisation T1: the buffer a taken body (`take`) hands back when its last `Bytes`
+     /// clone is dropped -- on whatever thread the transport drops it, hence the lock -- so
+     /// the next `take` swaps it in: two buffers alternate, and neither the take nor the
+@@ -103,6 +106,7 @@ impl Enc {
+     pub fn new(sites: usize) -> Self {
+         Enc {
+             buf: Vec::with_capacity(4096),
++            head: 0,
+             spare: Arc::new(Mutex::new(None)),
+             #[cfg(not(feature = "global-widths"))]
+             widths: vec![1u8; sites].into_boxed_slice(),
+@@ -143,6 +147,9 @@ impl Enc {
+     #[inline]
+     pub fn reset(&mut self) {
+         self.buf.clear();
++        if self.head != 0 {
++            self.buf.resize(self.head, 0);
++        }
+         self.err = 0;
+         // The learned widths deliberately SURVIVE a reset: that is what makes them learned.
+     }
+diff --git a/ffi/poc/codec/crates/rpc/src/lib.rs b/ffi/poc/codec/crates/rpc/src/lib.rs
+index 3ef8f10d..db15cc7c 100644
+--- a/ffi/poc/codec/crates/rpc/src/lib.rs
++++ b/ffi/poc/codec/crates/rpc/src/lib.rs
+@@ -372,6 +372,9 @@ struct FramedStream<S> {
+     pending: Option<Bytes>,
+     max_send: usize,
+     done: bool,
++    /// ABLATION (stream-probe2): every message already carries its 5-byte prefix; send it
++    /// as ONE frame.
++    preframed: bool,
+ }
+ 
+ impl<S> http_body::Body for FramedStream<S>
+@@ -397,6 +400,7 @@ where
+                 self.done = true;
+                 Poll::Ready(None)
+             }
++            Poll::Ready(Some(m)) if self.preframed => Poll::Ready(Some(Ok(http_body::Frame::data(m)))),
+             Poll::Ready(Some(m)) => {
+                 let len = m.len();
+                 if len > self.max_send || len > u32::MAX as usize {
+@@ -437,7 +441,20 @@ where
+     <T::ResponseBody as http_body::Body>::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
+     S: tokio_stream::Stream<Item = Bytes> + Unpin + Send + 'static,
+ {
+-    let body = tonic::body::Body::new(FramedStream { msgs, pending: None, max_send: cfg.max_send.unwrap_or(usize::MAX), done: false });
++    let body = tonic::body::Body::new(FramedStream { msgs, pending: None, max_send: cfg.max_send.unwrap_or(usize::MAX), done: false, preframed: false });
++    let req = framed_request(path, body, &cfg.metadata)?;
++    with_deadline(cfg.deadline, framed_call(svc, req, cfg.max_recv)).await
++}
++
++/// ABLATION (stream-probe2): framed client streaming whose messages carry their prefix.
++pub async fn client_streaming_preframed_cfg<T, S>(svc: T, path: http::uri::PathAndQuery, msgs: S, cfg: &CallCfg) -> Result<Bytes, CallErr>
++where
++    T: tonic::client::GrpcService<tonic::body::Body>,
++    T::ResponseBody: http_body::Body<Data = Bytes> + Send + 'static,
++    <T::ResponseBody as http_body::Body>::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
++    S: tokio_stream::Stream<Item = Bytes> + Unpin + Send + 'static,
++{
++    let body = tonic::body::Body::new(FramedStream { msgs, pending: None, max_send: usize::MAX, done: false, preframed: true });
+     let req = framed_request(path, body, &cfg.metadata)?;
+     with_deadline(cfg.deadline, framed_call(svc, req, cfg.max_recv)).await
+ }

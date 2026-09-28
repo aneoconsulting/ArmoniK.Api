@@ -1,0 +1,14 @@
+# stream probe run head-a1: commit b0f9808e + UNCOMMITTED; 2026-09-28T18:14:42Z; Intel(R) Xeon(R) Processor @ 2.80GHz; client CPU 1, server CPUs 2,3 (4 workers), transport pinned, target /home/user/ArmoniK.Api/ffi/poc/rust/target, shim 0
+# stream probe run head-b1: commit b0f9808e + UNCOMMITTED; 2026-09-28T18:14:58Z; Intel(R) Xeon(R) Processor @ 2.80GHz; client CPU 1, server CPUs 2,3 (4 workers), transport pinned, target /home/user/ArmoniK.Api/ffi/poc/rust/target, shim 0
+3 A and 3 B processes; per-call client CPU, ms
+size    cell            A median   B median    B/A   B/A per pair
+16MiB   A                   9.95     10.73   1.078   1.069 1.146 1.044
+16MiB   C-retain           13.32     13.52   1.015   1.088 0.967 0.937
+16MiB   Cf-retain          11.88     11.75   0.989   1.006 0.907 1.024
+16MiB   Cf-split           12.36     11.53   0.933   0.994 0.955 0.870
+16MiB   Df-retain          11.30     11.14   0.985   1.104 0.822 0.911
+4MiB    A                   2.68      2.89   1.080   1.176 1.012 1.031
+4MiB    C-retain            3.42      3.59   1.051   1.169 1.064 0.851
+4MiB    Cf-retain           2.87      2.89   1.005   1.049 1.027 0.946
+4MiB    Cf-split            2.82      2.82   1.001   1.116 1.015 0.909
+4MiB    Df-retain           2.79      2.69   0.965   1.033 0.927 0.918

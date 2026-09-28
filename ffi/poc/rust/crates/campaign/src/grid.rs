@@ -141,6 +141,10 @@ pub struct CoreClient {
 unsafe impl Send for CoreClient {}
 unsafe impl Sync for CoreClient {}
 impl CoreClient {
+    /// The raw client handle (the stream probe's split-timed cells).
+    pub fn raw(&self) -> *mut ak_client {
+        self.client
+    }
     pub fn new(target: &str, pinned: bool) -> Self {
         unsafe {
             let rt = ak_runtime_new(CORE_WORKERS);

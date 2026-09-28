@@ -1,0 +1,93 @@
+diff --git a/ffi/poc/codec/crates/rpc/src/lib.rs b/ffi/poc/codec/crates/rpc/src/lib.rs
+index 3ef8f10d..d8d8ac67 100644
+--- a/ffi/poc/codec/crates/rpc/src/lib.rs
++++ b/ffi/poc/codec/crates/rpc/src/lib.rs
+@@ -372,6 +372,42 @@ struct FramedStream<S> {
+     pending: Option<Bytes>,
+     max_send: usize,
+     done: bool,
++    /// COUNTING (stream-probe2 instrumentation build only): poll_frame calls, Pending returns,
++    /// frames yielded, wakes of the waker the inner stream registered, threads that polled.
++    k: std::sync::Arc<Kount>,
++}
++
++#[derive(Default)]
++struct Kount {
++    polls: std::sync::atomic::AtomicU64,
++    pending: std::sync::atomic::AtomicU64,
++    frames: std::sync::atomic::AtomicU64,
++    wakes: std::sync::atomic::AtomicU64,
++    threads: std::sync::Mutex<std::collections::BTreeMap<String, u64>>,
++}
++
++struct KWaker {
++    inner: std::task::Waker,
++    k: std::sync::Arc<Kount>,
++}
++impl std::task::Wake for KWaker {
++    fn wake(self: std::sync::Arc<Self>) {
++        self.k.wakes.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
++        self.inner.wake_by_ref();
++    }
++    fn wake_by_ref(self: &std::sync::Arc<Self>) {
++        self.k.wakes.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
++        self.inner.wake_by_ref();
++    }
++}
++
++impl<S> Drop for FramedStream<S> {
++    fn drop(&mut self) {
++        use std::sync::atomic::Ordering::Relaxed;
++        let k = &self.k;
++        eprintln!("[framed-count] polls={} pending={} frames={} inner_wakes={} threads={:?}", k.polls.load(Relaxed), k.pending.load(Relaxed),
++                  k.frames.load(Relaxed), k.wakes.load(Relaxed), k.threads.lock().unwrap());
++    }
+ }
+ 
+ impl<S> http_body::Body for FramedStream<S>
+@@ -385,14 +421,26 @@ where
+         cx: &mut std::task::Context<'_>,
+     ) -> std::task::Poll<Option<Result<http_body::Frame<Bytes>, tonic::Status>>> {
+         use std::task::Poll;
++        {
++            use std::sync::atomic::Ordering::Relaxed;
++            self.k.polls.fetch_add(1, Relaxed);
++            let t = std::thread::current().name().unwrap_or("?").to_string();
++            *self.k.threads.lock().unwrap().entry(t).or_default() += 1;
++        }
+         if let Some(m) = self.pending.take() {
++            self.k.frames.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+             return Poll::Ready(Some(Ok(http_body::Frame::data(m))));
+         }
+         if self.done {
+             return Poll::Ready(None);
+         }
+-        match std::pin::Pin::new(&mut self.msgs).poll_next(cx) {
+-            Poll::Pending => Poll::Pending,
++        let kw = std::task::Waker::from(std::sync::Arc::new(KWaker { inner: cx.waker().clone(), k: self.k.clone() }));
++        let mut kcx = std::task::Context::from_waker(&kw);
++        match std::pin::Pin::new(&mut self.msgs).poll_next(&mut kcx) {
++            Poll::Pending => {
++                self.k.pending.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
++                Poll::Pending
++            }
+             Poll::Ready(None) => {
+                 self.done = true;
+                 Poll::Ready(None)
+@@ -406,6 +454,7 @@ where
+                 if len > 0 {
+                     self.pending = Some(m);
+                 }
++                self.k.frames.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                 Poll::Ready(Some(Ok(http_body::Frame::data(prefix(len)))))
+             }
+         }
+@@ -437,7 +486,7 @@ where
+     <T::ResponseBody as http_body::Body>::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
+     S: tokio_stream::Stream<Item = Bytes> + Unpin + Send + 'static,
+ {
+-    let body = tonic::body::Body::new(FramedStream { msgs, pending: None, max_send: cfg.max_send.unwrap_or(usize::MAX), done: false });
++    let body = tonic::body::Body::new(FramedStream { msgs, pending: None, max_send: cfg.max_send.unwrap_or(usize::MAX), done: false, k: Default::default() });
+     let req = framed_request(path, body, &cfg.metadata)?;
+     with_deadline(cfg.deadline, framed_call(svc, req, cfg.max_recv)).await
+ }

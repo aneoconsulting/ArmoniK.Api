@@ -1,0 +1,1 @@
+# stream probe 2: commit b0f9808e + UNCOMMITTED; 2026-09-28T17:54:32Z; Intel(R) Xeon(R) Processor @ 2.80GHz; client CPU 1, server CPUs 2,3 (4 workers), pinned; cells A,Df,Df-chan,Cf-split,C-split,Cf; variants blk:block:0; probe rounds 15 calls 8 warm 4; grid AK_SAMPLES=10 AK_WARMUP_MS=30 AK_MEASURE_MS=500

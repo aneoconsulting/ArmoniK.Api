@@ -1,0 +1,45 @@
+== cell A
+== connection 1
+[1] client->server SETTINGS {'ENABLE_PUSH': 0, 'INITIAL_WINDOW_SIZE': 4194304, 'MAX_FRAME_SIZE': 16384, 'MAX_HEADER_LIST_SIZE': 16384}
+[1] client->server WINDOW_UPDATE stream 0 +4128769
+[1] server->client SETTINGS {'INITIAL_WINDOW_SIZE': 4194304, 'MAX_FRAME_SIZE': 16384, 'MAX_HEADER_LIST_SIZE': 16384}
+[1] server->client WINDOW_UPDATE stream 0 +4128769
+[1] server->client WINDOW_UPDATE stream 0 +1392640
+[1] server->client WINDOW_UPDATE stream 1 +1540096
+[1] server->client WINDOW_UPDATE stream 0 +1392678
+[1] server->client WINDOW_UPDATE stream 1 +1425446
+[1] server->client WINDOW_UPDATE stream 0 +1392640
+[1] closed: client DATA frames 777, max length 16384, bytes 12583071
+== cell Df
+== connection 2
+[2] client->server SETTINGS {'ENABLE_PUSH': 0, 'INITIAL_WINDOW_SIZE': 4194304, 'MAX_FRAME_SIZE': 16384, 'MAX_HEADER_LIST_SIZE': 16384}
+[2] client->server WINDOW_UPDATE stream 0 +4128769
+[2] server->client SETTINGS {'INITIAL_WINDOW_SIZE': 4194304, 'MAX_FRAME_SIZE': 16384, 'MAX_HEADER_LIST_SIZE': 16384}
+[2] server->client WINDOW_UPDATE stream 0 +4128769
+[2] server->client WINDOW_UPDATE stream 0 +1392645
+[2] server->client WINDOW_UPDATE stream 1 +1458181
+[2] server->client WINDOW_UPDATE stream 0 +1409062
+[2] server->client WINDOW_UPDATE stream 1 +1425446
+[2] closed: client DATA frames 783, max length 16384, bytes 12583071
+== cell Cf
+== connection 3
+[3] client->server SETTINGS {'ENABLE_PUSH': 0, 'INITIAL_WINDOW_SIZE': 4194304, 'MAX_FRAME_SIZE': 16384, 'MAX_HEADER_LIST_SIZE': 16384}
+[3] client->server WINDOW_UPDATE stream 0 +4128769
+[3] server->client SETTINGS {'INITIAL_WINDOW_SIZE': 4194304, 'MAX_FRAME_SIZE': 16384, 'MAX_HEADER_LIST_SIZE': 16384}
+[3] server->client WINDOW_UPDATE stream 0 +4128769
+[3] server->client WINDOW_UPDATE stream 0 +1409024
+[3] server->client WINDOW_UPDATE stream 1 +1409024
+[3] server->client WINDOW_UPDATE stream 0 +1425446
+[3] server->client WINDOW_UPDATE stream 1 +1425446
+[3] closed: client DATA frames 777, max length 16384, bytes 12583071
+== cell C
+== connection 4
+[4] client->server SETTINGS {'ENABLE_PUSH': 0, 'INITIAL_WINDOW_SIZE': 4194304, 'MAX_FRAME_SIZE': 16384, 'MAX_HEADER_LIST_SIZE': 16384}
+[4] client->server WINDOW_UPDATE stream 0 +4128769
+[4] server->client SETTINGS {'INITIAL_WINDOW_SIZE': 4194304, 'MAX_FRAME_SIZE': 16384, 'MAX_HEADER_LIST_SIZE': 16384}
+[4] server->client WINDOW_UPDATE stream 0 +4128769
+[4] server->client WINDOW_UPDATE stream 0 +1392640
+[4] server->client WINDOW_UPDATE stream 1 +1458176
+[4] server->client WINDOW_UPDATE stream 0 +1425446
+[4] server->client WINDOW_UPDATE stream 1 +1425446
+[4] closed: client DATA frames 777, max length 16384, bytes 12583071

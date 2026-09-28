@@ -1,0 +1,7 @@
+# stream probe run count-Cf-cb: commit b0f9808e + UNCOMMITTED; 2026-09-28T18:19:11Z; Intel(R) Xeon(R) Processor @ 2.80GHz; client CPU 1, server CPUs 2,3 (4 workers), transport pinned, target /home/user/ArmoniK.Api/ffi/poc/rust/target-abl, shim 0
+# stream probe: transport pinned, cells ["Cf-cb-retain"], sizes ["16MiB"], rounds 1, calls per round 5, warm 1, allocation shim absent
+# order rotate, /proc reads true
+# run time 0 s
+size    cell         rounds  cpu/call ms [min-max]   wall ms | cpu by thread ms:     main   caller  cell-rt  core-rt    other | minflt/call total | allocs/call  >=1MiB/call | user/sys per call (mean of ticks) | ctx switches per call by class
+16MiB   Cf-cb-retain      1     14.45 [14.45-14.45]     19.54 |                      0.08     0.00     5.86     8.59     0.00 |          921 |    (no shim) | user  2.00 sys  6.00 ms | ctx switches/call      0      0     26     53      0
+
