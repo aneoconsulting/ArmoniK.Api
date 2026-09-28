@@ -421,14 +421,25 @@ def _emit_loop(ir, o, root, path, f, fname, elem_of=None, batch=True, zeroed=Fal
         # is not the wire layout, so the binding materialises a contiguous array first and
         # part of the crossing saved is paid back as a copy. The cost is the host's to
         # avoid by choosing its storage, and this arm shows what it is.
-        o.append("    std::vector<%s> flat;" % cty)
-        o.append("    flat.reserve(src.size());")
-        if f.kind == "bool":
-            o.append("    for (size_t i = 0; i < src.size(); ++i) flat.push_back(src[i] ? 1 : 0);")
+        if f.kind == "enum":
+            # B-6 (2026-09-28): the facade enum IS an int32_t (one member, standard layout),
+            # so the vector is handed over as the element array, no copy.
+            o.append("    static_assert(sizeof(%s) == sizeof(int32_t) && std::is_standard_layout<%s>::value &&"
+                     " std::is_trivially_copyable<%s>::value, \"the facade enum must be an int32_t\");"
+                     % (_velem(ir, f), _velem(ir, f), _velem(ir, f)))
+            o.append("    if (!src.empty()) { AK_TAX(); int32_t rc = %s(ctx,"
+                     " reinterpret_cast<const int32_t *>(src.data()), src.size());"
+                     " if (rc < 0) return rc; }" % run)
         else:
-            o.append("    for (size_t i = 0; i < src.size(); ++i) flat.push_back(src[i].v);")
-        o.append("    if (!flat.empty()) { AK_TAX(); int32_t rc = %s(ctx, &flat[0], flat.size());"
-                 " if (rc < 0) return rc; }" % run)
+            # B-6: std::vector<bool> is not the wire layout; the bytes go through a stack
+            # buffer, a heap one only past it.
+            o.append("    uint8_t sb_[512];")
+            o.append("    std::vector<uint8_t> hb_;")
+            o.append("    uint8_t *flat = sb_;")
+            o.append("    if (src.size() > sizeof sb_) { hb_.resize(src.size()); flat = hb_.data(); }")
+            o.append("    for (size_t i = 0; i < src.size(); ++i) flat[i] = src[i] ? 1 : 0;")
+            o.append("    if (!src.empty()) { AK_TAX(); int32_t rc = %s(ctx, flat, src.size());"
+                     " if (rc < 0) return rc; }" % run)
         o.append("  AK_GUARD_END")
         o.append("}")
         o.append("")
@@ -500,6 +511,20 @@ def _emit_loop(ir, o, root, path, f, fname, elem_of=None, batch=True, zeroed=Fal
     o.append("  AK_GUARD_END")
     o.append("}")
     o.append("")
+
+
+def _packed_add(f, dst, ind):
+    """B-7 (2026-09-28): a packed run appended in bulk: one insert for the scalar kinds, one
+    resize and memcpy for an enum (the facade enum is an int32_t, asserted), a loop for bool."""
+    if f.kind == "bool":
+        return ["%sfor (int32_t i = 0; i < n; ++i) %s.push_back(elems[i] != 0);" % (ind, dst)]
+    if f.kind == "enum":
+        ty = "%s::%s" % (_ns(), f.of)
+        return ["%sstatic_assert(sizeof(%s) == sizeof(int32_t) && std::is_trivially_copyable<%s>::value,"
+                " \"the facade enum must be an int32_t\");" % (ind, ty, ty),
+                "%sif (n > 0) { const size_t o_ = %s.size(); %s.resize(o_ + (size_t)n);"
+                " std::memcpy((void *)&%s[o_], elems, (size_t)n * sizeof(int32_t)); }" % (ind, dst, dst, dst)]
+    return ["%sif (n > 0) %s.insert(%s.end(), elems, elems + n);" % (ind, dst, dst)]
 
 
 def _velem(ir, f):
@@ -576,6 +601,7 @@ PRE = '''// Arm `core-ffi`: the generated C++ host binding over the C ABI.
 
 #include <cstdlib>
 #include <cstring>
+#include <type_traits>
 #include <unordered_set>
 
 namespace %(NS)s {
@@ -1284,13 +1310,7 @@ Tcs tcs_host() {
                 o.append("  AK_DGUARD_BEGIN")
                 o.append("    Sink_%s *s = (Sink_%s *)obj; (void)tok;" % (root, root))
                 o.append("    grow_by(%s, (size_t)n);" % dst)
-                if f.kind == "bool":
-                    o.append("    for (int32_t i = 0; i < n; ++i) %s.push_back(elems[i] != 0);" % dst)
-                elif f.kind == "enum":
-                    o.append("    for (int32_t i = 0; i < n; ++i)"
-                             " %s.push_back(%s::%s(elems[i]));" % (dst, _ns(), f.of))
-                else:
-                    o.append("    for (int32_t i = 0; i < n; ++i) %s.push_back(elems[i]);" % dst)
+                o += _packed_add(f, dst, "    ")
                 o.append("    AK_REFILL();")
                 o.append("  AK_DGUARD_END")
                 o.append("}")
@@ -1447,13 +1467,7 @@ Tcs tcs_host() {
                         vel = _velem(ir, iff)
                         o.append("    std::vector<%s> &dst = %s;" % (vel, idst))
                         o.append("    grow_by(dst, (size_t)n);")
-                        if iff.kind == "bool":
-                            o.append("    for (int32_t i = 0; i < n; ++i) dst.push_back(elems[i] != 0);")
-                        elif iff.kind == "enum":
-                            o.append("    for (int32_t i = 0; i < n; ++i)"
-                                     " dst.push_back(%s::%s(elems[i]));" % (_ns(), iff.of))
-                        else:
-                            o.append("    for (int32_t i = 0; i < n; ++i) dst.push_back(elems[i]);")
+                        o += _packed_add(iff, "dst", "    ")
                         o.append("    AK_REFILL();")
                         o.append("  AK_DGUARD_END")
                         o.append("}")

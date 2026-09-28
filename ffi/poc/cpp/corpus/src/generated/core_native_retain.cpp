@@ -368,37 +368,45 @@ static void enc_metrics_batch(const MetricsBatch &o, ak::Enc *e) {
   if (!o.id.empty()) e->blob_field(1, o.id);
   if (!o.ticks.empty()) {
     ak::Mark mk = e->begin(2, 22);
-    for (size_t i = 0; i < o.ticks.size(); ++i) {
-      e->varint((uint64_t)(o.ticks[i]));
-    }
+    uint8_t *p_ = e->reserve_raw(o.ticks.size() * 10);
+    for (size_t i = 0; i < o.ticks.size(); ++i) p_ = ak::put_varint(p_, (uint64_t)(o.ticks[i]));
+    e->commit_raw(p_);
     e->end(mk);
   }
   if (!o.values.empty()) {
     ak::Mark mk = e->begin(3, 23);
+    uint8_t *p_ = e->reserve_raw(o.values.size() * 8);
+#if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+    std::memcpy(p_, o.values.data(), o.values.size() * 8);
+    p_ += o.values.size() * 8;
+#else
     for (size_t i = 0; i < o.values.size(); ++i) {
-      e->f64_raw(o.values[i]);
+      uint64_t b_ = ak::f64_bits(o.values[i]);
+      for (int j = 0; j < 8; ++j) *p_++ = (uint8_t)(b_ >> (8 * j));
     }
+#endif
+    e->commit_raw(p_);
     e->end(mk);
   }
   if (!o.codes.empty()) {
     ak::Mark mk = e->begin(4, 24);
-    for (size_t i = 0; i < o.codes.size(); ++i) {
-      e->varint((uint64_t)(int64_t)(o.codes[i]));
-    }
+    uint8_t *p_ = e->reserve_raw(o.codes.size() * 10);
+    for (size_t i = 0; i < o.codes.size(); ++i) p_ = ak::put_varint(p_, (uint64_t)(int64_t)(o.codes[i]));
+    e->commit_raw(p_);
     e->end(mk);
   }
   if (!o.flags.empty()) {
     ak::Mark mk = e->begin(5, 25);
-    for (size_t i = 0; i < o.flags.size(); ++i) {
-      e->varint((uint64_t)((o.flags[i]) ? 1 : 0));
-    }
+    uint8_t *p_ = e->reserve_raw(o.flags.size() * 1);
+    for (size_t i = 0; i < o.flags.size(); ++i) p_ = ak::put_varint(p_, (uint64_t)((o.flags[i]) ? 1 : 0));
+    e->commit_raw(p_);
     e->end(mk);
   }
   if (!o.statuses.empty()) {
     ak::Mark mk = e->begin(6, 26);
-    for (size_t i = 0; i < o.statuses.size(); ++i) {
-      e->varint((uint64_t)(int64_t)((o.statuses[i]).v));
-    }
+    uint8_t *p_ = e->reserve_raw(o.statuses.size() * 10);
+    for (size_t i = 0; i < o.statuses.size(); ++i) p_ = ak::put_varint(p_, (uint64_t)(int64_t)((o.statuses[i]).v));
+    e->commit_raw(p_);
     e->end(mk);
   }
   // Plan rule (retain): the captured unknown runs, verbatim, AFTER
@@ -543,9 +551,9 @@ static void enc_chunk_inner(const ChunkInner &o, ak::Enc *e) {
   (void)o; (void)e;
   if (!o.marks.empty()) {
     ak::Mark mk = e->begin(1, 35);
-    for (size_t i = 0; i < o.marks.size(); ++i) {
-      e->varint((uint64_t)(o.marks[i]));
-    }
+    uint8_t *p_ = e->reserve_raw(o.marks.size() * 10);
+    for (size_t i = 0; i < o.marks.size(); ++i) p_ = ak::put_varint(p_, (uint64_t)(o.marks[i]));
+    e->commit_raw(p_);
     e->end(mk);
   }
   for (size_t i = 0; i < o.leaves.size(); ++i) {
@@ -1588,6 +1596,12 @@ static void dec_metrics_batch(ak::Dec *d, MetricsBatch *out, uint32_t depth) {
         size_t off, n; d->len_body(&off, &n);
         if (d->err != 0) return;
         ak::Dec sub(d->buf + off, n);
+#if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+        { const size_t k_ = n / 8, o_ = out->values.size();
+          out->values.resize(o_ + k_);
+          if (k_) std::memcpy(&out->values[o_], d->buf + off, k_ * 8);
+          if (n % 8 != 0) { d->err = ak::ERR_TRUNCATED; return; } }
+#else
         out->values.reserve(out->values.size() + n / 8);
         while (!sub.at_end()) {
           double v_ = (&sub)->f64();
@@ -1595,6 +1609,7 @@ static void dec_metrics_batch(ak::Dec *d, MetricsBatch *out, uint32_t depth) {
           out->values.push_back(v_);
         }
         if (sub.err != 0) { d->err = sub.err; return; }
+#endif
         break;
       }
       case 32ull: {  // field 4, wire type 0: packed_one

@@ -164,9 +164,28 @@ def _enc_message(p, m, o, sites, retain):
             s = sites.id(("packed", m.name, f.name))
             o.append("  if (!%s.empty()) {" % v)
             o.append("    ak::Mark mk = e->begin(%d, %d);" % (f.tag, s))
-            o.append("    for (size_t i = 0; i < %s.size(); ++i) {" % v)
-            o.append(_write_elem(f, "%s[i]" % v, "      "))
-            o.append("    }")
+            # HG-4 (2026-09-28): the run's worst case reserved once, then raw stores; a
+            # little-endian fixed-width run is one memcpy of the vector.
+            width = {"fixed64_f64": 8, "fixed32_u32": 4, "varint_bool": 1}.get(f.value, 10)
+            o.append("    uint8_t *p_ = e->reserve_raw(%s.size() * %d);" % (v, width))
+            if f.value in ("fixed64_f64", "fixed32_u32"):
+                o.append("#if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__")
+                o.append("    std::memcpy(p_, %s.data(), %s.size() * %d);" % (v, v, width))
+                o.append("    p_ += %s.size() * %d;" % (v, width))
+                o.append("#else")
+                o.append("    for (size_t i = 0; i < %s.size(); ++i) {" % v)
+                if f.value == "fixed64_f64":
+                    o.append("      uint64_t b_ = ak::f64_bits(%s[i]);" % v)
+                    o.append("      for (int j = 0; j < 8; ++j) *p_++ = (uint8_t)(b_ >> (8 * j));")
+                else:
+                    o.append("      uint32_t b_ = %s[i];" % v)
+                    o.append("      for (int j = 0; j < 4; ++j) *p_++ = (uint8_t)(b_ >> (8 * j));")
+                o.append("    }")
+                o.append("#endif")
+            else:
+                o.append("    for (size_t i = 0; i < %s.size(); ++i) p_ = ak::put_varint(p_, %s);"
+                         % (v, _wire_value(f, "%s[i]" % v)))
+            o.append("    e->commit_raw(p_);")
             o.append("    e->end(mk);")
             o.append("  }")
         elif st.op == "repeated_blob":
@@ -271,18 +290,32 @@ def _dec_message(p, m, o):
             o.append("        size_t off, n; d->len_body(&off, &n);")
             o.append("        if (d->err != 0) return;")
             o.append("        ak::Dec sub(d->buf + off, n);")
-            if f.value == "fixed64_f64":
-                o.append("        %s.reserve(%s.size() + n / 8);" % (dst, dst))
-            elif f.value == "fixed32_u32":
-                o.append("        %s.reserve(%s.size() + n / 4);" % (dst, dst))
+            if f.value in ("fixed64_f64", "fixed32_u32"):
+                w = 8 if f.value == "fixed64_f64" else 4
+                # HG-4 (2026-09-28): a little-endian fixed-width run is one resize and one
+                # memcpy; a trailing partial element is ERR_TRUNCATED, as the element loop's.
+                o.append("#if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__")
+                o.append("        { const size_t k_ = n / %d, o_ = %s.size();" % (w, dst))
+                o.append("          %s.resize(o_ + k_);" % dst)
+                o.append("          if (k_) std::memcpy(&%s[o_], d->buf + off, k_ * %d);" % (dst, w))
+                o.append("          if (n %% %d != 0) { d->err = ak::ERR_TRUNCATED; return; } }" % w)
+                o.append("#else")
+                o.append("        %s.reserve(%s.size() + n / %d);" % (dst, dst, w))
+                o.append("        while (!sub.at_end()) {")
+                o.append("          %s v_ = %s;" % (_elem_type(f), _read(f, "(&sub)")))
+                o.append("          if (sub.err != 0) break;")
+                o.append("          %s.push_back(v_);" % dst)
+                o.append("        }")
+                o.append("        if (sub.err != 0) { d->err = sub.err; return; }")
+                o.append("#endif")
             else:
                 o.append("        %s.reserve(%s.size() + n);  // n bytes of varints: at most n elements" % (dst, dst))
-            o.append("        while (!sub.at_end()) {")
-            o.append("          %s v_ = %s;" % (_elem_type(f), _read(f, "(&sub)")))
-            o.append("          if (sub.err != 0) break;")
-            o.append("          %s.push_back(v_);" % dst)
-            o.append("        }")
-            o.append("        if (sub.err != 0) { d->err = sub.err; return; }")
+                o.append("        while (!sub.at_end()) {")
+                o.append("          %s v_ = %s;" % (_elem_type(f), _read(f, "(&sub)")))
+                o.append("          if (sub.err != 0) break;")
+                o.append("          %s.push_back(v_);" % dst)
+                o.append("        }")
+                o.append("        if (sub.err != 0) { d->err = sub.err; return; }")
         elif op == "packed_one":
             o.append("        // The unpacked form, at the kind's own wire type only (R-E2).")
             o.append("        %s v_ = %s;" % (_elem_type(f), _read(f, "d")))

@@ -132,6 +132,13 @@ inline uint64_t f64_bits(double v) {
   return b;
 }
 
+// HG-4 (2026-09-28): one varint at a raw cursor the caller has reserved room for.
+inline uint8_t *put_varint(uint8_t *d, uint64_t v) {
+  while (v >= 0x80) { *d++ = (uint8_t)(v) | 0x80; v >>= 7; }
+  *d++ = (uint8_t)v;
+  return d;
+}
+
 inline std::size_t varint_len(uint64_t v) {
   std::size_t n = 1;
   while (v >= 0x80) { v >>= 7; ++n; }
@@ -289,6 +296,13 @@ class Enc {
   inline void blob_field(uint32_t tag, const std::string &s) {
     blob_field(tag, s.data(), s.size());
   }
+  // HG-4: a packed run reserves its worst case once and writes with raw stores between
+  // reserve_raw and commit_raw (nothing else may write in between).
+  inline uint8_t *reserve_raw(std::size_t n) {
+    ensure(n);
+    return &storage_[0] + len_;
+  }
+  inline void commit_raw(const uint8_t *end) { len_ = (std::size_t)(end - &storage_[0]); }
   inline void raw(const uint8_t *p, std::size_t n) {
     ensure(n);
     std::memcpy(&storage_[0] + len_, p, n);

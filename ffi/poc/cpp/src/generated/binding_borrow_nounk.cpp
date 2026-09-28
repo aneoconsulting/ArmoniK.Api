@@ -7,6 +7,7 @@
 
 #include <cstdlib>
 #include <cstring>
+#include <type_traits>
 #include <unordered_set>
 
 namespace shapes_borrow {
@@ -2307,10 +2308,12 @@ static int32_t loop_list_metrics_response_batches_flags(ak_enc_ctx *ctx, const v
     const MetricsBatch &el = (*h->o).batches[(size_t)token];
     const MetricsBatch &src_owner = el;
     const std::vector<bool> &src = src_owner.flags;
-    std::vector<uint8_t> flat;
-    flat.reserve(src.size());
-    for (size_t i = 0; i < src.size(); ++i) flat.push_back(src[i] ? 1 : 0);
-    if (!flat.empty()) { AK_TAX(); int32_t rc = ak_run_u8(ctx, &flat[0], flat.size()); if (rc < 0) return rc; }
+    uint8_t sb_[512];
+    std::vector<uint8_t> hb_;
+    uint8_t *flat = sb_;
+    if (src.size() > sizeof sb_) { hb_.resize(src.size()); flat = hb_.data(); }
+    for (size_t i = 0; i < src.size(); ++i) flat[i] = src[i] ? 1 : 0;
+    if (!src.empty()) { AK_TAX(); int32_t rc = ak_run_u8(ctx, flat, src.size()); if (rc < 0) return rc; }
   AK_GUARD_END
 }
 
@@ -2322,10 +2325,8 @@ static int32_t loop_list_metrics_response_batches_statuses(ak_enc_ctx *ctx, cons
     const MetricsBatch &el = (*h->o).batches[(size_t)token];
     const MetricsBatch &src_owner = el;
     const std::vector<TaskStatus> &src = src_owner.statuses;
-    std::vector<int32_t> flat;
-    flat.reserve(src.size());
-    for (size_t i = 0; i < src.size(); ++i) flat.push_back(src[i].v);
-    if (!flat.empty()) { AK_TAX(); int32_t rc = ak_run_i32(ctx, &flat[0], flat.size()); if (rc < 0) return rc; }
+    static_assert(sizeof(TaskStatus) == sizeof(int32_t) && std::is_standard_layout<TaskStatus>::value && std::is_trivially_copyable<TaskStatus>::value, "the facade enum must be an int32_t");
+    if (!src.empty()) { AK_TAX(); int32_t rc = ak_run_i32(ctx, reinterpret_cast<const int32_t *>(src.data()), src.size()); if (rc < 0) return rc; }
   AK_GUARD_END
 }
 
@@ -2441,10 +2442,12 @@ static int32_t loop_list_metrics_response_batches_flags_zeroed(ak_enc_ctx *ctx, 
     const MetricsBatch &el = (*h->o).batches[(size_t)token];
     const MetricsBatch &src_owner = el;
     const std::vector<bool> &src = src_owner.flags;
-    std::vector<uint8_t> flat;
-    flat.reserve(src.size());
-    for (size_t i = 0; i < src.size(); ++i) flat.push_back(src[i] ? 1 : 0);
-    if (!flat.empty()) { AK_TAX(); int32_t rc = ak_run_u8(ctx, &flat[0], flat.size()); if (rc < 0) return rc; }
+    uint8_t sb_[512];
+    std::vector<uint8_t> hb_;
+    uint8_t *flat = sb_;
+    if (src.size() > sizeof sb_) { hb_.resize(src.size()); flat = hb_.data(); }
+    for (size_t i = 0; i < src.size(); ++i) flat[i] = src[i] ? 1 : 0;
+    if (!src.empty()) { AK_TAX(); int32_t rc = ak_run_u8(ctx, flat, src.size()); if (rc < 0) return rc; }
   AK_GUARD_END
 }
 
@@ -2456,10 +2459,8 @@ static int32_t loop_list_metrics_response_batches_statuses_zeroed(ak_enc_ctx *ct
     const MetricsBatch &el = (*h->o).batches[(size_t)token];
     const MetricsBatch &src_owner = el;
     const std::vector<TaskStatus> &src = src_owner.statuses;
-    std::vector<int32_t> flat;
-    flat.reserve(src.size());
-    for (size_t i = 0; i < src.size(); ++i) flat.push_back(src[i].v);
-    if (!flat.empty()) { AK_TAX(); int32_t rc = ak_run_i32(ctx, &flat[0], flat.size()); if (rc < 0) return rc; }
+    static_assert(sizeof(TaskStatus) == sizeof(int32_t) && std::is_standard_layout<TaskStatus>::value && std::is_trivially_copyable<TaskStatus>::value, "the facade enum must be an int32_t");
+    if (!src.empty()) { AK_TAX(); int32_t rc = ak_run_i32(ctx, reinterpret_cast<const int32_t *>(src.data()), src.size()); if (rc < 0) return rc; }
   AK_GUARD_END
 }
 
@@ -2561,10 +2562,12 @@ static int32_t loop_list_metrics_response_batches_flags_nobatch(ak_enc_ctx *ctx,
     const MetricsBatch &el = (*h->o).batches[(size_t)token];
     const MetricsBatch &src_owner = el;
     const std::vector<bool> &src = src_owner.flags;
-    std::vector<uint8_t> flat;
-    flat.reserve(src.size());
-    for (size_t i = 0; i < src.size(); ++i) flat.push_back(src[i] ? 1 : 0);
-    if (!flat.empty()) { AK_TAX(); int32_t rc = ak_run_u8(ctx, &flat[0], flat.size()); if (rc < 0) return rc; }
+    uint8_t sb_[512];
+    std::vector<uint8_t> hb_;
+    uint8_t *flat = sb_;
+    if (src.size() > sizeof sb_) { hb_.resize(src.size()); flat = hb_.data(); }
+    for (size_t i = 0; i < src.size(); ++i) flat[i] = src[i] ? 1 : 0;
+    if (!src.empty()) { AK_TAX(); int32_t rc = ak_run_u8(ctx, flat, src.size()); if (rc < 0) return rc; }
   AK_GUARD_END
 }
 
@@ -2576,10 +2579,8 @@ static int32_t loop_list_metrics_response_batches_statuses_nobatch(ak_enc_ctx *c
     const MetricsBatch &el = (*h->o).batches[(size_t)token];
     const MetricsBatch &src_owner = el;
     const std::vector<TaskStatus> &src = src_owner.statuses;
-    std::vector<int32_t> flat;
-    flat.reserve(src.size());
-    for (size_t i = 0; i < src.size(); ++i) flat.push_back(src[i].v);
-    if (!flat.empty()) { AK_TAX(); int32_t rc = ak_run_i32(ctx, &flat[0], flat.size()); if (rc < 0) return rc; }
+    static_assert(sizeof(TaskStatus) == sizeof(int32_t) && std::is_standard_layout<TaskStatus>::value && std::is_trivially_copyable<TaskStatus>::value, "the facade enum must be an int32_t");
+    if (!src.empty()) { AK_TAX(); int32_t rc = ak_run_i32(ctx, reinterpret_cast<const int32_t *>(src.data()), src.size()); if (rc < 0) return rc; }
   AK_GUARD_END
 }
 
@@ -3268,7 +3269,7 @@ static void add_list_metrics_response_batches_ticks(ak_dec_ctx *ctx, void *obj, 
     Sink_ListMetricsResponse *s = (Sink_ListMetricsResponse *)obj;
     std::vector<int64_t> &dst = s->out->batches[(size_t)tok].ticks;
     grow_by(dst, (size_t)n);
-    for (int32_t i = 0; i < n; ++i) dst.push_back(elems[i]);
+    if (n > 0) dst.insert(dst.end(), elems, elems + n);
     AK_REFILL();
   AK_DGUARD_END
 }
@@ -3278,7 +3279,7 @@ static void add_list_metrics_response_batches_values(ak_dec_ctx *ctx, void *obj,
     Sink_ListMetricsResponse *s = (Sink_ListMetricsResponse *)obj;
     std::vector<double> &dst = s->out->batches[(size_t)tok].values;
     grow_by(dst, (size_t)n);
-    for (int32_t i = 0; i < n; ++i) dst.push_back(elems[i]);
+    if (n > 0) dst.insert(dst.end(), elems, elems + n);
     AK_REFILL();
   AK_DGUARD_END
 }
@@ -3288,7 +3289,7 @@ static void add_list_metrics_response_batches_codes(ak_dec_ctx *ctx, void *obj, 
     Sink_ListMetricsResponse *s = (Sink_ListMetricsResponse *)obj;
     std::vector<int32_t> &dst = s->out->batches[(size_t)tok].codes;
     grow_by(dst, (size_t)n);
-    for (int32_t i = 0; i < n; ++i) dst.push_back(elems[i]);
+    if (n > 0) dst.insert(dst.end(), elems, elems + n);
     AK_REFILL();
   AK_DGUARD_END
 }
@@ -3308,7 +3309,8 @@ static void add_list_metrics_response_batches_statuses(ak_dec_ctx *ctx, void *ob
     Sink_ListMetricsResponse *s = (Sink_ListMetricsResponse *)obj;
     std::vector<TaskStatus> &dst = s->out->batches[(size_t)tok].statuses;
     grow_by(dst, (size_t)n);
-    for (int32_t i = 0; i < n; ++i) dst.push_back(shapes_borrow::TaskStatus(elems[i]));
+    static_assert(sizeof(shapes_borrow::TaskStatus) == sizeof(int32_t) && std::is_trivially_copyable<shapes_borrow::TaskStatus>::value, "the facade enum must be an int32_t");
+    if (n > 0) { const size_t o_ = dst.size(); dst.resize(o_ + (size_t)n); std::memcpy((void *)&dst[o_], elems, (size_t)n * sizeof(int32_t)); }
     AK_REFILL();
   AK_DGUARD_END
 }
