@@ -45,12 +45,13 @@ REPO=$(git -C "$FFI" rev-parse --show-toplevel)
 # ---- fixed settings (change one and the run no longer compares with the others) --------
 export AK_CPU_CLIENT=${AK_CPU_CLIENT:-1} AK_CPU_SERVER=${AK_CPU_SERVER:-2,3}
 P_ROUNDS=5; P_MIN_TIME_S=0.01;  P_WARMUP_S=0.005     # payloads: repetitions, min time, warm-up
-U_ROUNDS=3; U_MIN_TIME_S=0.004; U_WARMUP_S=0         # U-* rows: reduced
+U_ROUNDS=3; U_MIN_TIME_S=0.004; U_WARMUP_S=0.002     # U-* rows: reduced (a warm-up > 0: with 0, a cold
+                                                     # first call above min_time became the repetition)
 POOL=1048576                                         # input=pool bytes (H-1: pool[0] only)
 LLC=14417920                                         # the runner's default, recorded only
 RPC_ROUNDS=3; RPC_MIN_TIME_S=0.04; RPC_WARMUP_S=0.02; SRV_WARM=50
 TRANSPORTS="shipped pinned"; INFLIGHT=1,8,16; LAUNCH=1
-SETTINGS="launch=$LAUNCH; codec P (--only P): rounds=$P_ROUNDS min_time_s=$P_MIN_TIME_S warmup_s=$P_WARMUP_S; codec U (--only U-, the 92 rows): rounds=$U_ROUNDS min_time_s=$U_MIN_TIME_S warmup_s=$U_WARMUP_S (no framework warm-up: the iteration-estimation runs precede the first repetition); pool_bytes=$POOL (H-1: pool[0] only); rpc: rounds=$RPC_ROUNDS min_time_s=$RPC_MIN_TIME_S warmup_s=$RPC_WARMUP_S inflight=$INFLIGHT transports=$TRANSPORTS, server warm-up serve.sh warm $SRV_WARM, server tokio workers ${AK_SERVER_THREADS:-4} (serve.sh default); order: codec full-P, nounk-P, full-U, nounk-U; rpc one server, per transport full then nounk client; Google Benchmark random interleaving within each process"
+SETTINGS="launch=$LAUNCH; codec P (--only P): rounds=$P_ROUNDS min_time_s=$P_MIN_TIME_S warmup_s=$P_WARMUP_S; codec U (--only U-, the 92 rows): rounds=$U_ROUNDS min_time_s=$U_MIN_TIME_S warmup_s=$U_WARMUP_S; pool_bytes=$POOL (H-1: pool[0] only); rpc: rounds=$RPC_ROUNDS min_time_s=$RPC_MIN_TIME_S warmup_s=$RPC_WARMUP_S inflight=$INFLIGHT transports=$TRANSPORTS, server warm-up serve.sh warm $SRV_WARM, server tokio workers ${AK_SERVER_THREADS:-4} (serve.sh default); order: codec full-P, nounk-P, full-U, nounk-U; rpc one server, per transport full then nounk client; Google Benchmark random interleaving within each process"
 
 B=${BUILD:-$HERE/build-campaign}
 SCRATCH=$(mktemp -d)

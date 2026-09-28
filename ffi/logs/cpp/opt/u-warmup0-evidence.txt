@@ -1,0 +1,88 @@
+# gen/opt_bench.sh first run at f79d1d08 (U_WARMUP_S=0), discarded: every codec sample with iters == 1 (Google Benchmark accepted a single iteration because the first estimation run exceeded min_time).
+# The P2.4/wide incumbent rows are genuine (about 10 ms per operation, stable); the U rows are a cold first call accepted as a repetition (warm-up 0), which the rerun fixes with U_WARMUP_S=0.002.
+# build payload content arm dir mode end input round cpu_ns
+full P2.4 wide incumbent-prod decode_read default - - 0 10410175
+full P2.4 wide incumbent-prod decode_read default - - 1 9726473
+full P2.4 wide incumbent-prod decode_read default - - 2 10784486
+full P2.4 wide incumbent-prod decode_read default - - 3 10320638
+full P2.4 wide incumbent-prod decode_read default - - 4 9854358
+full P2.4 wide incumbent-prod decode default - - 0 10690075
+full P2.4 wide incumbent-prod decode default - - 1 9901916
+full P2.4 wide incumbent-prod decode default - - 2 9473618
+full P2.4 wide incumbent-prod decode default - - 3 9496588
+full P2.4 wide incumbent-prod decode default - - 4 9673716
+full P2.4 wide incumbent-best decode default - - 0 10065232
+full P2.4 wide incumbent-best decode default - - 1 9694156
+full P2.4 wide incumbent-best decode default - - 2 9828483
+full P2.4 wide incumbent-best decode default - - 3 9480508
+full P2.4 wide incumbent-best decode default - - 4 9778118
+full P2.4 wide incumbent-best decode_read default - - 0 10576767
+full P2.4 wide incumbent-best decode_read default - - 1 9844769
+full P2.4 wide incumbent-best decode_read default - - 2 10062869
+full P2.4 wide incumbent-best decode_read default - - 3 10075802
+full P2.4 wide incumbent-best decode_read default - - 4 9722003
+full U-wire-ListTasksDetailedResponse-tasks-as-wt0 ascii core-ffi decode retain - - 0 8114730
+full U-wire-ListTasksDetailedResponse-tasks-as-wt0 ascii core-ffi decode retain - - 1 54857
+full U-wire-ListTasksDetailedResponse-tasks-as-wt0 ascii core-ffi decode retain - - 2 36786
+no-unknown P2.4 wide incumbent-best decode default - - 0 10202941
+no-unknown P2.4 wide incumbent-best decode default - - 1 9554046
+no-unknown P2.4 wide incumbent-best decode default - - 2 9814463
+no-unknown P2.4 wide incumbent-best decode default - - 3 10116647
+no-unknown P2.4 wide incumbent-best decode default - - 4 9956762
+no-unknown P2.4 wide incumbent-best decode_read default - - 0 10298491
+no-unknown P2.4 wide incumbent-best decode_read default - - 1 10216366
+no-unknown P2.4 wide incumbent-best decode_read default - - 2 9901821
+no-unknown P2.4 wide incumbent-best decode_read default - - 3 10188884
+no-unknown P2.4 wide incumbent-best decode_read default - - 4 10154502
+no-unknown U-wire-ListTasksDetailedResponse-page-as-wt1 ascii incumbent-prod encode default transport hot 0 4362097
+no-unknown U-wire-ListTasksDetailedResponse-page-as-wt1 ascii incumbent-prod encode default transport hot 1 1641827
+no-unknown U-wire-ListTasksDetailedResponse-page-as-wt1 ascii incumbent-prod encode default transport hot 2 22062
+no-unknown U-wire-ListMetricsResponse-batches-as-wt1 ascii incumbent-prod encode default transport pool 0 5632472
+no-unknown U-wire-ListMetricsResponse-batches-as-wt1 ascii incumbent-prod encode default transport pool 1 20689
+no-unknown U-wire-ListMetricsResponse-batches-as-wt1 ascii incumbent-prod encode default transport pool 2 16099
+no-unknown U-wire-ListMetricsResponse-batches-as-wt0 ascii host-gen decode_read no-unknown - - 0 6203554
+no-unknown U-wire-ListMetricsResponse-batches-as-wt0 ascii host-gen decode_read no-unknown - - 1 51865
+no-unknown U-wire-ListMetricsResponse-batches-as-wt0 ascii host-gen decode_read no-unknown - - 2 12161
+# runner.log of that run:
+#   # settings   launch=1; codec P (--only P): rounds=5 min_time_s=0.01 warmup_s=0.005; codec U (--only U-, the 92 rows): rounds=3 min_time_s=0.004 warmup_s=0 (no framework warm-up: the iteration-estimation runs precede the first repetition); pool_bytes=1048576 (H-1: pool[0] only); rpc: rounds=3 min_time_s=0.04 warmup_s=0.02 inflight=1,8,16 transports=shipped pinned, server warm-up serve.sh warm 50, server tokio workers 4 (serve.sh default); order: codec full-P, nounk-P, full-U, nounk-U; rpc one server, per transport full then nounk client; Google Benchmark random interleaving within each process
+#   # CONTAINER INSTRUMENTATION, not gated (gen/opt_bench.sh; the correctness gate is not run in the optimisation phase); the codec process's own pre-check and the RPC client's own checks are on
+#   # commit f79d1d08
+#   [1s] build: generate.py --check, Google Benchmark v1.8.3 Release, cmake -DAK_RPC=ON
+#     generate.py --check: every target current
+#     built: campaign_codec campaign_codec_nounk campaign_rpc campaign_rpc_nounk counts_a17_shared counts_nounk campaign_rpc_count campaign_rpc_count_nounk; the server (poc/rust/serve.sh build)
+#     variant ok: campaign_codec -> core-build/target-camp/release/libak_core.so (21 u-family exports)
+#     variant ok: campaign_codec_nounk -> core-build/target-camp-nounk/release/libak_core.so (0 u-family exports)
+#     variant ok: campaign_rpc -> core-build/target-camp/release/libak_core.so (21 u-family exports)
+#     variant ok: campaign_rpc_nounk -> core-build/target-camp-nounk/release/libak_core.so (0 u-family exports)
+#     variant ok: counts_a17_shared -> core-build/target-count/release/libak_core.so (21 u-family exports)
+#     variant ok: counts_nounk -> core-build/target-count-nounk/release/libak_core.so (0 u-family exports)
+#     variant ok: campaign_rpc_count -> core-build/target-camp-count/release/libak_core.so (21 u-family exports)
+#     variant ok: campaign_rpc_count_nounk -> core-build/target-camp-count-nounk/release/libak_core.so (0 u-family exports)
+#     U-* rows: 92 (gen/u_rows.py)
+#   [3s] crossings: counting builds, both variants, against the committed baselines
+#     counts (full): 485 rows identical to logs/cpp/counts-baseline.log
+#     counts (nounk): 271 rows identical to logs/cpp/counts-nounk-baseline.log
+#   [4s] codec: payloads, full build
+#     codec codec-P: "campaign_codec_gate": {"groups": 28, "slots": 876, "failed": 0, "ffi_retain": "built"}; 4380 samples; 98s -> codec-P.jsonl
+#   [102s] codec: payloads, no-unknown build
+#     codec codec-nounk-P: "campaign_codec_gate": {"groups": 28, "slots": 548, "failed": 0, "ffi_retain": "compiled out (no-unknown build)"}; 2740 samples; 61s -> codec-nounk-P.jsonl
+#   [163s] codec: U-* rows, full build (reduced)
+#     codec codec-U: "campaign_codec_gate": {"groups": 92, "slots": 2944, "failed": 0, "ffi_retain": "built"}; 8832 samples; 87s -> codec-U.jsonl
+#   [250s] codec: U-* rows, no-unknown build (reduced)
+#     codec codec-nounk-U: "campaign_codec_gate": {"groups": 92, "slots": 1840, "failed": 0, "ffi_retain": "compiled out (no-unknown build)"}; 5520 samples; 56s -> codec-nounk-U.jsonl
+#   [306s] rpc: the server (poc/rust/serve.sh start, pinned to 2,3), warm 50
+#     server: P2.2 540422 B; warm: 50 checked calls per direction (a, b, c; d: 13) from tonic (A) and the core (B) on /tmp/aksrv.vrpwAW/shipped.sock warm: 50 checked calls per direction (a, b, c; d: 13) from tonic (A) and the cor
+#     rpc counts: 72 rows identical to logs/cpp/rpc-counts.log
+#     rpc counts_nounk: 42 rows identical to logs/cpp/rpc-counts-nounk.log
+#   [316s] rpc: transport shipped, campaign_rpc
+#     rpc rpc-shipped: 765 samples; 69s -> rpc-shipped.jsonl
+#   [385s] rpc: transport shipped, campaign_rpc_nounk
+#     rpc rpc-shipped-nounk: 459 samples; 41s -> rpc-shipped-nounk.jsonl
+#   [426s] rpc: transport pinned, campaign_rpc
+#     rpc rpc-pinned: 765 samples; 69s -> rpc-pinned.jsonl
+#   [495s] rpc: transport pinned, campaign_rpc_nounk
+#     rpc rpc-pinned-nounk: 459 samples; 41s -> rpc-pinned-nounk.jsonl
+#     server stopped: # rpc_server: pinned on unix:/tmp/aksrv.vrpwAW/pinned.sock, P2.2 540422 B pre-serialised, tokio multi-thread 4 workers (shared), receive limit 8388608 B, pid 14329
+#   [537s] summary
+#   opt_summary: 6208 codec cases, 816 rpc cases -> summary-codec.tsv, variants-codec.tsv, summary-rpc.tsv, tables-codec.md, tables-rpc.md
+#   [538s] done
