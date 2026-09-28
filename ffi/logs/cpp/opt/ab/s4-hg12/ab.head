@@ -1,0 +1,1 @@
+# opt_ab: codec A=/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/snap/s3 (8ed34f22) B=/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/snap/s4 (ec4400fa) pairs=3 args: --only P --filter ^host-gen\|[^|]*\|ascii\|decode\|(drop|retain)\|/ --rounds 5 --min-time-s 0.02 --warmup-s 0.01 --pool-bytes 1048576

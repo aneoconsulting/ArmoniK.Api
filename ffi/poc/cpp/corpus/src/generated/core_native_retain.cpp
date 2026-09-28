@@ -1033,6 +1033,29 @@ static void dec_task_detailed(ak::Dec *d, TaskDetailed *out, uint32_t depth) {
   (void)out;
   // Plan rule: a message more than kLimit levels below the root is refused.
   if (depth > kLimit) { d->err = ak::ERR_DEPTH; return; }
+  // HG-1 (2026-09-28): one scan of the keys counts every repeated message and
+  // blob field's occurrences, and each vector is reserved exactly, once (maps
+  // excluded). An error stops the count; the decode below reports it.
+  {
+    ak::Dec c_ = *d;
+    size_t n0_ = 0, n1_ = 0, n2_ = 0, n3_ = 0;
+    while (!c_.at_end()) {
+      uint64_t k_ = c_.varint();
+      if (c_.err != 0 || (k_ >> 3) == 0) break;
+      switch (k_) {
+        case 34ull: ++n0_; break;
+        case 42ull: ++n1_; break;
+        case 50ull: ++n2_; break;
+        case 58ull: ++n3_; break;
+        default: break;
+      }
+      c_.skip((uint32_t)(k_ >> 3), (uint32_t)(k_ & 7));
+    }
+    if (n0_) out->parent_task_ids.reserve(out->parent_task_ids.size() + n0_);
+    if (n1_) out->data_dependencies.reserve(out->data_dependencies.size() + n1_);
+    if (n2_) out->expected_output_ids.reserve(out->expected_output_ids.size() + n2_);
+    if (n3_) out->retry_of_ids.reserve(out->retry_of_ids.size() + n3_);
+  }
   while (!d->at_end()) {
     size_t s0 = d->pos;
     (void)s0;
@@ -1681,6 +1704,23 @@ static void dec_list_results_response(ak::Dec *d, ListResultsResponse *out, uint
   (void)out;
   // Plan rule: a message more than kLimit levels below the root is refused.
   if (depth > kLimit) { d->err = ak::ERR_DEPTH; return; }
+  // HG-1 (2026-09-28): one scan of the keys counts every repeated message and
+  // blob field's occurrences, and each vector is reserved exactly, once (maps
+  // excluded). An error stops the count; the decode below reports it.
+  {
+    ak::Dec c_ = *d;
+    size_t n0_ = 0;
+    while (!c_.at_end()) {
+      uint64_t k_ = c_.varint();
+      if (c_.err != 0 || (k_ >> 3) == 0) break;
+      switch (k_) {
+        case 10ull: ++n0_; break;
+        default: break;
+      }
+      c_.skip((uint32_t)(k_ >> 3), (uint32_t)(k_ & 7));
+    }
+    if (n0_) out->results.reserve(out->results.size() + n0_);
+  }
   while (!d->at_end()) {
     size_t s0 = d->pos;
     (void)s0;
@@ -1693,7 +1733,7 @@ static void dec_list_results_response(ak::Dec *d, ListResultsResponse *out, uint
         size_t off, n; d->len_body(&off, &n);
         if (d->err != 0) return;
         ak::Dec sub(d->buf + off, n);
-        out->results.push_back(ResultRaw());
+        out->results.emplace_back();  // HG-2: in place
         dec_result_raw(&sub, &out->results.back(), depth + 1);
         if (sub.err != 0) { d->err = sub.err; return; }
         break;
@@ -1720,6 +1760,23 @@ static void dec_list_tasks_detailed_response(ak::Dec *d, ListTasksDetailedRespon
   (void)out;
   // Plan rule: a message more than kLimit levels below the root is refused.
   if (depth > kLimit) { d->err = ak::ERR_DEPTH; return; }
+  // HG-1 (2026-09-28): one scan of the keys counts every repeated message and
+  // blob field's occurrences, and each vector is reserved exactly, once (maps
+  // excluded). An error stops the count; the decode below reports it.
+  {
+    ak::Dec c_ = *d;
+    size_t n0_ = 0;
+    while (!c_.at_end()) {
+      uint64_t k_ = c_.varint();
+      if (c_.err != 0 || (k_ >> 3) == 0) break;
+      switch (k_) {
+        case 10ull: ++n0_; break;
+        default: break;
+      }
+      c_.skip((uint32_t)(k_ >> 3), (uint32_t)(k_ & 7));
+    }
+    if (n0_) out->tasks.reserve(out->tasks.size() + n0_);
+  }
   while (!d->at_end()) {
     size_t s0 = d->pos;
     (void)s0;
@@ -1732,7 +1789,7 @@ static void dec_list_tasks_detailed_response(ak::Dec *d, ListTasksDetailedRespon
         size_t off, n; d->len_body(&off, &n);
         if (d->err != 0) return;
         ak::Dec sub(d->buf + off, n);
-        out->tasks.push_back(TaskDetailed());
+        out->tasks.emplace_back();  // HG-2: in place
         dec_task_detailed(&sub, &out->tasks.back(), depth + 1);
         if (sub.err != 0) { d->err = sub.err; return; }
         break;
@@ -1759,6 +1816,23 @@ static void dec_list_task_summary_response(ak::Dec *d, ListTaskSummaryResponse *
   (void)out;
   // Plan rule: a message more than kLimit levels below the root is refused.
   if (depth > kLimit) { d->err = ak::ERR_DEPTH; return; }
+  // HG-1 (2026-09-28): one scan of the keys counts every repeated message and
+  // blob field's occurrences, and each vector is reserved exactly, once (maps
+  // excluded). An error stops the count; the decode below reports it.
+  {
+    ak::Dec c_ = *d;
+    size_t n0_ = 0;
+    while (!c_.at_end()) {
+      uint64_t k_ = c_.varint();
+      if (c_.err != 0 || (k_ >> 3) == 0) break;
+      switch (k_) {
+        case 10ull: ++n0_; break;
+        default: break;
+      }
+      c_.skip((uint32_t)(k_ >> 3), (uint32_t)(k_ & 7));
+    }
+    if (n0_) out->tasks.reserve(out->tasks.size() + n0_);
+  }
   while (!d->at_end()) {
     size_t s0 = d->pos;
     (void)s0;
@@ -1771,7 +1845,7 @@ static void dec_list_task_summary_response(ak::Dec *d, ListTaskSummaryResponse *
         size_t off, n; d->len_body(&off, &n);
         if (d->err != 0) return;
         ak::Dec sub(d->buf + off, n);
-        out->tasks.push_back(TaskSummary());
+        out->tasks.emplace_back();  // HG-2: in place
         dec_task_summary(&sub, &out->tasks.back(), depth + 1);
         if (sub.err != 0) { d->err = sub.err; return; }
         break;
@@ -1790,6 +1864,23 @@ static void dec_list_probe_response(ak::Dec *d, ListProbeResponse *out, uint32_t
   (void)out;
   // Plan rule: a message more than kLimit levels below the root is refused.
   if (depth > kLimit) { d->err = ak::ERR_DEPTH; return; }
+  // HG-1 (2026-09-28): one scan of the keys counts every repeated message and
+  // blob field's occurrences, and each vector is reserved exactly, once (maps
+  // excluded). An error stops the count; the decode below reports it.
+  {
+    ak::Dec c_ = *d;
+    size_t n0_ = 0;
+    while (!c_.at_end()) {
+      uint64_t k_ = c_.varint();
+      if (c_.err != 0 || (k_ >> 3) == 0) break;
+      switch (k_) {
+        case 10ull: ++n0_; break;
+        default: break;
+      }
+      c_.skip((uint32_t)(k_ >> 3), (uint32_t)(k_ & 7));
+    }
+    if (n0_) out->probes.reserve(out->probes.size() + n0_);
+  }
   while (!d->at_end()) {
     size_t s0 = d->pos;
     (void)s0;
@@ -1802,7 +1893,7 @@ static void dec_list_probe_response(ak::Dec *d, ListProbeResponse *out, uint32_t
         size_t off, n; d->len_body(&off, &n);
         if (d->err != 0) return;
         ak::Dec sub(d->buf + off, n);
-        out->probes.push_back(Probe());
+        out->probes.emplace_back();  // HG-2: in place
         dec_probe(&sub, &out->probes.back(), depth + 1);
         if (sub.err != 0) { d->err = sub.err; return; }
         break;
@@ -1821,6 +1912,23 @@ static void dec_list_metrics_response(ak::Dec *d, ListMetricsResponse *out, uint
   (void)out;
   // Plan rule: a message more than kLimit levels below the root is refused.
   if (depth > kLimit) { d->err = ak::ERR_DEPTH; return; }
+  // HG-1 (2026-09-28): one scan of the keys counts every repeated message and
+  // blob field's occurrences, and each vector is reserved exactly, once (maps
+  // excluded). An error stops the count; the decode below reports it.
+  {
+    ak::Dec c_ = *d;
+    size_t n0_ = 0;
+    while (!c_.at_end()) {
+      uint64_t k_ = c_.varint();
+      if (c_.err != 0 || (k_ >> 3) == 0) break;
+      switch (k_) {
+        case 10ull: ++n0_; break;
+        default: break;
+      }
+      c_.skip((uint32_t)(k_ >> 3), (uint32_t)(k_ & 7));
+    }
+    if (n0_) out->batches.reserve(out->batches.size() + n0_);
+  }
   while (!d->at_end()) {
     size_t s0 = d->pos;
     (void)s0;
@@ -1833,7 +1941,7 @@ static void dec_list_metrics_response(ak::Dec *d, ListMetricsResponse *out, uint
         size_t off, n; d->len_body(&off, &n);
         if (d->err != 0) return;
         ak::Dec sub(d->buf + off, n);
-        out->batches.push_back(MetricsBatch());
+        out->batches.emplace_back();  // HG-2: in place
         dec_metrics_batch(&sub, &out->batches.back(), depth + 1);
         if (sub.err != 0) { d->err = sub.err; return; }
         break;
@@ -1883,6 +1991,25 @@ static void dec_dual_response(ak::Dec *d, DualResponse *out, uint32_t depth) {
   (void)out;
   // Plan rule: a message more than kLimit levels below the root is refused.
   if (depth > kLimit) { d->err = ak::ERR_DEPTH; return; }
+  // HG-1 (2026-09-28): one scan of the keys counts every repeated message and
+  // blob field's occurrences, and each vector is reserved exactly, once (maps
+  // excluded). An error stops the count; the decode below reports it.
+  {
+    ak::Dec c_ = *d;
+    size_t n0_ = 0, n1_ = 0;
+    while (!c_.at_end()) {
+      uint64_t k_ = c_.varint();
+      if (c_.err != 0 || (k_ >> 3) == 0) break;
+      switch (k_) {
+        case 10ull: ++n0_; break;
+        case 18ull: ++n1_; break;
+        default: break;
+      }
+      c_.skip((uint32_t)(k_ >> 3), (uint32_t)(k_ & 7));
+    }
+    if (n0_) out->left.reserve(out->left.size() + n0_);
+    if (n1_) out->right.reserve(out->right.size() + n1_);
+  }
   while (!d->at_end()) {
     size_t s0 = d->pos;
     (void)s0;
@@ -1895,7 +2022,7 @@ static void dec_dual_response(ak::Dec *d, DualResponse *out, uint32_t depth) {
         size_t off, n; d->len_body(&off, &n);
         if (d->err != 0) return;
         ak::Dec sub(d->buf + off, n);
-        out->left.push_back(Pair());
+        out->left.emplace_back();  // HG-2: in place
         dec_pair(&sub, &out->left.back(), depth + 1);
         if (sub.err != 0) { d->err = sub.err; return; }
         break;
@@ -1904,7 +2031,7 @@ static void dec_dual_response(ak::Dec *d, DualResponse *out, uint32_t depth) {
         size_t off, n; d->len_body(&off, &n);
         if (d->err != 0) return;
         ak::Dec sub(d->buf + off, n);
-        out->right.push_back(Pair());
+        out->right.emplace_back();  // HG-2: in place
         dec_pair(&sub, &out->right.back(), depth + 1);
         if (sub.err != 0) { d->err = sub.err; return; }
         break;
@@ -1956,6 +2083,23 @@ static void dec_chunk_inner(ak::Dec *d, ChunkInner *out, uint32_t depth) {
   (void)out;
   // Plan rule: a message more than kLimit levels below the root is refused.
   if (depth > kLimit) { d->err = ak::ERR_DEPTH; return; }
+  // HG-1 (2026-09-28): one scan of the keys counts every repeated message and
+  // blob field's occurrences, and each vector is reserved exactly, once (maps
+  // excluded). An error stops the count; the decode below reports it.
+  {
+    ak::Dec c_ = *d;
+    size_t n0_ = 0;
+    while (!c_.at_end()) {
+      uint64_t k_ = c_.varint();
+      if (c_.err != 0 || (k_ >> 3) == 0) break;
+      switch (k_) {
+        case 18ull: ++n0_; break;
+        default: break;
+      }
+      c_.skip((uint32_t)(k_ >> 3), (uint32_t)(k_ & 7));
+    }
+    if (n0_) out->leaves.reserve(out->leaves.size() + n0_);
+  }
   while (!d->at_end()) {
     size_t s0 = d->pos;
     (void)s0;
@@ -1988,7 +2132,7 @@ static void dec_chunk_inner(ak::Dec *d, ChunkInner *out, uint32_t depth) {
         size_t off, n; d->len_body(&off, &n);
         if (d->err != 0) return;
         ak::Dec sub(d->buf + off, n);
-        out->leaves.push_back(ChunkLeaf());
+        out->leaves.emplace_back();  // HG-2: in place
         dec_chunk_leaf(&sub, &out->leaves.back(), depth + 1);
         if (sub.err != 0) { d->err = sub.err; return; }
         break;
@@ -2007,6 +2151,23 @@ static void dec_chunk_element(ak::Dec *d, ChunkElement *out, uint32_t depth) {
   (void)out;
   // Plan rule: a message more than kLimit levels below the root is refused.
   if (depth > kLimit) { d->err = ak::ERR_DEPTH; return; }
+  // HG-1 (2026-09-28): one scan of the keys counts every repeated message and
+  // blob field's occurrences, and each vector is reserved exactly, once (maps
+  // excluded). An error stops the count; the decode below reports it.
+  {
+    ak::Dec c_ = *d;
+    size_t n0_ = 0;
+    while (!c_.at_end()) {
+      uint64_t k_ = c_.varint();
+      if (c_.err != 0 || (k_ >> 3) == 0) break;
+      switch (k_) {
+        case 10ull: ++n0_; break;
+        default: break;
+      }
+      c_.skip((uint32_t)(k_ >> 3), (uint32_t)(k_ & 7));
+    }
+    if (n0_) out->labels.reserve(out->labels.size() + n0_);
+  }
   while (!d->at_end()) {
     size_t s0 = d->pos;
     (void)s0;
@@ -2098,6 +2259,23 @@ static void dec_chunked_response(ak::Dec *d, ChunkedResponse *out, uint32_t dept
   (void)out;
   // Plan rule: a message more than kLimit levels below the root is refused.
   if (depth > kLimit) { d->err = ak::ERR_DEPTH; return; }
+  // HG-1 (2026-09-28): one scan of the keys counts every repeated message and
+  // blob field's occurrences, and each vector is reserved exactly, once (maps
+  // excluded). An error stops the count; the decode below reports it.
+  {
+    ak::Dec c_ = *d;
+    size_t n0_ = 0;
+    while (!c_.at_end()) {
+      uint64_t k_ = c_.varint();
+      if (c_.err != 0 || (k_ >> 3) == 0) break;
+      switch (k_) {
+        case 58ull: ++n0_; break;
+        default: break;
+      }
+      c_.skip((uint32_t)(k_ >> 3), (uint32_t)(k_ & 7));
+    }
+    if (n0_) out->items.reserve(out->items.size() + n0_);
+  }
   while (!d->at_end()) {
     size_t s0 = d->pos;
     (void)s0;
@@ -2110,7 +2288,7 @@ static void dec_chunked_response(ak::Dec *d, ChunkedResponse *out, uint32_t dept
         size_t off, n; d->len_body(&off, &n);
         if (d->err != 0) return;
         ak::Dec sub(d->buf + off, n);
-        out->items.push_back(ChunkElement());
+        out->items.emplace_back();  // HG-2: in place
         dec_chunk_element(&sub, &out->items.back(), depth + 1);
         if (sub.err != 0) { d->err = sub.err; return; }
         break;
@@ -2133,6 +2311,23 @@ static void dec_chunked_response_wide(ak::Dec *d, ChunkedResponseWide *out, uint
   (void)out;
   // Plan rule: a message more than kLimit levels below the root is refused.
   if (depth > kLimit) { d->err = ak::ERR_DEPTH; return; }
+  // HG-1 (2026-09-28): one scan of the keys counts every repeated message and
+  // blob field's occurrences, and each vector is reserved exactly, once (maps
+  // excluded). An error stops the count; the decode below reports it.
+  {
+    ak::Dec c_ = *d;
+    size_t n0_ = 0;
+    while (!c_.at_end()) {
+      uint64_t k_ = c_.varint();
+      if (c_.err != 0 || (k_ >> 3) == 0) break;
+      switch (k_) {
+        case 560002ull: ++n0_; break;
+        default: break;
+      }
+      c_.skip((uint32_t)(k_ >> 3), (uint32_t)(k_ & 7));
+    }
+    if (n0_) out->items.reserve(out->items.size() + n0_);
+  }
   while (!d->at_end()) {
     size_t s0 = d->pos;
     (void)s0;
@@ -2145,7 +2340,7 @@ static void dec_chunked_response_wide(ak::Dec *d, ChunkedResponseWide *out, uint
         size_t off, n; d->len_body(&off, &n);
         if (d->err != 0) return;
         ak::Dec sub(d->buf + off, n);
-        out->items.push_back(ChunkElement());
+        out->items.emplace_back();  // HG-2: in place
         dec_chunk_element(&sub, &out->items.back(), depth + 1);
         if (sub.err != 0) { d->err = sub.err; return; }
         break;
@@ -2206,6 +2401,23 @@ static void dec_leaf_response(ak::Dec *d, LeafResponse *out, uint32_t depth) {
   (void)out;
   // Plan rule: a message more than kLimit levels below the root is refused.
   if (depth > kLimit) { d->err = ak::ERR_DEPTH; return; }
+  // HG-1 (2026-09-28): one scan of the keys counts every repeated message and
+  // blob field's occurrences, and each vector is reserved exactly, once (maps
+  // excluded). An error stops the count; the decode below reports it.
+  {
+    ak::Dec c_ = *d;
+    size_t n0_ = 0;
+    while (!c_.at_end()) {
+      uint64_t k_ = c_.varint();
+      if (c_.err != 0 || (k_ >> 3) == 0) break;
+      switch (k_) {
+        case 74ull: ++n0_; break;
+        default: break;
+      }
+      c_.skip((uint32_t)(k_ >> 3), (uint32_t)(k_ & 7));
+    }
+    if (n0_) out->items.reserve(out->items.size() + n0_);
+  }
   while (!d->at_end()) {
     size_t s0 = d->pos;
     (void)s0;
@@ -2218,7 +2430,7 @@ static void dec_leaf_response(ak::Dec *d, LeafResponse *out, uint32_t depth) {
         size_t off, n; d->len_body(&off, &n);
         if (d->err != 0) return;
         ak::Dec sub(d->buf + off, n);
-        out->items.push_back(LeafElement());
+        out->items.emplace_back();  // HG-2: in place
         dec_leaf_element(&sub, &out->items.back(), depth + 1);
         if (sub.err != 0) { d->err = sub.err; return; }
         break;
@@ -2237,6 +2449,23 @@ static void dec_surrogate(ak::Dec *d, Surrogate *out, uint32_t depth) {
   (void)out;
   // Plan rule: a message more than kLimit levels below the root is refused.
   if (depth > kLimit) { d->err = ak::ERR_DEPTH; return; }
+  // HG-1 (2026-09-28): one scan of the keys counts every repeated message and
+  // blob field's occurrences, and each vector is reserved exactly, once (maps
+  // excluded). An error stops the count; the decode below reports it.
+  {
+    ak::Dec c_ = *d;
+    size_t n0_ = 0;
+    while (!c_.at_end()) {
+      uint64_t k_ = c_.varint();
+      if (c_.err != 0 || (k_ >> 3) == 0) break;
+      switch (k_) {
+        case 34ull: ++n0_; break;
+        default: break;
+      }
+      c_.skip((uint32_t)(k_ >> 3), (uint32_t)(k_ & 7));
+    }
+    if (n0_) out->texts.reserve(out->texts.size() + n0_);
+  }
   while (!d->at_end()) {
     size_t s0 = d->pos;
     (void)s0;

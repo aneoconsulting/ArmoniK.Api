@@ -254,7 +254,7 @@ def _dec_message(p, m, o):
             o.append("        size_t off, n; d->len_body(&off, &n);")
             o.append("        if (d->err != 0) return;")
             o.append("        ak::Dec sub(d->buf + off, n);")
-            o.append("        %s.push_back(%s());" % (dst, f.of))
+            o.append("        %s.emplace_back();  // HG-2: in place" % dst)
             o.append("        dec_%s(&sub, &%s.back(), depth + 1);" % (snake(f.of), dst))
             o.append("        if (sub.err != 0) { d->err = sub.err; return; }")
         elif op == "append_blob":
@@ -381,6 +381,29 @@ def emit(x, unknown="drop", ns="shapes", types_h="generated/types.h", stem="core
         body.append("  (void)out;")
         body.append("  // Plan rule: a message more than kLimit levels below the root is refused.")
         body.append("  if (depth > kLimit) { d->err = ak::ERR_DEPTH; return; }")
+        counted = [(tag, act.field) for (tag, wire), act in sorted(m.decode.items())
+                   if wire == 2 and ((act.op == "append_message" and act.field.card != "map")
+                                     or act.op == "append_blob")]
+        if counted:
+            body.append("  // HG-1 (2026-09-28): one scan of the keys counts every repeated message and")
+            body.append("  // blob field's occurrences, and each vector is reserved exactly, once (maps")
+            body.append("  // excluded). An error stops the count; the decode below reports it.")
+            body.append("  {")
+            body.append("    ak::Dec c_ = *d;")
+            body.append("    size_t %s;" % ", ".join("n%d_ = 0" % i for i in range(len(counted))))
+            body.append("    while (!c_.at_end()) {")
+            body.append("      uint64_t k_ = c_.varint();")
+            body.append("      if (c_.err != 0 || (k_ >> 3) == 0) break;")
+            body.append("      switch (k_) {")
+            for i, (tag, f) in enumerate(counted):
+                body.append("        case %dull: ++n%d_; break;" % ((tag << 3) | 2, i))
+            body.append("        default: break;")
+            body.append("      }")
+            body.append("      c_.skip((uint32_t)(k_ >> 3), (uint32_t)(k_ & 7));")
+            body.append("    }")
+            for i, (tag, f) in enumerate(counted):
+                body.append("    if (n%d_) out->%s.reserve(out->%s.size() + n%d_);" % (i, f.name, f.name, i))
+            body.append("  }")
         body.append("  while (!d->at_end()) {")
         body.append("    size_t s0 = d->pos;")
         body.append("    (void)s0;")
