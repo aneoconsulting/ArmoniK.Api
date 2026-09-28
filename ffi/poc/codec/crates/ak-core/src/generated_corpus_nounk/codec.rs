@@ -2797,9 +2797,8 @@ pub unsafe extern "C" fn ak_blob_run(
     ak_rt::bump!((*cx).e.c, forward);
     if crate::enc_status(cx) != AK_OK { return crate::enc_status(cx); }
     let (tag, site) = ((*cx).open_tag, (*cx).open_site);
-    for i in 0..n as usize {
-        if !enc_blob(cx, tag, site, &*elems.add(i)) { return crate::enc_status(cx); }
-    }
+    // O-9: the whole run in one pass (size, one reservation, raw stores; lib.rs).
+    if !crate::enc_blob_run(cx, tag, site, elems, n as usize) { return crate::enc_status(cx); }
     AK_OK
 }
 

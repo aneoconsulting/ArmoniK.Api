@@ -972,6 +972,75 @@ pub extern "C" fn ak_tc_latin1() -> ak_transcode_fn {
     tc_latin1
 }
 
+/// Optimisation O-9 (2026-09-28, the cpp slice's optimisation unit, owner-approved): a whole
+/// run of blobs (`ak_blob_run`) through the passthrough transcoder written in ONE pass: the
+/// run's size first (keys, length varints, bodies), one reservation, then raw stores. The
+/// bytes are exactly the per-element path's (E1: key, minimal varint length, bytes; an absent
+/// element, `tc` None, writes nothing) and so is the transcode counter (one per element
+/// written). A run holding anything else (a direct argument, a converting or a host
+/// transcoder, a length the i32 cap of section 4 refuses) keeps the per-element path.
+pub(crate) unsafe fn enc_blob_run(cx: *mut EncCtxImpl, tag: u32, site: u32, elems: *const ak_str, n: usize) -> bool {
+    let trusted = tc_utf8_trusted as usize;
+    let k = ak_rt::key(tag, ak_rt::WIRE_LEN);
+    let klen = ak_rt::varint_len(k);
+    let mut total = 0usize;
+    for i in 0..n {
+        let s = &*elems.add(i);
+        if s.data == ak_abi::AK_STR_DIRECT {
+            return enc_blob_each(cx, tag, site, elems, n);
+        }
+        match s.tc {
+            None => {}
+            Some(tc) if tc as usize == trusted && s.len <= i32::MAX as usize => {
+                total += klen + ak_rt::varint_len(s.len as u64) + s.len;
+            }
+            Some(_) => return enc_blob_each(cx, tag, site, elems, n),
+        }
+    }
+    let e = &mut (*cx).e;
+    e.buf.reserve(total);
+    let len0 = e.buf.len();
+    let base = e.buf.as_mut_ptr().add(len0);
+    let mut p = base;
+    for i in 0..n {
+        let s = &*elems.add(i);
+        if s.tc.is_none() {
+            continue;
+        }
+        ak_rt::bump!(e.c, transcode);
+        p = put_varint_raw(p, k);
+        p = put_varint_raw(p, s.len as u64);
+        // R-D9: an empty host string may arrive as (NULL, 0).
+        if s.len != 0 {
+            core::ptr::copy_nonoverlapping(s.data as *const u8, p, s.len);
+            p = p.add(s.len);
+        }
+    }
+    e.buf.set_len(len0 + p.offset_from(base) as usize);
+    let _ = site;
+    true
+}
+
+#[inline(always)]
+unsafe fn put_varint_raw(mut p: *mut u8, mut v: u64) -> *mut u8 {
+    while v >= 0x80 {
+        *p = (v as u8) | 0x80;
+        p = p.add(1);
+        v >>= 7;
+    }
+    *p = v as u8;
+    p.add(1)
+}
+
+unsafe fn enc_blob_each(cx: *mut EncCtxImpl, tag: u32, site: u32, elems: *const ak_str, n: usize) -> bool {
+    for i in 0..n {
+        if !enc_blob(cx, tag, site, &*elems.add(i)) {
+            return false;
+        }
+    }
+    true
+}
+
 /// One length-delimited blob, reached through its transcoder.
 ///
 /// The prefix is opened BEFORE the transcode and resolved after it, because the core does
