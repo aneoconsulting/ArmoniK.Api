@@ -154,3 +154,21 @@
   Ef-drop    d  4MiB  big allocations per call   0.00
   Ef-drop    d  16MiB big allocations per call   0.00
 # O-10 (8a) measured and REVERTED: see ab/s8a-o10-rpc and ab/s8a-o10-rpc-c (geomean 1.003 and 1.002, no consistent direction); the change is kept as probes/o10-reverted.diff
+## after O-7 (a ring of 3 spare buffers in ak_rt::Enc)
+  C-drop     c  P5.3  big allocations per call   1.00
+  C-drop     c  P5.4  big allocations per call   1.12
+  C-drop     d  4MiB  big allocations per call   2.12
+  C-drop     d  16MiB big allocations per call   7.88
+  Cf-drop    c  P5.3  big allocations per call   0.00
+  Cf-drop    c  P5.4  big allocations per call   0.00
+  Cf-drop    d  4MiB  big allocations per call   0.00
+  Cf-drop    d  16MiB big allocations per call   1.25
+  C-retain   c  P5.3  big allocations per call   1.00
+  C-retain   c  P5.4  big allocations per call   1.00
+  C-retain   d  4MiB  big allocations per call   1.88
+  C-retain   d  16MiB big allocations per call   8.00
+  D-drop     c  P5.3  big allocations per call   0.00
+  D-drop     c  P5.4  big allocations per call   0.00
+  D-drop     d  4MiB  big allocations per call   0.00
+  D-drop     d  16MiB big allocations per call   0.00
+# O-7 measured and REVERTED (ab/s11-o7-rpc 0.974 over 40, ab/s11-o7-rpc-d 0.996 over 10: within drift); probes/o7-reverted.diff

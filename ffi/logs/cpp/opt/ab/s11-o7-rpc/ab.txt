@@ -1,0 +1,44 @@
+# opt_ab: rpc env A='' env B='' args A='' args B='' A=/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/snap/s10r (2b085a53) B=/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/snap/s11 (2b085a53) pairs=5 args: --transport shipped --cells C-drop,Cf-drop,C-retain,Cf-retain,D-drop --dirs cd --inflight 1,8 --rounds 3 --min-time-s 0.15 --warmup-s 0.03
+# ns per operation (process CPU; rpc: per call), median of every repetition of every process; wins = pairs where B's process median < A's
+benchmark                                                                                                    A_ns         B_ns     B/A  wins
+C-drop|16MiB|-|d|drop|inflight=1,transport=shipped,send_path=reference,build=full                      12606287.3   11902092.5   0.944  4/5
+C-drop|16MiB|-|d|drop|inflight=8,transport=shipped,send_path=reference,build=full                      18474743.6   17581541.9   0.952  3/5
+C-drop|4MiB|-|d|drop|inflight=1,transport=shipped,send_path=reference,build=full                        3251051.3    2980977.2   0.917  4/5
+C-drop|4MiB|-|d|drop|inflight=8,transport=shipped,send_path=reference,build=full                        6053626.5    4881379.0   0.806  3/5
+C-drop|P5.3|-|c|drop|inflight=1,transport=shipped,send_path=reference,build=full                         643205.8     642037.9   0.998  4/5
+C-drop|P5.3|-|c|drop|inflight=8,transport=shipped,send_path=reference,build=full                         960624.7     916310.6   0.954  4/5
+C-drop|P5.4|-|c|drop|inflight=1,transport=shipped,send_path=reference,build=full                        3123311.8    3225846.1   1.033  3/5
+C-drop|P5.4|-|c|drop|inflight=8,transport=shipped,send_path=reference,build=full                        6775496.9    7735309.8   1.142  3/5
+C-retain|16MiB|-|d|retain|inflight=1,transport=shipped,send_path=reference,build=full                  12295448.3   12484790.1   1.015  2/5
+C-retain|16MiB|-|d|retain|inflight=8,transport=shipped,send_path=reference,build=full                  18224448.9   17382157.1   0.954  4/5
+C-retain|4MiB|-|d|retain|inflight=1,transport=shipped,send_path=reference,build=full                    3218756.1    2985791.6   0.928  5/5
+C-retain|4MiB|-|d|retain|inflight=8,transport=shipped,send_path=reference,build=full                    5417287.4    4677398.3   0.863  4/5
+C-retain|P5.3|-|c|retain|inflight=1,transport=shipped,send_path=reference,build=full                     640031.9     615263.3   0.961  3/5
+C-retain|P5.3|-|c|retain|inflight=8,transport=shipped,send_path=reference,build=full                     996659.3     920815.5   0.924  4/5
+C-retain|P5.4|-|c|retain|inflight=1,transport=shipped,send_path=reference,build=full                    3303898.4    3225353.4   0.976  4/5
+C-retain|P5.4|-|c|retain|inflight=8,transport=shipped,send_path=reference,build=full                    4555246.4    6557524.6   1.440  1/5
+Cf-drop|16MiB|-|d|drop|inflight=1,transport=shipped,send_path=framed,build=full                        10418323.6   10458932.8   1.004  3/5
+Cf-drop|16MiB|-|d|drop|inflight=8,transport=shipped,send_path=framed,build=full                        12618376.6   12040325.7   0.954  4/5
+Cf-drop|4MiB|-|d|drop|inflight=1,transport=shipped,send_path=framed,build=full                          2457026.7    2424224.3   0.987  4/5
+Cf-drop|4MiB|-|d|drop|inflight=8,transport=shipped,send_path=framed,build=full                          4196495.8    3526607.0   0.840  2/5
+Cf-drop|P5.3|-|c|drop|inflight=1,transport=shipped,send_path=framed,build=full                           552254.0     525659.3   0.952  4/5
+Cf-drop|P5.3|-|c|drop|inflight=8,transport=shipped,send_path=framed,build=full                           744074.4     741938.2   0.997  2/5
+Cf-drop|P5.4|-|c|drop|inflight=1,transport=shipped,send_path=framed,build=full                          2725498.9    2611078.1   0.958  4/5
+Cf-drop|P5.4|-|c|drop|inflight=8,transport=shipped,send_path=framed,build=full                          3858522.9    5090134.1   1.319  2/5
+Cf-retain|16MiB|-|d|retain|inflight=1,transport=shipped,send_path=framed,build=full                    10754176.1   10262879.8   0.954  3/5
+Cf-retain|16MiB|-|d|retain|inflight=8,transport=shipped,send_path=framed,build=full                    12891111.0   12217327.2   0.948  2/5
+Cf-retain|4MiB|-|d|retain|inflight=1,transport=shipped,send_path=framed,build=full                      2420580.6    2318536.5   0.958  4/5
+Cf-retain|4MiB|-|d|retain|inflight=8,transport=shipped,send_path=framed,build=full                      3470818.2    3924498.0   1.131  2/5
+Cf-retain|P5.3|-|c|retain|inflight=1,transport=shipped,send_path=framed,build=full                       538646.4     525481.4   0.976  3/5
+Cf-retain|P5.3|-|c|retain|inflight=8,transport=shipped,send_path=framed,build=full                       790200.8     744339.3   0.942  4/5
+Cf-retain|P5.4|-|c|retain|inflight=1,transport=shipped,send_path=framed,build=full                      2671466.8    2611789.1   0.978  3/5
+Cf-retain|P5.4|-|c|retain|inflight=8,transport=shipped,send_path=framed,build=full                      8006772.5    4125727.7   0.515  3/5
+D-drop|16MiB|-|d|drop|inflight=1,transport=shipped,send_path=reference,build=full                       8231011.5    8064660.9   0.980  2/5
+D-drop|16MiB|-|d|drop|inflight=8,transport=shipped,send_path=reference,build=full                      11528809.6   10956583.1   0.950  3/5
+D-drop|4MiB|-|d|drop|inflight=1,transport=shipped,send_path=reference,build=full                        2052956.2    2148781.3   1.047  2/5
+D-drop|4MiB|-|d|drop|inflight=8,transport=shipped,send_path=reference,build=full                        3323942.8    3132437.6   0.942  2/5
+D-drop|P5.3|-|c|drop|inflight=1,transport=shipped,send_path=reference,build=full                         505921.7     513601.2   1.015  2/5
+D-drop|P5.3|-|c|drop|inflight=8,transport=shipped,send_path=reference,build=full                         765221.8     733987.3   0.959  4/5
+D-drop|P5.4|-|c|drop|inflight=1,transport=shipped,send_path=reference,build=full                        2387000.8    2302504.9   0.965  2/5
+D-drop|P5.4|-|c|drop|inflight=8,transport=shipped,send_path=reference,build=full                        4158462.3    5361866.7   1.289  1/5
+# geometric mean B/A over 40 benchmarks: 0.974

@@ -1,0 +1,14 @@
+# opt_ab: rpc env A='' env B='' args A='' args B='' A=/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/snap/s10r (2b085a53) B=/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/snap/s11 (2b085a53) pairs=6 args: --transport shipped --cells C-drop,C-retain,Cf-drop,D-drop,F-drop --dirs d --inflight 1 --rounds 3 --min-time-s 0.3 --warmup-s 0.05
+# ns per operation (process CPU; rpc: per call), median of every repetition of every process; wins = pairs where B's process median < A's
+benchmark                                                                                                    A_ns         B_ns     B/A  wins
+C-drop|16MiB|-|d|drop|inflight=1,transport=shipped,send_path=reference,build=full                      12916702.0   12566021.3   0.973  5/6
+C-drop|4MiB|-|d|drop|inflight=1,transport=shipped,send_path=reference,build=full                        3675033.0    3714675.6   1.011  2/6
+C-retain|16MiB|-|d|retain|inflight=1,transport=shipped,send_path=reference,build=full                  12720139.6   12856762.6   1.011  2/6
+C-retain|4MiB|-|d|retain|inflight=1,transport=shipped,send_path=reference,build=full                    3614425.2    3393084.7   0.939  5/6
+Cf-drop|16MiB|-|d|drop|inflight=1,transport=shipped,send_path=framed,build=full                        10863107.4   10605860.2   0.976  3/6
+Cf-drop|4MiB|-|d|drop|inflight=1,transport=shipped,send_path=framed,build=full                          2824202.3    3133193.5   1.109  3/6
+D-drop|16MiB|-|d|drop|inflight=1,transport=shipped,send_path=reference,build=full                       8485559.2    8583709.4   1.012  3/6
+D-drop|4MiB|-|d|drop|inflight=1,transport=shipped,send_path=reference,build=full                        2215174.2    2156139.6   0.973  5/6
+F-drop|16MiB|-|d|drop|inflight=1,transport=shipped,send_path=reference,build=full                       8513121.1    8508021.7   0.999  3/6
+F-drop|4MiB|-|d|drop|inflight=1,transport=shipped,send_path=reference,build=full                        2324018.9    2244831.9   0.966  4/6
+# geometric mean B/A over 10 benchmarks: 0.996
