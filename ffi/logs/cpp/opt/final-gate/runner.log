@@ -1,0 +1,21 @@
+# the final gates of the optimisation unit, from a clean git worktree of 9997ea57 (driver: scratch gates.sh)
+[0s] wp5_gate
+wp5_gate rc=1
+[975s] d11_asan
+d11_asan rc=0
+[1109s] campaign gate
+campaign gate rc=0
+[1898s] rust gate
+rust gate rc=0
+[3007s] done
+# wp5_gate run 2 (same worktree, after 'git fetch --deepen=400': the byte audit's before-tree aba944a was missing from the shallow clone):
+build          0 failure(s)
+generator      0 failure(s)
+conformance    0 failure(s)
+corpus         0 failure(s)
+probe          0 failure(s)
+bytes          0 failure(s)
+boundary       0 failure(s)
+gates          0 failure(s)
+s10-nounk      0 failure(s)
+wp5_gate: 0 step(s) failed

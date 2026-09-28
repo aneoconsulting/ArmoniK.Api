@@ -1,20 +1,20 @@
 # cpp slice, WP5: the oracle-probe rows (poc/rust/gen/probe_corpus.py), four arms
-#   date       2026-09-27T21:18:37Z
-#   machine    Linux 6.18.44-fc-v37 x86_64, 4 vCPU, Intel(R) Xeon(R) Processor @ 2.10GHz
+#   date       2026-09-28T12:10:03Z
+#   machine    Linux 6.18.44-fc-v37 x86_64, 4 vCPU, Intel(R) Xeon(R) Processor @ 2.80GHz
 #   compiler   g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0; rustc 1.94.1 (e408947bf 2026-03-25)
-#   commit     4ce48e007
+#   commit     9997ea57
 #   core       ffi/poc/codec at that commit, built --features init-guard (and corpus,init-guard
 #              for the corpus ABI); no timing is taken by anything in this log
 
 ===== probe_corpus.py: the scratch manifest =====
-11 rows in /tmp/tmp.cq8cRsAKr0/probe/manifest.json
+11 rows in /tmp/tmp.c8AKn7LxB9/probe/manifest.json
 >>> ok: probe_corpus.py (exit 0)
 
 ===== corpus_all_a17 on the probe manifest (D38: P-field-maxplus1-in-group must be REFUSED on every arm) =====
 # the conformance corpus, C ABI and core-native, unknown fields dropped and retained
 #   binary     build/corpus_all_a17
 #   build      __cplusplus 201703, target impl True, binding skips ak_init: False
-#   manifest   ../../../../tmp.cq8cRsAKr0/probe/manifest.json (11 rows)
+#   manifest   ../../../../../../tmp.c8AKn7LxB9/probe/manifest.json (11 rows)
 #   core       ak-core --features corpus,init-guard: generated for the corpus's READER
 #              schema by poc/codec/gen (plan.py + rust_abi.py); CONTRACT rule 0
 #   native     rendered by poc/codec/gen/cpp_native.py from the same plans: drop / retain
@@ -46,6 +46,22 @@
    refusal codes (C4): -2 x3
 
 ## native-retain
+   pass 11  fail 0  disputed (excluded) 0  not in the C ABI 0  arm not built 0
+     probe      pass   11  fail   0
+   forms written (C3):
+        6  canonical (as upb re-encodes it)
+        2  canonical: entries ascending by UTF-8 key
+   refusal codes (C4): -2 x3
+
+## ffi-pull-drop
+   pass 11  fail 0  disputed (excluded) 0  not in the C ABI 0  arm not built 0
+     probe      pass   11  fail   0
+   forms written (C3):
+        6  canonical (as upb re-encodes it)
+        2  canonical: entries ascending by UTF-8 key
+   refusal codes (C4): -2 x3
+
+## ffi-pull-retain
    pass 11  fail 0  disputed (excluded) 0  not in the C ABI 0  arm not built 0
      probe      pass   11  fail   0
    forms written (C3):
@@ -61,7 +77,7 @@ CORPUS PASSES on every built arm
 # the conformance corpus, C ABI and core-native, unknown fields dropped and retained
 #   binary     build/corpus_all_c11
 #   build      __cplusplus 201103, target impl False, binding skips ak_init: False
-#   manifest   ../../../../tmp.cq8cRsAKr0/probe/manifest.json (11 rows)
+#   manifest   ../../../../../../tmp.c8AKn7LxB9/probe/manifest.json (11 rows)
 #   core       ak-core --features corpus,init-guard: generated for the corpus's READER
 #              schema by poc/codec/gen (plan.py + rust_abi.py); CONTRACT rule 0
 #   native     rendered by poc/codec/gen/cpp_native.py from the same plans: drop / retain
@@ -93,6 +109,22 @@ CORPUS PASSES on every built arm
    refusal codes (C4): -2 x3
 
 ## native-retain
+   pass 11  fail 0  disputed (excluded) 0  not in the C ABI 0  arm not built 0
+     probe      pass   11  fail   0
+   forms written (C3):
+        6  canonical (as upb re-encodes it)
+        2  canonical: entries ascending by UTF-8 key
+   refusal codes (C4): -2 x3
+
+## ffi-pull-drop
+   pass 11  fail 0  disputed (excluded) 0  not in the C ABI 0  arm not built 0
+     probe      pass   11  fail   0
+   forms written (C3):
+        6  canonical (as upb re-encodes it)
+        2  canonical: entries ascending by UTF-8 key
+   refusal codes (C4): -2 x3
+
+## ffi-pull-retain
    pass 11  fail 0  disputed (excluded) 0  not in the C ABI 0  arm not built 0
      probe      pass   11  fail   0
    forms written (C3):
