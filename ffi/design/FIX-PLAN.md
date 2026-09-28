@@ -584,6 +584,21 @@ chunk is not the whole story: the remaining suspects are inside the core's strea
 (the one-slot request channel and tonic's streaming body/framing), which item 1 below
 profiles.
 
+**The Rust stream probe (2026-09-28, `logs/rust/opt/stream-probe/`, one process, per-thread
+CPU, allocation and fault counts; container instrumentation, A/A floor about 5%) attributes
+about 90% of it.** At d/16 MiB, k = 1, C costs about 2.3-2.8 ms more than A: **about 1.5 ms
+is tonic's reference-path copy** (`RawEncoder::put_slice`; C minus Cf and D minus Df alike,
+with about 7 more fresh 2 MiB buffers per call), **about 0.6 ms is the hand-off from the host
+thread through the request channel to the core's runtime** (Cf minus Df: more system time,
+59 against 43 context switches per call), and about 0.25 ms (Df minus A) is inside the
+noise. The callback delivery costs the same as the blocking one. Ablations, all reverted: a
+request channel of 4 instead of 1 is worse at 16 MiB; tonic's `BufferSettings` cannot remove
+the copy (its `Encoder` API requires it); a ring of 3 spare buffers in `ak_rt::Enc` gains
+3-7% on the framed cells only, at the edge of the noise; a current-thread host runtime for
+the callback cells changes nothing. System time (socket writes) dominates every cell. What
+remains for the campaign machine: how the 0.6 ms hand-off splits between thread wake-ups and
+the channel, and why a deeper channel costs more.
+
 **To measure on the campaign machine** (client on its 4-CPU set, server on its own):
 
 1. `perf record` of cells A and Cf (and D, Df) on c/P5.4 and d/16 MiB at k = 1 and 8, in
