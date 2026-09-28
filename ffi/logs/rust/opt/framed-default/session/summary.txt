@@ -1,0 +1,385 @@
+# stream probe 2: commit ed760129; 2026-09-28T19:47:48Z; Intel(R) Xeon(R) Processor @ 2.80GHz; client CPU 1, server CPUs 2,3 (4 workers), pinned; cells A,Df,Df-chan,C-split,Cf-split,C-cb-split,Cf-cb-split,B,Bf,E,Ef,B-cb,Bf-cb,E-cb,Ef-cb; variants blk:block:0; probe rounds 12 calls 8 warm 4; grid AK_SAMPLES=10 AK_WARMUP_MS=30 AK_MEASURE_MS=500 cells A,Df,B,Bf,C,Cf,E,Ef,B-cb,Bf-cb,C-cb,Cf-cb,E-cb,Ef-cb dirs b,c,d k 1,8
+
+per-call client CPU, ms: median [p10-p90] (n)
+16MiB A
+    grid            9.11 [7.78-10.33] (30)
+    blk             8.45 [7.55-10.16] (288)
+    blk/later       8.42 [7.55-10.05] (252)
+    blk/first       8.58 [7.56-10.21] (36)
+16MiB B
+    grid           12.74 [11.04-14.09] (30)
+    blk            13.14 [11.56-15.68] (288)
+    blk/later      13.09 [11.56-15.69] (252)
+    blk/first      13.41 [11.64-15.37] (36)
+16MiB B-cb
+    grid           13.92 [12.64-16.62] (30)
+    blk            13.88 [12.11-15.58] (288)
+    blk/later      13.75 [12.12-15.57] (252)
+    blk/first      14.06 [11.93-15.93] (36)
+16MiB Bf
+    grid           13.52 [11.35-22.53] (30)
+    blk            15.44 [13.78-17.39] (288)
+    blk/later      15.41 [13.67-17.29] (252)
+    blk/first      15.72 [13.96-17.87] (36)
+16MiB Bf-cb
+    grid           14.50 [13.11-24.46] (30)
+    blk            13.01 [10.82-16.56] (288)
+    blk/later      12.75 [10.82-16.18] (252)
+    blk/first      13.89 [11.04-17.33] (36)
+16MiB C-cb-retain
+    grid           12.21 [10.31-14.15] (30)
+16MiB C-cb-split
+    blk            11.78 [10.63-13.63] (288)
+    blk/later      11.75 [10.54-13.56] (252)
+    blk/first      12.29 [11.01-13.65] (36)
+16MiB C-retain
+    grid           13.42 [10.78-15.49] (30)
+16MiB C-split
+    blk            12.86 [11.07-15.02] (288)
+    blk/later      12.97 [11.08-15.08] (252)
+    blk/first      12.36 [10.93-14.28] (36)
+16MiB Cf-cb-retain
+    grid           10.61 [9.81-25.57] (30)
+16MiB Cf-cb-split
+    blk             9.76 [8.60-11.19] (288)
+    blk/later       9.77 [8.62-11.19] (252)
+    blk/first       9.76 [8.45-11.12] (36)
+16MiB Cf-retain
+    grid            9.79 [8.84-11.39] (30)
+16MiB Cf-split
+    blk            10.06 [8.85-11.43] (288)
+    blk/later      10.06 [8.87-11.43] (252)
+    blk/first      10.13 [8.85-11.19] (36)
+16MiB Df-chan
+    blk             9.42 [8.05-11.10] (288)
+    blk/later       9.37 [8.07-11.04] (252)
+    blk/first       9.47 [8.03-11.67] (36)
+16MiB Df-retain
+    grid            9.23 [8.28-10.31] (30)
+    blk             8.88 [8.00-10.37] (288)
+    blk/later       8.90 [8.00-10.38] (252)
+    blk/first       8.79 [7.89-10.01] (36)
+16MiB E-cb-retain
+    grid           14.40 [12.00-23.50] (30)
+    blk            14.18 [12.51-16.06] (288)
+    blk/later      14.24 [12.48-16.17] (252)
+    blk/first      14.15 [12.85-15.75] (36)
+16MiB E-retain
+    grid           13.37 [10.62-15.11] (30)
+    blk            12.87 [11.60-14.44] (288)
+    blk/later      12.87 [11.63-14.41] (252)
+    blk/first      13.18 [11.47-14.48] (36)
+16MiB Ef-cb-retain
+    grid           12.13 [10.79-17.19] (30)
+    blk            12.17 [10.43-14.93] (288)
+    blk/later      12.26 [10.30-14.91] (252)
+    blk/first      11.83 [10.88-15.16] (36)
+16MiB Ef-retain
+    grid           12.47 [11.36-22.08] (30)
+    blk            14.71 [12.22-17.36] (288)
+    blk/later      14.73 [12.24-17.14] (252)
+    blk/first      14.37 [12.22-17.50] (36)
+4MiB A
+    grid            2.40 [2.07-2.71] (30)
+    blk             2.15 [1.82-2.62] (288)
+    blk/later       2.13 [1.83-2.57] (252)
+    blk/first       2.36 [1.82-2.70] (36)
+c/P5.3 A
+    grid            0.59 [0.54-0.70] (30)
+16MiB k8 A
+    grid           14.86 [11.54-17.35] (30)
+b/P2.2 k8 A
+    grid            2.12 [1.82-2.68] (30)
+c/P5.4 A
+    grid            2.51 [2.30-2.69] (30)
+c/P5.3 k8 A
+    grid            0.74 [0.65-1.22] (30)
+b/P2.2 A
+    grid            2.43 [1.82-2.83] (30)
+4MiB k8 A
+    grid            4.35 [3.93-4.82] (30)
+c/P5.4 k8 A
+    grid            4.92 [3.91-10.88] (30)
+4MiB B
+    grid            3.80 [3.34-4.51] (30)
+    blk             3.43 [3.01-4.01] (288)
+    blk/later       3.42 [3.00-4.00] (252)
+    blk/first       3.51 [3.09-4.13] (36)
+c/P5.3 k8 B
+    grid            1.25 [1.12-1.38] (30)
+4MiB k8 B
+    grid            5.61 [4.87-7.43] (30)
+b/P2.2 k8 B
+    grid            1.37 [1.29-1.57] (30)
+c/P5.3 B
+    grid            0.79 [0.69-0.95] (30)
+c/P5.4 B
+    grid            9.01 [7.51-10.47] (30)
+16MiB k8 B
+    grid           18.54 [17.39-22.87] (30)
+b/P2.2 B
+    grid            1.53 [1.31-1.84] (30)
+c/P5.4 k8 B
+    grid            9.03 [7.98-18.43] (30)
+4MiB B-cb
+    grid            4.26 [3.53-4.91] (30)
+    blk             3.61 [3.11-4.17] (288)
+    blk/later       3.60 [3.09-4.16] (252)
+    blk/first       3.69 [3.30-4.28] (36)
+c/P5.3 B-cb
+    grid            0.87 [0.79-1.01] (30)
+b/P2.2 k8 B-cb
+    grid            1.27 [1.15-1.61] (30)
+16MiB k8 B-cb
+    grid           20.98 [18.96-24.07] (30)
+c/P5.4 B-cb
+    grid            3.68 [3.26-4.40] (30)
+c/P5.3 k8 B-cb
+    grid            1.10 [0.96-1.73] (30)
+b/P2.2 B-cb
+    grid            1.78 [1.37-2.03] (30)
+4MiB k8 B-cb
+    grid            5.67 [5.04-15.20] (30)
+c/P5.4 k8 B-cb
+    grid            7.01 [6.22-10.24] (30)
+4MiB Bf
+    grid            3.01 [2.56-3.51] (30)
+    blk             2.77 [2.36-3.31] (288)
+    blk/later       2.77 [2.37-3.30] (252)
+    blk/first       2.62 [2.19-3.49] (36)
+c/P5.3 Bf
+    grid            0.67 [0.60-0.81] (30)
+c/P5.4 k8 Bf
+    grid            3.74 [2.97-13.79] (30)
+16MiB k8 Bf
+    grid           17.31 [15.70-22.05] (30)
+c/P5.4 Bf
+    grid            2.93 [2.43-3.38] (30)
+c/P5.3 k8 Bf
+    grid            0.84 [0.76-0.92] (30)
+4MiB k8 Bf
+    grid            3.36 [2.97-6.06] (30)
+b/P2.2 k8 Bf
+    grid            1.28 [1.17-1.39] (30)
+b/P2.2 Bf
+    grid            1.57 [1.21-2.06] (30)
+4MiB Bf-cb
+    grid            3.27 [3.00-3.55] (30)
+    blk             2.95 [2.49-3.49] (288)
+    blk/later       2.94 [2.49-3.48] (252)
+    blk/first       2.99 [2.60-3.54] (36)
+16MiB k8 Bf-cb
+    grid           19.08 [15.45-22.23] (30)
+b/P2.2 Bf-cb
+    grid            1.46 [1.27-1.73] (30)
+c/P5.3 k8 Bf-cb
+    grid            0.93 [0.75-1.42] (30)
+c/P5.4 Bf-cb
+    grid            3.43 [3.11-4.40] (30)
+4MiB k8 Bf-cb
+    grid            5.43 [4.26-9.95] (30)
+b/P2.2 k8 Bf-cb
+    grid            1.27 [1.16-1.87] (30)
+c/P5.4 k8 Bf-cb
+    grid            5.39 [4.85-11.64] (30)
+c/P5.3 Bf-cb
+    grid            0.70 [0.65-0.91] (30)
+4MiB C-cb-retain
+    grid            3.07 [2.64-3.43] (30)
+4MiB k8 C-cb-retain
+    grid            6.03 [4.86-20.78] (30)
+b/P2.2 k8 C-cb-retain
+    grid            1.12 [0.93-1.91] (30)
+c/P5.3 k8 C-cb-retain
+    grid            1.02 [0.84-1.84] (30)
+16MiB k8 C-cb-retain
+    grid           16.50 [14.44-22.18] (30)
+c/P5.4 C-cb-retain
+    grid            2.98 [2.71-3.22] (30)
+c/P5.4 k8 C-cb-retain
+    grid            5.49 [4.57-26.49] (30)
+b/P2.2 C-cb-retain
+    grid            1.16 [1.04-1.41] (30)
+c/P5.3 C-cb-retain
+    grid            0.68 [0.63-0.74] (30)
+4MiB C-cb-split
+    blk             2.92 [2.44-3.52] (288)
+    blk/later       2.92 [2.44-3.49] (252)
+    blk/first       2.94 [2.40-3.70] (36)
+c/P5.3 k8 C-retain
+    grid            0.91 [0.80-1.18] (30)
+c/P5.4 k8 C-retain
+    grid            4.10 [3.45-14.46] (30)
+16MiB k8 C-retain
+    grid           17.54 [15.56-21.12] (30)
+c/P5.4 C-retain
+    grid            3.12 [2.77-3.38] (30)
+b/P2.2 C-retain
+    grid            1.44 [1.23-1.54] (30)
+b/P2.2 k8 C-retain
+    grid            1.08 [0.96-1.43] (30)
+4MiB k8 C-retain
+    grid            4.94 [4.21-12.62] (30)
+c/P5.3 C-retain
+    grid            0.68 [0.61-0.79] (30)
+4MiB C-retain
+    grid            3.04 [2.77-3.38] (30)
+4MiB C-split
+    blk             3.41 [2.94-4.13] (288)
+    blk/later       3.41 [2.93-4.15] (252)
+    blk/first       3.40 [3.05-3.85] (36)
+c/P5.3 Cf-cb-retain
+    grid            0.66 [0.59-0.78] (30)
+b/P2.2 Cf-cb-retain
+    grid            1.13 [0.97-1.22] (30)
+c/P5.4 k8 Cf-cb-retain
+    grid            3.65 [2.76-18.04] (30)
+4MiB Cf-cb-retain
+    grid            2.56 [2.07-3.32] (30)
+c/P5.3 k8 Cf-cb-retain
+    grid            0.72 [0.61-0.81] (30)
+16MiB k8 Cf-cb-retain
+    grid           12.70 [11.01-30.64] (30)
+4MiB k8 Cf-cb-retain
+    grid            2.93 [2.61-10.72] (30)
+b/P2.2 k8 Cf-cb-retain
+    grid            0.95 [0.88-1.10] (30)
+c/P5.4 Cf-cb-retain
+    grid            2.45 [2.28-2.65] (30)
+4MiB Cf-cb-split
+    blk             2.34 [1.96-2.71] (288)
+    blk/later       2.34 [1.96-2.70] (252)
+    blk/first       2.37 [2.05-2.73] (36)
+b/P2.2 k8 Cf-retain
+    grid            0.93 [0.86-1.17] (30)
+16MiB k8 Cf-retain
+    grid           10.70 [9.75-17.34] (30)
+c/P5.3 k8 Cf-retain
+    grid            0.72 [0.66-0.83] (30)
+4MiB Cf-retain
+    grid            2.34 [1.88-2.64] (30)
+c/P5.4 Cf-retain
+    grid            2.80 [2.47-3.05] (30)
+b/P2.2 Cf-retain
+    grid            1.29 [1.12-1.59] (30)
+c/P5.4 k8 Cf-retain
+    grid            3.06 [2.64-13.53] (30)
+c/P5.3 Cf-retain
+    grid            0.59 [0.51-0.66] (30)
+4MiB k8 Cf-retain
+    grid            2.74 [2.41-6.98] (30)
+4MiB Cf-split
+    blk             2.43 [2.07-2.87] (288)
+    blk/later       2.43 [2.07-2.87] (252)
+    blk/first       2.41 [1.93-2.99] (36)
+4MiB Df-chan
+    blk             2.39 [1.96-2.93] (288)
+    blk/later       2.39 [1.96-2.93] (252)
+    blk/first       2.44 [1.96-2.97] (36)
+4MiB Df-retain
+    grid            2.59 [2.02-2.94] (30)
+    blk             2.29 [1.96-2.91] (288)
+    blk/later       2.27 [1.95-2.94] (252)
+    blk/first       2.39 [1.99-2.86] (36)
+16MiB k8 Df-retain
+    grid           13.08 [9.98-23.00] (30)
+c/P5.4 k8 Df-retain
+    grid            3.54 [2.68-17.58] (30)
+c/P5.4 Df-retain
+    grid            2.49 [2.29-2.87] (30)
+b/P2.2 Df-retain
+    grid            1.16 [0.98-1.40] (30)
+c/P5.3 k8 Df-retain
+    grid            0.68 [0.56-0.86] (30)
+b/P2.2 k8 Df-retain
+    grid            0.96 [0.83-1.14] (30)
+c/P5.3 Df-retain
+    grid            0.57 [0.51-0.63] (30)
+4MiB k8 Df-retain
+    grid            3.07 [2.45-13.48] (30)
+4MiB E-cb-retain
+    grid            3.74 [3.30-4.17] (30)
+    blk             3.77 [3.24-4.47] (288)
+    blk/later       3.77 [3.25-4.43] (252)
+    blk/first       3.80 [3.15-4.59] (36)
+4MiB k8 E-cb-retain
+    grid            6.95 [5.35-16.31] (30)
+c/P5.4 E-cb-retain
+    grid            3.70 [3.52-4.93] (30)
+c/P5.3 E-cb-retain
+    grid            0.78 [0.68-1.16] (30)
+c/P5.3 k8 E-cb-retain
+    grid            1.16 [0.98-1.42] (30)
+b/P2.2 k8 E-cb-retain
+    grid            0.94 [0.85-1.07] (30)
+16MiB k8 E-cb-retain
+    grid           20.36 [17.63-28.39] (30)
+b/P2.2 E-cb-retain
+    grid            1.05 [0.89-1.17] (30)
+c/P5.4 k8 E-cb-retain
+    grid            6.54 [5.17-16.05] (30)
+4MiB E-retain
+    grid            3.32 [2.86-4.12] (30)
+    blk             3.57 [3.10-4.23] (288)
+    blk/later       3.57 [3.10-4.20] (252)
+    blk/first       3.57 [3.14-4.27] (36)
+4MiB k8 E-retain
+    grid            5.83 [5.34-9.11] (30)
+b/P2.2 k8 E-retain
+    grid            0.96 [0.89-1.48] (30)
+c/P5.3 E-retain
+    grid            0.74 [0.68-0.90] (30)
+c/P5.4 k8 E-retain
+    grid            5.98 [4.47-20.72] (30)
+b/P2.2 E-retain
+    grid            1.04 [0.80-1.31] (30)
+c/P5.3 k8 E-retain
+    grid            1.10 [0.95-1.31] (30)
+c/P5.4 E-retain
+    grid            4.19 [3.51-8.06] (30)
+16MiB k8 E-retain
+    grid           19.08 [17.31-24.78] (30)
+4MiB Ef-cb-retain
+    grid            3.07 [2.55-3.89] (30)
+    blk             2.76 [2.37-3.25] (288)
+    blk/later       2.75 [2.36-3.24] (252)
+    blk/first       2.95 [2.52-3.32] (36)
+4MiB k8 Ef-cb-retain
+    grid            5.30 [3.60-8.88] (30)
+b/P2.2 k8 Ef-cb-retain
+    grid            0.86 [0.80-1.01] (30)
+c/P5.3 k8 Ef-cb-retain
+    grid            0.90 [0.77-1.00] (30)
+c/P5.3 Ef-cb-retain
+    grid            0.73 [0.64-0.83] (30)
+c/P5.4 Ef-cb-retain
+    grid            3.14 [2.82-3.89] (30)
+b/P2.2 Ef-cb-retain
+    grid            1.07 [0.94-1.38] (30)
+16MiB k8 Ef-cb-retain
+    grid           18.16 [16.28-29.29] (30)
+c/P5.4 k8 Ef-cb-retain
+    grid            5.26 [3.70-8.11] (30)
+4MiB Ef-retain
+    grid            2.94 [2.37-4.42] (30)
+    blk             2.82 [2.29-3.39] (288)
+    blk/later       2.81 [2.29-3.38] (252)
+    blk/first       2.85 [2.26-3.49] (36)
+b/P2.2 k8 Ef-retain
+    grid            0.85 [0.82-0.99] (30)
+c/P5.3 k8 Ef-retain
+    grid            0.88 [0.74-1.07] (30)
+c/P5.3 Ef-retain
+    grid            0.65 [0.59-0.76] (30)
+c/P5.4 Ef-retain
+    grid            2.90 [2.55-3.22] (30)
+16MiB k8 Ef-retain
+    grid           14.87 [13.62-19.11] (30)
+b/P2.2 Ef-retain
+    grid            1.14 [0.91-1.46] (30)
+c/P5.4 k8 Ef-retain
+    grid            3.92 [3.32-18.93] (30)
+4MiB k8 Ef-retain
+    grid            3.42 [2.98-8.53] (30)
+
+per call, by thread class (medians over rounds): write syscalls, bytes per write, read syscalls, bytes per read, CPU ms

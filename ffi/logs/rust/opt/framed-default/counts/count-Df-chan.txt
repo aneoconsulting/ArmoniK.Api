@@ -1,0 +1,7 @@
+# stream probe run count-Df-chan: commit ed760129; 2026-09-28T19:59:27Z; Intel(R) Xeon(R) Processor @ 2.80GHz; client CPU 1, server CPUs 2,3 (4 workers), transport pinned, target /home/user/ArmoniK.Api/ffi/poc/rust/target-abl, shim 0
+# stream probe: transport pinned, cells ["Df-chan"], sizes ["16MiB"], rounds 1, calls per round 5, warm 1, allocation shim absent
+# order rotate, /proc reads true
+# run time 0 s
+size    cell         rounds  cpu/call ms [min-max]   wall ms | cpu by thread ms:     main   caller  cell-rt  core-rt    other | minflt/call total | allocs/call  >=1MiB/call | user/sys per call (mean of ticks) | ctx switches per call by class
+16MiB   Df-chan           1     13.54 [13.54-13.54]     19.85 |                      0.06     4.21     9.32     0.00     0.00 |          617 |    (no shim) | user  4.00 sys  8.00 ms | ctx switches/call      0     16     49      0      0
+

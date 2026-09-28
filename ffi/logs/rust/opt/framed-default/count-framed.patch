@@ -1,0 +1,82 @@
+diff --git a/ffi/poc/codec/crates/rpc/src/lib.rs b/ffi/poc/codec/crates/rpc/src/lib.rs
+index 2abcc80d..7ab72e0c 100644
+--- a/ffi/poc/codec/crates/rpc/src/lib.rs
++++ b/ffi/poc/codec/crates/rpc/src/lib.rs
+@@ -390,6 +390,21 @@ struct FramedStream<S> {
+     done: bool,
+     /// Every message already carries its 5-byte prefix: yielded as ONE frame.
+     preframed: bool,
++    k: std::sync::Arc<Kount>,
++}
++#[derive(Default)]
++struct Kount { polls: std::sync::atomic::AtomicU64, pending: std::sync::atomic::AtomicU64, frames: std::sync::atomic::AtomicU64, wakes: std::sync::atomic::AtomicU64, threads: std::sync::Mutex<std::collections::BTreeMap<String, u64>> }
++struct KWaker { inner: std::task::Waker, k: std::sync::Arc<Kount> }
++impl std::task::Wake for KWaker {
++    fn wake(self: std::sync::Arc<Self>) { self.k.wakes.fetch_add(1, std::sync::atomic::Ordering::Relaxed); self.inner.wake_by_ref(); }
++    fn wake_by_ref(self: &std::sync::Arc<Self>) { self.k.wakes.fetch_add(1, std::sync::atomic::Ordering::Relaxed); self.inner.wake_by_ref(); }
++}
++impl<S> Drop for FramedStream<S> {
++    fn drop(&mut self) {
++        use std::sync::atomic::Ordering::Relaxed;
++        let k = &self.k;
++        eprintln!("[framed-count] preframed={} polls={} pending={} frames={} inner_wakes={} threads={:?}", self.preframed, k.polls.load(Relaxed), k.pending.load(Relaxed), k.frames.load(Relaxed), k.wakes.load(Relaxed), k.threads.lock().unwrap());
++    }
+ }
+ 
+ impl<S> http_body::Body for FramedStream<S>
+@@ -403,14 +418,19 @@ where
+         cx: &mut std::task::Context<'_>,
+     ) -> std::task::Poll<Option<Result<http_body::Frame<Bytes>, tonic::Status>>> {
+         use std::task::Poll;
++        self.k.polls.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
++        { let t = std::thread::current().name().unwrap_or("?").to_string(); *self.k.threads.lock().unwrap().entry(t).or_default() += 1; }
+         if let Some(m) = self.pending.take() {
++            self.k.frames.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+             return Poll::Ready(Some(Ok(http_body::Frame::data(m))));
+         }
+         if self.done {
+             return Poll::Ready(None);
+         }
+-        match std::pin::Pin::new(&mut self.msgs).poll_next(cx) {
+-            Poll::Pending => Poll::Pending,
++        let kw = std::task::Waker::from(std::sync::Arc::new(KWaker { inner: cx.waker().clone(), k: self.k.clone() }));
++        let mut kcx = std::task::Context::from_waker(&kw);
++        match std::pin::Pin::new(&mut self.msgs).poll_next(&mut kcx) {
++            Poll::Pending => { self.k.pending.fetch_add(1, std::sync::atomic::Ordering::Relaxed); Poll::Pending }
+             Poll::Ready(None) => {
+                 self.done = true;
+                 Poll::Ready(None)
+@@ -421,6 +441,7 @@ where
+                     return Poll::Ready(Some(Err(tonic::Status::out_of_range(format!(
+                         "Error, encoded message length too large: found {len} bytes, the limit is: {} bytes", self.max_send)))));
+                 }
++                self.k.frames.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                 Poll::Ready(Some(Ok(http_body::Frame::data(m))))
+             }
+             Poll::Ready(Some(m)) => {
+@@ -432,6 +453,7 @@ where
+                 if len > 0 {
+                     self.pending = Some(m);
+                 }
++                self.k.frames.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                 Poll::Ready(Some(Ok(http_body::Frame::data(prefix(len)))))
+             }
+         }
+@@ -463,7 +485,7 @@ where
+     <T::ResponseBody as http_body::Body>::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
+     S: tokio_stream::Stream<Item = Bytes> + Unpin + Send + 'static,
+ {
+-    let body = tonic::body::Body::new(FramedStream { msgs, pending: None, max_send: cfg.max_send.unwrap_or(usize::MAX), done: false, preframed: false });
++    let body = tonic::body::Body::new(FramedStream { msgs, pending: None, max_send: cfg.max_send.unwrap_or(usize::MAX), done: false, preframed: false, k: Default::default() });
+     let req = framed_request(path, body, &cfg.metadata)?;
+     with_deadline(cfg.deadline, framed_call(svc, req, cfg.max_recv)).await
+ }
+@@ -477,7 +499,7 @@ where
+     <T::ResponseBody as http_body::Body>::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
+     S: tokio_stream::Stream<Item = Bytes> + Unpin + Send + 'static,
+ {
+-    let body = tonic::body::Body::new(FramedStream { msgs, pending: None, max_send: cfg.max_send.unwrap_or(usize::MAX), done: false, preframed: true });
++    let body = tonic::body::Body::new(FramedStream { msgs, pending: None, max_send: cfg.max_send.unwrap_or(usize::MAX), done: false, preframed: true, k: Default::default() });
+     let req = framed_request(path, body, &cfg.metadata)?;
+     with_deadline(cfg.deadline, framed_call(svc, req, cfg.max_recv)).await
+ }

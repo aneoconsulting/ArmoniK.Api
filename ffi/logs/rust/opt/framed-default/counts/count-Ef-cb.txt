@@ -1,0 +1,7 @@
+# stream probe run count-Ef-cb: commit ed760129; 2026-09-28T19:59:44Z; Intel(R) Xeon(R) Processor @ 2.80GHz; client CPU 1, server CPUs 2,3 (4 workers), transport pinned, target /home/user/ArmoniK.Api/ffi/poc/rust/target-abl, shim 0
+# stream probe: transport pinned, cells ["Ef-cb-retain"], sizes ["16MiB"], rounds 1, calls per round 5, warm 1, allocation shim absent
+# order rotate, /proc reads true
+# run time 0 s
+size    cell         rounds  cpu/call ms [min-max]   wall ms | cpu by thread ms:     main   caller  cell-rt  core-rt    other | minflt/call total | allocs/call  >=1MiB/call | user/sys per call (mean of ticks) | ctx switches per call by class
+16MiB   Ef-cb-retain      1     15.37 [15.37-15.37]     18.02 |                      0.06     0.00     7.68     7.69     0.00 |         1726 |    (no shim) | user  4.00 sys  6.00 ms | ctx switches/call      0      0     32     54      0
+

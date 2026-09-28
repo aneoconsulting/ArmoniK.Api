@@ -3638,3 +3638,45 @@ Everything container instrumentation; logs/rust/opt/stream-probe2/. No code chan
   0.06-0.1 ms; Df - A about 0.4-0.7 ms (Df 9.61 vs A 8.95; with the ring Df 10.20 vs A 9.37),
   not attributed: the core-ffi encode plus the framed body (two frames per message) against
   prost encoding into tonic's buffer. Unexplained: Df - A; the per-session level drift.
+
+## 2026-09-28 -- framed default, spare ring, one-frame prefix (owner decision) and their measurement
+
+- Core (2eeab59d): the framed send path is the DEFAULT of every core client (unary and
+  streaming, every delivery); ak_client_set_framed(c, 0) selects the reference path.
+  ak_rt::Enc gets `head` (0 or FRAME_HEAD = 5) and `take_framed`; every core encode context
+  has the 5-byte headroom; the codec's output is the message alone (ak_enc_take views
+  after the headroom, the generated encode entries return msg_len(): rust_abi.py), so
+  non-RPC users see nothing new. The framed path sends each message as ONE body frame:
+  moved entries (ak_call_unary_enc*, ak_call_send_enc*) write the prefix in place;
+  copying entries (ak_call_unary*, ak_call_send*) copy WITH the prefix (the one copy they
+  make anyway); the reference path slices the prefix off (O(1)). rpc: unary_preframed_cfg,
+  client_streaming_preframed_cfg, framed_copy; unary_framed / client_streaming_framed
+  (two frames) stay for the harness's Df/Ff. The spare slot is a ring of SPARES = 3 (ring
+  size check, one process per size, 2 x 12 rounds: host encode per 2 MiB chunk on Cf-split
+  506 / 437 / 396 / 401 us with 1 / 2 / 3 / 4 spares, Df-chan 508 / 441 / 409 / 404).
+  Relabelling: the cell names keep their meaning (C = reference path, Cf = framed path);
+  the harness now sets the path explicitly on every core cell (ak_client_set_framed(c,
+  framed)); tables read Cf as the core's default and C as the labelled reference row.
+- Checks (framed-default/checks): generate --check, one_core ok; pre-check 5,740 / 3,257
+  checks, 0 failures; crossings 836 / 435 rows identical (ak_client_set_framed is called at
+  open, outside the counted call; no entry changed on a measured path); rpc_semantics
+  PASSED both builds; upload_check PASSED both builds; header_diff identical headers on both
+  transports (the core's framed Push is now 33 DATA frames against the reference's 34, the
+  prefix no longer its own frame).
+- Session (framed-default/session, 3 iterations, grid b, c, d at k = 1 and 8 + the probe at
+  k = 1; tables.md): see the tables; 16 MiB d k = 1 grid: A 9.00, Df 9.23, Cf 9.74, Cf-cb
+  10.60, C 13.37, C-cb 12.18; probe: A 8.45, Df 8.88, Df-chan 9.42, Cf-split 10.06,
+  Cf-cb-split 9.76. k = 8: Cf 10.67, Cf-cb 12.54, Df 12.97 against A 14.66. Unary b (P2.2
+  push) every framed core cell 0.43-0.65 x A; c/P5.4 k = 1 Cf 1.11, Cf-cb 0.97, k = 8
+  0.62 / 0.74.
+- Per chunk (split cells, 16 MiB): host encode 355-399 us on every path now (C, Cf, C-cb,
+  Cf-cb, Df-chan): the fresh-buffer surplus is gone (>= 1 MiB allocations per call Cf 2,
+  Cf-cb 2, Df-chan 1.75, Df 0; the reference cells keep tonic's 8). Send-entry CPU 7-14 us.
+  Send wall until the host may encode the next chunk: blocking Cf 550 us, callback Cf-cb
+  586 us (the completion arrives 36 us later than the blocking return; 4 MiB 118 / 193 us).
+  Body polls per 16 MiB call (counting build): Cf 9-16 (8 frames, 0-7 Pending), Cf-cb 12-15
+  (3-6 Pending, 2-3 channel wakes), Df 17 (16 frames, two per message, 0 Pending).
+- The copying cells (B, Bf, E, Ef and -cb) still allocate a fresh buffer per chunk for
+  their copy (8-24 >= 1 MiB allocations per call) and on the framed path those pages are
+  faulted in (Bf 256, Bf-cb 1,136, Ef 1,641 minor faults per call): Bf 1.50-1.83 x A.
+  Not changed in this unit.

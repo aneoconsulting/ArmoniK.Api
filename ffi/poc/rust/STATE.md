@@ -15,6 +15,20 @@ here. This file states what exists and what was checked; the choice is the owner
 | **Incumbent** | prost 0.14.4, tonic 0.14.6, tonic-prost 0.14.6 (from Cargo.lock, printed in every campaign header). R14: tonic-prost's codec calls `Message::encode`/`decode`, so the production path and the library entry point are the same call |
 | **Questions this slice has open for the aggregating session** | (1) the proposed corpus rows of `gen/probe_corpus.py` (field numbers above 2^29-1, the 10th varint byte, two map-order rows) are not in `corpus/`; (2) no corpus row or payload has a repeated singular message with differing content, so merge-on-repeat (R-E4) is rendered and never observed; (3) a map entry has no unknown-field bag in the Rust facade (D42) |
 
+## Framed default (2026-09-28, owner; container instrumentation)
+
+The core's framed send path is the DEFAULT (unary and streaming, every delivery; the
+reference tonic-codec path via `ak_client_set_framed(c, 0)`); each request message goes out
+as ONE body frame (5 bytes of headroom in every core encode context, `ak_rt::Enc::head` /
+`take_framed`; copying entries copy with the prefix); the encoder's spare slot is a ring of
+3 (`ak_rt::enc::SPARES`). The codec's output is unchanged (the message alone). Cells keep
+their names: C/B/E = reference path (labelled row), Cf/Bf/Ef = framed path (the core's
+default); the grid sets the path explicitly on every core cell. Checks and the in-session
+measurement: `logs/rust/opt/framed-default/` (checks/, ring-size/, session/tables.md,
+alloc/, counts/). Other slices' harnesses set the path only for their framed cells, so
+their reference cells now run framed until they call `ak_client_set_framed(c, 0)` (listed
+in the report to the aggregating session).
+
 ## Stream probe (2026-09-28; container instrumentation, no code change kept)
 
 Tooling: `bin/stream_probe` + `gen/stream_probe.sh` / `.py` (direction d only, k = 1, one
@@ -490,6 +504,7 @@ FIX-PLAN R-G17); D41 (every slice's generated tree is current: `generate.py --ch
 | `logs/rust/opt/t0-ref/`, `t1-native*/`, `t1-ffi/`, `framed/`, `framed-rpc-narrow/`, `n2/`, `n2-ab/`, `n3/`, `n3-ab/`, `n6-probe/`, `lto-ab/`, `u1-unary/`, `u1-unary-narrow/`, `n5/`, `n5-ab/`, `n5b-ab/`, `u2-stream/` | optimisation unit 2, one directory per step (full opt_bench v5 runs, narrowed alternated A/B runs, step checks in `checks/`); before/after in `variants-before-after.txt` / `by-direction.txt`; the framed path's wire evidence in `framed/header-diff*.txt`; direction c and d tables in `u1-unary/c-direction.txt`, `u2-stream/d-direction.txt` |
 | `logs/rust/opt/pre-n5-gate/`, `pre-n5-gate2/` | the stable gate checkpoints of unit 2 (PASSED at 33636e1d and 186a4e52) |
 | `logs/rust/opt/abi9/checks/` | unit 3's step checks (generate --check, one_core, pre-check, crossings identical) |
+| `logs/rust/opt/framed-default/` | the framed default, the spare ring and the one-frame prefix: checks, ring-size check, in-session grid (b, c, d, k 1 and 8) + probe with split cells for both deliveries (tables.md), allocation/fault/write counts, body poll/wake counts |
 | `logs/rust/opt/stream-probe2/` | stream probe 2: the probe's level beside the grid (level/), HTTP/2 settings (settings/), Df-chan (chan/), per-chunk host timing (split/), body poll/wake counts (counts/), ablations ring3/ and head/ (patches, reverted) |
 | `logs/rust/opt/stream-probe/` | the stream probe (direction d, k = 1, pinned): per-thread CPU split, allocations, faults, copies per cell; A/A calibration; ablations (a) channel 4, (c) spare ring 3, (d) current-thread cb runtime, each with its patch, all reverted |
 | `logs/rust/opt/cb-deliveries/checks/`, `logs/rust/opt/rpc-same-machine-cb/` | the callback-delivery unit's checks and its same-machine grid run (cb cells = Rust's reference core cells) |

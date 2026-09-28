@@ -1,0 +1,7 @@
+# stream probe run count-Bf-cb: commit ed760129; 2026-09-28T19:59:41Z; Intel(R) Xeon(R) Processor @ 2.80GHz; client CPU 1, server CPUs 2,3 (4 workers), transport pinned, target /home/user/ArmoniK.Api/ffi/poc/rust/target-abl, shim 0
+# stream probe: transport pinned, cells ["Bf-cb"], sizes ["16MiB"], rounds 1, calls per round 5, warm 1, allocation shim absent
+# order rotate, /proc reads true
+# run time 0 s
+size    cell         rounds  cpu/call ms [min-max]   wall ms | cpu by thread ms:     main   caller  cell-rt  core-rt    other | minflt/call total | allocs/call  >=1MiB/call | user/sys per call (mean of ticks) | ctx switches per call by class
+16MiB   Bf-cb             1     15.69 [15.69-15.69]     17.41 |                      0.08     0.00     7.84     7.85     0.00 |         1615 |    (no shim) | user  8.00 sys  6.00 ms | ctx switches/call      0      0     33     58      0
+

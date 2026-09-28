@@ -1,0 +1,6 @@
+[framed-count] preframed=true polls=22 pending=13 frames=8 inner_wakes=8 threads={"tokio-rt-worker": 22}
+[framed-count] preframed=true polls=15 pending=6 frames=8 inner_wakes=5 threads={"tokio-rt-worker": 15}
+[framed-count] preframed=true polls=17 pending=8 frames=8 inner_wakes=6 threads={"tokio-rt-worker": 17}
+[framed-count] preframed=true polls=15 pending=6 frames=8 inner_wakes=3 threads={"tokio-rt-worker": 15}
+[framed-count] preframed=true polls=13 pending=4 frames=8 inner_wakes=3 threads={"tokio-rt-worker": 13}
+[framed-count] preframed=true polls=19 pending=10 frames=8 inner_wakes=8 threads={"tokio-rt-worker": 19}

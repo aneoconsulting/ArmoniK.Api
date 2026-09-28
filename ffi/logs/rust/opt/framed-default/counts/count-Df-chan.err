@@ -1,0 +1,6 @@
+[framed-count] preframed=false polls=31 pending=14 frames=16 inner_wakes=7 threads={"cell-rt": 31}
+[framed-count] preframed=false polls=21 pending=4 frames=16 inner_wakes=2 threads={"cell-rt": 21}
+[framed-count] preframed=false polls=23 pending=6 frames=16 inner_wakes=3 threads={"cell-rt": 23}
+[framed-count] preframed=false polls=23 pending=6 frames=16 inner_wakes=3 threads={"cell-rt": 23}
+[framed-count] preframed=false polls=23 pending=6 frames=16 inner_wakes=3 threads={"cell-rt": 23}
+[framed-count] preframed=false polls=25 pending=8 frames=16 inner_wakes=4 threads={"cell-rt": 25}
