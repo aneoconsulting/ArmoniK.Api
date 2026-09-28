@@ -214,6 +214,11 @@ narrowed A/B (`gen/opt_ab.sh`, logs/cpp/opt/ab/). The reference for the steps is
 | Step | What | Commit | Kept? | Evidence |
 |---|---|---|---|---|
 | 0 | harness fixes H-1 (pool walked), H-2 (a condition variable per caller), H-4 (registered raw methods), H-6 (cell B reused buffer), H-7 (incumbent-best fastest entry point; incumbent-arena labelled), H-8 (from=bytebuffer decode rows, labelled), H-9 (one run(iterations) per repetition); U rows 3 x 0.003 s | f00c900e | harness fix | `opt/ref/` (548 s): pre-check 0 failures (1156, 716, 2944, 1840 slots), counts identical |
+| 1 | B-1: the binding's batched adds grow geometrically (`grow_by`) | 67ae45c4 | kept | A/B `ab/s1-b1`: core-ffi decode P1.2 -11%, P6.1 -6% (3/3); `opt/s1/` |
+| 2 | B-2: `encode_into_*_unk_zeroed` rendered (sparse fill over u-groups); core arms and cells C/D encode with the sparse fill (header `core_encode_fill`) | ae8e0fe4 | kept | `ab/s2-b2`: P1.3 -40%, P3.1 -13%, P4.1 retain -13%; P5.1 +10 ns; P5.3/P5.4 +3..8% is drift (host-gen, unchanged, moves the same, `ab/s2-b2-p5`); `opt/s2/` |
+| 3 | B-3/B-4/B-5: elements and leaf children built in place; ak::Optional without redundant T() assignments | 1794a95d | kept | `ab/s3-b345`: core-ffi decode -2..-43%, host-gen -3..-18% (P1.3 host-gen +7%, 0/3); ASan clean (`checks/s3-asan.log`); `opt/s3/` |
+| 4 | HG-1/HG-2: host-gen decode counts repeated fields, reserves exactly, emplace_back | 55e6a1e5 | kept | `ab/s4-hg12`: P1.3 -66%, P7.1 -20%, P2.5/P3.1/P4.1 -8..-12%; P2.1 +3..+5%; `opt/s4/` |
+| 5 | HG-4 + B-6/B-7: packed runs (host-gen reserve once + raw stores + LE memcpy; binding enum as the array, bool stack buffer, bulk adds) | 67972f58 | kept | `ab/s5-packed`: P6.1 host-gen encode -44%, decode -9..-14%; core-ffi encode -14%, decode -13..-16%; ASan clean; `opt/s5/` |
 
 ## CAMPAIGN.md section 10 checklist
 

@@ -1730,3 +1730,27 @@ changes.
   the c-len / d-sha / d-count plants still abort with no file (checked on A, D-drop, F-retain).
 - Budget: payload slots +32% (1156 / 716); U rows 3 x 0.003 s + 0.001 s warm-up (U full 120 -> 71 s).
 - Reference run `logs/cpp/opt/ref/`: 548 s, pre-check 0 failures, counts identical.
+
+## 2026-09-28, optimisation unit, steps 1-5 (all kept; A/B logs in logs/cpp/opt/ab/, full runs opt/s1..s5)
+
+- Tools: `gen/opt_snap.sh` (the timed binaries with their cores, run through LD_LIBRARY_PATH over RUNPATH),
+  `gen/opt_ab.sh` + `opt_ab.py` (A B A B A B processes, per-benchmark medians, wins per pair),
+  `gen/opt_checks.sh` (generator check, one_core, conformance C++17/C++11 both builds, corpus both builds,
+  counts, both codec pre-checks) after every step; `campaign_codec --filter` for narrowed runs.
+- Step 1 (B-1): `reserve(size + n)` per batched add re-allocated exactly on every call; geometric growth.
+  P1.2 core-ffi decode -11%, P6.1 -6%, the rest within drift. Counts identical.
+- Step 2 (B-2): the retain sparse fill is new code (`fill_*_unk_sparse`, `encode_into_*_unk_zeroed`); the
+  conformance run checks it byte for byte on every payload and in the d11 retain round trip (608 checks), and
+  the codec pre-check on the 92 U rows (it is the timed core-ffi retain encoder now). The fill used by the timed
+  core arms is named in the codec and RPC headers. Sparse wins where groups have many absent members (P1.3 -40%,
+  P3.1 -13%) and costs a memset where they are tiny (P5.1 +10 ns); the P5.3/P5.4 +3..8% seen first is drift:
+  host-gen, unchanged, moves the same way in a second A/B (`ab/s2-b2-p5`).
+- Step 3 (B-3/B-4/B-5): leaf groups get `fill_*` and elements / children are emplaced then filled; Optional's
+  get_or_insert/emplace/reset skip the assignment of a fresh T() when absent (the invariant is documented in
+  vocab.h). Decode wins everywhere but host-gen P1.3 (+7%, 0/3). ASan clean.
+- Step 4 (HG-1/HG-2): a key scan before each host-gen message decode counts repeated message/blob occurrences
+  and reserves each vector once. Biggest on many small or absent children (P1.3 -66%); P2.1 (one element) pays
+  the scan (+3..5%).
+- Step 5 (HG-4, B-6, B-7): P6.1's packed runs. host-gen encode -44% (one reservation, raw stores, memcpy of
+  little-endian fixed-width runs), core-ffi -14% (the enum vector handed over as the int32 array; bool through a
+  stack buffer instead of a heap vector per run; bulk inserts on decode). ASan clean.
