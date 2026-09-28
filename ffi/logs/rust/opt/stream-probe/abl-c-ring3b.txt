@@ -1,0 +1,18 @@
+# stream probe run abl-c-ring3b-a1: commit 7b62b5a4 + UNCOMMITTED; 2026-09-28T16:27:10Z; Intel(R) Xeon(R) Processor @ 2.80GHz; client CPU 1, server CPUs 2,3 (4 workers), transport pinned, target /home/user/ArmoniK.Api/ffi/poc/rust/target, shim 0
+# stream probe run abl-c-ring3b-b1: commit 7b62b5a4 + UNCOMMITTED; 2026-09-28T16:27:37Z; Intel(R) Xeon(R) Processor @ 2.80GHz; client CPU 1, server CPUs 2,3 (4 workers), transport pinned, target /home/user/ArmoniK.Api/ffi/poc/rust/target-abl, shim 0
+3 A and 3 B processes; per-call client CPU, ms
+size    cell            A median   B median    B/A   B/A per pair
+16MiB   A                   9.63      9.64   1.001   0.961 1.062 0.963
+16MiB   C-cb-retain        12.14     12.17   1.003   1.036 1.008 0.922
+16MiB   C-retain           12.02     11.98   0.997   1.026 1.029 0.930
+16MiB   Cf-cb-retain       10.97     10.66   0.972   0.966 0.957 0.979
+16MiB   Cf-retain          10.95     10.21   0.932   0.989 0.919 0.859
+16MiB   D-retain           11.35     11.43   1.007   0.985 1.019 0.942
+16MiB   Df-retain          10.08      9.84   0.976   0.944 1.015 0.910
+4MiB    A                   2.35      2.30   0.977   0.981 1.055 0.927
+4MiB    C-cb-retain         3.01      3.01   1.002   1.018 1.038 0.931
+4MiB    C-retain            3.13      3.09   0.985   1.066 0.999 0.940
+4MiB    Cf-cb-retain        2.65      2.56   0.966   0.938 1.023 0.979
+4MiB    Cf-retain           2.46      2.45   0.998   1.003 1.075 0.910
+4MiB    D-retain            2.87      2.86   0.996   0.974 1.031 0.925
+4MiB    Df-retain           2.62      2.38   0.908   0.905 0.961 0.897

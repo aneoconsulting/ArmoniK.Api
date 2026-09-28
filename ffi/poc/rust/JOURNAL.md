@@ -3496,3 +3496,66 @@ rendered into every slice's header/binding; other slices' generated output regen
   direction). In-process cb/blocking median ratios per (dir, k), over cells, modes,
   transports and clients: gmeans 0.82-1.26 with single ratios 0.27-5.13, i.e. inside this
   run's spread; container instrumentation, no conclusion drawn.
+
+## 2026-09-28 -- the stream probe: why the core's client streaming costs more client CPU (coordinator unit)
+
+- Tooling (harness only): bin stream_probe (direction d, k = 1, chosen cells in ONE process,
+  rounds interleaved with a rotating order, every call checked; per round the process CPU,
+  wall, per-thread CPU through each thread's CPU clock, minor faults, user/system ticks and
+  context switches from /proc/self/task, summed by class: caller (the blocking cells'
+  caller thread), cell-rt (the cells' own tokio runtimes, now named so in grid.rs), core-rt
+  (the core's runtime, tokio's default `tokio-rt-worker`); allocation calls from an
+  LD_PRELOAD shim gen/probe/allocprobe.c, all and >= 1 MiB); gen/stream_probe.sh (serve.sh
+  server, 4 workers on CPUs 2,3; client on CPU 1; transport pinned), gen/stream_probe.py,
+  gen/stream_ab.sh / .py (alternated A/B processes: default build vs a build in another
+  target directory). Settings of the A/Bs: 20 rounds x 8 calls per cell and size, 4 warm
+  calls, 3 process pairs; the attribution runs 30 x 8. All in logs/rust/opt/stream-probe.
+- A/A (aa: 3 pairs, same build): pooled B/A 0.97-1.04 per cell, per pair 0.93-1.10. So a
+  difference under about 5% is not resolved.
+- Baseline, 16 MiB, k = 1, pinned, pooled over the 6 A/A processes (ms per call, median
+  [p10-p90]): A 10.08 [9.08-11.10], Df 10.33, Cf 10.94, Cf-cb 11.26, D 11.85, C 12.42, C-cb
+  12.84, B 14.59, Bf 15.70; 4 MiB: A 2.44, Cf 2.55, Df 2.69, Cf-cb 2.72, D 3.03, C-cb 3.16,
+  C 3.17, Bf 2.96, B 3.57. System time is the largest part everywhere (A: user ~4.2, sys ~6.1
+  ms per 16 MiB call from ticks: the socket writes).
+- Copies of each 2 MiB chunk on the client, from the code: A 1 (prost encodes the Vec<u8>
+  data into tonic's EncodeBuf); B 3 (prost encode_to_vec, ak_call_send's copy, RawEncoder);
+  Bf 2; C and C-cb 2 (the core-ffi encode into the context's buffer, moved by
+  ak_call_send_enc(_cb), then RawEncoder's put_slice into EncodeBuf); Cf and Cf-cb 1; D 2
+  (core-ffi encode, moved to the host by ak_enc_take_owned, RawEncoder); Df 1. Every cell
+  encodes each chunk once from values built before the run (A: prost values, Vec<u8> data;
+  C/D: facade values, Bytes data): comparable work; B's fresh Vec per chunk is its definition
+  (prost + the core's transport).
+- Allocations >= 1 MiB per 16 MiB call (shim): A 8 (tonic's EncodeBuf, one per message), D 8,
+  C 10.9, C-cb 9.4, B 23.6, Bf 16, Cf 4, Cf-cb 3.9, Df 2.75 (the context's spare slot returns
+  about half the buffers in time). Minor faults per call: 0 for A, C, D; Bf 2,305 and B 693
+  (sys 10.7 ms for Bf: its fresh buffers are faulted in, which is why Bf costs more than B),
+  Cf-cb 599, Df 192.
+- Per-thread split (16 MiB): C: caller 2.97 (the encode) + core-rt 9.47; Cf: 3.71 + 7.26;
+  C-cb: cell-rt 3.20 (the encode in the task) + core-rt 9.55; Cf-cb 3.95 + 7.24; A, D, Df:
+  all in cell-rt (10.07, 11.82, 10.32). Context switches per call: A 39, D 40, Df 43, C 48,
+  Cf 59, C-cb 68, Cf-cb 80.
+- Ablations (alternated A/B, 3 pairs each, reverted; patches in the log directory):
+  (a) the core's request channel capacity 1 -> 4: WORSE at 16 MiB (B 1.26, C 1.11, C-cb 1.08,
+  Bf 1.09, Cf 1.04, Cf-cb 1.00; controls A 1.01, Df 1.01); 4 MiB 0.99-1.04. Reverted.
+  (b) tonic BufferSettings on the reference path: not built. The reference path's extra
+  cost is RawEncoder's put_slice, which tonic's Encoder API requires; BufferSettings only size
+  the buffer and set the yield threshold (each 2 MiB message is over the 32 KiB threshold and
+  yielded alone), so they cannot remove the copy; the framed path is the no-copy route.
+  (c) the encode context's spare slot as a ring of 3 (ak-rt Enc::take / Recycle): >= 1 MiB
+  allocations Cf 4 -> 1.9, Df 2.75 -> 0, C 10.9 -> 7.9; CPU, two sets of 3 pairs: Cf 0.949 /
+  0.932, Cf-cb 0.965 / 0.972, Df 0.934 / 0.976, C 1.031 / 0.997, C-cb 1.008 / 1.003, D 1.023 /
+  1.007, control A 1.044 / 1.001: a 3-7% gain on the framed cells at the edge of the noise,
+  none on the reference ones. A core (ak-rt) change affecting every slice: reverted and
+  reported, not kept.
+  (d) the callback cells' runtime as a current-thread runtime (no hop between the core's
+  completion and a second worker pool): C-cb 0.996, Cf-cb 1.006 (control A 1.009). Reverted.
+- Attribution of C (and C-cb) vs A at 16 MiB, about 2.3-2.8 ms per call: the reference
+  path's RawEncoder copy, C - Cf = D - Df = about 1.5 ms (user time +2.7 ms, core-rt 9.47 vs
+  7.26, +7 fresh 2 MiB buffers); the core's transport hop (host thread -> channel -> core
+  runtime), Cf - Df = about 0.6 ms (more system time and context switches: 59 vs 43 per call;
+  not isolated further: capacity 4 made it worse, a current-thread host runtime changed
+  nothing); Df - A = about 0.25 ms, inside the A/A noise (the core-ffi encode plus framed send
+  against prost into tonic's buffer). The callback delivery costs about the blocking one
+  (C-cb - C and Cf-cb - Cf 0.3-0.4 ms, under the noise). At 4 MiB the same shape, smaller
+  (C - Cf 0.6 ms). What remains unexplained: the split of Cf - Df between wake-ups and the
+  channel handoff, and why capacity 4 costs more (not probed). Container instrumentation.

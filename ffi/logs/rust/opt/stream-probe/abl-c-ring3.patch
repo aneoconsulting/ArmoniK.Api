@@ -1,0 +1,49 @@
+--- a/ffi/poc/codec/crates/ak-rt/src/enc.rs
++++ b/ffi/poc/codec/crates/ak-rt/src/enc.rs
+@@ -25,7 +25,7 @@
+ /// `Bytes` clone is dropped, unless the slot is already full or locked (then it is freed).
+ struct Recycle {
+     v: Vec<u8>,
+-    slot: Arc<Mutex<Option<Vec<u8>>>>,
++    slot: Arc<Mutex<Vec<Vec<u8>>>>,
+ }
+ impl AsRef<[u8]> for Recycle {
+     fn as_ref(&self) -> &[u8] {
+@@ -35,8 +35,8 @@
+ impl Drop for Recycle {
+     fn drop(&mut self) {
+         if let Ok(mut g) = self.slot.try_lock() {
+-            if g.is_none() {
+-                *g = Some(core::mem::take(&mut self.v));
++            if g.len() < 3 {
++                g.push(core::mem::take(&mut self.v));
+             }
+         }
+     }
+@@ -80,7 +80,7 @@
+     /// the next `take` swaps it in: two buffers alternate, and neither the take nor the
+     /// next encode copies or allocates a buffer. (A `BytesMut` split was tried first and
+     /// cost 5-20% on the reused-buffer encode: logs/rust/opt/t1-native-ab.)
+-    spare: Arc<Mutex<Option<Vec<u8>>>>,
++    spare: Arc<Mutex<Vec<Vec<u8>>>>,
+     /// One learned width per length-prefix site in the generated code. Per context: a
+     /// global table made two encoding threads slower than one (ABI v1 section 6).
+     #[cfg(not(feature = "global-widths"))]
+@@ -103,7 +103,7 @@
+     pub fn new(sites: usize) -> Self {
+         Enc {
+             buf: Vec::with_capacity(4096),
+-            spare: Arc::new(Mutex::new(None)),
++            spare: Arc::new(Mutex::new(Vec::new())),
+             #[cfg(not(feature = "global-widths"))]
+             widths: vec![1u8; sites].into_boxed_slice(),
+             c: Counters::default(),
+@@ -153,7 +153,7 @@
+     /// becomes the spare. What a tonic request body is (cell F), what `ak_call_unary_enc`
+     /// sends (cell C) and what `ak_enc_take_owned` hands a host.
+     pub fn take(&mut self) -> Bytes {
+-        let fresh = match self.spare.lock().ok().and_then(|mut g| g.take()) {
++        let fresh = match self.spare.lock().ok().and_then(|mut g| g.pop()) {
+             Some(mut v) => {
+                 v.clear();
+                 v

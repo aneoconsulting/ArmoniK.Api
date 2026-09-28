@@ -1,0 +1,15 @@
+# stream probe run abl-d-curthread-b3: commit 7b62b5a4 + UNCOMMITTED; 2026-09-28T16:33:02Z; Intel(R) Xeon(R) Processor @ 2.80GHz; client CPU 1, server CPUs 2,3 (4 workers), transport pinned, target /home/user/ArmoniK.Api/ffi/poc/rust/target-abl, shim 0
+# stream probe: transport pinned, cells ["A", "C-retain", "Cf-retain", "C-cb-retain", "Cf-cb-retain"], sizes ["16MiB", "4MiB"], rounds 20, calls per round 8, warm 4, allocation shim absent
+# run time 17 s
+size    cell         rounds  cpu/call ms [min-max]   wall ms | cpu by thread ms:     main   caller  cell-rt  core-rt    other | minflt/call total | allocs/call  >=1MiB/call | user/sys per call (mean of ticks) | ctx switches per call by class
+16MiB   A                20     10.16 [8.99-12.37]     13.85 |                      0.07     0.00    10.16     0.00     0.00 |            0 |    (no shim) | user  4.25 sys  5.62 ms | ctx switches/call      0      0     44      0      0
+16MiB   C-cb-retain      20     12.60 [10.49-14.37]     15.45 |                      3.13     0.00     0.00     9.51     0.00 |            0 |    (no shim) | user  7.25 sys  5.94 ms | ctx switches/call     12      0      0     49      0
+16MiB   C-retain         20     12.79 [11.57-14.42]     16.10 |                      0.06     3.13     0.00     9.63     0.00 |            0 |    (no shim) | user  6.88 sys  6.25 ms | ctx switches/call      0      9      0     43      0
+16MiB   Cf-cb-retain     20     11.70 [10.61-14.02]     14.60 |                      4.14     0.00     0.00     7.53     0.00 |          501 |    (no shim) | user  3.88 sys  7.56 ms | ctx switches/call     17      0      0     57      0
+16MiB   Cf-retain        20     10.41 [9.14-12.68]     13.06 |                      0.06     3.26     0.00     7.10     0.00 |            0 |    (no shim) | user  4.38 sys  6.50 ms | ctx switches/call      0     13      0     43      0
+4MiB    A                20      2.50 [1.95-3.16]      3.89 |                      0.06     0.00     2.49     0.00     0.00 |            0 |    (no shim) | user  1.38 sys  1.69 ms | ctx switches/call      0      0     12      0      0
+4MiB    C-cb-retain      20      3.17 [2.83-3.74]      4.62 |                      0.81     0.00     0.00     2.48     0.00 |            0 |    (no shim) | user  1.75 sys  1.44 ms | ctx switches/call      4      0      0     17      0
+4MiB    C-retain         20      3.23 [2.67-3.87]      4.55 |                      0.06     0.77     0.00     2.45     0.00 |            0 |    (no shim) | user  1.62 sys  1.62 ms | ctx switches/call      0      4      0     16      0
+4MiB    Cf-cb-retain     20      2.79 [2.50-3.21]      3.96 |                      0.83     0.00     0.00     2.05     0.00 |            0 |    (no shim) | user  1.38 sys  1.75 ms | ctx switches/call      5      0      0     20      0
+4MiB    Cf-retain        20      2.57 [2.32-3.40]      3.98 |                      0.06     0.74     0.00     1.84     0.00 |            0 |    (no shim) | user  1.19 sys  1.19 ms | ctx switches/call      0      4      0     16      0
+

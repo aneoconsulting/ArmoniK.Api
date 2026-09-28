@@ -1,0 +1,13 @@
+--- a/ffi/poc/rust/crates/campaign/src/grid.rs
++++ b/ffi/poc/rust/crates/campaign/src/grid.rs
+@@ -359,8 +359,8 @@
+                     assert_eq!(rc, AK_OK, "ak_client_set_framed");
+                 }
+                 if cb(cell) {
+-                    let rt = Arc::new(tokio::runtime::Builder::new_multi_thread()
+-                        .worker_threads(TOKIO_WORKERS).thread_name("cell-rt").enable_all().build().unwrap());
++                    let rt = Arc::new(tokio::runtime::Builder::new_current_thread()
++                        .thread_name("cell-rt").enable_all().build().unwrap());
+                     return Conn::CoreCb(Arc::new(cc), rt);
+                 }
+                 Conn::Core(Arc::new(cc))

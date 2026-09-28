@@ -1,0 +1,14 @@
+# stream probe run abl-d-curthread-a1: commit 7b62b5a4 + UNCOMMITTED; 2026-09-28T16:31:23Z; Intel(R) Xeon(R) Processor @ 2.80GHz; client CPU 1, server CPUs 2,3 (4 workers), transport pinned, target /home/user/ArmoniK.Api/ffi/poc/rust/target, shim 0
+# stream probe run abl-d-curthread-b1: commit 7b62b5a4 + UNCOMMITTED; 2026-09-28T16:31:43Z; Intel(R) Xeon(R) Processor @ 2.80GHz; client CPU 1, server CPUs 2,3 (4 workers), transport pinned, target /home/user/ArmoniK.Api/ffi/poc/rust/target-abl, shim 0
+3 A and 3 B processes; per-call client CPU, ms
+size    cell            A median   B median    B/A   B/A per pair
+16MiB   A                  10.04     10.13   1.009   0.989 1.026 1.013
+16MiB   C-cb-retain        12.57     12.53   0.996   0.990 0.989 1.005
+16MiB   C-retain           12.66     13.04   1.030   1.021 1.033 1.019
+16MiB   Cf-cb-retain       11.40     11.47   1.006   0.944 1.012 1.051
+16MiB   Cf-retain          11.03     10.62   0.963   0.929 1.004 0.956
+4MiB    A                   2.35      2.48   1.054   1.018 1.039 1.078
+4MiB    C-cb-retain         3.03      3.16   1.043   1.009 1.017 1.068
+4MiB    C-retain            3.15      3.24   1.027   1.007 1.069 1.046
+4MiB    Cf-cb-retain        2.62      2.74   1.044   1.008 1.047 1.062
+4MiB    Cf-retain           2.53      2.55   1.010   0.975 1.020 1.026

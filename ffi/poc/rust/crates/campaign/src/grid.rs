@@ -360,14 +360,14 @@ impl Conn {
                 }
                 if cb(cell) {
                     let rt = Arc::new(tokio::runtime::Builder::new_multi_thread()
-                        .worker_threads(TOKIO_WORKERS).enable_all().build().unwrap());
+                        .worker_threads(TOKIO_WORKERS).thread_name("cell-rt").enable_all().build().unwrap());
                     return Conn::CoreCb(Arc::new(cc), rt);
                 }
                 Conn::Core(Arc::new(cc))
             }
             _ => {
                 let rt = Arc::new(tokio::runtime::Builder::new_multi_thread()
-                    .worker_threads(TOKIO_WORKERS).enable_all().build().unwrap());
+                    .worker_threads(TOKIO_WORKERS).thread_name("cell-rt").enable_all().build().unwrap());
                 let ch = tonic_channel(&rt, target, pinned);
                 Conn::Tonic(rt, ch)
             }

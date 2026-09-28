@@ -1,0 +1,4 @@
+--- a/ffi/poc/codec/crates/ak-core/src/rpc.rs (ak_call_open)
++++ b/ffi/poc/codec/crates/ak-core/src/rpc.rs
+-    let (tx, rx) = tokio::sync::mpsc::channel::<Bytes>(1);
++    let (tx, rx) = tokio::sync::mpsc::channel::<Bytes>(4);

@@ -15,6 +15,15 @@ here. This file states what exists and what was checked; the choice is the owner
 | **Incumbent** | prost 0.14.4, tonic 0.14.6, tonic-prost 0.14.6 (from Cargo.lock, printed in every campaign header). R14: tonic-prost's codec calls `Message::encode`/`decode`, so the production path and the library entry point are the same call |
 | **Questions this slice has open for the aggregating session** | (1) the proposed corpus rows of `gen/probe_corpus.py` (field numbers above 2^29-1, the 10th varint byte, two map-order rows) are not in `corpus/`; (2) no corpus row or payload has a repeated singular message with differing content, so merge-on-repeat (R-E4) is rendered and never observed; (3) a map entry has no unknown-field bag in the Rust facade (D42) |
 
+## Stream probe (2026-09-28; container instrumentation, no code change kept)
+
+Tooling: `bin/stream_probe` + `gen/stream_probe.sh` / `.py` (direction d only, k = 1, one
+process, per-thread CPU by class, faults, context switches, allocation counts through the
+LD_PRELOAD shim `gen/probe/allocprobe.c`), `gen/stream_ab.sh` / `.py` (alternated A/B
+processes). The cells' own runtime threads are named `cell-rt` in grid.rs (harness only).
+Measured and ablations: JOURNAL 2026-09-28 "the stream probe"; logs `logs/rust/opt/stream-probe/`.
+No core change kept (the spare-slot ring (c) was reported, not kept).
+
 ## Callback deliveries (2026-09-28; every figure is container instrumentation)
 
 Owner: "use callback with oneshot channel for the core-transport"; CAMPAIGN req 16 as amended
@@ -477,6 +486,7 @@ FIX-PLAN R-G17); D41 (every slice's generated tree is current: `generate.py --ch
 | `logs/rust/opt/t0-ref/`, `t1-native*/`, `t1-ffi/`, `framed/`, `framed-rpc-narrow/`, `n2/`, `n2-ab/`, `n3/`, `n3-ab/`, `n6-probe/`, `lto-ab/`, `u1-unary/`, `u1-unary-narrow/`, `n5/`, `n5-ab/`, `n5b-ab/`, `u2-stream/` | optimisation unit 2, one directory per step (full opt_bench v5 runs, narrowed alternated A/B runs, step checks in `checks/`); before/after in `variants-before-after.txt` / `by-direction.txt`; the framed path's wire evidence in `framed/header-diff*.txt`; direction c and d tables in `u1-unary/c-direction.txt`, `u2-stream/d-direction.txt` |
 | `logs/rust/opt/pre-n5-gate/`, `pre-n5-gate2/` | the stable gate checkpoints of unit 2 (PASSED at 33636e1d and 186a4e52) |
 | `logs/rust/opt/abi9/checks/` | unit 3's step checks (generate --check, one_core, pre-check, crossings identical) |
+| `logs/rust/opt/stream-probe/` | the stream probe (direction d, k = 1, pinned): per-thread CPU split, allocations, faults, copies per cell; A/A calibration; ablations (a) channel 4, (c) spare ring 3, (d) current-thread cb runtime, each with its patch, all reverted |
 | `logs/rust/opt/cb-deliveries/checks/`, `logs/rust/opt/rpc-same-machine-cb/` | the callback-delivery unit's checks and its same-machine grid run (cb cells = Rust's reference core cells) |
 | `logs/rust/opt/rpc-same-machine/` | the RPC grid only at dcbb0205 through serve.sh (gen/rpc_same_machine.sh), k = 1 and 8, for a same-machine side-by-side with the C++ grid; 311 of 840 entries one batch per sample (marked); instrumentation |
 | `logs/rust/opt/final3-gate/`, `logs/rust/opt/final3/` | unit 3's final gate (stable and the 1.88 floor; the failed first attempt in `failed-98b187ce/`) and final run with the one-run tables `tables-codec.md`, `tables-rpc.md` |
