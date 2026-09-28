@@ -50,7 +50,10 @@ POOL=1048576                                         # input=pool bytes: NOT bey
                                                      # 0.3 s per pool build, out of the budget
 LLC=14417920                                         # the runner's default, recorded only
 RPC_ROUNDS=3; RPC_MIN_TIME_S=0.04; RPC_WARMUP_S=0.02; SRV_WARM=50
-TRANSPORTS="shipped pinned"; INFLIGHT=1,8,16; LAUNCH=1
+TRANSPORTS="shipped pinned"; LAUNCH=1
+# k = 16 dropped 2026-09-28 (step 8d, the owner's budget rule): with the pull and borrow arms the
+# run took 613 s; every k=16 repetition was a single batch at 0.04 s anyway (C41).
+INFLIGHT=1,8
 SETTINGS="launch=$LAUNCH; codec P (--only P): rounds=$P_ROUNDS min_time_s=$P_MIN_TIME_S warmup_s=$P_WARMUP_S; codec U (--only U-, the 92 rows): rounds=$U_ROUNDS min_time_s=$U_MIN_TIME_S warmup_s=$U_WARMUP_S; pool_bytes=$POOL (walked since H-1; not beyond this container's 33 MiB L3); rpc: rounds=$RPC_ROUNDS min_time_s=$RPC_MIN_TIME_S warmup_s=$RPC_WARMUP_S inflight=$INFLIGHT transports=$TRANSPORTS, server warm-up serve.sh warm $SRV_WARM, server tokio workers ${AK_SERVER_THREADS:-4} (serve.sh default); order: codec full-P, nounk-P, full-U, nounk-U; rpc one server, per transport full then nounk client; Google Benchmark random interleaving within each process"
 
 B=${BUILD:-$HERE/build-campaign}
