@@ -161,6 +161,8 @@ intptr_t encode_into_timestamp_nobatch(ak_enc_ctx *ctx, const Timestamp &o, cons
 int32_t decode_with_timestamp(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Timestamp *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_timestamp_unk(ak_enc_ctx *ctx, const Timestamp &o, const Tcs &t);
+// B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
+intptr_t encode_into_timestamp_unk_zeroed(ak_enc_ctx *ctx, const Timestamp &o, const Tcs &t);
 // Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
 // in place and must stay alive and unmoved for the call.
 int32_t decode_with_timestamp_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Timestamp *out, struct ak_dec_Timestamp_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
@@ -174,6 +176,8 @@ intptr_t encode_into_duration_nobatch(ak_enc_ctx *ctx, const Duration &o, const 
 int32_t decode_with_duration(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Duration *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_duration_unk(ak_enc_ctx *ctx, const Duration &o, const Tcs &t);
+// B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
+intptr_t encode_into_duration_unk_zeroed(ak_enc_ctx *ctx, const Duration &o, const Tcs &t);
 // Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
 // in place and must stay alive and unmoved for the call.
 int32_t decode_with_duration_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Duration *out, struct ak_dec_Duration_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
@@ -187,6 +191,8 @@ intptr_t encode_into_result_raw_nobatch(ak_enc_ctx *ctx, const ResultRaw &o, con
 int32_t decode_with_result_raw(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ResultRaw *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_result_raw_unk(ak_enc_ctx *ctx, const ResultRaw &o, const Tcs &t);
+// B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
+intptr_t encode_into_result_raw_unk_zeroed(ak_enc_ctx *ctx, const ResultRaw &o, const Tcs &t);
 // Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
 // in place and must stay alive and unmoved for the call.
 int32_t decode_with_result_raw_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ResultRaw *out, struct ak_dec_ResultRaw_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
@@ -200,6 +206,8 @@ intptr_t encode_into_task_options_nobatch(ak_enc_ctx *ctx, const TaskOptions &o,
 int32_t decode_with_task_options(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskOptions *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_task_options_unk(ak_enc_ctx *ctx, const TaskOptions &o, const Tcs &t);
+// B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
+intptr_t encode_into_task_options_unk_zeroed(ak_enc_ctx *ctx, const TaskOptions &o, const Tcs &t);
 // Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
 // in place and must stay alive and unmoved for the call.
 int32_t decode_with_task_options_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskOptions *out, struct ak_dec_TaskOptions_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
@@ -213,6 +221,8 @@ intptr_t encode_into_task_output_nobatch(ak_enc_ctx *ctx, const TaskOutput &o, c
 int32_t decode_with_task_output(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskOutput *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_task_output_unk(ak_enc_ctx *ctx, const TaskOutput &o, const Tcs &t);
+// B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
+intptr_t encode_into_task_output_unk_zeroed(ak_enc_ctx *ctx, const TaskOutput &o, const Tcs &t);
 // Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
 // in place and must stay alive and unmoved for the call.
 int32_t decode_with_task_output_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskOutput *out, struct ak_dec_TaskOutput_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
@@ -226,6 +236,8 @@ intptr_t encode_into_task_detailed_nobatch(ak_enc_ctx *ctx, const TaskDetailed &
 int32_t decode_with_task_detailed(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskDetailed *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_task_detailed_unk(ak_enc_ctx *ctx, const TaskDetailed &o, const Tcs &t);
+// B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
+intptr_t encode_into_task_detailed_unk_zeroed(ak_enc_ctx *ctx, const TaskDetailed &o, const Tcs &t);
 // Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
 // in place and must stay alive and unmoved for the call.
 int32_t decode_with_task_detailed_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskDetailed *out, struct ak_dec_TaskDetailed_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
@@ -239,6 +251,8 @@ intptr_t encode_into_task_summary_nobatch(ak_enc_ctx *ctx, const TaskSummary &o,
 int32_t decode_with_task_summary(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskSummary *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_task_summary_unk(ak_enc_ctx *ctx, const TaskSummary &o, const Tcs &t);
+// B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
+intptr_t encode_into_task_summary_unk_zeroed(ak_enc_ctx *ctx, const TaskSummary &o, const Tcs &t);
 // Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
 // in place and must stay alive and unmoved for the call.
 int32_t decode_with_task_summary_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, TaskSummary *out, struct ak_dec_TaskSummary_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
@@ -252,6 +266,8 @@ intptr_t encode_into_probe_nobatch(ak_enc_ctx *ctx, const Probe &o, const Tcs &t
 int32_t decode_with_probe(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Probe *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_probe_unk(ak_enc_ctx *ctx, const Probe &o, const Tcs &t);
+// B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
+intptr_t encode_into_probe_unk_zeroed(ak_enc_ctx *ctx, const Probe &o, const Tcs &t);
 // Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
 // in place and must stay alive and unmoved for the call.
 int32_t decode_with_probe_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Probe *out, struct ak_dec_Probe_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
@@ -265,6 +281,8 @@ intptr_t encode_into_empty_nobatch(ak_enc_ctx *ctx, const Empty &o, const Tcs &t
 int32_t decode_with_empty(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Empty *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_empty_unk(ak_enc_ctx *ctx, const Empty &o, const Tcs &t);
+// B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
+intptr_t encode_into_empty_unk_zeroed(ak_enc_ctx *ctx, const Empty &o, const Tcs &t);
 // Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
 // in place and must stay alive and unmoved for the call.
 int32_t decode_with_empty_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Empty *out, struct ak_dec_Empty_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
@@ -278,6 +296,8 @@ intptr_t encode_into_upload_result_data_nobatch(ak_enc_ctx *ctx, const UploadRes
 int32_t decode_with_upload_result_data(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultData *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_upload_result_data_unk(ak_enc_ctx *ctx, const UploadResultData &o, const Tcs &t);
+// B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
+intptr_t encode_into_upload_result_data_unk_zeroed(ak_enc_ctx *ctx, const UploadResultData &o, const Tcs &t);
 // Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
 // in place and must stay alive and unmoved for the call.
 int32_t decode_with_upload_result_data_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultData *out, struct ak_dec_UploadResultData_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
@@ -291,6 +311,8 @@ intptr_t encode_into_metrics_batch_nobatch(ak_enc_ctx *ctx, const MetricsBatch &
 int32_t decode_with_metrics_batch(ak_dec_ctx *ctx, const uint8_t *b, size_t n, MetricsBatch *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_metrics_batch_unk(ak_enc_ctx *ctx, const MetricsBatch &o, const Tcs &t);
+// B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
+intptr_t encode_into_metrics_batch_unk_zeroed(ak_enc_ctx *ctx, const MetricsBatch &o, const Tcs &t);
 // Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
 // in place and must stay alive and unmoved for the call.
 int32_t decode_with_metrics_batch_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, MetricsBatch *out, struct ak_dec_MetricsBatch_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
@@ -304,6 +326,8 @@ intptr_t encode_into_pair_nobatch(ak_enc_ctx *ctx, const Pair &o, const Tcs &t);
 int32_t decode_with_pair(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Pair *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_pair_unk(ak_enc_ctx *ctx, const Pair &o, const Tcs &t);
+// B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
+intptr_t encode_into_pair_unk_zeroed(ak_enc_ctx *ctx, const Pair &o, const Tcs &t);
 // Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
 // in place and must stay alive and unmoved for the call.
 int32_t decode_with_pair_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Pair *out, struct ak_dec_Pair_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
@@ -317,6 +341,8 @@ intptr_t encode_into_list_results_response_nobatch(ak_enc_ctx *ctx, const ListRe
 int32_t decode_with_list_results_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_list_results_response_unk(ak_enc_ctx *ctx, const ListResultsResponse &o, const Tcs &t);
+// B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
+intptr_t encode_into_list_results_response_unk_zeroed(ak_enc_ctx *ctx, const ListResultsResponse &o, const Tcs &t);
 // Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
 // in place and must stay alive and unmoved for the call.
 int32_t decode_with_list_results_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out, struct ak_dec_ListResultsResponse_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
@@ -330,6 +356,8 @@ intptr_t encode_into_list_tasks_detailed_response_nobatch(ak_enc_ctx *ctx, const
 int32_t decode_with_list_tasks_detailed_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_list_tasks_detailed_response_unk(ak_enc_ctx *ctx, const ListTasksDetailedResponse &o, const Tcs &t);
+// B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
+intptr_t encode_into_list_tasks_detailed_response_unk_zeroed(ak_enc_ctx *ctx, const ListTasksDetailedResponse &o, const Tcs &t);
 // Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
 // in place and must stay alive and unmoved for the call.
 int32_t decode_with_list_tasks_detailed_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out, struct ak_dec_ListTasksDetailedResponse_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
@@ -343,6 +371,8 @@ intptr_t encode_into_list_task_summary_response_nobatch(ak_enc_ctx *ctx, const L
 int32_t decode_with_list_task_summary_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_list_task_summary_response_unk(ak_enc_ctx *ctx, const ListTaskSummaryResponse &o, const Tcs &t);
+// B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
+intptr_t encode_into_list_task_summary_response_unk_zeroed(ak_enc_ctx *ctx, const ListTaskSummaryResponse &o, const Tcs &t);
 // Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
 // in place and must stay alive and unmoved for the call.
 int32_t decode_with_list_task_summary_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out, struct ak_dec_ListTaskSummaryResponse_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
@@ -356,6 +386,8 @@ intptr_t encode_into_list_probe_response_nobatch(ak_enc_ctx *ctx, const ListProb
 int32_t decode_with_list_probe_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_list_probe_response_unk(ak_enc_ctx *ctx, const ListProbeResponse &o, const Tcs &t);
+// B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
+intptr_t encode_into_list_probe_response_unk_zeroed(ak_enc_ctx *ctx, const ListProbeResponse &o, const Tcs &t);
 // Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
 // in place and must stay alive and unmoved for the call.
 int32_t decode_with_list_probe_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out, struct ak_dec_ListProbeResponse_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
@@ -369,6 +401,8 @@ intptr_t encode_into_list_metrics_response_nobatch(ak_enc_ctx *ctx, const ListMe
 int32_t decode_with_list_metrics_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_list_metrics_response_unk(ak_enc_ctx *ctx, const ListMetricsResponse &o, const Tcs &t);
+// B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
+intptr_t encode_into_list_metrics_response_unk_zeroed(ak_enc_ctx *ctx, const ListMetricsResponse &o, const Tcs &t);
 // Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
 // in place and must stay alive and unmoved for the call.
 int32_t decode_with_list_metrics_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out, struct ak_dec_ListMetricsResponse_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
@@ -382,6 +416,8 @@ intptr_t encode_into_upload_result_data_message_nobatch(ak_enc_ctx *ctx, const U
 int32_t decode_with_upload_result_data_message(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_upload_result_data_message_unk(ak_enc_ctx *ctx, const UploadResultDataMessage &o, const Tcs &t);
+// B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
+intptr_t encode_into_upload_result_data_message_unk_zeroed(ak_enc_ctx *ctx, const UploadResultDataMessage &o, const Tcs &t);
 // Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
 // in place and must stay alive and unmoved for the call.
 int32_t decode_with_upload_result_data_message_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out, struct ak_dec_UploadResultDataMessage_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
@@ -395,6 +431,8 @@ intptr_t encode_into_dual_response_nobatch(ak_enc_ctx *ctx, const DualResponse &
 int32_t decode_with_dual_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_dual_response_unk(ak_enc_ctx *ctx, const DualResponse &o, const Tcs &t);
+// B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
+intptr_t encode_into_dual_response_unk_zeroed(ak_enc_ctx *ctx, const DualResponse &o, const Tcs &t);
 // Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
 // in place and must stay alive and unmoved for the call.
 int32_t decode_with_dual_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out, struct ak_dec_DualResponse_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
@@ -408,6 +446,8 @@ intptr_t encode_into_chunk_leaf_nobatch(ak_enc_ctx *ctx, const ChunkLeaf &o, con
 int32_t decode_with_chunk_leaf(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkLeaf *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_chunk_leaf_unk(ak_enc_ctx *ctx, const ChunkLeaf &o, const Tcs &t);
+// B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
+intptr_t encode_into_chunk_leaf_unk_zeroed(ak_enc_ctx *ctx, const ChunkLeaf &o, const Tcs &t);
 // Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
 // in place and must stay alive and unmoved for the call.
 int32_t decode_with_chunk_leaf_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkLeaf *out, struct ak_dec_ChunkLeaf_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
@@ -421,6 +461,8 @@ intptr_t encode_into_chunk_inner_nobatch(ak_enc_ctx *ctx, const ChunkInner &o, c
 int32_t decode_with_chunk_inner(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkInner *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_chunk_inner_unk(ak_enc_ctx *ctx, const ChunkInner &o, const Tcs &t);
+// B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
+intptr_t encode_into_chunk_inner_unk_zeroed(ak_enc_ctx *ctx, const ChunkInner &o, const Tcs &t);
 // Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
 // in place and must stay alive and unmoved for the call.
 int32_t decode_with_chunk_inner_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkInner *out, struct ak_dec_ChunkInner_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
@@ -434,6 +476,8 @@ intptr_t encode_into_chunk_element_nobatch(ak_enc_ctx *ctx, const ChunkElement &
 int32_t decode_with_chunk_element(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkElement *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_chunk_element_unk(ak_enc_ctx *ctx, const ChunkElement &o, const Tcs &t);
+// B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
+intptr_t encode_into_chunk_element_unk_zeroed(ak_enc_ctx *ctx, const ChunkElement &o, const Tcs &t);
 // Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
 // in place and must stay alive and unmoved for the call.
 int32_t decode_with_chunk_element_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkElement *out, struct ak_dec_ChunkElement_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
@@ -447,6 +491,8 @@ intptr_t encode_into_chunked_response_nobatch(ak_enc_ctx *ctx, const ChunkedResp
 int32_t decode_with_chunked_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkedResponse *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_chunked_response_unk(ak_enc_ctx *ctx, const ChunkedResponse &o, const Tcs &t);
+// B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
+intptr_t encode_into_chunked_response_unk_zeroed(ak_enc_ctx *ctx, const ChunkedResponse &o, const Tcs &t);
 // Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
 // in place and must stay alive and unmoved for the call.
 int32_t decode_with_chunked_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkedResponse *out, struct ak_dec_ChunkedResponse_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
@@ -460,6 +506,8 @@ intptr_t encode_into_chunked_response_wide_nobatch(ak_enc_ctx *ctx, const Chunke
 int32_t decode_with_chunked_response_wide(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkedResponseWide *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_chunked_response_wide_unk(ak_enc_ctx *ctx, const ChunkedResponseWide &o, const Tcs &t);
+// B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
+intptr_t encode_into_chunked_response_wide_unk_zeroed(ak_enc_ctx *ctx, const ChunkedResponseWide &o, const Tcs &t);
 // Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
 // in place and must stay alive and unmoved for the call.
 int32_t decode_with_chunked_response_wide_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ChunkedResponseWide *out, struct ak_dec_ChunkedResponseWide_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
@@ -473,6 +521,8 @@ intptr_t encode_into_leaf_element_nobatch(ak_enc_ctx *ctx, const LeafElement &o,
 int32_t decode_with_leaf_element(ak_dec_ctx *ctx, const uint8_t *b, size_t n, LeafElement *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_leaf_element_unk(ak_enc_ctx *ctx, const LeafElement &o, const Tcs &t);
+// B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
+intptr_t encode_into_leaf_element_unk_zeroed(ak_enc_ctx *ctx, const LeafElement &o, const Tcs &t);
 // Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
 // in place and must stay alive and unmoved for the call.
 int32_t decode_with_leaf_element_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, LeafElement *out, struct ak_dec_LeafElement_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
@@ -486,6 +536,8 @@ intptr_t encode_into_leaf_response_nobatch(ak_enc_ctx *ctx, const LeafResponse &
 int32_t decode_with_leaf_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, LeafResponse *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_leaf_response_unk(ak_enc_ctx *ctx, const LeafResponse &o, const Tcs &t);
+// B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
+intptr_t encode_into_leaf_response_unk_zeroed(ak_enc_ctx *ctx, const LeafResponse &o, const Tcs &t);
 // Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
 // in place and must stay alive and unmoved for the call.
 int32_t decode_with_leaf_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, LeafResponse *out, struct ak_dec_LeafResponse_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
@@ -499,6 +551,8 @@ intptr_t encode_into_surrogate_nobatch(ak_enc_ctx *ctx, const Surrogate &o, cons
 int32_t decode_with_surrogate(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Surrogate *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_surrogate_unk(ak_enc_ctx *ctx, const Surrogate &o, const Tcs &t);
+// B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
+intptr_t encode_into_surrogate_unk_zeroed(ak_enc_ctx *ctx, const Surrogate &o, const Tcs &t);
 // Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
 // in place and must stay alive and unmoved for the call.
 int32_t decode_with_surrogate_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Surrogate *out, struct ak_dec_Surrogate_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
@@ -512,6 +566,8 @@ intptr_t encode_into_surrogate_inner_nobatch(ak_enc_ctx *ctx, const SurrogateInn
 int32_t decode_with_surrogate_inner(ak_dec_ctx *ctx, const uint8_t *b, size_t n, SurrogateInner *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_surrogate_inner_unk(ak_enc_ctx *ctx, const SurrogateInner &o, const Tcs &t);
+// B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
+intptr_t encode_into_surrogate_inner_unk_zeroed(ak_enc_ctx *ctx, const SurrogateInner &o, const Tcs &t);
 // Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
 // in place and must stay alive and unmoved for the call.
 int32_t decode_with_surrogate_inner_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, SurrogateInner *out, struct ak_dec_SurrogateInner_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
@@ -525,6 +581,8 @@ intptr_t encode_into_wire_zoo_nobatch(ak_enc_ctx *ctx, const WireZoo &o, const T
 int32_t decode_with_wire_zoo(ak_dec_ctx *ctx, const uint8_t *b, size_t n, WireZoo *out);
 // Decision 11 / plan Options.unknown = retain: the encode over the u-groups.
 intptr_t encode_into_wire_zoo_unk(ak_enc_ctx *ctx, const WireZoo &o, const Tcs &t);
+// B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).
+intptr_t encode_into_wire_zoo_unk_zeroed(ak_enc_ctx *ctx, const WireZoo &o, const Tcs &t);
 // Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
 // in place and must stay alive and unmoved for the call.
 int32_t decode_with_wire_zoo_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, WireZoo *out, struct ak_dec_WireZoo_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);

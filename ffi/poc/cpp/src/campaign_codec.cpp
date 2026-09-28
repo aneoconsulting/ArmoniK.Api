@@ -72,6 +72,17 @@
 #include <vector>
 
 #include "harness.h"
+
+// B-2 (2026-09-28): the fill the core arms' encodes use (the header names it). Sparse:
+// decision 9's cleared groups and sparse assignment (encode_into_*_zeroed, *_unk_zeroed);
+// -DAK_CORE_FILL_TOTAL: the total fill (encode_into_*, *_unk).
+#ifndef AK_CORE_FILL_TOTAL
+#define AK_FILL(fn) fn##_zeroed
+#define AK_CORE_FILL "sparse (decision 9: encode_into_*_zeroed, encode_into_*_unk_zeroed)"
+#else
+#define AK_FILL(fn) fn
+#define AK_CORE_FILL "total (encode_into_*, encode_into_*_unk)"
+#endif
 #ifndef AK_NO_UNKNOWN_FIELDS
 #include "generated/core_native_retain.h"
 #endif
@@ -93,7 +104,7 @@
 // unknown_fields, i.e. host-gen's no-unknown mode (CAMPAIGN req 10).
 #define AK_HOSTGEN_DROP_MODE "no-unknown"
 #elif !defined(AK_CAMPAIGN_NO_FFI_RETAIN)
-#define AK_FFI_RETAIN_ENC(s) &shapes::ffi::encode_into_##s##_unk
+#define AK_FFI_RETAIN_ENC(s) &shapes::ffi::AK_FILL(encode_into_##s##_unk)
 #define AK_FFI_RETAIN_DEC(s) &shapes::ffi::decode_with_##s##_unk
 #define AK_FFI_RETAIN_STATE "built"
 #else
@@ -718,7 +729,7 @@ int main(int argc, char **argv) {
 
 #define X(id, Root, sroot, pfx, sha, nbytes)                                                     \
   {                                                                                             \
-    Fns<shapes::Root, ns::Root> F = {&shapes::ffi::encode_into_##sroot,                         \
+    Fns<shapes::Root, ns::Root> F = {&shapes::ffi::AK_FILL(encode_into_##sroot),                         \
                                      &shapes::ffi::decode_with_##sroot,                         \
                                      &shapes::native::encode_into_##sroot,                      \
                                      &shapes::native::decode_##sroot,                           \
@@ -759,7 +770,7 @@ int main(int argc, char **argv) {
       ++gate_fail;
     } else {
       Fns<shapes::DualResponse, ns::DualResponse> F = {
-          &shapes::ffi::encode_into_dual_response, &shapes::ffi::decode_with_dual_response,
+          &shapes::ffi::AK_FILL(encode_into_dual_response), &shapes::ffi::decode_with_dual_response,
           &shapes::native::encode_into_dual_response, &shapes::native::decode_dual_response,
           AK_NATR_ENC(dual_response), AK_NATR_DEC(dual_response),
           AK_FFI_RETAIN_ENC(dual_response), AK_FFI_RETAIN_DEC(dual_response)};
@@ -779,7 +790,7 @@ int main(int argc, char **argv) {
       std::string v = read_file(g_cfg.corpus + "/" + rows[i].file);
 #define R(Root, sroot)                                                                          \
       if (rows[i].root == #Root) {                                                              \
-        Fns<shapes::Root, ns::Root> F = {&shapes::ffi::encode_into_##sroot,                     \
+        Fns<shapes::Root, ns::Root> F = {&shapes::ffi::AK_FILL(encode_into_##sroot),                     \
             &shapes::ffi::decode_with_##sroot, &shapes::native::encode_into_##sroot,            \
             &shapes::native::decode_##sroot, AK_NATR_ENC(sroot),       \
             AK_NATR_DEC(sroot),                                             \
@@ -842,7 +853,7 @@ int main(int argc, char **argv) {
               " cpu_time = PROCESS CPU (MeasureProcessCPUTime, CLOCK_PROCESS_CPUTIME_ID) per repetition, real_time = wall;"
               " iterations chosen by the framework (--benchmark_min_time), warm-up the framework's"
               " (--benchmark_min_warmup_time, before a benchmark's first repetition)\","
-              " \"pool_bytes\": %.0f, \"harness\": \"H-1: input=pool walks the pool (a cursor per slot, one graph per iteration across calls), one pool alive at a time, kept across consecutive calls of its slot; H-7: incumbent-best encodes with ByteSizeLong + SerializeWithCachedSizesToArray into a reused growing buffer, decodes with ParseFromArray; incumbent-arena (payloads only, labelled) decodes on a fresh Arena per decode with a reused 256 KiB first block; H-8: from=bytebuffer decode rows (payloads only, labelled) for core-ffi and host-gen, the ByteBuffer path of cells D and F; H-9: one run(iterations) call per repetition (KeepRunningBatch)\", \"threads\": {\"process_threads_at_start\": %d, \"measuring_threads\": 1,"
+              " \"pool_bytes\": %.0f, \"core_encode_fill\": \"" AK_CORE_FILL "\", \"harness\": \"H-1: input=pool walks the pool (a cursor per slot, one graph per iteration across calls), one pool alive at a time, kept across consecutive calls of its slot; H-7: incumbent-best encodes with ByteSizeLong + SerializeWithCachedSizesToArray into a reused growing buffer, decodes with ParseFromArray; incumbent-arena (payloads only, labelled) decodes on a fresh Arena per decode with a reused 256 KiB first block; H-8: from=bytebuffer decode rows (payloads only, labelled) for core-ffi and host-gen, the ByteBuffer path of cells D and F; H-9: one run(iterations) call per repetition (KeepRunningBatch)\", \"threads\": {\"process_threads_at_start\": %d, \"measuring_threads\": 1,"
               " \"note\": \"the codec suite runs every arm on the one benchmark thread; the core starts no thread for codec calls\"}}}\n",
               g_cfg.launch, g_cfg.rounds, g_cfg.min_time_s, g_cfg.warmup_s, cpus.c_str(), AK_GBENCH_VERSION,
               g_cfg.pool_bytes, proc_threads());

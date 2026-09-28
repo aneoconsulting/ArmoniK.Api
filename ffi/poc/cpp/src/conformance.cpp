@@ -42,6 +42,7 @@ static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
                      intptr_t (*ffi_enc_z)(ak_enc_ctx *, const F &, const shapes::ffi::Tcs &),
                      intptr_t (*ffi_enc_nb)(ak_enc_ctx *, const F &, const shapes::ffi::Tcs &),
                      intptr_t (*ffi_enc_unk)(ak_enc_ctx *, const F &, const shapes::ffi::Tcs &),
+                     intptr_t (*ffi_enc_unk_z)(ak_enc_ctx *, const F &, const shapes::ffi::Tcs &),
                      int32_t (*ffi_dec)(ak_dec_ctx *, const uint8_t *, size_t, F *),
                      void (*nat_enc)(const F &, ak::Enc *),
                      int32_t (*nat_dec)(const uint8_t *, size_t, F *),
@@ -96,8 +97,18 @@ static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
     check(rc >= 0, std::string(id) + " ffi-retain encode rc");
     ffiu_bytes.assign((const char *)p, n);
   }
+  {
+    // B-2: the retain encode over decision 9's sparse fill must write the same bytes.
+    intptr_t rc = ffi_enc_unk_z(ctx, facade, tc);
+    const uint8_t *p = NULL;
+    size_t n = 0;
+    ak_enc_take(ctx, &p, &n);
+    check(rc >= 0, std::string(id) + " ffi-retain-zeroed encode rc");
+    check(std::string((const char *)p, n) == ffiu_bytes, std::string(id) + " ffi-retain-zeroed bytes = ffi-retain bytes");
+  }
 #else
   (void)ffi_enc_unk;
+  (void)ffi_enc_unk_z;
 #endif
   {
     intptr_t rc = ffi_enc(ctx, facade, tc);
@@ -917,6 +928,9 @@ static void d11_roundtrip() {
   size_t n = 0;
   ak_enc_take(ec, &p, &n);
   std::string re((const char *)p, n);
+  intptr_t erz = shapes::ffi::encode_into_list_results_response_unk_zeroed(ec, v, shapes::ffi::tcs_core());
+  ak_enc_take(ec, &p, &n);
+  check(erz >= 0 && std::string((const char *)p, n) == b, "d11 retain: the sparse-fill retain encode reproduces the input (B-2)");
   ak_enc_ctx_free(ec);
   bool dropped = drc == 0 && dv.unknown_fields.empty() && dv.results.size() == 3 &&
                  dv.results[0].unknown_fields.empty();
@@ -1015,8 +1029,10 @@ static void run_decision11() {
 
 #ifdef AK_NO_UNKNOWN_FIELDS
 #define AK_CONF_ENC_UNK(s) NULL
+#define AK_CONF_ENC_UNKZ(s) NULL
 #else
 #define AK_CONF_ENC_UNK(s) &shapes::ffi::encode_into_##s##_unk
+#define AK_CONF_ENC_UNKZ(s) &shapes::ffi::encode_into_##s##_unk_zeroed
 #endif
 
 int main(int argc, char **argv) {
@@ -1050,7 +1066,7 @@ int main(int argc, char **argv) {
   run_case<shapes::Root, ns::Root>(                                               \
       id, &shapes::build::payload_##pfx, &pbbuild::payload_##pfx,                 \
       &shapes::ffi::encode_into_##sroot, &shapes::ffi::encode_into_##sroot##_zeroed, \
-      &shapes::ffi::encode_into_##sroot##_nobatch, AK_CONF_ENC_UNK(sroot),         \
+      &shapes::ffi::encode_into_##sroot##_nobatch, AK_CONF_ENC_UNK(sroot), AK_CONF_ENC_UNKZ(sroot), \
       &shapes::ffi::decode_with_##sroot,                                          \
       &shapes::native::encode_into_##sroot, &shapes::native::decode_##sroot,      \
       sha, nbytes);

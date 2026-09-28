@@ -84,6 +84,17 @@
 
 using namespace akrpc;
 
+// B-2 (2026-09-28): the fill the core arms' encodes use (the header names it). Sparse:
+// decision 9's cleared groups and sparse assignment (encode_into_*_zeroed, *_unk_zeroed);
+// -DAK_CORE_FILL_TOTAL: the total fill (encode_into_*, *_unk).
+#ifndef AK_CORE_FILL_TOTAL
+#define AK_FILL(fn) fn##_zeroed
+#define AK_CORE_FILL "sparse (decision 9: encode_into_*_zeroed, encode_into_*_unk_zeroed)"
+#else
+#define AK_FILL(fn) fn
+#define AK_CORE_FILL "total (encode_into_*, encode_into_*_unk)"
+#endif
+
 namespace {
 
 // WP10 (req. 13 as amended): THE campaign server is the Rust slice's tonic rpc_server, service
@@ -313,11 +324,11 @@ int32_t codec_encode(char base, Mode m, ThreadCtx &tc, const Fac &v, const uint8
   if (core_codec(base)) {
 #ifdef AK_NO_UNKNOWN_FIELDS
     (void)m;
-    intptr_t rc = shapes::ffi::encode_into_list_tasks_detailed_response(tc.ec, v, shapes::ffi::tcs_core());
+    intptr_t rc = shapes::ffi::AK_FILL(encode_into_list_tasks_detailed_response)(tc.ec, v, shapes::ffi::tcs_core());
 #else
     intptr_t rc = m == kRetain
-                      ? shapes::ffi::encode_into_list_tasks_detailed_response_unk(tc.ec, v, shapes::ffi::tcs_core())
-                      : shapes::ffi::encode_into_list_tasks_detailed_response(tc.ec, v, shapes::ffi::tcs_core());
+                      ? shapes::ffi::AK_FILL(encode_into_list_tasks_detailed_response_unk)(tc.ec, v, shapes::ffi::tcs_core())
+                      : shapes::ffi::AK_FILL(encode_into_list_tasks_detailed_response)(tc.ec, v, shapes::ffi::tcs_core());
 #endif
     if (rc < 0) return (int32_t)rc;
     return ak_enc_take(tc.ec, p, n);
@@ -355,19 +366,19 @@ int32_t codec_decode(char base, Mode m, ThreadCtx &tc, const uint8_t *p, size_t 
 intptr_t core_enc(ak_enc_ctx *ec, const Fac &v, Mode m) {
 #ifdef AK_NO_UNKNOWN_FIELDS
   (void)m;
-  return shapes::ffi::encode_into_list_tasks_detailed_response(ec, v, shapes::ffi::tcs_core());
+  return shapes::ffi::AK_FILL(encode_into_list_tasks_detailed_response)(ec, v, shapes::ffi::tcs_core());
 #else
-  return m == kRetain ? shapes::ffi::encode_into_list_tasks_detailed_response_unk(ec, v, shapes::ffi::tcs_core())
-                      : shapes::ffi::encode_into_list_tasks_detailed_response(ec, v, shapes::ffi::tcs_core());
+  return m == kRetain ? shapes::ffi::AK_FILL(encode_into_list_tasks_detailed_response_unk)(ec, v, shapes::ffi::tcs_core())
+                      : shapes::ffi::AK_FILL(encode_into_list_tasks_detailed_response)(ec, v, shapes::ffi::tcs_core());
 #endif
 }
 intptr_t core_enc(ak_enc_ctx *ec, const Fac5 &v, Mode m) {
 #ifdef AK_NO_UNKNOWN_FIELDS
   (void)m;
-  return shapes::ffi::encode_into_upload_result_data_message(ec, v, shapes::ffi::tcs_core());
+  return shapes::ffi::AK_FILL(encode_into_upload_result_data_message)(ec, v, shapes::ffi::tcs_core());
 #else
-  return m == kRetain ? shapes::ffi::encode_into_upload_result_data_message_unk(ec, v, shapes::ffi::tcs_core())
-                      : shapes::ffi::encode_into_upload_result_data_message(ec, v, shapes::ffi::tcs_core());
+  return m == kRetain ? shapes::ffi::AK_FILL(encode_into_upload_result_data_message_unk)(ec, v, shapes::ffi::tcs_core())
+                      : shapes::ffi::AK_FILL(encode_into_upload_result_data_message)(ec, v, shapes::ffi::tcs_core());
 #endif
 }
 ak::Enc *hg_enc(ThreadCtx &tc, const Fac &v, Mode m) {
@@ -1042,6 +1053,7 @@ int main(int argc, char **argv) {
               " \"threads\": {\"caller_threads\": %d, \"core_runtime_workers\": %d,"
               " \"process_threads_before_benchmarks\": %d, \"grpcpp\": \"grpc-core sizes its own pollers and executor"
               " (no application setting); they are counted in the process totals\"},"
+              " \"core_encode_fill\": \"" AK_CORE_FILL "\","
               " \"harness\": \"H-2: one condition variable per caller thread, a batch wakes only its k threads; H-4: the raw methods of A (d), D and F built once per channel (registered calls, as the generated stub's); H-6: cell B serialises with ByteSizeLong + SerializeWithCachedSizesToArray into a reused per-thread buffer\","
               " \"precheck\": \"C, D, E, F in each mode: decode, re-encode, equal to the incumbent's deterministic"
               " re-serialisation; every c/d request message byte-identical to protobuf's\"}}\n",

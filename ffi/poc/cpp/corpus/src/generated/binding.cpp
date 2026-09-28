@@ -355,34 +355,63 @@ static inline void fill_surrogate_inner_sparse(struct ak_efix_SurrogateInner *d,
 static inline void fill_surrogate_sparse(struct ak_efix_Surrogate *d, const Surrogate &o, const Tcs &t);
 static inline void fill_wire_zoo_sparse(struct ak_efix_WireZoo *d, const WireZoo &o, const Tcs &t);
 static inline struct ak_ufix_Timestamp make_timestamp_unk(const Timestamp &o, const Tcs &t);
+static inline void fill_timestamp_unk_sparse(struct ak_ufix_Timestamp *d, const Timestamp &o, const Tcs &t);
 static inline struct ak_ufix_Duration make_duration_unk(const Duration &o, const Tcs &t);
+static inline void fill_duration_unk_sparse(struct ak_ufix_Duration *d, const Duration &o, const Tcs &t);
 static inline struct ak_ufix_ResultRaw make_result_raw_unk(const ResultRaw &o, const Tcs &t);
+static inline void fill_result_raw_unk_sparse(struct ak_ufix_ResultRaw *d, const ResultRaw &o, const Tcs &t);
 static inline struct ak_ufix_TaskOptions make_task_options_unk(const TaskOptions &o, const Tcs &t);
+static inline void fill_task_options_unk_sparse(struct ak_ufix_TaskOptions *d, const TaskOptions &o, const Tcs &t);
 static inline struct ak_ufix_TaskOutput make_task_output_unk(const TaskOutput &o, const Tcs &t);
+static inline void fill_task_output_unk_sparse(struct ak_ufix_TaskOutput *d, const TaskOutput &o, const Tcs &t);
 static inline struct ak_ufix_TaskDetailed make_task_detailed_unk(const TaskDetailed &o, const Tcs &t);
+static inline void fill_task_detailed_unk_sparse(struct ak_ufix_TaskDetailed *d, const TaskDetailed &o, const Tcs &t);
 static inline struct ak_ufix_TaskSummary make_task_summary_unk(const TaskSummary &o, const Tcs &t);
+static inline void fill_task_summary_unk_sparse(struct ak_ufix_TaskSummary *d, const TaskSummary &o, const Tcs &t);
 static inline struct ak_ufix_Empty make_empty_unk(const Empty &o, const Tcs &t);
+static inline void fill_empty_unk_sparse(struct ak_ufix_Empty *d, const Empty &o, const Tcs &t);
 static inline struct ak_ufix_Probe make_probe_unk(const Probe &o, const Tcs &t);
+static inline void fill_probe_unk_sparse(struct ak_ufix_Probe *d, const Probe &o, const Tcs &t);
 static inline struct ak_ufix_UploadResultData make_upload_result_data_unk(const UploadResultData &o, const Tcs &t);
+static inline void fill_upload_result_data_unk_sparse(struct ak_ufix_UploadResultData *d, const UploadResultData &o, const Tcs &t);
 static inline struct ak_ufix_MetricsBatch make_metrics_batch_unk(const MetricsBatch &o, const Tcs &t);
+static inline void fill_metrics_batch_unk_sparse(struct ak_ufix_MetricsBatch *d, const MetricsBatch &o, const Tcs &t);
 static inline struct ak_ufix_Pair make_pair_unk(const Pair &o, const Tcs &t);
+static inline void fill_pair_unk_sparse(struct ak_ufix_Pair *d, const Pair &o, const Tcs &t);
 static inline struct ak_ufix_ListResultsResponse make_list_results_response_unk(const ListResultsResponse &o, const Tcs &t);
+static inline void fill_list_results_response_unk_sparse(struct ak_ufix_ListResultsResponse *d, const ListResultsResponse &o, const Tcs &t);
 static inline struct ak_ufix_ListTasksDetailedResponse make_list_tasks_detailed_response_unk(const ListTasksDetailedResponse &o, const Tcs &t);
+static inline void fill_list_tasks_detailed_response_unk_sparse(struct ak_ufix_ListTasksDetailedResponse *d, const ListTasksDetailedResponse &o, const Tcs &t);
 static inline struct ak_ufix_ListTaskSummaryResponse make_list_task_summary_response_unk(const ListTaskSummaryResponse &o, const Tcs &t);
+static inline void fill_list_task_summary_response_unk_sparse(struct ak_ufix_ListTaskSummaryResponse *d, const ListTaskSummaryResponse &o, const Tcs &t);
 static inline struct ak_ufix_ListProbeResponse make_list_probe_response_unk(const ListProbeResponse &o, const Tcs &t);
+static inline void fill_list_probe_response_unk_sparse(struct ak_ufix_ListProbeResponse *d, const ListProbeResponse &o, const Tcs &t);
 static inline struct ak_ufix_ListMetricsResponse make_list_metrics_response_unk(const ListMetricsResponse &o, const Tcs &t);
+static inline void fill_list_metrics_response_unk_sparse(struct ak_ufix_ListMetricsResponse *d, const ListMetricsResponse &o, const Tcs &t);
 static inline struct ak_ufix_UploadResultDataMessage make_upload_result_data_message_unk(const UploadResultDataMessage &o, const Tcs &t);
+static inline void fill_upload_result_data_message_unk_sparse(struct ak_ufix_UploadResultDataMessage *d, const UploadResultDataMessage &o, const Tcs &t);
 static inline struct ak_ufix_DualResponse make_dual_response_unk(const DualResponse &o, const Tcs &t);
+static inline void fill_dual_response_unk_sparse(struct ak_ufix_DualResponse *d, const DualResponse &o, const Tcs &t);
 static inline struct ak_ufix_ChunkLeaf make_chunk_leaf_unk(const ChunkLeaf &o, const Tcs &t);
+static inline void fill_chunk_leaf_unk_sparse(struct ak_ufix_ChunkLeaf *d, const ChunkLeaf &o, const Tcs &t);
 static inline struct ak_ufix_ChunkInner make_chunk_inner_unk(const ChunkInner &o, const Tcs &t);
+static inline void fill_chunk_inner_unk_sparse(struct ak_ufix_ChunkInner *d, const ChunkInner &o, const Tcs &t);
 static inline struct ak_ufix_ChunkElement make_chunk_element_unk(const ChunkElement &o, const Tcs &t);
+static inline void fill_chunk_element_unk_sparse(struct ak_ufix_ChunkElement *d, const ChunkElement &o, const Tcs &t);
 static inline struct ak_ufix_ChunkedResponse make_chunked_response_unk(const ChunkedResponse &o, const Tcs &t);
+static inline void fill_chunked_response_unk_sparse(struct ak_ufix_ChunkedResponse *d, const ChunkedResponse &o, const Tcs &t);
 static inline struct ak_ufix_ChunkedResponseWide make_chunked_response_wide_unk(const ChunkedResponseWide &o, const Tcs &t);
+static inline void fill_chunked_response_wide_unk_sparse(struct ak_ufix_ChunkedResponseWide *d, const ChunkedResponseWide &o, const Tcs &t);
 static inline struct ak_ufix_LeafElement make_leaf_element_unk(const LeafElement &o, const Tcs &t);
+static inline void fill_leaf_element_unk_sparse(struct ak_ufix_LeafElement *d, const LeafElement &o, const Tcs &t);
 static inline struct ak_ufix_LeafResponse make_leaf_response_unk(const LeafResponse &o, const Tcs &t);
+static inline void fill_leaf_response_unk_sparse(struct ak_ufix_LeafResponse *d, const LeafResponse &o, const Tcs &t);
 static inline struct ak_ufix_SurrogateInner make_surrogate_inner_unk(const SurrogateInner &o, const Tcs &t);
+static inline void fill_surrogate_inner_unk_sparse(struct ak_ufix_SurrogateInner *d, const SurrogateInner &o, const Tcs &t);
 static inline struct ak_ufix_Surrogate make_surrogate_unk(const Surrogate &o, const Tcs &t);
+static inline void fill_surrogate_unk_sparse(struct ak_ufix_Surrogate *d, const Surrogate &o, const Tcs &t);
 static inline struct ak_ufix_WireZoo make_wire_zoo_unk(const WireZoo &o, const Tcs &t);
+static inline void fill_wire_zoo_unk_sparse(struct ak_ufix_WireZoo *d, const WireZoo &o, const Tcs &t);
 static inline Timestamp from_timestamp(const struct ak_dfix_Timestamp &f, const uint8_t *base, ak_dec_ctx *ctx);
 static inline Duration from_duration(const struct ak_dfix_Duration &f, const uint8_t *base, ak_dec_ctx *ctx);
 static inline ResultRaw from_result_raw(const struct ak_dfix_ResultRaw &f, const uint8_t *base, ak_dec_ctx *ctx);
@@ -438,6 +467,19 @@ static inline struct ak_ufix_Timestamp make_timestamp_unk(const Timestamp &o, co
   return g;
 }
 
+// B-2 (2026-09-28): decision 9's sparse fill over the u-group. The caller
+// clears the group; only what differs from the default is assigned, and
+// the bag only when it is non-empty (a cleared ak_unk_buf is empty).
+static inline void fill_timestamp_unk_sparse(struct ak_ufix_Timestamp *d, const Timestamp &o, const Tcs &t) {
+  (void)d; (void)o; (void)t;
+  if (o.seconds != 0) d->seconds = o.seconds;
+  if (o.nanos != 0) d->nanos = o.nanos;
+  if (!o.unknown_fields.empty()) {
+    d->unknown.data = o.unknown_fields.data();
+    d->unknown.len = o.unknown_fields.size();
+  }
+}
+
 // Decision 9's candidate: the host bulk-clears the chunk once and assigns
 // only what differs from the default.
 static inline void fill_timestamp_sparse(struct ak_efix_Timestamp *d, const Timestamp &o, const Tcs &t) {
@@ -469,6 +511,19 @@ static inline struct ak_ufix_Duration make_duration_unk(const Duration &o, const
   g.unknown.len = o.unknown_fields.size();
   g.presence = 0;
   return g;
+}
+
+// B-2 (2026-09-28): decision 9's sparse fill over the u-group. The caller
+// clears the group; only what differs from the default is assigned, and
+// the bag only when it is non-empty (a cleared ak_unk_buf is empty).
+static inline void fill_duration_unk_sparse(struct ak_ufix_Duration *d, const Duration &o, const Tcs &t) {
+  (void)d; (void)o; (void)t;
+  if (o.seconds != 0) d->seconds = o.seconds;
+  if (o.nanos != 0) d->nanos = o.nanos;
+  if (!o.unknown_fields.empty()) {
+    d->unknown.data = o.unknown_fields.data();
+    d->unknown.len = o.unknown_fields.size();
+  }
 }
 
 // Decision 9's candidate: the host bulk-clears the chunk once and assigns
@@ -520,6 +575,28 @@ static inline struct ak_ufix_ResultRaw make_result_raw_unk(const ResultRaw &o, c
   g.unknown.len = o.unknown_fields.size();
   g.presence = ((o.created_at.has_value() ? 1u : 0u) << 0) | ((o.completed_at.has_value() ? 1u : 0u) << 1);
   return g;
+}
+
+// B-2 (2026-09-28): decision 9's sparse fill over the u-group. The caller
+// clears the group; only what differs from the default is assigned, and
+// the bag only when it is non-empty (a cleared ak_unk_buf is empty).
+static inline void fill_result_raw_unk_sparse(struct ak_ufix_ResultRaw *d, const ResultRaw &o, const Tcs &t) {
+  (void)d; (void)o; (void)t;
+  if (!o.session_id.empty()) d->session_id = ak_str_of(o.session_id, t.utf8);
+  if (!o.name.empty()) d->name = ak_str_of(o.name, t.utf8);
+  if (!o.owner_task_id.empty()) d->owner_task_id = ak_str_of(o.owner_task_id, t.utf8);
+  if (o.status.v != 0) d->status = o.status.v;
+  if (o.created_at.has_value()) { fill_timestamp_unk_sparse(&d->created_at, *o.created_at, t); d->presence |= 1u << 0; }
+  if (o.completed_at.has_value()) { fill_timestamp_unk_sparse(&d->completed_at, *o.completed_at, t); d->presence |= 1u << 1; }
+  if (!o.result_id.empty()) d->result_id = ak_str_of(o.result_id, t.utf8);
+  if (o.size != 0) d->size = o.size;
+  if (!o.created_by.empty()) d->created_by = ak_str_of(o.created_by, t.utf8);
+  if (!o.opaque_id.empty()) d->opaque_id = ak_str_of(o.opaque_id, t.bytes);
+  if (o.manual_deletion) d->manual_deletion = 1;
+  if (!o.unknown_fields.empty()) {
+    d->unknown.data = o.unknown_fields.data();
+    d->unknown.len = o.unknown_fields.size();
+  }
 }
 
 // Decision 9's candidate: the host bulk-clears the chunk once and assigns
@@ -578,6 +655,26 @@ static inline struct ak_ufix_TaskOptions make_task_options_unk(const TaskOptions
   return g;
 }
 
+// B-2 (2026-09-28): decision 9's sparse fill over the u-group. The caller
+// clears the group; only what differs from the default is assigned, and
+// the bag only when it is non-empty (a cleared ak_unk_buf is empty).
+static inline void fill_task_options_unk_sparse(struct ak_ufix_TaskOptions *d, const TaskOptions &o, const Tcs &t) {
+  (void)d; (void)o; (void)t;
+  if (o.max_duration.has_value()) { fill_duration_unk_sparse(&d->max_duration, *o.max_duration, t); d->presence |= 1u << 0; }
+  if (o.max_retries != 0) d->max_retries = o.max_retries;
+  if (o.priority != 0) d->priority = o.priority;
+  if (!o.partition_id.empty()) d->partition_id = ak_str_of(o.partition_id, t.utf8);
+  if (!o.application_name.empty()) d->application_name = ak_str_of(o.application_name, t.utf8);
+  if (!o.application_version.empty()) d->application_version = ak_str_of(o.application_version, t.utf8);
+  if (!o.application_namespace.empty()) d->application_namespace = ak_str_of(o.application_namespace, t.utf8);
+  if (!o.application_service.empty()) d->application_service = ak_str_of(o.application_service, t.utf8);
+  if (!o.engine_type.empty()) d->engine_type = ak_str_of(o.engine_type, t.utf8);
+  if (!o.unknown_fields.empty()) {
+    d->unknown.data = o.unknown_fields.data();
+    d->unknown.len = o.unknown_fields.size();
+  }
+}
+
 // Decision 9's candidate: the host bulk-clears the chunk once and assigns
 // only what differs from the default.
 static inline void fill_task_options_sparse(struct ak_efix_TaskOptions *d, const TaskOptions &o, const Tcs &t) {
@@ -616,6 +713,19 @@ static inline struct ak_ufix_TaskOutput make_task_output_unk(const TaskOutput &o
   g.unknown.len = o.unknown_fields.size();
   g.presence = 0;
   return g;
+}
+
+// B-2 (2026-09-28): decision 9's sparse fill over the u-group. The caller
+// clears the group; only what differs from the default is assigned, and
+// the bag only when it is non-empty (a cleared ak_unk_buf is empty).
+static inline void fill_task_output_unk_sparse(struct ak_ufix_TaskOutput *d, const TaskOutput &o, const Tcs &t) {
+  (void)d; (void)o; (void)t;
+  if (o.success) d->success = 1;
+  if (!o.error.empty()) d->error = ak_str_of(o.error, t.utf8);
+  if (!o.unknown_fields.empty()) {
+    d->unknown.data = o.unknown_fields.data();
+    d->unknown.len = o.unknown_fields.size();
+  }
 }
 
 // Decision 9's candidate: the host bulk-clears the chunk once and assigns
@@ -693,6 +803,40 @@ static inline struct ak_ufix_TaskDetailed make_task_detailed_unk(const TaskDetai
   return g;
 }
 
+// B-2 (2026-09-28): decision 9's sparse fill over the u-group. The caller
+// clears the group; only what differs from the default is assigned, and
+// the bag only when it is non-empty (a cleared ak_unk_buf is empty).
+static inline void fill_task_detailed_unk_sparse(struct ak_ufix_TaskDetailed *d, const TaskDetailed &o, const Tcs &t) {
+  (void)d; (void)o; (void)t;
+  if (!o.id.empty()) d->id = ak_str_of(o.id, t.utf8);
+  if (!o.session_id.empty()) d->session_id = ak_str_of(o.session_id, t.utf8);
+  if (!o.owner_pod_id.empty()) d->owner_pod_id = ak_str_of(o.owner_pod_id, t.utf8);
+  if (o.status.v != 0) d->status = o.status.v;
+  if (!o.status_message.empty()) d->status_message = ak_str_of(o.status_message, t.utf8);
+  if (o.options.has_value()) { fill_task_options_unk_sparse(&d->options, *o.options, t); d->presence |= 1u << 0; }
+  if (o.created_at.has_value()) { fill_timestamp_unk_sparse(&d->created_at, *o.created_at, t); d->presence |= 1u << 1; }
+  if (o.submitted_at.has_value()) { fill_timestamp_unk_sparse(&d->submitted_at, *o.submitted_at, t); d->presence |= 1u << 2; }
+  if (o.started_at.has_value()) { fill_timestamp_unk_sparse(&d->started_at, *o.started_at, t); d->presence |= 1u << 3; }
+  if (o.ended_at.has_value()) { fill_timestamp_unk_sparse(&d->ended_at, *o.ended_at, t); d->presence |= 1u << 4; }
+  if (o.pod_ttl.has_value()) { fill_timestamp_unk_sparse(&d->pod_ttl, *o.pod_ttl, t); d->presence |= 1u << 5; }
+  if (o.output.has_value()) { fill_task_output_unk_sparse(&d->output, *o.output, t); d->presence |= 1u << 6; }
+  if (!o.pod_hostname.empty()) d->pod_hostname = ak_str_of(o.pod_hostname, t.utf8);
+  if (o.received_at.has_value()) { fill_timestamp_unk_sparse(&d->received_at, *o.received_at, t); d->presence |= 1u << 7; }
+  if (o.acquired_at.has_value()) { fill_timestamp_unk_sparse(&d->acquired_at, *o.acquired_at, t); d->presence |= 1u << 8; }
+  if (o.creation_to_end_duration.has_value()) { fill_duration_unk_sparse(&d->creation_to_end_duration, *o.creation_to_end_duration, t); d->presence |= 1u << 9; }
+  if (o.processing_to_end_duration.has_value()) { fill_duration_unk_sparse(&d->processing_to_end_duration, *o.processing_to_end_duration, t); d->presence |= 1u << 10; }
+  if (!o.initial_task_id.empty()) d->initial_task_id = ak_str_of(o.initial_task_id, t.utf8);
+  if (o.received_to_end_duration.has_value()) { fill_duration_unk_sparse(&d->received_to_end_duration, *o.received_to_end_duration, t); d->presence |= 1u << 11; }
+  if (o.processed_at.has_value()) { fill_timestamp_unk_sparse(&d->processed_at, *o.processed_at, t); d->presence |= 1u << 12; }
+  if (o.fetched_at.has_value()) { fill_timestamp_unk_sparse(&d->fetched_at, *o.fetched_at, t); d->presence |= 1u << 13; }
+  if (!o.payload_id.empty()) d->payload_id = ak_str_of(o.payload_id, t.utf8);
+  if (!o.created_by.empty()) d->created_by = ak_str_of(o.created_by, t.utf8);
+  if (!o.unknown_fields.empty()) {
+    d->unknown.data = o.unknown_fields.data();
+    d->unknown.len = o.unknown_fields.size();
+  }
+}
+
 // Decision 9's candidate: the host bulk-clears the chunk once and assigns
 // only what differs from the default.
 static inline void fill_task_detailed_sparse(struct ak_efix_TaskDetailed *d, const TaskDetailed &o, const Tcs &t) {
@@ -759,6 +903,25 @@ static inline struct ak_ufix_TaskSummary make_task_summary_unk(const TaskSummary
   return g;
 }
 
+// B-2 (2026-09-28): decision 9's sparse fill over the u-group. The caller
+// clears the group; only what differs from the default is assigned, and
+// the bag only when it is non-empty (a cleared ak_unk_buf is empty).
+static inline void fill_task_summary_unk_sparse(struct ak_ufix_TaskSummary *d, const TaskSummary &o, const Tcs &t) {
+  (void)d; (void)o; (void)t;
+  if (!o.id.empty()) d->id = ak_str_of(o.id, t.utf8);
+  if (!o.session_id.empty()) d->session_id = ak_str_of(o.session_id, t.utf8);
+  if (o.options.has_value()) { fill_task_options_unk_sparse(&d->options, *o.options, t); d->presence |= 1u << 0; }
+  if (o.status.v != 0) d->status = o.status.v;
+  if (o.created_at.has_value()) { fill_timestamp_unk_sparse(&d->created_at, *o.created_at, t); d->presence |= 1u << 1; }
+  if (!o.error.empty()) d->error = ak_str_of(o.error, t.utf8);
+  if (!o.status_message.empty()) d->status_message = ak_str_of(o.status_message, t.utf8);
+  if (o.count_data_dependencies != 0) d->count_data_dependencies = o.count_data_dependencies;
+  if (!o.unknown_fields.empty()) {
+    d->unknown.data = o.unknown_fields.data();
+    d->unknown.len = o.unknown_fields.size();
+  }
+}
+
 // Decision 9's candidate: the host bulk-clears the chunk once and assigns
 // only what differs from the default.
 static inline void fill_task_summary_sparse(struct ak_efix_TaskSummary *d, const TaskSummary &o, const Tcs &t) {
@@ -792,6 +955,17 @@ static inline struct ak_ufix_Empty make_empty_unk(const Empty &o, const Tcs &t) 
   g.unknown.len = o.unknown_fields.size();
   g.presence = 0;
   return g;
+}
+
+// B-2 (2026-09-28): decision 9's sparse fill over the u-group. The caller
+// clears the group; only what differs from the default is assigned, and
+// the bag only when it is non-empty (a cleared ak_unk_buf is empty).
+static inline void fill_empty_unk_sparse(struct ak_ufix_Empty *d, const Empty &o, const Tcs &t) {
+  (void)d; (void)o; (void)t;
+  if (!o.unknown_fields.empty()) {
+    d->unknown.data = o.unknown_fields.data();
+    d->unknown.len = o.unknown_fields.size();
+  }
 }
 
 // Decision 9's candidate: the host bulk-clears the chunk once and assigns
@@ -839,6 +1013,37 @@ static inline struct ak_ufix_Probe make_probe_unk(const Probe &o, const Tcs &t) 
   g.unknown.len = o.unknown_fields.size();
   g.presence = ((o.opt_count.has_value() ? 1u : 0u) << 0) | ((o.opt_label.has_value() ? 1u : 0u) << 1) | ((o.opt_flag.has_value() ? 1u : 0u) << 2);
   return g;
+}
+
+// B-2 (2026-09-28): decision 9's sparse fill over the u-group. The caller
+// clears the group; only what differs from the default is assigned, and
+// the bag only when it is non-empty (a cleared ak_unk_buf is empty).
+static inline void fill_probe_unk_sparse(struct ak_ufix_Probe *d, const Probe &o, const Tcs &t) {
+  (void)d; (void)o; (void)t;
+  if (!o.id.empty()) d->id = ak_str_of(o.id, t.utf8);
+  if (o.opt_count.has_value()) { d->opt_count = *o.opt_count; d->presence |= 1u << 0; }
+  if (o.opt_label.has_value()) { d->opt_label = ak_str_of(*o.opt_label, t.utf8); d->presence |= 1u << 1; }
+  if (o.opt_flag.has_value()) { d->opt_flag = (uint8_t)(*o.opt_flag ? 1 : 0); d->presence |= 1u << 2; }
+  if (o.body.which() != corpus::ProbeBody::kNotSet) {
+    d->body_case = (uint32_t)o.body.which();
+    switch (o.body.which()) {
+      case corpus::ProbeBody::kAsInt:
+        d->body_as_int = o.body.as_int(); break;
+      case corpus::ProbeBody::kAsText:
+        d->body_as_text = ak_str_of(o.body.as_text(), t.utf8); break;
+      case corpus::ProbeBody::kAsBlob:
+        d->body_as_blob = ak_str_of(o.body.as_blob(), t.bytes); break;
+      case corpus::ProbeBody::kAsStamp:
+        fill_timestamp_unk_sparse(&d->body_as_stamp, o.body.as_stamp(), t); break;
+      case corpus::ProbeBody::kAsNothing:
+        fill_empty_unk_sparse(&d->body_as_nothing, o.body.as_nothing(), t); break;
+      default: break;
+    }
+  }
+  if (!o.unknown_fields.empty()) {
+    d->unknown.data = o.unknown_fields.data();
+    d->unknown.len = o.unknown_fields.size();
+  }
 }
 
 // Decision 9's candidate: the host bulk-clears the chunk once and assigns
@@ -894,6 +1099,20 @@ static inline struct ak_ufix_UploadResultData make_upload_result_data_unk(const 
   return g;
 }
 
+// B-2 (2026-09-28): decision 9's sparse fill over the u-group. The caller
+// clears the group; only what differs from the default is assigned, and
+// the bag only when it is non-empty (a cleared ak_unk_buf is empty).
+static inline void fill_upload_result_data_unk_sparse(struct ak_ufix_UploadResultData *d, const UploadResultData &o, const Tcs &t) {
+  (void)d; (void)o; (void)t;
+  if (!o.session_id.empty()) d->session_id = ak_str_of(o.session_id, t.utf8);
+  if (!o.result_id.empty()) d->result_id = ak_str_of(o.result_id, t.utf8);
+  if (!o.data_chunk.empty()) d->data_chunk = ak_str_direct(o.data_chunk.size());
+  if (!o.unknown_fields.empty()) {
+    d->unknown.data = o.unknown_fields.data();
+    d->unknown.len = o.unknown_fields.size();
+  }
+}
+
 // Decision 9's candidate: the host bulk-clears the chunk once and assigns
 // only what differs from the default.
 static inline void fill_upload_result_data_sparse(struct ak_efix_UploadResultData *d, const UploadResultData &o, const Tcs &t) {
@@ -926,6 +1145,18 @@ static inline struct ak_ufix_MetricsBatch make_metrics_batch_unk(const MetricsBa
   return g;
 }
 
+// B-2 (2026-09-28): decision 9's sparse fill over the u-group. The caller
+// clears the group; only what differs from the default is assigned, and
+// the bag only when it is non-empty (a cleared ak_unk_buf is empty).
+static inline void fill_metrics_batch_unk_sparse(struct ak_ufix_MetricsBatch *d, const MetricsBatch &o, const Tcs &t) {
+  (void)d; (void)o; (void)t;
+  if (!o.id.empty()) d->id = ak_str_of(o.id, t.utf8);
+  if (!o.unknown_fields.empty()) {
+    d->unknown.data = o.unknown_fields.data();
+    d->unknown.len = o.unknown_fields.size();
+  }
+}
+
 // Decision 9's candidate: the host bulk-clears the chunk once and assigns
 // only what differs from the default.
 static inline void fill_metrics_batch_sparse(struct ak_efix_MetricsBatch *d, const MetricsBatch &o, const Tcs &t) {
@@ -956,6 +1187,19 @@ static inline struct ak_ufix_Pair make_pair_unk(const Pair &o, const Tcs &t) {
   g.unknown.len = o.unknown_fields.size();
   g.presence = 0;
   return g;
+}
+
+// B-2 (2026-09-28): decision 9's sparse fill over the u-group. The caller
+// clears the group; only what differs from the default is assigned, and
+// the bag only when it is non-empty (a cleared ak_unk_buf is empty).
+static inline void fill_pair_unk_sparse(struct ak_ufix_Pair *d, const Pair &o, const Tcs &t) {
+  (void)d; (void)o; (void)t;
+  if (!o.key.empty()) d->key = ak_str_of(o.key, t.utf8);
+  if (o.value != 0) d->value = o.value;
+  if (!o.unknown_fields.empty()) {
+    d->unknown.data = o.unknown_fields.data();
+    d->unknown.len = o.unknown_fields.size();
+  }
 }
 
 // Decision 9's candidate: the host bulk-clears the chunk once and assigns
@@ -991,6 +1235,19 @@ static inline struct ak_ufix_ListResultsResponse make_list_results_response_unk(
   return g;
 }
 
+// B-2 (2026-09-28): decision 9's sparse fill over the u-group. The caller
+// clears the group; only what differs from the default is assigned, and
+// the bag only when it is non-empty (a cleared ak_unk_buf is empty).
+static inline void fill_list_results_response_unk_sparse(struct ak_ufix_ListResultsResponse *d, const ListResultsResponse &o, const Tcs &t) {
+  (void)d; (void)o; (void)t;
+  if (o.page != 0) d->page = o.page;
+  if (o.total != 0) d->total = o.total;
+  if (!o.unknown_fields.empty()) {
+    d->unknown.data = o.unknown_fields.data();
+    d->unknown.len = o.unknown_fields.size();
+  }
+}
+
 // Decision 9's candidate: the host bulk-clears the chunk once and assigns
 // only what differs from the default.
 static inline void fill_list_results_response_sparse(struct ak_efix_ListResultsResponse *d, const ListResultsResponse &o, const Tcs &t) {
@@ -1024,6 +1281,19 @@ static inline struct ak_ufix_ListTasksDetailedResponse make_list_tasks_detailed_
   return g;
 }
 
+// B-2 (2026-09-28): decision 9's sparse fill over the u-group. The caller
+// clears the group; only what differs from the default is assigned, and
+// the bag only when it is non-empty (a cleared ak_unk_buf is empty).
+static inline void fill_list_tasks_detailed_response_unk_sparse(struct ak_ufix_ListTasksDetailedResponse *d, const ListTasksDetailedResponse &o, const Tcs &t) {
+  (void)d; (void)o; (void)t;
+  if (o.page != 0) d->page = o.page;
+  if (o.total != 0) d->total = o.total;
+  if (!o.unknown_fields.empty()) {
+    d->unknown.data = o.unknown_fields.data();
+    d->unknown.len = o.unknown_fields.size();
+  }
+}
+
 // Decision 9's candidate: the host bulk-clears the chunk once and assigns
 // only what differs from the default.
 static inline void fill_list_tasks_detailed_response_sparse(struct ak_efix_ListTasksDetailedResponse *d, const ListTasksDetailedResponse &o, const Tcs &t) {
@@ -1053,6 +1323,17 @@ static inline struct ak_ufix_ListTaskSummaryResponse make_list_task_summary_resp
   return g;
 }
 
+// B-2 (2026-09-28): decision 9's sparse fill over the u-group. The caller
+// clears the group; only what differs from the default is assigned, and
+// the bag only when it is non-empty (a cleared ak_unk_buf is empty).
+static inline void fill_list_task_summary_response_unk_sparse(struct ak_ufix_ListTaskSummaryResponse *d, const ListTaskSummaryResponse &o, const Tcs &t) {
+  (void)d; (void)o; (void)t;
+  if (!o.unknown_fields.empty()) {
+    d->unknown.data = o.unknown_fields.data();
+    d->unknown.len = o.unknown_fields.size();
+  }
+}
+
 // Decision 9's candidate: the host bulk-clears the chunk once and assigns
 // only what differs from the default.
 static inline void fill_list_task_summary_response_sparse(struct ak_efix_ListTaskSummaryResponse *d, const ListTaskSummaryResponse &o, const Tcs &t) {
@@ -1080,6 +1361,17 @@ static inline struct ak_ufix_ListProbeResponse make_list_probe_response_unk(cons
   return g;
 }
 
+// B-2 (2026-09-28): decision 9's sparse fill over the u-group. The caller
+// clears the group; only what differs from the default is assigned, and
+// the bag only when it is non-empty (a cleared ak_unk_buf is empty).
+static inline void fill_list_probe_response_unk_sparse(struct ak_ufix_ListProbeResponse *d, const ListProbeResponse &o, const Tcs &t) {
+  (void)d; (void)o; (void)t;
+  if (!o.unknown_fields.empty()) {
+    d->unknown.data = o.unknown_fields.data();
+    d->unknown.len = o.unknown_fields.size();
+  }
+}
+
 // Decision 9's candidate: the host bulk-clears the chunk once and assigns
 // only what differs from the default.
 static inline void fill_list_probe_response_sparse(struct ak_efix_ListProbeResponse *d, const ListProbeResponse &o, const Tcs &t) {
@@ -1105,6 +1397,17 @@ static inline struct ak_ufix_ListMetricsResponse make_list_metrics_response_unk(
   g.unknown.len = o.unknown_fields.size();
   g.presence = 0;
   return g;
+}
+
+// B-2 (2026-09-28): decision 9's sparse fill over the u-group. The caller
+// clears the group; only what differs from the default is assigned, and
+// the bag only when it is non-empty (a cleared ak_unk_buf is empty).
+static inline void fill_list_metrics_response_unk_sparse(struct ak_ufix_ListMetricsResponse *d, const ListMetricsResponse &o, const Tcs &t) {
+  (void)d; (void)o; (void)t;
+  if (!o.unknown_fields.empty()) {
+    d->unknown.data = o.unknown_fields.data();
+    d->unknown.len = o.unknown_fields.size();
+  }
 }
 
 // Decision 9's candidate: the host bulk-clears the chunk once and assigns
@@ -1136,6 +1439,18 @@ static inline struct ak_ufix_UploadResultDataMessage make_upload_result_data_mes
   return g;
 }
 
+// B-2 (2026-09-28): decision 9's sparse fill over the u-group. The caller
+// clears the group; only what differs from the default is assigned, and
+// the bag only when it is non-empty (a cleared ak_unk_buf is empty).
+static inline void fill_upload_result_data_message_unk_sparse(struct ak_ufix_UploadResultDataMessage *d, const UploadResultDataMessage &o, const Tcs &t) {
+  (void)d; (void)o; (void)t;
+  if (o.upload.has_value()) { fill_upload_result_data_unk_sparse(&d->upload, *o.upload, t); d->presence |= 1u << 0; }
+  if (!o.unknown_fields.empty()) {
+    d->unknown.data = o.unknown_fields.data();
+    d->unknown.len = o.unknown_fields.size();
+  }
+}
+
 // Decision 9's candidate: the host bulk-clears the chunk once and assigns
 // only what differs from the default.
 static inline void fill_upload_result_data_message_sparse(struct ak_efix_UploadResultDataMessage *d, const UploadResultDataMessage &o, const Tcs &t) {
@@ -1162,6 +1477,17 @@ static inline struct ak_ufix_DualResponse make_dual_response_unk(const DualRespo
   g.unknown.len = o.unknown_fields.size();
   g.presence = 0;
   return g;
+}
+
+// B-2 (2026-09-28): decision 9's sparse fill over the u-group. The caller
+// clears the group; only what differs from the default is assigned, and
+// the bag only when it is non-empty (a cleared ak_unk_buf is empty).
+static inline void fill_dual_response_unk_sparse(struct ak_ufix_DualResponse *d, const DualResponse &o, const Tcs &t) {
+  (void)d; (void)o; (void)t;
+  if (!o.unknown_fields.empty()) {
+    d->unknown.data = o.unknown_fields.data();
+    d->unknown.len = o.unknown_fields.size();
+  }
 }
 
 // Decision 9's candidate: the host bulk-clears the chunk once and assigns
@@ -1195,6 +1521,19 @@ static inline struct ak_ufix_ChunkLeaf make_chunk_leaf_unk(const ChunkLeaf &o, c
   return g;
 }
 
+// B-2 (2026-09-28): decision 9's sparse fill over the u-group. The caller
+// clears the group; only what differs from the default is assigned, and
+// the bag only when it is non-empty (a cleared ak_unk_buf is empty).
+static inline void fill_chunk_leaf_unk_sparse(struct ak_ufix_ChunkLeaf *d, const ChunkLeaf &o, const Tcs &t) {
+  (void)d; (void)o; (void)t;
+  if (!o.k.empty()) d->k = ak_str_of(o.k, t.utf8);
+  if (o.v != 0) d->v = o.v;
+  if (!o.unknown_fields.empty()) {
+    d->unknown.data = o.unknown_fields.data();
+    d->unknown.len = o.unknown_fields.size();
+  }
+}
+
 // Decision 9's candidate: the host bulk-clears the chunk once and assigns
 // only what differs from the default.
 static inline void fill_chunk_leaf_sparse(struct ak_efix_ChunkLeaf *d, const ChunkLeaf &o, const Tcs &t) {
@@ -1222,6 +1561,17 @@ static inline struct ak_ufix_ChunkInner make_chunk_inner_unk(const ChunkInner &o
   g.unknown.len = o.unknown_fields.size();
   g.presence = 0;
   return g;
+}
+
+// B-2 (2026-09-28): decision 9's sparse fill over the u-group. The caller
+// clears the group; only what differs from the default is assigned, and
+// the bag only when it is non-empty (a cleared ak_unk_buf is empty).
+static inline void fill_chunk_inner_unk_sparse(struct ak_ufix_ChunkInner *d, const ChunkInner &o, const Tcs &t) {
+  (void)d; (void)o; (void)t;
+  if (!o.unknown_fields.empty()) {
+    d->unknown.data = o.unknown_fields.data();
+    d->unknown.len = o.unknown_fields.size();
+  }
 }
 
 // Decision 9's candidate: the host bulk-clears the chunk once and assigns
@@ -1255,6 +1605,19 @@ static inline struct ak_ufix_ChunkElement make_chunk_element_unk(const ChunkElem
   return g;
 }
 
+// B-2 (2026-09-28): decision 9's sparse fill over the u-group. The caller
+// clears the group; only what differs from the default is assigned, and
+// the bag only when it is non-empty (a cleared ak_unk_buf is empty).
+static inline void fill_chunk_element_unk_sparse(struct ak_ufix_ChunkElement *d, const ChunkElement &o, const Tcs &t) {
+  (void)d; (void)o; (void)t;
+  if (!o.id.empty()) d->id = ak_str_of(o.id, t.utf8);
+  if (o.inner.has_value()) { fill_chunk_inner_unk_sparse(&d->inner, *o.inner, t); d->presence |= 1u << 0; }
+  if (!o.unknown_fields.empty()) {
+    d->unknown.data = o.unknown_fields.data();
+    d->unknown.len = o.unknown_fields.size();
+  }
+}
+
 // Decision 9's candidate: the host bulk-clears the chunk once and assigns
 // only what differs from the default.
 static inline void fill_chunk_element_sparse(struct ak_efix_ChunkElement *d, const ChunkElement &o, const Tcs &t) {
@@ -1286,6 +1649,18 @@ static inline struct ak_ufix_ChunkedResponse make_chunked_response_unk(const Chu
   return g;
 }
 
+// B-2 (2026-09-28): decision 9's sparse fill over the u-group. The caller
+// clears the group; only what differs from the default is assigned, and
+// the bag only when it is non-empty (a cleared ak_unk_buf is empty).
+static inline void fill_chunked_response_unk_sparse(struct ak_ufix_ChunkedResponse *d, const ChunkedResponse &o, const Tcs &t) {
+  (void)d; (void)o; (void)t;
+  if (o.page != 0) d->page = o.page;
+  if (!o.unknown_fields.empty()) {
+    d->unknown.data = o.unknown_fields.data();
+    d->unknown.len = o.unknown_fields.size();
+  }
+}
+
 // Decision 9's candidate: the host bulk-clears the chunk once and assigns
 // only what differs from the default.
 static inline void fill_chunked_response_sparse(struct ak_efix_ChunkedResponse *d, const ChunkedResponse &o, const Tcs &t) {
@@ -1312,6 +1687,17 @@ static inline struct ak_ufix_ChunkedResponseWide make_chunked_response_wide_unk(
   g.unknown.len = o.unknown_fields.size();
   g.presence = 0;
   return g;
+}
+
+// B-2 (2026-09-28): decision 9's sparse fill over the u-group. The caller
+// clears the group; only what differs from the default is assigned, and
+// the bag only when it is non-empty (a cleared ak_unk_buf is empty).
+static inline void fill_chunked_response_wide_unk_sparse(struct ak_ufix_ChunkedResponseWide *d, const ChunkedResponseWide &o, const Tcs &t) {
+  (void)d; (void)o; (void)t;
+  if (!o.unknown_fields.empty()) {
+    d->unknown.data = o.unknown_fields.data();
+    d->unknown.len = o.unknown_fields.size();
+  }
 }
 
 // Decision 9's candidate: the host bulk-clears the chunk once and assigns
@@ -1347,6 +1733,20 @@ static inline struct ak_ufix_LeafElement make_leaf_element_unk(const LeafElement
   return g;
 }
 
+// B-2 (2026-09-28): decision 9's sparse fill over the u-group. The caller
+// clears the group; only what differs from the default is assigned, and
+// the bag only when it is non-empty (a cleared ak_unk_buf is empty).
+static inline void fill_leaf_element_unk_sparse(struct ak_ufix_LeafElement *d, const LeafElement &o, const Tcs &t) {
+  (void)d; (void)o; (void)t;
+  if (!o.id.empty()) d->id = ak_str_of(o.id, t.utf8);
+  if (o.n != 0) d->n = o.n;
+  if (o.stamp.has_value()) { fill_timestamp_unk_sparse(&d->stamp, *o.stamp, t); d->presence |= 1u << 0; }
+  if (!o.unknown_fields.empty()) {
+    d->unknown.data = o.unknown_fields.data();
+    d->unknown.len = o.unknown_fields.size();
+  }
+}
+
 // Decision 9's candidate: the host bulk-clears the chunk once and assigns
 // only what differs from the default.
 static inline void fill_leaf_element_sparse(struct ak_efix_LeafElement *d, const LeafElement &o, const Tcs &t) {
@@ -1377,6 +1777,17 @@ static inline struct ak_ufix_LeafResponse make_leaf_response_unk(const LeafRespo
   return g;
 }
 
+// B-2 (2026-09-28): decision 9's sparse fill over the u-group. The caller
+// clears the group; only what differs from the default is assigned, and
+// the bag only when it is non-empty (a cleared ak_unk_buf is empty).
+static inline void fill_leaf_response_unk_sparse(struct ak_ufix_LeafResponse *d, const LeafResponse &o, const Tcs &t) {
+  (void)d; (void)o; (void)t;
+  if (!o.unknown_fields.empty()) {
+    d->unknown.data = o.unknown_fields.data();
+    d->unknown.len = o.unknown_fields.size();
+  }
+}
+
 // Decision 9's candidate: the host bulk-clears the chunk once and assigns
 // only what differs from the default.
 static inline void fill_leaf_response_sparse(struct ak_efix_LeafResponse *d, const LeafResponse &o, const Tcs &t) {
@@ -1404,6 +1815,18 @@ static inline struct ak_ufix_SurrogateInner make_surrogate_inner_unk(const Surro
   g.unknown.len = o.unknown_fields.size();
   g.presence = 0;
   return g;
+}
+
+// B-2 (2026-09-28): decision 9's sparse fill over the u-group. The caller
+// clears the group; only what differs from the default is assigned, and
+// the bag only when it is non-empty (a cleared ak_unk_buf is empty).
+static inline void fill_surrogate_inner_unk_sparse(struct ak_ufix_SurrogateInner *d, const SurrogateInner &o, const Tcs &t) {
+  (void)d; (void)o; (void)t;
+  if (!o.text.empty()) d->text = ak_str_of(o.text, t.utf8);
+  if (!o.unknown_fields.empty()) {
+    d->unknown.data = o.unknown_fields.data();
+    d->unknown.len = o.unknown_fields.size();
+  }
 }
 
 // Decision 9's candidate: the host bulk-clears the chunk once and assigns
@@ -1438,6 +1861,20 @@ static inline struct ak_ufix_Surrogate make_surrogate_unk(const Surrogate &o, co
   g.unknown.len = o.unknown_fields.size();
   g.presence = ((o.nested.has_value() ? 1u : 0u) << 0);
   return g;
+}
+
+// B-2 (2026-09-28): decision 9's sparse fill over the u-group. The caller
+// clears the group; only what differs from the default is assigned, and
+// the bag only when it is non-empty (a cleared ak_unk_buf is empty).
+static inline void fill_surrogate_unk_sparse(struct ak_ufix_Surrogate *d, const Surrogate &o, const Tcs &t) {
+  (void)d; (void)o; (void)t;
+  if (!o.text.empty()) d->text = ak_str_of(o.text, t.utf8);
+  if (o.nested.has_value()) { fill_surrogate_inner_unk_sparse(&d->nested, *o.nested, t); d->presence |= 1u << 0; }
+  if (!o.raw.empty()) d->raw = ak_str_of(o.raw, t.bytes);
+  if (!o.unknown_fields.empty()) {
+    d->unknown.data = o.unknown_fields.data();
+    d->unknown.len = o.unknown_fields.size();
+  }
 }
 
 // Decision 9's candidate: the host bulk-clears the chunk once and assigns
@@ -1488,6 +1925,27 @@ static inline struct ak_ufix_WireZoo make_wire_zoo_unk(const WireZoo &o, const T
   g.unknown.len = o.unknown_fields.size();
   g.presence = ((o.v_msg.has_value() ? 1u : 0u) << 0);
   return g;
+}
+
+// B-2 (2026-09-28): decision 9's sparse fill over the u-group. The caller
+// clears the group; only what differs from the default is assigned, and
+// the bag only when it is non-empty (a cleared ak_unk_buf is empty).
+static inline void fill_wire_zoo_unk_sparse(struct ak_ufix_WireZoo *d, const WireZoo &o, const Tcs &t) {
+  (void)d; (void)o; (void)t;
+  if (o.v_int32 != 0) d->v_int32 = o.v_int32;
+  if (o.v_int64 != 0) d->v_int64 = o.v_int64;
+  if (o.v_bool) d->v_bool = 1;
+  if (o.v_double != 0) d->v_double = o.v_double;
+  if (o.v_fixed32 != 0) d->v_fixed32 = o.v_fixed32;
+  if (!o.v_string.empty()) d->v_string = ak_str_of(o.v_string, t.utf8);
+  if (!o.v_bytes.empty()) d->v_bytes = ak_str_of(o.v_bytes, t.bytes);
+  if (o.v_enum.v != 0) d->v_enum = o.v_enum.v;
+  if (o.v_msg.has_value()) { fill_timestamp_unk_sparse(&d->v_msg, *o.v_msg, t); d->presence |= 1u << 0; }
+  if (o.v_big_tag != 0) d->v_big_tag = o.v_big_tag;
+  if (!o.unknown_fields.empty()) {
+    d->unknown.data = o.unknown_fields.data();
+    d->unknown.len = o.unknown_fields.size();
+  }
 }
 
 // Decision 9's candidate: the host bulk-clears the chunk once and assigns
@@ -7223,6 +7681,20 @@ intptr_t encode_into_timestamp_unk(ak_enc_ctx *ctx, const Timestamp &o, const Tc
   return ak_uencode_Timestamp(&h, ctx, &vt, &fix);
 }
 
+intptr_t encode_into_timestamp_unk_zeroed(ak_enc_ctx *ctx, const Timestamp &o, const Tcs &t) {
+  AK_INIT_OR_RETURN();
+  AK_HOST_CALL(); ak_enc_reset(ctx);
+  EncObj_Timestamp h;
+  h.o = &o;
+  h.t = t;
+  struct ak_evt_Timestamp vt;
+  vt._reserved = NULL;
+  struct ak_ufix_Timestamp fix;
+  std::memset(&fix, 0, sizeof(fix));
+  fill_timestamp_unk_sparse(&fix, o, t);
+  return ak_uencode_Timestamp(&h, ctx, &vt, &fix);
+}
+
 intptr_t encode_into_duration_unk(ak_enc_ctx *ctx, const Duration &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
   AK_HOST_CALL(); ak_enc_reset(ctx);
@@ -7232,6 +7704,20 @@ intptr_t encode_into_duration_unk(ak_enc_ctx *ctx, const Duration &o, const Tcs 
   struct ak_evt_Duration vt;
   vt._reserved = NULL;
   struct ak_ufix_Duration fix = make_duration_unk(o, t);
+  return ak_uencode_Duration(&h, ctx, &vt, &fix);
+}
+
+intptr_t encode_into_duration_unk_zeroed(ak_enc_ctx *ctx, const Duration &o, const Tcs &t) {
+  AK_INIT_OR_RETURN();
+  AK_HOST_CALL(); ak_enc_reset(ctx);
+  EncObj_Duration h;
+  h.o = &o;
+  h.t = t;
+  struct ak_evt_Duration vt;
+  vt._reserved = NULL;
+  struct ak_ufix_Duration fix;
+  std::memset(&fix, 0, sizeof(fix));
+  fill_duration_unk_sparse(&fix, o, t);
   return ak_uencode_Duration(&h, ctx, &vt, &fix);
 }
 
@@ -7247,6 +7733,20 @@ intptr_t encode_into_result_raw_unk(ak_enc_ctx *ctx, const ResultRaw &o, const T
   return ak_uencode_ResultRaw(&h, ctx, &vt, &fix);
 }
 
+intptr_t encode_into_result_raw_unk_zeroed(ak_enc_ctx *ctx, const ResultRaw &o, const Tcs &t) {
+  AK_INIT_OR_RETURN();
+  AK_HOST_CALL(); ak_enc_reset(ctx);
+  EncObj_ResultRaw h;
+  h.o = &o;
+  h.t = t;
+  struct ak_evt_ResultRaw vt;
+  vt._reserved = NULL;
+  struct ak_ufix_ResultRaw fix;
+  std::memset(&fix, 0, sizeof(fix));
+  fill_result_raw_unk_sparse(&fix, o, t);
+  return ak_uencode_ResultRaw(&h, ctx, &vt, &fix);
+}
+
 intptr_t encode_into_task_options_unk(ak_enc_ctx *ctx, const TaskOptions &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
   AK_HOST_CALL(); ak_enc_reset(ctx);
@@ -7259,6 +7759,20 @@ intptr_t encode_into_task_options_unk(ak_enc_ctx *ctx, const TaskOptions &o, con
   return ak_uencode_TaskOptions(&h, ctx, &vt, &fix);
 }
 
+intptr_t encode_into_task_options_unk_zeroed(ak_enc_ctx *ctx, const TaskOptions &o, const Tcs &t) {
+  AK_INIT_OR_RETURN();
+  AK_HOST_CALL(); ak_enc_reset(ctx);
+  EncObj_TaskOptions h;
+  h.o = &o;
+  h.t = t;
+  struct ak_evt_TaskOptions vt;
+  vt.loop_options = loop_task_options_options_zeroed;
+  struct ak_ufix_TaskOptions fix;
+  std::memset(&fix, 0, sizeof(fix));
+  fill_task_options_unk_sparse(&fix, o, t);
+  return ak_uencode_TaskOptions(&h, ctx, &vt, &fix);
+}
+
 intptr_t encode_into_task_output_unk(ak_enc_ctx *ctx, const TaskOutput &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
   AK_HOST_CALL(); ak_enc_reset(ctx);
@@ -7268,6 +7782,20 @@ intptr_t encode_into_task_output_unk(ak_enc_ctx *ctx, const TaskOutput &o, const
   struct ak_evt_TaskOutput vt;
   vt._reserved = NULL;
   struct ak_ufix_TaskOutput fix = make_task_output_unk(o, t);
+  return ak_uencode_TaskOutput(&h, ctx, &vt, &fix);
+}
+
+intptr_t encode_into_task_output_unk_zeroed(ak_enc_ctx *ctx, const TaskOutput &o, const Tcs &t) {
+  AK_INIT_OR_RETURN();
+  AK_HOST_CALL(); ak_enc_reset(ctx);
+  EncObj_TaskOutput h;
+  h.o = &o;
+  h.t = t;
+  struct ak_evt_TaskOutput vt;
+  vt._reserved = NULL;
+  struct ak_ufix_TaskOutput fix;
+  std::memset(&fix, 0, sizeof(fix));
+  fill_task_output_unk_sparse(&fix, o, t);
   return ak_uencode_TaskOutput(&h, ctx, &vt, &fix);
 }
 
@@ -7287,6 +7815,24 @@ intptr_t encode_into_task_detailed_unk(ak_enc_ctx *ctx, const TaskDetailed &o, c
   return ak_uencode_TaskDetailed(&h, ctx, &vt, &fix);
 }
 
+intptr_t encode_into_task_detailed_unk_zeroed(ak_enc_ctx *ctx, const TaskDetailed &o, const Tcs &t) {
+  AK_INIT_OR_RETURN();
+  AK_HOST_CALL(); ak_enc_reset(ctx);
+  EncObj_TaskDetailed h;
+  h.o = &o;
+  h.t = t;
+  struct ak_evt_TaskDetailed vt;
+  vt.loop_parent_task_ids = loop_task_detailed_parent_task_ids_zeroed;
+  vt.loop_data_dependencies = loop_task_detailed_data_dependencies_zeroed;
+  vt.loop_expected_output_ids = loop_task_detailed_expected_output_ids_zeroed;
+  vt.loop_retry_of_ids = loop_task_detailed_retry_of_ids_zeroed;
+  vt.loop_options_options = loop_task_detailed_options_options_zeroed;
+  struct ak_ufix_TaskDetailed fix;
+  std::memset(&fix, 0, sizeof(fix));
+  fill_task_detailed_unk_sparse(&fix, o, t);
+  return ak_uencode_TaskDetailed(&h, ctx, &vt, &fix);
+}
+
 intptr_t encode_into_task_summary_unk(ak_enc_ctx *ctx, const TaskSummary &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
   AK_HOST_CALL(); ak_enc_reset(ctx);
@@ -7296,6 +7842,20 @@ intptr_t encode_into_task_summary_unk(ak_enc_ctx *ctx, const TaskSummary &o, con
   struct ak_evt_TaskSummary vt;
   vt.loop_options_options = loop_task_summary_options_options;
   struct ak_ufix_TaskSummary fix = make_task_summary_unk(o, t);
+  return ak_uencode_TaskSummary(&h, ctx, &vt, &fix);
+}
+
+intptr_t encode_into_task_summary_unk_zeroed(ak_enc_ctx *ctx, const TaskSummary &o, const Tcs &t) {
+  AK_INIT_OR_RETURN();
+  AK_HOST_CALL(); ak_enc_reset(ctx);
+  EncObj_TaskSummary h;
+  h.o = &o;
+  h.t = t;
+  struct ak_evt_TaskSummary vt;
+  vt.loop_options_options = loop_task_summary_options_options_zeroed;
+  struct ak_ufix_TaskSummary fix;
+  std::memset(&fix, 0, sizeof(fix));
+  fill_task_summary_unk_sparse(&fix, o, t);
   return ak_uencode_TaskSummary(&h, ctx, &vt, &fix);
 }
 
@@ -7311,6 +7871,20 @@ intptr_t encode_into_probe_unk(ak_enc_ctx *ctx, const Probe &o, const Tcs &t) {
   return ak_uencode_Probe(&h, ctx, &vt, &fix);
 }
 
+intptr_t encode_into_probe_unk_zeroed(ak_enc_ctx *ctx, const Probe &o, const Tcs &t) {
+  AK_INIT_OR_RETURN();
+  AK_HOST_CALL(); ak_enc_reset(ctx);
+  EncObj_Probe h;
+  h.o = &o;
+  h.t = t;
+  struct ak_evt_Probe vt;
+  vt._reserved = NULL;
+  struct ak_ufix_Probe fix;
+  std::memset(&fix, 0, sizeof(fix));
+  fill_probe_unk_sparse(&fix, o, t);
+  return ak_uencode_Probe(&h, ctx, &vt, &fix);
+}
+
 intptr_t encode_into_empty_unk(ak_enc_ctx *ctx, const Empty &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
   AK_HOST_CALL(); ak_enc_reset(ctx);
@@ -7323,6 +7897,20 @@ intptr_t encode_into_empty_unk(ak_enc_ctx *ctx, const Empty &o, const Tcs &t) {
   return ak_uencode_Empty(&h, ctx, &vt, &fix);
 }
 
+intptr_t encode_into_empty_unk_zeroed(ak_enc_ctx *ctx, const Empty &o, const Tcs &t) {
+  AK_INIT_OR_RETURN();
+  AK_HOST_CALL(); ak_enc_reset(ctx);
+  EncObj_Empty h;
+  h.o = &o;
+  h.t = t;
+  struct ak_evt_Empty vt;
+  vt._reserved = NULL;
+  struct ak_ufix_Empty fix;
+  std::memset(&fix, 0, sizeof(fix));
+  fill_empty_unk_sparse(&fix, o, t);
+  return ak_uencode_Empty(&h, ctx, &vt, &fix);
+}
+
 intptr_t encode_into_upload_result_data_unk(ak_enc_ctx *ctx, const UploadResultData &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
   AK_HOST_CALL(); ak_enc_reset(ctx);
@@ -7332,6 +7920,21 @@ intptr_t encode_into_upload_result_data_unk(ak_enc_ctx *ctx, const UploadResultD
   struct ak_evt_UploadResultData vt;
   vt._reserved = NULL;
   struct ak_ufix_UploadResultData fix = make_upload_result_data_unk(o, t);
+  const std::string &dbuf = o.data_chunk;
+  return ak_uencode_UploadResultData(&h, ctx, &vt, &fix, (const uint8_t *)dbuf.data(), dbuf.size());
+}
+
+intptr_t encode_into_upload_result_data_unk_zeroed(ak_enc_ctx *ctx, const UploadResultData &o, const Tcs &t) {
+  AK_INIT_OR_RETURN();
+  AK_HOST_CALL(); ak_enc_reset(ctx);
+  EncObj_UploadResultData h;
+  h.o = &o;
+  h.t = t;
+  struct ak_evt_UploadResultData vt;
+  vt._reserved = NULL;
+  struct ak_ufix_UploadResultData fix;
+  std::memset(&fix, 0, sizeof(fix));
+  fill_upload_result_data_unk_sparse(&fix, o, t);
   const std::string &dbuf = o.data_chunk;
   return ak_uencode_UploadResultData(&h, ctx, &vt, &fix, (const uint8_t *)dbuf.data(), dbuf.size());
 }
@@ -7352,6 +7955,24 @@ intptr_t encode_into_metrics_batch_unk(ak_enc_ctx *ctx, const MetricsBatch &o, c
   return ak_uencode_MetricsBatch(&h, ctx, &vt, &fix);
 }
 
+intptr_t encode_into_metrics_batch_unk_zeroed(ak_enc_ctx *ctx, const MetricsBatch &o, const Tcs &t) {
+  AK_INIT_OR_RETURN();
+  AK_HOST_CALL(); ak_enc_reset(ctx);
+  EncObj_MetricsBatch h;
+  h.o = &o;
+  h.t = t;
+  struct ak_evt_MetricsBatch vt;
+  vt.loop_ticks = loop_metrics_batch_ticks_zeroed;
+  vt.loop_values = loop_metrics_batch_values_zeroed;
+  vt.loop_codes = loop_metrics_batch_codes_zeroed;
+  vt.loop_flags = loop_metrics_batch_flags_zeroed;
+  vt.loop_statuses = loop_metrics_batch_statuses_zeroed;
+  struct ak_ufix_MetricsBatch fix;
+  std::memset(&fix, 0, sizeof(fix));
+  fill_metrics_batch_unk_sparse(&fix, o, t);
+  return ak_uencode_MetricsBatch(&h, ctx, &vt, &fix);
+}
+
 intptr_t encode_into_pair_unk(ak_enc_ctx *ctx, const Pair &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
   AK_HOST_CALL(); ak_enc_reset(ctx);
@@ -7361,6 +7982,20 @@ intptr_t encode_into_pair_unk(ak_enc_ctx *ctx, const Pair &o, const Tcs &t) {
   struct ak_evt_Pair vt;
   vt._reserved = NULL;
   struct ak_ufix_Pair fix = make_pair_unk(o, t);
+  return ak_uencode_Pair(&h, ctx, &vt, &fix);
+}
+
+intptr_t encode_into_pair_unk_zeroed(ak_enc_ctx *ctx, const Pair &o, const Tcs &t) {
+  AK_INIT_OR_RETURN();
+  AK_HOST_CALL(); ak_enc_reset(ctx);
+  EncObj_Pair h;
+  h.o = &o;
+  h.t = t;
+  struct ak_evt_Pair vt;
+  vt._reserved = NULL;
+  struct ak_ufix_Pair fix;
+  std::memset(&fix, 0, sizeof(fix));
+  fill_pair_unk_sparse(&fix, o, t);
   return ak_uencode_Pair(&h, ctx, &vt, &fix);
 }
 
@@ -7403,6 +8038,66 @@ intptr_t encode_into_list_results_response_unk(ak_enc_ctx *ctx, const ListResult
   struct ak_evt_ListResultsResponse vt;
   vt.loop_results = loop_list_results_response_results_unk;
   struct ak_ufix_ListResultsResponse fix = make_list_results_response_unk(o, t);
+  return ak_uencode_ListResultsResponse(&h, ctx, &vt, &fix);
+}
+
+static int32_t loop_list_results_response_results_unk_zeroed(ak_enc_ctx *ctx, const void *obj, int64_t token) {
+  AK_GUARD_BEGIN
+    const EncObj_ListResultsResponse *h = (const EncObj_ListResultsResponse *)obj;
+    const Tcs &t = h->t;
+    (void)t; (void)token;
+    const ListResultsResponse &src_owner = (*h->o);
+    const std::vector<ResultRaw> &src = src_owner.results;
+    constexpr size_t kChunk = ak::arena_n(sizeof(struct ak_ufix_ResultRaw));
+    struct ak_ufix_ResultRaw chunk[kChunk];
+    // Clear only what will be USED, never the whole 32 KB arena: the clear
+    // is otherwise O(arena) where the fill is O(elements), so on a 1- or
+    // 4-element payload the candidate inverts. Measured with the whole-chunk
+    // clear (which is what the rust slice built): P1.1 +156 ns/element and
+    // P2.1 +550, against protobuf encodes of 165 and 1205 ns/element.
+    const size_t kClear = src.size() < kChunk ? src.size() : kChunk;
+    // All-zero is a valid group, and the bulk clear is what lets the
+    // fill below be sparse (ABI v1 open decision 9's candidate). Only an
+    // ELEMENT GROUP is filled sparsely: a blob run and a map entry are
+    // assigned in full, so clearing their chunk would be pure waste -- and
+    // an inner loop runs once per element, so that waste would be paid 500
+    // times per encode. Measured: P2.2 encode 1.94 of protobuf before this
+    // and 0.6x after, which is the whole arm rather than a detail.
+    if (kClear) std::memset(chunk, 0, kClear * sizeof(struct ak_ufix_ResultRaw));
+    size_t i = 0, done = 0;
+    (void)done;
+    for (size_t k = 0; k < src.size(); ++k) {
+      fill_result_raw_unk_sparse(&chunk[i], src[k], t);
+      ++i;
+      if (i == kChunk) {
+        AK_TAX();
+        int32_t rc = ak_uelem_ResultRaw(ctx, chunk, (int32_t)i);
+        if (rc < 0) return rc;
+        done += i;
+        // Only what was dirtied is put back.
+        std::memset(chunk, 0, i * sizeof(struct ak_ufix_ResultRaw));
+        i = 0;
+      }
+    }
+    if (i > 0) {
+      AK_TAX();
+      int32_t rc = ak_uelem_ResultRaw(ctx, chunk, (int32_t)i);
+      if (rc < 0) return rc;
+    }
+  AK_GUARD_END
+}
+
+intptr_t encode_into_list_results_response_unk_zeroed(ak_enc_ctx *ctx, const ListResultsResponse &o, const Tcs &t) {
+  AK_INIT_OR_RETURN();
+  AK_HOST_CALL(); ak_enc_reset(ctx);
+  EncObj_ListResultsResponse h;
+  h.o = &o;
+  h.t = t;
+  struct ak_evt_ListResultsResponse vt;
+  vt.loop_results = loop_list_results_response_results_unk_zeroed;
+  struct ak_ufix_ListResultsResponse fix;
+  std::memset(&fix, 0, sizeof(fix));
+  fill_list_results_response_unk_sparse(&fix, o, t);
   return ak_uencode_ListResultsResponse(&h, ctx, &vt, &fix);
 }
 
@@ -7449,6 +8144,67 @@ intptr_t encode_into_list_tasks_detailed_response_unk(ak_enc_ctx *ctx, const Lis
   return ak_uencode_ListTasksDetailedResponse(&h, ctx, &vt, &fix);
 }
 
+static int32_t loop_list_tasks_detailed_response_tasks_unk_zeroed(ak_enc_ctx *ctx, const void *obj, int64_t token) {
+  AK_GUARD_BEGIN
+    const EncObj_ListTasksDetailedResponse *h = (const EncObj_ListTasksDetailedResponse *)obj;
+    const Tcs &t = h->t;
+    (void)t; (void)token;
+    const ListTasksDetailedResponse &src_owner = (*h->o);
+    const std::vector<TaskDetailed> &src = src_owner.tasks;
+    constexpr size_t kChunk = ak::arena_n(sizeof(struct ak_ufix_TaskDetailed));
+    struct ak_ufix_TaskDetailed chunk[kChunk];
+    // Clear only what will be USED, never the whole 32 KB arena: the clear
+    // is otherwise O(arena) where the fill is O(elements), so on a 1- or
+    // 4-element payload the candidate inverts. Measured with the whole-chunk
+    // clear (which is what the rust slice built): P1.1 +156 ns/element and
+    // P2.1 +550, against protobuf encodes of 165 and 1205 ns/element.
+    const size_t kClear = src.size() < kChunk ? src.size() : kChunk;
+    // All-zero is a valid group, and the bulk clear is what lets the
+    // fill below be sparse (ABI v1 open decision 9's candidate). Only an
+    // ELEMENT GROUP is filled sparsely: a blob run and a map entry are
+    // assigned in full, so clearing their chunk would be pure waste -- and
+    // an inner loop runs once per element, so that waste would be paid 500
+    // times per encode. Measured: P2.2 encode 1.94 of protobuf before this
+    // and 0.6x after, which is the whole arm rather than a detail.
+    if (kClear) std::memset(chunk, 0, kClear * sizeof(struct ak_ufix_TaskDetailed));
+    size_t i = 0, done = 0;
+    (void)done;
+    for (size_t k = 0; k < src.size(); ++k) {
+      fill_task_detailed_unk_sparse(&chunk[i], src[k], t);
+      ++i;
+      if (i == kChunk) {
+        AK_TAX();
+        int32_t rc = ak_uelemu_TaskDetailed(ctx, chunk, (int32_t)i, (int64_t)done);
+        if (rc < 0) return rc;
+        done += i;
+        // Only what was dirtied is put back.
+        std::memset(chunk, 0, i * sizeof(struct ak_ufix_TaskDetailed));
+        i = 0;
+      }
+    }
+    if (i > 0) {
+      AK_TAX();
+      int32_t rc = ak_uelemu_TaskDetailed(ctx, chunk, (int32_t)i, (int64_t)done);
+      if (rc < 0) return rc;
+    }
+  AK_GUARD_END
+}
+
+intptr_t encode_into_list_tasks_detailed_response_unk_zeroed(ak_enc_ctx *ctx, const ListTasksDetailedResponse &o, const Tcs &t) {
+  AK_INIT_OR_RETURN();
+  AK_HOST_CALL(); ak_enc_reset(ctx);
+  EncObj_ListTasksDetailedResponse h;
+  h.o = &o;
+  h.t = t;
+  struct ak_evt_ListTasksDetailedResponse vt;
+  vt.loop_tasks = loop_list_tasks_detailed_response_tasks_unk_zeroed;
+  vt.elem_tasks = &kElemVt_ListTasksDetailedResponse_tasks_zeroed;
+  struct ak_ufix_ListTasksDetailedResponse fix;
+  std::memset(&fix, 0, sizeof(fix));
+  fill_list_tasks_detailed_response_unk_sparse(&fix, o, t);
+  return ak_uencode_ListTasksDetailedResponse(&h, ctx, &vt, &fix);
+}
+
 static int32_t loop_list_task_summary_response_tasks_unk(ak_enc_ctx *ctx, const void *obj, int64_t token) {
   AK_GUARD_BEGIN
     const EncObj_ListTaskSummaryResponse *h = (const EncObj_ListTaskSummaryResponse *)obj;
@@ -7492,6 +8248,67 @@ intptr_t encode_into_list_task_summary_response_unk(ak_enc_ctx *ctx, const ListT
   return ak_uencode_ListTaskSummaryResponse(&h, ctx, &vt, &fix);
 }
 
+static int32_t loop_list_task_summary_response_tasks_unk_zeroed(ak_enc_ctx *ctx, const void *obj, int64_t token) {
+  AK_GUARD_BEGIN
+    const EncObj_ListTaskSummaryResponse *h = (const EncObj_ListTaskSummaryResponse *)obj;
+    const Tcs &t = h->t;
+    (void)t; (void)token;
+    const ListTaskSummaryResponse &src_owner = (*h->o);
+    const std::vector<TaskSummary> &src = src_owner.tasks;
+    constexpr size_t kChunk = ak::arena_n(sizeof(struct ak_ufix_TaskSummary));
+    struct ak_ufix_TaskSummary chunk[kChunk];
+    // Clear only what will be USED, never the whole 32 KB arena: the clear
+    // is otherwise O(arena) where the fill is O(elements), so on a 1- or
+    // 4-element payload the candidate inverts. Measured with the whole-chunk
+    // clear (which is what the rust slice built): P1.1 +156 ns/element and
+    // P2.1 +550, against protobuf encodes of 165 and 1205 ns/element.
+    const size_t kClear = src.size() < kChunk ? src.size() : kChunk;
+    // All-zero is a valid group, and the bulk clear is what lets the
+    // fill below be sparse (ABI v1 open decision 9's candidate). Only an
+    // ELEMENT GROUP is filled sparsely: a blob run and a map entry are
+    // assigned in full, so clearing their chunk would be pure waste -- and
+    // an inner loop runs once per element, so that waste would be paid 500
+    // times per encode. Measured: P2.2 encode 1.94 of protobuf before this
+    // and 0.6x after, which is the whole arm rather than a detail.
+    if (kClear) std::memset(chunk, 0, kClear * sizeof(struct ak_ufix_TaskSummary));
+    size_t i = 0, done = 0;
+    (void)done;
+    for (size_t k = 0; k < src.size(); ++k) {
+      fill_task_summary_unk_sparse(&chunk[i], src[k], t);
+      ++i;
+      if (i == kChunk) {
+        AK_TAX();
+        int32_t rc = ak_uelemu_TaskSummary(ctx, chunk, (int32_t)i, (int64_t)done);
+        if (rc < 0) return rc;
+        done += i;
+        // Only what was dirtied is put back.
+        std::memset(chunk, 0, i * sizeof(struct ak_ufix_TaskSummary));
+        i = 0;
+      }
+    }
+    if (i > 0) {
+      AK_TAX();
+      int32_t rc = ak_uelemu_TaskSummary(ctx, chunk, (int32_t)i, (int64_t)done);
+      if (rc < 0) return rc;
+    }
+  AK_GUARD_END
+}
+
+intptr_t encode_into_list_task_summary_response_unk_zeroed(ak_enc_ctx *ctx, const ListTaskSummaryResponse &o, const Tcs &t) {
+  AK_INIT_OR_RETURN();
+  AK_HOST_CALL(); ak_enc_reset(ctx);
+  EncObj_ListTaskSummaryResponse h;
+  h.o = &o;
+  h.t = t;
+  struct ak_evt_ListTaskSummaryResponse vt;
+  vt.loop_tasks = loop_list_task_summary_response_tasks_unk_zeroed;
+  vt.elem_tasks = &kElemVt_ListTaskSummaryResponse_tasks_zeroed;
+  struct ak_ufix_ListTaskSummaryResponse fix;
+  std::memset(&fix, 0, sizeof(fix));
+  fill_list_task_summary_response_unk_sparse(&fix, o, t);
+  return ak_uencode_ListTaskSummaryResponse(&h, ctx, &vt, &fix);
+}
+
 static int32_t loop_list_probe_response_probes_unk(ak_enc_ctx *ctx, const void *obj, int64_t token) {
   AK_GUARD_BEGIN
     const EncObj_ListProbeResponse *h = (const EncObj_ListProbeResponse *)obj;
@@ -7531,6 +8348,66 @@ intptr_t encode_into_list_probe_response_unk(ak_enc_ctx *ctx, const ListProbeRes
   struct ak_evt_ListProbeResponse vt;
   vt.loop_probes = loop_list_probe_response_probes_unk;
   struct ak_ufix_ListProbeResponse fix = make_list_probe_response_unk(o, t);
+  return ak_uencode_ListProbeResponse(&h, ctx, &vt, &fix);
+}
+
+static int32_t loop_list_probe_response_probes_unk_zeroed(ak_enc_ctx *ctx, const void *obj, int64_t token) {
+  AK_GUARD_BEGIN
+    const EncObj_ListProbeResponse *h = (const EncObj_ListProbeResponse *)obj;
+    const Tcs &t = h->t;
+    (void)t; (void)token;
+    const ListProbeResponse &src_owner = (*h->o);
+    const std::vector<Probe> &src = src_owner.probes;
+    constexpr size_t kChunk = ak::arena_n(sizeof(struct ak_ufix_Probe));
+    struct ak_ufix_Probe chunk[kChunk];
+    // Clear only what will be USED, never the whole 32 KB arena: the clear
+    // is otherwise O(arena) where the fill is O(elements), so on a 1- or
+    // 4-element payload the candidate inverts. Measured with the whole-chunk
+    // clear (which is what the rust slice built): P1.1 +156 ns/element and
+    // P2.1 +550, against protobuf encodes of 165 and 1205 ns/element.
+    const size_t kClear = src.size() < kChunk ? src.size() : kChunk;
+    // All-zero is a valid group, and the bulk clear is what lets the
+    // fill below be sparse (ABI v1 open decision 9's candidate). Only an
+    // ELEMENT GROUP is filled sparsely: a blob run and a map entry are
+    // assigned in full, so clearing their chunk would be pure waste -- and
+    // an inner loop runs once per element, so that waste would be paid 500
+    // times per encode. Measured: P2.2 encode 1.94 of protobuf before this
+    // and 0.6x after, which is the whole arm rather than a detail.
+    if (kClear) std::memset(chunk, 0, kClear * sizeof(struct ak_ufix_Probe));
+    size_t i = 0, done = 0;
+    (void)done;
+    for (size_t k = 0; k < src.size(); ++k) {
+      fill_probe_unk_sparse(&chunk[i], src[k], t);
+      ++i;
+      if (i == kChunk) {
+        AK_TAX();
+        int32_t rc = ak_uelem_Probe(ctx, chunk, (int32_t)i);
+        if (rc < 0) return rc;
+        done += i;
+        // Only what was dirtied is put back.
+        std::memset(chunk, 0, i * sizeof(struct ak_ufix_Probe));
+        i = 0;
+      }
+    }
+    if (i > 0) {
+      AK_TAX();
+      int32_t rc = ak_uelem_Probe(ctx, chunk, (int32_t)i);
+      if (rc < 0) return rc;
+    }
+  AK_GUARD_END
+}
+
+intptr_t encode_into_list_probe_response_unk_zeroed(ak_enc_ctx *ctx, const ListProbeResponse &o, const Tcs &t) {
+  AK_INIT_OR_RETURN();
+  AK_HOST_CALL(); ak_enc_reset(ctx);
+  EncObj_ListProbeResponse h;
+  h.o = &o;
+  h.t = t;
+  struct ak_evt_ListProbeResponse vt;
+  vt.loop_probes = loop_list_probe_response_probes_unk_zeroed;
+  struct ak_ufix_ListProbeResponse fix;
+  std::memset(&fix, 0, sizeof(fix));
+  fill_list_probe_response_unk_sparse(&fix, o, t);
   return ak_uencode_ListProbeResponse(&h, ctx, &vt, &fix);
 }
 
@@ -7577,6 +8454,67 @@ intptr_t encode_into_list_metrics_response_unk(ak_enc_ctx *ctx, const ListMetric
   return ak_uencode_ListMetricsResponse(&h, ctx, &vt, &fix);
 }
 
+static int32_t loop_list_metrics_response_batches_unk_zeroed(ak_enc_ctx *ctx, const void *obj, int64_t token) {
+  AK_GUARD_BEGIN
+    const EncObj_ListMetricsResponse *h = (const EncObj_ListMetricsResponse *)obj;
+    const Tcs &t = h->t;
+    (void)t; (void)token;
+    const ListMetricsResponse &src_owner = (*h->o);
+    const std::vector<MetricsBatch> &src = src_owner.batches;
+    constexpr size_t kChunk = ak::arena_n(sizeof(struct ak_ufix_MetricsBatch));
+    struct ak_ufix_MetricsBatch chunk[kChunk];
+    // Clear only what will be USED, never the whole 32 KB arena: the clear
+    // is otherwise O(arena) where the fill is O(elements), so on a 1- or
+    // 4-element payload the candidate inverts. Measured with the whole-chunk
+    // clear (which is what the rust slice built): P1.1 +156 ns/element and
+    // P2.1 +550, against protobuf encodes of 165 and 1205 ns/element.
+    const size_t kClear = src.size() < kChunk ? src.size() : kChunk;
+    // All-zero is a valid group, and the bulk clear is what lets the
+    // fill below be sparse (ABI v1 open decision 9's candidate). Only an
+    // ELEMENT GROUP is filled sparsely: a blob run and a map entry are
+    // assigned in full, so clearing their chunk would be pure waste -- and
+    // an inner loop runs once per element, so that waste would be paid 500
+    // times per encode. Measured: P2.2 encode 1.94 of protobuf before this
+    // and 0.6x after, which is the whole arm rather than a detail.
+    if (kClear) std::memset(chunk, 0, kClear * sizeof(struct ak_ufix_MetricsBatch));
+    size_t i = 0, done = 0;
+    (void)done;
+    for (size_t k = 0; k < src.size(); ++k) {
+      fill_metrics_batch_unk_sparse(&chunk[i], src[k], t);
+      ++i;
+      if (i == kChunk) {
+        AK_TAX();
+        int32_t rc = ak_uelemu_MetricsBatch(ctx, chunk, (int32_t)i, (int64_t)done);
+        if (rc < 0) return rc;
+        done += i;
+        // Only what was dirtied is put back.
+        std::memset(chunk, 0, i * sizeof(struct ak_ufix_MetricsBatch));
+        i = 0;
+      }
+    }
+    if (i > 0) {
+      AK_TAX();
+      int32_t rc = ak_uelemu_MetricsBatch(ctx, chunk, (int32_t)i, (int64_t)done);
+      if (rc < 0) return rc;
+    }
+  AK_GUARD_END
+}
+
+intptr_t encode_into_list_metrics_response_unk_zeroed(ak_enc_ctx *ctx, const ListMetricsResponse &o, const Tcs &t) {
+  AK_INIT_OR_RETURN();
+  AK_HOST_CALL(); ak_enc_reset(ctx);
+  EncObj_ListMetricsResponse h;
+  h.o = &o;
+  h.t = t;
+  struct ak_evt_ListMetricsResponse vt;
+  vt.loop_batches = loop_list_metrics_response_batches_unk_zeroed;
+  vt.elem_batches = &kElemVt_ListMetricsResponse_batches_zeroed;
+  struct ak_ufix_ListMetricsResponse fix;
+  std::memset(&fix, 0, sizeof(fix));
+  fill_list_metrics_response_unk_sparse(&fix, o, t);
+  return ak_uencode_ListMetricsResponse(&h, ctx, &vt, &fix);
+}
+
 intptr_t encode_into_upload_result_data_message_unk(ak_enc_ctx *ctx, const UploadResultDataMessage &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
   AK_HOST_CALL(); ak_enc_reset(ctx);
@@ -7586,6 +8524,21 @@ intptr_t encode_into_upload_result_data_message_unk(ak_enc_ctx *ctx, const Uploa
   struct ak_evt_UploadResultDataMessage vt;
   vt._reserved = NULL;
   struct ak_ufix_UploadResultDataMessage fix = make_upload_result_data_message_unk(o, t);
+  const std::string &dbuf = (*o.upload).data_chunk;
+  return ak_uencode_UploadResultDataMessage(&h, ctx, &vt, &fix, (const uint8_t *)dbuf.data(), dbuf.size());
+}
+
+intptr_t encode_into_upload_result_data_message_unk_zeroed(ak_enc_ctx *ctx, const UploadResultDataMessage &o, const Tcs &t) {
+  AK_INIT_OR_RETURN();
+  AK_HOST_CALL(); ak_enc_reset(ctx);
+  EncObj_UploadResultDataMessage h;
+  h.o = &o;
+  h.t = t;
+  struct ak_evt_UploadResultDataMessage vt;
+  vt._reserved = NULL;
+  struct ak_ufix_UploadResultDataMessage fix;
+  std::memset(&fix, 0, sizeof(fix));
+  fill_upload_result_data_message_unk_sparse(&fix, o, t);
   const std::string &dbuf = (*o.upload).data_chunk;
   return ak_uencode_UploadResultDataMessage(&h, ctx, &vt, &fix, (const uint8_t *)dbuf.data(), dbuf.size());
 }
@@ -7663,6 +8616,113 @@ intptr_t encode_into_dual_response_unk(ak_enc_ctx *ctx, const DualResponse &o, c
   return ak_uencode_DualResponse(&h, ctx, &vt, &fix);
 }
 
+static int32_t loop_dual_response_left_unk_zeroed(ak_enc_ctx *ctx, const void *obj, int64_t token) {
+  AK_GUARD_BEGIN
+    const EncObj_DualResponse *h = (const EncObj_DualResponse *)obj;
+    const Tcs &t = h->t;
+    (void)t; (void)token;
+    const DualResponse &src_owner = (*h->o);
+    const std::vector<Pair> &src = src_owner.left;
+    constexpr size_t kChunk = ak::arena_n(sizeof(struct ak_ufix_Pair));
+    struct ak_ufix_Pair chunk[kChunk];
+    // Clear only what will be USED, never the whole 32 KB arena: the clear
+    // is otherwise O(arena) where the fill is O(elements), so on a 1- or
+    // 4-element payload the candidate inverts. Measured with the whole-chunk
+    // clear (which is what the rust slice built): P1.1 +156 ns/element and
+    // P2.1 +550, against protobuf encodes of 165 and 1205 ns/element.
+    const size_t kClear = src.size() < kChunk ? src.size() : kChunk;
+    // All-zero is a valid group, and the bulk clear is what lets the
+    // fill below be sparse (ABI v1 open decision 9's candidate). Only an
+    // ELEMENT GROUP is filled sparsely: a blob run and a map entry are
+    // assigned in full, so clearing their chunk would be pure waste -- and
+    // an inner loop runs once per element, so that waste would be paid 500
+    // times per encode. Measured: P2.2 encode 1.94 of protobuf before this
+    // and 0.6x after, which is the whole arm rather than a detail.
+    if (kClear) std::memset(chunk, 0, kClear * sizeof(struct ak_ufix_Pair));
+    size_t i = 0, done = 0;
+    (void)done;
+    for (size_t k = 0; k < src.size(); ++k) {
+      fill_pair_unk_sparse(&chunk[i], src[k], t);
+      ++i;
+      if (i == kChunk) {
+        AK_TAX();
+        int32_t rc = ak_uelem_Pair(ctx, chunk, (int32_t)i);
+        if (rc < 0) return rc;
+        done += i;
+        // Only what was dirtied is put back.
+        std::memset(chunk, 0, i * sizeof(struct ak_ufix_Pair));
+        i = 0;
+      }
+    }
+    if (i > 0) {
+      AK_TAX();
+      int32_t rc = ak_uelem_Pair(ctx, chunk, (int32_t)i);
+      if (rc < 0) return rc;
+    }
+  AK_GUARD_END
+}
+
+static int32_t loop_dual_response_right_unk_zeroed(ak_enc_ctx *ctx, const void *obj, int64_t token) {
+  AK_GUARD_BEGIN
+    const EncObj_DualResponse *h = (const EncObj_DualResponse *)obj;
+    const Tcs &t = h->t;
+    (void)t; (void)token;
+    const DualResponse &src_owner = (*h->o);
+    const std::vector<Pair> &src = src_owner.right;
+    constexpr size_t kChunk = ak::arena_n(sizeof(struct ak_ufix_Pair));
+    struct ak_ufix_Pair chunk[kChunk];
+    // Clear only what will be USED, never the whole 32 KB arena: the clear
+    // is otherwise O(arena) where the fill is O(elements), so on a 1- or
+    // 4-element payload the candidate inverts. Measured with the whole-chunk
+    // clear (which is what the rust slice built): P1.1 +156 ns/element and
+    // P2.1 +550, against protobuf encodes of 165 and 1205 ns/element.
+    const size_t kClear = src.size() < kChunk ? src.size() : kChunk;
+    // All-zero is a valid group, and the bulk clear is what lets the
+    // fill below be sparse (ABI v1 open decision 9's candidate). Only an
+    // ELEMENT GROUP is filled sparsely: a blob run and a map entry are
+    // assigned in full, so clearing their chunk would be pure waste -- and
+    // an inner loop runs once per element, so that waste would be paid 500
+    // times per encode. Measured: P2.2 encode 1.94 of protobuf before this
+    // and 0.6x after, which is the whole arm rather than a detail.
+    if (kClear) std::memset(chunk, 0, kClear * sizeof(struct ak_ufix_Pair));
+    size_t i = 0, done = 0;
+    (void)done;
+    for (size_t k = 0; k < src.size(); ++k) {
+      fill_pair_unk_sparse(&chunk[i], src[k], t);
+      ++i;
+      if (i == kChunk) {
+        AK_TAX();
+        int32_t rc = ak_uelem_Pair(ctx, chunk, (int32_t)i);
+        if (rc < 0) return rc;
+        done += i;
+        // Only what was dirtied is put back.
+        std::memset(chunk, 0, i * sizeof(struct ak_ufix_Pair));
+        i = 0;
+      }
+    }
+    if (i > 0) {
+      AK_TAX();
+      int32_t rc = ak_uelem_Pair(ctx, chunk, (int32_t)i);
+      if (rc < 0) return rc;
+    }
+  AK_GUARD_END
+}
+
+intptr_t encode_into_dual_response_unk_zeroed(ak_enc_ctx *ctx, const DualResponse &o, const Tcs &t) {
+  AK_INIT_OR_RETURN();
+  AK_HOST_CALL(); ak_enc_reset(ctx);
+  EncObj_DualResponse h;
+  h.o = &o;
+  h.t = t;
+  struct ak_evt_DualResponse vt;
+  vt.loop_left = loop_dual_response_left_unk_zeroed;
+  vt.loop_right = loop_dual_response_right_unk_zeroed;
+  struct ak_ufix_DualResponse fix;
+  std::memset(&fix, 0, sizeof(fix));
+  fill_dual_response_unk_sparse(&fix, o, t);
+  return ak_uencode_DualResponse(&h, ctx, &vt, &fix);
+}
+
 intptr_t encode_into_chunk_leaf_unk(ak_enc_ctx *ctx, const ChunkLeaf &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
   AK_HOST_CALL(); ak_enc_reset(ctx);
@@ -7672,6 +8732,20 @@ intptr_t encode_into_chunk_leaf_unk(ak_enc_ctx *ctx, const ChunkLeaf &o, const T
   struct ak_evt_ChunkLeaf vt;
   vt._reserved = NULL;
   struct ak_ufix_ChunkLeaf fix = make_chunk_leaf_unk(o, t);
+  return ak_uencode_ChunkLeaf(&h, ctx, &vt, &fix);
+}
+
+intptr_t encode_into_chunk_leaf_unk_zeroed(ak_enc_ctx *ctx, const ChunkLeaf &o, const Tcs &t) {
+  AK_INIT_OR_RETURN();
+  AK_HOST_CALL(); ak_enc_reset(ctx);
+  EncObj_ChunkLeaf h;
+  h.o = &o;
+  h.t = t;
+  struct ak_evt_ChunkLeaf vt;
+  vt._reserved = NULL;
+  struct ak_ufix_ChunkLeaf fix;
+  std::memset(&fix, 0, sizeof(fix));
+  fill_chunk_leaf_unk_sparse(&fix, o, t);
   return ak_uencode_ChunkLeaf(&h, ctx, &vt, &fix);
 }
 
@@ -7715,6 +8789,67 @@ intptr_t encode_into_chunk_inner_unk(ak_enc_ctx *ctx, const ChunkInner &o, const
   vt.loop_marks = loop_chunk_inner_marks;
   vt.loop_leaves = loop_chunk_inner_leaves_unk;
   struct ak_ufix_ChunkInner fix = make_chunk_inner_unk(o, t);
+  return ak_uencode_ChunkInner(&h, ctx, &vt, &fix);
+}
+
+static int32_t loop_chunk_inner_leaves_unk_zeroed(ak_enc_ctx *ctx, const void *obj, int64_t token) {
+  AK_GUARD_BEGIN
+    const EncObj_ChunkInner *h = (const EncObj_ChunkInner *)obj;
+    const Tcs &t = h->t;
+    (void)t; (void)token;
+    const ChunkInner &src_owner = (*h->o);
+    const std::vector<ChunkLeaf> &src = src_owner.leaves;
+    constexpr size_t kChunk = ak::arena_n(sizeof(struct ak_ufix_ChunkLeaf));
+    struct ak_ufix_ChunkLeaf chunk[kChunk];
+    // Clear only what will be USED, never the whole 32 KB arena: the clear
+    // is otherwise O(arena) where the fill is O(elements), so on a 1- or
+    // 4-element payload the candidate inverts. Measured with the whole-chunk
+    // clear (which is what the rust slice built): P1.1 +156 ns/element and
+    // P2.1 +550, against protobuf encodes of 165 and 1205 ns/element.
+    const size_t kClear = src.size() < kChunk ? src.size() : kChunk;
+    // All-zero is a valid group, and the bulk clear is what lets the
+    // fill below be sparse (ABI v1 open decision 9's candidate). Only an
+    // ELEMENT GROUP is filled sparsely: a blob run and a map entry are
+    // assigned in full, so clearing their chunk would be pure waste -- and
+    // an inner loop runs once per element, so that waste would be paid 500
+    // times per encode. Measured: P2.2 encode 1.94 of protobuf before this
+    // and 0.6x after, which is the whole arm rather than a detail.
+    if (kClear) std::memset(chunk, 0, kClear * sizeof(struct ak_ufix_ChunkLeaf));
+    size_t i = 0, done = 0;
+    (void)done;
+    for (size_t k = 0; k < src.size(); ++k) {
+      fill_chunk_leaf_unk_sparse(&chunk[i], src[k], t);
+      ++i;
+      if (i == kChunk) {
+        AK_TAX();
+        int32_t rc = ak_uelem_ChunkLeaf(ctx, chunk, (int32_t)i);
+        if (rc < 0) return rc;
+        done += i;
+        // Only what was dirtied is put back.
+        std::memset(chunk, 0, i * sizeof(struct ak_ufix_ChunkLeaf));
+        i = 0;
+      }
+    }
+    if (i > 0) {
+      AK_TAX();
+      int32_t rc = ak_uelem_ChunkLeaf(ctx, chunk, (int32_t)i);
+      if (rc < 0) return rc;
+    }
+  AK_GUARD_END
+}
+
+intptr_t encode_into_chunk_inner_unk_zeroed(ak_enc_ctx *ctx, const ChunkInner &o, const Tcs &t) {
+  AK_INIT_OR_RETURN();
+  AK_HOST_CALL(); ak_enc_reset(ctx);
+  EncObj_ChunkInner h;
+  h.o = &o;
+  h.t = t;
+  struct ak_evt_ChunkInner vt;
+  vt.loop_marks = loop_chunk_inner_marks_zeroed;
+  vt.loop_leaves = loop_chunk_inner_leaves_unk_zeroed;
+  struct ak_ufix_ChunkInner fix;
+  std::memset(&fix, 0, sizeof(fix));
+  fill_chunk_inner_unk_sparse(&fix, o, t);
   return ak_uencode_ChunkInner(&h, ctx, &vt, &fix);
 }
 
@@ -7764,6 +8899,70 @@ intptr_t encode_into_chunk_element_unk(ak_enc_ctx *ctx, const ChunkElement &o, c
   return ak_uencode_ChunkElement(&h, ctx, &vt, &fix);
 }
 
+static int32_t loop_chunk_element_inner_leaves_unk_zeroed(ak_enc_ctx *ctx, const void *obj, int64_t token) {
+  AK_GUARD_BEGIN
+    const EncObj_ChunkElement *h = (const EncObj_ChunkElement *)obj;
+    const Tcs &t = h->t;
+    (void)t; (void)token;
+    if (!(*h->o).inner.has_value()) return AK_OK;
+    const ChunkInner &src_owner = (*(*h->o).inner);
+    const std::vector<ChunkLeaf> &src = src_owner.leaves;
+    constexpr size_t kChunk = ak::arena_n(sizeof(struct ak_ufix_ChunkLeaf));
+    struct ak_ufix_ChunkLeaf chunk[kChunk];
+    // Clear only what will be USED, never the whole 32 KB arena: the clear
+    // is otherwise O(arena) where the fill is O(elements), so on a 1- or
+    // 4-element payload the candidate inverts. Measured with the whole-chunk
+    // clear (which is what the rust slice built): P1.1 +156 ns/element and
+    // P2.1 +550, against protobuf encodes of 165 and 1205 ns/element.
+    const size_t kClear = src.size() < kChunk ? src.size() : kChunk;
+    // All-zero is a valid group, and the bulk clear is what lets the
+    // fill below be sparse (ABI v1 open decision 9's candidate). Only an
+    // ELEMENT GROUP is filled sparsely: a blob run and a map entry are
+    // assigned in full, so clearing their chunk would be pure waste -- and
+    // an inner loop runs once per element, so that waste would be paid 500
+    // times per encode. Measured: P2.2 encode 1.94 of protobuf before this
+    // and 0.6x after, which is the whole arm rather than a detail.
+    if (kClear) std::memset(chunk, 0, kClear * sizeof(struct ak_ufix_ChunkLeaf));
+    size_t i = 0, done = 0;
+    (void)done;
+    for (size_t k = 0; k < src.size(); ++k) {
+      fill_chunk_leaf_unk_sparse(&chunk[i], src[k], t);
+      ++i;
+      if (i == kChunk) {
+        AK_TAX();
+        int32_t rc = ak_uelem_ChunkLeaf(ctx, chunk, (int32_t)i);
+        if (rc < 0) return rc;
+        done += i;
+        // Only what was dirtied is put back.
+        std::memset(chunk, 0, i * sizeof(struct ak_ufix_ChunkLeaf));
+        i = 0;
+      }
+    }
+    if (i > 0) {
+      AK_TAX();
+      int32_t rc = ak_uelem_ChunkLeaf(ctx, chunk, (int32_t)i);
+      if (rc < 0) return rc;
+    }
+  AK_GUARD_END
+}
+
+intptr_t encode_into_chunk_element_unk_zeroed(ak_enc_ctx *ctx, const ChunkElement &o, const Tcs &t) {
+  AK_INIT_OR_RETURN();
+  AK_HOST_CALL(); ak_enc_reset(ctx);
+  EncObj_ChunkElement h;
+  h.o = &o;
+  h.t = t;
+  struct ak_evt_ChunkElement vt;
+  vt.loop_labels = loop_chunk_element_labels_zeroed;
+  vt.loop_attrs = loop_chunk_element_attrs_zeroed;
+  vt.loop_inner_marks = loop_chunk_element_inner_marks_zeroed;
+  vt.loop_inner_leaves = loop_chunk_element_inner_leaves_unk_zeroed;
+  struct ak_ufix_ChunkElement fix;
+  std::memset(&fix, 0, sizeof(fix));
+  fill_chunk_element_unk_sparse(&fix, o, t);
+  return ak_uencode_ChunkElement(&h, ctx, &vt, &fix);
+}
+
 static int32_t loop_chunked_response_items_unk(ak_enc_ctx *ctx, const void *obj, int64_t token) {
   AK_GUARD_BEGIN
     const EncObj_ChunkedResponse *h = (const EncObj_ChunkedResponse *)obj;
@@ -7804,6 +9003,67 @@ intptr_t encode_into_chunked_response_unk(ak_enc_ctx *ctx, const ChunkedResponse
   vt.loop_items = loop_chunked_response_items_unk;
   vt.elem_items = &kElemVt_ChunkedResponse_items;
   struct ak_ufix_ChunkedResponse fix = make_chunked_response_unk(o, t);
+  return ak_uencode_ChunkedResponse(&h, ctx, &vt, &fix);
+}
+
+static int32_t loop_chunked_response_items_unk_zeroed(ak_enc_ctx *ctx, const void *obj, int64_t token) {
+  AK_GUARD_BEGIN
+    const EncObj_ChunkedResponse *h = (const EncObj_ChunkedResponse *)obj;
+    const Tcs &t = h->t;
+    (void)t; (void)token;
+    const ChunkedResponse &src_owner = (*h->o);
+    const std::vector<ChunkElement> &src = src_owner.items;
+    constexpr size_t kChunk = ak::arena_n(sizeof(struct ak_ufix_ChunkElement));
+    struct ak_ufix_ChunkElement chunk[kChunk];
+    // Clear only what will be USED, never the whole 32 KB arena: the clear
+    // is otherwise O(arena) where the fill is O(elements), so on a 1- or
+    // 4-element payload the candidate inverts. Measured with the whole-chunk
+    // clear (which is what the rust slice built): P1.1 +156 ns/element and
+    // P2.1 +550, against protobuf encodes of 165 and 1205 ns/element.
+    const size_t kClear = src.size() < kChunk ? src.size() : kChunk;
+    // All-zero is a valid group, and the bulk clear is what lets the
+    // fill below be sparse (ABI v1 open decision 9's candidate). Only an
+    // ELEMENT GROUP is filled sparsely: a blob run and a map entry are
+    // assigned in full, so clearing their chunk would be pure waste -- and
+    // an inner loop runs once per element, so that waste would be paid 500
+    // times per encode. Measured: P2.2 encode 1.94 of protobuf before this
+    // and 0.6x after, which is the whole arm rather than a detail.
+    if (kClear) std::memset(chunk, 0, kClear * sizeof(struct ak_ufix_ChunkElement));
+    size_t i = 0, done = 0;
+    (void)done;
+    for (size_t k = 0; k < src.size(); ++k) {
+      fill_chunk_element_unk_sparse(&chunk[i], src[k], t);
+      ++i;
+      if (i == kChunk) {
+        AK_TAX();
+        int32_t rc = ak_uelemu_ChunkElement(ctx, chunk, (int32_t)i, (int64_t)done);
+        if (rc < 0) return rc;
+        done += i;
+        // Only what was dirtied is put back.
+        std::memset(chunk, 0, i * sizeof(struct ak_ufix_ChunkElement));
+        i = 0;
+      }
+    }
+    if (i > 0) {
+      AK_TAX();
+      int32_t rc = ak_uelemu_ChunkElement(ctx, chunk, (int32_t)i, (int64_t)done);
+      if (rc < 0) return rc;
+    }
+  AK_GUARD_END
+}
+
+intptr_t encode_into_chunked_response_unk_zeroed(ak_enc_ctx *ctx, const ChunkedResponse &o, const Tcs &t) {
+  AK_INIT_OR_RETURN();
+  AK_HOST_CALL(); ak_enc_reset(ctx);
+  EncObj_ChunkedResponse h;
+  h.o = &o;
+  h.t = t;
+  struct ak_evt_ChunkedResponse vt;
+  vt.loop_items = loop_chunked_response_items_unk_zeroed;
+  vt.elem_items = &kElemVt_ChunkedResponse_items_zeroed;
+  struct ak_ufix_ChunkedResponse fix;
+  std::memset(&fix, 0, sizeof(fix));
+  fill_chunked_response_unk_sparse(&fix, o, t);
   return ak_uencode_ChunkedResponse(&h, ctx, &vt, &fix);
 }
 
@@ -7850,6 +9110,67 @@ intptr_t encode_into_chunked_response_wide_unk(ak_enc_ctx *ctx, const ChunkedRes
   return ak_uencode_ChunkedResponseWide(&h, ctx, &vt, &fix);
 }
 
+static int32_t loop_chunked_response_wide_items_unk_zeroed(ak_enc_ctx *ctx, const void *obj, int64_t token) {
+  AK_GUARD_BEGIN
+    const EncObj_ChunkedResponseWide *h = (const EncObj_ChunkedResponseWide *)obj;
+    const Tcs &t = h->t;
+    (void)t; (void)token;
+    const ChunkedResponseWide &src_owner = (*h->o);
+    const std::vector<ChunkElement> &src = src_owner.items;
+    constexpr size_t kChunk = ak::arena_n(sizeof(struct ak_ufix_ChunkElement));
+    struct ak_ufix_ChunkElement chunk[kChunk];
+    // Clear only what will be USED, never the whole 32 KB arena: the clear
+    // is otherwise O(arena) where the fill is O(elements), so on a 1- or
+    // 4-element payload the candidate inverts. Measured with the whole-chunk
+    // clear (which is what the rust slice built): P1.1 +156 ns/element and
+    // P2.1 +550, against protobuf encodes of 165 and 1205 ns/element.
+    const size_t kClear = src.size() < kChunk ? src.size() : kChunk;
+    // All-zero is a valid group, and the bulk clear is what lets the
+    // fill below be sparse (ABI v1 open decision 9's candidate). Only an
+    // ELEMENT GROUP is filled sparsely: a blob run and a map entry are
+    // assigned in full, so clearing their chunk would be pure waste -- and
+    // an inner loop runs once per element, so that waste would be paid 500
+    // times per encode. Measured: P2.2 encode 1.94 of protobuf before this
+    // and 0.6x after, which is the whole arm rather than a detail.
+    if (kClear) std::memset(chunk, 0, kClear * sizeof(struct ak_ufix_ChunkElement));
+    size_t i = 0, done = 0;
+    (void)done;
+    for (size_t k = 0; k < src.size(); ++k) {
+      fill_chunk_element_unk_sparse(&chunk[i], src[k], t);
+      ++i;
+      if (i == kChunk) {
+        AK_TAX();
+        int32_t rc = ak_uelemu_ChunkElement(ctx, chunk, (int32_t)i, (int64_t)done);
+        if (rc < 0) return rc;
+        done += i;
+        // Only what was dirtied is put back.
+        std::memset(chunk, 0, i * sizeof(struct ak_ufix_ChunkElement));
+        i = 0;
+      }
+    }
+    if (i > 0) {
+      AK_TAX();
+      int32_t rc = ak_uelemu_ChunkElement(ctx, chunk, (int32_t)i, (int64_t)done);
+      if (rc < 0) return rc;
+    }
+  AK_GUARD_END
+}
+
+intptr_t encode_into_chunked_response_wide_unk_zeroed(ak_enc_ctx *ctx, const ChunkedResponseWide &o, const Tcs &t) {
+  AK_INIT_OR_RETURN();
+  AK_HOST_CALL(); ak_enc_reset(ctx);
+  EncObj_ChunkedResponseWide h;
+  h.o = &o;
+  h.t = t;
+  struct ak_evt_ChunkedResponseWide vt;
+  vt.loop_items = loop_chunked_response_wide_items_unk_zeroed;
+  vt.elem_items = &kElemVt_ChunkedResponseWide_items_zeroed;
+  struct ak_ufix_ChunkedResponseWide fix;
+  std::memset(&fix, 0, sizeof(fix));
+  fill_chunked_response_wide_unk_sparse(&fix, o, t);
+  return ak_uencode_ChunkedResponseWide(&h, ctx, &vt, &fix);
+}
+
 intptr_t encode_into_leaf_element_unk(ak_enc_ctx *ctx, const LeafElement &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
   AK_HOST_CALL(); ak_enc_reset(ctx);
@@ -7859,6 +9180,20 @@ intptr_t encode_into_leaf_element_unk(ak_enc_ctx *ctx, const LeafElement &o, con
   struct ak_evt_LeafElement vt;
   vt._reserved = NULL;
   struct ak_ufix_LeafElement fix = make_leaf_element_unk(o, t);
+  return ak_uencode_LeafElement(&h, ctx, &vt, &fix);
+}
+
+intptr_t encode_into_leaf_element_unk_zeroed(ak_enc_ctx *ctx, const LeafElement &o, const Tcs &t) {
+  AK_INIT_OR_RETURN();
+  AK_HOST_CALL(); ak_enc_reset(ctx);
+  EncObj_LeafElement h;
+  h.o = &o;
+  h.t = t;
+  struct ak_evt_LeafElement vt;
+  vt._reserved = NULL;
+  struct ak_ufix_LeafElement fix;
+  std::memset(&fix, 0, sizeof(fix));
+  fill_leaf_element_unk_sparse(&fix, o, t);
   return ak_uencode_LeafElement(&h, ctx, &vt, &fix);
 }
 
@@ -7904,6 +9239,66 @@ intptr_t encode_into_leaf_response_unk(ak_enc_ctx *ctx, const LeafResponse &o, c
   return ak_uencode_LeafResponse(&h, ctx, &vt, &fix);
 }
 
+static int32_t loop_leaf_response_items_unk_zeroed(ak_enc_ctx *ctx, const void *obj, int64_t token) {
+  AK_GUARD_BEGIN
+    const EncObj_LeafResponse *h = (const EncObj_LeafResponse *)obj;
+    const Tcs &t = h->t;
+    (void)t; (void)token;
+    const LeafResponse &src_owner = (*h->o);
+    const std::vector<LeafElement> &src = src_owner.items;
+    constexpr size_t kChunk = ak::arena_n(sizeof(struct ak_ufix_LeafElement));
+    struct ak_ufix_LeafElement chunk[kChunk];
+    // Clear only what will be USED, never the whole 32 KB arena: the clear
+    // is otherwise O(arena) where the fill is O(elements), so on a 1- or
+    // 4-element payload the candidate inverts. Measured with the whole-chunk
+    // clear (which is what the rust slice built): P1.1 +156 ns/element and
+    // P2.1 +550, against protobuf encodes of 165 and 1205 ns/element.
+    const size_t kClear = src.size() < kChunk ? src.size() : kChunk;
+    // All-zero is a valid group, and the bulk clear is what lets the
+    // fill below be sparse (ABI v1 open decision 9's candidate). Only an
+    // ELEMENT GROUP is filled sparsely: a blob run and a map entry are
+    // assigned in full, so clearing their chunk would be pure waste -- and
+    // an inner loop runs once per element, so that waste would be paid 500
+    // times per encode. Measured: P2.2 encode 1.94 of protobuf before this
+    // and 0.6x after, which is the whole arm rather than a detail.
+    if (kClear) std::memset(chunk, 0, kClear * sizeof(struct ak_ufix_LeafElement));
+    size_t i = 0, done = 0;
+    (void)done;
+    for (size_t k = 0; k < src.size(); ++k) {
+      fill_leaf_element_unk_sparse(&chunk[i], src[k], t);
+      ++i;
+      if (i == kChunk) {
+        AK_TAX();
+        int32_t rc = ak_uelem_LeafElement(ctx, chunk, (int32_t)i);
+        if (rc < 0) return rc;
+        done += i;
+        // Only what was dirtied is put back.
+        std::memset(chunk, 0, i * sizeof(struct ak_ufix_LeafElement));
+        i = 0;
+      }
+    }
+    if (i > 0) {
+      AK_TAX();
+      int32_t rc = ak_uelem_LeafElement(ctx, chunk, (int32_t)i);
+      if (rc < 0) return rc;
+    }
+  AK_GUARD_END
+}
+
+intptr_t encode_into_leaf_response_unk_zeroed(ak_enc_ctx *ctx, const LeafResponse &o, const Tcs &t) {
+  AK_INIT_OR_RETURN();
+  AK_HOST_CALL(); ak_enc_reset(ctx);
+  EncObj_LeafResponse h;
+  h.o = &o;
+  h.t = t;
+  struct ak_evt_LeafResponse vt;
+  vt.loop_items = loop_leaf_response_items_unk_zeroed;
+  struct ak_ufix_LeafResponse fix;
+  std::memset(&fix, 0, sizeof(fix));
+  fill_leaf_response_unk_sparse(&fix, o, t);
+  return ak_uencode_LeafResponse(&h, ctx, &vt, &fix);
+}
+
 intptr_t encode_into_surrogate_unk(ak_enc_ctx *ctx, const Surrogate &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
   AK_HOST_CALL(); ak_enc_reset(ctx);
@@ -7914,6 +9309,21 @@ intptr_t encode_into_surrogate_unk(ak_enc_ctx *ctx, const Surrogate &o, const Tc
   vt.loop_attrs = loop_surrogate_attrs;
   vt.loop_texts = loop_surrogate_texts;
   struct ak_ufix_Surrogate fix = make_surrogate_unk(o, t);
+  return ak_uencode_Surrogate(&h, ctx, &vt, &fix);
+}
+
+intptr_t encode_into_surrogate_unk_zeroed(ak_enc_ctx *ctx, const Surrogate &o, const Tcs &t) {
+  AK_INIT_OR_RETURN();
+  AK_HOST_CALL(); ak_enc_reset(ctx);
+  EncObj_Surrogate h;
+  h.o = &o;
+  h.t = t;
+  struct ak_evt_Surrogate vt;
+  vt.loop_attrs = loop_surrogate_attrs_zeroed;
+  vt.loop_texts = loop_surrogate_texts_zeroed;
+  struct ak_ufix_Surrogate fix;
+  std::memset(&fix, 0, sizeof(fix));
+  fill_surrogate_unk_sparse(&fix, o, t);
   return ak_uencode_Surrogate(&h, ctx, &vt, &fix);
 }
 
@@ -7929,6 +9339,20 @@ intptr_t encode_into_surrogate_inner_unk(ak_enc_ctx *ctx, const SurrogateInner &
   return ak_uencode_SurrogateInner(&h, ctx, &vt, &fix);
 }
 
+intptr_t encode_into_surrogate_inner_unk_zeroed(ak_enc_ctx *ctx, const SurrogateInner &o, const Tcs &t) {
+  AK_INIT_OR_RETURN();
+  AK_HOST_CALL(); ak_enc_reset(ctx);
+  EncObj_SurrogateInner h;
+  h.o = &o;
+  h.t = t;
+  struct ak_evt_SurrogateInner vt;
+  vt._reserved = NULL;
+  struct ak_ufix_SurrogateInner fix;
+  std::memset(&fix, 0, sizeof(fix));
+  fill_surrogate_inner_unk_sparse(&fix, o, t);
+  return ak_uencode_SurrogateInner(&h, ctx, &vt, &fix);
+}
+
 intptr_t encode_into_wire_zoo_unk(ak_enc_ctx *ctx, const WireZoo &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
   AK_HOST_CALL(); ak_enc_reset(ctx);
@@ -7938,6 +9362,20 @@ intptr_t encode_into_wire_zoo_unk(ak_enc_ctx *ctx, const WireZoo &o, const Tcs &
   struct ak_evt_WireZoo vt;
   vt._reserved = NULL;
   struct ak_ufix_WireZoo fix = make_wire_zoo_unk(o, t);
+  return ak_uencode_WireZoo(&h, ctx, &vt, &fix);
+}
+
+intptr_t encode_into_wire_zoo_unk_zeroed(ak_enc_ctx *ctx, const WireZoo &o, const Tcs &t) {
+  AK_INIT_OR_RETURN();
+  AK_HOST_CALL(); ak_enc_reset(ctx);
+  EncObj_WireZoo h;
+  h.o = &o;
+  h.t = t;
+  struct ak_evt_WireZoo vt;
+  vt._reserved = NULL;
+  struct ak_ufix_WireZoo fix;
+  std::memset(&fix, 0, sizeof(fix));
+  fill_wire_zoo_unk_sparse(&fix, o, t);
   return ak_uencode_WireZoo(&h, ctx, &vt, &fix);
 }
 

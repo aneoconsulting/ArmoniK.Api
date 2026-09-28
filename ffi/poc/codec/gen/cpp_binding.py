@@ -218,7 +218,7 @@ def _oneof_make(ir, m, oname, members, o, unk=False):
             _refuse("the encode group's oneof fill", m, gm)
 
 
-def _sparse_field(ir, m, f, o, bits):
+def _sparse_field(ir, m, f, o, bits, unk=False):
     """Decision 9's candidate: the host bulk-clears the chunk and assigns only what differs
     from the default. The codec still resets nothing between elements; only the host's fill
     changes."""
@@ -235,8 +235,8 @@ def _sparse_field(ir, m, f, o, bits):
         else:
             o.append("  if (!o.%s.empty()) d->%s = %s;" % (n, n, _str_arg("o." + n, tc)))
     elif f.kind == "message":
-        o.append("  if (o.%s.has_value()) { fill_%s_sparse(&d->%s, *o.%s, t);"
-                 " d->presence |= 1u << %d; }" % (n, snake(f.of), n, n, bits[n]))
+        o.append("  if (o.%s.has_value()) { fill_%s%s_sparse(&d->%s, *o.%s, t);"
+                 " d->presence |= 1u << %d; }" % (n, snake(f.of), "_unk" if unk else "", n, n, bits[n]))
     elif f.kind == "enum":
         o.append("  if (o.%s.v != 0) d->%s = o.%s.v;" % (n, n, n))
     elif f.explicit:
@@ -254,7 +254,7 @@ def _sparse_field(ir, m, f, o, bits):
         _refuse("the sparse encode group fill", m, f)
 
 
-def _oneof_sparse(ir, m, oname, members, o):
+def _oneof_sparse(ir, m, oname, members, o, unk=False):
     ty = oneof_type(m.name, oname)
     o.append("  if (o.%s.which() != %s::%s::kNotSet) {" % (oname, _ns(), ty))
     o.append("    d->%s_case = (uint32_t)o.%s.which();" % (oname, oname))
@@ -267,8 +267,8 @@ def _oneof_sparse(ir, m, oname, members, o):
             tc = "t.bytes" if gm.kind == "bytes" else "t.utf8"
             o.append("        d->%s = %s; break;" % (slot, _str_arg(acc, tc)))
         elif gm.kind == "message":
-            o.append("        fill_%s_sparse(&d->%s, %s, t); break;"
-                     % (snake(gm.of), slot, acc))
+            o.append("        fill_%s%s_sparse(&d->%s, %s, t); break;"
+                     % (snake(gm.of), "_unk" if unk else "", slot, acc))
         elif gm.kind == "bool":
             o.append("        d->%s = (uint8_t)(%s ? 1 : 0); break;" % (slot, acc))
         elif gm.kind in SCALARS or gm.kind == "enum":
@@ -475,7 +475,7 @@ def _emit_loop(ir, o, root, path, f, fname, elem_of=None, batch=True, zeroed=Fal
             tc = "t.bytes" if f.kind == "bytes" else "t.utf8"
             o.append("      chunk[i] = ak_str_of(src[k], %s);" % tc)
         elif sparse:
-            o.append("      fill_%s_sparse(&chunk[i], src[k], t);" % snake(et))
+            o.append("      fill_%s%s_sparse(&chunk[i], src[k], t);" % (snake(et), "_unk" if unk else ""))
         else:
             o.append("      chunk[i] = make_%s%s(src[k], t);" % (snake(et), "_unk" if unk else ""))
     o.append("      ++i;")
@@ -769,6 +769,9 @@ def emit_header(ir, ns="shapes", guard="AK_BINDING_H", types_h="generated/types.
             o.append("// Decision 11 / plan Options.unknown = retain: the encode over the u-groups.")
             o.append("intptr_t encode_into_%s_unk(ak_enc_ctx *ctx, const %s &o, const Tcs &t);"
                      % (snake(root), root))
+            o.append("// B-2: the same over decision 9's sparse fill (cleared groups, sparse assignment).")
+            o.append("intptr_t encode_into_%s_unk_zeroed(ak_enc_ctx *ctx, const %s &o, const Tcs &t);"
+                     % (snake(root), root))
         if nu:
             continue
         rs, on = snake(root), unk_opts_name(root)
@@ -1005,6 +1008,8 @@ Tcs tcs_host() {
                 continue
             o.append("static inline struct ak_ufix_%s make_%s_unk(const %s &o, const Tcs &t);"
                      % (name, snake(name), name))
+            o.append("static inline void fill_%s_unk_sparse(struct ak_ufix_%s *d, const %s &o,"
+                     " const Tcs &t);" % (snake(name), name, name))
     for name in abi_order_topo(ir):
         if ir.msg(name).synthetic:
             continue
@@ -1066,6 +1071,24 @@ Tcs tcs_host() {
             else:
                 o.append("  g.presence = 0;")
             o.append("  return g;")
+            o.append("}")
+            o.append("")
+            o.append("// B-2 (2026-09-28): decision 9's sparse fill over the u-group. The caller")
+            o.append("// clears the group; only what differs from the default is assigned, and")
+            o.append("// the bag only when it is non-empty (a cleared ak_unk_buf is empty).")
+            o.append("static inline void fill_%s_unk_sparse(struct ak_ufix_%s *d, const %s &o,"
+                     " const Tcs &t) {" % (snake(name), name, name))
+            o.append("  (void)d; (void)o; (void)t;")
+            for f in m.plain:
+                if f.oneof or f.card != "singular":
+                    continue
+                _sparse_field(ir, m, f, o, bits, unk=True)
+            for oname, members in m.oneofs.items():
+                _oneof_sparse(ir, m, oname, members, o, unk=True)
+            o.append("  if (!o.unknown_fields.empty()) {")
+            o.append("    d->unknown.data = o.unknown_fields.data();")
+            o.append("    d->unknown.len = o.unknown_fields.size();")
+            o.append("  }")
             o.append("}")
             o.append("")
         o.append("// Decision 9's candidate: the host bulk-clears the chunk once and assigns")
@@ -1622,43 +1645,53 @@ def _emit_encode_unk(ir, o, root):
     top-level repeated-MESSAGE slot a loop over the element u-groups through `ak_uelem*`.
     Blob, packed and map slots, and the loops of an element's own slots, are the drop
     path's (a map entry and a blob carry no bag; an element's inner loops reach the codec
-    through the element's vtable, which the u-group does not change)."""
+    through the element's vtable, which the u-group does not change).
+    B-2 (2026-09-28): `encode_into_<root>_unk_zeroed`, the same over decision 9's sparse fill
+    (the group and each element chunk cleared, only the elements filled; the drop path's
+    `_zeroed` loops and element vtables for the other slots)."""
     rs = snake(root)
     slots = loop_slots(ir, root)
-    fns = {}
-    for path, f in slots:
-        sn = slot_name(path)
-        if f.card == "repeated" and f.kind == "message":
-            fname = "loop_%s_%s_unk" % (rs, sn)
-            _emit_loop(ir, o, root, path, f, fname, None, True, False, unk=True)
-            fns[sn] = fname
+    for suffix, zeroed in (("", False), ("_zeroed", True)):
+        fns = {}
+        for path, f in slots:
+            sn = slot_name(path)
+            if f.card == "repeated" and f.kind == "message":
+                fname = "loop_%s_%s_unk%s" % (rs, sn, suffix)
+                _emit_loop(ir, o, root, path, f, fname, None, True, zeroed, unk=True)
+                fns[sn] = fname
+            else:
+                fns[sn] = "loop_%s_%s%s" % (rs, sn, suffix)
+        o.append("intptr_t encode_into_%s_unk%s(ak_enc_ctx *ctx, const %s &o, const Tcs &t) {"
+                 % (rs, suffix, root))
+        o.append("  AK_INIT_OR_RETURN();")
+        o.append("  AK_HOST_CALL(); ak_enc_reset(ctx);")
+        o.append("  EncObj_%s h;" % root)
+        o.append("  h.o = &o;")
+        o.append("  h.t = t;")
+        o.append("  struct ak_evt_%s vt;" % root)
+        if not slots:
+            o.append("  vt._reserved = NULL;")
+        for path, f in slots:
+            sn = slot_name(path)
+            o.append("  vt.loop_%s = %s;" % (sn, fns[sn]))
+            et = elem_type(f)
+            if et and loop_slots(ir, et):
+                o.append("  vt.elem_%s = &kElemVt_%s_%s%s;" % (sn, root, sn, suffix))
+        if zeroed:
+            o.append("  struct ak_ufix_%s fix;" % root)
+            o.append("  std::memset(&fix, 0, sizeof(fix));")
+            o.append("  fill_%s_unk_sparse(&fix, o, t);" % rs)
         else:
-            fns[sn] = "loop_%s_%s" % (rs, sn)
-    o.append("intptr_t encode_into_%s_unk(ak_enc_ctx *ctx, const %s &o, const Tcs &t) {" % (rs, root))
-    o.append("  AK_INIT_OR_RETURN();")
-    o.append("  AK_HOST_CALL(); ak_enc_reset(ctx);")
-    o.append("  EncObj_%s h;" % root)
-    o.append("  h.o = &o;")
-    o.append("  h.t = t;")
-    o.append("  struct ak_evt_%s vt;" % root)
-    if not slots:
-        o.append("  vt._reserved = NULL;")
-    for path, f in slots:
-        sn = slot_name(path)
-        o.append("  vt.loop_%s = %s;" % (sn, fns[sn]))
-        et = elem_type(f)
-        if et and loop_slots(ir, et):
-            o.append("  vt.elem_%s = &kElemVt_%s_%s;" % (sn, root, sn))
-    o.append("  struct ak_ufix_%s fix = make_%s_unk(o, t);" % (root, rs))
-    ds = DIRECT(ir, root)
-    if ds:
-        o.append("  const %s &dbuf = %s;" % (S, ds))
-        o.append("  return ak_uencode_%s(&h, ctx, &vt, &fix,"
-                 " (const uint8_t *)dbuf.data(), dbuf.size());" % root)
-    else:
-        o.append("  return ak_uencode_%s(&h, ctx, &vt, &fix);" % root)
-    o.append("}")
-    o.append("")
+            o.append("  struct ak_ufix_%s fix = make_%s_unk(o, t);" % (root, rs))
+        ds = DIRECT(ir, root)
+        if ds:
+            o.append("  const %s &dbuf = %s;" % (S, ds))
+            o.append("  return ak_uencode_%s(&h, ctx, &vt, &fix,"
+                     " (const uint8_t *)dbuf.data(), dbuf.size());" % root)
+        else:
+            o.append("  return ak_uencode_%s(&h, ctx, &vt, &fix);" % root)
+        o.append("}")
+        o.append("")
 
 
 def _emit_unk_armed(ir, o, root):
