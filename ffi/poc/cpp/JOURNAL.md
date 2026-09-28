@@ -1834,3 +1834,25 @@ changes.
   process-CPU mean), repetition interleaving (random across the benchmarks of a process here; criterion runs one
   benchmark's samples back to back), the cell sets (C++ Cp/Dp, no Df/Ff; Rust Df/Ff, no Cp/Dp), and campaign_rpc's
   untimed pre-checks at each process start.
+
+## 2026-09-28, completion-queue cells (owner: "try the completion queue in addition to blocking"; req. 16 as amended, c1d3db50)
+
+- `campaign_rpc`: queue cells B-q, Bf-q, C-q-*, Cf-q-*, E-q-*, Ef-q-* beside the blocking ones, every direction and mode
+  (`d7a556b3`). Design: one `ak_queue` per cell; the benchmark thread issues the batch's k calls back to back
+  (`ak_call_unary_q`; C `ak_call_unary_enc_q`, moved; d `ak_call_open` + `ak_call_send_q` / `ak_call_send_enc_q`) and is
+  the ONE drainer (`ak_queue_next` until k completed; tag = slot << 8 | op; a stream's next send issued from the drain;
+  `ak_call_recv_q` after the last send). No k caller threads. The blocking cells are unchanged, their counts identical.
+- Checks (`logs/cpp/opt/q-deliveries/checks.log`, `gen/q_checks.sh`): `--semantics 1` 14/14 per build (status 6 on a
+  stream, two moved-encode sends to UploadStreamCheck with the digest, cancel a pending recv -> CANCELLED and a second
+  recv refused, cancel a pending send on StallS -> AK_ERR_HOST/-1 then recv CANCELLED, a send while one is pending and
+  a send after last refused with no completion, a blocking recv after recv_q refused, ak_call_unary_enc_q status 9 and
+  Push OK, a NULL queue refused, the queue drained to SHUTDOWN), reference and framed; plants d-sha, d-count and c-len
+  on queue cells abort with no sample; every queue cell's grid smoke passes; ASan+LSan 0 reports (semantics and grid,
+  both builds). The first ASan run found the semantics path leaving the runtime undestroyed (80 B, LSan) and its stdout
+  unflushed under LSan's exit; fixed before the commit.
+- Counts: rpc-counts.log 72 -> 132 rows, rpc-counts-nounk.log 42 -> 78, new rows only. Codec pre-checks and codec
+  counts unchanged (`codec-checks.log`).
+- Grid (`logs/cpp/opt/rpc-same-machine-q/`, same settings as 400a6d52): 1168 entries, 750 s, past ~12 min (kept).
+  In-process q/blk client-CPU median ratios: a and a+read k=8 0.87-0.88 (the queue's single drainer against 8 caller
+  threads), k=1 0.99; b k=8 0.94; c/P5.3 k=8 0.92, k=1 1.04; c/P5.4 1.02 (k=1) and 1.04-1.11 (k=8, single-batch,
+  wide); d 1.00-1.07 CPU with wall 0.96-1.02. Container instrumentation.

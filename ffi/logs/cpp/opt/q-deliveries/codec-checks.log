@@ -1,0 +1,8 @@
+# codec pre-check and codec crossing counts after the queue-cells change (commit d7a556b3); campaign_codec(_nounk) with --filter 'P1\.1' (the pre-check runs on every group before any benchmark); generate.py --check
+generate.py --check: every target current (61 ok lines)
+campaign_codec --only P: rc=0 "campaign_codec_gate": {"groups": 28, "slots": 1492, "failed": 0, "ffi_retain": "built", "pull_value_gate": "push = pull walked = pull drained on every group and mode, 0 failed"}
+campaign_codec --only U-: rc=0 "campaign_codec_gate": {"groups": 92, "slots": 2944, "failed": 0, "ffi_retain": "built", "pull_value_gate": "push = pull walked = pull drained on every group and mode, 0 failed"}
+campaign_codec_nounk --only P: rc=0 "campaign_codec_gate": {"groups": 28, "slots": 884, "failed": 0, "ffi_retain": "compiled out (no-unknown build)", "pull_value_gate": "push = pull walked = pull drained on every group and mode, 0 failed"}
+campaign_codec_nounk --only U-: rc=0 "campaign_codec_gate": {"groups": 92, "slots": 1840, "failed": 0, "ffi_retain": "compiled out (no-unknown build)", "pull_value_gate": "push = pull walked = pull drained on every group and mode, 0 failed"}
+codec counts (full): 530 rows identical to logs/cpp/counts-baseline.log
+codec counts (nounk): 301 rows identical to logs/cpp/counts-nounk-baseline.log
