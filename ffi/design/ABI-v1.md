@@ -949,10 +949,21 @@ buffer, released with `ak_bytes_free` on any thread (the buffer returns to the
 context for reuse): what a host hands a transport of its own without a copy.
 `ak_client_set_framed(ak_client*, int32_t on)` selects, for every later call on that
 client, the **framed** send path: tonic's channel with the request message sent as
-two body frames (the 5-byte gRPC prefix, then the bytes), bypassing the codec layer
-whose raw-bytes encoder copies every message into its own buffer. Its request headers
-were checked identical on the wire to the reference path's, and the gate keeps
-checking it. 0, the default, is the reference path.
+body frames of its own, bypassing the codec layer whose raw-bytes encoder copies
+every message into its own buffer. Its request headers were checked identical on the
+wire to the reference path's, and the gate keeps checking it.
+
+**The framed path is the default (owner, 2026-09-28).** A new client sends framed;
+`ak_client_set_framed(c, 0)` selects the reference path (tonic's codec), which stays
+as a labelled reference. Two changes came with it, inside the core, no entry
+changed: an encode context keeps 5 bytes of **headroom** before its output, so the
+gRPC prefix is written in place and each request message goes out as **one** body
+frame (before, two: the prefix, then the bytes); and the buffer recycling an encode
+context does after `ak_call_*_enc` / `ak_enc_take_owned` keeps a **ring of 3 spare
+buffers** instead of one slot, so a stream with several messages in flight encodes
+into a recycled buffer rather than a fresh one (fresh 2 MiB buffers page-fault:
+`logs/rust/opt/stream-probe2`). A host that copies bytes in (`ak_call_unary`,
+`ak_call_send`) goes framed too, with one copy of its own into a core buffer.
 
 **`ak_call_unary_enc` is additive (2026-09-26, the Rust optimisation
 experiment).** It is `ak_call_unary` whose request is the encode context's output,

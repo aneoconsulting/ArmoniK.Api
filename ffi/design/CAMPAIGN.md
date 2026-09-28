@@ -156,7 +156,10 @@ in its container shows it executes (section 9).
     the first only), 4 MiB and 16 MiB in total, through the core's client streaming
     (ABI-v1 section 9), the server checking the received byte count and digest. Both
     at 1 and 8 in flight. Each send path that exists runs beside its reference
-    (the framed twins, ABI-v1 section 9). Direction (a) is reported as `a`
+    (the framed twins, ABI-v1 section 9). Since 2026-09-28 the framed path is the
+    core's default: the framed twins (Bf, Cf, Ef) are the default rows and B, C, E
+    the labelled reference rows, each harness setting the path explicitly on every
+    core cell. Direction (a) is reported as `a`
     (decode only) and `a+read` (decode, then read every field) in every slice;
     cross-slice readings use `a+read` (owner, 2026-09-26, R-H36).
 15. **Concurrency:** 1, 8 and 16 calls in flight.

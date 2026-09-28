@@ -501,6 +501,15 @@ Each slice regenerates, rebuilds its core, re-runs its gate, and then:
    hand-written call sites that must change, per slice and line, are listed in
    `poc/rust/STATE.md`, open defect W8 (cpp 4 files, csharp 2, java 1, python 1).
 
+6. **The framed default** (ABI-v1 section 9, 2026-09-28): a new client now sends
+   framed, so a harness that only calls `ak_client_set_framed(c, 1)` for its framed
+   twins silently runs its reference cells (B, C, E) framed too. Each slice sets the
+   path explicitly on every core cell, `ak_client_set_framed(c, 0)` for the
+   reference, as the Rust grid does. The sites: cpp `src/campaign_rpc.cpp:321`,
+   csharp `src/Rpc/Campaign.cs:410` and `:552`, java
+   `src/java/ak/CampaignRpc.java:494`, python `camp_rpc.py:348`. Header and ring
+   changes need nothing from a slice.
+
 **Still open after WP8**: `ak_call_opts` (deadline, metadata)
 exists on streams only; server-streaming and bidirectional calls are reserved kinds,
 not built.
