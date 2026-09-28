@@ -1,0 +1,28 @@
+# opt_ab: rpc env A='' env B='' args A='--workers 1' args B='--workers 2' A=/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/snap/s7 (c3fd986f) B=/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/snap/s7 (c3fd986f) pairs=3 args: --transport shipped --cells B,C-drop,E-drop --dirs abd --inflight 1,8 --rounds 3 --min-time-s 0.08 --warmup-s 0.02
+# ns per operation (process CPU; rpc: per call), median of every repetition of every process; wins = pairs where B's process median < A's
+benchmark                                                                                                    A_ns         B_ns     B/A  wins
+B|16MiB|-|d|default|inflight=1,transport=shipped,send_path=reference,build=full                        12802686.5   13876513.3   1.084  0/3
+B|16MiB|-|d|default|inflight=8,transport=shipped,send_path=reference,build=full                        20227721.0   20539832.6   1.015  1/3
+B|4MiB|-|d|default|inflight=1,transport=shipped,send_path=reference,build=full                          3401006.5    3558608.1   1.046  2/3
+B|4MiB|-|d|default|inflight=8,transport=shipped,send_path=reference,build=full                          6239261.4    5877734.1   0.942  3/3
+B|P2.2|-|a|default|inflight=1,transport=shipped,send_path=reference,build=full                          3234387.9    3282935.8   1.015  1/3
+B|P2.2|-|a|default|inflight=8,transport=shipped,send_path=reference,build=full                          3790125.3    3768331.8   0.994  2/3
+B|P2.2|-|b|default|inflight=1,transport=shipped,send_path=reference,build=full                          1337245.5    1283840.9   0.960  2/3
+B|P2.2|-|b|default|inflight=8,transport=shipped,send_path=reference,build=full                          1259030.6    1349474.1   1.072  0/3
+C-drop|16MiB|-|d|drop|inflight=1,transport=shipped,send_path=reference,build=full                      12641349.5   12542664.6   0.992  2/3
+C-drop|16MiB|-|d|drop|inflight=8,transport=shipped,send_path=reference,build=full                      17938383.8   18186110.5   1.014  2/3
+C-drop|4MiB|-|d|drop|inflight=1,transport=shipped,send_path=reference,build=full                        3168568.5    2951130.0   0.931  2/3
+C-drop|4MiB|-|d|drop|inflight=8,transport=shipped,send_path=reference,build=full                        6239749.4    5232938.6   0.839  3/3
+C-drop|P2.2|-|a|drop|inflight=1,transport=shipped,send_path=reference,build=full                        2464008.7    2504947.2   1.017  1/3
+C-drop|P2.2|-|a|drop|inflight=8,transport=shipped,send_path=reference,build=full                        2830117.0    2965373.6   1.048  0/3
+C-drop|P2.2|-|b|drop|inflight=1,transport=shipped,send_path=reference,build=full                         942154.5    1004359.3   1.066  1/3
+C-drop|P2.2|-|b|drop|inflight=8,transport=shipped,send_path=reference,build=full                         992573.1     948980.3   0.956  3/3
+E-drop|16MiB|-|d|drop|inflight=1,transport=shipped,send_path=reference,build=full                      13269361.2   13726258.7   1.034  1/3
+E-drop|16MiB|-|d|drop|inflight=8,transport=shipped,send_path=reference,build=full                      20982417.6   22005770.8   1.049  2/3
+E-drop|4MiB|-|d|drop|inflight=1,transport=shipped,send_path=reference,build=full                        3695610.7    3448128.2   0.933  2/3
+E-drop|4MiB|-|d|drop|inflight=8,transport=shipped,send_path=reference,build=full                        9166021.7    6752435.6   0.737  2/3
+E-drop|P2.2|-|a|drop|inflight=1,transport=shipped,send_path=reference,build=full                        2278500.6    2359102.6   1.035  0/3
+E-drop|P2.2|-|a|drop|inflight=8,transport=shipped,send_path=reference,build=full                        2771681.8    2812537.4   1.015  1/3
+E-drop|P2.2|-|b|drop|inflight=1,transport=shipped,send_path=reference,build=full                         841052.9     874022.8   1.039  1/3
+E-drop|P2.2|-|b|drop|inflight=8,transport=shipped,send_path=reference,build=full                         915373.5     960239.8   1.049  1/3
+# geometric mean B/A over 24 benchmarks: 0.992

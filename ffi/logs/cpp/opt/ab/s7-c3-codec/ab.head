@@ -1,0 +1,1 @@
+# opt_ab: codec env A='AK_MALLOC_PIN=0' env B='' A=/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/snap/s7 (c3fd986f) B=/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/snap/s7 (c3fd986f) pairs=3 args: --only P5,P2.2,P1.2 --filter \|ascii\| --rounds 5 --min-time-s 0.02 --warmup-s 0.01 --pool-bytes 1048576

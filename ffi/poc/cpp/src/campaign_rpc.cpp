@@ -48,6 +48,7 @@
 //                    and E in each mode and direction, then exit
 #include "rpc_common.h"
 
+#include <dlfcn.h>
 #include <sys/resource.h>
 #include <sys/syscall.h>
 
@@ -76,6 +77,7 @@
 #include "generated/core_native.h"
 #include "generated/pb_build.h"
 #include "generated/touch.h"
+#include "bb_bytes.h"
 #include "owned_holder.h"
 #include "sha256.h"
 #include "campaign_grid.grpc.pb.h"
@@ -185,6 +187,7 @@ struct Cfg {
   double min_time_s = 0.5; // Google Benchmark's min time per repetition (its iteration control)
   std::string gbout;     // Google Benchmark JSON output (WP9)
   int count = 0;         // --count N
+  int alloc_probe = 0;   // --alloc-probe N: allocations >= 1 MiB per call (LD_PRELOAD gen/allocprobe.so)
 };
 
 [[noreturn]] void die(const char *what, long v) {
@@ -300,6 +303,7 @@ struct ThreadCtx {
                               // decode on `dc` never pays a disarming reset
   ak::Enc *ne = nullptr, *nre = nullptr;
   std::vector<uint8_t> pbuf;  // H-6: cell B's protobuf request buffer, reused, grown only
+  BBFlat bbf;                 // R-2: D and F's response bytes, one slice in place or a reused copy
   ThreadCtx() {
     ec = ak_enc_ctx_new();
     dc = shapes::ffi::dec_ctx_new_for<Fac>();  // decision 11 rule 6
@@ -640,21 +644,12 @@ long cell_call(World &w, size_t ci, const Job &job, int t, ThreadCtx &tc) {
     return 1;
   }
   if (rsp.Length() != w.expect_a) die("D/F a response length", (long)rsp.Length());
-  std::vector<grpc::Slice> slices;
-  if (!rsp.Dump(&slices).ok()) die("D/F a dump", 0);
-  std::string flat;
-  const uint8_t *p;
-  size_t len;
-  if (slices.size() == 1) {
-    p = slices[0].begin();
-    len = slices[0].size();
-  } else {
-    // The generated decoders need one contiguous buffer; protobuf reads the slice list. The
-    // concatenation is part of cells D and F (it is the integration's cost), stated.
-    for (size_t i = 0; i < slices.size(); ++i) flat.append((const char *)slices[i].begin(), slices[i].size());
-    p = (const uint8_t *)flat.data();
-    len = flat.size();
-  }
+  // The generated decoders need one contiguous buffer; protobuf reads the slice list. The
+  // concatenation is part of cells D and F (it is the integration's cost), stated. R-2: into
+  // the thread's reused buffer (one slice is used in place).
+  const uint8_t *p = NULL;
+  size_t len = 0;
+  if (!bb_contig(rsp, tc.bbf, &p, &len)) die("D/F a dump", 0);
   Fac f;
   int32_t drc = codec_decode(cell, cl.mode, tc, p, len, &f);
   if (drc != 0) die("D/F a decode", drc);
@@ -866,6 +861,7 @@ int main(int argc, char **argv) {
     else if (a == "--min-time-s") c.min_time_s = std::atof(v);
     else if (a == "--gbench-out") c.gbout = v;
     else if (a == "--count") c.count = std::atoi(v);
+    else if (a == "--alloc-probe") c.alloc_probe = std::atoi(v);
     else if (a == "--plant") c.plant = v;
   }
   if (c.target.empty() || (c.transport != "shipped" && c.transport != "pinned") || !w.expect_a) {
@@ -1008,6 +1004,26 @@ int main(int argc, char **argv) {
 #ifdef AK_COUNTING
   if (c.count > 0) return count_cells(w, c.count);
 #else
+  if (c.alloc_probe > 0) {
+    // R-1 / HG-5 probe: the big allocations (>= AK_PROBE_MIN, default 1 MiB) per call of every
+    // cell in directions c and d, counted by the preloaded gen/allocprobe.so. Nothing is timed.
+    typedef unsigned long (*probe_fn)(void);
+    probe_fn pf = (probe_fn)dlsym(RTLD_DEFAULT, "akprobe_big_allocs");
+    if (!pf) { std::fprintf(stderr, "--alloc-probe needs LD_PRELOAD=gen/allocprobe.so\n"); return 2; }
+    ThreadCtx tc;
+    for (size_t ci = 0; ci < w.cells.size(); ++ci)
+      for (size_t ji = 0; ji < w.jobs.size(); ++ji) {
+        const Job &j = w.jobs[ji];
+        if (j.dir != 'c' && j.dir != 'd') continue;
+        cell_call(w, ci, j, 0, tc);  // one warm call first: steady state only
+        unsigned long b0 = pf();
+        for (int i = 0; i < c.alloc_probe; ++i) cell_call(w, ci, j, 0, tc);
+        unsigned long b1 = pf();
+        std::printf("  %-10s %-2s %-5s big allocations per call %6.2f\n", w.cells[ci].label.c_str(),
+                    dir_label(j.dir), job_payload(j), (double)(b1 - b0) / c.alloc_probe);
+      }
+    return 0;
+  }
   if (c.count > 0) { std::fprintf(stderr, "--count needs a counting build\n"); return 2; }
 #endif
 

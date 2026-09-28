@@ -72,6 +72,7 @@
 #include <vector>
 
 #include "harness.h"
+#include "bb_bytes.h"
 #include "owned_holder.h"
 
 // B-2 (2026-09-28): the fill the core arms' encodes use (the header names it). Sparse:
@@ -307,17 +308,16 @@ struct Ctx {
   ak::Enc *ne, *nre;
 };
 
-// H-8: what cells D and F do with a response ByteBuffer (campaign_rpc.cpp): Dump the slices,
-// decode one slice in place, concatenate several.
+// H-8: what cells D and F do with a response ByteBuffer (campaign_rpc.cpp): since R-2,
+// bb_contig (one slice in place, several copied into a reused buffer).
 template <class Fac, class Dec>
 int32_t bb_decode(const grpc::Slice &s, const Dec &dec, Fac *v) {
+  static BBFlat f;  // the one benchmark thread's reused buffer
   grpc::ByteBuffer bb(&s, 1);
-  std::vector<grpc::Slice> slices;
-  if (!bb.Dump(&slices).ok()) return -1;
-  if (slices.size() == 1) return dec(slices[0].begin(), slices[0].size(), v);
-  std::string flat;
-  for (size_t i = 0; i < slices.size(); ++i) flat.append((const char *)slices[i].begin(), slices[i].size());
-  return dec((const uint8_t *)flat.data(), flat.size(), v);
+  const uint8_t *p = NULL;
+  size_t n = 0;
+  if (!bb_contig(bb, f, &p, &n)) return -1;
+  return dec(p, n, v);
 }
 
 // incumbent-arena: every decode on a fresh Arena whose first block is this reused buffer.

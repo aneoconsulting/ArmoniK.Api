@@ -4,6 +4,8 @@
 #   gen/opt_ab.sh OUT_DIR SNAP_A SNAP_B rpc|rpc_nounk ARGS...        (campaign_rpc arguments; the
 #                                                                     server is started here)
 # Runs A B A B ... (PAIRS, default 3), one process each, then gen/opt_ab.py OUT_DIR.
+# ENV_A / ENV_B: extra environment for the A / B processes (A and B may be one snapshot);
+# ARGS_A / ARGS_B: extra arguments appended for the A / B processes.
 # Instrumentation, not gated (each process's own pre-check stays on).
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -27,11 +29,11 @@ if [ "${KIND#rpc}" != "$KIND" ]; then
 else
   EXTRA=(--corpus "$FFI/corpus/generated" --rows "$SCR/rows.tsv")
 fi
-{ echo "# opt_ab: $KIND A=$A ($(head -1 "$A/REV")) B=$B ($(head -1 "$B/REV")) pairs=$PAIRS args: $*"; } > "$OUT/ab.head"
+{ echo "# opt_ab: $KIND env A='${ENV_A:-}' env B='${ENV_B:-}' args A='${ARGS_A:-}' args B='${ARGS_B:-}' A=$A ($(head -1 "$A/REV")) B=$B ($(head -1 "$B/REV")) pairs=$PAIRS args: $*"; } > "$OUT/ab.head"
 for i in $(seq 1 "$PAIRS"); do
   for side in A B; do
-    S=$A; [ $side = B ] && S=$B
-    ( cd "$FFI/schema/generated" && LD_LIBRARY_PATH="$S/$V" taskset -c "$CPU" "$S/$V/$X" "${EXTRA[@]}" "$@" \
+    S=$A; EV=${ENV_A:-}; XA=${ARGS_A:-}; [ $side = B ] && { S=$B; EV=${ENV_B:-}; XA=${ARGS_B:-}; }
+    ( cd "$FFI/schema/generated" && env $EV LD_LIBRARY_PATH="$S/$V" taskset -c "$CPU" "$S/$V/$X" "${EXTRA[@]}" "$@" $XA \
         --gbench-out "$OUT/$side-$i.json" > "$OUT/$side-$i.console" 2>&1 ) \
       || { echo "run $side-$i failed:"; tail -5 "$OUT/$side-$i.console"; exit 1; }
     grep -m1 -o '"campaign_codec_gate": {[^}]*}' "$OUT/$side-$i.console" || true
