@@ -89,6 +89,8 @@ static bool oracle(const uint8_t *p, std::size_t n) {
   return true;
 }
 
+static bool core_check(const uint8_t *p, std::size_t n) { return ak_utf8_check(p, n) == 0; }
+
 struct Impl {
   const char *name;
   bool (*fn)(const uint8_t *, std::size_t);
@@ -100,6 +102,8 @@ static std::vector<Impl> impls() {
   Impl b; b.name = "dfa";    b.fn = &ak::utf8_valid_dfa;    v.push_back(b);
   Impl d; d.name = "table";  d.fn = &ak::utf8_valid_table;  v.push_back(d);
   Impl c; c.name = "protobuf"; c.fn = &ak::utf8_valid_protobuf; v.push_back(c);
+  // HG-3 (2026-09-28): the core's own check, the validator host-gen now calls.
+  Impl k; k.name = "core-ak_utf8_check"; k.fn = &core_check; v.push_back(k);
   return v;
 }
 

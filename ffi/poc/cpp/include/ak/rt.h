@@ -83,6 +83,9 @@
 #define AK_GROUP_PLANT 0
 #endif
 
+// HG-3: the core's UTF-8 check (ak-core lib.rs), 0 valid, AK_ERR_TRANSCODE otherwise.
+extern "C" int32_t ak_utf8_check(const uint8_t *p, std::size_t n);
+
 namespace ak {
 
 #if AK_CONC_GLOBAL
@@ -546,8 +549,12 @@ bool utf8_valid(const uint8_t *p, std::size_t n);
 // price them as two arms in the same interleaved rounds. `decode_str` is the one the
 // generated codec calls and is selected at build time, because a runtime branch per string
 // would be a cost of its own.
+// HG-3 (2026-09-28, the owner's choice): host-gen validates with the CORE's own check
+// (ak_utf8_check: ak_rt::strings::check_utf8, simdutf8::basic), the most comparable
+// validator, at one forward call per non-empty string; the empty string makes none. Declared
+// here only (the slice's own header): no generated header carries it.
 inline int32_t decode_str_checked(const uint8_t *p, std::size_t n, std::string *out) {
-  if (!utf8_valid(p, n)) return ERR_TRANSCODE;
+  if (n != 0 && ak_utf8_check(p, n) != 0) return ERR_TRANSCODE;
   out->assign((const char *)p, n);
   return 0;
 }

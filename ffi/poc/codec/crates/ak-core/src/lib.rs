@@ -972,6 +972,26 @@ pub extern "C" fn ak_tc_latin1() -> ak_transcode_fn {
     tc_latin1
 }
 
+/// HG-3 (2026-09-28, the cpp slice's optimisation unit, the owner's choice): the core's OWN
+/// UTF-8 check (`ak_rt::strings::check_utf8`, the validator the core's decoders run on every
+/// string field: simdutf8::basic in the default build), exported ADDITIVELY so a host-side
+/// codec validates exactly as the core does. 0 = valid, AK_ERR_TRANSCODE = not UTF-8. A pure
+/// function with no state, so it does not require `ak_init` and is not counted. Declared
+/// only in the cpp slice's own header (`include/ak/rt.h`); no generated header carries it.
+#[no_mangle]
+pub unsafe extern "C" fn ak_utf8_check(p: *const u8, n: usize) -> i32 {
+    if n == 0 {
+        return AK_OK;
+    }
+    if p.is_null() {
+        return AK_ERR_TRANSCODE;
+    }
+    match ak_rt::strings::check_utf8(core::slice::from_raw_parts(p, n)) {
+        Ok(()) => AK_OK,
+        Err(_) => AK_ERR_TRANSCODE,
+    }
+}
+
 /// Optimisation O-9 (2026-09-28, the cpp slice's optimisation unit, owner-approved): a whole
 /// run of blobs (`ak_blob_run`) through the passthrough transcoder written in ONE pass: the
 /// run's size first (keys, length varints, bodies), one reservation, then raw stores. The

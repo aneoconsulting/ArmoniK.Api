@@ -1,0 +1,90 @@
+===== utf8check_a17
+== the decode policy's UTF-8 validator: three implementations ==
+-std=201703  AK_UTF8=1 (table)  linkage=shared
+ceiling: protobuf C++ 3021012's own IsStructurallyValidUTF8, the validator the
+         incumbent runs on every `string` field it parses (R14)
+implementations under test: scalar dfa table protobuf core-ak_utf8_check
+
+-- every string of 1, 2 and 3 bytes, against the oracle --
+   16843008 strings, every implementation agreed with the oracle on all of them
+
+-- four bytes: every lead, boundary tails --
+   864000 strings, all agreed
+
+-- the classes a naive decoder gets wrong, named one by one --
+   32 named vectors x 5 implementations
+
+-- the payloads' own strings --
+   5000 strings
+
+-- the payloads' own strings --
+   5000 strings
+
+-- the payloads' own strings --
+   5000 strings
+
+17797200 checks, 0 failures
+
+-- what each costs, one process, per string and per byte --
+  set      impl      ns/string    ns/byte  vs scalar      bytes
+  ascii    scalar        23.06      0.759      1.00x     151989
+  ascii    dfa           11.60      0.381      1.99x     151989
+  ascii    table          9.58      0.315      2.41x     151989
+  ascii    protobuf      10.72      0.353      2.15x     151989
+  ascii    core-ak_utf8_check      11.68      0.384      1.98x     151989
+  latin1   scalar       111.94      1.841      1.00x     303978
+  latin1   dfa          113.74      1.871      0.98x     303978
+  latin1   table        105.84      1.741      1.06x     303978
+  latin1   protobuf     131.24      2.159      0.85x     303978
+  latin1   core-ak_utf8_check      22.41      0.369      4.99x     303978
+  wide     scalar       147.52      1.618      1.00x     455967
+  wide     dfa          180.43      1.979      0.82x     455967
+  wide     table        114.02      1.250      1.29x     455967
+  wide     protobuf     207.01      2.270      0.71x     455967
+  wide     core-ak_utf8_check      23.27      0.255      6.34x     455967
+exit 0
+===== utf8check_c11
+== the decode policy's UTF-8 validator: three implementations ==
+-std=201103  AK_UTF8=1 (table)  linkage=shared
+ceiling: protobuf C++ 3021012's own IsStructurallyValidUTF8, the validator the
+         incumbent runs on every `string` field it parses (R14)
+implementations under test: scalar dfa table protobuf core-ak_utf8_check
+
+-- every string of 1, 2 and 3 bytes, against the oracle --
+   16843008 strings, every implementation agreed with the oracle on all of them
+
+-- four bytes: every lead, boundary tails --
+   864000 strings, all agreed
+
+-- the classes a naive decoder gets wrong, named one by one --
+   32 named vectors x 5 implementations
+
+-- the payloads' own strings --
+   5000 strings
+
+-- the payloads' own strings --
+   5000 strings
+
+-- the payloads' own strings --
+   5000 strings
+
+17797200 checks, 0 failures
+
+-- what each costs, one process, per string and per byte --
+  set      impl      ns/string    ns/byte  vs scalar      bytes
+  ascii    scalar        23.60      0.776      1.00x     151989
+  ascii    dfa           12.13      0.399      1.95x     151989
+  ascii    table          9.73      0.320      2.43x     151989
+  ascii    protobuf      11.05      0.364      2.14x     151989
+  ascii    core-ak_utf8_check      11.59      0.381      2.04x     151989
+  latin1   scalar       111.25      1.830      1.00x     303978
+  latin1   dfa          114.74      1.887      0.97x     303978
+  latin1   table        106.39      1.750      1.05x     303978
+  latin1   protobuf     133.57      2.197      0.83x     303978
+  latin1   core-ak_utf8_check      23.23      0.382      4.79x     303978
+  wide     scalar       139.50      1.530      1.00x     455967
+  wide     dfa          174.54      1.914      0.80x     455967
+  wide     table        113.77      1.248      1.23x     455967
+  wide     protobuf     203.78      2.235      0.68x     455967
+  wide     core-ak_utf8_check      22.18      0.243      6.29x     455967
+exit 0
