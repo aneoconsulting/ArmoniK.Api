@@ -1812,3 +1812,25 @@ changes.
   dropped). Pre-check 0 failures in all four codec processes, counts identical, 7160 codec and 720 RPC cases.
 - STATE.md rewritten: status, what was checked (the 9997ea57 gates), crossing counts 530/301 with the pull rows,
   timing and log index for logs/cpp/opt/, H-1 closed, C41 narrowed, next step.
+
+## 2026-09-28, RPC grid only on the same container as the Rust slice's run (coordinator unit)
+
+- `gen/rpc_same_machine.sh` / `.py` (committed `83fc612b`) mirror `poc/rust/gen/rpc_same_machine.sh`: one serve.sh server
+  (4 tokio workers, CPUs 2,3, `serve.sh warm 50` once), client on CPU 1, shipped then pinned, full then no-unknown
+  client, three processes per (transport, client). No code change, no gate; the build was a no-op check (7 s).
+- Per-repetition time: criterion's measurement time is for all the samples of a benchmark (SamplingMode::Flat:
+  time_per_sample = target / n, criterion-0.5.1 lib.rs), so the Rust run's 250/250/500 ms over 10 samples is 25/25/50 ms
+  per sample; the C++ run uses --min-time-s 0.025/0.025/0.05 with 10 repetitions and a 30 ms warm-up. Taking
+  250/500 ms per repetition literally would have been about 10x the Rust run (over an hour here).
+- Result `logs/cpp/opt/rpc-same-machine/`: 720 entries x 10 repetitions, 485 s of server+clients (Rust: 840 entries,
+  545 s). Every call checked and every process's pre-checks passed. 204 entries run one batch per repetition (Rust:
+  311).
+- Abnormal, a property of Google Benchmark's iteration control (count fixed on the first repetition, then reused): two
+  k=1 entries locked at ONE batch per repetition while their siblings got 4-26 (shipped nounk C-nounk c/P5.4, max 20.9
+  ms against a 3.3 ms median, and shipped full B d/4MiB); a slow first probe iteration exceeded the min time. And
+  c/P5.4 k=8 has max/median CPU spreads up to 9.7x (single-batch repetitions with outlier calls).
+- Differences from the Rust run that the frameworks impose (in header.txt `vs rust`): the controlling clock
+  (Google Benchmark with UseRealTime grows iterations on wall; criterion Flat derives them from the warm-up's
+  process-CPU mean), repetition interleaving (random across the benchmarks of a process here; criterion runs one
+  benchmark's samples back to back), the cell sets (C++ Cp/Dp, no Df/Ff; Rust Df/Ff, no Cp/Dp), and campaign_rpc's
+  untimed pre-checks at each process start.

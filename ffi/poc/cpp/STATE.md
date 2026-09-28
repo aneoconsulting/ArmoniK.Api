@@ -229,6 +229,13 @@ listed so that nobody re-derives them. **No figure from them is quoted here.**
 - `opt/ref/` (after step 0's harness fixes, the reference for the steps), `opt/s1/` .. `opt/s9/`, `opt/s8b/`: one full
   `gen/opt_bench.sh` run per kept step, same layout as `baseline/`. `opt/final/`: the final run at `cfb3e1b2` (the tree the
   final gates passed on, plus STATE); its `tables-codec.md` and `tables-rpc.md` are that run's only.
+- `opt/rpc-same-machine/` (2026-09-28, `gen/rpc_same_machine.sh` at `83fc612b`, code as at `cfb3e1b2`): the RPC grid
+  only, for a side-by-side with `logs/rust/opt/rpc-same-machine/` taken just before on the same container. Shared server
+  via serve.sh (4 tokio workers, CPUs 2,3, warm 50 once), client CPU 1; shipped then pinned, full then no-unknown client,
+  three processes per (transport, client) (G1 a/a+read/b, G2 c, G3 d); 10 repetitions per entry at 25/25/50 ms
+  (the Rust run's 250/250/500 ms criterion measurement time over its 10 samples), warm-up 30 ms; k = 1, 8. 720
+  entries, 485 s. Raw: `rpc-*.jsonl`, `*.gbench.json.gz`, `*.console`; `summary-rpc.tsv`, `tables-rpc.md` (the Rust
+  layout, `*` = one batch per repetition, 204 entries); `header.txt` carries a `vs rust` line with the differences.
 - `opt/ab/<step>/`: narrowed alternated A/B runs (`gen/opt_ab.sh`, `gen/opt_ab.py`; gzip'd Google Benchmark JSON per
   pair, `ab.txt` ratios). `opt/probes/`: allocation probes (`gen/allocprobe.c`, `r1-allocs.log`), the C-7 worker probe,
   and the diffs of the reverted variants (`o10-reverted.diff`, `o7-reverted.diff`, `f1-reverted.diff`).
@@ -494,6 +501,7 @@ Optimisation unit (`logs/cpp/opt/`):
 | `opt/final-gate/` | the final gates' driver log (`runner.log`), the campaign gate (`campaign-gate.log`, `counts.log`, `rpc-counts*.log`), the Rust slice's gate (`rust-gate.log`), wp5_gate run 1's build and refused byte audit |
 | `opt/final/` | the final opt_bench run: raw jsonl and gzip'd Google Benchmark JSON, `runner.log`, `header.txt`, `build.log`, summaries and `tables-codec.md`, `tables-rpc.md` |
 | `opt/baseline/`, `opt/ref/`, `opt/s1/`..`opt/s9/`, `opt/s8b/` | the opt_bench runs before the unit, after step 0, and after each kept step |
+| `opt/rpc-same-machine/` | the RPC-only grid for the same-machine side-by-side with the Rust slice's run |
 | `opt/ab/`, `opt/probes/`, `opt/checks/` | narrowed A/B runs, probes and reverted diffs, per-step checks (see "Timing logs in the tree") |
 
 Timing logs (instrumentation only): see "Timing logs in the tree" above.

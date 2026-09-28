@@ -1,0 +1,17 @@
+# cpp slice RPC grid only (gen/rpc_same_machine.sh), for a side-by-side with logs/rust/opt/rpc-same-machine/ on the same machine
+# CONTAINER INSTRUMENTATION: not a campaign result; no gate run for this tree (coordinator: no code change, no gate)
+# commit     83fc612b
+# date       2026-09-28T13:52:39Z
+# machine    Intel(R) Xeon(R) Processor @ 2.80GHz; 4 CPUs online; kernel 6.18.44-fc-v37
+# smt        active=0 control=notsupported
+# governor   n/a
+# cgroup     cpuset.cpus.effective=n/a
+# cpu sets   CLIENT=1 (taskset) SERVER=2,3 (taskset, serve.sh) OS=the rest
+# server     serve.sh (poc/rust/SERVER.md): ONE rpc_server process, tokio 4 workers, both sockets (shipped, pinned); serve.sh warm 50 (checked calls per direction a, b, c, d/4 from a tonic and a core client on each socket) before the first client process
+# client     campaign_rpc (src/campaign_rpc.cpp) on Google Benchmark v1.8.3 (344117638c8ff7e239044fd0fa7085839fc03021, Release): Repetitions(10), MeasureProcessCPUTime + UseRealTime, random interleaving of the repetitions of every benchmark of one process; --benchmark_min_warmup_time=0.03 per benchmark; --benchmark_min_time per REPETITION: G1 (a, a+read, b) 0.025 s, G2 (c: P5.3, P5.4) 0.025 s, G3 (d: 4 MiB, 16 MiB) 0.05 s (= the Rust run's AK_MEASURE_MS 250/250/500 over its 10 samples); one iteration = one batch of k calls; per call = repetition CPU (or wall) / (iterations x k)
+# vs rust    (1) the iteration count is fixed on the FIRST repetition by Google Benchmark growing it until the repetition's WALL time (UseRealTime is the controlling clock) reaches min_time, then reused for the other 9; criterion (Flat) derives it from the warm-up's mean of its measurement (process CPU): here a repetition is >= 25/50 ms of wall, there a sample is about 25/50 ms of client CPU; (2) repetitions of all the benchmarks of one process are randomly interleaved here; criterion runs each benchmark's samples back to back, benchmarks in a seeded random order; (3) cells: C++ has Cp/Dp (the pull decode twins, a and a+read only) and no Df/Ff; Rust has Df/Ff and no Cp/Dp; (4) each process runs campaign_rpc's pre-checks (a decode/re-encode per coded cell against protobuf, c/d request bytes against protobuf, one UploadStreamCheck digest per cell and payload for d, cell A's wire length) before any benchmark: untimed
+# threads    client: k caller threads created before any timed window (a Pool, one condition variable per caller); the core's runtime ak_runtime_new(2) (campaign_rpc --workers default); grpc-core sizes its own pollers and executor (each process's thread count is in its jsonl's campaign_rpc_end line)
+# order      per transport (shipped, pinned): full client G1, G2, G3, then no-unknown client G1, G2, G3; launch 1 (registration order rotated by launch)
+# compiler   g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0; -O2 -g -DNDEBUG -std=c++17, shared libak_core.so, LTO off; rustc 1.94.1 (e408947bf 2026-03-25)
+# incumbent  protobuf 3.21.12, grpc++ 1.51.1 (apt)
+# build      /home/user/ArmoniK.Api/ffi/poc/cpp/build-campaign: campaign_rpc (core rpc,init-guard,unknown-fields) and campaign_rpc_nounk (core rpc,init-guard); build/check time 7 s (not in the run time)
