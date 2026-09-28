@@ -545,6 +545,35 @@ paths, removes its own server, keeps every cell and direction, and re-gates. The
 upload check (byte count and SHA-256) and the planted controls must still work against
 the shared server.
 
+### WP11. On the campaign machine: where the tonic / grpc++ transport difference comes from (owner, 2026-09-28)
+
+**The observation (container instrumentation, not a result).** In the C++ slice's RPC
+grid, on the large uploads (direction c, P5.4 unary; direction d, 16 MiB streamed), the
+cells on the core's transport (B, C, E and their framed twins) use 20-50% more client CPU
+than cell A (protobuf over grpc++), while cell D (the same core codec over grpc++) is level
+with A. In the Rust slice, where A is tonic, the framed core cell Cf is level with A. So the
+difference follows the **transport stack** (the core's tonic/hyper/h2 against grpc++'s
+chttp2), not the codec. Part of it is measured (the reference path's copy into tonic's
+`EncodeBuf`, removed by the framed path: about 0.5-0.6 ms per call on 4 MB and 16 MiB); the
+rest (framed Cf still 0.27 ms above D on 4 MB and about 4.8 ms above on 16 MiB streamed) is
+not attributed. The container cannot settle it: no `perf`, one client CPU carrying 22
+threads (grpc-core's included, counted in process CPU), and slices measured on different
+containers (R13). O-2 and O-12, the core-side levers, were dropped by the owner.
+
+**To measure on the campaign machine** (client on its 4-CPU set, server on its own):
+
+1. `perf record` of cells A and Cf (and D, Df) on c/P5.4 and d/16 MiB at k = 1 and 8, in
+   the C++ client, and cells A and Cf in the Rust client (tonic on both sides of that one).
+2. Per-thread CPU (`/proc/self/task/*/stat` deltas around a repetition, or `perf` per
+   thread): the caller thread, the core runtime's workers, grpc-core's pollers and executor.
+3. Syscalls and writes per call (`strace -c -f` or perf's syscall events): how each stack
+   cuts and sends HTTP/2 DATA frames (frame sizes, `writev` batching, window updates).
+4. Whether the grpc++ channels opened for cells A/D/F in the same client process cost CPU
+   while the core cells run (run the core cells in a process with no grpc++ channel open).
+
+Done when the difference is attributed to named mechanisms, stated as facts with the logs
+that carry them. No recommendation follows from it by itself (CLAUDE.md).
+
 ## 3. What this plan deliberately does not do
 
 - It does not re-take any timing in a container.
