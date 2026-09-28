@@ -347,9 +347,15 @@ pub extern "C" fn ak_abi_version() -> u32 {
 
 #[no_mangle]
 pub extern "C" fn ak_enc_ctx_new() -> *mut ak_enc_ctx {
+    // The gRPC prefix's 5 bytes of headroom before every message (Enc::head): the core's
+    // framed transport writes the prefix in place and sends each message as ONE frame
+    // (owner, 2026-09-28). The codec's output (ak_enc_take, the encode entries' length)
+    // is the message alone, as before.
+    let mut e = Enc::new(generated::codec::SITES);
+    e.head = ak_rt::enc::FRAME_HEAD;
     let b = Box::new(EncCtxImpl {
         hdr: CtxHeader { kind: AK_CTX_ENC, err: AK_OK },
-        e: Enc::new(generated::codec::SITES),
+        e,
         open_tag: 0,
         open_site: 0,
         open_kind: 0,
@@ -382,8 +388,9 @@ pub unsafe extern "C" fn ak_enc_take(
     len: *mut usize,
 ) -> i32 {
     let cx = &mut *(ctx as *mut EncCtxImpl);
-    *ptr = cx.e.buf.as_ptr();
-    *len = cx.e.buf.len();
+    let m = cx.e.msg();
+    *ptr = m.as_ptr();
+    *len = m.len();
     enc_status(cx)
 }
 

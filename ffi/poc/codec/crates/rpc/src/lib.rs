@@ -260,6 +260,22 @@ where
     })
 }
 
+/// Framed unary call whose body ALREADY carries its 5-byte gRPC prefix (the core's
+/// encoder headroom, ak_rt::Enc::take_framed, or a copy made with the prefix): sent as ONE
+/// body frame, as tonic's EncodeBody sends prefix and message in one buffer (owner,
+/// 2026-09-28). The send limit applies to the message, not the prefix.
+pub async fn unary_preframed_cfg<T>(svc: T, path: http::uri::PathAndQuery, framed: Bytes, cfg: &CallCfg) -> Result<Bytes, CallErr>
+where
+    T: tonic::client::GrpcService<tonic::body::Body>,
+    T::ResponseBody: http_body::Body<Data = Bytes> + Send + 'static,
+    <T::ResponseBody as http_body::Body>::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
+{
+    check_send(framed.len().saturating_sub(5), cfg.max_send)?;
+    let body = tonic::body::Body::new(Framed { hdr: Some(framed), msg: None });
+    let req = framed_request(path, body, &cfg.metadata)?;
+    with_deadline(cfg.deadline, framed_call(svc, req, cfg.max_recv)).await
+}
+
 /// Framed unary call with a full call configuration.
 pub async fn unary_framed_cfg<T>(svc: T, path: http::uri::PathAndQuery, msg: Bytes, cfg: &CallCfg) -> Result<Bytes, CallErr>
 where
@@ -372,6 +388,8 @@ struct FramedStream<S> {
     pending: Option<Bytes>,
     max_send: usize,
     done: bool,
+    /// Every message already carries its 5-byte prefix: yielded as ONE frame.
+    preframed: bool,
 }
 
 impl<S> http_body::Body for FramedStream<S>
@@ -396,6 +414,14 @@ where
             Poll::Ready(None) => {
                 self.done = true;
                 Poll::Ready(None)
+            }
+            Poll::Ready(Some(m)) if self.preframed => {
+                let len = m.len().saturating_sub(5);
+                if len > self.max_send {
+                    return Poll::Ready(Some(Err(tonic::Status::out_of_range(format!(
+                        "Error, encoded message length too large: found {len} bytes, the limit is: {} bytes", self.max_send)))));
+                }
+                Poll::Ready(Some(Ok(http_body::Frame::data(m))))
             }
             Poll::Ready(Some(m)) => {
                 let len = m.len();
@@ -437,9 +463,33 @@ where
     <T::ResponseBody as http_body::Body>::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
     S: tokio_stream::Stream<Item = Bytes> + Unpin + Send + 'static,
 {
-    let body = tonic::body::Body::new(FramedStream { msgs, pending: None, max_send: cfg.max_send.unwrap_or(usize::MAX), done: false });
+    let body = tonic::body::Body::new(FramedStream { msgs, pending: None, max_send: cfg.max_send.unwrap_or(usize::MAX), done: false, preframed: false });
     let req = framed_request(path, body, &cfg.metadata)?;
     with_deadline(cfg.deadline, framed_call(svc, req, cfg.max_recv)).await
+}
+
+/// Framed client streaming whose messages ALREADY carry their 5-byte prefix (the core's
+/// framed default): each message ONE body frame.
+pub async fn client_streaming_preframed_cfg<T, S>(svc: T, path: http::uri::PathAndQuery, msgs: S, cfg: &CallCfg) -> Result<Bytes, CallErr>
+where
+    T: tonic::client::GrpcService<tonic::body::Body>,
+    T::ResponseBody: http_body::Body<Data = Bytes> + Send + 'static,
+    <T::ResponseBody as http_body::Body>::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
+    S: tokio_stream::Stream<Item = Bytes> + Unpin + Send + 'static,
+{
+    let body = tonic::body::Body::new(FramedStream { msgs, pending: None, max_send: cfg.max_send.unwrap_or(usize::MAX), done: false, preframed: true });
+    let req = framed_request(path, body, &cfg.metadata)?;
+    with_deadline(cfg.deadline, framed_call(svc, req, cfg.max_recv)).await
+}
+
+/// A message copied with its 5-byte gRPC prefix in front: ONE buffer, for the preframed
+/// paths (the copy a copying entry makes anyway, not a second one).
+pub fn framed_copy(msg: &[u8]) -> Bytes {
+    let mut v = Vec::with_capacity(msg.len() + 5);
+    v.push(0);
+    v.extend_from_slice(&(msg.len() as u32).to_be_bytes());
+    v.extend_from_slice(msg);
+    Bytes::from(v)
 }
 
 pub const PATH: &str = "/armonik.ffi.shapes.v1.Bench/Unary";

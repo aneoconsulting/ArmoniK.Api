@@ -1479,7 +1479,7 @@ pub unsafe extern "C" fn ak_encode_Timestamp(
     if g.nanos != 0 { (*cx).e.varint_field(2, g.nanos as i64 as u64); }
     let st = crate::enc_status(cx);
     if st != AK_OK { return st as isize; }
-    (*cx).e.buf.len() as isize
+    (*cx).e.msg_len() as isize
 }
 
 #[no_mangle]
@@ -1504,7 +1504,7 @@ pub unsafe extern "C" fn ak_encode_Duration(
     if g.nanos != 0 { (*cx).e.varint_field(2, g.nanos as i64 as u64); }
     let st = crate::enc_status(cx);
     if st != AK_OK { return st as isize; }
-    (*cx).e.buf.len() as isize
+    (*cx).e.msg_len() as isize
 }
 
 #[no_mangle]
@@ -1560,7 +1560,7 @@ pub unsafe extern "C" fn ak_encode_ResultRaw(
     if g.manual_deletion != 0 { (*cx).e.varint_field(12, (g.manual_deletion != 0) as u64); }
     let st = crate::enc_status(cx);
     if st != AK_OK { return st as isize; }
-    (*cx).e.buf.len() as isize
+    (*cx).e.msg_len() as isize
 }
 
 #[no_mangle]
@@ -1618,7 +1618,7 @@ pub unsafe extern "C" fn ak_encode_TaskOptions(
     }
     let st = crate::enc_status(cx);
     if st != AK_OK { return st as isize; }
-    (*cx).e.buf.len() as isize
+    (*cx).e.msg_len() as isize
 }
 
 #[no_mangle]
@@ -1645,7 +1645,7 @@ pub unsafe extern "C" fn ak_encode_TaskOutput(
     }
     let st = crate::enc_status(cx);
     if st != AK_OK { return st as isize; }
-    (*cx).e.buf.len() as isize
+    (*cx).e.msg_len() as isize
 }
 
 #[no_mangle]
@@ -1848,7 +1848,7 @@ pub unsafe extern "C" fn ak_encode_TaskDetailed(
     }
     let st = crate::enc_status(cx);
     if st != AK_OK { return st as isize; }
-    (*cx).e.buf.len() as isize
+    (*cx).e.msg_len() as isize
 }
 
 #[no_mangle]
@@ -1930,7 +1930,7 @@ pub unsafe extern "C" fn ak_encode_TaskSummary(
     if g.count_data_dependencies != 0 { (*cx).e.varint_field(11, g.count_data_dependencies as u64); }
     let st = crate::enc_status(cx);
     if st != AK_OK { return st as isize; }
-    (*cx).e.buf.len() as isize
+    (*cx).e.msg_len() as isize
 }
 
 #[no_mangle]
@@ -1986,7 +1986,7 @@ pub unsafe extern "C" fn ak_encode_Probe(
     }
     let st = crate::enc_status(cx);
     if st != AK_OK { return st as isize; }
-    (*cx).e.buf.len() as isize
+    (*cx).e.msg_len() as isize
 }
 
 #[no_mangle]
@@ -2009,7 +2009,7 @@ pub unsafe extern "C" fn ak_encode_Empty(
     let _ = token;
     let st = crate::enc_status(cx);
     if st != AK_OK { return st as isize; }
-    (*cx).e.buf.len() as isize
+    (*cx).e.msg_len() as isize
 }
 
 #[no_mangle]
@@ -2045,7 +2045,7 @@ pub unsafe extern "C" fn ak_encode_UploadResultData(
     }
     let st = crate::enc_status(cx);
     if st != AK_OK { return st as isize; }
-    (*cx).e.buf.len() as isize
+    (*cx).e.msg_len() as isize
 }
 
 #[no_mangle]
@@ -2116,7 +2116,7 @@ pub unsafe extern "C" fn ak_encode_MetricsBatch(
     }
     let st = crate::enc_status(cx);
     if st != AK_OK { return st as isize; }
-    (*cx).e.buf.len() as isize
+    (*cx).e.msg_len() as isize
 }
 
 #[no_mangle]
@@ -2143,7 +2143,7 @@ pub unsafe extern "C" fn ak_encode_Pair(
     if g.value != 0 { (*cx).e.varint_field(2, g.value as i64 as u64); }
     let st = crate::enc_status(cx);
     if st != AK_OK { return st as isize; }
-    (*cx).e.buf.len() as isize
+    (*cx).e.msg_len() as isize
 }
 
 #[no_mangle]
@@ -2177,7 +2177,7 @@ pub unsafe extern "C" fn ak_encode_ListResultsResponse(
     if g.total != 0 { (*cx).e.varint_field(3, g.total as i64 as u64); }
     let st = crate::enc_status(cx);
     if st != AK_OK { return st as isize; }
-    (*cx).e.buf.len() as isize
+    (*cx).e.msg_len() as isize
 }
 
 #[no_mangle]
@@ -2212,7 +2212,7 @@ pub unsafe extern "C" fn ak_encode_ListTasksDetailedResponse(
     if g.total != 0 { (*cx).e.varint_field(3, g.total as i64 as u64); }
     let st = crate::enc_status(cx);
     if st != AK_OK { return st as isize; }
-    (*cx).e.buf.len() as isize
+    (*cx).e.msg_len() as isize
 }
 
 #[no_mangle]
@@ -2245,7 +2245,7 @@ pub unsafe extern "C" fn ak_encode_ListTaskSummaryResponse(
     }
     let st = crate::enc_status(cx);
     if st != AK_OK { return st as isize; }
-    (*cx).e.buf.len() as isize
+    (*cx).e.msg_len() as isize
 }
 
 #[no_mangle]
@@ -2277,7 +2277,7 @@ pub unsafe extern "C" fn ak_encode_ListProbeResponse(
     }
     let st = crate::enc_status(cx);
     if st != AK_OK { return st as isize; }
-    (*cx).e.buf.len() as isize
+    (*cx).e.msg_len() as isize
 }
 
 #[no_mangle]
@@ -2310,7 +2310,7 @@ pub unsafe extern "C" fn ak_encode_ListMetricsResponse(
     }
     let st = crate::enc_status(cx);
     if st != AK_OK { return st as isize; }
-    (*cx).e.buf.len() as isize
+    (*cx).e.msg_len() as isize
 }
 
 #[no_mangle]
@@ -2350,7 +2350,7 @@ pub unsafe extern "C" fn ak_encode_UploadResultDataMessage(
     }
     let st = crate::enc_status(cx);
     if st != AK_OK { return st as isize; }
-    (*cx).e.buf.len() as isize
+    (*cx).e.msg_len() as isize
 }
 
 #[no_mangle]
@@ -2391,7 +2391,7 @@ pub unsafe extern "C" fn ak_encode_DualResponse(
     }
     let st = crate::enc_status(cx);
     if st != AK_OK { return st as isize; }
-    (*cx).e.buf.len() as isize
+    (*cx).e.msg_len() as isize
 }
 
 #[no_mangle]
@@ -2418,7 +2418,7 @@ pub unsafe extern "C" fn ak_encode_ChunkLeaf(
     if g.v != 0 { (*cx).e.varint_field(2, g.v as i64 as u64); }
     let st = crate::enc_status(cx);
     if st != AK_OK { return st as isize; }
-    (*cx).e.buf.len() as isize
+    (*cx).e.msg_len() as isize
 }
 
 #[no_mangle]
@@ -2459,7 +2459,7 @@ pub unsafe extern "C" fn ak_encode_ChunkInner(
     }
     let st = crate::enc_status(cx);
     if st != AK_OK { return st as isize; }
-    (*cx).e.buf.len() as isize
+    (*cx).e.msg_len() as isize
 }
 
 #[no_mangle]
@@ -2525,7 +2525,7 @@ pub unsafe extern "C" fn ak_encode_ChunkElement(
     }
     let st = crate::enc_status(cx);
     if st != AK_OK { return st as isize; }
-    (*cx).e.buf.len() as isize
+    (*cx).e.msg_len() as isize
 }
 
 #[no_mangle]
@@ -2559,7 +2559,7 @@ pub unsafe extern "C" fn ak_encode_ChunkedResponse(
     if g.page != 0 { (*cx).e.varint_field(8, g.page as i64 as u64); }
     let st = crate::enc_status(cx);
     if st != AK_OK { return st as isize; }
-    (*cx).e.buf.len() as isize
+    (*cx).e.msg_len() as isize
 }
 
 #[no_mangle]
@@ -2592,7 +2592,7 @@ pub unsafe extern "C" fn ak_encode_ChunkedResponseWide(
     }
     let st = crate::enc_status(cx);
     if st != AK_OK { return st as isize; }
-    (*cx).e.buf.len() as isize
+    (*cx).e.msg_len() as isize
 }
 
 #[no_mangle]
@@ -2625,7 +2625,7 @@ pub unsafe extern "C" fn ak_encode_LeafElement(
     }
     let st = crate::enc_status(cx);
     if st != AK_OK { return st as isize; }
-    (*cx).e.buf.len() as isize
+    (*cx).e.msg_len() as isize
 }
 
 #[no_mangle]
@@ -2657,7 +2657,7 @@ pub unsafe extern "C" fn ak_encode_LeafResponse(
     }
     let st = crate::enc_status(cx);
     if st != AK_OK { return st as isize; }
-    (*cx).e.buf.len() as isize
+    (*cx).e.msg_len() as isize
 }
 
 #[no_mangle]
@@ -2711,7 +2711,7 @@ pub unsafe extern "C" fn ak_encode_Surrogate(
     }
     let st = crate::enc_status(cx);
     if st != AK_OK { return st as isize; }
-    (*cx).e.buf.len() as isize
+    (*cx).e.msg_len() as isize
 }
 
 #[no_mangle]
@@ -2737,7 +2737,7 @@ pub unsafe extern "C" fn ak_encode_SurrogateInner(
     }
     let st = crate::enc_status(cx);
     if st != AK_OK { return st as isize; }
-    (*cx).e.buf.len() as isize
+    (*cx).e.msg_len() as isize
 }
 
 #[no_mangle]
@@ -2779,7 +2779,7 @@ pub unsafe extern "C" fn ak_encode_WireZoo(
     if g.v_big_tag != 0 { (*cx).e.varint_field(536870911, g.v_big_tag as i64 as u64); }
     let st = crate::enc_status(cx);
     if st != AK_OK { return st as isize; }
-    (*cx).e.buf.len() as isize
+    (*cx).e.msg_len() as isize
 }
 
 #[no_mangle]

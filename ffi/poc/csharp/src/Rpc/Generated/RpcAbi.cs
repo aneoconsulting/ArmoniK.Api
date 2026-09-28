@@ -192,7 +192,7 @@ public static unsafe partial class AkRpc
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern void ak_client_destroy(IntPtr c);
 #endif
-    /// Choose the send path of every later call on `c`: 1 = FRAMED (tonic's Channel, the request message sent as two body frames, the 5-byte prefix and the bytes, never copied), 0 = the reference (tonic's Grpc::unary with a raw-bytes codec, one copy into tonic's buffer; the default). Request headers, response status and trailer handling, compression (off) and the send limit are the reference path's. Another value or NULL `c` is AK_ERR_INVALID_STATE. Additive (optimisation T1, option 3).
+    /// Choose the send path of every later call on `c`: 1 = FRAMED, the DEFAULT (tonic's Channel, each request message sent as ONE body frame, its 5-byte gRPC prefix written into the encode context's headroom or into the copy a copying entry makes; no copy into tonic's buffer), 0 = the reference (tonic's Grpc::unary / client_streaming with a raw-bytes codec, one copy into tonic's buffer). Request headers, response status and trailer handling, compression (off) and the send limit are the reference path's. Another value or NULL `c` is AK_ERR_INVALID_STATE.
 #if AK_HOST_COUNT
     [DllImport(Lib, EntryPoint = "ak_client_set_framed", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     private static extern int ak_client_set_framed__raw(IntPtr c, int on);

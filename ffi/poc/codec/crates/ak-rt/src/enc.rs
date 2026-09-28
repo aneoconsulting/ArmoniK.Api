@@ -21,12 +21,23 @@ pub struct Mark {
     w: usize,
 }
 
-/// A taken body (`Enc::take`): returns its buffer to the context's spare slot when its last
-/// `Bytes` clone is dropped, unless the slot is already full or locked (then it is freed).
+/// A taken body (`Enc::take`): returns its buffer to the context's spare ring when its last
+/// `Bytes` clone is dropped, unless the ring is already full or locked (then it is freed).
 struct Recycle {
     v: Vec<u8>,
-    slot: Arc<Mutex<Option<Vec<u8>>>>,
+    slot: Arc<Mutex<Vec<Vec<u8>>>>,
 }
+
+/// How many taken buffers the spare ring keeps (the stream probes, 2026-09-28: with ONE
+/// spare, a transport that still holds the previous message when the next encode starts
+/// left the slot empty and every such encode wrote into a fresh buffer; host encode per
+/// 2 MiB chunk on the framed stream 506 / 437 / 396 / 401 us with 1 / 2 / 3 / 4 spares,
+/// logs/rust/opt/framed-default/ring-size).
+pub const SPARES: usize = 3;
+
+/// Bytes kept free at the start of the buffer when `head` is on: the gRPC message prefix
+/// (1 flag byte, 4 length bytes), written in place by `take_framed`.
+pub const FRAME_HEAD: usize = 5;
 impl AsRef<[u8]> for Recycle {
     fn as_ref(&self) -> &[u8] {
         &self.v
@@ -35,8 +46,8 @@ impl AsRef<[u8]> for Recycle {
 impl Drop for Recycle {
     fn drop(&mut self) {
         if let Ok(mut g) = self.slot.try_lock() {
-            if g.is_none() {
-                *g = Some(core::mem::take(&mut self.v));
+            if g.len() < SPARES {
+                g.push(core::mem::take(&mut self.v));
             }
         }
     }
@@ -74,13 +85,20 @@ unsafe fn put_varint(p: *mut u8, mut v: u64) -> usize {
 }
 
 pub struct Enc {
+    /// The encoded message is `buf[head..]`.
     pub buf: Vec<u8>,
-    /// Optimisation T1: the buffer a taken body (`take`) hands back when its last `Bytes`
+    /// 0, or FRAME_HEAD: bytes `reset` keeps free before the message so a transport can
+    /// write the gRPC prefix in place and send prefix and message as ONE buffer
+    /// (`take_framed`). The encode itself only appends, so nothing else sees them; every
+    /// reader of the encoded message goes through `msg()` / `msg_len()` / `take()`.
+    pub head: usize,
+    /// Optimisation T1: the buffers taken bodies (`take`) hand back when their last `Bytes`
     /// clone is dropped -- on whatever thread the transport drops it, hence the lock -- so
-    /// the next `take` swaps it in: two buffers alternate, and neither the take nor the
-    /// next encode copies or allocates a buffer. (A `BytesMut` split was tried first and
-    /// cost 5-20% on the reused-buffer encode: logs/rust/opt/t1-native-ab.)
-    spare: Arc<Mutex<Option<Vec<u8>>>>,
+    /// the next `take` swaps one in: neither the take nor the next encode copies or
+    /// allocates a buffer while the ring has one. (A `BytesMut` split was tried first and
+    /// cost 5-20% on the reused-buffer encode: logs/rust/opt/t1-native-ab.) A ring of
+    /// SPARES rather than one slot: logs/rust/opt/stream-probe2.
+    spare: Arc<Mutex<Vec<Vec<u8>>>>,
     /// One learned width per length-prefix site in the generated code. Per context: a
     /// global table made two encoding threads slower than one (ABI v1 section 6).
     #[cfg(not(feature = "global-widths"))]
@@ -103,7 +121,8 @@ impl Enc {
     pub fn new(sites: usize) -> Self {
         Enc {
             buf: Vec::with_capacity(4096),
-            spare: Arc::new(Mutex::new(None)),
+            head: 0,
+            spare: Arc::new(Mutex::new(Vec::with_capacity(SPARES))),
             #[cfg(not(feature = "global-widths"))]
             widths: vec![1u8; sites].into_boxed_slice(),
             c: Counters::default(),
@@ -143,6 +162,9 @@ impl Enc {
     #[inline]
     pub fn reset(&mut self) {
         self.buf.clear();
+        if self.head != 0 {
+            self.buf.resize(self.head, 0);
+        }
         self.err = 0;
         // The learned widths deliberately SURVIVE a reset: that is what makes them learned.
     }
@@ -153,7 +175,26 @@ impl Enc {
     /// becomes the spare. What a tonic request body is (cell F), what `ak_call_unary_enc`
     /// sends (cell C) and what `ak_enc_take_owned` hands a host.
     pub fn take(&mut self) -> Bytes {
-        let fresh = match self.spare.lock().ok().and_then(|mut g| g.take()) {
+        let h = self.head;
+        let b = self.take_all();
+        if h == 0 { b } else { b.slice(h..) }
+    }
+
+    /// The encoded message with its 5-byte gRPC prefix (flag 0, big-endian length) written
+    /// into the headroom, as ONE buffer, moved out like `take`. Requires `head` ==
+    /// FRAME_HEAD (else it is `take`, and the caller must frame it itself).
+    pub fn take_framed(&mut self) -> Bytes {
+        if self.head != FRAME_HEAD || self.buf.len() < FRAME_HEAD {
+            return self.take();
+        }
+        let n = (self.buf.len() - FRAME_HEAD) as u32;
+        self.buf[0] = 0;
+        self.buf[1..FRAME_HEAD].copy_from_slice(&n.to_be_bytes());
+        self.take_all()
+    }
+
+    fn take_all(&mut self) -> Bytes {
+        let fresh = match self.spare.lock().ok().and_then(|mut g| g.pop()) {
             Some(mut v) => {
                 v.clear();
                 v
@@ -161,7 +202,22 @@ impl Enc {
             None => Vec::with_capacity(self.buf.capacity()),
         };
         let v = core::mem::replace(&mut self.buf, fresh);
+        if self.head != 0 {
+            self.buf.resize(self.head, 0);
+        }
         Bytes::from_owner(Recycle { v, slot: self.spare.clone() })
+    }
+
+    /// The encoded message (after the headroom).
+    #[inline]
+    pub fn msg(&self) -> &[u8] {
+        &self.buf[self.head.min(self.buf.len())..]
+    }
+
+    /// The encoded message's length.
+    #[inline]
+    pub fn msg_len(&self) -> usize {
+        self.buf.len().saturating_sub(self.head)
     }
 
     /// Append bytes: reserve once, copy. Every append to `buf` from the core and the
@@ -425,6 +481,31 @@ mod take_tests {
         assert!(e.buf.capacity() >= cap);
         fill(&mut e, 5000);
         assert_eq!(&b[..], &want[..]);
+    }
+
+    /// With the headroom on, the encoded bytes are the same as without it, `take` hands
+    /// back the message alone, and `take_framed` the gRPC prefix and the message as one
+    /// buffer, moved (no copy).
+    #[test]
+    fn headroom_and_take_framed() {
+        let mut a = Enc::new(1);
+        fill(&mut a, 5000);
+        let want = a.buf.clone();
+        let mut e = Enc::new(1);
+        e.head = super::FRAME_HEAD;
+        fill(&mut e, 5000);
+        assert_eq!(e.msg(), &want[..]);
+        assert_eq!(e.msg_len(), want.len());
+        let p0 = e.buf.as_ptr();
+        let b = e.take_framed();
+        assert_eq!(b.as_ptr(), p0, "take_framed copied");
+        assert_eq!(&b[..1], &[0u8]);
+        assert_eq!(u32::from_be_bytes(b[1..5].try_into().unwrap()) as usize, want.len());
+        assert_eq!(&b[5..], &want[..]);
+        assert_eq!(e.buf.len(), super::FRAME_HEAD, "the next encode starts after the headroom");
+        fill(&mut e, 5000);
+        let m = e.take();
+        assert_eq!(&m[..], &want[..]);
     }
 
     /// The reused-buffer form never takes, and the buffer stays put.

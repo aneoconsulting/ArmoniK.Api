@@ -728,7 +728,7 @@ def emit_codec(ir):
         body.extend(inner)
         body.append("    let st = crate::enc_status(cx);")
         body.append("    if st != AK_OK { return st as isize; }")
-        body.append("    (*cx).e.buf.len() as isize")
+        body.append("    (*cx).e.msg_len() as isize")
         body.append("}")
         body.append("")
         # The same root entry with the bag. ABI v1 open decision 11 candidate.
@@ -757,7 +757,7 @@ def emit_codec(ir):
         body.extend(inner)
         body.append("    let st = crate::enc_status(cx);")
         body.append("    if st != AK_OK { return st as isize; }")
-        body.append("    (*cx).e.buf.len() as isize")
+        body.append("    (*cx).e.msg_len() as isize")
         body.append("}")
         body.append("")
         if NOUNK:

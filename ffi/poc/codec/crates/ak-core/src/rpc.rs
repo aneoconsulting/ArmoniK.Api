@@ -198,10 +198,12 @@ struct Link {
     cfg: rpc::CallCfg,
 }
 
-/// Optimisation T1, option 3: choose the send path of every later call on `c`: 1 = the
-/// framed path (`rpc::unary_framed`), 0 = the reference (`Grpc::unary` + `RawCodec`, the
-/// default). An additive entry rather than a member of `ak_client_opts`, so no struct layout
-/// changes. NULL `c` or another value is AK_ERR_INVALID_STATE. One crossing.
+/// Choose the send path of every later call on `c`: 1 = the framed path, THE DEFAULT since
+/// 2026-09-28 (owner): each message one body frame, the prefix in the encoder's headroom
+/// (`rpc::unary_preframed_cfg`, `client_streaming_preframed_cfg`); 0 = the reference
+/// (`Grpc::unary` / `client_streaming` + `RawCodec`, one copy into tonic's buffer). An
+/// additive entry rather than a member of `ak_client_opts`, so no struct layout changes.
+/// NULL `c` or another value is AK_ERR_INVALID_STATE. One crossing.
 #[no_mangle]
 pub unsafe extern "C" fn ak_client_set_framed(c: *mut ak_client, on: i32) -> i32 {
     fwd();
@@ -307,7 +309,10 @@ pub unsafe extern "C" fn ak_client_new_opts(
         Some(chan) => Box::into_raw(Box::new(ClientImpl {
             rt: r as *const RuntimeImpl,
             chan,
-            framed: core::sync::atomic::AtomicBool::new(false),
+            // The FRAMED send path is the default (owner, 2026-09-28): each request message
+            // sent as ONE body frame, its gRPC prefix in the encoder's headroom or in the
+            // copy the entry makes; ak_client_set_framed(c, 0) selects the reference path.
+            framed: core::sync::atomic::AtomicBool::new(true),
             max_send: (o.max_send_message != 0).then_some(o.max_send_message as usize),
             max_recv: (o.max_recv_message != 0).then_some(o.max_recv_message as usize),
         })) as *mut ak_client,
@@ -350,15 +355,16 @@ pub unsafe extern "C" fn ak_call_unary(
         Some(p) => p,
         None => return AK_ERR_INVALID_STATE,
     };
-    let body = if req_len == 0 { Bytes::new() } else { Bytes::copy_from_slice(core::slice::from_raw_parts(req, req_len)) };
-    blocking_unary("ak_call_unary", cl, path, body, out, grpc_status)
+    let link = cl.link();
+    let (body, pre) = req_copy(link.framed, req, req_len);
+    blocking_unary("ak_call_unary", cl, link, path, body, pre, out, grpc_status)
 }
 
 /// The blocking deliveries' one tail: the call, then its outcome (ABI v1 section 9, the
 /// status number on unary calls too).
-unsafe fn blocking_unary(who: &str, cl: &ClientImpl, path: http::uri::PathAndQuery, body: Bytes, out: *mut ak_bytes, grpc_status: *mut i32) -> i32 {
+unsafe fn blocking_unary(who: &str, cl: &ClientImpl, link: Link, path: http::uri::PathAndQuery, body: Bytes, pre: bool, out: *mut ak_bytes, grpc_status: *mut i32) -> i32 {
     let rt = &*cl.rt;
-    let (rc, code, bytes) = outcome(who, rt.rt.block_on(unary_once(cl.link(), path, body)));
+    let (rc, code, bytes) = outcome(who, rt.rt.block_on(unary_once(link, path, body, pre)));
     set_status(grpc_status, code);
     if let Some(b) = bytes {
         *out = into_ak_bytes(b);
@@ -436,9 +442,12 @@ pub unsafe extern "C" fn ak_call_unary_enc(
         return cx.e.err;
     }
     // T1: the context's buffer moved into the body, O(1), no copy; it comes back to the
-    // context's spare slot when the transport drops the body (R2's swap, now Enc::take).
-    let body = cx.e.take();
-    blocking_unary("ak_call_unary_enc", cl, path, body, out, grpc_status)
+    // context's spare ring when the transport drops the body (R2's swap, now Enc::take).
+    // With the prefix written into the headroom (take_framed): ONE frame on the framed path,
+    // the prefix sliced off (O(1)) on the reference path.
+    let body = cx.e.take_framed();
+    let pre = cx.e.head == ak_rt::enc::FRAME_HEAD;
+    blocking_unary("ak_call_unary_enc", cl, cl.link(), path, body, pre, out, grpc_status)
 }
 
 /// Optimisation T1 (ffi): the encode context's output handed to the HOST as an owned
@@ -479,13 +488,24 @@ async fn unary_once(
     link: Link,
     path: http::uri::PathAndQuery,
     body: Bytes,
+    pre: bool,
 ) -> Result<Bytes, rpc::CallErr> {
     // The client's limits on both paths (D44): the send limit refuses before sending, the
-    // receive limit fails the call with RESOURCE_EXHAUSTED.
-    if link.framed {
-        return rpc::unary_framed_cfg(link.chan, path, body, &link.cfg).await;
+    // receive limit fails the call with RESOURCE_EXHAUSTED. `pre`: the body carries its
+    // 5-byte prefix (one frame on the framed path; sliced off, O(1), on the reference one).
+    match (link.framed, pre) {
+        (true, true) => rpc::unary_preframed_cfg(link.chan, path, body, &link.cfg).await,
+        (true, false) => rpc::unary_framed_cfg(link.chan, path, body, &link.cfg).await,
+        (false, true) => rpc::unary_raw(link.chan, path, body.slice(5..), &link.cfg).await,
+        (false, false) => rpc::unary_raw(link.chan, path, body, &link.cfg).await,
     }
-    rpc::unary_raw(link.chan, path, body, &link.cfg).await
+}
+
+/// A copying entry's request: on the framed path copied WITH its prefix (one buffer, one
+/// frame, the one copy the entry makes anyway), else copied as it is.
+unsafe fn req_copy(framed: bool, p: *const u8, n: usize) -> (Bytes, bool) {
+    let m: &[u8] = if n == 0 { &[] } else { core::slice::from_raw_parts(p, n) };
+    if framed { (rpc::framed_copy(m), true) } else { (Bytes::copy_from_slice(m), false) }
 }
 
 /// The one place response bytes become an `ak_bytes`, so every delivery hands the host the
@@ -561,6 +581,39 @@ struct StreamImpl {
     resp: std::sync::Mutex<Option<tokio::sync::oneshot::Receiver<Result<Bytes, rpc::CallErr>>>>,
     /// The client's send limit, checked per message before it is queued (D44).
     max_send: Option<usize>,
+    /// The framed path: every queued message carries its 5-byte prefix and goes out as ONE
+    /// body frame (rpc::client_streaming_preframed_cfg).
+    preframed: bool,
+}
+
+/// A message for the stream `h`, made to its path: prefixed (`pre`) messages stay whole on
+/// a framed stream and lose the prefix (O(1) slice) on a reference one. Returns the message
+/// and its length without the prefix (what the send limit is checked against).
+unsafe fn stream_msg(h: *mut ak_call, b: Bytes, pre: bool) -> (Bytes, usize) {
+    let framed = (*(h as *mut CallImpl)).stream.as_ref().map_or(false, |s| s.preframed);
+    match (pre, framed) {
+        (true, true) => {
+            let n = b.len() - 5;
+            (b, n)
+        }
+        (true, false) => {
+            let b = b.slice(5..);
+            let n = b.len();
+            (b, n)
+        }
+        (false, _) => {
+            let n = b.len();
+            (b, n)
+        }
+    }
+}
+
+/// A copying send's message: copied WITH its prefix on a framed stream (the one copy the
+/// entry makes anyway), as it is otherwise.
+unsafe fn stream_copy(h: *mut ak_call, msg: *const u8, len: usize) -> (Bytes, usize) {
+    let framed = (*(h as *mut CallImpl)).stream.as_ref().map_or(false, |s| s.preframed);
+    let m: &[u8] = if len == 0 { &[] } else { core::slice::from_raw_parts(msg, len) };
+    (if framed { rpc::framed_copy(m) } else { Bytes::copy_from_slice(m) }, len)
 }
 
 /// The host's callback and its context, crossing into a spawned task. Raw pointers are not
@@ -728,11 +781,12 @@ pub unsafe extern "C" fn ak_call_open(c: *mut ak_client, path: *const u8, path_l
     let cancel = std::sync::Arc::new(tokio::sync::Notify::new());
     let c2 = cancel.clone();
     let max_send = link.cfg.max_send;
+    let preframed = link.framed;
     rt.rt.spawn(async move {
         let cfg = link.cfg.clone();
         let r = cancellable(c2, async move {
             if link.framed {
-                rpc::client_streaming_framed_cfg(link.chan, path, rpc::ReceiverStream::new(rx), &cfg).await
+                rpc::client_streaming_preframed_cfg(link.chan, path, rpc::ReceiverStream::new(rx), &cfg).await
             } else {
                 rpc::client_streaming_raw(link.chan, path, rx, &cfg).await
             }
@@ -742,7 +796,7 @@ pub unsafe extern "C" fn ak_call_open(c: *mut ak_client, path: *const u8, path_l
     });
     Box::into_raw(Box::new(CallImpl {
         cancel,
-        stream: Some(StreamImpl { rt: cl.rt, tx: std::sync::Arc::new(std::sync::Mutex::new(Some(tx))), resp: std::sync::Mutex::new(Some(rrx)), max_send }),
+        stream: Some(StreamImpl { rt: cl.rt, tx: std::sync::Arc::new(std::sync::Mutex::new(Some(tx))), resp: std::sync::Mutex::new(Some(rrx)), max_send, preframed }),
     })) as *mut ak_call
 }
 
@@ -850,8 +904,8 @@ fn send_end(slot: &std::sync::Mutex<Option<tokio::sync::mpsc::Sender<Bytes>>>, t
     AK_OK
 }
 
-unsafe fn stream_send(h: *mut ak_call, b: Bytes, last: i32) -> i32 {
-    let (st, tx) = match send_begin(h, b.len(), "ak_call_send") {
+unsafe fn stream_send(h: *mut ak_call, (b, n): (Bytes, usize), last: i32) -> i32 {
+    let (st, tx) = match send_begin(h, n, "ak_call_send") {
         Ok(v) => v,
         Err(e) => return e,
     };
@@ -863,8 +917,8 @@ unsafe fn stream_send(h: *mut ak_call, b: Bytes, last: i32) -> i32 {
 /// The callback/queue deliveries of a send: the same prologue and epilogue around the
 /// awaited `send`, on a task; the completion (empty bytes) after the sender is back, so the
 /// host may send the next message from inside it.
-unsafe fn stream_send_to(h: *mut ak_call, b: Bytes, last: i32, sink: Sink, tag: u64, who: &'static str) -> i32 {
-    let (st, tx) = match send_begin(h, b.len(), who) {
+unsafe fn stream_send_to(h: *mut ak_call, (b, n): (Bytes, usize), last: i32, sink: Sink, tag: u64, who: &'static str) -> i32 {
+    let (st, tx) = match send_begin(h, n, who) {
         Ok(v) => v,
         Err(e) => return e,
     };
@@ -885,8 +939,7 @@ pub unsafe extern "C" fn ak_call_send(h: *mut ak_call, msg: *const u8, len: usiz
     if h.is_null() || (msg.is_null() && len != 0) {
         return AK_ERR_INVALID_STATE;
     }
-    let b = if len == 0 { Bytes::new() } else { Bytes::copy_from_slice(core::slice::from_raw_parts(msg, len)) };
-    stream_send(h, b, last)
+    stream_send(h, stream_copy(h, msg, len), last)
 }
 
 /// U2-stream: one request message, the encode context's output moved (Enc::take).
@@ -897,7 +950,7 @@ pub unsafe extern "C" fn ak_call_send_enc(h: *mut ak_call, enc: *mut crate::ak_e
         return AK_ERR_INVALID_STATE;
     }
     match enc_take(enc) {
-        Ok(b) => stream_send(h, b, last),
+        Ok((b, pre)) => stream_send(h, stream_msg(h, b, pre), last),
         Err(e) => e,
     }
 }
@@ -978,8 +1031,7 @@ pub unsafe extern "C" fn ak_call_send_cb(h: *mut ak_call, msg: *const u8, len: u
     if h.is_null() || (msg.is_null() && len != 0) {
         return AK_ERR_INVALID_STATE;
     }
-    let b = if len == 0 { Bytes::new() } else { Bytes::copy_from_slice(core::slice::from_raw_parts(msg, len)) };
-    stream_send_to(h, b, last, Sink::new_cb(cb, user_data), tag, "ak_call_send_cb")
+    stream_send_to(h, stream_copy(h, msg, len), last, Sink::new_cb(cb, user_data), tag, "ak_call_send_cb")
 }
 
 /// Queue delivery of ak_call_send (additive).
@@ -993,13 +1045,12 @@ pub unsafe extern "C" fn ak_call_send_q(h: *mut ak_call, msg: *const u8, len: us
     if h.is_null() || (msg.is_null() && len != 0) {
         return AK_ERR_INVALID_STATE;
     }
-    let b = if len == 0 { Bytes::new() } else { Bytes::copy_from_slice(core::slice::from_raw_parts(msg, len)) };
-    stream_send_to(h, b, last, sink, tag, "ak_call_send_q")
+    stream_send_to(h, stream_copy(h, msg, len), last, sink, tag, "ak_call_send_q")
 }
 
 /// The encode context's output, taken for a send (moved; a context in error refused with
 /// its error). Checked before the stream's own prologue, as ak_call_send_enc does.
-unsafe fn enc_take(enc: *mut crate::ak_enc_ctx) -> Result<Bytes, i32> {
+unsafe fn enc_take(enc: *mut crate::ak_enc_ctx) -> Result<(Bytes, bool), i32> {
     let cx = &mut *(enc as *mut crate::EncCtxImpl);
     if cx.hdr.err != AK_OK {
         return Err(cx.hdr.err);
@@ -1007,7 +1058,10 @@ unsafe fn enc_take(enc: *mut crate::ak_enc_ctx) -> Result<Bytes, i32> {
     if cx.e.err != 0 {
         return Err(cx.e.err);
     }
-    Ok(cx.e.take())
+    // The prefix written into the headroom (the core's contexts always have it): the caller
+    // sends the buffer whole on a framed path and slices the prefix off otherwise.
+    let pre = cx.e.head == ak_rt::enc::FRAME_HEAD;
+    Ok((cx.e.take_framed(), pre))
 }
 
 /// Callback delivery of ak_call_send_enc (additive).
@@ -1018,7 +1072,7 @@ pub unsafe extern "C" fn ak_call_send_enc_cb(h: *mut ak_call, enc: *mut crate::a
         return AK_ERR_INVALID_STATE;
     }
     match enc_take(enc) {
-        Ok(b) => stream_send_to(h, b, last, Sink::new_cb(cb, user_data), tag, "ak_call_send_enc_cb"),
+        Ok((b, pre)) => stream_send_to(h, stream_msg(h, b, pre), last, Sink::new_cb(cb, user_data), tag, "ak_call_send_enc_cb"),
         Err(e) => e,
     }
 }
@@ -1035,7 +1089,7 @@ pub unsafe extern "C" fn ak_call_send_enc_q(h: *mut ak_call, enc: *mut crate::ak
         return AK_ERR_INVALID_STATE;
     }
     match enc_take(enc) {
-        Ok(b) => stream_send_to(h, b, last, sink, tag, "ak_call_send_enc_q"),
+        Ok((b, pre)) => stream_send_to(h, stream_msg(h, b, pre), last, sink, tag, "ak_call_send_enc_q"),
         Err(e) => e,
     }
 }
@@ -1088,7 +1142,7 @@ unsafe fn call_parts(
     path_len: usize,
     req: *const u8,
     req_len: usize,
-) -> Option<(Link, &'static RuntimeImpl, http::uri::PathAndQuery, Bytes)> {
+) -> Option<(Link, &'static RuntimeImpl, http::uri::PathAndQuery, Bytes, bool)> {
     if c.is_null() {
         return None;
     }
@@ -1096,8 +1150,9 @@ unsafe fn call_parts(
     let rt = &*cl.rt;
     let p = core::str::from_utf8(core::slice::from_raw_parts(path, path_len)).ok()?;
     let path = http::uri::PathAndQuery::from_maybe_shared(p.to_string()).ok()?;
-    let body = Bytes::copy_from_slice(core::slice::from_raw_parts(req, req_len));
-    Some((cl.link(), rt, path, body))
+    let link = cl.link();
+    let (body, pre) = req_copy(link.framed, req, req_len);
+    Some((link, rt, path, body, pre))
 }
 
 /// **The callback delivery.** Returns immediately with a handle; the completion arrives on
@@ -1116,7 +1171,7 @@ pub unsafe extern "C" fn ak_call_unary_cb(
     tag: u64,
 ) -> *mut ak_call {
     fwd();
-    let (chan, rt, path, body) = match call_parts(c, path, path_len, req, req_len) {
+    let (chan, rt, path, body, pre) = match call_parts(c, path, path_len, req, req_len) {
         Some(v) => v,
         None => return core::ptr::null_mut(),
     };
@@ -1125,7 +1180,7 @@ pub unsafe extern "C" fn ak_call_unary_cb(
     let c2 = cancel.clone();
     rt.rt.spawn(async move {
         let ctx = ctx;
-        let mut comp = completion(tag, "ak_call_unary_cb", cancellable(c2, unary_once(chan, path, body)).await);
+        let mut comp = completion(tag, "ak_call_unary_cb", cancellable(c2, unary_once(chan, path, body, pre)).await);
         rev();
         (ctx.cb)(ctx.user, &mut comp);
     });
@@ -1150,7 +1205,7 @@ pub unsafe extern "C" fn ak_call_unary_q(
     if q.is_null() {
         return core::ptr::null_mut();
     }
-    let (chan, rt, path, body) = match call_parts(c, path, path_len, req, req_len) {
+    let (chan, rt, path, body, pre) = match call_parts(c, path, path_len, req, req_len) {
         Some(v) => v,
         None => return core::ptr::null_mut(),
     };
@@ -1162,7 +1217,7 @@ pub unsafe extern "C" fn ak_call_unary_q(
     let cancel = std::sync::Arc::new(tokio::sync::Notify::new());
     let c2 = cancel.clone();
     rt.rt.spawn(async move {
-        let comp = completion(tag, "ak_call_unary_q", cancellable(c2, unary_once(chan, path, body)).await);
+        let comp = completion(tag, "ak_call_unary_q", cancellable(c2, unary_once(chan, path, body, pre)).await);
         let qi = unsafe { &*(qaddr as *const QueueImpl) };
         if let Ok(mut st) = qi.m.lock() {
             st.q.push_back(SendComp(comp));
@@ -1174,23 +1229,23 @@ pub unsafe extern "C" fn ak_call_unary_q(
 
 /// The encode context's output as a unary request, for the callback and queue twins of
 /// ak_call_unary_enc: the same checks and the same move (Enc::take) as the blocking form.
-unsafe fn unary_enc_parts(c: *mut ak_client, path: *const u8, path_len: usize, enc: *mut crate::ak_enc_ctx) -> Option<(Link, &'static RuntimeImpl, http::uri::PathAndQuery, Bytes)> {
+unsafe fn unary_enc_parts(c: *mut ak_client, path: *const u8, path_len: usize, enc: *mut crate::ak_enc_ctx) -> Option<(Link, &'static RuntimeImpl, http::uri::PathAndQuery, Bytes, bool)> {
     if c.is_null() || enc.is_null() {
         return None;
     }
     let cl = &*(c as *const ClientImpl);
     let path = parse_path(path, path_len)?;
-    let body = enc_take(enc).ok()?;
-    Some((cl.link(), &*cl.rt, path, body))
+    let (body, pre) = enc_take(enc).ok()?;
+    Some((cl.link(), &*cl.rt, path, body, pre))
 }
 
 /// A unary call on a task, its completion to `sink` (the callback and queue deliveries of
 /// the `_enc` entries; `unary_once` is the one call path).
-fn spawn_unary(rt: &RuntimeImpl, link: Link, path: http::uri::PathAndQuery, body: Bytes, sink: Sink, tag: u64, who: &'static str) -> *mut ak_call {
+fn spawn_unary(rt: &RuntimeImpl, link: Link, path: http::uri::PathAndQuery, body: Bytes, pre: bool, sink: Sink, tag: u64, who: &'static str) -> *mut ak_call {
     let cancel = std::sync::Arc::new(tokio::sync::Notify::new());
     let c2 = cancel.clone();
     rt.rt.spawn(async move {
-        let comp = completion(tag, who, cancellable(c2, unary_once(link, path, body)).await);
+        let comp = completion(tag, who, cancellable(c2, unary_once(link, path, body, pre)).await);
         sink.deliver(comp);
     });
     Box::into_raw(Box::new(CallImpl { cancel, stream: None })) as *mut ak_call
@@ -1203,7 +1258,7 @@ fn spawn_unary(rt: &RuntimeImpl, link: Link, path: http::uri::PathAndQuery, body
 pub unsafe extern "C" fn ak_call_unary_enc_cb(c: *mut ak_client, path: *const u8, path_len: usize, enc: *mut crate::ak_enc_ctx, cb: ak_completion_cb, user_data: *mut c_void, tag: u64) -> *mut ak_call {
     fwd();
     match unary_enc_parts(c, path, path_len, enc) {
-        Some((link, rt, path, body)) => spawn_unary(rt, link, path, body, Sink::new_cb(cb, user_data), tag, "ak_call_unary_enc_cb"),
+        Some((link, rt, path, body, pre)) => spawn_unary(rt, link, path, body, pre, Sink::new_cb(cb, user_data), tag, "ak_call_unary_enc_cb"),
         None => core::ptr::null_mut(),
     }
 }
@@ -1217,7 +1272,7 @@ pub unsafe extern "C" fn ak_call_unary_enc_q(c: *mut ak_client, path: *const u8,
         None => return core::ptr::null_mut(),
     };
     match unary_enc_parts(c, path, path_len, enc) {
-        Some((link, rt, path, body)) => spawn_unary(rt, link, path, body, sink, tag, "ak_call_unary_enc_q"),
+        Some((link, rt, path, body, pre)) => spawn_unary(rt, link, path, body, pre, sink, tag, "ak_call_unary_enc_q"),
         None => core::ptr::null_mut(),
     }
 }
