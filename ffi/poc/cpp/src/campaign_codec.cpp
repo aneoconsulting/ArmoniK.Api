@@ -130,6 +130,7 @@ struct Cfg {
   std::vector<std::string> only;
   std::string corpus, payloads, rows;
   std::string gbout = "campaign_codec_gbench.json";  // Google Benchmark's JSON output
+  std::string filter;  // --filter: Google Benchmark's --benchmark_filter (narrowed A/B runs only)
   double pool_bytes = 2.0 * 13.75 * 1024 * 1024;      // req. 11: the beyond-LLC input pool
 };
 Cfg g_cfg;
@@ -683,6 +684,7 @@ int main(int argc, char **argv) {
     else if (a == "--rows") g_cfg.rows = v;
     else if (a == "--gbench-out") g_cfg.gbout = v;
     else if (a == "--pool-bytes") g_cfg.pool_bytes = std::atof(v);
+    else if (a == "--filter") g_cfg.filter = v;
     else if (a == "--only") {
       std::string s(v);
       size_t p = 0;
@@ -892,6 +894,7 @@ int main(int argc, char **argv) {
                                      "--benchmark_enable_random_interleaving=true",
                                      mw, mt,
                                      "--benchmark_format=console"};
+    if (!g_cfg.filter.empty()) args.push_back("--benchmark_filter=" + g_cfg.filter);
     std::vector<char *> av;
     for (size_t k = 0; k < args.size(); ++k) av.push_back(&args[k][0]);
     int ac = (int)av.size();
