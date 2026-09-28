@@ -1,0 +1,20 @@
+# opt_ab: rpc env A='' env B='' args A='' args B='' A=/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/snap/s8 (3f6ec070) B=/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/snap/s8a (3f6ec070) pairs=6 args: --transport shipped --cells B,Bf,E-drop,Ef-drop --dirs cd --inflight 1 --rounds 3 --min-time-s 0.25 --warmup-s 0.05
+# ns per operation (process CPU; rpc: per call), median of every repetition of every process; wins = pairs where B's process median < A's
+benchmark                                                                                                    A_ns         B_ns     B/A  wins
+Bf|16MiB|-|d|default|inflight=1,transport=shipped,send_path=framed,build=full                          10982000.2   11134806.2   1.014  3/6
+Bf|4MiB|-|d|default|inflight=1,transport=shipped,send_path=framed,build=full                            2552193.7    2468794.5   0.967  3/6
+Bf|P5.3|-|c|default|inflight=1,transport=shipped,send_path=framed,build=full                             598055.8     604798.7   1.011  2/6
+Bf|P5.4|-|c|default|inflight=1,transport=shipped,send_path=framed,build=full                            2824257.2    2821368.8   0.999  3/6
+B|16MiB|-|d|default|inflight=1,transport=shipped,send_path=reference,build=full                        12762865.1   12827466.0   1.005  3/6
+B|4MiB|-|d|default|inflight=1,transport=shipped,send_path=reference,build=full                          3128473.3    3267224.0   1.044  1/6
+B|P5.3|-|c|default|inflight=1,transport=shipped,send_path=reference,build=full                           681344.7     658437.4   0.966  4/6
+B|P5.4|-|c|default|inflight=1,transport=shipped,send_path=reference,build=full                          3535532.2    3450785.5   0.976  5/6
+E-drop|16MiB|-|d|drop|inflight=1,transport=shipped,send_path=reference,build=full                      12579207.9   12569491.0   0.999  3/6
+E-drop|4MiB|-|d|drop|inflight=1,transport=shipped,send_path=reference,build=full                        3210736.7    3172384.1   0.988  3/6
+E-drop|P5.3|-|c|drop|inflight=1,transport=shipped,send_path=reference,build=full                         663606.7     677107.7   1.020  1/6
+E-drop|P5.4|-|c|drop|inflight=1,transport=shipped,send_path=reference,build=full                        3417325.7    3511576.8   1.028  2/6
+Ef-drop|16MiB|-|d|drop|inflight=1,transport=shipped,send_path=framed,build=full                        10939785.3   11079645.3   1.013  4/6
+Ef-drop|4MiB|-|d|drop|inflight=1,transport=shipped,send_path=framed,build=full                          2432929.8    2530034.1   1.040  2/6
+Ef-drop|P5.3|-|c|drop|inflight=1,transport=shipped,send_path=framed,build=full                           598552.7     585340.1   0.978  4/6
+Ef-drop|P5.4|-|c|drop|inflight=1,transport=shipped,send_path=framed,build=full                          2771428.5    2752269.3   0.993  3/6
+# geometric mean B/A over 16 benchmarks: 1.002

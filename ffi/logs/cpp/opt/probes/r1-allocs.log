@@ -128,3 +128,29 @@
   Cf-drop    d  16MiB big allocations per call   2.88
   C-retain   d  4MiB  big allocations per call   2.00
   C-retain   d  16MiB big allocations per call   8.00
+## after O-10 (8a: exact tonic buffer on the unary reference path, exact reserve per message, recycled body copies), AK_MALLOC_PIN n/a
+  B          c  P5.3  big allocations per call   1.00
+  B          c  P5.4  big allocations per call   1.00
+  B          d  4MiB  big allocations per call   2.00
+  B          d  16MiB big allocations per call   7.75
+  Bf         c  P5.3  big allocations per call   0.00
+  Bf         c  P5.4  big allocations per call   0.00
+  Bf         d  4MiB  big allocations per call   0.00
+  Bf         d  16MiB big allocations per call   0.25
+  C-drop     c  P5.3  big allocations per call   1.00
+  C-drop     c  P5.4  big allocations per call   1.12
+  C-drop     d  4MiB  big allocations per call   2.25
+  C-drop     d  16MiB big allocations per call  10.88
+  Cf-drop    c  P5.3  big allocations per call   0.00
+  Cf-drop    c  P5.4  big allocations per call   0.00
+  Cf-drop    d  4MiB  big allocations per call   1.00
+  Cf-drop    d  16MiB big allocations per call   3.75
+  E-drop     c  P5.3  big allocations per call   1.12
+  E-drop     c  P5.4  big allocations per call   1.00
+  E-drop     d  4MiB  big allocations per call   2.00
+  E-drop     d  16MiB big allocations per call   8.00
+  Ef-drop    c  P5.3  big allocations per call   0.00
+  Ef-drop    c  P5.4  big allocations per call   0.00
+  Ef-drop    d  4MiB  big allocations per call   0.00
+  Ef-drop    d  16MiB big allocations per call   0.00
+# O-10 (8a) measured and REVERTED: see ab/s8a-o10-rpc and ab/s8a-o10-rpc-c (geomean 1.003 and 1.002, no consistent direction); the change is kept as probes/o10-reverted.diff

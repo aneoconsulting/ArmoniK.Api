@@ -1,0 +1,137 @@
+diff --git a/ffi/poc/codec/crates/ak-core/src/rpc.rs b/ffi/poc/codec/crates/ak-core/src/rpc.rs
+index 7869c15b..cd0c0bdb 100644
+--- a/ffi/poc/codec/crates/ak-core/src/rpc.rs
++++ b/ffi/poc/codec/crates/ak-core/src/rpc.rs
+@@ -350,10 +350,44 @@ pub unsafe extern "C" fn ak_call_unary(
+         Some(p) => p,
+         None => return AK_ERR_INVALID_STATE,
+     };
+-    let body = if req_len == 0 { Bytes::new() } else { Bytes::copy_from_slice(core::slice::from_raw_parts(req, req_len)) };
++    let body = if req_len == 0 { Bytes::new() } else { copy_body(core::slice::from_raw_parts(req, req_len)) };
+     blocking_unary("ak_call_unary", cl, path, body, out, grpc_status)
+ }
+ 
++/// Optimisation O-10 (ii) (2026-09-28, the cpp slice's optimisation unit, owner-approved):
++/// the copy of a host message into a request body (`ak_call_unary`, `ak_call_send`) lands in
++/// a RECYCLED buffer. The body's buffer returns to this pool when its last `Bytes` is dropped
++/// (on the reference path tonic drops each message once it is copied into its encode buffer;
++/// on the framed path once it is written), so a steady state of calls allocates no body
++/// buffer. At most `COPY_POOL_MAX` buffers are kept; a full or contended pool frees.
++static COPY_POOL: std::sync::Mutex<Vec<Vec<u8>>> = std::sync::Mutex::new(Vec::new());
++const COPY_POOL_MAX: usize = 16;
++
++struct Pooled(Vec<u8>);
++impl AsRef<[u8]> for Pooled {
++    fn as_ref(&self) -> &[u8] {
++        &self.0
++    }
++}
++impl Drop for Pooled {
++    fn drop(&mut self) {
++        if let Ok(mut g) = COPY_POOL.try_lock() {
++            if g.len() < COPY_POOL_MAX {
++                let mut v = core::mem::take(&mut self.0);
++                v.clear();
++                g.push(v);
++            }
++        }
++    }
++}
++
++fn copy_body(src: &[u8]) -> Bytes {
++    let mut v = COPY_POOL.lock().ok().and_then(|mut g| g.pop()).unwrap_or_default();
++    v.reserve_exact(src.len());
++    v.extend_from_slice(src);
++    Bytes::from_owner(Pooled(v))
++}
++
+ /// The blocking deliveries' one tail: the call, then its outcome (ABI v1 section 9, the
+ /// status number on unary calls too).
+ unsafe fn blocking_unary(who: &str, cl: &ClientImpl, path: http::uri::PathAndQuery, body: Bytes, out: *mut ak_bytes, grpc_status: *mut i32) -> i32 {
+@@ -816,7 +850,7 @@ pub unsafe extern "C" fn ak_call_send(h: *mut ak_call, msg: *const u8, len: usiz
+     if h.is_null() || (msg.is_null() && len != 0) {
+         return AK_ERR_INVALID_STATE;
+     }
+-    let b = if len == 0 { Bytes::new() } else { Bytes::copy_from_slice(core::slice::from_raw_parts(msg, len)) };
++    let b = if len == 0 { Bytes::new() } else { copy_body(core::slice::from_raw_parts(msg, len)) };
+     stream_send(h, b, last)
+ }
+ 
+diff --git a/ffi/poc/codec/crates/rpc/src/lib.rs b/ffi/poc/codec/crates/rpc/src/lib.rs
+index 3ef8f10d..272e9597 100644
+--- a/ffi/poc/codec/crates/rpc/src/lib.rs
++++ b/ffi/poc/codec/crates/rpc/src/lib.rs
+@@ -14,7 +14,7 @@
+ use bytes::{Buf, BufMut, Bytes};
+ /// For the core's streamed call (ak-core does not depend on tokio-stream itself).
+ pub use tokio_stream::wrappers::ReceiverStream;
+-use tonic::codec::{Codec, DecodeBuf, Decoder, EncodeBuf, Encoder};
++use tonic::codec::{BufferSettings, Codec, DecodeBuf, Decoder, EncodeBuf, Encoder};
+ 
+ /// A gRPC codec that does not know the schema: it hands the framing layer the bytes it was
+ /// given and hands back the bytes it received. Both arms of stage 4 use it, so the
+@@ -32,11 +32,53 @@ impl Encoder for RawEncoder {
+     type Item = Bytes;
+     type Error = tonic::Status;
+     fn encode(&mut self, item: Bytes, dst: &mut EncodeBuf<'_>) -> Result<(), Self::Error> {
++        // Optimisation O-10 (2026-09-28, the cpp slice's optimisation unit, owner-approved):
++        // the destination is sized EXACTLY from the message's known length before the copy,
++        // instead of put_slice growing tonic's buffer from its default capacity.
++        dst.reserve(item.len());
+         dst.put_slice(&item);
+         Ok(())
+     }
+ }
+ 
++/// O-10: the reference UNARY path's codec, carrying the one message's length. tonic 0.14.6
++/// reads `Encoder::buffer_settings()` once per codec instance (`EncodedBytes::new` allocates
++/// the encode buffer with that capacity, once per call) and `Grpc::unary` takes the codec by
++/// value per call, so a per-call instance sizes the buffer at the 5-byte prefix plus the
++/// message: one exact allocation, where the default is 8 KiB and then a second allocation
++/// for any larger message. The yield threshold is tonic's default (32 KiB). A STREAM's codec
++/// is built before its messages exist, so a stream keeps `RawCodec` (whose encoder reserves
++/// each message exactly). Not a heuristic: the length is the message's own.
++#[derive(Clone)]
++pub struct RawCodecSized(pub usize);
++
++#[derive(Clone)]
++pub struct RawEncoderSized(usize);
++
++impl Encoder for RawEncoderSized {
++    type Item = Bytes;
++    type Error = tonic::Status;
++    fn encode(&mut self, item: Bytes, dst: &mut EncodeBuf<'_>) -> Result<(), Self::Error> {
++        RawEncoder.encode(item, dst)
++    }
++    fn buffer_settings(&self) -> BufferSettings {
++        BufferSettings::new(self.0 + 5, 32 * 1024)
++    }
++}
++
++impl Codec for RawCodecSized {
++    type Encode = Bytes;
++    type Decode = Bytes;
++    type Encoder = RawEncoderSized;
++    type Decoder = RawDecoder;
++    fn encoder(&mut self) -> Self::Encoder {
++        RawEncoderSized(self.0)
++    }
++    fn decoder(&mut self) -> Self::Decoder {
++        RawDecoder
++    }
++}
++
+ impl Decoder for RawDecoder {
+     type Item = Bytes;
+     type Error = tonic::Status;
+@@ -208,8 +250,9 @@ pub async fn unary_raw(chan: tonic::transport::Channel, path: http::uri::PathAnd
+     with_deadline(cfg.deadline, async move {
+         let mut g = grpc(chan, cfg);
+         g.ready().await.map_err(|e| tonic::Status::unavailable(format!("ready: {e}")))?;
++        let n = body.len();
+         let req = tonic::Request::from_parts(md, Default::default(), body);
+-        g.unary(req, path, RawCodec).await.map(|r| r.into_inner()).map_err(|s| CallErr::Status(recv_limit(s)))
++        g.unary(req, path, RawCodecSized(n)).await.map(|r| r.into_inner()).map_err(|s| CallErr::Status(recv_limit(s)))
+     })
+     .await
+ }
