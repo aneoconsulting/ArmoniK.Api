@@ -27,11 +27,20 @@ poc/codec/gen/cpp_binding.py   the C++ host binding over the C ABI (arm core-ffi
                                retain decode (rule 7; dec_ctx_free forgets an armed context),
                                string spans copied without a second UTF-8 scan (utf8=reject:
                                the core checked them; decision 3). Full build:
-                                 - encode_into_* (and _zeroed, _nobatch), encode_into_*_unk;
+                                 - encode_into_* (and _zeroed, _nobatch), encode_into_*_unk and
+                                   (B-2) encode_into_*_unk_zeroed; the timed core arms and
+                                   cells C/D use the sparse (_zeroed) fill, named in the headers;
                                  - decode_with_* (drop context), decode_with_*_opts (armed
                                    in place), decode_with_*_unk (retain everywhere),
                                    decode_with_*_pool (pre-allocated pools, refilled in place);
+                                 - (X-2) the PULL family: pull_with_* (walk in place),
+                                   pull_drain_with_* (drained copy), pull_with_*_unk (retain),
+                                   the records replayed through the push vtable's functions;
                                  - unk_opts_*, unk_clear_*;
+                               Optimisation unit (2026-09-28): geometric growth of batched
+                               adds (B-1), elements and leaf children built in place (B-3/B-4),
+                               packed enum/bool/bulk runs (B-6/B-7), a flat retained-buffer set
+                               (B-9, B-8).
                                  - DecRoot<T>, DecCtxs, dec_ctx_new_for<T>() (contexts bound
                                    to their root, rule 6).
                                No-unknown build (plan relowered with unknown="drop"): none of
@@ -43,7 +52,11 @@ poc/codec/gen/cpp_facade.py    the facade; in the no-unknown build without `unkn
                                with its own header directory, so no installed header changes
                                layout under a consumer's -std (README 5.1)
 poc/codec/gen/cpp_native.py    arm host-gen: the codec generated into C++ from the same plan,
-                               drop and retain renderings
+                               drop and retain renderings; since the optimisation unit: an exact
+                               reservation per repeated field from one key scan (HG-1),
+                               emplace_back (HG-2), packed runs reserved once with raw stores and
+                               little-endian memcpy (HG-4); UTF-8 through the core's
+                               ak_utf8_check (HG-3)
 include/ak_abi.h, include/generated/ak_layout*.h   full-build C header (c_abi.py, 400 facts)
 nounk/include/...                                  no-unknown header (AK_NO_UNKNOWN_FIELDS,
                                                    240 facts)
@@ -242,7 +255,7 @@ narrowed A/B (`gen/opt_ab.sh`, logs/cpp/opt/ab/). The reference for the steps is
 | 5 | floors gated, no timing | **met**: the C++11 (and C++14) conformance and the C++11 corpus in the gate, for the full build; C++11 conformance and corpus for the no-unknown build |
 | 6 | build flags printed | **met**: flags from the build, shared linkage, LTO off, core features, and the build variant (full or no-unknown) in every header |
 | 7 | 16 payloads, content sets, U-* rows | **met**. Latin-1 and wide run on P1.2, P2.2 and P2.4, tagged `set=required`; P3.1, P4.1 and P6.1 run too, tagged `set=extra` (R-H26). The U-* rows are the 92 at the seven shapes roots (`gen/u_rows.py` from the manifest), tagged `row=U`, in all three directions: encode (host-gen re-encode as the check), decode and decode_read, for core-ffi drop and retain (retain in the full build only), host-gen and the incumbent (R-H27). Rows at other roots run only in the corpus build, for correctness |
-| 8 | arms | **met**: incumbent-prod (grpc++ SerializationTraits), incumbent-best, core-ffi (push), host-gen. The pull family is not in this slice. The Rust-only arms are not applicable |
+| 8 | arms | **met**: incumbent-prod (grpc++ SerializationTraits), incumbent-best (since H-7 the library's fastest entry points: ByteSizeLong + SerializeWithCachedSizesToArray into a reused buffer, ParseFromArray), core-ffi (push), host-gen. Labelled extras (payloads only): incumbent-arena (decode on an Arena), core-ffi-pull (ABI v1 7.1's pull family, walked in place; X-2), core-ffi-borrow (the borrowed-string facade; X-1), and the from=bytebuffer decode rows (H-8). The Rust-only arms are not applicable |
 | 9 | encode, decode twice | **met**: `decode` and `decode_read` (the generated read-every-field traversal) |
 | 10 | three modes for core-ffi and host-gen | **met**: core-ffi drop and retain in `campaign_codec`, no-unknown in `campaign_codec_nounk`; host-gen drop and retain in `campaign_codec`, no-unknown in `campaign_codec_nounk` (the drop rendering over the facade without `unknown_fields`, R-H22). The no-unknown build has no retain arm of either kind. Every sample carries `unknown_mode` and `build` |
 | 11 | serialise once per iteration, fresh object; encode variants | **met**. Decode goes into a fresh object every iteration; protobuf C++ recomputes ByteSizeLong on every Serialize. Encode rows are tagged `end` and `input` (R-H29), graphs built in setup, outside the timed window. end=reused: bytes in a reused buffer (incumbent-best `SerializeToString` into a reused string, core-ffi `ak_enc_take` of the context's buffer, host-gen into its reused `ak::Enc`). end=transport: the form handed to grpc++ (incumbent-prod `SerializationTraits<Message>::Serialize` to a `grpc::ByteBuffer`; core-ffi moves its bytes with `ak_enc_take_owned` and host-gen with `ak::Enc::take` into a `grpc::Slice` that owns them, wrapped as a `ByteBuffer`, what cells D and F do since WP8; the codec binaries therefore link the campaign cores with the `rpc` feature, which carry the same codec). Cell C hands the core's own buffer to the transport, which is the end=reused row, stated. input=hot: one graph; input=pool: distinct copies totalling `--pool-bytes` (runner: 2 x AK_LLC_BYTES, default LLC 13.75 MiB), round-robin |
@@ -376,7 +389,13 @@ and the record is in JOURNAL.md. The items reported against other owners were re
   this shared container ran with AK_CAMPAIGN_POOL_BYTES=1048576, stated in its header.
 
 **Coverage.**
-- **The pull decode family.** It is not rendered for C++.
+- **The pull family's drained form in timing.** `pull_drain_with_*` (a JVM host's copy) is rendered, gated by
+  value and counted, but the timed arm core-ffi-pull is the walk in place (as the Rust slice's); the drained
+  form has no retain rendering.
+- **RPC pull twins' crossings.** Cp-*/Dp-* are not in rpc-counts.log (their codec's crossings are the codec
+  suite's pull rows).
+- **O-6 (skip the loop call of an empty repeated field).** Stopped before any change (step 8c): no backend
+  would set a presence bit for a repeated field.
 - **A lossy (U+FFFD) decode policy** in the C++ native codec. It is not rendered, and the
   backend raises.
 - **The chunking class, `Surrogate` and similar roots in timing.** The corpus build runs
