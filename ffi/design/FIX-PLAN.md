@@ -588,10 +588,17 @@ profiles.
 CPU, allocation and fault counts; container instrumentation, A/A floor about 5%) attributes
 about 90% of it.** At d/16 MiB, k = 1, C costs about 2.3-2.8 ms more than A: **about 1.5 ms
 is tonic's reference-path copy** (`RawEncoder::put_slice`; C minus Cf and D minus Df alike,
-with about 7 more fresh 2 MiB buffers per call), **about 0.6 ms is the hand-off from the host
-thread through the request channel to the core's runtime** (Cf minus Df: more system time,
-59 against 43 context switches per call), and about 0.25 ms (Df minus A) is inside the
-noise. The callback delivery costs the same as the blocking one. Ablations, all reverted: a
+with about 7 more fresh 2 MiB buffers per call); Cf minus Df was first attributed to the
+hand-off by elimination, **withdrawn by the second probe** (`logs/rust/opt/stream-probe2/`):
+the host's CPU inside the send is 7-12 µs per chunk (0.06-0.1 ms per call), and about 0.8 ms
+is the host's encode writing into a **fresh 2 MiB buffer** because the transport still holds
+the previous chunk when the next encode starts (491-506 µs per chunk against 400 µs with a
+recycled buffer; a ring of 3 spare buffers removes it). The same probe rules out the stack's
+configuration (identical HTTP/2 SETTINGS sniffed on the wire for A, Df, Cf, C-cb) and the
+write pattern (about 1,050 writes of 16 KiB per 16 MiB call in every cell, capped by the
+server's 16,384-byte max frame size): the gap follows how the stream is fed, and a harness
+cell fed the core's way (a host thread and a one-slot channel) costs what Cf costs. Df minus
+A (about 0.4-0.7 ms) stays unattributed. The callback delivery costs the same as the blocking one. Ablations, all reverted: a
 request channel of 4 instead of 1 is worse at 16 MiB; tonic's `BufferSettings` cannot remove
 the copy (its `Encoder` API requires it); a ring of 3 spare buffers in `ak_rt::Enc` gains
 3-7% on the framed cells only, at the edge of the noise; a current-thread host runtime for
