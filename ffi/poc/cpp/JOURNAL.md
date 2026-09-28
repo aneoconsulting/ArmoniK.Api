@@ -1672,3 +1672,40 @@ changes.
   calib 2 samples, figures stripped. The server ran pinned to CPUs 2,3 (this container has 4).
 - req 22a (e6c909630): Google Benchmark runs every benchmark of a binary in one process by design;
   it has no per-benchmark process isolation, so nothing changes here.
+
+## 2026-09-28, optimisation phase: the short benchmark and its baseline (instrumentation, not gated)
+
+- **Owner's constraints.** No gate now (it runs once at the end); build as the runner builds and run the
+  benchmark executables directly with the runner's arguments, pinned (AK_CPU_CLIENT=1, AK_CPU_SERVER=2,3); the
+  codec process's own pre-check stays on; under 10 minutes; absolute times per variant, no ratios.
+- **Container.** A 2.80 GHz 4-CPU Xeon (L2 1 MiB per core, L3 33 MiB), not the 2.10 GHz one of the smokes.
+  protobuf/grpc++ were not installed: reinstalled from apt (libprotobuf-dev 3.21.12-8.2ubuntu0.3,
+  libgrpc++-dev 1.51.1-4.1build5); Google Benchmark v1.8.3 cloned at 344117638c8f and built Release as the runner does.
+- **Written.** `gen/opt_bench.sh OUT_DIR`: the runner's header() and gbench_release() extracted from
+  run_campaign.sh (so the header cannot drift), the header marked instrumentation with an `opt_bench` object, a
+  settings line and a "not gated" line; build + variant check; crossing counts recorded (not fatal); codec in four
+  processes (full-P, nounk-P, full-U, nounk-U, `--only P` / `--only U-`); RPC with ONE server for the run
+  (serve.sh start/warm 50/stop), RPC counts recorded, then per transport the full and the no-unknown client.
+  `gen/opt_summary.py RUN_DIR`: summary-codec.tsv, variants-codec.tsv, summary-rpc.tsv, tables-codec.md,
+  tables-rpc.md from the jsonl samples.
+- **Sizing (trial runs, scratch, not kept).** The pool setup runs inside the benchmark function, so Google Benchmark
+  repeats it on every warm-up, estimation and repetition call: codec gate alone 7 s at a 1 MiB pool, 26 s at 4 MiB
+  (1190 pool slots); the runner's default pool (2 x 13.75 MiB) does not fit the budget, so the pool is 1 MiB (the
+  smoke's), stated. P at 5 x 0.02 s took 174 s for the full build alone (125 s measured, the rest warm-up, ramp and
+  setup); settled at P 5 x 0.01 s + 0.005 s warm-up, U 3 x 0.004 s, RPC 3 x 0.04 s + 0.02 s warm-up, k=16 kept.
+- **First run discarded (U warm-up 0).** Four U cases had one-iteration repetitions: with no framework warm-up the
+  first, cold, single-iteration estimation run exceeded min_time (up to 8 ms for a 37-55 µs operation) and Google
+  Benchmark kept it and the iteration count (`logs/cpp/opt/u-warmup0-evidence.txt`). U warm-up set to 0.002 s;
+  the rerun has no U case below 100 iterations. (The P2.4/wide incumbent decodes are genuinely about 10 ms per
+  operation and run one iteration per repetition in both runs, stable.)
+- **Coordinator's H-1, confirmed in the source.** `add_encode`'s pool `run(n)` indexes `i % m` from 0 and the
+  benchmark body calls `run(1)`, so every `input=pool` row encodes pool[0]. Not fixed (this unit changes scripts
+  only); the tables mark those rows `pool[0]*` and the TSVs carry a note column.
+- **Baseline** (`logs/cpp/opt/baseline/`, script at 447d79e2, code at 3cbf2216): 595 s. Pre-check 0 failures
+  (876, 548, 2944, 1840 slots); counts identical (485, 271 payload/U rows; 72, 42 RPC rows); 21480 codec and
+  2448 RPC samples. Codec spread (max-min)/median: median 0.06 on payloads, 0.03 on U rows. RPC: median spread
+  0.05-0.2 on a/a+read/b and c/d at k=1, 0.3-1.1 on c/d at k=8, where a repetition is ONE batch (C41 in STATE).
+- **Seen, one line each (no fix, scope rule):** `order_pos` in the RPC jsonl is Google Benchmark's reporting
+  order, which groups a benchmark's repetitions, not the interleaved execution order; the runner header's
+  `threads.rpc_server` text still describes the removed grpc++ server. opt_summary.py's first version named the
+  no-unknown columns `-no-unknown` and left them empty; fixed and re-run on the same samples (runner.log says so).

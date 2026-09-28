@@ -104,7 +104,7 @@ def arm_col(s):
     arm, mode, build = s["arm"], s["unknown_mode"], s["build"]
     if arm.startswith("incumbent"):
         return arm + ("@nounk" if build == "no-unknown" else "")
-    return f"{arm}-{mode}"  # host-gen-drop/-retain/-nounk, core-ffi-drop/-retain/-nounk
+    return f"{arm}-{'nounk' if mode == 'no-unknown' else mode}"  # host-gen-drop/-retain/-nounk, core-ffi-...
 
 
 def codec(run):

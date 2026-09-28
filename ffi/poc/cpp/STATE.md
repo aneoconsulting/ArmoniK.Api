@@ -12,11 +12,11 @@ defect. What this file reports as results are correctness outcomes and crossing 
 
 | | |
 |---|---|
-| **Status** | 2026-09-27, FIX-PLAN WP9 and WP10 done for cpp: the RPC grid runs on Google Benchmark (the codec suite on the framework's own warm-up and iteration control too), against THE shared server (poc/rust's tonic rpc_server through serve.sh; this slice's server removed). Gated once from a clean checkout at `4ce48e007`: wp5_gate 0 failed steps (both builds, C++17/14/11, static), ASan+LSan clean on both builds, campaign gate green (every control; counts identical). Minimal smoke (owner's small-test rule), figures stripped: 1 launch, 1 round, AK_CAMPAIGN_SMOKE=1 (Google Benchmark min time and warm-up 0.01 s, server warm 20), codec pool 1 MiB, full build only, `shipped` transport only (AK_CAMPAIGN_TRANSPORTS=shipped AK_CAMPAIGN_BUILDS=full), server pinned to CPUs 2,3 of this container |
+| **Status** | 2026-09-28, optimisation phase (owner), baseline only: `gen/opt_bench.sh` (the short fixed benchmark, rerun unchanged after each change; no gate, one launch, both builds, THE shared server) and `gen/opt_summary.py` (absolute-time summaries) written and run once at `447d79e2` (code benchmarked = `3cbf2216`; the commits between touch only these two scripts): `logs/cpp/opt/baseline/`, 595 s, codec pre-check 0 failures in all four processes, crossing counts identical (485, 271, 72, 42 rows). Known harness defect H-1 (coordinator, confirmed in the source, NOT fixed in this unit): every `input=pool` encode row encodes pool[0] only. The last gate is still the one at `4ce48e007` (WP9 + WP10, below); the gate runs again only at the end of the experiment |
 | **Core** | the shared one at `ffi/poc/codec/crates/ak-core` (R0). CMake builds it with cargo, `init-guard` in every configuration. Full-build flavours: plain, `count`, `corpus`, `rpc`, `rpc,count`, and three planted cores (`pad-widths`, `global-widths`, both). No-unknown flavours: `--no-default-features` plus `init-guard` alone, `count`, `corpus` or `rpc`. Each flavour has its own target dir under `core-build/` |
 | **Generator** | one generator (W14). `poc/codec/gen/plan.py` holds the rules. This slice's backend modules in `poc/codec/gen/` are `cpp_binding.py`, `cpp_native.py`, `cpp_facade.py`, `cpp_names.py` and `cpp_layout.py`, plus `c_abi.py`, which renders the C header for every slice. `gen/generate.py` is glue: it renders the targets from plans and imports no IR (the guard in `generate.py --check`) |
 | **Floor / target** | C++11 floor, C++17 target, both builds. C++14 also builds and is gated (full build) |
-| **Incumbent** | protobuf C++ 3.21.12 and grpc++ 1.51.1, apt's, the only versions in this container. `packages/cpp` pins neither. The runner builds against gRPC v1.54.0 and a current version through AK_INCUMBENT_PREFIX, one run per prefix (section 3); neither prefix exists here (checklist row 3) |
+| **Incumbent** | protobuf C++ 3.21.12 and grpc++ 1.51.1, apt's, the only versions in this container (2026-09-28: the container came up without them; reinstalled from apt, libprotobuf-dev 3.21.12-8.2ubuntu0.3, libgrpc++-dev 1.51.1-4.1build5, protobuf-compiler, protobuf-compiler-grpc). `packages/cpp` pins neither. The runner builds against gRPC v1.54.0 and a current version through AK_INCUMBENT_PREFIX, one run per prefix (section 3); neither prefix exists here (checklist row 3) |
 | **Compiler** | g++ 13.3.0, `-O2 -g -DNDEBUG`; rustc 1.94.1 |
 
 ## What exists
@@ -103,6 +103,14 @@ Scripts (`gen/`):
 - `run_campaign.sh --suite codec|rpc|calib|gate --out <dir>`: the campaign runner (see the
   checklist).
 - `campaign_summary.py`: requirement 30's summaries, ratios from per-launch medians.
+- `opt_bench.sh OUT_DIR` (optimisation phase, instrumentation, NOT a gate): builds as the runner builds (header() and
+  gbench_release() extracted from `run_campaign.sh`, cmake -DAK_RPC=ON, the timed and counting targets, each checked to
+  load its variant's core), records the crossing counts against the committed files, then runs the codec suite
+  (payloads: 5 repetitions x 0.01 s, warm-up 0.005 s; U-* rows: 3 x 0.004 s, warm-up 0.002 s; pool 1 MiB) on both
+  builds and the RPC grid (3 x 0.04 s, warm-up 0.02 s, k = 1, 8, 16; one server for the run, warm 50, both
+  transports, both clients), pinned AK_CPU_CLIENT=1 / AK_CPU_SERVER=2,3 by default. About 10 minutes here.
+- `opt_summary.py RUN_DIR`: summary-codec.tsv, variants-codec.tsv, summary-rpc.tsv, tables-codec.md, tables-rpc.md
+  from the raw samples (absolute times, no ratios; H-1 rows and single-batch RPC entries marked).
 - `u_rows.py`: the 92 U rows (accepted, non-disputed, at the seven shapes roots) from the corpus manifest, as the TSV the codec suite and counts read.
 - `gbench_to_jsonl.py`: Google Benchmark JSON to section 7's lines.
 - `corpus_all.py`: the corpus driver, with `--unk-controls`, `--expect-dropped`,
@@ -191,6 +199,12 @@ listed so that nobody re-derives them. **No figure from them is quoted here.**
     rpc 255 samples (15 cells x 17 direction/payload/in-flight groups) on Google Benchmark, raw
     JSON beside them (`rpc-launch1-shipped-full.gbench.json`). `codec-nounk-launch1.*` are the
     earlier WP8 smoke's (no-unknown build), not re-taken.
+
+- `opt/baseline/` (2026-09-28, `gen/opt_bench.sh` at `447d79e2`, code at `3cbf2216`, a 2.80 GHz 4-CPU Xeon container):
+  the optimisation phase's reference run. Raw: `codec-{P,nounk-P,U,nounk-U}.jsonl` and `rpc-{shipped,pinned}{,-nounk}.jsonl`
+  (section 7's lines) with the Google Benchmark JSON beside them (`*.gbench.json.gz`); `runner.log`, `header.txt`,
+  `build.log`; summaries `summary-codec.tsv`, `variants-codec.tsv`, `summary-rpc.tsv`, `tables-codec.md`, `tables-rpc.md`.
+  `opt/u-warmup0-evidence.txt`: why the U rows got a warm-up (the discarded first run's one-iteration samples).
 
 ## CAMPAIGN.md section 10 checklist
 
@@ -286,6 +300,8 @@ native-retain arm, which R-H22 removed, so the control could no longer fail. The
 |---|---|---|---|
 | C6 | this container | grpc++ 1.51.1 and protobuf 3.21.12 are apt's; `packages/cpp` pins neither, and CAMPAIGN.md asks for v1.54.0 and a current version | open; this container cannot fix it |
 | C15 | `src/bench.cpp` | the `groupfill` arm has measured larger than the (`ffi` - `native`) delta it is a component of, on P1.3 (instrumentation, `bench_a17_shared.log`) | open; the direct-call hypothesis is refuted (JOURNAL). `groupfill` is labelled an upper bound |
+| H-1 | `src/campaign_codec.cpp` `add_encode` / the benchmark body | every `input=pool` encode row encodes pool[0] only: `run(n)` indexes `i % m` from i = 0 and the Google Benchmark body calls `run(1)` per iteration, so req 11's beyond-cache variant is not measured (reported by the coordinator, confirmed in the source). The pool is still built in every setup call (about 5 ms per call at 1 MiB, wall time only) | open, **not fixed in the baseline**; the coordinator's step 0 of the implementation unit, then a fresh reference run |
+| C41 | `gen/opt_bench.sh` settings | single-batch repetitions: with 0.04 s per repetition, a/a+read at k=16, c P5.4 at k=8 and d at k=8 run one batch per repetition (45-48 of 48 cases; d 4 MiB k=8: 28), so each sample is one batch after random interleaving and min-max is wide (median spread 0.3-1.1 on c/d k=8, against 0.05-0.2 elsewhere). Marked `†` in tables-rpc.md, column min_batches in summary-rpc.tsv | open, a budget trade-off (10 minutes); not a defect of the campaign harness |
 | C40 | `design/ABI-v1.md` section 5 vs `ak-abi` | `ak_err` is `{code, msg_len, msg}` in the specification's text and `{code, detail}` in the core; the C header follows the core | open, for the aggregating session |
 
 The retired defects C1-C37, R-D1, R-D2 and R-G7 were fixed, or were closed by their owners,
@@ -370,12 +386,11 @@ and the record is in JOURNAL.md. The items reported against other owners were re
 
 ## Next step
 
-Nothing is queued for this slice. The open items belong to others: the incumbent versions
-and perf (the owner's machine), C40 (the aggregating session), and whether the RPC server
-should decode with the core in C/D cells (a harness question for the aggregating session).
-To re-run the gate: `CLEAN=1 gen/wp5_gate.sh build` (it builds everything, about 40
-minutes here), then `gen/d11_asan.sh`, then `gen/run_campaign.sh --suite gate`.
-`gen/run_all.sh` takes timings and is not a gate.
+The optimisation phase (owner): after each change, rerun `gen/opt_bench.sh logs/cpp/opt/<name>` unchanged and read its
+tables against `logs/cpp/opt/baseline/` (absolute times; the full-build and no-unknown columns are two processes). H-1 is
+fixed first (coordinator's step 0), then a fresh reference run replaces `baseline/` as the reference. The gate runs once at
+the end of the experiment: `CLEAN=1 gen/wp5_gate.sh build` (it builds everything, about 40 minutes here), then
+`gen/d11_asan.sh`, then `gen/run_campaign.sh --suite gate`. `gen/run_all.sh` takes timings and is not a gate.
 
 ## Log index
 
