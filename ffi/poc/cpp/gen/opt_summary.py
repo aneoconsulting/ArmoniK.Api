@@ -9,12 +9,14 @@ them as *.gbench.json.gz) and writes:
 
   summary-codec.tsv   per case: build, file, input, payload, content, arm, dir, mode, encode
                       variant, samples, median/min/max/q25/q75 ns per operation (process CPU),
-                      spread = (max - min) / median, wall median, note
+                      spread = (max - min) / median, wall median, the fewest iterations
+                      in one repetition (min_iters), note
   variants-codec.tsv  absolute medians, one row per (input, dir, variant), one column per arm
                       and mode; the full build's process and the no-unknown build's (@nounk
                       columns) are two processes
   summary-rpc.tsv     per (build, transport, cell, dir, payload, k): client process CPU and wall
-                      per call, median and min/max over the repetitions
+                      per call, median and min/max over the repetitions, and the fewest
+                      batches (Google Benchmark iterations) in one repetition (min_batches)
   tables-codec.md, tables-rpc.md   the same absolutes as markdown, in microseconds
 
 Per operation: codec = cpu_ns / iters (one repetition); rpc = cpu_ns / iters, iters being the
@@ -113,8 +115,9 @@ def codec(run):
             variant = f"{s['end']}/{s['input']}" if s["dir"] == "encode" else "-"
             inp = s["payload"] if s["content"] == "ascii" else f"{s['payload']}/{s['content']}"
             k = (s["build"], tag, inp, s["payload"], s["content"], s["arm"], s["dir"], s["unknown_mode"], variant)
-            c = cases.setdefault(k, {"cpu": [], "wall": [], "col": arm_col(s), "row": s.get("row", ""),
+            c = cases.setdefault(k, {"cpu": [], "wall": [], "it": [], "col": arm_col(s), "row": s.get("row", ""),
                                      "set": s.get("set", "")})
+            c["it"].append(s["iters"])
             c["cpu"].append(s["cpu_ns"] / s["iters"])
             c["wall"].append(s["wall_ns"] / s["iters"])
     if not cases:
@@ -123,14 +126,14 @@ def codec(run):
         f.write("# CONTAINER INSTRUMENTATION (gen/opt_bench.sh, not gated); ns per operation = process CPU "
                 "of one Google Benchmark repetition / its iterations; spread = (max - min) / median\n")
         f.write("build\tfile\tinput\tpayload\tcontent\tarm\tdir\tmode\tvariant\tsamples\tmedian_ns\tmin_ns\tmax_ns"
-                "\tq25_ns\tq75_ns\tspread\twall_median_ns\tnote\n")
+                "\tq25_ns\tq75_ns\tspread\twall_median_ns\tmin_iters\tnote\n")
         for k in sorted(cases):
             c = cases[k]
             st = stats(c["cpu"])
             note = H1 if k[8].endswith("/pool") else ""
             f.write("\t".join(list(k) + [str(st["n"]), fmt(st["median"]), fmt(st["min"]), fmt(st["max"]),
                                           fmt(st["q25"]), fmt(st["q75"]), f"{st['spread']:.3f}",
-                                          fmt(statistics.median(c["wall"])), note]) + "\n")
+                                          fmt(statistics.median(c["wall"])), str(min(c["it"])), note]) + "\n")
     # variants: (input, dir, variant) x arm column; the U rows after the payloads
     table = {}
     kind = {}
@@ -196,7 +199,8 @@ def rpc(run):
         tag = os.path.basename(path)[:-len(".jsonl")]
         for s in samples(path):
             k = (s["build"], s["transport"], s["cell"], s["dir"], s["payload"], s["inflight"])
-            c = cases.setdefault(k, {"cpu": [], "wall": [], "file": tag, "send_path": s.get("send_path", "")})
+            c = cases.setdefault(k, {"cpu": [], "wall": [], "it": [], "file": tag, "send_path": s.get("send_path", "")})
+            c["it"].append(s["iters"] // s["inflight"])
             c["cpu"].append(s["cpu_ns"] / s["iters"])
             c["wall"].append(s["wall_ns"] / s["iters"])
     if not cases:
@@ -205,13 +209,13 @@ def rpc(run):
         f.write("# CONTAINER INSTRUMENTATION (gen/opt_bench.sh, not gated; every call checked); ns per call = "
                 "client process CPU (or wall) of one Google Benchmark repetition / its calls (iterations x k)\n")
         f.write("file\tbuild\ttransport\tcell\tsend_path\tdir\tpayload\tinflight\trounds\tcpu_median_ns\tcpu_min_ns"
-                "\tcpu_max_ns\twall_median_ns\twall_min_ns\twall_max_ns\n")
+                "\tcpu_max_ns\twall_median_ns\twall_min_ns\twall_max_ns\tmin_batches\n")
         for k in sorted(cases, key=lambda k: (k[0], k[1], k[3], k[4], k[2], k[5])):
             c = cases[k]
             a, w = stats(c["cpu"]), stats(c["wall"])
             f.write("\t".join([c["file"], k[0], k[1], k[2], c["send_path"], k[3], k[4], str(k[5]), str(a["n"]),
                                fmt(a["median"]), fmt(a["min"]), fmt(a["max"]), fmt(w["median"]), fmt(w["min"]),
-                               fmt(w["max"])]) + "\n")
+                               fmt(w["max"]), str(min(c["it"]))]) + "\n")
     transports = sorted({k[1] for k in cases}, key=lambda t: (t != "pinned", t))
     ks = sorted({k[5] for k in cases})
     rounds = sorted({len(c["cpu"]) for c in cases.values()})
@@ -225,7 +229,9 @@ def rpc(run):
                 "in flight (c and d run at 1 and 8 only). `pinned` and `shipped` are the two transport "
                 "configurations; the full client (cells in drop and retain) and the no-unknown client "
                 "(`-nounk` cells, and its own A and B) are separate processes. `f` = the core's framed send "
-                "path (labelled extra cells), placed under its reference twin. Source: `summary-rpc.tsv` (ns).\n\n")
+                "path (labelled extra cells), placed under its reference twin. `†` = at least one repetition was a "
+                "single batch (one Google Benchmark iteration: the batch took longer than min_time), so that "
+                "sample is one batch of k calls. Source: `summary-rpc.tsv` (ns).\n\n")
         f.write(f"Repetitions per entry: {', '.join(map(str, rounds))}.\n\n")
         if files:
             for l in header_lines(files[0]):
@@ -251,7 +257,8 @@ def rpc(run):
                                 ent.append("")
                                 continue
                             st = stats(x[clock])
-                            ent.append(f"{us(st['median'])} [{us(st['min'])}-{us(st['max'])}]")
+                            one = " †" if min(x["it"]) == 1 else ""
+                            ent.append(f"{us(st['median'])} [{us(st['min'])}-{us(st['max'])}]{one}")
                         f.write(f"| {c} | " + " | ".join(ent) + " |\n")
                     f.write("\n")
     return len(cases)
