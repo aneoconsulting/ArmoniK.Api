@@ -52,6 +52,18 @@ uint64_t host_calls_take() {
 #define AK_HOST_CALL() ((void)0)
 #endif
 
+// B-1 (2026-09-28): ABI v1 7.4, a batched add may be called several times for one field.
+// `reserve(size + n)` on every call reallocates to the exact size each time, so k calls copy
+// O(k^2) elements; grow geometrically instead (at least double), which is what push_back does.
+template <class V>
+static inline void grow_by(V &v, size_t n) {
+  const size_t need = v.size() + n;
+  if (need > v.capacity()) {
+    const size_t dbl = v.capacity() * 2;
+    v.reserve(dbl > need ? dbl : need);
+  }
+}
+
 static inline struct ak_str ak_str_absent() {
   struct ak_str s;
   s.data = NULL;
@@ -8886,7 +8898,7 @@ static void add_task_detailed_parent_task_ids(ak_dec_ctx *ctx, void *obj, int64_
     Sink_TaskDetailed *s = (Sink_TaskDetailed *)obj; (void)tok;
     // ABI v1 7.4: a batched add may be called more than once per
     // field. Append; never size to the count you were handed.
-    s->out->parent_task_ids.reserve(s->out->parent_task_ids.size() + (size_t)n);
+    grow_by(s->out->parent_task_ids, (size_t)n);
     for (int32_t i = 0; i < n; ++i) {
 #if AK_CXX17
       std::string &b_ = s->out->parent_task_ids.emplace_back();
@@ -8905,7 +8917,7 @@ static void add_task_detailed_data_dependencies(ak_dec_ctx *ctx, void *obj, int6
     Sink_TaskDetailed *s = (Sink_TaskDetailed *)obj; (void)tok;
     // ABI v1 7.4: a batched add may be called more than once per
     // field. Append; never size to the count you were handed.
-    s->out->data_dependencies.reserve(s->out->data_dependencies.size() + (size_t)n);
+    grow_by(s->out->data_dependencies, (size_t)n);
     for (int32_t i = 0; i < n; ++i) {
 #if AK_CXX17
       std::string &b_ = s->out->data_dependencies.emplace_back();
@@ -8924,7 +8936,7 @@ static void add_task_detailed_expected_output_ids(ak_dec_ctx *ctx, void *obj, in
     Sink_TaskDetailed *s = (Sink_TaskDetailed *)obj; (void)tok;
     // ABI v1 7.4: a batched add may be called more than once per
     // field. Append; never size to the count you were handed.
-    s->out->expected_output_ids.reserve(s->out->expected_output_ids.size() + (size_t)n);
+    grow_by(s->out->expected_output_ids, (size_t)n);
     for (int32_t i = 0; i < n; ++i) {
 #if AK_CXX17
       std::string &b_ = s->out->expected_output_ids.emplace_back();
@@ -8943,7 +8955,7 @@ static void add_task_detailed_retry_of_ids(ak_dec_ctx *ctx, void *obj, int64_t t
     Sink_TaskDetailed *s = (Sink_TaskDetailed *)obj; (void)tok;
     // ABI v1 7.4: a batched add may be called more than once per
     // field. Append; never size to the count you were handed.
-    s->out->retry_of_ids.reserve(s->out->retry_of_ids.size() + (size_t)n);
+    grow_by(s->out->retry_of_ids, (size_t)n);
     for (int32_t i = 0; i < n; ++i) {
 #if AK_CXX17
       std::string &b_ = s->out->retry_of_ids.emplace_back();
@@ -9971,7 +9983,7 @@ static void apply_metrics_batch(ak_dec_ctx *ctx, void *obj, const struct ak_dfix
 static void add_metrics_batch_ticks(ak_dec_ctx *ctx, void *obj, int64_t tok, const int64_t *elems, int32_t n) {
   AK_DGUARD_BEGIN
     Sink_MetricsBatch *s = (Sink_MetricsBatch *)obj; (void)tok;
-    s->out->ticks.reserve(s->out->ticks.size() + (size_t)n);
+    grow_by(s->out->ticks, (size_t)n);
     for (int32_t i = 0; i < n; ++i) s->out->ticks.push_back(elems[i]);
     AK_REFILL();
   AK_DGUARD_END
@@ -9980,7 +9992,7 @@ static void add_metrics_batch_ticks(ak_dec_ctx *ctx, void *obj, int64_t tok, con
 static void add_metrics_batch_values(ak_dec_ctx *ctx, void *obj, int64_t tok, const double *elems, int32_t n) {
   AK_DGUARD_BEGIN
     Sink_MetricsBatch *s = (Sink_MetricsBatch *)obj; (void)tok;
-    s->out->values.reserve(s->out->values.size() + (size_t)n);
+    grow_by(s->out->values, (size_t)n);
     for (int32_t i = 0; i < n; ++i) s->out->values.push_back(elems[i]);
     AK_REFILL();
   AK_DGUARD_END
@@ -9989,7 +10001,7 @@ static void add_metrics_batch_values(ak_dec_ctx *ctx, void *obj, int64_t tok, co
 static void add_metrics_batch_codes(ak_dec_ctx *ctx, void *obj, int64_t tok, const int32_t *elems, int32_t n) {
   AK_DGUARD_BEGIN
     Sink_MetricsBatch *s = (Sink_MetricsBatch *)obj; (void)tok;
-    s->out->codes.reserve(s->out->codes.size() + (size_t)n);
+    grow_by(s->out->codes, (size_t)n);
     for (int32_t i = 0; i < n; ++i) s->out->codes.push_back(elems[i]);
     AK_REFILL();
   AK_DGUARD_END
@@ -9998,7 +10010,7 @@ static void add_metrics_batch_codes(ak_dec_ctx *ctx, void *obj, int64_t tok, con
 static void add_metrics_batch_flags(ak_dec_ctx *ctx, void *obj, int64_t tok, const uint8_t *elems, int32_t n) {
   AK_DGUARD_BEGIN
     Sink_MetricsBatch *s = (Sink_MetricsBatch *)obj; (void)tok;
-    s->out->flags.reserve(s->out->flags.size() + (size_t)n);
+    grow_by(s->out->flags, (size_t)n);
     for (int32_t i = 0; i < n; ++i) s->out->flags.push_back(elems[i] != 0);
     AK_REFILL();
   AK_DGUARD_END
@@ -10007,7 +10019,7 @@ static void add_metrics_batch_flags(ak_dec_ctx *ctx, void *obj, int64_t tok, con
 static void add_metrics_batch_statuses(ak_dec_ctx *ctx, void *obj, int64_t tok, const int32_t *elems, int32_t n) {
   AK_DGUARD_BEGIN
     Sink_MetricsBatch *s = (Sink_MetricsBatch *)obj; (void)tok;
-    s->out->statuses.reserve(s->out->statuses.size() + (size_t)n);
+    grow_by(s->out->statuses, (size_t)n);
     for (int32_t i = 0; i < n; ++i) s->out->statuses.push_back(corpus::TaskStatus(elems[i]));
     AK_REFILL();
   AK_DGUARD_END
@@ -10355,7 +10367,7 @@ static void apply_list_results_response(ak_dec_ctx *ctx, void *obj, const struct
 static void add_list_results_response_results(ak_dec_ctx *ctx, void *obj, int64_t tok, const struct ak_dfix_ResultRaw *elems, int32_t n) {
   AK_DGUARD_BEGIN
     Sink_ListResultsResponse *s = (Sink_ListResultsResponse *)obj; (void)tok;
-    s->out->results.reserve(s->out->results.size() + (size_t)n);
+    grow_by(s->out->results, (size_t)n);
     for (int32_t i = 0; i < n; ++i)
       s->out->results.push_back(from_result_raw(elems[i], s->base, ctx));
     AK_REFILL();
@@ -10580,7 +10592,7 @@ static void add_list_tasks_detailed_response_tasks_parent_task_ids(ak_dec_ctx *c
   AK_DGUARD_BEGIN
     Sink_ListTasksDetailedResponse *s = (Sink_ListTasksDetailedResponse *)obj;
     std::vector<std::string> &dst = s->out->tasks[(size_t)tok].parent_task_ids;
-    dst.reserve(dst.size() + (size_t)n);
+    grow_by(dst, (size_t)n);
     for (int32_t i = 0; i < n; ++i) {
 #if AK_CXX17
       s_of(s->base, elems[i], ctx, &dst.emplace_back());
@@ -10597,7 +10609,7 @@ static void add_list_tasks_detailed_response_tasks_data_dependencies(ak_dec_ctx 
   AK_DGUARD_BEGIN
     Sink_ListTasksDetailedResponse *s = (Sink_ListTasksDetailedResponse *)obj;
     std::vector<std::string> &dst = s->out->tasks[(size_t)tok].data_dependencies;
-    dst.reserve(dst.size() + (size_t)n);
+    grow_by(dst, (size_t)n);
     for (int32_t i = 0; i < n; ++i) {
 #if AK_CXX17
       s_of(s->base, elems[i], ctx, &dst.emplace_back());
@@ -10614,7 +10626,7 @@ static void add_list_tasks_detailed_response_tasks_expected_output_ids(ak_dec_ct
   AK_DGUARD_BEGIN
     Sink_ListTasksDetailedResponse *s = (Sink_ListTasksDetailedResponse *)obj;
     std::vector<std::string> &dst = s->out->tasks[(size_t)tok].expected_output_ids;
-    dst.reserve(dst.size() + (size_t)n);
+    grow_by(dst, (size_t)n);
     for (int32_t i = 0; i < n; ++i) {
 #if AK_CXX17
       s_of(s->base, elems[i], ctx, &dst.emplace_back());
@@ -10631,7 +10643,7 @@ static void add_list_tasks_detailed_response_tasks_retry_of_ids(ak_dec_ctx *ctx,
   AK_DGUARD_BEGIN
     Sink_ListTasksDetailedResponse *s = (Sink_ListTasksDetailedResponse *)obj;
     std::vector<std::string> &dst = s->out->tasks[(size_t)tok].retry_of_ids;
-    dst.reserve(dst.size() + (size_t)n);
+    grow_by(dst, (size_t)n);
     for (int32_t i = 0; i < n; ++i) {
 #if AK_CXX17
       s_of(s->base, elems[i], ctx, &dst.emplace_back());
@@ -11204,7 +11216,7 @@ static void apply_list_probe_response(ak_dec_ctx *ctx, void *obj, const struct a
 static void add_list_probe_response_probes(ak_dec_ctx *ctx, void *obj, int64_t tok, const struct ak_dfix_Probe *elems, int32_t n) {
   AK_DGUARD_BEGIN
     Sink_ListProbeResponse *s = (Sink_ListProbeResponse *)obj; (void)tok;
-    s->out->probes.reserve(s->out->probes.size() + (size_t)n);
+    grow_by(s->out->probes, (size_t)n);
     for (int32_t i = 0; i < n; ++i)
       s->out->probes.push_back(from_probe(elems[i], s->base, ctx));
     AK_REFILL();
@@ -11420,7 +11432,7 @@ static void add_list_metrics_response_batches_ticks(ak_dec_ctx *ctx, void *obj, 
   AK_DGUARD_BEGIN
     Sink_ListMetricsResponse *s = (Sink_ListMetricsResponse *)obj;
     std::vector<int64_t> &dst = s->out->batches[(size_t)tok].ticks;
-    dst.reserve(dst.size() + (size_t)n);
+    grow_by(dst, (size_t)n);
     for (int32_t i = 0; i < n; ++i) dst.push_back(elems[i]);
     AK_REFILL();
   AK_DGUARD_END
@@ -11430,7 +11442,7 @@ static void add_list_metrics_response_batches_values(ak_dec_ctx *ctx, void *obj,
   AK_DGUARD_BEGIN
     Sink_ListMetricsResponse *s = (Sink_ListMetricsResponse *)obj;
     std::vector<double> &dst = s->out->batches[(size_t)tok].values;
-    dst.reserve(dst.size() + (size_t)n);
+    grow_by(dst, (size_t)n);
     for (int32_t i = 0; i < n; ++i) dst.push_back(elems[i]);
     AK_REFILL();
   AK_DGUARD_END
@@ -11440,7 +11452,7 @@ static void add_list_metrics_response_batches_codes(ak_dec_ctx *ctx, void *obj, 
   AK_DGUARD_BEGIN
     Sink_ListMetricsResponse *s = (Sink_ListMetricsResponse *)obj;
     std::vector<int32_t> &dst = s->out->batches[(size_t)tok].codes;
-    dst.reserve(dst.size() + (size_t)n);
+    grow_by(dst, (size_t)n);
     for (int32_t i = 0; i < n; ++i) dst.push_back(elems[i]);
     AK_REFILL();
   AK_DGUARD_END
@@ -11450,7 +11462,7 @@ static void add_list_metrics_response_batches_flags(ak_dec_ctx *ctx, void *obj, 
   AK_DGUARD_BEGIN
     Sink_ListMetricsResponse *s = (Sink_ListMetricsResponse *)obj;
     std::vector<bool> &dst = s->out->batches[(size_t)tok].flags;
-    dst.reserve(dst.size() + (size_t)n);
+    grow_by(dst, (size_t)n);
     for (int32_t i = 0; i < n; ++i) dst.push_back(elems[i] != 0);
     AK_REFILL();
   AK_DGUARD_END
@@ -11460,7 +11472,7 @@ static void add_list_metrics_response_batches_statuses(ak_dec_ctx *ctx, void *ob
   AK_DGUARD_BEGIN
     Sink_ListMetricsResponse *s = (Sink_ListMetricsResponse *)obj;
     std::vector<TaskStatus> &dst = s->out->batches[(size_t)tok].statuses;
-    dst.reserve(dst.size() + (size_t)n);
+    grow_by(dst, (size_t)n);
     for (int32_t i = 0; i < n; ++i) dst.push_back(corpus::TaskStatus(elems[i]));
     AK_REFILL();
   AK_DGUARD_END
@@ -11820,7 +11832,7 @@ static void apply_dual_response(ak_dec_ctx *ctx, void *obj, const struct ak_dfix
 static void add_dual_response_left(ak_dec_ctx *ctx, void *obj, int64_t tok, const struct ak_dfix_Pair *elems, int32_t n) {
   AK_DGUARD_BEGIN
     Sink_DualResponse *s = (Sink_DualResponse *)obj; (void)tok;
-    s->out->left.reserve(s->out->left.size() + (size_t)n);
+    grow_by(s->out->left, (size_t)n);
     for (int32_t i = 0; i < n; ++i)
       s->out->left.push_back(from_pair(elems[i], s->base, ctx));
     AK_REFILL();
@@ -11830,7 +11842,7 @@ static void add_dual_response_left(ak_dec_ctx *ctx, void *obj, int64_t tok, cons
 static void add_dual_response_right(ak_dec_ctx *ctx, void *obj, int64_t tok, const struct ak_dfix_Pair *elems, int32_t n) {
   AK_DGUARD_BEGIN
     Sink_DualResponse *s = (Sink_DualResponse *)obj; (void)tok;
-    s->out->right.reserve(s->out->right.size() + (size_t)n);
+    grow_by(s->out->right, (size_t)n);
     for (int32_t i = 0; i < n; ++i)
       s->out->right.push_back(from_pair(elems[i], s->base, ctx));
     AK_REFILL();
@@ -12188,7 +12200,7 @@ static void apply_chunk_inner(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_C
 static void add_chunk_inner_marks(ak_dec_ctx *ctx, void *obj, int64_t tok, const int64_t *elems, int32_t n) {
   AK_DGUARD_BEGIN
     Sink_ChunkInner *s = (Sink_ChunkInner *)obj; (void)tok;
-    s->out->marks.reserve(s->out->marks.size() + (size_t)n);
+    grow_by(s->out->marks, (size_t)n);
     for (int32_t i = 0; i < n; ++i) s->out->marks.push_back(elems[i]);
     AK_REFILL();
   AK_DGUARD_END
@@ -12197,7 +12209,7 @@ static void add_chunk_inner_marks(ak_dec_ctx *ctx, void *obj, int64_t tok, const
 static void add_chunk_inner_leaves(ak_dec_ctx *ctx, void *obj, int64_t tok, const struct ak_dfix_ChunkLeaf *elems, int32_t n) {
   AK_DGUARD_BEGIN
     Sink_ChunkInner *s = (Sink_ChunkInner *)obj; (void)tok;
-    s->out->leaves.reserve(s->out->leaves.size() + (size_t)n);
+    grow_by(s->out->leaves, (size_t)n);
     for (int32_t i = 0; i < n; ++i)
       s->out->leaves.push_back(from_chunk_leaf(elems[i], s->base, ctx));
     AK_REFILL();
@@ -12386,7 +12398,7 @@ static void add_chunk_element_labels(ak_dec_ctx *ctx, void *obj, int64_t tok, co
     Sink_ChunkElement *s = (Sink_ChunkElement *)obj; (void)tok;
     // ABI v1 7.4: a batched add may be called more than once per
     // field. Append; never size to the count you were handed.
-    s->out->labels.reserve(s->out->labels.size() + (size_t)n);
+    grow_by(s->out->labels, (size_t)n);
     for (int32_t i = 0; i < n; ++i) {
 #if AK_CXX17
       std::string &b_ = s->out->labels.emplace_back();
@@ -12421,7 +12433,7 @@ static void add_chunk_element_attrs(ak_dec_ctx *ctx, void *obj, int64_t tok, con
 static void add_chunk_element_inner_marks(ak_dec_ctx *ctx, void *obj, int64_t tok, const int64_t *elems, int32_t n) {
   AK_DGUARD_BEGIN
     Sink_ChunkElement *s = (Sink_ChunkElement *)obj; (void)tok;
-    s->out->inner.get_or_insert().marks.reserve(s->out->inner.get_or_insert().marks.size() + (size_t)n);
+    grow_by(s->out->inner.get_or_insert().marks, (size_t)n);
     for (int32_t i = 0; i < n; ++i) s->out->inner.get_or_insert().marks.push_back(elems[i]);
     AK_REFILL();
   AK_DGUARD_END
@@ -12430,7 +12442,7 @@ static void add_chunk_element_inner_marks(ak_dec_ctx *ctx, void *obj, int64_t to
 static void add_chunk_element_inner_leaves(ak_dec_ctx *ctx, void *obj, int64_t tok, const struct ak_dfix_ChunkLeaf *elems, int32_t n) {
   AK_DGUARD_BEGIN
     Sink_ChunkElement *s = (Sink_ChunkElement *)obj; (void)tok;
-    s->out->inner.get_or_insert().leaves.reserve(s->out->inner.get_or_insert().leaves.size() + (size_t)n);
+    grow_by(s->out->inner.get_or_insert().leaves, (size_t)n);
     for (int32_t i = 0; i < n; ++i)
       s->out->inner.get_or_insert().leaves.push_back(from_chunk_leaf(elems[i], s->base, ctx));
     AK_REFILL();
@@ -12655,7 +12667,7 @@ static void add_chunked_response_items_labels(ak_dec_ctx *ctx, void *obj, int64_
   AK_DGUARD_BEGIN
     Sink_ChunkedResponse *s = (Sink_ChunkedResponse *)obj;
     std::vector<std::string> &dst = s->out->items[(size_t)tok].labels;
-    dst.reserve(dst.size() + (size_t)n);
+    grow_by(dst, (size_t)n);
     for (int32_t i = 0; i < n; ++i) {
 #if AK_CXX17
       s_of(s->base, elems[i], ctx, &dst.emplace_back());
@@ -12691,7 +12703,7 @@ static void add_chunked_response_items_inner_marks(ak_dec_ctx *ctx, void *obj, i
   AK_DGUARD_BEGIN
     Sink_ChunkedResponse *s = (Sink_ChunkedResponse *)obj;
     std::vector<int64_t> &dst = s->out->items[(size_t)tok].inner.get_or_insert().marks;
-    dst.reserve(dst.size() + (size_t)n);
+    grow_by(dst, (size_t)n);
     for (int32_t i = 0; i < n; ++i) dst.push_back(elems[i]);
     AK_REFILL();
   AK_DGUARD_END
@@ -12701,7 +12713,7 @@ static void add_chunked_response_items_inner_leaves(ak_dec_ctx *ctx, void *obj, 
   AK_DGUARD_BEGIN
     Sink_ChunkedResponse *s = (Sink_ChunkedResponse *)obj;
     std::vector<ChunkLeaf> &dst = s->out->items[(size_t)tok].inner.get_or_insert().leaves;
-    dst.reserve(dst.size() + (size_t)n);
+    grow_by(dst, (size_t)n);
     for (int32_t i = 0; i < n; ++i)
       dst.push_back(from_chunk_leaf(elems[i], s->base, ctx));
     AK_REFILL();
@@ -12936,7 +12948,7 @@ static void add_chunked_response_wide_items_labels(ak_dec_ctx *ctx, void *obj, i
   AK_DGUARD_BEGIN
     Sink_ChunkedResponseWide *s = (Sink_ChunkedResponseWide *)obj;
     std::vector<std::string> &dst = s->out->items[(size_t)tok].labels;
-    dst.reserve(dst.size() + (size_t)n);
+    grow_by(dst, (size_t)n);
     for (int32_t i = 0; i < n; ++i) {
 #if AK_CXX17
       s_of(s->base, elems[i], ctx, &dst.emplace_back());
@@ -12972,7 +12984,7 @@ static void add_chunked_response_wide_items_inner_marks(ak_dec_ctx *ctx, void *o
   AK_DGUARD_BEGIN
     Sink_ChunkedResponseWide *s = (Sink_ChunkedResponseWide *)obj;
     std::vector<int64_t> &dst = s->out->items[(size_t)tok].inner.get_or_insert().marks;
-    dst.reserve(dst.size() + (size_t)n);
+    grow_by(dst, (size_t)n);
     for (int32_t i = 0; i < n; ++i) dst.push_back(elems[i]);
     AK_REFILL();
   AK_DGUARD_END
@@ -12982,7 +12994,7 @@ static void add_chunked_response_wide_items_inner_leaves(ak_dec_ctx *ctx, void *
   AK_DGUARD_BEGIN
     Sink_ChunkedResponseWide *s = (Sink_ChunkedResponseWide *)obj;
     std::vector<ChunkLeaf> &dst = s->out->items[(size_t)tok].inner.get_or_insert().leaves;
-    dst.reserve(dst.size() + (size_t)n);
+    grow_by(dst, (size_t)n);
     for (int32_t i = 0; i < n; ++i)
       dst.push_back(from_chunk_leaf(elems[i], s->base, ctx));
     AK_REFILL();
@@ -13365,7 +13377,7 @@ static void apply_leaf_response(ak_dec_ctx *ctx, void *obj, const struct ak_dfix
 static void add_leaf_response_items(ak_dec_ctx *ctx, void *obj, int64_t tok, const struct ak_dfix_LeafElement *elems, int32_t n) {
   AK_DGUARD_BEGIN
     Sink_LeafResponse *s = (Sink_LeafResponse *)obj; (void)tok;
-    s->out->items.reserve(s->out->items.size() + (size_t)n);
+    grow_by(s->out->items, (size_t)n);
     for (int32_t i = 0; i < n; ++i)
       s->out->items.push_back(from_leaf_element(elems[i], s->base, ctx));
     AK_REFILL();
@@ -13579,7 +13591,7 @@ static void add_surrogate_texts(ak_dec_ctx *ctx, void *obj, int64_t tok, const s
     Sink_Surrogate *s = (Sink_Surrogate *)obj; (void)tok;
     // ABI v1 7.4: a batched add may be called more than once per
     // field. Append; never size to the count you were handed.
-    s->out->texts.reserve(s->out->texts.size() + (size_t)n);
+    grow_by(s->out->texts, (size_t)n);
     for (int32_t i = 0; i < n; ++i) {
 #if AK_CXX17
       std::string &b_ = s->out->texts.emplace_back();

@@ -619,6 +619,18 @@ uint64_t host_calls_take() {
 #define AK_HOST_CALL() ((void)0)
 #endif
 
+// B-1 (2026-09-28): ABI v1 7.4, a batched add may be called several times for one field.
+// `reserve(size + n)` on every call reallocates to the exact size each time, so k calls copy
+// O(k^2) elements; grow geometrically instead (at least double), which is what push_back does.
+template <class V>
+static inline void grow_by(V &v, size_t n) {
+  const size_t need = v.size() + n;
+  if (need > v.capacity()) {
+    const size_t dbl = v.capacity() * 2;
+    v.reserve(dbl > need ? dbl : need);
+  }
+}
+
 static inline struct ak_str ak_str_absent() {
   struct ak_str s;
   s.data = NULL;
@@ -1237,7 +1249,7 @@ Tcs tcs_host() {
                          " const %s *elems, int32_t n) {" % (snake(root), sn, cdt))
                 o.append("  AK_DGUARD_BEGIN")
                 o.append("    Sink_%s *s = (Sink_%s *)obj; (void)tok;" % (root, root))
-                o.append("    %s.reserve(%s.size() + (size_t)n);" % (dst, dst))
+                o.append("    grow_by(%s, (size_t)n);" % dst)
                 if f.kind == "bool":
                     o.append("    for (int32_t i = 0; i < n; ++i) %s.push_back(elems[i] != 0);" % dst)
                 elif f.kind == "enum":
@@ -1257,7 +1269,7 @@ Tcs tcs_host() {
                 o.append("    Sink_%s *s = (Sink_%s *)obj; (void)tok;" % (root, root))
                 o.append("    // ABI v1 7.4: a batched add may be called more than once per")
                 o.append("    // field. Append; never size to the count you were handed.")
-                o.append("    %s.reserve(%s.size() + (size_t)n);" % (dst, dst))
+                o.append("    grow_by(%s, (size_t)n);" % dst)
                 o.append("    for (int32_t i = 0; i < n; ++i) {")
                 o.append("#if AK_CXX17")
                 o.append("      %s &b_ = %s.emplace_back();" % (S, dst))
@@ -1298,7 +1310,7 @@ Tcs tcs_host() {
                     o.append("#endif")
                     o.append("    }")
                 else:
-                    o.append("    %s.reserve(%s.size() + (size_t)n);" % (dst, dst))
+                    o.append("    grow_by(%s, (size_t)n);" % dst)
                     o.append("    for (int32_t i = 0; i < n; ++i)")
                     o.append("      %s.push_back(from_%s(elems[i], s->base, ctx));"
                              % (dst, snake(elem_ty)))
@@ -1352,7 +1364,7 @@ Tcs tcs_host() {
                         o.append("  AK_DGUARD_BEGIN")
                         o.append("    Sink_%s *s = (Sink_%s *)obj;" % (root, root))
                         o.append("    std::vector<%s> &dst = %s;" % (S, idst))
-                        o.append("    dst.reserve(dst.size() + (size_t)n);")
+                        o.append("    grow_by(dst, (size_t)n);")
                         o.append("    for (int32_t i = 0; i < n; ++i) {")
                         o.append("#if AK_CXX17")
                         o.append("      s_of(s->base, elems[i], ctx, &dst.emplace_back());")
@@ -1399,7 +1411,7 @@ Tcs tcs_host() {
                         o.append("    Sink_%s *s = (Sink_%s *)obj;" % (root, root))
                         vel = _velem(ir, iff)
                         o.append("    std::vector<%s> &dst = %s;" % (vel, idst))
-                        o.append("    dst.reserve(dst.size() + (size_t)n);")
+                        o.append("    grow_by(dst, (size_t)n);")
                         if iff.kind == "bool":
                             o.append("    for (int32_t i = 0; i < n; ++i) dst.push_back(elems[i] != 0);")
                         elif iff.kind == "enum":
@@ -1418,7 +1430,7 @@ Tcs tcs_host() {
                         o.append("  AK_DGUARD_BEGIN")
                         o.append("    Sink_%s *s = (Sink_%s *)obj;" % (root, root))
                         o.append("    std::vector<%s> &dst = %s;" % (iet, idst))
-                        o.append("    dst.reserve(dst.size() + (size_t)n);")
+                        o.append("    grow_by(dst, (size_t)n);")
                         o.append("    for (int32_t i = 0; i < n; ++i)")
                         o.append("      dst.push_back(from_%s(elems[i], s->base, ctx));"
                                  % snake(iet))

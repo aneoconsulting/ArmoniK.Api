@@ -3,13 +3,13 @@
 repetition of every A process and of every B process, B/A, and in how many of the pairs the
 B process's median is below the A process's (a consistent direction beats a small ratio).
 Writes OUT/ab.txt. Instrumentation."""
-import glob, json, os, statistics, sys
+import glob, gzip, json, os, statistics, sys
 
 out = sys.argv[1]
 def load(side):
     runs = []
-    for p in sorted(glob.glob(os.path.join(out, side + "-*.json"))):
-        d = json.load(open(p))
+    for p in sorted(glob.glob(os.path.join(out, side + "-*.json")) + glob.glob(os.path.join(out, side + "-*.json.gz"))):
+        d = json.load(gzip.open(p, "rt") if p.endswith(".gz") else open(p))
         r = {}
         for b in d["benchmarks"]:
             if b.get("run_type") != "iteration":

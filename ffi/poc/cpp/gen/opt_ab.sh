@@ -38,3 +38,5 @@ for i in $(seq 1 "$PAIRS"); do
   done
 done
 python3 "$HERE/gen/opt_ab.py" "$OUT"
+for f in "$OUT"/[AB]-*.json; do gzip -9f "$f"; done
+for f in "$OUT"/[AB]-*.console; do grep '^#' "$f" > "$f.head" 2>/dev/null; rm -f "$f"; done
