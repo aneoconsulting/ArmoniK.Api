@@ -1660,3 +1660,15 @@ changes.
 - Checked in a scratch build: 210 RPC samples (15 cells x 14 groups, one transport), RPC counts
   identical to the committed files (72 + 42 rows), every plant exit 3 with no output file.
 - Small-test rule: AK_CAMPAIGN_TRANSPORTS and AK_CAMPAIGN_BUILDS select one transport / build.
+
+## 2026-09-28, WP9 + WP10 verified (small, per the owner's rule)
+
+- One clean-worktree gate at 4ce48e007: wp5_gate 0 failed steps (both builds, C++17/14/11,
+  static), d11_asan 0 failures, campaign gate 0 FAIL lines: the length and abort-after controls,
+  the c-len / d-sha / d-count plants in all 15 + 9 cells (exit 3, no output file), payload/U counts
+  (485, 271) and RPC counts (72, 42) identical, against the shared server through serve.sh.
+- Minimal smoke: 1 launch, 1 round, AK_CAMPAIGN_SMOKE=1 (min time and warm-up 0.01 s, server
+  warm 20), pool 1 MiB, full build and `shipped` only: codec 3820, rpc 255 (15 cells x 17 groups),
+  calib 2 samples, figures stripped. The server ran pinned to CPUs 2,3 (this container has 4).
+- req 22a (e6c909630): Google Benchmark runs every benchmark of a binary in one process by design;
+  it has no per-benchmark process isolation, so nothing changes here.

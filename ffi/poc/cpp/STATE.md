@@ -12,7 +12,7 @@ defect. What this file reports as results are correctness outcomes and crossing 
 
 | | |
 |---|---|
-| **Status** | 2026-09-27, FIX-PLAN WP8 done for cpp: ABI v1 section 9 call sites (trailing `grpc_status`, AK_ERR_RPC_STATUS fails the call), D44 limits (8 MiB), CAMPAIGN req 14 directions c and d (required 2026-09-27) with the core's client streaming and the framed twins, the binding's rules 7/8 and decision 3, counts re-taken. Both builds gated from a clean checkout at `a83b04865`, 0 failed steps (`logs/cpp/wp5-*.log`, `wp5s10-nounk.log`), C++17, C++14 and C++11; ASan+LSan clean on both builds (`asan.log`); campaign smoke (gate, codec, rpc, calib) green, figures stripped, `"smoke": true` (the codec pool at 1 MiB in this shared container, stated) |
+| **Status** | 2026-09-27, FIX-PLAN WP9 and WP10 done for cpp: the RPC grid runs on Google Benchmark (the codec suite on the framework's own warm-up and iteration control too), against THE shared server (poc/rust's tonic rpc_server through serve.sh; this slice's server removed). Gated once from a clean checkout at `4ce48e007`: wp5_gate 0 failed steps (both builds, C++17/14/11, static), ASan+LSan clean on both builds, campaign gate green (every control; counts identical). Minimal smoke (owner's small-test rule), figures stripped: 1 launch, 1 round, AK_CAMPAIGN_SMOKE=1 (Google Benchmark min time and warm-up 0.01 s, server warm 20), codec pool 1 MiB, full build only, `shipped` transport only (AK_CAMPAIGN_TRANSPORTS=shipped AK_CAMPAIGN_BUILDS=full), server pinned to CPUs 2,3 of this container |
 | **Core** | the shared one at `ffi/poc/codec/crates/ak-core` (R0). CMake builds it with cargo, `init-guard` in every configuration. Full-build flavours: plain, `count`, `corpus`, `rpc`, `rpc,count`, and three planted cores (`pad-widths`, `global-widths`, both). No-unknown flavours: `--no-default-features` plus `init-guard` alone, `count`, `corpus` or `rpc`. Each flavour has its own target dir under `core-build/` |
 | **Generator** | one generator (W14). `poc/codec/gen/plan.py` holds the rules. This slice's backend modules in `poc/codec/gen/` are `cpp_binding.py`, `cpp_native.py`, `cpp_facade.py`, `cpp_names.py` and `cpp_layout.py`, plus `c_abi.py`, which renders the C header for every slice. `gen/generate.py` is glue: it renders the targets from plans and imports no IR (the guard in `generate.py --check`) |
 | **Floor / target** | C++11 floor, C++17 target, both builds. C++14 also builds and is gated (full build) |
@@ -186,13 +186,11 @@ listed so that nobody re-derives them. **No figure from them is quoted here.**
   GHz). They were taken before the 6-field `ak_client_opts` existed (`rd2-history.log`).
 - `calibration-r13.log`: the rust slice's crossing bench on the 2.80 GHz container.
 - `campaign/*.jsonl`, `campaign/*.gbench.json`: campaign smoke runs.
-  - `codec-*`, `rpc-*`, `calib-*`: 1 launch, 1 round, reduced sizes, both builds, at
-    `a83b04865` (WP8), `"smoke": true`. Every timing is stripped (`"figures": "stripped
-    (smoke)"`, gbench `*_time` = "stripped", the server's CPU line replaced). Rows: codec
-    full 3820 and no-unknown 2388 samples (AK_CAMPAIGN_POOL_BYTES=1048576 in this shared
-    container); rpc 816 samples: 24 cells (15 full, 9 no-unknown, framed twins included) x 2
-    transports x (a, a+read, b at 1/8/16 + c P5.3/P5.4 and d 4/16 MiB at 1/8), one server for
-    the launch (served Fetch, Push, Upload, UploadStream).
+  - `codec-launch1.*`, `rpc-launch1*`, `calib-*`: the WP9/WP10 minimal smoke at `4ce48e007`,
+    `"smoke": true`, full build and `shipped` only; every timing stripped. codec 3820 samples;
+    rpc 255 samples (15 cells x 17 direction/payload/in-flight groups) on Google Benchmark, raw
+    JSON beside them (`rpc-launch1-shipped-full.gbench.json`). `codec-nounk-launch1.*` are the
+    earlier WP8 smoke's (no-unknown build), not re-taken.
 
 ## CAMPAIGN.md section 10 checklist
 
@@ -381,7 +379,7 @@ minutes here), then `gen/d11_asan.sh`, then `gen/run_campaign.sh --suite gate`.
 
 ## Log index
 
-Current gate (clean checkout at `a83b04865`):
+Current gate (clean checkout at `4ce48e007`):
 
 | Log | What it contains |
 |---|---|

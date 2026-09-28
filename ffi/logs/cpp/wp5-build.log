@@ -1,8 +1,8 @@
 # cpp slice, WP5: build (D39)
-#   date       2026-09-27T15:02:56Z
+#   date       2026-09-27T20:32:54Z
 #   machine    Linux 6.18.44-fc-v37 x86_64, 4 vCPU, Intel(R) Xeon(R) Processor @ 2.10GHz
 #   compiler   g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0; rustc 1.94.1 (e408947bf 2026-03-25)
-#   commit     a83b04865
+#   commit     4ce48e007
 #   core       ffi/poc/codec at that commit, built --features init-guard (and corpus,init-guard
 #              for the corpus ABI); no timing is taken by anything in this log
 
@@ -10,7 +10,7 @@ CLEAN=1: removing build
 ===== generate.py (the tree the build compiles is the tree the generator writes) =====
 generate.py exit 0
 ===== cmake configure + build, every target =====
->>> ok: build (62 executables relinked)
+>>> ok: build (61 executables relinked)
 ===== freshness: every gated binary newer than the newest input =====
-  newest input: src/values.cpp (2026-09-27T15:02:37Z)
+  newest input: src/values.cpp (2026-09-27T20:32:46Z)
 >>> ok: every gated binary is newer than every input
