@@ -12,7 +12,7 @@ defect. What this file reports as results are correctness outcomes and crossing 
 
 | | |
 |---|---|
-| **Status** | 2026-09-28, optimisation phase (owner), baseline only: `gen/opt_bench.sh` (the short fixed benchmark, rerun unchanged after each change; no gate, one launch, both builds, THE shared server) and `gen/opt_summary.py` (absolute-time summaries) written and run once at `447d79e2` (code benchmarked = `3cbf2216`; the commits between touch only these two scripts): `logs/cpp/opt/baseline/`, 595 s, codec pre-check 0 failures in all four processes, crossing counts identical (485, 271, 72, 42 rows). Known harness defect H-1 (coordinator, confirmed in the source, NOT fixed in this unit): every `input=pool` encode row encodes pool[0] only. The last gate is still the one at `4ce48e007` (WP9 + WP10, below); the gate runs again only at the end of the experiment |
+| **Status** | 2026-09-28, optimisation unit (owner-approved) complete: steps 0-11 and 8a-8d done, each committed or reverted with its evidence (section "Optimisation unit" below). Final gates from a clean worktree of `9997ea57` (code unchanged since): `wp5_gate` 0 failed steps (both builds; C++17, C++14, C++11, static), `d11_asan` 0 failures (both builds), the campaign gate passed, and the Rust slice's gate PASSED on stable 1.94.1 (`logs/cpp/opt/final-gate/`). Final `gen/opt_bench.sh` run at `cfb3e1b2` (611 s; codec pre-check 0 failures, counts identical): `logs/cpp/opt/final/` (tables-codec.md, tables-rpc.md). Every timing is container instrumentation |
 | **Core** | the shared one at `ffi/poc/codec/crates/ak-core` (R0). CMake builds it with cargo, `init-guard` in every configuration. Full-build flavours: plain, `count`, `corpus`, `rpc`, `rpc,count`, and three planted cores (`pad-widths`, `global-widths`, both). No-unknown flavours: `--no-default-features` plus `init-guard` alone, `count`, `corpus` or `rpc`. Each flavour has its own target dir under `core-build/` |
 | **Generator** | one generator (W14). `poc/codec/gen/plan.py` holds the rules. This slice's backend modules in `poc/codec/gen/` are `cpp_binding.py`, `cpp_native.py`, `cpp_facade.py`, `cpp_names.py` and `cpp_layout.py`, plus `c_abi.py`, which renders the C header for every slice. `gen/generate.py` is glue: it renders the targets from plans and imports no IR (the guard in `generate.py --check`) |
 | **Floor / target** | C++11 floor, C++17 target, both builds. C++14 also builds and is gated (full build) |
@@ -137,22 +137,27 @@ Scripts (`gen/`):
 
 ## What was checked, and where the log is
 
-From a fresh `git worktree` at `8f5b575c0`, with no uncommitted changes and new build
-directories (`CLEAN=1 gen/wp5_gate.sh build`, then `gen/d11_asan.sh`):
+From a fresh `git worktree` at `9997ea57` (the end of the optimisation unit), with no uncommitted changes and new
+build directories: `CLEAN=1 gen/wp5_gate.sh build`, `gen/d11_asan.sh`, `gen/run_campaign.sh --suite gate`, then the
+Rust slice's `run_campaign.sh --suite gate` (driver log `opt/final-gate/runner.log`). wp5_gate's first run failed
+only its byte audit, because the shallow clone lacked the before-tree `aba944a`
+(`opt/final-gate/wp5-bytes-run1-shallow-clone.log`); after `git fetch --deepen=400` the second run passed every step.
 
 | Check | Result | Log |
 |---|---|---|
-| build | every target configured and built from scratch; every gated binary newer than its sources | `wp5-build.log` |
-| generator | `generate.py --check` every target current; guard: the shared C++ modules import plans only, glue imports no IR, a planted import is caught; the shared `--check` over every slice; `refusal_test.py`, `rd2_guard.sh`, `audit_tracked.sh`, `one_core.sh` and `one_core.sh --selftest` (0 controls failed to fire) | `wp5-generator.log` |
-| payload byte identity, full build | 577 checks, 0 failures at C++17 target, C++17 floor, C++14, C++11 and static; the noinit plant fails its checks cleanly (exit 1, 283 failures; a crash no longer counts as the plant failing) | `wp5-conformance.log` |
-| full corpus, full build | 702 rows, four builds (C++17, C++14, C++11, static): ffi 680/0, native 696/0, 6 disputed (excluded), 16 roots not in the C ABI; 2808 (row, arm) outcomes identical across the four builds; retain arms write the dropped form only on `U-map-entry`; plants proj/reenc/accept/noinit fail; `--compare` sees a planted difference | `wp5-corpus.log` |
-| decision 11 controls | four builds: 686 rows, 2290 positions, 0 failing rows (pool = retain, drop = retain cleared, each position zeroed drops exactly it, map-entry bytes right); the plant fails 307 rows | `wp5-corpus.log` |
-| oracle-probe rows | 11/11 on all four arms, C++17 and C++11 | `wp5-probe.log` |
-| byte audit | native and ffi identical in outcome and bytes on 213 of 213 rows against the retired harness (`aba944a`) | `wp5-bytes.log` |
-| boundary, layout | 23 checks, 0 failed; 574 corpus layout facts agree, shared and static | `wp5-boundary.log` |
-| other gates | groupskip (with its two plants failing), concurrency (T7 off; the planted cores fail), ODR, bench gates and the gate plant, content sets, crossing counts 87 rows identical to `counts-baseline.log`, RPC counts | `wp5-gates.log` |
-| no-unknown build | every variant binary loads a core with 0 u-family exports, every full one a core with them; both headers against both cores (matched agree, mismatched caught); 478 checks, 0 failures at C++17, C++11 and static (240 layout facts); corpus C++17 and C++11: ffi 680/0, native 696/0, 0 unknown rows written non-dropped, outcomes identical; plants fail; 87 count rows identical to `counts-nounk-baseline.log` | `wp5s10-nounk.log` |
-| ASan + LSan | full build: conformance 577/0 (incl. the R-H7 options-reuse control), decision 11 controls 0 failing rows, corpus green; no-unknown build: conformance 478/0, corpus green with every unknown row dropped; 0 sanitizer reports | `asan.log` |
+| build | every target configured and built from scratch; every gated binary newer than its sources | `wp5-build.log` (run 1: `opt/final-gate/wp5-build-run1-clean.log`) |
+| generator | `generate.py --check` every target current; the one-generator guard and its planted import; the shared `--check`; `refusal_test.py`, `rd2_guard.sh`, `audit_tracked.sh`, `one_core.sh` and `--selftest` | `wp5-generator.log` |
+| payload byte identity, full build | 608 checks, 0 failures at C++17 target, C++17 floor, C++14, C++11 and static (577 before the unit; +31: the `_unk_zeroed` encodes and their decision 11 round trip); the noinit plant fails cleanly (299 failures) | `wp5-conformance.log` |
+| full corpus, full build | 702 rows, four builds, six arms: ffi, ffi-pull (drop, retain) 680/0, native 696/0, 6 disputed, 16 roots not in the C ABI; 4212 (row, arm) outcomes identical across the four builds; retention gaps outside U-map-entry 0 on every retain arm; plants proj/reenc/accept/noinit fail | `wp5-corpus.log` |
+| decision 11 controls | four builds: 2290 positions, 0 failing rows; the plant fails 307 rows | `wp5-corpus.log` |
+| oracle-probe rows | 11/11, every arm, C++17 and C++11 | `wp5-probe.log` |
+| byte audit | 0 (row, arm) pairs changed against the retired harness (`aba944a`) | `wp5-bytes.log` |
+| boundary, layout | 574 corpus layout facts agree, shared and static | `wp5-boundary.log` |
+| other gates | groupskip (and its two plants), concurrency, ODR, bench gates and plant, content sets, crossing counts 530 rows identical (shared and static), RPC counts | `wp5-gates.log` |
+| no-unknown build | 0 u-family exports in every variant core; 478 checks 0 failures at C++17, C++11, static; corpus C++17 = C++11 (4212 outcomes, 0 differ), unknown rows written dropped; plants fail; 301 count rows identical | `wp5s10-nounk.log` |
+| ASan + LSan | both builds: conformance, decision 11 controls and corpus (ffi-pull arms included) green, 0 sanitizer reports | `asan.log` |
+| campaign gate | every control fires; codec pre-check (incl. the pull value gate) 0 failures; counts 530/301/72/42 identical | `opt/final-gate/campaign-gate.log`, `counts.log`, `rpc-counts*.log` |
+| Rust slice's gate | PASSED on stable rustc 1.94.1; crossings 775 and 398 rows identical to `gen/crossings*.txt` | `opt/final-gate/rust-gate.log` |
 
 **Decision 11, as the owner confirmed it** (ABI-v1 rule 4 amended 2026-09-26): there is one
 options entry per oneof, and the core fills it in the active member's decode group. The
@@ -171,14 +176,17 @@ a drop decode makes none. Retain: no pre-placed buffer, `unk_grow` grows geometr
 least double, at least 64 B, clamped to INT32_MAX; rule 8), the same in the counting and the
 timed build.
 
-- **Full build:** `logs/cpp/counts-baseline.log`, 485 rows: 117 payload rows (encode, its
-  unbatched, zeroed-fill and host variants, decode, and retain decode and encode) and 368 U
-  rows (92 rows x 4). Re-taken 2026-09-27 (WP8): every `decode retain` row is 1 forward lower
-  (107 rows: one reset, not two), and 18 U rows make fewer reverse (grow) calls, e.g.
-  U-leaf-all 18 -> 8, U-deep-all 16 -> 10. No other row moved.
-- **No-unknown build:** `logs/cpp/counts-nounk-baseline.log`, 271 rows (no retain rows),
-  unchanged by WP8. It still differs from the full build in one core-counted payload row:
-  P1.2 decode reverse, 8 full against 5 without unknown-field support.
+- **Full build:** `logs/cpp/counts-baseline.log`, 530 rows: the 485 earlier rows (117 payload rows: encode, its
+  unbatched, zeroed-fill and host variants, decode, retain decode and encode; 368 U rows, 92 x 4) and, since step 8d
+  (X-2), 45 pull rows (`decode pull`, `decode pull drained`, `decode pull retain` per payload). The 485 earlier rows are
+  byte-identical to the file before the unit: no optimisation step moved a count. Pull rows: reverse 0 on every
+  payload, records = the push decode's reverse count on every payload (e.g. P2.2 3501), P2.2: walk 3 forward
+  (core 2 + host 1), drained 24 (core 23 + host 1), pull retain 4 (core 2 + host 2).
+  Re-taken 2026-09-27 (WP8): every `decode retain` row 1 forward lower; 18 U rows fewer grow calls.
+- **No-unknown build:** `logs/cpp/counts-nounk-baseline.log`, 301 rows (271 + 30 pull rows, no retain rows). Against
+  the full build it differs on P1.2 decode reverse (8 full, 5 without unknown-field support; the pull rows' records
+  follow: 8 and 5) and on the drained rows' forward count (drain calls per root: P2.2 24 full, 17 no-unknown; P1.2
+  10/7; P2.3 13/12; P2.4 15/14; P4.1 7/6), records equal (`wp5s10-nounk.log` section 5).
 - **RPC cells, per call:** `logs/cpp/rpc-counts.log` (72 rows: B, Bf, C/Cf/D/E/Ef in retain
   and drop, x jobs a, b, c P5.3, c P5.4, d 4 MiB, d 16 MiB) and `rpc-counts-nounk.log` (42
   rows), from `campaign_rpc_count(_nounk) --count 4`. Examples: B a/b/c 2/0, B d 6 and 12; C
@@ -218,6 +226,17 @@ listed so that nobody re-derives them. **No figure from them is quoted here.**
   (section 7's lines) with the Google Benchmark JSON beside them (`*.gbench.json.gz`); `runner.log`, `header.txt`,
   `build.log`; summaries `summary-codec.tsv`, `variants-codec.tsv`, `summary-rpc.tsv`, `tables-codec.md`, `tables-rpc.md`.
   `opt/u-warmup0-evidence.txt`: why the U rows got a warm-up (the discarded first run's one-iteration samples).
+- `opt/ref/` (after step 0's harness fixes, the reference for the steps), `opt/s1/` .. `opt/s9/`, `opt/s8b/`: one full
+  `gen/opt_bench.sh` run per kept step, same layout as `baseline/`. `opt/final/`: the final run at `cfb3e1b2` (the tree the
+  final gates passed on, plus STATE); its `tables-codec.md` and `tables-rpc.md` are that run's only.
+- `opt/ab/<step>/`: narrowed alternated A/B runs (`gen/opt_ab.sh`, `gen/opt_ab.py`; gzip'd Google Benchmark JSON per
+  pair, `ab.txt` ratios). `opt/probes/`: allocation probes (`gen/allocprobe.c`, `r1-allocs.log`), the C-7 worker probe,
+  and the diffs of the reverted variants (`o10-reverted.diff`, `o7-reverted.diff`, `f1-reverted.diff`).
+- `opt/checks/<step>.log`: each step's `gen/opt_checks.sh` (generate --check, one_core, builds, conformance both builds
+  and levels, corpus, counts, codec pre-checks), ASan runs, the Rust step checks (`rust-pre8a`, `rust-s8b`, `rust-s9`).
+- opt_bench settings (changed during the unit, recorded in each run's header): payloads 5 x 0.01 s (warm-up 0.005 s),
+  U rows 3 x 0.003 s (warm-up 0.001 s), pool 1 MiB, RPC 3 x 0.04 s (warm-up 0.02 s) at in-flight 1 and 8 (16 dropped
+  at step 8d when the run reached 613 s), server warm-up 50 calls.
 
 ## Optimisation unit (2026-09-28, owner-approved), step by step
 
@@ -242,6 +261,7 @@ narrowed A/B (`gen/opt_ab.sh`, logs/cpp/opt/ab/). The reference for the steps is
 | 9 | HG-3: `ak_utf8_check` exported additively from ak-core (the core's check_utf8, simdutf8), declared only in include/ak/rt.h; host-gen validates through it (one forward call per non-empty string) | 46c487a1 | kept (owner's choice) | utf8check 17,797,200 checks 0 failures with the new path (`checks/s9-utf8check.log`); `ab/s9-hg3`: host-gen decode wide -15..-45%, ASCII +5..+15% (P7.1 +22%, short strings pay the call); Rust step checks 0 failures (`checks/rust-s9`); `opt/s9/` |
 | 10 | F-1: ak::Optional over std::unique_ptr | not committed | reverted | `ab/s10-f1`: decode +2..+70% (P3.1 +55..+70%), better only on P1.3 (-5..-8%) and host-gen encode (-5..-15%); geomean 1.038; `probes/f1-reverted.diff` |
 | 11 | O-7: a ring of 3 spare buffers in ak_rt::Enc | not committed | reverted | fresh buffers per C d16 call 11.5 -> 7.9 (`probes/r1-allocs.log`); `ab/s11-o7-rpc` 0.974, confirmation `ab/s11-o7-rpc-d` 0.996 (controls D/F move as much): within drift; `probes/o7-reverted.diff` |
+| final | gates from a clean worktree of `9997ea57`, then one full opt_bench | 8507f776, 5f977d4a | - | wp5_gate 0 failed steps, d11_asan 0, campaign gate passed, Rust gate PASSED (`opt/final-gate/`); `opt/final/` (611 s incl. 21 s build: 11 s over the 10-minute budget; pre-check 0 failures, counts identical) |
 
 ## CAMPAIGN.md section 10 checklist
 
@@ -337,8 +357,8 @@ native-retain arm, which R-H22 removed, so the control could no longer fail. The
 |---|---|---|---|
 | C6 | this container | grpc++ 1.51.1 and protobuf 3.21.12 are apt's; `packages/cpp` pins neither, and CAMPAIGN.md asks for v1.54.0 and a current version | open; this container cannot fix it |
 | C15 | `src/bench.cpp` | the `groupfill` arm has measured larger than the (`ffi` - `native`) delta it is a component of, on P1.3 (instrumentation, `bench_a17_shared.log`) | open; the direct-call hypothesis is refuted (JOURNAL). `groupfill` is labelled an upper bound |
-| H-1 | `src/campaign_codec.cpp` `add_encode` / the benchmark body | every `input=pool` encode row encodes pool[0] only: `run(n)` indexes `i % m` from i = 0 and the Google Benchmark body calls `run(1)` per iteration, so req 11's beyond-cache variant is not measured (reported by the coordinator, confirmed in the source). The pool is still built in every setup call (about 5 ms per call at 1 MiB, wall time only) | open, **not fixed in the baseline**; the coordinator's step 0 of the implementation unit, then a fresh reference run |
-| C41 | `gen/opt_bench.sh` settings | single-batch repetitions: with 0.04 s per repetition, a/a+read at k=16, c P5.4 at k=8 and d at k=8 run one batch per repetition (45-48 of 48 cases; d 4 MiB k=8: 28), so each sample is one batch after random interleaving and min-max is wide (median spread 0.3-1.1 on c/d k=8, against 0.05-0.2 elsewhere). Marked `†` in tables-rpc.md, column min_batches in summary-rpc.tsv | open, a budget trade-off (10 minutes); not a defect of the campaign harness |
+| H-1 | `src/campaign_codec.cpp` | every `input=pool` encode row encoded pool[0] only | **fixed** at step 0 (`f00c900e`): a pool cursor walks the pool across iterations, and one pool is alive at a time |
+| C41 | `gen/opt_bench.sh` settings | single-batch repetitions: at 0.04 s per repetition, c P5.4 and d at k=8 run one batch per repetition, so a sample is one batch and min-max is wide. Marked `†` in tables-rpc.md, column min_batches in summary-rpc.tsv. k=16 was dropped at step 8d (budget) | open, a budget trade-off (10 minutes); not a defect of the campaign harness |
 | C40 | `design/ABI-v1.md` section 5 vs `ak-abi` | `ak_err` is `{code, msg_len, msg}` in the specification's text and `{code, detail}` in the core; the C header follows the core | open, for the aggregating session |
 
 The retired defects C1-C37, R-D1, R-D2 and R-G7 were fixed, or were closed by their owners,
@@ -358,12 +378,11 @@ and the record is in JOURNAL.md. The items reported against other owners were re
 **Timing, in general.**
 - **Any timing on the campaign machine.** Every timing in the tree is container
   instrumentation (above).
-- **Any timing of the current tree.** No timing log was re-taken after the port to the
-  shared plan, decision 11, the no-unknown build, `init-guard` and the facade's
-  `unknown_fields` member.
-- **The price of unknown-field support.** The campaign codec suite has core-ffi drop,
-  retain and no-unknown, and the RPC grid has C/D per mode, but the only runs so far are
-  smokes with their figures stripped.
+- **Any timing of the current tree outside the optimisation runs.** `logs/cpp/opt/` has container runs of the current
+  tree (short fixed settings, one container); the pre-campaign logs predate the port and are not re-taken.
+- **The price of unknown-field support on the campaign machine.** The codec suite has core-ffi drop, retain and
+  no-unknown and the RPC grid C/D per mode; the only timed runs are the container opt_bench runs (two processes per
+  build, so the full and no-unknown columns do not share a process).
 - **The copy of a retained bag into `std::string`.** Rust adopts the core's buffer; C++
   copies it, because the facade type is `std::string`. This is not priced.
 
@@ -414,7 +433,8 @@ and the record is in JOURNAL.md. The items reported against other owners were re
 **Sanitizers and allocation.**
 - **A thread sanitizer run.** The core is a Rust cdylib built without TSan, so the result
   would be noise.
-- **Allocation counts and peak memory.** Nothing counts them.
+- **Allocation counts and peak memory in the harnesses.** Only the ad-hoc probe `gen/allocprobe.c` (LD_PRELOAD, counts
+  allocations of 1 MiB and more) and `campaign_rpc --alloc-probe` exist; nothing in a gate or a run header counts them.
 - **Concurrency on the RPC half, and cancellation.** The RPC half has no byte-checked
   suite under contention and no plant. `ak_call_cancel` is exported and counted but never
   called.
@@ -429,15 +449,16 @@ and the record is in JOURNAL.md. The items reported against other owners were re
 
 ## Next step
 
-The optimisation phase (owner): after each change, rerun `gen/opt_bench.sh logs/cpp/opt/<name>` unchanged and read its
-tables against `logs/cpp/opt/baseline/` (absolute times; the full-build and no-unknown columns are two processes). H-1 is
-fixed first (coordinator's step 0), then a fresh reference run replaces `baseline/` as the reference. The gate runs once at
-the end of the experiment: `CLEAN=1 gen/wp5_gate.sh build` (it builds everything, about 40 minutes here), then
-`gen/d11_asan.sh`, then `gen/run_campaign.sh --suite gate`. `gen/run_all.sh` takes timings and is not a gate.
+The optimisation unit is complete; what follows is the owner's (which kept steps stay, the O-/F- items not approved,
+the campaign). For a rerun: `gen/opt_bench.sh logs/cpp/opt/<name>` (about 10 minutes, one process per comparison,
+tables against `opt/final/`); a narrowed A/B with `gen/opt_ab.sh`; the per-step checks with `gen/opt_checks.sh NAME`.
+The gate: `CLEAN=1 gen/wp5_gate.sh build` (about 16 minutes here, from a clone deep enough to hold `aba944a`), then
+`gen/d11_asan.sh`, then `gen/run_campaign.sh --suite gate`, then the Rust slice's `run_campaign.sh --suite gate` when the
+shared core changed. `gen/run_all.sh` takes timings and is not a gate.
 
 ## Log index
 
-Current gate (clean checkout at `4ce48e007`):
+Current gate (clean worktree at `9997ea57`; the campaign and Rust gates of the same run are in `opt/final-gate/`):
 
 | Log | What it contains |
 |---|---|
@@ -465,5 +486,14 @@ Committed references and earlier correctness logs:
 | `groupskip.log`, `odr.log`, `boundary.log`, `concurrency.log`, `conformance.log`, `generator.log` | earlier runs of checks the current gate re-runs (C24's group skip, the ODR check, R5, the concurrency suite, R2); superseded by the `wp5-*` logs |
 | `corpus.log`, `corpus-native.log` | the retired subset corpus harness; superseded by `wp5-corpus.log` |
 | `campaign/gate.log`, `campaign/counts.log`, `campaign/rpc-counts.log`, `campaign/rpc-counts_nounk.log`, `campaign/runner-controls.log`, `campaign/campaign_unknown_rows.tsv` | the campaign gate of the last smoke, its payload/U and RPC counts, the runner's CPU-set/dirty-tree refusals, the U-* rows the codec suite times |
+
+Optimisation unit (`logs/cpp/opt/`):
+
+| Log | What it contains |
+|---|---|
+| `opt/final-gate/` | the final gates' driver log (`runner.log`), the campaign gate (`campaign-gate.log`, `counts.log`, `rpc-counts*.log`), the Rust slice's gate (`rust-gate.log`), wp5_gate run 1's build and refused byte audit |
+| `opt/final/` | the final opt_bench run: raw jsonl and gzip'd Google Benchmark JSON, `runner.log`, `header.txt`, `build.log`, summaries and `tables-codec.md`, `tables-rpc.md` |
+| `opt/baseline/`, `opt/ref/`, `opt/s1/`..`opt/s9/`, `opt/s8b/` | the opt_bench runs before the unit, after step 0, and after each kept step |
+| `opt/ab/`, `opt/probes/`, `opt/checks/` | narrowed A/B runs, probes and reverted diffs, per-step checks (see "Timing logs in the tree") |
 
 Timing logs (instrumentation only): see "Timing logs in the tree" above.

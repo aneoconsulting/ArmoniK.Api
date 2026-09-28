@@ -1797,3 +1797,18 @@ changes.
   as much). Reverted. With R-1 (step 7) this is the second time fewer big allocations did not show in the client's
   CPU: the fresh 2 MiB buffer is cheap next to the transport's copy and the server-bound wall.
 - The whole tree builds (every target, 504 s) before the final gates.
+
+## 2026-09-28, optimisation unit: final gates and final run
+
+- Final gates from a clean worktree of `9997ea57` (`logs/cpp/opt/final-gate/runner.log`): wp5_gate run 1 failed only
+  its byte audit (the shallow clone lacked `aba944a`); after `git fetch --deepen=400`, run 2: 9 steps, 0 failures
+  (608 conformance checks per build level, corpus 680/0 on ffi and both ffi-pull arms, 4212 outcomes identical across
+  four builds, 530 count rows identical). d11_asan 0 failures in both builds. Campaign gate passed (every control
+  fires; pre-check incl. the pull value gate; counts 530/301/72/42). Rust slice's gate PASSED on stable 1.94.1
+  (crossings 775/398 identical to gen/crossings*.txt).
+- The first final opt_bench was started with STATE.md uncommitted (the header would have recorded a dirty tree);
+  killed, STATE committed (`cfb3e1b2`), relaunched. `logs/cpp/opt/final/`: 611 s including a 21 s build, 11 s over
+  the 10-minute budget (the pull and borrow arms added at steps 8/8d cost about 60 s of codec time; k=16 was already
+  dropped). Pre-check 0 failures in all four codec processes, counts identical, 7160 codec and 720 RPC cases.
+- STATE.md rewritten: status, what was checked (the 9997ea57 gates), crossing counts 530/301 with the pull rows,
+  timing and log index for logs/cpp/opt/, H-1 closed, C41 narrowed, next step.
