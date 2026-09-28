@@ -1754,3 +1754,29 @@ changes.
 - Step 5 (HG-4, B-6, B-7): P6.1's packed runs. host-gen encode -44% (one reservation, raw stores, memcpy of
   little-endian fixed-width runs), core-ffi -14% (the enum vector handed over as the int32 array; bool through a
   stack buffer instead of a heap vector per run; bulk inserts on decode). ASan clean.
+
+## 2026-09-28, optimisation unit, steps 6-8c
+
+- Step 6 (HG-6, B-9, B-8): kept. ak::Enc::take/release park one Owned (buffer included) in an atomic slot;
+  the binding's live set of retained buffers is a vector searched from the back; unk_reclaim returns at once
+  when nothing is tracked; the codec suite and cell D recycle their ak_bytes holders (src/owned_holder.h).
+- Step 7: R-2 kept (TrySingleSlice, else a per-thread reused buffer, src/bb_bytes.h: D/F a -2.5..-3.6%).
+  R-1 probed with an LD_PRELOAD counter (gen/allocprobe.c, campaign_rpc --alloc-probe): cell C's stream takes a
+  fresh 2 MiB buffer 1.4 times per chunk, three rotating encode contexts make it 1.0 (the rest is tonic's own
+  encode buffer), but the time does not move: reverted. HG-5: F allocates nothing, E's allocations are the core
+  transport's copy, nothing host-gen can remove. HG-7 (unchecked varint with 10 bytes left) is slower on
+  P1.2/P4.1/P7.1 (+2..+10%): reverted. C-3 (mallopt thresholds pinned): codec 1.005, RPC c/d no direction in
+  0.53-1.67 noise: reverted. C-7: 1 vs 2 runtime workers within drift, the default stays.
+- Step 8 (X-1) and 8d (X-2): arms, kept whatever they measure. The pull family is rendered from the plan in
+  cpp_binding.py and replays records through the push vtable's own functions (the Rust binding's design); walk
+  in place is the timed arm (as Rust's), the drain exists for the value gate and the counts. Counts: reverse 0
+  everywhere, records equal push's reverse count on all 15 counted payloads (P2.2 3501); walk 3 forward, drain
+  24 on P2.2 (32 KB chunks). The RPC pull twins' crossings are not in rpc-counts (their codec is the suite's).
+- opt_bench: 613 s with the new arms, so k = 16 is dropped (the owner's budget rule; every k=16 repetition was a
+  single batch). The next run was 591 s of benchmark (642 s with a server rebuild after the core changed).
+- Step 8a (O-10): measured and dropped (allocations halve, time does not move; the diff is kept in
+  logs/cpp/opt/probes/o10-reverted.diff). tonic 0.14.6 allows a per-call buffer size: Encoder::buffer_settings is
+  read per codec instance by EncodedBytes::new, and Grpc::unary / client_streaming take the codec by value per
+  call; a stream's codec cannot know its messages' sizes up front.
+- Step 8b (O-9): kept (shared core; Rust step checks clean, crossings identical).
+- Step 8c (O-6): stopped before any change, as the owner asked (the reasons are in STATE's table).
