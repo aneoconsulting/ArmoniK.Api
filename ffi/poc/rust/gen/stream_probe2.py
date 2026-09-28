@@ -17,9 +17,9 @@ for p in sorted(glob.glob(os.path.join(out, "*-[0-9]*.jsonl"))):
             continue
         r = json.loads(l)
         if src == "grid":
-            if r.get("dir") != "d":
-                continue
-            data[(r["payload"], r["cell"])]["grid"].append(r["cpu_ns"] / r["iters"])
+            k = "" if r["inflight"] == 1 else f" k{r['inflight']}"
+            key = r["payload"] if r["dir"] == "d" else f"{r['dir']}/{r['payload']}"
+            data[(key + k, r["cell"])]["grid"].append(r["cpu_ns"] / r["iters"])
             continue
         k = (r["size"], r["cell"])
         cc = r["cpu_calls"]

@@ -14,7 +14,8 @@
 //! name with `f` after its letter (`Bf`, `Cf-drop`, `Df-retain`, ...) is the same cell on the
 //! FRAMED send path, `rpc::unary_framed` (tonic's Channel; the request message sent as the
 //! 5-byte prefix and the caller's Bytes, two body frames, no copy into tonic's buffer). B, C
-//! and E switch the core's client with `ak_client_set_framed(client, 1)` at `Conn::open`; D
+//! and E set the core's client with `ak_client_set_framed(client, framed)` at `Conn::open` (the
+//! core's default is the framed path since 2026-09-28, each message ONE frame); D
 //! and F call `rpc::unary_framed` in the harness. The response is taken as tonic takes it.
 //! A has no framed twin (prost encodes into tonic's buffer: it has no copy to remove).
 //!
@@ -358,10 +359,11 @@ impl Conn {
         match base(cell) {
             'B' | 'C' | 'E' => {
                 let cc = CoreClient::new(target, pinned);
-                if framed(cell) {
-                    let rc = unsafe { ak_client_set_framed(cc.client, 1) };
-                    assert_eq!(rc, AK_OK, "ak_client_set_framed");
-                }
+                // The send path set explicitly both ways: the core's DEFAULT is the framed path
+                // since 2026-09-28 (owner), so the reference cells (B, C, E) switch it off and
+                // the framed twins (Bf, Cf, Ef) keep it (the call is idempotent).
+                let rc = unsafe { ak_client_set_framed(cc.client, framed(cell) as i32) };
+                assert_eq!(rc, AK_OK, "ak_client_set_framed");
                 if cb(cell) {
                     let rt = Arc::new(tokio::runtime::Builder::new_multi_thread()
                         .worker_threads(TOKIO_WORKERS).thread_name("cell-rt").enable_all().build().unwrap());

@@ -1,0 +1,102 @@
+# T1 option 3: request headers as the server receives them (transport shipped), reference vs framed send path
+
+## tonic Channel (harness), direction a, cell D-retain (reference)
+  POST http://tonic/armonik.ffi.campaign.v1.Grid/Fetch HTTP/2.0
+  te: trailers
+  content-type: application/grpc
+  user-agent: tonic/0.14.6
+  (request body DATA frames as received, bytes: [5, 0])
+
+## tonic Channel (harness), direction a, cell Df-retain (framed)
+  POST http://tonic/armonik.ffi.campaign.v1.Grid/Fetch HTTP/2.0
+  te: trailers
+  content-type: application/grpc
+  user-agent: tonic/0.14.6
+  (request body DATA frames as received, bytes: [5])
+
+=> tonic Channel (harness), direction a: IDENTICAL header sets (only reference: []; only framed: []; same order: true)
+
+## tonic Channel (harness), direction b, cell D-retain (reference)
+  POST http://tonic/armonik.ffi.campaign.v1.Grid/Push HTTP/2.0
+  te: trailers
+  content-type: application/grpc
+  user-agent: tonic/0.14.6
+  (request body DATA frames as received: 34 frames, 540427 bytes; first [16384, 16384, 16384, 16384], last [16384, 16139, 0])
+
+## tonic Channel (harness), direction b, cell Df-retain (framed)
+  POST http://tonic/armonik.ffi.campaign.v1.Grid/Push HTTP/2.0
+  te: trailers
+  content-type: application/grpc
+  user-agent: tonic/0.14.6
+  (request body DATA frames as received: 34 frames, 540427 bytes; first [5, 16384, 16384, 16384], last [16384, 16384, 16134])
+
+=> tonic Channel (harness), direction b: IDENTICAL header sets (only reference: []; only framed: []; same order: true)
+
+## tonic Channel (harness), direction d, cell D-retain (reference)
+  POST http://tonic/armonik.ffi.campaign.v1.Grid/UploadStream HTTP/2.0
+  te: trailers
+  content-type: application/grpc
+  user-agent: tonic/0.14.6
+  (request body DATA frames as received: 260 frames, 4194357 bytes; first [16384, 16384, 16384, 16384], last [16384, 15, 0])
+
+## tonic Channel (harness), direction d, cell Df-retain (framed)
+  POST http://tonic/armonik.ffi.campaign.v1.Grid/UploadStream HTTP/2.0
+  te: trailers
+  content-type: application/grpc
+  user-agent: tonic/0.14.6
+  (request body DATA frames as received: 262 frames, 4194357 bytes; first [5, 16384, 16384, 16384], last [16384, 15, 0])
+
+=> tonic Channel (harness), direction d: IDENTICAL header sets (only reference: []; only framed: []; same order: true)
+
+## core client, direction a, cell B (reference)
+  POST http://tonic/armonik.ffi.campaign.v1.Grid/Fetch HTTP/2.0
+  te: trailers
+  content-type: application/grpc
+  user-agent: tonic/0.14.6
+  (request body DATA frames as received, bytes: [5, 0])
+
+## core client, direction a, cell Bf (framed)
+  POST http://tonic/armonik.ffi.campaign.v1.Grid/Fetch HTTP/2.0
+  te: trailers
+  content-type: application/grpc
+  user-agent: tonic/0.14.6
+  (request body DATA frames as received, bytes: [5])
+
+=> core client, direction a: IDENTICAL header sets (only reference: []; only framed: []; same order: true)
+
+## core client, direction b, cell B (reference)
+  POST http://tonic/armonik.ffi.campaign.v1.Grid/Push HTTP/2.0
+  te: trailers
+  content-type: application/grpc
+  user-agent: tonic/0.14.6
+  (request body DATA frames as received: 34 frames, 540427 bytes; first [16384, 16384, 16384, 16384], last [16384, 16139, 0])
+
+## core client, direction b, cell Bf (framed)
+  POST http://tonic/armonik.ffi.campaign.v1.Grid/Push HTTP/2.0
+  te: trailers
+  content-type: application/grpc
+  user-agent: tonic/0.14.6
+  (request body DATA frames as received: 33 frames, 540427 bytes; first [16384, 16384, 16384, 16384], last [16384, 16384, 16139])
+
+=> core client, direction b: IDENTICAL header sets (only reference: []; only framed: []; same order: true)
+
+## core client, direction d, cell B (reference)
+  POST http://tonic/armonik.ffi.campaign.v1.Grid/UploadStream HTTP/2.0
+  te: trailers
+  content-type: application/grpc
+  user-agent: tonic/0.14.6
+  (request body DATA frames as received: 259 frames, 4194357 bytes; first [16384, 16384, 16384, 16384], last [16384, 53, 0])
+
+## core client, direction d, cell Bf (framed)
+  POST http://tonic/armonik.ffi.campaign.v1.Grid/UploadStream HTTP/2.0
+  te: trailers
+  content-type: application/grpc
+  user-agent: tonic/0.14.6
+  (request body DATA frames as received: 260 frames, 4194357 bytes; first [16384, 16384, 16384, 16384], last [16384, 53, 0])
+
+=> core client, direction d: IDENTICAL header sets (only reference: []; only framed: []; same order: true)
+
+## status handling (tonic Channel)
+  refused Push   reference Err(InvalidArgument, "failed to decode Protobuf message: invalid varint")  framed Err(InvalidArgument, "failed to decode Protobuf message: invalid varint")  => SAME
+  other path     reference Ok(540422 B)  framed Ok(540422 B)  => SAME
+  send limit 2 B framed Err(OutOfRange, "Error, encoded message length too large: found 3 bytes, the limit is: 2 bytes") (expected OutOfRange, not sent)

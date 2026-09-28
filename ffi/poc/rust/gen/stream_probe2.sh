@@ -28,11 +28,11 @@ trap cleanup EXIT
 ./serve.sh build > /dev/null
 o=$(./serve.sh start --out "$SCRATCH/serve"); SOCK=$(echo "$o" | sed -n 's/^pinned //p')
 ./serve.sh warm 8 > /dev/null
-echo "# stream probe 2: commit $(git rev-parse --short HEAD)$(git diff --quiet HEAD -- . ../codec || echo ' + UNCOMMITTED'); $(date -u +%FT%TZ); $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2- | sed 's/^ //'); client CPU $AK_CPU_CLIENT, server CPUs $AK_CPU_SERVER ($AK_SERVER_THREADS workers), pinned; cells $CELLS; variants $VARIANTS; probe rounds ${AK_PROBE_ROUNDS:-15} calls ${AK_PROBE_CALLS:-8} warm ${AK_PROBE_WARM:-4}; grid AK_SAMPLES=10 AK_WARMUP_MS=30 AK_MEASURE_MS=500" > "$OUT/header.txt"
+echo "# stream probe 2: commit $(git rev-parse --short HEAD)$(git diff --quiet HEAD -- . ../codec || echo ' + UNCOMMITTED'); $(date -u +%FT%TZ); $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2- | sed 's/^ //'); client CPU $AK_CPU_CLIENT, server CPUs $AK_CPU_SERVER ($AK_SERVER_THREADS workers), pinned; cells $CELLS; variants $VARIANTS; probe rounds ${AK_PROBE_ROUNDS:-15} calls ${AK_PROBE_CALLS:-8} warm ${AK_PROBE_WARM:-4}; grid AK_SAMPLES=10 AK_WARMUP_MS=30 AK_MEASURE_MS=500 cells ${AK_GRID_CELLS:-$GRID_CELLS} dirs ${AK_GRID_DIRS:-d} k ${AK_GRID_K:-1}" > "$OUT/header.txt"
 for i in $(seq 1 "$N"); do
   env AK_RPC_SOCKET="$SOCK" AK_RPC_TRANSPORT=pinned AK_OUT="$OUT/grid-$i.jsonl" CRITERION_HOME="$SCRATCH/crit-$i" \
       AK_SAMPLES=10 AK_WARMUP_MS=30 AK_MEASURE_MS=500 AK_NRESAMPLES=1000 AK_RPC_SERVER_WARMUP=0 \
-      AK_RPC_CELLS="$GRID_CELLS" AK_RPC_DIRS=d AK_RPC_INFLIGHT=1 AK_LAUNCH=$i \
+      AK_RPC_CELLS="${AK_GRID_CELLS:-$GRID_CELLS}" AK_RPC_DIRS="${AK_GRID_DIRS:-d}" AK_RPC_INFLIGHT="${AK_GRID_K:-1}" AK_LAUNCH=$i \
       taskset -c "$AK_CPU_CLIENT" "$RPCB" > "$OUT/grid-$i.criterion.log" 2>&1
   for v in $VARIANTS; do
     name=${v%%:*}; rest=${v#*:}; ord=${rest%%:*}; pr=${rest#*:}

@@ -238,6 +238,82 @@ fn core_split(conn: &Conn, chunks: usize) -> Call {
     }))
 }
 
+/// The callback bridge of the async split cells: the completion into a oneshot.
+struct Comp(ak_abi::ak_completion);
+unsafe impl Send for Comp {}
+extern "C" fn on_done(user: *mut std::ffi::c_void, comp: *mut ak_abi::ak_completion) {
+    let tx = unsafe { Box::from_raw(user as *mut tokio::sync::oneshot::Sender<Comp>) };
+    let _ = tx.send(Comp(unsafe { *comp }));
+}
+fn bridge() -> (usize, tokio::sync::oneshot::Receiver<Comp>) {
+    let (tx, rx) = tokio::sync::oneshot::channel::<Comp>();
+    (Box::into_raw(Box::new(tx)) as usize, rx)
+}
+
+/// `Cf-cb-split` / `C-cb-split` (probe only): cell Cf-cb's / C-cb's call (the callback
+/// forms, each completion into a oneshot awaited by the cell's task), split-timed per chunk
+/// as the blocking split cells: the task thread's CPU in the encode and inside the send
+/// entry, and the wall time from the send entry to the completion's arrival (the blocking
+/// cells' send wall), then the response.
+fn core_split_cb(conn: &Conn, chunks: usize) -> Call {
+    use campaign::generated::roots::R_UploadResultDataMessage as M5;
+    use campaign::Ops;
+    use ak_abi::*;
+    let (cc, rt) = match conn {
+        Conn::CoreCb(cc, rt) => (cc.clone(), rt.clone()),
+        _ => panic!("a split callback cell needs a callback connection"),
+    };
+    let pl = grid::stream_payload(chunks);
+    let sl = grid::slots(1);
+    let want = (chunks * grid::CHUNK) as u64;
+    Call::Async(rt, Arc::new(move |_i| {
+        let cc = cc.clone();
+        Box::pin(async move {
+            let path = grid::STREAM;
+            let h = unsafe { ak_call_open(cc.raw(), path.as_ptr(), path.len(), AK_CALL_CLIENT_STREAM, std::ptr::null()) } as usize;
+            if h == 0 {
+                return Err("ak_call_open NULL".to_string());
+            }
+            for j in 0..chunks {
+                let t0 = campaign::thread_cpu_ns();
+                M5::f_encode(&sl[0].ctx, &pl.f[j], true).map_err(|e| format!("encode {e}"))?;
+                let (t1, w1) = (campaign::thread_cpu_ns(), wall_ns());
+                let (ud, rx) = bridge();
+                let rc = unsafe { ak_call_send_enc_cb(h as *mut ak_call, sl[0].ctx.enc, (j + 1 == chunks) as i32, on_done, ud as *mut std::ffi::c_void, 0) };
+                let t2 = campaign::thread_cpu_ns();
+                if rc != AK_OK {
+                    return Err(format!("ak_call_send_enc_cb {rc}"));
+                }
+                let c = rx.await.map_err(|_| "no completion".to_string())?.0;
+                add(&ENC_CPU, t0, t1);
+                add(&SEND_CPU, t1, t2);
+                add(&SEND_WALL, w1, wall_ns());
+                if c.status != AK_OK {
+                    return Err(format!("send completion {}", c.status));
+                }
+            }
+            let w0 = wall_ns();
+            let (ud, rx) = bridge();
+            let rc = unsafe { ak_call_recv_cb(h as *mut ak_call, on_done, ud as *mut std::ffi::c_void, 0) };
+            if rc != AK_OK {
+                return Err(format!("ak_call_recv_cb {rc}"));
+            }
+            let mut c = rx.await.map_err(|_| "no completion".to_string())?.0;
+            add(&RECV_WALL, w0, wall_ns());
+            let r = if c.status != AK_OK {
+                Err(format!("recv completion {} {}", c.status, c.grpc_status))
+            } else {
+                grid::stream_response(unsafe { std::slice::from_raw_parts(c.bytes.ptr, c.bytes.len) }, want, None)
+            };
+            unsafe {
+                ak_bytes_free(&mut c.bytes);
+                ak_call_destroy(h as *mut ak_call);
+            }
+            r
+        }) as grid::Fut
+    }))
+}
+
 /// The `Df-chan` call (see main).
 fn df_chan(conn: &Conn, chunks: usize) -> Call {
     use campaign::generated::roots::R_UploadResultDataMessage as M5;
@@ -287,7 +363,8 @@ fn main() {
     // mpsc(1) whose ReceiverStream is the body's message stream; the call runs as a task on
     // the cell's runtime, its result awaited with block_on from the host thread.
     let cells: Vec<&'static str> = env("AK_PROBE_CELLS", "A,D,Df,C,Cf,C-cb,Cf-cb,B,Bf".to_string())
-        .split(',').map(|s| match s { "Df-chan" => "Df-chan", "Cf-split" => "Cf-split", "C-split" => "C-split", s => grid::cell_of(s) }).collect();
+        .split(',').map(|s| match s { "Df-chan" => "Df-chan", "Cf-split" => "Cf-split", "C-split" => "C-split",
+                                       "Cf-cb-split" => "Cf-cb-split", "C-cb-split" => "C-cb-split", s => grid::cell_of(s) }).collect();
     let sizes: Vec<(&'static str, usize)> = env("AK_PROBE_SIZES", "16MiB,4MiB".to_string()).split(',')
         .map(|s| *grid::D_PAYLOADS.iter().find(|(l, _)| *l == s).unwrap_or_else(|| panic!("size {s}"))).collect();
     let rounds: usize = env("AK_PROBE_ROUNDS", 15);
@@ -295,12 +372,15 @@ fn main() {
     let warm: usize = env("AK_PROBE_WARM", 4);
     let out: String = env("AK_OUT", "stream-probe.jsonl".to_string());
 
-    let conns: Vec<Conn> = cells.iter().map(|c| Conn::open(match *c { "Df-chan" => grid::cell_of("Df"), "Cf-split" => grid::cell_of("Cf"), "C-split" => grid::cell_of("C"), c => c }, &target, pinned)).collect();
+    let conns: Vec<Conn> = cells.iter().map(|c| Conn::open(match *c { "Df-chan" => grid::cell_of("Df"), "Cf-split" => grid::cell_of("Cf"), "C-split" => grid::cell_of("C"),
+                                                                    "Cf-cb-split" => grid::cell_of("Cf-cb"), "C-cb-split" => grid::cell_of("C-cb"), c => c }, &target, pinned)).collect();
     let mut work = Vec::new();
     for (ci, &cell) in cells.iter().enumerate() {
         for &(label, chunks) in &sizes {
             let call = if cell == "Df-chan" {
                 df_chan(&conns[ci], chunks)
+            } else if cell.ends_with("-cb-split") {
+                core_split_cb(&conns[ci], chunks)
             } else if cell.ends_with("-split") {
                 core_split(&conns[ci], chunks)
             } else {

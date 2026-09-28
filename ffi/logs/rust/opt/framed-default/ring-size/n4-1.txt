@@ -1,0 +1,10 @@
+# stream probe run n4-1: commit 1ad4855b + UNCOMMITTED; 2026-09-28T19:43:59Z; Intel(R) Xeon(R) Processor @ 2.80GHz; client CPU 1, server CPUs 2,3 (4 workers), transport pinned, target /home/user/ArmoniK.Api/ffi/poc/rust/target, shim 0
+# stream probe: transport pinned, cells ["A", "Cf-split", "Df-chan", "Cf-cb-retain"], sizes ["16MiB"], rounds 12, calls per round 8, warm 4, allocation shim absent
+# order block, /proc reads false
+# run time 7 s
+size    cell         rounds  cpu/call ms [min-max]   wall ms | cpu by thread ms:     main   caller  cell-rt  core-rt    other | minflt/call total | allocs/call  >=1MiB/call | user/sys per call (mean of ticks) | ctx switches per call by class
+16MiB   A                12      9.76 [8.95-10.78]     14.99 |                      0.00     0.00     0.00     0.00     0.00 |            0 |    (no shim) | user  0.00 sys  0.00 ms | ctx switches/call      0      0      0      0      0
+16MiB   Cf-cb-retain     12     10.65 [9.92-15.88]     18.23 |                      0.00     0.00     0.00     0.00     0.00 |            0 |    (no shim) | user  0.00 sys  0.00 ms | ctx switches/call      0      0      0      0      0
+16MiB   Cf-split         12     10.57 [9.81-18.89]     16.29 |                      0.00     0.00     0.00     0.00     0.00 |            0 |    (no shim) | user  0.00 sys  0.00 ms | ctx switches/call      0      0      0      0      0
+16MiB   Df-chan          12     11.23 [10.34-23.18]     19.89 |                      0.00     0.00     0.00     0.00     0.00 |            0 |    (no shim) | user  0.00 sys  0.00 ms | ctx switches/call      0      0      0      0      0
+
