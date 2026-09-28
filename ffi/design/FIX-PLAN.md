@@ -560,6 +560,19 @@ not attributed. The container cannot settle it: no `perf`, one client CPU carryi
 threads (grpc-core's included, counted in process CPU), and slices measured on different
 containers (R13). O-2 and O-12, the core-side levers, were dropped by the owner.
 
+**Same-machine RPC runs (2026-09-28, `logs/rust/opt/rpc-same-machine/`,
+`logs/cpp/opt/rpc-same-machine/`, one 2.80 GHz container, same server, client on one CPU;
+container instrumentation) refine the observation.** At k = 1, cell A costs about the same
+client CPU in both slices on the uploads (pinned, Rust tonic / C++ grpc++: c/P5.4 2.41 / 2.34
+ms, d/16 MiB 8.27 / 8.38 ms), and the core-transport cells cost about the same from either
+host (Cf c/P5.4 2.11 / 2.47, d/16 MiB 10.97 / 9.19). So on this machine the unary-upload gap
+is not a tonic-against-grpc++ difference; what stands out is the core's **client streaming**
+(Cf above A on d/16 MiB from both hosts), which points at the core's streaming path (the
+blocking `ak_call_send` hand-off per chunk) rather than at the stack underneath. Sample
+spread is large (max/min per entry: median about 1.3, p90 about 1.5 with two or more
+batches per sample), so gaps under about 25% are not attributable. The measurements below
+should include that path explicitly.
+
 **To measure on the campaign machine** (client on its 4-CPU set, server on its own):
 
 1. `perf record` of cells A and Cf (and D, Df) on c/P5.4 and d/16 MiB at k = 1 and 8, in
