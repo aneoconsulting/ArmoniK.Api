@@ -3680,3 +3680,6 @@ Everything container instrumentation; logs/rust/opt/stream-probe2/. No code chan
   their copy (8-24 >= 1 MiB allocations per call) and on the framed path those pages are
   faulted in (Bf 256, Bf-cb 1,136, Ef 1,641 minor faults per call): Bf 1.50-1.83 x A.
   Not changed in this unit.
+- Stable gate from a clean tree at eb2f204a (framed-default/gate): PASSED (pre-check 5,740 /
+  3,257 checks 0 failures, crossings 836 / 435 identical, header_diff identical, 11e upload
+  byte check, 11f rpc_semantics, both builds, corpus gates).
