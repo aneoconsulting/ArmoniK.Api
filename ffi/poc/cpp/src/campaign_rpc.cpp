@@ -19,9 +19,14 @@
 //   A and B run the incumbent in its default mode. retain = decode_with_*_unk (every
 //   position armed, grow-backed) and encode_into_*_unk for the core; core_native_retain for
 //   host-gen. `--cells ABCDEF` expands every letter; a label list selects cells one by one.
-//   delivery  (req. 16): B, C and E use the core's BLOCKING delivery; A, D and F use grpc++'s
-//                        synchronous call, which is what packages/cpp does (its clients call
-//                        the generated stubs' blocking methods), stated.
+//   delivery  (req. 16 as amended 2026-09-28): B, C and E (and framed twins) run in BOTH of
+//                        C++'s idiomatic core deliveries: BLOCKING (the plain labels, "(blk)")
+//                        and the COMPLETION QUEUE (B-q, C-q-*, E-q-*, Bf-q, Cf-q-*, Ef-q-*,
+//                        "(q)"): one ak_queue per cell, the thread that issues a batch drains it
+//                        (q_batch); A, D and F use grpc++'s synchronous call, which is what
+//                        packages/cpp does (its clients call the generated stubs' blocking
+//                        methods), stated.
+//   --semantics 1    the queue forms' semantics against the server's test paths, then exit
 //   directions (req. 14): a = empty request, P2.2 response, decode only; a+read = the same
 //                        call, then every field read (generated traversal, touch.cpp);
 //                        b = P2.2 request the server decodes, empty response
@@ -129,6 +134,8 @@ struct Cell {
   bool framed;  // B, C, E: the core's FRAMED send path (ak_client_set_framed), beside the reference
   bool pull = false;  // X-2: C and D decoding with the PULL family (labelled extra cells Cp-*, Dp-*,
                       // directions a and a+read only)
+  bool q = false;     // req. 16 as amended 2026-09-28: B, C, E (and framed twins) on the core's
+                      // COMPLETION-QUEUE delivery (B-q, C-q-drop, Cf-q-drop, ...), beside the blocking ones
 };
 const char *mode_name(Mode m) {
   return m == kRetain ? "retain" : m == kDrop ? "drop" : m == kNoUnk ? "no-unknown" : "default";
@@ -145,6 +152,9 @@ std::vector<Cell> parse_cells(const std::string &spec) {
       // Every send path that exists runs beside its reference (req. 14, ABI v1 section 9):
       // the core's cells B, C and E have a framed twin (Bf, Cf-*, Ef-*).
       const int twins = (c == 'B' || c == 'C' || c == 'E') ? 2 : 1;
+      // Req. 16 as amended: B, C and E run in BOTH of C++'s idiomatic core deliveries,
+      // blocking (the plain label) and the completion queue (`-q`), on each send path.
+      const int dels = twins;
       if (c == 'C' || c == 'D') {  // X-2: the pull twins, labelled extra cells
         std::string base = std::string(1, c) + "p";
 #ifdef AK_NO_UNKNOWN_FIELDS
@@ -154,17 +164,18 @@ std::vector<Cell> parse_cells(const std::string &spec) {
         out.push_back(Cell{c, kDrop, base + "-drop", false, true});
 #endif
       }
+      for (int dq = 0; dq < dels; ++dq)
       for (int f = 0; f < twins; ++f) {
-        std::string base = std::string(1, c) + (f ? "f" : "");
+        std::string base = std::string(1, c) + (f ? "f" : "") + (dq ? "-q" : "");
         if (c == 'C' || c == 'D' || c == 'E' || c == 'F') {
 #ifdef AK_NO_UNKNOWN_FIELDS
-          out.push_back(Cell{c, kNoUnk, base + "-nounk", f == 1});
+          out.push_back(Cell{c, kNoUnk, base + "-nounk", f == 1, false, dq == 1});
 #else
-          out.push_back(Cell{c, kRetain, base + "-retain", f == 1});
-          out.push_back(Cell{c, kDrop, base + "-drop", f == 1});
+          out.push_back(Cell{c, kRetain, base + "-retain", f == 1, false, dq == 1});
+          out.push_back(Cell{c, kDrop, base + "-drop", f == 1, false, dq == 1});
 #endif
         } else {
-          out.push_back(Cell{c, kDefault, base, f == 1});
+          out.push_back(Cell{c, kDefault, base, f == 1, false, dq == 1});
         }
       }
     }
@@ -177,11 +188,13 @@ std::vector<Cell> parse_cells(const std::string &spec) {
     if (!l.empty()) {
       const bool fr = l.size() > 1 && l[1] == 'f';
       const bool pu = l.size() > 1 && l[1] == 'p';
-      const std::string rest = l.substr((fr || pu) ? 2 : 1);
+      std::string rest = l.substr((fr || pu) ? 2 : 1);
+      const bool qq = rest.compare(0, 2, "-q") == 0 && (rest.size() == 2 || rest[2] == '-');
+      if (qq) rest = rest.substr(2);
       Mode m = rest.empty() ? kDefault
                : rest == "-retain" ? kRetain
                : rest == "-nounk" ? kNoUnk : kDrop;
-      out.push_back(Cell{l[0], m, l, fr, pu});
+      out.push_back(Cell{l[0], m, l, fr, pu, qq});
     }
     if (q == std::string::npos) break;
     p = q + 1;
@@ -200,6 +213,7 @@ struct Cfg {
   std::string gbout;     // Google Benchmark JSON output (WP9)
   int count = 0;         // --count N
   int alloc_probe = 0;   // --alloc-probe N: allocations >= 1 MiB per call (LD_PRELOAD gen/allocprobe.so)
+  int semantics = 0;     // --semantics 1: the queue deliveries' semantics check (no timing), then exit
 };
 
 [[noreturn]] void die(const char *what, long v) {
@@ -247,6 +261,7 @@ struct Conn {
   std::shared_ptr<grpc::Channel> chan;
   std::vector<std::unique_ptr<gridns::Grid::Stub> > stubs;
   ak_client *cl = nullptr;
+  ak_queue *q = nullptr;  // the queue cells' completion queue: ONE PER CELL, drained by the issuing thread
   // H-4 (2026-09-28): the raw methods of cells A (d), D and F, built ONCE with their channel,
   // so every call is a registered call, as the generated stub's methods are (before: an
   // RpcMethod without a channel per call, grpc-core's unregistered path).
@@ -513,6 +528,150 @@ void check_answer(const Stream &st, const uint8_t *p, size_t n, bool check) {
   if (check && std::string((const char *)p + 8, 32) != st.sha) die("d: the server's SHA-256 differs from the upload's", 0);
 }
 
+// ---- the completion-queue delivery (req. 16 as amended 2026-09-28) -----------------------
+// C++'s analogue of grpc++'s CompletionQueue::Next loop: every queue cell has ONE ak_queue
+// (per cell, so one cell's completions never reach another's drain), and the thread that
+// issues a batch drains it -- ONE drainer thread per batch, the issuing thread itself, no
+// thread of its own and no k caller threads. A batch of k calls in flight: the k requests
+// are issued back to back (ak_call_unary_q, C: ak_call_unary_enc_q, the request moved as the
+// blocking C moves it with ak_call_unary_enc; d: ak_call_open + ak_call_send_q /
+// ak_call_send_enc_q, then ak_call_recv_q), then ak_queue_next is called until all k have
+// completed, each completion matched to its call by its tag (slot << 8 | operation) and
+// checked, its response decoded on the draining thread; a stream's next send is issued from
+// the drain when its previous send has completed (at most one pending send per call).
+enum { kOpUnary = 1, kOpSend = 2, kOpRecv = 3 };
+const int kMaxQ = 64;
+const uint64_t kQWaitMs = 60000;  // a completion missing for a minute is a failed check
+
+// Cell a's response on the core's transport, checked and decoded (B: protobuf, C/E: their codec).
+long core_a_answer(World &w, const Cell &cl, ThreadCtx &tc, const uint8_t *p, size_t n, bool read) {
+  if (n != w.expect_a) die("core/a response length", (long)n);
+  if (cl.base == 'B') {
+    Pb m;
+    if (!m.ParseFromArray(p, (int)n)) die("B/a decode", 0);
+    return read ? (long)pbtouch::touch(m) : m.tasks_size();
+  }
+  Fac f;
+  int32_t drc = codec_decode(cl.base, cl.mode, tc, p, n, &f, cl.pull);
+  if (drc != 0) die("C/E a decode", drc);
+  return read ? (long)shapes::touch::touch(f) : (long)f.tasks.size();
+}
+
+void q_status(const ak_completion &c, const char *what) {
+  if (c.status != AK_OK || c.grpc_status != 0)
+    die(what, c.status == AK_ERR_RPC_STATUS ? c.grpc_status : c.status);
+}
+
+// One stream message of a queue cell, issued: B copies protobuf's bytes, C moves the encode
+// context's output, E copies host-gen's bytes (the blocking forms' request handling).
+void q_send(const Cell &cl, ThreadCtx &tc, ak_call *h, const Stream &st, size_t i, ak_queue *q, uint64_t tag) {
+  const int32_t last = i + 1 == st.f.size();
+  int32_t rc;
+  if (cl.base == 'B') {
+    const size_t qn = pb_into(st.p[i], tc.pbuf);
+    rc = ak_call_send_q(h, tc.pbuf.data(), qn, last, q, tag);
+  } else if (cl.base == 'C') {
+    intptr_t e = core_enc(tc.ec, st.f[i], cl.mode);
+    if (e < 0) die("C-q/d encode", (long)e);
+    rc = ak_call_send_enc_q(h, tc.ec, last, q, tag);
+  } else {
+    ak::Enc *e = hg_enc(tc, st.f[i], cl.mode);
+    if (e->err != 0) die("E-q/d encode", e->err);
+    rc = ak_call_send_q(h, e->data(), e->size(), last, q, tag);
+  }
+  if (rc != AK_OK) die("ak_call_send_q (refused)", rc);
+}
+
+// One batch of k calls of a queue cell for one job. `check` (d only, the untimed pre-check):
+// UploadStreamCheck, the server's SHA-256 verified. Returns a fold.
+long q_batch(World &w, size_t ci, const Job &job, int k, ThreadCtx &tc, bool check = false) {
+  const Cell &cl = w.cells[ci];
+  Conn &cn = w.conns[ci];
+  if (k < 1 || k > kMaxQ) die("q_batch: in-flight level", k);
+  ak_call *h[kMaxQ];
+  size_t next[kMaxQ];
+  int state[kMaxQ];  // the operation pending on the slot, 0 = none (done)
+  long n = 0;
+  if (job.dir != 'd') {
+    static const uint8_t kNoReq[1] = {0};
+    const bool resp = job.dir == 'a' || job.dir == 'r';
+    const char *path = resp ? kFetch : job.dir == 'c' ? kUpload : kPush;
+    const size_t pl = std::strlen(path);
+    for (int s = 0; s < k; ++s) {
+      const uint64_t tag = ((uint64_t)s << 8) | kOpUnary;
+      if (resp) {
+        h[s] = ak_call_unary_q(cn.cl, (const uint8_t *)path, pl, kNoReq, 0, cn.q, tag);
+      } else if (cl.base == 'B') {
+        const size_t qn = job.dir == 'c' ? pb_into(w.pb_up[job.pi], tc.pbuf) : pb_into(w.pb_req, tc.pbuf);
+        h[s] = ak_call_unary_q(cn.cl, (const uint8_t *)path, pl, tc.pbuf.data(), qn, cn.q, tag);
+      } else if (cl.base == 'C') {
+        intptr_t e = job.dir == 'c' ? core_enc(tc.ec, w.fac_up[job.pi], cl.mode) : core_enc(tc.ec, w.fac_req, cl.mode);
+        if (e < 0) die("C-q encode", (long)e);
+        h[s] = ak_call_unary_enc_q(cn.cl, (const uint8_t *)path, pl, tc.ec, cn.q, tag);
+      } else {
+        ak::Enc *e = job.dir == 'c' ? hg_enc(tc, w.fac_up[job.pi], cl.mode) : hg_enc(tc, w.fac_req, cl.mode);
+        if (e->err != 0) die("E-q encode", e->err);
+        h[s] = ak_call_unary_q(cn.cl, (const uint8_t *)path, pl, e->data(), e->size(), cn.q, tag);
+      }
+      if (!h[s]) die("ak_call_unary_q (refused)", s);
+      state[s] = kOpUnary;
+    }
+    for (int left = k; left > 0; --left) {
+      ak_completion c;
+      const int32_t qr = ak_queue_next(cn.q, &c, kQWaitMs);
+      if (qr != AK_QUEUE_OK) die("ak_queue_next", qr);
+      const int s = (int)(c.tag >> 8);
+      if (s >= k || (int)(c.tag & 0xff) != kOpUnary || state[s] != kOpUnary) die("q: a completion matching no pending call", (long)c.tag);
+      q_status(c, resp ? "core-q call gRPC status" : "core-q request gRPC status");
+      if (resp) n += core_a_answer(w, cl, tc, c.bytes.ptr, c.bytes.len, job.dir == 'r');
+      else {
+        if (c.bytes.len != (job.dir == 'c' ? w.want_c_len : 0)) die("core-q request response length", (long)c.bytes.len);
+        n += 1;
+      }
+      ak_bytes_free(&c.bytes);
+      ak_call_destroy(h[s]);
+      state[s] = 0;
+    }
+    return n;
+  }
+  const Stream &st = w.st[job.pi];
+  const size_t nmsg = st.f.size();
+  const char *path = check ? kUploadStreamCheck : kUploadStream;
+  for (int s = 0; s < k; ++s) {
+    h[s] = ak_call_open(cn.cl, (const uint8_t *)path, std::strlen(path), AK_CALL_CLIENT_STREAM, NULL);
+    if (!h[s]) die("ak_call_open", s);
+    next[s] = 0;
+    q_send(cl, tc, h[s], st, 0, cn.q, ((uint64_t)s << 8) | kOpSend);
+    state[s] = kOpSend;
+  }
+  for (int left = k; left > 0;) {
+    ak_completion c;
+    const int32_t qr = ak_queue_next(cn.q, &c, kQWaitMs);
+    if (qr != AK_QUEUE_OK) die("ak_queue_next", qr);
+    const int s = (int)(c.tag >> 8), op = (int)(c.tag & 0xff);
+    if (s >= k || op != state[s]) die("q/d: a completion matching no pending operation", (long)c.tag);
+    if (op == kOpSend) {
+      if (c.status != AK_OK || c.bytes.len != 0) die("ak_call_send_q completion", c.status);
+      if (++next[s] < nmsg) {
+        q_send(cl, tc, h[s], st, next[s], cn.q, ((uint64_t)s << 8) | kOpSend);
+      } else {
+        const int32_t rc = ak_call_recv_q(h[s], cn.q, ((uint64_t)s << 8) | kOpRecv);
+        if (rc != AK_OK) die("ak_call_recv_q (refused)", rc);
+        state[s] = kOpRecv;
+      }
+      continue;
+    }
+    q_status(c, "d-q gRPC status");
+    check_answer(st, c.bytes.ptr, c.bytes.len, check);
+    ak_bytes_free(&c.bytes);
+    ak_call_destroy(h[s]);
+    state[s] = 0;
+    n += (long)nmsg;
+    --left;
+  }
+  return n;
+}
+
 // Direction d, one streamed upload (req. 14): A through grpc++'s typed ClientWriter; B, C, E
 // through the core's client streaming (ak_call_open, a send per chunk, ak_call_recv); D and F
 // through grpc++'s raw ClientWriter, each chunk handed over moved. Returns the chunk count.
@@ -523,6 +682,7 @@ long stream_call(World &w, size_t ci, int pi, int t, ThreadCtx &tc, bool check =
   const Stream &st = w.st[pi];
   const size_t nmsg = st.f.size();
   const char *path = check ? kUploadStreamCheck : kUploadStream;
+  if (cl.q) return q_batch(w, ci, Job{'d', pi}, 1, tc, check);
   if (cl.base == 'A') {
     // grpc++'s ClientWriter with protobuf requests (SerializationTraits, the production path);
     // the answer is raw bytes (SERVER.md), so the response side is a ByteBuffer.
@@ -618,6 +778,7 @@ long cell_call(World &w, size_t ci, const Job &job, int t, ThreadCtx &tc) {
     if (up && w.want_c_len != 0) die("A/c response length", 0);  // the typed stub reads a message, 0 bytes
     return 1;
   }
+  if (cl.q) return q_batch(w, ci, job, 1, tc);  // one call on the queue (counts, probes)
   if (!grpc_cell(cell)) {  // B, C, E (and framed twins): the core's transport
     if (!resp) {
       if (up) core_unary_req(cl, cn, tc, kUpload, w.fac_up[job.pi], w.pb_up[job.pi], w.want_c_len);
@@ -630,18 +791,7 @@ long cell_call(World &w, size_t ci, const Job &job, int t, ThreadCtx &tc) {
     int32_t rc = ak_call_unary(cn.cl, (const uint8_t *)kFetch, std::strlen(kFetch), kNoReq, 0, &out, &gs);
     if (rc != AK_OK || gs != 0) die(rc == AK_ERR_RPC_STATUS ? "core call gRPC status" : "core call status",
                                     rc == AK_ERR_RPC_STATUS ? gs : rc);
-    long n = 1;
-    if (out.len != w.expect_a) die("core/a response length", (long)out.len);
-    if (cell == 'B') {
-      Pb m;
-      if (!m.ParseFromArray(out.ptr, (int)out.len)) die("B/a decode", 0);
-      n = read ? (long)pbtouch::touch(m) : m.tasks_size();
-    } else {
-      Fac f;
-      int32_t drc = codec_decode(cell, cl.mode, tc, out.ptr, out.len, &f, cl.pull);
-      if (drc != 0) die("C/E a decode", drc);
-      n = read ? (long)shapes::touch::touch(f) : (long)f.tasks.size();
-    }
+    const long n = core_a_answer(w, cl, tc, out.ptr, out.len, read);
     ak_bytes_free(&out);
     return n;
   }
@@ -727,7 +877,11 @@ struct Pool {
       if (--pending == 0) done.notify_one();
     }
   }
+  ThreadCtx qtc;  // the queue cells' contexts: their batches run on the issuing (benchmark) thread
   long batch(size_t c, size_t j, int kk, int total) {
+    // Queue cells (req. 16 as amended): the k calls are issued and drained by THIS thread
+    // (q_batch); the caller threads are not woken.
+    if (w->cells[c].q) return q_batch(*w, c, w->jobs[j], kk, qtc);
     const int per = (total + kk - 1) / kk;
     { std::lock_guard<std::mutex> l(dm); pending = kk; }
     for (int i = 0; i < kk; ++i) {
@@ -819,6 +973,191 @@ int count_cells(World &w, int n) {
 }
 #endif
 
+// --semantics 1 (req. 16 as amended; no timing): the queue forms of client streaming and of
+// ak_call_unary_enc, as C++ drives them, against THE server's test paths (poc/rust
+// server.rs: StatusS<n>, SleepS, StallS, EchoS, StatusU<n>), on the reference and the framed
+// send path. Every entry returning AK_OK is followed by exactly one completion, a refusal by
+// none (a 200 ms wait after each case finds no stray completion).
+int q_semantics(World &w) {
+  static const std::string pre = "/armonik.ffi.campaign.v1.Grid/";
+  int bad = 0, n = 0;
+  auto check = [&](bool ok, const std::string &what) {
+    std::printf("%s %s\n", ok ? "PASS" : "FAIL", what.c_str());
+    ++n;
+    if (!ok) ++bad;
+  };
+#ifdef AK_NO_UNKNOWN_FIELDS
+  const Mode m = kNoUnk;
+#else
+  const Mode m = kDrop;
+#endif
+  ThreadCtx tc;
+  for (int framed = 0; framed < 2; ++framed) {
+    const std::string wp = framed ? "[framed, stream q]" : "[reference, stream q]";
+    ak_client *cl = core_client(w.rt, w.cfg.target, w.cfg.transport, framed == 1);
+    ak_queue *q = ak_queue_new();
+    if (!cl || !q) die("semantics: client or queue", framed);
+    auto open = [&](const std::string &t) {
+      const std::string p = t[0] == '/' ? t : pre + t;
+      ak_call *h = ak_call_open(cl, (const uint8_t *)p.data(), p.size(), AK_CALL_CLIENT_STREAM, NULL);
+      if (!h) die("semantics: ak_call_open", 0);
+      return h;
+    };
+    auto wait = [&](uint64_t ms, ak_completion *c) {
+      std::memset(c, 0, sizeof *c);
+      return ak_queue_next(q, c, ms) == AK_QUEUE_OK;
+    };
+    auto stray = [&]() {
+      ak_completion c;
+      if (!wait(200, &c)) return false;
+      ak_bytes_free(&c.bytes);
+      return true;
+    };
+    char buf[400];
+    static const uint8_t x[1] = {'x'};
+    // status: the server answers 6 (ALREADY_EXISTS) on a stream
+    {
+      ak_call *h = open("StatusS6");
+      ak_completion sa, sb;
+      const int32_t a = ak_call_send_q(h, x, 1, 1, q, 11);
+      const bool ga = wait(5000, &sa);
+      const int32_t b = ak_call_recv_q(h, q, 12);
+      const bool gb = wait(5000, &sb);
+      ak_call_destroy(h);
+      const bool send_ok = ga && sa.tag == 11 && ((sa.status == AK_OK && sa.grpc_status == 0) ||
+                                                  (sa.status == AK_ERR_HOST && sa.grpc_status == -1));
+      std::snprintf(buf, sizeof(buf), "%s server status 6: send entry %d, completion tag %llu status %d/%d; recv entry %d, completion tag %llu status %d/%d",
+                    wp.c_str(), a, (unsigned long long)sa.tag, sa.status, sa.grpc_status, b,
+                    (unsigned long long)sb.tag, sb.status, sb.grpc_status);
+      check(a == AK_OK && send_ok && b == AK_OK && gb && sb.tag == 12 && sb.status == AK_ERR_RPC_STATUS &&
+                sb.grpc_status == 6 && !stray(), buf);
+      if (gb) ak_bytes_free(&sb.bytes);
+    }
+    // bytes: two moved-encode sends (ak_call_send_enc_q) to the checking path, the server's
+    // byte count and SHA-256 of the messages as received against the client's
+    {
+      const Stream &st = w.st[0];
+      ak_call *h = open(kUploadStreamCheck);
+      bool ok = true;
+      for (size_t j = 0; j < st.f.size(); ++j) {
+        if (core_enc(tc.ec, st.f[j], m) < 0) die("semantics: encode", (long)j);
+        const int32_t rc = ak_call_send_enc_q(h, tc.ec, j + 1 == st.f.size(), q, 20 + j);
+        ak_completion d;
+        const bool g = wait(5000, &d);
+        ok = ok && rc == AK_OK && g && d.tag == 20 + j && d.status == AK_OK && d.grpc_status == 0 && d.bytes.len == 0;
+      }
+      const int32_t r = ak_call_recv_q(h, q, 30);
+      ak_completion d;
+      const bool g = wait(5000, &d);
+      ak_call_destroy(h);
+      const bool verdict = g && d.status == AK_OK && d.grpc_status == 0 && d.bytes.len == 40 &&
+                           le64(d.bytes.ptr) == st.bytes && std::string((const char *)d.bytes.ptr + 8, 32) == st.sha;
+      std::snprintf(buf, sizeof(buf), "%s two moved-encode sends to the checking path: sends ok %d; recv %d, completion %d/%d, %zu B, server's count and SHA-256 match %d",
+                    wp.c_str(), (int)ok, r, g ? d.status : -99, g ? d.grpc_status : -99, g ? d.bytes.len : 0, (int)verdict);
+      check(ok && r == AK_OK && d.tag == 30 && verdict && !stray(), buf);
+      if (g) ak_bytes_free(&d.bytes);
+    }
+    // cancel a pending recv (the server sleeps 3 s after the stream)
+    {
+      ak_call *h = open("SleepS");
+      ak_completion sa, early, sb, none;
+      const int32_t a = ak_call_send_q(h, x, 1, 1, q, 40);
+      const bool ga = wait(5000, &sa);
+      const int32_t b = ak_call_recv_q(h, q, 41);
+      const bool ge = wait(200, &early);
+      ak_call_cancel(h);
+      const bool gb = wait(5000, &sb);
+      const int32_t again = ak_call_recv_q(h, q, 42);
+      const bool gn = wait(200, &none);
+      ak_call_destroy(h);
+      std::snprintf(buf, sizeof(buf), "%s cancel a pending recv: completion before the cancel %d; after it tag %llu status %d/%d (CANCELLED = 1); a second recv %d, a completion after it %d",
+                    wp.c_str(), (int)ge, (unsigned long long)sb.tag, sb.status, sb.grpc_status, again, (int)gn);
+      check(a == AK_OK && ga && sa.status == AK_OK && b == AK_OK && !ge && gb && sb.tag == 41 &&
+                sb.status == AK_ERR_RPC_STATUS && sb.grpc_status == 1 && again == AK_ERR_INVALID_STATE && !gn, buf);
+      if (gb) ak_bytes_free(&sb.bytes);
+    }
+    // cancel a pending send (the server stalls 3 s before reading), and a second send while one is pending
+    {
+      ak_call *h = open("StallS");
+      std::vector<uint8_t> big((size_t)1 << 20, 1);
+      long pending = -1;
+      int sent = 0;
+      for (uint64_t i = 0; i < 64; ++i) {
+        if (ak_call_send_q(h, big.data(), big.size(), 0, q, 100 + i) != AK_OK) break;
+        ak_completion d;
+        if (!wait(300, &d)) { pending = (long)(100 + i); break; }
+        if (d.status != AK_OK) break;
+        ++sent;
+      }
+      const int32_t busy = ak_call_send_q(h, x, 1, 0, q, 200);
+      ak_call_cancel(h);
+      ak_completion sp, sr;
+      const bool gp = wait(5000, &sp);
+      const int32_t r = ak_call_recv_q(h, q, 201);
+      const bool gr = wait(5000, &sr);
+      ak_call_destroy(h);
+      std::snprintf(buf, sizeof(buf), "%s cancel a pending send (%d 1 MiB sends accepted, then #%ld pending): a second send while pending %d; the pending send's completion tag %llu status %d/%d; recv %d, completion %d/%d",
+                    wp.c_str(), sent, pending, busy, (unsigned long long)sp.tag, sp.status, sp.grpc_status, r,
+                    gr ? sr.status : -99, gr ? sr.grpc_status : -99);
+      check(pending >= 0 && busy == AK_ERR_INVALID_STATE && gp && (long)sp.tag == pending && sp.status == AK_ERR_HOST &&
+                sp.grpc_status == -1 && r == AK_OK && gr && sr.tag == 201 && sr.status == AK_ERR_RPC_STATUS &&
+                sr.grpc_status == 1 && !stray(), buf);
+      if (gp) ak_bytes_free(&sp.bytes);
+      if (gr) ak_bytes_free(&sr.bytes);
+    }
+    // misuse: a send after last (refused, no completion); a blocking recv after this delivery's recv
+    {
+      ak_call *h = open("EchoS");
+      ak_completion sa, d1;
+      const int32_t a = ak_call_send_q(h, x, 1, 1, q, 50);
+      const bool ga = wait(5000, &sa);
+      const int32_t b = ak_call_send_q(h, x, 1, 1, q, 51);
+      const int32_t r1 = ak_call_recv_q(h, q, 52);
+      const bool g1 = wait(5000, &d1);
+      struct ak_bytes out;
+      out.ptr = NULL; out.len = 0; out.owner = NULL;
+      int32_t gs = -99;
+      const int32_t r2 = ak_call_recv(h, &out, &gs);
+      const bool gn = stray();
+      ak_call_destroy(h);
+      std::snprintf(buf, sizeof(buf), "%s misuse: a send after last %d (no completion); recv %d completion %d/%d; a blocking recv after it %d, grpc_status untouched (%d); stray completion %d",
+                    wp.c_str(), b, r1, g1 ? d1.status : -99, g1 ? d1.grpc_status : -99, r2, gs, (int)gn);
+      check(a == AK_OK && ga && sa.tag == 50 && b == AK_ERR_INVALID_STATE && r1 == AK_OK && g1 && d1.tag == 52 &&
+                d1.status == AK_OK && d1.grpc_status == 0 && r2 == AK_ERR_INVALID_STATE && gs == -99 && !gn, buf);
+      if (ga) ak_bytes_free(&sa.bytes);
+      if (g1) ak_bytes_free(&d1.bytes);
+    }
+    // ak_call_unary_enc_q: a chosen status, then OK (the request moved out of the context)
+    {
+      ak_completion d9, d0;
+      if (core_enc(tc.ec, w.fac_req, m) < 0) die("semantics: encode P2.2", 0);
+      const std::string p9 = pre + "StatusU9";
+      ak_call *h = ak_call_unary_enc_q(cl, (const uint8_t *)p9.data(), p9.size(), tc.ec, q, 60);
+      const bool g9 = h && wait(5000, &d9);
+      if (h) ak_call_destroy(h);
+      if (core_enc(tc.ec, w.fac_req, m) < 0) die("semantics: encode P2.2", 0);
+      ak_call *h2 = ak_call_unary_enc_q(cl, (const uint8_t *)kPush, std::strlen(kPush), tc.ec, q, 61);
+      const bool g0 = h2 && wait(5000, &d0);
+      if (h2) ak_call_destroy(h2);
+      ak_call *hn = ak_call_unary_enc_q(cl, (const uint8_t *)kPush, std::strlen(kPush), tc.ec, NULL, 62);
+      std::snprintf(buf, sizeof(buf), "[%s] ak_call_unary_enc_q: server status 9 -> %d/%d; Push -> %d/%d, %zu B; a NULL queue -> %s",
+                    framed ? "framed" : "reference", g9 ? d9.status : -99, g9 ? d9.grpc_status : -99,
+                    g0 ? d0.status : -99, g0 ? d0.grpc_status : -99, g0 ? d0.bytes.len : 0, hn ? "a handle" : "NULL");
+      check(g9 && d9.tag == 60 && d9.status == AK_ERR_RPC_STATUS && d9.grpc_status == 9 && g0 && d0.tag == 61 &&
+                d0.status == AK_OK && d0.grpc_status == 0 && d0.bytes.len == 0 && !hn && !stray(), buf);
+      if (g9) ak_bytes_free(&d9.bytes);
+      if (g0) ak_bytes_free(&d0.bytes);
+    }
+    ak_queue_shutdown(q);
+    ak_completion z;
+    check(ak_queue_next(q, &z, 0) == AK_QUEUE_SHUTDOWN, wp + " the queue drains to AK_QUEUE_SHUTDOWN (nothing left)");
+    ak_queue_destroy(q);
+    ak_client_destroy(cl);
+  }
+  std::printf("# {\"campaign_rpc_semantics\": {\"build\": \"%s\", \"checks\": %d, \"failed\": %d}}\n", kBuild, n, bad);
+  return bad ? 1 : 0;
+}
+
 // Direction d's upload of `chunks` x 2 MiB (req. 14): deterministic data (splitmix64 from a
 // seed of the chunk count, as the Rust slice), the ids on the first message only.
 void make_stream(Stream *st, int chunks) {
@@ -885,6 +1224,7 @@ int main(int argc, char **argv) {
     else if (a == "--count") c.count = std::atoi(v);
     else if (a == "--alloc-probe") c.alloc_probe = std::atoi(v);
     else if (a == "--plant") c.plant = v;
+    else if (a == "--semantics") c.semantics = std::atoi(v);
   }
   if (c.target.empty() || (c.transport != "shipped" && c.transport != "pinned") || !w.expect_a) {
     std::fprintf(stderr, "usage: campaign_rpc --target unix:PATH --expect BYTES --transport shipped|pinned ...\n");
@@ -907,6 +1247,12 @@ int main(int argc, char **argv) {
   else if (c.plant == "d-count") { w.st[0].bytes += 1; w.st[1].bytes += 1; }
   else if (c.plant == "d-sha") { w.st[0].sha[0] ^= 1; w.st[1].sha[0] ^= 1; }
   else if (!c.plant.empty()) die("unknown --plant", 0);
+  if (c.semantics) {
+    const int r = q_semantics(w);
+    ak_runtime_destroy(w.rt);
+    std::fflush(stdout);
+    return r;
+  }
   for (char d : c.dirs) {
     if (d == 'c' || d == 'd') { w.jobs.push_back(Job{d, 0}); w.jobs.push_back(Job{d, 1}); }
     else if (d == 'a' || d == 'r' || d == 'b') w.jobs.push_back(Job{d, 0});
@@ -920,6 +1266,7 @@ int main(int argc, char **argv) {
     if (std::string("ABCDEF").find(cl.base) == std::string::npos || coded != (cl.mode != kDefault)
         || (cl.framed && cl.base != 'B' && cl.base != 'C' && cl.base != 'E')
         || (cl.pull && cl.base != 'C' && cl.base != 'D')
+        || (cl.q && (cl.pull || (cl.base != 'B' && cl.base != 'C' && cl.base != 'E')))
 #ifdef AK_NO_UNKNOWN_FIELDS
         || cl.mode == kRetain || cl.mode == kDrop
 #else
@@ -947,6 +1294,7 @@ int main(int argc, char **argv) {
     } else {
       cn.cl = core_client(w.rt, c.target, c.transport, w.cells[i].framed);
       if (!cn.cl) die("ak_client_new", (long)i);
+      if (w.cells[i].q && !(cn.q = ak_queue_new())) die("ak_queue_new", (long)i);
     }
   }
 
@@ -1068,7 +1416,15 @@ int main(int argc, char **argv) {
               " \"expect_bytes\": %zu, \"delivery\": \"B, C, E: the core's blocking ak_call_unary (C: ak_call_unary_enc,"
               " the encode context moved); d: ak_call_open + ak_call_send (C: ak_call_send_enc) + ak_call_recv."
               " A, D, F: grpc++'s synchronous call and ClientWriter (packages/cpp's idiom); D and F hand their bytes"
-              " over moved (ak_enc_take_owned, ak::Enc::take)\", \"send_paths\": \"Bf, Cf-*, Ef-*: the core's"
+              " over moved (ak_enc_take_owned, ak::Enc::take). Req. 16 as amended 2026-09-28: C++'s core reference is BOTH"
+              " blocking (B, C, E: labelled (blk)) and the completion queue (B-q, C-q-*, E-q-* and framed twins: (q)):"
+              " ak_call_unary_q (C: ak_call_unary_enc_q, the request moved), d: ak_call_open + ak_call_send_q (C:"
+              " ak_call_send_enc_q) + ak_call_recv_q\", \"queue_drainer\": \"one ak_queue PER queue cell; ONE drainer"
+              " per batch, the thread that issues it (the benchmark thread; no thread of its own, no k caller threads):"
+              " the k calls of a batch issued back to back, then ak_queue_next until all k completed, each completion"
+              " matched to its call by tag (slot << 8 | operation) and checked, a response decoded on the draining"
+              " thread; a stream's next send issued from the drain once its previous send completed (at most one"
+              " pending send per call), its recv_q after the last; grpc++'s CompletionQueue::Next idiom\", \"send_paths\": \"Bf, Cf-*, Ef-*: the core's"
               " framed send path (ak_client_set_framed) beside the reference\","
               " \"directions_c_d\": \"c: P5.3, P5.4 unary upload, empty response; d: 4 MiB and 16 MiB in 2 MiB M5"
               " chunks (ids on the first), the server's byte count checked on every call and its SHA-256 of the"
@@ -1107,9 +1463,10 @@ int main(int argc, char **argv) {
       for (size_t ci = 0; ci < w.cells.size(); ++ci) {
         const Cell &cl = w.cells[ci];
         if (cl.pull && w.jobs[ji].dir != 'a' && w.jobs[ji].dir != 'r') continue;  // X-2: a, a+read only
-        char tags[200];
-        std::snprintf(tags, sizeof(tags), "inflight=%d,transport=%s,send_path=%s,build=%s%s", k, c.transport.c_str(),
-                      cl.framed ? "framed" : "reference", kBuild, cl.pull ? ",decode=pull" : "");
+        char tags[240];
+        std::snprintf(tags, sizeof(tags), "inflight=%d,transport=%s,send_path=%s,build=%s%s%s", k, c.transport.c_str(),
+                      cl.framed ? "framed" : "reference", kBuild, cl.pull ? ",decode=pull" : "",
+                      grpc_cell(cl.base) ? "" : cl.q ? ",delivery=queue" : ",delivery=blocking");
         regs.push_back(Reg{cl.label + "|" + job_payload(w.jobs[ji]) + "|-|" + dir_label(w.jobs[ji].dir) + "|" +
                                mode_name(cl.mode) + "|" + tags,
                            ci, ji, k});
@@ -1151,8 +1508,13 @@ int main(int argc, char **argv) {
   std::printf("# {\"campaign_rpc_end\": {\"benchmarks\": %zu, \"process_threads\": %d}}\n", nr, proc_threads());
   std::fflush(stdout);
 #endif
-  for (size_t i = 0; i < w.conns.size(); ++i)
+  for (size_t i = 0; i < w.conns.size(); ++i) {
     if (w.conns[i].cl) ak_client_destroy(w.conns[i].cl);
+    if (w.conns[i].q) {  // every call naming it has completed (each batch drains its k)
+      ak_queue_shutdown(w.conns[i].q);
+      ak_queue_destroy(w.conns[i].q);
+    }
+  }
   ak_runtime_destroy(w.rt);
   return 0;
 }

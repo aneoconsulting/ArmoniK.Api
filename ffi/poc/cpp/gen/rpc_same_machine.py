@@ -34,7 +34,16 @@ def us(ns):
 
 def cell_key(c):
     base, _, mode = c.partition("-")
-    return (base[0], {"": 0, "drop": 1, "retain": 2, "nounk": 3}[mode], {"": 0, "f": 1, "p": 2}[base[1:]])
+    q = mode.startswith("q")
+    mode = mode[2:] if mode.startswith("q-") else "" if mode == "q" else mode
+    return (base[0], q, {"": 0, "drop": 1, "retain": 2, "nounk": 3}[mode], {"": 0, "f": 1, "p": 2}[base[1:]])
+
+
+def delivery(c):
+    """Req. 16 as amended 2026-09-28: C++'s core cells in both idiomatic deliveries."""
+    if c[0] not in "BCE" or c[1:2] == "p":
+        return ""
+    return " (q)" if "-q" in c else " (blk)"
 
 
 def main():
@@ -83,7 +92,9 @@ def main():
           "in flight. The full client (cells in drop and retain) and the no-unknown client (`-nounk` cells, and its "
           "own A, B, Bf) are separate processes; so are the three direction groups (a/a+read/b, c, d) of each "
           "(transport, client); every cell of one direction shares a process. `f` = the framed send path "
-          "(labelled extra cells), `p` = the pull decode twins (labelled extra, a and a+read only). **`*`** = one "
+          "(labelled extra cells), `p` = the pull decode twins (labelled extra, a and a+read only); `(blk)` = the "
+          "core's blocking delivery, `(q)` = its completion queue (`-q` cells: one queue per cell, drained by the "
+          "thread that issues the batch), both C++'s reference core cells (req. 16 as amended). **`*`** = one "
           "batch per repetition (one batch of k calls already took longer than the repetition's min time). The "
           "header's `vs rust` line lists what differs from the Rust run. Source: `summary-rpc.tsv` (ns).\n\n")
         for l in open(os.path.join(out, "header.txt")):
@@ -116,8 +127,36 @@ def main():
                                     continue
                                 m, lo, hi = r[metric]
                                 ent.append(f"{us(m)} [{us(lo)}-{us(hi)}]" + (" *" if r["bmin"] == 1 else ""))
-                        w(f"| {c} | " + " | ".join(ent) + " |\n")
+                        w(f"| {c}{delivery(c)} | " + " | ".join(ent) + " |\n")
                     w("\n")
+        # Req. 16 as amended: queue against blocking, in-process (the -q cell and its blocking twin
+        # share a process, a transport and k), per direction; median-of-medians ratios.
+        pairs = []
+        for r in rows:
+            if "-q" not in r["cell"]:
+                continue
+            twin = r["cell"].replace("-q", "", 1)
+            b = next((x for x in rows if x["file"] == r["file"] and x["dir"] == r["dir"] and x["inflight"] == r["inflight"]
+                      and x["cell"] == twin), None)
+            if b:
+                pairs.append((r, b))
+        if pairs:
+            w("## Queue (q) against blocking (blk), in-process\n\nCONTAINER INSTRUMENTATION. Per (process, direction, "
+              "k): each `-q` cell's median divided by its blocking twin's median (same process, transport and k); the "
+              "entry is the median of those ratios over the cells (B, Bf, C-*, Cf-*, E-*, Ef-* in the client's modes) "
+              "and both transports, with [min-max]. Below 1: the queue cell's median is lower.\n\n")
+            w("| client | dir | k | pairs | client CPU q/blk | wall q/blk |\n|---|---|---:|---:|---:|---:|\n")
+            for client, nounk in (("full", False), ("no-unknown", True)):
+                for dr in DIRS:
+                    for k in ("1", "8"):
+                        sel = [(q, b) for q, b in pairs if q["dir"] == dr and q["inflight"] == k and q["file"].endswith("-nounk") == nounk]
+                        if not sel:
+                            continue
+                        rc = sorted(q["cpu"][0] / b["cpu"][0] for q, b in sel)
+                        rw = sorted(q["wall"][0] / b["wall"][0] for q, b in sel)
+                        w(f"| {client} | {dr} | {k} | {len(sel)} | {statistics.median(rc):.3f} [{rc[0]:.3f}-{rc[-1]:.3f}] | "
+                          f"{statistics.median(rw):.3f} [{rw[0]:.3f}-{rw[-1]:.3f}] |\n")
+            w("\n")
         w("## Batches per repetition\n\n| dir | k | client | min | median | max |\n|---|---:|---|---:|---:|---:|\n")
         for dr in DIRS:
             for k in sorted({int(r["inflight"]) for r in rows if r["dir"] == dr}):

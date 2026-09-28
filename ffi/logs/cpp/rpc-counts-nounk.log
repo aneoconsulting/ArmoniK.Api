@@ -16,6 +16,11 @@
 #   - cell D hands grpc++ the core's buffer with ak_enc_take_owned (moved; released with ak_bytes_free when grpc++ drops
 #     it) instead of ak_enc_take + a copy: D b rpc 0 -> 2, D b 2513 -> 2514 (drop), 2519 -> 2520 (retain);
 #   - new: framed twins Bf, Cf-* and Ef-* (ak_client_set_framed), identical to their reference rows; jobs c and d.
+# Re-taken 2026-09-28 (req. 16 as amended: C++ core cells on blocking AND the completion queue): NEW rows only, for the
+#   queue cells B-q, Bf-q, C-q-*, Cf-q-*, E-q-*, Ef-q-* (one ak_queue per cell, the issuing thread drains it); every
+#   earlier row identical. rpc also counts ak_call_unary_q, ak_call_unary_enc_q, ak_call_send_q, ak_call_send_enc_q,
+#   ak_call_recv_q and ak_queue_next. Per call a queue cell adds ak_queue_next per completion and ak_call_destroy
+#   (unary: B a/b/c 2 -> 4, C c 4 -> 6; d: one ak_queue_next per send and one for the recv, B d 6 -> 9 / 12 -> 21).
 # A and F make no core call (grpc++ only); E uses the core's transport with the host-generated codec, so codec is 0.
 # {"campaign_rpc_counts": {"build": "no-unknown", "calls": 4, "retain": "every position armed, no pre-placed buffer, unk_grow grows geometrically (decision 11 rule 8)"}}
   B          a  P2.2  forward/call    2.000  reverse/call    0.000   (rpc 2.000/0.000 + codec 0.000/0.000 + host 0.000)
@@ -30,6 +35,18 @@
   Bf         c  P5.4  forward/call    2.000  reverse/call    0.000   (rpc 2.000/0.000 + codec 0.000/0.000 + host 0.000)
   Bf         d  4MiB  forward/call    6.000  reverse/call    0.000   (rpc 6.000/0.000 + codec 0.000/0.000 + host 0.000)
   Bf         d  16MiB forward/call   12.000  reverse/call    0.000   (rpc 12.000/0.000 + codec 0.000/0.000 + host 0.000)
+  B-q        a  P2.2  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  B-q        b  P2.2  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  B-q        c  P5.3  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  B-q        c  P5.4  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  B-q        d  4MiB  forward/call    9.000  reverse/call    0.000   (rpc 9.000/0.000 + codec 0.000/0.000 + host 0.000)
+  B-q        d  16MiB forward/call   21.000  reverse/call    0.000   (rpc 21.000/0.000 + codec 0.000/0.000 + host 0.000)
+  Bf-q       a  P2.2  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  Bf-q       b  P2.2  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  Bf-q       c  P5.3  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  Bf-q       c  P5.4  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  Bf-q       d  4MiB  forward/call    9.000  reverse/call    0.000   (rpc 9.000/0.000 + codec 0.000/0.000 + host 0.000)
+  Bf-q       d  16MiB forward/call   21.000  reverse/call    0.000   (rpc 21.000/0.000 + codec 0.000/0.000 + host 0.000)
   C-nounk    a  P2.2  forward/call    3.000  reverse/call 3501.000   (rpc 2.000/0.000 + codec 1.000/3501.000 + host 0.000)
   C-nounk    b  P2.2  forward/call 2514.000  reverse/call 2501.000   (rpc 2.000/0.000 + codec 2511.000/2501.000 + host 1.000)
   C-nounk    c  P5.3  forward/call    4.000  reverse/call    0.000   (rpc 2.000/0.000 + codec 1.000/0.000 + host 1.000)
@@ -42,6 +59,18 @@
   Cf-nounk   c  P5.4  forward/call    4.000  reverse/call    0.000   (rpc 2.000/0.000 + codec 1.000/0.000 + host 1.000)
   Cf-nounk   d  4MiB  forward/call   10.000  reverse/call    0.000   (rpc 6.000/0.000 + codec 2.000/0.000 + host 2.000)
   Cf-nounk   d  16MiB forward/call   28.000  reverse/call    0.000   (rpc 12.000/0.000 + codec 8.000/0.000 + host 8.000)
+  C-q-nounk  a  P2.2  forward/call    5.000  reverse/call 3501.000   (rpc 4.000/0.000 + codec 1.000/3501.000 + host 0.000)
+  C-q-nounk  b  P2.2  forward/call 2516.000  reverse/call 2501.000   (rpc 4.000/0.000 + codec 2511.000/2501.000 + host 1.000)
+  C-q-nounk  c  P5.3  forward/call    6.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 1.000/0.000 + host 1.000)
+  C-q-nounk  c  P5.4  forward/call    6.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 1.000/0.000 + host 1.000)
+  C-q-nounk  d  4MiB  forward/call   13.000  reverse/call    0.000   (rpc 9.000/0.000 + codec 2.000/0.000 + host 2.000)
+  C-q-nounk  d  16MiB forward/call   37.000  reverse/call    0.000   (rpc 21.000/0.000 + codec 8.000/0.000 + host 8.000)
+  Cf-q-nounk a  P2.2  forward/call    5.000  reverse/call 3501.000   (rpc 4.000/0.000 + codec 1.000/3501.000 + host 0.000)
+  Cf-q-nounk b  P2.2  forward/call 2516.000  reverse/call 2501.000   (rpc 4.000/0.000 + codec 2511.000/2501.000 + host 1.000)
+  Cf-q-nounk c  P5.3  forward/call    6.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 1.000/0.000 + host 1.000)
+  Cf-q-nounk c  P5.4  forward/call    6.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 1.000/0.000 + host 1.000)
+  Cf-q-nounk d  4MiB  forward/call   13.000  reverse/call    0.000   (rpc 9.000/0.000 + codec 2.000/0.000 + host 2.000)
+  Cf-q-nounk d  16MiB forward/call   37.000  reverse/call    0.000   (rpc 21.000/0.000 + codec 8.000/0.000 + host 8.000)
   D-nounk    a  P2.2  forward/call    1.000  reverse/call 3501.000   (rpc 0.000/0.000 + codec 1.000/3501.000 + host 0.000)
   D-nounk    b  P2.2  forward/call 2514.000  reverse/call 2501.000   (rpc 2.000/0.000 + codec 2511.000/2501.000 + host 1.000)
   D-nounk    c  P5.3  forward/call    4.000  reverse/call    0.000   (rpc 2.000/0.000 + codec 1.000/0.000 + host 1.000)
@@ -60,3 +89,15 @@
   Ef-nounk   c  P5.4  forward/call    2.000  reverse/call    0.000   (rpc 2.000/0.000 + codec 0.000/0.000 + host 0.000)
   Ef-nounk   d  4MiB  forward/call    6.000  reverse/call    0.000   (rpc 6.000/0.000 + codec 0.000/0.000 + host 0.000)
   Ef-nounk   d  16MiB forward/call   12.000  reverse/call    0.000   (rpc 12.000/0.000 + codec 0.000/0.000 + host 0.000)
+  E-q-nounk  a  P2.2  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  E-q-nounk  b  P2.2  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  E-q-nounk  c  P5.3  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  E-q-nounk  c  P5.4  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  E-q-nounk  d  4MiB  forward/call    9.000  reverse/call    0.000   (rpc 9.000/0.000 + codec 0.000/0.000 + host 0.000)
+  E-q-nounk  d  16MiB forward/call   21.000  reverse/call    0.000   (rpc 21.000/0.000 + codec 0.000/0.000 + host 0.000)
+  Ef-q-nounk a  P2.2  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  Ef-q-nounk b  P2.2  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  Ef-q-nounk c  P5.3  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  Ef-q-nounk c  P5.4  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  Ef-q-nounk d  4MiB  forward/call    9.000  reverse/call    0.000   (rpc 9.000/0.000 + codec 0.000/0.000 + host 0.000)
+  Ef-q-nounk d  16MiB forward/call   21.000  reverse/call    0.000   (rpc 21.000/0.000 + codec 0.000/0.000 + host 0.000)
