@@ -61,11 +61,17 @@ template <class S> static inline uint64_t fs(const S &s) {
 
 def emit_header(p):
     o = [HEAD, "#ifndef AK_TOUCH_H", "#define AK_TOUCH_H", "#include <cstdint>",
-         '#include "generated/types.h"', '#include "shapes.pb.h"', "",
+         '#include <generated/types.h>', '#include <generated/types_borrow.h>', '#include "shapes.pb.h"', "",
          "namespace shapes {", "namespace touch {"]
     for r in p.roots:
         o.append("uint64_t touch(const %s &o);" % r)
-    o += ["}  // namespace touch", "}  // namespace shapes", "", "namespace pbtouch {"]
+    o += ["}  // namespace touch", "}  // namespace shapes", "",
+          "// X-1 (2026-09-28): the same traversal over the BORROWED facade (strings are views),",
+          "// for the labelled core-ffi-borrow arm; it folds to the same value as the owning one.",
+          "namespace shapes_borrow {", "namespace touch {"]
+    for r in p.roots:
+        o.append("uint64_t touch(const %s &o);" % r)
+    o += ["}  // namespace touch", "}  // namespace shapes_borrow", "", "namespace pbtouch {"]
     for r in p.roots:
         o.append("uint64_t touch(const %s::%s &o);" % (NS, r))
     o += ["}  // namespace pbtouch", "#endif", ""]
@@ -110,7 +116,10 @@ def emit(p):
         o.append("  return h;")
         o.append("}")
         o.append("")
-    o += ["}  // namespace touch", "}  // namespace shapes", "", "namespace pbtouch {", PRE,
+    o += ["}  // namespace touch", "}  // namespace shapes", "", "namespace shapes_borrow {",
+          "namespace touch {", PRE]
+    o += _borrow_body(p, msgs)
+    o += ["}  // namespace touch", "}  // namespace shapes_borrow", "", "namespace pbtouch {", PRE,
           "namespace pb = %s;" % NS]
     for n in msgs:
         o.append("uint64_t touch(const pb::%s &o);" % n)
@@ -144,3 +153,43 @@ def emit(p):
         o.append("")
     o += ["}  // namespace pbtouch", ""]
     return "\n".join(o)
+
+
+def _borrow_body(p, msgs):
+    """The facade traversal of `emit`, over shapes_borrow's types (a map is iterated with auto)."""
+    o = []
+    for n in msgs:
+        o.append("uint64_t touch(const %s &o);" % n)
+    for n in msgs:
+        m = p.msg(n)
+        o.append("uint64_t touch(const %s &o) {" % n)
+        o.append("  uint64_t h = 0xcbf29ce484222325ull;")
+        for f in m.plain:
+            e = "o.%s" % f.name
+            if f.card == "map":
+                # Order-independent: protobuf's Map iterates in no fixed order, and the two
+                # traversals must fold to the same value (the campaign binary checks it).
+                o.append("  { uint64_t acc = 0;")
+                o.append("    for (auto it = %s.begin(); it != %s.end(); ++it)" % (e, e))
+                o.append("      acc += mix(fs(it->first) * 31u, fs(it->second));")
+                o.append("    h = mix(h, acc); }")
+            elif f.card in ("repeated", "packed"):
+                o.append("  for (size_t i = 0; i < %s.size(); ++i) { %s }"
+                         % (e, _fac_value(f.kind, "%s[i]" % e, f.of)))
+            elif f.kind == "message" or f.explicit:
+                o.append("  if (%s.has_value()) { %s }" % (e, _fac_value(f.kind, "*%s" % e, f.of)))
+            else:
+                o.append("  %s" % _fac_value(f.kind, e, f.of))
+        for oname, members in m.oneofs.items():
+            ty = oneof_type(n, oname)
+            o.append("  h = mix(h, (uint64_t)o.%s.which());" % oname)
+            o.append("  switch (o.%s.which()) {" % oname)
+            for g in members:
+                o.append("    case %s::k%s: %s break;"
+                         % (ty, camel(g.name), _fac_value(g.kind, "o.%s.%s()" % (oname, g.name), g.of)))
+            o.append("    default: break;")
+            o.append("  }")
+        o.append("  return h;")
+        o.append("}")
+        o.append("")
+    return o

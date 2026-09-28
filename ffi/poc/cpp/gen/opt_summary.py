@@ -183,7 +183,8 @@ def codec(run):
                 "`core-ffi-retain` are the full build's process; the `@nounk` and `-nounk` columns are the "
                 "no-unknown build's process, so a comparison across the two groups crosses processes "
                 "(`incumbent-*` and `incumbent-*@nounk` are the same code in the two processes: the control). "
-                "`incumbent-arena` and the `from=bytebuffer` rows are labelled extras (payloads only). "
+                "`incumbent-arena`, `core-ffi-borrow-*` (the borrowed-string facade) and the `from=bytebuffer` rows are "
+                "labelled extras (payloads only). "
                 "Empty cell: the arm has no such row (incumbent-prod encodes to the transport form only, "
                 "incumbent-best to a reused string only; P7.1 is decode only). Source: `variants-codec.tsv` (ns); "
                 "per-case spreads in `summary-codec.tsv`.\n\n")

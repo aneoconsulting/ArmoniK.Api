@@ -3,7 +3,8 @@
 #ifndef AK_TOUCH_H
 #define AK_TOUCH_H
 #include <cstdint>
-#include "generated/types.h"
+#include <generated/types.h>
+#include <generated/types_borrow.h>
 #include "shapes.pb.h"
 
 namespace shapes {
@@ -17,6 +18,20 @@ uint64_t touch(const ListMetricsResponse &o);
 uint64_t touch(const DualResponse &o);
 }  // namespace touch
 }  // namespace shapes
+
+// X-1 (2026-09-28): the same traversal over the BORROWED facade (strings are views),
+// for the labelled core-ffi-borrow arm; it folds to the same value as the owning one.
+namespace shapes_borrow {
+namespace touch {
+uint64_t touch(const ListResultsResponse &o);
+uint64_t touch(const ListTasksDetailedResponse &o);
+uint64_t touch(const ListProbeResponse &o);
+uint64_t touch(const ListTaskSummaryResponse &o);
+uint64_t touch(const UploadResultDataMessage &o);
+uint64_t touch(const ListMetricsResponse &o);
+uint64_t touch(const DualResponse &o);
+}  // namespace touch
+}  // namespace shapes_borrow
 
 namespace pbtouch {
 uint64_t touch(const armonik::ffi::shapes::v1::ListResultsResponse &o);

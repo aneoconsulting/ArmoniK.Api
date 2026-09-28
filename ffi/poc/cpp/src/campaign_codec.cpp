@@ -305,8 +305,32 @@ struct Ctx {
   // so no drop decode ever pays a disarming reset.
   shapes::ffi::DecCtxs *dcs;
   shapes::ffi::DecCtxs *dcsr;
+  // X-1: the borrowed-facade binding's own contexts (its retain decodes keep their own armed
+  // list, rule 7), drop and retain.
+  shapes_borrow::ffi::DecCtxs *bdcs;
+  shapes_borrow::ffi::DecCtxs *bdcsr;
   ak::Enc *ne, *nre;
 };
+
+// X-1 (2026-09-28): the labelled core-ffi-borrow decode arm. The same ABI and entry points as
+// core-ffi, decoding into the BORROWED facade (every string an ak::StringView over the input
+// buffer, which lives for the process here); gated by its fold equalling core-ffi's.
+template <class Fac> struct Bor;
+#ifdef AK_NO_UNKNOWN_FIELDS
+#define AK_BOR_RETAIN(sroot) NULL
+#else
+#define AK_BOR_RETAIN(sroot) &shapes_borrow::ffi::decode_with_##sroot##_unk
+#endif
+#define BOR(Root, sroot)                                                                         \
+  template <> struct Bor<shapes::Root> {                                                        \
+    typedef shapes_borrow::Root B;                                                              \
+    static int32_t (*dec())(ak_dec_ctx *, const uint8_t *, size_t, B *) {                       \
+      return &shapes_borrow::ffi::decode_with_##sroot;                                         \
+    }                                                                                           \
+    static int32_t (*dec_retain())(ak_dec_ctx *, const uint8_t *, size_t, B *) { return AK_BOR_RETAIN(sroot); } \
+  };
+AK_ROOTS(BOR)
+#undef BOR
 
 // H-8: what cells D and F do with a response ByteBuffer (campaign_rpc.cpp): since R-2,
 // bb_contig (one slice in place, several copied into a reused buffer).
@@ -597,6 +621,29 @@ Group make_group(const std::string &payload, const std::string &content, const s
       if (!m->ParseFromArray(cb, (int)cn)) return "arena parse failed";
       return pbtouch::touch(*m) == want_fold ? "" : "field fold differs";
     }});
+    // core-ffi-borrow (X-1), drop (no-unknown in that build) and retain.
+    {
+      typedef typename Bor<Fac>::B BF;
+      for (int r = 0; r < 2; ++r) {
+        int32_t (*bdec)(ak_dec_ctx *, const uint8_t *, size_t, BF *) = r ? Bor<Fac>::dec_retain() : Bor<Fac>::dec();
+        if (!bdec) continue;
+        shapes_borrow::ffi::DecCtxs *bc = r ? cx->bdcsr : cx->bdcs;
+        g.slots.push_back({"core-ffi-borrow", dir, r ? "retain" : AK_FFI_DROP_MODE, [bdec, bc, cb, cn, read](long n) {
+          uint64_t h = 0;
+          for (long i = 0; i < n; ++i) {
+            BF v;
+            h += (uint64_t)bdec(bc->of<BF>(), cb, cn, &v);
+            if (read) h += shapes_borrow::touch::touch(v); else AK_KEEP(v);
+          }
+          return h;
+        }, [bdec, bc, cb, cn, want_fold]() -> std::string {
+          BF v;
+          int32_t rc = bdec(bc->of<BF>(), cb, cn, &v);
+          if (rc != 0 || ak_dec_err(bc->of<BF>()) != 0) { ak_dec_err_reset(bc->of<BF>()); return "borrow decode refused"; }
+          return shapes_borrow::touch::touch(v) == want_fold ? "" : "field fold differs from the incumbent's";
+        }});
+      }
+    }
     // from=bytebuffer (H-8): the core arms and host-gen decoding from a grpc::ByteBuffer, as
     // incumbent-prod does and as cells D and F do (bb_decode: exactly their response path).
     std::vector<std::pair<std::string, std::function<int32_t(const uint8_t *, size_t, Fac *)> > > bbd;
@@ -709,7 +756,9 @@ int main(int argc, char **argv) {
   cx.ec = ak_enc_ctx_new();
   cx.dcs = new shapes::ffi::DecCtxs();
   cx.dcsr = new shapes::ffi::DecCtxs();
-  if (!cx.dcs->ok() || !cx.dcsr->ok()) { std::fprintf(stderr, "ak_dec_ctx_new_<Root> refused\n"); return 2; }
+  cx.bdcs = new shapes_borrow::ffi::DecCtxs();
+  cx.bdcsr = new shapes_borrow::ffi::DecCtxs();
+  if (!cx.dcs->ok() || !cx.dcsr->ok() || !cx.bdcs->ok() || !cx.bdcsr->ok()) { std::fprintf(stderr, "ak_dec_ctx_new_<Root> refused\n"); return 2; }
   cx.ne = new ak::Enc(shapes::native::kSites);
 #ifdef AK_NO_UNKNOWN_FIELDS
   cx.nre = NULL;  // no host-gen retain in the no-unknown build
