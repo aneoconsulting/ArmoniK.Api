@@ -573,6 +573,17 @@ spread is large (max/min per entry: median about 1.3, p90 about 1.5 with two or 
 batches per sample), so gaps under about 25% are not attributable. The measurements below
 should include that path explicitly.
 
+**The idiomatic deliveries (2026-09-28, `logs/rust/opt/rpc-same-machine-cb/`,
+`logs/cpp/opt/rpc-same-machine-q/`, same container) do not remove it.** With Rust's core
+cells on the callback delivery bridged by a oneshot and C++'s on the completion queue beside
+blocking, the delivery changes little at k = 1 (in-process ratios 0.82-1.26 in Rust, 0.99-1.05
+in C++); C++'s queue is about 13% cheaper at k = 8 on downloads (a, a+read: fewer host threads
+on one CPU). On d/16 MiB at k = 1 the framed core cell stays above A (Rust callback 9.54 against
+8.72 ms; C++ blocking 10.13 and queue 10.97 against 8.00 ms), so the blocking hand-off per
+chunk is not the whole story: the remaining suspects are inside the core's streaming path
+(the one-slot request channel and tonic's streaming body/framing), which item 1 below
+profiles.
+
 **To measure on the campaign machine** (client on its 4-CPU set, server on its own):
 
 1. `perf record` of cells A and Cf (and D, Df) on c/P5.4 and d/16 MiB at k = 1 and 8, in
