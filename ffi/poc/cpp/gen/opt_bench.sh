@@ -30,10 +30,8 @@
 #   5. summary: gen/opt_summary.py (summary-codec.tsv, variants-codec.tsv, summary-rpc.tsv,
 #      tables-codec.md, tables-rpc.md).
 #
-# Known harness defect, NOT fixed here (baseline): H-1, every input=pool encode row encodes
-# pool[0] only (campaign_codec.cpp: run(1) per iteration indexes i % m from i = 0), so the
-# beyond-cache variant of req 11 is not measured; the pool is still built (and paid for in wall
-# time) in every setup. The summary labels those rows.
+# H-1 (the pool rows encoded pool[0] only) is fixed in campaign_codec.cpp since the ref run; the
+# baseline run (logs/cpp/opt/baseline) predates the fix and its tables mark those rows.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$HERE" || exit 2
@@ -45,13 +43,15 @@ REPO=$(git -C "$FFI" rev-parse --show-toplevel)
 # ---- fixed settings (change one and the run no longer compares with the others) --------
 export AK_CPU_CLIENT=${AK_CPU_CLIENT:-1} AK_CPU_SERVER=${AK_CPU_SERVER:-2,3}
 P_ROUNDS=5; P_MIN_TIME_S=0.01;  P_WARMUP_S=0.005     # payloads: repetitions, min time, warm-up
-U_ROUNDS=3; U_MIN_TIME_S=0.004; U_WARMUP_S=0.002     # U-* rows: reduced (a warm-up > 0: with 0, a cold
+U_ROUNDS=3; U_MIN_TIME_S=0.003; U_WARMUP_S=0.001     # U-* rows: reduced (a warm-up > 0: with 0, a cold
                                                      # first call above min_time became the repetition)
-POOL=1048576                                         # input=pool bytes (H-1: pool[0] only)
+POOL=1048576                                         # input=pool bytes: NOT beyond this container's LLC
+                                                     # (L2 1 MiB/core, L3 33 MiB); 2 x LLC costs about
+                                                     # 0.3 s per pool build, out of the budget
 LLC=14417920                                         # the runner's default, recorded only
 RPC_ROUNDS=3; RPC_MIN_TIME_S=0.04; RPC_WARMUP_S=0.02; SRV_WARM=50
 TRANSPORTS="shipped pinned"; INFLIGHT=1,8,16; LAUNCH=1
-SETTINGS="launch=$LAUNCH; codec P (--only P): rounds=$P_ROUNDS min_time_s=$P_MIN_TIME_S warmup_s=$P_WARMUP_S; codec U (--only U-, the 92 rows): rounds=$U_ROUNDS min_time_s=$U_MIN_TIME_S warmup_s=$U_WARMUP_S; pool_bytes=$POOL (H-1: pool[0] only); rpc: rounds=$RPC_ROUNDS min_time_s=$RPC_MIN_TIME_S warmup_s=$RPC_WARMUP_S inflight=$INFLIGHT transports=$TRANSPORTS, server warm-up serve.sh warm $SRV_WARM, server tokio workers ${AK_SERVER_THREADS:-4} (serve.sh default); order: codec full-P, nounk-P, full-U, nounk-U; rpc one server, per transport full then nounk client; Google Benchmark random interleaving within each process"
+SETTINGS="launch=$LAUNCH; codec P (--only P): rounds=$P_ROUNDS min_time_s=$P_MIN_TIME_S warmup_s=$P_WARMUP_S; codec U (--only U-, the 92 rows): rounds=$U_ROUNDS min_time_s=$U_MIN_TIME_S warmup_s=$U_WARMUP_S; pool_bytes=$POOL (walked since H-1; not beyond this container's 33 MiB L3); rpc: rounds=$RPC_ROUNDS min_time_s=$RPC_MIN_TIME_S warmup_s=$RPC_WARMUP_S inflight=$INFLIGHT transports=$TRANSPORTS, server warm-up serve.sh warm $SRV_WARM, server tokio workers ${AK_SERVER_THREADS:-4} (serve.sh default); order: codec full-P, nounk-P, full-U, nounk-U; rpc one server, per transport full then nounk client; Google Benchmark random interleaving within each process"
 
 B=${BUILD:-$HERE/build-campaign}
 SCRATCH=$(mktemp -d)
@@ -82,7 +82,7 @@ for l in sys.stdin:
     h["instrumentation"] = True
     h["opt_bench"] = {"script": "gen/opt_bench.sh", "gated": False, "file": os.environ["OPT_WHAT"],
                       "settings": os.environ["OPT_SETTINGS"],
-                      "known_defects": ["H-1: every input=pool encode row encodes pool[0] only (not fixed in the baseline)"]}
+                      "known_defects": []}
     print("# " + json.dumps(h, sort_keys=True))'
   echo "# settings   $SETTINGS"
   echo "# CONTAINER INSTRUMENTATION, not gated (gen/opt_bench.sh; the correctness gate is not run in the optimisation phase); the codec process's own pre-check and the RPC client's own checks are on"

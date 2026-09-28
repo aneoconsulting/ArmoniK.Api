@@ -133,6 +133,9 @@ struct Cfg {
   double pool_bytes = 2.0 * 13.75 * 1024 * 1024;      // req. 11: the beyond-LLC input pool
 };
 Cfg g_cfg;
+// The one input pool alive (H-1): its owner and how to free it.
+const void *g_pool_owner = NULL;
+std::shared_ptr<std::function<void()> > g_pool_free;
 
 
 volatile uint64_t g_sink = 0;
@@ -184,21 +187,43 @@ void add_encode(Group &g, const char *arm, const char *mode, const char *end, co
     size_t k = (size_t)(g_cfg.pool_bytes / (double)(wire ? wire : 1)) + 1;
     if (k < 2) k = 2;
     std::shared_ptr<std::vector<G *> > pool(new std::vector<G *>());
+    // H-1 (fixed 2026-09-28): the pool is WALKED. A cursor lives with the slot and advances
+    // one graph per iteration across calls; before, run(1) per iteration indexed i % m from
+    // i = 0 and every iteration encoded pool[0].
+    std::shared_ptr<size_t> cur(new size_t(0));
     Slot sl;
     sl.arm = arm; sl.dir = "encode"; sl.mode = mode;
     sl.tags = std::string("end=") + end + ",input=pool";
-    sl.setup = [pool, hot, k]() {
-      pool->reserve(k);
-      for (size_t i = 0; i < k; ++i) pool->push_back(new G(*hot));
-    };
-    sl.teardown = [pool]() {
+    // The pool is built once and kept while the SAME slot is called again (Google Benchmark's
+    // warm-up and estimation runs are consecutive calls); another pool slot's setup frees it,
+    // so one pool is alive at a time. Outside the timed loop either way.
+    std::shared_ptr<std::function<void()> > freeit(new std::function<void()>([pool]() {
       for (size_t i = 0; i < pool->size(); ++i) delete (*pool)[i];
       pool->clear();
+    }));
+    sl.setup = [pool, hot, k, cur, freeit]() {
+      if (g_pool_owner != pool.get()) {
+        if (g_pool_free) (*g_pool_free)();
+        g_pool_free = freeit;
+        g_pool_owner = pool.get();
+      }
+      if (pool->empty()) {
+        pool->reserve(k);
+        for (size_t i = 0; i < k; ++i) pool->push_back(new G(*hot));
+        *cur = 0;
+      }
     };
-    sl.run = [pool, enc](long n) {
+    sl.teardown = []() {};
+    sl.run = [pool, enc, cur](long n) {
       uint64_t h = 0;
       const size_t m = pool->size();
-      for (long i = 0; i < n; ++i) h += enc(*(*pool)[(size_t)i % m]);
+      size_t c = *cur;
+      G *const *p = pool->data();
+      for (long i = 0; i < n; ++i) {
+        h += enc(*p[c]);
+        if (++c == m) c = 0;
+      }
+      *cur = c;
       return h;
     };
     sl.check = [pool, check]() {
@@ -275,6 +300,28 @@ struct Ctx {
   ak::Enc *ne, *nre;
 };
 
+// H-8: what cells D and F do with a response ByteBuffer (campaign_rpc.cpp): Dump the slices,
+// decode one slice in place, concatenate several.
+template <class Fac, class Dec>
+int32_t bb_decode(const grpc::Slice &s, const Dec &dec, Fac *v) {
+  grpc::ByteBuffer bb(&s, 1);
+  std::vector<grpc::Slice> slices;
+  if (!bb.Dump(&slices).ok()) return -1;
+  if (slices.size() == 1) return dec(slices[0].begin(), slices[0].size(), v);
+  std::string flat;
+  for (size_t i = 0; i < slices.size(); ++i) flat.append((const char *)slices[i].begin(), slices[i].size());
+  return dec((const uint8_t *)flat.data(), flat.size(), v);
+}
+
+// incumbent-arena: every decode on a fresh Arena whose first block is this reused buffer.
+google::protobuf::ArenaOptions arena_opts() {
+  static std::vector<char> block(256 * 1024);
+  google::protobuf::ArenaOptions o;
+  o.initial_block = block.data();
+  o.initial_block_size = block.size();
+  return o;
+}
+
 // `fac` / `pb`: the object graphs encoders start from (null for a decode-only group);
 // `fac_ret`: the graph the retain arms encode (the facade decoded in retain mode for a U-*
 // row; the same graph as `fac` for a payload); `canon`: the bytes decoders read;
@@ -290,6 +337,7 @@ Group make_group(const std::string &payload, const std::string &content, const s
   g.content = content;
   g.tags = tags;
   g.wire = canon.size();
+  const bool extras = tags.find("row=U") == std::string::npos;  // labelled extra arms: payloads only
   // grpc++'s production decode reads a ByteBuffer. One slice holding the canonical bytes,
   // referenced (not copied) into a fresh ByteBuffer every iteration.
   std::shared_ptr<grpc::Slice> slice(new grpc::Slice(canon.data(), canon.size()));
@@ -343,13 +391,23 @@ Group make_group(const std::string &payload, const std::string &content, const s
             return "output does not decode to the canonical message";
           return "";
         });
-    // incumbent-best: SerializeToString into a reused string (end=reused)
-    std::shared_ptr<std::string> sbuf(new std::string());
+    // incumbent-best (H-7, 2026-09-28): the library's fastest entry point, ByteSizeLong then
+    // SerializeWithCachedSizesToArray into a reused buffer that only grows (no zero-fill once
+    // it is large enough). Before: SerializeToString into a reused string.
+    std::shared_ptr<std::vector<uint8_t> > sbuf(new std::vector<uint8_t>());
     add_encode<Pb>(g, "incumbent-best", "default", "reused", pb, wsz,
-        [sbuf](const Pb &m) -> size_t { m.SerializeToString(sbuf.get()); return sbuf->size(); },
-        [want_fold](const Pb &m) -> std::string {
-          std::string s2;
-          m.SerializeToString(&s2);
+        [sbuf](const Pb &m) -> size_t {
+          const size_t n = m.ByteSizeLong();
+          if (sbuf->size() < n) sbuf->resize(n);
+          uint8_t *end = m.SerializeWithCachedSizesToArray(sbuf->data());
+          return (size_t)(end - sbuf->data());
+        },
+        [want_fold, sbuf](const Pb &m) -> std::string {
+          const size_t n = m.ByteSizeLong();
+          if (sbuf->size() < n) sbuf->resize(n);
+          uint8_t *end = m.SerializeWithCachedSizesToArray(sbuf->data());
+          if ((size_t)(end - sbuf->data()) != n) return "SerializeWithCachedSizesToArray length";
+          std::string s2((const char *)sbuf->data(), n);
           Pb back;
           if (!back.ParseFromString(s2) || pbtouch::touch(back) != want_fold)
             return "output does not decode to the canonical message";
@@ -452,11 +510,11 @@ Group make_group(const std::string &payload, const std::string &content, const s
       if (!grpc::SerializationTraits<Pb>::Deserialize(&bb, &m).ok()) return "Deserialize failed";
       return pbtouch::touch(m) == want_fold ? "" : "field fold differs";
     }});
-    g.slots.push_back({"incumbent-best", dir, "default", [cp, read](long n) {
+    g.slots.push_back({"incumbent-best", dir, "default", [cb, cn, read](long n) {
       uint64_t h = 0;
       for (long i = 0; i < n; ++i) {
         Pb m;
-        m.ParseFromString(*cp);
+        m.ParseFromArray(cb, (int)cn);
         if (read) h += pbtouch::touch(m); else { AK_KEEP(m); ++h; }
       }
       return h;
@@ -511,6 +569,63 @@ Group make_group(const std::string &payload, const std::string &content, const s
         if (rc != 0) return "decode refused";
         return shapes::touch::touch(v) == want_fold ? "" : "field fold differs from the incumbent's";
       }});
+    }
+    if (!extras) continue;
+    // Labelled extras, on the payloads only (not the U-* rows, for the time budget):
+    // incumbent-arena (H-7): ParseFromArray into a message on a fresh Arena per decode whose
+    // first block is a reused 256 KiB buffer; production (grpc++'s SerializationTraits) uses no
+    // arena, so this is not the headline incumbent.
+    g.slots.push_back({"incumbent-arena", dir, "default", [cb, cn, read](long n) {
+      uint64_t h = 0;
+      for (long i = 0; i < n; ++i) {
+        google::protobuf::Arena arena(arena_opts());
+        Pb *m = google::protobuf::Arena::CreateMessage<Pb>(&arena);
+        m->ParseFromArray(cb, (int)cn);
+        if (read) h += pbtouch::touch(*m); else { AK_KEEP(*m); ++h; }
+      }
+      return h;
+    }, [cb, cn, want_fold]() -> std::string {
+      google::protobuf::Arena arena(arena_opts());
+      Pb *m = google::protobuf::Arena::CreateMessage<Pb>(&arena);
+      if (!m->ParseFromArray(cb, (int)cn)) return "arena parse failed";
+      return pbtouch::touch(*m) == want_fold ? "" : "field fold differs";
+    }});
+    // from=bytebuffer (H-8): the core arms and host-gen decoding from a grpc::ByteBuffer, as
+    // incumbent-prod does and as cells D and F do (bb_decode: exactly their response path).
+    std::vector<std::pair<std::string, std::function<int32_t(const uint8_t *, size_t, Fac *)> > > bbd;
+    bbd.push_back(std::make_pair(std::string("core-ffi|") + AK_FFI_DROP_MODE,
+        std::function<int32_t(const uint8_t *, size_t, Fac *)>([F, cx](const uint8_t *p, size_t len, Fac *v) {
+          return F.ffi_dec(cx->dcs->of<Fac>(), p, len, v); })));
+    if (F.ffi_dec_retain)
+      bbd.push_back(std::make_pair(std::string("core-ffi|retain"),
+          std::function<int32_t(const uint8_t *, size_t, Fac *)>([F, cx](const uint8_t *p, size_t len, Fac *v) {
+            return F.ffi_dec_retain(cx->dcsr->of<Fac>(), p, len, v); })));
+    bbd.push_back(std::make_pair(std::string("host-gen|") + AK_HOSTGEN_DROP_MODE,
+        std::function<int32_t(const uint8_t *, size_t, Fac *)>(F.nat_dec)));
+    if (F.natr_dec)
+      bbd.push_back(std::make_pair(std::string("host-gen|retain"),
+          std::function<int32_t(const uint8_t *, size_t, Fac *)>(F.natr_dec)));
+    for (size_t b = 0; b < bbd.size(); ++b) {
+      const std::string arm = bbd[b].first.substr(0, bbd[b].first.find('|'));
+      const std::string mode = bbd[b].first.substr(bbd[b].first.find('|') + 1);
+      const std::function<int32_t(const uint8_t *, size_t, Fac *)> dec = bbd[b].second;
+      Slot sl;
+      sl.arm = arm; sl.dir = dir; sl.mode = mode; sl.tags = "from=bytebuffer";
+      sl.run = [slice, dec, read](long n) {
+        uint64_t h = 0;
+        for (long i = 0; i < n; ++i) {
+          Fac v;
+          h += (uint64_t)bb_decode(*slice, dec, &v);
+          if (read) h += shapes::touch::touch(v);
+        }
+        return h;
+      };
+      sl.check = [slice, dec, want_fold]() -> std::string {
+        Fac v;
+        if (bb_decode(*slice, dec, &v) != 0) return "decode refused (from a ByteBuffer)";
+        return shapes::touch::touch(v) == want_fold ? "" : "field fold differs from the incumbent's";
+      };
+      g.slots.push_back(sl);
     }
   }
   for (size_t i = 0; i < g.slots.size(); ++i) g.slots[i].tags = join_tags(g.tags, g.slots[i].tags);
@@ -725,7 +840,7 @@ int main(int argc, char **argv) {
               " cpu_time = PROCESS CPU (MeasureProcessCPUTime, CLOCK_PROCESS_CPUTIME_ID) per repetition, real_time = wall;"
               " iterations chosen by the framework (--benchmark_min_time), warm-up the framework's"
               " (--benchmark_min_warmup_time, before a benchmark's first repetition)\","
-              " \"pool_bytes\": %.0f, \"threads\": {\"process_threads_at_start\": %d, \"measuring_threads\": 1,"
+              " \"pool_bytes\": %.0f, \"harness\": \"H-1: input=pool walks the pool (a cursor per slot, one graph per iteration across calls), one pool alive at a time, kept across consecutive calls of its slot; H-7: incumbent-best encodes with ByteSizeLong + SerializeWithCachedSizesToArray into a reused growing buffer, decodes with ParseFromArray; incumbent-arena (payloads only, labelled) decodes on a fresh Arena per decode with a reused 256 KiB first block; H-8: from=bytebuffer decode rows (payloads only, labelled) for core-ffi and host-gen, the ByteBuffer path of cells D and F; H-9: one run(iterations) call per repetition (KeepRunningBatch)\", \"threads\": {\"process_threads_at_start\": %d, \"measuring_threads\": 1,"
               " \"note\": \"the codec suite runs every arm on the one benchmark thread; the core starts no thread for codec calls\"}}}\n",
               g_cfg.launch, g_cfg.rounds, g_cfg.min_time_s, g_cfg.warmup_s, cpus.c_str(), AK_GBENCH_VERSION,
               g_cfg.pool_bytes, proc_threads());
@@ -756,11 +871,14 @@ int main(int argc, char **argv) {
       Slot *sl = r.second.first;
       benchmark::RegisterBenchmark(r.first.c_str(), [sl](benchmark::State &st) {
         if (sl->setup) sl->setup();  // before the timed loop (req. 11: graph construction outside)
-        for (auto _ : st) {
-          uint64_t h = sl->run(1);
+        // H-9 (2026-09-28): the framework's iteration count is handed to the slot in ONE call
+        // (KeepRunningBatch), so an iteration costs the arm and at most one std::function call
+        // (the encode lambda), not two plus a clobber; the fold keeps every result live.
+        while (st.KeepRunningBatch(st.max_iterations)) {
+          uint64_t h = sl->run((long)st.max_iterations);
           benchmark::DoNotOptimize(h);
-          benchmark::ClobberMemory();
         }
+        benchmark::ClobberMemory();
         if (sl->teardown) sl->teardown();
       })->Repetitions(g_cfg.rounds)->Unit(benchmark::kNanosecond)
         ->MeasureProcessCPUTime()->ReportAggregatesOnly(false);

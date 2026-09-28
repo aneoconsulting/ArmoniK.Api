@@ -34,9 +34,11 @@ import statistics
 import sys
 
 H1 = "H-1: pool[0] only"
-FULL_ARMS = ["incumbent-prod", "incumbent-best", "host-gen-drop", "host-gen-retain", "core-ffi-drop",
-             "core-ffi-retain"]
-NOUNK_ARMS = ["incumbent-prod@nounk", "incumbent-best@nounk", "host-gen-nounk", "core-ffi-nounk"]
+FULL_ARMS = ["incumbent-prod", "incumbent-best", "incumbent-arena", "host-gen-drop", "host-gen-retain",
+             "core-ffi-drop", "core-ffi-retain", "core-ffi-borrow-drop", "core-ffi-borrow-retain"]
+NOUNK_ARMS = ["incumbent-prod@nounk", "incumbent-best@nounk", "incumbent-arena@nounk", "host-gen-nounk",
+              "core-ffi-nounk", "core-ffi-borrow-nounk"]
+KNOWN_TAGS = ("end", "input", "row", "set")  # every other tag of a sample is part of its variant
 VARIANTS = ["reused/hot", "reused/pool", "transport/hot", "transport/pool"]
 DIRS = ["encode", "decode", "decode_read"]
 RPC_JOBS = [("a", "P2.2"), ("a+read", "P2.2"), ("b", "P2.2"), ("c", "P5.3"), ("c", "P5.4"), ("d", "4MiB"),
@@ -107,12 +109,24 @@ def arm_col(s):
     return f"{arm}-{'nounk' if mode == 'no-unknown' else mode}"  # host-gen-drop/-retain/-nounk, core-ffi-...
 
 
+BASE_FIELDS = {"slice", "suite", "arm", "payload", "content", "dir", "unknown_mode", "build", "launch", "round",
+               "cpu_ns", "cpu_clock", "wall_ns", "iters", "figures"}
+
+
+def TAG_FIELDS_OTHER(s):
+    return [k for k in s if k not in BASE_FIELDS and k not in KNOWN_TAGS]
+
+
 def codec(run):
     cases = {}
     for path in sorted(glob.glob(os.path.join(run, "codec-*.jsonl"))):
         tag = os.path.basename(path)[:-len(".jsonl")]
         for s in samples(path):
-            variant = f"{s['end']}/{s['input']}" if s["dir"] == "encode" else "-"
+            extra = "/".join(f"{k}={s[k]}" for k in sorted(s) if k in TAG_FIELDS_OTHER(s))
+            if s["dir"] == "encode":
+                variant = f"{s['end']}/{s['input']}" + (f"/{extra}" if extra else "")
+            else:
+                variant = extra or "-"
             inp = s["payload"] if s["content"] == "ascii" else f"{s['payload']}/{s['content']}"
             k = (s["build"], tag, inp, s["payload"], s["content"], s["arm"], s["dir"], s["unknown_mode"], variant)
             c = cases.setdefault(k, {"cpu": [], "wall": [], "it": [], "col": arm_col(s), "row": s.get("row", ""),
@@ -130,7 +144,7 @@ def codec(run):
         for k in sorted(cases):
             c = cases[k]
             st = stats(c["cpu"])
-            note = H1 if k[8].endswith("/pool") else ""
+            note = ""
             f.write("\t".join(list(k) + [str(st["n"]), fmt(st["median"]), fmt(st["min"]), fmt(st["max"]),
                                           fmt(st["q25"]), fmt(st["q75"]), f"{st['spread']:.3f}",
                                           fmt(statistics.median(c["wall"])), str(min(c["it"])), note]) + "\n")
@@ -141,23 +155,26 @@ def codec(run):
         inp, d, variant = k[2], k[6], k[8]
         table.setdefault((inp, d, variant), {})[c["col"]] = statistics.median(c["cpu"])
         kind[inp] = "U" if c["row"] == "U" else "P"
-    cols = FULL_ARMS + NOUNK_ARMS
+    present = {c["col"] for c in cases.values()}
+    cols = [c for c in FULL_ARMS if c in present] + sorted(c for c in present if c not in FULL_ARMS + NOUNK_ARMS
+                                                         and "@nounk" not in c and "-nounk" not in c)
+    cols += [c for c in NOUNK_ARMS if c in present] + sorted(c for c in present if c not in FULL_ARMS + NOUNK_ARMS
+                                                           and ("@nounk" in c or "-nounk" in c))
 
     def order(key):
         inp, d, variant = key
-        return (kind[inp] == "U", inp, DIRS.index(d), VARIANTS.index(variant) if variant in VARIANTS else -1)
+        return (kind[inp] == "U", inp, DIRS.index(d), VARIANTS.index(variant) if variant in VARIANTS else 99, variant)
     keys = sorted(table, key=order)
     with open(os.path.join(run, "variants-codec.tsv"), "w") as f:
         f.write("# CONTAINER INSTRUMENTATION (gen/opt_bench.sh): median ns per operation (process CPU), ABSOLUTE; "
-                "the full-build columns and the @nounk / -nounk columns are two processes; " + H1 +
-                " on every */pool row (harness defect, not fixed in the baseline)\n")
+                "the full-build columns and the @nounk / -nounk columns are two processes\n")
         f.write("input\tdir\tvariant\t" + "\t".join(cols) + "\tnote\n")
         for key in keys:
             row = table[key]
-            f.write("\t".join(list(key) + [fmt(row[c]) if c in row else "" for c in cols] +
-                              [H1 if key[2].endswith("/pool") else ""]) + "\n")
+            f.write("\t".join(list(key) + [fmt(row[c]) if c in row else "" for c in cols] + [""]) + "\n")
     # markdown
     first = sorted(glob.glob(os.path.join(run, "codec-*.jsonl")))[0]
+    h1_fixed = "H-1: input=pool walks the pool" in open(first).read(200000)
     with open(os.path.join(run, "tables-codec.md"), "w") as f:
         f.write("# Codec: absolute medians per variant, one run\n\n")
         f.write("CONTAINER INSTRUMENTATION, not a result (README 1.1), not gated (the codec process's own "
@@ -166,13 +183,18 @@ def codec(run):
                 "`core-ffi-retain` are the full build's process; the `@nounk` and `-nounk` columns are the "
                 "no-unknown build's process, so a comparison across the two groups crosses processes "
                 "(`incumbent-*` and `incumbent-*@nounk` are the same code in the two processes: the control). "
+                "`incumbent-arena` and the `from=bytebuffer` rows are labelled extras (payloads only). "
                 "Empty cell: the arm has no such row (incumbent-prod encodes to the transport form only, "
                 "incumbent-best to a reused string only; P7.1 is decode only). Source: `variants-codec.tsv` (ns); "
                 "per-case spreads in `summary-codec.tsv`.\n\n")
-        f.write("**Harness defect H-1 (not fixed in the baseline):** every `*/pool` row encodes pool[0] only "
-                "(`campaign_codec.cpp` calls `run(1)` per iteration and `run` indexes `i % m` from 0), so it is "
-                "a second hot row over a copy of the graph, not req 11's beyond-cache variant. Those rows are "
-                "marked `pool[0]*`.\n\n")
+        if not h1_fixed:
+            f.write("**Harness defect H-1 (not fixed in this run):** every `*/pool` row encodes pool[0] only "
+                    "(`campaign_codec.cpp` calls `run(1)` per iteration and `run` indexes `i % m` from 0), so it is "
+                    "a second hot row over a copy of the graph, not req 11's beyond-cache variant. Those rows are "
+                    "marked `pool[0]*`.\n\n")
+        else:
+            f.write("`*/pool` rows walk a pool of distinct copies of the graph (H-1 fixed), one graph per "
+                    "iteration; its size is in the header (`pool_bytes`).\n\n")
         f.write("Variants: `reused` = bytes in a reused buffer; `transport` = the form handed to grpc++ "
                 "(a `grpc::ByteBuffer`; core-ffi and host-gen move their bytes into it); `hot` = one graph.\n\n")
         for l in header_lines(first):
@@ -186,7 +208,7 @@ def codec(run):
                 if kind[key[0]] != sect:
                     continue
                 row = table[key]
-                v = key[2].replace("/pool", "/pool[0]*")
+                v = key[2] if h1_fixed else key[2].replace("/pool", "/pool[0]*")
                 f.write(f"| {key[0]} | {key[1]} | {v} | " + " | ".join(us(row.get(c)) for c in cols) + " |\n")
             f.write("\n")
     return len(cases)

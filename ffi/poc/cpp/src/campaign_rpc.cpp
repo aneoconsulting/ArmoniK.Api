@@ -220,6 +220,10 @@ struct Conn {
   std::shared_ptr<grpc::Channel> chan;
   std::vector<std::unique_ptr<gridns::Grid::Stub> > stubs;
   ak_client *cl = nullptr;
+  // H-4 (2026-09-28): the raw methods of cells A (d), D and F, built ONCE with their channel,
+  // so every call is a registered call, as the generated stub's methods are (before: an
+  // RpcMethod without a channel per call, grpc-core's unregistered path).
+  std::unique_ptr<grpc::internal::RpcMethod> m_fetch, m_push, m_upload, m_stream, m_stream_check;
 };
 
 struct World {
@@ -283,6 +287,7 @@ struct ThreadCtx {
   ak_dec_ctx *dcr = nullptr;  // retain decodes: its own context, left armed (rule 7), so a drop
                               // decode on `dc` never pays a disarming reset
   ak::Enc *ne = nullptr, *nre = nullptr;
+  std::vector<uint8_t> pbuf;  // H-6: cell B's protobuf request buffer, reused, grown only
   ThreadCtx() {
     ec = ak_enc_ctx_new();
     dc = shapes::ffi::dec_ctx_new_for<Fac>();  // decision 11 rule 6
@@ -415,6 +420,15 @@ grpc::ByteBuffer grpc_request(char cell, Mode m, ThreadCtx &tc, const V &v) {
   return hg_owned_buffer(hg_enc(tc, v, m), "F encode");
 }
 
+// H-6: a protobuf message serialised into a reused buffer; returns its length.
+template <class P>
+size_t pb_into(const P &m, std::vector<uint8_t> &buf) {
+  const size_t n = m.ByteSizeLong();
+  if (buf.size() < n) buf.resize(n);
+  m.SerializeWithCachedSizesToArray(buf.data());
+  return n;
+}
+
 std::string flatten(const grpc::ByteBuffer &bb) {
   std::vector<grpc::Slice> slices;
   if (!bb.Dump(&slices).ok()) die("response dump", 0);
@@ -436,9 +450,10 @@ void core_unary_req(const Cell &cl, Conn &cn, ThreadCtx &tc, const char *path, c
   int32_t rc;
   const size_t pl = std::strlen(path);
   if (cl.base == 'B') {
-    std::string q;
-    pv.SerializeToString(&q);
-    rc = ak_call_unary(cn.cl, (const uint8_t *)path, pl, (const uint8_t *)q.data(), q.size(), &out, &gs);
+    // H-6 (2026-09-28): ByteSizeLong + SerializeWithCachedSizesToArray into the thread's reused
+    // buffer (no fresh string, no zero-fill once it is large enough).
+    const size_t qn = pb_into(pv, tc.pbuf);
+    rc = ak_call_unary(cn.cl, (const uint8_t *)path, pl, tc.pbuf.data(), qn, &out, &gs);
   } else if (cl.base == 'C') {
     intptr_t e = core_enc(tc.ec, fv, cl.mode);
     if (e < 0) die("C encode", (long)e);
@@ -481,7 +496,7 @@ long stream_call(World &w, size_t ci, int pi, int t, ThreadCtx &tc, bool check =
     // grpc++'s ClientWriter with protobuf requests (SerializationTraits, the production path);
     // the answer is raw bytes (SERVER.md), so the response side is a ByteBuffer.
     (void)t;
-    grpc::internal::RpcMethod method(path, grpc::internal::RpcMethod::CLIENT_STREAMING);
+    const grpc::internal::RpcMethod &method = check ? *cn.m_stream_check : *cn.m_stream;  // H-4
     grpc::ClientContext ctx;
     grpc::ByteBuffer rsp;
     std::unique_ptr<grpc::ClientWriter<Pb5> > wr(
@@ -499,13 +514,12 @@ long stream_call(World &w, size_t ci, int pi, int t, ThreadCtx &tc, bool check =
     ak_call *h = ak_call_open(cn.cl, (const uint8_t *)path, std::strlen(path),
                               AK_CALL_CLIENT_STREAM, NULL);
     if (!h) die("ak_call_open", 0);
-    std::string q;
     for (size_t i = 0; i < nmsg; ++i) {
       const int32_t last = i + 1 == nmsg;
       int32_t rc;
       if (cl.base == 'B') {
-        st.p[i].SerializeToString(&q);
-        rc = ak_call_send(h, (const uint8_t *)q.data(), q.size(), last);
+        const size_t qn = pb_into(st.p[i], tc.pbuf);  // H-6
+        rc = ak_call_send(h, tc.pbuf.data(), qn, last);
       } else if (cl.base == 'C') {
         intptr_t e = core_enc(tc.ec, st.f[i], cl.mode);
         if (e < 0) die("C/d encode", (long)e);
@@ -528,7 +542,7 @@ long stream_call(World &w, size_t ci, int pi, int t, ThreadCtx &tc, bool check =
     ak_call_destroy(h);
     return (long)nmsg;
   }
-  grpc::internal::RpcMethod method(path, grpc::internal::RpcMethod::CLIENT_STREAMING);
+  const grpc::internal::RpcMethod &method = check ? *cn.m_stream_check : *cn.m_stream;  // H-4
   grpc::ClientContext ctx;
   grpc::ByteBuffer rsp;
   std::unique_ptr<grpc::ClientWriter<grpc::ByteBuffer> > wr(
@@ -601,7 +615,7 @@ long cell_call(World &w, size_t ci, const Job &job, int t, ThreadCtx &tc) {
     return n;
   }
   // D, F: grpc++'s transport carrying opaque bytes, the generated codec at the client.
-  grpc::internal::RpcMethod method(resp ? kFetch : up ? kUpload : kPush, grpc::internal::RpcMethod::NORMAL_RPC);
+  const grpc::internal::RpcMethod &method = resp ? *cn.m_fetch : up ? *cn.m_upload : *cn.m_push;  // H-4
   grpc::ClientContext ctx;
   grpc::ByteBuffer req, rsp;
   if (resp) {
@@ -642,56 +656,68 @@ long cell_call(World &w, size_t ci, const Job &job, int t, ThreadCtx &tc) {
 }
 
 // R-H2: the caller threads are created ONCE, before any timed window, each with its own
-// contexts, and reused by every batch. A batch hands the first k of them `per` calls each and
-// waits: the window holds the calls and one condition-variable round trip per thread.
+// contexts, and reused by every batch. H-2 (2026-09-28): each thread has its OWN condition
+// variable, and a batch wakes only the k threads it needs (before: one notify_all woke every
+// thread of the pool, at k = 1 too); the window holds the calls, k hand-offs and one wait.
 struct Pool {
+  struct Seat {
+    std::mutex m;
+    std::condition_variable cv;
+    bool go = false, quit = false;
+    int per = 0;
+    size_t cell = 0, job = 0;  // job: index into World::jobs
+    long acc = 0;
+  };
   World *w;
+  std::vector<std::unique_ptr<Seat> > seats;
   std::vector<std::thread> ts;
-  std::mutex m;
-  std::condition_variable go, done;
-  uint64_t gen = 0;
-  int k = 0, per = 0, pending = 0;
-  size_t cell = 0;
-  size_t job = 0;  // index into World::jobs
-  bool quit = false;
-  std::vector<long> acc;
+  std::mutex dm;
+  std::condition_variable done;
+  int pending = 0;
 
-  Pool(World &wr, int n) : w(&wr), acc((size_t)n, 0) {
+  Pool(World &wr, int n) : w(&wr) {
+    for (int t = 0; t < n; ++t) seats.emplace_back(new Seat());
     for (int t = 0; t < n; ++t) ts.push_back(std::thread([this, t]() { run(t); }));
   }
   ~Pool() {
-    { std::lock_guard<std::mutex> l(m); quit = true; ++gen; }
-    go.notify_all();
+    for (size_t i = 0; i < seats.size(); ++i) {
+      { std::lock_guard<std::mutex> l(seats[i]->m); seats[i]->quit = true; seats[i]->go = true; }
+      seats[i]->cv.notify_one();
+    }
     for (size_t i = 0; i < ts.size(); ++i) ts[i].join();
   }
   void run(int t) {
     ThreadCtx tc;
-    uint64_t seen = 0;
+    Seat &s = *seats[(size_t)t];
     for (;;) {
-      int myk, myper; size_t c, d;
+      int myper; size_t c, d;
       {
-        std::unique_lock<std::mutex> l(m);
-        go.wait(l, [&] { return gen != seen; });
-        seen = gen;
-        if (quit) break;
-        myk = k; myper = per; c = cell; d = job;
+        std::unique_lock<std::mutex> l(s.m);
+        s.cv.wait(l, [&] { return s.go; });
+        s.go = false;
+        if (s.quit) break;
+        myper = s.per; c = s.cell; d = s.job;
       }
-      if (t >= myk) continue;
       long n = 0;
       for (int i = 0; i < myper; ++i) n += cell_call(*w, c, w->jobs[d], t, tc);
-      std::lock_guard<std::mutex> l(m);
-      acc[(size_t)t] = n;
+      std::lock_guard<std::mutex> l(dm);
+      s.acc = n;
       if (--pending == 0) done.notify_one();
     }
   }
   long batch(size_t c, size_t j, int kk, int total) {
-    std::unique_lock<std::mutex> l(m);
-    k = kk; per = (total + kk - 1) / kk; cell = c; job = j; pending = kk; ++gen;
-    go.notify_all();
+    const int per = (total + kk - 1) / kk;
+    { std::lock_guard<std::mutex> l(dm); pending = kk; }
+    for (int i = 0; i < kk; ++i) {
+      Seat &s = *seats[(size_t)i];
+      { std::lock_guard<std::mutex> l(s.m); s.per = per; s.cell = c; s.job = j; s.go = true; }
+      s.cv.notify_one();
+    }
+    std::unique_lock<std::mutex> l(dm);
     done.wait(l, [&] { return pending == 0; });
-    long s = 0;
-    for (int i = 0; i < kk; ++i) s += acc[(size_t)i];
-    return s;
+    long sum = 0;
+    for (int i = 0; i < kk; ++i) sum += seats[(size_t)i]->acc;
+    return sum;
   }
 };
 
@@ -887,6 +913,12 @@ int main(int argc, char **argv) {
       cn.chan = grpc::CreateCustomChannel(c.target, grpc::InsecureChannelCredentials(),
                                           channel_args(c.transport, w.cells[i].label));
       for (int s = 0; s < maxk; ++s) cn.stubs.emplace_back(gridns::Grid::NewStub(cn.chan));
+      typedef grpc::internal::RpcMethod RM;
+      cn.m_fetch.reset(new RM(kFetch, RM::NORMAL_RPC, cn.chan));
+      cn.m_push.reset(new RM(kPush, RM::NORMAL_RPC, cn.chan));
+      cn.m_upload.reset(new RM(kUpload, RM::NORMAL_RPC, cn.chan));
+      cn.m_stream.reset(new RM(kUploadStream, RM::CLIENT_STREAMING, cn.chan));
+      cn.m_stream_check.reset(new RM(kUploadStreamCheck, RM::CLIENT_STREAMING, cn.chan));
     } else {
       cn.cl = core_client(w.rt, c.target, c.transport, w.cells[i].framed);
       if (!cn.cl) die("ak_client_new", (long)i);
@@ -1010,6 +1042,7 @@ int main(int argc, char **argv) {
               " \"threads\": {\"caller_threads\": %d, \"core_runtime_workers\": %d,"
               " \"process_threads_before_benchmarks\": %d, \"grpcpp\": \"grpc-core sizes its own pollers and executor"
               " (no application setting); they are counted in the process totals\"},"
+              " \"harness\": \"H-2: one condition variable per caller thread, a batch wakes only its k threads; H-4: the raw methods of A (d), D and F built once per channel (registered calls, as the generated stub's); H-6: cell B serialises with ByteSizeLong + SerializeWithCachedSizesToArray into a reused per-thread buffer\","
               " \"precheck\": \"C, D, E, F in each mode: decode, re-encode, equal to the incumbent's deterministic"
               " re-serialisation; every c/d request message byte-identical to protobuf's\"}}\n",
               kBuild, c.target.c_str(), c.transport.c_str(), c.cells.c_str(), c.dirs.c_str(), c.min_time_s,
