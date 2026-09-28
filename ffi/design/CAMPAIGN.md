@@ -160,10 +160,18 @@ in its container shows it executes (section 9).
     (decode only) and `a+read` (decode, then read every field) in every slice;
     cross-slice readings use `a+read` (owner, 2026-09-26, R-H36).
 15. **Concurrency:** 1, 8 and 16 calls in flight.
-16. **Delivery:** B and C use the core's **blocking** delivery in every host; the
-    callback and queue deliveries are labelled extra rows where a slice has them.
-    A, D and F use the host stack's **idiomatic** call (blocking or async, as its
-    production code does), stated per slice (owner, 2026-09-26, R-H30).
+16. **Delivery:** A, D and F use the host stack's **idiomatic** call (blocking or
+    async, as its production code does), stated per slice (owner, 2026-09-26, R-H30).
+    **Amended by the owner 2026-09-28: the cells on the core's transport (B, C, E and
+    their framed twins) use the core delivery that is idiomatic for the host too**,
+    unary and streaming alike, stated per slice: Rust, the callback delivery bridged to
+    async with a oneshot channel; C++, the blocking delivery and the completion queue,
+    both measured; the other slices state theirs (a callback completing the runtime's
+    future or task, or the queue with one drainer, ABI-v1 section 9). The **blocking**
+    delivery stays in every host as a labelled row, so the core cells keep one
+    delivery that compares across hosts. Before this amendment B and C were fixed to
+    the blocking delivery in every host, for that comparability and because it was the
+    only delivery built at first.
 17. **Transport configuration, both:** `shipped` (what `packages/<lang>`
     configures) and `pinned` (4 MiB stream and connection windows, adaptive
     windows off, Nagle off, stated). B and C follow the same switch as A and D.
