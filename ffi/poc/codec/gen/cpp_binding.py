@@ -308,8 +308,10 @@ def _decode_field(ir, m, f, o, bits, dst):
             o.append("  else %s.reset();" % (dst + n) if NOUNK[0] else
                      "  else { %s.reset(); unk_drop(f.%s.unknown); }" % (dst + n, n))
         else:
-            o.append("  if (f.presence & (1u << %d)) %s.set(from_%s(f.%s, base, ctx));"
-                     % (bits[n], dst + n, snake(f.of), n))
+            # B-4 (2026-09-28): built in place (emplace: a fresh default child, then filled),
+            # never built by value and moved in.
+            o.append("  if (f.presence & (1u << %d)) fill_%s(&%s.emplace(), f.%s, base, ctx);"
+                     % (bits[n], snake(f.of), dst + n, n))
             o.append("  else %s.reset();" % (dst + n) if NOUNK[0] else
                      "  else { %s.reset(); unk_drop(f.%s.unknown); }" % (dst + n, n))
     elif f.kind == "enum":
@@ -349,8 +351,8 @@ def _decode_oneof(ir, m, oname, members, o, dst):
             if has_slots(ir, gm.of):
                 raise NotImplementedError("a oneof member with loop slots (%s.%s)"
                                           % (m.name, gm.name))
-            o.append("      %s.set_%s() = from_%s(f.%s, base, ctx); break; }"
-                     % (dst + oname, gm.name, snake(gm.of), slot))
+            o.append("      fill_%s(&%s.set_%s(), f.%s, base, ctx); break; }"
+                     % (snake(gm.of), dst + oname, gm.name, slot))
         elif gm.kind == "bool":
             o.append("      %s.set_%s() = (f.%s != 0); break; }" % (dst + oname, gm.name, slot))
         elif gm.kind in SCALARS or gm.kind == "enum":
@@ -1017,6 +1019,8 @@ Tcs tcs_host() {
             o.append("static inline void fill_%s(%s *dst, const struct ak_dfix_%s &f,"
                      " const uint8_t *base, ak_dec_ctx *ctx);" % (snake(name), name, name))
         else:
+            o.append("static inline void fill_%s(%s *dst, const struct ak_dfix_%s &f,"
+                     " const uint8_t *base, ak_dec_ctx *ctx);" % (snake(name), name, name))
             o.append("static inline %s from_%s(const struct ak_dfix_%s &f,"
                      " const uint8_t *base, ak_dec_ctx *ctx);" % (name, snake(name), name))
     o.append("")
@@ -1137,18 +1141,25 @@ Tcs tcs_host() {
                 o.append("  unk_take(f.unknown, &dst->unknown_fields);")
             o.append("}")
         else:
-            o.append("static inline %s from_%s(const struct ak_dfix_%s &f, const uint8_t *base,"
-                     " ak_dec_ctx *ctx) {" % (name, snake(name), name))
-            o.append("  (void)f; (void)base; (void)ctx;")
-            o.append("  %s r;" % name)
+            # B-3 (2026-09-28): a leaf group is read INTO a default-constructed object in
+            # place (an element just emplaced, a child just emplaced); `from_` stays for
+            # any by-value use.
+            o.append("static inline void fill_%s(%s *dst, const struct ak_dfix_%s &f,"
+                     " const uint8_t *base, ak_dec_ctx *ctx) {" % (snake(name), name, name))
+            o.append("  (void)dst; (void)f; (void)base; (void)ctx;")
             for fld in m.plain:
                 if fld.oneof or fld.card != "singular":
                     continue
-                _decode_field(ir, m, fld, o, bits, "r.")
+                _decode_field(ir, m, fld, o, bits, "dst->")
             for oname, members in m.oneofs.items():
-                _decode_oneof(ir, m, oname, members, o, "r.")
+                _decode_oneof(ir, m, oname, members, o, "dst->")
             if not nu:
-                o.append("  unk_take(f.unknown, &r.unknown_fields);")
+                o.append("  unk_take(f.unknown, &dst->unknown_fields);")
+            o.append("}")
+            o.append("static inline %s from_%s(const struct ak_dfix_%s &f, const uint8_t *base,"
+                     " ak_dec_ctx *ctx) {" % (name, snake(name), name))
+            o.append("  %s r;" % name)
+            o.append("  fill_%s(&r, f, base, ctx);" % snake(name))
             o.append("  return r;")
             o.append("}")
         o.append("")
@@ -1334,9 +1345,10 @@ Tcs tcs_host() {
                     o.append("    }")
                 else:
                     o.append("    grow_by(%s, (size_t)n);" % dst)
-                    o.append("    for (int32_t i = 0; i < n; ++i)")
-                    o.append("      %s.push_back(from_%s(elems[i], s->base, ctx));"
-                             % (dst, snake(elem_ty)))
+                    o.append("    for (int32_t i = 0; i < n; ++i) {")
+                    o.append("      %s.emplace_back();  // B-3: the element is built in place" % dst)
+                    o.append("      fill_%s(&%s.back(), elems[i], s->base, ctx);" % (snake(elem_ty), dst))
+                    o.append("    }")
                 o.append("    AK_REFILL();")
                 o.append("  AK_DGUARD_END")
                 o.append("}")
@@ -1348,7 +1360,7 @@ Tcs tcs_host() {
                 o.append("  try {")
                 o.append("#endif")
                 o.append("    Sink_%s *s = (Sink_%s *)obj;" % (root, root))
-                o.append("    %s.push_back(%s());" % (dst, elem_ty))
+                o.append("    %s.emplace_back();  // B-3: in place, no temporary" % dst)
                 o.append("    AK_REFILL();")
                 o.append("    return (int64_t)(%s.size() - 1);" % dst)
                 o.append("#ifndef AK_NO_GUARD")
@@ -1454,9 +1466,10 @@ Tcs tcs_host() {
                         o.append("    Sink_%s *s = (Sink_%s *)obj;" % (root, root))
                         o.append("    std::vector<%s> &dst = %s;" % (iet, idst))
                         o.append("    grow_by(dst, (size_t)n);")
-                        o.append("    for (int32_t i = 0; i < n; ++i)")
-                        o.append("      dst.push_back(from_%s(elems[i], s->base, ctx));"
-                                 % snake(iet))
+                        o.append("    for (int32_t i = 0; i < n; ++i) {")
+                        o.append("      dst.emplace_back();  // B-3: the element is built in place")
+                        o.append("      fill_%s(&dst.back(), elems[i], s->base, ctx);" % snake(iet))
+                        o.append("    }")
                         o.append("    AK_REFILL();")
                         o.append("  AK_DGUARD_END")
                         o.append("}")

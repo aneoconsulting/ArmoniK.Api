@@ -43,8 +43,12 @@ class Optional {
   // The in-place accessor a decode path needs: a message that carries a repeated or a map
   // field is filled IN PLACE, never constructed, because `apply` arrives after the runs
   // that populated it (ABI v1 section 7.1).
+  // B-5 (2026-09-28): the INVARIANT "absent implies the default value" (every mutator keeps
+  // it: the constructors, set, emplace, reset) lets the accessors below skip the assignment
+  // of a fresh T() when nothing is there. Writing through value() or * while absent is
+  // outside the contract (nothing in this slice does it).
   T &get_or_insert() {
-    if (!has_) { v_ = T(); has_ = true; }
+    has_ = true;
     return v_;
   }
   void set(const T &v) { v_ = v; has_ = true; }
@@ -53,8 +57,8 @@ class Optional {
   // whole payload. Measured before it existed: P5.4 decode through the ABI was 3.7 ms
   // slower than the no-boundary control, all of it this copy.
   void set(T &&v) { v_ = static_cast<T &&>(v); has_ = true; }
-  T &emplace() { v_ = T(); has_ = true; return v_; }
-  void reset() { v_ = T(); has_ = false; }
+  T &emplace() { if (has_) v_ = T(); has_ = true; return v_; }
+  void reset() { if (has_) { v_ = T(); has_ = false; } }
   bool operator==(const Optional &o) const {
     return has_ == o.has_ && (!has_ || v_ == o.v_);
   }

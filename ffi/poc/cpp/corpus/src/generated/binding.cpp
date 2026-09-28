@@ -412,34 +412,47 @@ static inline struct ak_ufix_Surrogate make_surrogate_unk(const Surrogate &o, co
 static inline void fill_surrogate_unk_sparse(struct ak_ufix_Surrogate *d, const Surrogate &o, const Tcs &t);
 static inline struct ak_ufix_WireZoo make_wire_zoo_unk(const WireZoo &o, const Tcs &t);
 static inline void fill_wire_zoo_unk_sparse(struct ak_ufix_WireZoo *d, const WireZoo &o, const Tcs &t);
+static inline void fill_timestamp(Timestamp *dst, const struct ak_dfix_Timestamp &f, const uint8_t *base, ak_dec_ctx *ctx);
 static inline Timestamp from_timestamp(const struct ak_dfix_Timestamp &f, const uint8_t *base, ak_dec_ctx *ctx);
+static inline void fill_duration(Duration *dst, const struct ak_dfix_Duration &f, const uint8_t *base, ak_dec_ctx *ctx);
 static inline Duration from_duration(const struct ak_dfix_Duration &f, const uint8_t *base, ak_dec_ctx *ctx);
+static inline void fill_result_raw(ResultRaw *dst, const struct ak_dfix_ResultRaw &f, const uint8_t *base, ak_dec_ctx *ctx);
 static inline ResultRaw from_result_raw(const struct ak_dfix_ResultRaw &f, const uint8_t *base, ak_dec_ctx *ctx);
 static inline void fill_task_options(TaskOptions *dst, const struct ak_dfix_TaskOptions &f, const uint8_t *base, ak_dec_ctx *ctx);
+static inline void fill_task_output(TaskOutput *dst, const struct ak_dfix_TaskOutput &f, const uint8_t *base, ak_dec_ctx *ctx);
 static inline TaskOutput from_task_output(const struct ak_dfix_TaskOutput &f, const uint8_t *base, ak_dec_ctx *ctx);
 static inline void fill_task_detailed(TaskDetailed *dst, const struct ak_dfix_TaskDetailed &f, const uint8_t *base, ak_dec_ctx *ctx);
 static inline void fill_task_summary(TaskSummary *dst, const struct ak_dfix_TaskSummary &f, const uint8_t *base, ak_dec_ctx *ctx);
+static inline void fill_empty(Empty *dst, const struct ak_dfix_Empty &f, const uint8_t *base, ak_dec_ctx *ctx);
 static inline Empty from_empty(const struct ak_dfix_Empty &f, const uint8_t *base, ak_dec_ctx *ctx);
+static inline void fill_probe(Probe *dst, const struct ak_dfix_Probe &f, const uint8_t *base, ak_dec_ctx *ctx);
 static inline Probe from_probe(const struct ak_dfix_Probe &f, const uint8_t *base, ak_dec_ctx *ctx);
+static inline void fill_upload_result_data(UploadResultData *dst, const struct ak_dfix_UploadResultData &f, const uint8_t *base, ak_dec_ctx *ctx);
 static inline UploadResultData from_upload_result_data(const struct ak_dfix_UploadResultData &f, const uint8_t *base, ak_dec_ctx *ctx);
 static inline void fill_metrics_batch(MetricsBatch *dst, const struct ak_dfix_MetricsBatch &f, const uint8_t *base, ak_dec_ctx *ctx);
+static inline void fill_pair(Pair *dst, const struct ak_dfix_Pair &f, const uint8_t *base, ak_dec_ctx *ctx);
 static inline Pair from_pair(const struct ak_dfix_Pair &f, const uint8_t *base, ak_dec_ctx *ctx);
 static inline void fill_list_results_response(ListResultsResponse *dst, const struct ak_dfix_ListResultsResponse &f, const uint8_t *base, ak_dec_ctx *ctx);
 static inline void fill_list_tasks_detailed_response(ListTasksDetailedResponse *dst, const struct ak_dfix_ListTasksDetailedResponse &f, const uint8_t *base, ak_dec_ctx *ctx);
 static inline void fill_list_task_summary_response(ListTaskSummaryResponse *dst, const struct ak_dfix_ListTaskSummaryResponse &f, const uint8_t *base, ak_dec_ctx *ctx);
 static inline void fill_list_probe_response(ListProbeResponse *dst, const struct ak_dfix_ListProbeResponse &f, const uint8_t *base, ak_dec_ctx *ctx);
 static inline void fill_list_metrics_response(ListMetricsResponse *dst, const struct ak_dfix_ListMetricsResponse &f, const uint8_t *base, ak_dec_ctx *ctx);
+static inline void fill_upload_result_data_message(UploadResultDataMessage *dst, const struct ak_dfix_UploadResultDataMessage &f, const uint8_t *base, ak_dec_ctx *ctx);
 static inline UploadResultDataMessage from_upload_result_data_message(const struct ak_dfix_UploadResultDataMessage &f, const uint8_t *base, ak_dec_ctx *ctx);
 static inline void fill_dual_response(DualResponse *dst, const struct ak_dfix_DualResponse &f, const uint8_t *base, ak_dec_ctx *ctx);
+static inline void fill_chunk_leaf(ChunkLeaf *dst, const struct ak_dfix_ChunkLeaf &f, const uint8_t *base, ak_dec_ctx *ctx);
 static inline ChunkLeaf from_chunk_leaf(const struct ak_dfix_ChunkLeaf &f, const uint8_t *base, ak_dec_ctx *ctx);
 static inline void fill_chunk_inner(ChunkInner *dst, const struct ak_dfix_ChunkInner &f, const uint8_t *base, ak_dec_ctx *ctx);
 static inline void fill_chunk_element(ChunkElement *dst, const struct ak_dfix_ChunkElement &f, const uint8_t *base, ak_dec_ctx *ctx);
 static inline void fill_chunked_response(ChunkedResponse *dst, const struct ak_dfix_ChunkedResponse &f, const uint8_t *base, ak_dec_ctx *ctx);
 static inline void fill_chunked_response_wide(ChunkedResponseWide *dst, const struct ak_dfix_ChunkedResponseWide &f, const uint8_t *base, ak_dec_ctx *ctx);
+static inline void fill_leaf_element(LeafElement *dst, const struct ak_dfix_LeafElement &f, const uint8_t *base, ak_dec_ctx *ctx);
 static inline LeafElement from_leaf_element(const struct ak_dfix_LeafElement &f, const uint8_t *base, ak_dec_ctx *ctx);
 static inline void fill_leaf_response(LeafResponse *dst, const struct ak_dfix_LeafResponse &f, const uint8_t *base, ak_dec_ctx *ctx);
+static inline void fill_surrogate_inner(SurrogateInner *dst, const struct ak_dfix_SurrogateInner &f, const uint8_t *base, ak_dec_ctx *ctx);
 static inline SurrogateInner from_surrogate_inner(const struct ak_dfix_SurrogateInner &f, const uint8_t *base, ak_dec_ctx *ctx);
 static inline void fill_surrogate(Surrogate *dst, const struct ak_dfix_Surrogate &f, const uint8_t *base, ak_dec_ctx *ctx);
+static inline void fill_wire_zoo(WireZoo *dst, const struct ak_dfix_WireZoo &f, const uint8_t *base, ak_dec_ctx *ctx);
 static inline WireZoo from_wire_zoo(const struct ak_dfix_WireZoo &f, const uint8_t *base, ak_dec_ctx *ctx);
 
 // Total fill (ABI v1 section 6): every member assigned, presence ASSIGNED
@@ -1964,41 +1977,50 @@ static inline void fill_wire_zoo_sparse(struct ak_efix_WireZoo *d, const WireZoo
   if (o.v_big_tag != 0) d->v_big_tag = o.v_big_tag;
 }
 
+static inline void fill_timestamp(Timestamp *dst, const struct ak_dfix_Timestamp &f, const uint8_t *base, ak_dec_ctx *ctx) {
+  (void)dst; (void)f; (void)base; (void)ctx;
+  dst->seconds = f.seconds;
+  dst->nanos = f.nanos;
+  unk_take(f.unknown, &dst->unknown_fields);
+}
 static inline Timestamp from_timestamp(const struct ak_dfix_Timestamp &f, const uint8_t *base, ak_dec_ctx *ctx) {
-  (void)f; (void)base; (void)ctx;
   Timestamp r;
-  r.seconds = f.seconds;
-  r.nanos = f.nanos;
-  unk_take(f.unknown, &r.unknown_fields);
+  fill_timestamp(&r, f, base, ctx);
   return r;
 }
 
+static inline void fill_duration(Duration *dst, const struct ak_dfix_Duration &f, const uint8_t *base, ak_dec_ctx *ctx) {
+  (void)dst; (void)f; (void)base; (void)ctx;
+  dst->seconds = f.seconds;
+  dst->nanos = f.nanos;
+  unk_take(f.unknown, &dst->unknown_fields);
+}
 static inline Duration from_duration(const struct ak_dfix_Duration &f, const uint8_t *base, ak_dec_ctx *ctx) {
-  (void)f; (void)base; (void)ctx;
   Duration r;
-  r.seconds = f.seconds;
-  r.nanos = f.nanos;
-  unk_take(f.unknown, &r.unknown_fields);
+  fill_duration(&r, f, base, ctx);
   return r;
 }
 
+static inline void fill_result_raw(ResultRaw *dst, const struct ak_dfix_ResultRaw &f, const uint8_t *base, ak_dec_ctx *ctx) {
+  (void)dst; (void)f; (void)base; (void)ctx;
+  s_of(base, f.session_id, ctx, &dst->session_id);
+  s_of(base, f.name, ctx, &dst->name);
+  s_of(base, f.owner_task_id, ctx, &dst->owner_task_id);
+  dst->status = corpus::ResultStatus(f.status);
+  if (f.presence & (1u << 0)) fill_timestamp(&dst->created_at.emplace(), f.created_at, base, ctx);
+  else { dst->created_at.reset(); unk_drop(f.created_at.unknown); }
+  if (f.presence & (1u << 1)) fill_timestamp(&dst->completed_at.emplace(), f.completed_at, base, ctx);
+  else { dst->completed_at.reset(); unk_drop(f.completed_at.unknown); }
+  s_of(base, f.result_id, ctx, &dst->result_id);
+  dst->size = f.size;
+  s_of(base, f.created_by, ctx, &dst->created_by);
+  b_of(base, f.opaque_id, &dst->opaque_id);
+  dst->manual_deletion = (f.manual_deletion != 0);
+  unk_take(f.unknown, &dst->unknown_fields);
+}
 static inline ResultRaw from_result_raw(const struct ak_dfix_ResultRaw &f, const uint8_t *base, ak_dec_ctx *ctx) {
-  (void)f; (void)base; (void)ctx;
   ResultRaw r;
-  s_of(base, f.session_id, ctx, &r.session_id);
-  s_of(base, f.name, ctx, &r.name);
-  s_of(base, f.owner_task_id, ctx, &r.owner_task_id);
-  r.status = corpus::ResultStatus(f.status);
-  if (f.presence & (1u << 0)) r.created_at.set(from_timestamp(f.created_at, base, ctx));
-  else { r.created_at.reset(); unk_drop(f.created_at.unknown); }
-  if (f.presence & (1u << 1)) r.completed_at.set(from_timestamp(f.completed_at, base, ctx));
-  else { r.completed_at.reset(); unk_drop(f.completed_at.unknown); }
-  s_of(base, f.result_id, ctx, &r.result_id);
-  r.size = f.size;
-  s_of(base, f.created_by, ctx, &r.created_by);
-  b_of(base, f.opaque_id, &r.opaque_id);
-  r.manual_deletion = (f.manual_deletion != 0);
-  unk_take(f.unknown, &r.unknown_fields);
+  fill_result_raw(&r, f, base, ctx);
   return r;
 }
 
@@ -2006,7 +2028,7 @@ static inline ResultRaw from_result_raw(const struct ak_dfix_ResultRaw &f, const
 // and `apply` arrives AFTER the runs that populated it.
 static inline void fill_task_options(TaskOptions *dst, const struct ak_dfix_TaskOptions &f, const uint8_t *base, ak_dec_ctx *ctx) {
   (void)dst; (void)f; (void)base; (void)ctx;
-  if (f.presence & (1u << 0)) dst->max_duration.set(from_duration(f.max_duration, base, ctx));
+  if (f.presence & (1u << 0)) fill_duration(&dst->max_duration.emplace(), f.max_duration, base, ctx);
   else { dst->max_duration.reset(); unk_drop(f.max_duration.unknown); }
   dst->max_retries = f.max_retries;
   dst->priority = f.priority;
@@ -2019,12 +2041,15 @@ static inline void fill_task_options(TaskOptions *dst, const struct ak_dfix_Task
   unk_take(f.unknown, &dst->unknown_fields);
 }
 
+static inline void fill_task_output(TaskOutput *dst, const struct ak_dfix_TaskOutput &f, const uint8_t *base, ak_dec_ctx *ctx) {
+  (void)dst; (void)f; (void)base; (void)ctx;
+  dst->success = (f.success != 0);
+  s_of(base, f.error, ctx, &dst->error);
+  unk_take(f.unknown, &dst->unknown_fields);
+}
 static inline TaskOutput from_task_output(const struct ak_dfix_TaskOutput &f, const uint8_t *base, ak_dec_ctx *ctx) {
-  (void)f; (void)base; (void)ctx;
   TaskOutput r;
-  r.success = (f.success != 0);
-  s_of(base, f.error, ctx, &r.error);
-  unk_take(f.unknown, &r.unknown_fields);
+  fill_task_output(&r, f, base, ctx);
   return r;
 }
 
@@ -2039,33 +2064,33 @@ static inline void fill_task_detailed(TaskDetailed *dst, const struct ak_dfix_Ta
   s_of(base, f.status_message, ctx, &dst->status_message);
   if (f.presence & (1u << 0)) fill_task_options(&dst->options.get_or_insert(), f.options, base, ctx);
   else { dst->options.reset(); unk_drop(f.options.unknown); }
-  if (f.presence & (1u << 1)) dst->created_at.set(from_timestamp(f.created_at, base, ctx));
+  if (f.presence & (1u << 1)) fill_timestamp(&dst->created_at.emplace(), f.created_at, base, ctx);
   else { dst->created_at.reset(); unk_drop(f.created_at.unknown); }
-  if (f.presence & (1u << 2)) dst->submitted_at.set(from_timestamp(f.submitted_at, base, ctx));
+  if (f.presence & (1u << 2)) fill_timestamp(&dst->submitted_at.emplace(), f.submitted_at, base, ctx);
   else { dst->submitted_at.reset(); unk_drop(f.submitted_at.unknown); }
-  if (f.presence & (1u << 3)) dst->started_at.set(from_timestamp(f.started_at, base, ctx));
+  if (f.presence & (1u << 3)) fill_timestamp(&dst->started_at.emplace(), f.started_at, base, ctx);
   else { dst->started_at.reset(); unk_drop(f.started_at.unknown); }
-  if (f.presence & (1u << 4)) dst->ended_at.set(from_timestamp(f.ended_at, base, ctx));
+  if (f.presence & (1u << 4)) fill_timestamp(&dst->ended_at.emplace(), f.ended_at, base, ctx);
   else { dst->ended_at.reset(); unk_drop(f.ended_at.unknown); }
-  if (f.presence & (1u << 5)) dst->pod_ttl.set(from_timestamp(f.pod_ttl, base, ctx));
+  if (f.presence & (1u << 5)) fill_timestamp(&dst->pod_ttl.emplace(), f.pod_ttl, base, ctx);
   else { dst->pod_ttl.reset(); unk_drop(f.pod_ttl.unknown); }
-  if (f.presence & (1u << 6)) dst->output.set(from_task_output(f.output, base, ctx));
+  if (f.presence & (1u << 6)) fill_task_output(&dst->output.emplace(), f.output, base, ctx);
   else { dst->output.reset(); unk_drop(f.output.unknown); }
   s_of(base, f.pod_hostname, ctx, &dst->pod_hostname);
-  if (f.presence & (1u << 7)) dst->received_at.set(from_timestamp(f.received_at, base, ctx));
+  if (f.presence & (1u << 7)) fill_timestamp(&dst->received_at.emplace(), f.received_at, base, ctx);
   else { dst->received_at.reset(); unk_drop(f.received_at.unknown); }
-  if (f.presence & (1u << 8)) dst->acquired_at.set(from_timestamp(f.acquired_at, base, ctx));
+  if (f.presence & (1u << 8)) fill_timestamp(&dst->acquired_at.emplace(), f.acquired_at, base, ctx);
   else { dst->acquired_at.reset(); unk_drop(f.acquired_at.unknown); }
-  if (f.presence & (1u << 9)) dst->creation_to_end_duration.set(from_duration(f.creation_to_end_duration, base, ctx));
+  if (f.presence & (1u << 9)) fill_duration(&dst->creation_to_end_duration.emplace(), f.creation_to_end_duration, base, ctx);
   else { dst->creation_to_end_duration.reset(); unk_drop(f.creation_to_end_duration.unknown); }
-  if (f.presence & (1u << 10)) dst->processing_to_end_duration.set(from_duration(f.processing_to_end_duration, base, ctx));
+  if (f.presence & (1u << 10)) fill_duration(&dst->processing_to_end_duration.emplace(), f.processing_to_end_duration, base, ctx);
   else { dst->processing_to_end_duration.reset(); unk_drop(f.processing_to_end_duration.unknown); }
   s_of(base, f.initial_task_id, ctx, &dst->initial_task_id);
-  if (f.presence & (1u << 11)) dst->received_to_end_duration.set(from_duration(f.received_to_end_duration, base, ctx));
+  if (f.presence & (1u << 11)) fill_duration(&dst->received_to_end_duration.emplace(), f.received_to_end_duration, base, ctx);
   else { dst->received_to_end_duration.reset(); unk_drop(f.received_to_end_duration.unknown); }
-  if (f.presence & (1u << 12)) dst->processed_at.set(from_timestamp(f.processed_at, base, ctx));
+  if (f.presence & (1u << 12)) fill_timestamp(&dst->processed_at.emplace(), f.processed_at, base, ctx);
   else { dst->processed_at.reset(); unk_drop(f.processed_at.unknown); }
-  if (f.presence & (1u << 13)) dst->fetched_at.set(from_timestamp(f.fetched_at, base, ctx));
+  if (f.presence & (1u << 13)) fill_timestamp(&dst->fetched_at.emplace(), f.fetched_at, base, ctx);
   else { dst->fetched_at.reset(); unk_drop(f.fetched_at.unknown); }
   s_of(base, f.payload_id, ctx, &dst->payload_id);
   s_of(base, f.created_by, ctx, &dst->created_by);
@@ -2081,7 +2106,7 @@ static inline void fill_task_summary(TaskSummary *dst, const struct ak_dfix_Task
   if (f.presence & (1u << 0)) fill_task_options(&dst->options.get_or_insert(), f.options, base, ctx);
   else { dst->options.reset(); unk_drop(f.options.unknown); }
   dst->status = corpus::TaskStatus(f.status);
-  if (f.presence & (1u << 1)) dst->created_at.set(from_timestamp(f.created_at, base, ctx));
+  if (f.presence & (1u << 1)) fill_timestamp(&dst->created_at.emplace(), f.created_at, base, ctx);
   else { dst->created_at.reset(); unk_drop(f.created_at.unknown); }
   s_of(base, f.error, ctx, &dst->error);
   s_of(base, f.status_message, ctx, &dst->status_message);
@@ -2089,48 +2114,57 @@ static inline void fill_task_summary(TaskSummary *dst, const struct ak_dfix_Task
   unk_take(f.unknown, &dst->unknown_fields);
 }
 
+static inline void fill_empty(Empty *dst, const struct ak_dfix_Empty &f, const uint8_t *base, ak_dec_ctx *ctx) {
+  (void)dst; (void)f; (void)base; (void)ctx;
+  unk_take(f.unknown, &dst->unknown_fields);
+}
 static inline Empty from_empty(const struct ak_dfix_Empty &f, const uint8_t *base, ak_dec_ctx *ctx) {
-  (void)f; (void)base; (void)ctx;
   Empty r;
-  unk_take(f.unknown, &r.unknown_fields);
+  fill_empty(&r, f, base, ctx);
   return r;
 }
 
-static inline Probe from_probe(const struct ak_dfix_Probe &f, const uint8_t *base, ak_dec_ctx *ctx) {
-  (void)f; (void)base; (void)ctx;
-  Probe r;
-  s_of(base, f.id, ctx, &r.id);
-  if (f.presence & (1u << 0)) r.opt_count.set(f.opt_count);
-  else r.opt_count.reset();
-  if (f.presence & (1u << 1)) s_of(base, f.opt_label, ctx, &r.opt_label.emplace());
-  if (f.presence & (1u << 2)) r.opt_flag.set((f.opt_flag != 0));
-  else r.opt_flag.reset();
+static inline void fill_probe(Probe *dst, const struct ak_dfix_Probe &f, const uint8_t *base, ak_dec_ctx *ctx) {
+  (void)dst; (void)f; (void)base; (void)ctx;
+  s_of(base, f.id, ctx, &dst->id);
+  if (f.presence & (1u << 0)) dst->opt_count.set(f.opt_count);
+  else dst->opt_count.reset();
+  if (f.presence & (1u << 1)) s_of(base, f.opt_label, ctx, &dst->opt_label.emplace());
+  if (f.presence & (1u << 2)) dst->opt_flag.set((f.opt_flag != 0));
+  else dst->opt_flag.reset();
   if (f.body_case != 13u) unk_drop(f.body_as_stamp.unknown);
   if (f.body_case != 14u) unk_drop(f.body_as_nothing.unknown);
   switch (f.body_case) {
     case 10: {
-      r.body.set_as_int() = f.body_as_int; break; }
+      dst->body.set_as_int() = f.body_as_int; break; }
     case 11: {
-      s_of(base, f.body_as_text, ctx, &r.body.set_as_text()); break; }
+      s_of(base, f.body_as_text, ctx, &dst->body.set_as_text()); break; }
     case 12: {
-      b_of(base, f.body_as_blob, &r.body.set_as_blob()); break; }
+      b_of(base, f.body_as_blob, &dst->body.set_as_blob()); break; }
     case 13: {
-      r.body.set_as_stamp() = from_timestamp(f.body_as_stamp, base, ctx); break; }
+      fill_timestamp(&dst->body.set_as_stamp(), f.body_as_stamp, base, ctx); break; }
     case 14: {
-      r.body.set_as_nothing() = from_empty(f.body_as_nothing, base, ctx); break; }
-    default: r.body.clear(); break;
+      fill_empty(&dst->body.set_as_nothing(), f.body_as_nothing, base, ctx); break; }
+    default: dst->body.clear(); break;
   }
-  unk_take(f.unknown, &r.unknown_fields);
+  unk_take(f.unknown, &dst->unknown_fields);
+}
+static inline Probe from_probe(const struct ak_dfix_Probe &f, const uint8_t *base, ak_dec_ctx *ctx) {
+  Probe r;
+  fill_probe(&r, f, base, ctx);
   return r;
 }
 
+static inline void fill_upload_result_data(UploadResultData *dst, const struct ak_dfix_UploadResultData &f, const uint8_t *base, ak_dec_ctx *ctx) {
+  (void)dst; (void)f; (void)base; (void)ctx;
+  s_of(base, f.session_id, ctx, &dst->session_id);
+  s_of(base, f.result_id, ctx, &dst->result_id);
+  b_of(base, f.data_chunk, &dst->data_chunk);
+  unk_take(f.unknown, &dst->unknown_fields);
+}
 static inline UploadResultData from_upload_result_data(const struct ak_dfix_UploadResultData &f, const uint8_t *base, ak_dec_ctx *ctx) {
-  (void)f; (void)base; (void)ctx;
   UploadResultData r;
-  s_of(base, f.session_id, ctx, &r.session_id);
-  s_of(base, f.result_id, ctx, &r.result_id);
-  b_of(base, f.data_chunk, &r.data_chunk);
-  unk_take(f.unknown, &r.unknown_fields);
+  fill_upload_result_data(&r, f, base, ctx);
   return r;
 }
 
@@ -2142,12 +2176,15 @@ static inline void fill_metrics_batch(MetricsBatch *dst, const struct ak_dfix_Me
   unk_take(f.unknown, &dst->unknown_fields);
 }
 
+static inline void fill_pair(Pair *dst, const struct ak_dfix_Pair &f, const uint8_t *base, ak_dec_ctx *ctx) {
+  (void)dst; (void)f; (void)base; (void)ctx;
+  s_of(base, f.key, ctx, &dst->key);
+  dst->value = f.value;
+  unk_take(f.unknown, &dst->unknown_fields);
+}
 static inline Pair from_pair(const struct ak_dfix_Pair &f, const uint8_t *base, ak_dec_ctx *ctx) {
-  (void)f; (void)base; (void)ctx;
   Pair r;
-  s_of(base, f.key, ctx, &r.key);
-  r.value = f.value;
-  unk_take(f.unknown, &r.unknown_fields);
+  fill_pair(&r, f, base, ctx);
   return r;
 }
 
@@ -2190,12 +2227,15 @@ static inline void fill_list_metrics_response(ListMetricsResponse *dst, const st
   unk_take(f.unknown, &dst->unknown_fields);
 }
 
+static inline void fill_upload_result_data_message(UploadResultDataMessage *dst, const struct ak_dfix_UploadResultDataMessage &f, const uint8_t *base, ak_dec_ctx *ctx) {
+  (void)dst; (void)f; (void)base; (void)ctx;
+  if (f.presence & (1u << 0)) fill_upload_result_data(&dst->upload.emplace(), f.upload, base, ctx);
+  else { dst->upload.reset(); unk_drop(f.upload.unknown); }
+  unk_take(f.unknown, &dst->unknown_fields);
+}
 static inline UploadResultDataMessage from_upload_result_data_message(const struct ak_dfix_UploadResultDataMessage &f, const uint8_t *base, ak_dec_ctx *ctx) {
-  (void)f; (void)base; (void)ctx;
   UploadResultDataMessage r;
-  if (f.presence & (1u << 0)) r.upload.set(from_upload_result_data(f.upload, base, ctx));
-  else { r.upload.reset(); unk_drop(f.upload.unknown); }
-  unk_take(f.unknown, &r.unknown_fields);
+  fill_upload_result_data_message(&r, f, base, ctx);
   return r;
 }
 
@@ -2206,12 +2246,15 @@ static inline void fill_dual_response(DualResponse *dst, const struct ak_dfix_Du
   unk_take(f.unknown, &dst->unknown_fields);
 }
 
+static inline void fill_chunk_leaf(ChunkLeaf *dst, const struct ak_dfix_ChunkLeaf &f, const uint8_t *base, ak_dec_ctx *ctx) {
+  (void)dst; (void)f; (void)base; (void)ctx;
+  s_of(base, f.k, ctx, &dst->k);
+  dst->v = f.v;
+  unk_take(f.unknown, &dst->unknown_fields);
+}
 static inline ChunkLeaf from_chunk_leaf(const struct ak_dfix_ChunkLeaf &f, const uint8_t *base, ak_dec_ctx *ctx) {
-  (void)f; (void)base; (void)ctx;
   ChunkLeaf r;
-  s_of(base, f.k, ctx, &r.k);
-  r.v = f.v;
-  unk_take(f.unknown, &r.unknown_fields);
+  fill_chunk_leaf(&r, f, base, ctx);
   return r;
 }
 
@@ -2247,14 +2290,17 @@ static inline void fill_chunked_response_wide(ChunkedResponseWide *dst, const st
   unk_take(f.unknown, &dst->unknown_fields);
 }
 
+static inline void fill_leaf_element(LeafElement *dst, const struct ak_dfix_LeafElement &f, const uint8_t *base, ak_dec_ctx *ctx) {
+  (void)dst; (void)f; (void)base; (void)ctx;
+  s_of(base, f.id, ctx, &dst->id);
+  dst->n = f.n;
+  if (f.presence & (1u << 0)) fill_timestamp(&dst->stamp.emplace(), f.stamp, base, ctx);
+  else { dst->stamp.reset(); unk_drop(f.stamp.unknown); }
+  unk_take(f.unknown, &dst->unknown_fields);
+}
 static inline LeafElement from_leaf_element(const struct ak_dfix_LeafElement &f, const uint8_t *base, ak_dec_ctx *ctx) {
-  (void)f; (void)base; (void)ctx;
   LeafElement r;
-  s_of(base, f.id, ctx, &r.id);
-  r.n = f.n;
-  if (f.presence & (1u << 0)) r.stamp.set(from_timestamp(f.stamp, base, ctx));
-  else { r.stamp.reset(); unk_drop(f.stamp.unknown); }
-  unk_take(f.unknown, &r.unknown_fields);
+  fill_leaf_element(&r, f, base, ctx);
   return r;
 }
 
@@ -2265,11 +2311,14 @@ static inline void fill_leaf_response(LeafResponse *dst, const struct ak_dfix_Le
   unk_take(f.unknown, &dst->unknown_fields);
 }
 
+static inline void fill_surrogate_inner(SurrogateInner *dst, const struct ak_dfix_SurrogateInner &f, const uint8_t *base, ak_dec_ctx *ctx) {
+  (void)dst; (void)f; (void)base; (void)ctx;
+  s_of(base, f.text, ctx, &dst->text);
+  unk_take(f.unknown, &dst->unknown_fields);
+}
 static inline SurrogateInner from_surrogate_inner(const struct ak_dfix_SurrogateInner &f, const uint8_t *base, ak_dec_ctx *ctx) {
-  (void)f; (void)base; (void)ctx;
   SurrogateInner r;
-  s_of(base, f.text, ctx, &r.text);
-  unk_take(f.unknown, &r.unknown_fields);
+  fill_surrogate_inner(&r, f, base, ctx);
   return r;
 }
 
@@ -2278,27 +2327,30 @@ static inline SurrogateInner from_surrogate_inner(const struct ak_dfix_Surrogate
 static inline void fill_surrogate(Surrogate *dst, const struct ak_dfix_Surrogate &f, const uint8_t *base, ak_dec_ctx *ctx) {
   (void)dst; (void)f; (void)base; (void)ctx;
   s_of(base, f.text, ctx, &dst->text);
-  if (f.presence & (1u << 0)) dst->nested.set(from_surrogate_inner(f.nested, base, ctx));
+  if (f.presence & (1u << 0)) fill_surrogate_inner(&dst->nested.emplace(), f.nested, base, ctx);
   else { dst->nested.reset(); unk_drop(f.nested.unknown); }
   b_of(base, f.raw, &dst->raw);
   unk_take(f.unknown, &dst->unknown_fields);
 }
 
+static inline void fill_wire_zoo(WireZoo *dst, const struct ak_dfix_WireZoo &f, const uint8_t *base, ak_dec_ctx *ctx) {
+  (void)dst; (void)f; (void)base; (void)ctx;
+  dst->v_int32 = f.v_int32;
+  dst->v_int64 = f.v_int64;
+  dst->v_bool = (f.v_bool != 0);
+  dst->v_double = f.v_double;
+  dst->v_fixed32 = f.v_fixed32;
+  s_of(base, f.v_string, ctx, &dst->v_string);
+  b_of(base, f.v_bytes, &dst->v_bytes);
+  dst->v_enum = corpus::ResultStatus(f.v_enum);
+  if (f.presence & (1u << 0)) fill_timestamp(&dst->v_msg.emplace(), f.v_msg, base, ctx);
+  else { dst->v_msg.reset(); unk_drop(f.v_msg.unknown); }
+  dst->v_big_tag = f.v_big_tag;
+  unk_take(f.unknown, &dst->unknown_fields);
+}
 static inline WireZoo from_wire_zoo(const struct ak_dfix_WireZoo &f, const uint8_t *base, ak_dec_ctx *ctx) {
-  (void)f; (void)base; (void)ctx;
   WireZoo r;
-  r.v_int32 = f.v_int32;
-  r.v_int64 = f.v_int64;
-  r.v_bool = (f.v_bool != 0);
-  r.v_double = f.v_double;
-  r.v_fixed32 = f.v_fixed32;
-  s_of(base, f.v_string, ctx, &r.v_string);
-  b_of(base, f.v_bytes, &r.v_bytes);
-  r.v_enum = corpus::ResultStatus(f.v_enum);
-  if (f.presence & (1u << 0)) r.v_msg.set(from_timestamp(f.v_msg, base, ctx));
-  else { r.v_msg.reset(); unk_drop(f.v_msg.unknown); }
-  r.v_big_tag = f.v_big_tag;
-  unk_take(f.unknown, &r.unknown_fields);
+  fill_wire_zoo(&r, f, base, ctx);
   return r;
 }
 
@@ -9732,9 +9784,9 @@ static void apply_result_raw(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_Re
   s_of(base, f.name, ctx, &s->out->name);
   s_of(base, f.owner_task_id, ctx, &s->out->owner_task_id);
   s->out->status = corpus::ResultStatus(f.status);
-  if (f.presence & (1u << 0)) s->out->created_at.set(from_timestamp(f.created_at, base, ctx));
+  if (f.presence & (1u << 0)) fill_timestamp(&s->out->created_at.emplace(), f.created_at, base, ctx);
   else { s->out->created_at.reset(); unk_drop(f.created_at.unknown); }
-  if (f.presence & (1u << 1)) s->out->completed_at.set(from_timestamp(f.completed_at, base, ctx));
+  if (f.presence & (1u << 1)) fill_timestamp(&s->out->completed_at.emplace(), f.completed_at, base, ctx);
   else { s->out->completed_at.reset(); unk_drop(f.completed_at.unknown); }
   s_of(base, f.result_id, ctx, &s->out->result_id);
   s->out->size = f.size;
@@ -9916,7 +9968,7 @@ static void apply_task_options(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_
     const struct ak_dfix_TaskOptions &f = *fx;
     const uint8_t *base = s->base;
     (void)f; (void)base;
-  if (f.presence & (1u << 0)) s->out->max_duration.set(from_duration(f.max_duration, base, ctx));
+  if (f.presence & (1u << 0)) fill_duration(&s->out->max_duration.emplace(), f.max_duration, base, ctx);
   else { s->out->max_duration.reset(); unk_drop(f.max_duration.unknown); }
   s->out->max_retries = f.max_retries;
   s->out->priority = f.priority;
@@ -10296,33 +10348,33 @@ static void apply_task_detailed(ak_dec_ctx *ctx, void *obj, const struct ak_dfix
   s_of(base, f.status_message, ctx, &s->out->status_message);
   if (f.presence & (1u << 0)) fill_task_options(&s->out->options.get_or_insert(), f.options, base, ctx);
   else { s->out->options.reset(); unk_drop(f.options.unknown); }
-  if (f.presence & (1u << 1)) s->out->created_at.set(from_timestamp(f.created_at, base, ctx));
+  if (f.presence & (1u << 1)) fill_timestamp(&s->out->created_at.emplace(), f.created_at, base, ctx);
   else { s->out->created_at.reset(); unk_drop(f.created_at.unknown); }
-  if (f.presence & (1u << 2)) s->out->submitted_at.set(from_timestamp(f.submitted_at, base, ctx));
+  if (f.presence & (1u << 2)) fill_timestamp(&s->out->submitted_at.emplace(), f.submitted_at, base, ctx);
   else { s->out->submitted_at.reset(); unk_drop(f.submitted_at.unknown); }
-  if (f.presence & (1u << 3)) s->out->started_at.set(from_timestamp(f.started_at, base, ctx));
+  if (f.presence & (1u << 3)) fill_timestamp(&s->out->started_at.emplace(), f.started_at, base, ctx);
   else { s->out->started_at.reset(); unk_drop(f.started_at.unknown); }
-  if (f.presence & (1u << 4)) s->out->ended_at.set(from_timestamp(f.ended_at, base, ctx));
+  if (f.presence & (1u << 4)) fill_timestamp(&s->out->ended_at.emplace(), f.ended_at, base, ctx);
   else { s->out->ended_at.reset(); unk_drop(f.ended_at.unknown); }
-  if (f.presence & (1u << 5)) s->out->pod_ttl.set(from_timestamp(f.pod_ttl, base, ctx));
+  if (f.presence & (1u << 5)) fill_timestamp(&s->out->pod_ttl.emplace(), f.pod_ttl, base, ctx);
   else { s->out->pod_ttl.reset(); unk_drop(f.pod_ttl.unknown); }
-  if (f.presence & (1u << 6)) s->out->output.set(from_task_output(f.output, base, ctx));
+  if (f.presence & (1u << 6)) fill_task_output(&s->out->output.emplace(), f.output, base, ctx);
   else { s->out->output.reset(); unk_drop(f.output.unknown); }
   s_of(base, f.pod_hostname, ctx, &s->out->pod_hostname);
-  if (f.presence & (1u << 7)) s->out->received_at.set(from_timestamp(f.received_at, base, ctx));
+  if (f.presence & (1u << 7)) fill_timestamp(&s->out->received_at.emplace(), f.received_at, base, ctx);
   else { s->out->received_at.reset(); unk_drop(f.received_at.unknown); }
-  if (f.presence & (1u << 8)) s->out->acquired_at.set(from_timestamp(f.acquired_at, base, ctx));
+  if (f.presence & (1u << 8)) fill_timestamp(&s->out->acquired_at.emplace(), f.acquired_at, base, ctx);
   else { s->out->acquired_at.reset(); unk_drop(f.acquired_at.unknown); }
-  if (f.presence & (1u << 9)) s->out->creation_to_end_duration.set(from_duration(f.creation_to_end_duration, base, ctx));
+  if (f.presence & (1u << 9)) fill_duration(&s->out->creation_to_end_duration.emplace(), f.creation_to_end_duration, base, ctx);
   else { s->out->creation_to_end_duration.reset(); unk_drop(f.creation_to_end_duration.unknown); }
-  if (f.presence & (1u << 10)) s->out->processing_to_end_duration.set(from_duration(f.processing_to_end_duration, base, ctx));
+  if (f.presence & (1u << 10)) fill_duration(&s->out->processing_to_end_duration.emplace(), f.processing_to_end_duration, base, ctx);
   else { s->out->processing_to_end_duration.reset(); unk_drop(f.processing_to_end_duration.unknown); }
   s_of(base, f.initial_task_id, ctx, &s->out->initial_task_id);
-  if (f.presence & (1u << 11)) s->out->received_to_end_duration.set(from_duration(f.received_to_end_duration, base, ctx));
+  if (f.presence & (1u << 11)) fill_duration(&s->out->received_to_end_duration.emplace(), f.received_to_end_duration, base, ctx);
   else { s->out->received_to_end_duration.reset(); unk_drop(f.received_to_end_duration.unknown); }
-  if (f.presence & (1u << 12)) s->out->processed_at.set(from_timestamp(f.processed_at, base, ctx));
+  if (f.presence & (1u << 12)) fill_timestamp(&s->out->processed_at.emplace(), f.processed_at, base, ctx);
   else { s->out->processed_at.reset(); unk_drop(f.processed_at.unknown); }
-  if (f.presence & (1u << 13)) s->out->fetched_at.set(from_timestamp(f.fetched_at, base, ctx));
+  if (f.presence & (1u << 13)) fill_timestamp(&s->out->fetched_at.emplace(), f.fetched_at, base, ctx);
   else { s->out->fetched_at.reset(); unk_drop(f.fetched_at.unknown); }
   s_of(base, f.payload_id, ctx, &s->out->payload_id);
   s_of(base, f.created_by, ctx, &s->out->created_by);
@@ -10677,7 +10729,7 @@ static void apply_task_summary(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_
   if (f.presence & (1u << 0)) fill_task_options(&s->out->options.get_or_insert(), f.options, base, ctx);
   else { s->out->options.reset(); unk_drop(f.options.unknown); }
   s->out->status = corpus::TaskStatus(f.status);
-  if (f.presence & (1u << 1)) s->out->created_at.set(from_timestamp(f.created_at, base, ctx));
+  if (f.presence & (1u << 1)) fill_timestamp(&s->out->created_at.emplace(), f.created_at, base, ctx);
   else { s->out->created_at.reset(); unk_drop(f.created_at.unknown); }
   s_of(base, f.error, ctx, &s->out->error);
   s_of(base, f.status_message, ctx, &s->out->status_message);
@@ -10904,9 +10956,9 @@ static void apply_probe(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_Probe *
     case 12: {
       b_of(base, f.body_as_blob, &s->out->body.set_as_blob()); break; }
     case 13: {
-      s->out->body.set_as_stamp() = from_timestamp(f.body_as_stamp, base, ctx); break; }
+      fill_timestamp(&s->out->body.set_as_stamp(), f.body_as_stamp, base, ctx); break; }
     case 14: {
-      s->out->body.set_as_nothing() = from_empty(f.body_as_nothing, base, ctx); break; }
+      fill_empty(&s->out->body.set_as_nothing(), f.body_as_nothing, base, ctx); break; }
     default: s->out->body.clear(); break;
   }
     s->out->unknown_fields.clear();
@@ -11806,8 +11858,10 @@ static void add_list_results_response_results(ak_dec_ctx *ctx, void *obj, int64_
   AK_DGUARD_BEGIN
     Sink_ListResultsResponse *s = (Sink_ListResultsResponse *)obj; (void)tok;
     grow_by(s->out->results, (size_t)n);
-    for (int32_t i = 0; i < n; ++i)
-      s->out->results.push_back(from_result_raw(elems[i], s->base, ctx));
+    for (int32_t i = 0; i < n; ++i) {
+      s->out->results.emplace_back();  // B-3: the element is built in place
+      fill_result_raw(&s->out->results.back(), elems[i], s->base, ctx);
+    }
     AK_REFILL();
   AK_DGUARD_END
 }
@@ -12006,7 +12060,7 @@ static int64_t new_list_tasks_detailed_response_tasks(ak_dec_ctx *ctx, void *obj
   try {
 #endif
     Sink_ListTasksDetailedResponse *s = (Sink_ListTasksDetailedResponse *)obj;
-    s->out->tasks.push_back(TaskDetailed());
+    s->out->tasks.emplace_back();  // B-3: in place, no temporary
     AK_REFILL();
     return (int64_t)(s->out->tasks.size() - 1);
 #ifndef AK_NO_GUARD
@@ -12409,7 +12463,7 @@ static int64_t new_list_task_summary_response_tasks(ak_dec_ctx *ctx, void *obj) 
   try {
 #endif
     Sink_ListTaskSummaryResponse *s = (Sink_ListTaskSummaryResponse *)obj;
-    s->out->tasks.push_back(TaskSummary());
+    s->out->tasks.emplace_back();  // B-3: in place, no temporary
     AK_REFILL();
     return (int64_t)(s->out->tasks.size() - 1);
 #ifndef AK_NO_GUARD
@@ -12655,8 +12709,10 @@ static void add_list_probe_response_probes(ak_dec_ctx *ctx, void *obj, int64_t t
   AK_DGUARD_BEGIN
     Sink_ListProbeResponse *s = (Sink_ListProbeResponse *)obj; (void)tok;
     grow_by(s->out->probes, (size_t)n);
-    for (int32_t i = 0; i < n; ++i)
-      s->out->probes.push_back(from_probe(elems[i], s->base, ctx));
+    for (int32_t i = 0; i < n; ++i) {
+      s->out->probes.emplace_back();  // B-3: the element is built in place
+      fill_probe(&s->out->probes.back(), elems[i], s->base, ctx);
+    }
     AK_REFILL();
   AK_DGUARD_END
 }
@@ -12846,7 +12902,7 @@ static int64_t new_list_metrics_response_batches(ak_dec_ctx *ctx, void *obj) {
   try {
 #endif
     Sink_ListMetricsResponse *s = (Sink_ListMetricsResponse *)obj;
-    s->out->batches.push_back(MetricsBatch());
+    s->out->batches.emplace_back();  // B-3: in place, no temporary
     AK_REFILL();
     return (int64_t)(s->out->batches.size() - 1);
 #ifndef AK_NO_GUARD
@@ -13090,7 +13146,7 @@ static void apply_upload_result_data_message(ak_dec_ctx *ctx, void *obj, const s
     const struct ak_dfix_UploadResultDataMessage &f = *fx;
     const uint8_t *base = s->base;
     (void)f; (void)base;
-  if (f.presence & (1u << 0)) s->out->upload.set(from_upload_result_data(f.upload, base, ctx));
+  if (f.presence & (1u << 0)) fill_upload_result_data(&s->out->upload.emplace(), f.upload, base, ctx);
   else { s->out->upload.reset(); unk_drop(f.upload.unknown); }
     s->out->unknown_fields.clear();
     unk_take(f.unknown, &s->out->unknown_fields);
@@ -13271,8 +13327,10 @@ static void add_dual_response_left(ak_dec_ctx *ctx, void *obj, int64_t tok, cons
   AK_DGUARD_BEGIN
     Sink_DualResponse *s = (Sink_DualResponse *)obj; (void)tok;
     grow_by(s->out->left, (size_t)n);
-    for (int32_t i = 0; i < n; ++i)
-      s->out->left.push_back(from_pair(elems[i], s->base, ctx));
+    for (int32_t i = 0; i < n; ++i) {
+      s->out->left.emplace_back();  // B-3: the element is built in place
+      fill_pair(&s->out->left.back(), elems[i], s->base, ctx);
+    }
     AK_REFILL();
   AK_DGUARD_END
 }
@@ -13281,8 +13339,10 @@ static void add_dual_response_right(ak_dec_ctx *ctx, void *obj, int64_t tok, con
   AK_DGUARD_BEGIN
     Sink_DualResponse *s = (Sink_DualResponse *)obj; (void)tok;
     grow_by(s->out->right, (size_t)n);
-    for (int32_t i = 0; i < n; ++i)
-      s->out->right.push_back(from_pair(elems[i], s->base, ctx));
+    for (int32_t i = 0; i < n; ++i) {
+      s->out->right.emplace_back();  // B-3: the element is built in place
+      fill_pair(&s->out->right.back(), elems[i], s->base, ctx);
+    }
     AK_REFILL();
   AK_DGUARD_END
 }
@@ -13648,8 +13708,10 @@ static void add_chunk_inner_leaves(ak_dec_ctx *ctx, void *obj, int64_t tok, cons
   AK_DGUARD_BEGIN
     Sink_ChunkInner *s = (Sink_ChunkInner *)obj; (void)tok;
     grow_by(s->out->leaves, (size_t)n);
-    for (int32_t i = 0; i < n; ++i)
-      s->out->leaves.push_back(from_chunk_leaf(elems[i], s->base, ctx));
+    for (int32_t i = 0; i < n; ++i) {
+      s->out->leaves.emplace_back();  // B-3: the element is built in place
+      fill_chunk_leaf(&s->out->leaves.back(), elems[i], s->base, ctx);
+    }
     AK_REFILL();
   AK_DGUARD_END
 }
@@ -13881,8 +13943,10 @@ static void add_chunk_element_inner_leaves(ak_dec_ctx *ctx, void *obj, int64_t t
   AK_DGUARD_BEGIN
     Sink_ChunkElement *s = (Sink_ChunkElement *)obj; (void)tok;
     grow_by(s->out->inner.get_or_insert().leaves, (size_t)n);
-    for (int32_t i = 0; i < n; ++i)
-      s->out->inner.get_or_insert().leaves.push_back(from_chunk_leaf(elems[i], s->base, ctx));
+    for (int32_t i = 0; i < n; ++i) {
+      s->out->inner.get_or_insert().leaves.emplace_back();  // B-3: the element is built in place
+      fill_chunk_leaf(&s->out->inner.get_or_insert().leaves.back(), elems[i], s->base, ctx);
+    }
     AK_REFILL();
   AK_DGUARD_END
 }
@@ -14081,7 +14145,7 @@ static int64_t new_chunked_response_items(ak_dec_ctx *ctx, void *obj) {
   try {
 #endif
     Sink_ChunkedResponse *s = (Sink_ChunkedResponse *)obj;
-    s->out->items.push_back(ChunkElement());
+    s->out->items.emplace_back();  // B-3: in place, no temporary
     AK_REFILL();
     return (int64_t)(s->out->items.size() - 1);
 #ifndef AK_NO_GUARD
@@ -14152,8 +14216,10 @@ static void add_chunked_response_items_inner_leaves(ak_dec_ctx *ctx, void *obj, 
     Sink_ChunkedResponse *s = (Sink_ChunkedResponse *)obj;
     std::vector<ChunkLeaf> &dst = s->out->items[(size_t)tok].inner.get_or_insert().leaves;
     grow_by(dst, (size_t)n);
-    for (int32_t i = 0; i < n; ++i)
-      dst.push_back(from_chunk_leaf(elems[i], s->base, ctx));
+    for (int32_t i = 0; i < n; ++i) {
+      dst.emplace_back();  // B-3: the element is built in place
+      fill_chunk_leaf(&dst.back(), elems[i], s->base, ctx);
+    }
     AK_REFILL();
   AK_DGUARD_END
 }
@@ -14362,7 +14428,7 @@ static int64_t new_chunked_response_wide_items(ak_dec_ctx *ctx, void *obj) {
   try {
 #endif
     Sink_ChunkedResponseWide *s = (Sink_ChunkedResponseWide *)obj;
-    s->out->items.push_back(ChunkElement());
+    s->out->items.emplace_back();  // B-3: in place, no temporary
     AK_REFILL();
     return (int64_t)(s->out->items.size() - 1);
 #ifndef AK_NO_GUARD
@@ -14433,8 +14499,10 @@ static void add_chunked_response_wide_items_inner_leaves(ak_dec_ctx *ctx, void *
     Sink_ChunkedResponseWide *s = (Sink_ChunkedResponseWide *)obj;
     std::vector<ChunkLeaf> &dst = s->out->items[(size_t)tok].inner.get_or_insert().leaves;
     grow_by(dst, (size_t)n);
-    for (int32_t i = 0; i < n; ++i)
-      dst.push_back(from_chunk_leaf(elems[i], s->base, ctx));
+    for (int32_t i = 0; i < n; ++i) {
+      dst.emplace_back();  // B-3: the element is built in place
+      fill_chunk_leaf(&dst.back(), elems[i], s->base, ctx);
+    }
     AK_REFILL();
   AK_DGUARD_END
 }
@@ -14635,7 +14703,7 @@ static void apply_leaf_element(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_
     (void)f; (void)base;
   s_of(base, f.id, ctx, &s->out->id);
   s->out->n = f.n;
-  if (f.presence & (1u << 0)) s->out->stamp.set(from_timestamp(f.stamp, base, ctx));
+  if (f.presence & (1u << 0)) fill_timestamp(&s->out->stamp.emplace(), f.stamp, base, ctx);
   else { s->out->stamp.reset(); unk_drop(f.stamp.unknown); }
     s->out->unknown_fields.clear();
     unk_take(f.unknown, &s->out->unknown_fields);
@@ -14816,8 +14884,10 @@ static void add_leaf_response_items(ak_dec_ctx *ctx, void *obj, int64_t tok, con
   AK_DGUARD_BEGIN
     Sink_LeafResponse *s = (Sink_LeafResponse *)obj; (void)tok;
     grow_by(s->out->items, (size_t)n);
-    for (int32_t i = 0; i < n; ++i)
-      s->out->items.push_back(from_leaf_element(elems[i], s->base, ctx));
+    for (int32_t i = 0; i < n; ++i) {
+      s->out->items.emplace_back();  // B-3: the element is built in place
+      fill_leaf_element(&s->out->items.back(), elems[i], s->base, ctx);
+    }
     AK_REFILL();
   AK_DGUARD_END
 }
@@ -14998,7 +15068,7 @@ static void apply_surrogate(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_Sur
     const uint8_t *base = s->base;
     (void)f; (void)base;
   s_of(base, f.text, ctx, &s->out->text);
-  if (f.presence & (1u << 0)) s->out->nested.set(from_surrogate_inner(f.nested, base, ctx));
+  if (f.presence & (1u << 0)) fill_surrogate_inner(&s->out->nested.emplace(), f.nested, base, ctx);
   else { s->out->nested.reset(); unk_drop(f.nested.unknown); }
   b_of(base, f.raw, &s->out->raw);
     s->out->unknown_fields.clear();
@@ -15391,7 +15461,7 @@ static void apply_wire_zoo(ak_dec_ctx *ctx, void *obj, const struct ak_dfix_Wire
   s_of(base, f.v_string, ctx, &s->out->v_string);
   b_of(base, f.v_bytes, &s->out->v_bytes);
   s->out->v_enum = corpus::ResultStatus(f.v_enum);
-  if (f.presence & (1u << 0)) s->out->v_msg.set(from_timestamp(f.v_msg, base, ctx));
+  if (f.presence & (1u << 0)) fill_timestamp(&s->out->v_msg.emplace(), f.v_msg, base, ctx);
   else { s->out->v_msg.reset(); unk_drop(f.v_msg.unknown); }
   s->out->v_big_tag = f.v_big_tag;
     s->out->unknown_fields.clear();
