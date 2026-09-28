@@ -1030,6 +1030,15 @@ class RpcAbi:
                              ("req", "*const u8"), ("req_len", "usize"), ("q", "*mut ak_queue"),
                              ("tag", "u64")], "*mut ak_call",
          "Completion-queue delivery: no upcall. 3 forward crossings and 0 reverse."),
+        ("ak_call_unary_enc_cb", [("c", "*mut ak_client"), ("path", "*const u8"), ("path_len", "usize"),
+                                  ("enc", "*mut ak_enc_ctx"), ("cb", "ak_completion_cb"),
+                                  ("user_data", "*mut void"), ("tag", "u64")], "*mut ak_call",
+         "Callback delivery of ak_call_unary_enc: the request is the encode context's output, "
+         "MOVED before this returns. NULL (and no completion) on a NULL argument, an invalid "
+         "path or a context in error. Additive."),
+        ("ak_call_unary_enc_q", [("c", "*mut ak_client"), ("path", "*const u8"), ("path_len", "usize"),
+                                 ("enc", "*mut ak_enc_ctx"), ("q", "*mut ak_queue"), ("tag", "u64")], "*mut ak_call",
+         "Queue delivery of ak_call_unary_enc: as ak_call_unary_enc_cb, the completion pushed onto `q`. Additive."),
         ("ak_queue_new", [], "*mut ak_queue", ""),
         ("ak_queue_next", [("q", "*mut ak_queue"), ("out", "*mut ak_completion"), ("timeout_ms", "u64")],
          "i32", "Wait up to `timeout_ms` for one completion. R-G5: `u64`, as the core defines it."),
@@ -1061,7 +1070,40 @@ class RpcAbi:
          "AK_OK iff it is 0, else AK_ERR_RPC_STATUS (a transport failure is UNAVAILABLE, a "
          "cancelled call CANCELLED, a response above the receive limit RESOURCE_EXHAUSTED). A "
          "second recv: AK_ERR_INVALID_STATE, `*grpc_status` untouched."),
-        ("ak_call_destroy", [("h", "*mut ak_call")], None, ""),
+        # The stream's callback and queue deliveries (additive): the same call path as the
+        # blocking entries above, the completion delivered instead of returned. The entry's
+        # return value is the synchronous outcome; a completion follows iff it is AK_OK.
+        ("ak_call_send_cb", [("h", "*mut ak_call"), ("msg", "*const u8"), ("len", "usize"),
+                             ("last", "i32"), ("cb", "ak_completion_cb"), ("user_data", "*mut void"),
+                             ("tag", "u64")], "i32",
+         "Callback delivery of ak_call_send: the message is copied before this returns; the "
+         "completion (empty bytes) fires ONCE, on a core thread, when the call has accepted "
+         "the message, so the host may send the next one from it. Returns AK_OK and a completion "
+         "follows, or the refusal and none: above the send limit AK_ERR_LIMIT (nothing sent), "
+         "after `last` or while a send is pending AK_ERR_INVALID_STATE. Completion status AK_OK "
+         "(grpc_status 0), or AK_ERR_HOST (grpc_status -1) when the call has already ended, "
+         "failed or cancelled (its status is read with a recv)."),
+        ("ak_call_send_enc_cb", [("h", "*mut ak_call"), ("enc", "*mut ak_enc_ctx"), ("last", "i32"),
+                                 ("cb", "ak_completion_cb"), ("user_data", "*mut void"), ("tag", "u64")], "i32",
+         "ak_call_send_cb whose message is the encode context's output, MOVED before this "
+         "returns (the context may be reused at once); a context in error is refused with its error."),
+        ("ak_call_recv_cb", [("h", "*mut ak_call"), ("cb", "ak_completion_cb"), ("user_data", "*mut void"),
+                             ("tag", "u64")], "i32",
+         "Callback delivery of ak_call_recv: the completion fires ONCE, on a core thread, when "
+         "the call completes: status AK_OK iff grpc_status is 0, else AK_ERR_RPC_STATUS with the "
+         "code (cancelled: CANCELLED; above the receive limit: RESOURCE_EXHAUSTED); `bytes` the "
+         "response, released with ak_bytes_free. A second recv of any delivery: "
+         "AK_ERR_INVALID_STATE and no completion."),
+        ("ak_call_send_q", [("h", "*mut ak_call"), ("msg", "*const u8"), ("len", "usize"),
+                            ("last", "i32"), ("q", "*mut ak_queue"), ("tag", "u64")], "i32",
+         "Queue delivery of ak_call_send: as ak_call_send_cb, the completion pushed onto `q`."),
+        ("ak_call_send_enc_q", [("h", "*mut ak_call"), ("enc", "*mut ak_enc_ctx"), ("last", "i32"),
+                                ("q", "*mut ak_queue"), ("tag", "u64")], "i32",
+         "Queue delivery of ak_call_send_enc: as ak_call_send_enc_cb, the completion pushed onto `q`."),
+        ("ak_call_recv_q", [("h", "*mut ak_call"), ("q", "*mut ak_queue"), ("tag", "u64")], "i32",
+         "Queue delivery of ak_call_recv: as ak_call_recv_cb, the completion pushed onto `q`."),
+        ("ak_call_destroy", [("h", "*mut ak_call")], None,
+         "Frees the handle, only after every operation returned and every completion was delivered."),
     ]
 
 

@@ -556,7 +556,8 @@ async fn cancellable<T>(cancel: std::sync::Arc<tokio::sync::Notify>, f: impl cor
 /// back on a oneshot (`ak_call_recv`).
 struct StreamImpl {
     rt: *const RuntimeImpl,
-    tx: std::sync::Mutex<Option<tokio::sync::mpsc::Sender<Bytes>>>,
+    /// Shared with a pending callback/queue send's task, which puts the sender back.
+    tx: std::sync::Arc<std::sync::Mutex<Option<tokio::sync::mpsc::Sender<Bytes>>>>,
     resp: std::sync::Mutex<Option<tokio::sync::oneshot::Receiver<Result<Bytes, rpc::CallErr>>>>,
     /// The client's send limit, checked per message before it is queued (D44).
     max_send: Option<usize>,
@@ -741,7 +742,7 @@ pub unsafe extern "C" fn ak_call_open(c: *mut ak_client, path: *const u8, path_l
     });
     Box::into_raw(Box::new(CallImpl {
         cancel,
-        stream: Some(StreamImpl { rt: cl.rt, tx: std::sync::Mutex::new(Some(tx)), resp: std::sync::Mutex::new(Some(rrx)), max_send }),
+        stream: Some(StreamImpl { rt: cl.rt, tx: std::sync::Arc::new(std::sync::Mutex::new(Some(tx))), resp: std::sync::Mutex::new(Some(rrx)), max_send }),
     })) as *mut ak_call
 }
 
@@ -779,33 +780,101 @@ unsafe fn call_opts(o: &ak_call_opts, cfg: &mut rpc::CallCfg) -> Option<()> {
     Some(())
 }
 
-unsafe fn stream_send(h: *mut ak_call, b: Bytes, last: i32) -> i32 {
-    let st = match (*(h as *mut CallImpl)).stream.as_ref() {
-        Some(s) => s,
-        None => return AK_ERR_INVALID_STATE,
-    };
-    // D44: above the client's send limit the message is refused and nothing is sent.
-    if let Some(l) = st.max_send {
-        if b.len() > l {
-            trace("ak_call_send", &format!("{} bytes above the send limit {l}", b.len()));
-            return AK_ERR_LIMIT;
+/// Where a callback or queue delivery's completion goes (the stream's deliveries; the
+/// unary ones inline the same two arms).
+enum Sink {
+    Cb(CbCtx),
+    Q(usize),
+}
+
+impl Sink {
+    unsafe fn new_cb(cb: ak_completion_cb, user: *mut c_void) -> Sink {
+        Sink::Cb(CbCtx { cb, user })
+    }
+    fn new_q(q: *mut ak_queue) -> Option<Sink> {
+        if q.is_null() { None } else { Some(Sink::Q(q as usize)) }
+    }
+    /// Deliver ONE completion: the callback (one reverse crossing) or a push onto the queue.
+    fn deliver(self, mut comp: ak_completion) {
+        match self {
+            Sink::Cb(ctx) => {
+                rev();
+                unsafe { (ctx.cb)(ctx.user, &mut comp) };
+            }
+            Sink::Q(qaddr) => {
+                // The queue outlives the call by the host's contract (see ak_call_unary_q).
+                let qi = unsafe { &*(qaddr as *const QueueImpl) };
+                if let Ok(mut st) = qi.m.lock() {
+                    st.q.push_back(SendComp(comp));
+                }
+                qi.cv.notify_one();
+            }
         }
     }
-    // Taken out of the slot for the blocking send, so `ak_call_cancel` never waits on this
-    // lock; put back unless `last`.
-    let tx = match st.tx.lock().ok().and_then(|mut g| g.take()) {
-        Some(t) => t,
-        None => return AK_ERR_INVALID_STATE,
+}
+
+/// The send path's prologue, shared by the three deliveries: the stream, the send limit
+/// (D44: above it the message is refused and nothing is sent), and the sender taken out of
+/// its slot -- so a second send while one is pending, or a send after `last`, finds it
+/// empty (AK_ERR_INVALID_STATE), and `ak_call_cancel` never waits on this lock.
+unsafe fn send_begin(h: *mut ak_call, len: usize, who: &str) -> Result<(&'static StreamImpl, tokio::sync::mpsc::Sender<Bytes>), i32> {
+    let st = match (*(h as *mut CallImpl)).stream.as_ref() {
+        Some(s) => s,
+        None => return Err(AK_ERR_INVALID_STATE),
     };
-    if tx.blocking_send(b).is_err() {
-        trace("ak_call_send", "the call ended (cancelled or failed)");
+    if let Some(l) = st.max_send {
+        if len > l {
+            trace(who, &format!("{len} bytes above the send limit {l}"));
+            return Err(AK_ERR_LIMIT);
+        }
+    }
+    match st.tx.lock().ok().and_then(|mut g| g.take()) {
+        Some(t) => Ok((st, t)),
+        None => Err(AK_ERR_INVALID_STATE),
+    }
+}
+
+/// The send path's epilogue: the sender back in its slot unless `last` (dropping it ends
+/// the request stream), then the outcome. A closed channel means the call has ended
+/// (cancelled or failed): AK_ERR_HOST, the status read with a recv.
+fn send_end(slot: &std::sync::Mutex<Option<tokio::sync::mpsc::Sender<Bytes>>>, tx: tokio::sync::mpsc::Sender<Bytes>, sent: bool, last: i32, who: &str) -> i32 {
+    if !sent {
+        trace(who, "the call ended (cancelled or failed)");
         return AK_ERR_HOST;
     }
     if last == 0 {
-        if let Ok(mut g) = st.tx.lock() {
+        if let Ok(mut g) = slot.lock() {
             *g = Some(tx);
         }
     }
+    AK_OK
+}
+
+unsafe fn stream_send(h: *mut ak_call, b: Bytes, last: i32) -> i32 {
+    let (st, tx) = match send_begin(h, b.len(), "ak_call_send") {
+        Ok(v) => v,
+        Err(e) => return e,
+    };
+    // `blocking_send` is the block_on of the same `send` future the other deliveries await.
+    let sent = tx.blocking_send(b).is_ok();
+    send_end(&st.tx, tx, sent, last, "ak_call_send")
+}
+
+/// The callback/queue deliveries of a send: the same prologue and epilogue around the
+/// awaited `send`, on a task; the completion (empty bytes) after the sender is back, so the
+/// host may send the next message from inside it.
+unsafe fn stream_send_to(h: *mut ak_call, b: Bytes, last: i32, sink: Sink, tag: u64, who: &'static str) -> i32 {
+    let (st, tx) = match send_begin(h, b.len(), who) {
+        Ok(v) => v,
+        Err(e) => return e,
+    };
+    let slot = st.tx.clone();
+    (*st.rt).rt.spawn(async move {
+        let sent = tx.send(b).await.is_ok();
+        let status = send_end(&slot, tx, sent, last, who);
+        let grpc_status = if status == AK_OK { 0 } else { -1 };
+        sink.deliver(ak_completion { tag, status, grpc_status, bytes: empty_ak_bytes() });
+    });
     AK_OK
 }
 
@@ -827,14 +896,44 @@ pub unsafe extern "C" fn ak_call_send_enc(h: *mut ak_call, enc: *mut crate::ak_e
     if h.is_null() || enc.is_null() {
         return AK_ERR_INVALID_STATE;
     }
-    let cx = &mut *(enc as *mut crate::EncCtxImpl);
-    if cx.hdr.err != AK_OK {
-        return cx.hdr.err;
+    match enc_take(enc) {
+        Ok(b) => stream_send(h, b, last),
+        Err(e) => e,
     }
-    if cx.e.err != 0 {
-        return cx.e.err;
+}
+
+/// The recv path's prologue, shared by the three deliveries: the stream and its response
+/// receiver, taken (a second recv of any delivery finds it gone: AK_ERR_INVALID_STATE).
+unsafe fn recv_begin(h: *mut ak_call) -> Result<(&'static StreamImpl, tokio::sync::oneshot::Receiver<Result<Bytes, rpc::CallErr>>), i32> {
+    let st = match (*(h as *mut CallImpl)).stream.as_ref() {
+        Some(s) => s,
+        None => return Err(AK_ERR_INVALID_STATE),
+    };
+    match st.resp.lock().ok().and_then(|mut g| g.take()) {
+        Some(r) => Ok((st, r)),
+        None => Err(AK_ERR_INVALID_STATE),
     }
-    stream_send(h, cx.e.take(), last)
+}
+
+/// The call's response, awaited: every recv delivery runs this future.
+async fn recv_once(rx: tokio::sync::oneshot::Receiver<Result<Bytes, rpc::CallErr>>) -> Result<Bytes, rpc::CallErr> {
+    match rx.await {
+        Ok(r) => r,
+        // The task ended without a result: the runtime is going away. CANCELLED.
+        Err(_) => Err(rpc::CallErr::Status(tonic::Status::cancelled("the call's task ended"))),
+    }
+}
+
+/// A stream's outcome (section 9): AK_OK iff the gRPC code is 0, else AK_ERR_RPC_STATUS
+/// with the code (the receive limit included: RESOURCE_EXHAUSTED).
+fn stream_outcome(who: &str, r: Result<Bytes, rpc::CallErr>) -> (i32, i32, Option<Bytes>) {
+    match r {
+        Ok(b) => (AK_OK, 0, Some(b)),
+        Err(e) => {
+            trace(who, &e.to_string());
+            (AK_ERR_RPC_STATUS, e.code().map_or(tonic::Code::Unknown as i32, |c| c as i32), None)
+        }
+    }
 }
 
 /// U2-stream: block for the response; the gRPC status to `*grpc_status` whenever the call
@@ -845,32 +944,124 @@ pub unsafe extern "C" fn ak_call_recv(h: *mut ak_call, out: *mut ak_bytes, grpc_
     if h.is_null() || out.is_null() {
         return AK_ERR_INVALID_STATE;
     }
-    let st = match (*(h as *mut CallImpl)).stream.as_ref() {
+    let (st, rx) = match recv_begin(h) {
+        Ok(v) => v,
+        Err(e) => return e,
+    };
+    *out = empty_ak_bytes();
+    let (rc, code, b) = stream_outcome("ak_call_recv", (*st.rt).rt.block_on(recv_once(rx)));
+    if let Some(b) = b {
+        *out = into_ak_bytes(b);
+    }
+    set_status(grpc_status, code);
+    rc
+}
+
+/// The callback/queue deliveries of a recv: the same future on a task, its outcome as a
+/// completion.
+unsafe fn stream_recv_to(h: *mut ak_call, sink: Sink, tag: u64, who: &'static str) -> i32 {
+    let (st, rx) = match recv_begin(h) {
+        Ok(v) => v,
+        Err(e) => return e,
+    };
+    (*st.rt).rt.spawn(async move {
+        let (status, grpc_status, b) = stream_outcome(who, recv_once(rx).await);
+        sink.deliver(ak_completion { tag, status, grpc_status, bytes: b.map_or_else(empty_ak_bytes, into_ak_bytes) });
+    });
+    AK_OK
+}
+
+/// Callback delivery of ak_call_send (additive): copied here, completion when accepted.
+#[no_mangle]
+pub unsafe extern "C" fn ak_call_send_cb(h: *mut ak_call, msg: *const u8, len: usize, last: i32, cb: ak_completion_cb, user_data: *mut c_void, tag: u64) -> i32 {
+    fwd();
+    if h.is_null() || (msg.is_null() && len != 0) {
+        return AK_ERR_INVALID_STATE;
+    }
+    let b = if len == 0 { Bytes::new() } else { Bytes::copy_from_slice(core::slice::from_raw_parts(msg, len)) };
+    stream_send_to(h, b, last, Sink::new_cb(cb, user_data), tag, "ak_call_send_cb")
+}
+
+/// Queue delivery of ak_call_send (additive).
+#[no_mangle]
+pub unsafe extern "C" fn ak_call_send_q(h: *mut ak_call, msg: *const u8, len: usize, last: i32, q: *mut ak_queue, tag: u64) -> i32 {
+    fwd();
+    let sink = match Sink::new_q(q) {
         Some(s) => s,
         None => return AK_ERR_INVALID_STATE,
     };
-    let rx = match st.resp.lock().ok().and_then(|mut g| g.take()) {
-        Some(r) => r,
+    if h.is_null() || (msg.is_null() && len != 0) {
+        return AK_ERR_INVALID_STATE;
+    }
+    let b = if len == 0 { Bytes::new() } else { Bytes::copy_from_slice(core::slice::from_raw_parts(msg, len)) };
+    stream_send_to(h, b, last, sink, tag, "ak_call_send_q")
+}
+
+/// The encode context's output, taken for a send (moved; a context in error refused with
+/// its error). Checked before the stream's own prologue, as ak_call_send_enc does.
+unsafe fn enc_take(enc: *mut crate::ak_enc_ctx) -> Result<Bytes, i32> {
+    let cx = &mut *(enc as *mut crate::EncCtxImpl);
+    if cx.hdr.err != AK_OK {
+        return Err(cx.hdr.err);
+    }
+    if cx.e.err != 0 {
+        return Err(cx.e.err);
+    }
+    Ok(cx.e.take())
+}
+
+/// Callback delivery of ak_call_send_enc (additive).
+#[no_mangle]
+pub unsafe extern "C" fn ak_call_send_enc_cb(h: *mut ak_call, enc: *mut crate::ak_enc_ctx, last: i32, cb: ak_completion_cb, user_data: *mut c_void, tag: u64) -> i32 {
+    fwd();
+    if h.is_null() || enc.is_null() {
+        return AK_ERR_INVALID_STATE;
+    }
+    match enc_take(enc) {
+        Ok(b) => stream_send_to(h, b, last, Sink::new_cb(cb, user_data), tag, "ak_call_send_enc_cb"),
+        Err(e) => e,
+    }
+}
+
+/// Queue delivery of ak_call_send_enc (additive).
+#[no_mangle]
+pub unsafe extern "C" fn ak_call_send_enc_q(h: *mut ak_call, enc: *mut crate::ak_enc_ctx, last: i32, q: *mut ak_queue, tag: u64) -> i32 {
+    fwd();
+    let sink = match Sink::new_q(q) {
+        Some(s) => s,
         None => return AK_ERR_INVALID_STATE,
     };
-    *out = empty_ak_bytes();
-    let r = match (*st.rt).rt.block_on(rx) {
-        Ok(r) => r,
-        // The task ended without a result: the runtime is going away. CANCELLED.
-        Err(_) => Err(rpc::CallErr::Status(tonic::Status::cancelled("the call's task ended"))),
+    if h.is_null() || enc.is_null() {
+        return AK_ERR_INVALID_STATE;
+    }
+    match enc_take(enc) {
+        Ok(b) => stream_send_to(h, b, last, sink, tag, "ak_call_send_enc_q"),
+        Err(e) => e,
+    }
+}
+
+/// Callback delivery of ak_call_recv (additive).
+#[no_mangle]
+pub unsafe extern "C" fn ak_call_recv_cb(h: *mut ak_call, cb: ak_completion_cb, user_data: *mut c_void, tag: u64) -> i32 {
+    fwd();
+    if h.is_null() {
+        return AK_ERR_INVALID_STATE;
+    }
+    stream_recv_to(h, Sink::new_cb(cb, user_data), tag, "ak_call_recv_cb")
+}
+
+/// Queue delivery of ak_call_recv (additive).
+#[no_mangle]
+pub unsafe extern "C" fn ak_call_recv_q(h: *mut ak_call, q: *mut ak_queue, tag: u64) -> i32 {
+    fwd();
+    let sink = match Sink::new_q(q) {
+        Some(s) => s,
+        None => return AK_ERR_INVALID_STATE,
     };
-    let (rc, code) = match r {
-        Ok(b) => {
-            *out = into_ak_bytes(b);
-            (AK_OK, 0)
-        }
-        Err(e) => {
-            trace("ak_call_recv", &e.to_string());
-            (AK_ERR_RPC_STATUS, e.code().map_or(tonic::Code::Unknown as i32, |c| c as i32))
-        }
-    };
-    set_status(grpc_status, code);
-    rc
+    if h.is_null() {
+        return AK_ERR_INVALID_STATE;
+    }
+    stream_recv_to(h, sink, tag, "ak_call_recv_q")
 }
 
 /// Frees the handle. Only after the call's completion has been delivered.
@@ -979,6 +1170,56 @@ pub unsafe extern "C" fn ak_call_unary_q(
         qi.cv.notify_one();
     });
     Box::into_raw(Box::new(CallImpl { cancel, stream: None })) as *mut ak_call
+}
+
+/// The encode context's output as a unary request, for the callback and queue twins of
+/// ak_call_unary_enc: the same checks and the same move (Enc::take) as the blocking form.
+unsafe fn unary_enc_parts(c: *mut ak_client, path: *const u8, path_len: usize, enc: *mut crate::ak_enc_ctx) -> Option<(Link, &'static RuntimeImpl, http::uri::PathAndQuery, Bytes)> {
+    if c.is_null() || enc.is_null() {
+        return None;
+    }
+    let cl = &*(c as *const ClientImpl);
+    let path = parse_path(path, path_len)?;
+    let body = enc_take(enc).ok()?;
+    Some((cl.link(), &*cl.rt, path, body))
+}
+
+/// A unary call on a task, its completion to `sink` (the callback and queue deliveries of
+/// the `_enc` entries; `unary_once` is the one call path).
+fn spawn_unary(rt: &RuntimeImpl, link: Link, path: http::uri::PathAndQuery, body: Bytes, sink: Sink, tag: u64, who: &'static str) -> *mut ak_call {
+    let cancel = std::sync::Arc::new(tokio::sync::Notify::new());
+    let c2 = cancel.clone();
+    rt.rt.spawn(async move {
+        let comp = completion(tag, who, cancellable(c2, unary_once(link, path, body)).await);
+        sink.deliver(comp);
+    });
+    Box::into_raw(Box::new(CallImpl { cancel, stream: None })) as *mut ak_call
+}
+
+/// Callback delivery of ak_call_unary_enc (additive): the request is the encode context's
+/// output, MOVED before this returns. NULL (no completion) on a NULL argument, an invalid
+/// path or a context in error.
+#[no_mangle]
+pub unsafe extern "C" fn ak_call_unary_enc_cb(c: *mut ak_client, path: *const u8, path_len: usize, enc: *mut crate::ak_enc_ctx, cb: ak_completion_cb, user_data: *mut c_void, tag: u64) -> *mut ak_call {
+    fwd();
+    match unary_enc_parts(c, path, path_len, enc) {
+        Some((link, rt, path, body)) => spawn_unary(rt, link, path, body, Sink::new_cb(cb, user_data), tag, "ak_call_unary_enc_cb"),
+        None => core::ptr::null_mut(),
+    }
+}
+
+/// Queue delivery of ak_call_unary_enc (additive).
+#[no_mangle]
+pub unsafe extern "C" fn ak_call_unary_enc_q(c: *mut ak_client, path: *const u8, path_len: usize, enc: *mut crate::ak_enc_ctx, q: *mut ak_queue, tag: u64) -> *mut ak_call {
+    fwd();
+    let sink = match Sink::new_q(q) {
+        Some(s) => s,
+        None => return core::ptr::null_mut(),
+    };
+    match unary_enc_parts(c, path, path_len, enc) {
+        Some((link, rt, path, body)) => spawn_unary(rt, link, path, body, sink, tag, "ak_call_unary_enc_q"),
+        None => core::ptr::null_mut(),
+    }
 }
 
 #[cfg(test)]

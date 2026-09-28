@@ -1407,6 +1407,10 @@ int32_t ak_enc_take_owned(ak_enc_ctx *enc, struct ak_bytes *out);
 ak_call *ak_call_unary_cb(ak_client *c, const uint8_t *path, size_t path_len, const uint8_t *req, size_t req_len, ak_completion_cb cb, void *user_data, uint64_t tag);
 /* Completion-queue delivery: no upcall. 3 forward crossings and 0 reverse. */
 ak_call *ak_call_unary_q(ak_client *c, const uint8_t *path, size_t path_len, const uint8_t *req, size_t req_len, ak_queue *q, uint64_t tag);
+/* Callback delivery of ak_call_unary_enc: the request is the encode context's output, MOVED before this returns. NULL (and no completion) on a NULL argument, an invalid path or a context in error. Additive. */
+ak_call *ak_call_unary_enc_cb(ak_client *c, const uint8_t *path, size_t path_len, ak_enc_ctx *enc, ak_completion_cb cb, void *user_data, uint64_t tag);
+/* Queue delivery of ak_call_unary_enc: as ak_call_unary_enc_cb, the completion pushed onto `q`. Additive. */
+ak_call *ak_call_unary_enc_q(ak_client *c, const uint8_t *path, size_t path_len, ak_enc_ctx *enc, ak_queue *q, uint64_t tag);
 ak_queue *ak_queue_new(void);
 /* Wait up to `timeout_ms` for one completion. R-G5: `u64`, as the core defines it. */
 int32_t ak_queue_next(ak_queue *q, struct ak_completion *out, uint64_t timeout_ms);
@@ -1422,6 +1426,19 @@ int32_t ak_call_send(ak_call *h, const uint8_t *msg, size_t len, int32_t last);
 int32_t ak_call_send_enc(ak_call *h, ak_enc_ctx *enc, int32_t last);
 /* Block for the call's response, released with ak_bytes_free. Writes the gRPC status code (0 to 16) to `*grpc_status` (may be NULL) whenever the call completed; returns AK_OK iff it is 0, else AK_ERR_RPC_STATUS (a transport failure is UNAVAILABLE, a cancelled call CANCELLED, a response above the receive limit RESOURCE_EXHAUSTED). A second recv: AK_ERR_INVALID_STATE, `*grpc_status` untouched. */
 int32_t ak_call_recv(ak_call *h, struct ak_bytes *out, int32_t *grpc_status);
+/* Callback delivery of ak_call_send: the message is copied before this returns; the completion (empty bytes) fires ONCE, on a core thread, when the call has accepted the message, so the host may send the next one from it. Returns AK_OK and a completion follows, or the refusal and none: above the send limit AK_ERR_LIMIT (nothing sent), after `last` or while a send is pending AK_ERR_INVALID_STATE. Completion status AK_OK (grpc_status 0), or AK_ERR_HOST (grpc_status -1) when the call has already ended, failed or cancelled (its status is read with a recv). */
+int32_t ak_call_send_cb(ak_call *h, const uint8_t *msg, size_t len, int32_t last, ak_completion_cb cb, void *user_data, uint64_t tag);
+/* ak_call_send_cb whose message is the encode context's output, MOVED before this returns (the context may be reused at once); a context in error is refused with its error. */
+int32_t ak_call_send_enc_cb(ak_call *h, ak_enc_ctx *enc, int32_t last, ak_completion_cb cb, void *user_data, uint64_t tag);
+/* Callback delivery of ak_call_recv: the completion fires ONCE, on a core thread, when the call completes: status AK_OK iff grpc_status is 0, else AK_ERR_RPC_STATUS with the code (cancelled: CANCELLED; above the receive limit: RESOURCE_EXHAUSTED); `bytes` the response, released with ak_bytes_free. A second recv of any delivery: AK_ERR_INVALID_STATE and no completion. */
+int32_t ak_call_recv_cb(ak_call *h, ak_completion_cb cb, void *user_data, uint64_t tag);
+/* Queue delivery of ak_call_send: as ak_call_send_cb, the completion pushed onto `q`. */
+int32_t ak_call_send_q(ak_call *h, const uint8_t *msg, size_t len, int32_t last, ak_queue *q, uint64_t tag);
+/* Queue delivery of ak_call_send_enc: as ak_call_send_enc_cb, the completion pushed onto `q`. */
+int32_t ak_call_send_enc_q(ak_call *h, ak_enc_ctx *enc, int32_t last, ak_queue *q, uint64_t tag);
+/* Queue delivery of ak_call_recv: as ak_call_recv_cb, the completion pushed onto `q`. */
+int32_t ak_call_recv_q(ak_call *h, ak_queue *q, uint64_t tag);
+/* Frees the handle, only after every operation returned and every completion was delivered. */
 void ak_call_destroy(ak_call *h);
 /* RPC boundary-call counts (counting build). Exported by a core built with `rpc`. */
 struct ak_rpc_counters {
