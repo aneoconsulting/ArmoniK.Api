@@ -1,0 +1,3 @@
+C++ slice built against the regenerated header (no C++ source changed), 2026-09-28, in a scratch build directory:
+  cmake -DCMAKE_BUILD_TYPE=Release: every default target built (60 targets)
+  cmake -DAK_RPC=ON -Dbenchmark_DIR=poc/cpp/build-campaign/gbench-v1.8.3-release/lib/cmake/benchmark: core_rpc core_rpc_count rpcflow rpccounts rpcbench campaign_calib campaign_rpc_count campaign_rpc campaign_rpc_nounk campaign_rpc_count_nounk campaign_codec campaign_codec_nounk built, make exit 0

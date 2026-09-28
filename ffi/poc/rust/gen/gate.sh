@@ -99,7 +99,7 @@ cargo run --release -q -p campaign --bin upload_check 2>/dev/null | tail -1 | gr
   && echo "  every cell (reference and framed), 4 MiB and 16 MiB streamed and P5.3 / P5.4 unary: the bytes the server received are the uploaded ones; planted wrong SHA-256 and count detected" \
   || { echo "  the upload byte check FAILED (run target/release/upload_check)"; exit 1; }
 
-step "11f. ABI v1 section 9's call semantics (status numbers on every delivery, deadline, metadata, cancel, client limits), both send paths"
+step "11f. ABI v1 section 9's call semantics (status numbers on every delivery, deadline, metadata, cancel, client limits; the stream's callback and queue deliveries), both send paths"
 T="${TMPDIR:-/tmp}/ak-rpc-semantics.$$"; rc=0
 cargo run --release -q -p campaign --bin rpc_semantics 2>/dev/null > "$T" || rc=$?
 echo "  cases passed: $(grep -c "^PASS" "$T" || true)"

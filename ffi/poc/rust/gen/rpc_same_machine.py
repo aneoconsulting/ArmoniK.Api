@@ -14,7 +14,7 @@ import sys
 from collections import defaultdict
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from opt_tables import DIRS, DIR_TEXT, cell_key, us  # noqa: E402
+from opt_tables import DIRS, DIR_TEXT, cell_key, cell_label, us  # noqa: E402
 
 
 def main():
@@ -60,7 +60,11 @@ def main():
           "no-unknown client (`-nounk` cells, and its own A, B, Bf) are separate processes; so are the "
           "three direction groups (a/a+read/b, c, d) of each (transport, client); every cell of one "
           "direction shares a process. `f` = the framed send path (labelled extra cells), under its "
-          "reference twin. **`*`** = one batch per sample (criterion's floor: the measurement time "
+          "reference twin. **Core-transport cells (CAMPAIGN req 16 as amended 2026-09-28)**: `-cb` "
+          "(marked `(ref)`) = the core's callback delivery bridged to async Rust with a tokio oneshot, "
+          "k async tasks on the cell's own runtime: Rust's REFERENCE core cells; B, C, E without the "
+          "suffix (marked `(blk)`) = the blocking delivery from k host threads, the labelled row kept "
+          "for cross-host comparability. A, D, F: tonic's own client. **`*`** = one batch per sample (criterion's floor: the measurement time "
           "was shorter than 10 samples x 2 batches of that entry). Source: `summary-rpc.tsv` (ns).\n\n")
         for l in open(os.path.join(out, "header.txt")):
             w(f"    {l.rstrip()}\n")
@@ -92,7 +96,7 @@ def main():
                                     continue
                                 m, lo, hi = r[metric]
                                 ent.append(f"{us(m)} [{us(lo)}-{us(hi)}]" + (" *" if r["bmin"] == 1 else ""))
-                        w(f"| {c} | " + " | ".join(ent) + " |\n")
+                        w(f"| {cell_label(c)} | " + " | ".join(ent) + " |\n")
                     w("\n")
         w("## Batches per sample\n\n| dir | k | client | min | median | max |\n|---|---:|---|---:|---:|---:|\n")
         for dr in DIRS:

@@ -18,7 +18,11 @@
 //! and F call `rpc::unary_framed` in the harness. The response is taken as tonic takes it.
 //! A has no framed twin (prost encodes into tonic's buffer: it has no copy to remove).
 //!
-//! Delivery (requirement 16 as amended, R-H30): B, C and E use the core's blocking call from
+//! Delivery (requirement 16 as amended 2026-09-28, owner): the REFERENCE core cells are the
+//! callback cells `B-cb`, `C-cb-*`, `E-cb-*` (and framed twins): the core's callback delivery,
+//! each completion sent into a tokio oneshot awaited by one of k async tasks on the cell's own
+//! runtime (Rust's idiomatic core delivery); the blocking B, C and E cells stay as the
+//! labelled row: the core's blocking call from
 //! k host threads (a pool, created before the warm-up and reused, R-H2); A, D and F use the
 //! host stack's idiomatic call, which for packages/rust is tonic's async client: k tokio
 //! tasks on a multi-thread runtime of TOKIO_WORKERS workers, each making its calls back to
@@ -33,6 +37,7 @@ use crate::generated::roots::R_ListTasksDetailedResponse as M2;
 use crate::generated::roots::R_UploadResultDataMessage as M5;
 use crate::Ops;
 use ak_abi::*;
+use core::ffi::c_void;
 use bytes::Bytes;
 use harness::arms_m2 as m2;
 use std::future::Future;
@@ -186,6 +191,131 @@ impl CoreClient {
         }
     }
 }
+/// The callback bridge (CAMPAIGN req 16 as amended: Rust's core delivery is the callback
+/// bridged to async with a oneshot). The core calls `on_complete` ONCE per completion, on
+/// one of its threads; it sends the completion into the oneshot the awaiting task holds.
+struct Comp(ak_completion);
+unsafe impl Send for Comp {}
+type CompTx = tokio::sync::oneshot::Sender<Comp>;
+
+extern "C" fn on_complete(user: *mut c_void, comp: *mut ak_completion) {
+    let tx = unsafe { Box::from_raw(user as *mut CompTx) };
+    if let Err(Comp(c)) = tx.send(Comp(unsafe { *comp })) {
+        drop(CbResp(c)); // the task is gone: free what the completion carries
+    }
+}
+
+/// A oneshot and its sender as the callback's `user_data` (an address, so the future that
+/// holds it stays `Send`).
+fn bridge() -> (usize, tokio::sync::oneshot::Receiver<Comp>) {
+    let (tx, rx) = tokio::sync::oneshot::channel::<Comp>();
+    (Box::into_raw(Box::new(tx)) as usize, rx)
+}
+
+/// The entry refused (no completion follows): reclaim the sender.
+unsafe fn unbridge(ud: usize) {
+    drop(Box::from_raw(ud as *mut CompTx));
+}
+
+/// A delivered completion; the bytes it owns (a response) freed on drop with
+/// `ak_bytes_free`, as the blocking cells free theirs. A send completion owns none.
+pub struct CbResp(ak_completion);
+unsafe impl Send for CbResp {}
+impl CbResp {
+    pub fn bytes(&self) -> &[u8] {
+        if self.0.bytes.len == 0 { &[] } else { unsafe { std::slice::from_raw_parts(self.0.bytes.ptr, self.0.bytes.len) } }
+    }
+}
+impl Drop for CbResp {
+    fn drop(&mut self) {
+        if !self.0.bytes.owner.is_null() {
+            unsafe { ak_bytes_free(&mut self.0.bytes) };
+        }
+    }
+}
+
+/// Await the completion; a status other than AK_OK is the call's error.
+async fn landed(what: &'static str, rx: tokio::sync::oneshot::Receiver<Comp>) -> Result<CbResp, String> {
+    let r = CbResp(rx.await.map_err(|_| format!("{what}: no completion delivered"))?.0);
+    if r.0.status != AK_OK {
+        return Err(format!("{what} status {}, grpc status {}", r.0.status, r.0.grpc_status));
+    }
+    Ok(r)
+}
+
+impl CoreClient {
+    /// A unary call through `ak_call_unary_cb` (the request copied by the core before it
+    /// returns), awaited on a oneshot; the handle destroyed after the completion.
+    pub fn call_cb(&self, path: &'static str, req: &[u8]) -> impl Future<Output = Result<CbResp, String>> + Send + 'static {
+        let (ud, rx) = bridge();
+        let h = unsafe { ak_call_unary_cb(self.client, path.as_ptr(), path.len(), req.as_ptr(), req.len(), on_complete, ud as *mut c_void, 0) } as usize;
+        Self::cb_tail("ak_call_unary_cb", h, ud, rx)
+    }
+    /// `call_cb` whose request is `enc`'s output, MOVED (`ak_call_unary_enc_cb`, as the
+    /// blocking C cell's ak_call_unary_enc).
+    pub fn call_enc_cb(&self, path: &'static str, enc: *mut ak_enc_ctx) -> impl Future<Output = Result<CbResp, String>> + Send + 'static {
+        let (ud, rx) = bridge();
+        let h = unsafe { ak_call_unary_enc_cb(self.client, path.as_ptr(), path.len(), enc, on_complete, ud as *mut c_void, 0) } as usize;
+        Self::cb_tail("ak_call_unary_enc_cb", h, ud, rx)
+    }
+    fn cb_tail(what: &'static str, h: usize, ud: usize, rx: tokio::sync::oneshot::Receiver<Comp>) -> impl Future<Output = Result<CbResp, String>> + Send + 'static {
+        async move {
+            if h == 0 {
+                unsafe { unbridge(ud) };
+                return Err(format!("{what} returned NULL"));
+            }
+            let r = landed(what, rx).await;
+            unsafe { ak_call_destroy(h as *mut ak_call) };
+            r
+        }
+    }
+}
+
+/// Client streaming through the core's callback deliveries (the -cb cells of direction d):
+/// open, per chunk one send completion awaited on its own oneshot (`send(j, handle, last,
+/// user_data)` calls ak_call_send_cb or ak_call_send_enc_cb and returns its rc), then the
+/// response through ak_call_recv_cb on another; free, destroy.
+fn core_stream_cb(cc: Arc<CoreClient>, path: &'static str, n: usize,
+                  mut send: impl FnMut(usize, *mut ak_call, i32, *mut c_void) -> i32 + Send + 'static,
+                  verdict: impl FnOnce(&[u8]) -> Result<(), String> + Send + 'static) -> Fut {
+    Box::pin(async move {
+        let h = unsafe { ak_call_open(cc.client, path.as_ptr(), path.len(), AK_CALL_CLIENT_STREAM, std::ptr::null()) } as usize;
+        if h == 0 {
+            return Err("ak_call_open NULL".into());
+        }
+        let hp = move || h as *mut ak_call;
+        let mut r = Ok(());
+        for j in 0..n {
+            let (ud, rx) = bridge();
+            let rc = send(j, hp(), (j + 1 == n) as i32, ud as *mut c_void);
+            if rc != AK_OK {
+                unsafe { unbridge(ud) };
+                r = Err(format!("ak_call_send_cb chunk {j} rc {rc}"));
+                unsafe { ak_call_cancel(hp()) };
+                break;
+            }
+            if let Err(e) = landed("ak_call_send_cb", rx).await {
+                r = Err(format!("chunk {j}: {e}"));
+                unsafe { ak_call_cancel(hp()) };
+                break;
+            }
+        }
+        let (ud, rx) = bridge();
+        let rc = unsafe { ak_call_recv_cb(hp(), on_complete, ud as *mut c_void, 0) };
+        let resp = if rc != AK_OK {
+            unsafe { unbridge(ud) };
+            Err(format!("ak_call_recv_cb rc {rc}"))
+        } else {
+            landed("ak_call_recv_cb", rx).await
+        };
+        if r.is_ok() {
+            r = resp.and_then(|b| verdict(b.bytes()));
+        }
+        unsafe { ak_call_destroy(hp()) };
+        r
+    })
+}
+
 impl Drop for CoreClient {
     fn drop(&mut self) {
         unsafe {
@@ -213,6 +343,9 @@ pub fn tonic_channel(rt: &tokio::runtime::Runtime, target: &str, pinned: bool) -
 /// on the cell's own runtime (A, D, F).
 pub enum Conn {
     Core(Arc<CoreClient>),
+    /// The callback cells (`-cb`, CAMPAIGN req 16 as amended): the core's client and the
+    /// host runtime whose tasks await the completions (TOKIO_WORKERS workers, as A/D/F).
+    CoreCb(Arc<CoreClient>, Arc<tokio::runtime::Runtime>),
     Tonic(Arc<tokio::runtime::Runtime>, tonic::transport::Channel),
 }
 
@@ -224,6 +357,11 @@ impl Conn {
                 if framed(cell) {
                     let rc = unsafe { ak_client_set_framed(cc.client, 1) };
                     assert_eq!(rc, AK_OK, "ak_client_set_framed");
+                }
+                if cb(cell) {
+                    let rt = Arc::new(tokio::runtime::Builder::new_multi_thread()
+                        .worker_threads(TOKIO_WORKERS).enable_all().build().unwrap());
+                    return Conn::CoreCb(Arc::new(cc), rt);
                 }
                 Conn::Core(Arc::new(cc))
             }
@@ -246,9 +384,35 @@ pub fn framed(cell: &str) -> bool {
     cell.as_bytes().get(1) == Some(&b'f')
 }
 
-/// The cell's name without its mode: `A`, `B`, `Bf`, `C`, `Cf`, ... (the crossings rows).
+/// The cell's unknown-field mode (`retain`, `drop`, `nounk`), if it has one.
+pub fn mode_of(cell: &str) -> Option<&str> {
+    ["retain", "drop", "nounk"].into_iter().find(|m| cell.strip_suffix(m).map_or(false, |r| r.ends_with('-')))
+}
+
+/// The cell's name without its mode: `A`, `B`, `Bf`, `C`, `Cf`, `C-cb`, `Cf-cb`, ... (the
+/// crossings rows).
 pub fn stem(cell: &str) -> &str {
-    cell.split('-').next().unwrap()
+    match mode_of(cell) {
+        Some(m) => &cell[..cell.len() - m.len() - 1],
+        None => cell,
+    }
+}
+
+/// The cell is a CALLBACK cell (`B-cb`, `C-cb-drop`, `Cf-cb-retain`, ...): the core's
+/// callback delivery bridged to async Rust with a tokio oneshot, its k callers async tasks
+/// on the cell's runtime. CAMPAIGN req 16 as amended (owner, 2026-09-28): for Rust these
+/// are the REFERENCE core-transport cells; the blocking B, C, E cells are the labelled row.
+pub fn cb(cell: &str) -> bool {
+    stem(cell).ends_with("-cb")
+}
+
+/// How the cell's calls are delivered: `tonic` (A, D, F), `callback` (-cb) or `blocking`.
+pub fn delivery(cell: &str) -> &'static str {
+    match base(cell) {
+        'B' | 'C' | 'E' if cb(cell) => "callback",
+        'B' | 'C' | 'E' => "blocking",
+        _ => "tonic",
+    }
 }
 
 /// `retain` for a cell name's mode suffix.
@@ -414,6 +578,72 @@ pub fn call_of(cell: &str, conn: &Conn, dir: &'static str, sl: &'static [Slot], 
                 }) as Fut
             }))
         }
+        // The callback cells (-cb): the same work as B, C, E, the call through the core's
+        // callback delivery awaited on a oneshot by an async task (CAMPAIGN req 16 as amended).
+        ('B', Conn::CoreCb(cc, rt)) => {
+            let cc = cc.clone();
+            Call::Async(rt.clone(), Arc::new(move |_i| {
+                let body = if fetch { Vec::new() } else { prost::Message::encode_to_vec(&*p_val) };
+                let fut = cc.call_cb(path, &body);
+                Box::pin(async move {
+                    let r = fut.await?;
+                    let resp = r.bytes();
+                    check(resp.len())?;
+                    if fetch {
+                        let v = <shapes_prost::shapes::ListTasksDetailedResponse as prost::Message>::decode(resp).map_err(|e| e.to_string())?;
+                        if read { std::hint::black_box(M2::touch_p(&v)); } else { std::hint::black_box(&v); }
+                    }
+                    Ok(())
+                }) as Fut
+            }))
+        }
+        ('C', Conn::CoreCb(cc, rt)) => {
+            let cc = cc.clone();
+            Call::Async(rt.clone(), Arc::new(move |i| {
+                let slot: &'static Slot = &sl[i];
+                type F = Pin<Box<dyn Future<Output = Result<CbResp, String>> + Send>>;
+                let fut: Result<F, String> = if fetch {
+                    Ok(Box::pin(cc.call_cb(path, &[])))
+                } else {
+                    // As cell C: the encoded request MOVED into the call (ak_call_unary_enc_cb).
+                    M2::f_encode(&slot.ctx, f_val, retain).map_err(|e| format!("core-ffi encode {e}"))
+                        .map(|_| Box::pin(cc.call_enc_cb(path, slot.ctx.enc)) as F)
+                };
+                Box::pin(async move {
+                    let r = fut?.await?;
+                    let resp = r.bytes();
+                    check(resp.len())?;
+                    if fetch {
+                        let v = M2::f_decode(&slot.ctx, resp, retain).map_err(|e| format!("core-ffi decode {e}"))?;
+                        if read { std::hint::black_box(M2::touch_f(&v)); } else { std::hint::black_box(&v); }
+                    }
+                    Ok(())
+                }) as Fut
+            }))
+        }
+        ('E', Conn::CoreCb(cc, rt)) => {
+            let cc = cc.clone();
+            Call::Async(rt.clone(), Arc::new(move |i| {
+                let slot: &'static Slot = &sl[i];
+                let fut = if fetch {
+                    cc.call_cb(path, &[])
+                } else {
+                    let e = unsafe { &mut *slot.enc.get() };
+                    M2::n_encode(f_val, e, retain);
+                    cc.call_cb(path, &e.buf)
+                };
+                Box::pin(async move {
+                    let r = fut.await?;
+                    let resp = r.bytes();
+                    check(resp.len())?;
+                    if fetch {
+                        let v = M2::n_decode(resp, retain).map_err(|e| format!("core-native decode {e}"))?;
+                        if read { std::hint::black_box(M2::touch_f(&v)); } else { std::hint::black_box(&v); }
+                    }
+                    Ok(())
+                }) as Fut
+            }))
+        }
         (c, _) => panic!("cell {c} with the wrong connection"),
     }
 }
@@ -507,6 +737,32 @@ pub fn call_of_c(cell: &str, conn: &Conn, pid: &str, sl: &'static [Slot], want: 
                     };
                     check(resp.len())
                 }) as Fut
+            }))
+        }
+        ('B', Conn::CoreCb(cc, rt)) => {
+            let cc = cc.clone();
+            Call::Async(rt.clone(), Arc::new(move |_i| {
+                let body = prost::Message::encode_to_vec(&*p_val);
+                let fut = cc.call_cb(path, &body);
+                Box::pin(async move { check(fut.await?.bytes().len()) }) as Fut
+            }))
+        }
+        ('C', Conn::CoreCb(cc, rt)) => {
+            let cc = cc.clone();
+            Call::Async(rt.clone(), Arc::new(move |i| {
+                let ctx = &sl[i].ctx;
+                let fut = M5::f_encode(ctx, f_val, retain).map_err(|e| format!("core-ffi encode {e}"))
+                    .map(|_| cc.call_enc_cb(path, ctx.enc));
+                Box::pin(async move { check(fut?.await?.bytes().len()) }) as Fut
+            }))
+        }
+        ('E', Conn::CoreCb(cc, rt)) => {
+            let cc = cc.clone();
+            Call::Async(rt.clone(), Arc::new(move |i| {
+                let e = unsafe { &mut *sl[i].enc.get() };
+                M5::n_encode(f_val, e, retain);
+                let fut = cc.call_cb(path, &e.buf);
+                Box::pin(async move { check(fut.await?.bytes().len()) }) as Fut
             }))
         }
         (c, _) => panic!("cell {c} with the wrong connection"),
@@ -729,6 +985,36 @@ pub fn call_of_d_with(cell: &str, conn: &Conn, chunks: usize, sl: &'static [Slot
                 }) as Fut
             }))
         }
+        ('B', Conn::CoreCb(cc, rt)) => {
+            let cc = cc.clone();
+            Call::Async(rt.clone(), Arc::new(move |_i| {
+                core_stream_cb(cc.clone(), path, n, move |j, h, last, ud| unsafe {
+                    let body = prost::Message::encode_to_vec(&*pl.p[j]);
+                    ak_call_send_cb(h, body.as_ptr(), body.len(), last, on_complete, ud, 0)
+                }, verdict)
+            }))
+        }
+        ('C', Conn::CoreCb(cc, rt)) => {
+            let cc = cc.clone();
+            Call::Async(rt.clone(), Arc::new(move |i| {
+                let slot: &'static Slot = &sl[i];
+                core_stream_cb(cc.clone(), path, n, move |j, h, last, ud| unsafe {
+                    if let Err(e) = M5::f_encode(&slot.ctx, &pl.f[j], retain) { return e; }
+                    ak_call_send_enc_cb(h, slot.ctx.enc, last, on_complete, ud, 0)
+                }, verdict)
+            }))
+        }
+        ('E', Conn::CoreCb(cc, rt)) => {
+            let cc = cc.clone();
+            Call::Async(rt.clone(), Arc::new(move |i| {
+                let slot: &'static Slot = &sl[i];
+                core_stream_cb(cc.clone(), path, n, move |j, h, last, ud| unsafe {
+                    let e = &mut *slot.enc.get();
+                    M5::n_encode(&pl.f[j], e, retain);
+                    ak_call_send_cb(h, e.buf.as_ptr(), e.buf.len(), last, on_complete, ud, 0)
+                }, verdict)
+            }))
+        }
         (c, _) => panic!("cell {c} with the wrong connection"),
     }
 }
@@ -748,10 +1034,14 @@ pub fn warm_with_d(cells: &[&str], target: &str, pinned: bool, n: usize, want_pl
 /// The cells of THIS build (requirement 12): A and B once, C, D, E, F per unknown-field mode.
 #[cfg(feature = "unknown-fields")]
 pub const CELLS: &[&str] = &["A", "B", "C-retain", "C-drop", "D-retain", "D-drop", "E-retain", "E-drop", "F-retain", "F-drop",
-    "Bf", "Cf-retain", "Cf-drop", "Df-retain", "Df-drop", "Ef-retain", "Ef-drop", "Ff-retain", "Ff-drop"];
+    "Bf", "Cf-retain", "Cf-drop", "Df-retain", "Df-drop", "Ef-retain", "Ef-drop", "Ff-retain", "Ff-drop",
+    // the callback cells (CAMPAIGN req 16 as amended: Rust's reference core-transport cells)
+    "B-cb", "C-cb-retain", "C-cb-drop", "E-cb-retain", "E-cb-drop",
+    "Bf-cb", "Cf-cb-retain", "Cf-cb-drop", "Ef-cb-retain", "Ef-cb-drop"];
 /// The no-unknown build: A and B again as its in-process controls.
 #[cfg(not(feature = "unknown-fields"))]
-pub const CELLS: &[&str] = &["A", "B", "C-nounk", "D-nounk", "E-nounk", "F-nounk", "Bf", "Cf-nounk", "Df-nounk", "Ef-nounk", "Ff-nounk"];
+pub const CELLS: &[&str] = &["A", "B", "C-nounk", "D-nounk", "E-nounk", "F-nounk", "Bf", "Cf-nounk", "Df-nounk", "Ef-nounk", "Ff-nounk",
+    "B-cb", "C-cb-nounk", "E-cb-nounk", "Bf-cb", "Cf-cb-nounk", "Ef-cb-nounk"];
 
 pub const DIRS: &[&str] = &["a", "a+read", "b"];
 

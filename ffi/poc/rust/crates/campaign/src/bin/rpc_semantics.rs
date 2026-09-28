@@ -16,6 +16,14 @@
 //!            stream's -> AK_ERR_RPC_STATUS with RESOURCE_EXHAUSTED (8)
 //!   misuse   a second recv and a send after last: AK_ERR_INVALID_STATE, grpc_status untouched;
 //!            the reserved kinds open nothing
+//!   stream cb / q  the stream's callback and queue deliveries (ak_call_send_cb / _enc_cb /
+//!            recv_cb and the _q twins), each delivery: status (StatusS6), bytes through the
+//!            moved-encode send (STREAM_CHECK's count and SHA-256), tags, the send limit
+//!            (refused at the entry, no completion) and the receive limit (RESOURCE_EXHAUSTED),
+//!            cancel of a pending recv (CANCELLED) and of a pending send (the send completes
+//!            AK_ERR_HOST, the recv CANCELLED), misuse (a send while one is pending, a send
+//!            after last, a second recv of any delivery: AK_ERR_INVALID_STATE, no completion);
+//!            ak_call_unary_enc_cb / _q with a chosen status
 use ak_abi::*;
 use campaign::grid;
 use campaign::server::{CAPTURE, TEST_PREFIX};
@@ -144,6 +152,111 @@ fn q_call(cl: &Client, path: &str, cancel_after: Option<std::time::Duration>) ->
         ak_queue_destroy(q);
         r
     }
+}
+
+/// A completion as the stream tests see it (bytes copied, then freed).
+#[derive(Debug, Clone, PartialEq)]
+struct Done {
+    tag: u64,
+    status: i32,
+    gs: i32,
+    bytes: Vec<u8>,
+}
+
+extern "C" fn on_stream(user: *mut std::ffi::c_void, comp: *mut ak_completion) {
+    unsafe {
+        let tx = &*(user as *const std::sync::mpsc::Sender<Done>);
+        let c = &mut *comp;
+        let bytes = if c.bytes.len == 0 { Vec::new() } else { std::slice::from_raw_parts(c.bytes.ptr, c.bytes.len).to_vec() };
+        ak_bytes_free(&mut c.bytes);
+        let _ = tx.send(Done { tag: c.tag, status: c.status, gs: c.grpc_status, bytes });
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Debug)]
+enum Dv {
+    Cb,
+    Q,
+}
+
+/// One delivery's completion sink for the stream tests: a callback into a channel, or a queue.
+struct Ev {
+    dv: Dv,
+    tx: Box<std::sync::mpsc::Sender<Done>>,
+    rx: std::sync::mpsc::Receiver<Done>,
+    q: *mut ak_queue,
+}
+
+impl Ev {
+    fn new(dv: Dv) -> Ev {
+        let (tx, rx) = std::sync::mpsc::channel();
+        Ev { dv, tx: Box::new(tx), rx, q: unsafe { ak_queue_new() } }
+    }
+    fn ud(&self) -> *mut std::ffi::c_void {
+        &*self.tx as *const _ as *mut std::ffi::c_void
+    }
+    fn send(&self, h: *mut ak_call, m: &[u8], last: bool, tag: u64) -> i32 {
+        unsafe {
+            match self.dv {
+                Dv::Cb => ak_call_send_cb(h, m.as_ptr(), m.len(), last as i32, on_stream, self.ud(), tag),
+                Dv::Q => ak_call_send_q(h, m.as_ptr(), m.len(), last as i32, self.q, tag),
+            }
+        }
+    }
+    fn send_enc(&self, h: *mut ak_call, enc: *mut ak_enc_ctx, last: bool, tag: u64) -> i32 {
+        unsafe {
+            match self.dv {
+                Dv::Cb => ak_call_send_enc_cb(h, enc, last as i32, on_stream, self.ud(), tag),
+                Dv::Q => ak_call_send_enc_q(h, enc, last as i32, self.q, tag),
+            }
+        }
+    }
+    fn recv(&self, h: *mut ak_call, tag: u64) -> i32 {
+        unsafe {
+            match self.dv {
+                Dv::Cb => ak_call_recv_cb(h, on_stream, self.ud(), tag),
+                Dv::Q => ak_call_recv_q(h, self.q, tag),
+            }
+        }
+    }
+    fn unary_enc(&self, c: *mut ak_client, path: &str, enc: *mut ak_enc_ctx, tag: u64) -> *mut ak_call {
+        unsafe {
+            match self.dv {
+                Dv::Cb => ak_call_unary_enc_cb(c, path.as_ptr(), path.len(), enc, on_stream, self.ud(), tag),
+                Dv::Q => ak_call_unary_enc_q(c, path.as_ptr(), path.len(), enc, self.q, tag),
+            }
+        }
+    }
+    /// The next completion within `ms`, or None.
+    fn wait(&self, ms: u64) -> Option<Done> {
+        match self.dv {
+            Dv::Cb => self.rx.recv_timeout(std::time::Duration::from_millis(ms)).ok(),
+            Dv::Q => unsafe {
+                let mut c = ak_completion { tag: 0, status: 0, grpc_status: 0, bytes: ak_bytes::default() };
+                if ak_queue_next(self.q, &mut c, ms) != AK_QUEUE_OK {
+                    return None;
+                }
+                let bytes = if c.bytes.len == 0 { Vec::new() } else { std::slice::from_raw_parts(c.bytes.ptr, c.bytes.len).to_vec() };
+                ak_bytes_free(&mut c.bytes);
+                Some(Done { tag: c.tag, status: c.status, gs: c.grpc_status, bytes })
+            },
+        }
+    }
+}
+
+impl Drop for Ev {
+    fn drop(&mut self) {
+        unsafe {
+            ak_queue_shutdown(self.q);
+            ak_queue_destroy(self.q);
+        }
+    }
+}
+
+fn open(cl: &Client, path: &str) -> *mut ak_call {
+    let h = unsafe { ak_call_open(cl.c, path.as_ptr(), path.len(), AK_CALL_CLIENT_STREAM, std::ptr::null()) };
+    assert!(!h.is_null(), "ak_call_open {path}");
+    h
 }
 
 /// A valid M5 message (ids and a data chunk of `n` bytes), as the upload path's server wants.
@@ -303,6 +416,149 @@ fn main() {
         let (_, rc, gs, _) = cl.stream(grid::STREAM_CHECK, None, &[&small]);
         check(rc == AK_ERR_RPC_STATUS && gs == 8,
               format!("[{path_name}] receive limit 16, stream response 40 B: recv {rc}, grpc_status {gs} (RESOURCE_EXHAUSTED = 8)"));
+        drop(cl);
+        // ---- the stream's callback and queue deliveries, and the unary _enc twins
+        for dv in [Dv::Cb, Dv::Q] {
+            let w = format!("[{path_name}, stream {dv:?}]");
+            let cl = Client::new(&target, framed, 0, 0);
+            let ev = Ev::new(dv);
+            // status
+            let h = open(&cl, &p("StatusS6"));
+            let a = ev.send(h, b"x", true, 11);
+            let sa = ev.wait(5000);
+            let b = ev.recv(h, 12);
+            let sb = ev.wait(5000);
+            unsafe { ak_call_destroy(h) };
+            let send_ok = matches!(&sa, Some(d) if d.tag == 11 && ((d.status == AK_OK && d.gs == 0) || (d.status == AK_ERR_HOST && d.gs == -1)));
+            check(a == AK_OK && send_ok && b == AK_OK && matches!(&sb, Some(d) if d.tag == 12 && d.status == AK_ERR_RPC_STATUS && d.gs == 6),
+                  format!("{w} server status 6: send entry {a}, completion {sa:?}; recv entry {b}, completion {sb:?}"));
+            // bytes through the moved-encode send, two chunks, on the checking path
+            {
+                use campaign::Ops;
+                let ctx = harness::arms::core_ffi_arm::Ctx::new();
+                let pl = grid::stream_payload(2);
+                let h = open(&cl, grid::STREAM_CHECK);
+                let mut ok = true;
+                let mut notes = Vec::new();
+                for j in 0..2 {
+                    campaign::generated::roots::R_UploadResultDataMessage::f_encode(&ctx, &pl.f[j], false).expect("encode");
+                    let rc = ev.send_enc(h, ctx.enc, j == 1, 20 + j as u64);
+                    let d = ev.wait(5000);
+                    ok &= rc == AK_OK && matches!(&d, Some(d) if d.tag == 20 + j as u64 && d.status == AK_OK && d.gs == 0 && d.bytes.is_empty());
+                    notes.push(format!("{rc}/{d:?}"));
+                }
+                let rc = ev.recv(h, 30);
+                let d = ev.wait(5000);
+                unsafe { ak_call_destroy(h) };
+                let v = d.as_ref().map(|d| grid::stream_response(&d.bytes, pl.data_bytes, Some(&pl.sha256)));
+                check(ok && rc == AK_OK && matches!(&d, Some(d) if d.tag == 30 && d.status == AK_OK && d.gs == 0) && matches!(v, Some(Ok(()))),
+                      format!("{w} two moved-encode sends to the checking path: sends {notes:?}; recv {rc}, server verdict {v:?}"));
+            }
+            // cancel a pending recv
+            let h = open(&cl, &p("SleepS"));
+            let a = ev.send(h, b"x", true, 40);
+            let sa = ev.wait(5000);
+            let b = ev.recv(h, 41);
+            let early = ev.wait(200);
+            unsafe { ak_call_cancel(h) };
+            let sb = ev.wait(5000);
+            let again = ev.recv(h, 42);
+            let none = ev.wait(200);
+            unsafe { ak_call_destroy(h) };
+            check(a == AK_OK && matches!(&sa, Some(d) if d.status == AK_OK) && b == AK_OK && early.is_none()
+                  && matches!(&sb, Some(d) if d.tag == 41 && d.status == AK_ERR_RPC_STATUS && d.gs == 1)
+                  && again == AK_ERR_INVALID_STATE && none.is_none(),
+                  format!("{w} cancel a pending recv: before the cancel {early:?}; after it {sb:?} (CANCELLED = 1); a second recv {again} and no completion ({none:?})"));
+            // cancel a pending send (the server stalls before reading), and misuse while pending
+            let h = open(&cl, &p("StallS"));
+            let big = vec![1u8; 1 << 20];
+            let (mut pending, mut sent) = (None, 0);
+            for i in 0..64u64 {
+                let rc = ev.send(h, &big, false, 100 + i);
+                if rc != AK_OK {
+                    break;
+                }
+                match ev.wait(300) {
+                    Some(d) if d.status == AK_OK => sent += 1,
+                    Some(_) => break,
+                    None => {
+                        pending = Some(100 + i);
+                        break;
+                    }
+                }
+            }
+            let busy = ev.send(h, b"x", false, 200);
+            unsafe { ak_call_cancel(h) };
+            let sp = ev.wait(5000);
+            let r = ev.recv(h, 201);
+            let sr = ev.wait(5000);
+            unsafe { ak_call_destroy(h) };
+            check(pending.is_some() && busy == AK_ERR_INVALID_STATE
+                  && matches!(&sp, Some(d) if Some(d.tag) == pending && d.status == AK_ERR_HOST && d.gs == -1)
+                  && r == AK_OK && matches!(&sr, Some(d) if d.tag == 201 && d.status == AK_ERR_RPC_STATUS && d.gs == 1),
+                  format!("{w} cancel a pending send ({sent} 1 MiB sends accepted, then #{pending:?} pending): a second send while pending {busy}; the pending send's completion {sp:?}; recv {sr:?}"));
+            // misuse: a send after last, a second recv of another delivery
+            let h = open(&cl, &p("EchoS"));
+            let a = ev.send(h, b"x", true, 50);
+            let _ = ev.wait(5000);
+            let b = ev.send(h, b"x", true, 51);
+            let r1 = ev.recv(h, 52);
+            let d1 = ev.wait(5000);
+            let mut out = ak_bytes::default();
+            let mut gs = -99;
+            let r2 = unsafe { ak_call_recv(h, &mut out, &mut gs) };
+            let none = ev.wait(200);
+            unsafe { ak_call_destroy(h) };
+            check(a == AK_OK && b == AK_ERR_INVALID_STATE && r1 == AK_OK && matches!(&d1, Some(d) if d.status == AK_OK && d.gs == 0)
+                  && r2 == AK_ERR_INVALID_STATE && gs == -99 && none.is_none(),
+                  format!("{w} misuse: a send after last {b} (no completion); a blocking recv after this delivery's recv {r2}, grpc_status untouched ({gs})"));
+            // ak_call_unary_enc_cb / _q, a chosen status and OK
+            {
+                use campaign::Ops;
+                let ctx = harness::arms::core_ffi_arm::Ctx::new();
+                let v = harness::arms_m2::armonik_arm::value(harness::arms_m2::P2_2);
+                campaign::generated::roots::R_ListTasksDetailedResponse::f_encode(&ctx, &v, false).expect("encode");
+                let h = ev.unary_enc(cl.c, &p("StatusU9"), ctx.enc, 60);
+                let d9 = ev.wait(5000);
+                unsafe { ak_call_destroy(h) };
+                campaign::generated::roots::R_ListTasksDetailedResponse::f_encode(&ctx, &v, false).expect("encode");
+                let h2 = ev.unary_enc(cl.c, grid::PUSH, ctx.enc, 61);
+                let d0 = ev.wait(5000);
+                unsafe { ak_call_destroy(h2) };
+                check(!h.is_null() && matches!(&d9, Some(d) if d.tag == 60 && d.status == AK_ERR_RPC_STATUS && d.gs == 9)
+                      && matches!(&d0, Some(d) if d.tag == 61 && d.status == AK_OK && d.gs == 0),
+                      format!("[{path_name}] ak_call_unary_enc {dv:?}: server status 9 {d9:?}; Push OK {d0:?}"));
+            }
+            drop(ev);
+            drop(cl);
+            // limits
+            let ev = Ev::new(dv);
+            let cl = Client::new(&target, framed, 1024, 0);
+            let h = open(&cl, grid::STREAM);
+            let a = ev.send(h, &m5(2000), false, 70);
+            let none = ev.wait(200);
+            let small = m5(100);
+            let b = ev.send(h, &small, true, 71);
+            let sb = ev.wait(5000);
+            let r = ev.recv(h, 72);
+            let sr = ev.wait(5000);
+            unsafe { ak_call_destroy(h) };
+            let got = sr.as_ref().filter(|d| d.bytes.len() >= 8).map(|d| u64::from_le_bytes(d.bytes[..8].try_into().unwrap()));
+            check(a == AK_ERR_LIMIT && none.is_none() && b == AK_OK && matches!(&sb, Some(d) if d.tag == 71 && d.status == AK_OK)
+                  && r == AK_OK && matches!(&sr, Some(d) if d.status == AK_OK && d.gs == 0) && got == Some(100),
+                  format!("{w} send limit 1024: {} B refused at the entry ({a}, no completion: {none:?}), then {} B accepted; the server received {got:?} data bytes",
+                          m5(2000).len(), small.len()));
+            drop(cl);
+            let cl = Client::new(&target, framed, 0, 16);
+            let h = open(&cl, grid::STREAM_CHECK);
+            let _ = ev.send(h, &small, true, 80);
+            let _ = ev.wait(5000);
+            let r = ev.recv(h, 81);
+            let sr = ev.wait(5000);
+            unsafe { ak_call_destroy(h) };
+            check(r == AK_OK && matches!(&sr, Some(d) if d.tag == 81 && d.status == AK_ERR_RPC_STATUS && d.gs == 8),
+                  format!("{w} receive limit 16, response 40 B: {sr:?} (RESOURCE_EXHAUSTED = 8)"));
+        }
     }
     let _ = std::fs::remove_dir_all(&dir);
     println!("{}", if bad == 0 { "RPC SEMANTICS PASSED" } else { "RPC SEMANTICS FAILED" });

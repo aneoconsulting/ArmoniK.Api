@@ -37,7 +37,7 @@ fn main() {
     let mut wrong = grid::stream_payload(2).sha256;
     wrong[0] ^= 1;
     let wrong: &'static [u8; 32] = Box::leak(Box::new(wrong));
-    for cell in ["B", "Bf", grid::cell_of("D"), grid::cell_of("Df")] {
+    for cell in ["B", "Bf", "B-cb", "Bf-cb", grid::cell_of("D"), grid::cell_of("Df")] {
         let conn = Conn::open(cell, &target, false);
         let sha_ctl = grid::call_of_d_with(cell, &conn, 2, grid::slots(1), (2 * grid::CHUNK) as u64, Some(wrong)).once(0);
         let len_ctl = grid::call_of_d(cell, &conn, 2, grid::slots(1), (2 * grid::CHUNK) as u64 + 1, true).once(0);

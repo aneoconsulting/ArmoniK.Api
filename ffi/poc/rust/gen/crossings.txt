@@ -6,6 +6,7 @@
 # Bf, Cf, Df, Ef: the same cells on the framed send path (T1 option 3; ak_client_set_framed is called once at open, not per call).
 # c/P5.3, c/P5.4: U1-unary, one upload of M5 (encode + Upload; the response is empty and decoded by nobody).
 # d/4MiB, d/16MiB: U2-stream, one client-streamed upload in 2 MiB chunks (B/C/E: open, a send per chunk, recv, free, destroy).
+# B-cb, C-cb, E-cb (and Bf-cb, Cf-cb, Ef-cb): the callback cells (CAMPAIGN req 16 as amended, Rust's reference core cells): ak_call_unary_cb / ak_call_unary_enc_cb + ak_call_destroy + ak_bytes_free, one reverse (the completion); d: ak_call_send_cb / _enc_cb per chunk and ak_call_recv_cb, one reverse per completion.
 # input                                            direction    mode        forward  reverse resets
 P1.1                                             encode       drop              3        1      1
 P1.1                                             decode       drop              1        2      0
@@ -773,3 +774,63 @@ rpc:Ef                                           c/P5.3       drop              
 rpc:Ef                                           c/P5.4       drop              2        0      0
 rpc:Ef                                           d/4MiB       drop              6        0      0
 rpc:Ef                                           d/16MiB      drop             12        0      0
+rpc:B-cb                                         a            default           3        1      0
+rpc:B-cb                                         b            default           3        1      0
+rpc:B-cb                                         c/P5.3       default           3        1      0
+rpc:B-cb                                         c/P5.4       default           3        1      0
+rpc:B-cb                                         d/4MiB       default           6        3      0
+rpc:B-cb                                         d/16MiB      default          12        9      0
+rpc:C-cb                                         a            retain            5     3502      1
+rpc:C-cb                                         b            retain         2521     2502      1
+rpc:C-cb                                         c/P5.3       retain            5        1      1
+rpc:C-cb                                         c/P5.4       retain            5        1      1
+rpc:C-cb                                         d/4MiB       retain           10        3      2
+rpc:C-cb                                         d/16MiB      retain           28        9      8
+rpc:C-cb                                         a            drop              4     3502      0
+rpc:C-cb                                         b            drop           2515     2502      1
+rpc:C-cb                                         c/P5.3       drop              5        1      1
+rpc:C-cb                                         c/P5.4       drop              5        1      1
+rpc:C-cb                                         d/4MiB       drop             10        3      2
+rpc:C-cb                                         d/16MiB      drop             28        9      8
+rpc:E-cb                                         a            retain            3        1      0
+rpc:E-cb                                         b            retain            3        1      0
+rpc:E-cb                                         c/P5.3       retain            3        1      0
+rpc:E-cb                                         c/P5.4       retain            3        1      0
+rpc:E-cb                                         d/4MiB       retain            6        3      0
+rpc:E-cb                                         d/16MiB      retain           12        9      0
+rpc:E-cb                                         a            drop              3        1      0
+rpc:E-cb                                         b            drop              3        1      0
+rpc:E-cb                                         c/P5.3       drop              3        1      0
+rpc:E-cb                                         c/P5.4       drop              3        1      0
+rpc:E-cb                                         d/4MiB       drop              6        3      0
+rpc:E-cb                                         d/16MiB      drop             12        9      0
+rpc:Bf-cb                                        a            default           3        1      0
+rpc:Bf-cb                                        b            default           3        1      0
+rpc:Bf-cb                                        c/P5.3       default           3        1      0
+rpc:Bf-cb                                        c/P5.4       default           3        1      0
+rpc:Bf-cb                                        d/4MiB       default           6        3      0
+rpc:Bf-cb                                        d/16MiB      default          12        9      0
+rpc:Cf-cb                                        a            retain            5     3502      1
+rpc:Cf-cb                                        b            retain         2521     2502      1
+rpc:Cf-cb                                        c/P5.3       retain            5        1      1
+rpc:Cf-cb                                        c/P5.4       retain            5        1      1
+rpc:Cf-cb                                        d/4MiB       retain           10        3      2
+rpc:Cf-cb                                        d/16MiB      retain           28        9      8
+rpc:Cf-cb                                        a            drop              4     3502      0
+rpc:Cf-cb                                        b            drop           2515     2502      1
+rpc:Cf-cb                                        c/P5.3       drop              5        1      1
+rpc:Cf-cb                                        c/P5.4       drop              5        1      1
+rpc:Cf-cb                                        d/4MiB       drop             10        3      2
+rpc:Cf-cb                                        d/16MiB      drop             28        9      8
+rpc:Ef-cb                                        a            retain            3        1      0
+rpc:Ef-cb                                        b            retain            3        1      0
+rpc:Ef-cb                                        c/P5.3       retain            3        1      0
+rpc:Ef-cb                                        c/P5.4       retain            3        1      0
+rpc:Ef-cb                                        d/4MiB       retain            6        3      0
+rpc:Ef-cb                                        d/16MiB      retain           12        9      0
+rpc:Ef-cb                                        a            drop              3        1      0
+rpc:Ef-cb                                        b            drop              3        1      0
+rpc:Ef-cb                                        c/P5.3       drop              3        1      0
+rpc:Ef-cb                                        c/P5.4       drop              3        1      0
+rpc:Ef-cb                                        d/4MiB       drop              6        3      0
+rpc:Ef-cb                                        d/16MiB      drop             12        9      0

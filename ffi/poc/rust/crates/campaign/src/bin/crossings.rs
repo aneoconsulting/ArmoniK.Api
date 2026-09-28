@@ -95,7 +95,7 @@ fn rpc_rows(out: &mut Vec<String>) {
     let want_a = campaign::server::p22_response().len() as u64;
     for cell in grid::CELLS.iter().filter(|c| matches!(grid::base(c), 'B' | 'C' | 'D' | 'E')) {
         let conn = Conn::open(cell, &target, false);
-        let mode = cell.split_once('-').map(|x| x.1).unwrap_or("default");
+        let mode = grid::mode_of(cell).unwrap_or("default");
         for d in ["a", "b"] {
             let sl = grid::slots(1);
             let call = grid::call_of(cell, &conn, d, sl, want_a);
@@ -164,6 +164,7 @@ fn main() {
     println!("# Bf, Cf, Df, Ef: the same cells on the framed send path (T1 option 3; ak_client_set_framed is called once at open, not per call).");
     println!("# c/P5.3, c/P5.4: U1-unary, one upload of M5 (encode + Upload; the response is empty and decoded by nobody).");
     println!("# d/4MiB, d/16MiB: U2-stream, one client-streamed upload in 2 MiB chunks (B/C/E: open, a send per chunk, recv, free, destroy).");
+    println!("# B-cb, C-cb, E-cb (and Bf-cb, Cf-cb, Ef-cb): the callback cells (CAMPAIGN req 16 as amended, Rust's reference core cells): ak_call_unary_cb / ak_call_unary_enc_cb + ak_call_destroy + ak_bytes_free, one reverse (the completion); d: ak_call_send_cb / _enc_cb per chunk and ak_call_recv_cb, one reverse per completion.");
     println!("# input                                            direction    mode        forward  reverse resets");
     for l in out {
         println!("{l}");

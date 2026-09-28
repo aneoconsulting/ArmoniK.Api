@@ -156,9 +156,10 @@ where
                 return Ok(match t {
                     TestPath::StatusU(c) => grpc.unary(TestUnary { status: Some(c), sleep: false }, req).await,
                     TestPath::SleepU => grpc.unary(TestUnary { status: None, sleep: true }, req).await,
-                    TestPath::StatusS(c) => grpc.client_streaming(TestStream { status: Some(c), sleep: false, echo: false }, req).await,
-                    TestPath::SleepS => grpc.client_streaming(TestStream { status: None, sleep: true, echo: false }, req).await,
-                    TestPath::EchoS => grpc.client_streaming(TestStream { status: None, sleep: false, echo: true }, req).await,
+                    TestPath::StatusS(c) => grpc.client_streaming(TestStream { status: Some(c), sleep: false, echo: false, stall: false }, req).await,
+                    TestPath::SleepS => grpc.client_streaming(TestStream { status: None, sleep: true, echo: false, stall: false }, req).await,
+                    TestPath::StallS => grpc.client_streaming(TestStream { status: None, sleep: true, echo: false, stall: true }, req).await,
+                    TestPath::EchoS => grpc.client_streaming(TestStream { status: None, sleep: false, echo: true, stall: false }, req).await,
                 });
             }
             if let Some(check) = stream {
@@ -183,7 +184,8 @@ where
 
 /// The test paths: `<GRID>/StatusU<n>` and `<GRID>/StatusS<n>` answer status code n (unary,
 /// stream), `SleepU` / `SleepS` answer OK after 3 s (past a test's deadline), `EchoS`
-/// answers the request's `ak-echo` value, a '|' and its `ak-echo-bin` bytes.
+/// answers the request's `ak-echo` value, a '|' and its `ak-echo-bin` bytes; `StallS` sleeps 3 s
+/// BEFORE reading the request stream (so a client's send can be left pending), then as SleepS.
 pub const TEST_PREFIX: &str = "/armonik.ffi.campaign.v1.Grid/";
 
 enum TestPath {
@@ -191,6 +193,7 @@ enum TestPath {
     StatusS(i32),
     SleepU,
     SleepS,
+    StallS,
     EchoS,
 }
 
@@ -205,6 +208,7 @@ fn test_path(p: &str) -> Option<TestPath> {
     match t {
         "SleepU" => Some(TestPath::SleepU),
         "SleepS" => Some(TestPath::SleepS),
+        "StallS" => Some(TestPath::StallS),
         "EchoS" => Some(TestPath::EchoS),
         _ => None,
     }
@@ -238,13 +242,14 @@ struct TestStream {
     status: Option<i32>,
     sleep: bool,
     echo: bool,
+    stall: bool,
 }
 
 impl tonic::server::ClientStreamingService<Bytes> for TestStream {
     type Response = Bytes;
     type Future = std::pin::Pin<Box<dyn std::future::Future<Output = Result<tonic::Response<Bytes>, tonic::Status>> + Send>>;
     fn call(&mut self, req: tonic::Request<tonic::Streaming<Bytes>>) -> Self::Future {
-        let (status, sleep, echo) = (self.status, self.sleep, self.echo);
+        let (status, sleep, echo, stall) = (self.status, self.sleep, self.echo, self.stall);
         Box::pin(async move {
             let mut out = Vec::new();
             if echo {
@@ -256,9 +261,12 @@ impl tonic::server::ClientStreamingService<Bytes> for TestStream {
                     out.extend_from_slice(&v.to_bytes().map_err(|e| tonic::Status::invalid_argument(e.to_string()))?);
                 }
             }
+            if stall {
+                tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+            }
             let mut s = req.into_inner();
             while s.message().await?.is_some() {}
-            if sleep {
+            if sleep && !stall {
                 tokio::time::sleep(std::time::Duration::from_secs(3)).await;
             }
             match status {

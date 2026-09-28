@@ -1,0 +1,75 @@
+A          d/4MiB   4194304 data bytes and the SHA-256 of every message as received: identical
+A          d/16MiB  16777216 data bytes and the SHA-256 of every message as received: identical
+A          c/P5.3   upload accepted (prost-decoded by the server, non-empty), empty response
+A          c/P5.4   upload accepted (prost-decoded by the server, non-empty), empty response
+B          d/4MiB   4194304 data bytes and the SHA-256 of every message as received: identical
+B          d/16MiB  16777216 data bytes and the SHA-256 of every message as received: identical
+B          c/P5.3   upload accepted (prost-decoded by the server, non-empty), empty response
+B          c/P5.4   upload accepted (prost-decoded by the server, non-empty), empty response
+C-nounk    d/4MiB   4194304 data bytes and the SHA-256 of every message as received: identical
+C-nounk    d/16MiB  16777216 data bytes and the SHA-256 of every message as received: identical
+C-nounk    c/P5.3   upload accepted (prost-decoded by the server, non-empty), empty response
+C-nounk    c/P5.4   upload accepted (prost-decoded by the server, non-empty), empty response
+D-nounk    d/4MiB   4194304 data bytes and the SHA-256 of every message as received: identical
+D-nounk    d/16MiB  16777216 data bytes and the SHA-256 of every message as received: identical
+D-nounk    c/P5.3   upload accepted (prost-decoded by the server, non-empty), empty response
+D-nounk    c/P5.4   upload accepted (prost-decoded by the server, non-empty), empty response
+E-nounk    d/4MiB   4194304 data bytes and the SHA-256 of every message as received: identical
+E-nounk    d/16MiB  16777216 data bytes and the SHA-256 of every message as received: identical
+E-nounk    c/P5.3   upload accepted (prost-decoded by the server, non-empty), empty response
+E-nounk    c/P5.4   upload accepted (prost-decoded by the server, non-empty), empty response
+F-nounk    d/4MiB   4194304 data bytes and the SHA-256 of every message as received: identical
+F-nounk    d/16MiB  16777216 data bytes and the SHA-256 of every message as received: identical
+F-nounk    c/P5.3   upload accepted (prost-decoded by the server, non-empty), empty response
+F-nounk    c/P5.4   upload accepted (prost-decoded by the server, non-empty), empty response
+Bf         d/4MiB   4194304 data bytes and the SHA-256 of every message as received: identical
+Bf         d/16MiB  16777216 data bytes and the SHA-256 of every message as received: identical
+Bf         c/P5.3   upload accepted (prost-decoded by the server, non-empty), empty response
+Bf         c/P5.4   upload accepted (prost-decoded by the server, non-empty), empty response
+Cf-nounk   d/4MiB   4194304 data bytes and the SHA-256 of every message as received: identical
+Cf-nounk   d/16MiB  16777216 data bytes and the SHA-256 of every message as received: identical
+Cf-nounk   c/P5.3   upload accepted (prost-decoded by the server, non-empty), empty response
+Cf-nounk   c/P5.4   upload accepted (prost-decoded by the server, non-empty), empty response
+Df-nounk   d/4MiB   4194304 data bytes and the SHA-256 of every message as received: identical
+Df-nounk   d/16MiB  16777216 data bytes and the SHA-256 of every message as received: identical
+Df-nounk   c/P5.3   upload accepted (prost-decoded by the server, non-empty), empty response
+Df-nounk   c/P5.4   upload accepted (prost-decoded by the server, non-empty), empty response
+Ef-nounk   d/4MiB   4194304 data bytes and the SHA-256 of every message as received: identical
+Ef-nounk   d/16MiB  16777216 data bytes and the SHA-256 of every message as received: identical
+Ef-nounk   c/P5.3   upload accepted (prost-decoded by the server, non-empty), empty response
+Ef-nounk   c/P5.4   upload accepted (prost-decoded by the server, non-empty), empty response
+Ff-nounk   d/4MiB   4194304 data bytes and the SHA-256 of every message as received: identical
+Ff-nounk   d/16MiB  16777216 data bytes and the SHA-256 of every message as received: identical
+Ff-nounk   c/P5.3   upload accepted (prost-decoded by the server, non-empty), empty response
+Ff-nounk   c/P5.4   upload accepted (prost-decoded by the server, non-empty), empty response
+B-cb       d/4MiB   4194304 data bytes and the SHA-256 of every message as received: identical
+B-cb       d/16MiB  16777216 data bytes and the SHA-256 of every message as received: identical
+B-cb       c/P5.3   upload accepted (prost-decoded by the server, non-empty), empty response
+B-cb       c/P5.4   upload accepted (prost-decoded by the server, non-empty), empty response
+C-cb-nounk d/4MiB   4194304 data bytes and the SHA-256 of every message as received: identical
+C-cb-nounk d/16MiB  16777216 data bytes and the SHA-256 of every message as received: identical
+C-cb-nounk c/P5.3   upload accepted (prost-decoded by the server, non-empty), empty response
+C-cb-nounk c/P5.4   upload accepted (prost-decoded by the server, non-empty), empty response
+E-cb-nounk d/4MiB   4194304 data bytes and the SHA-256 of every message as received: identical
+E-cb-nounk d/16MiB  16777216 data bytes and the SHA-256 of every message as received: identical
+E-cb-nounk c/P5.3   upload accepted (prost-decoded by the server, non-empty), empty response
+E-cb-nounk c/P5.4   upload accepted (prost-decoded by the server, non-empty), empty response
+Bf-cb      d/4MiB   4194304 data bytes and the SHA-256 of every message as received: identical
+Bf-cb      d/16MiB  16777216 data bytes and the SHA-256 of every message as received: identical
+Bf-cb      c/P5.3   upload accepted (prost-decoded by the server, non-empty), empty response
+Bf-cb      c/P5.4   upload accepted (prost-decoded by the server, non-empty), empty response
+Cf-cb-nounk d/4MiB   4194304 data bytes and the SHA-256 of every message as received: identical
+Cf-cb-nounk d/16MiB  16777216 data bytes and the SHA-256 of every message as received: identical
+Cf-cb-nounk c/P5.3   upload accepted (prost-decoded by the server, non-empty), empty response
+Cf-cb-nounk c/P5.4   upload accepted (prost-decoded by the server, non-empty), empty response
+Ef-cb-nounk d/4MiB   4194304 data bytes and the SHA-256 of every message as received: identical
+Ef-cb-nounk d/16MiB  16777216 data bytes and the SHA-256 of every message as received: identical
+Ef-cb-nounk c/P5.3   upload accepted (prost-decoded by the server, non-empty), empty response
+Ef-cb-nounk c/P5.4   upload accepted (prost-decoded by the server, non-empty), empty response
+control B          planted wrong SHA-256: cell B: the server received other bytes than the uploaded ones (SHA-256 differs); planted wrong count: cell B: the server received 4194304 data bytes, expected 4194305  (both detected)
+control Bf         planted wrong SHA-256: cell Bf: the server received other bytes than the uploaded ones (SHA-256 differs); planted wrong count: cell Bf: the server received 4194304 data bytes, expected 4194305  (both detected)
+control B-cb       planted wrong SHA-256: cell B-cb: the server received other bytes than the uploaded ones (SHA-256 differs); planted wrong count: cell B-cb: the server received 4194304 data bytes, expected 4194305  (both detected)
+control Bf-cb      planted wrong SHA-256: cell Bf-cb: the server received other bytes than the uploaded ones (SHA-256 differs); planted wrong count: cell Bf-cb: the server received 4194304 data bytes, expected 4194305  (both detected)
+control D-nounk    planted wrong SHA-256: cell D-nounk: the server received other bytes than the uploaded ones (SHA-256 differs); planted wrong count: cell D-nounk: the server received 4194304 data bytes, expected 4194305  (both detected)
+control Df-nounk   planted wrong SHA-256: cell Df-nounk: the server received other bytes than the uploaded ones (SHA-256 differs); planted wrong count: cell Df-nounk: the server received 4194304 data bytes, expected 4194305  (both detected)
+UPLOAD CHECK PASSED

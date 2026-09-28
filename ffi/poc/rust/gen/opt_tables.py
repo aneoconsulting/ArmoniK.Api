@@ -91,10 +91,22 @@ DIR_TEXT = {
 
 
 def cell_key(c):
-    base, _, mode = c.partition("-")
+    """Order: letter; for B/C/E the callback cells (-cb, CAMPAIGN req 16 as amended: Rust's
+    reference core cells) before the blocking ones (the labelled row); mode; framed twin last."""
+    mode = next((m for m in ("drop", "retain", "nounk") if c.endswith("-" + m)), "")
+    stem = c[: -len(mode) - 1] if mode else c
+    cb = stem.endswith("-cb")
+    base = stem[:-3] if cb else stem
     letter, framed = base[0], base[1:] == "f"
     order_mode = {"": 0, "drop": 1, "retain": 2, "nounk": 3}[mode]
-    return (letter, order_mode, framed)
+    return (letter, 0 if cb else 1, order_mode, framed)
+
+
+def cell_label(c):
+    """The cell name with its role for B/C/E: `(ref)` on a callback cell, `(blk)` on a blocking one."""
+    if c[0] not in "BCE":
+        return c
+    return c + (" (ref)" if "-cb" in c else " (blk)")
 
 
 def rpc(d, out):
