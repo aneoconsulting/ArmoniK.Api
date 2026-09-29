@@ -25,7 +25,9 @@ SRV="$TGT/release/rpc_server"; WARM="$TGT/release/rpc_warm"
 cmd=${1:-}; shift || true
 case "$cmd" in
   build)
-    ( cd "$HERE" && CARGO_TARGET_DIR="$TGT" cargo build --release -q -p campaign --bin rpc_server --bin rpc_warm )
+    # gen/cargo-shim: the build directory is the target directory, whatever build.build-dir
+    # the machine's cargo configuration sets (so rpc_server loads target-server's own core).
+    ( cd "$HERE" && PATH="$HERE/gen/cargo-shim:$PATH" CARGO_TARGET_DIR="$TGT" cargo build --release -q -p campaign --bin rpc_server --bin rpc_warm )
     echo "built $SRV and $WARM" ;;
 
   start)

@@ -1,0 +1,127 @@
+A          d/4MiB   4194304 data bytes and the SHA-256 of every message as received: identical
+A          d/16MiB  16777216 data bytes and the SHA-256 of every message as received: identical
+A          c/P5.3   upload accepted (prost-decoded by the server, non-empty), empty response
+A          c/P5.4   upload accepted (prost-decoded by the server, non-empty), empty response
+B          d/4MiB   4194304 data bytes and the SHA-256 of every message as received: identical
+B          d/16MiB  16777216 data bytes and the SHA-256 of every message as received: identical
+B          c/P5.3   upload accepted (prost-decoded by the server, non-empty), empty response
+B          c/P5.4   upload accepted (prost-decoded by the server, non-empty), empty response
+C-retain   d/4MiB   4194304 data bytes and the SHA-256 of every message as received: identical
+C-retain   d/16MiB  16777216 data bytes and the SHA-256 of every message as received: identical
+C-retain   c/P5.3   upload accepted (prost-decoded by the server, non-empty), empty response
+C-retain   c/P5.4   upload accepted (prost-decoded by the server, non-empty), empty response
+C-drop     d/4MiB   4194304 data bytes and the SHA-256 of every message as received: identical
+C-drop     d/16MiB  16777216 data bytes and the SHA-256 of every message as received: identical
+C-drop     c/P5.3   upload accepted (prost-decoded by the server, non-empty), empty response
+C-drop     c/P5.4   upload accepted (prost-decoded by the server, non-empty), empty response
+D-retain   d/4MiB   4194304 data bytes and the SHA-256 of every message as received: identical
+D-retain   d/16MiB  16777216 data bytes and the SHA-256 of every message as received: identical
+D-retain   c/P5.3   upload accepted (prost-decoded by the server, non-empty), empty response
+D-retain   c/P5.4   upload accepted (prost-decoded by the server, non-empty), empty response
+D-drop     d/4MiB   4194304 data bytes and the SHA-256 of every message as received: identical
+D-drop     d/16MiB  16777216 data bytes and the SHA-256 of every message as received: identical
+D-drop     c/P5.3   upload accepted (prost-decoded by the server, non-empty), empty response
+D-drop     c/P5.4   upload accepted (prost-decoded by the server, non-empty), empty response
+E-retain   d/4MiB   4194304 data bytes and the SHA-256 of every message as received: identical
+E-retain   d/16MiB  16777216 data bytes and the SHA-256 of every message as received: identical
+E-retain   c/P5.3   upload accepted (prost-decoded by the server, non-empty), empty response
+E-retain   c/P5.4   upload accepted (prost-decoded by the server, non-empty), empty response
+E-drop     d/4MiB   4194304 data bytes and the SHA-256 of every message as received: identical
+E-drop     d/16MiB  16777216 data bytes and the SHA-256 of every message as received: identical
+E-drop     c/P5.3   upload accepted (prost-decoded by the server, non-empty), empty response
+E-drop     c/P5.4   upload accepted (prost-decoded by the server, non-empty), empty response
+F-retain   d/4MiB   4194304 data bytes and the SHA-256 of every message as received: identical
+F-retain   d/16MiB  16777216 data bytes and the SHA-256 of every message as received: identical
+F-retain   c/P5.3   upload accepted (prost-decoded by the server, non-empty), empty response
+F-retain   c/P5.4   upload accepted (prost-decoded by the server, non-empty), empty response
+F-drop     d/4MiB   4194304 data bytes and the SHA-256 of every message as received: identical
+F-drop     d/16MiB  16777216 data bytes and the SHA-256 of every message as received: identical
+F-drop     c/P5.3   upload accepted (prost-decoded by the server, non-empty), empty response
+F-drop     c/P5.4   upload accepted (prost-decoded by the server, non-empty), empty response
+Bf         d/4MiB   4194304 data bytes and the SHA-256 of every message as received: identical
+Bf         d/16MiB  16777216 data bytes and the SHA-256 of every message as received: identical
+Bf         c/P5.3   upload accepted (prost-decoded by the server, non-empty), empty response
+Bf         c/P5.4   upload accepted (prost-decoded by the server, non-empty), empty response
+Cf-retain  d/4MiB   4194304 data bytes and the SHA-256 of every message as received: identical
+Cf-retain  d/16MiB  16777216 data bytes and the SHA-256 of every message as received: identical
+Cf-retain  c/P5.3   upload accepted (prost-decoded by the server, non-empty), empty response
+Cf-retain  c/P5.4   upload accepted (prost-decoded by the server, non-empty), empty response
+Cf-drop    d/4MiB   4194304 data bytes and the SHA-256 of every message as received: identical
+Cf-drop    d/16MiB  16777216 data bytes and the SHA-256 of every message as received: identical
+Cf-drop    c/P5.3   upload accepted (prost-decoded by the server, non-empty), empty response
+Cf-drop    c/P5.4   upload accepted (prost-decoded by the server, non-empty), empty response
+Df-retain  d/4MiB   4194304 data bytes and the SHA-256 of every message as received: identical
+Df-retain  d/16MiB  16777216 data bytes and the SHA-256 of every message as received: identical
+Df-retain  c/P5.3   upload accepted (prost-decoded by the server, non-empty), empty response
+Df-retain  c/P5.4   upload accepted (prost-decoded by the server, non-empty), empty response
+Df-drop    d/4MiB   4194304 data bytes and the SHA-256 of every message as received: identical
+Df-drop    d/16MiB  16777216 data bytes and the SHA-256 of every message as received: identical
+Df-drop    c/P5.3   upload accepted (prost-decoded by the server, non-empty), empty response
+Df-drop    c/P5.4   upload accepted (prost-decoded by the server, non-empty), empty response
+Ef-retain  d/4MiB   4194304 data bytes and the SHA-256 of every message as received: identical
+Ef-retain  d/16MiB  16777216 data bytes and the SHA-256 of every message as received: identical
+Ef-retain  c/P5.3   upload accepted (prost-decoded by the server, non-empty), empty response
+Ef-retain  c/P5.4   upload accepted (prost-decoded by the server, non-empty), empty response
+Ef-drop    d/4MiB   4194304 data bytes and the SHA-256 of every message as received: identical
+Ef-drop    d/16MiB  16777216 data bytes and the SHA-256 of every message as received: identical
+Ef-drop    c/P5.3   upload accepted (prost-decoded by the server, non-empty), empty response
+Ef-drop    c/P5.4   upload accepted (prost-decoded by the server, non-empty), empty response
+Ff-retain  d/4MiB   4194304 data bytes and the SHA-256 of every message as received: identical
+Ff-retain  d/16MiB  16777216 data bytes and the SHA-256 of every message as received: identical
+Ff-retain  c/P5.3   upload accepted (prost-decoded by the server, non-empty), empty response
+Ff-retain  c/P5.4   upload accepted (prost-decoded by the server, non-empty), empty response
+Ff-drop    d/4MiB   4194304 data bytes and the SHA-256 of every message as received: identical
+Ff-drop    d/16MiB  16777216 data bytes and the SHA-256 of every message as received: identical
+Ff-drop    c/P5.3   upload accepted (prost-decoded by the server, non-empty), empty response
+Ff-drop    c/P5.4   upload accepted (prost-decoded by the server, non-empty), empty response
+B-cb       d/4MiB   4194304 data bytes and the SHA-256 of every message as received: identical
+B-cb       d/16MiB  16777216 data bytes and the SHA-256 of every message as received: identical
+B-cb       c/P5.3   upload accepted (prost-decoded by the server, non-empty), empty response
+B-cb       c/P5.4   upload accepted (prost-decoded by the server, non-empty), empty response
+C-cb-retain d/4MiB   4194304 data bytes and the SHA-256 of every message as received: identical
+C-cb-retain d/16MiB  16777216 data bytes and the SHA-256 of every message as received: identical
+C-cb-retain c/P5.3   upload accepted (prost-decoded by the server, non-empty), empty response
+C-cb-retain c/P5.4   upload accepted (prost-decoded by the server, non-empty), empty response
+C-cb-drop  d/4MiB   4194304 data bytes and the SHA-256 of every message as received: identical
+C-cb-drop  d/16MiB  16777216 data bytes and the SHA-256 of every message as received: identical
+C-cb-drop  c/P5.3   upload accepted (prost-decoded by the server, non-empty), empty response
+C-cb-drop  c/P5.4   upload accepted (prost-decoded by the server, non-empty), empty response
+E-cb-retain d/4MiB   4194304 data bytes and the SHA-256 of every message as received: identical
+E-cb-retain d/16MiB  16777216 data bytes and the SHA-256 of every message as received: identical
+E-cb-retain c/P5.3   upload accepted (prost-decoded by the server, non-empty), empty response
+E-cb-retain c/P5.4   upload accepted (prost-decoded by the server, non-empty), empty response
+E-cb-drop  d/4MiB   4194304 data bytes and the SHA-256 of every message as received: identical
+E-cb-drop  d/16MiB  16777216 data bytes and the SHA-256 of every message as received: identical
+E-cb-drop  c/P5.3   upload accepted (prost-decoded by the server, non-empty), empty response
+E-cb-drop  c/P5.4   upload accepted (prost-decoded by the server, non-empty), empty response
+Bf-cb      d/4MiB   4194304 data bytes and the SHA-256 of every message as received: identical
+Bf-cb      d/16MiB  16777216 data bytes and the SHA-256 of every message as received: identical
+Bf-cb      c/P5.3   upload accepted (prost-decoded by the server, non-empty), empty response
+Bf-cb      c/P5.4   upload accepted (prost-decoded by the server, non-empty), empty response
+Cf-cb-retain d/4MiB   4194304 data bytes and the SHA-256 of every message as received: identical
+Cf-cb-retain d/16MiB  16777216 data bytes and the SHA-256 of every message as received: identical
+Cf-cb-retain c/P5.3   upload accepted (prost-decoded by the server, non-empty), empty response
+Cf-cb-retain c/P5.4   upload accepted (prost-decoded by the server, non-empty), empty response
+Cf-cb-drop d/4MiB   4194304 data bytes and the SHA-256 of every message as received: identical
+Cf-cb-drop d/16MiB  16777216 data bytes and the SHA-256 of every message as received: identical
+Cf-cb-drop c/P5.3   upload accepted (prost-decoded by the server, non-empty), empty response
+Cf-cb-drop c/P5.4   upload accepted (prost-decoded by the server, non-empty), empty response
+Ef-cb-retain d/4MiB   4194304 data bytes and the SHA-256 of every message as received: identical
+Ef-cb-retain d/16MiB  16777216 data bytes and the SHA-256 of every message as received: identical
+Ef-cb-retain c/P5.3   upload accepted (prost-decoded by the server, non-empty), empty response
+Ef-cb-retain c/P5.4   upload accepted (prost-decoded by the server, non-empty), empty response
+Ef-cb-drop d/4MiB   4194304 data bytes and the SHA-256 of every message as received: identical
+Ef-cb-drop d/16MiB  16777216 data bytes and the SHA-256 of every message as received: identical
+Ef-cb-drop c/P5.3   upload accepted (prost-decoded by the server, non-empty), empty response
+Ef-cb-drop c/P5.4   upload accepted (prost-decoded by the server, non-empty), empty response
+control B          planted wrong SHA-256: cell B: the server received other bytes than the uploaded ones (SHA-256 differs); planted wrong count: cell B: the server received 4194304 data bytes, expected 4194305  (both detected)
+control Bf         planted wrong SHA-256: cell Bf: the server received other bytes than the uploaded ones (SHA-256 differs); planted wrong count: cell Bf: the server received 4194304 data bytes, expected 4194305  (both detected)
+control B-cb       planted wrong SHA-256: cell B-cb: the server received other bytes than the uploaded ones (SHA-256 differs); planted wrong count: cell B-cb: the server received 4194304 data bytes, expected 4194305  (both detected)
+control Bf-cb      planted wrong SHA-256: cell Bf-cb: the server received other bytes than the uploaded ones (SHA-256 differs); planted wrong count: cell Bf-cb: the server received 4194304 data bytes, expected 4194305  (both detected)
+control D-retain   planted wrong SHA-256: cell D-retain: the server received other bytes than the uploaded ones (SHA-256 differs); planted wrong count: cell D-retain: the server received 4194304 data bytes, expected 4194305  (both detected)
+control Df-retain  planted wrong SHA-256: cell Df-retain: the server received other bytes than the uploaded ones (SHA-256 differs); planted wrong count: cell Df-retain: the server received 4194304 data bytes, expected 4194305  (both detected)
+UPLOAD CHECK PASSED
+
+real	0m15.628s
+user	0m13.964s
+sys	0m2.119s

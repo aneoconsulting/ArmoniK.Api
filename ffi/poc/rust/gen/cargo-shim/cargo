@@ -1,0 +1,15 @@
+#!/bin/sh
+# A cargo wrapper that makes the build directory the target directory (cargo's default), for a
+# machine whose cargo configuration sets `build.build-dir` to one shared place per workspace
+# (the NixOS campaign machine, 2026-09-29: ~/.cargo/config.toml build-dir =
+# "/data/csdt/.cargo-build/{workspace-path-hash}"). With that setting every target directory
+# of one workspace (target, target-nounk, target-count, target-server, ...) shares one build
+# directory, and every binary's RUNPATH names that directory's libak_core.so, so the last build
+# of any variant decides which core every binary loads. This slice's scripts keep one target
+# directory per variant on purpose (STATE.md, Notes). Use: PATH=<this dir>:$PATH.
+here=$(cd "$(dirname "$0")" && pwd)
+PATH=$(printf '%s' "$PATH" | tr ':' '\n' | grep -vx "$here" | paste -sd: -)
+export PATH
+if [ -n "${CARGO_TARGET_DIR:-}" ]; then CARGO_BUILD_BUILD_DIR=$CARGO_TARGET_DIR; else CARGO_BUILD_BUILD_DIR='{workspace-root}/target'; fi
+export CARGO_BUILD_BUILD_DIR
+exec cargo "$@"

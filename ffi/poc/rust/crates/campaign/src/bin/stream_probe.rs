@@ -385,9 +385,16 @@ fn main() {
     // chunk (core-ffi, retain, moved out by ak_enc_take_owned) and blocking_sends it into an
     // mpsc(1) whose ReceiverStream is the body's message stream; the call runs as a task on
     // the cell's runtime, its result awaited with block_on from the host thread.
+    // `A2` (probe only): a second, independent instance of cell A (its own runtime and
+    // channel), so an A/A gap in the same process is measured beside every cell's gap to A.
     let cells: Vec<&'static str> = env("AK_PROBE_CELLS", "A,D,Df,C,Cf,C-cb,Cf-cb,B,Bf".to_string())
         .split(',').map(|s| match s { "Df-chan" => "Df-chan", "Cf-split" => "Cf-split", "C-split" => "C-split",
-                                       "Cf-cb-split" => "Cf-cb-split", "C-cb-split" => "C-cb-split", s => grid::cell_of(s) }).collect();
+                                       "Cf-cb-split" => "Cf-cb-split", "C-cb-split" => "C-cb-split", "A2" => "A2", s => grid::cell_of(s) }).collect();
+    // The grid cell each probe-only name runs on.
+    let base = |c: &'static str| -> &'static str {
+        match c { "Df-chan" => grid::cell_of("Df"), "Cf-split" => grid::cell_of("Cf"), "C-split" => grid::cell_of("C"),
+                  "Cf-cb-split" => grid::cell_of("Cf-cb"), "C-cb-split" => grid::cell_of("C-cb"), "A2" => "A", c => c }
+    };
     let sizes: Vec<(&'static str, usize)> = env("AK_PROBE_SIZES", "16MiB,4MiB".to_string()).split(',')
         .map(|s| *grid::D_PAYLOADS.iter().find(|(l, _)| *l == s).unwrap_or_else(|| panic!("size {s}"))).collect();
     let rounds: usize = env("AK_PROBE_ROUNDS", 15);
@@ -395,8 +402,7 @@ fn main() {
     let warm: usize = env("AK_PROBE_WARM", 4);
     let out: String = env("AK_OUT", "stream-probe.jsonl".to_string());
 
-    let conns: Vec<Conn> = cells.iter().map(|c| Conn::open(match *c { "Df-chan" => grid::cell_of("Df"), "Cf-split" => grid::cell_of("Cf"), "C-split" => grid::cell_of("C"),
-                                                                    "Cf-cb-split" => grid::cell_of("Cf-cb"), "C-cb-split" => grid::cell_of("C-cb"), c => c }, &target, pinned)).collect();
+    let conns: Vec<Conn> = cells.iter().map(|c| Conn::open(base(c), &target, pinned)).collect();
     let mut work = Vec::new();
     for (ci, &cell) in cells.iter().enumerate() {
         for &(label, chunks) in &sizes {
@@ -407,7 +413,7 @@ fn main() {
             } else if cell.ends_with("-split") {
                 core_split(&conns[ci], chunks)
             } else {
-                grid::call_of_d(cell, &conns[ci], chunks, grid::slots(1), (chunks * grid::CHUNK) as u64, false)
+                grid::call_of_d(base(cell), &conns[ci], chunks, grid::slots(1), (chunks * grid::CHUNK) as u64, false)
             };
             let caller = Caller::new(&call);
             caller.run(warm).unwrap_or_else(|e| panic!("warm-up {cell} {label}: {e}"));

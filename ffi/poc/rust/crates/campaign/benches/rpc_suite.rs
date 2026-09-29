@@ -11,6 +11,12 @@
 //!   AK_RPC_PLANT=bench    the same, inside the first criterion benchmark -> panic, no output
 //!   AK_RPC_WARM_CELLS / AK_RPC_WARM_DIR   the warm-up's (and so a plant's) cells and direction
 //!   AK_RPC_CELLS / AK_RPC_DIRS / AK_RPC_INFLIGHT   narrowed runs only
+//!   AK_RPC_PAYLOADS   narrowed runs only: the payloads of directions c and d (P5.3, P5.4, 4MiB,
+//!                     16MiB); a and b always run P2.2
+//!
+//! Every exported sample also carries the process's getrusage(RUSAGE_SELF) deltas over the
+//! sample's iterations (ru_nvcsw, ru_nivcsw, ru_minflt: totals for the sample, read outside the
+//! clock reads, two syscalls per sample).
 //!
 //! Cells (`campaign::grid`): A prost+tonic, B prost+core, C core-ffi+core, D core-ffi+tonic,
 //! E core-native+core, F core-native+tonic, and the framed twins Bf-Ff; C-F per
@@ -132,6 +138,13 @@ impl Drop for Callers {
 }
 
 
+/// The process's voluntary and involuntary context switches and minor faults (getrusage).
+fn rusage() -> [u64; 3] {
+    let mut u: libc::rusage = unsafe { std::mem::zeroed() };
+    unsafe { libc::getrusage(libc::RUSAGE_SELF, &mut u) };
+    [u.ru_nvcsw as u64, u.ru_nivcsw as u64, u.ru_minflt as u64]
+}
+
 fn abort(msg: String) -> ! {
     eprintln!("ABORT (requirement 18): {msg}");
     std::process::exit(3);
@@ -184,6 +197,8 @@ fn main() {
     let cells_n = narrow("AK_RPC_CELLS").map(|v| v.iter().map(|s| grid::cell_of(s)).collect::<Vec<_>>());
     let dirs_n = narrow("AK_RPC_DIRS");
     let ks_n: Option<Vec<usize>> = narrow("AK_RPC_INFLIGHT").map(|v| v.iter().map(|x| x.parse().unwrap()).collect());
+    let pays_n = narrow("AK_RPC_PAYLOADS");
+    let pay_on = |p: &str| pays_n.as_ref().map_or(true, |v| v.iter().any(|x| x == p));
     let dir_on = |d: &str| dirs_n.as_ref().map_or(true, |v| v.iter().any(|x| x == d));
     let k_on = |k: usize| ks_n.as_ref().map_or(true, |v| v.contains(&k));
     let mut specs = Vec::new();
@@ -194,14 +209,14 @@ fn main() {
             }
         }
         if dir_on("c") {
-            for &pid in grid::C_PAYLOADS {
+            for &pid in grid::C_PAYLOADS.iter().filter(|p| pay_on(p)) {
                 for &k in grid::C_INFLIGHT.iter().filter(|k| k_on(**k)) {
                     specs.push(Spec { id: format!("{cell}/c/{pid}/k{k}"), cell, dir: "c", payload: pid, k, chunks: 0 });
                 }
             }
         }
         if dir_on("d") {
-            for &(label, chunks) in grid::D_PAYLOADS {
+            for &(label, chunks) in grid::D_PAYLOADS.iter().filter(|(l, _)| pay_on(l)) {
                 for &k in grid::D_INFLIGHT.iter().filter(|k| k_on(**k)) {
                     specs.push(Spec { id: format!("{cell}/d/{label}/k{k}"), cell, dir: "d", payload: label, k, chunks });
                 }
@@ -222,8 +237,9 @@ fn main() {
         .measurement_time(Duration::from_millis(meas_ms))
         .nresamples(env("AK_NRESAMPLES", 100_000))
         .without_plots();
-    // Wall time per criterion call of the routine, per benchmark: (iterations, cpu, wall).
-    let walls: Vec<Rc<RefCell<Vec<(u64, u64, u64)>>>> = specs.iter().map(|_| Rc::new(RefCell::new(Vec::new()))).collect();
+    // Per criterion call of the routine, per benchmark: (iterations, cpu, wall, getrusage
+    // deltas [voluntary, involuntary context switches, minor faults]).
+    let walls: Vec<Rc<RefCell<Vec<(u64, u64, u64, [u64; 3])>>>> = specs.iter().map(|_| Rc::new(RefCell::new(Vec::new()))).collect();
     {
         let mut g = c.benchmark_group("rpc");
         g.sampling_mode(SamplingMode::Flat);
@@ -240,6 +256,7 @@ fn main() {
             let w = walls[i].clone();
             let id = s.id.clone();
             g.bench_function(format!("{i:05}"), |b| b.iter_custom(|iters| {
+                let u0 = rusage();
                 let (c0, t0) = (process_clock_ns(), Instant::now());
                 for _ in 0..iters {
                     if let Err(e) = callers.batch(1) {
@@ -248,7 +265,8 @@ fn main() {
                     }
                 }
                 let (cpu, wall) = (process_clock_ns() - c0, t0.elapsed().as_nanos() as u64);
-                w.borrow_mut().push((iters, cpu, wall));
+                let u1 = rusage();
+                w.borrow_mut().push((iters, cpu, wall, [u1[0] - u0[0], u1[1] - u0[1], u1[2] - u0[2]]));
                 cpu
             }));
             drop(callers);
@@ -296,7 +314,7 @@ fn main() {
         let n = iters.len();
         assert!(w.len() >= n, "{}: {} routine calls for {n} samples", s.id, w.len());
         let tail = &w[w.len() - n..];
-        for (r, ((it, t), &(wi, wc, ww))) in iters.iter().zip(times).zip(tail).enumerate() {
+        for (r, ((it, t), &(wi, wc, ww, ru))) in iters.iter().zip(times).zip(tail).enumerate() {
             let (it, t) = (it.as_f64().unwrap() as u64, t.as_f64().unwrap() as u64);
             assert!(it == wi && t == wc, "{}: sample {r} (iters {it}, cpu {t}) does not match the routine's ({wi}, {wc})", s.id);
             let mut o = serde_json::json!({
@@ -304,6 +322,7 @@ fn main() {
                 "transport": transport, "inflight": s.k, "launch": launch, "round": r + 1,
                 "cpu_ns": t, "wall_ns": ww, "iters": it * s.k as u64, "batches": it,
                 "build": build, "send_path": if grid::framed(s.cell) { "framed" } else { "reference" },
+                "ru_nvcsw": ru[0], "ru_nivcsw": ru[1], "ru_minflt": ru[2],
             });
             o["delivery"] = grid::delivery(s.cell).into();
             if let Some(m) = grid::mode_of(s.cell) {
