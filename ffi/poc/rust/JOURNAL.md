@@ -3793,3 +3793,35 @@ and a 4 s attribution pass); no check failed; server alive after. Tables: main-w
   grid, 188 probe); at k = 8 A 1,711, C 1,746, C-cb 1,583, Cf-cb 346, Cf 125, Df 0.2 (16 MiB).
 - Attribution pass (16 MiB, per call): host encode per chunk 239-267 us (Cf-split, Cf-cb-split,
   Df-chan); >= 1 MiB allocations A 8, C 8, C-cb 8, Df 0, Df-chan 1.25, Cf 1.62, Cf-cb 1.38.
+
+## 2026-09-30 -- physical-machine probe, segment 2 (variant: 4 workers) and the client-only control
+
+s8 server stopped (pid 147567); s4 started (AK_SERVER_THREADS=4, 5-8,15-18, pid 152128, state
+/tmp/ak-physical-s4.state), serve.sh warm 64, left running. variant-w4: host 4 / core 4, 3
+passes, benchmark wall 115 s (+2 s attribution). variant-c8: host 8 / core 8 against the same
+server, 2 passes, 57 s (+2 s). No failed check. Tables: variant-w4/tables.md, variant-c8/tables.md.
+
+The level of A in main-w8's spread passes, from the jsonl and progress.txt (no extra run):
+- Probe, 16 MiB, per-process median of A (A2): spread-probe-1..4 11.42 (9.03), 11.57 (11.24),
+  10.45 (11.27), 10.77 (11.22); Df in the same processes 8.28-8.90. Main probe processes A 7.58-8.27,
+  A2 7.66-8.06. The raised level holds from the first to the last round of each block (e.g.
+  spread-probe-2 A round 1 12.04, last 10.90). Wall per call raised with it (A 10.49-12.08 against
+  8.27-8.83). 4 MiB is not raised in those processes (A 1.91-2.00).
+- Time is not the separator: spread passes alternate probe and grid, and spread-grid-2 (+22-38 s),
+  -3 and -4 measured A d/16 k1 7.47-7.95 between the raised spread-probe-2 (+38-42 s) and
+  spread-probe-4 (+76-79 s).
+- The one raised grid benchmark is spread-grid-1's A d/16MiB k1 (+6-22 s, the session's first
+  grid process): all 10 samples 10.78-11.66, against 7.83-8.44 in spread-grid-2; every other
+  benchmark of that process (A at 4 MiB, 16 MiB k8, c/P5.4; every Df) at its later level.
+- Process composition: the spread probe processes held 3 host runtimes (24 cell-rt threads), no
+  core runtime, no caller thread; the main probe processes 48 cell-rt, 32 core-rt, 6 callers.
+  variant-c8's probe processes (A, A2, Df, Cf: 3 host runtimes of 8 workers plus one core client)
+  measured A 7.61 / 7.88 and A2 7.55 / 7.49. variant-w4 has no spread passes; its first probe and
+  grid processes measured A 7.83 and 7.71 (CPU); the first probe's wall was higher (A 9.89, Df
+  11.05) than its later passes (8.74-9.00).
+- Server: server CPU ticks per probe process (progress.txt, 10 ms ticks, 290-850 per process)
+  per 16 MiB uploaded, warm-up calls included: spread probes 11.5, 9.5, 9.5, 9.3 ms; main probes
+  10.0-10.1 ms; variant-w4 12.4 (first), 10.2, 10.1; variant-c8 9.9, 9.8. The raised client CPU is
+  not accompanied by raised server CPU per byte.
+- Not measured: per-thread CPU in the timed passes (no /proc reads there), so which client thread
+  carries the raised A time is not known.

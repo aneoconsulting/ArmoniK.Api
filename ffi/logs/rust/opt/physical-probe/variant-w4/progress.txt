@@ -1,0 +1,15 @@
+server warm-up at +0 s, server CPU ticks 115
+start main-probe-1 at +1 s, server CPU ticks 142
+end main-probe-1 at +9 s, server CPU ticks 926
+start main-grid-1 at +9 s, server CPU ticks 926
+end main-grid-1 at +39 s, server CPU ticks 5739
+start main-grid-2 at +39 s, server CPU ticks 5739
+end main-grid-2 at +70 s, server CPU ticks 10704
+start main-probe-2 at +70 s, server CPU ticks 10704
+end main-probe-2 at +77 s, server CPU ticks 11347
+start main-probe-3 at +77 s, server CPU ticks 11347
+end main-probe-3 at +83 s, server CPU ticks 11985
+start main-grid-3 at +83 s, server CPU ticks 11985
+end main-grid-3 at +115 s, server CPU ticks 16848
+start attr at +115 s, server CPU ticks 16848
+end attr at +117 s, server CPU ticks 16976

@@ -1,0 +1,164 @@
+
+Warning: It is not recommended to reduce nresamples below 1000.
+Benchmarking rpc/00000
+Benchmarking rpc/00000: Warming up for 200.00 ms
+Benchmarking rpc/00000: Collecting 10 samples in estimated 1.4312 s (20 iterations)
+Benchmarking rpc/00000: Analyzing
+rpc/00000               time:   [73722591 ns (process CPU) 74921354 ns (process CPU) 76044860 ns (process CPU)]
+                        thrpt:  [76044860 ns (process CPU) 74921354 ns (process CPU) 73722591 ns (process CPU)]
+Found 2 outliers among 10 measurements (20.00%)
+  1 (10.00%) low mild
+  1 (10.00%) high mild
+Benchmarking rpc/00001
+Benchmarking rpc/00001: Warming up for 200.00 ms
+Benchmarking rpc/00001: Collecting 10 samples in estimated 993.13 ms (50 iterations)
+Benchmarking rpc/00001: Analyzing
+rpc/00001               time:   [19995626 ns (process CPU) 20208972 ns (process CPU) 20395384 ns (process CPU)]
+                        thrpt:  [20395384 ns (process CPU) 20208972 ns (process CPU) 19995626 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) low mild
+Benchmarking rpc/00002
+Benchmarking rpc/00002: Warming up for 200.00 ms
+Benchmarking rpc/00002: Collecting 10 samples in estimated 804.01 ms (340 iterations)
+Benchmarking rpc/00002: Analyzing
+rpc/00002               time:   [2157718 ns (process CPU) 2172905 ns (process CPU) 2185988 ns (process CPU)]
+                        thrpt:  [2185988 ns (process CPU) 2172905 ns (process CPU) 2157718 ns (process CPU)]
+Benchmarking rpc/00003
+Benchmarking rpc/00003: Warming up for 200.00 ms
+Benchmarking rpc/00003: Collecting 10 samples in estimated 831.18 ms (50 iterations)
+Benchmarking rpc/00003: Analyzing
+rpc/00003               time:   [19195453 ns (process CPU) 19342725 ns (process CPU) 19514640 ns (process CPU)]
+                        thrpt:  [19514640 ns (process CPU) 19342725 ns (process CPU) 19195453 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+Benchmarking rpc/00004
+Benchmarking rpc/00004: Warming up for 200.00 ms
+Benchmarking rpc/00004: Collecting 10 samples in estimated 852.97 ms (40 iterations)
+Benchmarking rpc/00004: Analyzing
+rpc/00004               time:   [27260354 ns (process CPU) 28628041 ns (process CPU) 30028764 ns (process CPU)]
+                        thrpt:  [30028764 ns (process CPU) 28628041 ns (process CPU) 27260354 ns (process CPU)]
+Benchmarking rpc/00005
+Benchmarking rpc/00005: Warming up for 200.00 ms
+Benchmarking rpc/00005: Collecting 10 samples in estimated 1.4869 s (20 iterations)
+Benchmarking rpc/00005: Analyzing
+rpc/00005               time:   [102650081 ns (process CPU) 104619091 ns (process CPU) 106586308 ns (process CPU)]
+                        thrpt:  [106586308 ns (process CPU) 104619091 ns (process CPU) 102650081 ns (process CPU)]
+Benchmarking rpc/00006
+Benchmarking rpc/00006: Warming up for 200.00 ms
+Benchmarking rpc/00006: Collecting 10 samples in estimated 820.44 ms (280 iterations)
+Benchmarking rpc/00006: Analyzing
+rpc/00006               time:   [1899891 ns (process CPU) 1920859 ns (process CPU) 1940908 ns (process CPU)]
+                        thrpt:  [1940908 ns (process CPU) 1920859 ns (process CPU) 1899891 ns (process CPU)]
+Benchmarking rpc/00007
+Benchmarking rpc/00007: Warming up for 200.00 ms
+Benchmarking rpc/00007: Collecting 10 samples in estimated 1.2925 s (20 iterations)
+Benchmarking rpc/00007: Analyzing
+rpc/00007               time:   [78280447 ns (process CPU) 79783378 ns (process CPU) 81256006 ns (process CPU)]
+                        thrpt:  [81256006 ns (process CPU) 79783378 ns (process CPU) 78280447 ns (process CPU)]
+Benchmarking rpc/00008
+Benchmarking rpc/00008: Warming up for 200.00 ms
+Benchmarking rpc/00008: Collecting 10 samples in estimated 812.13 ms (40 iterations)
+Benchmarking rpc/00008: Analyzing
+rpc/00008               time:   [18304854 ns (process CPU) 18478896 ns (process CPU) 18687153 ns (process CPU)]
+                        thrpt:  [18687153 ns (process CPU) 18478896 ns (process CPU) 18304854 ns (process CPU)]
+Benchmarking rpc/00009
+Benchmarking rpc/00009: Warming up for 200.00 ms
+Benchmarking rpc/00009: Collecting 10 samples in estimated 847.12 ms (100 iterations)
+Benchmarking rpc/00009: Analyzing
+rpc/00009               time:   [9343900 ns (process CPU) 9493878 ns (process CPU) 9630229 ns (process CPU)]
+                        thrpt:  [9630229 ns (process CPU) 9493878 ns (process CPU) 9343900 ns (process CPU)]
+Benchmarking rpc/00010
+Benchmarking rpc/00010: Warming up for 200.00 ms
+Benchmarking rpc/00010: Collecting 10 samples in estimated 961.01 ms (50 iterations)
+Benchmarking rpc/00010: Analyzing
+rpc/00010               time:   [20220653 ns (process CPU) 20507880 ns (process CPU) 20807532 ns (process CPU)]
+                        thrpt:  [20807532 ns (process CPU) 20507880 ns (process CPU) 20220653 ns (process CPU)]
+Benchmarking rpc/00011
+Benchmarking rpc/00011: Warming up for 200.00 ms
+Benchmarking rpc/00011: Collecting 10 samples in estimated 804.93 ms (340 iterations)
+Benchmarking rpc/00011: Analyzing
+rpc/00011               time:   [2049994 ns (process CPU) 2058607 ns (process CPU) 2067936 ns (process CPU)]
+                        thrpt:  [2067936 ns (process CPU) 2058607 ns (process CPU) 2049994 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+Benchmarking rpc/00012
+Benchmarking rpc/00012: Warming up for 200.00 ms
+Benchmarking rpc/00012: Collecting 10 samples in estimated 826.91 ms (110 iterations)
+Benchmarking rpc/00012: Analyzing
+rpc/00012               time:   [8230148 ns (process CPU) 8319509 ns (process CPU) 8403770 ns (process CPU)]
+                        thrpt:  [8403770 ns (process CPU) 8319509 ns (process CPU) 8230148 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+Benchmarking rpc/00013
+Benchmarking rpc/00013: Warming up for 200.00 ms
+Benchmarking rpc/00013: Collecting 10 samples in estimated 852.15 ms (100 iterations)
+Benchmarking rpc/00013: Analyzing
+rpc/00013               time:   [7643220 ns (process CPU) 7695750 ns (process CPU) 7745777 ns (process CPU)]
+                        thrpt:  [7745777 ns (process CPU) 7695750 ns (process CPU) 7643220 ns (process CPU)]
+Benchmarking rpc/00014
+Benchmarking rpc/00014: Warming up for 200.00 ms
+Benchmarking rpc/00014: Collecting 10 samples in estimated 997.87 ms (50 iterations)
+Benchmarking rpc/00014: Analyzing
+rpc/00014               time:   [17281545 ns (process CPU) 17928675 ns (process CPU) 18818608 ns (process CPU)]
+                        thrpt:  [18818608 ns (process CPU) 17928675 ns (process CPU) 17281545 ns (process CPU)]
+Found 2 outliers among 10 measurements (20.00%)
+  1 (10.00%) high mild
+  1 (10.00%) high severe
+Benchmarking rpc/00015
+Benchmarking rpc/00015: Warming up for 200.00 ms
+Benchmarking rpc/00015: Collecting 10 samples in estimated 1.3564 s (20 iterations)
+Benchmarking rpc/00015: Analyzing
+rpc/00015               time:   [76034533 ns (process CPU) 76703863 ns (process CPU) 77415305 ns (process CPU)]
+                        thrpt:  [77415305 ns (process CPU) 76703863 ns (process CPU) 76034533 ns (process CPU)]
+Benchmarking rpc/00016
+Benchmarking rpc/00016: Warming up for 200.00 ms
+Benchmarking rpc/00016: Collecting 10 samples in estimated 878.56 ms (100 iterations)
+Benchmarking rpc/00016: Analyzing
+rpc/00016               time:   [8126742 ns (process CPU) 8163524 ns (process CPU) 8198106 ns (process CPU)]
+                        thrpt:  [8198106 ns (process CPU) 8163524 ns (process CPU) 8126742 ns (process CPU)]
+Benchmarking rpc/00017
+Benchmarking rpc/00017: Warming up for 200.00 ms
+Benchmarking rpc/00017: Collecting 10 samples in estimated 823.46 ms (240 iterations)
+Benchmarking rpc/00017: Analyzing
+rpc/00017               time:   [2021628 ns (process CPU) 2038540 ns (process CPU) 2052900 ns (process CPU)]
+                        thrpt:  [2052900 ns (process CPU) 2038540 ns (process CPU) 2021628 ns (process CPU)]
+Benchmarking rpc/00018
+Benchmarking rpc/00018: Warming up for 200.00 ms
+Benchmarking rpc/00018: Collecting 10 samples in estimated 841.87 ms (50 iterations)
+Benchmarking rpc/00018: Analyzing
+rpc/00018               time:   [19732480 ns (process CPU) 20316023 ns (process CPU) 20816262 ns (process CPU)]
+                        thrpt:  [20816262 ns (process CPU) 20316023 ns (process CPU) 19732480 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) low mild
+Benchmarking rpc/00019
+Benchmarking rpc/00019: Warming up for 200.00 ms
+Benchmarking rpc/00019: Collecting 10 samples in estimated 809.39 ms (220 iterations)
+Benchmarking rpc/00019: Analyzing
+rpc/00019               time:   [2023406 ns (process CPU) 2041699 ns (process CPU) 2063822 ns (process CPU)]
+                        thrpt:  [2063822 ns (process CPU) 2041699 ns (process CPU) 2023406 ns (process CPU)]
+Benchmarking rpc/00020
+Benchmarking rpc/00020: Warming up for 200.00 ms
+Benchmarking rpc/00020: Collecting 10 samples in estimated 888.22 ms (50 iterations)
+Benchmarking rpc/00020: Analyzing
+rpc/00020               time:   [22744645 ns (process CPU) 23037477 ns (process CPU) 23333529 ns (process CPU)]
+                        thrpt:  [23333529 ns (process CPU) 23037477 ns (process CPU) 22744645 ns (process CPU)]
+Benchmarking rpc/00021
+Benchmarking rpc/00021: Warming up for 200.00 ms
+Benchmarking rpc/00021: Collecting 10 samples in estimated 818.71 ms (320 iterations)
+Benchmarking rpc/00021: Analyzing
+rpc/00021               time:   [1977535 ns (process CPU) 1987208 ns (process CPU) 1996040 ns (process CPU)]
+                        thrpt:  [1996040 ns (process CPU) 1987208 ns (process CPU) 1977535 ns (process CPU)]
+Benchmarking rpc/00022
+Benchmarking rpc/00022: Warming up for 200.00 ms
+Benchmarking rpc/00022: Collecting 10 samples in estimated 821.00 ms (270 iterations)
+Benchmarking rpc/00022: Analyzing
+rpc/00022               time:   [1942628 ns (process CPU) 1964014 ns (process CPU) 1983915 ns (process CPU)]
+                        thrpt:  [1983915 ns (process CPU) 1964014 ns (process CPU) 1942628 ns (process CPU)]
+Benchmarking rpc/00023
+Benchmarking rpc/00023: Warming up for 200.00 ms
+Benchmarking rpc/00023: Collecting 10 samples in estimated 803.74 ms (320 iterations)
+Benchmarking rpc/00023: Analyzing
+rpc/00023               time:   [1890301 ns (process CPU) 1905200 ns (process CPU) 1921972 ns (process CPU)]
+                        thrpt:  [1921972 ns (process CPU) 1905200 ns (process CPU) 1890301 ns (process CPU)]
+
+# wrote 240 sample rows to /home/csdt/work/aneo/armonik/ArmoniK.Api/ffi/logs/rust/opt/physical-probe/variant-w4/main-grid-2.jsonl
