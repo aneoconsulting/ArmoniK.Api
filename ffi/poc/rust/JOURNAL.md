@@ -3768,3 +3768,28 @@ everywhere on the same sets.
 - Pools sized from the affinity mask: none in the client or the server (every tokio runtime has an
   explicit worker count; criterion is built without rayon). With 8 workers per runtime, the main
   probe process holds 48 cell-rt and 32 core-rt threads (one runtime per cell), most idle.
+
+## 2026-09-30 -- physical-machine probe, segment 1 (main: 8 workers everywhere), timed
+
+Server: serve.sh start with AK_SERVE_STATE=/tmp/ak-physical-s8.state, AK_CPU_SERVER=5-8,15-18,
+AK_SERVER_THREADS=8 (pid 147567; log server-s8/rpc-server.log), serve.sh warm 64 (both sockets,
+checked). Client: gen/physical_probe.sh main, AK_CPU_CLIENT=1-4,11-14, host 8 / core 8 workers,
+commit f57173ff, clean slice tree. Benchmark wall 242 s (driver total 4 min 7 s incl. build check
+and a 4 s attribution pass); no check failed; server alive after. Tables: main-w8/tables.md.
+
+- Main passes, 16 MiB k = 1, probe CPU per call: A 7.95, A2 7.71, Df 8.29, Df-chan 8.50, Cf 8.04,
+  Cf-cb 9.25, C 9.73, C-cb 11.33 ms; grid A 7.62, Df 8.54, Cf 8.32, Cf-cb 9.74, C 10.63, C-cb 11.52.
+  Grid in-process gaps over 3 passes: Df - A +0.80..+1.02, Cf - A +0.54..+0.75, Cf-cb - A
+  +1.97..+2.26; probe Df - A -0.12..+0.93, Df-chan - A +0.15..+0.84, A2 - A -0.43..+0.09.
+  k = 8: every framed cell below A (Df - A -3.32..-3.69 at 16 MiB). c/P5.4 k = 1: Df, Cf, Cf-cb
+  within +0.01..+0.13 of A.
+- Spread passes: in the probe processes holding only A, A2 and Df, A (and A2 in 3 of 4) ran
+  10.45-11.57 ms per 16 MiB call, Df 8.28-8.90; in the main probe processes A 7.58-8.27. The
+  spread probe's Df - A is therefore -2.02..-3.29 and its A2 - A range 3.21 ms (16 MiB); at 4 MiB
+  ranges 0.20 / 0.45. Grid spread pass 1 has A d/16MiB k1 11.29 against 7.47-7.95 in passes 2-4
+  (Df - A range 3.90 with it). Not investigated in this segment.
+- Context switches per 16 MiB k = 1 call (grid, voluntary): A 70, Df 240, Cf 97, Cf-cb 262, C 164,
+  C-cb 285; involuntary 0-0.2 everywhere. Minor faults per call are 0 at k = 1 except Cf-cb (99
+  grid, 188 probe); at k = 8 A 1,711, C 1,746, C-cb 1,583, Cf-cb 346, Cf 125, Df 0.2 (16 MiB).
+- Attribution pass (16 MiB, per call): host encode per chunk 239-267 us (Cf-split, Cf-cb-split,
+  Df-chan); >= 1 MiB allocations A 8, C 8, C-cb 8, Df 0, Df-chan 1.25, Cf 1.62, Cf-cb 1.38.

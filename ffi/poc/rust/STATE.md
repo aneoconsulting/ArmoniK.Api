@@ -8,14 +8,25 @@ here. This file states what exists and what was checked; the choice is the owner
 | | |
 |---|---|
 | **Status** | Built on the merged branch (claude/rust-slice-optimization-sy1f4n): four codec arms plus the pull family, the RPC grid (cells A-F), the corpus through the C ABI and core-native, decision 11, the no-unknown build, the WP7 campaign harness, and every kept optimisation. Optimisation unit 2 (the owner) added: encode variants labelled by transport form; T1 (Enc::take, a moved Bytes; additive `ak_enc_take_owned`); the FRAMED send path as labelled extra cells (Bf-Ff, additive `ak_client_set_framed`); N2, N3; the labelled extra RPC directions c (unary upload of P5.3/P5.4) and d (req 14's streamed upload, ABI section 9's client streaming in the core: `ak_call_open/send/send_enc/recv/close`, close removed in unit 3). Not kept: N5 (apply-first decode order, reverted), core-only fat LTO (tooling left, off). N6 not reproduced. Gates: stable checkpoints before N5 passed twice (`opt/pre-n5-gate`, `opt/pre-n5-gate2`); the FINAL gate at d54ea963 from a clean tree PASSED on stable and on the 1.88.0 floor (`opt/final2-gate`); final run `opt/final2`. **Unit 3** (the owner): ABI v1 section 9 as specified (fe79f874, 22ebb97f) in the shared core and generator: call kinds, `ak_call_opts` (deadline, metadata), `ak_call_close` removed and `ak_call_cancel` on streams, the gRPC status number on the stream and on every unary delivery (`ak_completion.grpc_status`, trailing `grpc_status` on the blocking entries), D44's limits enforced; `bin/rpc_semantics` in the gate (11f) |
-| **Next step** | the physical-machine probe session (below), when the coordinator says so: `gen/physical_probe.sh main` then `variant`, against the shared server. Last gate: on the campaign machine at cb37633f, rustc 1.95.0, PASSED (`logs/rust/opt/physical-probe/prep/gate.log`) |
+| **Next step** | the physical-machine probe's variant segment (`gen/physical_probe.sh variant`, 4-worker server) when the coordinator says so; segment 1 done. Last gate: on the campaign machine at cb37633f, rustc 1.95.0, PASSED (`logs/rust/opt/physical-probe/prep/gate.log`) |
 | **Blocked on** | nothing |
 | **Floor** (must build and pass correctness) | MSRV 1.88.0: the full gate, both builds, passes on rustc 1.88.0 from a clean worktree at c8e8694eb (`logs/rust/campaign-wp7/gate-floor-1.88.log`) |
 | **Target** | stable 1.94.1 in the container; rustc 1.95.0 (the NixOS machine's ambient toolchain) on the campaign machine; README section 5: for Rust the floor is the target language level, one configuration |
 | **Incumbent** | prost 0.14.4, tonic 0.14.6, tonic-prost 0.14.6 (from Cargo.lock, printed in every campaign header). R14: tonic-prost's codec calls `Message::encode`/`decode`, so the production path and the library entry point are the same call |
 | **Questions this slice has open for the aggregating session** | (1) the proposed corpus rows of `gen/probe_corpus.py` (field numbers above 2^29-1, the 10th varint byte, two map-order rows) are not in `corpus/`; (2) no corpus row or payload has a repeated singular message with differing content, so merge-on-repeat (R-E4) is rendered and never observed; (3) a map entry has no unknown-field bag in the Rust facade (D42) |
 
-## Physical-machine probe (2026-09-29): prepared, NOT run
+## Physical-machine probe (2026-09-29/30): segment 1 (main, 8 workers) RUN; variant not run
+
+Segment 1: `logs/rust/opt/physical-probe/main-w8/` (tables.md), shared server `server-s8/`
+(AK_SERVER_THREADS=8, 5-8,15-18, pid 147567, state /tmp/ak-physical-s8.state, warmed with
+serve.sh warm 64, LEFT RUNNING for the C++ main segment), client 1-4,11-14, host 8 / core 8
+workers, commit f57173ff; benchmark wall 242 s plus a 4 s attribution pass; no abort. Recorded in
+the journal: in the four spread probe processes (cells A, A2, Df) A and A2 measured 10.45-11.57 ms
+per 16 MiB call in 7 of 8 instances against 7.58-8.27 in the main probe processes, so the spread
+passes' probe Df - A (-2.02 to -3.29) and A2 - A range (3.21) carry that level; the first spread
+grid pass's A d/16MiB k1 (11.29) likewise against 7.47-7.95 in the other three.
+
+### Preparation
 
 Campaign machine (i9-7900X, SMT on, governor performance, no_turbo 1, 3.3 GHz min = max, one
 NUMA node, no isolation: taskset only). Question (FIX-PLAN WP11, coordinator step 2): direction
@@ -547,6 +558,7 @@ FIX-PLAN R-G17); D41 (every slice's generated tree is current: `generate.py --ch
 
 | Log | What it establishes |
 |---|---|
+| `logs/rust/opt/physical-probe/main-w8/`, `server-s8/` | segment 1 of the physical-machine probe (8 workers everywhere): spread and main passes, attribution pass, tables.md |
 | `logs/rust/opt/physical-probe/prep/` | the campaign machine's preparation: gate at cb37633f (rustc 1.95.0) PASSED, upload check, the driver's smoke (headers and row counts only) and its worker-count abort control |
 | `logs/rust/opt/t0-ref/`, `t1-native*/`, `t1-ffi/`, `framed/`, `framed-rpc-narrow/`, `n2/`, `n2-ab/`, `n3/`, `n3-ab/`, `n6-probe/`, `lto-ab/`, `u1-unary/`, `u1-unary-narrow/`, `n5/`, `n5-ab/`, `n5b-ab/`, `u2-stream/` | optimisation unit 2, one directory per step (full opt_bench v5 runs, narrowed alternated A/B runs, step checks in `checks/`); before/after in `variants-before-after.txt` / `by-direction.txt`; the framed path's wire evidence in `framed/header-diff*.txt`; direction c and d tables in `u1-unary/c-direction.txt`, `u2-stream/d-direction.txt` |
 | `logs/rust/opt/pre-n5-gate/`, `pre-n5-gate2/` | the stable gate checkpoints of unit 2 (PASSED at 33636e1d and 186a4e52) |
