@@ -1,0 +1,13 @@
+# grpc++ 1.80.0 (nixpkgs) cell A, direction a, against the shared tonic rpc_server (poc/rust/serve.sh) over unix:<shipped socket>; 2026-09-29T21:46:17Z; commit cb37633f + the uncommitted step-0 tree
+# the binary of this test read GRPC_ARG_DEFAULT_AUTHORITY from AK_TEST_AUTHORITY (a test build only; the committed code sets "localhost" unconditionally)
+# sources: grpc v1.51.1 and v1.54.0 src/core/ext/filters/client_channel/resolver/sockaddr/sockaddr_resolver.cc:151,170 (GetDefaultAuthority returns "localhost" for unix: and unix-abstract:); v1.80.0 src/core/resolver/sockaddr/sockaddr_resolver.cc has no override, src/core/resolver/resolver_factory.h:70-71 returns URI::PercentEncodeAuthority(path without its leading /)
+
+## 1. grpc 1.80's default authority (AK_TEST_AUTHORITY unset), GRPC_TRACE=http, the header and the reset only
+chttp2_transport.cc:1903] perform_stream_op[s=0x73c0c40020e0; op=0x73c0e80041f8]:  SEND_INITIAL_METADATA{user-agent: grpc-c++/1.80.0 grpc-c/53.0.0 (linux; chttp2), :authority: tmp%2Faksrv.nqkgi4%2Fshipped.sock, :path: /armonik.ffi.campaign.v1.Grid/Fetch, GrpcRegisteredMethod: 0x1, WaitForReady: false, grpc-accept-encoding: identity, deflate, gzip, te: trailers, content-type: application/grpc, :scheme: http, :method: POST} SEND_MESSAGE:flags=0x00000000:len=0 SEND_TRAILING_METADATA{} RECV_INITIAL_METADATA RECV_MESSAGE RECV_TRAILING_METADATA
+parsing.cc:343] INCOMING[0x73c118003e20]: RST_STREAM len:4 id:0x00000001
+frame_rst_stream.cc:123] [chttp2 transport=0x73c118003e20 stream=0x73c0c40020e0] received RST_STREAM(reason=1)
+CALL CHECK FAILED: A/a wire length (pre-check) (0) -- the run is aborted, no figure
+exit 3
+
+## 2. AK_TEST_AUTHORITY=localhost
+exit 0 (3 benchmark lines: A a, A d 4MiB and 16MiB; every call checked, the d digest pre-checked)

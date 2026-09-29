@@ -1,0 +1,87 @@
+# cpp slice: physical-probe checks (gen/physical_checks.sh), commit f79e034d, 2026-09-29T22:05:10Z
+# machine {"boost": null, "busiest_processes_pcpu_psr_comm": ["80.0   1 python3", " 4.0  10 .claude-wrapped", " 2.2   6 .kwin_wayland-w", " 0.7   8 .konsole-wrappe", " 0.5  19 .plasmashell-wr", " 0.2   1 metrics-server", " 0.1   8 mono", " 0.1  18 nvidia-modeset/kthread_q"], "cpu_model": "Intel(R) Core(TM) i9-7900X CPU @ 3.30GHz", "cpu_sets": {"CLIENT": "1-4,11-14", "OS": "0,9,10,19", "SERVER": "5-8,15-18", "siblings": {"1": "1,11", "2": "2,12", "3": "3,13", "4": "4,14", "5": "5,15", "6": "6,16", "7": "7,17", "8": "8,18", "11": "1,11", "12": "2,12", "13": "3,13", "14": "4,14", "15": "5,15", "16": "6,16", "17": "7,17", "18": "8,18"}}, "cpus_online": "0-19", "governor": "performance", "isolation": {"cgroup": "/user.slice/user-1000.slice/user@1000.service/app.slice/app-org.kde.konsole-4514.scope/tab(4529).scope", "cgroup_cpuset_effective": null, "cgroup_cpuset_partition": null, "cmdline": [], "mechanism": "none: taskset affinity only (sys isolated and nohz_full empty, no cpuset partition on this cgroup)", "sys_isolated": "", "sys_nohz_full": ""}, "kernel": "6.18.54", "loadavg": "0.94 1.77 2.97 2/845 142760", "no_turbo": "1", "scaling_cur_freq_khz": {"1": "3299997", "2": "3300000", "3": "3300000", "4": "3300000", "5": "3300000", "6": "3300000", "7": "3300000", "8": "3300000", "11": "3300000", "12": "3300000", "13": "3301465", "14": "3299421", "15": "3301455", "16": "3300000", "17": "3299974", "18": "3300608"}, "scaling_driver": "intel_pstate", "scaling_max_freq_khz": "3300000", "scaling_min_freq_khz": "3300000", "servers": [], "smt": {"active": "1", "control": "on"}}
+===== 1. build facts =====
+g++: g++ (GCC) 15.3.0
+cmake: cmake version 4.1.6
+protoc: libprotoc 34.1
+protobuf (pkg-config): 34.1.0
+grpc++ (pkg-config): 1.80.0
+rustc: rustc 1.95.0 (59807616e 2026-04-14) (built from a source tarball); cargo: cargo 1.95.0 (f2d3ce0bd 2026-03-21)
+Google Benchmark: # The created file sets PACKAGE_VERSION_EXACT if the current version string and
+  campaign_rpc -> core-build/target-camp/release/libak_core.so sha256 f14492ce2c33932d unknown-field exports 21 rpc 1
+  campaign_rpc_nounk -> core-build/target-camp-nounk/release/libak_core.so sha256 277a25fd579430fe unknown-field exports 0 rpc 1
+  campaign_rpc_count -> core-build/target-camp-count/release/libak_core.so sha256 21dc4773207fd20f unknown-field exports 21 rpc 1
+  campaign_rpc_count_nounk -> core-build/target-camp-count-nounk/release/libak_core.so sha256 0b8086c7436fafbb unknown-field exports 0 rpc 1
+  campaign_codec -> core-build/target-camp/release/libak_core.so sha256 f14492ce2c33932d unknown-field exports 21 rpc 1
+  campaign_codec_nounk -> core-build/target-camp-nounk/release/libak_core.so sha256 277a25fd579430fe unknown-field exports 0 rpc 1
+  conformance_a17_shared -> core-build/target/release/libak_core.so sha256 9084ee6d37a21535 unknown-field exports 21 rpc 0
+  conformance_nounk_a17 -> core-build/target-nounk/release/libak_core.so sha256 5bc81a2b5feceff2 unknown-field exports 0 rpc 0
+===== 2. payload byte identity (conformance, C++17) =====
+  conformance_a17_shared: exit 0: 608 checks, 0 failures, 1 payloads with two valid encodings
+>>> ok: conformance_a17_shared
+  conformance_nounk_a17: exit 0: 478 checks, 0 failures, 1 payloads with two valid encodings
+>>> ok: conformance_nounk_a17
+===== 3. codec pre-check =====
+  campaign_codec: exit 0 "campaign_codec_gate": {"groups": 120, "slots": 4436, "failed": 0, "ffi_retain": "built", "pull_value_gate": "push = pull walked = pull drained on every group and mode, 0 failed"}
+>>> ok: campaign_codec pre-check
+  campaign_codec_nounk: exit 0 "campaign_codec_gate": {"groups": 120, "slots": 2724, "failed": 0, "ffi_retain": "compiled out (no-unknown build)", "pull_value_gate": "push = pull walked = pull drained on every group and mode, 0 failed"}
+>>> ok: campaign_codec_nounk pre-check
+===== 4. gen/q_checks.sh (semantics, queue plants, queue grid smoke, RPC counts) -> q-checks.log =====
+  >>> ok: semantics (full)
+  >>> ok: plant d-sha on C-q-drop (d): aborted, CALL CHECK FAILED: d: the server's SHA-256 differs from the upload's (0) -- the run is aborted, no figure
+  >>> ok: plant d-count on E-q-drop (d): aborted, CALL CHECK FAILED: d: the server's byte count (4194304) -- the run is aborted, no figure
+  >>> ok: plant c-len on B-q (c): aborted, CALL CHECK FAILED: core-q request response length (0) -- the run is aborted, no figure
+  >>> ok: plant c-len on Cf-q-drop (c): aborted, CALL CHECK FAILED: core-q request response length (0) -- the run is aborted, no figure
+  >>> ok: grid smoke (full): "benchmarks": 140
+  >>> ok: 132 RPC count rows identical to logs/cpp/rpc-counts.log (60 queue rows)
+  >>> ok: semantics (nounk)
+  >>> ok: plant d-sha on C-q-nounk (d): aborted, CALL CHECK FAILED: d: the server's SHA-256 differs from the upload's (0) -- the run is aborted, no figure
+  >>> ok: plant d-count on Ef-q-nounk (d): aborted, CALL CHECK FAILED: d: the server's byte count (4194304) -- the run is aborted, no figure
+  >>> ok: plant c-len on B-q (c): aborted, CALL CHECK FAILED: core-q request response length (0) -- the run is aborted, no figure
+  >>> ok: plant c-len on Cf-q-nounk (c): aborted, CALL CHECK FAILED: core-q request response length (0) -- the run is aborted, no figure
+  >>> ok: grid smoke (nounk): "benchmarks": 84
+  >>> ok: 78 RPC count rows identical to logs/cpp/rpc-counts-nounk.log (36 queue rows)
+  q_checks: 0 failure(s)
+>>> ok: q_checks
+===== 5. grid smoke, every cell, every direction, k = 1 and 8, shipped and pinned, both builds =====
+  server: # rpc_server: shipped on unix:/tmp/aksrv.t3yT07/shipped.sock, P2.2 540422 B pre-serialised, tokio multi-thread 4 workers (shared), receive limit 8388608 B, pid 143325
+>>> ok: campaign_rpc shipped: 366 samples, 29 cells, every call checked, pre-check passed
+>>> ok: campaign_rpc_nounk shipped: 218 samples, 17 cells, every call checked, pre-check passed
+>>> ok: campaign_rpc pinned: 366 samples, 29 cells, every call checked, pre-check passed
+>>> ok: campaign_rpc_nounk pinned: 218 samples, 17 cells, every call checked, pre-check passed
+===== 6. send path: allocations >= 1 MiB per call, reference (set_framed 0) against framed (set_framed 1) =====
+    B          c  P5.3  big allocations per call   2.00
+    B          c  P5.4  big allocations per call   2.00
+    B          d  4MiB  big allocations per call   4.00
+    B          d  16MiB big allocations per call  16.00
+    Bf         c  P5.3  big allocations per call   1.00
+    Bf         c  P5.4  big allocations per call   1.00
+    Bf         d  4MiB  big allocations per call   2.00
+    Bf         d  16MiB big allocations per call   8.00
+    C-retain   c  P5.3  big allocations per call   1.00
+    C-retain   c  P5.4  big allocations per call   1.12
+    C-retain   d  4MiB  big allocations per call   2.00
+    C-retain   d  16MiB big allocations per call   8.00
+    Cf-retain  c  P5.3  big allocations per call   0.00
+    Cf-retain  c  P5.4  big allocations per call   0.00
+    Cf-retain  d  4MiB  big allocations per call   0.00
+    Cf-retain  d  16MiB big allocations per call   1.50
+    C-q-retain c  P5.3  big allocations per call   1.00
+    C-q-retain c  P5.4  big allocations per call   1.00
+    C-q-retain d  4MiB  big allocations per call   2.00
+    C-q-retain d  16MiB big allocations per call   8.00
+    Cf-q-retain c  P5.3  big allocations per call   0.00
+    Cf-q-retain c  P5.4  big allocations per call   0.00
+    Cf-q-retain d  4MiB  big allocations per call   0.00
+    Cf-q-retain d  16MiB big allocations per call   1.62
+    E-retain   c  P5.3  big allocations per call   2.12
+    E-retain   c  P5.4  big allocations per call   2.00
+    E-retain   d  4MiB  big allocations per call   4.00
+    E-retain   d  16MiB big allocations per call  16.00
+    Ef-retain  c  P5.3  big allocations per call   1.00
+    Ef-retain  c  P5.4  big allocations per call   1.00
+    Ef-retain  d  4MiB  big allocations per call   2.00
+    Ef-retain  d  16MiB big allocations per call   8.00
+  reference >= one allocation per message and reference - framed >= half of that, every pair: yes
+>>> ok: alloc probe (reference vs framed)
+physical_checks: 0 failure(s)
