@@ -3744,3 +3744,27 @@ core's ak_runtime_new(2)) on ONE client CPU.
   (3) a current-thread host, which removes the host pool entirely, is not better. What is
   left unattributed: the Cf-cb and Df-chan gaps to A (about 0.5-1.5 ms per 16 MiB call in these
   sessions, the run-to-run spread of the gap itself about +-1 ms).
+
+## 2026-09-29 -- the physical-machine probe prepared (coordinator step 2, phase 1: nothing timed)
+
+On the campaign machine (i9-7900X, NixOS, kernel 6.18.54, SMT on, performance governor,
+no_turbo 1, scaling min = max = 3.3 GHz, no isolation). Owner decisions relayed by the
+coordinator: CLIENT 1-4,11-14 and SERVER 5-8,15-18 (with the SMT siblings), passed as
+environment values; main configuration 8 workers everywhere (server, host, core), a variant with 4
+everywhere on the same sets.
+
+- Found: `~/.cargo/config.toml` sets `build.build-dir = "/data/csdt/.cargo-build/{workspace-path-hash}"`,
+  so target/, target-server/ (and the gate's target-nounk/ ...) of this workspace share one build
+  directory and every binary's RUNPATH named its single `libak_core.so`: the last build of any
+  variant would decide the core every binary loads. `gen/cargo-shim/cargo` sets the build dir to
+  the target dir; serve.sh and the driver use it; ldd checked (each binary loads its own target's
+  core). Not changed: the machine's config.
+- Gate at cb37633f with the shim on PATH, rustc 1.95.0: GATE PASSED (prep/gate.log).
+- Harness: rpc_suite writes getrusage deltas per sample and takes AK_RPC_PAYLOADS; stream_probe
+  has `A2` (a second A in the same process, for the A/A gap). Defaults unchanged.
+- Driver gen/physical_probe.sh (shared-server mode) and gen/physical_tables.py; smoke with its own
+  server (8 workers) of every phase: 18 + 32 + 12 probe rows, 120 + 360 grid rows; the shared-mode
+  control (a 4-worker server under the 8-worker preset) aborted before any timing. No figure kept.
+- Pools sized from the affinity mask: none in the client or the server (every tokio runtime has an
+  explicit worker count; criterion is built without rayon). With 8 workers per runtime, the main
+  probe process holds 48 cell-rt and 32 core-rt threads (one runtime per cell), most idle.

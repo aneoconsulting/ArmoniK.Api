@@ -8,12 +8,28 @@ here. This file states what exists and what was checked; the choice is the owner
 | | |
 |---|---|
 | **Status** | Built on the merged branch (claude/rust-slice-optimization-sy1f4n): four codec arms plus the pull family, the RPC grid (cells A-F), the corpus through the C ABI and core-native, decision 11, the no-unknown build, the WP7 campaign harness, and every kept optimisation. Optimisation unit 2 (the owner) added: encode variants labelled by transport form; T1 (Enc::take, a moved Bytes; additive `ak_enc_take_owned`); the FRAMED send path as labelled extra cells (Bf-Ff, additive `ak_client_set_framed`); N2, N3; the labelled extra RPC directions c (unary upload of P5.3/P5.4) and d (req 14's streamed upload, ABI section 9's client streaming in the core: `ak_call_open/send/send_enc/recv/close`, close removed in unit 3). Not kept: N5 (apply-first decode order, reverted), core-only fat LTO (tooling left, off). N6 not reproduced. Gates: stable checkpoints before N5 passed twice (`opt/pre-n5-gate`, `opt/pre-n5-gate2`); the FINAL gate at d54ea963 from a clean tree PASSED on stable and on the 1.88.0 floor (`opt/final2-gate`); final run `opt/final2`. **Unit 3** (the owner): ABI v1 section 9 as specified (fe79f874, 22ebb97f) in the shared core and generator: call kinds, `ak_call_opts` (deadline, metadata), `ak_call_close` removed and `ak_call_cancel` on streams, the gRPC status number on the stream and on every unary delivery (`ak_completion.grpc_status`, trailing `grpc_status` on the blocking entries), D44's limits enforced; `bin/rpc_semantics` in the gate (11f) |
-| **Next step** | none assigned. Last gate: stable, from a clean tree at eb2f204a, PASSED (`logs/rust/opt/framed-default/gate`); since then only harness knobs with unchanged defaults (runtime probe) were added, built but not gated |
+| **Next step** | the physical-machine probe session (below), when the coordinator says so: `gen/physical_probe.sh main` then `variant`, against the shared server. Last gate: on the campaign machine at cb37633f, rustc 1.95.0, PASSED (`logs/rust/opt/physical-probe/prep/gate.log`) |
 | **Blocked on** | nothing |
 | **Floor** (must build and pass correctness) | MSRV 1.88.0: the full gate, both builds, passes on rustc 1.88.0 from a clean worktree at c8e8694eb (`logs/rust/campaign-wp7/gate-floor-1.88.log`) |
-| **Target** | stable 1.94.1 in this container; README section 5: for Rust the floor is the target language level, one configuration |
+| **Target** | stable 1.94.1 in the container; rustc 1.95.0 (the NixOS machine's ambient toolchain) on the campaign machine; README section 5: for Rust the floor is the target language level, one configuration |
 | **Incumbent** | prost 0.14.4, tonic 0.14.6, tonic-prost 0.14.6 (from Cargo.lock, printed in every campaign header). R14: tonic-prost's codec calls `Message::encode`/`decode`, so the production path and the library entry point are the same call |
 | **Questions this slice has open for the aggregating session** | (1) the proposed corpus rows of `gen/probe_corpus.py` (field numbers above 2^29-1, the 10th varint byte, two map-order rows) are not in `corpus/`; (2) no corpus row or payload has a repeated singular message with differing content, so merge-on-repeat (R-E4) is rendered and never observed; (3) a map entry has no unknown-field bag in the Rust facade (D42) |
+
+## Physical-machine probe (2026-09-29): prepared, NOT run
+
+Campaign machine (i9-7900X, SMT on, governor performance, no_turbo 1, 3.3 GHz min = max, one
+NUMA node, no isolation: taskset only). Question (FIX-PLAN WP11, coordinator step 2): direction
+d's A -> Df and Df -> Df-chan client CPU, with c/P5.4 beside it, k = 1 and 8.
+
+| What | As built |
+|---|---|
+| Driver | `gen/physical_probe.sh main\|variant\|smoke OUT_DIR`: shared-server mode (AK_SERVE_STATE names a running serve.sh server; the driver dials its pinned socket, never starts or stops it, checks pid, affinity = AK_CPU_SERVER and worker count = the preset's before every client process, aborts otherwise); AK_PP_OWN_SERVER=1 for a smoke. Header: CPU, kernel, SMT, no_turbo, governor and scaling min/max/cur frequency per CPU of both sets, siblings, isolation mechanism, cgroup, the server's pid/affinity/workers/threads, the client's worker knobs, rustc, binaries' sha256 and the core each loads |
+| Presets | main: host 8, core 8, server 8 workers; 4 spread passes (probe A, A2, Df; grid A, Df) then 3 main passes (probe A, A2, Df, Df-chan, Cf, Cf-cb, C, C-cb; grid A, Df, Cf, Cf-cb, C, C-cb) then one attribution pass (not timed). variant: 4 / 4 / 4, 3 passes (probe A, A2, Df, Df-chan, Cf, Cf-cb; grid A, Df, Cf, Cf-cb). Grid workloads c/P5.4, d/4MiB, d/16MiB x k 1, 8; probe d 16/4 MiB, k 1 |
+| Pass | one probe process (block order, cell order rotated per pass) and one grid process (criterion, seeded order, seed = pass), alternating which runs first |
+| Notable | the range over the spread passes of the per-pass in-process Df - A (per workload), with the A2 - A range (probe) as the same-code floor; the main passes' own per-gap ranges beside it |
+| Harness additions (defaults unchanged) | rpc_suite: getrusage deltas per sample (`ru_nvcsw`, `ru_nivcsw`, `ru_minflt`), AK_RPC_PAYLOADS narrowing; stream_probe: cell `A2`; `gen/physical_tables.py` (absolutes, gaps per pass, ranges, switches/faults, threads, attribution; a side-by-side of sessions) |
+| Checks on this machine | gate at cb37633f PASSED (`prep/gate.log`: pre-check 5,740 / 3,257 checks 0 failures, crossings 836 / 435 identical, upload byte check, rpc_semantics, corpus, both builds); `prep/upload_check.log` PASSED; smoke of every phase with its own server and the shared-mode abort control (`prep/smoke/`, no figures kept) |
+| Build directory | the machine's `~/.cargo/config.toml` sets `build.build-dir` to one directory per workspace, so every target directory of this workspace shared one `libak_core.so` (RUNPATH); `gen/cargo-shim/cargo` makes the build dir the target dir; serve.sh and the driver use it, the gate was run with it on PATH |
 
 ## Framed default (2026-09-28, owner; container instrumentation)
 
@@ -512,6 +528,9 @@ FIX-PLAN R-G17); D41 (every slice's generated tree is current: `generate.py --ch
   the k = 1 result beyond the spread; the benchmark budget was spent). The worker-count knobs
   are not used by any campaign run (defaults 2 / 2).
 - **Other slices' runtimes and bindings**: measured by their slices.
+- **WP11 item 5's added cells** (Df-chan on two runtimes, Ff in the probe, Df with one frame per
+  message) and `perf record` / `perf stat`: not built into the physical probe (perf 7.2.8 exists on
+  the campaign machine, perf_event_paranoid 1); the shipped transport is not in it (pinned only).
 
 ## Notes
 
@@ -519,6 +538,8 @@ FIX-PLAN R-G17); D41 (every slice's generated tree is current: `generate.py --ch
   and corpus harness turn it on (CAMPAIGN.md req 6), and the corpus gate has a control that
   fails when a binding skips `ak_init`.
 - Reads `packages/rust`; edits nothing under `packages/`.
+- On a machine whose cargo config sets `build.build-dir`, put `gen/cargo-shim` first on PATH
+  (the gate, the runner) so each target directory keeps its own core.
 - Each no-unknown build needs its own `CARGO_TARGET_DIR` (target-nounk,
   target-count-nounk, target-corpus-nounk).
 
@@ -526,6 +547,7 @@ FIX-PLAN R-G17); D41 (every slice's generated tree is current: `generate.py --ch
 
 | Log | What it establishes |
 |---|---|
+| `logs/rust/opt/physical-probe/prep/` | the campaign machine's preparation: gate at cb37633f (rustc 1.95.0) PASSED, upload check, the driver's smoke (headers and row counts only) and its worker-count abort control |
 | `logs/rust/opt/t0-ref/`, `t1-native*/`, `t1-ffi/`, `framed/`, `framed-rpc-narrow/`, `n2/`, `n2-ab/`, `n3/`, `n3-ab/`, `n6-probe/`, `lto-ab/`, `u1-unary/`, `u1-unary-narrow/`, `n5/`, `n5-ab/`, `n5b-ab/`, `u2-stream/` | optimisation unit 2, one directory per step (full opt_bench v5 runs, narrowed alternated A/B runs, step checks in `checks/`); before/after in `variants-before-after.txt` / `by-direction.txt`; the framed path's wire evidence in `framed/header-diff*.txt`; direction c and d tables in `u1-unary/c-direction.txt`, `u2-stream/d-direction.txt` |
 | `logs/rust/opt/pre-n5-gate/`, `pre-n5-gate2/` | the stable gate checkpoints of unit 2 (PASSED at 33636e1d and 186a4e52) |
 | `logs/rust/opt/abi9/checks/` | unit 3's step checks (generate --check, one_core, pre-check, crossings identical) |

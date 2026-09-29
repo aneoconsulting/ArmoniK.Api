@@ -1,0 +1,11 @@
+attr.jsonl 18 rows
+main-grid-1.jsonl 360 rows
+main-probe-1.jsonl 32 rows
+spread-grid-1.jsonl 120 rows
+spread-probe-1.jsonl 12 rows
+tables.md sections:
+## 1. Run-to-run spread of an in-process gap (the notable threshold)
+## 2a. Main passes, probe (bin stream_probe, block order): direction d, k = 1: CPU median [p10-p90] pooled over 1 passes
+## 2b. Main passes, grid (benches/rpc_suite on criterion): c/P5.4 and d, k = 1 and 8: CPU median [p10-p90] pooled over 1 passes
+## 3. Client threads by class after the warm-up (each probe process)
+## 4. Attribution pass (not timed: /proc reads around every round, allocation shim loaded): medians over rounds, per call
