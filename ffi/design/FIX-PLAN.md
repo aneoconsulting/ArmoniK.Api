@@ -611,9 +611,22 @@ A (about 0.4-0.7 ms) stays unattributed. The callback delivery costs the same as
 request channel of 4 instead of 1 is worse at 16 MiB; tonic's `BufferSettings` cannot remove
 the copy (its `Encoder` API requires it); a ring of 3 spare buffers in `ak_rt::Enc` gains
 3-7% on the framed cells only, at the edge of the noise; a current-thread host runtime for
-the callback cells changes nothing. System time (socket writes) dominates every cell. What
-remains for the campaign machine: how the 0.6 ms hand-off splits between thread wake-ups and
-the channel, and why a deeper channel costs more.
+the callback cells changes nothing. System time (socket writes) dominates every cell.
+
+**The framed default and the runtime probe (2026-09-28/29, `logs/rust/opt/framed-default/`,
+`logs/rust/opt/runtime-probe/`; container instrumentation, run-to-run spread of a gap about
++-1 ms).** With the framed path the default, one frame per message and the ring of 3 spares
+(ABI-v1 section 9), d/16 MiB at k = 1 reads A 8.45, Df 8.88, Df-chan 9.42, Cf 10.06, Cf-cb
+9.76 ms (probe); at k = 8 every framed cell is below A. The runtime probe changed the host
+runtime (1 worker, current-thread), the core runtime (1 worker), both, and the feed
+channel's depth (2, core patch measured and reverted). Context switches per call follow the
+settings (up to 28 fewer), client CPU does not beyond the spread; depth 2 moves the host's
+wait from the sends to the final recv and needs more than 3 spare buffers. Cf (one runtime,
+the core's, fed by host threads) and Df-chan (one runtime, the harness's, fed the same way
+without the C ABI) are level. So neither the FFI transport API nor the second runtime of the
+callback cells is resolved as a cost. **Still unattributed**: A to Df (0.4-1.3 ms; no core
+transport, no second runtime, no feeding thread) and Df to Df-chan (about 0.5 ms). Df still
+encodes through the core codec's FFI entries and sends two frames per message.
 
 **To measure on the campaign machine** (client on its 4-CPU set, server on its own):
 
@@ -625,6 +638,12 @@ the channel, and why a deeper channel costs more.
    cuts and sends HTTP/2 DATA frames (frame sizes, `writev` batching, window updates).
 4. Whether the grpc++ channels opened for cells A/D/F in the same client process cost CPU
    while the core cells run (run the core cells in a process with no grpc++ channel open).
+5. In the Rust client, d at k = 1 and 8: three cells added beside A, Df, Df-chan, Cf,
+   Cf-cb: Df-chan on two runtimes (the body on one, fed by a task on another, the `rpc`
+   crate called directly: Cf-cb's layout without the C ABI); Ff (the native Rust codec,
+   same framed body: no FFI on the send side); Df with one frame per message
+   (`client_streaming_preframed_cfg`). `perf record -g` and `perf stat` of A, Df, Ff, Cf
+   and Cf-cb, same number of calls: where the A to Df and Df to Df-chan cycles go.
 
 Done when the difference is attributed to named mechanisms, stated as facts with the logs
 that carry them. No recommendation follows from it by itself (CLAUDE.md).
