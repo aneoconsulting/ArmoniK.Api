@@ -12,12 +12,96 @@ defect. What this file reports as results are correctness outcomes and crossing 
 
 | | |
 |---|---|
-| **Status** | 2026-09-28, optimisation unit (owner-approved) complete: steps 0-11 and 8a-8d done, each committed or reverted with its evidence (section "Optimisation unit" below). Final gates from a clean worktree of `9997ea57` (code unchanged since): `wp5_gate` 0 failed steps (both builds; C++17, C++14, C++11, static), `d11_asan` 0 failures (both builds), the campaign gate passed, and the Rust slice's gate PASSED on stable 1.94.1 (`logs/cpp/opt/final-gate/`). Final `gen/opt_bench.sh` run at `cfb3e1b2` (611 s; codec pre-check 0 failures, counts identical): `logs/cpp/opt/final/` (tables-codec.md, tables-rpc.md). Every timing is container instrumentation |
+| **Status** | 2026-09-29/30, on the PHYSICAL campaign machine (i9-7900X, NixOS, kernel 6.18.54; turbo off, 3.3 GHz locked, no isolation: taskset only), phase 1 of the physical probe: step 0 done and checked (`logs/cpp/opt/physical-probe/checks/`, at `f79e034d`), the probe driver `gen/physical_probe.sh` written and smoke-run (smoke not kept); **no timed measurement taken**, the session waits for the coordinator's go. Before that: the optimisation unit (2026-09-28, container) complete, section "Optimisation unit" below |
+| **Physical machine build** | `nix-shell gen/shell.nix` (the system's nixpkgs): g++ 15.3.0, cmake 4.1.6, protobuf 34.1 (C++ version 7.34.1), grpc++ 1.80.0 (the "current" incumbent of CAMPAIGN section 3; ArmoniK's v1.54.0 is not on this machine), abseil 20260107; rustc 1.95.0 (ambient); Google Benchmark v1.8.3 Release (gbench_release, now installed with `CMAKE_INSTALL_LIBDIR=lib`). Changes this build needed: `shapes_pb` at C++17 when protobuf is 22 or later, plus utf8_range and protobuf.pc's abseil libraries; rt.cpp's protobuf UTF-8 ceiling through `utf8_range::IsStructurallyValid` there; `Arena::Create` for `CreateMessage` (removed); every cargo invocation's `CARGO_BUILD_BUILD_DIR` = its `CARGO_TARGET_DIR` (the machine's `~/.cargo/config.toml` sets one shared `build.build-dir`); grpc++ channels set `GRPC_ARG_DEFAULT_AUTHORITY` = "localhost" (below). Only the C++17 targets were built here; the C++11 / C++14 floor targets include protobuf headers, which need C++17 from protobuf 22 on, and were not attempted |
 | **Core** | the shared one at `ffi/poc/codec/crates/ak-core` (R0). CMake builds it with cargo, `init-guard` in every configuration. Full-build flavours: plain, `count`, `corpus`, `rpc`, `rpc,count`, and three planted cores (`pad-widths`, `global-widths`, both). No-unknown flavours: `--no-default-features` plus `init-guard` alone, `count`, `corpus` or `rpc`. Each flavour has its own target dir under `core-build/` |
 | **Generator** | one generator (W14). `poc/codec/gen/plan.py` holds the rules. This slice's backend modules in `poc/codec/gen/` are `cpp_binding.py`, `cpp_native.py`, `cpp_facade.py`, `cpp_names.py` and `cpp_layout.py`, plus `c_abi.py`, which renders the C header for every slice. `gen/generate.py` is glue: it renders the targets from plans and imports no IR (the guard in `generate.py --check`) |
 | **Floor / target** | C++11 floor, C++17 target, both builds. C++14 also builds and is gated (full build) |
 | **Incumbent** | protobuf C++ 3.21.12 and grpc++ 1.51.1, apt's, the only versions in this container (2026-09-28: the container came up without them; reinstalled from apt, libprotobuf-dev 3.21.12-8.2ubuntu0.3, libgrpc++-dev 1.51.1-4.1build5, protobuf-compiler, protobuf-compiler-grpc). `packages/cpp` pins neither. The runner builds against gRPC v1.54.0 and a current version through AK_INCUMBENT_PREFIX, one run per prefix (section 3); neither prefix exists here (checklist row 3) |
 | **Compiler** | g++ 13.3.0, `-O2 -g -DNDEBUG`; rustc 1.94.1 |
+
+## Physical-machine probe (2026-09-29/30): step 0 and the driver
+
+**Step 0: the send path, set explicitly.** The core's default send path is framed since
+2026-09-28 (ABI-v1 section 9), so `core_client()` in `src/campaign_rpc.cpp` now calls
+`ak_client_set_framed(cl, framed ? 1 : 0)` on EVERY core client (FIX-PLAN WP8 item 6): B, C-*,
+E-* and their -q forms get 0 (the reference path, tonic's codec), Bf, Cf-*, Ef-* and their -q
+forms get 1. Before it, the reference cells ran framed. The names are unchanged (C = reference,
+Cf = framed, as the Rust grid). The pre-campaign `rpcbench`, `rpcflow` and `rpccounts` open
+their clients without the call (never timed in the campaign; not built or run on this machine).
+
+**Checked at `f79e034d`** (`gen/physical_checks.sh`, `logs/cpp/opt/physical-probe/checks/checks.log`,
+CLIENT 1-4,11-14, SERVER 5-8,15-18, own serve.sh server):
+- every binary loads its variant's core (path, sha256, unknown-field and rpc exports listed); the
+  cores built with the per-variant build dir hash identically to those built before it;
+- byte identity (conformance, C++17): full 608 checks, 0 failures; no-unknown 478, 0 failures;
+- codec pre-check: full 120 groups / 4436 slots, no-unknown 120 / 2724, 0 failed each (the pull
+  value gate included);
+- `q-checks.log` (gen/q_checks.sh): `--semantics 1` passes on both builds and both send paths;
+  the d-sha, d-count and c-len plants on queue cells abort with no sample; the queue-cell grid
+  smoke passes (140 and 84 benchmarks); RPC counts 132 and 78 rows identical to
+  `logs/cpp/rpc-counts.log` / `rpc-counts-nounk.log`;
+- the grid smoke of EVERY cell (A-F, framed twins, queue and pull cells, every mode), every
+  direction, k = 1 and 8, shipped and pinned, both builds: 366 and 218 samples per transport,
+  every call checked and each process's pre-check passed;
+- the send path is what the label says: allocations of at least 1 MiB per call
+  (`gen/allocprobe.c`): the reference cells make one per request message more than their framed
+  twins (C-retain d/16MiB 8.12 against Cf-retain 1.62; B 16.00 against Bf 8.00; C c/P5.4 1.12
+  against Cf 0.00). The first run of the check used a criterion that did not allow for the
+  framed encode ring's misses on 16 MiB and failed on two pairs
+  (`checks-run1-criterion.log`); the criterion was restated (reference >= one per message,
+  reference - framed >= half of that) and the same numbers pass.
+- `authority.log`: grpc++ 1.80 against the shared tonic server failed EVERY call (RST_STREAM,
+  PROTOCOL_ERROR): v1.80's `unix:` authority is the percent-encoded socket path
+  (resolver_factory.h:70-71), where v1.51 and v1.54 send "localhost" (sockaddr_resolver.cc:151,
+  170). campaign_rpc's grpc++ channels now set `GRPC_ARG_DEFAULT_AUTHORITY` = "localhost", what
+  v1.54 (ArmoniK's) sends; with it cells A, D and F pass.
+
+**What each stack runs on this machine** (printed by every client process: `cpu` and
+`thread_classes*` in campaign_rpc's header and end lines; checked in the smoke):
+- grpc-core v1.80 sizes itself from `sysconf(_SC_NPROCESSORS_CONF)` = 20, NOT from the affinity
+  mask (src/core/util/linux/cpu.cc): 16 `event_engine` threads (Clamp(20, 4, 16),
+  posix_engine.h), 1 `grpc_global_tim`, 1 `lifeguard`, whatever taskset sets. The harness has no
+  setting for it. `gen/ncpus_shim.c` (LD_PRELOAD, `--grpc-cpus N`, off by default) makes sysconf
+  report N: `event_engine` 8 with N = 8, 4 with N = 4 (and with N = 2: the clamp's minimum);
+- the core's runtime: `--workers N` tokio workers (`tokio-rt-worker`), fixed, not from the mask;
+- the caller threads: 8 (`campaign_rpc`, the k = 8 pool, plus the main thread);
+- the shared server: `AK_SERVER_THREADS` tokio workers (read from its environment and its
+  `/proc` task list by `gen/machine_facts.py`).
+
+**The driver** (`gen/physical_probe.sh`, tables `gen/physical_probe.py`, header facts
+`gen/machine_facts.py`): one segment per invocation against one server, transport pinned (the
+pinned socket), cells in retain mode (as the Rust probes), directions c/P5.4 and d/4MiB,
+d/16MiB, k = 1 and 8.
+- `main`: server 8 workers, core 8 workers; 4 spread passes (A, D-retain, Cf-retain), then 3
+  main passes (A, D, Cf, Cf-q, C, C-q); `var4`: server 4, core 4; 3 passes of all six cells.
+- A pass is one client process; Google Benchmark interleaves the repetitions at random within
+  it; the launch index (= pass number) rotates the registration order. 10 repetitions, fixed
+  iterations per (payload, k) (`--iters`: P5.4 30 / 5, 4MiB 40 / 6, 16MiB 12 / 3 batches at k = 1
+  / 8, about 100 ms of wall per repetition, 16 MiB k = 8 about 190 ms), warm-up 0.05 s (one
+  repetition's worth).
+- The spread (the "notable" threshold, the coordinator's definition): per pass and workload,
+  the in-process gap median(cell) - median(A) of per-call CPU (and wall); spread = its range
+  over the segment's spread passes, for D - A and Cf - A. The tables print every gap per pass
+  and its range; absolute times, no ratio.
+- Shared mode (`AK_SERVE_STATE` set): never starts, stops or warms the server; before every
+  client process it checks the state file's pid is unchanged, the server's affinity equals
+  AK_CPU_SERVER and its AK_SERVER_THREADS equals the segment's, and refuses before timing
+  otherwise (both refusals checked in the smoke). Own mode (unset): starts, warms (50) and stops
+  its own server at the segment's worker count.
+- Recorded per pass: machine facts at start and end (CPU model, kernel, SMT, governor, scaling
+  min / max / current frequency, no_turbo, the isolation mechanism from sysfs, the cgroup
+  cpuset, the CPU sets and siblings, load, busiest processes, the server's pid / affinity /
+  threads / AK_SERVER_THREADS), the client's affinity and sysconf counts, its threads by name,
+  the core's path and sha256, getrusage deltas per repetition (ru_nvcsw, ru_nivcsw, ru_minflt,
+  ru_majflt).
+- Estimated benchmark wall time (from the smoke's per-call wall on this machine): main 3.9-4.6
+  minutes (4 spread passes 96-112 s, 3 main passes 138-162 s), var4 2.3-2.7 minutes, about
+  6.2-7.3 minutes in all. If it does not fit: var4's C and C-q first (about -50 s), then d/4MiB.
+- Invocation (shared mode; the owner's CPU sets; the server state files the owner's):
+  `AK_CPU_CLIENT=1-4,11-14 AK_CPU_SERVER=5-8,15-18 AK_SERVE_STATE=/tmp/ak-physical-s8.state gen/physical_probe.sh --segment main --out ../../logs/cpp/opt/physical-probe/main`,
+  then the same with `AK_SERVE_STATE=/tmp/ak-physical-s4.state --segment var4 --out ../../logs/cpp/opt/physical-probe/var4`;
+  `--grpc-cpus 8` / `--grpc-cpus 4` to size grpc-core with the segment (not decided).
 
 ## What exists
 
@@ -89,7 +173,7 @@ The harness binaries, one source each (`CMakeLists.txt`):
 | `src/contentsets.cpp`, `src/concurrency.cpp`, `src/groupskip.cpp`, `src/utf8check.cpp`, `src/odr_*.cpp`, `src/fusion_probe.cpp` | `contentsets_a17`, `conc_*` (incl. four planted), `groupskip_*` (incl. two planted), `utf8check_*`, `odrcheck`, `fusion_probe` | content sets, concurrency suite, group skip, UTF-8 validator differential, ODR across levels, the boundary checker's control |
 | `src/rpcbench.cpp`, `rpcflow.cpp`, `rpccounts.cpp` | `rpcbench`, `rpcflow`, `rpccounts` | the pre-campaign RPC grid, the flow-control probe, RPC crossing counts |
 | `src/campaign_codec.cpp` | `campaign_codec`, `campaign_codec_nounk` | campaign codec suite (Google Benchmark), with its own gate and plant |
-| `src/campaign_rpc.cpp`, `campaign_calib.cpp`, `sha256.h`, `proto/campaign_grid.proto` | `campaign_rpc(_nounk)`, `campaign_rpc_count(_nounk)`, `campaign_server`, `campaign_calib` | campaign RPC client, cells A-F with framed twins Bf/Cf/Ef, directions a, a+read, b, c (Upload P5.3/P5.4) and d (UploadStream 4/16 MiB, SHA-256 checked; `--plant c-len|d-sha|d-count` for the gate's controls) (two builds; `--warm-server N` warms the server; the `_count` builds print per-call counts for B-E with `--count N`); server in its own process on two Unix sockets (shipped, pinned), one per launch; crossing-cost loops |
+| `src/campaign_rpc.cpp`, `campaign_calib.cpp`, `sha256.h`, `proto/campaign_grid.proto` | `campaign_rpc(_nounk)`, `campaign_rpc_count(_nounk)`, `campaign_server`, `campaign_calib` | campaign RPC client, cells A-F with framed twins Bf/Cf/Ef, directions a, a+read, b, c (Upload P5.3/P5.4) and d (UploadStream 4/16 MiB, SHA-256 checked; `--plant c-len|d-sha|d-count` for the gate's controls; `--payloads` narrows the jobs, `--iters [PAYLOAD/]K:N` fixes Google Benchmark's iterations, every repetition carries getrusage counters, the header the CPU facts and threads by name) (two builds; `--warm-server N` warms the server; the `_count` builds print per-call counts for B-E with `--count N`); server in its own process on two Unix sockets (shipped, pinned), one per launch; crossing-cost loops |
 | `src/upbbench.cpp` | `upbbench` (needs `gen/fetch_upb.sh`) | the upb ceiling arm |
 
 Scripts (`gen/`):
@@ -124,6 +208,10 @@ Scripts (`gen/`):
   transports, both clients), pinned AK_CPU_CLIENT=1 / AK_CPU_SERVER=2,3 by default. About 10 minutes here.
 - `opt_summary.py RUN_DIR`: summary-codec.tsv, variants-codec.tsv, summary-rpc.tsv, tables-codec.md, tables-rpc.md
   from the raw samples (absolute times, no ratios; H-1 rows and single-batch RPC entries marked).
+- Physical machine (2026-09-29): `shell.nix` (the build environment), `physical_checks.sh LOG_DIR` (step 0's
+  checks), `physical_probe.sh --segment main|var4 --out DIR [--smoke] [--grpc-cpus N]` (the probe driver),
+  `physical_probe.py DIR` (its tables), `machine_facts.py CLIENT SERVER [PID...]` (header facts from sysfs and
+  /proc), `ncpus_shim.c` (optional LD_PRELOAD: the CPU count grpc-core sizes itself from).
 - `u_rows.py`: the 92 U rows (accepted, non-disputed, at the seven shapes roots) from the corpus manifest, as the TSV the codec suite and counts read.
 - `gbench_to_jsonl.py`: Google Benchmark JSON to section 7's lines.
 - `corpus_all.py`: the corpus driver, with `--unk-controls`, `--expect-dropped`,
@@ -374,7 +462,8 @@ native-retain arm, which R-H22 removed, so the control could no longer fail. The
 
 | # | Where | What | Status |
 |---|---|---|---|
-| C6 | this container | grpc++ 1.51.1 and protobuf 3.21.12 are apt's; `packages/cpp` pins neither, and CAMPAIGN.md asks for v1.54.0 and a current version | open; this container cannot fix it |
+| C6 | incumbent versions | the containers had apt's grpc++ 1.51.1 / protobuf 3.21.12; the physical machine has nixpkgs' grpc++ 1.80.0 / protobuf 34.1 (a current version). `packages/cpp` pins neither; CAMPAIGN.md asks for v1.54.0 and a current one | open: v1.54.0 is on neither; it needs its own prefix (AK_INCUMBENT_PREFIX) |
+| C42 | `CMakeLists.txt`, floor targets | against protobuf 22 and later (the physical machine's 34.1) the C++11 and C++14 targets that include protobuf headers cannot build (protobuf requires C++17); only the C++17 targets were built there | open: the floors are gated against protobuf 3.21 only (the containers' logs) |
 | C15 | `src/bench.cpp` | the `groupfill` arm has measured larger than the (`ffi` - `native`) delta it is a component of, on P1.3 (instrumentation, `bench_a17_shared.log`) | open; the direct-call hypothesis is refuted (JOURNAL). `groupfill` is labelled an upper bound |
 | H-1 | `src/campaign_codec.cpp` | every `input=pool` encode row encoded pool[0] only | **fixed** at step 0 (`f00c900e`): a pool cursor walks the pool across iterations, and one pool is alive at a time |
 | C41 | `gen/opt_bench.sh` settings | single-batch repetitions: at 0.04 s per repetition, c P5.4 and d at k=8 run one batch per repetition, so a sample is one batch and min-max is wide. Marked `†` in tables-rpc.md, column min_batches in summary-rpc.tsv. k=16 was dropped at step 8d (budget) | open, a budget trade-off (10 minutes); not a defect of the campaign harness |
@@ -396,7 +485,13 @@ and the record is in JOURNAL.md. The items reported against other owners were re
 
 **Timing, in general.**
 - **Any timing on the campaign machine.** Every timing in the tree is container
-  instrumentation (above).
+  instrumentation (above). The physical probe's driver is ready and smoke-run only (the smoke's
+  samples were not kept); its timed session waits for the coordinator.
+- **The physical machine's gates beyond step 0.** On the physical machine only
+  `gen/physical_checks.sh` ran: conformance at C++17 (both builds), the codec pre-checks,
+  q_checks, every cell's grid smoke, the allocation probe. Not run there: `wp5_gate.sh` (corpus,
+  floors, plants, boundary, ODR, ...), `d11_asan.sh`, the campaign gate, the payload/U crossing
+  counts (`counts_*`; built, not run).
 - **Any timing of the current tree outside the optimisation runs.** `logs/cpp/opt/` has container runs of the current
   tree (short fixed settings, one container); the pre-campaign logs predate the port and are not re-taken.
 - **The price of unknown-field support on the campaign machine.** The codec suite has core-ffi drop, retain and
@@ -468,7 +563,13 @@ and the record is in JOURNAL.md. The items reported against other owners were re
 
 ## Next step
 
-The optimisation unit is complete; what follows is the owner's (which kept steps stay, the O-/F- items not approved,
+Physical probe: the timed session, on the coordinator's go, in shared mode against the owner's
+servers (invocation in the section "Physical-machine probe" above), then the tables
+(`gen/physical_probe.py`, run by the driver) and the logs committed under
+`logs/cpp/opt/physical-probe/{main,var4}/`. Open choice for the coordinator: `--grpc-cpus`
+(grpc-core's pools sized for the segment or left at its own 16).
+
+Before the physical machine: the optimisation unit is complete; what follows is the owner's (which kept steps stay, the O-/F- items not approved,
 the campaign). For a rerun: `gen/opt_bench.sh logs/cpp/opt/<name>` (about 10 minutes, one process per comparison,
 tables against `opt/final/`); a narrowed A/B with `gen/opt_ab.sh`; the per-step checks with `gen/opt_checks.sh NAME`.
 The gate: `CLEAN=1 gen/wp5_gate.sh build` (about 16 minutes here, from a clone deep enough to hold `aba944a`), then
@@ -505,6 +606,15 @@ Committed references and earlier correctness logs:
 | `groupskip.log`, `odr.log`, `boundary.log`, `concurrency.log`, `conformance.log`, `generator.log` | earlier runs of checks the current gate re-runs (C24's group skip, the ODR check, R5, the concurrency suite, R2); superseded by the `wp5-*` logs |
 | `corpus.log`, `corpus-native.log` | the retired subset corpus harness; superseded by `wp5-corpus.log` |
 | `campaign/gate.log`, `campaign/counts.log`, `campaign/rpc-counts.log`, `campaign/rpc-counts_nounk.log`, `campaign/runner-controls.log`, `campaign/campaign_unknown_rows.tsv` | the campaign gate of the last smoke, its payload/U and RPC counts, the runner's CPU-set/dirty-tree refusals, the U-* rows the codec suite times |
+
+Physical machine (`logs/cpp/opt/physical-probe/`):
+
+| Log | What it contains |
+|---|---|
+| `checks/checks.log` | step 0's checks at `f79e034d` (gen/physical_checks.sh): build facts and each binary's core (path, sha256, variant), conformance 608/0 and 478/0, codec pre-checks 0 failed, q_checks, every cell's grid smoke on both transports and builds, the send-path allocation probe |
+| `checks/q-checks.log` | gen/q_checks.sh of the same run: semantics, queue plants, queue grid smoke, RPC counts 132/78 identical |
+| `checks/checks-run1-criterion.log` | the first run: the allocation criterion that failed on two 16 MiB pairs (same numbers, restated criterion) |
+| `checks/authority.log` | grpc++ 1.80's `unix:` authority reset by the shared server (RST_STREAM PROTOCOL_ERROR), and the calls passing with "localhost" |
 
 Optimisation unit (`logs/cpp/opt/`):
 

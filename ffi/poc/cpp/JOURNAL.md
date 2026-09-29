@@ -1856,3 +1856,47 @@ changes.
   In-process q/blk client-CPU median ratios: a and a+read k=8 0.87-0.88 (the queue's single drainer against 8 caller
   threads), k=1 0.99; b k=8 0.94; c/P5.3 k=8 0.92, k=1 1.04; c/P5.4 1.02 (k=1) and 1.04-1.11 (k=8, single-batch,
   wide); d 1.00-1.07 CPU with wall 0.96-1.02. Container instrumentation.
+
+## 2026-09-29/30, the physical machine, phase 1: step 0 and the probe driver (no timed measurement)
+
+- **Machine.** i9-7900X, NixOS, kernel 6.18.54, governor performance; during the unit the owner stopped k3s and
+  Nextcloud, turned turbo off and locked 3.3 GHz (scaling min = max = 3300000); no isolation (taskset only).
+  CPU sets (owner): CLIENT 1-4,11-14, SERVER 5-8,15-18 (SMT siblings inside each set), OS 0,9,10,19.
+- **Build environment.** No cmake, pkg-config or grpc++ on PATH; `gen/shell.nix` (nixpkgs: cmake 4.1.6, grpc
+  1.80.0, protobuf 34.1, abseil 20260107), g++ 15.3.0 and rustc 1.95.0 ambient. What broke, and the fix:
+  gbench_release installed to lib64 (CMAKE_INSTALL_LIBDIR=lib); shapes.pb.cc at C++11 against protobuf 34 (C++17 when
+  protobuf >= 22); rt.cpp's `internal::IsStructurallyValidUTF8` is gone (utf8_range there, and its libraries);
+  `Arena::CreateMessage` is gone (`Arena::Create`, all four sources); the abseil libraries protobuf's inline code
+  calls (protobuf.pc). The floor (C++11/14) targets cannot build against protobuf 34 (C42); not attempted.
+- **The cargo build dir.** `~/.cargo/config.toml` sets `build.build-dir` to one directory per workspace. The cores built
+  under it were checked by hash and inode (all distinct), then every CMake cargo command got
+  `CARGO_BUILD_BUILD_DIR` = its target dir and the cores were rebuilt from scratch: the same sha256 for every variant
+  as before. So the shared build dir had not mixed variants here (our RUNPATH names the target dirs), and now cannot.
+- **Step 0.** `ak_client_set_framed(cl, framed ? 1 : 0)` on every core client (the default is framed since
+  2026-09-28, so B, C, E ran framed before). Checked as "is it running": the allocation probe shows the reference cells
+  making one >= 1 MiB allocation per request message more than their framed twins; with both on the default they
+  would be equal. My first criterion (reference >= framed + one per message) failed on C/Cf and C-q/Cf-q at 16 MiB,
+  because the framed encode ring still misses 1.25-1.62 times per call there; restated (reference >= one per message,
+  reference - framed >= half of that), same numbers pass; the first run's log is kept.
+- **grpc++ 1.80 failed every call against the shared server** (all of A, D, F: RST_STREAM error 1). GRPC_TRACE=http
+  showed `:authority: tmp%2Faksrv...%2Fshipped.sock`; v1.51/v1.54's sockaddr resolver returns "localhost" for unix:,
+  v1.80 removed that override (resolver_factory.h percent-encodes the path). Fixed in the harness: the grpc++ channels
+  set GRPC_ARG_DEFAULT_AUTHORITY "localhost" (what ArmoniK's v1.54 sends). Not swept into rpcbench/rpcflow (their own
+  grpc++ server, pre-campaign, not built here).
+- **Checks at f79e034d** (logs/cpp/opt/physical-probe/checks/): conformance 608/0 and 478/0; codec pre-check 4436 and 2724
+  slots, 0 failed; q_checks all ok (semantics both builds, plants abort, RPC counts 132/78 identical); every cell's grid
+  smoke both transports and builds; allocation probe.
+- **Harness additions** (campaign_rpc): `--payloads`, `--iters [PAYLOAD/]K:N` (Google Benchmark's Iterations(N): the
+  first repetition no longer sets the batch count, so every cell of a workload gets the same number of batches; the
+  warm-up still runs, at least one run of N iterations), getrusage deltas around each repetition's timed loop as
+  counters (converted into the jsonl), the CPU facts and threads by name in the header and end lines; an unknown option
+  is refused (a typo was silently ignored before).
+- **What grpc-core runs.** 16 `event_engine` threads whatever the mask: v1.80 counts CPUs with
+  sysconf(_SC_NPROCESSORS_CONF) (20 here) and reserves Clamp(n, 4, 16). `gen/ncpus_shim.c` (LD_PRELOAD) makes it 8 or
+  4; its first version set the count in a constructor and did nothing (still 16): the value is now read on each call,
+  and 8 -> 8, 4 -> 4, 2 -> 4 threads (the clamp). The core's runtime and the server's are sized explicitly
+  (`--workers`, AK_SERVER_THREADS), not from the mask.
+- **Driver.** `gen/physical_probe.sh` (segments main / var4, shared or own server), `physical_probe.py` (tables),
+  `machine_facts.py` (sysfs and /proc facts). Smoke-run end to end on both segments with its own server, and in shared
+  mode against a server I started (a 4-worker server refused for `main`, a wrong AK_CPU_SERVER refused, `--grpc-cpus 4`
+  honoured); the smoke's samples are not kept. Estimated benchmark wall time 6.2-7.3 minutes for both segments.
