@@ -1900,3 +1900,14 @@ changes.
   `machine_facts.py` (sysfs and /proc facts). Smoke-run end to end on both segments with its own server, and in shared
   mode against a server I started (a 4-worker server refused for `main`, a wrong AK_CPU_SERVER refused, `--grpc-cpus 4`
   honoured); the smoke's samples are not kept. Estimated benchmark wall time 6.2-7.3 minutes for both segments.
+
+## 2026-09-29, physical probe: main segment timed
+
+- Shared 8-worker server (pid 147567, 5-8,15-18, warmed by the owner with serve.sh warm 64); `--grpc-cpus 8` (the
+  coordinator's decision): the client ran 8 event_engine, 8 tokio-rt-worker, 9 campaign_rpc threads. 7 passes
+  (S1-S4: A, D, Cf; M1-M3: six cells), 1800 repetitions, 254 s of benchmark wall; every call checked, the server check
+  passed before and after every pass; CPUs at 3.3 GHz at every pass end. `logs/cpp/opt/physical-probe/main/tables.md`.
+- No early-session drift on the C++ side: A d/16MiB k=1 per-pass medians 8.29, 8.28, 8.26, 8.24, 8.25, 8.26, 8.21 ms
+  in run order (the Rust session's first processes had shown A at 10.5-11.6 ms).
+- The "busiest processes" lines show a python3 and a ps at 60-100 %: the facts script itself (ps's pcpu of a process
+  a few ms old), taken between passes.
