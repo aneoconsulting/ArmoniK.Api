@@ -339,7 +339,7 @@ gbench_release() {
   GIT_LFS_SKIP_SMUDGE=1 git clone -q --depth 1 --branch "$GB_TAG" https://github.com/google/benchmark "$src" 2>/dev/null || return 1
   [ "$(git -C "$src" rev-parse HEAD)" = "$GB_COMMIT" ] || { echo "Google Benchmark $GB_TAG is not $GB_COMMIT"; return 1; }
   cmake -S "$src" -B "$B/gbench-build" -DCMAKE_BUILD_TYPE=Release -DBENCHMARK_ENABLE_TESTING=OFF \
-    -DBENCHMARK_ENABLE_GTEST_TESTS=OFF -DCMAKE_INSTALL_PREFIX="$GBPREFIX" > /dev/null 2>&1 \
+    -DBENCHMARK_ENABLE_GTEST_TESTS=OFF -DCMAKE_INSTALL_PREFIX="$GBPREFIX" -DCMAKE_INSTALL_LIBDIR=lib > /dev/null 2>&1 \
     && cmake --build "$B/gbench-build" -j"$(nproc)" > /dev/null 2>&1 \
     && cmake --install "$B/gbench-build" > /dev/null 2>&1
 }

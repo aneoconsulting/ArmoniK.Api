@@ -53,8 +53,11 @@
 //                    and E in each mode and direction, then exit
 #include "rpc_common.h"
 
+#include <dirent.h>
 #include <dlfcn.h>
+#include <sched.h>
 #include <sys/resource.h>
+#include <unistd.h>
 #include <sys/syscall.h>
 
 #include <algorithm>
@@ -63,6 +66,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
+#include <map>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -214,6 +218,10 @@ struct Cfg {
   int count = 0;         // --count N
   int alloc_probe = 0;   // --alloc-probe N: allocations >= 1 MiB per call (LD_PRELOAD gen/allocprobe.so)
   int semantics = 0;     // --semantics 1: the queue deliveries' semantics check (no timing), then exit
+  std::string payloads;  // --payloads P5.4,16MiB,...: only these (direction, payload) jobs (empty: all)
+  std::string iters;     // --iters [PAYLOAD/]K:N,...: Google Benchmark's fixed Iterations(N) per in-flight
+                         // K, or per (payload, K) (P5.4/8:12); no iteration estimation, so --min-time-s
+                         // is unused for those benchmarks
 };
 
 [[noreturn]] void die(const char *what, long v) {
@@ -222,12 +230,63 @@ struct Cfg {
   std::_Exit(3);
 }
 
+// A grpc++ stream write that failed: the call has ended, and its status says why.
+template <typename W>
+[[noreturn]] void die_write(W &wr, const char *what, long i) {
+  grpc::Status s = wr->Finish();
+  std::fprintf(stderr, "stream write %ld failed: gRPC status %d \"%s\"\n", i, (int)s.error_code(),
+               s.error_message().c_str());
+  die(what, i);
+}
+
 int proc_threads() {
   std::ifstream f("/proc/self/status");
   std::string line;
   while (std::getline(f, line))
     if (line.compare(0, 8, "Threads:") == 0) return std::atoi(line.c_str() + 8);
   return -1;
+}
+
+// The process's threads by name (/proc/self/task/*/comm), as a JSON object: what each stack
+// actually runs (grpc-core's pollers and executor, the core's tokio workers, the callers).
+std::string thread_classes() {
+  std::map<std::string, int> n;
+  if (DIR *d = opendir("/proc/self/task")) {
+    while (struct dirent *e = readdir(d)) {
+      if (e->d_name[0] == '.') continue;
+      std::ifstream f(std::string("/proc/self/task/") + e->d_name + "/comm");
+      std::string c;
+      std::getline(f, c);
+      std::string k;
+      for (char ch : c) k += (ch == '"' || ch == '\\') ? '_' : ch;
+      ++n[k];
+    }
+    closedir(d);
+  }
+  std::string o = "{";
+  for (std::map<std::string, int>::const_iterator i = n.begin(); i != n.end(); ++i)
+    o += (o.size() > 1 ? ", \"" : "\"") + i->first + "\": " + std::to_string(i->second);
+  return o + "}";
+}
+
+// The CPU facts each stack sizes itself from: the affinity mask (what taskset set) and the
+// two sysconf counts (grpc-core's gpr_cpu_num_cores is sysconf(_SC_NPROCESSORS_CONF) in
+// v1.80, src/core/util/linux/cpu.cc; its EventEngine reserves Clamp(that, 4, 16) threads,
+// posix_engine.h).
+std::string cpu_facts() {
+  cpu_set_t m;
+  CPU_ZERO(&m);
+  std::string list;
+  int cnt = -1;
+  if (sched_getaffinity(0, sizeof(m), &m) == 0) {
+    cnt = CPU_COUNT(&m);
+    for (int i = 0; i < CPU_SETSIZE; ++i)
+      if (CPU_ISSET(i, &m)) list += (list.empty() ? "" : ",") + std::to_string(i);
+  }
+  return "{\"affinity\": \"" + list + "\", \"affinity_count\": " + std::to_string(cnt) +
+         ", \"sysconf_nprocessors_conf\": " + std::to_string(sysconf(_SC_NPROCESSORS_CONF)) +
+         ", \"sysconf_nprocessors_onln\": " + std::to_string(sysconf(_SC_NPROCESSORS_ONLN)) +
+         ", \"grpcpp_version\": \"" + grpc::Version() + "\"}";
 }
 
 const char *dir_label(char d) {
@@ -296,6 +355,12 @@ grpc::ChannelArguments channel_args(const std::string &transport, const std::str
   a.SetInt(GRPC_ARG_MAX_CONNECTION_IDLE_MS, 300000);
   a.SetInt(GRPC_ARG_USE_LOCAL_SUBCHANNEL_POOL, 1);
   a.SetString("ak.campaign.cell", cell);
+  // The :authority of a `unix:` target: gRPC v1.51 and v1.54 send "localhost" (their sockaddr
+  // resolver's GetDefaultAuthority); v1.80 sends the socket path percent-encoded
+  // (resolver_factory.h's default), which the shared tonic server resets with RST_STREAM
+  // PROTOCOL_ERROR on every call (logs/cpp/opt/physical-probe/checks/authority.log). Set to
+  // "localhost" so every grpc++ version sends what v1.54 (ArmoniK's) sends.
+  a.SetString(GRPC_ARG_DEFAULT_AUTHORITY, "localhost");
   return a;
 }
 
@@ -314,11 +379,15 @@ ak_client *core_client_ref(ak_runtime *rt, const std::string &target, const std:
 }
 
 // A cell's core client, on the reference or the framed send path (ak_client_set_framed: the
-// request message sent as its 5-byte prefix and itself, never copied; section 9).
+// request message sent as one body frame, its 5-byte prefix in the encode context's headroom;
+// section 9). The framed path is the core's default (2026-09-28), so the path is set
+// explicitly on EVERY core client, 0 for the reference cells (B, C, E and their -q forms), 1
+// for the framed ones (Bf, Cf-*, Ef-* and their -q forms), as the Rust grid does (FIX-PLAN WP8
+// item 6).
 ak_client *core_client(ak_runtime *rt, const std::string &target, const std::string &transport,
                        bool framed = false) {
   ak_client *cl = core_client_ref(rt, target, transport);
-  if (cl && framed && ak_client_set_framed(cl, 1) != AK_OK) die("ak_client_set_framed", 1);
+  if (cl && ak_client_set_framed(cl, framed ? 1 : 0) != AK_OK) die("ak_client_set_framed", framed ? 1 : 0);
   return cl;
 }
 
@@ -693,7 +762,7 @@ long stream_call(World &w, size_t ci, int pi, int t, ThreadCtx &tc, bool check =
     std::unique_ptr<grpc::ClientWriter<Pb5> > wr(
         grpc::internal::ClientWriterFactory<Pb5>::Create(cn.chan.get(), method, &ctx, &rsp));
     for (size_t i = 0; i < nmsg; ++i)
-      if (!wr->Write(st.p[i])) die("A/d write", (long)i);
+      if (!wr->Write(st.p[i])) die_write(wr, "A/d write", (long)i);
     wr->WritesDone();
     grpc::Status s = wr->Finish();
     if (!s.ok()) die("A/d status", (long)s.error_code());
@@ -740,7 +809,7 @@ long stream_call(World &w, size_t ci, int pi, int t, ThreadCtx &tc, bool check =
       grpc::internal::ClientWriterFactory<grpc::ByteBuffer>::Create(cn.chan.get(), method, &ctx, &rsp));
   for (size_t i = 0; i < nmsg; ++i) {
     grpc::ByteBuffer bb = grpc_request(cl.base, cl.mode, tc, st.f[i]);
-    if (!wr->Write(bb)) die("D/F d write", (long)i);
+    if (!wr->Write(bb)) die_write(wr, "D/F d write", (long)i);
   }
   wr->WritesDone();
   grpc::Status s = wr->Finish();
@@ -1225,6 +1294,9 @@ int main(int argc, char **argv) {
     else if (a == "--alloc-probe") c.alloc_probe = std::atoi(v);
     else if (a == "--plant") c.plant = v;
     else if (a == "--semantics") c.semantics = std::atoi(v);
+    else if (a == "--payloads") c.payloads = v;
+    else if (a == "--iters") c.iters = v;
+    else { std::fprintf(stderr, "unknown option %s\n", a.c_str()); return 2; }
   }
   if (c.target.empty() || (c.transport != "shipped" && c.transport != "pinned") || !w.expect_a) {
     std::fprintf(stderr, "usage: campaign_rpc --target unix:PATH --expect BYTES --transport shipped|pinned ...\n");
@@ -1257,6 +1329,24 @@ int main(int argc, char **argv) {
     if (d == 'c' || d == 'd') { w.jobs.push_back(Job{d, 0}); w.jobs.push_back(Job{d, 1}); }
     else if (d == 'a' || d == 'r' || d == 'b') w.jobs.push_back(Job{d, 0});
     else die("unknown direction", d);
+  }
+  if (!c.payloads.empty()) {  // --payloads: keep the (direction, payload) jobs named
+    std::vector<Job> keep;
+    const std::string want = "," + c.payloads + ",";
+    for (size_t i = 0; i < w.jobs.size(); ++i)
+      if (want.find(std::string(",") + job_payload(w.jobs[i]) + ",") != std::string::npos) keep.push_back(w.jobs[i]);
+    if (keep.empty()) die("--payloads selects no job", 0);
+    w.jobs = keep;
+  }
+  std::map<std::string, long> fixed_iters;  // --iters [PAYLOAD/]K:N, keyed "K" or "PAYLOAD/K"
+  for (size_t p = 0; !c.iters.empty() && p <= c.iters.size();) {
+    size_t q = c.iters.find(',', p);
+    std::string t = c.iters.substr(p, q == std::string::npos ? std::string::npos : q - p);
+    size_t colon = t.find(':');
+    if (colon == std::string::npos || colon == 0 || std::atol(t.c_str() + colon + 1) <= 0) die("--iters [PAYLOAD/]K:N,...", 0);
+    fixed_iters[t.substr(0, colon)] = std::atol(t.c_str() + colon + 1);
+    if (q == std::string::npos) break;
+    p = q + 1;
   }
 
   w.cells = parse_cells(c.cells);
@@ -1424,8 +1514,9 @@ int main(int argc, char **argv) {
               " the k calls of a batch issued back to back, then ak_queue_next until all k completed, each completion"
               " matched to its call by tag (slot << 8 | operation) and checked, a response decoded on the draining"
               " thread; a stream's next send issued from the drain once its previous send completed (at most one"
-              " pending send per call), its recv_q after the last; grpc++'s CompletionQueue::Next idiom\", \"send_paths\": \"Bf, Cf-*, Ef-*: the core's"
-              " framed send path (ak_client_set_framed) beside the reference\","
+              " pending send per call), its recv_q after the last; grpc++'s CompletionQueue::Next idiom\", \"send_paths\": \"set explicitly on every core client at"
+              " open (ak_client_set_framed): 1 = framed, the core's default since 2026-09-28 (Bf, Cf-*, Ef-*, and -q),"
+              " 0 = the reference path, tonic's codec (B, C-*, E-*, and -q)\","
               " \"directions_c_d\": \"c: P5.3, P5.4 unary upload, empty response; d: 4 MiB and 16 MiB in 2 MiB M5"
               " chunks (ids on the first), the server's byte count checked on every call and its SHA-256 of the"
               " messages as received once per cell and payload before any benchmark (UploadStreamCheck); both at 1 and 8"
@@ -1447,9 +1538,14 @@ int main(int argc, char **argv) {
               " \"core_encode_fill\": \"" AK_CORE_FILL "\","
               " \"harness\": \"H-2: one condition variable per caller thread, a batch wakes only its k threads; H-4: the raw methods of A (d), D and F built once per channel (registered calls, as the generated stub's); H-6: cell B serialises with ByteSizeLong + SerializeWithCachedSizesToArray into a reused per-thread buffer\","
               " \"precheck\": \"C, D, E, F in each mode: decode, re-encode, equal to the incumbent's deterministic"
-              " re-serialisation; every c/d request message byte-identical to protobuf's\"}}\n",
+              " re-serialisation; every c/d request message byte-identical to protobuf's\","
+              " \"payloads\": \"%s\", \"fixed_iters\": \"%s\", \"rusage\": \"getrusage(RUSAGE_SELF) around each"
+              " repetition's timed loop: counters ru_nvcsw, ru_nivcsw, ru_minflt, ru_majflt (repetition totals)\","
+              " \"cpu\": %s, \"thread_classes_before_benchmarks\": %s}}\n",
               kBuild, c.target.c_str(), c.transport.c_str(), c.cells.c_str(), c.dirs.c_str(), c.min_time_s,
-              c.rounds, c.launch, w.expect_a, AK_GBENCH_VERSION, c.warmup_s, maxk, c.workers, proc_threads());
+              c.rounds, c.launch, w.expect_a, AK_GBENCH_VERSION, c.warmup_s, maxk, c.workers, proc_threads(),
+              c.payloads.empty() ? "all" : c.payloads.c_str(), c.iters.empty() ? "none" : c.iters.c_str(),
+              cpu_facts().c_str(), thread_classes().c_str());
   std::fflush(stdout);
 
   // WP9: the samples are Google Benchmark's. One benchmark per (cell, job, k), named
@@ -1478,15 +1574,32 @@ int main(int argc, char **argv) {
   for (size_t q = 0; q < nr; ++q) {
     const Reg r = regs[(q + rot) % nr];
     Pool *pp = &pool;
-    benchmark::RegisterBenchmark(r.name.c_str(), [pp, r, fail_after](benchmark::State &st) {
+    benchmark::internal::Benchmark *bm =
+        benchmark::RegisterBenchmark(r.name.c_str(), [pp, r, fail_after](benchmark::State &st) {
       long h = 0;
+      // Process-wide getrusage around the timed loop (outside Google Benchmark's timers, which
+      // start at the loop's first iteration and stop at its end): context switches and page
+      // faults of every thread of the client, as user counters of the repetition (totals; per
+      // call = total / (iterations x k)).
+      struct rusage r0, r1;
+      getrusage(RUSAGE_SELF, &r0);
       for (auto _ : st) h += pp->batch(r.cell, r.job, r.k, r.k);  // one batch: k calls in flight
+      getrusage(RUSAGE_SELF, &r1);
       benchmark::DoNotOptimize(h);
       st.SetItemsProcessed(st.iterations() * r.k);
+      st.counters["ru_nvcsw"] = (double)(r1.ru_nvcsw - r0.ru_nvcsw);
+      st.counters["ru_nivcsw"] = (double)(r1.ru_nivcsw - r0.ru_nivcsw);
+      st.counters["ru_minflt"] = (double)(r1.ru_minflt - r0.ru_minflt);
+      st.counters["ru_majflt"] = (double)(r1.ru_majflt - r0.ru_majflt);
       // --fail-after N (the gate's R-H4 control): abort after N measured repetitions.
       if (++g_done == fail_after) die("--fail-after (test control)", g_done);
-    })->Repetitions(c.rounds)->Unit(benchmark::kNanosecond)
+    });
+    bm->Repetitions(c.rounds)->Unit(benchmark::kNanosecond)
       ->MeasureProcessCPUTime()->UseRealTime()->ReportAggregatesOnly(false);
+    std::map<std::string, long>::const_iterator fi =
+        fixed_iters.find(std::string(job_payload(w.jobs[r.job])) + "/" + std::to_string(r.k));
+    if (fi == fixed_iters.end()) fi = fixed_iters.find(std::to_string(r.k));
+    if (fi != fixed_iters.end()) bm->Iterations(fi->second);  // --iters: no estimation
   }
   char wu[64];
   std::snprintf(wu, sizeof(wu), "--benchmark_min_warmup_time=%.6f", c.warmup_s);
@@ -1505,7 +1618,8 @@ int main(int argc, char **argv) {
   // Only a run in which every call passed its check reaches here (die -> _Exit(3)); the file
   // is renamed into place only now, so an aborted run leaves no sample file (R-H4).
   if (std::rename(part.c_str(), c.gbout.c_str()) != 0) die("rename the Google Benchmark output", 0);
-  std::printf("# {\"campaign_rpc_end\": {\"benchmarks\": %zu, \"process_threads\": %d}}\n", nr, proc_threads());
+  std::printf("# {\"campaign_rpc_end\": {\"benchmarks\": %zu, \"process_threads\": %d, \"thread_classes\": %s}}\n", nr,
+              proc_threads(), thread_classes().c_str());
   std::fflush(stdout);
 #endif
   for (size_t i = 0; i < w.conns.size(); ++i) {

@@ -649,14 +649,14 @@ Group make_group(const std::string &payload, const std::string &content, const s
       uint64_t h = 0;
       for (long i = 0; i < n; ++i) {
         google::protobuf::Arena arena(arena_opts());
-        Pb *m = google::protobuf::Arena::CreateMessage<Pb>(&arena);
+        Pb *m = google::protobuf::Arena::Create<Pb>(&arena);
         m->ParseFromArray(cb, (int)cn);
         if (read) h += pbtouch::touch(*m); else { AK_KEEP(*m); ++h; }
       }
       return h;
     }, [cb, cn, want_fold]() -> std::string {
       google::protobuf::Arena arena(arena_opts());
-      Pb *m = google::protobuf::Arena::CreateMessage<Pb>(&arena);
+      Pb *m = google::protobuf::Arena::Create<Pb>(&arena);
       if (!m->ParseFromArray(cb, (int)cn)) return "arena parse failed";
       return pbtouch::touch(*m) == want_fold ? "" : "field fold differs";
     }});

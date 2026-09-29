@@ -36,7 +36,27 @@ add_custom_command(
 add_library(shapes_pb STATIC ${GEN}/shapes.pb.cc)
 target_include_directories(shapes_pb PUBLIC ${GEN} ${Protobuf_INCLUDE_DIRS})
 target_link_libraries(shapes_pb PUBLIC ${Protobuf_LIBRARIES})
-set_property(TARGET shapes_pb PROPERTY CXX_STANDARD 11)
+# protobuf 3.21 (C++11) compiles at the floor; protobuf 22 and later require C++17 (and
+# abseil), so against a current protobuf the incumbent's generated code is built at C++17 and
+# the floor targets that include protobuf headers cannot be built (stated in the logs).
+if(Protobuf_VERSION VERSION_GREATER_EQUAL 4.22)
+  set(AK_PB_STD 17)
+else()
+  set(AK_PB_STD 11)
+endif()
+set_property(TARGET shapes_pb PROPERTY CXX_STANDARD ${AK_PB_STD})
+if(AK_PB_STD EQUAL 17)
+  # rt.cpp's protobuf UTF-8 ceiling is utf8_range there (utf8_validity.h), shipped beside
+  # libprotobuf; FindProtobuf's Protobuf_LIBRARIES does not name it.
+  get_filename_component(AK_PB_LIBDIR "${Protobuf_LIBRARY}" DIRECTORY)
+  find_library(AK_UTF8_VALIDITY utf8_validity HINTS ${AK_PB_LIBDIR} REQUIRED)
+  find_library(AK_UTF8_RANGE utf8_range HINTS ${AK_PB_LIBDIR} REQUIRED)
+  target_link_libraries(shapes_pb PUBLIC ${AK_UTF8_VALIDITY} ${AK_UTF8_RANGE})
+  # ...and abseil, which protobuf's inline code calls; protobuf.pc lists it.
+  find_package(PkgConfig REQUIRED)
+  pkg_check_modules(AK_PBPC REQUIRED protobuf)
+  target_link_libraries(shapes_pb PUBLIC ${AK_PBPC_LINK_LIBRARIES})
+endif()
 set_property(TARGET shapes_pb PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 # ---- the core -----------------------------------------------------------------------
@@ -68,6 +88,11 @@ set(CORE_TGT "${AK_CORE_TGT}")
 set(CORE_OUT "${CORE_TGT}/target/release")
 set(CORE_COUNT_OUT "${CORE_TGT}/target-count/release")
 
+# CARGO_BUILD_BUILD_DIR is set to the same directory on every invocation too: a machine whose
+# cargo configuration sets `build.build-dir` to one shared place per workspace (the NixOS
+# campaign machine, 2026-09-29) would otherwise build every variant in one build directory,
+# where a cdylib's intermediate file carries no hash; one directory per variant is the rule.
+#
 # R-G7 / FIX-PLAN WP5 step 2: every C ABI core this slice links is built WITH `init-guard`
 # (ABI v1 section 3 as specified), so a binding that skipped `ak_init` would get
 # AK_ERR_UNINITIALIZED on its first codec call instead of passing silently. The binding is
@@ -75,13 +100,13 @@ set(CORE_COUNT_OUT "${CORE_TGT}/target-count/release")
 # guard is in the build.
 set(AK_CORE_FEATURES "init-guard")
 add_custom_target(core ALL
-  COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_TGT}/target
+  COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_TGT}/target CARGO_BUILD_BUILD_DIR=${CORE_TGT}/target
           cargo build --release --features ${AK_CORE_FEATURES} --manifest-path ${CORE_DIR}/Cargo.toml
   BYPRODUCTS ${CORE_OUT}/libak_core.so ${CORE_OUT}/libak_core.a
   COMMENT "cargo build the shared ak-core (cdylib + staticlib)")
 
 add_custom_target(core_count ALL
-  COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_TGT}/target-count
+  COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_TGT}/target-count CARGO_BUILD_BUILD_DIR=${CORE_TGT}/target-count
           cargo build --release --features count,${AK_CORE_FEATURES} --manifest-path ${CORE_DIR}/Cargo.toml
   BYPRODUCTS ${CORE_COUNT_OUT}/libak_core.so
   COMMENT "cargo build the shared ak-core --features count")
@@ -95,17 +120,17 @@ set(CORE_PAD_OUT    "${CORE_TGT}/target-pad/release")
 set(CORE_GLOBAL_OUT "${CORE_TGT}/target-global/release")
 set(CORE_BOTH_OUT   "${CORE_TGT}/target-both/release")
 add_custom_target(core_pad ALL
-  COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_TGT}/target-pad
+  COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_TGT}/target-pad CARGO_BUILD_BUILD_DIR=${CORE_TGT}/target-pad
           cargo build --release --features pad-widths,${AK_CORE_FEATURES} --manifest-path ${CORE_DIR}/Cargo.toml
   BYPRODUCTS ${CORE_PAD_OUT}/libak_core.so
   COMMENT "cargo build the shared ak-core --features pad-widths (a planted core)")
 add_custom_target(core_global ALL
-  COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_TGT}/target-global
+  COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_TGT}/target-global CARGO_BUILD_BUILD_DIR=${CORE_TGT}/target-global
           cargo build --release --features global-widths,${AK_CORE_FEATURES} --manifest-path ${CORE_DIR}/Cargo.toml
   BYPRODUCTS ${CORE_GLOBAL_OUT}/libak_core.so
   COMMENT "cargo build the shared ak-core --features global-widths (a planted core)")
 add_custom_target(core_both ALL
-  COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_TGT}/target-both
+  COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_TGT}/target-both CARGO_BUILD_BUILD_DIR=${CORE_TGT}/target-both
           cargo build --release --features pad-widths,global-widths,${AK_CORE_FEATURES}
           --manifest-path ${CORE_DIR}/Cargo.toml
   BYPRODUCTS ${CORE_BOTH_OUT}/libak_core.so
@@ -274,7 +299,7 @@ ak_arm(contentsets_a17 ${CS} 17 target on shared reject ${CORE_OUT})
 # gen/corpus.py: 213 in-scope rows of the shapes roots, native + ffi + pb) is retired.
 set(CORE_CORPUS_OUT "${CORE_TGT}/target-corpus/release")
 add_custom_target(core_corpus ALL
-  COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_TGT}/target-corpus
+  COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_TGT}/target-corpus CARGO_BUILD_BUILD_DIR=${CORE_TGT}/target-corpus
           cargo build --release --features corpus,${AK_CORE_FEATURES}
           --manifest-path ${CORE_DIR}/Cargo.toml
   BYPRODUCTS ${CORE_CORPUS_OUT}/libak_core.so ${CORE_CORPUS_OUT}/libak_core.a
@@ -350,7 +375,7 @@ if(AK_RPC)
   find_program(GRPC_CPP_PLUGIN grpc_cpp_plugin REQUIRED)
   set(CORE_RPC_OUT "${CORE_TGT}/target-rpc/release")
   add_custom_target(core_rpc ALL
-    COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_TGT}/target-rpc
+    COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_TGT}/target-rpc CARGO_BUILD_BUILD_DIR=${CORE_TGT}/target-rpc
             cargo build --release --features rpc --manifest-path ${CORE_DIR}/Cargo.toml
     BYPRODUCTS ${CORE_RPC_OUT}/libak_core.so
     COMMENT "cargo build the shared ak-core --features rpc")
@@ -382,7 +407,7 @@ if(AK_RPC)
   set(CAMP_GRID ${GEN}/campaign_grid.pb.cc ${GEN}/campaign_grid.grpc.pb.cc)
   set(CORE_COUNT_RPC_OUT "${CORE_TGT}/target-rpc-count/release")
   add_custom_target(core_rpc_count ALL
-    COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_TGT}/target-rpc-count
+    COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_TGT}/target-rpc-count CARGO_BUILD_BUILD_DIR=${CORE_TGT}/target-rpc-count
             cargo build --release --features rpc,count --manifest-path ${CORE_DIR}/Cargo.toml
     BYPRODUCTS ${CORE_COUNT_RPC_OUT}/libak_core.so
     COMMENT "cargo build the shared ak-core --features rpc,count")
@@ -427,7 +452,7 @@ if(AK_RPC)
   # The rpc core is built with init-guard like every other core (requirement 6).
   set(CORE_CAMP_OUT "${CORE_TGT}/target-camp/release")
   add_custom_target(core_camp ALL
-    COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_TGT}/target-camp
+    COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_TGT}/target-camp CARGO_BUILD_BUILD_DIR=${CORE_TGT}/target-camp
             cargo build --release --features rpc,${AK_CORE_FEATURES} --manifest-path ${CORE_DIR}/Cargo.toml
     BYPRODUCTS ${CORE_CAMP_OUT}/libak_core.so
     COMMENT "cargo build the shared ak-core --features rpc,init-guard (campaign)")
@@ -442,7 +467,7 @@ if(AK_RPC)
   # in a separate binary, never from the timed one.
   set(CORE_CAMP_COUNT_OUT "${CORE_TGT}/target-camp-count/release")
   add_custom_target(core_camp_count ALL
-    COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_TGT}/target-camp-count
+    COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_TGT}/target-camp-count CARGO_BUILD_BUILD_DIR=${CORE_TGT}/target-camp-count
             cargo build --release --features rpc,count,${AK_CORE_FEATURES} --manifest-path ${CORE_DIR}/Cargo.toml
     BYPRODUCTS ${CORE_CAMP_COUNT_OUT}/libak_core.so
     COMMENT "cargo build the shared ak-core --features rpc,count,init-guard (campaign counts)")
@@ -557,17 +582,17 @@ set(CORE_NOUNK_OUT "${CORE_TGT}/target-nounk/release")
 set(CORE_COUNT_NOUNK_OUT "${CORE_TGT}/target-count-nounk/release")
 set(CORE_CORPUS_NOUNK_OUT "${CORE_TGT}/target-corpus-nounk/release")
 add_custom_target(core_nounk ALL
-  COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_TGT}/target-nounk
+  COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_TGT}/target-nounk CARGO_BUILD_BUILD_DIR=${CORE_TGT}/target-nounk
           cargo build --release ${NOUNK_FEATURES} ${AK_CORE_FEATURES} --manifest-path ${CORE_DIR}/Cargo.toml
   BYPRODUCTS ${CORE_NOUNK_OUT}/libak_core.so ${CORE_NOUNK_OUT}/libak_core.a
   COMMENT "cargo build ak-core, no-unknown variant (--no-default-features --features init-guard)")
 add_custom_target(core_count_nounk ALL
-  COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_TGT}/target-count-nounk
+  COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_TGT}/target-count-nounk CARGO_BUILD_BUILD_DIR=${CORE_TGT}/target-count-nounk
           cargo build --release ${NOUNK_FEATURES} count,${AK_CORE_FEATURES} --manifest-path ${CORE_DIR}/Cargo.toml
   BYPRODUCTS ${CORE_COUNT_NOUNK_OUT}/libak_core.so
   COMMENT "cargo build ak-core, no-unknown variant, --features count")
 add_custom_target(core_corpus_nounk ALL
-  COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_TGT}/target-corpus-nounk
+  COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_TGT}/target-corpus-nounk CARGO_BUILD_BUILD_DIR=${CORE_TGT}/target-corpus-nounk
           cargo build --release ${NOUNK_FEATURES} corpus,${AK_CORE_FEATURES} --manifest-path ${CORE_DIR}/Cargo.toml
   BYPRODUCTS ${CORE_CORPUS_NOUNK_OUT}/libak_core.so ${CORE_CORPUS_NOUNK_OUT}/libak_core.a
   COMMENT "cargo build ak-core, no-unknown variant, --features corpus (corpus reader ABI)")
@@ -643,7 +668,7 @@ target_compile_definitions(corpus_nounk_noinit PRIVATE AK_BINDING_SKIP_INIT=1)
 if(AK_RPC)
   set(CORE_CAMP_NOUNK_OUT "${CORE_TGT}/target-camp-nounk/release")
   add_custom_target(core_camp_nounk ALL
-    COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_TGT}/target-camp-nounk
+    COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_TGT}/target-camp-nounk CARGO_BUILD_BUILD_DIR=${CORE_TGT}/target-camp-nounk
             cargo build --release ${NOUNK_FEATURES} rpc,${AK_CORE_FEATURES} --manifest-path ${CORE_DIR}/Cargo.toml
     BYPRODUCTS ${CORE_CAMP_NOUNK_OUT}/libak_core.so
     COMMENT "cargo build ak-core, no-unknown variant, --features rpc (campaign)")
@@ -651,7 +676,7 @@ if(AK_RPC)
   string(REPLACE "src/generated/types.cpp" "nounk/src/generated/types.cpp" RPC_COMMON_NOUNK "${RPC_COMMON_NOUNK}")
   set(CORE_CAMP_COUNT_NOUNK_OUT "${CORE_TGT}/target-camp-count-nounk/release")
   add_custom_target(core_camp_count_nounk ALL
-    COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_TGT}/target-camp-count-nounk
+    COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CORE_TGT}/target-camp-count-nounk CARGO_BUILD_BUILD_DIR=${CORE_TGT}/target-camp-count-nounk
             cargo build --release ${NOUNK_FEATURES} rpc,count,${AK_CORE_FEATURES} --manifest-path ${CORE_DIR}/Cargo.toml
     BYPRODUCTS ${CORE_CAMP_COUNT_NOUNK_OUT}/libak_core.so
     COMMENT "cargo build ak-core, no-unknown variant, --features rpc,count (campaign counts)")

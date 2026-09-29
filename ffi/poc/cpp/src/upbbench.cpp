@@ -164,7 +164,7 @@ static void run_case(Upb &u, const char *id, const char *msg_name, void (*pbmk)(
   P pb;
   pbmk(&pb);
   google::protobuf::Arena arena;
-  P *pba = google::protobuf::Arena::CreateMessage<P>(&arena);
+  P *pba = google::protobuf::Arena::Create<P>(&arena);
   pbmk(pba);
 
   std::string wire;
@@ -223,7 +223,7 @@ static void run_case(Upb &u, const char *id, const char *msg_name, void (*pbmk)(
   auto f_pbd = [&]() { P m; m.ParseFromString(wire); AK_SINK_MEM(m); };
   auto f_pbad = [&]() {
     google::protobuf::Arena ar;
-    P *m = google::protobuf::Arena::CreateMessage<P>(&ar);
+    P *m = google::protobuf::Arena::Create<P>(&ar);
     m->ParseFromString(wire);
     AK_SINK_MEM(m);
   };

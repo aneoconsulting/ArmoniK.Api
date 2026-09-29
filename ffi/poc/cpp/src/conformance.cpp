@@ -71,7 +71,7 @@ static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
   }
 
   google::protobuf::Arena arena;
-  P *pba = google::protobuf::Arena::CreateMessage<P>(&arena);
+  P *pba = google::protobuf::Arena::Create<P>(&arena);
   pbmk(pba);
   std::string pba_bytes;
   pb_serialize(*pba, &pba_bytes, true);

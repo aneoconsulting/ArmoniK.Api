@@ -232,7 +232,7 @@ static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
   P pb;
   pbmk(&pb);
   google::protobuf::Arena arena;
-  P *pba = google::protobuf::Arena::CreateMessage<P>(&arena);
+  P *pba = google::protobuf::Arena::Create<P>(&arena);
   pbmk(pba);
 
   std::string wire;
@@ -308,13 +308,13 @@ static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
     a.name = "pb-arena";
     a.fn = [&]() {
       google::protobuf::Arena ar;
-      P *m = google::protobuf::Arena::CreateMessage<P>(&ar);
+      P *m = google::protobuf::Arena::Create<P>(&ar);
       m->ParseFromString(wire);
       AK_SINK_MEM(m);
     };
     a.gate = [&]() {
       google::protobuf::Arena ar;
-      P *m = google::protobuf::Arena::CreateMessage<P>(&ar);
+      P *m = google::protobuf::Arena::Create<P>(&ar);
       return m->ParseFromString(wire);
     };
     dec.push_back(a);

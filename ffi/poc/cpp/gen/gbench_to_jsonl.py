@@ -48,12 +48,15 @@ def main(path, launch, build="full", suite="codec"):
         if suite == "rpc":
             k = int(tags.pop("inflight"))
             tags.pop("build", None)
+            # getrusage(RUSAGE_SELF) deltas around the repetition's timed loop (repetition totals),
+            # present when the client records them.
+            ru = {c: round(b[c]) for c in ("ru_nvcsw", "ru_nivcsw", "ru_minflt", "ru_majflt") if c in b}
             print(json.dumps({"slice": "cpp", "suite": "rpc", "build": build, "cell": arm, "unknown_mode": mode,
                               "payload": payload, "dir": direction, "socket": "uds", "inflight": k,
                               "launch": int(launch), "round": int(b.get("repetition_index", 0)), "order_pos": n,
                               "cpu_ns": round(b["cpu_time"] * sc * it), "cpu_clock": "process",
                               "wall_ns": round(b["real_time"] * sc * it), "iters": it * k,
-                              "sampler": "google-benchmark", **tags}, separators=(",", ":")))
+                              "sampler": "google-benchmark", **ru, **tags}, separators=(",", ":")))
             n += 1
             continue
         print(json.dumps({"slice": "cpp", "suite": "codec", "arm": arm, "payload": payload,

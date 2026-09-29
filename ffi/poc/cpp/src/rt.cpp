@@ -8,6 +8,9 @@
 #include "ak/rt.h"
 
 #include <google/protobuf/stubs/common.h>
+#if GOOGLE_PROTOBUF_VERSION >= 4022000
+#include <utf8_validity.h>
+#endif
 
 namespace ak {
 
@@ -239,8 +242,14 @@ bool utf8_valid_table(const uint8_t *p, std::size_t n) {
 // into every arm here, so the ceiling costs a declaration rather than a build system --
 // which is also why it is a better ceiling than a fetched SIMD library would be: nobody
 // has to believe a claim about how it was configured.
+// protobuf 22 and later removed internal::IsStructurallyValidUTF8; their string fields are
+// checked by utf8_range, which is what this calls there.
 bool utf8_valid_protobuf(const uint8_t *p, std::size_t n) {
+#if GOOGLE_PROTOBUF_VERSION >= 4022000
+  return utf8_range::IsStructurallyValid(absl::string_view((const char *)p, n));
+#else
   return google::protobuf::internal::IsStructurallyValidUTF8((const char *)p, (int)n);
+#endif
 }
 
 // ---- 5. unused ------------------------------------------------------------------
