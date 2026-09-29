@@ -1911,3 +1911,11 @@ changes.
   in run order (the Rust session's first processes had shown A at 10.5-11.6 ms).
 - The "busiest processes" lines show a python3 and a ps at 60-100 %: the facts script itself (ps's pcpu of a process
   a few ms old), taken between passes.
+
+## 2026-09-29, physical probe: var4 segment timed
+
+- Shared 4-worker server (pid 152128, 5-8,15-18, warm 64 by the owner), core `--workers 4`, `--grpc-cpus 4`: the client
+  ran 4 event_engine (5 at the end of S2: grpc's pool grew by one), 4 tokio-rt-worker, 9 campaign_rpc threads; the
+  server 4 tokio-rt-worker. 3 passes of all six cells, 1080 repetitions, 146 s; server check passed around every pass.
+  `logs/cpp/opt/physical-probe/var4/tables.md`. A d/16MiB k=1 per pass: 7.61, 7.89, 7.67 ms (S2 highest for A on
+  every workload of that pass).
