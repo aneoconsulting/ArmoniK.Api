@@ -1,0 +1,115 @@
+# 983 samples, 1,171,209,608 cycles sampled (weights = periods)
+
+## thread class
+
+   99.7%  host-rt (cell-rt)
+    0.3%  main
+
+## leaf crate (self)
+
+   68.0%  kernel
+   22.2%  libc:mem
+    3.7%  h2
+    1.9%  tokio
+    1.4%  tokio_util
+    0.7%  libc:other
+    0.4%  bytes
+    0.4%  http
+    0.3%  other:[vdso]
+    0.2%  tonic
+    0.1%  tracing
+    0.1%  (no frames)
+    0.1%  alloc
+    0.1%  __rustc
+    0.1%  mio
+    0.1%  harness
+    0.1%  hyper
+    0.1%  tower
+    0.1%  ak_rt
+
+## libc leaves by caller crate
+
+   21.2%  libc:mem     <- ak_core
+    0.9%  libc:mem     <- h2
+    0.6%  libc:other   <- mio
+    0.1%  libc:mem     <- bytes
+    0.1%  libc:other   <- ?
+
+## kernel leaves by user entry (first resolved user frame) and caller crate
+
+   62.7%  __syscall_cancel_arch_end                <- mio
+    3.0%  ?                                        <- ?
+    1.1%  syscall                                  <- tokio
+    0.5%  __syscall_cancel_arch_start              <- mio
+    0.2%  __syscall_cancel_arch_end                <- ?
+    0.1%  __vdso_clock_gettime                     <- other:[vdso]
+    0.1%  __memmove_evex_unaligned_erms            <- ak_core
+    0.1%  __syscall_cancel_arch_end                <- serde_json
+    0.1%  __syscall_cancel_arch_end                <- serde_core
+    0.0%  __getrusage                              <- stream_probe
+
+## inclusive: samples with any frame in the crate
+
+   94.8%  tokio
+   94.8%  libc:other
+   94.5%  std
+   94.4%  core
+   87.4%  hyper
+   68.3%  kernel
+   66.8%  h2
+   63.8%  mio
+   61.6%  tokio_util
+   22.3%  libc:mem
+   22.0%  tonic
+   21.6%  rpc
+   21.5%  ak_core(C ABI)
+   21.4%  harness
+   21.4%  tokio_stream
+   21.4%  http_body_util
+   21.3%  ak_core
+    0.7%  bytes
+    0.5%  hyper_util
+    0.5%  stream_probe
+    0.4%  other:[vdso]
+    0.4%  http
+    0.4%  tower
+    0.3%  other:stream_probe
+    0.2%  tracing
+    0.2%  serde_json
+    0.2%  campaign
+    0.1%  serde_core
+    0.1%  alloc
+    0.1%  __rustc
+
+## top leaf symbols
+
+   68.0%  [kernel] [unknown]
+   22.2%  [libc:mem] __memmove_evex_unaligned_erms
+    1.4%  [tokio_util] tokio_util::util::poll_buf::poll_write_buf
+    0.6%  [h2] h2::codec::framed_write::Encoder<B>::buffer
+    0.6%  [h2] h2::proto::streams::streams::Streams<B,P>::poll_complete
+    0.6%  [libc:other] __internal_syscall_cancel
+    0.3%  [other:[vdso]] __vdso_clock_gettime
+    0.3%  [bytes] <bytes::bytes_mut::BytesMut as bytes::buf::buf_mut::BufMut>::put
+    0.3%  [h2] h2::proto::streams::prioritize::Prioritize::reclaim_frame_inner
+    0.2%  [tokio] tokio::runtime::io::registration::Registration::poll_ready
+    0.2%  [tokio] tokio::runtime::io::scheduled_io::ScheduledIo::wake
+    0.2%  [h2] h2::proto::streams::prioritize::Prioritize::buffer_pending
+    0.2%  [h2] h2::codec::framed_write::FramedWrite<T,B>::flush
+    0.2%  [h2] <h2::proto::streams::store::Ptr as core::ops::deref::Deref>::deref
+    0.2%  [h2] h2::proto::streams::prioritize::Prioritize::reclaim_frame
+    0.2%  [http] http::header::name::parse_hdr
+    0.2%  [tokio] tokio::runtime::scheduler::multi_thread::worker::Core::maintenance
+    0.2%  [h2] h2::proto::streams::prioritize::Prioritize::pop_frame
+    0.1%  [h2] h2::proto::streams::store::Queue<N>::pop
+    0.1%  [h2] h2::proto::streams::streams::Streams<B,P>::clear_expired_reset_streams
+    0.1%  [h2] h2::proto::streams::streams::Streams<B,P>::has_streams_or_other_references
+    0.1%  [http] <http::uri::Parts as core::convert::From<http::uri::Uri>>::from
+    0.1%  [tracing] tracing::span::Span::in_scope
+    0.1%  [tokio] tokio::runtime::scheduler::multi_thread::worker::Context::run_task
+    0.1%  [tokio] tokio::runtime::time::Driver::park_internal
+    0.1%  [tokio] <tokio::net::unix::stream::UnixStream as tokio::io::async_write::AsyncWrite>::poll_write_vectored
+    0.1%  [tonic] <tonic::transport::channel::service::io::BoxedIo as hyper::rt::io::Write>::is_write_vectored
+    0.1%  [tokio] tokio::runtime::scheduler::multi_thread::park::Inner::park_condvar
+    0.1%  [alloc] alloc::sync::Arc<T,A>::drop_slow
+    0.1%  [h2] h2::proto::streams::stream::Stream::send_data

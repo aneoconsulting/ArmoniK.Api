@@ -1,0 +1,80 @@
+# 1167 samples, 1,617,060,321 cycles sampled (weights = periods)
+
+## thread class
+
+   99.8%  host-rt (cell-rt)
+    0.2%  main
+
+## leaf crate (self)
+
+   79.4%  kernel
+   13.9%  libc:mem
+    4.9%  (no frames)
+    0.9%  libc:other
+    0.3%  h2
+    0.2%  libc:alloc
+    0.2%  tonic
+    0.1%  other:libm.so.6
+    0.1%  tokio_util
+    0.1%  tokio
+
+## libc leaves by caller crate
+
+   12.4%  libc:mem     <- ?
+    1.5%  libc:mem     <- bytes
+    0.8%  libc:other   <- ?
+    0.2%  libc:alloc   <- ?
+    0.1%  libc:other   <- mio
+
+## kernel leaves by user entry (first resolved user frame) and caller crate
+
+   36.9%  __syscall_cancel_arch_end                <- ?
+   17.4%  __memmove_evex_unaligned_erms            <- ?
+   13.2%  ?                                        <- ?
+    5.3%  __syscall_cancel_arch_end                <- mio
+    3.7%  __madvise                                <- ?
+    2.2%  __memmove_evex_unaligned_erms            <- bytes
+    0.3%  syscall                                  <- ?
+    0.2%  __madvise                                <- bytes
+    0.1%  sysmalloc                                <- ?
+    0.1%  _int_realloc                             <- ?
+
+## inclusive: samples with any frame in the crate
+
+   79.4%  kernel
+   51.5%  libc:other
+   33.4%  libc:mem
+    9.8%  std
+    9.8%  tokio
+    9.8%  core
+    9.7%  hyper
+    6.1%  h2
+    5.5%  tokio_util
+    5.4%  mio
+    4.3%  libc:alloc
+    3.8%  bytes
+    3.8%  tonic
+    3.6%  prost
+    3.6%  http_body_util
+    3.6%  campaign
+    0.1%  other:libm.so.6
+    0.1%  other:stream_probe
+    0.0%  hyper_util
+
+## top leaf symbols
+
+   79.4%  [kernel] [unknown]
+   13.9%  [libc:mem] __memmove_evex_unaligned_erms
+    0.5%  [libc:other] __internal_syscall_cancel
+    0.4%  [libc:other] __syscall_cancel_arch_end
+    0.1%  [libc:alloc] cfree@GLIBC_2.2.5
+    0.1%  [h2] h2::proto::streams::prioritize::Prioritize::reclaim_frame_inner
+    0.1%  [h2] h2::proto::streams::store::Queue<N>::push
+    0.1%  [tonic] <tonic::transport::channel::service::io::BoxedIo as hyper::rt::io::Write>::poll_flush
+    0.1%  [other:libm.so.6] __ieee754_pow_fma
+    0.1%  [tokio_util] tokio_util::util::poll_buf::poll_write_buf
+    0.1%  [libc:alloc] _int_realloc
+    0.1%  [tonic] tonic::codec::encode::encode_item
+    0.1%  [tokio] tokio::runtime::io::registration::Registration::poll_ready
+    0.1%  [h2] h2::proto::streams::prioritize::Prioritize::try_assign_capacity
+    0.1%  [h2] h2::proto::streams::store::Queue<N>::pop

@@ -1,0 +1,134 @@
+# 2581 samples, 2,524,678,324 cycles sampled (weights = periods)
+
+## thread class
+
+   83.3%  core-rt
+   16.5%  caller
+    0.2%  main
+
+## leaf crate (self)
+
+   77.7%  kernel
+   13.7%  libc:mem
+    3.8%  h2
+    1.5%  tokio
+    0.7%  tokio_util
+    0.7%  libc:other
+    0.4%  bytes
+    0.3%  std
+    0.2%  libc:alloc
+    0.2%  mio
+    0.1%  (no frames)
+    0.1%  hyper
+    0.1%  other:libm.so.6
+    0.1%  futures_channel
+    0.1%  tonic
+    0.1%  other:libak_core.so
+    0.1%  tracing
+    0.1%  core
+    0.0%  ak_core(C ABI)
+    0.0%  ak_rt
+    0.0%  other:[vdso]
+    0.0%  __rustc
+    0.0%  futures_core
+    0.0%  indexmap
+    0.0%  ak_core
+
+## libc leaves by caller crate
+
+   12.0%  libc:mem     <- ak_core
+    1.1%  libc:mem     <- bytes
+    0.6%  libc:mem     <- h2
+    0.4%  libc:other   <- mio
+    0.2%  libc:other   <- tokio
+    0.1%  libc:other   <- ?
+    0.1%  libc:alloc   <- h2
+    0.1%  libc:alloc   <- bytes
+    0.0%  libc:alloc   <- tokio
+    0.0%  libc:alloc   <- ?
+    0.0%  libc:other   <- stream_probe
+    0.0%  libc:mem     <- tokio
+
+## kernel leaves by user entry (first resolved user frame) and caller crate
+
+   71.6%  __syscall_cancel_arch_end                <- mio
+    4.0%  ?                                        <- ?
+    0.8%  syscall                                  <- tokio
+    0.5%  __memmove_evex_unaligned_erms            <- ak_core
+    0.3%  __syscall_cancel_arch_start              <- mio
+    0.2%  syscall                                  <- h2
+    0.1%  __syscall_cancel_arch_end                <- ?
+    0.1%  __syscall_cancel_arch_end                <- other:libak_core.so
+    0.0%  syscall                                  <- stream_probe
+    0.0%  _int_malloc                              <- hyper
+    0.0%  __syscall_cancel_arch_end                <- serde_json
+    0.0%  _int_malloc                              <- __rustc
+    0.0%  __syscall_cancel_arch_end                <- serde_core
+    0.0%  syscall                                  <- ?
+    0.0%  __syscall_cancel_arch_start              <- serde_core
+
+## inclusive: samples with any frame in the crate
+
+   94.1%  libc:other
+   93.8%  std
+   93.8%  core
+   81.5%  tokio
+   78.1%  kernel
+   77.3%  h2
+   77.0%  hyper
+   72.6%  mio
+   71.1%  tokio_util
+   14.2%  libc:mem
+   12.7%  ak_core
+   12.7%  campaign
+   12.7%  ak_core(C ABI)
+   12.5%  harness
+    1.5%  bytes
+    0.5%  tonic
+    0.4%  hyper_util
+    0.3%  libc:alloc
+    0.3%  rpc
+    0.2%  http_body_util
+    0.2%  stream_probe
+    0.2%  other:stream_probe
+    0.1%  other:libak_core.so
+    0.1%  futures_channel
+    0.1%  tracing
+    0.1%  other:libm.so.6
+    0.1%  ak_rt
+    0.1%  serde_json
+    0.1%  tracing_core
+    0.1%  __rustc
+
+## top leaf symbols
+
+   77.7%  [kernel] [unknown]
+   13.7%  [libc:mem] __memmove_evex_unaligned_erms
+    1.1%  [h2] h2::proto::streams::prioritize::Prioritize::buffer_pending
+    0.7%  [tokio_util] tokio_util::util::poll_buf::poll_write_buf
+    0.5%  [h2] h2::codec::framed_write::Encoder<B>::buffer
+    0.4%  [h2] <h2::proto::streams::store::Ptr as core::ops::deref::Deref>::deref
+    0.3%  [libc:other] __syscall_cancel_arch_end
+    0.3%  [tokio] tokio::runtime::io::registration::Registration::poll_ready
+    0.2%  [h2] h2::proto::streams::streams::Streams<B,P>::poll_complete
+    0.2%  [h2] <h2::proto::streams::store::Ptr as core::ops::deref::DerefMut>::deref_mut
+    0.2%  [tokio] tokio::runtime::io::registration::Registration::poll_io
+    0.2%  [tokio] tokio::runtime::io::scheduled_io::ScheduledIo::poll_readiness
+    0.2%  [h2] h2::codec::framed_write::FramedWrite<T,B>::flush
+    0.2%  [h2] h2::proto::streams::prioritize::Prioritize::reclaim_frame
+    0.2%  [h2] h2::codec::framed_read::decode_frame
+    0.2%  [bytes] <bytes::bytes_mut::BytesMut as bytes::buf::buf_mut::BufMut>::put
+    0.1%  [h2] h2::proto::connection::Connection<T,P,B>::poll
+    0.1%  [tokio] tokio::runtime::scheduler::multi_thread::park::Unparker::unpark
+    0.1%  [mio] <&mio::net::uds::stream::UnixStream as std::io::Write>::write_vectored
+    0.1%  [bytes] <bytes::bytes_mut::BytesMut as bytes::buf::buf_mut::BufMut>::put_slice
+    0.1%  [h2] h2::proto::streams::recv::Recv::buffer_pending
+    0.1%  [other:libm.so.6] __ieee754_pow_fma
+    0.1%  [libc:other] __GI___writev
+    0.1%  [tokio] tokio::runtime::context::scoped::Scoped<T>::set
+    0.1%  [futures_channel] <futures_channel::mpsc::Receiver<T> as futures_core::stream::Stream>::poll_next
+    0.1%  [std] <std::sys::sync::mutex::futex::Mutex>::lock_contended
+    0.1%  [libc:other] __tls_get_addr
+    0.1%  [other:libak_core.so] __floattidf
+    0.1%  [std] <&std::os::unix::net::stream::UnixStream as std::io::Write>::write_vectored
+    0.1%  [tokio] tokio::runtime::context::with_scheduler

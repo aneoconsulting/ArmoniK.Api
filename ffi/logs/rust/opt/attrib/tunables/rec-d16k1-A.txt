@@ -1,0 +1,109 @@
+# 934 samples, 1,181,446,207 cycles sampled (weights = periods)
+
+## thread class
+
+   99.8%  host-rt (cell-rt)
+    0.2%  main
+
+## leaf crate (self)
+
+   69.1%  kernel
+   22.2%  libc:mem
+    3.7%  (no frames)
+    1.7%  h2
+    1.0%  tokio
+    0.5%  libc:other
+    0.4%  libc:alloc
+    0.4%  hyper
+    0.3%  tracing
+    0.2%  tonic
+    0.2%  tokio_util
+    0.1%  core
+    0.1%  campaign
+    0.1%  shapes_prost
+
+## libc leaves by caller crate
+
+   12.5%  libc:mem     <- bytes
+    8.9%  libc:mem     <- ?
+    0.8%  libc:mem     <- h2
+    0.4%  libc:other   <- ?
+    0.3%  libc:alloc   <- ?
+    0.1%  libc:other   <- tokio
+    0.1%  libc:alloc   <- bytes
+
+## kernel leaves by user entry (first resolved user frame) and caller crate
+
+   32.1%  __syscall_cancel_arch_end                <- mio
+   29.2%  __syscall_cancel_arch_end                <- ?
+    5.6%  ?                                        <- ?
+    0.8%  __memmove_evex_unaligned_erms            <- bytes
+    0.5%  __memmove_evex_unaligned_erms            <- ?
+    0.2%  __syscall_cancel_arch_start              <- mio
+    0.2%  syscall                                  <- tokio
+    0.1%  __mprotect                               <- bytes
+    0.1%  __vdso_clock_gettime                     <- other:[vdso]
+    0.1%  __syscall_cancel_arch_end                <- serde_json
+    0.1%  tokio::runtime::task::waker::clone_waker <- tokio
+    0.1%  syscall                                  <- ?
+
+## inclusive: samples with any frame in the crate
+
+   80.4%  libc:other
+   69.1%  kernel
+   50.7%  core
+   50.6%  std
+   50.5%  tokio
+   47.3%  hyper
+   33.9%  h2
+   32.4%  mio
+   30.9%  tokio_util
+   23.4%  libc:mem
+   13.9%  tonic
+   13.5%  bytes
+   13.3%  campaign
+   13.1%  http_body_util
+   13.0%  prost
+    0.7%  libc:alloc
+    0.5%  stream_probe
+    0.3%  hyper_util
+    0.3%  tracing
+    0.2%  other:stream_probe
+    0.1%  alloc
+    0.1%  other:[vdso]
+    0.1%  serde_json
+    0.1%  shapes_prost
+    0.1%  serde_core
+
+## top leaf symbols
+
+   69.1%  [kernel] [unknown]
+   22.2%  [libc:mem] __memmove_evex_unaligned_erms
+    0.5%  [h2] h2::proto::streams::prioritize::Prioritize::pop_frame
+    0.3%  [h2] h2::codec::framed_write::Encoder<B>::buffer
+    0.2%  [hyper] <hyper::proto::h2::client::ClientTask<B,E,T> as core::future::future::Future>::poll
+    0.2%  [tracing] tracing::span::Span::in_scope
+    0.2%  [libc:alloc] _int_malloc
+    0.2%  [libc:other] __syscall_cancel_arch_end
+    0.2%  [tokio] tokio::runtime::context::scoped::Scoped<T>::set
+    0.2%  [tokio_util] tokio_util::util::poll_buf::poll_write_buf
+    0.1%  [tokio] tokio::runtime::scheduler::multi_thread::idle::Idle::is_parked
+    0.1%  [tokio] tokio::runtime::io::scheduled_io::ScheduledIo::wake
+    0.1%  [tokio] tokio::runtime::scheduler::multi_thread::worker::Core::maintenance
+    0.1%  [tonic] <tonic::transport::channel::service::connection::MakeSendRequestService<C> as tower_service::Service<http::uri
+    0.1%  [h2] h2::proto::streams::streams::Streams<B,P>::poll_complete
+    0.1%  [libc:other] __internal_syscall_cancel
+    0.1%  [h2] h2::proto::streams::store::Queue<N>::pop
+    0.1%  [libc:other] clock_gettime@@GLIBC_2.17
+    0.1%  [tokio] tokio::runtime::scheduler::multi_thread::park::Unparker::unpark
+    0.1%  [h2] h2::proto::streams::streams::Streams<B,P>::send_pending_refusal
+    0.1%  [libc:alloc] cfree@GLIBC_2.2.5
+    0.1%  [libc:alloc] _int_free_maybe_consolidate.part.0
+    0.1%  [tonic] <tonic::body::Body as http_body::Body>::is_end_stream
+    0.1%  [core] core::ptr::drop_in_place<tokio::runtime::task::core::Stage<core::pin::Pin<alloc::boxed::Box<dyn core::future::
+    0.1%  [h2] <h2::client::ResponseFuture as core::future::future::Future>::poll
+    0.1%  [h2] <h2::codec::framed_read::FramedRead<T> as futures_core::stream::Stream>::poll_next
+    0.1%  [tokio] tokio::runtime::io::registration::Registration::poll_ready
+    0.1%  [tokio] tokio::sync::oneshot::State::set_complete
+    0.1%  [h2] h2::proto::streams::counts::Counts::transition_after
+    0.1%  [h2] h2::proto::streams::prioritize::Prioritize::reclaim_frame_inner

@@ -21,6 +21,14 @@
 //! experiment patch of logs/rust/opt/runtime-probe; printed here as seen). Every round also
 //! records getrusage(RUSAGE_SELF) deltas: voluntary / involuntary context switches and minor
 //! faults of the whole process (`ru_nvcsw`, `ru_nivcsw`, `ru_minflt`), per call.
+//!
+//! Added for the attribution unit (2026-09-30): AK_PROBE_SIZES also takes `P5.3` / `P5.4`
+//! (direction c, the unary upload); AK_PROBE_K = k in flight (default 1: the callers above,
+//! unchanged; k > 1: one batch = k calls in flight, as the grid's criterion iteration, k caller
+//! threads or k tasks spawned per batch; `cpu_calls` then holds per-batch CPU / k); AK_PERF_CTL =
+//! `CTL_FIFO,ACK_FIFO` of `perf stat|record --control fifo:CTL,ACK -D -1`: the probe sends
+//! `enable` before its first timed round and `disable` after its last, so perf counts the
+//! timed rounds only (warm-up and connection setup excluded).
 use campaign::grid::{self, Call, Conn};
 use std::collections::BTreeMap;
 use std::io::Write;
@@ -117,10 +125,35 @@ fn alloc_counts() -> Option<[u64; 4]> {
 enum Caller {
     Thread(std::sync::mpsc::Sender<usize>, std::sync::mpsc::Receiver<Result<Vec<u64>, String>>),
     Task(Arc<tokio::runtime::Runtime>, Arc<dyn Fn(usize) -> grid::Fut + Send + Sync>),
+    /// k > 1: k caller threads, one call each per batch.
+    Threads(Vec<std::sync::mpsc::Sender<()>>, std::sync::mpsc::Receiver<Result<(), String>>),
+    /// k > 1: k tasks spawned per batch.
+    Tasks(Arc<tokio::runtime::Runtime>, Arc<dyn Fn(usize) -> grid::Fut + Send + Sync>, usize),
 }
 
 impl Caller {
-    fn new(call: &Call) -> Caller {
+    fn new(call: &Call, k: usize) -> Caller {
+        if k > 1 {
+            return match call {
+                Call::Blocking(f) => {
+                    let (dtx, drx) = std::sync::mpsc::channel();
+                    let jobs = (0..k).map(|i| {
+                        let (jtx, jrx) = std::sync::mpsc::channel::<()>();
+                        let (f, dtx) = (f.clone(), dtx.clone());
+                        std::thread::Builder::new().name("caller".into()).spawn(move || {
+                            for () in jrx {
+                                if dtx.send(f(i)).is_err() {
+                                    break;
+                                }
+                            }
+                        }).unwrap();
+                        jtx
+                    }).collect();
+                    Caller::Threads(jobs, drx)
+                }
+                Call::Async(rt, f) => Caller::Tasks(rt.clone(), f.clone(), k),
+            };
+        }
         match call {
             Call::Blocking(f) => {
                 let (jtx, jrx) = std::sync::mpsc::channel::<usize>();
@@ -170,6 +203,46 @@ impl Caller {
                     }).await.unwrap_or_else(|_| Err("task panicked".into()))
                 })
             }
+            Caller::Threads(jobs, done) => {
+                let k = jobs.len() as u64;
+                let mut v = Vec::with_capacity(n);
+                for _ in 0..n {
+                    let c0 = campaign::process_clock_ns();
+                    for j in jobs {
+                        j.send(()).map_err(|_| "caller gone".to_string())?;
+                    }
+                    let mut first = Ok(());
+                    for _ in 0..jobs.len() {
+                        let r = done.recv().map_err(|_| "caller gone".to_string())?;
+                        if first.is_ok() {
+                            first = r;
+                        }
+                    }
+                    first?;
+                    v.push((campaign::process_clock_ns() - c0) / k);
+                }
+                Ok(v)
+            }
+            Caller::Tasks(rt, f, k) => {
+                let (f, k) = (f.clone(), *k);
+                rt.block_on(async move {
+                    let mut v = Vec::with_capacity(n);
+                    for _ in 0..n {
+                        let c0 = campaign::process_clock_ns();
+                        let hs: Vec<_> = (0..k).map(|i| tokio::spawn(f(i))).collect();
+                        let mut first = Ok(());
+                        for h in hs {
+                            let r = h.await.unwrap_or_else(|_| Err("task panicked".into()));
+                            if first.is_ok() {
+                                first = r;
+                            }
+                        }
+                        first?;
+                        v.push((campaign::process_clock_ns() - c0) / k as u64);
+                    }
+                    Ok(v)
+                })
+            }
         }
     }
 }
@@ -195,7 +268,7 @@ fn wall_ns() -> u64 {
 /// `Cf-split` / `C-split` (probe only): cell Cf's / C's call (core-ffi retain encode, then
 /// ak_call_send_enc per chunk, ak_call_recv) through the cell's own core client, the same
 /// entries grid.rs's core_stream calls, split-timed per chunk.
-fn core_split(conn: &Conn, chunks: usize) -> Call {
+fn core_split(conn: &Conn, chunks: usize, k: usize) -> Call {
     use campaign::generated::roots::R_UploadResultDataMessage as M5;
     use campaign::Ops;
     use ak_abi::*;
@@ -204,9 +277,9 @@ fn core_split(conn: &Conn, chunks: usize) -> Call {
         _ => panic!("a split core cell needs a core connection"),
     };
     let pl = grid::stream_payload(chunks);
-    let sl = grid::slots(1);
+    let sl = grid::slots(k);
     let want = (chunks * grid::CHUNK) as u64;
-    Call::Blocking(Arc::new(move |_i| unsafe {
+    Call::Blocking(Arc::new(move |i| unsafe {
         let path = grid::STREAM;
         let h = ak_call_open(cc.raw(), path.as_ptr(), path.len(), AK_CALL_CLIENT_STREAM, std::ptr::null());
         if h.is_null() {
@@ -214,11 +287,11 @@ fn core_split(conn: &Conn, chunks: usize) -> Call {
         }
         for j in 0..chunks {
             let t0 = campaign::thread_cpu_ns();
-            if let Err(e) = M5::f_encode(&sl[0].ctx, &pl.f[j], true) {
+            if let Err(e) = M5::f_encode(&sl[i].ctx, &pl.f[j], true) {
                 return Err(format!("encode {e}"));
             }
             let (t1, w1) = (campaign::thread_cpu_ns(), wall_ns());
-            let rc = ak_call_send_enc(h, sl[0].ctx.enc, (j + 1 == chunks) as i32);
+            let rc = ak_call_send_enc(h, sl[i].ctx.enc, (j + 1 == chunks) as i32);
             let (t2, w2) = (campaign::thread_cpu_ns(), wall_ns());
             add(&ENC_CPU, t0, t1);
             add(&SEND_CPU, t1, t2);
@@ -260,7 +333,7 @@ fn bridge() -> (usize, tokio::sync::oneshot::Receiver<Comp>) {
 /// as the blocking split cells: the task thread's CPU in the encode and inside the send
 /// entry, and the wall time from the send entry to the completion's arrival (the blocking
 /// cells' send wall), then the response.
-fn core_split_cb(conn: &Conn, chunks: usize) -> Call {
+fn core_split_cb(conn: &Conn, chunks: usize, k: usize) -> Call {
     use campaign::generated::roots::R_UploadResultDataMessage as M5;
     use campaign::Ops;
     use ak_abi::*;
@@ -269,9 +342,9 @@ fn core_split_cb(conn: &Conn, chunks: usize) -> Call {
         _ => panic!("a split callback cell needs a callback connection"),
     };
     let pl = grid::stream_payload(chunks);
-    let sl = grid::slots(1);
+    let sl = grid::slots(k);
     let want = (chunks * grid::CHUNK) as u64;
-    Call::Async(rt, Arc::new(move |_i| {
+    Call::Async(rt, Arc::new(move |i| {
         let cc = cc.clone();
         Box::pin(async move {
             let path = grid::STREAM;
@@ -281,10 +354,10 @@ fn core_split_cb(conn: &Conn, chunks: usize) -> Call {
             }
             for j in 0..chunks {
                 let t0 = campaign::thread_cpu_ns();
-                M5::f_encode(&sl[0].ctx, &pl.f[j], true).map_err(|e| format!("encode {e}"))?;
+                M5::f_encode(&sl[i].ctx, &pl.f[j], true).map_err(|e| format!("encode {e}"))?;
                 let (t1, w1) = (campaign::thread_cpu_ns(), wall_ns());
                 let (ud, rx) = bridge();
-                let rc = unsafe { ak_call_send_enc_cb(h as *mut ak_call, sl[0].ctx.enc, (j + 1 == chunks) as i32, on_done, ud as *mut std::ffi::c_void, 0) };
+                let rc = unsafe { ak_call_send_enc_cb(h as *mut ak_call, sl[i].ctx.enc, (j + 1 == chunks) as i32, on_done, ud as *mut std::ffi::c_void, 0) };
                 let t2 = campaign::thread_cpu_ns();
                 if rc != AK_OK {
                     return Err(format!("ak_call_send_enc_cb {rc}"));
@@ -332,7 +405,7 @@ fn chan_depth() -> usize {
 }
 
 /// The `Df-chan` call (see main).
-fn df_chan(conn: &Conn, chunks: usize) -> Call {
+fn df_chan(conn: &Conn, chunks: usize, k: usize) -> Call {
     use campaign::generated::roots::R_UploadResultDataMessage as M5;
     use campaign::Ops;
     let (rt, ch) = match conn {
@@ -346,9 +419,9 @@ fn df_chan(conn: &Conn, chunks: usize) -> Call {
     assert!(grid::host_workers().is_some(), "Df-chan cannot run on a current-thread host runtime (AK_HOST_WORKERS=ct): nothing drives the body while the host thread blocks in blocking_send");
     let depth = chan_depth();
     let pl = grid::stream_payload(chunks);
-    let sl = grid::slots(1);
+    let sl = grid::slots(k);
     let want = (chunks * grid::CHUNK) as u64;
-    Call::Blocking(Arc::new(move |_i| {
+    Call::Blocking(Arc::new(move |i| {
         let (tx, rx) = tokio::sync::mpsc::channel::<bytes::Bytes>(depth);
         let ch = ch.clone();
         let h = rt.spawn(async move {
@@ -356,8 +429,8 @@ fn df_chan(conn: &Conn, chunks: usize) -> Call {
         });
         for j in 0..chunks {
             let t0 = campaign::thread_cpu_ns();
-            M5::f_encode(&sl[0].ctx, &pl.f[j], true).map_err(|e| format!("encode {e}"))?;
-            let b = campaign::ffi_owned_body(sl[0].ctx.enc).map_err(|rc| format!("ak_enc_take_owned {rc}"))?;
+            M5::f_encode(&sl[i].ctx, &pl.f[j], true).map_err(|e| format!("encode {e}"))?;
+            let b = campaign::ffi_owned_body(sl[i].ctx.enc).map_err(|rc| format!("ak_enc_take_owned {rc}"))?;
             let (t1, w1) = (campaign::thread_cpu_ns(), wall_ns());
             let sent = tx.blocking_send(b);
             let (t2, w2) = (campaign::thread_cpu_ns(), wall_ns());
@@ -395,8 +468,16 @@ fn main() {
         match c { "Df-chan" => grid::cell_of("Df"), "Cf-split" => grid::cell_of("Cf"), "C-split" => grid::cell_of("C"),
                   "Cf-cb-split" => grid::cell_of("Cf-cb"), "C-cb-split" => grid::cell_of("C-cb"), "A2" => "A", c => c }
     };
+    // (label, chunks): direction d's sizes, or direction c's payload with chunks = 0.
     let sizes: Vec<(&'static str, usize)> = env("AK_PROBE_SIZES", "16MiB,4MiB".to_string()).split(',')
-        .map(|s| *grid::D_PAYLOADS.iter().find(|(l, _)| *l == s).unwrap_or_else(|| panic!("size {s}"))).collect();
+        .map(|s| grid::D_PAYLOADS.iter().copied().find(|(l, _)| *l == s)
+            .or_else(|| grid::C_PAYLOADS.iter().copied().find(|p| *p == s).map(|p| (p, 0)))
+            .unwrap_or_else(|| panic!("size {s}"))).collect();
+    let k: usize = env("AK_PROBE_K", 1usize).max(1);
+    let perf_ctl: Option<(String, String)> = std::env::var("AK_PERF_CTL").ok().map(|v| {
+        let (a, b) = v.split_once(',').expect("AK_PERF_CTL=CTL_FIFO,ACK_FIFO");
+        (a.to_string(), b.to_string())
+    });
     let rounds: usize = env("AK_PROBE_ROUNDS", 15);
     let calls: usize = env("AK_PROBE_CALLS", 8);
     let warm: usize = env("AK_PROBE_WARM", 4);
@@ -406,23 +487,27 @@ fn main() {
     let mut work = Vec::new();
     for (ci, &cell) in cells.iter().enumerate() {
         for &(label, chunks) in &sizes {
-            let call = if cell == "Df-chan" {
-                df_chan(&conns[ci], chunks)
+            let call = if chunks == 0 {
+                assert!(!cell.ends_with("-split") && cell != "Df-chan", "{cell}: direction d only");
+                grid::call_of_c(base(cell), &conns[ci], label, grid::slots(k), 0)
+            } else if cell == "Df-chan" {
+                df_chan(&conns[ci], chunks, k)
             } else if cell.ends_with("-cb-split") {
-                core_split_cb(&conns[ci], chunks)
+                core_split_cb(&conns[ci], chunks, k)
             } else if cell.ends_with("-split") {
-                core_split(&conns[ci], chunks)
+                core_split(&conns[ci], chunks, k)
             } else {
-                grid::call_of_d(base(cell), &conns[ci], chunks, grid::slots(1), (chunks * grid::CHUNK) as u64, false)
+                grid::call_of_d(base(cell), &conns[ci], chunks, grid::slots(k), (chunks * grid::CHUNK) as u64, false)
             };
-            let caller = Caller::new(&call);
+            let caller = Caller::new(&call, k);
             caller.run(warm).unwrap_or_else(|e| panic!("warm-up {cell} {label}: {e}"));
             work.push((cell, label, caller));
         }
     }
     let mut f = std::fs::File::create(&out).unwrap();
-    writeln!(f, "# stream probe: transport {transport}, cells {cells:?}, sizes {:?}, rounds {rounds}, calls per round {calls}, warm {warm}, allocation shim {}",
-             sizes.iter().map(|s| s.0).collect::<Vec<_>>(), if alloc_counts().is_some() { "loaded" } else { "absent" }).unwrap();
+    writeln!(f, "# stream probe: transport {transport}, cells {cells:?}, sizes {:?}, k {k} (a round = `calls` batches of k), rounds {rounds}, calls per round {calls}, warm {warm}, allocation shim {}, perf control {}",
+             sizes.iter().map(|s| s.0).collect::<Vec<_>>(), if alloc_counts().is_some() { "loaded" } else { "absent" },
+             if perf_ctl.is_some() { "on (perf counts the timed rounds only)" } else { "off" }).unwrap();
     writeln!(f, "# runtimes: host (cell-rt) {} (AK_HOST_WORKERS), core ak_runtime_new({}) (AK_CORE_WORKERS); Df-chan mpsc depth {} (AK_CHAN_DEPTH); AK_CORE_CHAN_DEPTH={} (honoured only by the patched core, which prints its depth on stderr)",
              grid::host_rt_label(), grid::core_workers(), chan_depth(), std::env::var("AK_CORE_CHAN_DEPTH").unwrap_or_else(|_| "unset".into())).unwrap();
     // The threads that exist once every cell is open and warm, by class (the runtime
@@ -445,9 +530,30 @@ fn main() {
         (0..rounds).flat_map(|r| (0..n).map(move |i| (r, (i + r) % n))).collect()
     };
     writeln!(f, "# order {}, /proc reads {}", if block { "block" } else { "rotate" }, procs).unwrap();
+    let perf = |cmd: &str| {
+        if let Some((ctl, ack)) = &perf_ctl {
+            use std::io::{BufRead, Write as _};
+            let mut c = std::fs::OpenOptions::new().write(true).open(ctl).expect("perf control fifo");
+            c.write_all(format!("{cmd}\n").as_bytes()).unwrap();
+            drop(c);
+            let mut l = String::new();
+            std::io::BufReader::new(std::fs::File::open(ack).expect("perf ack fifo")).read_line(&mut l).unwrap();
+        }
+    };
+    // AK_PERF_CELL: perf counts only that cell's timed rounds (every other cell runs as usual).
+    let perf_cell: Option<&'static str> = std::env::var("AK_PERF_CELL").ok().map(|c| match c.as_str() {
+        "Df-chan" | "Cf-split" | "C-split" | "Cf-cb-split" | "C-cb-split" | "A2" => Box::leak(c.into_boxed_str()) as &'static str,
+        s => grid::cell_of(s),
+    });
+    let mut perf_on = false;
     for (r, i) in order {
         {
             let (cell, label, caller) = &work[i];
+            let want = perf_cell.as_deref().map_or(true, |c| c == *cell);
+            if want != perf_on {
+                perf(if want { "enable" } else { "disable" });
+                perf_on = want;
+            }
             let t0 = if procs { threads() } else { BTreeMap::new() };
             let a0 = alloc_counts();
             let s0 = split();
@@ -468,9 +574,9 @@ fn main() {
                     e[i] += x.saturating_sub(y);
                 }
             }
-            let per = calls as f64;
+            let per = (calls * k) as f64;
             let mut o = serde_json::json!({
-                "round": r, "cell": cell, "size": label, "calls": calls, "transport": transport,
+                "round": r, "cell": cell, "size": label, "calls": calls * k, "k": k, "transport": transport,
                 "cpu_ns": cpu as f64 / per, "wall_ns": wall as f64 / per, "cpu_calls": per_call,
                 "ru_nvcsw": (u1[0] - u0[0]) as f64 / per, "ru_nivcsw": (u1[1] - u0[1]) as f64 / per, "ru_minflt": (u1[2] - u0[2]) as f64 / per,
             });
@@ -492,5 +598,8 @@ fn main() {
             }
             writeln!(f, "{o}").unwrap();
         }
+    }
+    if perf_on {
+        perf("disable");
     }
 }

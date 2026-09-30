@@ -1,0 +1,5 @@
+# attribution: commit 26a89727 + UNCOMMITTED; 2026-09-30T03:51:04Z; Intel(R) Core(TM) i9-7900X CPU @ 3.30GHz; kernel 6.18.54; no_turbo 1; scaling min/max cpu1 3300000/3300000 kHz
+# AK_AT_INPROC=1: every process holds A, Df, Cf, Ff (block order, rotated); perf counts one cell (AK_PERF_CELL). GLIBC_TUNABLES=glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432
+# client 1-4,11-14 (host 8, core 8 workers); server 5-8,15-18, 8 workers, pid 203602, pinned socket; probe /home/csdt/work/aneo/armonik/ArmoniK.Api/ffi/poc/rust/target/release/stream_probe sha256 cba2edcf3dfe338f, core /home/csdt/work/aneo/armonik/ArmoniK.Api/ffi/poc/rust/target/release/deps/libak_core.so
+# cells A,Df,Cf,Ff; workloads d16k1 d16k8 (16MiB k1: 4 x 12 calls, warm 8; 16MiB k8: 4 x 3 batches of 8, warm 4; P5.4 k1: 4 x 40, warm 16); perf stat reps 3 (cell order rotated); perf perf version 7.2.8, events cycles:u,cycles:k,instructions:u,instructions:k,cache-misses,dTLB-load-misses,dTLB-store-misses,page-faults,context-switches,task-clock; perf_event_paranoid 1, kptr_restrict 1 (kernel symbols unresolved when 1)
+# run time 121 s

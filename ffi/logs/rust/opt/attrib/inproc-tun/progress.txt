@@ -1,0 +1,4 @@
+stat d16k1 done at +30 s
+record/proc/strace d16k1 done at +41 s
+stat d16k8 done at +99 s
+record/proc/strace d16k8 done at +121 s

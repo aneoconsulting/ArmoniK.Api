@@ -1,0 +1,112 @@
+# 1055 samples, 1,291,860,014 cycles sampled (weights = periods)
+
+## thread class
+
+   99.8%  host-rt (cell-rt)
+    0.2%  main
+
+## leaf crate (self)
+
+   68.5%  kernel
+   20.7%  libc:mem
+    4.1%  h2
+    3.6%  tokio
+    0.5%  tokio_util
+    0.5%  libc:other
+    0.4%  tonic
+    0.3%  core
+    0.3%  bytes
+    0.2%  other:[vdso]
+    0.2%  mio
+    0.1%  tracing
+    0.1%  futures_channel
+    0.1%  (no frames)
+    0.1%  campaign
+    0.1%  hyper
+    0.1%  __rustc
+    0.1%  http
+    0.0%  stream_probe
+    0.0%  facade
+
+## libc leaves by caller crate
+
+   18.8%  libc:mem     <- facade
+    1.2%  libc:mem     <- bytes
+    0.7%  libc:mem     <- h2
+    0.3%  libc:other   <- mio
+    0.2%  libc:other   <- ?
+
+## kernel leaves by user entry (first resolved user frame) and caller crate
+
+   61.6%  __syscall_cancel_arch_end                <- mio
+    4.7%  ?                                        <- ?
+    1.7%  syscall                                  <- tokio
+    0.1%  __vdso_clock_gettime                     <- other:[vdso]
+    0.1%  __memmove_evex_unaligned_erms            <- facade
+    0.1%  __syscall_cancel_arch_start              <- mio
+    0.1%  __syscall_cancel_arch_end                <- serde_json
+    0.1%  __internal_syscall_cancel                <- mio
+    0.1%  __syscall_cancel_arch_end                <- serde_core
+
+## inclusive: samples with any frame in the crate
+
+   92.8%  tokio
+   92.7%  core
+   92.7%  libc:other
+   92.6%  std
+   83.1%  hyper
+   68.9%  kernel
+   64.7%  h2
+   62.2%  mio
+   58.3%  tokio_util
+   20.8%  libc:mem
+   19.6%  tonic
+   19.0%  tokio_stream
+   19.0%  facade
+   19.0%  http_body_util
+   19.0%  rpc
+    1.4%  bytes
+    0.4%  stream_probe
+    0.3%  other:[vdso]
+    0.2%  other:stream_probe
+    0.2%  tracing
+    0.2%  hyper_util
+    0.2%  serde_core
+    0.2%  serde_json
+    0.1%  futures_channel
+    0.1%  campaign
+    0.1%  __rustc
+    0.1%  http
+
+## top leaf symbols
+
+   68.5%  [kernel] [unknown]
+   20.7%  [libc:mem] __memmove_evex_unaligned_erms
+    0.7%  [h2] h2::proto::streams::streams::Streams<B,P>::poll_complete
+    0.6%  [h2] h2::proto::streams::prioritize::Prioritize::pop_frame
+    0.5%  [tokio] tokio::runtime::io::registration::Registration::poll_ready
+    0.5%  [h2] h2::proto::streams::store::Queue<N>::pop
+    0.5%  [tokio] tokio::runtime::scheduler::multi_thread::worker::Context::park_internal
+    0.4%  [tokio_util] tokio_util::util::poll_buf::poll_write_buf
+    0.4%  [h2] h2::codec::framed_write::Encoder<B>::buffer
+    0.4%  [tokio] tokio::runtime::io::registration::Registration::poll_io
+    0.3%  [tokio] tokio::runtime::scheduler::multi_thread::worker::Core::maintenance
+    0.3%  [h2] <h2::proto::streams::store::Ptr as core::ops::deref::Deref>::deref
+    0.3%  [h2] h2::codec::framed_write::Encoder<B>::unset_frame
+    0.3%  [bytes] <bytes::bytes_mut::BytesMut as bytes::buf::buf_mut::BufMut>::put_slice
+    0.2%  [tokio] tokio::runtime::context::scoped::Scoped<T>::set
+    0.2%  [tonic] <tonic::transport::channel::service::io::BoxedIo as hyper::rt::io::Write>::poll_flush
+    0.2%  [h2] <h2::proto::streams::store::Ptr as core::ops::deref::DerefMut>::deref_mut
+    0.2%  [tokio] tokio::runtime::time::Driver::park_internal
+    0.2%  [tokio] tokio::runtime::io::scheduled_io::ScheduledIo::poll_readiness
+    0.2%  [tokio] tokio::runtime::io::driver::Driver::turn
+    0.2%  [libc:other] __internal_syscall_cancel
+    0.2%  [other:[vdso]] __vdso_clock_gettime
+    0.2%  [tokio] tokio::runtime::task::raw::poll
+    0.2%  [h2] h2::proto::streams::recv::Recv::buffer_pending
+    0.2%  [tokio] tokio::runtime::time::wheel::level::Level::next_expiration
+    0.2%  [h2] h2::proto::streams::prioritize::Prioritize::reclaim_frame_inner
+    0.1%  [h2] h2::proto::streams::store::Queue<N>::push
+    0.1%  [tokio_util] tokio_util::util::poll_buf::poll_read_buf
+    0.1%  [h2] h2::proto::streams::flow_control::FlowControl::send_data
+    0.1%  [tokio] tokio::runtime::scheduler::multi_thread::park::Inner::park_condvar

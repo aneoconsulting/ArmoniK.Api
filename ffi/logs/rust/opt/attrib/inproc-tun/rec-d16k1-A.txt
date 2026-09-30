@@ -1,0 +1,113 @@
+# 898 samples, 1,143,132,935 cycles sampled (weights = periods)
+
+## thread class
+
+   99.7%  host-rt (cell-rt)
+    0.3%  main
+
+## leaf crate (self)
+
+   68.2%  kernel
+   22.6%  libc:mem
+    2.6%  h2
+    1.8%  (no frames)
+    1.6%  tokio
+    0.6%  tokio_util
+    0.6%  libc:other
+    0.3%  http
+    0.2%  hyper
+    0.2%  core
+    0.2%  campaign
+    0.2%  other:libm.so.6
+    0.2%  bytes
+    0.2%  libc:alloc
+    0.1%  hyper_util
+    0.1%  tonic
+    0.1%  prost
+    0.1%  alloc
+
+## libc leaves by caller crate
+
+   17.8%  libc:mem     <- bytes
+    3.7%  libc:mem     <- ?
+    1.1%  libc:mem     <- h2
+    0.4%  libc:other   <- ?
+    0.1%  libc:other   <- mio
+    0.1%  libc:alloc   <- bytes
+    0.0%  libc:other   <- serde_core
+    0.0%  libc:alloc   <- ?
+
+## kernel leaves by user entry (first resolved user frame) and caller crate
+
+   51.6%  __syscall_cancel_arch_end                <- mio
+   10.2%  __syscall_cancel_arch_end                <- ?
+    4.3%  ?                                        <- ?
+    1.0%  __memmove_evex_unaligned_erms            <- bytes
+    0.5%  syscall                                  <- tokio
+    0.1%  __syscall_cancel_arch_start              <- mio
+    0.1%  tokio::runtime::io::registration::Regist <- tokio
+    0.1%  syscall                                  <- ?
+    0.0%  __syscall_cancel_arch_end                <- serde_core
+    0.0%  __syscall_cancel_arch_end                <- serde_json
+    0.0%  __syscall_cancel_arch_start              <- serde_core
+
+## inclusive: samples with any frame in the crate
+
+   88.8%  libc:other
+   78.2%  core
+   78.1%  std
+   78.1%  tokio
+   73.1%  hyper
+   68.5%  kernel
+   54.3%  h2
+   51.9%  mio
+   50.0%  tokio_util
+   23.6%  libc:mem
+   19.3%  tonic
+   19.2%  bytes
+   19.2%  campaign
+   18.7%  http_body_util
+   18.7%  prost
+    0.6%  hyper_util
+    0.5%  stream_probe
+    0.3%  alloc
+    0.3%  http
+    0.3%  other:stream_probe
+    0.3%  libc:alloc
+    0.2%  tower
+    0.2%  other:libm.so.6
+    0.1%  serde_core
+    0.1%  serde_json
+
+## top leaf symbols
+
+   68.2%  [kernel] [unknown]
+   22.6%  [libc:mem] __memmove_evex_unaligned_erms
+    0.6%  [h2] h2::codec::framed_write::Encoder<B>::buffer
+    0.6%  [tokio_util] tokio_util::util::poll_buf::poll_write_buf
+    0.3%  [h2] h2::proto::streams::streams::Streams<B,P>::poll_complete
+    0.3%  [libc:other] __internal_syscall_cancel
+    0.2%  [tokio] tokio::runtime::scheduler::multi_thread::worker::Context::run_task
+    0.2%  [h2] h2::proto::streams::store::Queue<N>::pop
+    0.2%  [campaign] campaign::grid::call_of_d_with::{{closure}}::{{closure}}
+    0.2%  [h2] <h2::proto::streams::store::Ptr as core::ops::deref::DerefMut>::deref_mut
+    0.2%  [other:libm.so.6] __ieee754_pow_fma
+    0.2%  [bytes] <bytes::bytes_mut::BytesMut as bytes::buf::buf_mut::BufMut>::put
+    0.1%  [hyper] <hyper::proto::h2::PipeToSendStream<S> as core::future::future::Future>::poll
+    0.1%  [tokio] tokio::runtime::time::wheel::level::Level::next_expiration
+    0.1%  [libc:other] epoll_wait
+    0.1%  [core] core::ptr::drop_in_place<core::task::poll::Poll<core::result::Result<(),hyper::error::Error>>>
+    0.1%  [tokio] <tokio::runtime::task::core::TaskIdGuard as core::ops::drop::Drop>::drop
+    0.1%  [tokio] tokio::runtime::time::Driver::park_internal
+    0.1%  [h2] h2::proto::streams::recv::Recv::recv_data
+    0.1%  [libc:alloc] _int_realloc
+    0.1%  [tokio] tokio::runtime::io::scheduled_io::ScheduledIo::wake
+    0.1%  [http] http::response::Parts::new
+    0.1%  [hyper_util] <hyper_util::rt::tokio::TokioIo<T> as hyper::rt::io::Write>::poll_flush
+    0.1%  [tokio] tokio::sync::oneshot::Sender<T>::send
+    0.1%  [h2] h2::proto::streams::prioritize::Prioritize::reclaim_frame
+    0.1%  [tonic] <tonic::transport::channel::service::io::BoxedIo as hyper::rt::io::Write>::poll_flush
+    0.1%  [tokio] tokio::runtime::context::scoped::Scoped<T>::set
+    0.1%  [tokio] tokio::runtime::io::registration::Registration::poll_ready
+    0.1%  [tokio] <tokio::sync::oneshot::Receiver<T> as core::future::future::Future>::poll
+    0.1%  [tokio] tokio::runtime::context::with_scheduler

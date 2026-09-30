@@ -1,0 +1,124 @@
+# 1018 samples, 1,201,702,003 cycles sampled (weights = periods)
+
+## thread class
+
+   81.2%  core-rt
+   18.5%  caller
+    0.2%  main
+
+## leaf crate (self)
+
+   75.6%  kernel
+   15.4%  libc:mem
+    3.4%  h2
+    2.0%  tokio
+    0.8%  libc:other
+    0.5%  tokio_util
+    0.5%  libc:alloc
+    0.3%  bytes
+    0.3%  (no frames)
+    0.2%  tonic
+    0.2%  std
+    0.1%  other:libm.so.6
+    0.1%  tracing
+    0.1%  core
+    0.1%  ak_core
+    0.1%  tower
+    0.1%  campaign
+    0.1%  ak_core(C ABI)
+    0.0%  stream_probe
+
+## libc leaves by caller crate
+
+   13.7%  libc:mem     <- ak_core
+    1.0%  libc:mem     <- h2
+    0.6%  libc:other   <- mio
+    0.4%  libc:mem     <- bytes
+    0.2%  libc:other   <- ?
+    0.2%  libc:mem     <- tokio
+    0.1%  libc:alloc   <- tokio_util
+    0.1%  libc:alloc   <- rpc
+    0.1%  libc:alloc   <- h2
+    0.1%  libc:alloc   <- ak_core(C ABI)
+    0.1%  libc:alloc   <- ak_rt
+    0.1%  libc:mem     <- ak_rt
+    0.1%  libc:other   <- tokio
+
+## kernel leaves by user entry (first resolved user frame) and caller crate
+
+   70.1%  __syscall_cancel_arch_end                <- mio
+    3.7%  ?                                        <- ?
+    0.9%  syscall                                  <- tokio
+    0.2%  __syscall_cancel_arch_end                <- serde_json
+    0.1%  _int_malloc                              <- tokio
+    0.1%  __syscall_cancel_arch_start              <- mio
+    0.1%  <tokio_util::codec::length_delimited::Le <- tokio_util
+    0.1%  __memmove_evex_unaligned_erms            <- h2
+    0.1%  __syscall_cancel_arch_end                <- ?
+    0.1%  __vdso_clock_gettime                     <- other:[vdso]
+    0.1%  __memmove_evex_unaligned_erms            <- ak_core
+
+## inclusive: samples with any frame in the crate
+
+   93.7%  libc:other
+   93.7%  core
+   93.4%  std
+   79.7%  tokio
+   76.3%  kernel
+   74.0%  h2
+   73.2%  hyper
+   70.7%  mio
+   68.6%  tokio_util
+   15.6%  libc:mem
+   15.1%  ak_core(C ABI)
+   15.0%  campaign
+   15.0%  ak_core
+   13.8%  harness
+    0.8%  hyper_util
+    0.7%  bytes
+    0.6%  tonic
+    0.6%  libc:alloc
+    0.4%  tower
+    0.3%  other:libak_core.so
+    0.2%  stream_probe
+    0.2%  other:stream_probe
+    0.2%  rpc
+    0.2%  serde_json
+    0.1%  serde_core
+    0.1%  ak_rt
+    0.1%  other:libm.so.6
+    0.1%  tracing
+    0.1%  other:[vdso]
+
+## top leaf symbols
+
+   75.6%  [kernel] [unknown]
+   15.3%  [libc:mem] __memmove_evex_unaligned_erms
+    0.9%  [h2] h2::proto::streams::prioritize::Prioritize::buffer_pending
+    0.5%  [tokio_util] tokio_util::util::poll_buf::poll_write_buf
+    0.5%  [libc:other] __syscall_cancel_arch_end
+    0.4%  [h2] h2::codec::framed_write::Encoder<B>::buffer
+    0.3%  [h2] <h2::proto::streams::store::Ptr as core::ops::deref::Deref>::deref
+    0.3%  [libc:alloc] cfree@GLIBC_2.2.5
+    0.2%  [h2] <h2::proto::streams::store::Ptr as core::ops::deref::DerefMut>::deref_mut
+    0.2%  [h2] h2::proto::streams::recv::Recv::buffer_pending
+    0.2%  [bytes] <bytes::bytes_mut::BytesMut as bytes::buf::buf_mut::BufMut>::put
+    0.2%  [libc:other] __internal_syscall_cancel
+    0.2%  [h2] h2::proto::streams::streams::Streams<B,P>::poll_complete
+    0.1%  [tokio] tokio::runtime::io::registration::Registration::poll_io
+    0.1%  [tokio] tokio::sync::oneshot::State::load
+    0.1%  [tonic] <tonic::transport::channel::service::io::BoxedIo as hyper::rt::io::Write>::poll_write_vectored
+    0.1%  [other:libm.so.6] __pow_finite@GLIBC_2.15@plt
+    0.1%  [tokio] tokio::runtime::io::scheduled_io::ScheduledIo::poll_readiness
+    0.1%  [tokio] tokio::runtime::time::wheel::Wheel::next_expiration
+    0.1%  [tokio] tokio::runtime::io::registration::Registration::poll_ready
+    0.1%  [tokio] tokio::sync::notify::NotifiedProject::drop_notified
+    0.1%  [tokio] tokio::runtime::task::state::State::transition_to_running
+    0.1%  [tokio] tokio::runtime::task::raw::poll
+    0.1%  [h2] h2::proto::streams::recv::Recv::recv_trailers
+    0.1%  [h2] h2::frame::headers::Headers::load
+    0.1%  [tonic] <tonic::transport::channel::service::io::BoxedIo as hyper::rt::io::Write>::poll_flush
+    0.1%  [tokio] tokio::runtime::scheduler::multi_thread::worker::<impl tokio::runtime::scheduler::multi_thread::handle::Handle
+    0.1%  [h2] h2::proto::streams::streams::StreamRef<B>::poll_reset
+    0.1%  [tracing] tracing::span::Span::in_scope
+    0.1%  [core] core::ptr::drop_in_place<http::header::map::HeaderMap>

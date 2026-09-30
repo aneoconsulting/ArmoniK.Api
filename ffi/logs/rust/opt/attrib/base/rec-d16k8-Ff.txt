@@ -1,0 +1,129 @@
+# 2247 samples, 2,769,318,369 cycles sampled (weights = periods)
+
+## thread class
+
+   99.9%  host-rt (cell-rt)
+    0.1%  main
+
+## leaf crate (self)
+
+   70.3%  kernel
+   20.3%  libc:mem
+    3.9%  h2
+    1.5%  tokio
+    0.7%  tokio_util
+    0.6%  libc:other
+    0.5%  bytes
+    0.3%  (no frames)
+    0.2%  std
+    0.2%  rpc
+    0.2%  hyper
+    0.1%  slab
+    0.1%  libc:alloc
+    0.1%  indexmap
+    0.1%  tracing
+    0.1%  tower
+    0.1%  core
+    0.1%  other:libm.so.6
+    0.1%  facade
+    0.1%  mio
+    0.1%  hyper_util
+    0.1%  tonic
+    0.1%  http_body_util
+    0.0%  __rustc
+    0.0%  futures_channel
+    0.0%  other:[vdso]
+
+## libc leaves by caller crate
+
+   18.2%  libc:mem     <- facade
+    1.1%  libc:mem     <- h2
+    1.0%  libc:mem     <- bytes
+    0.4%  libc:other   <- mio
+    0.2%  libc:other   <- ?
+    0.1%  libc:alloc   <- h2
+    0.0%  libc:alloc   <- bytes
+    0.0%  libc:other   <- tokio
+    0.0%  libc:mem     <- campaign
+
+## kernel leaves by user entry (first resolved user frame) and caller crate
+
+   63.2%  __syscall_cancel_arch_end                <- mio
+    4.7%  ?                                        <- ?
+    1.4%  syscall                                  <- tokio
+    0.6%  __memmove_evex_unaligned_erms            <- facade
+    0.1%  __syscall_cancel_arch_start              <- mio
+    0.1%  __syscall_cancel_arch_end                <- serde_json
+    0.1%  __vdso_clock_gettime                     <- other:[vdso]
+    0.0%  tokio::runtime::task::waker::clone_waker <- tokio
+    0.0%  _int_malloc                              <- tonic
+    0.0%  __syscall_cancel_arch_end                <- ?
+    0.0%  syscall                                  <- ?
+    0.0%  <h2::proto::streams::store::Ptr as core: <- h2
+    0.0%  __syscall_cancel_arch_end                <- serde_core
+
+## inclusive: samples with any frame in the crate
+
+   93.0%  libc:other
+   92.8%  tokio
+   92.7%  std
+   92.6%  core
+   86.7%  hyper
+   70.7%  kernel
+   68.3%  h2
+   63.8%  mio
+   61.7%  tokio_util
+   20.9%  libc:mem
+   19.4%  rpc
+   19.3%  tonic
+   19.1%  http_body_util
+   18.8%  facade
+   18.8%  tokio_stream
+    1.6%  bytes
+    0.6%  hyper_util
+    0.4%  libc:alloc
+    0.3%  campaign
+    0.3%  alloc
+    0.1%  slab
+    0.1%  stream_probe
+    0.1%  other:stream_probe
+    0.1%  indexmap
+    0.1%  other:[vdso]
+    0.1%  tracing
+    0.1%  tower
+    0.1%  other:libm.so.6
+    0.1%  serde_json
+    0.1%  serde_core
+
+## top leaf symbols
+
+   70.3%  [kernel] [unknown]
+   20.3%  [libc:mem] __memmove_evex_unaligned_erms
+    0.6%  [tokio_util] tokio_util::util::poll_buf::poll_write_buf
+    0.6%  [h2] h2::proto::streams::prioritize::Prioritize::pop_frame
+    0.6%  [h2] h2::codec::framed_write::Encoder<B>::buffer
+    0.5%  [h2] <h2::proto::streams::store::Ptr as core::ops::deref::DerefMut>::deref_mut
+    0.4%  [h2] h2::proto::streams::streams::Streams<B,P>::poll_complete
+    0.3%  [bytes] <bytes::bytes_mut::BytesMut as bytes::buf::buf_mut::BufMut>::put
+    0.3%  [libc:other] __internal_syscall_cancel
+    0.2%  [libc:other] __syscall_cancel_arch_end
+    0.2%  [h2] h2::proto::streams::store::Queue<N>::push
+    0.2%  [h2] h2::codec::framed_write::FramedWrite<T,B>::flush
+    0.2%  [h2] h2::proto::streams::prioritize::Prioritize::buffer_pending
+    0.2%  [tokio] tokio::runtime::io::registration::Registration::poll_ready
+    0.2%  [hyper] <hyper::proto::h2::client::H2ClientFuture<B,T,E> as core::future::future::Future>::poll
+    0.1%  [bytes] <bytes::bytes_mut::BytesMut as bytes::buf::buf_mut::BufMut>::put_slice
+    0.1%  [tokio] tokio::runtime::scheduler::multi_thread::worker::Context::run_task
+    0.1%  [h2] h2::proto::streams::prioritize::Prioritize::reclaim_frame
+    0.1%  [tokio] tokio::runtime::context::scoped::Scoped<T>::set
+    0.1%  [slab] slab::Slab<T>::insert_at
+    0.1%  [h2] h2::proto::streams::buffer::Deque::pop_front
+    0.1%  [h2] h2::proto::streams::prioritize::Prioritize::reclaim_frame_inner
+    0.1%  [rpc] <rpc::FramedStream<S> as http_body::Body>::poll_frame
+    0.1%  [tokio] tokio::runtime::io::registration::Registration::poll_io
+    0.1%  [indexmap] indexmap::map::IndexMap<K,V,S>::get
+    0.1%  [std] <std::sys::sync::condvar::futex::Condvar>::wait
+    0.1%  [tracing] tracing::span::Span::in_scope
+    0.1%  [tokio] tokio::runtime::scheduler::multi_thread::idle::Idle::worker_to_notify
+    0.1%  [h2] <h2::proto::streams::store::Ptr as core::ops::deref::Deref>::deref
+    0.1%  [tower] <tower::util::either::EitherResponseFuture<A,B> as core::future::future::Future>::poll

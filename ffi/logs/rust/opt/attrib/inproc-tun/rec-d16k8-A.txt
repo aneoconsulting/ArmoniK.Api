@@ -1,0 +1,116 @@
+# 2122 samples, 2,703,445,609 cycles sampled (weights = periods)
+
+## thread class
+
+   99.8%  host-rt (cell-rt)
+    0.2%  main
+
+## leaf crate (self)
+
+   71.9%  kernel
+   20.1%  libc:mem
+    5.0%  (no frames)
+    0.9%  h2
+    0.5%  libc:other
+    0.5%  tokio
+    0.4%  libc:alloc
+    0.3%  tokio_util
+    0.1%  bytes
+    0.1%  other:libm.so.6
+    0.1%  mio
+    0.0%  other:[vdso]
+    0.0%  tonic
+    0.0%  slab
+    0.0%  core
+    0.0%  futures_channel
+
+## libc leaves by caller crate
+
+   14.2%  libc:mem     <- ?
+    5.7%  libc:mem     <- bytes
+    0.4%  libc:other   <- ?
+    0.2%  libc:mem     <- h2
+    0.1%  libc:other   <- mio
+    0.1%  libc:alloc   <- bytes
+    0.1%  libc:alloc   <- ?
+    0.1%  libc:alloc   <- h2
+    0.1%  libc:alloc   <- hyper
+
+## kernel leaves by user entry (first resolved user frame) and caller crate
+
+   45.2%  __syscall_cancel_arch_end                <- ?
+   16.8%  __syscall_cancel_arch_end                <- mio
+    6.0%  ?                                        <- ?
+    1.7%  __memmove_evex_unaligned_erms            <- ?
+    0.9%  __memmove_evex_unaligned_erms            <- bytes
+    0.5%  syscall                                  <- ?
+    0.3%  syscall                                  <- tokio
+    0.2%  __syscall_cancel_arch_start              <- ?
+    0.1%  __syscall_cancel_arch_start              <- mio
+    0.1%  __mprotect                               <- ?
+    0.0%  sysmalloc                                <- bytes
+    0.0%  __mprotect                               <- bytes
+    0.0%  __syscall_cancel_arch_end                <- serde_json
+    0.0%  __vdso_clock_gettime                     <- other:[vdso]
+
+## inclusive: samples with any frame in the crate
+
+   72.5%  libc:other
+   71.9%  kernel
+   26.1%  tokio
+   26.1%  std
+   26.1%  core
+   25.0%  hyper
+   22.7%  libc:mem
+   18.9%  h2
+   17.1%  tokio_util
+   17.1%  mio
+    6.9%  bytes
+    6.4%  tonic
+    6.3%  campaign
+    6.3%  http_body_util
+    6.3%  prost
+    0.5%  libc:alloc
+    0.1%  other:libm.so.6
+    0.1%  alloc
+    0.1%  other:stream_probe
+    0.1%  other:[vdso]
+    0.0%  hyper_util
+    0.0%  stream_probe
+    0.0%  slab
+    0.0%  serde_core
+    0.0%  serde_json
+    0.0%  futures_channel
+
+## top leaf symbols
+
+   71.9%  [kernel] [unknown]
+   20.1%  [libc:mem] __memmove_evex_unaligned_erms
+    0.3%  [tokio_util] tokio_util::util::poll_buf::poll_write_buf
+    0.2%  [libc:other] __internal_syscall_cancel
+    0.2%  [h2] <h2::proto::streams::store::Ptr as core::ops::deref::DerefMut>::deref_mut
+    0.2%  [libc:other] __syscall_cancel_arch_end
+    0.1%  [h2] h2::codec::framed_write::Encoder<B>::buffer
+    0.1%  [h2] <h2::proto::streams::store::Ptr as core::ops::deref::Deref>::deref
+    0.1%  [tokio] tokio::runtime::io::scheduled_io::ScheduledIo::poll_readiness
+    0.1%  [libc:alloc] __libc_malloc2
+    0.1%  [h2] h2::codec::framed_write::Encoder<B>::unset_frame
+    0.1%  [libc:alloc] cfree@GLIBC_2.2.5
+    0.1%  [bytes] <bytes::bytes_mut::BytesMut as bytes::buf::buf_mut::BufMut>::put_slice
+    0.1%  [h2] h2::proto::streams::prioritize::Prioritize::pop_frame
+    0.1%  [h2] h2::proto::streams::store::Queue<N>::pop
+    0.1%  [tokio] tokio::runtime::scheduler::multi_thread::worker::Context::park_internal
+    0.1%  [h2] h2::proto::streams::recv::Recv::buffer_pending
+    0.1%  [h2] h2::proto::streams::streams::Streams<B,P>::poll_complete
+    0.1%  [other:libm.so.6] __ieee754_pow_fma
+    0.1%  [tokio] tokio::runtime::io::registration::Registration::poll_io
+    0.1%  [libc:alloc] _int_malloc
+    0.1%  [h2] h2::proto::streams::streams::StreamRef<B>::reserve_capacity
+    0.1%  [libc:alloc] _int_free_create_chunk
+    0.1%  [libc:other] epoll_wait
+    0.1%  [tokio] tokio::runtime::time::<impl tokio::runtime::time::handle::Handle>::process_at_time
+    0.1%  [libc:alloc] realloc
+    0.0%  [mio] mio::poll::Poll::poll
+    0.0%  [tokio] tokio::runtime::task::state::State::transition_to_notified_by_val
+    0.0%  [other:[vdso]] __vdso_clock_gettime
+    0.0%  [tokio] tokio::runtime::time::Driver::park_internal

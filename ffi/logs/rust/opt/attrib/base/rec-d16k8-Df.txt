@@ -1,0 +1,126 @@
+# 2196 samples, 2,739,681,334 cycles sampled (weights = periods)
+
+## thread class
+
+   99.8%  host-rt (cell-rt)
+    0.2%  main
+
+## leaf crate (self)
+
+   69.1%  kernel
+   21.0%  libc:mem
+    5.4%  (no frames)
+    1.5%  h2
+    0.7%  libc:other
+    0.7%  tokio
+    0.3%  tokio_util
+    0.3%  libc:alloc
+    0.2%  bytes
+    0.1%  std
+    0.1%  other:[vdso]
+    0.1%  core
+    0.1%  futures_core
+    0.1%  hyper
+    0.1%  other:libm.so.6
+    0.1%  futures_channel
+    0.1%  http
+    0.0%  mio
+    0.0%  ak_core(C ABI)
+    0.0%  ak_rt
+    0.0%  tonic
+    0.0%  hyper_util
+    0.0%  campaign
+
+## libc leaves by caller crate
+
+   18.8%  libc:mem     <- ak_core
+    1.2%  libc:mem     <- ?
+    0.6%  libc:mem     <- h2
+    0.5%  libc:other   <- ?
+    0.3%  libc:other   <- mio
+    0.3%  libc:mem     <- bytes
+    0.2%  libc:alloc   <- ?
+    0.1%  libc:alloc   <- tonic
+    0.0%  libc:mem     <- tokio_util
+    0.0%  libc:alloc   <- hyper
+
+## kernel leaves by user entry (first resolved user frame) and caller crate
+
+   40.8%  __syscall_cancel_arch_end                <- ?
+   22.3%  __syscall_cancel_arch_end                <- mio
+    4.1%  ?                                        <- ?
+    0.7%  syscall                                  <- ?
+    0.5%  __memmove_evex_unaligned_erms            <- ak_core
+    0.4%  syscall                                  <- tokio
+    0.1%  __syscall_cancel_arch_start              <- ?
+    0.1%  __syscall_cancel_arch_start              <- mio
+    0.1%  _int_malloc                              <- ?
+    0.0%  tokio_util::util::poll_buf::poll_write_b <- tokio_util
+    0.0%  syscall                                  <- h2
+    0.0%  __syscall_cancel_arch_end                <- serde_core
+
+## inclusive: samples with any frame in the crate
+
+   76.0%  libc:other
+   69.2%  kernel
+   34.0%  std
+   33.9%  tokio
+   33.8%  core
+   31.9%  hyper
+   24.7%  h2
+   22.7%  mio
+   22.2%  tokio_util
+   21.4%  libc:mem
+   19.4%  ak_core(C ABI)
+   19.3%  ak_core
+    7.5%  tonic
+    7.5%  rpc
+    7.4%  harness
+    7.4%  tokio_stream
+    7.4%  http_body_util
+    0.5%  bytes
+    0.4%  libc:alloc
+    0.1%  campaign
+    0.1%  other:[vdso]
+    0.1%  other:stream_probe
+    0.1%  hyper_util
+    0.1%  alloc
+    0.1%  futures_core
+    0.1%  other:libm.so.6
+    0.1%  futures_channel
+    0.1%  http
+    0.0%  tower
+    0.0%  stream_probe
+
+## top leaf symbols
+
+   69.1%  [kernel] [unknown]
+   21.0%  [libc:mem] __memmove_evex_unaligned_erms
+    0.4%  [libc:other] __syscall_cancel_arch_end
+    0.3%  [tokio_util] tokio_util::util::poll_buf::poll_write_buf
+    0.3%  [libc:other] __internal_syscall_cancel
+    0.2%  [h2] h2::codec::framed_write::FramedWrite<T,B>::flush
+    0.2%  [h2] h2::codec::framed_write::Encoder<B>::buffer
+    0.2%  [tokio] tokio::runtime::io::registration::Registration::poll_ready
+    0.2%  [h2] h2::proto::streams::streams::Streams<B,P>::poll_complete
+    0.1%  [h2] h2::proto::streams::store::Queue<N>::pop
+    0.1%  [libc:alloc] _int_malloc
+    0.1%  [bytes] <bytes::bytes_mut::BytesMut as bytes::buf::buf_mut::BufMut>::put
+    0.1%  [tokio] tokio::runtime::context::scoped::Scoped<T>::set
+    0.1%  [libc:alloc] malloc
+    0.1%  [h2] <h2::proto::streams::store::Ptr as core::ops::deref::Deref>::deref
+    0.1%  [other:[vdso]] __vdso_clock_gettime
+    0.1%  [tokio] tokio::runtime::time::Driver::park_internal
+    0.1%  [h2] <h2::proto::streams::store::Ptr as core::ops::deref::DerefMut>::deref_mut
+    0.1%  [std] <std::sys::sync::mutex::futex::Mutex>::lock_contended
+    0.1%  [tokio] tokio::runtime::scheduler::multi_thread::idle::Idle::is_parked
+    0.1%  [futures_core] futures_core::task::__internal::atomic_waker::AtomicWaker::register
+    0.1%  [hyper] <hyper::common::io::compat::Compat<T> as tokio::io::async_read::AsyncRead>::poll_read
+    0.1%  [h2] h2::proto::streams::streams::Streams<B,P>::has_streams_or_other_references
+    0.1%  [h2] h2::proto::streams::prioritize::Prioritize::buffer_pending
+    0.1%  [h2] h2::proto::streams::counts::Counts::transition_after
+    0.1%  [bytes] <bytes::bytes_mut::BytesMut as bytes::buf::buf_mut::BufMut>::put_slice
+    0.1%  [tokio] tokio::runtime::scheduler::multi_thread::queue::Steal<T>::steal_into
+    0.1%  [other:libm.so.6] __ieee754_pow_fma
+    0.1%  [futures_channel] <futures_channel::mpsc::Receiver<T> as futures_core::stream::Stream>::poll_next
+    0.1%  [tokio] tokio::runtime::task::state::State::transition_to_idle

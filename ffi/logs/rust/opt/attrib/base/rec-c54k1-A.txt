@@ -1,0 +1,118 @@
+# 779 samples, 927,589,994 cycles sampled (weights = periods)
+
+## thread class
+
+   99.4%  host-rt (cell-rt)
+    0.6%  main
+
+## leaf crate (self)
+
+   73.0%  kernel
+   17.3%  libc:mem
+    4.7%  h2
+    1.4%  tokio_util
+    1.0%  tokio
+    0.3%  tonic
+    0.3%  core
+    0.3%  indexmap
+    0.3%  bytes
+    0.2%  (no frames)
+    0.2%  libc:other
+    0.1%  std
+    0.1%  hyper
+    0.1%  futures_channel
+    0.1%  tracing
+    0.1%  other:[vdso]
+    0.1%  http
+    0.1%  __rustc
+    0.1%  alloc
+
+## libc leaves by caller crate
+
+   16.1%  libc:mem     <- bytes
+    0.8%  libc:mem     <- h2
+    0.2%  libc:other   <- mio
+    0.1%  libc:mem     <- tower
+    0.1%  libc:mem     <- hyper
+    0.1%  libc:mem     <- tonic
+
+## kernel leaves by user entry (first resolved user frame) and caller crate
+
+   64.4%  __syscall_cancel_arch_end                <- mio
+    6.3%  ?                                        <- ?
+    0.5%  __vdso_clock_gettime                     <- other:[vdso]
+    0.4%  syscall                                  <- tokio
+    0.3%  __memmove_evex_unaligned_erms            <- bytes
+    0.2%  __syscall_cancel_arch_end                <- serde_core
+    0.2%  __syscall_cancel_arch_end                <- serde_json
+    0.2%  __mprotect                               <- bytes
+    0.1%  tokio::runtime::io::registration::Regist <- tokio
+    0.1%  h2::proto::streams::streams::Streams<B,P <- h2
+    0.1%  __ieee754_pow_fma                        <- other:libm.so.6
+    0.1%  __syscall_cancel_arch_end                <- other:stream_probe
+
+## inclusive: samples with any frame in the crate
+
+   90.5%  std
+   90.4%  core
+   90.3%  libc:other
+   90.1%  tokio
+   85.0%  hyper
+   73.3%  kernel
+   70.6%  h2
+   64.7%  mio
+   64.1%  tokio_util
+   17.6%  libc:mem
+   17.5%  tonic
+   16.8%  bytes
+   16.8%  campaign
+   16.2%  http_body_util
+   16.2%  prost
+    1.4%  stream_probe
+    0.7%  other:[vdso]
+    0.5%  hyper_util
+    0.5%  other:stream_probe
+    0.5%  tower
+    0.4%  serde_json
+    0.3%  serde_core
+    0.3%  indexmap
+    0.2%  alloc
+    0.2%  libc:alloc
+    0.1%  futures_channel
+    0.1%  tracing
+    0.1%  http
+    0.1%  other:libm.so.6
+    0.1%  __rustc
+
+## top leaf symbols
+
+   73.0%  [kernel] [unknown]
+   17.3%  [libc:mem] __memmove_evex_unaligned_erms
+    1.1%  [tokio_util] tokio_util::util::poll_buf::poll_write_buf
+    0.7%  [h2] h2::codec::framed_write::Encoder<B>::buffer
+    0.5%  [h2] h2::proto::streams::prioritize::Prioritize::buffer_pending
+    0.4%  [h2] h2::codec::framed_write::FramedWrite<T,B>::flush
+    0.4%  [h2] h2::proto::streams::prioritize::Prioritize::pop_frame
+    0.3%  [h2] <h2::proto::streams::store::Ptr as core::ops::deref::Deref>::deref
+    0.3%  [h2] <h2::hpack::header::Header<T> as core::clone::Clone>::clone
+    0.3%  [tokio] tokio::runtime::io::registration::Registration::poll_ready
+    0.3%  [h2] h2::proto::streams::store::Queue<N>::pop
+    0.3%  [h2] h2::proto::streams::store::Queue<N>::push
+    0.2%  [h2] h2::proto::streams::streams::Streams<B,P>::poll_complete
+    0.2%  [libc:other] __internal_syscall_cancel
+    0.2%  [core] core::ptr::drop_in_place<tower::util::either::EitherResponseFuture<tonic::transport::channel::service::reconne
+    0.2%  [tonic] <tonic::transport::channel::service::add_origin::AddOrigin<T> as tower_service::Service<http::request::Request
+    0.2%  [tokio] tokio::runtime::scheduler::multi_thread::worker::Context::park_internal
+    0.1%  [h2] h2::proto::streams::streams::OpaqueStreamRef::is_end_stream
+    0.1%  [std] <std::time::Instant>::now
+    0.1%  [h2] h2::proto::streams::streams::DynStreams<B>::recv_window_update
+    0.1%  [tonic] <tonic::transport::channel::service::io::BoxedIo as hyper::rt::io::Write>::poll_flush
+    0.1%  [hyper] <hyper::proto::h2::client::H2ClientFuture<B,T,E> as core::future::future::Future>::poll
+    0.1%  [h2] h2::frame::headers::calculate_headermap_size
+    0.1%  [tokio] tokio::runtime::context::scoped::Scoped<T>::set
+    0.1%  [h2] h2::proto::streams::state::State::ensure_reason
+    0.1%  [h2] h2::proto::streams::counts::Counts::transition_after
+    0.1%  [indexmap] indexmap::map::IndexMap<K,V,S>::get
+    0.1%  [futures_channel] <futures_channel::mpsc::Receiver<T> as futures_core::stream::Stream>::poll_next
+    0.1%  [indexmap] indexmap::map::IndexMap<K,V,S>::insert_full
+    0.1%  [bytes] <bytes::bytes_mut::BytesMut as bytes::buf::buf_mut::BufMut>::put_slice

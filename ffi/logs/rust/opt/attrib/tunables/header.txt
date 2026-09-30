@@ -1,0 +1,5 @@
+# attribution: commit 26a89727 + UNCOMMITTED; 2026-09-30T03:46:25Z; Intel(R) Core(TM) i9-7900X CPU @ 3.30GHz; kernel 6.18.54; no_turbo 1; scaling min/max cpu1 3300000/3300000 kHz
+# GLIBC_TUNABLES=glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432 in the client (and perf/strace/taskset) environment: a static mmap threshold of 32 MiB and trim threshold of 256 MiB (attribution of the allocator mode, not a campaign setting)
+# client 1-4,11-14 (host 8, core 8 workers); server 5-8,15-18, 8 workers, pid 198516, pinned socket; probe /home/csdt/work/aneo/armonik/ArmoniK.Api/ffi/poc/rust/target/release/stream_probe sha256 76dcd73a0579989f, core /home/csdt/work/aneo/armonik/ArmoniK.Api/ffi/poc/rust/target/release/deps/libak_core.so
+# cells A,Df,Cf,Ff; workloads d16k1 d16k8 (16MiB k1: 4 x 12 calls, warm 8; 16MiB k8: 4 x 3 batches of 8, warm 4; P5.4 k1: 4 x 40, warm 16); perf stat reps 3 (cell order rotated); perf perf version 7.2.8, events cycles,instructions,cache-references,cache-misses,page-faults,context-switches,cpu-migrations,task-clock; perf_event_paranoid 1, kptr_restrict 1 (kernel symbols unresolved when 1)
+# run time 62 s
