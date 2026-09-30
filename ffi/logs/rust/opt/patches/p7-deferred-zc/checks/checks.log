@@ -135,3 +135,7 @@ pinned k=1: Cf-zcp, Cf-zc, Cf-encp, Cf-enc every call checked on UploadStreamChe
 pinned k=8: Cf-zcp, Cf-zc, Cf-encp, Cf-enc every call checked on UploadStreamCheck (byte count and SHA-256 of every message as received; zero-copy cells: every message released before the next call): passed, 24 rounds
 shipped k=1: Cf-zcp, Cf-zc, Cf-encp, Cf-enc every call checked on UploadStreamCheck (byte count and SHA-256 of every message as received; zero-copy cells: every message released before the next call): passed, 24 rounds
 shipped k=8: Cf-zcp, Cf-zc, Cf-encp, Cf-enc every call checked on UploadStreamCheck (byte count and SHA-256 of every message as received; zero-copy cells: every message released before the next call): passed, 24 rounds
+pinned k=1: Cf-zcw every call checked on UploadStreamCheck (byte count and SHA-256 of every message as received; zero-copy cells: every message released before the next call): passed, 6 rounds
+pinned k=8: Cf-zcw every call checked on UploadStreamCheck (byte count and SHA-256 of every message as received; zero-copy cells: every message released before the next call): passed, 6 rounds
+shipped k=1: Cf-zcw every call checked on UploadStreamCheck (byte count and SHA-256 of every message as received; zero-copy cells: every message released before the next call): passed, 6 rounds
+shipped k=8: Cf-zcw every call checked on UploadStreamCheck (byte count and SHA-256 of every message as received; zero-copy cells: every message released before the next call): passed, 6 rounds
