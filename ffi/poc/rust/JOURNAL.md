@@ -3964,3 +3964,19 @@ its own runtime: 15 core runtimes per process at k >= 16, so 15 or 120 core work
   and saves 0.13-0.33 ms CPU per call; one connection shows no throughput cost.
 - p9 at 8 workers: lowers Cf-cb's switches (d/16 k = 1 210 -> 171 here) and CPU by 0.1-0.4 ms at
   d/16; at c/P5.4 no gain.
+
+## 2026-10-01 -- TCP listener; UDS against TCP loopback from the Rust host
+
+- rpc_server --tcp / serve.sh AK_SERVER_TCP: opt-in 127.0.0.1 listener, pinned configuration,
+  TCP_NODELAY set on accept (verified by strace of a verification instance; the client side
+  sets it too: tonic's Endpoint default, and ak-core's ak_client_new_opts keeps it unless
+  tcp_nagle = 1). Checks in logs/rust/opt/tcp-listener.
+- physical-probe/tcp-vs-uds (gen/tcp_vs_uds.sh): tonic A inflates on TCP like the core cells.
+  d/16 k=1 process CPU UDS -> TCP: A 7.69 -> 9.93, Cf 8.41 -> 10.49, Cf-zc 6.39 -> 8.59, Df-1f
+  7.52 -> 9.88; wall A 8.84 -> 14.93, Cf 8.13 -> 13.46. Gaps to A keep their sign and size on TCP.
+  Every cell writes about 1,035 16 KiB writes per 16 MiB call on both transports (h2).
+- CPU accounting on TCP: the loopback receive path runs in softirq on the client's CPUs and,
+  with CONFIG_IRQ_TIME_ACCOUNTING=y, is not in CLOCK_PROCESS_CPUTIME_ID: A on TCP 10.09 ms
+  process CPU against 15.47 ms perf task-clock and 50.6 M cycles (15.3 ms at 3.3 GHz); on UDS
+  8.04 against 8.12 ms. Sampled cycles on TCP: loopback receive path about 18-20 M per call,
+  28% of samples in loadable modules (netfilter: nf_tables, nf_conntrack, ...).
