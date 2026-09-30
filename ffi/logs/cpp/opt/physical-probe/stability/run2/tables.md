@@ -1,5 +1,10 @@
 # Stability campaign: 684 processes, 19 rounds (per call, ms; absolute; no ratio)
 
+Foreign processes (run2, from the 21 machine-fact samples in runner.log; details in ../NOTE-foreign-processes.md):
+none above 5 % except the compositor `.kwin_wayland-w` (9.1-9.2 % lifetime average; last seen on SERVER CPUs 15-18 in
+18 samples, on 19 in 3; its threads are allowed on 0-19). The python3 / ps entries are this slice's facts script, on the
+OS set, between client processes. No other slice's benchmark, gate or build appears in any sample.
+
 ## 1. Pooled per unit: CPU and wall per call, median [p10-p90] over every chunk of every process
 
 | workload | unit | CPU | wall | csw | flt | processes |
