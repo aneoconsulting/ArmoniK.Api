@@ -814,6 +814,30 @@ fn main() {
     let cells: Vec<&'static str> = env("AK_PROBE_CELLS", "A,D,Df,C,Cf,C-cb,Cf-cb,B,Bf".to_string())
         .split(',').map(|s| match s { "Df-chan" => "Df-chan", "Cf-split" => "Cf-split", "C-split" => "C-split",
                                        "Cf-cb-split" => "Cf-cb-split", "C-cb-split" => "C-cb-split", "A2" => "A2", "Ff-1f" => "Ff-1f", "Df-1f" => "Df-1f", "Cf-cb-1rt" => "Cf-cb-1rt", "Cn-1rt" => "Cn-1rt", "Cf-enc" => "Cf-enc", "Cf-encp" => "Cf-encp", "Cf-zc" => "Cf-zc", "Cf-zcp" => "Cf-zcp", "Cf-zcw" => "Cf-zcw", s => grid::cell_of(s) }).collect();
+    // AK_PROBE_SKIP_MISSING=1: a cell that needs an entry the loaded core does not export (a
+    // patch experiment's) is left out, and the header says so, instead of the process aborting.
+    let needs = |c: &str| -> Option<&'static [u8]> {
+        match c {
+            "Df-1f" => Some(b"ak_enc_take_owned_framed\0"),
+            "Cf-enc" | "Cf-encp" => Some(b"ak_call_send_deferred\0"),
+            "Cf-zc" => Some(b"ak_call_send_enc_zc\0"),
+            "Cf-zcp" | "Cf-zcw" => Some(b"ak_call_send_deferred_zc\0"),
+            "Cf-cb-1rt" => Some(b"ak_runtime_new_hosted\0"),
+            _ => None,
+        }
+    };
+    let mut skipped: Vec<&'static str> = Vec::new();
+    let cells: Vec<&'static str> = if std::env::var("AK_PROBE_SKIP_MISSING").map_or(false, |v| v == "1") {
+        cells.into_iter().filter(|c| {
+            let ok = needs(c).map_or(true, |n| !unsafe { libc::dlsym(libc::RTLD_DEFAULT, n.as_ptr() as *const libc::c_char) }.is_null());
+            if !ok {
+                skipped.push(c);
+            }
+            ok
+        }).collect()
+    } else {
+        cells
+    };
     // The grid cell each probe-only name runs on.
     let base = |c: &'static str| -> &'static str {
         match c { "Df-chan" => grid::cell_of("Df"), "Cf-split" => grid::cell_of("Cf"), "C-split" => grid::cell_of("C"),
@@ -904,6 +928,9 @@ fn main() {
         }
     }
     let mut f = std::fs::File::create(&out).unwrap();
+    if !skipped.is_empty() {
+        writeln!(f, "# skipped (the loaded core lacks their entries): {skipped:?}").unwrap();
+    }
     if !pins.is_empty() {
         writeln!(f, "# pinned after the warm-up: {}", pins.join("; ")).unwrap();
     }

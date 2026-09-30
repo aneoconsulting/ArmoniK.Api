@@ -1,0 +1,12 @@
+head d16k1 1 done at +4 s
+stack d16k1 1 done at +13 s
+head d16k8 1 done at +20 s
+stack d16k8 1 done at +32 s
+head d4k1 1 done at +34 s
+stack d4k1 1 done at +38 s
+head d4k8 1 done at +41 s
+stack d4k8 1 done at +46 s
+head c54k1 1 done at +49 s
+stack c54k1 1 done at +53 s
+head c54k8 1 done at +57 s
+stack c54k8 1 done at +61 s

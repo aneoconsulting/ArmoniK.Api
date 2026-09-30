@@ -1,0 +1,5 @@
+# conditions
+# head     main tree binary, HEAD core (poc/codec unchanged), crates.io h2
+# stack    the worktree build of the core stack p1-ring + p2-take-framed + p3-exec-slot + p5-deferred + p6-zero-copy + p7-deferred-zc (stack.patch against HEAD), crates.io h2, AK_SPARES=6 AK_SPARE_LOCK=1
+# stack-p4 the same core stack built in ffi/poc/codec with the patched h2 (p4-h2-coalesce.patch), loaded by LD_LIBRARY_PATH into the main binary, AK_H2_COALESCE=16; the host (A, Df, Df-1f, Cn-1rt) keeps crates.io h2
+# cells needing a patched entry are skipped on head (AK_PROBE_SKIP_MISSING=1: Df-1f, Cf-encp, Cf-zc, Cf-zcp, Cf-zcw)

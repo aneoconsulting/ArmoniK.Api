@@ -1,0 +1,2 @@
+upload_check on core-h2 (the stack + patched h2, N=16): rc 0 UPLOAD CHECK PASSED
+rpc_semantics on core-h2 (the stack + patched h2, N=16): rc 0 RPC SEMANTICS PASSED
