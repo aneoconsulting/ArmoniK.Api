@@ -1031,4 +1031,16 @@ fn main() {
     if perf_on {
         perf("disable");
     }
+    // p8-cb-inline (a patched core only): how many callback sends completed inline / were spawned.
+    let p = unsafe { libc::dlsym(libc::RTLD_DEFAULT, b"ak_exp_cb_stats\0".as_ptr() as *const libc::c_char) };
+    if !p.is_null() {
+        let f: unsafe extern "C" fn(*mut u64) = unsafe { std::mem::transmute::<*mut libc::c_void, unsafe extern "C" fn(*mut u64)>(p) };
+        let mut o = [0u64; 2];
+        unsafe { f(o.as_mut_ptr()) };
+        writeln!(f_out(&out), "# callback sends (whole process, warm-up included): completed inline {}, spawned {} (AK_CB_INLINE={})", o[0], o[1], std::env::var("AK_CB_INLINE").unwrap_or_default()).unwrap();
+    }
+}
+
+fn f_out(path: &str) -> std::fs::File {
+    std::fs::OpenOptions::new().append(true).open(path).unwrap()
 }

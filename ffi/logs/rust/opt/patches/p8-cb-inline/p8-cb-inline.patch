@@ -1,0 +1,50 @@
+--- a/ffi/poc/codec/crates/ak-core/src/rpc.rs
++++ b/ffi/poc/codec/crates/ak-core/src/rpc.rs
+@@ -1172,12 +1172,47 @@
+ /// The callback/queue deliveries of a send: the same prologue and epilogue around the
+ /// awaited `send`, on a task; the completion (empty bytes) after the sender is back, so the
+ /// host may send the next message from inside it.
++/// EXPERIMENT p8-cb-inline (not committed): AK_CB_INLINE=1 (read once) makes a callback/queue
++/// send whose message fits in the channel complete INLINE: try_send, the sender back in its
++/// slot, and the completion delivered before the entry returns, on the caller's thread. Only
++/// when the channel is full does the send go to a task, as it always does without the knob.
++/// Counters: ak_exp_cb_stats(out[2]) = inline completions, spawned sends.
++fn cb_inline() -> bool {
++    static S: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
++    *S.get_or_init(|| std::env::var("AK_CB_INLINE").map_or(false, |v| v == "1"))
++}
++static CB_INLINE_N: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(0);
++static CB_SPAWN_N: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(0);
++#[no_mangle]
++pub unsafe extern "C" fn ak_exp_cb_stats(out: *mut u64) {
++    if !out.is_null() {
++        *out = CB_INLINE_N.load(core::sync::atomic::Ordering::Relaxed);
++        *out.add(1) = CB_SPAWN_N.load(core::sync::atomic::Ordering::Relaxed);
++    }
++}
++
+ unsafe fn stream_send_to(h: *mut ak_call, (b, n): (Bytes, usize), last: i32, sink: Sink, tag: u64, who: &'static str) -> i32 {
+     let (st, tx) = match send_begin(h, n, who) {
+         Ok(v) => v,
+         Err(e) => return e,
+     };
+     let slot = st.tx.clone();
++    let b = if cb_inline() {
++        match tx.try_send(Item::B(b)) {
++            Ok(()) => {
++                CB_INLINE_N.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
++                let status = send_end(&slot, tx, true, last, who);
++                let grpc_status = if status == AK_OK { 0 } else { -1 };
++                sink.deliver(ak_completion { tag, status, grpc_status, bytes: empty_ak_bytes() });
++                return AK_OK;
++            }
++            Err(tokio::sync::mpsc::error::TrySendError::Full(Item::B(b))) | Err(tokio::sync::mpsc::error::TrySendError::Closed(Item::B(b))) => b,
++            Err(_) => unreachable!("only Item::B is sent here"),
++        }
++    } else {
++        b
++    };
++    CB_SPAWN_N.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
+     (*st.rt).spawn(async move {
+         let sent = tx.send(Item::B(b)).await.is_ok();
+         let status = send_end(&slot, tx, sent, last, who);

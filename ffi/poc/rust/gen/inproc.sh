@@ -10,6 +10,7 @@
 # Workloads: AK_IP_WORKS from d16k1 d16k8 d4k1 d4k8 c54k1 c54k8. Tables: gen/inproc_tables.py.
 set -Eeuo pipefail
 HERE=$(cd "$(dirname "$0")/.." && pwd); cd "$HERE"
+. "$HERE/gen/machine_header.sh"
 OUT=${1:?usage: inproc.sh OUT_DIR}; mkdir -p "$OUT"; OUT=$(cd "$OUT" && pwd)
 [ -e "$OUT/header.txt" ] && { echo "inproc.sh: $OUT already holds a session" >&2; exit 2; }
 export AK_CPU_CLIENT=${AK_CPU_CLIENT:-1-4,11-14} AK_CPU_SERVER=${AK_CPU_SERVER:-5-8,15-18}
@@ -33,6 +34,7 @@ wl() { case $1 in d16k1) echo "16MiB 1 8 8 4";; d16k8) echo "16MiB 8 6 2 2";; d4
                   c54k1) echo "P5.4 1 8 16 8";; c54k8) echo "P5.4 8 6 4 2";; *) echo "?"; exit 2;; esac; }
 {
   echo "# in-process comparison: commit $(git rev-parse --short HEAD)$(git diff --quiet HEAD -- . ../codec || echo ' + UNCOMMITTED'); $(date -u +%FT%TZ); $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2- | sed 's/^ //'); kernel $(uname -r); no_turbo $(cat /sys/devices/system/cpu/intel_pstate/no_turbo); cpu1 min/max $(cat /sys/devices/system/cpu/cpu1/cpufreq/scaling_min_freq)/$(cat /sys/devices/system/cpu/cpu1/cpufreq/scaling_max_freq) kHz; smt $(cat /sys/devices/system/cpu/smt/control); isolation: taskset only"
+  machine_header
   echo "# client $AK_CPU_CLIENT, host $AK_HOST_WORKERS / core $AK_CORE_WORKERS workers (unless a condition sets them); server $AK_CPU_SERVER, ${AK_IP_SERVER_THREADS:-8} workers, pid $SPID, pinned socket"
   echo "# cells $CELLS (direction c: $CELLS_C) (one process per condition x workload x repetition, block order, cell order rotated per repetition); workloads $WORKS (d16k1 8 x 8 calls warm 4; d16k8 6 x 2 batches of 8 warm 2; d4k1 8 x 16 warm 8; d4k8 6 x 4 x 8 warm 2; c54k1 8 x 16 warm 8; c54k8 6 x 4 x 8 warm 2); repetitions $REPS"
   for c in "${CS[@]}"; do b=$(bin_of "${c#*=}"); echo "# condition ${c%%=*}: binary $b (sha256 $(sha256sum "$b" | cut -c1-16), core $(ldd "$b" | awk '/libak_core/{print $3}')), env ${c#*:}"; done
@@ -55,4 +57,5 @@ for rep in $(seq 1 "$REPS"); do
   done
 done
 echo "# benchmark wall time $(( $(date +%s) - S0 )) s" >> "$OUT/header.txt"
+machine_header | sed 's/^# /# at the end: /' >> "$OUT/header.txt"
 python3 gen/inproc_tables.py "$OUT" > "$OUT/tables.md"
