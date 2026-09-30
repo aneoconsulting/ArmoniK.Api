@@ -80,6 +80,16 @@ encode and the reference path without release). `--profile` now also reports sch
 a batch trace of the blocking path (batch wall, per-call durations, dispatch and completion lags) and, with
 AK_SERVER_PID, the server's threads' CPU and wait during the loop (`gen/wall_tables.py`).
 
+**Cf-q investigation and the stability campaign (2026-09-30, machine confined: system slices and IRQs on
+0,9,10,19; every header records the cgroup cpusets, IRQs reaching the measured CPUs and the non-kernel threads allowed
+on them).** `logs/cpp/opt/physical-probe/cfq/`: checks of the q1-inline experiment (`q1-inline.patch`, AK_Q_INLINE:
+a queue send the channel takes at once completes inline) and of AK_Q_SLOT_CTX (per-slot encode contexts for queue
+cells); `ab/` (four arms, two runs), `perf/` (client and server perf stat and record, perf attached to the server with
+-p), `strace/`, `strace-threads/` (per-thread strace -T), `workers1/`, `workers2/`, `workers-ab/` (the core runtime's
+worker count 8 / 2 / 1 as interleaved arms, AK_WORKERS). `logs/cpp/opt/physical-probe/stability/`: `run1` (14 rounds; the
+server was re-pinned to the OS set by the machine's confinement after round 10: tables for rounds 1-10 and 11-14) and
+`run2` (19 rounds, 684 processes, 1206 s, the server's affinity checked before every process).
+
 **Step 0: the send path, set explicitly.** The core's default send path is framed since
 2026-09-28 (ABI-v1 section 9), so `core_client()` in `src/campaign_rpc.cpp` now calls
 `ak_client_set_framed(cl, framed ? 1 : 0)` on EVERY core client (FIX-PLAN WP8 item 6): B, C-*,
@@ -680,6 +690,8 @@ Physical machine (`logs/cpp/opt/physical-probe/`):
 | `patches/p5-deferred/` | the p1-p2-p3-p5 core (sha256 b581292d; no-unknown 1137a22d) with the new Cf-enc / Cf-encp cells: `checks/checks.log` (608/0, 478/0, codec pre-check 0 failed, semantics 21/21 both builds incl. 7 deferred cases, HEAD core refuses Cf-enc, 24 check-stream benchmarks with every call's count and SHA-256), `measure/`, `default/`, `strace/`, `tables.md` |
 | `patches/p6-zero-copy/` | the p1-p2-p3-p5-p6 core (sha256 9ac08de0; no-unknown 56177ce9; the patch as applied kept beside the logs): `checks/checks.log` (608/0, 478/0, codec pre-check 0 failed, semantics 26/26 both builds incl. 5 zero-copy cases, HEAD core refuses Cf-zc, 20 check-stream benchmarks), `measure/`, `default/`, `strace/`, `perf/` (perf stat and gzip'd perf record per cell, attrib JSON), `tables.md` |
 | `patches/p7-deferred-zc/` | the p1-p2-p3-p5-p6-p7 core (sha256 01f731b5; no-unknown 59c08722): `checks/checks.log` (608/0, 478/0, codec pre-check 0 failed, semantics 33/33 both builds, HEAD refuses Cf-zc/zcp/zcw, 28 check-stream benchmarks), `measure/`, `default/`, `tables.md`; `wall/` (the k = 8 wall question: p7 and the p4 h16 core, server sampling and batch trace, `tables-wall.md`) |
+| `cfq/` | the Cf-q investigation (see the section above), `q1-inline.patch` |
+| `stability/run1/`, `stability/run2/` | the stability campaign: `proc/*.out` (one-cell processes in run order), `runner.log` (headers, machine facts after every round), `tables.md` |
 | `checks/authority.log` | grpc++ 1.80's `unix:` authority reset by the shared server (RST_STREAM PROTOCOL_ERROR), and the calls passing with "localhost" |
 
 Optimisation unit (`logs/cpp/opt/`):

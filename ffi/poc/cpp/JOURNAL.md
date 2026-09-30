@@ -2013,3 +2013,23 @@ changes.
   another (p10 31 ms). The server spends 19.5-20.2 ms CPU per call on the core's uploads against 11.6 on grpc++'s. With
   the p4 h2-coalescing core (h16, Cf) the server's CPU is 14.5 ms per call and Cf's wall 7.04 ms, below A's 7.56 in the
   same run. Not measured: the server's per-connection task utilisation (no ptrace, no perf on the server).
+
+## 2026-09-30, the Cf-q gap and the stability campaign
+
+- Machine confinement recorded from sysfs/cgroups (machine_facts.py: cgroup cpusets, IRQ affinity with effective
+  targets, non-kernel threads allowed on the measured CPUs; the NVMe queue IRQs are managed and stay on 12, 14, 15,
+  16, 18).
+- Stability run 1: after round 10 the machine's re-pinning of user processes moved MY server to 0,9-10,19; rounds 11-14
+  carry it (k = 8 walls up by 0.3-1 ms for every cell). The driver now checks the server's affinity before every
+  process. Run 2 (19 rounds, 20 min) ran clean.
+- Cf-q: the extra client CPU against Cf is on the core workers (d/16 k=1: 7.16 against 6.11 ms at 8 workers) with 224
+  voluntary switches per call on them against 85. q1-inline (inline completion when the channel takes the message) and
+  per-slot contexts: within the run-to-run spread in two runs (the orders of the four arms disagree). The worker count
+  decides it: Cf-q 9.49 / 8.84 / 7.99 ms at 8 / 2 / 1 core workers (Cf 8.22 / 8.26 / 7.90), worker switches 224 / 185 /
+  23, worker CPU 7.16 / 6.79 / 5.90; at k = 8 one worker costs no wall (Cf-q 8.11 against 8.31). The Rust agent's Cf-cb
+  shows the same (its message). p8-cb-inline not measured: q1-inline is that change for the queue path on the HEAD core.
+- Server side (perf -p on the server): d/16 k=8, the server spends 18.3 ms per call on the core's uploads against 10.6
+  on grpc++'s (sampled): epoll +1.5, futex +1.7, tokio +1.1, socket reads +0.8, memcpy +0.8, h2 +0.7; server context
+  switches per call 917 against 192. perf_attrib: `__libc_recv` is a socket read (the server's reads were in "other").
+- Found: the driver's DC_EXPECT="" fell back to the default (`:-`); fixed with `-`. The ab measure ran twice (the second
+  script kept its line): ab/tables-run1.md and ab/tables.md are the two runs.

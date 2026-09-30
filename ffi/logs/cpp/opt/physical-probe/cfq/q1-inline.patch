@@ -1,0 +1,46 @@
+diff --git a/ffi/poc/codec/crates/ak-core/src/rpc.rs b/ffi/poc/codec/crates/ak-core/src/rpc.rs
+index e8d019ce..33ec88ef 100644
+--- a/ffi/poc/codec/crates/ak-core/src/rpc.rs
++++ b/ffi/poc/codec/crates/ak-core/src/rpc.rs
+@@ -922,6 +922,28 @@ unsafe fn stream_send_to(h: *mut ak_call, (b, n): (Bytes, usize), last: i32, sin
+         Ok(v) => v,
+         Err(e) => return e,
+     };
++    // EXPERIMENT q1-inline (cpp slice, not committed): a QUEUE delivery whose message the
++    // channel takes at once completes here, on the host's thread (a push onto the queue), with
++    // no task spawned and no second wake; AK_Q_INLINE=1 (read once), else unchanged.
++    let mut b = b;
++    if q1_inline() {
++        if let Sink::Q(_) = sink {
++            match tx.try_send(b) {
++                Ok(()) => {
++                    let status = send_end(&st.tx, tx, true, last, who);
++                    let grpc_status = if status == AK_OK { 0 } else { -1 };
++                    sink.deliver(ak_completion { tag, status, grpc_status, bytes: empty_ak_bytes() });
++                    return AK_OK;
++                }
++                Err(tokio::sync::mpsc::error::TrySendError::Full(back)) => b = back,
++                Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => {
++                    let status = send_end(&st.tx, tx, false, last, who);
++                    sink.deliver(ak_completion { tag, status, grpc_status: -1, bytes: empty_ak_bytes() });
++                    return AK_OK;
++                }
++            }
++        }
++    }
+     let slot = st.tx.clone();
+     (*st.rt).rt.spawn(async move {
+         let sent = tx.send(b).await.is_ok();
+@@ -932,6 +954,12 @@ unsafe fn stream_send_to(h: *mut ak_call, (b, n): (Bytes, usize), last: i32, sin
+     AK_OK
+ }
+ 
++/// EXPERIMENT q1-inline: AK_Q_INLINE=1 turns the queue delivery's inline completion on.
++fn q1_inline() -> bool {
++    static S: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
++    *S.get_or_init(|| std::env::var("AK_Q_INLINE").map_or(false, |v| v == "1"))
++}
++
+ /// U2-stream: one request message, copied.
+ #[no_mangle]
+ pub unsafe extern "C" fn ak_call_send(h: *mut ak_call, msg: *const u8, len: usize, last: i32) -> i32 {
