@@ -46,6 +46,23 @@ def load_map(path):
     return [addrs[i] for i in order], [names[i] for i in order]
 
 
+def resolver(addrs, names, off):
+    """ip -> kernel symbol name. An address past the core kernel's text (_etext) is module code
+    (loadable modules sit in the module area above it; System.map does not describe them): it is
+    "[module]", not the last core symbol bisect would return."""
+    lo = addrs[names.index("_stext")] if "_stext" in names else addrs[0]
+    hi = addrs[names.index("_etext")] if "_etext" in names else addrs[-1]
+
+    def kname(ip):
+        a = ip - off
+        if a >= hi:
+            return "[module]"
+        if a < lo:
+            return "?"
+        return names[bisect.bisect_right(addrs, a) - 1]
+    return kname
+
+
 ENTRY = re.compile(r"^(entry_SYSCALL_64.*|asm_exc_.*|asm_sysvec_.*|asm_common_interrupt|ret_from_fork.*|common_interrupt|entry_.*)$")
 
 
@@ -169,9 +186,7 @@ def main(argv):
     samples = parse(data)
     off, share = kaslr(samples, addrs, names)
 
-    def kname(ip):
-        i = bisect.bisect_right(addrs, ip - off) - 1
-        return names[i] if i >= 0 else "?"
+    kname = resolver(addrs, names, off)
     b = collections.Counter()
     sym = collections.Counter()
     comm = collections.Counter()

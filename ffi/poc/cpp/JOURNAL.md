@@ -2047,3 +2047,36 @@ changes.
   1020 to 36 per call; grpc++ writes fewer, larger chunks on TCP (14 of 1.2 MB against 47 of 360 KB). Client CPU: grpc++
   cells lower on TCP (A d/16 k=1 7.41 against 8.27), core cells higher (Cf 10.54 against 8.34); wall higher on TCP for
   every cell at d/16 (A 11.7 against 8.2, Cf 13.2 against 8.1).
+
+## 2026-10-01, the TCP inversion attribution
+
+- gen/tcp_attrib.sh (phases perf, wall, cpu, p4; one 8-worker pinned server with the TCP listener per phase, affinity
+  checked before every process, under the bench lock), gen/perf_net_attrib.py, gen/tcp_attrib_tables.py. Benchmark
+  wall: perf 36 s, wall 74 s, p4 run 1 178 s, cpu 122 s (plus a first cpu run stopped after about 60 s: Cf-zc refuses
+  c/P5.4, the cells run d only; skipped on c since), p4 180 s; about 11 minutes against the 10 asked.
+- Coordinator's input mid-unit (from the Rust run): CONFIG_IRQ_TIME_ACCOUNTING=y, softirq time is charged to no task.
+  Confirmed here (/proc/config.gz). campaign_rpc now records /proc/stat irq/softirq time and /proc/softirqs NET_RX/NET_TX
+  on the client's and the server's CPUs across the loop (`irq_time`), and the cpu and p4 phases wrap the client in perf
+  stat. The first p4 run (process clock only) is kept as p4-run1; its process-clock figures agree with the rerun's.
+- Also from that input: module code resolved to the last core symbol before it (handshake_exit on the Rust side).
+  perf_attrib.resolver() now returns "[module]" past _etext; perf_net_attrib counts module code and nf_hook_slow / nf_*
+  as netfilter. UDS rows have 0.000 ms of module code at the leaf, so the earlier (all UDS) attributions stand.
+- Measured, d/16 k=1 (tables.md):
+  - client cycles by path, TCP against UDS: Cf kernel 12.46 against 5.48 ms (netfilter 4.14, loopback transmit 1.30,
+    loopback receive softirq 1.95, wakeup 0.40, tcp send path 3.46 against unix send path 3.92); A kernel 4.52 against
+    4.46 (netfilter 0.46, transmit 0.28, receive 0.38). Receive-softirq cycles under a user-side socket write: Cf 4.90
+    of 4.90, Cf-zc 4.77 of 4.77, A 0.83 of 0.86, D 1.06 of 1.10: the hypothesis holds; the receive path runs on the
+    sender inside its write.
+  - server cycles: Cf 10.40 on TCP against 12.01 on UDS, A 10.17 against 7.86 (A's server pays netfilter 0.82).
+  - both CPU measures (cpu phase, 2 rounds): process clock / task-clock: A tcp 7.35 / 8.03, Cf tcp 10.76 / 15.32, Cf-zc
+    tcp 8.91 / 13.45; A uds 8.84 / 8.60, Cf uds 8.38 / 8.37. Softirq on client CPUs: Cf tcp 4.58 ms and 1032 NET_RX,
+    A tcp 0.75 and 149, every UDS row 0.00-0.06 and 0 NET_RX. Gap to A on TCP, task-clock: Cf +7.29 (d/16 k=1), +6.51
+    (k=8), +1.89 (d/4), +1.87 (c/P5.4); process clock +3.32, +3.60, +0.91, +0.89.
+  - wall: core cells 13.0-13.3 ms per call at k = 1 and 8 (batch trace p10-p90 13.41-13.69 at k = 1). No send-buffer
+    wait: write EAGAIN 0, writes over 50 us 0.1-1.5 per call of 1026, sndbuf_limited never reported, client Send-Q
+    median 16-33 KiB, notsent 0, rwnd_limited 0.9-12 percent of busy time. A at k = 1 on TCP is receive-window limited
+    (rwnd_limited 95 percent of busy, notsent median 1.97 MB, server rcv_space 81 KB); D 32 percent.
+  - p4 (ctl against h16 on TCP, task-clock): d/16 k=1 Cf-ctl 15.27, Cf-h16 7.25, A 8.05 (h16 - A -0.63, min..max
+    -0.88..-0.11); k=8 15.70, 9.28, 9.21 (+0.09); d/4 3.89, 1.99, 2.08; c/P5.4 3.93, 2.01, 2.12. Writes per d/16 call
+    1027 against 73. Server task-clock at d/16 k=8: h16 15.28, A 11.71, ctl 23.79.
+- Not attributed: grpc++'s larger chunks on TCP; the module code by symbol (needs root).

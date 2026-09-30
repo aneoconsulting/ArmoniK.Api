@@ -1,0 +1,20 @@
+WARNING: Kernel address maps (/proc/{kallsyms,modules}) are restricted,
+check /proc/sys/kernel/kptr_restrict and /proc/sys/kernel/perf_event_paranoid.
+
+Samples in kernel functions may not be resolved if a suitable vmlinux
+file is not found in the buildid cache or in the vmlinux path.
+
+Samples in kernel modules won't be resolved at all.
+
+If some relocation was applied (e.g. kexec) symbols may be misresolved
+even with a suitable vmlinux or kallsyms file.
+
+Couldn't record kernel reference relocation symbol
+Symbol resolution may be skewed if relocation was used (e.g. kexec).
+Check /proc/kallsyms permission or run as root.
+Events disabled
+Events enabled
+Events disabled
+{"profile": {"cell": "D-retain", "payload": "16MiB", "dir": "d", "k": 1, "batches": 60, "calls": 60, "cells_open": "D-retain", "chunks": [{"batches": 6, "cpu_ns": 51460641, "wall_ns": 69276893}, {"batches": 6, "cpu_ns": 51532776, "wall_ns": 68327900}, {"batches": 6, "cpu_ns": 47434868, "wall_ns": 67647857}, {"batches": 6, "cpu_ns": 46853462, "wall_ns": 67923428}, {"batches": 6, "cpu_ns": 47142080, "wall_ns": 63087002}, {"batches": 6, "cpu_ns": 46631355, "wall_ns": 65743081}, {"batches": 6, "cpu_ns": 46341718, "wall_ns": 67455273}, {"batches": 6, "cpu_ns": 44652195, "wall_ns": 69327797}, {"batches": 6, "cpu_ns": 44725896, "wall_ns": 72373707}, {"batches": 6, "cpu_ns": 45794133, "wall_ns": 68807488}], "batch_trace": {"batches": 60, "calls": 60, "batch_wall_ns_median": 11387301, "call_ns_median": 11314536, "call_ns_p10": 9812657, "call_ns_p90": 12554323, "calls_span_ns_median": 11314536, "dispatch_last_start_ns_median": 18628, "completion_lag_ns_median": 27631}, "server": {"pid": 596923, "threads": 9, "cpu_ns": 609864932, "wait_ns": 55603, "max_thread_ns": 261114143, "threads_over_5pct": 4, "loop_wall_ns": 687374414}, "tcp_sockets": [{"fd": 12, "family": 6, "local_port": 37192, "peer_port": 45919, "nodelay": 1}], "tcp_nodelay_on": 1, "tcp_sockets_n": 1, "core_target": "http://127.0.0.1:45919", "cpu_at_end": {"affinity": "1,2,3,4,11,12,13,14", "affinity_count": 8, "sysconf_nprocessors_conf": 8, "sysconf_nprocessors_onln": 8, "grpcpp_version": "1.80.0"}, "thread_wait_ns": {"caller": 33050, "event_engine": 93415, "grpc_global_tim": 0, "lifeguard": 0, "main": 0, "tokio-rt-worker": 0}, "thread_csw": {"caller": [445, 2], "event_engine": [2220, 0], "grpc_global_tim": [0, 0], "lifeguard": [5, 0], "main": [64, 0], "tokio-rt-worker": [0, 0]}, "thread_cpu_ns": {"caller": {"threads": 1, "ns": 329460253}, "event_engine": {"threads": 8, "ns": 141196533}, "grpc_global_tim": {"threads": 1, "ns": 0}, "lifeguard": {"threads": 1, "ns": 131574}, "main": {"threads": 1, "ns": 2840435}, "tokio-rt-worker": {"threads": 8, "ns": 0}}, "big_allocs": -1, "rusage": {"nvcsw": 2734, "nivcsw": 2, "minflt": 21, "majflt": 0, "utime_us": 178374, "stime_us": 294337}, "fold": 480}}
+[ perf record: Woken up 9 times to write data ]
+[ perf record: Captured and wrote 1.417 MB /home/csdt/work/aneo/armonik/ArmoniK.Api/ffi/logs/cpp/opt/physical-probe/tcp-attrib/perf/d16k1-tcp-D-retain.data (2522 samples) ]

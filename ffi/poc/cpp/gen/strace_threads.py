@@ -51,6 +51,11 @@ def main(path, calls, block_us=50.0):
         sock = "UNIX" in fd or "TCP" in fd or "socket" in fd
         if name in ("writev", "sendmsg", "write", "sendto") and sock:
             per[tid]["socket_writes"] += 1
+            tm[tid]["socket_write_us"] += dur
+            if "EAGAIN" in rest:
+                per[tid]["socket_write_eagain"] += 1
+            if dur > block_us:
+                per[tid]["socket_write_over_block_us"] += 1
         elif name.startswith("epoll"):
             per[tid]["epoll_wait"] += 1
             tm[tid]["epoll_us"] += dur
@@ -63,6 +68,8 @@ def main(path, calls, block_us=50.0):
                 per[tid]["futex_blocked"] += 1
         elif name in ("recvfrom", "recvmsg", "read") and sock:
             per[tid]["socket_reads"] += 1
+            if "EAGAIN" in rest:
+                per[tid]["socket_read_eagain"] += 1
     writers = [t for t in per if per[t]["socket_writes"] > 0]
     tot = collections.Counter()
     for t in per:

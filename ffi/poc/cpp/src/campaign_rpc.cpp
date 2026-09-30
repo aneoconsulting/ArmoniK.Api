@@ -74,6 +74,9 @@
 #include <cstring>
 #include <fstream>
 #include <map>
+#include <set>
+#include <sstream>
+#include <cctype>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -297,6 +300,80 @@ std::string thread_classes() {
   for (std::map<std::string, int>::const_iterator i = n.begin(); i != n.end(); ++i)
     o += (o.size() > 1 ? ", \"" : "\"") + i->first + "\": " + std::to_string(i->second);
   return o + "}";
+}
+
+// Interrupt time on a CPU set, for the kernel's CONFIG_IRQ_TIME_ACCOUNTING=y: softirq and hardirq
+// time is then charged to no task (CLOCK_PROCESS_CPUTIME_ID and getrusage miss it), so a loopback
+// TCP receive run in softirq inside a sender's write is visible only here. Per CPU of the set:
+// /proc/stat's irq and softirq fields (USER_HZ ticks, accumulated from ns) and /proc/softirqs'
+// NET_RX and NET_TX counts. Summed over the set.
+struct IrqSnap { unsigned long long irq = 0, softirq = 0, net_rx = 0, net_tx = 0; };
+std::set<int> cpu_list(const std::string &s) {
+  std::set<int> o;
+  std::stringstream ss(s);
+  std::string part;
+  while (std::getline(ss, part, ',')) {
+    if (part.empty()) continue;
+    const size_t d = part.find('-');
+    const int a = std::atoi(part.c_str()), b = d == std::string::npos ? a : std::atoi(part.c_str() + d + 1);
+    for (int i = a; i <= b; ++i) o.insert(i);
+  }
+  return o;
+}
+std::set<int> self_cpus() {
+  std::set<int> o;
+  cpu_set_t m;
+  CPU_ZERO(&m);
+  if (sched_getaffinity(0, sizeof m, &m) == 0)
+    for (int i = 0; i < CPU_SETSIZE; ++i)
+      if (CPU_ISSET(i, &m)) o.insert(i);
+  return o;
+}
+std::set<int> pid_cpus(long pid) {
+  std::ifstream f("/proc/" + std::to_string(pid) + "/status");
+  std::string l;
+  while (std::getline(f, l))
+    if (l.compare(0, 19, "Cpus_allowed_list:\t") == 0) return cpu_list(l.substr(19));
+  return std::set<int>();
+}
+IrqSnap irq_snap(const std::set<int> &cpus) {
+  IrqSnap r;
+  std::ifstream st("/proc/stat");
+  std::string l;
+  while (std::getline(st, l)) {
+    if (l.compare(0, 3, "cpu") != 0 || l.size() < 4 || !std::isdigit((unsigned char)l[3])) continue;
+    std::istringstream is(l.substr(3));
+    int cpu;
+    unsigned long long user, nice, sys, idle, iow, irq, sirq;
+    if (!(is >> cpu >> user >> nice >> sys >> idle >> iow >> irq >> sirq) || !cpus.count(cpu)) continue;
+    r.irq += irq;
+    r.softirq += sirq;
+  }
+  std::ifstream si("/proc/softirqs");
+  std::getline(si, l);  // header: CPU0 CPU1 ...
+  std::vector<int> col;
+  {
+    std::istringstream is(l);
+    std::string h;
+    while (is >> h) col.push_back(std::atoi(h.c_str() + 3));
+  }
+  while (std::getline(si, l)) {
+    std::istringstream is(l);
+    std::string name;
+    is >> name;
+    unsigned long long *dst = name == "NET_RX:" ? &r.net_rx : name == "NET_TX:" ? &r.net_tx : nullptr;
+    if (!dst) continue;
+    unsigned long long v;
+    for (size_t i = 0; i < col.size() && (is >> v); ++i)
+      if (cpus.count(col[i])) *dst += v;
+  }
+  return r;
+}
+std::string irq_delta(const char *name, const IrqSnap &a, const IrqSnap &b) {
+  char t[200];
+  std::snprintf(t, sizeof t, "\"%s\": {\"irq_ticks\": %llu, \"softirq_ticks\": %llu, \"net_rx\": %llu, \"net_tx\": %llu}", name,
+                b.irq - a.irq, b.softirq - a.softirq, b.net_rx - a.net_rx, b.net_tx - a.net_tx);
+  return t;
 }
 
 // The process's TCP sockets (fds from /proc/self/fd), each with its ports and TCP_NODELAY read back
@@ -2146,8 +2223,10 @@ int main(int argc, char **argv) {
     g_trace_calls.store(true);
     struct rusage r0, r1;
     getrusage(RUSAGE_SELF, &r0);
+    const std::set<int> ccpus = self_cpus(), scpus = pid_cpus(spid);
     if (write(devnull, "AK_PROFILE_BEGIN", 16) < 0) die("marker", 0);
     perf_cmd("enable");
+    const IrqSnap ci0 = irq_snap(ccpus), si0 = irq_snap(scpus);
     long h = 0;
     int done = 0;
     for (int ch = 0; ch < chunks; ++ch) {
@@ -2159,6 +2238,7 @@ int main(int argc, char **argv) {
       cbat.push_back(nb);
       done += nb;
     }
+    const IrqSnap ci1 = irq_snap(ccpus), si1 = irq_snap(scpus);
     perf_cmd("disable");
     g_trace_calls.store(false);
     if (write(devnull, "AK_PROFILE_END", 14) < 0) die("marker", 0);
@@ -2244,7 +2324,8 @@ int main(int argc, char **argv) {
       std::snprintf(b, sizeof(b), "%s{\"batches\": %d, \"cpu_ns\": %.0f, \"wall_ns\": %.0f}", i ? ", " : "", cbat[i], ccpu[i], cwall[i]);
       o += b;
     }
-    o += "], " + std::string(tb) + ", " + std::string(sb) + ", \"tcp_sockets\": " + tcp_socks + ", \"core_target\": \"" + c.core_target +
+    o += "], " + std::string(tb) + ", " + std::string(sb) + ", \"irq_time\": {\"user_hz\": " + std::to_string(sysconf(_SC_CLK_TCK)) + ", " + irq_delta("client_cpus", ci0, ci1) + ", " +
+         irq_delta("server_cpus", si0, si1) + "}, \"tcp_sockets\": " + tcp_socks + ", \"core_target\": \"" + c.core_target +
          "\", \"cpu_at_end\": " + cpu_facts() + ", \"thread_wait_ns\": {";
     {
       bool f1 = true;
