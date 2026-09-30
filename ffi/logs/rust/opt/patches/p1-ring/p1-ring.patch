@@ -1,0 +1,44 @@
+diff --git a/ffi/poc/codec/crates/ak-rt/src/enc.rs b/ffi/poc/codec/crates/ak-rt/src/enc.rs
+index 98927b45..47271963 100644
+--- a/ffi/poc/codec/crates/ak-rt/src/enc.rs
++++ b/ffi/poc/codec/crates/ak-rt/src/enc.rs
+@@ -35,6 +35,18 @@ struct Recycle {
+ /// logs/rust/opt/framed-default/ring-size).
+ pub const SPARES: usize = 3;
+ 
++/// EXPERIMENT (patch p1-ring, not committed): the ring's size from AK_SPARES (default SPARES)
++/// and, with AK_SPARE_LOCK=1, a returned buffer waits for the lock instead of being freed when
++/// `try_lock` fails. Read once per process.
++fn spares() -> usize {
++    static S: std::sync::OnceLock<usize> = std::sync::OnceLock::new();
++    *S.get_or_init(|| std::env::var("AK_SPARES").ok().and_then(|v| v.parse().ok()).unwrap_or(SPARES))
++}
++fn spare_lock() -> bool {
++    static S: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
++    *S.get_or_init(|| std::env::var("AK_SPARE_LOCK").map_or(false, |v| v == "1"))
++}
++
+ /// Bytes kept free at the start of the buffer when `head` is on: the gRPC message prefix
+ /// (1 flag byte, 4 length bytes), written in place by `take_framed`.
+ pub const FRAME_HEAD: usize = 5;
+@@ -45,8 +57,9 @@ impl AsRef<[u8]> for Recycle {
+ }
+ impl Drop for Recycle {
+     fn drop(&mut self) {
+-        if let Ok(mut g) = self.slot.try_lock() {
+-            if g.len() < SPARES {
++        let g = if spare_lock() { self.slot.lock().ok() } else { self.slot.try_lock().ok() };
++        if let Some(mut g) = g {
++            if g.len() < spares() {
+                 g.push(core::mem::take(&mut self.v));
+             }
+         }
+@@ -122,7 +135,7 @@ impl Enc {
+         Enc {
+             buf: Vec::with_capacity(4096),
+             head: 0,
+-            spare: Arc::new(Mutex::new(Vec::with_capacity(SPARES))),
++            spare: Arc::new(Mutex::new(Vec::with_capacity(spares()))),
+             #[cfg(not(feature = "global-widths"))]
+             widths: vec![1u8; sites].into_boxed_slice(),
+             c: Counters::default(),

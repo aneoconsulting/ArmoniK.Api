@@ -1,0 +1,9 @@
+head d16k1 1 done at +4 s
+head d16k8 1 done at +10 s
+head d4k1 1 done at +12 s
+head d16k1 2 done at +15 s
+head d16k8 2 done at +21 s
+head d4k1 2 done at +23 s
+head d16k1 3 done at +27 s
+head d16k8 3 done at +32 s
+head d4k1 3 done at +34 s

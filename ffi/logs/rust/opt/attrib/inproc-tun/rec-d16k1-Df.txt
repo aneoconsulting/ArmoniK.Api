@@ -1,4 +1,5 @@
 # 983 samples, 1,171,209,608 cycles sampled (weights = periods)
+# kernel symbols: /nix/store/k0hdg2xzag606bm9mygmws3m73b7caxy-linux-6.18.54/System.map, KASLR offset 0x6c00000, anchor share of kernel frames 0.177
 
 ## thread class
 
@@ -113,3 +114,49 @@
     0.1%  [tokio] tokio::runtime::scheduler::multi_thread::park::Inner::park_condvar
     0.1%  [alloc] alloc::sync::Arc<T,A>::drop_slow
     0.1%  [h2] h2::proto::streams::stream::Stream::send_data
+
+## kernel buckets (System.map)
+
+   17.0%  socket write: copy from user
+   14.9%  socket write: other (entry, locks, unix stream)
+   11.4%  socket write: skb alloc/free, memcg
+   11.1%  socket write: zeroing new skb pages
+    4.7%  socket write: wake the reader
+    3.7%  epoll_wait
+    2.8%  scheduling, interrupts
+    1.2%  other kernel
+    0.6%  futex
+    0.5%  socket read
+
+## kernel leaf functions (System.map)
+
+   16.5%  rep_movs_alternative
+   10.9%  clear_page_erms
+    3.2%  syscall_return_via_sysret
+    2.7%  asm_sysvec_apic_timer_interrupt
+    2.6%  entry_SYSRETQ_unsafe_stack
+    2.0%  entry_SYSCALL_64_after_hwframe
+    1.9%  entry_SYSCALL_64
+    1.6%  __alloc_tagging_slab_alloc_hook
+    1.4%  _raw_spin_lock
+    1.3%  _raw_spin_lock_irqsave
+    1.0%  native_queued_spin_lock_slowpath
+    0.9%  sock_def_readable
+    0.9%  __pgalloc_tag_add
+    0.7%  get_page_from_freelist
+    0.7%  skb_set_owner_w
+    0.6%  unix_stream_sendmsg
+    0.6%  __next_zones_zonelist
+    0.6%  sock_alloc_send_pskb
+    0.6%  vfs_writev
+    0.6%  page_ext_get
+    0.6%  sock_write_iter
+    0.5%  rw_verify_area
+    0.5%  _copy_from_iter
+    0.5%  try_charge_memcg
+    0.4%  __check_object_size
+    0.4%  __memcg_slab_post_alloc_hook
+    0.4%  __smp_call_single_queue
+    0.4%  copy_iovec_from_user
+    0.4%  page_counter_try_charge
+    0.3%  do_syscall_64

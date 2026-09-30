@@ -1,0 +1,4 @@
+
+thread 'main' (232376) panicked at crates/campaign/src/bin/stream_probe.rs:498:5:
+Df-1f needs a core with ak_enc_take_owned_framed (patch p2-take-framed)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace

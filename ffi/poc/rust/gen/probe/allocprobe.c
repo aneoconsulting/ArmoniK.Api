@@ -8,6 +8,49 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <execinfo.h>
+
+/* AKP_BT=N (attribution only): for the first N allocations of >= 1 MiB, write their return
+ * addresses to stderr ("AKP_BT size addr ..."), and /proc/self/maps once before the first, so
+ * gen/probe/akp_bt.py can resolve them offline. No allocation on that path (write(2) only). */
+static _Atomic long bt_left = -1;
+static __thread int in_bt;
+static void hex(char **p, unsigned long v) {
+  char t[20]; int n = 0;
+  do { t[n++] = "0123456789abcdef"[v & 15]; v >>= 4; } while (v);
+  while (n) *(*p)++ = t[--n];
+}
+static void bt(size_t n) {
+  long left = atomic_load(&bt_left);
+  if (left == -1) {
+    const char *e = getenv("AKP_BT");
+    long want = e ? atol(e) : 0;
+    long expect = -1;
+    atomic_compare_exchange_strong(&bt_left, &expect, want);
+    if (want > 0) {
+      int fd = open("/proc/self/maps", O_RDONLY);
+      char b[4096]; ssize_t r;
+      write(2, "AKP_MAPS_BEGIN\n", 15);
+      while (fd >= 0 && (r = read(fd, b, sizeof b)) > 0) write(2, b, r);
+      write(2, "AKP_MAPS_END\n", 13);
+      if (fd >= 0) close(fd);
+    }
+    left = atomic_load(&bt_left);
+  }
+  if (left <= 0 || in_bt) return;
+  if (atomic_fetch_sub(&bt_left, 1) <= 0) return;
+  in_bt = 1;
+  void *a[32]; int k = backtrace(a, 32);
+  char line[32 * 20 + 64], *p = line;
+  memcpy(p, "AKP_BT ", 7); p += 7; hex(&p, n);
+  for (int i = 0; i < k; i++) { *p++ = ' '; hex(&p, (unsigned long)a[i]); }
+  *p++ = '\n';
+  write(2, line, p - line);
+  in_bt = 0;
+}
 
 static void *(*r_malloc)(size_t);
 static void *(*r_calloc)(size_t, size_t);
@@ -43,6 +86,7 @@ static inline void count(size_t n) {
   if (n >= BIG) {
     atomic_fetch_add_explicit(&n_big, 1, memory_order_relaxed);
     atomic_fetch_add_explicit(&b_big, n, memory_order_relaxed);
+    if (!in_bt && r_malloc) bt(n);
   }
 }
 

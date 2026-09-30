@@ -1,4 +1,5 @@
 # 1018 samples, 1,201,702,003 cycles sampled (weights = periods)
+# kernel symbols: /nix/store/k0hdg2xzag606bm9mygmws3m73b7caxy-linux-6.18.54/System.map, KASLR offset 0x6c00000, anchor share of kernel frames 0.177
 
 ## thread class
 
@@ -122,3 +123,50 @@
     0.1%  [h2] h2::proto::streams::streams::StreamRef<B>::poll_reset
     0.1%  [tracing] tracing::span::Span::in_scope
     0.1%  [core] core::ptr::drop_in_place<http::header::map::HeaderMap>
+
+## kernel buckets (System.map)
+
+   23.7%  socket write: copy from user
+   13.0%  socket write: other (entry, locks, unix stream)
+   12.8%  socket write: skb alloc/free, memcg
+   11.5%  socket write: zeroing new skb pages
+    5.1%  socket write: wake the reader
+    3.4%  epoll_wait
+    3.1%  scheduling, interrupts
+    1.5%  other kernel
+    0.7%  socket read
+    0.7%  futex
+    0.1%  page fault
+
+## kernel leaf functions (System.map)
+
+   22.0%  rep_movs_alternative
+   11.1%  clear_page_erms
+    2.8%  asm_sysvec_apic_timer_interrupt
+    2.8%  syscall_return_via_sysret
+    2.1%  _raw_spin_lock_irqsave
+    2.1%  entry_SYSRETQ_unsafe_stack
+    1.6%  _copy_from_iter
+    1.5%  entry_SYSCALL_64_after_hwframe
+    1.5%  try_charge_memcg
+    1.5%  _raw_spin_lock
+    1.4%  __pgalloc_tag_add
+    1.4%  __alloc_tagging_slab_alloc_hook
+    1.2%  native_queued_spin_lock_slowpath
+    1.1%  entry_SYSCALL_64
+    1.0%  do_syscall_64
+    0.8%  unix_stream_sendmsg
+    0.7%  entry_SYSCALL_64_safe_stack
+    0.6%  __rmqueue_pcplist
+    0.6%  fdget_pos
+    0.5%  page_ext_get
+    0.5%  vfs_writev
+    0.5%  memset_orig
+    0.5%  __alloc_skb
+    0.5%  __kmalloc_node_track_caller_noprof
+    0.5%  __virt_addr_valid
+    0.5%  dequeue_entities
+    0.5%  sock_alloc_send_pskb
+    0.4%  __check_object_size
+    0.4%  static_key_count
+    0.4%  __memcg_slab_post_alloc_hook

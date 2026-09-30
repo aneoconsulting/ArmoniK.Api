@@ -1,0 +1,2 @@
+Ff-1f k=1: every call checked on UploadStreamCheck (byte count and SHA-256 of every message as received): passed (4 rounds)
+Ff-1f k=8: every call checked on UploadStreamCheck (byte count and SHA-256 of every message as received): passed (4 rounds)

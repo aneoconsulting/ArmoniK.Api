@@ -1,0 +1,12 @@
+p12 d16k1 1 done at +5 s
+p12 d16k8 1 done at +11 s
+p12 d4k1 1 done at +14 s
+p12 d4k8 1 done at +17 s
+p12 d16k1 2 done at +21 s
+p12 d16k8 2 done at +28 s
+p12 d4k1 2 done at +30 s
+p12 d4k8 2 done at +33 s
+p12 d16k1 3 done at +38 s
+p12 d16k8 3 done at +44 s
+p12 d4k1 3 done at +46 s
+p12 d4k8 3 done at +49 s

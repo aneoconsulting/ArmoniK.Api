@@ -50,6 +50,11 @@ impl Drop for AkOwned {
 /// T1 (ffi): cell D's request body -- the core-ffi encode context's output MOVED to the
 /// host (`ak_enc_take_owned`, one crossing) and wrapped as a `Bytes` without a copy
 /// (`Bytes::from_owner`); the release is the second crossing, when the body is dropped.
+/// An owned `ak_bytes` (released with ak_bytes_free when the last clone drops) as a `Bytes`.
+pub fn owned_bytes(b: ak_abi::ak_bytes) -> bytes::Bytes {
+    bytes::Bytes::from_owner(AkOwned(b))
+}
+
 pub fn ffi_owned_body(enc: *mut ak_abi::ak_enc_ctx) -> Result<bytes::Bytes, i32> {
     let mut b = ak_abi::ak_bytes { ptr: std::ptr::null(), len: 0, owner: std::ptr::null_mut() };
     let rc = unsafe { ak_abi::ak_enc_take_owned(enc, &mut b) };

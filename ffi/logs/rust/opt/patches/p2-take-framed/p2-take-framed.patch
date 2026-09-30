@@ -1,0 +1,35 @@
+diff --git a/ffi/poc/codec/crates/ak-core/src/rpc.rs b/ffi/poc/codec/crates/ak-core/src/rpc.rs
+index e8d019ce..778c1f14 100644
+--- a/ffi/poc/codec/crates/ak-core/src/rpc.rs
++++ b/ffi/poc/codec/crates/ak-core/src/rpc.rs
+@@ -481,6 +481,30 @@ pub unsafe extern "C" fn ak_enc_take_owned(enc: *mut crate::ak_enc_ctx, out: *mu
+     AK_OK
+ }
+ 
++/// EXPERIMENT (patch p2-take-framed, not committed): `ak_enc_take_owned` with the 5-byte gRPC
++/// prefix written into the context's headroom and INCLUDED in the owned bytes (Enc::take_framed),
++/// so a host feeding its own gRPC transport can send each message as ONE body frame. Additive.
++#[no_mangle]
++pub unsafe extern "C" fn ak_enc_take_owned_framed(enc: *mut crate::ak_enc_ctx, out: *mut ak_bytes) -> i32 {
++    fwd();
++    if out.is_null() {
++        return AK_ERR_INVALID_STATE;
++    }
++    *out = empty_ak_bytes();
++    if enc.is_null() {
++        return AK_ERR_INVALID_STATE;
++    }
++    let cx = &mut *(enc as *mut crate::EncCtxImpl);
++    if cx.hdr.err != AK_OK {
++        return cx.hdr.err;
++    }
++    if cx.e.err != 0 {
++        return cx.e.err;
++    }
++    *out = into_ak_bytes(cx.e.take_framed());
++    AK_OK
++}
++
+ /// **One call path, three deliveries.** Every mode below awaits this, so a delivery cannot
+ /// drift from another delivery: there is one place the request is sent and one place the
+ /// response is taken.

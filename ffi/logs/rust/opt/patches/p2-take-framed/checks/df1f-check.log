@@ -1,0 +1,3 @@
+Df-1f (patched core) k=1: every call checked on UploadStreamCheck (byte count and SHA-256 of every message as received): passed (4 rounds)
+Df-1f (patched core) k=8: every call checked on UploadStreamCheck (byte count and SHA-256 of every message as received): passed (4 rounds)
+Df-1f on the HEAD core: refused (Df-1f needs a core with ak_enc_take_owned_framed (patch p2-take-framed))

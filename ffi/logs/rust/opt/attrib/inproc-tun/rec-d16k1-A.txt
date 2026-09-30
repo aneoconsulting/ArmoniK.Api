@@ -1,4 +1,5 @@
 # 898 samples, 1,143,132,935 cycles sampled (weights = periods)
+# kernel symbols: /nix/store/k0hdg2xzag606bm9mygmws3m73b7caxy-linux-6.18.54/System.map, KASLR offset 0x6c00000, anchor share of kernel frames 0.167
 
 ## thread class
 
@@ -111,3 +112,50 @@
     0.1%  [tokio] tokio::runtime::io::registration::Registration::poll_ready
     0.1%  [tokio] <tokio::sync::oneshot::Receiver<T> as core::future::future::Future>::poll
     0.1%  [tokio] tokio::runtime::context::with_scheduler
+
+## kernel buckets (System.map)
+
+   16.9%  socket write: copy from user
+   13.1%  socket write: other (entry, locks, unix stream)
+   12.3%  socket write: skb alloc/free, memcg
+   11.9%  socket write: zeroing new skb pages
+    4.7%  socket write: wake the reader
+    3.0%  epoll_wait
+    2.8%  scheduling, interrupts
+    1.5%  page fault
+    0.7%  other kernel
+    0.6%  socket read
+    0.6%  futex
+
+## kernel leaf functions (System.map)
+
+   16.0%  rep_movs_alternative
+   11.5%  clear_page_erms
+    2.4%  asm_sysvec_apic_timer_interrupt
+    2.2%  syscall_return_via_sysret
+    1.8%  entry_SYSRETQ_unsafe_stack
+    1.5%  _raw_spin_lock
+    1.3%  __list_del_entry_valid_or_report
+    1.3%  entry_SYSCALL_64
+    1.3%  try_charge_memcg
+    1.3%  get_page_from_freelist
+    1.2%  native_queued_spin_lock_slowpath
+    1.2%  _raw_spin_lock_irqsave
+    1.1%  __alloc_tagging_slab_alloc_hook
+    1.0%  __pgalloc_tag_add
+    1.0%  page_ext_get
+    1.0%  entry_SYSCALL_64_after_hwframe
+    0.9%  _copy_from_iter
+    0.8%  vfs_writev
+    0.8%  unix_stream_sendmsg
+    0.8%  skb_set_owner_w
+    0.8%  static_key_count
+    0.7%  asm_exc_page_fault
+    0.7%  do_syscall_64
+    0.7%  __kmalloc_node_track_caller_noprof
+    0.5%  entry_SYSCALL_64_safe_stack
+    0.4%  copy_iovec_from_user
+    0.4%  memset_orig
+    0.4%  fdget_pos
+    0.4%  ep_poll_callback
+    0.4%  sock_def_readable
