@@ -68,7 +68,7 @@ ENVX=""; [ "$PHASE" != default ] && ENVX=${AB_ENV:-}
   echo "# CLIENT $AK_CPU_CLIENT SERVER $AK_CPU_SERVER; server 8 workers; core --workers $WK; grpc-core sysconf = $GCPUS (ncpus_shim); pinned; retain"
   echo "# machine $(python3 gen/machine_facts.py "$AK_CPU_CLIENT" "$AK_CPU_SERVER")"; } >> "$LOG"
 grep -q REFUSED "$LOG" && exit 1
-rm -f "$SCR/ctl" "$SCR/ack"; mkfifo "$SCR/ctl" "$SCR/ack"
+rm -f "$SCR/ctl" "$SCR/ack" "$SCR/sctl" "$SCR/sack"; mkfifo "$SCR/ctl" "$SCR/ack" "$SCR/sctl" "$SCR/sack"
 run() {  # run ARM CELL DIRS PAY K N OUTFILE [strace|stat:FILE|record:FILE]
   local arm=$1 cell=$2 dirs=$3 pay=$4 k=$5 n=$6 f=$7 st=${8:-} pre=() ctl=()
   case "$st" in
@@ -79,10 +79,24 @@ run() {  # run ARM CELL DIRS PAY K N OUTFILE [strace|stat:FILE|record:FILE]
     record:*) pre=(perf record -D -1 --control "fifo:$SCR/ctl,$SCR/ack" -e cycles -F 4000 --call-graph lbr -o "${st#record:}" --)
       ctl=(--perf-ctl "$SCR/ctl,$SCR/ack") ;;
   esac
+  # AB_SERVER_PERF=1 (perf phase): the same perf attached to the server process too (perf stat
+  # -p / perf record -p, not ptrace), enabled by the client around the same loop
+  local spf=""
+  if [ "${AB_SERVER_PERF:-}" = 1 ] && [ ${#ctl[@]} -gt 0 ]; then
+    local sp; sp=$(sed -n 's/^pid //p' "$AK_SERVE_STATE")
+    case "$st" in
+      stat:*) taskset -c "$OSSET" perf stat -p "$sp" -D -1 --control "fifo:$SCR/sctl,$SCR/sack" -x, -o "${st#stat:}.server" \
+                -e cycles:u,cycles:k,instructions:u,instructions:k,cache-misses,context-switches > /dev/null 2>&1 & spf=$! ;;
+      record:*) taskset -c "$OSSET" perf record -p "$sp" -D -1 --control "fifo:$SCR/sctl,$SCR/sack" -e cycles -F 4000 --call-graph lbr \
+                -o "${st#record:}.server" > /dev/null 2>&1 & spf=$! ;;
+    esac
+    ctl=(--perf-ctl "$SCR/ctl,$SCR/ack;$SCR/sctl,$SCR/sack")
+  fi
   taskset -c "$AK_CPU_CLIENT" "${pre[@]}" env LD_LIBRARY_PATH="${ACORE[$arm]}" ${AKNOB[$arm]} $(cellknobs "$cell") $ENVX \
     AK_SERVER_PID="$(sed -n 's/^pid //p' "$AK_SERVE_STATE")" LD_PRELOAD="$SCR/ncpus.so" AK_SHIM_NCPUS=$GCPUS "$EXE" --target "unix:$SOCK" --expect 540422 --transport pinned \
     --cells "$cell" --dirs "$dirs" --payloads "$pay" --inflight "$k" --workers $WK --profile "$n" \
-    --profile-chunks $([ "$st" = strace ] && echo 1 || echo 10) "${ctl[@]}" > "$f" 2>&1 || { tail -3 "$f"; say "FAILED $f"; exit 1; }
+    --profile-chunks $([ "$st" = strace ] && echo 1 || echo 10) "${ctl[@]}" > "$f" 2>&1 || { tail -3 "$f"; say "FAILED $f"; [ -n "$spf" ] && kill -INT $spf; exit 1; }
+  if [ -n "$spf" ]; then kill -INT "$spf" 2> /dev/null; wait "$spf" 2> /dev/null; fi
 }
 NA=${#ARMS[@]}; NC=${#CELLS[@]}
 case "$PHASE" in

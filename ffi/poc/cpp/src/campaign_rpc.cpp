@@ -2052,18 +2052,26 @@ int main(int argc, char **argv) {
     if (w.jobs.size() != 1 || c.inflight.size() != 1) die("--profile needs one job (--dirs/--payloads) and one k", 0);
     const int k = c.inflight[0];
     for (int i = 0; i < 5; ++i) pool.batch(pc, 0, k, k);  // warm: steady state only
-    int ctl = -1, ack = -1;
-    if (!c.perf_ctl.empty()) {
-      const size_t comma = c.perf_ctl.find(',');
-      ctl = open(c.perf_ctl.substr(0, comma).c_str(), O_WRONLY);
-      if (comma != std::string::npos) ack = open(c.perf_ctl.substr(comma + 1).c_str(), O_RDONLY);
+    // --perf-ctl CTL,ACK[;CTL,ACK...]: several perf sessions (the client's, one attached to the
+    // server) enabled and disabled together around the loop
+    std::vector<std::pair<int, int> > ctls;
+    for (size_t p0 = 0; !c.perf_ctl.empty() && p0 <= c.perf_ctl.size();) {
+      const size_t semi = c.perf_ctl.find(';', p0);
+      const std::string one = c.perf_ctl.substr(p0, semi == std::string::npos ? std::string::npos : semi - p0);
+      const size_t comma = one.find(',');
+      const int ctl = open(one.substr(0, comma).c_str(), O_WRONLY);
+      const int ack = comma != std::string::npos ? open(one.substr(comma + 1).c_str(), O_RDONLY) : -1;
       if (ctl < 0) die("--perf-ctl: open", errno);
+      ctls.push_back(std::make_pair(ctl, ack));
+      if (semi == std::string::npos) break;
+      p0 = semi + 1;
     }
     auto perf_cmd = [&](const char *cmd) {
-      if (ctl < 0) return;
-      if (write(ctl, cmd, std::strlen(cmd)) < 0) die("--perf-ctl: write", errno);
-      char buf[16];
-      if (ack >= 0 && read(ack, buf, sizeof(buf)) <= 0) die("--perf-ctl: ack", errno);
+      for (size_t i = 0; i < ctls.size(); ++i) {
+        if (write(ctls[i].first, cmd, std::strlen(cmd)) < 0) die("--perf-ctl: write", errno);
+        char buf[16];
+        if (ctls[i].second >= 0 && read(ctls[i].second, buf, sizeof(buf)) <= 0) die("--perf-ctl: ack", errno);
+      }
     };
     const int devnull = open("/dev/null", O_WRONLY);
     const int chunks = c.profile_chunks > 0 && c.profile_chunks <= c.profile ? c.profile_chunks : 1;
@@ -2183,7 +2191,7 @@ int main(int argc, char **argv) {
       std::snprintf(b, sizeof(b), "%s{\"batches\": %d, \"cpu_ns\": %.0f, \"wall_ns\": %.0f}", i ? ", " : "", cbat[i], ccpu[i], cwall[i]);
       o += b;
     }
-    o += "], " + std::string(tb) + ", " + std::string(sb) + ", \"thread_wait_ns\": {";
+    o += "], " + std::string(tb) + ", " + std::string(sb) + ", \"cpu_at_end\": " + cpu_facts() + ", \"thread_wait_ns\": {";
     {
       bool f1 = true;
       for (std::map<std::string, double>::const_iterator i = clsw.begin(); i != clsw.end(); ++i) {

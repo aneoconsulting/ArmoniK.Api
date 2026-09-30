@@ -63,6 +63,19 @@ for r in $(seq 1 "$ROUNDS"); do
       arm=${u%%|*}; rest=${u#*|}; cell=${rest%%|*}; knobs=${rest#*|}
       case "$cell" in *-zc*) [ "$dirs" != d ] && continue ;; esac
       lib=$CUR; [ "$arm" = stk ] && lib=$STK
+      # the server must still be the one started here, pinned to AK_CPU_SERVER (a re-pinning of user
+      # processes during the campaign moved it once: logs/cpp/opt/physical-probe/stability, round 10)
+      sa=$(sed -n 's/^Cpus_allowed_list:[[:space:]]*//p' /proc/$SPID/status 2>/dev/null)
+      if [ "$(python3 -c "import sys
+def r(s):
+    o=set()
+    for p in s.split(','):
+        if '-' in p: a,b=p.split('-'); o.update(range(int(a),int(b)+1))
+        elif p: o.add(int(p))
+    return o
+print(int(r(sys.argv[1])==r(sys.argv[2])))" "$sa" "$AK_CPU_SERVER")" != 1 ]; then
+        say "ABORTED before process $((seq_no + 1)): the server's affinity is '$sa', not AK_CPU_SERVER $AK_CPU_SERVER"; exit 3
+      fi
       seq_no=$((seq_no + 1))
       f=$OUT/proc/$(printf '%04d' $seq_no)-r$r-$name-$arm-$cell.out
       taskset -c "$AK_CPU_CLIENT" env LD_LIBRARY_PATH="$lib" $knobs $ENVX AK_SERVER_PID="$SPID" LD_PRELOAD="$SCR/ncpus.so" \

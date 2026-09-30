@@ -113,6 +113,30 @@ def main(out, arms):
                             wt, c, a, m("caller"), m("main"), m("tokio-rt-worker"), m("event_engine"), b("batch_wall_ns_median"),
                             b("call_ns_median"), b("call_ns_p10"), b("call_ns_p90"), b("calls_span_ns_median"),
                             b("dispatch_last_start_ns_median"), b("completion_lag_ns_median")))
+        if any("thread_csw" in (prof(f) or {}) for f in glob.glob(os.path.join(out, phase, "*.out"))[:1]):
+            say("")
+            say("Context switches per call by thread class, voluntary / involuntary (median of the processes), and the "
+                "server during the loop (AK_SERVER_PID: CPU per call, ms; its threads' voluntary switches are not read):")
+            say("")
+            say("| workload | cell | arm | caller | main | tokio-rt-worker | event_engine | server CPU |")
+            say("|---|---|---|---|---|---|---|---|")
+            for w, wt in WLS:
+                for c in CELLS:
+                    for a in arms:
+                        fs = sorted(glob.glob(os.path.join(out, phase, "%s-%s-%s-r*.out" % (w, c, a))))
+                        if not fs:
+                            continue
+                        cv = collections.defaultdict(list)
+                        sv = []
+                        for f in fs:
+                            p = prof(f)
+                            for cls, v in p.get("thread_csw", {}).items():
+                                cv[cls].append((v[0] / p["calls"], v[1] / p["calls"]))
+                            if p.get("server", {}).get("pid", 0) > 0:
+                                sv.append(p["server"]["cpu_ns"] / p["calls"] / 1e6)
+                        g = lambda k: ("%.1f / %.1f" % (statistics.median([x[0] for x in cv[k]]), statistics.median([x[1] for x in cv[k]]))) if cv.get(k) else ""
+                        say("| %s | %s | %s | %s | %s | %s | %s | %s |" % (wt, c, a, g("caller"), g("main"), g("tokio-rt-worker"),
+                                                                        g("event_engine"), ("%.3f" % statistics.median(sv)) if sv else "-"))
         say("")
         say("Per-thread CPU per call, Cf and Cf-q (ms, median of the processes):")
         say("")
@@ -196,16 +220,23 @@ def perf_section(out, arms, say):
                 say("| %s | %s | %s | %.2f / %.2f | %.2f / %.2f | %.0f | %.0f | %.0f | %.1f | %.1f |" % (
                     wt, c, a, g("cycles:u") / 1e6, g("cycles:k") / 1e6, g("instructions:u") / 1e6, g("instructions:k") / 1e6,
                     g("cache-references") / 1e3, g("cache-misses") / 1e3, g("LLC-load-misses") / 1e3, g("page-faults"), g("context-switches")))
-                data = base + ".data"
-                jf = base + ".attrib.json"
-                if os.path.exists(data) and smap and (not os.path.exists(jf) or os.path.getmtime(jf) < os.path.getmtime(data)):
-                    r = subprocess.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), "perf_attrib.py"),
-                                        smap, data, base + ".out", "--top", "25"], stdout=subprocess.PIPE, text=True)
-                    open(jf, "w").write(r.stdout)
-                if os.path.exists(jf):
-                    att[(w, c, a)] = json.load(open(jf))
-    for w, wt in WLS:
-        keys = [(c, a) for c in CELLS for a in arms if (w, c, a) in att]
+                if os.path.exists(base + ".perfstat.server"):
+                    sd = {k: v / n for k, v in perfstat(base + ".perfstat.server").items()}
+                    h = lambda k: sd.get(k, float("nan"))
+                    say("| %s | %s | %s (SERVER) | %.2f / %.2f | %.2f / %.2f | - | %.0f | - | - | %.1f |" % (
+                        wt, c, a, h("cycles:u") / 1e6, h("cycles:k") / 1e6, h("instructions:u") / 1e6, h("instructions:k") / 1e6,
+                        h("cache-misses") / 1e3, h("context-switches")))
+                for suffix, key in (("", (w, c, a)), (".server", (w, c, a + " SERVER"))):
+                    data = base + ".data" + suffix
+                    jf = base + ".attrib%s.json" % suffix
+                    if os.path.exists(data) and smap and (not os.path.exists(jf) or os.path.getmtime(jf) < os.path.getmtime(data)):
+                        r = subprocess.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), "perf_attrib.py"),
+                                            smap, data, base + ".out", "--top", "25"], stdout=subprocess.PIPE, text=True)
+                        open(jf, "w").write(r.stdout)
+                    if os.path.exists(jf):
+                        att[key] = json.load(open(jf))
+    for (w, wt), side in [(x, sd) for x in WLS for sd in ("client", "server")]:
+        keys = [(c, a) for c in CELLS for a in (arms if side == "client" else [x + " SERVER" for x in arms]) if (w, c, a) in att]
         if not keys:
             continue
         buckets = []
@@ -216,7 +247,7 @@ def perf_section(out, arms, say):
         buckets.sort(key=lambda b: (b[0] != "k", b))
         ref = next(((c, a) for c, a in keys if c == "Cf-retain"), None)
         say("")
-        say("### perf record buckets, %s (ms per call = cycles / 3.3e9; one process per cell)" % wt)
+        say("### perf record buckets, %s, %s (ms per call = cycles / 3.3e9; one process per cell)" % (wt, "the server process" if side == "server" else "the client"))
         say("")
         say("| bucket | " + " | ".join("%s %s" % ka for ka in keys) + (" | " + " | ".join("%s - Cf" % c for c, a in keys if ref and (c, a) != ref) if ref else "") + " |")
         say("|---|" + "---|" * (len(keys) + (len(keys) - 1 if ref else 0)))

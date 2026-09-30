@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Tables of a gen/stability.sh run (absolute per-call figures and differences, no ratio).
 
-  stability_tables.py OUT_DIR > OUT_DIR/tables.md
+  stability_tables.py OUT_DIR [FIRST-LAST] > OUT_DIR/tables.md   (FIRST-LAST: only those rounds)
 
   1. pooled per unit and workload: CPU and wall per call, median [p10-p90] over every chunk of
      every process; context switches and minor faults per call (median of the processes);
@@ -38,12 +38,13 @@ def prof(path):
     return None
 
 
-def main(out):
+def main(out, sel=None):
+    lo, hi = (int(x) for x in sel.split("-")) if sel else (0, 10 ** 9)
     P = []
     for f in sorted(glob.glob(os.path.join(out, "proc", "*.out"))):
         m = re.match(r"(\d+)-r(\d+)-([a-z0-9]+)-(cur|stk)-(.+)\.out$", os.path.basename(f))
         p = prof(f)
-        if not m or not p:
+        if not m or not p or not lo <= int(m.group(2)) <= hi:
             continue
         cpu = [ch["cpu_ns"] / (ch["batches"] * p["k"]) / 1e6 for ch in p["chunks"]]
         wall = [ch["wall_ns"] / (ch["batches"] * p["k"]) / 1e6 for ch in p["chunks"]]
@@ -54,7 +55,8 @@ def main(out):
     L = []
     say = L.append
     rounds = sorted({x["round"] for x in P})
-    say("# Stability campaign: %d processes, %d rounds (per call, ms; absolute; no ratio)" % (len(P), len(rounds)))
+    say("# Stability campaign: %d processes, %d rounds%s (per call, ms; absolute; no ratio)" % (
+        len(P), len(rounds), (" (rounds %s only)" % sel) if sel else ""))
     say("")
     say("## 1. Pooled per unit: CPU and wall per call, median [p10-p90] over every chunk of every process")
     say("")
@@ -103,4 +105,4 @@ def main(out):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1])
+    main(sys.argv[1], sys.argv[2] if len(sys.argv) > 2 else None)
