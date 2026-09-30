@@ -1,0 +1,132 @@
+# 372 samples, 457,298,829 cycles sampled (weights = periods)
+# kernel symbols: /nix/store/k0hdg2xzag606bm9mygmws3m73b7caxy-linux-6.18.54/System.map, KASLR offset 0x6c00000, anchor share of kernel frames 0.176
+
+## thread class
+
+   99.6%  host-rt (cell-rt)
+    0.4%  main
+
+## leaf crate (self)
+
+   70.4%  kernel
+   19.8%  libc:mem
+    4.3%  (no frames)
+    2.4%  h2
+    0.8%  tokio_util
+    0.6%  tracing
+    0.6%  libc:other
+    0.3%  hyper
+    0.3%  tokio
+    0.3%  other:[vdso]
+    0.3%  std
+
+## libc leaves by caller crate
+
+   12.3%  libc:mem     <- ?
+    7.2%  libc:mem     <- bytes
+    0.6%  libc:other   <- ?
+    0.3%  libc:mem     <- h2
+
+## kernel leaves by user entry (first resolved user frame) and caller crate
+
+   42.0%  __syscall_cancel_arch_end                <- ?
+   19.6%  __syscall_cancel_arch_end                <- mio
+    6.1%  ?                                        <- ?
+    1.0%  __memmove_evex_unaligned_erms            <- bytes
+    0.7%  __memmove_evex_unaligned_erms            <- ?
+    0.3%  __syscall_cancel_arch_start              <- ?
+    0.3%  syscall                                  <- ?
+    0.3%  syscall                                  <- tokio
+    0.1%  __syscall_cancel_arch_end                <- serde_json
+    0.1%  __syscall_cancel_arch_end                <- serde_core
+
+## inclusive: samples with any frame in the crate
+
+   75.5%  libc:other
+   70.4%  kernel
+   32.2%  tokio
+   32.0%  std
+   32.0%  core
+   30.9%  hyper
+   23.2%  h2
+   21.4%  libc:mem
+   19.9%  tokio_util
+   19.6%  mio
+    8.2%  tonic
+    8.2%  http_body_util
+    8.2%  prost
+    8.2%  bytes
+    8.2%  campaign
+    0.6%  tracing
+    0.6%  hyper_util
+    0.4%  other:stream_probe
+    0.3%  other:[vdso]
+    0.1%  serde_core
+    0.1%  serde_json
+    0.1%  stream_probe
+
+## top leaf symbols
+
+   70.4%  [kernel] [unknown]
+   19.8%  [libc:mem] __memmove_evex_unaligned_erms
+    0.8%  [tokio_util] tokio_util::util::poll_buf::poll_write_buf
+    0.6%  [tracing] tracing::span::Span::in_scope
+    0.6%  [libc:other] __internal_syscall_cancel
+    0.6%  [h2] h2::codec::framed_write::FramedWrite<T,B>::flush
+    0.4%  [h2] h2::proto::streams::prioritize::Prioritize::pop_frame
+    0.3%  [hyper] <hyper::proto::h2::client::H2ClientFuture<B,T,E> as core::future::future::Future>::poll
+    0.3%  [h2] h2::proto::streams::prioritize::Prioritize::pop_pending_open
+    0.3%  [h2] h2::proto::streams::store::Queue<N>::pop
+    0.3%  [tokio] tokio::runtime::context::scoped::Scoped<T>::set
+    0.3%  [other:[vdso]] __vdso_clock_gettime
+    0.3%  [h2] h2::proto::streams::streams::StreamRef<B>::capacity
+    0.3%  [std] <std::sys::pal::unix::time::Timespec>::sub_timespec
+    0.2%  [h2] h2::proto::streams::streams::Streams<B,P>::clear_expired_reset_streams
+    0.2%  [h2] h2::codec::framed_read::decode_frame
+
+## kernel buckets (System.map)
+
+   18.5%  socket write: copy from user
+   15.0%  socket write: skb alloc/free, memcg
+   11.5%  socket write: other (entry, locks, unix stream)
+   10.5%  socket write: zeroing new skb pages
+    4.4%  scheduling, interrupts
+    2.6%  epoll_wait
+    2.3%  socket write: wake the reader
+    1.8%  page fault
+    1.7%  socket read
+    1.5%  other kernel
+    0.6%  futex
+
+## kernel leaf functions (System.map)
+
+   16.3%  rep_movs_alternative
+   10.5%  clear_page_erms
+    4.0%  asm_sysvec_apic_timer_interrupt
+    3.6%  syscall_return_via_sysret
+    1.9%  __pgalloc_tag_add
+    1.6%  unix_stream_sendmsg
+    1.6%  _copy_from_iter
+    1.4%  __alloc_tagging_slab_alloc_hook
+    1.2%  entry_SYSCALL_64
+    1.2%  asm_exc_page_fault
+    0.9%  __alloc_skb
+    0.9%  vfs_writev
+    0.9%  __wake_up_common
+    0.9%  __list_del_entry_valid_or_report
+    0.8%  page_ext_get
+    0.8%  __virt_addr_valid
+    0.8%  _raw_spin_lock
+    0.8%  swapgs_restore_regs_and_return_to_usermode
+    0.8%  native_queued_spin_lock_slowpath
+    0.7%  entry_SYSCALL_64_after_hwframe
+    0.6%  _raw_spin_lock_irqsave
+    0.6%  alloc_skb_with_frags
+    0.6%  __account_obj_stock
+    0.6%  native_write_msr
+    0.6%  entry_SYSRETQ_unsafe_stack
+    0.6%  obj_cgroup_charge_pages
+    0.6%  copy_page_from_iter
+    0.6%  skb_copy_datagram_from_iter
+    0.6%  __check_object_size
+    0.6%  kmem_cache_alloc_node_noprof

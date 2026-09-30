@@ -839,6 +839,33 @@ fn multi_of(c: &str) -> Option<(&'static str, usize)> {
     Some((b, n))
 }
 
+/// The process's TCP sockets (AF_INET / AF_INET6 stream sockets among /proc/self/fd) and how many
+/// of them have TCP_NODELAY set, read with getsockopt on the live sockets.
+fn tcp_nodelay_census() -> (usize, usize) {
+    let (mut tcp, mut on) = (0usize, 0usize);
+    for e in std::fs::read_dir("/proc/self/fd").unwrap().flatten() {
+        let fd: i32 = match e.file_name().to_string_lossy().parse() {
+            Ok(f) => f,
+            Err(_) => continue,
+        };
+        let get = |level: i32, opt: i32| -> Option<i32> {
+            let mut v: i32 = 0;
+            let mut l = std::mem::size_of::<i32>() as libc::socklen_t;
+            let r = unsafe { libc::getsockopt(fd, level, opt, &mut v as *mut i32 as *mut libc::c_void, &mut l) };
+            (r == 0).then_some(v)
+        };
+        let dom = get(libc::SOL_SOCKET, libc::SO_DOMAIN);
+        let ty = get(libc::SOL_SOCKET, libc::SO_TYPE);
+        if matches!(dom, Some(libc::AF_INET) | Some(libc::AF_INET6)) && ty == Some(libc::SOCK_STREAM) {
+            tcp += 1;
+            if get(libc::IPPROTO_TCP, libc::TCP_NODELAY).map_or(false, |v| v != 0) {
+                on += 1;
+            }
+        }
+    }
+    (tcp, on)
+}
+
 fn main() {
     assert!(harness::generated::binding::ak_init_once() >= 0);
     // AK_RPC_TARGET (a URI, e.g. http://127.0.0.1:PORT) overrides the Unix socket.
@@ -1047,6 +1074,11 @@ fn main() {
         }
     };
     affinity_ok("before timing");
+    let (tcp0, on0) = tcp_nodelay_census();
+    writeln!(f, "# tcp sockets after the warm-up: {tcp0}, TCP_NODELAY on: {on0} (getsockopt on the live sockets)").unwrap();
+    if std::env::var("AK_EXPECT_NODELAY").map_or(false, |v| v == "1") {
+        assert!(tcp0 > 0 && tcp0 == on0, "ABORT: {tcp0} TCP sockets, {on0} with TCP_NODELAY");
+    }
     // AK_PERF_CELL: perf counts only that cell's timed rounds (every other cell runs as usual).
     let perf_cell: Option<&'static str> = std::env::var("AK_PERF_CELL").ok().map(|c| match c.as_str() {
         "Df-chan" | "Cf-split" | "C-split" | "Cf-cb-split" | "C-cb-split" | "A2" | "Ff-1f" | "Df-1f" | "Cf-cb-1rt" | "Cn-1rt" | "Cf-enc" | "Cf-encp" | "Cf-zc" | "Cf-zcp" | "Cf-zcw" => Box::leak(c.into_boxed_str()) as &'static str,
@@ -1110,6 +1142,10 @@ fn main() {
         perf("disable");
     }
     affinity_ok("after timing");
+    {
+        let (t, o) = tcp_nodelay_census();
+        writeln!(f_out(&out), "# tcp sockets after the timed rounds: {t}, TCP_NODELAY on: {o}").unwrap();
+    }
     if std::env::var("AK_EXPECT_CPUS").is_ok() {
         writeln!(f_out(&out), "# affinity: every thread allowed exactly AK_EXPECT_CPUS={} before and after the timed rounds", std::env::var("AK_EXPECT_CPUS").unwrap()).unwrap();
     }

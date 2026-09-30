@@ -1,0 +1,4 @@
+uds A softirq ticks on the client CPUs over the whole process (warm-up included): 0
+uds Cf softirq ticks on the client CPUs over the whole process (warm-up included): 0
+tcp A softirq ticks on the client CPUs over the whole process (warm-up included): 18
+tcp Cf softirq ticks on the client CPUs over the whole process (warm-up included): 18

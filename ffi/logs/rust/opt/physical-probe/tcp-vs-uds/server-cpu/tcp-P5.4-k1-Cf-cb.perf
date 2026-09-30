@@ -1,0 +1,6 @@
+# started on Thu Oct  1 00:26:17 2026
+
+52.71,msec,task-clock,52707646,100.00,,
+1978,,context-switches,52707646,100.00,,
+163126707,,cycles,52707646,100.00,,
+92644687,,instructions,52707646,100.00,,

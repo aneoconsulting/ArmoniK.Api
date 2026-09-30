@@ -105,7 +105,11 @@ if len(sys.argv) > 2:
                 votes[d & ~((1 << 21) - 1)] += 1
     off = votes.most_common(1)[0][0] if votes else 0
     print(f"# kernel symbols: {sys.argv[2]}, KASLR offset {off:#x}, anchor share of kernel frames {votes[off] / max(1, len(kf)):.3f}")
+    etext = next((a for a, n in zip(addrs, names) if n == "_etext"), None)
     def kname(ip, off=off):
+        # beyond the kernel image's text: a loadable module (its symbols are not in System.map)
+        if etext is not None and ip - off > etext:
+            return "[module]"
         i = bisect.bisect_right(addrs, ip - off) - 1
         return names[i] if i >= 0 else "?"
 kleaf = Counter(); kbucket = Counter()
@@ -114,8 +118,10 @@ def kb(ks, wrap):
     leaf = ks[0] if ks else "?"
     if re.search(r"exc_page_fault|handle_mm_fault|do_anonymous_page", j):
         return "page fault"
-    if re.search(r"writev|sendmsg|sendto", wrap) or re.search(r"do_writev|unix_stream_sendmsg|sock_write_iter", j):
-        if re.search(r"rep_movs|copy_from_iter|copy_user|_copy_from", leaf) or re.search(r"^(rep_movs_alternative|_copy_from_iter)", leaf):
+    if re.search(r"net_rx_action|__netif_receive_skb|process_backlog|tcp_v4_rcv|tcp_v6_rcv|ip_rcv|ip_local_deliver|tcp_rcv_established", j):
+        return "loopback receive path (softirq: net_rx_action, ip_rcv, tcp_v4_rcv, ...)"
+    if re.search(r"writev|sendmsg|sendto", wrap) or re.search(r"do_writev|unix_stream_sendmsg|sock_write_iter|tcp_sendmsg", j):
+        if re.search(r"rep_movs|copy_from_iter|copy_user|_copy_from|skb_do_copy_data_nocache|copy_page_from_iter", leaf) or re.search(r"^(rep_movs_alternative|_copy_from_iter)", leaf):
             return "socket write: copy from user"
         if re.search(r"clear_page|memset", leaf):
             return "socket write: zeroing new skb pages"
@@ -124,7 +130,7 @@ def kb(ks, wrap):
         if re.search(r"sock_def_readable|wake_up|try_to_wake|ttwu|select_task_rq", " ".join(ks[:8])):
             return "socket write: wake the reader"
         return "socket write: other (entry, locks, unix stream)"
-    if re.search(r"recv|readv", wrap) or re.search(r"unix_stream_recvmsg|unix_stream_read", j):
+    if re.search(r"recv|readv", wrap) or re.search(r"unix_stream_recvmsg|unix_stream_read|tcp_recvmsg", j):
         return "socket read"
     if "epoll" in wrap or "ep_poll" in j or "epoll" in j:
         return "epoll_wait"

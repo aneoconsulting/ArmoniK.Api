@@ -1,0 +1,134 @@
+# 639 samples, 909,331,517 cycles sampled (weights = periods)
+# kernel symbols: /nix/store/k0hdg2xzag606bm9mygmws3m73b7caxy-linux-6.18.54/System.map, KASLR offset 0x6c00000, anchor share of kernel frames 0.070
+
+## thread class
+
+   99.8%  host-rt (cell-rt)
+    0.2%  main
+
+## leaf crate (self)
+
+   87.5%  kernel
+    9.2%  libc:mem
+    1.4%  h2
+    0.9%  (no frames)
+    0.4%  tokio
+    0.4%  libc:other
+    0.2%  http
+    0.2%  mio
+    0.0%  slab
+
+## libc leaves by caller crate
+
+    5.7%  libc:mem     <- bytes
+    2.9%  libc:mem     <- ?
+    0.5%  libc:mem     <- h2
+    0.2%  libc:other   <- tokio
+    0.2%  libc:other   <- ?
+
+## kernel leaves by user entry (first resolved user frame) and caller crate
+
+   52.4%  __syscall_cancel_arch_end                <- mio
+   30.4%  __syscall_cancel_arch_end                <- ?
+    2.9%  ?                                        <- ?
+    1.0%  __memmove_evex_unaligned_erms            <- bytes
+    0.4%  syscall                                  <- tokio
+    0.4%  syscall                                  <- ?
+    0.1%  __syscall_cancel_arch_end                <- serde_json
+    0.0%  sysmalloc                                <- bytes
+
+## inclusive: samples with any frame in the crate
+
+   92.6%  libc:other
+   87.5%  kernel
+   61.8%  std
+   61.8%  core
+   61.7%  tokio
+   60.2%  hyper
+   54.5%  h2
+   52.6%  mio
+   52.0%  tokio_util
+   10.2%  libc:mem
+    6.7%  bytes
+    6.5%  tonic
+    6.4%  prost
+    6.4%  http_body_util
+    6.4%  campaign
+    0.4%  hyper_util
+    0.2%  other:stream_probe
+    0.2%  tracing
+    0.2%  http
+    0.1%  serde_json
+    0.1%  stream_probe
+    0.0%  slab
+    0.0%  serde_core
+    0.0%  libc:alloc
+    0.0%  alloc
+
+## top leaf symbols
+
+   87.5%  [kernel] [unknown]
+    9.2%  [libc:mem] __memmove_evex_unaligned_erms
+    0.2%  [tokio] tokio::io::poll_evented::PollEvented<E>::poll_read
+    0.2%  [h2] h2::proto::streams::flow_control::FlowControl::send_data
+    0.2%  [h2] <h2::proto::streams::store::Ptr as core::ops::deref::DerefMut>::deref_mut
+    0.2%  [libc:other] syscall
+    0.2%  [h2] h2::proto::streams::streams::Streams<B,P>::send_pending_refusal
+    0.2%  [h2] h2::proto::streams::prioritize::Prioritize::pop_frame
+    0.2%  [tokio] tokio::runtime::context::scoped::Scoped<T>::set
+    0.2%  [h2] <h2::hpack::header::Header<T> as core::clone::Clone>::clone
+    0.2%  [h2] h2::proto::streams::counts::Counts::transition_after
+    0.2%  [h2] h2::codec::framed_write::Encoder<B>::buffer
+    0.2%  [libc:other] __syscall_cancel_arch_end
+    0.2%  [http] http::header::name::StandardHeader::as_str
+    0.2%  [mio] mio::poll::Poll::poll
+    0.1%  [h2] h2::proto::streams::store::Queue<N>::push
+    0.0%  [slab] slab::Slab<T>::insert_at
+    0.0%  [h2] h2::frame::headers::Headers::load
+
+## kernel buckets (System.map)
+
+   39.3%  loopback receive path (softirq: net_rx_action, ip_rcv, tcp_v4_rcv, ...)
+   24.4%  socket write: other (entry, locks, unix stream)
+    7.7%  socket write: copy from user
+    6.8%  socket write: zeroing new skb pages
+    3.1%  socket write: skb alloc/free, memcg
+    2.0%  scheduling, interrupts
+    1.6%  page fault
+    1.1%  epoll_wait
+    0.7%  futex
+    0.4%  other kernel
+    0.4%  socket read
+
+## kernel leaf functions (System.map)
+
+   28.4%  [module]
+    7.3%  rep_movs_alternative
+    6.4%  clear_page_erms
+    1.9%  entry_SYSRETQ_unsafe_stack
+    1.8%  asm_sysvec_apic_timer_interrupt
+    1.7%  skb_release_data
+    1.5%  syscall_return_via_sysret
+    1.1%  _raw_spin_lock_irqsave
+    1.1%  tcp_ack
+    1.0%  __alloc_tagging_slab_alloc_hook
+    1.0%  skb_defer_free_flush
+    1.0%  asm_exc_page_fault
+    0.7%  tcp_write_xmit
+    0.7%  __rcu_read_lock
+    0.7%  __smp_call_single_queue
+    0.7%  sized_strscpy
+    0.7%  tcp_v4_rcv
+    0.7%  __sk_mem_raise_allocated
+    0.6%  ep_poll_callback
+    0.6%  native_queued_spin_lock_slowpath
+    0.5%  entry_SYSCALL_64_after_hwframe
+    0.5%  __tcp_transmit_skb
+    0.5%  memset_orig
+    0.5%  tcp_check_space
+    0.5%  tcp_wfree
+    0.5%  mod_memcg_state
+    0.5%  tcp_sendmsg_locked
+    0.5%  nf_hook_slow
+    0.5%  __siphash_unaligned
+    0.5%  __inet_dev_addr_type

@@ -25,9 +25,13 @@ read -r -a CS <<< "$CONDS"
 SCR=$(mktemp -d); export AK_SERVE_STATE=$SCR/serve.state
 cleanup() { ./serve.sh stop > /dev/null 2>&1 || true; rm -rf "$SCR"; }
 trap cleanup EXIT
-AK_SERVER_THREADS=${AK_IP_SERVER_THREADS:-8} ./serve.sh start --out "$OUT/server" > /dev/null
+# AK_IP_SERVER_TCP=1: the server also listens on TCP 127.0.0.1 (serve.sh AK_SERVER_TCP=0); a
+# condition's env may then use @TCP@ for its address (e.g. AK_RPC_TARGET=http://@TCP@)
+AK_SERVER_TCP=$([ "${AK_IP_SERVER_TCP:-0}" = 1 ] && echo 0) AK_SERVER_THREADS=${AK_IP_SERVER_THREADS:-8} ./serve.sh start --out "$OUT/server" > /dev/null
 ./serve.sh warm 16 > "$OUT/server/warm.log" 2>&1
 SOCK=$(sed -n 's/^pinned //p' "$AK_SERVE_STATE"); SPID=$(sed -n 's/^pid //p' "$AK_SERVE_STATE")
+TCPADDR=$(sed -n 's/^tcp //p' "$AK_SERVE_STATE")
+srv_ticks() { awk '{print $14+$15}' /proc/$SPID/stat; }
 bin_of() { local b=${1%%:*}; [ "$b" = main ] && b="$HERE/target/release/stream_probe"; echo "$b"; }
 # workload -> size k rounds calls-per-round warm
 wl() { case $1 in d16k1) echo "16MiB 1 8 8 4";; d16k8) echo "16MiB 8 6 2 2";; d4k1) echo "4MiB 1 8 16 8";; d4k8) echo "4MiB 8 6 4 2";;
@@ -38,6 +42,7 @@ wl() { case $1 in d16k1) echo "16MiB 1 8 8 4";; d16k8) echo "16MiB 8 6 2 2";; d4
   echo "# in-process comparison: commit $(git rev-parse --short HEAD)$(git diff --quiet HEAD -- . ../codec || echo ' + UNCOMMITTED'); $(date -u +%FT%TZ); $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2- | sed 's/^ //'); kernel $(uname -r); no_turbo $(cat /sys/devices/system/cpu/intel_pstate/no_turbo); cpu1 min/max $(cat /sys/devices/system/cpu/cpu1/cpufreq/scaling_min_freq)/$(cat /sys/devices/system/cpu/cpu1/cpufreq/scaling_max_freq) kHz; smt $(cat /sys/devices/system/cpu/smt/control); isolation: taskset only"
   machine_header
   echo "# affinity checks: every server thread allowed exactly AK_CPU_SERVER, checked before and after every client process; every client thread allowed exactly AK_CPU_CLIENT, checked by the probe before and after its timed rounds (AK_EXPECT_CPUS); a mismatch aborts"
+  [ -n "$TCPADDR" ] && echo "# server also on TCP $TCPADDR (pinned configuration, TCP_NODELAY on accept)"
   echo "# client $AK_CPU_CLIENT, host $AK_HOST_WORKERS / core $AK_CORE_WORKERS workers (unless a condition sets them); server $AK_CPU_SERVER, ${AK_IP_SERVER_THREADS:-8} workers, pid $SPID, pinned socket"
   echo "# cells $CELLS (direction c: $CELLS_C) (one process per condition x workload x repetition, block order, cell order rotated per repetition); workloads $WORKS (d16k1 8 x 8 calls warm 4; d16k8 6 x 2 batches of 8 warm 2; d4k1 8 x 16 warm 8; d4k8 6 x 4 x 8 warm 2; c54k1 8 x 16 warm 8; c54k8 6 x 4 x 8 warm 2; d16k16 5 x 1 batch of 16 warm 1; d16k32 4 x 1 x 32 warm 1; c54k16 6 x 2 x 16 warm 1; c54k32 5 x 2 x 32 warm 1); repetitions $REPS"
   for c in "${CS[@]}"; do b=$(bin_of "${c#*=}"); echo "# condition ${c%%=*}: binary $b (sha256 $(sha256sum "$b" | cut -c1-16), core $(ldd "$b" | awk '/libak_core/{print $3}')), env ${c#*:}"; done
@@ -73,12 +78,14 @@ for rep in $(seq 1 "$REPS"); do
     for j in $(seq 0 $((n - 1))); do
       c=${CS[$(( (j + rep - 1) % n ))]}; name=${c%%=*}; rest=${c#*=}; b=$(bin_of "$rest")
       ev=(); [ "$rest" != "${rest#*:}" ] && IFS=, read -r -a ev <<< "${rest#*:}"
+      for i in "${!ev[@]}"; do ev[$i]=${ev[$i]//@TCP@/$TCPADDR}; done
+      t0=$(srv_ticks)
       srv_ok "before $name $w $rep"
       env "${ev[@]}" AK_EXPECT_CPUS="$AK_CPU_CLIENT" AK_RPC_SOCKET="$SOCK" AK_RPC_TRANSPORT=pinned AK_OUT="$OUT/$name-$w-$rep.jsonl" AK_PROBE_CELLS="$(rot "$wc" "$rep")" \
           AK_PROBE_SIZES="$size" AK_PROBE_K="$k" AK_PROBE_ROUNDS="$rounds" AK_PROBE_CALLS="$calls" AK_PROBE_WARM="$warm" \
           AK_PROBE_ORDER=block AK_PROBE_PROC=0 taskset -c "$AK_CPU_CLIENT" "$b" 2> "$OUT/$name-$w-$rep.err"
       srv_ok "after $name $w $rep"
-      echo "$name $w $rep done at +$(( $(date +%s) - S0 )) s" >> "$OUT/progress.txt"
+      echo "$name $w $rep done at +$(( $(date +%s) - S0 )) s, server CPU ticks $(( $(srv_ticks) - t0 ))" >> "$OUT/progress.txt"
     done
   done
 done
