@@ -51,6 +51,16 @@ allocator setting of the main figures in AB_ENV and a `default` pass without it,
 `logs/cpp/opt/physical-probe/patches/p4-h2-coalesce/` (checks-ctl-s6, checks-ctl-s24, checks-h16-c1, checks-h16-c16:
 608/0, 478/0, codec pre-check 0 failed, semantics 0 failed; measure, default, strace; tables.md).
 
+**Deferred-encode cells (EXPERIMENT, Rust patch p5-deferred)**: `Cf-enc-<mode>` and `Cf-encp-<mode>` in
+campaign_rpc, direction d only, framed, blocking delivery: each chunk is sent with `ak_call_send_deferred(h, enc,
+def_encode, &job, last, wait)` (found with dlsym; a core without it refuses the cell with exit 2, checked), the callback
+encoding the chunk with the core codec in the cell's mode into the context the core hands it; wait = 1 (enc) or 0
+(encp; the jobs and the context stay untouched until the recv). No queue form: the patch has no queue variant of the
+deferred send. `--semantics 1` adds 7 deferred cases when the core exports the entry; `--check-stream 1` routes every
+d call to UploadStreamCheck (count and SHA-256 per call). Checks: `gen/deferred_checks.sh`. Measured:
+`logs/cpp/opt/physical-probe/patches/p5-deferred/` (core p1-p2-p3-p5, crates.io h2; `gen/core_ab.sh` with AB_CELLS and
+AB_D_ONLY).
+
 **Step 0: the send path, set explicitly.** The core's default send path is framed since
 2026-09-28 (ABI-v1 section 9), so `core_client()` in `src/campaign_rpc.cpp` now calls
 `ak_client_set_framed(cl, framed ? 1 : 0)` on EVERY core client (FIX-PLAN WP8 item 6): B, C-*,
@@ -648,6 +658,7 @@ Physical machine (`logs/cpp/opt/physical-probe/`):
 | `profile/` | step 4a: `tables.md`; `stat/` (perf stat + profile JSON per process), `plain/` (no perf), `record/` (perf.data gzip'd, `*.attrib.json` buckets, `*.out`), `strace/` (raw strace gzip'd, `*.syscalls.txt`), `runner.log` (headers, machine facts per phase) |
 | `patches/p1-ring/` | p1-ring from C++: `checks/checks.log` (patched core: 608/0, 478/0, codec pre-check 0 failed, semantics 0 failed both builds), `measure/*.out`, `alloc/*.out`, `tables.md`, `runner.log`; `spares24/` the follow-up with a ring of 24 |
 | `patches/p4-h2-coalesce/` | the p1-p3 stack (ctl, core sha256 9e0308aa) against p1-p4 (h16, b140a8fb; h2 0.4.19 patched, AK_H2_COALESCE=16): checks per core and knob, `measure/` (GLIBC_TUNABLES trim 256 MiB, mmap 32 MiB; 3 rounds), `default/` (default allocator, 1 round), `strace/`, `tables.md` |
+| `patches/p5-deferred/` | the p1-p2-p3-p5 core (sha256 b581292d; no-unknown 1137a22d) with the new Cf-enc / Cf-encp cells: `checks/checks.log` (608/0, 478/0, codec pre-check 0 failed, semantics 21/21 both builds incl. 7 deferred cases, HEAD core refuses Cf-enc, 24 check-stream benchmarks with every call's count and SHA-256), `measure/`, `default/`, `strace/`, `tables.md` |
 | `checks/authority.log` | grpc++ 1.80's `unix:` authority reset by the shared server (RST_STREAM PROTOCOL_ERROR), and the calls passing with "localhost" |
 
 Optimisation unit (`logs/cpp/opt/`):

@@ -142,6 +142,9 @@ struct Cell {
                       // directions a and a+read only)
   bool q = false;     // req. 16 as amended 2026-09-28: B, C, E (and framed twins) on the core's
                       // COMPLETION-QUEUE delivery (B-q, C-q-drop, Cf-q-drop, ...), beside the blocking ones
+  int deferred = 0;   // EXPERIMENT (Rust patch p5-deferred): Cf-enc-* (1) and Cf-encp-* (2), direction d
+                      // only: each chunk encoded BY THE TRANSPORT through ak_call_send_deferred (found
+                      // with dlsym; a core without it refuses the cell), wait = 1 / wait = 0
 };
 const char *mode_name(Mode m) {
   return m == kRetain ? "retain" : m == kDrop ? "drop" : m == kNoUnk ? "no-unknown" : "default";
@@ -197,10 +200,15 @@ std::vector<Cell> parse_cells(const std::string &spec) {
       std::string rest = l.substr((fr || pu) ? 2 : 1);
       const bool qq = rest.compare(0, 2, "-q") == 0 && (rest.size() == 2 || rest[2] == '-');
       if (qq) rest = rest.substr(2);
+      int df = 0;
+      if (rest.compare(0, 5, "-encp") == 0 && (rest.size() == 5 || rest[5] == '-')) { df = 2; rest = rest.substr(5); }
+      else if (rest.compare(0, 4, "-enc") == 0 && (rest.size() == 4 || rest[4] == '-')) { df = 1; rest = rest.substr(4); }
       Mode m = rest.empty() ? kDefault
                : rest == "-retain" ? kRetain
                : rest == "-nounk" ? kNoUnk : kDrop;
-      out.push_back(Cell{l[0], m, l, fr, pu, qq});
+      Cell cl{l[0], m, l, fr, pu, qq};
+      cl.deferred = df;
+      out.push_back(cl);
     }
     if (q == std::string::npos) break;
     p = q + 1;
@@ -777,11 +785,34 @@ long q_batch(World &w, size_t ci, const Job &job, int k, ThreadCtx &tc, bool che
   return n;
 }
 
+// EXPERIMENT (Rust patch p5-deferred): ak_call_send_deferred(h, enc, f, user, last, wait), found
+// at run time; NULL on a core without it. The callback encodes the chunk it is handed with the
+// core codec (the cell's mode) into the context the core hands it, on the core worker that
+// writes the call; the core then takes the result framed, as ak_call_send_enc does.
+typedef int32_t (*AkEncodeFn)(void *user, ak_enc_ctx *enc);
+typedef int32_t (*SendDeferredFn)(ak_call *, ak_enc_ctx *, AkEncodeFn, void *, int32_t last, int32_t wait);
+SendDeferredFn g_send_deferred = NULL;
+// --check-stream 1 (a check run, never timed): every direction d call goes to UploadStreamCheck
+// and verifies the server's byte count and SHA-256 of the messages as received.
+bool g_check_stream = false;
+struct DefJob {
+  const Fac5 *v;
+  Mode m;
+  int32_t fail;  // semantics only: return this (< 0) instead of encoding
+};
+int32_t def_encode(void *user, ak_enc_ctx *enc) {
+  const DefJob *j = (const DefJob *)user;
+  if (j->fail < 0) return j->fail;
+  const intptr_t e = core_enc(enc, *j->v, j->m);
+  return e < 0 ? (int32_t)e : (int32_t)(e > 0x7fffffff ? 0x7fffffff : e);
+}
+
 // Direction d, one streamed upload (req. 14): A through grpc++'s typed ClientWriter; B, C, E
 // through the core's client streaming (ak_call_open, a send per chunk, ak_call_recv); D and F
 // through grpc++'s raw ClientWriter, each chunk handed over moved. Returns the chunk count.
 // `check` (the pre-check, never timed) calls UploadStreamCheck and verifies the digest too.
 long stream_call(World &w, size_t ci, int pi, int t, ThreadCtx &tc, bool check = false) {
+  check = check || g_check_stream;
   const Cell &cl = w.cells[ci];
   Conn &cn = w.conns[ci];
   const Stream &st = w.st[pi];
@@ -804,6 +835,28 @@ long stream_call(World &w, size_t ci, int pi, int t, ThreadCtx &tc, bool check =
     if (!s.ok()) die("A/d status", (long)s.error_code());
     std::string a = flatten(rsp);
     check_answer(st, (const uint8_t *)a.data(), a.size(), check);
+    return (long)nmsg;
+  }
+  if (cl.deferred) {  // Cf-enc / Cf-encp: the transport encodes each chunk (wait = 1 / 0)
+    ak_call *h = ak_call_open(cn.cl, (const uint8_t *)path, std::strlen(path), AK_CALL_CLIENT_STREAM, NULL);
+    if (!h) die("ak_call_open", 0);
+    DefJob jobs[16];  // alive, with the values and tc.ec untouched, until the recv completes (wait = 0)
+    if (nmsg > 16) die("Cf-enc: too many chunks", (long)nmsg);
+    for (size_t i = 0; i < nmsg; ++i) {
+      jobs[i].v = &st.f[i];
+      jobs[i].m = cl.mode;
+      jobs[i].fail = 0;
+      const int32_t rc = g_send_deferred(h, tc.ec, def_encode, &jobs[i], i + 1 == nmsg, cl.deferred == 1 ? 1 : 0);
+      if (rc != AK_OK) die("ak_call_send_deferred", rc);
+    }
+    struct ak_bytes out;
+    out.ptr = NULL; out.len = 0; out.owner = NULL;
+    int32_t gs = -1;
+    const int32_t rc = ak_call_recv(h, &out, &gs);
+    if (rc != AK_OK || gs != 0) die(rc == AK_ERR_RPC_STATUS ? "d gRPC status" : "ak_call_recv", rc == AK_ERR_RPC_STATUS ? gs : rc);
+    check_answer(st, out.ptr, out.len, check);
+    ak_bytes_free(&out);
+    ak_call_destroy(h);
     return (long)nmsg;
   }
   if (!grpc_cell(cl.base)) {
@@ -862,6 +915,7 @@ long cell_call(World &w, size_t ci, const Job &job, int t, ThreadCtx &tc) {
   const char cell = cl.base;
   const char dir = job.dir;
   if (dir == 'd') return stream_call(w, ci, job.pi, t, tc);
+  if (cl.deferred) die("Cf-enc / Cf-encp: direction d only (ak_call_send_deferred is a stream send)", dir);
   static const uint8_t kNoReq[1] = {0};
   const bool resp = dir == 'a' || dir == 'r';
   const bool read = dir == 'r';
@@ -1259,6 +1313,83 @@ int q_semantics(World &w) {
     ak_queue_destroy(q);
     ak_client_destroy(cl);
   }
+  // EXPERIMENT (p5-deferred): ak_call_send_deferred, when the core exports it.
+  SendDeferredFn sd = (SendDeferredFn)dlsym(RTLD_DEFAULT, "ak_call_send_deferred");
+  if (!sd) {
+    std::printf("SKIP deferred send: this core does not export ak_call_send_deferred\n");
+  } else {
+    char buf[400];
+    ak_client *fr = core_client(w.rt, w.cfg.target, w.cfg.transport, true);
+    ak_client *rf = core_client(w.rt, w.cfg.target, w.cfg.transport, false);
+    if (!fr || !rf) die("semantics: deferred clients", 0);
+    auto open_on = [&](ak_client *cl, const char *p) {
+      ak_call *h = ak_call_open(cl, (const uint8_t *)p, std::strlen(p), AK_CALL_CLIENT_STREAM, NULL);
+      if (!h) die("semantics: ak_call_open", 0);
+      return h;
+    };
+    // the server's count and SHA-256 of every message as received, both waits, both payloads
+    for (int wt = 1; wt >= 0; --wt)
+      for (int pi = 0; pi < 2; ++pi) {
+        const Stream &st = w.st[pi];
+        ak_call *h = open_on(fr, kUploadStreamCheck);
+        DefJob jobs[16];
+        bool ok = true;
+        for (size_t j = 0; j < st.f.size(); ++j) {
+          jobs[j].v = &st.f[j]; jobs[j].m = m; jobs[j].fail = 0;
+          ok = ok && sd(h, tc.ec, def_encode, &jobs[j], j + 1 == st.f.size(), wt) == AK_OK;
+        }
+        struct ak_bytes out; out.ptr = NULL; out.len = 0; out.owner = NULL;
+        int32_t gs = -1;
+        const int32_t r = ak_call_recv(h, &out, &gs);
+        const bool verdict = r == AK_OK && gs == 0 && out.len == 40 && le64(out.ptr) == st.bytes &&
+                             std::string((const char *)out.ptr + 8, 32) == st.sha;
+        std::snprintf(buf, sizeof(buf), "[framed, deferred wait=%d] %zu deferred sends (%s) to the checking path: sends ok %d; recv %d/%d, %zu B, the server's count and SHA-256 match %d",
+                      wt, st.f.size(), pi ? "16 MiB" : "4 MiB", (int)ok, r, gs, out.len, (int)verdict);
+        check(ok && verdict, buf);
+        ak_bytes_free(&out);
+        ak_call_destroy(h);
+      }
+    // an encode that fails: wait = 1 returns its code; wait = 0 is queued, and the call does not
+    // complete as a full upload
+    for (int wt = 1; wt >= 0; --wt) {
+      const Stream &st = w.st[0];
+      ak_call *h = open_on(fr, kUploadStreamCheck);
+      DefJob j0; j0.v = &st.f[0]; j0.m = m; j0.fail = -77;
+      const int32_t a = sd(h, tc.ec, def_encode, &j0, 1, wt);
+      struct ak_bytes out; out.ptr = NULL; out.len = 0; out.owner = NULL;
+      int32_t gs = -1;
+      const int32_t r = ak_call_recv(h, &out, &gs);
+      const bool full = r == AK_OK && out.len >= 8 && le64(out.ptr) == st.bytes;
+      std::snprintf(buf, sizeof(buf), "[framed, deferred wait=%d] an encode returning -77: send %d (want %d); recv %d/%d, %zu B, a full upload reported %d",
+                    wt, a, wt ? -77 : AK_OK, r, gs, out.len, (int)full);
+      check(a == (wt ? -77 : AK_OK) && !full, buf);
+      ak_bytes_free(&out);
+      ak_call_destroy(h);
+    }
+    // misuse: a send after last; a deferred send on the reference path (framed streams only)
+    {
+      const Stream &st = w.st[0];
+      ak_call *h = open_on(fr, kUploadStreamCheck);
+      DefJob jobs[2];
+      for (int j = 0; j < 2; ++j) { jobs[j].v = &st.f[j]; jobs[j].m = m; jobs[j].fail = 0; }
+      const int32_t a = sd(h, tc.ec, def_encode, &jobs[0], 1, 1);
+      const int32_t b = sd(h, tc.ec, def_encode, &jobs[1], 1, 1);
+      struct ak_bytes out; out.ptr = NULL; out.len = 0; out.owner = NULL;
+      int32_t gs = -1;
+      ak_call_recv(h, &out, &gs);
+      ak_bytes_free(&out);
+      ak_call_destroy(h);
+      ak_call *g = open_on(rf, kUploadStreamCheck);
+      const int32_t c2 = sd(g, tc.ec, def_encode, &jobs[0], 1, 1);
+      ak_call_cancel(g);
+      ak_call_destroy(g);
+      std::snprintf(buf, sizeof(buf), "[deferred misuse] send after last %d (want %d); on the reference path %d (want %d)",
+                    b, AK_ERR_INVALID_STATE, c2, AK_ERR_INVALID_STATE);
+      check(a == AK_OK && b == AK_ERR_INVALID_STATE && c2 == AK_ERR_INVALID_STATE, buf);
+    }
+    ak_client_destroy(fr);
+    ak_client_destroy(rf);
+  }
   std::printf("# {\"campaign_rpc_semantics\": {\"build\": \"%s\", \"checks\": %d, \"failed\": %d}}\n", kBuild, n, bad);
   return bad ? 1 : 0;
 }
@@ -1333,6 +1464,7 @@ int main(int argc, char **argv) {
     else if (a == "--payloads") c.payloads = v;
     else if (a == "--iters") c.iters = v;
     else if (a == "--profile") c.profile = std::atoi(v);
+    else if (a == "--check-stream") g_check_stream = std::atoi(v) != 0;
     else if (a == "--profile-cell") c.profile_cell = v;
     else if (a == "--perf-ctl") c.perf_ctl = v;
     else if (a == "--profile-chunks") c.profile_chunks = std::atoi(v);
@@ -1397,6 +1529,7 @@ int main(int argc, char **argv) {
         || (cl.framed && cl.base != 'B' && cl.base != 'C' && cl.base != 'E')
         || (cl.pull && cl.base != 'C' && cl.base != 'D')
         || (cl.q && (cl.pull || (cl.base != 'B' && cl.base != 'C' && cl.base != 'E')))
+        || (cl.deferred && (cl.base != 'C' || !cl.framed || cl.q || cl.pull))
 #ifdef AK_NO_UNKNOWN_FIELDS
         || cl.mode == kRetain || cl.mode == kDrop
 #else
@@ -1404,6 +1537,21 @@ int main(int argc, char **argv) {
 #endif
         )
       die("unknown cell label", (long)i);
+    if (cl.deferred && !g_send_deferred) {
+      g_send_deferred = (SendDeferredFn)dlsym(RTLD_DEFAULT, "ak_call_send_deferred");
+      if (!g_send_deferred) {
+        std::fprintf(stderr, "REFUSED: cell %s needs a core that exports ak_call_send_deferred (patch p5-deferred); this one does not\n",
+                     cl.label.c_str());
+        return 2;
+      }
+    }
+    if (cl.deferred) {
+      for (size_t j = 0; j < w.jobs.size(); ++j)
+        if (w.jobs[j].dir != 'd') {
+          std::fprintf(stderr, "REFUSED: cell %s runs direction d only (--dirs d)\n", cl.label.c_str());
+          return 2;
+        }
+    }
   }
   int maxk = 1;
   for (int k : c.inflight) maxk = k > maxk ? k : maxk;
@@ -1692,7 +1840,8 @@ int main(int argc, char **argv) {
         char tags[240];
         std::snprintf(tags, sizeof(tags), "inflight=%d,transport=%s,send_path=%s,build=%s%s%s", k, c.transport.c_str(),
                       cl.framed ? "framed" : "reference", kBuild, cl.pull ? ",decode=pull" : "",
-                      grpc_cell(cl.base) ? "" : cl.q ? ",delivery=queue" : ",delivery=blocking");
+                      grpc_cell(cl.base) ? "" : cl.q ? ",delivery=queue" : cl.deferred == 1 ? ",delivery=blocking,send=deferred-wait"
+                      : cl.deferred == 2 ? ",delivery=blocking,send=deferred-nowait" : ",delivery=blocking");
         regs.push_back(Reg{cl.label + "|" + job_payload(w.jobs[ji]) + "|-|" + dir_label(w.jobs[ji].dir) + "|" +
                                mode_name(cl.mode) + "|" + tags,
                            ci, ji, k});

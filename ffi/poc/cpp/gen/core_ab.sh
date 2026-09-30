@@ -13,8 +13,8 @@
 #            between the loop's markers (gen/strace_window.py), fewer batches
 #   AB_CELL_KNOBS  "CELL:K=V,K=V;CELL:..." extra knobs for one cell in every arm (the ring settings)
 #   AB_WLS / AB_CELLS  narrow the workloads and cells
-# Cells A, D-retain, Cf-retain, Cf-q-retain; workloads d/16MiB k=1 and 8, d/4MiB k=1, c/P5.4 k=1 and
-# 8. Each phase holds /tmp/ak-physical-bench.lock with its own 8-worker server (poc/rust/serve.sh
+# Cells A, D-retain, Cf-retain, Cf-q-retain (AB_CELLS for others); workloads d/16MiB and d/4MiB at k=1
+# and 8, c/P5.4 k=1 and 8 (AB_D_ONLY: cells skipped on c). Each phase holds /tmp/ak-physical-bench.lock with its own 8-worker server (poc/rust/serve.sh
 # at HEAD); CLIENT 1-4,11-14, SERVER 5-8,15-18, core 8 workers, grpc-core sized for 8 (ncpus_shim).
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"; cd "$HERE" || exit 2
@@ -35,10 +35,12 @@ for a in "$@"; do
   n=${a%%=*}; rest=${a#*=}; d=${rest%%:*}; k=""; [ "$rest" != "$d" ] && k=${rest#*:}
   ARMS+=("$n"); ACORE[$n]=$(cd "$d" && pwd); AKNOB[$n]=${k//,/ }
 done
-WLS=("d16k1 d 16MiB 1 120 12" "d16k8 d 16MiB 8 20 3" "d4k1 d 4MiB 1 400 40" "c54k1 c P5.4 1 400 40" "c54k8 c P5.4 8 50 6")
+WLS=("d16k1 d 16MiB 1 120 12" "d16k8 d 16MiB 8 20 3" "d4k1 d 4MiB 1 400 40" "d4k8 d 4MiB 8 60 8" "c54k1 c P5.4 1 400 40" "c54k8 c P5.4 8 50 6")
 CELLS=(A D-retain Cf-retain Cf-q-retain)
 if [ -n "${AB_WLS:-}" ]; then kk=(); for w in "${WLS[@]}"; do case " $AB_WLS " in *" ${w%% *} "*) kk+=("$w") ;; esac; done; WLS=("${kk[@]}"); fi
 if [ -n "${AB_CELLS:-}" ]; then read -r -a CELLS <<< "$AB_CELLS"; fi
+# AB_D_ONLY: cells that run direction d only (the deferred-encode cells), skipped on c workloads
+d_only() { case " ${AB_D_ONLY:-} " in *" $1 "*) return 0 ;; esac; return 1; }
 cellknobs() {  # the extra knobs of cell $1
   local e; IFS=';' read -r -a e <<< "${AB_CELL_KNOBS:-}"
   for x in "${e[@]}"; do [ "${x%%:*}" = "$1" ] && echo "${x#*:}" | tr ',' ' '; done
@@ -59,7 +61,7 @@ ENVX=""; [ "$PHASE" != default ] && ENVX=${AB_ENV:-}
     [ "$r" = "${ACORE[$n]}/libak_core.so" ] || { echo "REFUSED: arm $n resolves $r"; exit 1; }
   done
   echo "# every process: ${ENVX:-no extra environment (default allocator)}; cell knobs: ${AB_CELL_KNOBS:-none}"
-  echo "# workloads: ${WLS[*]}; cells: ${CELLS[*]}; rounds: $ROUNDS"
+  echo "# workloads: ${WLS[*]}; cells: ${CELLS[*]} (direction d only: ${AB_D_ONLY:-none}); rounds: $ROUNDS"
   echo "# CLIENT $AK_CPU_CLIENT SERVER $AK_CPU_SERVER; server 8 workers; core --workers $WK; grpc-core sysconf = $GCPUS (ncpus_shim); pinned; retain"
   echo "# machine $(python3 gen/machine_facts.py "$AK_CPU_CLIENT" "$AK_CPU_SERVER")"; } >> "$LOG"
 grep -q REFUSED "$LOG" && exit 1
@@ -82,6 +84,7 @@ case "$PHASE" in
         set -- $w; name=$1; dirs=$2; pay=$3; k=$4; n=$5
         for i in $(seq 0 $((NC - 1))); do
           cell=${CELLS[$(( (i + r - 1) % NC ))]}
+          [ "$dirs" != d ] && d_only "$cell" && continue
           for j in $(seq 0 $((NA - 1))); do
             arm=${ARMS[$(( (j + i + r) % NA ))]}
             run "$arm" "$cell" "$dirs" "$pay" "$k" "$n" "$OUT/$PHASE/$name-$cell-$arm-r$r.out"
@@ -95,6 +98,7 @@ case "$PHASE" in
     for w in "${WLS[@]}"; do
       set -- $w; name=$1; dirs=$2; pay=$3; k=$4; ns=$6
       for cell in "${CELLS[@]}"; do
+        [ "$dirs" != d ] && d_only "$cell" && continue
         for arm in "${ARMS[@]}"; do
           f=$OUT/strace/$name-$cell-$arm
           run "$arm" "$cell" "$dirs" "$pay" "$k" "$ns" "$f.out" strace

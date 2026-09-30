@@ -16,8 +16,9 @@ import os
 import statistics
 import sys
 
-CELLS = ["A", "D-retain", "Cf-retain", "Cf-q-retain"]
-WLS = [("d16k1", "d/16MiB k=1"), ("d16k8", "d/16MiB k=8"), ("d4k1", "d/4MiB k=1"), ("c54k1", "c/P5.4 k=1"), ("c54k8", "c/P5.4 k=8")]
+CELLS = ["A", "D-retain", "Cf-retain", "Cf-q-retain", "Cf-enc-retain", "Cf-encp-retain"]
+WLS = [("d16k1", "d/16MiB k=1"), ("d16k8", "d/16MiB k=8"), ("d4k1", "d/4MiB k=1"), ("d4k8", "d/4MiB k=8"),
+       ("c54k1", "c/P5.4 k=1"), ("c54k8", "c/P5.4 k=8")]
 THREADS = ["caller", "main", "tokio-rt-worker", "event_engine"]
 
 
@@ -90,13 +91,13 @@ def main(out, arms):
         for wt, c, a, d in thr:
             say("| %s | %s | %s | %s |" % (wt, c, a, " | ".join(("%.3f" % d[t]) if t in d else "" for t in THREADS)))
         say("")
-        say("Cf - A and Cf-q - A per round (ms per call, CPU / wall; median of the Cf process minus median of the A "
+        say("Cf-* - A per round (ms per call, CPU / wall; median of the Cf process minus median of the A "
             "process of the same arm and round):")
         say("")
         say("| workload | cell | arm | per round (CPU) | per round (wall) |")
         say("|---|---|---|---|---|")
         for w, wt in WLS:
-            for c in ("Cf-retain", "Cf-q-retain"):
+            for c in [x for x in CELLS if x.startswith("Cf")]:
                 for a in arms:
                     rs = sorted(r for (ww, cc, aa, r) in med if (ww, cc, aa) == (w, c, a) and (w, "A", a, r) in med)
                     if not rs:

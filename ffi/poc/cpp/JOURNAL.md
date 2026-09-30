@@ -1966,3 +1966,18 @@ changes.
   call 1026 -> 73 (k=1) and 1027 -> 85 (k=8); Cf CPU 8.26 -> 6.52 (k=1) and 9.57 -> 7.65 (k=8); Cf - A per round -1.64 to
   -1.98 (k=1), -2.05 to -2.13 (k=8) on h16; A and D unchanged between arms. The default-allocator pass agrees within
   about 0.3 ms.
+
+## 2026-09-30, p5-deferred from C++: cells Cf-enc and Cf-encp
+
+- Worktree at the main HEAD with stack-p1-p2-p3-p5.patch (sha256 a7cd8cdb, crates.io h2), cores copied out (b581292d,
+  no-unknown 1137a22d), worktree reverted. Cells Cf-enc-* / Cf-encp-* added to campaign_rpc (dlsym for the entry, refused
+  without it; direction d only; framed, blocking). No -q forms: the patch has no queue form of the deferred send, and a
+  blocking deferred send from the queue's drainer would not be the queue delivery.
+- Checks (gen/deferred_checks.sh): byte identity 608/0 and 478/0, codec pre-check 0 failed, --semantics 1 21/21 on both
+  builds (7 deferred cases: both waits x both payloads to the checking path with the server's count and SHA-256, a failing
+  encode returns -77 with wait = 1 and is queued with wait = 0, misuse), HEAD core: deferred skipped and Cf-enc refused,
+  --check-stream grid 24 benchmarks (A, D, Cf, Cf-enc, Cf-encp, Cf-q at d/4 and d/16, k 1 and 8).
+- Measured (pinned allocator, ring 6 + lock on the Cf cells): Cf-enc / Cf-encp move the encode off the caller thread (caller
+  2.10 -> 0.13 / 0.11 ms at d/16 k=1) onto the core workers (6.28 -> 7.81 / 7.69), CPU 8.33 -> 7.94 / 7.77, wall
+  8.44 -> 9.03 / 9.11; writes per call unchanged (about 1027 per d/16 call). Cf-enc - A per round -0.19 to -0.38 (k=1),
+  -0.33 to -0.49 (k=8); wall +0.19 to +1.13.
