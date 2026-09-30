@@ -1,0 +1,247 @@
+--- a/ffi/poc/codec/crates/ak-core/src/rpc.rs
++++ b/ffi/poc/codec/crates/ak-core/src/rpc.rs
+@@ -156,6 +156,144 @@
+ 
+ pub struct RuntimeImpl {
+     pub rt: tokio::runtime::Runtime,
++    /// EXPERIMENT p3-exec-slot: set by `ak_runtime_new_hosted`; every task the core spawns
++    /// (its calls' tasks, and through tonic's `Endpoint::executor` hyper's connection task and
++    /// tonic's buffer worker) is handed to the host instead of `rt`, whose workers then only
++    /// drive the I/O and timer drivers.
++    pub host: Option<std::sync::Arc<HostExec>>,
++}
++
++impl RuntimeImpl {
++    /// Spawn one of the core's tasks: on the host's executor when hosted, else on `rt`.
++    pub fn spawn<F: core::future::Future<Output = ()> + Send + 'static>(&self, f: F) {
++        match &self.host {
++            Some(h) => h.spawn(Box::pin(f)),
++            None => {
++                self.rt.spawn(f);
++            }
++        }
++    }
++}
++
++// ---- EXPERIMENT p3-exec-slot (not committed): the host executor slot ----------------------
++//
++// ak_runtime_new_hosted(reactor_workers, spawn, user): a runtime whose tasks run on the HOST's
++// executor. The core keeps `reactor_workers` tokio workers (threads named `ak-reactor`) that
++// only turn its I/O and timer drivers (its sockets are registered there); every task is handed
++// to `spawn(user, task)` from whatever thread spawns it, and the host polls it with
++// ak_task_poll(task, waker, vt) until it returns 1, then frees it with ak_task_free. The poll
++// enters the core runtime's context, so the core's tokio I/O and timers resolve to its drivers.
++// Contract: `spawn` may be called from any thread, including from inside ak_task_poll and before
++// ak_client_new_opts returns (the connection task is spawned while it connects, so the host's
++// executor must already be running: the bootstrap drainer); the host polls one task from one
++// thread at a time; the waker vtable is static and `wake` does not consume its data;
++// ak_runtime_destroy only after every task has been freed and no host thread is inside a poll.
++pub type AkSpawnFn = unsafe extern "C" fn(user: *mut c_void, task: *mut c_void);
++
++#[repr(C)]
++pub struct ak_waker_vt {
++    pub wake: unsafe extern "C" fn(*mut c_void),
++    pub clone: unsafe extern "C" fn(*mut c_void) -> *mut c_void,
++    pub drop: unsafe extern "C" fn(*mut c_void),
++}
++
++pub struct HostExec {
++    spawn: AkSpawnFn,
++    user: usize,
++    handle: tokio::runtime::Handle,
++}
++type BoxFut = core::pin::Pin<Box<dyn core::future::Future<Output = ()> + Send>>;
++struct TaskImpl {
++    fut: std::sync::Mutex<Option<BoxFut>>,
++    handle: tokio::runtime::Handle,
++}
++impl HostExec {
++    fn spawn(&self, f: BoxFut) {
++        let t = Box::into_raw(Box::new(TaskImpl { fut: std::sync::Mutex::new(Some(f)), handle: self.handle.clone() }));
++        rev();
++        unsafe { (self.spawn)(self.user as *mut c_void, t as *mut c_void) };
++    }
++}
++#[derive(Clone)]
++struct HostExecutor(std::sync::Arc<HostExec>);
++impl<F: core::future::Future<Output = ()> + Send + 'static> hyper::rt::Executor<F> for HostExecutor {
++    fn execute(&self, f: F) {
++        self.0.spawn(Box::pin(f));
++    }
++}
++
++struct HostWaker {
++    data: *mut c_void,
++    vt: *const ak_waker_vt,
++}
++unsafe fn hw_raw(hw: HostWaker) -> core::task::RawWaker {
++    core::task::RawWaker::new(Box::into_raw(Box::new(hw)) as *const (), &HW_VT)
++}
++unsafe fn hw_clone(p: *const ()) -> core::task::RawWaker {
++    let hw = &*(p as *const HostWaker);
++    hw_raw(HostWaker { data: ((*hw.vt).clone)(hw.data), vt: hw.vt })
++}
++unsafe fn hw_wake(p: *const ()) {
++    let hw = Box::from_raw(p as *mut HostWaker);
++    ((*hw.vt).wake)(hw.data);
++    ((*hw.vt).drop)(hw.data);
++}
++unsafe fn hw_wake_by_ref(p: *const ()) {
++    let hw = &*(p as *const HostWaker);
++    ((*hw.vt).wake)(hw.data);
++}
++unsafe fn hw_drop(p: *const ()) {
++    let hw = Box::from_raw(p as *mut HostWaker);
++    ((*hw.vt).drop)(hw.data);
++}
++static HW_VT: core::task::RawWakerVTable = core::task::RawWakerVTable::new(hw_clone, hw_wake, hw_wake_by_ref, hw_drop);
++
++#[no_mangle]
++pub unsafe extern "C" fn ak_runtime_new_hosted(reactor_workers: u32, spawn: AkSpawnFn, user: *mut c_void) -> *mut ak_runtime {
++    let n = if reactor_workers == 0 { 1 } else { reactor_workers as usize };
++    match tokio::runtime::Builder::new_multi_thread().worker_threads(n).thread_name("ak-reactor").enable_all().build() {
++        Ok(rt) => {
++            let host = std::sync::Arc::new(HostExec { spawn, user: user as usize, handle: rt.handle().clone() });
++            Box::into_raw(Box::new(RuntimeImpl { rt, host: Some(host) })) as *mut ak_runtime
++        }
++        Err(_) => core::ptr::null_mut(),
++    }
++}
++
++/// Poll a hosted task once: 1 = finished (free it with ak_task_free), 0 = pending (the waker
++/// built from `data`/`vt` will be woken), -1 = NULL task.
++#[no_mangle]
++pub unsafe extern "C" fn ak_task_poll(task: *mut c_void, data: *mut c_void, vt: *const ak_waker_vt) -> i32 {
++    if task.is_null() || vt.is_null() {
++        return -1;
++    }
++    let t = &*(task as *const TaskImpl);
++    let waker = core::task::Waker::from_raw(hw_raw(HostWaker { data: ((*vt).clone)(data), vt }));
++    let mut cx = core::task::Context::from_waker(&waker);
++    let _g = t.handle.enter();
++    let mut slot = match t.fut.lock() {
++        Ok(g) => g,
++        Err(p) => p.into_inner(),
++    };
++    match slot.as_mut() {
++        Some(f) => match f.as_mut().poll(&mut cx) {
++            core::task::Poll::Ready(()) => {
++                *slot = None;
++                1
++            }
++            core::task::Poll::Pending => 0,
++        },
++        None => 1,
++    }
++}
++
++#[no_mangle]
++pub unsafe extern "C" fn ak_task_free(task: *mut c_void) {
++    if !task.is_null() {
++        let t = Box::from_raw(task as *mut TaskImpl);
++        let _g = t.handle.enter();
++        drop(t);
++    }
+ }
+ 
+ pub struct ClientImpl {
+@@ -226,7 +364,7 @@
+         .enable_all()
+         .build()
+     {
+-        Ok(rt) => Box::into_raw(Box::new(RuntimeImpl { rt })) as *mut ak_runtime,
++        Ok(rt) => Box::into_raw(Box::new(RuntimeImpl { rt, host: None })) as *mut ak_runtime,
+         Err(_) => core::ptr::null_mut(),
+     }
+ }
+@@ -287,6 +425,7 @@
+     } else {
+         *opts
+     };
++    let host = rt.host.clone();
+     let chan = rt.rt.block_on(async move {
+         // `unix:` targets included: from_shared dispatches on the scheme.
+         let mut ep = tonic::transport::Endpoint::from_shared(s).ok()?;
+@@ -303,6 +442,9 @@
+             // ArmoniK's sense, inverted for tonic's: nagle on means nodelay off.
+             ep = ep.tcp_nodelay(o.tcp_nagle == 0);
+         }
++        if let Some(h) = &host {
++            ep = ep.executor(HostExecutor(h.clone()));
++        }
+         ep.connect().await.ok()
+     });
+     match chan {
+@@ -806,7 +948,7 @@
+     let c2 = cancel.clone();
+     let max_send = link.cfg.max_send;
+     let preframed = link.framed;
+-    rt.rt.spawn(async move {
++    rt.spawn(async move {
+         let cfg = link.cfg.clone();
+         let r = cancellable(c2, async move {
+             if link.framed {
+@@ -947,7 +1089,7 @@
+         Err(e) => return e,
+     };
+     let slot = st.tx.clone();
+-    (*st.rt).rt.spawn(async move {
++    (*st.rt).spawn(async move {
+         let sent = tx.send(b).await.is_ok();
+         let status = send_end(&slot, tx, sent, last, who);
+         let grpc_status = if status == AK_OK { 0 } else { -1 };
+@@ -1041,7 +1183,7 @@
+         Ok(v) => v,
+         Err(e) => return e,
+     };
+-    (*st.rt).rt.spawn(async move {
++    (*st.rt).spawn(async move {
+         let (status, grpc_status, b) = stream_outcome(who, recv_once(rx).await);
+         sink.deliver(ak_completion { tag, status, grpc_status, bytes: b.map_or_else(empty_ak_bytes, into_ak_bytes) });
+     });
+@@ -1202,7 +1344,7 @@
+     let ctx = CbCtx { cb, user: user_data };
+     let cancel = std::sync::Arc::new(tokio::sync::Notify::new());
+     let c2 = cancel.clone();
+-    rt.rt.spawn(async move {
++    rt.spawn(async move {
+         let ctx = ctx;
+         let mut comp = completion(tag, "ak_call_unary_cb", cancellable(c2, unary_once(chan, path, body, pre)).await);
+         rev();
+@@ -1240,7 +1382,7 @@
+     let qaddr = q as usize;
+     let cancel = std::sync::Arc::new(tokio::sync::Notify::new());
+     let c2 = cancel.clone();
+-    rt.rt.spawn(async move {
++    rt.spawn(async move {
+         let comp = completion(tag, "ak_call_unary_q", cancellable(c2, unary_once(chan, path, body, pre)).await);
+         let qi = unsafe { &*(qaddr as *const QueueImpl) };
+         if let Ok(mut st) = qi.m.lock() {
+@@ -1268,7 +1410,7 @@
+ fn spawn_unary(rt: &RuntimeImpl, link: Link, path: http::uri::PathAndQuery, body: Bytes, pre: bool, sink: Sink, tag: u64, who: &'static str) -> *mut ak_call {
+     let cancel = std::sync::Arc::new(tokio::sync::Notify::new());
+     let c2 = cancel.clone();
+-    rt.rt.spawn(async move {
++    rt.spawn(async move {
+         let comp = completion(tag, who, cancellable(c2, unary_once(link, path, body, pre)).await);
+         sink.deliver(comp);
+     });
+diff --git a/ffi/poc/codec/crates/ak-core/Cargo.toml b/ffi/poc/codec/crates/ak-core/Cargo.toml
+index 0adadfcd..66d43c7f 100644
+--- a/ffi/poc/codec/crates/ak-core/Cargo.toml
++++ b/ffi/poc/codec/crates/ak-core/Cargo.toml
+@@ -45,7 +45,7 @@ corpus = ["ak-abi/corpus"]
+ # ABI v1 section 9, behind a feature so a codec arm does not link tonic and tokio into the
+ # shared object it is timing. The rust slice turns it on; the cpp slice turns it on for its
+ # RPC arm only; the java and csharp slices do not have one.
+-rpc = ["dep:rpc", "dep:tonic", "dep:tokio", "dep:bytes", "dep:http"]
++rpc = ["dep:rpc", "dep:tonic", "dep:tokio", "dep:bytes", "dep:http", "dep:hyper"]
+ 
+ [dependencies]
+ ak-abi = { path = "../ak-abi", default-features = false }
+@@ -56,3 +56,5 @@ tonic = { workspace = true, features = ["codegen", "transport"], optional = true
+ tokio = { workspace = true, features = ["rt-multi-thread", "net", "time", "sync", "macros"], optional = true }
+ bytes = { workspace = true, optional = true }
+ http = { workspace = true, optional = true }
++# EXPERIMENT p3-exec-slot: hyper::rt::Executor for the host executor slot.
++hyper = { version = "1", default-features = false, optional = true }

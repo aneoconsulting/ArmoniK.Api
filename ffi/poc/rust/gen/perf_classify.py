@@ -48,6 +48,8 @@ def tclass(comm):
         return "host-rt (cell-rt)"
     if comm.startswith("tokio-rt") or comm.startswith("tokio-runtime"):
         return "core-rt"
+    if comm.startswith("ak-reactor"):
+        return "core-reactor"
     if comm == "caller":
         return "caller"
     return "main" if comm.startswith("stream_probe") else f"other:{comm}"

@@ -32,12 +32,13 @@ use std::sync::{Arc, Condvar, Mutex};
 struct Client {
     rt: *mut ak_runtime,
     c: *mut ak_client,
+    hosted: bool,
 }
 
 impl Client {
     fn new(target: &str, framed: bool, max_send: u32, max_recv: u32) -> Client {
         unsafe {
-            let rt = ak_runtime_new(2);
+            let (rt, hosted) = grid::test_runtime(2);
             let o = ak_client_opts {
                 stream_window: 0,
                 connection_window: 0,
@@ -49,7 +50,7 @@ impl Client {
             let c = ak_client_new_opts(rt, target.as_ptr(), target.len(), &o);
             assert!(!c.is_null());
             assert_eq!(ak_client_set_framed(c, framed as i32), AK_OK);
-            Client { rt, c }
+            Client { rt, c, hosted }
         }
     }
     fn unary(&self, path: &str, req: &[u8]) -> (i32, i32, usize) {
@@ -90,7 +91,9 @@ impl Drop for Client {
     fn drop(&mut self) {
         unsafe {
             ak_client_destroy(self.c);
-            ak_runtime_destroy(self.rt);
+            if !self.hosted {
+                ak_runtime_destroy(self.rt);
+            }
         }
     }
 }

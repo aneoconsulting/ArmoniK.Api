@@ -174,6 +174,9 @@ where
 pub struct CoreClient {
     rt: *mut ak_runtime,
     client: *mut ak_client,
+    /// The host runtime a HOSTED core runtime hands its tasks to (patch p3-exec-slot); None
+    /// for the core's own runtime.
+    host: Option<Arc<tokio::runtime::Runtime>>,
 }
 unsafe impl Send for CoreClient {}
 unsafe impl Sync for CoreClient {}
@@ -183,8 +186,25 @@ impl CoreClient {
         self.client
     }
     pub fn new(target: &str, pinned: bool) -> Self {
+        // AK_CORE_HOSTED=1 (experiment p3-exec-slot, a patched core only): every core client
+        // of the process on a hosted runtime whose tasks run on one shared host runtime, so
+        // upload_check and rpc_semantics can be run against that mode.
+        if std::env::var("AK_CORE_HOSTED").map_or(false, |v| v == "1") {
+            static H: std::sync::OnceLock<Arc<tokio::runtime::Runtime>> = std::sync::OnceLock::new();
+            return Self::new_hosted(target, pinned, H.get_or_init(host_runtime).clone());
+        }
+        let rt = unsafe { ak_runtime_new(core_workers()) };
+        Self::with_runtime(rt, target, pinned, None)
+    }
+    /// A client on a HOSTED core runtime (patch p3-exec-slot: `ak_runtime_new_hosted`, found
+    /// with dlsym; panics on a core without it): the core's tasks run on `host`, the core keeps
+    /// one `ak-reactor` thread for its I/O and timer drivers.
+    pub fn new_hosted(target: &str, pinned: bool, host: Arc<tokio::runtime::Runtime>) -> Self {
+        let rt = unsafe { hosted::runtime(&host) };
+        Self::with_runtime(rt, target, pinned, Some(host))
+    }
+    fn with_runtime(rt: *mut ak_runtime, target: &str, pinned: bool, host: Option<Arc<tokio::runtime::Runtime>>) -> Self {
         unsafe {
-            let rt = ak_runtime_new(core_workers());
             let client = if pinned {
                 let o = ak_client_opts {
                     stream_window: WIN,
@@ -199,7 +219,7 @@ impl CoreClient {
                 ak_client_new(rt, target.as_ptr(), target.len())
             };
             assert!(!client.is_null(), "core client for {target}");
-            CoreClient { rt, client }
+            CoreClient { rt, client, host }
         }
     }
     /// Optimisation R2: one blocking call whose request is `enc`'s encoded output, moved
@@ -361,8 +381,96 @@ impl Drop for CoreClient {
     fn drop(&mut self) {
         unsafe {
             ak_client_destroy(self.client);
-            ak_runtime_destroy(self.rt);
+            // A hosted core runtime is left to the process's end: host tasks may still hold
+            // its handle (the executor slot's destroy contract).
+            if self.host.is_none() {
+                ak_runtime_destroy(self.rt);
+            }
         }
+    }
+}
+
+/// A core runtime for the semantics test: `ak_runtime_new(workers)`, or with AK_CORE_HOSTED=1
+/// a hosted one (patch p3-exec-slot) on one shared host runtime; true when hosted (then it is
+/// never destroyed: the executor slot's destroy contract).
+pub fn test_runtime(workers: u32) -> (*mut ak_runtime, bool) {
+    if std::env::var("AK_CORE_HOSTED").map_or(false, |v| v == "1") {
+        static H: std::sync::OnceLock<Arc<tokio::runtime::Runtime>> = std::sync::OnceLock::new();
+        let h = H.get_or_init(host_runtime).clone();
+        (unsafe { hosted::runtime(&h) }, true)
+    } else {
+        (unsafe { ak_runtime_new(workers) }, false)
+    }
+}
+
+/// The host side of the executor slot (experiment p3-exec-slot): the core hands every task to
+/// `spawn`, which spawns a future on the host runtime that polls it through `ak_task_poll`
+/// with the host's own waker behind the slot's waker vtable. The entries are looked up with
+/// dlsym so this crate builds and runs against a core without them.
+pub mod hosted {
+    use super::*;
+    type NewHosted = unsafe extern "C" fn(u32, unsafe extern "C" fn(*mut c_void, *mut c_void), *mut c_void) -> *mut ak_runtime;
+    type Poll = unsafe extern "C" fn(*mut c_void, *mut c_void, *const WakerVt) -> i32;
+    type Free = unsafe extern "C" fn(*mut c_void);
+    #[repr(C)]
+    pub struct WakerVt {
+        wake: unsafe extern "C" fn(*mut c_void),
+        clone: unsafe extern "C" fn(*mut c_void) -> *mut c_void,
+        drop: unsafe extern "C" fn(*mut c_void),
+    }
+    unsafe extern "C" fn w_wake(d: *mut c_void) {
+        (*(d as *const std::task::Waker)).wake_by_ref();
+    }
+    unsafe extern "C" fn w_clone(d: *mut c_void) -> *mut c_void {
+        Box::into_raw(Box::new((*(d as *const std::task::Waker)).clone())) as *mut c_void
+    }
+    unsafe extern "C" fn w_drop(d: *mut c_void) {
+        drop(Box::from_raw(d as *mut std::task::Waker));
+    }
+    static VT: WakerVt = WakerVt { wake: w_wake, clone: w_clone, drop: w_drop };
+    fn sym<T>(name: &[u8]) -> T {
+        let p = unsafe { libc::dlsym(libc::RTLD_DEFAULT, name.as_ptr() as *const libc::c_char) };
+        assert!(!p.is_null(), "{} missing: the hosted cells need a core built with patch p3-exec-slot", String::from_utf8_lossy(&name[..name.len() - 1]));
+        unsafe { std::mem::transmute_copy::<*mut c_void, T>(&p) }
+    }
+    struct Task {
+        t: usize,
+        poll: Poll,
+        free: Free,
+        done: bool,
+    }
+    impl Future for Task {
+        type Output = ();
+        fn poll(mut self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> std::task::Poll<()> {
+            let w = cx.waker() as *const std::task::Waker as *mut c_void;
+            if unsafe { (self.poll)(self.t as *mut c_void, w, &VT) } == 0 {
+                return std::task::Poll::Pending;
+            }
+            self.done = true;
+            std::task::Poll::Ready(())
+        }
+    }
+    impl Drop for Task {
+        fn drop(&mut self) {
+            unsafe { (self.free)(self.t as *mut c_void) };
+        }
+    }
+    struct Ctx {
+        handle: tokio::runtime::Handle,
+        poll: Poll,
+        free: Free,
+    }
+    unsafe extern "C" fn spawn(user: *mut c_void, task: *mut c_void) {
+        let c = &*(user as *const Ctx);
+        c.handle.spawn(Task { t: task as usize, poll: c.poll, free: c.free, done: false });
+    }
+    /// A hosted core runtime whose tasks run on `host` (one `ak-reactor` driver thread).
+    pub unsafe fn runtime(host: &tokio::runtime::Runtime) -> *mut ak_runtime {
+        let new: NewHosted = sym(b"ak_runtime_new_hosted\0");
+        let ctx = Box::leak(Box::new(Ctx { handle: host.handle().clone(), poll: sym(b"ak_task_poll\0"), free: sym(b"ak_task_free\0") }));
+        let rt = new(1, spawn, ctx as *mut Ctx as *mut c_void);
+        assert!(!rt.is_null(), "ak_runtime_new_hosted");
+        rt
     }
 }
 

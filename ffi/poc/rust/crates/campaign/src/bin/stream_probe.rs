@@ -94,6 +94,8 @@ fn threads() -> BTreeMap<i32, Th> {
             "cell-rt"
         } else if comm.starts_with("tokio-rt-worker") || comm.starts_with("tokio-runtime-w") {
             "core-rt"
+        } else if comm.starts_with("ak-reactor") {
+            "core-reactor"
         } else {
             "other"
         };
@@ -528,6 +530,70 @@ fn df_one_frame(conn: &Conn, chunks: usize, k: usize) -> Call {
     }))
 }
 
+/// `Cn-1rt` (Goal 2, harness only): the core linked as Rust crates, one tokio runtime. The
+/// core's transport crate (`rpc`) and the core-native codec called directly on the host's
+/// runtime (the cell's own, AK_HOST_WORKERS workers), no C ABI and no second runtime; built as
+/// the core builds a stream: per call, the transport's future spawned as its own task reading
+/// an mpsc(1) (rpc::client_streaming_preframed_cfg over rpc::ReceiverStream), the caller's task
+/// encoding each chunk (retain, FRAME_HEAD headroom, take_framed: one body frame, the spare
+/// ring) and awaiting the send. Direction c: the same encode, rpc::unary_preframed_cfg.
+/// Harness's tonic Channel with the pinned windows (as the core's pinned client).
+fn cn_1rt(conn: &Conn, label: &'static str, chunks: usize, k: usize) -> Call {
+    use campaign::generated::roots::R_UploadResultDataMessage as M5;
+    use campaign::Ops;
+    let (rt, ch) = match conn {
+        Conn::Tonic(rt, ch) => (rt.clone(), ch.clone()),
+        _ => panic!("Cn-1rt needs a tonic connection"),
+    };
+    let encs: &'static [std::sync::Mutex<ak_rt::Enc>] = Box::leak((0..k).map(|_| {
+        let mut e = ak_rt::Enc::new(facade::generated::core_native::SITES);
+        e.head = ak_rt::enc::FRAME_HEAD;
+        std::sync::Mutex::new(e)
+    }).collect::<Vec<_>>().into_boxed_slice());
+    let check = std::env::var("AK_PROBE_CHECK").map_or(false, |v| v == "1");
+    if chunks == 0 {
+        let (f_val, _, _) = grid::m5_values(label);
+        return Call::Async(rt, Arc::new(move |i| {
+            let ch = ch.clone();
+            let body = {
+                let mut e = encs[i].lock().unwrap();
+                M5::n_encode(f_val, &mut e, true);
+                e.take_framed()
+            };
+            Box::pin(async move {
+                let resp = rpc::unary_preframed_cfg(ch, http::uri::PathAndQuery::from_static(grid::UPLOAD), body, &rpc::CallCfg::default())
+                    .await.map_err(|e| e.to_string())?;
+                if resp.is_empty() { Ok(()) } else { Err(format!("Cn-1rt upload response {} B, expected 0", resp.len())) }
+            }) as grid::Fut
+        }));
+    }
+    let pl = grid::stream_payload(chunks);
+    let want = (chunks * grid::CHUNK) as u64;
+    let (path, sha) = if check { (grid::STREAM_CHECK, Some(&pl.sha256)) } else { (grid::STREAM, None) };
+    Call::Async(rt, Arc::new(move |i| {
+        let ch = ch.clone();
+        Box::pin(async move {
+            let (tx, rx) = tokio::sync::mpsc::channel::<bytes::Bytes>(1);
+            let h = tokio::spawn(async move {
+                rpc::client_streaming_preframed_cfg(ch, http::uri::PathAndQuery::from_static(path), rpc::ReceiverStream::new(rx), &rpc::CallCfg::default()).await
+            });
+            for j in 0..chunks {
+                let b = {
+                    let mut e = encs[i].lock().unwrap();
+                    M5::n_encode(&pl.f[j], &mut e, true);
+                    e.take_framed()
+                };
+                if tx.send(b).await.is_err() {
+                    break;
+                }
+            }
+            drop(tx);
+            let resp = h.await.map_err(|e| e.to_string())?.map_err(|e| e.to_string())?;
+            grid::stream_response(&resp, want, sha)
+        }) as grid::Fut
+    }))
+}
+
 fn main() {
     assert!(harness::generated::binding::ak_init_once() >= 0);
     let socket: String = std::env::var("AK_RPC_SOCKET").expect("AK_RPC_SOCKET");
@@ -543,11 +609,11 @@ fn main() {
     // channel), so an A/A gap in the same process is measured beside every cell's gap to A.
     let cells: Vec<&'static str> = env("AK_PROBE_CELLS", "A,D,Df,C,Cf,C-cb,Cf-cb,B,Bf".to_string())
         .split(',').map(|s| match s { "Df-chan" => "Df-chan", "Cf-split" => "Cf-split", "C-split" => "C-split",
-                                       "Cf-cb-split" => "Cf-cb-split", "C-cb-split" => "C-cb-split", "A2" => "A2", "Ff-1f" => "Ff-1f", "Df-1f" => "Df-1f", s => grid::cell_of(s) }).collect();
+                                       "Cf-cb-split" => "Cf-cb-split", "C-cb-split" => "C-cb-split", "A2" => "A2", "Ff-1f" => "Ff-1f", "Df-1f" => "Df-1f", "Cf-cb-1rt" => "Cf-cb-1rt", "Cn-1rt" => "Cn-1rt", s => grid::cell_of(s) }).collect();
     // The grid cell each probe-only name runs on.
     let base = |c: &'static str| -> &'static str {
         match c { "Df-chan" => grid::cell_of("Df"), "Cf-split" => grid::cell_of("Cf"), "C-split" => grid::cell_of("C"),
-                  "Cf-cb-split" => grid::cell_of("Cf-cb"), "C-cb-split" => grid::cell_of("C-cb"), "A2" => "A", "Ff-1f" => grid::cell_of("Ff"), "Df-1f" => grid::cell_of("Df"), c => c }
+                  "Cf-cb-split" => grid::cell_of("Cf-cb"), "C-cb-split" => grid::cell_of("C-cb"), "A2" => "A", "Ff-1f" => grid::cell_of("Ff"), "Df-1f" => grid::cell_of("Df"), "Cf-cb-1rt" => grid::cell_of("Cf-cb"), "Cn-1rt" => grid::cell_of("Ff"), c => c }
     };
     // (label, chunks): direction d's sizes, or direction c's payload with chunks = 0.
     let sizes: Vec<(&'static str, usize)> = env("AK_PROBE_SIZES", "16MiB,4MiB".to_string()).split(',')
@@ -564,11 +630,25 @@ fn main() {
     let warm: usize = env("AK_PROBE_WARM", 4);
     let out: String = env("AK_OUT", "stream-probe.jsonl".to_string());
 
-    let conns: Vec<Conn> = cells.iter().map(|c| Conn::open(base(c), &target, pinned)).collect();
+    // `Cf-cb-1rt` (Goal 2, patch p3-exec-slot): cell Cf-cb with the core's runtime HOSTED on
+    // the cell's own runtime: the core's tasks (its calls', hyper's connection task, tonic's
+    // buffer worker) run on the host's workers, the core keeping one `ak-reactor` thread for
+    // its I/O and timer drivers; delivery as Cf-cb (callback into a oneshot).
+    let conns: Vec<Conn> = cells.iter().map(|c| match *c {
+        "Cf-cb-1rt" => {
+            let rt = grid::host_runtime();
+            let cc = grid::CoreClient::new_hosted(&target, pinned, rt.clone());
+            assert_eq!(unsafe { ak_abi::ak_client_set_framed(cc.raw(), 1) }, ak_abi::AK_OK);
+            Conn::CoreCb(Arc::new(cc), rt)
+        }
+        c => Conn::open(base(c), &target, pinned),
+    }).collect();
     let mut work = Vec::new();
     for (ci, &cell) in cells.iter().enumerate() {
         for &(label, chunks) in &sizes {
-            let call = if chunks == 0 {
+            let call = if cell == "Cn-1rt" {
+                cn_1rt(&conns[ci], label, chunks, k)
+            } else if chunks == 0 {
                 assert!(!cell.ends_with("-split") && cell != "Df-chan", "{cell}: direction d only");
                 grid::call_of_c(base(cell), &conns[ci], label, grid::slots(k), 0)
             } else if cell == "Df-chan" {
@@ -582,7 +662,7 @@ fn main() {
             } else if cell.ends_with("-split") {
                 core_split(&conns[ci], chunks, k)
             } else {
-                grid::call_of_d(base(cell), &conns[ci], chunks, grid::slots(k), (chunks * grid::CHUNK) as u64, false)
+                grid::call_of_d(base(cell), &conns[ci], chunks, grid::slots(k), (chunks * grid::CHUNK) as u64, std::env::var("AK_PROBE_CHECK").map_or(false, |v| v == "1"))
             };
             let caller = Caller::new(&call, k);
             caller.run(warm).unwrap_or_else(|e| panic!("warm-up {cell} {label}: {e}"));
@@ -654,7 +734,7 @@ fn main() {
     };
     // AK_PERF_CELL: perf counts only that cell's timed rounds (every other cell runs as usual).
     let perf_cell: Option<&'static str> = std::env::var("AK_PERF_CELL").ok().map(|c| match c.as_str() {
-        "Df-chan" | "Cf-split" | "C-split" | "Cf-cb-split" | "C-cb-split" | "A2" | "Ff-1f" | "Df-1f" => Box::leak(c.into_boxed_str()) as &'static str,
+        "Df-chan" | "Cf-split" | "C-split" | "Cf-cb-split" | "C-cb-split" | "A2" | "Ff-1f" | "Df-1f" | "Cf-cb-1rt" | "Cn-1rt" => Box::leak(c.into_boxed_str()) as &'static str,
         s => grid::cell_of(s),
     });
     let mut perf_on = false;

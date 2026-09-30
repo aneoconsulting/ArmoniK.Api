@@ -69,7 +69,7 @@ for w in $WORKS; do
     probe "$OUT/rec-$w-$cell" "$cell" "$w" 0 AK_PERF_CTL="$SCR/ctl,$SCR/ack" \
       perf record -q --call-graph dwarf,16384 -F 1999 --control "fifo:$SCR/ctl,$SCR/ack" -D -1 -o "$SCR/rec-$w-$cell.data" --
     perf script -i "$SCR/rec-$w-$cell.data" -F comm,tid,period,ip,sym,dso 2> /dev/null > "$SCR/rec-$w-$cell.script"
-    python3 gen/perf_classify.py "$SCR/rec-$w-$cell.script" > "$OUT/rec-$w-$cell.txt"
+    python3 gen/perf_classify.py "$SCR/rec-$w-$cell.script" ${AK_AT_SYSMAP:+"$AK_AT_SYSMAP"} > "$OUT/rec-$w-$cell.txt"
     [ "${AK_AT_INPROC:-0}" = 1 ] && continue
     probe "$OUT/proc-$w-$cell" "$cell" "$w" 1
     probe "$OUT/strace-$w-$cell" "$cell" "$w" 0 strace -f -c -o "$OUT/strace-$w-$cell.txt"

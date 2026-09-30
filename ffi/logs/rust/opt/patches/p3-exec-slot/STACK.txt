@@ -1,0 +1,1 @@
+# stack: p1-ring (ak-rt enc.rs) + p2-take-framed (ak-core rpc.rs, additive) + p3-exec-slot (ak-core rpc.rs and Cargo.toml: hyper for its Executor trait). stack-p1-p2-p3.patch is the whole stack against HEAD's ffi/poc/codec.
