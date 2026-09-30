@@ -1,0 +1,1 @@
+# stack: p1-ring, p2-take-framed, p3-exec-slot, p5-deferred, then p6-zero-copy (ak-rt enc.rs; ak-core lib.rs enc_blob, rpc.rs entries ak_enc_set_zc and ak_call_send_enc_zc). p4 (h2) is applied only in the ffi/poc/codec build of the core.
