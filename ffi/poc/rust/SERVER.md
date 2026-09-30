@@ -13,6 +13,7 @@ poc/rust/serve.sh build            # once: rpc_server + rpc_warm, release, poc/r
 poc/rust/serve.sh start --out DIR  # prints:  shipped /tmp/aksrv.XXXXXX/shipped.sock
                                    #          pinned  /tmp/aksrv.XXXXXX/pinned.sock
                                    #          pid     N
+                                   #          tcp     127.0.0.1:PORT   (only with AK_SERVER_TCP)
 poc/rust/serve.sh warm N           # N checked calls per direction, tonic + core clients, both sockets
 poc/rust/serve.sh stop
 ```
@@ -27,6 +28,15 @@ poc/rust/serve.sh stop
 - `serve.sh warm N`: on each socket, N checked Fetch (a), Push (b) and Upload (c) calls and
   ceil(N/4) UploadStream (d, 4 MiB) calls, from a tonic client with prost and from the core's
   client with prost. Exit 3 on the first failed check.
+
+## Optional TCP listener (loopback)
+
+`AK_SERVER_TCP=PORT serve.sh start --out DIR` (PORT 0 = any free port) also serves the same
+service on `127.0.0.1:PORT`, from the same process, runtime and workers, always in the **pinned**
+configuration (4 MiB stream and connection windows, adaptive window off, the same 8 MiB receive
+limit), with `TCP_NODELAY` set on every accepted socket. `start` prints and the state file holds
+one more line, `tcp 127.0.0.1:PORT`; dial `http://127.0.0.1:PORT`. `serve.sh warm N` then also
+warms it (pinned clients). Unset, the server is Unix sockets only, as before.
 
 ## Server configurations
 
