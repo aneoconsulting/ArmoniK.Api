@@ -1,0 +1,112 @@
+# 886 samples, 934,706,005 cycles sampled (weights = periods)
+
+## thread class
+
+   74.3%  core-rt
+   25.4%  caller
+    0.3%  main
+
+## leaf crate (self)
+
+   72.7%  kernel
+   19.6%  libc:mem
+    3.2%  h2
+    1.5%  tokio
+    0.8%  libc:alloc
+    0.3%  ak_core(C ABI)
+    0.3%  libc:other
+    0.3%  http
+    0.3%  tonic
+    0.2%  ak_core
+    0.2%  std
+    0.1%  alloc
+    0.1%  other:libm.so.6
+    0.1%  campaign
+    0.1%  other:[vdso]
+    0.1%  ak_rt
+    0.1%  harness
+
+## libc leaves by caller crate
+
+   19.6%  libc:mem     <- ak_core
+    0.8%  libc:alloc   <- h2
+    0.1%  libc:other   <- mio
+    0.1%  libc:other   <- ?
+    0.0%  libc:other   <- stream_probe
+
+## kernel leaves by user entry (first resolved user frame) and caller crate
+
+   67.0%  __syscall_cancel_arch_end                <- mio
+    3.1%  ?                                        <- ?
+    1.9%  syscall                                  <- tokio
+    0.2%  __memmove_evex_unaligned_erms            <- ak_core
+    0.2%  __syscall_cancel_arch_end                <- serde_json
+    0.1%  tokio::runtime::context::scoped::Scoped< <- tokio
+    0.1%  __syscall_cancel_arch_end                <- stream_probe
+    0.1%  syscall                                  <- stream_probe
+
+## inclusive: samples with any frame in the crate
+
+   94.7%  std
+   94.7%  libc:other
+   94.6%  core
+   74.8%  tokio
+   73.1%  kernel
+   69.1%  h2
+   68.6%  hyper
+   67.1%  mio
+   22.0%  ak_core(C ABI)
+   22.0%  campaign
+   21.9%  ak_core
+   20.1%  harness
+   19.8%  libc:mem
+    1.1%  hyper_util
+    1.1%  tokio_util
+    0.8%  libc:alloc
+    0.5%  tonic
+    0.4%  rpc
+    0.3%  stream_probe
+    0.3%  other:stream_probe
+    0.3%  http
+    0.2%  http_body_util
+    0.2%  other:libak_core.so
+    0.2%  serde_core
+    0.2%  serde_json
+    0.1%  alloc
+    0.1%  tower
+    0.1%  other:libm.so.6
+    0.1%  other:[vdso]
+    0.1%  ak_rt
+
+## top leaf symbols
+
+   72.7%  [kernel] [unknown]
+   19.6%  [libc:mem] __memmove_evex_unaligned_erms
+    1.2%  [h2] h2::codec::framed_write::FramedWrite<T,B>::flush
+    0.4%  [libc:alloc] _int_malloc
+    0.4%  [h2] h2::codec::framed_write::Split::head
+    0.3%  [h2] h2::hpack::table::Table::index
+    0.2%  [h2] h2::codec::framed_read::decode_frame
+    0.2%  [ak_core(C ABI)] ak_call_open
+    0.2%  [tokio] tokio::runtime::scheduler::multi_thread::worker::<impl tokio::runtime::scheduler::multi_thread::handle::Handle
+    0.2%  [tokio] tokio::future::block_on::block_on
+    0.2%  [libc:other] __GI___writev
+    0.2%  [libc:alloc] __libc_malloc2
+    0.1%  [h2] h2::proto::streams::streams::DynStreams<B>::recv_window_update
+    0.1%  [h2] h2::hpack::decoder::Decoder::decode
+    0.1%  [tokio] tokio::runtime::io::scheduled_io::ScheduledIo::poll_readiness
+    0.1%  [http] http::header::name::parse_hdr
+    0.1%  [alloc] <alloc::vec::Vec<T,A> as core::clone::Clone>::clone
+    0.1%  [tonic] <tonic::transport::channel::Channel as tower_service::Service<http::request::Request<tonic::body::Body>>>::pol
+    0.1%  [h2] h2::proto::streams::store::Queue<N>::pop
+    0.1%  [libc:alloc] _int_free_chunk
+    0.1%  [h2] h2::proto::streams::counts::Counts::transition
+    0.1%  [tokio] tokio::sync::task::atomic_waker::AtomicWaker::register_by_ref
+    0.1%  [http] http::header::name::StandardHeader::as_str
+    0.1%  [std] <std::sys::sync::mutex::futex::Mutex>::lock_contended
+    0.1%  [tokio] tokio::runtime::context::scoped::Scoped<T>::with
+    0.1%  [h2] h2::proto::streams::prioritize::Prioritize::reclaim_frame
+    0.1%  [tokio] tokio::runtime::io::driver::Driver::turn
+    0.1%  [libc:alloc] _int_free_create_chunk
+    0.1%  [h2] h2::proto::connection::Connection<T,P,B>::poll
+    0.1%  [h2] h2::proto::streams::streams::Streams<B,P>::has_streams_or_other_references

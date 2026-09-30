@@ -1,0 +1,123 @@
+# 777 samples, 709,241,683 cycles sampled (weights = periods)
+
+## thread class
+
+   79.9%  core-rt
+   19.5%  caller
+    0.6%  main
+
+## leaf crate (self)
+
+   72.7%  kernel
+   14.4%  libc:mem
+    4.3%  h2
+    3.2%  tokio
+    1.4%  libc:alloc
+    1.0%  libc:other
+    0.6%  http
+    0.4%  std
+    0.4%  hyper
+    0.3%  (no frames)
+    0.3%  core
+    0.2%  other:stream_probe
+    0.2%  other:libm.so.6
+    0.1%  tower
+    0.1%  tracing
+    0.1%  bytes
+    0.1%  tonic
+    0.0%  futures_core
+    0.0%  mio
+
+## libc leaves by caller crate
+
+   13.8%  libc:mem     <- ak_core
+    0.7%  libc:alloc   <- h2
+    0.6%  libc:other   <- mio
+    0.4%  libc:mem     <- h2
+    0.3%  libc:alloc   <- tokio
+    0.3%  libc:other   <- tokio
+    0.2%  libc:mem     <- hyper
+    0.1%  libc:alloc   <- hyper
+    0.1%  libc:alloc   <- http
+    0.1%  libc:other   <- ?
+    0.1%  libc:alloc   <- tonic
+    0.1%  libc:alloc   <- __rustc
+    0.0%  libc:mem     <- tokio
+
+## kernel leaves by user entry (first resolved user frame) and caller crate
+
+   64.9%  __syscall_cancel_arch_end                <- mio
+    4.7%  ?                                        <- ?
+    1.9%  syscall                                  <- tokio
+    0.3%  __syscall_cancel_arch_end                <- other:libak_core.so
+    0.3%  __syscall_cancel_arch_end                <- serde_json
+    0.2%  http::header::map::hash_elem_using       <- http
+    0.2%  __syscall_cancel_arch_start              <- mio
+    0.1%  __memmove_evex_unaligned_erms            <- ak_core
+    0.1%  __syscall_cancel_arch_end                <- serde_core
+
+## inclusive: samples with any frame in the crate
+
+   91.8%  libc:other
+   91.3%  std
+   91.2%  core
+   78.1%  tokio
+   73.2%  kernel
+   67.4%  hyper
+   66.9%  h2
+   65.7%  mio
+   14.5%  libc:mem
+   14.1%  ak_core
+   14.0%  harness
+   14.0%  ak_core(C ABI)
+   14.0%  campaign
+    1.8%  tonic
+    1.4%  libc:alloc
+    1.4%  tokio_util
+    1.2%  tower
+    1.0%  http
+    0.8%  hyper_util
+    0.6%  serde_core
+    0.6%  serde_json
+    0.6%  stream_probe
+    0.6%  other:stream_probe
+    0.5%  rpc
+    0.3%  other:libak_core.so
+    0.2%  other:libm.so.6
+    0.1%  tracing
+    0.1%  bytes
+    0.1%  __rustc
+    0.0%  futures_channel
+
+## top leaf symbols
+
+   72.7%  [kernel] [unknown]
+   14.4%  [libc:mem] __memmove_evex_unaligned_erms
+    2.0%  [h2] h2::codec::framed_write::FramedWrite<T,B>::flush
+    0.7%  [libc:alloc] cfree@GLIBC_2.2.5
+    0.5%  [http] http::header::map::hash_elem_using
+    0.4%  [h2] h2::proto::streams::streams::Streams<B,P>::clear_expired_reset_streams
+    0.4%  [tokio] tokio::runtime::io::scheduled_io::ScheduledIo::poll_readiness
+    0.4%  [libc:alloc] _int_malloc
+    0.4%  [tokio] tokio::runtime::context::scoped::Scoped<T>::set
+    0.3%  [libc:other] __internal_syscall_cancel
+    0.3%  [tokio] tokio::runtime::scheduler::multi_thread::worker::Context::park_internal
+    0.3%  [libc:alloc] _int_free_chunk
+    0.3%  [h2] h2::proto::streams::prioritize::Prioritize::recv_connection_window_update
+    0.3%  [tokio] tokio::runtime::task::waker::wake_by_val
+    0.3%  [h2] h2::proto::streams::streams::Streams<B,P>::poll_complete
+    0.3%  [h2] h2::proto::streams::streams::Streams<B,P>::send_pending_refusal
+    0.2%  [h2] h2::proto::ping_pong::PingPong::send_pending_pong
+    0.2%  [libc:other] syscall
+    0.2%  [core] core::ptr::drop_in_place<std::sync::poison::mutex::MutexGuard<h2::proto::streams::streams::Inner>>
+    0.2%  [hyper] hyper::proto::h2::strip_connection_headers
+    0.2%  [std] <std::sys::sync::mutex::futex::Mutex>::lock_contended
+    0.2%  [h2] h2::frame::headers::HeaderBlock::load
+    0.2%  [tokio] tokio::sync::oneshot::State::set_complete
+    0.2%  [other:stream_probe] <u64 as itoa::Unsigned>::fmt
+    0.2%  [hyper] <hyper::client::dispatch::SendWhen<B,E> as core::future::future::Future>::poll
+    0.2%  [tokio] tokio::runtime::scheduler::multi_thread::idle::Idle::transition_worker_to_parked
+    0.2%  [tokio] tokio::sync::mpsc::chan::Rx<T,S>::recv
+    0.2%  [h2] h2::proto::streams::streams::Streams<B,P>::has_streams_or_other_references
+    0.2%  [libc:other] __syscall_cancel_arch_end
+    0.2%  [other:libm.so.6] __pow_finite@GLIBC_2.15@plt

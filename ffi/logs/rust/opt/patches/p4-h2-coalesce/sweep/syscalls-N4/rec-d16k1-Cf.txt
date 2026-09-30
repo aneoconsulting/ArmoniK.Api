@@ -1,0 +1,122 @@
+# 959 samples, 1,082,127,016 cycles sampled (weights = periods)
+
+## thread class
+
+   76.5%  core-rt
+   23.3%  caller
+    0.3%  main
+
+## leaf crate (self)
+
+   74.7%  kernel
+   16.6%  libc:mem
+    2.4%  h2
+    1.9%  tokio
+    1.2%  libc:alloc
+    0.6%  libc:other
+    0.5%  hyper
+    0.4%  bytes
+    0.4%  ak_core(C ABI)
+    0.3%  core
+    0.3%  ak_core
+    0.2%  tokio_util
+    0.1%  tracing
+    0.1%  futures_channel
+    0.1%  campaign
+    0.1%  ak_rt
+    0.1%  hyper_util
+
+## libc leaves by caller crate
+
+   16.4%  libc:mem     <- ak_core
+    0.8%  libc:alloc   <- h2
+    0.3%  libc:other   <- tokio
+    0.2%  libc:other   <- ?
+    0.2%  libc:alloc   <- ak_rt
+    0.1%  libc:mem     <- h2
+    0.1%  libc:alloc   <- tokio
+    0.1%  libc:alloc   <- http
+    0.1%  libc:other   <- mio
+    0.1%  libc:mem     <- tokio
+    0.0%  libc:mem     <- bytes
+
+## kernel leaves by user entry (first resolved user frame) and caller crate
+
+   67.9%  __syscall_cancel_arch_end                <- mio
+    4.0%  ?                                        <- ?
+    1.8%  syscall                                  <- tokio
+    0.5%  __memmove_evex_unaligned_erms            <- ak_core
+    0.1%  syscall                                  <- ?
+    0.1%  __vdso_clock_gettime                     <- other:[vdso]
+    0.1%  ak_core::rpc::send_begin                 <- ak_core
+    0.1%  __syscall_cancel_arch_end                <- serde_core
+    0.1%  __getrusage                              <- stream_probe
+    0.0%  syscall                                  <- stream_probe
+    0.0%  __syscall_cancel_arch_end                <- ?
+    0.0%  __syscall_cancel_arch_end                <- serde_json
+
+## inclusive: samples with any frame in the crate
+
+   93.7%  libc:other
+   93.5%  core
+   93.2%  std
+   76.3%  tokio
+   75.0%  kernel
+   69.4%  hyper
+   69.1%  h2
+   68.0%  mio
+   19.2%  ak_core(C ABI)
+   19.0%  campaign
+   18.7%  ak_core
+   17.1%  libc:mem
+   16.9%  harness
+    1.7%  tokio_util
+    1.4%  hyper_util
+    1.2%  libc:alloc
+    0.6%  tonic
+    0.5%  bytes
+    0.4%  rpc
+    0.2%  ak_rt
+    0.2%  http_body_util
+    0.2%  stream_probe
+    0.2%  other:stream_probe
+    0.1%  tower
+    0.1%  tracing
+    0.1%  futures_channel
+    0.1%  http
+    0.1%  serde_core
+    0.1%  serde_json
+    0.1%  other:libak_core.so
+
+## top leaf symbols
+
+   74.7%  [kernel] [unknown]
+   16.6%  [libc:mem] __memmove_evex_unaligned_erms
+    0.6%  [h2] h2::codec::framed_write::FramedWrite<T,B>::flush
+    0.3%  [tokio] tokio::runtime::context::scoped::Scoped<T>::set
+    0.3%  [h2] h2::proto::streams::prioritize::Prioritize::buffer_pending
+    0.3%  [libc:alloc] __libc_malloc2
+    0.3%  [libc:alloc] _int_free_merge_chunk
+    0.2%  [h2] <h2::proto::streams::store::Ptr as core::ops::deref::Deref>::deref
+    0.2%  [tokio] tokio::runtime::io::driver::Driver::turn
+    0.2%  [bytes] <bytes::bytes_mut::BytesMut as bytes::buf::buf_mut::BufMut>::put_slice
+    0.2%  [tokio_util] <tokio_util::codec::length_delimited::LengthDelimitedCodec as tokio_util::codec::decoder::Decoder>::decode
+    0.2%  [hyper] <hyper::proto::h2::client::H2ClientFuture<B,T,E> as core::future::future::Future>::poll
+    0.2%  [tokio] tokio::runtime::park::CachedParkThread::block_on
+    0.2%  [ak_core(C ABI)] ak_uencode_UploadResultDataMessage
+    0.2%  [libc:alloc] _int_malloc
+    0.2%  [tokio] <tokio::sync::mpsc::bounded::Semaphore as tokio::sync::mpsc::chan::Semaphore>::add_permit
+    0.1%  [tracing] tracing::span::Span::current
+    0.1%  [h2] h2::frame::headers::calculate_headermap_size
+    0.1%  [h2] h2::proto::connection::Connection<T,P,B>::poll
+    0.1%  [h2] h2::proto::streams::streams::Streams<B,P>::poll_complete
+    0.1%  [h2] h2::proto::streams::store::Store::find_mut
+    0.1%  [ak_core] ak_core::rpc::ak_call_open::{{closure}}
+    0.1%  [libc:alloc] _int_free_chunk
+    0.1%  [libc:other] epoll_wait
+    0.1%  [libc:other] clock_gettime@@GLIBC_2.17
+    0.1%  [h2] h2::proto::streams::store::Queue<N>::push
+    0.1%  [tokio] tokio::runtime::context::scoped::Scoped<T>::with
+    0.1%  [libc:alloc] cfree@GLIBC_2.2.5
+    0.1%  [h2] h2::proto::streams::counts::Counts::transition_after
+    0.1%  [libc:alloc] _int_free_maybe_consolidate.part.0

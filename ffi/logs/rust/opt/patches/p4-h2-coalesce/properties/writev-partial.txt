@@ -1,0 +1,15 @@
+writev calls 272; with more than 100 kB offered: 192; of those accepted in full 164, partially 28, refused (EAGAIN) 0
+offered bytes / iovecs / returned, first 12 large writes:
+   (262288, 32, 219264)
+   (262288, 32, 262288)
+   (262288, 32, 262288)
+   (262288, 32, 262288)
+   (262288, 32, 219264)
+   (262288, 32, 182720)
+   (262288, 32, 219264)
+   (262288, 32, 219264)
+   (262335, 33, 219264)
+   (262288, 32, 182720)
+   (262288, 32, 262288)
+   (262288, 32, 262288)
+partial returns: min 182720 max 219264 median offered 262288

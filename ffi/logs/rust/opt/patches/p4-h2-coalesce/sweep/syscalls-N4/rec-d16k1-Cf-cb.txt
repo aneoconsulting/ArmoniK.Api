@@ -1,0 +1,123 @@
+# 1019 samples, 1,108,898,414 cycles sampled (weights = periods)
+
+## thread class
+
+   76.2%  core-rt
+   23.6%  host-rt (cell-rt)
+    0.2%  main
+
+## leaf crate (self)
+
+   72.2%  kernel
+   18.6%  libc:mem
+    2.7%  tokio
+    2.2%  h2
+    0.8%  libc:other
+    0.8%  libc:alloc
+    0.3%  std
+    0.3%  core
+    0.3%  rpc
+    0.2%  ak_rt
+    0.2%  (no frames)
+    0.2%  __rustc
+    0.1%  hyper
+    0.1%  http
+    0.1%  tonic
+    0.1%  tokio_util
+    0.1%  bytes
+    0.1%  mio
+    0.1%  harness
+    0.1%  ak_core
+    0.1%  stream_probe
+    0.1%  other:stream_probe
+    0.1%  alloc
+
+## libc leaves by caller crate
+
+   18.0%  libc:mem     <- ak_core
+    0.5%  libc:alloc   <- h2
+    0.4%  libc:other   <- tokio
+    0.4%  libc:other   <- mio
+    0.3%  libc:mem     <- h2
+    0.2%  libc:alloc   <- __rustc
+    0.1%  libc:mem     <- tokio
+    0.1%  libc:alloc   <- tokio
+    0.1%  libc:mem     <- ak_rt
+    0.1%  libc:other   <- h2
+
+## kernel leaves by user entry (first resolved user frame) and caller crate
+
+   63.5%  __syscall_cancel_arch_end                <- mio
+    4.6%  ?                                        <- ?
+    3.6%  syscall                                  <- tokio
+    0.2%  __syscall_cancel_arch_end                <- serde_json
+    0.1%  __syscall_cancel_arch_end                <- ?
+    0.1%  __syscall_cancel_arch_start              <- mio
+    0.1%  __syscall_cancel_arch_end                <- serde_core
+    0.0%  __vdso_clock_gettime                     <- other:[vdso]
+
+## inclusive: samples with any frame in the crate
+
+   93.3%  tokio
+   93.1%  std
+   93.1%  core
+   93.0%  libc:other
+   72.7%  kernel
+   66.1%  h2
+   66.0%  hyper
+   64.2%  mio
+   19.0%  ak_core
+   18.9%  campaign
+   18.9%  stream_probe
+   18.6%  libc:mem
+   18.5%  ak_core(C ABI)
+   18.1%  harness
+    0.9%  libc:alloc
+    0.9%  tokio_util
+    0.6%  tonic
+    0.5%  hyper_util
+    0.5%  rpc
+    0.4%  ak_rt
+    0.4%  __rustc
+    0.3%  http_body_util
+    0.3%  tower
+    0.3%  bytes
+    0.3%  other:stream_probe
+    0.2%  serde_json
+    0.1%  http
+    0.1%  other:libak_core.so
+    0.1%  serde_core
+    0.1%  alloc
+
+## top leaf symbols
+
+   72.2%  [kernel] [unknown]
+   18.5%  [libc:mem] __memmove_evex_unaligned_erms
+    0.6%  [h2] h2::codec::framed_write::FramedWrite<T,B>::flush
+    0.4%  [tokio] tokio::runtime::context::scoped::Scoped<T>::set
+    0.3%  [tokio] tokio::runtime::context::with_scheduler
+    0.3%  [libc:alloc] malloc
+    0.3%  [rpc] <rpc::FramedStream<S> as http_body::Body>::poll_frame
+    0.2%  [tokio] tokio::runtime::scheduler::multi_thread::idle::Idle::worker_to_notify
+    0.2%  [ak_rt] <ak_rt::enc::Recycle as core::ops::drop::Drop>::drop
+    0.2%  [h2] h2::proto::streams::counts::Counts::transition_after
+    0.2%  [libc:other] clock_gettime@@GLIBC_2.17
+    0.2%  [h2] h2::codec::framed_read::decode_frame
+    0.2%  [tokio] tokio::runtime::io::scheduled_io::ScheduledIo::poll_readiness
+    0.2%  [tokio] tokio::runtime::scheduler::multi_thread::park::Inner::park_condvar
+    0.2%  [libc:alloc] _int_free_chunk
+    0.2%  [__rustc] __rustc::__rdl_alloc
+    0.2%  [h2] h2::proto::streams::prioritize::Prioritize::buffer_pending
+    0.2%  [h2] <h2::proto::streams::store::Ptr as core::ops::deref::Deref>::deref
+    0.2%  [libc:other] __syscall_cancel
+    0.2%  [libc:other] syscall
+    0.1%  [tokio] tokio::runtime::task::harness::Harness<T,S>::poll
+    0.1%  [libc:other] __internal_syscall_cancel
+    0.1%  [h2] h2::proto::connection::Connection<T,P,B>::poll
+    0.1%  [hyper] hyper::proto::h2::client::ClientTask<B,E,T>::poll_pipe
+    0.1%  [http] http::header::map::hash_elem_using
+    0.1%  [std] <&std::os::unix::net::stream::UnixStream as std::io::Write>::write_vectored
+    0.1%  [tokio] tokio::runtime::io::registration::Registration::poll_io
+    0.1%  [core] <core::pin::Pin<P> as core::future::future::Future>::poll
+    0.1%  [tokio] tokio::sync::task::atomic_waker::AtomicWaker::register_by_ref
+    0.1%  [h2] h2::hpack::table::Table::index

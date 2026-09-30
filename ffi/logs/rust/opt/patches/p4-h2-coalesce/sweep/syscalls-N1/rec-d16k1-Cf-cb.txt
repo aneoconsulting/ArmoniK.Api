@@ -1,0 +1,130 @@
+# 1277 samples, 1,473,324,766 cycles sampled (weights = periods)
+
+## thread class
+
+   80.5%  core-rt
+   19.3%  host-rt (cell-rt)
+    0.2%  main
+
+## leaf crate (self)
+
+   73.1%  kernel
+   15.4%  libc:mem
+    3.6%  h2
+    3.1%  tokio
+    0.9%  libc:other
+    0.7%  libc:alloc
+    0.5%  bytes
+    0.4%  tonic
+    0.4%  std
+    0.3%  ak_core
+    0.2%  tokio_util
+    0.2%  (no frames)
+    0.2%  hyper
+    0.2%  core
+    0.1%  campaign
+    0.1%  rpc
+    0.1%  hyper_util
+    0.1%  stream_probe
+    0.1%  other:libak_core.so
+    0.1%  tower
+    0.1%  ak_core(C ABI)
+    0.1%  __rustc
+    0.1%  harness
+    0.1%  alloc
+
+## libc leaves by caller crate
+
+   13.4%  libc:mem     <- ak_core
+    1.0%  libc:mem     <- bytes
+    0.8%  libc:mem     <- h2
+    0.5%  libc:other   <- tokio
+    0.5%  libc:other   <- mio
+    0.1%  libc:alloc   <- __rustc
+    0.1%  libc:alloc   <- h2
+    0.1%  libc:alloc   <- hyper
+    0.1%  libc:alloc   <- tonic
+    0.1%  libc:alloc   <- campaign
+    0.1%  libc:alloc   <- http
+    0.1%  libc:mem     <- tokio
+    0.1%  libc:alloc   <- ak_rt
+
+## kernel leaves by user entry (first resolved user frame) and caller crate
+
+   66.3%  __syscall_cancel_arch_end                <- mio
+    3.1%  syscall                                  <- tokio
+    2.9%  ?                                        <- ?
+    0.1%  __memmove_evex_unaligned_erms            <- ak_core
+    0.1%  tokio::runtime::scheduler::multi_thread: <- tokio
+    0.1%  __syscall_cancel_arch_end                <- other:libak_core.so
+    0.1%  clock_gettime@@GLIBC_2.17                <- tokio
+    0.1%  syscall                                  <- h2
+    0.1%  __syscall_cancel_arch_start              <- mio
+    0.1%  __syscall_cancel_arch_end                <- serde_json
+    0.1%  __syscall_cancel_arch_end                <- serde_core
+
+## inclusive: samples with any frame in the crate
+
+   94.0%  tokio
+   93.5%  core
+   93.4%  std
+   93.3%  libc:other
+   73.8%  kernel
+   67.4%  h2
+   66.9%  mio
+   66.6%  hyper
+   61.2%  tokio_util
+   15.5%  libc:mem
+   15.2%  ak_core
+   14.9%  campaign
+   14.6%  stream_probe
+   14.3%  ak_core(C ABI)
+   13.7%  harness
+    1.6%  bytes
+    0.7%  libc:alloc
+    0.7%  tonic
+    0.5%  other:libak_core.so
+    0.4%  tower
+    0.4%  rpc
+    0.2%  hyper_util
+    0.2%  __rustc
+    0.1%  serde_core
+    0.1%  serde_json
+    0.1%  other:stream_probe
+    0.1%  http
+    0.1%  http_body_util
+    0.1%  tracing_core
+    0.1%  alloc
+
+## top leaf symbols
+
+   73.1%  [kernel] [unknown]
+   15.4%  [libc:mem] __memmove_evex_unaligned_erms
+    0.9%  [h2] h2::proto::streams::prioritize::Prioritize::buffer_pending
+    0.8%  [h2] h2::proto::streams::streams::Streams<B,P>::poll_complete
+    0.4%  [h2] h2::codec::framed_write::Encoder<B>::buffer
+    0.3%  [libc:other] clock_gettime@@GLIBC_2.17
+    0.3%  [tokio] tokio::runtime::context::scoped::Scoped<T>::set
+    0.3%  [tokio] tokio::runtime::io::registration::Registration::poll_io
+    0.3%  [bytes] <bytes::bytes_mut::BytesMut as bytes::buf::buf_mut::BufMut>::put
+    0.3%  [tokio] tokio::runtime::scheduler::multi_thread::worker::Core::maintenance
+    0.3%  [tonic] <tonic::transport::channel::service::io::BoxedIo as hyper::rt::io::Write>::poll_flush
+    0.2%  [bytes] <bytes::bytes_mut::BytesMut as bytes::buf::buf_mut::BufMut>::put_slice
+    0.2%  [tokio_util] tokio_util::util::poll_buf::poll_write_buf
+    0.2%  [libc:alloc] cfree@GLIBC_2.2.5
+    0.2%  [tokio] tokio::runtime::io::driver::Driver::turn
+    0.2%  [tokio] tokio::runtime::io::registration::Registration::poll_ready
+    0.2%  [libc:other] __syscall_cancel
+    0.2%  [libc:alloc] malloc
+    0.2%  [tokio] tokio::runtime::time::Driver::park_internal
+    0.2%  [ak_core] ak_core::rpc::stream_send_to::{{closure}}
+    0.2%  [libc:other] __internal_syscall_cancel
+    0.2%  [tokio] tokio::runtime::scheduler::multi_thread::worker::Context::park_internal
+    0.2%  [tokio] tokio::runtime::io::scheduled_io::ScheduledIo::poll_readiness
+    0.2%  [tokio] tokio::runtime::scheduler::multi_thread::worker::<impl tokio::runtime::scheduler::multi_thread::handle::Handle
+    0.2%  [libc:other] __tls_get_addr
+    0.1%  [h2] h2::proto::connection::Connection<T,P,B>::poll
+    0.1%  [ak_core] ak_core::rpc::stream_send_to
+    0.1%  [h2] h2::codec::framed_write::FramedWrite<T,B>::flush
+    0.1%  [libc:alloc] _int_malloc
+    0.1%  [tonic] <tonic::transport::channel::service::add_origin::AddOrigin<T> as tower_service::Service<http::request::Request

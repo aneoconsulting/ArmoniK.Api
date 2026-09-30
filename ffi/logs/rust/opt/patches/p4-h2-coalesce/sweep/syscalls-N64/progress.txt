@@ -1,0 +1,4 @@
+stat d16k1 done at +1 s
+record/proc/strace d16k1 done at +5 s
+stat c54k1 done at +6 s
+record/proc/strace c54k1 done at +10 s
