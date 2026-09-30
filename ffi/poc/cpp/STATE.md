@@ -692,6 +692,7 @@ Physical machine (`logs/cpp/opt/physical-probe/`):
 | `patches/p7-deferred-zc/` | the p1-p2-p3-p5-p6-p7 core (sha256 01f731b5; no-unknown 59c08722): `checks/checks.log` (608/0, 478/0, codec pre-check 0 failed, semantics 33/33 both builds, HEAD refuses Cf-zc/zcp/zcw, 28 check-stream benchmarks), `measure/`, `default/`, `tables.md`; `wall/` (the k = 8 wall question: p7 and the p4 h16 core, server sampling and batch trace, `tables-wall.md`) |
 | `cfq/` | the Cf-q investigation (see the section above), `q1-inline.patch` |
 | `stability/run1/`, `stability/run2/` | the stability campaign: `proc/*.out` (one-cell processes in run order), `runner.log` (headers, machine facts after every round), `tables.md` |
+| `tcp-vs-uds/` | UDS against TCP loopback (2026-10-01): `checks/client-nodelay.log` (TCP dialing, TCP_NODELAY read back on live client sockets), `proc/` (138 one-cell processes with the server's perf stat), `strace/`, `runner.log`, `tables.md` |
 | `checks/authority.log` | grpc++ 1.80's `unix:` authority reset by the shared server (RST_STREAM PROTOCOL_ERROR), and the calls passing with "localhost" |
 
 Optimisation unit (`logs/cpp/opt/`):
