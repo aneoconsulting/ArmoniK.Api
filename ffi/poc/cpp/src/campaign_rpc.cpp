@@ -333,6 +333,7 @@ std::map<long, std::pair<unsigned long long, unsigned long long> > server_times(
   }
   return m;
 }
+std::map<long, std::pair<unsigned long long, unsigned long long> > g_csw;  // voluntary, involuntary per tid
 std::map<long, unsigned long long> g_wait_ns;  // schedstat's second field (ns waiting on a run queue), per tid
 std::map<long, std::pair<std::string, unsigned long long> > thread_times() {
   std::map<long, std::pair<std::string, unsigned long long> > m;
@@ -348,6 +349,16 @@ std::map<long, std::pair<std::string, unsigned long long> > thread_times() {
       fs >> ns >> waitns;
       g_wait_ns[std::atol(e->d_name)] = waitns;
       const long tid = std::atol(e->d_name);
+      {
+        std::ifstream st(base + "/status");
+        std::string line;
+        unsigned long long vv = 0, nv = 0;
+        while (std::getline(st, line)) {
+          if (line.compare(0, 24, "voluntary_ctxt_switches:") == 0) vv = std::strtoull(line.c_str() + 24, NULL, 10);
+          else if (line.compare(0, 27, "nonvoluntary_ctxt_switches:") == 0) nv = std::strtoull(line.c_str() + 27, NULL, 10);
+        }
+        g_csw[tid] = std::make_pair(vv, nv);
+      }
       if (tid == self) comm = "main";
       else if (comm == "campaign_rpc") comm = "caller";
       m[tid] = std::make_pair(comm, ns);
@@ -729,6 +740,16 @@ void q_send(const Cell &cl, ThreadCtx &tc, ak_call *h, const Stream &st, size_t 
 
 // One batch of k calls of a queue cell for one job. `check` (d only, the untimed pre-check):
 // UploadStreamCheck, the server's SHA-256 verified. Returns a fold.
+// EXPERIMENT (Cf-q attribution): AK_Q_SLOT_CTX=1 gives each in-flight slot of a queue cell's d
+// batch its own encode context (the blocking cells have one per caller thread; the queue cell's
+// single drainer otherwise encodes every stream through one context and one spare ring).
+ThreadCtx *q_slot_ctx(int s) {
+  static const bool on = std::getenv("AK_Q_SLOT_CTX") && std::string(std::getenv("AK_Q_SLOT_CTX")) == "1";
+  static ThreadCtx *slots[16] = {0};
+  if (!on || s < 0 || s >= 16) return NULL;
+  if (!slots[s]) slots[s] = new ThreadCtx();
+  return slots[s];
+}
 long q_batch(World &w, size_t ci, const Job &job, int k, ThreadCtx &tc, bool check = false) {
   const Cell &cl = w.cells[ci];
   Conn &cn = w.conns[ci];
@@ -786,7 +807,8 @@ long q_batch(World &w, size_t ci, const Job &job, int k, ThreadCtx &tc, bool che
     h[s] = ak_call_open(cn.cl, (const uint8_t *)path, std::strlen(path), AK_CALL_CLIENT_STREAM, NULL);
     if (!h[s]) die("ak_call_open", s);
     next[s] = 0;
-    q_send(cl, tc, h[s], st, 0, cn.q, ((uint64_t)s << 8) | kOpSend);
+    ThreadCtx *sc = q_slot_ctx(s);
+    q_send(cl, sc ? *sc : tc, h[s], st, 0, cn.q, ((uint64_t)s << 8) | kOpSend);
     state[s] = kOpSend;
   }
   for (int left = k; left > 0;) {
@@ -798,7 +820,8 @@ long q_batch(World &w, size_t ci, const Job &job, int k, ThreadCtx &tc, bool che
     if (op == kOpSend) {
       if (c.status != AK_OK || c.bytes.len != 0) die("ak_call_send_q completion", c.status);
       if (++next[s] < nmsg) {
-        q_send(cl, tc, h[s], st, next[s], cn.q, ((uint64_t)s << 8) | kOpSend);
+        ThreadCtx *sc = q_slot_ctx(s);
+        q_send(cl, sc ? *sc : tc, h[s], st, next[s], cn.q, ((uint64_t)s << 8) | kOpSend);
       } else {
         const int32_t rc = ak_call_recv_q(h[s], cn.q, ((uint64_t)s << 8) | kOpRecv);
         if (rc != AK_OK) die("ak_call_recv_q (refused)", rc);
@@ -2053,6 +2076,7 @@ int main(int argc, char **argv) {
     const unsigned long big0 = big ? big() : 0;
     std::map<long, std::pair<std::string, unsigned long long> > t0 = thread_times();
     const std::map<long, unsigned long long> w0 = g_wait_ns;
+    const std::map<long, std::pair<unsigned long long, unsigned long long> > csw0 = g_csw;
     const long spid = std::getenv("AK_SERVER_PID") ? std::atol(std::getenv("AK_SERVER_PID")) : 0;
     const std::map<long, std::pair<unsigned long long, unsigned long long> > s0 = server_times(spid);
     const double loop0 = now_ns(CLOCK_MONOTONIC);
@@ -2095,6 +2119,13 @@ int main(int argc, char **argv) {
     std::snprintf(sb, sizeof(sb), "\"server\": {\"pid\": %ld, \"threads\": %zu, \"cpu_ns\": %.0f, \"wait_ns\": %.0f, \"max_thread_ns\": %.0f,"
                   " \"threads_over_5pct\": %d, \"loop_wall_ns\": %.0f}", spid, s1.size(), scpu, swait, smax, sbusy, loopw);
     std::map<long, std::pair<std::string, unsigned long long> > t1 = thread_times();
+    std::map<std::string, std::pair<double, double> > clcsw;  // voluntary / involuntary switches by class
+    for (std::map<long, std::pair<std::string, unsigned long long> >::const_iterator i = t1.begin(); i != t1.end(); ++i) {
+      std::map<long, std::pair<unsigned long long, unsigned long long> >::const_iterator a = g_csw.find(i->first), b = csw0.find(i->first);
+      if (a == g_csw.end()) continue;
+      clcsw[i->second.first].first += (double)(a->second.first - (b == csw0.end() ? 0ULL : b->second.first));
+      clcsw[i->second.first].second += (double)(a->second.second - (b == csw0.end() ? 0ULL : b->second.second));
+    }
     std::map<std::string, double> clsw;  // run-queue wait (schedstat field 2) by class
     for (std::map<long, std::pair<std::string, unsigned long long> >::const_iterator i = t1.begin(); i != t1.end(); ++i) {
       std::map<long, unsigned long long>::const_iterator a = g_wait_ns.find(i->first), b = w0.find(i->first);
@@ -2158,6 +2189,16 @@ int main(int argc, char **argv) {
       for (std::map<std::string, double>::const_iterator i = clsw.begin(); i != clsw.end(); ++i) {
         char bb[120];
         std::snprintf(bb, sizeof(bb), "%s\"%s\": %.0f", f1 ? "" : ", ", i->first.c_str(), i->second);
+        o += bb;
+        f1 = false;
+      }
+    }
+    o += "}, \"thread_csw\": {";
+    {
+      bool f1 = true;
+      for (std::map<std::string, std::pair<double, double> >::const_iterator i = clcsw.begin(); i != clcsw.end(); ++i) {
+        char bb[160];
+        std::snprintf(bb, sizeof(bb), "%s\"%s\": [%.0f, %.0f]", f1 ? "" : ", ", i->first.c_str(), i->second.first, i->second.second);
         o += bb;
         f1 = false;
       }
