@@ -8,12 +8,42 @@ here. This file states what exists and what was checked; the choice is the owner
 | | |
 |---|---|
 | **Status** | Built on the merged branch (claude/rust-slice-optimization-sy1f4n): four codec arms plus the pull family, the RPC grid (cells A-F), the corpus through the C ABI and core-native, decision 11, the no-unknown build, the WP7 campaign harness, and every kept optimisation. Optimisation unit 2 (the owner) added: encode variants labelled by transport form; T1 (Enc::take, a moved Bytes; additive `ak_enc_take_owned`); the FRAMED send path as labelled extra cells (Bf-Ff, additive `ak_client_set_framed`); N2, N3; the labelled extra RPC directions c (unary upload of P5.3/P5.4) and d (req 14's streamed upload, ABI section 9's client streaming in the core: `ak_call_open/send/send_enc/recv/close`, close removed in unit 3). Not kept: N5 (apply-first decode order, reverted), core-only fat LTO (tooling left, off). N6 not reproduced. Gates: stable checkpoints before N5 passed twice (`opt/pre-n5-gate`, `opt/pre-n5-gate2`); the FINAL gate at d54ea963 from a clean tree PASSED on stable and on the 1.88.0 floor (`opt/final2-gate`); final run `opt/final2`. **Unit 3** (the owner): ABI v1 section 9 as specified (fe79f874, 22ebb97f) in the shared core and generator: call kinds, `ak_call_opts` (deadline, metadata), `ak_call_close` removed and `ak_call_cancel` on streams, the gRPC status number on the stream and on every unary delivery (`ak_completion.grpc_status`, trailing `grpc_status` on the blocking entries), D44's limits enforced; `bin/rpc_semantics` in the gate (11f) |
-| **Next step** | none assigned; the physical-machine probe's two segments are done (the s4 server left running for the C++ slice). Last gate: on the campaign machine at cb37633f, rustc 1.95.0, PASSED (`logs/rust/opt/physical-probe/prep/gate.log`) |
+| **Next step** | none assigned. The owner's goal 1 / goal 2 unit (2026-09-30) is measured: every core change is a patch experiment in `logs/rust/opt/patches/` (not in `poc/codec`, which is HEAD); the consolidated table is `logs/rust/opt/physical-probe/opt-stack/tables.md`. Last gate on this machine: cb37633f PASSED (`physical-probe/prep/gate.log`); harness changes since then are additive (new bins, probe cells, knobs) and the grid's cells are unchanged, not re-gated |
 | **Blocked on** | nothing |
 | **Floor** (must build and pass correctness) | MSRV 1.88.0: the full gate, both builds, passes on rustc 1.88.0 from a clean worktree at c8e8694eb (`logs/rust/campaign-wp7/gate-floor-1.88.log`) |
 | **Target** | stable 1.94.1 in the container; rustc 1.95.0 (the NixOS machine's ambient toolchain) on the campaign machine; README section 5: for Rust the floor is the target language level, one configuration |
 | **Incumbent** | prost 0.14.4, tonic 0.14.6, tonic-prost 0.14.6 (from Cargo.lock, printed in every campaign header). R14: tonic-prost's codec calls `Message::encode`/`decode`, so the production path and the library entry point are the same call |
 | **Questions this slice has open for the aggregating session** | (1) the proposed corpus rows of `gen/probe_corpus.py` (field numbers above 2^29-1, the 10th varint byte, two map-order rows) are not in `corpus/`; (2) no corpus row or payload has a repeated singular message with differing content, so merge-on-repeat (R-E4) is rendered and never observed; (3) a map entry has no unknown-field bag in the Rust facade (D42) |
+
+## Physical-machine optimisation unit (2026-09-30, owner's goals 1 and 2): patch experiments, all measured
+
+Rules followed: every core change in a private worktree (scratchpad `wt-rust`), a patch file in
+`logs/rust/opt/patches/<name>/`, checks per patch (`gen/patch_checks.sh`: codec pre-check both
+builds 0 failures, upload_check, rpc_semantics; plus the server's SHA-256 path for each new cell),
+nothing committed under `poc/codec`. Timed runs under `flock /tmp/ak-physical-bench.lock`, own
+server per session, client 1-4,11-14, server 5-8,15-18, 8 workers everywhere; builds on 0,9,10,19.
+
+| Patch | What | Stack | Cells | Log |
+|---|---|---|---|---|
+| p1-ring | ak-rt ring size AK_SPARES and AK_SPARE_LOCK (knobs; default = HEAD) | on HEAD | (all core cells) | patches/p1-ring |
+| p2-take-framed | additive ak_enc_take_owned_framed | p1 | Df-1f (probe) | patches/p2-take-framed |
+| p3-exec-slot | host executor slot: ak_runtime_new_hosted, ak_task_poll, ak_task_free, waker vtable; hyper via Endpoint::executor | p1 p2 | Cf-cb-1rt (probe); Cn-1rt is harness only | patches/p3-exec-slot |
+| p4-h2-coalesce | patched h2 0.4.19: a queued DATA frame spans AK_H2_COALESCE max frames, one vectored write | dependency patch, core built in poc/codec (LD_LIBRARY_PATH); `host-too` also the harness | (core cells) | patches/p4-h2-coalesce |
+| p5-deferred | additive ak_call_send_deferred (the transport encodes each chunk on its writing worker; wait 0/1) | p1-p3 | Cf-enc, Cf-encp | patches/p5-deferred |
+| p6-zero-copy | ak_enc_set_zc, ak_call_send_enc_zc: large blobs borrowed from the host, released per message | p1-p5 | Cf-zc | patches/p6-zero-copy |
+| p7-deferred-zc | ak_call_send_deferred_zc: deferred head encode on a zero-copy context | p1-p6 | Cf-zcp (wait 0), Cf-zcw (wait 1) | patches/p7-deferred-zc |
+
+Harness (committed, defaults unchanged): stream_probe gained k, direction c, perf control
+(AK_PERF_CTL, AK_PERF_CELL), thread pinning, AK_PROBE_SKIP_MISSING, cells A2, Ff-1f, Df-1f,
+Cn-1rt, Cf-cb-1rt, Cf-enc, Cf-encp, Cf-zc, Cf-zcp, Cf-zcw (the patched ones found by dlsym);
+grid.rs hosted core clients (`CoreClient::new_hosted`, AK_CORE_HOSTED=1 for upload_check and
+rpc_semantics); bins burst_check (p4 properties); gen/attrib.sh, perf_classify.py (System.map
+kernel buckets), attrib_tables.py, inproc.sh, inproc_tables.py, optstack_tables.py,
+patch_checks.sh, cargo-shim, probe/allocprobe.c AKP_BT + probe/akp_bt.py.
+Attribution facts, measured: A's d/16 cost is bimodal by glibc malloc trim (static thresholds
+remove it; owner: main figures under GLIBC_TUNABLES static thresholds, plus one default pass);
+every Rust cell writes about 1,030 writev per d/16 call; Cf's residual over A is copy_from_user of
+data encoded on another CPU. Figures: JOURNAL 2026-09-30 and `physical-probe/opt-stack/tables.md`.
 
 ## Physical-machine probe (2026-09-29/30): segment 1 (main, 8 workers) and segment 2 (variant, 4 workers; client-only control) RUN
 
@@ -546,6 +576,10 @@ FIX-PLAN R-G17); D41 (every slice's generated tree is current: `generate.py --ch
   the k = 1 result beyond the spread; the benchmark budget was spent). The worker-count knobs
   are not used by any campaign run (defaults 2 / 2).
 - **Other slices' runtimes and bindings**: measured by their slices.
+- **The patch experiments in the grid** (rpc_suite): the new cells are probe-only; the grid's cell
+  set is the campaign's and unchanged. Zero-copy and deferred entries are stream-only (no direction
+  c); the send limit is not checked on those experimental paths.
+- **p4 edge cases**: PING or SETTINGS change mid-burst, GOAWAY during a burst.
 - **WP11 item 5's added cells** (Df-chan on two runtimes, Ff in the probe, Df with one frame per
   message) and `perf record` / `perf stat`: not built into the physical probe (perf 7.2.8 exists on
   the campaign machine, perf_event_paranoid 1); the shipped transport is not in it (pinned only).
@@ -565,6 +599,9 @@ FIX-PLAN R-G17); D41 (every slice's generated tree is current: `generate.py --ch
 
 | Log | What it establishes |
 |---|---|
+| `logs/rust/opt/physical-probe/opt-stack/` | the consolidated run: HEAD core against the stack p1+p2+p3+p5+p6+p7 and the same with p4, cells A, Df, Df-1f, Cn-1rt, C, Cf, Cf-cb, Cf-encp, Cf-zc, Cf-zcp, Cf-zcw, every workload at k 1 and 8, pinned allocator (3 processes) and default allocator (1) |
+| `logs/rust/opt/patches/` | one directory per patch experiment: the patch, STACK.txt, checks/, in-process timings, attribution |
+| `logs/rust/opt/attrib/`, `logs/rust/opt/enc-track/` | the attribution of A / Df / Cf / Ff (one-cell and in-process, allocator modes, pinning, one-frame) and of the enc / zero-copy cells |
 | `logs/rust/opt/physical-probe/variant-w4/`, `variant-c8/`, `server-s4/` | segment 2: 4 workers everywhere, and the 8-worker client against the 4-worker server |
 | `logs/rust/opt/physical-probe/main-w8/`, `server-s8/` | segment 1 of the physical-machine probe (8 workers everywhere): spread and main passes, attribution pass, tables.md |
 | `logs/rust/opt/physical-probe/prep/` | the campaign machine's preparation: gate at cb37633f (rustc 1.95.0) PASSED, upload check, the driver's smoke (headers and row counts only) and its worker-count abort control |

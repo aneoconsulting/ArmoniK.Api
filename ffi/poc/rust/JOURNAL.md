@@ -3889,3 +3889,13 @@ profiled run under `flock /tmp/ak-physical-bench.lock`, builds on CPUs 0,9,10,19
   Cf 5.7 cross-CPU), cache misses 266 k against 430-490 k.
 - perf_classify.py already puts clear_page_erms under the socket write path in "socket write:
   zeroing new skb pages" (not page faults) since the first System.map run.
+
+## 2026-09-30 -- consolidated run (physical-probe/opt-stack)
+
+HEAD core against the stack (p1+p2+p3+p5+p6+p7, crates.io h2, AK_SPARES=6 AK_SPARE_LOCK=1) and the
+same core with p4 (N=16) as a separate row; pinned allocator, 3 processes, 286 s; default
+allocator, 1 process, 61 s. d/16 k=1 CPU (ms): A 7.70-7.83; head Cf 8.16, Cf-cb 9.40, Cn-1rt 8.54,
+C 9.95; stack Cf 8.44, Df-1f 7.90, Cf-encp 7.66, Cf-zc 6.54, Cf-zcp 6.35, Cf-zcw 6.34 (wall 7.66-7.91
+against A 8.80); stack-p4 Cf 6.49, Cf-zc 4.78. d/16 k=8: A 9.39-9.53; stack Cf-zc 6.50, Cf-zcp 6.41.
+c/P5.4 k=1 (no zero-copy cells): head and stack Cf 2.00-2.02, A 1.96-1.98; stack-p4 Cf 1.60.
+Default allocator: A 11.65 with 1,902 faults per call in the stack process, 7.81 with 0 in the head one.
