@@ -1953,3 +1953,16 @@ changes.
   [8.82-11.28] -> 8.76 [8.42-9.34]. So Cf-q's faults come from the same take_framed ring, and the queue cell needs a
   larger ring: its one draining thread encodes the k = 8 streams through ONE encode context (Pool::qtc), where each
   blocking caller thread has its own. Cf with 24: CPU 8.52 vs 8.30 (k=1) and 9.66 vs 9.49 (k=8), processes separated at k=8.
+
+## 2026-09-30, the p1-p3 stack against p1-p4 (h2 coalescing) from C++
+
+- Worktree at e9a97c72: stack-p1-p2-p3.patch (sha256 320f18d1) applied, cores built (ctl, sha256 9e0308aa), then h2
+  0.4.19 copied from the cargo registry, p4-h2-coalesce.patch (d1380a9a) applied, [patch.crates-io] h2 = { path } in the
+  worktree's ffi/poc/codec/Cargo.toml, rebuilt (h16, b140a8fb; only h16 contains the AK_H2_COALESCE string). Checks:
+  ctl with ring 6 and 24, h16 at AK_H2_COALESCE 1 and 16: conformance 608/0 and 478/0, codec pre-check 0 failed,
+  --semantics 1 0 failed both builds. Worktree reverted afterwards (patches and Cargo.toml).
+- gen/core_ab.sh generalises patch_ab.sh (arms = core copies + knobs, per-cell knobs, AB_ENV, a default pass).
+- Measured (GLIBC_TUNABLES trim 256 MiB / mmap 32 MiB, Cf ring 6 + lock, Cf-q ring 24 + lock): socket writes per d/16
+  call 1026 -> 73 (k=1) and 1027 -> 85 (k=8); Cf CPU 8.26 -> 6.52 (k=1) and 9.57 -> 7.65 (k=8); Cf - A per round -1.64 to
+  -1.98 (k=1), -2.05 to -2.13 (k=8) on h16; A and D unchanged between arms. The default-allocator pass agrees within
+  about 0.3 ms.

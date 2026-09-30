@@ -43,6 +43,14 @@ cell and core, own 8-worker server, under the bench lock; `--profile` reports al
 gen/allocprobe.c is preloaded (separate processes). p1-ring (ring size AK_SPARES, AK_SPARE_LOCK):
 `logs/cpp/opt/physical-probe/patches/p1-ring/` (6 + lock) and `.../p1-ring/spares24/` (24 + lock, Cf and Cf-q only).
 
+**Several core builds compared** (`gen/core_ab.sh OUT measure|default|strace ARM=CORE_DIR[:K=V,...] ...`, tables
+`gen/core_ab_tables.py OUT ARM...`): every arm runs this tree's campaign_rpc with LD_LIBRARY_PATH on its own
+libak_core.so (copies kept outside the tree, sha256 in runner.log), per-arm and per-cell knobs (AB_CELL_KNOBS), the
+allocator setting of the main figures in AB_ENV and a `default` pass without it, one-cell `--profile` processes, no perf,
+3 rounds, under the bench lock with an own 8-worker server. p1-p3 stack against p1-p4 (h2 coalescing):
+`logs/cpp/opt/physical-probe/patches/p4-h2-coalesce/` (checks-ctl-s6, checks-ctl-s24, checks-h16-c1, checks-h16-c16:
+608/0, 478/0, codec pre-check 0 failed, semantics 0 failed; measure, default, strace; tables.md).
+
 **Step 0: the send path, set explicitly.** The core's default send path is framed since
 2026-09-28 (ABI-v1 section 9), so `core_client()` in `src/campaign_rpc.cpp` now calls
 `ak_client_set_framed(cl, framed ? 1 : 0)` on EVERY core client (FIX-PLAN WP8 item 6): B, C-*,
@@ -639,6 +647,7 @@ Physical machine (`logs/cpp/opt/physical-probe/`):
 | `var4/` | the var4 segment (shared 4-worker server pid 152128, core 4 workers, grpc-core sized for 4; 3 passes of six cells, 1080 repetitions, 146 s), same layout as `main/` |
 | `profile/` | step 4a: `tables.md`; `stat/` (perf stat + profile JSON per process), `plain/` (no perf), `record/` (perf.data gzip'd, `*.attrib.json` buckets, `*.out`), `strace/` (raw strace gzip'd, `*.syscalls.txt`), `runner.log` (headers, machine facts per phase) |
 | `patches/p1-ring/` | p1-ring from C++: `checks/checks.log` (patched core: 608/0, 478/0, codec pre-check 0 failed, semantics 0 failed both builds), `measure/*.out`, `alloc/*.out`, `tables.md`, `runner.log`; `spares24/` the follow-up with a ring of 24 |
+| `patches/p4-h2-coalesce/` | the p1-p3 stack (ctl, core sha256 9e0308aa) against p1-p4 (h16, b140a8fb; h2 0.4.19 patched, AK_H2_COALESCE=16): checks per core and knob, `measure/` (GLIBC_TUNABLES trim 256 MiB, mmap 32 MiB; 3 rounds), `default/` (default allocator, 1 round), `strace/`, `tables.md` |
 | `checks/authority.log` | grpc++ 1.80's `unix:` authority reset by the shared server (RST_STREAM PROTOCOL_ERROR), and the calls passing with "localhost" |
 
 Optimisation unit (`logs/cpp/opt/`):
