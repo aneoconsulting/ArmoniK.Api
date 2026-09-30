@@ -3825,3 +3825,44 @@ The level of A in main-w8's spread passes, from the jsonl and progress.txt (no e
   not accompanied by raised server CPU per byte.
 - Not measured: per-thread CPU in the timed passes (no /proc reads there), so which client thread
   carries the raised A time is not known.
+
+## 2026-09-30 -- attribution of Cf / Df against A (owner's goal 1) and the shared-runtime cells (goal 2); physical machine
+
+Coordination: every core change in a private worktree (scratchpad wt-rust), every timed or
+profiled run under `flock /tmp/ak-physical-bench.lock`, builds on CPUs 0,9,10,19, own server
+(serve.sh, 8 workers, 5-8,15-18) per session, client 1-4,11-14, 8 workers everywhere.
+
+- Tooling: stream_probe gained k (batches of k in flight), direction c (P5.3/P5.4), perf control
+  (AK_PERF_CTL, AK_PERF_CELL: perf counts one cell's timed rounds), thread pinning knobs, cells
+  A2, Ff-1f, Df-1f (patched core), Cn-1rt, Cf-cb-1rt (patched core); gen/attrib.sh (perf stat,
+  perf record dwarf, /proc, strace), gen/perf_classify.py (leaf crates, libc callers, kernel
+  buckets with the booted System.map and the KASLR offset, the C++ agent's method
+  reimplemented), gen/inproc.sh + inproc_tables.py (in-process comparisons, no perf),
+  gen/patch_checks.sh (pre-check both builds, upload_check, rpc_semantics), allocprobe AKP_BT
+  (stacks of >= 1 MiB allocations) + gen/probe/akp_bt.py.
+- A's d/16 cost is bimodal and set by glibc malloc: tonic's EncodeBuf allocates a fresh 2 MiB+
+  buffer per message; when glibc trims the arena after the free, the next one faults in again
+  (1,200-2,200 faults per call, 35-47 M cycles against 27-31 M). Static thresholds
+  (GLIBC_TUNABLES, attribution only) remove it and put A level with Df/Cf/Ff (logs/rust/opt/
+  attrib/{base,tunables,inproc-alloc}). The mode flips between processes with no change to A's
+  code (main-w8's raised spread passes were this mode).
+- Every Rust cell makes about 1,030 writev per d/16 call (h2 writes each 16 KiB DATA frame);
+  the kernel's socket write is 66-76% of every cell's cycles; skb page zeroing
+  (CONFIG_INIT_ON_ALLOC_DEFAULT_ON=y) about 2.7 M cycles per call in every cell.
+- Cf's residual over fault-free A at d/16 k=1 (+0.26..+0.63 ms): copy_from_user in the socket
+  writes, 5.93 M cycles against A's 4.02 (the caller thread encodes, a core worker writes).
+  Pinning test (attrib/pin-locality): caller and worker on one CPU 7.63 ms, level with A; two
+  cores 7.85; free 7.95; SMT siblings 8.98.
+- p1-ring (patches/p1-ring): Enc::take_all allocates a fresh 4 MiB buffer (the doubled capacity)
+  1.6-2.0 times per 16 MiB call in Cf and Cf-cb (ring of 3 too small, try_lock losses); a ring
+  of 6 with a blocking lock: 0 fresh buffers, 0 faults; Cf-cb d/16 k=8 10.62 -> 9.53 ms.
+- p2-take-framed (patches/p2-take-framed, on p1): additive ak_enc_take_owned_framed; Df-1f and
+  the harness-only Ff-1f send one body frame per message: d/16 k=1 Df 8.40 -> 7.70, Ff 8.35 ->
+  7.70, switches 236 -> 88; the harness's two-frame body was Df/Ff's residual.
+- Goal 2: p3-exec-slot (patches/p3-exec-slot, on p1 and p2): ak_runtime_new_hosted /
+  ak_task_poll / ak_task_free / waker vtable; the core keeps one ak-reactor driver thread.
+  Cf-cb-1rt costs more than Cf-cb (d/16 k=1 9.73 against 8.80 ms, 533 against 216 switches;
+  the reactor thread 1.58 ms per call waking host tasks). Cn-1rt (rpc crate + core-native on the
+  host runtime, harness only) 8.39 ms, 62-143 switches, level with Cf; c/P5.4 1.91 against A 1.94.
+  Checks pass on every patch (pre-check 0 failures both builds, upload_check, rpc_semantics, also
+  with every core client hosted).
