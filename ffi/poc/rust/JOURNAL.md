@@ -3946,3 +3946,21 @@ What differs between the two setups (from their headers):
 | cells | A, Df, Df-chan, Cf, Cf-cb, Cf-split, Cf-cb-split; d/16 and d/4, k = 1 only | A, Cf, Cf-cb, Cn-1rt (and Cf-zc); d/16, d/4, c/P5.4, k = 1 and 8 |
 | method | bin stream_probe, one process per variant, variants alternated, 3 and 5 iterations | gen/inproc.sh, all conditions alternated, 3 processes per condition |
 | isolation | container, none recorded | taskset; from 2026-09-30 evening non-benchmark work confined to 0,9,10,19 |
+
+## 2026-09-30 -- core worker count under concurrency (cb-track/workers-sweep)
+
+AK_CORE_WORKERS 1, 2, 4, 8 x p9 off / on, host 8 workers, stack binary, pinned allocator, 3
+processes per condition, affinity checked around every process (all 96 high-k processes passed).
+Cells A, Cf, Cf-cb, Cf-zc, and at k >= 16 also Cf-m4, Cf-cb-m4, Cf-zc-m4 (4 core clients, each
+its own runtime: 15 core runtimes per process at k >= 16, so 15 or 120 core worker threads).
+- One connection saturates at about 120 calls/s (wall about 8.2-8.4 ms per 16 MiB call) at k = 8,
+  16 and 32 for every core worker count; A about 110-113 calls/s. Four connections: 300-310
+  calls/s (3.2-3.3 ms), CPU per call 13.3-14.5 ms (about 4.2 of the client's 8 logical CPUs busy).
+- d/16: 1 core worker costs no wall or throughput at any k measured; it saves CPU at k = 1
+  (Cf-cb 8.00 against 9.18 ms, Cf 8.14 against 8.31 with p9 off), 0.1-0.3 ms at k = 8-32 for
+  one connection, and for Cf-cb-m4 0.2-0.8 ms per call at k = 16.
+- c/P5.4: at k >= 16 with 4 connections, 1 core worker per client costs 4-6% of throughput
+  (Cf-cb-m4 747 against 778 calls/s at k = 16, 825 against 874 at k = 32; Cf-m4 742 against 778)
+  and saves 0.13-0.33 ms CPU per call; one connection shows no throughput cost.
+- p9 at 8 workers: lowers Cf-cb's switches (d/16 k = 1 210 -> 171 here) and CPU by 0.1-0.4 ms at
+  d/16; at c/P5.4 no gain.
