@@ -32,6 +32,8 @@ server per session, client 1-4,11-14, server 5-8,15-18, 8 workers everywhere; bu
 | p5-deferred | additive ak_call_send_deferred (the transport encodes each chunk on its writing worker; wait 0/1) | p1-p3 | Cf-enc, Cf-encp | patches/p5-deferred |
 | p6-zero-copy | ak_enc_set_zc, ak_call_send_enc_zc: large blobs borrowed from the host, released per message | p1-p5 | Cf-zc | patches/p6-zero-copy |
 | p7-deferred-zc | ak_call_send_deferred_zc: deferred head encode on a zero-copy context | p1-p6 | Cf-zcp (wait 0), Cf-zcw (wait 1) | patches/p7-deferred-zc |
+| p8-cb-inline | AK_CB_INLINE=1: a callback/queue send that fits the channel completes inline; AK_CORE_CHAN_DEPTH | p1-p7 | (Cf-cb) | patches/p8-cb-inline |
+| p9-cb-at-take | AK_CB_AT_TAKE=1: a callback/queue send queued with its completion, delivered when the body takes it (no task per send) | p1-p8 | (Cf-cb) | patches/p9-cb-at-take |
 
 Harness (committed, defaults unchanged): stream_probe gained k, direction c, perf control
 (AK_PERF_CTL, AK_PERF_CELL), thread pinning, AK_PROBE_SKIP_MISSING, cells A2, Ff-1f, Df-1f,
@@ -40,6 +42,11 @@ grid.rs hosted core clients (`CoreClient::new_hosted`, AK_CORE_HOSTED=1 for uplo
 rpc_semantics); bins burst_check (p4 properties); gen/attrib.sh, perf_classify.py (System.map
 kernel buckets), attrib_tables.py, inproc.sh, inproc_tables.py, optstack_tables.py,
 patch_checks.sh, cargo-shim, probe/allocprobe.c AKP_BT + probe/akp_bt.py.
+Stability campaign (physical-probe/stability, 858 s, 28 alternating repetitions of HEAD and the
+stack, pinned allocator, one lock hold): gen/stability_campaign.sh, gen/stability_tables.py;
+every inproc.sh header now carries the isolation read from cgroups, IRQ affinity and thread masks
+(gen/machine_header.sh). Cf-cb attribution: logs/rust/opt/cb-track (the gap is on the core
+runtime's workers; 1 core worker instead of 8 removes it; p9 halves it at 8 workers).
 Attribution facts, measured: A's d/16 cost is bimodal by glibc malloc trim (static thresholds
 remove it; owner: main figures under GLIBC_TUNABLES static thresholds, plus one default pass);
 every Rust cell writes about 1,030 writev per d/16 call; Cf's residual over A is copy_from_user of
@@ -599,6 +606,8 @@ FIX-PLAN R-G17); D41 (every slice's generated tree is current: `generate.py --ch
 
 | Log | What it establishes |
 |---|---|
+| `logs/rust/opt/physical-probe/stability/` | the stability campaign: per-process medians in run order, gap distributions, A2 - A floor, pooled absolutes (stability.md) |
+| `logs/rust/opt/cb-track/` | the Cf-cb attribution: one-cell and in-process profiles, per core worker count 1, 2, 8 |
 | `logs/rust/opt/physical-probe/opt-stack/` | the consolidated run: HEAD core against the stack p1+p2+p3+p5+p6+p7 and the same with p4, cells A, Df, Df-1f, Cn-1rt, C, Cf, Cf-cb, Cf-encp, Cf-zc, Cf-zcp, Cf-zcw, every workload at k 1 and 8, pinned allocator (3 processes) and default allocator (1) |
 | `logs/rust/opt/patches/` | one directory per patch experiment: the patch, STACK.txt, checks/, in-process timings, attribution |
 | `logs/rust/opt/attrib/`, `logs/rust/opt/enc-track/` | the attribution of A / Df / Cf / Ff (one-cell and in-process, allocator modes, pinning, one-frame) and of the enc / zero-copy cells |
