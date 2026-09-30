@@ -31,14 +31,38 @@ SOCK=$(sed -n 's/^pinned //p' "$AK_SERVE_STATE"); SPID=$(sed -n 's/^pid //p' "$A
 bin_of() { local b=${1%%:*}; [ "$b" = main ] && b="$HERE/target/release/stream_probe"; echo "$b"; }
 # workload -> size k rounds calls-per-round warm
 wl() { case $1 in d16k1) echo "16MiB 1 8 8 4";; d16k8) echo "16MiB 8 6 2 2";; d4k1) echo "4MiB 1 8 16 8";; d4k8) echo "4MiB 8 6 4 2";;
-                  c54k1) echo "P5.4 1 8 16 8";; c54k8) echo "P5.4 8 6 4 2";; *) echo "?"; exit 2;; esac; }
+                  c54k1) echo "P5.4 1 8 16 8";; c54k8) echo "P5.4 8 6 4 2";;
+                  d16k16) echo "16MiB 16 5 1 1";; d16k32) echo "16MiB 32 4 1 1";; c54k16) echo "P5.4 16 6 2 1";; c54k32) echo "P5.4 32 5 2 1";;
+                  *) echo "?"; exit 2;; esac; }
 {
   echo "# in-process comparison: commit $(git rev-parse --short HEAD)$(git diff --quiet HEAD -- . ../codec || echo ' + UNCOMMITTED'); $(date -u +%FT%TZ); $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2- | sed 's/^ //'); kernel $(uname -r); no_turbo $(cat /sys/devices/system/cpu/intel_pstate/no_turbo); cpu1 min/max $(cat /sys/devices/system/cpu/cpu1/cpufreq/scaling_min_freq)/$(cat /sys/devices/system/cpu/cpu1/cpufreq/scaling_max_freq) kHz; smt $(cat /sys/devices/system/cpu/smt/control); isolation: taskset only"
   machine_header
+  echo "# affinity checks: every server thread allowed exactly AK_CPU_SERVER, checked before and after every client process; every client thread allowed exactly AK_CPU_CLIENT, checked by the probe before and after its timed rounds (AK_EXPECT_CPUS); a mismatch aborts"
   echo "# client $AK_CPU_CLIENT, host $AK_HOST_WORKERS / core $AK_CORE_WORKERS workers (unless a condition sets them); server $AK_CPU_SERVER, ${AK_IP_SERVER_THREADS:-8} workers, pid $SPID, pinned socket"
-  echo "# cells $CELLS (direction c: $CELLS_C) (one process per condition x workload x repetition, block order, cell order rotated per repetition); workloads $WORKS (d16k1 8 x 8 calls warm 4; d16k8 6 x 2 batches of 8 warm 2; d4k1 8 x 16 warm 8; d4k8 6 x 4 x 8 warm 2; c54k1 8 x 16 warm 8; c54k8 6 x 4 x 8 warm 2); repetitions $REPS"
+  echo "# cells $CELLS (direction c: $CELLS_C) (one process per condition x workload x repetition, block order, cell order rotated per repetition); workloads $WORKS (d16k1 8 x 8 calls warm 4; d16k8 6 x 2 batches of 8 warm 2; d4k1 8 x 16 warm 8; d4k8 6 x 4 x 8 warm 2; c54k1 8 x 16 warm 8; c54k8 6 x 4 x 8 warm 2; d16k16 5 x 1 batch of 16 warm 1; d16k32 4 x 1 x 32 warm 1; c54k16 6 x 2 x 16 warm 1; c54k32 5 x 2 x 32 warm 1); repetitions $REPS"
   for c in "${CS[@]}"; do b=$(bin_of "${c#*=}"); echo "# condition ${c%%=*}: binary $b (sha256 $(sha256sum "$b" | cut -c1-16), core $(ldd "$b" | awk '/libak_core/{print $3}')), env ${c#*:}"; done
 } > "$OUT/header.txt"
+# the server's affinity, every thread, must equal AK_CPU_SERVER (checked around every client
+# process); the client's is checked inside the probe (AK_EXPECT_CPUS)
+srv_ok() {
+  local want got t
+  want=$(python3 -S -c 'import sys
+o=[]
+for p in sys.argv[1].split(","):
+    a,_,b=p.partition("-"); o+=range(int(a),int(b or a)+1)
+print(o)' "$AK_CPU_SERVER")
+  for t in /proc/$SPID/task/*; do
+    got=$(python3 -S -c 'import sys
+o=[]
+for p in sys.argv[1].split(","):
+    a,_,b=p.partition("-"); o+=range(int(a),int(b or a)+1)
+print(o)' "$(sed -n 's/^Cpus_allowed_list:\s*//p' "$t/status")")
+    if [ "$got" != "$want" ]; then
+      echo "# ABORTED: server thread ${t##*/} allowed $(sed -n 's/^Cpus_allowed_list:\s*//p' "$t/status"), expected $AK_CPU_SERVER ($1)" >> "$OUT/header.txt"
+      echo "server affinity mismatch ($1)" >&2; exit 1
+    fi
+  done
+}
 rot() { python3 -S -c 'import sys; c=sys.argv[1].split(","); n=int(sys.argv[2])%len(c); print(",".join(c[n:]+c[:n]))' "$1" "$2"; }
 S0=$(date +%s)
 for rep in $(seq 1 "$REPS"); do
@@ -49,9 +73,11 @@ for rep in $(seq 1 "$REPS"); do
     for j in $(seq 0 $((n - 1))); do
       c=${CS[$(( (j + rep - 1) % n ))]}; name=${c%%=*}; rest=${c#*=}; b=$(bin_of "$rest")
       ev=(); [ "$rest" != "${rest#*:}" ] && IFS=, read -r -a ev <<< "${rest#*:}"
-      env "${ev[@]}" AK_RPC_SOCKET="$SOCK" AK_RPC_TRANSPORT=pinned AK_OUT="$OUT/$name-$w-$rep.jsonl" AK_PROBE_CELLS="$(rot "$wc" "$rep")" \
+      srv_ok "before $name $w $rep"
+      env "${ev[@]}" AK_EXPECT_CPUS="$AK_CPU_CLIENT" AK_RPC_SOCKET="$SOCK" AK_RPC_TRANSPORT=pinned AK_OUT="$OUT/$name-$w-$rep.jsonl" AK_PROBE_CELLS="$(rot "$wc" "$rep")" \
           AK_PROBE_SIZES="$size" AK_PROBE_K="$k" AK_PROBE_ROUNDS="$rounds" AK_PROBE_CALLS="$calls" AK_PROBE_WARM="$warm" \
           AK_PROBE_ORDER=block AK_PROBE_PROC=0 taskset -c "$AK_CPU_CLIENT" "$b" 2> "$OUT/$name-$w-$rep.err"
+      srv_ok "after $name $w $rep"
       echo "$name $w $rep done at +$(( $(date +%s) - S0 )) s" >> "$OUT/progress.txt"
     done
   done

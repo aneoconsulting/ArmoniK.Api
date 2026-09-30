@@ -798,6 +798,47 @@ fn core_zc(conn: &Conn, chunks: usize, k: usize) -> Call {
     }))
 }
 
+/// One (cell, size) call of the probe on `conn` (the per-cell constructors).
+fn build_call(cell: &'static str, conn: &Conn, label: &'static str, chunks: usize, k: usize, base: &dyn Fn(&'static str) -> &'static str) -> Call {
+    if cell == "Ff-1f" {
+        ff_one_frame(conn, label, chunks, k)
+    } else if cell == "Df-1f" {
+        df_one_frame(conn, label, chunks, k)
+    } else if cell == "Cn-1rt" {
+        cn_1rt(conn, label, chunks, k)
+    } else if chunks == 0 {
+        assert!(!cell.ends_with("-split") && !["Df-chan", "Cf-enc", "Cf-encp", "Cf-zc", "Cf-zcp", "Cf-zcw"].contains(&cell), "{cell}: direction d only");
+        grid::call_of_c(base(cell), conn, label, grid::slots(k), 0)
+    } else if cell == "Df-chan" {
+        df_chan(conn, chunks, k)
+    } else if cell == "Cf-zc" {
+        core_zc(conn, chunks, k)
+    } else if cell == "Cf-zcp" || cell == "Cf-zcw" {
+        core_deferred_x(conn, chunks, k, cell == "Cf-zcw", true)
+    } else if cell == "Cf-enc" || cell == "Cf-encp" {
+        core_deferred(conn, chunks, k, cell == "Cf-enc")
+    } else if cell.ends_with("-cb-split") {
+        core_split_cb(conn, chunks, k)
+    } else if cell.ends_with("-split") {
+        core_split(conn, chunks, k)
+    } else {
+        grid::call_of_d(base(cell), conn, chunks, grid::slots(k), (chunks * grid::CHUNK) as u64, std::env::var("AK_PROBE_CHECK").map_or(false, |v| v == "1"))
+    }
+}
+
+/// `<cell>-m<N>` (N >= 2): the base cell and N.
+fn multi_of(c: &str) -> Option<(&'static str, usize)> {
+    let (b, n) = c.rsplit_once("-m")?;
+    let n: usize = n.parse().ok().filter(|n| *n >= 2)?;
+    let b: &'static str = match b {
+        "Cf-zc" => "Cf-zc",
+        "Cf-zcw" => "Cf-zcw",
+        "Cf-zcp" => "Cf-zcp",
+        b => grid::cell_of(b),
+    };
+    Some((b, n))
+}
+
 fn main() {
     assert!(harness::generated::binding::ak_init_once() >= 0);
     let socket: String = std::env::var("AK_RPC_SOCKET").expect("AK_RPC_SOCKET");
@@ -813,7 +854,9 @@ fn main() {
     // channel), so an A/A gap in the same process is measured beside every cell's gap to A.
     let cells: Vec<&'static str> = env("AK_PROBE_CELLS", "A,D,Df,C,Cf,C-cb,Cf-cb,B,Bf".to_string())
         .split(',').map(|s| match s { "Df-chan" => "Df-chan", "Cf-split" => "Cf-split", "C-split" => "C-split",
-                                       "Cf-cb-split" => "Cf-cb-split", "C-cb-split" => "C-cb-split", "A2" => "A2", "Ff-1f" => "Ff-1f", "Df-1f" => "Df-1f", "Cf-cb-1rt" => "Cf-cb-1rt", "Cn-1rt" => "Cn-1rt", "Cf-enc" => "Cf-enc", "Cf-encp" => "Cf-encp", "Cf-zc" => "Cf-zc", "Cf-zcp" => "Cf-zcp", "Cf-zcw" => "Cf-zcw", s => grid::cell_of(s) }).collect();
+                                       "Cf-cb-split" => "Cf-cb-split", "C-cb-split" => "C-cb-split", "A2" => "A2", "Ff-1f" => "Ff-1f", "Df-1f" => "Df-1f", "Cf-cb-1rt" => "Cf-cb-1rt", "Cn-1rt" => "Cn-1rt", "Cf-enc" => "Cf-enc", "Cf-encp" => "Cf-encp", "Cf-zc" => "Cf-zc", "Cf-zcp" => "Cf-zcp", "Cf-zcw" => "Cf-zcw",
+                                       s if multi_of(s).is_some() => Box::leak(s.to_string().into_boxed_str()) as &'static str,
+                                       s => grid::cell_of(s) }).collect();
     // AK_PROBE_SKIP_MISSING=1: a cell that needs an entry the loaded core does not export (a
     // patch experiment's) is left out, and the header says so, instead of the process aborting.
     let needs = |c: &str| -> Option<&'static [u8]> {
@@ -840,6 +883,7 @@ fn main() {
     };
     // The grid cell each probe-only name runs on.
     let base = |c: &'static str| -> &'static str {
+        let c = multi_of(c).map_or(c, |(b, _)| b);
         match c { "Df-chan" => grid::cell_of("Df"), "Cf-split" => grid::cell_of("Cf"), "C-split" => grid::cell_of("C"),
                   "Cf-cb-split" => grid::cell_of("Cf-cb"), "C-cb-split" => grid::cell_of("C-cb"), "A2" => "A", "Ff-1f" => grid::cell_of("Ff"), "Df-1f" => grid::cell_of("Df"), "Cf-cb-1rt" => grid::cell_of("Cf-cb"), "Cn-1rt" => grid::cell_of("Ff"), "Cf-enc" | "Cf-encp" | "Cf-zc" | "Cf-zcp" | "Cf-zcw" => grid::cell_of("Cf"), c => c }
     };
@@ -862,7 +906,7 @@ fn main() {
     // the cell's own runtime: the core's tasks (its calls', hyper's connection task, tonic's
     // buffer worker) run on the host's workers, the core keeping one `ak-reactor` thread for
     // its I/O and timer drivers; delivery as Cf-cb (callback into a oneshot).
-    let conns: Vec<Conn> = cells.iter().map(|c| match *c {
+    let conns: Vec<Conn> = cells.iter().map(|c| match multi_of(c).map_or(*c, |(b, _)| b) {
         "Cf-cb-1rt" => {
             let rt = grid::host_runtime();
             let cc = grid::CoreClient::new_hosted(&target, pinned, rt.clone());
@@ -874,30 +918,30 @@ fn main() {
     let mut work = Vec::new();
     for (ci, &cell) in cells.iter().enumerate() {
         for &(label, chunks) in &sizes {
-            let call = if cell == "Ff-1f" {
-                ff_one_frame(&conns[ci], label, chunks, k)
-            } else if cell == "Df-1f" {
-                df_one_frame(&conns[ci], label, chunks, k)
-            } else if cell == "Cn-1rt" {
-                cn_1rt(&conns[ci], label, chunks, k)
-            } else if chunks == 0 {
-                assert!(!cell.ends_with("-split") && !["Df-chan", "Cf-enc", "Cf-encp", "Cf-zc", "Cf-zcp", "Cf-zcw"].contains(&cell), "{cell}: direction d only");
-                grid::call_of_c(base(cell), &conns[ci], label, grid::slots(k), 0)
-            } else if cell == "Df-chan" {
-                df_chan(&conns[ci], chunks, k)
-            } else if cell == "Cf-zc" {
-                core_zc(&conns[ci], chunks, k)
-            } else if cell == "Cf-zcp" || cell == "Cf-zcw" {
-                core_deferred_x(&conns[ci], chunks, k, cell == "Cf-zcw", true)
-            } else if cell == "Cf-enc" || cell == "Cf-encp" {
-                core_deferred(&conns[ci], chunks, k, cell == "Cf-enc")
-            } else if cell.ends_with("-cb-split") {
-                core_split_cb(&conns[ci], chunks, k)
-            } else if cell.ends_with("-split") {
-                core_split(&conns[ci], chunks, k)
-            } else {
-                grid::call_of_d(base(cell), &conns[ci], chunks, grid::slots(k), (chunks * grid::CHUNK) as u64, std::env::var("AK_PROBE_CHECK").map_or(false, |v| v == "1"))
-            };
+            // `<cell>-m<N>`: N core clients (N connections, each with its own core runtime), call
+            // i on client i % N; one Call per client, dispatched by slot.
+            if let Some((b, m)) = multi_of(cell) {
+                let subs: Vec<Conn> = (1..m).map(|_| Conn::open(base(b), &target, pinned)).collect();
+                let mut calls: Vec<Call> = vec![build_call(b, &conns[ci], label, chunks, k, &base)];
+                calls.extend(subs.iter().map(|cn| build_call(b, cn, label, chunks, k, &base)));
+                let call = match &calls[0] {
+                    Call::Blocking(_) => {
+                        let fs: Vec<_> = calls.iter().map(|c| match c { Call::Blocking(f) => f.clone(), _ => unreachable!() }).collect();
+                        Call::Blocking(Arc::new(move |i| fs[i % fs.len()](i)))
+                    }
+                    Call::Async(rt, _) => {
+                        let rt = rt.clone();
+                        let fs: Vec<_> = calls.iter().map(|c| match c { Call::Async(_, f) => f.clone(), _ => unreachable!() }).collect();
+                        Call::Async(rt, Arc::new(move |i| fs[i % fs.len()](i)))
+                    }
+                };
+                std::mem::forget(subs); // the extra clients live for the process
+                let caller = Caller::new(&call, k);
+                caller.run(warm).unwrap_or_else(|e| panic!("warm-up {cell} {label}: {e}"));
+                work.push((cell, label, caller));
+                continue;
+            }
+            let call = build_call(cell, &conns[ci], label, chunks, k, &base);
             let caller = Caller::new(&call, k);
             caller.run(warm).unwrap_or_else(|e| panic!("warm-up {cell} {label}: {e}"));
             work.push((cell, label, caller));
@@ -945,6 +989,12 @@ fn main() {
     for t in threads().values() {
         *tc.entry(t.class.clone()).or_default() += 1;
     }
+    let mut names: BTreeMap<String, usize> = BTreeMap::new();
+    for e in std::fs::read_dir("/proc/self/task").unwrap().flatten() {
+        let n = std::fs::read_to_string(e.path().join("comm")).unwrap_or_default().trim().to_string();
+        *names.entry(n).or_default() += 1;
+    }
+    writeln!(f, "# thread names after the warm-up: {names:?}").unwrap();
     writeln!(f, "# threads by class after the warm-up: {tc:?} (host runtimes {}, core runtimes {})",
              conns.iter().filter(|c| !matches!(c, Conn::Core(_))).count(), conns.iter().filter(|c| !matches!(c, Conn::Tonic(..))).count()).unwrap();
     let n = work.len();
@@ -969,6 +1019,30 @@ fn main() {
             std::io::BufReader::new(std::fs::File::open(ack).expect("perf ack fifo")).read_line(&mut l).unwrap();
         }
     };
+    // AK_EXPECT_CPUS (a CPU list): every thread of this process must be allowed exactly that set,
+    // checked before the first timed round and after the last; a mismatch aborts the process
+    // (the owner's re-pinning of user processes once moved a benchmark process, 2026-09-30).
+    let affinity_ok = |when: &str| {
+        if let Ok(want) = std::env::var("AK_EXPECT_CPUS") {
+            let norm = |l: &str| -> Vec<usize> {
+                let mut v = Vec::new();
+                for part in l.trim().split(',').filter(|p| !p.is_empty()) {
+                    let (a, b) = part.split_once('-').unwrap_or((part, part));
+                    v.extend(a.parse::<usize>().unwrap()..=b.parse::<usize>().unwrap());
+                }
+                v
+            };
+            let want = norm(&want);
+            for e in std::fs::read_dir("/proc/self/task").unwrap().flatten() {
+                let st = std::fs::read_to_string(e.path().join("status")).unwrap_or_default();
+                if let Some(l) = st.lines().find_map(|l| l.strip_prefix("Cpus_allowed_list:")) {
+                    let got = norm(l);
+                    assert!(got == want, "ABORT (affinity {when}): thread {:?} allowed {got:?}, expected {want:?}", e.file_name());
+                }
+            }
+        }
+    };
+    affinity_ok("before timing");
     // AK_PERF_CELL: perf counts only that cell's timed rounds (every other cell runs as usual).
     let perf_cell: Option<&'static str> = std::env::var("AK_PERF_CELL").ok().map(|c| match c.as_str() {
         "Df-chan" | "Cf-split" | "C-split" | "Cf-cb-split" | "C-cb-split" | "A2" | "Ff-1f" | "Df-1f" | "Cf-cb-1rt" | "Cn-1rt" | "Cf-enc" | "Cf-encp" | "Cf-zc" | "Cf-zcp" | "Cf-zcw" => Box::leak(c.into_boxed_str()) as &'static str,
@@ -1030,6 +1104,10 @@ fn main() {
     }
     if perf_on {
         perf("disable");
+    }
+    affinity_ok("after timing");
+    if std::env::var("AK_EXPECT_CPUS").is_ok() {
+        writeln!(f_out(&out), "# affinity: every thread allowed exactly AK_EXPECT_CPUS={} before and after the timed rounds", std::env::var("AK_EXPECT_CPUS").unwrap()).unwrap();
     }
     // p8-cb-inline (a patched core only): how many callback sends completed inline / were spawned.
     let p = unsafe { libc::dlsym(libc::RTLD_DEFAULT, b"ak_exp_cb_stats\0".as_ptr() as *const libc::c_char) };

@@ -3921,3 +3921,28 @@ Default allocator: A 11.65 with 1,902 faults per call in the stack process, 7.81
   futex/scheduling/other +0.8). p9 (a callback send queued with its completion, delivered when the
   body takes the message; no task per send): Cf-cb 9.20 -> 8.70 ms at 8 core workers, switches
   207 -> 125; at 1 core worker 8.15 either way.
+
+## 2026-09-30 -- measurement note: the core worker count, container against the campaign machine
+
+Two measurements disagree, and no cause is claimed here:
+- Container runtime probe (logs/rust/opt/runtime-probe, 2026-09-28): 1 core worker (variant c1)
+  against the default did not change client CPU beyond the session spread. d/16 k=1 in-process
+  gap to A, session 1 / session 2: Cf-cb base +1.17 / +1.19, c1 +1.01 / +1.30; Cf 11.04 (base) and
+  10.50 (c1) ms, A 10.08 and 9.62, spread of a gap about +-1 ms.
+- Campaign machine (patches/p8-cb-inline/inproc-depth-workers, p9-cb-at-take/inproc,
+  cb-track/core-workers-*, 2026-09-30): Cf-cb 8.94 / 8.65 / 8.10 ms at 8 / 2 / 1 core workers
+  (gap to A +1.10..+1.79 / +0.46..+0.87 / -0.09..+0.27), Cf 8.50 / 8.22 / 7.98.
+What differs between the two setups (from their headers):
+
+| | container runtime probe | campaign machine |
+|---|---|---|
+| machine | Xeon VM, 2.80 GHz, frequency and SMT not controlled or recorded | i9-7900X, 3.3 GHz fixed (governor performance, no_turbo), SMT on |
+| client CPU set | 1 logical CPU (AK_CPU_CLIENT=1): every client thread on one CPU | 8 logical CPUs, 4 cores with their siblings (1-4,11-14) |
+| server | CPUs 2,3, 4 workers | 5-8,15-18, 8 workers |
+| core workers compared | 2 (default then) against 1 | 8 (main configuration), 2, 1 |
+| host runtime workers | 2 | 8 |
+| allocator | glibc defaults | static thresholds (GLIBC_TUNABLES) |
+| core | HEAD of 2026-09-28 (ring of 3, framed default) | stack p1-p9, ring of 6 with the blocking lock, p8/p9 knobs off unless stated |
+| cells | A, Df, Df-chan, Cf, Cf-cb, Cf-split, Cf-cb-split; d/16 and d/4, k = 1 only | A, Cf, Cf-cb, Cn-1rt (and Cf-zc); d/16, d/4, c/P5.4, k = 1 and 8 |
+| method | bin stream_probe, one process per variant, variants alternated, 3 and 5 iterations | gen/inproc.sh, all conditions alternated, 3 processes per condition |
+| isolation | container, none recorded | taskset; from 2026-09-30 evening non-benchmark work confined to 0,9,10,19 |

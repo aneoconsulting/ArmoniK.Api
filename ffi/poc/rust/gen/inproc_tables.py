@@ -11,7 +11,7 @@ from collections import defaultdict
 d = sys.argv[1]
 print(open(os.path.join(d, "header.txt")).read().rstrip())
 ORDER = ["A", "A2", "Df", "Cf", "Ff", "Cf-cb", "Cf-cb-1rt", "Cn-1rt", "Df-chan", "C", "C-cb"]
-WORD = ["d16k1", "d16k8", "d4k1", "d4k8", "c54k1", "c54k8"]
+WORD = ["d16k1", "d16k8", "d16k16", "d16k32", "d4k1", "d4k8", "c54k1", "c54k8", "c54k16", "c54k32"]
 short = lambda c: re.sub(r"-(retain|drop)$", "", c)
 ck = lambda c: (ORDER.index(c) if c in ORDER else 50, c)
 q = lambda xs, f: sorted(xs)[min(len(xs) - 1, int(f * len(xs)))]
